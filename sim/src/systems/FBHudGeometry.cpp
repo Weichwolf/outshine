@@ -54,12 +54,12 @@ void FBHudGeometry::Reset() {
  * stroke's LENGTH (the horizon bar, the waterline chevron), not the 1 px end cut across it — and
  * feathering that too would need a second distance channel through shader and vertex format. */
 static void AppendStroke(std::vector<float> &out, float x0, float y0, float x1, float y1, float hw,
-                          float r, float g, float b) {
+                          float r, float g, float b, float a = 1.f) {
   float dx = x1 - x0, dy = y1 - y0, len = sqrtf(dx * dx + dy * dy);
   if (len < 1e-4f) return;
   float ext = hw + kLineFeather;
   float nx = -dy / len * ext, ny = dx / len * ext;
-  auto vert = [&](float px, float py, float d) { out.insert(out.end(), {px, py, d, hw, r, g, b}); };
+  auto vert = [&](float px, float py, float d) { out.insert(out.end(), {px, py, d, hw, r, g, b, a}); };
   vert(x0 + nx, y0 + ny, ext);
   vert(x1 + nx, y1 + ny, ext);
   vert(x1 - nx, y1 - ny, -ext);
@@ -87,6 +87,18 @@ void FBHudGeometry::Circle(float cx, float cy, float radius, int segments, float
     px = x;
     py = y;
   }
+}
+
+/* One quad drawn as a very wide stroke along its own centre line: the shader's coverage term is 1
+ * everywhere but the outermost pixel, so the veil is flat and only its edge is antialiased. */
+void FBHudGeometry::Fill(float x0, float y0, float x1, float y1, float r, float g, float b, float a) {
+  if (ClipOn) {
+    x0 = x0 > ClipX0 ? x0 : ClipX0; y0 = y0 > ClipY0 ? y0 : ClipY0;
+    x1 = x1 < ClipX1 ? x1 : ClipX1; y1 = y1 < ClipY1 ? y1 : ClipY1;
+  }
+  if (x1 <= x0 || y1 <= y0) return;
+  float hw = 0.5f * (y1 - y0), cy = 0.5f * (y0 + y1);
+  AppendStroke(StrokeV, x0, cy, x1, cy, hw, r, g, b, a);
 }
 
 void FBHudGeometry::Box(float x0, float y0, float x1, float y1, float r, float g, float b) {

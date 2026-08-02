@@ -3,7 +3,13 @@
 #ifndef FBATMOCOMMON_H
 #define FBATMOCOMMON_H
 
+#include <cstdint>
+
 namespace FlightBox::Render {
+
+/* THE size of the Atmo uniform, in one place: every bind group pins its binding size, and a struct
+ * that grows without them is six silent minBindingSize failures. */
+inline constexpr uint64_t kAtmoUniformBytes = 12 * 4 * sizeof(float);
 
 static const char *kAtmoCommon = R"(
 const PI = 3.14159265358979;
@@ -17,8 +23,15 @@ struct Atmo {
   camPosMm : vec4f, sunDir : vec4f, up : vec4f, sunTan : vec4f, side : vec4f,
   camRight : vec4f, camUp : vec4f, camFwd : vec4f, params : vec4f,
   moonDir : vec4f,   /* xyz = ECEF dir to moon, w = illuminated phase fraction */
-  skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y = EVS gate (1=photo), z = cloud, w = spare */
+  skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y = EVS gate (1=photo), z = cloud, w = moon radius */
+  view : vec4f,      /* x = the boresight's NDC shift (FBRenderer::ViewShiftNdc), yzw spare */
 };
+/* THE camera ray, identical in every atmosphere shader: the full-frame tangents plus the same
+ * off-centre shift MvpCamRel applies, so sky, sun, moon and cloud sit exactly where the terrain does. */
+fn camRay(A : Atmo, ndc : vec2f) -> vec3f {
+  return normalize(A.camFwd.xyz + ndc.x * A.params.x * A.params.y * A.camRight.xyz
+                                + (ndc.y - A.view.x) * A.params.x * A.camUp.xyz);
+}
 struct ScatterVals { rayleigh : vec3f, mie : f32, extinction : vec3f };
 fn getScatteringValues(pos : vec3f) -> ScatterVals {
   let altitudeKM = (length(pos) - groundRadiusMM) * 1000.0;

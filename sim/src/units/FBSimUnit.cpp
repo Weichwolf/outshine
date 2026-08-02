@@ -178,6 +178,11 @@ bool FBSimUnit::RunMonitors(double simT, const FBMissionRoster &roster) {
   /* THE PHYSICS JUDGE ONLY JUDGES PHYSICS: every input it takes is an FDM observation, so a unit that
    * does not fly is never shown to it. Its MISSION judge below is untouched. */
   if (Fdm_ && Flight_.Tick(FBBuildFlightMonitorSample(*Fdm_, St_, GroundAslM_), simT)) {
+    /* The judge STATES, it does not decide: its verdict is entered in the damage register, which is
+     * where every unit kind's "still alive" lives and what the simulation loop reads. It goes through
+     * FBDamageModel because that is the register's only writer — a monitor writing past it would be a
+     * second mutator on a type whose whole guarantee is that it has one. */
+    FBDamageModel::ApplyPhysicalKo(Health_);
     Module_->Controls().EngineCutoff();
     return true;
   }

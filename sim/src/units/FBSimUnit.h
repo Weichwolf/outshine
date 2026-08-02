@@ -20,6 +20,8 @@
 #include "FBTelemetry.h"
 #include "FBUnit.h"
 
+namespace FlightBox::Missions { class FBMissionSim; }   /* the ONE driver of a tick — see below */
+
 namespace FlightBox::Units {
 
 /* Free + inline because the monitor test harnesses are miniature units: they must build the sample the
@@ -52,12 +54,6 @@ public:
   /* ---- FBUnit ---- */
   FBUnitPose GetPose() const override { return Pose_; }
   FBUnitSignature GetSignature() const override { return Sig_; }
-  /* The module cycles its own FDM + systems; `units` reaches only its sensor slots. */
-  void Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) override;
-
-  /* The tick barrier. A client calls it for EVERY unit only once every unit has run — that ORDERING,
-   * not this function, is what makes a multi-unit tick order-independent. */
-  void PublishPose();
 
   /* FBLog attribution, empty when a single actor needs no disambiguation. Set once at boot. */
   void SetLogAttribution(bool on) { LogLabel_ = on ? GetName() : std::string(); }
@@ -81,32 +77,10 @@ public:
    * view a display consumer needs is surfaced here instead of const_cast at call sites. */
   const Systems::FBDisplaySystem &Displays() const { return Module_->Displays(); }
 
-  /* An unresolved sample keeps the last good value: ONE number reaches both JSBSim's contact floor and
-   * the module's HUD/radar-alt path, so the two can never disagree about where the ground is. */
-  void UpdateGroundAsl(double sampleM);
   double GroundAslM() const { return GroundAslM_; }
-
-  /* The air mass this unit is flying through, sampled by its OWNER from the weather hook and pushed
-   * into JSBSim before the substeps. Nothing above the FDM is told: a pilot experiences wind as drift
-   * on his instruments, exactly as he would in the aircraft. */
-  void UpdateWind(const FBWindNed &wind);
-
-  /* The cloud decks over this unit's position, sampled by its OWNER from the same weather hook and
-   * handed to the MODULE (FBModule::SetCloudSky) rather than to the FDM: wind is physics, cloud is
-   * something a SENSOR looks through. Only a module with such a sensor does anything with it. */
-  void UpdateSky(const FBCloudSky &sky) { Module_->SetCloudSky(sky); }
-
-  /* The sun and moon over this unit at the mission clock's instant, sampled by its OWNER on the same
-   * decision tick as the sky. Only called for a mission that DECLARES a `time`; without one no unit
-   * has a clock at all, and FBEnvironmentBlock stays Invalid exactly as it was. */
-  void UpdateSolar(const FBSolar &solar) { Module_->SetSolar(solar); }
   double AglM() const { return St_.elev - GroundAslM_; }
 
   FBState HudState() const;
-
-  /* One FDM step so the first frame reads a filled state (boot only). Nothing to step without an
-   * airframe — the spawn pose is already the whole truth about such a unit. */
-  void PrimeState() { if (Fdm_) Fdm_->Step(St_); PublishPose(); }
 
   /* ---- battle damage ----
    * The whole consequence chain in one call: core/FBDamageModel decides what the geometry did to which
@@ -128,9 +102,54 @@ public:
   const FBFlightMonitor &FlightMonitor() const { return Flight_; }
   const FBMissionMonitor *MissionMonitor() const { return Mission_.get(); }   /* null: no objectives */
 
-  /* Feeds both judges this tick's observed truth and applies the ONE consequence a trip has (engine
-   * cutoff — JSBSim's ground reactions do the rest, no freeze). `roster` is the observed state of the
-   * OTHER units a combat objective is judged against, empty for a mission that declares none. */
+  /* ---- telemetry ----
+   * Registers this unit's sources in fixed column order; a null sink leaves the bus a cheap no-op. */
+  void StartTelemetry(FBTelemetrySink *sink);
+
+private:
+  /* ---- THE TICK, AND IT IS NOT PUBLIC ----------------------------------------------------------
+   * Everything a per-frame step consists of — ground truth, the airframe, the barrier, the judges,
+   * the telemetry sample — is reachable from ONE friend, missions/FBMissionSim, which is the ONE
+   * object that owns a simulation loop. A client that could call these could write a second loop and
+   * forget the end rule in it, which is precisely what happened in the browser: it flew a CFIT'd F-16
+   * on for as long as the tab was open. THE WRITE GATE IS THE TYPE, the same construction
+   * core/FBSystemHealth uses against self-repair. doc/units-and-missions.md §7. */
+  friend class Missions::FBMissionSim;
+
+  /* The module cycles its own FDM + systems; `units` reaches only its sensor slots. */
+  void Run(double dt, const FBUnitRegistry *units, const World::FBWorld *world) override;
+
+  /* The tick barrier. Called for EVERY unit only once every unit has run — that ORDERING, not this
+   * function, is what makes a multi-unit tick order-independent. */
+  void PublishPose();
+
+  /* One FDM step so a client's first frame reads a filled state (boot only). Nothing to step without
+   * an airframe — the spawn pose is already the whole truth about such a unit. */
+  void PrimeState() { if (Fdm_) Fdm_->Step(St_); PublishPose(); }
+
+  /* An unresolved sample keeps the last good value: ONE number reaches both JSBSim's contact floor and
+   * the module's HUD/radar-alt path, so the two can never disagree about where the ground is. */
+  void UpdateGroundAsl(double sampleM);
+
+  /* The air mass this unit is flying through, sampled by its OWNER from the weather hook and pushed
+   * into JSBSim before the substeps. Nothing above the FDM is told: a pilot experiences wind as drift
+   * on his instruments, exactly as he would in the aircraft. */
+  void UpdateWind(const FBWindNed &wind);
+
+  /* The cloud decks over this unit's position, sampled by its OWNER from the same weather hook and
+   * handed to the MODULE (FBModule::SetCloudSky) rather than to the FDM: wind is physics, cloud is
+   * something a SENSOR looks through. Only a module with such a sensor does anything with it. */
+  void UpdateSky(const FBCloudSky &sky) { Module_->SetCloudSky(sky); }
+
+  /* The sun and moon over this unit at the mission clock's instant, sampled by its OWNER on the same
+   * decision tick as the sky. Only called for a mission that DECLARES a `time`; without one no unit
+   * has a clock at all, and FBEnvironmentBlock stays Invalid exactly as it was. */
+  void UpdateSolar(const FBSolar &solar) { Module_->SetSolar(solar); }
+
+  /* Feeds both judges this tick's observed truth. A physical K.O. is entered in the DAMAGE REGISTER
+   * (the loop asks that, not this unit's aircraft monitor) and takes the one consequence it always had
+   * — engine cutoff; JSBSim's ground reactions do the rest, no freeze. `roster` is the observed state
+   * of the OTHER units a combat objective is judged against, empty for a mission that declares none. */
   bool RunMonitors(double simT, const FBMissionRoster &roster = FBMissionRoster{});
 
   /* The run ended without a verdict — ask the mission judge (a `survive` objective can only be answered
@@ -140,12 +159,8 @@ public:
   /* Generic envelope diagnostics (stall/overspeed/sink), latched per unit rather than per run. */
   void CheckEnvelope();
 
-  /* ---- telemetry ----
-   * Registers this unit's sources in fixed column order; a null sink leaves the bus a cheap no-op. */
-  void StartTelemetry(FBTelemetrySink *sink);
   void SampleTelemetry(double simT) { Bus_.Tick(simT); }
 
-private:
   void ApplyDamageToAirframe();   /* health register -> JSBSim, the only place damage becomes physics */
   FBMissionMonitorSample BuildMissionSample(const FBMissionRoster &roster) const;
 

@@ -83,6 +83,8 @@ A change counts as verified only once it passes these checks.
 | **Determinism** | `--threads 1/2/4` × repetitions produce a single signature |
 | **WASM** | `make -C sim wasm` builds and the app boots in the browser — the only client that is used daily; a broken boot is more expensive than any other defect |
 | **Model deltas** | `make -C sim verify-models` green: every copy under `sim/assets/aircraft` deviates from the pinned upstream by EXACTLY the entries in `sim/assets/MODEL-DELTAS.md` |
+| **Layer + count gate** | `make -C sim verify-layers` green, and the numbers it PRINTS are read: 6 registry readers, 1 antenna-cue poster, 1 simulation-loop driver |
+| **Guarantee gate** | `make -C sim verify-guards`: eight two-line translation units against the real headers, six of which must FAIL to compile ([`conventions.md`](conventions.md), "A rule nobody can forget to obey") |
 | **vendor read-only** | `sim/vendor/jsbsim` is never modified — engine as well as models. At most the COPY is changed, and then as a named delta entry |
 
 #### The delta gate in detail

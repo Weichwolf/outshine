@@ -244,8 +244,7 @@ fn marchDeck(accIn : Acc, d : CloudDeck, seg : vec2f) -> Acc {
 
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
   gCam = A.camPosMm.xyz;
-  gDir = normalize(A.camFwd.xyz + in.ndc.x * A.params.x * A.params.y * A.camRight.xyz
-                                + in.ndc.y * A.params.x * A.camUp.xyz);
+  gDir = camRay(A, in.ndc);
   gSun = A.sunDir.xyz;
   gGroundR = S.p0.x;
   gSunE = dot(gSun, S.axE.xyz);
@@ -369,7 +368,7 @@ void FBCloudLayerStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::
   Pipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BindGroupEntry be[6] = {};
-  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = 11 * 4 * sizeof(float);
+  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = kAtmoUniformBytes;
   be[1].binding = 1; be[1].sampler = lutSamp;
   be[2].binding = 2; be[2].textureView = skyLUTView;
   be[3].binding = 3; be[3].textureView = transLUTView;

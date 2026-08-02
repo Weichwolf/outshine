@@ -23,7 +23,9 @@ into a run with a verdict.
 | The mission runner is a pure orchestrator — four steps, no mission knowledge in code | `FBMissionRunner.cpp` includes no concrete module header; `module <name>` resolves through the registry |
 | Spawn is declarative data, one IC application, ground or air | `FBMissionBoot.h::FBMissionSpawnActor`; no separate ground/air code paths |
 | Cross-unit reads see the last COMPLETED tick | `PublishPose` barrier after all `Run()`s — tick order cannot influence a result |
-| The verdict is per actor; the runner only combines | one `UNIT_RESULT` line per actor; an expected loss (a declared `kill` objective of another unit) does not decide the run |
+| The verdict is per actor; the LOOP only combines | one `UNIT_RESULT` line per actor; an expected loss (a declared `kill` objective of another unit) does not decide the run |
+| **There is exactly ONE simulation loop and no client writes one** | `missions/FBMissionSim`: `Tick()` private, `FBRunState` `[[nodiscard]]`, the unit tick surface (`Run`/`PublishPose`/`RunMonitors`/`Update*`/`FinalizeMission`) private with that one friend. Acceptance: `make -C sim verify-guards` (8 cases, 6 of them must FAIL to compile) and `verify-layers`, which prints the number of simulation-loop drivers — **1** |
+| **A run ends when an actor is no longer ALIVE, asked of the damage register** | `FBSystemHealth::Destroyed()`, written only through `FBDamageModel::ApplyPhysicalKo`, the register's single friend. The criterion is physics (`core/FBFlightMonitor`'s model-derived checks), never a hit count; the RESULT line quotes the monitor's own reason |
 | Determinism is independent of thread count | identical fingerprint (SHA-256 over all `telemetry*.csv` + normalised `events.log` + exit code) over `--threads 1..4` × 5 repetitions |
 | A dropped store grows the actor list at exactly one place, at the END of the tick | `FBMissionSpawnStore`; nothing is allocated in the tick path |
 
@@ -94,7 +96,8 @@ Derivations, formulas and measured constants — the distilled body of this file
 | `units/FBUnit.h` | Base interface of every world entity: identity, pose, emission signature, `Run`. Plus `FBUnitKind`, `FBUnitPose`, `FBUnitSignature`. |
 | `units/FBSimUnit.h/.cpp` | ONE simulated unit as ONE object (airframe + module + state + telemetry + health register + both judges). Plus `FBActorList`. |
 | `units/FBUnitRegistry.h` | "Who exists" — list of borrowed `const FBUnit*`, in declaration order. |
-| `missions/FBMissionRunner.h/.cpp` | The orchestrator (`FBRunMission`) + `FBMissionTickHook` + `FBMissionResult`. |
+| `missions/FBMissionSim.h/.cpp` | **THE SIMULATION LOOP — one tick body, one end rule, every client.** Owns the phase order, the judges' combined verdict and the run state; `Tick()` is PRIVATE, `Advance(budgetS)`/`RunToConclusion()` are the only ways in, and `FBRunState` is `[[nodiscard]]`. Also `FBMissionResult`, `FBMissionTickHook` and `FBActorStepper`/`FBActorStep` (the ONE phase a client may place on its own threads). On the core-lib list. |
+| `missions/FBMissionRunner.h/.cpp` | The HEADLESS orchestrator (`FBRunMission`): files, threads, campaign carry, exit code — everything a headless run is and a browser is not. It drives `FBMissionSim` and writes the report. |
 | `missions/FBMissionBoot.h` | `FBMissionSpawnActor` (actor from a mission block) and `FBMissionSpawnStore` (actor from the carrier state). Header-only. |
 | `missions/FBOrdnance.h/.cpp` | Everything a released store and a fired burst DO once they have left the jet — the gun pool, the store tracks, closest approach, the fuze, the impact and the four damage resolutions. **The actor list's one growth point.** Three calls per tick in this order: `Resolve` → `Launch` → `SnapPoses`, so a round is never resolved in the tick it was created in. On the core-lib list, because the browser frame loop drives the identical object. |
 | `missions/FBTickPool.h/.cpp` | The GYM-ONLY lockstep worker pool of the STEP phase. |
@@ -353,8 +356,44 @@ judges. It adds no step and no phase.
 |---|---|
 | **1 — load mission** | Read the file, `FBParseMissionFile` (pure text→`FBMission` function), resolve the timeout (`timeoutOverride > 0` beats the file value), log `MISSION_START`. |
 | **2 — set up the world with its actors** | Per `unit` block: resolve the elevation at the spawn point, check consistency, call `FBMissionSpawnActor`, append it to the `FBActorList`. Then: reserve capacities, fill the `FBUnitRegistry`, open a telemetry file per actor, `hook->OnMissionStart`. |
-| **3 — run the actors** | The tick loop at `dt = kSimTickS` (`missions/FBSimTick.h`, 0.1 s, 10 Hz decision rate — the constant exists because the browser steps the same one and a client that picked its own flew a different jet, [`../clients/clients.md`](../clients/clients.md) §5.5) — elevation, STEP, barrier, monitors, telemetry, projectiles/stores, hook, growth, pose memorisation. |
-| **4 — validate the world** | The monitors decided long ago; here N verdicts are combined into ONE exit code and `UNIT_RESULT`/`RESULT`/`SUMMARY` are emitted. |
+| **3 — run the actors** | `FBMissionSim::RunToConclusion()`. The runner contributes ONE thing to the tick: a thread pool for the STEP phase (`FBActorStepper`). The loop, its `dt = kSimTickS` (`missions/FBSimTick.h`, 0.1 s, 10 Hz decision rate) and the rule that ends it are the SIMULATION's, not this file's — see §5a. |
+| **4 — validate the world** | The monitors decided long ago and `FBMissionSim` already combined them; here the combination is REPORTED: `UNIT_RESULT`/`RESULT`/`SUMMARY` and the process exit code. |
+
+---
+
+### 5a. `FBMissionSim` — the loop nobody writes twice
+
+A client does not step a mission. It says **"run until you stop, or until you owe somebody a picture"**
+and is handed back whether the run is still going:
+
+| Member | Contract |
+|---|---|
+| `Advance(budgetS)` | turns the client's elapsed wall time into a whole number of `kSimTickS` ticks, carries the remainder, and returns `FBRunState::Running` or `Concluded`. The browser's frame budget IS this argument. |
+| `RunToConclusion()` | the headless form of the same sentence; returns the `FBMissionResult`, because that is all a finished run has left to say. |
+| `Tick()` | **private.** There is no way for a client to take one step without the end rule being asked. |
+| `FBRunState` | `[[nodiscard]]` on the TYPE — a client that drops it does not compile (`make -C sim verify-guards`, case `advance_discarded`). |
+| `FBActorStep` | a pass-key: the only thing a client's STEP phase may do is `step(i)`, and only `FBMissionSim` can construct one. |
+
+**Why the cut exists, measured.** Before it, `clients/FBAppWasm.cpp` had a second loop (`SimTick()`)
+which called `RunMonitors` and DISCARDED the result. It had no `FirstFlightKo`, no verdict check, no
+timeout — so the flight monitor logged its `monitor KO` line and the browser went on integrating a
+wrecked F-16 for as long as the tab was open. The rule was in the runner's `while` head, i.e. in a
+place a second client could not inherit it. It is now in the one object both drive, exactly as
+`FBOrdnance` already is for what leaves the jet.
+
+#### The end rule, and why it is not an aircraft's
+
+The loop asks **"is this actor still alive"** — `FBSystemHealth::Destroyed()`, the damage register —
+and not "did the flight monitor trip". Every unit kind has health; only an aircraft has a stall. A
+physical K.O. therefore travels `FBFlightMonitor` → `FBDamageModel::ApplyPhysicalKo` →
+`FBSystemHealth`, through the register's ONE writer, and a future tank or ship gets the rule for free
+by being damaged rather than by being added to a list of monitors. The criterion stays pure physics
+(contact, structure, penetration, divergence — all model-derived in `core/FBFlightMonitor`); the
+register only records it, and the RESULT line still quotes the monitor's own `Reason()`/`Detail()`,
+because the observer is what explains WHY.
+
+The run ends when an AIRCRAFT is destroyed. A weapon's destruction is its impact and a ground
+position's is somebody's objective — neither ends the run the cast is flying.
 
 #### What it does NOT know
 

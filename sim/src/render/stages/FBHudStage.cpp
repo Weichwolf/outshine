@@ -11,9 +11,9 @@ static const char *kHudStrokeWGSL = R"(
 struct HU { scale : vec4f };
 @group(0) @binding(0) var<uniform> h : HU;
 struct VO { @builtin(position) pos : vec4f, @location(0) d : f32, @location(1) hw : f32,
-            @location(2) col : vec3f };
+            @location(2) col : vec4f };
 @vertex fn vs(@location(0) p : vec2f, @location(1) d : f32, @location(2) hw : f32,
-              @location(3) c : vec3f) -> VO {
+              @location(3) c : vec4f) -> VO {
   var o : VO;
   o.pos = vec4f(p.x * h.scale.x - 1.0, 1.0 - p.y * h.scale.y, 0.0, 1.0);
   o.d = d;
@@ -26,9 +26,9 @@ struct VO { @builtin(position) pos : vec4f, @location(0) d : f32, @location(1) h
  * 1px line (hw=0.5) renders exactly as the old hard LineList did; any other angle/width gets a smooth
  * edge instead of a staircase. Caps are the quad's own (butt) ends -- no separate longitudinal term. */
 @fragment fn fs(in : VO) -> @location(0) vec4f {
-  let alpha = clamp(in.hw + 0.5 - abs(in.d), 0.0, 1.0);
+  let alpha = clamp(in.hw + 0.5 - abs(in.d), 0.0, 1.0) * in.col.a;
   if (alpha <= 0.0) { discard; }
-  return vec4f(pow(in.col, vec3f(2.2)), alpha);
+  return vec4f(pow(in.col.rgb, vec3f(2.2)), alpha);
 }
 )";
 static const char *kHudTextWGSL = R"(
@@ -125,16 +125,17 @@ void FBHudStage::Init(const FBGpu &gpu) {
     return Device.CreateShaderModule(&smd);
   };
 
-  /* pos2+d1+hw1+col3, stride 28. TriangleList only: every straight segment is one AA quad. */
+  /* pos2+d1+hw1+col4, stride 32 — the 4th colour channel is the OPACITY the MFD bays' veil needs;
+   * every other primitive passes 1. TriangleList only: every straight segment is one AA quad. */
   {
     wgpu::ShaderModule sm = mkmod(kHudStrokeWGSL);
     wgpu::VertexAttribute attrs[4] = {};
     attrs[0].format = wgpu::VertexFormat::Float32x2; attrs[0].offset = 0;  attrs[0].shaderLocation = 0;
     attrs[1].format = wgpu::VertexFormat::Float32;   attrs[1].offset = 8;  attrs[1].shaderLocation = 1;
     attrs[2].format = wgpu::VertexFormat::Float32;   attrs[2].offset = 12; attrs[2].shaderLocation = 2;
-    attrs[3].format = wgpu::VertexFormat::Float32x3; attrs[3].offset = 16; attrs[3].shaderLocation = 3;
+    attrs[3].format = wgpu::VertexFormat::Float32x4; attrs[3].offset = 16; attrs[3].shaderLocation = 3;
     wgpu::VertexBufferLayout vbl{};
-    vbl.arrayStride = 28;
+    vbl.arrayStride = 32;
     vbl.attributeCount = 4;
     vbl.attributes = attrs;
     wgpu::RenderPipelineDescriptor rp{};
@@ -202,21 +203,25 @@ void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass
   }
   const std::vector<float> &strokes = Geometry.Strokes();
   const std::vector<float> &glyphs = Geometry.Glyphs();
+  /* System boundary: the vertex buffers are fixed, a WriteBuffer past their end is a device error.
+   * Symbology that outgrows the bound loses its tail rather than the frame. */
+  size_t nStroke = strokes.size() < Systems::kHudMaxStrokeFloats ? strokes.size() : Systems::kHudMaxStrokeFloats;
+  size_t nGlyph = glyphs.size() < Systems::kHudMaxTextFloats ? glyphs.size() : Systems::kHudMaxTextFloats;
 
-  if (!strokes.empty()) Queue.WriteBuffer(StrokeVtx, 0, strokes.data(), strokes.size() * sizeof(float));
-  if (!glyphs.empty()) Queue.WriteBuffer(TextVtx, 0, glyphs.data(), glyphs.size() * sizeof(float));
+  if (nStroke) Queue.WriteBuffer(StrokeVtx, 0, strokes.data(), nStroke * sizeof(float));
+  if (nGlyph) Queue.WriteBuffer(TextVtx, 0, glyphs.data(), nGlyph * sizeof(float));
 
-  if (!strokes.empty()) {
+  if (nStroke) {
     pass.SetPipeline(StrokePipe);
     pass.SetBindGroup(0, StrokeBind);
     pass.SetVertexBuffer(0, StrokeVtx);
-    pass.Draw((uint32_t)(strokes.size() / 7));
+    pass.Draw((uint32_t)(nStroke / Systems::kHudStrokeFloatsPerVtx));
   }
-  if (!glyphs.empty()) {
+  if (nGlyph) {
     pass.SetPipeline(TextPipe);
     pass.SetBindGroup(0, TextBind);
     pass.SetVertexBuffer(0, TextVtx);
-    pass.Draw((uint32_t)(glyphs.size() / 7));
+    pass.Draw((uint32_t)(nGlyph / 7));
   }
 }
 

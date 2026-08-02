@@ -108,6 +108,11 @@ PERCEPTION_READERS = (
 # The OWNER side of the same header, which is a different thing and is deliberately counted separately:
 # the client that OWNS the simulation builds the registry and hands it out. It perceives nothing.
 REGISTRY_OWNERS = (
+    # THE SIMULATION LOOP. It builds nothing and reads nothing out of the registry: it hands the borrowed
+    # list DOWN to the modules' sensor slots on the step it owns, which is the owner's role and not a
+    # perceiver's.
+    "missions/FBMissionSim.h",
+    "missions/FBMissionSim.cpp",
     "missions/FBMissionRunner.h",
     "missions/FBMissionRunner.cpp",
     "missions/FBMissionBoot.h",
@@ -154,6 +159,18 @@ RESTRICTED = {
 # and the number is printed at the end of a run, exactly like the registry-reader count above it.
 SLEW_POSTERS = ("core/FBCommandBus.h",)
 RE_SLEW_POST = re.compile(r"Post\w*\(\s*FBCommandTarget::RadarSlew(?:Az|El)")
+
+# WHO DRIVES A SIMULATION TICK, and it is ONE file. A client that steps units itself is a client that
+# writes its own loop, and a second loop is a second set of rules: the browser had one, forgot the end
+# rule in it, and flew a CFIT'd F-16 on while the frame loop kept integrating. Since then the tick
+# surface of units/FBSimUnit is private with a single friend (missions/FBMissionSim), so a second driver
+# does not COMPILE — this list is that guarantee's readable half, and its LENGTH is printed at the end
+# of a run exactly like the perception-reader count above: a driver added anywhere moves the number.
+# units/FBSimUnit.* are the definition site and name these members without calling them on an object.
+TICK_DRIVERS = ("missions/FBMissionSim.cpp",)
+RE_TICK_CALL = re.compile(r"(?:->|\.)\s*(?:PublishPose|PrimeState|RunMonitors|FinalizeMission|"
+                          r"CheckEnvelope|UpdateGroundAsl|UpdateWind|UpdateSky|UpdateSolar)\s*\(")
+TICK_DEFINITION = ("units/FBSimUnit.h", "units/FBSimUnit.cpp")
 
 # Layers that may not appear ANYWHERE in a directory's include closure, regardless of rank.
 FORBIDDEN_DIRS = {
@@ -360,6 +377,10 @@ def main():
     errors += ns_errors
 
     for p in sorted(text):
+        if RE_TICK_CALL.search(text[p]) and p not in TICK_DRIVERS and p not in TICK_DEFINITION:
+            errors.append(f"SECOND SIM LOOP: {p} steps units itself — one tick body and one end rule "
+                          f"live in missions/FBMissionSim; a client ASKS it to advance (see that "
+                          f"header)")
         if RE_SLEW_POST.search(text[p]) and p not in SLEW_POSTERS:
             errors.append(f"ANTENNA FRAME: {p} posts a RadarSlew target directly — an antenna command "
                           f"is body-referenced, so it goes through FBCommandBus::PostAntennaAz/El with "
@@ -372,6 +393,7 @@ def main():
           f"{len(RESTRICTED)} restricted header(s) respected, "
           f"{len(PERCEPTION_READERS)} registry reader(s) inside the perception boundary, "
           f"{len(SLEW_POSTERS)} antenna-cue poster(s), "
+          f"{len(TICK_DRIVERS)} simulation-loop driver(s), "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")
     return 0
 

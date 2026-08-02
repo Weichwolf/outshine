@@ -74,8 +74,18 @@ public:
            !Failed(FBSystemId::Structure);
   }
 
+  /* IS THIS UNIT STILL THERE — the ONE question a simulation loop asks, and it is asked HERE because
+   * every unit kind has a health register while only an aircraft has a stall. An aircraft loses itself
+   * to the physics its flight monitor watches, a vehicle will lose itself to what a warhead does to it;
+   * both arrive through FBDamageModel and land in this bit. Monotone like everything else in this
+   * register, and never a hit count: the criterion is always a PHYSICAL threshold with a derivation
+   * (core/FBFlightMonitor's contact/attitude/divergence checks, this model's fragment flux).
+   * Deliberately NOT part of CombatEffective above, which judges whether a SORTIE can be finished. */
+  bool Destroyed() const { return Destroyed_; }
+
 private:
   friend class FBDamageModel;   /* THE one writer */
+  void NoteDestroyed() { Destroyed_ = true; }
   /* Monotone: a state only ever gets worse. Returns true if this call actually changed it. */
   bool Worsen(FBSystemId id, FBHealthState s);
   void NoteHit() { Hits_++; }
@@ -93,6 +103,7 @@ private:
   uint32_t Failed_ = 0, Degraded_ = 0;   /* the same information as S_, as the telemetry bitmasks */
   int Hits_ = 0;
   bool HasEngine2_ = false;              /* see NoteSystemPresent/PropulsionOut */
+  bool Destroyed_ = false;               /* physics said so — see Destroyed() */
 };
 
 /* Its own source, registered LAST by the unit: a new source appends columns and moves nothing that was

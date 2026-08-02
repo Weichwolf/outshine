@@ -27,10 +27,53 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 | Pilot AI | **in progress** — takeoff/route/landing, BFM, BVR intercept, air-to-ground all fly; refinement ongoing | [pilot.md](pilot.md) |
 | Renderer | **built** — stage split complete. Units and weapons still invisible. | [render/renderer.md](render/renderer.md) |
 | HUD | **built** — generic default HUD + full F-16 symbology, coverage AA | [modules/f16/module.md](modules/f16/module.md) |
-| Cockpit displays | **not started** — the values are on the bus, the presentation is missing | [clients/clients.md](clients/clients.md) |
+| Cockpit displays | **built** — three translucent MFD bays, pages chosen by the pilot AI over the command bus | [modules/f16/cockpit-displays.md](modules/f16/cockpit-displays.md) |
 | HOTAS | **not started** — deliberately last, it is only a mapping | [clients/clients.md](clients/clients.md) |
 
 ## Chronology
+
+### 2026-08-03 — Die Scheibe ist die Zielfläche: durchscheinende MFDs, ein entkerntes HUD — und der Projektor war 20 Grad zu weit
+
+Drei Sätze des Eigners, drei Messungen.
+
+**1. Die MFDs zeigen jetzt die Welt.** Bisher lag die untere Rasterreihe im Schwarz, das der
+Szenen-Viewport dort übrig ließ. Statt eines Scherenschnitts trägt die Projektion den Versatz: die
+VOR dem Raster gültige Vollbild-Projektion plus EIN Term, ein konstanter NDC-Versatz
+`shift = 1 − hVp/hFull` auf der y-Zeile der z-Spalte, der die Visierlinie von der Bildmitte in die
+Mitte der SCHEIBE hebt. Der Szenenpass hat seitdem weder Viewport noch Schere; die Welt läuft hinter
+der Bank weiter, und jeder Schacht bekommt davor ein Schleierquad. **Die Deckung ist keine
+Geschmacksfrage, sondern eine Rechnung:** der HUD-Pass mischt linear, es bleibt `(1−a)` vom Untergrund,
+der hellste GEMESSENE Schachtuntergrund (99,5-Perzentil) ist der weiße SVS-Boden mit L = 0,93, und
+HUD-Grün (L = 0,740) braucht 4,5:1 → **a ≥ 0,865**, gesetzt **0,87**. **[MESS]** zurückgemessen auf
+`payerne-full`, je Schacht, Tinte ausgenommen: **Grün 4,67–5,91:1, Bernstein 3,45–4,37:1**. Der
+Durchlass selbst: 0,23 des linearen Werts bei a = 0,78 — die Mischung ist exakt `1−a`.
+
+**2. Die Beschnitt-Eigenschaft überlebt den Umbau, und das ist gemessen.** Zwei Frames, gleiche
+Kamera, Nick 0 gegen −20 Grad, die Himmel/Boden-Kante spaltenweise gelesen: das **Schnittmodell**
+(K = 623,5 px je Tangenteneinheit) sagt die Zeile mit **Median-Residuum −0,22 px** über 107 Spalten
+voraus, das Briefkasten-Modell liegt **76 px** daneben. Pixel je Radiant ist, was es war.
+
+**3. Das HUD ist entkernt UND es füllt endlich das Fenster.** Gefallen sind Bank-Skala (→ SYS),
+Bullseye, Restflugzeit und Schrägentfernung (→ HSD) — jede Zahl steht weiter auf einem publizierten
+Block, keine ist gelöscht. Geblieben sind Geschwindigkeitsvektor, Nickleiter, Horizont, die drei
+Bänder, Raute mit Kaulquappe und EINE Steuerzeile. Gezeichnet wird nicht mehr die ~25°-Apertur,
+sondern die Scheibe selbst (1260 × 460 statt 520 × 348) — eine benannte Abweichung von der Quelle,
+kein Lesefehler.
+
+**Und dabei fiel ein Defekt heraus, der die ganze Klage erklärt:** der konforme Projektor des HUD
+rechnete mit **80 Grad** Bildwinkel, die Szene mit **60**. Die Symbolik war also nie konform — sie war
+um 623,5/429 = **1,45 zur Visierlinie hin gestaucht**, was ein gutes Stück des „klebt in der Mitte"
+war. Beide lesen jetzt EINE Konstante (`core/FBCamera.h`). **[MESS]** HUD-Horizont gegen die
+Projektion bei Nick +10/0/−10: 365,1/254,5/145,1 gemessen, konform 363,9/253,5/144,0 — Residuum ≤ 1,2 px;
+der alte Projektor hätte 325,3/249,3/173,9 gezeichnet, bis 40 px daneben.
+
+**Was nicht gemessen werden konnte, steht als Lücke da:** die Regression über alle Missionen ist in
+dieser Sitzung NICHT zurechenbar, weil ein zweiter Agent zeitgleich die Missionsschleife im selben
+Baum umbaut. Der statische Beleg steht dafür ein: `BuildHud`/`BuildMfd` werden ausschließlich von
+`render/stages/FBHudStage.cpp` gerufen, und `fb-gym` linkt keinen Renderer — kein Pfad dieser Runde
+ist von einer Missionsschleife aus erreichbar. Ebenso konnte kein Browser-Bildschirmfoto entstehen
+(keine Bildschirmaufnahme-Berechtigung, nur Safari, Apple-Events gesperrt); die Bildbelege kommen aus
+`gpu_native`, dem Frame-Orakel derselben Quellen.
 
 ### 2026-08-02 — Das Cockpit als Fenster in die Aufmerksamkeit der KI: drei MFDs, und der Pilot schaltet sie über den Bus
 
@@ -3100,3 +3143,55 @@ verschoben und jede ist einzeln gemessen und begründet. Was sich **nicht** bewe
 Eigenschaft: dieselbe Kampagne gibt über drei Threadzahlen und drei Wiederholungen denselben
 Fingerabdruck, vor den Änderungen wie danach. Determinismus ist damit nicht für einen Stand belegt,
 sondern **über einen Architekturwechsel hinweg**.
+
+## 2026-08-03 — Der Browser fährt die Simulation nicht mehr selbst: eine Schleife, ein Urteil, ein Ende
+
+Der Eigner hat den Defekt selbst gesehen: *„ich habe mir eben eine mission angeschaut und der flieger
+ist einfach in den berg geflogen und die simulation lief weiter."* Der Befund war exakt das, was er
+beschreibt. `missions/FBMissionRunner.cpp` trug die Abbruchregel im Kopf seiner `while`-Schleife;
+`clients/FBAppWasm.cpp` hatte sich eine ZWEITE Schleife geschrieben (`SimTick()`), rief darin
+`RunMonitors` und **verwarf den Rückgabewert**. Kein `FirstFlightKo`, keine Urteilsprüfung, kein
+Timeout, kein Ende: der Flugmonitor schrieb seine `monitor KO`-Zeile und der Browser integrierte weiter,
+solange der Tab offen war.
+
+**Die Reparatur ist nicht eine Prüfung mehr im Browser.** Der Eigner hat die Form vorgegeben — *„gui darf
+nur ein client auf die simulation sein"*, *„das muss strukturell unmöglich sein"* —, und daraus wurde:
+
+| Struktur | Wirkung |
+|---|---|
+| `missions/FBMissionSim` — ein Objekt, das den Tick UND den Lauf-Zustand besitzt | der Läufer ruft `RunToConclusion()`, der Browser `Advance(dt)` |
+| `Tick()` ist **privat** | kein Client kann einen Einzelschritt tun, also keine zweite Schleife schreiben |
+| `FBRunState` ist `[[nodiscard]]` **am Typ** | ein Client, der das Urteil fallen lässt, übersetzt nicht — gegengeprüft: `FBAppWasm.cpp:374: error: ignoring return value ... [-Werror,-Wunused-value]` |
+| `units/FBSimUnit`s Tick-Fläche privat, genau ein Friend | dieselbe Familie wie `FBFdm`s Konstruktor und `FBSystemHealth`s Mutatoren |
+| `make -C sim verify-guards` | acht Zwei-Zeilen-Übersetzungseinheiten, **sechs müssen scheitern**, zwei müssen gelingen |
+| `verify-layers` druckt **`1 simulation-loop driver(s)`** | wäre die Zahl vorher gedruckt worden, hätte sie 2 gesagt |
+
+**Und das K.O. ist keine Flugzeugfrage mehr.** Auf den Einwand *„module/units können auch panzer,
+drohnen, helikopter, schiffe sein"* und die Korrektur *„das muss das schadenssystem machen"* /
+*„k.o. ist reine physik"* fragt die Schleife jetzt **„lebt dieser Akteur noch"**:
+`core/FBSystemHealth::Destroyed()`. Geschrieben wird das Bit ausschließlich durch den einzigen Friend
+des Registers, über die neue Tür `FBDamageModel::ApplyPhysicalKo` — die **nichts entscheidet**, sondern
+aufschreibt, was `core/FBFlightMonitor` gemessen hat. Keine Trefferpunkte, keine Lebensenergie, keine
+Zahl ohne Herleitung: die Schwellen sind die des Monitors (Bodenkontakt, Strukturkontakt, Durchdringung
+unter `kPenetrationMarginM = −3 m`, Divergenz). Der Beobachter stellt fest, das Register verwahrt, die
+Schleife liest — und ein künftiger Panzer erbt die Regel, weil er Gesundheit hat und nicht, weil ihn
+jemand in eine Liste einträgt.
+
+**Belege.** (1) Im echten Browser (Chrome for Testing, WebGPU, CDP-Mitschnitt), neue Mission
+`missions/cfit-oberland.fbm` — ein Schenkel auf fester Höhe ins Berner Oberland:
+`t=40.3 ERROR monitor KO reason=CFIT detail="ground penetration"`, unmittelbar gefolgt von
+`t=40.3 INFO mission RESULT result=CRASH`. Danach **12 s weitere Wanduhr** mit `simTicksPerS=0`,
+`substepsPerFrame=0` bei 46–60 Bildern/s — das Bild läuft, die Simulation steht (Mitschnitt und
+Bildschirmfoto: `sim/build/proof-cfit/`). Das Debriefing der
+Spieler-Schicht öffnet sich von selbst (es hörte schon immer auf diese Zeile) und zeigt
+`judge verdict CRASH / reason ground penetration / concluded at 40.3 s / physical K.O. CFIT`.
+(2) Dieselbe Datei in `fb-gym`: Exit 2, `CRASH`, `ground penetration`, `t=39.9` — die 0,4 s sind die
+Geländequelle (Browser: gestreamter Kachel-Raster, Gym: gebackenes Schweiz-DEM), Lücke 5.9, nicht die
+Regel. **Nebenbefund, neu aufgeschrieben:** zwei Browserläufe derselben Datei geben `t=40.3` und
+`t=40.2` — `fb_stream_ground` antwortet aus der gerade geladenen LOD-Stufe, also ist das Gelände unter
+dem Flugzeug eine Funktion des STREAMS und nicht der Mission (Lücke 5.9b). Alles darüber — Tick,
+Richter, Urteil — ist deterministisch; genau an diesem Sampler hört es auf. (3) Regression über alle 281 Missionen, `tools/fb_regress.sh` mit dem Stand davor und danach:
+**281 verglichen, 0 Telemetrie-Hashes bewegt, 0 `events.norm` bewegt, 0 Exit-Code-Unterschiede.**
+Determinismus über `--threads 1/2/4` auf `pair-2v2-f16`, `payerne-full` und der neuen Datei: je ein
+Fingerabdruck. Sieben Harnesses rc=0, `verify-models` grün, `verify-layers` grün mit
+`6 registry reader(s) … 1 antenna-cue poster(s) … 1 simulation-loop driver(s)`.

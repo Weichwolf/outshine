@@ -22,8 +22,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
   let evs = A.skyExtra.y;
   if (evs <= 0.5) { return vec4f(0.0); }   /* SVS: no sun disc/glow — additive contributes nothing */
-  let dir = normalize(A.camFwd.xyz + in.ndc.x * A.params.x * A.params.y * A.camRight.xyz
-                                   + in.ndc.y * A.params.x * A.camUp.xyz);
+  let dir = camRay(A, in.ndc);
   let day = A.skyExtra.x;
   let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
   let sup = smoothstep(-0.06, 0.0, A.sunDir.y * 0.0 + dot(A.sunDir.xyz, A.up.xyz));
@@ -65,7 +64,7 @@ void FBSunStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::Sampler
   Pipe = gpu.Device.CreateRenderPipeline(&rp);
 
   wgpu::BindGroupEntry be[3] = {};
-  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = 11 * 4 * sizeof(float);
+  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = kAtmoUniformBytes;
   be[1].binding = 1; be[1].sampler = lutSamp;
   be[2].binding = 2; be[2].textureView = transLutView;
   wgpu::BindGroupDescriptor bg{};

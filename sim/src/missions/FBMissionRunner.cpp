@@ -27,17 +27,6 @@
 
 namespace FlightBox::Missions {
 
-const char *FBMissionResultStr(FBMissionResult r) {
-  switch (r) {
-    case FBMissionResult::Success: return "SUCCESS";
-    case FBMissionResult::Fail: return "FAIL";
-    case FBMissionResult::Crash: return "CRASH";
-    case FBMissionResult::Loc: return "LOC";
-    case FBMissionResult::Timeout: return "TIMEOUT";
-  }
-  return "?";
-}
-
 bool FBEnsureDir(const std::string &dir) {
   std::string cur;
   for (size_t i = 0; i <= dir.size(); i++) {
@@ -52,70 +41,6 @@ bool FBEnsureDir(const std::string &dir) {
 }
 
 namespace {
-/* The one place the two independent monitors' verdicts combine; doc/units-and-missions.md §5. */
-FBMissionResult ToMissionResult(FBMissionVerdict v) {
-  switch (v) {
-    case FBMissionVerdict::Success: return FBMissionResult::Success;
-    case FBMissionVerdict::Fail: return FBMissionResult::Fail;
-    case FBMissionVerdict::Timeout: return FBMissionResult::Timeout;
-    case FBMissionVerdict::None: break;
-  }
-  return FBMissionResult::Timeout;   /* unreachable in practice: only called once Concluded() */
-}
-
-/* A physical K.O. of ANY aircraft ends the run; returns WHOSE, because that decides the RESULT line. */
-const Units::FBSimUnit *FirstFlightKo(const Units::FBActorList &actors) {
-  for (const auto &a : actors) {
-    if (a->GetKind() != Units::FBUnitKind::Aircraft) continue;   /* a store's K.O. is its impact; a ground
-                                                           * target has no flight to lose */
-    if (a->FlightMonitor().Tripped()) return a.get();
-  }
-  return nullptr;
-}
-
-/* Two observed facts plus a declaration, never a team heuristic: a duel has a winner and a loser rather
- * than two failures. Herleitung: doc/units-and-missions.md §5, "Wie aus N Urteilen eines wird". */
-bool ExpectedLoss(const Units::FBActorList &actors, const Units::FBSimUnit &a) {
-  if (a.Health().CombatEffective()) return false;
-  for (const auto &b : actors) {
-    if (b.get() == &a) continue;
-    const FBMissionMonitor *m = b->MissionMonitor();
-    if (!m) continue;
-    for (const auto &o : m->Objectives())
-      if (FBObjectiveCovers(o, a.GetName().c_str(), a.GetTeam())) return true;
-  }
-  return false;
-}
-
-/* An actor is JUDGED iff the mission gave it objectives; an expected loss does not decide the run. */
-const Units::FBSimUnit *FirstDecidingFailure(const Units::FBActorList &actors) {
-  for (const auto &a : actors) {
-    const FBMissionMonitor *m = a->MissionMonitor();
-    if (!m || !m->Concluded() || m->Verdict() == FBMissionVerdict::Success) continue;
-    if (!ExpectedLoss(actors, *a)) return a.get();
-  }
-  return nullptr;
-}
-bool AllJudgedConcluded(const Units::FBActorList &actors) {
-  bool anyJudged = false;
-  for (const auto &a : actors) {
-    const FBMissionMonitor *m = a->MissionMonitor();
-    if (!m) continue;
-    anyJudged = true;
-    if (!m->Concluded()) return false;
-  }
-  return anyJudged;
-}
-/* Whose verdict the combined RESULT quotes when nothing decided the run: the first judged actor whose
- * loss was NOT somebody's objective — and if every one lost that way (a mutual exchange), the first. */
-const Units::FBSimUnit *FirstJudged(const Units::FBActorList &actors) {
-  for (const auto &a : actors)
-    if (a->MissionMonitor() && !ExpectedLoss(actors, *a)) return a.get();
-  for (const auto &a : actors)
-    if (a->MissionMonitor()) return a.get();
-  return nullptr;
-}
-
 /* One CSV per actor, the primary keeping the canonical name; doc/units-and-missions.md §10. */
 std::string TelemetryPath(const std::string &outDir, size_t index, const Units::FBSimUnit &unit) {
   if (index == 0) return outDir + "/telemetry.csv";
@@ -160,30 +85,48 @@ struct FBActorTelemetry {
   std::unique_ptr<Clients::FBCsvTelemetrySink> Sink;
 };
 
-/* The tick's STEP phase as one job (app/FBTickPool.h): index i steps actor i and nothing else. The sim
- * time is stamped inside RunIndex because FBLog's clock is thread-local. */
+/* The tick's STEP phase as one job (missions/FBTickPool.h): index i steps actor i and nothing else —
+ * WHAT stepping is belongs to FBMissionSim, which hands the step in. The sim time is stamped inside
+ * RunIndex because FBLog's clock is thread-local, and the per-actor sink is what makes a threaded run's
+ * log order the actor order. */
 class FBActorStepJob : public FBTickJob {
 public:
-  FBActorStepJob(Units::FBActorList &actors, const Units::FBUnitRegistry &units,
-                 std::vector<Clients::FBBufferedLogSink> &logs, double dt)
-      : Actors_(actors), Units_(units), Logs_(logs), Dt_(dt) {}
-
-  void SetTime(double simT) { TimeS_ = simT; }
+  FBActorStepJob(const FBActorStep &step, std::vector<Clients::FBBufferedLogSink> &logs, double simT)
+      : Step_(step), Logs_(logs), TimeS_(simT) {}
 
   void RunIndex(size_t i) override {
-    if (!Actors_[i]->Active()) return;   /* an impacted store integrates no further (FBSimUnit::Retire) */
     FBLog::SetTime(TimeS_);
     FBLogThreadSinkScope capture(&Logs_[i]);
-    FBLogUnitScope us(Actors_[i]->LogLabel());
-    Actors_[i]->Run(Dt_, &Units_, nullptr);
+    Step_(i);
   }
 
 private:
-  Units::FBActorList &Actors_;
-  const Units::FBUnitRegistry &Units_;
+  const FBActorStep &Step_;
   std::vector<Clients::FBBufferedLogSink> &Logs_;
-  double Dt_;
-  double TimeS_ = 0.0;
+  double TimeS_;
+};
+
+/* THE ONE PHASE OF A TICK THIS CLIENT REPLACES (missions/FBMissionSim.h): the cast is stepped across a
+ * pool, and the per-actor log buffers are replayed in ACTOR ORDER at the barrier — which is why a run's
+ * events.log is byte-identical whatever the thread count. Nothing about the pool is LOGGED: how many
+ * threads stepped the cast is a property of the client, and a line about it would be the one difference
+ * between a sequential and a parallel run. */
+class FBPoolStepper : public FBActorStepper {
+public:
+  FBPoolStepper(size_t threads, size_t maxActors, FBLogSink &sink)
+      : Logs_(maxActors), Sink_(sink), Pool_(threads) {}
+
+  void Step(const FBActorStep &step, size_t count, double simT) override {
+    FBActorStepJob job(step, Logs_, simT);
+    Pool_.RunTick(job, count);
+    for (auto &l : Logs_) l.Drain(Sink_);
+  }
+
+private:
+  std::vector<Clients::FBBufferedLogSink> Logs_;
+  FBLogSink &Sink_;
+  FBTickPool Pool_;   /* declared LAST, so it is destroyed FIRST: its threads are joined while the
+                       * buffers and the job they were handed are still alive */
 };
 } // namespace
 
@@ -338,44 +281,11 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   Units::FBUnitRegistry UnitReg;
   for (const auto &a : Actors) UnitReg.Register(a.get());
 
-  /* The OBSERVED roster a combat objective is judged against: callsign, faction, and the one bit the
-   * actor's own health register publishes. Weapons are out — a round in the air is not somebody's
-   * target. The Id borrows the unit's own name, which outlives the run. */
-  std::vector<FBUnitObservation> RosterBuf;
-  std::vector<const Units::FBSimUnit *> RosterUnit;   /* index-parallel: whose pose each entry is */
-  RosterBuf.reserve(maxActors);
-  RosterUnit.reserve(maxActors);
-  auto BuildRoster = [&]() {
-    RosterBuf.clear();
-    RosterUnit.clear();
-    for (const auto &a : Actors) {
-      if (a->GetKind() == Units::FBUnitKind::Weapon) continue;
-      /* The radiating bit, off the signature the unit publishes at the barrier — the identical
-       * construction the health bit and the release bit beside it already use. Nothing is asked of the
-       * module and nothing is told to it. */
-      bool emitting = false;
-      const Units::FBUnitSignature sig = a->GetSignature();
-      for (int bi = 0; bi < kMaxEmitterBeams; bi++)
-        emitting = emitting || sig.Radar[bi].Mode != FBEmitterMode::None;
-      RosterBuf.push_back({a->GetName().c_str(), a->GetTeam(), a->Health().CombatEffective(),
-                           a->ReleasedWeapon(), emitting, std::numeric_limits<double>::infinity()});
-      RosterUnit.push_back(a.get());
-    }
-    return FBMissionRoster{RosterBuf.data(), (int)RosterBuf.size()};
-  };
-  /* `identify` is the only kind that reads a range, so the ranges are only computed for a mission that
-   * declares one — the roster a mission without one sees is the one it saw before this round, entry for
-   * entry. Aimed FROM the judged unit, out of the published poses, right before its monitor runs. */
+  /* Only an `identify` objective reads a range, so the ranges the loop computes are only computed for a
+   * mission that declares one — read off the mission here and handed to the simulation below. */
   bool NeedRanges = false;
   for (const auto &u : mission.Units)
     for (const auto &o : u.Objectives) NeedRanges = NeedRanges || o.Kind == FBObjectiveKind::Identify;
-  auto AimRoster = [&](const Units::FBSimUnit &self) {
-    Units::FBUnitPose p = self.GetPose();
-    for (size_t i = 0; i < RosterBuf.size(); i++) {
-      Units::FBUnitPose q = RosterUnit[i]->GetPose();
-      RosterBuf[i].RangeM = FBPlanarDistM(p.LatDeg, p.LonDeg, q.LatDeg, q.LonDeg);
-    }
-  };
 
   if (hook) {
     hook->OnWeather(*weather);
@@ -411,124 +321,30 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
     }
   });
 
-  /* ---- Step 3: execute the actors ---- */
-  /* ONE cloud field for the whole cast. The decks are still sampled over each actor (that is its own
-   * weather), but the horizontal field is measured from a single anchor — the primary actor's spawn —
-   * so two aircraft cannot disagree about where the holes in one deck are. core/FBCloudDensity.h,
-   * FBCloudSky::AnchorLatDeg. */
-  const double skyAnchorLat = Actors.empty() ? 0.0 : Actors.front()->State().lat;
-  const double skyAnchorLon = Actors.empty() ? 0.0 : Actors.front()->State().lon;
-  const double dt = kSimTickS;
-  double simT = 0.0;
+  /* ---- Step 3: execute the actors ----
+   * THE LOOP IS NOT WRITTEN HERE. It is missions/FBMissionSim, the one object that owns a tick and the
+   * rule that ends a run; this client hands it what a headless run has that a browser has not — a
+   * thread pool for the STEP phase — and drives it to conclusion. */
   /* steady_clock, not clock(): the latter sums every thread's CPU time and would report a FASTER
    * parallel run as a slower one. */
   auto wallStart = std::chrono::steady_clock::now();
 
-  /* Nothing about the pool is LOGGED: how many threads stepped the cast is a property of the client and
-   * a line about it would be the one difference between a sequential and a parallel events.log. The
-   * pool is declared LAST, so it is destroyed FIRST — its threads are joined while the buffers and the
-   * job they were handed are still alive. */
   if (threads < 1) threads = 1;
   if (threads > Actors.size()) threads = Actors.size();
-  std::vector<Clients::FBBufferedLogSink> actorLogs(maxActors);
-  FBActorStepJob stepJob(Actors, UnitReg, actorLogs, dt);
-  FBTickPool pool(threads);
+  FBPoolStepper stepper(threads, maxActors, logSink);
 
-  /* SNAPSHOT DISCIPLINE: the per-actor passes are separate loops on purpose — everything integrates
-   * against the poses of the LAST completed tick and only PublishPose (the barrier) makes the new ones
-   * visible, so tick ORDER cannot influence the result. That is what lets STEP run one thread per actor
-   * while every other pass stays a sequential loop in actor order. Which pass is which and why:
-   * doc/units-and-missions.md §7. The trailing timeout is the backstop for a cast with no
-   * objectives at all; every judged actor's own monitor concludes TIMEOUT at exactly this sim time. */
-  while (!FirstFlightKo(Actors) && !FirstDecidingFailure(Actors) && !AllJudgedConcluded(Actors) &&
-         simT < timeoutS) {
-    /* Ground truth and air mass, both at the DECISION tick and not per 100 Hz substep: a GFS field
-     * varies over ~50 km and the jet covers under 60 m in a tick, so a finer sample would be the same
-     * number ten times. */
-    for (auto &a : Actors) {
-      if (!a->Active()) continue;
-      a->UpdateGroundAsl(elevation.GroundElevM(a->State().lat, a->State().lon));
-      a->UpdateWind(weather->WindNedMs(a->State().lat, a->State().lon, a->State().elev));
-      /* The cloud decks over this actor, from the SAME sample rate and the same provider as the wind.
-       * Nothing reads it unless the module composes a sensor that does (FBModule::SetCloudSky is a
-       * no-op by default), so a mission with no weather and no optical sensor is unaffected. */
-      a->UpdateSky(FBCloudSkyFromWeather(*weather, a->State().lat, a->State().lon, simT,
-                                         skyAnchorLat, skyAnchorLon));
-      /* The sky's two LIGHTS, from the mission clock and this actor's own position, on the same tick
-       * as the decks. Skipped entirely without a declared clock — no clock, no ephemeris, no channel
-       * touched (doc/missions/syntax.md). */
-      if (clock.Have)
-        a->UpdateSolar(FBSolarAt(a->State().lat, a->State().lon, clock.At(simT)));
-    }
-    stepJob.SetTime(simT);
-    pool.RunTick(stepJob, Actors.size());
-    for (auto &l : actorLogs) l.Drain(logSink);
-    for (auto &a : Actors)
-      if (a->Active()) a->PublishPose();   /* the barrier: new poses become visible together */
-    simT += dt;
-    FBLog::SetTime(simT);
-    FBMissionRoster roster = BuildRoster();
-    for (auto &a : Actors) {
-      if (!a->Active()) continue;
-      FBLogUnitScope us(a->LogLabel());
-      a->CheckEnvelope();   /* generic envelope diagnostics — per actor, not per run */
-      if (NeedRanges) AimRoster(*a);
-      a->RunMonitors(simT, roster);
-    }
-    for (auto &a : Actors)
-      if (a->Active()) a->SampleTelemetry(simT);
-    Ordnance.Resolve(Actors, simT, dt);
-    if (hook) hook->OnTick(Actors, simT);
+  FBMissionSim sim(Actors, UnitReg, Ordnance, elevation, *weather, timeoutS);
+  sim.SetClock(clock);
+  sim.SetRangeAware(NeedRanges);
+  sim.SetHook(hook);
+  sim.SetStepper(&stepper);
+  const FBMissionResult result = sim.RunToConclusion();
 
-    Ordnance.Launch(Actors, UnitReg, simT);
-    /* After the growth above, so an actor that appeared this tick has an entry from now on. */
-    Ordnance.SnapPoses(Actors);
-  }
-
-  /* ---- Step 4: validate the world — the monitors already did; combine their verdicts ---- */
+  /* ---- Step 4: report what the judges concluded ---- */
   const Units::FBSimUnit &primary = *Actors.front();
-  const Units::FBSimUnit *ko = FirstFlightKo(Actors);
-  auto finalizeAll = [&]() {
-    FBMissionRoster roster = BuildRoster();
-    for (auto &a : Actors) {
-      FBLogUnitScope us(a->LogLabel());
-      a->FinalizeMission(simT, roster);
-    }
-  };
-  /* A K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective. When it is
-   * expected, the monitors still waiting on a `survive` are asked here — the run to survive is over,
-   * and their verdicts are part of the combination below. */
-  if (ko && ExpectedLoss(Actors, *ko)) {
-    finalizeAll();
-    ko = nullptr;
-  }
-  const Units::FBSimUnit *failed = ko ? nullptr : FirstDecidingFailure(Actors);
-  /* Null on a clean success: nobody decided anything alone, so RESULT carries no unit attribution. */
-  const Units::FBSimUnit *deciding = ko ? ko : failed;
-  const Units::FBSimUnit *judged = FirstJudged(Actors);
-  FBMissionResult result;
-  std::string reason;
-  if (ko) {
-    result = ko->FlightMonitor().Reason() == FBKoReason::Loc ? FBMissionResult::Loc : FBMissionResult::Crash;
-    reason = ko->FlightMonitor().Detail();
-  } else if (failed) {
-    result = ToMissionResult(failed->MissionMonitor()->Verdict());
-    reason = failed->MissionMonitor()->Detail();
-  } else if (judged) {
-    result = ToMissionResult(judged->MissionMonitor()->Verdict());
-    reason = judged->MissionMonitor()->Detail();
-  } else {
-    result = FBMissionResult::Timeout;   /* no actor carried objectives — only the clock could end this */
-    reason = "sim time exceeded the mission timeout";
-  }
-  /* EVERY OPEN JUDGE IS ASKED BEFORE THE REPORT, whatever ended the run. Without this a run stopped by
-   * an unexpected K.O. (or by somebody else's decisive failure) leaves the other monitors unconcluded,
-   * so they publish no `mission OBJECTIVE` vector at all and every consumer has to read "never judged"
-   * as "nothing met" — which pays a doctrine for keeping the OPPONENT airborne
-   * (doc/doctrine-evolution.md X-1). WHEN the run ends is untouched; only whether the judges finish.
-   * Deliberately AFTER the combination above: the verdicts that existed when the run ended decide it,
-   * and a monitor closing here can therefore not move `ko`, `failed`, `judged` or `result`. */
-  finalizeAll();
+  const Units::FBSimUnit *deciding = sim.Deciding();
+  const double simT = sim.SimTimeS();
+  const std::string &reason = sim.Reason();
   const Fdm::fb_fdm_state &st = primary.State();
 
   /* With a single actor the RESULT line below IS that actor's verdict, so a breakdown would repeat it. */
@@ -578,14 +394,7 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   FBLog::Info("mission", "SUMMARY", {{"result", FBMissionResultStr(result)}, {"durationS", simT},
       {"wallS", wallS}, {"speedup", wallS > 0.0 ? simT / wallS : 0.0},
       {"lat", st.lat}, {"lon", st.lon}, {"altM", st.elev}});
-  switch (result) {
-    case FBMissionResult::Success: return 0;
-    case FBMissionResult::Fail: return 1;
-    case FBMissionResult::Crash: return 2;
-    case FBMissionResult::Loc: return 2;   /* shares Crash's exit code — see FBMissionResult's banner */
-    case FBMissionResult::Timeout: return 3;
-  }
-  return 1;
+  return sim.ExitCode();   /* the process contract, spelled once (missions/FBMissionSim.cpp) */
 }
 
 } // namespace FlightBox::Missions

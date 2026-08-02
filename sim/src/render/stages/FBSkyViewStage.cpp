@@ -70,7 +70,7 @@ void FBSkyViewStage::Configure(const FBGpu &gpu, wgpu::TextureView skyLutView, w
   be[0].binding = 0; be[0].textureView = skyLutView;
   be[1].binding = 1; be[1].textureView = transLutView;
   be[2].binding = 2; be[2].sampler = lutSamp;
-  be[3].binding = 3; be[3].buffer = atmoBuf; be[3].size = 11 * 4 * sizeof(float);
+  be[3].binding = 3; be[3].buffer = atmoBuf; be[3].size = kAtmoUniformBytes;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = Pipe.GetBindGroupLayout(0);
   bg.entryCount = 4;

@@ -1009,65 +1009,71 @@ Source situation: `[DOC]` `doc/modules/f16/hud-symbology.md`, DCS F-16C Viper Gu
 of reference; positions cross-checked against the GPL-2.0 FlightGear F-16 mod (github.com/NikolaiVChr/f16,
 `Nasal/HUD/HUD_main.nas` + `hud_math.nas`) — **FACTS verified, no code copied**.
 
-#### 12.1 The combiner aperture
+#### 12.1 The drawn window
 
-The real F-16 HUD is a small window in front of the pilot, not the whole windscreen. Two documented
-angular specifications `[DOC]` (hud-symbology.md's "Technical depth"; DTIC ADA430578's TFOV note,
-cross-checked against `TFOV=25deg` in the FlightGear mod):
+The real F-16 HUD is a small window in front of the pilot; two documented angular specifications `[DOC]`
+(hud-symbology.md's "Technical depth"; DTIC ADA430578's TFOV note, cross-checked against `TFOV=25deg`
+in the FlightGear mod) describe it: **TFOV ~25°**, **IFOV ~20 × 13.5°**.
 
-| Quantity | Value | Use |
-|---|---|---|
-| TFOV (full cone in which symbology may be positioned) | ~25° | `kApertureHalfWidthDeg` = **12.5°** (TFOV/2) |
-| IFOV (what the combiner glass shows at ONE head position) | ~20 × 13.5° | only for the ASPECT RATIO: `kApertureHalfHeightDeg` = 12.5° · (13.5/20) ≈ 8.44° |
+**FlightBox does not draw that window any more.** The owner's ruling this round — *"das HUD … nutzt
+nicht die kompletten oberen zwei Drittel des Bildschirms"* — makes the WINDSCREEN the aiming surface:
+the drawn window is the grid's top two rows inset by `kWindowInsetPx` = 10 px (1260 × 460 at 720p,
+against the 520 × 348 combiner rectangle drawn before). The ~25° aperture survives as a documented
+reference in `hud-symbology.md`, and the deviation is booked there as a deviation.
 
-The vertical half-height is therefore DERIVED instead of being set as a second magic constant — the
-combiner is documented as wider than it is tall, and the raw IFOV vertical is deliberately not taken
-literally.
+What did NOT change is the SCALE. `Kc` is the scene's own projector,
+`Kc = (Height/2)/tan(kSceneVerticalFovDeg/2) = 623.5` px per unit tangent at 720p — the world is not
+stretched to fill the window, only the symbology's own extents are. `kHudScale` = 1.9 `[SET]`
+(successor to `kHudMagnify`) is the fixed pixel scale of symbols, ticks and text; it deliberately does
+NOT grow with the window, or a larger screen would turn the HUD into a billboard.
 
-`kHudMagnify` = 1.88 `[SET]` enlarges ONLY the drawn window and every fixed pixel size within it; the
-physical aperture ANGLE stays untouched (the conformal projector keeps computing with TFOV/IFOV).
-Chosen so that the ~190×127 px aperture lands at ~358×239 px — inside the ~427×240 px centre cell of a
-3×3 720p grid.
+**A defect fell out of this and was fixed, not booked:** the HUD's projector had been built with a
+**80°** field of view while the scene renders at **60°**, so the symbology was not conformal at all —
+it was compressed toward the boresight by 623.5/429 = 1.45. Both now read the single constant
+`core/FBCamera.h` `kSceneVerticalFovDeg`. Measurement (HUD horizon ink row vs. the projection, three
+camera pitches): residual ≤ 1.2 px against the conformal prediction, up to 40 px against the old one —
+table in [`hud-symbology.md`](hud-symbology.md).
 
-Text-scale FLOORS `kHudReadoutScale` 1.15 / `kHudSecondaryScale` 1.08 `[ABL]`: the old text constants
-(0.60–0.70) had been shrunk for a window less than half the size and, even after `kHudMagnify`, stayed
-below B612's own legibility ratio (ink ≈ 0.75·6·s). Result: 1.15·1.88 ≈ 2.16 (ink ~9.7 px, above the
-9 px floor for primary readouts), 1.08·1.88 ≈ 2.03 (~9.1 px, above the 8 px floor for secondary text).
+Text-scale FLOORS `kHudReadoutScale` 1.15 / `kHudSecondaryScale` 1.08 `[ABL]`, unchanged: 1.15·1.9 ≈
+2.19 (ink ~9.8 px, above the 9 px floor for primary readouts), 1.08·1.9 ≈ 2.05 (~9.2 px, above the
+8 px floor for secondary text).
 
 #### 12.2 The elements
 
-Everything conformal runs through ONE az/el projector from THE SAME camera basis (yaw/pitch/roll) that
-the generic default HUD also uses for its horizon. "Az/el" is WORLD-referenced (0 = north, +el = up) —
-a world direction (ground track, bearing to the steerpoint) therefore needs no separate body-frame
-composition.
+Everything conformal runs through ONE az/el projector from THE SAME camera basis (yaw/pitch/roll) the
+generic default HUD also uses. "Az/el" is WORLD-referenced (0 = north, +el = up) — a world direction
+(ground track, bearing to the steerpoint) therefore needs no separate body-frame composition.
+
+The list is SHORT on purpose; what is not here is on an MFD page, element by element, in
+[`hud-symbology.md`](hud-symbology.md)'s cut table.
 
 | Element | Position | Scissored? | Details / source |
 |---|---|---|---|
-| Horizon | two segments flanking the boresight, gap for FPM/ladder | **yes** | horizon DIP from altitude |
-| Pitch ladder | earth-referenced rungs every 5° from −30 to +30 | **yes** | positive solid / negative dashed (MIL-STD-1787). CONDENSED onto the aperture scale (half the earlier azimuth spread) so that both segments of a rung fit into the window — at 8.4° half-height ~1–3 rungs are visible |
+| Horizon | two segments flanking the boresight, gap for FPM/ladder, long enough to cross the window at any bank | **yes** | horizon DIP from altitude |
+| Pitch ladder | earth-referenced rungs every 5° from −45 to +45 | **yes** | positive solid / negative dashed (MIL-STD-1787). The azimuth spread is a WINDOW WIDTH computed back through the projector (`atan(0.045·halfW/Kc)` inner, `atan(0.30·halfW/Kc)` outer), not a magic angle — that is what makes the ladder fill the window instead of clinging to its centre |
 | FPM | at the velocity vector (`AirData.TrackDeg` / `FpaDeg`) | **yes** | circle + wings + tail = aircraft reference symbol (MIL-STD-1787) |
-| Steerpoint diamond | at the steerpoint's bearing/elevation angle | **yes** | outside the field of view: clamped to the WINDOW EDGE and CROSSED OUT. The clamp ring is MERGED with the window edge (not a second, circular ring), with an inset so that the cross strokes are not halved |
-| Tadpole | next to the FPM, X clamped to the aperture half-width | **yes** | rotated: points UP when the steerpoint lies ahead of the track, DOWN when behind it `[DOC]` |
-| Heading tape | **TOP** of the aperture, ticks pointing DOWN, labels below, value box on the rail | no | magnetic (`Yaw − MagVar`; MagVar is a 0° placeholder until a declination model exists). Ticks every 5°, labels every 30°, N/E/S/W written out. **Position correction:** `doc/modules/f16/hud-symbology.md` ("Heading tape \| Top") AND the FG mod (`sy*0.1` from the top) agree — the earlier placement at the bottom was an error, not a documented deviation |
-| Bank scale | below the FPM, centre `cy + 0.192·winHalfH`, radius `0.385·winHalfH` | no | fixed ticks at 0/±10/±20/±30/±45°, pointer rotating with the roll (clamped to ±45°). Ratios from FG's `rollPos=[0,25]`/`rollRadius=50` against 130 px half-height = 19.2 % offset / 38.5 % radius, scaled to our own aperture |
-| G load | top left of the aperture | no | source: AirData |
-| Left status block | left edge, just below the vertical centre (`cy + 0.136·winHalfH`) | no | order NAV → Mach → peak G → ARM/SIM → bullseye (bearing/range). Anchor and order follow FG's window2 → window7 → window8 → window11; **ARM/SIM has no FG counterpart at this place and is marked as a documented ADDITION (4th line)** |
-| Right status block | right edge, same altitude band | no | R (radar altitude) → AL (ALOW) → 'B' slant range → TTG → distance>STPT. The order follows FG's window10 → window3 → window4 → window5; **R has no FG counterpart here and is carried as a documented addition** |
-| CAS tape | left, indented ~8 % of the aperture width (FG: `0.20*sx`, not flush with the edge) | no | minor ticks every 20 kt, major ticks every 100; the box carries the exact value. Numeric tick labels omitted (no room at this scale) |
-| Alt tape | right, indented mirror-symmetrically | no | minor ticks every 100 ft, major ticks every 500; box with a thousands comma ("6,020") |
+| Steerpoint diamond | at the steerpoint's bearing/elevation angle | **yes** | outside the field of view: clamped to the WINDOW EDGE and CROSSED OUT, with an inset so the cross strokes are not halved |
+| Tadpole | next to the FPM, X clamped to the window half-width | **yes** | rotated: points UP when the steerpoint lies ahead of the track, DOWN when behind `[DOC]` |
+| Heading band | the window's TOP edge, ticks pointing DOWN, labels below, value box on the rail | no | magnetic (`Yaw − MagVar`, MagVar a 0° placeholder). Ticks every 5°, labels every 10°, N/E/S/W written out. The band spans ±35° across the FULL window width |
+| CAS band | the window's LEFT edge | no | ±120 kt visible, minor ticks every 20 kt, labels every 100; the box carries the exact value |
+| Alt band | the window's RIGHT edge, mirrored | no | ±2000 ft visible, minor ticks every 200 ft, labels every 1000 with a thousands comma ("10,000") |
+| Steering line | bottom left, out of the aiming zone | no | `STPT nn dd.d` — the only status text left in the HUD |
 | "NO TELEMETRY" | centred | — | fallback when `env.Have` is false |
+
+**Not in the HUD** (and each one's destination): bank scale → SYS · bullseye → HSD · TTG → HSD · slant
+range → HSD · G/peak G/Mach/ARM-SIM/radar altitude/ALOW → SYS and SMS (last round).
 
 #### 12.3 Which blocks are read — and who writes them
 
 | Block | Writer | Use in the HUD |
 |---|---|---|
-| `Platform` | **`FBF16Module` itself** (`PublishPlatform`) | attitude for the projector, altitude for the alt tape and the horizon dip, heading tape |
-| `AirData` | `systems/FBAirDataSystem` | FPM direction (track/FPA), CAS tape, G, peak G, Mach, tadpole reference |
-| `RadarAlt` | `systems/FBRadarAltimeter` | "R" line |
-| `Nav` / `Cruise` | `systems/FBNavSystem` | steerpoint diamond, tadpole, bullseye, distance>STPT, TTG, MagVar |
-| `FireControl` | `modules/f16/FBF16FireControl` | 'B' slant range + provider letter |
-| `Ufc` | `modules/f16/FBF16Ufc` | ALOW line, steerpoint number |
-| `Stores` | `weapons/FBStoresSystem` (via `FBF16Sms`) | ARM/SIM |
+| `Platform` | **`FBF16Module` itself** (`PublishPlatform`) | attitude for the projector, altitude for the alt band and the horizon dip, heading band |
+| `AirData` | `systems/FBAirDataSystem` | FPM direction (track/FPA), CAS band |
+| `Nav` | `systems/FBNavSystem` | steerpoint diamond, tadpole, steering line, MagVar |
+| `Ufc` | `modules/f16/FBF16Ufc` | steerpoint number |
+
+Four blocks, down from seven: `RadarAlt`, `Cruise`, `FireControl` and `Stores` are no longer read by
+the HUD at all — their numbers are on the MFD pages, which read them instead.
 
 #### 12.4 The validity rule
 
@@ -1078,7 +1084,7 @@ a quiet one.
 
 | State | HUD behaviour |
 |---|---|
-| `Invalid` | dashes: `-.-` (G), `-.--` (Mach), `---` (CAS), `R----`, `AL---`, `B---.-`, `---:--`, `---> --`. On the CAS tape the frame and the box remain (the instrument is there, after all), the moving ticks and the number disappear |
+| `Invalid` | dashes: `---` (CAS), `STPT --  ---.-`. On the CAS band the rail and the box remain (the instrument is there, after all), the moving ticks and the number disappear |
 | `Held` | shows its value. Deliberately frozen ≠ broken; hiding it would throw away information the pilot is entitled to |
 | `Nav` invalid | **no steering symbology**: neither diamond nor tadpole. A diamond from an unwritten block would point at a steerpoint that does not exist (MIL-STD-1787 declutter rule). A BFM mission without waypoints is exactly this case |
 

@@ -10,7 +10,7 @@ namespace FlightBox::Systems {
 
 namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
-constexpr float kHudFovDeg = 80.0f;
+constexpr float kHudFovDeg = kSceneVerticalFovDeg;   /* conformal means the SCENE's number, not a second one */
 /* Monochromes HUD-Gruen (MIL-STD-1787). */
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
 } // namespace
@@ -142,6 +142,15 @@ constexpr float kMfdBodyS = 2.0f;                     /* 8 px Vorschub, 12 px Ze
 constexpr float kMfdLineH = 15.0f;
 constexpr float kMfdDimR = 0.16f, kMfdDimG = 0.52f, kMfdDimB = 0.22f;   /* Rahmen/Raster */
 constexpr float kMfdWarnR = 1.0f, kMfdWarnG = 0.70f, kMfdWarnB = 0.20f;
+/* DER SCHLEIER. Die Schaechte stehen ueber der Aussenansicht statt ueber Schwarz — der Eigner will
+ * durchsehen. Gefordert ist LESBARKEIT, und die ist ein Kontrastverhaeltnis, also eine Rechnung:
+ * linear gemischt bleibt vom Untergrund (1-a) uebrig, das hellste im Flugbild GEMESSENE Perzentil
+ * (99,5 %) des Schachtuntergrunds ist L = 0,93 (weisser SVS-Boden), und HUD-Gruen (L = 0,740) braucht
+ * 4,5:1 (WCAG AA, kleiner Text):
+ *   (0,740+0,05) / ((1-a)*0,93 + 0,05) >= 4,5  ->  a >= 0,865.
+ * Bernstein (L = 0,535) landet damit bei 3,4:1 — die Schwelle fuer GROSSE Schrift, und Bernstein
+ * traegt nur kurze Warnworte. Nachgemessen im Bild: doc/render/renderer.md §2.4. */
+constexpr float kMfdVeil = 0.87f;
 
 struct Bay { float x0, y0, x1, y1; };
 
@@ -281,6 +290,17 @@ void PageHsd(FBHudGeometry &out, const Bay &b, const FBState &s) {
     out.Line(x, y + 6.f, x - 6.f, y, kHgR, kHgG, kHgB);
     out.Printf(b.x0 + 6.f, b.y1 - 16.f, 1.5f, kHgR, kHgG, kHgB, "SP%02d %4.1f", s.Ufc.SteerNum,
                (double)s.Nav.SteerDistNm);
+    /* Aus dem HUD heruntergewandert: Bullseye-Bezug, Restflugzeit, Schraegentfernung mit ihrem
+     * Quellenbuchstaben. Planungszahlen gehoeren auf die Lagekarte, nicht auf die Scheibe. */
+    out.Printf(b.x0 + 6.f, b.y1 - 30.f, 1.5f, kHgR, kHgG, kHgB, "BULL %03d/%02.0f",
+               ((int)(s.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, (double)s.Nav.BullDistNm);
+    if (s.Cruise.H.Readable())
+      out.Printf(b.x1 - 84.f, b.y1 - 30.f, 1.5f, kHgR, kHgG, kHgB, "TTG%03d:%02d",
+                 (int)(s.Cruise.SteerTtgS / 60.f), (int)s.Cruise.SteerTtgS % 60);
+    if (s.FireControl.H.Readable())
+      out.Printf(b.x1 - 84.f, b.y0 + 20.f, 1.5f, kHgR, kHgG, kHgB, "%c%05.1f",
+                 s.FireControl.RangeProvider ? s.FireControl.RangeProvider : 'B',
+                 (double)s.FireControl.SteerSlantNm);
   }
   if (link) {
     for (int i = 0; i < dl.TrackCount; i++) {
@@ -334,6 +354,11 @@ void PageSys(FBHudGeometry &out, const Bay &b, const FBState &s) {
   out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "ENG %s  WOW %s", a.EngineRunning ? "RUN" : "OUT",
              a.WeightOnWheels ? "Y" : "N");
   y += kMfdLineH;
+  /* Die Fluglage in Zahlen — Ziel der Bank-Skala, die diese Runde aus dem HUD fiel: die Nickleiter
+   * traegt den Rollwinkel konform, eine zweite Anzeige davon war Zustand in der Zielzone. */
+  out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "PIT %+3.0f  BNK %3.0f%c", (double)s.Platform.PitchDeg,
+             (double)fabsf(s.Platform.RollDeg), s.Platform.RollDeg < 0.f ? 'L' : 'R');
+  y += kMfdLineH;
   if (s.Ufc.H.Readable()) {
     out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "ALOW%5.0f  BNGO%5.0f", (double)s.Ufc.AlowFt,
                (double)s.Ufc.BingoEffectiveLbs);
@@ -370,6 +395,7 @@ void FBDisplaySystem::BuildMfd(const FBState &state, const FBHudEnv &env, FBHudG
   for (int i = 0; i < kMfdBays; i++) {
     Bay b{(float)i * bw + 5.f, py0 + 4.f, (float)(i + 1) * bw - 5.f, py1 - 4.f};
     bool attention = (i == kMfdAttentionBay);
+    out.Fill(b.x0, b.y0, b.x1, b.y1, 0.f, 0.f, 0.f, kMfdVeil);
     out.Box(b.x0, b.y0, b.x1, b.y1, kMfdDimR, kMfdDimG, kMfdDimB);
     if (!env.Have || !m.H.Readable()) {
       out.Text(b.x0 + 10.f, b.y0 + 22.f, kMfdBodyS, kMfdWarnR, kMfdWarnG, kMfdWarnB, "NO BUS");

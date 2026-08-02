@@ -29,7 +29,7 @@ physics or the termination logic.
 | Ground truth from model geometry | eye height at ground from JSBSim's gear geometry, not a fixed number |
 | Native and WASM render the same frame | `gpu_native` is the headless PNG oracle for frame proofs (`../build-and-ops.md`) |
 | Feature gates are baked constants | a disabled pass costs nothing |
-| **The frame is a 3x3 grid: the windscreen is the top two rows, the MFD bank the bottom one** | the scene and cloud passes carry a viewport/scissor of `Width x ViewH` (`ViewH = Height - Height/3`); the projection CROPS instead of squeezing (§2.4); the bank costs no pass — `passcount` stays 6 / 7 with a deck / 5 with the HUD off |
+| **The frame is a 3x3 grid: the windscreen is the top two rows, the MFD bank the bottom one** | the WORLD covers the whole frame and the projection puts the boresight at the windscreen's centre (§2.4) — the MFD bays are translucent over it; the projection CROPS instead of squeezing, **measured**: pitch 0 → −20° moves a feature exactly as the cut model predicts (median residual −0.22 px over 107 columns), the letterbox model is 76 px out; the bank costs no pass — `passcount` stays 6 / 7 with a deck / 5 with the HUD off |
 
 ## State
 
@@ -242,30 +242,70 @@ Supplementary rules from `FBDrawStage.h`:
   never per frame. **`FBFrameContext`** is the shared per-frame state (camera basis, MVP, sun, moon,
   day factor, weather, frame number, size) — a stage never reaches back into `FBRenderer`.
 
-#### 2.4 The 3x3 grid — a viewport, not an overlay
+#### 2.4 The 3x3 grid — a projection, not an overlay and not a scissor
 
-The cockpit takes the bottom third of the screen. Two ways to arrive there and only one of them is
-honest:
+The cockpit takes the bottom third of the screen. Three ways to arrive there:
 
-- **Overlay.** Draw the scene full-frame and paint the bank over it. The boresight then sits 120 px
-  above the panel edge, half the pitch ladder is behind the panel, and the GPU shades pixels nobody
-  sees.
-- **Viewport (built).** The scene and cloud passes are given
-  `SetViewport(0, 0, Width, ViewH)` + the matching scissor, and the projection is corrected so the
-  picture is CROPPED rather than letterboxed: `MvpCamRel` takes the viewport height AND the frame
-  height and scales `f` by `hFull/hVp`, which leaves `f/asp = hFull/(w·tan)` — the horizontal term —
-  bit for bit what it was. The atmosphere uniform does the same in its own form
-  (`a[32] = tan(halfFov)·hVp/hFull`, `a[33] = w/hVp`), so the product `tanHalf·aspect` is unchanged and
-  sky and terrain still agree on the ray. Pixels per radian is therefore identical to the pre-grid
-  frame; the window is simply shorter.
+- **Overlay.** Draw the scene full-frame with the boresight at the FRAME's centre and paint the bank
+  over it. The boresight then sits 120 px above the panel edge and half the pitch ladder is behind the
+  panel — the aiming surface is no longer the aiming surface.
+- **Scissor (built first, `95c2e8e`).** Give the scene pass `SetViewport/SetScissor(0, 0, Width,
+  ViewH)`. Correct geometry, but the bottom row then holds nothing but the clear value, so the bays
+  can only ever be drawn on BLACK.
+- **Off-centre projection (built, this round).** `MvpCamRel` takes the PRE-GRID full-frame projection
+  — 60° over `hFull`, aspect `w/hFull`, so `f` and `f/asp` are bit for bit the numbers from before the
+  grid existed — and adds ONE term: a constant NDC shift `shift = 1 − hVp/hFull` on the y row of the
+  z column (`p[9] = −shift`), which lifts the boresight from the frame's centre to the WINDSCREEN's.
+  The scene pass then carries **no viewport and no scissor at all**: the world covers the whole frame
+  and simply continues behind the bank, which is what the translucent bays show. With `hVp == hFull`
+  (HUD off, the cloud lab) `shift` is 0 and every term is the pre-grid number.
 
-The tonemap pass deliberately gets **no** viewport: it is a 1:1 `HdrTex -> FrameTex` map, and the
-bottom row is the part of `HdrTex` the scene pass left at its clear value — `ACES(0) = 0`, i.e. the
-black the bank is drawn on.
+The atmosphere uniform mirrors it exactly — `params.x = tan(halfFov)`, `params.y = w/hFull`,
+`view.x = shift`, and every ray reconstruction goes through ONE spliced helper (`camRay()` in
+`FBAtmoCommon.h`) instead of four copies of the same expression, so sky, sun, moon and cloud cannot
+drift from the terrain. `kAtmoUniformBytes` is likewise one constant: the struct grew by a `vec4` and
+six bind groups pin their binding size to it — the first build after the growth was six
+`minBindingSize` failures and a black frame.
+
+**Pixels per radian is unchanged, and that is the measurement.** Two frames, same camera, pitch 0 vs
+−20°, the sky/ground boundary read per column (`gpu_native --pitch`):
+
+| Model | pixels per unit tangent | residual against the measurement |
+|---|---:|---:|
+| **Cut** (built) | `K = (Height/2)/tan(30°) = 623.5` | **median −0.22 px**, mean −0.50, sd 3.20 (107 columns) |
+| Letterbox | `(ViewH/2)/tan(30°) = 415.7` | median −75.8 px |
+
+The tonemap pass gets no viewport either; it is a 1:1 `HdrTex -> FrameTex` map and the bottom row now
+carries world like every other row.
+
+**The bays' veil.** `FBHudGeometry::Fill()` draws one translucent quad per bay before its symbology.
+Opacity is not taste, it is a contrast budget: the HUD pass blends in linear light, so `(1−a)` of the
+background survives, the brightest bay background measured in a flying frame (99.5th percentile) is
+the white SVS ground at `L = 0.93`, and HUD green (`L = 0.740`) has to clear WCAG AA's 4.5:1 for small
+text:
+
+```
+(0.740 + 0.05) / ((1−a)·0.93 + 0.05) ≥ 4.5   ->   a ≥ 0.865
+```
+
+`kMfdVeil = 0.87` `[HERL]`. **Measured back** on `payerne-full` frames at that value, per bay, ink
+excluded, against the 99.5th percentile of the bay's own background:
+
+| Frame | bay 0 | bay 1 | bay 2 |
+|---|---|---|---|
+| cruise over the white plateau | green **4.74:1**, amber 3.51:1 | 4.68:1 / 3.46:1 | 4.67:1 / 3.45:1 |
+| turn over darker ground | 5.91:1 / 4.37:1 | 5.91:1 / 4.37:1 | 4.72:1 / 3.49:1 |
+
+Green clears 4.5:1 everywhere, amber clears the 3:1 large-text threshold everywhere and carries only
+short warning words. The blend itself was checked separately: transmission through a bay is 0.23 of
+the linear background at `a = 0.78`, i.e. exactly `1−a`. Over dark terrain the bays read nearly black;
+that is the price of a FIXED veil, stated rather than hidden — the alternative, sampling the
+background per pixel, needs the frame as a texture inside the HUD pass and therefore a second pass,
+which the pass-count contract forbids.
 
 `FBHudStage` draws the bank by appending into the SAME `FBHudGeometry` `BuildHud` just filled, so
 three more displays cost **zero** `Begin*Pass` calls — measured: `passcount passes=6 clouds=1
-cloudPass=0 hud=1` on `payerne-full` and `passes=7 … cloudPass=1` in the browser, both unchanged.
+cloudPass=0 hud=1` on `payerne-full`, unchanged across this round.
 `ViewH == Height` whenever the HUD is off (the cloud lab), so those frames are untouched.
 
 #### 2.1 The complete encode order

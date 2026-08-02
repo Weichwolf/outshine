@@ -150,9 +150,9 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
-  src/missions/FBOrdnance.cpp
+  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-guards image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -373,6 +373,9 @@ verify-models:   ## check assets/aircraft against the pinned submodule + assets/
 # that no #include points up the stack. Same reasoning for not being a build prerequisite -- it has
 # something to say only when a file moves or grows an include, and an interpreter has no business on
 # the critical path of a C++ build. Run it whenever src/ is restructured, and as part of the gate.
+verify-guards:   ## prove the compile-time guarantees by trying to break them (tools/verify_guards.sh)
+	@cd $(SELF_DIR); bash tools/verify_guards.sh "$(INC_CORELIB) -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim"
+
 verify-layers:   ## check src/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
 

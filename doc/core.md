@@ -1083,6 +1083,23 @@ because nothing else compiles**.
 is what makes the damage picture of a run a function of the bursts received alone — no question of
 order, no healing race between two observers.
 
+**`Destroyed()` — is this unit still there.** The ONE question a simulation loop asks
+(`missions/FBMissionSim`), and it lives here because every unit kind has a health register while only
+an aircraft has a stall: a tank, a ship or a helicopter inherits the rule by being damaged rather than
+by getting a monitor of its own. Written through the register's single friend as before — the third
+entry point, `FBDamageModel::ApplyPhysicalKo`, which carries no geometry and no number: it RECORDS what
+`core/FBFlightMonitor` measured (ground contact, structure contact, ground penetration below
+`kPenetrationMarginM = −3 m`, integration divergence — every threshold model-derived and stated in
+§4.1). No hit points, no life energy, no "destroyed after N hits" anywhere in this chain.
+
+It is deliberately NOT folded into `CombatEffective()`: that judges whether a SORTIE can still be
+flown, is read by the mission judge's `CombatIneffective` sample and by the expected-loss rule, and
+making a crash imply it would change what a duel scores. Two questions, two bits.
+**Stated boundary:** today only the flight monitor sets `Destroyed`. A ground target reduced to
+`Failed(Structure)` is combat-ineffective and NOT destroyed in this sense, which is why its loss still
+does not end a run — the same behaviour as before this bit existed. A damage-side criterion for
+non-flying units is a round of its own, with its own sources.
+
 **`FBSystemId`** — the addressable inventory. Deliberately the module SLOT set plus the three physical
 things a hit can knock out which are not avionics boxes (engine, flight controls, structure), because
 their consequence is exactly what JSBSim can carry itself. **Append only**: the ordinal is

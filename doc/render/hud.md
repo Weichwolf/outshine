@@ -36,7 +36,7 @@ The symbology implementation is documented in [`../modules/f16/module.md`](../mo
 
 | # | Thing |
 |---|---|
-| 4.5 | the 8-tap HUD glow is missing (`TODO` in `FBHudStage.cpp`) — it is what gives a real combiner its luminance feel |
+| 4.5 | the 8-tap HUD glow is missing (`TODO` in `FBHudStage.cpp`) — it is what gives a real combiner its luminance feel. **Load-bearing since the symbology fills the whole windscreen (2026-08-03):** green ink over the white SVS ground is now measurably marginal in the lower half of the window, where the bands and the steering line sit. The MFD bays solved the same problem with a veil; the HUD cannot use one (it must not tint the world) and needs the glow instead |
 | 5.4 | no lock / TD-box symbology, because `doc/modules/f16/hud-symbology.md` documents none. It will not be invented (see `../aircraft/f16.md`). |
 
 ### Inventory (from the previous `Open points` section)
@@ -65,16 +65,24 @@ Two kinds of primitive, matching the two pipelines:
 
 | Kind | Layout | Producer |
 |---|---|---|
-| **Strokes** | `(x, y, d, hw, r, g, b)` × 6 per segment | `Line()` (hairline, hw = 0.5 px), `QLine()` (explicit half-width), `Circle()` (n chords), `Box()` |
+| **Strokes** | `(x, y, d, hw, r, g, b, a)` × 6 per segment | `Line()` (hairline, hw = 0.5 px), `QLine()` (explicit half-width), `Circle()` (n chords), `Box()`, **`Fill()`** |
 | **Glyphs** | `(x, y, u, v, r, g, b)` × 6 per character | `Text()`, `Printf()` |
+
+The stroke vertex carries an **opacity** channel since the MFD bays became translucent: the fragment
+multiplies its coverage by it, every primitive but `Fill()` passes 1, and `Fill()` is one wide stroke
+along its own centre line — flat inside, antialiased only at the edge. It is also why the stroke
+stride is 32 B and not 28.
 
 `d` is the signed normal distance of the vertex from the centreline in pixels, `hw` the nominal
 half-width of the segment — from those the fragment shader computes analytical coverage. There is **no**
 hard `LineList` pipeline any more; every straight run (rails, ticks, carets, boxes, the conformal
 horizon) goes through the same AA quad path. Caps are plain butt caps.
 
-Upper bounds on which `FBHudStage` sizes its GPU buffers: `kHudMaxStrokeFloats = 147456`,
-`kHudMaxTextFloats = 32768`.
+Upper bounds on which `FBHudStage` sizes its GPU buffers: `kHudMaxStrokeFloats = 168480`
+(the same 3510 quads the 7-float vertex held, re-expressed for the 8-float one — not a new budget),
+`kHudMaxTextFloats = 32768`. `Encode()` CLAMPS to both: a fixed vertex buffer plus a `WriteBuffer`
+past its end is a device error, and symbology that outgrows the bound must lose its tail, not the
+frame.
 
 **Clipping** (`SetClip`/`ClearClip`): for the conformal symbology inside the HUD combiner aperture.
 Strokes are **cut** by a Liang-Barsky segment clip (a partially visible stroke emits only its visible

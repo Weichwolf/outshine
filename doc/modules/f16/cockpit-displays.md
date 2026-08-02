@@ -470,15 +470,16 @@ The owner's four sentences are the contract:
 | A display shows only PUBLISHED blocks | every page reads `FBState` and nothing else; which page a bay carries is itself a published block (`FBMfdBlock`), not renderer-side state |
 | The FRAME is generic, the CATALOGUE belongs to the module | `systems/FBMfdSystem` has no virtual at all; each module calls `DeclarePages` once. The F-16 has HSD (cooperative datalink) and NO IRST page; the MiG-29 has IRST and no HSD |
 | The catalogue is a function of **(module, current stores)** — read from `FBStoresBlock`, never from the mission text | a jet whose racks and drum are empty loses its SMS page mid-sortie; the page then becomes unselectable and the pilot's next tick moves off it |
-| The HUD carries only what one aims and navigates with | everything that is STATE moved down: master arm, station/store inventory, rounds, fuel, systems, warnings, radar/RWR/datalink |
+| The HUD carries only what one aims and navigates with | everything that is STATE moved down: master arm, station/store inventory, rounds, fuel, systems, warnings, radar/RWR/datalink — **and this round the last four**: bank angle (→ SYS), bullseye, time-to-go and slant range (→ HSD). The element-by-element ruling is in [`hud-symbology.md`](hud-symbology.md) |
+| **The bays are TRANSLUCENT over the out-the-window picture, not opaque over black** | the world covers the whole frame (`doc/render/renderer.md` §2.4) and each bay is drawn over one veil quad. Opacity is a contrast budget, not taste: `kMfdVeil = 0.87` is the smallest value that keeps HUD green at WCAG AA 4.5:1 against the brightest measured bay background (white SVS ground, 99.5th percentile `L = 0.93`). **Measured back on `payerne-full`: green 4.67–5.91:1, amber 3.45–4.37:1, per bay, ink excluded** |
 | The switch is READABLE, not merely correct | the bay carries its page label, the attention bay a second frame and the box's own `SEL <t>` stamp; the browser strip shows the pilot phase and the `mfd_page` CMD_ISSUE/CMD_ACK pair |
 
 ## State
 
-**Built this round: three MFDs across the bottom row of a 3x3 screen, switched by the pilot AI over the
-command bus.** What is still missing is every *panel* — ICP, DED, OSB bezels, DTE, analog instruments.
-The HUD is drawn as before, minus the state readouts this round moved down
-([`hud-symbology.md`](hud-symbology.md)).
+**Built: three MFDs across the bottom row of a 3x3 screen, switched by the pilot AI over the command
+bus — and since this round TRANSLUCENT, with the out-the-window picture running behind them.** What is
+still missing is every *panel* — ICP, DED, OSB bezels, DTE, analog instruments. The HUD was cut again
+this round and now fills the whole windscreen ([`hud-symbology.md`](hud-symbology.md)).
 
 | Piece | Status | Anchor |
 |---|---|---|
@@ -486,7 +487,9 @@ The HUD is drawn as before, minus the state readouts this round moved down
 | `core/FBMfdBlock` — catalogue + `Available` mask + the ordinal per bay + the last select's page and time | built, **not in `FBStateBusTelemetry`'s column list** (no telemetry.csv column moved) | this round |
 | `FBCommandTarget::MfdPageSelect` — HOTAS class, Avionics group, value = the module's page ordinal | built | this round |
 | `systems/FBMfdSystem` — declares/cuts/places/publishes; no virtual | built | this round |
-| `systems/FBDisplaySystem::BuildMfd` — the generic six pages, the third override point | built | this round |
+| `systems/FBDisplaySystem::BuildMfd` — the generic six pages, the third override point | built | `95c2e8e` |
+| The bays' veil — one `FBHudGeometry::Fill()` quad per bay at `kMfdVeil = 0.86` before its symbology | built | this round |
+| The three numbers the HUD handed down: `HSD` gained `BULL bbb/rr`, `TTGmmm:ss` and the `B` slant range; `SYS` gained `PIT/BNK` | built | this round |
 | F-16 catalogue `{FCR, SMS, HSD, RWR, SYS}`; MiG-29 catalogue `{FCR, IRST, SMS, RWR, SYS}` | built | this round |
 | `FBPilot::SelectCockpitPage` — one action per decision tick on its OWN spacing timer, rank: someone's round in the air > a warning > the phase's own job | built | this round |
 | **Measured, `mig29-intercept`:** the MiG spawns with `n019_emission off`, so there IS no FCR page and the pilot takes RWR at t = 0.0; the emission command acks at **t = 27.9** and the FCR page appears; the pilot posts `mfd_page 0` **in that same tick** and it acks at t = 28.4 | measured | browser + `gpu_native` |
@@ -544,6 +547,9 @@ independently re-extracted this pass, marked TODO above.
 | D4 | **The page labels are the generic ROLE names**, not each jet's own nomenclature (the MiG-29 has no box called "FCR"). The role vocabulary is generic on purpose; per-airframe legends would be a second module table. | cosmetic, but it IS a claim about the aircraft |
 | D5 | **No page has a range knob, a cursor or a declutter level.** The FCR/HSD scope scale is auto-chosen as the smallest of {5,10,20,40,80,160} nm that contains everything published, and the number is printed so nobody has to guess it. The radar block publishes no selected range scale to read instead. | the honest alternative to inventing a knob |
 | D6 | **The IRST page only exists while the head is powered.** In `mig29-intercept` the KOLS is never switched on (`blk_irst = 0` for all 782 rows), so the MiG shows no IRST page at all there; `o2-05-late-radar` (`set kols_mode …`) does show it with a contact. Correct by the availability rule, and worth stating because it makes the F-16/MiG asymmetry invisible in exactly the missions where one would look for it. | — |
+| D8 | **The veil is FIXED, so a bay over dark terrain reads nearly black.** Legibility was the requirement and it is met against the BRIGHTEST background; the cost is that the promised see-through is small exactly where the world is dark. The honest fix — sampling the background per pixel — needs the frame as a texture inside the HUD pass, i.e. a second pass, and the pass count is a contract. | the number is published (0.86) instead of the effect being called "transparent" |
+| D10 | **The owner's HUD cut is F-16-only.** The MiG-29 composes no display override, so it flies the GENERIC `FBDisplaySystem::BuildHud`, which still carries groundspeed, ASL, AGL and vertical speed — the very "state, not aiming" class the cut removed from the F-16. Two of those cannot simply move down: **AGL lives in `FBHudEnv`, renderer-side, not on a published block**, so an MFD page may not read it (a display shows only published blocks). Cutting the generic HUD therefore needs an AGL block first, and inventing one to win a layout round would be the wrong order. | naming the data gap beats a half-cut cockpit |
+| D9 | **The bays' 5 px gaps and the 4 px margin under them are UNVEILED**: bright terrain shines between the displays. It is the world behind the panel and it is honest, but nobody designed it — no source says what is between two MFDs. | naming it beats inventing a bezel |
 | D7 | **The MiG-29 gets no situation page** although it composes a datalink system. Its Lazur-M is a ground COMMAND channel, not a flight's shared picture, and no source for a MiG situation display was read. Its `FBDatalinkBlock` is therefore published and undisplayed. | the fourth addendum's own rule: do not lend it the F-16's page |
 
 ## Knowledge

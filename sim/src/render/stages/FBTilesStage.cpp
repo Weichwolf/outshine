@@ -314,7 +314,7 @@ void FBTilesStage::RebuildBind(void) {
   be[3].binding = 3; be[3].textureView = Albedo.CreateView(&avd);
   be[4].binding = 4; be[4].sampler = LutSamp;            /* azimuth-wrapping, for the sky-view LUT */
   be[5].binding = 5; be[5].textureView = SkyLutView;     /* the haze's inscatter colour */
-  be[6].binding = 6; be[6].buffer = AtmoBuf; be[6].size = 11 * 4 * sizeof(float);
+  be[6].binding = 6; be[6].buffer = AtmoBuf; be[6].size = kAtmoUniformBytes;
   wgpu::BindGroupDescriptor bgd{};
   bgd.layout = Pipe.GetBindGroupLayout(0);
   bgd.entryCount = 7;

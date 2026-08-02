@@ -29,7 +29,7 @@ The architectural contradictions found while distilling live with their subsyste
 | Finding | Where |
 |---|---|
 | `systems/FBDisplaySystem` includes `render/FBCamera.h` — a **second**, undocumented core-lib exception | [`sim/systems.md`](systems.md) |
-| `missions/FBTickPool` gym-only, and the WASM loop never compared line by line with the runner's phase order | [`clients/clients.md`](clients/clients.md) |
+| `missions/FBTickPool` is gym-only. The WASM loop is no longer a second loop at all: `missions/FBMissionSim` is THE loop and both clients drive it — the browser's own copy had lost the rule that ends a run | [`clients/clients.md`](clients/clients.md) |
 | The renderer draws no units at all, although `FBWorld` borrows the registry | [`render/units-visual.md`](render/units-visual.md) |
 
 ## Knowledge
@@ -67,7 +67,7 @@ Three clients link or compile against it:
 
 | Client | Source | Target | Role |
 |---|---|---|---|
-| **`fb-gym`** | `clients/FBAppGym.cpp` + `missions/FBMissionRunner.cpp` | `make -C sim gym` | headless: mission in → telemetry out. **No Dawn/wgpu symbol in the binary** (verified with `nm`). The mission core. |
+| **`fb-gym`** | `clients/FBAppGym.cpp` + `missions/FBMissionRunner.cpp` (which drives `missions/FBMissionSim`, the ONE loop) | `make -C sim gym` | headless: mission in → telemetry out. **No Dawn/wgpu symbol in the binary** (verified with `nm`). The mission core. |
 | **`gpu_native`** | `clients/FBAppNative.cpp` | `make -C sim native` | reference renderer and frame oracle. `--mission --interval` produces PNG proof frames through a GPU-free tick hook on the same `FBRunMission` loop. Without `--interval` it is headless. |
 | **wasm** | `clients/FBAppWasm.cpp` | `make -C sim wasm` | the browser. |
 
@@ -79,7 +79,7 @@ Three clients link or compile against it:
 
 | Directory | Responsibility | Doc |
 |---|---|---|
-| `sim/src/missions/` | the mission orchestrator, spawn, model roots, the gym thread pool | [missions/runtime.md](missions/runtime.md) |
+| `sim/src/missions/` | the simulation loop (`FBMissionSim`), the headless orchestrator, spawn, model roots, the gym thread pool | [missions/runtime.md](missions/runtime.md) |
 | `sim/src/clients/` | entry points, app lifecycle, sink implementations, the test harnesses | [clients/clients.md](clients/clients.md), [build-and-ops.md](build-and-ops.md) |
 | `sim/src/core/` | avionics bus, command bus, log, telemetry, the two judges, mission-data types, damage model, ballistics, elevation hook, calendar + sun/moon ephemeris (`FBCivilTime.h`/`FBEphemeris.h`, moved down out of `render/` in the C2 round), base types. **Never points into `systems/` or `modules/`.** | [core.md](core.md) |
 | `sim/src/math/` | value maths (`FBMat4`) | [core.md](core.md) |

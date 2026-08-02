@@ -40,7 +40,7 @@ combined from the two incorruptible judges per unit ([`verdict.md`](verdict.md))
 |---:|---|---|
 | 0 | SUCCESS | every unit with objectives, whose loss was not another's declared objective, reached them |
 | 1 | FAIL | a unit with objectives failed decisively (touchdown off the runway, or shot combat-ineffective without that being anybody's objective) |
-| 2 | CRASH / LOC | a unit had a physical K.O. that was not another's declared objective |
+| 2 | CRASH / LOC | an AIRCRAFT is no longer alive — `core/FBSystemHealth::Destroyed()`, set only through `FBDamageModel::ApplyPhysicalKo` out of `core/FBFlightMonitor`'s physical checks — and its loss was not another's declared objective. The loop asks the damage REGISTER, so a future unit kind inherits the rule; the RESULT line quotes the monitor's own reason (`missions/cfit-oberland.fbm` is the flown proof: exit 2, `CFIT`) |
 | 3 | TIMEOUT | a unit with objectives did not reach them before the timeout |
 
 Combat missions (`set task bfm`, `set task intercept`) end in TIMEOUT **by construction** — an

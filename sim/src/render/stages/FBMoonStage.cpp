@@ -23,8 +23,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   let evs = A.skyExtra.y;
   let moonUp = A.moonDir.xyz;
   if (evs <= 0.5 || dot(moonUp, A.up.xyz) <= -0.03) { return vec4f(0.0); }   /* SVS, or moon below horizon */
-  let dir = normalize(A.camFwd.xyz + in.ndc.x * A.params.x * A.params.y * A.camRight.xyz
-                                   + in.ndc.y * A.params.x * A.camUp.xyz);
+  let dir = camRay(A, in.ndc);
   let mr = A.skyExtra.w;               /* moon angular radius: 0.0045 rad (real) x FB_MOON_SCALE */
   let cosA = dot(dir, moonUp);
   if (cosA <= cos(mr * 3.0)) { return vec4f(0.0); }
@@ -92,7 +91,7 @@ void FBMoonStage::Configure(const FBGpu &gpu, wgpu::Buffer atmoBuf, wgpu::Sample
   Pipe = gpu.Device.CreateRenderPipeline(&rp);
 
   wgpu::BindGroupEntry be[3] = {};
-  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = 11 * 4 * sizeof(float);
+  be[0].binding = 0; be[0].buffer = atmoBuf; be[0].size = kAtmoUniformBytes;
   be[1].binding = 1; be[1].sampler = lutSamp;
   be[2].binding = 2; be[2].textureView = Tex.CreateView();
   wgpu::BindGroupDescriptor bg{};

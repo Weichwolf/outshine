@@ -1,4 +1,5 @@
 #include "FBRenderer.h"
+#include "FBCamera.h"
 #include "FBEphemeris.h"
 #include "FBLog.h"
 #include <cstdint>
@@ -268,7 +269,7 @@ void FBRenderer::CreateAtmosphere(void) {
   SkyLUT = mklut(192, 108);
 
   wgpu::BufferDescriptor bd{};
-  bd.size = 11 * 4 * sizeof(float);   /* 11 vec4 (camera/sun basis + moonDir + skyExtra) */
+  bd.size = 12 * 4 * sizeof(float);   /* 12 vec4 (camera/sun basis + moonDir + skyExtra + view) */
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   AtmoBuf = Device.CreateBuffer(&bd);
 
@@ -314,18 +315,18 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
   Cross3(up, sunTan, side);
   double camMm[3] = {eye[0] / 1e6, eye[1] / 1e6, eye[2] / 1e6};
 
-  float a[44];
+  float a[48];
   auto put = [&](int i, const double v[3]) {
     a[i * 4] = (float)v[0]; a[i * 4 + 1] = (float)v[1]; a[i * 4 + 2] = (float)v[2]; a[i * 4 + 3] = 0.0f;
   };
   put(0, camMm); put(1, sunDir); put(2, up); put(3, sunTan); put(4, side);
   put(5, right); put(6, camUp); put(7, fwd);
-  /* The same crop as MvpCamRel's, in the form the sky/cloud ray reconstruction uses: the product
-   * tanHalf*aspect (the HORIZONTAL half-extent) is unchanged, the vertical one shrinks with the
-   * viewport. Sky and terrain must agree on the ray or the horizon parts company with the ground. */
-  const float halfFov = 60.0f * 3.14159265f / 180.0f / 2.0f;
-  a[32] = std::tan(halfFov) * (float)ViewH() / (float)Height;
-  a[33] = (float)Width / (float)ViewH();
+  /* The same projection MvpCamRel builds, in the form the sky/cloud ray reconstruction uses: the
+   * pre-grid full-frame tangents plus the SHIFT that moves the boresight up to the windscreen centre
+   * (a[44]). Sky and terrain must agree on the ray or the horizon parts company with the ground. */
+  const float halfFov = kSceneVerticalFovDeg * 3.14159265f / 180.0f / 2.0f;
+  a[32] = std::tan(halfFov);
+  a[33] = (float)Width / (float)Height;
   a[34] = std::cos(0.5f * 3.14159265f / 180.0f);   /* sun angular radius */
   a[35] = 30.0f;                                    /* sun disc intensity */
   put(9, moonDir); a[39] = (float)moonPh;           /* moonDir.w = phase */
@@ -333,27 +334,33 @@ void FBRenderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], c
   a[41] = GroundPhoto ? 1.0f : 0.0f;
   a[42] = (float)cloud;
   a[43] = 0.0045f * (float)MoonScale;               /* real angular radius x FB_MOON_SCALE (default 1) */
+  a[44] = ViewShiftNdc();
+  a[45] = a[46] = a[47] = 0.0f;
   Queue.WriteBuffer(AtmoBuf, 0, a, sizeof a);
 }
 
 /* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and the
  * view is pure rotation — no absolute ECEF coordinate ever reaches float.
  * Herleitung: doc/render/renderer.md §1.2. */
-/* `hVp` is the out-the-window viewport's height, `hFull` the frame's. The vertical FOV is scaled by
- * their ratio, so the pixels-per-radian of the picture is IDENTICAL at both: a cockpit that takes the
- * bottom third of the screen CROPS the windscreen, it does not squeeze it into a letterbox. With
- * hVp == hFull every term below is the number it was before the grid existed. */
+/* The projection is the PRE-GRID full-frame one — 60 deg over hFull, aspect w/hFull, so pixels per
+ * radian is bit for bit what it was before the cockpit existed — plus ONE off-centre term: the
+ * boresight is lifted from the frame's centre to the windscreen's (`shift` in NDC). The world is
+ * therefore drawn over the WHOLE frame and simply continues behind the MFD bank, which is what lets
+ * the bays be translucent; it is a CROP with a shifted principal point, never a squeeze.
+ * `shift` = 1 - hVp/hFull, and with hVp == hFull it is 0 and every term is the pre-grid number. */
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w,
                       int hVp, int hFull) {
-  const float fov = 60.0f * 3.14159265f / 180.0f, asp = (float)w / (float)hVp;
+  const float fov = kSceneVerticalFovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)hFull;
   const float zn = 0.05f;
-  const float f = (1.0f / std::tan(fov / 2.0f)) * ((float)hFull / (float)hVp);
+  const float f = 1.0f / std::tan(fov / 2.0f);
+  const float shift = 1.0f - (float)hVp / (float)hFull;
   float v[16] = {(float)R[0],  (float)Uc[0],  -(float)F[0],  0,
                  (float)R[1],  (float)Uc[1],  -(float)F[1],  0,
                  (float)R[2],  (float)Uc[2],  -(float)F[2],  0,
                  0,            0,             0,             1};
-  /* infinite reversed-Z projection ([0,1]): z_clip = zn, w = -z_eye -> depth = zn / -z_eye */
-  float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, 0, 0, -1, 0, 0, zn, 0};
+  /* infinite reversed-Z projection ([0,1]): z_clip = zn, w = -z_eye -> depth = zn / -z_eye.
+   * y_clip = f*y_eye + shift*w, i.e. the z column carries -shift on the y row. */
+  float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, 0, -shift, 0, -1, 0, 0, zn, 0};
   for (int c = 0; c < 4; c++)
     for (int r = 0; r < 4; r++) {
       m[c * 4 + r] = 0;
@@ -617,12 +624,9 @@ void FBRenderer::RenderFrame(void) {
   sp.depthStencilAttachment = &da;
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
   passCount++;
-  /* The windscreen is the grid's top two rows. Scissor as well as viewport: the viewport only maps
-   * NDC, and a stage that ever draws with a guard-band-sized primitive must not paint over the bank. */
-  if (ctx.ViewH < Height) {
-    scene.SetViewport(0, 0, (float)Width, (float)ctx.ViewH, 0.0f, 1.0f);
-    scene.SetScissorRect(0, 0, (uint32_t)Width, (uint32_t)ctx.ViewH);
-  }
+  /* NO viewport: the world covers the WHOLE frame and continues behind the MFD bank, which is what the
+   * translucent bays show. The windscreen is still the grid's top two rows — it is the PROJECTION that
+   * puts the boresight there (MvpCamRel's `shift`), not a scissor. */
   Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
 
   Sun->Encode(ctx, scene);     /* additive (One/One), right after Sky */
@@ -655,18 +659,12 @@ void FBRenderer::RenderFrame(void) {
     cp.colorAttachments = &cca;
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
     passCount++;
-    if (ctx.ViewH < Height) {   /* same window as the scene it blends into, same depth texels */
-      cl.SetViewport(0, 0, (float)Width, (float)ctx.ViewH, 0.0f, 1.0f);
-      cl.SetScissorRect(0, 0, (uint32_t)Width, (uint32_t)ctx.ViewH);
-    }
-    Clouds->Encode(ctx, cl);
+    Clouds->Encode(ctx, cl);   /* same full-frame window as the scene it blends into, same depth texels */
     cl.End();
   }
 
-  /* NO viewport here, deliberately: the tonemap is a 1:1 HdrTex -> FrameTex map, and the grid's bottom
-   * row is simply the part of HdrTex the scene pass left at its clear value — ACES(0) = 0, i.e. the
-   * black the MFD bank is then drawn on. Cropping this pass too would squeeze the whole HDR frame back
-   * into the window. */
+  /* A 1:1 HdrTex -> FrameTex map, the whole frame, bank row included — that row now carries world, and
+   * the bays are drawn translucently over it. */
   wgpu::RenderPassColorAttachment tca{};   /* tonemap -> FrameTex: ACES, sRGB-encode on store, no depth */
   tca.view = frameView;
   tca.loadOp = wgpu::LoadOp::Clear;

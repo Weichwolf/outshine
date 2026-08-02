@@ -26,8 +26,7 @@ fn vnoise(p : vec2f) -> f32 {
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let dir = normalize(A.camFwd.xyz + in.ndc.x * A.params.x * A.params.y * A.camRight.xyz
-                                   + in.ndc.y * A.params.x * A.camUp.xyz);
+  let dir = camRay(A, in.ndc);
   var col = skyViewSample(svLUT, lsamp, A, dir);   /* physically-based scattering: day/dusk/night */
 
   let evs = A.skyExtra.y;        /* SVS (OSM) suppresses every real-sky extra below (constant day) */
@@ -77,7 +76,7 @@ void FBSkyStage::Configure(const FBGpu &gpu, wgpu::TextureView skyLutView, wgpu:
   wgpu::BindGroupEntry be[3] = {};
   be[0].binding = 0; be[0].textureView = skyLutView;
   be[1].binding = 1; be[1].sampler = lutSamp;
-  be[2].binding = 2; be[2].buffer = atmoBuf; be[2].size = 11 * 4 * sizeof(float);
+  be[2].binding = 2; be[2].buffer = atmoBuf; be[2].size = kAtmoUniformBytes;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = Pipe.GetBindGroupLayout(0);
   bg.entryCount = 3;

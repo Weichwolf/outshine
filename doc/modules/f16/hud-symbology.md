@@ -262,7 +262,49 @@ enforcement mechanism** — no code change was made this pass; it is the referen
 ## State
 
 **This file is the closest match between reference and implementation in the whole set** — the F-16 HUD
-is built against it element by element, inside the real combiner aperture.
+is built against it element by element. Since this round it is drawn in the WINDSCREEN (the grid's top
+two rows), not inside a drawn combiner aperture: the owner's ruling is that the aiming surface IS the
+upper window and the symbology fills it.
+
+### The cut, element by element (owner's rule: *does the pilot need this while looking through the
+glass, to AIM or to NAVIGATE?*)
+
+| Element | Verdict | Why / where it went |
+|---|---|---|
+| Flight path marker (FPM) | **stays** | it IS the aiming point |
+| Pitch ladder (±45°, 5° rungs) | **stays** | the aiming reference against the world — and it carries BANK conformally, which is why the bank scale could go |
+| Horizon line | **stays** | the ladder's 0° rung; attitude reference |
+| Heading band (top edge) | **stays** | one of the three bands the owner named; navigation |
+| CAS band (left edge) | **stays** | named band; the number one flies an attack or an approach on |
+| Altitude band (right edge) | **stays** | named band |
+| Steerpoint diamond + tadpole | **stays** | the navigation task itself |
+| One steering line `STPT nn dd.d` | **stays** (was three lines) | which waypoint and how far — the minimum a diamond needs in words |
+| **Bank scale** (arc below the FPM) | **GONE** → `SYS` page (`PIT/BNK`) | attitude is STATE, and the pitch ladder already shows bank where the eyes already are |
+| **Bullseye bearing/range** (left block) | **GONE** → `HSD` page (`BULL bbb/rr`) | a position reference for the RADIO, read once, not an aiming cue — and the HSD is the picture it belongs in |
+| **Time-to-go** (right block) | **GONE** → `HSD` page (`TTGmmm:ss`) | planning, not aiming |
+| **Slant range + provider letter** (right block) | **GONE** → `HSD` page (`Bddd.d`) | same number as the steerpoint distance in a second unit; one of them is enough heads-up |
+| G, peak G, Mach, ARM/SIM, radar altitude, ALOW | gone LAST round → `SYS`/`SMS` | `cockpit-displays.md` |
+| Target symbology, weapon release cue | **still not implemented** | the source set documents no TD box and no DLZ drawing — a gap, not a cut (see Gaps) |
+
+Nothing was deleted: every removed number is on a published block and is drawn on an MFD page.
+
+### The projector was wrong, and the fix is what made the window fill
+
+The HUD's conformal projector used a **80°** vertical field of view while the scene renders at **60°**
+— `Kc = 429` px per unit tangent against the world's `623.5`. The symbology was therefore not
+conformal at all: it shrank toward the boresight by a factor 1.45, which is a large part of why it
+"stuck in the middle". Both now read ONE constant (`core/FBCamera.h`'s `kSceneVerticalFovDeg`).
+
+**Measured** (`gpu_native`, the HUD horizon's ink row against the projection, 1280×720, `ViewH = 480`):
+
+| Camera pitch | HUD horizon, measured | conformal (`Kc = 623.5`) | the old projector (`Kc = 429`) |
+|---:|---:|---:|---:|
+| +10° | 365.1 | 363.9 | 325.3 |
+| 0° | 254.5 | 253.5 | 249.3 |
+| −10° | 145.1 | 144.0 | 173.9 |
+
+Residual ≤ 1.2 px (the ink centroid of a 3 px stroke) against the conformal prediction, up to 40 px
+against the old one.
 
 | Item of this reference | FlightBox | Where |
 |---|---|---|
@@ -270,10 +312,11 @@ is built against it element by element, inside the real combiner aperture.
 | Heading / CAS / altitude tapes | **built** | same |
 | G load, Mach, peak G, master-mode text, ARM/SIM, R (radar altitude), AL (ALOW) | **REMOVED from the HUD this round and moved to the MFD bank** ([`cockpit-displays.md`](cockpit-displays.md)) on the owner's rule *"HUD hat nur zielerfassung/wegpunkte und alles andere im heads down"*: each of them is aircraft STATE, and a HUD that carries state makes the pilot read at the wrong moment. Nothing was deleted — every one of them is on a published block and is drawn on the SYS or SMS page | this round |
 | Steerpoint diamond (crossed out beyond the real F-16C TFOV/2) + Tadpole / Great Circle Steering Cue | **built** | same |
-| Right status block: 'B' slant range → TTG → distance to steerpoint | **built**, and since this round it is the WHOLE right block: R (radar altitude) and AL (ALOW) went to the SYS page with the rest of the state. The three that stayed are steering numbers, which is the HUD's remaining job | same |
-| Left status block: the bullseye bearing/range | **built**, and since this round it is the whole left block | same |
+| Right status block: 'B' slant range → TTG → distance to steerpoint | **cut to ONE line this round**: `STPT nn dd.d`, bottom left, out of the aiming zone. Slant range and TTG are on the HSD page | same |
+| Left status block: the bullseye bearing/range | **gone from the HUD this round** → HSD page | same |
+| Bank scale | **gone from the HUD this round** → SYS page (`PIT/BNK`) | same |
 | **The aiming cue at release** (DLZ scale, CCIP pipper, TD box) | **still not implemented** — the owner's cut keeps it in the HUD, and this file documents none of them, so none was invented. The employment gates read `FBState::FireControl`, which HAS the numbers (`DlzValid`, `InZone`, `AgMissM`, the EEGS funnel); what is missing is a documented DRAWING. Named as a gap rather than sketched | this round |
-| The combiner aperture itself (~25° TFOV, aspect-correct), conformal symbology scissored at the window edge | **built** — tapes and blocks at the aperture edges, conformal elements clipped, the diamond clamp coincident with the window edge | [`../flightbox/render/hud.md`](../../render/hud.md) |
+| The combiner aperture itself (~25° TFOV, aspect-correct), conformal symbology scissored at the window edge | **REPLACED this round by the windscreen** — the drawn window is the grid's top two rows inset by 10 px, bands at its edges, conformal elements clipped to it, the diamond clamp coincident with the window edge. The ~25° aperture is no longer drawn anywhere; it survives only as the reference this file documents | [`../flightbox/render/hud.md`](../../render/hud.md) |
 | Bitmap font + MAX7456 look | **built** as two separate things: a generic coverage-antialiased font system in `render/`, and an F-16-specific chip hook (`FBF16Max7456`) that is a real, instantiated NoOp | [`module.md`](module.md) §11 |
 | ILS symbology (localizer/glideslope bars, command steering) | **not implemented** — there is no ILS receiver | — |
 | A-A / A-G weapon symbology beyond the release cue (TD box, locked-target symbol, DLZ scale, EEGS funnel drawing) | **not implemented** — and deliberately so for the lock: this file documents neither a TD box nor a locked-target symbol, so none is invented; the lock lives in the bus, telemetry and events | [`../flightbox/sim/sensors.md`](../../sensors.md) Gaps 11 |
@@ -292,12 +335,18 @@ resolution, and which require an eyes-down glance (which FlightBox spends as com
 - Chuck Parts 3/6/8/16 and ED pp.89–96 + 225–226 are fully processed.
 
 **Implementation gaps** (this reference vs. FlightBox)
-- *Modelled:* the whole core flight/navigation symbology set, in the real aperture, with the real
-  scales.
-- *Partially:* the status blocks — present with the documented fields, but fed by FlightBox's own
-  computation (e.g. steerpoint elevation is sampled under the aircraft, not declared).
+- *Modelled:* the aiming and navigation set — FPM, ladder, horizon, the three bands, diamond/tadpole —
+  conformal at the scene's own pixels-per-radian, filling the windscreen.
+- *Partially:* the steering readout — one line where this reference documents a whole block.
 - *Not at all:* ILS symbology, weapon-specific symbology (TD box, DLZ, EEGS drawing), pull-up/breakX
   cues, HUD declutter modes, MAN RNG/UNCAGE behaviour, HMCS.
+- **Named this round:** the drawn window is no longer the documented ~25° combiner aperture but the
+  whole windscreen. That is the owner's ruling, not a reading of this reference, and it IS a deviation
+  from the source — a real F-16 pilot does not see the pitch ladder out to the canopy rails. Recorded
+  as a deviation rather than reasoned away.
+- **Also named:** with the bank scale gone the HUD carries no attitude READOUT besides the ladder, and
+  the AOA "E" bracket this file documents for the landing configuration is still not drawn. Neither is
+  new this round; both are the same standing gap, now load-bearing for a HUD-only pilot.
 
 ## Knowledge
 

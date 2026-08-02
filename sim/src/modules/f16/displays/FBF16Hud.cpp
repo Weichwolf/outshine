@@ -8,25 +8,25 @@ namespace FlightBox::Modules {
 namespace {
 constexpr float kRad = 3.14159265358979323846f / 180.f;
 constexpr float kR2D = 57.29577951308232f;
-constexpr float kHudFovDeg = 80.0f;
-/* Combiner APERTURE — the real HUD is a small window, not the whole windscreen. Horizontal half-angle
- * is TFOV/2 [DOC]; the VERTICAL is DERIVED from IFOV's aspect ratio rather than set as a second magic
- * constant. doc/modules-f16.md §12.1. */
-constexpr float kApertureHalfWidthDeg = 12.5f;                                    /* TFOV/2 */
-constexpr float kApertureIfovH = 20.0f, kApertureIfovV = 13.5f;                   /* IFOV, for the ratio only */
-constexpr float kApertureHalfHeightDeg = kApertureHalfWidthDeg * (kApertureIfovV / kApertureIfovH);
-/* [SET] Enlarges only the DRAWN window and the fixed pixel sizes in it; the physical aperture ANGLE
- * above stays what the conformal projector uses. */
-constexpr float kHudMagnify = 1.88f;
-/* Text-scale FLOORS the magnify multiplies from [ABL], so the ink clears B612's own legibility ratio. */
+/* Conformal = the SCENE's projector. One number for both (core/FBCamera.h), never a second copy. */
+constexpr float kHudFovDeg = kSceneVerticalFovDeg;
+/* DIE ZIELERFASSUNGSFLAECHE IST DAS FENSTER. Der Eigner hat den Maszstab gesetzt: die oberen zwei
+ * Rasterreihen sind die Scheibe, und die Symbolik fuellt sie. Frueher wurde stattdessen die
+ * Kombinierer-Apertur (~25 deg TFOV) gezeichnet — ein 520x348-Rechteck mitten in einem 1280x480-Fenster.
+ * Was BLEIBT, ist der Maszstab: Kc ist unveraendert der Szenen-Projektor, die Welt wird nicht gedehnt. */
+constexpr float kWindowInsetPx = 10.f;
+/* Fester Pixelmaszstab fuer Symbole/Ticks — er waechst NICHT mit dem Fenster, sonst wuerde das HUD auf
+ * einem groszen Schirm zur Plakatwand. [SET], Nachfolger von kHudMagnify. */
+constexpr float kHudScale = 1.9f;
+/* Text-scale FLOORS the scale multiplies from [ABL], so the ink clears B612's own legibility ratio. */
 constexpr float kHudReadoutScale = 1.15f, kHudSecondaryScale = 1.08f;
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
 constexpr float kMToFtF = (float)kMToFt;   /* from core/FBUnits.h: a local copy would drift */
 
 struct Proj { float sx, sy, zc; };   /* zc = cos(angle from boresight); zc<=0 = behind */
 
-/* The aperture in screen pixels, at the same projector scale every conformal element uses. */
-struct Aperture { float cx, cy, x0, y0, x1, y1; };
+/* The drawn window in screen pixels — the windscreen itself, inset. */
+struct Window { float cx, cy, x0, y0, x1, y1, halfW, halfH; };
 
 float Wrap180(float d) {
   while (d > 180.f) d -= 360.f;
@@ -48,24 +48,26 @@ void PrintThousands(Systems::FBHudGeometry &out, float x, float y, float s, floa
   else out.Printf(x, y, s, r, g, b, "%d", v);
 }
 
-/* Ray from the aperture centre through (px,py), pulled back to the rectangle's own boundary — so the
+/* Ray from the window centre through (px,py), pulled back to the rectangle's own boundary — so the
  * out-of-view clamp lands exactly ON the window edge instead of on an independent ring. The inset
  * shrinks it by a symbol's half-size, so its strokes are not scissored in half. */
-void ClampToRect(const Aperture &ap, float px, float py, float insetX, float insetY, float &ox, float &oy) {
-  float dx = px - ap.cx, dy = py - ap.cy;
-  float halfW = 0.5f * (ap.x1 - ap.x0) - insetX, halfH = 0.5f * (ap.y1 - ap.y0) - insetY;
+void ClampToRect(const Window &w, float px, float py, float insetX, float insetY, float &ox, float &oy) {
+  float dx = px - w.cx, dy = py - w.cy;
+  float halfW = w.halfW - insetX, halfH = w.halfH - insetY;
   float tx = fabsf(dx) > 1e-4f ? halfW / fabsf(dx) : 1e6f;
   float ty = fabsf(dy) > 1e-4f ? halfH / fabsf(dy) : 1e6f;
   float t = tx < ty ? tx : ty;
-  ox = ap.cx + dx * t;
-  oy = ap.cy + dy * t;
+  ox = w.cx + dx * t;
+  oy = w.cy + dy * t;
 }
 } // namespace
 
-/* Every conformal element goes through ONE az/el projector built from the same camera basis the generic
- * HUD's horizon uses; "az/el" is WORLD-referenced (0=north, +el=up), so a world direction needs no
- * body-frame composition. Everything is then cropped to the combiner APERTURE — the pilot's own
- * eye-relative window, not the render target. Element table: doc/modules-f16.md §12.2. */
+/* DER SCHNITT (Eigner, diese Runde): im HUD steht, WOMIT MAN ZIELT UND NAVIGIERT — Geschwindigkeits-
+ * vektor, Nickleiter, die drei schmalen Baender, die Wegpunkt-Raute. Alles, was ZUSTAND ist, steht
+ * unten in der MFD-Bank (systems/FBDisplaySystem::BuildMfd): Rollwinkel auf SYS, Bullseye/Restflugzeit/
+ * Schraegentfernung auf HSD. Element-fuer-Element-Liste: doc/modules/f16/hud-symbology.md.
+ * Jedes konforme Element geht durch EINEN az/el-Projektor aus derselben Kamerabasis wie die Szene;
+ * "az/el" ist WELTBEZOGEN (0 = Nord, +el = oben). */
 void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const {
   out.Reset();
   /* Der Kombinierer sitzt in der Mitte der SCHEIBE (den oberen zwei Rasterreihen), waehrend Kc unten
@@ -73,7 +75,7 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
    * Raster nicht — die Szene wird beschnitten, nicht gestaucht. */
   float cx = 0.5f * (float)env.Width, cy = 0.5f * (float)env.ViewH;
   if (!env.Have) {
-    out.Text(cx - 60 * kHudMagnify, 30 * kHudMagnify, 3 * kHudMagnify, 1, 0.8f, 0.2f, "NO TELEMETRY");
+    out.Text(cx - 60 * kHudScale, 30 * kHudScale, 3 * kHudScale, 1, 0.8f, 0.2f, "NO TELEMETRY");
     return;
   }
 
@@ -92,45 +94,47 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
     return {cx + Kc * xc / zcs, cy - Kc * yc / zcs, zc};
   };
 
-  Aperture ap;
-  ap.cx = cx; ap.cy = cy;
-  /* Kc stays the real scene-FOV projector, so positions stay conformal; kHudMagnify only inflates the
-   * WINDOW they are cropped to. */
-  float winHalfW = Kc * tanf(kApertureHalfWidthDeg * kRad) * kHudMagnify;
-  float winHalfH = Kc * tanf(kApertureHalfHeightDeg * kRad) * kHudMagnify;
-  ap.x0 = cx - winHalfW; ap.x1 = cx + winHalfW;
-  ap.y0 = cy - winHalfH; ap.y1 = cy + winHalfH;
+  Window win;
+  win.cx = cx; win.cy = cy;
+  win.x0 = kWindowInsetPx; win.x1 = (float)env.Width - kWindowInsetPx;
+  win.y0 = kWindowInsetPx; win.y1 = (float)env.ViewH - kWindowInsetPx;
+  win.halfW = 0.5f * (win.x1 - win.x0);
+  win.halfH = 0.5f * (win.y1 - win.y0);
+  const float mg = kHudScale;
 
-  /* ===== Conformal group: horizon, pitch ladder, FPM — all scissored to the aperture. ===== */
-  out.SetClip(ap.x0, ap.y0, ap.x1, ap.y1);
+  /* ===== Conformal group: horizon, pitch ladder, FPM — all scissored to the window. ===== */
+  out.SetClip(win.x0, win.y0, win.x1, win.y1);
 
-  /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. ----- */
+  /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. Long enough to cross
+   * the window at any bank; the clip cuts it to size. ----- */
   {
     float dip = FBHorizonDipRad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl) * kR2D;
     Proj p0 = Project(state.Platform.YawDeg, -dip), p1 = Project(state.Platform.YawDeg + 20.f, -dip);
     float ddx = p1.sx - p0.sx, ddy = p1.sy - p0.sy, LL = sqrtf(ddx * ddx + ddy * ddy);
     if (LL > 1.f) {
       float ux = ddx / LL, uy = ddy / LL, mx = p0.sx, my = p0.sy;
-      float half = 200.f * kHudMagnify, gap = 12.f * kHudMagnify;
+      float half = win.halfW + win.halfH, gap = 12.f * mg;
       out.QLine(mx - ux * half, my - uy * half, mx - ux * gap, my - uy * gap, 1.0f, kHgR, kHgG, kHgB);
       out.QLine(mx + ux * gap, my + uy * gap, mx + ux * half, my + uy * half, 1.0f, kHgR, kHgG, kHgB);
     }
   }
 
   /* ----- Pitch ladder: earth-referenced bars every 5 deg, positive solid / negative dashed
-   * (MIL-STD-1787), compacted so a full bar's two segments fit the window's width. ----- */
+   * (MIL-STD-1787). Der azimutale SPREIZWINKEL ist eine Fensterbreite, keine physikalische Groesze:
+   * er wird aus dem Fenster ZURUECKGERECHNET (atan(px/Kc)), damit die Leiter das Fenster fuellt statt
+   * in seiner Mitte zu kleben. ----- */
   {
-    /* gapDeg/outerDeg are stylistic azimuth SPREAD, not a physical quantity — only Ldeg carries real
-     * pitch — so kHudMagnify scales them like any other screen length. */
-    const float gapDeg = 1.0f * kHudMagnify, outerDeg = 4.5f * kHudMagnify, tickLen = 3.f * kHudMagnify;
-    for (int Ldeg = -30; Ldeg <= 30; Ldeg += 5) {
+    const float gapDeg = kR2D * atanf(0.045f * win.halfW / Kc);
+    const float outerDeg = kR2D * atanf(0.30f * win.halfW / Kc);
+    const float tickLen = 4.f * mg;
+    for (int Ldeg = -45; Ldeg <= 45; Ldeg += 5) {
       if (Ldeg == 0) continue;
       bool dashed = Ldeg < 0;
       float towardHorizonDeg = Ldeg > 0 ? (float)Ldeg - 2.f : (float)Ldeg + 2.f;
       for (int side = -1; side <= 1; side += 2) {
         Proj inner = Project(state.Platform.YawDeg + (float)side * gapDeg, (float)Ldeg);
         Proj outer = Project(state.Platform.YawDeg + (float)side * outerDeg, (float)Ldeg);
-        if (dashed) DashedLine(out, inner.sx, inner.sy, outer.sx, outer.sy, 3, kHgR, kHgG, kHgB);
+        if (dashed) DashedLine(out, inner.sx, inner.sy, outer.sx, outer.sy, 4, kHgR, kHgG, kHgB);
         else out.Line(inner.sx, inner.sy, outer.sx, outer.sy, kHgR, kHgG, kHgB);
 
         Proj toward = Project(state.Platform.YawDeg + (float)side * outerDeg, towardHorizonDeg);
@@ -139,8 +143,8 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
           float ux = tdx / tl, uy = tdy / tl;
           out.Line(outer.sx, outer.sy, outer.sx + ux * tickLen, outer.sy + uy * tickLen, kHgR, kHgG, kHgB);
         }
-        out.Printf(outer.sx + (side > 0 ? 2.f : -12.f) * kHudMagnify, outer.sy - 3.f * kHudMagnify,
-                   kHudSecondaryScale * kHudMagnify, kHgR, kHgG, kHgB, "%d", Ldeg > 0 ? Ldeg : -Ldeg);
+        out.Printf(outer.sx + (side > 0 ? 3.f : -14.f) * mg, outer.sy - 3.f * mg,
+                   kHudSecondaryScale * mg, kHgR, kHgG, kHgB, "%d", Ldeg > 0 ? Ldeg : -Ldeg);
       }
     }
   }
@@ -149,31 +153,32 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
    * than at its draw site because the tadpole below re-uses its anchor. ----- */
   Proj fpm = Project(state.AirData.TrackDeg, state.AirData.FpaDeg);
   {
-    float fx = fpm.sx, fy = fpm.sy, mg = kHudMagnify;
-    out.Circle(fx, fy, 4.f * mg, 16, kHgR, kHgG, kHgB);
-    out.Line(fx - 10 * mg, fy, fx - 4 * mg, fy, kHgR, kHgG, kHgB);
-    out.Line(fx + 4 * mg, fy, fx + 10 * mg, fy, kHgR, kHgG, kHgB);
-    out.Line(fx, fy + 4 * mg, fx, fy + 8 * mg, kHgR, kHgG, kHgB);
+    float fx = fpm.sx, fy = fpm.sy;
+    out.Circle(fx, fy, 5.f * mg, 16, kHgR, kHgG, kHgB);
+    out.Line(fx - 13 * mg, fy, fx - 5 * mg, fy, kHgR, kHgG, kHgB);
+    out.Line(fx + 5 * mg, fy, fx + 13 * mg, fy, kHgR, kHgG, kHgB);
+    out.Line(fx, fy + 5 * mg, fx, fy + 10 * mg, kHgR, kHgG, kHgB);
   }
 
   out.ClearClip();
 
-  /* ----- Heading tape, TOP of the aperture, ticks pointing down: magnetic (MagVar is a 0 deg
-   * placeholder until a declination model exists). ----- */
+  /* ----- Heading tape, at the very TOP of the window, ticks pointing down: magnetic (MagVar is a
+   * 0 deg placeholder until a declination model exists). Die Skala spannt +-35 deg ueber die volle
+   * Fensterbreite — das Band steht oben, nicht bei einem Drittel. ----- */
   {
-    float mg = kHudMagnify;
     float hdg = state.Platform.YawDeg - state.Nav.MagVarDeg;
     hdg = hdg < 0 ? hdg + 360.f : (hdg >= 360.f ? hdg - 360.f : hdg);
-    float hy1 = ap.y0 + 15.f * mg;                       /* rail y, near the aperture's top edge */
-    float halfSpan = winHalfW - 12.f * mg, hpd = 3.2f * mg;   /* px/deg */
-    for (int hh = (int)floorf((hdg - halfSpan / hpd) / 5.f) * 5; hh <= (int)(hdg + halfSpan / hpd); hh += 5) {
+    float hy1 = win.y0 + 9.f * mg;                            /* rail y, at the window's top edge */
+    const float bandDeg = 35.f;
+    float halfSpan = win.halfW - 10.f * mg, hpd = halfSpan / bandDeg;   /* px/deg */
+    for (int hh = (int)floorf((hdg - bandDeg) / 5.f) * 5; hh <= (int)(hdg + bandDeg); hh += 5) {
       float sx = cx + ((float)hh - hdg) * hpd;
-      if (sx < ap.x0 || sx > ap.x1) continue;
+      if (sx < win.x0 || sx > win.x1) continue;
       int hn = ((hh % 360) + 360) % 360;
-      float tk = (hn % 10 == 0) ? 5.f : 3.f;
+      float tk = (hn % 10 == 0) ? 6.f : 3.5f;
       tk *= mg;
       out.Line(sx, hy1, sx, hy1 + tk, kHgR, kHgG, kHgB);
-      if (hn % 30 == 0) {
+      if (hn % 10 == 0) {
         char nb[4];
         const char *label = nb;
         if (hn == 0) label = "N";
@@ -185,118 +190,64 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
       }
     }
     out.Line(cx - halfSpan, hy1, cx + halfSpan, hy1, kHgR, kHgG, kHgB);
-    out.Box(cx - 13 * mg, hy1 - 4 * mg, cx + 13 * mg, hy1 + 4 * mg, kHgR, kHgG, kHgB);
-    out.Printf(cx - 10 * mg, hy1 - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%03.0f", hdg);
+    out.Box(cx - 15 * mg, hy1 - 13 * mg, cx + 15 * mg, hy1 - 2 * mg, kHgR, kHgG, kHgB);
+    out.Printf(cx - 11 * mg, hy1 - 11 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%03.0f", hdg);
   }
 
-  /* ----- Bank-angle scale below the FPM: fixed ticks + a pointer rotating with roll, clamped +-45 deg.
-   * Offset and radius are fractions of the half-aperture-height (§12.2). ----- */
-  {
-    float mg = kHudMagnify;
-    /* R/by already carry kHudMagnify through winHalfH; only the literal tick length needs its own. */
-    float bx = cx, by = cy + 0.192f * winHalfH, R = 0.385f * winHalfH, tk = 4.f * mg;
-    static const float marks[] = {0, 10, 20, -10, -20};
-    static const float longMarks[] = {30, -30, 45, -45};
-    for (float m : marks) {
-      float a = m * kRad;
-      out.Line(bx + sinf(a) * R, by - cosf(a) * R, bx + sinf(a) * (R + tk * 0.6f), by - cosf(a) * (R + tk * 0.6f), kHgR, kHgG, kHgB);
-    }
-    for (float m : longMarks) {
-      float a = m * kRad;
-      out.Line(bx + sinf(a) * R, by - cosf(a) * R, bx + sinf(a) * (R + tk), by - cosf(a) * (R + tk), kHgR, kHgG, kHgB);
-    }
-    float roll = state.Platform.RollDeg < -45.f ? -45.f : (state.Platform.RollDeg > 45.f ? 45.f : state.Platform.RollDeg), a = -roll * kRad;
-    float px = bx + sinf(a) * R, py = by - cosf(a) * R;
-    float nx = sinf(a), ny = -cosf(a), tx = -ny, ty = nx;
-    out.Line(px, py, px + (nx * 5.f + tx * 2.5f) * mg, py + (ny * 5.f + ty * 2.5f) * mg, kHgR, kHgG, kHgB);
-    out.Line(px, py, px + (nx * 5.f - tx * 2.5f) * mg, py + (ny * 5.f - ty * 2.5f) * mg, kHgR, kHgG, kHgB);
-  }
-
-  /* ----- DER SCHNITT (Eigner, diese Runde): das HUD traegt, WOMIT MAN ZIELT UND NAVIGIERT, und sonst
-   * nichts. Was Zustand IST — Waffen-/Stationsinventar, Rundenzahl, Master-Arm, Sprit, Systemlage,
-   * Warnungen, das Radarbild, RWR, Datenlink — steht unten in der MFD-Bank (systems/FBDisplaySystem
-   * BuildMfd), weil ein HUD mit Systemzustand den Piloten im falschen Moment lesen laesst.
-   * Hier weggefallen und nach unten gewandert: G/Spitzen-G/Mach, ARM/SIM, Radarhoehe, ALOW.
-   * Geblieben ist die Navigationszeile, denn ein Wegpunkt IST die Zielaufgabe dieser Phase. ----- */
   const bool airDataOk = state.AirData.H.Readable();
 
-  /* ----- Links: der Bullseye-Bezug — eine Peilung, mit der man navigiert und ein Ziel BENENNT. ----- */
-  if (state.Nav.H.Readable()) {
-    float lx = ap.x0 + 2.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
-    out.Printf(lx, cy + 0.136f * winHalfH, s, kHgR, kHgG, kHgB, "%03d %02.0f",
-              ((int)(state.Nav.BullBearingDeg + 0.5f) % 360 + 360) % 360, state.Nav.BullDistNm);
-  }
-
-  /* ----- Rechts: die STEUER-Zahlen zum Wegpunkt — Schraegentfernung mit ihrem Quellenbuchstaben,
-   * Restflugzeit, Entfernung>Steuerpunkt. Ein HELD-Block zeigt seinen Wert weiter; bewusst eingefroren
-   * ist nicht kaputt. ----- */
+  /* ----- Airspeed band (CAS) at the LEFT window edge: minor ticks every 20 kt, boxed exact value.
+   * Numeric tick labels dropped — the box carries the value. ----- */
   {
-    float rx = ap.x1 - 46.f * kHudMagnify, ls = 8.f * kHudMagnify, s = kHudSecondaryScale * kHudMagnify;
-    float ry = cy + 0.136f * winHalfH;
-    if (state.FireControl.H.Readable())
-      out.Printf(rx, ry, s, kHgR, kHgG, kHgB, "%c%05.1f",
-                 state.FireControl.RangeProvider ? state.FireControl.RangeProvider : 'B',
-                 state.FireControl.SteerSlantNm);
-    else out.Text(rx, ry, s, kHgR, kHgG, kHgB, "B---.-");
-    if (state.Cruise.H.Readable()) {
-      int ttgM = (int)(state.Cruise.SteerTtgS / 60.f), ttgS = (int)state.Cruise.SteerTtgS % 60;
-      out.Printf(rx, ry + ls, s, kHgR, kHgG, kHgB, "%03d:%02d", ttgM, ttgS);
-    } else out.Text(rx, ry + ls, s, kHgR, kHgG, kHgB, "---:--");
-    if (state.Nav.H.Readable())
-      out.Printf(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "%03.0f>%02d", state.Nav.SteerDistNm, state.Ufc.SteerNum);
-    else out.Text(rx, ry + 2 * ls, s, kHgR, kHgG, kHgB, "---> --");
-  }
-
-  /* ----- Airspeed tape (CAS): minor ticks every 20 kt, boxed exact value, inset from the aperture
-   * edge. Numeric tick labels dropped — no room at this scale, and the box carries the value. ----- */
-  {
-    float mg = kHudMagnify;
-    float ax = ap.x0 + 0.08f * (ap.x1 - ap.x0), as = state.AirData.CasKt;
-    float tapeHalf = 20.f * mg, pxPerKt = 0.55f * mg;
+    float ax = win.x0 + 26.f * mg, as = state.AirData.CasKt;
+    float tapeHalf = 0.62f * win.halfH, pxPerKt = tapeHalf / 120.f;   /* +-120 kt visible */
     /* A dead ADC has no scale to move: frame and box stay (the instrument is there), ticks do not. */
     if (airDataOk) {
       for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
         if (av < 0) continue;
         float sy = cy - ((float)av - as) * pxPerKt;
         if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
-        float tk = (av % 100 == 0) ? 5.f : 3.f;
+        float tk = (av % 100 == 0) ? 7.f : 4.f;
         out.Line(ax, sy, ax + tk * mg, sy, kHgR, kHgG, kHgB);
+        if (av % 100 == 0)
+          out.Printf(ax - 22.f * mg, sy - 3.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, "%3d", av);
       }
     }
     out.Line(ax, cy - tapeHalf, ax, cy + tapeHalf, kHgR, kHgG, kHgB);
-    out.Box(ax + 2 * mg, cy - 5 * mg, ax + 24 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
-    if (airDataOk) out.Printf(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
-    else out.Text(ax + 4 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "---");
+    out.Box(ax + 2 * mg, cy - 6 * mg, ax + 26 * mg, cy + 6 * mg, kHgR, kHgG, kHgB);
+    if (airDataOk) out.Printf(ax + 5 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
+    else out.Text(ax + 5 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "---");
   }
 
-  /* ----- Altitude tape (barometric ASL): minor ticks every 100 ft, boxed thousands-comma'd value,
-   * inset to mirror the CAS tape. ----- */
+  /* ----- Altitude band (barometric ASL) at the RIGHT window edge: minor ticks every 200 ft, boxed
+   * thousands-comma'd value, mirroring the CAS band. ----- */
   {
-    float mg = kHudMagnify;
-    float axr = ap.x1 - 0.08f * (ap.x1 - ap.x0), asl = state.Platform.AltM * kMToFtF;
-    float tapeHalf = 20.f * mg, pxPerFt = 0.03f * mg;
-    for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 100.f) * 100; av <= (int)(asl + tapeHalf / pxPerFt); av += 100) {
+    float axr = win.x1 - 26.f * mg, asl = state.Platform.AltM * kMToFtF;
+    float tapeHalf = 0.62f * win.halfH, pxPerFt = tapeHalf / 2000.f;   /* +-2000 ft visible */
+    for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 200.f) * 200; av <= (int)(asl + tapeHalf / pxPerFt); av += 200) {
       float sy = cy - ((float)av - asl) * pxPerFt;
       if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
-      float tk = (av % 500 == 0) ? 5.f : 3.f;
+      float tk = (av % 1000 == 0) ? 7.f : 4.f;
       out.Line(axr, sy, axr - tk * mg, sy, kHgR, kHgG, kHgB);
+      if (av % 1000 == 0)
+        PrintThousands(out, axr + 3.f * mg, sy - 3.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, av);
     }
     out.Line(axr, cy - tapeHalf, axr, cy + tapeHalf, kHgR, kHgG, kHgB);
-    /* wide enough for a 6-char "10,020": 6 * advance(4 * 2.162) ~= 52 px < 32*mg */
-    out.Box(axr - 34 * mg, cy - 5 * mg, axr - 2 * mg, cy + 5 * mg, kHgR, kHgG, kHgB);
-    PrintThousands(out, axr - 32 * mg, cy - 3 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, (int)asl);
+    /* wide enough for a 6-char "10,020" at the readout scale */
+    out.Box(axr - 38 * mg, cy - 6 * mg, axr - 2 * mg, cy + 6 * mg, kHgR, kHgG, kHgB);
+    PrintThousands(out, axr - 35 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, (int)asl);
   }
 
-  /* ===== Steerpoint diamond + tadpole: conformal, so back under the aperture clip. ===== */
-  out.SetClip(ap.x0, ap.y0, ap.x1, ap.y1);
+  /* ===== Steerpoint diamond + tadpole: conformal, so back under the window clip. ===== */
+  out.SetClip(win.x0, win.y0, win.x1, win.y1);
   /* No nav solution, no steering symbology: a diamond from an unwritten block would point the pilot at
    * a steerpoint that does not exist (MIL-STD-1787's declutter rule). A BFM mission is exactly this. */
   if (state.Nav.H.Readable()) {
     Proj sp = Project(state.Nav.SteerBearingDeg, state.Nav.SteerElevAngleDeg);
-    bool outOfFov = sp.zc < 0.05f || sp.sx < ap.x0 || sp.sx > ap.x1 || sp.sy < ap.y0 || sp.sy > ap.y1;
-    float dw = 5.f * kHudMagnify, dh = 4.5f * kHudMagnify;
+    bool outOfFov = sp.zc < 0.05f || sp.sx < win.x0 || sp.sx > win.x1 || sp.sy < win.y0 || sp.sy > win.y1;
+    float dw = 6.f * mg, dh = 5.5f * mg;
     float px = sp.sx, py = sp.sy;
-    if (outOfFov) ClampToRect(ap, sp.sx, sp.sy, dw, dh, px, py);
+    if (outOfFov) ClampToRect(win, sp.sx, sp.sy, dw, dh, px, py);
     out.Line(px - dw, py, px, py - dh, kHgR, kHgG, kHgB);
     out.Line(px, py - dh, px + dw, py, kHgR, kHgG, kHgB);
     out.Line(px + dw, py, px, py + dh, kHgR, kHgG, kHgB);
@@ -306,24 +257,32 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
       out.Line(px - dw, py + dh, px + dw, py - dh, kHgR, kHgG, kHgB);
     }
 
-    /* Tadpole: near the FPM, X clamped to the aperture half-width, rotated so it points UP when the
-     * steerpoint is ahead of track and DOWN when behind [DOC]. */
-    float mg = kHudMagnify;
+    /* Tadpole: near the FPM, X clamped to the window half-width, rotated so it points UP when the
+     * steerpoint is ahead of track and DOWN when behind it [DOC]. */
     float relBrg = Wrap180(state.Nav.SteerBearingDeg - state.AirData.TrackDeg);
-    float clampX = winHalfW - 12.f * mg;
+    float clampX = win.halfW - 14.f * mg;
     float tx = relBrg * 1.2f * mg;
     tx = tx < -clampX ? -clampX : (tx > clampX ? clampX : tx);
     float tpx = fpm.sx + tx, tpy = fpm.sy;
     float ar = relBrg * kRad, sA = sinf(ar), cA = cosf(ar);
     auto Rot = [&](float lx, float ly, float &ox, float &oy) { ox = tpx + lx * cA - ly * sA; oy = tpy + lx * sA + ly * cA; };
     float tipx, tipy, basex, basey, lhx, lhy, rhx, rhy;
-    Rot(0, -6 * mg, tipx, tipy); Rot(0, 4 * mg, basex, basey);
-    Rot(-2.5f * mg, -2.5f * mg, lhx, lhy); Rot(2.5f * mg, -2.5f * mg, rhx, rhy);
+    Rot(0, -8 * mg, tipx, tipy); Rot(0, 5 * mg, basex, basey);
+    Rot(-3.f * mg, -3.f * mg, lhx, lhy); Rot(3.f * mg, -3.f * mg, rhx, rhy);
     out.Line(basex, basey, tipx, tipy, kHgR, kHgG, kHgB);
     out.Line(tipx, tipy, lhx, lhy, kHgR, kHgG, kHgB);
     out.Line(tipx, tipy, rhx, rhy, kHgR, kHgG, kHgB);
   }
   out.ClearClip();
+
+  /* ----- Die EINE Navigationszeile, unten links aus der Zielzone heraus: welcher Wegpunkt und wie
+   * weit. Restflugzeit und Schraegentfernung stehen auf HSD — sie sind Planung, nicht Zielhilfe. ----- */
+  {
+    float s = kHudSecondaryScale * mg, ly = win.y1 - 10.f * mg, lx = win.x0 + 6.f * mg;
+    if (state.Nav.H.Readable())
+      out.Printf(lx, ly, s, kHgR, kHgG, kHgB, "STPT %02d  %5.1f", state.Ufc.SteerNum, (double)state.Nav.SteerDistNm);
+    else out.Text(lx, ly, s, kHgR, kHgG, kHgB, "STPT --  ---.-");
+  }
 }
 
 } // namespace FlightBox::Modules

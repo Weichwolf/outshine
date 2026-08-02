@@ -126,6 +126,15 @@ public:
   static FBDamageResult ApplyKinetic(const FBKineticBurst &burst, const FBDamageLayout &layout,
                                      FBSystemHealth &health);
 
+  /* THE THIRD WAY INTO THE REGISTER, and the only one that carries no geometry: a unit that PHYSICS
+   * has finished — the ground, a broken structure, an integration that diverged. The criterion is
+   * core/FBFlightMonitor's, model-derived and measured there; this function invents nothing and
+   * chooses nothing, it RECORDS. It exists because "is this unit still alive" must have exactly one
+   * answer for every unit kind, and the register is where that answer lives — an observer writing
+   * anywhere else would be a second, parallel truth. It touches no SYSTEM state: which boxes still
+   * work is a question about a sortie, and this unit no longer has one. doc/core.md §6.1. */
+  static void ApplyPhysicalKo(FBSystemHealth &health) { health.NoteDestroyed(); }
+
 private:
   /* The layout is the airframe's declaration of WHAT IT HAS; the register needs one bit of it (a second
    * engine). Walked whole rather than per-hit zone, so the answer cannot depend on where a burst landed. */

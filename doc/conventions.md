@@ -175,6 +175,34 @@ can see missing. So the subtraction became a constructor and the write became a 
 The complete inventory of the tree's angle handovers, with the frame pair and the verdict for each,
 is [`sensors.md`](sensors.md) §10.
 
+## A rule nobody can forget to obey
+
+A rule that lives in a `while` head is a rule the NEXT caller does not inherit. The browser proved it:
+it wrote itself a second sim loop and left the end condition out, so a CFIT'd F-16 kept being
+integrated while the judge's own `monitor KO` line stood in the console. The fix is never a check added
+to the second copy — it is that there IS no second copy, and that the compiler says so.
+
+The tree's guarantees are therefore all of one shape: **private with exactly one friend**, or **a type
+that has no syntax for the wrong thing**, or **a gate that prints a number**.
+
+- `FBFdm`'s loading constructor — private, one friend (`FBFdmBoot`).
+- `FBSystemHealth`'s mutators — private, one friend (`FBDamageModel`). Self-repair does not compile,
+  and neither does a forged K.O.
+- `FBBodyAngle` — no syntax for a naked double. `FBPilotTuning` — no syntax for an absolute value.
+- `units/FBSimUnit`'s tick surface (`Run`, `PublishPose`, `RunMonitors`, `Update*`, `FinalizeMission`,
+  `CheckEnvelope`) — private, one friend: `missions/FBMissionSim`, the ONE simulation loop. A client
+  cannot step a unit, so it cannot write a loop, so it cannot forget the rule that ends one.
+- `FBRunState` — `[[nodiscard]]` on the TYPE: advancing a simulation hands back whether it is over, and
+  dropping that value is a compile error in all four builds.
+- `make -C sim verify-layers` prints the number of registry readers (**6**), antenna-cue posters (**1**)
+  and simulation-loop drivers (**1**), and fails on a seventh, a second, a second.
+- `make -C sim verify-guards` compiles eight two-line translation units against the real headers: **six
+  must FAIL** and two must succeed. The two that must succeed are not decoration — without them a
+  broken include path would "reject" everything and the gate would pass while proving nothing.
+
+An intention is not a structure. Every entry above has been counter-checked by removing the guarantee
+and watching the gate go red.
+
 ## Architectural style
 
 Build systems, not features. Minimal public API, maximal encapsulation. State machines instead of

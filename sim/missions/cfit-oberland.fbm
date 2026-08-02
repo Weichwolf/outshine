@@ -1,0 +1,23 @@
+name cfit-oberland
+timeout 300
+
+# THE PHYSICAL K.O., FLOWN — the one mission whose PASS is a crash.
+#
+# Course guidance has no terrain following (payerne-full.fbm says so in its own header), so a leg told
+# to hold a FIXED altitude across rising ground meets it. Southbound out of the Kandertal at 2500 m
+# ASL, the Bernese Oberland wall stands above 3000 m: nothing about the aircraft is special, nothing is
+# disabled, the terrain is simply higher than the altitude the plan declares.
+#
+# READING RULE (binding): exit 2, `result=CRASH`, and a `monitor KO reason=CFIT` line before it. Any
+# other exit means a physical K.O. did not end the run — which is exactly the defect this file exists
+# to catch: until missions/FBMissionSim existed the BROWSER had no end rule at all and kept integrating
+# a wrecked F-16 (doc/clients/clients.md §5.6).
+#
+# MEASURED (fb-gym --elev swiss, threads 1): KO at t=39.9 s, aglM -7.55 m, 46.4950 N 7.8998 E; the run
+# ends on that tick and the RESULT line carries the monitor's own detail, "ground penetration".
+# The same file in the browser: same reason, same detail, and the frame loop stops advancing the sim.
+
+unit viper
+  module f16
+  spawn 46.58000 7.90000 2500 180.0 450
+  wp 46.23000 7.90000 2500 450

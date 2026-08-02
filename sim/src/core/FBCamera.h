@@ -25,6 +25,11 @@ struct FBCameraBasis {
 /* Sphere mean radius: the terrain is on the ellipsoid, but the dip is a small-angle spherical result. */
 constexpr float kEarthRadiusM = 6371000.0f;
 
+/* THE scene's vertical field of view over the FULL frame height. It lives here, below both consumers,
+ * because a conformal HUD and the renderer's projection have to be the SAME number: two copies drifted
+ * apart once (80 vs 60) and the pitch ladder stopped overlaying the world it labels. */
+constexpr float kSceneVerticalFovDeg = 60.0f;
+
 /* acos(R/(R+h)): a level HUD horizon reads too HIGH aloft and must drop by exactly this to overlay
  * the real, curved-away one (MIL-STD-1787 conformal). */
 inline float FBHorizonDipRad(float altM) {

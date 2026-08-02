@@ -121,10 +121,13 @@ public:
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);
 
-  /* THE 3x3 GRID. The out-the-window viewport is the top two rows; the bottom row is the MFD bank,
-   * drawn by the HUD stage into the HUD pass. It exists exactly when the cockpit does — the cloud lab
-   * runs with the HUD off and gets the full frame it always had. doc/render/renderer.md §2.4. */
+  /* THE 3x3 GRID. The windscreen is the top two rows; the bottom row is the MFD bank, drawn by the HUD
+   * stage into the HUD pass. It exists exactly when the cockpit does — the cloud lab runs with the HUD
+   * off and gets the full frame it always had. doc/render/renderer.md §2.4. */
   int ViewH(void) const { return HudEnabled ? Height - Height / 3 : Height; }
+  /* The boresight's NDC offset: the scene covers the whole frame (so the bank has a world to be
+   * translucent over) while its centre sits at the WINDSCREEN's centre. 0 without a cockpit. */
+  float ViewShiftNdc(void) const { return 1.0f - (float)ViewH() / (float)Height; }
 
   const wgpu::Device &GetDevice(void) const { return Device; }
   wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }
