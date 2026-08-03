@@ -1,0 +1,4 @@
+# Messrigs fuer das Kampagnen-Arena-Gate (S1/S2). Keine Kampagnenzellen, kein .fbc.
+sat-01-belt-channels          friendly  f16
+sat-02-picture-split          friendly  f16
+sat-03-escort-shield          friendly  f16

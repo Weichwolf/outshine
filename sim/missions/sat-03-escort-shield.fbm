@@ -1,0 +1,579 @@
+name sat-03-escort-shield-1
+timeout 520
+time 1991-01-19T08:00:00Z
+wx fixture wx-2026-07-27T00Z.wxb
+
+# MEASURING RIG, NOT A CAMPAIGN RUNG. `sat-*` files belong to no `.fbc`, are named by no campaign and
+# move no doctrine. They exist because 33 of the 34 campaign cells are NOT GRADUABLE: their outcome
+# class (V, M) — fb_fitness.side_key, summed over the declared side — does not move when the doctrine
+# genome moves, so no doctrine shift can be demonstrated on them. Format: doc/missions/syntax.md.
+#
+# WHAT HOLDS THIS CELL AT THE TIPPING POINT: THE ESCORT'S OBJECTIVE IS SOMEBODY ELSE'S SURVIVAL.
+# Each of the four escorts declares `objective protect unit <ONE named striker>` — "the named unit is
+# still combat-effective at the END of the run" (core/FBObjective.h) — and the four names are the four
+# aircraft of the package it covers. An escort therefore cannot score by killing MiG-29s; it scores only
+# if the ONE jet it was given comes home. That is a different question from every campaign rung, all of
+# which grade an escort on `kill team hostile`: one bit for a whole flight, moved by no lever in the file.
+#
+# THE RATIO IS THE THRESHOLD, [SET] at 1.5: SIX interceptors against FOUR escorts, in two groups of three
+# on separated bearings. Below 1.0 the screen holds by arithmetic and doctrine cannot show; at 1.5 it has
+# to CHOOSE, and `pilot/FBFlightPicture::Assign` makes that choice out of a shared picture whose contents
+# depend on where the wingmen are standing — which is exactly `pilot_flight_spread_frac`/`_trail_frac`/
+# `_stack_frac`. The two groups are separated by 0.24 deg of latitude (about 27 km) so that a four-ship
+# at `shape-wide` (2.5 x 1 852 m of lateral step, 23 km from position 3 to position 5) spans BOTH and one
+# at `shape-tight` (0.35 -> 648 m, 3.2 km overall) spans neither.
+#
+# AND A SECOND, INDEPENDENT THRESHOLD ON THE SAME FOUR ESCORTS, because one axis is not a gradient:
+# `sa6`'s EnvAltMaxM = 7 000 m (core/FBSite.h) against a screen whose lead sits at 6 000 m and whose
+# station steps by `pilot_flight_stack_frac x FormationStackM` = frac x 150 m (doc/formation.md 4.2).
+# [DERIVED] baseline 6 000 / 6 150 / 6 300 / 6 450 — all four inside the envelope; `shape-stacked` (3.0)
+# 6 000 / 6 450 / 6 900 / 7 350 — the fourth is 350 m above it. `zone sa6belt` carries the battery's own
+# EnvMaxM (22 000 m) and EnvAltMinM/EnvAltMaxM (100 / 7 000 m), so the volume the objective names and the
+# volume the missile works in are ONE BODY. `exposure 200` is [SET] in a MEASURED GAP: [MESS] the belt
+# dwell over the lever set falls in clusters at 116 .. 168 s and 240 .. 250 s, and 200 s lies in the 72 s
+# between them, so no member sits within 30 s of its own verdict.
+#
+# EVERY HOSTILE AIRCRAFT IS NAMED by an escort's `kill unit` (ee1 takes ia1 and ib1, ee2 ia2 and ib2,
+# ee3 ia3, ee4 ib3). That is not scorekeeping: an actor's loss ends the run unless another actor DECLARED
+# an objective covering it (doc/missions/runtime.md, `ExpectedLoss`), and without the six names one CAP
+# kill would cut the run at the instant it happened.
+#
+# THE RELEASE HALF is a CCIP pair beside the CCRP package, and it is here because `pilot_attack_bias_s`
+# and `pilot_attack_ccip_m` need a ground half of their own: [MESS] the package's Mk 84 CCRP passes land
+# 55 .. 62 m long, inside the Mk 84's 100 m fail radius under every bias allele, so the package alone
+# reports both genes inert. The pair carries Mk 82 (fail radius 45 m, [MESS] mk82-radius.fbm) and flies
+# CCIP, because `pilot_attack_ccip_m` is read ONLY in `FBDeliveryMode::Ccip`. `etgte` is placed 72.7 m
+# BEYOND its striker's steerpoint so its baseline impact falls SHORT and `bias-early` is the allele that
+# loses it, while `etgtf` sits on the steerpoint and `bias-late` is the allele that loses that one.
+#
+# GENE FAMILIES, LIVE AND INERT — stated in advance, then measured (the arena's own table, 25 levers):
+#   live    G1 shape 6 of 6:  shape-abreast (26,24)  shape-trail (24,19)  shape-tight (26,24)
+#                             shape-wide (27,25)  shape-flat (26,23)  shape-stacked (25,23)
+#   live    G6 bias  3 of 3:  bias-early (23,18)  bias-late (23,19)  bias-rail (18,13)
+#   live    G7 ccip  1 of 2:  ccip-tight (23,18);  ccip-open INERT
+#   live    G3 net   1 of 2:  net-off (23,21);  `sort-left`/`sort-near` are dead text beside a live net
+#   live    G5 emcon 1 of 3:  emcon-wide (26,24);  emcon-tight/mid INERT
+#   INERT   G2 cover 0 of 3:  the AIM-120 binds 0.3 s — `flt_defer_s` = 0 in 2 464 runs on 154 cells
+#   INERT   G4 energy 0 of 3: it lives only inside `Phase::Bfm`, and no unit here flies `set task bfm`
+#   BASELINE (24, 20).  12 movers of 24, 11 of them excluding the broken `bias-rail` stop; 10 distinct
+#   classes — the widest spread of the three rigs; modal share 52.0 % (13 of 25). S1 and S2 both hold.
+#
+# S7, AND IT IS REPORTED HERE BECAUSE IT DID NOT PASS: [MESS] 4 of 8 spawn perturbations on the 0.8 m
+# grid flip the baseline class — the worst of the three rigs, and the cause is STRUCTURAL and belongs to
+# the question, not to a coordinate. `protect` is answered at the END of the run (it is deferred, like
+# `survive`), and [MESS] the baseline run does NOT reach its timeout: `emib1` is killed at t = 270.8 s,
+# `ee1` at 271.4 and `ee3` at 281.6, and the run is cut at t = 301.7 when `emib1`'s wreck reaches the
+# ground (`FirstFlightKo`, doc/missions/runtime.md). An end-referenced objective on a run whose end is an
+# EVENT is chaos-sensitive by construction. The way out is not a coordinate tweak: it is either an
+# objective kind with a time window (doc/missions/verdict.md books its absence as a deliberate gap) or a
+# question that is not end-referenced — which is what sat-02-picture-split is, and it flips 0 of 8.
+# This file is kept as it is because the escort question is worth measuring and because a measured
+# failure is knowledge; it must NOT be fed to an evolution until S7 holds.
+#
+# THE ARENA: ten F-16 — a four-ship escort screen, the four-ship package it covers, and a CCIP pair —
+# against six MiG-29 under a GCI brief, one SA-6 and its EW radar. `--elev const`, 0 m datum, no terrain
+# masking (C4). Every coordinate is [SET]. `wx fixture` is the committed GFS blob. Day, 11:00 local, sun
+# about +33 deg [DERIVED] — the merge is EYED, deliberately: a night merge removes sensors/FBVisualSystem
+# from the picture and with it one of the inputs the screen competes for.
+# THE SUBSTITUTION AND ITS DIRECTION: the MiG-29 is the strongest Soviet-pattern fighter in the tree, so
+# RED is stronger here than any historical six-ship this geometry resembles. No claim is made that it
+# resembles one — this file is an instrument, not a rung.
+#
+# THE ONE TACTICAL QUESTION: WITH SIX INTERCEPTORS AGAINST A FOUR-SHIP SCREEN, DOES THE SCREEN'S OWN
+# SHAPE DECIDE WHICH OF ITS FOUR CHARGES COMES HOME?
+#
+# WHAT TO READ:
+#   telemetry_ee*.csv  `flt_src`, `flt_assign`, `flt_switch`, `flt_dup` — the screen's sort at 1.5
+#                      contacts per shooter; `zone_sa6belt_s` — the dwell the stack gene moves
+#   telemetry_ep*.csv  the package: who was still combat-effective at the end
+#   telemetry_ec*.csv  the CCIP pair: `releases`, `aimErrM` against a 45 m radius
+#   events.log         `mission OBJECTIVE unit=ee* kind="protect unit ..."` — the four bits that matter,
+#                      `flight SORT_ASSIGN` per member and tick, `sms LAUNCH_SOLUTION` per shooter
+#
+# READING RULE, BINDING: exit 1 = FAIL and exit 3 = TIMEOUT are BOTH expected and NEITHER is the
+# measurement; an escort whose charge was lost reports its own `protect` VIOLATED while still flying,
+# which is the point of the kind. THE MEASUREMENT IS (V, M) SUMMED OVER THE TEN F-16 — six `kill unit` on
+# the CAP, four `protect`, four `avoid zone`, six `kill unit` on aim points and ten `survive`, 30
+# objectives — AND ITS SPREAD ACROSS THE LEVER SET. A reader who reports how many MiG-29s were shot down
+# has answered a question this file does not ask: a screen that kills four and loses its package scores
+# ZERO here. And because S7 fails, a reader must treat any SINGLE run of this file as noise.
+
+zone sa6belt 33.20000 44.30000 22000 100 7000
+
+unit sa6bat
+  module sa6
+  team hostile
+  spawn 33.20000 44.30000 ground 0.0 0
+  set emcon free
+
+unit ewnode
+  module p18
+  team hostile
+  spawn 33.35000 44.10000 ground 0.0 0
+  set emcon free
+
+unit ee1
+  module f16
+  team friendly
+  flight ea 1
+  spawn 33.20000 43.90000 6000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6000 480
+  objective kill unit emia1
+  objective kill unit emib1
+  objective protect unit ep1
+  objective avoid zone sa6belt exposure 200
+  objective survive
+
+unit ee2
+  module f16
+  team friendly
+  flight ea 2
+  spawn 33.18330 43.90000 6150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6150 480
+  objective kill unit emia2
+  objective kill unit emib2
+  objective protect unit ep2
+  objective avoid zone sa6belt exposure 200
+  objective survive
+
+unit ee3
+  module f16
+  team friendly
+  flight ea 3
+  spawn 33.23340 43.90000 6300 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6300 480
+  objective kill unit emia3
+  objective protect unit ep3
+  objective avoid zone sa6belt exposure 200
+  objective survive
+
+unit ee4
+  module f16
+  team friendly
+  flight ea 4
+  spawn 33.21670 43.90000 6450 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6450 480
+  objective kill unit emib3
+  objective protect unit ep4
+  objective avoid zone sa6belt exposure 200
+  objective survive
+
+unit ep1
+  module f16
+  team friendly
+  flight pk 1
+  spawn 33.28000 43.85000 5000 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.28000 44.15000 5000 450
+  wp 33.28000 43.95000 5000 450
+  objective kill unit etgta
+  objective survive
+
+unit ep2
+  module f16
+  team friendly
+  flight pk 2
+  spawn 33.26000 43.85000 5100 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.26000 44.18000 5100 450
+  wp 33.26000 43.95000 5100 450
+  objective kill unit etgtb
+  objective survive
+
+unit ep3
+  module f16
+  team friendly
+  flight pk 3
+  spawn 33.14000 43.85000 5200 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.14000 44.15000 5200 450
+  wp 33.14000 43.95000 5200 450
+  objective kill unit etgtc
+  objective survive
+
+unit ep4
+  module f16
+  team friendly
+  flight pk 4
+  spawn 33.12000 43.85000 5300 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccrp
+  set rwr on
+  set datalink on
+  set store 3 mk84
+  set store 7 mk84
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.12000 44.18000 5300 450
+  wp 33.12000 43.95000 5300 450
+  objective kill unit etgtd
+  objective survive
+
+unit ec1
+  module f16
+  team friendly
+  flight cc 1
+  spawn 33.05000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.05000 44.30000 900 450
+  wp 33.05000 44.90000 3000 450
+  objective kill unit etgte
+  objective survive
+
+unit ec2
+  module f16
+  team friendly
+  flight cc 2
+  spawn 33.35000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.35000 44.34000 900 450
+  wp 33.35000 44.90000 3000 450
+  objective kill unit etgtf
+  objective survive
+
+unit emia1
+  module mig29
+  team hostile
+  flight ia 1
+  spawn 33.32000 45.30000 6000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.32000 43.95000 6000 450
+  objective kill team friendly
+  objective survive
+
+unit emia2
+  module mig29
+  team hostile
+  flight ia 2
+  spawn 33.29000 45.30000 6150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.29000 43.95000 6150 450
+  objective kill team friendly
+  objective survive
+
+unit emia3
+  module mig29
+  team hostile
+  flight ia 3
+  spawn 33.26000 45.34000 6300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.26000 43.95000 6300 450
+  objective kill team friendly
+  objective survive
+
+unit emib1
+  module mig29
+  team hostile
+  flight ib 1
+  spawn 33.08000 45.30000 6000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.08000 43.95000 6000 450
+  objective kill team friendly
+  objective survive
+
+unit emib2
+  module mig29
+  team hostile
+  flight ib 2
+  spawn 33.05000 45.30000 6150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.05000 43.95000 6150 450
+  objective kill team friendly
+  objective survive
+
+unit emib3
+  module mig29
+  team hostile
+  flight ib 3
+  spawn 33.02000 45.34000 6300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.02000 43.95000 6300 450
+  objective kill team friendly
+  objective survive
+
+unit etgta
+  module target_soft
+  team hostile
+  spawn 33.28000 44.15000 ground 0.0 0
+
+unit etgtb
+  module target_soft
+  team hostile
+  spawn 33.26000 44.18000 ground 0.0 0
+
+unit etgtc
+  module target_soft
+  team hostile
+  spawn 33.14000 44.15000 ground 0.0 0
+
+unit etgtd
+  module target_soft
+  team hostile
+  spawn 33.12000 44.18000 ground 0.0 0
+
+unit etgte
+  module target_soft
+  team hostile
+  spawn 33.05000 44.30078 ground 0.0 0
+
+unit etgtf
+  module target_soft
+  team hostile
+  spawn 33.35000 44.34000 ground 0.0 0
