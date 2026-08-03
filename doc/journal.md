@@ -3482,3 +3482,14 @@ einzige Abweichung. Prinzip 4 („gibt das Tempo das Ergebnis, ist die Kopplung 
 Offen bleibt Kriterium 2 (Replay: jede Stufe einzeln nachgeflogen gegen den Kampagnen-Fingerabdruck) —
 es läuft — und der wiederholte Verbesserungsnachweis, für den es einen zweiten Verbesserungsschritt
 braucht und nicht nur einen zweiten Durchlauf.
+
+**Und Kriterium 2 im selben Zug: die Kampagnenschicht fügt keinen versteckten Zustand hinzu.**
+`fb_campaign_verify.py replay` fliegt jede Stufe EINZELN nach — mit der Zustandsdatei der vorigen als
+einziger Eingabe — und vergleicht ihren Fingerabdruck gegen den aus dem Kampagnenlauf. Über alle zehn
+Kampagnen: **100 von 100 Missionen MATCH, null Abweichungen**, Exit-Code und Fingerabdruck jeweils
+identisch (z. B. `10-w1-10-graduation` exit=3 `610a97bf533f79cb` in beiden Richtungen).
+
+Damit steht die Architekturbehauptung der Schicht gemessen da: eine Kampagne ist **eine Folge gewöhnlicher
+Läufe** und nichts weiter. Was zwischen den Missionen wandert, wandert vollständig durch
+`campaign-state.txt` — hätte der Läufer irgendwo Zustand im Speicher gehalten, wäre genau dieser Test
+auseinandergefallen.
