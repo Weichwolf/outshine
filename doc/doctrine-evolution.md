@@ -2433,6 +2433,96 @@ than filed as an exploit: `ar-08` is noisier than the coarse grid showed, and th
 
 ---
 
+## State — round `E14` (2026-08-03): a doctrine shift over the CAMPAIGN BREADTH, p = 0.0005
+
+`E13` published a shift on the arena and its own validation refuted the transfer. This round asks the
+question the other way round: **not "what does the arena select", but "what moves the 154 campaign
+cells".** The axes are not searched — they are the four gene families `E11` MEASURED as broadly active,
+swept end to end, every other gene at the seed.
+
+### §1 — The shift, in one sentence
+
+**The pilot pickles one decision tick early: `pilot_attack_bias_s` 0 → −0.2 s.**
+
+### §2 — The genome diff
+
+| gene | seed | shifted | band | on a rail? |
+|---|---:|---:|---|---|
+| `pilot_attack_bias_s` | 0 | **−0.2** | −10 … 10 | no |
+| the other eight | unchanged | unchanged | | |
+
+### §3 — The outcome ledger over the breadth, and the mirror confirms it
+
+[MESS, 154 cells × 9 genomes = 1,386 runs, `--elev const`, `fb_fitness.pair_points` per cell]
+
+| genome | better | worse | net | one-sided binomial |
+|---|---:|---:|---:|---|
+| **`bias-early` −0.2 s** | **25** | 9 | **+16** | **p = 0.005** |
+| `bias-late` +0.2 s | 1 | **32** | −31 | the same axis, the other way |
+| `stack-wide` 2.0 | 17 | 10 | +7 | p = 0.124 |
+| `sort-near` | 17 | 13 | +4 | p = 0.292 |
+| `net-on` | 0 | 0 | ±0 | inert on all 154 |
+| `energy-high`, `sort-left`, `trail-wide` | 3/4/2 | 1/2/2 | +2/+2/±0 | — |
+
+**One axis, two directions, both speak.** A tick early is 25 : 9; a tick late is 1 : 32. That symmetry is
+what distinguishes a real gradient from a lucky sample, and no other gene family comes near it.
+
+**And after the chaos screen it gets STRONGER.** All **34** cells the shift moves were put through §5's
+0.8 m spawn grid — **in both directions, blind to which way they went**. Six are chaotic (≥ 2 of 8 flips)
+and are excluded because §5 forbids a claim on them at all:
+
+| | better | worse | net | p |
+|---|---:|---:|---:|---|
+| all 34 responsive cells | 25 | 9 | +16 | 0.005 |
+| **the 28 that are not coins** | **23** | **5** | **+18** | **0.0005** |
+
+The screen removed more bad cells than good ones. That is the direction a screen is supposed to move a
+real effect, and the opposite of what it does to a lucky one.
+
+### §4 — The mechanism, and this tree measured it before it was a doctrine
+
+The chain is **already published in this file** as X-2, found by an earlier round on eight strike cells
+over four campaigns, two stores and four altitudes:
+
+`ATTACK_RELEASE biasS` → `stores DELIVERY predErrM = 52.57 m = gs × 0.227 s` → `aimLongM 36.34` of
+`aimErrM 36.38` (99.9 % along-track) → `damage rangeM 33.66` against a Mk-84's 17.7 m fail radius.
+
+**The minimum of `aimErrM(bias)` sits at −0.20 ± 0.05 s on every one of those eight cells — a constant
+TIME, not a constant distance, which is what says it is a LATENCY** and not a geometry. The pilot leads
+the cue by the bus latency plus his own decision tick; what remains uncancelled is ~0.2 s, and at a
+loaded F-16's 231 m/s that is 46 m of track.
+
+### §5 — The counter
+
+Its own mirror. `+0.2 s` is 1 better against 32 worse on the same 154 cells — the sharpest counter in
+this file, and it is the same gene at the same magnitude with the sign flipped.
+
+### §6 — The exploit audit
+
+| test | result |
+|---|---|
+| **X1** arena invariance | **PASS** — of four cells checked in detail, three flip 0 of 8 and all three are better; across the breadth the claim rests on 28 screened cells |
+| **X2** declared ignorance | **n/a**, as S3: both airframes are read-only model copies |
+| **X3** mechanism in published channels | **PASS** — §4, and it was measured independently before this round |
+| **X4** the physical audit | **PASS on the screened set.** 34 responsive cells put through the 0.8 m grid; 6 chaotic excluded by §5's floor; timeout × 1.5 held on every cell checked. Partition class: the fitness contains no such count |
+
+### §7 — What this is, stated exactly
+
+**It is not a tactic. It is a defect of our own default, and the whole campaign breadth says so.**
+X-2 already filed it as *"a defect of the default"* — `FBF16Pilot::AttackReleaseBiasS()` returns **0.0 s**
+— and this round is that verdict measured on 154 cells instead of eight. The right repair is therefore
+not to publish a doctrine but to **give the airframe its own number**, derived from the latency it
+already knows, and the reason it has not been done in this round is the tree's own rule: a model number
+needs a source, and *"ein besseres Missionsergebnis ist ausdrücklich KEIN Beleg"*. What is measured here
+is the SIZE of the defect and its sign; what is owed is a derivation.
+
+### §8 — Exploits found
+
+None new. X-1 … X-5 stand. This round's result is the promotion of X-2 from a local measurement to a
+breadth-wide one, with a significance test and a chaos screen it did not have before.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |

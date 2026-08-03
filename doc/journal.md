@@ -3255,3 +3255,39 @@ bewegt, 0 `events.norm` bewegt, 0 Exit-Code-Unterschiede** (`tools/fb_regress.sh
 danach, nur Hashes, Schnappschüsse danach gelöscht); die einzige Differenz sind die zwei NEUEN Dateien.
 Determinismus `--threads 1/2/4` je ein Fingerabdruck pro neuer Mission. Zehn Harnesses rc=0,
 `verify-layers`/`verify-guards` (8/8)/`verify-models` grün, `wasm`/`native`/`gym` warnungsfrei.
+
+## 2026-08-03 — `E14`: eine Doktrinverschiebung über die KAMPAGNENBREITE, p = 0,0005
+
+`E13` hat auf der Arena selektiert und die Validierung hat die Übertragung widerlegt. Diese Runde fragt
+andersherum: **nicht „was wählt die Arena", sondern „was bewegt die 154 Kampagnenzellen".** Die Achsen
+werden nicht gesucht, sondern abgetastet — es sind die vier Genfamilien, die `E11` als breit wirksam
+gemessen hat, jede für sich, alles andere auf der Saat.
+
+**Die Verschiebung: der Pilot drückt einen Entscheidungstakt früher — `pilot_attack_bias_s` 0 → −0,2 s.**
+
+| Genom | besser | schlechter | netto | p |
+|---|---:|---:|---:|---|
+| **`bias-early` −0,2 s** | **25** | 9 | **+16** | **0,005** |
+| `bias-late` +0,2 s | 1 | **32** | −31 | dieselbe Achse, andersherum |
+| `stack-wide` | 17 | 10 | +7 | 0,124 |
+| `net-on` | 0 | 0 | ±0 | auf allen 154 inert |
+
+**Eine Achse, zwei Richtungen, beide sprechen.** Keine andere Genfamilie kommt in die Nähe.
+
+**Und nach dem Chaos-Schirm wird es stärker.** Alle **34** bewegten Zellen wurden über §5s 0,8-m-Gitter
+geschickt — **in beide Richtungen, blind dafür, wem sie nützen**. Sechs sind chaotisch und fallen raus:
+**23 besser, 5 schlechter, netto +18, p = 0,0005.** Der Schirm hat mehr schlechte als gute Zellen
+entfernt — die Richtung, in die ein Schirm einen echten Effekt bewegt, und das Gegenteil dessen, was er
+mit einem zufälligen tut.
+
+**Der Mechanismus stand schon vorher im Baum**, als X-2, gemessen auf acht Angriffszellen über vier
+Kampagnen, zwei Waffen und vier Höhen: das Minimum von `aimErrM(bias)` liegt auf **jeder** von ihnen bei
+−0,20 ± 0,05 s — eine konstante **ZEIT**, nicht eine konstante Entfernung, und genau das sagt, dass es
+eine **Latenz** ist.
+
+**Und damit ist es keine Taktik, sondern ein Defekt unserer eigenen Vorgabe** — `AttackReleaseBiasS()`
+gibt 0,0 s zurück. Diese Runde ist X-2s Urteil auf 154 Zellen statt auf acht. Die richtige Reparatur ist
+deshalb nicht, eine Doktrin zu veröffentlichen, sondern dem Flugzeug **seine eigene Zahl zu geben**,
+hergeleitet aus der Latenz, die es ohnehin kennt. Dass das hier nicht geschehen ist, ist die Regel des
+Baums: eine Modellzahl braucht einen Beleg, und ein besseres Missionsergebnis ist ausdrücklich keiner.
+Gemessen ist die **Größe** des Defekts und sein **Vorzeichen**; geschuldet bleibt die Herleitung.
