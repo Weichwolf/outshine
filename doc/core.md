@@ -1032,6 +1032,18 @@ and the shooter's SUCCESS are the same shot.
 | `NoFire` | `no_fire` | this unit released no store and fired no burst for the whole run |
 | `DenyRelease` | `deny release unit <callsign>` / `deny release team <t>` | the named unit(s) released nothing for the whole run |
 
+| `AvoidZone` | `avoid zone <name> [exposure <s>]` | cumulative dwell inside a DECLARED cylinder stays at or below the budget |
+| `Suppress` | `suppress unit\|team <x> [emitting <s>]` | the named unit's cumulative radiating time stays at or below the allowance |
+
+**And one field that is not a kind: the DECLARED SPAN** (`double UntilS`, default `+infinity`;
+`doc/missions/verdict.md`, "The seventh thing in the vocabulary"). Any kind may be written
+`… until <s>`, and then its state is FROZEN at that sim time — read once through the same `StateOf` the
+judge already computes, at an instant the MISSION named instead of one the run's events chose. It exists
+because a cumulative objective read at an event-chosen instant amplifies chaos into a bit: [MESS, `E17`]
+`sat-03`'s belt dwell is 175.2 s at t = 317.9 s in both the truncated and the full run and reads `met` in
+one and `unmet` in the other. `FBObjectiveCovers` does NOT read it — covering is a property of the
+DECLARATION, so a windowed `kill` still makes its target's loss expected for the whole run.
+
 `Protect`/`DenyRelease` offer both target scopes without becoming two kinds each: the discriminator is
 `FBObjectiveScope { Unit, Team }` on the objective. `KillUnit`/`KillTeam` predate it and keep carrying it
 in the KIND — one mechanism where the spelling is older than the enum, one where it is not, and the

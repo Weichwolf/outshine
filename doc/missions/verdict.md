@@ -238,13 +238,84 @@ would be free from the same poses. It is not taken because nothing in W5's sourc
 (§Knowledge 2 of that file already marks the abeam box `[SET]`), and a second `[SET]` number multiplies
 the arbitrariness without adding a measurement. Named as a one-line extension if a source turns up.
 
+#### The seventh thing in the vocabulary, and it is not a kind: `until <s>` (`E17`)
+
+```
+objective <any kind> [<its own tokens>] until <s>
+```
+
+> **One rule, and it is the whole specification: an objective that declares `until <s>` has its state
+> FROZEN at sim time `<s>` — whatever `StateOf` says at that instant is its final answer, and nothing
+> after it can move the objective or the verdict that reads it.**
+
+Not a new predicate, not a per-kind semantic, not a second evaluation path: the same `StateOf` the judge
+already computes every tick, read once at a DECLARED instant instead of at an instant the run's events
+choose. That is why the `C12` refusal above ("a window multiplies the grammar by the number of kinds")
+is wrong rather than merely outdated — it assumed a window would be a *condition* per kind. It is a
+statement about the CLOCK, and there is exactly one clock.
+
+**The measurement that forces it, and it is not an argument about elegance.** `sat-03-escort-shield`
+(`doc/doctrine-evolution.md` `E-27`) fails S7 with 5 of 8 flips of its baseline outcome class on the
+0.8 m spawn grid. The judge is not asked at a different POINT of a different fight — it is asked at a
+different point of the SAME fight:
+
+| Sample | run ends at | `ee3` belt dwell **at t = 317.9 s** | its final dwell | `avoid zone … exposure 200` |
+|---|---:|---:|---:|---|
+| dx = 0 (baseline) | 520.0 s | **175.2 s** | 305.5 s | **unmet** |
+| dx = +0.6 m | 317.9 s | **175.2 s** | 175.2 s | **met** |
+| dx = +3.0 m | 338.7 s | 174.8 s | 195.6 s | met |
+| dx = −3.0 m | 379.1 s | 175.8 s | 237.0 s | unmet |
+
+[MESS, `E17`, `--elev const`, current binary] Two runs of the same rig with the same trajectory to the
+tenth of a second — **175.2 s of belt exposure in both** — and opposite verdicts, because one of them was
+stopped at t = 317.9 s by a third unit's wreck reaching the ground and the other was not
+(`missions/FBMissionSim::Alive`, `FirstDestroyed`). The chaos amplitude of the graded quantity itself is
+**1.0 s over ±3 m** (174.8…175.8 s); the chaos amplitude of the ANSWER is the whole objective. That is
+the defect, stated as a ratio: a cumulative objective read at an event-chosen instant amplifies a 0.6 %
+disturbance into a bit flip.
+
+**What it makes possible, and it is the point:** a unit ALL of whose objectives carry a window has a
+verdict that is a function of `[0, max(until)]` alone. Its `M` cannot move after the window closes
+because every state is frozen; its `V` cannot move because a closed objective can no longer be violated
+(below) and the existing SUCCESS gate in `Tick` fires the moment nothing is deferred any more. The
+guillotine stops being part of the measurement without anything being taken away from the judge.
+
+**What follows from the one rule, spelled out because each is load-bearing:**
+
+| | Consequence |
+|---|---|
+| A closed objective cannot be **violated** | the three violation paths in `Tick` (`survive` on a shoot-down, `no_fire` on a release, `protect` on the protectee's loss) ask whether THAT objective's window is still open. Otherwise a unit could publish `survive … state=met` and FAIL for losing it in the same breath, and this file's rule that the vector and the verdict cannot disagree would be a wish |
+| A closed objective is not **deferred** | `HasDeferredObjective()` is false for it, which is what lets `Tick` conclude at the window instead of at `Finalize`. `survive until 200` is not a contradiction of "`survive` cannot be banked early": the run to survive is the DECLARED one, and it is over |
+| The window is a **deadline** for the latching kinds too | `identify … until 200` must have completed its dwell by t = 200; `kill unit X until 200` must have X combat-ineffective by then. Uniform, because the rule is about reading the state and not about the kind |
+| `FBObjectiveCovers` is **untouched** | covering is a property of the DECLARATION, not of its state. `kill unit X until 200` still makes X's loss expected for the whole run — a window that changed who covers whom would make the combination rule depend on the clock, which is the thing being removed |
+| A window at or past the mission `timeout` is **refused at parse time** | it can never close, so it would be the old behaviour wearing a new word. `FBMissionFile` fails the file with the number and the timeout |
+
+**Cost.** One `double UntilS = +inf` on `FBObjective`, one `{bool Closed; FBObjectiveState Final;}` pair
+on the index-parallel progress record the judge already keeps, one `CloseWindows()` call at the top of
+`Tick` after the accumulators, and one predicate (`WindowOpen(i)`) in the three violation paths. No new
+observation, no new roster field, no new source: **the judge sees exactly what it saw before, and is
+merely asked at a time the mission named.**
+
+**Conservation, structurally and not by hope.** `UntilS` defaults to +infinity, `CloseWindows` closes
+nothing at any finite sim time, `WindowOpen` is true for every objective of every existing mission, and
+`FBObjectiveStr` appends ` until <s>` only when the field is finite. A mission that does not spell the
+word cannot reach a single new branch. Measured as the gate below.
+
+**What it does NOT fix, named here so the next rig is not built against a promise.** A window freezes
+the objective; it cannot freeze the FIGHT. On `sat-03` every one of the five flips also contains
+`ee1`'s own death (V = 2 → 1, `survive` met → violated) — a 0.8 m spawn shift decides whether the flight
+lead is shot down, and no verdict rule can make a coin land the same way twice. A window removes the
+clock-borne half of a cell's chaos (on that rig: 3 of the 4 objective-state moves, and the whole of the
+`M` column); the combat-borne half has to be removed by the mission's GEOMETRY, and that is the mission
+author's job, not the judge's.
+
 #### What is deliberately NOT in the vocabulary
 
 | Candidate | Verdict |
 |---|---|
 | **`escort`** | **not a kind.** It is `protect unit X` plus a station requirement, and the station requirement is exactly `identify`'s geometry test with a long dwell. Two lines express it; a fifth kind whose check is the union of two existing checks earns nothing |
 | **A general `deny`** — "the opponent did not achieve his objective" | **not checkable and not invented.** It would require one monitor to read another's verdict, and a judge consulting a judge is not a judge. `deny release` is the checkable part of what O5 means; `protect` is the rest |
-| **Time windows** (`before <s>` / `after <s>`) | deferred. A window is a *modifier* on any kind, so it multiplies the grammar by the number of kinds — and no campaign mission in the set needs it as a **verdict**. O5's time-on-target slip is a measurement out of telemetry, not a pass/fail |
+| ~~**Time windows** (`before <s>` / `after <s>`)~~ | **LIFTED (`E17`), and the reason it was refused turned out to be the reason it is needed** — see "The seventh thing in the vocabulary" below. The refusal's own argument was that a window multiplies the grammar by the number of kinds; it does not, because the window is not a per-kind predicate but ONE rule about WHEN a state is read |
 | **`no_fire` with an exception** ("unless fired upon first") | deferred with a reason: "fired upon" is an RWR *warning*, not a fact, and making a verdict depend on what a unit heard breaks the rule at the top of this section. W5-10 declares the exception in its header as a reading rule instead |
 | **Target priority / value** | that is `C15`/formation work, not a verdict |
 
@@ -317,6 +388,12 @@ measurement; the eighth is the cover proof above.
 | `deny-release-broken.fbm` | 3 | the same file with the striker's pickle at t=15: the kill still succeeds, `survive` still holds, and the run is still not a success. This is the one thing `kill` cannot say |
 | `objective-covers-none.fbm` | 1 | the cover rule, above |
 
+#### The mission the declared span left behind (`E17`)
+
+| Mission | Exit | What it measures |
+|---|---|---|
+| `objective-window-late-loss.fbm` | 0 | **a closed objective cannot be violated**, as an exit code. `objective-covers-none.fbm` with `until 60` on the STRIKER's `survive` and on nothing else: `mission WINDOW_CLOSED … survive until 60 state=met` at t = 60.0, `damage KILL unit=striker` at t = 70.6, and `UNIT_RESULT unit=striker result=SUCCESS reason="objectives met"` at t = 280.1 — the sortie the striker declared was over ten seconds before the shot. Exit **0** here against exit **1** there, one clause apart |
+
 ### Two teams with opposed objectives — a duel has a winner
 
 The rule that turns two opposed verdicts into one is **a single one and it is declaration-based**, not
@@ -386,12 +463,15 @@ the VERDICT stays with the monitor.
 | **The per-objective publication** (`E1`, 2026-07-29) | **built.** `FBObjectiveState {Unmet, Met, Violated}` + `FBMissionMonitor::StateOf`, published as `mission OBJECTIVE unit=… kind="…" state=…` — one line per DECLARED objective, at the ONE point every conclusion passes through (`Conclude`), so a unit that FAILs in `Tick` publishes its vector too. `ObjectivesMet()` is now DEFINED in terms of `StateOf`, so the published vector and the verdict cannot disagree. `Violated` is reserved for the three kinds with a violation condition of their own (`survive`, `no_fire`, `protect`); everything else is simply unmet. It is the input of the middle level of [`../doctrine-evolution.md`](../doctrine-evolution.md)'s fitness. [MESS] 137 missions: **432/432 telemetry files byte-identical**, 77 logs unchanged, 60 gained exactly **136** lines, 0 removed, 0 other lines moved; deterministic over `--threads 1/2/4` |
 | **The vector of a run that was CUT SHORT** (`E6`, 2026-07-30) | **built.** `FinalizeMission` for every judge still open, after the combination and never before it, so a run stopped by an unexpected K.O. or by another unit's decisive failure still publishes. Three `UNIT_RESULT` lines in the tree change and all three are the pre-existing `ShotDownFirst` rule finally applying ([`runtime.md`](runtime.md) §5); everything else is an addition. [MESS] 251 missions: 0 telemetry values moved, 0 exit codes moved, 27 logs gained 80 `OBJECTIVE` + 68 `RESULT` lines; deterministic over `--threads 1/2/4` |
 | The sixth kind, `suppress` (`C26`) | **built.** `FBObjectiveKind::Suppress` + `FBMissionMonitor::NoteEmitting` (a monotone accumulator over a non-monotone roster bit), deferred like `survive`; two missions, one per outcome; the pre-round tree byte-identical at `--threads 1/2/4` |
+| **The declared span, `until <s>`** (`E17`, 2026-08-04) | **built.** `FBObjective::UntilS` (default +inf), one `{Closed, Final}` latch on the judge's index-parallel progress record, `FBMissionMonitor::CloseWindows` at the top of `Tick` after the accumulators, `StateOf` answering from the latch first, `WindowOpen(i)` guarding the three violation paths and `HasDeferredObjective`, and `Finalize`'s `survive` gate re-expressed through `StateOf`. Parsed as a trailing modifier stripped before the kind is read (`FBMissionFile`), refused at or past the mission `timeout`. Published as `mission WINDOW_CLOSED unit=… kind="…" state=…`, one line per declared span. **Conservation, measured at full strength:** the 287 pre-round `sim/missions/*.fbm` against the pre-round binary — **3 337/3 337 telemetry files byte-identical by SHA-256**, **287/287 `events.log` identical** modulo `wallS`/`speedup`/`--out`, exit codes therefore identical by construction (the exit code is a pure function of the `RESULT` line). **Effect, measured:** on `sat-03-escort-shield`, windowing every objective and changing nothing else takes the S7 chaos screen from **5 of 8 flips to 1 of 8**; on the new `sat-04-vul-window` **864 of 1 000** published `OBJECTIVE` states are bit-identical to their `WINDOW_CLOSED` state with **0 mismatches**, the other 136 belonging to units that concluded before their span closed |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| Still no time window and no area objective | deliberate, see above. A window is a modifier on every kind, so it multiplies the grammar; O5's time-on-target slip stays a telemetry read |
+| ~~Still no time window~~ | **CLOSED 2026-08-04 (`E17`)**, and the refusal's own argument was wrong rather than merely outdated: a window is not a per-kind predicate but one statement about WHEN the state is read, so it adds one field and one latch instead of multiplying the grammar. O5's time-on-target slip is still a telemetry read — `until` says "by when", not "how late" |
+| A unit whose spans have ALL closed still waits for the timeout | it has nothing left that could change and could conclude on the spot, which would make the RUN's length a declaration too. Not built, and the reason is scope rather than doubt: the invariance that matters is measured WITHOUT it (`sat-04`'s class is constant while the duration spans 133.5…520.0 s), and an early conclusion would have to answer what a windowed `objective waypoints` means for `PlanDone_`, which no mission in the tree asks yet |
+| `until` freezes the objective, never the FIGHT | measured and named rather than implied: on `sat-03` all five chaos flips also contain the flight lead's own death, and a 0.8 m spawn shift decides it. A window removes the clock-borne half of a cell's chaos; the combat-borne half is the mission GEOMETRY's problem. The practical consequence is a boundary on the vocabulary: `protect` and `survive` only become gradable AFTER the exchange, and the exchange is where the chaos lives, so a chaos-clean cell cannot grade them |
 | Nothing out of the C12 refusal list moved | a general `deny`, `escort`, target value, `no_fire` with an exception — each still refused for the reason in the Spec, not for lack of time |
 | A **ninth** kind is specified elsewhere and not built | `objective suppress unit\|team [emitting <s>]` — [`../air-to-ground.md`](../air-to-ground.md) §5.2 (`C26`). It passes this file's own test (radiating-or-not is an observed fact about a published signature, the same class as the health bit), it is **deferred** like `protect`, `FBObjectiveCovers` returns false for it, and its roster price is **one bool** (`Emitting`, filled by the owner at the barrier) — the first non-monotone roster field, with a monotone accumulator in the judge. Its false positive is named there: a site nobody ever woke scores a suppression nobody earned, so the kind is only a result when the mission pairs it with something the attacker did |
 | `identify` carries no ASPECT | a real identification pass is abeam, not astern, and the bearing would be free from the same poses. Left out because no source in the set gives an aspect (a second `[SET]` number would multiply the arbitrariness). One-line extension when one turns up |

@@ -515,8 +515,13 @@ def tree_clean():
     laedt es ueberhaupt nicht (GPU-frei, 0 Dawn-Symbole). Es als Verunreinigung zu werten, hat einen
     Lauf ueber 34 Zellen blockiert, ohne dass irgendetwas an der Simulation schmutzig war.
     Bewacht bleibt, was das Ergebnis aendern KANN: `sim/assets/aircraft` (die eine Wurzel der
-    geflogenen Modelle, Prinzip 1) und `sim/assets/MODEL-DELTAS.md` (ihre Delta-Liste)."""
-    r = subprocess.run(["git", "status", "--porcelain",
+    geflogenen Modelle, Prinzip 1) und `sim/assets/MODEL-DELTAS.md` (ihre Delta-Liste).
+
+    Ein UNTRACKED file in `sim/missions` ist keine Bewegung: es kann keine committete Mission und kein
+    Deck veraendert haben, und eine Messzelle, die in DIESER Runde entsteht, ist genau das. `-uno` laesst
+    daher nur die Klasse weg, die der Docstring oben nie gemeint hat — ` M`, ` D` und ` R` bleiben
+    bewacht, und das ist die ganze Zusicherung."""
+    r = subprocess.run(["git", "status", "--porcelain", "-uno",
                         "sim/missions", "sim/assets/aircraft", "sim/assets/MODEL-DELTAS.md"],
                        cwd=REPO_DIR, capture_output=True, text=True)
     return r.stdout.strip() == ""

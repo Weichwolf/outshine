@@ -3721,3 +3721,71 @@ dreiwertige STUFE vermessen — gegen eine Saat, deren Radar gerastet aus war.
 8/8, `verify-models` grün · zehn Harnesses rc = 0 · Determinismus `--threads 1/2/4` bitgleich in
 Telemetrie und Ereignislog (nur `wallS`/`speedup` bewegen sich) · `vendor/` und `assets/aircraft/`
 unberührt.
+
+---
+
+## `E17` (2026-08-04) — Die Guillotine verlässt das Urteil: `until <s>`, und die Arena hat zwei Zellen
+
+**Der Blocker war eine Zahl, und er ist um eine Stufe kleiner geworden.** §6 veröffentlicht über
+gepaarte Zellen, das kleinste erreichbare einseitige p ist `2^-n`. `E16` hat n = 1 gemessen (Decke
+p = 0,5). Diese Runde greift die WURZEL an, die der Erbauer der drei Messrigs selbst benannt hatte, misst
+sie, repariert sie im Richter und baut dagegen. **n = 1 → 2, Decke 0,500 → 0,250.** Drei Zellen fehlen
+weiter, und die Runde sagt auch, worauf sie NICHT stehen dürfen.
+
+**Zuerst neu gemessen, denn `X-6` hatte den Baum bewegt.** 3 Zellen × 25 Hebel + 24 Chaosläufe, Simulator
+`a763d63ebf97c921`: `sat-01` 12 Beweger / modal 52,0 % / **S7 1 von 8**, `sat-02` 10 / 60,0 % / **0 von
+8**, `sat-03` 14 / 44,0 % / **5 von 8** (vorher 4). `E-27`s Zählung überlebt die Neumessung.
+
+**Die Wurzel, gemessen und ZERLEGT.** Auf `sat-03` zerfallen die fünf Kipper exakt: in **5 von 5** steckt
+der Tod des Rottenführers (der Kampf, eine echte Münze), in **4 von 5** dazu der TAKT — und der Beweis
+ist eine Zahl, gegen die man nicht argumentieren kann: `ee3`s Gürtel-Verweildauer bei t = 317,9 s ist
+**175,2 s im 520-s-Lauf und 175,2 s im Lauf, der dort abbricht**. Dieselbe Bahn auf die Zehntelsekunde,
+dasselbe Budget von 200 s — und das eine liest `unmet` (der Lauf ging weiter bis 305,5 s), das andere
+`met`. Über das Gitter nimmt dasselbe Ziel vier verschiedene Antworten aus vier Abbruchzeitpunkten an,
+während seine eigene Chaosamplitude an einem FESTEN Zeitpunkt **1,0 s** beträgt. Eine Störung von 0,6 %
+wird in ein Bit verstärkt.
+
+**Die Reparatur ist EIN Satz im Richter.** `objective ... until <s>`: der Zustand wird zu einer vom
+AUFTRAG genannten Simulationszeit EINGEFROREN — kein Kind, kein Prädikat je Kind, dasselbe `StateOf`,
+einmal gelesen. `FBObjectiveCovers` bleibt unberührt (Deckung ist eine Eigenschaft der ERKLÄRUNG), der
+Richter bekommt keine neue Quelle, und eine Spanne am oder hinter dem `timeout` ist ein Parse-Fehler.
+Erhaltung, voll gemessen: **3 337 von 3 337 Telemetriedateien bitgleich (SHA-256)** und **287 von 287
+`events.log` identisch** über den ganzen Vor-Runden-Baum. Wirkung: `sat-03` nur mit Fenstern und sonst
+unverändert geht von **5 von 8 auf 1 von 8**. Und der eingefrorene Spruch wird VERÖFFENTLICHT, nicht
+behauptet: auf `sat-04` sind **864 von 1 000** `mission OBJECTIVE`-Zustände bitgleich mit ihrer eigenen
+`mission WINDOW_CLOSED`-Zeile, **0 Abweichungen**; die übrigen 136 gehören Einheiten, die vor ihrer
+Spanne abgeschlossen haben.
+
+**`sat-04-vul-window`, die Zelle, die die Reparatur kauft.** `sat-01`s Geometrie mit den zwei gemessenen
+Chaoskanälen geschlossen und sonst nichts — ein kontrollierter Versuch, keine neue Frage, damit die
+Reparatur zurechenbar bleibt. Basis (27, 18), 9 Klassen, modal **52,0 %**, **12 Beweger von 24**,
+**S7 0 von 8**. Und die Uhrprobe strukturell bestanden: die Laufdauer spannt über den Hebelsatz
+**133,5 … 520,0 s** und die Klasse folgt ihr nicht (`emcon-tight` bei 520,0 s und `emcon-mid` bei 514,7 s
+liefern dieselbe (28, 20)).
+
+**Zwei Gesetze, die jede künftige Zelle binden.** (a) **G6 ist arithmetisch ausgeschlossen**, wo eine
+Zelle eine Abgabe gegen einen Letalradius benotet: die Auslösung ist ein ENTSCHEIDUNGSTAKT, also ist der
+Treffpunkt bei 22,9 m Bahn gerastert, und der ganze `pilot_attack_bias_s`-Hebel ist ±0,1 s = **23 m**.
+Ein Hebel der Größe L überquert eine Schwelle mit Rand M auf beiden Seiten nur, wenn L > 2M — und
+23 > 44 ist falsch. Signal = Chaos, dieselbe Ursache wie `sat-01`s einziger Kipper. (b) **`protect` und
+`survive` werden erst NACH dem Schlagabtausch benotbar, und der Schlagabtausch IST das Chaos.** Gemessen
+statt geschlossen: `sat-05` (= `sat-03` gefenstert, sonst nichts) fällt von 14 Bewegern und 44,0 % auf
+**4 Beweger und 84,0 %** — S1 und S2 beide verweigert. **Zehn von `sat-03`s vierzehn Bewegern waren
+Beweger des Abbruchzeitpunkts**, also `X-7`, bestätigt durch Entfernen der Uhr statt durch Lesen von
+Dauern. Die Datei wurde nicht committet; die Messung ist das Produkt.
+
+**`sat-06-qra-window` wird von S1 verweigert, und das Zahlenpaar IST der Fund.** Eine andere Frage
+(Identifizierungsdurchgang gegen UNBEWAFFNETE An-26, also gar keine Kampfmünze) auf denselben reparierten
+Mechaniken: S2 ok (9 Beweger), **S7 0 von 8**, S1 **NEIN** bei 64,0 %. Dieselbe Zelle, ein Zielpunkt um
+11 m verschoben: auf der Rasterkante **S1 ok (60,0 %), 10 Beweger, S7 1 von 8** — auf der Rastermitte
+**S7 0 von 8, 9 Beweger, S1 NEIN**. Der Hebel, der die zehnte Klasse trennte, WAR die Münze. Committet
+ist die S7-saubere Form, denn ein Kriterium kauft man nicht zurück.
+
+**Eine Korrektur an einer committeten Messung.** `E16` §6(b) las `pilot_emcon_frac` als dreiwertige
+STUFE und `emcon-tight`/`emcon-mid` als Identität. Auf `sat-04` bewegen **alle drei** Emcon-Allele die
+Klasse. Die Stufe war eine Messung des `X-6`-Rasters.
+
+**Tore:** `make gym` · `verify-layers` (6 Registry-Leser unverändert), `verify-guards` 8/8,
+`verify-models` grün · zehn Harnesses rc = 0 · Erhaltung 3 337/3 337 + 287/287 · Determinismus
+`--threads 1/2/4` bitgleich (287 Altmissionen sowie beide neuen Rigs einzeln) · `vendor/` und
+`assets/aircraft/` unberührt · keine Commits.

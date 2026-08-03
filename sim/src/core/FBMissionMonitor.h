@@ -103,9 +103,17 @@ private:
   /* Survive, Waypoints and Identify are deliberately not decided against the roster — see Finalize,
    * PlanJudged_ and Dwell_. */
   bool ObjectivesMet(const FBMissionMonitorSample &s) const;
-  /* The kinds that can only be answered when there is no run left in which to lose them. */
+  /* The kinds that can only be answered when there is no run left in which to lose them — and a window
+   * that has closed is such a run being over, which is the whole of doc/missions/verdict.md `E17`. */
   bool HasDeferredObjective() const;
   bool HasObjective(FBObjectiveKind kind) const;
+  /* THE DECLARED SPAN, read once: the first tick at or after `UntilS` freezes that objective's state,
+   * and everything downstream asks Dwell_[i].Closed instead of the clock. */
+  void CloseWindows(const FBMissionMonitorSample &s, double simTimeS);
+  bool WindowOpen(size_t i) const { return !Dwell_[i].Closed; }
+  /* Is there still a `survive` this run can lose? A closed one cannot be violated, so a shoot-down
+   * after its window is not this unit's failure — it is a fact about a sortie that was already over. */
+  bool HasOpenObjective(FBObjectiveKind kind) const;
   bool HasSurviveObjective() const;
 
   FBFlightPlan Plan_;
@@ -121,10 +129,15 @@ private:
   int          AppFails_ = 0;
   bool         PlanJudged_ = true;  /* is the flight plan part of the verdict? (set in the constructor) */
   bool         PlanDone_ = false;   /* every waypoint captured (trivially true if it is not judged) */
-  /* Index-parallel to Objectives_, used by Identify alone: the time spent inside its box and the latch
-   * that time sets. Sized once in the constructor, never resized. */
-  struct FBIdentifyProgress { double DwellS = 0.0; bool Met = false; };
-  std::vector<FBIdentifyProgress> Dwell_;
+  /* Index-parallel to Objectives_: the accumulators (Identify's box dwell, Suppress's radiating time)
+   * and the DECLARED SPAN's latch. Sized once in the constructor, never resized. */
+  struct FBObjectiveProgress {
+    double DwellS = 0.0;
+    bool   Met = false;                                   /* Identify's own latch */
+    bool   Closed = false;                                /* the window has been read */
+    FBObjectiveState Final = FBObjectiveState::Unmet;     /* ...and this is what it said */
+  };
+  std::vector<FBObjectiveProgress> Dwell_;
   /* THE DECLARED BELT, this judge's own copy and nobody else's — index-parallel dwell, monotone, sized
    * once. `avoid zone` is decided against it and the `zone` source writes it out. */
   std::vector<FBZone>      Zones_;

@@ -1,0 +1,567 @@
+name sat-04-vul-window-1
+timeout 520
+time 1991-01-19T08:00:00Z
+wx fixture wx-2026-07-27T00Z.wxb
+
+# MEASURING RIG, NOT A CAMPAIGN RUNG. `sat-*` files belong to no `.fbc`, are named by no campaign and
+# move no doctrine. Format: doc/missions/syntax.md; the criteria: doc/doctrine-evolution.md 4.2.
+#
+# WHAT THIS FILE IS: sat-01-belt-channels' GEOMETRY with the two chaos channels that cost sat-01 its S7
+# pass CLOSED, and nothing else changed. It is a controlled experiment, deliberately not a new question:
+# sat-01 already passes S1 and S2 and fails S7 by exactly ONE bit, so a rig that changes the geometry
+# too would leave the repair unattributable. What is different, both of it measured rather than argued:
+#
+#   1. THE DECLARED SPAN. Every objective of every unit carries `until 220` (doc/missions/verdict.md,
+#      "The seventh thing in the vocabulary"). The state of each is FROZEN at t = 220.1 s and no later
+#      event can move it. [MESS, this file, 25 lever runs] 864 of the 1 000 published
+#      `mission OBJECTIVE` states are bit-identical to the `mission WINDOW_CLOSED` state of the same
+#      objective and **0 differ**; the remaining 136 belong to units that concluded BEFORE the window
+#      (shot down, or the run ended first) and are therefore not frozen at all. The outcome class is a
+#      published function of the first 220 s.
+#      WHY THAT IS THE REPAIR: [MESS, sat-03 on the same binary] its baseline flips 5 of 8 on the 0.8 m
+#      spawn grid, and 4 of those 5 flips are the JUDGE being asked at a different instant of the SAME
+#      fight — `ee3`'s belt dwell at t = 317.9 s is 175.2 s in the 520 s run and 175.2 s in the run that
+#      stopped there, and the same number reads `unmet` in one and `met` in the other. Windowing sat-03
+#      and changing nothing else takes it from 5 of 8 to 1 of 8.
+#   2. THE RELEASE LATTICE. The pickle is a DECISION TICK, so the impact point is quantised: [MESS,
+#      9 spawn samples] the four strikers' impacts span 22.9 / 5.9 / 6.0 / 22.9 m in longitude, and the
+#      22.9 m is one tick of track at 229 m/s. sat-01 places its aim points so that a 23 m bias step
+#      crosses the Mk 82's 45 m fail radius — which is also what a 22.9 m lattice step does, and that is
+#      its 1-of-8 flip. Here every aim point sits at the MIDPOINT of its own measured lattice, so the
+#      worst reachable error is 11.5 m against a 45 m radius. THE PRICE IS STATED: `bias-late` stops
+#      being a mover, because a 23 m lever cannot cross a threshold that keeps a 22 m margin on both
+#      sides. That is arithmetic, not tuning — G6 is structurally excluded from any S7-clean cell that
+#      grades a delivery against a lethal radius.
+#   3. THE LANE, and it is the replacement gradient. `zone lane 33.20000 44.35000 3000 0 3000` is a
+#      declared cylinder on the low element's track; the radius is [SET] BETWEEN the formation's own
+#      lateral station steps (`pilot_flight_spread_frac` x FormationSpreadM = frac x 1 852 m, so 1 852 m
+#      at the seed and 3 704 m for the second element, doc/formation.md 4.2), which is what makes a
+#      shape allele a STEP and not a nudge. Predicted per-member membership did NOT hold — the low
+#      element does not fly the lead's ground track — and the measurement is quoted instead of the
+#      prediction: [MESS] the lane dwell of `bl3`/`bl4` is 19.1/0.0 s at the seed and 0.0/9.9
+#      (`shape-abreast`), 8.2/7.0 (`shape-tight`), 20.0/1.2 (`shape-trail`), 0.0/16.9 (`shape-wide`),
+#      0.0/0.0 (`shape-stacked`, `net-off`, `emcon-tight/mid`), 5.3/1.8 (`emcon-wide`). Separations of
+#      5..20 s against a MEASURED chaos amplitude of 1.0 s over +-3 m of spawn.
+#   4. THE BELT BUDGET is re-derived for the window: `exposure 124` is [SET] in a MEASURED GAP, and the
+#      gap is a different one from sat-01's because a 220 s window is not a 520 s run. [MESS, 200
+#      member-runs, dwell at t = 220] the values run 51.8 .. 179.3 s with gaps of 26.1 s (64.6..90.7),
+#      15.6 s (97.5..113.1) and 21.9 s (113.1..135.0); 124 s lies in the last one, 10.9 s from the
+#      nearest member and 11 times the chaos amplitude.
+#
+# GENE FAMILIES, MEASURED (the arena's own table, 25 levers, `--elev const`):
+#   live    G1 shape 5 of 6:  shape-abreast (28,19)  shape-stacked (27,20)  shape-tight (27,17)
+#                             shape-trail (28,19)  shape-wide (28,19);  shape-flat INERT
+#   live    G5 emcon 3 of 3:  emcon-tight (28,20)  emcon-mid (28,20)  emcon-wide (24,21).
+#                             ALL THREE, for the first time in this tree — E16 6(b) measured
+#                             `emcon-tight`/`emcon-mid` as the identity map against a seed whose radar
+#                             was latched off by X-6, and that reading is hereby re-taken and REFUTED.
+#   live    G7 ccip  1 of 2:  ccip-tight (23,14) — the release is refused outright, 4 releases -> 0;
+#                             ccip-open INERT
+#   live    G3 net   1 of 2:  net-off (26,19);  `sort-left`/`sort-near` are dead text beside a live net
+#   part    G6 bias  2 of 3:  bias-early (26,17) and bias-rail (23,14). NEITHER MAY BE READ AS A
+#                             DIRECTION: `bias-rail` is 2.3 km of track, i.e. no delivery at all, and
+#                             `bias-early` moves ONE kill bit by exactly one lattice quantum. Named,
+#                             not used.
+#   INERT   G2 cover 0 of 3:  the AIM-120 binds 0.3 s — inert by AIRFRAME, not by this file
+#   INERT   G4 energy 0 of 3: it lives only inside `Phase::Bfm`, and no unit here flies `set task bfm`
+#   BASELINE (27, 18), duration 224.6 s.  12 movers of 24, 11 of them excluding `bias-rail`; 9 distinct
+#   classes; modal share 52.0 % (13 of 25).  S1 ok, S2 ok.
+#   S7: [MESS] **0 of 8** spawn perturbations on the 0.8 m grid flip the baseline class.
+#
+# AND THE CLOCK, because X-7 is the trap this rig is built against: the run DURATION over the lever set
+# spans 133.5 .. 520.0 s — 386.5 s — while the outcome class does not follow it (`emcon-tight` at 520.0 s
+# and `emcon-mid` at 514.7 s produce the SAME class (28,20); `shape-abreast` at 520.0 s and
+# `shape-trail` at 225.8 s produce the same (28,19)). A mover of the truncation instant cannot be a
+# mover here, and that is structural rather than lucky: everything graded was frozen at t = 220.1.
+#
+# THE ARENA: twelve F-16 in three elements — a high sweep at 6 000 m, a low sweep at 1 200 m and a CCIP
+# strike at 900 m — against a three-layer belt, its EW radar and a four-ship CAP. Every coordinate is
+# [SET] and every one of them except the four aim points is sat-01's. `--elev const`, 0 m datum, no
+# terrain masking (C4). `wx fixture` is the committed GFS blob. Day, 11:00 local, sun about +33 deg.
+# THE SUBSTITUTION AND ITS DIRECTION: the MiG-29 is the strongest Soviet-pattern fighter in the tree, so
+# RED is stronger here than any historical four-ship this geometry resembles. This file is an
+# instrument, not a rung.
+#
+# THE ONE TACTICAL QUESTION: WITHIN A DECLARED VUL WINDOW, DOES THE PACKAGE'S OWN SHAPE DECIDE WHO IT
+# EXPOSES AND WHAT IT DELIVERS?
+#
+# WHAT TO READ:
+#   events.log         `mission WINDOW_CLOSED` — one line per declared span, the frozen state, at
+#                      t = 220.1; `mission OBJECTIVE` must repeat it exactly for every unit that was
+#                      still flying. `zone ENTER`/`EXIT`, `stores DELIVERY` (aimLongM is the lattice).
+#   telemetry_b[hl]*   `zone_sa6belt_s`, `zone_lane_s` — the two dwells the shape genes move
+#   telemetry_bs*      `releases`, and `aimErrM` in the log against a 45 m radius
+#
+# READING RULE, BINDING: exit 3 = TIMEOUT is the EXPECTED exit and is NOT the measurement; so is any
+# duration below the 520 s timeout, because a hostile wreck ends the run and CANNOT move a frozen
+# verdict. THE MEASUREMENT IS (V, M) SUMMED OVER THE TWELVE F-16 — eight `avoid zone sa6belt`, four
+# `avoid zone lane`, four `kill unit` on aim points, four `kill unit` on the CAP and twelve `survive`,
+# 32 objectives — AND ITS SPREAD ACROSS THE LEVER SET. A single run of this file measures NOTHING.
+
+zone sa6belt  33.20000 44.30000 22000 100 7000
+zone lane     33.20000 44.35000 3000 0 3000
+
+unit sa6bat
+  module sa6
+  team hostile
+  spawn 33.20000 44.30000 ground 0.0 0
+  set emcon free
+
+unit sa8bat
+  module sa8
+  team hostile
+  spawn 33.20000 45.00000 ground 0.0 0
+  set emcon free
+
+unit flakb
+  module zsu23
+  team hostile
+  spawn 33.20000 44.30000 ground 0.0 0
+  set emcon free
+  set rounds 800
+
+unit ewnode
+  module p18
+  team hostile
+  spawn 33.35000 44.10000 ground 0.0 0
+  set emcon free
+
+unit bh1
+  module f16
+  team friendly
+  flight hi 1
+  spawn 33.20000 43.85000 6000 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6000 480
+  objective kill unit bmig1 until 220
+  objective avoid zone sa6belt exposure 124 until 220
+  objective survive until 220
+
+unit bh2
+  module f16
+  team friendly
+  flight hi 2
+  spawn 33.18330 43.85000 6150 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6150 480
+  objective kill unit bmig2 until 220
+  objective avoid zone sa6belt exposure 124 until 220
+  objective survive until 220
+
+unit bh3
+  module f16
+  team friendly
+  flight hi 3
+  spawn 33.23340 43.85000 6300 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6300 480
+  objective kill unit bmig3 until 220
+  objective avoid zone sa6belt exposure 124 until 220
+  objective survive until 220
+
+unit bh4
+  module f16
+  team friendly
+  flight hi 4
+  spawn 33.21670 43.85000 6450 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 6450 480
+  objective kill unit bmig4 until 220
+  objective avoid zone sa6belt exposure 124 until 220
+  objective survive until 220
+
+unit bl1
+  module f16
+  team friendly
+  flight lo 1
+  spawn 33.20000 43.95000 1200 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 1200 480
+  objective avoid zone sa6belt exposure 124 until 220
+  objective avoid zone lane exposure 0 until 220
+  objective survive until 220
+
+unit bl2
+  module f16
+  team friendly
+  flight lo 2
+  spawn 33.18330 43.95000 1350 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 1350 480
+  objective avoid zone sa6belt exposure 124 until 220
+  objective avoid zone lane exposure 0 until 220
+  objective survive until 220
+
+unit bl3
+  module f16
+  team friendly
+  flight lo 3
+  spawn 33.23340 43.95000 1500 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 1500 480
+  objective avoid zone sa6belt exposure 124 until 220
+  objective avoid zone lane exposure 0 until 220
+  objective survive until 220
+
+unit bl4
+  module f16
+  team friendly
+  flight lo 4
+  spawn 33.21670 43.95000 1650 90.0 480
+  set gear up
+  set fuel_pct 80
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set datalink on
+  set store 1 aim120
+  set store 2 aim120
+  set store 6 aim9
+  set store 7 aim9
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 33.20000 45.20000 1650 480
+  objective avoid zone sa6belt exposure 124 until 220
+  objective avoid zone lane exposure 0 until 220
+  objective survive until 220
+
+unit bs1
+  module f16
+  team friendly
+  flight st 1
+  spawn 33.05000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.05000 44.30000 900 450
+  wp 33.05000 44.55000 3000 450
+  objective kill unit tgta until 220
+  objective survive until 220
+
+unit bs2
+  module f16
+  team friendly
+  flight st 2
+  spawn 33.08000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.08000 44.34000 900 450
+  wp 33.08000 44.55000 3000 450
+  objective kill unit tgtb until 220
+  objective survive until 220
+
+unit bs3
+  module f16
+  team friendly
+  flight st 3
+  spawn 33.32000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.32000 44.34000 900 450
+  wp 33.32000 44.55000 3000 450
+  objective kill unit tgtc until 220
+  objective survive until 220
+
+unit bs4
+  module f16
+  team friendly
+  flight st 4
+  spawn 33.35000 43.85000 900 90.0 450
+  set gear up
+  set fuel_pct 80
+  set fcr_mode off
+  set attack_mode ccip
+  set rwr on
+  set datalink on
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  wp 33.35000 44.30000 900 450
+  wp 33.35000 44.55000 3000 450
+  objective kill unit tgtd until 220
+  objective survive until 220
+
+unit bmig1
+  module mig29
+  team hostile
+  flight ca 1
+  spawn 33.24000 45.20000 6000 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.24000 44.00000 6000 450
+  objective kill team friendly until 220
+  objective survive until 220
+
+unit bmig2
+  module mig29
+  team hostile
+  flight ca 2
+  spawn 33.20000 45.20000 6150 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.20000 44.00000 6150 450
+  objective kill team friendly until 220
+  objective survive until 220
+
+unit bmig3
+  module mig29
+  team hostile
+  flight ca 3
+  spawn 33.16000 45.24000 6300 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.16000 44.00000 6300 450
+  objective kill team friendly until 220
+  objective survive until 220
+
+unit bmig4
+  module mig29
+  team hostile
+  flight ca 4
+  spawn 33.12000 45.24000 1500 270.0 450
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_range_nm 54
+  set n019_emission off
+  set rwr on
+  set brief_sort left
+  set store 3 r27r
+  set store 4 r73
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode man
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  set brief_gci 20 270 120 0
+  set brief_gci 60 270 90 0
+  set brief_gci 100 270 60 0
+  wp 33.12000 44.00000 1500 450
+  objective kill team friendly until 220
+  objective survive until 220
+
+unit tgta
+  module target_soft
+  team hostile
+  spawn 33.04980700 44.30058600 ground 0.0 0
+
+unit tgtb
+  module target_soft
+  team hostile
+  spawn 33.07981000 44.34050300 ground 0.0 0
+
+unit tgtc
+  module target_soft
+  team hostile
+  spawn 33.31981600 44.34054800 ground 0.0 0
+
+unit tgtd
+  module target_soft
+  team hostile
+  spawn 33.34981400 44.30058600 ground 0.0 0

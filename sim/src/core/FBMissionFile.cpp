@@ -292,9 +292,33 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
        * callsign is allowed to be "hostile", and that must not silently change what the line means. */
       const std::string kinds =
           "'objective' needs survive|waypoints|kill|identify|protect|no_fire|deny|avoid|suppress";
+      FBObjective o;
+      /* THE DECLARED SPAN is a modifier on EVERY kind, so it is taken off the tail before the kind is
+       * read — otherwise each kind's own optional trailing token (`exposure`, `emitting`, `hold`) would
+       * have to know a word that has nothing to do with it. doc/missions/verdict.md `E17`. */
+      {
+        std::string rest, w;
+        std::getline(ls, rest);
+        std::vector<std::string> tok;
+        std::istringstream ts(rest);
+        while (ts >> w) tok.push_back(w);
+        if (tok.size() >= 2 && tok[tok.size() - 2] == "until") {
+          std::istringstream vs(tok.back());
+          if (!(vs >> o.UntilS) || !vs.eof() || !(o.UntilS > 0.0))
+            return fail("'objective ... until' needs seconds greater than zero");
+          if (haveTimeout && o.UntilS >= out.TimeoutS)
+            return fail("'objective ... until " + tok.back() + "' is at or past the mission timeout (" +
+                        std::to_string(out.TimeoutS) + " s): a span that cannot close is the old "
+                        "end-of-run rule wearing a new word");
+          tok.resize(tok.size() - 2);
+        }
+        std::string body;
+        for (const std::string &t : tok) body += t + " ";
+        ls.clear();
+        ls.str(body);
+      }
       std::string what;
       if (!(ls >> what)) return fail(kinds);
-      FBObjective o;
       /* The unit/team discriminator of every kind that offers both, read the same way for all of them:
        * a callsign may legally be spelled `hostile`, so the scope word is never guessed. */
       auto readTarget = [&](const std::string &line) -> bool {
@@ -378,7 +402,8 @@ bool FBParseMissionFile(const std::string &text, FBMission &out, std::string *er
       }
       for (const auto &have : unit->Objectives)
         if (have.Kind == o.Kind && have.Scope == o.Scope && have.TargetId == o.TargetId &&
-            have.TargetTeam == o.TargetTeam && have.RangeM == o.RangeM && have.HoldS == o.HoldS)
+            have.TargetTeam == o.TargetTeam && have.RangeM == o.RangeM && have.HoldS == o.HoldS &&
+            have.UntilS == o.UntilS)
           return fail("unit '" + unit->Id + "' declares '" + FBObjectiveStr(o) + "' twice");
       unit->Objectives.push_back(std::move(o));
     } else if (kw == "set") {

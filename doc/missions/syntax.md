@@ -91,7 +91,7 @@ unit two
 | Actor  | `set`     | `key value...` | system state as mission data — the runner only parses the KV list and hands it, inside the spawn IC window, to `FBModule::ApplySetup(key, value)` of THIS unit; the MODULE interprets its own keys. An unknown key is a runtime FAIL (exit 1, `SET_REJECTED` event), not a parse error. The key sets live with their topics: [`sensors.md`](sensors.md), [`avionics.md`](avionics.md), [`weapons.md`](weapons.md), [`combat.md`](combat.md). |
 | Actor  | `wp`      | lat lon altM speedKt | an `FBWaypoint` of type `Enroute`, in THIS unit's flight plan |
 | Actor  | `land`    | — | an `FBWaypoint` of type `Land` AT the runway threshold (needs the mission-wide `runway` line) |
-| Actor  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <team>` \| `identify unit <callsign> range <m> hold <s>` \| `protect unit\|team <x>` \| `no_fire` \| `deny release unit\|team <x>` \| `avoid zone <name> [exposure <s>]` | COMBAT OBJECTIVE of this unit (`core/FBObjective.h`) — repeatable, see [`verdict.md`](verdict.md). Every unit-scoped target must name a unit OF THIS MISSION (forward reference allowed, checked at end of file) and not itself; `objective waypoints` needs `wp`/`land` lines above it. A doubly declared objective is a parse error. `avoid zone` must name a `zone` line of this mission and is fulfilled while the cumulative dwell stays at or below `exposure` (default 0); it is DEFERRED, like `survive`. The last four are round `C12`; their grammar is below. |
+| Actor  | `objective` | `survive` \| `waypoints` \| `kill unit <callsign>` \| `kill team <team>` \| `identify unit <callsign> range <m> hold <s>` \| `protect unit\|team <x>` \| `no_fire` \| `deny release unit\|team <x>` \| `avoid zone <name> [exposure <s>]` \| `suppress unit\|team <x> [emitting <s>]`, each optionally followed by `until <s>` | COMBAT OBJECTIVE of this unit (`core/FBObjective.h`) — repeatable, see [`verdict.md`](verdict.md). Every unit-scoped target must name a unit OF THIS MISSION (forward reference allowed, checked at end of file) and not itself; `objective waypoints` needs `wp`/`land` lines above it. A doubly declared objective is a parse error. `avoid zone` must name a `zone` line of this mission and is fulfilled while the cumulative dwell stays at or below `exposure` (default 0); it is DEFERRED, like `survive`. The last four are round `C12`; their grammar is below. |
 
 `name`, `timeout` and at least one `unit` block are mandatory; per block `module` and `spawn` are
 mandatory. `runway`, `wx`, `time`, `zone` and `net` are optional (`runway` only needed for `spawn threshold`/`land`/the
@@ -215,6 +215,20 @@ objective deny release team <friendly|hostile|neutral>
 | Rule | Detail |
 |---|---|
 | Every new keyword is a NEW token | no existing spelling changes meaning; `objective kill unit X` parses exactly as it does today |
+
+### The declared span (`E17`) — grammar only
+
+```
+objective <any kind> [<its own tokens>] until <seconds>
+```
+
+One optional trailing modifier on EVERY kind, stripped from the tail before the kind word is read, so no
+kind's own optional token (`exposure`, `emitting`, `hold`) has to know about it. `<seconds>` must be
+greater than zero and **strictly less than the mission `timeout`** — a span that cannot close would be
+the end-of-run rule wearing a new word, and the parser says so with both numbers. Two objectives that
+differ only in their span are two objectives, not a duplicate. Absent, the field is `+infinity` and the
+objective is judged exactly as every objective written before it. Semantics: [`verdict.md`](verdict.md),
+"The seventh thing in the vocabulary".
 | `unit`/`team` discriminator mandatory, as for `kill` | for the same stated reason: a callsign may legally be spelled `hostile` |
 | Named units are resolved against the WHOLE cast at end of file | same rule as `kill unit`; an objective naming nobody is a parse error, never a silently unmeetable objective |
 | A unit may not `identify`, `protect` or `deny release` **itself** | `protect` on oneself is `survive` and has a spelling already; `identify`/`deny` on oneself are meaningless |
@@ -297,6 +311,7 @@ the same order.
 | Tick order | as specified; the gym parallelises only the STEP phase and is bit-identical over `--threads 1..4` |
 | Consistency validation | today exactly one rule: explicit spawn altitude below resolved ground |
 | `time` line | **built** (`C2`). Parser + `core/FBCivilTime.h`; precedence and the flag collision in `missions/FBClockBoot.h`; pushed per actor per decision tick (`FBSimUnit::UpdateSolar` → `FBModule::SetSolar` → `FBEnvironmentBlock`) by the runner and by the WASM frame loop. Reference mission `missions/clock-night-payerne.fbm`, the two refusal fixtures in `missions/negative/` |
+| The declared span, `until <s>` (`E17`) | **built.** Stripped from the tail before the kind word is read, so every kind takes it and none of them knows about it; `> 0` and `< timeout` are parse errors otherwise, with both numbers in the message. Two spans of the same kind are two objectives. Negative fixture: `missions/negative/objective-until-past-timeout.fbm` |
 | The four new objective kinds (`C12`) | **built.** Parser + `FBObjectiveScope` in `core/FBObjective.h`; unit-scoped targets resolved against the whole cast at end of file, three refusal fixtures in `missions/negative/`; eight reference missions in `sim/missions/` ([`verdict.md`](verdict.md)) |
 
 ## Gaps

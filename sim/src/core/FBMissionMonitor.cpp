@@ -82,11 +82,33 @@ bool FBMissionMonitor::HasSurviveObjective() const {
   return HasObjective(FBObjectiveKind::Survive);
 }
 
+bool FBMissionMonitor::HasOpenObjective(FBObjectiveKind kind) const {
+  for (size_t i = 0; i < Objectives_.size(); i++)
+    if (Objectives_[i].Kind == kind && WindowOpen(i)) return true;
+  return false;
+}
+
+/* THE DECLARED SPAN. Read AFTER this tick's accumulators, so a budget is frozen with the dwell it had
+ * when the mission said to look, and never again — the reason the kind exists is that the alternative
+ * instant is chosen by whichever wreck reaches the ground first (doc/missions/verdict.md `E17`). */
+void FBMissionMonitor::CloseWindows(const FBMissionMonitorSample &s, double simTimeS) {
+  for (size_t i = 0; i < Objectives_.size(); i++) {
+    if (Dwell_[i].Closed || simTimeS < Objectives_[i].UntilS) continue;
+    Dwell_[i].Final = StateOf(i, s);   /* read BEFORE the latch, which StateOf answers from */
+    Dwell_[i].Closed = true;
+    FBLog::Info("mission", "WINDOW_CLOSED", {{"kind", FBObjectiveStr(Objectives_[i])},
+                                             {"state", FBObjectiveStateStr(Dwell_[i].Final)}});
+  }
+}
+
 /* None of these is monotone during the run: an opponent's round can still be in the air, a protected
  * unit can still be hit, and a trigger can still be pulled. Banking any of them early would let a unit
- * keep a SUCCESS it can still lose, so a monitor carrying one stays open until Finalize. */
+ * keep a SUCCESS it can still lose, so a monitor carrying one stays open until Finalize — unless the
+ * mission DECLARED the span it is deferred over and that span has closed. */
 bool FBMissionMonitor::HasDeferredObjective() const {
-  for (const auto &o : Objectives_)
+  for (size_t i = 0; i < Objectives_.size(); i++) {
+    if (!WindowOpen(i)) continue;
+    const FBObjective &o = Objectives_[i];
     switch (o.Kind) {
       case FBObjectiveKind::Survive:
       case FBObjectiveKind::Protect:
@@ -103,6 +125,7 @@ bool FBMissionMonitor::HasDeferredObjective() const {
       case FBObjectiveKind::Waypoints:
       case FBObjectiveKind::Identify: break;
     }
+  }
   return false;
 }
 
@@ -145,6 +168,8 @@ void FBMissionMonitor::NoteIdentify(const FBMissionRoster &roster, double dtS) {
 }
 
 FBObjectiveState FBMissionMonitor::StateOf(size_t i, const FBMissionMonitorSample &s) const {
+  /* THE DECLARED SPAN, and it is the first thing asked: past it there is no state left to compute. */
+  if (Dwell_[i].Closed) return Dwell_[i].Final;
   const FBObjective &o = Objectives_[i];
   switch (o.Kind) {
     /* `survive` is answered exactly where Finalize answers it — still combat-capable with no run left
@@ -245,19 +270,24 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
   NoteEmitting(s.Roster, simTimeS - PrevSimT_);
   NoteZones(s, simTimeS - PrevSimT_);
   PrevSimT_ = simTimeS;
+  CloseWindows(s, simTimeS);
 
   /* Shot down — checked FIRST, because everything below assumes an aircraft that could still get there.
    * WHOSE failure it is depends on what the mission declared. */
   if (s.CombatIneffective) {
     if (Objectives_.empty())
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (weapon damage)", s);
-    if (HasSurviveObjective())
+    /* Only a `survive` this run can still LOSE: one whose declared span has closed was answered while
+     * it was open, and a closed objective cannot be violated. */
+    if (HasOpenObjective(FBObjectiveKind::Survive))
       return Conclude(FBMissionVerdict::Fail, "combat ineffective (survive objective lost)", s);
   }
 
   /* The two kinds that are lost the instant they are broken. Both read a MONOTONE register of the
    * owner's, so neither can be un-broken later and the conclusion is safe to latch here. */
-  for (const auto &o : Objectives_) {
+  for (size_t oi = 0; oi < Objectives_.size(); oi++) {
+    const FBObjective &o = Objectives_[oi];
+    if (!WindowOpen(oi)) continue;
     if (o.Kind == FBObjectiveKind::NoFire && s.ReleasedWeapon)
       return Conclude(FBMissionVerdict::Fail, "weapon released (no_fire objective lost)", s);
     if (o.Kind != FBObjectiveKind::Protect) continue;
@@ -332,9 +362,15 @@ bool FBMissionMonitor::Tick(const FBMissionMonitorSample &s, double simTimeS) {
 bool FBMissionMonitor::Finalize(const FBMissionMonitorSample &s, double simTimeS) {
   (void)simTimeS;
   if (Concluded()) return false;
-  /* `survive` is met exactly here and only here: not combat-ineffective at the end = it survived. */
-  if (PlanDone_ && ObjectivesMet(s) &&
-      !(HasSurviveObjective() && s.CombatIneffective)) {
+  /* `survive` is met exactly here and only here: not combat-ineffective at the end = it survived. Asked
+   * through StateOf rather than through the sample directly, so a `survive` whose declared span closed
+   * while the unit was still flying answers the way it was frozen. Identical for every objective that
+   * declares no span, which is every one written before doc/missions/verdict.md `E17`. */
+  bool surviveLost = false;
+  for (size_t i = 0; i < Objectives_.size(); i++)
+    surviveLost = surviveLost || (Objectives_[i].Kind == FBObjectiveKind::Survive &&
+                                  StateOf(i, s) != FBObjectiveState::Met);
+  if (PlanDone_ && ObjectivesMet(s) && !surviveLost) {
     std::string d = SuccessDetail(PlanDetail_, !Objectives_.empty());
     if (HasSurviveObjective()) d += ", survived";
     /* The one kind whose result is worth a line of its own, because the number IS the verdict: how long

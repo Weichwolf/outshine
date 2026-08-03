@@ -73,7 +73,16 @@ struct FBObjective {
   double           HoldS = 0.0;                         /* Identify: the cumulative dwell inside it;
                                                          * AvoidZone: the exposure budget;
                                                          * Suppress: the radiating allowance */
+  /* THE DECLARED SPAN, and it is a modifier on every kind rather than a kind of its own: the state is
+   * FROZEN at this sim time, so the verdict stops being a function of WHEN the run happened to end.
+   * Infinity = "at the end of the run" = every objective ever written before doc/missions/verdict.md's
+   * `E17` section, which is why nothing that omits it can reach a new branch. */
+  double           UntilS = std::numeric_limits<double>::infinity();
 };
+
+inline bool FBObjectiveWindowed(const FBObjective &o) {
+  return o.UntilS < std::numeric_limits<double>::infinity();
+}
 
 /* Deliberately nothing beyond who it is, whose side it is on, whether it can still fight, whether it
  * has ever let anything go, and how far away it is — no position, no self-report, no module handle.
@@ -176,32 +185,38 @@ inline bool FBObjectiveMet(const FBObjective &o, const FBMissionRoster &roster) 
 
 /* The .fbm spelling, for logs and for the parser's error messages. */
 inline std::string FBObjectiveStr(const FBObjective &o) {
+  auto window = [&o](std::string s) {
+    if (!FBObjectiveWindowed(o)) return s;
+    std::ostringstream os;
+    os << s << " until " << o.UntilS;
+    return os.str();
+  };
   auto target = [&o]() {
     return o.Scope == FBObjectiveScope::Unit ? "unit " + o.TargetId
                                              : std::string("team ") + FBUnitTeamStr(o.TargetTeam);
   };
   switch (o.Kind) {
-    case FBObjectiveKind::Survive:   return "survive";
-    case FBObjectiveKind::KillUnit:  return "kill unit " + o.TargetId;
-    case FBObjectiveKind::KillTeam:  return std::string("kill team ") + FBUnitTeamStr(o.TargetTeam);
-    case FBObjectiveKind::Waypoints: return "waypoints";
+    case FBObjectiveKind::Survive:   return window("survive");
+    case FBObjectiveKind::KillUnit:  return window("kill unit " + o.TargetId);
+    case FBObjectiveKind::KillTeam:  return window(std::string("kill team ") + FBUnitTeamStr(o.TargetTeam));
+    case FBObjectiveKind::Waypoints: return window("waypoints");
     case FBObjectiveKind::Identify: {
       std::ostringstream os;
       os << "identify unit " << o.TargetId << " range " << o.RangeM << " hold " << o.HoldS;
-      return os.str();
+      return window(os.str());
     }
-    case FBObjectiveKind::Protect:     return "protect " + target();
-    case FBObjectiveKind::NoFire:      return "no_fire";
-    case FBObjectiveKind::DenyRelease: return "deny release " + target();
+    case FBObjectiveKind::Protect:     return window("protect " + target());
+    case FBObjectiveKind::NoFire:      return window("no_fire");
+    case FBObjectiveKind::DenyRelease: return window("deny release " + target());
     case FBObjectiveKind::AvoidZone: {
       std::ostringstream os;
       os << "avoid zone " << o.TargetId << " exposure " << o.HoldS;
-      return os.str();
+      return window(os.str());
     }
     case FBObjectiveKind::Suppress: {
       std::ostringstream os;
       os << "suppress " << target() << " emitting " << o.HoldS;
-      return os.str();
+      return window(os.str());
     }
   }
   return "?";

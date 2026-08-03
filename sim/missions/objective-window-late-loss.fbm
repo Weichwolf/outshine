@@ -1,0 +1,52 @@
+name objective-window-late-loss-1
+timeout 280
+
+# THE DECLARED SPAN, AS A RUN (round E17). `objective ... until <s>` freezes an objective's state at a
+# sim time the MISSION names instead of one the run's events choose (doc/missions/verdict.md, "The
+# seventh thing in the vocabulary"). This file is the measurement that the freeze is REAL on the one
+# case where it is load-bearing: A CLOSED OBJECTIVE CANNOT BE VIOLATED.
+#
+# THE CONSTRUCTION: `objective-covers-none.fbm`, byte for byte, with `until 60` on the STRIKER's
+# `survive` and on nothing else. In that file the striker is shot combat-ineffective at t = 70.7 s, its
+# `survive` is violated, its own FAIL is decisive and the run exits 1. Here its span closes at t = 60.0,
+# ten seconds before the shot, and the defender's three objectives stay unwindowed so that the run keeps
+# running and the shot actually happens.
+#
+# READING RULE (binding): the striker's own line must read `result=SUCCESS` with
+# `survive until 60 state=met` WHILE `damage KILL unit=striker` stands in the same log below it. That is
+# the whole rule: a closed objective cannot be violated, because the sortie it was declared over is over.
+# MEASURED: `WINDOW_CLOSED ... survive until 60 state=met` at t = 60.0, `damage KILL unit=striker` at
+# t = 70.6, `UNIT_RESULT unit=striker result=SUCCESS reason="objectives met"` at t = 280.1. The wreck
+# never reaches the ground inside the timeout, so the run ends on the clock: **exit 0 here against exit 1
+# in `objective-covers-none.fbm`**, and the difference is one clause on one line.
+
+unit defender
+  team friendly
+  module f16
+  spawn 46.90000 6.60000 8000 90.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode acm_hud
+  set fcr_range_nm 40
+  set store 3 aim120
+  set store 7 aim120
+  set brief_master_arm arm
+  set brief_release_s 20
+  wp 46.90000 7.15000 8000 400
+  objective identify unit striker range 60000 hold 5
+  objective deny release unit striker
+  objective survive
+
+unit striker
+  team hostile
+  module f16
+  spawn 46.90000 7.30000 8000 270.0 400
+  set gear up
+  set fuel_pct 60
+  set fcr_mode off
+  set store 3 mk82
+  set store 7 mk82
+  set brief_master_arm arm
+  set brief_release_s 90
+  wp 46.90000 6.75000 8000 400
+  objective survive until 60                 # so it CARRIES a monitor: only a judged unit can decide
