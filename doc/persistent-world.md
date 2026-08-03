@@ -100,7 +100,90 @@ Two consequences worth stating plainly:
 | anything a unit could only know **through its sensors** — a track, a contact list, a threat picture, an identification | a snapshot is **ground truth**. Whoever turns it into a situation picture has walked around the perception boundary. The picture is built at runtime from published `FBState` blocks and nowhere else ([`sensors.md`](sensors.md); [`player-layer.md`](player-layer.md) §9.1: *"a map that reads the registry is not a map, it is the truth with a map's icon set"*) |
 | a verdict, a score, a difficulty | the judges judge once, at runtime; a stored verdict is a second judge |
 
-### 4. The class boundary — the one statement with consequences today
+### 4a. SUPERSEDED 2026-08-03 by the owner — the observer DOES determine fidelity
+
+> *„ziel ist eine von ocean simulierte welt TAB kartenansicht. Wenn ich in einheiten 'reingehe' sind die
+> einheit und ihre umgebung deterministisch. verlasse ich sie, werden sie wieder unbestimmt."* ·
+> *„nur was ich messe, ist genau bestimmt."* · *„kampagnen waren/sind nur für dich zum training."*
+
+Das kehrt §4 um. Der Absatz darunter bleibt **wörtlich stehen**, weil seine Begründung nicht falsch war
+— sie war an die falsche Grösse gebunden. Was er richtig sieht und was diese Runde übernimmt:
+
+**Was NICHT vom Beobachter abhängen darf, unverändert:**
+
+- **Wissen.** Ein Pilot sieht weiter nur über seine sechs Kanäle. Dass der Spieler eine Einheit genau
+  bestimmt, macht ihre KI um kein Bit klüger. *„Out of range" bleibt eine Aussage über einen Sensor,
+  nie über die Welt* — dieser Satz aus §4 gilt unverändert und ist der Kern des Nicht-Cheatens.
+- **Das Ergebnis in Abhängigkeit von Technik.** Bildrate, Threadzahl, Wanduhr, Kameralage innerhalb
+  einer Beobachtung: alles unverändert ergebnisneutral. Prinzip 4 bleibt.
+
+**Was jetzt SEHR WOHL vom Beobachter abhängt:**
+
+- **Auflösung.** Betreten heisst: diese Einheit und ihre Umgebung laufen fein (JSBSim, 0,1 s, sechs
+  Kanäle, beide Richter). Verlassen heisst: sie fallen ins Ozean-Modell zurück.
+
+**Und damit Prinzip 4 nicht fällt, wird sein Test ERSETZT statt gestrichen.** Test 2 („viewer
+independence") ist ab jetzt per Konstruktion unerfüllbar. An seine Stelle tritt:
+
+> **Beobachtungsordnungs-Determinismus.** Dieselbe FOLGE von Betreten und Verlassen — dieselben
+> Einheiten, dieselben Sim-Zeitpunkte — ergibt dieselbe Welt, Byte für Byte. Die Beobachtung ist damit
+> eine **erklärte, protokollierte Eingabe** der Simulation wie eine Missionsdatei, nicht ein Nebeneffekt
+> des Hinsehens. Prüfbar in genau der Form, die der Baum schon fährt: Beobachtungsfolge als Datei,
+> zweimal abgespielt, ein Fingerabdruck.
+
+Drei Dinge, die daraus zwingend folgen und die gebaut werden müssen:
+
+| # | Folgt aus | Was es heisst |
+|---|---|---|
+| 1 | „verlasse ich sie, werden sie wieder unbestimmt" | Der Feinzustand wird beim Verlassen **projiziert**, nicht aufbewahrt. Die Projektion ist verlustbehaftet, und **der Verlust wird benannt**, nicht versteckt: was überlebt (Position, Treibstoff, Munition, Schaden) und was nicht (Lage, Drehraten, Sensorbild). |
+| 2 | „unbestimmt" ≠ „zufällig je Besuch" | Der Ozean trägt eine VERTEILUNG; ein Betreten zieht daraus mit einem Strom, der aus (Entität, Beobachtungsnummer) gesät ist. Ein globaler Zufallsgenerator bräche Test 2', weil dann zählte, wohin sonst noch geschaut wurde. |
+| 3 | Ein Kollaps darf die Vergangenheit nicht ändern | Der gezogene Feinzustand muss mit dem groben Zustand **verträglich** sein, der ihm vorausging, und sein Ergebnis muss zurück ins grobe. Sonst wäre Hinsehen ein Hebel — dieselbe Klasse Betrug, die dieser Baum sonst strukturell verbietet. |
+
+### 4b. OCEAN wird an der ECHTEN Welt geeicht, und rechnet dann Zukünfte
+
+> *„du kannst ocean an der echten welt tunen und verschiedene zukunftszenarien vorhersagen lassen"* ·
+> *„klimawandel dürfte der grösste faktor sein"*
+
+OCEAN (`~/Git/ocean`) ist heute ein GPU-Bevölkerungssimulator: NPCs auf ECHTEN OSM-Gebäuden, Familien,
+Wirtschaft, Migration, Geburten, Tode, wochenweise über Jahre. Genau die Grösse, die eine strategische
+Ebene braucht — und sie steht schon auf realer Geografie.
+
+**Eichen heisst rückwärts prüfen, nicht vorwärts behaupten.** Ein Modell, das eine Zukunft ausgibt, ist
+wertlos, solange es keine VERGANGENHEIT trifft, die es nicht gesehen hat. Also: Startzustand aus
+belegten Daten eines zurückliegenden Jahres, blind vorwärts rechnen bis heute, gegen die
+tatsächliche Entwicklung halten. Was das Modell dabei verfehlt, ist sein Fehlerbalken — und der reist
+mit jeder Vorhersage mit, statt am Ende weggelassen zu werden. Ohne diesen Rückwärtstest ist ein
+Szenario eine Erzählung.
+
+**Was belegbar ist und was erfunden wäre — die Trennung wird gezogen, bevor eine Kennzahl entsteht:**
+
+| Kennzahl | Quelle | Status |
+|---|---|---|
+| Bevölkerung, Siedlungen, Gebäude | OSM, holt der Tileserver ohnehin | belegbar |
+| Industrie, Häfen, Kraftwerke, Verkehrswege | OSM-Objektklassen | belegbar |
+| Klima: Temperatur, Niederschlag, Meeresspiegel, Extremereignisse | veröffentlichte Reanalysen und Szenarienfamilien (SSP/RCP) | belegbar, MIT eigenem Fehlerbalken |
+| Rohstoffe, Erträge, Wasserverfügbarkeit | aus Klima + Fläche + OSM abgeleitet | herleitbar, Formel gehört hin |
+| **Stimmung, Medienwirkung, Legitimität** | **keine** | **erfunden — als `[SET]` zu markieren und als Experiment zu führen, nie als Messung** |
+
+**Der Klimapfad ist der Haupthebel, und deshalb gehört er in die Szenarien-Achse, nicht in eine Konstante.**
+Der Eigner nennt ihn den grössten Faktor; das ist eine Hypothese, und dieser Baum prüft Hypothesen statt
+sie zu übernehmen. Die Prüfung ist billig und steht schon in der Werkzeugkiste: dieselbe Welt über
+mehrere Klimapfade laufen lassen und die Streuung der Ergebnisse gegen die Streuung aus allen anderen
+Hebeln halten — genau die Sensitivitätsmessung, die `fb_campaign_arena.py` je Gen fährt (S1s modaler
+Anteil, S2s Beweger). Ist der Klimapfad wirklich der grösste Faktor, muss er die meisten Zellen bewegen.
+Ist er es nicht, ist DAS das Ergebnis der Runde.
+
+**Und die Kopplung nach unten bleibt einseitig.** Die strategische Ebene setzt die Welt, in der eine
+Mission stattfindet. Sie greift nie in eine laufende Mission — sonst wäre die Weltsimulation ein Weg,
+an den Sensoren vorbei etwas zu erfahren oder zu bewirken.
+
+**Die Kampagnen sind damit nicht das Produkt.** Der Eigner: *„kampagnen waren/sind nur für dich zum
+training"*. Sie bleiben, was sie geworden sind — das Messgerät, an dem Doktrin, Determinismus und
+Regression geprüft werden. Das Produkt ist die Ozean-Welt unter der TAB-Kartenansicht.
+
+---
+
+### 4. Die überschriebene Fassung (Stand vor 2026-08-03, als Beleg stehen gelassen)
 
 Two classes of actor, and the difference is total:
 

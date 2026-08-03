@@ -1,0 +1,515 @@
+{
+  "asset": "f16",
+  "name": "F-16C Block 52",
+  "unit_scale_m": 1.0,
+  "variant_source": "sim/assets/aircraft/f16/f16.xml:245 <engine file=\"F100-PW-229\"> — Pratt & Whitney, also Block 52: NSI-Einlauf und gerade P&W-Duese, nicht MCID/F110.",
+  "origin": "VRP aus sim/assets/aircraft/f16/f16.xml (<location name=\"VRP\"> -180 0 0 in). Physisch der Punkt 0.35 MAC in der Fluegelsehnenebene; die Fahrwerkskontakte des XML haengen als Offsets an ihm.",
+  "axes": "glTF +Y oben / -Z vorwaerts; gebaut in +X rechts / +Y vorwaerts / +Z oben",
+  "tolerance_rule": "Die T.O.-Karte quantisiert auf 0.1 ft = 30.5 mm. Fuer jede [TO]-Zahl gilt deshalb ihre eigene Aufloesung als Toleranz, nicht die 0.5 % des Baums: auf der 7.8-ft-Spur sind 0.1 ft bereits 0.39 %.",
+  "reference_dimensions_m": {
+    "length": 15.0622,
+    "length_source": "49 ft 5 in [WEB en.wikipedia.org F-16]; die T.O.-Karte nennt 49.5 ft = dieselbe Zahl auf 0.1 ft quantisiert; der Massstabsbalken des Risses gibt unabhaengig 15.0669 m (0.03 %).",
+    "span_over_rails": 9.4488,
+    "span_over_missiles_TO": 9.9974,
+    "span_over_missiles_model": 9.7513,
+    "span_over_missiles_note": "Runde 3 publizierte 9.9974 m und baute 9.728 m — die Referenz war nie mit der Geometrie verrechnet. Der AIM-9 haengt in X-Stellung (die LAU-129 traegt ihn ueber zwei Schuhe auf dem RUECKEN; in Plus-Stellung stuende dort eine Flosse). Damit ist die groesste Breite 9.7514 m, also -2.46 % gegen [TO] 32.8 ft. Die [TO]-Zahl braucht Plus-Stellung (9.939 m) UND die FK-Achse auf der Schienen-Aussenflaeche (9.989 m); beides widerspricht der Aufhaengung. Die Frontansicht des Risses ist am Blattrand abgeschnitten und kann nicht entscheiden. Das Netz baut die Mechanik und traegt die Abweichung.",
+    "height_on_gear": 5.0851,
+    "height_source": "Flossenspitze [KH] ueber der Aufstandsebene aus sim/assets/aircraft/f16/f16.xml (MLG-Kontakt z = -71.6 in). Gegen [TO] 16.7 ft: 5.1 mm.",
+    "tail_span": 5.5778,
+    "wheel_track": 2.4384,
+    "wheel_base": 4.0024,
+    "gear_rule": "[XML] bestimmt, was die Simulation RECHNET; [KH]/[TO] bestimmen, wie das Netz AUSSIEHT. Prinzip 1 schuetzt das Flugmodell, nicht das Netz — kein Dreieck hier geht in eine Kraft ein. Runde 3 hatte 'XML ist massgeblich' geschrieben und die Regel dann selektiv angewandt (NOSE_LG massgeblich, TOP_VS 'keine Formangabe'). Die Regel entscheidet jetzt in beide Richtungen, s. die zwei Deltas.",
+    "gear_delta_wheelbase": "Netz 4.0024 m aus dem Fahrwerksriss (Reifenmitten 2832.5 / 3490.5 px, Radomspitze 2040 px), bestaetigt durch [TO] 13.1 ft = 3.9929 m (0.24 %, innerhalb kToQuantum). [XML] NOSE_LG/MLG ergibt 3.5814 m = -10.5 %; der Fehler sitzt vollstaendig im Bugbein (Hauptbein trifft den Riss auf 82 mm). Das Netz folgt dem Riss; das Bugrad steht damit 0.503 m vor dem gerechneten Kontaktpunkt. Sichtbarer Preis bei statischer Bodenlage: 0.503*tan(0) = 0.",
+    "gear_delta_track": "Hier bestaetigt der Riss das XML: Frontansicht, Aussenkanten der Hauptreifen 567.5/602.5 und 968.75/1003.75 px -> Mitten 585.0/986.25 -> 2.4407 m gegen [XML] 2.4384 m (0.09 %). [TO] 7.8 ft = 2.3774 m liegt 2.6 % daneben und ist mit kToQuantum = 30.5 mm nicht vereinbar. Die Regel picht also keine Rosinen.",
+    "gear_delta_ground_plane": "Beide Beine stehen auf derselben Ebene. Die 0.4 in zwischen NOSE_LG (z=-72.0) und MLG (z=-71.6) im XML sind die statische Federvorspannung, aus der JSBSim den Standnickwinkel rechnet — keine Formangabe. Runde 3 hatte sie nachgebaut und das Bugrad 10.2 mm unter die Piste gestellt."
+  },
+  "reference_wing": {
+    "span_ref": 9.144,
+    "area_m2": 27.87,
+    "mac": 3.45,
+    "root_chord": 4.9654,
+    "tip_chord": 1.1304,
+    "taper": 0.22766,
+    "sweep_le_deg": 39.989,
+    "source": "NASA TP-1538 Tab.I; Wurzel- und Spitzentiefe daraus EINDEUTIG bestimmt, die 40 deg Pfeilung fallen als Probe heraus (39.986 deg). Gegenprobe im Grundriss [KH]: Wurzeltiefe 4.9591 m gegen 4.96537 m (0.13 %)."
+  },
+  "inlet": {
+    "type": "NSI (Normal Shock Inlet), Block 52",
+    "mouth_w": 1.374,
+    "mouth_h": 0.5334,
+    "duct_d": 1.1811,
+    "derivation": "MCID amtlich 57.5 x 21 in [WEB rec.models.scale]; die Aenderung war eine Verbreiterung bei gleicher Hoehe; Fangflaeche proportional zum Auslegungsmassenstrom 254/270 lb/s -> Breite x 0.94074."
+  },
+  "blueprint": {
+    "source": "A.W. Chaustow, Awiazija i Wremja 3/1999 — Titelblatt 'Lockheed Martin F-16C Block 52'. NUR die Untersicht und die Frontansicht sind dort als Block 50 beschriftet; von ihnen stammten die falschen Maulmasse.",
+    "url": "https://drawingdatabase.com/lockheed-martin-f-16c-block-50/",
+    "scale_m_per_px": 0.0060827,
+    "note": "Massstabsbalken 822 px = 5 m. Runde 2 hatte auf 49.5 ft kalibriert und den Riss dadurch um +0.14 % gestreckt; jede [KH]-Zahl traegt jetzt den Korrekturfaktor 0.9986246."
+  },
+  "lods": [
+    {
+      "lod": "L0",
+      "file": "f16_L0.glb",
+      "triangles": 107706,
+      "bytes": 8335768,
+      "texture": 2048,
+      "materials": [
+        "f16_canopy",
+        "f16_dark",
+        "f16_duct",
+        "f16_frame",
+        "f16_gear",
+        "f16_nozzle",
+        "f16_skin",
+        "f16_tire"
+      ],
+      "normals": {
+        "test": "Vorzeichen des Divergenzintegrals (signed_volume) je Koerper.",
+        "filter": "Koerper, deren Name duct | tub | muzzle | inner enthaelt, sind ABSICHTLICH nach innen gedreht (Kanal, Cockpitwanne, Muendungsrohre, Dueseninneres) — ihr negatives Volumen ist die Sollmessung, nicht der Defekt.",
+        "inward_by_design": [
+          "cockpit.tub",
+          "inlet.duct",
+          "nozzle.inner"
+        ],
+        "unexpected_inverted": []
+      },
+      "bbox": {
+        "x": [
+          -4.876,
+          4.876
+        ],
+        "y": [
+          -6.218,
+          8.845
+        ],
+        "z": [
+          -1.819,
+          3.267
+        ]
+      },
+      "size_m": {
+        "x": 9.751,
+        "y": 15.062,
+        "z": 5.085
+      }
+    },
+    {
+      "lod": "L1",
+      "file": "f16_L1.glb",
+      "triangles": 41342,
+      "bytes": 2618620,
+      "texture": 1024,
+      "materials": [
+        "f16_canopy",
+        "f16_dark",
+        "f16_duct",
+        "f16_frame",
+        "f16_gear",
+        "f16_nozzle",
+        "f16_skin",
+        "f16_tire"
+      ],
+      "normals": {
+        "test": "Vorzeichen des Divergenzintegrals (signed_volume) je Koerper.",
+        "filter": "Koerper, deren Name duct | tub | muzzle | inner enthaelt, sind ABSICHTLICH nach innen gedreht (Kanal, Cockpitwanne, Muendungsrohre, Dueseninneres) — ihr negatives Volumen ist die Sollmessung, nicht der Defekt.",
+        "inward_by_design": [
+          "cockpit.tub",
+          "inlet.duct",
+          "nozzle.inner"
+        ],
+        "unexpected_inverted": []
+      },
+      "bbox": {
+        "x": [
+          -4.876,
+          4.876
+        ],
+        "y": [
+          -6.218,
+          8.845
+        ],
+        "z": [
+          -1.819,
+          3.267
+        ]
+      },
+      "size_m": {
+        "x": 9.751,
+        "y": 15.062,
+        "z": 5.085
+      }
+    },
+    {
+      "lod": "L2",
+      "file": "f16_L2.glb",
+      "triangles": 14366,
+      "bytes": 847816,
+      "texture": 512,
+      "materials": [
+        "f16_skin"
+      ],
+      "normals": {
+        "test": "Vorzeichen des Divergenzintegrals (signed_volume) je Koerper.",
+        "filter": "Koerper, deren Name duct | tub | muzzle | inner enthaelt, sind ABSICHTLICH nach innen gedreht (Kanal, Cockpitwanne, Muendungsrohre, Dueseninneres) — ihr negatives Volumen ist die Sollmessung, nicht der Defekt.",
+        "inward_by_design": [
+          "cockpit.tub",
+          "inlet.duct",
+          "nozzle.inner"
+        ],
+        "unexpected_inverted": []
+      },
+      "bbox": {
+        "x": [
+          -4.876,
+          4.876
+        ],
+        "y": [
+          -6.218,
+          8.845
+        ],
+        "z": [
+          -1.819,
+          3.267
+        ]
+      },
+      "size_m": {
+        "x": 9.751,
+        "y": 15.062,
+        "z": 5.085
+      }
+    },
+    {
+      "lod": "L3",
+      "file": "f16_L3.glb",
+      "triangles": 9916,
+      "bytes": 455896,
+      "texture": 256,
+      "materials": [
+        "f16_skin"
+      ],
+      "normals": {
+        "test": "Vorzeichen des Divergenzintegrals (signed_volume) je Koerper.",
+        "filter": "Koerper, deren Name duct | tub | muzzle | inner enthaelt, sind ABSICHTLICH nach innen gedreht (Kanal, Cockpitwanne, Muendungsrohre, Dueseninneres) — ihr negatives Volumen ist die Sollmessung, nicht der Defekt.",
+        "inward_by_design": [
+          "cockpit.tub",
+          "inlet.duct",
+          "nozzle.inner"
+        ],
+        "unexpected_inverted": []
+      },
+      "bbox": {
+        "x": [
+          -4.876,
+          4.876
+        ],
+        "y": [
+          -6.218,
+          8.845
+        ],
+        "z": [
+          -1.819,
+          3.267
+        ]
+      },
+      "size_m": {
+        "x": 9.751,
+        "y": 15.062,
+        "z": 5.085
+      }
+    }
+  ],
+  "lod_switch": {
+    "rule": "Eine Stufe faellt erst, wenn ihr groesstes VERLORENES Merkmal unter ein Pixel faellt. Merkmalsgroesse = sqrt(Oberflaeche/4) nach Cauchy (mittlere Schattenflaeche eines konvexen Koerpers = A/4). Die Weiten sind die Grenzen, ab denen das Umschalten UNSICHTBAR ist; ein Renderer darf aus Budgetgruenden frueher schalten und zahlt dafuer den genannten Fehler.",
+    "silhouette_gate": {
+      "script": "sim/assets/models/check_lod.py",
+      "call": "Blender --background --python check_lod.py -- --models sim/assets/models --res 1200 --limit 2.0",
+      "metric": "XOR-Flaeche zweier Alpha-Masken bei IDENTISCHER orthografischer Kamera, geteilt durch die Flaeche der groeberen Stufe.",
+      "limit_pct": 2.0,
+      "measured_round4_pct": {
+        "L0->L1": {
+          "side": 0.12,
+          "top": 0.07,
+          "front": 0.24
+        },
+        "L1->L2": {
+          "side": 0.48,
+          "top": 0.22,
+          "front": 0.68
+        },
+        "L2->L3": {
+          "side": 0.58,
+          "top": 0.46,
+          "front": 0.88
+        },
+        "L0->L3": {
+          "side": 1.0,
+          "top": 0.62,
+          "front": 1.51
+        }
+      },
+      "before_round4_pct": {
+        "L2->L3": {
+          "side": 25.8,
+          "front": 58.1
+        }
+      }
+    },
+    "rule_2": "ZWEITE, SCHAERFERE BEDINGUNG (Runde-4-Befund 3): das Kriterium oben gilt je Koerper und ist in der SUMME blind. L2->L3 liess 13 Fahrwerkskoerper und sechs Pylone fallen, jeden einzeln unter einem Pixel, zusammen 25.8 % XOR-Flaeche in der Seiten- und 58.1 % in der Frontsilhouette; das Flugzeug schwebte 0.449 m ueber der Piste. Es gilt deshalb zusaetzlich: KEINE Stufe darf einen Koerper verlieren, der die Silhouette begrenzt. Alle vier Stufen bauen dasselbe Teilelager; sie unterscheiden sich in Abtastung und Textur.",
+    "pixel_angle_rad": 0.00054542,
+    "steps": [
+      {
+        "lod": "L0",
+        "drops": [],
+        "driver": "textur 1024 px",
+        "feature_m": 0.0588,
+        "max_range_m": 108
+      },
+      {
+        "lod": "L1",
+        "drops": [
+          "windscreen.bow",
+          "canopy.frame.rear",
+          "gear.main.r.hub",
+          "gear.main.l.hub",
+          "gear.main.l.drag",
+          "gear.main.r.drag",
+          "nozzle.petal.10",
+          "nozzle.petal.12"
+        ],
+        "driver": "windscreen.bow",
+        "feature_m": 0.3776,
+        "max_range_m": 692
+      },
+      {
+        "lod": "L2",
+        "drops": [
+          "nozzle.petal.05",
+          "nozzle.petal.03",
+          "nozzle.petal.04",
+          "nozzle.petal.01",
+          "nozzle.petal.02",
+          "nozzle.petal.00",
+          "nozzle.petal.06"
+        ],
+        "driver": "textur 256 px",
+        "feature_m": 0.2353,
+        "max_range_m": 692
+      },
+      {
+        "lod": "L3",
+        "drops": [],
+        "driver": null,
+        "feature_m": null,
+        "max_range_m": null,
+        "note": "letzte Stufe, keine Umschaltweite"
+      }
+    ]
+  },
+  "components": [
+    {
+      "node": "ctl.aileron.l",
+      "reads": "fcs/left-aileron-pos-rad",
+      "axis": "lokal X = Scharnierlinie bei 0.8225 c [KH Grundriss]",
+      "limits_deg": [
+        -21.5,
+        21.5
+      ],
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Ailerons (flaperons) +-21.5'; sim/assets/aircraft/f16/f16.xml max 0.375 rad"
+    },
+    {
+      "node": "ctl.aileron.r",
+      "reads": "fcs/right-aileron-pos-rad",
+      "axis": "lokal X",
+      "limits_deg": [
+        -21.5,
+        21.5
+      ],
+      "source": "wie links"
+    },
+    {
+      "node": "ctl.elevon.l",
+      "reads": "fcs/dht-left-pos-rad",
+      "axis": "lokal X",
+      "limits_deg": [
+        -25.0,
+        25.0
+      ],
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Horizontal tail symmetric +-25, differential +-5.375'; sim/assets/aircraft/f16/f16.xml max 0.436 rad. Drehpunkt bei 0.62 der Wurzeltiefe ist [SET] — der Riss zeichnet die Achse nicht."
+    },
+    {
+      "node": "ctl.elevon.r",
+      "reads": "fcs/dht-right-pos-rad",
+      "axis": "lokal X",
+      "limits_deg": [
+        -25.0,
+        25.0
+      ],
+      "source": "wie links"
+    },
+    {
+      "node": "ctl.rudder",
+      "reads": "fcs/rudder-pos-rad",
+      "axis": "lokal X = Scharnierlinie, aus Finnen-VK/HK hergeleitet (48.5/27.5 deg)",
+      "limits_deg": [
+        -30.0,
+        30.0
+      ],
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Rudder +-30'"
+    },
+    {
+      "node": "ctl.lef.l",
+      "reads": "fcs/lef-pos-deg",
+      "axis": "lokal X",
+      "limits_deg": [
+        -2.0,
+        25.0
+      ],
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Leading-edge flap 25'; untere Grenze [SET]. ScharnierGERADE aus zwei gemessenen Stuetzstellen [KH Grundriss]: 0.1657 c bei y=2.366 m und 0.2009 c bei y=4.312 m."
+    },
+    {
+      "node": "ctl.lef.r",
+      "reads": "fcs/lef-pos-deg",
+      "axis": "lokal X",
+      "limits_deg": [
+        -2.0,
+        25.0
+      ],
+      "source": "wie links"
+    },
+    {
+      "node": "ctl.speedbrake.0..3",
+      "reads": "fcs/speedbrake-pos-deg",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        60.0
+      ],
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Speed brake 60'"
+    },
+    {
+      "node": "gear.nose",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        -72.25
+      ],
+      "source": "Einzug nach HINTEN [WEB baseops.net: 'retracts aft into the wheel well, rotating about its trunnion pins']; der BETRAG ist gerechnet, nicht gesetzt: kleinster Winkel, bei dem der tiefste Radpunkt 20 mm ueber der oertlichen Unterkante der Einlaufverkleidung liegt (build_f16.nose_bay)"
+    },
+    {
+      "node": "gear.main.l",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X = gerechnete Schwenkachse",
+      "limits_deg": [
+        0.0,
+        84.0
+      ],
+      "source": "Einzug nach VORN um eine SCHRAEGE Achse; die Achse ist aus dem ausgefahrenen und dem eingefahrenen Radmittelpunkt gerechnet (Sehnenformel, _retract_axis), nicht gesetzt"
+    },
+    {
+      "node": "gear.main.l.knuckle",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X = Beinlaengsachse",
+      "limits_deg": [
+        0.0,
+        90.0
+      ],
+      "source": "Rad flach in den Bauch [WEB f-16.net: 'the main gear wheel can lie flat against the fuselage']"
+    },
+    {
+      "node": "gear.main.r",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        84.0
+      ],
+      "source": "wie links"
+    },
+    {
+      "node": "gear.main.r.knuckle",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        90.0
+      ],
+      "source": "wie links"
+    },
+    {
+      "node": "gear.door.nose",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        85.0
+      ],
+      "source": "[SET]"
+    },
+    {
+      "node": "gear.door.main.l/.r",
+      "reads": "gear/gear-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        90.0
+      ],
+      "source": "[SET]"
+    },
+    {
+      "node": "gear.hook",
+      "reads": "gear/tailhook-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        42.0
+      ],
+      "source": "[SET] Winkel; Station und Verkleidung aus [TO] Blatt 3"
+    },
+    {
+      "node": "canopy",
+      "reads": "fcs/canopy-pos-norm",
+      "axis": "lokal X",
+      "limits_deg": [
+        0.0,
+        30.0
+      ],
+      "source": "Winkel GEMESSEN, nicht gesetzt: Hough ueber die untere Haubenkante der Offen-Ansicht (290 Spalten) gibt 27.90 +-0.15 deg unter der Waagerechten, die geschlossene Bruestung steigt um 1.80 deg -> 29.7 deg, gerundet 30.0. Der Knoten traegt NUR noch die bewegliche Haube (s = 3.20 .. 5.87). Windschutz (2.44 .. 3.20, mit Trennrahmen) und Ruecken-Verkleidung (5.87 .. 6.69) sind feste Struktur — Runde 3 riss beim Oeffnen 0.76 m Windschutz und 1.82 m Verkleidung mit. Restlage, offen benannt: der Riss zeichnet die Vorderkante 0.15 m weiter vorn, als eine reine Drehung sie hinbringt; die reale F-16 faehrt die Haube beim Entriegeln zusaetzlich nach hinten, und dieser zweite Freiheitsgrad hat keine Quelle und bleibt ungebaut."
+    },
+    {
+      "node": "rail.wingtip.l/.r",
+      "reads": "(statisch)",
+      "axis": "-",
+      "limits_deg": [
+        0.0,
+        0.0
+      ],
+      "source": "LAU-129, Aussenflaeche auf +-4.7244 m -> Gesamtspannweite 9.4488 m [TO]"
+    },
+    {
+      "node": "store.aim9.l/.r",
+      "reads": "(statisch)",
+      "axis": "-",
+      "limits_deg": [
+        0.0,
+        0.0
+      ],
+      "source": "AIM-9L/M, 2.890 m x 0.127 m, Flossen 0.640 m in X-Stellung [WEB en.wikipedia.org/wiki/AIM-9_Sidewinder, Tabelle 'All-aspect variants']. Runde 3 belegte 2.85 m mit der af.mil-Fact-Sheet, die 9 ft 11 in nennt."
+    }
+  ],
+  "materials_L0_L1": [
+    "f16_skin (PBR: gebackene Basisfarbe + ORM + Normalen)",
+    "f16_canopy (Glas)",
+    "f16_frame",
+    "f16_duct",
+    "f16_nozzle (Kohlefaser, schwarz — -229-Aussenklappen)",
+    "f16_dark",
+    "f16_gear",
+    "f16_tire"
+  ],
+  "materials_L2_L3": [
+    "f16_skin"
+  ],
+  "backface_culling": "Alle Materialien keulen Rueckseiten. Runde 2 hatte doubleSided auf acht Materialien und verbarg damit neun umgestuelpte Koerper.",
+  "rule": "Kein Knoten schreibt in die Simulation. Alle Knoten LESEN publizierte Werte."
+}
