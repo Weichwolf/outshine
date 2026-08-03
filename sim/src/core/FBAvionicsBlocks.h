@@ -226,6 +226,9 @@ struct FBRadarBlock {
   int  ContactCount = 0;
   int  LockIndex = -1;         /* index into Contacts of the STT track; -1 = no lock */
   bool IffTransponder = false; /* own transponder answering — what other interrogators get back */
+  /* HOW WIDE THE SET IS ACTUALLY LOOKING, off the nose. Without it a scope has to guess its own
+   * azimuth scale, and every contact then sits at the wrong place on it. */
+  float ScanAzHalfDeg = 60.0f;
   FBRadarContact Contacts[kMaxRadarContacts]{};
 };
 
@@ -323,6 +326,26 @@ struct FBVisualBlock {
  * it moves an antenna and it is never a track. doc/modules/air/module.md §Spec 7.
  * APPENDED LAST, same column rule as the two blocks above it. */
 using FBNetLinkBlock = FBDatalinkBlock;
+
+/* ---- GROUND MAP: the radar's air-to-ground picture as a RASTER of BACKSCATTER, not of terrain.
+ * WRITER: sensors/FBGroundMap, driven by sensors/FBRadarSystem. A cell carries how much energy came
+ * back out of that resolution cell (0 = nothing, incl. everything the beam never reached because a
+ * nearer crest stood in the way) — a display that coloured it by height would be drawing a map the
+ * aircraft has no instrument for. The block is aircraft-relative and NOSE-UP by construction: column 0
+ * is the left sector edge, row 0 the nearest range bin.
+ * APPENDED LAST, same telemetry-column rule as the blocks above it. */
+inline constexpr int kGroundMapAz = 64;      /* beam positions across the scanned sector */
+inline constexpr int kGroundMapRange = 48;   /* range bins per beam */
+
+struct FBGroundMapBlock {
+  FBBlockHeader H;
+  bool  Mapping = false;       /* the set is in a ground-mapping mode right now */
+  float AzHalfDeg = 60.0f;     /* the scanned sector, +/- off the nose */
+  float RangeM = 0.0f;         /* ground range of the outermost bin */
+  float SweepFrac = 0.0f;      /* 0..1 of the current sweep already painted (left to right) */
+  float GroundAslM = 0.0f;     /* terrain height under the aircraft, the map's own altitude reference */
+  uint8_t Cell[kGroundMapRange][kGroundMapAz]{};
+};
 
 /* ---- MFD BANK: which page stands on which bay, and which pages can be chosen AT ALL right now.
  * WRITER: systems/FBMfdSystem. The block exists so that the thing a display shows is itself a

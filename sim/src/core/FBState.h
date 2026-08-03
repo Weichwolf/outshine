@@ -38,6 +38,9 @@ struct FBState {
   /* The cockpit's own readout: which page each bay carries and which pages the current loadout still
    * makes choosable. Appended last, like the three above it. */
   FBMfdBlock         Mfd;
+  /* The one block that is a RASTER and not a handful of scalars — appended last for the same reason
+   * every block above it was. */
+  FBGroundMapBlock   GroundMap;
 };
 
 } // namespace FlightBox

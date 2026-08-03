@@ -12,6 +12,7 @@
 #include "FBAutopilot.h"
 #include "FBCommandBus.h"
 #include "FBDamageModel.h"
+#include "FBElevationProvider.h"
 #include "FBCountermeasureSystem.h"
 #include "FBDatalinkSystem.h"
 #include "FBDisplaySystem.h"
@@ -188,6 +189,11 @@ public:
   virtual void SetRunway(const FBRunway &rwy) = 0;
   /* The client's elevation-hook sample, forwarded so e.g. FBRadarAltimeter never re-queries terrain. */
   virtual void SetGroundAsl(float m) = 0;
+
+  /* THE TERRAIN ITSELF, handed down once at boot beside the per-tick sample above — a set that maps
+   * the ground needs to ask about ground it is not standing on, which one number cannot answer.
+   * Borrowed, never owned, and a module that composes no ground-mapping sensor ignores it. */
+  virtual void SetTerrain(const FBElevationProvider *terrain) { (void)terrain; }
 
   /* The weather the OWNER already resolved for this unit, in the same role as SetGroundAsl: one
    * sample per decision tick, handed down instead of queried a second time. Only a module with a

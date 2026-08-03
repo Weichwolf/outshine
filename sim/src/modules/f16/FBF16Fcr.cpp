@@ -48,6 +48,12 @@ void FBF16Fcr::RebuildVolumes() {
   slew.RangeM = acm; slew.FrameS = 0.8; slew.AutoAcquire = true;
   Modes_[(int)FBF16FcrMode::AcmSlew] = slew;
 
+  /* GM: the ground-mapping format. Its A-G scan geometry lives with the mapping itself
+   * (sensors/FBRadarSystem::kGroundMap*); what it needs HERE is an air volume, and it gets CRM's
+   * unchanged — the named simplification that this set keeps its air picture while it maps
+   * (sensors/FBRadarSystem::Run). Selecting GM therefore changes what is DRAWN, never what is found. */
+  Modes_[(int)FBF16FcrMode::Gm] = crm;
+
   /* STT stops being a search at all: the gimbal envelope revisited every 0.1 s, which is what lets a
    * lock taken inside a 10° cone survive the target manoeuvring far off the nose. AutoAcquire stays
    * true so the base class keeps the lock; losing it drops straight back to the sub-mode's box. */

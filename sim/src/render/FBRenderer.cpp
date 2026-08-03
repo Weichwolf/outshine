@@ -175,6 +175,9 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   CreateTonemapPipeline();
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   Hud->Init(gpu);
+  MapSheet->Init(gpu);
+  GroundMap->Init(gpu);
+  Nvis->Configure(gpu, Samp, HdrTex.CreateView());   /* it AMPLIFIES the scene, so it reads the HDR target */
   DeviceReady = true;
   FBLog::Info("render", "device_ready", {{"width", Width}, {"height", Height},
                                          {"target", Mode == Target::Surface ? "surface" : "offscreen"},
@@ -581,6 +584,26 @@ void FBRenderer::RenderFrame(void) {
   ctx.CloudBaseAGL = HudState.Env.CloudBaseAglM; ctx.AltM = HudState.Platform.AltM;
   ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height; ctx.ViewH = ViewH();
 
+  /* WHICH BAY GETS WHICH VIDEO, decided from the published bank and nowhere else: the display draws
+   * its symbology off the same block, so the picture and its frame cannot land in different bays. */
+  {
+    Systems::FBMfdBayRect none{0, 0, 0, 0};
+    Systems::FBMfdBayRect fcrBay = none, irstBay = none;
+    const FBMfdBlock &bank = HudState.Mfd;
+    if (HudHave && bank.H.Readable())
+      for (int i = 0; i < kMfdBays; i++) {
+        int ord = bank.Bay[i];
+        if (ord < 0 || ord >= bank.PageCount) continue;
+        FBMfdPage p = bank.Pages[ord];
+        if (!Systems::FBMfdPageHasVideo(p, HudState)) continue;
+        Systems::FBMfdBayRect r = Systems::FBMfdBayAt(i, Width, ctx.ViewH, Height);
+        if (p == FBMfdPage::Fcr) fcrBay = r;
+        else if (p == FBMfdPage::Irst) irstBay = r;
+      }
+    GroundMap->SetTarget(fcrBay, HudState.GroundMap, fcrBay.X1 > fcrBay.X0);
+    Nvis->SetTarget(irstBay, irstBay.X1 > irstBay.X0);
+  }
+
   if (CloudsOn) Clouds->Update(ctx);
   const bool cloudPass = CloudsOn && Clouds->Active();
 
@@ -691,6 +714,9 @@ void FBRenderer::RenderFrame(void) {
     hp.colorAttachments = &hca;
     wgpu::RenderPassEncoder hud = enc.BeginRenderPass(&hp);
     passCount++;
+    MapSheet->Encode(ctx, hud);   /* the map's ground, under the symbology, in the SAME pass */
+    GroundMap->Encode(ctx, hud);  /* ...and the two sensor pictures, likewise under their pages */
+    Nvis->Encode(ctx, hud);
     Hud->Encode(ctx, hud);
     hud.End();
   }

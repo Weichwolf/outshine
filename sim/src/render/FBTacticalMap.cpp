@@ -1,6 +1,7 @@
 #include "FBTacticalMap.h"
 
 #include "FBGeodesy.h"
+#include "FBHudFont.h"
 
 #include <cmath>
 #include <cstdio>
@@ -15,6 +16,7 @@ const float kFriendR = 0.35f, kFriendG = 0.80f, kFriendB = 1.00f;   /* APP-6 cya
 const float kUnknownR = 1.00f, kUnknownG = 0.90f, kUnknownB = 0.35f;/* APP-6 yellow */
 const float kGridR = 0.35f, kGridG = 0.70f, kGridB = 0.45f;
 const float kTextR = 0.60f, kTextG = 1.00f, kTextB = 0.65f;
+const float kWarnR = 1.00f, kWarnG = 0.55f, kWarnB = 0.25f;
 /* [SET] A chart is READ, not flown through: the strokes carry width so they survive an OSM sheet under
  * them, and the sheet is dimmed rather than the symbols brightened. */
 const float kSymbolW = 1.6f;
@@ -65,21 +67,10 @@ void FBTacticalMap::SetStatus(const char *text) {
   Status_[sizeof Status_ - 1] = 0;
 }
 
-void FBTacticalMap::Project(const FBMapView &v, double latDeg, double lonDeg, float &x, float &y) {
-  double e, n;
-  FBEnuOffsetM(v.CentreLatDeg, v.CentreLonDeg, latDeg, lonDeg, e, n);
-  double pxPerM = v.SpanM > 1.0 ? (double)v.Width / v.SpanM : 1.0;
-  x = (float)(v.CentreX() + e * pxPerM);
-  y = (float)(v.CentreY() - n * pxPerM);   /* screen y grows downward, north is up */
-}
-
-void FBTacticalMap::Unproject(const FBMapView &v, float x, float y, double &latDeg, double &lonDeg) {
-  double pxPerM = v.SpanM > 1.0 ? (double)v.Width / v.SpanM : 1.0;
-  double e = ((double)x - v.CentreX()) / pxPerM;
-  double n = (v.CentreY() - (double)y) / pxPerM;
-  latDeg = v.CentreLatDeg + n / kMPerDeg;
-  double coslat = std::cos(v.CentreLatDeg * kDeg2Rad);
-  lonDeg = v.CentreLonDeg + (std::fabs(coslat) > 1e-6 ? e / (kMPerDeg * coslat) : 0.0);
+void FBTacticalMap::SetGroundNote(const char *text) {
+  if (!text) { GroundNote_[0] = 0; return; }
+  std::strncpy(GroundNote_, text, sizeof GroundNote_ - 1);
+  GroundNote_[sizeof GroundNote_ - 1] = 0;
 }
 
 /* APP-6 FRIEND, air: a semicircle open at the bottom. Screen y is down, so the open side is +y. */
@@ -105,7 +96,7 @@ void FBTacticalMap::DrawUnknownAir(Systems::FBHudGeometry &out, float x, float y
 void FBTacticalMap::DrawBearing(Systems::FBHudGeometry &out, const FBMapView &v,
                                 const FBForceSymbol &s) const {
   float ox, oy;
-  Project(v, s.ObsLatDeg, s.ObsLonDeg, ox, oy);
+  v.Project(s.ObsLatDeg, s.ObsLonDeg, ox, oy);
   double a = s.BearingDeg * kDeg2Rad;
   float len = (float)v.Width;   /* off the edge: the clip does the cutting, not an invented range */
   float ex = ox + len * (float)std::sin(a), ey = oy - len * (float)std::cos(a);
@@ -154,6 +145,16 @@ void FBTacticalMap::DrawLegend(Systems::FBHudGeometry &out, const FBForcePicture
     out.Printf(14.0f, (float)v.Height - 54.0f, 1.8f, kFriendR, kFriendG, kFriendB, "SEL %s", Selected_);
   if (Status_[0])
     out.Printf(14.0f, (float)v.Height - 12.0f, 1.6f, kTextR, kTextG, kTextB, "%s", Status_);
+  /* A MISSING GROUND IS A STATEMENT, not an absence: a chart with no sheet under it looks exactly
+   * like a chart over empty country, and the reader would trust the empty country. */
+  if (GroundNote_[0]) {
+    const float sc = 2.4f;
+    float w = Systems::kFontAdvance * sc * (float)std::strlen(GroundNote_) + 40.0f;
+    float x0 = (float)v.Width * 0.5f - w * 0.5f, y0 = (float)v.Height * 0.5f - 42.0f;
+    out.Fill(x0, y0, x0 + w, y0 + 40.0f, 0.22f, 0.06f, 0.02f, 0.82f);
+    out.Box(x0, y0, x0 + w, y0 + 40.0f, kWarnR, kWarnG, kWarnB);
+    out.Printf(x0 + 20.0f, y0 + 13.0f, sc, kWarnR, kWarnG, kWarnB, "%s", GroundNote_);
+  }
 }
 
 void FBTacticalMap::Build(const FBForcePicture &pic, const FBMapView &v,
@@ -176,7 +177,7 @@ void FBTacticalMap::Build(const FBForcePicture &pic, const FBMapView &v,
     const FBForceSymbol &s = pic.At(i);
     if (!s.HavePoint) continue;
     float x, y;
-    Project(v, s.LatDeg, s.LonDeg, x, y);
+    v.Project(s.LatDeg, s.LonDeg, x, y);
     if (x < -40.0f || y < -40.0f || x > (float)v.Width + 40.0f || y > (float)v.Height + 40.0f) continue;
 
     float f = AgeFade(s.AgeS);

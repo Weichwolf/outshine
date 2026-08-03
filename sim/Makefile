@@ -92,6 +92,9 @@ INC_TILES := -I../tiles/src
 # remembering both and a browser-only link error was the failure mode. Now a new file in the directory is
 # a new stage in BOTH targets, by construction.
 RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
+# ...and the same statement one level up: FBRenderer, the tactical map, the map's view types.
+# Hand-listing them meant a new render/ file linked in one target and not the other.
+RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
 # + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
@@ -119,7 +122,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
   src/systems/FBInputSystem.cpp src/systems/FBMfdSystem.cpp \
-  src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp \
+  src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp src/sensors/FBGroundMap.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
   src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \
   src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp src/weapons/FBLaunchZone.cpp \
@@ -174,8 +177,8 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBTacticalMap.cpp src/world/FBWorld.cpp \
-	    $(RENDER_STAGE_SRCS) \
+	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
+	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
@@ -233,8 +236,8 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
 	  c++ src/clients/FBAppNative.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
-	    src/render/FBRenderer.cpp src/render/FBTacticalMap.cpp src/world/FBWorld.cpp \
-	    $(RENDER_STAGE_SRCS) \
+	    src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
+	    $(RENDER_SRCS) \
 	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) \
@@ -256,7 +259,7 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-gym/FBTerrainLoader.o; \
-	  c++ src/clients/FBAppGym.cpp src/missions/FBMissionRunner.cpp src/missions/FBCampaignRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
+	  c++ src/clients/FBAppGym.cpp src/world/FBTilesElevation.cpp src/missions/FBMissionRunner.cpp src/missions/FBCampaignRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
 	    build/obj-gym/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \

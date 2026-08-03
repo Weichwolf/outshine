@@ -8,7 +8,9 @@
 #include <cmath>
 
 #include "FBCountermeasure.h"
+#include "FBElevationProvider.h"
 #include "FBEmitter.h"
+#include "FBGroundMap.h"
 #include "FBRadarContact.h"
 #include "FBState.h"
 #include "FBTeam.h"
@@ -93,6 +95,29 @@ public:
   void SetIffInterrogator(bool on) { IffInterrogator_ = on; }
   bool IffTransponder() const { return IffXpdr_; }
   bool IffInterrogator() const { return IffInterrogator_; }
+
+  /* ---- DIE BODENKARTE: dasselbe Set in einem A-G-Modus, nicht ein zweites Geraet ----
+   * Gebaut ist GENAU **GM** aus doc/modules/f16/radar-sensors.md §"FCR Air-to-Ground" — die statische
+   * Gelaende-Reflektivitaetskarte. NICHT gebaut und nicht behauptet: GMT (dieselbe Karte plus
+   * GMTI-Doppler-Schwelle), SEA (dieselbe Karte, Clutter auf Seegang getrimmt), DBS1/DBS2, EXP1/EXP2,
+   * GMTT/FTT. Ein Bodenziel ist in diesem Baum ohnehin unsichtbar fuer jedes Radar (§"nicht
+   * implementiert"), also waere ein GMTI-Quadrat eine Erfindung ohne Datenquelle.
+   * Scangeometrie [DOC]: Azimut A6/A3/A1 = +/-60/30/10 Grad, Massstab 10/20/40/80 nm.
+   * A6 ist gewaehlt [SET, weiteste der drei]. Der MASSSTAB ist eine ECHTE LUECKE, keine Wahl:
+   * doc/modules/f16/cockpit-displays.md Gap D5 — keine Seite hat einen Entfernungsknopf und der
+   * Radarblock publiziert keinen gewaehlten Massstab, also steht hier eine feste Stufe aus der
+   * dokumentierten Liste statt eines erfundenen Drehknopfs. Die Sweepzeit nennt die Quelle fuer keinen
+   * A-G-Modus: [SET]. */
+  static constexpr double kGroundMapAzHalfDeg = 60.0;
+  static constexpr double kGroundMapRangeNm = 20.0;
+  static constexpr double kGroundMapFrameS = 2.0;
+
+  /* Woher der Boden kommt — GEBORGT, vom Besitzer der Simulation gesetzt (missions/FBMissionSim), nie
+   * vom Modul. Ohne Quelle kann dieses Set nicht kartieren und sagt das im Block. */
+  void SetTerrain(const FBElevationProvider *terrain) { GroundMap_.SetTerrain(terrain); }
+  /* Der MODUS-Schalter des Moduls: fliegt die Antenne gerade ein Kartiermuster? */
+  void SetGroundMapping(bool on) { GroundMapping_ = on; }
+  bool GroundMapping() const { return GroundMapping_; }
 
   /* Das konfigurierte SUCH-Muster — was ActiveVolume() ohne Override liefert. */
   void SetSearchVolume(const FBRadarScanVolume &v) { Search_ = v; }
@@ -243,6 +268,8 @@ private:
   bool IffXpdr_ = true;         /* IFF Master NORM beim Start (doc/modules/f16/procedures-startup.md, Schritt 46) */
   bool IffInterrogator_ = true;
   FBRadarScanVolume Search_{};
+  FBGroundMap GroundMap_{};
+  bool GroundMapping_ = false;
   double NextScanS_ = 0.0;       /* das eigene Frame-Raster der Antenne, unabhaengig vom Slot-Takt */
   bool Resync_ = false;          /* gerade eingeschaltet: das Raster beginnt bei der naechsten Uhr */
 

@@ -168,15 +168,99 @@ void NoData(FBHudGeometry &out, const Bay &b, const char *what) {
              "%s NO DATA", what);
 }
 
+/* Ein Kontaktsymbol, an dem Lock, Coast und IFF haengen — zweimal gebraucht (B-Scope und Karte), also
+ * einmal geschrieben. */
+void ContactMark(FBHudGeometry &out, float x, float y, const FBRadarContact &c, bool locked) {
+  float d = locked ? 7.f : 4.f;
+  out.Box(x - d, y - d, x + d, y + d, kHgR, kHgG, kHgB);
+  if (locked) out.Box(x - d - 3.f, y - d - 3.f, x + d + 3.f, y + d + 3.f, kHgR, kHgG, kHgB);
+  if (c.Coasting) out.Line(x - d, y - d, x + d, y + d, kHgR, kHgG, kHgB);
+  /* Der EINZIGE Identitaetstraeger im Baum: die IFF-Antwort. "Kein Rueckruf" bleibt unbeschriftet. */
+  if (c.Iff == FBIffReply::Friendly) out.Printf(x + d + 2.f, y - 6.f, 1.4f, kHgR, kHgG, kHgB, "F");
+}
+
+/* DIE BODENKARTE (FCR im GM-Modus), ein Plan-Position-Indicator: Nase oben, eigene Position im
+ * Scheitel, Entfernungsboegen darueber. Das BILD selbst — die Rueckstreuung Zelle fuer Zelle — kommt
+ * aus FBGroundMapBlock und wird von render/stages/FBGroundMapStage unter diese Striche gelegt; hier
+ * steht nur, was das Bild BEDEUTET. Ein Radarbild ist keine Landkarte: hell heisst "viel Echo"
+ * (Hang zum Strahl), schwarz heisst "kein Echo" — auch dort, wo ein Kamm davorstand.
+ *
+ * ERFUNDEN, weil keine Quelle sie zeichnet — dieselbe Deklarationspflicht wie bei den Zielsymbolen in
+ * doc/modules/f16/hud-symbology.md: dass es ein PPI ist, steht in radar-sensors.md, aber die
+ * AUFTEILUNG (Sektorscheitel unten mittig, vier Entfernungsboegen bei 1/4..4/4 mit nm-Zahl innen, der
+ * Antennenstrich auf der aktuellen Sweep-Peilung, "GM <nm>" links oben, "A6" links unten, die
+ * ELEV-Zahl rechts unten) ist HIER entschieden. Kein ED-Screenshot ist dafuer nachgezeichnet worden. */
+void PageFcrMap(FBHudGeometry &out, const Bay &b, const FBState &s) {
+  const FBGroundMapBlock &m = s.GroundMap;
+  FBMfdBayRect body{b.x0, b.y0, b.x1, b.y1};
+  float apexX, apexY, R;
+  FBFcrFan(body, m.AzHalfDeg, apexX, apexY, R);
+  float azHalf = m.AzHalfDeg * kRad;
+  float scaleNm = m.RangeM * (float)kMToNm;
+
+  /* Sektorrand: die zwei Schenkel und der aeussere Bogen. */
+  out.Line(apexX, apexY, apexX + sinf(-azHalf) * R, apexY - cosf(azHalf) * R, kMfdDimR, kMfdDimG, kMfdDimB);
+  out.Line(apexX, apexY, apexX + sinf(azHalf) * R, apexY - cosf(azHalf) * R, kMfdDimR, kMfdDimG, kMfdDimB);
+  for (int k = 1; k <= 4; k++) {
+    float rr = R * (float)k / 4.f;
+    float px = 0.f, py = 0.f;
+    for (int i = 0; i <= 24; i++) {
+      float a = -azHalf + 2.f * azHalf * (float)i / 24.f;
+      float x = apexX + sinf(a) * rr, y = apexY - cosf(a) * rr;
+      if (i) out.Line(px, py, x, y, kMfdDimR, kMfdDimG, kMfdDimB);
+      px = x; py = y;
+    }
+    out.Printf(apexX + 3.f, apexY - rr - 12.f, 1.3f, kMfdDimR, kMfdDimG, kMfdDimB, "%2.0f",
+               (double)(scaleNm * (float)k / 4.f));
+  }
+  out.Line(apexX, apexY, apexX, apexY - 10.f, kHgR, kHgG, kHgB);   /* die Nase */
+  /* Wo die Antenne GERADE steht: alles rechts davon ist die Farbe des vorigen Sweeps. */
+  float sw = -azHalf + 2.f * azHalf * m.SweepFrac;
+  out.Line(apexX, apexY, apexX + sinf(sw) * R, apexY - cosf(sw) * R, 0.f, 0.55f, 0.25f);
+
+  /* Der gewaehlte Zielpunkt IM Bild: Peilung gegen die eigene Nase, Entfernung auf denselben Bogen. */
+  if (s.Nav.H.Readable() && scaleNm > 0.f) {
+    float rel = (s.Nav.SteerBearingDeg - s.Platform.YawDeg) * kRad;
+    while (rel > 3.14159265f) rel -= 6.28318531f;
+    while (rel < -3.14159265f) rel += 6.28318531f;
+    float rn = s.Nav.SteerDistNm / scaleNm;
+    if (fabsf(rel) <= azHalf && rn <= 1.f) {
+      float x = apexX + sinf(rel) * R * rn, y = apexY - cosf(rel) * R * rn;
+      out.Line(x - 6.f, y, x, y - 6.f, kHgR, kHgG, kHgB);
+      out.Line(x, y - 6.f, x + 6.f, y, kHgR, kHgG, kHgB);
+      out.Line(x + 6.f, y, x, y + 6.f, kHgR, kHgG, kHgB);
+      out.Line(x, y + 6.f, x - 6.f, y, kHgR, kHgG, kHgB);
+      out.Printf(x + 8.f, y - 6.f, 1.3f, kHgR, kHgG, kHgB, "SP%02d", s.Ufc.SteerNum);
+    }
+  }
+  /* Die Luftkontakte desselben Satzes, in DIESER Geometrie — siehe die benannte Vereinfachung in
+   * sensors/FBRadarSystem: das echte Geraet teilt seine Modi zeitlich. */
+  if (s.Radar.H.Readable() && scaleNm > 0.f) {
+    for (int i = 0; i < s.Radar.ContactCount; i++) {
+      const FBRadarContact &c = s.Radar.Contacts[i];
+      float rel = c.AzDeg * kRad, rn = c.RangeM * (float)kMToNm / scaleNm;
+      if (fabsf(rel) > azHalf || rn > 1.f) continue;
+      ContactMark(out, apexX + sinf(rel) * R * rn, apexY - cosf(rel) * R * rn, c, i == s.Radar.LockIndex);
+    }
+  }
+  out.Printf(b.x0 + 6.f, b.y0 + 20.f, 1.5f, kHgR, kHgG, kHgB, "GM %2.0f", (double)scaleNm);
+  out.Printf(b.x0 + 6.f, b.y1 - 16.f, 1.5f, kHgR, kHgG, kHgB, "A%d", (int)(m.AzHalfDeg / 10.f + 0.5f));
+  out.Printf(b.x1 - 84.f, b.y1 - 16.f, 1.5f, kHgR, kHgG, kHgB, "ELEV%5.0f",
+             (double)(m.GroundAslM * (float)kMToFt));
+}
+
 /* B-Scope: Azimut ueber die Breite, Entfernung nach oben — die Darstellung, in der ein Kontakt genau
- * die beiden Zahlen traegt, die das Geraet publiziert (AzDeg, RangeM). */
+ * die beiden Zahlen traegt, die das Geraet publiziert (AzDeg, RangeM). Die Breite ist das, was das Set
+ * WIRKLICH absucht (FBRadarBlock::ScanAzHalfDeg), nicht eine feste Halbkugel: ein Kontakt am Rand des
+ * Musters gehoert an den Rand des Schirms. */
 void PageFcr(FBHudGeometry &out, const Bay &b, const FBState &s) {
+  if (s.GroundMap.H.Readable() && s.GroundMap.Mapping) { PageFcrMap(out, b, s); return; }
   if (!s.Radar.H.Readable()) { NoData(out, b, "FCR"); return; }
   const FBRadarBlock &r = s.Radar;
   float maxNm = 0.f;
   for (int i = 0; i < r.ContactCount; i++) maxNm = fmaxf(maxNm, r.Contacts[i].RangeM * (float)kMToNm);
   float scale = ScopeScaleNm(maxNm > 0.f ? maxNm : 40.f);
-  const float az = 90.f;
+  const float az = r.ScanAzHalfDeg > 1.f ? r.ScanAzHalfDeg : 60.f;
   float gx0 = b.x0 + 34.f, gx1 = b.x1 - 8.f, gy0 = b.y0 + 20.f, gy1 = b.y1 - 20.f;
   out.Box(gx0, gy0, gx1, gy1, kMfdDimR, kMfdDimG, kMfdDimB);
   for (int k = 1; k < 4; k++) {   /* Viertel-Ringe als Entfernungslinien */
@@ -187,19 +271,14 @@ void PageFcr(FBHudGeometry &out, const Bay &b, const FBState &s) {
   out.Printf(b.x0 + 6.f, gy0 - 2.f, 1.5f, kHgR, kHgG, kHgB, "%3.0f", scale);
   out.Printf(b.x0 + 6.f, gy1 - 10.f, 1.5f, kHgR, kHgG, kHgB, "%s", r.Radiating ? "RAD" : "SIL");
   out.Printf(gx1 - 60.f, gy1 + 4.f, 1.5f, kHgR, kHgG, kHgB, "MODE%2d", r.ModeOrdinal);
+  out.Printf(gx0 + 2.f, gy0 - 2.f, 1.3f, kMfdDimR, kMfdDimG, kMfdDimB, "A%2.0f", (double)az);
   for (int i = 0; i < r.ContactCount; i++) {
     const FBRadarContact &c = r.Contacts[i];
     if (fabsf(c.AzDeg) > az) continue;
     float x = 0.5f * (gx0 + gx1) + (c.AzDeg / az) * 0.5f * (gx1 - gx0);
     float rn = c.RangeM * (float)kMToNm / scale;
     float y = gy1 - (gy1 - gy0) * (rn > 1.f ? 1.f : rn);
-    bool locked = (i == r.LockIndex);
-    float d = locked ? 7.f : 4.f;
-    out.Box(x - d, y - d, x + d, y + d, kHgR, kHgG, kHgB);
-    if (locked) out.Box(x - d - 3.f, y - d - 3.f, x + d + 3.f, y + d + 3.f, kHgR, kHgG, kHgB);
-    if (c.Coasting) out.Line(x - d, y - d, x + d, y + d, kHgR, kHgG, kHgB);
-    /* Der EINZIGE Identitaetstraeger im Baum: die IFF-Antwort. "Kein Rueckruf" bleibt unbeschriftet. */
-    if (c.Iff == FBIffReply::Friendly) out.Printf(x + d + 2.f, y - 6.f, 1.4f, kHgR, kHgG, kHgB, "F");
+    ContactMark(out, x, y, c, i == r.LockIndex);
   }
   out.Printf(gx0 + 2.f, gy1 + 4.f, 1.5f, kHgR, kHgG, kHgB, "TGT%d", r.ContactCount);
 }
@@ -316,34 +395,63 @@ void PageHsd(FBHudGeometry &out, const Bay &b, const FBState &s) {
 }
 
 /* Der passive Kopf: Winkel und sonst nichts — eine Entfernung steht nur da, wenn der Entfernungsmesser
- * eine gemessen hat (doc/sensors.md §6). */
+ * eine gemessen hat (doc/sensors.md §6). Das BILD unter diesen Strichen ist die Nachtsicht und kommt
+ * aus render/stages/FBNvisStage; hier steht nur die Symbologie darueber, in DERSELBEN Winkelgeometrie
+ * (FBNvisRect/FBNvisAzHalfDeg), sonst laege ein Kontaktring neben seiner eigenen Quelle. */
 void PageIrst(FBHudGeometry &out, const Bay &b, const FBState &s) {
   if (!s.Irst.H.Readable()) { NoData(out, b, "IRST"); return; }
   const FBIrstBlock &ir = s.Irst;
-  float gx0 = b.x0 + 10.f, gx1 = b.x1 - 10.f, gy0 = b.y0 + 22.f, gy1 = b.y1 - 22.f;
-  out.Box(gx0, gy0, gx1, gy1, kMfdDimR, kMfdDimG, kMfdDimB);
-  out.Line(0.5f * (gx0 + gx1), gy0, 0.5f * (gx0 + gx1), gy1, kMfdDimR, kMfdDimG, kMfdDimB);
-  out.Line(gx0, 0.5f * (gy0 + gy1), gx1, 0.5f * (gy0 + gy1), kMfdDimR, kMfdDimG, kMfdDimB);
-  const float azHalf = 60.f, elHalf = 30.f;
+  FBMfdBayRect vid = FBNvisRect(FBMfdBayRect{b.x0, b.y0, b.x1, b.y1});
+  float cx = 0.5f * (vid.X0 + vid.X1), cy = 0.5f * (vid.Y0 + vid.Y1);
+  float halfW = 0.5f * (vid.X1 - vid.X0), halfH = 0.5f * (vid.Y1 - vid.Y0);
+  float azHalf = FBNvisAzHalfDeg(vid), elHalf = kNvisElHalfDeg;
+  float tanAz = tanf(azHalf * kRad), tanEl = tanf(elHalf * kRad);
+  out.Box(vid.X0, vid.Y0, vid.X1, vid.Y1, kMfdDimR, kMfdDimG, kMfdDimB);
+  out.Line(cx - 14.f, cy, cx - 4.f, cy, kHgR, kHgG, kHgB);   /* das offene Fadenkreuz */
+  out.Line(cx + 4.f, cy, cx + 14.f, cy, kHgR, kHgG, kHgB);
+  out.Line(cx, cy - 14.f, cx, cy - 4.f, kHgR, kHgG, kHgB);
+  out.Line(cx, cy + 4.f, cx, cy + 14.f, kHgR, kHgG, kHgB);
   for (int i = 0; i < ir.ContactCount; i++) {
     const FBIrstContact &c = ir.Contacts[i];
     if (fabsf(c.AzDeg) > azHalf || fabsf(c.ElDeg) > elHalf) continue;
-    float x = 0.5f * (gx0 + gx1) + (c.AzDeg / azHalf) * 0.5f * (gx1 - gx0);
-    float y = 0.5f * (gy0 + gy1) - (c.ElDeg / elHalf) * 0.5f * (gy1 - gy0);
+    float x = cx + halfW * tanf(c.AzDeg * kRad) / tanAz;
+    float y = cy - halfH * tanf(c.ElDeg * kRad) / tanEl;
     out.Circle(x, y, i == ir.LockIndex ? 8.f : 5.f, 12, kHgR, kHgG, kHgB);
     if (c.HasRange) out.Printf(x + 9.f, y - 5.f, 1.3f, kHgR, kHgG, kHgB, "%4.1f", c.RangeM * kMToNm);
   }
   out.Printf(b.x0 + 10.f, b.y1 - 18.f, 1.5f, kHgR, kHgG, kHgB, "%s %s  TGT%d  MSK%d",
              ir.Powered ? "PWR" : "OFF", ir.LaserArmed ? "LSR" : "   ", ir.ContactCount,
              ir.CloudMaskedCount);
+  out.Printf(b.x1 - 96.f, b.y1 - 18.f, 1.5f, kMfdDimR, kMfdDimG, kMfdDimB, "NVIS %2.0f", (double)(2.f * elHalf));
 }
 
-/* Das Flugzeug selbst: Sprit, Fahrwerk, Triebwerk, und der Warnsatz als das, was er ist — ein
- * Bitmuster mit einer zweiten Maske fuer "nicht beurteilbar". */
+/* Das Flugzeug selbst: die FLUGDATEN, Sprit, Fahrwerk, Triebwerk, und der Warnsatz als das, was er ist
+ * — ein Bitmuster mit einer zweiten Maske fuer "nicht beurteilbar".
+ * DIE FLUGDATEN STEHEN SEIT DIESER RUNDE HIER, weil der Eigner das HUD auf ZIELERFASSUNG reduziert hat
+ * (modules/f16/displays/FBF16Hud.cpp). Fahrt, Mach, Hoehe, AGL, Steigen, Kurs und g hatten vorher
+ * ueberhaupt keinen zweiten Ort — sie waeren mit den Baendern verschwunden. Gestrichen heisst
+ * verschoben. Die drei Bloecke werden EINZELN auf Lesbarkeit geprueft: ein toter Luftdatenrechner
+ * loescht seine Zeile, nicht die Seite. */
 void PageSys(FBHudGeometry &out, const Bay &b, const FBState &s) {
   float x = b.x0 + 10.f, y = b.y0 + 22.f;
   if (!s.Airframe.H.Readable()) { NoData(out, b, "SYS"); return; }
   const FBAirframeBlock &a = s.Airframe;
+  if (s.AirData.H.Readable())
+    out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "CAS %3.0f  M%4.2f  G%+4.1f", (double)s.AirData.CasKt,
+               (double)s.AirData.Mach, (double)s.AirData.GLoad);
+  else out.Text(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "CAS ---  M----  G----");
+  y += kMfdLineH;
+  /* Hoehe ASL kommt von der Plattform, AGL vom Radarhoehenmesser — zwei Quellen, zwei Lesbarkeiten,
+   * und ein unbestromter Hoehenmesser zeigt hier keine 0 ft (doc/modules/f16 controls-commands 6.4). */
+  if (s.RadarAlt.H.Readable())
+    out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "ASL%6.0f  AGL%5.0f", (double)(s.Platform.AltM * kMToFt),
+               (double)s.RadarAlt.AglFt);
+  else
+    out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "ASL%6.0f  AGL ----", (double)(s.Platform.AltM * kMToFt));
+  y += kMfdLineH;
+  out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "HDG %03.0f  VS%+6.0f", (double)s.Platform.YawDeg,
+             (double)(s.Platform.VsMs * kMToFt * 60.0));
+  y += kMfdLineH;
   out.Printf(x, y, kMfdBodyS, kHgR, kHgG, kHgB, "FUEL %5.0f LB  %3.0f%%", (double)a.FuelLbs,
              (double)a.FuelPct);
   y += kMfdLineH;
@@ -390,19 +498,21 @@ void PageBody(FBMfdPage p, FBHudGeometry &out, const Bay &b, const FBState &s) {
 } // namespace
 
 void FBDisplaySystem::BuildMfd(const FBState &state, const FBHudEnv &env, FBHudGeometry &out) const {
-  float py0 = (float)env.ViewH, py1 = (float)env.Height, bw = (float)env.Width / (float)kMfdBays;
   const FBMfdBlock &m = state.Mfd;
   for (int i = 0; i < kMfdBays; i++) {
-    Bay b{(float)i * bw + 5.f, py0 + 4.f, (float)(i + 1) * bw - 5.f, py1 - 4.f};
+    FBMfdBayRect br = FBMfdBayAt(i, env.Width, env.ViewH, env.Height);
+    Bay b{br.X0, br.Y0, br.X1, br.Y1};
     bool attention = (i == kMfdAttentionBay);
-    out.Fill(b.x0, b.y0, b.x1, b.y1, 0.f, 0.f, 0.f, kMfdVeil);
+    int ord = (env.Have && m.H.Readable()) ? m.Bay[i] : -1;
+    FBMfdPage page = (ord >= 0 && ord < m.PageCount) ? m.Pages[ord] : FBMfdPage::None;
+    /* Ein Schacht mit Sensorvideo bekommt KEINEN Schleier: das Bild darunter ist selbst deckend, und
+     * 87 % Schwarz darueber waere genau die Anzeige, die der Schacht ersetzen soll. */
+    if (!FBMfdPageHasVideo(page, state)) out.Fill(b.x0, b.y0, b.x1, b.y1, 0.f, 0.f, 0.f, kMfdVeil);
     out.Box(b.x0, b.y0, b.x1, b.y1, kMfdDimR, kMfdDimG, kMfdDimB);
     if (!env.Have || !m.H.Readable()) {
       out.Text(b.x0 + 10.f, b.y0 + 22.f, kMfdBodyS, kMfdWarnR, kMfdWarnG, kMfdWarnB, "NO BUS");
       continue;
     }
-    int ord = m.Bay[i];
-    FBMfdPage page = (ord >= 0 && ord < m.PageCount) ? m.Pages[ord] : FBMfdPage::None;
     /* Der Schacht, auf den die Seitenwahl wirkt, traegt einen zweiten Rahmen — sonst ist am Bild nicht
      * zu sehen, WELCHE der drei Seiten der Pilot gerade gewaehlt hat. */
     if (attention) out.Box(b.x0 + 3.f, b.y0 + 3.f, b.x1 - 3.f, b.y1 - 3.f, kHgR, kHgG, kHgB);

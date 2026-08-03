@@ -317,6 +317,17 @@ void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units
   b.Radiating = Powered_ && v.Active;
   b.ModeOrdinal = ModeOrdinal();
   b.IffTransponder = IffXpdr_;
+  b.ScanAzHalfDeg = (float)v.AzHalfDeg;
+
+  /* Die Karte haengt am selben Strahl wie das Luftbild: kein Strom, kein Muster, keine Karte. Dass
+   * dieses Set beides GLEICHZEITIG liefert, ist die eine benannte Vereinfachung — ein APG-68 teilt
+   * seine Modi zeitlich, aber ein A-A-Bild abzuschalten wuerde die Entscheidungen der Piloten-KI
+   * aendern, und eine Anzeige darf keine Physik verstellen. */
+  if (GroundMapping_ && b.Radiating)
+    GroundMap_.Run(state.GroundMap, st.lat, st.lon, st.elev, st.yaw, kGroundMapAzHalfDeg,
+                   kGroundMapRangeNm * kNmToM, kGroundMapFrameS, simTimeS);
+  else
+    GroundMap_.Stop(state.GroundMap);
 
   if (!b.Radiating || !net) {
     if (TrackCount_ > 0 || LockedNum_ != 0) DropAllTracks(Powered_ ? "radar standby" : "radar off", simTimeS);

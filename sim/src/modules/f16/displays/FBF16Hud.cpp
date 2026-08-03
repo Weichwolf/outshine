@@ -21,18 +21,11 @@ constexpr float kHudScale = 1.9f;
 /* Text-scale FLOORS the scale multiplies from [ABL], so the ink clears B612's own legibility ratio. */
 constexpr float kHudReadoutScale = 1.15f, kHudSecondaryScale = 1.08f;
 constexpr float kHgR = 0.30f, kHgG = 1.0f, kHgB = 0.40f;
-constexpr float kMToFtF = (float)kMToFt;   /* from core/FBUnits.h: a local copy would drift */
 
 struct Proj { float sx, sy, zc; };   /* zc = cos(angle from boresight); zc<=0 = behind */
 
 /* The drawn window in screen pixels — the windscreen itself, inset. */
 struct Window { float cx, cy, x0, y0, x1, y1, halfW, halfH; };
-
-float Wrap180(float d) {
-  while (d > 180.f) d -= 360.f;
-  while (d < -180.f) d += 360.f;
-  return d;
-}
 
 void DashedLine(Systems::FBHudGeometry &out, float x0, float y0, float x1, float y1, int n, float r, float g, float b) {
   for (int i = 0; i < n; i++) {
@@ -41,33 +34,28 @@ void DashedLine(Systems::FBHudGeometry &out, float x0, float y0, float x1, float
   }
 }
 
-/* "6,020"-style thousands comma; the sign works out because C++ division and modulo both truncate
- * toward zero. */
-void PrintThousands(Systems::FBHudGeometry &out, float x, float y, float s, float r, float g, float b, int v) {
-  if (v <= -1000 || v >= 1000) out.Printf(x, y, s, r, g, b, "%d,%03d", v / 1000, v % 1000 < 0 ? -(v % 1000) : v % 1000);
-  else out.Printf(x, y, s, r, g, b, "%d", v);
-}
-
-/* Ray from the window centre through (px,py), pulled back to the rectangle's own boundary — so the
- * out-of-view clamp lands exactly ON the window edge instead of on an independent ring. The inset
- * shrinks it by a symbol's half-size, so its strokes are not scissored in half. */
-void ClampToRect(const Window &w, float px, float py, float insetX, float insetY, float &ox, float &oy) {
-  float dx = px - w.cx, dy = py - w.cy;
-  float halfW = w.halfW - insetX, halfH = w.halfH - insetY;
-  float tx = fabsf(dx) > 1e-4f ? halfW / fabsf(dx) : 1e6f;
-  float ty = fabsf(dy) > 1e-4f ? halfH / fabsf(dy) : 1e6f;
-  float t = tx < ty ? tx : ty;
-  ox = w.cx + dx * t;
-  oy = w.cy + dy * t;
-}
 } // namespace
 
-/* DER SCHNITT (Eigner, diese Runde): im HUD steht, WOMIT MAN ZIELT UND NAVIGIERT — Geschwindigkeits-
- * vektor, Nickleiter, die drei schmalen Baender, die Wegpunkt-Raute. Alles, was ZUSTAND ist, steht
- * unten in der MFD-Bank (systems/FBDisplaySystem::BuildMfd): Rollwinkel auf SYS, Bullseye/Restflugzeit/
- * Schraegentfernung auf HSD. Element-fuer-Element-Liste: doc/modules/f16/hud-symbology.md.
- * Jedes konforme Element geht durch EINEN az/el-Projektor aus derselben Kamerabasis wie die Szene;
- * "az/el" ist WELTBEZOGEN (0 = Nord, +el = oben). */
+/* DER SCHNITT (Eigner, diese Runde): IM HUD STEHT NUR NOCH ZIELERFASSUNG. Nicht mehr "womit man zielt
+ * UND NAVIGIERT" — das Navigieren ist raus. Weg sind Horizont, Nickleiter, Kurs-, Fahrt- und
+ * Hoehenband, Wegpunkt-Raute, Kaulquappe und die STPT-Zeile; sie stehen unten in der MFD-Bank, und was
+ * es dort noch nicht gab (CAS, Mach, ASL, AGL, VS, Kurs, g) hat diese Runde auf SYS gelegt — gestrichen
+ * heisst VERSCHOBEN, nicht verschwunden.
+ *
+ * Was bleibt, bleibt aus einem Grund, nicht aus Gewohnheit:
+ *   Visierkreuz   wohin die NASE zeigt, also das Rohr — die Zielreferenz selbst
+ *   FPM           kein Fluginstrument hier, sondern der Bezugspunkt: die Fallinie haengt an ihm
+ *   Zielmarken    jeder Radarkontakt an seinem eigenen weltbezogenen az/el, der gerastete als TD-Box
+ *   CCIP-Pipper   wo die Bombe LANDET, plus Fallinie und Auslose-Cue
+ *   EEGS-Trichter die Bleiloesung mit den Spannweiten-Waenden
+ *   DLZ-Klammer   Rmin/Rtr/Raero und die Ziel-Entfernung darin
+ *   eine Zeile    die gewaehlte Waffe, und der Schuss-Cue
+ * Element-fuer-Element-Liste: doc/modules/f16/hud-symbology.md.
+ *
+ * ZWEI PROJEKTOREN, und die Trennung ist die Semantik: ein WELTwinkel (Kontakt, Pipper, FPM) geht durch
+ * dieselbe Kamerabasis wie die Szene und ist damit konform; ein KOERPERwinkel (Bleiloesung, Visier) geht
+ * direkt auf den Schirm, weil der Schirm das Flugzeugsystem IST — eine Rolldrehung darauf waere falsch.
+ * "az/el" ist im ersten Fall weltbezogen (0 = Nord, +el = oben), im zweiten nasenbezogen. */
 void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Systems::FBHudGeometry &out) const {
   out.Reset();
   /* Der Kombinierer sitzt in der Mitte der SCHEIBE (den oberen zwei Rasterreihen), waehrend Kc unten
@@ -83,6 +71,24 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
   FBCameraBasis cam = FBCameraBasisFrom(state.Platform.YawDeg, state.Platform.PitchDeg, state.Platform.RollDeg, kEyeOrigin, kHudFovDeg,
                            (float)env.Width / (float)env.Height, 1.f, 1000.f);
   float Kc = ((float)env.Height * 0.5f) / tanf(kHudFovDeg * 0.5f * kRad);
+  /* MILLIRADIAN, NICHT PIXEL. Jede Symbolgroesze unten ist eine WINKELgroesze aus der Quelle
+   * (doc/modules/f16/hud-symbology.md, BMS-Dash-34-Addendum). Kc ist Pixel je Radiant, ein Millirad
+   * also Kc*1e-3 px. Das ersetzt die Vorrunde, die JEDE Proportion in Pixeln erfinden musste.
+   *
+   * UND EINE EINZIGE ERFUNDENE ZAHL BLEIBT — hier, sichtbar, statt zwanzigmal verteilt. Roh gezeichnet
+   * ist ein 10-mR-Symbol auf diesem Schirm 6 px: richtig und praktisch unlesbar. Der Grund ist kein
+   * Zeichenfehler, sondern ein Blickwinkel-Unterschied: die Szene wird mit 60 Grad vertikal projiziert
+   * (core/FBCamera.h kSceneVerticalFovDeg), waehrend der Pilot die Symbolik durch einen Kombinierer von
+   * rund 25 Grad TFOV sieht [DOC hud-symbology.md]. Ein bei wahrer Winkelgroesze gezeichnetes Symbol
+   * erscheint deshalb um 60/25 kleiner, als der Pilot es wahrnimmt.
+   *   kSymbolMagnify = 60 / 25 = 2.4
+   * DIE POSITION IST DAVON UNBERUEHRT — konform bleibt konform, der FPM sitzt auf dem
+   * Geschwindigkeitsvektor. Skaliert wird nur, WIE GROSZ ein Symbol an seinem Ort gezeichnet wird, und
+   * das ist auch im echten Geraet keine konforme Groesze. Wer die Szene auf 25 Grad stellt, setzt diese
+   * Zahl auf 1. */
+  constexpr float kHudCombinerTfovDeg = 25.0f;   /* [DOC] doc/modules/f16/hud-symbology.md */
+  constexpr float kSymbolMagnify = kHudFovDeg / kHudCombinerTfovDeg;
+  const float mr = Kc * 1e-3f * kSymbolMagnify;
 
   auto Project = [&](float azDeg, float elDeg) -> Proj {
     float az = azDeg * kRad, el = elDeg * kRad;
@@ -102,186 +108,191 @@ void FBF16Hud::BuildHud(const FBState &state, const Systems::FBHudEnv &env, Syst
   win.halfH = 0.5f * (win.y1 - win.y0);
   const float mg = kHudScale;
 
-  /* ===== Conformal group: horizon, pitch ladder, FPM — all scissored to the window. ===== */
+  /* ===== ZIELERFASSUNG, KONFORM: Kontakte, Zielmarke, Pipper, Trichter. Alles auf das Fenster
+   * beschnitten, alles durch DENSELBEN Projektor wie die Szene. ===== */
   out.SetClip(win.x0, win.y0, win.x1, win.y1);
 
-  /* ----- Horizon: two segments flanking the boresight, gap for the FPM/ladder. Long enough to cross
-   * the window at any bank; the clip cuts it to size. ----- */
-  {
-    float dip = FBHorizonDipRad(state.Platform.AltM > 1 ? state.Platform.AltM : env.Agl) * kR2D;
-    Proj p0 = Project(state.Platform.YawDeg, -dip), p1 = Project(state.Platform.YawDeg + 20.f, -dip);
-    float ddx = p1.sx - p0.sx, ddy = p1.sy - p0.sy, LL = sqrtf(ddx * ddx + ddy * ddy);
-    if (LL > 1.f) {
-      float ux = ddx / LL, uy = ddy / LL, mx = p0.sx, my = p0.sy;
-      float half = win.halfW + win.halfH, gap = 12.f * mg;
-      out.QLine(mx - ux * half, my - uy * half, mx - ux * gap, my - uy * gap, 1.0f, kHgR, kHgG, kHgB);
-      out.QLine(mx + ux * gap, my + uy * gap, mx + ux * half, my + uy * half, 1.0f, kHgR, kHgG, kHgB);
-    }
-  }
-
-  /* ----- Pitch ladder: earth-referenced bars every 5 deg, positive solid / negative dashed
-   * (MIL-STD-1787). Der azimutale SPREIZWINKEL ist eine Fensterbreite, keine physikalische Groesze:
-   * er wird aus dem Fenster ZURUECKGERECHNET (atan(px/Kc)), damit die Leiter das Fenster fuellt statt
-   * in seiner Mitte zu kleben. ----- */
-  {
-    const float gapDeg = kR2D * atanf(0.045f * win.halfW / Kc);
-    const float outerDeg = kR2D * atanf(0.30f * win.halfW / Kc);
-    const float tickLen = 4.f * mg;
-    for (int Ldeg = -45; Ldeg <= 45; Ldeg += 5) {
-      if (Ldeg == 0) continue;
-      bool dashed = Ldeg < 0;
-      float towardHorizonDeg = Ldeg > 0 ? (float)Ldeg - 2.f : (float)Ldeg + 2.f;
-      for (int side = -1; side <= 1; side += 2) {
-        Proj inner = Project(state.Platform.YawDeg + (float)side * gapDeg, (float)Ldeg);
-        Proj outer = Project(state.Platform.YawDeg + (float)side * outerDeg, (float)Ldeg);
-        if (dashed) DashedLine(out, inner.sx, inner.sy, outer.sx, outer.sy, 4, kHgR, kHgG, kHgB);
-        else out.Line(inner.sx, inner.sy, outer.sx, outer.sy, kHgR, kHgG, kHgB);
-
-        Proj toward = Project(state.Platform.YawDeg + (float)side * outerDeg, towardHorizonDeg);
-        float tdx = toward.sx - outer.sx, tdy = toward.sy - outer.sy, tl = sqrtf(tdx * tdx + tdy * tdy);
-        if (tl > 0.5f) {
-          float ux = tdx / tl, uy = tdy / tl;
-          out.Line(outer.sx, outer.sy, outer.sx + ux * tickLen, outer.sy + uy * tickLen, kHgR, kHgG, kHgB);
-        }
-        out.Printf(outer.sx + (side > 0 ? 3.f : -14.f) * mg, outer.sy - 3.f * mg,
-                   kHudSecondaryScale * mg, kHgR, kHgG, kHgB, "%d", Ldeg > 0 ? Ldeg : -Ldeg);
-      }
-    }
-  }
-
-  /* ----- FPM: the MIL-STD-1787 Aircraft Reference Symbol at the velocity vector. Computed here rather
-   * than at its draw site because the tadpole below re-uses its anchor. ----- */
+  /* ----- FPM. Er bleibt, weil er kein Fluginstrument ist, sondern der BEZUGSPUNKT, gegen den gezielt
+   * wird: die Fallinie haengt an ihm und der Trichter wird gegen ihn gelesen. ----- */
   Proj fpm = Project(state.AirData.TrackDeg, state.AirData.FpaDeg);
-  {
+  if (state.AirData.H.Readable()) {
+    /* [BMS-34 S. 108] "a 10 mR circle with 10 mR wings ... along with a 5 mR tail". Durchmesser 10 mR,
+     * also Radius 5; die Fluegel sind je 10 mR lang und setzen am Kreis an. DAS LEITWERK ZEIGT NACH
+     * OBEN — die vorige Runde zeichnete es nach unten und stellte das Symbol damit auf den Kopf. */
     float fx = fpm.sx, fy = fpm.sy;
-    out.Circle(fx, fy, 5.f * mg, 16, kHgR, kHgG, kHgB);
-    out.Line(fx - 13 * mg, fy, fx - 5 * mg, fy, kHgR, kHgG, kHgB);
-    out.Line(fx + 5 * mg, fy, fx + 13 * mg, fy, kHgR, kHgG, kHgB);
-    out.Line(fx, fy + 5 * mg, fx, fy + 10 * mg, kHgR, kHgG, kHgB);
+    out.Circle(fx, fy, 5.f * mr, 16, kHgR, kHgG, kHgB);
+    out.Line(fx - 15.f * mr, fy, fx - 5.f * mr, fy, kHgR, kHgG, kHgB);
+    out.Line(fx + 5.f * mr, fy, fx + 15.f * mr, fy, kHgR, kHgG, kHgB);
+    out.Line(fx, fy - 5.f * mr, fx, fy - 10.f * mr, kHgR, kHgG, kHgB);
+  }
+
+  /* ----- DIE RADARKONTAKTE ALS ZIELMARKEN. Weltbezogenes az/el steht am Kontakt selbst
+   * (core/FBRadarContact.h BearingDeg/ElevAngleDeg, ausdruecklich damit ein Verbraucher das Echo ohne
+   * Rueckdrehung setzen kann), also geht es durch denselben Projektor. Ein Kontakt traegt KEINE
+   * Identitaet — deshalb steht an keinem Kaestchen eine Zugehoerigkeit, nur die IFF-Antwort, und die
+   * kennt kein "hostile".
+   * GROESZEN BELEGT [BMS-34 S. 109]: "the Primary TD-box measures 25 mR on each side ... the Secondary
+   * TD-boxes ... are 15 mR on each side". Der gerastete Kontakt ist die primaere Box, jeder andere eine
+   * sekundaere — die Unterscheidung ist die Quelle, nicht Geschmack. ----- */
+  if (state.Radar.H.Readable()) {
+    const FBRadarBlock &r = state.Radar;
+    for (int i = 0; i < r.ContactCount && i < kMaxRadarContacts; i++) {
+      const FBRadarContact &c = r.Contacts[i];
+      bool locked = i == r.LockIndex;
+      Proj p = Project(c.BearingDeg, c.ElevAngleDeg);
+      float half = (locked ? 12.5f : 7.5f) * mr;   /* 25 mR bzw. 15 mR Kantenlaenge */
+      bool outOfFov = p.zc < 0.05f || p.sx < win.x0 || p.sx > win.x1 || p.sy < win.y0 || p.sy > win.y1;
+      if (!outOfFov) {
+        out.Box(p.sx - half, p.sy - half, p.sx + half, p.sy + half, kHgR, kHgG, kHgB);
+        /* Der EINZIGE Identitaetstraeger im Baum ist die IFF-Antwort; "kein Rueckruf" bleibt stumm. */
+        if (locked && c.Iff == FBIffReply::Friendly)
+          out.Text(p.sx - 4.f * mg, p.sy - half - 6.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, "F");
+        if (locked)
+          out.Printf(p.sx + half + 6.f * mg, p.sy + 4.f * mg, kHudSecondaryScale * mg,
+                     kHgR, kHgG, kHgB, "%4.1f", (double)(c.RangeM * kMToNm));
+        continue;
+      }
+      /* AUSSERHALB DES SICHTFELDS: die TARGET LOCATOR LINE, nicht eine an den Rand geklemmte Box.
+       * [BMS-34 S. 104, 109] "40 mR dotted line from the gun boresight cross, oriented at the relative
+       * bearing to the target; text = source letter (F = FCR) + 2-digit target angle, updated in 1
+       * degree increments". Die vorige Runde erfand hier eine Randklemme mit Kreuz; das hier ist die
+       * dokumentierte Anzeige und traegt zusaetzlich die Zahl, die sie tragen soll.
+       * Die Richtung kommt aus den KOERPERwinkeln, nicht aus der Projektion: ein Ziel hinter dem Bug
+       * hat keine gueltige Projektion, aber sehr wohl eine Richtung. 0 Grad = senkrecht nach oben,
+       * positiv im Uhrzeigersinn. */
+      float ang = atan2f(c.AzDeg, c.ElDeg);
+      float ux = sinf(ang), uy = -cosf(ang);
+      DashedLine(out, cx, cy, cx + ux * 40.f * mr, cy + uy * 40.f * mr, 5, kHgR, kHgG, kHgB);
+      float offDeg = sqrtf(c.AzDeg * c.AzDeg + c.ElDeg * c.ElDeg);
+      if (offDeg > 99.f) offDeg = 99.f;
+      out.Printf(cx + ux * 46.f * mr - 8.f * mg, cy + uy * 46.f * mr, kHudSecondaryScale * mg,
+                 kHgR, kHgG, kHgB, "F%02d", (int)(offDeg + 0.5f));
+    }
+  }
+
+  /* ----- CCIP: der Pipper steht dort, wo die Bombe LANDET. Die Lage ist aus dem Block herleitbar und
+   * braucht keine neue Verdrahtung: der Aufschlagpunkt liegt AgRangeM voraus auf dem BODENKURS (eine
+   * ungelenkte Waffe erbt den Geschwindigkeitsvektor) und AltM - AgImpactElevM darunter, also ist die
+   * Depression atan2 der beiden. Die Fallinie verbindet FPM und Pipper — sie IST die Bahn, auf der der
+   * Aufschlag wandert, wenn der Pilot nichts tut. ----- */
+  bool agShown = false;
+  if (state.FireControl.H.Readable() && state.FireControl.AgValid && state.AirData.H.Readable()) {
+    const FBFireControlBlock &fc = state.FireControl;
+    float dropM = state.Platform.AltM - fc.AgImpactElevM;
+    float rngM = fc.AgRangeM > 1.f ? fc.AgRangeM : 1.f;
+    float depDeg = -atan2f(dropM, rngM) * kR2D;
+    Proj pip = Project(state.AirData.TrackDeg, depDeg);
+    agShown = true;
+    DashedLine(out, fpm.sx, fpm.sy, pip.sx, pip.sy, 9, kHgR, kHgG, kHgB);
+    /* [BMS-34 S. 625] "1 mR dot at the centre of a 12 mR circle" — Radius also 6 mR, der Punkt ein
+     * halbes Millirad. Der zweite Ring ist der IN-RANGE-Cue mit 16 mR und steht nur, wenn die Loesung
+     * ihn hergibt; er ist eine AUSSAGE, kein Zierring. */
+    out.Circle(pip.sx, pip.sy, 6.f * mr, 16, kHgR, kHgG, kHgB);
+    out.Circle(pip.sx, pip.sy, 0.5f * mr, 6, kHgR, kHgG, kHgB);
+    if (fc.AgInRange) out.Circle(pip.sx, pip.sy, 8.f * mr, 20, kHgR, kHgG, kHgB);
+    /* Der Auslose-Cue als schrumpfender Balken am Pipper: er ist die einzige Zahl dieses Modus, die
+     * eine HANDLUNG verlangt, und er wird abgelesen, nicht gerechnet. 5 s Vollausschlag [SET]. */
+    if (fc.AgTimeToReleaseS > 0.f && fc.AgTimeToReleaseS < 5.f) {
+      float h = 26.f * mg, frac = fc.AgTimeToReleaseS / 5.f;
+      float bx = pip.sx + 15.f * mg, by0 = pip.sy - 0.5f * h, by1 = pip.sy + 0.5f * h;
+      out.Line(bx, by0, bx, by1, kHgR, kHgG, kHgB);
+      out.QLine(bx, by1 - h * frac, bx, by1, 2.0f, kHgR, kHgG, kHgB);
+    }
   }
 
   out.ClearClip();
 
-  /* ----- Heading tape, at the very TOP of the window, ticks pointing down: magnetic (MagVar is a
-   * 0 deg placeholder until a declination model exists). Die Skala spannt +-35 deg ueber die volle
-   * Fensterbreite — das Band steht oben, nicht bei einem Drittel. ----- */
-  {
-    float hdg = state.Platform.YawDeg - state.Nav.MagVarDeg;
-    hdg = hdg < 0 ? hdg + 360.f : (hdg >= 360.f ? hdg - 360.f : hdg);
-    float hy1 = win.y0 + 9.f * mg;                            /* rail y, at the window's top edge */
-    const float bandDeg = 35.f;
-    float halfSpan = win.halfW - 10.f * mg, hpd = halfSpan / bandDeg;   /* px/deg */
-    for (int hh = (int)floorf((hdg - bandDeg) / 5.f) * 5; hh <= (int)(hdg + bandDeg); hh += 5) {
-      float sx = cx + ((float)hh - hdg) * hpd;
-      if (sx < win.x0 || sx > win.x1) continue;
-      int hn = ((hh % 360) + 360) % 360;
-      float tk = (hn % 10 == 0) ? 6.f : 3.5f;
-      tk *= mg;
-      out.Line(sx, hy1, sx, hy1 + tk, kHgR, kHgG, kHgB);
-      if (hn % 10 == 0) {
-        char nb[4];
-        const char *label = nb;
-        if (hn == 0) label = "N";
-        else if (hn == 90) label = "E";
-        else if (hn == 180) label = "S";
-        else if (hn == 270) label = "W";
-        else snprintf(nb, sizeof nb, "%02d", hn / 10);
-        out.Text(sx - (label[1] ? 5.f : 2.f) * mg, hy1 + tk + 2.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, label);
-      }
+  /* ===== KOERPERFESTES: alles, was gegen die NASE gelesen wird. Ein Koerperwinkel geht NICHT durch die
+   * Kamerabasis — der Schirm IST das Flugzeugsystem, also bildet er direkt ab, ohne Rolldrehung. Kc ist
+   * derselbe Massstab wie oben, damit Trichter und Szene denselben Winkel meinen. ===== */
+  auto ProjectBody = [&](float azDeg, float elDeg) -> Proj {
+    return {cx + Kc * tanf(azDeg * kRad), cy - Kc * tanf(elDeg * kRad), 1.f};
+  };
+
+  /* ----- Das Visierkreuz: wohin die NASE zeigt, und damit das Rohr. Bildschirmfest, immer da. ----- */
+  out.Line(cx - 14 * mg, cy, cx - 5 * mg, cy, kHgR, kHgG, kHgB);
+  out.Line(cx + 5 * mg, cy, cx + 14 * mg, cy, kHgR, kHgG, kHgB);
+  out.Line(cx, cy - 14 * mg, cx, cy - 5 * mg, kHgR, kHgG, kHgB);
+  out.Line(cx, cy + 5 * mg, cx, cy + 14 * mg, kHgR, kHgG, kHgB);
+
+  /* ----- DER TRICHTER (EEGS). Seine Waende sind die SPANNWEITE des Ziels, gezeichnet an der
+   * Entfernung, fuer die das Rohr richtig zeigt — genau deshalb ist "ausser Schussweite" hier
+   * buchstaeblich GunSpanMr < GunFunnelBottomMr und keine zweite Regel. Der Trichter haengt an der
+   * Bleiloesung (koerperfest), nicht am Kontakt. ----- */
+  if (state.FireControl.H.Readable() && state.FireControl.GunValid) {
+    const FBFireControlBlock &fc = state.FireControl;
+    out.SetClip(win.x0, win.y0, win.x1, win.y1);
+    Proj lead = ProjectBody(fc.GunLeadAzDeg, fc.GunLeadElDeg);
+    /* Milliradian -> Pixel ueber denselben Massstab: 1 mr = Kc * 1e-3 px in Kleinwinkelnaehe. */
+    float topPx = 0.5f * fc.GunFunnelTopMr * 1e-3f * Kc;
+    float botPx = 0.5f * fc.GunFunnelBottomMr * 1e-3f * Kc;
+    float span = 46.f * mg;   /* die Hoehe des gezeichneten Trichters [SET] */
+    for (int s = -1; s <= 1; s += 2) {
+      float x0 = lead.sx + (float)s * botPx, y0 = lead.sy + 0.5f * span;
+      float x1 = lead.sx + (float)s * topPx, y1 = lead.sy - 0.5f * span;
+      out.Line(x0, y0, x1, y1, kHgR, kHgG, kHgB);
     }
-    out.Line(cx - halfSpan, hy1, cx + halfSpan, hy1, kHgR, kHgG, kHgB);
-    out.Box(cx - 15 * mg, hy1 - 13 * mg, cx + 15 * mg, hy1 - 2 * mg, kHgR, kHgG, kHgB);
-    out.Printf(cx - 11 * mg, hy1 - 11 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%03.0f", hdg);
+    /* Die Spannweite des Ziels als Marke auf den Waenden: liegt sie zwischen ihnen, passt die
+     * Entfernung. In der Loesung ist das GunInRange. */
+    float sp = 0.5f * fc.GunSpanMr * 1e-3f * Kc;
+    if (fc.GunInRange) {
+      float t = (botPx - topPx) > 1e-3f ? (botPx - sp) / (botPx - topPx) : 0.f;
+      t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t);
+      float my = lead.sy + 0.5f * span - t * span;
+      out.Line(lead.sx - sp, my, lead.sx + sp, my, kHgR, kHgG, kHgB);
+    }
+    /* Der Pipper sitzt in der Bleiloesung; gefuellt, wenn die Nase drin ist. */
+    out.Circle(lead.sx, lead.sy, 3.f * mg, 12, kHgR, kHgG, kHgB);
+    if (fc.GunInFunnel) out.Circle(lead.sx, lead.sy, 1.6f * mg, 10, kHgR, kHgG, kHgB);
+    out.ClearClip();
   }
 
-  const bool airDataOk = state.AirData.H.Readable();
-
-  /* ----- Airspeed band (CAS) at the LEFT window edge: minor ticks every 20 kt, boxed exact value.
-   * Numeric tick labels dropped — the box carries the value. ----- */
-  {
-    float ax = win.x0 + 26.f * mg, as = state.AirData.CasKt;
-    float tapeHalf = 0.62f * win.halfH, pxPerKt = tapeHalf / 120.f;   /* +-120 kt visible */
-    /* A dead ADC has no scale to move: frame and box stay (the instrument is there), ticks do not. */
-    if (airDataOk) {
-      for (int av = (int)floorf((as - tapeHalf / pxPerKt) / 20.f) * 20; av <= (int)(as + tapeHalf / pxPerKt); av += 20) {
-        if (av < 0) continue;
-        float sy = cy - ((float)av - as) * pxPerKt;
-        if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
-        float tk = (av % 100 == 0) ? 7.f : 4.f;
-        out.Line(ax, sy, ax + tk * mg, sy, kHgR, kHgG, kHgB);
-        if (av % 100 == 0)
-          out.Printf(ax - 22.f * mg, sy - 3.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, "%3d", av);
-      }
-    }
-    out.Line(ax, cy - tapeHalf, ax, cy + tapeHalf, kHgR, kHgG, kHgB);
-    out.Box(ax + 2 * mg, cy - 6 * mg, ax + 26 * mg, cy + 6 * mg, kHgR, kHgG, kHgB);
-    if (airDataOk) out.Printf(ax + 5 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "%3.0f", as);
-    else out.Text(ax + 5 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, "---");
+  /* ----- DIE DLZ-KLAMMER, rechts neben dem Visier: die einzige Entfernungsdarstellung, die ein
+   * Schuetze braucht. Von unten nach oben Rmin .. Raero, die Ziel-Entfernung als Zeiger, Rtr als
+   * Querstrich. Ohne Rasten und ohne gewaehlte Waffe mit Schusszone gibt es sie nicht. ----- */
+  if (state.FireControl.H.Readable() && state.FireControl.DlzValid) {
+    const FBFireControlBlock &fc = state.FireControl;
+    float sx = cx + 118.f * mg, y0 = cy + 58.f * mg, y1 = cy - 58.f * mg;
+    float top = fc.RaeroM > 1.f ? fc.RaeroM : 1.f;
+    auto Y = [&](float m) { float t = m / top; t = t < 0.f ? 0.f : (t > 1.f ? 1.f : t); return y0 + (y1 - y0) * t; };
+    out.Line(sx, y0, sx, y1, kHgR, kHgG, kHgB);
+    out.Line(sx - 5 * mg, y1, sx + 5 * mg, y1, kHgR, kHgG, kHgB);
+    out.Line(sx - 5 * mg, Y(fc.RminM), sx + 5 * mg, Y(fc.RminM), kHgR, kHgG, kHgB);
+    DashedLine(out, sx - 4 * mg, Y(fc.RtrM), sx + 4 * mg, Y(fc.RtrM), 3, kHgR, kHgG, kHgB);
+    float cyr = Y(fc.TargetRangeM);
+    out.Line(sx - 9 * mg, cyr, sx, cyr - 4 * mg, kHgR, kHgG, kHgB);
+    out.Line(sx, cyr - 4 * mg, sx, cyr + 4 * mg, kHgR, kHgG, kHgB);
+    out.Line(sx, cyr + 4 * mg, sx - 9 * mg, cyr, kHgR, kHgG, kHgB);
+    out.Printf(sx + 8 * mg, cyr + 4 * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB,
+               "%4.1f", (double)(fc.TargetRangeM * kMToNm));
+    if (fc.TimeToImpactS > 0.f)
+      out.Printf(sx - 6 * mg, y0 + 14 * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB,
+                 "T%3.0f", (double)fc.TimeToImpactS);
   }
 
-  /* ----- Altitude band (barometric ASL) at the RIGHT window edge: minor ticks every 200 ft, boxed
-   * thousands-comma'd value, mirroring the CAS band. ----- */
+  /* ----- DIE EINE ZEILE: womit geschossen wird und ob jetzt. Mehr Text gibt es im HUD nicht — alles
+   * Uebrige steht unten in der MFD-Bank. ----- */
   {
-    float axr = win.x1 - 26.f * mg, asl = state.Platform.AltM * kMToFtF;
-    float tapeHalf = 0.62f * win.halfH, pxPerFt = tapeHalf / 2000.f;   /* +-2000 ft visible */
-    for (int av = (int)floorf((asl - tapeHalf / pxPerFt) / 200.f) * 200; av <= (int)(asl + tapeHalf / pxPerFt); av += 200) {
-      float sy = cy - ((float)av - asl) * pxPerFt;
-      if (sy < cy - tapeHalf || sy > cy + tapeHalf) continue;
-      float tk = (av % 1000 == 0) ? 7.f : 4.f;
-      out.Line(axr, sy, axr - tk * mg, sy, kHgR, kHgG, kHgB);
-      if (av % 1000 == 0)
-        PrintThousands(out, axr + 3.f * mg, sy - 3.f * mg, kHudSecondaryScale * mg, kHgR, kHgG, kHgB, av);
+    /* KEIN Master-Mode-Wort. Er steht nicht auf dem Bus, sondern wird an Run() gereicht, und FBHudEnv
+     * ist ausdruecklich Verdrahtung statt Sim-Zustand — ihn dafuer aufzubohren waere ein Umweg um eine
+     * Grenze, die absichtlich da ist. Er ist ohnehin ablesbar: Trichter heisst Kanone, Pipper heisst
+     * Boden, Klammer heisst Flugkoerper. */
+    float s = kHudReadoutScale * mg, ly = win.y1 - 10.f * mg, lx = win.x0 + 6.f * mg;
+    if (state.Gun.H.Readable() && state.Gun.Ready)
+      out.Printf(lx, ly, s, kHgR, kHgG, kHgB, "GUN %4d", state.Gun.RoundsRemaining);
+    else if (state.Stores.H.Readable() && state.Stores.SelectedStation > 0)
+      out.Printf(lx, ly, s, kHgR, kHgG, kHgB, "STA %d", state.Stores.SelectedStation);
+
+    /* Der Schuss-Cue, mittig unter dem Visier: die einzige Aufforderung, die das HUD ausspricht. */
+    const FBFireControlBlock &fc = state.FireControl;
+    const char *cue = nullptr;
+    if (state.FireControl.H.Readable()) {
+      if (fc.GunValid && fc.GunInFunnel) cue = "SHOOT";
+      else if (fc.DlzValid && fc.InZone) cue = "SHOOT";
+      else if (agShown && fc.AgInRange && fc.AgTimeToReleaseS <= 0.f) cue = "RELEASE";
+      else if (fc.DlzValid) cue = "IN RANGE";
     }
-    out.Line(axr, cy - tapeHalf, axr, cy + tapeHalf, kHgR, kHgG, kHgB);
-    /* wide enough for a 6-char "10,020" at the readout scale */
-    out.Box(axr - 38 * mg, cy - 6 * mg, axr - 2 * mg, cy + 6 * mg, kHgR, kHgG, kHgB);
-    PrintThousands(out, axr - 35 * mg, cy - 4 * mg, kHudReadoutScale * mg, kHgR, kHgG, kHgB, (int)asl);
-  }
-
-  /* ===== Steerpoint diamond + tadpole: conformal, so back under the window clip. ===== */
-  out.SetClip(win.x0, win.y0, win.x1, win.y1);
-  /* No nav solution, no steering symbology: a diamond from an unwritten block would point the pilot at
-   * a steerpoint that does not exist (MIL-STD-1787's declutter rule). A BFM mission is exactly this. */
-  if (state.Nav.H.Readable()) {
-    Proj sp = Project(state.Nav.SteerBearingDeg, state.Nav.SteerElevAngleDeg);
-    bool outOfFov = sp.zc < 0.05f || sp.sx < win.x0 || sp.sx > win.x1 || sp.sy < win.y0 || sp.sy > win.y1;
-    float dw = 6.f * mg, dh = 5.5f * mg;
-    float px = sp.sx, py = sp.sy;
-    if (outOfFov) ClampToRect(win, sp.sx, sp.sy, dw, dh, px, py);
-    out.Line(px - dw, py, px, py - dh, kHgR, kHgG, kHgB);
-    out.Line(px, py - dh, px + dw, py, kHgR, kHgG, kHgB);
-    out.Line(px + dw, py, px, py + dh, kHgR, kHgG, kHgB);
-    out.Line(px, py + dh, px - dw, py, kHgR, kHgG, kHgB);
-    if (outOfFov) {
-      out.Line(px - dw, py - dh, px + dw, py + dh, kHgR, kHgG, kHgB);
-      out.Line(px - dw, py + dh, px + dw, py - dh, kHgR, kHgG, kHgB);
-    }
-
-    /* Tadpole: near the FPM, X clamped to the window half-width, rotated so it points UP when the
-     * steerpoint is ahead of track and DOWN when behind it [DOC]. */
-    float relBrg = Wrap180(state.Nav.SteerBearingDeg - state.AirData.TrackDeg);
-    float clampX = win.halfW - 14.f * mg;
-    float tx = relBrg * 1.2f * mg;
-    tx = tx < -clampX ? -clampX : (tx > clampX ? clampX : tx);
-    float tpx = fpm.sx + tx, tpy = fpm.sy;
-    float ar = relBrg * kRad, sA = sinf(ar), cA = cosf(ar);
-    auto Rot = [&](float lx, float ly, float &ox, float &oy) { ox = tpx + lx * cA - ly * sA; oy = tpy + lx * sA + ly * cA; };
-    float tipx, tipy, basex, basey, lhx, lhy, rhx, rhy;
-    Rot(0, -8 * mg, tipx, tipy); Rot(0, 5 * mg, basex, basey);
-    Rot(-3.f * mg, -3.f * mg, lhx, lhy); Rot(3.f * mg, -3.f * mg, rhx, rhy);
-    out.Line(basex, basey, tipx, tipy, kHgR, kHgG, kHgB);
-    out.Line(tipx, tipy, lhx, lhy, kHgR, kHgG, kHgB);
-    out.Line(tipx, tipy, rhx, rhy, kHgR, kHgG, kHgB);
-  }
-  out.ClearClip();
-
-  /* ----- Die EINE Navigationszeile, unten links aus der Zielzone heraus: welcher Wegpunkt und wie
-   * weit. Restflugzeit und Schraegentfernung stehen auf HSD — sie sind Planung, nicht Zielhilfe. ----- */
-  {
-    float s = kHudSecondaryScale * mg, ly = win.y1 - 10.f * mg, lx = win.x0 + 6.f * mg;
-    if (state.Nav.H.Readable())
-      out.Printf(lx, ly, s, kHgR, kHgG, kHgB, "STPT %02d  %5.1f", state.Ufc.SteerNum, (double)state.Nav.SteerDistNm);
-    else out.Text(lx, ly, s, kHgR, kHgG, kHgB, "STPT --  ---.-");
+    if (cue) out.Text(cx - 26 * mg, cy + 40 * mg, s, kHgR, kHgG, kHgB, cue);
   }
 }
 

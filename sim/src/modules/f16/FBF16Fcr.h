@@ -15,7 +15,7 @@ namespace FlightBox::Modules {
 
 /* Ordinals are the telemetry's `fcr_mode` column, so the order is observable schema — append, never
  * reorder. */
-enum class FBF16FcrMode { Off, Crm, AcmHud, AcmBore, AcmVert, AcmSlew };
+enum class FBF16FcrMode { Off, Crm, AcmHud, AcmBore, AcmVert, AcmSlew, Gm };
 
 inline bool FBF16FcrModeFromString(const char *s, FBF16FcrMode &out) {
   if (!std::strcmp(s, "off"))       { out = FBF16FcrMode::Off;     return true; }
@@ -24,6 +24,7 @@ inline bool FBF16FcrModeFromString(const char *s, FBF16FcrMode &out) {
   if (!std::strcmp(s, "acm_bore"))  { out = FBF16FcrMode::AcmBore; return true; }
   if (!std::strcmp(s, "acm_vert"))  { out = FBF16FcrMode::AcmVert; return true; }
   if (!std::strcmp(s, "acm_slew"))  { out = FBF16FcrMode::AcmSlew; return true; }
+  if (!std::strcmp(s, "gm"))        { out = FBF16FcrMode::Gm;      return true; }
   return false;
 }
 
@@ -35,6 +36,7 @@ inline const char *FBF16FcrModeStr(FBF16FcrMode m) {
     case FBF16FcrMode::AcmBore: return "acm_bore";
     case FBF16FcrMode::AcmVert: return "acm_vert";
     case FBF16FcrMode::AcmSlew: return "acm_slew";
+    case FBF16FcrMode::Gm:      return "gm";
   }
   return "?";
 }
@@ -78,7 +80,7 @@ private:
   FBF16FcrMode Mode_ = FBF16FcrMode::Crm;   /* CRM is the power-up mode (doc/modules/f16/radar-sensors.md) */
   double SlewAzDeg_ = 0.0, SlewElDeg_ = 0.0;
   double RangeOverrideNm_ = 0.0;   /* 0 = use the mode table's own gate */
-  Sensors::FBRadarScanVolume Modes_[6]{};
+  Sensors::FBRadarScanVolume Modes_[7]{};
   Sensors::FBRadarScanVolume Stt_{};
 };
 

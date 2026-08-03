@@ -2,6 +2,7 @@
  * dumping PNGs. This is the verification venue a headless-browser SwiftShader cannot give — native
  * Dawn actually renders. doc/render/renderer.md, Abschnitt 1.1. */
 #include "FBRenderer.h"
+#include "FBMapCamera.h"
 #include "FBTacticalMap.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
@@ -60,8 +61,13 @@ void Usage(const char *argv0) {
           "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/missions/)\n"
           "  --map CALLSIGN [--map-span-km KM]  draw the TACTICAL MAP of that unit's fused picture\n"
-          "    (the control node of its faction's net) instead of its cockpit -- nadir over the node,\n"
-          "    OSM ground, APP-6 symbology. Only what that node has actually collected is drawn.\n"
+          "    (the control node of its faction's net) instead of its cockpit -- an OSM raster sheet\n"
+          "    off fb-tiles under APP-6 symbology. Only what that node has collected is drawn.\n"
+          "  --map-zoom Z / --map-pan E_KM:N_KM / --map-home S  the zoom, the scroll and the re-centre a\n"
+          "    browser gets from the wheel, the drag and the Home key. Z is an OSM zoom level (3..15)\n"
+          "    and pins the span to one sheet texel per pixel; the pan is measured on the map's own\n"
+          "    scale (so a long north leg lands slightly short in true ground metres -- Mercator) and\n"
+          "    stops the map following the node; --map-home S puts it back on the node at second S.\n"
           "  --order AT:UNIT:KIND[:A[:B[:C]]]  hand a tactical order to a unit's AI at sim second AT.\n"
           "    KIND = waypoint|steer|attack (lat:lon[:altM]) | abort | emcon:0|1 | wcs:free|tight|hold\n"
           "    on its runway threshold and run headless (JSBSim + the module's FBPilot phase machine, NO renderer/\n"
@@ -344,21 +350,34 @@ int RunCloudDensityCheck(void) {
   return (maxAbs <= kCloudCheckTolerance && maxAir <= kCloudCheckTolerance) ? 0 : 1;
 }
 
+/* THE MAP SHEET'S BYTES, and they come off the tile path that already exists: mode 0 is /bake/osm,
+ * the same page the terrain streamer uploads as albedo, so the map's pages are cache hits rather than
+ * a second client. render/ never sees this — the renderer is handed the hook. */
+int MapTileFetch(int z, int x, int y, int ts, unsigned char *dst) {
+  return fb_stream_pyramid(z, (uint32_t)x, (uint32_t)y, 0, ts, dst);
+}
+
 /* The concrete FBMissionTickHook, implemented ONLY in this translation unit — which is what keeps
  * fb-gym's link GPU-free while both clients share one mission loop. */
 class FBNativeMissionHook : public FlightBox::Missions::FBMissionTickHook {
 public:
-  FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
-      : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
+  FBNativeMissionHook(std::string base, std::string outDir, double intervalS, bool groundPhoto = false,
+                      int width = 1280, int height = 720)
+      : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height),
+        GroundPhoto(groundPhoto) {}
 
   /* THE TACTICAL MAP as a frame venue: `--map <callsign>` draws the picture of THAT unit's fusion --
-   * the control node of the faction's net -- instead of its cockpit. The camera goes nadir over the
-   * map centre at exactly the altitude whose footprint IS the map span, so a symbol sits on the piece
-   * of OSM ground it was measured over. doc/player-layer.md §9. */
+   * the control node of the faction's net -- instead of its cockpit. The ground is an OSM raster sheet
+   * on the Web-Mercator grid the symbols are projected onto. doc/player-layer.md §9. */
   void SetMapNode(const std::string &callsign, double spanM) {
     MapNode = callsign;
-    if (spanM > 0.0) MapSpanM = spanM;
+    if (spanM > 0.0) Cam.SetSpanM(spanM);
   }
+  /* gpu_native has no window and therefore no keys: the ZOOM and PAN a browser gets from the wheel and
+   * the drag arrive here as declared values, through the same FBMapCamera the keys drive. */
+  void SetMapZoom(int zoom) { MapZoom = zoom; }
+  void SetMapPan(double eastKm, double northKm) { PanEastKm = eastKm; PanNorthKm = northKm; }
+  void SetMapHome(double atS) { HomeAtS = atS; }
   /* A SCRIPTED COMMANDER, so the order path has a reproducible venue: one order, at one sim second,
    * to one unit's AI. It writes no state -- it hands pilot/FBPilot an intention, exactly as a click on
    * the map will. */
@@ -378,8 +397,10 @@ public:
                       const FlightBox::Units::FBUnitRegistry &units) override {
     const FlightBox::Units::FBSimUnit &primary = *actors.front();   /* the camera's actor (FBMissionRunner.h) */
     R = std::make_unique<FlightBox::Render::FBRenderer>();
-    R->SetDefaultMode(0);
-    R->SetGroundMode(0);
+    /* --albedo photo is the EVS view, and the ONLY one with a real ephemeris: the OSM database view
+     * pins daylight (render/FBFrameContext GroundPhoto), so no night frame exists without it. */
+    R->SetDefaultMode(GroundPhoto);
+    R->SetGroundMode(GroundPhoto);
     R->SetStreaming(512);
     R->SetSkyClock(UtcAt(0.0));
     { uint8_t *moon = 0; int mw = 0, mh = 0;
@@ -397,6 +418,7 @@ public:
       R.reset(); W.reset();
       return;
     }
+    R->SetMapSheetSource(&MapTileFetch);
     /* Borrowed: the renderer's VIEW of the cast, never a second list of its own. */
     W->SetUnits(&units);
     W->SetWeather(Wx);
@@ -411,11 +433,12 @@ public:
   void OnTick(const FlightBox::Units::FBActorList &actors, double simT) override {
     if (!R || !W) return;   /* OnMissionStart already logged the failure */
     RunScriptedOrders(actors, simT);
-    /* THE MAP'S TERRAIN STREAMS EVERY TICK, like a client's does: the quadtree's per-update budget is
-     * two meshes and two albedo pages, so a cut that is only touched once per screenshot never
-     * converges and the map draws its symbols over an empty ground. */
+    /* THE MAP'S SHEET FILLS EVERY TICK, not once per screenshot: the fetch budget is four pages per
+     * pump, so a cut only touched on shot frames never converges and the map draws over bare paper.
+     * The 3D terrain is NOT streamed here any more — the sheet is the ground now, and streaming the
+     * quadtree as well only fought the same tile worker for the same /bake/osm pages. */
     bool mapping = !MapNode.empty();
-    if (mapping) UpdateMapWorld(actors, simT);
+    if (mapping) PumpMapSheet(actors, simT);
     Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
     if (Acc < IntervalS) return;
     Acc = 0.0;
@@ -480,36 +503,33 @@ private:
     }
   }
 
-  /* WHERE THE MAP'S CAMERA IS, and it is arithmetic rather than a setting: a 60 deg vertical field at
-   * altitude H covers 2*H*tan(30 deg) metres of height and that times the aspect in width, so
-   * H = span / (2*tan(30 deg)*aspect). Choose H that way and a symbol sits on the piece of OSM ground
-   * it was measured over -- there is no second projection to keep in step. */
-  FlightBox::Render::FBTacticalMap::FBMapView MapView(const FlightBox::Units::FBUnitPose &np) const {
-    FlightBox::Render::FBTacticalMap::FBMapView v;
-    v.Width = Width; v.Height = Height;
-    /* The boresight is at ViewH/2, not Height/2 — the scene is shifted up by the MFD bank's third. */
-    v.CentreYPx = R ? (float)R->ViewH() * 0.5f : (float)Height * 0.5f;
-    v.CentreLatDeg = np.LatDeg; v.CentreLonDeg = np.LonDeg;
-    v.SpanM = MapSpanM;
-    return v;
-  }
-  double MapEyeAltM() const {
-    double aspect = (double)Width / (double)Height;
-    return MapSpanM / (2.0 * std::tan(FlightBox::kSceneVerticalFovDeg * 0.5 * M_PI / 180.0) * aspect);
-  }
   const FlightBox::Units::FBSimUnit *FindNode(const FlightBox::Units::FBActorList &actors) const {
     for (const auto &u : actors) if (u && u->GetName() == MapNode) return u.get();
     return nullptr;
   }
 
-  void UpdateMapWorld(const FlightBox::Units::FBActorList &actors, double simT) {
+  /* THE VIEW, and it is the CAMERA's, not the node's: the node only says where "home" is. */
+  FlightBox::Render::FBMapView MapView(const FlightBox::Units::FBUnitPose &np, double simT) {
+    /* The boresight is at ViewH/2, not Height/2 — the scene is shifted up by the MFD bank's third. */
+    Cam.SetFrame(Width, Height, 0.0f, R ? (float)R->ViewH() * 0.5f : (float)Height * 0.5f);
+    Cam.Track(np.LatDeg, np.LonDeg);
+    if (MapZoom > 0) { Cam.SetZoom(MapZoom); MapZoom = 0; }
+    if (HomeAtS >= 0.0 && simT >= HomeAtS) { Cam.Recentre(); HomeAtS = -1.0; }
+    if (PanEastKm != 0.0 || PanNorthKm != 0.0) {
+      FlightBox::Render::FBMapView v = Cam.View();
+      double pxPerM = (double)Width / v.SpanM;
+      Cam.PanPixels(PanEastKm * 1000.0 * pxPerM, -PanNorthKm * 1000.0 * pxPerM);
+      PanEastKm = PanNorthKm = 0.0;
+    }
+    return Cam.View();
+  }
+
+  void PumpMapSheet(const FlightBox::Units::FBActorList &actors, double simT) {
     const FlightBox::Units::FBSimUnit *node = FindNode(actors);
-    if (!node) return;
+    if (!node || !R || !R->Ready()) return;
     FlightBox::Units::FBUnitPose np = node->GetPose();
-    double eye[3], fwd[3], right[3], up[3];
-    FBGeoToEcef(np.LatDeg, np.LonDeg, MapEyeAltM(), eye);
-    FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, fwd, right, up);
-    W->Update(np.LatDeg, np.LonDeg, eye, fwd, simT * 1000.0);
+    R->SetMapSheet(MapView(np, simT), true);
+    R->PumpMapSheet();
   }
 
   /* ONE FRAME OF THE MAP. Everything drawn comes out of the node's own published blocks: the picture
@@ -525,18 +545,24 @@ private:
     /* THE HUD BEFORE THE VIEW: SetHud is what turns the HUD pass on, and the pass being on is what
      * shifts the scene up by the bank's third — so the boresight pixel is only known after it. */
     R->SetHud(node->HudState(), true);
-    FlightBox::Render::FBTacticalMap::FBMapView v = MapView(np);
+    FlightBox::Render::FBMapView v = MapView(np, simT);
+    R->SetMapSheet(v, true);
+    R->PumpMapSheet();
+    /* The scene pass still runs and the sheet covers all of it; the camera is set anyway so the sky
+     * LUTs are evaluated somewhere real rather than at whatever basis the last cockpit frame left. */
     double eye[3], fwd[3], right[3], up[3];
-    FBGeoToEcef(np.LatDeg, np.LonDeg, MapEyeAltM(), eye);
-    FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, fwd, right, up);
+    FBGeoToEcef(v.CentreLatDeg, v.CentreLonDeg, 12000.0, eye);
+    FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, v.CentreLatDeg, v.CentreLonDeg, fwd, right, up);
     R->SetCameraBasis(eye, fwd, right, up);
     if (Clock.Have) R->SetSkyClock(UtcAt(simT));
 
     MapGeo.Reset();
+    Map.SetGroundNote(FlightBox::Render::FBMapSheetNote(R->MapSheetState()));
     Map.Build(Pic, v, MapGeo);
     R->SetMapOverlay(&MapGeo);
     R->RenderFrame();
     R->SetMapOverlay(nullptr);
+    R->SetMapSheet(v, false);
     std::vector<uint8_t> rgba;
     if (R->ReadPixels(rgba)) {
       char path[512];
@@ -544,7 +570,10 @@ private:
       if (stbi_write_png(path, Width, Height, 4, rgba.data(), Width * 4))
         FlightBox::FBLog::Info("map", "frame",
             {{"path", path}, {"t", simT}, {"own", Pic.OwnCount()}, {"contacts", Pic.ContactCount()},
-             {"bearings", Pic.BearingCount()}, {"node", MapNode}});
+             {"bearings", Pic.BearingCount()}, {"node", MapNode}, {"spanKm", v.SpanM / 1000.0},
+             {"zoom", R->MapSheetZoom()}, {"sheet", R->MapSheetResident()},
+             {"sheetWanted", R->MapSheetWanted()}, {"centreLat", v.CentreLatDeg},
+             {"centreLon", v.CentreLonDeg}, {"follow", Cam.Following()}});
       /* EVERY UNKNOWN SYMBOL, in text, so the picture the map drew is checkable without reading pixels
        * -- and so a commander's click has a reproducible coordinate on the scripted path. */
       for (int i = 0; i < Pic.Count(); i++) {
@@ -562,13 +591,17 @@ private:
   FlightBox::Missions::FBMissionClock Clock;
   double IntervalS;
   int Width, Height;
+  bool GroundPhoto = false;
   const FlightBox::FBWeatherProvider *Wx = nullptr;   /* borrowed for the run (OnWeather) */
   std::unique_ptr<FlightBox::Render::FBRenderer> R;
   std::unique_ptr<FlightBox::World::FBWorld> W;
   double Acc = 0.0;
   int Shot = 0;
   std::string MapNode;
-  double MapSpanM = 46000.0;   /* [SET] the whole frame inside FBWorld's own 30 km streaming radius */
+  FlightBox::Render::FBMapCamera Cam{FlightBox::Render::FBMapSheetStage::kTs};
+  int MapZoom = 0;                          /* --map-zoom, applied on the first map view */
+  double PanEastKm = 0.0, PanNorthKm = 0.0; /* --map-pan, likewise */
+  double HomeAtS = -1.0;                    /* --map-home: the Home key, at a declared sim second */
   /* NOT -90. FBCameraBasisEcef builds its right vector from fwd x world-up, and at exactly straight
    * down those two are parallel: the cross product is zero, the basis collapses and the frame comes
    * back empty (measured: 22 leaves DRAWN and not one pixel of ground). A tenth of a degree off nadir
@@ -623,12 +656,17 @@ bool ParseOrderSpec(const std::string &spec, double &atS, std::string &unit,
  * here, never a dependency of the physics or the termination logic. */
 int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
               const std::string &base, const std::string &outDir, bool utcSet,
-              const std::string &mapNode, double mapSpanM,
-              const std::vector<std::string> &orderSpecs) {
+              const std::string &mapNode, double mapSpanM, int mapZoom, double mapPanE,
+              double mapPanN, double mapHomeS, bool groundPhoto, const std::vector<std::string> &orderSpecs) {
   FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
-    FBNativeMissionHook hook(base, outDir, renderIntervalS);
-    if (!mapNode.empty()) hook.SetMapNode(mapNode, mapSpanM);
+    FBNativeMissionHook hook(base, outDir, renderIntervalS, groundPhoto);
+    if (!mapNode.empty()) {
+      hook.SetMapNode(mapNode, mapSpanM);
+      hook.SetMapZoom(mapZoom);
+      hook.SetMapPan(mapPanE, mapPanN);
+      hook.SetMapHome(mapHomeS);
+    }
     for (const std::string &spec : orderSpecs) {
       double atS = 0.0;
       std::string unit;
@@ -656,7 +694,8 @@ int main(int argc, char **argv) {
   time_t utc = 0;   /* 0 = real wall clock */
   std::string base = "http://localhost:8081", outDir = ".", moonPath = "flightbox/web/moon.jpg";
   std::string missionPath, wxPath, mapNode;
-  double missionTimeout = 0.0, mapSpanM = 0.0;
+  double missionTimeout = 0.0, mapSpanM = 0.0, mapPanE = 0.0, mapPanN = 0.0, mapHomeS = -1.0;
+  int mapZoom = 0;
   std::vector<std::string> orderSpecs;
   bool intervalSet = false;   /* --mission: renderer/GPU device is opt-in ONLY when --interval was given */
   for (int i = 1; i < argc; i++) {
@@ -686,6 +725,15 @@ int main(int argc, char **argv) {
     else if (a == "--timeout" && i + 1 < argc) missionTimeout = atof(argv[++i]);   /* --mission: overrides the .fbm's own timeout */
     else if (a == "--map" && i + 1 < argc) mapNode = argv[++i];          /* the net's control node */
     else if (a == "--map-span-km" && i + 1 < argc) mapSpanM = atof(argv[++i]) * 1000.0;
+    else if (a == "--map-zoom" && i + 1 < argc) mapZoom = atoi(argv[++i]);
+    else if (a == "--map-home" && i + 1 < argc) mapHomeS = atof(argv[++i]);
+    else if (a == "--map-pan" && i + 1 < argc) {
+      std::string s = argv[++i];
+      size_t c = s.find(':');
+      if (c == std::string::npos) { Usage(argv[0]); return 1; }
+      mapPanE = atof(s.substr(0, c).c_str());
+      mapPanN = atof(s.substr(c + 1).c_str());
+    }
     else if (a == "--order" && i + 1 < argc) orderSpecs.push_back(argv[++i]);
     else { Usage(argv[0]); return 1; }
   }
@@ -706,7 +754,7 @@ int main(int argc, char **argv) {
       return 1;
     }
     return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir, utc != 0,
-                      mapNode, mapSpanM, orderSpecs);
+                      mapNode, mapSpanM, mapZoom, mapPanE, mapPanN, mapHomeS, groundPhoto, orderSpecs);
   }
 
   const int width = 1280, height = 720, fps = 60;

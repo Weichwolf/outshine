@@ -84,6 +84,11 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
      * system is not cycled at all and its block goes Invalid, so every consumer behaves as it already
      * does for a box that was never powered; a DEGRADED one runs at its one derivable restriction. */
     Fcr_->SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
+    /* WANN das Set kartiert: wenn der FCR-Modus GM IST, oder wenn die A-G-Hauptbetriebsart gewaehlt
+     * wurde, deren MSMD-Voreinstellung laut doc/modules/f16/cockpit-displays.md ein A-G-FCR-Format ist.
+     * NICHT in NAV: welches Format ein APG-68 dort voreinstellt, sagt keine Quelle im Baum, und die
+     * Voreinstellung zu erfinden hiesse, den Luft-B-Scope unerreichbar zu machen. */
+    Fcr_->SetGroundMapping(Fcr_->Mode() == FBF16FcrMode::Gm || Mode == FBMasterMode::AirToGround);
     if (SystemWorking(FBSystemId::Radar)) Fcr_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Radar.H.Invalidate();
     /* THE EYES, on the sensor cadence and deliberately NOT health-gated: core/FBSystemHealth has ids

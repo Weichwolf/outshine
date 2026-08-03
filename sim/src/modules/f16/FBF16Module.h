@@ -80,6 +80,9 @@ public:
    * rather than re-querying terrain. */
   void SetGroundAsl(float m) override { GroundAslM = m; }
 
+  /* Only the FCR takes it: it is the one box on this jet that asks about ground under somebody else. */
+  void SetTerrain(const FBElevationProvider *terrain) override { Fcr_->SetTerrain(terrain); }
+
   /* The cloud decks over this jet: the EYE marches them for a line-of-sight transmittance (this
    * airframe has no IRST to hand them to). Never called = a clear sky. */
   void SetCloudSky(const FBCloudSky &sky) override { Visual_.SetSky(sky); }

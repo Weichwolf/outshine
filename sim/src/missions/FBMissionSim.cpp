@@ -99,6 +99,10 @@ FBMissionSim::FBMissionSim(Units::FBActorList &actors, Units::FBUnitRegistry &un
    * nothing index-parallel to it is ever resized while a tick holds a reference into it. */
   RosterBuf_.reserve(Actors_.capacity());
   RosterUnit_.reserve(Actors_.capacity());
+  /* The terrain hook, handed down ONCE like the identity beside it: a set that maps the ground cannot
+   * work off the single sample under the aircraft that UpdateGroundAsl carries per tick. Borrowed —
+   * the provider outlives this object, and only a module with such a sensor does anything with it. */
+  for (auto &a : Actors_) a->Module().SetTerrain(&Elevation_);
 }
 
 void FBMissionSim::Prime() {

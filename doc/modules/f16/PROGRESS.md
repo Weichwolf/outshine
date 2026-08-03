@@ -501,3 +501,87 @@ file. **Source coverage is unchanged by this pass** — the unprocessed-page led
 exactly as written above (Radio Communications p.247–260, HTS/HMCS p.492–523, IFF procedure detail,
 Aux/Left/Right Console remainder of p.43–81, Appendices A/C/D/E, the MARK DED page, and the priority-4
 "check every file against ED" sweep). Nothing was distilled and nothing was closed this pass.
+
+---
+
+## Pass 6 — the two BMS manuals (HUD geometry · MFD formats · MFDS operation · ICP/DED)
+
+**New sources introduced this pass** (both in `doc/`, both **simulator manuals in USAF tech-order
+style, not factory manuals** — the caveat is stated once, at the head of `hud-symbology.md`):
+
+| Source | Pages | Cite tag |
+|---|---|---|
+| `doc/TO 1F-16CMAM-34-1-1 BMS.pdf` — Avionics and Nonnuclear Weapons Delivery, Falcon BMS 4.38, 1 Jul 2025 | 669 | `[BMS-34 p.NNN]` |
+| `doc/TO 1F-16CMAM-1 BMS.pdf` — Flight Manual, Falcon BMS 4.38 | 404 | `[BMS-1 p.NNN]` |
+
+**PDF page index == printed page number** for both (verified: BMS-34 pdf p.96 → footer "96").
+Extraction: `pdftotext -f N -l M` for text; the **Read tool on the PDF** for pages whose content is a
+pure drawing (HUD master-mode layouts p.103–106, EEGS p.596–597, SRM DLZ p.615–616, AIM-120 DLZ
+p.631–634, CCIP HUD p.413, release-angle scale p.433, MFDS symbol plate p.82, A-G FCR page p.232–234).
+
+### Source page → file map (this pass)
+
+| Source pages | Content | Target file | Status |
+|---|---|---|---|
+| BMS-34 96–113 | HUD chapter: hardware, control panel, common symbology, cues and scales, occlusion, landing declutter | `hud-symbology.md` §A1–A4 | **done** |
+| BMS-34 114–118 | CARA, ALOW, HUD altitude scale selection | `hud-symbology.md` §A5 | **done** |
+| BMS-34 119–126 | GAAF break-X, DWAT, ALOW, LIS/MSL FLOOR, Attitude Advisory | `hud-symbology.md` §A5 | **done** |
+| BMS-34 217–222 | ACM submodes — their HUD cues | `hud-symbology.md` §A6 | **done** |
+| BMS-34 299 | HUD/cockpit blanking, HMCS declutter levels | `hud-symbology.md` §A4 | **done** |
+| BMS-34 410–438 | STRF / CCIP / DTOS / CCRP HUD symbology, ASL, VSC, solution cue, PUAC, release-angle scale, AGTLL, slant-range letters | `hud-symbology.md` §A7 | **done** |
+| BMS-34 489, 542–543 | HARM launch scale, IAM HUD DLZ | `hud-symbology.md` §A7 | **done** |
+| BMS-34 593–636 | EEGS/SNAP/LCOS/SSLC, DGFT, SRM reticles/diamond/LMS/DLZ, AIM-120 reticle/DLZ/ASEC/ASC/loft | `hud-symbology.md` §A6 | **done** |
+| BMS-1 56, 115, 166–168 | HUD fuel warnings, AOA bracket 11/13/15°, ILS + flight-director HUD symbology | `hud-symbology.md` §A8 | **done** |
+| BMS-34 63–82 | MFDS: rockers, format set, master menu, interaction idioms, SOI, symbol plate, occlusion/masking model | `cockpit-displays.md` §M1–M5 | **done** |
+| BMS-34 83–94 | HSD base + control pages, ranges, rings, CPL/DCPL, EXP1/2, freeze, CZ, L16 CNTL page 2 | `cockpit-displays.md` §M6 | **done** |
+| BMS-34 76–80 | DTE / TEST-BIT / FLCS / TCN formats | `cockpit-displays.md` §M7 | **done** |
+| BMS-34 127–159 | UFC hardware, ICP layout, DCS, entry idioms + limits, LIST/MISC map, DED page inventory, CNI/STPT/CRUS/TIME/T-ILS/BULL/MAN, fuel warnings | `cockpit-displays.md` §I1–I9 | **done** |
+| BMS-34 190–222 | A-A FCR MFD page field map, scan geometry, cursor bumping, target symbology, faults | `radar-sensors.md` §R2 | **done** |
+| BMS-34 226–241 | A-G FCR: AGR/LORO, GM, SEA, GMT, FTT, EXP/DBS1/DBS2, range marks, gain, FZ/SP/CZ/sighting rotary | `radar-sensors.md` §R3 | **done** |
+
+### Gaps closed this pass (each struck through in place, with its anchor)
+
+| Gap | Where it lived | Closed by |
+|---|---|---|
+| "sources document **no TD box** and no locked-target symbol" | `hud-symbology.md` Gaps | `[BMS-34 pp.109, 427, 613, 628, 597]` |
+| "no **DLZ** drawing" | same | `[BMS-34 pp.615–616, 628–634, 542, 489, 432–433]` |
+| "**EEGS funnel** drawing" | same | `[BMS-34 pp.596–600]` (funnel *outline equation* still unpublished) |
+| "**pull-up / break-X** cues undocumented" | same | `[BMS-34 pp.119–122, 434]` |
+| "**ILS symbology** beyond screenshots" | same | `[BMS-1 pp.166–167]` |
+| **D1** "a page is not chosen at a bezel" — source side | `cockpit-displays.md` Gaps | `[BMS-34 pp.63, 65, 73–75]`; **the implementation gap stands** |
+| **D5** "no range knob, cursor or declutter level" — source side | same | `[BMS-34 pp.84, 195, 201, 232–233, 237]`; **the implementation gap stands** |
+| "FCR mode taxonomy but not the **page**" | `radar-sensors.md` Gaps | `[BMS-34 pp.63, 191–201, 226–241]` |
+
+### Still open after this pass (named, not guessed)
+
+- **BMS publishes no HUD-window map.** The manual references numbered windows (`window 30` `[p.109]`,
+  `window #3` `[p.391]`) but never their extents or anchors — so this tree still has **no HUD symbol
+  COORDINATES**, only sizes in mR and region-level placement read off labelled figures.
+- **No HUD TFOV number in BMS**; the ED EA Guide's 25° / 10.5°-below-centre remains the only figure.
+- **No stroke widths, font metrics or colour palette** for the HUD; MFD colours are DTC-loadable but
+  no palette is published `[BMS-34 p.81]`.
+- **DED pages delegated to other chapters are not extracted**: COM1/COM2 `[pp.160–161]`, IFF/INTG
+  `[pp.170–177]`, DEST/INS `[pp.162–169]`, EWS `[p.360]`, VIP/VRP `[pp.424–426]`, LASR, HMCS
+  `[pp.296–300]`, DLNK/Link 16 `[pp.256–278]`, HARM, WPT.
+- **SMS page formats** `[BMS-34 from p.391]` → `weapons.md`; **HAD** `[from p.483]` and **TGP**
+  `[from p.316]` page formats → `radar-sensors.md`. Neither distilled.
+- **DBS patch dimensions per range scale** are not published — only the 4:1 / 8:1 / 64:1 ratios.
+- **Everything else in BMS-34** (weapons chapters beyond the HUD cues, TFR, Link 16, IDM, EWS, MFL
+  code tables §7.1.2) and **almost all of BMS-1** (systems, normal and abnormal procedures) is
+  **untouched**. BMS-1 was read only at pp.56, 115, 166–168.
+
+### Source discrepancies recorded, not resolved
+
+| Topic | Reading A | Reading B |
+|---|---|---|
+| RET DEPR control | functional, 0–260 mR `[BMS-34 p.98]` | **N/I** `[BMS-34 p.129]` |
+| MFD SYM/CON rockers | functional (ED EA Guide p.121–127) | **not implemented** `[BMS-34 p.64]` |
+| BRT/CON across a SWAP | preserved `[BMS-34 p.63]` | not retained `[BMS-34 p.64]` |
+| Trapped-fuel refuelling window | 60 s `[BMS-1 p.56]` | 30–90 s `[BMS-34 p.159]` |
+| DTE partition set | ELINT/SMDL/TNDL (ED EA Guide p.126–127) | DLNK/LINK 16/NCTR `[BMS-34 p.76]` |
+
+### COVERAGE (Pass 6): PARTIAL
+Priorities (1) HUD symbology geometry, (2) MFD formats, (3) MFDS operation and (4) ICP/DED are
+distilled. The delegated DED pages, the SMS/HAD/TGP page formats, and the bulk of both manuals
+(weapons chapters, TFR, Link 16/IDM, EWS, MFL tables; all of BMS-1's systems and procedures) remain
+for later passes and are listed above.

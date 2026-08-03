@@ -13,6 +13,7 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include "FBRenderer.h"
+#include "FBMapCamera.h"
 #include "FBTacticalMap.h"
 #include "FBForcePicture.h"
 #include "FBTacticalOrder.h"
@@ -106,7 +107,9 @@ static FBView gView = FBView::Cockpit;
 static FBForcePicture gPic;
 static Render::FBTacticalMap gMap;
 static Systems::FBHudGeometry gMapGeo;
-static double gMapSpanM = 46000.0;
+/* ZOOM AND SCROLL ARE VIEW STATE. They live here, in the client, in the object that owns them; there
+ * is no path from FBMapCamera into a tick, and the sim cannot tell where the commander is looking. */
+static Render::FBMapCamera gMapCam{Render::FBMapSheetStage::kTs};
 static int gSelected = 0;              /* index into gActors of the unit the commander is talking to */
 static uint32_t gOrderSeq = 0;
 /* NOT -90: FBCameraBasisEcef builds its right vector from fwd x world-up, and straight down makes those
@@ -300,13 +303,30 @@ static void SelectNext(int step) {
   }
 }
 
+/* THE MAP SHEET'S BYTES, off the tile path that already exists: mode 0 is /bake/osm, the same page
+ * the terrain streamer uploads as albedo, so the map's pages ride the worker pool's own cache. */
+static int MapTileFetch(int z, int x, int y, int ts, unsigned char *dst) {
+  return fb_stream_pyramid(z, (uint32_t)x, (uint32_t)y, 0, ts, dst);
+}
+
 /* THE MAP'S OWN KEYS. They exist only in the map view, so nothing here can be pressed by accident from
  * the seat — and every one of them ends in an order, a selection or the view scale. */
 static bool HandleMapKey(const char *k, bool down, bool repeat) {
-  if (!down || repeat) return false;
   auto is = [k](const char *t) { return std::strcmp(k, t) == 0; };
-  if (is("]") || is("+") || is("=")) { gMapSpanM = std::max(8000.0, gMapSpanM * 0.75); return true; }
-  if (is("[") || is("-")) { gMapSpanM = std::min(200000.0, gMapSpanM / 0.75); return true; }
+  /* THE NAVIGATION KEYS REPEAT — an order does not. A held arrow has to scroll, so these are tested
+   * ahead of the once-per-press guard the rest of the map's keys sit behind. */
+  if (down) {
+    /* ZOOM: one OSM level a step, so the sheet stays at one texel per pixel and never resamples. */
+    if (is("]") || is("+") || is("=") || is("PageUp")) { gMapCam.ZoomIn(); return true; }
+    if (is("[") || is("-") || is("PageDown")) { gMapCam.ZoomOut(); return true; }
+    /* SCROLL: a fifth of the frame a press. Home puts the map back on the node. */
+    if (is("ArrowLeft")) { gMapCam.PanPixels(-(double)R.SceneW() * 0.2, 0.0); return true; }
+    if (is("ArrowRight")) { gMapCam.PanPixels((double)R.SceneW() * 0.2, 0.0); return true; }
+    if (is("ArrowUp")) { gMapCam.PanPixels(0.0, -(double)R.SceneH() * 0.2); return true; }
+    if (is("ArrowDown")) { gMapCam.PanPixels(0.0, (double)R.SceneH() * 0.2); return true; }
+    if (is("Home")) { gMapCam.Recentre(); return true; }
+  }
+  if (!down || repeat) return false;
   if (is("n") || is("N")) { SelectNext(1); return true; }
   if (is("b") || is("B")) { SelectNext(-1); return true; }
   if (is("e") || is("E")) { PostOrder(FBOrderKind::Emcon, 0, 0, 0, 1.0); return true; }
@@ -404,6 +424,43 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
 static EM_BOOL OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
   if (e->ctrlKey || e->metaKey || e->altKey) return EM_FALSE;
   return HandleKey(e->key, type == EMSCRIPTEN_EVENT_KEYDOWN, e->repeat != 0) ? EM_TRUE : EM_FALSE;
+}
+
+/* THE MOUSE, and it belongs to the MAP alone: the cockpit view lets every event through untouched.
+ * A drag is measured in CSS pixels and the map is drawn in frame pixels, so the delta is scaled by
+ * the canvas' own ratio — otherwise the ground slides at the wrong rate on any display size. */
+static bool gMapDrag = false;
+static double gDragX = 0.0, gDragY = 0.0;
+
+static double MapPxPerCss(void) {
+  double cssW = 0.0, cssH = 0.0;
+  if (emscripten_get_element_css_size("#gpu", &cssW, &cssH) != EMSCRIPTEN_RESULT_SUCCESS || cssW < 1.0)
+    return 1.0;
+  return (double)R.SceneW() / cssW;
+}
+
+static EM_BOOL OnMapMouse(int type, const EmscriptenMouseEvent *e, void *) {
+  if (gView != FBView::Map) { gMapDrag = false; return EM_FALSE; }
+  if (type == EMSCRIPTEN_EVENT_MOUSEDOWN) {
+    gMapDrag = true;
+    gDragX = e->targetX;
+    gDragY = e->targetY;
+    return EM_TRUE;
+  }
+  if (type == EMSCRIPTEN_EVENT_MOUSEUP) { gMapDrag = false; return EM_TRUE; }
+  if (!gMapDrag) return EM_FALSE;
+  double s = MapPxPerCss();
+  gMapCam.PanPixels((gDragX - e->targetX) * s, (gDragY - e->targetY) * s);
+  gDragX = e->targetX;
+  gDragY = e->targetY;
+  return EM_TRUE;
+}
+
+static EM_BOOL OnMapWheel(int, const EmscriptenWheelEvent *e, void *) {
+  if (gView != FBView::Map) return EM_FALSE;
+  if (e->deltaY < 0.0) gMapCam.ZoomIn();
+  else if (e->deltaY > 0.0) gMapCam.ZoomOut();
+  return EM_TRUE;
 }
 
 /* THE ONE THING THIS CLIENT DOES PER TICK, and it is a READ: the eye's last two published poses and
@@ -538,22 +595,24 @@ static void frame(void) {
       gPic.Ingest(node->HudState(), node->GetName().c_str(), np.LatDeg, np.LonDeg, np.ElevM,
                   np.HeadingDeg, np.SpeedMs);
       R.SetHud(node->HudState(), true);   /* before the view: the pass being on is what shifts the scene */
-      Render::FBTacticalMap::FBMapView mv;
-      mv.Width = R.SceneW(); mv.Height = R.SceneH();
-      mv.CentreYPx = (float)R.ViewH() * 0.5f;   /* the boresight, not the frame centre */
-      mv.CentreLatDeg = np.LatDeg; mv.CentreLonDeg = np.LonDeg;
-      mv.SpanM = gMapSpanM;
-      double aspect = (double)mv.Width / (double)(mv.Height > 0 ? mv.Height : 1);
-      double h = mv.SpanM / (2.0 * std::tan(kSceneVerticalFovDeg * 0.5 * kPi / 180.0) * aspect);
+      /* The boresight is at ViewH/2, not the frame centre — the scene is shifted up by the bank. */
+      gMapCam.SetFrame(R.SceneW(), R.SceneH(), 0.0f, (float)R.ViewH() * 0.5f);
+      gMapCam.Track(np.LatDeg, np.LonDeg);
+      Render::FBMapView mv = gMapCam.View();
+      R.SetMapSheet(mv, true);
+      R.PumpMapSheet();
+      /* The scene pass still runs under the sheet; the camera is set so the sky LUTs see a real
+       * place. The 3D terrain is NOT streamed in this view — the sheet is the ground now. */
       double meye[3], mfwd[3], mright[3], mup[3];
-      FBGeoToEcef(np.LatDeg, np.LonDeg, h, meye);
-      FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, mfwd, mright, mup);
+      FBGeoToEcef(mv.CentreLatDeg, mv.CentreLonDeg, 12000.0, meye);
+      FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, mv.CentreLatDeg, mv.CentreLonDeg, mfwd, mright, mup);
       R.SetCameraBasis(meye, mfwd, mright, mup);
       gMapGeo.Reset();
+      gMap.SetGroundNote(Render::FBMapSheetNote(R.MapSheetState()));
       gMap.Build(gPic, mv, gMapGeo);
       R.SetMapOverlay(&gMapGeo);
-      W.Update(np.LatDeg, np.LonDeg, meye, mfwd, now);
       R.RenderFrame();
+      R.SetMapSheet(mv, false);
     }
     return;
   }
@@ -823,6 +882,12 @@ int main() {
    * the handler is what keeps the arrow keys from scrolling the page under the cockpit. */
   emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, 1, OnKey);
   emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, 1, OnKey);
+  /* The map's wheel and drag, on the CANVAS: outside the map view every one of these returns EM_FALSE
+   * and the page keeps the event it always had. */
+  emscripten_set_wheel_callback("#gpu", nullptr, 1, OnMapWheel);
+  emscripten_set_mousedown_callback("#gpu", nullptr, 1, OnMapMouse);
+  emscripten_set_mousemove_callback("#gpu", nullptr, 1, OnMapMouse);
+  emscripten_set_mouseup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, 1, OnMapMouse);
 
   /* HUD nav placeholder: a concrete moving relative bearing, so the guide's "diamond in FOV" and
    * "crossed-out" cases both occur across a run. */
@@ -861,6 +926,7 @@ int main() {
     else FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", std::string(base)}});
   }
   R.SetHudDisplay(&gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
+  R.SetMapSheetSource(&MapTileFetch);
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
     FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});

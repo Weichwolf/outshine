@@ -17,6 +17,9 @@
 #include "stages/FBUnitsStage.h"
 #include "stages/FBSpritesStage.h"
 #include "stages/FBHudStage.h"
+#include "stages/FBMapSheetStage.h"
+#include "stages/FBGroundMapStage.h"
+#include "stages/FBNvisStage.h"
 #include "stages/FBUpscaleStage.h"
 #include "stages/FBTransmittanceStage.h"
 #include "stages/FBSkyViewStage.h"
@@ -77,6 +80,15 @@ public:
   /* THE TACTICAL MAP as the frame's overlay: it REPLACES the cockpit symbology in the same pass, so
    * switching views costs no Begin*Pass and the per-frame pass count is unchanged. Borrowed. */
   void SetMapOverlay(const Systems::FBHudGeometry *g) { Hud->SetOverlay(g); }
+  /* THE MAP'S GROUND: an OSM raster sheet under the symbology, drawn first inside the SAME HUD pass.
+   * The byte source is the client's (render/ owns no tile client); off = the cockpit frame. */
+  void SetMapSheetSource(FBMapSheetStage::FBTileFetch f) { MapSheet->SetSource(f); }
+  void SetMapSheet(const FBMapView &v, bool on) { MapSheet->SetView(v, on); }
+  void PumpMapSheet(void) { MapSheet->Pump(); }
+  FBMapSheetState MapSheetState(void) const { return MapSheet->State(); }
+  int MapSheetZoom(void) const { return MapSheet->Zoom(); }
+  int MapSheetResident(void) const { return MapSheet->TilesResident(); }
+  int MapSheetWanted(void) const { return MapSheet->TilesWanted(); }
   /* While on, RenderFrame draws only the loading text and the client keeps JSBSim frozen. §2.2 */
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
@@ -208,6 +220,13 @@ private:
   /* FBHudStage is the WebGPU backend only; FBRenderer keeps the pose itself because sun/moon/cloud
    * drive its own lighting math, not just the HUD. */
   std::unique_ptr<FBHudStage> Hud = std::make_unique<FBHudStage>();
+  /* Same pass as the HUD, encoded before it: the sheet is ground, the symbology is over it. */
+  std::unique_ptr<FBMapSheetStage> MapSheet = std::make_unique<FBMapSheetStage>();
+  /* THE TWO SENSOR PICTURES A COCKPIT BAY CAN CARRY, same pass and same argument as the sheet above:
+   * a page's video is drawn first and its symbology lands on top. Which bay each one gets is read off
+   * FBMfdBlock in RenderFrame — the display and the stage may not disagree about that. */
+  std::unique_ptr<FBGroundMapStage> GroundMap = std::make_unique<FBGroundMapStage>();
+  std::unique_ptr<FBNvisStage> Nvis = std::make_unique<FBNvisStage>();
   /* Value-initialised at the DECLARATION, not just in the one constructor: RenderFrame reads the
    * weather fields whether or not SetHud was ever called, and a second constructor would silently drop
    * that guarantee. The zeros are a DEFINED state — "no weather report", for which the cloud march has
