@@ -3493,3 +3493,48 @@ Damit steht die Architekturbehauptung der Schicht gemessen da: eine Kampagne ist
 Läufe** und nichts weiter. Was zwischen den Missionen wandert, wandert vollständig durch
 `campaign-state.txt` — hätte der Läufer irgendwo Zustand im Speicher gehalten, wäre genau dieser Test
 auseinandergefallen.
+
+---
+
+## 2026-08-03 — Die Arena verweigert `o4`, und die Widerlegung stand in unserer eigenen Doku
+
+Gesucht war der zweite Verbesserungsschritt: eine Doktrinverschiebung über die Kampagnenbreite. Gewählt
+wurde `o4-gaf-mig29g-dact`, weil sie **5 der 9 FAIL** des ganzen Baums trägt und die einzige Kampagne
+ist, in der beide Piloten-KIs direkt gegeneinander fliegen. Angenommen war: meiste Fehlschläge =
+meister Spielraum.
+
+**Gemessen ist das Gegenteil. 10 Zellen × 25 Hebel = 250 Läufe, Ergebnis: 0 informative Zellen.**
+
+| | |
+|---|---|
+| 7 von 10 Zellen | **100 % modal** — alle 25 Varianten liefern dieselbe Ergebnisklasse |
+| 3 von 10 Zellen | 96 % modal, und immer derselbe eine Beweger: `energy-low` (0,7 — unter der eigenen Mindestfahrt der Zelle, also die entartete Schiene) |
+
+Das gesamte Genom — Deckung, Energie, Netz, Sortierung, Abwurf-Bias, CCIP, **Verbandsform** und
+**EMCON** — bewegt auf dieser Front **nichts**. Tor S1 hat gefeuert, und dafür ist es da.
+
+**Die Ursache stand seit vier Runden in diesem Baum, gemessen, und ich habe sie nicht angewandt:**
+*„Gradability is a property of the SIDE's size … a lone jet has no formation to shape, no mate to sort
+against, nobody to be silent behind"* — 0,44 Beweger im Mittel über 107 Ein- und Zweischiff-Zellen.
+
+`o4` besteht aus **acht Zellen mit EINER MiG** und zwei mit zweien; 24 Flugzeuge auf zehn Missionen,
+zwei Zellen mit ≥ 4 je Seite. **Es ist die kleinste Kampagne des Baums.** Ich habe die am wenigsten
+graduierbare Form gewählt, weil ich nach FAIL-Zahl sortiert habe statt nach Seitengröße.
+
+**Der Befund, in einem Satz: die FAIL-Zahl ist kein Maß für den Spielraum einer Doktrin.** Eine Zelle,
+die immer gleich verliert, ist kein Messrig — sie ist ein Fixpunkt. Und `o4`s Fehlschläge sind damit
+kein Doktrinproblem, sondern eines der Fähigkeit oder des Missionsentwurfs; welches, sagt diese Runde
+nicht.
+
+**Die Front für den nächsten Versuch ist hergeleitet statt gewählt:**
+
+| Kampagne | Flugzeuge | Zellen mit ≥ 4 je Seite | SUCCESS |
+|---|---:|---:|---:|
+| o4 (verworfen) | 24 | 2 | 1 |
+| **o1-bekaa-1982** | 48 | **8** | **0** |
+| o5-airfield-defence | 55 | 8 | 1 |
+| w3-desert-storm | 76 | 8 | 2 |
+
+`o1-bekaa-1982` ist groß genug, dass Doktrin wirken KANN, und schlecht genug, dass es sich lohnt. Der
+Sweep läuft. Der verworfene Ansatz bleibt mit seiner Messung stehen — 250 Läufe, 0 informative Zellen —
+weil ein gemessener Fehlschlag Wissen ist.

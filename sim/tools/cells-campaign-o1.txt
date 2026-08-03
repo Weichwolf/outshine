@@ -1,0 +1,17 @@
+# DIE FRONT, HERGELEITET STATT GEWAEHLT. Der erste Versuch nahm o4-gaf-mig29g-dact, weil sie 5 der
+# 9 FAIL des Baums traegt — und die Arena hat sie VERWEIGERT: 0 von 10 Zellen informativ, 7 davon zu
+# 100 % modal ueber alle 25 Hebel. Der Grund stand vier Runden alt in doc/doctrine-evolution.md:
+# "Gradability is a property of the SIDE's size ... a lone jet has no formation to shape, no mate to
+# sort against, nobody to be silent behind" — 0,44 Beweger im Mittel bei Einzeljets. o4 hat 24
+# Flugzeuge auf zehn Missionen und nur ZWEI Zellen mit >=4 je Seite; sie ist die kleinste Kampagne des
+# Baums. FAIL-Zahl ist kein Mass fuer Spielraum.
+# o1-bekaa-1982: 48 Flugzeuge, ACHT Zellen mit >=4 je Seite, und null SUCCESS in der Basislinie.
+# Gross genug, dass Doktrin wirken KANN, und schlecht genug, dass es sich lohnt.
+o1-01-controlled             hostile   mig29
+o1-02-no-gci                 hostile   mig29
+o1-03-gci-cut                hostile   mig29
+o1-04-beam                   hostile   mig29
+o1-05-beam-blind             hostile   mig29
+o1-06-blind                  hostile   mig29
+o1-07-early-launch           hostile   mig29
+o1-10-mole-cricket           hostile   mig29
