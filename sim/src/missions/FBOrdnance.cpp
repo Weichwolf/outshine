@@ -3,12 +3,20 @@
 #include "FBGunBallistics.h"
 #include "FBLog.h"
 #include "FBMissionBoot.h"
+#include "FBSimTick.h"
+#include "FBStoresSystem.h"
 #include "FBUnitRegistry.h"
 #include "FBUnits.h"
 #include <cmath>
 #include <cstdio>
 
 namespace FlightBox::Missions {
+
+/* Der SMS nennt seine eigene Totzeit, damit pilot/ sie vorhalten kann, ohne missions/ zu sehen. Hier
+ * sehen beide Zahlen einander — und muessen gleich bleiben. Wer den Sim-Tick aendert, kommt an dieser
+ * Zeile nicht vorbei. */
+static_assert(Weapons::FBStoresSystem::kSeparationDelayS == kSimTickS,
+              "die Ablaufverzoegerung des SMS IST ein Sim-Tick — Drain in der Phase nach dem Aktorenschritt");
 
 namespace {
 /* Closest approach over the tick SEGMENT, not a per-tick distance test: at 0.1 s and >1500 m/s closure
@@ -248,8 +256,15 @@ void FBOrdnance::LogStoreImpact(const Units::FBSimUnit &store, const FBStoreTrac
       {"pitchDeg", st.pitch}, {"rollDeg", st.roll}, {"trackDeg", st.yaw},
       {"crossLat", cross.lat}, {"crossLon", cross.lon}, {"crossBackS", backS},
       {"crossTofS", simT - track.SpawnS - backS}});
-  /* `predErrM` is what the COMPUTER got wrong (stored table vs. the model's aerodynamics), `aimErrM`
-   * what the DELIVERY got wrong. Only for a ground contact: a lost store says nothing about aiming. */
+  /* `predErrM` is what the COMPUTER got wrong, `aimErrM` what the DELIVERY got wrong — the latter
+   * against the round's own back-solved ground crossing, i.e. ground truth. Only for a ground contact:
+   * a lost store says nothing about aiming.
+   * `predErrM` USED TO BE ATTRIBUTED HERE to "stored table vs. the model's aerodynamics"; that is
+   * falsified. [MESS] `tofErrS` is 0.01 s on attack-ccrp/attack-ccip/cbu87-footprint while `predErrM`
+   * is 44.1 m along-track and 0.1 m across on all three — a table error would show in the TIME. The
+   * 44.1 m is 0.190 s of ownship travel: the solution is `solAgeS` old and the store separates
+   * `kSeparationDelayS` later, so the prediction describes a release point the jet had already left.
+   * Booked as C28 in doc/air-to-ground.md; unrepaired, and this number is where it is visible. */
   if (ground && track.Solution.Valid) {
     const FBReleaseSolution &sol = track.Solution;
     double predErr = FBPlanarDistM(sol.ImpactLatDeg, sol.ImpactLonDeg, cross.lat, cross.lon);

@@ -1,6 +1,7 @@
 #include "FBPilot.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
+#include "FBStoresSystem.h"   /* nur fuer kSeparationDelayS: die Totzeit, die der SMS selbst nennt */
 #include <cmath>
 #include <cstdio>
 
@@ -1679,8 +1680,13 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
    * bekannt: sein eigener Entscheidungstakt (er liest den Cue und drueckt einen Takt spaeter — die
    * Betaetigung erreicht den Bus also erst dann) und das ALTER des Cues, das dessen Gueltigkeitskopf
    * traegt. Ohne den ersten Term loest er systematisch einen Takt zu spaet aus: gemessen 63,7 m
-   * Laengsfehler gegen 42,8 m Rechnerfehler, also 21 m allein aus dem Takt bei 211 m/s. */
-  double leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease) + DecisionDtS_;
+   * Laengsfehler gegen 42,8 m Rechnerfehler, also 21 m allein aus dem Takt bei 211 m/s.
+   * Der DRITTE Term ist die Warteschlange des SMS: die Quittung ist nicht die Trennung, der Store
+   * wird erst einen Tick spaeter zur Einheit (weapons/FBStoresSystem.h, kSeparationDelayS, dort mit
+   * seiner Messung). Ohne ihn haelt der Pilot 0,6 s vor, waehrend die Kette Lesen->Trennung 0,7 s
+   * braucht — gemessen an attack-ccrp: Lesen t=71,4, Quittung t=72,0, SEPARATION t=72,1. */
+  double leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease) + DecisionDtS_
+               + Weapons::FBStoresSystem::kSeparationDelayS;
   double solAgeS = TimeS_ - fc.H.StampS;
   if (solAgeS < 0.0 || solAgeS > 1.0) solAgeS = 0.0;
   bool cue = fc.AgTimeToReleaseS - solAgeS <= leadS - bias;

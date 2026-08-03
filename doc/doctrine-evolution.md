@@ -2516,6 +2516,21 @@ already knows, and the reason it has not been done in this round is the tree's o
 needs a source, and *"ein besseres Missionsergebnis ist ausdrücklich KEIN Beleg"*. What is measured here
 is the SIZE of the defect and its sign; what is owed is a derivation.
 
+**The debt is discharged in the round that follows, and it splits E14's number in half.** Traced through
+the release chain, the uncompensated term is `FBStoresSystem::kSeparationDelayS` — the acknowledgement is
+not the separation; the store enters a queue and `missions/FBOrdnance` drains it one sim tick later.
+[MESS] `attack-ccrp`, read t = 71.4 → `CMD_ACK` t = 72.0 → `stores SEPARATION` t = **72.1**: the chain
+costs 0.7 s and the pilot held 0.6 s. Adding the third term to `leadS` is a derivation with a source, not
+a tuning, and it moves the true delivery from **+38.8 m to +16.0 m long** — a gain of 22.8 m against a
+predicted 23.2 m. **So −0.1 s of E14's −0.2 s was this defect and is now structurally gone from every
+airframe.** The other −0.1 s was never a doctrine either: it is a bias averaging out half of X-3's
+release-clock quantum, whose floor this round's residual (16.0 m = 0.069 s, inside one decision tick)
+lands squarely inside. Publishing −0.2 s would have frozen one defect and one partition artefact into a
+single tuning key on every aircraft in every geometry. **E14's refusal to publish was correct, and the
+measurement that made it refusable is what located the defect.** Details and the second finding it
+exposed (`C28`, the release log's own 0.2 s lag) in [`pilot.md`](pilot.md) §4.2 and
+[`air-to-ground.md`](air-to-ground.md) Gaps.
+
 ### §8 — Exploits found
 
 None new. X-1 … X-5 stand. This round's result is the promotion of X-2 from a local measurement to a

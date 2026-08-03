@@ -400,8 +400,8 @@ the cue is about — it is deliberately non-zero at the moment of the press (the
 thrown). Checking the combined miss distance would reject every correct release and then accept a late
 one.
 
-**The lead by one's own actuation latency — and by one's own decision tick.**
-`leadS = FBCommandBus::LatencyS(FBCommandTarget::WeaponRelease) + DecisionDtS_` = 0.5 s + 0.1 s.
+**The lead by one's own actuation latency — by one's own decision tick — and by the rail's own queue.**
+`leadS = LatencyS(WeaponRelease) + DecisionDtS_ + FBStoresSystem::kSeparationDelayS` = 0.5 + 0.1 + 0.1 s.
 Pressing exactly on the cue would let the store leave the rail half a second too late: at 230 m/s that is
 115 m — more than the whole computation is worth. **The real jet solves the same problem the other way
 round:** in CCRP the pilot HOLDS the button and the AIRCRAFT releases when the cue runs through
@@ -415,10 +415,95 @@ reads the cue in one slot and the press reaches the bus in the next, so the dela
 its EFFECT is latency + his own cadence. Alongside it the cue's own AGE is subtracted — the validity head
 carries it, so it is read like any other instrument value. [MESS, `attack-ccrp`] without the tick term the
 delivery was 63.7 m long against a fire-control prediction error of 42.8 m, i.e. **21 m came from the tick
-alone** at 211 m/s; with it, `aimLongM` 40.9 m against `predErrM` 43.6 m — the release-moment error is
-~0 and what is left IS the computer's own error. That distinction matters more than the number: the two
-used to hide inside one figure and cancel, which is precisely what `MODEL-DELTAS.md` D1 exposed when the
-cancellation stopped.
+alone** at 211 m/s; with it, `aimLongM` 40.9 m against `predErrM` 43.6 m.
+
+**That round then read its own result against the wrong yardstick, and this one corrects it.** It
+concluded "the release-moment error is ~0 and what is left IS the computer's own error" — from a figure
+measured against `predLat`/`predLon`, i.e. against the COMPUTER. Measured instead against the store's own
+back-solved ground crossing (`stores IMPACT`, `crossLat`/`crossLon`, which the round already logs), the
+delivery was **+38.8 m LONG**, not ~0. The two errors had simply gone back to cancelling inside one
+figure — the very trap the paragraph above names, one level up.
+
+**The THIRD term, and its derivation.** The acknowledgement is not the separation: `FBStoresSystem::
+Release` puts an `FBStoreRelease` in a queue and `missions/FBOrdnance` drains it in the phase AFTER the
+actor step, so the store becomes a unit one sim tick later. [MESS] `attack-ccrp`: read t = 71.4,
+`CMD_ACK` t = 72.0, `stores SEPARATION` t = **72.1** — the chain read → separation costs **0.7 s** while
+the pilot held 0.6 s back. The gap is constant 0.1 s over `attack-ccrp` / `attack-ccip` /
+`cbu87-footprint` / `w2-01-dome`, and it is one tick BY CONSTRUCTION, pinned by a `static_assert` in
+`FBOrdnance.cpp` against `kSimTickS`. It is dead time exactly like the bus latency, one layer down; the
+number lives on the queue's owner (`weapons/FBStoresSystem.h`) because `pilot/` may not see `missions/`.
+
+**Predicted before the run, then measured.** One tick earlier at 231.5 m/s = **23.2 m** expected.
+Measured on the ground crossing: **+38.8 m → +16.0 m long, a gain of 22.8 m** (1.5 % off the derivation,
+the remainder being the speed change across the tick). The residual 16.0 m is 0.069 s — INSIDE one
+decision tick, i.e. exactly [`doctrine-evolution.md`](doctrine-evolution.md) X-3's staircase floor of
+10–22 m, which no lead can remove and only a finer release clock can.
+
+**And it is a BIAS removed, not an accuracy gained — which is a different and weaker claim.** On
+`w1-06-strike-escort` the same fix moves two deliveries from **+10.9 and +17.4 m long to −12.2 and
+−5.7 m short**: both shifted by 23.1 m, one tick, and the first of them ended up marginally WORSE
+(13.1 → 14.2 m total). That is X-3's lattice, not a regression: the release can only ever land on a 23 m
+grid, and correcting a systematic offset moves every delivery one grid step regardless of where on the
+step it was sitting. **The falsifiable claim is therefore about the DISTRIBUTION, stated before it was
+measured: over every F-16 `stores DELIVERY` in the tree the mean `aimLongM` must fall by ≈ one tick ×
+ground speed, the SPREAD must not change, and every MiG-29 delivery must not move at all** — the MiG
+releases through a director, not a lead, and the attempt to carry this fix over to it was refuted and
+reverted ([`air-to-ground.md`](air-to-ground.md) `C29`). A cell-by-cell "is it better" reading would be
+cherry-picking either way.
+
+**MEASURED, over the whole tree.** 284 missions flown on both builds, 259 `stores DELIVERY` lines paired
+by (mission, ordinal); 9 excluded because their store came down kilometres from any aim point (a
+jettison is not a delivery), leaving **250**.
+
+| | old | new | delta |
+|---|---:|---:|---:|
+| mean `aimLongM` | +43.15 m | +23.50 m | **−19.66** |
+| spread (sd) | 56.78 | 52.76 | −4.02 |
+| mean `aimAcrossM` | +26.76 m | +26.66 m | −0.10 |
+| mean `aimErrM` | +64.95 m | +50.61 m | −14.34 |
+
+**The per-delivery shift has a median of −23.10 m** (range −17.83 … −25.51, which is the ground-speed
+spread across the tree) against a derivation of 23.2 m. **The along-track bias moves, the spread does
+not, and the cross-track does not move at all** — which is exactly the claim, and the cross-track number
+is the one that could have falsified it: a lead term that touched anything but the release moment would
+have shown there. 212 of 250 moved, 199 nearer the aim point and 13 further from it — the lattice, as
+predicted.
+
+**Three missions changed exit code, all 3 → 0, each explained individually** and none of them by luck:
+`w2-01-dome` and `w2-08-flak` 36.38 → 13.29 m with objectives met 1 → 2; `w3-03-weasel-close` 23.59/21.48
+→ 15.06/16.50 m with 7 → 8. **This is stated as a CONSEQUENCE and never as evidence** — the tree's rule
+is that a better mission result is not a source for a model number, and it is not one here either. The
+number came from the phase order before any mission was flown.
+
+**One thing this round does NOT explain: the residual.** The mean is still **+23.50 m long** after the
+fix — one further tick. It is not booked as a defect because it is a mean over a mixed population (the
+MiG-29's deliveries are systematically SHORT, `C29`) and separating the two is its own measurement. It is
+recorded here so the next round starts from the number rather than from the impression that this one
+finished the job.
+
+**Why it is compensated and not made structurally impossible — the alternative, and its price.** The
+displacement is geometric, not temporal: `FBOrdnance::Launch` spawns via `FBMissionSpawnStore(…,
+carrier.State(), …)`, i.e. the carrier's LIVE pose one tick after the release was serviced. **The tree
+already contains the immune pattern one file over**: `FBGunBurst` carries its own `LatDeg`/`LonDeg`/
+`AltM`/`VelE…`/`SimTimeS`, captured at the trigger, so the gun's identical queue costs it nothing and its
+lead needs no such term. Giving `FBStoreRelease` the same fields would make this defect impossible rather
+than compensated — and it was REJECTED, because the two things it would have to break are both deliberate:
+`FBStoresSystem` holds no FDM at all (`SetOwnPose` is handed lat/lon/yaw by the module precisely "damit
+diese Klasse keinen FDM anfasst") and would have to be handed a full state snapshot; and `Launch` sits
+after the pose barrier on purpose, so that "a round is never resolved in the tick it left the rail". Two
+deliberate choices produce the tick between them; the lead is the repair that keeps both. **And the scope
+of the defect is bounded by the same reading: every store leaves through this queue, missiles included,
+but a GUIDED round flies its own error out — the displacement is a pure, uncorrectable bias only for a
+round that cannot steer.** That is why it shows up as a bomb-delivery bias and nowhere else. **The price is
+stated rather than hidden: this is a compensation, so a future change to either phase order or tick rate
+silently invalidates it** — which is why `kSeparationDelayS` is pinned to `kSimTickS` by a `static_assert`
+in `FBOrdnance.cpp` and cannot drift without failing the build.
+
+**This is what E14 measured, and why E14 was right not to publish it.** The campaign breadth found
+`pilot_attack_bias_s` = −0.2 s winning 25 : 9 over 154 cells. Half of that (−0.1 s) is this defect and is
+now gone from every aircraft by derivation. The other half was a bias averaging out half a tick of X-3's
+quantisation — a number with no source, which would have been baked into every airframe in every
+geometry. A doctrine would have hidden a defect and a partition artefact inside one tuning key.
 
 **The pilot computes no ballistics.** He holds no target position and solves no trajectory: he reads the
 FireControl block like the radar altimeter before a flare. Who computes: `core/FBBallistics` (shared

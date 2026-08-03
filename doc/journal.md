@@ -3291,3 +3291,96 @@ deshalb nicht, eine Doktrin zu veröffentlichen, sondern dem Flugzeug **seine ei
 hergeleitet aus der Latenz, die es ohnehin kennt. Dass das hier nicht geschehen ist, ist die Regel des
 Baums: eine Modellzahl braucht einen Beleg, und ein besseres Missionsergebnis ist ausdrücklich keiner.
 Gemessen ist die **Größe** des Defekts und sein **Vorzeichen**; geschuldet bleibt die Herleitung.
+
+---
+
+## 2026-08-03 — `E15`: die geschuldete Herleitung, und sie halbiert `E14`s Zahl
+
+`E14` hat eine Doktrin gemessen und nicht veröffentlicht, weil ihr der Beleg fehlte. Diese Runde holt ihn
+— nicht aus einem weiteren Lauf, sondern aus der **Kette selbst**. Vom Entschluss bis zum Store, in
+Zeitstempeln aus `attack-ccrp`:
+
+```
+t=71.4  CMD_ISSUE   dueS=72.0     ttrS=0.531  leadS=0.6  biasS=0
+t=72.0  sms RELEASE               (der SMS nimmt an und reiht ein)
+t=72.1  stores SEPARATION         (der Store wird eine Einheit)
+```
+
+| Glied | Quelle | s |
+|---|---|---|
+| Lesen → Betätigen | `FBPilot.h` `DecisionDtS_` | 0,1 |
+| Betätigen → Quittung | `FBCommandBus.h` `kHotasLatencyS` | 0,5 |
+| Quittung → Trennung | **war unkompensiert** | **0,1** |
+| **Kette** | | **0,7** — der Pilot hielt 0,6 vor |
+
+**Das dritte Glied ist kein Tuning-Wert, sondern die Warteschlange zwischen `FBStoresSystem::Release`
+und `FBOrdnance`s Entleerung.** Und es ist nicht empirisch, sondern **hergeleitet**: `FBMissionSim::
+RunPhases()` fährt `StepActors()` (dort fällt die Freigabe an) vor `SimT_ += dt` und `Ordnance_.Launch`
+danach — die Trennung liegt per Konstruktion einen Tick später, und derselbe Absatz nennt das als
+Absicht („a round is never resolved in the tick it left the rail"). Gemessen wurde die Herleitung nur
+noch bestätigt: konstant 0,1 s über `attack-ccrp`, `attack-ccip`, `cbu87-footprint`, `w2-01-dome`. Ein
+`static_assert` in `FBOrdnance.cpp` pinnt `kSeparationDelayS` an `kSimTickS`, damit die Zahl nicht
+wegdriften kann.
+
+**Vorhergesagt, bevor gebaut wurde:** ein Tick × 231,5 m/s = 23,2 m. **Gemessen am echten Bodendurchgang**
+(`stores IMPACT crossLat/crossLon`, nicht an der Vorhersage des Rechners): **+38,8 m → +16,0 m lang, ein
+Gewinn von 22,8 m** — 1,5 % neben der Herleitung, der Rest ist die Geschwindigkeitsänderung über den Tick.
+
+**Damit zerfällt `E14`s −0,2 s sauber in zwei Hälften.** −0,1 s war dieser Defekt und ist jetzt
+strukturell aus jedem Flugzeug verschwunden. Die anderen −0,1 s waren nie eine Doktrin: sie sind ein
+Bias, der eine halbe Breite von `X-3`s Auslösetakt im Mittel wegbügelt — und der Restfehler dieser Runde
+(16,0 m = 0,069 s) liegt genau in dessen Treppe. **Hätte `E14` veröffentlicht, stünden ein Defekt und ein
+Partitionsartefakt gemeinsam als eine Tuning-Zahl in jedem Flugzeug jeder Geometrie.** Die Weigerung war
+richtig, und die Messung, die sie weigerbar machte, hat den Defekt lokalisiert.
+
+**Die MiG bekam denselben Fix — und die Messung hat ihn widerlegt.** Ihr Director zählt einen Countdown
+ab statt vorzuhalten, durchläuft aber dieselbe Warteschlange, also schien das Argument zu übertragen. Es
+überträgt nicht: die Regression nahm fünf `o3-*`-Missionen von Exit 0 auf 3, und die Ursache stand in
+`o3-01-unopposed` — `aimLongM` **−45,5 m → −68,2 m**, also von *zu kurz* auf *noch kürzer*, exakt ein Tick
+in die falsche Richtung. **Der MiG-Abwurf war nie zu spät, sondern schon vorher 0,194 s (45,5 m bei
+234 m/s) zu FRÜH.** Zurückgenommen, `o3-01-unopposed` fliegt wieder bitgleich zum alten Stand.
+
+Das ist ein eigener, offener Befund und kein Nebensatz: **derselbe Betrag von ~0,19 s taucht hier auf wie
+in `C28`**, nur mit umgekehrtem Vorzeichen und auf einem anderen Pfad. Ob das dieselbe Ursache ist, weiß
+ich nicht — und eine Zahl ohne isolierte Ursache ist kein Fix. Gebucht, nicht repariert.
+
+**Ein Fix, der nicht besser macht — das muss so gesagt werden.** Auf `w1-06-strike-escort` wandern zwei
+Abwürfe von **+10,9 und +17,4 m zu lang auf −12,2 und −5,7 m zu kurz**: beide um 23,1 m, einen Tick, und
+der erste wird dabei geringfügig **schlechter** (13,1 → 14,2 m). Das ist `X-3`s Gitter: die Auslösung
+kann nur auf 23-m-Stufen landen, und wer einen systematischen Versatz korrigiert, verschiebt jeden Abwurf
+um eine Stufe — unabhängig davon, wo auf der Stufe er saß. **Die überprüfbare Behauptung ist deshalb die
+über die VERTEILUNG, und sie stand vor der Messung fest:** der Mittelwert von `aimLongM` muss um etwa
+einen Tick fallen, die **Streuung darf sich nicht ändern**. Werkzeug: `tools/fb_delivery_stats.py`.
+
+**Und warum kompensiert statt strukturell verhindert.** Der Versatz ist geometrisch: `FBOrdnance::Launch`
+spawnt mit `carrier.State()`, also der **live**-Lage einen Tick später. Der Baum enthält das immune
+Muster eine Datei weiter — `FBGunBurst` trägt `LatDeg/LonDeg/AltM/VelE…/SimTimeS` beim Auslösen mit, und
+deshalb kostet die Kanone dieselbe Warteschlange nichts. Dasselbe für `FBStoreRelease` zu tun **wurde
+verworfen**, weil beides, was dafür brechen müsste, Absicht ist: `FBStoresSystem` fasst bewusst keinen
+FDM an, und `Launch` steht bewusst hinter der Posen-Barriere („a round is never resolved in the tick it
+left the rail"). Zwei absichtliche Entscheidungen erzeugen den Tick zwischen sich. **Der Preis wird
+genannt statt versteckt: eine Kompensation überlebt eine Änderung an Phasenordnung oder Taktrate nicht** —
+weshalb `kSeparationDelayS` per `static_assert` an `kSimTickS` hängt und nicht wegdriften kann, ohne den
+Build zu brechen.
+
+**GEMESSEN, über den ganzen Baum.** 284 Missionen auf beiden Ständen, 259 Abwürfe paarweise, 9 als
+Nicht-Abwürfe ausgeschlossen (der Store kam kilometerweit vom Zielpunkt herunter), bleiben **250**.
+
+| | alt | neu | Differenz |
+|---|---:|---:|---:|
+| Mittel `aimLongM` | +43,15 m | +23,50 m | **−19,66** |
+| Streuung | 56,78 | 52,76 | −4,02 |
+| Mittel `aimAcrossM` | +26,76 m | +26,66 m | −0,10 |
+
+**Median-Verschiebung je Abwurf: −23,10 m** gegen 23,2 m hergeleitet. Der Längsversatz wandert, die
+Streuung bleibt, quer bewegt sich nichts — und quer war die Zahl, die den Fix hätte widerlegen können.
+212 von 250 bewegt, 199 näher, 13 weiter weg: das Gitter, wie angekündigt.
+
+Drei Missionen wechseln den Exit-Code, alle 3 → 0, jede einzeln begründet: `w2-01-dome` und `w2-08-flak`
+36,38 → 13,29 m bei Zielen 1 → 2, `w3-03-weasel-close` 23,59/21,48 → 15,06/16,50 m bei 7 → 8. **Das ist
+Folge, nicht Beleg** — die Zahl stand vor dem ersten Flug fest.
+
+**Offen bleibt der Rest:** der Mittelwert ist nach dem Fix immer noch **+23,50 m lang**, also ein weiterer
+Tick. Nicht als Defekt gebucht, weil es ein Mittel über eine gemischte Population ist (die MiG wirft
+systematisch KURZ, `C29`) — aber hier notiert, damit die nächste Runde bei der Zahl anfängt und nicht bei
+dem Eindruck, diese hier sei fertig geworden.

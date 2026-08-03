@@ -22,11 +22,14 @@ cd "$(dirname "$0")/.."
 OUT="$1"
 THREADS="${2:-1}"
 FULL="${3:-}"
+# Zwei Staende vergleichen heisst ZWEI Binaries, nicht zweimal den Baum umschalten: `GYM=` zeigt auf
+# eine weggelegte Kopie, damit der Arbeitsbaum waehrend eines 14-Minuten-Laufs unangetastet bleibt.
+GYM="${GYM:-./build/fb-gym}"
 mkdir -p "$OUT"
 for m in missions/*.fbm; do
   n=$(basename "$m" .fbm)
   mkdir -p "$OUT/$n"
-  ./build/fb-gym --mission "$m" --out "$OUT/$n" --threads "$THREADS" >/dev/null 2>&1
+  "$GYM" --mission "$m" --out "$OUT/$n" --threads "$THREADS" >/dev/null 2>&1
   echo "$? $n" >> "$OUT/exit.txt"
   # normalise: drop the two wall-clock fields and any absolute path
   if [ -f "$OUT/$n/events.log" ]; then

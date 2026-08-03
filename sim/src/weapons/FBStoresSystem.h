@@ -93,6 +93,19 @@ public:
   /* Der Drain des Besitzers: der aelteste noch nicht genommene Abwurf, FIFO. */
   bool TakeRelease(FBStoreRelease &out);
 
+  /* WAS DIE WARTESCHLANGE KOSTET. `Release` reiht ein, der Besitzer entleert in der Phase NACH dem
+   * Aktorenschritt — der Store wird also einen Sim-Tick nach der Quittung zur Einheit. [DERIVED]
+   * missions/FBMissionSim.cpp RunPhases(): `StepActors()` (hier faellt die Freigabe an) laeuft vor
+   * `SimT_ += dt`, `Ordnance_.Launch` danach — die Trennung liegt per KONSTRUKTION einen Tick spaeter,
+   * und derselbe Absatz nennt das als Absicht ("a round is never resolved in the tick it left the
+   * rail"). Nicht empirisch, nur bestaetigt: [MEASURED]
+   * attack-ccrp/attack-ccip/cbu87-footprint/w2-01-dome, `sms RELEASE` -> `stores SEPARATION`,
+   * konstant 0.1 s. missions/FBOrdnance.cpp pinnt die Zahl per static_assert an kSimTickS, damit sie
+   * nicht von der Taktrate wegdriften kann; pilot/ steht ueber weapons/ und liest sie hier, weil es
+   * missions/ nicht sehen darf. Wer vorhaelt, muss dieses Glied mitrechnen: es ist Totzeit wie die
+   * Buslatenz, nur eine Schicht tiefer. */
+  static constexpr double kSeparationDelayS = 0.1;
+
   /* Die Zelle veroeffentlicht ihre Lage ohnehin; der SMS braucht sie fuer genau EINE Frage — liegt der
    * bezeichnete Punkt noch vor dem Bug. Vom Modul gereicht, damit diese Klasse keinen FDM anfasst. */
   void SetOwnPose(double latDeg, double lonDeg, double yawDeg) {
