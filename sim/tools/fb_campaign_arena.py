@@ -13,7 +13,7 @@ is exactly the population S2 is defined on, and S1's modal share is taken in it.
 
 WHAT IT MAY NOT DO, AND THE CHECK IS HERE RATHER THAN IN THE PROSE. The committed missions are never
 written: a cell is copied to the output tree, the genome's `set` lines are spliced into the copy, and
-`git status --porcelain sim/missions sim/assets` must be empty before and after. A run that moved a
+`git status --porcelain sim/missions sim/assets/aircraft` must be empty before and after. A run that moved a
 mission or a deck is VOID.
 
 THE SIDE IS DECLARED, NOT DERIVED. A cell is `<mission> <team> <module>`: the units the doctrine is
@@ -507,8 +507,18 @@ def other_calls(cell, mine):
 
 
 def tree_clean():
-    r = subprocess.run(["git", "status", "--porcelain", "sim/missions", "sim/assets"], cwd=REPO_DIR,
-                       capture_output=True, text=True)
+    """Was ein Doktrin-Lauf NICHT bewegen darf: die Missionen und die FLUGMODELLE.
+
+    Bis 2026-08-03 stand hier `sim/assets` als Ganzes, und das war zu grob: seit dieser Runde liegen
+    unter `sim/assets/models/` auch die SICHTBAREN Netze (glTF), die ein Modellierer parallel baut.
+    Ein Dreiecksnetz ist keine Modellzahl — es erreicht weder JSBSim noch die Regelung, und `fb-gym`
+    laedt es ueberhaupt nicht (GPU-frei, 0 Dawn-Symbole). Es als Verunreinigung zu werten, hat einen
+    Lauf ueber 34 Zellen blockiert, ohne dass irgendetwas an der Simulation schmutzig war.
+    Bewacht bleibt, was das Ergebnis aendern KANN: `sim/assets/aircraft` (die eine Wurzel der
+    geflogenen Modelle, Prinzip 1) und `sim/assets/MODEL-DELTAS.md` (ihre Delta-Liste)."""
+    r = subprocess.run(["git", "status", "--porcelain",
+                        "sim/missions", "sim/assets/aircraft", "sim/assets/MODEL-DELTAS.md"],
+                       cwd=REPO_DIR, capture_output=True, text=True)
     return r.stdout.strip() == ""
 
 

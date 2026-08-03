@@ -3538,3 +3538,42 @@ nicht.
 `o1-bekaa-1982` ist groß genug, dass Doktrin wirken KANN, und schlecht genug, dass es sich lohnt. Der
 Sweep läuft. Der verworfene Ansatz bleibt mit seiner Messung stehen — 250 Läufe, 0 informative Zellen —
 weil ein gemessener Fehlschlag Wissen ist.
+
+---
+
+## 2026-08-03 — 850 Läufe über die reagierenden Zellen: eine graduierbare Zelle, und ein Hebel, der keiner ist
+
+Zwei Sweeps zuvor hatten 0 informative Zellen ergeben, und ich hatte daraus geschlossen, die
+Kampagnenzellen unterschieden keine Doktrin. **Das war zu stark, und der Grund war meine Auswahl.**
+E14s 34 nachweislich reagierende Zellen liegen so: w3 9, w4 9, w2 6, o5 5, o1 2, w1 2, o2 1, **o4 0** —
+ich hatte für beide Sweeps ausgerechnet `o4` (null) und `o1` (zwei) gewählt, erst nach FAIL-Zahl, dann
+nach Seitengröße. Beide Male lag die richtige Größe schon gemessen im Baum.
+
+**Der Sweep über alle 34, 850 Läufe:**
+
+| | |
+|---|---|
+| S5-Ausbeute | **1 informative Zelle von 34** (gefordert: 3) |
+| die eine | **`w3-09-saturation`** — 5 Ergebnisklassen, 60 % modal, **10 Beweger**, besteht S1 UND S2 |
+
+**Und der wichtigste Befund ist ein Artefakt, kein Ergebnis: `bias-rail` bewegt 28 von 34 Zellen.**
+Das ist der ferne Anschlag `pilot_attack_bias_s = 10`, den die Hebeldatei selbst als *„2,3 km Bahn,
+also gar keine Zustellung"* kommentiert. Eine zerstörte Bombenlösung ändert das Ergebnis — das ist
+keine Doktrin. **Wer die 28 als Beweger zählt, misst den Anschlag, nicht das Genom.** Rechnet man ihn
+heraus, bleiben je Zelle ein bis drei echte Beweger, und 24 der 34 Zellen haben null.
+
+Die Gene, die überhaupt wirken, sind genau die, die der Auftrag als Erweiterung verlangt hat —
+`shape-stacked`/`shape-flat`/`shape-abreast` (Verband), `sort-left`/`sort-near` (Sortierung), `net-off`
+(Netz), `bias-early`/`bias-late`. Sie wirken aber **schmal**: ein bis zwei Zellen je Gen.
+
+**Was das für den Verbesserungsnachweis heißt.** Er ist nicht unmöglich, aber er hat heute genau eine
+Bühne: `w3-09-saturation`. Eine Doktrinverschiebung dort wäre messbar; über die Breite ist sie es nicht,
+weil die Breite nicht reagiert. Das ist ein Befund über die MISSIONEN, nicht über die Piloten — und die
+Reparatur ist, Zellen zu bauen, die wie `w3-09` graduierbar sind, statt die Piloten weiter gegen taube
+Zellen zu optimieren.
+
+**Und ein Werkzeugbefund nebenher:** `fb_campaign_arena.py` bewachte `sim/assets` als Ganzes und hat
+den Lauf blockiert, weil ein Modellierer parallel Netze nach `sim/assets/models/` schrieb. Ein
+Dreiecksnetz ist keine Modellzahl — es erreicht weder JSBSim noch die Regelung, und `fb-gym` lädt es
+nicht (GPU-frei, 0 Dawn-Symbole). Das Tor bewacht jetzt `sim/missions`, `sim/assets/aircraft` und
+`MODEL-DELTAS.md`, also das, was ein Ergebnis ändern KANN.
