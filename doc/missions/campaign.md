@@ -161,10 +161,25 @@ something else depending on which campaign ran it. One sentence of rule beats on
 | `campaign ATTRITION` | at the end: units lost per team, ground targets lost per team, stores expended per type |
 | `campaign CAMPAIGN_RESULT` | missions run / succeeded / failed / timed out / crashed, and the exit code |
 
-**The exit code is the worst mission's code** (0 SUCCESS, 1 FAIL, 2 CRASH/LOC, 3 TIMEOUT), and it
-carries the same reading rule combat missions already carry: *a campaign of measuring rigs is expected
+**The exit code is the NUMERICALLY LARGEST mission code** (0 SUCCESS, 1 FAIL, 2 CRASH/LOC, 3 TIMEOUT),
+and it carries the same reading rule combat missions already carry: *a campaign of measuring rigs is expected
 to be non-zero, and its verdict is the `ATTRITION` and `MISSION_RESULT` lines, not the code.* Collapsing
 ten runs into one 0/1 would be exactly the invented single verdict O5 refuses.
+
+**This paragraph used to call that maximum "the worst mission's code", and that word was wrong.** The
+four codes are a NAME enumeration, not a severity scale: `max` therefore ranks TIMEOUT (3) above
+CRASH (2) and FAIL (1), while this tree's own mission headers say over and over that *TIMEOUT is the
+expected shape* and that a CRASH would be the defect. The two statements cannot both hold, and the
+reading rule above is the one that does.
+
+**Measured, and it is the reason the wording is corrected** [MESS, 2026-08-03, `w2-osirak`, the E15
+release-lead fix]: every mission of the campaign got better or stayed identical — chain
+`TSSCSFSTSF` → `SSSCSFSSSF`, two TIMEOUTs became SUCCESS and nothing regressed — **and the campaign
+exit code went 3 → 2**, because removing the timeouts let the (unchanged) crash become the maximum. An
+improvement that reads as a deterioration. The behaviour is NOT changed: it is declared here, the
+verdict is explicitly the `MISSION_RESULT` chain, and re-ranking the codes would move an observable on
+every campaign in the tree for a cosmetic gain. What changes is the word — a reader who trusted "worst"
+would have drawn the opposite conclusion from a correct measurement.
 
 ---
 

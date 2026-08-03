@@ -3384,3 +3384,65 @@ Folge, nicht Beleg** — die Zahl stand vor dem ersten Flug fest.
 Tick. Nicht als Defekt gebucht, weil es ein Mittel über eine gemischte Population ist (die MiG wirft
 systematisch KURZ, `C29`) — aber hier notiert, damit die nächste Runde bei der Zahl anfängt und nicht bei
 dem Eindruck, diese hier sei fertig geworden.
+
+---
+
+## 2026-08-03 — Die Basislinie der zehn Kampagnen, und der erste Verbesserungsnachweis über ihre Breite
+
+Alle zehn Kampagnen existierten, aber es gab keine Zahl, gegen die „besser" messbar gewesen wäre.
+Jetzt gibt es sie: **alle zehn laufen 10 von 10 Missionen durch**, keine bricht ab.
+
+| Kampagne | S | T | F | C |
+|---|---:|---:|---:|---:|
+| w1-red-flag | 3 | 7 | 0 | 0 |
+| w2-osirak | 7 | 0 | 2 | 1 |
+| w3-desert-storm | 2 | 8 | 0 | 0 |
+| w4-allied-force | 1 | 9 | 0 | 0 |
+| w5-baltic-qra | 9 | 1 | 0 | 0 |
+| o1-bekaa-1982 | 0 | 9 | 0 | 1 |
+| o2-pvo-intercept | 4 | 6 | 0 | 0 |
+| o3-yom-kippur-1973 | 5 | 4 | 0 | 1 |
+| o4-gaf-mig29g-dact | 1 | 4 | 5 | 0 |
+| o5-airfield-defence | 1 | 7 | 2 | 0 |
+| **gesamt** | **33** | **55** | **9** | **3** |
+
+**TIMEOUT ist bei der Mehrzahl die erwartete Form** und darf nicht als Fehlschlag gelesen werden —
+`w1-04` sagt es wörtlich. Die harte Menge sind die 9 FAIL und 3 CRASH, und sie ballen sich:
+**`o4-gaf-mig29g-dact` trägt allein 5 von 9** — ausgerechnet die einzige Kampagne, in der beide
+Piloten-KIs direkt gegeneinander fliegen. Über die Seiten: 22 SUCCESS auf 50 F-16-Missionen gegen
+11 auf 50 MiG-Missionen, Faktor zwei, und `o1-bekaa-1982` hat null.
+
+**Ein Absturz gelesen statt gezählt.** `w2-04-loaded` endet mit Bodenkontakt bei eingefahrenem Fahrwerk.
+Die bindende Leseregel verlangt drei Dinge in fester Reihenfolge, und sie ergeben: `fuelLbs` in der
+letzten Zeile **0,000000**, beide `nav WP_REACHED` vorhanden. Der Jet hat beide Wegpunkte erreicht und
+ist danach trocken heruntergekommen — die Regel hatte den Fall vorweggenommen (*„a run that does not get
+home has answered the campaign's central question in the negative"*). Die zentrale Frage des
+Osirak-Angriffs ist die Reichweite, und die gemessene Antwort ist **nein**. Kein Simulationsfehler.
+
+**Der erste Verbesserungsnachweis über die Kampagnenbreite.** Der E15-Fix (der unkompensierte
+Trennungs-Tick im Abwurf-Vorhalt) wurde gegen den Stand davor gefahren — beweisbar-minimal, weil die
+284-Missions-Regression genau drei bewegte Missionen ausgewiesen hatte und alle drei in w2 und w3 liegen:
+
+| Kampagne | vor E15 | nach E15 |
+|---|---|---|
+| w2-osirak | `TSSCSFSTSF` | `SSSCSFSSSF` |
+| w3-desert-storm | `STTTTTTTTT` | `STSTTTTTTT` |
+
+**Drei Missionen von TIMEOUT auf SUCCESS, null in die Gegenrichtung**, jede andere Position identisch.
+Das ist das, was der Auftrag als Produkt verlangt — keine bessere Zahl, sondern eine erklärbare
+Verschiebung, und die Erklärung steht in E15: der Abwurf lag systematisch einen Tick zu lang.
+
+**Und dabei ist ein Instrument aufgefallen, das in die Gegenrichtung zeigt.** `w2-osirak` wurde in jeder
+Mission besser oder blieb gleich — und sein Kampagnen-Exit fiel von 3 auf 2. Ursache:
+`FBCampaignRunner` bildet `worst = max(exitCode)`, und die vier Codes sind ein NAMENSSCHEMA, keine
+Schweregradskala; `max` erklärt damit TIMEOUT zum Schlimmsten, während dieselben Missionsköpfe TIMEOUT
+als erwartete Form führen. **Das Verhalten bleibt** — es ist in `doc/missions/campaign.md` deklariert,
+das Urteil liegt dort ausdrücklich bei der `MISSION_RESULT`-Kette, und eine Umsortierung würde auf jeder
+Kampagne eine Observable bewegen. Korrigiert ist das WORT: die Doku nannte das Maximum „the worst
+mission's code", und wer dem Wort traute, hätte aus einer korrekten Messung den gegenteiligen Schluss
+gezogen.
+
+**Offen und ehrlich benannt:** mehrfacher Durchlauf und die beiden Kriterien aus
+`fb_campaign_verify.py` (Determinismus über Wiederholungen × Threads, Replay gegen Einzelläufe) sind
+gebaut, aber nicht über alle zehn gefahren — 60 Kampagnenläufe sind Stunden, und diese Runde hat den
+Verbesserungsnachweis vorgezogen, weil es ihn ohne Basislinie gar nicht geben konnte.
