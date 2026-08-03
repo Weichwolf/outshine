@@ -2538,6 +2538,206 @@ breadth-wide one, with a significance test and a chaos screen it did not have be
 
 ---
 
+## State — round `E16` (2026-08-03): the three measuring rigs cannot carry a shift, and the reason is arithmetic
+
+The round label continues the journal's `E15`; §9/§10's rows `E15`–`E19` are CONTRACT labels, not rounds,
+and the collision is theirs rather than this section's.
+
+`E15`'s three new rigs (`sat-01`/`sat-02`/`sat-03`, commit `85c1a74`) were the first cells in this tree
+to reach S5's yield. This round asks the only question that matters about them: **can a doctrine shift
+be published on them?** The answer is no, it is decidable before a run, and the runs then say something
+the arithmetic did not — the one candidate that survives every screen is a DEFECT of the emission gate,
+and it is the third latch this tree has found dressed as a doctrine.
+
+### §0 — The ceiling, derived before the first run
+
+§6 publishes a shift as a sign test over PAIRED CELLS (`E14`: 154 cells, 25 : 9, p = 0.005). With `n`
+cells the smallest attainable one-sided p is the unanimous case `2^-n`:
+
+| n cells | best attainable p |
+|---:|---:|
+| 1 | 0.500 |
+| 2 | 0.250 |
+| **3** | **0.125** |
+| 4 | 0.0625 |
+| **5** | **0.031** |
+
+**The arena has three cells, so no result on it can reach p ≤ 0.05 — not with a better genome, not with
+a longer lever file, not with more runs.** And §5's chaos screen admits exactly one of the three
+(`sat-02`, 0 of 8; `sat-01` 1 of 8, `sat-03` 4 of 8), so the admissible `n` is **1** and the ceiling is
+**p = 0.5**. The gap to a publishable shift is **four more chaos-clean graduable cells**, and that is the
+round's actionable number.
+
+Everything below is therefore a MEASUREMENT and not a claim. It is worth the runs because the direction
+data, the clock test and the mechanism are what the next rig must be built against.
+
+### §1 — The shift, in one sentence
+
+**There is none.** The best candidate over the three cells is `pilot_emcon_frac` ≥ 1.35 ("stop going
+silent on a mate's report") at **2 better : 1 worse, p = 0.5**; after X4.2 removes `sat-03` it is
+**1 : 1**. §6's binding rule is honoured in the other direction than usual: §4 is full, §3 is empty, and
+it is §3 that decides.
+
+### §2 — The genome diff of the candidate
+
+| gene | seed | candidate | band | on a rail? |
+|---|---:|---:|---|---|
+| `pilot_emcon_frac` | 1.0 | **1.35** | 0 … 3 | no — and it is not a point either (§6a) |
+| the other eight | unchanged | unchanged | | |
+
+### §3 — The outcome ledger, and the seed wins it
+
+[MESS, 3 cells × (1 baseline + 24 levers) = 75 runs, `--elev const`, `fb_fitness.compare` against each
+cell's OWN baseline. `bias-rail` excluded — `tools/levers-campaign-g5.txt` calls it "no delivery at all".]
+
+The lever set reproduces `85c1a74`'s committed table exactly under a freshly linked binary
+(`b040e6ef30061351` vs the recorded `429ab24f122c8053`): 9 / 9 / 10 outcome classes, modal
+60.0 % / 52.0 % / 52.0 %, movers 10 / 12 / 12.
+
+| lever | `sat-01` | `sat-02` | `sat-03` | better : worse |
+|---|:--:|:--:|:--:|---:|
+| `emcon-wide` | − | **+** | **+** | **2 : 1** |
+| `shape-stacked` | − | **+** | **+** | **2 : 1** |
+| `shape-flat` | · | − | + | 1 : 1 |
+| `net-off` | − | **+** | − | 1 : 2 |
+| `shape-abreast` | − | − | + | 1 : 2 |
+| `shape-tight` | − | − | + | 1 : 2 |
+| `shape-wide` | − | − | + | 1 : 2 |
+| `shape-trail` | · | − | − | 0 : 2 |
+| `bias-early` | − | − | − | 0 : 3 |
+| `bias-late` | − | − | − | 0 : 3 |
+| `ccip-tight` | − | − | − | 0 : 3 |
+| | | | | **9 : 22** |
+
+**The seed genome dominates its own lever set.** Pooled over the 31 moved (cell, lever) pairs it is
+9 better against 22 worse; the pairs are not independent (11 levers over 3 cells), so the pooled
+`P(X ≤ 9 | n = 31)` = 0.015 is quoted as a description and NOT as a significance test — §6 counts cells.
+
+**Half the lever file is the identity map.** 12 of the 24 levers are bit-identical to the baseline in all
+28 published channels — including `durationS` and the energy integral `bfm_es` — on all three cells:
+`cover-off/one/three`, `energy-low/mid/high`, `net-on`, `sort-left`, `sort-near`, `ccip-open`,
+`emcon-tight`, `emcon-mid`. Filed as `E-26`.
+
+**The counter-probe, per axis** (§6's requirement that a one-directional axis is suspect):
+
+| axis | below the seed | above the seed | verdict |
+|---|---|---|---|
+| `pilot_attack_bias_s` | `bias-early` −0.1 s: 0 : 3 | `bias-late` +0.1 s: 0 : 3 | **symmetric-worse — the seed sits on the optimum.** After `E15` removed `kSeparationDelayS` from the residual this is exactly what `E14`'s corrected reading predicts, measured on cells `E14` never saw |
+| `pilot_flight_spread_frac` | `shape-tight` 0.35: 1 : 2 | `shape-wide` 2.5: 1 : 2 | symmetric-worse |
+| `pilot_flight_trail_frac` | `shape-abreast` 0: 1 : 2 | `shape-trail` 2.0: 0 : 2 | symmetric-worse |
+| `pilot_flight_stack_frac` | `shape-flat` 0: 1 : 1 | `shape-stacked` 3.0: 2 : 1 | speaks both ways — and §6a dissolves it |
+| `pilot_emcon_frac` | `emcon-tight` 0.1, `emcon-mid` 0.4: **INERT** | `emcon-wide` 3.0: 2 : 1 | **one-directional, and §6b gives the mechanism** |
+| `datalink` | `net-on` = the missions' own briefing: INERT | `net-off`: 1 : 2 | the mirror IS the baseline |
+
+### §3a — The clock test, and it voids two of the three cells
+
+`E15`'s refutation of `w3-09-saturation` made this mandatory: a mover that shifts the truncation instant
+moves the UHR, not the result. `FBMissionSim::Conclude` says it in its own comment — *"a K.O. always ENDS
+the run but only DECIDES it when it was nobody's declared objective"* — so the first WRECK to reach the
+ground stops the clock for every unit, including one whose loss is somebody's declared objective.
+
+| direction | run got | reading |
+|---|---|---|
+| better | shorter | **conservative** — the clock worked against the mover |
+| better | longer | **confounded** |
+| worse | longer | conservative |
+| worse | shorter | confounded |
+| either | unchanged | clean |
+
+Applied to the 31 pairs, and then checked against §5's own judge-evasion detector at `timeout × 1.5`:
+
+| cell | baseline | what the clock does | `timeout × 1.5` on the BASELINE | on the CANDIDATE | S7 |
+|---|---|---|---|---|---|
+| `sat-01` | 520.0 s | 7 of 10 movers leave it exactly, 3 shorten it | **(32, 23) → (30, 22) MOVED** | (26, 19) held | 1 of 8 |
+| `sat-02` | 520.0 s | 3 better movers all SHORTEN it (conservative); 8 of 9 worse movers shorten it (confounded) | (14, 8) held | (14, 10) held | **0 of 8** |
+| `sat-03` | 301.7 s (truncated) | **6 of 6 better movers EXTEND it to the full 520 s** | (24, 20) held | **(26, 24) → (23, 22) MOVED** | 4 of 8 |
+
+`sat-03`'s entire better column is the clock, and two independent instruments say so: the duration diff
+(+218.3 s on five of the six) and X4.2. `sat-01`'s BASELINE is itself timeout-dependent — its (32, 23) is
+"the run stopped before it got worse" — so its reference point is a function of the clock. **`sat-02` is
+the only cell of the three that is clean on the spawn grid AND on the clock, on baseline and candidate
+alike.** Applying the judge-evasion detector to a cell's BASELINE rather than to a champion is this
+round's extension of §5 and is stated as such.
+
+### §4 — The mechanism: the emission gate LATCHES on a report nothing can refresh
+
+Every link is a published channel with its number, all on `sat-02`'s baseline, `telemetry.csv` of `pb1`:
+
+| # | link | number |
+|---|---|---|
+| 1 | `FBPilot.cpp:1523` `EmconSilent_ = other && nearestM > radiateM`, `radiateM = pilot_emcon_frac × FBF16Pilot::EmconRadiateNm()` | seed = 1.0 × 40 nm = **74.1 km** |
+| 2 | `fcr_on` | 1 from t = 0.1 s to t = 57.4 s, then **0 for the remaining 462.5 s** — 574 of 5 200 ticks = **11.0 %** |
+| 3 | the latch instant: `fcr_contacts` 0 → 4 and `flt_src` 0 → 1, `flt_assign` 0 → 3 | t = **56.0 s** (≈ 104 km, own first detection) |
+| 4 | one tick later `fcr_on` → 0, `fcr_contacts` → 0, **`flt_src` → 0 and stays 0 for 462 s** | t = **57.5 s**. The picture layer counts ZERO sources while the emission gate keeps reading one |
+| 5 | the report's range, bracketed by the gene itself: silent at `f = 1.30` (52.0 nm = 96.3 km), radiating at `f = 1.35` (54.0 nm = 100.0 km) — **the same bracket on all three rigs** | the reported point sits in **(96.3, 100.0] km and does not leave it for 462 s** while the geometry closes at 478 m/s, i.e. **220 km of closure against < 3.7 km of report movement**. That is not a track, it is a frozen number |
+| 6 | `fcr_lock` | **0 of 5 200 ticks** |
+| 7 | `sms LAUNCH_SOLUTION` in the whole run | 18 lines, **0 of them blue**; `eng_shots` = 0 on all six F-16 |
+| 8 | `mission OBJECTIVE … kill unit pmi*` | **0 of 8 met**; (V, M) = (14, 8) |
+
+**Break the latch either way and the same thing happens.** Two different genes, one phenotype, one key:
+
+| | `fcr_on` | `fcr_contacts` > 0 | `fcr_lock` | named kills | key |
+|---|---:|---:|---:|---:|---|
+| baseline | 574 / 5 200 = 11.0 % | 15 ticks | **0** | 0 of 8 | (14, 8) |
+| `pilot_emcon_frac ≥ 1.35` | 2 655 / 2 655 = **100 %** | 1 792 | 464 | **2 of 8** | (14, 10) |
+| `dl = off` | 2 840 / 2 840 = **100 %** | 1 710 | 543 | **2 of 8** | (14, 10) |
+
+`net-off` removes the reporter (`other` = false); `emcon ≥ 1.35` raises the gate above every reported
+range. Neither is a tactic — **both are ways of not reading a 462-second-old report.**
+
+### §5 — The counter, and it is real
+
+The same phenotype on `sat-01` gets the flight lead killed: `emcon ≥ 1.35` ⇒ `monitor KO unit=bl1
+reason=CFIT` at **t = 133.5 s**, the run ends there, objectives **27 met of 36 → 23 of 36**, key
+(32, 23) → (26, 19). A jet that radiates without pause is a target, and the chain is `duels.md` D3's
+published one. **The axis has a genuine trade-off in both directions** — which is exactly why the latch
+must be repaired rather than tuned around: a defect that sits on a real trade-off is invisible to a
+sweep that only reads the sign.
+
+### §6 — The exploit audit
+
+| test | result |
+|---|---|
+| **X1** arena invariance | **n/a as a verdict** — `E-25` already says X1 is a two-sample test on a three-cell arena. What is measured instead: the phenotype reproduces through a SECOND, independent gene (`dl=off`) to the same key on the same cell |
+| **X2** declared ignorance | **n/a**, as S3: both airframes are read-only model copies |
+| **X3** mechanism in published channels | **PASS** — §4, eight links, every one with its number |
+| **X4.1** lucky trajectory | **PASS** — champion flips 0 of 8 (`sat-01`), **0 of 8** (`sat-02`), 1 of 8 (`sat-03`), all under §5's floor of 2 |
+| **X4.2** judge evasion | **FAIL on `sat-03`** — (26, 24) → (23, 22) at `timeout × 1.5`. Held on `sat-01` and `sat-02` |
+| **X4.3** partition | the fitness contains no such count; `deliveries`/`releases` unmoved by the candidate on `sat-02` |
+| **verdict** | X4 FAILED ⇒ §5 files this as an **exploit finding**, not a doctrine shift. It is `X-6` below |
+
+**(a) The best-looking gene dissolves under a finer grid.** `pilot_flight_stack_frac` was 2 : 1 on the
+coarse three alleles. Swept on 10 points [MESS, 3 × 10 runs] its sign along the ordered grid is, on
+`sat-02`: 0 → −, 0.25 → +, 0.5 → +, 0.75 → +, 1.0 → seed, 1.25 → +, 1.5 → −, 2.0 → −, 2.5 → −, 3.0 → +.
+**Four sign changes**, and the tooth positions do not agree between cells — `sat-01` is better at
+{1.25, 1.5, 2.5} and worse at {0, 0.25, 0.5, 0.75, 2.0, 3.0}, `sat-03` is the near-inverse of that in the
+lower half. The gene ACTS (9 of 9 non-seed grid points move the class, while the 0.8 m spawn grid moves
+none) but its DIRECTION is not a function of its value. A three-allele lever file cannot see this, and
+`shape-stacked`'s 2 : 1 is one tooth of a comb.
+
+**(b) The emcon gene is a three-valued STEP, not a gradient.** 12 grid points over 0 … 3 produce three
+phenotypes: always-silent (`f = 0`, distinct on `sat-01` only), the seed's behaviour (0 < `f` ≤ 1.30,
+**bit-identical to the baseline in all 28 channels**), and always-radiating (`f` ≥ 1.35, bit-identical to
+each other). Bisected to (1.30, 1.35] on all three rigs. So `emcon-tight` and `emcon-mid` are not two
+points of a gradient — they are the identity map, and the G5 family in `levers-campaign-g5.txt` samples
+one phenotype twice and the other once.
+
+### §7 — The cost
+
+| | |
+|---|---|
+| runs | **233** — 75 sweep + 24 S7 + 69 fine grid + 18 bisect + 33 X4 + 6 baseline-timeout + 8 kept diagnostic |
+| wall | ≈ 45 min at `--jobs 6 --threads 2`, 6 cores |
+| what moved in the tree | **nothing.** `sim/src`, `sim/vendor`, `sim/assets/aircraft` and every committed mission are untouched; the arena's own `tree_clean()` passed before and after every sweep |
+| what was invalidated | every `build/*-channels.csv` resume index — the freshly linked `fb-gym` hashes to `b040e6ef30061351` and `gym_identity` refuses them all. The link hash is cosmetic: the 3-cell table reproduces `85c1a74`'s numbers exactly |
+| artefacts | `sim/build/e15/` — `sat-channels.csv`, `fine-channels.csv`, `bisect-channels.csv`, `sat-arena.log`, the two readers |
+
+### §8 — Exploits found
+
+Three new, `X-6` … `X-8`, all filed below. `X-6` is the round's product.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -2558,6 +2758,8 @@ breadth-wide one, with a significance test and a chaos screen it did not have be
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **The debt is PAID (`E7`)**: the 154-cell gate is re-run in full, 4,158 runs, and the answer refutes the prediction it was booked with — the X-1 fix moves the mover distribution by **two cells** (89·46·15·3·1 → 89·46·16·2·1), because a mover count is a difference and the fix shifted baseline and levers across the boundary together. **(b) is CLOSED (`E7`) and the closing INVERTED it**: the field was not merely ground-blind, it was disjoint from the genome in every gene, and a commensurate field passes S1 on **0 of 154** cells where the incommensurate six passed 13 — all thirteen false positives, traceable one by one (§State `E7` 2). **(c) is now the ONLY thing standing**, and it is the binding constraint: S2 does not read the field at all, 0 of 154 cells reach its 5 movers, the best in the whole breadth has 4, and **5 of the 15 levers are structurally dead everywhere** (G2's three, G7's two) | `E5`, `E6`, `E7`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
+| **E-27** | **A shift needs FIVE chaos-clean graduable cells and the tree has ONE.** §6 publishes over paired cells, so the smallest attainable one-sided p is `2^-n`: three cells cap at **0.125** and one at **0.500**. `E15` built the first three graduable rigs and S7 admits one of them (`sat-02`, 0 of 8; `sat-01` 1 of 8; `sat-03` 4 of 8). **The gap to a publishable arena shift is therefore not a better genome — it is four more cells that pass S7**, and `85c1a74`'s own open note says what they need: an objective kind with a TIME WINDOW, which [`missions/verdict.md`](missions/verdict.md) carries as a deliberate hole. Until then the campaign breadth (154 cells, `E14`) is the only venue in this tree where a sign test can reach 0.05 | `E16` |
+| **E-26** | **Half the lever file is the identity map, and S2's bar is computed from the file's LENGTH.** [MESS, `E16`] 12 of the 24 levers in `tools/levers-campaign-g5.txt` are bit-identical to the baseline in all 28 published channels — `durationS` and the energy integral `bfm_es` included — on all three `sat-*` cells: `cover-off/one/three` and `energy-low/mid/high` (structurally unreachable on an F-16 side, as `85c1a74` already booked), plus `net-on` and `ccip-open` (they ARE the missions' own briefing), `sort-left`/`sort-near` (dead beside a live net) and **`emcon-tight`/`emcon-mid`** (§6b: below the step they are the seed). `kMoverFrac = 3/9` puts the bar at `3/9 × 24 = 8`, so eight movers must come out of **twelve live levers**, not twenty-four. E10 wrote the ratio so a LONGER file could not buy a pass; the unforeseen direction is that padding a file with identity levers RAISES the bar for reasons that have nothing to do with the genome. **Not fixed here on purpose** — a denominator retuned in the round whose verdict it would change is what E10 forbids. The honest reading of every S2 number in this file is "movers of the LIVE levers", and that count is not printed today | `E16` |
 | **E-25** | **X1 is nearly empty on a three-cell arena, and a champion can pass it while being net negative on 154 independent cells.** [MESS, `E13`] the published shift survives X1 (better on 3 of 3 arena geometries, the two it rests on flipping 0 of 8) and then scores **17 better against 38 worse** on the campaign breadth, with its own mechanism channel `flt_switch` falling on 6 cells and RISING on 9. X1 asks for *"≥ 2 of the arena's other informative geometries"*; with S5's minimum of three that is a two-sample test. **The fix is not to loosen or tighten X1 but to name the validation set**: selection on the arena, validation on the breadth, and a shift that does not transfer is reported as arena-specific rather than as doctrine. Not retrofitted into §5 here — a criterion rewritten in the round whose result it would change is not a criterion | `E13` |
 | **E-24** | **Thirteen cells are invisible to level M, and every one is inert.** [MESS, `E11`] 13 of 154 cells carry `M = 0` on all 24 levers and **not one has a single mover** — among them the breadth's largest symmetric engagement, `o1-10-mole-cricket` at eight against eight, `(16, 0)` on both sides. It is not a defect of the mission: its own header says no aircraft declares `objective survive`, and its reading rule names five channels — `campaign CARRY`, `site LAUNCH`, `net LOST`, the per-jet `eng_*` debrief, the campaign ATTRITION line — **none of which the fitness reads**. A rung whose product is an attrition arc cannot be seen by an outcome class of `(V, M)` and therefore can never be informative, whatever its size or opposition. **Not fixed here on purpose:** widening level M after measuring which cells it cannot see would select the instrument on the result | `E11` |
 | **E-23** | **The gate has been reading DEFECTS, and four independent repairs prove it.** [MESS, `E10`] `E-15`'s FLCS damper took `xmerge`/`xmergesplit` from 2 outcome classes at 50.0 % to **1 at 100 %**; X-1's judge took `w4-10-allied-force:f16` from **3 movers to 0**; the two together took the generated arena from **4 informative to 1** of 12; and D3a's `CanPressOn` took `w1-07-emcon:f16` from **5 movers to 0** while improving its baseline from `(3, 1)` to `(4, 2)`. `E-15` wrote the rule for one geometry — *"a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug"* — and it is now a property of the whole arena. **No escape hatch is proposed:** every one of the four made the simulator more correct, and the conclusion is about the INSTRUMENT — a criterion built on "does the outcome class move" measures a mixture of doctrine and defect, and in this tree the mixture has been mostly defect. What survives the repairs is the real signal, and today it is **one mover short of S2 on one cell of 154** | `E10`, `E-15`, X-1, `E-12` |
@@ -2584,6 +2786,15 @@ number and the file that owns the defect. **Nothing here was fixed** — this ro
 | **X-4** | **The cooperative datalink costs an F-16 on the rung whose subject is emission discipline — and NOT through the sort** | [MESS, `w1-07-emcon`, `--threads 1/2/4`, identical] `flt_src`/`flt_assign`/`sort_assign`/`eng_shots` are **0 in both** variants, so no assignment was ever made. With `dl=on` the wingman is killed at t = 338.2 and the run ends at 382 s; with `dl=off` both jets live to 600 s — `V = 3, M = 1` → **`V = 4, M = 2`**. The divergence chain is published and starts at t = 0.1: `dl_on`/`dl_xmt` → `dl_tracks`/`flt_mates`/`blk_datalink` (t = 30) → `rwr_brg` (t = 90) → trajectory (t = 150). The net is not audible (`DatalinkXmt` has no `FBEmitterSignature` and only `FBDatalinkSystem` reads it), so what moved is the FLIGHT GEOMETRY and not the picture. `net-off` improves 4 cells and worsens 10 | [`formation.md`](formation.md) — the station-keeping path, not F2's switch instability | passes X3; **what it is not is a sort finding**, and the numbers say so |
 
 | **X-5** | **The search bought a COIN, and neither the fitness nor the gate can see it.** [MESS, `E8`] the first evolution to run on a passing arena produced a champion whose advantage on `w1-09-lfe-four` is `C +395.6` against the yardstick baseline's `+270.4` at an identical `(V, M)`. That cell's outcome class flips on **8 of 8** spawn-longitude perturbations of ±3 m under a genome that sets one unrelated gene, and on 3 of 8 under the champion — §5's own noise floor is 2 of 8. `o3-10-october-six` flips on 3 of 8 in both. So on two of the three cells the fitness paid for a lottery, and it is `E5`'s *"a lucky trajectory dressed as a doctrine"* caught in the act rather than predicted. **The gate certified both cells**: they passed S1 and S2, and `w1-09-lfe-four` carried the most movers of the entire campaign breadth (8 of 21) — the contamination is largest exactly where the gate likes a cell most | the spawn, i.e. no channel at all: the class moves with the initial condition and nothing the pilot did | this file — S1/S2 measure sensitivity to DOCTRINE and cannot distinguish it from sensitivity to ANYTHING (`E-21`) | **FAILED by construction** — there is no chain to name, because the mover is the initial condition. §5's inverted burden applies and the champion was NOT published |
+
+**Round `E16`, on the three measuring rigs.** Three more, and the first of them is the largest single
+defect this instrument has surfaced: a four-ship that never fires.
+
+| # | What the search found | The channel it rides, with its number | Owner | X3 |
+|---|---|---|---|---|
+| **X-6** | **The emission gate LATCHES on a report nothing can refresh, and a flight that latches never fires a shot** | [MESS, `E16`, `sat-02` baseline, `pb1`] `EmconSilent_ = other && nearestM > radiateM` (`FBPilot.cpp:1523`). `fcr_on` is 1 until t = 57.4 s and **0 for the next 462.5 s** — 574 of 5 200 ticks, **11.0 %**. The latch closes one tick after the flight's own first detection (`fcr_contacts` 0 → 4 at t = 56.0), and at t = 57.5 `flt_src` falls to 0 and stays there: **the picture layer counts zero sources for 462 s while the emission gate keeps reading one.** The report's range, bracketed by the gene itself (silent at `f = 1.30` = 96.3 km, radiating at `f = 1.35` = 100.0 km, the same bracket on all three rigs), does not leave a 3.7 km window while the geometry closes **220 km**. Consequence: `fcr_lock` **0 of 5 200 ticks**, **0 of the run's 18 `sms LAUNCH_SOLUTION` lines are blue**, `eng_shots` = 0 on all six F-16, `kill unit` **0 of 8 met**. Six F-16 with 4 × AIM-120 each, master arm armed, `task intercept`, 520 s against eight MiG-29 — **and not one missile leaves the rail.** Break the latch through EITHER of two independent genes and the same thing happens: `f ≥ 1.35` ⇒ `fcr_on` 100 %, `fcr_lock` 464, **2 of 8** kills, M 8 → 10; `dl=off` ⇒ 100 %, 543, the same 2 kills, the same key | [`pilot.md`](pilot.md) / [`duels.md`](duels.md) D3c — `FBPilot`'s EMCON block and `FBFlightPicture` read the same `state.Datalink` and disagree about whether a picture exists. **Nothing in `sim/src/` was touched this round**; a fix is a round of its own, and it must not be argued from a better mission result (principle 1) | **PASSES as a chain** and is filed here anyway, because the chain explains a DEFECT. §5's verdict is mechanical: X4.2 failed on `sat-03`, so this is an exploit finding. Publishing "radiate more" as doctrine would freeze a latch into a tuning key — `E14` §7's reasoning, applied a second time |
+| **X-7** | **The first wreck to reach the ground sets the clock for everyone, and a cell's better half can be nothing else** | `FBMissionSim::Conclude` states it in its own comment: *"a K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective."* `ExpectedLoss` removes a loss from the VERDICT, never from the CLOCK — so a MiG that was named as somebody's `kill unit` still truncates the run when its wreck penetrates the ground. [MESS, `E16`] on `sat-03` **6 of 6 improving levers extend the run** (301.7 s → 520.0 s on five of them, +218.3 s) and X4.2 independently kills the same claim: the candidate goes (26, 24) → **(23, 22)** at `timeout × 1.5`. On `sat-01` the detector applied to the BASELINE gives (32, 23) → **(30, 22)** — the cell's own reference point is a function of the clock. `sat-02` holds on both. **A committed claim needs correcting**: `sat-02`'s header argues its immunity from *"the baseline run reaches its full 520 s timeout"* — true, and insufficient, because **10 of its 12 movers do not**, and it is the COMPARISON that carries the verdict. The rig is left untouched so this round's numbers stay reproducible; the correction is owed to the file | `missions/FBMissionSim.cpp` + the three `sat-*` headers | **FAILED** — an advantage against the clock has no chain to an opponent. Same class as `E15`'s refutation of `w3-09-saturation`, now measured on a rig built to be immune to it |
+| **X-8** | **A gene can act on every grid point and still carry no direction** | [MESS, `E16`, 3 × 10 runs] `pilot_flight_stack_frac` moves the outcome class on **9 of 9** non-seed grid points of `sat-02` while the 0.8 m spawn grid moves it on **0 of 8** — so it is not noise, it acts. Its SIGN along the ordered grid is − + + + · + − − − + : **four sign changes**, and the teeth do not agree across cells (`sat-01` better at {1.25, 1.5, 2.5}, `sat-03` the near-inverse in the lower half). The coarse three-allele file reported it as 2 : 1 and second-best of the round. **The screen this asks for costs 10 runs per candidate gene and did not exist**: a gene may only be published as a direction if its response is monotone over its own band on the cell the claim rests on | this file — §5's four instruments all test a POINT in genome space; none tests whether the gene's response is a function at all | **FAILED by construction** — there is no direction to name a chain for |
 
 **And the one lever that moves the campaign breadth is a briefed contract on an aircraft with no net.**
 `sort-near` improves the outcome class on **12 cells** and worsens it on 7; on `o5-01-cap:mig29` it

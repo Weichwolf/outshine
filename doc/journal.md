@@ -3577,3 +3577,82 @@ den Lauf blockiert, weil ein Modellierer parallel Netze nach `sim/assets/models/
 Dreiecksnetz ist keine Modellzahl — es erreicht weder JSBSim noch die Regelung, und `fb-gym` lädt es
 nicht (GPU-frei, 0 Dawn-Symbole). Das Tor bewacht jetzt `sim/missions`, `sim/assets/aircraft` und
 `MODEL-DELTAS.md`, also das, was ein Ergebnis ändern KANN.
+
+## 2026-08-03 — `E16`: keine Verschiebung, und der Grund ist Arithmetik — dafür eine Rotte, die 462 s blind ist
+
+**Das Ergebnis steht vor der ersten Messung fest, und ich hätte es vor dem Bauen der Rigs ausrechnen
+können.** §6 veröffentlicht eine Doktrinverschiebung als Vorzeichentest über GEPAARTE ZELLEN. Bei `n`
+Zellen ist das kleinste erreichbare einseitige p der einstimmige Fall `2^-n`:
+
+| n | 1 | 2 | **3** | 4 | **5** |
+|---|---:|---:|---:|---:|---:|
+| bestes p | 0,500 | 0,250 | **0,125** | 0,063 | **0,031** |
+
+Die Arena hat drei Zellen. **Kein Ergebnis auf ihr erreicht p ≤ 0,05** — nicht mit einem besseren Genom,
+nicht mit einer längeren Hebeldatei, nicht mit mehr Läufen. Und der Chaos-Schirm lässt genau eine der
+drei zu (`sat-02` 0 von 8; `sat-01` 1 von 8; `sat-03` 4 von 8), also ist das zulässige `n` **eins** und
+die Decke **p = 0,5**. Die Lücke zu einer veröffentlichbaren Verschiebung sind **vier weitere
+S7-saubere graduierbare Zellen** — `E-27`.
+
+**Der beste Kandidat, gemessen: 2 besser : 1 schlechter, p = 0,5.** `pilot_emcon_frac ≥ 1,35`. Nach X4.2
+bleibt 1 : 1. Über alle 31 bewegten Paare gewinnt das SAATGENOM: **9 besser gegen 22 schlechter.** Die
+Basis ist auf diesen Zellen ein lokales Optimum, und die Gegenprobe sagt es sauber — `bias-early` UND
+`bias-late` sind je 0 : 3, `shape-tight` und `shape-wide` je 1 : 2. Symmetrisch schlechter in beide
+Richtungen ist genau das Bild einer Achse, die auf ihrem Minimum sitzt. Für `pilot_attack_bias_s` ist
+das die unabhängige Bestätigung von `E15`s Korrektur an `E14`, auf Zellen, die `E14` nie gesehen hat.
+
+**Und jetzt der Befund, der mehr wiegt als die Doktrin.** Sechs F-16, je vier AIM-120, Master Arm scharf,
+`task intercept`, 520 s gegen acht MiG-29 — **und keine einzige Rakete verlässt die Schiene.** Die Kette,
+jedes Glied mit seiner Zahl aus einem veröffentlichten Kanal:
+
+```
+FBPilot.cpp:1523   EmconSilent_ = other && nearestM > radiateM      radiateM = 1,0 x 40 nm = 74,1 km
+t=56,0 s           fcr_contacts 0 -> 4      erste eigene Erfassung, ~104 km
+t=57,5 s           fcr_on -> 0, flt_src -> 0     und beide bleiben es 462,5 s lang
+                   -> fcr_on 574 von 5 200 Ticks = 11,0 %
+Meldungsentfernung, vom Gen selbst eingegabelt:
+                   f = 1,30 (96,3 km) still  |  f = 1,35 (100,0 km) strahlt    auf ALLEN DREI Rigs
+                   -> der gemeldete Punkt verlässt 462 s lang kein 3,7-km-Fenster,
+                      während die Geometrie 220 km schließt. Das ist keine Spur, das ist eine Zahl.
+fcr_lock           0 von 5 200 Ticks
+sms LAUNCH_SOLUTION 18 Zeilen im Lauf, 0 davon blau; eng_shots = 0 auf allen sechs
+mission OBJECTIVE  kill unit: 0 von 8 erfüllt
+```
+
+**Die Emissionssperre rastet ein.** Einen Tick nach der ersten eigenen Erfassung meldet ein Rottenflieger
+„engaged"; alle anderen rechnen `nearestM ≈ 98 km > 74,1 km` und schweigen. Schweigend erfassen sie
+nichts, also kann niemand die Meldung erneuern, also bleibt sie stehen, also schweigen sie weiter. Und
+die beiden Leser desselben Blocks widersprechen sich: **`flt_src` = 0 sagt „ich habe kein Bild", die
+Emissionssperre desselben Ticks sagt „jemand hat eins".** Zwei unabhängige Gene brechen die Rastung mit
+identischem Ergebnis — `f ≥ 1,35` und `dl=off` geben beide `fcr_on` 100 %, 2 von 8 Abschüssen, M 8 → 10.
+Es ist keine Taktik, es sind zwei Arten, eine 462 Sekunden alte Meldung nicht zu lesen. `X-6`.
+
+**Der Gegenspieler ist echt, und deshalb ist der Defekt gefährlich.** Auf `sat-01` holt sich die
+dauerstrahlende Rotte den Verbandsführer ab: `monitor KO unit=bl1 CFIT` bei t = 133,5 s, Lauf zu Ende,
+27 von 36 Zielen → 23. Ein Defekt, der auf einem echten Zielkonflikt sitzt, ist für einen Sweep
+unsichtbar, der nur das Vorzeichen liest.
+
+**Die Uhrprobe, die `E15` erzwungen hat, kippt zwei der drei Zellen.** `FBMissionSim::Conclude` sagt es
+selbst: *„a K.O. always ENDS the run but only DECIDES it when it was nobody's declared objective"* —
+`ExpectedLoss` nimmt einen Verlust aus dem URTEIL, nie aus der UHR. Auf `sat-03` verlängern **6 von 6
+verbessernden Hebeln** den Lauf (301,7 s → 520,0 s), und X4.2 sagt unabhängig dasselbe: (26, 24) →
+(23, 22) bei `timeout × 1,5`. Auf `sat-01` bewegt sich die BASIS selbst — (32, 23) → (30, 22) —, ihr
+Bezugspunkt ist also eine Funktion der Uhr. **Nur `sat-02` hält auf beiden Instrumenten.** Und damit
+korrigiere ich meine eigene Behauptung von gestern: `sat-02`s Kopf begründet seine Immunität damit, dass
+die BASIS die vollen 520 s fliegt — richtig und unzureichend, denn **10 ihrer 12 Beweger tun es nicht**,
+und das Urteil trägt der VERGLEICH. `X-7`.
+
+**Zwei Werkzeugbefunde, beide unangenehm.** (1) **Die Hälfte der Hebeldatei ist die Identität**: 12 von 24
+Hebeln sind in allen 28 Kanälen bitgleich zur Basis — auf allen drei Zellen. `cover-*` und `energy-*`
+waren bekannt; neu sind `emcon-tight`/`emcon-mid`, und zwar aus einem Grund, der das ganze Gen umdeutet:
+**`pilot_emcon_frac` ist keine Rampe, sondern eine dreiwertige STUFE** (immer still bei 0, Saatverhalten
+bei 0 < f ≤ 1,30, immer strahlend ab f ≥ 1,35). Die drei G5-Allele tasten also ein Phänotyp zweimal und
+den anderen einmal ab. S2s Latte `3/9 × 24 = 8` muss folglich aus **zwölf lebenden Hebeln** kommen —
+`E-26`. (2) **`pilot_flight_stack_frac` wirkt auf 9 von 9 Rasterpunkten und trägt trotzdem keine
+Richtung**: das Vorzeichen wechselt viermal entlang des Rasters, und die Zähne stimmen zwischen den
+Zellen nicht überein. Auf dem groben Dreiallel-Raster stand es als 2 : 1 und Zweitbester da. `X-8`.
+
+**Kosten:** 233 Läufe, ~45 min bei `--jobs 6`. `sim/src`, `sim/vendor`, `sim/assets/aircraft` und alle
+committeten Missionen unberührt; `tree_clean()` vor und nach jedem Sweep grün. Die 3-Zellen-Tabelle
+reproduziert `85c1a74` exakt (9/9/10 Klassen, 60,0/52,0/52,0 % modal, 10/12/12 Beweger) unter einem neu
+gelinkten Binary — der Hashwechsel ist kosmetisch, die Verweigerung der Resume-Indizes trotzdem richtig.
