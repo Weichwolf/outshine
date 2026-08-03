@@ -66,7 +66,7 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
      * telemetry columns — it belongs with the twin-engine change already listed in the module's gaps. */
     Radar_.SetRangeFactor(SystemDegraded(FBSystemId::Radar) ? kRadarRangeDegraded : 1.0);
     if (SystemWorking(FBSystemId::Radar)) Radar_.Run(SharedState, st, units, SimTimeS);
-    else SharedState.Radar.H.Invalidate();
+    else SharedState.Radar.SetAbsent();
     Irst_.Run(SharedState, st, units, SimTimeS);
     Visual_.Run(SharedState, st, units, SimTimeS);   /* the eyes, ungated: not a box this jet carries */
     AirData->Run(SharedState, st, dt);

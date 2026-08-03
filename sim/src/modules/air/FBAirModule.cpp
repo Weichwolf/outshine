@@ -292,7 +292,7 @@ void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     if (SystemWorking(FBSystemId::Radar) && Spec_.Radar.SearchRangeM > 0.0)
       Radar_.Run(State_, st, units, SimTimeS_);
     else
-      State_.Radar.H.Invalidate();
+      State_.Radar.SetAbsent();
     if (Spec_.IrstRangeM > 0.0) Irst_.Run(State_, st, units, SimTimeS_);
     Eye_.Run(State_, st, units, SimTimeS_);   /* ungated: an eye is not a box the aeroplane carries */
 

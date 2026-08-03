@@ -314,6 +314,7 @@ void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units
                         double simTimeS) {
   const FBRadarScanVolume &v = ActiveVolume();
   FBRadarBlock &b = state.Radar;
+  b.Powered = Powered_;
   b.Radiating = Powered_ && v.Active;
   b.ModeOrdinal = ModeOrdinal();
   b.IffTransponder = IffXpdr_;

@@ -138,8 +138,8 @@ void FBSiteModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegi
     Search_.Run(State_, st, units, SimTimeS_);
     Track_.Run(TrackBus_, st, units, SimTimeS_);
   } else {
-    State_.Radar.H.Invalidate();
-    TrackBus_.Radar.H.Invalidate();
+    State_.Radar.SetAbsent();
+    TrackBus_.Radar.SetAbsent();
   }
 
   Optics_.Run(State_, st, units, SimTimeS_);

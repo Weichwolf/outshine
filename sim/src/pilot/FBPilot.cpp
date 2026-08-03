@@ -954,20 +954,38 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
     avionics.PostAntennaEl(wantEl, TimeS_);
     return true;
   }
-  /* ...und, EINMAL, der Suchmodus: diese Phase wird in einem Modus geflogen, der alles findet und nichts
-   * lockt. Ordinal < 0 = das Modul hat keinen; das Geraet bleibt, wie die Mission es setzte. */
   /* EMCON zuerst, denn er kann in BEIDE Richtungen schalten, waehrend der Suchmodus darunter eine
    * einmalige Setzung ist. Ein Flugzeug ohne stillen Modus faellt hier ohne einen einzigen Befehl
-   * durch, also ist die Aenderung fuer es strukturell ein No-op. */
+   * durch, also ist die Aenderung fuer es strukturell ein No-op.
+   *
+   * JEDEN EMISSIONSZUSTAND, IN DEN ER SELBST GEHT, MUSS ER AUCH WIEDER VERLASSEN KOENNEN — und genau
+   * das ging nicht. Zwei Dinge standen im Weg, und beide sind hier behoben:
+   *
+   * (1) DER KNOPF GEHOERT ZUM GERAET, NICHT ZUM BILD. Gegen `H.Readable()` fragte diese Stelle die
+   *     ANZEIGE, und ein still geschaltetes Set hat keine: `FBRadarSystem::Run` invalidiert den Kopf,
+   *     sobald nichts mehr strahlt. Der einzige Weg zurueck ins Strahlen war damit durch genau den
+   *     Zustand gesperrt, den er aufheben soll (X-6: 4 626 von 5 200 Takten stumm, waehrend die
+   *     EMCON-Entscheidung selbst nur 10 Takte lang „still" sagte). Was ein Pilot braucht, um einen
+   *     Schalter zu fassen, ist der SCHALTERZUSTAND — `Powered` und `ModeOrdinal`, beide in jedem
+   *     `Run()` geschrieben, bevor ueber ein Bild entschieden wird (core/FBAvionicsBlocks.h).
+   * (2) ER NIMMT NUR SEINE EIGENE STILLE ZURUECK, nie die des Briefings. Ein `set fcr_mode off` ist
+   *     eine Entscheidung ueber ihm — dieselbe Rangordnung, die weiter unten `HaveOrderEmcon_` ueber
+   *     diese Zeilen stellt. Ohne `IntEmconSilenced_` haette dieser Zweig jedes gebrieft stille Set im
+   *     ersten Takt eines Abfangs aufgeschaltet. */
   int silentMode = SilentRadarModeOrdinal();
-  if (silentMode >= 0 && state.Radar.H.Readable()) {
-    int want = EmconSilent_ ? silentMode : SearchRadarModeOrdinal();
+  if (silentMode >= 0 && state.Radar.Powered) {
+    int want = EmconSilent_ ? silentMode : (IntEmconSilenced_ ? SearchRadarModeOrdinal() : -1);
     if (want >= 0 && state.Radar.ModeOrdinal != want) {
+      IntEmconSilenced_ = EmconSilent_;
       IntCmdMode_ = !EmconSilent_;   /* der Suchmodus gilt als gesetzt, sobald wir ihn selbst posten */
       post(FBCommandTarget::RadarMode, want);
       return true;
     }
   }
+  /* ...und, EINMAL, der Suchmodus: diese Phase wird in einem Modus geflogen, der alles findet und nichts
+   * lockt. Ordinal < 0 = das Modul hat keinen. Sie fragt weiter das BILD, und das ist Ausnahme (2) von
+   * der anderen Seite: korrigiert wird ein STRAHLENDER Modus, der nicht der Suchmodus ist; ein gebrieft
+   * stilles Geraet bleibt, wie die Mission es setzte. */
   int searchMode = SearchRadarModeOrdinal();
   if (!IntCmdMode_ && searchMode >= 0 && state.Radar.H.Readable() &&
       state.Radar.ModeOrdinal != searchMode) {

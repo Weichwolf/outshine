@@ -452,6 +452,9 @@ private:
   double IntLockSinceS_ = -1.0;     /* seit wann der aktuelle Single-Target-Track steht */
   double IntCmdElDeg_ = 0.0;        /* die vom Piloten angeforderte Antennenhoehe */
   bool   IntCmdMode_ = false;
+  /* DIESER PILOT hat das Set still geschaltet — und nur dann darf er es auch wieder aufschalten. Ein
+   * gebrieft stilles Set gehoert dem Briefing, nicht ihm (doc/pilot.md, Abschnitt 7.6b). */
+  bool   IntEmconSilenced_ = false;
   int    IntSeenReleases_ = 0;      /* der Abwurfzaehler des Stores-Blocks, um einen Start zu bemerken */
   int    IntSeenChaff_ = 0;
   double IntThreatLastS_ = -1e9;    /* letzter Tick, in dem eine Warnung eine Antwort verlangte */

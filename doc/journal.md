@@ -3656,3 +3656,68 @@ Zellen nicht überein. Auf dem groben Dreiallel-Raster stand es als 2 : 1 und Zw
 committeten Missionen unberührt; `tree_clean()` vor und nach jedem Sweep grün. Die 3-Zellen-Tabelle
 reproduziert `85c1a74` exakt (9/9/10 Klassen, 60,0/52,0/52,0 % modal, 10/12/12 Beweger) unter einem neu
 gelinkten Binary — der Hashwechsel ist kosmetisch, die Verweigerung der Resume-Indizes trotzdem richtig.
+
+---
+
+## 2026-08-03 — `X-6` repariert, und der benannte Mechanismus war der falsche: der Knopf gehörte dem Bild
+
+**Die Vorgabe war eine Sperre in der Emissionsregel — gemessen ist sie es nicht.** `X-6` las die Rastung
+als `EmconSilent_ = other && nearestM > radiateM` auf einer Meldung, die niemand auffrischen kann. Eine
+Sonde auf genau diesem Ausdruck, jeden Entscheidungstakt geloggt, auf demselben Rig und demselben
+Binary, sagt etwas anderes:
+
+```
+sat-02, je F-16:   EmconSilent_ TRUE   10 von 5 200 Takten (0,19 %) — t = 57,0 … 57,9 s
+                   Radar AUS         4 626 von 5 200 Takten (89,0 %) — ab t = 57,5 s bis zum Ende
+                   die Meldung des Rottenfliegers verfällt bei t = 58,0, einen Netzzyklus später
+```
+
+**Das Tor öffnet 0,9 s nachdem es geschlossen hat, und das Radar bleibt trotzdem 462 s aus.** Die Meldung
+altert korrekt; eine Alterungsschwelle wäre eine Antwort auf eine Frage, die niemand hat. Die Rastung
+liegt eine Ebene tiefer, in der HAND: `InterceptCockpit` prüfte vor beiden `RadarMode`-Posts
+`state.Radar.H.Readable()` — den Kopf des BILDES —, und `FBRadarSystem::Run` invalidiert genau den,
+sobald nichts mehr strahlt. Der einzige Weg zurück ins Strahlen war durch den Zustand gesperrt, den er
+aufheben soll. Auch der zweite Widerspruch löst sich auf: `flt_src` = 0 ist kein Widerspruch, sondern
+`FBFlightPicture::Assign` ohne EIGENE Echos, gegen die es den gemeldeten Punkt korrelieren könnte. Beide
+Schichten lesen denselben Block und sind sich einig; sie beantworten verschiedene Fragen.
+
+**Repariert als Invariante, nicht als Wächtertausch: _jeden Emissionszustand, in den der Pilot selbst
+geht, muss er auch verlassen können._** `FBRadarBlock` bekommt das `Powered`-Rückmeldebit, das seine
+zwei nächsten Geschwister (`Rwr`, `Datalink`) längst tragen, plus `SetAbsent()` für den Modulzweig ohne
+Gerät; der EMCON-Post fragt die Rückmeldung statt das Bild; `IntEmconSilenced_` lässt ihn nur SEINE
+EIGENE Stille zurücknehmen. Der zweite Teil ist gemessen erkauft: ein erster Schnitt ohne ihn schaltete
+vier Missionen auf, deren ganze Prämisse ein gebrieft stilles Radar ist (`bvr-defend`,
+`bvr-defend-blind`, `damage-amraam`, `o5-04-no-radar`). Ein `set fcr_mode off` ist eine Entscheidung
+über dem Piloten — dieselbe Rangordnung, die `HaveOrderEmcon_` über seine eigene Regel stellt.
+
+**Bodenwahrheit, `sat-02`, vorher → nachher:** `fcr_on` 11,0 % → 87,3 %; `fcr_lock` 0 → 18 Takte; blaue
+`sms LAUNCH_SOLUTION` 0 von 18 → 4 von 12; `eng_shots` 0 → 1 je Sweep-Mitglied; benannte
+`kill unit`-Bits **0 von 8 → 2 von 8**; `(V, M)` **(14, 8) → (14, 10)**. Und die Doktrin LÄUFT jetzt,
+statt nur nicht mehr zu rasten: pb1 schweigt 1,0 s, strahlt 7,7 s, schweigt 30,6 s, strahlt bis zum
+Ende. Dass 2 von 8 derselbe Schlüssel ist, den `f ≥ 1,35` und `dl=off` erreichen, ist Bestätigung und
+NICHT das Argument (Prinzip 1) — das Argument ist der Wächter.
+
+**Regression über alle 287 Missionen: 246 bitgleich, 41 bewegt, 2 Exit-Codes.** Die 41 sind EINE Klasse
+und der Test ist exakt: eine Mission bewegt sich **genau dann**, wenn eine F-16 mit `task intercept` und
+nicht gebrieft stillem Radar zusammen mit einem zweiten Datalink-Terminal fliegt — die Bedingung, unter
+der `EmconSilent_` überhaupt wahr werden kann. 72 Missionen erfüllen sie, 31 davon lösen die Geometrie
+nie aus, **0 außerhalb der Klasse bewegen sich**. Alle 41 gewinnen `RadarMode`-Verkehr (Basis: exakt zwei
+Zeilen je verstummender Jet, der Einbahn-`Off`; danach die Rundwege). Die zwei Exit-Codes sind je ein
+sterbendes rotes Flugzeug, und beide Dateien sagen in ihrem eigenen Kopf, dass der Exit-Code nicht ihr
+Urteil ist: `o3-10-october-six` 3 → 2 (`yxh` wird bei t = 385,9 kampfunfähig geschossen und erreicht bei
+t = 402,4 den Boden — die Datei nennt genau diese Form vorab als ihre Standalone-Gestalt),
+`ar-01-headon-noon` 3 → 1 (`ar01hi4` abgeschossen; `(V, M)` blau (20, 12) unverändert, rot (34, 8) →
+(33, 7)).
+
+**Zwei Messungen anderer Runden sind damit Messungen des Defekts und stehen zur Neuaufnahme.**
+[`formation.md`](formation.md) F2 schrieb einen Sortier-Churn-Rückgang von 65–94 % einer Taktik zu — ein
+ausgeschaltetes Radar baut keine Kontaktliste, die flattern könnte: neu gemessen steigt `flt_switch`
+wieder um 17–188 % und `flt_dup` verlässt die Null auf allen fünf Missionen. [`duels.md`](duels.md) D3c
+nahm seine Abnahmezahlen („20 von 251 Missionen bewegt", `emcon_frac = 3,0` reproduziert die Vorrunde)
+auf einem Baum, in dem Stille eine Einbahnstraße war. Und `E16` §6(b) hat `pilot_emcon_frac` als
+dreiwertige STUFE vermessen — gegen eine Saat, deren Radar gerastet aus war.
+
+**Tore:** `gym`/`native`/`wasm` bauen · `verify-layers` (6 Registry-Leser, unverändert), `verify-guards`
+8/8, `verify-models` grün · zehn Harnesses rc = 0 · Determinismus `--threads 1/2/4` bitgleich in
+Telemetrie und Ereignislog (nur `wallS`/`speedup` bewegen sich) · `vendor/` und `assets/aircraft/`
+unberührt.

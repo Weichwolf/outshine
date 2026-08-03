@@ -76,6 +76,7 @@ refinement is the running work.
 | **`Phase::Bfm` can employ the round on the rail** (§5.11) — five instrument gates, one module hook (`BfmWvrCueDeg`, the MiG's Shchel-3UM 60° against the F-16's default "the round's own gimbal"), no new arithmetic and nothing held after the launch. `duel-merge` **exit 3 → 0**: the viper's AIM-9 arrives 1.93 m out, 218,781 J/m² → flight controls fail → `damage KILL` at t = 10.5 s. `missions/duel-merge-stern.fbm` is the mirror proof — the MiG's R-73 arrives 1.86 m out at 590 m/s of closure and kills the F-16 at t = 21.3 s | built | this round, [`duels.md`](duels.md) D6 |
 | **A fuel state became a decision, and the branch that was blocking it was blocking the defence hold too** (§7.4a). Two changes in one chain: `Defend` now owns the state while its 12 s hold runs (before, the general branch took it away one tick after the threat symbol went out, so the hold never elapsed and `CanPressOn` behind it was unreachable code), and BINGO is asked at the head of the general chain — below survival and below an unfinished missile support, above everything that is a statement about the picture. **[MESS, `bingo-abort` vs `bingo-press`, one declaration apart]** `eng_state` search → **abort at t = 4.1 s** against search → closing → attack → support → kill at t = 172.8 s; heading 90° → 263.5°, the jet ends 65 km west of its spawn. **[MESS, `w3-06-bingo`, the file the finding was made on]** both escorts abort at t = 4.1 s and the four missile launches of the old run are gone. Blast radius over 238 stock missions: **42 move, 2 change their verdict**, and the whole list with per-mission attribution is §7.4b | 2026-07-30 |
 | **What he is looking at is now visible, and it is a command** (§7.6a). `SelectCockpitPage` runs once per decision tick under the same "cockpit work only in flight" gate as the briefed entries, on its OWN spacing timer — a page button at the screen's edge may not take the hand away from a chaff throw, a designation or a shot, and that separation is what the regression measures. **[MESS, `mig29-intercept`]** the MiG spawns `n019_emission off`, so there is no FCR page and he takes RWR at t = 0.0; the emission acks at **t = 27.9**, the FCR page comes into existence and he posts `mfd_page 0` in that same tick (ack t = 28.4). **[MESS, `payerne-full`]** three selects in 734 s: SYS at 0.0, HSD at 16.0 (the Nav block came up), SYS at 663.2 (ALOW went active on the approach) | this round, [`modules/f16/cockpit-displays.md`](modules/f16/cockpit-displays.md) |
+| **EMCON became reversible: the FCR knob is asked of the SET, not of the PICTURE** (§7.6b). `InterceptCockpit` guarded both `RadarMode` posts with `Radar.H.Readable()`, which `FBRadarSystem` clears the moment nothing radiates — so the one branch that could end a silent spell was disabled by the silence. `FBRadarBlock` gains the `Powered` readback its siblings already carry (+ `SetAbsent()` for the module's no-set branch), and the two posts plus `BfmSelectRadarMode` read it. **[MESS, `sat-02-picture-split`]** `EmconSilent_` was true for **10 of 5,200 ticks** while the radar was off for **4,626** — the gate was never the latch. Before → after: `fcr_on` **11.0 % → 87.3 %**, `fcr_lock` **0 → 18**, blue `sms LAUNCH_SOLUTION` **0 of 18 → 4 of 12**, `eng_shots` **0 → 1** per sweep member, named `kill unit` bits **0 of 8 → 2 of 8**, and the jet now flies real EMCON spells (1.0 s and 30.6 s) instead of one-way silence | 2026-08-03, [`doctrine-evolution.md`](doctrine-evolution.md) `X-6` |
 | **Every angle this pilot hands to an antenna carries its FRAME in its TYPE** (`core/FBBodyAngle`). The elevation the intercept law commands is built by `FromWorldElevation(worldEl, st.pitch)` where the search band is a world altitude and by `Measured(...)` where it is a contact's own return angle, and `FBCommandBus::PostAntennaAz/El` accept nothing else. It closed §Gaps 2.15 and its two siblings at once, and `verify-layers` now counts the posters (**1**) the way it counts the registry readers | 2026-07-29 |
 
 
@@ -102,6 +103,7 @@ refinement is the running work.
 | 2.16 | **THE THREE EMPLOYMENT GATES ARE OPEN FOR THE CATALOGUE AIRCRAFT SINCE 2026-07-29, AND WHAT REMAINS SHUT IS NAMED.** All three of this file's weapon gates read `FBState::FireControl` — `InterceptCommands`' `inParams` (`fc.DlzValid && fc.InZone`), `BfmMissileShot` (the same plus a radar lock) and `BfmGunfire` (`fc.GunTolDeg`, `fc.GunInFunnel`) — and until that date NOTHING in `modules/air/` wrote that block, so every one of the eighteen catalogue rows was a flying statue ([`modules/air/module.md`](modules/air/module.md) A13). `modules/air/FBAirFireControl` now writes it for the ten armed rows and **the gates in this file did not move by one line**. Two consequences land HERE and are this file's own: (a) `BfmMissileShot`'s `state.Radar.LockIndex >= 0` requirement means a row with **no radar at all** can never launch even a fire-and-forget IR round, which is four catalogue rows (A14); (b) with a measured roll plant a `mig21` fires its cannon through §5.8's discipline and hits (four `gun HIT`, `damage SYSTEM structure degraded`) and then **cannot re-attack**: it takes 76 s to close 3.0 → 0.9 nm on a 240 kt target, overshoots, and descends into the ground from 5 000 m with `BfmFloorFt` failing to hold it (`CRASH` at t = 147.9 s, impact 424 m). That is §5's law on a GENERATED deck rather than on a measured one, it is booked as A15, and it is the reason no campaign may score a catalogue gun engagement | [`modules/air/module.md`](modules/air/module.md) §Spec 12 |
 | 2.17 | **A fuel-driven RTB does not exist — the minimum-fuel decision is a break-off inside the engagement machine and nothing more** (§7.4a). `Abort` turns the jet cold; it does not send it home. A jet in `Phase::Route` at BINGO flies its briefed route to the end regardless, so W2's eight missions without air opposition — the campaign whose whole subject is fuel — have no fuel decision at all. The mechanism is small and the reason it is not built is not: the pilot receives the flight plan `const`, so an RTB is a `SteerpointNum` command that would have to move `FBFlightPlan`'s active index, and `core/FBMissionMonitor` reads that same plan for `objective waypoints`. A pilot who skips to the landing fix therefore FAILS a mission that never declared he might, which makes this a change to the VERDICT and not only to the pilot — and it needs an `.fbm` way to say "RTB is an acceptable ending" before it may be built. | this round |
 | 2.18 | **Nobody drops an empty tank on their own** — the jettison moment is briefed, not decided ([`modules/stores.md`](modules/stores.md) §Gaps). Measured cost of not deciding it: **184.7 km of range, 4.8 %** (`tank-jettison.fbm` against `tank-radius-tanks.fbm`), and 7.1 % of the fuel per kilometre for as long as the empty tanks hang there. The instrument exists (the SMS knows its plumbed tank's contents); the decision does not. | this round |
+| 2.19 | **THE SAME CONFLATION IS STILL OPEN ON THE DISPLAY SIDE, and it is left open deliberately.** §7.6b removed "picture head = box present" from the one place it was a LATCH; two display readers still make the substitution. `systems/FBMfdSystem::PageAvailable` returns `s.Radar.H.Readable()` for `FBMfdPage::Fcr`, so a jet in EMCON loses the FCR page from its bank entirely and `SelectCockpitPage` falls through to RWR — a real FCR page exists with the set in OFF and shows OFF. `systems/FBDisplaySystem` writes `NoData("FCR")` on the same test. Both are now expressible against `Radar.Powered` ([`core.md`](core.md) §1.1a) and neither is fixed here, because "what does a scope show for a set that is on but quiet" is a DISPLAY decision whose acceptance is a rendered frame, not a telemetry column. Cost of leaving it: an EMCON pilot's attention rank silently skips its own rank-3 first choice. | 2026-08-03, §7.6b |
 | 2.5 | AoA band 11–13° instead of a flat 11° on approach (ED-documented, `doc/modules/f16/procedures-landing.md`); porpoise after touchdown; `ApproachSpeed` should be weight-scheduled instead of fixed. | measurement |
 
 ### Rejected approaches (do not retry without a new argument)
@@ -1638,6 +1640,122 @@ fixed priority order:
    (`modules/f16/FBF16Fcr`), so 2° lie well inside the beam.
 5. **Search mode**, ONCE (`RadarMode`, `SearchRadarModeOrdinal()`). Ordinal < 0 = "this module has no
    non-locking search mode of its own, the device stays as the mission set it".
+
+#### 7.6b The knob belongs to the SET, not to the picture — and asking the wrong one made EMCON one-way
+
+**The defect.** Both mode branches of `InterceptCockpit` were guarded by `state.Radar.H.Readable()`.
+That head is the PICTURE's, and `FBRadarSystem::Run` invalidates it the moment nothing radiates
+(*"a set that is not radiating has no picture — not an empty one. Invalid, so that 'found nothing'
+cannot be confused with 'did not look'"*). So the ONE state the branch exists to leave — silent —
+was also the state in which the branch could not run. Going quiet was a one-way door, and the door was
+not the EMCON rule but the hand that reaches for the knob.
+
+**How the mechanism was separated from the one the finding named.** `X-6` read the latch as the gate
+expression `EmconSilent_ = other && nearestM > radiateM` on a datalink report that nothing could
+refresh. A probe on that expression, logged every decision tick, says otherwise
+[MESS, `sat-02-picture-split`, `--threads 1 --elev const`, all four sweep members]:
+
+| Quantity, per F-16 | Value |
+|---|---|
+| ticks with `EmconSilent_` **true** | **10 of 5,200 (0.19 %)** — t = 57.0 … 57.9 s and nowhere else |
+| ticks with the radar **off** (`fcr_on = 0`) | **4,626 of 5,200 (89.0 %)** — t = 57.5 s to the end |
+| the mate's report the gate stood on (`Engaging`) | present t = 57.0…57.9, **gone at t = 58.0**, one net cycle later |
+
+The gate opened again 0.9 s after it closed, exactly as written, and the radar stayed off for the next
+462 s. **The report ages correctly and needs no age threshold of its own**; the reported point never
+became the frozen thing the finding describes, because it was read exactly ten times.
+
+**The second half of the finding dissolves the same way.** `flt_src = 0` for the same 462 s is not a
+contradiction with the emission gate: `FBFlightPicture::Assign` returns `None` whenever
+`!Radar.H.Readable() || ContactCount == 0`, because a sort correlates a mate's reported POINT against
+THIS jet's own echoes and a silent jet has none. The two layers read the same `state.Datalink` and agree
+completely; they answer different questions — "does anybody hold a picture" and "can I match his point
+to one of my returns".
+
+**The repair, and the invariant it encodes.** *Every emission state the pilot ENTERS, he must be able to
+LEAVE.* Two things stood in the way of that and both are in this one branch:
+
+1. **The knob belongs to the set, not to the picture.** To move an FCR mode a pilot needs: that the
+   airframe has such a mode (the module's ordinal hooks — already asked), that there is a set to move
+   (new: `Radar.Powered`, [`core.md`](core.md) §1.1a), and where the knob stands now
+   (`Radar.ModeOrdinal`, written on every `Run()` before the picture is decided). None of the three is a
+   picture, so none may be gated on one.
+2. **He takes back his OWN silence and never the brief's** (`IntEmconSilenced_`). A `set fcr_mode off`
+   is a decision above him — the same ranking that puts `HaveOrderEmcon_` above these lines twenty
+   lines further down. Without it the branch's `else` arm ("not silent ⇒ be in the search mode") would
+   power up every briefed-quiet set in the first tick of an intercept.
+
+**The one-shot search-mode assertion below it keeps `H.Readable()`, and that is point 2 from the other
+side:** it corrects a RADIATING mode that is not the search mode, and a briefed-quiet set stays as the
+mission set it. `BfmSelectRadarMode` keeps it for the same reason — it selects a scan volume on a
+producing set, it never enters an emission state, so it has nothing to undo.
+
+**Measured cost of getting point 2 wrong**, and it is why it is stated as an invariant rather than as a
+guard swap: the first cut applied point 1 to both branches and moved four missions whose whole premise
+is a briefed-off radar — `bvr-defend`, `bvr-defend-blind` (*"the DEFENDER is `set task intercept` with
+NO weapons and its RADAR OFF"*), `damage-amraam` (*"it never looks and never warns anyone"*) and
+`o5-04-no-radar`. With the invariant they are byte-identical again and `sat-02`'s numbers below do not
+move by one bit.
+
+**The pilot does not see more than before.** `Powered` and `ModeOrdinal` are his own aircraft's switch
+state, published by his own radar system into his own bus. No registry reader was added
+(`make -C sim verify-layers`: **6**, unchanged), no contact gained an identity.
+
+**Measured, `sat-02-picture-split`, before → after** (ground truth, not the pilot's own opinion of it):
+
+| | before | after |
+|---|---|---|
+| `fcr_on`, `pb1` | 574 / 5,200 = **11.0 %** | 2,170 / 2,486 = **87.3 %** |
+| `fcr_lock` ticks, `pb1` | **0** | **18** |
+| blue `sms LAUNCH_SOLUTION` lines | **0** of 18 | **4** of 12 |
+| `eng_shots` per sweep member | 0 / 0 / 0 / 0 | 1 / 1 / 1 / 1 |
+| named `kill unit <MiG>` bits met | **0 of 8** | **2 of 8** (`pb3`→`pmia2`, `pb4`→`pmib2`) |
+| radar on/off spells, `pb1` | 1 (on 57.5 s, then off forever) | 4 — on 57.4 s, **off 1.0 s**, on 7.7 s, **off 30.6 s**, on to the end |
+
+The last row is the one that says the doctrine now RUNS rather than merely stops latching: the jet is
+quiet while a mate's reported point sits beyond its own radiate gate and comes back up when it does not.
+The 2-of-8 result is the same outcome key the two independent genes that bypass the latch reached
+(`pilot_emcon_frac ≥ 1.35`, `dl=off` — both **2 of 8**, `doctrine-evolution.md` `X-6`), reached here from
+the structure instead of from a tuning value. **It is corroboration, not the argument** (principle 1).
+
+**The run now ENDS EARLY, and that is a cost this rig pays.** The baseline flew the full 520 s, which
+`sat-02`'s own header cites as the reason no verdict there is a function of the truncation instant. With
+the radar working, a MiG-29 flies into the ground at t = 248.6 s (`monitor KO … CFIT`) and the run stops
+there. The rig keeps its S7 chaos immunity claim only for the baseline it was measured on;
+re-measuring it is `doctrine-evolution.md`'s work, not this file's.
+
+#### 7.6c What the guard moved, mission by mission
+
+Two `tools/fb_regress.sh` snapshots over all **287** stock missions, `--threads 1`, one binary each.
+
+| | |
+|---|---|
+| byte-identical | **246** |
+| moved (telemetry and `events.log` both) | **41** |
+| exit code changed | **2** |
+
+**The 41 are one class and the membership test is exact.** A mission moves **iff** it contains an F-16
+running `set task intercept` whose radar is not briefed off, together with at least a second datalink
+terminal — which is precisely the condition under which `EmconSilent_` can ever become true. There are
+**72** such missions; the other 31 never trip the geometry (nobody's reported point lies beyond the
+radiate gate while a mate is engaging), and **0** missions outside the class move.
+
+**Every one of the 41 gains `RadarMode` traffic**, which is the mechanism read directly off the log: in
+the baseline the count is exactly two log lines per silencing jet (the ISSUE and the ACK of the one-way
+`Off`); afterwards it is the round trips. Examples: `o1-01-controlled` 4 → 36, `sat-02-picture-split`
+8 → 28, `w1-04-bvr-pair` 4 → 32, `ar-22-headon-three-two` 16 → 87.
+
+**The two exit codes, individually.** Both files' own binding reading rules state that the exit code is
+not their verdict, and both moves are a Red aircraft dying:
+
+| Mission | Exit | Why |
+|---|---|---|
+| `o3-10-october-six` | 3 → 2 | `yxh` (MiG-29, hostile) takes a hit at t = 385.9 (`damage KILL … combat ineffective`, RWR + CMS + engine 2 failed), flies on wrecked for 16.5 s and reaches the ground at t = 402.4 — `monitor KO … ATTITUDE_CONTACT`. The file's own header names this shape in advance: *"STANDALONE the same file gives exit 2 = CRASH, because the aircraft that falls there reaches the ground first."* Blue launches 15 → 14; the difference is that one of them arrives |
+| `ar-01-headon-noon` | 3 → 1 | `ar01hi4` (MiG-29, hostile) is shot down at t = 417.3 and loses its `survive` objective, so a `FAIL` now exists in a run that previously had none. Blue launches 21 → 25, Red aircraft killed 0 → 1. The rung's `(V, M)` — its own binding measurement — is **Blue (20, 12) unchanged, Red (34, 8) → (33, 7)** |
+
+**The three saturation rigs, on their own `(V, M)` instrument:** `sat-02` **(14, 8) → (14, 10)**,
+`sat-01` **(32, 23) → (30, 23)**, `sat-03` **(24, 20) → (26, 21)**. `sat-02`'s pair is exactly the one
+`X-6` measured for both of its bypass genes.
 
 ---
 

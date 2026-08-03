@@ -238,6 +238,37 @@ answerable question.
 | `Readable()` | `Status != Invalid` — the usual question: may I read the numbers at all? `Valid` AND `Held` say yes |
 | `AgeS(nowS)` | `nowS - StampS` |
 
+#### 1.1a What the head does NOT answer: **is there a BOX**
+
+A head is a statement about a **product** — "is there a picture". It is not a statement about the
+**equipment**, and the two come apart in exactly one place: a box that is powered, healthy and
+deliberately producing nothing. A silent radar is the case that matters, because the silence is a
+DECISION and every decision has to be reversible.
+
+Each of those blocks therefore carries a small set of fields that are the box's own switch state rather
+than its output, written by the system on every `Run()` **before** it decides whether a product exists:
+
+| Block | Control readback (valid whenever the readback's own presence bit is set) | Product (valid under `H`) |
+|---|---|---|
+| `Radar` | `Powered`, `Radiating`, `ModeOrdinal`, `IffTransponder`, `ScanAzHalfDeg` | `ContactCount`, `LockIndex`, `Contacts[]` |
+| `Rwr` | `Powered` | threats |
+| `Datalink` / `NetLink` | `Powered`, `Transmitting` | tracks |
+| `Irst` | `Powered`, `Searching`, `ModeOrdinal`, `LaserArmed` | contacts |
+| `Cmds` | `Mode`, program, quantities | `Dispensing`, `ActiveClouds` |
+
+**The rule, and it is a rule because breaking it cost a whole tournament round.** A consumer that wants
+to KNOW something asks `H`. A consumer that wants to CHANGE something — a hand on a knob — asks the
+readback. `pilot/FBPilot` asked `Radar.H.Readable()` before commanding an FCR mode, so the one
+transition that empties the head (going silent) also removed the only path back out of it: the F-16 in
+`sat-02-picture-split` switched its radar off once at t = 57.5 s and stayed off for the remaining 462 s,
+while its own EMCON decision said "silent" for 10 of 5,200 ticks. `Radar` had no `Powered` bit to ask —
+its two nearest siblings did — and that absence is what made the substitution look reasonable.
+[`pilot.md`](pilot.md) §7.6b, [`doctrine-evolution.md`](doctrine-evolution.md) `X-6`.
+
+`FBRadarBlock::SetAbsent()` exists for the other half of the same distinction: the module branch that
+does not reach `FBRadarSystem::Run` at all (the set is shot away) must clear the readback as well as the
+head, or a dead box goes on advertising the switch position it died in.
+
 #### 1.2 The blocks and their writers
 
 `FBState` carries **17** blocks today. Order = declaration order in `FBState.h`.
@@ -256,7 +287,7 @@ answerable question.
 | `FBGunBlock Gun` | `weapons/FBGunSystem` (F-16: `modules/f16/FBF16Gun`) | `FBArmState Arm`, `Kind` (FBGunKind ordinal, 0 = no gun), rounds remaining, rounds fired, `Firing`, `Ready` |
 | `FBAirframeBlock Airframe` | `systems/FBAirframeControls` (via the module that owns the FDM handle) | `GearPosition` 0..1 kinematically delayed, `WeightOnWheels`, `SpeedbrakeNorm`, `FuelLbs`/`FuelPct`, `EngineRunning` |
 | `FBWarningBlock Warnings` | `systems/FBWarningSystem` | `Active` and `Inhibited` bitmask |
-| `FBRadarBlock Radar` | `sensors/FBRadarSystem` | `Radiating`, `ModeOrdinal` (a module-owned label, no logic), contact count, `LockIndex` (−1 = no lock), `IffTransponder`, `FBRadarContact Contacts[8]` |
+| `FBRadarBlock Radar` | `sensors/FBRadarSystem`; the module's own no-set branch calls `SetAbsent()` (§1.1a) | `Powered`, `Radiating`, `ModeOrdinal` (a module-owned label, no logic), contact count, `LockIndex` (−1 = no lock), `IffTransponder`, `FBRadarContact Contacts[8]` |
 | `FBRwrBlock Rwr` | `sensors/FBRwrSystem` | `Powered`, threat count, `PriorityIndex` (−1 = none), `MissileLaunch`, `Activity`, `HiddenSearch`, `FBRwrThreat Threats[8]` |
 | `FBCmdsBlock Cmds` | `sensors/FBCountermeasureSystem` | `FBCmdsMode`, `FBCmdsStatus`, selected program, chaff/flare remaining, `ChaffLow`/`FlareLow` ("LO" lamp), `Dispensing`, counts expended, `ActiveClouds` |
 | `FBDatalinkBlock Datalink` | `sensors/FBDatalinkSystem` | `Powered`, `Transmitting`, track count, `FBDatalinkTrack Tracks[8]` |

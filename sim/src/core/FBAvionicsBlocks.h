@@ -218,9 +218,21 @@ struct FBWarningBlock {
 };
 
 /* ---- Radar (FCR): the ACTIVE sensor picture. WRITER: systems/FBRadarSystem.
- * Held is the steady state, not an exception: between antenna frames only the contact age moves. */
+ * Held is the steady state, not an exception: between antenna frames only the contact age moves.
+ *
+ * TWO KINDS OF FIELD UNDER ONE HEAD, and the split is load-bearing. `H` answers "is there a PICTURE",
+ * and a set that is deliberately quiet has none — Invalid, so that "found nothing" cannot be read as
+ * "did not look". But `Powered`/`Radiating`/`ModeOrdinal`/`IffTransponder`/`ScanAzHalfDeg` are the
+ * SET's own switch state, not its product: FBRadarSystem writes them on every Run() before it decides
+ * whether a picture exists, so they are current whenever `Powered` is true. A reader who wants to know
+ * what the box IS DOING reads them under `Powered`; a reader who wants an echo reads under `H`.
+ * Confusing the two makes going quiet irreversible — the branch that would switch the set back on is
+ * then guarded by the picture the silence removed (doc/pilot.md 7.6b, doc/core.md 1.1a). */
 struct FBRadarBlock {
   FBBlockHeader H;
+  /* THE SET ITSELF, like FBRwrBlock::Powered and FBDatalinkBlock::Powered: false = no box answering
+   * here (unpowered or shot away), and then every control field below is stale. */
+  bool Powered = false;
   bool Radiating = false;      /* powered AND the active mode radiates */
   int  ModeOrdinal = 0;        /* the module's own mode label, not logic */
   int  ContactCount = 0;
@@ -230,6 +242,16 @@ struct FBRadarBlock {
    * azimuth scale, and every contact then sits at the wrong place on it. */
   float ScanAzHalfDeg = 60.0f;
   FBRadarContact Contacts[kMaxRadarContacts]{};
+
+  /* NO SET THIS TICK — the module's own branch when FBRadarSystem::Run is not reached at all. It is a
+   * method rather than three copies of two lines because forgetting the first of them leaves a dead
+   * box advertising the switch position it had when it died. */
+  void SetAbsent() {
+    Powered = Radiating = false;
+    ContactCount = 0;
+    LockIndex = -1;
+    H.Invalidate();
+  }
 };
 
 /* ---- Datalink: the cooperative net picture. WRITER: systems/FBDatalinkSystem.

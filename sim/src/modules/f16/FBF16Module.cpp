@@ -90,7 +90,7 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
      * Voreinstellung zu erfinden hiesse, den Luft-B-Scope unerreichbar zu machen. */
     Fcr_->SetGroundMapping(Fcr_->Mode() == FBF16FcrMode::Gm || Mode == FBMasterMode::AirToGround);
     if (SystemWorking(FBSystemId::Radar)) Fcr_->Run(SharedState, st, units, SimTimeS);
-    else SharedState.Radar.H.Invalidate();
+    else SharedState.Radar.SetAbsent();
     /* THE EYES, on the sensor cadence and deliberately NOT health-gated: core/FBSystemHealth has ids
      * for the boxes this aircraft carries, and a pilot's sight is not one of them. Its own look raster
      * is absolute, so how often this module happens to cycle it changes nothing it reports. */
