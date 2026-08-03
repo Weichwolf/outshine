@@ -38,7 +38,11 @@ static long g_native_bakes = 0, g_super_bakes = 0;
  * nginx cache elsewhere). Pixel content changes again, hence the bump (v10 itself never went live,
  * so there's no v10 on-disk content to worry about orphaning). PNG encode settings changed too (see
  * fb_bake_init) -- doesn't affect decodability, only bytes-on-the-wire, but stays under the same
- * version bump for one clean cutover rather than a second one right behind it. The define lives in
+ * version bump for one clean cutover rather than a second one right behind it.
+ * v12: die Ebene "ocean" wird ueberhaupt erst gezeichnet. Sie war nie abgefragt, also kam JEDE reine
+ * Seekachel als Vorfuell-Beige heraus — [MESS] z7/49/48 (Atlantik) und z7/65/39 (Nordsee) zu 100 %
+ * (235,231,221), waehrend die Vektorquelle fuer den Atlantik genau eine Ebene liefert und sie "ocean"
+ * heisst. Pixelinhalt aendert sich auf jeder Kachel mit Seeanteil, also Bump. The define lives in
  * style_ver.h so the CLIENT bakes it into the URL (?v=) — bake responses are immutable-cached, so a
  * style/bake-strategy bump must also change the URL, not just the disk filename. */
 #include "style_ver.h"

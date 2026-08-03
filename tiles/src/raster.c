@@ -95,6 +95,13 @@ static int bake_osm(int z, long x, long y, int TS, int lod_ts, uint8_t *im){
             if(ft->geom_type!=OSMMESH_MVT_GEOM_POLYGON) continue; \
             if(fb_feature_bbox_px(ft,sc_lod) < FB_LOD_MIN_AREA_PX) continue;
 
+    /* OCEAN FIRST, und es ist eine echte Ebene der Quelle, keine Heuristik. [MESS] die Vektorkachel
+     * z7/49/48 (offener Atlantik) traegt genau eine Ebene, und sie heisst "ocean"; z7/66/45 (Schweiz)
+     * traegt land/water_polygons/streets und KEIN ocean. Sie wurde hier nie abgefragt, weshalb jede
+     * Seekachel als reines Vorfuell-Beige herauskam — gemessen 100 % (235,231,221) auf Atlantik UND
+     * Nordsee. Dieselbe Blau-Konstante wie water_polygons: ein Gewaesser hat eine Farbe, nicht zwei.
+     * Vor land gezeichnet, damit an der Kueste das Land obenauf liegt. */
+    EACH_POLY("ocean")           fb_draw_fill(im,TS,TS,ft,sc, 92,140,190); } }
     EACH_POLY("land")            w3_landcolor(kind_of(L,ft),&r,&g,&b); fb_draw_fill(im,TS,TS,ft,sc,r,g,b); } }
     EACH_POLY("water_polygons")  fb_draw_fill(im,TS,TS,ft,sc, 92,140,190); } }
     EACH_POLY("sites")           fb_draw_fill(im,TS,TS,ft,sc,175,175,180); } }
