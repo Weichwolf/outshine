@@ -112,7 +112,7 @@ CORE_LIB_SRCS := \
   src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
   src/core/FBCampaignFile.cpp src/core/FBCampaignState.cpp \
   src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFixedWeather.cpp \
-  src/core/FBFlightMonitor.cpp \
+  src/core/FBFlightMonitor.cpp src/core/FBForcePicture.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
   src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
@@ -174,7 +174,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/render/FBRenderer.cpp src/render/FBTacticalMap.cpp src/world/FBWorld.cpp \
 	    $(RENDER_STAGE_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) \
@@ -233,7 +233,7 @@ native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tile
 	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
 	  c++ src/clients/FBAppNative.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
-	    src/render/FBRenderer.cpp src/world/FBWorld.cpp \
+	    src/render/FBRenderer.cpp src/render/FBTacticalMap.cpp src/world/FBWorld.cpp \
 	    $(RENDER_STAGE_SRCS) \
 	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++20 -O2 $(CXX_WARN) \

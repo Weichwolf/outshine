@@ -72,6 +72,14 @@ public:
 
   int PendingCount() const { return Count_; }
   const FBCommandAck &LastAck() const { return LastAck_; }
+  /* THE ANSWER TO ONE ENTRY, and not to whichever came last: a poster that must know whether ITS
+   * entry landed cannot read LastAck(), because between Post() and the box's answer sit four seconds
+   * and every other switch throw in them. Fixed ring of the last kAckRing completions, no allocation;
+   * false = nobody has answered that seq yet. A poller that asks every decision tick cannot miss one,
+   * because the ring is longer than the queue that feeds it. */
+  static constexpr int kAckRing = 16;
+  static_assert(kAckRing > kMaxPending, "an answer must not scroll out before its poster reads it");
+  bool AckOf(uint32_t seq, FBCommandAck &out) const;
   int IssuedCount() const { return Issued_; }
   int AcceptedCount() const { return Accepted_; }
   int RejectedCount() const { return Rejected_; }
@@ -98,6 +106,8 @@ private:
   bool   HaveLastAction_[kTargetSlots]{};
 
   FBCommandAck LastAck_{};
+  FBCommandAck AckRing_[kAckRing]{};
+  int AckHead_ = 0;
   int Issued_ = 0, Accepted_ = 0, Rejected_ = 0, Clamped_ = 0, Inhibited_ = 0;
 };
 

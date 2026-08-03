@@ -20,6 +20,9 @@ const CONTROLS = [
   ['P', 'take / release the stick'], ['↑↓', 'pitch'], ['←→', 'roll'],
   [', .', 'rudder'], ['W S', 'throttle'], ['B', 'speedbrake'], ['G', 'gear'],
   ['M', 'master arm'], ['1..9', 'station select'], ['ENTER', 'pickle'], ['SPACE', 'gun'],
+  ['TAB', 'cockpit / tactical map'], ['T', 'ground albedo'],
+  ['MAP: N B', 'select own unit'], ['MAP: [ ]', 'zoom'], ['MAP: E R', 'emcon silent / radiate'],
+  ['MAP: H G', 'weapons hold / free'], ['MAP: A', 'engage the contact'], ['MAP: X', 'abort'],
 ];
 const FEED_TAGS = {
   'sms RELEASE': 'ok', 'sms RELEASE_REJECTED': 'no', 'sms RELEASE_ENVELOPE': 'no',
@@ -28,6 +31,9 @@ const FEED_TAGS = {
   'damage KILL': 'ok', 'damage DAMAGE': 'ok', 'damage CLUSTER': 'ok', 'stores IMPACT': 'ok',
   'stores DETONATION': 'ok', 'stores EXPIRED': 'no', 'hotas NO_STICK': 'no',
   'hotas QUEUE_FULL': 'no', 'hotas STICK': 'ok', 'monitor KO': 'no',
+  // The commander's half: the word he gave, and what the receiving AI did with it.
+  'order ISSUE': 'ok', 'order ACCEPTED': 'ok', 'order REFUSED': 'no', 'order WEAPONS_HOLD': 'no',
+  'net JOIN': 'ok', 'net LOST': 'no', 'view MODE': 'ok',
 };
 
 const $ = (id) => document.getElementById(id);

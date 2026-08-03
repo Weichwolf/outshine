@@ -66,12 +66,13 @@ button:hover{background:#14241a;border-color:#6ee08a}
 <!-- FlightBox: WebGPU engine (JSBSim in-process + FBWorld + Hillaire + MIL-STD-1787 HUD). -->
 <script src="config.js"></script>
 <script>
-  // TAB = ground albedo (SVS OSM render <-> EVS aerial photo). Handled here, not in the WASM: the
-  // browser steals Tab for focus traversal, so preventDefault must happen at the DOM (Legacy-
-  // pattern). fb_toggle_ground is EMSCRIPTEN_KEEPALIVE in gpu_main.cpp.
+  // TAB = the VIEW (cockpit <-> tactical map). The browser steals Tab for focus traversal, so the
+  // preventDefault has to happen at the DOM; the SWITCH itself lives in the WASM, because it changes
+  // what the player KNOWS and not what this page shows (doc/player-layer.md 9.7). The ground-albedo
+  // toggle TAB used to throw moved to `t`, and is still reachable as ?ground=.
   window.addEventListener('keydown', function(e){
     if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
-    if(e.key==='Tab'){ e.preventDefault(); if(window.Module && Module._fb_toggle_ground) Module._fb_toggle_ground(); return; }
+    if(e.key==='Tab'){ e.preventDefault(); return; }
     // F = fullscreen. The canvas backbuffer stays 1280x720; the browser scales it to the screen.
     if(e.key==='f'||e.key==='F'){
       e.preventDefault(); var c=document.getElementById('gpu');

@@ -2,6 +2,7 @@
 #include "FBGeodesy.h"
 #include "FBLog.h"
 #include <cmath>
+#include <cstdio>
 
 namespace FlightBox::Pilot {
 
@@ -579,6 +580,7 @@ bool FBPilot::BfmGunfire(const FBState &state, FBCommandBus &avionics) {
    * des Ziels, eine Loesung knapp innerhalb setzt das Muster eine halbe Spannweite neben seine Mitte. */
   if (predErrDeg > Tuned(FBPilotParam::GunFireTolFrac, BfmGunFireTolFrac()) * fc.GunTolDeg) return false;
   if (TimeS_ < GunNextS_) return false;
+  if (!FireAuthorised("bfm_gun")) return false;
   if (avionics.Post(FBCommandTarget::GunTrigger, burstS, TimeS_).Outcome == FBCommandOutcome::Rejected)
     return false;
   GunNextS_ = TimeS_ + burstS;
@@ -625,6 +627,7 @@ void FBPilot::BfmMissileShot(const FBState &state, FBCommandBus &avionics) {
   double cueDeg = BfmWvrCueDeg();
   if (cueDeg < 0.0) cueDeg = sel->SeekerGimbalHalfDeg;
   if (cueDeg > 0.0 && std::fabs(g.AzDeg) > cueDeg) return;
+  if (!FireAuthorised("bfm_shot")) return;
 
   FBCommandAck r = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
   FBLog::Info("pilot", "BFM_SHOT", {{"store", sel->Key}, {"rangeM", (double)fc.TargetRangeM},
@@ -665,6 +668,210 @@ void FBPilot::EnterBriefedItems(FBCommandBus &avionics) {
   }
 }
 
+/* ---- THE COMMANDER'S CHANNEL. Everything below reads an argument or a published block; nothing here
+ * touches the world, and nothing here writes simulation state. doc/player-layer.md §9.6. ---- */
+
+bool FBPilot::ReceiveOrder(const FBTacticalOrder &o) {
+  if (OrderCount_ >= kMaxOrders) {
+    FBLog::Warn("order", "REFUSED", {{"seq", (double)o.Seq}, {"kind", FBOrderKindStr(o.Kind)},
+        {"reason", FBOrderReasonStr(FBOrderReason::QueueFull)}});
+    OrdersNo_++;
+    return false;
+  }
+  Orders_[OrderCount_++] = o;
+  FBLog::Info("order", "ISSUE", {{"seq", (double)o.Seq}, {"kind", FBOrderKindStr(o.Kind)},
+      {"lat", o.LatDeg}, {"lon", o.LonDeg}, {"altM", o.AltM}, {"value", o.Value}});
+  return true;
+}
+
+void FBPilot::FinishOrder(const FBTacticalOrder &o, bool accepted, FBOrderReason why,
+                          const char *detail) {
+  if (accepted) OrdersOk_++; else OrdersNo_++;
+  FBLog::Info("order", accepted ? "ACCEPTED" : "REFUSED",
+      {{"seq", (double)o.Seq}, {"kind", FBOrderKindStr(o.Kind)},
+       {"reason", FBOrderReasonStr(why)}, {"detail", detail ? detail : ""},
+       {"phase", PhaseName(CurPhase)}});
+}
+
+/* WHAT AN ACCEPTED ORDER DOES TO THIS PILOT, once and in one place: the effect is applied when the
+ * order is FINISHED, never when it is posted. */
+void FBPilot::ApplyOrder(const FBTacticalOrder &o) {
+  switch (o.Kind) {
+    case FBOrderKind::Attack:
+      OrderAttack_ = OrderSteer_ = true;
+      OrderLatDeg_ = o.LatDeg; OrderLonDeg_ = o.LonDeg; OrderAltM_ = o.AltM;
+      if (CurPhase == Phase::Route || CurPhase == Phase::Climb || CurPhase == Phase::Formation ||
+          CurPhase == Phase::Orbit)
+        Transition(Phase::Intercept);
+      return;
+    case FBOrderKind::Waypoint:
+    case FBOrderKind::Steer:
+      OrderSteer_ = true;
+      OrderAttack_ = false;
+      OrderLatDeg_ = o.LatDeg; OrderLonDeg_ = o.LonDeg; OrderAltM_ = o.AltM;
+      if (CurPhase == Phase::Intercept || CurPhase == Phase::Attack || CurPhase == Phase::Formation ||
+          CurPhase == Phase::Orbit)
+        Transition(Phase::Route);
+      return;
+    case FBOrderKind::Emcon:
+      HaveOrderEmcon_ = true;
+      OrderEmcon_ = o.Value > 0.5;
+      return;
+    default:
+      return;
+  }
+}
+
+/* ONE order per decision tick. Two refusal layers and both are visible: this pilot's own (he cannot do
+ * it at all, or has nothing to do it to) and the BUS's (his hand is busy, his head is at 5 g, the box
+ * is dead). An order that reached neither would be a commander talking into a void. */
+void FBPilot::ConsumeOrders(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
+                            const FBFlightPlan &plan) {
+  /* FIRST: the entry that is still being typed. A head-down entry is not finished when it is posted —
+   * it is finished when the BOX answers, one DED latency later, and it can still be refused there. */
+  if (Entering_Active_) {
+    FBCommandAck ack{};
+    if (!avionics.AckOf(EnteringSeq_, ack)) return;   /* still typing; one head, one field */
+    Entering_Active_ = false;
+    if (ack.Outcome == FBCommandOutcome::Rejected) {
+      FinishOrder(Entering_, false, FBOrderReason::BusRefused, FBCommandReasonStr(ack.Reason));
+    } else {
+      ApplyOrder(Entering_);
+      FinishOrder(Entering_, true, FBOrderReason::None,
+                  Entering_.Kind == FBOrderKind::Attack ? "engaging own contact" : "");
+    }
+    return;
+  }
+
+  if (OrderCount_ <= 0) return;
+  const FBTacticalOrder o = Orders_[0];
+  for (int i = 1; i < OrderCount_; i++) Orders_[i - 1] = Orders_[i];
+  OrderCount_--;
+
+  switch (o.Kind) {
+    case FBOrderKind::Abort:
+      /* Always available: breaking off needs no box and no sensor. It is also the ONLY way back out of
+       * an ordered engagement, which is what makes it an order rather than a mode. */
+      OrderSteer_ = OrderAttack_ = false;
+      HaveOrderEmcon_ = false;
+      if (CurPhase == Phase::Intercept || CurPhase == Phase::Bfm || CurPhase == Phase::Attack)
+        Transition(Phase::Route);
+      FinishOrder(o, true, FBOrderReason::None, "");
+      return;
+
+    case FBOrderKind::WeaponsControl: {
+      FBWeaponsControl w = (FBWeaponsControl)(int)o.Value;
+      /* TIGHT is a doctrine an air-defence position has and this pilot does not: it means "engage only
+       * what you were assigned", and target ADDRESSING does not exist in this tree
+       * (doc/player-layer.md §9.6 (c)). Refused rather than silently read as Free. */
+      if (w == FBWeaponsControl::Tight) {
+        FinishOrder(o, false, FBOrderReason::NoCapability, "no target addressing on an aircraft");
+        return;
+      }
+      Wcs_ = w;
+      HoldLogged_ = false;
+      FinishOrder(o, true, FBOrderReason::None, FBWeaponsControlStr(w));
+      return;
+    }
+
+    case FBOrderKind::Emcon: {
+      /* An aeroplane whose radar has no silent mode cannot be told to go quiet. The F-16 has one
+       * (FBF16FcrMode::Off); a row that does not falls through here with a reason instead of a shrug. */
+      if (SilentRadarModeOrdinal() < 0) {
+        FinishOrder(o, false, FBOrderReason::NoCapability, "this radar has no silent mode");
+        return;
+      }
+      int want = o.Value > 0.5 ? SilentRadarModeOrdinal() : SearchRadarModeOrdinal();
+      if (want < 0) {
+        FinishOrder(o, false, FBOrderReason::NoCapability, "this radar has no search mode");
+        return;
+      }
+      /* A MODE SWITCH IS A HOTAS THROW and answers within one action spacing, so it is finished on the
+       * bus's immediate answer rather than waited on: the entry that needs waiting is the typed one. */
+      FBCommandAck a = avionics.Post(FBCommandTarget::RadarMode, want, TimeS_);
+      if (a.Outcome == FBCommandOutcome::Rejected) {
+        FinishOrder(o, false, FBOrderReason::BusRefused, FBCommandReasonStr(a.Reason));
+        return;
+      }
+      ApplyOrder(o);
+      FinishOrder(o, true, FBOrderReason::None, OrderEmcon_ ? "silent" : "radiate");
+      return;
+    }
+
+    case FBOrderKind::Attack: {
+      /* THE ANTI-CHEAT LINE OF THE WHOLE COMMAND HALF: the commander points at a PLACE, and this pilot
+       * engages only if his OWN sensors hold something there. The map cannot hand him a target it could
+       * not see; a place nobody's radar holds is an order he cannot carry out, and says so. */
+      bool held = false;
+      double bestM = 0.0;
+      const FBRadarBlock &r = state.Radar;
+      if (r.H.Readable()) {
+        double coslat = std::cos(st.lat * kDeg2Rad);
+        for (int i = 0; i < r.ContactCount; i++) {
+          const FBRadarContact &c = r.Contacts[i];
+          double elv = c.ElevAngleDeg * kDeg2Rad, brg = c.BearingDeg * kDeg2Rad;
+          double horiz = c.RangeM * std::cos(elv);
+          double cLat = st.lat + horiz * std::cos(brg) / kMPerDeg;
+          double cLon = st.lon + (std::fabs(coslat) > 1e-6 ? horiz * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
+          double d = FBPlanarDistM(cLat, cLon, o.LatDeg, o.LonDeg);
+          if (!held || d < bestM) { bestM = d; held = true; }
+        }
+      }
+      if (!held || bestM > kOrderTargetGateM) {
+        char detail[64];
+        if (held) std::snprintf(detail, sizeof detail, "nearest own contact %.0f m off", bestM);
+        else std::snprintf(detail, sizeof detail, "no radar contact at all");
+        FinishOrder(o, false, FBOrderReason::NothingHeld, detail);
+        return;
+      }
+      StartOrderEntry(o, avionics, plan);
+      return;
+    }
+
+    case FBOrderKind::Waypoint:
+    case FBOrderKind::Steer:
+      StartOrderEntry(o, avionics, plan);
+      return;
+
+    case FBOrderKind::None:
+    default:
+      FinishOrder(o, false, FBOrderReason::NoCapability, "no such order");
+      return;
+  }
+}
+
+/* A RE-TASKING IS A TYPED ENTRY. It goes onto the steerpoint page in the DED latency class, which
+ * brings the manoeuvre gate with it: above FBCommandBus::kDedMaxG the bus turns it away and the
+ * commander sees a refusal — "you cannot re-task a pilot in the middle of a break turn"
+ * (doc/player-layer.md §9.6 (a)). The VALUE is the steerpoint this jet is already flying to, because
+ * the entry models the head-down cost and must not also renumber his navigation. */
+void FBPilot::StartOrderEntry(const FBTacticalOrder &o, FBCommandBus &avionics,
+                              const FBFlightPlan &plan) {
+  int stpt = plan.ActiveIndex() + 1;
+  if (stpt < 1) stpt = 1;
+  FBCommandAck a = avionics.Post(FBCommandTarget::SteerpointNum, (double)stpt, TimeS_);
+  if (a.Outcome == FBCommandOutcome::Rejected) {
+    FinishOrder(o, false, FBOrderReason::BusRefused, FBCommandReasonStr(a.Reason));
+    return;
+  }
+  Entering_ = o;
+  EnteringSeq_ = a.Seq;
+  Entering_Active_ = true;
+}
+
+/* THE ONE GATE a weapon passes on its way out of this pilot. Free is the built behaviour exactly, so a
+ * unit nobody put under fire control is byte-identical to before this existed. */
+bool FBPilot::FireAuthorised(const char *what) {
+  if (MayFire()) { HoldLogged_ = false; return true; }
+  if (!HoldLogged_) {
+    HoldLogged_ = true;
+    FBLog::Info("order", "WEAPONS_HOLD",
+        {{"wcs", FBWeaponsControlStr(EffectiveWeaponsControl())}, {"action", what},
+         {"nodeHeard", HaveNode_ ? (NodeHeard_ ? 1.0 : 0.0) : -1.0}});
+  }
+  return false;
+}
+
 bool FBPilot::BriefRelease(double atS) {
   if (ReleaseCount_ >= kMaxBriefedReleases) return false;
   ReleaseAtS_[ReleaseCount_++] = atS;
@@ -676,6 +883,7 @@ bool FBPilot::BriefRelease(double atS) {
 void FBPilot::ReleaseBriefedStores(FBCommandBus &avionics) {
   while (ReleaseNext_ < ReleaseCount_ && TimeS_ >= ReleaseAtS_[ReleaseNext_]) {
     ReleaseNext_++;
+    if (!FireAuthorised("briefed_release")) continue;
     avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
   }
 }
@@ -700,6 +908,7 @@ void FBPilot::FireBriefedGun(FBCommandBus &avionics) {
   while (GunBriefNext_ < GunBriefCount_ && TimeS_ >= GunBriefAtS_[GunBriefNext_]) {
     double burstS = GunBriefS_[GunBriefNext_];
     GunBriefNext_++;
+    if (!FireAuthorised("briefed_gun")) continue;
     avionics.Post(FBCommandTarget::GunTrigger, burstS, TimeS_);
   }
 }
@@ -727,7 +936,7 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
     IntLastChaffS_ = TimeS_;
     return true;
   }
-  if (wantShot) {
+  if (wantShot && FireAuthorised("intercept_shot")) {
     post(FBCommandTarget::WeaponRelease, 1.0);
     IntLastShotS_ = TimeS_;
     return true;
@@ -1342,6 +1551,10 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
     }
     EmconSilent_ = other && nearestM > radiateM;
   }
+  /* AN ORDER OUTRANKS THE PILOT'S OWN EMISSION MANAGEMENT for as long as it stands. It changes what he
+   * WANTS; the mode still reaches the set through the same bus entry his own decision uses, so it can
+   * still be turned away there. */
+  if (HaveOrderEmcon_) EmconSilent_ = OrderEmcon_;
 
   /* ---- 7. die Haende ---- */
   bool acted = InterceptCockpit(state, avionics, designate, wantShot, wantChaff, wantEl);
@@ -1433,6 +1646,7 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
                                  : nullptr;
     double fovDeg = sel && sel->SeekerFovHalfDeg > 0.0 ? sel->SeekerFovHalfDeg : 0.0;
     if (fovDeg > 0.0 && std::fabs((double)cue->BearingDeg) > fovDeg) return c;
+    if (!FireAuthorised("attack_release")) return c;
     FBCommandAck ra = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
     FBLog::Info("pilot", "ATTACK_RELEASE", {{"mode", FBDeliveryModeStr(AtkMode_)},
         {"accepted", ra.Outcome != FBCommandOutcome::Rejected},
@@ -1477,6 +1691,7 @@ FBPilotCommands FBPilot::AttackCommands(const FBState &state, FBCommandBus &avio
   if (!cue) return c;
 
   /* Abgelehnt ist ENDGUELTIG und der Pass vorbei — dieselbe Regel wie fuer jede andere Waffenhandlung. */
+  if (!FireAuthorised("attack_release")) return c;
   FBCommandAck r = avionics.Post(FBCommandTarget::WeaponRelease, 1.0, TimeS_);
   FBLog::Info("pilot", "ATTACK_RELEASE", {{"mode", FBDeliveryModeStr(AtkMode_)},
       {"accepted", r.Outcome != FBCommandOutcome::Rejected},
@@ -1539,6 +1754,10 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
   /* Cockpitarbeit erst, wenn der Jet sich selbst fliegt: nicht in Idle (niemand sitzt drin) und nicht
    * mit Gewicht auf dem Fahrwerk, wo die echte Checkliste diese Eingaben vor den Triebwerksstart legt. */
   if (CurPhase != Phase::Idle && !airframe.GetWeightOnWheels()) {
+    /* THE COMMANDER FIRST, because an order that changes the task must take effect on the tick it was
+     * carried out and not the one after — but AFTER the flight picture, because "do you hold anything
+     * there" is answered out of blocks this tick already published. */
+    ConsumeOrders(state, avionics, st, plan);
     EnterBriefedItems(avionics);
     ReleaseBriefedStores(avionics);
     DispenseBriefedCm(avionics);
@@ -1610,6 +1829,16 @@ FBPilotCommands FBPilot::Run(const FBState &state, FBCommandBus &avionics,
     }
 
     case Phase::Route: {
+      /* AN ORDERED POINT OUTRANKS THE DECLARED LEG, and only while it stands: Abort clears it and the
+       * route the mission wrote is back, unchanged. There is no leg — a vector from a commander is a
+       * point, not a line, exactly as the intercept's own steering is. */
+      if (OrderSteer_) {
+        c.Guidance = FBPilotGuidance::Direct;
+        c.TargetLatDeg = OrderLatDeg_; c.TargetLonDeg = OrderLonDeg_;
+        c.TargetAltM = OrderAltM_;
+        c.TargetSpeedKt = InterceptSpeedKt();
+        return c;
+      }
       const FBWaypoint *wp = plan.ActiveWaypoint();
       if (!wp) { Transition(Phase::Shutdown); return c; }   /* kein Wegpunkt mehr -> das SUCCESS-Tor der Mission */
       if (wp->Type == FBWaypointType::Land) { Transition(Phase::Approach); return c; }

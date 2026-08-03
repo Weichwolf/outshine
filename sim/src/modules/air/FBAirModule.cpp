@@ -200,28 +200,12 @@ void FBAirModule::PublishPlatform(const Fdm::fb_fdm_state &st) {
  * such value exists), it cannot name a unit (FBNetReport has no id field), and it cannot hand anybody a
  * track. Killing its Radar stops it by the existing failure->Invalid coupling and not by a line here. */
 void FBAirModule::PublishNetReport(const Fdm::fb_fdm_state &st) {
-  Node_ = FBNetReport{};
-  if (!Spec_.NetNode || !Datalink_.Transmitting()) return;
-  const FBRadarBlock &r = State_.Radar;
-  if (!r.H.Readable()) return;
-  const FBRadarContact *best = nullptr;
-  for (int i = 0; i < r.ContactCount; i++) {
-    /* THE ONLY IDENTITY A NODE HAS. A Friendly reply is PROOF of a friend; NoReply and
-     * NotInterrogated are the ABSENCE OF PROOF and are never collapsed into "hostile" — the report
-     * that leaves here still carries no team field, and a member still has to find what it was
-     * pointed at. */
-    if (r.Contacts[i].Iff == FBIffReply::Friendly) continue;
-    if (!best || r.Contacts[i].RangeM < best->RangeM) best = &r.Contacts[i];
-  }
-  if (!best) return;
-  double brg = best->BearingDeg * kDeg2Rad, elv = best->ElevAngleDeg * kDeg2Rad;
-  double horiz = best->RangeM * std::cos(elv);
-  double coslat = std::cos(st.lat * kDeg2Rad);
-  Node_.Reporting = true;
-  Node_.LatDeg = st.lat + horiz * std::cos(brg) / kMPerDeg;
-  Node_.LonDeg = st.lon + (std::fabs(coslat) > 1e-6 ? horiz * std::sin(brg) / (kMPerDeg * coslat) : 0.0);
-  Node_.AltM = (float)(st.elev + best->RangeM * std::sin(elv));
-  Node_.TgtLookAgeS = (float)best->LookAgeS;
+  /* Two ways onto a net and one derivation: the CATALOGUE row that is an early-warning aircraft, and
+   * the MISSION `net` block that put this unit in one. The node's transmitted weapons-control word only
+   * exists in the second case, so a catalogue node reports exactly what it always reported. */
+  FBAirNet eff = Net_;
+  eff.On = Net_.On || Spec_.NetNode;
+  Node_ = FBBuildAirNetReport(eff, State_.Radar, Datalink_.Transmitting(), st.lat, st.lon, st.elev);
 }
 
 /* THE MEMBER HALF. Two command-bus entries per decision tick, each latency-charged and each rejectable:
@@ -325,6 +309,7 @@ void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
       NetLink_.Run(State_, st, units, SimTimeS_);
       ConsumeCue(st);
     }
+    FBRunAirNetMember(NetTerminalBlock(), Net_, Pilot_);
     PublishNetReport(st);
 
     AirData_.Run(State_, st, dt);
@@ -462,6 +447,13 @@ void FBAirModule::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
 
 bool FBAirModule::ApplySetup(const std::string &key, const std::string &value) {
   if (ApplyJammerSetup(key, value)) return true;
+
+  /* THE RUNNER-GENERATED NET KEYS, never author-written: a `net` block is doctrine ABOUT units, and
+   * core/FBMissionFile.cpp turns it into these. modules/FBAirNet.h. */
+  { const char *why = nullptr;
+    FBAirNetResult r = FBApplyAirNetKey(key, value, NetTerminal(), Pilot_, Net_, &why);
+    if (r == FBAirNetResult::Ok) return true;
+    if (r == FBAirNetResult::Bad) return RejectSetup(why, key, value); }
 
   /* ---- THE TWO NEW AUTHOR-FACING KEYS, and no more. Everything else about a row is said by its module
    * name; everything about its tasking uses a key that already exists. ---- */

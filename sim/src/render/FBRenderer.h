@@ -74,6 +74,9 @@ public:
   void SetHudEnabled(bool e) { HudEnabled = e; }   /* draw the HUD overlay (off for the cloud lab) */
   /* Borrowed from the active module and forwarded to FBHudStage; nullptr draws an empty HUD. */
   void SetHudDisplay(const Systems::FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
+  /* THE TACTICAL MAP as the frame's overlay: it REPLACES the cockpit symbology in the same pass, so
+   * switching views costs no Begin*Pass and the per-frame pass count is unchanged. Borrowed. */
+  void SetMapOverlay(const Systems::FBHudGeometry *g) { Hud->SetOverlay(g); }
   /* While on, RenderFrame draws only the loading text and the client keeps JSBSim frozen. §2.2 */
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
@@ -124,6 +127,8 @@ public:
   /* THE 3x3 GRID. The windscreen is the top two rows; the bottom row is the MFD bank, drawn by the HUD
    * stage into the HUD pass. It exists exactly when the cockpit does — the cloud lab runs with the HUD
    * off and gets the full frame it always had. doc/render/renderer.md §2.4. */
+  int SceneW(void) const { return Width; }
+  int SceneH(void) const { return Height; }
   int ViewH(void) const { return HudEnabled ? Height - Height / 3 : Height; }
   /* The boresight's NDC offset: the scene covers the whole frame (so the bank has a world to be
    * translucent over) while its centre sits at the WINDSCREEN's centre. 0 without a cockpit. */

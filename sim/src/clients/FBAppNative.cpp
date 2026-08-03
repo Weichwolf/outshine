@@ -2,10 +2,13 @@
  * dumping PNGs. This is the verification venue a headless-browser SwiftShader cannot give — native
  * Dawn actually renders. doc/render/renderer.md, Abschnitt 1.1. */
 #include "FBRenderer.h"
+#include "FBTacticalMap.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
 #include "FBEphemeris.h"
 #include "FBGeodesy.h"
+#include "FBForcePicture.h"
+#include "FBTacticalOrder.h"
 #include "FBUnits.h"
 #include "FBMissionRunner.h"
 #include "FBTerrainLoader.h"
@@ -56,6 +59,11 @@ void Usage(const char *argv0) {
           "  --cloudcheck  evaluate core/FBCloudDensity.h and its WGSL twin over a sample set on the GPU\n"
           "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
           "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/missions/)\n"
+          "  --map CALLSIGN [--map-span-km KM]  draw the TACTICAL MAP of that unit's fused picture\n"
+          "    (the control node of its faction's net) instead of its cockpit -- nadir over the node,\n"
+          "    OSM ground, APP-6 symbology. Only what that node has actually collected is drawn.\n"
+          "  --order AT:UNIT:KIND[:A[:B[:C]]]  hand a tactical order to a unit's AI at sim second AT.\n"
+          "    KIND = waypoint|steer|attack (lat:lon[:altM]) | abort | emcon:0|1 | wcs:free|tight|hold\n"
           "    on its runway threshold and run headless (JSBSim + the module's FBPilot phase machine, NO renderer/\n"
           "    GPU device unless --interval > 0, in which case PNGs are written every --interval sim-\n"
           "    seconds -- this is the flying-frame oracle, the --fly replacement) until SUCCESS/CRASH/\n"
@@ -343,6 +351,21 @@ public:
   FBNativeMissionHook(std::string base, std::string outDir, double intervalS, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height) {}
 
+  /* THE TACTICAL MAP as a frame venue: `--map <callsign>` draws the picture of THAT unit's fusion --
+   * the control node of the faction's net -- instead of its cockpit. The camera goes nadir over the
+   * map centre at exactly the altitude whose footprint IS the map span, so a symbol sits on the piece
+   * of OSM ground it was measured over. doc/player-layer.md §9. */
+  void SetMapNode(const std::string &callsign, double spanM) {
+    MapNode = callsign;
+    if (spanM > 0.0) MapSpanM = spanM;
+  }
+  /* A SCRIPTED COMMANDER, so the order path has a reproducible venue: one order, at one sim second,
+   * to one unit's AI. It writes no state -- it hands pilot/FBPilot an intention, exactly as a click on
+   * the map will. */
+  void AddOrder(double atS, const std::string &unit, const FBTacticalOrder &o) {
+    Scripted.push_back({atS, unit, o, false});
+  }
+
   /* A mission-declared clock replaces this client's own wall clock for the whole run; without one the
    * frames below keep the host clock they always had. */
   void OnClock(const FlightBox::Missions::FBMissionClock &clock) override { Clock = clock; }
@@ -387,9 +410,16 @@ public:
 
   void OnTick(const FlightBox::Units::FBActorList &actors, double simT) override {
     if (!R || !W) return;   /* OnMissionStart already logged the failure */
+    RunScriptedOrders(actors, simT);
+    /* THE MAP'S TERRAIN STREAMS EVERY TICK, like a client's does: the quadtree's per-update budget is
+     * two meshes and two albedo pages, so a cut that is only touched once per screenshot never
+     * converges and the map draws its symbols over an empty ground. */
+    bool mapping = !MapNode.empty();
+    if (mapping) UpdateMapWorld(actors, simT);
     Acc += 0.1;   /* dt = the runner's fixed 10 Hz decision tick, see FBMissionRunner.cpp */
     if (Acc < IntervalS) return;
     Acc = 0.0;
+    if (mapping) { DrawMap(actors, simT); return; }
     const FlightBox::Units::FBSimUnit &primary = *actors.front();
     FlightBox::Units::FBUnitPose p = primary.GetPose();   /* the camera rides the unit, not a raw FDM POD */
     double eye[3], fwd[3], right[3], up[3];
@@ -429,6 +459,105 @@ public:
 private:
   double UtcAt(double simT) const { return Clock.Have ? Clock.At(simT) : (double)time(nullptr); }
 
+  struct ScriptedOrder {
+    double AtS;
+    std::string Unit;
+    FlightBox::FBTacticalOrder Order;
+    bool Fired;
+  };
+
+  void RunScriptedOrders(const FlightBox::Units::FBActorList &actors, double simT) {
+    for (ScriptedOrder &so : Scripted) {
+      if (so.Fired || simT < so.AtS) continue;
+      so.Fired = true;
+      for (const auto &u : actors) {
+        if (!u || u->GetName() != so.Unit) continue;
+        FlightBox::FBLogUnitScope us(u->GetName());
+        so.Order.IssuedS = simT;
+        u->Module().PilotSystem().ReceiveOrder(so.Order);
+        break;
+      }
+    }
+  }
+
+  /* WHERE THE MAP'S CAMERA IS, and it is arithmetic rather than a setting: a 60 deg vertical field at
+   * altitude H covers 2*H*tan(30 deg) metres of height and that times the aspect in width, so
+   * H = span / (2*tan(30 deg)*aspect). Choose H that way and a symbol sits on the piece of OSM ground
+   * it was measured over -- there is no second projection to keep in step. */
+  FlightBox::Render::FBTacticalMap::FBMapView MapView(const FlightBox::Units::FBUnitPose &np) const {
+    FlightBox::Render::FBTacticalMap::FBMapView v;
+    v.Width = Width; v.Height = Height;
+    /* The boresight is at ViewH/2, not Height/2 — the scene is shifted up by the MFD bank's third. */
+    v.CentreYPx = R ? (float)R->ViewH() * 0.5f : (float)Height * 0.5f;
+    v.CentreLatDeg = np.LatDeg; v.CentreLonDeg = np.LonDeg;
+    v.SpanM = MapSpanM;
+    return v;
+  }
+  double MapEyeAltM() const {
+    double aspect = (double)Width / (double)Height;
+    return MapSpanM / (2.0 * std::tan(FlightBox::kSceneVerticalFovDeg * 0.5 * M_PI / 180.0) * aspect);
+  }
+  const FlightBox::Units::FBSimUnit *FindNode(const FlightBox::Units::FBActorList &actors) const {
+    for (const auto &u : actors) if (u && u->GetName() == MapNode) return u.get();
+    return nullptr;
+  }
+
+  void UpdateMapWorld(const FlightBox::Units::FBActorList &actors, double simT) {
+    const FlightBox::Units::FBSimUnit *node = FindNode(actors);
+    if (!node) return;
+    FlightBox::Units::FBUnitPose np = node->GetPose();
+    double eye[3], fwd[3], right[3], up[3];
+    FBGeoToEcef(np.LatDeg, np.LonDeg, MapEyeAltM(), eye);
+    FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, fwd, right, up);
+    W->Update(np.LatDeg, np.LonDeg, eye, fwd, simT * 1000.0);
+  }
+
+  /* ONE FRAME OF THE MAP. Everything drawn comes out of the node's own published blocks: the picture
+   * is built by core/FBForcePicture from the node's FBState and its pose, and NOTHING else is read. */
+  void DrawMap(const FlightBox::Units::FBActorList &actors, double simT) {
+    const FlightBox::Units::FBSimUnit *node = FindNode(actors);
+    if (!node) return;
+    FlightBox::Units::FBUnitPose np = node->GetPose();
+    Pic.Begin(simT, node->GetTeam());
+    Pic.Ingest(node->HudState(), node->GetName().c_str(), np.LatDeg, np.LonDeg, np.ElevM,
+               np.HeadingDeg, np.SpeedMs);
+
+    /* THE HUD BEFORE THE VIEW: SetHud is what turns the HUD pass on, and the pass being on is what
+     * shifts the scene up by the bank's third — so the boresight pixel is only known after it. */
+    R->SetHud(node->HudState(), true);
+    FlightBox::Render::FBTacticalMap::FBMapView v = MapView(np);
+    double eye[3], fwd[3], right[3], up[3];
+    FBGeoToEcef(np.LatDeg, np.LonDeg, MapEyeAltM(), eye);
+    FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, fwd, right, up);
+    R->SetCameraBasis(eye, fwd, right, up);
+    if (Clock.Have) R->SetSkyClock(UtcAt(simT));
+
+    MapGeo.Reset();
+    Map.Build(Pic, v, MapGeo);
+    R->SetMapOverlay(&MapGeo);
+    R->RenderFrame();
+    R->SetMapOverlay(nullptr);
+    std::vector<uint8_t> rgba;
+    if (R->ReadPixels(rgba)) {
+      char path[512];
+      snprintf(path, sizeof path, "%s/map_%04d.png", OutDir.c_str(), Shot++);
+      if (stbi_write_png(path, Width, Height, 4, rgba.data(), Width * 4))
+        FlightBox::FBLog::Info("map", "frame",
+            {{"path", path}, {"t", simT}, {"own", Pic.OwnCount()}, {"contacts", Pic.ContactCount()},
+             {"bearings", Pic.BearingCount()}, {"node", MapNode}});
+      /* EVERY UNKNOWN SYMBOL, in text, so the picture the map drew is checkable without reading pixels
+       * -- and so a commander's click has a reproducible coordinate on the scripted path. */
+      for (int i = 0; i < Pic.Count(); i++) {
+        const FlightBox::FBForceSymbol &sy = Pic.At(i);
+        if (sy.Aff != FlightBox::FBAffiliation::Unknown || !sy.HavePoint) continue;
+        FlightBox::FBLog::Info("map", "contact",
+            {{"t", simT}, {"src", FlightBox::FBForceSourceStr(sy.Src)},
+             {"aff", FlightBox::FBAffiliationStr(sy.Aff)}, {"lat", sy.LatDeg}, {"lon", sy.LonDeg},
+             {"altM", (double)sy.AltM}, {"ageS", (double)sy.AgeS}});
+      }
+    }
+  }
+
   std::string Base, OutDir;
   FlightBox::Missions::FBMissionClock Clock;
   double IntervalS;
@@ -438,15 +567,80 @@ private:
   std::unique_ptr<FlightBox::World::FBWorld> W;
   double Acc = 0.0;
   int Shot = 0;
+  std::string MapNode;
+  double MapSpanM = 46000.0;   /* [SET] the whole frame inside FBWorld's own 30 km streaming radius */
+  /* NOT -90. FBCameraBasisEcef builds its right vector from fwd x world-up, and at exactly straight
+   * down those two are parallel: the cross product is zero, the basis collapses and the frame comes
+   * back empty (measured: 22 leaves DRAWN and not one pixel of ground). A tenth of a degree off nadir
+   * displaces the centre by H*tan(0.1 deg) = 21 m at H = 12 km, i.e. 0.6 px of a 1280 px frame. */
+  static constexpr double kMapPitchDeg = -89.9;
+  FlightBox::FBForcePicture Pic;
+  FlightBox::Render::FBTacticalMap Map;
+  FlightBox::Systems::FBHudGeometry MapGeo;
+  std::vector<ScriptedOrder> Scripted;
 };
+
+/* `--order <atS>:<unit>:<kind>[:a[:b[:c]]]`. It exists so the ORDER PATH has a reproducible venue: a
+ * commander who presses at a declared second is the same input a click on the map will be, and both
+ * end in pilot/FBPilot's inbox. It writes no simulation state -- there is no path from here to one. */
+bool ParseOrderSpec(const std::string &spec, double &atS, std::string &unit,
+                    FlightBox::FBTacticalOrder &o) {
+  std::vector<std::string> f;
+  size_t p = 0;
+  while (p <= spec.size()) {
+    size_t c = spec.find(':', p);
+    if (c == std::string::npos) { f.push_back(spec.substr(p)); break; }
+    f.push_back(spec.substr(p, c - p));
+    p = c + 1;
+  }
+  if (f.size() < 3) return false;
+  atS = atof(f[0].c_str());
+  unit = f[1];
+  const std::string &k = f[2];
+  if (k == "waypoint") o.Kind = FlightBox::FBOrderKind::Waypoint;
+  else if (k == "steer") o.Kind = FlightBox::FBOrderKind::Steer;
+  else if (k == "attack") o.Kind = FlightBox::FBOrderKind::Attack;
+  else if (k == "abort") o.Kind = FlightBox::FBOrderKind::Abort;
+  else if (k == "emcon") o.Kind = FlightBox::FBOrderKind::Emcon;
+  else if (k == "wcs") o.Kind = FlightBox::FBOrderKind::WeaponsControl;
+  else return false;
+  if (o.Kind == FlightBox::FBOrderKind::Emcon) {
+    o.Value = f.size() > 3 ? atof(f[3].c_str()) : 1.0;
+  } else if (o.Kind == FlightBox::FBOrderKind::WeaponsControl) {
+    FlightBox::FBWeaponsControl w = FlightBox::FBWeaponsControl::Free;
+    if (f.size() < 4 || !FlightBox::FBWeaponsControlFromString(f[3].c_str(), w)) return false;
+    o.Value = (double)(int)w;
+  } else if (o.Kind != FlightBox::FBOrderKind::Abort) {
+    if (f.size() < 5) return false;
+    o.LatDeg = atof(f[3].c_str());
+    o.LonDeg = atof(f[4].c_str());
+    o.AltM = f.size() > 5 ? atof(f[5].c_str()) : 0.0;
+  }
+  return true;
+}
 
 /* No FBRenderer/FBWorld/GPU device at all unless `renderIntervalS > 0` — the renderer is a bolt-on
  * here, never a dependency of the physics or the termination logic. */
 int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
-              const std::string &base, const std::string &outDir, bool utcSet) {
+              const std::string &base, const std::string &outDir, bool utcSet,
+              const std::string &mapNode, double mapSpanM,
+              const std::vector<std::string> &orderSpecs) {
   FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
     FBNativeMissionHook hook(base, outDir, renderIntervalS);
+    if (!mapNode.empty()) hook.SetMapNode(mapNode, mapSpanM);
+    for (const std::string &spec : orderSpecs) {
+      double atS = 0.0;
+      std::string unit;
+      FlightBox::FBTacticalOrder o;
+      if (!ParseOrderSpec(spec, atS, unit, o)) {
+        fprintf(stderr, "bad --order '%s'\n", spec.c_str());
+        return 1;
+      }
+      static uint32_t seq = 0;
+      o.Seq = ++seq;
+      hook.AddOrder(atS, unit, o);
+    }
     return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, &hook, 1, utcSet);
   }
   return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, nullptr, 1, utcSet);
@@ -461,8 +655,9 @@ int main(int argc, char **argv) {
   int groundPhoto = 0, cloudCheck = 0;
   time_t utc = 0;   /* 0 = real wall clock */
   std::string base = "http://localhost:8081", outDir = ".", moonPath = "flightbox/web/moon.jpg";
-  std::string missionPath, wxPath;
-  double missionTimeout = 0.0;
+  std::string missionPath, wxPath, mapNode;
+  double missionTimeout = 0.0, mapSpanM = 0.0;
+  std::vector<std::string> orderSpecs;
   bool intervalSet = false;   /* --mission: renderer/GPU device is opt-in ONLY when --interval was given */
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
@@ -489,6 +684,9 @@ int main(int argc, char **argv) {
     else if (a == "--out" && i + 1 < argc) outDir = argv[++i];
     else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
     else if (a == "--timeout" && i + 1 < argc) missionTimeout = atof(argv[++i]);   /* --mission: overrides the .fbm's own timeout */
+    else if (a == "--map" && i + 1 < argc) mapNode = argv[++i];          /* the net's control node */
+    else if (a == "--map-span-km" && i + 1 < argc) mapSpanM = atof(argv[++i]) * 1000.0;
+    else if (a == "--order" && i + 1 < argc) orderSpecs.push_back(argv[++i]);
     else { Usage(argv[0]); return 1; }
   }
   if (!FlightBox::Missions::FBEnsureDir(outDir)) { fprintf(stderr, "gpu_native: cannot create --out %s\n", outDir.c_str()); return 1; }
@@ -507,7 +705,8 @@ int main(int argc, char **argv) {
                       "with a `wx` line (doc/missions/syntax.md)\n");
       return 1;
     }
-    return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir, utc != 0);
+    return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir, utc != 0,
+                      mapNode, mapSpanM, orderSpecs);
   }
 
   const int width = 1280, height = 720, fps = 60;

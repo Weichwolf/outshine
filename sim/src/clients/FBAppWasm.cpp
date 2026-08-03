@@ -13,6 +13,9 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 #include "FBRenderer.h"
+#include "FBTacticalMap.h"
+#include "FBForcePicture.h"
+#include "FBTacticalOrder.h"
 #include "FBMissionSim.h"
 #include "FBOrdnance.h"
 #include "FBWorld.h"
@@ -93,6 +96,23 @@ static Missions::FBOrdnance gOrdnance{kWasmModelRoots};
  * without being told whether the run is over. */
 static std::unique_ptr<Missions::FBMissionSim> gSim;
 static bool gRunOver = false;
+
+/* ---- THE SECOND VIEW, and it is an INFORMATION change and not a camera move. The cockpit draws ONE
+ * unit's own published blocks; the map draws the FACTION's fused picture at the control node of its
+ * net. Selecting a unit here and pressing TAB means sitting in ITS cockpit, which sees LESS than the
+ * map — if it ever sees more, this build is wrong (doc/player-layer.md §9.7). */
+enum class FBView { Cockpit, Map };
+static FBView gView = FBView::Cockpit;
+static FBForcePicture gPic;
+static Render::FBTacticalMap gMap;
+static Systems::FBHudGeometry gMapGeo;
+static double gMapSpanM = 46000.0;
+static int gSelected = 0;              /* index into gActors of the unit the commander is talking to */
+static uint32_t gOrderSeq = 0;
+/* NOT -90: FBCameraBasisEcef builds its right vector from fwd x world-up, and straight down makes those
+ * parallel — the basis collapses and the frame comes back empty. A tenth of a degree costs H*tan(0.1) =
+ * 21 m of centre offset at 12 km, i.e. under a pixel. */
+static constexpr double kMapPitchDeg = -89.9;
 
 /* GROUND TRUTH FOR THE SIMULATION, from the same DEM the renderer draws, so gear/contact/crash collide
  * against real terrain. A cold /elev keeps the last good value for BOTH the FDM and the HUD/radar-alt
@@ -221,7 +241,119 @@ static void NoStick(const char *action) {
   FBLog::Warn("hotas", "NO_STICK", {{"action", action}, {"hint", "press P to take the stick"}});
 }
 
+/* THE NODE WHOSE PICTURE THE MAP IS. The unit says whose control net it is on (its mission's own `net`
+ * block, read back); if nobody names one, the map is the ownship's own picture — the smaller claim,
+ * never the bigger one. */
+static Units::FBSimUnit *MapNode() {
+  if (!gOwnship) return nullptr;
+  const char *node = gOwnship->Module().NetControlNode();
+  if (node && node[0]) {
+    for (const auto &u : gActors)
+      if (u && u->GetName() == node) return u.get();
+  }
+  return gOwnship;
+}
+
+/* ONE COMMANDER'S WORD, to the selected unit's AI. It writes no state and reaches no system directly:
+ * pilot/FBPilot decides, its own boxes may refuse, and both halves are in events.log. */
+static void PostOrder(FBOrderKind kind, double latDeg, double lonDeg, double altM, double value) {
+  if (gSelected < 0 || gSelected >= (int)gActors.size() || !gActors[gSelected]) return;
+  Units::FBSimUnit &u = *gActors[gSelected];
+  FBTacticalOrder o;
+  o.Seq = ++gOrderSeq;
+  o.Kind = kind;
+  o.LatDeg = latDeg; o.LonDeg = lonDeg; o.AltM = altM;
+  o.Value = value;
+  o.IssuedS = gSim ? gSim->SimTimeS() : 0.0;
+  FBLogUnitScope us(u.GetName());
+  u.Module().PilotSystem().ReceiveOrder(o);
+  char st[96];
+  snprintf(st, sizeof st, "ORDER %s -> %s (SEQ %u)", FBOrderKindStr(kind), u.GetName().c_str(),
+           (unsigned)o.Seq);
+  gMap.SetStatus(st);
+}
+
+/* The map's nearest UNKNOWN datum to the selected unit — what a commander points at when he says
+ * "engage". It is the map's own symbol and therefore the faction's own measurement; there is no path
+ * from here to where anything actually is. */
+static bool NearestUnknown(double &latDeg, double &lonDeg, double &altM) {
+  const FBForceSymbol *best = nullptr;
+  for (int i = 0; i < gPic.Count(); i++) {
+    const FBForceSymbol &sy = gPic.At(i);
+    if (sy.Aff != FBAffiliation::Unknown || !sy.HavePoint) continue;
+    if (!best || sy.AgeS < best->AgeS) best = &sy;
+  }
+  if (!best) return false;
+  latDeg = best->LatDeg; lonDeg = best->LonDeg; altM = best->AltM;
+  return true;
+}
+
+static void SelectNext(int step) {
+  if (gActors.empty()) return;
+  int n = (int)gActors.size();
+  for (int k = 1; k <= n; k++) {
+    int i = ((gSelected + step * k) % n + n) % n;
+    if (!gActors[i] || gActors[i]->GetTeam() != gOwnship->GetTeam()) continue;
+    gSelected = i;
+    gMap.SetSelected(gActors[i]->GetName().c_str());
+    return;
+  }
+}
+
+/* THE MAP'S OWN KEYS. They exist only in the map view, so nothing here can be pressed by accident from
+ * the seat — and every one of them ends in an order, a selection or the view scale. */
+static bool HandleMapKey(const char *k, bool down, bool repeat) {
+  if (!down || repeat) return false;
+  auto is = [k](const char *t) { return std::strcmp(k, t) == 0; };
+  if (is("]") || is("+") || is("=")) { gMapSpanM = std::max(8000.0, gMapSpanM * 0.75); return true; }
+  if (is("[") || is("-")) { gMapSpanM = std::min(200000.0, gMapSpanM / 0.75); return true; }
+  if (is("n") || is("N")) { SelectNext(1); return true; }
+  if (is("b") || is("B")) { SelectNext(-1); return true; }
+  if (is("e") || is("E")) { PostOrder(FBOrderKind::Emcon, 0, 0, 0, 1.0); return true; }
+  if (is("r") || is("R")) { PostOrder(FBOrderKind::Emcon, 0, 0, 0, 0.0); return true; }
+  if (is("h") || is("H")) {
+    PostOrder(FBOrderKind::WeaponsControl, 0, 0, 0, (double)(int)FBWeaponsControl::Hold);
+    return true;
+  }
+  if (is("g") || is("G")) {
+    PostOrder(FBOrderKind::WeaponsControl, 0, 0, 0, (double)(int)FBWeaponsControl::Free);
+    return true;
+  }
+  if (is("x") || is("X")) { PostOrder(FBOrderKind::Abort, 0, 0, 0, 0); return true; }
+  if (is("a") || is("A")) {
+    double la = 0, lo = 0, al = 0;
+    if (NearestUnknown(la, lo, al)) PostOrder(FBOrderKind::Attack, la, lo, al, 0);
+    else gMap.SetStatus("NO CONTACT ON THE MAP TO POINT AT");
+    return true;
+  }
+  return false;
+}
+
 static bool HandleKey(const char *k, bool down, bool repeat) {
+  /* TAB is the VIEW, and it is bound here rather than in the page because it changes what the player
+   * knows and not what the page shows. The ground-albedo switch it used to throw moved to `t`. */
+  if (std::strcmp(k, "Tab") == 0) {
+    if (!down || repeat) return true;
+    gView = gView == FBView::Cockpit ? FBView::Map : FBView::Cockpit;
+    if (gView == FBView::Map && gOwnship) {
+      for (int i = 0; i < (int)gActors.size(); i++)
+        if (gActors[i].get() == gOwnship) gSelected = i;
+      gMap.SetSelected(gOwnship->GetName().c_str());
+    } else if (gView == FBView::Cockpit && gSelected >= 0 && gSelected < (int)gActors.size()) {
+      /* SELECT A UNIT AND PRESS TAB = SIT IN ITS COCKPIT. It is an information change: from here on the
+       * picture is THAT unit's own blocks and it sees less than the map did. */
+      gOwnship = gActors[gSelected].get();
+      R.SetHudDisplay(&gOwnship->Displays());
+    }
+    FBLog::Info("view", "MODE", {{"view", gView == FBView::Map ? "map" : "cockpit"},
+                                 {"unit", gOwnship ? gOwnship->GetName() : std::string()}});
+    return true;
+  }
+  if (gView == FBView::Map) return HandleMapKey(k, down, repeat);
+  if (std::strcmp(k, "t") == 0 || std::strcmp(k, "T") == 0) {
+    if (down && !repeat) GroundSet(!R.GetGroundMode());
+    return true;
+  }
   Systems::FBInputSystem *in = Hands();
   if (!in) return false;
   auto is = [k](const char *s) { return std::strcmp(k, s) == 0; };
@@ -394,6 +526,38 @@ static void frame(void) {
   double cp_c = emscripten_get_now();   /* end: the tick loop */
 
   R.SetAgl((float)gOwnship->AglM());   /* the unit's own AGL, so FBRadarAltimeter and the HUD agree */
+
+  /* ---- THE MAP VIEW, and it returns before a single cockpit field is computed: the two views read
+   * different things, and computing both would be the shared scene graph doc/player-layer.md §9.7
+   * forbids. Same render pass, other strokes -- the per-frame Begin*Pass count is unchanged. */
+  if (gView == FBView::Map) {
+    Units::FBSimUnit *node = MapNode();
+    if (node) {
+      Units::FBUnitPose np = node->GetPose();
+      gPic.Begin(simT, node->GetTeam());
+      gPic.Ingest(node->HudState(), node->GetName().c_str(), np.LatDeg, np.LonDeg, np.ElevM,
+                  np.HeadingDeg, np.SpeedMs);
+      R.SetHud(node->HudState(), true);   /* before the view: the pass being on is what shifts the scene */
+      Render::FBTacticalMap::FBMapView mv;
+      mv.Width = R.SceneW(); mv.Height = R.SceneH();
+      mv.CentreYPx = (float)R.ViewH() * 0.5f;   /* the boresight, not the frame centre */
+      mv.CentreLatDeg = np.LatDeg; mv.CentreLonDeg = np.LonDeg;
+      mv.SpanM = gMapSpanM;
+      double aspect = (double)mv.Width / (double)(mv.Height > 0 ? mv.Height : 1);
+      double h = mv.SpanM / (2.0 * std::tan(kSceneVerticalFovDeg * 0.5 * kPi / 180.0) * aspect);
+      double meye[3], mfwd[3], mright[3], mup[3];
+      FBGeoToEcef(np.LatDeg, np.LonDeg, h, meye);
+      FBCameraBasisEcef(0.0, kMapPitchDeg, 0.0, np.LatDeg, np.LonDeg, mfwd, mright, mup);
+      R.SetCameraBasis(meye, mfwd, mright, mup);
+      gMapGeo.Reset();
+      gMap.Build(gPic, mv, gMapGeo);
+      R.SetMapOverlay(&gMapGeo);
+      W.Update(np.LatDeg, np.LonDeg, meye, mfwd, now);
+      R.RenderFrame();
+    }
+    return;
+  }
+  R.SetMapOverlay(nullptr);
 
   /* Camera = the aircraft eye, carried across the sub-tick gap so the picture keeps the frame rate
    * while the sim keeps its own. Nothing downstream of here is read by the simulation. */

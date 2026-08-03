@@ -193,7 +193,7 @@ void FBHudStage::Init(const FBGpu &gpu) {
 
 void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Geometry.Reset();
-  if (Disp) {
+  if (!Overlay && Disp) {
     Systems::FBHudEnv env{ctx.Width, ctx.Height, ctx.ViewH, Agl, Have};
     Disp->BuildHud(State, env, Geometry);
     /* The bank appends into the SAME geometry and therefore the same pass: three more displays must
@@ -201,8 +201,9 @@ void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass
      * row — with the cockpit off, ViewH == Height and there is nothing below the window. */
     if (ctx.ViewH < ctx.Height) Disp->BuildMfd(State, env, Geometry);
   }
-  const std::vector<float> &strokes = Geometry.Strokes();
-  const std::vector<float> &glyphs = Geometry.Glyphs();
+  const Systems::FBHudGeometry &src = Overlay ? *Overlay : Geometry;
+  const std::vector<float> &strokes = src.Strokes();
+  const std::vector<float> &glyphs = src.Glyphs();
   /* System boundary: the vertex buffers are fixed, a WriteBuffer past their end is a device error.
    * Symbology that outgrows the bound loses its tail rather than the frame. */
   size_t nStroke = strokes.size() < Systems::kHudMaxStrokeFloats ? strokes.size() : Systems::kHudMaxStrokeFloats;

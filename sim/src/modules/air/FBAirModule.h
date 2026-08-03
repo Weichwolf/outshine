@@ -40,6 +40,7 @@
 #include "FBAirPilot.h"
 #include "FBAirRadar.h"
 #include "FBModule.h"
+#include "FBAirNet.h"
 #include "FBNetLinkSystem.h"
 #include "FBSystemSlots.h"
 
@@ -77,6 +78,7 @@ public:
   /* A POINT, AN AGE, AND NOTHING THAT NAMES ANYBODY. Published only by a row whose catalogue entry says
    * it is an early-warning node, and only while its own set is radiating and its terminal transmits. */
   FBNetReport NetReport() override { return Node_; }
+  const char *NetControlNode() const override { return Net_.Control; }
   FBTelemetrySource *NetTelemetry() override;
 
   Systems::FBAutopilot &Autopilot() override { return AP_; }
@@ -113,6 +115,11 @@ public:
     Stores_.SetUnitId(unitId);
     Gun_.SetUnitId(unitId);
   }
+
+  /* WHICH TERMINAL IS THIS ROW'S NET TERMINAL. A row with a controller's feed listens on that one; every
+   * other row listens on the cooperative one it already carries. modules/FBAirNet.h. */
+  Sensors::FBDatalinkSystem &NetTerminal() { return Spec_.NetMember ? (Sensors::FBDatalinkSystem &)NetLink_ : Datalink_; }
+  const FBDatalinkBlock &NetTerminalBlock() const { return Spec_.NetMember ? State_.NetLink : State_.Datalink; }
 
   void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); Eye_.SetSky(sky); }
   void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, State_); }
@@ -178,6 +185,7 @@ private:
 
   Fdm::FBFdm *Fdm_ = nullptr;   /* borrowed, never owned; null for every mover row */
   FBNetReport Node_{};
+  FBAirNet Net_{};                       /* the mission `net` block, if this row was put in one */
   bool   HaveRunway_ = false;
   float  GroundAslM_ = 0.0f;
   double SimTimeS_ = 0.0, AccS_ = 0.0;

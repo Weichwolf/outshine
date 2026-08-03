@@ -171,6 +171,11 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     ServiceCommands(FBCommandGroup::Comms);
     if (SystemWorking(FBSystemId::Datalink)) Datalink_->Run(SharedState, st, units, SimTimeS);
     else SharedState.Datalink.H.Invalidate();
+    /* THE NET, on the same terminal and at the same cadence: the node's doctrine word in, this jet's
+     * own anonymous surveillance report out. Both inert for a jet on no net. */
+    FBRunAirNetMember(SharedState.Datalink, Net_, *PilotSys);
+    Node_ = FBBuildAirNetReport(Net_, SharedState.Radar, Datalink_->Transmitting(), st.lat, st.lon,
+                                st.elev);
   }
   /* Pilot. Waypoint capture runs right after, same cadence: THIS tick's Run() flew toward the
    * pre-capture active waypoint. Whether the MISSION concluded from that same capture is a separate,
@@ -483,6 +488,13 @@ bool FBF16Module::ApplySetup(const std::string &key, const std::string &value) {
   /* The one key that is a fact about a UNIT and not about this airframe: a jamming radius, answered on
    * the base so an F-16 can stand in for a 707 without a new module (doc/air-defence-network.md §6). */
   if (ApplyJammerSetup(key, value)) return true;
+  /* THE RUNNER-GENERATED NET KEYS, never author-written: a `net` block is doctrine ABOUT units, and
+   * core/FBMissionFile.cpp turns it into these. On this jet the net IS the Link-16 terminal it already
+   * carries — a fighter needs no second radio to be on a control net. modules/FBAirNet.h. */
+  { const char *why = nullptr;
+    FBAirNetResult r = FBApplyAirNetKey(key, value, *Datalink_, *PilotSys, Net_, &why);
+    if (r == FBAirNetResult::Ok) return true;
+    if (r == FBAirNetResult::Bad) return RejectSetup(why, key, value); }
   /* POWER and XMT are two switches because the real terminal has two: power off blinds this jet, XMT
    * off only stops it being heard. */
   if (key == "datalink" || key == "datalink_xmt") {

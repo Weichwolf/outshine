@@ -475,6 +475,7 @@ scalar. **No new class walks the registry, and no new class was needed at all.**
 > `net-jam-late` and `net-jam-start` are byte-identical and their rows are untouched.
 
 | Measured | Number |
+| **A `net` block now works on an AIRCRAFT** (2026-08-03) | `modules/FBAirNet.h` answers the runner-generated `net_*` keys for both airframe families identically. On a fighter **the net IS the Link-16 terminal it already carries** — the node's `wcs` arrives on the same block the flight's PPLI does, and the jet's own nearest ANONYMOUS echo goes back the same way as an `FBNetReport`. `net_sector` and `autonomy tight` are REFUSED with a reason (a sector of responsibility belongs to a position in the ground; `tight` needs target addressing this tree has none of). **No existing mission is affected**: all 78 `net` blocks in the tree are ground-only, and the first two friendly nets are new files (`missions/map-friendly-net.fbm`, `missions/map-emcon-gap.fbm`) |
 |---|---|
 | Existing missions untouched | **336/336** `telemetry*.csv` byte-identical and **112/112** `events.log` identical modulo `wallS`/`speedup`/path, against the pre-round binary |
 | Determinism, all 120 missions | **371/371** telemetry and **120/120** events identical over `--threads 1/2/4`, exit codes identical |

@@ -158,6 +158,12 @@ public:
    * doc/air-defence-network.md §3. */
   virtual FBNetReport NetReport() { return {}; }
 
+  /* WHOSE PICTURE THE TACTICAL MAP IS, said by the unit itself: the callsign of the control node this
+   * unit's mission put it under. Empty = on no net, or the node itself — and a client that finds no
+   * node draws the unit's own picture, which is the smaller claim of the two. It is mission data read
+   * back, not a sensor: the callsign was written in the `net` block. doc/player-layer.md §9.1. */
+  virtual const char *NetControlNode() const { return ""; }
+
   /* THE JAMMER, as a property of a unit rather than a unit type — one radius, published like the radar
    * cross-section beside it and for the same reason. 0 = not a jammer, which is every module written
    * before this existed. doc/air-defence-network.md §6. */

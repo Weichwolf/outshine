@@ -69,7 +69,13 @@ Pilot::FBPilotCommands FBAirPilot::Run(const FBState &state, FBCommandBus &avion
   /* The two added states have no control law of their own: a mover has no controls, and the module
    * hands the heading straight to modules/air/FBAirMover. Returning the neutral command is therefore
    * the correct statement — the pilot is not touching anything. */
-  if (GetPhase() == Phase::Orbit || GetPhase() == Phase::Drag) return Pilot::FBPilotCommands{};
+  if (GetPhase() == Phase::Orbit || GetPhase() == Phase::Drag) {
+    /* THE COMMANDER IS STILL ANSWERED. This branch skips the phase machine, so it would also skip the
+     * order inbox the base services — and an order that vanished without a line is the one refusal a
+     * commander cannot see (doc/player-layer.md §9.6). */
+    ConsumeOrders(state, avionics, st, plan);
+    return Pilot::FBPilotCommands{};
+  }
 
   return Pilot::FBPilot::Run(state, avionics, airframe, st, plan, runway, dt);
 }

@@ -7,6 +7,7 @@
 
 #include <memory>
 #include "FBAirDataSystem.h"
+#include "FBAirNet.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
 #include "FBF16Cmds.h"
@@ -121,6 +122,11 @@ public:
    * airframe cannot take must not start silently in some other state. */
   bool ApplySetup(const std::string &key, const std::string &value) override;
 
+  /* A POINT, AN AGE AND NO IDENTITY, published only while this jet is on a declared net. On a fighter
+   * the surveillance report rides the SAME Link-16 terminal the flight's PPLI does. modules/FBAirNet.h. */
+  FBNetReport NetReport() override { return Node_; }
+  const char *NetControlNode() const override { return Net_.Control; }
+
   /* [SET, a CLASS not a measurement] ~1.2 m^2, the figure most often quoted for a clean F-16 without
    * the later low-observable treatments (T4-grade: no primary source publishes one). It is also the
    * REFERENCE of the radar equation's fourth-root scaling (sensors/FBRadarSystem::kRefRcsM2) — which
@@ -163,6 +169,9 @@ private:
   Sensors::FBVisualSystem Visual_;
   std::unique_ptr<FBF16Cmds> Cmds_;
   std::unique_ptr<FBF16Datalink> Datalink_;
+  /* The mission `net` block, if one put this jet in it. Empty = on no net, and then every line of
+   * modules/FBAirNet.h is inert — which is every mission written before this. */
+  FBAirNet Net_{};
 
   /* The HUD's telemetry chain: generic systems/ defaults + the F-16-specific boxes. */
   std::unique_ptr<Systems::FBAirDataSystem> AirData;
@@ -184,6 +193,7 @@ private:
   double PilotAccS = 0.0;
 
   FBCommandBus CmdBus_;   /* the pilot's only path to this jet's boxes */
+  FBNetReport Node_{};
   FBMasterMode Mode = FBMasterMode::Nav;
   FBState SharedState{};   /* Sensors WRITE, Displays READ — no display queries a sensor directly */
 

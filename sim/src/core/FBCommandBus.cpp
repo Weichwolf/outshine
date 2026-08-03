@@ -143,9 +143,20 @@ FBCommandAck FBCommandBus::Reject(FBCommandTarget target, double value, double n
   Issued_++;
   Rejected_++;
   LastAck_ = a;
+  AckRing_[AckHead_] = a;
+  AckHead_ = (AckHead_ + 1) % kAckRing;
   FBLog::Info("cmd", "CMD_REJECT", {{"seq", (int)a.Seq}, {"target", FBCommandTargetStr(target)},
       {"value", value}, {"reason", FBCommandReasonStr(reason)}});
   return a;
+}
+
+bool FBCommandBus::AckOf(uint32_t seq, FBCommandAck &out) const {
+  for (int i = 0; i < kAckRing; i++)
+    if (AckRing_[i].Seq == seq && AckRing_[i].Outcome != FBCommandOutcome::Pending) {
+      out = AckRing_[i];
+      return true;
+    }
+  return false;
 }
 
 bool FBCommandBus::SameSwitchBusy(FBCommandTarget target, double nowS) const {
@@ -208,6 +219,8 @@ void FBCommandBus::Complete(const FBAvionicsCommand &cmd, FBCommandOutcome outco
   a.Seq = cmd.Seq; a.Target = cmd.Target; a.Value = cmd.Value;
   a.Outcome = outcome; a.Reason = reason; a.CompletedS = nowS;
   LastAck_ = a;
+  AckRing_[AckHead_] = a;
+  AckHead_ = (AckHead_ + 1) % kAckRing;
 
   int slot = (int)cmd.Target;
   if (slot >= 0 && slot < kTargetSlots) { LastActionS_[slot] = nowS; HaveLastAction_[slot] = true; }

@@ -56,6 +56,8 @@ refinement is the running work.
 | Piece | Status | Anchor |
 |---|---|---|
 | Framework, phase machine | built | `681c5f8` |
+| **The commander's inbox** (`ReceiveOrder` / `ConsumeOrders`) | built | ONE order per decision tick, four outcomes, every one a line in `events.log`. An order whose act is a HEAD-DOWN ENTRY (`waypoint`/`steer`/`attack`) is not finished when it is posted — it is posted to the steerpoint page in the DED class and finished when `FBCommandBus::AckOf` answers, which brings the manoeuvre gate with it: above 1.5 g the bus turns it away and the commander sees a refusal. **`attack` is refused `nothing_held` unless one of THIS pilot's OWN radar contacts is within 4 000 m of the ordered point** — the commander points, the pilot must see. `emcon` is refused `no_capability` on an airframe with no silent radar mode. [`player-layer.md`](player-layer.md) §12 |
+| **Fire authority** (`SetWeaponsControl` / `MayFire`) | built | the doctrine word the air-defence net already transmits, on an aircraft: `Free` is the built behaviour exactly (so a unit nobody put under fire control is byte-identical), `Hold` refuses at the ONE gate every weapon-employment post passes, and `Tight` is refused because target addressing does not exist in this tree. `SetAutonomy` + `SetControlNodeHeard` give the declared fallback when the node goes quiet — the ground net's own mechanism, reused unchanged |
 | Takeoff | flies | `e49d335` |
 | Landing — `payerne-full` flies fully autonomously | flies | `8cd3a74` |
 | BFM manoeuvre AI on radar contacts alone | flies | `b375bef` |

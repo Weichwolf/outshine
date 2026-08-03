@@ -3195,3 +3195,63 @@ Richter, Urteil — ist deterministisch; genau an diesem Sampler hört es auf. (
 Determinismus über `--threads 1/2/4` auf `pair-2v2-f16`, `payerne-full` und der neuen Datei: je ein
 Fingerabdruck. Sieben Harnesses rc=0, `verify-models` grün, `verify-layers` grün mit
 `6 registry reader(s) … 1 antenna-cue poster(s) … 1 simulation-loop driver(s)`.
+
+## 2026-08-03 — Die taktische Karte: das eigene Netz, ein Kraftbild am Leitknoten, APP-6 über OSM, und Befehle, die abgelehnt werden können
+
+**Vorbedingung zuerst, und sie war eine Missionsfrage.** 78 Missionen deklarieren ein `net`, und der
+Leitknoten aller 78 saß auf der `hostile`-Seite; die Fähigkeit war seit dem ersten Tag generisch, was
+fehlte, war ein Mitglied mit Flügeln. `modules/FBAirNet.h` beantwortet jetzt die runner-erzeugten
+`net_*`-Schlüssel für beide Zellenfamilien identisch: `net_link`/`net_period_s`/`net_hold` gehen an das
+Terminal, das der Jäger ohnehin trägt — **ein Jäger braucht kein zweites Funkgerät, um in einem
+Leitnetz zu sein** —, `net_control` macht ihn zum Hörer, `net_wcs` zum Knoten, `net_autonomy` zum
+Rückfall. `net_sector` und `autonomy tight` werden mit BEGRÜNDUNG ABGELEHNT statt still ignoriert: ein
+Verantwortungssektor gehört einer Stellung im Boden, und `tight` bräuchte eine Zieladressierung, die
+dieser Baum nicht hat. Zwei neue Dateien, keine bestehende angefasst: `missions/map-friendly-net.fbm`
+und `missions/map-emcon-gap.fbm`.
+
+**Das Bild ist `core/FBForcePicture` und liest AUSSCHLIESSLICH publizierte Blöcke** — ein `Ingest`
+(FBState + Pose) je Beitragendem, sechs Quellen, APP-6-Zugehörigkeit. `verify-layers` zählt weiterhin
+**sechs** Wahrnehmungsleser und **einen** Schleifentreiber; das ist die Abnahme von P9 und keine
+Zusicherung. **HOSTILE wird nirgends abgeleitet**: eine PPLI ist FRIEND, ein Echo mit gültiger
+Mode-4-Antwort ist FRIEND, alles andere UNKNOWN. Eine RWR-Peilung ist eine LINIE ohne Ende, weil kein
+Pfad im Baum ihr eine Entfernung geben könnte.
+
+**Gezeichnet wird im HUD-Pass, und die Karte ERSETZT dort die Cockpit-Symbolik** — ein
+`FBHudGeometry`, ein `FBHudStage`, **null zusätzliche Begin\*Pass je Frame**. Das erzwingt §9.7
+nebenbei baulich: beide Bilder können nicht gleichzeitig auf dem Schirm stehen, also kann keines die
+Quelle des anderen lesen. Die OSM-Grundkarte IST der Geländerenderer aus dem Nadir, auf genau der Höhe,
+deren Fußabdruck die Kartenspanne ist (`H = span / (2·tan 30°·aspect)`) — **[MESS] mit −89,9° und nicht
+−90°**: `FBCameraBasisEcef` bildet `right` aus `fwd × Welt-oben`, im exakten Nadir sind die parallel,
+die Basis kollabiert und das Bild kam LEER zurück, bei 22 gezeichneten Geländeblättern.
+
+**Ein Befehl wird von der BOX beendet, nicht vom Absenden.** Der erste Entwurf hat aus dem
+`Pending`-Rückgabewert von `Post()` eine Annahme gemacht — und die Box hat den Eintrag vier Sekunden
+später abgelehnt, also stand auf der Karte „angenommen“ über einem gescheiterten Eintrag. `FBCommandBus`
+hat jetzt `AckOf(seq)` (Ring über die letzten 16 Antworten), und der Pilot hält den Befehl, bis SEIN
+Eintrag beantwortet ist: gemessen `order ISSUE` t=61,0 → `CMD_ISSUE steerpoint class=ded dueS=65,1` →
+`CMD_ACK accepted latencyS=4,1` → `order ACCEPTED phase=Intercept` t=**65,1**.
+
+**Eine Grenze, die diese Runde ENTDECKT und nicht geerbt hat:** `FBAirPilot::Run` kürzt für einen
+kreisenden Mover die Phasenmaschine ab — der Befehlseingang der Basis lief also nie, und ein Befehl an
+die AWACS **verschwand ohne eine Zeile**. `ConsumeOrders` ist jetzt protected und dieser Zweig ruft es.
+Eine Ablehnung, die der Befehlshaber nicht sieht, ist schlimmer als eine Ablehnung.
+
+**Zwei Projektionsdefekte, beide gemessen und beide von der Sorte, die ein plausibles Bild über den
+FALSCHEN Boden legt.** (a) −90° Nick lässt die Kamerabasis kollabieren (s.o.). (b) Der Kartenmittelpunkt
+ist **`ViewH/2` und nicht `Height/2`**: die Szene ist um das Drittel der MFD-Bank nach oben verschoben,
+die erste Fassung legte also jedes Symbol 120 px — bei 46 km Spanne **4,1 km** — südlich seines eigenen
+Bodens. Nachgemessen über den skaleninvarianten Fixpunkt zweier Bilder desselben Ticks bei 6 km und
+12 km Spanne: **cy ≈ 226…240** (maskierte Korrelation 0,363/0,333) gegen **0,159 bei cy = 360**. Die
+Restunsicherheit ±15 px ist die Auflösung des Verfahrens und als offener Punkt vermerkt.
+
+**Gemessen** (`build/tactical-map/`, `map-emcon-gap.fbm`, Knoten `magic`, die ganze Fraktion beim Spawn
+funkstill): `A-before-first-contact-t35.7.png` zeigt **CONTACTS 0** — der Gegner ist 15 km im Bild und
+steht NICHT auf der Karte; das Ereignis, das es ändert, ist `t=40.5 radar RADAR_CONTACT unit=vip1
+track=1`, und `B-after-first-contact-t45.9.png` zeigt **CONTACTS 1** mit einem Vierpass `NET 2S`.
+`C-aged-contact-t76.5.png` zeigt ein 12,4 s altes Datum: auf 40 % gedimmt, mit gestricheltem Ring
+`Alter × 250 m/s`. Sechs Befehlsausgänge in einem Lauf, darunter drei Ablehnungen
+(`nothing_held`, `no_capability` zweimal). **Regression: 282 Missionen verglichen, 0 Telemetrie-Hashes
+bewegt, 0 `events.norm` bewegt, 0 Exit-Code-Unterschiede** (`tools/fb_regress.sh`, Stand davor gegen
+danach, nur Hashes, Schnappschüsse danach gelöscht); die einzige Differenz sind die zwei NEUEN Dateien.
+Determinismus `--threads 1/2/4` je ein Fingerabdruck pro neuer Mission. Zehn Harnesses rc=0,
+`verify-layers`/`verify-guards` (8/8)/`verify-models` grün, `wasm`/`native`/`gym` warnungsfrei.

@@ -21,6 +21,11 @@ public:
   void SetState(const FBState &s, bool have) { State = s; Have = have; }
   /* Borrowed, never owned; the client wires it from the active module. nullptr -> empty HUD. */
   void SetDisplaySystem(const Systems::FBDisplaySystem *disp) { Disp = disp; }
+  /* THE TACTICAL MAP, and it REPLACES the cockpit symbology rather than being added to it: two
+   * pictures at once would hand the map's knowledge to the seat and the seat's to the map, which is
+   * the one thing doc/player-layer.md §9.7 says a careless build deletes. Borrowed, never owned;
+   * nullptr = the cockpit. The PASS COUNT is unaffected either way — the same pass, other strokes. */
+  void SetOverlay(const Systems::FBHudGeometry *g) { Overlay = g; }
   void SetAgl(float agl) { Agl = agl; }   /* feeds FBHudEnv, for the horizon-dip calc + AGL readout */
 
   /* Regenerates the symbology for THIS frame's State, then draws. */
@@ -42,6 +47,7 @@ private:
   float Agl = 0.0f;
   const Systems::FBDisplaySystem *Disp = nullptr;
   Systems::FBHudGeometry Geometry;
+  const Systems::FBHudGeometry *Overlay = nullptr;
   std::vector<float> LoadingGlyphs;
 };
 

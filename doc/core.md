@@ -42,6 +42,9 @@ Built and in service; 53 files plus `math/FBMat4.h`.
 | Piece | Status | Anchor |
 |---|---|---|
 | Avionics block bus (17 blocks) + command bus | built | `071ea2b` |
+| `FBCommandBus::AckOf(seq)` — the answer to ONE posted entry | built | a fixed ring of the last 16 completions. It exists because a poster that must know whether ITS entry landed cannot read `LastAck()`: between `Post()` and the box's answer sit four seconds and every other switch throw in them. First consumer: a tactical order whose act is a typed entry ([`player-layer.md`](player-layer.md) §12 M7) |
+| `FBForcePicture` — WHAT ONE FACTION HAS COLLECTED | built | the tactical map's only data product, built from PUBLISHED BLOCKS ONLY (one `Ingest(FBState, pose)` per contributor; six sources: own position, PPLI, the members' `FBNetReport`s, the controller feed, own echoes, the eye and the warning receiver). It names no registry — `verify-layers` still prints **six** readers. APP-6 affiliation, and **HOSTILE is never derived**: a PPLI is FRIEND, an echo with a valid Mode 4 reply is FRIEND, everything else is UNKNOWN |
+| `FBTacticalOrder` — what a commander may say to a unit's AI | built | seven kinds, four refusal reasons, no identity of anything it points at: an order to attack names a PLACE, because a place is what the commander's own picture holds. Consumed by `pilot/FBPilot`; there is no path from it to a state write |
 | `FBLog` / `FBTelemetry`, thread-local context for the gym parallel path | built | `e4d7c26`, `6d7ed5a` |
 | `FBFlightMonitor` (physics KO) | built | `28e74e5` |
 | `FBMissionMonitor` (mission verdict) | built | `92fe8a4` |

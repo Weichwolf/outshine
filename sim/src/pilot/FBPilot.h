@@ -15,9 +15,11 @@
 #include "FBFlightPicture.h"
 #include "FBFlightPlan.h"
 #include "FBPilotTuning.h"
+#include "FBNetReport.h"
 #include "FBRunway.h"
 #include "FBState.h"
 #include "FBStore.h"
+#include "FBTacticalOrder.h"
 #include "FBTelemetry.h"
 #include "FBFdm.h"
 
@@ -138,7 +140,40 @@ public:
    * ueber Tuned(), im Entscheidungspfad selbst. */
   bool ApplyTuning(const std::string &key, double value) { return Tune_.Set(key, value); }
 
+  /* ---- THE COMMANDER'S CHANNEL, and it is an INBOX and not a setter. A tactical order is handed in
+   * here by whoever is commanding this unit — a mission's own doctrine, or the player at the map — and
+   * this pilot decides in its own decision tick what to do with it. It writes no state, it bypasses no
+   * interlock, and every one of the four outcomes is a line in events.log. doc/player-layer.md §9.6. */
+  static constexpr int kMaxOrders = 4;   /* [SET] a crew carries a couple of instructions, not a queue */
+  bool ReceiveOrder(const FBTacticalOrder &o);
+  int  OrdersAccepted() const { return OrdersOk_; }
+  int  OrdersRefused() const { return OrdersNo_; }
+
+  /* ---- FIRE AUTHORITY, the doctrine word the air-defence net already transmits, on an aircraft. Free
+   * is the built behaviour exactly, so every mission that declares nothing is byte-identical; Hold is
+   * "do not shoot", and it is checked at the ONE place a weapon leaves this pilot. */
+  void SetWeaponsControl(FBWeaponsControl w) { Wcs_ = w; }
+  FBWeaponsControl WeaponsControl() const { return Wcs_; }
+  /* What this unit falls back to when the node it listens to has gone quiet — declared per mission,
+   * never inferred. Only meaningful together with SetControlNodeHeard(). */
+  void SetAutonomy(FBWeaponsControl w) { Autonomy_ = w; HaveAutonomy_ = true; }
+  void SetControlNodeHeard(bool heard) { NodeHeard_ = heard; HaveNode_ = true; }
+  FBWeaponsControl EffectiveWeaponsControl() const {
+    if (HaveNode_ && !NodeHeard_ && HaveAutonomy_) return Autonomy_;
+    return Wcs_;
+  }
+  /* The gate itself, so a module that fires outside this class asks the same question. */
+  bool MayFire() const { return EffectiveWeaponsControl() != FBWeaponsControl::Hold; }
+
 protected:
+  /* ONE order per decision tick, in arrival order, and it is PROTECTED because a module whose Run()
+   * short-circuits the phase machine (modules/air's orbiting mover) must still answer its commander:
+   * an order that silently vanished would be the one failure mode a commander cannot see.
+   * An order whose act is a head-down ENTRY is not finished when it is posted -- it is finished when
+   * the BOX answers, four seconds later, and it can still be refused there. */
+  void ConsumeOrders(const FBState &state, FBCommandBus &avionics, const Fdm::fb_fdm_state &st,
+                     const FBFlightPlan &plan);
+
   /* g·sqrt(n²−1)/V an der Eckgeschwindigkeit. EINMAL hergeleitet, ZWEIMAL benutzt — deshalb eine
    * Methode statt zweier Konstanten: die schnellste Nasenbewegung dieses Jets UND die Annahme darueber,
    * wie hart der andere kurvt (FBTrackDatum). doc/pilot-ai.md, Abschnitt 6.2. */
@@ -488,6 +523,35 @@ private:
   double GunBriefAtS_[kMaxBriefedGunBursts]{};
   double GunBriefS_[kMaxBriefedGunBursts]{};
   int    GunBriefCount_ = 0, GunBriefNext_ = 0;
+
+  void FinishOrder(const FBTacticalOrder &o, bool accepted, FBOrderReason why, const char *detail);
+  bool FireAuthorised(const char *what);
+  void ApplyOrder(const FBTacticalOrder &o);
+  void StartOrderEntry(const FBTacticalOrder &o, FBCommandBus &avionics, const FBFlightPlan &plan);
+  /* [SET] How near the ordered place one of this pilot's OWN contacts has to be before the order names
+   * something he holds. It is the formation correlation gate (doc/formation.md §5.2) reused rather than
+   * a second number invented: the commander's point is a net-delayed report of the same aeroplane. */
+  static constexpr double kOrderTargetGateM = 4000.0;
+
+  FBTacticalOrder Orders_[kMaxOrders]{};
+  int    OrderCount_ = 0;
+  /* THE ENTRY IN FLIGHT: the order whose head-down entry has been posted and not yet answered. One at
+   * a time, because one head types one field at a time. */
+  FBTacticalOrder Entering_{};
+  uint32_t EnteringSeq_ = 0;
+  bool     Entering_Active_ = false;
+  int    OrdersOk_ = 0, OrdersNo_ = 0;
+  /* WHERE THE COMMANDER SENT THIS UNIT, once an order was carried out: the point the Route/Intercept
+   * phases steer to instead of the declared leg. Cleared by Abort, which is what makes Abort an order
+   * rather than a mode. */
+  bool   OrderSteer_ = false, OrderAttack_ = false;
+  double OrderLatDeg_ = 0.0, OrderLonDeg_ = 0.0, OrderAltM_ = 0.0;
+  bool   OrderEmcon_ = false, HaveOrderEmcon_ = false;
+
+  FBWeaponsControl Wcs_ = FBWeaponsControl::Free;
+  FBWeaponsControl Autonomy_ = FBWeaponsControl::Hold;
+  bool   HaveAutonomy_ = false, HaveNode_ = false, NodeHeard_ = false;
+  bool   HoldLogged_ = false;   /* a refused shot is reported on the flank, not at 10 Hz */
 
   double BriefAlowFt_ = 0.0, BriefBingoLbs_ = 0.0, BriefWeapon_ = 0.0;
   bool   BriefArm_ = true;
