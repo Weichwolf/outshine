@@ -3446,3 +3446,39 @@ gezogen.
 `fb_campaign_verify.py` (Determinismus über Wiederholungen × Threads, Replay gegen Einzelläufe) sind
 gebaut, aber nicht über alle zehn gefahren — 60 Kampagnenläufe sind Stunden, und diese Runde hat den
 Verbesserungsnachweis vorgezogen, weil es ihn ohne Basislinie gar nicht geben konnte.
+
+---
+
+## 2026-08-03 — Kriterium 1 geschlossen: zehn Kampagnen, sechzig Durchläufe, zehn Fingerabdrücke
+
+Der Auftrag verlangt nicht einen Durchlauf, sondern dass jede Kampagne **mehrfach und
+deterministisch** durchgespielt wird. Beides ist dasselbe Experiment, und es ist gefahren:
+`fb_campaign_verify.py determinism` über alle zehn, je **2 Wiederholungen × `--threads 1/2/4`**.
+
+| Kampagne | Läufe | verschiedene Kampagnen-Fingerabdrücke |
+|---|---:|---:|
+| w1-red-flag | 6 | **1** |
+| w2-osirak | 6 | **1** |
+| w3-desert-storm | 6 | **1** |
+| w4-allied-force | 6 | **1** |
+| w5-baltic-qra | 6 | **1** |
+| o1-bekaa-1982 | 6 | **1** |
+| o2-pvo-intercept | 6 | **1** |
+| o3-yom-kippur-1973 | 6 | **1** |
+| o4-gaf-mig29g-dact | 6 | **1** |
+| o5-airfield-defence | 6 | **1** |
+
+**60 Kampagnendurchläufe, 600 Missionen, zehn Fingerabdrücke.** Ein Fingerabdruck ist die SHA-256 über
+alle `telemetry*.csv`, den normalisierten `events.log` und den Exit-Code jeder Mission, dazu jeden
+`campaign-state.txt` und den Kampagnen-Exit — normalisiert werden ausschliesslich `wallS`/`speedup` und
+der absolute Pfad, also genau die zwei Feldklassen, die sagen WO und WANN gelaufen wurde statt WAS
+gerechnet wurde.
+
+Das ist zugleich der schärfste Determinismus-Nachweis, den dieser Baum bisher hat: nicht eine Mission
+über drei Threadzahlen, sondern zehn verkettete Missionen mit übertragenem Zustand, sechsmal, ohne eine
+einzige Abweichung. Prinzip 4 („gibt das Tempo das Ergebnis, ist die Kopplung ein Bug") gilt damit auch
+über die Kampagnengrenze.
+
+Offen bleibt Kriterium 2 (Replay: jede Stufe einzeln nachgeflogen gegen den Kampagnen-Fingerabdruck) —
+es läuft — und der wiederholte Verbesserungsnachweis, für den es einen zweiten Verbesserungsschritt
+braucht und nicht nur einen zweiten Durchlauf.
