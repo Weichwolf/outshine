@@ -4067,3 +4067,76 @@ Zellen NICHT gefahren — `E-28` steht unverändert dort, wo `E19` es gelassen h
 geschuldet · `make -C sim verify-models` grün · bewachter Baum vor und nach jedem Lauf ohne modifizierte
 Datei · Determinismus `--threads 1/2/4` auf `sat-10-duel-merge`, dreimal derselbe Telemetrie-SHA-256
 `32720b2093962ca5` · keine Commits.
+
+---
+
+## `E31` (2026-08-04) — `X-20` repariert, und der Verdächtige hatte das falsche Vorzeichen
+
+**Die Frage war: Doktrin oder Exploit?** `E30` hatte gemessen, dass Blaus Suche Generation 0 mit
+`dl=off` gewinnt. Zwei Lesarten standen offen, und `X-20` war der benannte Verdächtige — eine F-16, die
+aus EMCON zurückkommt, erfasst sofort wieder.
+
+**Der Verdächtige zeigt in die andere Richtung, und das ist gemessen statt argumentiert.** EMCON ist nur
+mit einem Bild erreichbar, ein Bild auf diesen Zellen nur über den Datalink — `X-20` ist also eine
+Subvention, die AUSSCHLIESSLICH `dl=on` bekommt: über 69 (Zelle, Genom)-Paare zeigen **21 von 69**
+`dl=on`-Läufen einen festen Kontakt im Rückkehrtakt und **0 von 69** `dl=off`-Läufen überhaupt eine
+Stille. `dl=on` verlor 50 : 19, *während* es sie kassierte. Die Reparatur bewegt 2 von 69 Paarungen und
+das Urteil nicht.
+
+**Repariert wurde trotzdem, eine Schicht tiefer als gebucht.** `NextScanS_` gehört `FBRadarSystem`, und
+genau deshalb hatte die F-16 keine Stelle für den Aufruf: ihre Emission läuft über den MODUS. Drei
+Zeilen im nicht-strahlenden Zweig von `Run()`, kein Anfangszustands-Lüge, jedes Modul abgedeckt.
+Gemessen an `sat-02-picture-split`/`pb2`: Rückkehr aus 36,3 s Stille mit **0 Kontakten** statt 8 im
+selben Takt, erster fester Track nach **4,1 s = ein CRM-Frame**.
+
+**Darunter lag ein zweiter, viel breiterer Defekt.** Ein Raketensucher ist bis zur Aktivierung DUNKEL,
+und das Nachholen produziert nicht nur einen Track, sondern eine ZAHL: die Annäherungsrate wird über das
+Look-Paar differenziert, nachgeholte Frames teilen sich EINEN `simTimeS`, also bleibt `ClosureMs` auf
+der initialen 0. **[MESS, 296 Missionen] 1 472 von 24 688 `RADAR_CONTACT`-Zeilen trugen `closureKt=0`;
+danach 0 von 25 200.** Endspiel-Beispiel `o3-09-two-fronts`: Fehlabstand **4,32 m → 0,98 m**.
+
+**Volle Regression, beide Binaries, und die Begründung ist EIN Gesetz statt 115 Sätzen.** 115 von 296
+Missionen bewegen sich, 181 sind bytegleich. Jede bewegte Mission trägt mindestens einen der zwei
+Fingerabdrücke des Defekts (`closureKt=0` oder ein `radar standby`-Drop), **keine einzige trägt keinen**,
+und die drei unbewegten mit Fingerabdruck (`mig29-r27`, `sat-08-ident-qra`, `sat-11-duel-qra`) haben nur
+MiG-29-Emissionszyklen — das eine Muster, das `ResyncScan()` schon hatte. Drei Exit-Codes ändern sich,
+jeder mit eigener Kette: `ar-10` 1 → 3 (rot V 15 → 16, die dokumentierte 16), `pair-cover` 0 → 3
+(Splittergeometrie 1,92 → 3,22 m, `failed` 4023 → 4016), `o3-09` 3 → 2 (alle 14 Systeme aus, Absturz).
+**`o3-09`s Leseregel „exit 2 wäre ein Defekt" ist damit falsch und als Korrektur geschuldet** — nicht
+genommen, weil ein Missions-Edit mitten in der Runde beide Schnappschüsse und das Zellentor entwertet.
+
+**`E-33` galt für diese Runde, sie hat es befolgt — und dabei selbst eine Zelle verloren.** Das Zellentor
+neu gefahren: **kein einziger S1-/S2-Wert bewegt sich, sechs Spalten, auf die Ziffer.** Bewegt hat sich
+S7, auf genau einer Zelle: `sat-10-duel-merge` geht von `E30`s 0 von 8 auf ALLEN 35 Paaren auf blau
+`sort-near` 3 von 8 und rot **16 von 25 Gegnern bei 3 von 8**, `committed` darunter. Die Arena ist
+**2 von 3**. Die Sprossen waren gegen ein Spawn-Spektrum platziert, das dieses Binary nicht mehr
+erzeugt — `X-28`: eine Sprossenleiter ist eine Eigenschaft eines BINARY, und kein Zellenkopf sagt das.
+
+**Und damit die Antwort auf die Frage, wegen der die Runde losgezogen ist.** Auf der Arena, die ihr
+eigenes Tor besteht, gewinnt `dl=off` NICHT: `sat-11-duel-qra` 21 : 2 für `dl=off`, `sat-12-duel-gate`
+15 : 8 für `dl=on`, **Zellenstand 1 : 1**, Decke 2⁻² = 0,25. Die 69-Paarungs-p = 0,0002 zählt Hebel, nicht
+Zellen.
+
+**Der Mechanismus ist eine Größe, und sie entscheidet beide zulässigen Zellen: eine Mindestentfernung zu
+einem BENANNTEN Gegner.** 385 der 435 Objective-Differenz (88,5 %) stecken in `identify`-Sprossen, nichts
+sonst in M bewegt sich. In beiden Zellen gewinnt die Seite, die ihrem benannten Gegner näher kommt — und
+es ist nicht dieselbe Seite. Auf `sat-12` steuert die kooperative Sortierung sauber (Rang **1,50 von 4**
+gegen Zufall 2,50) und gewinnt. Auf `sat-11` — einer QRA gegen vier An-26 unter Eskorte — verteilt die
+Sortierung einen Jäger pro Transporter, und `qa4`, dessen Leiter `an4` NENNT, wird auf `an1` geschickt:
+**580 m ohne Netz gegen 20 040 m mit Netz**, weil ohne Netz drei von vier Jägern denselben Transporter
+passieren (54 / 95 / 580 m). **Die vernetzte Rotte fängt alle vier Transporter ab, die unvernetzte einen
+davon dreimal — und die Leiter bewertet das zweite höher, weil eine Sprosse fragt, WELCHER Jet ankam,
+und genau das die Aufgabe der Sortierung ist.**
+
+**Kein Doktrinwechsel veröffentlicht, und nicht wegen eines schwachen Signals.** Der Zellenstand ist ein
+Unentschieden, und die Größe, die beide Zellen entscheidet, gehört dem Rig: `X-26` — eine
+Sprossenleiter bewertet eine ZUTEILUNG, als wäre sie eine Annäherung. Der Baum bekommt einen Befund
+statt einer Doktrin, und der wiegt nach §6 mehr.
+
+**Binaries, weil `X-28` der eigene Befund dieser Runde ist:** vorher `44b3d0ad2913caa9` (Baum
+`795f747`), repariert `3a648cf97609d752` (Baum `2ae1b8c`). Keine Zahl oben stammt von einem anderen.
+
+**Tore:** volle Regression über alle 296 Missionen mit einzeln begründeten Abweichungen · Zellentor nach
+der Verhaltensänderung neu gefahren (`E-33`) · `verify-models`, `verify-layers`, `verify-guards` grün ·
+acht Harnesses rc = 0 · `make wasm` baut · Determinismus `--threads 1/2/4` auf `sat-10-duel-merge`,
+dreimal `9f6a1de9697fa22e` · bewachter Baum unverändert · keine Commits.
