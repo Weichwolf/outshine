@@ -74,6 +74,9 @@ Pilot::FBPilotCommands FBMig29Pilot::Run(const FBState &state, FBCommandBus &avi
     const GciCall &g = Gci_[GciNext_];
     bool refused = false;
     if (GciStep_ == 0) {
+      /* HEARD, not typed: the emission decision runs on what the controller SAID, and it stands until
+       * he says something else — the switch throws that follow are what the pilot does about it. */
+      GciHeard_ = GciNext_;
       FBLog::Info("gci", "BRAA", {{"brgDeg", g.BrgDeg}, {"rangeKm", g.RangeM * 0.001},
           {"altKm", g.AltM * 0.001}, {"t", ClockS_}});
       /* No Platform block, no entry: the relative altitude is a DIFFERENCE, and half of it is his own

@@ -32,6 +32,78 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-04 — Acht stille Gene waren DREI verschiedene Tatsachen, und nur eine davon war ein Defekt
+
+**`E19` hat gemessen, dass acht von neun Genen auf der MiG-29 bitstill sind, und das als EINE Tatsache
+gelesen. Es sind drei.** Diese Runde nimmt sie auseinander, jede mit ihrer eigenen Messung — und das
+Instrument wurde zuerst gegen `E18`s committete Tabelle geprüft (**5 von 5 Zellen exakt**), bevor ihm
+irgendetwas geglaubt wurde. Die Basislinie reproduziert `E19`s Kernzahl auf den Bit: **1 von 24 Hebeln
+bewegt die MiG, und es ist `sort-near`.**
+
+| Gen | Urteil | Beleg |
+|---|---|---|
+| **G5** Emission | **echte Lücke — repariert** | siehe unten |
+| **G4** Energie | **war immer erreichbar; die RIG, nicht die Zelle** | `duel-merge`, wo eine MiG `Phase::Bfm` betritt: drei Allele, **drei verschiedene Trajektorien**. `sat-*` betritt BFM auf keiner Seite — das steht in `sat-07`s eigenem Kopf |
+| **G1** Form ×3, **G2** Deckung | **korrekte Asymmetrie, belegt** | Lazur-M ist ein Boden-Kommandokanal, kein Rottenbild. Und die von `formation.md` F6 offengelassene Alternative — Sichtformation — ist mit dem Auge dieses Baums nicht baubar: `FBVisualContact` verweigert Entfernung STRUKTURELL und Identität immer, und bei 1 852 m Kampfstaffelung misst der Führende **0,536°** gegen eine Erkennungsstufe von **0,8°**, trägt also nicht einmal einen TYP |
+| **G6** Bias, **G7** CCIP | **korrekte Asymmetrie, belegt** | auf `mig29-opt-low`, einer MiG im vollen Luft-Boden-Pass: alle fünf Allele **bitgleich**. `DirectorPass` ersetzt den generischen Abwurf, und der wartet auf einen Freigabe-Cue, den dieser Rechner nie veröffentlicht |
+
+**G5 war eine echte Lücke, und die zwei Zahlen, die `D3d` verlangt hat, haben allein KEIN Bit bewegt.**
+Es brauchte zwei Nähte: (1) die EMCON-Betätigung lief über den MODUS-Wähler, der auf dieser Zelle schon
+RAD-gegen-ACM trägt — jetzt benennt `FBPilot::EmissionControl()` den SCHALTER, mit den alten zwei
+Ordinalen als Vorgabe, also ist die F-16 dieselbe Codezeile; (2) `EmconSilent_` verlangte einen
+kooperativen Meldeblock, las also als Code *„eine Zelle ohne Datenlink darf nie schweigen"* — die
+Umkehrung der Doktrin dieses Flugzeugs. `BriefedPictureRangeM()` macht den **letzten Anruf des
+Leitoffiziers** zu diesem Bild, mit dessen eigenem gebrieftem Takt als Lebensdauer. Die zwei Zahlen aus
+eigener Quelle: still = **DUMMY** (`DCS-EA p.63`, „strahlt nicht" — und nie OFF, das nimmt dem Set den
+Strom und sperrt genau den Rückweg, den `pilot.md` §7.6b erzwingt), Reichweite = **27,0 nm** (die eigenen
+50 km des N019, T4 §7.1) gegen die 40,0 der F-16.
+
+**Gemessen, Bit-Ebene:** `emcon-wide` bewegt die MiG jetzt auf **3 von 3** Zellen — **2 von 24 statt 1**.
+Dünn, und der Grund wird gesagt statt geglättet: die committeten Zellen briefen GCI-Entfernungen von
+120/90/60 km gegen ein 50-km-Tor, also liegen `emcon-tight` und `-mid` auf derselben Seite jeder
+Schwelle (X-14 im Spiegel). Auf der eigenen Auflösung des Bandes (10 Punkte, die Rigs **nicht** angefasst)
+sind es **4 / 6 / 4 unterscheidbare MiG-Trajektorien** auf `sat-02` / `sat-04` / `sat-07`, und die Stufen
+sitzen exakt dort, wo `f × 27,0 nm` die gebriefte Leiter 120/90/60 km kreuzt — **f = 2,4 / 1,8 / 1,2**,
+aus dem Missionstext hergeleitet und nicht angepasst. **Erhaltungsbeweis:** bei
+`f ≥ 2,5` — „nie still" — ist die reparierte MiG **byte-gleich zur Binärdatei vor der Reparatur**.
+
+**Die Kosten am Rest des Baums, und der Zugehörigkeitstest ist EXAKT:** 293 Missionen, **237 bitgleich,
+56 bewegt, 3 Exit-Codes**. Eine Mission bewegt sich GENAU DANN, wenn sie eine MiG-29 mit
+`set task intercept` und mindestens einem `brief_gci` jenseits der eigenen 50 km trägt — 56 vorhergesagt,
+56 bewegt, **0 in beide Richtungen daneben**; keine Mission ohne MiG-29 bewegt sich. Die drei Exit-Codes
+je auf dem eigenen bindenden Instrument ihrer Datei, und die Richtung ist konsistent: eine MiG, die auf
+das Wort des Leitoffiziers schweigt, wird **nicht stärker** — sie baut kein eigenes Bild, während die
+F-16 ihres über den Datenlink behält.
+
+**`X-19` repariert, und zwar prüfbar:** `Genome.line()` druckt den Kanal-Bit jetzt immer, die Vorgabe ist
+„die Mission in Ruhe lassen", und **jede Archivzeile wird beim Schreiben gegen ihren eigenen Parser
+geprüft**. Die drei `dl`-Zustände ergeben drei Zeilen und drei verschiedene Missionen; vorher druckten
+zwei davon identisch.
+
+**Die Ko-Evolution neu gefahren, 2 220 Läufe, 2 Generationen — und der Gegner ist zum ersten Mal kein
+Fixpunkt.** Rots Champion BEWEGT sich in Generation 1, und zwar in genau dem Gen, das diese Runde
+repariert hat: `r0_s4` (`emcon 1,5 sort=none`) → **`r1_02` (`emcon 3` sort=none)**. Zwei rote Champions
+statt einem, Archive **2/3 statt 1/1**, und Rots Population ist nicht mehr flach (`emcon 0` erreicht
+0,536 gegen 0,484 der Saat). **Blau steht weiter ab Generation 0 fest**, also ist die Entartung
+VERRINGERT und nicht behoben — der feste Maßstab ist auf beiden Seiten flach, Instrument (b) mit 2 bzw.
+1 Champion weiter nicht rechenbar, und veröffentlicht wird daraus nichts. Das Genom wurde je Seite auf
+die Gene beschnitten, die sie auf DIESER Arena ausdrücken kann; die Beschneidung steht VOR dem Lauf und
+folgt den committeten Kopfzeilen der Zellen. Und die Archive sind jetzt nachfliegbar: jede blaue Zeile
+trägt das `dl=off`, das `E19`s Archive verschwiegen haben, und jede Zeile erzeugt beim Zurücklesen
+wieder ihre eigene Mission.
+
+**Zwei Defekte nebenbei — einer repariert, einer gebucht.** Repariert: `FBRadarSystem::Powered_` steht
+auf `true`, `FBMig29Radar::Emit_` auf `OFF`, und `SetEmission` kehrt bei unverändertem Zustand früh
+zurück — der Block meldete ab Spawn ein lebendes Set hinter einem toten Schalter. Gebucht (`X-20`): eine
+F-16, die eine EMCON-Stille beendet, erfasst **sofort** — `pb2` kommt nach 31,2 s Stille mit **8 festen
+Kontakten im selben Takt** zurück, weil das Frame-Raster beim Moduswechsel nicht resynchronisiert wird;
+die MiG im selben Lauf tut das nicht, weil `SetEmission` `ResyncScan()` ruft. Nicht in dieser Runde
+repariert: das bewegt jede F-16-EMCON-Mission und braucht seine eigene Regression.
+
+**Tore:** `make gym` · `verify-layers` (6 Registry-Leser, unverändert) · `verify-guards` 8/8 ·
+`verify-models` grün · **10 von 10 Harnesses rc=0** · Determinismus `--threads 1/2/4` byte-gleich auf
+`sat-07` und `duel-merge` · `sim/vendor` und `sim/assets/aircraft` unberührt · keine Commits.
+
 ### 2026-08-04 — Fünf saubere Zellen, die Arena besteht — und der Sweep darüber findet nichts
 
 **Die Decke ist erreicht, das Ergebnis darunter ist negativ.** `E17` hinterließ zwei chaos-saubere

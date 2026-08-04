@@ -104,7 +104,12 @@ class Genome:
     """A genome is a TEXT LINE, which is doc/pilot.md §9's whole point — so a population is a file and
     an archive is a file, and nothing about either is compiled."""
 
-    def __init__(self, name, params, dl="off", sort=""):
+    # X-19. `dl` has THREE values and only two of them used to be printable: `""` leaves the mission's
+    # own briefing alone, `"off"` and `"on"` OVERWRITE it (`splice_mission` injects `set datalink <v>`
+    # and drops the mission's line, because `"off"` is truthy). The empty one is the default here for
+    # the same reason it is in `fb_campaign_arena.load_levers`: a genome that says nothing about the
+    # channel must not silently re-brief it. Forcing the net off is an ALLELE and is spelled out.
+    def __init__(self, name, params, dl="", sort=""):
         self.name = name
         self.params = dict(params)
         self.dl = dl
@@ -114,12 +119,50 @@ class Genome:
         return tour.Variant(self.name, self.params, module, self.dl, self.sort)
 
     def line(self):
-        bits = ["%s=%g" % kv for kv in sorted(self.params.items())]
-        if self.dl != "off":
+        """The whole genome, so that reading it back reproduces the SAME spliced mission. It printed
+        `dl=` only when it differed from `"off"` and therefore hid the one allele that changes a
+        mission's own briefing — every archive written before this was a record of a flight nobody
+        could repeat (X-19)."""
+        # `%.10g` and not `%g`: the genes are rounded to four decimals over bands up to 2 000, so six
+        # significant digits SILENTLY truncate `1250.3125` to `1250.31` — a second way for a line to
+        # stop being the genome. Ten covers every value `grid_poll`/`mutate` can produce.
+        bits = ["%s=%.10g" % kv for kv in sorted(self.params.items())]
+        if self.dl:
             bits.append("dl=" + self.dl)
         if self.sort:
             bits.append("sort=" + self.sort)
         return "%s %s" % (self.name, " ".join(bits))
+
+    @staticmethod
+    def parse(line):
+        """The inverse of `line()`, and it exists so the archive's one promise — *verbatim and
+        re-flyable* — is CHECKABLE rather than asserted."""
+        tok = line.split("#", 1)[0].split()
+        if not tok:
+            return None
+        g = Genome(tok[0], {})
+        for t in tok[1:]:
+            if "=" not in t:
+                raise ValueError("%r is not key=value" % t)
+            k, v = t.split("=", 1)
+            if k == "dl":
+                g.dl = v
+            elif k == "sort":
+                g.sort = v
+            else:
+                g.params[k] = float(v)
+        return g
+
+    def reflyable(self):
+        """True when this genome survives its own text. Cheap, so every archive line is checked as it
+        is written instead of being trusted."""
+        try:
+            b = Genome.parse(self.line())
+        except ValueError:
+            return False
+        return (b is not None and b.name == self.name and b.dl == self.dl and b.sort == self.sort and
+                {k: round(v, 6) for k, v in b.params.items()} ==
+                {k: round(v, 6) for k, v in self.params.items()})
 
     def vector(self, alphabet):
         """Each gene normalised by its OWN band, so instrument (c)'s distance is comparable across
@@ -352,6 +395,8 @@ def main():
         f.write("# arena=%s timeout=%d  (a score measured on another arena is REFUSED, not re-used:\n"
                 "#  doc/missions/campaign.md §5's rule, applied verbatim)\n" % (args.geometry, args.timeout))
         for i, g in enumerate(archive):
+            if not g.reflyable():
+                sys.exit("archive line is not re-flyable (X-19): %r" % g.line())
             f.write("%s   # gen=%d idx=%d wins=%s\n" % (g.line(), g.gen, i,
                     ",".join("%s:%.2f" % kv for kv in sorted(g.win.items()))))
 

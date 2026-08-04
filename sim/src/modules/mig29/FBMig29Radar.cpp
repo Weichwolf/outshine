@@ -4,7 +4,15 @@
 
 namespace FlightBox::Modules {
 
-FBMig29Radar::FBMig29Radar() { RebuildVolumes(); }
+/* The set POWERS UP AS ITS SWITCH STANDS, and that is not a detail: the base class defaults to powered,
+ * this jet's PUR-31 defaults to OFF, and `SetEmission` returns early on a state that has not changed —
+ * so nothing ever reconciled the two and the block advertised a live set behind a dead switch. Nobody
+ * read `Powered` on this aircraft before its pilot did (doc/pilot.md §7.6b), which is why a
+ * contradiction could sit here unnoticed. */
+FBMig29Radar::FBMig29Radar() {
+  SetPowered(Emit_ != FBMig29Emission::Off);
+  RebuildVolumes();
+}
 
 /* Every number in this table carries its source in the header, next to the constant it names. What is
  * NOT arbitrary in it: the frame times follow the volumes exactly as they do on the F-16 — a

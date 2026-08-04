@@ -310,6 +310,31 @@ protected:
   virtual int    SilentRadarModeOrdinal() const { return -1; }
   virtual double EmconRadiateNm() const { return 0.0; }
 
+  /* AN WELCHEM SCHALTER die Stille gefuehrt wird, als EIN Override-Punkt statt dreier Ordinale. Die
+   * Vorgabe ist der MODUS-Waehler, weil ein Set ohne eigenen Emissionsschalter keinen anderen hat.
+   *
+   * WARUM DAS EINE ACHSE SEIN MUSS UND NICHT IMMER DER MODUS: auf einem Flugzeug, dessen Modus-Waehler
+   * schon eine ZWEITE Entscheidung traegt — Such- gegen Nahkampfmuster (SearchRadarModeOrdinal /
+   * BfmRadarModeOrdinal) —, wuerde eine EMCON-Rueckkehr den Nahkampfmodus mit dem Suchmodus
+   * ueberschreiben. Wo das Geraet einen eigenen Emissionsschalter hat (PUR-31 ILLUM/DUMMY/OFF), gehoert
+   * die Stille dorthin, und der stille Zustand muss POWERED bleiben: sonst ist der Rueckweg durch genau
+   * den Zustand gesperrt, den er aufheben soll (doc/pilot.md 7.6b, X-6).
+   * Der Rueckgabewert wird gegen den SCHALTERZUSTAND im FBRadarBlock verglichen, nie gegen ein Bild. */
+  struct FBEmissionControl {
+    FBCommandTarget Target = FBCommandTarget::RadarMode;
+    int Silent = -1;                                     /* -1 = dieses Flugzeug kann nicht schweigen */
+    int Radiate = -1;
+  };
+  virtual FBEmissionControl EmissionControl() const {
+    return {FBCommandTarget::RadarMode, SilentRadarModeOrdinal(), SearchRadarModeOrdinal()};
+  }
+
+  /* DAS BILD, DAS EIN ANDERER HAELT, WENN ES NICHT IN EINEM MELDEBLOCK STEHT — die Entfernung zu dem
+   * PUNKT, den der letzte fremde Lagebericht nannte. true = es gibt einen. Vorgabe: keinen, also ist
+   * die Emissionsregel fuer jedes Modul, das nichts ueberschreibt, unveraendert die alte.
+   * Der Rueckgabewert ist eine ENTFERNUNG und sonst nichts: keine Kennung, kein Typ, kein Track. */
+  virtual bool BriefedPictureRangeM(double &rangeM) const { (void)rangeM; return false; }
+
   /* Die BVR-Zahlen. Der Suchmodus ist ein MODUL-Ordinal, die generische Schicht kann ihn also nicht
    * benennen, nur anfordern; -1 = „dieses Modul hat keinen eigenen nicht-lockenden Suchmodus". */
   virtual int    SearchRadarModeOrdinal() const { return -1; }

@@ -317,6 +317,7 @@ void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units
   b.Powered = Powered_;
   b.Radiating = Powered_ && v.Active;
   b.ModeOrdinal = ModeOrdinal();
+  b.EmissionOrdinal = EmissionOrdinal();
   b.IffTransponder = IffXpdr_;
   b.ScanAzHalfDeg = (float)v.AzHalfDeg;
 

@@ -73,6 +73,52 @@ protected:
   /* The non-locking search mode of the N019 — RAD. The generic BVR phase can only ASK for "the mode
    * that finds everything and locks nothing"; which ordinal that is, only this module knows. */
   int SearchRadarModeOrdinal() const override { return (int)FBMig29RadarMode::Rad; }
+
+  /* ---- EMISSION DISCIPLINE, and on this aircraft it is a switch of its own rather than a mode.
+   *
+   * [DOC DCS-EA p.63] The PUR-31 emission control is a three-position switch — ILLUM (radiating),
+   * DUMMY ("antenna-equivalent mode for testing, DOES NOT RADIATE"), OFF (powered down).
+   * doc/modules/mig29/radar-sensors.md §2.1 maps it itself: *"DUMMY is a non-radiating test state and
+   * maps to 'powered, publishes no FBEmitter signature'."* So the silent state is DUMMY and NOT OFF,
+   * for two reasons that agree: OFF drops the set's power, and a pilot who cannot read his own switch
+   * cannot come back through it (doc/pilot.md §7.6b) — and OFF is the START state this jet's doctrine
+   * is built on ("radiate as late as possible", datalink-gci.md §5.2), i.e. a BRIEF, which he may not
+   * take back. The MODE selector cannot carry the emission here at all: it already carries the search /
+   * close-combat decision (SearchRadarModeOrdinal / BfmRadarModeOrdinal), so quietening it would put
+   * the jet back into RAD every time it left a merge.
+   *
+   * WHAT THIS BUYS AND WHAT IT COSTS: the whole of radar-sensors.md §6.4 — *"where the F-16 pilot's
+   * cost function is 'a lock warns the target', the MiG-29's is 'RADIATING AT ALL warns the target'"*.
+   * And the throw is DED-class on the bus (core/FBCommandBus.cpp), so unlike an F-16 mode knob it costs
+   * head-down seconds and is refused above kDedMaxG: this jet cannot go quiet in a hard turn. */
+  Pilot::FBPilot::FBEmissionControl EmissionControl() const override {
+    return {FBCommandTarget::RadarEmission, (int)FBMig29Emission::Dummy, (int)FBMig29Emission::Illum};
+  }
+  /* [DOC T4 §7.1, via radar-sensors.md §7.1] The N019's OWN documented search reach — 50 km, the lower
+   * end of the RCS-qualified 50-70 km band and the figure that file names as the one to model. It is
+   * the same constant the set itself gates every RAD look on (FBMig29Radar::kSearchRangeM), so the gene
+   * scales this aircraft's real detection range and no second number enters the tree. 27.0 nm against
+   * the F-16's 40.0 — the shorter reach is the point, not a copied figure. */
+  double EmconRadiateNm() const override { return FBMig29Radar::kSearchRangeM * kMToNm; }
+  /* AND THE PICTURE THAT PERMITS THE SILENCE, which on this jet is the one thing it has instead of a
+   * cooperative terminal: the CONTROLLER'S LAST CALL. Its range half is a number the pilot was told and
+   * typed (§2.2's documented range-angle entry) — no identity, no type, no track file, and it ages by
+   * being superseded exactly as a report ages by its cycle. Without this the generic rule reads "an
+   * aircraft with no datalink may never be quiet", which would make this aircraft's whole doctrine
+   * (datalink-gci.md §5.2, radar-sensors.md §6.4) unreachable on the one airframe that owns it. */
+  bool BriefedPictureRangeM(double &rangeM) const override {
+    if (GciHeard_ < 0) return false;
+    /* HOW LONG A SPOKEN PICTURE STANDS, and the number is the BRIEFING'S rather than a new one: a
+     * controller has a CADENCE and the mission writes it down. A call stands for as long as the gap to
+     * the one before it; past that the controller has stopped controlling, this pilot has no outside
+     * picture left, and the generic rule's own premise then forbids the silence — whoever is quiet
+     * without a picture is quiet blind. Without this line a jet whose controller falls silent stays
+     * dark to the end of the mission, which is doc/pilot.md §7.6b's one-way door in a new place. */
+    double cadenceS = Gci_[GciHeard_].AtS - (GciHeard_ > 0 ? Gci_[GciHeard_ - 1].AtS : 0.0);
+    if (ClockS_ - Gci_[GciHeard_].AtS > cadenceS) return false;
+    rangeM = Gci_[GciHeard_].RangeM;
+    return true;
+  }
   /* [ABL] Der Nahkampf-Modus, den die BFM-Phase im Merge WAEHLT — ACM, das BREITE vordere
    * Auto-Lock-Volumen (FBMig29Radar::kAcm*). Die dokumentierten CC/VS/BORE sind Azimut-BLEISTIFTE (das
    * "nur Vertikalachse" von DCS-FM p.12) und faengen einen manoevrierenden Merge-Gegner nicht — gemessen,
@@ -215,6 +261,7 @@ private:
   };
   GciCall Gci_[kMaxGciCalls]{};
   int GciCount_ = 0, GciNext_ = 0;
+  int GciHeard_ = -1;             /* the last call whose BRAA was SPOKEN — heard is not yet typed */
   int GciStep_ = 0;               /* which of the three entries of the current call is still to type */
   double ClockS_ = 0.0;           /* this pilot's own mission clock; FBPilot's is private, by design */
   double GciLastEntryS_ = -1e9;

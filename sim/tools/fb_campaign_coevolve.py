@@ -49,14 +49,20 @@ import fb_tournament as tour
 
 SIM_DIR = arena.SIM_DIR
 
-# RED'S WHOLE GENOME, and it is ONE gene wide. Measured in round `E19` at the TRAJECTORY level
-# (`build/e19/probe-red.log`, and the bit-level table in this file's State block): of the nine genes
-# of §2/§7, eight are bit-identical on the MiG-29 side on all cells, and only the sort contract
-# reaches it. Its alphabet is what `FBMig29Module::Set("brief_sort")` accepts; `left` is the committed
+# RED'S SORT ALLELES. `E19` measured red's whole genome as ONE gene wide; `E20` repaired the emission
+# seam (`duels.md` D3e) and re-measured it at TWO — the sort contract plus `pilot_emcon_frac`, which the
+# MiG-29 now expresses through its own PUR-31. The other seven stay outside red's genome for reasons
+# that are now SOURCED rather than unexplained: G1/G2 need a cooperative terminal this aircraft does not
+# have (`formation.md` F6), G6/G7 need the generic release pass its director replaces, and G4 is
+# reachable but needs a rig that enters `Phase::Bfm`, which no `sat-*` cell does.
+# The alphabet below is what `FBMig29Module::Set("brief_sort")` accepts; `left` is the committed
 # brief on every rig, so the empty allele IS `left` and admitting both would put a silent identity map
 # in the population (X-14's class). `dl=` is omitted for the same reason: the MiG-29 has no `datalink`
 # key at all and `arena.splice_mission` injects the channel bit only for `f16`.
-RED_SORT_ALLELES = [("off", ""), ("off", "near"), ("off", "right"), ("off", "far"), ("off", "none")]
+# The channel half is EMPTY and not `"off"`: `arena.splice_mission` injects the datalink line only for
+# `f16`, so on this side the two would fly the same mission — and since X-19 was repaired the genome's
+# text line PRINTS the channel bit, so `"off"` would put a claim into the record that no MiG can carry.
+RED_SORT_ALLELES = [("", ""), ("", "near"), ("", "right"), ("", "far"), ("", "none")]
 
 
 class Duel:
@@ -698,6 +704,8 @@ def main():
             f.write("# arena=%s (%d duels) elev=%s\n"
                     % (os.path.basename(args.cells), len(duels), args.elev))
             for i, g in enumerate(archive[s]):
+                if not g.reflyable():
+                    sys.exit("archive line is not re-flyable (X-19): %r" % g.line())
                 f.write("%s   # gen=%d idx=%d\n" % (g.line(), g.gen, i))
         print("archive %s: %d member(s) -> %s" % (s, len(archive[s]), p))
     print("\nruns: %d" % pool.runs)

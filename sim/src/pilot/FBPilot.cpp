@@ -10,6 +10,13 @@ namespace FlightBox::Pilot {
 namespace {
 const double kPreflightHoldS = 2.0;
 
+/* WO DER SCHALTER STEHT, den FBEmissionControl benannt hat. Zwei Achsen, ein Ablesepunkt — der Block
+ * fuehrt beide Stellungen, und ein Pilot, der eine davon gegen das BILD pruefte, saesse wieder in
+ * X-6s Einbahnstrasse (doc/pilot.md 7.6b). */
+int EmissionSwitchState(const FBRadarBlock &r, FBCommandTarget t) {
+  return t == FBCommandTarget::RadarEmission ? r.EmissionOrdinal : r.ModeOrdinal;
+}
+
 /* Klein gehalten: die modelleigene steer-cmd-norm->Grad-Kennlinie ist bei Rollgeschwindigkeit selbst
  * sehr steil (~80 °/Einheit bei ~6 kt, f16.xml), ein sanftes Kommando ist also schon eine feste
  * Korrektur. */
@@ -776,20 +783,22 @@ void FBPilot::ConsumeOrders(const FBState &state, FBCommandBus &avionics, const 
     }
 
     case FBOrderKind::Emcon: {
-      /* An aeroplane whose radar has no silent mode cannot be told to go quiet. The F-16 has one
-       * (FBF16FcrMode::Off); a row that does not falls through here with a reason instead of a shrug. */
-      if (SilentRadarModeOrdinal() < 0) {
+      /* An aeroplane whose radar cannot be quietened cannot be told to go quiet. The F-16 quietens the
+       * MODE (FBF16FcrMode::Off), the MiG-29 the PUR-31; a row that can do neither falls through here
+       * with a reason instead of a shrug. */
+      FBEmissionControl emc = EmissionControl();
+      if (emc.Silent < 0) {
         FinishOrder(o, false, FBOrderReason::NoCapability, "this radar has no silent mode");
         return;
       }
-      int want = o.Value > 0.5 ? SilentRadarModeOrdinal() : SearchRadarModeOrdinal();
+      int want = o.Value > 0.5 ? emc.Silent : emc.Radiate;
       if (want < 0) {
         FinishOrder(o, false, FBOrderReason::NoCapability, "this radar has no search mode");
         return;
       }
-      /* A MODE SWITCH IS A HOTAS THROW and answers within one action spacing, so it is finished on the
-       * bus's immediate answer rather than waited on: the entry that needs waiting is the typed one. */
-      FBCommandAck a = avionics.Post(FBCommandTarget::RadarMode, want, TimeS_);
+      /* THE THROW IS FINISHED ON THE BUS'S IMMEDIATE ANSWER rather than waited on — a rejection is the
+       * only thing that can still change the outcome, and it comes back in the same call. */
+      FBCommandAck a = avionics.Post(emc.Target, want, TimeS_);
       if (a.Outcome == FBCommandOutcome::Rejected) {
         FinishOrder(o, false, FBOrderReason::BusRefused, FBCommandReasonStr(a.Reason));
         return;
@@ -972,13 +981,15 @@ bool FBPilot::InterceptCockpit(const FBState &state, FBCommandBus &avionics, int
    *     eine Entscheidung ueber ihm — dieselbe Rangordnung, die weiter unten `HaveOrderEmcon_` ueber
    *     diese Zeilen stellt. Ohne `IntEmconSilenced_` haette dieser Zweig jedes gebrieft stille Set im
    *     ersten Takt eines Abfangs aufgeschaltet. */
-  int silentMode = SilentRadarModeOrdinal();
-  if (silentMode >= 0 && state.Radar.Powered) {
-    int want = EmconSilent_ ? silentMode : (IntEmconSilenced_ ? SearchRadarModeOrdinal() : -1);
-    if (want >= 0 && state.Radar.ModeOrdinal != want) {
+  FBEmissionControl emc = EmissionControl();
+  if (emc.Silent >= 0 && state.Radar.Powered) {
+    int want = EmconSilent_ ? emc.Silent : (IntEmconSilenced_ ? emc.Radiate : -1);
+    if (want >= 0 && EmissionSwitchState(state.Radar, emc.Target) != want) {
       IntEmconSilenced_ = EmconSilent_;
-      IntCmdMode_ = !EmconSilent_;   /* der Suchmodus gilt als gesetzt, sobald wir ihn selbst posten */
-      post(FBCommandTarget::RadarMode, want);
+      /* Nur wo die Stille AM MODUS gefuehrt wird, ist die Rueckkehr zugleich die Setzung des
+       * Suchmodus. Auf einem eigenen Emissionsschalter bleibt der Modus stehen, wo er stand. */
+      if (emc.Target == FBCommandTarget::RadarMode) IntCmdMode_ = !EmconSilent_;
+      post(emc.Target, want);
       return true;
     }
   }
@@ -1537,7 +1548,7 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
    * PUNKT (FBNetReport, ohne Kennung, ohne Typ, mit eigenem Blickalter). Liegt er innerhalb des
    * gebrieften Bruchteils der eigenen Erfassungsreichweite, wird gestrahlt. */
   EmconSilent_ = false;
-  if (SilentRadarModeOrdinal() >= 0 && EmconRadiateNm() > 0.0) {
+  if (EmissionControl().Silent >= 0 && EmconRadiateNm() > 0.0) {
     double radiateM = TunedScale(FBPilotParam::EmconFrac, EmconRadiateNm()) * kNmToM;
     double nearestM = 1e12;
     if (radarUp)
@@ -1567,6 +1578,16 @@ FBPilotCommands FBPilot::InterceptCommands(const FBState &state, FBCommandBus &a
         other = true;
         nearestM = std::fmin(nearestM, FBPlanarDistM(st.lat, st.lon, n.LatDeg, n.LonDeg));
       }
+    }
+    /* UND DAS BILD, DAS KEIN BLOCK IST. Ein Meldeblock ist die eine Form, in der ein F-16-Rottenflieger
+     * fremdes Wissen bekommt; ein Flugzeug, dessen Lagebild ueber SPRACHE kommt, hat keinen Block und
+     * trotzdem ein Bild — und genau darauf ruht seine Emissionsdoktrin
+     * (doc/modules/mig29/datalink-gci.md 2.2/5.2). Ohne diese Sprosse hiesse „kein kooperativer
+     * Terminal" auch „darf nie schweigen", und das ist die F-16-Form der Regel, nicht die Regel. */
+    double briefedM = 0.0;
+    if (BriefedPictureRangeM(briefedM)) {
+      other = true;
+      nearestM = std::fmin(nearestM, briefedM);
     }
     EmconSilent_ = other && nearestM > radiateM;
   }

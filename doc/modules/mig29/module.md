@@ -69,6 +69,29 @@ asymmetric weapon round (R6) comes before the airframe round (R8).
 
 ## State
 
+**EMISSION DISCIPLINE BUILT (2026-08-04, `E20`) — this jet manages its own PUR-31, and it is the first
+piece of doctrine in this tree that the MiG-29 owns and the F-16 does not.** Three overrides on
+`FBMig29Pilot` and nothing else: `EmissionControl()` names the SWITCH (`RadarEmission`, DUMMY ↔ ILLUM)
+instead of the mode selector — which on this aircraft already carries RAD-against-ACM, so an EMCON that
+went through it would drop the close-combat pattern every time the jet left a merge; `EmconRadiateNm()`
+is the N019's own 50 km = **27.0 nm** (`FBMig29Radar::kSearchRangeM`, T4 §7.1) against the F-16's 40.0;
+and `BriefedPictureRangeM()` makes the CONTROLLER'S last call the picture that permits the silence,
+because this jet has no cooperative terminal and the generic rule would otherwise read *"an aircraft
+without a datalink may never be quiet"* — the inverse of `datalink-gci.md` §5.2's *radiate as late as
+possible*. The call expires at the controller's own briefed cadence, so a jet whose controller falls
+silent radiates instead of going dark for the rest of the mission.
+
+**What it costs, and the cost is this airframe's own:** the throw is DED-class on the command bus
+(`core/FBCommandBus.cpp`, and no other airframe ever posts this target), so going quiet is head-down
+seconds and is refused above `kDedMaxG` — this jet cannot change its emission state in a hard turn,
+where an F-16 flicks a mode knob. [MESS, `sat-07-dry-merge`] `ma1` flies three ILLUM and four DUMMY
+spells; every state entered is left.
+
+**One defect fell out of it and is repaired here:** `FBRadarSystem::Powered_` defaults to `true` while
+`FBMig29Radar::Emit_` defaults to `OFF`, and `SetEmission` returns early on an unchanged state — so the
+block advertised a live set behind a dead switch from spawn. Nobody read `Radar.Powered` on this
+aircraft before its pilot did, which is why it could sit there. The constructor now reconciles the two.
+
 **Stage 2a and 3 built: the module and the solo end-to-end proof** (merged as part of `11722e5`-follow-up).
 `sim/src/modules/mig29/` is an `FBModule` like any other — registered under `"mig29"` through
 `FBModuleRegistry`, composed from the `systems/` defaults, no second architecture and no special case

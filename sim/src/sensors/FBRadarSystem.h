@@ -160,6 +160,10 @@ protected:
    * ueber den Modus weiss, der ihn fand. */
   virtual int ModeOrdinal() const { return 0; }
 
+  /* Die Stellung eines EIGENEN Emissionsschalters, falls das Set einen neben dem Modus-Waehler hat.
+   * -1 = hat es nicht, und dann fuehrt der Modus die Emission allein. Nur Schalterzustand, kein Bild. */
+  virtual int EmissionOrdinal() const { return -1; }
+
   /* Die HALBBREITE des Clutterfilters an dieser Entfernung. Ein Hook und nicht laenger eine Konstante,
    * weil ein Set sie DOKUMENTIERT haben kann: das N019 nennt drei Baender (radar-sensors.md §3.1), das
    * APG-68 gar keins. Der Default ist die alte Zahl fuer jede Entfernung — ein Set, das nichts anderes

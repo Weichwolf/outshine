@@ -1509,6 +1509,25 @@ rule and only before the run that reads it.
 
 ---
 
+### 12. Round `E20` — a gene is graded only where it is REACHABLE, and reachability is measured
+
+**Added 2026-08-04, after `E19` measured E-29 and before anything was repaired.** §§0–11 are untouched.
+Two contracts. The first is what `E19` left owed; the second is the rule that stops the same error being
+made again in a different gene.
+
+| # | Contract | Acceptance / measurement anchor |
+|---|---|---|
+| **E20** | **A gene's silence on a module is a MEASUREMENT with two possible readings, and the round that finds it must say WHICH.** Either the module cannot express the gene for a reason in ITS OWN sources — then the asymmetry is correct, is booked with the source, and the arena may not grade that side on it — or the seam is missing, and then it is built from that module's own numbers. A third reading, "the gene is inert", is forbidden: it is what X-15 lets a runner believe | the reading is taken at the BIT level (SHA-256 over the side's whole telemetry), never at the outcome class — a class-level zero cannot tell inert from invisible-to-a-sum (X-13). Every gene of §2/§7 carries one of the two verdicts with its own measurement |
+| **E21** | **A repair to a module may not move the other module, and the proof is byte-identity rather than an argument.** The seam that lets a second airframe express a gene is a no-op on the first by construction (a virtual whose DEFAULT is the code it replaced), and that is checked and not claimed | `tools/fb_regress.sh` over all missions: every mission WITHOUT the repaired module is byte-identical. And the gene's own rail reproduces the pre-repair binary on the repaired module too — the capability is added, nothing is removed |
+
+**Why the second contract is here.** `E19` measured that eight of nine genes were bit-still on the
+MiG-29 and read it as one fact. It is not one fact: `E20` measures **three different causes** behind it —
+a missing seam (G5), a sourced airframe asymmetry (G1, G2, G6, G7) and a RIG that never enters the phase
+the gene lives in (G4, which the MiG expresses perfectly well where a rig lets it). A round that repairs
+"the genome" without separating the three would build a seam for a gene that never needed one.
+
+---
+
 ## State — round `E7` (2026-07-31): the debt is paid, and S1 was measuring the wrong genome
 
 Two things were owed and both are delivered: the 154-cell gate re-run in FULL after the X-1 fix, and
@@ -3101,6 +3120,7 @@ BUILDER hit — but every one of them is a lever a search would have found first
 | **X-15** | **A genome value applied to a module that cannot express the gene is ACCEPTED, silently** | [MESS, `E19`] `set pilot_emcon_frac 0.4` on a MiG-29 unit returns `true` — `FBMig29Module::Set` forwards every `pilot_*` key whole and `FBPilot::ApplyTuning` validates against `FBPilotTuning`'s table, which is the PILOT's and knows nothing about the module's hooks. The spliced mission flies and is **bit-identical** to the unspliced one over the whole telemetry. In a co-evolution one entire side of the search then reports success while doing nothing | no channel at all, which IS the defect: a refused `set` publishes `SET_REJECTED`, an unreachable one publishes nothing | [`pilot.md`](pilot.md) §9 — the alphabet is read from the binary so a genome cannot drift, and it still cannot say which MODULE carries which gene | **passes as a mechanism**, and it is the enabling defect for `E-29` |
 | **X-16** | **Two of the genome's gene families are SINGLE-MODULE genes, and four rounds of doctrine were graded on them** | [MESS, `E19`] **G5:** `SilentRadarModeOrdinal()`/`EmconRadiateNm()` default to −1/0.0 in `FBPilot.h:310–311` and the whole EMCON block is gated on both being positive (`FBPilot.cpp:1540`); the only overrides in the tree are `FBF16Pilot.h:71–72`. **G1:** `FBFlightPicture::BuildMembers` adds SELF and returns unless `state.Datalink.H.Readable()`, and the MiG-29 has no datalink block — `flt_mates` max over the run is **3 on every F-16 and 0 on every MiG-29** although each declares `flight ia 1…4` and reports `flt_pos` 1…4. With no mates there is no lead member, `FormationCommands` never runs and `FormationStation` has no call site: `shape-tight`/`shape-wide`/`shape-stacked` leave the MiG separations at **1394 / 3537 / 4113 m**, the baseline's numbers to the metre | `flt_mates`, `flt_src`; and the absent EMCON block | [`duels.md`](duels.md) D3c, [`formation.md`](formation.md) F5 — and this file, whose §2.2 `static_assert` checks that a gene is DIMENSIONLESS and never that it is REACHABLE | **passes as a mechanism**; it bounds every doctrine claim this file has made about G1 and G5 to one airframe |
 | **X-19** | **The genome's own TEXT LINE omits a bit the splice writes, so an archived genome is NOT re-flyable** | [MESS, `E19`] `fb_evolve.Genome.line()` emits `dl=` only when it differs from `"off"`, but `"off"` is TRUTHY, so `arena.splice_mission` injects `set datalink off` **and drops the mission's own `set datalink on`**. Every blue genome of the co-evolution therefore flies with the net off while printing `b0_seed pilot_emcon_frac=1.5`. §3.2 asks of the archive exactly one property — *"the genome, verbatim and re-flyable"* — and it does not hold: the same hole is in every archive `fb_campaign_evolve.py` has ever written | `archive-*.txt`; `Genome.line()` against `splice_mission` | this file §3.2 and [`pilot.md`](pilot.md) §9 — a genome is a LINE, so the line has to be the whole genome | **FAILED as a record.** Not repaired in the round that measured it; the `E19` population is internally consistent (every member carries the same hidden bit) so its comparisons stand, and its ABSOLUTE reading against the committed blue does not |
+| **X-20** | **An F-16 that ends an EMCON spell re-acquires INSTANTLY — the scan raster is not resynchronised when a non-radiating MODE starts radiating again** | [MESS, `E20`, `sat-02-picture-split`, `pb2`] the jet goes quiet at t = 65.6 holding 8 firm contacts (dropped, `radar standby`) and comes back at t = 96.8 with **8 firm contacts in the SAME 0.1 s tick**, after 31.2 s of silence. Mechanism: `FBRadarSystem::Run` advances `NextScanS_` only while radiating, so the catch-up guard replays up to **64 frames in one tick**, each against the CURRENT geometry, and `kHitsToFirm` = 2 is met immediately. **The MiG-29 in the same run does not do it** — `pmia*`/`pmib*` return from DUMMY with **0 contacts** and build up normally, because `FBMig29Radar::SetEmission(Illum)` calls `ResyncScan()`, a line added with its own measurement (*"contact at t = 27.9 instead of the documented 2 × 3.0 s"*). One airframe carries the fix, the other does not, and the difference is which AXIS its EMCON runs on | `fcr_on` against `fcr_contacts`, one tick apart | [`pilot.md`](pilot.md) §7.6b — the same invariant class: an emission state must cost what leaving it costs | **passes as a mechanism, NOT REPAIRED HERE.** `SetPowered` already owns the pattern (`if (on && !Powered_) Resync_ = true`); the fix is the same condition on the ACTIVE-volume edge, and it moves every F-16 EMCON mission — a second behaviour change with its own regression, which is why it is booked instead of bundled |
 | **X-17** | **S7 is measured against ONE opponent and reported as a property of the cell** | [MESS, `E19`, 200 runs] the same ±3 m spawn grid on which `E18` certified all five cells **0 of 8** gives, per (cell, red allele): `sat-04`/`red-near` **3 of 8**, `sat-08`/`red-right` **3 of 8**, `sat-08`/`red-none` **3 of 8**, `sat-04`/`red-none` 1 of 8 — **4 of 25 pairs dirty, and every dirty one carries a non-committed opponent** | `fb_campaign_arena.chaos_flips`, which splices exactly one side | this file — the same shape as `X-12`: a screen for one failure mode read as a screen for another | **FAILED as a criterion** for any use outside the committed opponent. The four pairs were dropped from `E19` §5 rather than argued about |
 
 ### §8 — What is NOT claimed
@@ -3380,12 +3400,189 @@ reach it.
 
 ---
 
+## State — round `E20` (2026-08-04): eight silent genes were THREE different facts, and one of them was a missing seam
+
+`E19` closed with E-29: *"the genome cannot be co-evolved because it is F-16-shaped"* — eight of nine
+genes bit-still on the MiG-29. This round took that measurement apart. **It is not one fact. It is
+three**, and only one of them was a defect.
+
+### §0 — The instrument first, against the same committed number `E19` used
+
+The bit-level probe of this round is new code, so it was pointed at `E18`'s published table before it
+was believed — the identical check `E19` ran, on the identical five cells:
+
+| cell | `E20` reader, blue key | `E18` §3 table |
+|---|---|---|
+| `sat-02` | V=14 M=10 | (14, 10) |
+| `sat-04` | V=27 M=18 | (27, 18) |
+| `sat-07` | V=17 M=17 | (17, 17) |
+| `sat-08` | V=14 M=27 | (14, 27) |
+| `sat-09` | V=22 M=23 | (22, 23) |
+
+**5 of 5.** And the pre-repair baseline it then took reproduces `E19`'s own central number exactly:
+**1 of 24 levers moves the MiG-29 at the bit level, and it is `sort-near`** (75 runs, `sat-02`/`sat-04`/
+`sat-07`, SHA-256 over the whole side).
+
+### §1 — The three causes, each with its own measurement
+
+| gene | verdict | the measurement that decides it |
+|---|---|---|
+| **G5** `pilot_emcon_frac` | **A MISSING SEAM — repaired** | see §2 |
+| **G4** `pilot_energy_frac` | **REACHABLE ALL ALONG; the RIG, not the airframe** | `duel-merge`, where a MiG-29 actually enters `Phase::Bfm`: `energy-low` / `-mid` / `-high` are **three distinct trajectories**, all different from the baseline. `E19` measured G4 only on `sat-*`, and `sat-07`'s own header states the reason it is dead there: *"it lives only inside `Phase::Bfm`, and no unit here flies `set task bfm`"* — which is equally true of the F-16 side |
+| **G1** `pilot_flight_spread/trail/stack_frac` | **CORRECT ASYMMETRY, sourced** | [`formation.md`](formation.md) F6, answered this round. The Lazur-M is a ground command channel and not a shared picture; the alternative F6 left open (visual station keeping) cannot be built from this tree's eye — `FBVisualContact` withholds range structurally and identity always, and at the 1 852 m combat spread the lead's 17.32 m beam-on extent subtends **0.536°** against a **0.8°** recognition rung, so it does not even carry a TYPE |
+| **G2** `pilot_cover_frac` | **CORRECT ASYMMETRY, same channel** | `flt_mate_bound` = 0 on every MiG; [`formation.md`](formation.md) F3 already books it as *"the MiG has no cover channel at all"* |
+| **G6** `pilot_attack_bias_s` · **G7** `pilot_attack_ccip_m` | **CORRECT ASYMMETRY, sourced** | measured on `mig29-opt-low`, a MiG-29 flying a full air-to-ground `Phase::Attack`: `bias-early`/`-late`/`-rail` and `ccip-tight`/`-open` are **bit-identical, all five**. `FBMig29Pilot::DirectorPass` replaces the generic release pass, which never runs because this fire control publishes no release cue — *"an aircraft that has no release cue"*, `modules/mig29/weapons.md` §5.4.2. A CCIP cross-error tolerance has no referent on a jet with no CCIP, and a pickle lead has none on a jet where the AIRCRAFT releases |
+| **G3** `sort` | live, unchanged | `sort-near` |
+
+**So the MiG-29 can carry THREE of the nine genes** (G3, G4, G5) where `E19` counted one, and the other
+six are asymmetries with a source. E-29's headline — *the genome is F-16-shaped* — survives in a weaker
+and more useful form: two thirds of it are F-16-shaped **because the aeroplanes differ**, and the arena
+must stop grading a side on those rather than the genome growing to cover them.
+
+### §2 — G5 was a real gap, and repairing it took TWO seams rather than the two numbers `E19` asked for
+
+`E19`/`D3d` named the owed repair as *"an N019 emission ordinal + search range on `FBMig29Pilot`"*.
+**Both numbers were added and changed not one bit**, which is the finding:
+
+1. **The switch was the wrong axis.** The EMCON actuation posted `RadarMode`. On this jet the mode
+   selector already carries RAD-against-ACM (`SearchRadarModeOrdinal` / `BfmRadarModeOrdinal`), and the
+   documented emission control is a switch of its own — PUR-31 ILLUM/DUMMY/OFF, `DCS-EA p.63`.
+   `FBPilot::EmissionControl()` now names the switch; its DEFAULT is the old two ordinals, so the F-16's
+   path is the same code.
+2. **The picture was the wrong shape.** `EmconSilent_` required a cooperative report, i.e. as code the
+   rule said *an airframe without a datalink may never be quiet* — the inverse of this aircraft's whole
+   doctrine. `BriefedPictureRangeM()` lets the **controller's last call** be that picture, expiring at
+   the controller's own briefed cadence.
+
+The two numbers, each from this jet's own source: silent = **DUMMY** (*"does not radiate"*, and never
+OFF, which drops the power `pilot.md` §7.6b proves he cannot come back through), radiate reach =
+`FBMig29Radar::kSearchRangeM` = 50 km = **27.0 nm** (T4 §7.1) against the F-16's 40.0.
+
+**Measured, bit level, MiG side, 3 cells:**
+
+| | `sort-near` | `emcon-*` | everything else |
+|---|---|---|---|
+| before | MOVED 3/3 | bit-identical | bit-identical |
+| after | MOVED 3/3 | **`emcon-wide` MOVED 3/3** | bit-identical |
+
+**2 of 24, up from 1** — the acceptance bar, and it is met thinly for a reason worth stating rather than
+smoothing: `emcon-tight` (0.1) and `emcon-mid` (0.4) are the identity map here because the committed
+cells brief GCI ranges of 120 / 90 / 60 km and the seed's own gate is 50 km, so all three sample the
+same side of every threshold. **That is X-14's class in mirror image**, and it is a property of the
+LEVER FILE against these rigs, not of the gene. Asked at the band's own resolution (10 points, and the
+rigs were NOT touched to make it come out):
+
+| cell | distinct MiG trajectories over the 10-point band | how they group |
+|---|---:|---|
+| `sat-02` | **4** | `{base, 0.1, 0.4, 1.0} · {1.2, 1.5} · {1.8, 2.0} · {2.5, 3.0}` |
+| `sat-04` | **6** | the same four groups, but `1.2 · 1.5 · 1.8 · 2.0` each separate |
+| `sat-07` | **4** | as `sat-02` |
+
+All three cells brief the SAME ladder — 120 / 90 / 60 km — so the three group boundaries sit exactly
+where `f × 27.0 nm` crosses it: **f = 2.4 / 1.8 / 1.2**. That is the derivation reproduced from the
+mission text without a fitted constant. `sat-04`'s two extra trajectories are the second term of the
+same rule — `nearestM` also takes the minimum over the jet's OWN radar contacts, which move
+continuously with `f` once it is radiating — and they are the reason that cell resolves the band
+where the other two quantise it.
+
+**And the conservation proof is the gene's own rail:** at `f ≥ 2.5`, i.e. "never be quiet", the repaired
+MiG-29 is **byte-identical to the PRE-REPAIR binary** on all three cells (`0d8d78e666d7a8a9`,
+`010f15d3c0b73011`, `5cd231b5129bce09`). Nothing was removed; the old behaviour is one brief away.
+
+### §3 — What it cost the rest of the tree, and the membership test is EXACT
+
+Two `fb_regress.sh`-equivalent snapshots over all **293** missions, one binary each, `--threads 1`:
+
+| | |
+|---|---|
+| byte-identical | **237** |
+| moved | **56** |
+| exit code changed | **3** |
+
+**A mission moves IFF it contains a MiG-29 flying `set task intercept` with at least one `brief_gci`
+whose reported range exceeds the N019's own 50 km reach.** Predicted 56, moved 56, **0 either way** —
+including `mig29-rwr-blind`, which carries a 60 km call and does NOT move because its MiG flies `Route`
+and the emission decision is an Intercept-phase act. **No mission without a MiG-29 moved** (155 of them),
+which is contract E21.
+
+**The three exit codes, individually, each read on its own file's binding instrument** (all three files
+state that the exit code is not their verdict):
+
+| Mission | Exit | Blue (V, M) | Red (V, M) | What moved |
+|---|---|---|---|---|
+| `sat-09-gate-strike` | 3 → 0 | (22, 23) → **(24, 26)** | (12, 4) → (12, 4) | all eight F-16 conclude SUCCESS at t = 260.1 instead of six plus three TIMEOUTs at 460; `damage KILL` 4 → 4 and `monitor KO` 4 → 4 are unchanged, so this is windows closing, not a different fight |
+| `ar-01-headon-noon` | 1 → 3 | (20, 12) → **(21, 13)** | (15, 7) → (15, 7) | the MiG that lost its `survive` bit at t = 417.4 keeps it; blue `sms LAUNCH` 25 → 13, `monitor KO` 9 → 6 |
+| `ar-10-vertical-evening` | 3 → 1 | (20, 12) → (20, 12) | (16, 8) → **(15, 7)** | the mirror case — blue `sms LAUNCH` 12 → 33, `monitor KO` 5 → 14, one more MiG dies |
+
+**The direction is consistent and it is NOT a buff:** a MiG that goes quiet on the controller's word
+does the SAME or WORSE on these rigs, because quiet here means not building its own picture while the
+F-16s keep theirs on the datalink. The repair makes the gene expressible; whether quiet is better is the
+question the sweep exists to answer, and `f = 1.0` happens to be a quiet-heavy setting against briefed
+ranges that all sit outside 50 km.
+
+### §4 — X-19 repaired: an archive line is now provably re-flyable
+
+`Genome.line()` printed `dl=` only when it differed from `"off"`, and `"off"` is truthy, so the splice
+wrote `set datalink off` and dropped the mission's own line while the record showed nothing. Three
+changes, and the third is what makes it checkable rather than asserted:
+
+* `line()` prints the channel bit whenever it is non-empty;
+* the constructor's default is `dl=""` (*"leave the mission's briefing alone"*, the rule
+  `fb_campaign_arena.load_levers` already applied on the input side) — forcing the net off stays an
+  ALLELE and is spelled out;
+* `Genome.parse()` + `reflyable()`, and **every archive line is checked as it is written**.
+
+[MESS] the three `dl` states now produce three distinct lines and three distinct spliced missions
+(`a2e97d891045ff61` / `9b2ed9ca35a7ac99` / `df66f79746cb42b4`), each of which its own printed line
+reproduces exactly. Before the repair the first two printed identically.
+
+### §5 — The co-evolution, re-run: the opponent MOVES for the first time, and blue still does not
+
+2 220 runs, 2 generations, both sides declared. **The genome was cut to the genes each side can
+express on THIS arena, and the cut was declared before the run rather than derived from it** (contract
+E20): blue carries the five the `sat-*` headers themselves measure live here — `emcon`, the three
+shape ratios, `ccip` — and NOT `cover`/`energy`, which those headers state are inert on every one of
+these cells for both sides; red carries `emcon` plus its sort alleles, which is §1's measured answer.
+Two generations and not four is a **budget** cut and is named as one: instruments (b) and (c) need
+three champions and four generations, so neither is computable here — as neither was in `E19`.
+
+| | `E19` | `E20` |
+|---|---|---|
+| distinct RED champions | **1** (fixed from generation 0) | **2** — `r0_s4` (`emcon 1.5 sort=none`) → **`r1_02` (`emcon 3` sort=none)** |
+| distinct BLUE champions | 1 | **1** — `b0_seed`, still fixed from generation 0 |
+| archive members, red / blue | 1 / 1 | **2 / 3** |
+| red's population spread | flat over its whole strategy space | `r0_00` (`emcon 0`) co-evo **0.536** against the seed's **0.484**; the sort alleles separate the frozen score **0.667 / 0.500** |
+| fixed yardstick (a), red | flat | flat, 0.667 / 0.667 |
+
+**The one-sentence result: red is no longer a fixed point, and the gene that moved it is the one this
+round repaired** — its generation-1 champion differs from its generation-0 champion in
+`pilot_emcon_frac` alone (1.5 → 3). **Blue is still fixed from generation 0**, so the degeneration is
+REDUCED and not removed, and nothing about a doctrine is published from it (§6): the fixed yardstick is
+flat on both sides and instrument (b) is still not computable.
+
+**And the archives are re-flyable now, checked rather than claimed.** Every blue line carries the
+`dl=off` that `E19`'s archives hid, `reflyable()` passed on all five as they were written, and each
+line re-read reproduces its own spliced mission (`b0_seed` → `b74956ea2c54633a`, `r1_02` →
+`dc52296ac87e4cb4`).
+
+### §6 — One defect fell out of the repair, in the module that carries it
+
+`FBRadarSystem::Powered_` defaults to `true`; `FBMig29Radar::Emit_` defaults to `OFF`; `SetEmission`
+returns early on an unchanged state — so from spawn the block advertised a live set behind a dead
+switch. It was invisible because **nothing in the tree read `Radar.Powered` except the EMCON branch**,
+which this round is the first to reach on this airframe. The constructor now reconciles the two, and
+without it the first measurement of the repair showed a MiG throwing DUMMY four seconds before its set
+had any power.
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
 |---|---|---|
 | **E-30** | **The three DRY cells have no opponent fitness, so half of every co-evolution on them is a fixed point.** [MESS, `E19`] `sat-07`/`sat-08`/`sat-09` give the MiG side a single `survive until <s>` objective that nothing can threaten (`brief_master_arm sim` on both sides), and red's outcome class is **constant over its entire strategy space** on all three: (24,8), (12,4), (12,4) on every allele. Red's class moves on `sat-02` only — (14,6) → (16,8) under `right`/`none` — and `sat-04` moves it downward only. The device `E18` used to buy a chaos-clean arena (§0 of that block: chaos amplitude 1.0 s → 0.10…0.30 s) is the same device that removes the opponent's gradient. **Not "fixed" by making the cells wet** — that would trade a measured 10× margin for a coin — the honest statement is that a dry rig grades ONE side and a co-evolution needs a rig that grades both, and no such rig exists in the tree today | `E19` |
-| **E-29** | **The genome cannot be co-evolved because it is F-16-shaped, and the boundary test in §2 cannot see it.** [MESS, `E19`, bit-level over whole telemetry] of the nine genes, **eight are bit-identical on the MiG-29** on `sat-02`/`sat-04`/`sat-07`; only the sort contract reaches it. Over the full 24-key pilot alphabet, **12 keys DO move the MiG and not one of them is in the genome** (`abort_nm`, `action_s`, `beam_deg`, `chaff_s`, `crank_deg`, `defend_hold_s`, `lock_nm`, `react_s`, `shot_ata_deg`, `shot_rtr`, `shot_spacing_s`, `speed_kt` — all `Free`). §2.2's `static_assert` proves a `Scale` gene is DIMENSIONLESS and names its hook; nothing proves the hook is OVERRIDDEN by the module the gene is spliced into. **Not fixed here on purpose:** growing or re-cutting the genome in the round whose verdict it decides is what §8 forbids, and the fix is a design question (a per-module reachability declaration read from the binary like the alphabet itself, so it cannot drift) | `E19`, `X-15`, `X-16` |
+| **E-31** | **The arena still grades a side on genes its airframe cannot carry, and now the tree KNOWS which.** [MESS, `E20`] the MiG-29 expresses **3 of 9** genes (G3 sort, G4 energy where a rig enters `Phase::Bfm`, G5 emission since `duels.md` D3e) and cannot express **6**, each for a reason in its own sources: G1 ×3 and G2 need a cooperative terminal it does not have ([`formation.md`](formation.md) F6/F3), G6/G7 need the generic release pass its director replaces (`modules/mig29/weapons.md` §5.4.2). §2.2's `static_assert` proves a `Scale` gene is dimensionless and names its hook; nothing proves the module OVERRIDES that hook, so `ApplyTuning` still returns `true` for all six (`X-15`). **What is owed is a per-module reachability declaration read out of the binary the way the alphabet already is** — `fb-gym --pilot-keys` prints the hook, and a second column naming the modules that override it would let a runner refuse a genome its side cannot fly instead of measuring a silent identity map. NOT built here: it is a tooling contract, and `E20` spent its budget on the seam plus a 293-mission regression | `E20`, `E19`, `X-15` |
+| **E-29** | *(SPLIT by `E20` — the headline survives in a weaker form; see `E-31` and the `E20` State block.)* **The genome cannot be co-evolved because it is F-16-shaped, and the boundary test in §2 cannot see it.** [MESS, `E19`, bit-level over whole telemetry] of the nine genes, **eight are bit-identical on the MiG-29** on `sat-02`/`sat-04`/`sat-07`; only the sort contract reaches it. Over the full 24-key pilot alphabet, **12 keys DO move the MiG and not one of them is in the genome** (`abort_nm`, `action_s`, `beam_deg`, `chaff_s`, `crank_deg`, `defend_hold_s`, `lock_nm`, `react_s`, `shot_ata_deg`, `shot_rtr`, `shot_spacing_s`, `speed_kt` — all `Free`). §2.2's `static_assert` proves a `Scale` gene is DIMENSIONLESS and names its hook; nothing proves the hook is OVERRIDDEN by the module the gene is spliced into. **Not fixed here on purpose:** growing or re-cutting the genome in the round whose verdict it decides is what §8 forbids, and the fix is a design question (a per-module reachability declaration read from the binary like the alphabet itself, so it cannot drift) | `E19`, `X-15`, `X-16` |
 | **E-28** | **Every doctrine direction this tree has measured reverses against some opponent, and no opponent admits one.** [MESS, `E19`, 625 runs over 5 blue lever sets × 5 red alleles × 5 cells, 21 chaos-clean pairs] per red allele the best blue lever is `emcon-mid` p = 0.188 (`red-left`, i.e. `E18`'s world, reproduced exactly), `emcon-tight`/`shape-abreast` 0.125, `shape-tight` 0.250, `net-off` **0.062**, `emcon-tight`/`shape-trail` 0.250 — **none reaches the 0.031 ceiling under any opponent.** And the sign of every non-rail lever FLIPS: `emcon-mid` is `+ + − − =` across the five, `emcon-tight` `+ + − + +`, `net-off` `= = = + −`, `shape-abreast` `+ + + − −`. The only sign-stable directions are "always worse" (`bias-rail`, `ccip-tight`, both rails) and "always nothing" (the identity levers of `E-26`). **This is the diagnosis `E18`'s p = 0.188 was missing**: the near-miss was not a weak signal but a signal conditioned on one point of the opponent space. **Still open:** whether an opponent-INVARIANT direction exists at all, which needs both `E-29` (a genome the opponent can carry) and `E-30` (a rig that grades the opponent) first | `E19`, `E18` |
 | **E-1** | **CLOSED.** `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective, published in `FBMissionMonitor::Conclude`. Cost, as promised and measured: 136 lines over 60 of 137 missions; 432/432 telemetry files byte-identical | this file |
 | **E-2** | **CLOSED.** `dmg_hits` read off three gun missions; the mechanism is confirmed and the 1,500 points/s figure is an upper bound measured at 900–1,278. See §State | this file |

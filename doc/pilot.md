@@ -1757,6 +1757,60 @@ not their verdict, and both moves are a Red aircraft dying:
 `sat-01` **(32, 23) → (30, 23)**, `sat-03` **(24, 20) → (26, 21)**. `sat-02`'s pair is exactly the one
 `X-6` measured for both of its bypass genes.
 
+#### 7.6d The emission is an AXIS, not a mode — and the picture that permits the silence need not be a block
+
+**Two things in §7.6a/b were written in the F-16's shape and read as the rule.** Round `E20` found both
+by measuring the MiG-29 side at the bit level; neither is a bug in the F-16's path, which is
+byte-identical across this change — 293-mission regression, **237 byte-identical, and every one of the
+155 missions that contain no MiG-29 at all is among them**.
+
+**(1) The switch.** The EMCON actuation posted `FBCommandTarget::RadarMode`. On an aircraft whose mode
+selector ALSO carries the search/close-combat decision (`SearchRadarModeOrdinal` against
+`BfmRadarModeOrdinal`) that is not merely inelegant — quietening the mode and coming back through
+`SearchRadarModeOrdinal` would overwrite the close-combat pattern every time the jet left a merge. The
+MiG-29 has a documented switch for exactly this (`PUR-31 ILLUM / DUMMY / OFF`, `DCS-EA p.63`), so the
+hook is now the SWITCH rather than an ordinal:
+
+```cpp
+struct FBEmissionControl { FBCommandTarget Target; int Silent; int Radiate; };
+virtual FBEmissionControl EmissionControl() const {                       // the default IS the old code
+  return {FBCommandTarget::RadarMode, SilentRadarModeOrdinal(), SearchRadarModeOrdinal()};
+}
+```
+
+The readback follows the target — `FBRadarBlock` gained `EmissionOrdinal` beside `ModeOrdinal`, written
+in every `Run()` before any picture is decided, which is §7.6b's own invariant applied to the second
+axis. **DUMMY and not OFF is this jet's silent state, and that is structural rather than a preference:**
+`OFF` drops the set's power, and `Powered == false` is precisely the state §7.6b proves a pilot cannot
+come back through. It is also the START state the mission briefs, i.e. a decision above him.
+
+**(2) The picture.** `EmconSilent_ = other && nearestM > radiateM` computed `other` from
+`FBDatalinkBlock` + `FBNetLinkBlock` alone. Read as the rule that says *whoever is quiet without a
+picture is quiet blind*, that is right; read as code it says **an airframe with no cooperative terminal
+may never be quiet** — which turns the one aircraft in this tree whose entire doctrine is emission
+discipline into an F-16 that lost its datalink. One virtual, defaulting to "no such picture":
+
+```cpp
+virtual bool BriefedPictureRangeM(double &rangeM) const { (void)rangeM; return false; }
+```
+
+`FBMig29Pilot` answers it with the **controller's last call** — a range it was told and typed
+(`doc/modules/mig29/datalink-gci.md` §2.2), carrying no identity, no type and no track file. It expires
+at the controller's own CADENCE (the briefed gap to the previous call), which is the mission's number
+and not a new one; past it the pilot has no outside picture and the rule forbids the silence, so a jet
+whose controller falls silent radiates rather than going dark for the rest of the run.
+
+**Measured, `sat-07-dry-merge`, MiG `ma1`** — the doctrine now runs on the airframe that owns it:
+`gci BRAA` 120 km → quiet · picture expires at t = 40 → **illum 43.9** · 90 km → **dummy 63.9** ·
+60 km → **dummy 112.4** · last call expires at t = 140 → **illum 144.1**. Three ILLUM and four DUMMY
+spells per jet, every entered state left.
+
+**And the conservation proof is the gene's own rail:** at `pilot_emcon_frac = 2.5` and `3.0` — where
+`f × 27.0 nm` exceeds every briefed call range, i.e. "never be quiet" — the repaired MiG-29's telemetry
+is **byte-identical to the pre-repair binary's** on all three cells (`sat-02` `0d8d78e666d7a8a9`,
+`sat-04` `010f15d3c0b73011`, `sat-07` `5cd231b5129bce09`). The capability is added; nothing is removed,
+and the old behaviour is one brief away.
+
 ---
 
 ### 8. `pilot/FBEngagement` — the state machine as data and the debriefing

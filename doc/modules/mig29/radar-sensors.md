@@ -326,8 +326,19 @@ Per-missile release discipline (`DCS-EA p.93`):
 
 ## State
 
+**§6.4's doctrine is BUILT (2026-08-04, `E20`), and it is the part of this file that had waited longest.**
+*"Where the F-16 pilot's cost function is 'a lock warns the target', the MiG-29's is 'radiating at all
+warns the target'"* is now a decision the pilot makes every tick, on the switch §2.1 documents: the
+PUR-31 at **DUMMY** is his silent state (`FBMig29Pilot::EmissionControl`), the N019's own 50 km = 27.0 nm
+(§7.1) is the reach the emission gene scales, and the picture that lets him stay quiet is the
+CONTROLLER'S last call rather than a datalink report he does not have. **What §6.4 asks for and did NOT
+get, stated so the difference is visible:** the file's *"default to radar OFF/DUMMY, IRST searching"* is
+half built — the emission half runs, the IRST half does not, because an `FBIrstContact` carries no range
+outside the 6 km laser (§7.2) and the emission rule compares a RANGE. A silent MiG in this tree is
+therefore quiet on the controller's word, not on its own optical picture.
+
 **Superseded by build — the authoritative state is [`module.md`](module.md).** The N019 (`FBMig29Radar`)
-and its modes were built in stage 2b; this round added the **ACM close-combat acquisition mode**
+and its modes were built in stage 2b; a previous round added the **ACM close-combat acquisition mode**
 (`FBMig29Radar::kAcm*`): a BROAD forward auto-lock volume the documented CC/VS/BORE pencils are not
 (±37° azimuth [T4 §7.1, §7.1 records the source conflict with DCS-FM p.12's vertical reading, which the
 narrow CC keeps], a [SET] ±30° nose-centred vertical band, Doppler-exempt like CC, frame 0.75 s DERIVED

@@ -204,6 +204,7 @@ protected:
     return Locked() ? Stt_ : Modes_[(int)Mode_];
   }
   int ModeOrdinal() const override { return (int)Mode_; }
+  int EmissionOrdinal() const override { return (int)Emit_; }
 
   /* The whole reason the base class grew this hook. CC is exempt because the source says so outright:
    * "stable automatic tracking is provided AT EQUAL SPEEDS AND AT A LAG" [DCS-EA §3.3] — dropping the
