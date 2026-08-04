@@ -1,0 +1,13 @@
+# DUELS fuer die ZWEISEITIGE Ko-Evolution (doc/doctrine-evolution.md §3, Runde E19).
+# Format: <mission> <blue team> <blue module> <red team> <red module>. BEIDE Seiten sind DEKLARIERT,
+# keine wird aus "die freundliche Mannschaft" abgeleitet — dieselbe Regel, die fb_campaign_arena.py
+# fuer seine eine Seite aufstellt.
+#
+# Die fuenf Zellen sind GENAU die, die das Gate in E18 als informativ ausgegeben hat
+# (tools/cells-sat.txt, ARENA: PASSED, S1/S2/S7 ok). Eine Zelle, die das Tor nicht bestanden hat,
+# darf hier nicht stehen: §6 verbietet, irgendetwas darauf Gemessenes zu veroeffentlichen.
+sat-02-picture-split          friendly  f16   hostile  mig29
+sat-04-vul-window             friendly  f16   hostile  mig29
+sat-07-dry-merge              friendly  f16   hostile  mig29
+sat-08-ident-qra              friendly  f16   hostile  mig29
+sat-09-gate-strike            friendly  f16   hostile  mig29

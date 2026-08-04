@@ -3838,3 +3838,91 @@ Klasse. Die Stufe war eine Messung des `X-6`-Rasters.
 `verify-models` grün · zehn Harnesses rc = 0 · Erhaltung 3 337/3 337 + 287/287 · Determinismus
 `--threads 1/2/4` bitgleich (287 Altmissionen sowie beide neuen Rigs einzeln) · `vendor/` und
 `assets/aircraft/` unberührt · keine Commits.
+
+---
+
+## `E19` (2026-08-04) — Die erste KO-EVOLUTION, und der Gegner kann ein Gen von neun tragen
+
+**Die Prämisse des Auftrags war halb falsch, und die erste Messung hat es gezeigt.**
+`tools/fb_campaign_evolve.py` trägt `--archive`, `archive_sample` und `kArchiveSample` — aber es WAR
+nie eine Ko-Evolution und wird durch Einschalten des Archivs keine: sein eigener Kopfkommentar sagt es,
+*„der Gegner ist committeter Missionstext; er kann nicht antworten"*. Ein Archiv über eine Welt, die
+sich nicht bewegt, hat nichts zu verhindern. Gebaut wurde deshalb ein zweites Werkzeug:
+`sim/tools/fb_campaign_coevolve.py` — EIN Lauf, ZWEI Seitenschlüssel — plus `tools/duels-sat.txt`, die
+fünf `E18`-Zellen mit beiden Seiten DEKLARIERT.
+
+**Zuerst das Instrument gegen eine committete Zahl geprüft, bevor irgendetwas geglaubt wurde.** Der
+zweiseitige Leser reproduziert `E18`s Tabelle in **5 von 5 Zellen exakt** — (14,10) (27,18) (17,17)
+(14,27) (22,23).
+
+**Die zentrale Messung, und sie ist auf Bit-Ebene genommen, nicht auf Klassenebene.** 24 Hebel in die
+MiG-29-Seite gespleißt, SHA-256 über die gesamte Telemetrie beider Seiten: **23 von 24 sind
+bitgleich zur Basislinie**, auf `sat-02`, `sat-04` und `sat-07`. Der einzige Beweger ist der
+Sortier-Kontrakt. Über das ganze 24-Schlüssel-Alphabet: **12 Schlüssel bewegen die MiG, und KEINER
+davon steht im Genom**; von den neun Genen sind **acht bitstill**. Das Genom ist F-16-förmig.
+
+**Zwei Mechanismen, beide in Quellzeilen und einem publizierten Kanal.** G5 (Emission):
+`SilentRadarModeOrdinal()`/`EmconRadiateNm()` stehen auf −1/0,0 (`FBPilot.h:310–311`), der ganze
+EMCON-Block hängt an beiden (`FBPilot.cpp:1540`), und überschrieben wird er in **genau einer Datei**
+— `FBF16Pilot.h`. G1 (Form): `FBFlightPicture::BuildMembers` bricht ohne Datalink-Block ab, die MiG hat
+keinen — `flt_mates` ist **3 auf jeder F-16 und 0 auf jeder MiG**, obwohl jede `flight ia 1…4`
+deklariert. Ohne Rottenmitglied kein Führender, ohne Führenden keine Station: `shape-tight/wide/stacked`
+lassen die MiG-Abstände bei **1394 / 3537 / 4113 m** — den Zahlen der Basislinie auf den Meter.
+
+**S7 ist keine Eigenschaft der ZELLE, sondern des PAARES (Zelle, Gegner).** Dasselbe ±3-m-Gitter, auf
+dem `E18` alle fünf Zellen mit 0 von 8 zertifiziert hat, kippt **4 von 25 Paaren** — `sat-04`/`near`
+3 von 8, `sat-08`/`right` 3 von 8, `sat-08`/`none` 3 von 8, `sat-04`/`none` 1 von 8. Jedes schmutzige
+Paar trägt einen NICHT-committeten Gegner. Die vier fliegen aus der Auswertung.
+
+**Der Sweep über den ganzen Gegnerraum — 625 Läufe — und er ist NEGATIV, aber auf eine neue Art.**
+Kein Hebel erreicht die Decke 0,031 gegen IRGENDEINEN Gegner; das Beste je Gegner ist `emcon-mid`
+p = 0,188 (gegen `red-left`, also `E18`s Welt, exakt reproduziert), `emcon-tight` 0,125,
+`shape-tight` 0,250, `net-off` **0,062**, `emcon-tight` 0,250. **Und das Vorzeichen JEDES Hebels, der
+überhaupt eine Richtung hat, kippt mit dem Gegner:** `emcon-mid` liest `+ + − − =` über die fünf
+Allele, `emcon-tight` `+ + − + +`, `net-off` `= = = + −`, `shape-abreast` `+ + + − −`. Vorzeichenstabil
+sind nur „immer schlechter" (`bias-rail`, `ccip-tight` — beides Schienen) und „immer nichts".
+
+**Das ist die Diagnose, die `E18` sich selbst nicht geben konnte.** Seine p = 0,188 war kein schwaches
+Signal, das mehr Zellen geschärft hätten — es war ein Signal, BEDINGT auf einen Punkt eines
+Gegnerraums, der mindestens fünf hat. Die Bedingung wiegt mehr als der p-Wert.
+
+**Und der Gegner hat auf drei von fünf Zellen gar keine eigene Fitness.** Die DREI TROCKENEN Zellen,
+mit denen `E18` das Chaos gekauft hat, geben der MiG ein einziges `survive`-Ziel, das nichts bedrohen
+kann: rote Klasse **konstant** über den ganzen Strategieraum — (24,8), (12,4), (12,4). Das Gerät, das
+die chaosfreie Arena gekauft hat, ist dasselbe, das sie einseitig macht.
+
+**Vier Exploit-Befunde, und alle wiegen mehr als die Doktrin.** `X-15` ein Genwert auf ein Modul, das
+das Gen nicht ausdrücken kann, wird STILL angenommen (`ApplyTuning` liefert `true`, die Mission ist
+bitgleich); `X-16` zwei Genfamilien sind Ein-Modul-Gene und vier Runden Doktrin wurden darauf benotet;
+`X-17` S7 misst einen Gegner und meldet eine Zelleneigenschaft; `X-18` ein trockenes Rig entfernt das
+Chaos, indem es die Fitness des Gegners entfernt.
+
+**Und die Ko-Evolution selbst, 915 Läufe, 3 Generationen, lief — mit einem degenerierten Ergebnis, das
+selbst die Aussage ist.** Beide Champions stehen ab Generation 0 fest (blau `sort=left`, rot
+`sort=none`), die Bewertung gegen das eingefrorene Feld ist über alle drei Generationen FLACH (0,800 /
+0,600), Instrument (b) ist **nicht berechenbar — 1 unterscheidbarer Champion je Seite**, wo die
+Statistik 3 braucht, und jedes Archiv nimmt genau EIN Genom auf. Blaus Zahlengen ist flach: `emcon` bei
+0 / 0,75 / 1,5 / 2,25 / 3 punktet identisch, sobald der Sortier-/Kanal-Bit steht. Das ist `X-4`
+(*„der Datalink kostet eine F-16, und NICHT über die Sortierung"*), von einer Suche reproduziert, die
+nicht danach gesucht hat.
+
+**Und ein fünfter Befund, gefunden beim Lesen der Champion-Zeile: `X-19`.** `Genome.line()` schreibt
+`dl=` nur, wenn es von `"off"` abweicht — `"off"` ist aber WAHR, also spleißt das Werkzeug
+`set datalink off` ein und wirft das `set datalink on` der Mission heraus. Jedes blaue Genom dieser
+Runde ist mit ausgeschaltetem Netz geflogen und hat dabei keinen Kanal-Bit gedruckt. §3.2 verlangt vom
+Archiv genau eine Eigenschaft — *„verbatim und wieder fliegbar"* — und die hält nicht, auch nicht in
+irgendeinem Archiv, das `fb_campaign_evolve.py` je geschrieben hat.
+
+**Ein Werkzeugfehler auf eigene Rechnung, weil er teuer war.** Vier Läufe brachen mit fehlenden Dateien
+ab, und die Ursache war nicht der Simulator: `ThreadPoolExecutor.map` reicht ALLE Jobs vorab ein, also
+lief eine abgebrochene Instanz noch 20 Minuten weiter und löschte per `rmtree` die Verzeichnisse der
+NEU gestarteten — gleiche deterministische Tags, gleicher Pfad. Der erste Abbruch war echt und
+banal: die Platte stand auf 99 %.
+
+**Keine Doktrinverschiebung veröffentlicht.** §6s bindende Regel greift: der stärkste Kandidat der
+Runde ist `shape-trail`, gepoolt p = 0,055, mit einem Vorzeichen, das unter `red-near` umkippt.
+
+**Tore:** Determinismus `--threads 1/2/4` auf einem zweiseitig gespleißten Paar — gleicher Schlüssel und
+BYTEGLEICHE Telemetrie (`sat-09`, SHA-256 `929d49b2ea9a8a9a`, dreimal) · `make -C sim verify-models`
+grün · `sim/src/`, `sim/vendor/` und `sim/assets/aircraft/` unberührt · Missions- und Modellbaum vor und
+nach jedem Lauf sauber · keine Commits.
