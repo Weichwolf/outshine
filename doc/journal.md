@@ -32,6 +32,55 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-04 — Fünf saubere Zellen, die Arena besteht — und der Sweep darüber findet nichts
+
+**Die Decke ist erreicht, das Ergebnis darunter ist negativ.** `E17` hinterließ zwei chaos-saubere
+graduierbare Zellen und p ≤ 0,250. Diese Runde baut drei weitere, das Gate nimmt alle drei an —
+**ARENA: PASSED, 8 Zellen, 5 informativ, Signifikanzdecke 2⁻⁵ = 0,031** — und der Hebel-Sweep über die
+fünf liefert **keine zulässige Verschiebung**. Beides ist das Produkt, nicht nur das erste.
+
+**Das strukturelle Mittel ist das TROCKENE Gefecht.** `brief_master_arm sim` auf BEIDEN Seiten: die
+Hardware verweigert jeden Start, aber Sortierung, Lock, Crank, RWR-Antwort und Emissionsdisziplin
+laufen unverändert. **[MESS]** 63 `sms RELEASE_REJECTED`, 0 `damage KILL`, 0 `monitor KO`. Die Folge
+ist eine Zahl: die Chaosamplitude einer gewerteten Verweilzeit fällt von **1,0 s** (sat-03/sat-04, nass)
+auf **0,10–0,30 s**; ein `task formation`-Transit ohne Gegner liegt bei **0,1 m / 0,025 s**. Der
+diskrete Einschlag ist der Verstärker — nimmt man ihn weg, bleibt eine 3-m-Störung eine 3-m-Störung.
+
+**Die drei Zellen, je auf einer der tragenden Grundlagen, Marge im Kopf:** `sat-07-dry-merge`
+(deklarierter Zylinder, Sprossenleiter, **3,20 s gegen 0,30 s = 11×**), `sat-08-ident-qra` (geometrische
+`identify`-Box, 42 Sprossen, **56,0 m gegen 5,58 m = 10×**), `sat-09-gate-strike` (Freigabe-Gatter,
+`ccip-tight` 4 Freigaben → **0**, dazu 21,3 m Marge gegen den 45-m-Wirkradius). Alle drei: S1 ok, S2 ok,
+**S7 0 von 8**.
+
+**Zwei Bauregeln fielen dabei an, beide Instrumentenbefunde.** (a) Die Ergebnisklasse ist eine SUMME —
+ein Hebel, der ändert WELCHES Ziel erfüllt ist, ohne zu ändern WIE VIELE, ist ihr unsichtbar; vier
+Entwürfe hatten **10 lebende Hebel und 2 Klassen**. Die Reparatur ist eine monotone Sprossenleiter auf
+EINER stetigen Größe. (b) Jede Sprosse sitzt in der Mitte einer GEMESSENEN Lücke und wird nur emittiert,
+wo die Hebel-Lücke ≥ 10× die GEMESSENE Chaosspanne derselben Größe ist — per Werkzeug hergeleitet. Diese
+Regel verwarf `sat-08`s naheliegende Achse: dieselben acht Paare über die DWELL gewertet erreichen 5×,
+über die MINDESTENTFERNUNG 10–3 180×. Die natürlich aussehende Achse war die Münze.
+
+**§4a wurde erfüllt, nicht umgangen — und der erste Versuch war zweifach falsch.** `stores IMPACT
+lat=/lon=` wird mit `%g` gedruckt, also auf **9,3 m** quantisiert; und der CCIP-Einschlag FOLGT dem
+bezeichneten Ziel mit einer Verstärkung unter 1, ist also eine Fixpunkt-Iteration. Iteriert: Grundlauf
+**0,0 m** vom Ziel, beide Bias-Schienen **±23,7 m** gegen 45 m — **21,3 m Marge**, `bias-early`/`bias-late`
+inert. Davor war `bias-early` auf allen drei Zellen ein Beweger mit **3,0 m** Marge, und **S7 ließ ihn
+mit 0 von 8 durch**: ein Schirm für den Anfangszustand sieht keine Schwelle, an der das GENOM klebt.
+
+**Der Sweep, auf der Ergebnisklasse gelesen:** kein Hebel ist auf 5 von 5 besser. Die zwei, die p = 0,031
+erreichen (`bias-rail`, `ccip-tight`), sind beide SCHLECHTER und beide auf einer Schiene ihres Bandes —
+§6 §2 verweigert das. Der stärkste positive ist `pilot_emcon_frac` 1,0 → 0,4 mit **4 von 5, p = 0,188**,
+nicht monoton im eigenen Gen (0,1 gewinnt 3 von 5, 3,0 gewinnt 1 von 5): ein Punkt, keine Richtung. Er
+besteht X4a (0 von 8 mit seinem EIGENEN Genom auf allen fünf), X4b (hält bei `timeout` × 1,5) und X4c,
+und ist trotzdem nicht veröffentlichbar. Sein Mechanismus ist benennbar (`flt_switch` 110 → 29,
+`sort_assign` 316 → 69, `flt_assign` 12 → 22: leiseres Radar → weniger eigene Echos → die Zuteilung
+BLEIBT) — ein benennbarer Mechanismus kauft keinen p-Wert.
+
+**Die schärfste Warnung der Runde:** in der VOLLEN Ordnung (V → M → C) erreicht `bias-late` p = 0,031 auf
+5 von 5 und sitzt auf keiner Schiene. Auf der Klassenebene ist er `-....`. Die ganze „Signifikanz" ist
+`C_aim`. §6 nennt einen Rangwechsel innerhalb von C als Erstes unter dem, was ausdrücklich kein Befund
+ist — **und nichts im Werkzeug erzwingt das.** Sechs Exploits gebucht (`X-9`…`X-14`).
+
 ### 2026-08-03 — Die Scheibe ist die Zielfläche: durchscheinende MFDs, ein entkerntes HUD — und der Projektor war 20 Grad zu weit
 
 Drei Sätze des Eigners, drei Messungen.

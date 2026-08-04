@@ -2913,6 +2913,214 @@ station arithmetic, a geometric identification box far from its own hold thresho
 
 ---
 
+## State — round `E18` (2026-08-04): the arena PASSES with five chaos-clean cells, and the sweep over them finds no admissible shift
+
+`E17` left the count at **two** chaos-clean gradable cells and a ceiling of `p = 0.250`, with three
+constraints on what the missing three could rest on. This round builds them, the gate accepts them,
+and the sweep that the ceiling was wanted for comes back **negative** — which is the round's product
+just as much as the cells are.
+
+### §0 — The structural device the three new cells are built on: THE DRY ENGAGEMENT
+
+`E17` §4b said `protect`/`survive` are gradable only after the exchange and the exchange is the chaos.
+The escape is not to remove the exchange but to remove its LETHALITY: both sides carry
+`brief_master_arm sim`, the hardware refuses every launch, and sorting, locking, cranking, the RWR
+answer and the emission discipline all run unchanged. [MESS, `sat-07`] **63 `sms RELEASE_REJECTED
+reason=hardware_precedence`, 0 `damage KILL`, 0 `monitor KO`** in the baseline.
+
+**The consequence is a measured number, not an argument.** The chaos amplitude of a graded dwell over
+the same ±3 m spawn grid:
+
+| rig | graded quantity | chaos amplitude |
+|---|---|---:|
+| `sat-03` (wet) | `ee3`'s belt dwell at a fixed instant | 1.0 s |
+| `sat-04` (wet, windowed) | lane dwell | 1.0 s |
+| **`sat-07`/`sat-09` (dry)** | cylinder dwell | **0.10 … 0.30 s** |
+| **`sat-08` (dry)** | planar min-range to a named contact | **1.45 … 27.7 m** |
+| a `task formation` transit, no opposition | member's own track | **0.1 m / 0.025 s** |
+
+The discrete event — a missile arriving — is the amplifier. Remove it and a 3 m perturbation stays a
+3 m perturbation.
+
+### §1 — The three cells, each on one of `E17` §6's load-bearing devices
+
+| cell | primary graded quantity | narrowest margin | S1 | S2 | S7 |
+|---|---|---|:--:|:--:|:--:|
+| `sat-07-dry-merge` | a declared cylinder, threshold ladder in measured gaps | **3.20 s against 0.30 s = 11×** | ok, 60.0 % | ok, 10 | **0 of 8** |
+| `sat-08-ident-qra` | a geometric `identify` box, 42 rungs | **56.0 m against 5.58 m = 10×** | ok, 60.0 % | ok, 10 | **0 of 8** |
+| `sat-09-gate-strike` | the release GATE (`ccip-tight`: 4 releases → 0) | **21.3 m against a 45 m radius**; cylinders 1.45 s against 0.10 s = 15× | ok, 52.0 % | ok, 12 | **0 of 8** |
+
+Two design rules came out of building them and both are instrument findings rather than tactics:
+
+**(a) The outcome class is a SUM, so a lever that changes WHICH objective is met without changing HOW
+MANY is invisible to it.** Every rig here therefore grades ONE continuous quantity through a MONOTONE
+RUNG LADDER — several `exposure`/`range` thresholds on the same zone or pair — which turns that
+quantity into a count the class can see. [MESS] `sat-08`'s `qa4 → an3` ladder alone resolves **nine
+distinct alleles**, one per rung step, from 1 706 m (`emcon-tight`) to 13 385 m (`shape-tight`).
+
+**(b) Every rung is placed at the midpoint of a MEASURED gap and emitted only where the lever gap is
+≥ 10× the MEASURED chaos span of that same quantity** — derived by tool from the cell's own 25-lever
+sweep and its own 9-sample chaos grid, not by hand. The rule is what refused `sat-08`'s obvious axis:
+the same eight identify pairs graded by DWELL have a spectrum whose widest usable gap is 1.1 s against
+a 0.20 s chaos amplitude (**5×**), while the same pairs graded by MIN-RANGE reach 10…3 180×. The
+natural-looking axis was the coin.
+
+### §2 — `E17` §4a satisfied rather than evaded, and the correction that took two attempts
+
+The four rigs that deliver a Mk 82 place their aim points at the **fixed point of their own release
+lattice**. That is NOT the midpoint of the printed impacts, and the first attempt got it wrong twice
+over:
+
+1. `stores IMPACT … lat=/lon=` is printed with `%g`, i.e. **6 significant digits = 9.3 m of
+   quantisation** on a longitude near 44°. A lattice derived from it is coarse by a factor two. The
+   full-resolution channel is `damage DAMAGE … bodyFwdM=/bodyRightM=`, the impact in the target's own
+   body frame.
+2. The pilot's CCIP solution is computed against the **designated target**, so moving the target moves
+   the impact with a gain below 1. A one-shot placement does not centre it; it has to be ITERATED.
+
+Iterated to convergence (2 iterations, 3 runs each): [MESS] the baseline impact lands **0.0 m** from
+the target and the two bias rails at **±23.7 m** against the Mk 82's 45 m fail radius — **21.3 m of
+margin on both sides**, and `bias-early`/`bias-late` are INERT on all three new cells. Before the
+correction `bias-early` was a mover on all three with a **3.0 m** margin (48.05 m against 45 m), i.e.
+exactly the coin §4a names, and the S7 screen did NOT catch it — it passed 0 of 8 anyway. **A criterion
+that a defect passes is not a criterion for that defect**, and the margin, not the screen, is what
+excluded it.
+
+### §3 — The gate, as its own output
+
+`tools/fb_campaign_arena.py --cells tools/cells-sat.txt --levers tools/levers-campaign-g5.txt
+--chaos-screen`, artefact `sim/build/e18/arena.log` + `e18-channels.csv`:
+
+```
+cell                       module  distinct   modal modal cls   movers  S1 S2      S7
+sat-01-belt-channels       f16           10  52.0% (30, 23)        12   ok ok   1 of 8  NO
+sat-02-picture-split       f16            7  60.0% (14, 10)        10   ok ok   0 of 8  ok
+sat-03-escort-shield       f16           10  44.0% (26, 21)        14   ok ok   5 of 8  NO
+sat-04-vul-window          f16            9  52.0% (27, 18)        12   ok ok   0 of 8  ok
+sat-06-qra-window          f16            7  64.0% (14, 14)         9   NO ok      —
+sat-07-dry-merge           f16            9  60.0% (17, 17)        10   ok ok   0 of 8  ok
+sat-08-ident-qra           f16           10  60.0% (14, 27)        10   ok ok   0 of 8  ok
+sat-09-gate-strike         f16            9  52.0% (22, 23)        12   ok ok   0 of 8  ok
+
+S4 size: 8 (>= 6) ok   S5 yield: 5 informative (>= 3) ok   S6: 0 identical pair(s) ok
+ARENA: PASSED   (8 cells, 5 informative)
+```
+
+| | cells | ceiling `2^-n` |
+|---|---:|---:|
+| `E17` | 2 | 0.250 |
+| **`E18`** | **5** | **0.031** |
+
+**Two of the five sit at 60.0 % exactly, which is the S1 bound with no slack, and that is stated rather
+than smoothed.** It is not a coincidence and it is not tunable: `tools/levers-campaign-g5.txt` contains
+**14 levers that are the identity map on any F-16 side** (`cover` ×3 and `energy` ×3 by airframe and
+task, `ccip-open`, `net-on`, `sort-left`, `sort-near` beside a live net, plus `bias-early`/`bias-late`
+once §2's correction is applied and `emcon-wide`/`shape-trail` where they are the seed). Baseline plus
+14 is **60.0 % of a 25-run population**, so no cell built against this file can go below the bound
+without an eleventh mover. `E-26` books the denominator problem; this is its other face.
+
+### §4 — The sweep over the five, and it is NEGATIVE
+
+The instrument the ceiling was wanted for, run: each of the 24 levers as a one-gene displacement from
+the seed, compared against the seed on each of the five cells by the published order, one-sided sign
+test over the non-tied cells. Two readings, because they disagree and only one of them may be
+published.
+
+**At the OUTCOME CLASS (V, then M) — the level `§6` permits:**
+
+| lever | cells (02/04/07/08/09) | W | L | p | counter-probe |
+|---|---|---:|---:|---:|---|
+| `bias-rail` (`pilot_attack_bias_s` = 10) | `-----` | 0 | 5 | **0.031 worse** | none — it IS the rail |
+| `ccip-tight` (`pilot_attack_ccip_m` = 1) | `-----` | 0 | 5 | **0.031 worse** | `ccip-open` W0 L0 T5 |
+| `emcon-mid` (`pilot_emcon_frac` 1.0 → 0.4) | `-++++` | 4 | 1 | 0.188 better | `emcon-tight` W3 L2, `emcon-wide` W1 L2 |
+| every other lever | — | ≤ 3 | ≤ 4 | ≥ 0.188 | — |
+
+**No lever is better on 5 of 5. The two that reach the ceiling are both WORSE, and both sit on a RAIL
+of their own band** — `§6` §2: *"A gene sitting on its rail is not a finding, it is an unbounded
+band."* `pilot_attack_ccip_m` = 1 is the LOWER RAIL of its declared 1…2 000 band and `bias_s` = 10 the
+upper rail of −10…10. Neither is publishable and neither is interesting: refusing every release, or
+throwing the bomb 2.3 km long, loses the kill bits by definition.
+
+**The strongest positive is `emcon-mid` at 4 of 5, p = 0.188, and it FAILS on its own counter-probe
+rather than on its p-value.** The advantage is not monotone in the gene: 1.0 → 0.4 wins 4 of 5, but
+1.0 → 0.1 wins 3 of 5 and 1.0 → 3.0 wins 1 of 5. A direction that reverses on both sides of the point
+that won is a point, not a direction.
+
+**The other reading, and it is the round's sharpest warning.** In the FULL published order — V, then M,
+then C by domination — three levers reach p = 0.031 and one of them is *not* on a rail: `bias-late`
+(`bias_s` = +0.1) is worse on **5 of 5**. It is entirely a level-C effect: at the class level it is
+`-....`, W0 L1 T4. Its whole "significance" is `aim` quality, the 23.7 m the aim point moves, and `§6`
+lists *"a rank change inside level C"* first among the things that are expressly not a finding. **A
+round that read the wrong column would have published a doctrine shift at p = 0.031 this afternoon.**
+
+### §5 — The mechanism of the near-miss, named because it is worth naming
+
+`emcon-mid`'s four wins carry one chain across all four, in published channels ([MESS],
+`e18-channels.csv`):
+
+| cell | `flt_switch` | `sort_assign` | `flt_assign` | class |
+|---|---|---|---|---|
+| `sat-04` | 110 → **29** | 316 → **69** | 12 → **22** | (27,18) → (28,20) |
+| `sat-07` | 41 → **10** | 113 → **28** | 25 → **31** | (17,17) → (17,18) |
+| `sat-08` | — | 20 → 17 | 10 → **17** | (14,27) → (14,34) |
+| `sat-09` | 69 → **11** | 111 → **28** | 26 → 22 | (22,23) → (24,26) |
+
+A quieter radar produces fewer own echoes, the flight stops re-sorting every tick, and the assignment
+STICKS. That is X3-shaped. It is reported here and **not** as §1 of a shift report, because `§6`'s
+binding rule works the other way round: a nameable mechanism does not buy a p-value.
+
+### §6 — The X4 audit of the candidate, which PASSES and does not help
+
+`tools/fb_champion_audit.py --cells build/e18/cells-informative.txt --genome pilot_emcon_frac=0.4`:
+
+| detector | result |
+|---|---|
+| **X4a** a lucky trajectory — the CANDIDATE's own genome over the 0.8 m grid, 8 samples | **0 of 8 flipped on all five cells** (base classes (14,9), (28,20), (17,18), (14,34), (24,26)) |
+| **X4b** judge evasion — every cell at `timeout` × 1.5 | **held on all five**, class unchanged |
+| **X4c** a partition exploit — which counts moved | §5's table; `dmg_hits` does not appear, `dmg_effective` does not move, `eng_shots` moves on one cell (1 → 3) with `eng_shot_s` |
+| **X1** arena invariance | it IS the sweep above: 4 of the 5 informative cells, which passes X1's "≥ 2 of the others" as a screen and fails the sign test as a verdict |
+| **X2** | n/a, as always on this arena — both airframes are FlightBox's read-only model copies (principle 1), which carry no declared-ignorance band |
+
+The audit is clean and the result is still not publishable. **That is the point of having the audit
+separate from the significance test**: robustness and significance are different questions, and this
+round is the first in the tree where a candidate passes the first and fails the second.
+
+### §7 — What the round exploited, and every item is an instrument defect
+
+`§6` §8 wants this section to weigh as much as §1. This round ran no evolution, so the list is what the
+BUILDER hit — but every one of them is a lever a search would have found first:
+
+| # | The hole | The channel it rides | Who owns it |
+|---|---|---|---|
+| **X-9** | **`stores IMPACT lat=/lon=` is `%g`-quantised to 9.3 m.** A lattice derived from the log is coarse by a factor two, and the aim-point placement built on it left a 3.0 m margin where it claimed 21.7 m | `events.log`, `stores IMPACT` | [`weapons.md`](weapons.md) — the full-resolution channel `damage DAMAGE … bodyFwdM/bodyRightM` exists beside it |
+| **X-10** | **The CCIP impact follows the DESIGNATED TARGET with a gain below 1.** Any procedure that "puts the target where the bomb lands" is a fixed-point iteration and silently wrong as a one-shot | `pilot ATTACK_RELEASE`, `stores DELIVERY` | [`pilot.md`](pilot.md) |
+| **X-13** | **The outcome class is a SUM, so an instrument can be blind to a lever that moves everything it measures.** Four of this round's drafts had 10 live levers and 2 outcome classes | `fb_fitness.side_key` | this file |
+| **X-11** | **A level-C-only effect reaches p = 0.031 and looks exactly like a doctrine shift** (`bias-late`, §4) | `C_aim` in the channels file | this file — `§6` already forbids it, nothing enforces it |
+| **X-12** | **S7 passes a cell whose bias lever has a 3 m margin.** The chaos screen samples 8 points of ±3 m of SPAWN; it does not see a threshold the GENOME sits 3 m from | `fb_campaign_arena.chaos_flips` | this file |
+| **X-14** | **`emcon-wide` is the identity map wherever the seed already radiates continuously** — with a live net and no threat the far rail IS the seed. Same class as `E16` §6(b), now on `sat-08` | `flt_src`, `sort_assign` | [`duels.md`](duels.md) D3 |
+
+### §8 — What is NOT claimed
+
+- **The five cells are not fully independent.** All three new ones contain a dry air element, because
+  `pilot_emcon_frac` is inert without an engagement (`EmconSilent_` needs `other` — a mate's
+  `Engaging` report or a net report) and no cell reaches ten movers without the emcon family. A sign
+  test over five cells that share one mechanism overstates its own `n`. The honest reading of the
+  0.031 ceiling is **"attainable", not "earned"**, and §4's negative result does not depend on it.
+- **No doctrine shift is published**, so `§6`'s template is not filled in.
+- The gene bands, the fitness, the genome and `kModalMax`/`kMoversMin`/`kChaosMaxFlips` were **not
+  touched** in the round whose verdict they decide.
+
+### §9 — The cost
+
+| | |
+|---|---|
+| runs | ≈ **1 500** — 8 draft sweeps × 25, 6 chaos grids × 9, 3 re-ladder passes × 34, 4 arena passes over 1–8 cells, 12 centring runs, 45 audit runs |
+| what moved in `sim/src` | **nothing** |
+| what moved elsewhere | three new rigs (`sat-07`, `sat-08`, `sat-09`), `tools/cells-sat.txt` |
+| `sim/vendor`, `sim/assets/aircraft` | untouched |
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
@@ -2933,7 +3141,8 @@ station arithmetic, a geometric identification box far from its own hold thresho
 | **E-14** | **HALVED (`E4`): the merge now has an OUTCOME, and G4's mover is a CFIT.** (a) and (b) are unchanged — no transition from the intercept phase into `Phase::Bfm`, and the merge writes no `eng_*` column, so level C is `GATE` on both sides. (c) is CLOSED: `Phase::Bfm` employs the round on the rail ([`pilot.md`](pilot.md) §5.11) and `xmerge` goes from 60/60 `(2,1)` to **30 (3,2) + 30 (1,0)** — every run decided, all 40 kills by a missile, none by the gun. The gun itself went 2.21 % → **7.68 %** of its rounds on target (§5.8) and still needs 17.0 landed 30 mm rounds against 9.53 delivered. **The new half of this gap:** all three `pilot_energy_frac` alleles now move the class on `merge` — S2's first pass on a merge cell — and all three do it with a `monitor KO ATTITUDE_CONTACT` of a jet the AIM-9 exchange had already blinded. `E-15`'s rule applies unchanged and G4 is not published |
 | **E-15** | **CLOSED (`E3`), and closing it CONFIRMED the reading: the merge's S1 pass WAS the CFIT.** At n = 120 runs per pass the merge cells produced **77 monitor KOs and every single one was the MiG-29** (38 `ATTITUDE_CONTACT`, 37 `CFIT`, 2 `STRUCTURE_CONTACT`); zero F-16 KOs, in either seat. The cause was not the pilot and not the floor: `systems/FBFlightControl` bound this airframe's own rate damper only on its FLCS path while `Phase::Bfm` commands `Manual` ([`pilot.md`](pilot.md) §5.10a). With it on the hand stick the same 120 runs produce **0 KOs** — and `xmerge`/`xmergesplit` fall from 2 outcome classes at a 50.0 % modal share to **1 class at 100 %**, i.e. they lose their S1 pass with the defect that was carrying it. That is the finding stated forwards: a geometry whose informativeness comes from one side dying of a bug is a measurement of the bug | `E2`, `E3` |
 | **E-17** | **The campaign breadth is REFUSED as an arena, and 89 of its 154 cells are not moved by the genome at all.** [MESS, `E5`, 2026-07-30] 0 informative cells under both the published `levers-genome.txt` and that round's 15-point file; 2 under the loosest reading the gate admits, which is W1's own verdict. **The three checkable points, with their state after `E6`:** (a) **CLOSED** — level C was `GATE` on 32 of the 46 cells that aim a bomb and is now `GATE` on **0 of 46**, with the two deciding levels unmoved on all 154 cells (§State `E6` 1); (b) **OPEN, unchanged** — S1 needs a fixed field that acts on the cell it judges, and the only frozen one is six BVR intercept doctrines; a ground-flavoured yardstick would fix it on paper and is refused for `E2`'s reason; (c) **OPEN, unchanged** — G2 and G7 need an arena that does not exist in the campaigns at all (a long-binding round on a netted element; a CCIP delivery). **The debt is PAID (`E7`)**: the 154-cell gate is re-run in full, 4,158 runs, and the answer refutes the prediction it was booked with — the X-1 fix moves the mover distribution by **two cells** (89·46·15·3·1 → 89·46·16·2·1), because a mover count is a difference and the fix shifted baseline and levers across the boundary together. **(b) is CLOSED (`E7`) and the closing INVERTED it**: the field was not merely ground-blind, it was disjoint from the genome in every gene, and a commensurate field passes S1 on **0 of 154** cells where the incommensurate six passed 13 — all thirteen false positives, traceable one by one (§State `E7` 2). **(c) is now the ONLY thing standing**, and it is the binding constraint: S2 does not read the field at all, 0 of 154 cells reach its 5 movers, the best in the whole breadth has 4, and **5 of the 15 levers are structurally dead everywhere** (G2's three, G7's two) | `E5`, `E6`, `E7`, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md) |
-| **E-27** | **A shift needs FIVE chaos-clean graduable cells; the tree now has TWO.** §6 publishes over paired cells, so the smallest attainable one-sided p is `2^-n`. **UPDATED `E17` (2026-08-04):** the root the `85c1a74` note named is MEASURED — on `sat-03` four of five chaos flips are the judge being asked at a different instant of the SAME fight (`ee3`'s belt dwell is 175.2 s at t = 317.9 s in both the truncated and the full run, and reads `met` in one and `unmet` in the other) — and REPAIRED: [`missions/verdict.md`](missions/verdict.md)'s `until <s>` freezes an objective's state at a DECLARED sim time, which takes `sat-03` from 5 of 8 to 1 of 8 with nothing else changed. `sat-04-vul-window` is the first cell built on it: S1 ok (modal 52.0 %), S2 ok (12 movers), **S7 0 of 8**. With `sat-02` that is **n = 2, ceiling p = 0.250**. **Three cells still missing**, and `E17` §4 says what they may not rest on: not `protect`/`survive` after an exchange (removing the clock costs `sat-03` ten of its fourteen movers), not a delivery against a lethal radius (the release lattice is 22.9 m and the whole bias lever is 23 m, so signal = chaos by arithmetic), not a dwell budget read at the end of a run | `E16`, `E17` |
+| **E-27** | **CLOSED as a COUNT, OPEN as a result.** A shift needs FIVE chaos-clean graduable cells; `E18` builds three more and the tree now has **five** — `sat-02`, `sat-04`, `sat-07-dry-merge`, `sat-08-ident-qra`, `sat-09-gate-strike`, all S1 ok / S2 ok / **S7 0 of 8**, gate output `sim/build/e18/arena.log`, **ARENA: PASSED**. Ceiling `2^-5` = **0.031**. The structural device that made them possible is the DRY ENGAGEMENT (`brief_master_arm sim` on BOTH sides: the full picture/sort/emission machinery runs, no weapon leaves a rail, and the chaos amplitude of a graded dwell falls from 1.0 s to **0.10…0.30 s**). **And the sweep the ceiling was wanted for is NEGATIVE:** no lever is better on 5 of 5; the two that reach `p = 0.031` (`bias-rail`, `ccip-tight`) are both WORSE and both sit on a RAIL, which §6 §2 refuses; the strongest positive is `pilot_emcon_frac` 1.0 → 0.4 at 4 of 5, `p = 0.188`, non-monotone in its own gene (0.1 wins 3 of 5, 3.0 wins 1 of 5) and therefore a point rather than a direction. It passes X4a (0 of 8 on its OWN genome, all five cells), X4b (held at `timeout` × 1.5) and X4c. **Still open:** an admissible shift, and the independence of the five (all three new cells share the dry-air element, because `pilot_emcon_frac` is inert without an engagement) | `E16`, `E17`, `E18` |
+
 | **E-26** | **Half the lever file is the identity map, and S2's bar is computed from the file's LENGTH.** [MESS, `E16`] 12 of the 24 levers in `tools/levers-campaign-g5.txt` are bit-identical to the baseline in all 28 published channels — `durationS` and the energy integral `bfm_es` included — on all three `sat-*` cells: `cover-off/one/three` and `energy-low/mid/high` (structurally unreachable on an F-16 side, as `85c1a74` already booked), plus `net-on` and `ccip-open` (they ARE the missions' own briefing), `sort-left`/`sort-near` (dead beside a live net) and **`emcon-tight`/`emcon-mid`** (§6b: below the step they are the seed). `kMoverFrac = 3/9` puts the bar at `3/9 × 24 = 8`, so eight movers must come out of **twelve live levers**, not twenty-four. E10 wrote the ratio so a LONGER file could not buy a pass; the unforeseen direction is that padding a file with identity levers RAISES the bar for reasons that have nothing to do with the genome. **Not fixed here on purpose** — a denominator retuned in the round whose verdict it would change is what E10 forbids. The honest reading of every S2 number in this file is "movers of the LIVE levers", and that count is not printed today | `E16` |
 | **E-25** | **X1 is nearly empty on a three-cell arena, and a champion can pass it while being net negative on 154 independent cells.** [MESS, `E13`] the published shift survives X1 (better on 3 of 3 arena geometries, the two it rests on flipping 0 of 8) and then scores **17 better against 38 worse** on the campaign breadth, with its own mechanism channel `flt_switch` falling on 6 cells and RISING on 9. X1 asks for *"≥ 2 of the arena's other informative geometries"*; with S5's minimum of three that is a two-sample test. **The fix is not to loosen or tighten X1 but to name the validation set**: selection on the arena, validation on the breadth, and a shift that does not transfer is reported as arena-specific rather than as doctrine. Not retrofitted into §5 here — a criterion rewritten in the round whose result it would change is not a criterion | `E13` |
 | **E-24** | **Thirteen cells are invisible to level M, and every one is inert.** [MESS, `E11`] 13 of 154 cells carry `M = 0` on all 24 levers and **not one has a single mover** — among them the breadth's largest symmetric engagement, `o1-10-mole-cricket` at eight against eight, `(16, 0)` on both sides. It is not a defect of the mission: its own header says no aircraft declares `objective survive`, and its reading rule names five channels — `campaign CARRY`, `site LAUNCH`, `net LOST`, the per-jet `eng_*` debrief, the campaign ATTRITION line — **none of which the fitness reads**. A rung whose product is an attrition arc cannot be seen by an outcome class of `(V, M)` and therefore can never be informative, whatever its size or opposition. **Not fixed here on purpose:** widening level M after measuring which cells it cannot see would select the instrument on the result | `E11` |
@@ -3006,6 +3215,20 @@ and has to be re-flown before the rig is used again; (2) `emcon-tight`/`emcon-mi
 takes `M` from 2 to 4 with `eng_shots` 1 → 4 and `sort_assign` 2 → 6. It is the strongest genuine
 doctrine signal in 2,464 runs — and every cell it moves failed S1, so §6 forbids publishing it as a
 shift. It is the first thing a passing arena should be pointed at.
+
+**Round `E18`, while building the three cells that took the arena to five.** No evolution ran, so these
+are what the BUILDER hit — but each is a lever a search would find before a doctrine, and the first two
+were caught only because a margin was re-derived from a second channel and disagreed with the first.
+
+| # | What was found | The channel it rides, with its number | Owner | X3 |
+|---|---|---|---|---|
+| **X-9** | **`stores IMPACT lat=/lon=` is `%g`-printed, i.e. quantised to 9.3 m at 44 E, and a lattice derived from it is coarse by a factor two** | [MESS, `E18`, `sat-07`] the three bias alleles print impacts at lon 44.3004 / 44.3006 / 44.3009 — apparent steps 18.6 / 27.9 m — while the same three drops read **11.77 / 35.46 / 59.16 m** of `aimLongM`, i.e. an exact 23.7 m step. Aim points placed on the printed midpoint left `bias-early` at **48.05 m** from the target against the Mk 82's 45 m radius: a 3.0 m margin where 21.7 m was claimed, and `bias-early` a mover on all three new rigs. Re-derived from `damage DAMAGE … bodyFwdM/bodyRightM`, which carries full resolution, the same aim points converge to **0.0 m** baseline miss and **±23.7 m** rails | [`weapons.md`](weapons.md) — the full-resolution channel exists beside the coarse one, and nothing says which to read | **passes as a mechanism**; it is a defect of the published channel, not of the physics |
+| **X-10** | **The CCIP impact follows the DESIGNATED TARGET with a gain below 1, so "put the target where the bomb lands" is a fixed-point iteration and silently wrong as a one-shot** | [MESS, `E18`] with the target on the steerpoint, `bias-late` lands at `aimLongM` 83.6 m; with the target moved to 60.4 m it lands at 59.16 m. One iteration of `target ← mean(early, late)` converges (largest second step **0.0 m** on all four rigs, 8 aim points) | [`pilot.md`](pilot.md) §5 attack pass | **passes**; it is why §2 of the `E18` State section iterates instead of placing |
+| **X-11** | **A level-C-only effect reaches `p = 0.031` over five paired cells and is indistinguishable from a doctrine shift in the published order** | [MESS, `E18`] `bias-late` is worse on **5 of 5** informative cells under V→M→C domination, and `-....` (W0 L1 T4) at the outcome-class level: the whole result is `C_aim`, the 23.7 m the aim point moves. §6 lists *"a rank change inside level C"* first among things that are expressly not a finding, and **nothing in the tooling enforces it** | `C_air`/`C_aim` in the channels file; `fb_fitness.unit_key` | this file | **FAILED by construction** — there is no doctrine chain, only an aim-quality scalar. Not published, and named here so the next round cannot publish it either |
+| **X-12** | **S7 passes a cell whose bias lever sits 3 m from a lethal threshold.** The chaos screen perturbs the SPAWN by ±3 m; it cannot see a threshold the GENOME sits 3 m from, and it certified all three new cells 0 of 8 while X-9 was still in them | `fb_campaign_arena.chaos_flips` — 8 samples of the initial condition, on the BASELINE genome | this file — S7 measures robustness to the initial condition, not margin to a threshold | **FAILED as a criterion**: it is a screen for one failure mode and was read as a screen for another. What excluded X-9 was the MARGIN, computed by hand from a second channel |
+| **X-13** | **The outcome class is a SUM, so an instrument can be blind to a lever that moves every quantity it measures** | [MESS, `E18`] four drafts had **10 live levers and 2 outcome classes**: ten alleles each flipped one bit, all ten produced the same COUNT, and S1 read 60 % modal with the cell fully responsive. The repair is a monotone RUNG LADDER on one continuous quantity, which turns it into a count the class can see — `sat-08`'s `qa4 → an3` ladder alone then resolves **nine** alleles | `fb_fitness.side_key`, the `M` column | this file | **passes as a mechanism**; it is a property of the fitness, and it bounds what any cell can ever show |
+| **X-14** | **`emcon-wide` is the identity map wherever the seed already radiates continuously** — with a live net and no threat the far rail IS the seed | [MESS, `E18`, `sat-08`] `emcon-wide` (`pilot_emcon_frac` = 3.0) is bit-identical to the baseline in all 28 published channels, while `emcon-mid` and `emcon-tight` move `M` 27 → 34 and 27 → 35. Same class as `E16` §6(b), on a different rig and after `X-6`'s repair | [`duels.md`](duels.md) D3c | **passes as a mechanism**; it means a three-point emcon sweep measures two points on any cell with a live net and no threat |
+
 
 ### Rejected before being tried, with the reason
 

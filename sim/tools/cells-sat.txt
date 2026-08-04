@@ -1,8 +1,12 @@
 # Messrigs fuer das Kampagnen-Arena-Gate (S1/S2/S7). Keine Kampagnenzellen, kein .fbc.
-# S7-Stand E17 (2026-08-04, sim/build/e17/sat-arena.log): 01 = 1 von 8, 02 = 0 von 8, 03 = 5 von 8,
-# 04 = 0 von 8; 06 erreicht den Schirm nicht, weil S1 es verweigert (64,0 %), misst aber 0 von 8.
+# S7-Stand E18 (2026-08-04, sim/build/e18/arena.log): 01 = 1 von 8, 02 = 0, 03 = 5, 04 = 0,
+# 07 = 0, 08 = 0, 09 = 0; 06 erreicht den Schirm nicht, weil S1 es verweigert (64,0 %).
+# ARENA: PASSED — 8 Zellen, 5 informativ, Signifikanzdecke 2^-5 = 0,031.
 sat-01-belt-channels          friendly  f16
 sat-02-picture-split          friendly  f16
 sat-03-escort-shield          friendly  f16
 sat-04-vul-window             friendly  f16
 sat-06-qra-window             friendly  f16
+sat-07-dry-merge              friendly  f16
+sat-08-ident-qra              friendly  f16
+sat-09-gate-strike            friendly  f16
