@@ -124,6 +124,17 @@ public:
   /* Drives sidereal star placement. */
   void SetSkyClock(double unixSec) { SkyClock = unixSec; }
 
+  /* ---- Units ----
+   * The MESH of an airframe is renderer data — vertices, materials, a baked texture and the sidecar's
+   * part table — so unlike the terrain (a network service the client owns) it is read here, from a
+   * directory the client names. Call before Init; the GPU upload happens with the pipeline.
+   * `typeName` is the module registry key a unit publishes (`f16`). */
+  bool AddUnitModel(const char *typeName, const char *dir) { return Units->AddModel(typeName, dir); }
+
+  /* THE CAST FOR THIS FRAME, borrowed: FBWorld rebuilds it from the published poses every Update(),
+   * and passing an empty list is what makes an empty world cost nothing. */
+  void SetUnitDraws(const FBUnitDraw *draws, int count) { Units->SetDraws(draws, count); }
+
   /* count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb]. The pass subtracts
    * (eye - anchor) per frame, so it stays camera-relative without a re-upload. */
   void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
@@ -210,7 +221,7 @@ private:
   /* Streamed and placed by FBWorld; drawn after the terrain, depth-tested for occlusion. */
   std::unique_ptr<FBTileLightsStage> TileLights = std::make_unique<FBTileLightsStage>();
 
-  /* NoOp, but wired into the encode ORDER: Units right after terrain, Sprites right before the HUD. */
+  /* Units right after terrain, Sprites right before the HUD. FBSpritesStage is still NoOp. */
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 

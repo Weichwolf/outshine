@@ -96,6 +96,15 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 # Hand-listing them meant a new render/ file linked in one target and not the other.
 RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 
+# The airframe MESHES the units stage draws. PRELOAD, not embed: they are 12.3 MB against a 12.9 MB
+# gpu.wasm, and a preload lands in a separate web/gpu.data the browser fetches beside the module
+# instead of doubling the binary. The list is explicit rather than the whole directory so the
+# normal/ORM maps and the store meshes (no consumer yet) stay out of the download.
+# emcc forbids MIXING the two (emscripten #24803), so the model tree and the moon moved to preload with
+# them; the virtual paths are unchanged and main() still starts only once the data file has landed.
+UNIT_MODEL_FILES := f16.asset.json f16_L0.glb f16_L1.glb f16_L2.glb f16_L3.glb
+UNIT_MODEL_PRELOAD := $(foreach f,$(UNIT_MODEL_FILES),--preload-file assets/models/$(f)@/fb/models/$(f))
+
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
 # + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
 # render/world-streaming-specific (CLAUDE.md: "render/ und world/-Streaming gehoeren NICHT zur
@@ -183,8 +192,9 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
-	    --embed-file assets/aircraft@/fb/aircraft \
-	    --embed-file web/moon.jpg@/moon.jpg \
+	    --preload-file assets/aircraft@/fb/aircraft \
+	    --preload-file web/moon.jpg@/moon.jpg \
+	    $(UNIT_MODEL_PRELOAD) \
 	    -o web/gpu.js; \
 	  mkdir -p web/missions; cp missions/*.fbm web/missions/; \
 	  mkdir -p web/campaigns; cp campaigns/*.fbc web/campaigns/; \
@@ -397,4 +407,4 @@ clean:           ## remove build artifacts (WASM + worker + core-lib + native + 
 	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-worker build/obj-core build/obj-native build/obj-gym \
 	  build/libfbcore.a build/gpu_native build/fb-gym build/fb-test-hard-landing \
 	  build/fb-test-loc-departure build/fb-test-two-fdm \
-	  web/gpu.js web/gpu.wasm web/fbtileworker.js web/fbtileworker.wasm
+	  web/gpu.js web/gpu.wasm web/gpu.data web/fbtileworker.js web/fbtileworker.wasm

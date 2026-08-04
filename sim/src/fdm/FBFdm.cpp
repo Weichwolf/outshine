@@ -390,6 +390,16 @@ void FBFdm::SetDamageDrag(double cdaFt2) {
   if (P->DamageCdA <= 0.0) P->Exec.SetPropertyValue(base + "/magnitude", 0.0);
 }
 
+double FBFdm::GetLeftAileronRad() const { return P->Exec.GetPropertyValue("fcs/left-aileron-pos-rad"); }
+double FBFdm::GetRightAileronRad() const { return P->Exec.GetPropertyValue("fcs/right-aileron-pos-rad"); }
+double FBFdm::GetLeftElevonRad() const { return P->Exec.GetPropertyValue("fcs/dht-left-pos-rad"); }
+double FBFdm::GetRightElevonRad() const { return P->Exec.GetPropertyValue("fcs/dht-right-pos-rad"); }
+double FBFdm::GetRudderRad() const { return P->Exec.GetPropertyValue("fcs/rudder-pos-rad"); }
+double FBFdm::GetLefDeg() const { return P->Exec.GetPropertyValue("fcs/lef-pos-deg"); }
+double FBFdm::GetSpeedbrakeDeg() const { return P->Exec.GetPropertyValue("fcs/speedbrake-pos-deg"); }
+double FBFdm::GetHookNorm() const { return P->Exec.GetPropertyValue("fcs/hook-pos-norm"); }
+double FBFdm::GetCanopyNorm() const { return P->Exec.GetPropertyValue("fcs/canopy-pos-norm"); }
+
 double FBFdm::GetQbarPsf() const { return P->Exec.GetPropertyValue("aero/qbar-psf"); }
 double FBFdm::GetCgXIn() const { return P->Exec.GetPropertyValue("inertia/cg-x-in"); }
 

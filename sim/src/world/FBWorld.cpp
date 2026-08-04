@@ -2,7 +2,11 @@
 #include "FBRenderer.h"
 #include "FBTerrainLoader.h"
 #include "FBMips.h"         /* Render::fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
+#include "FBCamera.h"
+#include "FBGeodesy.h"
 #include "FBLog.h"
+#include "FBUnit.h"
+#include "FBUnitRegistry.h"
 #include "FBUnits.h"
 #include "geo.h"
 #include <algorithm>
@@ -283,6 +287,48 @@ void FBWorld::CountTargets(int z, long x, long y, const double eye[3], int &tota
   if (idx >= 0 && Ready(Nodes[idx])) ready++;
 }
 
+/* THE ONE PLACE the picture reads the cast, and it reads nothing but the PUBLISHED pose — the barrier
+ * units/FBSimUnit::PublishPose sets, never a foreign FDM. Nothing is written back: the record is a
+ * value copy, and FBUnitDraw carries no simulation type at all, so there is no handle to write through.
+ * doc/render/units-visual.md, Spec. */
+void FBWorld::PublishUnits() {
+  UnitDraws_.clear();
+  if (!R) return;
+  if (Units_) {
+    for (const Units::FBUnit *u : Units_->Units()) {
+      if (!u || u->GetId() == EyeUnitId_) continue;
+      const Units::FBUnitSignature sig = u->GetSignature();
+      if (!sig.Visual.TypeName[0]) continue;   /* nothing published to look at: no model, no draw */
+      const Units::FBUnitPose p = u->GetPose();
+      Render::FBUnitDraw d;
+      FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, d.Ecef);
+      /* The airframe's own axes in ECEF, from the same function the camera uses — so a jet drawn at a
+       * pose and a camera placed at that pose cannot disagree. glTF is +X right, +Y up, -Z forward. */
+      double fwd[3], right[3], up[3];
+      FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
+      for (int i = 0; i < 3; i++) {
+        d.Rot[0 * 3 + i] = (float)right[i];
+        d.Rot[1 * 3 + i] = (float)up[i];
+        d.Rot[2 * 3 + i] = -(float)fwd[i];
+      }
+      const Units::FBUnitArticulation &a = p.Art;
+      d.Art[(int)Render::FBArtChannel::AileronL] = a.AileronLRad;
+      d.Art[(int)Render::FBArtChannel::AileronR] = a.AileronRRad;
+      d.Art[(int)Render::FBArtChannel::ElevonL] = a.ElevonLRad;
+      d.Art[(int)Render::FBArtChannel::ElevonR] = a.ElevonRRad;
+      d.Art[(int)Render::FBArtChannel::Rudder] = a.RudderRad;
+      d.Art[(int)Render::FBArtChannel::Lef] = a.LefDeg;
+      d.Art[(int)Render::FBArtChannel::Speedbrake] = a.SpeedbrakeDeg;
+      d.Art[(int)Render::FBArtChannel::Gear] = a.GearNorm;
+      d.Art[(int)Render::FBArtChannel::Hook] = a.HookNorm;
+      d.Art[(int)Render::FBArtChannel::Canopy] = a.CanopyNorm;
+      std::snprintf(d.Type, sizeof d.Type, "%s", sig.Visual.TypeName);
+      UnitDraws_.push_back(d);
+    }
+  }
+  R->SetUnitDraws(UnitDraws_.data(), (int)UnitDraws_.size());
+}
+
 void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], const double fwdEcef[3],
                      double nowMs) {
   Pass++;
@@ -376,6 +422,8 @@ void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], cons
   /* No re-emit: Descend already built DrawSlots from tiles ready THIS pass, and newly uploaded ones
    * enter next pass — one frame of latency, invisible. */
   if (R) R->SetDrawList(DrawSlots.data(), (int)DrawSlots.size());
+
+  PublishUnits();
 
   /* LOWEST priority, after mesh/albedo/overlay. Nearest-first: DrawnLeaves is in descent order. */
   if (NightLights && R) {

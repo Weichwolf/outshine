@@ -412,6 +412,9 @@ public:
       return;
     }
     R->SetHudDisplay(&primary.Displays());
+    /* The airframe meshes, from the model root this client already runs against (sim/). */
+    if (!R->AddUnitModel("f16", "assets/models"))
+      FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", "f16"}, {"dir", "assets/models"}});
     R->InitOffscreen(Width, Height);
     if (!R->Ready()) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
@@ -421,6 +424,7 @@ public:
     R->SetMapSheetSource(&MapTileFetch);
     /* Borrowed: the renderer's VIEW of the cast, never a second list of its own. */
     W->SetUnits(&units);
+    W->SetEyeUnitId(primary.GetId());   /* the camera rides this one: drawing it would draw its inside */
     W->SetWeather(Wx);
     /* Warm the terrain cut before the first PNG; the jet is stationary, so an approximate cut does. */
     double altAsl0 = primary.GroundAslM() + (spawn.Ground ? 2.0 : (spawn.AltM - primary.GroundAslM()));

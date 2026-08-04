@@ -32,6 +32,21 @@ void FBSimUnit::PublishPose() {
   /* The surface under this unit, from the owner's own elevation hook: a radio horizon is a height above
    * the SURFACE, and no receiver can measure the terrain under a sender it only hears. */
   Pose_.GroundAslM = GroundAslM_;
+  /* The surfaces, off the FDM rather than off any command: the picture must show what the aeroplane is
+   * doing, and only the engine knows that. A unit without an airframe keeps the zeroed default. */
+  if (Fdm_) {
+    FBUnitArticulation &a = Pose_.Art;
+    a.AileronLRad = (float)Fdm_->GetLeftAileronRad();
+    a.AileronRRad = (float)Fdm_->GetRightAileronRad();
+    a.ElevonLRad = (float)Fdm_->GetLeftElevonRad();
+    a.ElevonRRad = (float)Fdm_->GetRightElevonRad();
+    a.RudderRad = (float)Fdm_->GetRudderRad();
+    a.LefDeg = (float)Fdm_->GetLefDeg();
+    a.SpeedbrakeDeg = (float)Fdm_->GetSpeedbrakeDeg();
+    a.GearNorm = (float)Fdm_->GetGearPos();
+    a.HookNorm = (float)Fdm_->GetHookNorm();
+    a.CanopyNorm = (float)Fdm_->GetCanopyNorm();
+  }
   Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
   Sig_.IffXpdr = Module_->Radar().IffTransponder();
   /* Not an emission but the same question: what may a foreign sensor notice? A plume is visible to an

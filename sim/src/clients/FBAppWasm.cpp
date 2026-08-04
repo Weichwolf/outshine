@@ -927,6 +927,10 @@ int main() {
   }
   R.SetHudDisplay(&gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.SetMapSheetSource(&MapTileFetch);
+  /* The airframe meshes, preloaded into emscripten's FS by the wasm target. A miss leaves the units
+   * invisible and never blocks startup — exactly as a missing moon texture does. */
+  if (!R.AddUnitModel("f16", "/fb/models"))
+    FBLog::Warn("gpu", "unit_model_missing", {{"type", "f16"}, {"dir", "/fb/models"}});
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
     FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});
@@ -934,6 +938,7 @@ int main() {
   }
   for (auto &a : gActors) gUnits.Register(a.get());   /* the App owns the units; everyone else borrows */
   W.SetUnits(&gUnits);
+  W.SetEyeUnitId(gOwnship->GetId());   /* the camera rides this one: drawing it would draw its inside */
   W.SetWeather(gWeather.get());   /* the DATA side only; the frame swap below re-points it when /wx lands */
   FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 

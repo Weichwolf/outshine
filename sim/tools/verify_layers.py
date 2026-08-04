@@ -123,11 +123,22 @@ REGISTRY_OWNERS = (
     "clients/FBAppWasm.cpp",
 )
 
+# THE THIRD CATEGORY, and it is neither a perceiver nor an owner: the DRAWING side. FBWorld turns the
+# registry's PUBLISHED poses into render/FBUnitDraw records once a frame so the picture can show the
+# cast the simulation already has. It is counted separately because the price it pays is different:
+# it reads everything a unit publishes, degrades none of it, and cannot feed anything back — an
+# FBUnitDraw carries no simulation type, and render/ sits ABOVE modules/ and pilot/ in the rank order,
+# so no module and no pilot can reach it. A reader added here does NOT widen what an AI may know; one
+# added to PERCEPTION_READERS does, which is why the two counts stay apart.
+DRAW_VIEWERS = (
+    "world/FBWorld.cpp",
+)
+
 # The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
 # its own directory (inside it, the header is the seam's own implementation detail — FBFdm.cpp is
 # FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
-    "units/FBUnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS,
+    "units/FBUnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS + DRAW_VIEWERS,
     # A DECLARED BELT is judge data. core/ reaches it inside its own directory (FBMissionFile parses it,
     # FBMissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
     # not a sensor. This entry is a NARROWING: a pilot able to read a declared zone would know where the
@@ -392,6 +403,7 @@ def main():
           f"{len(set(RANK.values()))} layers — no upward include, "
           f"{len(RESTRICTED)} restricted header(s) respected, "
           f"{len(PERCEPTION_READERS)} registry reader(s) inside the perception boundary, "
+          f"{len(DRAW_VIEWERS)} drawing-side viewer(s), "
           f"{len(SLEW_POSTERS)} antenna-cue poster(s), "
           f"{len(TICK_DRIVERS)} simulation-loop driver(s), "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")

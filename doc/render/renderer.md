@@ -1,7 +1,7 @@
 # Rendering — the WebGPU renderer
 
-**Sources of this file:** `sim/src/render/` (8 files: `FBRenderer.h/.cpp`, `FBDrawStage.h`,
-`FBFrameContext.h`, `FBGpu.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h` — the HUD geometry/font and
+**Sources of this file:** `sim/src/render/` (13 files: `FBRenderer.h/.cpp`, `FBDrawStage.h`,
+`FBFrameContext.h`, `FBGpu.h`, `FBChunkMesh.h`, `FBChunkVtx.h`, `FBMips.h`, plus the units chain `FBJson`/`FBGlb`/`FBUnitModel`/`FBUnitDraw.h` — the HUD geometry/font and
 `FBCamera.h` moved to `systems/` and `core/`) and
 `sim/src/render/stages/` (30 files), plus CLAUDE.md's `render/`, `render/stages/` and "Rendering (das
 Herzstück)" sections. Every number below appears verbatim in the source; derivations and settings are
@@ -46,7 +46,8 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 | Camera basis shared by native and WASM (`FBCameraBasisEcef`) | built | `705c90a` |
 | HUD backend | built — see [`hud.md`](hud.md) | `2f3c277`, `8997eec`, `6f160af` |
 | Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
-| Units and sprites | **nothing** — see [`units-visual.md`](units-visual.md) | — |
+| Units | **built** — one indexed draw per unit from the published pose, LOD off the asset sidecar, moving parts off the published articulation. Pass count unchanged (6). See [`units-visual.md`](units-visual.md) | this round |
+| Sprites (chaff/flares/smoke) | **nothing** — `FBSpritesStage` is still NoOp | — |
 
 ## Gaps
 
@@ -61,6 +62,7 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 
 | # | Thing |
 |---|---|
+| 4.1 | ~~`FBUnitsStage`/`FBSpritesStage` NoOp~~ — the aircraft half is built and measured ([`units-visual.md`](units-visual.md)); the effect half is not |
 | 4.3 | transmittance LUT is recomputed every frame although it only depends on altitude and sun cos θ |
 | 4.4 | ~~aerial perspective off by default (`FB_AP=0`)~~ **closed** — the switch and the dead Rayleigh/Mie block are gone; the terrain now runs a WEATHER-driven haze out of the same `FBAtmoHaze.h` the cloud deck uses (§6, [`clouds.md`](clouds.md)). Its scale height was corrected the same day: two summed terms (molecular 8 km, aerosol 1.2 km) instead of one, and the molecular one carries λ⁻⁴, which closes `clouds.md` Gaps 5.7 **and** 5.8 — the per-channel extinction the deleted block had is back, from the physics rather than from a LUT |
 | 4.5 | upscale is bilinear only (`TODO bicubic/sharpen`) |
@@ -72,12 +74,13 @@ parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
 
 ### Inventory (from the previous `Open points` section)
 
-1. **`FBUnitsStage` and `FBSpritesStage` are NoOp.** Both slots are hard-wired into the encode order
-   (units after the terrain, sprites before the HUD), but they draw nothing. **Consequence: other
-   aircraft, released stores, missiles, ground targets, smoke and flares are invisible.** The whole
-   multi-unit simulation (stages 1–6, datalink, radar, BFM, intercept, damage model) exists physically
-   and in the telemetry, but there is no picture of it. A frame proof can say nothing about units
-   today.
+1. **~~`FBUnitsStage` and `FBSpritesStage` are NoOp.~~ HALF CLOSED.** `FBUnitsStage` draws: one indexed
+   draw per visible unit from the BORROWED registry's published pose, with the asset sidecar's LOD table
+   and its part table, and the pass count is still 6. Measured: an F-16 at 60 m lands within **1.69 px
+   (1.07 %)** of its projected pose, and a mission with nothing to draw produces **bit-identical** PNGs
+   to the pre-round binary. **`FBSpritesStage` is still NoOp** — chaff, flares, smoke and missile plumes
+   remain invisible, and so do released stores and ground targets, which publish no mesh key. See
+   [`units-visual.md`](units-visual.md).
 2. **The reversed-Z numbers contradict each other.** CLAUDE.md says "near 0.01 m / far 240 km". The
    code (`MvpCamRel`) uses an **infinite** far plane and `zn = 0.05`. The 240 km are the streaming view
    radius (`FB_VIEW_KM`), not the far plane; the 0.01 m appear nowhere in the code. Not resolved —

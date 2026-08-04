@@ -115,6 +115,21 @@ public:
 
   double GetGearPos() const;            /* 0=up .. 1=down, kinematic-lagged */
   double GetSpeedbrakePos() const;      /* 0..1, lagged */
+
+  /* THE CONTROL SURFACES AS THEY STAND, which is a different question from what was commanded: the FCS
+   * schedules, rate-limits and mixes, so a drawn aileron that followed the stick would be a second,
+   * disagreeing aeroplane. Read-only, and the only consumer is the picture (units/FBUnit.h's published
+   * articulation). A model that declares none of these reads 0 — SGPropertyNode::getDoubleValue returns
+   * its default for a missing node, so an airframe without a tailhook simply has none. */
+  double GetLeftAileronRad() const;
+  double GetRightAileronRad() const;
+  double GetLeftElevonRad() const;      /* differential horizontal tail, left */
+  double GetRightElevonRad() const;
+  double GetRudderRad() const;
+  double GetLefDeg() const;             /* leading-edge flap */
+  double GetSpeedbrakeDeg() const;      /* the surface angle, not the 0..1 command */
+  double GetHookNorm() const;
+  double GetCanopyNorm() const;         /* 0 closed .. 1 open */
   bool GetWow() const;                  /* model-wide: true iff ANY bogey is compressed */
 
   /* True iff any ctSTRUCTURE contact is compressed — enumerates contact TYPE, never an index or an

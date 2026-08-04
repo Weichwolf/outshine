@@ -25,7 +25,7 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 | Sensors | **built** — datalink, radar, RWR, IRST, countermeasures. Without terrain masking. | [sensors.md](sensors.md) |
 | Weapons | **built** — AIM-120, Mk-82, M61A1, ground targets, damage model | [weapons.md](weapons.md) |
 | Pilot AI | **in progress** — takeoff/route/landing, BFM, BVR intercept, air-to-ground all fly; refinement ongoing | [pilot.md](pilot.md) |
-| Renderer | **built** — stage split complete. Units and weapons still invisible. | [render/renderer.md](render/renderer.md) |
+| Renderer | **built** — stage split complete; Flugzeuge sind sichtbar, Effekte/Waffen noch nicht. | [render/renderer.md](render/renderer.md) |
 | HUD | **built** — generic default HUD + full F-16 symbology, coverage AA | [modules/f16/module.md](modules/f16/module.md) |
 | Cockpit displays | **built** — three translucent MFD bays, pages chosen by the pilot AI over the command bus | [modules/f16/cockpit-displays.md](modules/f16/cockpit-displays.md) |
 | HOTAS | **not started** — deliberately last, it is only a mapping | [clients/clients.md](clients/clients.md) |
@@ -4140,3 +4140,71 @@ statt einer Doktrin, und der wiegt nach §6 mehr.
 der Verhaltensänderung neu gefahren (`E-33`) · `verify-models`, `verify-layers`, `verify-guards` grün ·
 acht Harnesses rc = 0 · `make wasm` baut · Determinismus `--threads 1/2/4` auf `sat-10-duel-merge`,
 dreimal `9f6a1de9697fa22e` · bewachter Baum unverändert · keine Commits.
+
+## 2026-08-04 — Die Flugzeuge sind sichtbar: ein Leser, ein Draw, und ein Beweis auf 1,69 px
+
+**Der Baum konnte alles simulieren und nichts davon zeigen.** `doc/render/units-visual.md` schrieb es
+selbst hin: „a screenshot shows terrain and HUD only, no matter how many jets fly". Diese Runde baut die
+Flugzeug-Hälfte — die Effekt-Hälfte (`FBSpritesStage`) bleibt unangetastet und weiterhin NoOp.
+
+**Ein GLB ist zwei Chunks, also gibt es keinen Grund für eine Fremdbibliothek.** `render/FBJson` (flacher
+Knotenpool) und `render/FBGlb` lesen Positionen, Normalen, UVs, Indizes, den TRS-Knotenbaum, die
+Material-Basisfarbe und die eingebetteten PNG-Basisfarbtexturen über das EINE vendorierte `stb_image`
+(deklariert, nie zweitimplementiert). Der Leser NÄHERT NICHTS AN: Skins, Morph-Targets, sparse
+Accessoren, Nicht-Dreiecke, `byteStride`, `node.matrix` werden abgelehnt statt geraten — es sind unsere
+eigenen Dateien, und ein still verschluckter Attribut-Zweig zeigte ein falsches Flugzeug statt zu
+scheitern. **[MESS] 173 330 gelesene Dreiecke = 107 706 + 41 342 + 14 366 + 9 916, die vier
+`lods[].triangles` des Sidecars auf die Einheit.**
+
+**Ein Flugzeug ist EIN Draw.** `render/FBUnitModel` backt jedes Netz zur Ladezeit in den Rahmen seines
+nächsten GELENKIGEN Vorfahren und markiert den Vertex mit `(Teil, Material)`; damit werden aus 133
+Primitiven ein `DrawIndexed` und höchstens 22 kleine Matrizen pro Bild. Gelenke dürfen schachteln
+(`gear.main.l` → `.knuckle` → Rad), weil die Teile in Traversierungsreihenfolge vergeben werden — der
+Elternteil ist immer fertig, bevor das Kind ihn liest.
+
+**Der Beweis hängt nicht am Auge.** Zwei F-16 auf der Schwelle Payerne, die Ziel-Maschine 60 m geradeaus
+und um 90° gedreht — in dieser Lage liegt ihre Längsachse exakt auf `+right` der Kamera, jeder Punkt hat
+dieselbe Vorwärtsdistanz, und die Projektion der Spannweite ist ein reiner Maßstab OHNE Kameralage.
+Vorhersage aus `MvpCamRel` + der Sidecar-Bbox gegen die Pixel des PNG: **Nase −0,01 px, Heck −0,51 px,
+Flossenspitze −0,84 px, Rad −1,69 px, Länge +0,50 px — schlechtester Rest 1,69 px auf 157 px = 1,07 %.**
+Der Test prüft nebenbei die ACHSEN: die Arme um den Ursprung sind unsymmetrisch (8,845 m nach vorn,
+6,218 m nach hinten), eine gedrehte Vorwärtsachse verschöbe die beiden Seitenkanten um ±65 px.
+
+**Der einzige Rest mit physikalischer Ursache ist das Rad.** 1,69 px = 0,16 m: das Netz zeichnet das Bein
+in gebauter Länge, JSBSim komprimiert die Federbeine unter Last. Dieselbe Familie wie der bereits
+dokumentierte `gear_delta_wheelbase` des Sidecars — als Lücke eingetragen, nicht wegskaliert.
+
+**Die LOD-Tabelle ist die des Sidecars, und sie hat einen Befund.** [MESS, ein Bild, drei Ziele] 80,1 m →
+`L0` (107 706), 300,7 m → `L1` (41 342), 901,7 m → `L3` (9 916). **`L2` ist unerreichbar**, weil das
+Sidecar `L1` und `L2` dieselbe `max_range_m` (692 m) gibt; `L2`s eigener Treiber ergibt 431 m, also
+UNTER `L1`s Wert, und der Erzeuger hat ihn zur Monotonie hochgeklemmt und die Stufe damit geschlossen.
+Der Renderer nennt die Tabelle, die er bekommen hat, statt eine zu erfinden.
+
+**Die beweglichen Teile lesen den FDM, nie ein Kommando.** Neun neue const-Getter in `fdm/FBFdm`, zehn
+Kanäle in `units/FBUnitPose` an der Publish-Barriere. Ein Sidecar kann EINE Regel nicht ausdrücken und
+sie gehört deshalb dem Renderer: ein `gear/gear-pos-norm`-Knoten ist INVERTIERT, außer sein Name beginnt
+mit `gear.door.` — das Netz steht auf seinen Rädern, die Nulllage eines BEINS ist also ausgefahren, und
+dort liest `gear-pos-norm` 1. [MESS] `gearPos` 0,667 → gezeichnete 28,0° = 84°·0,333, und der Vierer-
+Streifen bei t = 2/4/6/8 s zeigt die Beine bis zum sauberen Bauch einfahren.
+
+**Der Renderer LIEST, und das ist strukturell gesichert.** `render/FBUnitDraw.h` nennt keinen einzigen
+Simulationstyp; die Übersetzung passiert an genau einer Stelle (`world/FBWorld.cpp`), und
+`verify-layers` führt sie als eigene, getrennt gezählte Kategorie `DRAW_VIEWERS`: **6 Leser innerhalb der
+Wahrnehmungsgrenze, 1 zeichnende Ansicht.** Ein Leser hier erweitert nicht, was eine KI wissen darf; ein
+Leser in `PERCEPTION_READERS` täte es — deshalb bleiben die Zahlen getrennt.
+
+**Kosten null, wenn nichts da ist — gemessen, nicht behauptet.** `payerne-full.fbm` (eine Einheit, die
+der Kamera): `[render units] cast=0 drawn=0`, `passcount passes=6`, und die drei PNGs sind
+**bitgleich** zum selben Lauf auf dem Binary VOR der Runde.
+
+**Tore:** volle Regression über alle 296 Missionen, **296/296 gleicher Exit-Code UND bytegleiche
+Telemetrie** gegen das Vor-Runden-Binary — null bewegte Missionen, keine Abweichung zu begründen ·
+Determinismus `--threads 1/2/4` bytegleich zueinander über alle 296 · `make native`, `make wasm`,
+`make gym` (0 Dawn-Symbole), zehn Harnesses rc = 0 · `verify-models`, `verify-layers`, `verify-guards`
+grün · Frame-Beweis oben · vendor unangetastet · keine Commits.
+
+**Preis, offen genannt:** `web/gpu.data` 13,47 MB neben `gpu.wasm` 11,98 MB (vorher 12,93 MB rein
+eingebettet). emcc verbietet `--embed` und `--preload` im selben Build, also sind Modellbaum, Modell-XML
+und Mond gemeinsam auf Preload gewechselt; die virtuellen Pfade sind unverändert. Lazy-Fetch je Stufe,
+Netzkompression und der Verzicht auf `L0` (8,3 der 12,3 MB, 0,12–0,24 % Silhouetten-XOR) stehen als
+Lücke 6.

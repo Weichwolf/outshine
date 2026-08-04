@@ -25,6 +25,25 @@ class FBUnitRegistry;
  * something another unit's AIR-to-air sensors look for. Everywhere else all three are full units. */
 enum class FBUnitKind { Aircraft, Weapon, Ground };
 
+/* WHERE THIS UNIT'S MOVING PARTS STAND — the pose of the airframe's surfaces, published on the same
+ * barrier as the pose of the airframe itself and for the same reason. It rides in FBUnitPose because
+ * that is what it IS: geometry, not a signature. A sensor slot already receives exact geodetic ground
+ * truth here and is trusted to degrade it; a deflected aileron adds no capability that lat/lon did not
+ * already hand over, so there is no second gate to build.
+ * Angles are the FDM's OWN surface positions (fdm/FBFdm.h), never a stick command: the FCS schedules
+ * and rate-limits, so drawing the command would draw a second aeroplane. Every field is 0 for a unit
+ * whose model declares nothing of the kind. */
+struct FBUnitArticulation {
+  float AileronLRad = 0.0f, AileronRRad = 0.0f;
+  float ElevonLRad = 0.0f, ElevonRRad = 0.0f;   /* differential horizontal tail */
+  float RudderRad = 0.0f;
+  float LefDeg = 0.0f;
+  float SpeedbrakeDeg = 0.0f;
+  float GearNorm = 0.0f;      /* 0 up .. 1 down, kinematic-lagged */
+  float HookNorm = 0.0f;
+  float CanopyNorm = 0.0f;    /* 0 closed .. 1 open */
+};
+
 struct FBUnitPose {
   double LatDeg = 0.0, LonDeg = 0.0, ElevM = 0.0;   /* geodetic, m ASL */
   double RollDeg = 0.0, PitchDeg = 0.0, YawDeg = 0.0;
@@ -35,6 +54,7 @@ struct FBUnitPose {
    * and ElevM alone cannot say what that is: two positions at 936 m ASL are not 252 km apart in line of
    * sight, they are on the same hillside. doc/air-defence-network.md §Gaps collision 1. */
   double GroundAslM = 0.0;
+  FBUnitArticulation Art;
 };
 
 /* WHAT AN EYE COULD SEE OF THIS UNIT, published like the radar cross-section beside it and for the

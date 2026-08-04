@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <vector>
+#include "FBUnitDraw.h"
 
 namespace FlightBox::Render { class FBRenderer; }
 namespace FlightBox::Units { class FBUnitRegistry; }
@@ -25,6 +26,10 @@ public:
    * client — fb-gym needs the same registry without linking any of world/. This is the drawing side. */
   void SetUnits(const Units::FBUnitRegistry *units) { Units_ = units; }
   const Units::FBUnitRegistry *Units() const { return Units_; }
+
+  /* WHICH unit the camera is riding, by id: it is drawn from the inside otherwise, and an eye sitting
+   * at the model origin sees the cockpit tub from within. -1 = draw every unit. */
+  void SetEyeUnitId(int id) { EyeUnitId_ = id; }
 
   /* BORROWED for the same reason: the atmosphere is simulation state (core/FBWeatherProvider), and the
    * drawing side only ever ASKS it — cover, cloud base and wind for the cloud rebuild. Null until a
@@ -106,7 +111,13 @@ private:
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
+  /* The published cast turned into draw records, rebuilt every Update() and handed to the renderer.
+   * Reused, so a steady cast allocates nothing after the first frame. */
+  void PublishUnits();
+
   const Units::FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
+  int EyeUnitId_ = -1;
+  std::vector<Render::FBUnitDraw> UnitDraws_;
   const FBWeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
 
   Render::FBRenderer *R;

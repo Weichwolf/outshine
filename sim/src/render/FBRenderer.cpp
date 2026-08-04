@@ -167,8 +167,7 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Stars->Init(gpu);
   TileLights->Init(gpu);
-  Units->Init(gpu);
-  Sprites->Init(gpu);
+  Sprites->Init(gpu);   /* Units is Configure()d with the terrain: it needs the atmosphere LUT views */
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   { const char *e = getenv("FB_CLOUDS"); CloudsOn = !e || atoi(e) != 0; }   /* armed by default; the pass only exists when the weather has a deck */
   if (CloudsOn) CreateClouds();
@@ -192,6 +191,7 @@ void FBRenderer::OnDevice(wgpu::Device d) {
 void FBRenderer::SetCloudSky(const FBCloudSky &sky) {
   Clouds->SetSky(sky);
   Tiles->SetSky(sky);
+  Units->SetSky(sky);
 }
 
 void FBRenderer::CreateTerrainPipeline(void) {
@@ -206,6 +206,8 @@ void FBRenderer::CreateTerrainPipeline(void) {
 
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Tiles->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers);
+  /* Same air, same LUT, same scene targets: a unit fades into exactly what the terrain fades into. */
+  Units->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf);
 }
 
 void FBRenderer::CreateTileTexture(void) {
@@ -659,8 +661,8 @@ void FBRenderer::RenderFrame(void) {
 
   Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
 
-  /* NoOp today, but wired into the encode ORDER: units belong right after the terrain, effect
-   * billboards right before the HUD — that placement is the contract, not the drawing. */
+  /* Units belong right after the terrain, effect billboards right before the HUD — that placement is
+   * the contract. FBSpritesStage is still NoOp; both self-gate, so an empty world records nothing. */
   Units->Encode(ctx, scene);
 
   TileLights->Encode(ctx, scene);   /* night lights, depth-tested so hills occlude far ones; self-gates */
