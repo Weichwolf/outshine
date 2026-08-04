@@ -504,6 +504,14 @@ def main():
                          "searched: does blue's lever ORDER depend on which red it faces?")
     ap.add_argument("--genes", default="", help="comma-separated subset of the genome, per side "
                                                 "as blue:a,b;red:c,d — declared, never derived")
+    ap.add_argument("--blue-alleles", default="",
+                    help="blue's channel/sort alleles as <dl>:<sort> pairs, comma separated, the SEED "
+                         "first; empty <dl> means 'leave the mission's own briefing alone'. Default is "
+                         "`fb_evolve.SORT_ALLELES`, whose seed is `off:` — and [MESS, E30] that is the "
+                         "one subspace in which blue's own genes have no call site: with the net off "
+                         "`FBFlightPicture::BuildMembers` finds no mates, so G1 has no `FormationStation` "
+                         "to reach, and `EmconSilent_` has no cooperative report, so G5 cannot go quiet. "
+                         "Every blue seed of every co-evolution before this argument existed flew there")
     ap.add_argument("--generations", type=int, default=4)
     ap.add_argument("--points", type=int, default=3)
     ap.add_argument("--archive-sample", type=int, default=3)
@@ -558,7 +566,9 @@ def main():
     # half is measured inert on the MiG-29 and a side whose declared genome is empty must be sayable.
     genes = {s: ([] if want[s] == ["-"] else [k for k in allkeys if not want[s] or k in want[s]])
              for s in ("blue", "red")}
-    alleles = {"blue": evo.SORT_ALLELES, "red": RED_SORT_ALLELES}
+    alleles = {"blue": ([tuple(x.split(":", 1)) for x in args.blue_alleles.split(",")]
+                        if args.blue_alleles else evo.SORT_ALLELES),
+               "red": RED_SORT_ALLELES}
     for s in ("blue", "red"):
         print("\n%s genome: %d gene(s) of %d pilot keys, %d sort allele(s)"
               % (s, len(genes[s]), len(alphabet), len(alleles[s])))

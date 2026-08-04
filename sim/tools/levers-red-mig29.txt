@@ -1,0 +1,31 @@
+# RED'S LEVER SET — the alphabet a MiG-29 can actually express, and nothing else.
+#
+# WHY IT IS NOT `levers-campaign-g5.txt`. That file is 24 levers of the nine-gene genome; on this
+# airframe SIX of the nine have no hook at all (doc/doctrine-evolution.md E-31, measured in E20 §1):
+# G1 x3 and G2 need a cooperative terminal the MiG-29 does not carry, G6/G7 need the generic release
+# pass its director replaces, and G4 lives inside `Phase::Bfm`, which no `sat-*` rig enters. Grading
+# red against 24 levers of which 22 are the identity map would put S1's modal share at 92 % for a
+# reason that belongs to the AIRFRAME and not to the cell.
+#
+# WHAT IS LEFT is what `E20` measured as reachable here: G5 (the PUR-31 emission switch, `duels.md`
+# D3e) and G3 (the briefed sort contract). `sort=left` is the committed brief on every `sat-*` rig and
+# is therefore the identity map — it is NOT in this file (X-14).
+#
+# THE FIVE EMISSION POINTS ARE THE BAND'S OWN GROUPS, not a uniform grid. [MESS, E20 §2, reproduced by
+# E30 on sat-07] the MiG's trajectory takes exactly FOUR values over the 0..3 band because the gate is
+# `f x 27.0 nm` (kSearchRangeM = 50 km) against the briefed GCI ranges 120/90/60 km, so the group
+# boundaries sit at f = 2.4 / 1.8 / 1.2. `emcon-tight` and `emcon-mid` are inside the lowest group and
+# are the identity map on these rigs; they are kept because that is a MEASUREMENT of the lever file
+# against the cell and not a property of the gene, and a file that hides its own identity maps makes
+# S1's denominator a fiction.
+#
+# S2 threshold under this file: 3 movers AND 3/9 x 9 = 3.
+emcon-tight  pilot_emcon_frac=0.1   # quiet unless a controller's call is fresher than 2.7 nm
+emcon-mid    pilot_emcon_frac=0.4
+emcon-lo     pilot_emcon_frac=1.2   # 32.4 nm of own reach: the 60 km call still outruns it
+emcon-hi     pilot_emcon_frac=1.8   # 48.6 nm: the 90 km call is now inside the set's own picture
+emcon-wide   pilot_emcon_frac=3.0   # 81.0 nm, i.e. radiate through everything the GCI briefs
+sort-near    sort=near              # the briefed range contract
+sort-right   sort=right             # the briefed azimuth contract, mirrored against the committed one
+sort-far     sort=far
+sort-none    sort=none              # no contract at all: every fighter picks for itself

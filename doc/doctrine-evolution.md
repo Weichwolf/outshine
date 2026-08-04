@@ -3575,13 +3575,281 @@ without it the first measurement of the repair showed a MiG throwing DUMMY four 
 had any power.
 
 ---
+## State — round `E30` (2026-08-04): three cells on which BOTH sides have a moving outcome class
+
+`E-30` was the last structural blocker of the co-evolution and it was stated as a dilemma: `E18`'s dry
+engagement bought a chaos-clean arena (amplitude 1.0 s → 0.10…0.30 s) by removing the opponent's
+LETHALITY, and with it the opponent's fitness — on three of five cells red's outcome class is constant
+over its entire strategy space. This round shows the dilemma is **false**, and the reason is one line
+of the mission format: **an objective is read by the judge and by nobody else**, so a rig can be
+re-graded without moving a metre of anybody's flight.
+
+Three new cells, `sat-10-duel-merge`, `sat-11-duel-qra`, `sat-12-duel-gate`, and a two-sided gate
+`tools/fb_duel_arena.py`. **All three pass S1, S2 and S7 on BOTH sides.**
+
+### §0 — The instrument, checked against two committed tables before anything was believed
+
+The new gate is new code, so it was pointed at numbers it did not produce, on the binary those numbers
+were taken with (`build/fb-gym.e20before`, `7ffb224b6933281d`):
+
+| cell | `E18` §3, committed | `fb_duel_arena`, blue column, pre-`E20` binary |
+|---|---|---|
+| `sat-07-dry-merge` | 9 distinct, 60.0 % (17, 17), 10 movers | **9, 60.0 % (17, 17), 10** |
+| `sat-08-ident-qra` | 10 distinct, 60.0 % (14, 27), 10 movers | **10, 60.0 % (14, 27), 10** |
+| `sat-09-gate-strike` | 9 distinct, 52.0 % (22, 23), 12 movers | **9, 52.0 % (22, 23), 12** |
+
+**3 of 3, to the digit, including the mover NAMES.** And the red column reproduces `E19` §3's other
+committed table — red's class constant at (24, 8), (12, 4), (12, 4) with **0 movers of 9** — on that
+binary AND on the current one. A third reproduction fell out of the rung probe: the MiG-29's emission
+band produces exactly **4 distinct trajectories** on `sat-07`, grouped `{base, 0.1, 0.4} · {1.2, 1.5} ·
+{1.8, 2.0} · {2.5, 3.0}`, which is `E20` §2's table measured by a different tool.
+
+### §1 — The device, and it costs nothing because an objective is not a physical thing
+
+Each new cell is its source rig plus rung ladders on the side that had none. Measured against the
+source under the same binary:
+
+| pair | telemetry files byte-identical | what differs |
+|---|---|---|
+| `sat-07` → `sat-10` | **17 of 18** | `ma1`'s `zone_zb_s`/`zone_zb_in` AFTER t = 300.1 — the two columns the JUDGE writes, at the instant `sat-07`'s MiG concluded and this file's has not |
+| `sat-08` → `sat-11` | **18 of 18** | nothing at all |
+| `sat-09` → `sat-12` | 4 of 20, and the other **16 are PREFIX-identical** | the run is longer: 260.1 s → 460.0 s, because a unit with an unmet objective keeps the run open. Blue's eight `UNIT_RESULT` lines are unchanged (SUCCESS × 8) |
+
+What changes is the VERDICT: red's fighters go SUCCESS → TIMEOUT and red's M becomes a count. **The
+opponent's fitness was never removed by the dry engagement — it was never declared.**
+
+The graded quantity on the red side is the one `E18` §1b measured as the robust axis: a PLANAR
+MIN-RANGE between one named fighter and one named opponent, turned into a COUNT by a monotone rung
+ladder, because the class is a SUM (`X-13`) and a lever that changes WHICH bit is met without changing
+HOW MANY is invisible to it.
+
+### §2 — The three cells
+
+| cell | blue: distinct / modal / movers | red: distinct / modal / movers | narrowest rung margin, blue \| red |
+|---|---|---|---|
+| `sat-10-duel-merge` | 12 · **52.0 %** · 12 of 24 | 8 · **30.0 %** · 7 of 9 | 12.3× \| 14.5× |
+| `sat-11-duel-qra` | 10 · **60.0 %** · 10 of 24 | 7 · **30.0 %** · 7 of 9 | 10.0× \| 13.2× |
+| `sat-12-duel-gate` | 11 · **52.0 %** · 12 of 24 | 7 · **40.0 %** · 6 of 9 | 12.0× \| 11.9× |
+
+**S7, per (cell, opponent) pair, as `X-17` demands and not per cell:** blue's spawn over the 0.8 m grid
+against each of the 10 red alleles, red's spawn against each of the 25 blue levers. **0 of 8 on all
+105 pairs.** 840 runs for the full matrix plus 224 for the two re-screens.
+
+**The clock is not a confound and it is not argued away:** the run duration takes ONE value per cell
+over all 35 runs of both lever sets — 520.0 / 520.0 / 460.0 s. `X-7` cannot reach a comparison in which
+every member has the same length.
+
+**Red's lever file is its own** (`tools/levers-red-mig29.txt`, 9 levers): the MiG-29 expresses 3 of the
+9 genes (`E-31`), so grading it against blue's 24 would put 22 identity maps into S1's denominator. The
+file is the two genes that reach this airframe on these rigs — G5 through the PUR-31 and G3's four sort
+contracts — and `sort=left`, the committed brief, is deliberately absent because it IS the identity map.
+
+### §3 — What the round had to measure its way into: a rung must clear EVERY opponent, not one
+
+The first placement obeyed `E18` §1b exactly — every rung at the midpoint of a measured gap, ≥ 10× the
+chaos amplitude measured against the COMMITTED opponent. The gate then refused two of the three cells:
+
+| cell | blue S7, first placement |
+|---|---|
+| `sat-10` | `red emcon-hi` **4 of 8**, `red sort-far` **3 of 8** |
+| `sat-11` | `red sort-near` / `sort-none` / `sort-right` **3 of 8** each |
+| `sat-12` | clean, first time of asking |
+
+Read at the level of the individual objective (`s7_why`, 9 runs per pair), the flipping rungs are
+named exactly: `sw3`'s 5 849 m rung against `ma3` and `sw1`'s 3 941 m rung against `mb4` — rungs whose
+margin against the committed MiG is **17×**. A different red allele moves blue's min-range onto them.
+
+**The corrected rule, and it is `X-17` carried from the SCREEN into the PLACEMENT:**
+
+> a rung must lie outside `[min_o − 10 c_o, max_o + 10 c_o]` for EVERY declared opponent `o`, where
+> `min_o`/`max_o`/`c_o` are the quantity's minimum, maximum and chaos amplitude over that opponent's
+> own S7 population (the graded side committed, its spawn over the ±3 m grid).
+
+That interval is precisely the set of values S7 can produce under that opponent, widened by the same
+10×. It costs 90 runs per cell to measure and it is what the two refused cells were re-placed under;
+both then came back **0 of 8 on all ten pairs**.
+
+**The rule lives in `tools/fb_rung_ladder.py` rather than in this paragraph**, and the tool was run
+end to end to prove it does: 131 runs on `sat-10`'s blue side (25 spectrum, 16 chaos, 90 opponent-band),
+worst margin 25.7×, and it reproduces the shipped ladder EXACTLY on the two units where its assignment
+agrees — `sw1 → mb4` at 6 017 m and `sw2 → ma1` at 5 781 / 7 953 / 8 409 / 8 937 / 9 608 / 10 092 m.
+It picks a different partner for the other two because it was run WITHOUT `--offsets`, i.e. maximising
+resolution over the ladder alone rather than over the ladder plus the cell's existing `avoid zone` M —
+10 movers instead of 12, which is the offset's whole effect and is stated rather than smoothed. `sat-12` passed without it, which is stated as luck
+rather than design — nothing in it was tightened afterwards.
+
+### §4 — A consequence of `E20` nobody had measured: its repair REFUSES two of `E18`'s five cells
+
+`E20` §3 measured its emission seam over all 293 missions by exit code and by class on the three that
+moved. It did not re-run the GATE, and the gate is what those cells exist for. Same instrument, same
+lever file, the two binaries side by side:
+
+| cell | pre-`E20` (`7ffb224b…`) | post-`E20` (`44b3d0ad…`) | S1 |
+|---|---|---|---|
+| `sat-07-dry-merge` | 9 distinct, 60.0 %, 10 movers | **5 distinct, 68.0 %, 8 movers** | **REFUSED** |
+| `sat-08-ident-qra` | 10 distinct, 60.0 %, 10 movers | 9 distinct, 60.0 %, 10 movers | ok, at the bound |
+| `sat-09-gate-strike` | 9 distinct, 52.0 %, 12 movers | **5 distinct, 68.0 %, 8 movers** | **REFUSED** |
+
+The lost movers are `shape-wide`, `shape-flat` and `emcon-wide` on `sat-07` and `net-off`,
+`shape-trail`, `shape-wide`, `emcon-wide` on `sat-09` — all four MiG-dependent, all four on cells whose
+MiGs are briefed a GCI range beyond the N019's own 50 km. **`E18`'s five-cell arena and its 2⁻⁵ = 0.031
+significance ceiling do not hold against the current binary**, and nothing in the tree said so, because
+no gate re-run is part of a behaviour change's gate list. The three new cells restore it on their own
+terms: 12 movers is the CEILING this lever file allows (12 of its 24 levers are the identity map on any
+F-16 side, `E18` §3), and `sat-10`/`sat-12` reach it.
+
+### §5 — The co-evolution, re-run: the opponent produces THREE champions and instrument (b) becomes computable
+
+`tools/fb_campaign_coevolve.py --cells tools/duels-e30.txt --generations 3 --points 3
+--archive-sample 2 --genes "blue:pilot_emcon_frac,pilot_flight_trail_frac;red:pilot_emcon_frac"`,
+**1 212 runs**, artefacts `sim/build/e30-coevo/`. The genome cut is `E19`'s verbatim, so the only
+variable against `E19`/`E20` is the ARENA.
+
+| | `E19` (5 dry cells) | `E20` (same, G5 repaired) | **`E30` (3 two-sided cells)** |
+|---|---|---|---|
+| distinct RED champions | 1 | 2 | **3** — `r0_s1` (`emcon 1.5 sort=near`) → `r1_00` (`emcon 0 sort=near`) → `r2_s4` (`emcon 0 sort=none`) |
+| distinct BLUE champions | 1 | 1 | 1 — `b0_s2`, still fixed from generation 0 |
+| archive members, red / blue | 1 / 1 | 2 / 3 | **6 / 3** |
+| §3.6 (a) fixed yardstick, red | flat | flat, 0.667 / 0.667 | **0.889 → 1.000 → 1.000, rising** |
+| §3.6 (b) champion graph, red | not computable | not computable | **n = 3, cyclic triples 0 of 1, T = 0.0000, ok** |
+
+**Instrument (b) is computable for the first time in this tree.** It needs three distinct champions on
+a side; every earlier run produced one or two. Red's archive holds six genomes with six distinct
+behaviour vectors where `E19`'s held one.
+
+The champion pair moves the world on all three cells, both ways:
+
+| cell | committed / committed | champ / committed | committed / champ | champ / champ |
+|---|---|---|---|---|
+| `sat-10` | (15,23) \| (16,24) | (15,32) \| (18,41) | (15,29) \| (19,42) | (14,29) \| (18,33) |
+| `sat-11` | (14,15) \| (8,4) | (16,29) \| (8,14) | (15,23) \| (10,18) | (15,26) \| (9,19) |
+| `sat-12` | (21,45) \| (8,15) | (21,49) \| (8,16) | (20,41) \| (9,21) | (20,43) \| (9,19) |
+
+**Nothing is published from it.** §6's rule is unchanged: a champion is not a doctrine, the fixed
+yardstick decides nothing here, and red's own gene sits at a band rail (`emcon 0`).
+
+### §6 — Why BLUE freezes, first reading: its seed sits where its own genes have no call site
+
+`E19` reported blue's numeric gene as flat and attributed it to `X-4`. The real mechanism is one line of
+the runner and it is now measured. `fb_evolve.SORT_ALLELES[0]` is `("off", "")`, so the SEED of every
+blue population this tree has ever evolved carries **`dl=off`** — and with the datalink off, both of
+blue's declared genes have no call site:
+
+* `FBFlightPicture::BuildMembers` adds SELF and returns unless `state.Datalink.H.Readable()`, so there
+  are no mates, no lead member, and `FormationStation` is never called — **G1 is dead** (the identical
+  mechanism `X-16` measured on the MiG-29, here produced on an F-16 by a BRIEFING rather than by an
+  airframe);
+* `EmconSilent_` needs an `other` picture — a mate's `Engaging` report or a net report — and with no
+  mates and no net there is neither, so the pilot can never go quiet: **G5 is dead**.
+
+[MESS, 30 runs, `build/e30-freeze`] blue's declared genome over its own grid, once with the seed's
+channel bit and once with the mission's own:
+
+| blue genome | `sat-10` | `sat-11` | `sat-12` |
+|---|---|---|---|
+| `dl=off` seed / `trail 0` / `trail 3` / `emcon 0` / `emcon 3` | (15,39) × 5 | (16,23) × 5 | (21,42) × 5 |
+| mission's own channel, seed | (15,21) | (14,15) | (20,35) |
+| … `trail 0` | (15,21) | **(15,22)** | (20,35) |
+| … `trail 3` | (15,21) | (14,15) | (20,35) |
+| … `emcon 0` | **(15,36)** | **(16,27)** | **(20,40)** |
+| … `emcon 3` | (15,21) | (14,15) | (20,35) |
+
+**Five genomes, one class, three cells — with the net off. With the mission's own channel the same five
+produce three distinct classes on `sat-11` and two on the other two.** Blue's freeze is a property of
+the SEED, not of the cells: the search was started inside the one subspace where its own alphabet is
+the identity map. `fb_campaign_coevolve.py` grew a `--blue-alleles` argument for it, defaulted to
+today's behaviour so that no published run moves.
+
+### §7 — The second co-evolution, with the seed freed — and blue walks into the dead subspace on its own
+
+`--blue-alleles ":,:left,:near,off:"`, everything else identical, another **1 212 runs**
+(`build/e30-coevo2/`). The seed now leaves the mission's own channel alone and `off:` is one allele of
+four rather than the ground the search stands on.
+
+**Generation 0 separates blue's genome for the first time in this tree.** The frozen-field score, which
+was 0.500 / 0.800 flat in `E19` and 0.667 flat in §5:
+
+| blue genome | frozen |
+|---|---:|
+| `b0_seed` (mission's channel, `emcon 1.5`, `trail 1.5`) | 0.208 |
+| `b0_01` (same point, re-emitted) | 0.267 |
+| `b0_02` (`trail 3`) | 0.367 |
+| `b0_00` (`trail 0`) | 0.700 |
+| `b0_10` (`emcon 0`) | 0.900 |
+| **`b0_s3` (`dl=off`)** | **0.933** |
+
+**And then it freezes again — because the allele that wins generation 0 is the allele that silences the
+other two genes.** From generation 1 on, every member of the population carries `dl=off` (`grid_poll`
+mutates the CHAMPION), and all six print the identical pair 0.570 / 0.933 in generation 1 and
+0.586 / 0.933 in generation 2. The three instruments: (a) 0.933 flat, (b) **1 distinct champion, still
+not computable**, (c) needs four generations.
+
+**That is a sharper statement than §6's and it replaces it as the reason.** Blue's freeze is not (only)
+the seed: with a free choice of channel, blue's own fitness lands it in the subspace where `dl=off`
+kills G1's call site and G5's picture. **The channel bit is a ONE-WAY GATE — the first move of the
+search removes two thirds of the alphabet the search still has to explore.** `E-34` is rewritten around
+that.
+
+Red, on the same arena but against this different blue, produces **2** distinct champions
+(`r0_s4` → `r1_02`, `emcon 1.5 → 3` at `sort=none`) and a rising yardstick 0.889 → 1.000 → 1.000; §5's
+run produced 3. Both are reported; neither is a doctrine claim. **The honest summary of the pair of
+runs is that instrument (b) is now REACHABLE — it was computed once, on the red side, at n = 3 with
+T = 0.0000 — and that whether it is reached depends on which side and which opponent, which is the
+first time in this tree that sentence could be written at all.**
+
+### §8 — What the round exploited, and every item is an instrument defect
+
+| # | The hole | The channel it rides | Who owns it |
+|---|---|---|---|
+| **X-21** | **A rung that clears the COMMITTED opponent by 17× still flips S7 under another opponent.** `E18` §1b's placement rule takes its two inputs — the spectrum and the chaos amplitude — against one point of the opponent space, and `X-17` had already shown that S7 is a property of the pair. [MESS, `E30` §3] `sat-10` blue **4 of 8** under `red emcon-hi`, **3 of 8** under `red sort-far`; `sat-11` blue **3 of 8** under three of the four sort alleles. Read per objective, the coins are `sw3`'s 5 849 m rung and `sw1`'s 3 941 m rung. **The rule now carries a third input** (§3) and the two cells were re-placed under it | `fb_duel_arena.chaos_pairs`, per (cell, opponent) | this file — and `tools/fb_rung_ladder.py`, where the rule now lives as code rather than as prose | **REPAIRED in the placement**; the screen is what caught it, which is the screen working |
+| **X-22** | **A behaviour change is not gated on re-running the arena, so `E20`'s repair silently REFUSED two of `E18`'s five cells.** `E18` certified five chaos-clean gradable cells and a 2⁻⁵ = 0.031 significance ceiling; `E20` moved the MiG-29's emission seam and measured 293 missions by exit code. Nobody re-ran the gate. [MESS, §4, both binaries side by side] `sat-07` 60.0 % → **68.0 %** and `sat-09` 52.0 % → **68.0 %**, S1 REFUSED on both, four MiG-dependent movers lost. **Every statement in this file that rests on the five-cell arena is a statement about the pre-`E20` binary** | `fb_duel_arena` against `build/fb-gym.e20before` | this file, and [`build-and-ops.md`](build-and-ops.md)'s gate list — a change that moves an airframe moves every cell that airframe flies in | **OPEN as a process gap**, booked as `E-33` |
+| **X-23** | **A lever file cannot express the `none` sort contract: `fb_tournament.load_variants` maps `sort=none` onto the EMPTY sort**, which is "splice nothing", which is the identity map. `none` is a real `FBMig29Module::Set` value and `E19` measured it as a mover on both sides; a red lever file written the obvious way would have carried a silent identity map into S1's denominator — `X-14`'s class, in the loader instead of in the rig | `fb_tournament.load_variants`, `sort=` | [`pilot.md`](pilot.md) §9 | **worked around, not repaired**: `fb_duel_arena.genomes` re-reads the raw token the way `fb_campaign_arena.load_levers` already re-reads `dl=`. The loader itself is untouched because four published tournaments read it |
+| **X-24** | **A spectrum taken over the whole track grades a quantity the VERDICT never saw.** An `until <s>` window closes at `<s>` and the judge stops accumulating; a rung placed from the full track is therefore placed against a number nobody is graded on. [MESS] on the first `sat-10` draft this moved one MiG's rung count by **three of six** — predicted 4, judge said 1 | `mission WINDOW_CLOSED` against the track | this file; `fb_rung_ladder.min_range` takes the span as an argument for exactly this reason | **REPAIRED**, and the corrected predictor then reproduced the judge **8 of 8 units** on the first try |
+| **X-25** | **The channel bit is a one-way gate, and every blue population this tree has evolved was seeded on the far side of it.** `fb_evolve.SORT_ALLELES[0] = ("off", "")`, so the seed carries `dl=off`; with the net off `FBFlightPicture::BuildMembers` finds no mates (G1 has no `FormationStation` to reach) and `EmconSilent_` has no cooperative report (G5 can never go quiet). [MESS, §6, 30 runs] five blue genomes spanning both declared genes give ONE class per cell with `dl=off` and three distinct classes on `sat-11` with the mission's own channel. `E19` attributed this to `X-4`; the mechanism is a missing CALL SITE and not a cost. **And freeing the seed does not fix it** (§7): with the channel a free allele, generation 0 separates blue's genome 0.208…0.933 and the WINNER is `dl=off`, after which the population is flat again | `fb_evolve.SORT_ALLELES`, `flt_mates` | this file §3, [`formation.md`](formation.md) F5 | **argument added** (`--blue-alleles`, defaulted to today's behaviour so no published run moves); the default is NOT changed in the round that measured it, and §7 says a different default would not have been the fix |
+
+### §9 — What is NOT claimed
+
+- **No doctrine shift is published.** §6's template is not filled in. The sweep of `E18` §4 / `E19` §5
+  was NOT re-run on the new cells — the round's budget went into the cells and the two co-evolutions —
+  so `E-28` ("every direction reverses against some opponent") stands exactly where `E19` left it.
+- **Instrument (b) was COMPUTED once, not established.** §5's red side reaches n = 3 with T = 0.0000;
+  §7's red side, on the same three cells against a different blue, reaches n = 2 and is not computable.
+  What the round shows is that (b) is REACHABLE on this arena, which no earlier round could say at all —
+  not that it is reached by every run.
+- **Three cells is not five.** The significance ceiling a three-cell sign test can reach is
+  2⁻³ = 0.125, worse than `E18`'s 0.031. What the three buy is not a ceiling but a SIDE: they are the
+  first cells in the tree on which the opponent has an outcome class that moves at all.
+- **The three cells are not independent.** They share the dry-engagement device and two of the three
+  share the min-range ladder as their primary axis. `E18` §8's warning applies unchanged.
+- **`sat-11`'s blue S1 sits at 60.0 %, the bound, with no slack**, and the arithmetic is in its own
+  header: eleven of the 24 levers are bit-identical trajectories there, so 56.0 % is the floor.
+- **Red's genome is two genes wide**, and that is `E-31` and not something this round fixed. Red's
+  champion moving is a real movement inside a small space, not evidence that the space is big.
+- Nothing in `sim/src/`, `sim/vendor/` or `sim/assets/aircraft/` was touched, so no behaviour
+  regression is owed. `make -C sim verify-models` green; the guarded tree
+  (`sim/missions sim/assets/aircraft sim/assets/MODEL-DELTAS.md sim/vendor sim/src`) shows no modified
+  file before or after any run; determinism `--threads 1/2/4` on `sat-10-duel-merge` gives the identical
+  telemetry SHA-256 `32720b2093962ca5` three times.
+
+### §10 — The cost
+
+| | |
+|---|---|
+| runs | ≈ **4 000** — 21+10 red probes ×3 cells, 33+11 blue probes ×3, 90+90 opponent-space probes, 102+68 gate sweeps, 840+224 S7 pairs, 108 pre-`E20` cross-check, 30 freeze probe, 1 212 co-evolution, 1 212 second co-evolution, 131 ladder-tool validation, 6 conservation, 3 determinism |
+| what moved in `sim/src` | **nothing** |
+| what moved elsewhere | three cells (`sat-10-duel-merge`, `sat-11-duel-qra`, `sat-12-duel-gate`), `tools/fb_duel_arena.py`, `tools/fb_rung_ladder.py`, `tools/levers-red-mig29.txt`, `tools/duels-e30.txt`, one defaulted argument on `tools/fb_campaign_coevolve.py` |
+| `sim/vendor`, `sim/assets/aircraft` | untouched |
+
+
+---
 
 ## Gaps
 
 | # | Thing | Known from |
 |---|---|---|
-| **E-30** | **The three DRY cells have no opponent fitness, so half of every co-evolution on them is a fixed point.** [MESS, `E19`] `sat-07`/`sat-08`/`sat-09` give the MiG side a single `survive until <s>` objective that nothing can threaten (`brief_master_arm sim` on both sides), and red's outcome class is **constant over its entire strategy space** on all three: (24,8), (12,4), (12,4) on every allele. Red's class moves on `sat-02` only — (14,6) → (16,8) under `right`/`none` — and `sat-04` moves it downward only. The device `E18` used to buy a chaos-clean arena (§0 of that block: chaos amplitude 1.0 s → 0.10…0.30 s) is the same device that removes the opponent's gradient. **Not "fixed" by making the cells wet** — that would trade a measured 10× margin for a coin — the honest statement is that a dry rig grades ONE side and a co-evolution needs a rig that grades both, and no such rig exists in the tree today | `E19` |
-| **E-31** | **The arena still grades a side on genes its airframe cannot carry, and now the tree KNOWS which.** [MESS, `E20`] the MiG-29 expresses **3 of 9** genes (G3 sort, G4 energy where a rig enters `Phase::Bfm`, G5 emission since `duels.md` D3e) and cannot express **6**, each for a reason in its own sources: G1 ×3 and G2 need a cooperative terminal it does not have ([`formation.md`](formation.md) F6/F3), G6/G7 need the generic release pass its director replaces (`modules/mig29/weapons.md` §5.4.2). §2.2's `static_assert` proves a `Scale` gene is dimensionless and names its hook; nothing proves the module OVERRIDES that hook, so `ApplyTuning` still returns `true` for all six (`X-15`). **What is owed is a per-module reachability declaration read out of the binary the way the alphabet already is** — `fb-gym --pilot-keys` prints the hook, and a second column naming the modules that override it would let a runner refuse a genome its side cannot fly instead of measuring a silent identity map. NOT built here: it is a tooling contract, and `E20` spent its budget on the seam plus a 293-mission regression | `E20`, `E19`, `X-15` |
+| **E-30** | **ANSWERED (`E30`) — a dry rig CAN grade both sides, because an objective is not a physical thing.** The dilemma was stated as "either the exchange is lethal and the chaos returns, or it is dry and the opponent has no fitness". It is false: [MESS, `E30` §1] adding a rung ladder to the red side of `sat-07`/`sat-08`/`sat-09` leaves **17 of 18, 18 of 18 and 16-of-20-prefix** telemetry files identical, because `objective` is read by `FBMissionMonitor` and by nobody else. The three resulting cells `sat-10-duel-merge`, `sat-11-duel-qra`, `sat-12-duel-gate` pass S1, S2 and S7 **on both sides**: blue 52.0 / 60.0 / 52.0 % modal with 12 / 10 / 12 movers of 24, red 30.0 / 30.0 / 40.0 % with 7 / 7 / 6 movers of 9, and **0 of 8 spawn flips on all 105 (cell, opponent) pairs**. The co-evolution on them produces **3 distinct red champions and a 6-member red archive** where `E19` produced 1 and 1, and §3.6's instrument (b) is computable for the first time. **What the dry device really removed was never the opponent's fitness — it was never declared** | `E30`, `E19` |
+| **E-33** | **A behaviour change is not gated on re-running the ARENA, and the tree has now paid for it once.** [MESS, `E30` §4, both binaries side by side, same instrument, same lever file] `E20`'s emission seam took `sat-07` from 60.0 % modal / 10 movers to **68.0 % / 8** and `sat-09` from 52.0 % / 12 to **68.0 % / 8** — S1 REFUSED on two of the five cells `E18` certified, and with them the 2^-5 = 0.031 ceiling every later statement quotes. `E20` §3 measured 293 missions by exit code and three by class; nothing in [`build-and-ops.md`](build-and-ops.md)'s gate list says "re-run the gate whose cells this airframe flies in". **What is owed is one line in that list and a cheap re-run target**, not a new instrument: `fb_duel_arena.py --cells … ` already answers it in 102 runs for three cells | `E30`, `X-22` |
+| **E-34** | **The channel bit is a ONE-WAY GATE: blue's search wins generation 0 by turning the net off, and `dl=off` is the state in which its other genes have no call site.** Two measurements, and the second replaces the first as the reason. (1) [MESS, `E30` §6, 30 runs] `fb_evolve.SORT_ALLELES[0] = ("off", "")`, so every blue seed this tree ever evolved carried `dl=off`; five blue genomes spanning both declared genes then give **one outcome class per cell** on all three cells, because `FBFlightPicture::BuildMembers` finds no mates (G1 never reaches `FormationStation`) and `EmconSilent_` has no cooperative report (G5 can never go quiet). (2) [MESS, `E30` §7, 1 212 runs with `--blue-alleles ":,:left,:near,off:"`] with the seed freed, generation 0 separates blue's genome for the first time — frozen field **0.208 / 0.267 / 0.367 / 0.700 / 0.900 / 0.933** over six genomes — and the winner is `dl=off` at 0.933. From generation 1 the whole population carries it and is flat again. **So the freeze is a property of the LANDSCAPE, not of the seed:** the first move of the search removes two thirds of the alphabet the search still has to explore. What is owed is not a different default but a decision about whether a gene that disables other genes may sit in the same genome — and the answer is a design question, not a measurement | `E30`, `X-25` |
 | **E-29** | *(SPLIT by `E20` — the headline survives in a weaker form; see `E-31` and the `E20` State block.)* **The genome cannot be co-evolved because it is F-16-shaped, and the boundary test in §2 cannot see it.** [MESS, `E19`, bit-level over whole telemetry] of the nine genes, **eight are bit-identical on the MiG-29** on `sat-02`/`sat-04`/`sat-07`; only the sort contract reaches it. Over the full 24-key pilot alphabet, **12 keys DO move the MiG and not one of them is in the genome** (`abort_nm`, `action_s`, `beam_deg`, `chaff_s`, `crank_deg`, `defend_hold_s`, `lock_nm`, `react_s`, `shot_ata_deg`, `shot_rtr`, `shot_spacing_s`, `speed_kt` — all `Free`). §2.2's `static_assert` proves a `Scale` gene is DIMENSIONLESS and names its hook; nothing proves the hook is OVERRIDDEN by the module the gene is spliced into. **Not fixed here on purpose:** growing or re-cutting the genome in the round whose verdict it decides is what §8 forbids, and the fix is a design question (a per-module reachability declaration read from the binary like the alphabet itself, so it cannot drift) | `E19`, `X-15`, `X-16` |
 | **E-28** | **Every doctrine direction this tree has measured reverses against some opponent, and no opponent admits one.** [MESS, `E19`, 625 runs over 5 blue lever sets × 5 red alleles × 5 cells, 21 chaos-clean pairs] per red allele the best blue lever is `emcon-mid` p = 0.188 (`red-left`, i.e. `E18`'s world, reproduced exactly), `emcon-tight`/`shape-abreast` 0.125, `shape-tight` 0.250, `net-off` **0.062**, `emcon-tight`/`shape-trail` 0.250 — **none reaches the 0.031 ceiling under any opponent.** And the sign of every non-rail lever FLIPS: `emcon-mid` is `+ + − − =` across the five, `emcon-tight` `+ + − + +`, `net-off` `= = = + −`, `shape-abreast` `+ + + − −`. The only sign-stable directions are "always worse" (`bias-rail`, `ccip-tight`, both rails) and "always nothing" (the identity levers of `E-26`). **This is the diagnosis `E18`'s p = 0.188 was missing**: the near-miss was not a weak signal but a signal conditioned on one point of the opponent space. **Still open:** whether an opponent-INVARIANT direction exists at all, which needs both `E-29` (a genome the opponent can carry) and `E-30` (a rig that grades the opponent) first | `E19`, `E18` |
 | **E-1** | **CLOSED.** `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective, published in `FBMissionMonitor::Conclude`. Cost, as promised and measured: 136 lines over 60 of 137 missions; 432/432 telemetry files byte-identical | this file |

@@ -3998,3 +3998,72 @@ Runde ist `shape-trail`, gepoolt p = 0,055, mit einem Vorzeichen, das unter `red
 BYTEGLEICHE Telemetrie (`sat-09`, SHA-256 `929d49b2ea9a8a9a`, dreimal) · `make -C sim verify-models`
 grün · `sim/src/`, `sim/vendor/` und `sim/assets/aircraft/` unberührt · Missions- und Modellbaum vor und
 nach jedem Lauf sauber · keine Commits.
+
+## `E30` (2026-08-04) — Drei Zellen, auf denen BEIDE Seiten eine bewegliche Ergebnisklasse haben
+
+**Der Zielkonflikt, den `E-30` benannt hat, existiert nicht.** Er lautete: entweder ist das Gefecht
+tödlich, dann kommt das Chaos zurück, oder es ist trocken, dann hat der Gegner nichts zu gewinnen.
+Beides ist an dieselbe Ursache geknüpft worden — und die Ursache war eine andere. Ein `objective` wird
+vom RICHTER gelesen und von niemandem sonst. Man kann also die Bewertung einer Zelle ändern, ohne einen
+einzigen Meter Flug zu bewegen. Gemessen statt behauptet: `sat-07` → `sat-10` **17 von 18** Telemetrie-
+Dateien bytegleich (die achtzehnte unterscheidet sich in `zone_zb_s`/`zone_zb_in` NACH t = 300,1 — den
+zwei Spalten, die der Richter selbst schreibt), `sat-08` → `sat-11` **18 von 18**, `sat-09` → `sat-12`
+16 von 20 präfixgleich plus vier, und die acht blauen `UNIT_RESULT`-Zeilen unverändert.
+
+**Was der trockene Rig wirklich entfernt hat, war nie die Fitness des Gegners — sie war nie deklariert.**
+
+**Drei neue Zellen, beide Seiten bestanden:** `sat-10-duel-merge`, `sat-11-duel-qra`,
+`sat-12-duel-gate`. Blau 52,0 / 60,0 / 52,0 % Modalanteil mit 12 / 10 / 12 Bewegern von 24, Rot
+30,0 / 30,0 / 40,0 % mit 7 / 7 / 6 von 9, **S7 = 0 von 8 auf allen 105 Paaren (Zelle, Gegner)**. Die
+Laufdauer nimmt je Zelle GENAU EINEN Wert über alle 35 Läufe beider Hebelsätze an — X-7 erreicht einen
+Vergleich nicht, in dem jedes Mitglied gleich lang ist.
+
+**Das Instrument zuerst, gegen eine Tabelle, die es nicht erzeugt hat.** `tools/fb_duel_arena.py`, auf
+das VOR-`E20`-Binary gerichtet, reproduziert `E18` §3 auf die Ziffer — 9/60,0 %/10, 10/60,0 %/10,
+9/52,0 %/12, samt Beweger-NAMEN — und die rote Spalte `E19` §3s Konstanten (24,8), (12,4), (12,4) mit
+0 Bewegern.
+
+**Und dabei fällt ein unbezahlter Preis auf: `E20`s Reparatur VERWEIGERT zwei von `E18`s fünf Zellen.**
+Dieselbe Messung mit dem heutigen Binary: `sat-07` 60,0 % → **68,0 %** (10 → 8 Beweger), `sat-09`
+52,0 % → **68,0 %** (12 → 8). S1 verweigert. `E20` hat 293 Missionen nach Exit-Code geprüft und drei
+nach Klasse — das Tor selbst hat niemand neu gefahren, und in keiner Tor-Liste steht, dass man es muss.
+Jede Aussage in `doctrine-evolution.md`, die auf der Fünf-Zellen-Arena und ihrer Decke 2⁻⁵ = 0,031
+ruht, ist damit eine Aussage über das alte Binary. Gebucht als `E-33`.
+
+**Eine Regel musste die Runde sich erarbeiten, und sie ist `X-17` eine Ebene tiefer.** Die erste
+Platzierung befolgte `E18` §1b wörtlich — jede Sprosse in der Mitte einer gemessenen Lücke, ≥ 10× die
+Chaosamplitude gegen den COMMITTETEN Gegner — und das Tor verweigerte trotzdem zwei Zellen: blau kippte
+**4 von 8** unter `red emcon-hi` und **3 von 8** unter drei Sortier-Allelen, auf Sprossen mit 17×
+Marge. Eine Sprosse muss das Chaosband ihrer Größe unter JEDEM deklarierten Gegner verlassen, nicht nur
+unter einem. Die Regel steht jetzt als Code in `tools/fb_rung_ladder.py`; danach 0 von 8 auf allen
+Paaren.
+
+**Die Ko-Evolution, neu gefahren (1 212 Läufe, Genom-Schnitt exakt `E19`s, einzige Variable ist die
+ARENA):** Rot hat zum ersten Mal **DREI verschiedene Champions** (`r0_s1` → `r1_00` → `r2_s4`), ein
+Archiv mit **sechs** Mitgliedern statt einem, und der feste Maßstab steigt 0,889 → 1,000 → 1,000.
+**Instrument (b) ist damit zum ersten Mal in diesem Baum berechenbar:** n = 3, zyklische Tripel 0 von 1,
+T = 0,0000.
+
+**Blau friert weiter in Generation 0 — und der Grund ist gemessen, in zwei Schritten.** Erstens:
+`fb_evolve.SORT_ALLELES[0]` ist `("off", "")`, also trägt der Saat-Genotyp jeder blauen Population, die
+dieser Baum je entwickelt hat, `dl=off`. Ohne Netz findet `FBFlightPicture::BuildMembers` keine
+Rottenmitglieder — G1 erreicht `FormationStation` nie — und `EmconSilent_` hat keinen fremden Bericht,
+kann also nie still werden: G5 ist tot. [MESS, 30 Läufe] fünf blaue Genome über beide deklarierten Gene
+ergeben mit `dl=off` **eine einzige Klasse je Zelle**; mit dem Kanal-Bit der Mission ergeben dieselben
+fünf **drei verschiedene Klassen auf `sat-11`**.
+
+Zweitens, und das ersetzt die erste Erklärung als Grund: mit befreitem Saatgut
+(`--blue-alleles ":,:left,:near,off:"`, weitere 1 212 Läufe) TRENNT Generation 0 Blaus Genom zum ersten
+Mal überhaupt — fester Maßstab **0,208 / 0,267 / 0,367 / 0,700 / 0,900 / 0,933** über sechs Genome — und
+der Sieger ist `dl=off` mit 0,933. Ab Generation 1 trägt die ganze Population es und ist wieder flach.
+**Das Kanal-Bit ist ein Einwegtor: der erste Zug der Suche entfernt zwei Drittel des Alphabets, das die
+Suche noch absuchen müsste.** Das ist eine Eigenschaft der LANDSCHAFT, nicht des Saatguts, und ein
+anderer Default wäre nicht die Reparatur gewesen (`E-34`).
+
+**Keine Doktrinverschiebung veröffentlicht.** Der Sweep aus `E18` §4 / `E19` §5 wurde auf den neuen
+Zellen NICHT gefahren — `E-28` steht unverändert dort, wo `E19` es gelassen hat.
+
+**Tore:** nichts in `sim/src/`, `sim/vendor/`, `sim/assets/aircraft/` bewegt, also keine Regression
+geschuldet · `make -C sim verify-models` grün · bewachter Baum vor und nach jedem Lauf ohne modifizierte
+Datei · Determinismus `--threads 1/2/4` auf `sat-10-duel-merge`, dreimal derselbe Telemetrie-SHA-256
+`32720b2093962ca5` · keine Commits.

@@ -1,3 +1,7 @@
+# ACHTUNG (E30, 2026-08-04): die S7-/S1-Zahlen unten sind gegen das VOR-E20-Binary gemessen.
+# Mit dem heutigen Simulator verweigert S1 zwei dieser Zellen: sat-07 60,0 % -> 68,0 % (10 -> 8 Beweger),
+# sat-09 52,0 % -> 68,0 % (12 -> 8), beide durch E20s Emissions-Naht. Die Decke 2^-5 = 0,031 gilt damit
+# nicht mehr fuer diesen Stand. Belegt in doc/doctrine-evolution.md, Runde E30 4; gebucht als E-33.
 # DUELS fuer die ZWEISEITIGE Ko-Evolution (doc/doctrine-evolution.md §3, Runde E19).
 # Format: <mission> <blue team> <blue module> <red team> <red module>. BEIDE Seiten sind DEKLARIERT,
 # keine wird aus "die freundliche Mannschaft" abgeleitet — dieselbe Regel, die fb_campaign_arena.py
