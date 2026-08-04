@@ -631,6 +631,28 @@ with it the frame time. The guard `guard < 64` limits the catching-up of a patho
 **resynchronises** afterwards instead of falling further behind. `SetPowered(false)` resets the raster —
 a set powered up again starts a fresh frame, not a stale one.
 
+**The raster runs only while the set radiates, and that is enforced where the raster LIVES.** Every tick
+that returns through the non-radiating branch sets the resync flag, so no frame skipped by a silence,
+by an OFF mode, by a dark seeker or by a missing registry is ever replayed later. Before this the guard
+did replay them — up to 64 frames inside the tick the beam came back, each against the CURRENT geometry
+— and the consequence was two defects rather than one:
+
+| What the catch-up produced | Measured |
+|---|---|
+| A firm track in the instant of switching on. `kHitsToFirm` = 2 is met by two replayed frames of the same tick | an F-16 returns from 31.2 s of EMCON with **8 firm contacts in the same 0.1 s tick** (`sat-02-picture-split`, `pb2`, t = 96.8). Repaired: 0 contacts in the return tick and the first firm track 4.1 s = one CRM frame later |
+| A CLOSURE RATE OF EXACTLY ZERO. Closure is differentiated over the look pair (`if (dtLook > 1e-6)`), and replayed frames share one `simTimeS`, so `ClosureMs` never leaves its initial 0 — and `RADAR_CONTACT` is published inside that tick | **1,472 of 24,688** first-contact reports over all 296 missions carried `closureKt=0`. Repaired: **0 of 25,200** |
+
+The second one is the wider of the two, because it is not about EMCON at all: **a missile seeker is dark
+until the guidance activates it** (`modules/missile/FBMissileSeeker`, `Vol_.Active = false`), so every
+active round in this tree acquired its target with a fabricated zero closure. That is why the repair
+moves 115 of 296 missions and why an ordinary AMRAAM endgame moves with it — `o3-09-two-fronts`, miss
+distance **4.32 m → 0.98 m**.
+
+A module that switches its emission on its own axis (`FBMig29Radar::SetEmission`) still calls
+`ResyncScan()` and `SetPowered` still sets the flag; both are now belt beside the braces. The invariant
+does not depend on a module remembering it, which was the whole shape of the defect: the MiG-29 carried
+the call, the F-16 (whose EMCON runs on the MODE) had no place to put it, and the seeker had none either.
+
 #### 4.5 `Designate()` — the pilot's lock
 
 The ACM modes lock by themselves, because nobody operates a radar in a turning fight. A BVR search mode
@@ -832,8 +854,11 @@ source names one duration for one track filter, and the generic rule (3 antenna 
 three-position control on this jet, and DUMMY does not sweep. Restarting the raster on the way back to
 ILLUM (`ResyncScan()`) is not cosmetic: without it the catch-up guard in `Run` replays the whole silent
 period in the tick the switch moves and reports a firm track in the same tenth of a second the radar
-came on. **Measured: contact at t=27.9 instead of one frame later.** The F-16 has no such switch and is
-untouched by the hook.
+came on. **Measured: contact at t=27.9 instead of one frame later.** ~~The F-16 has no such switch and is
+untouched by the hook.~~ **CORRECTED (2026-08-04):** that sentence was true of the HOOK and false of the
+DEFECT. The F-16 leads its emission through the FCR MODE (`FBF16FcrMode::Off`, an inactive volume) and
+had exactly the same catch-up, with nowhere to put the call — §4.4. The invariant now sits in
+`FBRadarSystem::Run`'s own non-radiating branch and this hook is redundant rather than load-bearing.
 
 **Not modelled, named:** minimum range (250 m), PRF selection (ППС/ЗПС/АВТ and its −25 % penalty), TWS
 as a capacity of its own (10 tracks), the AOJ/burn-through jamming chain, and the source's probabilistic

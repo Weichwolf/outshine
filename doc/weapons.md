@@ -1432,6 +1432,15 @@ seeker's antenna keeps its own absolute-time frame raster (0.05 s), so it is ent
 at its own rate. The uplink receiver runs once per `Run()`: the shooter's fire control cannot produce a
 fresher estimate than its own radar frame anyway.
 
+**And that raster does not start until the seeker does** — repaired 2026-08-04, [`sensors.md`](sensors.md)
+§4.4. `Vol_.Active = false` until activation means the antenna never swept, so the base class's catch-up
+guard used to replay every skipped frame in the tick of `SetActive(true)`: the round declared a firm
+lock in the same tenth of a second, and because all replayed looks share one `simTimeS` its differentiated
+closure rate stayed at exactly **0 kt**. **[MESS, 296 missions] 1,472 of 24,688 `RADAR_CONTACT` reports
+carried `closureKt=0`; after the repair, 0 of 25,200.** The endgame moves with it and in the direction
+one would expect from a seeker that finally measures the range rate it is closing at — `o3-09-two-fronts`,
+`yx9b2_aim120_20` against `yxh`: miss distance **4.32 m → 0.98 m**, `failed` **8188 → 16383**.
+
 ##### The guidance law: proportional navigation, with derivation
 
 Let `r` be the vector missile→target and `v_rel = v_target − v_missile`. The line of sight rotates at

@@ -340,6 +340,12 @@ void FBRadarSystem::Run(FBState &state, const Fdm::fb_fdm_state &st, const Units
     b.H.Invalidate();
     ContactCount_ = 0;
     LockNm_ = -1.0f; LockAzDeg_ = LockElDeg_ = LockClosureKt_ = LockAgeS_ = 0.0f; LockIff_ = 0;
+    /* Das Raster laeuft NUR, waehrend gestrahlt wird — also darf keiner der Frames, die diese Stille
+     * ueberspringt, spaeter nachgeholt werden. Hier statt an jedem Schalter, weil NextScanS_ dieser
+     * Klasse gehoert: ein Modul, das seine Emission ueber den MODUS fuehrt (FBF16Fcr::Off) statt ueber
+     * einen eigenen Schalter (FBMig29Radar::SetEmission), erreicht sonst keine Stelle, an der es das
+     * Flag setzen koennte, und bekommt beim Zurueckkommen bis zu 64 Frames in EINEM Takt geschenkt. */
+    Resync_ = true;
     return;
   }
 

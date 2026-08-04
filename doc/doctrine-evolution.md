@@ -3120,7 +3120,7 @@ BUILDER hit — but every one of them is a lever a search would have found first
 | **X-15** | **A genome value applied to a module that cannot express the gene is ACCEPTED, silently** | [MESS, `E19`] `set pilot_emcon_frac 0.4` on a MiG-29 unit returns `true` — `FBMig29Module::Set` forwards every `pilot_*` key whole and `FBPilot::ApplyTuning` validates against `FBPilotTuning`'s table, which is the PILOT's and knows nothing about the module's hooks. The spliced mission flies and is **bit-identical** to the unspliced one over the whole telemetry. In a co-evolution one entire side of the search then reports success while doing nothing | no channel at all, which IS the defect: a refused `set` publishes `SET_REJECTED`, an unreachable one publishes nothing | [`pilot.md`](pilot.md) §9 — the alphabet is read from the binary so a genome cannot drift, and it still cannot say which MODULE carries which gene | **passes as a mechanism**, and it is the enabling defect for `E-29` |
 | **X-16** | **Two of the genome's gene families are SINGLE-MODULE genes, and four rounds of doctrine were graded on them** | [MESS, `E19`] **G5:** `SilentRadarModeOrdinal()`/`EmconRadiateNm()` default to −1/0.0 in `FBPilot.h:310–311` and the whole EMCON block is gated on both being positive (`FBPilot.cpp:1540`); the only overrides in the tree are `FBF16Pilot.h:71–72`. **G1:** `FBFlightPicture::BuildMembers` adds SELF and returns unless `state.Datalink.H.Readable()`, and the MiG-29 has no datalink block — `flt_mates` max over the run is **3 on every F-16 and 0 on every MiG-29** although each declares `flight ia 1…4` and reports `flt_pos` 1…4. With no mates there is no lead member, `FormationCommands` never runs and `FormationStation` has no call site: `shape-tight`/`shape-wide`/`shape-stacked` leave the MiG separations at **1394 / 3537 / 4113 m**, the baseline's numbers to the metre | `flt_mates`, `flt_src`; and the absent EMCON block | [`duels.md`](duels.md) D3c, [`formation.md`](formation.md) F5 — and this file, whose §2.2 `static_assert` checks that a gene is DIMENSIONLESS and never that it is REACHABLE | **passes as a mechanism**; it bounds every doctrine claim this file has made about G1 and G5 to one airframe |
 | **X-19** | **The genome's own TEXT LINE omits a bit the splice writes, so an archived genome is NOT re-flyable** | [MESS, `E19`] `fb_evolve.Genome.line()` emits `dl=` only when it differs from `"off"`, but `"off"` is TRUTHY, so `arena.splice_mission` injects `set datalink off` **and drops the mission's own `set datalink on`**. Every blue genome of the co-evolution therefore flies with the net off while printing `b0_seed pilot_emcon_frac=1.5`. §3.2 asks of the archive exactly one property — *"the genome, verbatim and re-flyable"* — and it does not hold: the same hole is in every archive `fb_campaign_evolve.py` has ever written | `archive-*.txt`; `Genome.line()` against `splice_mission` | this file §3.2 and [`pilot.md`](pilot.md) §9 — a genome is a LINE, so the line has to be the whole genome | **FAILED as a record.** Not repaired in the round that measured it; the `E19` population is internally consistent (every member carries the same hidden bit) so its comparisons stand, and its ABSOLUTE reading against the committed blue does not |
-| **X-20** | **An F-16 that ends an EMCON spell re-acquires INSTANTLY — the scan raster is not resynchronised when a non-radiating MODE starts radiating again** | [MESS, `E20`, `sat-02-picture-split`, `pb2`] the jet goes quiet at t = 65.6 holding 8 firm contacts (dropped, `radar standby`) and comes back at t = 96.8 with **8 firm contacts in the SAME 0.1 s tick**, after 31.2 s of silence. Mechanism: `FBRadarSystem::Run` advances `NextScanS_` only while radiating, so the catch-up guard replays up to **64 frames in one tick**, each against the CURRENT geometry, and `kHitsToFirm` = 2 is met immediately. **The MiG-29 in the same run does not do it** — `pmia*`/`pmib*` return from DUMMY with **0 contacts** and build up normally, because `FBMig29Radar::SetEmission(Illum)` calls `ResyncScan()`, a line added with its own measurement (*"contact at t = 27.9 instead of the documented 2 × 3.0 s"*). One airframe carries the fix, the other does not, and the difference is which AXIS its EMCON runs on | `fcr_on` against `fcr_contacts`, one tick apart | [`pilot.md`](pilot.md) §7.6b — the same invariant class: an emission state must cost what leaving it costs | **passes as a mechanism, NOT REPAIRED HERE.** `SetPowered` already owns the pattern (`if (on && !Powered_) Resync_ = true`); the fix is the same condition on the ACTIVE-volume edge, and it moves every F-16 EMCON mission — a second behaviour change with its own regression, which is why it is booked instead of bundled |
+| **X-20** | **An F-16 that ends an EMCON spell re-acquires INSTANTLY — the scan raster is not resynchronised when a non-radiating MODE starts radiating again** | [MESS, `E20`, `sat-02-picture-split`, `pb2`] the jet goes quiet at t = 65.6 holding 8 firm contacts (dropped, `radar standby`) and comes back at t = 96.8 with **8 firm contacts in the SAME 0.1 s tick**, after 31.2 s of silence. Mechanism: `FBRadarSystem::Run` advances `NextScanS_` only while radiating, so the catch-up guard replays up to **64 frames in one tick**, each against the CURRENT geometry, and `kHitsToFirm` = 2 is met immediately. **The MiG-29 in the same run does not do it** — `pmia*`/`pmib*` return from DUMMY with **0 contacts** and build up normally, because `FBMig29Radar::SetEmission(Illum)` calls `ResyncScan()`, a line added with its own measurement (*"contact at t = 27.9 instead of the documented 2 × 3.0 s"*). One airframe carries the fix, the other does not, and the difference is which AXIS its EMCON runs on | `fcr_on` against `fcr_contacts`, one tick apart | [`pilot.md`](pilot.md) §7.6b — the same invariant class: an emission state must cost what leaving it costs | **REPAIRED in `E31`**, and one level below where it was booked: the flag is now set in `FBRadarSystem::Run`'s own non-radiating branch, because `NextScanS_` belongs to that class and a module whose emission runs on the MODE has no switch to hang the call on. It was also WIDER than the F-16 — a missile seeker is dark until activation, so **1 472 of 24 688** first-contact reports in the whole tree carried a fabricated `closureKt=0` (→ 0 of 25 200). See the `E31` State block |
 | **X-17** | **S7 is measured against ONE opponent and reported as a property of the cell** | [MESS, `E19`, 200 runs] the same ±3 m spawn grid on which `E18` certified all five cells **0 of 8** gives, per (cell, red allele): `sat-04`/`red-near` **3 of 8**, `sat-08`/`red-right` **3 of 8**, `sat-08`/`red-none` **3 of 8**, `sat-04`/`red-none` 1 of 8 — **4 of 25 pairs dirty, and every dirty one carries a non-committed opponent** | `fb_campaign_arena.chaos_flips`, which splices exactly one side | this file — the same shape as `X-12`: a screen for one failure mode read as a screen for another | **FAILED as a criterion** for any use outside the committed opponent. The four pairs were dropped from `E19` §5 rather than argued about |
 
 ### §8 — What is NOT claimed
@@ -3843,13 +3843,240 @@ first time in this tree that sentence could be written at all.**
 
 ---
 
+## State — round `E31` (2026-08-04): `X-20` is repaired, it is NOT why `dl=off` wins, and the reason it does win belongs to the CELL
+
+`E30` left the channel bit as a property of the landscape: with the seed freed, generation 0 separates
+blue's genome for the first time and **the winner is `dl=off`**. Two readings were open and the round
+had to decide between them by measurement — a **doctrine** (the cooperative picture does not pay) or an
+**exploit** (the alternatives are broken rather than worse). `X-20` was the named suspect: an F-16
+returning from EMCON re-acquires in the same tick, which is an advantage out of nothing.
+
+**The suspect has the wrong sign.** EMCON is reachable only with a picture, on these cells a picture is
+reachable only over the datalink, and therefore `X-20` is a subsidy paid to `dl=on` **alone** — measured,
+not argued: over 69 (cell, genome) pairs, **21 of 69 `dl=on` runs** show a firm contact in the tick the
+beam comes back and **0 of 69 `dl=off` runs have an EMCON spell at all.** `dl=on` was losing 50 : 19
+*while* collecting it. The repair moves 2 of 69 pairings and not the verdict.
+
+`X-20` is repaired anyway, because it is a defect, and repairing it found a second one underneath that
+is far wider than EMCON. What the round publishes is that repair, its regression, and the mechanism the
+channel bit really wins by — which is a property of the measuring rig and is booked as such.
+**No doctrine shift is published**, and §6's reason is arithmetic: three cells cap a sign test at
+2⁻³ = 0.125 and the cell-level tally is 2 : 1.
+
+### §0 — The instrument, and why it is not the co-evolution
+
+`tools/fb_channel_bit.py`. `E30`'s finding came out of a 1 212-run co-evolution whose selection scalar
+mixes the channel bit with eight other genes and with the opponent's motion. This file removes every
+one of those: for each cell and each of the 23 blue genomes that do **not** name the channel, it flies
+the SAME genome twice against the SAME committed opponent, once `dl=off` and once `dl=on`, and compares
+the two blue keys with `fb_fitness.pair_points`. **One variable, like against like, 138 runs.** It reads
+four things off each run: the key by LEVEL (V / M / C-air / C-aim), the published channels, the judge's
+own `mission OBJECTIVE` lines by kind, and an emission trace of its own (`emcon_spells`, `rq_max`,
+`rq_events`, `ttf_mean`) whose whole purpose is to price `X-20` per run.
+
+### §1 — `X-20` reproduced, then repaired one layer below where it was booked
+
+Reproduced on the cell it was found on, to the tenth of a second [MESS, `sat-02-picture-split`, `pb2`,
+`--threads 1 --elev const`]: quiet at t = 65.6 holding 8 firm contacts, back at **t = 96.8 with 8 firm
+contacts in the same 0.1 s tick** after 31.2 s of silence.
+
+`X-20` was booked as *"the same condition on the ACTIVE-volume edge"* in `FBF16Fcr`. That is the wrong
+owner. `NextScanS_` belongs to `FBRadarSystem`, and the reason the F-16 had no fix was precisely that it
+has no switch to hang one on — its EMCON runs through the MODE. **Three lines, in the class that owns the
+raster:**
+
+```cpp
+if (!b.Radiating || !net) {
+  …
+  Resync_ = true;      // the raster runs only while the set radiates
+  return;
+}
+```
+
+It is an edge detector without an initial-state lie: at boot the branch has never been taken, so the t=0
+scan grid of every set in the tree is unmoved. `FBMig29Radar::SetEmission`'s own `ResyncScan()` and
+`SetPowered`'s flag both become redundant and both stay — the invariant no longer depends on a module
+remembering it, which was the entire shape of the defect.
+
+**After** [same rig]: the set comes back at t = 99.8 with **0 contacts** and its first firm track at
+t = 103.9 — **4.1 s = one CRM frame (4.0 s) plus the tick**, which is what a two-look firm rule costs.
+
+### §2 — The defect was wider than EMCON, and the second half of it is a fabricated number
+
+`FBMissileSeeker` is dark until the guidance activates it (`Vol_.Active = false`), so **every active
+round in this tree** hit the same catch-up. And the catch-up does not only manufacture a track — it
+manufactures a RATE. Closure is differentiated over the look pair:
+
+```cpp
+double dtLook = simTimeS - t.PrevLookS;
+if (dtLook > 1e-6) t.ClosureMs = (t.PrevRangeM - rangeM) / dtLook;
+```
+
+Replayed frames all carry one `simTimeS`, so `dtLook` is 0 for every one of them, `ClosureMs` never
+leaves its initialised 0, and `RADAR_CONTACT` is published inside that same tick.
+
+| Over all 296 missions | before | after |
+|---|---|---|
+| `RADAR_CONTACT` lines | 24 688 | 25 200 |
+| of them with `closureKt=0` | **1 472 (6.0 %)** | **0** |
+
+An example endgame, and it moves in the direction a seeker that finally measures its own range rate
+should [MESS, `o3-09-two-fronts`, `yx9b2_aim120_20` vs `yxh`]: miss distance **4.32 m → 0.98 m**,
+`failed` **8188 → 16383**.
+
+### §3 — The regression: 115 of 296 missions move, and the partition is EXACT
+
+`tools/fb_regress.sh` under both binaries, `--threads 1`.
+
+| | |
+|---|---|
+| missions with ≥ 1 moved telemetry file | **115 of 296** (2 474 files) |
+| byte-identical missions | **181** |
+| aircraft-level verdict flips | 66: `FAIL→TIMEOUT` 26, `TIMEOUT→FAIL` 16, `SUCCESS→TIMEOUT` 11, `TIMEOUT→SUCCESS` 10, `SUCCESS→FAIL` 2, `FAIL→SUCCESS` 1 — **net V +6 over the whole tree**, i.e. a wash, which is what removing a subsidy both teams drew should look like |
+| exit-code changes | 3 |
+
+**Individual justification, as one law rather than 115 sentences.** Every mission that moves carries at
+least one of the two fingerprints of the defect — a `closureKt=0` first contact (a set declared firm
+inside one tick) or a `radar standby` drop (an emission spell) — and every mission that does not move
+carries neither:
+
+| | moved | unmoved |
+|---|---|---|
+| carries a fingerprint | **115** | 3 |
+| carries none | **0** | 178 |
+
+The three unmoved-but-flagged are the control: `mig29-r27`, `sat-08-ident-qra`, `sat-11-duel-qra`, whose
+only emission cycles belong to `mg*` / `kopyo_r27r` — **the MiG-29, the one airframe that already carried
+`ResyncScan()`.** There is no moved mission this law does not explain.
+
+The three exit codes, each with its own chain:
+
+| mission | exit | why |
+|---|---|---|
+| `ar-10-vertical-evening` | 1 → **3** | one MiG (`ar10lo4`) is no longer shot combat-ineffective. Hostile V **15 → 16**, which is this file's own documented 16; friendly (V, M) unmoved. Its own reading rule is BINDING that the exit code is not the verdict here |
+| `pair-cover` | 0 → **3** | `viper2`'s AIM-120 detonates **0.64 m closer** (missM 5.06 → 4.42) but **1.30 m further from the body reference** (rangeM 1.92 → 3.22), flux **3.94e5 → 1.40e5 J/m²**, `bandit2` degraded (`failed=4016`) instead of failed (`4023`) — the `kill team hostile` objective is unmet. A marginal endgame re-rolled, three bits either side of the effectiveness threshold |
+| `o3-09-two-fronts` | 3 → **2** | §2's example. `yxh` loses all 14 systems instead of 12, departs and reaches the ground at t = 416.3. **The file's reading rule says *"exit 2 would be a defect"* and that line is now wrong** — owed as a correction, NOT taken in this round, because editing `sim/missions` mid-round voids both snapshots and the cell gate |
+
+### §4 — `dl=off` against `dl=on`, one variable, before AND after the repair
+
+23 genomes × 3 cells × 2 channel states, twice over.
+
+| | pre-repair (`44b3d0ad2913caa9`) | post-repair (`3a648cf97609d752`) |
+|---|---|---|
+| `sat-10-duel-merge` | `dl=off` **20** : 3 | **21** : 2 |
+| `sat-11-duel-qra` | `dl=off` **22** : 1 | **21** : 2 |
+| `sat-12-duel-gate` | `dl=on` **15** : 8 | **15** : 8 |
+| all 69 pairings | **50 : 19** | **50 : 19** |
+| `X-20` fired (`rq_events > 0`) | 21 of 69 `dl=on` runs, max 8 contacts | **0 of 69** |
+| `dl=off` runs with any EMCON spell | **0 of 69** | **0 of 69** |
+
+**The verdict is bit-for-bit the same tally with the subsidy and without it.** Two pairings changed cell,
+none changed side. `X-20` is not the mechanism, and it could not have been: it is only reachable through
+the state `dl=off` cannot enter.
+
+**And the 69-pairing p = 0.0002 is NOT the number to quote.** The 23 levers of a cell share one geometry
+and eleven of them are the identity map on an F-16 side (`sat-11`'s own header); the independent unit is
+the CELL, and this file's own ceiling for three cells is 2⁻³ = 0.125. The cell tally is **2 : 1**, which is
+p = 1.0. `E18` §4's discipline applies unchanged: no shift is published.
+
+### §5 — The level that decides, and it is never craft
+
+| level | pre | post |
+|---|---|---|
+| V (the judge's verdict) | 34 | 30 |
+| M (objectives met) | 35 | 39 |
+| C (craft, either currency) | **0** | **0** |
+
+Nothing about the channel bit reaches the craft level on these cells, in 69 pairings, twice. Whatever
+`dl=off` is buying, it is buying it in the JUDGE's own two columns — which is where the cells' rung
+ladders live and nowhere else.
+
+### §6 — The mechanism, and it is a property of the rig
+
+Read at the objective, on the committed genome of `sat-10-duel-merge` [MESS, both channel states, repaired
+binary, the judge's own `mission OBJECTIVE` lines]: blue meets **39 of 45** with `dl=off` and **23 of 45**
+with `dl=on`. Of the 18 that flip, **17 flip against `dl=on`, and 15 of those 17 are
+`identify unit <named MiG> range <R>` rungs** — the other two are `avoid zone zb` dwells, and exactly one
+flips the other way. `sw3` meets its 3 265 / 5 039 / 6 344 / 6 644 / 7 700 / 8 013 / 8 185 m rungs against
+`mb1` with the net off and none of them with it on; `sw4` meets six more against `mb3`.
+
+The channels say what changed on the wire, and it is not subtle:
+
+| channel, mean over 69 runs | `dl=off` | `dl=on` |
+|---|---|---|
+| `flt_mates` | **0.000** | 3.000 |
+| `flt_assign` | 1.09 | 18.38 |
+| `sort_assign` | 1.48 | 99.20 |
+| `emcon_spells` | 0.00 | 2.78 |
+
+With `dl=off` the flight picture finds no mates at all (`E-34`'s G1-dead observation, reproduced), so
+four F-16 fly the same route as four singletons and arrive as one blob; with `dl=on` the cooperative sort
+splits them across bandits and each shadows one. **Planar min-range, `sat-10`, committed genome, repaired
+binary, metres:**
+
+| | `sw1` | `sw2` | `sw3` | `sw4` | mean |
+|---|---|---|---|---|---|
+| to the unit its ladder NAMES, `dl=off` | 1 230 | 8 465 | 2 666 | 4 579 | **4 235** |
+| to the unit its ladder NAMES, `dl=on` | 3 644 | 9 106 | 8 758 | 9 085 | **7 649** |
+| to ALL EIGHT MiG-29, `dl=off` | 3 259 | 3 428 | 3 544 | 4 131 | **3 590** |
+| to ALL EIGHT MiG-29, `dl=on` | 2 069 | 6 161 | 7 851 | 7 776 | **5 964** |
+| RANK of the named MiG among the eight, `dl=off` | 4 | 8 | 4 | 5 | **5.25** |
+| RANK of the named MiG among the eight, `dl=on` | 7 | 6 | 5 | 6 | **6.00** |
+
+Both columns move together: `dl=off` is 3 414 m closer to the named unit and **2 374 m closer to every
+unit.** And the rank says the rest — **5.25 and 6.00 against a chance value of 4.5.** Neither doctrine
+steers toward the unit it was named for; both are worse than a coin at it, and the winner is simply the
+one that gets close to everything.
+
+`sat-10`'s own header states the opposite as its structural device — *"A fighter that closes on the WRONG
+opponent scores nothing, which is what stops 'fly at whatever is nearest' from being the answer to every
+rung."* [MESS] the winning doctrine IS "fly at whatever is nearest", and it wins because a blob's
+min-range to all eight collapses at once. `dl=on` merges just as hard — `sw1` passes `ma4` at **119 m** —
+and scores nothing for it, because that is not the MiG its rung names.
+
+**So the answer to the round's question:** `dl=off` wins for a real and traceable reason, and the reason
+is a property of the MEASURING RIG rather than of the simulation. It is an exploit — of the cell, one
+level above `X-15` exactly as the round suspected — and by §6 that weighs more than a doctrine would
+have.
+
+### §7 — What the round exploited, and both items are instrument defects
+
+| # | Mechanism | Measured | Verdict |
+|---|---|---|---|
+| **X-26** | **A min-range rung is a PROXIMITY meter, and naming its target does not make it a steering test.** The scramble device (`sat-10`/`sat-11`/`sat-12` headers) assumes a fighter must go for the unit it is named against; a doctrine that dissolves the flight into a blob satisfies the named rung as a side effect of satisfying every other range in the cell | §6: named-unit advantage 4 227 m against all-unit advantage 2 509 m; named-unit min-range RANK 5.25 vs 6.5 against a chance 4.5 | **FAILS as a device.** What is owed is a rung whose quantity is a DIFFERENCE (named minus nearest), not a level — and that is a rig change, not a measurement |
+| **X-27** | **The channel bit is graded against a population in which two thirds of the genome has no call site, and the gate cannot see it** — `E-34`'s finding, now with its cost priced: on 69 pairings with `dl=off`, `flt_mates` is 0.000 in all 69, so G1's three genes and G5's one are the identity map on every single one of them | `flt_mates`, `emcon_spells` per run | **passes as a mechanism.** It is `E-34`'s design question and this round did not answer it |
+
+### §8 — What is NOT claimed
+
+- **No doctrine shift.** §4's cell tally is 2 : 1 and the ceiling is 0.125. The 69-pairing p is reported
+  as an instrument reading, never as a significance.
+- **Nothing about the channel bit outside these three cells.** All three share the dry-engagement device
+  and the min-range ladder that §6 shows is the deciding column; `E18` §8's warning applies.
+- **`X-20` was not shown to be harmless.** It was shown to be irrelevant TO THIS COMPARISON, because
+  `dl=off` cannot reach the state it lives in. On a cell where both sides cycle their emission it is
+  exactly what it was booked as.
+- **`sat-12` is not explained.** It is the one cell where `dl=on` wins, 15 : 8, unchanged by the repair,
+  and this round did not take it apart.
+
+### §9 — The cost
+
+| | |
+|---|---|
+| runs | ≈ **1 500** — 592 regression (2 × 296), 138 channel-bit pre, 138 post, the cell gate, 3 determinism, 2 reproduction |
+| what moved in `sim/src` | **three lines** in `sensors/FBRadarSystem.cpp` |
+| what moved elsewhere | `tools/fb_channel_bit.py` (new); `doc/sensors.md` §4.4 + the MiG-29 emission note, `doc/weapons.md` §Rates |
+| `sim/vendor`, `sim/assets/aircraft`, `sim/missions` | untouched |
+
+
+---
+
 ## Gaps
 
 | # | Thing | Known from |
 |---|---|---|
 | **E-30** | **ANSWERED (`E30`) — a dry rig CAN grade both sides, because an objective is not a physical thing.** The dilemma was stated as "either the exchange is lethal and the chaos returns, or it is dry and the opponent has no fitness". It is false: [MESS, `E30` §1] adding a rung ladder to the red side of `sat-07`/`sat-08`/`sat-09` leaves **17 of 18, 18 of 18 and 16-of-20-prefix** telemetry files identical, because `objective` is read by `FBMissionMonitor` and by nobody else. The three resulting cells `sat-10-duel-merge`, `sat-11-duel-qra`, `sat-12-duel-gate` pass S1, S2 and S7 **on both sides**: blue 52.0 / 60.0 / 52.0 % modal with 12 / 10 / 12 movers of 24, red 30.0 / 30.0 / 40.0 % with 7 / 7 / 6 movers of 9, and **0 of 8 spawn flips on all 105 (cell, opponent) pairs**. The co-evolution on them produces **3 distinct red champions and a 6-member red archive** where `E19` produced 1 and 1, and §3.6's instrument (b) is computable for the first time. **What the dry device really removed was never the opponent's fitness — it was never declared** | `E30`, `E19` |
 | **E-33** | **A behaviour change is not gated on re-running the ARENA, and the tree has now paid for it once.** [MESS, `E30` §4, both binaries side by side, same instrument, same lever file] `E20`'s emission seam took `sat-07` from 60.0 % modal / 10 movers to **68.0 % / 8** and `sat-09` from 52.0 % / 12 to **68.0 % / 8** — S1 REFUSED on two of the five cells `E18` certified, and with them the 2^-5 = 0.031 ceiling every later statement quotes. `E20` §3 measured 293 missions by exit code and three by class; nothing in [`build-and-ops.md`](build-and-ops.md)'s gate list says "re-run the gate whose cells this airframe flies in". **What is owed is one line in that list and a cheap re-run target**, not a new instrument: `fb_duel_arena.py --cells … ` already answers it in 102 runs for three cells | `E30`, `X-22` |
-| **E-34** | **The channel bit is a ONE-WAY GATE: blue's search wins generation 0 by turning the net off, and `dl=off` is the state in which its other genes have no call site.** Two measurements, and the second replaces the first as the reason. (1) [MESS, `E30` §6, 30 runs] `fb_evolve.SORT_ALLELES[0] = ("off", "")`, so every blue seed this tree ever evolved carried `dl=off`; five blue genomes spanning both declared genes then give **one outcome class per cell** on all three cells, because `FBFlightPicture::BuildMembers` finds no mates (G1 never reaches `FormationStation`) and `EmconSilent_` has no cooperative report (G5 can never go quiet). (2) [MESS, `E30` §7, 1 212 runs with `--blue-alleles ":,:left,:near,off:"`] with the seed freed, generation 0 separates blue's genome for the first time — frozen field **0.208 / 0.267 / 0.367 / 0.700 / 0.900 / 0.933** over six genomes — and the winner is `dl=off` at 0.933. From generation 1 the whole population carries it and is flat again. **So the freeze is a property of the LANDSCAPE, not of the seed:** the first move of the search removes two thirds of the alphabet the search still has to explore. What is owed is not a different default but a decision about whether a gene that disables other genes may sit in the same genome — and the answer is a design question, not a measurement | `E30`, `X-25` |
+| **E-34** | **The channel bit is a ONE-WAY GATE: blue's search wins generation 0 by turning the net off, and `dl=off` is the state in which its other genes have no call site.** Two measurements, and the second replaces the first as the reason. (1) [MESS, `E30` §6, 30 runs] `fb_evolve.SORT_ALLELES[0] = ("off", "")`, so every blue seed this tree ever evolved carried `dl=off`; five blue genomes spanning both declared genes then give **one outcome class per cell** on all three cells, because `FBFlightPicture::BuildMembers` finds no mates (G1 never reaches `FormationStation`) and `EmconSilent_` has no cooperative report (G5 can never go quiet). (2) [MESS, `E30` §7, 1 212 runs with `--blue-alleles ":,:left,:near,off:"`] with the seed freed, generation 0 separates blue's genome for the first time — frozen field **0.208 / 0.267 / 0.367 / 0.700 / 0.900 / 0.933** over six genomes — and the winner is `dl=off` at 0.933. From generation 1 the whole population carries it and is flat again. **So the freeze is a property of the LANDSCAPE, not of the seed:** the first move of the search removes two thirds of the alphabet the search still has to explore. What is owed is not a different default but a decision about whether a gene that disables other genes may sit in the same genome — and the answer is a design question, not a measurement. **(3) [MESS, `E31` §4/§6, 276 runs, one variable]** the landscape's slope is now named: `dl=off` beats `dl=on` **50 : 19** over 23 genomes × 3 cells, unchanged by the `X-20` repair, and it decides at level **M in 39 and V in 30 of 69, never at craft**. The mechanism is `sat-10`'s min-range ladder read as what it is — a PROXIMITY meter (`X-26`): with the net off the flight picture finds no mates at all (`flt_mates` 0.000 in 69 of 69), four F-16 arrive as one blob, and its min-range to ALL EIGHT MiG-29 collapses (3 591 m against 6 100 m) — the named rung comes along for free. **The channel bit does not win a doctrine, it wins a ruler.** The design question stands; what is added is that answering it on these three cells would answer it wrong | `E30`, `E31`, `X-25`, `X-26` |
 | **E-29** | *(SPLIT by `E20` — the headline survives in a weaker form; see `E-31` and the `E20` State block.)* **The genome cannot be co-evolved because it is F-16-shaped, and the boundary test in §2 cannot see it.** [MESS, `E19`, bit-level over whole telemetry] of the nine genes, **eight are bit-identical on the MiG-29** on `sat-02`/`sat-04`/`sat-07`; only the sort contract reaches it. Over the full 24-key pilot alphabet, **12 keys DO move the MiG and not one of them is in the genome** (`abort_nm`, `action_s`, `beam_deg`, `chaff_s`, `crank_deg`, `defend_hold_s`, `lock_nm`, `react_s`, `shot_ata_deg`, `shot_rtr`, `shot_spacing_s`, `speed_kt` — all `Free`). §2.2's `static_assert` proves a `Scale` gene is DIMENSIONLESS and names its hook; nothing proves the hook is OVERRIDDEN by the module the gene is spliced into. **Not fixed here on purpose:** growing or re-cutting the genome in the round whose verdict it decides is what §8 forbids, and the fix is a design question (a per-module reachability declaration read from the binary like the alphabet itself, so it cannot drift) | `E19`, `X-15`, `X-16` |
 | **E-28** | **Every doctrine direction this tree has measured reverses against some opponent, and no opponent admits one.** [MESS, `E19`, 625 runs over 5 blue lever sets × 5 red alleles × 5 cells, 21 chaos-clean pairs] per red allele the best blue lever is `emcon-mid` p = 0.188 (`red-left`, i.e. `E18`'s world, reproduced exactly), `emcon-tight`/`shape-abreast` 0.125, `shape-tight` 0.250, `net-off` **0.062**, `emcon-tight`/`shape-trail` 0.250 — **none reaches the 0.031 ceiling under any opponent.** And the sign of every non-rail lever FLIPS: `emcon-mid` is `+ + − − =` across the five, `emcon-tight` `+ + − + +`, `net-off` `= = = + −`, `shape-abreast` `+ + + − −`. The only sign-stable directions are "always worse" (`bias-rail`, `ccip-tight`, both rails) and "always nothing" (the identity levers of `E-26`). **This is the diagnosis `E18`'s p = 0.188 was missing**: the near-miss was not a weak signal but a signal conditioned on one point of the opponent space. **Still open:** whether an opponent-INVARIANT direction exists at all, which needs both `E-29` (a genome the opponent can carry) and `E-30` (a rig that grades the opponent) first | `E19`, `E18` |
 | **E-1** | **CLOSED.** `mission OBJECTIVE unit=… kind=… state=met\|unmet\|violated`, one line per declared objective, published in `FBMissionMonitor::Conclude`. Cost, as promised and measured: 136 lines over 60 of 137 missions; 432/432 telemetry files byte-identical | this file |
