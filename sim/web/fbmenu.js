@@ -19,7 +19,8 @@ const CONTROLS = [
   ['P', 'take / release the stick'], ['↑↓', 'pitch'], ['←→', 'roll'],
   [', .', 'rudder'], ['W S', 'throttle'], ['B', 'speedbrake'], ['G', 'gear'],
   ['M', 'master arm'], ['1..9', 'station select'], ['ENTER', 'pickle'], ['SPACE', 'gun'],
-  ['TAB', 'cockpit / tactical map'], ['C', 'chase view'], ['T', 'ground albedo'],
+  ['TAB', 'cockpit / tactical map'], ['C', 'directed view'], ['T', 'ground albedo'],
+  ['DIR: K', 'hold the cut'], ['DIR: N [ ]', 'step the subject'],
   ['MAP: N B', 'select own unit'], ['MAP: [ ]', 'zoom'], ['MAP: E R', 'emcon silent / radiate'],
   ['MAP: H G', 'weapons hold / free'], ['MAP: A', 'engage the contact'], ['MAP: X', 'abort'],
 ];

@@ -238,7 +238,7 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    echo "$$id" >> web/mods/index.txt; \
 	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
+	    src/clients/FBAppWasm.cpp src/clients/FBCameraDirector.cpp src/clients/FBLogSinks.cpp src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) \

@@ -67,6 +67,24 @@ additive — which is why one pipeline serves the emitters and the smoke.
 | The mission clock | `world/FBWorld::SetSimTimeS`, called by both clients | every effect is an AGE against a published bloom/launch time; without a clock no age-dependent effect draws at all |
 | The cast, per frame | `world/FBWorld::PublishUnits()` | called at the end of `Update()`; `SetEyeUnitId` excludes the unit the camera rides |
 
+**THE WRECK FIRE IS IN FRAME, and what it took was a camera.** `clients/FBCameraDirector` cuts to a
+burning unit that is on the ground and STANDS THERE for 14 s (`doc/clients/clients.md`, the directed
+view). Measured in headless Chromium on `mods/f16`'s `suppress-killed`, `sim/build/watched-director/`:
+the AGM-88 kills the battery at `t=27.3`, the director cuts `wreck … frame=tripod` at `t=27.4`, and the
+flame is **43 / 108 / 74 saturated pixels** (`r>g+40 && r>b+60 && r>110`) at sim 29.3 / 34.4 / 40.3, in a
+13 × 16 px box at 78 % of the frame height with the column filling everything above it. The number this
+replaces is **1 px**: the first framing put the tripod at 9× the WRECK's published silhouette, and a
+ground module publishes none (`modules/ground` declares zero extents), so every wreck landed on the
+distance floor. Framing off the FIRE — 22× `max(0.45 × dim, 4 m)`, the drawing side's own law — is what
+made it readable.
+
+**A frame proof can now be aimed at a SIM second.** The client stamps every console line with the
+mission clock; the harness maps it to wall time as the lines arrive and fires the screenshot on the
+first line at or past the requested sim second. Measured on `c01m07-aces-low`, where the 1.6 s fireball
+used to be caught in one run of five: `SIMMARKS=203` produced a frame at **sim 203.0 / wall 207.5**, the
+tick the SA-2 hit the attack. The same run also aims on EVENTS — a screenshot on the `director CUT`
+line itself, which needs no clock at all.
+
 Measured at load: `[render unit_model] type=f16 lods=4 parts=22 materials=8 tex0=2048
 trisTotal=173330 lod0MaxRangeM=108 nozzleZ=6.17209 nozzleRadM=0.534732`. 173 330 = 107 706 + 41 342 + 14 366 + 9 916, the sidecar's four
 `lods[].triangles` **exactly** — the reader drops no primitive. 22 parts = the static airframe plus the
@@ -76,6 +94,9 @@ trisTotal=173330 lod0MaxRangeM=108 nozzleZ=6.17209 nozzleRadM=0.534732`. 173 330
 
 | # | Thing | Measurement |
 |---|---|---|
+| 9 | **A ground unit publishes NO silhouette, so every wreck on the ground burns at the same size** | `modules/ground`'s `kSoft`/`kHard` declare `FBDamageLayout{…, 0, 0, 0, 0}`, so `FBVisualSignature` is all zeros and `world/FBWorld`'s wreck fire falls to its 4 m floor whether the wreck is a truck or a command post. The director has to frame off that floor for the same reason. Measured: `director CUT … subject=sam … dimM=0` against `dimM=41.53` for a catalogue aircraft and `14.6` for the F-16 |
+| 9b | **A burning airframe still FLYING shows almost nothing, and the camera is half of why** | the damage trail is laid BEHIND the aircraft and the chase camera sits 62 m behind it aiming 150 m ahead, so the evidence is between the eye and the subject at a grazing angle and mostly out of frame. Measured on `c01m04` at dusk, `director CUT shot=wreck subject=s4an1 frame=chase`: `render sprites … smoke=191` — the trail exists and is 191 puffs long — and the frame shows sky. The other half is the mesh gap (`../mods.md`: 37 of 59 units in the f22 campaign have none), which is why this was not tuned: with nothing drawn at the subject there is no measurement to tune against. What is missing is a BEAM framing for that one shot kind |
+| 12 | **A concluded run freezes the world, and the director then has nothing to cut to** | `FBRunState::Concluded` stops `Advance`, so poses, the fireball's phase and the fire's age all stand still while the frame loop keeps drawing (that is the documented contract, `../clients/clients.md`). Measured on `c01m07`: the SA-2 kills the attack at `t=203.2`, the director cuts `impact` on the same tick, and the shot it holds is a frozen aeroplane under the debriefing overlay. A last shot that is worth watching would need the world to keep running for a few seconds after the verdict — which is a decision about the run, not about the camera |
 | 1 | **The plume of a jet is the AFTERBURNER BIT and nothing finer.** No throttle, thrust or N1 is published anywhere per unit — `FBAirframeBlock` carries `EngineRunning` and no power at all — so there is no continuous quantity to modulate brightness or length with, and a dry engine draws no flame | that is not a loss for the picture (an F-16 at military power shows no visible flame in daylight) but it is a hard stop for a nozzle GLOW, which would need a temperature the tree does not have. Adding one is a SENSOR question first: `Afterburner` is what `sensors/FBIrstSystem` reads, and a finer figure would widen it |
 | 1b | The oracle's trail resolution is the SCREENSHOT interval | `gpu_native` calls `FBWorld::Update` only on shot frames, so a crumb is laid at most once per `--interval`. At 1 s and 700 m/s that is a 700 m chord, and the launch instant is late by up to one interval (measured: motor flame from t=138.6 to 148.5 for a catalogue burn of 10.7 s). The browser updates every frame and has neither problem |
 | 1c | A trail cuts corners between crumbs | `kTrailStepM` is 250 m: a hard-turning round's trail is a 250 m polyline through its own path, not a curve |
@@ -88,8 +109,6 @@ trisTotal=173330 lod0MaxRangeM=108 nozzleZ=6.17209 nozzleRadM=0.534732`. 173 330
 | 8b | **A missile IS its plume today.** `aim9.glb`/`r73.glb` exist, `aim120.glb` does not, and no client registers any of them — so a round in flight is drawn as a flame and a trail with nothing in between. At the ranges a round is seen that is very nearly right, and it is why the plume was worth building before the mesh | measured, `bvr-duel.fbm` t=140.8: the round is a 1 px dot at 360 m |
 | 8c | Nothing lights the smoke | a trail segment carries a fixed grey-white radiance (`kSmokeRadiance` 1.2) and does not know where the sun is, so a trail is equally bright with the sun behind it and in front of it. The terrain and the airframe both do the sun properly; the smoke does not, and it will show first at dusk |
 | 8d | Flare and chaff sizes are the renderer's, not the simulation's | `core/FBCountermeasure.h` publishes a POINT with an age curve and no extent at all. The luminous ball (4.5 m) and the chaff cloud's dispersion (0.6 → 18 m) are therefore `[SET]` in `world/FBWorld.cpp` and marked as such. Nothing reads them back |
-| 9 | **The wreck fire has no chase frame yet, only numbers.** In every mission measured the strike aircraft egresses AWAY from what it destroyed, and the chase camera rides a friendly (`SelectNext` skips the other team) — so the fires are always behind the eye | measured on `ar-02-headon-night`: `fire=4` throughout, and the nearest logged projection is `kind=4 rangeM=4174 rootPx=1391` — 111 px off the right edge at 4.2 km. A 4 m flame there is 0.62 px, which is the correct size and not a readable one. What is missing is a camera the watcher can point, not an effect |
-| 12 | **A frame proof cannot be aimed at a sim second.** The browser harness takes its marks in WALL seconds and the mission clock starts after an indeterminate tile load, so a 1.6 s fireball is caught by luck: five runs of `c01m07` at marks around the SA-2 hit produced one frame with the ball | the same drift makes a repeated night measurement a band (67 and 98 px above 128 at the identical mark). What is missing is a mark expressed in SIM seconds — the client knows both clocks and prints them; the harness reads neither |
 | 10 | **No scorch.** "Something stays on the ground" is a fire and a smoke column, not a mark on the terrain | a decal needs a terrain-side channel that does not exist; the fire is anchored to the published ground height instead |
 | 11 | A night smoke column is invisible, and correctly so | Gap 8c's missing lighting cuts both ways: nothing lights the smoke, so at night a column carries only its own 0.10 radiance against a black sky and reads as nothing. The daylight column reads; the night one does not, and only a light from the fire below it would change that |
 | 8 | Ground targets and stores have no mesh registered | `aim9.glb`, `mk82.glb` and `r73.glb` exist beside the F-16 and no client loads them; a released store publishes no `Visual.TypeName` either |

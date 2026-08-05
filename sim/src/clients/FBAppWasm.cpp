@@ -24,6 +24,7 @@
 #include "FBOrdnance.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
+#include "FBCameraDirector.h"
 #include "FBModuleRegistry.h"
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
@@ -112,13 +113,14 @@ static bool gRunOver = false;
  * unit's own published blocks; the map draws the FACTION's fused picture at the control node of its
  * net. Selecting a unit here and pressing TAB means sitting in ITS cockpit, which sees LESS than the
  * map — if it ever sees more, this build is wrong (doc/player-layer.md §9.7). */
-/* CHASE is the third and it is neither: it changes no information at all — the same unit, the same
- * published blocks, seen from outside. The one thing it is for is being WATCHED (doc/mods.md §1). */
-enum class FBView { Cockpit, Chase, Map };
+/* THE DIRECTED VIEW is the third and it is neither: it changes no information at all — the same
+ * published blocks every other view reads, seen from outside and from wherever something is happening.
+ * The one thing it is for is being WATCHED (doc/mods.md §1). */
+enum class FBView { Cockpit, Director, Map };
 static FBView gView = FBView::Cockpit;
 static FBView gSceneView = FBView::Cockpit;   /* the non-map view TAB comes back to */
 static const char *ViewName(FBView v) {
-  return v == FBView::Map ? "map" : v == FBView::Chase ? "chase" : "cockpit";
+  return v == FBView::Map ? "map" : v == FBView::Director ? "director" : "cockpit";
 }
 static FBForcePicture gPic;
 static Render::FBTacticalMap gMap;
@@ -133,25 +135,18 @@ static uint32_t gOrderSeq = 0;
  * 21 m of centre offset at 12 km, i.e. under a pixel. */
 static constexpr double kMapPitchDeg = -89.9;
 
-/* THE SPECTATOR CAMERA, and deliberately not a camera SYSTEM: one pose behind the unit this client
- * already flies — which is the mission's first `unit` block and therefore the actor every reading rule
- * in mods/f22 names as its verdict. Roll is DROPPED and heading is lagged, because a camera rigidly
- * bolted to a fighter's body axes rolls 300 deg/s with it and is unwatchable; the lag is what makes a
- * break turn read as the jet turning rather than the world spinning. [SET], from what the frames show. */
-static constexpr double kChaseBackM = 62.0, kChaseUpM = 13.0, kChaseSideM = 18.0;
-/* Aim AHEAD of the jet, not at it: the picture is then where it is going, and the airframe sits low and
- * off-centre instead of dead centre with its own tail filling the frame. */
-static constexpr double kChaseLeadM = 150.0;
-static constexpr double kChaseLagS = 0.45;   /* 1/e of a heading change — the spring, as one number */
-static double gChaseYawDeg = 0.0, gChasePitchDeg = 0.0;
-static bool gChaseHave = false;
+/* THE REGIE, and the camera behind it (clients/FBCameraDirector.h). It is handed a copy of what every unit
+ * PUBLISHES once per tick and returns one pose per frame; it reaches nothing else in this file. The
+ * stage vector is a member so a steady cast allocates nothing after the first tick. */
+static Clients::FBCameraDirector gDirector;
+static std::vector<Clients::FBStageUnit> gStage;
 
 /* What a view change costs outside the camera: the jet the camera sits INSIDE may not be drawn, and
- * the one it looks AT must be. The lag starts over, so a switch snaps rather than swinging in. */
+ * the one it looks AT must be. In the directed view the camera may be anywhere at all, so every unit
+ * draws — including the one it started out behind. */
 static void ApplyView() {
   if (!gOwnship) return;
-  W.SetEyeUnitId(gView == FBView::Chase ? -1 : gOwnship->GetId());
-  gChaseHave = false;
+  W.SetEyeUnitId(gView == FBView::Director ? -1 : gOwnship->GetId());
 }
 
 /* GROUND TRUTH FOR THE SIMULATION, from the same DEM the renderer draws, so gear/contact/crash collide
@@ -427,7 +422,7 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
    * on TAB's cycle: TAB returns to whichever of the two outside/inside views was last chosen. */
   if (std::strcmp(k, "c") == 0 || std::strcmp(k, "C") == 0) {
     if (!down || repeat) return true;
-    gSceneView = gSceneView == FBView::Chase ? FBView::Cockpit : FBView::Chase;
+    gSceneView = gSceneView == FBView::Director ? FBView::Cockpit : FBView::Director;
     if (gView != FBView::Map) gView = gSceneView;
     ApplyView();
     FBLog::Info("view", "MODE", {{"view", ViewName(gView)},
@@ -435,6 +430,16 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
     return true;
   }
   if (gView == FBView::Map) return HandleMapKey(k, down, repeat);
+  /* THE WATCHER'S HAND ON THE REGIE, and it is three keys that no seat uses — the stick stays live in
+   * this view, so nothing here may take a control away from someone flying. */
+  if (gView == FBView::Director && down && !repeat) {
+    if (std::strcmp(k, "k") == 0 || std::strcmp(k, "K") == 0) { gDirector.ToggleHold(); return true; }
+    if (std::strcmp(k, "n") == 0 || std::strcmp(k, "N") == 0 || std::strcmp(k, "]") == 0) {
+      gDirector.Step(1);
+      return true;
+    }
+    if (std::strcmp(k, "[") == 0) { gDirector.Step(-1); return true; }
+  }
   if (std::strcmp(k, "t") == 0 || std::strcmp(k, "T") == 0) {
     if (down && !repeat) GroundSet(!R.GetGroundMode());
     return true;
@@ -531,13 +536,31 @@ static EM_BOOL OnMapWheel(int, const EmscriptenWheelEvent *e, void *) {
 /* THE ONE THING THIS CLIENT DOES PER TICK, and it is a READ: the eye's last two published poses and
  * this tick's substep count. FBMissionSim calls it after the pose barrier, so both poses are whole. */
 void FBBrowserEye::OnTick(const Units::FBActorList &actors, double simT) {
-  (void)simT;
   const Units::FBUnitPose now = actors.front()->GetPose();
   gPosePrev = gHavePose ? gPoseCur : now;
   gPoseCur = now;
   gHavePose = true;
   gTickSubsteps += gOwnship->Module().LastSubsteps();
   gTicks++;
+
+  /* WHAT THE DIRECTOR IS ALLOWED TO SEE, copied out here and nowhere else: where each unit is and what
+   * a hit did to it — the two things units/FBUnit.h publishes for a foreign observer. No simulation
+   * object crosses this line, which is why the camera cannot become a seventh perception reader. */
+  gStage.clear();
+  for (const auto &a : actors) {
+    if (!a) continue;
+    const Units::FBUnitSignature sig = a->GetSignature();
+    Clients::FBStageUnit s;
+    s.Id = a->GetId();
+    s.Kind = a->GetKind();
+    s.Team = a->GetTeam();
+    s.Name = a->GetName().c_str();
+    s.Pose = a->GetPose();
+    s.Damage = sig.Damage;
+    s.DimM = std::max(sig.Visual.FrontalM, std::max(sig.Visual.LateralM, sig.Visual.PlanM));
+    gStage.push_back(s);
+  }
+  gDirector.Observe(gStage, simT);
 }
 
 /* WHERE THE EYE IS BETWEEN TWO TICKS, and nothing else: the sim never sees this pose. Extrapolated
@@ -555,29 +578,6 @@ static Units::FBUnitPose EyeAt(double alpha) {
   p.PitchDeg = b.PitchDeg + alpha * FBWrap180(b.PitchDeg - a.PitchDeg);
   p.YawDeg = b.YawDeg + alpha * FBWrap180(b.YawDeg - a.YawDeg);
   return p;
-}
-
-/* The chase pose, overwriting the eye basis the caller built from the same jet pose. Two calls to
- * FBCameraBasisEcef and not one: the first frame carries the OFFSET (where the camera hangs), the
- * second the LOOK (where it points), and both angles below are the exact look-at because the offset
- * lies in that first frame's own axes. */
-static void ChaseCamera(const Units::FBUnitPose &p, double dtS, double eye[3], double fwd[3],
-                        double right[3], double up[3]) {
-  const double a = gChaseHave ? 1.0 - std::exp(-dtS / kChaseLagS) : 1.0;
-  gChaseHave = true;
-  gChaseYawDeg += a * FBWrap180(p.YawDeg - gChaseYawDeg);
-  gChasePitchDeg += a * FBWrap180(p.PitchDeg - gChasePitchDeg);
-
-  double jet[3], ofwd[3], oright[3], oup[3];
-  FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, jet);
-  FBCameraBasisEcef(gChaseYawDeg, gChasePitchDeg, 0.0, p.LatDeg, p.LonDeg, ofwd, oright, oup);
-  for (int i = 0; i < 3; i++)
-    eye[i] = jet[i] - kChaseBackM * ofwd[i] + kChaseUpM * oup[i] + kChaseSideM * oright[i];
-
-  const double reach = kChaseBackM + kChaseLeadM;
-  const double pitchC = gChasePitchDeg - std::atan2(kChaseUpM, reach) / kDeg2Rad;
-  const double yawC = gChaseYawDeg - std::atan2(kChaseSideM, reach) / kDeg2Rad;
-  FBCameraBasisEcef(yawC, pitchC, 0.0, p.LatDeg, p.LonDeg, fwd, right, up);
 }
 
 static void frame(void) {
@@ -712,7 +712,15 @@ static void frame(void) {
   double eye[3], fwd[3], right[3], up[3];
   FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
   FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
-  if (gView == FBView::Chase) ChaseCamera(p, dt, eye, fwd, right, up);
+  /* WHERE THE STREAMER REFINES, and in the directed view that is not where the jet is: a tripod at a
+   * wreck twenty kilometres behind needs the tiles under the WRECK, not the ones under the aeroplane. */
+  double camLat = p.LatDeg, camLon = p.LonDeg;
+  if (gView == FBView::Director) {
+    const Clients::FBCameraPose c = gDirector.Camera(dt, gSim->TickPhase());
+    for (int i = 0; i < 3; i++) { eye[i] = c.Eye[i]; fwd[i] = c.Fwd[i]; right[i] = c.Right[i]; up[i] = c.Up[i]; }
+    camLat = c.LatDeg;
+    camLon = c.LonDeg;
+  }
   R.SetCameraBasis(eye, fwd, right, up);
 
   /* The module's own telemetry, plus the browser-only home/mode/ephemeris fields below. */
@@ -770,14 +778,14 @@ static void frame(void) {
   /* AFTER SetHud, which turns the overlay back on by itself: a cockpit HUD drawn over an outside shot
    * would project the flight-path marker on a boresight the camera does not have, i.e. it would lie.
    * The scene then takes all 720 lines instead of the top two thirds (FBRenderer::ViewH). */
-  R.SetHudEnabled(gView != FBView::Chase);
+  R.SetHudEnabled(gView != FBView::Director);
 
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
 
   W.SetNightLights(R.GetGroundMode() && hs.Env.SunElDeg < -3.0f);   /* EVS night -> stream /t/lights */
   W.SetSunElevationDeg(hs.Env.SunElDeg);   /* ...and the same sun decides whether a lamp is lit */
   W.SetSimTimeS(simT);   /* the MISSION clock the published effect ages are stamped against */
-  W.Update(p.LatDeg, p.LonDeg, eye, fwd, now);   /* multi-LOD quadtree around the live flight */
+  W.Update(camLat, camLon, eye, fwd, now);   /* multi-LOD quadtree around the CAMERA, wherever the cut put it */
   double cp_e = emscripten_get_now();   /* end: FBWorld update (quadtree + gain + lights poll) */
 
   R.RenderFrame();
@@ -1074,13 +1082,22 @@ int main() {
   }
   for (auto &a : gActors) gUnits.Register(a.get());   /* the App owns the units; everyone else borrows */
   W.SetUnits(&gUnits);
+  /* WHERE THE REGIE COMES BACK TO between events: the mission's FIRST `unit` block, which is the actor
+   * every reading rule in a `.fbm` header names as its verdict. */
+  gDirector.SetHome(gOwnship->GetId());
   /* WHICH VIEW THIS SESSION OPENS ON, read the way `?ground=` is: a URL word, no new exported symbol.
-   * `?view=chase` is what a watched run is started with (doc/mods.md §1) — the AI flies, nobody sits
-   * in the seat, and the frame is the whole product. */
+   * A watched run is started outside the seat (doc/mods.md §1) — the AI flies, nobody sits in it, and
+   * the frame is the whole product. */
   {
     const char *jv = emscripten_run_script_string(
         "(new URLSearchParams(location.search).get('view')||'')");
-    if (jv && std::strcmp(jv, "chase") == 0) gView = gSceneView = FBView::Chase;
+    /* `chase` is the OLD watched word and it still means what it meant: the director held on the
+     * verdict carrier, i.e. one pose behind it for the whole run and no cuts at all. `director` is
+     * the same camera with the cutting left on. */
+    if (jv && (std::strcmp(jv, "chase") == 0 || std::strcmp(jv, "director") == 0)) {
+      gView = gSceneView = FBView::Director;
+      if (std::strcmp(jv, "chase") == 0) gDirector.ToggleHold();
+    }
     FBLog::Info("gpu", "view", {{"view", ViewName(gView)}});
   }
   ApplyView();   /* the camera rides a unit: drawing the one it sits INSIDE would draw its inside */

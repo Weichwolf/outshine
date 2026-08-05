@@ -50,7 +50,7 @@ else in this tree: the GUI is a client on the simulation, never a second truth.
 | Third reader | Who flies | What it is for |
 |---|---|---|
 | **replayed** — the WASM app, mission **+ trace**, no model | the recording | the demo — and, unexpectedly, a test the other two cannot perform |
-| **watched** — the WASM app, live model, no player | the AI, deciding now | *„eher Twitch"* — the 2026 deliverable. Not deterministic and not claimed to be |
+| **watched** — the WASM app, live model, no player | the AI, deciding now, seen through a DIRECTOR that cuts to what is happening | *„eher Twitch"* — the 2026 deliverable. Not deterministic and not claimed to be, and the price of that is measured: a browser run of the same `.fbm` releases air-to-ground 1.6–6.7 s later than `fb-gym` and misses what the gym hits ([`clients/clients.md`](clients/clients.md) §Gaps) |
 
 Every mission ships as an attract-mode demo for free, which is how these four titles did it in 1994 and
 costs nothing here: the sim is deterministic given its inputs, so mission + trace reproduce the recorded
@@ -575,7 +575,10 @@ Measured across the move: all 296 missions byte-identical, `payerne-full --threa
 `6e24090b7e861aa7`, ten harnesses unchanged, `test-air` at 5 outside band, `verify-trees` at 20 orphans.
 
 **A SECOND MOD IS IN THE BROWSER, and §1's `watched` reader exists.** `mods/f22` (eight sorties, its own
-DEM, `depends f16`) loads, flies and is WATCHABLE at `?mod=f22&mission=<name>&view=chase`. Measured in
+DEM, `depends f16`) loads, flies and is WATCHABLE at `?mod=f22&mission=<name>&view=director` — a camera
+that KNOWS what is happening (`clients/FBCameraDirector`, contract in
+[`clients/clients.md`](clients/clients.md)); `&view=chase` is the same camera with the cutting off, i.e.
+the fixed rig this paragraph was written against. Measured in
 headless Chromium against real WebGPU, one screenshot per sortie: `gpu mod id=f22 … models=/fb/mods/f22/../f16/src/models`,
 `render unit_model type=f16 lods=4 parts=22 trisTotal=173330`, terrain and units drawn in six of the
 eight (the other two are moonless-night sorties, below). Two things had to be true and one was not:

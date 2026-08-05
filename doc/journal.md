@@ -4865,3 +4865,61 @@ Silhouette aus dem Schwarz holt, und zwei AIM-9-Kills bei ~10 km als orange Bäl
 außerhalb, dieselben fünf · `verify-layers` 6/1 · `verify-guards` 8/8 · `verify-models` grün ·
 `verify-types` 11 Typen in 114 Dateien unverändert · `nm build/fb-gym` 0 Dawn/WebGPU-Symbole ·
 `passes=5` vorher wie nachher · `gym`/`native`/`wasm` bauen, Warnings = Errors.
+
+## 2026-08-06 — Eine Regie statt eines Gestells: die Kamera weiß, was gerade passiert
+
+`clients/FBCameraDirector` (neu, 340 Zeilen) — der letzte große Posten aus zwei unabhängigen Runden
+(„Die Kamera weiß nichts vom Geschehen. Ein starres Gestell für 700 s." · „Die Wrackfeuer sind immer
+hinter dem Auge … Es fehlt eine Kamera, die der Zuschauer richten kann, kein Effekt.").
+
+**Sie kennt sechs Einstellungen, und alle sechs stehen auf publizierten Feldern.** In
+Prioritätsordnung `home < takeoff < launch < landing < impact < wreck`: eine Einheit, die vorigen Tick
+nicht im Ensemble war und `Weapon` ist, hat eine Schiene verlassen · eine STEIGENDE `Hits` in
+`FBDamageSignature` ist genau eine Detonation (nie ein Pegel, nie eine Uhr) · `!CombatEffective ||
+Destroyed` ist ein Brand, dasselbe unter 8 m AGL oder auf einer `Ground`-Einheit ist ein WRACK · ein
+Flugzeug, das 8 m AGL über 30 m/s nach oben kreuzt, ist gestartet, unter 15 m/s nach unten gelandet.
+Die Regie sieht dabei **kein Simulationsobjekt**: der Client kopiert pro Tick ein
+`FBStageUnit`-POD heraus (Id, Art, Team, Rufzeichen, Pose, Schadenssignatur, Silhouette), die Header
+nennt keine Registry — `verify-layers` steht unverändert auf **6 Wahrnehmungs-Lesern und 1 Ansicht**.
+
+**Zwei Befunde, beide gemessen, beide waren Ursache dafür, dass nie ein Wrackfeuer im Bild war.**
+(1) Ein abgelehntes Ereignis ging VERLOREN: die Bombe, die das Ziel tötet, schlägt ein, während die
+Kamera noch auf dem Treffer davor steht — jetzt wird gepostet und 15 s lang nachgereicht (eine
+Sekunde mehr als die längste Einstellung, also kann kein Ereignis daran verfallen, dass etwas anderes
+lief). (2) `impact` stand ÜBER `wreck` und verschluckte es: Burst und Feuer passieren am selben ORT,
+die längere Einstellung enthält die kürzere. Gemessen auf `suppress-killed`: mit der alten Ordnung
+verließ die Kamera die brennende Stellung nach 7 s und das Feuer war nie wieder im Bild.
+
+**Das Stativ wird nach dem FEUER gestellt, nicht nach dem Wrack** — und das ist der Unterschied
+zwischen 1 px und 77 px. `modules/ground` deklariert Null-Extents, eine Bodeneinheit publiziert also
+GAR KEINE Silhouette; die erste Fassung rahmte auf 9× davon und landete jedes Mal auf dem
+Abstandsboden. Die Flammenhöhe ist dagegen bekannt (`max(0.45 × dim, 4 m)`, das Gesetz der
+Zeichenseite), 22× davon setzt sie auf 3,9 % der Bildhöhe = 28 von 720 Zeilen. Alle Abstände fallen
+aus dem Sichtfeld dieses Baums: bei 60° füllt eine Höhe *h* in Entfernung *D* genau `h/(1.1547·D)`.
+Kamera 0,20 D hoch (11,3° Senkung), Zielpunkt 0,30 D über dem Wrack (Feuer 17,0° unter Boresight =
+78 % Bildhöhe), Umlauf 3,5 °/s = 49° Parallaxe über eine 14-s-Einstellung.
+
+**Gemessen im echten Chromium**, `sim/build/watched-director/`. `mods/f16 suppress-killed`: AGM-88
+tötet die Batterie bei `t=27,3`, `director CUT shot=wreck … frame=tripod holdS=14` bei `t=27,4`,
+Flammenpixel (`r>g+40 && r>b+60 && r>110`) **43/108/74** bei Sim 29,3/34,4/40,3 in einer 13×16-px-Box.
+`K` bei Sim 28,8 hält: **85** bzw. **38** Flammenpixel noch bei Sim 35,0 und 55,0 — 13,6 s NACH dem
+Ende der eigenen Einstellung (die bei 41,4 abgelaufen wäre). `N` bei Sim 64,8 schaltet weiter
+(verbrauchte Flugkörper werden übersprungen): **0**.
+
+**Der Bildbeweis zielt jetzt auf eine SIM-Sekunde.** Der Client stempelt jede Konsolenzeile mit der
+Missionsuhr; der Harness (`sim/tools/watch_browser.cjs`, neu im Baum) liest sie und löst auf der ersten Zeile ≥ X aus. `c01m07`, wo der
+1,6-s-Feuerball vorher in einem von fünf Läufen getroffen wurde: `SIMMARKS=203` → Bild bei **Sim
+203,0 / Wall 207,5**, der Tick des SA-2-Treffers.
+
+**Was die Runde NICHT reparieren konnte, benannt statt versteckt:** der Browser wirft Luft-Boden
+1,6–6,7 s später ab als `fb-gym` (gemessen `c01m05`: 69,6 s gegen 71,2/76,3 s → 333 m und 390 m
+daneben, `--elev tiles` schließt die DEM-Quelle aus) — **keine f22-Sortie zerstört im Browser ein
+Bodenziel**, weshalb der Beweis auf einer Mission mit HOMENDER Waffe steht. Und ein beendeter Lauf
+friert die Welt ein, die Regie hält dann ein Foto.
+
+**Tore:** `build/fb-gym` **byte-identisch** vor und nach der Runde (`aa7ab130…`), damit die 296
+f16-Missionen per Konstruktion · `payerne-full --threads 1/2/4` auf einer Signatur (`b6dc488e…`) ·
+f22-Urteile **3/3/1/0/1/3/3/3** unverändert · `test-air` 5 außerhalb, dieselben fünf ·
+`verify-layers` **6/1** · `verify-guards` 8/8 · `verify-models` grün · `verify-types` 11 Typen in 114
+Dateien · `verify-trees` 25 Orphans unverändert · `nm build/fb-gym` 0 Dawn/WebGPU-Symbole ·
+`gym`/`native`/`wasm` bauen, Warnings = Errors.

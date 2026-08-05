@@ -623,6 +623,17 @@ The camera itself is, in today's client, **the aircraft's eye**: `FBGeoToEcef(po
 `SetCameraBasis`. An additional clamp "never below the surface" is **no longer wired** in the client
 code — see *Gaps*.
 
+**In the browser's DIRECTED view it is not the eye but a director's** (`clients/FBCameraDirector`,
+contract in [`../clients/clients.md`](../clients/clients.md)). Nothing in `render/` changed for it and
+nothing may: it produces the same `SetCameraBasis` quadruple, from published poses and published damage
+signatures only, and the renderer cannot tell which of the two wrote it. One thing DOES follow through
+to this file — the camera's own lat/lon is handed to `FBWorld::Update` rather than the aircraft's,
+because a tripod standing at a wreck twenty kilometres behind the flight needs the quadtree refined
+under the WRECK. The framing distances are solved out of this file's own field of view: at
+`kSceneVerticalFovDeg` = 60° a feature of height *h* at range *D* fills `h / (2·D·tan 30°)` =
+`h / (1.1547·D)` of the frame, and every tripod range in that class is that equation with a chosen
+fraction (the wreck fire, 22× its own height, is 3.9 % = 28 of 720 lines).
+
 #### 8.3 "Crash → engine off, no freeze"
 
 The physical judge (`core/FBFlightMonitor`) belongs to the client, not to the module. When it trips,
