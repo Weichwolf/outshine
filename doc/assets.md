@@ -51,6 +51,26 @@ sim/assets/models/<name>/
   joints at the same names as the visual hinges: `ctl.aileron.l`, `gear.main.r`, `turret.yaw`. Physics
   joint and visual joint are one name or the format is wrong.
 
+### 3.1 Self-checks — invariants, not eyeballing
+
+Cheap, exact, no rendering. Each catches a whole class of defect that a human artist misses by eye.
+
+| Check | Fails when |
+|---|---|
+| **watertight** — Euler characteristic, zero boundary edges | a hole nobody sees until light leaks through it |
+| **winding** — consistent CCW, no inverted faces | a surface that vanishes at a viewing angle |
+| **normals** — unit length, orientation matching winding, no NaN | lighting that flips on a LOD swap |
+| **no T-junctions**, vertices welded within epsilon | hairline cracks under any subpixel motion |
+| **continuous LOD** — adjacent levels share their boundary exactly; geomorph endpoints coincide | cracks between tiles, and popping the eye finds before the metric does |
+| **mesh merge** — a merged mesh has the same volume and bounds as its parts | silent geometry loss during simplification |
+| determinism | build twice, compare bytes (§4) |
+
+**Fractals test vegetation implicitly.** An L-system or IFS branching structure has a closed-form
+definition — branch count, total length, fractal dimension, bounding volume are all known before
+rendering. Running the vegetation pipeline on one tests instancing, LOD, impostor transition and wind
+against exact expected values, with no artistic judgement anywhere in the loop. See
+[`render/visual-target.md`](render/visual-target.md) §1.3.
+
 ### 4. Acceptance
 
 | Contract | Anchor |
