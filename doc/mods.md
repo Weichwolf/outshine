@@ -499,6 +499,7 @@ Consequences:
 | Contract | Anchor |
 |---|---|
 | No engine code per title | `mods/*` contains zero `.cpp`/`.h`; checked by a tool, not by intent |
+| A mod asks, it does not instruct | no mod names an LOD, a triangle budget or a draw call. It declares what exists and what matters; the engine holds 720p30 and spends the rest on quality ([`render/visual-target.md`](render/visual-target.md) §1.1) |
 | A mod is a test | every mission runs headless in `fb-gym` with a verdict, and byte-identically over thread counts |
 | The played run cannot cheat | the WASM app consumes the identical `.fbm` and both judges run in it too |
 | The triad holds inside a mod | `verify-trees` walks `mods/<title>/` with the same rule |

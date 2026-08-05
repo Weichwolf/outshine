@@ -66,8 +66,51 @@ bind groups, close to Metal in shape; with a single pass and instancing the per-
 compute shaders remove the CPU from the geometry path entirely. WASM SIMD is available but is not
 expected to matter — the CPU is the surplus here too.
 
-This makes *„alles im Shader, minimal Texturen"* the correct engineering choice rather than a saving:
-procedural shading spends ALU to save bandwidth, which is exactly the trade a mobile GPU wants.
+### 1.1 The mod asks; the engine decides
+
+> Owner, 2026-08-05: *„das Mod gibt vor, was es gerne zeichnen möchte, die Engine muss entscheiden, wie
+> sie das Maximum bei 720p30 herausholen kann. Wenn das Mod 3 Millionen Dreiecke darstellen will, macht
+> die Engine vielleicht nur 100 000 mit annähernd gleicher Qualität."*
+
+**This is a boundary, not an optimisation**, and it is the same boundary as everywhere else in this tree:
+a mod declares *intent*, never *mechanism*. It says what should be visible and how much it matters. It
+does not say how many triangles to submit, which LOD to pick, or how far the impostors start.
+
+| The mod declares | The engine decides |
+|---|---|
+| what exists, where, and its importance | LOD bias, instance density, impostor distance |
+| that this forest is dense | how many of its trees are geometry this frame |
+| that this target must stay readable | shadow resolution, TAA samples, cloud march steps |
+
+**The engine's contract is fixed and the quality is what floats:** hold 720p30, then spend everything
+left on looking as good as possible. Not the other way round. A frame that misses 30 is a defect even if
+it is beautiful — the 2026 product is something watched continuously, and a hitch is more visible than a
+missing tree.
+
+The 3 000 000 → 100 000 example is not a compromise, it is the whole craft. A forest at two kilometres
+resolves to impostors and aggregates that nobody can distinguish from the geometry, and the ratio *is*
+the engineering. **Triangles are not the currency — perceived difference is.**
+
+### 1.2 `mods/bench/` — the load test as a mod
+
+> Owner: *„ich würde ein `mods/bench/` bauen mit einer Referenzszene, die immer anspruchsvoller wird als
+> Belastungstest."*
+
+A reference scene that escalates in steps until the governor can no longer hold 30. **The number that
+comes out is the step where it broke**, and that number is comparable across commits, machines and
+rounds — which no frame-rate anecdote ever is.
+
+It belongs in `mods/` and not in `sim/test/` for a reason that is not filing: it must go through the
+**same** path a real scenario goes through. A bench that reaches past the mod boundary would measure a
+renderer nobody ships.
+
+| | |
+|---|---|
+| shape | one scene, N escalating steps: instance count, overdraw, shadow casters, particle load, view distance |
+| verdict | the highest step held at 720p30 **after thermal soak**, plus the quality settings the governor chose to hold it |
+| why both numbers | a step held by dropping every knob to minimum is not the same result as one held at full quality, and a single number would hide the difference |
+
+## Spec (continued)
 
 ### 2. The frame
 
@@ -154,6 +197,11 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
 - **Motion vectors for wind-animated instanced foliage** are the known-hard part of TAA and nothing
   produces them today.
 - **The 256 templates do not exist**, nor does the quantisation, nor the latitude/elevation filter.
+- **„Near-equal quality" has no measure.** §1.1 makes the engine's whole job a perceptual trade, and this
+  tree has no perceptual metric — only triangle counts and frame times, neither of which is the thing.
+  Until that exists, the governor's choices are judged by the critic pair looking at frames.
+- **The governor does not exist**, nor do the knobs it would turn. Today quality is fixed and the frame
+  rate floats, which is exactly backwards.
 - **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
   minutes of continuous rendering is unmeasured, and Twitch means continuous by definition. Every frame
   budget here rests on it.
