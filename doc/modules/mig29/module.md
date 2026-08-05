@@ -30,7 +30,7 @@ what he can shoot — not how his flaps behave.
 | The flight model hits its documented envelope | every anchor of `doc/modules/mig29/flight-model-spec.md` (max speed by altitude, sustained/instantaneous turn, climb rate, service ceiling, fuel flow) measured in the gym against the documented number, deviation stated |
 | Turn-fight fidelity is explicitly NOT a criterion | a failing knife-fight comparison is not a defect of this model; a wrong envelope is |
 | It is a module like any other | `FBModule` derivation under `sim/src/modules/mig29/`, registered by name through `FBModuleRegistry`, composed from the `systems/` defaults; no second architecture, no special case in the runner |
-| Its model lives under the single model root and obeys the delta rule | `sim/assets/aircraft/mig29`, declared in `sim/assets/MODEL-DELTAS.md`, `make -C sim verify-models` green |
+| Its model lives under the single model root and obeys the delta rule | `mods/f16/src/aircraft/mig29`, declared in `mods/f16/src/aircraft/MODEL-DELTAS.md`, `make -C sim verify-models` green |
 | It perceives only through simulated sensors | same boundary as the F-16: registry reaches sensor slots only, contacts are anonymous, identity only through IFF ([`../sim/sensors.md`](../../sensors.md)) |
 | Its weapons are units like ours | R-27R/T, R-73, R-60M, GSh-301 — each with its own module, own FDM where it is guided, own telemetry file ([`../../weapons.md`](../../weapons.md)) |
 | Its doctrine is GCI-led, not lone-wolf | the pilot flies a briefed vector under ground control: cued search, late own-radar emission, commit and disengage rules from the ground picture rather than from his own scope |
@@ -161,7 +161,7 @@ delivery is a director the pilot flies rather than a release moment he reacts to
    against the F-16's 0.734 / 78.7 — it rolls 2.6× harder for the same stick. Now a hook with the
    F-16's numbers as the default.
 
-**Stage 4 built: it fights.** The asymmetric duel campaign — nine `sim/missions/duel-*.fbm`, the
+**Stage 4 built: it fights.** The asymmetric duel campaign — nine `mods/f16/src/missions/duel-*.fbm`, the
 geometry × outcome table, both sides' `eng_*` debriefing, the EMCON timeline and a mixed tournament —
 lives in [`../../duels.md`](../../duels.md), because it is a property of the PAIRING and not of this
 aircraft. What belongs here is what it said about the MiG-29:
@@ -234,9 +234,9 @@ had, `test-corner` unchanged (380 kt / 16.18 °/s / 5.44 g).
 | GCI entry chain | voice → pilot → manual entry → scan solution | BRAA t=19.9 → elevation entry (range-angle, from the controller's two numbers and the pilot's OWN altimeter) → ZONE → ILLUM accepted **t=47.9**, i.e. **8.0 s** from call to radiating radar |
 | the price of radiating | — | the opposing RWR's `THREAT_NEW` lands **0.1 s** after ILLUM; before it there is nothing to see |
 
-**Stage 1 built: the airframe.** `sim/assets/aircraft/mig29/` holds a FlightBox-own JSBSim deck
+**Stage 1 built: the airframe.** `mods/f16/src/aircraft/mig29/` holds a FlightBox-own JSBSim deck
 (`mig29.xml`, `engine/RD-33.xml` ×2 instantiation, `engine/RD-33-nozzle.xml`, `reset00.xml`,
-`release="ALPHA"`), declared as FlightBox-own in `sim/assets/MODEL-DELTAS.md`, and
+`release="ALPHA"`), declared as FlightBox-own in `mods/f16/src/aircraft/MODEL-DELTAS.md`, and
 `make -C sim test-mig29` measures it against all 22 anchors of
 [`../../mig29/flight-model-spec.md`](flight-model-spec.md) §8. **The anchor table with
 IST/SOLL per row, the two consistency probes, the build-order gate status and the four missed anchors
@@ -339,4 +339,4 @@ The source split, worth stating once:
 | What the real MiG-29 does | `doc/modules/mig29/` (from the two DCS manuals + research), the same relationship `doc/modules/f16/` has to [`../f16/module.md`](../f16/module.md) |
 | How a module is composed and registered | [`../f16/module.md`](../f16/module.md), [`../architecture.md`](../../architecture.md) |
 | What a weapon must be to exist here | [`../../weapons.md`](../../weapons.md) |
-| What a model copy may deviate in | `sim/assets/MODEL-DELTAS.md`, [`stores.md`](../stores.md) |
+| What a model copy may deviate in | `mods/f16/src/aircraft/MODEL-DELTAS.md`, [`stores.md`](../stores.md) |

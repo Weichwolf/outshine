@@ -4,16 +4,16 @@
 
 | Datei | Zeilen | Rolle | Lizenz / Herkunft |
 |---|---|---|---|
-| `sim/assets/aircraft/f16/f16.xml` | 1941 | Zelle: Geometrie, Masse, Bodenkontakte, Antrieb, FLCS, Aerodynamik | GPL, Erik Hofman, Rev. 1.95, erstellt 2001-12-28 |
-| `sim/assets/aircraft/f16/engine/F100-PW-229.xml` | 86 | Triebwerk (`<turbine_engine>`) | Aero-Matic v0.8 generiert |
-| `sim/assets/aircraft/f16/engine/direct.xml` | 6 | Thruster (`<direct>`) — Schub = Triebwerksschub, keine Propellergeometrie | — |
-| `sim/assets/aircraft/f16/Systems/hook.xml` | 75 | Fanghaken als `<system>` | — |
-| `sim/assets/aircraft/f16/Systems/pushback.xml` | 41 | Schlepper als `<system>` | — |
-| `sim/assets/aircraft/f16/reset00.xml` | 16 | IC „auf der Bahn" (von FlightBox NICHT benutzt) | — |
-| `sim/assets/aircraft/mk82/mk82.xml` | 331 | Mk-82, ungelenkte Bombe | vendored, `release="BETA"` |
-| `sim/assets/aircraft/aim120/aim120.xml` | 498 | AIM-120, **FlightBox-eigen** | FlightBox, `release="ALPHA"` |
-| `sim/assets/aircraft/aim120/engine/WPU-6.xml` | 62 | Feststoffmotor (`<rocket_engine>`) | FlightBox |
-| `sim/assets/aircraft/aim120/engine/WPU-6_nozzle.xml` | 12 | Düse (`<nozzle>`) | FlightBox |
+| `mods/f16/src/aircraft/f16/f16.xml` | 1941 | Zelle: Geometrie, Masse, Bodenkontakte, Antrieb, FLCS, Aerodynamik | GPL, Erik Hofman, Rev. 1.95, erstellt 2001-12-28 |
+| `mods/f16/src/aircraft/f16/engine/F100-PW-229.xml` | 86 | Triebwerk (`<turbine_engine>`) | Aero-Matic v0.8 generiert |
+| `mods/f16/src/aircraft/f16/engine/direct.xml` | 6 | Thruster (`<direct>`) — Schub = Triebwerksschub, keine Propellergeometrie | — |
+| `mods/f16/src/aircraft/f16/Systems/hook.xml` | 75 | Fanghaken als `<system>` | — |
+| `mods/f16/src/aircraft/f16/Systems/pushback.xml` | 41 | Schlepper als `<system>` | — |
+| `mods/f16/src/aircraft/f16/reset00.xml` | 16 | IC „auf der Bahn" (von FlightBox NICHT benutzt) | — |
+| `mods/f16/src/aircraft/mk82/mk82.xml` | 331 | Mk-82, ungelenkte Bombe | vendored, `release="BETA"` |
+| `mods/f16/src/aircraft/aim120/aim120.xml` | 498 | AIM-120, **FlightBox-eigen** | FlightBox, `release="ALPHA"` |
+| `mods/f16/src/aircraft/aim120/engine/WPU-6.xml` | 62 | Feststoffmotor (`<rocket_engine>`) | FlightBox |
+| `mods/f16/src/aircraft/aim120/engine/WPU-6_nozzle.xml` | 12 | Düse (`<nozzle>`) | FlightBox |
 
 Sekundär, weil die halbe Semantik nicht im XML steht, sondern in der Engine, die es liest:
 `sim/vendor/jsbsim/src/models/**` (gepinntes Submodul, read-only).
@@ -38,7 +38,7 @@ der Jet KANN.
 
 **Das gepinnte Modell, wie es geflogen wird, plus die deklarierten Deltas** — mehr verlangt Prinzip 5
 nicht, und weniger genügt ihm nicht. Die Delta-Liste und ihr Prüftor führt
-[`sim/assets/MODEL-DELTAS.md`](../../../sim/assets/MODEL-DELTAS.md) (`make -C sim verify-models`).
+[`mods/f16/src/aircraft/MODEL-DELTAS.md`](../../../mods/f16/src/aircraft/MODEL-DELTAS.md) (`make -C sim verify-models`).
 Alles Übrige in `doc/modules/f16/` beschreibt den ECHTEN Jet (Design-Ziele); diese Datei beschreibt, was unser
 Flugzeug tatsächlich TUT.
 
@@ -95,10 +95,10 @@ selbsttätig aus, wenn α ≥ 53° UND v ≤ 18 ft/s (§7.7).
 
 #### 1.2 Modell-Delta gegenüber dem gepinnten Submodul
 
-`sim/assets/aircraft/f16/` ist **byte-identisch** zu `sim/vendor/jsbsim/aircraft/f16/` mit genau einer
+`mods/f16/src/aircraft/f16/` ist **byte-identisch** zu `sim/vendor/jsbsim/aircraft/f16/` mit genau einer
 Ergänzung: das Verzeichnis `engine/` mit `F100-PW-229.xml` und `direct.xml`, die im Submodul unter
 `sim/vendor/jsbsim/engine/` liegen und dort ebenfalls byte-identisch sind `[MESS]`
-(`diff -rq sim/vendor/jsbsim/aircraft/f16 sim/assets/aircraft/f16` → nur `Only in …: engine`;
+(`diff -rq sim/vendor/jsbsim/aircraft/f16 mods/f16/src/aircraft/f16` → nur `Only in …: engine`;
 `diff` beider Engine-Dateien → leer). `mk82/` ist ebenfalls byte-identisch zum Submodul `[MESS]`.
 `aim120/` hat kein Gegenstück im Submodul — es ist FlightBox-eigen, weil das gepinnte JSBSim keine
 AMRAAM kennt und read-only ist (CLAUDE.md Prinzip 1).
@@ -216,7 +216,7 @@ genau die Trennung, die Prinzip „Kein Cheaten" verlangt.
 
 Der Fanghaken ist deklariert, `Systems/hook.xml` rechnet eine Verzögerungskraft
 (`hook-decel-multiplier`-Tabelle über Radgeschwindigkeit, ×`inertia/weight-lbs`) — und schreibt sie
-**nirgendwo hin**. `grep -rn "external_reactions/" sim/assets/aircraft/f16/Systems/` findet genau
+**nirgendwo hin**. `grep -rn "external_reactions/" mods/f16/src/aircraft/f16/Systems/` findet genau
 eine Zeile, die des Schleppers `[MESS]`. Der Haken ist im Modell also eine Animation ohne Physik.
 
 FlightBox legt zur LAUFZEIT zwei weitere Kräfte an derselben Mechanik an — `fb-stores`
@@ -641,7 +641,7 @@ Klappen fahren allein auf Fahrtmesser.
 
 #### 7.9 Der Flaperon-Mixer — behoben per Modell-Delta D1
 
-> **Status: BEHOBEN.** Der hier beschriebene Vorzeichenfehler ist seit `sim/assets/MODEL-DELTAS.md` **D1**
+> **Status: BEHOBEN.** Der hier beschriebene Vorzeichenfehler ist seit `mods/f16/src/aircraft/MODEL-DELTAS.md` **D1**
 > nicht mehr Teil des geflogenen Modells. Der Abschnitt bleibt als BEFUND stehen — er ist der Beleg des
 > Deltas —, aber alles unter „Der Befund" beschreibt den UPSTREAM-Stand (`sim/vendor/jsbsim`), nicht das,
 > was FlightBox fliegt. Was heute fliegt, steht unter „Nach dem Delta". Die Folgen für §8 und §9 sind dort
@@ -691,7 +691,7 @@ flaperon-summer     = left + right = +2 · tef-control            ← der QUERRU
 flaperon-mix-rad    = 0,1745329 · flaperon-summer = 0,349 · tef  = der kommandierte Klappenwinkel in rad
 ```
 
-Herleitung, Beleg und der exakte Diff: `sim/assets/MODEL-DELTAS.md`, Eintrag **D1**. Nachgemessen am
+Herleitung, Beleg und der exakte Diff: `mods/f16/src/aircraft/MODEL-DELTAS.md`, Eintrag **D1**. Nachgemessen am
 geflogenen Modell, gleiches Profil wie oben `[MESS]`:
 
 | Größe | vorher | nachher |
@@ -865,7 +865,7 @@ sind zu KENNEN, nicht zu reparieren.
 
 ### 10. Die Waffenmodelle
 
-#### 10.1 Mk-82 — `sim/assets/aircraft/mk82/mk82.xml` (vendored, `release="BETA"`)
+#### 10.1 Mk-82 — `mods/f16/src/aircraft/mk82/mk82.xml` (vendored, `release="BETA"`)
 
 **Der Vorbehalt steht im Modell selbst.** `<fileheader><note>` `[XML]`, wörtlich:
 
@@ -917,7 +917,7 @@ einen rotationssymmetrischen Körper konsistent, aber eben eine Kopie; (b) `Cnbe
 10.000 ft) liegen bei, werden von FlightBox aber nicht benutzt — FlightBox spawnt Stores über
 `FBFdmSpawn::Ballistic` aus dem Trägerzustand `[DOC CLAUDE.md]`.
 
-#### 10.2 AIM-120 — `sim/assets/aircraft/aim120/` (FlightBox-eigen, `release="ALPHA"`)
+#### 10.2 AIM-120 — `mods/f16/src/aircraft/aim120/` (FlightBox-eigen, `release="ALPHA"`)
 
 Dieses Modell ist als einziges **selbst durchdokumentiert**: jede Zahl trägt im XML ein Tag
 (`[T-ED]` / `[T3]` / `[DERIVED]` / `[SET]`) und jede Ableitung ihre Formel. Die Zusammenfassung:

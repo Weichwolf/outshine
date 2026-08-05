@@ -8,19 +8,19 @@ at all, only mass, drag and a model name (`core/FBStore.h`); its behaviour **is*
 when it is released.
 
 **Neighbours:** `doc/modules/f16/flight-model.md` §10 (what the pinned f16 model declares about carriage),
-`sim/assets/MODEL-DELTAS.md` (the delta list and its gate), [`f16/module.md`](f16/module.md) (the carrier),
+`mods/f16/src/aircraft/MODEL-DELTAS.md` (the delta list and its gate), [`f16/module.md`](f16/module.md) (the carrier),
 [`../sim/fdm.md`](../fdm.md) (how carriage and damage reach JSBSim).
 
 ## Spec
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| Every model FlightBox flies lives under ONE root | `sim/assets/aircraft/<model>/`, self-contained with its own `engine/` and `Systems/` subdirectories (JSBSim's own per-aircraft layout) |
+| Every model FlightBox flies lives under ONE root | `mods/f16/src/aircraft/<model>/`, self-contained with its own `engine/` and `Systems/` subdirectories (JSBSim's own per-aircraft layout) |
 | The pinned submodule is the **base**, not a load path | `sim/vendor/jsbsim` is never loaded from; it is what a copy is diffed against |
-| A copy may deviate — but only as a **named, evidenced entry** | `sim/assets/MODEL-DELTAS.md`: file, change, reason, evidence, plus the canonical unified diff itself |
+| A copy may deviate — but only as a **named, evidenced entry** | `mods/f16/src/aircraft/MODEL-DELTAS.md`: file, change, reason, evidence, plus the canonical unified diff itself |
 | A better mission outcome is explicitly **not** evidence | evidence is a published source, a demonstrable error in the model, or a missing element an extension needs |
 | The gate is exact text comparison, in both directions | `make -C sim verify-models` fails on an unexplained byte **and** on a declared-but-absent change; deliberately not `patch`/`git apply`, which could swallow a deviation with fuzz |
-| Every directory under `sim/assets/aircraft` must be declared | an undeclared model is an unverified model and fails the gate |
+| Every directory under `mods/f16/src/aircraft` must be declared | an undeclared model is an unverified model and fails the gate |
 | A store's catalogue numbers come from its own model or a named formula | Mk-82 mass = its `<emptywt>`, CdA = its own CDmin table × its own wing area (`core/FBStore.h`) |
 | An unguided store's module does nothing but integrate | `modules/stores/FBStoreModule`: no control channel is ever written, so the trajectory is the model's aerodynamics plus gravity and nothing else |
 | A guided round is a different module, not a flag | `modules/missile/`; which one a catalogue entry is, is decided by its `Guided` flag at exactly one place per registration file |

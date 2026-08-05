@@ -194,7 +194,7 @@ would have drawn the opposite conclusion from a correct measurement.
 | `missions/FBCampaignRunner.h/.cpp` | the loop over `FBRunMission` and the aggregate report. **Gym-only**, like `FBTickPool`: it is not in `libfbcore.a` and never reaches wasm |
 | `missions/FBMissionRunner` | grew ONE optional parameter, `const FBMissionCarry *` (state in, campaign clock, outcome out). Null = the run that existed before, byte for byte |
 | `fb-gym --campaign FILE` | runs a campaign; `--mission FILE --state FILE [--carry LIST] [--campaign-time ISO]` runs ONE step standalone with the same overlay AND the same clock — the two halves of §5 criterion 2 |
-| `sim/campaigns/viper-attrition.fbc` | the first campaign file: four existing missions, all three carried facts demonstrated |
+| `mods/f16/src/campaigns/viper-attrition.fbc` | the first campaign file: four existing missions, all three carried facts demonstrated |
 | `sim/tools/fb_campaign_verify.py` | the instrument: `fingerprint` / `campaign` / `determinism` / `replay` |
 
 **Output per campaign** (`--out DIR`): `NN-<missionfile>/` per step with the ordinary per-run files plus
@@ -242,7 +242,7 @@ before its judges are finished.
 ### The clock was missing from the replay half, and the second campaign found it (2026-07-29)
 
 Criterion 2 is a statement about the campaign layer, and it was only ever tested on `viper-attrition`,
-which declares **no** `time`. The first campaign that does — `sim/campaigns/o4-gaf-mig29g-dact.fbc`
+which declares **no** `time`. The first campaign that does — `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc`
 ([`../campaigns/o4-gaf-mig29g-dact.md`](../campaigns/o4-gaf-mig29g-dact.md)) — replayed **9 of 10 steps
 DIVERGED** on the first attempt, and the one that matched was the only mission declaring its own clock.
 The cause is exactly what criterion 2 exists to catch: `FBMissionCarry` has carried `CampaignUtcT0S` /
@@ -259,7 +259,7 @@ Closed the way §5 closes the ground rather than by a better default, because it
 
 MEASURED after the fix: O4's ten steps **10/10 MATCH**, and `viper-attrition` is unchanged — 9 runs one
 campaign fingerprint, 4/4 standalone replays MATCH. Conservation for the flag itself: `fb-gym` built with
-the two touched sources reverted, both binaries over all **150** `sim/missions/*.fbm` — **515/515
+the two touched sources reverted, both binaries over all **150** `mods/f16/src/missions/*.fbm` — **515/515
 `telemetry*.csv` byte-identical, 150/150 `events.log` identical modulo `wallS`/`speedup`/`--out`**, exit
 codes identical. A `--mission` run without the flag takes the same `nullptr` path it always did.
 
@@ -284,7 +284,7 @@ lines, two `SPAWN` lines. A state file that asks for more produces exactly the u
 
 ### Conservation
 
-All **104** `sim/missions/*.fbm` + `missions/negative/*.fbm`, run singly as before, produce
+All **104** `mods/f16/src/missions/*.fbm` + `missions/negative/*.fbm`, run singly as before, produce
 **fingerprints identical to the pre-round binary** — same exit code, same telemetry bytes, same
 `events.log`. The reference binary was built from the same tree with the five touched files reverted.
 
@@ -292,7 +292,7 @@ All **104** `sim/missions/*.fbm` + `missions/negative/*.fbm`, run singly as befo
 
 | Gap | Detail |
 |---|---|
-| ~~Only one campaign file exists~~ | **TWO as of 2026-07-29.** `sim/campaigns/o4-gaf-mig29g-dact.fbc` is the first of the ten real campaigns: ten new `.fbm`, both criteria measured on it, and it is the run that found the clock hole above. The other nine campaigns still have no `.fbm` files |
+| ~~Only one campaign file exists~~ | **TWO as of 2026-07-29.** `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc` is the first of the ten real campaigns: ten new `.fbm`, both criteria measured on it, and it is the run that found the clock hole above. The other nine campaigns still have no `.fbm` files |
 | **A controlled variant cannot share a callsign with its control** | learnt building O4 and worth stating here, because it is a property of the LAYER: the store carry is keyed by callsign, so a mission that is "its sibling plus one line" ALSO inherits that sibling's expenditure and stops being a control. The rule that falls out — carry chains and controlled pairs must not overlap — is a campaign-authoring constraint the format cannot enforce |
 | The environment record names the DEM, it does not fingerprint it | `swiss_dem assets/swiss-dem-90m.bin` is a path. Re-bake the asset and every fingerprint changes while the record still reads the same — the comparison would then be across two grounds calling themselves one. Under `--elev tiles` it is worse and unfixable here: the ground is a live server's answer, so a `tiles` campaign is not replayable across time at all. **Never measured under `tiles`** |
 | ~~Both criteria are measured on ONE campaign~~ | **two campaigns, and the second one earned its keep**: O4's ten steps under `--elev const` (9 runs / 1 fingerprint `461e0ff5299d83d03b…`, 10/10 replays). The advice stands unchanged — every further campaign re-runs `tools/fb_campaign_verify.py replay` for itself, and O4 is the reason it is not optional |

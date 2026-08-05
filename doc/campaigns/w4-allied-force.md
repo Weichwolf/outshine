@@ -3,7 +3,7 @@
 **What this file is:** a **campaign spec** — ten missions derived from one historical anchor, plus the
 cast they need and the honest list of what FlightBox cannot do for them yet.
 
-**Status: BUILT AND FLOWN 2026-07-29** — `sim/missions/w4-*.fbm` + `sim/campaigns/w4-allied-force.fbc`,
+**Status: BUILT AND FLOWN 2026-07-29** — `mods/f16/src/missions/w4-*.fbm` + `mods/f16/src/campaigns/w4-allied-force.fbc`,
 ten of ten runnable against a spec that called four runnable, both determinism criteria on the first
 attempt, the replay run after the first mission. §State carries the numbers; the Spec below is left
 standing as written and its departures are listed in §State.
@@ -91,10 +91,10 @@ nothing else).
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the seventh of the ten campaigns to exist as files, and the one whose
-subject is FINDING rather than killing.** Ten `.fbm` in `sim/missions/w4-*.fbm` plus
-`sim/campaigns/w4-allied-force.fbc`, run as a campaign, replayed step by step, and measured. **No file
-under `sim/src/`, `sim/tools/` or `sim/assets/` was touched** (`git status --porcelain` lists eleven
-new untracked files and **no modified one**), so the **205** pre-existing `sim/missions/*.fbm` are
+subject is FINDING rather than killing.** Ten `.fbm` in `mods/f16/src/missions/w4-*.fbm` plus
+`mods/f16/src/campaigns/w4-allied-force.fbc`, run as a campaign, replayed step by step, and measured. **No file
+under `sim/src/`, `sim/tools/` or `mods/f16/src/` was touched** (`git status --porcelain` lists eleven
+new untracked files and **no modified one**), so the **205** pre-existing `mods/f16/src/missions/*.fbm` are
 byte-identical **by construction rather than by comparison**.
 
 ### The spec's own headline is superseded, and by measurement
@@ -244,7 +244,7 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 > substance**, booked in `pilot.md` §7.4b on 2026-07-30 and recorded here.
 
 **And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
-(`sim/campaigns/w4-step1-check.fbc`, deleted afterwards): `01 … campaign fp=bc669334ab3c0186 standalone
+(`mods/f16/src/campaigns/w4-step1-check.fbc`, deleted afterwards): `01 … campaign fp=bc669334ab3c0186 standalone
 fp=bc669334ab3c0186 MATCH`. **Annotating the ten files with their MEASURED blocks after the runs left
 all ten per-mission fingerprints and the campaign fingerprint unchanged** — the check that a comment is
 a comment.
@@ -303,7 +303,7 @@ discovered by building:
 ### Conservation, and the gates
 
 `git status --porcelain` lists **eleven new untracked files and no modified one**: ten
-`sim/missions/w4-*.fbm` and one `sim/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
+`mods/f16/src/missions/w4-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
 warning-free; `verify-layers` *"301 files, 828 internal include(s), 12 layers — no upward include, 3
 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue
 poster(s), 288 file(s) in their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4

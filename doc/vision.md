@@ -78,7 +78,7 @@ comparison is not a defect; a MiG-29 with the wrong envelope is.
 
 | Class | What it is | Rule |
 |---|---|---|
-| `sim/missions/*.fbm` | **measuring rigs for the gym** — the control loop works with these | they stay exactly as strict as they are: declared spawn, declared objectives, machine-readable verdict |
+| `mods/f16/src/missions/*.fbm` | **measuring rigs for the gym** — the control loop works with these | they stay exactly as strict as they are: declared spawn, declared objectives, machine-readable verdict |
 | Missions for humans | scenarios, later and looser | a scenario layer **over** the `.fbm` format (roadmap R9), not a second dialect |
 
 The owner put the split in one sentence, and it decides more than it looks like:

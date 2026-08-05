@@ -30,7 +30,7 @@ Resolved out of the open list at the head of the round:
 
 | Question | Answer taken |
 |---|---|
-| Model source for a unit mesh | `sim/assets/models/<type>_L*.glb` + `<type>.asset.json`, read by a stdlib-only GLB reader in `render/`. `<type>` is the module registry key the unit already publishes (`Visual.TypeName`), so nothing new names an airframe |
+| Model source for a unit mesh | `mods/f16/src/models/<type>_L*.glb` + `<type>.asset.json`, read by a stdlib-only GLB reader in `render/`. `<type>` is the module registry key the unit already publishes (`Visual.TypeName`), so nothing new names an airframe |
 | LOD policy | the sidecar's own `lod_switch.steps[].max_range_m` table, read at load, applied by slant range — no second opinion in the renderer (§4) |
 | Ground targets: silhouette or marker | undecided and untouched; a ground module publishes no `Visual.TypeName` today, so it simply does not draw |
 

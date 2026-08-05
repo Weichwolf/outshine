@@ -125,9 +125,9 @@ calibration number.
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the third of the ten campaigns to exist as files.** Ten `.fbm` in
-`sim/missions/o5-*.fbm` plus `sim/campaigns/o5-airfield-defence.fbc`, run as a campaign, replayed step
-by step, and measured. **No file under `sim/src/` and none under `sim/assets/` was touched**
-(`git status --porcelain sim/assets` empty, `verify-models` *"4 upstream-backed model path(s) match …
+`mods/f16/src/missions/o5-*.fbm` plus `mods/f16/src/campaigns/o5-airfield-defence.fbc`, run as a campaign, replayed step
+by step, and measured. **No file under `sim/src/` and none under `mods/f16/src/` was touched**
+(`git status --porcelain mods/f16/src` empty, `verify-models` *"4 upstream-backed model path(s) match …
 (1 declared delta(s), 34 FlightBox-own)"*, `verify-layers` unchanged word for word), so the 160
 pre-existing missions are byte-identical **by construction rather than by comparison**: the binary is
 the one that was already there.
@@ -313,7 +313,7 @@ earn its luck.
 ### Conservation, and one control that had to be run
 
 **Nothing to compare, and that is the strongest form of it.** `git status --porcelain` lists eleven new
-untracked files and **no modified one**: ten `sim/missions/o5-*.fbm` and one `sim/campaigns/*.fbc`. No
+untracked files and **no modified one**: ten `mods/f16/src/missions/o5-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. No
 `sim/src/` file, no tool and no asset was touched, so the binary that flew O5 is the binary that flew
 everything before it and the 160 pre-existing missions are byte-identical by construction. Gates:
 `make core-lib gym native wasm` warning-free; `verify-layers` *"297 files, 805 internal include(s), 12

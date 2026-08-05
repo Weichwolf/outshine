@@ -14,7 +14,7 @@ is the one artefact in this tree that can be *finished* without being *understoo
 > **Version the recipe, never the cake.**
 
 A `.glb` is a build output. What is committed is the script that produces it, the dimensions it was
-produced from, and the sources those dimensions came from. `sim/assets/models/.gitignore` already
+produced from, and the sources those dimensions came from. `mods/f16/src/models/.gitignore` already
 excludes `*.glb` for exactly this reason, and the F-16 round proved it works: `build_f16.py` +
 `f16_geometry.py` + `f16.asset.json`, four LOD levels regenerated on demand.
 
@@ -34,7 +34,7 @@ each is a thing that goes wrong when it is missing:
 ### 2. What that means per asset
 
 ```
-sim/assets/models/<name>/
+mods/f16/src/models/<name>/
   build_<name>.py      the recipe — headless Blender, deterministic
   <name>_geometry.py   named dimensions, each with [SOURCE] / [DERIVED] / [SET]
   <name>.asset.json    LOD ladder, triangle counts, moving-node names, acceptance record

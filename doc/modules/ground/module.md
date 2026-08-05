@@ -382,7 +382,7 @@ The round is done when these are **measured**, not argued:
 files: `FBSiteModule.h/.cpp` (the position), `FBSiteFireControl.h/.cpp` (the engagement machine) and
 `FBSiteRadar.h` (one parametric radar, two configured instances). `core/FBSite.h` carries the nine
 catalogue rows; `core/FBStore.h` six new rounds and `FBSeekerKind::CommandGuided`; `core/FBGun.h` the
-two 23 mm guns. Six FlightBox-own JSBSim decks under `sim/assets/aircraft/` from one generated recipe.
+two 23 mm guns. Six FlightBox-own JSBSim decks under `mods/f16/src/aircraft/` from one generated recipe.
 
 | Measured | Number |
 |---|---|

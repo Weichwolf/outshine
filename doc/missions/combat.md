@@ -21,7 +21,7 @@ registry, world truth and datalink tracks are unreachable for the pilot. A BFM m
 mandatorily contains `set datalink off` (otherwise the sensor restriction would only be claimed) and an
 auto-lock mode (`set fcr_mode acm_hud` or similar — CRM does not lock by itself).
 
-Examples: `sim/missions/bfm-basic.fbm` (pursuer 2 nm behind), `bfm-offset.fbm` (pursuer laterally
+Examples: `mods/f16/src/missions/bfm-basic.fbm` (pursuer 2 nm behind), `bfm-offset.fbm` (pursuer laterally
 offset, aspect ~90° = angular disadvantage), `bfm-merge.fbm` (head-on merge, aspect 180°),
 `bfm-blind.fbm` (offset merge — the pass BREAKS THE LOCK and shows extrapolation + search +
 reacquisition).
@@ -32,7 +32,7 @@ decision tick and the gun first. The missile shot needs nothing new in the missi
 briefed, an IR round on a rail and the same auto-lock mode the phase already requires. Its five gates
 and their derivation are [`../pilot.md`](../pilot.md) §5.11; what a mission author sees is that a
 `set task bfm` unit carrying `aim9`/`r73` now fires them and that such a fight can end in exit 0 rather
-than only in TIMEOUT (`sim/missions/duel-merge.fbm`, `duel-merge-stern.fbm`).
+than only in TIMEOUT (`mods/f16/src/missions/duel-merge.fbm`, `duel-merge-stern.fbm`).
 
 **The search is target-motion aware.** It does not fly to the last MEASURED position (he is long gone
 from there) but to the DATUM from `pilot/FBBfmTrack::Datum`: last vector propagated forward as long
@@ -119,7 +119,7 @@ engagement has no waypoint objective. The verdict stands in the LAST LINE of the
 | `eng_defend_s` / `eng_chaff` / `eng_shots` | seconds in the defence, chaff CARTRIDGES actually expelled (the CMDS set's count, not the count of switch throws), shots fired |
 | `eng_es` / `eng_es_min` | **energy state over the course**: energy height now and its minimum since the start of the engagement |
 
-Examples: `sim/missions/bvr-intercept.fbm` (one-sided: a non-shooting target, the whole chain search →
+Examples: `mods/f16/src/missions/bvr-intercept.fbm` (one-sided: a non-shooting target, the whole chain search →
 detection → shot → guidance → hit), `bvr-duel.fbm` (**two-sided**: two AI jets, both armed, both with
 RWR and countermeasures — nearly mirror-symmetric and therefore a stalemate; since the pilot returns to
 the datum after the defence it is a stalemate WITH a second and third attempt instead of two jets
@@ -145,7 +145,7 @@ Inside `set task intercept` a declared flight additionally sorts its targets fro
 collectively sees, and defers a shot that would leave the flight with nobody free. Fourteen `flt_*`
 telemetry columns and the `flight SORT_ASSIGN` / `SORT_DROP` / `COVER_DEFER` / `SPLIT` events report
 all of it. The rules, the derivations and the measurements are in [`../formation.md`](../formation.md);
-the missions are `sim/missions/pair-formation.fbm`, `pair-2v2-f16.fbm`, `pair-2v2-asym.fbm`,
+the missions are `mods/f16/src/missions/pair-formation.fbm`, `pair-2v2-f16.fbm`, `pair-2v2-asym.fbm`,
 `pair-cover.fbm` and `four-4v4-asym.fbm`.
 
 ### Pilot variants (`set pilot_*`) and the tournament

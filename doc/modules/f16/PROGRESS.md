@@ -482,7 +482,7 @@ that a reader can hold reference and implementation side by side without learnin
   (45° vs. ±30°), steerpoint count (99 vs. 127), ADI glideslope scale (0.7° vs. 2.5°/dot), gun drum
   (510 vs. 512). All still carry both values and their flags.
 - `flight-model.md` inverted, per its subject: `Spec` is one line (the pinned model as flown plus the
-  declared deltas → `sim/assets/MODEL-DELTAS.md`), §1–§10 are `State`, §12 is `Gaps`, §11 (the handover
+  declared deltas → `mods/f16/src/aircraft/MODEL-DELTAS.md`), §1–§10 are `State`, §12 is `Gaps`, §11 (the handover
   checklist) is `Knowledge`.
 - `INDEX.md` and `PROGRESS.md` are meta files and carry no schema. INDEX gained a statement of the
   schema plus a **coverage-at-a-glance table** (one line per file, from its `State`).

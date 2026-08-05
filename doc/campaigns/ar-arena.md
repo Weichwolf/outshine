@@ -1,7 +1,7 @@
 # AR — the arena: ten measuring rungs for the doctrine evolution
 
-**What this file is:** the spec of an **instrument**, not of a campaign. `sim/campaigns/ar-arena.fbc`
-plus `sim/missions/ar-01-*.fbm` … `ar-10-*.fbm` are ten synthetic cells built to the four properties
+**What this file is:** the spec of an **instrument**, not of a campaign. `mods/f16/src/campaigns/ar-arena.fbc`
+plus `mods/f16/src/missions/ar-01-*.fbm` … `ar-10-*.fbm` are ten synthetic cells built to the four properties
 [`../doctrine-evolution.md`](../doctrine-evolution.md) round `E11` **measured** a cell must carry before
 it can be informative — and to nothing else.
 
@@ -115,7 +115,7 @@ same exit code and the same objective vector.
 | `arNNnet` | wire, period 4.0, hold 3, `wcs free`, fire units on `autonomy hold` | — |
 
 **Why the hard targets carry no objective, derived rather than asserted.** The Mk 84's own fragment law
-is `flux(r) = 2.81e7 / r²` J/m² (`sim/missions/mk84-radius.fbm`), `target_hard`'s structure fails at
+is `flux(r) = 2.81e7 / r²` J/m² (`mods/f16/src/missions/mk84-radius.fbm`), `target_hard`'s structure fails at
 `9.0e4` and `target_soft`'s at `2.8e3` (`sim/src/modules/ground/FBGroundTarget.h`). So
 
     hard: r_fail = sqrt(2.81e7 / 9.0e4) = 17.7 m       soft: r_fail = sqrt(2.81e7 / 2.8e3) = 100.2 m
@@ -190,7 +190,7 @@ says the same from the other side: **rungs 06, 07 and 08 lose aircraft on both t
 |---|---|---|
 | Each rung over `--threads 1/2/4` | one telemetry fingerprint | **10/10: one MD5 over all `telemetry*.csv` per rung, identical at 1, 2 and 4**; identical exit code at all three |
 | `fb-gym --campaign campaigns/ar-arena.fbc --threads 1` | runs, ten steps | see §State 4 |
-| `git status --porcelain sim/missions sim/assets` | no existing file modified | **ten `??` lines and nothing else** |
+| `git status --porcelain mods/f16/src/missions mods/f16/src` | no existing file modified | **ten `??` lines and nothing else** |
 | Build | `make -C sim core-lib gym` warning-free | `libfbcore.a` (86 objects), `fb-gym` with 0 Dawn/WebGPU symbols |
 
 ### 4. One gradability probe, reported as a probe and not as a gate result

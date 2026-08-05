@@ -13,10 +13,10 @@ What a proof is, and what has to hold before a change counts as verified.
 | `nm` gate | `build/fb-gym` contains zero Dawn/WebGPU symbols |
 | Harnesses | all seven test binaries rc=0 |
 | Frame proof | build-effective changes need a rendered frame **or** a numerical measurement |
-| Regression | telemetry of all `sim/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
+| Regression | telemetry of all `mods/f16/src/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
 | Determinism | `--threads 1/2/4` × repetitions produce a single signature |
 | WASM | `make -C sim wasm` builds and the app boots in the browser — the one client used daily |
-| Model deltas | `make -C sim verify-models` green: every copy deviates from the pinned upstream by EXACTLY the entries in `sim/assets/MODEL-DELTAS.md` |
+| Model deltas | `make -C sim verify-models` green: every copy deviates from the pinned upstream by EXACTLY the entries in `mods/f16/src/aircraft/MODEL-DELTAS.md` |
 | vendor read-only | `sim/vendor/jsbsim` is never modified; only the COPY changes, and then as a named delta |
 
 Two rules about how measuring is done at all: accepted properties of the vanilla JSBSim F-16 are the
@@ -88,10 +88,10 @@ A change counts as verified only once it passes these checks.
 | **Declarations** | `make -C sim verify-tests`: every `tier: A` declaration under `sim/test/` inside its band ([`testing.md`](testing.md)) |
 | **Tree congruence** | `make -C sim verify-trees`, and the orphan count it prints is read |
 | **Frame proof** | build-effective changes need a rendered frame **or** a numerical measurement |
-| **Regression** | telemetry of all `sim/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
+| **Regression** | telemetry of all `mods/f16/src/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
 | **Determinism** | `--threads 1/2/4` × repetitions produce a single signature |
 | **WASM** | `make -C sim wasm` builds and the app boots in the browser — the only client that is used daily; a broken boot is more expensive than any other defect |
-| **Model deltas** | `make -C sim verify-models` green: every copy under `sim/assets/aircraft` deviates from the pinned upstream by EXACTLY the entries in `sim/assets/MODEL-DELTAS.md` |
+| **Model deltas** | `make -C sim verify-models` green: every copy under `mods/f16/src/aircraft` deviates from the pinned upstream by EXACTLY the entries in `mods/f16/src/aircraft/MODEL-DELTAS.md` |
 | **Layer + count gate** | `make -C sim verify-layers` green, and the numbers it PRINTS are read: 6 registry readers, 1 antenna-cue poster, 1 simulation-loop driver |
 | **Guarantee gate** | `make -C sim verify-guards`: eight two-line translation units against the real headers, six of which must FAIL to compile ([`conventions.md`](conventions.md), "A rule nobody can forget to obey") |
 | **vendor read-only** | `sim/vendor/jsbsim` is never modified — engine as well as models. At most the COPY is changed, and then as a named delta entry |
@@ -146,7 +146,7 @@ define mission  →  simulate headless  →  analyse telemetry mechanically  →
 Format `.fbm`, line-based, zero-dependency — [`doc/missions/INDEX.md`](missions/INDEX.md). Parsed by
 `core/FBMissionFile.h` (a pure text→`FBMission` function, no file I/O — that is the app's job).
 
-A SEQUENCE of missions is a campaign, `sim/campaigns/*.fbc`, run with `fb-gym --campaign FILE --out DIR`
+A SEQUENCE of missions is a campaign, `mods/f16/src/campaigns/*.fbc`, run with `fb-gym --campaign FILE --out DIR`
 ([`missions/campaign.md`](missions/campaign.md)): the same loop N times, with destroyed units, destroyed
 ground targets and expended stores carried between the steps through a text state file. It writes
 `DIR/NN-<mission>/` per step (the ordinary per-run files plus `campaign-state.txt`) and
@@ -190,5 +190,5 @@ No hidden agent memory — all operational knowledge is here.
 | Git | commit mail is the GitHub noreply alias; push via SSH insteadOf |
 | `timeout(1)` | **does not exist on macOS** — do not build it into scripts |
 
-The mission files are copied from `sim/missions/` to `sim/web/missions/` during the WASM build; the copy
+The mission files are copied from `mods/f16/src/missions/` to `sim/web/missions/` during the WASM build; the copy
 is gitignored. A hand-kept second copy would be a source of errors, and once was.

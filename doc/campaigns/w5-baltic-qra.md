@@ -87,10 +87,10 @@ campaign set.
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the fifth of the ten campaigns to exist as files, and the first in
-which the F-16 flies.** Ten `.fbm` in `sim/missions/w5-*.fbm` plus `sim/campaigns/w5-baltic-qra.fbc`,
+which the F-16 flies.** Ten `.fbm` in `mods/f16/src/missions/w5-*.fbm` plus `mods/f16/src/campaigns/w5-baltic-qra.fbc`,
 run as a campaign, replayed step by step, and measured. **No file under `sim/src/`, `sim/tools/` or
-`sim/assets/` was touched** (`git status --porcelain` lists eleven new untracked files and **no
-modified one**), so the **183** pre-existing `sim/missions/*.fbm` are byte-identical **by construction
+`mods/f16/src/` was touched** (`git status --porcelain` lists eleven new untracked files and **no
+modified one**), so the **183** pre-existing `mods/f16/src/missions/*.fbm` are byte-identical **by construction
 rather than by comparison**.
 
 ### The spec's own headline is superseded, and by measurement
@@ -225,7 +225,7 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 | **2 — re-run 2026-07-30 (`E6`)** | every step re-run STANDALONE against the new reference tree | **10/10 MATCH**, exit codes included |
 | Per-step fingerprints, 2026-07-30 (`E6`) | | `077a07561aef0307 f4046f5ae9226503 a3a8ba1009d89f20 35cdecfdbb031205 820132863aaf0943 1d27b6c9554c1749 081a5338c098a955 35a6479242106a2a 77236d173700af84 9389a0d974d32d89` |
 
-**And the replay was run after the FIRST mission this time.** `sim/campaigns/w5-step1-check.fbc`, a
+**And the replay was run after the FIRST mission this time.** `mods/f16/src/campaigns/w5-step1-check.fbc`, a
 throwaway one-step campaign containing only `w5-01`, was run and replayed **before** the ten were
 finalised: `01 … campaign fp=08185df54db8ad9e standalone fp=08185df54db8ad9e MATCH`. The file was
 deleted afterwards; it is not part of the campaign. Two previous rounds confessed running the replay
@@ -267,7 +267,7 @@ cannot.**
 ### Conservation, and the gates
 
 `git status --porcelain` lists **eleven new untracked files and no modified one**: ten
-`sim/missions/w5-*.fbm` and one `sim/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
+`mods/f16/src/missions/w5-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
 warning-free; `verify-layers` *"300 files, 826 internal include(s), 12 layers — no upward include, 3
 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 287 file(s) in
 their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4 upstream-backed model

@@ -505,7 +505,7 @@ actor's own FAIL in its `UNIT_RESULT` line; what it no longer does is decide the
    ([`../doctrine-evolution.md`](../doctrine-evolution.md) X-1, closed 2026-07-30). It changes **when
    a judge finishes, never when the RUN ends**: `FirstFlightKo` is untouched to the tick, and because
    step 3 runs AFTER step 2, a monitor closing there cannot move `ko`, `failed`, `judged` or `result`.
-   [MESS] all 251 `sim/missions/*.fbm`: 0 telemetry values moved, 0 exit codes moved, 27 `events.log`
+   [MESS] all 251 `mods/f16/src/missions/*.fbm`: 0 telemetry values moved, 0 exit codes moved, 27 `events.log`
    gained lines.
 
 **The one line that is not an addition, and it is a rule that already existed.** A unit that had been
@@ -802,7 +802,7 @@ file-per-unit needs no special case at N=1 — the rows stay byte-identical.
 
 ### 11. `FBModelRoots` — the ONE model root
 
-**Why one.** Everything FlightBox flies lies under `sim/assets/aircraft` — a self-contained directory per
+**Why one.** Everything FlightBox flies lies under `mods/f16/src/aircraft` — a self-contained directory per
 model (`.xml` plus its own `engine/` and `Systems/` subdirectories, JSBSim's own per-aircraft layout).
 Today `f16`, `mk82` and `aim120`.
 

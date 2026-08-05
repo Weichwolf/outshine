@@ -15,7 +15,7 @@ own file, on the precedent `duels.md` already set — and the mirror rule of
 | `sim/src/sensors/FBDatalinkSystem.cpp` | fills it, and the `fl` filter index that is now a declaration |
 | `sim/src/pilot/FBFlightPicture.h` / `.cpp` | the shared picture, the assignment, the cover state, the `flt_*` channels |
 | `sim/src/pilot/FBPilot.cpp` | phase `Formation`, the wingman's station, the sort in the intercept, the cover deferral |
-| `sim/missions/pair-*.fbm`, `four-4v4-asym.fbm` | the measurement rigs |
+| `mods/f16/src/missions/pair-*.fbm`, `four-4v4-asym.fbm` | the measurement rigs |
 | `sim/tools/fb_flight_report.py`, `sim/tools/variants-flight.txt` | the analysis tool and the flight tournament |
 
 Convention: **[MESS]** = measured in this campaign, **[HERL]** = derived from a named relation,

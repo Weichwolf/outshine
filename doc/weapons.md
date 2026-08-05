@@ -14,7 +14,7 @@ propagates through the avionics bus, HUD, warning set, command bus and flight ph
 | Damage | `sim/src/core/FBDamageModel.{h,cpp}`, `sim/src/core/FBSystemHealth.{h,cpp}`, `sim/src/units/FBSimUnit.{h,cpp}` |
 | Module data | `sim/src/modules/f16/FBF16Damage.{h,cpp}`, `sim/src/modules/f16/FBF16Sms.h`, `sim/src/modules/f16/FBF16Gun.h`, `sim/src/modules/ground/FBGroundTarget.h` |
 | Weapon modules | `sim/src/modules/stores/`, `sim/src/modules/missile/`, `sim/src/modules/ground/` |
-| Weapon model | `sim/assets/aircraft/aim120/` (`aim120.xml`, `engine/WPU-6.xml`) |
+| Weapon model | `mods/f16/src/aircraft/aim120/` (`aim120.xml`, `engine/WPU-6.xml`) |
 | Catalogues (TYPES) | `sim/src/core/FBStore.h`, `sim/src/core/FBGun.h` — **documented as types in `core.md`**; here their BEHAVIOUR |
 | Mission side | `doc/missions/weapons.md` (sections "Weapons", "The gun", "Air-to-ground attack", "Ground targets") |
 
@@ -1617,8 +1617,8 @@ anything about the flight.
 
 ##### The model is FlightBox's OWN
 
-`sim/assets/aircraft/aim120/` — in the same single model root as f16 and mk82, but as the only model
-WITHOUT an upstream counterpart (`sim/assets/MODEL-DELTAS.md`, provenance table: `—`). The pinned JSBSim
+`mods/f16/src/aircraft/aim120/` — in the same single model root as f16 and mk82, but as the only model
+WITHOUT an upstream counterpart (`mods/f16/src/aircraft/MODEL-DELTAS.md`, provenance table: `—`). The pinned JSBSim
 submodule has no AMRAAM; so there is nothing to diff here, only a self-written model. Nothing under
 `vendor/` is touched by its existence.
 
@@ -1715,7 +1715,7 @@ predicted time of flight for its support window and `Pitbull` can never become t
 mutually exclusive on an airframe whose doctrine says so. **No new architecture: three hooks and one
 state-transition guard**, exactly as `doc/modules/mig29/weapons.md` §3.2 predicted.
 
-**The three decks** are FlightBox's own (`sim/assets/aircraft/{aim9,r73,r27r}`, MODEL-DELTAS provenance
+**The three decks** are FlightBox's own (`mods/f16/src/aircraft/{aim9,r73,r27r}`, MODEL-DELTAS provenance
 `—`), built from the AIM-120's slender-body set, which is NON-DIMENSIONAL and describes a finned
 cylindrical body. Per round only what depends on its own proportions is recomputed — the reference area
 `S = πd²/4`, the fin arm in calibres, and `Cm_de = -CN_de · arm` with `Cm_alpha` set to hold the same

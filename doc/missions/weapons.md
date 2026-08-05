@@ -26,10 +26,10 @@ Two store classes, one mechanism — which class a catalogue entry is, its `Guid
 
 | Class | Model | Module | Behaviour in flight |
 |---|---|---|---|
-| unguided (`mk82`) | `sim/assets/aircraft/mk82` (copy of the pinned upstream) | `modules/stores/FBStoreModule` (all slots default/NoOp) | integrate, nothing else |
-| guided, active radar (`aim120`) | `sim/assets/aircraft/aim120` — FlightBox's OWN, the pinned submodule has no AMRAAM | `modules/missile/FBMissileModule` (seeker + guidance + uplink receiver) | seeker acquires, guidance law commands the simulated fins |
-| guided, infrared (`aim9`, `r73`) | `sim/assets/aircraft/{aim9,r73}` — FlightBox's OWN | the SAME module; the seeker slot is `FBMissileIrSeeker`, an `sensors/FBIrstSystem` | ANGLES only, pure PN on the measured line-of-sight rate, deceivable by the target's flares |
-| guided, semi-active (`r27r`) | `sim/assets/aircraft/r27r` — FlightBox's OWN | the SAME module; the radar seeker, gated by the shooter's illumination | dies with the shooter's lock and never comes back |
+| unguided (`mk82`) | `mods/f16/src/aircraft/mk82` (copy of the pinned upstream) | `modules/stores/FBStoreModule` (all slots default/NoOp) | integrate, nothing else |
+| guided, active radar (`aim120`) | `mods/f16/src/aircraft/aim120` — FlightBox's OWN, the pinned submodule has no AMRAAM | `modules/missile/FBMissileModule` (seeker + guidance + uplink receiver) | seeker acquires, guidance law commands the simulated fins |
+| guided, infrared (`aim9`, `r73`) | `mods/f16/src/aircraft/{aim9,r73}` — FlightBox's OWN | the SAME module; the seeker slot is `FBMissileIrSeeker`, an `sensors/FBIrstSystem` | ANGLES only, pure PN on the measured line-of-sight rate, deceivable by the target's flares |
+| guided, semi-active (`r27r`) | `mods/f16/src/aircraft/r27r` — FlightBox's OWN | the SAME module; the radar seeker, gated by the shooter's illumination | dies with the shooter's lock and never comes back |
 
 ### Declaring a load-out
 

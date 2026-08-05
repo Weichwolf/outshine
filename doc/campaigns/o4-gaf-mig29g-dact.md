@@ -110,8 +110,8 @@ Both missions this section calls blocked were re-checked against the tree instea
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the first of the ten campaigns to exist as files.** Ten `.fbm` in
-`sim/missions/o4-*.fbm` plus `sim/campaigns/o4-gaf-mig29g-dact.fbc`, run as a campaign, replayed
-step by step, and measured. Nothing under `sim/assets/` was touched (`git status --porcelain sim/assets`
+`mods/f16/src/missions/o4-*.fbm` plus `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc`, run as a campaign, replayed
+step by step, and measured. Nothing under `mods/f16/src/` was touched (`git status --porcelain mods/f16/src`
 empty, `verify-models` green) and every pre-existing mission is byte-identical.
 
 ### The arena, and why it is where it is
@@ -208,7 +208,7 @@ as the receiving flag — campaign data, never a client clock, so it fills in fo
 ### Conservation
 
 `fb-gym` built from the same tree with the two touched sources reverted, both binaries run over all
-**150** `sim/missions/*.fbm`: **515/515 `telemetry*.csv` byte-identical, 150/150 `events.log` identical
+**150** `mods/f16/src/missions/*.fbm`: **515/515 `telemetry*.csv` byte-identical, 150/150 `events.log` identical
 modulo `wallS`/`speedup`/the `--out` path, exit codes identical.** The same 150 missions at
 `--threads 1`, `2` and `4`: **0 differing files.** `viper-attrition` re-verified: 9 runs one fingerprint
 (`dfa2f97d026e0fa2…`), 4/4 standalone replays MATCH.
@@ -255,7 +255,7 @@ worth more than any doctrine lever measured in [`../duels.md`](../duels.md).
 
 | ID | What is missing | State here |
 |---|---|---|
-| ~~`C0`~~ | no campaign layer | **CLOSED before this round** and consumed by it: `sim/campaigns/o4-gaf-mig29g-dact.fbc`, both criteria measured above. This campaign found and closed the layer's clock hole |
+| ~~`C0`~~ | no campaign layer | **CLOSED before this round** and consumed by it: `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc`, both criteria measured above. This campaign found and closed the layer's clock hole |
 | ~~`pilot.md` 2.9~~ (for mission 6) | neither ACM box re-acquires after the first pass | **NO LONGER BLOCKING.** The merge is decided on the FIRST pass (`o4-06` exit 0 at t = 6.5 s), so there is no second pass to acquire for. The gap itself is open and still owns any fight that survives a merge |
 | `C2` + `C3` (for mission 9) | **now BUILT, and mission 9 runs — and cannot answer its question** | the hole moved from "cannot be declared" to "is declared and reaches nobody". MEASURED: 6 of 184 columns, 0 visual contacts at night, identical kill at an identical tick. What is missing is a CONSUMER of `FBVisualBlock` in `pilot/FBPilot`, plus an aircraft-lighting model without which the channel is empty after sunset regardless |
 | `D3` (`duels.md`) | **the pilot does not use the IRST** | the sharpest gap this campaign hit, and it now has two independent measurements: no consumer (so masking it changes nothing) and no aspect (so on a head-on entry there was nothing to mask — `irst_contacts` = 0 in both sortie-4 and sortie-8) |

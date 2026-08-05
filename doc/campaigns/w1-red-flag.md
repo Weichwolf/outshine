@@ -1,6 +1,6 @@
 # W1 — Red Flag / Nellis (DACT against aggressors)
 
-**Status: BUILT AND FLOWN 2026-07-30** — ten `sim/missions/w1-*.fbm` + `sim/campaigns/w1-red-flag.fbc`,
+**Status: BUILT AND FLOWN 2026-07-30** — ten `mods/f16/src/missions/w1-*.fbm` + `mods/f16/src/campaigns/w1-red-flag.fbc`,
 both determinism criteria on the first attempt, the replay run after the FIRST mission, three findings,
 and the anchor raised to **[T1]** on the same round (the 403-blocked fact sheet was read through the
 Wayback Machine). See §State. **It is also the only campaign checked against
@@ -118,7 +118,7 @@ number and dropping one would break the ladder.
 
 ## State
 
-**BUILT AND FLOWN 2026-07-30.** Ten `sim/missions/w1-*.fbm` plus `sim/campaigns/w1-red-flag.fbc`. The
+**BUILT AND FLOWN 2026-07-30.** Ten `mods/f16/src/missions/w1-*.fbm` plus `mods/f16/src/campaigns/w1-red-flag.fbc`. The
 ninth of the ten campaigns to exist as files, and the first whose **anchor moved to [T1] on the round
 that built it**. No `sim/src/` file, no tool and no asset was touched — `git status --porcelain` lists
 eleven new untracked files and no modified one, so the 226 pre-existing missions are byte-identical by

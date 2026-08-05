@@ -888,7 +888,7 @@ therefore a real property of an LGB shot and not of a JDAM shot, and it is the t
 | warhead masses, launch masses, footprints, submunition counts, release envelopes, muzzle velocities | this file, §§2–3, and [`modules/f16/weapons.md`](modules/f16/weapons.md) §3 / [`modules/mig29/weapons.md`](modules/mig29/weapons.md) §5 | **sourced**, tiered, disputes carried both ways |
 | `SeekerFovDeg`, `SeekerMemoryS`, `FuzeRadiusM`, `arm_class`, the cluster footprint choice | this file | **`[SET]`**, each with one sentence of reason; `SeekerMemoryS` is the only one that decides a shot |
 | fragility thresholds, `kCaseFraction`, `kFragSpeedMs`, `kNavConstant` | [`weapons.md`](weapons.md) §6/§9/§10 | **unchanged and untouched** — every number in §Knowledge 2/3 is derived from them, which is why the new rows produce verdicts rather than assertions |
-| aerodynamic decks | `sim/assets/aircraft/<key>/`, by the slender-body recipe | **`[DERIVED]`**; the bomb decks inherit the Mk-82's declared fidelity caveat |
+| aerodynamic decks | `mods/f16/src/aircraft/<key>/`, by the slender-body recipe | **`[DERIVED]`**; the bomb decks inherit the Mk-82's declared fidelity caveat |
 | the ZEM law | §Knowledge 1 | **`[DERIVED]`** from the tree's own `kNavConstant` |
 
 **External sources, tiered:**

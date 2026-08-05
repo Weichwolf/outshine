@@ -47,7 +47,7 @@ Combat missions (`set task bfm`, `set task intercept`) end in TIMEOUT **by const
 engagement has no waypoint objective. Their verdict is read out of the telemetry, not out of the exit
 code ([`combat.md`](combat.md)).
 
-**5 — A mission file's header comment is a binding reading rule.** Every `.fbm` in `sim/missions/`
+**5 — A mission file's header comment is a binding reading rule.** Every `.fbm` in `mods/f16/src/missions/`
 states in its own header what it PROVES and why it is built the way it is (which geometry, which single
 changed line against its sibling mission, which number it is the measurement for). That comment is part
 of the mission, not decoration: a run whose result contradicts its header comment is a finding, and a
@@ -58,7 +58,7 @@ build artefacts — copies, never sources.
 (`units/FBSimUnit::StartTelemetry`) so that no measured column ever loses its position
 ([`output.md`](output.md)).
 
-**7 — A campaign never edits a mission.** `sim/campaigns/*.fbc` name `.fbm` files in `sim/missions/`
+**7 — A campaign never edits a mission.** `mods/f16/src/campaigns/*.fbc` name `.fbm` files in `mods/f16/src/missions/`
 and carry three facts between them; the files themselves stay the statement of what was flown, and rule
 5's header comment stays true. A `.fbc` carries its own binding header for the same reason
 ([campaign.md](campaign.md)).

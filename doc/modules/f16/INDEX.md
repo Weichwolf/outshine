@@ -23,7 +23,7 @@ JSBSim F-16 itself (CLAUDE.md Prinzip 5). These files are a reference for system
 (modes, limits, symbology, computation logic), which JSBSim's flight-dynamics tables don't carry.
 
 **And that primary source now has its own file:** [`flight-model.md`](flight-model.md) is the only
-file here whose source is not a PDF but the model tree `sim/assets/aircraft/` itself — it is the
+file here whose source is not a PDF but the model tree `mods/f16/src/aircraft/` itself — it is the
 written-down form of what Prinzip 5 calls "the reference". Every other file describes the *real* jet
 (design targets); `flight-model.md` describes what our aircraft actually *does*. Its §7.11 is the
 deviation table between the two, and its §11 is the transferable template for the next airframe.
@@ -47,7 +47,7 @@ and you know what the simulator does and does not have.
 Two exceptions. This index and [`PROGRESS.md`](PROGRESS.md) are **meta files** and carry no schema. And
 [`flight-model.md`](flight-model.md) inverts it, because it documents *our* model rather than the real
 jet: its `Spec` is one line (the pinned model as flown plus the declared deltas —
-[`sim/assets/MODEL-DELTAS.md`](../../../sim/assets/MODEL-DELTAS.md)), §1–§10 are its `State`, §12 its
+[`mods/f16/src/aircraft/MODEL-DELTAS.md`](../../../mods/f16/src/aircraft/MODEL-DELTAS.md)), §1–§10 are its `State`, §12 its
 `Gaps`, and §11 (the handover checklist for the next airframe) its `Knowledge`.
 
 **Nothing was revised when the schema landed** — content moved under headings 1:1, page citations,
@@ -65,7 +65,7 @@ HUD symbology implementation). The `## State` sections here link into it; they n
 | File | Content | Source part / pages |
 |---|---|---|
 | [module.md](module.md) | **the FlightBox F-16 module** — not a reference file: the implementation contract, `## Spec`/`## State`/`## Gaps`/`## Knowledge` in the implementation sense | the source tree `sim/src/modules/f16/` |
-| [flight-model.md](flight-model.md) | **THE JSBSim MODEL ITSELF** — geometry/mass/gear, the F100 thrust tables + spool law + the throttle→AB mapping, all 41 aero functions and 35 tables per axis with their breakpoint grids, the FLCS as XML (11 channels, 58 components, every gain converted to "full stick = X"), **the model-vs-real-FLCS deviation table**, the measured envelope (corner 380 KCAS/5,625 g/16,22 °/s, roll rate saturating at ~186 °/s), 12 accepted model properties, plus mk82/aim120 | `sim/assets/aircraft/f16/` (2165 lines / 6 files), `mk82/`, `aim120/`; JSBSim engine source; own measurements |
+| [flight-model.md](flight-model.md) | **THE JSBSim MODEL ITSELF** — geometry/mass/gear, the F100 thrust tables + spool law + the throttle→AB mapping, all 41 aero functions and 35 tables per axis with their breakpoint grids, the FLCS as XML (11 channels, 58 components, every gain converted to "full stick = X"), **the model-vs-real-FLCS deviation table**, the measured envelope (corner 380 KCAS/5,625 g/16,22 °/s, roll rate saturating at ~186 °/s), 12 accepted model properties, plus mk82/aim120 | `mods/f16/src/aircraft/f16/` (2165 lines / 6 files), `mk82/`, `aim120/`; JSBSim engine source; own measurements |
 | [flight-controls-flcs.md](flight-controls-flcs.md) | **FLCS architecture, gains, CAT I/III limiters, AoA/G envelope, ARI, MPO, autopilot modes** + ED autopilot addendum (command-authority numbers, disengage-condition cross-check) | Chuck Part 15, 662–672; ED p.128–131 |
 | [aerodynamics-performance.md](aerodynamics-performance.md) | Airspeed/G/weight limits, envelope, ALOW, VMS warnings | Chuck Part 8, 153–157 |
 | [hud-symbology.md](hud-symbology.md) | Every HUD element (position + meaning), control switches, AOA bracket, steering/ILS symbology — ED's exact scale/geometry numbers (TFOV 25°/10.5°, tick spacings), Slant-Range letter table, Master Mode text tags, Great Circle Steering Cue mechanism, the "Was der Pilot wirklich sieht" instrumentation checklist — **and now the BMS Dash-34 addendum: every symbol's SIZE IN MILLIRADIANS, the four master-mode layouts, TD boxes, the SRM and AIM-120 DLZ stacks, ASEC/ASC, the EEGS funnel set, CCIP/CCRP/strafe cues, PUAC and the GAAF break-X, ILS deviation bars and the 11/13/15° AOA bracket** | Chuck Parts 3/6/8/16; ED p.89–96, 225–226; BMS-34 pp.96–127, 217–222, 299, 410–438, 489, 542–543, 593–636; BMS-1 pp.56, 115, 166–168 |

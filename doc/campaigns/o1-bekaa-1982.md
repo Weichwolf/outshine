@@ -134,9 +134,9 @@ what the tree can now do rather than around what it could when the spec was writ
 > two that belong to O1 are `o1-08-belt-netted` and `o1-10-mole-cricket`.
 
 **BUILT AND FLOWN, 2026-07-29 — the second of the ten campaigns to exist as files.** Ten `.fbm` in
-`sim/missions/o1-*.fbm` plus `sim/campaigns/o1-bekaa-1982.fbc`, run as a campaign, replayed step by
-step, and measured. **No file under `sim/src/` and none under `sim/assets/` was touched**
-(`git status --porcelain sim/assets` empty, `verify-models` green, `verify-layers` unchanged word for
+`mods/f16/src/missions/o1-*.fbm` plus `mods/f16/src/campaigns/o1-bekaa-1982.fbc`, run as a campaign, replayed step by
+step, and measured. **No file under `sim/src/` and none under `mods/f16/src/` was touched**
+(`git status --porcelain mods/f16/src` empty, `verify-models` green, `verify-layers` unchanged word for
 word), so every pre-existing mission is byte-identical by construction rather than by comparison: the
 binary is the one that was already there.
 
@@ -192,7 +192,7 @@ the ground, moved. That is the fix's blast radius inside this campaign, measured
 ### The ground half, re-measured after the ground-launch fix (2026-07-29)
 
 **The campaign's largest finding was three defects, all of them on FlightBox's side of the seam, and no
-deck was touched to close them** (`git status --porcelain sim/assets` still empty, `verify-models`
+deck was touched to close them** (`git status --porcelain mods/f16/src` still empty, `verify-models`
 green). The full build and its derivations live in [`../weapons.md`](../weapons.md) §"Rail launch" and
 [`../modules/ground/module.md`](../modules/ground/module.md) §4; only what O1 measures is repeated here.
 
@@ -297,7 +297,7 @@ belt got rounds that fly.*
    t = 172.8 s, `monitor KO unit=sam_3m9_1 reason=CFIT` 0.8 s after that battery's own first launch,
    followed by `damage KILL unit=sam reason="structure destroyed"` at rangeM 0.0018), and this campaign
    is what forced it to be read. Its diagnosis, contrary to the sentence "fixing it means touching
-   `sim/assets/aircraft/`", cost **no deck change at all**: the cause was three defects on FlightBox's
+   `mods/f16/src/aircraft/`", cost **no deck change at all**: the cause was three defects on FlightBox's
    own side of the seam (initial condition run against the wrong ground, a motor cold for 0.55 s, and an
    unread `GatherS`). **The corrected statement:** the belt is live, the jamming lever now moves the
    outcome, and what remains inert is only the *air* half's conclusion in point 1. See §The ground half,
@@ -342,7 +342,7 @@ missions changed and 150 byte-identical**; `verify-layers` 297 files and 6 regis
 `verify-models` 1 declared delta / 34 FlightBox-own, warning-free build.)*
 
 **Nothing to compare, and that is the strongest form of it.** `git status --porcelain` lists eleven
-untracked files and no modified one: ten `sim/missions/o1-*.fbm` and one `sim/campaigns/*.fbc`. No
+untracked files and no modified one: ten `mods/f16/src/missions/o1-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. No
 `sim/src/` file, no tool and no asset was touched, so the binary that flew O1 is the binary that flew
 everything before it. Gates re-run all the same: `make core-lib gym native wasm` warning-free,
 `verify-layers` *"297 files, 805 internal include(s), 12 layers — no upward include, 3 restricted

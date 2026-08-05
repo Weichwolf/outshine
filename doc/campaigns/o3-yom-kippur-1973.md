@@ -113,10 +113,10 @@ module publishes no release cue and the catalogue holds no store it would drop. 
 ## State
 
 **BUILT AND FLOWN, 2026-07-30 — the eighth of the ten campaigns to exist as files, and the ONLY ONE
-WHOSE SURFACE-TO-AIR UMBRELLA IS FRIENDLY.** Ten `.fbm` in `sim/missions/o3-*.fbm` plus
-`sim/campaigns/o3-yom-kippur-1973.fbc`, run as a campaign, replayed step by step, and measured. **No
-file under `sim/src/`, `sim/tools/` or `sim/assets/` was touched** (`git status --porcelain` lists
-eleven new untracked files and **no modified one**), so the **216** pre-existing `sim/missions/*.fbm`
+WHOSE SURFACE-TO-AIR UMBRELLA IS FRIENDLY.** Ten `.fbm` in `mods/f16/src/missions/o3-*.fbm` plus
+`mods/f16/src/campaigns/o3-yom-kippur-1973.fbc`, run as a campaign, replayed step by step, and measured. **No
+file under `sim/src/`, `sim/tools/` or `mods/f16/src/` was touched** (`git status --porcelain` lists
+eleven new untracked files and **no modified one**), so the **216** pre-existing `mods/f16/src/missions/*.fbm`
 are byte-identical **by construction rather than by comparison**.
 
 ### The spec's own headline is superseded, and by measurement
@@ -323,7 +323,7 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 > pre-change measurement and is kept.
 
 **And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
-(`sim/campaigns/o3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=cc5682956b788fc9 standalone
+(`mods/f16/src/campaigns/o3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=cc5682956b788fc9 standalone
 fp=cc5682956b788fc9 MATCH`. **Annotating the ten files with their MEASURED blocks after the runs left
 all ten per-mission fingerprints and the campaign fingerprint unchanged** — the check that a comment is
 a comment.
@@ -367,7 +367,7 @@ discovered by building. Three of the spec's ten are dropped and three are new; t
 ### Conservation, and the gates
 
 `git status --porcelain` lists **eleven new untracked files and no modified one**: ten
-`sim/missions/o3-*.fbm` and one `sim/campaigns/o3-yom-kippur-1973.fbc`. Gates:
+`mods/f16/src/missions/o3-*.fbm` and one `mods/f16/src/campaigns/o3-yom-kippur-1973.fbc`. Gates:
 `make core-lib gym native wasm` warning-free (`gym -> build/fb-gym (GPU-free: 0 Dawn/WebGPU symbols)`,
 `WASM -> web/gpu.js + web/fbtileworker.js + web/missions/`); `verify-layers` *"304 files, 841 internal
 include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside

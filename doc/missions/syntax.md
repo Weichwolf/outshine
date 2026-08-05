@@ -32,7 +32,7 @@ indentation is purely cosmetic. **Two scopes:**
 Both directions are hard parse errors (a `runway` line between two units would otherwise be silently
 "mission-wide, just declared late"; a `spawn` line before the first `unit` would have no owner).
 
-### Single jet (example: `sim/missions/payerne-takeoff-only.fbm`)
+### Single jet (example: `mods/f16/src/missions/payerne-takeoff-only.fbm`)
 
 ```
 name payerne-takeoff-only-1
@@ -46,7 +46,7 @@ unit viper                                   # block start: this unit's callsign
   wp 46.66467 6.62666 3000 350               # no 'land': SUCCESS = both waypoints reached
 ```
 
-### Pair (example: `sim/missions/payerne-pair.fbm`)
+### Pair (example: `mods/f16/src/missions/payerne-pair.fbm`)
 
 ```
 name payerne-pair-1
@@ -84,7 +84,7 @@ unit two
 | Mission | `zone`    | `<name> <lat> <lon> <radiusM> <altMinM> <altMaxM>` | a DECLARED CYLINDER of mission geometry — a belt, a floor, a corridor. Repeatable, names unique, `radius > 0` and `altMin < altMax` (both parse errors otherwise); altitudes are metres ASL, like `spawn` and `wp`. **Only the judge and the telemetry writer ever see one**: `core/FBZone.h` is `RESTRICTED` with an empty outside-includer list, so no module, no pilot and no sensor can name it. It produces `zone_<name>_in`/`zone_<name>_s` per JUDGED unit and `zone ENTER`/`EXIT` events, and it is what `objective avoid zone` is measured against. See [`../air-defence-network.md`](../air-defence-network.md) §4. |
 | Mission | `net`     | `<name>` + an indented block | the DOCTRINE of one connected air defence. Block keywords, each at most once except `member`: `control <callsign>` (the node; must also be a `member`), `link wire \| radio <rangeM> [mast <m>]`, `period <s>`, `hold <cycles>`, `wcs free\|tight\|hold` (what the NODE transmits), `member <callsign> [sector <centreDeg> <halfDeg>] [autonomy free\|tight\|hold]`. A member naming no unit of this mission, a `control` that is not a member, a unit in two nets and an unknown block token are all parse errors. The block generates seven reserved `set` keys per member (`net_*`) — never author-written. **A member may be an AIRCRAFT since 2026-08-03** (`modules/FBAirNet.h`): on a fighter the net is the Link-16 terminal it already carries, `net_control` makes it a listener and `net_wcs` the node. Two keys are then REFUSED at spawn with a reason rather than ignored — `member ... sector` (a sector of responsibility belongs to a position in the ground) and `autonomy tight` (it needs target addressing this tree has none of). See [`../air-defence-network.md`](../air-defence-network.md) §8. |
 | Actor  | `unit`    | callsign | block start. 1–24 characters from `[A-Za-z0-9_-]` (the callsign also names the telemetry file and the `unit=` log attribution), unique mission-wide. |
-| Actor  | `module`  | rest of line | module name, resolved through `FBModuleRegistry` — determines both the `FBModule` and the JSBSim aircraft folder name (`sim/assets/aircraft/<module>`). Mandatory per block. |
+| Actor  | `module`  | rest of line | module name, resolved through `FBModuleRegistry` — determines both the `FBModule` and the JSBSim aircraft folder name (`mods/f16/src/aircraft/<module>`). Mandatory per block. |
 | Actor  | `team`    | `friendly`\|`hostile`\|`neutral` | team (`FBUnitTeam`, `core/FBTeam.h`) — lands in the unit registry that sensors and weapons read. Optional, default `friendly`. |
 | Actor  | `flight`  | name position | the FLIGHT this unit belongs to and the position it holds in it (`FBFlightId`, `core/FBFlight.h`) — identity beside the team, and read off the registry by the cooperative datalink for the same reason. Position 1 is the LEAD; 2..8 are wingmen (8 because a flight cannot be larger than the track list that carries it). Optional, at most once per block: a unit without it is in no flight, and every piece of formation behaviour is then a no-op. See [`../formation.md`](../formation.md). |
 | Actor  | `spawn`   | `<lat lon \| threshold>` `<altM \| ground>` `hdgDeg` `speedKt` | mandatory, exactly once per block: this unit's declarative IC — position, altitude-OR-ground, heading, speed. `threshold` takes lat/lon from the mission-wide `runway` line (pure writing convenience, not a second position syntax). `ground` resolves the altitude from terrain plus landing-gear geometry; a numeric value is a LITERAL ASL altitude (an air start). Both cases run through the same single JSBSim IC application. |
@@ -146,7 +146,7 @@ calendar in both directions, so a logged instant re-reads as the instant that wa
 | default = the client's current behaviour, expressed as a value | same problem one level down: the gym has no ephemeris at all today, so there is no value to express |
 | **default = `HaveTime = false`, no channel touched** | **built.** Nothing is computed, nothing is published, nothing is logged — the same mechanism by which `wx calm` is byte-identical to the tree before the weather hook existed ("the wind is only written on change", [`weather.md`](weather.md)) |
 
-**How that was checked, concretely.** `sim/missions/` held **84** `.fbm` files before the round. The
+**How that was checked, concretely.** `mods/f16/src/missions/` held **84** `.fbm` files before the round. The
 acceptance was the regression gate of [`../build-and-ops.md`](../build-and-ops.md) at full strength,
 run against the PRE-ROUND `fb-gym` binary kept aside for the purpose:
 
@@ -312,7 +312,7 @@ the same order.
 | Consistency validation | today exactly one rule: explicit spawn altitude below resolved ground |
 | `time` line | **built** (`C2`). Parser + `core/FBCivilTime.h`; precedence and the flag collision in `missions/FBClockBoot.h`; pushed per actor per decision tick (`FBSimUnit::UpdateSolar` → `FBModule::SetSolar` → `FBEnvironmentBlock`) by the runner and by the WASM frame loop. Reference mission `missions/clock-night-payerne.fbm`, the two refusal fixtures in `missions/negative/` |
 | The declared span, `until <s>` (`E17`) | **built.** Stripped from the tail before the kind word is read, so every kind takes it and none of them knows about it; `> 0` and `< timeout` are parse errors otherwise, with both numbers in the message. Two spans of the same kind are two objectives. Negative fixture: `missions/negative/objective-until-past-timeout.fbm` |
-| The four new objective kinds (`C12`) | **built.** Parser + `FBObjectiveScope` in `core/FBObjective.h`; unit-scoped targets resolved against the whole cast at end of file, three refusal fixtures in `missions/negative/`; eight reference missions in `sim/missions/` ([`verdict.md`](verdict.md)) |
+| The four new objective kinds (`C12`) | **built.** Parser + `FBObjectiveScope` in `core/FBObjective.h`; unit-scoped targets resolved against the whole cast at end of file, three refusal fixtures in `missions/negative/`; eight reference missions in `mods/f16/src/missions/` ([`verdict.md`](verdict.md)) |
 
 ## Gaps
 

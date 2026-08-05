@@ -260,7 +260,7 @@ From the class banner:
 - Consequence: `SetDirectLeg` — same mode, same altitude/speed half, the path as DATA from the caller.
   **No path = no line = the bearing law, unchanged.**
 - Precisely for that reason a defender commanded to a point INSIDE its own turn radius circles that point
-  forever (`sim/missions/bfm-basic.fbm`) — measured: 58.9° bank, 248 KCAS, 4,000 m, 4.7 °/s, ~1,880 m
+  forever (`mods/f16/src/missions/bfm-basic.fbm`) — measured: 58.9° bank, 248 KCAS, 4,000 m, 4.7 °/s, ~1,880 m
   radius, constant from t=20 s to the end of the mission.
 - A second mode would be wrong, because it would duplicate the altitude, speed, capture and telemetry
   half and teach every caller, every override and `FBMode` itself a third word for the same manoeuvre.

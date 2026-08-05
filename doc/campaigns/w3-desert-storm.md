@@ -3,7 +3,7 @@
 **What this file is:** a **campaign spec** — ten missions derived from one historical anchor, plus the
 cast they need and the honest list of what FlightBox cannot do for them yet.
 
-**Status: BUILT AND FLOWN 2026-07-29** — `sim/missions/w3-*.fbm` + `sim/campaigns/w3-desert-storm.fbc`,
+**Status: BUILT AND FLOWN 2026-07-29** — `mods/f16/src/missions/w3-*.fbm` + `mods/f16/src/campaigns/w3-desert-storm.fbc`,
 ten of ten runnable against a spec that called five blocked, both determinism criteria on the first
 attempt. §State carries the numbers; the Spec below is left standing as written.
 
@@ -108,10 +108,10 @@ its name is blocked.
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the sixth of the ten campaigns to exist as files, and the first whose
-opponent is a SYSTEM rather than an aircraft.** Ten `.fbm` in `sim/missions/w3-*.fbm` plus
-`sim/campaigns/w3-desert-storm.fbc`, run as a campaign, replayed step by step, and measured. **No file
-under `sim/src/`, `sim/tools/` or `sim/assets/` was touched** (`git status --porcelain` lists eleven new
-untracked files and **no modified one**), so the **195** pre-existing `sim/missions/*.fbm` are
+opponent is a SYSTEM rather than an aircraft.** Ten `.fbm` in `mods/f16/src/missions/w3-*.fbm` plus
+`mods/f16/src/campaigns/w3-desert-storm.fbc`, run as a campaign, replayed step by step, and measured. **No file
+under `sim/src/`, `sim/tools/` or `mods/f16/src/` was touched** (`git status --porcelain` lists eleven new
+untracked files and **no modified one**), so the **195** pre-existing `mods/f16/src/missions/*.fbm` are
 byte-identical **by construction rather than by comparison**.
 
 ### The spec's own headline is superseded, and by measurement
@@ -299,7 +299,7 @@ Under `--elev const`, read out of `campaign-summary.txt` rather than assumed:
 | Per-step fingerprints, 2026-07-30 (`E6`) | | `77df6f2fe18f1f2e 2b7bb7d497a4dde8 90bba24b8bf76fee c0eff8b98797bab1 f9a9770250eaa961 902cda7d0c701dcc 91adfacc39683304 2e3ca986d19458b2 5aece68a66b6b82c 2dfd506a232ec7e4` |
 
 **And the replay was run after the FIRST mission**, on a throwaway one-step `.fbc`
-(`sim/campaigns/w3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=77df6f2fe18f1f2e standalone
+(`mods/f16/src/campaigns/w3-step1-check.fbc`, deleted afterwards): `01 … campaign fp=77df6f2fe18f1f2e standalone
 fp=77df6f2fe18f1f2e MATCH`. **Annotating the ten files with their MEASURED blocks after the runs left
 all ten per-mission fingerprints and the campaign fingerprint unchanged** — the check that a comment is
 a comment.
@@ -340,7 +340,7 @@ discovered by building:
 ### Conservation, and the gates
 
 `git status --porcelain` lists **eleven new untracked files and no modified one**: ten
-`sim/missions/w3-*.fbm` and one `sim/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
+`mods/f16/src/missions/w3-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
 warning-free; `verify-layers` *"301 files, 828 internal include(s), 12 layers — no upward include, 3
 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue
 poster(s), 288 file(s) in their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4

@@ -54,129 +54,129 @@ carry the same `unit=` attribution as that unit.
 
 ### Examples
 
-- `sim/missions/payerne-takeoff-only.fbm`, `sim/missions/payerne-takeoff.fbm` — Payerne (LSMP) runway
+- `mods/f16/src/missions/payerne-takeoff-only.fbm`, `mods/f16/src/missions/payerne-takeoff.fbm` — Payerne (LSMP) runway
   23, ground start; threshold coordinates and length checked against `fb-tiles`' `/elev` endpoint (DEM
   ~441 m at the threshold).
-- `sim/missions/payerne-pair-datalink.fbm` — two friendlies flying apart, terminals configured to
+- `mods/f16/src/missions/payerne-pair-datalink.fbm` — two friendlies flying apart, terminals configured to
   6 nm: shows latency (`dl_age`), net cycle and the range loss (`TRACK_LOST`).
-- `sim/missions/payerne-flight-datalink.fbm` — five friendlies in range, each with a different terminal
+- `mods/f16/src/missions/payerne-flight-datalink.fbm` — five friendlies in range, each with a different terminal
   configuration: the switch matrix (POWER/XMT/filter) in one run.
-- `sim/missions/payerne-airstart.fbm` — the same airspace but a pure air start (~10 nm SW of Payerne,
+- `mods/f16/src/missions/payerne-airstart.fbm` — the same airspace but a pure air start (~10 nm SW of Payerne,
   2500 m ASL, 300 kt, gear up, 60 % fuel) — no `runway` line, no taxi/rollout.
-- `sim/missions/payerne-landing.fbm` — the landing training ground: air start ~9 nm lined up on the
+- `mods/f16/src/missions/payerne-landing.fbm` — the landing training ground: air start ~9 nm lined up on the
   RWY23 final, ~500 m AGL, then `land` — SUCCESS = standstill on the runway.
-- `sim/missions/payerne-full.fbm` — the target mission: ground start at Payerne → three waypoints →
+- `mods/f16/src/missions/payerne-full.fbm` — the target mission: ground start at Payerne → three waypoints →
   `land` on the same runway as the departure.
-- `sim/missions/payerne-pair.fbm` — **two** friendly F-16s in an air start beside each other, each with
+- `mods/f16/src/missions/payerne-pair.fbm` — **two** friendly F-16s in an air start beside each other, each with
   its own waypoints; SUCCESS only when BOTH have reached their objectives.
-- `sim/missions/payerne-pair-fail.fbm` — the same pair with a waypoint unreachable for `two` at a tight
+- `mods/f16/src/missions/payerne-pair-fail.fbm` — the same pair with a waypoint unreachable for `two` at a tight
   timeout: `lead` reaches its objectives, the overall verdict is negative anyway and names `two` as the
   unit that decided it.
-- `sim/missions/payerne-four.fbm` — a flight of four in an air start, each unit in its own altitude
+- `mods/f16/src/missions/payerne-four.fbm` — a flight of four in an air start, each unit in its own altitude
   block: the scaling case for `fb-gym --threads` (four roughly equally expensive airframes).
-- `sim/missions/payerne-mixed.fbm` — deliberately unequal load: `roller` starts on the ground at the
+- `mods/f16/src/missions/payerne-mixed.fbm` — deliberately unequal load: `roller` starts on the ground at the
   threshold, `cruiser` is already in cruise — the stress test of the lockstep barrier.
-- `sim/missions/pair-formation.fbm` — the station-keeping rig: a lead flying two 90° turns and a
+- `mods/f16/src/missions/pair-formation.fbm` — the station-keeping rig: a lead flying two 90° turns and a
   wingman doing nothing but hold its combat-spread station on the lead's datalink report. Read
   `flt_sta` (45.2 m median on a straight leg, ~1.9 km peak through a turn).
-- `sim/missions/pair-2v2-f16.fbm` — the SYMMETRIC formation reference case, `duel-headon`'s counterpart
+- `mods/f16/src/missions/pair-2v2-f16.fbm` — the SYMMETRIC formation reference case, `duel-headon`'s counterpart
   with two aircraft a side: what the run measures is the SORT, not the kill. Its control is the same
   file with the two `flight` lines deleted.
-- `sim/missions/pair-2v2-asym.fbm` — the same geometry against a MiG-29 element: the cooperative sort
+- `mods/f16/src/missions/pair-2v2-asym.fbm` — the same geometry against a MiG-29 element: the cooperative sort
   against the briefed contract, and the SARH binding as a number (17.3 s against 0.3 s).
-- `sim/missions/pair-cover.fbm` — the cover rig: an early-launch F-16 element against two staggered
+- `mods/f16/src/missions/pair-cover.fbm` — the cover rig: an early-launch F-16 element against two staggered
   bandits, built so the deferral rule is observable at all (`flt_defer_s` 7.8 s).
-- `sim/missions/four-4v4-asym.fbm` — four shooters a side, i.e. the first real assignment problem:
+- `mods/f16/src/missions/four-4v4-asym.fbm` — four shooters a side, i.e. the first real assignment problem:
   distinct targets per engaged member 0.962 cooperative against 0.750 contract.
   All five: [`../formation.md`](../formation.md).
-- `sim/missions/payerne-radar-acm.fbm` — the radar reference geometry: two jets on perpendicular,
+- `mods/f16/src/missions/payerne-radar-acm.fbm` — the radar reference geometry: two jets on perpendicular,
   straight, equally high legs. The target starts outside every ACM box, swings through the nose and
   finally leaves the antenna range — no contact → build-up → lock → coast → loss in ONE run.
-- `sim/missions/payerne-radar-bore.fbm` — the same file with ONE word changed (`acm_bore` instead of
+- `mods/f16/src/missions/payerne-radar-bore.fbm` — the same file with ONE word changed (`acm_bore` instead of
   `acm_hud`): same geometry, narrower volume, measurably later detection.
-- `sim/missions/payerne-radar-iff.fbm` — one interrogator, three targets crossing the nose one after
+- `mods/f16/src/missions/payerne-radar-iff.fbm` — one interrogator, three targets crossing the nose one after
   the other: a friend with a transponder (friendly), a friend without (unknown), an enemy WITH a
   transponder (unknown — not hostile).
-- `sim/missions/cmd-avionics.fbm` — the avionics command/validity demonstrator (not a flight test):
+- `mods/f16/src/missions/cmd-avionics.fbm` — the avionics command/validity demonstrator (not a flight test):
   briefed entries in both latency classes, all four acknowledgement outcomes, both own-policy reasons,
   plus a switched-off radar altimeter (`invalid`) beside the anyway-held radar picture (`held`).
-- `sim/missions/attack-ccrp.fbm` — the air-to-ground reference run: 19 km level approach, CCRP release
+- `mods/f16/src/missions/attack-ccrp.fbm` — the air-to-ground reference run: 19 km level approach, CCRP release
   of a Mk-82 on a declared `target_soft`, impact 22.2 m beside the target, target destroyed,
   `objective kill unit` fulfilled (SUCCESS, exit 0). Measure with `--elev const` (flat 0 m base:
   computation plane, target altitude and impact ground are then the same number).
-- `sim/missions/attack-ccip.fbm` — the same approach on the CCIP cue, built with `objective survive` so
+- `mods/f16/src/missions/attack-ccip.fbm` — the same approach on the CCIP cue, built with `objective survive` so
   that the run continues past the hit to the end of the egress turn and back into the route: the
   COMPLETE attack sequence in one run.
-- `sim/missions/attack-late.fbm` — the cross-check: the same file with ONE line more
+- `mods/f16/src/missions/attack-late.fbm` — the cross-check: the same file with ONE line more
   (`set pilot_attack_bias_s 2.0`, release two seconds after the cue). 482 m miss distance instead of
   22 m, target standing, TIMEOUT (exit 3) — the measure of what the computation achieves.
-- `sim/missions/attack-hardened.fbm` — the same good release against `target_hard`: same miss distance,
+- `mods/f16/src/missions/attack-hardened.fbm` — the same good release against `target_hard`: same miss distance,
   no effect, `result=INTACT`. The fragility classes are a model, not decoration.
-- `sim/missions/test-wp-inside-turn.fbm` — waypoint sequencing at its edge: WP1 lies 1,000 m laterally
+- `mods/f16/src/missions/test-wp-inside-turn.fbm` — waypoint sequencing at its edge: WP1 lies 1,000 m laterally
   from WP0 and therefore INSIDE this jet's tightest turn circle (~1,400 m at 300 kt), so it is
   unreachable by capture circle (closest approach 1,000 m, measured). Over the leg axis it is ticked
   off after 15.1 s as `by=passed` and WP2 flown normally — SUCCESS (exit 0); without the rule the jet
   orbits it at −58.9° bank until TIMEOUT (exit 3). See "When a waypoint is reached" in
   [`verdict.md`](verdict.md).
-- `sim/missions/wx-orbit.fbm` — the same edge made by the WIND instead of by the geometry: at 9,000 m in
+- `mods/f16/src/missions/wx-orbit.fbm` — the same edge made by the WIND instead of by the geometry: at 9,000 m in
   18.6 m/s of crosswind the closest approach to a steerpoint dead ahead is 614 m (114 m outside the
   capture circle) and the jet settles into a permanent −59.1° orbit, 99.2 s per lap. The `orbited`
   ground ticks it off at t = 311.6 s and the route finishes at t = 485.4 s (SUCCESS, exit 0). The same
   file with `wx calm` captures the same fix with 4 m to spare — the wind is the whole difference.
-- `sim/missions/bfm-pointblank.fbm` — a 0.8 nm head-on entry as a synthetic SWINGING STIMULUS for the BFM
+- `mods/f16/src/missions/bfm-pointblank.fbm` — a 0.8 nm head-on entry as a synthetic SWINGING STIMULUS for the BFM
   roll-rate limiter: the closest entry that still holds a lock for the whole run. Read off it: peak roll
   rate against the cap the source declares (recursion limiter 1.37 ×, plant inversion 0.89 ×). TIMEOUT
   (exit 3) by design; the verdict is the roll trace. See §5.7 in [`../pilot.md`](../pilot.md).
 
-- `sim/missions/mig29-radar-notch.fbm` — the N019's Doppler envelope against its own documented numbers.
+- `mods/f16/src/missions/mig29-radar-notch.fbm` — the N019's Doppler envelope against its own documented numbers.
   One MiG and two targets that beam at different RANGES, because the thresholds are range-dependent: the
   far one crosses beyond 8 nm (`notchMs=41.67` = 81 kt), the near one inside 5.4 nm (`notchMs=16.668` =
   32.4 kt), and both events carry the measured target radial velocity beside the threshold that rejected
   it. `RADAR_DROP … coastS=6` is the documented 6-second inertial track. TIMEOUT (exit 3) by design.
-- `sim/missions/mig29-rwr-blind.fbm` — "using your radar blinds your RWR forward", with the emitter held
+- `mods/f16/src/missions/mig29-rwr-blind.fbm` — "using your radar blinds your RWR forward", with the emitter held
   constant. The MiG hears a radiating F-16 from the first sweep; at t = 40 s a GCI call is typed in and
   its third entry brings the N019 to ILLUM, at which point the SPO-15's forward hemisphere goes dark and
   the warning disappears — while the F-16's `fcr_on` never changes. TIMEOUT (exit 3) by design.
-- `sim/missions/mig29-irst.fbm` — the KOLS, all three of its terms in one trace: a tail-on target seen at
+- `mods/f16/src/missions/mig29-irst.fbm` — the KOLS, all three of its terms in one trace: a tail-on target seen at
   19.6 km and a 103°-aspect one not seen until 15.2 km (same type, same field — the aspect law), the
   laser stepping `irst_lock_nm` from −1 to 3.2 nm at its 6 km limit, and a fourth aircraft above a GFS
   cloud deck that is never detected at all (`irst_masked`). The first tactical effect weather has on a
   sensor in FlightBox. TIMEOUT (exit 3) by design.
-- `sim/missions/vis-day.fbm` / `vis-night.fbm` — the eye, and the same three-target geometry with one
+- `mods/f16/src/missions/vis-day.fbm` / `vis-night.fbm` — the eye, and the same three-target geometry with one
   line changed. By day (sun el 65.8°, behind): head-on detection at 2 493 m geometric, tail-on at
   2 469 m, side-on at 3 784 m — one threshold, two presented dimensions — and the slow overtake resolves
   the whole Johnson ladder (`CONTACT` → `RECOGNISED` at 673 m → `IDENTIFIED` at 445 m, the type reading
   `f16`). At night (sun el −19.5°): **zero `vis` lines**, because nothing in the tree emits light. The
   two runs' telemetry differ in the nine `vis_*` columns and in nothing else. TIMEOUT (exit 3) by design.
-- `sim/missions/vis-sun.fbm` — `vis-day`'s slow-overtake geometry flown into a 6.6° sun. Contrast 0.481
+- `mods/f16/src/missions/vis-sun.fbm` — `vis-day`'s slow-overtake geometry flown into a 6.6° sun. Contrast 0.481
   against 0.931, detection at 1 206 m against 2 373 m: the reach ratio 1.97 is the contrast ratio 1.94,
   which is what "exactly inverse-linear in contrast" means. TIMEOUT (exit 3) by design.
-- `sim/missions/vis-cloud.fbm` — the cloud MARCH, control and case under one sky. The co-altitude target
+- `mods/f16/src/missions/vis-cloud.fbm` — the cloud MARCH, control and case under one sky. The co-altitude target
   below the deck is seen at 1 989 m; the crossing target 1 350 m higher, whose line of sight cuts the
   GFS deck, is **never** seen — `vis MASKED … transmittance=1.65e-10` and `vis_masked = 1` for exactly
   the window in which the same air without the deck would have shown it. TIMEOUT (exit 3) by design.
-- `sim/missions/vis-anon-friend.fbm` / `vis-anon-hostile.fbm` — the anti-cheat pair, differing in ONE
+- `mods/f16/src/missions/vis-anon-friend.fbm` / `vis-anon-hostile.fbm` — the anti-cheat pair, differing in ONE
   token: the MiG-29 ahead is friendly in one and hostile in the other. Both telemetry files are
   **byte-identical**, the seven `vis` lines are identical, and the type reported is `mig29` in both. The
   only differing lines in `events.log` are the mission name and the mission JUDGE's own `team=` field.
   TIMEOUT (exit 3) by design.
-- `sim/missions/mig29-intercept.fbm` — ground-controlled interception: the MiG starts SILENT, the
+- `mods/f16/src/missions/mig29-intercept.fbm` — ground-controlled interception: the MiG starts SILENT, the
   controller's BRAA is typed in over three command-bus entries (8.0 s from call to radiating radar), the
   N019 finds the target one frame later, and the opposing RWR lights up 0.1 s after ILLUM. Since the jet
   has R-27Rs on the rails (stage 2c) the same phase machine now runs the whole chain instead of
   disengaging: `RADAR_DESIGNATE` at 58.4 s, shot at 60.9 s, support **to impact** (a semi-active round
   never goes pitbull), `damage KILL` at 87.7 s. Exit 1 — the target is shot down.
-- `sim/missions/mig29-r73.fbm` / `f16-aim9.fbm` — the infrared round on both airframes, both branches in
+- `mods/f16/src/missions/mig29-r73.fbm` / `f16-aim9.fbm` — the infrared round on both airframes, both branches in
   one file each: a rear-quarter shot detonating at 0.138 m resp. 0.0196 m, and a head-on shot against a
   flare-dispensing target seduced at `tgtIntensity=0.16` and missing by 22.8 m resp. 25.96 m. TIMEOUT
   (exit 3) by design; the branches are read off events.log, because a miss is not a mission verdict.
-- `sim/missions/mig29-r27.fbm` — the semi-active chain, both branches: illumination held to impact
+- `mods/f16/src/missions/mig29-r27.fbm` — the semi-active chain, both branches: illumination held to impact
   (28.56 s, `DETONATION missM=0.442`) and illumination broken in flight (`ILLUMINATION_LOST tofS=11.7`,
   a 27.04 m miss against a 13.8 m fuze). TIMEOUT (exit 3) by design.
-- `sim/missions/mig29-gun.fbm` — the GSh-301 as a briefed burst from a stable trail position: 23 bundle
+- `mods/f16/src/missions/mig29-gun.fbm` — the GSh-301 as a briefed burst from a stable trail position: 23 bundle
   hits, a kill at t = 28.7 s on 67 of 150 rounds. Exit 0. Its header records the second, harder
   measurement at 571 m of round path, where the full drum wipes the avionics without downing the target.
-- `sim/missions/duel-asym-probe.fbm` — F-16 vs MiG-29, one round each, both fire control computers, both
+- `mods/f16/src/missions/duel-asym-probe.fbm` — F-16 vs MiG-29, one round each, both fire control computers, both
   RWRs, both cross-sections. A SMOKE TEST for the asymmetry and expressly not a campaign.
 
 - **The `C12` objective set, eight files, seven of them a PAIR one number apart** ([`verdict.md`](verdict.md)

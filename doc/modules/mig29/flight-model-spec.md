@@ -63,10 +63,10 @@ modelling decision than an aircraft property.
 
 | File | Contents | Licence |
 |---|---|---|
-| `sim/assets/aircraft/mig29/mig29.xml` | `<metrics> <mass_balance> <ground_reactions> <propulsion> <flight_control> <aerodynamics>` | FlightBox-own, GPL-2.0-or-later — **the pinned JSBSim submodule has no MiG-29 and is read-only (Principle 1)**, so it is declared as having no upstream in `sim/assets/MODEL-DELTAS.md` and there is nothing for `verify-models` to diff, exactly like the AIM-120. (This row originally said "reached via `FBModule::FdmModelVendored() == false`"; that mechanism is gone — the tree now flies from ONE model root, `missions/FBModelRoots.h`.) |
-| `sim/assets/aircraft/mig29/engine/RD-33.xml` | `<turbine_engine>` | FlightBox-own |
-| `sim/assets/aircraft/mig29/engine/RD-33-nozzle.xml` | `<direct>` thruster | FlightBox-own |
-| `sim/assets/aircraft/mig29/reset00.xml` | default IC, unused by FlightBox (as the F-16's is) | FlightBox-own |
+| `mods/f16/src/aircraft/mig29/mig29.xml` | `<metrics> <mass_balance> <ground_reactions> <propulsion> <flight_control> <aerodynamics>` | FlightBox-own, GPL-2.0-or-later — **the pinned JSBSim submodule has no MiG-29 and is read-only (Principle 1)**, so it is declared as having no upstream in `mods/f16/src/aircraft/MODEL-DELTAS.md` and there is nothing for `verify-models` to diff, exactly like the AIM-120. (This row originally said "reached via `FBModule::FdmModelVendored() == false`"; that mechanism is gone — the tree now flies from ONE model root, `missions/FBModelRoots.h`.) |
+| `mods/f16/src/aircraft/mig29/engine/RD-33.xml` | `<turbine_engine>` | FlightBox-own |
+| `mods/f16/src/aircraft/mig29/engine/RD-33-nozzle.xml` | `<direct>` thruster | FlightBox-own |
+| `mods/f16/src/aircraft/mig29/reset00.xml` | default IC, unused by FlightBox (as the F-16's is) | FlightBox-own |
 | `release=` | **`ALPHA`** — see the promotion assessment in `## State` | — |
 
 **Directory name:** `engine/`, not the `Engines/` this table originally planned. Both are searched by
@@ -656,8 +656,8 @@ measurement moved.
 
 | Artefact | State |
 |---|---|
-| `sim/assets/aircraft/mig29/mig29.xml` + `engine/RD-33.xml` + `engine/RD-33-nozzle.xml` + `reset00.xml` | **built**, `release="ALPHA"` |
-| `sim/assets/MODEL-DELTAS.md` | declares `mig29` as FlightBox-own (no upstream, so no delta block); `make -C sim verify-models` green |
+| `mods/f16/src/aircraft/mig29/mig29.xml` + `engine/RD-33.xml` + `engine/RD-33-nozzle.xml` + `reset00.xml` | **built**, `release="ALPHA"` |
+| `mods/f16/src/aircraft/MODEL-DELTAS.md` | declares `mig29` as FlightBox-own (no upstream, so no delta block); `make -C sim verify-models` green |
 | `sim/test/modules/mig29/FBTestMig29Envelope.cpp` + `make -C sim test-mig29` | **built** — loads the deck through `FBFdmBoot` and measures 22 anchors; two identical runs are byte-identical |
 | module / registry / missions | **not built** — stage 2/3 |
 

@@ -18,7 +18,7 @@ One line, mission-wide, at most once, optional. It selects the **implementation 
 |---|---|---|
 | *(none)* / `wx calm` | `core/FBCalmWeather` | no wind, no cloud, unlimited visibility. **The default** — every mission without a `wx` line flies exactly as before the hook existed (byte-identical telemetry, re-measured). |
 | `wx wind <dirDegFROM> <speedKt>` | `core/FBConstantWindWeather` | ONE vector everywhere on earth and at every altitude. `dirDegFROM` is the direction it blows FROM (0..360, meteorological), `speedKt` 0..300. Deliberately unphysical: no shear, no boundary layer — a MEASURING INSTRUMENT whose answer is a closed formula. |
-| `wx fixture <name\|path>` | `core/FBFixedWeather` | a real FBWX blob from `fb-tiles`' `/wx` (GFS 0.25°, subsampled to 0.5°): wind at 10 m plus 850/700/500/250 hPa, geopotential per surface, cloud cover total/low/mid/high, cloud ceiling, visibility. A name WITHOUT `/` is resolved under the client's asset directory (`sim/assets/`), a path with `/` is taken literally. |
+| `wx fixture <name\|path>` | `core/FBFixedWeather` | a real FBWX blob from `fb-tiles`' `/wx` (GFS 0.25°, subsampled to 0.5°): wind at 10 m plus 850/700/500/250 hPa, geopotential per surface, cloud cover total/low/mid/high, cloud ceiling, visibility. A name WITHOUT `/` is resolved under the client's asset directory (`mods/f16/src/`), a path with `/` is taken literally. |
 
 Values outside the bands, a second `wx` line or an unknown keyword are parse errors; a declared fixture
 blob that cannot be read is a **runtime FAIL** (exit 1) and not a silent fallback — a run in the wrong
@@ -45,12 +45,12 @@ a real aircraft. The vector is only written on CHANGE — in calm air the channe
 |---|---|
 | `wx` line | built; three providers, parse-error bands, runtime FAIL on an unreadable fixture |
 | Wind wiring | built; sampled by the owner, written into `FGWinds`, only on change |
-| Gym fixture | `sim/assets/wx-2026-07-27T00Z.wxb`, a byte-exact copy of `tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb` (GFS cycle 2026-07-27 00Z, analysis step, FBWX v1, 720×361, 20 fields, 8,317,984 B, sha256 `acded02…9ede`) |
+| Gym fixture | `mods/f16/src/data/wx-2026-07-27T00Z.wxb`, a byte-exact copy of `tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb` (GFS cycle 2026-07-27 00Z, analysis step, FBWX v1, 720×361, 20 fields, 8,317,984 B, sha256 `acded02…9ede`) |
 | Drift check | `make -C sim test-weather` → `build/fb-test-weather` parses the fixture and recomputes the sample values published in [`../world/weather.md`](../world/weather.md) from an INDEPENDENT decoder (ecCodes 2.41), with the quantisation step of each field as the tolerance. The same binary is the probe: `fb-test-weather <blob> <lat> <lon> <altM>` prints wind, visibility, cover and cloud base at a point. |
 
 ### Measured — crosswind
 
-Measured on `sim/missions/wx-crosswind.fbm` (straight flight north, `wx wind 270 20`, against the same
+Measured on `mods/f16/src/missions/wx-crosswind.fbm` (straight flight north, `wx wind 270 20`, against the same
 run with `wx calm`, window 200–300 s):
 
 | Quantity | Expectation | Measured | Deviation |
@@ -63,7 +63,7 @@ run with `wx calm`, window 200–300 s):
 
 The fire control computer (`modules/f16/FBF16FireControl`) integrates the stored ballistics table
 against STILL air; nothing in the jet hands it a wind vector. The bomb then falls through an air mass
-that is moving, and lands elsewhere. `sim/missions/wx-ccrp-wind.fbm` is `attack-ccrp.fbm` plus
+that is moving, and lands elsewhere. `mods/f16/src/missions/wx-ccrp-wind.fbm` is `attack-ccrp.fbm` plus
 `wx wind 360 25`; measured on the `stores DELIVERY` line of both runs:
 
 | Crosswind | `aimAcrossM` | Displacement | Ground target |
@@ -80,7 +80,7 @@ the release altitude, not a correction missing somewhere.
 
 ### Measured — a steerpoint the guidance cannot close
 
-`sim/missions/wx-orbit.fbm`, `wx wind 338 39` (this is the GFS fixture's own 9,000 m wind restated as a
+`mods/f16/src/missions/wx-orbit.fbm`, `wx wind 338 39` (this is the GFS fixture's own 9,000 m wind restated as a
 closed form: u +7.37 / v −18.58 m/s), eastbound leg, so 18.6 m/s stands across it:
 
 | Quantity | Calm | In wind |

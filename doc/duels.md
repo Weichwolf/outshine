@@ -1,11 +1,11 @@
 # Duels — the asymmetric measurement campaign
 
 **Source state:** commit `c637ed3` (MiG-29 stage 2c) plus this round. The subject is not a class and
-not a directory: it is a **family of missions** (`sim/missions/duel-*.fbm`) and what they measure.
+not a directory: it is a **family of missions** (`mods/f16/src/missions/duel-*.fbm`) and what they measure.
 
 | Place | Role |
 |---|---|
-| `sim/missions/duel-*.fbm` | the campaign itself — one file per geometry, each carrying its own reading rule |
+| `mods/f16/src/missions/duel-*.fbm` | the campaign itself — one file per geometry, each carrying its own reading rule |
 | `sim/tools/fb_duel_report.py` | the analysis tool: both sides' `eng_*` debriefing plus the EMCON timeline, straight out of one run's artefacts |
 | `sim/tools/fb_tournament.py`, `sim/tools/variants-mixed.txt` | the same question inside the tournament's own scoring, on MIXED pairings |
 | [`pilot.md`](pilot.md) §7–§9 | the intercept phase machine, the `eng_*` channels, the variant table |
@@ -214,7 +214,7 @@ GATE says so where the old −250 could be repaid by energy plus defence plus su
 ### The campaign extension, and the entry-range sweep this family never had
 
 [`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md) re-frames this family around its
-historical anchor and was BUILT on 2026-07-29 (`sim/missions/o4-*.fbm`). Three of its results belong
+historical anchor and was BUILT on 2026-07-29 (`mods/f16/src/missions/o4-*.fbm`). Three of its results belong
 beside the table above rather than in a campaign narrative:
 
 | Finding | Number |

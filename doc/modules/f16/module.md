@@ -53,7 +53,7 @@ numbers.
 
 ### Decided and done: the flaperon mixer (was `TODO.md` §6)
 
-**Fixed** — `sim/assets/MODEL-DELTAS.md` entry **D1**, the first real model delta and the delta rule's
+**Fixed** — `mods/f16/src/aircraft/MODEL-DELTAS.md` entry **D1**, the first real model delta and the delta rule's
 first live test. The flaperon summer carried the flap command differentially and the roll command
 symmetrically, so `fcs/tef-control` cancelled out of `fcs/flaperon-mix-rad` and twice the aileron
 command took its place. Consequences and the re-measured anchors:
@@ -149,7 +149,7 @@ Every number in this document carries exactly one:
 | Marker | Meaning |
 |---|---|
 | `[DOC]` | evidenced in `doc/modules/f16/` (reference cited) |
-| `[MODELL]` | derived from the flown `assets/aircraft/f16/f16.xml` (derivation stated) — upstream state plus the deltas from `sim/assets/MODEL-DELTAS.md`, today none |
+| `[MODELL]` | derived from the flown `assets/aircraft/f16/f16.xml` (derivation stated) — upstream state plus the deltas from `mods/f16/src/aircraft/MODEL-DELTAS.md`, today none |
 | `[MESS]` | measured in the gym against the vanilla model (measurement setup stated) |
 | `[SET]` | a setting/declared model parameter — NOT a quotation, marked as such in the source code |
 | `[ABL]` | derived from another FlightBox quantity (calculation stated) |
@@ -1094,7 +1094,7 @@ a quiet one.
 
 | Point | Statement |
 |---|---|
-| Model | `sim/assets/aircraft/f16` — the **full-scale JSBSim F-16** with a real FLCS, FlightBox' copy of the pinned upstream (today byte-identical, `sim/assets/MODEL-DELTAS.md` names no delta). `FBF16Module::FdmModelName()` yields `"f16"`; there is no longer a choice of root |
+| Model | `mods/f16/src/aircraft/f16` — the **full-scale JSBSim F-16** with a real FLCS, FlightBox' copy of the pinned upstream (today byte-identical, `mods/f16/src/aircraft/MODEL-DELTAS.md` names no delta). `FBF16Module::FdmModelName()` yields `"f16"`; there is no longer a choice of root |
 | Not derived | The model name is DELIBERATELY not derived from the registry name: the two coincide today but are not the same thing |
 | "The MODEL is the reference" (principle 5) | In practice: the target quantity is NOT "does the number agree with the real jet" but "does FlightBox fly the model FAITHFULLY". Evidenced consequences in this module: the ~5.4 g / ~16 °/s at corner (instead of 9 g / 20+ °/s) are ACCEPTED model properties and not a defect to be tuned; likewise the ~170 KCAS lift-off speed despite the 128 kt table Vr; `ApproachSpeedKt` 154 is the MEASURED trim curve of the model and not a copied real-world number. The one thing that IS a defect and was therefore corrected is a model line that produced a physical impossibility — negative drag (`MODEL-DELTAS.md` D1); the delta rule, not principle 5, governs that case. What is judged is correct integration + rendering |
 | FBW/FLCS | The JSBSim F-16 has a real FLCS (`fcs/*-cmd-norm` = rate setpoints). FlightBox' FBW commands it through the `Flcs=1` preset instead of distorting it; `fcs/fbw-override=1` bypasses it (direct control surfaces) — this module uses the FLCS path |

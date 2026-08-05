@@ -83,7 +83,7 @@ exists nowhere yet. That is the same cut [`duels.md`](duels.md), [`formation.md`
 |---|---|---|
 | **P1** | **The layer is one-way: it reads a run, omits from it, and adds nothing** | §1's three checks, the third of which is a byte-identity |
 | **P2** | **Primary/secondary is an ANNOTATION over objectives the mission already declares, and lives outside `.fbm` and `.fbc`** | §2. Acceptance: no `.fbm` and no `.fbc` gains a token; a briefing naming an objective the file does not declare is a parse error |
-| **P3** | **The judge judges once. The game re-reads the judge's own output and never recomputes a state** | §3. Acceptance: for a briefing that marks every objective primary, "completed" equals `exit == 0` over every `sim/missions/*.fbm` with exactly one judged unit |
+| **P3** | **The judge judges once. The game re-reads the judge's own output and never recomputes a state** | §3. Acceptance: for a briefing that marks every objective primary, "completed" equals `exit == 0` over every `mods/f16/src/missions/*.fbm` with exactly one judged unit |
 | **P4** | **No score, anywhere** | §3. There is no number to print: the debrief shows a list of objectives with three states and one boolean. A field whose value is a total does not exist in the data model |
 | **P5** | **The game grade can never reach the fitness** | §2.3. Acceptance: the fitness's inputs (`UNIT_RESULT`, `mission OBJECTIVE`, `eng_*`/`dmg_*` columns) are byte-identical whether a briefing exists or not — which is trivially true because the runner never sees one, and is *measured* rather than argued |
 | **P6** | **The debrief shows nothing the seat did not see, except what the judge is entitled to say** | §5's three information classes and their refusal list |
@@ -139,7 +139,7 @@ mission o4-04-entry-10nm
 ```
 
 Line discipline as `.fbm`/`.fbc`: one statement per line, `#` to end of line, unknown keyword is a
-parse error. One file per campaign, `sim/campaigns/<name>.fbp`, beside the `.fbc` and never inside it.
+parse error. One file per campaign, `mods/f16/src/campaigns/<name>.fbp`, beside the `.fbc` and never inside it.
 
 **An objective the briefing does not mention is PRIMARY** `[SET]` — because that default makes the
 game's rule degrade exactly into the judge's rule (§3.2), so every relaxation is a visible line and no
@@ -186,7 +186,7 @@ distinction is a LIST, not a total.
 With the default of §2.2 (unmarked = primary) and a briefing that marks nothing, completion is *"every
 declared objective met, none violated, the jet not thrown away"* — which is the judge's SUCCESS.
 
-> **Acceptance:** over every `sim/missions/*.fbm` with **exactly one JUDGED unit**, that unit being the
+> **Acceptance:** over every `mods/f16/src/missions/*.fbm` with **exactly one JUDGED unit**, that unit being the
 > seat and declaring at least one objective, `COMPLETED == (exit == 0)`. A divergence is a defect in
 > this rule, not in the judge.
 
@@ -219,7 +219,7 @@ precisely what lets a measuring rig carry a playable task without a byte changin
 
 The primary is phrased differently from the exit code, and neither reading disturbs the other.
 
-**Worked, on `sim/missions/net-blind-cue.fbm`** — the case whose pass criterion is *something not
+**Worked, on `mods/f16/src/missions/net-blind-cue.fbm`** — the case whose pass criterion is *something not
 happening*:
 
 | Reader | Reads | Says |
@@ -346,7 +346,7 @@ It is not reachable from the game client, so there is no switch to get wrong.
 
 | Screen | Shows | State source | New? |
 |---|---|---|---|
-| **Campaign select** | one row per `.fbc` with title, mission count, difficulty span, completed/total, locked/unlocked | `sim/campaigns/*.fbc` (exists) + `.fbp` title/`require` (new) + the save | the `.fbp` |
+| **Campaign select** | one row per `.fbc` with title, mission count, difficulty span, completed/total, locked/unlocked | `mods/f16/src/campaigns/*.fbc` (exists) + `.fbp` title/`require` (new) + the save | the `.fbp` |
 | **Mission select** | the campaign's missions in `.fbc` order, each with tier, primary/secondary list, locked/unlocked, best attempt | `.fbc` order (exists) + `.fbp` marks (new) + the save | the `.fbp` |
 | **Debriefing** | §5's rows | computed at run end from the run's own artefacts; nothing persisted except the completion facts | the view |
 
@@ -751,7 +751,7 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
 | Piece | State | Anchor / measurement |
 |---|---|---|
 | the reading half — `.fbc`/`.fbm`/log parsers, the completion rule, the save format | **built**, DOM-free, one file (`sim/web/fbplay.js`), usable from node | 11 campaigns, 104 rungs, 104 missions parsed; the parsed objective count equals the files' own `objective` lines exactly (220 seat objectives), 0 defects |
-| **§3.2's acceptance, measured** | **holds** | over the **36** `sim/missions/*.fbm` with exactly ONE JUDGED unit, that unit being the seat and declaring an objective: `COMPLETED == (exit == 0)`, **36 agreements, 0 divergences** — one fb-gym run each, the JS rule read over that run's own `events.log`. Under the looser filter §3.2 originally spelled (57 missions) there are **4 divergences**, and they are the reason the criterion was corrected |
+| **§3.2's acceptance, measured** | **holds** | over the **36** `mods/f16/src/missions/*.fbm` with exactly ONE JUDGED unit, that unit being the seat and declaring an objective: `COMPLETED == (exit == 0)`, **36 agreements, 0 divergences** — one fb-gym run each, the JS rule read over that run's own `events.log`. Under the looser filter §3.2 originally spelled (57 missions) there are **4 divergences**, and they are the reason the criterion was corrected |
 | campaign select, mission select with the ladder and the unlock, debriefing | **built** (`sim/web/fbmenu.js` + `index.html`); `/` is the menu, `?campaign=`/`&step=`/`?mission=` are links | headless-Chromium frames in `sim/build/player-layer/`: `A-campaign-select.png`, `B-mission-select.png` (o4 fresh = `oLLLLLLLLL`), `4-flying.png`, `5-debrief.png`, `6-ladder-after.png` |
 | the unlock rule (B4) | **built and measured in the browser** | `viper-attrition` rung 1 (`intercept-aim120`) picked in the menu and flown to the judge's own line at **t = 291.0 s** (`mission RESULT unit=viper result=TIMEOUT`, `OBJECTIVE kind="kill unit bandit" state=unmet`): ladder `oLLL` → `ooLL`, save `step viper-attrition 1 attempts=1 verdicts=1 completed=0 last=TIMEOUT`, and `reset progress` returns it to `oLLL` |
 | provenance keys (§1 check 2) | **built and structural** | a debrief row's source is a CONSTRUCTOR ARGUMENT (`FBRow(src, …)` throws without it) and lands in the DOM as `data-src`; the objective table is asserted equal to the seat's `mission OBJECTIVE` lines — no set grows |

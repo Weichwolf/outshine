@@ -11,7 +11,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | WASM is a cross-compile of the same source list, never a second architecture | `make -C sim wasm` |
 | Server-side there are exactly two lean containers | `fb-tiles` (:8081, tile API) and `fb-sim` (:8080, web host). No SITL, no world process, no hub. |
 | An aircraft = code module + JSBSim model, resolved by name through a registry | `FBModuleRegistry`; the runner never includes a concrete module header |
-| One model root; the pinned submodule is the base, not a load path | `sim/assets/aircraft`, delta rule + `make -C sim verify-models` |
+| One model root; the pinned submodule is the base, not a load path | `mods/f16/src/aircraft`, delta rule + `make -C sim verify-models` |
 | Layering is `FBCore → interface → default → module override` | not "belongs to the F-16"; number tuning stays a preset |
 | **`FBModule` is DUMB: a module DECLARES what it has, the base demands nothing** | exactly ONE pure virtual on `modules/FBModule.h` (`Run`); every slot is an enumerated declaration, and the accessor answers `nullptr` for what was never declared |
 | The declaration list is DATA, readable at run time, not a set of C++ overrides | `build/fb-gym --caps` prints `<module> <capability> <c++ type>` from `modules/FBCapability.h`'s one table |
@@ -24,7 +24,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 in their constructors (f16 twenty, mig29 nineteen — no bound HOTAS, so `human_input` is undeclared and a
 human cannot take that seat). `fb-gym --caps` prints 1065 `<module> <capability> <type>` lines over the
 56 registered module keys — 20 for `f16`, 19 for every other key. Measured unchanged across the switch:
-all 296 `sim/missions/*.fbm` byte-identical
+all 296 `mods/f16/src/missions/*.fbm` byte-identical
 (`tools/fb_regress.sh`), all ten harnesses, `test-air` at 7 band violations, `payerne-full --threads
 1/2/4` on one signature, `verify-layers` at six perception readers, `verify-guards` 8/8.
 
@@ -164,9 +164,9 @@ call site outside `modules/` ever needed the derived type.
 | Part | Where | What |
 |---|---|---|
 | Code module | `sim/src/modules/<name>/` | `FBModule` derivation: systems, presets, displays |
-| JSBSim model | `sim/assets/aircraft/<model>/` | aero, mass, propulsion, engine data |
+| JSBSim model | `mods/f16/src/aircraft/<model>/` | aero, mass, propulsion, engine data |
 
-**One root** (`missions/FBModelRoots.h`): every model FlightBox flies lives in `sim/assets/aircraft` — a
+**One root** (`missions/FBModelRoots.h`): every model FlightBox flies lives in `mods/f16/src/aircraft` — a
 self-contained directory per model, with its `.xml` and its own `engine/` and `Systems/`
 subdirectories (JSBSim's own per-aircraft layout, which its loaders search before any shared path).
 Today: `f16`, `mk82` (both copies from the submodule), `aim120` (FlightBox's own, the submodule has no
@@ -174,7 +174,7 @@ AMRAAM).
 
 The pinned submodule is thereby **no longer a load path but the base** — the upstream state against
 which `make -C sim verify-models` diffs every copy. A copy may only deviate as a named entry in
-`sim/assets/MODEL-DELTAS.md` — the delta rule, [`CLAUDE.md`](../CLAUDE.md) principle 1. The earlier
+`mods/f16/src/aircraft/MODEL-DELTAS.md` — the delta rule, [`CLAUDE.md`](../CLAUDE.md) principle 1. The earlier
 distinction "vendored or own" (`FBModule::FdmModelVendored()`) has therefore been dropped; a module
 now only names its model.
 

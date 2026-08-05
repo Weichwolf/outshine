@@ -80,7 +80,7 @@ nobody gave him).
 | `set brief_release_s <t>` | HOTAS | when the pilot pickles (sim seconds); repeatable — see [`weapons.md`](weapons.md) |
 | `set radalt on\|off` | (spawn) | CARA power; `off` makes the radar-altitude block `invalid` for the whole run |
 
-`sim/missions/cmd-avionics.fbm` runs exactly these cases in one run (acceptance, clamping, effect
+`mods/f16/src/missions/cmd-avionics.fbm` runs exactly these cases in one run (acceptance, clamping, effect
 inhibition, "not implemented", channel busy, manoeuvre lock) and additionally switches the radar
 altimeter off — the reference run for the command stream AND the validity states.
 

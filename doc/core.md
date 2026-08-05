@@ -1381,7 +1381,7 @@ FBStoreKind { None = 0, Mk82, Aim120 }   // append; None must stay 0 so that a z
 | Field | Meaning |
 |---|---|
 | `Kind`, `Key` | ordinal; mission file/registry name |
-| `FdmModel` | JSBSim model directory under the ONE model root (`sim/assets/aircraft`) |
+| `FdmModel` | JSBSim model directory under the ONE model root (`mods/f16/src/aircraft`) |
 | `MassLbs` | carriage mass |
 | `DragAreaFt2` | CdA: carriage drag = this × qbar (lbf) |
 | `MaxFlightS` | lifetime cap after release |
@@ -1435,7 +1435,7 @@ computer knows about the round.
 
 ##### `kAim120` — AIM-120 AMRAAM
 
-`doc/modules/f16/weapons.md` §2.5, §3, §4.4. The FIRST guided round: `sim/assets/aircraft/aim120` — the only
+`doc/modules/f16/weapons.md` §2.5, §3, §4.4. The FIRST guided round: `mods/f16/src/aircraft/aim120` — the only
 model in the root WITHOUT an upstream counterpart, because the pinned submodule has no AMRAAM. Module:
 `modules/missile`.
 
@@ -2155,7 +2155,7 @@ change):
 
 | Parameter | Value |
 |---|---|
-| File | `sim/assets/swiss-dem-90m.bin` |
+| File | `mods/f16/src/data/swiss-dem-90m.bin` |
 | Bounding box | **5.96–10.49 °E / 45.82–47.81 °N** |
 | Target resolution | **90 m** (`TARGET_M`) at the mean latitude of the box |
 | Raster size | `cols = round(Δlon · 111320 · cos(lat_mid) / 90) + 1`, `rows = round(Δlat · 111320 / 90) + 1` (~3900 × 2450) |

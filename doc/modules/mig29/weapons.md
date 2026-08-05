@@ -613,7 +613,7 @@ The delivery error of a director is the sum of two terms, and only the first is 
 
 1. **The computer's own table error** — `core/FBBallistics` integrates the stored `FBWeaponPerf`
    while the store flies its own JSBSim deck. Identical mechanism on both aircraft, ~45 m on the
-   Mk-82 (`sim/missions/attack-ccrp.fbm`'s own header).
+   Mk-82 (`mods/f16/src/missions/attack-ccrp.fbm`'s own header).
 2. **The open-loop term** — everything the aircraft did between consent and release that the frozen
    plan did not know about: speed change, flight-path change, bank. It is zero for a perfectly steady
    run and grows with the **countdown length** and with the **time of fall** that amplifies a wrong
@@ -669,7 +669,7 @@ file contains.
 
 **Implemented as of MiG-29 stage 2c: the R-27R, the R-73 and the GSh-301.** Each is a catalogue entry
 in the FlightBox core (`core/FBStore.h`, `core/FBGun.h`) with its own FlightBox-own JSBSim deck under
-`sim/assets/aircraft/`, and the aircraft carries them on `modules/mig29/FBMig29Sms`'s seven declared
+`mods/f16/src/aircraft/`, and the aircraft carries them on `modules/mig29/FBMig29Sms`'s seven declared
 stations with `FBMig29Gun` in the port LERX. Behaviour is the generic `weapons/` code throughout; what
 this file supplied is the numbers and the two mechanics that are properties of these weapons rather
 than of any weapon:

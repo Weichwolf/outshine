@@ -8,7 +8,7 @@ target, and what happens when it is killed or countered.
 needs and the anti-cheat argument are [`module.md`](module.md).
 
 **Status: BUILT.** All nine rows are `core/FBSite.h`, all six rounds `core/FBStore.h`, both guns
-`core/FBGun.h`, and the six missile decks `sim/assets/aircraft/<key>/` from one generated recipe.
+`core/FBGun.h`, and the six missile decks `mods/f16/src/aircraft/<key>/` from one generated recipe.
 FOUR fields were added while building and they are named here rather than discovered in a result:
 `RailCount` and `ReloadS` (the magazine: how many rounds leave before the crew has to work, and for how
 long the position is then out of action), `SalvoS` (the spacing inside a doctrinal salvo) and `WarmupS`

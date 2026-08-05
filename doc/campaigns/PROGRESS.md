@@ -22,7 +22,7 @@ Also updated: the gap table in [`INDEX.md`](INDEX.md) now links every one of the
 `../missions/INDEX.md` and the loader skill.
 
 **Run 3 — 2026-07-29, O4 BUILT (step 4 of the owner goal).** The first campaign to exist as files:
-ten `sim/missions/o4-*.fbm` + `sim/campaigns/o4-gaf-mig29g-dact.fbc`, run, replayed and measured
+ten `mods/f16/src/missions/o4-*.fbm` + `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc`, run, replayed and measured
 ([`o4-gaf-mig29g-dact.md`](o4-gaf-mig29g-dact.md) §State). Two `sim/src` files and one tool changed —
 the campaign layer could not hand a campaign's own `time` to a standalone step replay, so criterion 2
 was unsatisfiable for any clocked campaign and O4 was the first to declare one. No source was researched
@@ -60,8 +60,8 @@ including O3, whose spec counted **zero**, and W1, whose spec counted four (per-
 [`INDEX.md`](INDEX.md)).
 **Only W2 remains spec-only.**
 
-**Run 4 — 2026-07-29, O1 BUILT.** The second campaign to exist as files: ten `sim/missions/o1-*.fbm` +
-`sim/campaigns/o1-bekaa-1982.fbc` ([`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State). **No `sim/src/` file,
+**Run 4 — 2026-07-29, O1 BUILT.** The second campaign to exist as files: ten `mods/f16/src/missions/o1-*.fbm` +
+`mods/f16/src/campaigns/o1-bekaa-1982.fbc` ([`o1-bekaa-1982.md`](o1-bekaa-1982.md) §State). **No `sim/src/` file,
 no tool and no asset was touched** — the whole campaign is mission text, which is what its own spec
 predicted ("their subject is doctrine and doctrine is mission text"). No new source was researched; the
 anchor is Run 1's and unchanged.
@@ -135,8 +135,8 @@ Named here so that nobody later mistakes one for a fact:
 **Run 3 — 2026-07-28, `C2` built.** The first code round of the foundation. The `time` line parses, the
 clock binds all three clients, the flag collision is a boot error, `FBEphemeris` moved from `render/` to
 `core/`, and `fb-gym` writes `FBEnvironmentBlock` for the first time. All 84 pre-round missions
-byte-identical; reference mission `sim/missions/clock-night-payerne.fbm`, refusal fixtures in
-`sim/missions/negative/`. Details in [`../missions/syntax.md`](../missions/syntax.md),
+byte-identical; reference mission `mods/f16/src/missions/clock-night-payerne.fbm`, refusal fixtures in
+`mods/f16/src/missions/negative/`. Details in [`../missions/syntax.md`](../missions/syntax.md),
 [`../clients/clients.md`](../clients/clients.md) and [`../journal.md`](../journal.md).
 
 **Run 4 — 2026-07-28, the connected air defence (spec only).** Nothing under `sim/` touched, and
@@ -166,7 +166,7 @@ Nothing in this directory needs re-writing. The next work is **outside** it:
 
 1. ~~**Build the remaining three foundation contracts**, in the order their dependencies allow: `C2`
    → `C12` → `C3` → `C0`.~~ — **all four built 2026-07-28.** `C0` closed last, with
-   `sim/campaigns/viper-attrition.fbc` as its first campaign; the ten campaigns of this directory now
+   `mods/f16/src/campaigns/viper-attrition.fbc` as its first campaign; the ten campaigns of this directory now
    lack their `.fbm` files and nothing else.
 2. Build the four one-line experiments named in [`INDEX.md`](INDEX.md) — `o1-01/02`, `w3-07/08`,
    `w4-01/02`, `w5-02/03`. They need nothing that does not exist, and three of them answer questions
@@ -186,8 +186,8 @@ Nothing in this directory needs re-writing. The next work is **outside** it:
 
 ~~3. Open a gap entry for `C1`…~~ — **done in run 2**, in [`../weapons.md`](../weapons.md).
 
-**Run 6 — 2026-07-29, O5 BUILT.** The third campaign to exist as files: ten `sim/missions/o5-*.fbm` +
-`sim/campaigns/o5-airfield-defence.fbc` ([`o5-airfield-defence.md`](o5-airfield-defence.md) §State).
+**Run 6 — 2026-07-29, O5 BUILT.** The third campaign to exist as files: ten `mods/f16/src/missions/o5-*.fbm` +
+`mods/f16/src/campaigns/o5-airfield-defence.fbc` ([`o5-airfield-defence.md`](o5-airfield-defence.md) §State).
 **No `sim/src/` file, no tool and no asset was touched.** No new source was researched; the anchor is
 Run 1's and unchanged, and the claim-review thread flagged there is still unread. It is the first
 campaign to fly the `C12` vocabulary in anger and the first whose subject is the ground defence the
@@ -206,7 +206,7 @@ Run-5 fix made able to move an outcome.
 ---
 
 **Run 7 — 2026-07-29, O2 BUILT, and the first run since run 1 to read a new source.** The fourth
-campaign to exist as files: ten `sim/missions/o2-*.fbm` + `sim/campaigns/o2-pvo-intercept.fbc`
+campaign to exist as files: ten `mods/f16/src/missions/o2-*.fbm` + `mods/f16/src/campaigns/o2-pvo-intercept.fbc`
 ([`o2-pvo-intercept.md`](o2-pvo-intercept.md) §State). **No `sim/src/` file, no tool and no asset was
 touched.** The two CIA reading-room documents this ledger has carried as *"the highest-value unread
 source in the directory"* since run 1 were retrieved and read, and O2's doctrine half moved from
@@ -228,8 +228,8 @@ source in the directory"* since run 1 were retrieved and read, and O2's doctrine
 ---
 
 **Run 8 — 2026-07-29, W5 BUILT: the first campaign in which the F-16 flies, and the only one whose
-success condition contains no weapon.** The fifth campaign to exist as files: ten `sim/missions/w5-*.fbm`
-plus `sim/campaigns/w5-baltic-qra.fbc` ([`w5-baltic-qra.md`](w5-baltic-qra.md) §State). **No `sim/src/`
+success condition contains no weapon.** The fifth campaign to exist as files: ten `mods/f16/src/missions/w5-*.fbm`
+plus `mods/f16/src/campaigns/w5-baltic-qra.fbc` ([`w5-baltic-qra.md`](w5-baltic-qra.md) §State). **No `sim/src/`
 file, no tool and no asset was touched.** No new source was researched; the anchor is Run 1's and
 unchanged. It is the first campaign whose sorties mostly return a REAL verdict rather than a measuring
 rig's TIMEOUT, because `identify` + `no_fire` (round `C12`) were built for exactly this task.
@@ -250,7 +250,7 @@ rig's TIMEOUT, because `identify` + `no_fire` (round `C12`) were built for exact
 
 **Run 9 — 2026-07-29, W3 BUILT: the first campaign whose opponent is a system, and the first built
 entirely out of capabilities that did not exist when its own spec was written.** The sixth campaign to
-exist as files: ten `sim/missions/w3-*.fbm` plus `sim/campaigns/w3-desert-storm.fbc`
+exist as files: ten `mods/f16/src/missions/w3-*.fbm` plus `mods/f16/src/campaigns/w3-desert-storm.fbc`
 ([`w3-desert-storm.md`](w3-desert-storm.md) §State). **No `sim/src/` file, no tool and no asset was
 touched** — `git status --porcelain` lists eleven new untracked files and no modified one, so the 195
 pre-existing missions are byte-identical by construction. No new source was researched; the anchor is
@@ -272,7 +272,7 @@ Run 1's and unchanged, and the Air Force Magazine PDF listed below is still unre
 
 **Run 10 — 2026-07-29, W4 BUILT: the campaign whose subject is FINDING, and the first in which two
 anchor facts turned out to be mutually exclusive.** The seventh campaign to exist as files: ten
-`sim/missions/w4-*.fbm` plus `sim/campaigns/w4-allied-force.fbc`
+`mods/f16/src/missions/w4-*.fbm` plus `mods/f16/src/campaigns/w4-allied-force.fbc`
 ([`w4-allied-force.md`](w4-allied-force.md) §State). **No `sim/src/` file, no tool and no asset was
 touched** — `git status --porcelain` lists eleven new untracked files and no modified one, so the 205
 pre-existing missions are byte-identical by construction. No new source was researched; the anchor is
@@ -298,7 +298,7 @@ Run 1's and unchanged.
 
 **Run 11 — 2026-07-30, O3 BUILT: the campaign that had ZERO runnable missions until the day it flew, and
 the only one of the ten whose missile umbrella is FRIENDLY.** The eighth campaign to exist as files: ten
-`sim/missions/o3-*.fbm` plus `sim/campaigns/o3-yom-kippur-1973.fbc`
+`mods/f16/src/missions/o3-*.fbm` plus `mods/f16/src/campaigns/o3-yom-kippur-1973.fbc`
 ([`o3-yom-kippur-1973.md`](o3-yom-kippur-1973.md) §State). **No `sim/src/` file, no tool and no asset was
 touched** — `git status --porcelain` lists eleven new untracked files and no modified one, so the 216
 pre-existing missions are byte-identical by construction. No new source was researched; the anchor is
@@ -324,8 +324,8 @@ aircraft) are still unsourced and still labelled `[SET]` wherever this round nee
 ---
 
 **Run 12 — 2026-07-30, W1 BUILT: the training ladder, and the first campaign put through the saturation
-gate — which refuses it.** The ninth campaign to exist as files: ten `sim/missions/w1-*.fbm` plus
-`sim/campaigns/w1-red-flag.fbc` ([`w1-red-flag.md`](w1-red-flag.md) §State). **No `sim/src/` file, no tool
+gate — which refuses it.** The ninth campaign to exist as files: ten `mods/f16/src/missions/w1-*.fbm` plus
+`mods/f16/src/campaigns/w1-red-flag.fbc` ([`w1-red-flag.md`](w1-red-flag.md) §State). **No `sim/src/` file, no tool
 and no asset was touched** — `git status --porcelain` lists eleven new untracked files and no modified one,
 so the 226 pre-existing missions are byte-identical by construction. **And it is the first run since run 7
 to lift a blocked source:** the 414th CTS fact sheet, carried here as HTTP 403 since run 1, was read
@@ -392,7 +392,7 @@ Four things the re-verification established that the commit could not:
 ---
 
 **Run 13 — 2026-07-30, PART B: W2 BUILT — the tenth and last campaign, and the only one whose
-antagonist is fuel.** Ten `sim/missions/w2-*.fbm` plus `sim/campaigns/w2-osirak.fbc`
+antagonist is fuel.** Ten `mods/f16/src/missions/w2-*.fbm` plus `mods/f16/src/campaigns/w2-osirak.fbc`
 ([`w2-osirak.md`](w2-osirak.md) §State). **No `sim/src/` file, no tool and no asset was touched** —
 `git status --porcelain` lists eleven new untracked files, so the 241 pre-existing missions are
 byte-identical by construction. No new anchor source was researched; the anchor is Run 1's, and its own

@@ -1995,7 +1995,7 @@ define a mission (.fbm)  →  simulate headless (fb-gym)  →  analyse the telem
       └───────────────────────────── correction ←────────────────────────────┘
 ```
 
-- **Define:** `sim/missions/*.fbm`. For a fight, `set datalink off` is mandatory (otherwise the sensor
+- **Define:** `mods/f16/src/missions/*.fbm`. For a fight, `set datalink off` is mandatory (otherwise the sensor
   restriction would only be claimed) plus an auto-lock mode (`set fcr_mode acm_hud` or similar — CRM does
   not lock by itself). For an intercept, `set fcr_mode crm` and starting geometries outside the search
   gate.

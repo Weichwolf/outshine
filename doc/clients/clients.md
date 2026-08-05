@@ -211,7 +211,7 @@ Precedence in ONE place on the `missions` side (`FBClockBoot.h`, the sibling of 
 |---|---|
 | mission declares `time` | that instant, on **all three clients**, identically |
 | mission declares no `time` | the client default: gym **none** (no ephemeris, exactly as today), native/wasm **their existing wall-clock or flag path**, unchanged |
-| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence. Checked BEFORE the spawn, so it needs neither terrain nor a GPU; fixture `sim/missions/negative/clock-flag-collision.fbm` |
+| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence. Checked BEFORE the spawn, so it needs neither terrain nor a GPU; fixture `mods/f16/src/missions/negative/clock-flag-collision.fbm` |
 
 That last row is where this rule deliberately differs from `wx`, and the difference is worth stating.
 Weather has **no flag at all**, so no conflict can arise; the clock has one, and it has to keep it,

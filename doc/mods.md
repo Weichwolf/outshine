@@ -3,7 +3,7 @@
 > Owner, 2026-08-05: *„daraus folgt auch, dass die `mods/` komplett deklarativ sind. `mods/` sind einfach
 > sehr grosse `test/` Spezifikationen."* · *„Szenarien sind `mods/` auf die Outshine-Engine."*
 
-Spec-first. Nothing here is built; `## State` stays empty until it is.
+Spec-first. Built so far: `mods/f16/`, the one scenario the engine used to be — see `## State`.
 
 ## Spec
 

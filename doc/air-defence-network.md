@@ -6,7 +6,7 @@ that decides who shoots, what the defence becomes when the net is taken from it,
 jamming model that makes that last question measurable.
 
 **Status: BUILT.** The five capabilities of §0 are built and measured; the numbers are in §State and the
-eight proof missions are `sim/missions/net-*.fbm`.
+eight proof missions are `mods/f16/src/missions/net-*.fbm`.
 
 **Delimitation, and it is the whole reason this file exists separately.**
 [`modules/ground/module.md`](modules/ground/module.md) specifies **one position**: two antennas, an

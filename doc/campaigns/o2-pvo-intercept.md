@@ -130,10 +130,10 @@ and they test the boundary.
 ## State
 
 **BUILT AND FLOWN, 2026-07-29 — the fourth of the ten campaigns to exist as files.** Ten `.fbm` in
-`sim/missions/o2-*.fbm` plus `sim/campaigns/o2-pvo-intercept.fbc`, run as a campaign, replayed step by
-step, and measured. **No file under `sim/src/`, `sim/tools/` or `sim/assets/` was touched**
+`mods/f16/src/missions/o2-*.fbm` plus `mods/f16/src/campaigns/o2-pvo-intercept.fbc`, run as a campaign, replayed step by
+step, and measured. **No file under `sim/src/`, `sim/tools/` or `mods/f16/src/` was touched**
 (`git status --porcelain` lists eleven new untracked files and **no modified one**), so the **173** pre-existing
-`sim/missions/*.fbm` are byte-identical **by construction rather than by comparison**: the binary that
+`mods/f16/src/missions/*.fbm` are byte-identical **by construction rather than by comparison**: the binary that
 flew O2 is the binary that flew everything before it.
 
 ### The two unread sources were read, and the doctrine half is no longer the thinnest in the directory
@@ -310,7 +310,7 @@ first attempt, so nothing was lost — and the rule exists to bound the damage w
 ### Conservation, and the gates
 
 `git status --porcelain` lists **eleven new untracked files and no modified one**: ten
-`sim/missions/o2-*.fbm` and one `sim/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
+`mods/f16/src/missions/o2-*.fbm` and one `mods/f16/src/campaigns/*.fbc`. Gates: `make core-lib gym native wasm`
 warning-free; `verify-layers` *"300 files, 826 internal include(s), 12 layers — no upward include, 3
 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 287 file(s) in
 their layer's namespace (5 C-island file(s) exempt)"*; `verify-models` *"4 upstream-backed model

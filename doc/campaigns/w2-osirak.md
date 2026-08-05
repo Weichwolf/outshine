@@ -95,8 +95,8 @@ they produce the two numbers everything else depends on (combat radius, low-leve
 ## State
 
 **BUILT AND FLOWN 2026-07-30 — the TENTH AND LAST of the ten campaigns to exist as files.** Ten
-`sim/missions/w2-*.fbm` plus `sim/campaigns/w2-osirak.fbc`. No file under `sim/src/`, `sim/tools/` or
-`sim/assets/` was touched — `git status --porcelain` lists eleven new untracked files and no modified
+`mods/f16/src/missions/w2-*.fbm` plus `mods/f16/src/campaigns/w2-osirak.fbc`. No file under `sim/src/`, `sim/tools/` or
+`mods/f16/src/` was touched — `git status --porcelain` lists eleven new untracked files and no modified
 one, so the 241 pre-existing missions are byte-identical by construction.
 
 ### Why it was unblocked, and by how much
@@ -318,7 +318,7 @@ than the spec's.** Six of the eleven had closed since the spec was written.
 | `C10` | **no dive or pop-up delivery** | **OPEN** | the anchor's 35° / 2,100 m / 1,100 m profile is the answer to the same 17.7 m problem this campaign measures a **6.36–50.83 m** band against. It also deleted the spec's own mission 5 as a separate file |
 | ~~`C8`~~ | Mk-84 not in the catalogue | **BUILT 2026-07-28** | the campaign flies the anchor's own weapon; `w2-01` asks the sharper question the spec could not |
 | `C7` | **no F-15 module** | **OPEN** (`f15c` exists as a flight model and cannot fire — MEASURED by O5) | the escort of `w2-06`/`w2-10` is an F-16 stand-in, and only two of the anchor's six: the other four were a dispersed diversion with no geometry this tree could give them |
-| ~~`C0`~~ | no campaign layer | **CLOSED 2026-07-28** | `sim/campaigns/w2-osirak.fbc` exists — **and it cannot carry fuel**, by a stated and correct decision, which makes the one campaign whose antagonist is fuel the one whose layer is blind to it |
+| ~~`C0`~~ | no campaign layer | **CLOSED 2026-07-28** | `mods/f16/src/campaigns/w2-osirak.fbc` exists — **and it cannot carry fuel**, by a stated and correct decision, which makes the one campaign whose antagonist is fuel the one whose layer is blind to it |
 | ~~`C2`~~ | no time of day | **CLOSED 2026-07-28** | all ten declare `1981-06-07T12:55:00Z`, the anchor's own 15:55 local launch. It decided nothing measurable here: nothing in W2 depends on the sun |
 | `C15` | no time-on-target / no 5 s stream sequencing | **OPEN** | the capstone's four pairs are spaced **1,029 m along track = 5.00 s at 400 kt**, arithmetic done by the author in a comment, and the releases come out 5.0 s apart four times. That is what `C15` means: it works and nothing in the simulator maintains it |
 | `C4` | **no terrain masking** | **OPEN** | `w2-07`'s blind spot has nothing to be blind behind — and it turned out not to be the binding constraint: `C6`'s airborne half is |

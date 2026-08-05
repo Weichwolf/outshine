@@ -553,4 +553,4 @@ plant, and a plant is a measurement.
 | the procedure, the inversions, the analogies, the bands | this file |
 | the class, the tiers, the boundary argument | [`module.md`](module.md) |
 | the derivation this file generalises | [`../mig29/flight-model-spec.md`](../mig29/flight-model-spec.md) |
-| what a model copy may deviate in | `sim/assets/MODEL-DELTAS.md` — every catalogue deck is FlightBox-own, provenance `—`, like the seventeen that exist |
+| what a model copy may deviate in | `mods/f16/src/aircraft/MODEL-DELTAS.md` — every catalogue deck is FlightBox-own, provenance `—`, like the seventeen that exist |

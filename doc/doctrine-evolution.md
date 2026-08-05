@@ -59,7 +59,7 @@ exception to the mirror rule.
 | **The vocabulary the fitness must sit on** | [`missions/verdict.md`](missions/verdict.md) (four verdicts, nine objective kinds) |
 | **The genome's home** | [`pilot.md`](pilot.md) §9 (`FBPilotTuning`), §11 (pilot property vs aircraft property), [`formation.md`](formation.md) §§4–6 |
 | **The runner evolved over** | [`missions/campaign.md`](missions/campaign.md) (the `.fbc` layer, the fingerprint, the refusal rule) |
-| **The boundary** | `CLAUDE.md` principle 1, `sim/assets/MODEL-DELTAS.md`, [`conventions.md`](conventions.md) |
+| **The boundary** | `CLAUDE.md` principle 1, `mods/f16/src/aircraft/MODEL-DELTAS.md`, [`conventions.md`](conventions.md) |
 
 Marking: `[SET]` = a FlightBox setting with its one-sentence reason · `[DERIVED]` = computed from a
 named relation · `[MESS]` = measured in this tree, with the file it is measured in · `[TODO]` = named
@@ -74,7 +74,7 @@ and not yet measured.
 | # | Contract | Acceptance / measurement anchor |
 |---|---|---|
 | **E1** | **The fitness is lexicographic, not weighted.** Result dominates absolutely; craft orders only inside an identical result | §1.3's tuple, computed per unit per run. Acceptance: no craft item, at any value inside its bound, can change the order of two variants whose result keys differ |
-| **E2** | **The genome is doctrine and cannot express a model number** | §2. Acceptance: `git status --porcelain sim/assets` is empty after an evolution run and `make -C sim verify-models` is green; the runner prints its own alphabet at start (`evolving N genes of M pilot keys; K keys refused as airframe-owned`) |
+| **E2** | **The genome is doctrine and cannot express a model number** | §2. Acceptance: `git status --porcelain mods/f16/src` is empty after an evolution run and `make -C sim verify-models` is green; the runner prints its own alphabet at start (`evolving N genes of M pilot keys; K keys refused as airframe-owned`) |
 | **E3** | **An archive of earlier opponents prevents circling, and the circling is MEASURED** | §3. Acceptance: the champion set's cyclic-triple count `T ≤ 0.05` and the score against the FIXED yardstick is non-decreasing over a five-generation window |
 | **E4** | **No evolution run starts on a saturated arena** | §4. Acceptance: the arena check passes (≥ 6 geometries, ≥ 3 informative, modal outcome class ≤ 60 % per informative geometry) and its summary line heads every evolution log |
 | **E5** | **The product of a round is an explainable doctrine shift plus the exploit list, never a better number** | §6's report template. A round with an empty "mechanism" section does not publish a shift |
@@ -313,7 +313,7 @@ Four properties follow, and each is a check rather than a rule of conduct:
    **it prints its own alphabet at start**: `evolving 5 genes of 22 pilot keys; 17 refused as
    airframe-owned; 0 non-pilot keys reachable`, in the shape of `verify-layers`' *"6 registry reader(s)
    inside the perception boundary"*.
-4. **The falsification, run every time.** Before and after: `git status --porcelain sim/assets` empty
+4. **The falsification, run every time.** Before and after: `git status --porcelain mods/f16/src` empty
    and `make -C sim verify-models` green. A run that moved a deck is **void**, not "explained".
 
 **The existing table's exception, named rather than hidden.** `pilot_speed_kt` (150…900) and
@@ -560,7 +560,7 @@ and every one of them exists because a MEASUREMENT of an earlier round forced it
 
 | # | Contract | Acceptance / measurement anchor |
 |---|---|---|
-| **E7** | **The arena is the campaigns' own committed missions.** A cell is `(mission, team, module)`: a hand-authored rung, the side the doctrine is flown by, and the units its key is summed over | the cell list is produced by a STATED RULE and not curated (every group of the 100 missions that flies a FlightBox module and declares an objective), and the committed files are never written: `git status --porcelain sim/missions sim/assets` empty before and after, or the run is VOID |
+| **E7** | **The arena is the campaigns' own committed missions.** A cell is `(mission, team, module)`: a hand-authored rung, the side the doctrine is flown by, and the units its key is summed over | the cell list is produced by a STATED RULE and not curated (every group of the 100 missions that flies a FlightBox module and declares an objective), and the committed files are never written: `git status --porcelain mods/f16/src/missions mods/f16/src` empty before and after, or the run is VOID |
 | **E8** | **The genome may name a GROUND decision, because that is the half the campaigns grade.** [MESS, [`campaigns/w1-red-flag.md`](campaigns/w1-red-flag.md)] *"the air half of a training ladder cannot be graded above two aircraft a side in this tree; the ground half can"* — and the five genes of §2.1 are all air-to-air. **G6** `pilot_attack_bias_s` (the pickle's lead over one's own actuation) and **G7** `pilot_attack_ccip_m` (the cross-error the pilot will accept before pressing) | both are EXISTING `Free` keys of `FBPilotTuning`'s compiled table with no new syntax and no dimensioned aircraft number; §2.2's boundary is unchanged and the runner prints its alphabet out of `fb-gym --pilot-keys` as before |
 | **E9** | **Which genes can act is MEASURED before the run, per cell, in the published channel §2.1 names for each gene** — never assumed from the mission text | one table, one channel and one number per gene per cell; a gene with no live channel anywhere in the arena is reported as structurally inert WITH the source line that makes it so |
 | **E10** | **The gate is not loosened, and where the lever set is larger than nine it is TIGHTENED.** S1's 60 %, S2's 3 movers, S4's 6 geometries and S5's 3 informative are the same constants | S2 passes only when the movers are ≥ 3 **and** ≥ 3/9 of the levers swept, so a longer lever file cannot buy a pass |
@@ -589,7 +589,7 @@ third key grows.**
 | # | Contract | Acceptance / measurement anchor |
 |---|---|---|
 | **E12** | **Craft carries a SECOND currency, and the two are never added.** Every item of §1.3 is air-to-air, so a strike cell's key is `(V, M, GATE)` and a bomb 20 m out and a bomb 2 km out are exactly tied — [MESS, `E5`] on **32 of the 46** cells that aim a bomb. `C` becomes the pair `(air, aim)`, compared by **domination**: better in one and not worse in the other wins, better in one and worse in the other is INCOMPARABLE and ties | two runs with the same `V`, the same `M` and a different `aimErrM` are strictly ordered where they were exactly tied before; and **no craft value crosses a level** — both components stay bounded, so `\|C\|` stays under the 1e3 step |
-| **E13** | **A run that ENDS publishes its objective vector. WHEN a run ends is untouched.** `FirstFlightKo` keeps its meaning to the tick — the conservative reading of a wreck that must not keep integrating — but every judge still open when the loop stops is asked before the report | every `sim/missions/*.fbm` keeps its exit code and **every telemetry column byte-identical**; the `events.log` delta is ADDITIVE except where an already-owned rule (the shoot-down that explains the impact) finally applies; deterministic over `--threads 1/2/4` |
+| **E13** | **A run that ENDS publishes its objective vector. WHEN a run ends is untouched.** `FirstFlightKo` keeps its meaning to the tick — the conservative reading of a wreck that must not keep integrating — but every judge still open when the loop stops is asked before the report | every `mods/f16/src/missions/*.fbm` keeps its exit code and **every telemetry column byte-identical**; the `events.log` delta is ADDITIVE except where an already-owned rule (the shoot-down that explains the impact) finally applies; deterministic over `--threads 1/2/4` |
 | **E14** | **The new post comes out of a channel the judge already writes**, like every other one | `aimErrM` on `stores DELIVERY` (`missions/FBMissionRunner.cpp`, `LogStoreImpact`). **No new telemetry column, no new event, no new roster field** |
 
 **Why a pair and not a sixth summand — the decision, with its reason.** A summand would have priced one
@@ -671,7 +671,7 @@ genes are live, two are BLOCKED by a named gap in another file, and the arena pa
 | **The arena gate** `tools/fb_arena_check.py` | **BUILT**, and the arena was rebuilt until it passed | see the two tables below |
 | **The archive** (`tools/fb_evolve.py`, non-dominated admission, deterministic stride sample, cap 64) | **BUILT**, with all three circling instruments | [MESS] 4 generations × P = 4 at `xmirror --flight 2`: T = 0.0000, yardstick 0.667 flat, archive 16 members |
 | The attribution instrument | **consumed unchanged**, now on the order scalar | `sim/tools/fb_tournament.py` |
-| `git status --porcelain sim/assets` before and after every evolution run | **BUILT as a check, not a rule** — the runner refuses to start dirty and prints VOID if it ends dirty | both runs: clean/clean, `verify-models` green |
+| `git status --porcelain mods/f16/src` before and after every evolution run | **BUILT as a check, not a rule** — the runner refuses to start dirty and prints VOID if it ends dirty | both runs: clean/clean, `verify-models` green |
 
 ### The two exhibits, re-measured
 
@@ -684,7 +684,7 @@ genes are live, two are BLOCKED by a named gap in another file, and the arena pa
 | bundles per second of continuous fire | 10 | 10 — every burst span is a whole number of 0.1 s ticks; the F-16's spans are 0.5 s = `BfmGunBurstS` = 5 bundles per squeeze | **confirmed** |
 | `NoteHit()` once per bundle | 1 | `dmg_hits` = `gun HIT` line count exactly (8/8, 24/24, 23/23) | **confirmed** |
 | **fitness per second of on-target fire** | **1,500** | `gun-turning` 24 hits / 4.0 s = **900** · `gun-bfm` 9 / 1.3 s = **1,038** · `mig29-gun` 23 / 2.7 s = **1,278** | **the derivation is an UPPER BOUND, not a rate.** `kMinReportedHits` 0.1 filters the bundles that pass wide, so 60–85 % of bundles score |
-| the ≈9,000-point endpoint (full drum, jet flies on) | ~60 bundles | not reproduced: `mig29-gun` kills at **23** hits on 67 of 150 rounds | the endpoint stands as a [TODO] on the 571 m case, and the round it was derived from is not in `sim/missions/` |
+| the ≈9,000-point endpoint (full drum, jet flies on) | ~60 bundles | not reproduced: `mig29-gun` kills at **23** hits on 67 of 150 rounds | the endpoint stands as a [TODO] on the 571 m case, and the round it was derived from is not in `mods/f16/src/missions/` |
 
 **The reading:** the defect is real and the fix (§1.3 removes the counter) is right — 900 points per second of trigger is still 0.9 kills per second in the old currency, which is the whole complaint. The specific figure 1,500 is a ceiling nobody reaches and this file now says so.
 
@@ -1043,7 +1043,7 @@ altitudes; the same mission text one module over for the F-16:
 commands `Manual` — the aircraft fought every close engagement with its damper off, the pilot's F-16 g
 loop rang against an undamped short period, and the fight ended in the ground.
 [`pilot.md`](pilot.md) §5.10a carries the mechanism and the derivation; `CLAUDE.md` principle 1 was not
-touched — `sim/assets` is byte-identical and `verify-models` green.
+touched — `mods/f16/src` is byte-identical and `verify-models` green.
 
 **The temptation, named and declined:** the fastest way to make these numbers pretty was the deck. The
 MiG's own `Cmq`/`Cnr` would have damped the short period too, and nobody would have noticed. It is not
@@ -1099,7 +1099,7 @@ but the blocker is now ONE named thing instead of three, and it is not a defect 
 
 ### 4. What this round did NOT do
 
-- The deck was not touched (`git status --porcelain sim/assets` empty, `verify-models` green).
+- The deck was not touched (`git status --porcelain mods/f16/src` empty, `verify-models` green).
 - The gate was not loosened: `fb_arena_check.py` is unchanged, and the merge cells are reported as
   REFUSED rather than re-classified.
 - No geometry was added, removed or re-selected. The three merge cells are `E2`'s.
@@ -1177,7 +1177,7 @@ The trigger's prediction horizon was the ROUND's time of flight and is now the S
 
 ### 4. What this round did NOT do
 
-- The deck was not touched (`git status --porcelain sim/assets` empty, `verify-models` green).
+- The deck was not touched (`git status --porcelain mods/f16/src` empty, `verify-models` green).
 - The gate was not loosened: `fb_arena_check.py` is unchanged and the merge cells are still REFUSED.
 - No geometry was added, removed or re-selected. The three merge cells are `E2`'s.
 - 130 of 139 stock missions are byte-identical; the nine that move are named in
@@ -1287,7 +1287,7 @@ crosses that boundary; 5 baselines sit on the wrong side of it.**
 | runs | **2,464** lever + **924** yardstick + 64 bias sweep + 26 exploit-detector + 94 + 350 probe = **3,922** |
 | wall clock | 37 min (lever pass, `--jobs 7 --threads 2`) + 16 min (yardstick) on 6 cores |
 | determinism | `--threads 1/2/4` at both measurement points: `w1-07-emcon` baseline/`net-off` and `w2-01-dome` at `bias −0.2` — **identical telemetry MD5 and identical events at all three**, 6 + 3 runs |
-| `git status --porcelain sim/assets sim/missions` | **empty before and after every run**; `verify-models` green (1 declared delta), `verify-layers` green (*"304 files, 841 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue poster(s), 291 file(s) in their layer's namespace (5 C-island file(s) exempt)"*) |
+| `git status --porcelain mods/f16/src mods/f16/src/missions` | **empty before and after every run**; `verify-models` green (1 declared delta), `verify-layers` green (*"304 files, 841 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue poster(s), 291 file(s) in their layer's namespace (5 C-island file(s) exempt)"*) |
 | `sim/src/` | **not touched**. The round is three tools, two data files and this section |
 | first tool crash, and the fix | the first full pass was killed at cell 140 of 154 after 65 min and printed nothing. The gate now appends every finished run to its channels CSV and RESUMES from it |
 
@@ -1380,7 +1380,7 @@ which is why the A/B was flown with both.
 
 ### 4. What moved in the tree, split by what kind of movement it is
 
-[MESS, all **251** `sim/missions/*.fbm`, `tools/fb_regress.sh`-shaped snapshot, old binary against new]
+[MESS, all **251** `mods/f16/src/missions/*.fbm`, `tools/fb_regress.sh`-shaped snapshot, old binary against new]
 
 | | |
 |---|---|
@@ -1436,7 +1436,7 @@ campaign exit is unchanged.
 | `verify-layers` | *"304 files, 841 internal include(s), 12 layers — no upward include, 3 restricted header(s) respected, 6 registry reader(s) inside the perception boundary, 1 antenna-cue poster(s), 291 file(s) in their layer's namespace (5 C-island file(s) exempt)"* |
 | `verify-models` | *"4 upstream-backed model path(s) match assets/MODEL-DELTAS.md (1 declared delta(s), 35 FlightBox-own)"* |
 | seven harnesses | rc = 0 each |
-| `git status --porcelain sim/assets sim/missions` | empty before and after every measurement above |
+| `git status --porcelain mods/f16/src mods/f16/src/missions` | empty before and after every measurement above |
 
 ### 7. What this round did NOT do
 
@@ -1451,7 +1451,7 @@ campaign exit is unchanged.
 - The gate was not loosened: `fb_arena_check.py` is byte-identical, `kModalMax`, `kMoversMin`,
   `kGeometriesMin` and `kInformativeMin` are untouched.
 - No genome key was added, removed or re-banded; `fb-gym --pilot-keys` prints the same alphabet.
-- The model was not touched: `sim/assets` byte-identical, `verify-models` green.
+- The model was not touched: `mods/f16/src` byte-identical, `verify-models` green.
 - **No doctrine shift is published**, because no evolution run was flown. The product is the two repairs
   and their measurements — §6's rule applies to this round as it did to `E5`.
 
@@ -1534,7 +1534,7 @@ Two things were owed and both are delivered: the 154-cell gate re-run in FULL af
 S1's fixed field made commensurate with the genome (§9, E15–E17). **Nothing in `sim/src/` was
 touched.** 4,158 runs: 2,464 lever (154 cells × 16), 924 against the historical six-member field as a
 CONTROL, 770 for the five members that make it commensurate. `--elev const`, each campaign's own clock,
-`git status --porcelain sim/missions sim/assets` empty before and after.
+`git status --porcelain mods/f16/src/missions mods/f16/src` empty before and after.
 
 **The one-sentence result: the arena is REFUSED again, but for the first time the two criteria AGREE —
 S1's thirteen passes under the old field were passes on doctrine the evolution cannot express, and a
@@ -1802,7 +1802,7 @@ the number, and the screen it asks for is cheap: 8 runs per cell, the same 0.8 m
 |---|---|
 | runs | 924 (G1's levers over 154 cells) + 462 (the field's three new members) + **723** (the evolution) + 51 (X4 on two genomes) = **2,160** |
 | `sim/src/` | four files, all of them F5's: two lines of enum, three table rows, one hook default, one station computation |
-| `git status --porcelain sim/missions sim/assets` | empty before and after every run, and the audit tool checks it too |
+| `git status --porcelain mods/f16/src/missions mods/f16/src` | empty before and after every run, and the audit tool checks it too |
 
 ---
 
@@ -2747,7 +2747,7 @@ one phenotype twice and the other once.
 |---|---|
 | runs | **233** — 75 sweep + 24 S7 + 69 fine grid + 18 bisect + 33 X4 + 6 baseline-timeout + 8 kept diagnostic |
 | wall | ≈ 45 min at `--jobs 6 --threads 2`, 6 cores |
-| what moved in the tree | **nothing.** `sim/src`, `sim/vendor`, `sim/assets/aircraft` and every committed mission are untouched; the arena's own `tree_clean()` passed before and after every sweep |
+| what moved in the tree | **nothing.** `sim/src`, `sim/vendor`, `mods/f16/src/aircraft` and every committed mission are untouched; the arena's own `tree_clean()` passed before and after every sweep |
 | what was invalidated | every `build/*-channels.csv` resume index — the freshly linked `fb-gym` hashes to `b040e6ef30061351` and `gym_identity` refuses them all. The link hash is cosmetic: the 3-cell table reproduces `85c1a74`'s numbers exactly |
 | artefacts | `sim/build/e15/` — `sat-channels.csv`, `fine-channels.csv`, `bisect-channels.csv`, `sat-arena.log`, the two readers |
 
@@ -2927,8 +2927,8 @@ station arithmetic, a geometric identification box far from its own hold thresho
 |---|---|
 | runs | ≈ **1 400** — 99 (three rigs re-flown with S7) + 4 × 34 (sat-04 iterations) + 3 × 34 (sat-05/06) + 45 (S7 probes) + 2 × 288 (conservation) + 2 × 288 (determinism) |
 | what moved in `sim/src` | `core/FBObjective.h`, `core/FBMissionMonitor.{h,cpp}`, `core/FBMissionFile.cpp` — one field, one latch, one call, one predicate |
-| what moved elsewhere | two new rigs (`sat-04`, `sat-06`), one negative fixture, and one word in `tools/fb_campaign_arena.py`'s hygiene guard (`git status -uno`: an UNTRACKED file in `sim/missions` cannot have MOVED a committed mission, and the guard's docstring never meant it) |
-| `sim/vendor`, `sim/assets/aircraft` | untouched; `verify-models` green before and after |
+| what moved elsewhere | two new rigs (`sat-04`, `sat-06`), one negative fixture, and one word in `tools/fb_campaign_arena.py`'s hygiene guard (`git status -uno`: an UNTRACKED file in `mods/f16/src/missions` cannot have MOVED a committed mission, and the guard's docstring never meant it) |
+| `sim/vendor`, `mods/f16/src/aircraft` | untouched; `verify-models` green before and after |
 
 ---
 
@@ -3141,7 +3141,7 @@ BUILDER hit — but every one of them is a lever a search would have found first
 | runs | ≈ **1 500** — 8 draft sweeps × 25, 6 chaos grids × 9, 3 re-ladder passes × 34, 4 arena passes over 1–8 cells, 12 centring runs, 45 audit runs |
 | what moved in `sim/src` | **nothing** |
 | what moved elsewhere | three new rigs (`sat-07`, `sat-08`, `sat-09`), `tools/cells-sat.txt` |
-| `sim/vendor`, `sim/assets/aircraft` | untouched |
+| `sim/vendor`, `mods/f16/src/aircraft` | untouched |
 
 ---
 
@@ -3386,17 +3386,17 @@ reach it.
   hidden `dl=off`, so what the co-evolution found is `net-off` plus a briefed sort — a lever §5 measured
   as `= = = + −` across the five opponents. The run's value is the three §3.6 instruments and the
   archive, and both come back degenerate (1 champion per side, 1 archive member per side).
-- Nothing in `sim/src/`, `sim/vendor/` or `sim/assets/aircraft/` was touched.
+- Nothing in `sim/src/`, `sim/vendor/` or `mods/f16/src/aircraft/` was touched.
 
 ### §9 — The cost
 
 | | |
 |---|---|
 | runs | **≈ 1 950** — 125 class probe, 75 bit probe, 104 alphabet probe, 5 cross-check, 200 chaos screen, 625 sweep (25 shared), **915 co-evolution**, 3 determinism |
-| gates | determinism `--threads 1/2/4` on a spliced two-sided pair: identical key AND byte-identical telemetry (`sat-09`, blue `emcon 0.4 sort=left`, red `sort=none`, SHA-256 `929d49b2ea9a8a9a` three times) · `make -C sim verify-models` green · `git status --porcelain -uno sim/missions sim/assets/aircraft sim/assets/MODEL-DELTAS.md sim/vendor` empty before and after every run |
+| gates | determinism `--threads 1/2/4` on a spliced two-sided pair: identical key AND byte-identical telemetry (`sat-09`, blue `emcon 0.4 sort=left`, red `sort=none`, SHA-256 `929d49b2ea9a8a9a` three times) · `make -C sim verify-models` green · `git status --porcelain -uno mods/f16/src/missions mods/f16/src/aircraft mods/f16/src/aircraft/MODEL-DELTAS.md sim/vendor` empty before and after every run |
 | what moved in `sim/src` | **nothing** |
 | what moved elsewhere | `sim/tools/fb_campaign_coevolve.py`, `sim/tools/duels-sat.txt`, artefacts under `sim/build/e19/` |
-| `sim/vendor`, `sim/assets/aircraft` | untouched |
+| `sim/vendor`, `mods/f16/src/aircraft` | untouched |
 
 ---
 
@@ -3825,9 +3825,9 @@ first time in this tree that sentence could be written at all.**
   header: eleven of the 24 levers are bit-identical trajectories there, so 56.0 % is the floor.
 - **Red's genome is two genes wide**, and that is `E-31` and not something this round fixed. Red's
   champion moving is a real movement inside a small space, not evidence that the space is big.
-- Nothing in `sim/src/`, `sim/vendor/` or `sim/assets/aircraft/` was touched, so no behaviour
+- Nothing in `sim/src/`, `sim/vendor/` or `mods/f16/src/aircraft/` was touched, so no behaviour
   regression is owed. `make -C sim verify-models` green; the guarded tree
-  (`sim/missions sim/assets/aircraft sim/assets/MODEL-DELTAS.md sim/vendor sim/src`) shows no modified
+  (`mods/f16/src/missions mods/f16/src/aircraft mods/f16/src/aircraft/MODEL-DELTAS.md sim/vendor sim/src`) shows no modified
   file before or after any run; determinism `--threads 1/2/4` on `sat-10-duel-merge` gives the identical
   telemetry SHA-256 `32720b2093962ca5` three times.
 
@@ -3838,7 +3838,7 @@ first time in this tree that sentence could be written at all.**
 | runs | ≈ **4 000** — 21+10 red probes ×3 cells, 33+11 blue probes ×3, 90+90 opponent-space probes, 102+68 gate sweeps, 840+224 S7 pairs, 108 pre-`E20` cross-check, 30 freeze probe, 1 212 co-evolution, 1 212 second co-evolution, 131 ladder-tool validation, 6 conservation, 3 determinism |
 | what moved in `sim/src` | **nothing** |
 | what moved elsewhere | three cells (`sat-10-duel-merge`, `sat-11-duel-qra`, `sat-12-duel-gate`), `tools/fb_duel_arena.py`, `tools/fb_rung_ladder.py`, `tools/levers-red-mig29.txt`, `tools/duels-e30.txt`, one defaulted argument on `tools/fb_campaign_coevolve.py` |
-| `sim/vendor`, `sim/assets/aircraft` | untouched |
+| `sim/vendor`, `mods/f16/src/aircraft` | untouched |
 
 
 ---
@@ -3965,7 +3965,7 @@ The three exit codes, each with its own chain:
 |---|---|---|
 | `ar-10-vertical-evening` | 1 → **3** | one MiG (`ar10lo4`) is no longer shot combat-ineffective. Hostile V **15 → 16**, which is this file's own documented 16; friendly (V, M) unmoved. Its own reading rule is BINDING that the exit code is not the verdict here |
 | `pair-cover` | 0 → **3** | `viper2`'s AIM-120 detonates **0.64 m closer** (missM 5.06 → 4.42) but **1.30 m further from the body reference** (rangeM 1.92 → 3.22), flux **3.94e5 → 1.40e5 J/m²**, `bandit2` degraded (`failed=4016`) instead of failed (`4023`) — the `kill team hostile` objective is unmet. A marginal endgame re-rolled, three bits either side of the effectiveness threshold |
-| `o3-09-two-fronts` | 3 → **2** | §2's example. `yxh` loses all 14 systems instead of 12, departs and reaches the ground at t = 416.3. **The file's reading rule says *"exit 2 would be a defect"* and that line is now wrong** — owed as a correction, NOT taken in this round, because editing `sim/missions` mid-round voids both snapshots and the cell gate |
+| `o3-09-two-fronts` | 3 → **2** | §2's example. `yxh` loses all 14 systems instead of 12, departs and reaches the ground at t = 416.3. **The file's reading rule says *"exit 2 would be a defect"* and that line is now wrong** — owed as a correction, NOT taken in this round, because editing `mods/f16/src/missions` mid-round voids both snapshots and the cell gate |
 
 ### §4 — `dl=off` against `dl=on`, one variable, before AND after the repair
 
@@ -4104,7 +4104,7 @@ and both are stated rather than smoothed: red's baseline outcome class on `sat-1
 both sides — including on the cell's OWN committed baseline, which is the strongest form the screen has.
 `sat-10`'s rungs were placed by `E30` in measured gaps of a spawn spectrum this binary no longer
 produces; the cell is not broken, it is **unladdered**, and re-laddering it is a rig change this round
-deliberately did not make (editing `sim/missions` mid-round voids both regression snapshots and this
+deliberately did not make (editing `mods/f16/src/missions` mid-round voids both regression snapshots and this
 gate).
 
 This is `X-22`/`E-33` happening a second time, to the round that booked it — which is the argument for
@@ -4141,7 +4141,7 @@ is where `dl=off` won 21 : 2, and without it the arena is a dead heat.
 | runs | ≈ **2 400** — 592 regression (2 × 296), 3 × 138 channel-bit (pre, post, post with the full instrument), 942 cell gate on three cells, 314 `sat-10` gate on the pre-fix binary, 6 committed-pair probes, 3 determinism, 2 reproduction |
 | what moved in `sim/src` | **three lines** in `sensors/FBRadarSystem.cpp` |
 | what moved elsewhere | `tools/fb_channel_bit.py` (new); `doc/sensors.md` §4.4 + the MiG-29 emission note, `doc/weapons.md` §Rates |
-| `sim/vendor`, `sim/assets/aircraft`, `sim/missions` | untouched |
+| `sim/vendor`, `mods/f16/src/aircraft`, `mods/f16/src/missions` | untouched |
 | gates | `verify-models` green · `verify-layers` 333 files, no upward include · `verify-guards` 8/8 · eight harnesses rc = 0 · `make wasm` builds · determinism `--threads 1/2/4` on `sat-10-duel-merge`, three times SHA `9f6a1de9697fa22e` · guarded tree unmodified before and after every run · no commits |
 
 
