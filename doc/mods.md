@@ -157,7 +157,7 @@ mods/<title>/
     sources.md        every claim with URL + page; manual-vs-wiki contradictions kept, not smoothed
   src/              WHAT WE CAN — declarations only, no code
     units/  modules/  missions/*.fbm  hud/
-    protocols/*.jsonl recorded LLM decision traces, replayed offline (§2.1)
+    protocols/        recorded in→out pairs, content-addressed; calls, text and speech (§2.1)
 ```
 
 > Owner, 2026-08-05: *„du kannst auch in den `mods/` feste LLM-Protokolle ablegen, die dann offline
@@ -171,6 +171,28 @@ one more thing the mod *is*, judged by the same monitors as the mission it belon
 The property this buys is the one that looked out of reach two paragraphs ago: **LLM integration becomes
 deterministically testable.** Not the model — the integration. Whether the tool schema still binds,
 whether a decision still reaches its system, whether the consequences still land where they landed.
+
+**And a protocol entry is not limited to function calls — it carries language.**
+
+> Owner, 2026-08-05: *„so können wir auch einfach textuelle/gesprochene Kommunikation speichern. Als
+> In-Out-Paare gehasht."*
+
+One shape covers all of it: **`hash(input) → output`**, content-addressed like a Git object. The input is
+the situation the model was given; the output is what came back — a function call, a line of radio, or a
+rendered audio blob for it. Wingman chatter, ATC, a briefing read aloud, an enemy commander's order: all
+the same pair.
+
+Three properties follow, and the third is the one that makes it trustworthy:
+
+1. **Voice costs nothing at runtime and is deterministic.** Speech is synthesised once at record time and
+   stored beside its pair. Replay reads a file.
+2. **The hash IS the boundary.** One bit different in the situation and the lookup misses — so a protocol
+   can never silently answer a question it was not asked.
+3. **A miss is a signal, and the two sides handle it differently — this is a hard rule.** In a played run
+   a miss may fall through to a live model. **In `fb-gym` a miss is a failure, never a fallback**, because
+   the gym must have no path to a model at all; a gym that could fall through would be a gym whose
+   determinism depends on a network. The miss is the useful output: it names exactly where the world
+   drifted away from what was recorded.
 
 **And there is no `test/`.**
 
@@ -228,8 +250,10 @@ Nothing built.
   ([`body-format.md`](body-format.md)) is spec-only.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a
   reading rule for a machine, not prose for a player.
-- **The protocol format does not exist.** §2.1 and §3 rest on a recorded decision trace being loadable by
-  `fb-gym`; nothing records one, nothing replays one, and `.jsonl` is a guess at the shape.
+- **The protocol format does not exist.** §2.1 and §3 rest on recorded in→out pairs being loadable by
+  `fb-gym`; nothing records one and nothing replays one. **What exactly goes into the hashed input is the
+  whole design** — too much and every pair misses on the next tick, too little and a protocol answers a
+  situation it never saw. Undecided, and cheap to decide wrongly.
 - **How a played run is judged at all is unwritten** — the judges produce a verdict, but a game needs a
   score, and this tree has never had to say what a good run is as opposed to a passing one.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
