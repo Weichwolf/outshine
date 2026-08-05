@@ -148,14 +148,18 @@ double ScheduleVs(double mach, double targetMach) {
   return Clamp(1200.0 * (mach - targetMach), 0.0, 300.0);
 }
 
-/* THE CLIMB IS FLOWN AT CONSTANT CAS, which is what a climb schedule IS, and the sweep is over the CAS.
- * A constant-MACH schedule cannot express the one climb the fastest rows actually have: a MiG-25 cannot
- * reach M 2.6 at 2 000 m, so a M 2.6 target held it level at its spawn altitude for the whole run and
- * reported 2 049 m as a 20 700 m ceiling. At a constant 400 kt CAS the same aeroplane passes M 1.30 at
- * 11 km and M 2.60 at 20 km by arithmetic alone — the schedule finds the altitude instead of being told
- * it. */
-double ScheduleVsCas(double casKt, double targetCasKt) {
-  return Clamp(3.0 * (casKt - targetCasKt), 0.0, 300.0);
+/* THE CLIMB IS FLOWN AT CONSTANT CAS UNTIL A MACH CROSSOVER AND AT CONSTANT MACH ABOVE IT, which is
+ * what a climb schedule IS, and the sweep is over the CAS. A constant-MACH schedule alone cannot
+ * express the one climb the fastest rows actually have: a MiG-25 cannot reach M 2.6 at 2 000 m, so a
+ * M 2.6 target held it level at its spawn altitude for the whole run and reported 2 049 m as a
+ * 20 700 m ceiling. A constant-CAS schedule alone cannot express the top of it: every constant-CAS
+ * line crosses the row's Vmax somewhere, and the crossover is where a real schedule stops trading
+ * altitude for Mach. Whichever demand is larger owns the stick — below the crossover that is the CAS
+ * term, above it the Mach term, and no seam has to be found. */
+double ScheduleVsCas(double casKt, double targetCasKt, double mach, double machCap) {
+  double cas = Clamp(3.0 * (casKt - targetCasKt), 0.0, 300.0);
+  double top = Clamp(1200.0 * (mach - machCap), 0.0, 300.0);
+  return top > cas ? top : cas;
 }
 
 /* THE ENTRY SPEED OF THE g PULL IS DERIVED PER ROW and not a constant 480 kt: what the anchor asks is
@@ -218,42 +222,62 @@ bool MeasureVmax(const FBAirAnchorRow &r, double altM, double entryCasKt, double
   return best > 0.05;
 }
 
-/* SERVICE CEILING: climb at full power until the rate of climb decays through 0.5 m/s (100 ft/min),
+/* SERVICE CEILING: climb at full power until the steady climb decays through 0.5 m/s (100 ft/min),
  * the definition every source in this catalogue uses without saying so. */
 bool MeasureCeiling(const FBAirAnchorRow &r, double &ceilOut) {
   /* THE SCHEDULE IS SWEPT, not chosen. A service ceiling is the top of the best climb the aircraft
    * has, and the best climb speed is a property of the airframe — so picking ONE would measure the
-   * schedule and not the aeroplane. Five constant-CAS candidates; the highest altitude any of them
-   * reaches is the answer, which is the same "maximum over speed" the published figure is. */
+   * schedule and not the aeroplane. Seven constant-CAS candidates, each ENTERED ON ITS OWN SPEED: a
+   * shared 400 kt entry made every slower candidate dump the excess through the vertical-speed
+   * demand's 300 m/s ceiling, and mig25 departed out of that and reported the 5 293 m it was diving
+   * through. A schedule below the row's own 1 g stall is not a schedule and is not flown. */
   double best = 0.0;
+  const double stallKt =
+      std::sqrt(2.0 * r.GrossKg * 9.80665 / (1.225 * r.ClMax * r.WingAreaM2)) * kMsToKt;
+  const double machCap = r.A1Mach * 1.02;
   const double casKt[7] = {180.0, 240.0, 300.0, 360.0, 420.0, 480.0, 540.0};
   for (int k = 0; k < 7; k++) {
     double target = casKt[k];
-    std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 2000.0, 400.0);
+    if (target < 1.3 * stallKt) continue;
+    std::unique_ptr<Fdm::FBFdm> f = Spawn(r, 2000.0, target);
     if (!f) return false;
     Systems::FBFlightControl fc = ControlFor(r);
     Fdm::fb_fdm_state st{};
     f->Step(st);
-    /* THE CEILING IS WHERE THE STEADY CLIMB DECAYS THROUGH 0.5 m/s (100 ft/min), the definition every
-     * source in this catalogue uses without saying so — and it is NOT the highest altitude the run
-     * touches. A fast constant-CAS schedule arrives with kinetic energy and ZOOMS past its own steady
-     * ceiling; reading the peak of that measured 28.9 % above a published figure on su22 and turned the
-     * probe into a measurement of the entry speed. The vertical speed is filtered over ~10 s so a
-     * phugoid does not end the run. */
-    double top = 0.0, vsFilt = 25.0;
-    int n = (int)(3600.0 / kDt);
+    /* THE DECAY IS READ ON SPECIFIC EXCESS POWER AND NOT ON VERTICAL SPEED, because a climb can be
+     * BOUGHT from speed and then it is not a climb: mig25's 540 kt candidate gained its last 889 m
+     * while its energy height FELL 7 400 m, and the 0.5 m/s it still showed was a decelerating zoom.
+     * Ps = d/dt(h + V²/2g) is the same energy definition recipe §4.2 writes A4 in, filtered over ~10 s
+     * so a phugoid does not end the run, and the settled-flight guard on `vy` keeps a departure from
+     * passing the threshold on its way down. */
+    double psFilt = 25.0, he = st.elev + st.speed * st.speed / (2.0 * 9.80665);
+    double top = 0.0;
+    bool decayed = false;
+    int n = (int)(12000.0 / kDt);
     for (int i = 0; i < n; i++) {
-      Systems::FBControls c = fc.Run(LevelGuidance(ScheduleVsCas(st.cas * kMsToKt, target)), st);
+      Systems::FBControls c =
+          fc.Run(LevelGuidance(ScheduleVsCas(st.cas * kMsToKt, target, st.mach, machCap)), st);
       f->SetControls(c.Roll, c.Pitch, c.Yaw, 1.0);
       f->Step(st);
       if (f->Faulted()) break;
       if (i % 100 == 0) HoldFuel(*f, r);
-      if (st.mach > r.A1Mach * 1.02) break;   /* a climb schedule never exceeds the row's own Vmax */
-      vsFilt += 0.001 * (st.vy - vsFilt);
-      if (i > (int)(120.0 / kDt)) {
-        if (vsFilt < 0.5) { top = st.elev; break; }
-        if (st.elev > top) top = st.elev;
+      double heNow = st.elev + st.speed * st.speed / (2.0 * 9.80665);
+      psFilt += 0.001 * ((heNow - he) / kDt - psFilt);
+      he = heNow;
+      if (i > (int)(120.0 / kDt) && psFilt < 0.5 && std::fabs(st.vy) < 5.0) {
+        top = st.elev;
+        decayed = true;
+        break;
       }
+    }
+    /* A RUN THAT DID NOT END ON THE CRITERION MEASURED NOTHING. Reporting the altitude it happened to
+     * be passing when the clock or a guard stopped it is what put four rows outside their band from
+     * both sides at once: mig23 booked 23 253 m while still climbing at 7.8 m/s, mig25 booked
+     * 15 963 m at t = 3 600 s on a schedule that needs 8 166 s. */
+    if (!decayed) {
+      FBLog::Warn("air", "CEILING_INCOMPLETE",
+                  {{"row", std::string(r.Key)}, {"cas_kt", std::to_string((int)target)}});
+      continue;
     }
     if (top > best) best = top;
   }
