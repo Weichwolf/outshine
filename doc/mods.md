@@ -94,11 +94,27 @@ LLM-Integration skalieren"*): the ladder is not a rewrite at each rung, because 
 rung is the same declaration list. A unit whose AI is a PID today and an LLM tomorrow changes its
 *decider*, not its *reach*.
 
-**Cost is the open question, not capability.** An LLM in the loop is orders of magnitude slower than a
-sim tick and is not deterministic — which collides head-on with §1's byte-identical requirement. The
-resolution is not written yet and must not be improvised: candidates are a cached decision transcript
-replayed in the scripted run, or an LLM confined to the slow layer (orders, doctrine, briefing
-interpretation) while the fast layer stays regulation. Recorded in `## Gaps`.
+**And the determinism collision is not a compromise — it is a boundary.**
+
+> Owner, 2026-08-05: *„Gym hat nie LLM-Integration."*
+
+An LLM is orders of magnitude slower than a sim tick and is not reproducible, which would collide head-on
+with §1's byte-identical gate. It does not, because the two readers of §1 are also the two sides of this
+line:
+
+| | Decider | Determinism |
+|---|---|---|
+| **`fb-gym`** — the test | regulation only, **never an LLM** | byte-identical over `--threads 1/2/4`, the gate stands untouched |
+| **the played run** | may be an LLM per unit AI | not required and not claimed |
+
+The gate is not weakened, and the LLM is not crippled — they simply never meet. **What both sides share
+is the declaration list**, so the anti-cheat property holds identically in each: an LLM in the played run
+reaches exactly as far as the regulator in the gym, because it is the same list.
+
+The honest cost, stated rather than hidden: **the LLM decider is never exercised by the acceptance net.**
+What the net proves is the *reach* — that nothing beyond the declared surface is callable. Whether an LLM
+decides *well* is not a claim this tree can currently make, and it must not be smuggled in by pointing at
+a green gym.
 
 ### 3. What a mod directory contains
 
@@ -117,21 +133,39 @@ mods/<title>/
     sources.md        every claim with URL + page; manual-vs-wiki contradictions kept, not smoothed
   src/              WHAT WE CAN — declarations only, no code
     units/  modules/  missions/*.fbm  hud/
-  test/             WHAT WE PROVE — the campaign runs, deterministically, with a verdict
 ```
 
-Three consequences, and the third is the one that matters:
+**And there is no `test/`.**
 
-1. **`verify-trees` needs no special case.** A mod is a subtree under the same rule, walked by the same
-   code, judged by the same verdict. Had the middle axis been called `units/ modules/ missions/`, the
-   tool would have needed to know what a mod is. Now it does not.
-2. **The engine's `doc/` does not document mods**, and a mod's `doc/` does not document the engine. The
-   boundary is the same one as `src/` — a mod may not reach into the engine, and the engine may not know
-   which mod is loaded.
+> Owner, 2026-08-05: *„`mods/` haben keine `test`, da die Missionen auch im Gym laufen."*
+
+This is §0 taken seriously rather than half-way. If a mod *is* a test, a `test/` beside it is the same
+assertion written twice — and this tree already knows what a duplicated statement does: the two copies
+drift, and the one nobody runs is the one that lies.
+
+**Why the engine needs the split and a mod does not:**
+
+| | The subject is | Can it assert about itself? |
+|---|---|---|
+| `sim/src/` | **code** | No. C++ cannot state its own expected corner speed without becoming the thing that decides whether it passed — measured, that is exactly how seven anchors sat outside their bands behind a green gate |
+| `mods/<title>/src/` | **data** | **Yes.** A `.fbm` carries its `measure` (units, terrain, loadout, weather) and its `expect` (the goal, plus the reading rule in its header) in one file, and `FBMissionMonitor` judges it from a copy the mission never sees |
+
+So the rule generalises rather than gaining an exception: **every subject needs its intent in `doc/` and
+a proof that cannot be talked into agreeing.** Where the subject is code, the proof must live apart.
+Where the subject is already a declaration, the proof is the declaration — and `fb-gym` is the runner.
+
+Consequences:
+
+1. **`verify-trees` must know one bit** — that a mod is two-tree, not three. I claimed the opposite one
+   revision ago and it was wrong: the tool cannot be told „every directory needs three" and also be
+   right about `mods/`. What it *can* be told without knowing what a mod is: **doc plus proof**, where
+   proof is `test/` for a code subtree and a runnable `.fbm` for a declaration subtree.
+2. **The engine's `doc/` does not document mods**, and a mod's `doc/` does not document the engine. Same
+   boundary as `src/`: a mod may not reach into the engine, and the engine may not know which mod is
+   loaded.
 3. **The reconstruction has a home.** *Why this real valley for that fictional one* is neither engine
-   knowledge nor a test — it is this scenario's intent, and `mods/<title>/doc/terrain.md` is the only
-   place it can live without polluting one of the other two. Same for a manual's page number: a source
-   for a claim about **this** title.
+   knowledge nor a verdict — it is this scenario's intent, and `mods/<title>/doc/terrain.md` is the only
+   place it can live without polluting the other axis. Same for a manual's page number.
 
 ### 4. Acceptance
 
@@ -150,13 +184,15 @@ Nothing built.
 ## Gaps
 
 - **`mods/` does not exist**, and neither does the loader that would make `mod.json` mean anything.
+- **`verify_trees.py` enforces three trees everywhere** and would therefore report every mod as a hole.
+  It needs the doc-plus-proof rule from §3, and today it does not have it.
 - **The HUD is C++**, so „HUD per title, declared" has no surface to be declared into.
 - **Three of the four titles are not aircraft**, and the body format that would carry them
   ([`body-format.md`](body-format.md)) is spec-only.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a
   reading rule for a machine, not prose for a player.
-- **An LLM decider collides with determinism** (§2.1). Byte-identity over `--threads 1/2/4` is a gate on
-  every mission; an LLM is neither fast enough nor reproducible. Unresolved, and it must not be resolved
-  by weakening the determinism gate.
+- **The LLM decider has no measurement.** §2.1 resolves the determinism collision by keeping the LLM out
+  of `fb-gym` entirely, which means the acceptance net proves its *reach* and never its *quality*. How a
+  played run is judged at all is unwritten.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
   it is C++ virtual overrides, which an LLM cannot be handed as a tool schema.
