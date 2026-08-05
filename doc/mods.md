@@ -157,7 +157,20 @@ mods/<title>/
     sources.md        every claim with URL + page; manual-vs-wiki contradictions kept, not smoothed
   src/              WHAT WE CAN — declarations only, no code
     units/  modules/  missions/*.fbm  hud/
+    protocols/*.jsonl recorded LLM decision traces, replayed offline (§2.1)
 ```
+
+> Owner, 2026-08-05: *„du kannst auch in den `mods/` feste LLM-Protokolle ablegen, die dann offline
+> laufen. So können wir LLM-Integration deterministisch testen."*
+
+`protocols/` sits under `src/` and not beside it for the same reason nothing else does: **it is a
+declaration.** A trace is data, `fb-gym` replays it offline with no model reachable, and the run is
+byte-identical like every other. That the mod has no `test/` is not weakened by this — the protocol is
+one more thing the mod *is*, judged by the same monitors as the mission it belongs to.
+
+The property this buys is the one that looked out of reach two paragraphs ago: **LLM integration becomes
+deterministically testable.** Not the model — the integration. Whether the tool schema still binds,
+whether a decision still reaches its system, whether the consequences still land where they landed.
 
 **And there is no `test/`.**
 
@@ -215,8 +228,8 @@ Nothing built.
   ([`body-format.md`](body-format.md)) is spec-only.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a
   reading rule for a machine, not prose for a player.
-- **The protocol format does not exist.** §2.1 rests on a recorded decision trace being loadable by
-  `fb-gym`; nothing records one and nothing replays one.
+- **The protocol format does not exist.** §2.1 and §3 rest on a recorded decision trace being loadable by
+  `fb-gym`; nothing records one, nothing replays one, and `.jsonl` is a guess at the shape.
 - **How a played run is judged at all is unwritten** — the judges produce a verdict, but a game needs a
   score, and this tree has never had to say what a good run is as opposed to a passing one.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
