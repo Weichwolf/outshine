@@ -186,6 +186,7 @@ struct Result {
 Result gRes[24];
 int gResN = 0;
 int gMeasureFailures = 0;
+int gOutsideBand = 0;   /* Anker ausserhalb ihres Bandes — das Urteil, das der Exit-Code tragen muss */
 
 void Record(const char *id, const char *what, double target, double measured, double band,
             const char *unit, bool ok, bool published = true) {
@@ -606,6 +607,7 @@ int RunRow(const FBAirAnchorRow &r) {
                            : " (this row may fly, and may NOT answer a campaign question)");
   FBLog::Info("air", "PROMOTION", {{"key", r.Key}, {"outside", (double)outside},
                                    {"judged", (double)judged}, {"level", std::string(promotion)}});
+  gOutsideBand += outside;
   return gMeasureFailures - failuresBefore;
 }
 
@@ -627,7 +629,16 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "fb-test-air-envelope: no such row\n");
     return 2;
   }
-  std::printf("\nfb-test-air-envelope: %d row(s), %d anchor(s) that could not be measured at all\n",
-              rows, notMeasured);
-  return notMeasured == 0 ? 0 : 1;
+  std::printf("\nfb-test-air-envelope: %d row(s), %d anchor(s) not measurable, %d OUTSIDE their band\n",
+              rows, notMeasured, gOutsideBand);
+  /* DER EXIT-CODE TRAEGT DAS URTEIL, nicht nur die Messbarkeit. Bis 2026-08-05 stand hier
+   * `notMeasured == 0 ? 0 : 1` — ein Deck, dessen JEDER Anker ausserhalb seines Bandes lag, gab 0
+   * zurueck, und "ausserhalb" aenderte allein ein gedrucktes Wort. [MESS] genau dadurch passierten
+   * fuenf von sechs vorsaetzlichen Modellzerstoerungen (transonischer Widerstandsanstieg geloescht,
+   * Traegheitstensor +100/-37 %, Nickdaempfung auf ein Fuenftel, Reifenreibung -60 %, Bugradeinschlag
+   * 80 -> 5 Grad) das gesamte Netz aus sieben Harnesses und 296 Missionen unbemerkt. Ein Tor, das nur
+   * zaehlt, ob eine Zahl ENTSTAND, ist kein Tor.
+   * Eine Zeile, die wissentlich ALPHA ist, muss das kuenftig in ihrer Ankertabelle DEKLARIEREN;
+   * stillschweigend danebenliegen darf sie nicht mehr. */
+  return (notMeasured == 0 && gOutsideBand == 0) ? 0 : 1;
 }
