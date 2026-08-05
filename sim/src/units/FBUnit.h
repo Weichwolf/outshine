@@ -4,6 +4,7 @@
 #ifndef FBUNIT_H
 #define FBUNIT_H
 
+#include <cstdint>
 #include <string>
 #include "FBCountermeasure.h"
 #include "FBEmitter.h"
@@ -87,6 +88,18 @@ inline float FBPresentedDimensionM(const FBVisualSignature &v, double fwd, doubl
   return (float)((fwd * fwd * v.FrontalM + right * right * v.LateralM + down * down * v.PlanM) / l2);
 }
 
+/* WHAT A HIT DID TO THIS UNIT, as far as it is RADIATED: fire, wreckage and the smoke off a holed
+ * airframe are not a reading of the damage register, they are what the register produces in the air
+ * around the aircraft — so they belong beside the plume and the cross-section rather than in a second
+ * channel. Copied verbatim from core/FBSystemHealth at the publish barrier, which is monotone and has
+ * exactly one writer: an effect built on this can only ever be READING the simulation, and nothing
+ * here is reachable in the direction that would let it write back. */
+struct FBDamageSignature {
+  uint16_t Hits = 0;             /* monotone burst count — a RISE is one detonation, nothing else is */
+  bool CombatEffective = true;   /* false = the airframe cannot finish the sortie: it burns */
+  bool Destroyed = false;        /* physics finished it (core/FBFlightMonitor -> ApplyPhysicalKo) */
+};
+
 /* What this unit RADIATES — the part of its system state another unit's sensors may legitimately
  * notice, published at the same barrier as the pose so no receiver ever reads half of it. */
 struct FBUnitSignature {
@@ -124,6 +137,7 @@ struct FBUnitSignature {
   FBFlareCloud Flare[kMaxFlareClouds];
   /* ...and what an EYE gets: a shape and a kind, nothing that names this unit. */
   FBVisualSignature Visual;
+  FBDamageSignature Damage;
   /* WHAT THIS UNIT PUTS ON AN AIR-DEFENCE NET. It rides the cooperative terminal like FBFlightReport
    * beside it, so it reaches nobody unless `DatalinkXmt` is true; Reporting false is every unit that is
    * on no net. It carries a POINT and never an identity — core/FBNetReport.h. */

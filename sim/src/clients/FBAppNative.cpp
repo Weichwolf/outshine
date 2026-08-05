@@ -480,6 +480,7 @@ public:
     /* The MISSION clock, not the log clock beside it: every effect is an age against a published
      * bloom or launch time (world/FBWorld::SetSimTimeS). */
     W->SetSimTimeS(simT);
+    W->SetSunElevationDeg(hs.Env.SunElDeg);
     W->Update(p.LatDeg, p.LonDeg, eye, fwd, simT * 1000.0);
     R->RenderFrame();
     std::vector<uint8_t> rgba;
@@ -841,6 +842,7 @@ int main(int argc, char **argv) {
   W.SetDefaultMode(groundPhoto);
   W.SetGroundMode(groundPhoto);
   W.SetNightLights(groundPhoto && hs.Env.SunElDeg < -3.0f);   /* EVS night -> stream /t/lights */
+  W.SetSunElevationDeg(hs.Env.SunElDeg);   /* ...and the same sun decides whether a lamp is lit */
   FlightBox::FBLog::Info("gpu", "streaming_quadtree", {{"lat", lat}, {"lon", lon}, {"aglM", aglM},
       {"viewKm", viewKm}, {"albedo", groundPhoto ? "photo" : "osm"}, {"night", groundPhoto && hs.Env.SunElDeg < -3.0f}});
 

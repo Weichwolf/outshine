@@ -97,6 +97,11 @@ void FBSimUnit::PublishPose() {
     while (n + 1 < (std::size_t)kVisualTypeNameLen && n < tn.size()) { Sig_.Visual.TypeName[n] = tn[n]; n++; }
     Sig_.Visual.TypeName[n] = '\0';
   }
+  /* ...and what a HIT made of it. Read off the register rather than off any burst result, so the
+   * picture cannot show a fire that the physics is not already flying with. */
+  Sig_.Damage.Hits = (uint16_t)Health_.Hits();
+  Sig_.Damage.CombatEffective = Health_.CombatEffective();
+  Sig_.Damage.Destroyed = Health_.Destroyed();
   /* What this jet tells its own flight — published at the same barrier as everything else it radiates,
    * so no receiver ever reads half of it. Empty for a unit in no flight. */
   Sig_.Flight = GetFlight().Declared() ? Module_->FlightReport() : FBFlightReport{};

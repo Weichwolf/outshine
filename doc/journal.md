@@ -4821,3 +4821,47 @@ und ohne die Kommentaränderung in `FBMod.h` gebaut) — 296 Missionen folgen da
 comment 581 unverändert · `verify-trees` 20+3+2 · `gym`/`native`/`wasm` bauen · 60 fps ohne
 Frame-Verlust über 2 min je Sortie (`cpuprof rafMs` Median 16,67, Max 17,16) — auf einem M-Mac, was
 über A18 Pro und Xbox nichts sagt.
+
+## 2026-08-05 — Treffer und Nacht: der Schadensregister wird sichtbar, ohne dass ihn jemand anfassen kann
+
+**Zwei Löcher aus der Vorrunde, ein Ursprung.** Acht Sorties wurden getroffen und abgeschossen, und im
+Bild sagte es nichts — eine Fahne hörte auf. Und zwei der acht sind mondlose Nacht (`c01m07`: Sonne
+−53,08°, Mond −48,50°), also schwarz bis auf Sterne.
+
+**Die Naht liegt in `units/FBUnit.h`.** `FBDamageSignature` (`Hits`/`CombatEffective`/`Destroyed`)
+reist auf DERSELBEN Barriere wie der Nachbrennerbit und der Radarquerschnitt, gefüllt in
+`FBSimUnit::PublishPose` aus `core/FBSystemHealth`. Das ist kein neuer Kanal, sondern der vorhandene
+Satz „was darf ein fremder Beobachter an dieser Einheit legitim bemerken" — Feuer und Wrack werden
+ABGESTRAHLT. Drei Eigenschaften fallen dabei umsonst an: das Register ist monoton, hat genau einen
+Schreiber und alle Mutatoren privat. Ein Effekt darauf kann nur lesen. **Ausgelöst wird auf der FLANKE**
+(`Hits` steigt = eine Detonation), nie auf dem Pegel und nie auf einer Uhr. `verify-layers` unverändert:
+6 Wahrnehmungs-Leser, 1 Zeichenseite.
+
+**Drei neue Profile, keine Textur.** `Fireball` (Rand-Turbulenz, Blitz → orange → Ruß, am Ende
+alpha-blended, damit ein ausgebrannter Ball VERDECKT statt zu leuchten), `Fire` (Zunge, Rauschen
+scrollt an der Achse) und `Light` (Kern in Halo, **ohne eingebackenes Spektrum** — die Farbe ist ganz
+`Color`, also trägt eine Art rot, grün, weiß und Blitzlicht). Rauschen: dreioktaviges Value-Noise über
+einen Hash, Quelle im Stage-Header. Der Instanz-Stride hatte zwei freie Floats, `Phase`/`Seed` kosten
+also null Bandbreite. Die unaufgelösten Mittel sind wie die alten vier über die Ausdrücke selbst
+integriert (`kBlastEdgeMean` 0,50894 · `kFireMean` 0,23124 · `kLightCoreMean` 0,02094 …).
+
+**Die Lampenverstärkung ist hergeleitet, nicht gedreht.** Unter voller Auflösung liefert der
+Sub-Pixel-Energieboden `col · 1,806 · (R·881,6/d)²`; 0,30 Radiance bei 2 km mit 0,30 m Leuchtball
+ergibt `col = 9,5`, und die EINE Zahl bedient dann jede Entfernung (200 m gesättigt, 20 km unsichtbar).
+Größen kommen vom Ziel: Ballradius = 0,55 × dessen größter publizierter Dimension. Ausdrücklich NICHT
+zielskaliert ist die Säulenbreite — wie weit Rauch zieht, bestimmt die Luft: der erste Versuch gab
+einem 4-m-Ziel einen 11 m breiten, 156 m hohen Faden, ersetzt durch 45 m Dispersion (`## Gaps`).
+Lampenorte sind publiziert (halbe `Visual.FrontalM`); genau auf der Halbspannweite steckt die Linse in
+der Tiefe des Flügels — gemessen: nur das Hecklicht überlebte (132/255), beide Flügelspitzen 1/255.
+
+**Gemessen im echten Chromium**, gleiche Marke, gleiche Schlusssekunde (203,2 s): Szenenmittel
+0,0543 → **0,0670** von 255 (**+0,005 % der Vollskala**), Pixel über 128 **3 → 67**. Die Nacht ist nicht
+heller geworden, sie ist LESBAR geworden. Dazu die SA-2, die den eigenen Jet zerlegt und dabei seine
+Silhouette aus dem Schwarz holt, und zwei AIM-9-Kills bei ~10 km als orange Bälle mit Säule
+(223/142/111 und 175/104/136). `ar-02-headon-night`: `fire=4` ab t=104,0 bis Laufende.
+
+**Tore:** 296 f16-Missionen **bytegleich** (`diff -r` leer, Exit-Codes identisch) · `payerne-full
+--threads 1/2/4` auf einer Signatur · f22-Urteile **3/3/1/0/1/3/3/3** unverändert · `test-air` 5
+außerhalb, dieselben fünf · `verify-layers` 6/1 · `verify-guards` 8/8 · `verify-models` grün ·
+`verify-types` 11 Typen in 114 Dateien unverändert · `nm build/fb-gym` 0 Dawn/WebGPU-Symbole ·
+`passes=5` vorher wie nachher · `gym`/`native`/`wasm` bauen, Warnings = Errors.

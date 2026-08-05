@@ -1,6 +1,11 @@
-/* The draw slot for effect billboards — engine flame, rocket plume, flares, chaff — wired into the
- * scene pass right before the HUD. ONE instanced draw for the whole frame's effects, no pass of its
- * own and none added.
+/* The draw slot for effect billboards — engine flame, rocket plume, flares, chaff, detonations, fire,
+ * lamps — wired into the scene pass right before the HUD. ONE instanced draw for the whole frame's
+ * effects, no pass of its own and none added.
+ *
+ * Screen-space stretched billboards, six analytic fragment profiles, no texture at all. Turbulence is
+ * value noise over a hash (Dave Hoskins, "Hash without Sine", 2014, shadertoy XdGfRR / jcgt.org).
+ * Deviation: three octaves, not four — doc/render/visual-target.md §1 buys ALU, not bandwidth, and the
+ * fourth octave is below a pixel at every range a detonation is seen from.
  *
  * COSTS NOTHING WHEN NOTHING IS THERE: with no sprite list or no device the whole Encode() returns
  * before it touches the queue, so a world without effects is byte-identical to the picture before this
@@ -36,6 +41,7 @@ private:
   static constexpr int kUniFloats = 36;    /* mat4 + viewport + haze + three decks — FBUnitsStage's `U` shape */
   static constexpr int kMaxSprites = 512;  /* instance-buffer slots; sprites past this are dropped */
   static constexpr int kInstFloats = 16;
+  static constexpr int kSpriteKinds = 6;   /* FBSpriteKind::Count would be the seventh name for six */
   static constexpr unsigned kSpriteLogEvery = 300;
 
   /* Logs on the periodic cadence AND whenever the CAST CHANGES — an effect appearing or going out is
@@ -55,7 +61,7 @@ private:
   const FBSpriteDraw *Sprites = nullptr;
   int Count = 0;
   int LastDraws_ = 0;
-  int LastKindCount_[3] = {-1, -1, -1};
+  int LastKindCount_[kSpriteKinds] = {-1, -1, -1, -1, -1, -1};
   bool Ready = false;
   FBCloudSky Sky;
 };

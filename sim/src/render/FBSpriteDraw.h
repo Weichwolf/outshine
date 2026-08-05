@@ -21,6 +21,9 @@ enum class FBSpriteKind : uint32_t {
   Flame = 0,   /* a nozzle plume: teardrop along Axis, hot core, additive */
   Flare,       /* a pyrotechnic point source: round, hard core, additive */
   Smoke,       /* a motor trail or a chaff cloud: round-to-stretched, alpha-blended */
+  Fireball,    /* a detonation: a billowing ball, flash -> orange -> soot over Phase */
+  Fire,        /* what goes on burning where something was destroyed: a tongue along Axis */
+  Light,       /* a lamp: core + halo, and the hue is entirely Color's — no baked spectrum */
 };
 
 struct FBSpriteDraw {
@@ -31,6 +34,10 @@ struct FBSpriteDraw {
   float Color[3] = {1, 1, 1};   /* linear radiance, already premultiplied by Alpha for a Smoke sprite */
   float Alpha = 0.0f;           /* 0 = purely additive (nothing behind it is dimmed) */
   float Param = 0.0f;           /* kind-specific: Flame = plume hardness, Smoke = puff softness */
+  /* 0..1 for Fireball (its whole life arc), a free-running turbulence clock for Fire. Kept apart from
+   * Param because both kinds need a SHAPE parameter as well as a time one. */
+  float Phase = 0.0f;
+  float Seed = 0.0f;            /* decorrelates the procedural noise: two fires next to each other */
   uint32_t Kind = 0;            /* FBSpriteKind */
 };
 

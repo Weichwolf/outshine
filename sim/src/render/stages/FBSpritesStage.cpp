@@ -47,6 +47,19 @@ const kFlameCool : vec3f = vec3f(0.9, 0.06, 0.04);
 const kFlameCore : vec3f = vec3f(9.0, 7.0, 4.5);   /* the choked throat itself: white, thin, short */
 const kFlareCore : vec3f = vec3f(40.0, 34.0, 24.0);
 const kFlareHalo : vec3f = vec3f(10.0, 2.4, 0.40);
+/* THE DETONATION'S OWN ARC, on the same ratio rule as the flame above: the flash is the only stage
+ * allowed three large channels, everything after it lives in red over green over blue.
+ *   flash (30, 26, 20) -> sRGB 255,255,254   the first tenth of a second, and only in the core
+ *   body  (5.0, 1.1, 0.15) -> sRGB 255,222,153  the burning ball
+ *   soot  (0.05, 0.035, 0.03)                the same ball once it has stopped emitting */
+const kBlastFlash : vec3f = vec3f(30.0, 26.0, 20.0);
+const kBlastBody : vec3f = vec3f(5.0, 1.1, 0.15);
+const kBlastSoot : vec3f = vec3f(0.05, 0.035, 0.03);
+/* A LAMP carries NO spectrum: the amplitude is here, the hue is the sprite's Color, so one kind serves
+ * a red port light, a green starboard one and a white strobe without three sets of constants. Split
+ * core/halo like the flare, because a halo is what makes a point read as a light rather than as a dot. */
+const kLightCore : f32 = 60.0;
+const kLightHalo : f32 = 7.0;
 
 /* THE UNRESOLVED LIMIT. Once a sprite is smaller than a pixel it may not be SAMPLED any more: the one
  * covered sample lands wherever it lands, and for a tapering plume that is usually where the profile
@@ -62,6 +75,33 @@ const kFlareCoreMean : f32 = 0.01454;
 const kFlareHaloMean : f32 = 0.09973;
 const kSmokeMeanLong : f32 = 0.60;     /* a trail segment (taper -> 0) */
 const kSmokeMeanRound : f32 = 0.24;    /* a puff (taper = 1) */
+/* The same integral for the three procedural profiles below, taken over the very expressions in `fs`
+ * with the noise held at its OWN mean (0.5) — a mean over turbulence, not over one realisation. */
+const kBlastEdgeMean : f32 = 0.50894;
+const kBlastCoreMean : f32 = 0.04040;
+const kFireMean : f32 = 0.23124;
+const kFireHotMean : f32 = 0.11562;
+const kLightCoreMean : f32 = 0.02094;
+const kLightHaloMean : f32 = 0.07854;
+
+/* Value noise, hash-based: at 60 GB/s of bandwidth against 2.5-4 TFLOPS, a fireball generated in ALU
+ * costs nothing that a fetched flipbook would not cost more of (doc/render/visual-target.md §1).
+ * Hash: Dave Hoskins, "Hash without Sine" (shadertoy XdGfRR / jcgt.org, 2014). */
+fn fbHash21(p : vec2f) -> f32 {
+  var q = fract(p * vec2f(0.1031, 0.1030));
+  q = q + dot(q, q.yx + 33.33);
+  return fract((q.x + q.y) * q.x);
+}
+fn fbValue2(p : vec2f) -> f32 {
+  let cell = floor(p);
+  let f = fract(p);
+  let w = f * f * (3.0 - 2.0 * f);
+  return mix(mix(fbHash21(cell), fbHash21(cell + vec2f(1.0, 0.0)), w.x),
+             mix(fbHash21(cell + vec2f(0.0, 1.0)), fbHash21(cell + vec2f(1.0, 1.0)), w.x), w.y);
+}
+fn fbFbm2(p : vec2f) -> f32 {
+  return 0.55 * fbValue2(p) + 0.30 * fbValue2(p * 2.03) + 0.15 * fbValue2(p * 4.01);
+}
 
 struct SOut {
   @builtin(position) pos : vec4f,
@@ -70,6 +110,7 @@ struct SOut {
   @location(2) @interpolate(flat) kindAlpha : vec4f,   /* kind, alpha, param, endTaper */
   @location(3) wpos : vec3f,
   @location(4) @interpolate(flat) res : f32,
+  @location(5) @interpolate(flat) fx : vec2f,   /* phase, seed */
 };
 
 @vertex fn vs(@builtin(vertex_index) vi : u32,
@@ -90,7 +131,7 @@ struct SOut {
   if (c0.w < kSprNear && c1.w < kSprNear) {
     o.pos = vec4f(4.0, 4.0, 0.5, 1.0);
     o.uv = vec2f(0.0); o.col = vec3f(0.0); o.kindAlpha = vec4f(0.0); o.wpos = vec3f(0.0, 0.0, 1.0);
-    o.res = 0.0;
+    o.res = 0.0; o.fx = vec2f(0.0);
     return o;
   }
   /* w is linear along the segment, so the crossing parameter is exact. */
@@ -128,6 +169,7 @@ struct SOut {
   o.col = a2.xyz * gain;
   o.res = gain;   /* 1 = resolved; below that the fragment fades into its own integral */
   o.kindAlpha = vec4f(a3.x, a2.w * gain, a3.y, clamp(radM / max(halfLenM, 1e-4), 0.01, 1.0));
+  o.fx = vec2f(a3.z, a3.w);
   o.wpos = rel;
   return o;
 }
@@ -165,7 +207,7 @@ struct SOut {
     let sharp = kFlareCore * core + kFlareHalo * halo;
     let flat = kFlareCore * kFlareCoreMean + kFlareHalo * kFlareHaloMean;
     rgb = rgb * mix(flat, sharp, in.res);
-  } else {
+  } else if (kind < 2.5) {
     /* SMOKE: a capsule of coverage. The ends taper over roughly one radius so consecutive segments of
      * one trail join instead of beading. */
     let across = abs(in.uv.y);
@@ -176,6 +218,47 @@ struct SOut {
     let cov = mix(covMean, pow(side * ends, 1.0 + param), in.res);
     rgb = rgb * cov;
     a = in.kindAlpha.y * cov;
+  } else if (kind < 3.5) {
+    /* FIREBALL. Three things happen at once and the phase is the only clock: the flash collapses, the
+     * ball opens into a billow whose RIM is where the noise lives (a detonation reads by its outline,
+     * not by its interior), and the same billow turns into soot that OCCLUDES instead of emitting.
+     * That last transition is why this kind cannot be an additive one: a burnt-out ball you can see
+     * the terrain through is the thing that made the first attempt read as a puff of steam. */
+    let bp = in.fx.x;
+    let bR = length(in.uv);
+    let bN = fbFbm2(in.uv * 2.2 + vec2f(in.fx.y, -in.fx.y));
+    let bEdge = 1.0 - smoothstep(0.35 + 0.5 * bN, 1.0, bR);
+    let bCore = pow(max(1.0 - 1.8 * bR, 0.0), 2.0);
+    let flash = exp(-14.0 * bp);              /* the first ~0.2 of the life, and only in the core */
+    let soot = smoothstep(0.30, 1.0, bp);
+    let emit = kBlastFlash * (bCore * flash) + kBlastBody * (bEdge * (1.0 - soot));
+    let flatEmit = kBlastFlash * (kBlastCoreMean * flash) + kBlastBody * (kBlastEdgeMean * (1.0 - soot));
+    let cov = mix(kBlastEdgeMean, bEdge, in.res);
+    a = in.kindAlpha.y * soot * cov;
+    rgb = in.col * mix(flatEmit, emit, in.res) + kBlastSoot * a;
+  } else if (kind < 4.5) {
+    /* FIRE: what is still burning where something was destroyed. A tongue, not a ball — width falls to
+     * nothing at the tip and the noise SCROLLS along the axis (phase is a free-running clock, not a
+     * life), which is what separates a fire from a lit sphere at any frame rate. */
+    let fT = clamp(0.5 * (in.uv.x + 1.0), 0.0, 1.0);
+    let fN = fbFbm2(vec2f(in.uv.y * 1.6, fT * 3.2 - in.fx.x) + in.fx.y);
+    let fW = (1.0 - fT) * (0.55 + 0.75 * fN);
+    let fTongue = clamp(1.0 - abs(in.uv.y) / max(fW, 1e-3), 0.0, 1.0);
+    let fRamp = kFlameHot * pow(kFlameCool / kFlameHot, vec3f(fT));
+    let fSharp = fRamp * fTongue * (0.35 + 0.65 * (1.0 - fT) * (1.0 - fT));
+    let fMeanRamp = kFlameHot * pow(kFlameCool / kFlameHot, vec3f(0.5));
+    let fFlat = fMeanRamp * (0.35 * kFireMean + 0.65 * kFireHotMean);
+    rgb = in.col * mix(fFlat, fSharp, in.res);
+  } else {
+    /* LIGHT: a lamp. Same core-inside-halo construction as the flare, with the spectrum taken out of
+     * the constants — a port light is red because its Color says so, and the sub-pixel energy floor
+     * above is what makes one four kilometres away a faint point instead of a marker. */
+    let gR = length(in.uv);
+    let gCore = pow(max(1.0 - 2.5 * gR, 0.0), 2.0);
+    let gHalo = pow(max(1.0 - gR, 0.0), 3.0);
+    let gSharp = kLightCore * gCore + kLightHalo * gHalo;
+    let gFlat = kLightCore * kLightCoreMean + kLightHalo * kLightHaloMean;
+    rgb = in.col * mix(gFlat, gSharp, in.res);
   }
 
   /* The same air everything else is behind: transmittance always, inscatter only where the sprite
@@ -309,7 +392,8 @@ void FBSpritesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &
     o[11] = s.Alpha;
     o[12] = (float)s.Kind;
     o[13] = s.Param;
-    o[14] = o[15] = 0.0f;
+    o[14] = s.Phase;
+    o[15] = s.Seed;
     n++;
   }
   Queue.WriteBuffer(Inst, 0, InstScratch.data(), (size_t)n * kInstFloats * sizeof(float));
@@ -348,19 +432,22 @@ void FBSpritesStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &
  * through the SAME Mvp the draw used, root end and tip end apart: a screenshot can then be held
  * against the published anchor, and an inverted axis is a number rather than an impression. */
 void FBSpritesStage::LogCast(const FBFrameContext &ctx) {
-  int kinds[3] = {0, 0, 0};
+  int kinds[kSpriteKinds] = {};
   for (int i = 0; i < Count; i++)
-    if (Sprites[i].Kind < 3) kinds[Sprites[i].Kind]++;
-  const bool changed = kinds[0] != LastKindCount_[0] || kinds[1] != LastKindCount_[1] ||
-                       kinds[2] != LastKindCount_[2];
-  for (int k = 0; k < 3; k++) LastKindCount_[k] = kinds[k];
+    if (Sprites[i].Kind < kSpriteKinds) kinds[Sprites[i].Kind]++;
+  bool changed = false;
+  for (int k = 0; k < kSpriteKinds; k++) {
+    changed = changed || kinds[k] != LastKindCount_[k];
+    LastKindCount_[k] = kinds[k];
+  }
   if (!changed && ctx.FrameNo % kSpriteLogEvery != 1) return;
   FBLog::Debug("render", "sprites", {{"cast", Count}, {"drawn", LastDraws_},
-                                     {"flame", kinds[0]}, {"flare", kinds[1]}, {"smoke", kinds[2]}});
-  bool shown[3] = {false, false, false};
+                                     {"flame", kinds[0]}, {"flare", kinds[1]}, {"smoke", kinds[2]},
+                                     {"blast", kinds[3]}, {"fire", kinds[4]}, {"light", kinds[5]}});
+  bool shown[kSpriteKinds] = {};
   for (int i = 0; i < Count; i++) {
     const FBSpriteDraw &s = Sprites[i];
-    if (s.Kind > 2 || shown[s.Kind]) continue;
+    if (s.Kind >= kSpriteKinds || shown[s.Kind]) continue;
     shown[s.Kind] = true;
     double px[2], py[2], range = 0.0;
     for (int e = 0; e < 2; e++) {

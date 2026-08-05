@@ -301,17 +301,71 @@ static const float kFlameGain = 1.0f;                 /* [SET] scale on the shad
 static const float kMotorHalfLenM = 2.5f;             /* [SET] a boosting rocket's visible flame */
 static const float kMotorRadiusM = 0.55f;             /* [SET] */
 static const float kMotorGain = 1.7f;                 /* [SET] a solid motor outshines a turbine's plume */
-static const double kSmokeLifeS = 20.0;               /* [SET] a trail segment from lay to gone */
-static const double kTrailStepM = 250.0;              /* [SET] crumb spacing: kMaxCrumbs of these span 24 km */
-static const size_t kMaxCrumbs = 96;                  /* [SET] bounded memory per burning round */
-static const float kSmokeR0M = 1.0f, kSmokeRMaxM = 16.0f;   /* [SET] dispersion of a trail segment */
-static const float kSmokeAlpha0 = 0.80f;              /* [SET] freshly laid opacity */
+static const size_t kMaxCrumbs = 96;                  /* [SET] bounded memory per trail */
 static const float kSmokeRadiance = 1.2f;             /* [SET] sunlit white smoke, the terrain's own level */
 static const float kFlareRadiusM = 4.5f;              /* [SET] the LUMINOUS ball: the grain is centimetres, what an eye sees is the glow around it */
 static const float kFlareGain = 1.0f;                 /* [SET] scale on the shader's core+halo radiance */
 static const float kChaffR0M = 0.6f, kChaffRMaxM = 18.0f;   /* [SET] a dipole cloud dispersing */
 static const float kChaffAlpha = 0.45f;               /* [SET] peak opacity of the bloomed bundle */
 static const size_t kMaxSpriteDraws = 512;            /* mirrors FBSpritesStage's own instance cap */
+
+/* THE DETONATION. Its SIZE is not [SET]: a burst is drawn on the scale of the thing it went off
+ * against, and that scale is published (FBVisualSignature, the damage layout read as geometry). What
+ * is set is the fraction and the clock — a warhead going off on an airframe makes a ball about half
+ * as wide as the airframe is long, and a ball that has stopped emitting after ~1.6 s. */
+static const float kBlastRadiusPerDimM = 0.55f;       /* [SET] ball radius vs the target's largest dimension */
+static const float kBlastMinRadiusM = 4.0f;           /* [SET] a target that published no geometry at all */
+static const double kBlastLifeS = 1.6;                /* [SET] flash -> billow -> soot */
+static const float kBlastGrow0 = 0.40f;               /* [SET] r(p) = R * (kBlastGrow0 + (1-kBlastGrow0)*sqrt(p)) */
+static const size_t kMaxBlasts = 24;                  /* [SET] bounded: the oldest is dropped, never the newest */
+/* THE COLUMN the ball leaves. Four puffs is what it takes to read as a rising column rather than as a
+ * string of balls at the sizes below; the rise rate is buoyant plume order, not wind. */
+static const int kBlastPuffs = 4;                     /* [SET] */
+static const double kBlastPuffDelayS = 0.5;           /* [SET] */
+static const double kBlastSmokeLifeS = 11.0;          /* [SET] */
+static const double kSmokeRiseMs = 6.0;               /* [SET] buoyant rise of the column */
+/* DISPERSION IS THE AIR'S, NOT THE TARGET'S: how wide a column gets is set by how long it has had to
+ * mix, so it is an absolute radius rather than a multiple of what burned. Measured against the first
+ * attempt, which scaled it off the wreck: a 4 m target's column was 11 m wide and 156 m tall — a
+ * thread, invisible past 2 km, where the whole point is a mark that stays readable. */
+static const float kColumnRMaxM = 45.0f;              /* [SET] a standing column at the end of its life */
+static const float kBlastSmokeRMaxM = 35.0f;          /* [SET] the ball's own column, shorter lived */
+static const float kBlastSmokeRadiance = 0.10f;       /* [SET] burnt smoke: dark, and it stays dark at night */
+static const float kBlastSmokeAlpha0 = 0.75f;         /* [SET] */
+
+/* WHAT IS LEFT. A unit whose register says it cannot finish the sortie burns; on the ground the fire
+ * and its column persist for the rest of the run, which is the whole point — a destroyed target has
+ * to LOOK destroyed the next time the camera comes past. */
+static const float kWreckFirePerDimM = 0.45f;         /* [SET] flame height vs the wreck's largest dimension */
+static const float kWreckFireWidthFrac = 0.55f;       /* [SET] tongue width vs its height */
+static const float kWreckFireGain = 0.85f;            /* [SET] scale on the shader's flame ramp */
+static const double kWreckFlickerHz = 1.7;            /* [SET] the noise's scroll rate along the tongue */
+static const double kWreckAglM = 8.0;                 /* [SET] below this a burning unit is DOWN, not flying */
+static const double kWreckColumnStepS = 1.1;          /* [SET] one puff of the standing column per this */
+static const double kWreckColumnLifeS = 26.0;         /* [SET] */
+/* The trail a HOLED airframe lays. Same machinery as a motor's, four times finer and twice as long
+ * lived, because it is laid at 200 m/s instead of at 700 and has to read from behind. */
+static const FBTrailStyle kMotorTrail = {250.0, 20.0, 1.0f, 16.0f, 0.80f, 1.2f};
+static const FBTrailStyle kDamageTrail = {60.0, 40.0, 2.5f, 34.0f, 0.55f, 0.10f};
+
+/* THE LAMPS. Radiance times the shader's own core/halo amplitude; the sub-pixel energy floor does the
+ * rest, so one number covers a light at 100 m and the same light at 8 km. Measured against a mondless
+ * night sky in the browser: doc/render/units-visual.md §11. */
+static const float kNavLightRadM = 0.30f;             /* [SET] the GLOW, not the lens: a 6 cm lamp is a 30 cm ball of light at night */
+/* [DERIVED] from the sub-pixel energy floor, which is what makes ONE number serve every range. Below
+ * full resolution a sprite contributes col * (kLightCore*kLightCoreMean + kLightHalo*kLightHaloMean)
+ * * (R*0.5*H/tan(fov/2) / 0.7072 / d)^2 = col * 1.806 * (R*881.6/d)^2. Solving that for a clearly
+ * readable 0.30 radiance at d = 2 km with R = 0.30 m gives 9.5. Measured at that setting: see below. */
+static const float kNavGain = 9.5f;
+static const float kNavRed[3] = {1.00f, 0.045f, 0.030f};    /* [SET] aviation red, port */
+static const float kNavGreen[3] = {0.050f, 1.00f, 0.220f};  /* [SET] aviation green, starboard */
+static const float kNavWhite[3] = {1.00f, 0.98f, 0.92f};    /* [SET] the tail light */
+static const float kStrobeGain = 4.0f;                /* [SET] times kNavGain: a strobe outshines a position light */
+static const double kStrobePeriodS = 1.0;             /* [SET] ~60 flashes/min, the civil and military norm */
+static const double kStrobeDutyS = 0.07;              /* [SET] */
+static const float kHeadlampGain = 3.0f;              /* [SET] times kNavGain: a driving lamp, seen from the air */
+static const double kMoverMs = 1.0;                   /* [SET] below this a ground unit is parked, and parked is dark */
+static const float kSunDarkDeg = -3.0f;               /* [SET] the same threshold the tile lights are gated on */
 
 FBWorld::UnitFx &FBWorld::Fx(int id) {
   for (UnitFx &f : Fx_)
@@ -322,6 +376,17 @@ FBWorld::UnitFx &FBWorld::Fx(int id) {
   f.FirstSeenS = SimTimeS_;
   Fx_.push_back(f);
   return Fx_.back();
+}
+
+bool FBWorld::Dark() const { return SunElDeg < kSunDarkDeg; }
+
+/* The largest dimension this unit publishes of itself; a unit whose module declares no damage layout
+ * publishes nothing at all, and then the floor is what a warhead does on its own. */
+static float PublishedSizeM(const Units::FBVisualSignature &v) {
+  float m = v.FrontalM;
+  if (v.LateralM > m) m = v.LateralM;
+  if (v.PlanM > m) m = v.PlanM;
+  return m;
 }
 
 /* WHAT THIS UNIT IS DOING THAT AN EYE WOULD SEE, and every input is something the unit itself
@@ -365,9 +430,10 @@ void FBWorld::AddUnitEffects(const Units::FBUnit &u, const Units::FBUnitSignatur
     double motorS = 0.0;
     if (const FBStoreSpec *spec = FBFindStore(sig.Visual.TypeName))
       motorS = spec->Perf.BoostS + spec->Perf.SustainS;
-    AddSmokeTrail(u, ecef, motorS);
     const UnitFx &fx = Fx(u.GetId());
-    if (motorS > 0.0 && SimTimeS_ - fx.FirstSeenS < motorS && SpriteDraws_.size() < kMaxSpriteDraws) {
+    const bool burning = motorS > 0.0 && SimTimeS_ - fx.FirstSeenS < motorS;
+    AddSmokeTrail(u, ecef, burning, kMotorTrail);
+    if (burning && SpriteDraws_.size() < kMaxSpriteDraws) {
       /* No round publishes a LENGTH (a missile module declares no damage layout), so the flame hangs
        * at the unit's own origin rather than at an invented tail station — below its own radius at any
        * range a round is seen from. */
@@ -417,21 +483,62 @@ void FBWorld::AddUnitEffects(const Units::FBUnit &u, const Units::FBUnitSignatur
     s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
     SpriteDraws_.push_back(s);
   }
+
+  /* 4 — THE HIT. The ONLY trigger is a RISE in the published burst count: that number is monotone, it
+   * has exactly one writer (core/FBDamageModel), and it goes up once per detonation and once per gun
+   * bundle that went into the airframe. A timer here would be an invented battle; a level test would
+   * draw the same explosion for the rest of the run. The ball is sized off the target's own published
+   * silhouette, because a warhead going off against a MiG makes a MiG-sized ball. */
+  {
+    UnitFx &fx = Fx(u.GetId());
+    if (sig.Damage.Hits > fx.Hits) {
+      const float dim = PublishedSizeM(sig.Visual);
+      SpawnBlast(ecef, dim > 0.0f ? kBlastRadiusPerDimM * dim : kBlastMinRadiusM, u.GetId());
+    }
+    fx.Hits = sig.Damage.Hits;
+  }
+
+  /* 5 — WHAT IS LEFT of it, and the same rule holds: the register decides, not a clock. */
+  if (!sig.Damage.CombatEffective) {
+    const Units::FBUnitPose p = u.GetPose();
+    AddWreckFire(u, sig, p, ecef, up);
+  }
+
+  /* 6 — THE LAMPS, gated on the sun the client already gates the ground lights on. Drawn for the eye
+   * unit too: in a chase view they are ON the aircraft the camera is watching. */
+  if (Dark()) {
+    if (u.GetKind() == Units::FBUnitKind::Aircraft) {
+      AddNavLights(u, sig, ecef, fwd, right, up);
+    } else if (u.GetKind() == Units::FBUnitKind::Ground) {
+      /* A vehicle that is MOVING is a vehicle with its lamps on; a position that is parked is dark,
+       * which is both the correct picture and the one that does not paint a hidden battery for a
+       * watcher. Speed is published, so nothing here decides what a unit is. */
+      const Units::FBUnitPose p = u.GetPose();
+      if (p.SpeedMs > kMoverMs) {
+        double lamp[3];
+        for (int side = -1; side <= 1; side += 2) {
+          for (int k = 0; k < 3; k++) lamp[k] = ecef[k] + fwd[k] * 2.0 + right[k] * (0.9 * side);
+          const float gain = kNavGain * kHeadlampGain;
+          AddLight(lamp, kNavLightRadM, gain * kNavWhite[0], gain * kNavWhite[1], gain * kNavWhite[2]);
+        }
+      }
+    }
+  }
 }
 
 /* THE TRAIL, and it is a memory of PUBLISHED POSES: a crumb is laid where the round was seen while its
  * motor was burning, and the segment between two crumbs is drawn until it has dispersed. The renderer
  * integrates nothing — without the crumbs a pose alone cannot say where the round has been. */
-void FBWorld::AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double motorS) {
+void FBWorld::AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], bool laying,
+                            const FBTrailStyle &st) {
   UnitFx &fx = Fx(u.GetId());
-  const bool burning = motorS > 0.0 && SimTimeS_ - fx.FirstSeenS < motorS;
-  if (burning) {
+  if (laying) {
     bool lay = fx.Trail.empty();
     if (!lay) {
       const FxCrumb &last = fx.Trail.back();
       double d2 = 0.0;
       for (int i = 0; i < 3; i++) { const double dx = ecef[i] - last.Ecef[i]; d2 += dx * dx; }
-      lay = d2 > kTrailStepM * kTrailStepM;
+      lay = d2 > st.StepM * st.StepM;
     }
     if (lay) {
       FxCrumb c;
@@ -441,12 +548,12 @@ void FBWorld::AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double
       if (fx.Trail.size() > kMaxCrumbs) fx.Trail.erase(fx.Trail.begin());
     }
   }
-  while (!fx.Trail.empty() && SimTimeS_ - fx.Trail.front().T > kSmokeLifeS) fx.Trail.erase(fx.Trail.begin());
+  while (!fx.Trail.empty() && SimTimeS_ - fx.Trail.front().T > st.LifeS) fx.Trail.erase(fx.Trail.begin());
   if (fx.Trail.size() < 2) return;
 
   /* The head of the trail follows the round itself while the motor burns, so the plume stays attached
    * instead of ending one crumb behind. */
-  for (size_t i = 0; i + 1 < fx.Trail.size() + (burning ? 1 : 0); i++) {
+  for (size_t i = 0; i + 1 < fx.Trail.size() + (laying ? 1 : 0); i++) {
     if (SpriteDraws_.size() >= kMaxSpriteDraws) return;
     const FxCrumb &a = fx.Trail[i];
     const double *b = (i + 1 < fx.Trail.size()) ? fx.Trail[i + 1].Ecef : ecef;
@@ -456,22 +563,175 @@ void FBWorld::AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double
     const double len = std::sqrt(len2);
     if (len < 1.0) continue;
     const double age = SimTimeS_ - a.T;
-    const double life = age / kSmokeLifeS;
+    const double life = age / st.LifeS;
     if (life >= 1.0) continue;
     Render::FBSpriteDraw s;
     for (int k = 0; k < 3; k++) {
       s.Ecef[k] = a.Ecef[k] + 0.5 * seg[k];
       s.Axis[k] = (float)(seg[k] / len);
     }
-    s.RadiusM = kSmokeR0M + (kSmokeRMaxM - kSmokeR0M) * (float)std::sqrt(life);
+    s.RadiusM = st.R0M + (st.RMaxM - st.R0M) * (float)std::sqrt(life);
     /* Half a radius of overlap at each end: neighbouring segments then BUTT rather than bead, which is
      * what the first trail frame showed at every join (measured: a 5 px notch at 2.5 km). */
     s.HalfLenM = (float)(0.5 * len) + 0.5f * s.RadiusM;
-    s.Alpha = kSmokeAlpha0 * (float)((1.0 - life) * (1.0 - life));
-    for (int k = 0; k < 3; k++) s.Color[k] = kSmokeRadiance * s.Alpha;   /* premultiplied */
+    s.Alpha = st.Alpha0 * (float)((1.0 - life) * (1.0 - life));
+    for (int k = 0; k < 3; k++) s.Color[k] = st.Radiance * s.Alpha;   /* premultiplied */
     s.Param = 0.35f;
     s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
     SpriteDraws_.push_back(s);
+  }
+}
+
+void FBWorld::SpawnBlast(const double ecef[3], float radiusM, int unitId) {
+  if (Blasts_.size() >= kMaxBlasts) Blasts_.erase(Blasts_.begin());   /* the OLDEST goes, never this one */
+  FxBlast b;
+  for (int i = 0; i < 3; i++) b.Ecef[i] = ecef[i];
+  b.T0 = SimTimeS_;
+  b.RadiusM = radiusM;
+  /* Deterministic per unit and per event: the same run twice draws the same turbulence. */
+  b.Seed = (float)((unitId * 37 + (int)(SimTimeS_ * 8.0)) % 251);
+  Blasts_.push_back(b);
+}
+
+/* THE BALL AND ITS COLUMN. A blast belongs to the PLACE it happened at: the round that carried it is
+ * retired in the same tick and the target may fly on out of the frame, so neither of them can host it.
+ * The column is four puffs on a delay rather than one growing sprite, because a rising column is a
+ * SEQUENCE of releases and a single sprite that grows reads as a balloon. */
+void FBWorld::AddBlasts() {
+  for (size_t i = 0; i < Blasts_.size();) {
+    const FxBlast &b = Blasts_[i];
+    const double age = SimTimeS_ - b.T0;
+    if (age < 0.0 || age > kBlastSmokeLifeS + kBlastPuffs * kBlastPuffDelayS) {
+      Blasts_.erase(Blasts_.begin() + (long)i);
+      continue;
+    }
+    i++;
+    if (SpriteDraws_.size() >= kMaxSpriteDraws) continue;
+    double up[3];
+    double len = std::sqrt(b.Ecef[0] * b.Ecef[0] + b.Ecef[1] * b.Ecef[1] + b.Ecef[2] * b.Ecef[2]);
+    if (len < 1.0) len = 1.0;
+    for (int k = 0; k < 3; k++) up[k] = b.Ecef[k] / len;
+
+    if (age < kBlastLifeS) {
+      const float p = (float)(age / kBlastLifeS);
+      Render::FBSpriteDraw s;
+      for (int k = 0; k < 3; k++) { s.Ecef[k] = b.Ecef[k]; s.Axis[k] = (float)up[k]; }
+      s.HalfLenM = s.RadiusM = b.RadiusM * (kBlastGrow0 + (1.0f - kBlastGrow0) * std::sqrt(p));
+      s.Color[0] = s.Color[1] = s.Color[2] = 1.0f;   /* the arc lives in the shader's own constants */
+      s.Alpha = 1.0f;
+      s.Phase = p;
+      s.Seed = b.Seed;
+      s.Kind = (uint32_t)Render::FBSpriteKind::Fireball;
+      SpriteDraws_.push_back(s);
+    }
+    for (int j = 0; j < kBlastPuffs && SpriteDraws_.size() < kMaxSpriteDraws; j++) {
+      const double pa = age - j * kBlastPuffDelayS;
+      if (pa <= 0.0 || pa >= kBlastSmokeLifeS) continue;
+      const double life = pa / kBlastSmokeLifeS;
+      Render::FBSpriteDraw s;
+      for (int k = 0; k < 3; k++) s.Ecef[k] = b.Ecef[k] + up[k] * (kSmokeRiseMs * pa);
+      const float r0 = 0.5f * b.RadiusM;
+      s.HalfLenM = s.RadiusM = r0 + (kBlastSmokeRMaxM - r0) * (float)std::sqrt(life);
+      s.Alpha = kBlastSmokeAlpha0 * (float)((1.0 - life) * (1.0 - life));
+      for (int k = 0; k < 3; k++) s.Color[k] = kBlastSmokeRadiance * s.Alpha;   /* premultiplied */
+      s.Param = 0.5f;
+      s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
+      SpriteDraws_.push_back(s);
+    }
+  }
+}
+
+/* WHAT IS LEFT OF A UNIT THAT CANNOT FINISH ITS SORTIE. Two pictures from one published bit: still
+ * flying, it lays a black trail behind itself (the SAME crumb memory a motor uses, different numbers);
+ * down, it stands and burns for the rest of the run, and the burning is anchored to the ground under
+ * it rather than to the model origin so a wreck does not float. */
+void FBWorld::AddWreckFire(const Units::FBUnit &u, const Units::FBUnitSignature &sig,
+                           const Units::FBUnitPose &p, const double ecef[3], const double up[3]) {
+  UnitFx &fx = Fx(u.GetId());
+  if (fx.BurnSinceS < 0.0) fx.BurnSinceS = SimTimeS_;
+  const double burnS = SimTimeS_ - fx.BurnSinceS;
+  const bool down = p.ElevM - p.GroundAslM < kWreckAglM || u.GetKind() == Units::FBUnitKind::Ground;
+  if (!down) {
+    AddSmokeTrail(u, ecef, true, kDamageTrail);
+    return;
+  }
+  const float dim = PublishedSizeM(sig.Visual);
+  const float height = dim > 0.0f ? kWreckFirePerDimM * dim : kBlastMinRadiusM;
+  const float seed = (float)(u.GetId() * 17 % 251);
+  if (SpriteDraws_.size() < kMaxSpriteDraws) {
+    Render::FBSpriteDraw s;
+    for (int k = 0; k < 3; k++) {
+      s.Ecef[k] = ecef[k] + up[k] * (0.5 * (double)height);
+      s.Axis[k] = (float)up[k];
+    }
+    s.HalfLenM = 0.5f * height;
+    s.RadiusM = kWreckFireWidthFrac * s.HalfLenM;
+    s.Color[0] = s.Color[1] = s.Color[2] = kWreckFireGain;
+    s.Phase = (float)(SimTimeS_ * kWreckFlickerHz);
+    s.Seed = seed;
+    s.Kind = (uint32_t)Render::FBSpriteKind::Fire;
+    SpriteDraws_.push_back(s);
+  }
+  /* The standing column: puffs released on a fixed cadence since the unit was first seen burning, so
+   * it is as tall as the fire is old and does not restart when the camera looks away. */
+  const int n = (int)(kWreckColumnLifeS / kWreckColumnStepS);
+  for (int j = 0; j < n && SpriteDraws_.size() < kMaxSpriteDraws; j++) {
+    const double pa = std::fmod(burnS, kWreckColumnStepS) + j * kWreckColumnStepS;
+    if (pa >= kWreckColumnLifeS || pa > burnS) continue;
+    const double life = pa / kWreckColumnLifeS;
+    Render::FBSpriteDraw s;
+    for (int k = 0; k < 3; k++) s.Ecef[k] = ecef[k] + up[k] * (kSmokeRiseMs * pa);
+    const float r0 = 0.6f * height;
+    s.HalfLenM = s.RadiusM = r0 + (kColumnRMaxM - r0) * (float)std::sqrt(life);
+    s.Alpha = kBlastSmokeAlpha0 * (float)((1.0 - life) * (1.0 - life));
+    for (int k = 0; k < 3; k++) s.Color[k] = kBlastSmokeRadiance * s.Alpha;   /* premultiplied */
+    s.Param = 0.5f;
+    s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
+    SpriteDraws_.push_back(s);
+  }
+}
+
+void FBWorld::AddLight(const double ecef[3], float radiusM, float r, float g, float b) {
+  if (SpriteDraws_.size() >= kMaxSpriteDraws) return;
+  Render::FBSpriteDraw s;
+  for (int k = 0; k < 3; k++) s.Ecef[k] = ecef[k];
+  s.HalfLenM = s.RadiusM = radiusM;
+  s.Color[0] = r; s.Color[1] = g; s.Color[2] = b;
+  s.Kind = (uint32_t)Render::FBSpriteKind::Light;
+  SpriteDraws_.push_back(s);
+}
+
+/* THE LAMPS AN AIRFRAME CARRIES, and their POSITIONS are published rather than tabulated: the wingtips
+ * sit at half the frontal dimension, the tail at nearly half the lateral one, and both come out of the
+ * damage layout read as geometry (units/FBUnit.h FBVisualSignature) — the same numbers the eye uses to
+ * decide whether it can tell what kind of aeroplane it is looking at. A unit that publishes no
+ * silhouette carries no lamps, which is the honest picture for a released store. */
+void FBWorld::AddNavLights(const Units::FBUnit &u, const Units::FBUnitSignature &sig, const double ecef[3],
+                           const double fwd[3], const double right[3], const double up[3]) {
+  const float span = sig.Visual.FrontalM, len = sig.Visual.LateralM;
+  if (span <= 0.0f || len <= 0.0f) return;
+  /* A hair OUTBOARD of the published half-span, and that is geometry rather than fudge: the published
+   * dimension is where the airframe ENDS, the lens sits on that end, and its glow is centred half a
+   * ball further out. Placed exactly at the half-span the lamp is inside the wing's own depth and the
+   * airframe occludes it — measured: only the tail light survived, at 132/255, the two wingtips at 1. */
+  const double outboard = 0.5 * (double)span + 2.0 * (double)kNavLightRadM;
+  double port[3], stbd[3], tail[3];
+  for (int k = 0; k < 3; k++) {
+    port[k] = ecef[k] - right[k] * outboard;
+    stbd[k] = ecef[k] + right[k] * outboard;
+    tail[k] = ecef[k] - fwd[k] * (0.45 * (double)len) + up[k] * (0.06 * (double)len);
+  }
+  AddLight(port, kNavLightRadM, kNavGain * kNavRed[0], kNavGain * kNavRed[1], kNavGain * kNavRed[2]);
+  AddLight(stbd, kNavLightRadM, kNavGain * kNavGreen[0], kNavGain * kNavGreen[1], kNavGain * kNavGreen[2]);
+  AddLight(tail, kNavLightRadM, kNavGain * kNavWhite[0], kNavGain * kNavWhite[1], kNavGain * kNavWhite[2]);
+  /* The anti-collision strobe is the one lamp that is a CLOCK, because in the aeroplane it is one: a
+   * flasher unit fires on its own period whatever the aircraft is doing. Phase is offset per unit id
+   * so a four-ship does not blink in unison. */
+  const double phase = std::fmod(SimTimeS_ + 0.137 * (double)(u.GetId() % 8), kStrobePeriodS);
+  if (phase < kStrobeDutyS) {
+    const float gain = kNavGain * kStrobeGain;
+    AddLight(port, kNavLightRadM, gain * kNavWhite[0], gain * kNavWhite[1], gain * kNavWhite[2]);
+    AddLight(stbd, kNavLightRadM, gain * kNavWhite[0], gain * kNavWhite[1], gain * kNavWhite[2]);
   }
 }
 
@@ -523,6 +783,9 @@ void FBWorld::PublishUnits() {
       UnitDraws_.push_back(d);
     }
   }
+  /* AFTER the cast, because a blast outlives the round that carried it and the target that took it —
+   * it is the one effect in here with no unit to hang off. */
+  if (HaveSimTime_) AddBlasts();
   R->SetUnitDraws(UnitDraws_.data(), (int)UnitDraws_.size());
   R->SetSpriteDraws(SpriteDraws_.data(), (int)SpriteDraws_.size());
 

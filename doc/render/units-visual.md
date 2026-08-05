@@ -1,14 +1,16 @@
 # Units and effects in the picture
 
 **Subject:** drawing what the simulation already has — other aircraft, released stores, missiles,
-ground targets, and the effects that belong to them (smoke, flares, chaff). Neighbours:
+ground targets, and the effects that belong to them (smoke, flares, chaff, detonations, wreck fire,
+navigation lights). Neighbours:
 [`renderer.md`](renderer.md) (pass topology and the encode slots this occupies),
 [`../missions/runtime.md`](../missions/runtime.md) (what a unit is and where its pose
 comes from), [`../weapons.md`](../weapons.md) (what exists to be drawn).
 
 Both halves are built and measured: the AIRCRAFT (`FBUnitsStage`, one indexed draw per unit) and the
 EFFECTS (`FBSpritesStage`, one instanced draw for the whole frame) — engine flame, rocket plume, flares,
-chaff.
+chaff, and since §12 the three that make a fight legible: the DETONATION, what goes on BURNING where
+something was destroyed, and the LAMPS an airframe carries at night.
 
 ## Spec
 
@@ -25,6 +27,10 @@ chaff.
 | Effects cost nothing when there are none | **measured.** `payerne-full.fbm`: `[render sprites] cast=0 drawn=0`, `passes=6`, and the three PNGs are **bit-identical** to the same run on the pre-round binary |
 | The flame hangs on the nozzle, not near the tail | **measured.** the drawn plume's root reprojects to **6.1722 m** from the model origin; the mesh's own nozzle station is `|(0, −0.0326, 6.1721)| = 6.1722 m` (§9.1) |
 | A retired unit disappears | `FBSimUnit::Retire` clears the signature, and an empty `Visual.TypeName` is exactly the "no model, no draw" branch of `PublishUnits` — so retirement removes the draw without a second rule |
+| **A hit is visible, and its only trigger is the damage register** | `FBUnitSignature::Damage` (`Hits`/`CombatEffective`/`Destroyed`), copied at the publish barrier from `core/FBSystemHealth` — monotone, one writer. A RISE in `Hits` spawns exactly one fireball; nothing else can. Measured: `c01m04` `blast` 0 → 1 at t=95.2 and 1 → 2 at t=95.4, the two `damage KILL` lines' own seconds (§12) |
+| **What was destroyed keeps looking destroyed** | `!CombatEffective` burns for the rest of the run — a black trail while it still flies, a standing fire plus its column once it is down. Measured: `ar-02-headon-night`, four `target_soft` killed at t=102.6–102.8, `fire=4` in **every** frame logged from t=104.0 to the end of the run (283 browser frames, 7 native) |
+| A night sortie is readable without becoming day | measured on `c01m07` (sun −53.08°), chase, same mark, same conclusion second (203.2 s): scene mean 0.0543 → **0.0670** of 255 (**+0.005 % of full scale**), pixels above 128 **3 → 67** (§12) |
+| A lamp does not exist by day | gated on the sun the client already gates the tile lights on (< −3°). Measured: every `[render sprites]` line of the daylight `c01m04` run carries `light=0` |
 
 Resolved out of the open list at the head of the round:
 
@@ -52,8 +58,10 @@ additive — which is why one pipeline serves the emitters and the smoke.
 | Draw record | `render/FBUnitDraw.h` | ECEF + body basis + 10 articulation floats + the type key. No simulation type |
 | The stage | `render/stages/FBUnitsStage.h/.cpp` | pipeline, per-LOD bind group, the per-frame part matrices, the draw loop |
 | Published articulation | `units/FBUnit.h` `FBUnitArticulation`, filled in `FBSimUnit::PublishPose` | ten channels off `fdm/FBFdm`'s new const surface getters |
-| Effect record | `render/FBSpriteDraw.h` | ECEF centre, world axis, half-length, radius, premultiplied radiance, alpha, kind. No simulation type |
-| The effect stage | `render/stages/FBSpritesStage.h/.cpp` | screen-space stretched billboard, three fragment profiles, far-to-near sort, the unresolved limit (§10) |
+| Effect record | `render/FBSpriteDraw.h` | ECEF centre, world axis, half-length, radius, premultiplied radiance, alpha, phase, seed, kind. No simulation type |
+| The effect stage | `render/stages/FBSpritesStage.h/.cpp` | screen-space stretched billboard, **six** fragment profiles, far-to-near sort, the unresolved limit (§10). No texture: turbulence is three-octave value noise over a hash (the header names its source) |
+| Published damage | `units/FBUnit.h` `FBDamageSignature`, filled in `FBSimUnit::PublishPose` | the seam of §12 — three fields off `core/FBSystemHealth`, read-only, no path back |
+| The sun, for the lamps | `world/FBWorld::SetSunElevationDeg`, called by both clients beside `SetNightLights` | one night per picture: the lamps and the tile lights read the same number |
 | Nozzle station | `render/FBUnitModel` `Lod::NozzleOff/NozzleRadiusM`, surfaced by `FBUnitsStage::Nozzle` | the bbox of every `nozzle*` node, taken at its aft face — the ASSET states it, the renderer reads it |
 | The effect cast, per frame | `world/FBWorld::AddUnitEffects` / `AddSmokeTrail` | the same one file that builds the unit draws |
 | The mission clock | `world/FBWorld::SetSimTimeS`, called by both clients | every effect is an AGE against a published bloom/launch time; without a clock no age-dependent effect draws at all |
@@ -80,6 +88,10 @@ trisTotal=173330 lod0MaxRangeM=108 nozzleZ=6.17209 nozzleRadM=0.534732`. 173 330
 | 8b | **A missile IS its plume today.** `aim9.glb`/`r73.glb` exist, `aim120.glb` does not, and no client registers any of them — so a round in flight is drawn as a flame and a trail with nothing in between. At the ranges a round is seen that is very nearly right, and it is why the plume was worth building before the mesh | measured, `bvr-duel.fbm` t=140.8: the round is a 1 px dot at 360 m |
 | 8c | Nothing lights the smoke | a trail segment carries a fixed grey-white radiance (`kSmokeRadiance` 1.2) and does not know where the sun is, so a trail is equally bright with the sun behind it and in front of it. The terrain and the airframe both do the sun properly; the smoke does not, and it will show first at dusk |
 | 8d | Flare and chaff sizes are the renderer's, not the simulation's | `core/FBCountermeasure.h` publishes a POINT with an age curve and no extent at all. The luminous ball (4.5 m) and the chaff cloud's dispersion (0.6 → 18 m) are therefore `[SET]` in `world/FBWorld.cpp` and marked as such. Nothing reads them back |
+| 9 | **The wreck fire has no chase frame yet, only numbers.** In every mission measured the strike aircraft egresses AWAY from what it destroyed, and the chase camera rides a friendly (`SelectNext` skips the other team) — so the fires are always behind the eye | measured on `ar-02-headon-night`: `fire=4` throughout, and the nearest logged projection is `kind=4 rangeM=4174 rootPx=1391` — 111 px off the right edge at 4.2 km. A 4 m flame there is 0.62 px, which is the correct size and not a readable one. What is missing is a camera the watcher can point, not an effect |
+| 12 | **A frame proof cannot be aimed at a sim second.** The browser harness takes its marks in WALL seconds and the mission clock starts after an indeterminate tile load, so a 1.6 s fireball is caught by luck: five runs of `c01m07` at marks around the SA-2 hit produced one frame with the ball | the same drift makes a repeated night measurement a band (67 and 98 px above 128 at the identical mark). What is missing is a mark expressed in SIM seconds — the client knows both clocks and prints them; the harness reads neither |
+| 10 | **No scorch.** "Something stays on the ground" is a fire and a smoke column, not a mark on the terrain | a decal needs a terrain-side channel that does not exist; the fire is anchored to the published ground height instead |
+| 11 | A night smoke column is invisible, and correctly so | Gap 8c's missing lighting cuts both ways: nothing lights the smoke, so at night a column carries only its own 0.10 radiance against a black sky and reads as nothing. The daylight column reads; the night one does not, and only a light from the fire below it would change that |
 | 8 | Ground targets and stores have no mesh registered | `aim9.glb`, `mk82.glb` and `r73.glb` exist beside the F-16 and no client loads them; a released store publishes no `Visual.TypeName` either |
 
 ## Knowledge
@@ -238,6 +250,11 @@ PICTURE is `[SET]` in `world/FBWorld.cpp` with that mark on it. The split, effec
 | Rocket motor | that the unit is `FBUnitKind::Weapon`, its type key, and the catalogue's `Perf.BoostS + SustainS` for that key | flame half-length 2.5 m, radius 0.55 m, gain 1.7 |
 | Motor trail | the round's published poses, frame by frame | 20 s life, 250 m crumb spacing, 96 crumbs, 1 → 16 m dispersion, α 0.80 → 0 |
 | Flares / chaff | `FBFlareCloud`/`FBChaffCloud`: active, lat/lon/alt, bloom time — **and their age curves**, `FBFlareIrNorm`/`FBChaffRcsNorm`, the simulation's own free functions | the luminous ball 4.5 m, the chaff cloud 0.6 → 18 m, peak α 0.45 |
+| Detonation | `Damage.Hits` rising, the unit's pose, and the target's own published silhouette | ball radius = 0.55 × the largest published dimension, 1.6 s life, `r(p) = R(0.4 + 0.6√p)`, four column puffs 0.5 s apart, 6 m/s rise |
+| Wreck fire | `Damage.CombatEffective` false, the pose, `GroundAslM`, the published silhouette | flame height = 0.45 × that dimension, tongue width 0.55 × height, flicker 1.7 Hz, a column puff every 1.1 s for 26 s |
+| Damage trail | the same bit, plus the unit's published poses frame by frame | 40 s life, 60 m crumb spacing, 2.5 → 34 m dispersion, α 0.55, radiance 0.10 |
+| Navigation lights | the published span (`Visual.FrontalM`) and length (`LateralM`), the unit id, the client's sun elevation | glow radius 0.30 m, gain 9.5 (derived, §12.2), strobe ×4 at 1.0 s / 0.07 s duty, the three aviation hues |
+| Vehicle lamps | `FBUnitKind::Ground` **and** published `SpeedMs` > 1 m/s — a parked position stays dark | two lamps 1.8 m apart, 2 m ahead of the origin, gain ×3 |
 
 Two of those deserve their argument spelled out.
 
@@ -359,3 +376,109 @@ directories was touched, so the 296-mission regression cannot move: it is the sa
 same deterministic output. Checked empirically on the render side as well: `gpu_native --mission
 bvr-duel.fbm` writes byte-identical `telemetry.csv` and `telemetry_bandit.csv` before and after, and
 `--threads 1/2/4` agree with each other. The pass count is 6 with effects in the frame and 6 without.
+
+### 12 The hit, the wreck and the night
+
+Two things were missing from a watched run and both were the same kind of absence: eight sorties of
+`mods/f22` were shot, hit and killed, and **nothing in the frame said so** — a missile trail simply
+ended — while two of the eight are moonless night (`c01m07`: sun −53.08°, moon −48.50°, phase 0.218)
+and showed stars and a plume against black.
+
+#### 12.1 Where the seam was drawn, and why there
+
+Not in `missions/`, where the detonation is resolved: `render/` may not see that layer, and an event
+delivered from there would be a second truth about a fight the register already records. Not in
+`world/` either, which may not invent one.
+
+**`units/FBUnit.h` grows `FBDamageSignature`, and `FBSimUnit::PublishPose` fills it from
+`core/FBSystemHealth`** — the same barrier and the same one-way street as the afterburner bit, the
+radar cross-section and the flare clouds beside it. That struct's own sentence is the argument: it is
+*what may a foreign observer legitimately notice about this unit*, and fire, wreckage and the smoke off
+a holed airframe are radiated, not read.
+
+```
+FBDamageSignature { uint16_t Hits; bool CombatEffective; bool Destroyed; }
+```
+
+Three properties come for free and none of them had to be built: the register is **monotone**, it has
+**exactly one writer** (`FBDamageModel`, its only friend), and every mutator on it is private. So an
+effect standing on it can only ever be reading the simulation — there is no handle to write through,
+exactly as `FBUnitDraw`/`FBSpriteDraw` carry no simulation type.
+
+**The trigger is an EDGE, not a level.** A rise in `Hits` is one detonation or one gun bundle that went
+into the airframe; drawing on the level would leave the same explosion burning for the rest of the run,
+and drawing on a clock would be an invented battle. `world/FBWorld` remembers the last count it saw per
+unit — the same memory its trail crumbs already are.
+
+`make verify-layers` is unchanged by all of it: **6 perception readers, 1 drawing-side viewer.** Nothing
+new reads the registry, and the new field widens no sensor — no sensor names it.
+
+#### 12.2 Six profiles, no texture
+
+`FBSpriteKind` goes from three to six. Each new one is a fragment branch and one instance ordinal; the
+instance stride was already 16 floats with two spare, so `Phase` and `Seed` cost no bandwidth at all.
+
+| Kind | Shape | Its clock |
+|---|---|---|
+| `Fireball` | billowing ball, noise on the RIM, flash → orange → soot; **alpha-blended at the end**, so a burnt-out ball occludes instead of glowing | `Phase` = age / 1.6 s |
+| `Fire` | a tongue along `Axis`, width → 0 at the tip, noise scrolling along it | `Phase` = a free-running 1.7 Hz clock |
+| `Light` | core inside halo, **no baked spectrum** — the hue is entirely `Color`, so one kind serves red, green, white and a strobe | none |
+
+Turbulence is three-octave value noise over a hash (source in the stage header). This is
+[`visual-target.md`](visual-target.md) §1 applied literally: 60 GB/s of bandwidth against 2.5–4
+TFLOPS says *spend arithmetic to avoid traffic*, and a flipbook would be traffic. The unresolved means
+of §10 were taken the same way as the old four — numerically integrated over the very expressions in
+`fs`, with the noise held at its own mean rather than at one realisation:
+
+```
+kBlastEdgeMean 0.50894   kBlastCoreMean 0.04040
+kFireMean      0.23124   kFireHotMean   0.11562
+kLightCoreMean 0.02094   kLightHaloMean 0.07854
+```
+
+**The lamp gain is derived, not tuned.** Below full resolution the sub-pixel energy floor makes a
+sprite contribute `col · (kLightCore·kLightCoreMean + kLightHalo·kLightHaloMean) · (R·881.6/d)²` =
+`col · 1.806 · (R·881.6/d)²`, where `881.6 = 0.5·H/tan(fov/2) / 0.7072` is the focal length in pixels
+over the half-extent floor. Asking for a clearly readable **0.30 radiance at 2 km** with a 0.30 m glow
+gives `col = 9.5`, and that ONE number then serves every range: 636 (saturated) at 200 m, 0.003 —
+invisible — at 20 km. Nothing about a lamp is per-distance.
+
+**Sizes are the target's, not the renderer's.** A warhead going off against a MiG makes a MiG-sized
+ball, so the fireball radius is `0.55 ×` the largest dimension the TARGET publishes (`FBVisualSignature`
+— the damage layout read as geometry, the same three numbers the eye uses). The one thing that is
+deliberately *not* target-scaled is the smoke column's width: how far smoke spreads is set by the air,
+not by what burned. The first attempt scaled it off the wreck and produced an 11 m thread beside a
+156 m column — measured, and replaced by an absolute 45 m dispersion.
+
+**Where a lamp sits is published too**: the wingtips at half `Visual.FrontalM`, the tail at 0.45 ×
+`LateralM`. Placed *exactly* at the half-span the lens is inside the wing's own depth and the airframe
+occludes it — measured on `c01m07`, chase, 62 m: only the tail light survived, at 132/255, both
+wingtips at 1/255. Two glow radii outboard is the lens itself and clears it.
+
+#### 12.3 What was measured
+
+Browser, real Chromium, real WebGPU, `?view=chase`, 1280×720, the predecessor's own harness.
+
+| Frame | Before | After |
+|---|---|---|
+| `c01m07` night, chase, mark 150 s (both runs conclude at **203.2 s** — identical) | scene max 171 (a star), **3** px above 128, mean **0.0543**/255 | red/white/green on the airframe, max 255, **67** px above 128, mean **0.0670**/255. A second run of the same mark gave 98 px and mean 0.0894: a wall-clock mark lands on a slightly different sim second every time, so the count is a band and the **3** it is measured against is not (no lamp existed) |
+| `c01m07` night, the SA-2 that kills the ownship (`missM=11.8`, t=202.4) | the trail ends | a fireball that lights the airframe's silhouette out of the black. Caught once in five runs — the ball lives 1.6 s and a wall-clock mark cannot be aimed at a sim second (Gap 12) |
+| `c01m04` daylight, two AIM-9 kills at t=95.2/95.4, ~10 km | nothing | two orange balls, peak 223/142/111 and 175/104/136, each with its column |
+
+**The night did not become day: +0.0127 of 255 in the scene mean, 0.005 % of full scale.** What moved
+is not the brightness, it is the readability — 3 pixels above half scale became 67, and the 64 of them
+are all lamp.
+
+Sprite-log kind counters back every claim above (`[render sprites] … blast= fire= light=`):
+`c01m04` blast 0→1→2 at the two kill seconds and `light=0` in every line of the daylight run ·
+`c01m07` `light=12` (four aircraft × three lamps) · `ar-02-headon-night` `light=48`/`52` for sixteen,
+and `fire=4` from t=104.0 to the end.
+
+#### 12.4 What this round did NOT change
+
+296 f16 missions **byte-identical** (`diff -r` over both snapshots empty, exit codes identical) ·
+`payerne-full --threads 1/2/4` on one signature · f22 campaign verdicts **3/3/1/0/1/3/3/3**,
+unchanged · `test-air` 5 outside band, the same five · `verify-layers` 6 perception readers /
+1 drawing-side viewer · `verify-guards` 8/8 · `verify-models` green · `verify-types` 11 types in
+114 files, unchanged · `nm build/fb-gym` 0 Dawn/WebGPU symbols · pass count untouched: no stage was
+split and no `Begin*Pass` was added.

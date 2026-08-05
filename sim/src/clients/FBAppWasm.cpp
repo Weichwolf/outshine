@@ -775,6 +775,7 @@ static void frame(void) {
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
 
   W.SetNightLights(R.GetGroundMode() && hs.Env.SunElDeg < -3.0f);   /* EVS night -> stream /t/lights */
+  W.SetSunElevationDeg(hs.Env.SunElDeg);   /* ...and the same sun decides whether a lamp is lit */
   W.SetSimTimeS(simT);   /* the MISSION clock the published effect ages are stamped against */
   W.Update(p.LatDeg, p.LonDeg, eye, fwd, now);   /* multi-LOD quadtree around the live flight */
   double cp_e = emscripten_get_now();   /* end: FBWorld update (quadtree + gain + lights poll) */

@@ -14,10 +14,18 @@
 #include "FBUnitDraw.h"
 
 namespace FlightBox::Render { class FBRenderer; }
-namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; struct FBUnitSignature; }
+namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; struct FBUnitSignature; struct FBUnitPose; }
 namespace FlightBox { class FBWeatherProvider; }
 
 namespace FlightBox::World {
+
+/* THE STYLE of a laid smoke trail, because two of them exist and they differ in nothing but their
+ * numbers: a solid motor lays white smoke in 250 m steps for 20 s, a holed airframe lays black smoke
+ * in 60 m steps for 40 s. Same crumbs, same segments, same integration-free memory. */
+struct FBTrailStyle {
+  double StepM, LifeS;
+  float R0M, RMaxM, Alpha0, Radiance;
+};
 
 class FBWorld {
 public:
@@ -66,6 +74,12 @@ public:
 
   /* Off = no fetch, no upload. The client gates this on the day/night fade. */
   void SetNightLights(bool on) { NightLights = on; }
+
+  /* THE SUN'S ELEVATION over the eye, from the same block the client already gates the tile lights on
+   * (FBState's FBEnvironmentBlock). It reaches the drawing side because a LAMP is the one effect whose
+   * existence depends on the light around it — a jet does not switch on its position lights because the
+   * renderer feels like it, and one picture may not have two nights in it. */
+  void SetSunElevationDeg(float deg) { SunElDeg = deg; }
 
 private:
   struct Node {
@@ -127,7 +141,24 @@ private:
    * motor laid, measured against the burn time the STORE CATALOGUE states for its type. */
   void AddUnitEffects(const Units::FBUnit &u, const Units::FBUnitSignature &sig, const double ecef[3],
                       const double fwd[3], const double right[3], const double up[3], bool isEye);
-  void AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double motorS);
+
+  void AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], bool laying, const FBTrailStyle &st);
+
+  /* WHAT A HIT LOOKS LIKE, from the one thing the unit publishes about being hit: a RISE in its
+   * monotone burst count is one detonation and is the only trigger there is. The ball and its column
+   * outlive the unit's own frame, so they are kept here rather than in the unit's UnitFx. */
+  void SpawnBlast(const double ecef[3], float radiusM, int unitId);
+  void AddBlasts();
+  /* ...and what is LEFT: a unit whose published register says it can no longer finish the sortie
+   * burns, on the spot if it is down and behind itself if it is still flying. */
+  void AddWreckFire(const Units::FBUnit &u, const Units::FBUnitSignature &sig,
+                    const Units::FBUnitPose &p, const double ecef[3], const double up[3]);
+  /* The lamps an airframe carries, placed off its PUBLISHED silhouette (span, length) and lit only
+   * while the sun is down — see SetSunElevationDeg. */
+  void AddNavLights(const Units::FBUnit &u, const Units::FBUnitSignature &sig, const double ecef[3],
+                    const double fwd[3], const double right[3], const double up[3]);
+  void AddLight(const double ecef[3], float radiusM, float r, float g, float b);
+  bool Dark() const;
 
   /* One breadcrumb of a burning motor's path: WHERE the round was when this frame published it. It is
    * a memory of published poses, never a second integration — the renderer remembers what it was
@@ -137,9 +168,21 @@ private:
     int Id = -1;
     unsigned Touch = 0;
     double FirstSeenS = 0.0;   /* the frame this unit first existed: a round is created at launch */
+    uint16_t Hits = 0;         /* last published burst count — the edge, not the level, is the event */
+    double BurnSinceS = -1.0;  /* first frame this unit was published as no longer combat-effective */
     std::vector<FxCrumb> Trail;
   };
   UnitFx &Fx(int id);
+
+  /* One detonation, kept as its own record because it belongs to the PLACE and not to the unit: the
+   * round that carried it is retired the same tick and the target may fly on out of the frame. */
+  struct FxBlast {
+    double Ecef[3];
+    double T0;
+    float RadiusM;
+    float Seed;
+  };
+  std::vector<FxBlast> Blasts_;
 
   const Units::FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
   int EyeUnitId_ = -1;
@@ -148,6 +191,7 @@ private:
   std::vector<UnitFx> Fx_;
   double SimTimeS_ = 0.0;
   bool HaveSimTime_ = false;
+  float SunElDeg = 90.0f;   /* full day until a client says otherwise: no lamp burns by default */
   const FBWeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
 
   Render::FBRenderer *R;
