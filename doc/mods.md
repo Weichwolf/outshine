@@ -280,7 +280,25 @@ Three properties follow, and the third is the one that makes it trustworthy:
    stored beside its pair. Replay reads a file.
 2. **The hash IS the boundary.** One bit different in the situation and the lookup misses — so a protocol
    can never silently answer a question it was not asked.
-3. **A miss is a signal, and the two sides handle it differently — this is a hard rule.** In a played run
+3. **The hashed input is the literal prompt, and that is the whole answer.**
+
+   > Owner, 2026-08-05: *„hier geht es ja nur um die Reproduzierbarkeit für Gym und Demo-Mode. Im
+   > Spielerbetrieb entscheidet dann eben das LLM."*
+
+   This scoping removes a design problem rather than solving one. Asking *„which parts of the situation
+   matter enough to hash?"* would be genuinely hard — bound it too tightly and a protocol answers a
+   question it never saw, too loosely and every pair misses on the next tick. **The question does not
+   arise**, because a protocol is a recording, not a dialogue system: hash **the bytes that were actually
+   sent to the model**. Nothing is selected, so nothing can be selected wrongly.
+
+   It works because the sim is deterministic: the same mission reproduces the same prompt, so the lookup
+   hits. When the sim changes enough that the prompt differs, the hash misses — which is precisely the
+   divergence signal, arriving for free instead of being engineered.
+
+   *This correction shrinks what an earlier revision called the hardest open question. It was overstated:
+   it is only hard for a live dialogue system, and §2.1 does not build one.*
+
+4. **A miss is a signal, and the two sides handle it differently — this is a hard rule.** In a played run
    a miss may fall through to a live model. **In `fb-gym` a miss is a failure, never a fallback**, because
    the gym must have no path to a model at all; a gym that could fall through would be a gym whose
    determinism depends on a network. The miss is the useful output: it names exactly where the world
@@ -343,9 +361,7 @@ Nothing built.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a
   reading rule for a machine, not prose for a player.
 - **The protocol format does not exist.** §2.1 and §3 rest on recorded in→out pairs being loadable by
-  `fb-gym`; nothing records one and nothing replays one. **What exactly goes into the hashed input is the
-  whole design** — too much and every pair misses on the next tick, too little and a protocol answers a
-  situation it never saw. Undecided, and cheap to decide wrongly.
+  `fb-gym`; nothing records one and nothing replays one.
 - **How a played run is judged at all is unwritten** — the judges produce a verdict, but a game needs a
   score, and this tree has never had to say what a good run is as opposed to a passing one.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
