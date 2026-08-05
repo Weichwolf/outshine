@@ -29,6 +29,7 @@ import json
 import math
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -52,7 +53,12 @@ kLod = [
     dict(name="L0", seg=96, tube=12, detail=2, rails=True, single_mat=False),
     dict(name="L1", seg=48, tube=8, detail=2, rails=True, single_mat=False),
     dict(name="L2", seg=24, tube=6, detail=1, rails=True, single_mat=True),
-    dict(name="L3", seg=20, tube=4, detail=1, rails=False, single_mat=True),
+    # L3 BEHAELT DIE GELAENDER — Runde 3 liess sie fallen, weil der Kritiker dafuer 0.389 % mass.
+    # Mit dem Dachrandgelaender stimmt diese Rechnung nicht mehr: gemessen kostet das Fallenlassen
+    # jetzt 0.30 pp (2.099 gegen 1.800 % bei L2->L3) aus einem Budget, das die Polygonteilung
+    # allein schon zu 1.36 pp verbraucht. Bezahlt wird das mit 1100 Dreiecken auf der billigsten
+    # Stufe. Was auf L3 faellt, ist Abtastung: seg 20, tube 4, ein Material.
+    dict(name="L3", seg=20, tube=4, detail=1, rails=True, single_mat=True),
 ]
 
 
@@ -422,6 +428,14 @@ def _tris(me):
     return v, np.array(out, dtype=np.int64)
 
 
+def _cross(a, b):
+    """Kreuzprodukt komponentenweise. Bitgleich zu np.cross, aber ohne dessen Umsortiererei —
+    np.cross war im Durchdringungstor allein 2.2 von 10.4 Sekunden."""
+    ax, ay, az = a[..., 0], a[..., 1], a[..., 2]
+    bx, by, bz = b[..., 0], b[..., 1], b[..., 2]
+    return np.stack([ay * bz - az * by, az * bx - ax * bz, ax * by - ay * bx], axis=-1)
+
+
 def _cull(v, tri, lo, hi, d):
     """Nur die Dreiecke behalten, die der Strahlenschlauch der Probepunkte ueberhaupt treffen kann.
 
@@ -448,7 +462,7 @@ def inside(pts, v, tri):
     # reihenweise exakt auf Kanten und zaehlt dort doppelt oder gar nicht. Deterministisch, aber
     # falsch — in Runde 2 als 0.7 cm3 Phantom-Ueberlappung zwischen Pfosten und Kopfwinkel gesehen.
     d = kRayDir
-    h = np.cross(d, e2)
+    h = _cross(d, e2)
     det = (e1 * h).sum(1)
     ok = np.abs(det) > 1e-14
     inv = np.zeros_like(det)
@@ -458,7 +472,7 @@ def inside(pts, v, tri):
     for i0 in range(0, len(pts), chunk):
         s = pts[i0:i0 + chunk, None, :] - a[None, :, :]
         u = (s * h).sum(2) * inv
-        q = np.cross(s, e1)
+        q = _cross(s, e1)
         vv = (q * d).sum(2) * inv
         t = (e2 * q).sum(2) * inv
         m = ok & (u >= 0.0) & (u <= 1.0) & (vv >= 0.0) & (u + vv <= 1.0) & (t > 1e-9)
@@ -481,6 +495,9 @@ kJoint = (("access.stair.post", "access.stair.stringer"),
           ("access.stair.stringer", "access.platform.post"),
           ("access.platform.endrail", "access.platform.rail"),
           ("access.platform.endrail", "access.platform.post"),
+          # Derselbe Schweisspunkt wie Podestpfosten x Podestholm, nur am Dachrand. Das ist keine
+          # Erweiterung der Liste STATT besserer Geometrie: ein Gelaenderpfosten steckt im Holm.
+          ("access.roofrail.post", "access.roofrail.rail"),
           ("tank.manhole.shell.bolt", "tank.manhole.shell.cover"),
           ("tank.manhole.roof.bolt", "tank.manhole.roof.cover"))
 # Die Kappe je Schweisspunkt ist RELATIV, nicht 250 cm3 aus der Luft: ein Schweisspunkt darf
@@ -488,6 +505,11 @@ kJoint = (("access.stair.post", "access.stair.stringer"),
 # gesetzt, nicht verschweisst. Der Anteil selbst ist [SET] — er skaliert aber mit dem Modell,
 # waehrend eine absolute Zahl das nicht tut, und die schlechteste Quote wird gemeldet.
 kJointFrac = 0.10
+
+# [SET] Schwelle des URTEILS im Durchdringungstor, s. DEFECTS.md. Unterhalb davon ist ein
+# Detektortreffer kein Defekt, sondern eine Beruehrung an der Messaufloesung. Die Schwelle
+# ENTFERNT nichts aus dem Bericht — sie entscheidet nur, ob eine Zeile den Bau durchfallen laesst.
+kOverlapMinCm3 = 0.05
 
 # [SET] Schweissraupe der Rundnaehte, s. DEFECTS.md. Sie steht ueber die Wand hinaus und muss
 # deshalb auch beim Freischnitt der Treppenstufen mitgerechnet werden.
@@ -499,11 +521,14 @@ kRayDir = np.array([1.0, 0.0137, 0.0071])
 kRayDir = kRayDir / np.linalg.norm(kRayDir)
 
 
-def is_joint(a, b, cm3, vmin_cm3):
-    if cm3 > kJointFrac * vmin_cm3:
-        return False
+def is_joint_pair(a, b):
+    """Ist dieses Paar als Schweisspunkt ERKLAERT? Reine Namensfrage."""
     return any((a.startswith(x) and b.startswith(y)) or (a.startswith(y) and b.startswith(x))
                for x, y in kJoint)
+
+
+def is_joint(a, b, cm3, vmin_cm3):
+    return cm3 <= kJointFrac * vmin_cm3 and is_joint_pair(a, b)
 
 
 def _seg_hits_tri(p0, p1, v, tri):
@@ -515,13 +540,13 @@ def _seg_hits_tri(p0, p1, v, tri):
     chunk = max(1, int(2e6 // max(len(tri), 1)))
     for k in range(0, len(p0), chunk):
         d = p1[k:k + chunk] - p0[k:k + chunk]
-        h = np.cross(d[:, None, :], e2[None, :, :])
+        h = _cross(d[:, None, :], e2[None, :, :])
         det = (e1[None, :, :] * h).sum(2)
         ok = np.abs(det) > 1e-15
         inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
         sv = p0[k:k + chunk, None, :] - a[None, :, :]
         u = (sv * h).sum(2) * inv
-        q = np.cross(sv, e1[None, :, :])
+        q = _cross(sv, e1[None, :, :])
         w = (d[:, None, :] * q).sum(2) * inv
         t = (e2[None, :, :] * q).sum(2) * inv
         m = ok & (u >= 0) & (u <= 1) & (w >= 0) & (u + w <= 1) & (t > 1e-9) & (t < 1.0 - 1e-9)
@@ -553,7 +578,7 @@ def _grid_volume(v1, t1, v2, t2, lo, hi, n):
     return float(np.prod(d)) * int(inside(pts[m], v2, c2).sum()) / len(pts)
 
 
-def check_overlap(bodies, min_cm3=0.05, n0=12, nmax=48, rtol=0.05):
+def check_overlap(bodies, vol_cm3, n0=12, nmax=48, rtol=0.05):
     """doc/assets.md §3.1 "mesh merge", in der Fassung, die etwas MESSEN kann.
 
     ZWEI STUFEN, weil eine Rasterprobe kein Detektor ist. Runde 2 lieferte samples=10 aus und las
@@ -593,6 +618,16 @@ def check_overlap(bodies, min_cm3=0.05, n0=12, nmax=48, rtol=0.05):
                 cand = v1[(v1 >= lo).all(1) & (v1 <= hi).all(1)][:64]
                 if not len(cand) or not inside(cand, v2, _cull(v2, t2, lo, hi, kRayDir)).any():
                     continue
+            # STUFE 1.5, und sie ist STRENGER als der Schaetzer, nicht schwaecher: das gemeinsame
+            # Volumen kann den Schnittquader nicht ueberschreiten. Liegt schon dieser Quader unter
+            # der Kappe eines ERKLAERTEN Schweisspunktes, ist die Kappe bewiesen statt geschaetzt,
+            # und die teure Gitterprobe entfaellt. Fuer alles, was NICHT in kJoint steht — also
+            # jeden moeglichen Defekt — wird weiterhin immer gemessen.
+            box = float(np.prod(hi - lo)) * 1e6
+            vmin = min(vol_cm3.get(n1, 0.0), vol_cm3.get(n2, 0.0))
+            if box <= kJointFrac * vmin and is_joint_pair(n1, n2):
+                hits.append((n1, n2, box, 0, 0.0))
+                continue
             n, prev, seq = n0, None, []
             while True:
                 vol = _grid_volume(v1, t1, v2, t2, lo, hi, n)
@@ -603,36 +638,371 @@ def check_overlap(bodies, min_cm3=0.05, n0=12, nmax=48, rtol=0.05):
                     break
                 prev, n = vol, n * 2
             cm3 = seq[-1][1]
-            if cm3 >= min_cm3:
-                rel = (abs(seq[-1][1] - seq[-2][1]) / max(seq[-1][1], 1e-9)) if len(seq) > 1 else 1.0
-                hits.append((n1, n2, cm3, n, rel))
+            rel = (abs(seq[-1][1] - seq[-2][1]) / max(seq[-1][1], 1e-9)) if len(seq) > 1 else 1.0
+            hits.append((n1, n2, cm3, n, rel))
+    # NICHTS WIRD MEHR GESCHLUCKT. Runde 3 warf hier jeden Treffer unter min_cm3 weg, und der
+    # Bericht las sich, als haette der Detektor nichts gefunden — auf L3 verschwanden so 57
+    # detektor-positive Paare. Der Detektor ist EXAKT; was er findet, verlaesst diese Funktion.
+    # min_cm3 bleibt die Schwelle des URTEILS (unbelegt, s. DEFECTS.md) und wird beim Aufrufer
+    # angewandt, sichtbar und mit Zahl.
     return sorted(hits, key=lambda x: -x[2])
 
 
-def _pixel_tris(bodies, u_ax, v_ax, res, ctr, size):
-    o = np.array([float(np.dot(ctr, u_ax)) - size / 2.0,
-                  float(np.dot(ctr, v_ax)) - size / 2.0])
-    out = []
+# ================================================================ Normpruefung AM GEBAUTEN NETZ
+
+class Norms:
+    """Jede Normzahl wird am fertigen Netz NACHGEMESSEN, nicht an den Eingaben nachgerechnet.
+
+    WARUM DIESE KLASSE EXISTIERT. Bis Runde 3 stand im Bauskript genau ein assert, und der lautete
+    sinngemaess `assert (a + b) - b >= a` — eine Substitution, die nicht fehlschlagen KANN. Er
+    meldete die lichte Podestbreite als eingehalten; am Netz waren es 618.0 statt der gerechneten
+    610.0 mm, weil der Abzug eine Fussleiste mitzaehlte, die nach aussen sitzt. Norm gehalten, aber
+    aus Versehen — und das war das sechste Mal in diesem Baum, dass eine Pruefung BERICHTET, ohne
+    zu MESSEN.
+
+    Die Regel, die daraus folgt und die dieses Skript ab jetzt durchzieht:
+        Eine Pruefung in einem Bauskript misst am gebauten Netz, nie an den Eingaben.
+
+    Es steht deshalb KEIN ausfuehrbares `assert` mehr in diesem Baum — weder hier noch in
+    fuel_tank_geometry. Nicht aus Abneigung gegen das Schluesselwort, sondern weil eine
+    Bandpruefung mehr kann: sie haelt beim ersten Verstoss nicht an, sondern misst alles und legt
+    JEDE Zeile mit Wert, Grenze und Klausel im Sidecar ab; sie faellt nicht weg, wenn jemand mit
+    -O startet; und sie unterscheidet das URTEIL (L0) vom blossen Messen (L1..L3). Ein Verstoss
+    setzt den Rueckgabewert des Baus auf 1, genau wie ein gerissener assert es taete.
+
+    Aus dem Netz kommen Punkte. Was daraus abgeleitet wird, ist entweder reine Geometrie (Radius,
+    Bogen, Hoehendifferenz) oder benennt seine Umrechnung — z. B. die Ringkorrektur k(n), wobei n
+    aus der Zahl der gebauten Traufenecken GEZAEHLT wird und nicht aus der Konfiguration kommt.
+    """
+
+    def __init__(self, bodies, lod):
+        self.b = {m.name: m for _, m in bodies}
+        self.lod = lod
+        self.rows = []
+        self.fails = []
+
+    # -------------------------------------------------- Netzzugriff
+    def has(self, pre):
+        return any(n.startswith(pre) for n in self.b)
+
+    def pick(self, pre):
+        return [(n, self.b[n]) for n in sorted(self.b) if n.startswith(pre)]
+
+    @staticmethod
+    def cyl(me):
+        """(Radius, Azimut, Hoehe) aller Punkte eines Koerpers."""
+        v = np.array(me.v)
+        return np.hypot(v[:, 0], v[:, 1]), np.arctan2(v[:, 1], v[:, 0]), v[:, 2]
+
+    def polygon_n(self):
+        """Umfangsteilung AUS DEM NETZ: die Zahl verschiedener Azimute des Traufenrings."""
+        r, a, z = self.cyl(self.b["tank.roof"])
+        rim = r > r.max() - 1e-6
+        return len(np.unique(np.round(a[rim], 6)))
+
+    # -------------------------------------------------- Buchfuehrung
+    def band(self, key, value, lo, hi, unit, rule):
+        # 1e-6 in der Einheit der Zeile: bei Millimeterzeilen ein Nanometer, bei Meterzeilen ein
+        # Mikrometer. Beides liegt unter jeder Fertigungstoleranz und ueber dem Rauschen, das
+        # Wurzeln und Divisionen an einer aus Punkten zurueckgerechneten Groesse hinterlassen —
+        # mit 1e-9 fiel eine exakt eingehaltene 5-mm-Wand durch.
+        tol = 1e-6
+        ok = (lo is None or value >= lo - tol) and (hi is None or value <= hi + tol)
+        self.rows.append(dict(key=key, measured=round(float(value), 6), min=lo, max=hi,
+                              unit=unit, rule=rule, passed=bool(ok)))
+        if not ok:
+            self.fails.append("%s: gemessen %.4f %s, gefordert %s..%s [%s]"
+                              % (key, value, unit, lo, hi, rule))
+        return ok
+
+    def note(self, key, value, unit, rule):
+        self.rows.append(dict(key=key, measured=round(float(value), 6), min=None, max=None,
+                              unit=unit, rule=rule, passed=None))
+
+    def skip(self, key, why):
+        self.rows.append(dict(key=key, measured=None, min=None, max=None, unit=None,
+                              rule=why, passed=None))
+
+
+def check_norms(bodies, lod):
+    """Alle Normmasse am gebauten Netz. Gibt (Zeilen, Fehler) zurueck.
+
+    GEMESSEN WIRD AUF JEDER STUFE, GEURTEILT WIRD AUF L0 (s. build_lod). Der Grund ist keine
+    Bequemlichkeit: L0 IST der Koerper, L1..L3 sind Naeherungen davon, deren Abweichung absichtlich,
+    beziffert und vom Silhouettentor begrenzt ist. Eine Fertigungsnorm auf ein 20-Eck anzuwenden
+    hiesse, die Fernsicht ueber die Bauform entscheiden zu lassen. Die Messwerte der groberen
+    Stufen stehen trotzdem vollstaendig im Sidecar — verschwiegen wird nichts.
+    """
+    N = Norms(bodies, lod)
+    n_poly = N.polygon_n()
+    k = G.ring_radius(1.0, n_poly)          # Umkreiskorrektur der GEZAEHLTEN Polygonteilung
+    N.note("polygon.segments", n_poly, "-", "aus dem Traufenring gezaehlt")
+
+    # ---------------------------------------------------------- Schale, und daraus der Windring
+    # DAS SCHALENPROFIL WIRD AUS DEM NETZ ZURUECKGEWONNEN, nicht in Baender geteilt. Ein Band
+    # zwischen zwei Hoehen enthaelt gar keine Punkte — die Wand eines Schusses ist EINE gerade
+    # Strecke ohne Zwischenpunkte — und wer das Band bis an die Stossfuge zieht, greift den
+    # dickeren Schuss darunter und die Schweissraupe mit ab. Genau das tat die erste Fassung
+    # dieser Pruefung: sie mass fuer jeden Schuss 6 mm statt 5 und rechnete daraus H1 = 14.92 statt
+    # 9.46 m — ein Messfehler, der die Windpruefung LEICHTER machte.
+    shell = N.b["tank.shell"]
+    r, a, z = N.cyl(shell)
+    r_in = float(r.min()) / k
+    z0, z1 = float(z.min()), float(z.max())
+    # Die Profilkanten kommen aus den FLAECHEN, nicht aus einer Sortierung. An jeder Stossfuge
+    # liegen zwei Punkte auf derselben Hoehe (dicker Schuss darunter, duenner darueber); eine
+    # Sortierung nach z stellt sie in beliebiger Reihenfolge auf und zerreisst die Waende. Die
+    # Umdrehung erzeugt zwischen zwei Profilpunkten ein Viereck — dessen Kante bei Azimut 0 IST
+    # die Profilkante.
+    walls = set()
+    for f in shell.f:
+        pts = [(shell.v[i], i) for i in f]
+        at0 = [p for p, i in pts if abs(math.atan2(p[1], p[0])) < 1e-9]
+        for p in at0:
+            for q in at0:
+                rp, rq = math.hypot(p[0], p[1]), math.hypot(q[0], q[1])
+                # Die INNENwand ist auch eine senkrechte Profilkante ueber die volle Hoehe; sie
+                # hat keine Dicke und wuerde t_thin auf null (numerisch: -1e-10) druecken.
+                if q[2] - p[2] > 0.5 and abs(rq - rp) < 1e-9 and rp > float(r.min()) + 1e-6:
+                    walls.add((round(rp, 9), round(p[2], 9), round(q[2], 9)))
+    walls = sorted(walls, key=lambda w: w[1])
+    thk = [w[0] / k - r_in for w in walls]
+    # Schussbreite = Abstand der Wandanfaenge; der naechste Wandanfang IST die Stossfuge.
+    wid = [(walls[c + 1][1] if c + 1 < len(walls) else z1) - walls[c][1]
+           for c in range(len(walls))]
+    nc = len(walls)
+    N.band("shell.courses", float(nc), 1.0, None, "Schuesse",
+           "[API 5.6.1.2] aus den senkrechten Profilkanten des Netzes gezaehlt")
+    t_thin = min(thk)
+    d_nom = 2.0 * (r_in + thk[0] / 2.0)         # [API 5.6.1.1 Note 1] Mittellinie von Schuss 1
+    N.band("shell.diameter", d_nom, G.kDiameter - 5e-4, G.kDiameter + 5e-4, "m",
+           "[SIZE] 48 ft = 14.6304 m, Mittellinie des untersten Schusses [API 5.6.1.1 Note 1]")
+    N.band("shell.thickness.bottom", thk[0] * 1000.0, 6.0, None, "mm",
+           "[API 5.6.1.1 Fussnote 4] unterster Schuss >= 6 mm bei 3.2 m < D < 15 m")
+    N.band("shell.thickness.thinnest", t_thin * 1000.0, 5.0, None, "mm",
+           "[API 5.6.1.1 Tabelle, SI] D < 15 m -> 5 mm")
+    N.band("shell.course_width", min(wid) * 1000.0, 1800.0, None, "mm",
+           "[API 5.6.1.2] Schalenbleche mindestens 1800 mm Nennbreite")
+    # [API 5.9.7.1 / 5.9.7.2 b] mit den GEMESSENEN Dicken und Breiten nachgerechnet.
+    t_mm = t_thin * 1000.0
+    h1 = 9.47 * t_mm * (t_mm / d_nom) ** 1.5 * (190.0 / G.kWindSpeedKmh) ** 2
+    w_tr = sum(w * (t_thin / t) ** 2.5 for w, t in zip(wid, thk))
+    N.note("wind.H1", h1, "m", "[API 5.9.7.1, SI] aus gemessener Dicke und gemessenem Durchmesser")
+    N.note("wind.transformed_shell", w_tr, "m", "[API 5.9.7.2 a] aus gemessenen Schussbreiten")
+    N.band("wind.girder_required", 1.0 if w_tr > h1 else 0.0, 0.0, 0.0, "0/1",
+           "[API 5.9.7.2 b] Ring erst wenn transformierte Schale > H1 (V = %.0f km/h [5.2.1 k])"
+           % G.kWindSpeedKmh)
+    N.band("wind.girder_bodies", float(sum(1 for n in N.b if "girder" in n or "windring" in n)),
+           0.0, 0.0, "Koerper", "kein Zwischenring gefordert -> keiner gebaut")
+
+    # ---------------------------------------------------------- Dach
+    rr, ar, zr = N.cyl(N.b["tank.roof"])
+    rim = rr > rr.max() - 1e-6
+    r_rim, z_rim, z_apex = float(rr[rim].mean()) / k, float(zr[rim].max()), float(zr.max())
+    N.band("roof.slope", (z_apex - z_rim) / r_rim, 1.0 / 16.0, None, "-",
+           "[API 5.10.4.1] Neigung 1:16 oder steiler; Traufenradius um k(n=%d) entzerrt" % n_poly)
+
+    # ---------------------------------------------------------- Fundament und Bodenblech
+    rw, _, zw = N.cyl(N.b["foundation.ringwall"])
+    N.band("ringwall.thickness", (float(rw.max()) - float(rw.min())) / k * 1000.0, 300.0, None,
+           "mm", "[API B.4.2.2] Ringmauer mindestens 300 mm dick")
+    N.band("ringwall.depth", -float(zw.min()), 0.600, None, "m",
+           "[API B.4.2.2] Unterkante mindestens 0.6 m unter Gelaende")
+    rb, _, _ = N.cyl(N.b["tank.bottom_plate"])
+    sel = z <= z0 + 1e-9
+    N.band("bottom_plate.projection", (float(rb.max()) - float(r[sel].max())) / k * 1000.0,
+           50.0, None, "mm", "[API 5.4.2] mindestens 50 mm Ueberstand ausserhalb der Schale")
+
+    # ---------------------------------------------------------- Treppe
+    tre = N.pick("access.stair.tread.")
+    if tre:
+        top, lead, rmid, wdt = [], [], [], []
+        for _, me in tre:
+            rt, at, zt_ = N.cyl(me)
+            top.append(float(zt_.max()))
+            # Vorderkante = kleinster Azimut; der Bogen der Treppe kreuzt die -pi/pi-Naht nicht,
+            # wenn man ihn stetig fortsetzt.
+            aa = np.unwrap(np.sort(at))
+            lead.append(float(aa.min()))
+            rmid.append(0.5 * (float(rt.min()) + float(rt.max())))
+            wdt.append(float(rt.max()) - float(rt.min()))
+        order = np.argsort(top)
+        top = np.array(top)[order]
+        lead = np.unwrap(np.array(lead)[order])
+        rmid = np.array(rmid)[order]
+        rise = np.diff(top)
+        run = np.diff(lead) * (0.5 * (rmid[1:] + rmid[:-1]))
+        N.band("stair.rise.uniform", float(rise.max() - rise.min()) * 1000.0, None, 1.0, "mm",
+               "[API T.5-18 Pkt.4] 'Rises shall be uniform throughout the height'")
+        N.band("stair.rise", float(rise.mean()) * 1000.0, None, 241.3, "mm",
+               "[OSHA 1910.25(c)] Steigung hoechstens 9.5 in")
+        N.band("stair.run", float(run.min()) * 1000.0, 241.3, None, "mm",
+               "[API T.5-18 Pkt.4] >= 200 mm, [OSHA 1910.25(c)] >= 9.5 in = 241.3 mm")
+        N.band("stair.2R_plus_r", float((2.0 * rise + run).mean()) * 1000.0, 610.0, 660.0, "mm",
+               "[API T.5-18 Pkt.4] 2R + r zwischen 610 und 660 mm")
+        ang = math.degrees(math.atan2(float(rise.mean()), float(run.mean())))
+        N.band("stair.angle", ang, 30.0, 50.0, "Grad",
+               "[API T.5-18 Pkt.3] hoechstens 50 Grad, [OSHA 1910.25(c)] mindestens 30 Grad")
+        N.band("stair.width", min(wdt) * 1000.0, 710.0, None, "mm",
+               "[API T.5-18 Pkt.2] Mindestbreite der Treppe 710 mm")
+    else:
+        N.skip("stair.*", "Stufe ohne Einzelstufen (detail=0)")
+
+    posts = N.pick("access.stair.post.")
+    if posts:
+        base = []
+        for _, me in posts:
+            v = np.array(me.v)
+            base.append(v[v[:, 2] <= v[:, 2].min() + 1e-9].mean(axis=0))
+        base = np.array(base)
+        d = np.linalg.norm(np.diff(base, axis=0), axis=1)
+        N.band("stair.post_spacing", float(d.max()) * 1000.0, None, 2400.0, "mm",
+               "[API T.5-18 Pkt.7] hoechstens 2400 mm, laengs der Neigung gemessen")
+    else:
+        N.skip("stair.post_spacing", "Stufe ohne Gelaender (rails=False)")
+
+    if tre and "access.stair.rail.top" in N.b:
+        rr2, ar2, zr2 = N.cyl(N.b["access.stair.rail.top"])
+        ar2 = np.unwrap(ar2[np.argsort(ar2)])
+        hs = []
+        # Die letzten Stufen rampen auf Podesthoehe hoch [T.5-18 Pkt.6 'without offset'] und
+        # gehoeren nicht in das 760..860-Band.
+        for i in range(len(tre) - G.kStairRailRampSteps - 1):
+            phi = float(np.unwrap(np.sort(N.cyl(tre[i][1])[1])).mean())
+            _, aa, zz = N.cyl(N.b["access.stair.rail.top"])
+            m = np.abs(np.unwrap(aa) - phi) < 0.4 * G.kStairDPhi
+            if m.any():
+                hs.append(float(zz[m].max()) - float(N.cyl(tre[i][1])[2].max()))
+        if hs:
+            N.band("stair.railing_height", min(hs) * 1000.0, 760.0, 860.0, "mm",
+                   "[API T.5-18 Pkt.6] 760..860 mm senkrecht ueber der Stufenvorderkante")
+            N.band("stair.railing_height_max", max(hs) * 1000.0, 760.0, 860.0, "mm",
+                   "[API T.5-18 Pkt.6] dieselbe Grenze, oberer Rand der Messreihe")
+    else:
+        N.skip("stair.railing_height", "Stufe ohne Gelaender (rails=False)")
+
+    # ---------------------------------------------------------- Podest
+    fl = N.b["access.platform.floor"]
+    rf, af, zf = N.cyl(fl)
+    z_fl = float(zf.max())
+    r_fi = float(rf.min())
+    a_lo, a_hi = float(np.unwrap(np.sort(af)).min()), float(np.unwrap(np.sort(af)).max())
+    # LICHTE Breite: der innerste Punkt IRGENDEINES anderen Koerpers, der ueber dem Podestboden
+    # im Podestbogen steht, minus die Innenkante des Bodens. Das ist genau der Satz aus T.5-17
+    # Pkt.2 "after making adjustments at all projections" — als Messung statt als Rechnung.
+    # Die Breite eines Laufstegs ist ein QUERMASS. Am STIRNende schliesst ihn das Endgelaender
+    # [T.5-17 Pkt.10], das radial ueber die ganze Breite laeuft — es ist die Wand, nicht ein
+    # Vorsprung in den Weg. Beide Enden bleiben deshalb um eine Rohrbreite ausgespart; alles
+    # dazwischen zaehlt.
+    a_end = 1.5 * G.kRailTubeDia / r_fi
+    clear, culprit = None, None
+    for nm, me in N.b.items():
+        if nm == fl.name:
+            continue
+        rq, aq, zq = N.cyl(me)
+        aq = np.where(aq < a_lo - math.pi, aq + TAU, np.where(aq > a_hi + math.pi, aq - TAU, aq))
+        m = ((zq >= z_fl - 1e-9) & (zq <= z_fl + G.kPlatformRailH + 1e-9)
+             & (rq > r_fi + 1e-6) & (aq >= a_lo + a_end) & (aq <= a_hi - a_end))
+        if not m.any():
+            continue
+        v = float(rq[m].min()) - r_fi
+        if clear is None or v < clear:
+            clear, culprit = v, nm
+    N.band("platform.clear_width", clear * 1000.0, 610.0, None, "mm",
+           "[API T.5-17 Pkt.2] 610 mm LICHT; engste Stelle am gebauten Netz gegen '%s'" % culprit)
+
+    tb = N.b.get("access.platform.toeboard")
+    if tb is not None:
+        _, _, zt2 = N.cyl(tb)
+        N.band("platform.toeboard_height", (float(zt2.max()) - float(zt2.min())) * 1000.0,
+               75.0, None, "mm", "[API T.5-17 Pkt.5] Fussleiste mindestens 75 mm hoch")
+        N.band("platform.toeboard_gap", (float(zt2.min()) - z_fl) * 1000.0, 0.0, 6.0, "mm",
+               "[API T.5-17 Pkt.6] hoechstens 6 mm zwischen Bodenoberkante und Fussleiste")
+
+    if "access.platform.rail.top" in N.b:
+        _, _, zp = N.cyl(N.b["access.platform.rail.top"])
+        N.band("platform.railing_height", (float(zp.max()) - z_fl) * 1000.0, 1070.0, 1070.0, "mm",
+               "[API T.5-17 Pkt.4] 1070 mm, Oberkante [OSHA 1910.29(b)(1)]")
+        _, _, zm = N.cyl(N.b["access.platform.rail.mid"])
+        N.band("platform.midrail_height", (float(zm.max()) - z_fl) * 1000.0, 481.5, 588.5, "mm",
+               "[API T.5-17 Pkt.7] etwa halbe Hoehe; [SET] 'etwa' = +-10 %")
+        pp = N.pick("access.platform.post.")
+        cen = np.array([np.array(me.v).mean(axis=0) for _, me in pp])
+        d = np.linalg.norm(np.diff(cen, axis=0), axis=1)
+        N.band("platform.post_spacing", float(d.max()) * 1000.0, None, 2400.0, "mm",
+               "[API T.5-17 Pkt.8] groesster Pfostenabstand 2400 mm")
+    else:
+        N.skip("platform.railing_height", "Stufe ohne Gelaender (rails=False)")
+
+    # ---------------------------------------------------------- Dachrandgelaender
+    rp = N.pick("access.roofrail.post.")
+    seats = []
+    for _, me in rp:
+        v = np.array(me.v)
+        # GANZER Fussring, nicht ein Viertel der Punkte: ein unsymmetrischer Ausschnitt legt den
+        # Schwerpunkt neben die Achse, und die Messung meldete daraufhin 0.28 mm Luft unter einem
+        # Pfosten, der in Wirklichkeit auflag.
+        seats.append(v[v[:, 2] <= v[:, 2].min() + 1e-9].mean(axis=0))
+    seats = np.array(seats)
+    d = np.linalg.norm(np.diff(seats, axis=0), axis=1)
+    N.band("roofrail.post_spacing", float(d.max()) * 1000.0, None, 2400.0, "mm",
+           "[API T.5-17 Pkt.8] groesster Pfostenabstand 2400 mm")
+    N.band("roofrail.posts", float(len(rp)), 2.0, None, "Pfosten",
+           "[DERIVED] ceil(Ringbogen / 2400 mm) + 1")
+    _, _, zrt = N.cyl(N.b["access.roofrail.rail.top"])
+    # Hoehe ueber der Dachflaeche, an der der Pfosten steht — beides am Netz.
+    h_top = float(zrt.max()) - float(seats[:, 2].max())
+    N.band("roofrail.height", h_top * 1000.0, 991.0, 1143.0, "mm",
+           "[API T.5-17 Pkt.4] 1070 mm; [OSHA 1910.29(b)(1)] 42 in +- 3 in ueber der Standflaeche")
+    # Steht jeder Pfosten wirklich AUF dem Dach? Abstand Fusspunkt zur gebauten Dachflaeche.
+    gap = 0.0
+    for s in seats:
+        phi = math.atan2(s[1], s[0])
+        gap = max(gap, abs(float(s[2]) - _roof_z(dict(seg=n_poly), phi, math.hypot(s[0], s[1]))))
+    N.band("roofrail.seat_gap", gap * 1000.0, 0.0, 0.1, "mm",
+           "[DERIVED] Pfostenfuss auf der gebauten Dachflaeche, nicht davor und nicht darin")
+
+    # Der Ring laesst genau den Podestbogen aus und sonst nichts.
+    ar_ring = np.concatenate([np.arctan2(np.array(me.v)[:, 1], np.array(me.v)[:, 0])
+                              for _, me in rp])
+    N.band("roofrail.coverage", float(np.ptp(np.unwrap(np.sort(ar_ring)))) * 180.0 / math.pi,
+           (TAU - (a_hi - a_lo)) * 180.0 / math.pi - 2.0, 360.0, "Grad",
+           "[OSHA 1910.28(b)(1)(i)] ungeschuetzte Kante -> Ring ueber den ganzen Umfang ausser Podest")
+    return N.rows, N.fails
+
+
+def flatten(bodies):
+    """Punktfeld und Dreiecksindizes einer LOD-Stufe — EINMAL je Stufe, nicht je Ansicht.
+
+    WARUM DAS DIE HALBE BAUZEIT WAR. Runde 3 baute die Dreiecksliste in jeder einzelnen Ansicht neu
+    auf, in einer Python-Schleife ueber alle Vielecke aller Koerper. Bei 13 000 Dreiecken und
+    2 x 361 Ansichten je Paar sind das zehn Millionen Schleifendurchlaeufe, und sie kosteten mehr
+    als das Rastern selbst: gemessen 57.8 ms je Ansicht bei 1280 px, davon 11.5 ms Rasterung.
+    Die Kosten haengen deshalb kaum an der Aufloesung — 81 px kosteten 16.2 ms, also 28 % von
+    1280 px bei 0.4 % der Pixel. Wer das fuer eine Aufloesungsfrage haelt, optimiert am falschen
+    Ende. Hier passiert es einmal; jede Ansicht ist danach reines numpy.
+    """
+    vs, ts, off = [], [], 0
     for me in bodies:
-        vv = np.array(me.v)
-        uv = (np.stack([vv @ u_ax, vv @ v_ax], 1) - o) * (res / size)
+        vs.append(np.asarray(me.v, dtype=np.float64))
         for f in me.f:
-            a = uv[f[0]]
             for i in range(1, len(f) - 1):
-                out.append((a, uv[f[i]], uv[f[i + 1]]))
-    return np.array(out, dtype=np.float64)
+                ts.append((f[0] + off, f[i] + off, f[i + 1] + off))
+        off += len(me.v)
+    return np.concatenate(vs), np.asarray(ts, dtype=np.int64)
 
 
-def raster(bodies, u_ax, v_ax, res, ctr, size):
+def raster(flat, u_ax, v_ax, res, ctr, size):
     """Orthografische Alpha-Maske ohne Renderer, zeilenweise und VOLL vektorisiert.
 
-    WARUM NICHT MEHR JE DREIECK. Runde 2 rasterte in einer Python-Schleife ueber Dreiecke: rund
-    300 ms je Ansicht bei 1280 px. Das Tor braucht aber mindestens 360 Azimute je Paar, und mit
-    Konvergenzpruefung ein Vielfaches davon — 300 ms mal 1440 Ansichten sind sieben Minuten JE
-    PAAR. Hier wird stattdessen EIN flaches Feld aus (Dreieck, Zeile)-Paaren gebaut und in rund
-    zwanzig numpy-Aufrufen abgearbeitet; der Rest ist eine Differenzenreihe mit cumsum.
+    Bitgleich zu der Fassung, die je Ansicht neu aufbaute (gegengeprueft ueber L0 und L3 bei
+    324 und 1280 px), nur ohne deren Python-Schleife.
     """
-    tri = _pixel_tris(bodies, u_ax, v_ax, res, ctr, size)
+    V, T = flat
+    o = np.array([float(np.dot(ctr, u_ax)) - size / 2.0,
+                  float(np.dot(ctr, v_ax)) - size / 2.0])
+    uv = (np.stack([V @ u_ax, V @ v_ax], 1) - o) * (res / size)
+    tri = uv[T]
     lo = np.ceil(tri[:, :, 1].min(1) - 0.5)
     hi = np.floor(tri[:, :, 1].max(1) - 0.5)
     y0 = np.clip(lo, 0, res - 1).astype(np.int64)
@@ -664,20 +1034,32 @@ def raster(bodies, u_ax, v_ax, res, ctr, size):
     if not keep.any():
         return mask
     r_, a_, b_ = rows[keep], i0[keep].astype(np.int64), i1[keep].astype(np.int64)
-    diff = np.zeros(res * (res + 1), dtype=np.int32)
-    np.add.at(diff, r_ * (res + 1) + a_, 1)
-    np.add.at(diff, r_ * (res + 1) + b_ + 1, -1)
-    return np.cumsum(diff.reshape(res, res + 1), axis=1)[:, :res] > 0
+    # bincount statt np.add.at: dieselben ganzzahligen Summen, aber np.add.at laeuft ungepuffert
+    # und war allein ein Drittel der Rasterzeit.
+    w = res * (res + 1)
+    diff = (np.bincount(r_ * (res + 1) + a_, minlength=w)
+            - np.bincount(r_ * (res + 1) + b_ + 1, minlength=w))
+    return np.cumsum(diff[:w].reshape(res, res + 1), axis=1)[:, :res] > 0
 
 
 def _views(k):
-    """k Azimute plus die Draufsicht. Ungerade k gegen jede Polygonperiode dieser Leiter."""
+    """k Azimute plus die Draufsicht, als (Name, Winkel, u, v).
+
+    k MUSS TEILERFREMD ZU JEDER POLYGONZAHL DER LEITER SEIN, sonst misst das Tor sich selbst.
+    Runde 3 nahm 90 -> 180 -> 360 und hielt an, sobald sich der schlechteste Wert um weniger als
+    0.02 pp aenderte. Bei L2->L3 lieferten 180, 360 UND 720 Azimute exakt 1.5631 % am exakt
+    gleichen Azimut 54.000 Grad — nicht weil der Wert konvergiert war, sondern weil ggT(k, 20) = 20
+    ist: das 20-Eck hat 18 Grad Periode, und 1 Grad, 2 Grad und 0.5 Grad tasten alle DIESELBEN
+    18 Phasen ab. Bei 1440 Azimuten sprang der Wert um +0.031 pp, bei 0.05 Grad Raster auf 1.5938 %.
+    Die "Konvergenz" war ein Alias. 361 = 19^2 ist teilerfremd zu 96, 48, 24 und 20, also wandert
+    die Phase ueber alle Facetten.
+    """
     out = []
     for j in range(k):
         a = TAU * j / k
-        out.append(("az%07.3f" % math.degrees(a),
+        out.append(("az%08.4f" % math.degrees(a), a,
                     np.array([-math.sin(a), math.cos(a), 0.0]), np.array([0.0, 0.0, 1.0])))
-    out.append(("top", np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])))
+    out.append(("top", -1.0, np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])))
     return out
 
 
@@ -1049,6 +1431,12 @@ def _ringwall_ro():
     return G.kRingwallCLDia / 2.0 + G.kRingwallWidth / 2.0
 
 
+def _stair_z(i):
+    """Oberkante der Stufe i ueber Gelaende. i = 0 wird auf die erste Stufe geklemmt: Wange und
+    Gelaender beginnen dort, nicht eine Stufenhoehe tiefer im Fundament."""
+    return G.kStairBaseZ + max(i, 1) * G.kStairRise
+
+
 def _stringer_depth(z):
     """[API T.5-18 Pkt.10] "the ends of the stringers shall be clear of the ground". Die Wange
     laeuft unten deshalb flach aus statt unter das Gelaende zu tauchen. Freimass [SET] 50 mm."""
@@ -1069,7 +1457,7 @@ def stair(cfg):
 
     if cfg["detail"] >= 1:
         for i in range(n_tread):
-            z = (i + 1) * G.kStairRise
+            z = _stair_z(i + 1)
             # Unterhalb der Ringmauerkrone muss die Stufe AN der Ringmauer vorbei, nicht durch
             # sie hindurch (Runde 2 gemessen: Stufe 0 mit 1207 cm3 im Beton).
             pa, pb = _stair_phi(i) - nose, _stair_phi(i + 1)
@@ -1082,7 +1470,7 @@ def stair(cfg):
     else:
         # L3: die Stufen verschmelzen zum geschlossenen Band. AUSSENKANTE und Oberkante bleiben
         # exakt die der Einzelstufen, also bleibt die Silhouette in Auf- und Grundriss stehen.
-        zs = [max(i, 1) * G.kStairRise for i in range(n + 1)]
+        zs = [_stair_z(i) for i in range(n + 1)]
         # Wie die Einzelstufen muss auch das Band an der Ringmauer vorbei, nicht hindurch: der
         # Kritiker mass hier elf Liter Treppe im Beton, die Runde 2 mit samples=10 als 0.00 las.
         ri_band = max(ri, _ringwall_ro() + 0.010)
@@ -1099,7 +1487,7 @@ def stair(cfg):
 
     if cfg["detail"] >= 1:
         # Aussenwange: Rechteckquerschnitt unter der Stufenlinie entlanggezogen.
-        zs = [max(i, 1) * G.kStairRise for i in range(n + 1)]
+        zs = [_stair_z(i) for i in range(n + 1)]
         pts = [_pt(ro + G.kStringerThk / 2.0, _stair_phi(i), zs[i]) for i in range(n + 1)]
         t = G.kStringerThk / 2.0
         secs = [[(-t, 0.0), (t, 0.0), (t, -_stringer_depth(z)), (-t, -_stringer_depth(z))]
@@ -1126,7 +1514,7 @@ def stair(cfg):
     _r = G.kRailTubeDia / 2.0
     for tag, h, ph in (("top", G.kStairRailH - _r, G.kPlatformRailH - _r),
                        ("mid", G.kStairRailH / 2.0 - _r, G.kPlatformRailH / 2.0 - _r)):
-        pts = [_pt(rr, _stair_phi(i), max(i, 1) * G.kStairRise + rail_h(i, h, ph))
+        pts = [_pt(rr, _stair_phi(i), _stair_z(i) + rail_h(i, h, ph))
                for i in range(n + 1)]
         out.append(sweep("access.stair.rail.%s" % tag, "steel", normal_frames(pts),
                          ngon(cfg["tube"], G.kRailTubeDia / 2.0), round_section=True))
@@ -1138,7 +1526,7 @@ def stair(cfg):
     for k in range(G.kStairPosts - 1):
         i = int(round(k * step))
         p = _stair_phi(i)
-        z = max(i, 1) * G.kStairRise
+        z = _stair_z(i)
         u = np.array([math.cos(p), math.sin(p), 0.0])
         v = np.array([-math.sin(p), math.cos(p), 0.0])
         out.append(sweep("access.stair.post.%02d" % k, "steel",
@@ -1148,23 +1536,37 @@ def stair(cfg):
     return out
 
 
-def platform(cfg):
-    """Podest an der Dachkante [API 5.8.10 c] mit Gelaender nach [API T.5-17]."""
-    out = []
+def _platform_span(cfg):
+    """(Innenradius, Aussenradius, Anfangs-, Endazimut) des Podests — die EINE Quelle dafuer.
+
+    Das Dachrandgelaender braucht denselben Bogen (es laesst genau ihn aus), und zwei Rechnungen
+    desselben Bogens waeren zwei Gelegenheiten, ihn verschieden zu bekommen.
+    """
     # Dieselbe Sehnenregel wie bei den Stufen: der Podestboden ist ein Polygonzug, seine
     # Innenkante muss die Ecken des Kopfwinkels ausserhalb lassen.
     ri = G.ring_radius(_roof_rim(), cfg["seg"]) / math.cos(math.pi / cfg["seg"])
     # [API T.5-17 Pkt.2] "minimum width of the walkway shall be 610 mm, AFTER MAKING ADJUSTMENTS
     # AT ALL PROJECTIONS". Runde 2 baute 610 mm Blech und kam nach Fussleiste und Pfosten auf
-    # 586 mm licht. Die Blechbreite folgt jetzt aus der lichten Breite plus dem, was hineinragt.
+    # 586 mm licht. Die Blechbreite folgt deshalb aus der lichten Breite plus dem, was hineinragt.
+    #
+    # HIER STAND BIS RUNDE 3 EIN assert, DER NICHTS PRUEFEN KONNTE: er rechnete
+    # width - intrude >= kPlatformClear, nachdem width zwei Zeilen darueber als
+    # kPlatformClear + intrude gesetzt worden war — eine Substitution, kein Mass. Am Netz waren es
+    # 618.0 mm statt der gerechneten 610.0, weil intrude die Fussleiste mitzaehlt, die per
+    # arc_frames(ro, ...) nach AUSSEN sitzt und gar nicht in den Laufsteg ragt. Die Norm war
+    # gehalten, aber aus Versehen. Gemessen wird jetzt am gebauten Netz (check_norms).
     intrude = G.kPlatformToeThk + G.kPostDia / 2.0
-    width = G.kPlatformClear + intrude
-    ro = ri + width
-    clear = width - intrude
-    assert clear >= G.kPlatformClear - 1e-9, "lichte Podestbreite unter 610 mm"
-    z = G.kPlatformZ
+    ro = ri + G.kPlatformClear + intrude
     p0 = _stair_phi(G.kStairSteps)
-    p1 = p0 + G.kPlatformArc / ((ri + ro) / 2.0)
+    return ri, ro, p0, p0 + G.kPlatformArc / ((ri + ro) / 2.0)
+
+
+def platform(cfg):
+    """Podest an der Dachkante [API 5.8.10 c] mit Gelaender nach [API T.5-17]."""
+    out = []
+    ri, ro, p0, p1 = _platform_span(cfg)
+    width = ro - ri
+    z = G.kPlatformZ
     nsec = max(3, int(round(cfg["seg"] * (p1 - p0) / TAU)) + 1)
     phis = [p0 + (p1 - p0) * i / nsec for i in range(nsec + 1)]
 
@@ -1182,7 +1584,11 @@ def platform(cfg):
                          arc_frames(ro, phis, lambda p, h=h: z + h),
                          ngon(cfg["tube"], G.kRailTubeDia / 2.0), round_section=True))
 
-    npost = max(2, int(math.ceil(G.kPlatformArc / G.kPlatformPostMax)) + 1)
+    # [API T.5-17 Pkt.8] misst den Abstand ZWISCHEN DEN PFOSTEN, und die stehen am Gelaender, also
+    # am AUSSENradius — nicht auf der Laufsteg-Mittellinie, aus der kPlatformArc kommt. Runde 3
+    # teilte 2400 mm Mittellinienbogen und baute damit zwei Pfosten in 2490 mm Abstand; gemessen
+    # hat das erst check_norms. Der Bogen am Holm ist ro/r_mittel mal laenger.
+    npost = max(2, int(math.ceil((p1 - p0) * ro / G.kPlatformPostMax)) + 1)
     for k in range(npost):
         p = p0 + (p1 - p0) * k / (npost - 1)
         u = np.array([math.cos(p), math.sin(p), 0.0])
@@ -1208,6 +1614,55 @@ def platform(cfg):
                          [(_pt(ri, p1, z + h), u, np.array([0.0, 0.0, 1.0])),
                           (_pt(ro, p1, z + h), u, np.array([0.0, 0.0, 1.0]))],
                          ngon(cfg["tube"], G.kRailTubeDia / 2.0), round_section=True))
+    return out
+
+
+def roof_rail(cfg):
+    """Umlaufendes Dachrandgelaender — Pflicht ueber [API 5.8.10 a] -> [OSHA 1910.28(b)(1)(i)],
+    bemasst nach [API T.5-17] Pkt. 4 / 7 / 8. Die Herleitung steht in fuel_tank_geometry.
+
+    ES STEHT AUF ALLEN VIER STUFEN, auch auf L3, wo Treppen- und Podestgelaender fallen. Der
+    Grund ist gemessen, nicht gefuehlt: gegen den Himmel ist dieser Ring die kontrastreichste
+    Linie des Koerpers, und sein Fehlen kostet 0.968 % Silhouette auf 62 m gegen die 0.389 %, mit
+    denen die anderen Gelaender auf L3 fallen durften. Was auf L3 faellt, ist die Abtastung des
+    Rohrquerschnitts (cfg["tube"] = 4), nicht der Ring.
+
+    Der Pfad folgt der GEBAUTEN Polygontraufe, nicht dem Kreis: an den Polygonecken liegt die
+    Traufe aussen, in den Kantenmitten innen. Ein Ring auf dem Kreisradius haette bei n = 20 an
+    den Kantenmitten 91 mm ueber der Dachkante gestanden.
+    """
+    out = []
+    _, _, p0, p1 = _platform_span(cfg)
+    a = TAU / cfg["seg"]
+    # Alle Polygonecken im Ringbogen plus die beiden Enden — dazwischen ist die Traufe gerade,
+    # also gibt eine Sehne zwischen aufeinanderfolgenden Stuetzpunkten sie exakt wieder.
+    corners = [k * a for k in range(int(math.floor(p1 / a)) + 1,
+                                    int(math.ceil((p0 + TAU) / a)))]
+    phis = [p1] + [p for p in corners if p1 < p < p0 + TAU] + [p0 + TAU]
+
+    def seat(phi):
+        """Pfostenachse und Dachoberflaeche darunter, beides am GEBAUTEN Netz gerechnet."""
+        r = G.poly_radius(_roof_rim(), cfg["seg"], phi) - G.kRoofRailInset
+        return r, _roof_z(cfg, phi, r)
+
+    for tag, h in (("top", G.kRoofRailH - G.kRailTubeDia / 2.0),
+                   ("mid", G.kRoofRailH / 2.0 - G.kRailTubeDia / 2.0)):
+        pts = []
+        for p in phis:
+            r, z = seat(p)
+            pts.append(_pt(r, p, z + h))
+        out.append(sweep("access.roofrail.rail.%s" % tag, "steel", normal_frames(pts),
+                         ngon(cfg["tube"], G.kRailTubeDia / 2.0), round_section=True))
+
+    n = G.kRoofRailPosts
+    for k in range(n):
+        p = p1 + (p0 + TAU - p1) * k / (n - 1)
+        r, z = seat(p)
+        u = np.array([math.cos(p), math.sin(p), 0.0])
+        v = np.array([-math.sin(p), math.cos(p), 0.0])
+        out.append(sweep("access.roofrail.post.%02d" % k, "steel",
+                         [(_pt(r, p, z), u, v), (_pt(r, p, z + G.kRoofRailH), u, v)],
+                         ngon(cfg["tube"], G.kPostDia / 2.0), round_section=True))
     return out
 
 
@@ -1293,12 +1748,17 @@ def build_bodies(cfg):
         out.append(("access", m))
     for m in platform(cfg):
         out.append(("access", m))
+    for m in roof_rail(cfg):
+        out.append(("access", m))
     return [(g, orient(m)) for g, m in out]
 
 
 def build_lod(cfg, out_dir, keep_blend=False):
+    clock = {}
+    t0 = time.time()
     bpy.ops.wm.read_factory_settings(use_empty=True)
     bodies = build_bodies(cfg)
+    clock['bau'] = time.time() - t0
 
     print("--- %s  seg=%d tube=%d detail=%d" % (cfg["name"], cfg["seg"], cfg["tube"], cfg["detail"]))
     fails, per_body = [], []
@@ -1308,6 +1768,7 @@ def build_lod(cfg, out_dir, keep_blend=False):
         if bad:
             fails.append("%s: %s" % (me.name, "; ".join(bad)))
 
+    clock['selbstpruefung'] = time.time() - t0 - clock['bau']
     genus = sorted(set(s["genus"] for _, s in per_body))
     vol_sum = sum(s["volume"] for _, s in per_body)
     lo = np.min([np.array(m.bbox()[0]) for _, m in bodies], axis=0)
@@ -1330,11 +1791,19 @@ def build_lod(cfg, out_dir, keep_blend=False):
         fails.append("merge: dV=%.3e  dBox=%.3e" % (d_vol, d_box))
 
     vol_of = {m.name: abs(s["volume"]) * 1e6 for (_, m), (_, s) in zip(bodies, per_body)}
-    all_ov = check_overlap([(m.name, m) for _, m in bodies])
-    joints, ov = [], []
+    t1 = time.time()
+    all_ov = check_overlap([(m.name, m) for _, m in bodies], vol_of)
+    clock['durchdringung'] = time.time() - t1
+    joints, bounded, ov, tiny = [], [], [], []
     for a, b, cm3, nn, rel in all_ov:
         vmin = min(vol_of.get(a, 0.0), vol_of.get(b, 0.0))
-        (joints if is_joint(a, b, cm3, vmin) else ov).append((a, b, cm3, nn, rel, cm3 / max(vmin, 1e-9)))
+        row = (a, b, cm3, nn, rel, cm3 / max(vmin, 1e-9))
+        if is_joint(a, b, cm3, vmin):
+            (bounded if nn == 0 else joints).append(row)
+        elif cm3 >= kOverlapMinCm3:
+            ov.append(row)
+        else:
+            tiny.append(row)
     ov_sum = sum(x[2] for x in ov)
     if ov:
         fails.append("Durchdringung: %d Koerperpaare, %.2f cm3" % (len(ov), ov_sum))
@@ -1343,11 +1812,34 @@ def build_lod(cfg, out_dir, keep_blend=False):
                   % (a, b, cm3, nn, 100.0 * rel))
     print("  MERGE  V_teile %.6f  V_verschmolzen %.6f  dV %.2e  dBox %.2e  %s"
           % (vol_sum, mv, d_vol, d_box, "OK" if merge_ok else "ABWEICHUNG"))
+    if tiny:
+        print("  DURCHDRINGUNG %d detektor-positive Paare unter der Urteilsschwelle %.2f cm3 "
+              "(zusammen %.4f cm3, groesstes %.4f cm3) — gemeldet, nicht geschluckt"
+              % (len(tiny), kOverlapMinCm3, sum(x[2] for x in tiny),
+                 max(x[2] for x in tiny)))
     jq = max([x[5] for x in joints], default=0.0)
-    print("  DURCHDRINGUNG %d ungewollt (%.2f cm3), %d Schweissnaehte (%.1f cm3, groesste Quote "
-          "%.1f %% von %.0f %% erlaubt)  %s"
+    bq = max([x[5] for x in bounded], default=0.0)
+    print("  DURCHDRINGUNG %d ungewollt (%.2f cm3), %d Schweissnaehte gemessen (%.1f cm3, "
+          "groesste Quote %.1f %% von %.0f %% erlaubt), %d durch den Schnittquader BEWIESEN "
+          "(obere Schranke, groesste Quote %.1f %%)  %s"
           % (len(ov), ov_sum, len(joints), sum(x[2] for x in joints), 100.0 * jq,
-             100.0 * kJointFrac, "OK" if not ov else "DURCHGEFALLEN"))
+             100.0 * kJointFrac, len(bounded), 100.0 * bq,
+             "OK" if not ov else "DURCHGEFALLEN"))
+
+    t1 = time.time()
+    norm_rows, norm_fails = check_norms(bodies, cfg["name"])
+    clock['norm'] = time.time() - t1
+    judged = cfg["name"] == kLod[0]["name"]
+    if judged:
+        fails += norm_fails
+    n_checked = sum(1 for r in norm_rows if r["passed"] is not None)
+    print("  NORM %d Masse am gebauten Netz gegen API 650 / OSHA gemessen, %d ohne Bezug, "
+          "%d ausserhalb  (%s)  %s"
+          % (n_checked, len(norm_rows) - n_checked, len(norm_fails),
+             "geurteilt" if judged else "nur gemessen, L0 urteilt",
+             "OK" if not norm_fails else "ABWEICHUNG"))
+    for f in norm_fails:
+        print("  NORM %-9s %s" % ("FEHLER" if judged else "Naeherung", f))
 
     if fails:
         for f in fails:
@@ -1369,11 +1861,14 @@ def build_lod(cfg, out_dir, keep_blend=False):
         to_blender(me, mats, groups[g])
         tris += sum(len(f) - 2 for f in me.f)
 
+    t1 = time.time()
     path = os.path.join(out_dir, "%s_%s.glb" % (kAsset, cfg["name"]))
     bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=False,
                               export_yup=True, export_apply=False, export_normals=True,
                               export_texcoords=False, export_materials='EXPORT')
 
+    clock['export'] = time.time() - t1
+    print("  ZEIT  " + "  ".join("%s %.1f s" % (k, v) for k, v in clock.items()))
     used = sorted(set(mats[k].name for k in kMat))
     print("  ASSET %-3s %-34s %8d B %7d Tri %d Mat  x[%.2f %.2f] y[%.2f %.2f] z[%.2f %.2f]"
           % (cfg["name"], os.path.basename(path), os.path.getsize(path), tris, len(used),
@@ -1383,14 +1878,32 @@ def build_lod(cfg, out_dir, keep_blend=False):
             filepath=os.path.join(out_dir, "%s_%s.blend" % (kAsset, cfg["name"])))
     return dict(lod=cfg["name"], file=os.path.basename(path), segments=cfg["seg"],
                 triangles=tris, bytes=os.path.getsize(path), bodies=len(bodies),
-                materials=used, checks_failed=fails,
+                materials=used, checks_failed=fails, norms=norm_rows,
                 genus=genus, volume_sum_m3=round(vol_sum, 6),
                 merge=dict(v_parts=round(vol_sum, 6), v_merged=round(mv, 6),
                            d_volume=d_vol, d_bbox=d_box, passed=bool(merge_ok)),
                 overlaps=[dict(a=a, b=b, cm3=round(c, 3), grid=n,
                                converged_rel=round(r, 4)) for a, b, c, n, r, _ in ov],
+                overlaps_below_verdict=dict(
+                    threshold_cm3=kOverlapMinCm3, pairs=len(tiny),
+                    cm3=round(sum(x[2] for x in tiny), 4),
+                    largest_cm3=round(max([x[2] for x in tiny], default=0.0), 4),
+                    note=('Der Detektor ist exakt und findet auch Beruehrungen weit unter der '
+                          'Messaufloesung des Schaetzers. Runde 3 warf sie weg (auf L3 waren es '
+                          '57 Paare) und der Bericht las sich wie ein sauberer Befund. Sie stehen '
+                          'jetzt hier; die Schwelle selbst ist weiterhin [SET], s. DEFECTS.md.'),
+                    pairs_listed=[dict(a=a, b=b, cm3=round(c, 5)) for a, b, c, _, _, _ in tiny]),
                 weld_joints=dict(pairs=len(joints), cm3=round(sum(x[2] for x in joints), 2),
                                  cap_fraction=kJointFrac, worst_fraction=round(jq, 4),
+                                 bounded_pairs=len(bounded),
+                                 bounded_cm3_upper=round(sum(x[2] for x in bounded), 2),
+                                 bounded_worst_fraction_upper=round(bq, 4),
+                                 bounded_note=(
+                                     'Fuer diese Paare ist die Kappe BEWIESEN statt geschaetzt: '
+                                     'das gemeinsame Volumen kann den Schnittquader nicht '
+                                     'ueberschreiten, und schon der liegt unter der Kappe. Die '
+                                     'genannten cm3 sind deshalb obere Schranken, keine Messwerte '
+                                     '— sie werden NICHT mit den gemessenen verrechnet.'),
                                  note=('Absichtlich geteiltes Volumen an Schweisspunkten. '
                                        'Die Erlaubnis gilt je Paar bis zur Kappe; alles '
                                        'ausserhalb der Liste kJoint ist ein Defekt.')),
@@ -1400,76 +1913,110 @@ def build_lod(cfg, out_dir, keep_blend=False):
                 _bodies=bodies)
 
 
-def check_silhouette(stats, ranges, limit=2.0, k0=90, kmax=1440, tol=0.02):
-    """Silhouetten-Tor OHNE Renderer, mit KONVERGENZPRUEFUNG.
+# Azimutzahl des Tors. Teilerfremd zu 96 / 48 / 24 / 20 (361 = 19^2), s. _views.
+kSilAzimuths = 361
+# Der Schaetzer sucht ein SUPREMUM ueber den Azimut, und ein endliches Raster findet es nie ganz:
+# XOR(Azimut) ist nicht glatt. Gemessen ueber ein 90-Grad-Fenster um den schlechtesten Azimut von
+# L2->L3 bei 0.05 Grad (1801 Proben): sup 1.5938 %, benachbarte Proben unterscheiden sich im Mittel
+# um 0.023 pp und im schlimmsten Fall um 0.315 pp. Ein 1-Grad-Raster findet davon 1.5681 %, also
+# 0.026 pp zu wenig. Dieser FEHLBETRAG wird dem gemessenen Wert vor dem Urteil zugeschlagen,
+# statt so zu tun, als sei das Raster der Grenzwert.
+kSilSupShortfallPp = 0.03
+# Grob zuerst: jedes Paar wird bei einem Viertel der Aufloesung ueberflogen und nur dann voll
+# gemessen, wenn der grobe Wert die halbe Grenze reisst. Gemessen an diesem Koerper liegt der
+# grobe Wert IMMER ueber dem feinen (Verhaeltnisse 1.71 / 1.78 / 1.95 / 3.02), er ist also eine
+# obere Schranke; die halbe Grenze laesst darueber hinaus einen Faktor 2 Luft.
+kSilCoarse = 4
+# ... aber NUR bei teuren Paaren. Eine Rasterung hat einen festen Sockel (Projektion und
+# Dreiecksindizierung, ~3 ms) und einen aufloesungsabhaengigen Teil; gemessen kostet sie 3.0 ms bei
+# 81 px, 10.1 ms bei 325 px und 46.2 ms bei 1280 px. Unter etwa 500 px ist ein Ueberflug bei einem
+# Viertel der Aufloesung also nicht viermal billiger, sondern nur dreimal — und wenn das Paar
+# danach doch fein gemessen wird, war er reine Zugabe. Ueberflogen wird deshalb erst, wo das
+# Verhaeltnis gross genug ist, dass sich der Fehlschlag lohnt.
+kSilScreenAbove = 500
 
-    Runde 2 tastete 13 Azimute ab und meldete 1.964 %. Bei 360 Azimuten sind es 2.378 % — dieselbe
-    Geometrie, dasselbe Verfahren, nur genug Proben. Ein Schaetzer ohne Konvergenzaussage ist kein
-    Tor, sondern eine Behauptung. Hier wird die Azimutzahl verdoppelt, bis der SCHLECHTESTE Wert
-    sich um weniger als tol Prozentpunkte aendert, mindestens aber bis 360; die ganze Reihe wird
-    gemeldet, damit ein Leser die Konvergenz selbst beurteilt statt sie zu glauben.
+
+def check_silhouette(stats, ranges, limit=2.0):
+    """Silhouetten-Tor OHNE Renderer.
 
     Gemessen wird bei der Aufloesung, die die Umschaltweite hergibt (res = Koerpergroesse /
     (Weite * Pixelwinkel), gedeckelt auf die 1280 px des Zielbildes) — nicht feiner, als die Stufe
-    je benutzt wird. Das kumulierte Paar zaehlt im Urteil MIT.
+    je benutzt wird. Das kumulierte Paar L0->L3 zaehlt im Urteil MIT.
+
+    WAS RUNDE 3 HIER FALSCH MACHTE, in einem Satz: sie hielt ein Alias fuer eine Konvergenz
+    (s. _views) und bezahlte fuer die zwei nutzlosen Sprossen 90 und 180 die Haelfte der Bauzeit.
+    Statt einer Leiter steht hier eine feste, teilerfremde Azimutzahl und ein benannter, gemessener
+    Zuschlag fuer das, was ein endliches Raster am Supremum vorbeilaeuft.
     """
     lo = np.array([stats[0]["bbox"][k][0] for k in "xyz"])
     hi = np.array([stats[0]["bbox"][k][1] for k in "xyz"])
     ctr = (lo + hi) / 2.0
     size = float((hi - lo).max()) * 1.06
     names = [s["lod"] for s in stats]
+    flat = [flatten([m for _, m in s["_bodies"]]) for s in stats]
+    views = _views(kSilAzimuths)
     pairs = list(zip(range(len(names) - 1), range(1, len(names)))) + [(0, len(names) - 1)]
     cache, rows, worst, worst_row = {}, [], 0.0, None
 
     def mask(lv, ang, u, v, res):
         key = (lv, round(ang, 9), res)
         if key not in cache:
-            cache[key] = raster([m for _, m in stats[lv]["_bodies"]], u, v, res, ctr, size)
+            cache[key] = raster(flat[lv], u, v, res, ctr, size)
         return cache[key]
+
+    def sweep(a, b, res):
+        w, wv = 0.0, None
+        for tag, ang, u, v in views:
+            ma, mb = mask(a, ang, u, v, res), mask(b, ang, u, v, res)
+            pct = 100.0 * int(np.logical_xor(ma, mb).sum()) / max(int(ma.sum()), 1)
+            if pct > w:
+                w, wv = pct, tag
+        return w, wv
 
     for a, b in pairs:
         rng = ranges[a] if b == a + 1 else ranges[len(names) - 2]
         res = int(max(48, min(1280, round(size / max(rng * G.kPixelAngle, 1e-9)))))
-        k, prev, seq, best = k0, None, [], None
-        while True:
-            w, wv = 0.0, None
-            for tag, u, v in _views(k):
-                ang = 0.0 if tag == "top" else math.radians(float(tag[2:]))
-                ma = mask(a, ang if tag != "top" else -1.0, u, v, res)
-                mb = mask(b, ang if tag != "top" else -1.0, u, v, res)
-                base = int(ma.sum())
-                pct = 100.0 * int(np.logical_xor(ma, mb).sum()) / max(base, 1)
-                if pct > w:
-                    w, wv = pct, tag
-            seq.append(dict(azimuths=k, worst_pct=round(w, 4), view=wv))
-            best = (w, wv)
-            if prev is not None and abs(w - prev) <= tol and k >= 360:
-                break
-            if k >= kmax:
-                break
-            prev, k = w, k * 2
-        conv = abs(seq[-1]["worst_pct"] - seq[-2]["worst_pct"]) if len(seq) > 1 else float("nan")
-        rows.append(dict(pair="%s->%s" % (names[a], names[b]), res=res, range_m=round(rng),
-                         azimuths=k, worst_pct=round(best[0], 4), worst_view=best[1],
-                         converged_delta_pp=round(conv, 4), sequence=seq))
-        if best[0] > worst:
-            worst, worst_row = best[0], (names[a], names[b], best[1], res, k, best[0])
-        print("  SIL %s->%s  %4d px (%4d m)  %4d Azimute (Delta %.3f pp)  "
-              "schlechtester %-11s %5.3f %%  %s"
-              % (names[a], names[b], res, round(rng), k, conv, best[1], best[0],
-                 "OK" if best[0] <= limit else "UEBER GRENZE"))
+        res_c = max(48, res // kSilCoarse)
+        screen = res > kSilScreenAbove and res_c < res
+        w, wv = sweep(a, b, res_c if screen else res)
+        fine = not screen or w + kSilSupShortfallPp >= 0.5 * limit
+        if fine and screen:
+            w, wv = sweep(a, b, res)
+        judged = w + kSilSupShortfallPp
+        rows.append(dict(pair="%s->%s" % (names[a], names[b]), res=res if fine else res_c,
+                         res_full=res, range_m=round(rng), azimuths=kSilAzimuths,
+                         worst_pct=round(w, 4), judged_pct=round(judged, 4), worst_view=wv,
+                         escalated=bool(fine),
+                         note=("volle Aufloesung" if fine else
+                               "grob gemessen und angenommen: obere Schranke unter der halben "
+                               "Grenze, die feine Messung kann nur kleiner sein")))
+        if judged > worst:
+            worst, worst_row = judged, (names[a], names[b], wv, res if fine else res_c, w)
+        print("  SIL %s->%s  %4d px (%4d m)  %d Azimute  schlechtester %-12s %5.3f %% "
+              "(+%.2f pp Raster = %5.3f %%)  %-5s %s"
+              % (names[a], names[b], res if fine else res_c, round(rng), kSilAzimuths, wv, w,
+                 kSilSupShortfallPp, judged, "fein" if fine else "grob",
+                 "OK" if judged <= limit else "UEBER GRENZE"))
     ok = worst <= limit
-    print("  SIL Grenze %.2f %%  schlechteste Zeile %s->%s %s bei %d px / %d Azimuten = %.3f %%  %s"
+    print("  SIL Grenze %.2f %%  schlechteste Zeile %s->%s %s bei %d px = %.3f %% + %.2f pp  %s"
           % (limit, worst_row[0], worst_row[1], worst_row[2], worst_row[3], worst_row[4],
-             worst_row[5], "BESTANDEN" if ok else "DURCHGEFALLEN"))
-    return dict(limit_pct=limit, passed=bool(ok), convergence_tol_pp=tol,
-                min_azimuths=360,
+             kSilSupShortfallPp, "BESTANDEN" if ok else "DURCHGEFALLEN"))
+    return dict(limit_pct=limit, passed=bool(ok), azimuths=kSilAzimuths,
+                sup_shortfall_pp=kSilSupShortfallPp, coarse_divisor=kSilCoarse,
                 worst=dict(pair="%s->%s" % (worst_row[0], worst_row[1]), view=worst_row[2],
-                           res=worst_row[3], azimuths=worst_row[4],
-                           pct=round(worst_row[5], 4)),
-                method=("Azimutzahl verdoppeln bis der schlechteste Wert um weniger als %.2f pp "
-                        "steigt, mindestens 360. Aufloesung aus der Umschaltweite. Kumuliertes "
-                        "Paar im Urteil enthalten." % tol),
+                           res=worst_row[3], pct=round(worst_row[4], 4),
+                           judged_pct=round(worst, 4)),
+                method=(
+                    "%d Azimute plus Draufsicht, fest. Die Zahl ist teilerfremd zu jeder "
+                    "Polygonteilung der Leiter (96/48/24/20); mit 180/360/720 lieferte L2->L3 "
+                    "dreimal exakt 1.5631 %% am selben Azimut, weil ggT(k,20)=20 dieselben 18 "
+                    "Facettenphasen abtastet — die Verdopplungsleiter der Runde 3 mass ein Alias "
+                    "und nannte es Konvergenz. Auf den gemessenen Wert kommt ein Rasterzuschlag "
+                    "von %.2f pp: bei 0.05 Grad Raster liegt das Supremum von L2->L3 bei 1.5938 %%, "
+                    "ein 1-Grad-Raster findet 1.5681 %%. Jedes Paar wird zuerst bei 1/%d der "
+                    "Aufloesung ueberflogen; nur wer die halbe Grenze reisst, wird voll gemessen "
+                    "(grob war an diesem Koerper stets die obere Schranke, Faktor 1.7 bis 3.0)."
+                    % (kSilAzimuths, kSilSupShortfallPp, kSilCoarse)),
                 rows=rows), ok
 
 
@@ -1618,9 +2165,17 @@ def sidecar(out_dir, stats, sil, steps):
                 "(2) N = aufgerundet(Steighoehe / R) fuer gleiche Steigungen [T.5-18 Pkt.4], dann R "
                 "zurueck auf Steighoehe / N: N = %d, R = %.2f mm, r = %.2f mm, Winkel %.2f Grad, "
                 "Umschlingung %.1f Grad. Runde 1 klemmte 2R + r stur auf die untere Bandgrenze und "
-                "landete bei 182.79 / 244.41 mm — keine Zeile der Tabelle."
+                "landete bei 182.79 / 244.41 mm — keine Zeile der Tabelle. Die STEIGHOEHE ist seit "
+                "Runde 4 die Schalenhoehe und nicht mehr die Hoehe ueber Gelaende: [T.5-18 Pkt.10] "
+                "sagt 'from the bottom of the tank', und am Gelaende beginnend lag die unterste "
+                "Stufe unter der Ringmauerkrone und wurde auf 553 mm beschnitten."
                 % (G.kStairSteps, G.kStairRise * 1000, G.kStairRun * 1000,
                    math.degrees(G.kStairAngle), math.degrees(G.kStairWrap))),
+            "base_z": round(G.kStairBaseZ, 4),
+            "width_rule": (
+                "[API T.5-18 Pkt.2] 710 mm. Der Aussenradius folgt der GEBAUTEN Innenkante von L0 "
+                "(Polygonecke + Schweissraupe, ueber die Sehne des Stufenbogens), nicht dem "
+                "Kreis — bei festem Aussenradius blieben 703.6 mm."),
             "handrail_transition": (
                 "[T.5-18 Pkt.6] verlangt den Anschluss an das Podestgelaender 'without offset'. "
                 "Treppengelaender %.0f mm ueber der Stufenvorderkante, Podestgelaender %.0f mm "
@@ -1634,10 +2189,72 @@ def sidecar(out_dir, stats, sil, steps):
         "platform": {
             "required_by": "[API 5.8.10 c] — Podest an der Dachkante ist Pflicht, kein Zierat.",
             "clear_width": G.kPlatformClear,
-            "clear_width_rule": ("[API T.5-17 Pkt.2] 610 mm LICHT, 'after making adjustments at all projections'. Fussleiste und Pfosten ragen hinein, also ist das Blech entsprechend breiter; das Bauskript prueft die lichte Breite per assert."),
+            "clear_width_rule": (
+                "[API T.5-17 Pkt.2] 610 mm LICHT, 'after making adjustments at all projections'. "
+                "Runde 3 rechnete den Abzug und pruefte ihn mit einem assert, der eine "
+                "Substitution war: width = clear + intrude, dann clear = width - intrude. Er "
+                "konnte nicht fehlschlagen und uebersah, dass die Fussleiste nach AUSSEN sitzt und "
+                "gar nicht hineinragt — am Netz waren es 618 statt 610 mm. Gemessen wird jetzt am "
+                "gebauten Koerper: engster Punkt irgendeines Koerpers ueber dem Podestboden im "
+                "Podestbogen, minus die Innenkante des Bodens (s. norms)."),
             "rail_height": G.kPlatformRailH,
             "toeboard": G.kPlatformToeH,
             "source": "[API T.5-17] Pkt. 2, 4, 5, 7, 8.",
+        },
+        "roof_rail": {
+            "required_by": (
+                "[API 5.8.10 a] erklaert OSHA 29 CFR 1910 Subpart D fuer Podeste, Laufstege und "
+                "Treppen mitverbindlich. [OSHA 1910.28(b)(1)(i)]: eine ungeschuetzte Kante ab "
+                "1.2 m ueber dem naechsten Niveau verlangt Absturzsicherung, zulaessig u. a. "
+                "'guardrail systems'. Die Dachkante liegt %.2f m ueber Gelaende, und das Dach ist "
+                "eine begehbare Flaeche (Dachmannloch, Entlueftung, Peilzugang). Runde 3 baute "
+                "nur den 2.4-m-Bogen des Podests; das Fehlende kostete gemessen 1.293 / 1.441 / "
+                "0.968 %% Silhouette bei 11 / 43 / 62 m — mehr als jede LOD-Stufe ausser L2->L3 "
+                "und das 3.3-fache der 0.389 %%, mit denen Runde 3 die Gelaender auf L3 fallen "
+                "liess. Ein Fehler gegen die WIRKLICHKEIT; die 2-%%-Schranke ist ein "
+                "Selbstkonsistenz-Budget und deckt ihn nicht."
+                % _roof_top_z()),
+            "posts": G.kRoofRailPosts,
+            "post_spacing_m": round(G.kRoofRailSpacing, 4),
+            "post_spacing_rule": "[API T.5-17 Pkt.8] hoechstens 2400 mm",
+            "height_m": G.kRoofRailH,
+            "height_rule": ("[API T.5-17 Pkt.4] 1070 mm ueber der Standflaeche, gemessen als "
+                            "Oberkante [OSHA 1910.29(b)(1)]; die Standflaeche ist hier das "
+                            "Dachblech an der Traufe."),
+            "midrail_rule": "[API T.5-17 Pkt.7] / [OSHA 1910.29(b)(2)] auf halber Hoehe",
+            "path": ("folgt der GEBAUTEN Polygontraufe, nicht dem Kreis — auf dem Kreisradius "
+                     "haette der Ring bei n = 20 an den Facettenmitten 91 mm ueber der Dachkante "
+                     "gestanden. Die Pfostenachse liegt um einen Pfostenradius nach innen [SET], "
+                     "damit die Pfosten ganz auf dem Blech stehen."),
+            "toeboard": ("KEINE. [API T.5-17 Pkt.5] gilt dem Laufsteg, [OSHA 1910.29(k)] dem "
+                         "Schutz vor herabfallenden Teilen ueber Arbeitsplaetzen [1910.28(c)]. "
+                         "Unter der Dachkante steht niemand. [SET], s. DEFECTS.md."),
+            "on_all_lods": ("ja, auch auf L3. Gegen den Himmel ist der Ring die kontrastreichste "
+                            "Linie des Koerpers; ihn fallen zu lassen kostete mehr als die "
+                            "Abtastung, die auf L3 ohnehin faellt."),
+        },
+        "norms": {
+            "rule": ("Jede Normzahl wird AM GEBAUTEN NETZ nachgemessen, nie an den Eingaben "
+                     "nachgerechnet. Runde 3 hatte im Bauskript genau einen assert, und der war "
+                     "eine Substitution der Form (a+b)-b >= a — er konnte nicht fehlschlagen. "
+                     "Jetzt sind es %d Masse aus Punktkoordinaten: Radien, Boegen, "
+                     "Hoehendifferenzen, Umfangsteilung aus dem Traufenring GEZAEHLT."
+                     % sum(1 for r in stats[0]["norms"] if r["passed"] is not None)),
+            "judged_on": ("L0. L1..L3 werden vollstaendig gemessen und hier abgelegt, aber nicht "
+                          "geurteilt: L0 IST der Koerper, die groberen Stufen sind Naeherungen "
+                          "davon, deren Abweichung das Silhouettentor begrenzt. Eine "
+                          "Fertigungsnorm auf ein 20-Eck anzuwenden hiesse, die Fernsicht ueber "
+                          "die Bauform entscheiden zu lassen."),
+            "found_this_round": [
+                "stair.width 553 mm gegen 710 mm [T.5-18 Pkt.2] — die unterste Stufe wich der "
+                "Ringmauer aus. Behoben: die Treppe beginnt am TANKBODEN, wie [T.5-18 Pkt.10] es "
+                "woertlich sagt ('from the bottom of the tank'), nicht am Gelaende.",
+                "stair.width 703.6 mm nach dieser Korrektur — der Aussenradius stand fest, "
+                "waehrend die Innenkante auf der gebauten Wand sitzt (Polygonecke + Raupe). "
+                "Behoben: der Aussenradius folgt der gebauten Innenkante von L0.",
+                "platform.post_spacing 2490 mm gegen 2400 mm [T.5-17 Pkt.8] — die Pfostenzahl kam "
+                "aus dem Bogen der Laufsteg-MITTELLINIE, die Pfosten stehen aber am Aussenholm.",
+            ],
         },
         "moving_nodes": ("keine. Der Tank hat kein Gelenk — die Mannlochdeckel sind geschraubt, "
                          "nicht gelagert. Die Knoten sind trotzdem hierarchisch benannt "
@@ -1679,15 +2296,19 @@ def sidecar(out_dir, stats, sil, steps):
                 "Richtung). Runde 1 hatte 47 Paare mit geteiltem Volumen, darunter eine "
                 "Treppenstufe quer durch den Windring — von nichts gemessen. Ausgenommen sind nur "
                 "die in kJoint benannten SCHWEISSPUNKTE, und auch die nur bis zu einem "
-                "Anteil %.2f des kleineren Bauteils." % kJointFrac),
+                "Anteil %.2f des kleineren Bauteils. Wo schon der SCHNITTQUADER unter dieser "
+                "Kappe liegt, ist sie bewiesen statt geschaetzt und die Gitterprobe entfaellt — "
+                "das halbiert die Torzeit und ist strenger, nicht schwaecher. Was der Detektor "
+                "unterhalb der Urteilsschwelle %.2f cm3 findet, wird GEMELDET "
+                "(overlaps_below_verdict), nicht mehr verworfen." % (kJointFrac, kOverlapMinCm3)),
             "lod_continuity": (
-                "Umfangserhaltende Ringkorrektur macht die mittlere Silhouettenbreite nach Cauchy "
-                "auf allen Stufen exakt gleich; der Rest wird gemessen — ueber mindestens 360 "
-                "Azimute, mit Verdopplung bis zur Konvergenz, und bei der Aufloesung, die die "
-                "Umschaltweite hergibt. Runde 2 tastete 13 Azimute ab und meldete 1.964 %; "
-                "dieselbe Geometrie ergibt bei 360 Azimuten 2.378 %. Das kumulierte Paar zaehlt "
-                "im Urteil MIT — Runde 1 schloss es aus und meldete gruen, waehrend eine Zeile "
-                "darueber 'UEBER GRENZE' stand."),
+                "Ausgeglichene Ringkorrektur (Flaeche gegen Umfang) plus MESSUNG: %d Azimute, "
+                "teilerfremd zu jeder Polygonteilung der Leiter, bei der Aufloesung, die die "
+                "Umschaltweite hergibt, mit einem gemessenen Rasterzuschlag von %.2f pp. Runde 2 "
+                "tastete 13 Azimute ab (1.964 %%, wahr 2.378 %%); Runde 3 verdoppelte bis zur "
+                "'Konvergenz' und mass dabei ein ALIAS — 180, 360 und 720 Azimute lieferten fuer "
+                "L2->L3 dreimal exakt denselben Wert am selben Azimut, weil ggT(k,20)=20 ist. Das "
+                "kumulierte Paar zaehlt im Urteil MIT." % (kSilAzimuths, kSilSupShortfallPp)),
             "determinism": ("zweimal bauen, Bytes vergleichen — s. acceptance.rebuild_identical."),
         },
         "silhouette": sil,
@@ -1734,12 +2355,12 @@ def sidecar(out_dir, stats, sil, steps):
 
 
 def main():
+    t_start = time.time()
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--lod", default="")
     ap.add_argument("--blend", action="store_true")
-    ap.add_argument("--sil-res", type=int, default=1024)
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     levels = [kLod[int(a.lod)]] if a.lod else kLod
@@ -1747,13 +2368,18 @@ def main():
     rc = 1 if any(s["checks_failed"] for s in stats) else 0
     if len(stats) > 1:
         steps = switch_table(stats)
+        t0 = time.time()
         sil, ok = check_silhouette(stats, [x["max_range_m"] or 0.0 for x in steps])
+        # Die Bauzeit steht auf stdout und NICHT im Sidecar: sie ist eine Eigenschaft der
+        # Maschine, nicht des Koerpers, und wuerde die Bytegleichheit zweier Laeufe zerstoeren.
+        print("  ZEIT  silhouette %.1f s" % (time.time() - t0))
         rc = rc or (0 if ok else 1)
     else:
         sil, steps = dict(passed=None, rows=[]), []
     if len(stats) == len(kLod):
         sidecar(a.out, stats, sil, steps)
-    print("ERGEBNIS %s" % ("ALLES GRUEN" if rc == 0 else "DURCHGEFALLEN"))
+    print("ERGEBNIS %s  (%.1f s)" % ("ALLES GRUEN" if rc == 0 else "DURCHGEFALLEN",
+                                     time.time() - t_start))
     return rc
 
 

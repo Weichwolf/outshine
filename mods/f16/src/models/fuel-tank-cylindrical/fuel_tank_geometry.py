@@ -130,24 +130,46 @@ kTopAngleThk = 0.006
 
 # ================================================================ Kein Zwischen-Windring
 
-# [API 5.9.7.1, SI] Groesste unverstaerkte Schalenhoehe:  H1 = 9.47 t (t/D)^1.5,
-#   t in MILLIMETERN, D in METERN, H1 in METERN — die Klausel mischt die Einheiten.
-#   t ist die Dicke des OBERSTEN Schusses.
-kWindH1 = 9.47 * (kShellThk * 1000.0) * ((kShellThk * 1000.0) / kDiameter) ** 1.5     # 9.4594 m
+# [API 5.2.1 k] "The design wind speed (V) shall be 190 km/hr (120 mph), the 3-sec gust design wind
+# speed determined from ASCE 7, Figure 6-1, or the 3-sec gust design wind speed specified by the
+# Purchaser". Erster Fall — kein Standort, kein Besteller, also der Normwert der Norm selbst.
+# DIESE ZEILE TRAEGT DAS GANZE BAUTEIL. Sie ist der Grund, warum der Windring fehlt, und sie stand
+# bis Runde 3 nirgends: der Term (190/V)^2 wurde weggelassen, was fuer V = 190 km/h richtig ist,
+# aber die ANNAHME verschwieg, an der es haengt.
+kWindSpeedKmh = 190.0
 
-# [API 5.9.7.2] Transformierte Schale: jeder Schuss auf die Dicke des DUENNSTEN umgerechnet,
+# [API 5.9.7.1, SI] Groesste unverstaerkte Schalenhoehe:
+#       H1 = 9.47 t sqrt((t/D)^3) (190/V)^2
+#   t in MILLIMETERN, D in METERN, V in km/h, H1 in METERN — die Klausel mischt die Einheiten.
+#   t ist die Dicke des DUENNSTEN Schusses [Formelzeichenliste ebenda], hier der oberste.
+kWindH1 = (9.47 * (kShellThk * 1000.0) * ((kShellThk * 1000.0) / kDiameter) ** 1.5
+           * (190.0 / kWindSpeedKmh) ** 2)                                   # 9.45999 m
+
+# [API 5.9.7.2 a] Transformierte Schale: jeder Schuss auf die Dicke des DUENNSTEN umgerechnet,
 #   W_tr = W (t_uniform / t_actual)^2.5
 kCourseTransposed = [kCourseHeight * (kShellThk / t) ** 2.5 for t in kCourseThk]
-kShellTransposed = sum(kCourseTransposed)        # 8.86077 m
+kShellTransposed = sum(kCourseTransposed)        # 8.860995 m
 
-# [API 5.9.7.3] "If the height of the transformed shell is greater than the maximum height H1, an
-# intermediate wind girder is required."  8.86077 m < 9.45940 m  ->  KEINER.
+# [API 5.9.7.2 b] "Add the transposed widths of the courses. The sum of the transposed widths of
+# the courses will give the height of the transformed shell. If the height of the transformed shell
+# is greater than the maximum height H1, an intermediate wind girder is required."
+#   8.860995 m < 9.45999 m  ->  KEINER.
+# (Der Satz steht in 5.9.7.2 b. 5.9.7.3 regelt erst die LAGE eines geforderten Ringes.)
 kWindGirderNeeded = kShellTransposed > kWindH1
-assert not kWindGirderNeeded, "in SI ist kein Zwischenring gefordert — Rechnung pruefen"
-# Runde 2 baute einen. Sie hatte in Zoll gerechnet, dort ist die transformierte Schale 27.897 ft
-# gegen H1 27.466 ft und der Ring PFLICHT. Das Bauteil existierte also nur als Folge der
+# [DERIVED] Wie duenn ist das? H1 faellt mit V^-2, also kehrt der Ring zurueck bei
+#   V > 190 sqrt(H1(190) / W_tr) = 196.32 km/h — 3.32 % ueber dem Normwert.
+# Die Marge ist klein, die Annahme steht jetzt aber da, und sie ist die der Norm.
+kWindSpeedCrit = kWindSpeedKmh * math.sqrt(kWindH1 / kShellTransposed)        # 196.32 km/h
+kWindSpeedMargin = kWindSpeedCrit / kWindSpeedKmh - 1.0                      # +3.32 %
+# Runde 2 baute einen Ring. Sie hatte in Zoll gerechnet, dort ist die transformierte Schale
+# 27.897 ft gegen H1 27.466 ft und der Ring PFLICHT. Das Bauteil existierte also nur als Folge der
 # Einheitenmischung. Mit ihm fallen: die Profilwahl aus Tabelle 5-20, die Lagerechnung nach
 # 5.9.7.3.1/5.9.7.3.2, das Ausweichen vor der Treppe und die Durchdringung Stufe x Ring.
+#
+# KEIN assert HIER. Ein assert auf kWindGirderNeeded prueft eine Rechnung gegen sich selbst und
+# kann nur fehlschlagen, wenn jemand eine Zahl darueber aendert — er prueft nicht, was GEBAUT
+# wurde. Die Aussage "dieser Tank braucht keinen Zwischenring" wird in build_fuel_tank.check_norms
+# aus den WANDDICKEN DES GEBAUTEN NETZES nachgerechnet und dort gegen die Koerperliste geprueft.
 
 
 # ================================================================ Treppe
@@ -269,6 +291,7 @@ kPlatformArc = 2.400                             # [SET] Bogenlaenge der Verbrei
 kRailMeasure = "Oberkante des Holms [OSHA 1910.29(b)(1)]"
 
 
+
 # ================================================================ Bauteilmasse ohne Norm
 
 # [SET] Was kein Regelwerk festlegt (DEFECTS.md). API 650 5.8.10 b nennt PIP STF05501/05520/05521
@@ -289,51 +312,35 @@ kNozzlePhi = math.radians(345.0)
 kRoofManholePhi = math.radians(30.0)
 kVentPhi = math.radians(70.0)
 
+# ================================================================ Dachrandgelaender
 
-# ================================================================ Abgeleitete Treppengeometrie
-
-kPlatformZ = kTankBaseZ + kShellHeight           # 10.0596 m ueber Gelaende
-
-
-def _stair_steps():
-    """Steilste Zeile der Tabelle 5-19a, die auch OSHA besteht — daraus die Zahl der Steigungen.
-
-      1. Aus den Zeilen mit 2R + r = 610 (der steilsten Spalte der Tabelle) diejenige mit der
-         GROESSTEN Steigung waehlen, die OSHA 1910.25(c) haelt: r = 610 - 2R >= 241.3 mm erzwingt
-         R <= 184.35 mm, also R = 180 mm, r = 250 mm, Winkel 35 deg 45 min — eine echte Zeile.
-      2. N = aufgerundet(Steighoehe / R), damit die Steigungen gleich sind [T.5-18 Pkt.4], und R
-         auf Steighoehe / N zurueckrechnen.
-    """
-    rows = [R / 1000.0 for R in kStairRiseRows
-            if (kStairSum2Rr - 2.0 * R / 1000.0) >= max(kStairTreadMin, kOshaRunMin)
-            and R / 1000.0 <= kOshaRiseMax]
-    n = int(math.ceil(kPlatformZ / max(rows)))
-    r_rise = kPlatformZ / n
-    r_run = kStairSum2Rr - 2.0 * r_rise
-    assert kStairSum2Rr <= 2.0 * r_rise + r_run <= kStairSum2RrMax
-    assert r_run >= max(kStairTreadMin, kOshaRunMin) and r_rise <= kOshaRiseMax
-    assert kOshaMinAngle <= math.atan2(r_rise, r_run) <= kStairMaxAngle
-    return n, r_rise, r_run
-
-
-kStairSteps, kStairRise, kStairRun = _stair_steps()      # 56, 179.64 mm, 250.73 mm
-kStairAngle = math.atan2(kStairRise, kStairRun)          # 35.62 Grad
-
-# [DERIVED] Die Treppe liegt auf der Schale. Innenkante = Schalenaussenflaeche des dicksten
-# Schusses; das Bauskript rueckt sie noch auf die WIRKLICH gebaute Polygonwand hinaus.
-kStairInnerR = kShellOuterMax
-kStairOuterR = kStairInnerR + kStairWidth
-# Der Auftritt r wird an der MITTE der Stufenbreite als Bogen gemessen — dort geht ein Mensch.
-kStairMidR = 0.5 * (kStairInnerR + kStairOuterR)
-kStairDPhi = kStairRun / kStairMidR
-kStairWrap = kStairSteps * kStairDPhi                    # 1.8330 rad = 105.02 Grad
-
-# [API T.5-18 Pkt.9] Abstand Schale <-> innere Wange ist null, also KEIN innerer Handlauf.
-kStairRailInner = False
-# [DERIVED] Pfosten: Neigungslaenge / 2400 mm aufgerundet, plus einer. Der oberste faellt weg —
-# dort steht der erste Podestpfosten am selben Ort.
-kStairSlopeLen = kStairSteps * math.hypot(kStairRise, kStairRun)
-kStairPosts = int(math.ceil(kStairSlopeLen / kStairPostMaxSpacing)) + 1
+# WARUM ES EXISTIERT — und warum das keine Geschmacksfrage ist. [API 5.8.10 a] erklaert
+# "OSHA 29 CFR 1910, Subpart D" fuer Podeste, Laufstege und Treppen ausdruecklich mitverbindlich.
+# [OSHA 1910.28(b)(1)(i)]: "each employee on a walking-working surface with an unprotected side or
+# edge that is 4 feet (1.2 m) or more above a lower level is protected from falling" — zulaessig
+# u. a. "guardrail systems". Das Dach IST eine begehbare Flaeche (5.8.10 c setzt den Peilerzugang
+# voraus, 5.8.5 die Dachmannloecher), und seine Kante liegt 10.07 m ueber dem Gelaende. Also
+# Gelaender, ueber den ganzen Umfang, unterbrochen nur am Podest.
+# Runde 3 baute nur den 2.4-m-Bogen des Podests. Der Kritiker hat das Fehlende beziffert: XOR gegen
+# dieselbe Geometrie MIT Ring 1.293 % / 1.441 % / 0.968 % bei 11 / 43 / 62 m — groesser als jede
+# LOD-Stufe ausser L2->L3. Das ist ein Fehler gegen die WIRKLICHKEIT, den die 2-%-Schranke gar
+# nicht deckt: die ist ein Selbstkonsistenz-Budget zwischen zwei eigenen Naeherungen.
+kRoofRimR = kShellInnerR + kShellThk + kTopAngleLeg          # [DERIVED] 7.3672 m Traufenradius
+# [API T.5-17 Pkt.4] 1070 mm, gemessen wie oben als Oberkante; [OSHA 1910.29(b)(1)] laesst
+# 42 in +- 3 in = 1067 +- 76 mm, die API-Zahl liegt darin und ist die engere.
+kRoofRailH = kPlatformRailH
+# [API T.5-17 Pkt.8] groesster Pfostenabstand 2400 mm. Der Ring laesst den Podestbogen aus.
+kRoofRailArc = TAU * kRoofRimR - kPlatformArc                # [DERIVED] 43.8897 m
+kRoofRailPosts = int(math.ceil(kRoofRailArc / kPlatformPostMax)) + 1          # 20
+kRoofRailSpacing = kRoofRailArc / (kRoofRailPosts - 1)                        # 2.3100 m
+# [SET] Die Pfostenachse liegt um einen Pfostenradius INNERHALB der Traufe, damit die Pfosten
+# ganz auf dem Dachblech stehen und ihre Aussenflaeche mit der Dachkante fluchtet. Keine Quelle
+# legt die Anschlussart fest (PIP STF05521 nicht beschafft, s. DEFECTS.md).
+kRoofRailInset = kPostDia / 2.0
+# [SET] KEINE Fussleiste am Dachrand. [API T.5-17 Pkt.5] und [OSHA 1910.29(k)] gelten dem Laufsteg
+# bzw. dem Schutz vor herabfallenden Teilen ueber Arbeitsplaetzen [OSHA 1910.28(c)]; unter dem
+# Dachrand steht niemand, und ein Dachblech ist kein Laufsteg mit Boden. Offen in DEFECTS.md.
+kRoofRailToeboard = False
 
 
 # ================================================================ LOD
@@ -345,13 +352,22 @@ kStairPosts = int(math.ceil(kStairSlopeLen / kStairPostMaxSpacing)) + 1
 # gemittelte Schattenbreite eines konvexen Koerpers ist Umfang/pi, also ist die mittlere
 # Silhouettenbreite dann exakt gleich. Das ist richtig und es war zu wenig. Das Tor misst die
 # XOR-FLAECHE, und in der Draufsicht ist die Flaeche kein Umfang: eine umfangsgleiche 16-Ecke hat
-# 1.29 % zu WENIG Flaeche, und genau 2.58 % XOR sind dort gemessen worden — der geschlossen
-# vorhergesagte Wert 2 x 1.29 %.
+# 1.2884 % zu WENIG Flaeche.
 # Die Korrektur gleicht deshalb BEIDE Fehler aus, statt einen auf null zu zwingen und den anderen
 # laufen zu lassen: gesucht ist k mit
 #       (Flaeche/Kreisflaeche - 1)  =  -(Umfang/Kreisumfang - 1)
 # also  a0 k^2 + p0 k - 2 = 0   mit  a0 = n sin(2pi/n) / (2pi),  p0 = n sin(pi/n) / pi.
-# Bei n = 20 bleiben dann +-0.28 % statt 0 % Breite und -0.82 % Flaeche.
+# Bei n = 20 bleiben dann +-0.2759 % statt 0 % Breite und -0.8238 % Flaeche.
+#
+# WAS AN DIESER STELLE NICHT HERGELEITET IST, und in Runde 3 als Herleitung ausgegeben wurde:
+# der Faktor 2. Runde 3 schrieb, die 2.58 % gemessene XOR seien "der geschlossen vorhergesagte
+# Wert 2 x 1.29 %". Nachgerechnet (Polarintegral 1/2 |r1^2 - r2^2| dphi, 4e6 Stuetzstellen) ist
+# keiner der beiden in Frage kommenden Werte 2.577 %:
+#       XOR(Kreis, 16-Eck umfangsgleich)          1.5151 %
+#       XOR(24-Eck, 16-Eck, beide umfangsgleich)  1.3030 %
+# Das Flaechendefizit stimmt, die Verdopplung ist erfunden. Die AUSGEGLICHENE Korrektur bleibt —
+# aber ohne die Behauptung, sie sei XOR-optimal; gemessen ist sie es nicht (DEFECTS.md):
+#       n = 20 gegen den Kreis:  ausgeglichen 0.7032 %  flaechengleich 0.6363 %  Optimum 0.6207 %
 kLodSegments = (96, 48, 24, 20)
 
 # Aufloesung des Zielbildes: 720p, 60 Grad horizontales Blickfeld [doc/render/visual-target.md §1].
@@ -394,3 +410,92 @@ def poly_radius(r, n, phi):
     """
     a = TAU / n
     return ring_radius(r, n) * math.cos(math.pi / n) / math.cos((phi % a) - a / 2.0)
+
+
+# ================================================================ Abgeleitete Treppengeometrie
+
+kPlatformZ = kTankBaseZ + kShellHeight           # 10.0596 m ueber Gelaende
+
+# [API T.5-18 Pkt.10] "Circumferential stairways shall be completely supported on the shell of the
+# tank, and the ends of the stringers shall be clear of the ground. Stairways shall extend FROM THE
+# BOTTOM OF THE TANK up to a roof edge landing or gauger's platform."
+#
+# WARUM DIE TREPPE NICHT MEHR AM GELAENDE ANFAENGT — und warum das kein Geschmack ist. Bis Runde 3
+# stieg sie von z = 0 auf. Die unterste Stufe lag damit bei 179.6 mm, also UNTER der Krone der
+# Ringmauer (300 mm), die 147 mm weiter aussen steht als die Schale. Das Bauskript wich ihr aus,
+# indem es die Stufe innen beschnitt — 553 mm breit gegen die 710 mm aus [T.5-18 Pkt.2]. Runde 3
+# hat das nie bemerkt, weil nichts die GEBAUTE Stufe gemessen hat; check_norms misst sie und meldet
+# es beim ersten Lauf. Die Norm loest den Fall selbst: die Treppe beginnt am TANKBODEN. Damit liegt
+# die unterste Stufe 153 mm ueber der Ringmauerkrone, jede Stufe hat die volle Breite, und der
+# Wangenfuss bleibt frei vom Boden, wie derselbe Punkt es verlangt.
+kStairBaseZ = kTankBaseZ                         # 0.306 m
+kStairClimb = kPlatformZ - kStairBaseZ           # 9.7536 m = Schalenhoehe
+
+
+def _stair_steps():
+    """Steilste Zeile der Tabelle 5-19a, die auch OSHA besteht — daraus die Zahl der Steigungen.
+
+      1. Aus den Zeilen mit 2R + r = 610 (der steilsten Spalte der Tabelle) diejenige mit der
+         GROESSTEN Steigung waehlen, die OSHA 1910.25(c) haelt: r = 610 - 2R >= 241.3 mm erzwingt
+         R <= 184.35 mm, also R = 180 mm, r = 250 mm, Winkel 35 deg 45 min — eine echte Zeile.
+      2. N = aufgerundet(Steighoehe / R), damit die Steigungen gleich sind [T.5-18 Pkt.4], und R
+         auf Steighoehe / N zurueckrechnen.
+
+    KEIN assert HIER. Die drei Bandpruefungen, die bis Runde 3 an dieser Stelle standen, lasen
+    dieselben drei Zahlen, die zwei Zeilen darueber aus denselben Konstanten entstanden waren —
+    sie konnten nur fehlschlagen, wenn jemand eine Tabellenzeile aendert, nie wenn das Netz falsch
+    ist. Gemessen wird jetzt an den GEBAUTEN Stufen (build_fuel_tank.check_norms): Steigung aus dem
+    Hoehenabstand der Trittflaechen, Auftritt aus dem Bogen zwischen den Vorderkanten, Winkel und
+    2R + r daraus. Das ist dieselbe Aussage ueber das Ding statt ueber die Rechnung.
+    """
+    rows = [R / 1000.0 for R in kStairRiseRows
+            if (kStairSum2Rr - 2.0 * R / 1000.0) >= max(kStairTreadMin, kOshaRunMin)
+            and R / 1000.0 <= kOshaRiseMax]
+    n = int(math.ceil(kStairClimb / max(rows)))
+    r_rise = kStairClimb / n
+    return n, r_rise, kStairSum2Rr - 2.0 * r_rise
+
+
+kStairSteps, kStairRise, kStairRun = _stair_steps()      # 55, 177.34 mm, 255.32 mm
+kStairAngle = math.atan2(kStairRise, kStairRun)          # 34.78 Grad
+
+# [DERIVED] Die Treppe liegt auf der Schale. Innenkante = Schalenaussenflaeche des dicksten
+# Schusses; das Bauskript rueckt sie noch auf die WIRKLICH gebaute Polygonwand hinaus.
+kStairInnerR = kShellOuterMax
+# Der Auftritt r wird an der MITTE der Stufenbreite als Bogen gemessen — dort geht ein Mensch.
+kStairMidR = kStairInnerR + kStairWidth / 2.0
+kStairDPhi = kStairRun / kStairMidR
+
+# WOHER DER AUSSENRADIUS KOMMT, und warum nicht einfach Innenradius + 710 mm. [API T.5-18 Pkt.2]
+# fordert 710 mm BREITE. Die Innenkante jeder Stufe sitzt aber nicht auf dem Kreis, sondern auf der
+# GEBAUTEN Wand: Polygonecke plus Schweissraupe plus die Sehne ueber den Stufenbogen. Bei einem
+# festen Aussenradius bleiben davon 703.6 mm uebrig (gemessen, L0) — Runde 3 hat das nie gesehen,
+# weil nichts die gebaute Stufe gemessen hat. Es ist derselbe Fehler, den das Podest in Runde 3
+# beim lichten Mass hatte, eine Ebene tiefer.
+# Der Aussenradius folgt deshalb der gebauten Innenkante — und zwar der von L0. Das ist keine
+# Bequemlichkeit, sondern die Antwort auf die Frage, WAS hier eigentlich vermessen wird: L0 IST der
+# Koerper, L1..L3 sind gemessen begrenzte Naeherungen davon, und eine Fertigungsnorm gilt dem
+# Koerper. Wuerde der Aussenrand der GROEBSTEN Teilung folgen, diktierte das 20-Eck der Fernsicht
+# die Breite einer Treppe (765 statt 715 mm) — eine Naeherung, die das Original umbaut.
+# Der Aussenrand ist trotzdem auf allen vier Stufen DERSELBE, denn er traegt die Silhouette; nur
+# die Innenkante wandert mit der Teilung, und die liegt an der Wand und ist nie zu sehen.
+kLodSegRef = max(kLodSegments)                   # L0 — die Dichte, die den Koerper darstellt
+kStairSpan = kStairDPhi + kStairNosing / kStairMidR      # Azimutbogen einer Stufe mit Nase
+
+
+def _stair_inner_built():
+    """Innenkante der Stufe auf der GEBAUTEN Wand: Polygonecke + Schweissraupe, ueber die Sehne des
+    Stufenbogens gerechnet. Dieselbe Formel wie _shell_wall_max im Bauskript, an ihrem Maximum."""
+    return (ring_radius(kShellOuterMax, kLodSegRef) + kBeadH) / math.cos(0.5 * kStairSpan)
+
+
+kStairInnerRBuilt = _stair_inner_built()         # 7.3225 m
+kStairOuterR = kStairInnerRBuilt + kStairWidth   # 8.0325 m
+kStairWrap = kStairSteps * kStairDPhi                    # 1.82985 rad = 104.843 Grad
+
+# [API T.5-18 Pkt.9] Abstand Schale <-> innere Wange ist null, also KEIN innerer Handlauf.
+kStairRailInner = False
+# [DERIVED] Pfosten: Neigungslaenge / 2400 mm aufgerundet, plus einer. Der oberste faellt weg —
+# dort steht der erste Podestpfosten am selben Ort.
+kStairSlopeLen = kStairSteps * math.hypot(kStairRise, kStairRun)
+kStairPosts = int(math.ceil(kStairSlopeLen / kStairPostMaxSpacing)) + 1
