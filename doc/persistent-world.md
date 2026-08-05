@@ -100,7 +100,7 @@ Two consequences worth stating plainly:
 | anything a unit could only know **through its sensors** — a track, a contact list, a threat picture, an identification | a snapshot is **ground truth**. Whoever turns it into a situation picture has walked around the perception boundary. The picture is built at runtime from published `FBState` blocks and nowhere else ([`sensors.md`](sensors.md); [`player-layer.md`](player-layer.md) §9.1: *"a map that reads the registry is not a map, it is the truth with a map's icon set"*) |
 | a verdict, a score, a difficulty | the judges judge once, at runtime; a stored verdict is a second judge |
 
-### 4a. SUPERSEDED 2026-08-03 by the owner — the observer DOES determine fidelity
+### 4. The observer determines FIDELITY, never KNOWLEDGE
 
 > *„ziel ist eine von ocean simulierte welt TAB kartenansicht. Wenn ich in einheiten 'reingehe' sind die
 > einheit und ihre umgebung deterministisch. verlasse ich sie, werden sie wieder unbestimmt."* ·
@@ -139,7 +139,7 @@ Drei Dinge, die daraus zwingend folgen und die gebaut werden müssen:
 | 2 | „unbestimmt" ≠ „zufällig je Besuch" | Der Ozean trägt eine VERTEILUNG; ein Betreten zieht daraus mit einem Strom, der aus (Entität, Beobachtungsnummer) gesät ist. Ein globaler Zufallsgenerator bräche Test 2', weil dann zählte, wohin sonst noch geschaut wurde. |
 | 3 | Ein Kollaps darf die Vergangenheit nicht ändern | Der gezogene Feinzustand muss mit dem groben Zustand **verträglich** sein, der ihm vorausging, und sein Ergebnis muss zurück ins grobe. Sonst wäre Hinsehen ein Hebel — dieselbe Klasse Betrug, die dieser Baum sonst strukturell verbietet. |
 
-### 4b. OCEAN wird an der ECHTEN Welt geeicht, und rechnet dann Zukünfte
+### 5. OCEAN wird an der ECHTEN Welt geeicht, und rechnet dann Zukünfte
 
 > *„du kannst ocean an der echten welt tunen und verschiedene zukunftszenarien vorhersagen lassen"* ·
 > *„klimawandel dürfte der grösste faktor sein"*
@@ -182,45 +182,6 @@ training"*. Sie bleiben, was sie geworden sind — das Messgerät, an dem Doktri
 Regression geprüft werden. Das Produkt ist die Ozean-Welt unter der TAB-Kartenansicht.
 
 ---
-
-### 4. Die überschriebene Fassung (Stand vor 2026-08-03, als Beleg stehen gelassen)
-
-Two classes of actor, and the difference is total:
-
-| | inside the mission window | outside |
-|---|---|---|
-| Physics | JSBSim, full resolution | a coarse row |
-| Sensing | the six channels with their limits | none |
-| Judges | `FBFlightMonitor` and `FBMissionMonitor` rule on it | none |
-| Rate | 0.1 s | coarse |
-| Count | dozens | millions |
-
-**The rule, sharp:**
-
-> **An actor is in the fine class if, and only if, the mission DECLARES it. Membership is fixed before
-> the first tick and nothing at run time may change it — not distance, not a sensor detection, not a
-> camera, not a player's attention. A coarse actor is not a dormant fine actor: it has no FDM, no
-> module, no entry in `FBUnitRegistry`, and therefore cannot be detected, shot or judged.**
-
-The only admitted growth of the fine cast is the one that already exists and is a child of a fine
-actor: a released store spawned as a full unit at the end of a tick ([`missions/runtime.md`](missions/runtime.md) §6).
-
-**Why membership and not distance.** The alternative — thin out what nobody is near — breaks two
-principles at once, and both are already written down:
-
-- *Determinism* (CLAUDE.md principle 4): if the culling radius, the frame rate or the viewer changes the
-  result, the coupling is a bug.
-- *The perception boundary*: **"out of range" is a statement about a sensor, never about the world.**
-  A world that stops computing what is unobserved has made the observer a physical quantity.
-
-**How a violation is checked** — four tests, all in shapes the tree already runs:
-
-| # | Test | Shape it borrows |
-|---|---|---|
-| 1 | **Cast conservation.** Fine actors at any tick == declared `unit` blocks + stores released by them. Asserted, not inspected | the campaign overlay's postcondition (*"neither the block count nor the `set`-line count grew"*) |
-| 2 | **Viewer independence.** The same mission run headless and with the native oracle attached, camera parked anywhere, must produce **one** fingerprint | the existing `--threads 1/2/4` × repetitions determinism gate, with the viewer as the varied axis |
-| 3 | **Surroundings independence.** Two cuts from the same snapshot with the same declared cast but different coarse surroundings must be **byte-identical** | the two-runs-one-line-apart shape ([`player-layer.md`](player-layer.md) §9.5), inverted: here the difference must *not* show |
-| 4 | **Structural.** The coarse table's header is `RESTRICTED` in `tools/verify_layers.py` with an **empty** outside-includer list, so no sensor, module or pilot can name it | `core/FBZone.h`, which is exactly that today |
 
 ### 5. Where the generator sits — OCEAN is a baker
 

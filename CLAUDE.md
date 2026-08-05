@@ -20,6 +20,12 @@ Defektkriterien); `doc/missions/` ist die Referenz des `.fbm`-Formats.
 erfüllt (gemessen an dessen Ankern), führt `## State`/`## Gaps` nach und trägt eine Zeile ins
 `journal.md`. Verworfenes bleibt mit seiner Messung in `## Gaps` — ein gemessener Fehlschlag ist Wissen.
 
+**Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit.** Für die Historie ist Git zuständig:
+eine überschriebene Fassung wird GELÖSCHT, nicht darunter stehen gelassen. Das ist kein Widerspruch zum
+Satz davor — ein verworfener Ansatz mit seiner Messung ist eine *heute geltende* Aussage darüber, was
+nicht funktioniert, und gehört als `## Gaps`-Zeile in die Gegenwart. Eine alte Formulierung derselben
+Sache ist es nicht.
+
 ## Prinzipien (nicht verhandelbar)
 
 1. **Physik nicht neu schreiben — Modell-Abweichung nur als Delta.** Die Engine ist die Wahrheit,

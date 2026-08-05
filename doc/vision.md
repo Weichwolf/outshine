@@ -59,16 +59,6 @@ through simulated systems. Every number with an origin. Rejected approaches stay
 measurements. Every round updates State, Gaps and journal. These are not FlightBox habits that Outshine
 inherits; they are **the reason a machine can be trusted to build with it at all.**
 
----
-
-## Superseded — the FlightBox vision (until 2026-08-05, kept as record)
-
-**A tactical air-combat game on real physics** — as correct as necessary, as accessible as possible.
-
-The physics is JSBSim; FlightBox is the world around it — global terrain, renderer, HUD, controls. The
-aircraft is the F-16, flown as the pinned vanilla JSBSim model. Two quality axes count: **correct
-rendering** and **realistic F-16 flight behaviour**.
-
 ## The staggered scale
 
 Not everything is modelled to the same depth, and that is a decision, not a shortfall:
