@@ -66,7 +66,7 @@ Every project carries its own Makefile.
 | `verify-models` | the delta check: `assets/aircraft` against the pinned submodule + `assets/MODEL-DELTAS.md` |
 | `verify-layers` | `sim/src` + `sim/test` are a stack; every `#include` points down it |
 | `verify-guards` | the compile-time guarantees, proven by trying to break them |
-| `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1) |
+| `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1), and every `mods/<id>/` carries `doc/` plus a runnable proof ([`mods.md`](mods.md) §3) |
 | `verify-tests` | every declaration under `sim/test/` against its band; the harness binaries must be built |
 
 If the tile worker is missing, the WASM app hangs silently at startup (404 in the worker). Hence the
@@ -86,7 +86,7 @@ A change counts as verified only once it passes these checks.
 | **`nm` gate** | `build/fb-gym` contains 0 Dawn/WebGPU symbols |
 | **Harnesses** | the nine self-judging test binaries rc=0. `air-envelope` no longer judges itself — its verdict is `make -C sim test-air` |
 | **Declarations** | `make -C sim verify-tests`: every `tier: A` declaration under `sim/test/` inside its band ([`testing.md`](testing.md)) |
-| **Tree congruence** | `make -C sim verify-trees`, and the orphan count it prints is read |
+| **Tree congruence** | `make -C sim verify-trees`, and BOTH orphan counts it prints are read — engine and mods |
 | **Frame proof** | build-effective changes need a rendered frame **or** a numerical measurement |
 | **Regression** | telemetry of all `mods/f16/src/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
 | **Determinism** | `--threads 1/2/4` × repetitions produce a single signature |

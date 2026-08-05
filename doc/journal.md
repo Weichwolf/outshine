@@ -4391,3 +4391,24 @@ und das zweite Mal führte genau dahin, wo der Deckfehler saß.
 `6e24090b7e861aa7`, `verify-layers` (6 Wahrnehmungs-Leser, unverändert), `verify-guards` 8/8,
 `verify-models` grün, `gen_air_decks.py --check` bytegleich, `gym`/`native`/`wasm` bauen mit
 Warnings = Errors.
+
+## 2026-08-05 — `verify-trees` geht `mods/` mit: zwei Bäume statt drei, und vier benannte Löcher
+
+**Ein Werkzeug, das den halben Baum nicht sah.** Nach dem Umzug von 556 Dateien nach `mods/f16/` meldete
+`verify_trees.py` unverändert 20 Waisen — nicht weil nichts fehlte, sondern weil `mods/` außerhalb seiner
+Welt lag.
+
+**Zwei Regeln, ein Exit-Code** ([`mods.md`](mods.md) §3). Engine: `doc/`·`src/`·`test/` nach
+Pfadkongruenz, unverändert. Mod: DOC PLUS PROOF — `doc/`, `src/`, mindestens eine lauffähige `.fbm`
+darunter, kein `test/`. Jede Waisenzeile trägt ihren Bereich (`engine` / `mod:<id>`), Engine zeigt drei
+Zustandsspalten, ein Mod zwei — die Regel steht in der Ausgabe.
+
+**Keine Pfadkongruenz im Mod, und das ist kein Nachlassen.** §3's eigenes Bild ist vier flache Texte
+gegen fünf Deklarationswurzeln; `doc/campaign.md` hat kein `src/campaign/`. Die Kongruenzregel hätte 78
+Löcher in `mods/f16/src/aircraft/**` gemeldet, die niemand gefüllt haben will — Rauschen statt Befund.
+
+**Gemessen:** Engine **20** Waisen (9 `MISSING`, 8 `LEAF`, 3 `EXTRA`) — vorher wie nachher, Zeile für
+Zeile identisch. Mods **4**, alle einer Form: `f22`, `comanche`, `armored-fist`, `delta-force` ohne
+`src/`. Gesamt 24, rc=1. Negativprobe an einem synthetischen `mods/`: fehlendes `doc/`, `src/` ohne
+`.fbm` und ein verbotenes `test/` feuern einzeln und richtig. `verify-layers`, `verify-guards`,
+`verify-models` unverändert grün.

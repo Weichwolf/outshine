@@ -511,7 +511,7 @@ Consequences:
 | A mod asks, it does not instruct | no mod names an LOD, a triangle budget or a draw call. It declares what exists and what matters; the engine holds 720p30 and spends the rest on quality ([`render/visual-target.md`](render/visual-target.md) §1.1) |
 | A mod is a test | every mission runs headless in `fb-gym` with a verdict, and byte-identically over thread counts |
 | The played run cannot cheat | the WASM app consumes the identical `.fbm` and both judges run in it too |
-| The triad holds inside a mod | `verify-trees` walks `mods/<title>/` with the same rule |
+| The triad holds inside a mod | `verify-trees` walks `mods/<title>/` under §3's rule — two trees, doc plus proof — and counts those orphans apart from the engine's |
 | The undeclarables are named | each round publishes what the titles could NOT declare — that list is the engine backlog |
 
 ## State
@@ -528,6 +528,15 @@ resolve them and no path exists twice: `sim/src/missions/FBMod.h` (C++ — clien
 a path. One mod, no registry, no capability negotiation — `--mod DIR` is the only switch.
 Measured across the move: all 296 missions byte-identical, `payerne-full --threads 1/2/4` on
 `6e24090b7e861aa7`, ten harnesses unchanged, `test-air` at 5 outside band, `verify-trees` at 20 orphans.
+
+**`verify-trees` has §3's one bit.** Two scopes, two rules, one exit code: the engine's three trees by
+path congruence (unchanged, **20 orphans**) and each mod by DOC PLUS PROOF — `doc/`, `src/`, at least
+one runnable `.fbm` under it, and no `test/`. Every orphan line names its scope (`engine` / `mod:<id>`)
+and shows three state columns for the engine against two for a mod, so the rule is visible in the
+output. **4 mod orphans** today, all one shape: `f22`, `comanche`, `armored-fist`, `delta-force` have no
+`src/`. Path congruence is deliberately NOT applied inside a mod — §3's own directory picture is four
+flat texts against five declaration roots, so `doc/campaign.md` has no `src/campaign/` to match and the
+rule would report 78 holes in `mods/f16/src/aircraft/**` that nobody wants filled.
 
 **§2.1's premise is**: the per-unit declaration list exists as runtime data
 (`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the
@@ -546,8 +555,12 @@ inventory. See [`architecture.md`](architecture.md) §The layering pattern.
 - **The mission and model texts still name their old paths.** 296 `.fbm` headers and the model `.xml`
   banners quote `sim/missions/…` / `sim/assets/aircraft/…`; not one byte of either was touched, because
   a move that edits a flown model or a committed mission is no longer a move.
-- **`verify_trees.py` enforces three trees everywhere** and would therefore report every mod as a hole.
-  It needs the doc-plus-proof rule from §3, and today it does not have it.
+- **A mod's `doc/` is not itself checked for completeness.** `verify-trees` sees that `doc/` exists, not
+  that §3's four texts are in it — `mods/f16/doc/` carries `campaign.md` + `missions.md` and owes
+  `terrain.md`, `hud.md`, `sources.md`. A fixed file list is checkable; whether it should be fixed for
+  every title is not decided.
+- **`mod.json` is unchecked by the gate.** Four titles have none, so the loader could not see them even
+  once their `src/` exists. It is identity, not triad, which is why `verify-trees` stays out of it.
 - **The HUD is C++**, so „HUD per title, declared" has no surface to be declared into.
 - **Three of the four titles are not aircraft**, and the body format that would carry them
   ([`body-format.md`](body-format.md)) is spec-only.

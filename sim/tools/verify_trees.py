@@ -1,25 +1,34 @@
 #!/usr/bin/env python3
-"""verify-trees: doc/, src/ and test/ carry THE SAME DIRECTORY TREE.
+"""verify-trees: every subject carries its intent and its proof, at a known path.
 
-  doc/<path>   what we want
-  src/<path>   what we can do
-  test/<path>  what we prove
+TWO SCOPES, TWO RULES, because the subjects differ (doc/mods.md §3).
 
-One place per statement, and the same place in all three trees: given any one of them, the other two
-are known BY PATH instead of by search. A directory that appears in two of the three is a named hole —
-a want with no implementation, an implementation with no proof, or a proof nobody ordered.
+  engine   doc/<path>   what we want
+           src/<path>   what we can do
+           test/<path>  what we prove
+           One place per statement, and the same place in all three trees: given any one of them, the
+           other two are known BY PATH instead of by search. A directory that appears in two of the
+           three is a named hole — a want with no implementation, an implementation with no proof, or
+           a proof nobody ordered. The rule is a DIRECTORY rule, because that is what the instruction
+           says and because it is the only half a machine can check without knowing what a file means.
 
-The rule is a DIRECTORY rule, because that is what the instruction says and because it is the only half
-a machine can check without knowing what a file means. Two shapes are reported apart, since the work
-they imply is different:
+  mod      mods/<id>/doc/   what we want
+           mods/<id>/src/   what we can do, AND the proof — a mission is a declaration, so fb-gym
+                            running it IS the assertion. A mod therefore has NO test/, and a test/
+                            beside it would be the same claim written twice.
+           Not a directory rule: a mod's doc/ is prose per subject (campaign, terrain, hud, sources)
+           against a src/ of declarations, so path congruence would be a category error here. What is
+           checkable without knowing what a mod is, is §3's own formulation — DOC PLUS PROOF.
+
+Three shapes, reported apart since the work they imply differs:
 
   LEAF     doc/<path>.md exists where src/<path>/ is a directory — one document that has not been
            split into the directory its subject already is. A rename plus a split, not a new text.
   MISSING  nothing at that path at all.
   EXTRA    a directory in doc/ or test/ with no counterpart in src/ — either src/ owes a directory
-           or the tree owes a home.
+           or the tree owes a home. For a mod: a test/ the rule forbids.
 
-Stdlib only, no build dependency. Exit 0 = the three trees are congruent, 1 = at least one orphan.
+Stdlib only, no build dependency. Exit 0 = congruent, 1 = at least one orphan in either scope.
 """
 import argparse
 import os
@@ -29,8 +38,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_SRC = os.path.join(HERE, "..", "src")
 DEFAULT_TEST = os.path.join(HERE, "..", "test")
 DEFAULT_DOC = os.path.join(HERE, "..", "..", "doc")
+DEFAULT_MODS = os.path.join(HERE, "..", "..", "mods")
 
 TREES = ("doc", "src", "test")
+MOD_TREES = ("doc", "src")
+KINDS = ("MISSING", "LEAF", "EXTRA")
 
 
 def dirs_of(root):
@@ -60,20 +72,21 @@ def leaf_docs(root):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--doc", default=DEFAULT_DOC)
-    ap.add_argument("--src", default=DEFAULT_SRC)
-    ap.add_argument("--test", default=DEFAULT_TEST)
-    a = ap.parse_args()
-    roots = {"doc": os.path.normpath(a.doc), "src": os.path.normpath(a.src),
-             "test": os.path.normpath(a.test)}
+def has_mission(root):
+    """A runnable .fbm anywhere under root — a mod's proof (doc/mods.md §3)."""
+    for dp, dns, fns in os.walk(root):
+        dns[:] = [d for d in dns if not d.startswith(".")]
+        if any(fn.endswith(".fbm") for fn in fns):
+            return True
+    return False
 
+
+def engine_orphans(roots):
     have = {t: dirs_of(roots[t]) for t in TREES}
     leaves = {t: leaf_docs(roots[t]) for t in TREES}
     union = sorted(set().union(*have.values()))
 
-    orphans, kinds = [], {"LEAF": 0, "MISSING": 0, "EXTRA": 0}
+    orphans = []
     for p in union:
         if p == "":
             continue
@@ -93,23 +106,64 @@ def main():
             kind = "LEAF"
         else:
             kind = "MISSING"
-        kinds[kind] += 1
-        orphans.append((kind, p, state))
+        orphans.append(("engine", kind, p, state))
 
     for t in TREES:
         print(f"verify-trees: {t:<4} {len(have[t]):3d} director{'y' if len(have[t]) == 1 else 'ies'} "
               f"({roots[t]})")
-    print(f"verify-trees: {len(union) - 1} distinct path(s) across the three trees, "
-          f"{len(orphans)} orphan(s) "
-          f"[{kinds['MISSING']} MISSING, {kinds['LEAF']} LEAF, {kinds['EXTRA']} EXTRA]")
+    print(f"verify-trees: engine  {len(union) - 1} distinct path(s) across three trees, "
+          f"{fmt(orphans)}")
+    return orphans
+
+
+def mod_orphans(root):
+    """DOC PLUS PROOF per mod, not path congruence — see the module docstring."""
+    ids = sorted(d for d in os.listdir(root)
+                 if not d.startswith(".") and os.path.isdir(os.path.join(root, d))) \
+        if os.path.isdir(root) else []
+
+    orphans = []
+    for mod in ids:
+        base = os.path.join(root, mod)
+        state = {t: ("dir" if os.path.isdir(os.path.join(base, t)) else "-") for t in MOD_TREES}
+        rel = os.path.relpath(base, os.path.dirname(root)).replace(os.sep, "/")
+        for t in MOD_TREES:
+            if state[t] == "-":
+                orphans.append((f"mod:{mod}", "MISSING", f"{rel}/{t}", dict(state)))
+        if state["src"] == "dir" and not has_mission(os.path.join(base, "src")):
+            orphans.append((f"mod:{mod}", "MISSING", f"{rel}/src/**.fbm", dict(state)))
+        if os.path.isdir(os.path.join(base, "test")):
+            orphans.append((f"mod:{mod}", "EXTRA", f"{rel}/test", dict(state)))
+
+    print(f"verify-trees: mods    {len(ids)} mod(s) under {root}, two trees each, {fmt(orphans)}")
+    return orphans
+
+
+def fmt(orphans):
+    n = {k: sum(1 for o in orphans if o[1] == k) for k in KINDS}
+    return f"{len(orphans)} orphan(s) [" + ", ".join(f"{n[k]} {k}" for k in KINDS) + "]"
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--doc", default=DEFAULT_DOC)
+    ap.add_argument("--src", default=DEFAULT_SRC)
+    ap.add_argument("--test", default=DEFAULT_TEST)
+    ap.add_argument("--mods", default=DEFAULT_MODS)
+    a = ap.parse_args()
+    roots = {"doc": os.path.normpath(a.doc), "src": os.path.normpath(a.src),
+             "test": os.path.normpath(a.test)}
+
+    orphans = engine_orphans(roots) + mod_orphans(os.path.normpath(a.mods))
     if not orphans:
         return 0
+    print(f"verify-trees: {fmt(orphans)} in total")
     sys.stdout.flush()   # the orphan list goes to stderr; unflushed it would print after it
-    w = max(len(p) for _, p, _ in orphans)
-    for kind, p, state in orphans:
-        cols = "  ".join(f"{t}={state[t]}" for t in TREES)
-        print(f"verify-trees:   {kind:<7} {p:<{w}}  {cols}", file=sys.stderr)
-    print(f"verify-trees: FAILED ({len(orphans)} orphan(s))", file=sys.stderr)
+    ws, wp = (max(len(o[i]) for o in orphans) for i in (0, 2))
+    for scope, kind, p, state in orphans:
+        cols = "  ".join(f"{t}={state[t]}" for t in (TREES if scope == "engine" else MOD_TREES))
+        print(f"verify-trees:   {scope:<{ws}}  {kind:<7} {p:<{wp}}  {cols}", file=sys.stderr)
+    print(f"verify-trees: FAILED ({fmt(orphans)})", file=sys.stderr)
     return 1
 
 
