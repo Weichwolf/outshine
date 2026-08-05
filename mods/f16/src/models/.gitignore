@@ -4,3 +4,6 @@
 # Blender-Lauf nicht in zwei Minuten wiederherstellt.
 *.glb
 sil_*.png
+
+# python bytecode
+__pycache__/

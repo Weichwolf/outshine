@@ -1,9 +1,10 @@
 # Modell-Deltas — was FlightBox' Kopien vom gepinnten Upstream unterscheidet
 
-FlightBox lädt jedes JSBSim-Modell aus `sim/assets/aircraft` (eine Wurzel, `app/FBModelRoots.h`). Das
-gepinnte Submodul `sim/vendor/jsbsim` ist damit kein Ladepfad mehr, sondern die **Basis**: der Stand,
-gegen den jede Kopie dort gemessen wird. Diese Liste steht NEBEN `aircraft/`, nicht darin — das
-Verzeichnis wird als Ganzes in den WASM-Build eingebettet und enthält deshalb nur Modelle.
+FlightBox lädt jedes JSBSim-Modell aus dem `aircraft`-Wurzelpfad des Mods (`mods/f16/mod.json`, eine
+Wurzel, `sim/src/missions/FBMod.h`). Das gepinnte Submodul `sim/vendor/jsbsim` ist damit kein Ladepfad
+mehr, sondern die **Basis**: der Stand, gegen den jede Kopie dort gemessen wird. Diese Liste liegt IN
+`aircraft/` und ist der einzige Eintrag darin, der kein Modell ist — `verify_models.py` überspringt
+genau die Datei, die es als `--deltas` bekommt, weil ein Dokument sich nicht selbst deklarieren kann.
 
 **Die Regel** (`CLAUDE.md`, Prinzip 1; ausführlich in `doc/architecture.md`): eine Kopie DARF vom Upstream abweichen —
 berechtigte Korrekturen und Erweiterungen sind zulässig. Aber jede Abweichung ist ein **benannter
@@ -23,9 +24,9 @@ stehen müsste.
 
 ## Herkunft
 
-Kopie relativ zu `sim/assets/aircraft`, Upstream relativ zu `sim/vendor/jsbsim`. Ein Verzeichnis meint
+Kopie relativ zu diesem Verzeichnis, Upstream relativ zu `sim/vendor/jsbsim`. Ein Verzeichnis meint
 sich selbst und alles darunter. `—` = kein Upstream (FlightBox-eigenes Modell, nichts zu vergleichen).
-**Jeder Eintrag unter `sim/assets/aircraft` muss hier stehen** — ein nicht deklariertes Modell ist ein
+**Jeder Eintrag in diesem Verzeichnis muss hier stehen** — ein nicht deklariertes Modell ist ein
 ungeprüftes Modell und lässt `verify-models` fehlschlagen.
 
 | Kopie | Upstream |

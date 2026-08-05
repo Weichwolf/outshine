@@ -2,7 +2,7 @@
 """FlightBox — F-16C **Block 52**. Vier LOD-Stufen aus EINER parametrischen Quelle.
 
     /Applications/Blender.app/Contents/MacOS/Blender --background --python build_f16.py -- \
-        --out sim/assets/models [--lod 0] [--blend]
+        --out mods/f16/src/models [--lod 0] [--blend]
 
 WARUM BLOCK 52. f16.xml deklariert F100-PW-229 — Pratt & Whitney. Damit gilt NSI-Einlauf und
 P&W-Duese, nicht MCID und F110. Prinzip 4: Referenz ist das geflogene Modell.
@@ -1806,9 +1806,9 @@ def switch_table(lods):
                       "Grenzen, ab denen das Umschalten UNSICHTBAR ist; ein Renderer darf aus "
                       "Budgetgruenden frueher schalten und zahlt dafuer den genannten Fehler."),
                 silhouette_gate=dict(
-                    script="sim/assets/models/check_lod.py",
+                    script="mods/f16/src/models/check_lod.py",
                     call=("Blender --background --python check_lod.py -- --models "
-                          "sim/assets/models --res 1200 --limit 2.0"),
+                          "mods/f16/src/models --res 1200 --limit 2.0"),
                     metric=("XOR-Flaeche zweier Alpha-Masken bei IDENTISCHER orthografischer "
                             "Kamera, geteilt durch die Flaeche der groeberen Stufe."),
                     limit_pct=2.0,
@@ -1831,7 +1831,7 @@ def switch_table(lods):
 
 def sidecar(out_dir, lods):
     src_nasa = "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen)"
-    src_xml = "sim/assets/aircraft/f16/f16.xml"
+    src_xml = "mods/f16/src/aircraft/f16/f16.xml"
 
     def comp(node, reads, lo, hi, src, axis="lokal X"):
         return dict(node=node, reads=reads, axis=axis, limits_deg=[lo, hi], source=src)

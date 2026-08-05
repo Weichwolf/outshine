@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Silhouetten-Gate fuer die LOD-Leiter.
 
-    Blender --background --python check_lod.py -- --models sim/assets/models [--out /tmp/sil]
+    Blender --background --python check_lod.py -- --models mods/f16/src/models [--out /tmp/sil]
                                                   [--asset f16] [--res 1200] [--limit 2.0]
 
 WARUM ES DIESES SKRIPT GIBT. Das Cauchy-Kriterium in build_f16.switch_table entscheidet JE

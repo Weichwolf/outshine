@@ -2,7 +2,7 @@
 """F-16C **Block 52** — die VERMESSUNG. Nur Zahlen und ihre Herkunft, keine Blender-Abhaengigkeit.
 
 WARUM BLOCK 52 UND NICHT BLOCK 50 (Runde 3, schwerster Befund)
-  sim/assets/aircraft/f16/f16.xml:245 deklariert <engine file="F100-PW-229"> — Pratt & Whitney,
+  mods/f16/src/aircraft/f16/f16.xml:245 deklariert <engine file="F100-PW-229"> — Pratt & Whitney,
   also **Block 52**, nicht die GE-getriebene Block 50. CLAUDE.md Prinzip 4: Referenz ist das
   GEFLOGENE Modell. Damit aendern sich zwei silhouettentragende Baugruppen:
       Einlauf   MCID "Grossmaul" 1.40 m  ->  NSI "Kleinmaul"  (s. kInlet*)
@@ -12,7 +12,7 @@ WARUM BLOCK 52 UND NICHT BLOCK 50 (Runde 3, schwerster Befund)
   ausdruecklich als "F-16C Block 50" beschriftet — von dort stammten die falschen Maulmasse.
 
 QUELLEN
-  [XML]   sim/assets/aircraft/f16/f16.xml — das GEFLOGENE Modell. Nach Prinzip 1 ist sein
+  [XML]   mods/f16/src/aircraft/f16/f16.xml — das GEFLOGENE Modell. Nach Prinzip 1 ist sein
           <ground_reactions>-Block byteidentisch mit vendor/jsbsim und damit akzeptiert; die
           Fahrwerksgeometrie des Netzes hat sich IHM zu beugen, nicht der T.O.-Karte.
           Registriert wird auf den dort deklarierten VRP (-180, 0, 0) in.
@@ -380,7 +380,7 @@ kCockpitOpenS1 = min(kEyeS + kSeatBackH * math.sin(math.radians(kSeatBackAngle))
 #       Wo sie sich widersprechen, folgt das Netz dem Riss, und der Widerspruch wird im
 #       Sidecar als benannter Delta gefuehrt.
 #
-#   Sie verletzt Prinzip 1 nicht: Prinzip 1 schuetzt das FLUGMODELL (sim/assets/aircraft/), und
+#   Sie verletzt Prinzip 1 nicht: Prinzip 1 schuetzt das FLUGMODELL (mods/f16/src/aircraft/), und
 #   kein Dreieck dieses Netzes geht in eine Kraft ein. Der einzige sichtbare Preis ist, dass ein
 #   gezeichnetes Rad nicht exakt auf dem gerechneten Kontaktpunkt steht; bei der statischen
 #   Bodenlage (Nickwinkel ~0) ist der Hoehenfehler 0.503 m * tan(0) = 0, bei 10 deg Rotation

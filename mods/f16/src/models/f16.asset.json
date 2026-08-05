@@ -2,8 +2,8 @@
   "asset": "f16",
   "name": "F-16C Block 52",
   "unit_scale_m": 1.0,
-  "variant_source": "sim/assets/aircraft/f16/f16.xml:245 <engine file=\"F100-PW-229\"> — Pratt & Whitney, also Block 52: NSI-Einlauf und gerade P&W-Duese, nicht MCID/F110.",
-  "origin": "VRP aus sim/assets/aircraft/f16/f16.xml (<location name=\"VRP\"> -180 0 0 in). Physisch der Punkt 0.35 MAC in der Fluegelsehnenebene; die Fahrwerkskontakte des XML haengen als Offsets an ihm.",
+  "variant_source": "mods/f16/src/aircraft/f16/f16.xml:245 <engine file=\"F100-PW-229\"> — Pratt & Whitney, also Block 52: NSI-Einlauf und gerade P&W-Duese, nicht MCID/F110.",
+  "origin": "VRP aus mods/f16/src/aircraft/f16/f16.xml (<location name=\"VRP\"> -180 0 0 in). Physisch der Punkt 0.35 MAC in der Fluegelsehnenebene; die Fahrwerkskontakte des XML haengen als Offsets an ihm.",
   "axes": "glTF +Y oben / -Z vorwaerts; gebaut in +X rechts / +Y vorwaerts / +Z oben",
   "tolerance_rule": "Die T.O.-Karte quantisiert auf 0.1 ft = 30.5 mm. Fuer jede [TO]-Zahl gilt deshalb ihre eigene Aufloesung als Toleranz, nicht die 0.5 % des Baums: auf der 7.8-ft-Spur sind 0.1 ft bereits 0.39 %.",
   "reference_dimensions_m": {
@@ -14,7 +14,7 @@
     "span_over_missiles_model": 9.7513,
     "span_over_missiles_note": "Runde 3 publizierte 9.9974 m und baute 9.728 m — die Referenz war nie mit der Geometrie verrechnet. Der AIM-9 haengt in X-Stellung (die LAU-129 traegt ihn ueber zwei Schuhe auf dem RUECKEN; in Plus-Stellung stuende dort eine Flosse). Damit ist die groesste Breite 9.7514 m, also -2.46 % gegen [TO] 32.8 ft. Die [TO]-Zahl braucht Plus-Stellung (9.939 m) UND die FK-Achse auf der Schienen-Aussenflaeche (9.989 m); beides widerspricht der Aufhaengung. Die Frontansicht des Risses ist am Blattrand abgeschnitten und kann nicht entscheiden. Das Netz baut die Mechanik und traegt die Abweichung.",
     "height_on_gear": 5.0851,
-    "height_source": "Flossenspitze [KH] ueber der Aufstandsebene aus sim/assets/aircraft/f16/f16.xml (MLG-Kontakt z = -71.6 in). Gegen [TO] 16.7 ft: 5.1 mm.",
+    "height_source": "Flossenspitze [KH] ueber der Aufstandsebene aus mods/f16/src/aircraft/f16/f16.xml (MLG-Kontakt z = -71.6 in). Gegen [TO] 16.7 ft: 5.1 mm.",
     "tail_span": 5.5778,
     "wheel_track": 2.4384,
     "wheel_base": 4.0024,
@@ -221,8 +221,8 @@
   "lod_switch": {
     "rule": "Eine Stufe faellt erst, wenn ihr groesstes VERLORENES Merkmal unter ein Pixel faellt. Merkmalsgroesse = sqrt(Oberflaeche/4) nach Cauchy (mittlere Schattenflaeche eines konvexen Koerpers = A/4). Die Weiten sind die Grenzen, ab denen das Umschalten UNSICHTBAR ist; ein Renderer darf aus Budgetgruenden frueher schalten und zahlt dafuer den genannten Fehler.",
     "silhouette_gate": {
-      "script": "sim/assets/models/check_lod.py",
-      "call": "Blender --background --python check_lod.py -- --models sim/assets/models --res 1200 --limit 2.0",
+      "script": "mods/f16/src/models/check_lod.py",
+      "call": "Blender --background --python check_lod.py -- --models mods/f16/src/models --res 1200 --limit 2.0",
       "metric": "XOR-Flaeche zweier Alpha-Masken bei IDENTISCHER orthografischer Kamera, geteilt durch die Flaeche der groeberen Stufe.",
       "limit_pct": 2.0,
       "measured_round4_pct": {
@@ -314,7 +314,7 @@
         -21.5,
         21.5
       ],
-      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Ailerons (flaperons) +-21.5'; sim/assets/aircraft/f16/f16.xml max 0.375 rad"
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Ailerons (flaperons) +-21.5'; mods/f16/src/aircraft/f16/f16.xml max 0.375 rad"
     },
     {
       "node": "ctl.aileron.r",
@@ -334,7 +334,7 @@
         -25.0,
         25.0
       ],
-      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Horizontal tail symmetric +-25, differential +-5.375'; sim/assets/aircraft/f16/f16.xml max 0.436 rad. Drehpunkt bei 0.62 der Wurzeltiefe ist [SET] — der Riss zeichnet die Achse nicht."
+      "source": "NASA TP-1538 Tab.I 'Surface deflection limits' (Seite 49, im Bild gelesen) 'Horizontal tail symmetric +-25, differential +-5.375'; mods/f16/src/aircraft/f16/f16.xml max 0.436 rad. Drehpunkt bei 0.62 der Wurzeltiefe ist [SET] — der Riss zeichnet die Achse nicht."
     },
     {
       "node": "ctl.elevon.r",
