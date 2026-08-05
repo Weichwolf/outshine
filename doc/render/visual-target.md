@@ -268,6 +268,11 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
   — undecided, and it is the kind of thing that drifts into taste unless a reference frame is pinned.
 - **Motion vectors for wind-animated instanced foliage** are the known-hard part of TAA and nothing
   produces them today.
+- **The fixed-function raster path is *less* specified than the shaders**, and it lands exactly on §2's
+  priority investment: edge coverage „not defined", the **multisample resolve algorithm is not specified
+  at all**, and alpha-to-coverage is „platform-dependent and can vary for different pixels" and not
+  monotonic in alpha. Alpha-cutout foliage is the worst case in the scene and three of those four
+  sentences aim at it. See [`gpu-determinism.md`](gpu-determinism.md).
 - **The 256 templates do not exist**, nor does the quantisation, nor the latitude/elevation filter.
 - **The ground-truth differential (§1.3) does not exist.** The pieces do — headless Blender runs for
   assets, `gpu_native` is already named the frame oracle — but nothing renders a matched pair or measures

@@ -309,7 +309,7 @@ of *distinct things touched*, not hours played.
 Bethesda is the existence proof, and the difference is narrow: their saves also store only changed
 objects. The unchanged ones come from a shipped file there and from the generator here.
 
-**The key is position, and nothing else.**
+**The key is the address a thing was born at, and nothing else.**
 
 > Owner: *„Position reicht eigentlich. Reine Physik. Keine zwei Objekte können am gleichen Ort sein."*
 
@@ -322,7 +322,7 @@ Two riders, or it fails:
 
 | | |
 |---|---|
-| **quantise** | position is floating point; regeneration must land on the same value or the lookup misses. Round to a grid — millimetres suffice — and the key survives any change in arithmetic order |
+| **the key is the birth ADDRESS, not the birth position** | *„Existenz und Identität sind Ganzzahl. Position und Aussehen sind float."* — [`render/gpu-determinism.md`](render/gpu-determinism.md). Quantising a computed position does **not** work: WGSL defines no rounding mode, so not even `x+y` is bit-determined, and ULP(f32) at 10 km is 0.98 mm — an earlier revision's „millimetres suffice" was off by ~4×, and by 500× in ECEF. A coarser grid makes it *worse*: rare and catastrophic instead of small and harmless (10 m grid still loses ~3900 of 10⁷ objects). The key is therefore `(tile, cell, slot)` — the generator's **input**, enumerated rather than computed, carried as integer payload and never recomputed from geometry |
 | **key by *birth* position, not current** | otherwise moving a thing changes its identity and a shifted chair is a different chair. Key = where the generator put it; value = the offset since |
 
 Destruction falls out cleanly: the key stays, the value says *gone*.
