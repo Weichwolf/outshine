@@ -251,12 +251,27 @@ determines fidelity, never knowledge.** Unobserved population is statistical; an
 protocol or a live model ([`mods.md`](mods.md) §2.1). Nothing new is needed — but nothing may be built
 that assumes every actor is alive at once.
 
-#### Scope, stated plainly
+#### Interiors exist on entry — which shrinks the problem, not defers it
 
-Walkable furnished interiors and full infrastructure are **more work than everything else discussed
-today combined**. They are later versions, they do not fit the five months for the engine, and they
-change nothing about the 2026 plan. What must happen *now* is only that epoch and decay exist as
-parameters and nothing is built shut against them (§7).
+> Owner: *„das begehbare Gebäude entsteht ja auch erst, wenn ich es betrete. Und dann ist das Problem
+> nicht mehr so gross."*
+
+The same quantum rule, applied to rooms: **do not model a million interiors, generate one when a door
+opens.** A storage problem becomes a generation problem, and generation is cheap — footprint, epoch,
+decay, function and a seed are enough, and the exterior already constrains the interior.
+
+Three costs remain, and none of them is furniture:
+
+| | |
+|---|---|
+| **the seam** | exterior and interior must agree — window positions, floor count, where the door is. This is the real difficulty |
+| **latency** | entering must not stall. Budget is the length of a door opening, not a loading screen |
+| **change persists** | move a chair, leave, return: it stays moved. §4's rule demands it — so a delta store for **touched** things only, never for generated ones. A house nobody touched costs zero bytes |
+
+**Scope, corrected.** An earlier revision called interiors *„more work than everything else combined"*.
+On-entry generation makes that wrong. Full infrastructure remains large; interiors do not. Both are still
+later versions, and what must happen *now* is unchanged: epoch and decay exist as parameters, and nothing
+is built shut against them (§7).
 
 ### 6. Progressing the world — three options, and this file chooses none
 
