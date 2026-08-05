@@ -117,6 +117,23 @@ renderer nobody ships.
 This is the same move the whole tree runs on — **an expectation is a datum, not a matter of taste** — and
 it converts §1.1's perceptual trade from an opinion into a measurement.
 
+**Synthetic first.** A fractal has a closed form, so it has exactly one right answer — any deviation is
+our error, with no interpretation gap. Blender's floor is contaminated by legitimate differences (shading
+model, tone curve, sampling); a Mandelbrot set's is not.
+
+| Probe | Tests |
+|---|---|
+| 3D turbulence vs. its exact 2D reference | sampling, filtering, precision at range |
+| band-limited noise vs. its analytic band limit | mip and LOD selection, aliasing |
+| static fractal, TAA on | convergence, ghosting |
+| same fractal at governor quality vs. full | §1.1's trade, against an exact reference at both ends |
+
+Cheap: no assets, no scene, no lighting. And it makes `mods/bench/` synthetic too — arbitrarily
+escalating difficulty **with an exact reference at every step**. One artefact, load test and correctness
+probe at once.
+
+Blender comes after, for what a fractal cannot reach: real materials, real light transport.
+
 Render the same scene twice: once **offline with no budget at all** (Blender Cycles, path traced, minutes
 per frame), once through the engine at whatever the governor chose. Compare the images. **The distance is
 the quality loss, and the governor's job is to minimise it under the 30 fps constraint.**
