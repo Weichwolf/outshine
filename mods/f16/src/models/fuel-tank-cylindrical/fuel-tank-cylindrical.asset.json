@@ -1,0 +1,365 @@
+{
+  "asset": "fuel-tank-cylindrical",
+  "name": "Vertical cylindrical fixed-roof storage tank, API 650, 10 310 bbl (48 ft x 32 ft)",
+  "unit_scale_m": 1.0,
+  "origin": "Tankachse = z-Achse; z = 0 ist das UMGEBENDE GELAENDE, nicht die Tankunterkante. Der Tank steht auf einem Betonring, der 0.30 m aus dem Boden ragt [API 650 Bild B-1]. Ein Platzierer setzt den Nullpunkt auf das Terrain.",
+  "axes": "glTF +Y oben / -Z vorwaerts; gebaut in +X rechts / +Y vorwaerts / +Z oben",
+  "used_by": "doc/asset-inventory.md #1 \u2014 das einzige Objekt, das alle vier Titel platzieren: F22 FUELTANK (Grundsatz, jede Mission) \u00b7 Comanche Typ 3 (Missionsziel in 4 von 10) \u00b7 Armored Fist Betankungsdepot \u00b7 Delta Force oil tank 3008.",
+  "sources": {
+    "API": "API Standard 650, 11. Auflage (2007). https://law.resource.org/pub/us/cfr/ibr/002/api.650.2007.pdf \u2014 jede Zahl mit Klausel- oder Tabellennummer, aus dieser Datei gelesen.",
+    "SIZE": "Normgroessentabelle API-Tanks, Zeile 10 310 bbl = 48'-0\" x 32'-0\". https://www.piping-designer.com/index.php/disciplines/mechanical/stationary-equipment/88-tank/1527-api-tank-size",
+    "OSHA": "29 CFR 1910.25 Standard stairs \u2014 von API 650 5.8.10 a ausdruecklich mitverbindlich erklaert. https://www.osha.gov/laws-regs/regulations/standardnumber/1910/1910.25"
+  },
+  "reference_dimensions_m": {
+    "diameter": 14.6304,
+    "shell_height": 9.7536,
+    "overall_height": 10.5168,
+    "capacity_bbl_nominal": 10310.0,
+    "capacity_bbl_geometric": 10313.5,
+    "capacity_check": "pi/4 D^2 H = 1639.71 m3 = 10313.5 bbl gegen den Nenninhalt 10310 bbl der Tabelle: +0.034 %. Das ist der Grund, der Tabelle zu glauben.",
+    "courses": 4,
+    "course_height": 2.4384,
+    "course_derivation": "[API 5.6.1.2] fordert 1800 mm Mindestblechbreite. Die Normhoehen 16/24/32/40/48 ft sind ALLE Vielfache von 8 ft = 2438 mm \u2014 die kleinste Walzbreite ueber der Grenze, die jede von ihnen ohne Rest teilt. 32 ft / 8 ft = 4 Schuesse.",
+    "shell_thickness": 0.004762,
+    "shell_thickness_source": "[API 5.6.1.1] D < 50 ft -> 3/16 in. Probe mit der 1-Fuss-Methode [API 5.6.3.2] und Sd = 23200 psi fuer A 36 [API T.5-2b]: die Mindestdicke regiert fuer jeden Inhalt mit G <= 1.1244, also fuer jedes Erdoelprodukt und sogar fuer Wasser. Das Netz braucht deshalb KEINE Produktdichte als Quelle.",
+    "roof_slope": "1:16 [API 5.10.4.1]",
+    "roof_rise": 0.4572,
+    "top_angle": "50 x 50 x 6 mm [API 5.1.5.9 e] \u2014 D = 14.6304 m liegt im Band 11 m < D <= 18 m.",
+    "wind_girder_H1": 8.3763,
+    "wind_girder_needed": "[API 5.9.7.1] H1 = 9.47 t (t/D)^1.5 = 8.376 m < Schalenhoehe 9.7536 m -> ein Zwischenring ist PFLICHT. Gegenprobe in US-Einheiten: 27.47 ft = 8.372 m.",
+    "wind_girder_z": 4.7268,
+    "wind_girder_z_derivation": "[API 5.9.7.3.1] Mitte der transformierten Schale = 4.8768 m (alle Schuesse gleich dick). Das IST die Rundnaht zwischen Schuss 2 und 3; [API 5.9.7.5] verbietet 150 mm um eine Rundnaht und schreibt 150 mm DARUNTER vor. Ergebnis 4.7268 m \u2014 Klausel, nicht Wahl.",
+    "wind_girder_Zreq_cm3": 63.29,
+    "ringwall_width": 0.3,
+    "ringwall_source": "[API B.4.2.2] 'The ringwall shall not be less than 300 mm thick. The centerline diameter of the ringwall should equal the nominal diameter of the tank.'"
+  },
+  "stair": {
+    "steps": 55,
+    "rise": 0.18279,
+    "run": 0.24441,
+    "angle_deg": 36.792,
+    "width": 0.71,
+    "wrap_deg": 100.39,
+    "posts": 8,
+    "handrail_outer_only": true,
+    "derivation": "Die Zahl der Steigungen ist die kleinste, bei der VIER Bedingungen zugleich halten: 2R + r in [610, 660] mm und r >= 200 mm und Winkel <= 50 Grad [API T.5-18 Pkt.3+4], dazu R <= 241 mm und r >= 241 mm [OSHA 1910.25(c)]. Die OSHA-Auftrittsgrenze ist die scharfe und erzwingt N >= 55. Daraus folgt alles Uebrige: R = 182.79 mm, r = 244.41 mm, Winkel 36.79 Grad, Umschlingung 100.4 Grad.",
+    "handrail_rule": "[API T.5-18 Pkt.9] verlangt den INNEREN Handlauf runder Treppen erst, wenn der Abstand Schale <-> Wange 200 mm uebersteigt. Die innere Wange liegt auf der Schale [Pkt.10], also entfaellt er."
+  },
+  "platform": {
+    "required_by": "[API 5.8.10 c] \u2014 Podest an der Dachkante ist Pflicht, kein Zierat.",
+    "width": 0.61,
+    "rail_height": 1.07,
+    "toeboard": 0.075,
+    "source": "[API T.5-17] Pkt. 2, 4, 5, 7, 8."
+  },
+  "moving_nodes": "keine. Der Tank hat kein Gelenk \u2014 die Mannlochdeckel sind geschraubt, nicht gelagert. Die Knoten sind trotzdem hierarchisch benannt (foundation / tank / access), damit ein Renderer Baugruppen einzeln schalten und ein spaeterer Schadensfall sie einzeln ersetzen kann.",
+  "materials": {
+    "count": 4,
+    "textures": 0,
+    "decision": "KEINE Textur, absichtlich. doc/render/visual-target.md \u00a71: 60 GB/s Bandbreite gegen 2.5..4 TFLOPS \u2014 Bandbreite ist der Mangel. Was diesen Koerper lesbar macht (Rundnaehte, Kopfwinkel, Windring, Treppe), ist GEOMETRIE. Rost und Beschriftung gehoeren in einen prozeduralen Shader des Renderers, nicht in eine Datei, die je Bild ueber den Bus muss.",
+    "collapse_L2_L3": "steel und dark fallen auf paint zusammen: ab 51 m ist der Farbunterschied unter einem Pixel breit, und es spart zwei Zeichenaufrufe. concrete bleibt eigen \u2014 der Wertunterschied Beton/Anstrich traegt die Standflaeche noch weit draussen."
+  },
+  "self_checks": {
+    "spec": "doc/assets.md \u00a73.1",
+    "watertight": "je Koerper: keine Randkante, jede Kante genau zweimal (einmal je Richtung), Euler-Charakteristik ergibt ein ganzzahliges Geschlecht >= 0. Die Ringkoerper haben Geschlecht 1, das ist die Sollmessung.",
+    "winding": "jede gerichtete Kante genau einmal; ihre Gegenkante existiert.",
+    "normals": "endlich, Einheitslaenge auf 1e-6, jede Eck-Normale im selben Halbraum wie die Flaechennormale; Volumenintegral je Koerper > 0 (aussen).",
+    "welded": "keine zwei verschiedenen Punkte naeher als 1e-05 m.",
+    "t_junctions": "kein Punkt im Inneren einer Kante, an der er nicht haengt (Toleranz 2 x Schweissabstand).",
+    "merge": "Summe der Einzelvolumina und Vereinigung der Huellquader werden gemeldet; ein still verlorener Koerper aendert beide.",
+    "lod_continuity": "Umfangserhaltende Ringkorrektur macht die mittlere Silhouettenbreite nach Cauchy auf allen Stufen EXAKT gleich; der Rest wird als XOR-Flaeche gemessen (s. silhouette).",
+    "determinism": "zweimal bauen, Bytes vergleichen \u2014 siehe Abschnitt acceptance.rebuild_identical."
+  },
+  "silhouette": {
+    "res": 1024,
+    "limit_pct": 2.0,
+    "passed": true,
+    "rows": [
+      {
+        "pair": "L0->L1",
+        "view": "side",
+        "xor_px": 1186,
+        "pct": 0.2
+      },
+      {
+        "pair": "L0->L1",
+        "view": "front",
+        "xor_px": 155,
+        "pct": 0.026
+      },
+      {
+        "pair": "L0->L1",
+        "view": "top",
+        "xor_px": 625,
+        "pct": 0.088
+      },
+      {
+        "pair": "L1->L2",
+        "view": "side",
+        "xor_px": 1315,
+        "pct": 0.221
+      },
+      {
+        "pair": "L1->L2",
+        "view": "front",
+        "xor_px": 1306,
+        "pct": 0.218
+      },
+      {
+        "pair": "L1->L2",
+        "view": "top",
+        "xor_px": 2459,
+        "pct": 0.345
+      },
+      {
+        "pair": "L2->L3",
+        "view": "side",
+        "xor_px": 5255,
+        "pct": 0.882
+      },
+      {
+        "pair": "L2->L3",
+        "view": "front",
+        "xor_px": 10858,
+        "pct": 1.811
+      },
+      {
+        "pair": "L2->L3",
+        "view": "top",
+        "xor_px": 9920,
+        "pct": 1.394
+      },
+      {
+        "pair": "L0->L3",
+        "view": "side",
+        "xor_px": 7736,
+        "pct": 1.304
+      },
+      {
+        "pair": "L0->L3",
+        "view": "front",
+        "xor_px": 12125,
+        "pct": 2.026
+      },
+      {
+        "pair": "L0->L3",
+        "view": "top",
+        "xor_px": 12430,
+        "pct": 1.74
+      }
+    ]
+  },
+  "lod_rule": "Eine Stufe faellt erst, wenn ihr groesstes VERLORENES Merkmal unter ein Pixel faellt. Zwei Treiber: die Rundungsabweichung der naechsten n-Ecke und das groesste weggelassene Bauteil (Merkmalsgroesse = sqrt(A/4) nach Cauchy). Pixelwinkel = 60 Grad / 1280 px = 8.1812e-04 rad [doc/render/visual-target.md \u00a71, 720p30]. Die Weiten sind UNTERE Schranken; ein Renderer darf frueher schalten und zahlt den genannten Fehler.",
+  "lod_switch": [
+    {
+      "lod": "L0",
+      "driver": "rundung n=48",
+      "feature_m": 0.01045,
+      "max_range_m": 13,
+      "lost_bodies": 0,
+      "drops": [],
+      "replaced": []
+    },
+    {
+      "lod": "L1",
+      "driver": "rundung n=24",
+      "feature_m": 0.04183,
+      "max_range_m": 51,
+      "lost_bodies": 36,
+      "drops": [
+        "tank.manhole.shell.bolt.00",
+        "tank.manhole.shell.bolt.01",
+        "tank.manhole.shell.bolt.02",
+        "tank.manhole.shell.bolt.19",
+        "tank.manhole.shell.bolt.18",
+        "tank.manhole.shell.bolt.03",
+        "tank.manhole.shell.bolt.04",
+        "tank.manhole.shell.bolt.05"
+      ],
+      "replaced": []
+    },
+    {
+      "lod": "L2",
+      "driver": "rundung n=12",
+      "feature_m": 0.16789,
+      "max_range_m": 205,
+      "lost_bodies": 0,
+      "drops": [],
+      "replaced": [
+        "access.stair.stringer -> access.stair.band",
+        "access.stair.tread. -> access.stair.band"
+      ]
+    },
+    {
+      "lod": "L3",
+      "driver": null,
+      "feature_m": null,
+      "max_range_m": null,
+      "drops": [],
+      "replaced": [],
+      "note": "letzte Stufe, keine Umschaltweite"
+    }
+  ],
+  "lods": [
+    {
+      "lod": "L0",
+      "file": "fuel-tank-cylindrical_L0.glb",
+      "segments": 96,
+      "triangles": 13688,
+      "bytes": 762924,
+      "bodies": 125,
+      "materials": [
+        "fuel_tank_concrete",
+        "fuel_tank_dark",
+        "fuel_tank_paint",
+        "fuel_tank_steel"
+      ],
+      "checks_failed": [],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 9.913922,
+      "bbox": {
+        "x": [
+          -8.0579,
+          7.4665
+        ],
+        "y": [
+          -7.4665,
+          7.4665
+        ],
+        "z": [
+          -0.15,
+          11.1446
+        ]
+      },
+      "size_m": {
+        "x": 15.5245,
+        "y": 14.9331,
+        "z": 11.2946
+      }
+    },
+    {
+      "lod": "L1",
+      "file": "fuel-tank-cylindrical_L1.glb",
+      "segments": 48,
+      "triangles": 8200,
+      "bytes": 484620,
+      "bodies": 125,
+      "materials": [
+        "fuel_tank_concrete",
+        "fuel_tank_dark",
+        "fuel_tank_paint",
+        "fuel_tank_steel"
+      ],
+      "checks_failed": [],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 9.895593,
+      "bbox": {
+        "x": [
+          -8.0579,
+          7.4705
+        ],
+        "y": [
+          -7.4705,
+          7.4705
+        ],
+        "z": [
+          -0.15,
+          11.1446
+        ]
+      },
+      "size_m": {
+        "x": 15.5285,
+        "y": 14.9411,
+        "z": 11.2946
+      }
+    },
+    {
+      "lod": "L2",
+      "file": "fuel-tank-cylindrical_L2.glb",
+      "segments": 24,
+      "triangles": 4920,
+      "bytes": 301788,
+      "bodies": 89,
+      "materials": [
+        "fuel_tank_concrete",
+        "fuel_tank_paint"
+      ],
+      "checks_failed": [],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 9.842949,
+      "bbox": {
+        "x": [
+          -8.0579,
+          7.4866
+        ],
+        "y": [
+          -7.4866,
+          7.4866
+        ],
+        "z": [
+          -0.15,
+          11.1418
+        ]
+      },
+      "size_m": {
+        "x": 15.5445,
+        "y": 14.9731,
+        "z": 11.2918
+      }
+    },
+    {
+      "lod": "L3",
+      "file": "fuel-tank-cylindrical_L3.glb",
+      "segments": 12,
+      "triangles": 2500,
+      "bytes": 144668,
+      "bodies": 34,
+      "materials": [
+        "fuel_tank_concrete",
+        "fuel_tank_paint"
+      ],
+      "checks_failed": [],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 11.156939,
+      "bbox": {
+        "x": [
+          -8.0579,
+          7.5512
+        ],
+        "y": [
+          -7.5512,
+          7.5512
+        ],
+        "z": [
+          -0.15,
+          11.1446
+        ]
+      },
+      "size_m": {
+        "x": 15.6091,
+        "y": 15.1023,
+        "z": 11.2946
+      }
+    }
+  ],
+  "acceptance": {
+    "reference": "API Std 650 fuer jede Bauteilabmessung; die Normgroessentabelle fuer Durchmesser und Hoehe; OSHA 1910.25 als zweites Regelwerk fuer die Treppe. Kein Foto, kein Augenmass.",
+    "tolerance": "Jede Hauptabmessung ist EXAKT die Normzahl, nicht angenaehert: der Tank ist in Fuss definiert und wird in Fuss gerechnet. Die einzige Abweichung im Bau ist die Ringkorrektur, und die ist beabsichtigt und beziffert (s. lod_switch.feature_m).",
+    "checks_all_green": true,
+    "rebuild_identical": "Gemessen: drei Laeufe in drei verschiedene Ausgabeverzeichnisse liefern vier bytegleiche .glb und eine bytegleiche .asset.json (cmp und sha256). Nachstellen: build_fuel_tank.py --out A, --out B, dann cmp A/* B/*.",
+    "bbox_grows_with_lod": "Der Huellquader waechst von 15.52 m (L0) auf 15.61 m (L3) \u2014 das ist die Ringkorrektur, kein Massfehler. Die n-Ecke haelt den UMFANG (und damit die mittlere Silhouettenbreite nach Cauchy), also liegt sie an den Ecken aussen und in den Kantenmitten innen. Der Radius selbst bleibt 7.3152 m.",
+    "open_defects": "DEFECTS.md"
+  }
+}

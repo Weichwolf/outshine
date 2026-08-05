@@ -1,0 +1,6 @@
+# Bauergebnisse. doc/assets.md §0: das Rezept versionieren, nie den Kuchen.
+# build_fuel_tank.py stellt sie in zwoelf Sekunden bytegleich wieder her.
+*.glb
+*.blend
+*.png
+__pycache__/
