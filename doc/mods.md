@@ -371,14 +371,22 @@ file therefore belongs under the six-file rule, and `verify_layers.py` must coun
 
 
 
-> Owner, 2026-08-05: *„`mods/` haben ihr eigenes `doc/`."*
+> Owner, 2026-08-05: *„`mods/` haben ihr eigenes `doc/`."* · *„`mods/common/` würde ich lieber nicht.
+> Dann lieber Abhängigkeiten auf andere Mods. Das ist ja auch der Mod-Gedanke."*
+
+**No shared bucket.** An asset lives in the mod that needed it first; others declare `depends`. A
+`common/` becomes a junk drawer, while an explicit dependency stays honest about who needs what — and it
+makes `mods/f16` a dependency for anything wanting an F-16 or a MiG-29 rather than a special case.
+
+Measured: only **5 of 93** assets across the four titles are shared at all
+([`asset-inventory.md`](asset-inventory.md)), so a shared bucket would have been mostly empty anyway.
 
 **A mod is a whole triad, not a directory with documentation attached.** It carries its own `doc/`,
 `src/` and `test/`, and they mean inside a mod exactly what they mean outside it:
 
 ```
 mods/<title>/
-  mod.json          identity, which core capabilities it claims, its map style
+  mod.json          identity, capabilities claimed, map style, and `depends` on other mods
   doc/              WHAT WE WANT — the original, reconstructed and sourced
     campaign.md       mission order, objectives, the reading rule per mission
     terrain.md        the real bounding box per mission AND why this real place
