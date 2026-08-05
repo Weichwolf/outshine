@@ -60,12 +60,15 @@ Sache ist es nicht.
 
 ## Prinzipien (nicht verhandelbar)
 
-1. **Physik nicht neu schreiben — Modell-Abweichung nur als Delta.** Die Engine ist die Wahrheit,
-   gepinntes read-only Submodul (`sim/vendor/jsbsim`), nie gepatcht; eigener Code nur an den Nähten
-   (FDM-Adapter, Regelung, Renderer). Geflogen wird FlightBox' Modellkopie (`sim/assets/aircraft/`, die
-   EINE Wurzel), das Submodul ist deren **Basis**: jede Abweichung ist ein benannter, BELEGTER Eintrag
-   in `sim/assets/MODEL-DELTAS.md` (ein besseres Missionsergebnis ist kein Beleg), Gate
-   `make -C sim verify-models`.
+1. **JSBSim ist das ORAKEL, nicht mehr die Abhängigkeit** — Eignerentscheid, gestuft. Ziel ist eigene
+   Physik, die von Möblierung bis Rakete trägt ([`doc/body-format.md`](doc/body-format.md)); JSBSim
+   bleibt gepinntes read-only Submodul und nie gepatcht, aber als **Messlatte**, gegen die geflogen
+   wird, nicht als Motor. **Bis Liste A grün ist, bleibt es verlinkt und die alte Regel gilt
+   unverändert:** geflogen wird FlightBox' Modellkopie (`sim/assets/aircraft/`, die EINE Wurzel), jede
+   Abweichung ist ein benannter, BELEGTER Eintrag in `sim/assets/MODEL-DELTAS.md` (ein besseres
+   Missionsergebnis ist kein Beleg), Gate `make -C sim verify-models`. Der Maßstab ist
+   **Glaubhaftigkeit, nicht Treue** — „in einem Game Engine ist immer alles falsch, die Frage ist, ist
+   es noch glaubhaft"; was das heißt, ist Liste A, und die entsteht VOR dem Löser.
 2. **JSBSim läuft IM Client.** libJSBSim linkt direkt ins Command Center, WASM wie nativ. Keine
    Telemetrie-Grenze zwischen Physik und Bild — ein Prozess, ein Adressraum.
 3. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,

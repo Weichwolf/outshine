@@ -77,7 +77,17 @@ And the one that matters more: **JSBSim becomes the oracle, not the dependency.*
 exists as a JSBSim model is flown both ways and the difference is *measured* on the harnesses this tree
 already has — corner speed, envelope, the 296-mission regression, determinism over thread counts.
 CLAUDE.md principle 1 forbids *unmeasured* deviation; an oracle preserves its purpose while its letter
-changes. **That change is the owner's to make and is recorded here, not assumed.**
+changes. **The owner made that change on 2026-08-05** — *„und danach die Ablösung von JSBSim"* — and
+CLAUDE.md principle 1 now reads accordingly. It is **staged, not switched**: JSBSim stays linked and the
+old rule applies unchanged until list A (§4) is written and green.
+
+**The order is fixed and the first two items are not the solver:**
+
+| # | Step | Why it comes first |
+|---|---|---|
+| 1 | read the **7 out-of-band anchors** in `sim/test/modules/air/envelope.json` | replacing physics while the measuring instrument is known-broken in seven places would make every later result unreadable. Model defect or band too tight — decided one by one, **never by widening a band** |
+| 2 | **write list A** — corner speed, sustained turn rate, stall onset, roll rate, take-off and landing speeds, acceleration, ceiling; each with a band and a source | §4: *„writing list A, not writing the solver, is the gating work."* The instrument for it now exists — list A is `envelope.json`'s shape, one declaration per claim |
+| 3 | the solver, JSBSim flown beside it as the oracle | only meaningful once 1 and 2 say what „still believable" means as numbers |
 
 ### 4. Acceptance — and the criterion is BELIEVABILITY, not fidelity
 
