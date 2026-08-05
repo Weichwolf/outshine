@@ -28,6 +28,44 @@ A18 Pro raw. **So the phone is the budget, and there is no pleasant surprise wai
 mobile-class throughout: bandwidth-poor, ALU-rich, thermally throttled within minutes. Twitch means long
 sessions, so the sustained clock is the real one, never the peak.
 
+**The numbers, measured on the target rather than estimated:**
+
+| | Value | Compared to |
+|---|---|---|
+| memory budget | **4 GB** — Edge's app allowance on Xbox; a MacBook Neo's 8 GB shared leaves about the same after OS and browser | PS4 gave games ~5 GB of 8. Same order, at a quarter of the pixels |
+| **memory bandwidth** | **60 GB/s** (LPDDR5X-7500, 64-bit bus, unified) | **PS4 had 176 GB/s — roughly 3×.** This, not compute, is the weak axis |
+| compute | ~2.5–4 TFLOPS | *above* PS4's 1.84. The phone out-computes the console it is being compared to |
+| CPU | 6 cores, fast | far above PS4's 8 Jaguars at 1.6 GHz |
+
+**Read that table before optimising anything.** The instinct is to save ALU; the measurement says ALU is
+the surplus and bandwidth is the shortage. Every trade goes the same direction: *spend arithmetic to
+avoid traffic.* That is what makes „alles im Shader, minimal Texturen" the correct engineering call and
+not merely a frugal one — and it is why geometry must be **generated on the GPU rather than uploaded to
+it**, because upload traffic is traffic too.
+
+Reference points: PS4 shipped Witcher 3 and Fallout 4 at **1080p30**, not 720p (Xbox One ran Witcher 3 at
+900p). The 720p30 target is therefore *less* than what that hardware delivered — with more compute and a
+third of the bandwidth.
+
+**WebGPU limits on Xbox Edge, all above the specification's defaults:**
+
+| Limit | WebGPU default | Measured |
+|---|---|---|
+| `maxStorageBufferBindingSize` | 128 MB | **2 GB** |
+| `maxComputeWorkgroupStorageSize` | 16 KB | **32 KB** |
+| `maxComputeInvocationsPerWorkgroup` | 256 | **1024** |
+
+So the GPU-driven pipeline needs no structural compromise: large buffers bind whole, workgroups are big
+enough for sensible culling tiles, and 32 KB of workgroup storage holds a terrain tile with its
+neighbourhood in fast memory instead of re-reading it from global — which saves exactly the bandwidth
+that is short. **We are throughput-bound, not structure-bound**, which is the better of the two problems:
+the architecture does not change, only the budgeting.
+
+And the browser is not the handicap it would be under WebGL. WebGPU is built around command buffers and
+bind groups, close to Metal in shape; with a single pass and instancing the per-call cost amortises, and
+compute shaders remove the CPU from the geometry path entirely. WASM SIMD is available but is not
+expected to matter — the CPU is the surplus here too.
+
 This makes *„alles im Shader, minimal Texturen"* the correct engineering choice rather than a saving:
 procedural shading spends ALU to save bandwidth, which is exactly the trade a mobile GPU wants.
 
@@ -116,6 +154,7 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
 - **Motion vectors for wind-animated instanced foliage** are the known-hard part of TAA and nothing
   produces them today.
 - **The 256 templates do not exist**, nor does the quantisation, nor the latitude/elevation filter.
-- **No thermal measurement.** The budget in §1 is a sustained-clock claim with no measurement behind it;
-  every number here rests on it.
+- **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
+  minutes of continuous rendering is unmeasured, and Twitch means continuous by definition. Every frame
+  budget here rests on it.
 - **Building extrusion and roofs** are named in the goal and absent from the tree.
