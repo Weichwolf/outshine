@@ -135,6 +135,15 @@ public:
    * and passing an empty list is what makes an empty world cost nothing. */
   void SetUnitDraws(const FBUnitDraw *draws, int count) { Units->SetDraws(draws, count); }
 
+  /* THE EFFECTS FOR THIS FRAME, borrowed on the same terms as the cast above and built from the same
+   * published data — flame, plume, flare, chaff. An empty list costs nothing. */
+  void SetSpriteDraws(const FBSpriteDraw *s, int count) { Sprites->SetSprites(s, count); }
+
+  /* The exhaust plane of a loaded type, model space, off the mesh — see FBUnitsStage::Nozzle. */
+  bool UnitNozzle(const char *type, float off[3], float &radiusM) const {
+    return Units->Nozzle(type, off, radiusM);
+  }
+
   /* count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb]. The pass subtracts
    * (eye - anchor) per frame, so it stays camera-relative without a re-upload. */
   void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
@@ -221,7 +230,8 @@ private:
   /* Streamed and placed by FBWorld; drawn after the terrain, depth-tested for occlusion. */
   std::unique_ptr<FBTileLightsStage> TileLights = std::make_unique<FBTileLightsStage>();
 
-  /* Units right after terrain, Sprites right before the HUD. FBSpritesStage is still NoOp. */
+  /* Units right after terrain, Sprites right before the HUD — the effects last, because they are
+   * additive/translucent and belong over everything solid in the scene. */
   std::unique_ptr<FBUnitsStage> Units = std::make_unique<FBUnitsStage>();
   std::unique_ptr<FBSpritesStage> Sprites = std::make_unique<FBSpritesStage>();
 

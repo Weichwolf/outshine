@@ -6,15 +6,15 @@
  * reaches each airframe the one legal way (fdm/FBFdmBoot) and flies it with the crudest controllers
  * that can hold a condition long enough to read a number off it.
  *
- * WHAT IT PRINTS, per row and per anchor: the published figure, what the deck does, the deviation in
- * percent, and the §7.1 band that deviation is judged against. A row every one of whose anchors is
- * inside its band is ACCEPTED and may answer a campaign question; a row outside stays ALPHA and may
- * fly in a mission and nothing more. THERE IS NO PRODUCTION FOR A CATALOGUE ROW: production is a word
- * about a MODULE, an airframe FlightBox is judged on.
+ * IT MEASURES AND IT DOES NOT JUDGE. What each number is expected to be — the published figure, its
+ * band, its source, its tier — is declared in test/modules/air/envelope.json and compared by
+ * tools/fb_test.py. That split is not decoration: while this file carried its own verdict, seven
+ * anchors sat outside their bands unseen because the exit code counted whether a number CAME INTO
+ * EXISTENCE (doc/testing.md §0). An expectation buried in a program can silently fail to gate.
  *
- * A MISSED ANCHOR IS A RESULT AND NOT A CRASH. Exit 0 = every anchor of every requested row was
- * MEASURED; 1 = a measurement could not be made at all; 2 = a model would not load. WIDENING A BAND TO
- * ADMIT A DECK IS THE ONE THING THIS HARNESS EXISTS TO PREVENT.
+ * Its whole product is one `[measure]` line per measurement. A measurement that cannot be made emits
+ * nothing and logs an error; the runner then reports the DECLARATION as unmeasured, which is where a
+ * hole belongs. Exit 0 = the harness ran; 2 = no such row.
  *
  *     build/fb-test-air-envelope [row ...]      (no argument = all ten deck rows) */
 #include <cmath>
@@ -31,7 +31,7 @@
 #include "FBUnits.h"
 
 using namespace FlightBox;
-using namespace FlightBox::Clients;
+using namespace FlightBox::Test;
 
 namespace {
 
@@ -172,30 +172,16 @@ double PullEntryKt(const FBAirAnchorRow &r, double gLimit, double altM) {
   return Clamp(tas * std::sqrt(rho / 1.225) * kMsToKt, 250.0, 650.0);
 }
 
-/* ---- Anchor bookkeeping. One row of recipe §7.1's table, per catalogue row. ---- */
+/* ---- The measurement stream. `args` in a declaration's `measure` block are these key=value fields,
+ * and a declaration matches the line whose fields all agree with it (doc/testing.md §2). ---- */
 
-struct Result {
-  const char *Id;
-  const char *What;
-  double Target, Measured, Band;
-  const char *Unit;
-  bool Ok;          /* the measurement was MADE */
-  bool Published;   /* the catalogue publishes a figure to judge it against */
-};
+void Emit(const char *key, const char *anchor, double value, const char *unit) {
+  std::printf("[measure] air-envelope row=%s anchor=%s value=%.6f unit=%s\n", key, anchor, value,
+              unit);
+}
 
-Result gRes[24];
-int gResN = 0;
-int gMeasureFailures = 0;
-int gOutsideBand = 0;   /* Anker ausserhalb ihres Bandes — das Urteil, das der Exit-Code tragen muss */
-
-void Record(const char *id, const char *what, double target, double measured, double band,
-            const char *unit, bool ok, bool published = true) {
-  if (gResN < 24) {
-    Result &r = gRes[gResN++];
-    r.Id = id; r.What = what; r.Target = target; r.Measured = measured; r.Band = band;
-    r.Unit = unit; r.Ok = ok; r.Published = published;
-  }
-  if (!ok) gMeasureFailures++;
+void Unmeasurable(const char *key, const char *anchor) {
+  FBLog::Error("air", "NOT_MEASURED", {{"row", std::string(key)}, {"anchor", std::string(anchor)}});
 }
 
 /* ================================ the measurements ================================ */
@@ -484,9 +470,8 @@ bool MeasureMass(const FBAirAnchorRow &r, double &deckKg) {
   return deckKg > 100.0;
 }
 
-int RunRow(const FBAirAnchorRow &r) {
-  gResN = 0;
-  int failuresBefore = gMeasureFailures;
+void RunRow(const FBAirAnchorRow &r) {
+  std::printf("[row] %s %s\n", r.Key, r.Name);
   double v = 0.0;
 
   /* NINE THOUSAND SECONDS, and the number is a MEASUREMENT: at the anchor the thrust curve and the
@@ -495,120 +480,51 @@ int RunRow(const FBAirAnchorRow &r) {
    * rows reported the Mach they had reached rather than the Mach they were heading for — su7 M 1.63
    * still accelerating, against an equilibrium of M 1.70 and an anchor of 1.74. The deck's own drag at
    * that point matches the recipe's inversion to 0.5 %; the miss was the clock. */
-  if (MeasureVmax(r, r.A1AltM, 400.0, 9000.0, v))
-    Record("A1", "Vmax at altitude", r.A1Mach, v, kBandVmaxAlt, "M", true);
-  else
-    Record("A1", "Vmax at altitude", r.A1Mach, 0.0, kBandVmaxAlt, "M", false);
+  if (MeasureVmax(r, r.A1AltM, 400.0, 9000.0, v)) Emit(r.Key, "A1", v, "M");
+  else Unmeasurable(r.Key, "A1");
 
-  if (r.A2Mach > 0.0) {
-    if (MeasureVmax(r, 100.0, 350.0, 3600.0, v))
-      Record("A2", "Vmax at sea level", r.A2Mach, v, kBandVmaxSl, "M", true);
-    else
-      Record("A2", "Vmax at sea level", r.A2Mach, 0.0, kBandVmaxSl, "M", false);
-  } else {
-    Record("A2", "Vmax at sea level [TODO in the catalogue]", 0.0, 0.0, kBandVmaxSl, "M", true, false);
-  }
+  if (MeasureVmax(r, 100.0, 350.0, 3600.0, v)) Emit(r.Key, "A2", v, "M");
+  else Unmeasurable(r.Key, "A2");
 
   double ceil = 0.0;
-  if (MeasureCeiling(r, ceil)) Record("A3", "service ceiling", r.A3CeilingM, ceil, kBandCeiling, "m", true);
-  else Record("A3", "service ceiling", r.A3CeilingM, 0.0, kBandCeiling, "m", false);
+  if (MeasureCeiling(r, ceil)) Emit(r.Key, "A3", ceil, "m");
+  else Unmeasurable(r.Key, "A3");
 
   double roc = 0.0;
-  bool rocOk = MeasureRoc(r, roc);
-  /* A4 IS JUDGED ONLY WHERE THE PUBLISHED FIGURE IS REACHABLE AT THE WEIGHT THE REST OF THE ANCHOR SET
-   * IS FLOWN AT (recipe R11, and the criterion is per row and computed, not a decree). Every other
-   * anchor here is quoted at the GROSS weight; the climb rates name no weight, and inverted against the
-   * row's own frozen thrust and its own polar three of them come out BELOW the row's own EMPTY weight —
-   * a figure no loading of that aeroplane can reach. Where the inverted weight is under gross the
-   * anchor constrains nothing and the harness says so instead of judging a deck against it. */
-  if (r.A4RocMs > 0.0 && r.A4WeightKg >= r.GrossKg)
-    Record("A4", "rate of climb at sea level", r.A4RocMs, roc, kBandRoc, "m/s", rocOk);
-  else if (r.A4RocMs > 0.0)
-    Record("A4", "rate of climb [PROBE: the published figure needs a lighter, unnamed weight]", 0.0,
-           roc, kBandRoc, "m/s", rocOk, false);
-  else
-    Record("A4", "rate of climb [the row publishes a TIME to height, not a rate]", 0.0, roc,
-           kBandRoc, "m/s", rocOk, false);
+  if (MeasureRoc(r, roc)) Emit(r.Key, "A4", roc, "m/s");
+  else Unmeasurable(r.Key, "A4");
 
   /* THE TWO PULLS ARE TWO CONDITIONS, and conflating them measures neither: the g limit binds at high
    * dynamic pressure and the ALPHA limit binds at low, so a single fast pull reports the g limit and an
    * alpha of 7 deg while claiming to have measured an alpha limit of 22. */
   double g = 0.0, alpha = 0.0, turn = 0.0, corner = 0.0;
-  bool pullOk = MeasurePull(r, g, alpha, turn, corner,
-                            PullEntryKt(r, r.A5G > 0.0 ? r.A5G : 7.0, 5000.0));
+  if (MeasurePull(r, g, alpha, turn, corner, PullEntryKt(r, r.A5G > 0.0 ? r.A5G : 7.0, 5000.0))) {
+    Emit(r.Key, "A5", g, "g");
+    Emit(r.Key, "TURN", turn, "deg/s");
+    Emit(r.Key, "CORNER", corner, "kt");
+  } else {
+    Unmeasurable(r.Key, "A5");
+  }
+
   double alphaSlow = 0.0;
-  bool slowOk = MeasureAlphaLimit(r, alphaSlow);
-  if (r.A5G > 0.0) Record("A5", "g held under the limiter (80 deg bank, full aft)", r.A5G, g, kBandG, "g", pullOk);
-  else Record("A5", "g held [A5 is [TODO]: the limiter is [SET] at 7.0]", 0.0, g, kBandG, "g",
-              pullOk, false);
-  Record("ALPHA", "alpha held under the limiter (idle decel, full aft)", r.AlphaLimitDeg, alphaSlow,
-         kBandAlpha, "deg", slowOk);
-  /* NO PUBLISHED TARGET EXISTS for any row's turn rate or corner speed. They are recipe step 7's
-   * MEASUREMENTS, they become this row's own FBPilot hooks, and they are DECLARED ACCEPTED MODEL
-   * PROPERTIES exactly as the MiG-29's 241 deg/s roll rate was. */
-  Record("TURN", "instantaneous turn rate at the limit", 0.0, turn, kBandTurnRate, "deg/s", pullOk, false);
-  Record("CORNER", "corner speed (the turn-rate maximum)", 0.0, corner, 0.0, "kt", pullOk, false);
+  if (MeasureAlphaLimit(r, alphaSlow)) Emit(r.Key, "ALPHA", alphaSlow, "deg");
+  else Unmeasurable(r.Key, "ALPHA");
 
   double pa = 0.0, pk = 0.0, ppeak = 0.0;
-  bool rollOk = MeasureRollPlant(r, pa, pk, ppeak);
-  Record("ROLL-A", "roll plant pole a at 10 Hz", 0.0, pa, 0.0, "-", rollOk, false);
-  Record("ROLL-K", "roll plant gain K (peak rate at full stick)", 0.0, pk, 0.0, "deg/s", rollOk, false);
-
-  if (r.TakeoffRunM > 0.0) {
-    double run = 0.0;
-    bool ok = MeasureTakeoff(r, run);
-    Record("TAKEOFF", "take-off ground run", r.TakeoffRunM, run, kBandTakeoff, "m", ok);
+  if (MeasureRollPlant(r, pa, pk, ppeak)) {
+    Emit(r.Key, "ROLL-A", pa, "-");
+    Emit(r.Key, "ROLL-K", pk, "deg/s");
   } else {
-    Record("TAKEOFF", "take-off ground run [not published for this row]", 0.0, 0.0, kBandTakeoff,
-           "m", true, false);
+    Unmeasurable(r.Key, "ROLL-A");
   }
+
+  double run = 0.0;
+  if (MeasureTakeoff(r, run)) Emit(r.Key, "TAKEOFF", run, "m");
+  else Unmeasurable(r.Key, "TAKEOFF");
 
   double deckKg = 0.0;
-  bool massOk = MeasureMass(r, deckKg);
-  double want = r.EmptyKg + r.FuelKg + 100.0;
-  Record("MASS", "deck mass empty + internal fuel + pilot", want, deckKg, kBandMass, "kg", massOk);
-
-  /* ---- the report ---- */
-  int outside = 0, judged = 0;
-  std::printf("\n=== %-6s %-22s (%d engine%s) ===\n", r.Key, r.Name, r.Engines,
-              r.Engines > 1 ? "s" : "");
-  std::printf("  %-8s %-52s %12s %12s %9s %8s %s\n", "id", "what", "published", "measured", "dev%",
-              "band%", "verdict");
-  for (int i = 0; i < gResN; i++) {
-    const Result &x = gRes[i];
-    if (!x.Ok) {
-      std::printf("  %-8s %-52s %12s %12s %9s %8s %s\n", x.Id, x.What, "-", "-", "-", "-",
-                  "NOT MEASURED");
-      FBLog::Error("air", "ANCHOR", {{"row", x.Id}, {"key", r.Key}, {"what", x.What},
-                                     {"measured", false}});
-      continue;
-    }
-    if (!x.Published || x.Target == 0.0) {
-      std::printf("  %-8s %-52s %12s %12.4f %9s %8s %s\n", x.Id, x.What, "-", x.Measured, "-", "-",
-                  "MEASURED");
-      FBLog::Info("air", "ANCHOR", {{"key", r.Key}, {"id", x.Id}, {"what", x.What},
-                                    {"measured", x.Measured}, {"unit", x.Unit}, {"published", false}});
-      continue;
-    }
-    double dev = (x.Measured - x.Target) / x.Target;
-    bool in = std::fabs(dev) <= x.Band;
-    judged++;
-    if (!in) outside++;
-    std::printf("  %-8s %-52s %12.4f %12.4f %+8.1f%% %7.0f%% %s\n", x.Id, x.What, x.Target,
-                x.Measured, 100.0 * dev, 100.0 * x.Band, in ? "in band" : "OUTSIDE");
-    FBLog::Info("air", "ANCHOR", {{"key", r.Key}, {"id", x.Id}, {"what", x.What},
-                                  {"target", x.Target}, {"measured", x.Measured},
-                                  {"unit", x.Unit}, {"devPct", 100.0 * dev},
-                                  {"bandPct", 100.0 * x.Band}, {"inBand", in}});
-  }
-  const char *promotion = outside == 0 ? "ACCEPTED" : "ALPHA";
-  std::printf("  -> %d of %d judged anchors outside their band: %s%s\n", outside, judged, promotion,
-              outside == 0 ? " (this row may answer a campaign question)"
-                           : " (this row may fly, and may NOT answer a campaign question)");
-  FBLog::Info("air", "PROMOTION", {{"key", r.Key}, {"outside", (double)outside},
-                                   {"judged", (double)judged}, {"level", std::string(promotion)}});
-  gOutsideBand += outside;
-  return gMeasureFailures - failuresBefore;
+  if (MeasureMass(r, deckKg)) Emit(r.Key, "MASS", deckKg, "kg");
+  else Unmeasurable(r.Key, "MASS");
 }
 
 } // namespace
@@ -617,28 +533,18 @@ int main(int argc, char **argv) {
   Clients::FBStdoutLogSink sink;
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Info);
-  int rows = 0, notMeasured = 0;
+  int rows = 0;
   for (const FBAirAnchorRow &r : kAirAnchors) {
     bool want = argc <= 1;
     for (int i = 1; i < argc && !want; i++) want = std::strcmp(argv[i], r.Key) == 0;
     if (!want) continue;
     rows++;
-    notMeasured += RunRow(r);
+    RunRow(r);
   }
   if (rows == 0) {
     std::fprintf(stderr, "fb-test-air-envelope: no such row\n");
     return 2;
   }
-  std::printf("\nfb-test-air-envelope: %d row(s), %d anchor(s) not measurable, %d OUTSIDE their band\n",
-              rows, notMeasured, gOutsideBand);
-  /* DER EXIT-CODE TRAEGT DAS URTEIL, nicht nur die Messbarkeit. Bis 2026-08-05 stand hier
-   * `notMeasured == 0 ? 0 : 1` — ein Deck, dessen JEDER Anker ausserhalb seines Bandes lag, gab 0
-   * zurueck, und "ausserhalb" aenderte allein ein gedrucktes Wort. [MESS] genau dadurch passierten
-   * fuenf von sechs vorsaetzlichen Modellzerstoerungen (transonischer Widerstandsanstieg geloescht,
-   * Traegheitstensor +100/-37 %, Nickdaempfung auf ein Fuenftel, Reifenreibung -60 %, Bugradeinschlag
-   * 80 -> 5 Grad) das gesamte Netz aus sieben Harnesses und 296 Missionen unbemerkt. Ein Tor, das nur
-   * zaehlt, ob eine Zahl ENTSTAND, ist kein Tor.
-   * Eine Zeile, die wissentlich ALPHA ist, muss das kuenftig in ihrer Ankertabelle DEKLARIEREN;
-   * stillschweigend danebenliegen darf sie nicht mehr. */
-  return (notMeasured == 0 && gOutsideBand == 0) ? 0 : 1;
+  std::printf("fb-test-air-envelope: %d row(s) measured\n", rows);
+  return 0;
 }

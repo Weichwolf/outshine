@@ -23,13 +23,16 @@
 #                 -> build/fb-test-weather
 #   make test-mig29  measure the FlightBox MiG-29 model against every envelope anchor of
 #                 doc/mig29/flight-model-spec.md §8 -> build/fb-test-mig29-envelope
-#   make test-air  measure every GENERATED catalogue deck against its eight published anchors and the
-#                 deviation bands of doc/modules/air/flight-model-recipe.md §7.1
-#                 -> build/fb-test-air-envelope
+#   make test-air  build the catalogue-deck harness AND judge every declaration in
+#                 test/modules/air/envelope.json against its band -> build/fb-test-air-envelope
 #   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
 #                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
 #   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
 #                 "Kein Cheaten"-Regeln and the Core-Lib boundary as a machine-checked matrix
+#   make verify-trees  doc/ (what we want), src/ (what we can) and test/ (what we prove) carry the
+#                 same directory tree -- an orphan is a named hole
+#   make verify-tests  run every DECLARATION under test/ (doc/testing.md §2): the harness measures,
+#                 tools/fb_test.py compares against the declared band
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -164,7 +167,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-guards image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-trees verify-tests verify-guards image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -285,19 +288,19 @@ gym: core-lib    ## build the headless mission client (Mission in, Telemetrie ra
 
 test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> build/fb-test-hard-landing, build/fb-test-loc-departure
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestHardLanding.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/core/FBTestHardLanding.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-hard-landing; \
-	  c++ src/clients/FBTestLocDeparture.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/core/FBTestLocDeparture.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-loc-departure; \
-	  c++ src/clients/FBTestNanDivergence.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/core/FBTestNanDivergence.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -307,7 +310,7 @@ test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> 
 
 test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-unit stage 1) -> build/fb-test-two-fdm
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestTwoFdm.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/fdm/FBTestTwoFdm.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -317,7 +320,7 @@ test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-
 
 test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy reference) -> build/fb-test-corner-speed
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestCornerSpeed.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/modules/f16/FBTestCornerSpeed.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -327,7 +330,7 @@ test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy
 
 test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f16/weapons.md -> build/fb-test-gun
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestGun.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/weapons/FBTestGun.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -337,7 +340,7 @@ test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f
 
 test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixture -> build/fb-test-weather
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestWeather.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/core/FBTestWeather.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -347,7 +350,7 @@ test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixt
 
 test-mig29: core-lib     ## measure the FlightBox MiG-29 model against the spec §8 envelope anchors -> build/fb-test-mig29-envelope
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestMig29Envelope.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/modules/mig29/FBTestMig29Envelope.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -355,19 +358,23 @@ test-mig29: core-lib     ## measure the FlightBox MiG-29 model against the spec 
 	    -o build/fb-test-mig29-envelope; \
 	  echo "test-mig29 -> build/fb-test-mig29-envelope"
 
-test-air: core-lib       ## measure every generated catalogue deck against its eight published anchors -> build/fb-test-air-envelope
+# BUILD AND JUDGE, unlike its nine siblings, which only build. The harness itself no longer carries a
+# verdict — it measures and prints, and tools/fb_test.py compares against test/modules/air/envelope.json
+# — so a target that stopped at the link would report nothing at all.
+test-air: core-lib       ## build the air harness and judge every declaration under test/modules/air
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestAirEnvelope.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/modules/air/FBTestAirEnvelope.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
 	    -lpthread -ldl -lm \
 	    -o build/fb-test-air-envelope; \
 	  echo "test-air -> build/fb-test-air-envelope"
+	@cd $(SELF_DIR) && python3 tools/fb_test.py --harness air-envelope
 
 test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/clients/FBTestMissileAirframe.cpp src/clients/FBLogSinks.cpp \
+	  c++ test/modules/missile/FBTestMissileAirframe.cpp src/clients/FBLogSinks.cpp \
 	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
 	    -std=c++17 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
@@ -389,7 +396,18 @@ verify-models:   ## check assets/aircraft against the pinned submodule + assets/
 verify-guards:   ## prove the compile-time guarantees by trying to break them (tools/verify_guards.sh)
 	@cd $(SELF_DIR); bash tools/verify_guards.sh "$(INC_CORELIB) -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim"
 
-verify-layers:   ## check src/ against the layer matrix in tools/verify_layers.py
+# The TRIAD gate: doc/ = what we want, src/ = what we can, test/ = what we prove, and the three carry
+# the same directory tree. Same reasoning as its two siblings for not being a build prerequisite.
+verify-trees:    ## check that doc/, src/ and test/ carry the same directory tree
+	@cd $(SELF_DIR) && python3 tools/verify_trees.py
+
+# THE ASSERTIVE NET. The harnesses only measure; every expectation is a declaration under test/ and the
+# comparison happens here (doc/testing.md §2). Separate from the test-* targets because those BUILD and
+# this one FLIES: a full run is minutes of simulated envelope work.
+verify-tests:    ## judge every declaration under test/ against its band (harness binaries must exist)
+	@cd $(SELF_DIR) && python3 tools/fb_test.py
+
+verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
 
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)

@@ -658,7 +658,7 @@ measurement moved.
 |---|---|
 | `sim/assets/aircraft/mig29/mig29.xml` + `engine/RD-33.xml` + `engine/RD-33-nozzle.xml` + `reset00.xml` | **built**, `release="ALPHA"` |
 | `sim/assets/MODEL-DELTAS.md` | declares `mig29` as FlightBox-own (no upstream, so no delta block); `make -C sim verify-models` green |
-| `sim/src/clients/FBTestMig29Envelope.cpp` + `make -C sim test-mig29` | **built** — loads the deck through `FBFdmBoot` and measures 22 anchors; two identical runs are byte-identical |
+| `sim/test/modules/mig29/FBTestMig29Envelope.cpp` + `make -C sim test-mig29` | **built** — loads the deck through `FBFdmBoot` and measures 22 anchors; two identical runs are byte-identical |
 | module / registry / missions | **not built** — stage 2/3 |
 
 ### The measured anchor table (`make -C sim test-mig29`, 2026-07-28)

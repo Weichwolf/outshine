@@ -5,6 +5,7 @@
 #include "FBCamera.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
+#include "FBStore.h"
 #include "FBUnit.h"
 #include "FBUnitRegistry.h"
 #include "FBUnits.h"
@@ -287,26 +288,222 @@ void FBWorld::CountTargets(int z, long x, long y, const double eye[3], int &tota
   if (idx >= 0 && Ready(Nodes[idx])) ready++;
 }
 
+/* ---- THE EFFECTS ------------------------------------------------------------------------------
+ * Every number below is a RENDERING quantity and is marked [SET]: the simulation publishes an
+ * afterburner BIT, a cartridge's bloom TIME and a motor's burn TIME, and says nothing whatever about
+ * how long a plume looks or how wide a chaff cloud gets. What is NOT set here is every quantity the
+ * simulation does publish — the burn window comes from the store catalogue, the flare's intensity
+ * history from core/FBCountermeasure.h's own curve, the nozzle from the mesh.
+ * Sizes are metres and brightnesses are radiance: doc/render/units-visual.md §9. */
+static const float kFlamePlumeLenPerRadius = 11.0f;    /* [SET] visible AB plume vs nozzle exit radius */
+static const float kFlameWidthPerRadius = 0.95f;      /* [SET] the efflux necks slightly at the petals */
+static const float kFlameGain = 1.0f;                 /* [SET] scale on the shader's own flame radiance ramp */
+static const float kMotorHalfLenM = 2.5f;             /* [SET] a boosting rocket's visible flame */
+static const float kMotorRadiusM = 0.55f;             /* [SET] */
+static const float kMotorGain = 1.7f;                 /* [SET] a solid motor outshines a turbine's plume */
+static const double kSmokeLifeS = 20.0;               /* [SET] a trail segment from lay to gone */
+static const double kTrailStepM = 250.0;              /* [SET] crumb spacing: kMaxCrumbs of these span 24 km */
+static const size_t kMaxCrumbs = 96;                  /* [SET] bounded memory per burning round */
+static const float kSmokeR0M = 1.0f, kSmokeRMaxM = 16.0f;   /* [SET] dispersion of a trail segment */
+static const float kSmokeAlpha0 = 0.80f;              /* [SET] freshly laid opacity */
+static const float kSmokeRadiance = 1.2f;             /* [SET] sunlit white smoke, the terrain's own level */
+static const float kFlareRadiusM = 4.5f;              /* [SET] the LUMINOUS ball: the grain is centimetres, what an eye sees is the glow around it */
+static const float kFlareGain = 1.0f;                 /* [SET] scale on the shader's core+halo radiance */
+static const float kChaffR0M = 0.6f, kChaffRMaxM = 18.0f;   /* [SET] a dipole cloud dispersing */
+static const float kChaffAlpha = 0.45f;               /* [SET] peak opacity of the bloomed bundle */
+static const size_t kMaxSpriteDraws = 512;            /* mirrors FBSpritesStage's own instance cap */
+
+FBWorld::UnitFx &FBWorld::Fx(int id) {
+  for (UnitFx &f : Fx_)
+    if (f.Id == id) { f.Touch = Pass; return f; }
+  UnitFx f;
+  f.Id = id;
+  f.Touch = Pass;
+  f.FirstSeenS = SimTimeS_;
+  Fx_.push_back(f);
+  return Fx_.back();
+}
+
+/* WHAT THIS UNIT IS DOING THAT AN EYE WOULD SEE, and every input is something the unit itself
+ * published. Nothing here can write back: an FBSpriteDraw carries no simulation type, exactly like the
+ * FBUnitDraw beside it. */
+void FBWorld::AddUnitEffects(const Units::FBUnit &u, const Units::FBUnitSignature &sig, const double ecef[3],
+                             const double fwd[3], const double right[3], const double up[3], bool isEye) {
+  if (SpriteDraws_.size() >= kMaxSpriteDraws) return;
+
+  /* 1 — THE NOZZLE. The bit is `Afterburner`, published off the ENGINE (units/FBSimUnit), and it is
+   * the whole visible difference: an F-16 at military power shows no flame at all, in augmentation it
+   * shows several metres of one. Nothing finer is published, so nothing finer is drawn. Never for the
+   * eye unit: its own nozzle is six metres behind the camera. */
+  float nzOff[3], nzRad = 0.0f;
+  if (!isEye && sig.Afterburner && sig.Visual.TypeName[0] && R &&
+      R->UnitNozzle(sig.Visual.TypeName, nzOff, nzRad) && nzRad > 0.0f) {
+    /* Model space is glTF (+X right, +Y up, +Z aft), so the exhaust axis is -fwd and the offset rides
+     * the very basis the airframe itself is drawn with — FBCameraBasisEcef's, borrowed, not rebuilt. */
+    const float halfLen = 0.5f * kFlamePlumeLenPerRadius * nzRad;
+    Render::FBSpriteDraw s;
+    for (int i = 0; i < 3; i++) {
+      const double ex = right[i] * nzOff[0] + up[i] * nzOff[1] - fwd[i] * nzOff[2];
+      s.Ecef[i] = ecef[i] + ex - fwd[i] * (double)halfLen;
+      s.Axis[i] = -(float)fwd[i];
+    }
+    s.HalfLenM = halfLen;
+    s.RadiusM = kFlameWidthPerRadius * nzRad;
+    s.Color[0] = s.Color[1] = s.Color[2] = kFlameGain;
+    s.Alpha = 0.0f;
+    s.Param = 1.0f;   /* the shock train a choked convergent-divergent nozzle shows */
+    s.Kind = (uint32_t)Render::FBSpriteKind::Flame;
+    SpriteDraws_.push_back(s);
+  }
+
+  if (!HaveSimTime_) return;   /* no clock, no age — and every effect below is an age */
+
+  /* 2 — THE ROUND. A weapon unit's motor burns for exactly as long as the CATALOGUE says its type
+   * burns (core/FBStore.h Perf.BoostS + SustainS), counted from the frame the round first appeared —
+   * which is the frame it was created in, because a released store becomes a unit at launch. */
+  if (u.GetKind() == Units::FBUnitKind::Weapon) {
+    double motorS = 0.0;
+    if (const FBStoreSpec *spec = FBFindStore(sig.Visual.TypeName))
+      motorS = spec->Perf.BoostS + spec->Perf.SustainS;
+    AddSmokeTrail(u, ecef, motorS);
+    const UnitFx &fx = Fx(u.GetId());
+    if (motorS > 0.0 && SimTimeS_ - fx.FirstSeenS < motorS && SpriteDraws_.size() < kMaxSpriteDraws) {
+      /* No round publishes a LENGTH (a missile module declares no damage layout), so the flame hangs
+       * at the unit's own origin rather than at an invented tail station — below its own radius at any
+       * range a round is seen from. */
+      Render::FBSpriteDraw s;
+      for (int i = 0; i < 3; i++) {
+        s.Ecef[i] = ecef[i] - fwd[i] * (double)kMotorHalfLenM;
+        s.Axis[i] = -(float)fwd[i];
+      }
+      s.HalfLenM = kMotorHalfLenM;
+      s.RadiusM = kMotorRadiusM;
+      s.Color[0] = kMotorGain; s.Color[1] = kMotorGain * 1.15f; s.Color[2] = kMotorGain * 1.4f;   /* a rocket burns whiter than a turbine */
+      s.Param = 0.5f;
+      s.Kind = (uint32_t)Render::FBSpriteKind::Flame;
+      SpriteDraws_.push_back(s);
+    }
+  }
+
+  /* 3 — THE EXPENDABLES. Position and bloom time are published per cartridge; the AGE CURVES are the
+   * simulation's own free functions, not a second opinion — a flare's radiometric history is the same
+   * combustion whether a seeker or an eye is looking at it, and a chaff bundle is not a cloud before
+   * it blooms for the eye either. */
+  for (int i = 0; i < kMaxFlareClouds && SpriteDraws_.size() < kMaxSpriteDraws; i++) {
+    const FBFlareCloud &f = sig.Flare[i];
+    if (!f.Active) continue;
+    const double n = FBFlareIrNorm(SimTimeS_ - f.BloomS);
+    if (n <= 0.0) continue;
+    Render::FBSpriteDraw s;
+    FBGeoToEcef(f.LatDeg, f.LonDeg, f.AltM, s.Ecef);
+    s.HalfLenM = s.RadiusM = kFlareRadiusM;
+    s.Color[0] = s.Color[1] = s.Color[2] = kFlareGain * (float)n;
+    s.Kind = (uint32_t)Render::FBSpriteKind::Flare;
+    SpriteDraws_.push_back(s);
+  }
+  for (int i = 0; i < kMaxChaffClouds && SpriteDraws_.size() < kMaxSpriteDraws; i++) {
+    const FBChaffCloud &c = sig.Chaff[i];
+    if (!c.Active) continue;
+    const double age = SimTimeS_ - c.BloomS;
+    const double n = FBChaffRcsNorm(age);
+    if (n <= 0.0) continue;
+    const float grow = (float)std::sqrt(age / kChaffLifeS);
+    Render::FBSpriteDraw s;
+    FBGeoToEcef(c.LatDeg, c.LonDeg, c.AltM, s.Ecef);
+    s.HalfLenM = s.RadiusM = kChaffR0M + (kChaffRMaxM - kChaffR0M) * grow;
+    s.Alpha = kChaffAlpha * (float)n;
+    for (int k = 0; k < 3; k++) s.Color[k] = kSmokeRadiance * s.Alpha;   /* premultiplied */
+    s.Param = 0.6f;
+    s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
+    SpriteDraws_.push_back(s);
+  }
+}
+
+/* THE TRAIL, and it is a memory of PUBLISHED POSES: a crumb is laid where the round was seen while its
+ * motor was burning, and the segment between two crumbs is drawn until it has dispersed. The renderer
+ * integrates nothing — without the crumbs a pose alone cannot say where the round has been. */
+void FBWorld::AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double motorS) {
+  UnitFx &fx = Fx(u.GetId());
+  const bool burning = motorS > 0.0 && SimTimeS_ - fx.FirstSeenS < motorS;
+  if (burning) {
+    bool lay = fx.Trail.empty();
+    if (!lay) {
+      const FxCrumb &last = fx.Trail.back();
+      double d2 = 0.0;
+      for (int i = 0; i < 3; i++) { const double dx = ecef[i] - last.Ecef[i]; d2 += dx * dx; }
+      lay = d2 > kTrailStepM * kTrailStepM;
+    }
+    if (lay) {
+      FxCrumb c;
+      for (int i = 0; i < 3; i++) c.Ecef[i] = ecef[i];
+      c.T = SimTimeS_;
+      fx.Trail.push_back(c);
+      if (fx.Trail.size() > kMaxCrumbs) fx.Trail.erase(fx.Trail.begin());
+    }
+  }
+  while (!fx.Trail.empty() && SimTimeS_ - fx.Trail.front().T > kSmokeLifeS) fx.Trail.erase(fx.Trail.begin());
+  if (fx.Trail.size() < 2) return;
+
+  /* The head of the trail follows the round itself while the motor burns, so the plume stays attached
+   * instead of ending one crumb behind. */
+  for (size_t i = 0; i + 1 < fx.Trail.size() + (burning ? 1 : 0); i++) {
+    if (SpriteDraws_.size() >= kMaxSpriteDraws) return;
+    const FxCrumb &a = fx.Trail[i];
+    const double *b = (i + 1 < fx.Trail.size()) ? fx.Trail[i + 1].Ecef : ecef;
+    double seg[3];
+    double len2 = 0.0;
+    for (int k = 0; k < 3; k++) { seg[k] = b[k] - a.Ecef[k]; len2 += seg[k] * seg[k]; }
+    const double len = std::sqrt(len2);
+    if (len < 1.0) continue;
+    const double age = SimTimeS_ - a.T;
+    const double life = age / kSmokeLifeS;
+    if (life >= 1.0) continue;
+    Render::FBSpriteDraw s;
+    for (int k = 0; k < 3; k++) {
+      s.Ecef[k] = a.Ecef[k] + 0.5 * seg[k];
+      s.Axis[k] = (float)(seg[k] / len);
+    }
+    s.RadiusM = kSmokeR0M + (kSmokeRMaxM - kSmokeR0M) * (float)std::sqrt(life);
+    /* Half a radius of overlap at each end: neighbouring segments then BUTT rather than bead, which is
+     * what the first trail frame showed at every join (measured: a 5 px notch at 2.5 km). */
+    s.HalfLenM = (float)(0.5 * len) + 0.5f * s.RadiusM;
+    s.Alpha = kSmokeAlpha0 * (float)((1.0 - life) * (1.0 - life));
+    for (int k = 0; k < 3; k++) s.Color[k] = kSmokeRadiance * s.Alpha;   /* premultiplied */
+    s.Param = 0.35f;
+    s.Kind = (uint32_t)Render::FBSpriteKind::Smoke;
+    SpriteDraws_.push_back(s);
+  }
+}
+
 /* THE ONE PLACE the picture reads the cast, and it reads nothing but the PUBLISHED pose — the barrier
  * units/FBSimUnit::PublishPose sets, never a foreign FDM. Nothing is written back: the record is a
  * value copy, and FBUnitDraw carries no simulation type at all, so there is no handle to write through.
  * doc/render/units-visual.md, Spec. */
 void FBWorld::PublishUnits() {
   UnitDraws_.clear();
+  SpriteDraws_.clear();
   if (!R) return;
   if (Units_) {
     for (const Units::FBUnit *u : Units_->Units()) {
-      if (!u || u->GetId() == EyeUnitId_) continue;
+      if (!u) continue;
       const Units::FBUnitSignature sig = u->GetSignature();
-      if (!sig.Visual.TypeName[0]) continue;   /* nothing published to look at: no model, no draw */
       const Units::FBUnitPose p = u->GetPose();
-      Render::FBUnitDraw d;
-      FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, d.Ecef);
+      double ecef[3];
+      FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, ecef);
       /* The airframe's own axes in ECEF, from the same function the camera uses — so a jet drawn at a
        * pose and a camera placed at that pose cannot disagree. glTF is +X right, +Y up, -Z forward. */
       double fwd[3], right[3], up[3];
       FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
+      const bool isEye = u->GetId() == EyeUnitId_;
+      /* THE EFFECTS COME FIRST and they are drawn for the EYE UNIT TOO: its own flares fall behind it
+       * and are in the picture the moment it turns, while its airframe (below) is the one thing the
+       * camera may not draw, because the eye sits inside it. */
+      AddUnitEffects(*u, sig, ecef, fwd, right, up, isEye);
+      if (isEye) continue;
+      if (!sig.Visual.TypeName[0]) continue;   /* nothing published to look at: no model, no draw */
+      Render::FBUnitDraw d;
       for (int i = 0; i < 3; i++) {
+        d.Ecef[i] = ecef[i];
         d.Rot[0 * 3 + i] = (float)right[i];
         d.Rot[1 * 3 + i] = (float)up[i];
         d.Rot[2 * 3 + i] = -(float)fwd[i];
@@ -327,6 +524,16 @@ void FBWorld::PublishUnits() {
     }
   }
   R->SetUnitDraws(UnitDraws_.data(), (int)UnitDraws_.size());
+  R->SetSpriteDraws(SpriteDraws_.data(), (int)SpriteDraws_.size());
+
+  /* A unit that stopped being published takes its trail with it after the grace pass — the memory is
+   * only ever a memory OF a published pose, so it may not outlive the publication by more than the
+   * frame it takes to notice. */
+  for (size_t i = 0; i < Fx_.size();) {
+    if (Fx_[i].Touch + 2 >= Pass) { i++; continue; }
+    Fx_[i] = std::move(Fx_.back());
+    Fx_.pop_back();
+  }
 }
 
 void FBWorld::Update(double camLat, double camLon, const double eyeEcef[3], const double fwdEcef[3],

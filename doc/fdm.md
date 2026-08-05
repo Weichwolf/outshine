@@ -2,7 +2,7 @@
 
 **Sources of this file:** the comment banners of the seven files in `sim/src/fdm/`
 (`FBFdm.h`, `FBFdm.cpp`, `FBFdmBoot.h`, `FBFdmBoot.cpp`, `FBFdmTelemetrySource.h/.cpp`, `em_compat.h`),
-`sim/src/clients/FBTestTwoFdm.cpp` (the coexistence proof), `sim/src/core/FBDamageModel.h` (the
+`sim/test/fdm/FBTestTwoFdm.cpp` (the coexistence proof), `sim/src/core/FBDamageModel.h` (the
 consequence constants) and CLAUDE.md. Numbers without a source reference are in the code as written;
 derivations are marked as such, settings with `[SET]`.
 
@@ -145,7 +145,7 @@ into NED/ENU and says so in the comment.
 independent physics; every `FGFDMExec(nullptr)` allocates its **own** `SGPropertyNode` root and its own
 FDM counter. No static mutable globals in the adapter (grep-verifiable).
 
-**Proof:** `make -C sim test-fdm` → `build/fb-test-two-fdm` (`clients/FBTestTwoFdm.cpp`). The harness
+**Proof:** `make -C sim test-fdm` → `build/fb-test-two-fdm` (`test/fdm/FBTestTwoFdm.cpp`). The harness
 claims three things and checks them:
 
 1. two airframes load and trim independently (two `FGFDMExec`, each with its own property tree);

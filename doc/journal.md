@@ -4208,3 +4208,96 @@ eingebettet). emcc verbietet `--embed` und `--preload` im selben Build, also sin
 und Mond gemeinsam auf Preload gewechselt; die virtuellen Pfade sind unverändert. Lazy-Fetch je Stufe,
 Netzkompression und der Verzicht auf `L0` (8,3 der 12,3 MB, 0,12–0,24 % Silhouetten-XOR) stehen als
 Lücke 6.
+
+## 2026-08-05 — Es raucht, es brennt, es blitzt: `FBSpritesStage` zeichnet
+
+`FBSpritesStage` war seit seiner Anlage NoOp — die Jets waren seit gestern sichtbar, aber kein
+Nachbrenner, keine Raketenfahne, keine Fackel. Gebaut, alles unter `render/` und `world/`:
+
+**EIN instanzierter Draw für alle Effekte des Frames**, im Sprites-Slot desselben Szenen-Passes.
+Premultiplied, damit `alpha = 0` dieselbe Blend-Gleichung REIN ADDITIV macht — deshalb trägt eine
+Pipeline die Strahler und den Rauch. Der Quad wird im SCHIRMRAUM um die Projektion seiner beiden
+Endpunkte gebaut, also ist ein Fahnensegment ein gestreckter Billboard und eine Fackel derselbe Quad
+mit gleichen Seiten. Drei Fragmentprofile: Flamme (Zunge mit Stoßzellen), Fackel (Kern + Halo),
+Rauch (Kapsel).
+
+**Jede Sim-Größe wird GELESEN, jede Bild-Größe ist `[SET]` und trägt die Marke.** Nachbrennerbit aus
+der Signatur, Kartuschen samt ihren EIGENEN Alterskurven (`FBFlareIrNorm`/`FBChaffRcsNorm` — eine
+Verbrennung, nicht zwei), die Brennzeit aus dem STORE-KATALOG über den publizierten Typschlüssel
+(AIM-120: 3,0 s Boost + 7,7 s Sustain = 10,7 s; [MESS] Flamme t = 138,6…148,5, aus bei 149,6 auf einem
+1,1-s-Raster), und die Düse aus dem NETZ selbst.
+
+**Die Flamme hängt an der Düse, und das ist nachgerechnet.** `nozzleZ = 6,17209 / nozzleRadM = 0,534732`
+aus den `nozzle*`-Knoten, unabhängig aus `f16_L0.glb` reproduziert. Die Projektion rückwärts invertiert:
+Modellursprung und Fahnenwurzel liegen **6,1722 m** auseinander, die Düsenstation des Netzes ist
+`|(0, −0,0326, 6,1721)| = 6,1722 m`.
+
+**Farbe ist Radiance, und der Tonemap entscheidet.** Die erste Flamme war ein WEISSER KLUMPEN
+(gemessen: 255/255/255 über 75 % der Fahne) — die ACES-Kurve erreicht 231/255 schon bei Radiance 1,0.
+Sättigung muss also im VERHÄLTNIS liegen: (6,0 / 2,2 / 0,9) am Kern, (0,9 / 0,06 / 0,04) an der Spitze,
+geometrisch interpoliert.
+
+**Der Sub-Pixel-Boden ist ein GEWINN, keine Größe — und das ist das Anti-Cheat-Tor.** Boden 0,7072 px
+ist HERGELEITET (√2/2 ist der größte Abstand zum nächsten Pixelmittelpunkt), die Energie wird achsweise
+wieder herausgeteilt, und unterhalb voller Auflösung ersetzt das Fragment sein Profil durch dessen
+INTEGRAL (vier numerisch integrierte Mittel). Vorher blinkte eine Fahne (672 m → 0 px, 896 m → 1 px bei
+95/255), nachher fällt sie monoton: 59 m → 171 px, 479 m → 4, 1142 m → 2. **Und der harte Fall: ein Jet
+in vollem Nachbrenner auf 98,4 km ändert NULL Pixel** — das Frame ist bitgleich zum Vor-Runden-Binary.
+
+**Kosten null, wenn nichts da ist:** `payerne-full.fbm` `[render sprites] cast=0 drawn=0`, `passes=6`,
+drei PNGs bitgleich zum Vor-Runden-Binary.
+
+**Die Simulation hat sich nicht bewegt, und das ist stärker als eine Regression:** `build/fb-gym` ist
+BYTEGLEICH zum Vor-Runden-Binary (`78e21a48…`, auch nach erzwungenem Neubau) — kein Core-Lib-Verzeichnis
+wurde angefasst, also ist der 296-Missionen-Lauf dasselbe File mit derselben deterministischen Ausgabe.
+Empirisch gegengeprüft: `gpu_native --mission bvr-duel.fbm` schreibt bytegleiche Telemetrie vor und nach
+der Runde, `--threads 1/2/4` stimmen überein.
+
+**Tore:** `make native`, `make wasm`, `make gym` (0 Dawn-Symbole), `verify-layers` (6 Wahrnehmungsleser,
+1 zeichnende Ansicht — unverändert), `verify-guards` 8/8, `verify-models` grün, Frame-Beweise oben,
+vendor unangetastet, keine Commits.
+
+**Offen, selbst benannt:** die Fahne eines Jets ist das Nachbrennerbit und nichts Feineres (es gibt
+keine publizierte Triebwerksleistung); der Rauch kennt die Sonne nicht; im Orakel ist die Fahnen-
+auflösung das Screenshot-Intervall; `aim120.glb` fehlt, ein Flugkörper IST heute seine Fahne.
+
+## 2026-08-05 — Der Dreiklang wird ein Werkzeug: `test/` existiert, und eine Erwartung ist ein Datum
+
+**Ein Prüfer zuerst, weil eine Regel ohne Prüfer eine Absicht ist.** `sim/tools/verify_trees.py` +
+`make -C sim verify-trees` vergleicht `doc/`, `sim/src/` und `sim/test/` und DRUCKT: Verzeichniszahl je
+Baum, jede Waise mit Namen und Art (`MISSING` / `LEAF` = ein `.md`, wo ein Verzeichnis stehen muss /
+`EXTRA`). Vorher **24 Waisen** bei `test/ = 0 Verzeichnisse`; nach dem Umzug **20** (9 / 8 / 3). Rot,
+und es sagt warum — das ist der fertige Zustand dieses Schritts, nicht sein Fehlschlag.
+
+**Zehn Harnesses ziehen neben das, was sie beurteilen.** `test/core/` (drei Monitor-Beweise + der
+Wetter-Spiegel), `test/fdm/`, `test/weapons/`, `test/modules/{f16,mig29,air,missile}/`. Namensraum
+`FlightBox::Test`, Rang 12 in `verify_layers.py` (das jetzt beide Bäume liest: 343 Dateien, 13
+Schichten) — ein Harness darf alles erreichen, nichts darf einen Harness erreichen. **Der Differenztest
+gegen sich selbst: neun von neun verschobenen Harnesses liefern BYTEGLEICHE Ausgabe.**
+
+**Und dann die Form: die Erwartung verlässt das Programm.** `FBTestAirEnvelope` misst nur noch und
+druckt `[measure] air-envelope row=f15c anchor=A1 value=2.468210 unit=M`; die 120 Deklarationen stehen
+in `test/modules/air/envelope.json` (59 gating `tier A`, 61 `tier B` ohne publizierte Zahl — ein
+SICHTBARES Loch), erzeugt von `gen_air_decks.py --tests` aus derselben Ankertabelle wie die Decks;
+`tools/fb_test.py` vergleicht. **Die Zahl bleibt sieben** — dieselben sieben Anker, dieselben Werte,
+dieselben Abweichungen. Von 120 Messungen sind **111 bitgleich** zur selbstrichtenden Fassung; die
+neun anderen wurden vorher gar nicht erst gemessen (Startrollstrecke der sieben Zeilen ohne publizierte
+Zahl, Vmax SL von `mirf1`/`f5e`), weil „publiziert die Quelle das?" eine Eigenschaft der ERWARTUNG ist
+und nicht des Fluges.
+
+**Das Tor selbst negativ geprüft:** drei eingebaute Defekte in einer Kopie der Deklarationen — ein Band
+auf 3,9 M verstellt, ein `args`, das auf keine Messung passt, ein `subject`, das lügt — ergeben
+`8 OUTSIDE, 1 unmeasured, 1 structural`. Der Läufer sieht alle drei.
+
+**Wo das Urteil jetzt wohnt:** `make -C sim test-air` baut UND richtet (rot, 7 benannt);
+`build/fb-test-air-envelope` gibt 0 zurück, weil es nichts mehr behauptet. Wer den rc des Binaries las,
+liest ab jetzt das Make-Ziel.
+
+**Tore:** neun Harnesses bytegleich, `test-air` rot mit 7, `verify-layers` (6 Wahrnehmungsleser, 1
+zeichnende Ansicht, 1 Tick-Treiber — unverändert), `verify-guards` 8/8, `verify-models` grün,
+`make gym`/`native`/`wasm` bauen, vendor unangetastet, keine Commits.
+
+**Offen, selbst benannt:** neun Harnesses tragen ihr Urteil weiter im Code; 20 von 21 Quellverzeichnissen
+haben keine `tier: A`-Deklaration; die sieben Anker sind ungelesen (vier davon A3 in beide Richtungen,
+was auf die Steigschema-Suche zeigt und nicht auf vier Decks); `CLAUDE.md` nennt die neuen Ziele noch
+nicht und ist nachzuführen.

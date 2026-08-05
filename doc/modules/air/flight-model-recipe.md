@@ -17,9 +17,12 @@ decks are provably what the recipe produces; a hand edit to a generated deck is 
 **Every one of the ten rows is `ALPHA`**: `## State
 
 **BUILT and MEASURED.** `tools/gen_air_decks.py` (the recipe, executable) + `tools/gen_air_stores.py`
-(the seven rounds) + `make -C sim test-air` (`clients/FBTestAirEnvelope.cpp`, the anchor harness
-parameterised by row) + `src/clients/FBAirAnchors.h` (generated from the same anchor table the decks come
-from, so the harness and the recipe cannot drift).
+(the seven rounds) + `make -C sim test-air` (`test/modules/air/FBTestAirEnvelope.cpp`, the anchor harness
+parameterised by row) + `test/modules/air/envelope.json` (the 120 DECLARATIONS — 59 gating — that
+judge it, and `test/modules/air/FBAirAnchors.h`, the flight parameters it needs; both written by the
+same generator from the same anchor table the decks come from, so the harness, the recipe and the
+expectation cannot drift). The harness measures and prints; `tools/fb_test.py` compares
+([`../../testing.md`](../../testing.md) §2).
 
 **THE RESIDUAL TABLE, ten rows, measured 2026-07-28** (`make -C sim test-air`, 96 s, 0 anchors
 unmeasurable). Deviation in per cent; **bold** = outside its §7.1 band; `probe` = measured but not
@@ -401,9 +404,12 @@ Two readings of that table, both of which have to be said:
 ## State
 
 **BUILT.** `tools/gen_air_decks.py` (the recipe, executable) + `tools/gen_air_stores.py` (the seven
-rounds) + `make -C sim test-air` (`clients/FBTestAirEnvelope.cpp`, the anchor harness parameterised by
-row) + `src/clients/FBAirAnchors.h` (generated from the same anchor table the decks come from, so the
-harness and the recipe cannot drift).
+rounds) + `make -C sim test-air` (`test/modules/air/FBTestAirEnvelope.cpp`, the anchor harness parameterised by
+row) + `test/modules/air/envelope.json` (the 120 DECLARATIONS — 59 gating — that judge it, and
+`test/modules/air/FBAirAnchors.h`, the flight parameters it needs; both written by the same
+generator from the same anchor table the decks come from, so the harness, the recipe and the
+expectation cannot drift). The harness measures and prints; `tools/fb_test.py` compares
+([`../../testing.md`](../../testing.md) §2).
 
 **THE RESIDUAL TABLE, ten rows, measured 2026-07-28** (`make -C sim test-air`, 17 s, 0 anchors
 unmeasurable). Deviation in per cent; **bold** = outside its §7.1 band.

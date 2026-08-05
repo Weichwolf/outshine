@@ -108,12 +108,14 @@ Schichtung überall: **FBCore → Interface → Default → modul-spezifischer O
 ## Build
 
 Nur über Make-Targets. `sim/`: `core-lib` | `gym` | `native` | `wasm` (baut `worker` immer mit) |
-`worker` | `verify-models` | `image` | `up` | `test-monitor` | `test-fdm` | `test-corner` |
-`test-missile` | `test-gun`.
+`worker` | `image` | `up`.
+Tore: `verify-layers` | `verify-guards` | `verify-models` | `verify-trees` | `verify-tests`.
+Harnesses (zehn, unter `sim/test/<pfad>` neben ihrem Subjekt): `test-monitor` | `test-fdm` |
+`test-corner` | `test-missile` | `test-gun` | `test-air` | `test-mig29` | `test-weather`.
 `tiles/`: `build` | `image` | `run`.
 
 **Gates:** Warnings = Errors (`-Wall -Wextra -Wpedantic`) · `nm build/fb-gym` = 0 Dawn/WebGPU-Symbole ·
-sieben Harnesses rc=0 · Frame-Beweis oder numerische Messung · Regression über alle `sim/missions/*.fbm`
+zehn Harnesses mit unveraendertem Ergebnis (`test-air` ist rot und nennt sieben Anker) · Frame-Beweis oder numerische Messung · Regression über alle `sim/missions/*.fbm`
 mit einzeln begründeten Abweichungen · Determinismus über `--threads 1/2/4` · `make wasm` baut und die
 App startet · `verify-models` grün · vendor bleibt read-only.
 

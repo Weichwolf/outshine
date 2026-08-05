@@ -340,7 +340,7 @@ is reconstructed sub-tick by the runner (§5.3).
 
 | Before | Now |
 |---|---|
-| `constexpr double kWeaponNoGroundElevM` in an anonymous namespace in `units/FBSimUnit.cpp`, plus a second copy in `clients/FBTestMissileAirframe.cpp` | **one** `static constexpr double FBFdm::kNoGroundElevM` in `fdm/FBFdm.h`. Three callers must say the same number — the unit's per-tick `UpdateGroundAsl`, the store spawn, and the airframe harness — so it belongs to the class that hands the number to JSBSim |
+| `constexpr double kWeaponNoGroundElevM` in an anonymous namespace in `units/FBSimUnit.cpp`, plus a second copy in `test/modules/missile/FBTestMissileAirframe.cpp` | **one** `static constexpr double FBFdm::kNoGroundElevM` in `fdm/FBFdm.h`. Three callers must say the same number — the unit's per-tick `UpdateGroundAsl`, the store spawn, and the airframe harness — so it belongs to the class that hands the number to JSBSim |
 | applied only per tick, i.e. AFTER `FBFdm::LoadUnguarded` had already run `RunIC()` | applied **inside** `LoadUnguarded`, before the IC, through the new `FBFdmSpawn::TerrainElevM` field |
 
 `FGLGear` resolves its contacts **inside** `RunIC()`. A store spawned nose-up on a rail therefore had a
@@ -595,7 +595,7 @@ use literally the same code:
 |---|---|---|
 | `modules/f16/FBF16FireControl` | BEFORE the shot | where must the barrel point (EEGS solution) |
 | `core/FBGunProjectiles` | AFTER the shot | where are the projectiles |
-| `clients/FBTestGun` (`make -C sim test-gun`) | verification | do both agree with `doc/modules/f16/weapons.md` |
+| `test/weapons/FBTestGun` (`make -C sim test-gun`) | verification | do both agree with `doc/modules/f16/weapons.md` |
 
 That fire control and the flown trajectory share identical code would normally be a cheat (which is why
 `FBWeaponPerf` is a deliberately COARSER separate copy of the missile aerodynamics). Here it is not, and

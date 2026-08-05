@@ -167,7 +167,7 @@ void FBRenderer::OnDevice(wgpu::Device d) {
   FBGpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Stars->Init(gpu);
   TileLights->Init(gpu);
-  Sprites->Init(gpu);   /* Units is Configure()d with the terrain: it needs the atmosphere LUT views */
+  /* Units and Sprites are Configure()d with the terrain instead: both need the atmosphere LUT views. */
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   { const char *e = getenv("FB_CLOUDS"); CloudsOn = !e || atoi(e) != 0; }   /* armed by default; the pass only exists when the weather has a deck */
   if (CloudsOn) CreateClouds();
@@ -192,6 +192,7 @@ void FBRenderer::SetCloudSky(const FBCloudSky &sky) {
   Clouds->SetSky(sky);
   Tiles->SetSky(sky);
   Units->SetSky(sky);
+  Sprites->SetSky(sky);
 }
 
 void FBRenderer::CreateTerrainPipeline(void) {
@@ -208,6 +209,7 @@ void FBRenderer::CreateTerrainPipeline(void) {
   Tiles->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers);
   /* Same air, same LUT, same scene targets: a unit fades into exactly what the terrain fades into. */
   Units->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf);
+  Sprites->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf);
 }
 
 void FBRenderer::CreateTileTexture(void) {

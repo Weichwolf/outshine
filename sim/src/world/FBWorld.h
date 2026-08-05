@@ -10,10 +10,11 @@
 
 #include <cstdint>
 #include <vector>
+#include "FBSpriteDraw.h"
 #include "FBUnitDraw.h"
 
 namespace FlightBox::Render { class FBRenderer; }
-namespace FlightBox::Units { class FBUnitRegistry; }
+namespace FlightBox::Units { class FBUnit; class FBUnitRegistry; struct FBUnitSignature; }
 namespace FlightBox { class FBWeatherProvider; }
 
 namespace FlightBox::World {
@@ -30,6 +31,12 @@ public:
   /* WHICH unit the camera is riding, by id: it is drawn from the inside otherwise, and an eye sitting
    * at the model origin sees the cockpit tub from within. -1 = draw every unit. */
   void SetEyeUnitId(int id) { EyeUnitId_ = id; }
+
+  /* THE MISSION CLOCK, because an effect is an AGE: a flare's published bloom time, a chaff cloud's,
+   * and the moment a motor was seen to light are all stamped in sim seconds, and `nowMs` beside them is
+   * a wall clock. Until a client sets this, no age-dependent effect is drawn at all — a boundary
+   * defence, not a default, because an invented age would be an invented picture. */
+  void SetSimTimeS(double s) { SimTimeS_ = s; HaveSimTime_ = true; }
 
   /* BORROWED for the same reason: the atmosphere is simulation state (core/FBWeatherProvider), and the
    * drawing side only ever ASKS it — cover, cloud base and wind for the cloud rebuild. Null until a
@@ -115,9 +122,32 @@ private:
    * Reused, so a steady cast allocates nothing after the first frame. */
   void PublishUnits();
 
+  /* THE EFFECTS OF ONE UNIT, from what that unit PUBLISHES and from nothing else: the afterburner bit
+   * off its signature, its countermeasure clouds off the same, and — for a round — the trail its own
+   * motor laid, measured against the burn time the STORE CATALOGUE states for its type. */
+  void AddUnitEffects(const Units::FBUnit &u, const Units::FBUnitSignature &sig, const double ecef[3],
+                      const double fwd[3], const double right[3], const double up[3], bool isEye);
+  void AddSmokeTrail(const Units::FBUnit &u, const double ecef[3], double motorS);
+
+  /* One breadcrumb of a burning motor's path: WHERE the round was when this frame published it. It is
+   * a memory of published poses, never a second integration — the renderer remembers what it was
+   * shown, which is the only way a trail can follow a path the pose alone does not carry. */
+  struct FxCrumb { double Ecef[3]; double T; };
+  struct UnitFx {
+    int Id = -1;
+    unsigned Touch = 0;
+    double FirstSeenS = 0.0;   /* the frame this unit first existed: a round is created at launch */
+    std::vector<FxCrumb> Trail;
+  };
+  UnitFx &Fx(int id);
+
   const Units::FBUnitRegistry *Units_ = nullptr;   /* borrowed, see SetUnits' banner */
   int EyeUnitId_ = -1;
   std::vector<Render::FBUnitDraw> UnitDraws_;
+  std::vector<Render::FBSpriteDraw> SpriteDraws_;
+  std::vector<UnitFx> Fx_;
+  double SimTimeS_ = 0.0;
+  bool HaveSimTime_ = false;
   const FBWeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
 
   Render::FBRenderer *R;

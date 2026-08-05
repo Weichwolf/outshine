@@ -32,6 +32,11 @@ public:
 
   void SetSky(const FBCloudSky &sky) { Sky = sky; }
 
+  /* WHERE THIS TYPE'S EXHAUST LEAVES, in model space, off the loaded mesh (FBUnitModel). False = no
+   * such node in the asset, and then nothing draws a plume for it. The flame is built by FBWorld,
+   * where the pose is, so this is the one number that has to travel back out of the model. */
+  bool Nozzle(const char *type, float off[3], float &radiusM) const;
+
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
   int LastDraws() const { return LastDraws_; }

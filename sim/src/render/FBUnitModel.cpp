@@ -189,7 +189,9 @@ bool FBUnitModel::LoadDir(const char *typeName, const char *dir) {
                                        {"materials", Lods_.front().MatCount},
                                        {"tex0", Lods_.front().TexW},
                                        {"trisTotal", tris},
-                                       {"lod0MaxRangeM", Lods_.front().MaxRangeM}});
+                                       {"lod0MaxRangeM", Lods_.front().MaxRangeM},
+                                       {"nozzleZ", Lods_.front().NozzleOff[2]},
+                                       {"nozzleRadM", Lods_.front().NozzleRadiusM}});
   return true;
 }
 
@@ -226,6 +228,8 @@ bool FBUnitModel::BuildLod(const char *glbPath, double maxRangeM) {
   /* Part 0 is the static airframe; its base is the identity because every static mesh is baked into
    * model space outright. */
   lod.Parts.push_back(Part{});
+
+  float nzMin[3] = {1e30f, 1e30f, 1e30f}, nzMax[3] = {-1e30f, -1e30f, -1e30f};
 
   struct Visit { int Node; float ToPart[12]; int Part; };
   const float kIdent[12] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0};
@@ -270,6 +274,7 @@ bool FBUnitModel::BuildLod(const char *glbPath, double maxRangeM) {
     }
 
     if (n.Mesh >= 0 && (size_t)n.Mesh < glb.MeshFirstPrim.size()) {
+      const bool isNozzle = n.Name.compare(0, 6, "nozzle") == 0;
       const uint32_t first = glb.MeshFirstPrim[(size_t)n.Mesh], cnt = glb.MeshPrimCount[(size_t)n.Mesh];
       for (uint32_t pi = first; pi < first + cnt; pi++) {
         const FBGlbPrimitive &prim = glb.Prims[pi];
@@ -291,6 +296,11 @@ bool FBUnitModel::BuildLod(const char *glbPath, double maxRangeM) {
           vx.Uv[0] = glb.Uv[(size_t)src * 2];
           vx.Uv[1] = glb.Uv[(size_t)src * 2 + 1];
           vx.Tag = tag;
+          if (isNozzle)
+            for (int r = 0; r < 3; r++) {
+              if (vx.P[r] < nzMin[r]) nzMin[r] = vx.P[r];
+              if (vx.P[r] > nzMax[r]) nzMax[r] = vx.P[r];
+            }
           lod.Verts.push_back(vx);
         }
         for (uint32_t k = 0; k < prim.Count; k++)
@@ -303,6 +313,16 @@ bool FBUnitModel::BuildLod(const char *glbPath, double maxRangeM) {
       std::memcpy(cv.ToPart, self, sizeof self);
       stack.push_back(cv);
     }
+  }
+
+  /* The exhaust plane, and the aft face is the one that matters: the plume starts where the gas leaves.
+   * A level that declares no such node simply has no nozzle and draws no flame. */
+  if (nzMax[2] > nzMin[2]) {
+    lod.HasNozzle = true;
+    lod.NozzleOff[0] = 0.5f * (nzMin[0] + nzMax[0]);
+    lod.NozzleOff[1] = 0.5f * (nzMin[1] + nzMax[1]);
+    lod.NozzleOff[2] = nzMax[2];
+    lod.NozzleRadiusM = 0.25f * ((nzMax[0] - nzMin[0]) + (nzMax[1] - nzMin[1]));
   }
 
   lod.Triangles = (int)(lod.Idx.size() / 3);

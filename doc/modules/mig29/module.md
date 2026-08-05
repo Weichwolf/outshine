@@ -312,7 +312,7 @@ the MiG-29:
 The hooks fed `CornerTurnRateDegS` = `g·√(n²−1)/V` a corner of 420 KCAS and 7.8 g and got 20.2 °/s
 against a harness reading of 24.18 °/s — −16 %, where the F-16's gap is −2 %. The standing hypothesis
 was the measurement window: this airframe loses altitude inside the 4 s pull, so the "speed" in the
-formula is not the entry speed. `clients/FBTestMig29Envelope.cpp` now logs the window's own state and
+formula is not the entry speed. `test/modules/mig29/FBTestMig29Envelope.cpp` now logs the window's own state and
 four readings of the same four seconds, and the answer is **neither the altitude nor the averaging**:
 
 | Quantity, at the corner point (entry 420 KCAS) | Value |

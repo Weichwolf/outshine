@@ -1641,7 +1641,7 @@ the THREE consumers that MUST agree use literally the same arithmetic instead of
 |---|---|
 | `modules/f16/FBF16FireControl` | computes the EEGS aiming solution BEFORE the shot |
 | `core/FBGunProjectiles` | flies the projectiles AFTERWARDS |
-| `clients/FBTestGun` | checks both against the numbers of `doc/modules/f16/weapons.md` itself |
+| `test/weapons/FBTestGun` | checks both against the numbers of `doc/modules/f16/weapons.md` itself |
 
 **Why this is NOT a cheat here**, although with the missile it is avoided for exactly that reason
 (`FBWeaponPerf` is deliberately a coarse SEPARATE copy of the missile aerodynamics): the flight of an

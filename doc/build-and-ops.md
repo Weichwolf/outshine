@@ -60,7 +60,14 @@ Every project carries its own Makefile.
 | `test-corner` | `fb-test-corner-speed` — measures the model's corner speed/g/turn rate |
 | `test-missile` | `fb-test-missile-airframe` |
 | `test-gun` | `fb-test-gun` — dispersion, time of flight, funnel geometry, lead solution, ammunition consumption |
+| `test-weather` | `fb-test-weather` — the FBWX mirror against the committed `/wx` fixture |
+| `test-mig29` | `fb-test-mig29-envelope` — the MiG-29 deck against every anchor of its spec §8 |
+| `test-air` | `fb-test-air-envelope` **and its verdict**: builds, flies the ten catalogue decks, then runs `tools/fb_test.py` against `sim/test/modules/air/envelope.json` |
 | `verify-models` | the delta check: `assets/aircraft` against the pinned submodule + `assets/MODEL-DELTAS.md` |
+| `verify-layers` | `sim/src` + `sim/test` are a stack; every `#include` points down it |
+| `verify-guards` | the compile-time guarantees, proven by trying to break them |
+| `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1) |
+| `verify-tests` | every declaration under `sim/test/` against its band; the harness binaries must be built |
 
 If the tile worker is missing, the WASM app hangs silently at startup (404 in the worker). Hence the
 fixed dependency instead of two separately memorised targets.
@@ -77,7 +84,9 @@ A change counts as verified only once it passes these checks.
 |---|---|
 | **Warnings = errors** | all targets clean under `-Wall -Wextra -Wpedantic` |
 | **`nm` gate** | `build/fb-gym` contains 0 Dawn/WebGPU symbols |
-| **Harnesses** | all seven test binaries rc=0 |
+| **Harnesses** | the nine self-judging test binaries rc=0. `air-envelope` no longer judges itself — its verdict is `make -C sim test-air` |
+| **Declarations** | `make -C sim verify-tests`: every `tier: A` declaration under `sim/test/` inside its band ([`testing.md`](testing.md)) |
+| **Tree congruence** | `make -C sim verify-trees`, and the orphan count it prints is read |
 | **Frame proof** | build-effective changes need a rendered frame **or** a numerical measurement |
 | **Regression** | telemetry of all `sim/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
 | **Determinism** | `--threads 1/2/4` × repetitions produce a single signature |

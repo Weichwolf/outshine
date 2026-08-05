@@ -112,10 +112,15 @@ void FBVisualSystem::ScanFrame(const FBState &state, const Fdm::fb_fdm_state &st
 
   for (const Units::FBUnit *u : net.Units()) {
     if (!u || u->GetId() == SelfId_) continue;
-    /* AIRCRAFT only, the radar's and the IRST's rule and the same reason: a ground target has no
-     * presented-extent triple and no aspect, and widening this is its own decision with its own price. */
-    if (u->GetKind() != Units::FBUnitKind::Aircraft) continue;
-
+    /* KEIN ARTFILTER. Ein AUGE hat keinen Modus — es sieht, was da ist, und die Frage, OB etwas zu
+     * sehen ist, beantwortet die naechste Zeile bereits besser: wer keine Ausdehnung deklariert, ist
+     * unsichtbar. Bis 2026-08-05 stand hier `GetKind() != Aircraft`, mit der Begruendung des Radars
+     * uebernommen — beim RADAR traegt sie (ein Luft-Luft-FCR gibt wirklich keine Bodenrueckstreuung
+     * als Kontakt aus), beim Auge nicht. Der Unterschied kostete nichts und schloss alles Nicht-
+     * Fliegende von der Wahrnehmung aus. [MESS] die Loeschung bewegt heute NICHTS: jedes Bodenziel
+     * fuehrt FrontalExtentM = 0 und faellt an der naechsten Zeile heraus; sichtbar wird eine Einheit
+     * erst, wenn ihr Katalog Masze DEKLARIERT. Damit ist Sichtbarkeit eine Aussage des Objekts ueber
+     * sich, nicht eine Aussage des Sensors ueber Arten. */
     const Units::FBUnitSignature sig = u->GetSignature();
     const Units::FBVisualSignature &vs = sig.Visual;
     if (vs.FrontalM <= 0.0f && vs.LateralM <= 0.0f && vs.PlanM <= 0.0f) continue;   /* nothing to see */

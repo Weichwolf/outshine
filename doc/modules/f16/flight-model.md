@@ -765,7 +765,7 @@ ist.
 
 #### 8.1 Corner-Speed — `make -C sim test-corner`
 
-Methode (`sim/src/clients/FBTestCornerSpeed.cpp`): Luftstart getrimmt bei **5.000 m**, Rollen auf **85°
+Methode (`sim/test/modules/f16/FBTestCornerSpeed.cpp`): Luftstart getrimmt bei **5.000 m**, Rollen auf **85°
 Schräglage**, dann Vollausschlag `fcs/elevator-cmd-norm = −1` **durch die modelleigene FLCS**,
 Mittelung über **4 s**; Corner = die langsamste Eintrittsgeschwindigkeit innerhalb 3 % der besten
 Rate. Lauf am geflogenen Modell **nach Delta D1**, 23 Punkte `[MESS]`:

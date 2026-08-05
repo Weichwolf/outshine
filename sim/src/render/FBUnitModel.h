@@ -59,6 +59,12 @@ public:
     std::vector<uint8_t> TexRgba;     /* level 0 RGBA8, square power-of-two (FBMips builds the chain) */
     double MaxRangeM = 0.0;           /* 0 = the last stage: no upper bound */
     int Triangles = 0;
+    /* WHERE THE EXHAUST LEAVES, measured off the mesh itself: the bbox of every node named `nozzle*`,
+     * taken at its aft face. The asset owns the number, the renderer only reads it — which is what
+     * keeps a plume attached to the aeroplane it belongs to without a second table of offsets. */
+    bool HasNozzle = false;
+    float NozzleOff[3] = {0, 0, 0};   /* model space (glTF: +X right, +Y up, +Z aft) */
+    float NozzleRadiusM = 0.0f;
   };
 
   /* `dir` holds `<type>.asset.json` and the `<type>_L*.glb` it names. Missing levels are skipped, so a

@@ -472,6 +472,9 @@ public:
     }
     R->SetHud(hs, true);
     R->SetAgl((float)primary.AglM());
+    /* The MISSION clock, not the log clock beside it: every effect is an age against a published
+     * bloom or launch time (world/FBWorld::SetSimTimeS). */
+    W->SetSimTimeS(simT);
     W->Update(p.LatDeg, p.LonDeg, eye, fwd, simT * 1000.0);
     R->RenderFrame();
     std::vector<uint8_t> rgba;

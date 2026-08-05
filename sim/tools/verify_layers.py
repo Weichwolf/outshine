@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""verify-layers: sim/src is a STACK, every #include points DOWN it, and every file declares the
-NAMESPACE of the layer it lies in. The gate that keeps the directory tree honest — a layer that
+"""verify-layers: sim/src (plus sim/test above it) is a STACK, every #include points DOWN it, and
+every file declares the NAMESPACE of the layer it lies in. The gate that keeps the directory tree honest — a layer that
 quietly grows an upward dependency stops compiling only much later, if ever, so the structure is
 asserted here instead of hoped for.
 
@@ -22,6 +22,8 @@ The layers, bottom to top (RANK below). The order is the measured include graph,
   clients     the entry points.
   render      the WebGPU renderer, driven by clients, borrowing systems/ and core/.
   world       FBWorld + tile streaming, on world/terrain (a LEAF: it includes nothing of ours).
+  test        sim/test, mirroring sim/src path for path (make verify-trees) and ranked above every
+              layer it judges. A harness may reach anything; nothing may reach a harness.
 
 Four rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
   * units/FBUnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST, visual) and
@@ -65,6 +67,16 @@ RANK = {
     "render/stages": 10,
     "world": 10,
     "clients": 11,
+    # test/ mirrors src/ (make verify-trees) and sits ABOVE every layer it judges: a harness may reach
+    # anything, and nothing may reach a harness. The path carries the SUBJECT — test/modules/f16 judges
+    # src/modules/f16 — so an include that points up the stack is still caught inside the test tree.
+    "test/core": 12,
+    "test/fdm": 12,
+    "test/weapons": 12,
+    "test/modules/f16": 12,
+    "test/modules/mig29": 12,
+    "test/modules/air": 12,
+    "test/modules/missile": 12,
 }
 
 # Files whose LAYER is not their directory's. Each is a real statement about the graph, not a waiver:
@@ -148,13 +160,13 @@ RESTRICTED = {
         # The only door to a JSBSim initial condition: mission boot and the test harnesses.
         "missions/FBMissionBoot.h",
         "clients/FBAppWasm.cpp",
-        "clients/FBTestCornerSpeed.cpp",
-        "clients/FBTestHardLanding.cpp",
-        "clients/FBTestLocDeparture.cpp",
-        "clients/FBTestMig29Envelope.cpp",
-        "clients/FBTestAirEnvelope.cpp",
-        "clients/FBTestMissileAirframe.cpp",
-        "clients/FBTestTwoFdm.cpp",
+        "test/core/FBTestHardLanding.cpp",
+        "test/core/FBTestLocDeparture.cpp",
+        "test/fdm/FBTestTwoFdm.cpp",
+        "test/modules/f16/FBTestCornerSpeed.cpp",
+        "test/modules/mig29/FBTestMig29Envelope.cpp",
+        "test/modules/air/FBTestAirEnvelope.cpp",
+        "test/modules/missile/FBTestMissileAirframe.cpp",
     ),
 }
 
@@ -215,6 +227,15 @@ LAYER_NS = {
     "render/stages": "FlightBox::Render",
     "world": "FlightBox::World",
     "clients": "FlightBox::Clients",
+    # One namespace for the whole test tree: a harness is a `main` (exempt by law, see RE_MAIN) and the
+    # few headers beside them are declaration tables, not a layer anyone links against.
+    "test/core": "FlightBox::Test",
+    "test/fdm": "FlightBox::Test",
+    "test/weapons": "FlightBox::Test",
+    "test/modules/f16": "FlightBox::Test",
+    "test/modules/mig29": "FlightBox::Test",
+    "test/modules/air": "FlightBox::Test",
+    "test/modules/missile": "FlightBox::Test",
 }
 KNOWN_NS = {v for v in LAYER_NS.values() if v}
 
@@ -274,15 +295,16 @@ def ns_openers(src):
 SRC_EXT = (".h", ".cpp")
 
 
-def scan(root):
-    """path -> (quoted include names, full text). Paths are root-relative, '/'-separated."""
+def scan(root, prefix=""):
+    """path -> (quoted include names, full text). Paths are root-relative, '/'-separated; the test
+    tree carries a `test/` prefix so one path space covers both roots."""
     files, text = {}, {}
     for dp, dns, fns in os.walk(root):
         dns[:] = [d for d in dns if not d.startswith(".")]
         for fn in fns:
             if not fn.endswith(SRC_EXT):
                 continue
-            p = os.path.relpath(os.path.join(dp, fn), root).replace(os.sep, "/")
+            p = prefix + os.path.relpath(os.path.join(dp, fn), root).replace(os.sep, "/")
             with open(os.path.join(dp, fn), encoding="utf-8", errors="replace") as f:
                 src = f.read()
             files[p] = re.findall(r'^\s*#\s*include\s+"([^"]+)"', src, re.M)
@@ -333,9 +355,13 @@ def check_namespaces(files, text):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.path.join(os.path.dirname(__file__), "..", "src"))
+    ap.add_argument("--test-root", default=os.path.join(os.path.dirname(__file__), "..", "test"))
     a = ap.parse_args()
     root = os.path.normpath(a.root)
     files, text = scan(root)
+    test_files, test_text = scan(os.path.normpath(a.test_root), "test/")
+    files.update(test_files)
+    text.update(test_text)
 
     # The build uses flat -I roots and bare filenames, so an include resolves by BASENAME.
     by_base = {}

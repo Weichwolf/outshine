@@ -471,7 +471,7 @@ gate was a 361 m coasting segment at 0.45 m/s² between derotation and the 100 k
 
 #### 3.3 BFM — measured, not chosen
 
-`make -C sim test-corner` (`clients/FBTestCornerSpeed.cpp`) runs entry speed against instantaneous turn
+`make -C sim test-corner` (`test/modules/f16/FBTestCornerSpeed.cpp`) runs entry speed against instantaneous turn
 rate on THIS model: 85° bank, full deflection through the model's own FLCS, 20 kt steps 180→620 KCAS at
 5,000 m.
 

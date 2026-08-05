@@ -47,7 +47,7 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 | HUD backend | built — see [`hud.md`](hud.md) | `2f3c277`, `8997eec`, `6f160af` |
 | Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
 | Units | **built** — one indexed draw per unit from the published pose, LOD off the asset sidecar, moving parts off the published articulation. Pass count unchanged (6). See [`units-visual.md`](units-visual.md) | this round |
-| Sprites (chaff/flares/smoke) | **nothing** — `FBSpritesStage` is still NoOp | — |
+| Sprites (flame/plume/flares/chaff) | **built** — ONE instanced draw for every effect in the frame, from the same published data the units come from; physical size in metres with an energy-preserving sub-pixel floor. Pass count unchanged (6). See [`units-visual.md`](units-visual.md) | this round |
 
 ## Gaps
 
@@ -62,7 +62,7 @@ Built; the stage split is finished (zero inline shaders in `FBRenderer.cpp`).
 
 | # | Thing |
 |---|---|
-| 4.1 | ~~`FBUnitsStage`/`FBSpritesStage` NoOp~~ — the aircraft half is built and measured ([`units-visual.md`](units-visual.md)); the effect half is not |
+| 4.1 | ~~`FBUnitsStage`/`FBSpritesStage` NoOp~~ **closed** — both halves are built and measured ([`units-visual.md`](units-visual.md)) |
 | 4.3 | transmittance LUT is recomputed every frame although it only depends on altitude and sun cos θ |
 | 4.4 | ~~aerial perspective off by default (`FB_AP=0`)~~ **closed** — the switch and the dead Rayleigh/Mie block are gone; the terrain now runs a WEATHER-driven haze out of the same `FBAtmoHaze.h` the cloud deck uses (§6, [`clouds.md`](clouds.md)). Its scale height was corrected the same day: two summed terms (molecular 8 km, aerosol 1.2 km) instead of one, and the molecular one carries λ⁻⁴, which closes `clouds.md` Gaps 5.7 **and** 5.8 — the per-channel extinction the deleted block had is back, from the physics rather than from a LUT |
 | 4.5 | upscale is bilinear only (`TODO bicubic/sharpen`) |
@@ -74,12 +74,15 @@ parked in [`../roadmap.md`](../roadmap.md) until `world/` is split.
 
 ### Inventory (from the previous `Open points` section)
 
-1. **~~`FBUnitsStage` and `FBSpritesStage` are NoOp.~~ HALF CLOSED.** `FBUnitsStage` draws: one indexed
+1. **~~`FBUnitsStage` and `FBSpritesStage` are NoOp.~~ CLOSED.** `FBUnitsStage` draws: one indexed
    draw per visible unit from the BORROWED registry's published pose, with the asset sidecar's LOD table
    and its part table, and the pass count is still 6. Measured: an F-16 at 60 m lands within **1.69 px
    (1.07 %)** of its projected pose, and a mission with nothing to draw produces **bit-identical** PNGs
-   to the pre-round binary. **`FBSpritesStage` is still NoOp** — chaff, flares, smoke and missile plumes
-   remain invisible, and so do released stores and ground targets, which publish no mesh key. See
+   to the pre-round binary. **`FBSpritesStage` draws too**: engine flame, rocket plume, flare and chaff,
+   one instanced draw for the whole frame, every input published by the unit that owns it. Measured: the
+   plume root sits 6.1722 m from the model origin against the mesh's own 6.1722 m nozzle station, and a
+   jet in full afterburner at 98.4 km changes ZERO pixels. Released stores and ground targets still
+   publish no mesh key, so a round in flight is its plume and nothing else. See
    [`units-visual.md`](units-visual.md).
 2. **The reversed-Z numbers contradict each other.** CLAUDE.md says "near 0.01 m / far 240 km". The
    code (`MvpCamRel`) uses an **infinite** far plane and `zn = 0.05`. The 240 km are the streaming view
@@ -326,9 +329,9 @@ Order as in `FBRenderer::RenderFrame()`:
 | 3 | ″ | `FBMoonStage` | HDR | additive |
 | 3 | ″ | `FBStarsStage` | HDR | additive, self-gated (EVS night only) |
 | 3 | ″ | `FBTilesStage` | HDR + depth | terrain; render bundle (streaming) or direct draws (static) |
-| 3 | ″ | **`FBUnitsStage`** | HDR | **NoOp**, but hard-wired: AI/weapon units draw directly after the terrain |
+| 3 | ″ | **`FBUnitsStage`** | HDR | one indexed draw per unit, directly after the terrain; self-gates on an empty cast |
 | 3 | ″ | `FBTileLightsStage` | HDR | night lights, depth-tested, self-gated |
-| 3 | ″ | **`FBSpritesStage`** | HDR | **NoOp**, hard-wired: effect billboards directly before the HUD |
+| 3 | ″ | **`FBSpritesStage`** | HDR, premultiplied (α = 0 ⇒ additive) | ONE instanced draw of every effect billboard, directly before the HUD; depth-tested, no depth write; self-gates on an empty list |
 | 4 | Cloud layer (`FB_CLOUDS=1` **and** the weather has a deck) | `FBCloudLayerStage` | `HdrTex`, premultiplied blend | its OWN pass, because it must SAMPLE `DepthTex` (which was still an attachment in the scene pass) |
 | 5 | Tonemap (colour `FrameTex`, clear) | `FBTonemapStage` | 720p sRGB | ACES; one pipeline — the cloud is already in `HdrTex` |
 | 7 | HUD (colour `FrameTex`, **LoadOp `Load`**) | `FBHudStage` | 720p sRGB | only when `HudEnabled`; preserves the tonemapped picture |
@@ -366,9 +369,9 @@ without a low-res ladder. Threshold and timeout live with the client (`FB_LOAD_T
 | `FBMoonStage` | `.h/.cpp` | render, additive | moon as an illuminated sphere; owns the NASA LROC albedo texture | as sun |
 | `FBStarsStage` | `.h/.cpp` | render, instanced additive | HYG star field at true alt/az | self-gated: no SVS, no day, no catalogue → no draw |
 | `FBTilesStage` | `.h/.cpp` | render | terrain (see §6) | always, once configured |
-| `FBUnitsStage` | `.h` | — | **NoOp** | — |
+| `FBUnitsStage` | `.h/.cpp` | render, indexed | one airframe per unit from the published pose | self-gated on an empty cast |
 | `FBTileLightsStage` | `.h/.cpp` | render, instanced additive | night-light sprites on the ground | self-gated like stars |
-| `FBSpritesStage` | `.h` | — | **NoOp** | — |
+| `FBSpritesStage` | `.h/.cpp` | render, instanced premultiplied | flame / plume / flare / chaff billboards | self-gated on an empty effect list |
 | `FBCloudLayerStage` | `.h/.cpp` | render | the whole cloud chain: ray ∩ shell per deck, trapezoid march, premultiplied into `HdrTex` (see [`clouds.md`](clouds.md)) | armed AND the weather has a deck |
 | `FBTonemapStage` | `.h/.cpp` | render | ACES → `FrameTex`; one pipeline | always |
 | `FBHudStage` | `.h/.cpp` | render | HUD overlay (see §7) | `HudEnabled` |

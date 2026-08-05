@@ -107,6 +107,16 @@ const FBUnitsStage::GpuModel *FBUnitsStage::Find(const char *type) const {
   return nullptr;
 }
 
+bool FBUnitsStage::Nozzle(const char *type, float off[3], float &radiusM) const {
+  const GpuModel *m = Find(type);
+  if (!m || !m->Cpu || m->Cpu->LodCount() <= 0) return false;
+  const FBUnitModel::Lod &l = m->Cpu->GetLod(0);   /* the geometry is the same aeroplane at every level */
+  if (!l.HasNozzle) return false;
+  for (int i = 0; i < 3; i++) off[i] = l.NozzleOff[i];
+  radiusM = l.NozzleRadiusM;
+  return true;
+}
+
 void FBUnitsStage::UploadModel(GpuModel &m) {
   m.Lods.clear();
   for (int i = 0; i < m.Cpu->LodCount(); i++) {
