@@ -147,6 +147,29 @@ FBAirModule::FBAirModule(const FBAircraftSpec &spec)
       (void)Gun_.SetRounds(spec.GunRounds <= g->Capacity ? spec.GunRounds : g->Capacity);
     }
   }
+
+  /* The COOPERATIVE terminal fills the datalink slot — a controller's feed is a different box
+   * (NetTerminal()) and is deliberately not a declared slot, so a cue can never be written into the
+   * block a PPLI arrives in. The rest are the telemetry column layout, as in FBStoreModule. */
+  DeclareAutopilot(AP_);
+  DeclareFlightControl(FC_);
+  DeclarePilotSystem(Pilot_);
+  DeclareControls(*Ctrl_);
+  DeclareDisplays(Disp_);
+  DeclareAirDataSystem(AirData_);
+  DeclareNavSystem(Nav_);
+  DeclareWarningSystem(Warn_);
+  DeclareRadarAltimeter(RadarAlt_);
+  DeclareCommands(Cmds_);
+  DeclareDatalink(Datalink_);
+  DeclareRadar(Radar_);
+  DeclareRwr(Rwr_);
+  DeclareIrst(Irst_);
+  DeclareVisual(Eye_);
+  DeclareCountermeasures(Cm_);
+  DeclareStores(Stores_);
+  DeclareGuns(Gun_);
+  DeclareFlightPlan(Plan_);
 }
 
 FBAirModule::~FBAirModule() = default;
@@ -154,6 +177,7 @@ FBAirModule::~FBAirModule() = default;
 void FBAirModule::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
   Ctrl_ = std::make_unique<Systems::FBJsbsimAirframeControls>(fdm);
+  DeclareControls(*Ctrl_);   /* the slot's OBJECT was swapped; the declaration follows it */
   Stores_.AttachFdm(fdm);
 }
 

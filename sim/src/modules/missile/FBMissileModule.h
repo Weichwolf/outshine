@@ -41,42 +41,10 @@ public:
   void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
            const World::FBWorld *world = nullptr) override;
 
-  Systems::FBAutopilot &Autopilot() override { return AP_; }
-  Systems::FBFlightControl &FlightControl() override { return FC_; }
-  FBMissileGuidance &PilotSystem() override { return Guidance_; }   /* covariant: FBPilot& on the base */
-  Systems::FBAirframeControls &Controls() override { return Ctrl_; }
-  Systems::FBDisplaySystem &Displays() override { return Disp_; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  Systems::FBNavSystem &NavSystem() override { return Nav_; }
-  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
-  FBCommandBus &Commands() override { return Cmds_; }
-  FBMissileUplink &Datalink() override { return Uplink_; }          /* covariant */
-  FBMissileSeeker &Radar() override { return Seeker_; }             /* covariant */
-  /* THE WARNING-RECEIVER SLOT IS THE ANTI-RADIATION SEEKER — the same relationship the infrared slot
-   * below has to that round's head, and unpowered for every round that is not one, so nothing it holds
-   * can be mistaken for a picture. */
-  FBMissileArSeeker &Rwr() override { return Ar_; }                          /* covariant */
-  FBMissileIrSeeker &Irst() override { return Ir_; }                          /* covariant */
-  /* An unmanned round/store/target has no eyes; the slot exists because every module carries the same
-   * categories, and it is powered OFF so nothing it holds can be mistaken for a picture. */
-  Sensors::FBVisualSystem &Visual() override { return Visual_; }
-  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  Weapons::FBStoresSystem &Stores() override { return Stores_; }             /* a round carries no stores */
-  Weapons::FBGunSystem &Guns() override { return Gun_; }                     /* a round carries no gun */
   const FBState &Telemetry() const override { return State_; }
   const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
-
-  FBFlightPlan &FlightPlan() override { return Plan_; }
-  void SetRunway(const FBRunway &rwy) override { (void)rwy; }
   void SetGroundAsl(float m) override { GroundAslM_ = m; }
-  /* A launched round takes no mission setup: it was configured by being loaded and then programmed at
-   * launch, so any `set` key is unknown and the caller turns that into a mission FAIL. */
-  bool ApplySetup(const std::string &key, const std::string &value) override {
-    (void)key; (void)value;
-    return false;
-  }
 
 private:
   const FBStoreSpec &Spec_;

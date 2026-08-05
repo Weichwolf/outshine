@@ -34,11 +34,9 @@ public:
 
   const FBSiteSpec &Spec() const { return Spec_; }
 
-  /* The EMPTY model name is the signal to the spawn path that there is nothing to load, so AttachFdm is
-   * never called — which is also what makes the ground-launcher exemption unreachable for an airframe:
-   * the two states are mutually exclusive by construction (weapons/FBStoresSystem). */
-  const char *FdmModelName() const override { return ""; }
-  void AttachFdm(Fdm::FBFdm &fdm) override { (void)fdm; }
+  /* The base's EMPTY model name stands: there is nothing to load, so AttachFdm is never called — which
+   * is also what makes the ground-launcher exemption unreachable for an airframe, the two states being
+   * mutually exclusive by construction (weapons/FBStoresSystem). */
   Units::FBUnitKind UnitKind() const override { return Units::FBUnitKind::Ground; }
 
   void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
@@ -61,29 +59,10 @@ public:
   }
   FBTelemetrySource *NetTelemetry() override { return NetTerminal_ ? &Fc_.NetTelemetrySource() : nullptr; }
 
-  Systems::FBAutopilot &Autopilot() override { return AP_; }
-  Systems::FBFlightControl &FlightControl() override { return FC_; }
-  FBSiteFireControl &PilotSystem() override { return Fc_; }   /* covariant: FBPilot& on the base */
-  Systems::FBAirframeControls &Controls() override { return Ctrl_; }
-  Systems::FBDisplaySystem &Displays() override { return Disp_; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  Systems::FBNavSystem &NavSystem() override { return Nav_; }
-  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
-  FBCommandBus &Commands() override { return Cmds_; }
-  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
-  FBSiteRadar &Radar() override { return Search_; }           /* covariant: the ACQUISITION set */
-  Sensors::FBRwrSystem &Rwr() override { return Esm_; }        /* the passive receiver, the EMCON cue */
-  Sensors::FBIrstSystem &Irst() override { return Irst_; }
-  Sensors::FBVisualSystem &Visual() override { return Optics_; }
-  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  Weapons::FBStoresSystem &Stores() override { return Rails_; }
   /* The MAGAZINE, not the rail: this position reloads. */
   int MaxReleases() override { return Fc_.RoundsLeft(); }
-  Weapons::FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
   const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
-  int LastSubsteps() const override { return 0; }
 
   void SetUnitIdentity(int unitId, FBUnitTeam team) override {
     Search_.SetIdentity(unitId, team);
@@ -100,9 +79,6 @@ public:
    * every aircraft written before the clock existed. */
   void SetCloudSky(const FBCloudSky &sky) override { Optics_.SetSky(sky); }
   void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, State_); }
-  void SetGroundAsl(float m) override { (void)m; }
-  FBFlightPlan &FlightPlan() override { return Plan_; }
-  void SetRunway(const FBRunway &rwy) override { (void)rwy; }
 
   /* The SIX mission keys of doc/modules/ground/module.md §Spec 9 and nothing else. What a position IS,
    * its module name says; what its COMMANDER decided is these. */

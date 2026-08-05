@@ -81,26 +81,6 @@ public:
   const char *NetControlNode() const override { return Net_.Control; }
   FBTelemetrySource *NetTelemetry() override;
 
-  Systems::FBAutopilot &Autopilot() override { return AP_; }
-  Systems::FBFlightControl &FlightControl() override { return FC_; }
-  FBAirPilot &PilotSystem() override { return Pilot_; }   /* covariant, like every module's */
-  Systems::FBAirframeControls &Controls() override { return *Ctrl_; }
-  Systems::FBDisplaySystem &Displays() override { return Disp_; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  Systems::FBNavSystem &NavSystem() override { return Nav_; }
-  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
-  FBCommandBus &Commands() override { return Cmds_; }
-  /* THE COOPERATIVE terminal, and it is a DIFFERENT box from the controller's feed below: on a T4 row
-   * this block carries Link-16 PPLI, which is exactly why a cue may not be written into it. */
-  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
-  FBAirRadar &Radar() override { return Radar_; }
-  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
-  Sensors::FBIrstSystem &Irst() override { return Irst_; }
-  Sensors::FBVisualSystem &Visual() override { return Eye_; }
-  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  Weapons::FBStoresSystem &Stores() override { return Stores_; }
-  Weapons::FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
   const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
@@ -124,7 +104,6 @@ public:
   void SetCloudSky(const FBCloudSky &sky) override { Irst_.SetSky(sky); Eye_.SetSky(sky); }
   void SetSolar(const FBSolar &solar) override { FBSolarToEnv(solar, State_); }
   void SetGroundAsl(float m) override { GroundAslM_ = m; }
-  FBFlightPlan &FlightPlan() override { return Plan_; }
   void SetRunway(const FBRunway &rwy) override {
     Rwy_ = rwy;
     HaveRunway_ = true;

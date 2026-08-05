@@ -1,12 +1,15 @@
 /* FlightBox — FBModule: one controllable module's per-frame update, held POLYMORPHICALLY by the client.
  * A module owns its systems and cycles them internally, each at its own rate; it never calls a peer's
- * Run(). Every accessor below is on the BASE so a caller that only knows "some FBModule" can wire,
- * command and observe it without naming a concrete type. doc/units-and-missions.md §5. */
+ * Run(). WHAT IT HAS IS DECLARED AT BINDING, not demanded by inheritance (modules/FBCapability.h): the
+ * base carries exactly one duty, Run(), and a caller that only knows "some FBModule" asks — every slot
+ * accessor answers a POINTER, and null is the honest answer for a module that never declared it.
+ * doc/architecture.md §The layering pattern, doc/units-and-missions.md §5. */
 #ifndef FBMODULE_H
 #define FBMODULE_H
 
 #include <cstdlib>
 #include <string>
+#include "FBCapability.h"
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"
@@ -46,12 +49,14 @@ public:
 
   /* Binds the module to the airframe it flies, ONCE, before the first Run(). Registry factories take no
    * arguments, so this is the module's constructor injection — and the point at which it can hand a
-   * real `FBFdm&` to the systems whose association to an airframe IS fixed. The FDM is BORROWED. */
-  virtual void AttachFdm(Fdm::FBFdm &fdm) = 0;
+   * real `FBFdm&` to the systems whose association to an airframe IS fixed. The FDM is BORROWED.
+   * No-op by default: an entity need not have an airframe. */
+  virtual void AttachFdm(Fdm::FBFdm &fdm) { (void)fdm; }
 
   /* The JSBSim model this module flies — module-owned, because only the module knows which aircraft.xml
-   * its systems/gains were written against; the registry name stays a pure key. */
-  virtual const char *FdmModelName() const = 0;
+   * its systems/gains were written against; the registry name stays a pure key. Empty = no airframe,
+   * which is what the spawn path reads to take the position branch. */
+  virtual const char *FdmModelName() const { return ""; }
 
   /* THE REGISTRY KEY this module was created under ("f16", "mig29", "aim120"), stamped once by
    * FBModuleRegistry::Create and by nothing else — so the key a mission spells and the key a module
@@ -59,9 +64,8 @@ public:
    * harnesses), and an eye then never names its type: the registry is the only source. */
   const std::string &TypeName() const { return TypeName_; }
 
-  /* Ground also declares that there is NO airframe, which the empty FdmModelName() then says where the
-   * spawn path reads it. Weapon is NOT set here: a store is a kind by having been RELEASED, which is
-   * the releasing path's statement. */
+  /* Ground also declares that there is NO airframe. Weapon is NOT set here: a store is a kind by having
+   * been RELEASED, which is the releasing path's statement. */
   virtual Units::FBUnitKind UnitKind() const { return Units::FBUnitKind::Aircraft; }
 
   /* IS THIS UNIT IN THE AIR, asked of a module that has no airframe to ask. A unit without an FBFdm
@@ -76,10 +80,13 @@ public:
   virtual void SetUnitIdentity(int unitId, FBUnitTeam team) { (void)unitId; (void)team; }
 
   /* WHICH FLIGHT it flies in, same wiring step — and deliberately NOT virtual: a flight is something
-   * the PILOT holds (it decides where to sit and whom to shoot), so every module that has one gets
-   * this for free and a module whose pilot slot is the NoOp default is untouched by it. */
-  void SetFlight(const FBFlightId &flight) { PilotSystem().SetFlight(flight); }
-  FBFlightReport FlightReport() { return PilotSystem().FlightReport(); }
+   * the PILOT holds (it decides where to sit and whom to shoot), so every module that DECLARED one gets
+   * this for free and one that did not is untouched by the existence of flights. */
+  void SetFlight(const FBFlightId &flight) { if (Pilot::FBPilot *p = PilotSystem()) p->SetFlight(flight); }
+  FBFlightReport FlightReport() {
+    Pilot::FBPilot *p = PilotSystem();
+    return p ? p->FlightReport() : FBFlightReport{};
+  }
 
   /* ---- Battle damage: the module READS its own health and never writes it — every mutator on
    * FBSystemHealth is private to core/FBDamageModel. Unattached reads as fully intact. ---- */
@@ -113,37 +120,30 @@ public:
   virtual void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
                    const World::FBWorld *world = nullptr) = 0;
 
-  /* The three REAL system slots; a concrete module may covariantly return a more-derived pilot type. */
-  virtual Systems::FBAutopilot &Autopilot() = 0;
-  virtual Systems::FBFlightControl &FlightControl() = 0;
-  virtual Pilot::FBPilot &PilotSystem() = 0;
+  /* ---- THE DECLARATION, and the whole reason this base is dumb. A module names, in its constructor,
+   * which of modules/FBCapability.h's slots it OWNS; the accessors below hand out what was named and
+   * null for what was not. Nothing here is virtual: the answer is a member, not an override, so
+   * "which systems has this unit" is a runtime question with a runtime answer — the same list the
+   * control loop binds and an LLM later receives as its tool schema (doc/mods.md §2.1).
+   *
+   * Two of the twenty deserve their own line. Visual() is a SENSOR slot and not a pilot feature,
+   * because a "visual" derived outside the perception boundary is the cheat the whole architecture
+   * exists to prevent (doc/sensors.md §9.1). HumanInput() is the seat a human can take: a module that
+   * declares one hands out the slot it already cycles, so the human works the identical bus, latency
+   * and rejection catalogue its own pilot works (doc/player-layer.md §10.2). ---- */
+  bool Has(FBCapability c) const { return (Caps_ & FBCapabilityBit(c)) != 0; }
+  FBCapabilityMask Capabilities() const { return Caps_; }
 
-  virtual Systems::FBAirframeControls &Controls() = 0;
-  virtual Systems::FBDisplaySystem &Displays() = 0;
-  virtual Systems::FBAirDataSystem &AirDataSystem() = 0;
-  virtual Systems::FBNavSystem &NavSystem() = 0;
-  virtual Systems::FBWarningSystem &WarningSystem() = 0;
-  virtual Systems::FBRadarAltimeter &RadarAltimeter() = 0;
-  virtual FBCommandBus &Commands() = 0;
-  virtual Sensors::FBDatalinkSystem &Datalink() = 0;
-  virtual Sensors::FBRadarSystem &Radar() = 0;
-  virtual Sensors::FBRwrSystem &Rwr() = 0;
-  virtual Sensors::FBIrstSystem &Irst() = 0;
-  /* The pilot's own EYES — a sensor slot and not a pilot feature, because a "visual" derived outside
-   * the perception boundary is the cheat the whole architecture exists to prevent (doc/sensors.md §9.1). */
-  virtual Sensors::FBVisualSystem &Visual() = 0;
-  virtual Sensors::FBCountermeasureSystem &Countermeasures() = 0;
-  /* THE SEAT A HUMAN CAN TAKE, and null is the honest default: a missile, a store and a ground battery
-   * have no cockpit, so there is nothing for a pair of hands to hold. A module that HAS one hands out
-   * the slot it already cycles — the human then works the identical bus, latency and rejection
-   * catalogue its own pilot works, because it is the same hardware. doc/player-layer.md §10.2. */
-  virtual Systems::FBInputSystem *HumanInput() { return nullptr; }
+#define FB_CAP_GET(Acc, Type, Wire) Type *Acc() { return Slot##Acc##_; }
+  FB_MODULE_CAPABILITIES(FB_CAP_GET)
+#undef FB_CAP_GET
 
-  /* The client drains these two queues: a released store and a fired burst become part of the world,
-   * and only the client may create units (fdm/FBFdmBoot.h) or decide what a round hits. */
-  virtual Weapons::FBStoresSystem &Stores() = 0;
-  virtual Weapons::FBGunSystem &Guns() = 0;
-  virtual const FBState &Telemetry() const = 0;
+  /* WHAT THIS MODULE PUBLISHES on the shared avionics blackboard. Default: nothing declared, every
+   * block Invalid — which is the honest state of an entity that carries no avionics at all. */
+  virtual const FBState &Telemetry() const {
+    static const FBState kNone{};
+    return kNone;
+  }
 
   /* THE SECOND ANTENNA, published beside Radar()'s into FBUnitSignature::Radar[1]. Silent by default,
    * which is every airframe: a jet has one set, and its signature is the scalar it always was. A ground
@@ -179,16 +179,18 @@ public:
    * from it before the first tick, and a store that found no room would be a store that vanished.
    * Default: what is on the rails, which for an aircraft is the whole answer. A ground position
    * reloads ONE rail out of a magazine, so its answer is the magazine and not the rail. */
-  virtual int MaxReleases() { return Stores().LoadedCount(); }
+  virtual int MaxReleases() { return Stores() ? Stores()->LoadedCount() : 0; }
 
-  /* Diagnostics of the INTERFACE, not of one airframe: every module issues guidance and steps an FDM. */
-  virtual const Systems::FBGuidance &LastGuidance() const = 0;
-  virtual int LastSubsteps() const = 0;
+  /* Diagnostics of the LAST TICK, zero for an entity that steers nothing and integrates nothing. */
+  virtual const Systems::FBGuidance &LastGuidance() const {
+    static const Systems::FBGuidance kNone{};
+    return kNone;
+  }
+  virtual int LastSubsteps() const { return 0; }
 
-  virtual FBFlightPlan &FlightPlan() = 0;
-  virtual void SetRunway(const FBRunway &rwy) = 0;
+  virtual void SetRunway(const FBRunway &rwy) { (void)rwy; }
   /* The client's elevation-hook sample, forwarded so e.g. FBRadarAltimeter never re-queries terrain. */
-  virtual void SetGroundAsl(float m) = 0;
+  virtual void SetGroundAsl(float m) { (void)m; }
 
   /* THE TERRAIN ITSELF, handed down once at boot beside the per-tick sample above — a set that maps
    * the ground needs to ask about ground it is not standing on, which one number cannot answer.
@@ -211,10 +213,25 @@ public:
   virtual void ProgramRelease(const FBStoreRelease &rel) { (void)rel; }
 
   /* One `set <key> <value>` mission line, applied in the spawn IC window — the MODULE interprets its
-   * own keys. False iff unrecognized, which the caller turns into a mission FAIL, never a silent no-op. */
-  virtual bool ApplySetup(const std::string &key, const std::string &value) = 0;
+   * own keys. False iff unrecognized, which the caller turns into a mission FAIL, never a silent no-op;
+   * the default therefore rejects everything, which is right for an entity that configures nothing. */
+  virtual bool ApplySetup(const std::string &key, const std::string &value) {
+    (void)key; (void)value;
+    return false;
+  }
 
 protected:
+  /* THE BINDING STEP. A derived module calls these in its constructor for every slot it owns — the
+   * enumeration the base refuses to demand. Re-declaring is legal and is how a slot whose object is
+   * swapped at AttachFdm keeps its entry. */
+#define FB_CAP_DECLARE(Acc, Type, Wire)               \
+  void Declare##Acc(Type &slot) {                     \
+    Slot##Acc##_ = &slot;                             \
+    Caps_ |= FBCapabilityBit(FBCapability::Acc);      \
+  }
+  FB_MODULE_CAPABILITIES(FB_CAP_DECLARE)
+#undef FB_CAP_DECLARE
+
   /* The ONE mission key that is a fact about a UNIT and not about an airframe, so it is answered here
    * once instead of by every module that could carry a jamming pod. A module opts in by calling it from
    * its own ApplySetup; one that does not is simply not a jammer. Returns false for any other key. */
@@ -234,6 +251,12 @@ private:
   const FBSystemHealth *Health_ = nullptr;   /* borrowed, read-only — see AttachHealth */
   std::string TypeName_;
   double CommJamM_ = 0.0;
+
+  /* BORROWED, every one of them: the derived module owns its slots and outlives this table. */
+#define FB_CAP_MEMBER(Acc, Type, Wire) Type *Slot##Acc##_ = nullptr;
+  FB_MODULE_CAPABILITIES(FB_CAP_MEMBER)
+#undef FB_CAP_MEMBER
+  FBCapabilityMask Caps_ = 0;
 };
 
 } // namespace FlightBox::Modules

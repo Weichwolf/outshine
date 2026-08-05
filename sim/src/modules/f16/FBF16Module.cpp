@@ -36,11 +36,37 @@ FBF16Module::FBF16Module()
   static const FBMfdPage kPages[] = {FBMfdPage::Fcr, FBMfdPage::Sms, FBMfdPage::Hsd, FBMfdPage::Rwr,
                                      FBMfdPage::Sys};
   Mfd_.DeclarePages(kPages, (int)(sizeof kPages / sizeof kPages[0]));
+
+  /* WHAT THIS JET IS, as a list. The IRST entry is the one that costs an explanation: the F-16 has no
+   * infrared search set, the slot holds the generic default and is never cycled or powered — it is
+   * declared only because units/FBSimUnit registers it on the telemetry bus by position. Dropping it
+   * is a column change, not a code change, and belongs to its own measured round. */
+  DeclareAutopilot(*AP);
+  DeclareFlightControl(*FC);
+  DeclarePilotSystem(*PilotSys);
+  DeclareControls(*AirframeCtrl);
+  DeclareHumanInput(*Input);
+  DeclareDisplays(*Disp);
+  DeclareAirDataSystem(*AirData);
+  DeclareNavSystem(*NavSys);
+  DeclareWarningSystem(*Warn_);
+  DeclareRadarAltimeter(*RadarAlt);
+  DeclareCommands(CmdBus_);
+  DeclareDatalink(*Datalink_);
+  DeclareRadar(*Fcr_);
+  DeclareRwr(*Rwr_);
+  DeclareIrst(Irst_);
+  DeclareVisual(Visual_);
+  DeclareCountermeasures(*Cmds_);
+  DeclareStores(*SmsSys);
+  DeclareGuns(*GunSys);
+  DeclareFlightPlan(Plan_);
 }
 
 void FBF16Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
   AirframeCtrl = std::make_unique<Systems::FBJsbsimAirframeControls>(fdm);
+  DeclareControls(*AirframeCtrl);   /* the slot's OBJECT was swapped; the declaration follows it */
   /* The pylons become real point masses on THIS airframe — every station empty until a mission loads
    * one, so an unloaded jet is unchanged. */
   SmsSys->AttachFdm(fdm);

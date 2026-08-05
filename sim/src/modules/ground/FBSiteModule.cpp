@@ -102,6 +102,29 @@ FBSiteModule::FBSiteModule(const FBSiteSpec &spec) : Spec_(spec) {
     }
   }
   Fc_.Bind(Spec_, TrackBus_);
+
+  /* The ACQUISITION set fills the radar slot (the fire-control set is the second antenna, published
+   * through TrackBeamEmission) and the fire control IS this position's pilot; the rest are the
+   * telemetry column layout, as in FBStoreModule. */
+  DeclareAutopilot(AP_);
+  DeclareFlightControl(FC_);
+  DeclarePilotSystem(Fc_);
+  DeclareControls(Ctrl_);
+  DeclareDisplays(Disp_);
+  DeclareAirDataSystem(AirData_);
+  DeclareNavSystem(Nav_);
+  DeclareWarningSystem(Warn_);
+  DeclareRadarAltimeter(RadarAlt_);
+  DeclareCommands(Cmds_);
+  DeclareDatalink(Datalink_);
+  DeclareRadar(Search_);
+  DeclareRwr(Esm_);
+  DeclareIrst(Irst_);
+  DeclareVisual(Optics_);
+  DeclareCountermeasures(Cm_);
+  DeclareStores(Rails_);
+  DeclareGuns(Gun_);
+  DeclareFlightPlan(Plan_);
 }
 
 /* One decision tick per Run(): the sets keep their OWN absolute frame grids, so how often this module

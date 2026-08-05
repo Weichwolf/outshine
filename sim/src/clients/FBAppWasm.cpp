@@ -269,7 +269,7 @@ static void PostOrder(FBOrderKind kind, double latDeg, double lonDeg, double alt
   o.Value = value;
   o.IssuedS = gSim ? gSim->SimTimeS() : 0.0;
   FBLogUnitScope us(u.GetName());
-  u.Module().PilotSystem().ReceiveOrder(o);
+  if (Pilot::FBPilot *p = u.Module().PilotSystem()) p->ReceiveOrder(o);
   char st[96];
   snprintf(st, sizeof st, "ORDER %s -> %s (SEQ %u)", FBOrderKindStr(kind), u.GetName().c_str(),
            (unsigned)o.Seq);
@@ -363,7 +363,7 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
       /* SELECT A UNIT AND PRESS TAB = SIT IN ITS COCKPIT. It is an information change: from here on the
        * picture is THAT unit's own blocks and it sees less than the map did. */
       gOwnship = gActors[gSelected].get();
-      R.SetHudDisplay(&gOwnship->Displays());
+      R.SetHudDisplay(gOwnship->Displays());
     }
     FBLog::Info("view", "MODE", {{"view", gView == FBView::Map ? "map" : "cockpit"},
                                  {"unit", gOwnship ? gOwnship->GetName() : std::string()}});
@@ -638,7 +638,7 @@ static void frame(void) {
   while (rel > 180) rel -= 360;
   while (rel < -180) rel += 360;
   hs.Platform.HomeBearingDeg = (float)rel;
-  hs.Platform.Mode = gOwnship->Module().Autopilot().GetMode();
+  if (Systems::FBAutopilot *ap = gOwnship->Module().Autopilot()) hs.Platform.Mode = ap->GetMode();
   /* 1 Hz flight telemetry from the sim tick, device-loss-proof: the gate's measurement convention. */
   { static double lastLogS = 0.0;
     if (simT - lastLogS >= 1.0) { lastLogS = simT;
@@ -648,7 +648,8 @@ static void frame(void) {
           {"mode", ModeLabel(g.Mode)}});
       FBLog::Info("flight", "home", {{"dist", (double)hs.Platform.HomeDistM}, {"brg", (double)hs.Platform.HomeBearingDeg},
           {"hdg", St.yaw}, {"lon", St.lon}});
-      FBLog::Info("pilot", "phase", {{"phase", Pilot::FBPilot::PhaseName(gOwnship->Module().PilotSystem().GetPhase())}});
+      if (Pilot::FBPilot *p = gOwnship->Module().PilotSystem())
+        FBLog::Info("pilot", "phase", {{"phase", Pilot::FBPilot::PhaseName(p->GetPhase())}});
       /* THE ARMAMENT PANEL, and every field is a PUBLISHED BLOCK the seat's own boxes wrote — the same
        * numbers the HUD reads, on the same bus, so the player's panel can show nothing his instruments
        * do not. Beside the flight line and at the same rate, for the same reason. */
@@ -775,7 +776,7 @@ int main() {
       return 1;
     }
     module->AttachFdm(*fdm);
-    module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.85);
+    if (Systems::FBAutopilot *ap = module->Autopilot()) ap->SetManual(0.0, 0.0, 0.0, 0.85);
     gActors.push_back(std::make_unique<Units::FBSimUnit>(1, "sandbox", Units::FBUnitKind::Aircraft, FBUnitTeam::Friendly, std::move(fdm),
                                                   std::move(module), Fdm::fb_fdm_state{}, altAsl));
     FBLog::Info("gpu", "manual_boot", {{"lat", olat}, {"lon", olon}, {"altM", altAsl}, {"speedMs", kSpeedMs}});
@@ -897,8 +898,10 @@ int main() {
     double brgRad = kStptBrgDeg * kDeg2Rad, rangeM = kStptRangeNm * kNmToM;
     double stptLat = olat + (rangeM * std::cos(brgRad)) / kMPerDeg;
     double stptLon = olon + (rangeM * std::sin(brgRad)) / (kMPerDeg * std::cos(olat * kPi / 180.0));
-    gOwnship->Module().NavSystem().SetSteerpoint(stptLat, stptLon, kConfigGroundM * kMToFt + 50.0);
-    gOwnship->Module().NavSystem().SetBullseye(olat, olon);
+    if (Systems::FBNavSystem *nav = gOwnship->Module().NavSystem()) {
+      nav->SetSteerpoint(stptLat, stptLon, kConfigGroundM * kMToFt + 50.0);
+      nav->SetBullseye(olat, olon);
+    }
   }
 
   R.SetStreaming(512);
@@ -926,7 +929,7 @@ int main() {
     if (sn > 0) { R.SetStars(stars, sn, olat, olon); FBLog::Info("gpu", "star_catalogue", {{"bytes", sn}, {"stars", sn / 6}}); }
     else FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", std::string(base)}});
   }
-  R.SetHudDisplay(&gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
+  R.SetHudDisplay(gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.SetMapSheetSource(&MapTileFetch);
   /* The airframe meshes, preloaded into emscripten's FS by the wasm target. A miss leaves the units
    * invisible and never blocks startup — exactly as a missing moon texture does. */

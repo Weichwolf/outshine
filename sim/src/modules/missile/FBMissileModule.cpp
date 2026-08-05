@@ -5,6 +5,28 @@ namespace FlightBox::Modules {
 FBMissileModule::FBMissileModule(const FBStoreSpec &spec) : Spec_(spec) {
   Guidance_.Bind(Spec_, Seeker_, Ir_, Ar_);
   Visual_.SetPowered(false);   /* a round carries no eyes */
+  /* THREE OF THESE ARE THE ROUND, the rest are the telemetry column layout (FBStoreModule states why):
+   * the seeker sits in the radar slot, the anti-radiation head in the warning-receiver slot and the
+   * infrared head in the IRST slot, and the guidance IS this round's pilot. */
+  DeclareAutopilot(AP_);
+  DeclareFlightControl(FC_);
+  DeclarePilotSystem(Guidance_);
+  DeclareControls(Ctrl_);
+  DeclareDisplays(Disp_);
+  DeclareAirDataSystem(AirData_);
+  DeclareNavSystem(Nav_);
+  DeclareWarningSystem(Warn_);
+  DeclareRadarAltimeter(RadarAlt_);
+  DeclareCommands(Cmds_);
+  DeclareDatalink(Uplink_);
+  DeclareRadar(Seeker_);
+  DeclareRwr(Ar_);
+  DeclareIrst(Ir_);
+  DeclareVisual(Visual_);
+  DeclareCountermeasures(Cm_);
+  DeclareStores(Stores_);
+  DeclareGuns(Gun_);
+  DeclareFlightPlan(Plan_);
 }
 
 void FBMissileModule::ProgramRelease(const FBStoreRelease &rel) {

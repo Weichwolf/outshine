@@ -47,8 +47,13 @@ void FBSimUnit::PublishPose() {
     a.HookNorm = (float)Fdm_->GetHookNorm();
     a.CanopyNorm = (float)Fdm_->GetCanopyNorm();
   }
-  Sig_.DatalinkXmt = Module_->Datalink().Transmitting();
-  Sig_.IffXpdr = Module_->Radar().IffTransponder();
+  /* A UNIT RADIATES ONLY WHAT ITS MODULE DECLARED. An undeclared slot is not a silent one: it does not
+   * exist, so the field keeps its zero — which is the same signature a powered-down box produces. */
+  Sensors::FBDatalinkSystem *dl = Module_->Datalink();
+  Sensors::FBRadarSystem *radar = Module_->Radar();
+  Weapons::FBStoresSystem *stores = Module_->Stores();
+  Sig_.DatalinkXmt = dl && dl->Transmitting();
+  Sig_.IffXpdr = radar && radar->IffTransponder();
   /* Not an emission but the same question: what may a foreign sensor notice? A plume is visible to an
    * infrared head and to nothing else in the tree, and it is read off the ENGINE rather than off a
    * throttle position, so no module can publish a plume it is not producing. */
@@ -56,22 +61,27 @@ void FBSimUnit::PublishPose() {
   /* The beam is derived by the SET, so the emission cannot disagree with the pattern the antenna flies.
    * Combined here only because a tracking radar that is also supporting a shot is a different warning to
    * receive, and whether this jet supports one is the STORES system's knowledge, not the radar's. */
-  Sig_.Radar[0] = Module_->Radar().Emission();
+  Sig_.Radar[0] = radar ? radar->Emission() : FBEmitterSignature{};
   /* The SECOND antenna, silent for every airframe (FBModule's default) — a position radiates its
    * acquisition set and its fire control at the same time, and the RWR has to hear both. */
   Sig_.Radar[1] = Module_->TrackBeamEmission();
-  for (int i = 0; i < kMaxEmitterBeams; i++)
-    if (Sig_.Radar[i].Mode == FBEmitterMode::Track && Module_->Stores().Uplink().Active)
-      Sig_.Radar[i].Mode = FBEmitterMode::Guidance;
+  if (stores)
+    for (int i = 0; i < kMaxEmitterBeams; i++)
+      if (Sig_.Radar[i].Mode == FBEmitterMode::Track && stores->Uplink().Active)
+        Sig_.Radar[i].Mode = FBEmitterMode::Guidance;
   Sig_.RcsM2 = (float)Module_->RadarCrossSectionM2();
-  const FBChaffCloud *clouds = Module_->Countermeasures().Clouds();
-  for (int i = 0; i < kMaxChaffClouds; i++) Sig_.Chaff[i] = clouds[i];
-  const FBFlareCloud *flares = Module_->Countermeasures().Flares();
-  for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
-  Sig_.Uplink = Module_->Stores().Uplink();
-  /* ...and the spot it is holding, from the same box and at the same barrier: a semi-active LASER round
-   * reads this exactly the way its radar cousin reads the uplink beside it. */
-  Sig_.Designation = Module_->Stores().Designation();
+  if (Sensors::FBCountermeasureSystem *cm = Module_->Countermeasures()) {
+    const FBChaffCloud *clouds = cm->Clouds();
+    for (int i = 0; i < kMaxChaffClouds; i++) Sig_.Chaff[i] = clouds[i];
+    const FBFlareCloud *flares = cm->Flares();
+    for (int i = 0; i < kMaxFlareClouds; i++) Sig_.Flare[i] = flares[i];
+  }
+  if (stores) {
+    Sig_.Uplink = stores->Uplink();
+    /* ...and the spot it is holding, from the same box and at the same barrier: a semi-active LASER
+     * round reads this exactly the way its radar cousin reads the uplink beside it. */
+    Sig_.Designation = stores->Designation();
+  }
   /* WHAT AN EYE GETS. The three dimensions are the damage layout read as geometry — the layout states
    * HALF-extents (how far the airframe reaches from the CG), an eye measures the WHOLE dimension of a
    * silhouette — so the gun and the eye cannot end up with two tables about one aeroplane. The type is
@@ -105,7 +115,7 @@ void FBSimUnit::UpdateGroundAsl(double sampleM) {
   Module_->SetGroundAsl((float)GroundAslM_);
   /* The terminal's OWN end of the radio horizon, from the same sample and on the same tick — pushed
    * here rather than through every module, because it is the owner's terrain and not the module's. */
-  Module_->Datalink().SetOwnGroundAslM(GroundAslM_);
+  if (Sensors::FBDatalinkSystem *dl = Module_->Datalink()) dl->SetOwnGroundAslM(GroundAslM_);
   if (Fdm_) Fdm_->SetGroundElevM(GetKind() == FBUnitKind::Weapon ? Fdm::FBFdm::kNoGroundElevM : GroundAslM_);
 }
 
@@ -152,7 +162,7 @@ void FBSimUnit::ApplyDamageToAirframe() {
    * many this airframe declared, and only ALL of them being out is a cutoff. One of two is a thrust
    * loss the aircraft keeps flying with, which is the state a two-engine fighter is characterised by. */
   if (Health_.PropulsionOut()) {
-    Module_->Controls().EngineCutoff();   /* the same controls path a pilot would use */
+    if (Systems::FBAirframeControls *c = Module_->Controls()) c->EngineCutoff();   /* the same controls path a pilot would use */
     Fdm_->SetThrottleLimit(0.0);
   } else if (Health_.Failed(FBSystemId::Engine) || Health_.Failed(FBSystemId::Engine2)) {
     Fdm_->SetThrottleLimit(kThrottleLimitOneEngineOut);
@@ -198,14 +208,15 @@ bool FBSimUnit::RunMonitors(double simT, const FBMissionRoster &roster) {
      * FBDamageModel because that is the register's only writer — a monitor writing past it would be a
      * second mutator on a type whose whole guarantee is that it has one. */
     FBDamageModel::ApplyPhysicalKo(Health_);
-    Module_->Controls().EngineCutoff();
+    if (Systems::FBAirframeControls *c = Module_->Controls()) c->EngineCutoff();
     return true;
   }
   if (Mission_ && Mission_->Tick(BuildMissionSample(roster), simT)) {
     /* Touched down off the assigned runway — NOT for a shootdown, where cutting the engine would be the
      * verdict acting on the aircraft instead of the damage doing so. */
-    if (Mission_->Verdict() == FBMissionVerdict::Fail && Health_.CombatEffective())
-      Module_->Controls().EngineCutoff();
+    if (Mission_->Verdict() == FBMissionVerdict::Fail && Health_.CombatEffective()) {
+      if (Systems::FBAirframeControls *c = Module_->Controls()) c->EngineCutoff();
+    }
     return true;
   }
   return false;
@@ -228,29 +239,33 @@ void FBSimUnit::CheckEnvelope() {
   } else if (St_.vy > -5.0) WarnedSink_ = false;
 }
 
+/* THE COLUMN LAYOUT IS THE MODULE'S DECLARATION READ IN ORDER. Every module in the tree declares all
+ * fifteen of these slots, so every telemetry.csv is what it was; a module that declares fewer writes
+ * fewer columns, which is the price of the slots being optional at all. doc/architecture.md §Gaps. */
 void FBSimUnit::StartTelemetry(FBTelemetrySink *sink) {
+  Pilot::FBPilot *pilot = Module_->PilotSystem();
   Bus_.Register(&FdmSrc_);
-  Bus_.Register(&Module_->AirDataSystem());
-  Bus_.Register(&Module_->PilotSystem());
-  Bus_.Register(&Module_->FlightControl());
-  Bus_.Register(&Module_->Controls());
-  Bus_.Register(&Module_->Datalink());
-  Bus_.Register(&Module_->Radar());
+  RegisterIf(Module_->AirDataSystem());
+  RegisterIf(pilot);
+  RegisterIf(Module_->FlightControl());
+  RegisterIf(Module_->Controls());
+  RegisterIf(Module_->Datalink());
+  RegisterIf(Module_->Radar());
   /* THE APPEND RULE, from here down: a new source appends columns, it never shifts old ones — every
    * column ever measured keeps its position, because baselines and analysis read by position. */
-  Bus_.Register(&Module_->PilotSystem().BfmTrack());
-  Bus_.Register(&Module_->WarningSystem());
-  Bus_.Register(&Module_->Commands());
+  if (pilot) Bus_.Register(&pilot->BfmTrack());
+  RegisterIf(Module_->WarningSystem());
+  RegisterIf(Module_->Commands());
   Bus_.Register(&BusSrc_);
-  Bus_.Register(&Module_->Stores());
-  Bus_.Register(&Module_->Rwr());
-  Bus_.Register(&Module_->Countermeasures());
-  Bus_.Register(&Module_->PilotSystem().Engagement());
+  RegisterIf(Module_->Stores());
+  RegisterIf(Module_->Rwr());
+  RegisterIf(Module_->Countermeasures());
+  if (pilot) Bus_.Register(&pilot->Engagement());
   Bus_.Register(&HealthSrc_);
-  Bus_.Register(&Module_->Guns());
-  Bus_.Register(&Module_->Irst());
-  Bus_.Register(&Module_->PilotSystem().FlightPicture());
-  Bus_.Register(&Module_->Visual());
+  RegisterIf(Module_->Guns());
+  RegisterIf(Module_->Irst());
+  if (pilot) Bus_.Register(&pilot->FlightPicture());
+  RegisterIf(Module_->Visual());
   /* THE TWO CONDITIONAL SOURCES, and they are conditional so that a mission which declares neither a
    * net nor a zone writes the identical file it wrote before either existed: a module that is on no net
    * returns null, and a judge with no declared zones returns null. */

@@ -24,6 +24,28 @@ public:
     Radar_.SetIffTransponder(false);
     Rwr_.SetPowered(false);
     Visual_.SetPowered(false);
+    /* A BOMB STILL DECLARES A GUN, and that is not an oversight: units/FBSimUnit registers fifteen of
+     * these slots on the telemetry bus by position, so dropping one here would shift every column of
+     * every telemetry.csv. Pruning is a separate, measured round — doc/architecture.md §Gaps. */
+    DeclareAutopilot(AP_);
+    DeclareFlightControl(FC_);
+    DeclarePilotSystem(Pilot_);
+    DeclareControls(Ctrl_);
+    DeclareDisplays(Disp_);
+    DeclareAirDataSystem(AirData_);
+    DeclareNavSystem(Nav_);
+    DeclareWarningSystem(Warn_);
+    DeclareRadarAltimeter(RadarAlt_);
+    DeclareCommands(Cmds_);
+    DeclareDatalink(Datalink_);
+    DeclareRadar(Radar_);
+    DeclareRwr(Rwr_);
+    DeclareIrst(Irst_);
+    DeclareVisual(Visual_);
+    DeclareCountermeasures(Cm_);
+    DeclareStores(Stores_);
+    DeclareGuns(Gun_);
+    DeclareFlightPlan(Plan_);
   }
 
   const FBStoreSpec &Spec() const { return Spec_; }
@@ -36,41 +58,10 @@ public:
   void Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegistry *units = nullptr,
            const World::FBWorld *world = nullptr) override;
 
-  Systems::FBAutopilot &Autopilot() override { return AP_; }
-  Systems::FBFlightControl &FlightControl() override { return FC_; }
-  Pilot::FBPilot &PilotSystem() override { return Pilot_; }
-  Systems::FBAirframeControls &Controls() override { return Ctrl_; }
-  Systems::FBDisplaySystem &Displays() override { return Disp_; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return AirData_; }
-  Systems::FBNavSystem &NavSystem() override { return Nav_; }
-  Systems::FBWarningSystem &WarningSystem() override { return Warn_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return RadarAlt_; }
-  FBCommandBus &Commands() override { return Cmds_; }
-  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
-  Sensors::FBRadarSystem &Radar() override { return Radar_; }
-  /* The slots exist because every module carries the same categories; these are the defaults, never
-   * cycled and powered down at construction so nothing they hold can be mistaken for a picture. */
-  Sensors::FBRwrSystem &Rwr() override { return Rwr_; }
-  Sensors::FBIrstSystem &Irst() override { return Irst_; }
-  /* An unmanned round/store/target has no eyes; the slot exists because every module carries the same
-   * categories, and it is powered OFF so nothing it holds can be mistaken for a picture. */
-  Sensors::FBVisualSystem &Visual() override { return Visual_; }
-  Sensors::FBCountermeasureSystem &Countermeasures() override { return Cm_; }
-  Weapons::FBStoresSystem &Stores() override { return Stores_; }
-  Weapons::FBGunSystem &Guns() override { return Gun_; }
   const FBState &Telemetry() const override { return State_; }
   const Systems::FBGuidance &LastGuidance() const override { return LastG_; }
   int LastSubsteps() const override { return LastSub_; }
-
-  FBFlightPlan &FlightPlan() override { return Plan_; }
-  void SetRunway(const FBRunway &rwy) override { (void)rwy; }
   void SetGroundAsl(float m) override { GroundAslM_ = m; }
-  /* A released store was configured by being loaded onto a pylon, so any `set` key is unknown and voids
-   * the spawn — correctly, since such a line could only be a mission that thinks it declares a jet. */
-  bool ApplySetup(const std::string &key, const std::string &value) override {
-    (void)key; (void)value;
-    return false;
-  }
 
 private:
   const FBStoreSpec &Spec_;

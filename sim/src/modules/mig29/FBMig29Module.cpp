@@ -24,11 +24,35 @@ FBMig29Module::FBMig29Module()
   static const FBMfdPage kPages[] = {FBMfdPage::Fcr, FBMfdPage::Irst, FBMfdPage::Sms, FBMfdPage::Rwr,
                                      FBMfdPage::Sys};
   Mfd_.DeclarePages(kPages, (int)(sizeof kPages / sizeof kPages[0]));
+
+  /* NINETEEN, not the F-16's twenty: this cockpit has no bound HOTAS, so `human_input` stays undeclared
+   * and a human cannot take this seat — which is what the accessor always answered, now as a fact about
+   * the module rather than as a null out of the base. */
+  DeclareAutopilot(*AP);
+  DeclareFlightControl(*FC);
+  DeclarePilotSystem(*PilotSys);
+  DeclareControls(*AirframeCtrl);
+  DeclareDisplays(*Disp);
+  DeclareAirDataSystem(*AirData);
+  DeclareNavSystem(*NavSys);
+  DeclareWarningSystem(*Warn_);
+  DeclareRadarAltimeter(*RadarAlt);
+  DeclareCommands(CmdBus_);
+  DeclareDatalink(Datalink_);
+  DeclareRadar(Radar_);
+  DeclareRwr(Rwr_);
+  DeclareIrst(Irst_);
+  DeclareVisual(Visual_);
+  DeclareCountermeasures(Cm_);
+  DeclareStores(Stores_);
+  DeclareGuns(Gun_);
+  DeclareFlightPlan(Plan_);
 }
 
 void FBMig29Module::AttachFdm(Fdm::FBFdm &fdm) {
   Fdm_ = &fdm;
   AirframeCtrl = std::make_unique<Systems::FBJsbsimAirframeControls>(fdm);
+  DeclareControls(*AirframeCtrl);   /* the slot's OBJECT was swapped; the declaration follows it */
   /* The pylons become real point masses on THIS airframe — every station empty until a mission loads
    * one, so an unloaded jet computes exactly as it did before stage 2c. */
   Stores_.AttachFdm(fdm);

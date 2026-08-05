@@ -74,8 +74,9 @@ public:
   Modules::FBModule &Module() { return *Module_; }
   const Modules::FBModule &Module() const { return *Module_; }
   /* FBModule's accessors are non-const by design (systems are COMMANDED through them), so the read-only
-   * view a display consumer needs is surfaced here instead of const_cast at call sites. */
-  const Systems::FBDisplaySystem &Displays() const { return Module_->Displays(); }
+   * view a display consumer needs is surfaced here instead of const_cast at call sites. Null iff the
+   * module declared no display — a renderer then draws no symbology, which is the honest picture. */
+  const Systems::FBDisplaySystem *Displays() const { return Module_->Displays(); }
 
   double GroundAslM() const { return GroundAslM_; }
   double AglM() const { return St_.elev - GroundAslM_; }
@@ -107,6 +108,8 @@ public:
   void StartTelemetry(FBTelemetrySink *sink);
 
 private:
+  void RegisterIf(FBTelemetrySource *src) { if (src) Bus_.Register(src); }
+
   /* ---- THE TICK, AND IT IS NOT PUBLIC ----------------------------------------------------------
    * Everything a per-frame step consists of — ground truth, the airframe, the barrier, the judges,
    * the telemetry sample — is reachable from ONE friend, missions/FBMissionSim, which is the ONE

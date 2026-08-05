@@ -50,6 +50,7 @@ else in this tree: the GUI is a client on the simulation, never a second truth.
 | Third reader | Who flies | What it is for |
 |---|---|---|
 | **replayed** — the WASM app, mission **+ trace**, no model | the recording | the demo — and, unexpectedly, a test the other two cannot perform |
+| **watched** — the WASM app, live model, no player | the AI, deciding now | *„eher Twitch"* — the 2026 deliverable. Not deterministic and not claimed to be |
 
 Every mission ships as an attract-mode demo for free, which is how these four titles did it in 1994 and
 costs nothing here: the sim is deterministic given its inputs, so mission + trace reproduce the recorded
@@ -505,7 +506,12 @@ Consequences:
 
 ## State
 
-Nothing built.
+Nothing of `mods/` built. **§2.1's premise is**: the per-unit declaration list exists as runtime data
+(`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the
+`FBModule` base demands none of it (one pure virtual left, `Run`), and `fb-gym --caps` emits it as
+`<module> <capability> <c++ type>` — the artefact a tool schema is generated from. What is missing for
+§2.1 is the other half: a call surface per capability (a verb list with parameters), not just the slot
+inventory. See [`architecture.md`](architecture.md) §The layering pattern.
 
 ## Gaps
 

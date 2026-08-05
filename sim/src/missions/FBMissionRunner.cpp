@@ -365,7 +365,9 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   if (carry && carry->Out) {
     for (size_t i = 0; i < mission.Units.size() && i < Actors.size(); i++) {
       Units::FBSimUnit &a = *Actors[i];
-      Weapons::FBStoresSystem &sms = a.Module().Stores();
+      Weapons::FBStoresSystem *smsPtr = a.Module().Stores();
+      if (!smsPtr) continue;
+      Weapons::FBStoresSystem &sms = *smsPtr;
       int remaining[kFBStoreKinds], declared[kFBStoreKinds] = {};
       for (int k = 0; k < kFBStoreKinds; k++) remaining[k] = 0;
       for (const auto &kv : mission.Units[i].SetKV) {

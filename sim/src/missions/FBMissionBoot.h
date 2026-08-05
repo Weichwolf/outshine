@@ -63,7 +63,8 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
       /* The declarative spawn IS the whole truth about a mover: there is no airframe to trim into it. */
       gst.elev = sp.AltM;
       gst.speed = gst.gs = gst.cas = sp.SpeedKt * kKtToMs;
-      module->FlightPlan() = block.Plan;
+      if (FBFlightPlan *plan = module->FlightPlan()) *plan = block.Plan;
+      else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
     }
     Units::FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
     auto gunit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
@@ -92,11 +93,18 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
   fdm->SetGroundElevM(groundAsl);
   module->AttachFdm(*fdm);   /* before any Controls()/ApplySetup call below reaches the airframe */
   if (mission.HaveRunway) module->SetRunway(mission.Runway);
-  module->FlightPlan() = block.Plan;
-  module->Autopilot().SetManual(0.0, 0.0, 0.0, 0.0);
-  module->Controls().SetGear(true);
-  module->Controls().SetWheelBrakes(1.0, 1.0);
-  module->PilotSystem().SetPhase(sp.Ground ? Pilot::FBPilot::Phase::Preflight : Pilot::FBPilot::Phase::Route);
+  /* THE SPAWN COMMANDS WHAT THE MODULE DECLARED. A route this airframe cannot hold voids the spawn
+   * rather than being dropped silently; the rest are wiring, and a module that declared no autopilot
+   * simply is not put into manual. */
+  if (FBFlightPlan *plan = module->FlightPlan()) *plan = block.Plan;
+  else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
+  if (Systems::FBAutopilot *ap = module->Autopilot()) ap->SetManual(0.0, 0.0, 0.0, 0.0);
+  if (Systems::FBAirframeControls *ctl = module->Controls()) {
+    ctl->SetGear(true);
+    ctl->SetWheelBrakes(1.0, 1.0);
+  }
+  if (Pilot::FBPilot *pilot = module->PilotSystem())
+    pilot->SetPhase(sp.Ground ? Pilot::FBPilot::Phase::Preflight : Pilot::FBPilot::Phase::Route);
   for (const auto &kv : block.SetKV) {
     /* The module already logged WHY — only it knows its keys; this is "the spawn is void". */
     if (!module->ApplySetup(kv.first, kv.second)) {

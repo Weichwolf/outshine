@@ -411,7 +411,7 @@ public:
       R.reset(); W.reset();
       return;
     }
-    R->SetHudDisplay(&primary.Displays());
+    R->SetHudDisplay(primary.Displays());
     /* The airframe meshes, from the model root this client already runs against (sim/). */
     if (!R->AddUnitModel("f16", "assets/models"))
       FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", "f16"}, {"dir", "assets/models"}});
@@ -504,7 +504,7 @@ private:
         if (!u || u->GetName() != so.Unit) continue;
         FlightBox::FBLogUnitScope us(u->GetName());
         so.Order.IssuedS = simT;
-        u->Module().PilotSystem().ReceiveOrder(so.Order);
+        if (FlightBox::Pilot::FBPilot *p = u->Module().PilotSystem()) p->ReceiveOrder(so.Order);
         break;
       }
     }

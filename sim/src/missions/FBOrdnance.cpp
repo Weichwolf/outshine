@@ -426,7 +426,8 @@ void FBOrdnance::Launch(Units::FBActorList &actors, Units::FBUnitRegistry &units
   for (size_t i = 0; i < declared; i++) {
     Units::FBSimUnit &carrier = *actors[i];
     FBGunBurst gb;
-    while (carrier.Module().Guns().TakeBurst(gb)) {
+    Weapons::FBGunSystem *guns = carrier.Module().Guns();
+    while (guns && guns->TakeBurst(gb)) {
       /* The trigger was pulled — noted before anything can go wrong with the rounds, because what
        * `no_fire` forbids is the pull, not the bundle finding a free slot. */
       carrier.NoteWeaponRelease();
@@ -434,14 +435,15 @@ void FBOrdnance::Launch(Units::FBActorList &actors, Units::FBUnitRegistry &units
         FBLogUnitScope us(carrier.LogLabel());
         FBLog::Info("gun", "BURST", {{"rounds", gb.Rounds}, {"altM", gb.AltM},
             {"velE", gb.VelE}, {"velN", gb.VelN}, {"velU", gb.VelU},
-            {"remaining", carrier.Module().Guns().RoundsRemaining()}});
+            {"remaining", guns->RoundsRemaining()}});
       } else {
         FBLogUnitScope us(carrier.LogLabel());
         FBLog::Warn("gun", "BURST_DROPPED", {{"rounds", gb.Rounds}, {"live", Bullets_.LiveCount()}});
       }
     }
     FBStoreRelease rel;
-    while (carrier.Module().Stores().TakeRelease(rel)) {
+    Weapons::FBStoresSystem *stores = carrier.Module().Stores();
+    while (stores && stores->TakeRelease(rel)) {
       carrier.NoteWeaponRelease();   /* the store left the rail; a jettison is a release too */
       const FBStoreSpec *spec = FBStoreSpecOf(rel.Kind);
       if (!spec) continue;

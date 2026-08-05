@@ -52,27 +52,10 @@ public:
    * overwriting the fields it computes itself. */
   const FBState &Telemetry() const override { return SharedState; }
 
-  Systems::FBAutopilot &Autopilot() override { return *AP; }
-  Systems::FBFlightControl &FlightControl() override { return *FC; }
-  Systems::FBDisplaySystem &Displays() override { return *Disp; }
   FBF16Max7456 &Max7456() { return *Chip; }
-  Systems::FBNavSystem &NavSystem() override { return *NavSys; }
-  Sensors::FBDatalinkSystem &Datalink() override { return *Datalink_; }
-  FBF16Fcr &Radar() override { return *Fcr_; }   /* covariant: the base returns FBRadarSystem& */
-  FBF16Rwr &Rwr() override { return *Rwr_; }
-  /* The F-16 has no IRST. The slot holds the generic default, is never cycled and never powered, so
-   * its block stays Invalid — a module declares what it HAS, and the alternative (leaving the accessor
-   * out) would mean a caller holding an FBModule& could not ask. */
-  Sensors::FBIrstSystem &Irst() override { return Irst_; }
-  /* ...and the one sensor no airframe carries and every pilot has. It is composed like any other slot
-   * because it must sit INSIDE the perception boundary (doc/sensors.md §9.1). */
-  Sensors::FBVisualSystem &Visual() override { return Visual_; }
-  FBF16Cmds &Countermeasures() override { return *Cmds_; }
   FBF16Ufc &Ufc() { return *UfcSys; }
   FBF16Sms &Sms() { return *SmsSys; }
-  Weapons::FBStoresSystem &Stores() override { return *SmsSys; }
   FBF16Gun &Gun() { return *GunSys; }
-  Weapons::FBGunSystem &Guns() override { return *GunSys; }
   const Systems::FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
@@ -105,14 +88,6 @@ public:
   FBMasterMode GetMasterMode() const { return Mode; }
   void SetMasterMode(FBMasterMode m) { Mode = m; }
 
-  FBF16Pilot &PilotSystem() override { return *PilotSys; }   /* covariant: the base returns FBPilot& */
-  Systems::FBInputSystem *HumanInput() override { return Input.get(); }
-  Systems::FBAirframeControls &Controls() override { return *AirframeCtrl; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return *AirData; }
-  Systems::FBWarningSystem &WarningSystem() override { return *Warn_; }
-  FBCommandBus &Commands() override { return CmdBus_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
-  FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The runway doubles as the mission's BULLSEYE: a .fbm declares none, and the runway is the one
    * briefed point every unit shares. Without one the HUD's bearing/range pair stays at the origin. */
   void SetRunway(const FBRunway &rwy) override {

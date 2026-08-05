@@ -54,24 +54,6 @@ public:
 
   const FBState &Telemetry() const override { return SharedState; }
 
-  Systems::FBAutopilot &Autopilot() override { return *AP; }
-  Systems::FBFlightControl &FlightControl() override { return *FC; }
-  FBMig29Pilot &PilotSystem() override { return *PilotSys; }   /* covariant, like the F-16's */
-  Systems::FBAirframeControls &Controls() override { return *AirframeCtrl; }
-  Systems::FBDisplaySystem &Displays() override { return *Disp; }
-  Systems::FBAirDataSystem &AirDataSystem() override { return *AirData; }
-  Systems::FBNavSystem &NavSystem() override { return *NavSys; }
-  Systems::FBWarningSystem &WarningSystem() override { return *Warn_; }
-  Systems::FBRadarAltimeter &RadarAltimeter() override { return *RadarAlt; }
-  FBCommandBus &Commands() override { return CmdBus_; }
-  Sensors::FBDatalinkSystem &Datalink() override { return Datalink_; }
-  FBMig29Radar &Radar() override { return Radar_; }        /* covariant, like the F-16's */
-  FBMig29Rwr &Rwr() override { return Rwr_; }
-  FBMig29Irst &Irst() override { return Irst_; }
-  Sensors::FBVisualSystem &Visual() override { return Visual_; }   /* generic: an eye is not a box */
-  FBMig29Cmds &Countermeasures() override { return Cm_; }   /* covariant, like the F-16's */
-  FBMig29Sms &Stores() override { return Stores_; }        /* covariant: pylon geometry only */
-  FBMig29Gun &Guns() override { return Gun_; }             /* covariant: installation only */
   const Systems::FBGuidance &LastGuidance() const override { return LastG; }
   int LastSubsteps() const override { return LastSub; }
 
@@ -104,7 +86,6 @@ public:
    * it. doc/sensors.md, Spec. */
   double RadarCrossSectionM2() const override { return 4.0; }
 
-  FBFlightPlan &FlightPlan() override { return Plan_; }
   /* The runway doubles as the mission's bullseye, exactly as on the F-16 — one briefed point per
    * mission, and the generic Nav slot has nowhere else to get one. */
   void SetRunway(const FBRunway &rwy) override {
