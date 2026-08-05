@@ -66,6 +66,7 @@ Every project carries its own Makefile.
 | `verify-models` | the delta check: `assets/aircraft` against the pinned submodule + `assets/MODEL-DELTAS.md` |
 | `verify-layers` | `sim/src` + `sim/test` are a stack; every `#include` points down it |
 | `verify-guards` | the compile-time guarantees, proven by trying to break them |
+| `verify-types` | the Prinzip-3 meter: what `sim/src/` still knows about named aircraft types, by cost class ([`mods.md`](mods.md) §State). **rc=1 until the count is 0** — not part of the green gate |
 | `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1), and every `mods/<id>/` carries `doc/` plus a runnable proof ([`mods.md`](mods.md) §3) |
 | `verify-tests` | every declaration under `sim/test/` against its band; the harness binaries must be built |
 

@@ -4412,3 +4412,62 @@ Zeile identisch. Mods **4**, alle einer Form: `f22`, `comanche`, `armored-fist`,
 `src/`. Gesamt 24, rc=1. Negativprobe an einem synthetischen `mods/`: fehlendes `doc/`, `src/` ohne
 `.fbm` und ein verbotenes `test/` feuern einzeln und richtig. `verify-layers`, `verify-guards`,
 `verify-models` unverändert grün.
+
+### 2026-08-05 — `verify-types`: was die Engine über konkrete Flugzeugtypen weiß, als Zahl
+
+Prinzip 3 sagt, die Engine dürfe nicht wissen, was eine F-16 ist. Ohne Zahl bleibt das eine Absicht.
+`make -C sim verify-types` ([`tools/verify_types.py`](../sim/tools/verify_types.py), Geschwister von
+`verify-layers` statt Teil davon: das eine ist eine Struktur, die HÄLT und grün ist, das andere eine
+Schuld, die GROSS ist und rot sein muss — im grünen Tor wäre die Zahl nur Beiwerk).
+
+**Gemessen:** **1 324 Nennungen von 21 Typen in 117 von 335 Dateien** unter `sim/src/`. Nach Art, und
+die Aufschlüsselung ist wertvoller als die Summe: 48 `dir` (zwei Modulbäume) · 480 `symbol` · 35 `key` ·
+76 `text` · 27 `value` · 658 `comment`. Getrennt gezählt und NICHT eingerechnet: 102 Nennungen von
+Waffen- und Bodentypen — eigenes Inventar, eigene Behebung, keine Runde der Flugzeugarbeit entfernt
+eine davon.
+
+**`value` ist eine Tabelle, kein Regex, und das war eine Messung.** Die naheliegende Heuristik (ein
+Kommentar nennt einen Typ, darunter steht eine Zahl) feuerte 83-mal und lag in etwa einem Viertel
+richtig — `float nzRad = 0.0f;` unter Prosa über die Nachbrennerfahne einer F-16 ist keine F-16-Zahl.
+Also kuratierte Liste mit Grund je Eintrag wie `PERCEPTION_READERS`, und jeder Eintrag wird auf
+Auflösbarkeit GEPRÜFT: ein Anker, der nicht mehr zeigt, wohin er zeigte, lässt den Lauf fallen.
+
+**Zwei Ausschlüsse, benannt statt verschwiegen.** Eine Katalogzeile ist kein `value` — ihre Zahlen
+stehen schon in einer Tabelle, ihre Behebung ist `key`/`text`. Und `FLCS`/`EPU`/`HMCS` sind in diesem
+Baum Gattungsnamen für eine Klasse Kasten geworden (das generische Feld `int Flcs;` meint jede Zelle
+mit eigener Ratenschleife); sie zu zählen hieße englischen Sprachgebrauch messen, nicht Wissen.
+
+**Teuerste drei:** `modules/f16/` + `modules/mig29/` (48 Dateien Engine-C++ über zwei Flugzeuge) ·
+`core/FBAircraft.h` (18 Katalog-Zellen mit veröffentlichten Zahlen, 150 Nennungen) · die 27 `value`
+(eine Typzahl im generischen Regler, ohne Tabelle, in die sie ziehen könnte).
+
+**Tore:** `verify-layers` 6 Wahrnehmungs-Leser · `verify-guards` 8/8 · `verify-models` grün ·
+`verify-trees` 20 + 4 — alle unverändert. `gym`/`native`/`wasm` bauen. Die Runde fasst keine `.cpp`,
+kein Asset und keine Mission an; Missions-Bytegleichheit gilt konstruktiv.
+
+## 2026-08-05 — Der Browser kennt Mods: ein Manifest, zwei Mounts, eine Titelauswahl
+
+`mod.json` liegt jetzt IM Browser statt im Makefile. Der WASM-Build lädt jedes gefundene
+`mods/*/mod.json` unter `/fb/mods/<id>/` vor — mit den relativen Verzeichnissen des Manifests, nicht
+flachgeklopft — und kopiert die geholte Hälfte (Missionen, Kampagnen) auf dieselben relativen Pfade nach
+`web/mods/<id>/`. Ein Manifest, zwei Wurzeln: `FBLoadMod(dir, root, …)` löst dieselbe Datei einmal gegen
+das Dateisystem und einmal gegen die HTTP-Wurzel auf. `web/mods/index.txt` (auch als `/fb/mods/index.txt`
+vorgeladen) ist die Liste — ein Build mit einem Mod verhält sich wie einer mit fünf.
+
+**Vier Pfade weniger im Client.** `/fb/aircraft`, `/fb/models`, `/missions/%s.fbm` und
+`AddUnitModel("f16", …)` sind weg; `web/fbmenu.js` löst `campaigns/`/`../missions/` nicht mehr fest auf,
+sondern aus dem Manifest. Neu im Manifest und nur dort: `meshes` (MODUL-Registry-Schlüssel, deren
+Sidecar seine eigenen `.glb`-Stufen nennt — der Makefile leitet die Preload-Liste daraus ab, statt sie zu
+führen), `sandbox` und `default_mission`. Ein zweiter Mod mit anderen Meshes braucht damit keine Zeile
+C++ und keine Zeile Makefile.
+
+**Gemessen, im Browser-Binary selbst** (`tools/wx_smoke.cjs`-Stubs, node gegen `web/gpu.js`):
+`gpu mod id=f16 aircraft=/fb/mods/f16/src/aircraft mission=/mods/f16/src/missions/payerne-full.fbm` ·
+`render unit_model type=f16 lods=4 parts=22 trisTotal=173330` · und der Lauf FLIEGT — `pilot phase`
+Preflight → Takeoff → Route, 2 005 m AGL, 180 m/s bei t=102 s. Unbekannte Id: `mod_load_failed
+reason="cannot open /fb/mods/comanche/mod.json"`, Boot-Abbruch statt Ersatzflugzeug.
+
+**Tore:** 296 Missionen bytegleich · `payerne-full --threads 1/2/4` = `6e24090b7e861aa7` · zehn
+Harnesses unverändert (`test-air` 5 außerhalb) · `verify-layers` 6 Wahrnehmungs-Leser ·
+`verify-guards` 8/8 · `verify-models` grün · nativ fliegt mit Bild (`mission_0002.png`).
+`tools/wx_smoke.cjs` war seit dem Mod-Umzug tot (Fixture unter `sim/assets/`) und ist mitrepariert.
