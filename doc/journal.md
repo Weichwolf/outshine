@@ -4301,3 +4301,41 @@ zeichnende Ansicht, 1 Tick-Treiber — unverändert), `verify-guards` 8/8, `veri
 haben keine `tier: A`-Deklaration; die sieben Anker sind ungelesen (vier davon A3 in beide Richtungen,
 was auf die Steigschema-Suche zeigt und nicht auf vier Decks); `CLAUDE.md` nennt die neuen Ziele noch
 nicht und ist nachzuführen.
+
+## 2026-08-05 — `FBModule` wird dumm: aus 21 Pflichten wird eine Aufzählung
+
+**Der Befund.** Die Basisklasse hatte **28 rein virtuelle Methoden, davon 21 Slot-Zugriffe** — jede
+Entität MUSSTE ein Radar, einen IRST, eine Kanone und einen Autopiloten haben. Eine Bombe beantwortete
+`Guns()`, ein Bunker `Autopilot()`. Das schliesst den Baum gegen alles, was kein Flugzeug ist.
+
+**Das Muster ist das der Feldbusse** (CANopen-Objektverzeichnis, IO-Link, DeviceTree): **Aufzählung
+beim Binden, nicht Vererbung.** `sim/src/modules/FBCapability.h` trägt EINE Tabelle
+`FB_MODULE_CAPABILITIES(X)` mit 20 Zeilen `(Zugriff, C++-Typ, Drahtname)`, viermal expandiert — Enum,
+Member, Zugriffsfunktion, Laufzeit-Deskriptor. Ein Modul ruft im Konstruktor `DeclareRadar(*Fcr_)`; der
+Zugriff ist NICHT virtuell und liefert `nullptr` für alles, was nie deklariert wurde. **Kovarianz ist
+damit weg** — jedes Modul benutzte intern ohnehin sein eigenes typisiertes Member, und keine Aufrufstelle
+ausserhalb von `modules/` brauchte je den abgeleiteten Typ.
+
+**Die Zahl: 28 → 1.** Übrig bleibt `Run()`. `AttachFdm`, `FdmModelName`, `Telemetry`, `LastGuidance`,
+`LastSubsteps`, `SetRunway`, `SetGroundAsl`, `ApplySetup` haben jetzt ehrliche Defaults (kein Flugwerk,
+kein Modell, alle Blöcke Invalid, nichts gelenkt, jeder `set`-Schlüssel abgelehnt).
+
+**Maschinenlesbar ist die halbe Aufgabe, nicht die Zugabe.** `build/fb-gym --caps` druckt **1065 Zeilen
+`<modul> <fähigkeit> <c++-typ>`** über 56 registrierte Schlüssel — 20 für `f16`, 19 für alle anderen
+(die MiG-29 deklariert kein `human_input`, also kann kein Mensch in ihr sitzen, und das ist jetzt eine
+Tatsache über das Modul statt ein `nullptr` aus der Basis). Dieselbe Tabelle wird das Tool-Schema von
+`doc/mods.md` §2.1.
+
+**Widerstand, gemessen und benannt.** `FBState` war der offensichtliche Kandidat für die zweite Pflicht
+der Basis („Position/Zustand") und hält der Lektüre nicht stand: 22 Blöcke, darunter `Ufc`, `Gun`, `Mfd`,
+`GroundMap` — ein Cockpit, keine Position. Und **alle sieben Module deklarieren weiterhin alle 20 Slots**,
+Bombe mitsamt Kanone: `units/FBSimUnit::StartTelemetry` registriert fünfzehn davon **nach Position**, ein
+weggelassener Slot verschiebt jede Spalte jeder `telemetry.csv`. Das Beschneiden ist eine eigene Runde
+mit eigener Messung; der Gewinn hier ist strukturell — der Ork mit Keule kompiliert, die F-16 behält jede
+Spalte.
+
+**Tore:** alle 296 `sim/missions/*.fbm` **bytegleich** (Telemetrie-SHAs + normalisierte Ereignislogs),
+zehn Harnesses bytegleich, `test-air` **weiterhin 7** Bandverletzungen (dieselben sieben Zeilen,
+dieselben Werte), `payerne-full --threads 1/2/4` auf EINER Signatur `6e24090b7e861aa7`, `verify-layers`
+(6 Wahrnehmungs-Leser, unverändert), `verify-guards` 8/8, `verify-models` grün, `gym`/`native`/`wasm`
+bauen mit Warnings = Errors.

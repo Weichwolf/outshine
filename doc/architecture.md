@@ -13,11 +13,22 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | An aircraft = code module + JSBSim model, resolved by name through a registry | `FBModuleRegistry`; the runner never includes a concrete module header |
 | One model root; the pinned submodule is the base, not a load path | `sim/assets/aircraft`, delta rule + `make -C sim verify-models` |
 | Layering is `FBCore → interface → default → module override` | not "belongs to the F-16"; number tuning stays a preset |
+| **`FBModule` is DUMB: a module DECLARES what it has, the base demands nothing** | exactly ONE pure virtual on `modules/FBModule.h` (`Run`); every slot is an enumerated declaration, and the accessor answers `nullptr` for what was never declared |
+| The declaration list is DATA, readable at run time, not a set of C++ overrides | `build/fb-gym --caps` prints `<module> <capability> <c++ type>` from `modules/FBCapability.h`'s one table |
 | Nothing is preloaded | every tile on demand — every point on Earth is a valid start |
 
 ## State
 
-Built as described below: one process per client, three clients against one library, the module
+`FBModule` carries **one** pure virtual (`Run`), down from 28 — of which 21 were slot accessors.
+`modules/FBCapability.h` holds the twenty-row table; the seven modules in the tree declare their slots
+in their constructors (f16 twenty, mig29 nineteen — no bound HOTAS, so `human_input` is undeclared and a
+human cannot take that seat). `fb-gym --caps` prints 1065 `<module> <capability> <type>` lines over the
+56 registered module keys — 20 for `f16`, 19 for every other key. Measured unchanged across the switch:
+all 296 `sim/missions/*.fbm` byte-identical
+(`tools/fb_regress.sh`), all ten harnesses, `test-air` at 7 band violations, `payerne-full --threads
+1/2/4` on one signature, `verify-layers` at six perception readers, `verify-guards` 8/8.
+
+The rest as described below: one process per client, three clients against one library, the module
 registry, the single model root with its delta gate, and the multi-unit snapshot discipline. The
 per-client detail is in [`clients/clients.md`](clients/clients.md), the multi-unit detail in
 [`missions/runtime.md`](missions/runtime.md).
@@ -31,6 +42,20 @@ The architectural contradictions found while distilling live with their subsyste
 | `systems/FBDisplaySystem` includes `render/FBCamera.h` — a **second**, undocumented core-lib exception | [`sim/systems.md`](systems.md) |
 | `missions/FBTickPool` is gym-only. The WASM loop is no longer a second loop at all: `missions/FBMissionSim` is THE loop and both clients drive it — the browser's own copy had lost the rule that ends a run | [`clients/clients.md`](clients/clients.md) |
 | The renderer draws no units at all, although `FBWorld` borrows the registry | [`render/units-visual.md`](render/units-visual.md) |
+
+**The declaration is possible, nobody has used it yet.** Every one of the seven modules still declares
+all twenty slots (nineteen for the MiG-29), including a bomb's gun and the F-16's IRST — and the reason
+is not inertia but `units/FBSimUnit::StartTelemetry`, which registers fifteen of them **by position**:
+dropping one changes the column layout of every `telemetry.csv` and therefore every baseline in the tree.
+Pruning is its own round with its own measurement, and it is the round that makes the *number* fall.
+Until then the win is structural only: the base no longer forces the composition, so an ork with a club
+compiles today while an F-16 keeps every column it ever wrote.
+
+**`FBState` is an aircraft cockpit, not a position.** It was the obvious candidate for the base's second
+duty (the owner's guess was "position/state"), and it does not survive reading: twenty-two blocks,
+including `Ufc`, `Gun`, `Mfd` and `GroundMap`. Base-owning it would make every entity carry an F-16
+up-front controls block, which is the defect this round removed. It stays a virtual with an all-`Invalid`
+default — a module that publishes no avionics publishes none.
 
 ## Knowledge
 
@@ -104,10 +129,35 @@ one polymorphically behind `FBModule*`. Every module carries the same system cat
 **behaviour**, not just in numbers. Interface and default live in ONE class; a module overrides by
 derivation. Pure number tuning stays a preset or config — no empty derivation is created for that.
 
-Since the orchestrator round this also applies to **access**: `FBModule` declares the generic accessors
-itself (`Autopilot()`, `FlightControl()`, `PilotSystem()`, `Controls()`, `Displays()`,
-`AirDataSystem()`, `FlightPlan()`, `Telemetry()`, `SetRunway()`, `SetGroundAsl()`, `ApplySetup()`), and
-`FBMissionRunner.cpp` / `FBAppGym.cpp` never include a concrete module header.
+Since the orchestrator round this also applies to **access**: the generic accessors sit on `FBModule`,
+and `FBMissionRunner.cpp` / `FBAppGym.cpp` never include a concrete module header.
+
+#### Declaration, not inheritance
+
+`FBModule` demanded twenty-one pure-virtual accessors, so **every** entity had to own a radar, an IRST,
+a gun and an autopilot — a bomb answered `Guns()` and a bunker answered `Autopilot()`. That closes the
+tree to everything that is not an aeroplane, which is exactly what the four campaigns of
+[`mods.md`](mods.md) need it to be open to.
+
+The pattern is the one industrial fieldbuses use — CANopen's object dictionary, IO-Link's device
+description, DeviceTree: **a device enumerates its objects when it is bound; the master asks instead of
+assuming.** Here:
+
+| | |
+|---|---|
+| the list | `modules/FBCapability.h` — ONE `FB_MODULE_CAPABILITIES(X)` table of `(accessor, C++ type, wire name)`, twenty rows, expanded four ways (enum, member, accessor, runtime descriptor) |
+| binding | a module calls `DeclareRadar(Fcr_)`, `DeclarePilotSystem(*PilotSys)`, … in its constructor. Re-declaring is how a slot whose object is swapped at `AttachFdm` keeps its entry |
+| asking | `FBModule::Radar()` returns `Sensors::FBRadarSystem*`; `Has(FBCapability::Radar)` and `Capabilities()` answer the same question without dereferencing |
+| the base's own duty | `Run()`, and nothing else. Position/state (`Telemetry()`), `Airborne()`, `UnitKind()`, the damage layout and the setup hook all carry honest defaults |
+
+**Machine-readable is half the point, not a bonus.** The same table is `fb-gym --caps`'s output and,
+per [`mods.md`](mods.md) §2.1, the tool schema a per-unit LLM will receive. A list that existed only as
+C++ overrides could not be either. The anti-cheat property is inherited rather than re-argued: what an
+LLM may call is what the module declared, and no module declares a way past the simulation.
+
+The accessors are **not virtual**. Covariant returns (`FBF16Fcr& Radar()`, `FBMissileGuidance&
+PilotSystem()`, …) are therefore gone; every module already used its own typed member internally, and no
+call site outside `modules/` ever needed the derived type.
 
 ### An aircraft = module + JSBSim model
 
