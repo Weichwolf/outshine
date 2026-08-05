@@ -49,10 +49,10 @@ kPrefix = "fuel_tank"
 # Frontsilhouette. Hier faellt deshalb kein Koerper, der den Umriss begrenzt — Treppe, Podest,
 # Gelaender und Ringe stehen auf allen vier Stufen. Was faellt, sind Abtastung und Schrauben.
 kLod = [
-    dict(name="L0", seg=96, tube=12, detail=2, single_mat=False),
-    dict(name="L1", seg=48, tube=8, detail=2, single_mat=False),
-    dict(name="L2", seg=24, tube=6, detail=1, single_mat=True),
-    dict(name="L3", seg=16, tube=4, detail=0, single_mat=True),
+    dict(name="L0", seg=96, tube=12, detail=2, rails=True, single_mat=False),
+    dict(name="L1", seg=48, tube=8, detail=2, rails=True, single_mat=False),
+    dict(name="L2", seg=24, tube=6, detail=1, rails=True, single_mat=True),
+    dict(name="L3", seg=20, tube=4, detail=1, rails=False, single_mat=True),
 ]
 
 
@@ -478,11 +478,16 @@ kJoint = (("access.stair.post", "access.stair.stringer"),
           ("access.stair.post", "access.stair.band"),
           ("access.stair.rail", "access.platform.rail"),
           ("access.stair.rail", "access.platform.post"),
+          ("access.stair.stringer", "access.platform.post"),
           ("access.platform.endrail", "access.platform.rail"),
           ("access.platform.endrail", "access.platform.post"),
           ("tank.manhole.shell.bolt", "tank.manhole.shell.cover"),
           ("tank.manhole.roof.bolt", "tank.manhole.roof.cover"))
-kJointCapCm3 = 250.0
+# Die Kappe je Schweisspunkt ist RELATIV, nicht 250 cm3 aus der Luft: ein Schweisspunkt darf
+# hoechstens diesen Anteil des KLEINEREN Bauteils verzehren. Mehr heisst, die Koerper sind falsch
+# gesetzt, nicht verschweisst. Der Anteil selbst ist [SET] — er skaliert aber mit dem Modell,
+# waehrend eine absolute Zahl das nicht tut, und die schlechteste Quote wird gemeldet.
+kJointFrac = 0.10
 
 # [SET] Schweissraupe der Rundnaehte, s. DEFECTS.md. Sie steht ueber die Wand hinaus und muss
 # deshalb auch beim Freischnitt der Treppenstufen mitgerechnet werden.
@@ -494,108 +499,183 @@ kRayDir = np.array([1.0, 0.0137, 0.0071])
 kRayDir = kRayDir / np.linalg.norm(kRayDir)
 
 
-def is_joint(a, b, cm3):
-    if cm3 > kJointCapCm3:
+def is_joint(a, b, cm3, vmin_cm3):
+    if cm3 > kJointFrac * vmin_cm3:
         return False
     return any((a.startswith(x) and b.startswith(y)) or (a.startswith(y) and b.startswith(x))
                for x, y in kJoint)
 
 
-def check_overlap(bodies, samples=10, min_cm3=0.05):
-    """doc/assets.md §3.1 "mesh merge" — und zwar so, dass er etwas MESSEN kann.
+def _seg_hits_tri(p0, p1, v, tri):
+    """Kreuzt IRGENDEINE der Strecken p0->p1 irgendein Dreieck? Moeller-Trumbore, t in [0,1]."""
+    if not len(tri) or not len(p0):
+        return False
+    a, b, c = v[tri[:, 0]], v[tri[:, 1]], v[tri[:, 2]]
+    e1, e2 = b - a, c - a
+    chunk = max(1, int(2e6 // max(len(tri), 1)))
+    for k in range(0, len(p0), chunk):
+        d = p1[k:k + chunk] - p0[k:k + chunk]
+        h = np.cross(d[:, None, :], e2[None, :, :])
+        det = (e1[None, :, :] * h).sum(2)
+        ok = np.abs(det) > 1e-15
+        inv = np.where(ok, 1.0 / np.where(ok, det, 1.0), 0.0)
+        sv = p0[k:k + chunk, None, :] - a[None, :, :]
+        u = (sv * h).sum(2) * inv
+        q = np.cross(sv, e1[None, :, :])
+        w = (d[:, None, :] * q).sum(2) * inv
+        t = (e2[None, :, :] * q).sum(2) * inv
+        m = ok & (u >= 0) & (u <= 1) & (w >= 0) & (u + w <= 1) & (t > 1e-9) & (t < 1.0 - 1e-9)
+        if m.any():
+            return True
+    return False
 
-    Runde 1 meldete nur die Summe der Volumina und die Vereinigung der Huellquader. Beides ist
-    gegen Durchdringung BLIND: das Divergenzintegral ist additiv, ob sich zwei Koerper
-    ueberlappen oder nicht. Der Kritiker fand deshalb 47 Koerperpaare mit gemeinsamem Innenraum,
-    darunter eine Treppenstufe quer durch den Windring — von der Pruefung ungesehen.
 
-    Hier wird das gemessen, was §3.1 meint: teilen sich zwei Koerper Innenvolumen? Huellquader
-    aussieben, dann den Schnittquader abtasten und beidseitig einschliessen. Der Rasterwert ist
-    eine untere Schranke des Ueberlappvolumens, keine Schaetzung nach oben — was er meldet,
-    IST da.
+def _body_edges(me):
+    e = set()
+    for f in me.f:
+        for i in range(len(f)):
+            a, b = f[i], f[(i + 1) % len(f)]
+            e.add((a, b) if a < b else (b, a))
+    return np.array(sorted(e), dtype=np.int64)
+
+
+def _grid_volume(v1, t1, v2, t2, lo, hi, n):
+    d = hi - lo
+    g = [np.linspace(lo[k] + d[k] / (2 * n), hi[k] - d[k] / (2 * n), n) for k in range(3)]
+    pts = np.stack(np.meshgrid(*g, indexing="ij"), -1).reshape(-1, 3)
+    c1 = _cull(v1, t1, lo, hi, kRayDir)
+    c2 = _cull(v2, t2, lo, hi, kRayDir)
+    if not len(c1) or not len(c2):
+        return 0.0
+    m = inside(pts, v1, c1)
+    if not m.any():
+        return 0.0
+    return float(np.prod(d)) * int(inside(pts[m], v2, c2).sum()) / len(pts)
+
+
+def check_overlap(bodies, min_cm3=0.05, n0=12, nmax=48, rtol=0.05):
+    """doc/assets.md §3.1 "mesh merge", in der Fassung, die etwas MESSEN kann.
+
+    ZWEI STUFEN, weil eine Rasterprobe kein Detektor ist. Runde 2 lieferte samples=10 aus und las
+    fuer (Ringmauer, Treppenband) 0.00 cm3 — wahr sind elf Liter. Ein Gitter kann eine duenne
+    Durchdringung ganz verfehlen und eine sehr kleine erfinden.
+      1. DETEKTOR, exakt: kreuzt eine Kante des einen Koerpers ein Dreieck des anderen (oder liegt
+         ein Punkt des einen ganz im anderen)? Beides ist ein Ja/Nein ohne Abtastfehler.
+      2. SCHAETZER, konvergent: nur wo der Detektor Ja sagt, wird das Volumen bestimmt und die
+         Aufloesung verdoppelt, bis sich der Wert um weniger als rtol aendert. Gemeldet wird der
+         Wert MIT seiner Konvergenz, nie ohne.
     """
-    prep = [(nm, *_tris(me), np.array(me.v).min(0), np.array(me.v).max(0)) for nm, me in bodies]
+    prep = []
+    for nm, me in bodies:
+        v, t = _tris(me)
+        prep.append((nm, v, t, _body_edges(me), v.min(0), v.max(0)))
     hits = []
     for i in range(len(prep)):
-        n1, v1, t1, lo1, hi1 = prep[i]
+        n1, v1, t1, e1, lo1, hi1 = prep[i]
         for j in range(i + 1, len(prep)):
-            n2, v2, t2, lo2, hi2 = prep[j]
+            n2, v2, t2, e2, lo2, hi2 = prep[j]
             lo, hi = np.maximum(lo1, lo2), np.minimum(hi1, hi2)
-            d = hi - lo
-            if (d <= 1e-9).any():
+            if (hi - lo <= 1e-9).any():
                 continue
-            g = [np.linspace(lo[k] + d[k] / (2 * samples), hi[k] - d[k] / (2 * samples), samples)
-                 for k in range(3)]
-            pts = np.stack(np.meshgrid(*g, indexing="ij"), -1).reshape(-1, 3)
-            c1 = _cull(v1, t1, lo, hi, kRayDir)
-            if not len(c1):
-                continue
-            m = inside(pts, v1, c1)
-            if not m.any():
-                continue
-            c2 = _cull(v2, t2, lo, hi, kRayDir)
-            if not len(c2):
-                continue
-            m2 = inside(pts[m], v2, c2)
-            k = int(m2.sum())
-            if not k:
-                continue
-            vol = float(np.prod(d)) * k / len(pts)
-            if vol * 1e6 >= min_cm3:
-                hits.append((n1, n2, vol * 1e6))
+            c1 = t1[((np.maximum.reduce([v1[t1[:, k]] for k in range(3)]) >= lo).all(1)
+                     & (np.minimum.reduce([v1[t1[:, k]] for k in range(3)]) <= hi).all(1))]
+            c2 = t2[((np.maximum.reduce([v2[t2[:, k]] for k in range(3)]) >= lo).all(1)
+                     & (np.minimum.reduce([v2[t2[:, k]] for k in range(3)]) <= hi).all(1))]
+            def _emask(v, e):
+                a, b = v[e[:, 0]], v[e[:, 1]]
+                return ((np.maximum(a, b) >= lo).all(1) & (np.minimum(a, b) <= hi).all(1))
+
+            m1, m2 = _emask(v1, e1), _emask(v2, e2)
+            touch = (_seg_hits_tri(v1[e1[m1, 0]], v1[e1[m1, 1]], v2, c2)
+                     or _seg_hits_tri(v2[e2[m2, 0]], v2[e2[m2, 1]], v1, c1))
+            if not touch:
+                # Vollstaendige Umschliessung: keine Kante kreuzt, aber ein Punkt liegt drin.
+                cand = v1[(v1 >= lo).all(1) & (v1 <= hi).all(1)][:64]
+                if not len(cand) or not inside(cand, v2, _cull(v2, t2, lo, hi, kRayDir)).any():
+                    continue
+            n, prev, seq = n0, None, []
+            while True:
+                vol = _grid_volume(v1, t1, v2, t2, lo, hi, n)
+                seq.append((n, vol * 1e6))
+                if prev is not None and abs(vol - prev) <= rtol * max(vol, 1e-12):
+                    break
+                if n >= nmax:
+                    break
+                prev, n = vol, n * 2
+            cm3 = seq[-1][1]
+            if cm3 >= min_cm3:
+                rel = (abs(seq[-1][1] - seq[-2][1]) / max(seq[-1][1], 1e-9)) if len(seq) > 1 else 1.0
+                hits.append((n1, n2, cm3, n, rel))
     return sorted(hits, key=lambda x: -x[2])
 
 
-def raster(bodies, u_ax, v_ax, res, ctr, size):
-    """Orthografische Alpha-Maske ohne Renderer: Dreiecke auf ein Bool-Gitter rastern.
-
-    u_ax/v_ax spannen die Bildebene auf — beliebige Blickrichtung, nicht nur die drei Achsen.
-    """
-    mask = np.zeros((res, res), dtype=bool)
+def _pixel_tris(bodies, u_ax, v_ax, res, ctr, size):
     o = np.array([float(np.dot(ctr, u_ax)) - size / 2.0,
                   float(np.dot(ctr, v_ax)) - size / 2.0])
-    sc = res / size
+    out = []
     for me in bodies:
         vv = np.array(me.v)
-        uv = np.stack([vv @ u_ax, vv @ v_ax], 1)
+        uv = (np.stack([vv @ u_ax, vv @ v_ax], 1) - o) * (res / size)
         for f in me.f:
-            pts = uv[list(f)]
+            a = uv[f[0]]
             for i in range(1, len(f) - 1):
-                px = (np.stack([pts[0], pts[i], pts[i + 1]]) - o) * sc
-                x0 = max(0, int(math.floor(px[:, 0].min())))
-                x1 = min(res - 1, int(math.ceil(px[:, 0].max())))
-                y0 = max(0, int(math.floor(px[:, 1].min())))
-                y1 = min(res - 1, int(math.ceil(px[:, 1].max())))
-                if x1 < x0 or y1 < y0:
-                    continue
-                gx, gy = np.meshgrid(np.arange(x0, x1 + 1) + 0.5,
-                                     np.arange(y0, y1 + 1) + 0.5)
-                d0 = ((gx - px[0, 0]) * (px[1, 1] - px[0, 1])
-                      - (gy - px[0, 1]) * (px[1, 0] - px[0, 0]))
-                d1 = ((gx - px[1, 0]) * (px[2, 1] - px[1, 1])
-                      - (gy - px[1, 1]) * (px[2, 0] - px[1, 0]))
-                d2 = ((gx - px[2, 0]) * (px[0, 1] - px[2, 1])
-                      - (gy - px[2, 1]) * (px[0, 0] - px[2, 0]))
-                inside_ = ((d0 >= 0) & (d1 >= 0) & (d2 >= 0)) | ((d0 <= 0) & (d1 <= 0) & (d2 <= 0))
-                mask[y0:y1 + 1, x0:x1 + 1] |= inside_
-    return mask
+                out.append((a, uv[f[i]], uv[f[i + 1]]))
+    return np.array(out, dtype=np.float64)
 
 
-# Blickrichtungen der Silhouettenpruefung. 13 Azimute, also 13 VERSCHIEDENE Phasen gegenueber der
-# groebsten Teilung (n=12, Periode 30 Grad), groesste Luecke 2.3 Grad.
-#
-# WARUM NICHT DREI ACHSEN. Runde 2 tastete nur bei 0 / 90 / 180 Grad ab. Jedes n dieser Leiter ist
-# durch 4 teilbar, also steht dort IMMER eine Polygonecke vor der Kamera — die Pruefung sah
-# systematisch den guenstigsten Fall. Der Kritiker mass bei 15 Grad (Flaechenmitte bei n=12)
-# 2.46 % gegen die eigene 2-%-Grenze, waehrend das Skript 1.81 % meldete.
-kSilAzimuths = 13
+def raster(bodies, u_ax, v_ax, res, ctr, size):
+    """Orthografische Alpha-Maske ohne Renderer, zeilenweise und VOLL vektorisiert.
+
+    WARUM NICHT MEHR JE DREIECK. Runde 2 rasterte in einer Python-Schleife ueber Dreiecke: rund
+    300 ms je Ansicht bei 1280 px. Das Tor braucht aber mindestens 360 Azimute je Paar, und mit
+    Konvergenzpruefung ein Vielfaches davon — 300 ms mal 1440 Ansichten sind sieben Minuten JE
+    PAAR. Hier wird stattdessen EIN flaches Feld aus (Dreieck, Zeile)-Paaren gebaut und in rund
+    zwanzig numpy-Aufrufen abgearbeitet; der Rest ist eine Differenzenreihe mit cumsum.
+    """
+    tri = _pixel_tris(bodies, u_ax, v_ax, res, ctr, size)
+    lo = np.ceil(tri[:, :, 1].min(1) - 0.5)
+    hi = np.floor(tri[:, :, 1].max(1) - 0.5)
+    y0 = np.clip(lo, 0, res - 1).astype(np.int64)
+    y1 = np.clip(hi, 0, res - 1).astype(np.int64)
+    cnt = np.where((hi >= 0) & (lo <= res - 1), y1 - y0 + 1, 0)
+    cnt = np.maximum(cnt, 0)
+    tot = int(cnt.sum())
+    mask = np.zeros((res, res), dtype=bool)
+    if not tot:
+        return mask
+    idx = np.repeat(np.arange(len(tri)), cnt)
+    starts = np.cumsum(cnt) - cnt
+    rows = (np.arange(tot) - np.repeat(starts, cnt) + np.repeat(y0, cnt))
+    yc = rows + 0.5
+    t = tri[idx]
+    xmin = np.full(tot, np.inf)
+    xmax = np.full(tot, -np.inf)
+    for e in range(3):
+        a, b = t[:, e], t[:, (e + 1) % 3]
+        dy = b[:, 1] - a[:, 1]
+        ok = (dy != 0.0) & (np.minimum(a[:, 1], b[:, 1]) <= yc) & (yc <= np.maximum(a[:, 1], b[:, 1]))
+        with np.errstate(divide="ignore", invalid="ignore"):
+            x = a[:, 0] + (b[:, 0] - a[:, 0]) * (yc - a[:, 1]) / dy
+        xmin = np.minimum(xmin, np.where(ok, x, np.inf))
+        xmax = np.maximum(xmax, np.where(ok, x, -np.inf))
+    i0 = np.clip(np.ceil(xmin - 0.5), 0, res - 1)
+    i1 = np.clip(np.floor(xmax - 0.5), 0, res - 1)
+    keep = np.isfinite(xmin) & np.isfinite(xmax) & (i1 >= i0) & (xmax >= -0.5) & (xmin <= res - 0.5)
+    if not keep.any():
+        return mask
+    r_, a_, b_ = rows[keep], i0[keep].astype(np.int64), i1[keep].astype(np.int64)
+    diff = np.zeros(res * (res + 1), dtype=np.int32)
+    np.add.at(diff, r_ * (res + 1) + a_, 1)
+    np.add.at(diff, r_ * (res + 1) + b_ + 1, -1)
+    return np.cumsum(diff.reshape(res, res + 1), axis=1)[:, :res] > 0
 
 
-def _views():
+def _views(k):
+    """k Azimute plus die Draufsicht. Ungerade k gegen jede Polygonperiode dieser Leiter."""
     out = []
-    for k in range(kSilAzimuths):
-        a = TAU * k / kSilAzimuths
-        out.append(("az%03d" % round(math.degrees(a)),
+    for j in range(k):
+        a = TAU * j / k
+        out.append(("az%07.3f" % math.degrees(a),
                     np.array([-math.sin(a), math.cos(a), 0.0]), np.array([0.0, 0.0, 1.0])))
     out.append(("top", np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])))
     return out
@@ -628,6 +708,41 @@ def shell(cfg):
     return revolve("tank.shell", "paint", prof, cfg["seg"])
 
 
+def vertical_seams(cfg):
+    """Senkrechte Stossnaehte der Schuesse.
+
+    [API 5.1.5.2 b] "Vertical joints in adjacent shell courses shall not be aligned, but shall be
+    offset from each other a minimum distance of 5t" — die Naehte EXISTIEREN also, und sie sind
+    versetzt. Runde 2 modellierte nur die waagerechten. Das war nicht sparsam, sondern
+    inkonsistent: beide Nahtscharen sind gleich gross, und das Nahtraster ist das Merkmal, an dem
+    man einen geschweissten Lagertank ueberhaupt erkennt.
+    """
+    out = []
+    if cfg["detail"] < 2:
+        return out
+    z0 = G.kTankBaseZ
+    # Wo ein Verstaerkungsblech sitzt, laeuft keine Naht durch — das Blech deckt sie ab. Und der
+    # oberste Schuss endet unter dem senkrechten Schenkel des Kopfwinkels.
+    blocked = ((G.kManholePhi, G.kTankBaseZ + G.kShellManholeZ, G.kShellManholeReinf),
+               (G.kNozzlePhi, G.kTankBaseZ + G.kNozzleZ, G.kNozzleReinfDia))
+    for c in range(G.kCourses):
+        zb, zt = z0 + c * G.kCourseHeight, z0 + (c + 1) * G.kCourseHeight
+        if c == G.kCourses - 1:
+            zt -= G.kTopAngleLeg
+        for k in range(G.kPlatesPerCourse):
+            phi = TAU * (k + (c % 2) * G.kSeamOffsetFrac) / G.kPlatesPerCourse
+            if any(abs(((phi - bp + math.pi) % TAU) - math.pi) * G.kRadius < bd
+                   and zb - bd < bz < zt + bd for bp, bz, bd in blocked):
+                continue
+            hw = 0.5 * G.kBeadW / G.kRadius
+            ro = _shell_wall_max(cfg, phi - hw, phi + hw, 0.5 * (zb + zt), bead=False)
+            prof = [(ro, zb + G.kBeadW), (ro + G.kBeadH, zb + G.kBeadW),
+                    (ro + G.kBeadH, zt - G.kBeadW), (ro, zt - G.kBeadW)]
+            out.append(revolve("tank.seam.v.%d.%d" % (c, k), "paint", prof, cfg["seg"],
+                               phi - hw, phi + hw, r_corr=False))
+    return out
+
+
 def bottom_plate(cfg):
     """[API 5.4.2] "at least a 50 mm (2 in.) width will project outside the shell". Runde 1 baute
     25 mm und fuehrte die Klausel als ungelesen — sie ist Text, sie war nur nie aufgeschlagen."""
@@ -651,23 +766,6 @@ def top_angle(cfg):
     prof = [(ro, z1 - L), (ro + t, z1 - L), (ro + t, z1),
             (ro + L, z1), (ro + L, z1 + t), (ro, z1 + t)]
     return revolve("tank.top_angle", "paint", prof, cfg["seg"])
-
-
-def wind_girder(cfg):
-    """Zwischen-Windring, Winkel 100 x 75 x 7 nach [API Bild 5-24 Detail c] und [Tabelle 5-20a].
-
-    FORM: langer Schenkel (100) WAAGERECHT, mit seinem Ende an der Schale angeschweisst; kurzer
-    Schenkel (75) am AEUSSEREN Ende nach UNTEN. So steht es im gerenderten Bild 5-24, und die
-    Tabellenfussnote verlangt ausdruecklich "the longer leg being located horizontally
-    (perpendicular to the shell)". Runde 1 baute das Spiegelbild — Ferse an der Schale, freier
-    Schenkel nach oben — und trug damit kein Moment im Sinn der Tabelle.
-    """
-    z = G.kTankBaseZ + G.kWindGirderZ
-    ro = G.shell_outer(G.kWindGirderCourse)
-    lh, lv, t = G.kWindGirderLegH, G.kWindGirderLegV, G.kWindGirderThk
-    prof = [(ro, z), (ro + lh, z), (ro + lh, z - lv), (ro + lh - t, z - lv),
-            (ro + lh - t, z - t), (ro, z - t)]
-    return revolve("tank.wind_girder", "paint", prof, cfg["seg"])
 
 
 def roof(cfg):
@@ -726,7 +824,7 @@ def _shell_wall(cfg, phi, z):
     return G.poly_radius(G.shell_outer(max(c, 0)), cfg["seg"], phi)
 
 
-def _shell_wall_max(cfg, phi_a, phi_b, z):
+def _shell_wall_max(cfg, phi_a, phi_b, z, bead=True):
     """Groesster Wandradius ueber einen Azimutbereich — inklusive der Polygonecken darin.
 
     Eine Stufe ueberdeckt bei n=96 etwa die halbe Facette; wer nur an EINEM Azimut misst, laesst
@@ -737,13 +835,62 @@ def _shell_wall_max(cfg, phi_a, phi_b, z):
     ks = range(int(math.floor(phi_a / a)), int(math.ceil(phi_b / a)) + 1)
     cand = [phi_a, phi_b] + [k * a for k in ks if phi_a <= k * a <= phi_b]
     r = max(_shell_wall(cfg, p, z) for p in cand)
-    # Die Rundnaht steht ueber die Wand: liegt die Stufe in ihrem Band, muss sie darueber weg.
-    near = min(abs((z - G.kTankBaseZ) - c * G.kCourseHeight) for c in range(1, G.kCourses))
-    r += kBeadH if near <= kBeadW + G.kStairTreadThk else 0.0
+    # Beide Nahtscharen stehen ueber die Wand. Die waagerechte trifft nur einzelne Hoehen, die
+    # SENKRECHTE laeuft ueber die ganze Schusshoehe und kann in jeden Azimutbereich fallen — also
+    # wird die Nahthoehe generell mitgerechnet. 3 mm kosten kein Dreieck und kein Pixel.
+    r += kBeadH if bead else 0.0
     # Die Innenkante der Stufe ist eine GERADE Sehne ueber [phi_a, phi_b]; ihr tiefster Punkt
     # liegt r*cos(dphi/2) von der Achse. Liegt eine Polygonecke der Schale dazwischen, sticht die
     # Wand durch die Sehne — 0.01 mm reichen dafuer, und genau das blieb in Runde 2 uebrig.
     return r / math.cos(0.5 * (phi_b - phi_a))
+
+
+def shell_patch(name, mat, cfg, phi, z, radius, thk, m=None):
+    """Gewalztes rundes Blech AUF der Schale, kein flacher Deckel davor.
+
+    Runde 2 schob die flache Scheibe mit _shell_wall_max() so weit nach aussen, bis sie nirgends
+    mehr schnitt — damit schwebte sie 2.7 bis 13.1 mm vor der Wand. Ein Verstaerkungsblech LIEGT
+    an; es ist auf den Schalenradius gewalzt. Hier wird ein Polarnetz in der Tangentialebene auf
+    die GEBAUTE Polygonwand abgebildet, aussen um die Blechdicke versetzt.
+    """
+    m = m or max(12, cfg["seg"] // 6)
+    k = 2
+    rings = []
+    for i in range(k + 1):
+        rr = radius * i / k
+        ring = []
+        for jj in range(m):
+            th = TAU * jj / m
+            u, v = rr * math.cos(th), rr * math.sin(th)
+            a = phi + u / G.kRadius
+            w = _shell_wall(cfg, a, z + v)
+            ring.append((a, z + v, w))
+        rings.append(ring)
+    me = Mesh(name, mat)
+
+    def pt(a, zz, w, off):
+        return ((w + off) * math.cos(a), (w + off) * math.sin(a), zz)
+
+    def nrm(a):
+        return (math.cos(a), math.sin(a), 0.0)
+
+    for face, off, flip in ((0, thk, False), (1, 0.0, True)):
+        c = rings[0][0]
+        for i in range(k):
+            for jj in range(m):
+                j2 = (jj + 1) % m
+                if i == 0:
+                    q = [pt(*c, off), pt(*rings[1][jj], off), pt(*rings[1][j2], off)]
+                else:
+                    q = [pt(*rings[i][jj], off), pt(*rings[i + 1][jj], off),
+                         pt(*rings[i + 1][j2], off), pt(*rings[i][j2], off)]
+                me.add(q[::-1] if flip else q, [nrm(phi)] * len(q))
+    for jj in range(m):
+        j2 = (jj + 1) % m
+        a, b = rings[k][jj], rings[k][j2]
+        me.add([pt(*a, 0.0), pt(*b, 0.0), pt(*b, thk), pt(*a, thk)],
+               [(math.cos(a[0]), math.sin(a[0]), 0.0)] * 4)
+    return me
 
 
 def shell_manhole(cfg, phi):
@@ -767,9 +914,9 @@ def shell_manhole(cfg, phi):
         p1 = ctr + d * (ro + off1)
         return sweep(name, mat, [(p0, u, v), (p1, u, v)], ngon(nseg, r), round_section=True)
 
-    out.append(disc("tank.manhole.shell.pad", "paint", G.kNozzleReinfDia * 1.55 / 2.0,
-                    0.0, 0.014))
-    out.append(disc("tank.manhole.shell.neck", "paint", G.kShellManholeDia / 2.0, 0.014, 0.150))
+    out.append(shell_patch("tank.manhole.shell.pad", "paint", cfg, phi, _zm,
+                           G.kShellManholeReinf / 2.0, 0.010))
+    out.append(disc("tank.manhole.shell.neck", "paint", G.kShellManholeDia / 2.0, 0.010, 0.150))
     out.append(disc("tank.manhole.shell.cover", "paint", G.kShellManholeCover / 2.0, 0.150, 0.172))
     if cfg["detail"] >= 2:
         rb = 0.768 / 2.0                       # Lochkreis [API T.5-5a, Db = 768 mm]
@@ -868,8 +1015,9 @@ def nozzle(cfg, phi):
         return sweep(name, mat, [(ctr + d * (ro + o0), u, v), (ctr + d * (ro + o1), u, v)],
                      ngon(nseg, rad), round_section=True)
 
-    out.append(disc("tank.nozzle.outlet.pad", "paint", G.kNozzleReinfDia / 2.0, 0.0, 0.014))
-    out.append(disc("tank.nozzle.outlet.neck", "paint", G.kNozzleOD / 2.0, 0.014, G.kNozzleProj))
+    out.append(shell_patch("tank.nozzle.outlet.pad", "paint", cfg, phi, z,
+                           G.kNozzleReinfDia / 2.0, 0.010))
+    out.append(disc("tank.nozzle.outlet.neck", "paint", G.kNozzleOD / 2.0, 0.010, G.kNozzleProj))
     out.append(disc("tank.nozzle.outlet.flange", "paint", G.kNozzleFlangeDia / 2.0,
                     G.kNozzleProj, G.kNozzleProj + G.kNozzleFlangeThk))
     return out
@@ -935,12 +1083,18 @@ def stair(cfg):
         # L3: die Stufen verschmelzen zum geschlossenen Band. AUSSENKANTE und Oberkante bleiben
         # exakt die der Einzelstufen, also bleibt die Silhouette in Auf- und Grundriss stehen.
         zs = [max(i, 1) * G.kStairRise for i in range(n + 1)]
-        path = [(_pt(ri, _stair_phi(i), zs[i]),
+        # Wie die Einzelstufen muss auch das Band an der Ringmauer vorbei, nicht hindurch: der
+        # Kritiker mass hier elf Liter Treppe im Beton, die Runde 2 mit samples=10 als 0.00 las.
+        ri_band = max(ri, _ringwall_ro() + 0.010)
+        rin = [ri_band if zs[i] - G.kStringerH < G.kRingwallRise else ri for i in range(n + 1)]
+        path = [(_pt(rin[i], _stair_phi(i), zs[i]),
                  np.array([math.cos(_stair_phi(i)), math.sin(_stair_phi(i)), 0.0]),
                  np.array([0.0, 0.0, 1.0])) for i in range(n + 1)]
-        w = ro - ri
-        secs = [[(0.0, 0.0), (w, 0.0), (w, -_stringer_depth(z)), (0.0, -_stringer_depth(z))]
-                for z in zs]
+        # Die AUSSENkante bleibt die der Einzelstufen — sie traegt die Silhouette. Runde 3 hatte
+        # hier eine feste Breite ro - ri_band gerechnet und damit ein 553 statt 710 mm breites
+        # Band gebaut; im Grundriss war das der groesste Einzelposten der XOR-Flaeche.
+        secs = [[(0.0, 0.0), (ro - rin[i], 0.0), (ro - rin[i], -_stringer_depth(zs[i])),
+                 (0.0, -_stringer_depth(zs[i]))] for i in range(n + 1)]
         out.append(sweep("access.stair.band", "steel", path, secs))
 
     if cfg["detail"] >= 1:
@@ -955,6 +1109,8 @@ def stair(cfg):
     # Handlauf: nur aussen. [API T.5-18 Pkt.9] fordert den inneren erst ab 200 mm Abstand zur
     # Schale; die innere Wange liegt AUF der Schale, also entfaellt er.
     rr = ro + G.kStringerThk
+    if not cfg["rails"]:
+        return out
 
     def rail_h(i, h_low, h_high):
         """[API T.5-18 Pkt.6] "shall join the platform handrail WITHOUT OFFSET". Treppengelaender
@@ -965,8 +1121,11 @@ def stair(cfg):
         f = min(max((i - (n - k)) / float(k), 0.0), 1.0)
         return h_low + (h_high - h_low) * f
 
-    for tag, h, ph in (("top", G.kStairRailH, G.kPlatformRailH),
-                       ("mid", G.kStairRailH / 2.0, G.kPlatformRailH / 2.0)):
+    # [OSHA 1910.29(b)(1)] misst die OBERKANTE des Holms, also liegt die Rohrachse einen
+    # Rohrradius tiefer. Runde 2 legte die Achse auf das Sollmass und baute 21 mm zu hoch.
+    _r = G.kRailTubeDia / 2.0
+    for tag, h, ph in (("top", G.kStairRailH - _r, G.kPlatformRailH - _r),
+                       ("mid", G.kStairRailH / 2.0 - _r, G.kPlatformRailH / 2.0 - _r)):
         pts = [_pt(rr, _stair_phi(i), max(i, 1) * G.kStairRise + rail_h(i, h, ph))
                for i in range(n + 1)]
         out.append(sweep("access.stair.rail.%s" % tag, "steel", normal_frames(pts),
@@ -995,7 +1154,14 @@ def platform(cfg):
     # Dieselbe Sehnenregel wie bei den Stufen: der Podestboden ist ein Polygonzug, seine
     # Innenkante muss die Ecken des Kopfwinkels ausserhalb lassen.
     ri = G.ring_radius(_roof_rim(), cfg["seg"]) / math.cos(math.pi / cfg["seg"])
-    ro = ri + G.kPlatformWidth
+    # [API T.5-17 Pkt.2] "minimum width of the walkway shall be 610 mm, AFTER MAKING ADJUSTMENTS
+    # AT ALL PROJECTIONS". Runde 2 baute 610 mm Blech und kam nach Fussleiste und Pfosten auf
+    # 586 mm licht. Die Blechbreite folgt jetzt aus der lichten Breite plus dem, was hineinragt.
+    intrude = G.kPlatformToeThk + G.kPostDia / 2.0
+    width = G.kPlatformClear + intrude
+    ro = ri + width
+    clear = width - intrude
+    assert clear >= G.kPlatformClear - 1e-9, "lichte Podestbreite unter 610 mm"
     z = G.kPlatformZ
     p0 = _stair_phi(G.kStairSteps)
     p1 = p0 + G.kPlatformArc / ((ri + ro) / 2.0)
@@ -1003,13 +1169,15 @@ def platform(cfg):
     phis = [p0 + (p1 - p0) * i / nsec for i in range(nsec + 1)]
 
     out.append(sweep("access.platform.floor", "steel", arc_frames(ri, phis, lambda p: z),
-                     [(0.0, 0.0), (G.kPlatformWidth, 0.0),
-                      (G.kPlatformWidth, -0.030), (0.0, -0.030)]))
+                     [(0.0, 0.0), (width, 0.0), (width, -0.030), (0.0, -0.030)]))
     out.append(sweep("access.platform.toeboard", "steel", arc_frames(ro, phis, lambda p: z),
-                     [(0.0, 0.0), (0.008, 0.0),
-                      (0.008, G.kPlatformToeH), (0.0, G.kPlatformToeH)]))
+                     [(0.0, 0.0), (G.kPlatformToeThk, 0.0),
+                      (G.kPlatformToeThk, G.kPlatformToeH), (0.0, G.kPlatformToeH)]))
 
-    for tag, h in (("top", G.kPlatformRailH), ("mid", G.kPlatformRailH / 2.0)):
+    if not cfg["rails"]:
+        return out
+    for tag, h in (("top", G.kPlatformRailH - G.kRailTubeDia / 2.0),
+                   ("mid", G.kPlatformRailH / 2.0 - G.kRailTubeDia / 2.0)):
         out.append(sweep("access.platform.rail.%s" % tag, "steel",
                          arc_frames(ro, phis, lambda p, h=h: z + h),
                          ngon(cfg["tube"], G.kRailTubeDia / 2.0), round_section=True))
@@ -1030,7 +1198,8 @@ def platform(cfg):
     # AND THE PLATFORM should be floored"). Offen blieb in Runde 1 die STIRNseite: das ferne Ende
     # war ein 0.61 m breiter Abgrund ohne Gelaender. Das nahe Ende ist der Treppenzugang und bleibt
     # nach demselben Satz offen.
-    for tag, h in (("top", G.kPlatformRailH), ("mid", G.kPlatformRailH / 2.0)):
+    for tag, h in (("top", G.kPlatformRailH - G.kRailTubeDia / 2.0),
+                   ("mid", G.kPlatformRailH / 2.0 - G.kRailTubeDia / 2.0)):
         # Der Pfad laeuft RADIAL, also muss der Querschnitt in der tangential/z-Ebene liegen.
         # Mit u = radial faellt die Querschnittsebene mit der Pfadrichtung zusammen und der
         # Koerper hat Volumen null — derselbe Fehler wie bei den Pfosten in Runde 1.
@@ -1102,17 +1271,16 @@ def build_bodies(cfg):
     """Die EINE Quelle: eine geordnete Liste (Gruppe, Netz). Reihenfolge ist fest -> Determinismus."""
     # [SET] Umfangslagen der Anbauten. Sie sind so gewaehlt, dass Mannloch, Stutzen und Treppenfuss
     # einander nicht durchdringen; keine Quelle schreibt sie vor (DEFECTS.md #8).
-    phi_mh = math.radians(300.0)
-    phi_noz = math.radians(345.0)
-    phi_rmh = math.radians(30.0)
-    phi_vent = math.radians(70.0)
+    phi_mh, phi_noz = G.kManholePhi, G.kNozzlePhi
+    phi_rmh, phi_vent = G.kRoofManholePhi, G.kVentPhi
 
     out = [("foundation", ringwall(cfg)),
            ("tank", shell(cfg)),
            ("tank", bottom_plate(cfg)),
            ("tank", top_angle(cfg)),
-           ("tank", wind_girder(cfg)),
            ("tank", roof(cfg))]
+    for m in vertical_seams(cfg):
+        out.append(("tank", m))
     for m in shell_manhole(cfg, phi_mh):
         out.append(("tank", m))
     for m in roof_manhole(cfg, phi_rmh):
@@ -1161,19 +1329,25 @@ def build_lod(cfg, out_dir, keep_blend=False):
     if not merge_ok:
         fails.append("merge: dV=%.3e  dBox=%.3e" % (d_vol, d_box))
 
+    vol_of = {m.name: abs(s["volume"]) * 1e6 for (_, m), (_, s) in zip(bodies, per_body)}
     all_ov = check_overlap([(m.name, m) for _, m in bodies])
-    joints = [x for x in all_ov if is_joint(*x)]
-    ov = [x for x in all_ov if not is_joint(*x)]
+    joints, ov = [], []
+    for a, b, cm3, nn, rel in all_ov:
+        vmin = min(vol_of.get(a, 0.0), vol_of.get(b, 0.0))
+        (joints if is_joint(a, b, cm3, vmin) else ov).append((a, b, cm3, nn, rel, cm3 / max(vmin, 1e-9)))
     ov_sum = sum(x[2] for x in ov)
     if ov:
         fails.append("Durchdringung: %d Koerperpaare, %.2f cm3" % (len(ov), ov_sum))
-        for a, b, cm3 in ov[:8]:
-            print("  DURCHDRINGUNG %-30s x %-30s %8.2f cm3" % (a, b, cm3))
+        for a, b, cm3, nn, rel, q in ov[:8]:
+            print("  DURCHDRINGUNG %-28s x %-28s %9.2f cm3  n=%d  dV/V %.1f %%"
+                  % (a, b, cm3, nn, 100.0 * rel))
     print("  MERGE  V_teile %.6f  V_verschmolzen %.6f  dV %.2e  dBox %.2e  %s"
           % (vol_sum, mv, d_vol, d_box, "OK" if merge_ok else "ABWEICHUNG"))
-    print("  DURCHDRINGUNG %d ungewollt (%.2f cm3), %d Schweissnaehte (%.2f cm3, Kappe %.0f)  %s"
-          % (len(ov), ov_sum, len(joints), sum(x[2] for x in joints), kJointCapCm3,
-             "OK" if not ov else "DURCHGEFALLEN"))
+    jq = max([x[5] for x in joints], default=0.0)
+    print("  DURCHDRINGUNG %d ungewollt (%.2f cm3), %d Schweissnaehte (%.1f cm3, groesste Quote "
+          "%.1f %% von %.0f %% erlaubt)  %s"
+          % (len(ov), ov_sum, len(joints), sum(x[2] for x in joints), 100.0 * jq,
+             100.0 * kJointFrac, "OK" if not ov else "DURCHGEFALLEN"))
 
     if fails:
         for f in fails:
@@ -1213,9 +1387,10 @@ def build_lod(cfg, out_dir, keep_blend=False):
                 genus=genus, volume_sum_m3=round(vol_sum, 6),
                 merge=dict(v_parts=round(vol_sum, 6), v_merged=round(mv, 6),
                            d_volume=d_vol, d_bbox=d_box, passed=bool(merge_ok)),
-                overlaps=[dict(a=a, b=b, cm3=round(c, 3)) for a, b, c in ov],
+                overlaps=[dict(a=a, b=b, cm3=round(c, 3), grid=n,
+                               converged_rel=round(r, 4)) for a, b, c, n, r, _ in ov],
                 weld_joints=dict(pairs=len(joints), cm3=round(sum(x[2] for x in joints), 2),
-                                 cap_cm3=kJointCapCm3,
+                                 cap_fraction=kJointFrac, worst_fraction=round(jq, 4),
                                  note=('Absichtlich geteiltes Volumen an Schweisspunkten. '
                                        'Die Erlaubnis gilt je Paar bis zur Kappe; alles '
                                        'ausserhalb der Liste kJoint ist ein Defekt.')),
@@ -1225,73 +1400,92 @@ def build_lod(cfg, out_dir, keep_blend=False):
                 _bodies=bodies)
 
 
-def check_silhouette(stats, ranges, limit=2.0):
-    """Silhouetten-Tor OHNE Renderer — und diesmal eines, das rot werden kann.
+def check_silhouette(stats, ranges, limit=2.0, k0=90, kmax=1440, tol=0.02):
+    """Silhouetten-Tor OHNE Renderer, mit KONVERGENZPRUEFUNG.
 
-    DREI FEHLER DER RUNDE 2, ALLE DREI HIER BEHOBEN:
-      1. Das kumulierte Paar L0->L3 wurde aus dem Urteil AUSGESCHLOSSEN (`if (a,b) != ...`). Das
-         Skript druckte "UEBER GRENZE" und meldete zugleich `passed: true`. Jetzt zaehlt jede
-         gemessene Zeile.
-      2. Es wurde nur achsparallel abgetastet, und bei jedem n dieser Leiter steht dort eine Ecke
-         vor der Kamera. Jetzt 13 Azimute mit 13 verschiedenen Phasen (s. kSilAzimuths).
-      3. Gemessen wurde bei fester Aufloesung 1024 px, also viel feiner als die Stufe je benutzt
-         wird. Jetzt wird bei DER Aufloesung gemessen, die die Umschaltweite hergibt:
-             res = Koerpergroesse / (Umschaltweite * Pixelwinkel),
-         gedeckelt auf die 1280 px des Zielbildes. Das ist die Aufloesung, bei der ein Betrachter
-         die beiden Stufen wirklich nebeneinander sieht.
+    Runde 2 tastete 13 Azimute ab und meldete 1.964 %. Bei 360 Azimuten sind es 2.378 % — dieselbe
+    Geometrie, dasselbe Verfahren, nur genug Proben. Ein Schaetzer ohne Konvergenzaussage ist kein
+    Tor, sondern eine Behauptung. Hier wird die Azimutzahl verdoppelt, bis der SCHLECHTESTE Wert
+    sich um weniger als tol Prozentpunkte aendert, mindestens aber bis 360; die ganze Reihe wird
+    gemeldet, damit ein Leser die Konvergenz selbst beurteilt statt sie zu glauben.
+
+    Gemessen wird bei der Aufloesung, die die Umschaltweite hergibt (res = Koerpergroesse /
+    (Weite * Pixelwinkel), gedeckelt auf die 1280 px des Zielbildes) — nicht feiner, als die Stufe
+    je benutzt wird. Das kumulierte Paar zaehlt im Urteil MIT.
     """
     lo = np.array([stats[0]["bbox"][k][0] for k in "xyz"])
     hi = np.array([stats[0]["bbox"][k][1] for k in "xyz"])
     ctr = (lo + hi) / 2.0
     size = float((hi - lo).max()) * 1.06
-    views = _views()
     names = [s["lod"] for s in stats]
     pairs = list(zip(range(len(names) - 1), range(1, len(names)))) + [(0, len(names) - 1)]
     cache, rows, worst, worst_row = {}, [], 0.0, None
+
+    def mask(lv, ang, u, v, res):
+        key = (lv, round(ang, 9), res)
+        if key not in cache:
+            cache[key] = raster([m for _, m in stats[lv]["_bodies"]], u, v, res, ctr, size)
+        return cache[key]
+
     for a, b in pairs:
-        # Fuer das KUMULIERTE Paar zaehlt die Entfernung, ab der die groebste Stufe benutzt wird —
-        # dort und nur dort koennte ein Renderer von L0 direkt auf L3 springen.
         rng = ranges[a] if b == a + 1 else ranges[len(names) - 2]
         res = int(max(48, min(1280, round(size / max(rng * G.kPixelAngle, 1e-9)))))
-        for tag, u, v in views:
-            for lv in (a, b):
-                key = (lv, tag, res)
-                if key not in cache:
-                    cache[key] = raster([m for _, m in stats[lv]["_bodies"]], u, v, res, ctr, size)
-            base = int(cache[(a, tag, res)].sum())
-            xor = int(np.logical_xor(cache[(a, tag, res)], cache[(b, tag, res)]).sum())
-            pct = 100.0 * xor / max(base, 1)
-            if pct > worst:
-                worst, worst_row = pct, (names[a], names[b], tag, res, pct)
-            rows.append(dict(pair="%s->%s" % (names[a], names[b]), view=tag, res=res,
-                             range_m=round(rng), xor_px=xor, pct=round(pct, 3)))
-        sel = [r for r in rows if r["pair"] == "%s->%s" % (names[a], names[b])]
-        mx = max(sel, key=lambda r: r["pct"])
-        print("  SIL %s->%s  %4d px (%4d m)  schlechtester von %d Azimuten: %-6s %5.2f %%  %s"
-              % (names[a], names[b], res, round(rng), len(views), mx["view"], mx["pct"],
-                 "OK" if mx["pct"] <= limit else "UEBER GRENZE"))
+        k, prev, seq, best = k0, None, [], None
+        while True:
+            w, wv = 0.0, None
+            for tag, u, v in _views(k):
+                ang = 0.0 if tag == "top" else math.radians(float(tag[2:]))
+                ma = mask(a, ang if tag != "top" else -1.0, u, v, res)
+                mb = mask(b, ang if tag != "top" else -1.0, u, v, res)
+                base = int(ma.sum())
+                pct = 100.0 * int(np.logical_xor(ma, mb).sum()) / max(base, 1)
+                if pct > w:
+                    w, wv = pct, tag
+            seq.append(dict(azimuths=k, worst_pct=round(w, 4), view=wv))
+            best = (w, wv)
+            if prev is not None and abs(w - prev) <= tol and k >= 360:
+                break
+            if k >= kmax:
+                break
+            prev, k = w, k * 2
+        conv = abs(seq[-1]["worst_pct"] - seq[-2]["worst_pct"]) if len(seq) > 1 else float("nan")
+        rows.append(dict(pair="%s->%s" % (names[a], names[b]), res=res, range_m=round(rng),
+                         azimuths=k, worst_pct=round(best[0], 4), worst_view=best[1],
+                         converged_delta_pp=round(conv, 4), sequence=seq))
+        if best[0] > worst:
+            worst, worst_row = best[0], (names[a], names[b], best[1], res, k, best[0])
+        print("  SIL %s->%s  %4d px (%4d m)  %4d Azimute (Delta %.3f pp)  "
+              "schlechtester %-11s %5.3f %%  %s"
+              % (names[a], names[b], res, round(rng), k, conv, best[1], best[0],
+                 "OK" if best[0] <= limit else "UEBER GRENZE"))
     ok = worst <= limit
-    print("  SIL Grenze %.2f %%  schlechteste Zeile %s->%s %s bei %d px = %.2f %%  %s"
+    print("  SIL Grenze %.2f %%  schlechteste Zeile %s->%s %s bei %d px / %d Azimuten = %.3f %%  %s"
           % (limit, worst_row[0], worst_row[1], worst_row[2], worst_row[3], worst_row[4],
-             "BESTANDEN" if ok else "DURCHGEFALLEN"))
-    return dict(azimuths=kSilAzimuths, limit_pct=limit, passed=bool(ok),
+             worst_row[5], "BESTANDEN" if ok else "DURCHGEFALLEN"))
+    return dict(limit_pct=limit, passed=bool(ok), convergence_tol_pp=tol,
+                min_azimuths=360,
                 worst=dict(pair="%s->%s" % (worst_row[0], worst_row[1]), view=worst_row[2],
-                           res=worst_row[3], pct=round(worst_row[4], 3)),
-                measured_at="Umschaltaufloesung, nicht 1024 px — s. Docstring",
+                           res=worst_row[3], azimuths=worst_row[4],
+                           pct=round(worst_row[5], 4)),
+                method=("Azimutzahl verdoppeln bis der schlechteste Wert um weniger als %.2f pp "
+                        "steigt, mindestens 360. Aufloesung aus der Umschaltweite. Kumuliertes "
+                        "Paar im Urteil enthalten." % tol),
                 rows=rows), ok
 
 
 def switch_table(stats):
-    """Umschaltweiten HERGELEITET, nicht gesetzt.
+    """Umschaltweiten HERGELEITET — und die MESSUNG loest die Naeherung ab, wo es eine gibt.
 
-    Eine Stufe darf erst fallen, wenn ihr groesstes verlorenes Merkmal unter ein Pixel faellt.
-    Zwei Treiber existieren hier, und beide werden gerechnet:
-      a) Die Rundungsabweichung der naechstgroeberen n-Ecke, G.ring_error(R, n).
-      b) Das groesste Bauteil, das die naechste Stufe WEGLAESST. Merkmalsgroesse nach Cauchy =
-         sqrt(A/4), weil A/4 die ueber alle Blickrichtungen gemittelte Schattenflaeche eines
-         konvexen Koerpers ist.
-    Die Schwelle ist das Maximum beider, monoton laufend — eine Stufe kann nicht frueher fallen
-    als ihre Vorgaengerin, sonst wird sie nie benutzt.
+    Runde 1/2 nahmen als Treiber das Maximum aus (a) der Rundungsabweichung der naechsten n-Ecke
+    und (b) der Cauchy-Merkmalsgroesse sqrt(A/4) des groessten WEGGELASSENEN Koerpers. (b) ist eine
+    Naeherung fuer "wann sieht man das Fehlen", und sie ist bei duennen, langen Koerpern grob
+    falsch: laesst L3 die Handlaeufe fallen, meldet sie 918 m Umschaltweite, waehrend die gemessene
+    Silhouettenaenderung ein Fuenftel der Grenze betraegt. Eine Naeherung, neben der eine Messung
+    steht, hat keine Stimme mehr.
+
+    Also: die Weite kommt aus (a), dem einzigen Treiber, der sich geschlossen rechnen laesst.
+    (b) bleibt als DIAGNOSE stehen — sie sagt, WAS faellt und wie gross es nach Cauchy ist — und
+    das Urteil faellt check_silhouette bei genau dieser Weite.
     """
     def area(me):
         a = 0.0
@@ -1310,23 +1504,17 @@ def switch_table(stats):
         cur = {m.name: m for _, m in st["_bodies"]}
         nxt = set(m.name for _, m in stats[i + 1]["_bodies"])
         gone = [k for k in cur if k not in nxt]
-        # ERSETZT ist nicht VERLOREN. L2->L3 fasst Stufen und Wange zum Band zusammen; die
-        # Aussen- und Oberkante bleiben dieselben. Wer das als Verlust rechnet, bekommt aus
-        # sqrt(A/4) der Wange eine Umschaltweite von 1636 m — gemessen aendert sich die
-        # Silhouette dort um 0.88 / 1.81 / 1.39 %. Ersetzte Koerper werden benannt, nicht gezaehlt.
         rep = [(k, r) for k in gone for pre, r in kSubstitute if k.startswith(pre) and r in nxt]
         repd = set(k for k, _ in rep)
         lost = {k: area(cur[k]) for k in gone if k not in repd}
-        drv, feat = "rundung n=%d" % stats[i + 1]["segments"], G.ring_error(G.kRadius,
-                                                                           stats[i + 1]["segments"])
-        if lost:
-            k = max(lost, key=lambda x: lost[x])
-            f2 = math.sqrt(lost[k] / 4.0)
-            if f2 > feat:
-                drv, feat = k, f2
+        seg = stats[i + 1]["segments"]
+        feat = G.ring_error(G.kRadius, seg)
         run = max(run, feat / G.kPixelAngle)
-        steps.append(dict(lod=st["lod"], driver=drv, feature_m=round(feat, 5),
+        steps.append(dict(lod=st["lod"], driver="rundung n=%d" % seg, feature_m=round(feat, 5),
                           max_range_m=round(run), lost_bodies=len(lost),
+                          lost_cauchy_m={k: round(math.sqrt(v / 4.0), 4)
+                                         for k in sorted(lost, key=lambda x: -lost[x])[:6]
+                                         for v in [lost[k]]},
                           drops=sorted(lost, key=lambda x: -lost[x])[:8],
                           replaced=sorted(set("%s -> %s" % (p, r) for p, r in
                                               ((pre, r) for k, r in rep
@@ -1376,56 +1564,38 @@ def sidecar(out_dir, stats, sil, steps):
                                   "16/24/32/40/48 ft sind ALLE Vielfache von 8 ft = 2438 mm — die "
                                   "kleinste Walzbreite ueber der Grenze, die jede von ihnen ohne "
                                   "Rest teilt. 32 ft / 8 ft = 4 Schuesse."),
-            "shell_thickness_by_course": [round(t, 6) for t in G.kCourseThk],
+            "shell_thickness_by_course": [round(t, 4) for t in G.kCourseThk],
             "shell_thickness_source": (
-                "[API 5.6.1.1, Tabelle] D < 50 ft -> 3/16 in, ABER [FUSSNOTE 4] derselben Tabelle: "
-                "'For diameters less than 15 m (50 ft) but greater than 3.2 m (10.5 ft), the "
-                "nominal thickness of the lowest shell course shall not be less than 6 mm "
-                "(1/4 in.)'. D = 14.6304 m liegt im Band, also ist Schuss 1 dicker. Runde 1 hat "
-                "die Fussnote uebersehen und durchgehend 3/16 in gebaut. 1/4 in statt 6 mm, weil "
-                "Note 3 derselben Tabelle 6 mm ausdruecklich als SUBSTITUTION fuer 1/4 in fuehrt "
-                "und dieser Tank durchgehend in Zoll gerechnet ist. Probe mit der 1-Fuss-Methode "
-                "[API 5.6.3.2] und Sd = %.0f psi fuer A 36 [API T.5-2b]: die Mindestdicke regiert "
-                "fuer jeden Inhalt mit G <= %.4f, also fuer jedes Erdoelprodukt und sogar fuer "
-                "Wasser. Das Netz braucht KEINE Produktdichte als Quelle."
-                % (G.kAllowStressPsi, G.kGoverningSg)),
+                "[API 5.6.1.1, Tabelle, SI-SPALTE] D < 15 m -> 5 mm; [FUSSNOTE 4] derselben "
+                "Tabelle: 'For diameters less than 15 m (50 ft) but greater than 3.2 m (10.5 ft), "
+                "the nominal thickness of the lowest shell course shall not be less than 6 mm "
+                "(1/4 in.)'. D = 14.6304 m liegt im Band, also ist Schuss 1 dicker. Gelesen wird "
+                "die SI-Spalte, weil der Eigner das Projekt metrisch entschieden hat — API 650 "
+                "fuehrt zwei Regelsaetze, und 3/16 in sind 4.7625 mm, nicht 5 mm. Probe mit der "
+                "1-Meter-Methode [API 5.6.3.2, SI] und Sd = %.0f MPa fuer A 36M [API T.5-2a]: die "
+                "Mindestdicke regiert fuer jeden Inhalt mit G <= %.4f, also fuer jedes "
+                "Erdoelprodukt und sogar fuer Wasser. Das Netz braucht KEINE Produktdichte."
+                % (G.kAllowStressMPa, G.kGoverningSg)),
+            "vertical_seams": (
+                "%d Bleche je Schuss, zwischen benachbarten Schuessen um ein halbes Blech "
+                "versetzt. [API 5.1.5.2 b] fordert den Versatz ('shall be offset from each other "
+                "a minimum distance of 5t' = 30 mm), also EXISTIEREN die Naehte; die Blechlaenge "
+                "legt die Norm nicht fest ([SET], 7.66 m Bogen). Runde 2 modellierte nur die "
+                "waagerechten Naehte — beide Scharen sind gleich gross, und das Nahtraster ist "
+                "das Merkmal, an dem man einen geschweissten Lagertank erkennt."
+                % G.kPlatesPerCourse),
             "roof_slope": "1:16 [API 5.10.4.1]",
             "roof_rise": round(G.kRoofRise, 5),
             "top_angle": ("50 x 50 x 6 mm [API 5.1.5.9 e] — D = %.4f m liegt im Band "
                           "11 m < D <= 18 m." % G.kDiameter),
-            "wind_girder_H1": round(G.kWindH1, 4),
-            "wind_girder_needed": (
-                "[API 5.9.7.1] H1 = 9.47 t (t/D)^1.5 = %.4f m (t = Dicke des OBERSTEN Schusses). "
-                "Verglichen wird damit die TRANSFORMIERTE Hoehe [API 5.9.7.2/5.9.7.3], nicht die "
-                "wirkliche: %.4f m > %.4f m -> ein Zwischenring ist PFLICHT, knapp. Gegenprobe in "
-                "US-Einheiten: 27.47 ft = 8.372 m."
-                % (G.kWindH1, G.kShellTransposed, G.kWindH1)),
-            "shell_transposed_m": round(G.kShellTransposed, 5),
-            "wind_girder_z": round(G.kWindGirderZ, 5),
-            "wind_girder_z_derivation": (
-                "[API 5.9.7.2] W_tr = W (t_uniform/t_actual)^2.5 je Schuss -> transformierte Hoehe "
-                "%.5f m. [API 5.9.7.3.1] halbe transformierte Hoehe, zurueckgerechnet auf Schuss "
-                "%d -> %.5f m. Runde 1 rechnete 4.7268 m, weil sie die Schale faelschlich als "
-                "gleichdick annahm (Fussnote 4 uebersehen) und [API 5.9.7.5] anwandte, das nur "
-                "greift, wenn der Ring naeher als 150 mm an eine Rundnaht faellt — hier sind es "
-                "%.3f m. Endlage %.5f m: [API 5.9.7.3.2] erlaubt eine andere Stelle, solange kein "
-                "unverstaerkter Abschnitt H1 ueberschreitet (%.4f / %.4f m gegen %.4f m). "
-                "Verschoben wurde, damit die Treppe den Ring nicht DURCHDRINGT — [API 5.9.7.7] "
-                "erlaubt ihr, ohne Durchbruch darueber zu laufen (Ring 100 mm <= 150 mm, Treppe "
-                "710 mm >= 710 mm), aber nicht, durch ihn hindurchzugehen."
-                % (G.kShellTransposed, G.kWindGirderCourse + 1, G.kWindGirderZIdeal,
-                   G.kWindGirderSeamClear, G.kWindGirderZ, G.kWindGirderTrPos,
-                   G.kShellTransposed - G.kWindGirderTrPos, G.kWindH1)),
-            "wind_girder_Zreq_cm3": round(G.kWindGirderZreqCm3, 2),
-            "wind_girder_section": (
-                "Winkel %.0f x %.0f x %.0f, langer Schenkel WAAGERECHT mit dem Ende an der Schale, "
-                "freier Schenkel am aeusseren Ende nach UNTEN [API Bild 5-24 Detail c, gerendert "
-                "und abgelesen]. Aus [API T.5-20a], Block 'One Angle: Detail c', Spalte 5 mm: "
-                "kleinstes Profil ueber Z_req = %.2f cm3 ist 100x75x7 mit %.2f cm3. Runde 1 hatte "
-                "100x100x8 GESETZT — ein Profil, das in der Tabelle nicht vorkommt — und es "
-                "spiegelverkehrt gebaut (Ferse an der Schale, freier Schenkel nach oben)."
-                % (G.kWindGirderLegH * 1000, G.kWindGirderLegV * 1000, G.kWindGirderThk * 1000,
-                   G.kWindGirderZreqCm3, G.kWindGirderZavailCm3)),
+            "wind_girder": (
+                "KEINER. [API 5.9.7.1, SI] H1 = 9.47 t (t/D)^1.5 = %.4f m mit t = Dicke des "
+                "obersten Schusses; [API 5.9.7.2] transformierte Schale %.5f m. 5.9.7.3 "
+                "fordert einen Zwischenring erst, wenn die transformierte Hoehe H1 "
+                "UEBERSTEIGT — sie tut es nicht. Runde 2 baute einen, weil sie die Schale "
+                "in Zoll rechnete: dort ist die transformierte Schale 27.897 ft gegen H1 "
+                "27.466 ft und der Ring Pflicht. Das Bauteil existierte nur als Folge der "
+                "Einheitenmischung." % (G.kWindH1, G.kShellTransposed)),
             "ringwall_width": G.kRingwallWidth,
             "ringwall_source": ("[API B.4.2.2] 'The ringwall shall not be less than 300 mm thick. "
                                 "The centerline diameter of the ringwall should equal the nominal "
@@ -1440,6 +1610,7 @@ def sidecar(out_dir, stats, sil, steps):
             "wrap_deg": round(math.degrees(G.kStairWrap), 2),
             "posts": G.kStairPosts,
             "handrail_outer_only": True,
+            "handrail_measure": G.kRailMeasure,
             "derivation": (
                 "Zwei Schritte, beide belegt. (1) Aus den Zeilen der [API T.5-19a] mit 2R + r = 610 "
                 "die STEILSTE nehmen, die OSHA 1910.25(c) haelt: r = 610 - 2R >= 241.3 mm erzwingt "
@@ -1462,7 +1633,8 @@ def sidecar(out_dir, stats, sil, steps):
         },
         "platform": {
             "required_by": "[API 5.8.10 c] — Podest an der Dachkante ist Pflicht, kein Zierat.",
-            "width": G.kPlatformWidth,
+            "clear_width": G.kPlatformClear,
+            "clear_width_rule": ("[API T.5-17 Pkt.2] 610 mm LICHT, 'after making adjustments at all projections'. Fussleiste und Pfosten ragen hinein, also ist das Blech entsprechend breiter; das Bauskript prueft die lichte Breite per assert."),
             "rail_height": G.kPlatformRailH,
             "toeboard": G.kPlatformToeH,
             "source": "[API T.5-17] Pkt. 2, 4, 5, 7, 8.",
@@ -1506,26 +1678,27 @@ def sidecar(out_dir, stats, sil, steps):
                 "abtasten, beidseitig einschliessen per Strahltest mit schraeger, fester "
                 "Richtung). Runde 1 hatte 47 Paare mit geteiltem Volumen, darunter eine "
                 "Treppenstufe quer durch den Windring — von nichts gemessen. Ausgenommen sind nur "
-                "die in kJoint benannten SCHWEISSPUNKTE, und auch die nur bis %.0f cm3 je Paar."
-                % kJointCapCm3),
+                "die in kJoint benannten SCHWEISSPUNKTE, und auch die nur bis zu einem "
+                "Anteil %.2f des kleineren Bauteils." % kJointFrac),
             "lod_continuity": (
                 "Umfangserhaltende Ringkorrektur macht die mittlere Silhouettenbreite nach Cauchy "
-                "auf allen Stufen exakt gleich; der Rest wird gemessen — ueber %d Azimute (nicht "
-                "drei Achsen: jedes n dieser Leiter ist durch 4 teilbar, dort steht immer eine "
-                "Ecke vor der Kamera) und bei der Aufloesung, die die Umschaltweite hergibt "
-                "(nicht bei 1024 px, wo die Stufe nie benutzt wird). Das kumulierte Paar zaehlt "
+                "auf allen Stufen exakt gleich; der Rest wird gemessen — ueber mindestens 360 "
+                "Azimute, mit Verdopplung bis zur Konvergenz, und bei der Aufloesung, die die "
+                "Umschaltweite hergibt. Runde 2 tastete 13 Azimute ab und meldete 1.964 %; "
+                "dieselbe Geometrie ergibt bei 360 Azimuten 2.378 %. Das kumulierte Paar zaehlt "
                 "im Urteil MIT — Runde 1 schloss es aus und meldete gruen, waehrend eine Zeile "
-                "darueber 'UEBER GRENZE' stand." % kSilAzimuths),
-            "determinism": ("zweimal bauen, Bytes vergleichen — siehe Abschnitt "
-                            "acceptance.rebuild_identical."),
+                "darueber 'UEBER GRENZE' stand."),
+            "determinism": ("zweimal bauen, Bytes vergleichen — s. acceptance.rebuild_identical."),
         },
         "silhouette": sil,
-        "lod_rule": ("Eine Stufe faellt erst, wenn ihr groesstes VERLORENES Merkmal unter ein "
-                     "Pixel faellt. Zwei Treiber: die Rundungsabweichung der naechsten n-Ecke "
-                     "und das groesste weggelassene Bauteil (Merkmalsgroesse = sqrt(A/4) nach "
-                     "Cauchy). Pixelwinkel = 60 Grad / 1280 px = %.4e rad "
-                     "[doc/render/visual-target.md §1, 720p30]. Die Weiten sind UNTERE Schranken; "
-                     "ein Renderer darf frueher schalten und zahlt den genannten Fehler."
+        "lod_rule": ("Die Umschaltweite kommt aus der Rundungsabweichung der naechsten n-Ecke: "
+                     "sie faellt unter ein Pixel bei R = ring_error / Pixelwinkel, Pixelwinkel = "
+                     "60 Grad / 1280 px = %.4e rad [doc/render/visual-target.md §1, 720p30]. Die "
+                     "Cauchy-Merkmalsgroesse sqrt(A/4) weggelassener Koerper ist NUR noch Diagnose "
+                     "(lod_switch.lost_cauchy_m): sie meldete fuer die Handlaeufe 918 m, waehrend "
+                     "die gemessene Silhouettenaenderung ein Bruchteil der Grenze ist. Wo eine "
+                     "Messung steht, hat die Naeherung keine Stimme. Die Weiten sind UNTERE "
+                     "Schranken; ein Renderer darf frueher schalten und zahlt den Fehler."
                      % G.kPixelAngle),
         "lod_switch": steps,
         "lods": [{k: v for k, v in s.items() if not k.startswith("_")} for s in stats],
@@ -1533,20 +1706,23 @@ def sidecar(out_dir, stats, sil, steps):
             "reference": ("API Std 650 fuer jede Bauteilabmessung; die Normgroessentabelle fuer "
                           "Durchmesser und Hoehe; OSHA 1910.25 als zweites Regelwerk fuer die "
                           "Treppe. Kein Foto, kein Augenmass."),
-            "tolerance": ("Jede Hauptabmessung ist EXAKT die Normzahl, nicht angenaehert: der "
-                          "Tank ist in Fuss definiert und wird in Fuss gerechnet. Die einzige "
-                          "Abweichung im Bau ist die Ringkorrektur, und die ist beabsichtigt und "
-                          "beziffert (s. lod_switch.feature_m)."),
+            "tolerance": ("Jede Hauptabmessung ist EXAKT die Zahl ihrer SI-Tabellenspalte. "
+                          "Die einzige Abweichung im Bau ist die Ringkorrektur, und die ist "
+                          "beabsichtigt und beziffert (s. lod_switch.feature_m)."),
             "checks_all_green": all(not s["checks_failed"] for s in stats),
             "rebuild_identical": ("Gemessen: drei Laeufe in drei verschiedene Ausgabeverzeichnisse "
                                   "liefern vier bytegleiche .glb und eine bytegleiche .asset.json "
                                   "(cmp und sha256). Nachstellen: build_fuel_tank.py --out A, "
                                   "--out B, dann cmp A/* B/*."),
-            "bbox_grows_with_lod": ("Der Huellquader waechst mit groeberer Teilung — "
-                                    "das ist die Ringkorrektur, kein Massfehler. Die n-Ecke haelt "
-                                    "den UMFANG (und damit die mittlere Silhouettenbreite nach "
-                                    "Cauchy), also liegt sie an den Ecken aussen und in den "
-                                    "Kantenmitten innen. Der Radius selbst bleibt 7.3152 m."),
+            "bbox_grows_with_lod": (
+                "Der Huellquader waechst mit groeberer Teilung — das ist die Ringkorrektur, kein "
+                "Massfehler. Die n-Ecke liegt an den Ecken aussen und in den Kantenmitten innen; "
+                "der Nennradius bleibt 7.3152 m. Der Korrekturfaktor gleicht Flaechen- und "
+                "Umfangsfehler gegeneinander aus (je %+.4f / %+.4f %% bei n = %d), statt einen "
+                "auf null zu zwingen: das Tor misst XOR-FLAECHE, und in der Draufsicht ist "
+                "Flaeche kein Umfang."
+                % (100 * G.ring_balance(G.kLodSegments[-1])[0],
+                   100 * G.ring_balance(G.kLodSegments[-1])[1], G.kLodSegments[-1])),
             "open_defects": "DEFECTS.md",
         },
     }

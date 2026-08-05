@@ -21,22 +21,17 @@
     "course_height": 2.4384,
     "course_derivation": "[API 5.6.1.2] fordert 1800 mm Mindestblechbreite. Die Normhoehen 16/24/32/40/48 ft sind ALLE Vielfache von 8 ft = 2438 mm \u2014 die kleinste Walzbreite ueber der Grenze, die jede von ihnen ohne Rest teilt. 32 ft / 8 ft = 4 Schuesse.",
     "shell_thickness_by_course": [
-      0.00635,
-      0.004762,
-      0.004762,
-      0.004762
+      0.006,
+      0.005,
+      0.005,
+      0.005
     ],
-    "shell_thickness_source": "[API 5.6.1.1, Tabelle] D < 50 ft -> 3/16 in, ABER [FUSSNOTE 4] derselben Tabelle: 'For diameters less than 15 m (50 ft) but greater than 3.2 m (10.5 ft), the nominal thickness of the lowest shell course shall not be less than 6 mm (1/4 in.)'. D = 14.6304 m liegt im Band, also ist Schuss 1 dicker. Runde 1 hat die Fussnote uebersehen und durchgehend 3/16 in gebaut. 1/4 in statt 6 mm, weil Note 3 derselben Tabelle 6 mm ausdruecklich als SUBSTITUTION fuer 1/4 in fuehrt und dieser Tank durchgehend in Zoll gerechnet ist. Probe mit der 1-Fuss-Methode [API 5.6.3.2] und Sd = 23200 psi fuer A 36 [API T.5-2b]: die Mindestdicke regiert fuer jeden Inhalt mit G <= 1.4992, also fuer jedes Erdoelprodukt und sogar fuer Wasser. Das Netz braucht KEINE Produktdichte als Quelle.",
+    "shell_thickness_source": "[API 5.6.1.1, Tabelle, SI-SPALTE] D < 15 m -> 5 mm; [FUSSNOTE 4] derselben Tabelle: 'For diameters less than 15 m (50 ft) but greater than 3.2 m (10.5 ft), the nominal thickness of the lowest shell course shall not be less than 6 mm (1/4 in.)'. D = 14.6304 m liegt im Band, also ist Schuss 1 dicker. Gelesen wird die SI-Spalte, weil der Eigner das Projekt metrisch entschieden hat \u2014 API 650 fuehrt zwei Regelsaetze, und 3/16 in sind 4.7625 mm, nicht 5 mm. Probe mit der 1-Meter-Methode [API 5.6.3.2, SI] und Sd = 160 MPa fuer A 36M [API T.5-2a]: die Mindestdicke regiert fuer jeden Inhalt mit G <= 1.4165, also fuer jedes Erdoelprodukt und sogar fuer Wasser. Das Netz braucht KEINE Produktdichte.",
+    "vertical_seams": "6 Bleche je Schuss, zwischen benachbarten Schuessen um ein halbes Blech versetzt. [API 5.1.5.2 b] fordert den Versatz ('shall be offset from each other a minimum distance of 5t' = 30 mm), also EXISTIEREN die Naehte; die Blechlaenge legt die Norm nicht fest ([SET], 7.66 m Bogen). Runde 2 modellierte nur die waagerechten Naehte \u2014 beide Scharen sind gleich gross, und das Nahtraster ist das Merkmal, an dem man einen geschweissten Lagertank erkennt.",
     "roof_slope": "1:16 [API 5.10.4.1]",
     "roof_rise": 0.4572,
     "top_angle": "50 x 50 x 6 mm [API 5.1.5.9 e] \u2014 D = 14.6304 m liegt im Band 11 m < D <= 18 m.",
-    "wind_girder_H1": 8.3763,
-    "wind_girder_needed": "[API 5.9.7.1] H1 = 9.47 t (t/D)^1.5 = 8.3763 m (t = Dicke des OBERSTEN Schusses). Verglichen wird damit die TRANSFORMIERTE Hoehe [API 5.9.7.2/5.9.7.3], nicht die wirkliche: 8.5030 m > 8.3763 m -> ein Zwischenring ist PFLICHT, knapp. Gegenprobe in US-Einheiten: 27.47 ft = 8.372 m.",
-    "shell_transposed_m": 8.50304,
-    "wind_girder_z": 5.39234,
-    "wind_girder_z_derivation": "[API 5.9.7.2] W_tr = W (t_uniform/t_actual)^2.5 je Schuss -> transformierte Hoehe 8.50304 m. [API 5.9.7.3.1] halbe transformierte Hoehe, zurueckgerechnet auf Schuss 3 -> 5.50208 m. Runde 1 rechnete 4.7268 m, weil sie die Schale faelschlich als gleichdick annahm (Fussnote 4 uebersehen) und [API 5.9.7.5] anwandte, das nur greift, wenn der Ring naeher als 150 mm an eine Rundnaht faellt \u2014 hier sind es 0.516 m. Endlage 5.39234 m: [API 5.9.7.3.2] erlaubt eine andere Stelle, solange kein unverstaerkter Abschnitt H1 ueberschreitet (4.1418 / 4.3613 m gegen 8.3763 m). Verschoben wurde, damit die Treppe den Ring nicht DURCHDRINGT \u2014 [API 5.9.7.7] erlaubt ihr, ohne Durchbruch darueber zu laufen (Ring 100 mm <= 150 mm, Treppe 710 mm >= 710 mm), aber nicht, durch ihn hindurchzugehen.",
-    "wind_girder_Zreq_cm3": 54.91,
-    "wind_girder_section": "Winkel 100 x 75 x 7, langer Schenkel WAAGERECHT mit dem Ende an der Schale, freier Schenkel am aeusseren Ende nach UNTEN [API Bild 5-24 Detail c, gerendert und abgelesen]. Aus [API T.5-20a], Block 'One Angle: Detail c', Spalte 5 mm: kleinstes Profil ueber Z_req = 54.91 cm3 ist 100x75x7 mit 60.59 cm3. Runde 1 hatte 100x100x8 GESETZT \u2014 ein Profil, das in der Tabelle nicht vorkommt \u2014 und es spiegelverkehrt gebaut (Ferse an der Schale, freier Schenkel nach oben).",
+    "wind_girder": "KEINER. [API 5.9.7.1, SI] H1 = 9.47 t (t/D)^1.5 = 9.4600 m mit t = Dicke des obersten Schusses; [API 5.9.7.2] transformierte Schale 8.86099 m. 5.9.7.3 fordert einen Zwischenring erst, wenn die transformierte Hoehe H1 UEBERSTEIGT \u2014 sie tut es nicht. Runde 2 baute einen, weil sie die Schale in Zoll rechnete: dort ist die transformierte Schale 27.897 ft gegen H1 27.466 ft und der Ring Pflicht. Das Bauteil existierte nur als Folge der Einheitenmischung.",
     "ringwall_width": 0.3,
     "ringwall_source": "[API B.4.2.2] 'The ringwall shall not be less than 300 mm thick. The centerline diameter of the ringwall should equal the nominal diameter of the tank.'"
   },
@@ -49,13 +44,15 @@
     "wrap_deg": 104.84,
     "posts": 9,
     "handrail_outer_only": true,
+    "handrail_measure": "Oberkante des Holms [OSHA 1910.29(b)(1)]",
     "derivation": "Zwei Schritte, beide belegt. (1) Aus den Zeilen der [API T.5-19a] mit 2R + r = 610 die STEILSTE nehmen, die OSHA 1910.25(c) haelt: r = 610 - 2R >= 241.3 mm erzwingt R <= 184.35 mm, also die gedruckte Zeile R = 180 mm / r = 250 mm / 35 deg 45 min. (2) N = aufgerundet(Steighoehe / R) fuer gleiche Steigungen [T.5-18 Pkt.4], dann R zurueck auf Steighoehe / N: N = 56, R = 179.64 mm, r = 250.73 mm, Winkel 35.62 Grad, Umschlingung 104.8 Grad. Runde 1 klemmte 2R + r stur auf die untere Bandgrenze und landete bei 182.79 / 244.41 mm \u2014 keine Zeile der Tabelle.",
     "handrail_transition": "[T.5-18 Pkt.6] verlangt den Anschluss an das Podestgelaender 'without offset'. Treppengelaender 860 mm ueber der Stufenvorderkante, Podestgelaender 1070 mm ueber dem Podest \u2014 am Uebergang koennen sie nicht gleich hoch sein, also rampt der Lauf ueber die letzten 3 Stufen hoch. Runde 1 liess dort 210 mm Absatz.",
     "handrail_rule": "[API T.5-18 Pkt.9] verlangt den INNEREN Handlauf runder Treppen erst, wenn der Abstand Schale <-> Wange 200 mm uebersteigt. Die innere Wange liegt auf der Schale [Pkt.10], also entfaellt er."
   },
   "platform": {
     "required_by": "[API 5.8.10 c] \u2014 Podest an der Dachkante ist Pflicht, kein Zierat.",
-    "width": 0.61,
+    "clear_width": 0.61,
+    "clear_width_rule": "[API T.5-17 Pkt.2] 610 mm LICHT, 'after making adjustments at all projections'. Fussleiste und Pfosten ragen hinein, also ist das Blech entsprechend breiter; das Bauskript prueft die lichte Breite per assert.",
     "rail_height": 1.07,
     "toeboard": 0.075,
     "source": "[API T.5-17] Pkt. 2, 4, 5, 7, 8."
@@ -65,7 +62,7 @@
     "count": 4,
     "textures": 0,
     "decision": "KEINE Textur, absichtlich. doc/render/visual-target.md \u00a71: 60 GB/s Bandbreite gegen 2.5..4 TFLOPS \u2014 Bandbreite ist der Mangel. Was diesen Koerper lesbar macht (Rundnaehte, Kopfwinkel, Windring, Treppe), ist GEOMETRIE. Rost und Beschriftung gehoeren in einen prozeduralen Shader des Renderers, nicht in eine Datei, die je Bild ueber den Bus muss.",
-    "collapse_L2_L3": "steel und dark fallen auf paint zusammen: ab 51 m ist der Farbunterschied unter einem Pixel breit, und es spart zwei Zeichenaufrufe. concrete bleibt eigen \u2014 der Wertunterschied Beton/Anstrich traegt die Standflaeche noch weit draussen."
+    "collapse_L2_L3": "steel und dark fallen auf paint zusammen: ab 43 m ist der Farbunterschied unter einem Pixel breit, und es spart zwei Zeichenaufrufe. concrete bleibt eigen \u2014 der Wertunterschied Beton/Anstrich traegt die Standflaeche noch weit draussen."
   },
   "self_checks": {
     "spec": "doc/assets.md \u00a73.1",
@@ -75,512 +72,193 @@
     "welded": "keine zwei verschiedenen Punkte naeher als 1e-05 m.",
     "t_junctions": "kein Punkt im Inneren einer Kante, an der er nicht haengt (Toleranz 2 x Schweissabstand).",
     "merge": "Alle Koerper werden WIRKLICH zu einem Netz verschmolzen; verglichen werden Volumen und Huellquader gegen die Teile (dV < 1e-9 relativ, dBox < 1e-9). Runde 1 meldete nur zwei Zahlen nebeneinander und verglich nie.",
-    "interpenetration": "ZUSATZ zu \u00a73.1, weil der Merge-Test ihn nicht leisten kann: das Divergenzintegral ist additiv, ob sich zwei Koerper ueberlappen oder nicht. Geprueft wird deshalb paarweise auf gemeinsames INNENvolumen (Huellquader sieben, Schnittquader abtasten, beidseitig einschliessen per Strahltest mit schraeger, fester Richtung). Runde 1 hatte 47 Paare mit geteiltem Volumen, darunter eine Treppenstufe quer durch den Windring \u2014 von nichts gemessen. Ausgenommen sind nur die in kJoint benannten SCHWEISSPUNKTE, und auch die nur bis 250 cm3 je Paar.",
-    "lod_continuity": "Umfangserhaltende Ringkorrektur macht die mittlere Silhouettenbreite nach Cauchy auf allen Stufen exakt gleich; der Rest wird gemessen \u2014 ueber 13 Azimute (nicht drei Achsen: jedes n dieser Leiter ist durch 4 teilbar, dort steht immer eine Ecke vor der Kamera) und bei der Aufloesung, die die Umschaltweite hergibt (nicht bei 1024 px, wo die Stufe nie benutzt wird). Das kumulierte Paar zaehlt im Urteil MIT \u2014 Runde 1 schloss es aus und meldete gruen, waehrend eine Zeile darueber 'UEBER GRENZE' stand.",
-    "determinism": "zweimal bauen, Bytes vergleichen \u2014 siehe Abschnitt acceptance.rebuild_identical."
+    "interpenetration": "ZUSATZ zu \u00a73.1, weil der Merge-Test ihn nicht leisten kann: das Divergenzintegral ist additiv, ob sich zwei Koerper ueberlappen oder nicht. Geprueft wird deshalb paarweise auf gemeinsames INNENvolumen (Huellquader sieben, Schnittquader abtasten, beidseitig einschliessen per Strahltest mit schraeger, fester Richtung). Runde 1 hatte 47 Paare mit geteiltem Volumen, darunter eine Treppenstufe quer durch den Windring \u2014 von nichts gemessen. Ausgenommen sind nur die in kJoint benannten SCHWEISSPUNKTE, und auch die nur bis zu einem Anteil 0.10 des kleineren Bauteils.",
+    "lod_continuity": "Umfangserhaltende Ringkorrektur macht die mittlere Silhouettenbreite nach Cauchy auf allen Stufen exakt gleich; der Rest wird gemessen \u2014 ueber mindestens 360 Azimute, mit Verdopplung bis zur Konvergenz, und bei der Aufloesung, die die Umschaltweite hergibt. Runde 2 tastete 13 Azimute ab und meldete 1.964 %; dieselbe Geometrie ergibt bei 360 Azimuten 2.378 %. Das kumulierte Paar zaehlt im Urteil MIT \u2014 Runde 1 schloss es aus und meldete gruen, waehrend eine Zeile darueber 'UEBER GRENZE' stand.",
+    "determinism": "zweimal bauen, Bytes vergleichen \u2014 s. acceptance.rebuild_identical."
   },
   "silhouette": {
-    "azimuths": 13,
     "limit_pct": 2.0,
     "passed": true,
+    "convergence_tol_pp": 0.02,
+    "min_azimuths": 360,
     "worst": {
       "pair": "L2->L3",
-      "view": "az111",
-      "res": 175,
-      "pct": 1.964
+      "view": "az054.000",
+      "res": 324,
+      "azimuths": 360,
+      "pct": 1.5598
     },
-    "measured_at": "Umschaltaufloesung, nicht 1024 px \u2014 s. Docstring",
+    "method": "Azimutzahl verdoppeln bis der schlechteste Wert um weniger als 0.02 pp steigt, mindestens 360. Aufloesung aus der Umschaltweite. Kumuliertes Paar im Urteil enthalten.",
     "rows": [
       {
         "pair": "L0->L1",
-        "view": "az000",
         "res": 1280,
-        "range_m": 13,
-        "xor_px": 697,
-        "pct": 0.072
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az028",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 734,
-        "pct": 0.076
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az055",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 224,
-        "pct": 0.023
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az083",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 530,
-        "pct": 0.054
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az111",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 553,
-        "pct": 0.057
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az138",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 2065,
-        "pct": 0.212
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az166",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 926,
-        "pct": 0.095
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az194",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 1162,
-        "pct": 0.12
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az222",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 1269,
-        "pct": 0.13
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az249",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 218,
-        "pct": 0.022
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az277",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 756,
-        "pct": 0.077
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az305",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 610,
-        "pct": 0.063
-      },
-      {
-        "pair": "L0->L1",
-        "view": "az332",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 283,
-        "pct": 0.029
-      },
-      {
-        "pair": "L0->L1",
-        "view": "top",
-        "res": 1280,
-        "range_m": 13,
-        "xor_px": 1127,
-        "pct": 0.101
+        "range_m": 11,
+        "azimuths": 360,
+        "worst_pct": 0.2023,
+        "worst_view": "az128.000",
+        "converged_delta_pp": 0.0,
+        "sequence": [
+          {
+            "azimuths": 90,
+            "worst_pct": 0.2023,
+            "view": "az128.000"
+          },
+          {
+            "azimuths": 180,
+            "worst_pct": 0.2023,
+            "view": "az128.000"
+          },
+          {
+            "azimuths": 360,
+            "worst_pct": 0.2023,
+            "view": "az128.000"
+          }
+        ]
       },
       {
         "pair": "L1->L2",
-        "view": "az000",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 589,
-        "pct": 0.641
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az028",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 131,
-        "pct": 0.142
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az055",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 9,
-        "pct": 0.01
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az083",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 552,
-        "pct": 0.595
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az111",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 556,
-        "pct": 0.599
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az138",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 362,
-        "pct": 0.392
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az166",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 292,
-        "pct": 0.318
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az194",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 137,
-        "pct": 0.149
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az222",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 35,
-        "pct": 0.038
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az249",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 103,
-        "pct": 0.111
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az277",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 571,
-        "pct": 0.615
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az305",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 95,
-        "pct": 0.103
-      },
-      {
-        "pair": "L1->L2",
-        "view": "az332",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 293,
-        "pct": 0.318
-      },
-      {
-        "pair": "L1->L2",
-        "view": "top",
-        "res": 394,
-        "range_m": 51,
-        "xor_px": 477,
-        "pct": 0.451
+        "res": 468,
+        "range_m": 43,
+        "azimuths": 360,
+        "worst_pct": 0.6369,
+        "worst_view": "az127.000",
+        "converged_delta_pp": 0.0118,
+        "sequence": [
+          {
+            "azimuths": 90,
+            "worst_pct": 0.6186,
+            "view": "az012.000"
+          },
+          {
+            "azimuths": 180,
+            "worst_pct": 0.6251,
+            "view": "az166.000"
+          },
+          {
+            "azimuths": 360,
+            "worst_pct": 0.6369,
+            "view": "az127.000"
+          }
+        ]
       },
       {
         "pair": "L2->L3",
-        "view": "az000",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 122,
-        "pct": 0.67
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az028",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 58,
-        "pct": 0.319
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az055",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 303,
-        "pct": 1.669
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az083",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 233,
-        "pct": 1.281
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az111",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 357,
-        "pct": 1.964
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az138",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 114,
-        "pct": 0.626
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az166",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 150,
-        "pct": 0.825
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az194",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 162,
-        "pct": 0.892
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az222",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 161,
-        "pct": 0.884
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az249",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 224,
-        "pct": 1.226
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az277",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 246,
-        "pct": 1.352
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az305",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 291,
-        "pct": 1.601
-      },
-      {
-        "pair": "L2->L3",
-        "view": "az332",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 78,
-        "pct": 0.429
-      },
-      {
-        "pair": "L2->L3",
-        "view": "top",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 244,
-        "pct": 1.171
+        "res": 324,
+        "range_m": 62,
+        "azimuths": 360,
+        "worst_pct": 1.5598,
+        "worst_view": "az054.000",
+        "converged_delta_pp": 0.0,
+        "sequence": [
+          {
+            "azimuths": 90,
+            "worst_pct": 1.2976,
+            "view": "az052.000"
+          },
+          {
+            "azimuths": 180,
+            "worst_pct": 1.5598,
+            "view": "az054.000"
+          },
+          {
+            "azimuths": 360,
+            "worst_pct": 1.5598,
+            "view": "az054.000"
+          }
+        ]
       },
       {
         "pair": "L0->L3",
-        "view": "az000",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 245,
-        "pct": 1.357
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az028",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 61,
-        "pct": 0.336
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az055",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 298,
-        "pct": 1.641
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az083",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 242,
-        "pct": 1.328
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az111",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 270,
-        "pct": 1.474
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az138",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 117,
-        "pct": 0.642
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az166",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 140,
-        "pct": 0.771
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az194",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 37,
-        "pct": 0.205
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az222",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 161,
-        "pct": 0.884
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az249",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 231,
-        "pct": 1.264
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az277",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 318,
-        "pct": 1.738
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az305",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 292,
-        "pct": 1.607
-      },
-      {
-        "pair": "L0->L3",
-        "view": "az332",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 90,
-        "pct": 0.494
-      },
-      {
-        "pair": "L0->L3",
-        "view": "top",
-        "res": 175,
-        "range_m": 115,
-        "xor_px": 305,
-        "pct": 1.46
+        "res": 324,
+        "range_m": 62,
+        "azimuths": 360,
+        "worst_pct": 1.0812,
+        "worst_view": "az106.000",
+        "converged_delta_pp": 0.0,
+        "sequence": [
+          {
+            "azimuths": 90,
+            "worst_pct": 1.0603,
+            "view": "az088.000"
+          },
+          {
+            "azimuths": 180,
+            "worst_pct": 1.0812,
+            "view": "az106.000"
+          },
+          {
+            "azimuths": 360,
+            "worst_pct": 1.0812,
+            "view": "az106.000"
+          }
+        ]
       }
     ]
   },
-  "lod_rule": "Eine Stufe faellt erst, wenn ihr groesstes VERLORENES Merkmal unter ein Pixel faellt. Zwei Treiber: die Rundungsabweichung der naechsten n-Ecke und das groesste weggelassene Bauteil (Merkmalsgroesse = sqrt(A/4) nach Cauchy). Pixelwinkel = 60 Grad / 1280 px = 8.1812e-04 rad [doc/render/visual-target.md \u00a71, 720p30]. Die Weiten sind UNTERE Schranken; ein Renderer darf frueher schalten und zahlt den genannten Fehler.",
+  "lod_rule": "Die Umschaltweite kommt aus der Rundungsabweichung der naechsten n-Ecke: sie faellt unter ein Pixel bei R = ring_error / Pixelwinkel, Pixelwinkel = 60 Grad / 1280 px = 8.1812e-04 rad [doc/render/visual-target.md \u00a71, 720p30]. Die Cauchy-Merkmalsgroesse sqrt(A/4) weggelassener Koerper ist NUR noch Diagnose (lod_switch.lost_cauchy_m): sie meldete fuer die Handlaeufe 918 m, waehrend die gemessene Silhouettenaenderung ein Bruchteil der Grenze ist. Wo eine Messung steht, hat die Naeherung keine Stimme. Die Weiten sind UNTERE Schranken; ein Renderer darf frueher schalten und zahlt den Fehler.",
   "lod_switch": [
     {
       "lod": "L0",
       "driver": "rundung n=48",
-      "feature_m": 0.01045,
-      "max_range_m": 13,
+      "feature_m": 0.00871,
+      "max_range_m": 11,
       "lost_bodies": 0,
+      "lost_cauchy_m": {},
       "drops": [],
       "replaced": []
     },
     {
       "lod": "L1",
       "driver": "rundung n=24",
-      "feature_m": 0.04183,
-      "max_range_m": 51,
-      "lost_bodies": 36,
+      "feature_m": 0.03496,
+      "max_range_m": 43,
+      "lost_bodies": 59,
+      "lost_cauchy_m": {
+        "tank.seam.v.0.0": 0.1433,
+        "tank.seam.v.0.1": 0.1433,
+        "tank.seam.v.0.3": 0.1433,
+        "tank.seam.v.0.2": 0.1433,
+        "tank.seam.v.0.4": 0.1433,
+        "tank.seam.v.1.1": 0.1433
+      },
       "drops": [
-        "tank.manhole.shell.bolt.00",
-        "tank.manhole.shell.bolt.01",
-        "tank.manhole.shell.bolt.02",
-        "tank.manhole.shell.bolt.19",
-        "tank.manhole.shell.bolt.18",
-        "tank.manhole.shell.bolt.03",
-        "tank.manhole.shell.bolt.04",
-        "tank.manhole.shell.bolt.05"
+        "tank.seam.v.0.0",
+        "tank.seam.v.0.1",
+        "tank.seam.v.0.3",
+        "tank.seam.v.0.2",
+        "tank.seam.v.0.4",
+        "tank.seam.v.1.1",
+        "tank.seam.v.2.0",
+        "tank.seam.v.1.0"
       ],
       "replaced": []
     },
     {
       "lod": "L2",
-      "driver": "rundung n=16",
-      "feature_m": 0.09425,
-      "max_range_m": 115,
-      "lost_bodies": 0,
-      "drops": [],
-      "replaced": [
-        "access.stair.stringer -> access.stair.band",
-        "access.stair.tread. -> access.stair.band"
-      ]
+      "driver": "rundung n=20",
+      "feature_m": 0.05043,
+      "max_range_m": 62,
+      "lost_bodies": 16,
+      "lost_cauchy_m": {
+        "access.stair.rail.top": 0.751,
+        "access.stair.rail.mid": 0.7496,
+        "access.platform.rail.top": 0.2814,
+        "access.platform.rail.mid": 0.2814,
+        "access.platform.post.01": 0.1982,
+        "access.platform.post.00": 0.1982
+      },
+      "drops": [
+        "access.stair.rail.top",
+        "access.stair.rail.mid",
+        "access.platform.rail.top",
+        "access.platform.rail.mid",
+        "access.platform.post.01",
+        "access.platform.post.00",
+        "access.stair.post.05",
+        "access.stair.post.04"
+      ],
+      "replaced": []
     },
     {
       "lod": "L3",
@@ -597,9 +275,9 @@
       "lod": "L0",
       "file": "fuel-tank-cylindrical_L0.glb",
       "segments": 96,
-      "triangles": 13968,
-      "bytes": 786424,
-      "bodies": 127,
+      "triangles": 13348,
+      "bytes": 766188,
+      "bodies": 149,
       "materials": [
         "fuel_tank_concrete",
         "fuel_tank_dark",
@@ -611,48 +289,49 @@
         0,
         1
       ],
-      "volume_sum_m3": 16.268516,
+      "volume_sum_m3": 16.305016,
       "merge": {
-        "v_parts": 16.268516,
-        "v_merged": 16.268516,
-        "d_volume": 5.364597654988756e-13,
+        "v_parts": 16.305016,
+        "v_merged": 16.305016,
+        "d_volume": 4.476419235288631e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "weld_joints": {
-        "pairs": 35,
-        "cm3": 1013.63,
-        "cap_cm3": 250.0,
+        "pairs": 54,
+        "cm3": 2100.54,
+        "cap_fraction": 0.1,
+        "worst_fraction": 0.0565,
         "note": "Absichtlich geteiltes Volumen an Schweisspunkten. Die Erlaubnis gilt je Paar bis zur Kappe; alles ausserhalb der Liste kJoint ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -8.059,
-          7.4665
+          -8.0588,
+          7.4674
         ],
         "y": [
-          -7.6465,
-          7.4665
+          -7.6767,
+          7.4674
         ],
         "z": [
           -0.6,
-          11.1506
+          11.1296
         ]
       },
       "size_m": {
-        "x": 15.5255,
-        "y": 15.113,
-        "z": 11.7506
+        "x": 15.5263,
+        "y": 15.1442,
+        "z": 11.7296
       }
     },
     {
       "lod": "L1",
       "file": "fuel-tank-cylindrical_L1.glb",
       "segments": 48,
-      "triangles": 8368,
-      "bytes": 498344,
-      "bodies": 127,
+      "triangles": 8356,
+      "bytes": 508828,
+      "bodies": 149,
       "materials": [
         "fuel_tank_concrete",
         "fuel_tank_dark",
@@ -664,48 +343,49 @@
         0,
         1
       ],
-      "volume_sum_m3": 16.244347,
+      "volume_sum_m3": 16.290932,
       "merge": {
-        "v_parts": 16.244347,
-        "v_merged": 16.244347,
-        "d_volume": 1.7763568394002505e-14,
+        "v_parts": 16.290932,
+        "v_merged": 16.290932,
+        "d_volume": 2.7711166694643907e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "weld_joints": {
-        "pairs": 35,
-        "cm3": 961.31,
-        "cap_cm3": 250.0,
+        "pairs": 54,
+        "cm3": 2023.27,
+        "cap_fraction": 0.1,
+        "worst_fraction": 0.0577,
         "note": "Absichtlich geteiltes Volumen an Schweisspunkten. Die Erlaubnis gilt je Paar bis zur Kappe; alles ausserhalb der Liste kJoint ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -8.059,
-          7.4705
+          -8.0588,
+          7.4741
         ],
         "y": [
-          -7.6596,
-          7.4705
+          -7.6921,
+          7.4741
         ],
         "z": [
           -0.6,
-          11.1506
+          11.1296
         ]
       },
       "size_m": {
-        "x": 15.5295,
-        "y": 15.1301,
-        "z": 11.7506
+        "x": 15.5329,
+        "y": 15.1662,
+        "z": 11.7296
       }
     },
     {
       "lod": "L2",
       "file": "fuel-tank-cylindrical_L2.glb",
       "segments": 24,
-      "triangles": 5032,
-      "bytes": 310796,
-      "bodies": 91,
+      "triangles": 4880,
+      "bytes": 303332,
+      "bodies": 90,
       "materials": [
         "fuel_tank_concrete",
         "fuel_tank_paint"
@@ -715,48 +395,49 @@
         0,
         1
       ],
-      "volume_sum_m3": 16.169629,
+      "volume_sum_m3": 16.254465,
       "merge": {
-        "v_parts": 16.169629,
-        "v_merged": 16.169629,
-        "d_volume": 7.105427357601002e-15,
+        "v_parts": 16.254465,
+        "v_merged": 16.254465,
+        "d_volume": 1.8118839761882555e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "weld_joints": {
-        "pairs": 38,
-        "cm3": 914.15,
-        "cap_cm3": 250.0,
+        "pairs": 49,
+        "cm3": 1758.93,
+        "cap_fraction": 0.1,
+        "worst_fraction": 0.06,
         "note": "Absichtlich geteiltes Volumen an Schweisspunkten. Die Erlaubnis gilt je Paar bis zur Kappe; alles ausserhalb der Liste kJoint ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -8.059,
-          7.4866
+          -8.0588,
+          7.5009
         ],
         "y": [
-          -7.7143,
-          7.4866
+          -7.7559,
+          7.5009
         ],
         "z": [
           -0.6,
-          11.1478
+          11.1296
         ]
       },
       "size_m": {
-        "x": 15.5456,
-        "y": 15.2008,
-        "z": 11.7478
+        "x": 15.5597,
+        "y": 15.2568,
+        "z": 11.7296
       }
     },
     {
       "lod": "L3",
       "file": "fuel-tank-cylindrical_L3.glb",
-      "segments": 16,
-      "triangles": 2876,
-      "bytes": 168056,
-      "bodies": 36,
+      "segments": 20,
+      "triangles": 2928,
+      "bytes": 195736,
+      "bodies": 74,
       "materials": [
         "fuel_tank_concrete",
         "fuel_tank_paint"
@@ -766,48 +447,49 @@
         0,
         1
       ],
-      "volume_sum_m3": 17.625413,
+      "volume_sum_m3": 16.178953,
       "merge": {
-        "v_parts": 17.625413,
-        "v_merged": 17.625413,
-        "d_volume": 1.9539925233402755e-13,
+        "v_parts": 16.178953,
+        "v_merged": 16.178953,
+        "d_volume": 6.750155989720952e-14,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "weld_joints": {
-        "pairs": 20,
-        "cm3": 431.52,
-        "cap_cm3": 250.0,
+        "pairs": 0,
+        "cm3": 0,
+        "cap_fraction": 0.1,
+        "worst_fraction": 0.0,
         "note": "Absichtlich geteiltes Volumen an Schweisspunkten. Die Erlaubnis gilt je Paar bis zur Kappe; alles ausserhalb der Liste kJoint ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -8.059,
-          7.5134
+          -8.0389,
+          7.5167
         ],
         "y": [
-          -7.8068,
-          7.5134
+          -7.7785,
+          7.5167
         ],
         "z": [
           -0.6,
-          11.1506
+          10.9604
         ]
       },
       "size_m": {
-        "x": 15.5724,
-        "y": 15.3202,
-        "z": 11.7506
+        "x": 15.5556,
+        "y": 15.2952,
+        "z": 11.5604
       }
     }
   ],
   "acceptance": {
     "reference": "API Std 650 fuer jede Bauteilabmessung; die Normgroessentabelle fuer Durchmesser und Hoehe; OSHA 1910.25 als zweites Regelwerk fuer die Treppe. Kein Foto, kein Augenmass.",
-    "tolerance": "Jede Hauptabmessung ist EXAKT die Normzahl, nicht angenaehert: der Tank ist in Fuss definiert und wird in Fuss gerechnet. Die einzige Abweichung im Bau ist die Ringkorrektur, und die ist beabsichtigt und beziffert (s. lod_switch.feature_m).",
+    "tolerance": "Jede Hauptabmessung ist EXAKT die Zahl ihrer SI-Tabellenspalte. Die einzige Abweichung im Bau ist die Ringkorrektur, und die ist beabsichtigt und beziffert (s. lod_switch.feature_m).",
     "checks_all_green": true,
     "rebuild_identical": "Gemessen: drei Laeufe in drei verschiedene Ausgabeverzeichnisse liefern vier bytegleiche .glb und eine bytegleiche .asset.json (cmp und sha256). Nachstellen: build_fuel_tank.py --out A, --out B, dann cmp A/* B/*.",
-    "bbox_grows_with_lod": "Der Huellquader waechst mit groeberer Teilung \u2014 das ist die Ringkorrektur, kein Massfehler. Die n-Ecke haelt den UMFANG (und damit die mittlere Silhouettenbreite nach Cauchy), also liegt sie an den Ecken aussen und in den Kantenmitten innen. Der Radius selbst bleibt 7.3152 m.",
+    "bbox_grows_with_lod": "Der Huellquader waechst mit groeberer Teilung \u2014 das ist die Ringkorrektur, kein Massfehler. Die n-Ecke liegt an den Ecken aussen und in den Kantenmitten innen; der Nennradius bleibt 7.3152 m. Der Korrekturfaktor gleicht Flaechen- und Umfangsfehler gegeneinander aus (je -0.2759 / +0.2759 % bei n = 20), statt einen auf null zu zwingen: das Tor misst XOR-FLAECHE, und in der Draufsicht ist Flaeche kein Umfang.",
     "open_defects": "DEFECTS.md"
   }
 }
