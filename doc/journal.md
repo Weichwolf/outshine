@@ -4339,3 +4339,55 @@ zehn Harnesses bytegleich, `test-air` **weiterhin 7** Bandverletzungen (dieselbe
 dieselben Werte), `payerne-full --threads 1/2/4` auf EINER Signatur `6e24090b7e861aa7`, `verify-layers`
 (6 Wahrnehmungs-Leser, unverändert), `verify-guards` 8/8, `verify-models` grün, `gym`/`native`/`wasm`
 bauen mit Warnings = Errors.
+
+## 2026-08-05 — Die A3-Hypothese hielt zur Hälfte: zwei Messfehler, ein Deckfehler, zwei ehrlich offene Zeilen
+
+**Der Befund war eine Vermutung mit Struktur.** Von den sieben Ankern außerhalb ihres Bandes waren
+**vier derselbe Anker (A3, Dienstgipfelhöhe) und sie wichen in BEIDE Richtungen ab** (−22,9 … +28,1 %).
+Vier unabhängige Decks, die zufällig alle bei einem Anker danebenliegen, sind unwahrscheinlich — also
+zuerst das Messverfahren befragen, nicht die Decks.
+
+**Sie hielt für zwei von vier, und der Beleg ist die Abbruchursache jedes einzelnen Laufs.** Der
+Höhen-Sweep protokolliert jetzt, WARUM ein Kandidat endete. Zwei Zeilen meldeten eine Zahl aus einem
+Lauf, der die Messung nie gemacht hat: `mig23` buchte **23 253 m, während es noch mit 7,8 m/s stieg**
+(Mach-Deckel des Zeitplans), `mig25` buchte **15 963 m bei t = 3 600 s** auf einem Zeitplan, der
+**8 166 s** braucht. Zwei Zeilen dagegen (`su7`, `su22`) endeten sauber auf dem Kriterium — deren
+Abweichung ist keine Messung.
+
+**Fünf Defekte im Instrument, jeder mit seiner Messung** (`doc/modules/air/flight-model-recipe.md`
+§4.4): ein Lauf, der nicht auf dem Kriterium endet, liefert KEINE Zahl · 12 000 s statt 3 600 s · jeder
+Kandidat startet AUF seinem eigenen Zeitplan (der gemeinsame 400-kt-Start ließ `mig25` mit −165 m/s
+abstürzen und die 5 293 m, durch die es fiel, als Gipfelhöhe buchen) · der Zerfall wird an **`Ps`**
+gelesen und nicht an der Steigrate (`mig25` gewann seine letzten **889 m, während seine Energiehöhe um
+7 400 m fiel**) · und der Zeitplan bekommt sein **Mach-Segment**, weil jede Konstant-CAS-Linie irgendwo
+das Vmax der Zeile kreuzt und der Abbruch dort die Antwort zu einer Funktion des CAS-Rasters machte
+(`su7` −14,0 %, `mirf1` −8,2 % waren der weggeworfene beste Zeitplan; unter dem Übergang laufen die
+schnellen Kandidaten pro Zeile auf EINE Höhe zusammen — `su22` 18 188 m aus 420, 480 und 540 kt).
+
+**Und die Korrektur legte einen Deckfehler frei, den das Instrument verdeckt hatte.** JSBSim klemmt am
+Tabellenrand (`FGTable::GetValue`, `Constrain(0,…,1)`), also ist eine nur BIS 70 000 ft tabellierte
+Schubfläche darüber **konstant** — jedes Katalogdeck hatte oberhalb 21 336 m gar keine Gipfelhöhe.
+Sichtbar in dem Moment, als der Zeitplan dort hinfliegen durfte: `mig23` hielt M 2,40 im stetigen Steigen
+bis **30 044 m**, auf dem 3,2-fachen des Schubs, den seine eigene Polare zulässt. §5 verlangt seit jeher
+„Abfall, keine Wand" — das Raster geht jetzt bis 100 000 ft, nach denselben Gesetzen. Die Änderung ist
+beweisbar **anhängend**: kein tabellierter Wert unter 70 000 ft hat sich bewegt, alle zehn Aero-Decks
+sind bytegleich.
+
+**Ergebnis je Zeile.** `mig25` −22,9 → **−0,5 %** (Messfehler) · `su7` −14,0 → **−4,4 %** (Messfehler) ·
+`mirf1` −8,2 → **−1,5 %** (war ebenfalls ein unfertiger Lauf) · `mig23` +25,7 → **+26,4 %** und `su22`
++28,1 → **+28,9 %** (Deckaussagen ohne belegte Korrektur, R14) · `su27` A1 −6,3 % (gemessen: KEIN
+Uhrenartefakt, der Lauf konvergiert M 2,1931 → 2,2030 über 660 s) · `mig17` A5 −11,6 % und α −5,9 %
+(`systems/FBFlightControl`: ein rein proportionaler Begrenzer sackt um `stick/k_p` ab, alle zehn Zeilen
+lesen −3,1 … −5,9 % auf α, der g-Zweig grenzschwingt zwischen ±`PitchStickMax`; `k_p = 0,20` ist der
+GEMESSENE Wert einer geflogenen Zelle und damit eine eigene Runde). **Promotion 4 → 6 `ACCEPTED`.**
+
+**Eine Korrektur darf eine Zahl verschlechtern.** Schritt 1 machte `mirf1` von −8,2 auf −11,9, Schritt 3
+machte `mig23` von +13,3 auf +62,4 — beide Male, weil das Instrument aufhörte, dem Deck zu schmeicheln,
+und das zweite Mal führte genau dahin, wo der Deckfehler saß.
+
+**Tore:** alle 296 `sim/missions/*.fbm` **bytegleich** (Telemetrie-SHAs + normalisierte Ereignislogs,
+`diff -r` leer), zehn Harnesses rc=0, `test-air` **5 statt 7** Bandverletzungen, **kein Band aufgeweitet**
+(`test/modules/air/envelope.json` unverändert), `payerne-full --threads 1/2/4` auf EINER Signatur
+`6e24090b7e861aa7`, `verify-layers` (6 Wahrnehmungs-Leser, unverändert), `verify-guards` 8/8,
+`verify-models` grün, `gen_air_decks.py --check` bytegleich, `gym`/`native`/`wasm` bauen mit
+Warnings = Errors.
