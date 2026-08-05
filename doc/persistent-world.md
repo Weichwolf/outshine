@@ -330,6 +330,14 @@ Destruction falls out cleanly: the key stays, the value says *gone*.
 This also retires the generator-version worry for everything except *placement*: improving a mesh, a
 material or a growth rule changes nothing. Only moving where the generator puts things does.
 
+**And save compatibility across versions is an explicit NON-GOAL.**
+
+> Owner: *„Saves müssen auch nicht über Versionen kompatibel sein. Zumindest nicht in unserem frühen
+> Stadium. Wenn die Engine fertig ist, haben wir das Problem nicht mehr."*
+
+Stated so that no later round builds migration machinery nobody asked for. The problem also retires
+itself: placement only moves while the engine is still growing.
+
 **Scope, corrected.** An earlier revision called interiors *„more work than everything else combined"*.
 On-entry generation makes that wrong. Full infrastructure remains large; interiors do not. Both are still
 later versions, and what must happen *now* is unchanged: epoch and decay exist as parameters, and nothing
