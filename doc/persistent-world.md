@@ -290,8 +290,30 @@ Three consequences, and the second is a real cost rather than a caveat:
 2. **A changed generator invalidates old saves.** Improve terrain generation and the log lands on
    different ground. That is the price of *regenerate* over *store*. Mitigation: version the generator
    and keep old versions reachable, or take one real snapshot at the moment of change.
-3. **Logs grow.** A hundred hours accumulates. Needs compaction — snapshot plus truncation. Ordinary, but
-   it must be designed in rather than discovered.
+3. ~~Logs grow.~~ **They do not** — see below.
+
+**And it is an overlay, not a stream.**
+
+> Owner: *„bei Bethesda kann ich auch hunderte Stunden spielen und die haben jedes Objekt von Anfang an
+> da … Entitäten haben also den gleichen Hash, und Positionsänderungen lassen sich als einfacher Vektor
+> unter dem Hash in einem Protokoll speichern."*
+
+**The hash is the identity.** Deterministic generation means the same chair in the same room always
+hashes the same, so a change is `hash → delta` and nothing else: no object table, no ID allocation, no
+record of anything unchanged.
+
+That kills the growth concern raised above — an earlier revision framed this as an append-only log, which
+was wrong. **Keyed by hash it is a map**: moving the same chair twice overwrites. Size tracks the number
+of *distinct things touched*, not hours played.
+
+Bethesda is the existence proof, and the difference is narrow: their saves also store only changed
+objects. The unchanged ones come from a shipped file there and from the generator here.
+
+**One problem survives, and it is now the only one: hash stability across generator versions.** Change
+how a room is generated and its hashes change, orphaning the overlay. Same mitigation as consequence 2 —
+version the generator, or snapshot at the moment of change. It is worth designing the hash to depend on
+as little as possible: position in a stable frame and object class, not on mesh details that a better
+successor will improve.
 
 **Scope, corrected.** An earlier revision called interiors *„more work than everything else combined"*.
 On-entry generation makes that wrong. Full infrastructure remains large; interiors do not. Both are still
