@@ -268,6 +268,31 @@ Three costs remain, and none of them is furniture:
 | **latency** | entering must not stall. Budget is the length of a door opening, not a loading screen |
 | **change persists** | move a chair, leave, return: it stays moved. §4's rule demands it — so a delta store for **touched** things only, never for generated ones. A house nobody touched costs zero bytes |
 
+#### A save is a transaction log
+
+> Owner: *„was ich sehen kann existiert ab dem Punkt, an dem ich es sehen kann, und jede Interaktion
+> gibt ein Transaction Log. Das kann ich speichern und wieder laden."*
+
+**The world is a pure function; history is a log.** Save = the log alone. Load = regenerate, then replay.
+
+This is the **second time today the same shape appears**, which is the strongest evidence the design is
+coherent:
+
+| | regenerable part | ordered deltas |
+|---|---|---|
+| language ([`mods.md`](mods.md) §2.1) | `pool/`, content-addressed | `traces/`, hashes only |
+| world | generator from seed, epoch, decay | the transaction log |
+
+Three consequences, and the second is a real cost rather than a caveat:
+
+1. **Determinism becomes load-bearing, not merely desirable.** A non-deterministic generator replays the
+   log onto a different world. This is precisely why §4's observation-order rule exists.
+2. **A changed generator invalidates old saves.** Improve terrain generation and the log lands on
+   different ground. That is the price of *regenerate* over *store*. Mitigation: version the generator
+   and keep old versions reachable, or take one real snapshot at the moment of change.
+3. **Logs grow.** A hundred hours accumulates. Needs compaction — snapshot plus truncation. Ordinary, but
+   it must be designed in rather than discovered.
+
 **Scope, corrected.** An earlier revision called interiors *„more work than everything else combined"*.
 On-entry generation makes that wrong. Full infrastructure remains large; interiors do not. Both are still
 later versions, and what must happen *now* is unchanged: epoch and decay exist as parameters, and nothing
