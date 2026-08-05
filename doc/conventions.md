@@ -136,6 +136,21 @@ A number without one of these three statements is a defect.
 > proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. The existing
 > code previously carried these derivations as 15–25-line banners directly in the source.
 
+### One exception: a render stage names its source
+
+The algorithms in this field are solved. Value is in integration, not invention — so a stage that
+implements a published technique says which one, in **one line**, at the top:
+
+```cpp
+/* Hillaire 2020, "A Scalable and Production Ready Sky and Atmosphere Rendering Technique".
+   Deviation: 32 LUT steps, not 40 — bandwidth, see doc/render/visual-target.md §1. */
+```
+
+Provenance, not description — the same rule every number obeys. A successor reads it and knows in one
+line whether the stage implements the standard correctly or whether someone improvised.
+
+`doc/render/` carries the big picture, never the citation list.
+
 ## Structure
 
 - `core/` **never** points into `systems/` or `modules/`.
