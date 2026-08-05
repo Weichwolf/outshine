@@ -135,6 +135,25 @@ The pieces already exist and were built for other reasons: **headless Blender** 
 and **`gpu_native` is already the tree's frame oracle**. What is missing is the matched-pair harness and
 the distance metric.
 
+### 1.4 Style: pairwise choice, not taste
+
+> Owner: *„wenn du meine präferenzen brauchst mach eine webseite wo ich immer zwischen zwei versionen
+> wählen kann."*
+
+Fidelity gets ground truth (§1.3). **Style gets the owner.** Two variants, one choice, accumulated —
+grade, grain, depth of field, fog. An anchor, not an opinion.
+
+Built when there are frames to compare, not before.
+
+### 1.5 Greenfield
+
+No legacy. Concretely: WebGPU only, no WebGL fallback · compute-first, GPU-driven from the start, no CPU
+path to strand · glTF as the only asset format · reversed-Z, linear working space, ACES/AgX at the end —
+designed in, not retrofitted.
+
+And experiments are cheap here in a way they never were for a human team: build three, measure, keep one.
+`mods/bench/` is where that happens.
+
 **One honest limit.** This measures *fidelity loss*, not *beauty*. It cannot judge the cinematic look of
 §2 — grain, grade and depth of field are deliberate departures from ground truth, and a metric that
 punished them would be measuring the wrong thing. Those stay with the critic pair against a pinned
