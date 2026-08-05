@@ -110,6 +110,37 @@ renderer nobody ships.
 | verdict | the highest step held at 720p30 **after thermal soak**, plus the quality settings the governor chose to hold it |
 | why both numbers | a step held by dropping every knob to minimum is not the same result as one held at full quality, and a single number would hide the difference |
 
+### 1.3 Ground truth: how „near-equal quality" becomes a number
+
+> Owner, 2026-08-05: *„du kannst einen Referenzrenderer implementieren oder Blender verwenden."*
+
+This is the same move the whole tree runs on — **an expectation is a datum, not a matter of taste** — and
+it converts §1.1's perceptual trade from an opinion into a measurement.
+
+Render the same scene twice: once **offline with no budget at all** (Blender Cycles, path traced, minutes
+per frame), once through the engine at whatever the governor chose. Compare the images. **The distance is
+the quality loss, and the governor's job is to minimise it under the 30 fps constraint.**
+
+Two numbers come out, and both are needed:
+
+| | What it measures | Why it matters |
+|---|---|---|
+| **the floor** | engine at *maximum* quality vs. ground truth | how far our shading model is from reality at all — a property of the renderer, not of the governor |
+| **the governor's cost** | engine at chosen quality vs. engine at maximum | what the frame-rate contract actually cost this frame |
+
+Measuring only the total would confuse the two: a large gap might be a bad LOD decision or might be a
+shading model that was never close. Separating them says which.
+
+The pieces already exist and were built for other reasons: **headless Blender** runs the asset pipeline,
+and **`gpu_native` is already the tree's frame oracle**. What is missing is the matched-pair harness and
+the distance metric.
+
+**One honest limit.** This measures *fidelity loss*, not *beauty*. It cannot judge the cinematic look of
+§2 — grain, grade and depth of field are deliberate departures from ground truth, and a metric that
+punished them would be measuring the wrong thing. Those stay with the critic pair against a pinned
+reference frame. **Fidelity gets a number; style does not, and pretending otherwise would be the kind of
+false gate this tree spent today removing.**
+
 ## Spec (continued)
 
 ### 2. The frame
@@ -197,9 +228,11 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
 - **Motion vectors for wind-animated instanced foliage** are the known-hard part of TAA and nothing
   produces them today.
 - **The 256 templates do not exist**, nor does the quantisation, nor the latitude/elevation filter.
-- **„Near-equal quality" has no measure.** §1.1 makes the engine's whole job a perceptual trade, and this
-  tree has no perceptual metric — only triangle counts and frame times, neither of which is the thing.
-  Until that exists, the governor's choices are judged by the critic pair looking at frames.
+- **The ground-truth differential (§1.3) does not exist.** The pieces do — headless Blender runs for
+  assets, `gpu_native` is already named the frame oracle — but nothing renders a matched pair or measures
+  the distance between them.
+- **The floor is unknown.** §1.3 rests on measuring the engine-vs-Blender gap at *maximum* quality first.
+  That number has never been taken, and if it is large, the governor's contribution disappears inside it.
 - **The governor does not exist**, nor do the knobs it would turn. Today quality is fixed and the frame
   rate floats, which is exactly backwards.
 - **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
