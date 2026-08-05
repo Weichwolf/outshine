@@ -1,0 +1,1551 @@
+{
+  "asset": "mig23",
+  "name": "Mikoyan-Gurevich MiG-23MLD 'Flogger-K'",
+  "unit_scale_m": 1.0,
+  "origin": "y = 0 ist die DREHZAPFENSTATION der Schwenkfluegel, z = 0 die TRIEBWERKSACHSE, x = 0 die Symmetrieebene. Der Zapfen ist der einzige Punkt des Risses, der in beiden Ansichten UND in beiden gezeichneten Pfeilstellungen unabhaengig belegt ist. Die Aufstandsebene liegt bei z = -1.9358 m.",
+  "axes": "glTF +Y oben / -Z vorwaerts; gebaut in +X rechts / +Y vorwaerts / +Z oben",
+  "built_sweep_deg": 16.0,
+  "used_by": "doc/modules/air/catalogue.md \u00a7mig23 (Zeile `mig23`), sim/test/modules/air/FBAirAnchors.h, mods/f22/doc/substitutions.md (alle acht MiG-27-Sorties).",
+  "sources": {
+    "PUB": "Brassey's world aircraft & systems directory 1996/97, S. 73-75, ueber https://en.wikipedia.org/wiki/Mikoyan-Gurevich_MiG-23 Abschnitt 'Specifications (MiG-23MLD)'. Dieselbe Quelle traegt die A1..A8-Anker der Katalogzeile dieses Baums.",
+    "BP": "Dreiseitenriss MiG-23M, 4000 x 2785 px, mit Massstabsbalken. https://drawingdatabase.com/wp-content/uploads/2014/03/mikoyan-gurevich-mig-23-mpd-2.png (Uebersicht https://drawingdatabase.com/mikoyan-gurevich-mig-23/). Jede [BP]-Zahl in mig23_geometry.py nennt ihre Pixelkoordinate.",
+    "WEB": "https://en.wikipedia.org/wiki/Mikoyan-Gurevich_MiG-23 \u2014 Schwenkstellungen 16/45/72 Grad und die vierte der MLD bei 33 Grad; Rollsteuerung ueber Stoerklappen statt Querruder; klappbare Bauchflosse; Wegfall der Rueckenflosse bei der ML."
+  },
+  "calibration": {
+    "m_per_px": 0.0049814,
+    "m_per_px_scale_bar": 0.00496524,
+    "scale_bar_delta": 0.003255,
+    "method": "NICHT der Massstabsbalken, sondern die Anpassung an die ZWEI veroeffentlichten Spannweiten \u2014 die nageln den Riss an zwei weit auseinanderliegenden Stellen fest statt an einer. Beide liegen 0.27 bzw. 0.30 % ueber dem Balken; der Riss ist gleichmaessig geschrumpft. Gegenprobe: die Laenge OHNE Pitotrohr misst damit 16.648 m gegen [PUB] 16.7 m (-0.31 %). Ein Massstab kann nicht zwei Spannweiten auf 0.3 % treffen und eine Laenge um 5.8 % verfehlen \u2014 deshalb sind die 16.7 m OHNE Rohr gemeint."
+  },
+  "reference_dimensions_m": {
+    "length_airframe": 16.7,
+    "length_overall_with_probe": 17.7338,
+    "span_spread": 13.965,
+    "span_swept": 7.779,
+    "height_on_gear": 4.82,
+    "wing_area_spread_m2": 37.35,
+    "wing_area_swept_m2": 34.16,
+    "airfoil": "TsAGI SR-12S, 6.5 % Wurzel / 5.5 % Spitze [PUB]; die DICKE ist gebaut, die Profilform ist NACA-symmetrisch [SET] (DEFECTS.md #14)"
+  },
+  "wing_kinematics": {
+    "pivot_m": [
+      1.5144,
+      0.0,
+      0.16
+    ],
+    "tip_radius_m": 5.5297,
+    "tip_theta_deg_at_16": 8.5633,
+    "detents_deg": [
+      16.0,
+      33.0,
+      45.0,
+      72.0
+    ],
+    "le_sweep_at_16_deg": 18.96,
+    "le_sweep_documented_deg": 18.75,
+    "te_sweep_at_16_deg": 11.655,
+    "root_chord_m": 1.7726,
+    "tip_chord_m": 1.0835,
+    "exposed_area_both_m2": 14.43,
+    "derivation": "Zapfenlage seitlich aus dem Riss, r und theta0 GESCHLOSSEN aus den beiden veroeffentlichten Spannweiten geloest. Gegenprobe an BEIDEN gezeichneten Stellungen: 72 Grad gerechnet (3258.5, 10.2) gegen gemessen (3255, 12); 16 Grad gerechnet (2416.5, 2200.3) gegen gemessen (2420, 2194) \u2014 6 px sind 30 mm auf 7 m Halbspannweite. Zweite Gegenprobe: die so bestimmte VK-Pfeilung in der 16-Grad-Stellung faellt mit 18.96 Grad heraus, die Literatur nennt 18 Grad 45'."
+  },
+  "nodes": [
+    {
+      "node": "ctl.wingsweep.l",
+      "parent": null,
+      "origin": [
+        -1.5144,
+        0.0,
+        0.16
+      ],
+      "axis": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "limits_deg": [
+        0.0,
+        56.0
+      ],
+      "detents_deg": [
+        0.0,
+        17.0,
+        29.0,
+        56.0
+      ],
+      "bind": "WingSweepDeg",
+      "source": "[WEB] 16/45/72 Grad belegt; MLD zusaetzlich 33 Grad. 0 = gespreizt."
+    },
+    {
+      "node": "ctl.wingsweep.r",
+      "parent": null,
+      "origin": [
+        1.5144,
+        0.0,
+        0.16
+      ],
+      "axis": [
+        0.0,
+        0.0,
+        -1.0
+      ],
+      "limits_deg": [
+        0.0,
+        56.0
+      ],
+      "detents_deg": [
+        0.0,
+        17.0,
+        29.0,
+        56.0
+      ],
+      "bind": "WingSweepDeg",
+      "source": "[WEB] wie links, gespiegelte Achse."
+    },
+    {
+      "node": "ctl.slat.l",
+      "parent": "ctl.wingsweep.l",
+      "origin": [
+        -1.9844,
+        0.6051,
+        0.16
+      ],
+      "axis": [
+        -0.94575,
+        0.3249,
+        0.0
+      ],
+      "limits_deg": [
+        -20.0,
+        0.0
+      ],
+      "detents_deg": null,
+      "bind": "SlatNorm",
+      "source": "[SET] 20 Grad, DEFECTS.md #8"
+    },
+    {
+      "node": "ctl.slat.r",
+      "parent": "ctl.wingsweep.r",
+      "origin": [
+        1.9844,
+        0.6051,
+        0.16
+      ],
+      "axis": [
+        0.94575,
+        0.3249,
+        0.0
+      ],
+      "limits_deg": [
+        -20.0,
+        0.0
+      ],
+      "detents_deg": null,
+      "bind": "SlatNorm",
+      "source": "[SET] 20 Grad, DEFECTS.md #8"
+    },
+    {
+      "node": "ctl.flap.l",
+      "parent": "ctl.wingsweep.l",
+      "origin": [
+        -1.9844,
+        -0.419,
+        0.16
+      ],
+      "axis": [
+        -0.97938,
+        0.20202,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        25.0
+      ],
+      "detents_deg": null,
+      "bind": "FlapNorm",
+      "source": "[SET] 25 Grad, DEFECTS.md #8"
+    },
+    {
+      "node": "ctl.flap.r",
+      "parent": "ctl.wingsweep.r",
+      "origin": [
+        1.9844,
+        -0.419,
+        0.16
+      ],
+      "axis": [
+        0.97938,
+        0.20202,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        25.0
+      ],
+      "detents_deg": null,
+      "bind": "FlapNorm",
+      "source": "[SET] 25 Grad, DEFECTS.md #8"
+    },
+    {
+      "node": "ctl.spoiler.l",
+      "parent": "ctl.wingsweep.l",
+      "origin": [
+        -3.0644,
+        -0.1628,
+        0.18
+      ],
+      "axis": [
+        -0.97938,
+        0.20202,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        45.0
+      ],
+      "detents_deg": null,
+      "bind": "RollCmd",
+      "source": "[WEB] die MiG-23 rollt mit STOERKLAPPEN, nicht mit Querrudern; 45 Grad [SET]"
+    },
+    {
+      "node": "ctl.spoiler.r",
+      "parent": "ctl.wingsweep.r",
+      "origin": [
+        3.0644,
+        -0.1628,
+        0.18
+      ],
+      "axis": [
+        0.97938,
+        0.20202,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        45.0
+      ],
+      "detents_deg": null,
+      "bind": "RollCmd",
+      "source": "[WEB] wie links"
+    },
+    {
+      "node": "ctl.taileron.l",
+      "parent": null,
+      "origin": [
+        -0.3,
+        -4.9479,
+        0.8668
+      ],
+      "axis": [
+        -0.98481,
+        0.0,
+        -0.17365
+      ],
+      "limits_deg": [
+        -20.0,
+        20.0
+      ],
+      "detents_deg": null,
+      "bind": "PitchCmd+RollCmd",
+      "source": "[WEB] Nick UND Roll ueber dieselben Flaechen; +-20 Grad [SET]"
+    },
+    {
+      "node": "ctl.taileron.r",
+      "parent": null,
+      "origin": [
+        0.3,
+        -4.9479,
+        0.8668
+      ],
+      "axis": [
+        0.98481,
+        0.0,
+        -0.17365
+      ],
+      "limits_deg": [
+        -20.0,
+        20.0
+      ],
+      "detents_deg": null,
+      "bind": "PitchCmd+RollCmd",
+      "source": "[WEB] wie links"
+    },
+    {
+      "node": "ctl.rudder",
+      "parent": null,
+      "origin": [
+        0.0,
+        -6.954,
+        0.7074
+      ],
+      "axis": [
+        0.0,
+        -0.8854,
+        0.46483
+      ],
+      "limits_deg": [
+        -25.0,
+        25.0
+      ],
+      "detents_deg": null,
+      "bind": "YawCmd",
+      "source": "[SET] +-25 Grad, DEFECTS.md #16"
+    },
+    {
+      "node": "ctl.ventral",
+      "parent": null,
+      "origin": [
+        0.0,
+        -2.8195,
+        -0.8967
+      ],
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        90.0
+      ],
+      "detents_deg": null,
+      "bind": "GearPosition",
+      "source": "[WEB] 'the fin hinged sideways when the landing gear was extended'; 90 Grad [SET]"
+    },
+    {
+      "node": "ctl.airbrake.l",
+      "parent": null,
+      "origin": [
+        -0.2,
+        -2.18,
+        -0.797
+      ],
+      "axis": [
+        -1.0,
+        0.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        45.0
+      ],
+      "detents_deg": null,
+      "bind": "SpeedbrakeNorm",
+      "source": "[SET] 45 Grad, DEFECTS.md #17"
+    },
+    {
+      "node": "ctl.airbrake.r",
+      "parent": null,
+      "origin": [
+        0.2,
+        -2.18,
+        -0.797
+      ],
+      "axis": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        45.0
+      ],
+      "detents_deg": null,
+      "bind": "SpeedbrakeNorm",
+      "source": "[SET] 45 Grad, DEFECTS.md #17"
+    },
+    {
+      "node": "canopy",
+      "parent": null,
+      "origin": [
+        0.0,
+        4.4534,
+        0.3686
+      ],
+      "axis": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        42.0
+      ],
+      "detents_deg": null,
+      "bind": "CanopyNorm",
+      "source": "[BP] Scharnier hinten; 42 Grad [SET]"
+    },
+    {
+      "node": "gear.nose",
+      "parent": null,
+      "origin": [
+        0.0,
+        3.35,
+        -0.8369
+      ],
+      "axis": [
+        1.0,
+        0.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        95.0
+      ],
+      "detents_deg": null,
+      "bind": "GearPosition",
+      "source": "[SET] Einzug nach hinten, 95 Grad, DEFECTS.md #12"
+    },
+    {
+      "node": "gear.main.l",
+      "parent": null,
+      "origin": [
+        -0.42,
+        -1.7,
+        -0.8369
+      ],
+      "axis": [
+        0.0,
+        -1.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        88.0
+      ],
+      "detents_deg": null,
+      "bind": "GearPosition",
+      "source": "[SET] Einzug nach innen, 88 Grad, DEFECTS.md #12"
+    },
+    {
+      "node": "gear.main.r",
+      "parent": null,
+      "origin": [
+        0.42,
+        -1.7,
+        -0.8369
+      ],
+      "axis": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "limits_deg": [
+        0.0,
+        88.0
+      ],
+      "detents_deg": null,
+      "bind": "GearPosition",
+      "source": "[SET] wie links"
+    }
+  ],
+  "node_convention": "Die Gelenkachse IST die lokale +X des Knotens, der Drehpunkt seine Herkunft \u2014 kein zweiter Datensatz daneben. Ein Knoten LIEST einen publizierten Wert; er schreibt nie in die Simulation.",
+  "lods": [
+    {
+      "lod": "L0",
+      "file": "mig23_L0.glb",
+      "segments": 72,
+      "triangles": 39662,
+      "bytes": 2198944,
+      "bodies": 54,
+      "materials": [
+        "mig23_dark",
+        "mig23_dielectric",
+        "mig23_frame",
+        "mig23_glass",
+        "mig23_nozzle",
+        "mig23_skin",
+        "mig23_tyre"
+      ],
+      "checks_failed": [],
+      "norms": [
+        {
+          "key": "length.overall",
+          "measured": 17.733784,
+          "min": 17.64511508,
+          "max": 17.822452919999996,
+          "unit": "m",
+          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "passed": true
+        },
+        {
+          "key": "length.airframe",
+          "measured": 16.647839,
+          "min": 16.532999999999998,
+          "max": 16.867,
+          "unit": "m",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "height.on_gear",
+          "measured": 4.82,
+          "min": 4.7959000000000005,
+          "max": 4.8441,
+          "unit": "m",
+          "rule": "[PUB] 4.82 m; die Beinlaenge ist DARAUS gerechnet, weil Front- und Seitenriss keine gemeinsame Hoehenbezugslinie haben (DEFECTS.md #1)",
+          "passed": true
+        },
+        {
+          "key": "wing.span.built",
+          "measured": 13.9714,
+          "min": 13.895175,
+          "max": 14.034824999999998,
+          "unit": "m",
+          "rule": "[PUB] 13.965 m gespreizt; gebaut wird bei 16 Grad Zapfenstellung",
+          "passed": true
+        },
+        {
+          "key": "wing.pivot_radius_max",
+          "measured": 5.795026,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[DERIVED] groesster Abstand eines Fluegelpunkts vom Zapfen",
+          "passed": null
+        },
+        {
+          "key": "wing.span.sweep16",
+          "measured": 13.9714,
+          "min": 13.82535,
+          "max": 14.10465,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 16 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "wing.span.sweep72",
+          "measured": 7.770699,
+          "min": 7.70121,
+          "max": 7.85679,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 72 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "fin.tip_z",
+          "measured": 2.884231,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "passed": null
+        },
+        {
+          "key": "tailplane.span",
+          "measured": 5.604075,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Grundriss, Spitzen bei 1250 px / spiegelbildlich",
+          "passed": null
+        },
+        {
+          "key": "nozzle.exit_diameter",
+          "measured": 1.262785,
+          "min": 1.2079895,
+          "max": 1.2827105000000003,
+          "unit": "m",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "passed": true
+        },
+        {
+          "key": "gear.tyre_main_diameter",
+          "measured": 0.83,
+          "min": 0.8050999999999999,
+          "max": 0.8549,
+          "unit": "m",
+          "rule": "[WEB] Hauptrad 830 x 225 mm; Gegenprobe Frontansicht 48 px Breite",
+          "passed": true
+        },
+        {
+          "key": "gear.track",
+          "measured": 2.658,
+          "min": 2.60484,
+          "max": 2.71116,
+          "unit": "m",
+          "rule": "[WEB] Spurweite 2.658 m, Band 2 %",
+          "passed": true
+        },
+        {
+          "key": "ground.clearance",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.005,
+          "unit": "m",
+          "rule": "[DERIVED] tiefster Netzpunkt MUSS die Aufstandsebene sein (Reifenunterkante)",
+          "passed": true
+        },
+        {
+          "key": "symmetry.mirror_misses",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "unit": "Punkte",
+          "rule": "[DERIVED] die MiG-23 ist symmetrisch; jeder Punkt muss seinen Spiegelpunkt haben",
+          "passed": true
+        },
+        {
+          "key": "triangles",
+          "measured": 39662.0,
+          "min": null,
+          "max": null,
+          "unit": "-",
+          "rule": "Dreiecke dieser Stufe",
+          "passed": null
+        }
+      ],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 30.368969,
+      "merge": {
+        "v_parts": 30.368969,
+        "v_merged": 30.368969,
+        "d_volume": 2.4513724383723456e-13,
+        "d_bbox": 0.0,
+        "passed": true
+      },
+      "overlaps": [],
+      "overlaps_below_verdict": {
+        "threshold_cm3": 25.0,
+        "pairs": 0,
+        "cm3": 0,
+        "pairs_listed": []
+      },
+      "joints": {
+        "pairs": 25,
+        "cm3": 1280729.6,
+        "bounded_pairs": 13,
+        "worst": [
+          {
+            "a": "fus.body",
+            "b": "nozzle",
+            "fraction": 0.7696,
+            "cap": 0.9
+          },
+          {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.7088,
+            "cap": 0.75
+          },
+          {
+            "a": "gear.main.l.arm",
+            "b": "gear.main.l.wheel",
+            "fraction": 0.7088,
+            "cap": 0.75
+          },
+          {
+            "a": "fin",
+            "b": "antenna.fin",
+            "fraction": 0.5237,
+            "cap": 0.7
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.l",
+            "fraction": 0.441,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.r",
+            "fraction": 0.441,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "gun.gsh23",
+            "fraction": 0.421,
+            "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "sensor.irst",
+            "fraction": 0.3394,
+            "cap": 0.6
+          }
+        ],
+        "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
+      },
+      "bbox": {
+        "x": [
+          -6.9857,
+          6.9857
+        ],
+        "y": [
+          -7.3725,
+          10.3613
+        ],
+        "z": [
+          -1.9358,
+          2.8842
+        ]
+      },
+      "size_m": {
+        "x": 13.9714,
+        "y": 17.7338,
+        "z": 4.82
+      }
+    },
+    {
+      "lod": "L1",
+      "file": "mig23_L1.glb",
+      "segments": 48,
+      "triangles": 20034,
+      "bytes": 1140064,
+      "bodies": 54,
+      "materials": [
+        "mig23_dark",
+        "mig23_dielectric",
+        "mig23_frame",
+        "mig23_glass",
+        "mig23_nozzle",
+        "mig23_skin",
+        "mig23_tyre"
+      ],
+      "checks_failed": [],
+      "norms": [
+        {
+          "key": "length.overall",
+          "measured": 17.733784,
+          "min": 17.64511508,
+          "max": 17.822452919999996,
+          "unit": "m",
+          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "passed": true
+        },
+        {
+          "key": "length.airframe",
+          "measured": 16.647839,
+          "min": 16.532999999999998,
+          "max": 16.867,
+          "unit": "m",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "height.on_gear",
+          "measured": 4.82,
+          "min": 4.7959000000000005,
+          "max": 4.8441,
+          "unit": "m",
+          "rule": "[PUB] 4.82 m; die Beinlaenge ist DARAUS gerechnet, weil Front- und Seitenriss keine gemeinsame Hoehenbezugslinie haben (DEFECTS.md #1)",
+          "passed": true
+        },
+        {
+          "key": "wing.span.built",
+          "measured": 13.9714,
+          "min": 13.895175,
+          "max": 14.034824999999998,
+          "unit": "m",
+          "rule": "[PUB] 13.965 m gespreizt; gebaut wird bei 16 Grad Zapfenstellung",
+          "passed": true
+        },
+        {
+          "key": "wing.pivot_radius_max",
+          "measured": 5.795026,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[DERIVED] groesster Abstand eines Fluegelpunkts vom Zapfen",
+          "passed": null
+        },
+        {
+          "key": "wing.span.sweep16",
+          "measured": 13.9714,
+          "min": 13.82535,
+          "max": 14.10465,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 16 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "wing.span.sweep72",
+          "measured": 7.770699,
+          "min": 7.70121,
+          "max": 7.85679,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 72 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "fin.tip_z",
+          "measured": 2.884231,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "passed": null
+        },
+        {
+          "key": "tailplane.span",
+          "measured": 5.604075,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Grundriss, Spitzen bei 1250 px / spiegelbildlich",
+          "passed": null
+        },
+        {
+          "key": "nozzle.exit_diameter",
+          "measured": 1.262785,
+          "min": 1.2079895,
+          "max": 1.2827105000000003,
+          "unit": "m",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "passed": true
+        },
+        {
+          "key": "gear.tyre_main_diameter",
+          "measured": 0.83,
+          "min": 0.8050999999999999,
+          "max": 0.8549,
+          "unit": "m",
+          "rule": "[WEB] Hauptrad 830 x 225 mm; Gegenprobe Frontansicht 48 px Breite",
+          "passed": true
+        },
+        {
+          "key": "gear.track",
+          "measured": 2.658,
+          "min": 2.60484,
+          "max": 2.71116,
+          "unit": "m",
+          "rule": "[WEB] Spurweite 2.658 m, Band 2 %",
+          "passed": true
+        },
+        {
+          "key": "ground.clearance",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.005,
+          "unit": "m",
+          "rule": "[DERIVED] tiefster Netzpunkt MUSS die Aufstandsebene sein (Reifenunterkante)",
+          "passed": true
+        },
+        {
+          "key": "symmetry.mirror_misses",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "unit": "Punkte",
+          "rule": "[DERIVED] die MiG-23 ist symmetrisch; jeder Punkt muss seinen Spiegelpunkt haben",
+          "passed": true
+        },
+        {
+          "key": "triangles",
+          "measured": 20034.0,
+          "min": null,
+          "max": null,
+          "unit": "-",
+          "rule": "Dreiecke dieser Stufe",
+          "passed": null
+        }
+      ],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 30.310598,
+      "merge": {
+        "v_parts": 30.310598,
+        "v_merged": 30.310598,
+        "d_volume": 1.4210854715202004e-14,
+        "d_bbox": 0.0,
+        "passed": true
+      },
+      "overlaps": [],
+      "overlaps_below_verdict": {
+        "threshold_cm3": 25.0,
+        "pairs": 0,
+        "cm3": 0,
+        "pairs_listed": []
+      },
+      "joints": {
+        "pairs": 26,
+        "cm3": 1277146.2,
+        "bounded_pairs": 12,
+        "worst": [
+          {
+            "a": "fus.body",
+            "b": "nozzle",
+            "fraction": 0.7702,
+            "cap": 0.9
+          },
+          {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.6941,
+            "cap": 0.75
+          },
+          {
+            "a": "gear.main.l.arm",
+            "b": "gear.main.l.wheel",
+            "fraction": 0.6941,
+            "cap": 0.75
+          },
+          {
+            "a": "fin",
+            "b": "antenna.fin",
+            "fraction": 0.5236,
+            "cap": 0.7
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.l",
+            "fraction": 0.4402,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.r",
+            "fraction": 0.4399,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "gun.gsh23",
+            "fraction": 0.4178,
+            "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "gear.nose.strut",
+            "fraction": 0.3435,
+            "cap": 0.6
+          }
+        ],
+        "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
+      },
+      "bbox": {
+        "x": [
+          -6.9857,
+          6.9857
+        ],
+        "y": [
+          -7.3725,
+          10.3613
+        ],
+        "z": [
+          -1.9358,
+          2.8842
+        ]
+      },
+      "size_m": {
+        "x": 13.9714,
+        "y": 17.7338,
+        "z": 4.82
+      }
+    },
+    {
+      "lod": "L2",
+      "file": "mig23_L2.glb",
+      "segments": 32,
+      "triangles": 9776,
+      "bytes": 582472,
+      "bodies": 51,
+      "materials": [
+        "mig23_dark",
+        "mig23_glass",
+        "mig23_skin",
+        "mig23_tyre"
+      ],
+      "checks_failed": [],
+      "norms": [
+        {
+          "key": "length.overall",
+          "measured": 17.733784,
+          "min": 17.64511508,
+          "max": 17.822452919999996,
+          "unit": "m",
+          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "passed": true
+        },
+        {
+          "key": "length.airframe",
+          "measured": 16.647839,
+          "min": 16.532999999999998,
+          "max": 16.867,
+          "unit": "m",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "height.on_gear",
+          "measured": 4.82,
+          "min": 4.7959000000000005,
+          "max": 4.8441,
+          "unit": "m",
+          "rule": "[PUB] 4.82 m; die Beinlaenge ist DARAUS gerechnet, weil Front- und Seitenriss keine gemeinsame Hoehenbezugslinie haben (DEFECTS.md #1)",
+          "passed": true
+        },
+        {
+          "key": "wing.span.built",
+          "measured": 13.9714,
+          "min": 13.895175,
+          "max": 14.034824999999998,
+          "unit": "m",
+          "rule": "[PUB] 13.965 m gespreizt; gebaut wird bei 16 Grad Zapfenstellung",
+          "passed": true
+        },
+        {
+          "key": "wing.pivot_radius_max",
+          "measured": 5.795026,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[DERIVED] groesster Abstand eines Fluegelpunkts vom Zapfen",
+          "passed": null
+        },
+        {
+          "key": "wing.span.sweep16",
+          "measured": 13.9714,
+          "min": 13.82535,
+          "max": 14.10465,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 16 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "wing.span.sweep72",
+          "measured": 7.770699,
+          "min": 7.70121,
+          "max": 7.85679,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 72 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "fin.tip_z",
+          "measured": 2.884231,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "passed": null
+        },
+        {
+          "key": "tailplane.span",
+          "measured": 5.604075,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Grundriss, Spitzen bei 1250 px / spiegelbildlich",
+          "passed": null
+        },
+        {
+          "key": "nozzle.exit_diameter",
+          "measured": 1.262785,
+          "min": 1.2079895,
+          "max": 1.2827105000000003,
+          "unit": "m",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "passed": true
+        },
+        {
+          "key": "gear.tyre_main_diameter",
+          "measured": 0.83,
+          "min": 0.8050999999999999,
+          "max": 0.8549,
+          "unit": "m",
+          "rule": "[WEB] Hauptrad 830 x 225 mm; Gegenprobe Frontansicht 48 px Breite",
+          "passed": true
+        },
+        {
+          "key": "gear.track",
+          "measured": 2.658,
+          "min": 2.60484,
+          "max": 2.71116,
+          "unit": "m",
+          "rule": "[WEB] Spurweite 2.658 m, Band 2 %",
+          "passed": true
+        },
+        {
+          "key": "ground.clearance",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.005,
+          "unit": "m",
+          "rule": "[DERIVED] tiefster Netzpunkt MUSS die Aufstandsebene sein (Reifenunterkante)",
+          "passed": true
+        },
+        {
+          "key": "symmetry.mirror_misses",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "unit": "Punkte",
+          "rule": "[DERIVED] die MiG-23 ist symmetrisch; jeder Punkt muss seinen Spiegelpunkt haben",
+          "passed": true
+        },
+        {
+          "key": "triangles",
+          "measured": 9776.0,
+          "min": null,
+          "max": null,
+          "unit": "-",
+          "rule": "Dreiecke dieser Stufe",
+          "passed": null
+        }
+      ],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 30.229586,
+      "merge": {
+        "v_parts": 30.229586,
+        "v_merged": 30.229586,
+        "d_volume": 1.4566126083082054e-13,
+        "d_bbox": 0.0,
+        "passed": true
+      },
+      "overlaps": [],
+      "overlaps_below_verdict": {
+        "threshold_cm3": 25.0,
+        "pairs": 0,
+        "cm3": 0,
+        "pairs_listed": []
+      },
+      "joints": {
+        "pairs": 23,
+        "cm3": 1260538.9,
+        "bounded_pairs": 13,
+        "worst": [
+          {
+            "a": "fus.body",
+            "b": "nozzle",
+            "fraction": 0.7677,
+            "cap": 0.9
+          },
+          {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.6986,
+            "cap": 0.75
+          },
+          {
+            "a": "gear.main.l.arm",
+            "b": "gear.main.l.wheel",
+            "fraction": 0.6986,
+            "cap": 0.75
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.l",
+            "fraction": 0.4375,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.r",
+            "fraction": 0.4366,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "gun.gsh23",
+            "fraction": 0.413,
+            "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "sensor.irst",
+            "fraction": 0.3155,
+            "cap": 0.6
+          },
+          {
+            "a": "ctl.rudder",
+            "b": "fin.chute",
+            "fraction": 0.3085,
+            "cap": 0.35
+          }
+        ],
+        "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
+      },
+      "bbox": {
+        "x": [
+          -6.9857,
+          6.9857
+        ],
+        "y": [
+          -7.3725,
+          10.3613
+        ],
+        "z": [
+          -1.9358,
+          2.8842
+        ]
+      },
+      "size_m": {
+        "x": 13.9714,
+        "y": 17.7338,
+        "z": 4.82
+      }
+    },
+    {
+      "lod": "L3",
+      "file": "mig23_L3.glb",
+      "segments": 22,
+      "triangles": 5002,
+      "bytes": 322804,
+      "bodies": 51,
+      "materials": [
+        "mig23_dark",
+        "mig23_glass",
+        "mig23_skin",
+        "mig23_tyre"
+      ],
+      "checks_failed": [],
+      "norms": [
+        {
+          "key": "length.overall",
+          "measured": 17.733784,
+          "min": 17.64511508,
+          "max": 17.822452919999996,
+          "unit": "m",
+          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "passed": true
+        },
+        {
+          "key": "length.airframe",
+          "measured": 16.647839,
+          "min": 16.532999999999998,
+          "max": 16.867,
+          "unit": "m",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "height.on_gear",
+          "measured": 4.82,
+          "min": 4.7959000000000005,
+          "max": 4.8441,
+          "unit": "m",
+          "rule": "[PUB] 4.82 m; die Beinlaenge ist DARAUS gerechnet, weil Front- und Seitenriss keine gemeinsame Hoehenbezugslinie haben (DEFECTS.md #1)",
+          "passed": true
+        },
+        {
+          "key": "wing.span.built",
+          "measured": 13.9714,
+          "min": 13.895175,
+          "max": 14.034824999999998,
+          "unit": "m",
+          "rule": "[PUB] 13.965 m gespreizt; gebaut wird bei 16 Grad Zapfenstellung",
+          "passed": true
+        },
+        {
+          "key": "wing.pivot_radius_max",
+          "measured": 5.795026,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[DERIVED] groesster Abstand eines Fluegelpunkts vom Zapfen",
+          "passed": null
+        },
+        {
+          "key": "wing.span.sweep16",
+          "measured": 13.9714,
+          "min": 13.82535,
+          "max": 14.10465,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 16 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "wing.span.sweep72",
+          "measured": 7.770699,
+          "min": 7.70121,
+          "max": 7.85679,
+          "unit": "m",
+          "rule": "[PUB] Spannweite bei 72 Grad; die GEBAUTE Punktwolke um den gemessenen Zapfen gedreht, Band 1 %",
+          "passed": true
+        },
+        {
+          "key": "fin.tip_z",
+          "measured": 2.884231,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "passed": null
+        },
+        {
+          "key": "tailplane.span",
+          "measured": 5.604075,
+          "min": null,
+          "max": null,
+          "unit": "m",
+          "rule": "[BP] Grundriss, Spitzen bei 1250 px / spiegelbildlich",
+          "passed": null
+        },
+        {
+          "key": "nozzle.exit_diameter",
+          "measured": 1.227915,
+          "min": 1.2079895,
+          "max": 1.2827105000000003,
+          "unit": "m",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "passed": true
+        },
+        {
+          "key": "gear.tyre_main_diameter",
+          "measured": 0.83,
+          "min": 0.8050999999999999,
+          "max": 0.8549,
+          "unit": "m",
+          "rule": "[WEB] Hauptrad 830 x 225 mm; Gegenprobe Frontansicht 48 px Breite",
+          "passed": true
+        },
+        {
+          "key": "gear.track",
+          "measured": 2.658,
+          "min": 2.60484,
+          "max": 2.71116,
+          "unit": "m",
+          "rule": "[WEB] Spurweite 2.658 m, Band 2 %",
+          "passed": true
+        },
+        {
+          "key": "ground.clearance",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.005,
+          "unit": "m",
+          "rule": "[DERIVED] tiefster Netzpunkt MUSS die Aufstandsebene sein (Reifenunterkante)",
+          "passed": true
+        },
+        {
+          "key": "symmetry.mirror_misses",
+          "measured": 0.0,
+          "min": 0.0,
+          "max": 0.0,
+          "unit": "Punkte",
+          "rule": "[DERIVED] die MiG-23 ist symmetrisch; jeder Punkt muss seinen Spiegelpunkt haben",
+          "passed": true
+        },
+        {
+          "key": "triangles",
+          "measured": 5002.0,
+          "min": null,
+          "max": null,
+          "unit": "-",
+          "rule": "Dreiecke dieser Stufe",
+          "passed": null
+        }
+      ],
+      "genus": [
+        0,
+        1
+      ],
+      "volume_sum_m3": 30.117117,
+      "merge": {
+        "v_parts": 30.117117,
+        "v_merged": 30.117117,
+        "d_volume": 1.9895196601282805e-13,
+        "d_bbox": 0.0,
+        "passed": true
+      },
+      "overlaps": [],
+      "overlaps_below_verdict": {
+        "threshold_cm3": 25.0,
+        "pairs": 0,
+        "cm3": 0,
+        "pairs_listed": []
+      },
+      "joints": {
+        "pairs": 24,
+        "cm3": 1258702.8,
+        "bounded_pairs": 12,
+        "worst": [
+          {
+            "a": "fus.body",
+            "b": "nozzle",
+            "fraction": 0.7751,
+            "cap": 0.9
+          },
+          {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.6986,
+            "cap": 0.75
+          },
+          {
+            "a": "gear.main.l.arm",
+            "b": "gear.main.l.wheel",
+            "fraction": 0.6986,
+            "cap": 0.75
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.l",
+            "fraction": 0.4272,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "ctl.airbrake.r",
+            "fraction": 0.4239,
+            "cap": 0.45
+          },
+          {
+            "a": "fus.body",
+            "b": "gun.gsh23",
+            "fraction": 0.4083,
+            "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "gear.nose.strut",
+            "fraction": 0.345,
+            "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "sensor.irst",
+            "fraction": 0.3151,
+            "cap": 0.6
+          }
+        ],
+        "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
+      },
+      "bbox": {
+        "x": [
+          -6.9857,
+          6.9857
+        ],
+        "y": [
+          -7.3725,
+          10.3613
+        ],
+        "z": [
+          -1.9358,
+          2.8842
+        ]
+      },
+      "size_m": {
+        "x": 13.9714,
+        "y": 17.7338,
+        "z": 4.82
+      }
+    }
+  ],
+  "silhouette": {
+    "limit_pct": 2.0,
+    "passed": true,
+    "azimuths": 361,
+    "sup_shortfall_pp": 0.03,
+    "coarse_divisor": 4,
+    "res_cap": 1024,
+    "worst": {
+      "pair": "L0->L3",
+      "view": "az089.7507",
+      "res": 1024,
+      "pct": 1.1716,
+      "judged_pct": 1.2016
+    },
+    "method": "361 Azimute plus Draufsicht, fest und teilerfremd zu 64/40/24/14. Nur die dem Betrachter ZUGEWANDTEN Dreiecke werden gerastert: bei einem geschlossenen Koerper ist deren Projektion exakt die Silhouette, und das halbiert die Arbeit ohne einen Pixel zu aendern. Rasterzuschlag 0.03 pp fuer das Supremum zwischen zwei Azimutproben (am Tank gemessen: 0.026 pp zwischen 1-Grad- und 0.05-Grad-Raster).",
+    "rows": [
+      {
+        "pair": "L0->L1",
+        "res": 256,
+        "res_full": 1024,
+        "range_m": 2.0,
+        "azimuths": 361,
+        "worst_pct": 0.4827,
+        "judged_pct": 0.5127,
+        "worst_view": "az086.7590",
+        "escalated": false,
+        "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
+      },
+      {
+        "pair": "L1->L2",
+        "res": 256,
+        "res_full": 1024,
+        "range_m": 4.4,
+        "azimuths": 361,
+        "worst_pct": 0.8621,
+        "judged_pct": 0.8921,
+        "worst_view": "az093.7396",
+        "escalated": false,
+        "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
+      },
+      {
+        "pair": "L2->L3",
+        "res": 256,
+        "res_full": 1024,
+        "range_m": 9.3,
+        "azimuths": 361,
+        "worst_pct": 0.6217,
+        "judged_pct": 0.6517,
+        "worst_view": "az088.7535",
+        "escalated": false,
+        "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
+      },
+      {
+        "pair": "L0->L3",
+        "res": 1024,
+        "res_full": 1024,
+        "range_m": 9.3,
+        "azimuths": 361,
+        "worst_pct": 1.1716,
+        "judged_pct": 1.2016,
+        "worst_view": "az089.7507",
+        "escalated": true,
+        "note": "volle Aufloesung"
+      }
+    ]
+  },
+  "switch": [
+    {
+      "lod": "L0",
+      "driver": "Rundung n=48 am groessten Rumpfradius 0.747 m",
+      "feature_m": 0.0016,
+      "max_range_m": 2.0,
+      "lost_bodies": 0,
+      "lost_cauchy_m": {},
+      "drops": []
+    },
+    {
+      "lod": "L1",
+      "driver": "Rundung n=32 am groessten Rumpfradius 0.747 m",
+      "feature_m": 0.0036,
+      "max_range_m": 4.4,
+      "lost_bodies": 3,
+      "lost_cauchy_m": {
+        "antenna.fin": 0.2647,
+        "gear.main.r.scissor": 0.0931,
+        "gear.main.l.scissor": 0.0931
+      },
+      "drops": [
+        "antenna.fin",
+        "gear.main.r.scissor",
+        "gear.main.l.scissor"
+      ]
+    },
+    {
+      "lod": "L2",
+      "driver": "Rundung n=22 am groessten Rumpfradius 0.747 m",
+      "feature_m": 0.00761,
+      "max_range_m": 9.3,
+      "lost_bodies": 0,
+      "lost_cauchy_m": {},
+      "drops": []
+    },
+    {
+      "lod": "L3",
+      "driver": null,
+      "feature_m": null,
+      "max_range_m": null,
+      "drops": [],
+      "note": "letzte Stufe, keine Umschaltweite"
+    }
+  ],
+  "build": {
+    "seconds": 45.7,
+    "determinism": "zweimal bauen, Bytes vergleichen (doc/assets.md \u00a74)"
+  },
+  "open_defects": "DEFECTS.md"
+}
