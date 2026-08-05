@@ -65,17 +65,21 @@ Sache ist es nicht.
    bleibt gepinntes read-only Submodul und nie gepatcht, aber als **Messlatte**, gegen die geflogen
    wird, nicht als Motor. **Bis Liste A grün ist, bleibt es verlinkt und die alte Regel gilt
    unverändert:** geflogen wird FlightBox' Modellkopie (`sim/assets/aircraft/`, die EINE Wurzel), jede
-   Abweichung ist ein benannter, BELEGTER Eintrag in `sim/assets/MODEL-DELTAS.md` (ein besseres
+   Abweichung ist ein benannter, BELEGTER Eintrag in `mods/f16/src/aircraft/MODEL-DELTAS.md` (ein besseres
    Missionsergebnis ist kein Beleg), Gate `make -C sim verify-models`. Der Maßstab ist
    **Glaubhaftigkeit, nicht Treue** — „in einem Game Engine ist immer alles falsch, die Frage ist, ist
    es noch glaubhaft"; was das heißt, ist Liste A, und die entsteht VOR dem Löser.
 2. **JSBSim läuft IM Client.** libJSBSim linkt direkt ins Command Center, WASM wie nativ. Keine
    Telemetrie-Grenze zwischen Physik und Bild — ein Prozess, ein Adressraum.
-3. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,
+3. **Die Engine ist assetfrei.** `sim/` enthält keine Flugmodelle, Missionen, Kampagnen oder Meshes —
+   alles liegt in `mods/`, aufgelöst über `mod.json`. Ein Mod bringt keine `.cpp` **und keine Welt**: die
+   Erde (Gelände, Bewuchs, Infrastruktur, Gebäude) gehört der Engine, der Mod bringt Akteure, Entitäten,
+   benutzbare Objekte und das Szenario. [`doc/mods.md`](doc/mods.md)
+4. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,
    :8080, Web-Host). Alles andere ist Client.
-4. **Sim läuft so schnell wie sinnvoll.** Die Mathematik ist deterministisch. Gibt das Tempo das
+5. **Sim läuft so schnell wie sinnvoll.** Die Mathematik ist deterministisch. Gibt das Tempo das
    Ergebnis, ist die Kopplung nicht-deterministisch — ein Bug.
-5. **F-16 zuerst.** Referenz ist das **Modell**, nicht der echte Jet — seine Eigenschaften sind
+6. **F-16 zuerst.** Referenz ist das **Modell**, nicht der echte Jet — seine Eigenschaften sind
    akzeptiert, keine Defekte, und FlightBox muss es treu fliegen. Das gilt, weil das geflogene Modell
    exakt benannt ist: gepinnter Stand plus die belegte Delta-Liste aus Prinzip 1 (heute leer).
 
