@@ -76,6 +76,31 @@ Consequence worth noting: this makes `fb-sim` nearly redundant — principle 4's
 become one. That is a convenience question (live-mounting `sim/web` while developing), not an
 architectural one, and it is not decided here.
 
+### 4.1 The world runs 24/7, and the client attaches
+
+> Owner, 2026-08-05: *„was ich aber gut fände, auch im Single Player, dass die Welt immer 24/7 läuft und
+> man mit seinem Client jederzeit connecten kann."*
+
+Same server shape as §2 — the gym is a server without a viewer, and a persistent world is that server
+without an end. **This is also the 2026 deliverable**: you do not launch a mission, you tune in. A world
+that runs whether or not anyone is watching is literally a stream.
+
+**Cost when nobody watches is already answered** by the observation rule
+([`persistent-world.md`](persistent-world.md) §4): 24/7 does not mean ten thousand entities ticking at
+100 Hz forever. Coarse world state advances; detail materialises on observation. That is Ocean's job.
+
+**Determinism is the real hazard, and it has one rule:**
+
+> **The world advances in ticks, never in seconds. Wall-clock decides *when* a tick happens, never
+> *what* it computes.**
+
+Otherwise the pace produces the result, which principle 5 calls a bug outright. With it, a world that has
+been running for three weeks is still fully reconstructible from `(seed, tick count, transaction log)` —
+exactly the persistence model already chosen.
+
+Connecting at any time is then the view type §1 needs: the client attaches and receives the current view,
+never the world.
+
 ### 5. What must not be built shut
 
 Nothing needs building now. But nothing may be built that assumes:
@@ -83,6 +108,7 @@ Nothing needs building now. But nothing may be built that assumes:
 - the renderer can read world state directly rather than a delivered view
 - a mission is a filesystem path in every client
 - the simulation and the picture share a clock
+- the world stops when no client is attached, or advances in wall-clock seconds rather than ticks
 
 ## State
 
