@@ -5,19 +5,45 @@ die ganze Welt abbildet. Die Physik ist JSBSim; FlightBox ist die Welt drumherum
 Renderer, HUD, Avionik, Piloten-KI. **Genau zwei Qualitätsachsen zählen: korrektes Rendering und
 realistisches F-16-Flugverhalten.**
 
+## Der Dreiklang
+
+> **`doc/` = was wir wollen · `src/` = was wir können · `test/` = was wir beweisen.**
+
+Jede Aussage hat **genau einen Ort**, und die drei Bäume sind **identisch**: aus einem Pfad folgen die
+beiden anderen, ohne zu suchen.
+
+```
+sim/src/sensors/FBVisualSystem.cpp   ← was wir können
+doc/sensors/visual.md                ← was wir wollen
+sim/test/sensors/visual.json         ← was wir beweisen
+```
+
+Daraus wird eine **Vollständigkeitsprüfung**: ein Verzeichnis mit zwei von drei hat ein benanntes Loch.
+Absicht ohne Umsetzung = Lücke in `src/`. Umsetzung ohne Beleg = Lücke in `test/`. Beleg ohne Absicht =
+ein Test, den niemand bestellt hat.
+
+**Was das mit Kommentaren macht.** Sie fallen fast vollständig weg — Kopfblöcke, Benutzungshinweise,
+jede Beschreibung des *was*, und jede Prosa über die Funktionsweise (die gehört nach `doc/`). Es bleibt
+genau EINE Aufgabe: **das lokale Warum am Entscheidungspunkt** — warum diese Form *hier* statt der
+naheliegenden Alternative, warum diese Zahl in *dieser* Klasse, warum diese Zeile gelöscht wurde. Das
+trägt weder `doc/` (dort würde es zum Codekommentar mit Verzeichnis, und die Datei hörte auf, Absicht zu
+sein) noch `test/` (der belegt das Ergebnis, nicht die Wahl). Beispiele: `kSeparationDelayS` wohnt beim
+Besitzer der Warteschlange, weil `pilot/` nicht nach `missions/` sehen darf · `Resync_` gehört in
+`FBRadarSystem` statt `FBF16Fcr`, weil ein Modul, das Emission über den MODUS führt, sonst keine Stelle
+hätte · der Artfilter im Auge ist weg, weil die nächste Zeile der bessere Filter ist.
+
+**Eine Erwartung ist ein Datum, kein Programm.** Eine Behauptung, die in C++ steckt, kann still aufhören
+zu prüfen — gemessen: sieben Anker außerhalb ihres Bandes bei grünem Tor, und fünf von sechs absichtlich
+zerstörten Modellwerten kamen durch das ganze Netz. Eine fehlende Zeile in einer Tabelle sieht man.
+[`doc/testing.md`](doc/testing.md).
+
 ## Das Wissen steht in doc/
 
 Diese Datei ist ein Session-Start-Zettel, kein Wissensspeicher. Alles Inhaltliche — Architektur, jedes
 Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/`** (englisch), Einstieg
-[`doc/INDEX.md`](doc/INDEX.md). **`doc/` spiegelt `sim/src/` 1:1**; der EINE Skill `flightbox` lädt es.
+[`doc/INDEX.md`](doc/INDEX.md); der EINE Skill `flightbox` lädt es.
 
 **Widersprechen sich beide, hat `doc/` recht und diese Datei ist nachzuführen.**
-
-**`src/`, `doc/` und `test/` tragen denselben Baum.** Aus einem Pfad folgen die beiden anderen, ohne zu
-suchen — `sim/src/sensors/FBVisualSystem.cpp` → `doc/sensors/visual.md` → `sim/test/sensors/visual.json`.
-Und **eine Erwartung ist ein Datum, kein Programm**: eine Behauptung, die in C++ steckt, kann still
-aufhören zu prüfen (gemessen: sieben Anker jahrelang außerhalb ihres Bandes bei grünem Tor), eine
-fehlende Zeile in einer Tabelle sieht man. [`doc/testing.md`](doc/testing.md).
 
 Darin: `doc/modules/<jet>/` dokumentiert je den **echten** Jet aus den Handbüchern (Design-Ziele, keine
 Defektkriterien); `doc/missions/` ist die Referenz des `.fbm`-Formats.
