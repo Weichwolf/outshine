@@ -210,6 +210,41 @@ conversation, an action without a line is a manoeuvre, and both together are the
 keeps the anti-cheat property exactly where it was — `do` is a call on the declared list and can be
 nothing else, while `say` reaches no state at all.
 
+### 2.3 The replay is a service, not a code path
+
+> Owner, 2026-08-05: *„im Prinzip kannst du einen OpenRouter-kompatiblen LLM-Service erstellen, der aus
+> der DB die korrekten Antworten heraussucht. Es geht nur darum, das LLM deterministisch zu simulieren
+> und die Rückgaben tunen zu können. Das läuft extrem schnell für das Gym."*
+
+The obvious implementation gives the engine two paths — *„if replaying, read the trace; else call the
+model"* — and that branch is the defect. It is a second execution surface, it is only exercised in one
+mode, and the two halves drift.
+
+**Instead the engine has one path and always speaks the same protocol.** What changes is the endpoint:
+
+| Mode | Endpoint | Speed |
+|---|---|---|
+| record | the real service (OpenRouter, etc.) | network |
+| **gym / demo** | **a local, OpenRouter-compatible service reading the pool** | a hash lookup |
+| played | the real service | network |
+
+Four things follow, and the second is why it is worth building rather than special-casing:
+
+1. **Extremely fast.** A hash lookup instead of a round trip; the gym keeps running at simulation speed
+   rather than model speed, which is the difference between a campaign in seconds and one in hours.
+2. **The gym cannot drift from live behaviour**, because there is nothing to drift *from* — the request
+   the gym sends is byte-identical to the one live play sends. This is the same structural argument the
+   tree uses everywhere: make the wrong thing unrepresentable rather than forbidden.
+3. **The returns are tunable.** Editing an entry makes a unit decide differently on the next run — a
+   lever for experiments that touches neither engine code nor a model. That is the doctrine-evolution
+   loop applied to language instead of gains.
+4. **Recording is a proxy.** The same service, pointed at the real one, forwards and writes the pair.
+   Recording and replaying are one component in two configurations.
+
+The hard rule from §2.1 lands here as a **configuration of the service, not a policy in the caller**: in
+gym mode a miss returns an error and the run fails. There is no fall-through, because a gym whose
+determinism depends on a network is not a gym.
+
 ### 3. What a mod directory contains
 
 
