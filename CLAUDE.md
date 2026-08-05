@@ -71,10 +71,15 @@ Sache ist es nicht.
    es noch glaubhaft"; was das heißt, ist Liste A, und die entsteht VOR dem Löser.
 2. **JSBSim läuft IM Client.** libJSBSim linkt direkt ins Command Center, WASM wie nativ. Keine
    Telemetrie-Grenze zwischen Physik und Bild — ein Prozess, ein Adressraum.
-3. **Die Engine ist assetfrei.** `sim/` enthält keine Flugmodelle, Missionen, Kampagnen oder Meshes —
-   alles liegt in `mods/`, aufgelöst über `mod.json`. Ein Mod bringt keine `.cpp` **und keine Welt**: die
-   Erde (Gelände, Bewuchs, Infrastruktur, Gebäude) gehört der Engine, der Mod bringt Akteure, Entitäten,
-   benutzbare Objekte und das Szenario. [`doc/mods.md`](doc/mods.md)
+3. **Outshine weiß alles, ein Mod kennt nur, was er kennt.** Die Grenze ist erkenntnistheoretisch, nicht
+   inhaltlich, und damit prüfbar: *braucht dieses Ding Wissen, das kein Teilnehmer haben könnte?* Ja →
+   Engine. Nein → Mod. Die Engine baut und simuliert die Welt (Gelände, OSM, Bewuchs, Infrastruktur,
+   Gebäude, Innenräume) und ist darin allwissend; ein Mod bringt Akteure, Entitäten, benutzbare Objekte
+   und das Szenario — jeder mit seiner beschränkten Sicht. Dieselbe Grenze wie `FBUnitRegistry` gegen die
+   Module, eine Ebene höher. Folge: `sim/` enthält keine Flugmodelle, Missionen, Kampagnen oder Meshes,
+   alles liegt in `mods/` über `mod.json`. Ein Mod bringt **keine `.cpp` und keine Welt**; Shader für das
+   Aussehen der eigenen Entitäten sind erlaubt, denn Aussehen ist kein Wissen.
+   [`doc/mods.md`](doc/mods.md)
 4. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,
    :8080, Web-Host). Alles andere ist Client.
 5. **Sim läuft so schnell wie sinnvoll.** Die Mathematik ist deterministisch. Gibt das Tempo das

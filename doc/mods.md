@@ -90,10 +90,17 @@ to the engine is a campaign that measured a hole — and the hole is worth more 
 
 Every declarative engine hits the same wall: a scenario eventually wants *behaviour* that is not a
 number. The industry answer is an embedded script language — Lua, GDScript, Papyrus. **This tree does not
-take it**, and the reason is not taste: a script language is a second execution surface that can reach
-into state, which is exactly what this tree has spent its structure forbidding (`FBFdm`'s private loading
-ctor, `FBSystemHealth`'s monotone health, the six files that may see the unit registry). A mod with a
-script is a mod that can cheat.
+take it**, and the reason is not the one an earlier revision gave. It is *not* that code could cheat —
+the guards are type-level, not location-level: `FBFdm`'s private ctor names one friend and a mod cannot
+add itself to that list. The real reasons are two. **Deployment:** data is generatable without a
+compiler, cannot crash the engine, and does not force a WASM rebuild. **Genericity:** a mod that ships
+its own rotorcraft physics proves the engine is a framework, not a motor — a helicopter must be a
+*declaration* (segments, joints, force sources), never a class. So a mod that would need `.cpp` is a
+signal that **the engine lacks a capability**, which is exactly the undeclarables list in §2.
+
+Shaders are the exception that proves it: a shader sees only its declared bindings, cannot link, cannot
+call, cannot reach the registry — the same structural bound as the LLM's tool schema. A mod may ship
+shaders for the appearance of its own entities, because appearance is not knowledge.
 
 **The escape hatch is a function-calling surface, and it is a surface that already exists.** The owner's
 module rule — *„`FBModule` muss dumm sein. Wer davon erbt, sagt, was er kann"* — produces a declaration
@@ -507,6 +514,7 @@ Consequences:
 | Contract | Anchor |
 |---|---|
 | No engine code per title | `mods/*` contains zero `.cpp`/`.h`; checked by a tool, not by intent |
+| A mod knows only what it perceives | *„Outshine ist Gott und weiß alles. In den `mods/` ist, was nur kennt, was es kennt."* — owner, 2026-08-05. The engine builds and simulates the world and is omniscient in it; a mod is a participant. Same boundary as `FBUnitRegistry` against the modules, one level up |
 | A mod adds no world | Earth — terrain, infrastructure, buildings — belongs to the engine ([`persistent-world.md`](persistent-world.md) §5.1). A mod adds actors, entities, usable objects and a scenario |
 | A mod asks, it does not instruct | no mod names an LOD, a triangle budget or a draw call. It declares what exists and what matters; the engine holds 720p30 and spends the rest on quality ([`render/visual-target.md`](render/visual-target.md) §1.1) |
 | A mod is a test | every mission runs headless in `fb-gym` with a verdict, and byte-identically over thread counts |
