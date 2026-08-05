@@ -16,6 +16,13 @@ namespace FlightBox::Missions {
 struct FBMod {
   std::string Dir, Id, Name;
   std::string Aircraft, Models, Missions, Campaigns, Data;   /* resolved against Dir */
+  /* The scenario's cast of catalogue airframes, as ONE declaration file rather than a directory — what
+   * the engine used to hold as a table in core/ (doc/mods.md §3, CLAUDE.md Prinzip 3). */
+  std::string Catalogue;
+  /* THIS TITLE'S BAKED DEM under Data, or empty. Never resolved through `depends`, unlike the roots
+   * above: a theatre's ground is the one asset a sibling's cannot stand in for, and borrowing it
+   * silently is how a Swiss island ends up answering 0 m over northern Thailand. */
+  std::string Dem;
   /* MODULE REGISTRY KEYS that ship a mesh under Models — `<key>.asset.json` plus the `.glb` levels it
    * names (render/FBUnitModel.h). A key and not a filename, because the key is what a unit publishes
    * as its visual type; a client that hard-coded one could only ever draw one mod's airframes. */
@@ -27,7 +34,7 @@ struct FBMod {
   std::string Sandbox;          /* module registry key a client's no-mission sandbox spawns */
   std::string DefaultMission;   /* what a client flies when the player named none */
 
-  FBModelRoots Roots() const { return FBModelRoots{Aircraft, Data}; }
+  FBModelRoots Roots() const { return FBModelRoots{Aircraft, Data, Catalogue}; }
   /* A `.fbm`/`.fbc` suffix means the caller brought a PATH; anything else is a name in the mod. The
    * rule is a suffix and not a stat() so the same argument resolves the same way on every machine. */
   std::string Mission(const std::string &nameOrPath) const;

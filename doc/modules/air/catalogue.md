@@ -1,6 +1,7 @@
 # The catalogue aircraft — eighteen rows
 
-**Subject:** the **real** aircraft behind `kAircraftCatalogue`. One row per `FBModuleRegistry` key, each
+**Subject:** the **real** aircraft behind the scenario's catalogue manifest
+(`mods/f16/src/catalogue.fba`). One row per `FBModuleRegistry` key, each
 with the five quantities that decide a mission — **acquisition range and time · weapon envelope ·
 whether the weapon binds the shooter · warning receiver and countermeasures · the flight-performance
 anchor set** — and nothing else.
@@ -9,8 +10,8 @@ anchor set** — and nothing else.
 tiers and the anti-cheat argument are [`module.md`](module.md); the procedure that turns the
 performance anchors into a JSBSim deck is [`flight-model-recipe.md`](flight-model-recipe.md).
 
-**Status: BUILT 2026-07-28, ARMED 2026-07-29.** All eighteen rows exist as `core/FBAircraft.h` entries
-and `FBModuleRegistry` keys, ten decks and seven rounds are generated, and eight `.fbm` files fly them.
+**Status: BUILT 2026-07-28, ARMED 2026-07-29, MOVED INTO THE MOD 2026-08-05.** All eighteen rows exist
+as `mods/f16/src/catalogue.fba` declarations and `FBModuleRegistry` keys, ten decks and seven rounds are generated, and eight `.fbm` files fly them.
 **Ten rows now carry a fire control** and can employ what they declare — see "What each row's fire
 control can actually do" below, which also names the four armed rows that still cannot.
 **Four deck rows are `ACCEPTED` and may answer a campaign question — `f15c` · `mig21` · `mirf1` ·

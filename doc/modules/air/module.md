@@ -32,7 +32,7 @@ rows' home is now here, and `cast.md` points at it.
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| A catalogue aircraft is **one class with N catalogue rows**, never N classes | `modules/air/FBAirModule` + `core/FBAircraft.h`'s `kAircraftCatalogue`; the registration file walks the catalogue exactly as `FBSiteModuleRegistration` walks `kSiteCatalogue` and `FBStoreModuleRegistration` walks `kStoreCatalogue`. A second C++ airframe class in this directory is a defect, not a precedent |
+| A catalogue aircraft is **one class with N catalogue rows**, never N classes | `modules/air/FBAirModule` + the rows a mod declares (`mods/<title>/src/catalogue.fba`), handed to `FBAirModuleRegistration.cpp` as one `core/FBAircraftCatalogue`. A second C++ airframe class in this directory is a defect, not a precedent |
 | A row **flies on JSBSim** iff its own manoeuvre decides an outcome **and** its envelope is published; otherwise it moves kinematically | the two-part test of §Spec 4, applied per row in [`catalogue.md`](catalogue.md)'s `Motion` column. Nine rows get a deck, nine get a mover, and no row gets both |
 | A deck is **generated from ONE recipe against published anchors**, never hand-built | [`flight-model-recipe.md`](flight-model-recipe.md): eight anchors per row, closed-form inversion, one turbojet and one turbofan thrust analogy, deviation bands **derived from the one existing generated deck's measured misses**. `make -C sim test-air <row>` measures every anchor a row has |
 | The pilot is **staffled by row**, and a tier is a declared TASK SET — not a class | §Spec 5. `FBAirPilot : pilot/FBPilot` adds exactly two states (`Orbit`, `Drag`) for the two lowest tiers and otherwise only fills hooks. A tier a row's own MEASURED hooks cannot support is refused at boot, not flown badly |
@@ -124,7 +124,9 @@ modules/air/FBAirModule                : FBModule            (rank 8)
   ├─ systems/FBFlightControl                  (rank 6)   the MiG-29's RAW-airframe path, per-row preset
   ├─ weapons/FBStoresSystem                   (rank 5)   used, not derived
   └─ weapons/FBGunSystem                      (rank 5)   used, not derived
-core/FBAircraft.h                             (rank 1)   the catalogue: one row per registry key
+core/FBAircraft.h                             (rank 1)   the SCHEMA: what a row has, never which rows
+core/FBAircraftCatalogue.h                    (rank 1)   the rows themselves, owned, filled by a mod
+missions/FBCatalogueBoot.h                    (rank 9)   the one door from a mod's manifest into them
 sensors/FBNetLinkSystem : FBDatalinkSystem    (rank 4)   the controller feed — §Spec 7, the one new slot
 ```
 
@@ -136,7 +138,7 @@ sensors/FBNetLinkSystem : FBDatalinkSystem    (rank 4)   the controller feed —
 | `modules/ground/` beside `FBSiteModule` | **rejected.** That directory means *ground unit*; the class there has no FDM by design and its whole §Spec 1 rests on that |
 | `units/` | **rejected** for the same reason the site was: `units/` is rank 3, below `sensors/`, and a class there could never hold a radar |
 | **`modules/air/`** | **chosen.** It is resolved by `FBModuleRegistry` from a `.fbm` `module` line, which is what a module *is* mechanically; it is the symmetric counterpart of `modules/ground/`; and `modules/missile/` is the precedent of a module whose slots are sensor/pilot derivations |
-| `core/FBAircraft.h` for the catalogue | **chosen**, beside `core/FBSite.h`, `core/FBStore.h` and `core/FBGun.h`, for the same reason those are there |
+| `core/FBAircraft.h` for the catalogue | **superseded 2026-08-05.** The SCHEMA stays there beside `core/FBSite.h`, `core/FBStore.h` and `core/FBGun.h`; the ROWS are a scenario's statement and moved into the mod (`doc/mods.md` §3, CLAUDE.md Prinzip 3) |
 
 The documentation mirrors that: `sim/src/modules/air/` → `doc/modules/air/`.
 
@@ -288,7 +290,7 @@ the same reason: nothing else about it has a behaviour to lose.
 
 ### 9. Mission grammar
 
-**Module keys** — one per catalogue row, registered by walking `kAircraftCatalogue`:
+**Module keys** — one per catalogue row of `mods/f16/src/catalogue.fba`, registered by walking it:
 `e3` · `e2c` · `f15c` · `mig21` · `mig23` · `mig25` · `mig17` · `su7` · `su22` · `su27` · `mirf1` ·
 `f5e` · `kc135` · `tu95` · `an26` · `ef111` · `mi8` · `ah64`.
 
@@ -429,7 +431,8 @@ fire-control computer at all, which is the tier statement of §Spec 5 made check
 **BUILT 2026-07-28.** `sim/src/modules/air/` holds one class and its three helpers —
 `FBAirModule.h/.cpp` (the aircraft), `FBAirPilot.h/.cpp` (two states plus the row's hooks),
 `FBAirMover.h/.cpp` (the kinematic half), `FBAirRadar.h` (one parametric set) and
-`FBAirModuleRegistration.cpp` (walks the catalogue). `core/FBAircraft.h` carries the eighteen rows;
+`FBAirModuleRegistration.cpp` (walks the catalogue it is handed). `core/FBAircraft.h` carries the row
+SCHEMA and `mods/f16/src/catalogue.fba` the eighteen rows themselves;
 `core/FBStore.h` seven new rounds, `core/FBGun.h` six new guns. `sensors/FBNetLinkSystem.h` is the one
 new slot. Ten JSBSim decks and seven missile decks under `mods/f16/src/aircraft/`, all GENERATED by
 `tools/gen_air_decks.py` / `tools/gen_air_stores.py` and re-checkable byte for byte (`--check`).

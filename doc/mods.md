@@ -554,7 +554,7 @@ scenario: 127 model files (`src/aircraft/`, incl. `MODEL-DELTAS.md`), the mesh r
 415 `.fbm` (`src/missions/`, 296 of them in the regression glob), 12 `.fbc` (`src/campaigns/`) and the
 two baked blobs a mission names (`src/data/`). `sim/assets/` and `sim/missions/` are gone.
 
-**The loader is the smallest one that carries.** `mods/f16/mod.json` names five roots plus three names
+**The loader is the smallest one that carries.** `mods/f16/mod.json` names six roots plus three names
 (`meshes`, `sandbox`, `default_mission`); three readers resolve them and no path exists twice:
 `sim/src/missions/FBMod.h` (C++ — clients, harnesses), `sim/tools/fb_mod.py` (the tool tree) and the
 `sed` calls in `sim/Makefile` (the WASM preload and the `web/` copy). `fb-gym --mission payerne-full` is
@@ -586,13 +586,33 @@ rule would report 78 holes in `mods/f16/src/aircraft/**` that nobody wants fille
 **The engine is asset-free but not TYPE-free, and that is now a number.** `make -C sim verify-types`
 (`sim/tools/verify_types.py`, rc=1 on purpose until it reaches 0) counts every mention of a named
 aircraft type under `sim/src/` and breaks it down by how expensive the mention is to remove: today
-**1 324 mentions of 21 types in 117 of 335 files** — 48 `dir` (two module trees), 480 `symbol`,
-35 `key`, 76 `text`, 27 `value` (a type's number in generic code, a curated table because no regex can
-see a number that does not spell its type) and 658 `comment`. Ordnance and ground types are a separate
-inventory and printed on their own line (102), not folded in. The three costliest are
-`sim/src/modules/f16/` + `sim/src/modules/mig29/` (48 files of engine C++ about two aeroplanes),
-`sim/src/core/FBAircraft.h` (18 catalogue airframes with published numbers, 150 mentions) and the 27
-`value` sites, which are the only class with nowhere to move to.
+**1 127 mentions of 11 types in 114 of 339 files** — 48 `dir` (two module trees), 434 `symbol`,
+7 `key`, 51 `text`, 6 `value` (a type's number in generic code, a curated table because no regex can
+see a number that does not spell its type) and 581 `comment`. Ordnance and ground types are a separate
+inventory and printed on their own line, not folded in. What is left is two costs: the two module trees
+(`sim/src/modules/f16/` + `sim/src/modules/mig29/`, 48 files of engine C++ about two aeroplanes) and the
+6 `value` sites, which are the only class with nowhere to move to.
+
+**The cast moved out, and `core/` kept the shape.** `core/FBAircraft.h` was the densest type file in the
+tree (18 airframes, 148 mentions); it now declares only WHAT a flown airframe has and names none. The
+rows are `mods/f16/src/catalogue.fba`, a sixth manifest root (`"catalogue"`, a FILE and not a
+directory — one declaration), read once at boot by `missions/FBCatalogueBoot.h` into
+`core/FBAircraftCatalogue`, which the caller MOVES into `Modules::FBRegisterAirModules`. Three
+consequences beyond the count:
+
+* **A module cannot enumerate the cast.** There is no global catalogue and no find-by-name any more; a
+  factory hands its `FBAirModule` ONE row, so no catalogue aircraft can learn what else exists —
+  Prinzip 3 held inward, in the type system rather than in a comment.
+* **The damage-zone macros are gone, not moved.** A layout was `FB_AIR_ZONES(Mig21, 14.7)` — keyed by
+  type name — and is now DERIVED from the row's declared span and length by `FBAircraftCatalogue::Add`.
+  The fragility ladder and the four zones' system content stay in the engine because they are shared by
+  every row: a ladder per row would express a difference nobody measured. `FBSystemHealth` is untouched
+  and keeps its single friend — a layout is inert data that no mutator ever sees.
+* **What did NOT move, and why:** the ladder's provenance comment still names
+  `modules/f16/FBF16Damage.cpp` and `modules/mig29/FBMig29Damage.cpp` (4 of the file's mentions, counted
+  as `comment`). Those numbers are a verbatim copy of the two flown modules' tables, and a copy whose
+  source is unnamed is drift waiting to happen — CLAUDE.md's "jede Zahl trägt ihre Herkunft" outranks
+  the counter.
 
 **§2.1's premise is**: the per-unit declaration list exists as runtime data
 (`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the

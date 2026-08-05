@@ -18,6 +18,9 @@ struct FBModelRoots {
   /* Everything else this client can load from disk by NAME — today the baked weather fixture a mission's
    * `wx fixture` line names. Empty = this client has no filesystem to resolve one against (the browser). */
   std::string Assets;
+  /* The scenario's AIRCRAFT CATALOGUE — the rows the engine does not own (FBCatalogueBoot.h). A path
+   * and not a directory: it is one declaration, and the manifest names it whole. */
+  std::string Catalogue;
 };
 
 } // namespace FlightBox::Missions

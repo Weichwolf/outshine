@@ -19,6 +19,7 @@
 #include "FBForcePicture.h"
 #include "FBTacticalOrder.h"
 #include "FBMissionSim.h"
+#include "FBCatalogueBoot.h"
 #include "FBMod.h"
 #include "FBOrdnance.h"
 #include "FBWorld.h"
@@ -760,7 +761,7 @@ int main() {
     FBLog::Error("gpu", "mod_load_failed", {{"mod", modId}, {"reason", moderr}});
     return 1;
   }
-  gModelRoots = Missions::FBModelRoots{gMod.Aircraft, ""};
+  gModelRoots = Missions::FBModelRoots{gMod.Aircraft, "", gMod.Catalogue};
   gOrdnance = std::make_unique<Missions::FBOrdnance>(gModelRoots);
   {
     std::string name = JsName("(window.FB_MISSION||new URLSearchParams(location.search).get('mission')||'').toString()");
@@ -771,6 +772,17 @@ int main() {
       {"models", gMod.Models}, {"mission", gMissionUrl}});
 
   Modules::FBRegisterBuiltinModules();
+  {
+    /* The scenario's own airframes, out of the preloaded mount like its aircraft and meshes. A mod
+       whose catalogue will not read stops the boot here rather than failing to spawn a unit later. */
+    FBAircraftCatalogue catalogue;
+    std::string caterr;
+    if (!Missions::FBLoadAircraftCatalogue(gModelRoots.Catalogue, catalogue, &caterr)) {
+      FBLog::Error("gpu", "catalogue_load_failed", {{"mod", gMod.Id}, {"reason", caterr}});
+      return 1;
+    }
+    Modules::FBRegisterAirModules(std::move(catalogue));
+  }
 
   /* Still air is what the session STARTS in, whatever it ends up flying: the fetch below is in flight
    * while the first frames already run, and a null provider would be a branch in the tick path. */

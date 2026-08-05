@@ -6,6 +6,8 @@
   "missions": "src/missions",
   "campaigns": "src/campaigns",
   "data": "src/data",
+  "catalogue": "src/catalogue.fba",
+  "dem": "swiss-dem-90m.bin",
   "meshes": "f16",
   "sandbox": "f16",
   "default_mission": "payerne-full"

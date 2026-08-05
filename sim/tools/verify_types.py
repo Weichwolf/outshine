@@ -37,10 +37,11 @@ an F-16 number. So `value` is a curated list with a reason per entry, exactly li
 PERCEPTION_READERS, and each entry is CHECKED to still resolve: a stale one fails the run. It is
 counted once per DECLARATION, because a declaration is the unit of repair.
 
-A CATALOGUE ROW IS NOT A `value`. core/FBAircraft.h holds eighteen airframes with their published
-numbers, and those numbers are already in a table -- their remedy is `key`/`text` (move the table into
-the mod manifest), not "extract a parameter". `value` is reserved for a type's number with NO table to
-move: hidden in a controller, a sensor, a pilot hook, a core constant.
+A CATALOGUE ROW IS NOT A `value`, which is why the catalogue could leave without touching this table:
+its numbers were already IN a table, so their remedy was `key`/`text` (move the table into the mod
+manifest, done -- mods/<title>/src/catalogue.fba) and never "extract a parameter". `value` is reserved
+for a type's number with NO table to move: hidden in a controller, a sensor, a pilot hook, a core
+constant.
 
 Sibling of verify-layers rather than part of it, on purpose. verify-layers asserts a structure that
 must hold and is therefore GREEN; this one measures a debt that is large and is therefore RED. Folding
@@ -71,9 +72,8 @@ AIRFRAMES = {
     "mirf1": [r"Mirage", r"\bMirf1\b", r"\bmirf1\b"],
     "f5e":   [r"F-5E", r"Tiger II", r"\bF5e\b", r"\bf5e\b"],
     # `E3` alone is an ENU basis vector in clients/FBAppNative.cpp (double E3[3]), so the bare capital
-    # form is matched only where the catalogue actually writes it: as a spec name or a macro argument.
-    "e3":    [r"E-3\b", r"\bSentry\b", r"\bkE3\b", r"(?<=_ZONES\()E3\b", r"(?<=_LAYOUT\()E3\b",
-              r"\be3\b"],
+    # form is matched only where a row would actually write it, never on its own.
+    "e3":    [r"E-3\b", r"\bSentry\b", r"\bkE3\b", r"\be3\b"],
     "e2c":   [r"E-2C", r"[Hh]awkeye", r"\bE2c\b", r"\be2c\b"],
     "kc135": [r"KC-135", r"Stratotanker", r"\bKc135\b", r"\bkc135\b"],
     "tu95":  [r"Tu-95", r"\bTu95\b", r"\btu95\b"],

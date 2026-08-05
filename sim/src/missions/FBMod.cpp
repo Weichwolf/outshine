@@ -39,10 +39,10 @@ bool Dir(const std::string &text, const std::string &root, const char *key, std:
   return true;
 }
 
-const char *const kRootKeys[] = {"aircraft", "models", "missions", "campaigns", "data"};
+const char *const kRootKeys[] = {"aircraft", "models", "missions", "campaigns", "data", "catalogue"};
 
 std::string *RootSlot(FBMod &m, size_t i) {
-  std::string *slots[] = {&m.Aircraft, &m.Models, &m.Missions, &m.Campaigns, &m.Data};
+  std::string *slots[] = {&m.Aircraft, &m.Models, &m.Missions, &m.Campaigns, &m.Data, &m.Catalogue};
   return slots[i];
 }
 
@@ -64,6 +64,7 @@ bool Manifest(const std::string &dir, const std::string &root, FBMod &out, std::
   Words(text, "depends", out.Depends);
   for (size_t i = 0; i < sizeof(kRootKeys) / sizeof(*kRootKeys); ++i)
     Dir(text, root, kRootKeys[i], *RootSlot(out, i));
+  Field(text, "dem", out.Dem);   /* still the bare filename here; Data may only arrive from `depends` */
   return true;
 }
 
@@ -101,6 +102,7 @@ bool FBLoadMod(const std::string &dir, const std::string &root, FBMod &out, std:
       return false;
     }
   }
+  if (!out.Dem.empty()) out.Dem = out.Data + "/" + out.Dem;
   return true;
 }
 

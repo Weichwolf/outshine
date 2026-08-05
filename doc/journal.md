@@ -4514,3 +4514,130 @@ dass es ein Umzug war) · `verify-layers` 6 Wahrnehmungs-Leser · `verify-guards
 Delta · `verify-trees` 20+3 · `gym`/`native`/`wasm` bauen. `verify-types`: `value` 27 → 6, `symbol`
 480 → 474 (die zwei Konstanten heißen jetzt neutral), `comment` 658 → 632 (generische Deklarationen
 zitieren keine Muster mehr; die Aussagen stehen in den Moduldateien), `dir`/`key`/`text` unverändert.
+
+## 2026-08-05 — Die F-22-Kampagne bekommt echten Boden: drei Urteile kippen, und maskiert wird nichts
+
+Acht Sorties flogen über einer 0-m-Ebene, also war **jede** Erfassungsreichweite eine Obergrenze und
+jedes Ergebnis unbelastbar. Jetzt liegt unter `mods/f22/` ein gebackenes DEM der Kampagnenbox, und die
+acht Missionen sind zweimal neu geflogen: einmal unverändert (nur der Boden wechselt), einmal mit den
+Höhen, die echter Boden erzwingt.
+
+**Das Raster.** `mods/f22/src/data/mekong-dem-90m.bin`, 17,90–21,70 N / 98,85–102,35 E, 4 076 × 4 675,
+38,11 MB — nicht eingecheckt, `doc/assets.md` §0. Die Box ist NICHT `terrain.md` §4: die CAP-Punkte der
+Sorties liegen außerhalb, bis 21,506 N / 102,156 E, und außerhalb einer gebackenen Box antwortet
+`FBBakedDemElevation` 0 m. Quelle ist Zoom 13 = 18,0 m/px, dasselbe `FB_DEM_Z`, das `tiles/src/elev.c`
+selbst abtastet — die gebackene Fläche IST also die Fläche von `--elev tiles`, und die einzige
+verbliebene Differenz ist das 90-m-Gitter: **Bias +0,28 m, rms 3,96 m, max 15,74 m** über 400
+Innenpunkte gegen `/elev`. Unabhängige Probe auf die Verankerung: **208,34 m** an VTCN gegen
+veröffentlichte 209 m. Kein Randabfall — das ist keine Insel; ein 15-km-Auslauf hätte genau dort eine
+Klippe erfunden, wo 1.7 und 1.8 die Nordkante queren. Höhen in der Box **97–2 547 m**, unter den
+Sorties 271–1 485 m; die Quellenangabe „300–2 000 m" war an beiden Enden zu eng.
+
+`tools/bake_swiss_dem.py` ist zu `tools/bake_dem.py` mit einer Regionstabelle geworden, banddweise
+resampelnd (ein ganzes z13-Mosaik der Box wären 4,1 GB auf einem 8,6-GB-Host). **Beweis, dass das eine
+Verallgemeinerung und kein Umbau war: die Schweiz backt byte-gleich neu**, sha256
+`1bf3dbbd…deaa39`. Genau darum trägt die `swiss`-Zeile weiter die flachen 111 320 m/° auf beiden Achsen
+— der geodätisch richtige Meridian würde 3836x2462 zu 3836x2459 machen und alle 296 f16-Ergebnisse
+bewegen. `mod.json` bekommt `"dem"`, `--elev swiss` heißt jetzt `--elev baked` (`swiss` bleibt
+angenommen, siebzehn eingecheckte `.fbm`/`.fbc`-Köpfe zitieren es neben einer Messung), `--swiss-dem`
+heißt `--dem`, der Umgebungsschlüssel `swiss_dem` heißt `dem`.
+
+**Die Messung, acht Zeilen** (Exit-Codes; flach → echt → repariert):
+1.1 3→3→3 · 1.2 3→3→3 · **1.3 1→2→1** · 1.4 0→0→0 · **1.5 1→2→1** · 1.6 3→3→3 · **1.7 1→3→3** ·
+**1.8 1→3→3**. Determinismus `--threads 1/2/4` bytegleich.
+
+**Maskiert Gelände irgendetwas? Nein — und die eine Ausnahme ist keine.** Genau ein Sensor im Baum
+tastet Gelände ab, `sensors/FBGroundMap`, der Kartier-Modus des Feuerleitradars, samt Streifwinkel und
+geometrischer Abschattung hinter jedem Kamm; er schreibt ein BILD (`FBGroundMapBlock` → MFD), nie eine
+Erfassung, und keine der acht Sorties wählt `fcr_mode gm`. Kein Luft-Luft-Modus, kein IRST, kein Auge
+und kein RWR trägt überhaupt einen Geländeterm. 1.1, 1.4 und 1.6 fliegen über echtem
+Boden und über der alten Ebene **byte-gleich** — jede Erfassung, jeder Abschuss, jeder Fehlabstand auf
+die Ziffer; 1.6 sogar über alle neun Akteure die ganze Telemetrie. Bewegt hat sich allein, wann ein
+Wrack den Boden erreicht. Gelände erreicht diese Sorties durch genau vier Türen: CFIT von Flugzeug,
+Flugkörper und Bombe · die Abschuss-HÖHE einer Bodenstellung · AGL-getriebenes Pilotenverhalten · den
+AGL-Funkhorizont des Datenlinks (Tür vier bleibt theoretisch: **null** `horizon`-Ereignisse in beiden
+Läufen). **Jede Erfassungsreichweite der Kampagne bleibt eine Obergrenze — der
+Grund ist ab heute eine benannte Engine-Lücke und kein fehlendes Asset.**
+
+**Was die Ebene verdeckt hatte, in Zahlen.**
+- **1.7s Schlagzeile war ein Ebenen-Artefakt.** „Die SA-2 tötet den Angriff 12,1 km vor der Rampe"
+  überlebt echten Boden nicht: dieselbe Batterie, dieselben sechs Schuss, dieselben Sekunden, kein
+  Treffer. Ursache: die Stellung steht 395 m höher, Startreichweiten 48–86 m kürzer, und der tödliche
+  Schuss wandert von Nr. 4 mit 8,20 m auf Nr. 5 mit **11,80 m**. **Die Marge ist 3,6 m** — der
+  Ebenen-Abschuss lag schon auf der Kippe. `s7two` legt danach eine Mk84 auf einen geparkten EF2000.
+- **Die CCRP-Aufschlagebene ist der Boden am ABWURFPUNKT, nicht am Ziel.** `FBF16Module.cpp` reicht
+  `SetSteerpoint(…, GroundAslM)` — die Stichprobe unter dem Flugzeug — in
+  `FBF16FireControl::SolveGroundAttack`. Über 0 m sind beide per Konstruktion gleich, der Fehler exakt
+  null, unsichtbar. In 1.8: Ebene 511,9 m gegen Ziel 834,4 m = **+322,5 m**, beide Mk84 fallen **215 m
+  zu kurz**, `s8cmd` überlebt — während der Rechner `aimMissM` 65,3 m meldete. In 1.2 kostet derselbe
+  Mechanismus 28 m und wird geschluckt.
+- **Zwei von acht Tiefflugprofilen waren über ihrem eigenen Boden unfliegbar.** 1.3 CFIT bei t = 63,1 s
+  in eine 967-m-Schulter, 1.5 STRUCTURE_CONTACT bei t = 7,4 s aus einem 44-m-AGL-Spawn.
+- **FOB Tyler ist eine 741,9-m-Kuppe.** Nichts an der Rekonstruktion hat das gewählt.
+
+**Die Reparatur ist Höhe, nicht Geometrie.** Die 900 m der Dateien waren 900 m AGL über einer Ebene,
+die es nicht gibt; sie werden pro Bein neu ausgedrückt als Korridor-Maximum (45 m Abtastung, ±1 km
+quer) + dieselben 900 m, aufgerundet auf 50 m: 1.3 auf 1 900 / 2 050 m, 1.5 auf 1 850 / 1 500 m. Kein
+`.ORF`-Koordinatenpaar hat sich bewegt. Ergebnis: 1.3 legt jetzt EINEN Bogen (flach: keinen) und
+verliert dafür den Führer statt des Rottenfliegers; 1.5 zerstört beide Boote wieder und verliert den
+Eskortenführer bei exakt derselben Sekunde und demselben Fehlabstand wie über der Ebene (t = 91,7 s,
+4,5826 m) — weil der Eskortenkampf auf 5 000 m stattfindet und Gelände ihn nicht erreicht.
+
+**Drei Missionen scheitern anders als vorher, zwei davon härter als das flache Ergebnis las.** Das ist
+das erwünschte Ergebnis: die Ebene hat geschmeichelt, und zwar messbar auf 3,6 m genau.
+
+**Tore:** 296 f16-Missionen bytegleich gegen ein isoliertes Vorher-Binary (nur `wallS`/`speedup`/Pfade
+normalisiert, wie `fb_regress.sh` es tut) · f22 `--threads 1/2/4` bytegleich · `test-air` **weiterhin
+5**, dieselben fünf Zeilen · `verify-layers` 6 · `verify-guards` 8/8 · `verify-models` 1 Delta ·
+`verify-trees` 20+3 · `gym`/`native`/`wasm` bauen · Schweiz-DEM byte-gleich neu gebacken.
+
+### 2026-08-05 — Der Katalog wird ein Manifest im Mod: `core/` behält die Form, nicht die Besetzung
+
+`core/FBAircraft.h` war die typdichteste Datei des Baums — **148 Nennungen, achtzehn Flugwerke** — und lag
+ausgerechnet in der Schicht, die den Anti-Cheat verankert. Prinzip 3 sagt, die Engine dürfe nicht wissen,
+was eine F-16 ist; sie wusste es von achtzehn.
+
+**Geteilt statt verschoben.** `core/FBAircraft.h` erklärt jetzt nur noch, WAS ein Flugwerk hat (Tier,
+Radar-, Perf-, Mover-Block, `FBAircraftSpec`) und nennt kein einziges Muster. WELCHE es gibt, steht in
+`mods/f16/src/catalogue.fba` — 482 Zeilen, 18 Rows, sechste Manifestwurzel `"catalogue"` (eine DATEI, kein
+Verzeichnis: es ist EINE Deklaration). Der neue Behälter `core/FBAircraftCatalogue` besitzt die Zeilen;
+`missions/FBCatalogueBoot` ist die einzige Tür von der Datei dorthin.
+
+**Wer lädt, und wann.** Der Missionslauf, Schritt 2, VOR dem Step-Pool; danach sind die Zeilen konstant.
+Kein Lazy-Load, kein Laden je Thread — die Reihenfolge, in der zwei Threads eine Zeile zuerst berühren,
+darf im Ergebnis nicht sichtbar werden (Prinzip 4). Der Aufrufer MOVED den Katalog in
+`FBRegisterAirModules`, weil eine Fabrik in einer prozesslangen Registry keine lokale Variable borgen
+kann; angehängt, nie ersetzt, sonst zeigt ein früher erzeugtes Modul ins Freie.
+
+**Wer darf ihn sehen: niemand.** Es gibt keine globale Instanz und kein `FBFindAircraft` mehr. Die
+Registrierungsdatei ist die EINZIGE Stelle, an der ein ganzer Katalog sichtbar ist; eine Fabrik gibt
+ihrem `FBAirModule` GENAU EINE Zeile. Ein Katalogflugzeug kann nicht mehr erfahren, was sonst existiert —
+Prinzip 3 nach innen, im Typsystem statt im Kommentar.
+
+**Die Schadenszonen-Makros sind weg, nicht umgezogen.** `FB_AIR_ZONES(Mig21, 14.7)` schlüsselte nach
+Typnamen; das Layout wird jetzt aus der deklarierten Spannweite und Länge der Zeile ABGELEITET
+(`FBAircraftCatalogue::Add`, dieselben Faktoren, dieselbe Klammerung — bitgleich nachgemessen).
+Fragilitätsleiter und Zoneninhalt bleiben in der Engine, weil sie alle Zeilen teilen: eine Leiter je Row
+behauptete einen Unterschied, den niemand gemessen hat. `FBSystemHealth` bleibt unberührt, ein Friend,
+Monotonie unverändert — ein Layout ist inerte Daten, die kein Mutator je sieht.
+
+**Was NICHT wandern konnte:** die Herkunftszeile der Leiter nennt weiter
+`modules/f16/FBF16Damage.cpp` und `modules/mig29/FBMig29Damage.cpp` (4 der Nennungen, Klasse `comment`).
+Die Zahlen sind wörtliche Kopien der beiden geflogenen Moduldateien, und eine Kopie ohne genannte Quelle
+ist Drift auf Abruf — „jede Zahl trägt ihre Herkunft" schlägt den Zähler.
+
+**Tore:** **296 Missionen bytegleich** (`diff -r` über beide Snapshots leer, Exit-Codes identisch) ·
+`payerne-full --threads 1/2/4` = `6e24090b7e861aa7` · `fb-gym --caps` **1065 Zeilen identisch** (die 18
+Katalogmodule kommen jetzt aus dem Manifest; `--caps` wird nach dem Mod-Laden ausgewertet) · f22-Kampagne
+8 Missionen, Urteile identisch (bei gleicher Höhenquelle — der DEM-Umbau der Parallelrunde ändert sie,
+diese Runde nicht) · `test-air` 5 außerhalb, dieselben fünf · `test-corner` 380 / 16,1805 · zehn
+Harnesses rc=0 · `verify-layers` **6 Wahrnehmungs-Leser**, unverändert · `verify-guards` 8/8 ·
+`verify-models` grün · `verify-trees` 23 Waisen, unverändert · `gym`/`native`/`wasm` bauen, `catalogue.fba`
+liegt im `gpu.data`. `verify-types`: **1271 → 1127**, `key` 35 → 7, `text` 76 → 51, `symbol` 474 → 434,
+`comment` 632 → 581, `value` **6 unverändert**, `dir` 48 unverändert.
+
+**Belege außer den Toren:** achtzehn Zeilen feldweise auf `%.17g` gegen die alte `constexpr`-Tabelle
+verglichen (inkl. abgeleiteter Zonen und Flächen) — kein Bit anders; sieben Negativproben des Parsers
+(unbekanntes Feld, unbekannter Tier/Gun, kaputte Zahl, fehlende Spannweite, Feld ohne Block, doppelter
+Key, fehlende Datei) melden Datei und Zeilennummer, ein fehlender Katalog beendet den Lauf mit
+`RESULT result=FAIL`.

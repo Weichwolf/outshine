@@ -6,7 +6,8 @@
 > error. Form per [`doc/mods.md`](../../../doc/mods.md) §3. A mod has no `test/`: the missions are the
 > test.
 >
-> Sources for the module rows: `sim/src/core/FBAircraft.h` (`kAircraftCatalogue`, 20 rows),
+> Sources for the module rows: `mods/f16/src/catalogue.fba` (18 catalogue rows, borrowed through
+> `depends`; the engine holds only their schema in `sim/src/core/FBAircraft.h`),
 > `sim/src/core/FBSite.h` (`kSiteCatalogue`, 9 rows), `sim/src/modules/ground/FBGroundTarget.h`
 > (2 rows), `sim/src/core/FBStore.h`. Provenance tags as in `campaign.md`.
 

@@ -1,4 +1,5 @@
 #include "FBMissionRunner.h"
+#include "FBCatalogueBoot.h"
 #include "FBMissionFile.h"
 #include "FBMissionBoot.h"
 #include "FBMissionMonitor.h"
@@ -231,6 +232,20 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
   /* ---- Step 2: set up the world with its actors ----
    * The list's ORDER is the mission file's order and stays the tick order for the whole run. */
   Modules::FBRegisterBuiltinModules();
+  /* The scenario's own airframes, and a DECLARED catalogue that will not load is a FAIL for the same
+   * reason a declared weather fixture is: a run against a cast the mod did not mean is worse than none.
+   * Read HERE, in step 2, and never again: the step pool does not exist yet and the rows are const from
+   * this line on. A lazy or per-thread load would make the order in which two threads first touched a
+   * row visible in the result, which CLAUDE.md Prinzip 4 calls a bug and --threads 1/2/4 would catch. */
+  {
+    FBAircraftCatalogue catalogue;
+    std::string caterr;
+    if (!FBLoadAircraftCatalogue(models.Catalogue, catalogue, &caterr)) {
+      FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", caterr}});
+      return 1;
+    }
+    Modules::FBRegisterAirModules(std::move(catalogue));
+  }
   Units::FBActorList Actors;
   Actors.reserve(mission.Units.size());
   for (size_t i = 0; i < mission.Units.size(); i++) {

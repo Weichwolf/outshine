@@ -134,6 +134,7 @@ fbmeshpre = $(foreach f,$(2).asset.json $(call fbglbs,$(1)/$(call fbfield,$(1),m
               $(call fbpre,$(1),$(call fbfield,$(1),models)/$(f)))
 MOD_PRELOAD := --preload-file web/mods/index.txt@/fb/mods/index.txt \
   $(foreach d,$(MOD_DIRS),$(call fbpre,$(d),mod.json) $(call fbpre,$(d),$(call fbfield,$(d),aircraft)) \
+    $(call fbpre,$(d),$(call fbfield,$(d),catalogue)) \
     $(foreach m,$(call fbfield,$(d),meshes),$(call fbmeshpre,$(d),$(m))))
 
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
@@ -158,6 +159,7 @@ CORE_LIB_SRCS := \
   src/core/FBFlightMonitor.cpp src/core/FBForcePicture.cpp \
   src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
   src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
+  src/core/FBAircraftCatalogue.cpp \
   src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
@@ -193,7 +195,8 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
-  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp
+  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp \
+  src/missions/FBCatalogueBoot.cpp
 
 .PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-types verify-trees verify-tests verify-guards image up down restart clean
 

@@ -1,12 +1,13 @@
 /* fb-gym: the headless mission client — mission in, telemetry out. Links the core library and the
  * shared mission loop, and critically carries NO Dawn/WebGPU symbol at all (the Makefile target's own
- * nm check enforces it). --elev picks the ground-truth provider; the default is `swiss` when the baked
- * asset is on disk and `const` otherwise, so a bare `fb-gym --mission FILE` always runs, network or
- * not. doc/build-and-ops.md. */
+ * nm check enforces it). --elev picks the ground-truth provider; the default is `baked` when the mod
+ * declares a DEM and it is on disk, and `const` otherwise, so a bare `fb-gym --mission FILE` always
+ * runs, network or not. doc/build-and-ops.md. */
 #include "FBMissionRunner.h"
 #include "FBCampaignRunner.h"
 #include "FBMod.h"
 #include "FBCampaignFile.h"
+#include "FBCatalogueBoot.h"
 #include "FBMissionFile.h"
 #include "FBModuleRegistry.h"
 #include "FBRunwayPlateauElevation.h"
@@ -27,13 +28,16 @@ using namespace FlightBox;
 
 namespace {
 
-const char *kSwissDemFile = "swiss-dem-90m.bin";
+/* `swiss` and `--swiss-dem` were the only spelling until a second theatre existed, and seventeen
+ * committed .fbm/.fbc headers quote them beside a measured run. They stay ACCEPTED and normalise to
+ * the canonical name below, so those records still execute verbatim. */
+const char *kLegacyElevMode = "swiss";
 
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s --mission NAME|FILE | --campaign NAME|FILE [--mod DIR] [--out DIR] [--timeout N]\n"
           "          [--threads N] [--state FILE] [--carry LIST] [--campaign-time ISO]\n"
-          "          [--elev tiles|const|swiss] [--base URL]\n"
+          "          [--elev tiles|const|baked] [--dem PATH] [--base URL]\n"
           "  --mod DIR        the scenario this run flies (default %s): its mod.json names the\n"
           "                   aircraft, mission, campaign and data directories. The engine owns none.\n"
           "  --campaign NAME  run a .fbc campaign (doc/missions/campaign.md): its missions in file order\n"
@@ -54,20 +58,21 @@ void Usage(const char *argv0) {
           "                   the sequential reference path; clamped to the unit count). Parallelises the\n"
           "                   per-unit STEP only — verdicts, telemetry and log order stay sequential, so a\n"
           "                   run's outputs are byte-identical whatever N is. GYM ONLY, by design.\n"
-          "  --elev tiles|const|swiss  ground-elevation source (default: swiss if the mod's %s exists,\n"
-          "                   else const):\n"
+          "  --elev tiles|const|baked  ground-elevation source (default: baked if mod.json names a\n"
+          "                   \"dem\" and it is on disk, else const):\n"
           "                   tiles  = live fb-tiles /elev (--base, default http://localhost:8081)\n"
           "                   const  = the mission's own runway(s) on a flat base (FBRunwayPlateauElevation,\n"
           "                            no data/network needed — 'flat')\n"
-          "                   swiss  = the baked Switzerland DEM island (tools/bake_swiss_dem.py)\n"
-          "  --swiss-dem PATH override the baked-DEM path (default: the mod's data/%s)\n"
+          "                   baked  = the mod's own baked DEM raster (tools/bake_dem.py); `swiss` is\n"
+          "                            accepted as its former name\n"
+          "  --dem PATH       override the baked-DEM path (default: the mod's \"dem\"; --swiss-dem accepted)\n"
           "  --pilot-keys     print the pilot tuning ALPHABET and exit: one line per key,\n"
           "                   `<key> free|scale <lo> <hi> <hook>`. It is the ONE table, so an evolution\n"
           "                   runner reads its genome out of the binary instead of copying it.\n"
           "  --caps           print WHAT EVERY MODULE DECLARES and exit: one line per module and slot,\n"
           "                   `<module> <capability> <c++ type>`. Same table the accessors bind from, so\n"
           "                   a tool schema built from it cannot drift (doc/mods.md 2.1).\n",
-          argv0, Missions::FBDefaultModDir(), kSwissDemFile, kSwissDemFile);
+          argv0, Missions::FBDefaultModDir());
 }
 
 bool FileExists(const std::string &path) {
@@ -115,9 +120,10 @@ bool ParseCarryList(const std::string &list, uint8_t &out) {
 int main(int argc, char **argv) {
   std::string missionPath, campaignPath, statePath, carryList, campaignTime;
   std::string modDir = Missions::FBDefaultModDir();
-  std::string outDir = ".", base = "http://localhost:8081", elevMode, swissDemPath;
+  std::string outDir = ".", base = "http://localhost:8081", elevMode, demPath;
   double timeout = 0.0;
   long threads = 1;
+  bool caps = false;
   for (int i = 1; i < argc; i++) {
     std::string a = argv[i];
     if (a == "--pilot-keys") {
@@ -128,19 +134,9 @@ int main(int argc, char **argv) {
       }
       return 0;
     }
-    /* THE DECLARATION LIST AS DATA, one line per (module, capability): `module name type`. It is the
-     * same table modules/FBCapability.h binds the accessors from, so a tool schema built from this
-     * output cannot drift from what the code actually hands out. doc/mods.md §2.1. */
-    if (a == "--caps") {
-      Modules::FBRegisterBuiltinModules();
-      for (const std::string &name : Modules::FBModuleRegistry::Names()) {
-        std::unique_ptr<Modules::FBModule> m = Modules::FBModuleRegistry::Create(name);
-        if (!m) continue;
-        for (const Modules::FBCapabilityDesc &d : Modules::kFBCapabilityTable)
-          if (m->Has(d.Id)) printf("%s %s %s\n", name.c_str(), d.Name, d.Type);
-      }
-      return 0;
-    }
+    /* Deferred, unlike --pilot-keys: the list includes the mod's catalogue aircraft, and which mod that
+     * is comes off the command line this loop is still reading. */
+    if (a == "--caps") { caps = true; continue; }
     if (a == "--threads" && i + 1 < argc) threads = atol(argv[++i]);
     else if (a == "--mod" && i + 1 < argc) modDir = argv[++i];
     else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
@@ -152,19 +148,40 @@ int main(int argc, char **argv) {
     else if (a == "--timeout" && i + 1 < argc) timeout = atof(argv[++i]);
     else if (a == "--elev" && i + 1 < argc) elevMode = argv[++i];
     else if (a == "--base" && i + 1 < argc) base = argv[++i];
-    else if (a == "--swiss-dem" && i + 1 < argc) swissDemPath = argv[++i];
+    else if ((a == "--dem" || a == "--swiss-dem") && i + 1 < argc) demPath = argv[++i];
     else { Usage(argv[0]); return 1; }
   }
-  if (missionPath.empty() == campaignPath.empty()) { Usage(argv[0]); return 1; }
+  if (!caps && missionPath.empty() == campaignPath.empty()) { Usage(argv[0]); return 1; }
   Missions::FBMod mod;
   std::string moderr;
   if (!Missions::FBLoadMod(modDir, mod, &moderr)) {
     fprintf(stderr, "fb-gym: --mod %s: %s\n", modDir.c_str(), moderr.c_str());
     return 1;
   }
+  /* THE DECLARATION LIST AS DATA, one line per (module, capability): `module name type`. It is the
+   * same table modules/FBCapability.h binds the accessors from, so a tool schema built from this
+   * output cannot drift from what the code actually hands out. doc/mods.md §2.1. */
+  if (caps) {
+    Modules::FBRegisterBuiltinModules();
+    FBAircraftCatalogue catalogue;
+    std::string caterr;
+    if (!Missions::FBLoadAircraftCatalogue(mod.Catalogue, catalogue, &caterr)) {
+      fprintf(stderr, "fb-gym: %s\n", caterr.c_str());
+      return 1;
+    }
+    Modules::FBRegisterAirModules(std::move(catalogue));
+    for (const std::string &name : Modules::FBModuleRegistry::Names()) {
+      std::unique_ptr<Modules::FBModule> m = Modules::FBModuleRegistry::Create(name);
+      if (!m) continue;
+      for (const Modules::FBCapabilityDesc &d : Modules::kFBCapabilityTable)
+        if (m->Has(d.Id)) printf("%s %s %s\n", name.c_str(), d.Name, d.Type);
+    }
+    return 0;
+  }
   if (!missionPath.empty()) missionPath = mod.Mission(missionPath);
   if (!campaignPath.empty()) campaignPath = mod.Campaign(campaignPath);
-  if (swissDemPath.empty()) swissDemPath = mod.Data + "/" + kSwissDemFile;
+  if (demPath.empty()) demPath = mod.Dem;
+  if (elevMode == kLegacyElevMode) elevMode = "baked";
   if (!campaignPath.empty() && (!statePath.empty() || !carryList.empty() || !campaignTime.empty())) {
     fprintf(stderr, "fb-gym: --state/--carry/--campaign-time belong to a single --mission; a campaign "
                     "carries its own\n");
@@ -177,7 +194,7 @@ int main(int argc, char **argv) {
   FBLog::SetSink(&gStdoutSink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
-  if (elevMode.empty()) elevMode = FileExists(swissDemPath) ? "swiss" : "const";
+  if (elevMode.empty()) elevMode = !demPath.empty() && FileExists(demPath) ? "baked" : "const";
 
   /* This provider needs the mission's runways BEFORE FBRunMission parses the file, and the parser is
    * pure string-in/struct-out — so a second cheap parse beats threading a deferred provider through
@@ -185,10 +202,10 @@ int main(int argc, char **argv) {
   std::unique_ptr<FBElevationProvider> elevation;
   if (elevMode == "tiles") {
     elevation = std::make_unique<World::FBTilesElevation>(base.c_str());
-  } else if (elevMode == "swiss") {
-    auto baked = std::make_unique<FBBakedDemElevation>(swissDemPath);
+  } else if (elevMode == "baked") {
+    auto baked = std::make_unique<FBBakedDemElevation>(demPath);
     if (!baked->Ok())
-      FBLog::Warn("gym", "swiss_dem_load_failed", {{"path", swissDemPath}, {"fallback", "0 m everywhere in the asset's absence"}});
+      FBLog::Warn("gym", "dem_load_failed", {{"path", demPath}, {"fallback", "0 m everywhere in the asset's absence"}});
     elevation = std::move(baked);
   } else if (elevMode == "const") {
     /* A campaign's plateau is the union of its steps' runways: the provider is the client's ONE shared
@@ -203,7 +220,7 @@ int main(int argc, char **argv) {
     }
     elevation = std::make_unique<FBRunwayPlateauElevation>(std::move(runways));
   } else {
-    fprintf(stderr, "fb-gym: unknown --elev '%s' (want tiles|const|swiss)\n", elevMode.c_str());
+    fprintf(stderr, "fb-gym: unknown --elev '%s' (want tiles|const|baked)\n", elevMode.c_str());
     return 1;
   }
   FBLog::Info("gym", "elevation_provider", {{"mode", elevMode}});
@@ -212,7 +229,7 @@ int main(int argc, char **argv) {
   FBLog::Info("gym", "step_threads", {{"requested", (int)threads}});
 
   if (!campaignPath.empty()) {
-    Missions::FBCampaignEnv env{elevMode, swissDemPath, base};
+    Missions::FBCampaignEnv env{elevMode, demPath, base};
     return Missions::FBRunCampaign(campaignPath, outDir, mod.Roots(), *elevation,
                                    (size_t)threads, env);
   }
