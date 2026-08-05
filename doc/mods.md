@@ -232,6 +232,23 @@ FBActorVoice                 the interface: request → {say, do}
   FBActorVoicePool             reads the pool by hash; in-process, no network at all
 ```
 
+> Owner, 2026-08-05: *„Gym und Demo-Mode initiieren einfach Database-Mode, und Real Play braucht
+> OpenRouter."*
+
+**The client constructs it; core never chooses.** Same rule as `FBFdmBoot`, the single state writer named
+only by `missions/` and `clients/`:
+
+| Client | Constructs | Reaches a model |
+|---|---|---|
+| `fb-gym` | `FBActorVoicePool` | never |
+| WASM, demo | `FBActorVoicePool` | never |
+| WASM, played | `FBActorVoiceOnline` | yes |
+
+And this turns the guarantee from a promise into a **link-time gate**: `fb-gym` does not link
+`FBActorVoiceOnline` at all, so `nm build/fb-gym` must show zero HTTP-client symbols — measured exactly
+like the existing *„zero Dawn/WebGPU symbols"* gate. A gym that could reach a model would fail to build
+that way, rather than being trusted not to.
+
 The caller holds an `FBActorVoice&` and cannot tell which it has — the same shape as
 `FBCore → Interface → Default → Override` everywhere else. What is forbidden is an `if (replaying)`
 **inside the caller**; a second implementation behind the interface is the opposite of that.

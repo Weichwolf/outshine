@@ -114,7 +114,7 @@ Harnesses (zehn, unter `sim/test/<pfad>` neben ihrem Subjekt): `test-monitor` | 
 `test-corner` | `test-missile` | `test-gun` | `test-air` | `test-mig29` | `test-weather`.
 `tiles/`: `build` | `image` | `run`.
 
-**Gates:** Warnings = Errors (`-Wall -Wextra -Wpedantic`) · `nm build/fb-gym` = 0 Dawn/WebGPU-Symbole ·
+**Gates:** Warnings = Errors (`-Wall -Wextra -Wpedantic`) · `nm build/fb-gym` = 0 Dawn/WebGPU-Symbole und 0 HTTP-Client-Symbole (das Gym erreicht kein Modell, weil es keins linkt) ·
 zehn Harnesses mit unveraendertem Ergebnis (`test-air` ist rot und nennt sieben Anker) · Frame-Beweis oder numerische Messung · Regression über alle `sim/missions/*.fbm`
 mit einzeln begründeten Abweichungen · Determinismus über `--threads 1/2/4` · `make wasm` baut und die
 App startet · `verify-models` grün · vendor bleibt read-only.
