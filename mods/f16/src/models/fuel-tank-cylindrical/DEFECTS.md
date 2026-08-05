@@ -1,122 +1,131 @@
 # fuel-tank-cylindrical — offene Defekte
 
-> Der Startpunkt der naechsten Runde. `doc/assets.md` §1: *„The critic's open defects survive"* — was
-> hier nicht steht, entdeckt die naechste Runde noch einmal von vorn.
+> Der Startpunkt der naechsten Runde. `doc/assets.md` §1: *„The critic's open defects survive"*.
 >
-> **Runde 1** (Erstbau). Kritiker: noch keiner. Diese Liste ist die Selbstanzeige des Modellierers,
-> und sie ist deshalb mit Sicherheit unvollstaendig — ein Kritiker findet Klassen von Fehlern, die
-> der Erbauer nicht sehen kann.
+> **Runde 2.** Der Kritiker hat zwoelf Klauseln selbst nachgezogen und zwoelf Defekte mit Zahl und
+> Bild belegt. Die wichtigste Lehre steht nicht bei den Massen, sondern bei den Instrumenten: **drei
+> der vier Pruefungen konnten nicht rot werden.** Sie sind zuerst repariert worden, danach erst die
+> Geometrie — sonst haette Runde 2 gegen ein Messgeraet gebaut, das nicht misst.
 
-## Was in dieser Runde ZU ist
+## Geschlossen in Runde 2
 
-| | Beleg |
-|---|---|
-| Alle Hauptmasse aus einer nachpruefbaren Quelle | API Std 650 (11. Aufl., law.resource.org), Normgroessentabelle, OSHA 1910.25 — jede Zahl mit Klausel-/Tabellennummer in `fuel_tank_geometry.py` |
-| Selbstpruefungen `doc/assets.md` §3.1 im Bauschritt | 125 / 125 / 89 / 34 Koerper, alle gruen: dicht, Windung, Normalen, T-Stoesse, Verschweissung, Merge |
-| Bau zweimal bytegleich | drei Laeufe, drei Verzeichnisse, vier `.glb` + `.asset.json` identisch (`cmp`, `sha256`) |
-| Silhouette springt nicht | XOR-Tor im Bauskript, alle Uebergaenge unter 2 %: max 1.81 % (L2→L3 front) |
-| Umschaltweiten hergeleitet | 13 / 51 / 205 m aus Rundungsfehler und Cauchy-Merkmalsgroesse, nicht gesetzt |
-| Drei Fehler, die kein Auge gefunden haette | Randkanten an jedem Polring (falsche Faecherwindung) · zwei Koerper mit Volumen null (Querschnittsebene parallel zum Pfad) · Eck-Normalen genau gegen ihre Flaeche (pauschales Negieren in `orient`) — alle drei von der Selbstpruefung gemeldet, bevor ein Bild existierte |
+### Die Tore, die nicht rot werden konnten
+
+| Was | Befund | Jetzt |
+|---|---|---|
+| **Silhouette schloss das kumulierte Paar aus dem Urteil aus** | druckte `UEBER GRENZE` und meldete zugleich `passed: true` | jede gemessene Zeile zaehlt; das kumulierte Paar wird bei der Entfernung gemessen, ab der die groebste Stufe benutzt wird |
+| **Silhouette tastete nur achsparallel ab** | jedes n der Leiter ist durch 4 teilbar, also stand bei 0/90/180 Grad IMMER eine Ecke vor der Kamera. Kritiker mass bei 15 Grad 2,46 %, das Skript meldete 1,81 % | 13 Azimute mit 13 verschiedenen Phasen, groesste Luecke 2,3 Grad. Schlechtestwert jetzt 1,96 % bei az111 |
+| **Silhouette mass bei fester Aufloesung 1024 px** | viel feiner, als die Stufe je benutzt wird | Aufloesung = Koerpergroesse / (Umschaltweite x Pixelwinkel), gedeckelt auf 1280 px. L2→L3 wird bei 175 px gemessen |
+| **Merge-Test verschmolz nie und verglich nie** | meldete nur `volume_sum` und die Huellenvereinigung nebeneinander | verschmilzt wirklich, vergleicht Volumen und Huellquader gegen die Teile (dV < 1e-9) |
+| **Durchdringung wurde von nichts geprueft** | Kritiker fand 47 Koerperpaare mit geteiltem Innenvolumen | eigener paarweiser Test (Huellquader sieben, Schnittquader abtasten, beidseitiger Strahl-Einschluss). **0 ungewollte Paare** auf allen vier Stufen |
+
+Der neue Durchdringungstest fand danach selbst, was in keiner Liste stand: Dachblech 4,8 mm im
+Kopfwinkel · Bodenblech 53 Liter in der Ringmauer · Entlueftungsrohr im Dach · Stufe 0 im Beton ·
+oberster Treppenpfosten und erster Podestpfosten am selben Ort · flaches Verstaerkungsblech auf einem
+Kegel (34 mm Stich). Dazu die Sehnenregel: eine gerade Stufenkante ueber einem Polygon sticht 0,01 mm
+durch — auch das gemessen und behoben.
+
+### Die Wurzel
+
+| Was | Runde 1 | Runde 2 |
+|---|---|---|
+| **[API 5.6.1.1 Fussnote 4]** — 3,2 m < D < 15 m: unterster Schuss ≥ 6 mm (1/4 in) | durchgehend 3/16 in | Schuss 1 = 1/4 in, Schuesse 2–4 = 3/16 in |
+| **Windring-Lage** | 4,7268 m aus „Schale gleichdick" + 5.9.7.5 | transformierte Schale [5.9.7.2] → Soll 5,5021 m, Endlage **5,3923 m** [5.9.7.3.2], damit die Treppe nicht hindurchgeht |
+| **Windring-Profil** | 100×100×8 **gesetzt** — steht nicht in Tabelle 5-20a | **100×75×7** (60,59 cm³ gegen Z_req 54,91), kleinstes Profil des Blocks „One Angle: Detail c" |
+| **Windring-Form** | Ferse an der Schale, freier Schenkel nach oben — spiegelverkehrt | langer Schenkel waagerecht mit dem Ende an der Schale, freier Schenkel aussen nach unten [Bild 5-24 Detail c, **gerendert und abgelesen**] |
+| **Ringmauer-Tiefe** | −0,15 m | **−0,60 m** [B.4.2.2: „0.6 m below the lowest adjacent finish grade"] |
+| **Treppe** | 2R+r auf 610 geklemmt → 182,79/244,41 mm, keine Tabellenzeile | steilste OSHA-taugliche Zeile der T.5-19a (180/250/35°45′), daraus N=56 → **179,64/250,73 mm, 35,62°** |
+| **Handlauf** | 210 mm Absatz am Podest | rampt ueber 3 Stufen auf Podesthoehe [T.5-18 Pkt.6 „without offset"] |
+| **Podest** | nur Aussengelaender | zusaetzlich Stirngelaender am fernen Ende [T.5-17 Pkt.10]; die Innenseite ist die Tankwand, die Pkt.11 als schliessende Flaeche behandelt |
+| **Anbauten** | sassen beim wahren Kreisradius, bei L3 181 mm frei vor der Wand | folgen dem gebauten Polygon (`poly_radius`), inklusive Sehnenkorrektur ueber ihre Winkelbreite |
+| **L3** | 12 Segmente | **16** — die reparierte Silhouettenpruefung wies 12 als zu grob nach (2,42 % > 2 %) |
+
+### Zwei `[SET]`, die in Wahrheit `[DOC]` waren
+
+Beide standen bemasst in API 650; Runde 1 hatte sie als „nicht extrahierbar" abgetan.
+
+- **Ringmauerhoehe 0,30 m** — Bild B-1, Aufriss. Ein Bild wird **gerendert** (`pdftoppm -r 170`) und
+  abgelesen, nicht aus dem Textstrom gefischt. Das ist die eigentliche Lehre der Zeile.
+- **Bodenblechueberstand** — [5.4.2] fordert **50 mm**, nicht 25 mm. Reiner Text; die Klausel war nur
+  nie aufgeschlagen.
 
 ---
 
 ## Offen, gereiht
 
-Reihung = wie stark der Punkt das Bild oder die Richtigkeit aendert.
-
 ### 1 — Der Tank steht nackt in der Landschaft
 
 Kein Auffangwall, keine Rohrleitung am Bodenstutzen, kein Schaumrohr, keine Beschriftung, kein
-Gefahrgutschild. Ein Treibstofflager ist nie ein einzelner Zylinder auf gruener Wiese — es ist ein
-Tank in einer Wanne mit einem Verteiler daneben. **Das ist der groesste Abstand zwischen „richtiges
-Objekt" und „glaubwuerdige Szene".**
-
-*Schliessen:* entscheiden, ob Wanne und Verteiler zu diesem Asset gehoeren oder eigene Eintraege der
-Inventarliste sind. `doc/asset-inventory.md` kennt sie nicht — also ist das eine Frage an den
-Eigner, keine Modellierentscheidung.
+Gefahrgutschild. Groesster Abstand zwischen „richtiges Objekt" und „glaubwuerdige Szene".
+*Schliessen:* Frage an den Eigner, ob Wanne und Verteiler zu diesem Asset gehoeren oder eigene
+Eintraege sind — `doc/asset-inventory.md` kennt sie nicht.
 
 ### 2 — Keine Textur, und der Shader, der sie ersetzen soll, existiert nicht
 
-Bewusste Entscheidung (`doc/render/visual-target.md` §1: Bandbreite ist der Mangel): Rost,
-Nahtverfaerbung, Laufspuren und Aufschrift sind an einen prozeduralen Shader delegiert. **Den gibt
-es nicht.** Bis dahin ist der Tank gleichmaessig sauber, und das sieht man.
-
-*Schliessen:* Shader bauen ODER die Entscheidung umkehren und eine 512er Kachel backen. Nicht
-liegenlassen — die Entscheidung ist heute eine Schuld, keine Ersparnis.
+Bewusste Entscheidung (Bandbreite ist der Mangel), aber der prozedurale Shader fuer Rost,
+Nahtverfaerbung und Aufschrift ist nicht gebaut. Bis dahin ist der Tank gleichmaessig sauber.
 
 ### 3 — Kein Zerstoerungszustand
 
-Comanche macht diesen Tank in 4 von 10 Missionen zum Ziel (*„destroy the fuel tanks"*,
-`mods/comanche/doc/campaign.md`). Es gibt keine zerstoerte Fassung, keinen Brand, keinen Einsturz.
+Comanche macht den Tank in 4 von 10 Missionen zum Ziel. Es gibt keine zerstoerte Fassung.
 
-*Schliessen:* zweites Netz aus derselben Quelle — aufgerissene Schale, eingesunkenes Dach. Der
-parametrische Aufbau macht das billig, aber es ist eine eigene Runde.
+### 4 — Zoll oder Millimeter: 90 mm Unsicherheit in der Ringlage
 
-### 4 — Windring: Profil gesetzt, nicht ausgewaehlt
+Fussnote 4 nennt „6 mm (1/4 in.)". Note 3 derselben Tabelle fuehrt 6 mm als **Substitution** fuer
+1/4 in, also ist 1/4 in die Grundgroesse — so ist gebaut. Mit 6 mm laege der Sollpunkt bei 5,4116
+statt 5,5021 m; der Kritiker hat so gerechnet. **Das Profil aendert sich dadurch nicht** (beide Z_req
+landen auf 100×75×7), die LAGE schon.
+*Schliessen:* entscheiden, ob dieser Tank metrisch oder in Zoll beschafft ist — eine Bestellangabe,
+keine Norm.
 
-`kWindGirderLeg = 100 mm`, `kWindGirderThk = 8 mm` sind **[SET]**. Das erforderliche
-Widerstandsmoment ist gerechnet (Z = 63.3 cm³, API 650 5.9.7.6), aber die Profilauswahl aus
-**Tabelle 5-20** wurde nicht durchgefuehrt. LAGE und NOTWENDIGKEIT des Rings sind belegt, seine
-GROESSE nicht.
-
-*Schliessen:* Tabelle 5-20 fuer t = 5 mm lesen, kleinstes Profil mit Z ≥ 63.3 cm³ nehmen.
-
-### 5 — Dachentlueftung frei erfunden
-
-`kVentDia = 200 mm`, eine Haube, keine Notentlueftung, kein Peilstutzen. API 650 5.8.5.2 verweist
-auf **API Std 2000**; diese Rechnung wurde nicht gefuehrt. Ein Tank mit 1640 m³ braucht bei
-realistischer Fuellrate wahrscheinlich mehr oder groessere Ventile.
-
-*Schliessen:* API Std 2000 fuer die Fuell-/Entleerrate rechnen; daraus Zahl und Groesse.
-
-### 6 — Sechs weitere gesetzte Masse
+### 5 — Sechs gesetzte Masse
 
 | Konstante | Wert | Warum ungedeckt |
 |---|---|---|
-| `kRingwallRise` | 0.300 m | API 650 Bild B-1 traegt ein Mass „0.3 m (1 ft)", aber das Bild ist im PDF eine Rastergrafik — der Pfeil laesst sich per Textextraktion keiner Kante zuordnen. **Am Bild pruefen.** |
-| `kShellManholeBolts` | 20 | Tabelle 5-5a liefert Lochkreis und Deckel fuer DN 600, nicht die Schraubenzahl; 20 stammt aus der Dachmannloch-Tabelle per Analogie |
-| `kNozzleFlangeDia` | 279.4 mm | ASME B16.5 Klasse 150 NPS 6 — B16.5 selbst wurde nicht geholt |
-| `kStairTreadThk` `kNosing` `kStringerH/Thk` `kRailTubeDia` `kPostDia` | 30 / 25 / 200 / 10 / 42 / 48 mm | API 650 bindet die GEOMETRIE der Treppe (Steigung, Auftritt, Winkel, Breite, Handlaufhoehe, Pfostenabstand), nicht die Bauteilquerschnitte. API 650 5.8.10 b nennt **PIP STF05501 / STF05520 / STF05521** als Regeldetails; diese Blaetter wurden nicht beschafft |
-| Schweissraupe | 5 x 60 mm | keine Quelle; eine echte Rundnaht hat rund 6–10 mm Kronenbreite. **Sie ist zu breit und zu flach** |
-| Bodenblech (`bottom_lip()`) | 25 mm Ueberstand, 6 mm dick | API 650 5.4.2 legt den Ueberstand des Bodenblechs ueber der Kehlnaht fest; die Klausel wurde in dieser Runde nicht gelesen |
+| `kVentDia` / Zahl der Ventile | 200 mm / 1 | API Std 2000 (5.8.5.2) nicht gerechnet; kein Peilstutzen, keine Notentlueftung |
+| `kShellManholeBolts` | 20 | T.5-5a liefert Lochkreis und Deckel, nicht die Schraubenzahl; 20 aus der Dachmannloch-Tabelle per Analogie |
+| `kNozzleFlangeDia` | 279,4 mm | ASME B16.5 Klasse 150 NPS 6 — B16.5 nicht geholt |
+| Treppenquerschnitte | 30 / 25 / 200 / 10 / 42 / 48 mm | API 650 bindet die Geometrie, nicht die Bauteilquerschnitte. 5.8.10 b nennt **PIP STF05501/05520/05521** — nicht beschafft |
+| Schweissraupe | 3 × 14 mm | keine Quelle. Runde 1 hatte 5 × 60 mm, das war zu breit und zu flach |
+| `kStairRailRampSteps` | 3 | die Rampe ist die richtige Antwort auf „without offset", ihre Laenge ist gesetzt |
 
-### 7 — Materialwerte ohne Messung
+### 6 — Materialwerte ohne Messung
 
-Alle vier PBR-Saetze sind **[SET]**. Kein Foto, kein Messwert, keine Referenztafel. Der Anstrich
-(0.64 Albedo) wirkt im Beweisbild ueberstrahlt.
+Alle vier PBR-Saetze `[SET]`, kein Foto, keine Referenztafel. Der Anstrich wirkt im Beweisbild
+ueberstrahlt.
 
-*Schliessen:* eine Referenzaufnahme eines gestrichenen Lagertanks und eines verzinkten Gelaenders
-heranziehen, Albedo und Rauheit daran binden.
+### 7 — Umfangslagen willkuerlich
 
-### 8 — Umfangslagen willkuerlich
+Mannloch 300°, Stutzen 345°, Dachmannloch 30°, Entlueftung 70°, Treppenfuss 130°. Der Treppenfuss
+wurde gedreht, **damit die Seitenansicht des Beweisrenders die Treppe zeigt** — sachfremd.
+*Schliessen:* als Parameter des Platzierers exportieren, mit der realen Regel (Mannloch bewusst nicht
+unter der Treppe, Treppenfuss zum Zugangsweg).
 
-Mannloch 300°, Stutzen 345°, Dachmannloch 30°, Entlueftung 70°, Treppenfuss 130°. Keine Quelle
-schreibt sie vor. Der Treppenfuss wurde auf 130° gedreht, **damit die Seitenansicht des
-Beweisrenders die Treppe zeigt** — eine ehrliche, aber sachfremde Begruendung.
+### 8 — L3 behaelt Bauteile, die es nicht mehr aufloest
 
-*Schliessen:* Regel statt Zahl. Real richtet sich der Treppenfuss nach dem Zugangsweg und das
-Mannloch liegt bewusst NICHT unter der Treppe. Als Parameter des Platzierers exportieren.
+Der Kritiker: rund 50 % der L3-Dreiecke gehen an Teile, die auf ihrer Umschaltweite unter einem
+Viertel Pixel liegen (Gelaender 888 Tri). Die Regel fragt, ob das VERLORENE unter ein Pixel faellt —
+nie, ob das BEHALTENE noch aufloest. **Das Instrument existiert jetzt** (XOR bei der
+Umschaltaufloesung), die Entscheidung ist nicht getroffen: wer Gelaender an L3 streicht, muss den
+XOR-Wert danebenlegen. Nicht gemacht, weil Runde 2 die Tore hoeher gewichtet hat.
 
-### 9 — Kein Dachtragwerk, kein Innenraum
+### 9 — Drei Luecken, die in den Pruefungen bleiben
 
-Das getragene Kegeldach hat weder Sparren noch Mittelstuetze (API 650 5.10.4). Von aussen
-unsichtbar — aber das Dachmannloch oeffnet auf nichts, und ein durchschossener Tank zeigt eine
-leere Huelle.
+- **T-Stoesse nur JE KOERPER.** Wo zwei Netze aneinanderstossen, prueft nichts.
+- **Der Durchdringungstest ist eine Rasterschaetzung**, kein exakter Test: 10³ Proben im
+  Schnittquader. Er FINDET zuverlaessig, aber die gemeldete cm³-Zahl traegt das Quantum des Rasters
+  (in Runde 2 an einem Paar als 172 703 → 1 521 cm³ gesehen, als die Aufloesung stieg). Ein exakter
+  Dreieck-Dreieck-Test waere die saubere Fassung.
+- **Schweisspunkte sind per Liste erlaubt** (`kJoint`, Kappe 250 cm³ je Paar). Die Liste ist eine
+  Behauptung ueber die Konstruktion; sie waechst still mit, wenn jemand sie erweitert statt die
+  Geometrie zu bessern.
 
-### 10 — Kein Koerper fuer die Physik
+### 10 — Kein Dachtragwerk, kein Innenraum
 
-`doc/body-format.md` §1 will SEGMENT und CONTACT. Die `.glb` traegt nur Sichtgeometrie. Solange das
-Format nicht steht, ist das kein Fehler dieses Assets — aber es ist ein Loch.
+Getragenes Kegeldach ohne Sparren und Mittelstuetze (5.10.4). Von aussen unsichtbar, aber das
+Dachmannloch oeffnet auf nichts.
 
-### 11 — Zwei Luecken IN DER PRUEFUNG selbst
+### 11 — Kein Koerper fuer die Physik, keine UV-Koordinaten
 
-- **T-Stoesse werden nur JE KOERPER geprueft.** Wo zwei Koerper aneinanderstossen (Stufe an Wange,
-  Treppe an Schale), prueft nichts. Ein Haarriss zwischen zwei Netzen faende diese Pruefung nicht.
-- **Die kumulierte Silhouette L0→L3 liegt in der Frontansicht bei 2.03 %** und damit knapp ueber der
-  Grenze, die fuer die EINZELUEBERGAENGE gilt (max. 1.81 %). Ob die Summe ihre eigene, groessere
-  Grenze bekommt oder ob L3 groeber sein darf als es ist, ist eine offene Entscheidung — heute steht
-  die Zahl nur da.
-
-### 12 — Keine UV-Koordinaten
-
-Bewusst (kein Texturbedarf), aber es heisst: wer je eine Textur will, muss zuerst abwickeln.
+`doc/body-format.md` §1 will SEGMENT und CONTACT; die `.glb` traegt nur Sichtgeometrie. UVs fehlen
+bewusst — wer je eine Textur will, muss zuerst abwickeln.
