@@ -80,7 +80,15 @@ Four properties make this the right shape for an engine a machine builds with:
 Format: JSON for the declarations. Not because it is pleasant, but because the runner must never be the
 place a test is *interpreted differently* than it is read.
 
-### 3. The mirrored tree
+### 3. The three trees and what each one answers
+
+> Owner, 2026-08-05: *„`doc/*` was wollen wir, `src/*` was können wir, `test/*` was beweisen wir."*
+
+One place per statement. A want without a can is a gap in `src/`; a can without a proof is a gap in
+`test/`; a proof without a want is a test nobody ordered. **The triad is also the completeness check** —
+walking the mirrored tree, any directory that has two of the three has a named hole.
+
+### 3.1 The mirrored tree
 
 **`src/<path>`, `doc/<path>` and `test/<path>` name the same thing.** Given any one of the three, the
 other two are known without searching — which is the difference between a machine navigating a codebase
