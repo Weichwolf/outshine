@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <string>
 #include "FBCapability.h"
+#include "FBContribution.h"   /* the second closed list a module declares from, and its compile-time contract */
 #include "FBAirDataSystem.h"
 #include "FBAirframeControls.h"
 #include "FBAutopilot.h"

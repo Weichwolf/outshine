@@ -1,5 +1,7 @@
 # FlightBox — the catalogue aircraft (`modules/air/`)
 
+**Contributes:** `simulated` `instances`
+
 **Subject:** `C7` — **one flying unit that is not a module.** The contract for a data-driven aircraft
 class with N catalogue rows: what it is, what flies it, what it may see, what it shoots, how much pilot
 it gets, and how a campaign can tell whether it lost as *itself* or as a coarse model.

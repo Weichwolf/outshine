@@ -4756,3 +4756,33 @@ gegen einen gleichzeitig erzeugten diffbar ist · `test-air` 5 außerhalb, diese
 `verify-layers` 6 · `verify-guards` 8/8 · `verify-models` 1 Delta · `verify-trees` 20+3 ·
 `verify-types` — alle fünf Torausgaben bytegleich zur Basis · sechs Harnesses rc=0 ·
 `gym`/`native`/`wasm` bauen.
+
+## 2026-08-05 — Das Modulvokabular: acht Wörter, zwei Seiten, und ein Tor, das ein Modulverzeichnis kennt
+
+`sim/src/modules/FBContribution.h` — die Form von `FBCapability.h` (eine Tabelle, vier Expansionen,
+include-frei, zur Laufzeit lesbar), aber die andere Frage: nicht *was hat eine Einheit*, sondern **was
+legt ein Modul in die Welt**. Geometrie `surface` `volume` `instances`, Zustand `dataset` `generated`
+`delta` `simulated` `ambient`. Die Schliessungsregel: **ein Wort verdient seine Zeile durch einen Leser,
+der kein anderer Leser sein kann.** Daher kein `collision` (das ist `surface`/`instances`, von der Physik
+gelesen) und kein `body` (das ist `instances`, von `simulated` getragen) — und die zweite Verschmelzung
+schliesst nebenbei eine offene Frage aus `render/gpu-determinism.md`: **eine Geburtsadresse ist die
+aufgezählte EINGABE, die das Ding erzeugt hat**, und eine Missionszeile ist so aufgezählt wie eine
+Generator-Laufvariable. Der Zustandsteil ist geschlossen, weil er die **Zeilenarten eines
+Welt-Snapshots** sind (`persistent-world.md` §2). Innenräume brauchen kein Wort: die Geburtsadresse
+schachtelt. Zwei `static_assert`s tragen den Vertrag — Geometrie hat genau dann keine Snapshot-Zeile,
+wenn sie Geometrie ist, und kein Zustandswort wird über einen Float adressiert.
+
+**Das Tor kennt jetzt ein Modulverzeichnis.** `verify_trees.py` hat einen dritten Bereich: vier feste
+Teile je `src/modules/<id>/` (Klasse · genau EINE Registrierung · `doc/modules/<id>/module.md` · eine
+`**Contributes:**`-Zeile aus dem geschlossenen Vokabular, mindestens ein Wort je Seite). Die Wortliste
+wird aus dem Header GELESEN, es gibt keine zweite Kopie. **Jede Waise nennt ihre Behebung**, in allen
+drei Bereichen. Belegt am synthetischen `sky/`-Modul: mit beiden Quelldateien und
+`**Contributes:** ambient volume` steht der Bereich auf 0; fehlt eine, nennt das Werkzeug den Pfad, ein
+falsches Wort die legale Liste, eine einseitige Deklaration die fehlende Seite.
+
+**Tore:** `fb-gym` **bytegleich** über den Include hinweg (`37c2dea7…`, dreimal gebaut: mit / ohne /
+mit) — 296 Missionen folgen daraus, gleiches Binary, gleiche Eingaben · `payerne-full --threads 1/2/4`
+= `6e24090b7e861aa7` · `test-air` 5 außerhalb, dieselben fünf · `verify-layers` 6 Leser (351 statt 350
+Dateien: der neue Header) · `verify-guards` 8/8 · `verify-models` 1 Delta · `verify-types` symbol 434 /
+value 6 / comment 581 unverändert · `verify-trees` **20+3+2** (vorher 20+3): die zwei sind `missile` und
+`stores`, die kein `module.md` haben, in dem sie deklarieren könnten · `gym`/`native`/`wasm` bauen.

@@ -1,5 +1,7 @@
 # FlightBox — the F-16 module (`modules/f16/`)
 
+**Contributes:** `simulated` `instances`
+
 **Subject:** FlightBox' REBUILD of the F-16 — structure, contracts, numbers and the places where the
 rebuild deviates from the original or deliberately does NOT claim it.
 

@@ -1,5 +1,7 @@
 # MiG-29 — the first opponent
 
+**Contributes:** `simulated` `instances`
+
 **Status: stages 1, 2a, 2b, 2c, 3, 4 and 5 built, plus the value round that closes gaps 4g and 4h(a) —
 the airframe, the module, the sensor suite (N019 / SPO-15 / KOLS), the GCI loop, the WEAPONS (R-27R /
 R-73 / GSh-301) plus the radar cross-section, the DUEL ([`../../duels.md`](../../duels.md)), and now the

@@ -1,5 +1,7 @@
 # FlightBox — the ground threat unit (`modules/ground/`)
 
+**Contributes:** `simulated` `instances`
+
 **Subject:** `C1` — **one ground unit that emits and shoots.** The contract for a data-driven unit class
 with N catalogue rows: what it is, where it sits, what it may see, what it radiates, what it launches,
 what killing it does.

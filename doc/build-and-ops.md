@@ -67,7 +67,7 @@ Every project carries its own Makefile.
 | `verify-layers` | `sim/src` + `sim/test` are a stack; every `#include` points down it |
 | `verify-guards` | the compile-time guarantees, proven by trying to break them |
 | `verify-types` | the Prinzip-3 meter: what `sim/src/` still knows about named aircraft types, by cost class ([`mods.md`](mods.md) §State). **rc=1 until the count is 0** — not part of the green gate |
-| `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1), and every `mods/<id>/` carries `doc/` plus a runnable proof ([`mods.md`](mods.md) §3) |
+| `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree ([`testing.md`](testing.md) §3.1), every `mods/<id>/` carries `doc/` plus a runnable proof ([`mods.md`](mods.md) §3), and every `sim/src/modules/<id>/` carries its four fixed parts including its contribution declaration ([`module-contract.md`](module-contract.md) §5) |
 | `verify-tests` | every declaration under `sim/test/` against its band; the harness binaries must be built |
 
 If the tile worker is missing, the WASM app hangs silently at startup (404 in the worker). Hence the
@@ -87,7 +87,7 @@ A change counts as verified only once it passes these checks.
 | **`nm` gate** | `build/fb-gym` contains 0 Dawn/WebGPU symbols |
 | **Harnesses** | the nine self-judging test binaries rc=0. `air-envelope` no longer judges itself — its verdict is `make -C sim test-air` |
 | **Declarations** | `make -C sim verify-tests`: every `tier: A` declaration under `sim/test/` inside its band ([`testing.md`](testing.md)) |
-| **Tree congruence** | `make -C sim verify-trees`, and BOTH orphan counts it prints are read — engine and mods |
+| **Tree congruence** | `make -C sim verify-trees`, and ALL THREE orphan counts it prints are read — engine, mods, modules |
 | **Frame proof** | build-effective changes need a rendered frame **or** a numerical measurement |
 | **Regression** | telemetry of all `mods/f16/src/missions/*.fbm` byte-compared; every deviation justified individually, every verdict change separately |
 | **Determinism** | `--threads 1/2/4` × repetitions produce a single signature |
