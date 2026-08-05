@@ -102,18 +102,36 @@ interpretation) while the fast layer stays regulation. Recorded in `## Gaps`.
 
 ### 3. What a mod directory contains
 
+> Owner, 2026-08-05: *„`mods/` haben ihr eigenes `doc/`."*
+
+**A mod is a whole triad, not a directory with documentation attached.** It carries its own `doc/`,
+`src/` and `test/`, and they mean inside a mod exactly what they mean outside it:
+
 ```
 mods/<title>/
   mod.json          identity, which core capabilities it claims, its map style
-  units/            declarations — no code
-  modules/          per-vehicle capability declarations (what it CAN, per FBModule's dumb contract)
-  missions/*.fbm    the campaign in order, each with its reading rule
-  hud/              layout declaration, per the original
-  doc/  test/       the same triad applies INSIDE a mod
+  doc/              WHAT WE WANT — the original, reconstructed and sourced
+    campaign.md       mission order, objectives, the reading rule per mission
+    terrain.md        the real bounding box per mission AND why this real place
+    hud.md            the original's HUD, element by element, from the manual
+    sources.md        every claim with URL + page; manual-vs-wiki contradictions kept, not smoothed
+  src/              WHAT WE CAN — declarations only, no code
+    units/  modules/  missions/*.fbm  hud/
+  test/             WHAT WE PROVE — the campaign runs, deterministically, with a verdict
 ```
 
-The nesting of `doc/` and `test/` inside `mods/<title>/` is not decoration: a mod is a subtree of the
-same three-tree rule, so `verify-trees` walks it with the same code and the same verdict.
+Three consequences, and the third is the one that matters:
+
+1. **`verify-trees` needs no special case.** A mod is a subtree under the same rule, walked by the same
+   code, judged by the same verdict. Had the middle axis been called `units/ modules/ missions/`, the
+   tool would have needed to know what a mod is. Now it does not.
+2. **The engine's `doc/` does not document mods**, and a mod's `doc/` does not document the engine. The
+   boundary is the same one as `src/` — a mod may not reach into the engine, and the engine may not know
+   which mod is loaded.
+3. **The reconstruction has a home.** *Why this real valley for that fictional one* is neither engine
+   knowledge nor a test — it is this scenario's intent, and `mods/<title>/doc/terrain.md` is the only
+   place it can live without polluting one of the other two. Same for a manual's page number: a source
+   for a claim about **this** title.
 
 ### 4. Acceptance
 
