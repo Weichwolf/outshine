@@ -136,6 +136,24 @@ A number without one of these three statements is a defect.
 > proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. The existing
 > code previously carried these derivations as 15–25-line banners directly in the source.
 
+### Textbook C++, fast shaders — and why that is one goal
+
+> Owner, 2026-08-05: *„das ganze C++-Projekt nach Lehrbuch. Der WebGPU-Part max Performance. Ich denke,
+> das widerspricht sich nicht. Der C++-Part muss hervorragend strukturiert und modular sein. Die
+> emittierten Shader schnell."*
+
+**The C++ is a compiler; the shader is the program.** A compiler's structure does not run — its output
+does. So clean and fast are the same direction here, not a trade.
+
+Two places where they do rub, and the rule for each:
+
+| | Rule |
+|---|---|
+| **virtual dispatch** | at the seams, never inside a loop over elements. `FBModule` is virtual because it is called once per entity per tick; nothing per-triangle or per-sample may be |
+| **data layout** | structure at the seams, **flat data in the loops**. Interfaces stay clean and virtual; what they hand around is contiguous. This is the only genuine conflict, and it is the ECS argument |
+
+Corollary: a RAII wrapper per buffer is right; a wrapper per draw is not.
+
 ### One exception: a render stage names its source
 
 The algorithms in this field are solved. Value is in integration, not invention — so a stage that
