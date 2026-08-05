@@ -507,6 +507,7 @@ Consequences:
 | Contract | Anchor |
 |---|---|
 | No engine code per title | `mods/*` contains zero `.cpp`/`.h`; checked by a tool, not by intent |
+| A mod adds no world | Earth — terrain, infrastructure, buildings — belongs to the engine ([`persistent-world.md`](persistent-world.md) §5.1). A mod adds actors, entities, usable objects and a scenario |
 | A mod asks, it does not instruct | no mod names an LOD, a triangle budget or a draw call. It declares what exists and what matters; the engine holds 720p30 and spends the rest on quality ([`render/visual-target.md`](render/visual-target.md) §1.1) |
 | A mod is a test | every mission runs headless in `fb-gym` with a verdict, and byte-identically over thread counts |
 | The played run cannot cheat | the WASM app consumes the identical `.fbm` and both judges run in it too |
@@ -515,7 +516,20 @@ Consequences:
 
 ## State
 
-Nothing of `mods/` built. **§2.1's premise is**: the per-unit declaration list exists as runtime data
+**`mods/f16/` exists and the engine is asset-free.** Everything FlightBox flew out of `sim/` is one
+scenario: 127 model files (`src/aircraft/`, incl. `MODEL-DELTAS.md`), the mesh recipe (`src/models/`),
+415 `.fbm` (`src/missions/`, 296 of them in the regression glob), 12 `.fbc` (`src/campaigns/`) and the
+two baked blobs a mission names (`src/data/`). `sim/assets/` and `sim/missions/` are gone.
+
+**The loader is the smallest one that carries.** `mods/f16/mod.json` names five roots; three readers
+resolve them and no path exists twice: `sim/src/missions/FBMod.h` (C++ — clients, harnesses),
+`sim/tools/fb_mod.py` (the tool tree) and three `sed` calls in `sim/Makefile` (the WASM preload and the
+`web/` copy). `fb-gym --mission payerne-full` is a mod-relative NAME; a `.fbm`/`.fbc` suffix still means
+a path. One mod, no registry, no capability negotiation — `--mod DIR` is the only switch.
+Measured across the move: all 296 missions byte-identical, `payerne-full --threads 1/2/4` on
+`6e24090b7e861aa7`, ten harnesses unchanged, `test-air` at 5 outside band, `verify-trees` at 20 orphans.
+
+**§2.1's premise is**: the per-unit declaration list exists as runtime data
 (`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the
 `FBModule` base demands none of it (one pure virtual left, `Run`), and `fb-gym --caps` emits it as
 `<module> <capability> <c++ type>` — the artefact a tool schema is generated from. What is missing for
@@ -524,7 +538,14 @@ inventory. See [`architecture.md`](architecture.md) §The layering pattern.
 
 ## Gaps
 
-- **`mods/` does not exist**, and neither does the loader that would make `mod.json` mean anything.
+- **Four of the five mods are `doc/` only** — `f22`, `comanche`, `armored-fist`, `delta-force` carry no
+  `src/`, so `mod.json` and the loader have exactly one subject today.
+- **`mods/f16/src/` is not fully declarative yet.** `src/models/` holds python build recipes, and
+  `modules/f16` + `modules/mig29` are engine `.cpp` — §4's „zero .cpp" holds for the mod directory and
+  not yet for the scenario. They move when the capability list carries them declaratively.
+- **The mission and model texts still name their old paths.** 296 `.fbm` headers and the model `.xml`
+  banners quote `sim/missions/…` / `sim/assets/aircraft/…`; not one byte of either was touched, because
+  a move that edits a flown model or a committed mission is no longer a move.
 - **`verify_trees.py` enforces three trees everywhere** and would therefore report every mod as a hole.
   It needs the doc-plus-proof rule from §3, and today it does not have it.
 - **The HUD is C++**, so „HUD per title, declared" has no surface to be declared into.

@@ -208,6 +208,56 @@ settlements, real OSM buildings, decades of history. FlightBox knows *what it ca
 weapon envelopes, runway headings, catalogue rows, team semantics. Nothing in OCEAN's model maps onto a
 SAM belt or a fire-control channel, and nothing in FlightBox's maps onto a family.
 
+### 5.1 Outshine is an Earth sandbox — the boundary moved
+
+> Owner, 2026-08-05: *„damit ist Outshine eine Erde-Sandbox und Mods definieren ihre Akteure und
+> Entitäten … Outshine selbst braucht sicher noch einen globalen Decay- und Epoche-Parameter."*
+
+| | Owns |
+|---|---|
+| **Outshine** | **Earth.** Terrain, landcover, vegetation, water · infrastructure — roads, rails, canals, bridges, power · buildings, later walkable and furnished · the epoch and decay parameters |
+| **Ocean** | world *state* on that Earth: populations emerged **with dependencies**, assigned to buildings |
+| **mods** | actors, entities, usable objects, and the scenario |
+
+This is a **larger engine and a smaller mod** than §0 assumed. A road is not scenario, it is Earth. The
+test stays the same: a mod adds no `.cpp` — but now it also adds no world.
+
+**„Populations with dependencies" is the load-bearing phrase.** A baker needs a bakery needs grain needs
+a farm needs arable land. Ocean emerges the graph, not a scatter of people. That is what makes it a
+generator rather than a placement pass, and it is what a scenario author can then *perturb* instead of
+author.
+
+#### Epoch
+
+OSM is present-day. **Epoch is a transform on it**, not a filter: subtract what did not exist yet
+(no motorway in 1850, no rail before 1830), restore what is gone (rail beds, canals, forest before
+clearance), restyle what remains (materials, roof forms, field patterns). It is what lets a 1992
+helicopter mission, a 1996 strike and a medieval settlement share one Earth.
+
+#### Decay — and it is derived, not primary
+
+Decay is *„how maintained"*, orthogonal to epoch in intent but **not independent in fact**: a 1900
+building at decay 0.5 seen in 1910 is not the same object as the same building seen in 2026. The honest
+triple is **(built epoch, observed epoch, maintenance)**; decay is what falls out of it. Declaring decay
+as a free global would let the two contradict each other silently.
+
+Same idea as the wear channel in [`body-format.md`](body-format.md) §0.3, one scale up: history plus
+neglect decides condition, and no physics simulates the intervening century.
+
+#### Living actors at population scale — the collision, and why it is already solved
+
+A city of ten thousand LLM actors is unaffordable, and this file's §4 already answers it: **the observer
+determines fidelity, never knowledge.** Unobserved population is statistical; an observed actor gets a
+protocol or a live model ([`mods.md`](mods.md) §2.1). Nothing new is needed — but nothing may be built
+that assumes every actor is alive at once.
+
+#### Scope, stated plainly
+
+Walkable furnished interiors and full infrastructure are **more work than everything else discussed
+today combined**. They are later versions, they do not fit the five months for the engine, and they
+change nothing about the 2026 plan. What must happen *now* is only that epoch and decay exist as
+parameters and nothing is built shut against them (§7).
+
 ### 6. Progressing the world — three options, and this file chooses none
 
 Deliberately unresolved, per the owner. Named with consequences so that none is closed by accident:
@@ -257,7 +307,7 @@ boundary in code · no cutter · no epoch artefact · no writeback path beyond t
 
 **The "millions" figure is a claim about the COARSE class only** — a table with no physics, no sensors
 and no judge. Where the *fine* class tips is being measured right now by a parallel round
-(`sim/tools/fb_scale_bench.py` over `sim/missions/scale/`); no number is quoted here, and none is
+(`sim/tools/fb_scale_bench.py` over `mods/f16/src/missions/scale/`); no number is quoted here, and none is
 invented. The only cast-related number the tree owns today is about threads, not size: 4 units reach
 1.49×/1.53×/1.77× at 2/3/4 threads on an A18 Pro ([`missions/runtime.md`](missions/runtime.md)), and it
 answers a different question.
