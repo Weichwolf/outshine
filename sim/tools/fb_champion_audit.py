@@ -103,7 +103,7 @@ def main():
     a = ap.parse_args()
 
     if not arena.tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
     cells = arena.load_cells(a.cells)
     variant = variant_from_line(a.genome)
     os.makedirs(a.out, exist_ok=True)
@@ -145,7 +145,7 @@ def main():
                  "held" if same else "MOVED — the advantage was against the CLOCK"))
 
     if not arena.tree_clean():
-        print("\nVOID: sim/missions or sim/assets moved during the run")
+        print("\nVOID: the mod's missions or models moved during the run")
         return 1
     print("\nX4: %s   (tree clean before and after)" % ("PASSED" if verdict else "FAILED"))
     return 0 if verdict else 1

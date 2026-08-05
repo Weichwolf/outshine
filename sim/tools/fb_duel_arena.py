@@ -163,7 +163,7 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     if not arena.tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
     duels = coevo.load_duels(args.cells)
     lev = {"blue": genomes(args.blue_levers), "red": genomes(args.red_levers)}
     print("two-sided arena: %d cells, blue %d levers, red %d levers"
@@ -220,7 +220,7 @@ def main():
                         % (d.mission, d.blue[0], d.blue[1], d.red[0], d.red[1]))
     print("\nruns: %d" % pool.runs)
     if not arena.tree_clean():
-        print("VOID: sim/missions or sim/assets moved during the run")
+        print("VOID: the mod's missions or models moved during the run")
         return 1
     print("mission and model tree clean after the run")
     return 0 if len(good) >= arena.kInformativeMin else 1

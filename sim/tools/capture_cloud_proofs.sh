@@ -27,7 +27,8 @@ set -e
 cd "$(dirname "$0")/.."
 OUT=${OUT:-build/r6-cloud-proofs}
 BIN=${BIN:-./build/gpu_native}
-WX=${WX:-assets/wx-2026-07-27T00Z.wxb}
+MOD=${MOD:-../mods/f16}
+WX=${WX:-$MOD/src/data/wx-2026-07-27T00Z.wxb}
 
 die() { echo "capture_cloud_proofs: ABORT -- $*" >&2; exit 1; }
 

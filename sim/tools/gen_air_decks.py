@@ -2,10 +2,10 @@
 """gen_air_decks — ONE recipe, ten JSBSim decks, from the eight published anchors per catalogue row.
 
 This file IS doc/modules/air/flight-model-recipe.md, executable. Every deck under
-sim/assets/aircraft/<row>/ is generated from the ANCHORS table below and nothing else; a hand edit of a
+The mod's aircraft/<row>/ is generated from the ANCHORS table below and nothing else; a hand edit of a
 generated deck is a defect, because the next run of this tool erases it.
 
-    tools/gen_air_decks.py [--out assets/aircraft] [--check]
+    tools/gen_air_decks.py [--out <mod>/src/aircraft] [--check]
 
 --check regenerates into a temporary directory and diffs, so a build gate can assert that the committed
 decks are exactly what the recipe produces.
@@ -33,6 +33,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+import fb_mod as mod
 
 SIM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -1604,7 +1606,7 @@ def air_tests():
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--out", default=os.path.join(SIM_DIR, "assets", "aircraft"))
+    ap.add_argument("--out", default=mod.AIRCRAFT)
     ap.add_argument("--check", action="store_true",
                     help="regenerate into a temporary tree and diff against --out")
     ap.add_argument("--report", action="store_true", help="print the inverted polar of every row")

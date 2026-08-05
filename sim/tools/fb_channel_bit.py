@@ -264,7 +264,7 @@ def main():
 
     os.makedirs(args.out, exist_ok=True)
     if not arena.tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
     duels = coevo.load_duels(args.cells)
     # The channel alleles of the lever file are DROPPED: they are the variable, not a background.
     base = [evo.Genome(v.name, v.params, "", v.sort)
@@ -416,7 +416,7 @@ def main():
                         [r["mr_named"], r["mr_all"], r["exit"], r["durationS"]])
     print("wrote %s" % path)
     if not arena.tree_clean():
-        print("VOID: sim/missions or sim/assets moved during the run")
+        print("VOID: the mod's missions or models moved during the run")
         return 1
     print("mission and model tree clean after the run")
     return 0

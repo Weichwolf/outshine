@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Actor-scaling bench: generate a cast of N into sim/missions/scale/, run fb-gym, report wall time
+"""Actor-scaling bench: generate a cast of N into the mod's missions/scale/, run fb-gym, report wall time
 per sim-second and the run fingerprint.
 
-  gen   PROFILE N            write missions/scale/<profile>-<n>.fbm and print its path
+  gen   PROFILE N            write <mod>/src/missions/scale/<profile>-<n>.fbm and print its path
   run   PROFILE N [opts]     run it, print one CSV row per repetition
   sweep PROFILE N,N,... [..] the whole curve, mean/min/max per point, fingerprint per thread count
 
@@ -25,10 +25,11 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fb_campaign_verify import mission_fingerprint
+import fb_mod as mod
 
 SIM = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GYM = os.path.join(SIM, "build", "fb-gym")
-SCALE_DIR = os.path.join(SIM, "missions", "scale")
+SCALE_DIR = os.path.join(mod.MISSIONS, "scale")
 
 # A lattice wide enough that no two actors of a thousand-strong cast share a spawn point, and coarse
 # enough that they stay inside a plausible operating area: 0.02 deg ~ 2.2 km lat, 1.5 km lon at 47 N.

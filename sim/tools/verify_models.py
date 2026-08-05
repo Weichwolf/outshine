@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """verify-models: every FlightBox model copy differs from its pinned upstream by EXACTLY the deltas
-that sim/assets/MODEL-DELTAS.md names — no unexplained byte, and no declared change that is not there.
+that the mod's MODEL-DELTAS.md names — no unexplained byte, and no declared change that is not there.
 
-The gate behind CLAUDE.md Prinzip 1: the submodule is the BASIS, sim/assets/aircraft
+The gate behind CLAUDE.md Prinzip 1: the submodule is the BASIS, the mod's aircraft root
 is what actually flies, and the delta list is what makes a deviation legitimate instead of drift. It
 also makes Prinzip 5 hold — "the model is the reference" only means anything while every difference
 from the pinned model is named and evidenced.
@@ -18,6 +18,9 @@ import difflib
 import os
 import re
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import fb_mod as mod
 
 FIELDS = ("Datei", "Änderung", "Grund", "Beleg")
 
@@ -130,9 +133,9 @@ def walk(root, rel=""):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--copies", default="assets/aircraft")
+    ap.add_argument("--copies", default=mod.AIRCRAFT)
     ap.add_argument("--upstream", default="vendor/jsbsim")
-    ap.add_argument("--deltas", default="assets/MODEL-DELTAS.md")
+    ap.add_argument("--deltas", default=os.path.join(mod.AIRCRAFT, "MODEL-DELTAS.md"))
     ap.add_argument("--emit", action="store_true",
                     help="print a paste-ready entry skeleton for every undeclared difference and exit 0. "
                          "Whitespace in a unified diff is significant (context lines keep their leading "
@@ -145,8 +148,11 @@ def main():
 
     # Every top-level entry of the copy root must be declared. An undeclared model is an unverified one.
     declared_top = {o[0].split("/")[0] for o in origins}
+    # The delta document lives in the root it describes and cannot declare itself.
+    deltas_own = os.path.basename(a.deltas) if os.path.dirname(
+        os.path.abspath(a.deltas)) == os.path.abspath(a.copies) else None
     for name in sorted(os.listdir(a.copies)):
-        if name.startswith("."):
+        if name.startswith(".") or name == deltas_own:
             continue
         if name not in declared_top:
             errors.append(f"{a.copies}/{name} is not declared in {a.deltas} ('## Herkunft')")

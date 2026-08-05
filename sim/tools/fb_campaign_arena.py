@@ -13,7 +13,7 @@ is exactly the population S2 is defined on, and S1's modal share is taken in it.
 
 WHAT IT MAY NOT DO, AND THE CHECK IS HERE RATHER THAN IN THE PROSE. The committed missions are never
 written: a cell is copied to the output tree, the genome's `set` lines are spliced into the copy, and
-`git status --porcelain sim/missions sim/assets/aircraft` must be empty before and after. A run that moved a
+`git status --porcelain` over the mod's missions and aircraft must be empty before and after. A run that moved a
 mission or a deck is VOID.
 
 THE SIDE IS DECLARED, NOT DERIVED. A cell is `<mission> <team> <module>`: the units the doctrine is
@@ -38,13 +38,14 @@ import threading
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fb_evolve as evo
+import fb_mod as mod
 import fb_fitness as fit
 import fb_tournament as tour
 
 SIM_DIR = tour.SIM_DIR
 REPO_DIR = os.path.dirname(SIM_DIR)
-MISSION_DIR = os.path.join(SIM_DIR, "missions")
-CAMPAIGN_DIR = os.path.join(SIM_DIR, "campaigns")
+MISSION_DIR = mod.MISSIONS
+CAMPAIGN_DIR = mod.CAMPAIGNS
 
 kModalMax = 0.60      # [SET] doc/doctrine-evolution.md §4.2 S1, unchanged and not loosened here
 kMoversMin = 3        # [SET] S2, unchanged
@@ -509,20 +510,20 @@ def other_calls(cell, mine):
 def tree_clean():
     """Was ein Doktrin-Lauf NICHT bewegen darf: die Missionen und die FLUGMODELLE.
 
-    Bis 2026-08-03 stand hier `sim/assets` als Ganzes, und das war zu grob: seit dieser Runde liegen
-    unter `sim/assets/models/` auch die SICHTBAREN Netze (glTF), die ein Modellierer parallel baut.
+    Bis 2026-08-03 stand hier das Asset-Verzeichnis als Ganzes, und das war zu grob: seit dieser Runde
+    liegen unter dem `models`-Wurzelpfad des Mods auch die SICHTBAREN Netze (glTF), die ein Modellierer
+    parallel baut.
     Ein Dreiecksnetz ist keine Modellzahl — es erreicht weder JSBSim noch die Regelung, und `fb-gym`
     laedt es ueberhaupt nicht (GPU-frei, 0 Dawn-Symbole). Es als Verunreinigung zu werten, hat einen
     Lauf ueber 34 Zellen blockiert, ohne dass irgendetwas an der Simulation schmutzig war.
-    Bewacht bleibt, was das Ergebnis aendern KANN: `sim/assets/aircraft` (die eine Wurzel der
-    geflogenen Modelle, Prinzip 1) und `sim/assets/MODEL-DELTAS.md` (ihre Delta-Liste).
+    Bewacht bleibt, was das Ergebnis aendern KANN: der `aircraft`-Wurzelpfad des Mods (die eine Wurzel
+    der geflogenen Modelle, Prinzip 1) und dessen `MODEL-DELTAS.md` (die Delta-Liste).
 
-    Ein UNTRACKED file in `sim/missions` ist keine Bewegung: es kann keine committete Mission und kein
+    Ein UNTRACKED file im Missionsverzeichnis ist keine Bewegung: es kann keine committete Mission und kein
     Deck veraendert haben, und eine Messzelle, die in DIESER Runde entsteht, ist genau das. `-uno` laesst
     daher nur die Klasse weg, die der Docstring oben nie gemeint hat — ` M`, ` D` und ` R` bleiben
     bewacht, und das ist die ganze Zusicherung."""
-    r = subprocess.run(["git", "status", "--porcelain", "-uno",
-                        "sim/missions", "sim/assets/aircraft", "sim/assets/MODEL-DELTAS.md"],
+    r = subprocess.run(["git", "status", "--porcelain", "-uno"] + mod.GUARD_PATHS,
                        cwd=REPO_DIR, capture_output=True, text=True)
     return r.stdout.strip() == ""
 
@@ -564,7 +565,7 @@ def main():
     levers = [tour.Variant("baseline", {}, dl="")] + load_levers(args.levers)
     os.makedirs(args.out, exist_ok=True)
     if not tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
 
     yard = load_levers(args.variants) if args.variants else []
     drift = extension_is_faithful(args.variants) if yard else None
@@ -693,7 +694,7 @@ def main():
     print("\nARENA: %s   (%d cells, %d informative)"
           % ("PASSED" if ok else "REFUSED", len(res), len(informative)))
     if not tree_clean():
-        print("VOID: sim/missions or sim/assets moved during the run")
+        print("VOID: the mod's missions or models moved during the run")
         return 1
     print("mission and model tree clean after the run")
     return 0 if ok else 1

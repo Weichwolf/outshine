@@ -25,8 +25,8 @@
 #                 doc/mig29/flight-model-spec.md §8 -> build/fb-test-mig29-envelope
 #   make test-air  build the catalogue-deck harness AND judge every declaration in
 #                 test/modules/air/envelope.json against its band -> build/fb-test-air-envelope
-#   make verify-models  every model copy under assets/aircraft differs from the pinned submodule by
-#                 EXACTLY the deltas assets/MODEL-DELTAS.md names -- no unexplained byte
+#   make verify-models  every model copy under the mod's aircraft root differs from the pinned submodule
+#                 by EXACTLY the deltas its MODEL-DELTAS.md names -- no unexplained byte
 #   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
 #                 "Kein Cheaten"-Regeln and the Core-Lib boundary as a machine-checked matrix
 #   make verify-trees  doc/ (what we want), src/ (what we can) and test/ (what we prove) carry the
@@ -58,6 +58,16 @@ CXXSTD    := -std=c++17
 # quotes, which mangles the sed script that strips the .d file's line continuations.)
 DEPFLAGS := -MMD -MP
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
+
+# THE SCENARIO THIS TREE BUILDS AGAINST. The engine ships no aircraft, no mesh and no mission; the mod
+# names its own directories in mod.json and this reads them, so a path never exists twice
+# (doc/mods.md §3). Override with `make MOD_DIR=../mods/<other> wasm`.
+MOD_DIR ?= ../mods/f16
+fbmod = $(MOD_DIR)/$(shell sed -n 's/.*"$(1)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(MOD_DIR)/mod.json)
+MOD_AIRCRAFT  := $(call fbmod,aircraft)
+MOD_MODELS    := $(call fbmod,models)
+MOD_MISSIONS  := $(call fbmod,missions)
+MOD_CAMPAIGNS := $(call fbmod,campaigns)
 
 DAWN_OUT     := vendor/dawn/out
 DAWN_LIBDIR  := $(DAWN_OUT)/src/dawn/native
@@ -106,7 +116,7 @@ RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 # emcc forbids MIXING the two (emscripten #24803), so the model tree and the moon moved to preload with
 # them; the virtual paths are unchanged and main() still starts only once the data file has landed.
 UNIT_MODEL_FILES := f16.asset.json f16_L0.glb f16_L1.glb f16_L2.glb f16_L3.glb
-UNIT_MODEL_PRELOAD := $(foreach f,$(UNIT_MODEL_FILES),--preload-file assets/models/$(f)@/fb/models/$(f))
+UNIT_MODEL_PRELOAD := $(foreach f,$(UNIT_MODEL_FILES),--preload-file $(MOD_MODELS)/$(f)@/fb/models/$(f))
 
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
 # + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
@@ -165,7 +175,7 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileUplink.cpp \
   src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
-  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp
+  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp
 
 .PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-trees verify-tests verify-guards image up down restart clean
 
@@ -195,13 +205,13 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
-	    --preload-file assets/aircraft@/fb/aircraft \
+	    --preload-file $(MOD_AIRCRAFT)@/fb/aircraft \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    $(UNIT_MODEL_PRELOAD) \
 	    -o web/gpu.js; \
-	  mkdir -p web/missions; cp missions/*.fbm web/missions/; \
-	  mkdir -p web/campaigns; cp campaigns/*.fbc web/campaigns/; \
-	  (cd campaigns && ls *.fbc) > web/campaigns/index.txt; \
+	  mkdir -p web/missions; cp $(MOD_MISSIONS)/*.fbm web/missions/; \
+	  mkdir -p web/campaigns; cp $(MOD_CAMPAIGNS)/*.fbc web/campaigns/; \
+	  (cd $(MOD_CAMPAIGNS) && ls *.fbc) > web/campaigns/index.txt; \
 	  echo "WASM -> web/gpu.js + web/fbtileworker.js + web/missions/ + web/campaigns/ (served at /)"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
@@ -383,11 +393,11 @@ test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/dra
 	  echo "test-missile -> build/fb-test-missile-airframe"
 
 # The delta gate (CLAUDE.md, Prinzip 1). NOT a prerequisite of the build targets: it
-# only has anything to say when a file under assets/aircraft or the pinned submodule changes, and making
+# only has anything to say when a file under the mod's aircraft root or the pinned submodule changes, and making
 # every compile wait on python3 for that would put an interpreter on the critical path of a C++ build.
 # Run it whenever a model is touched, and as part of the acceptance gate.
-verify-models:   ## check assets/aircraft against the pinned submodule + assets/MODEL-DELTAS.md
-	@cd $(SELF_DIR) && python3 tools/verify_models.py
+verify-models:   ## check the mod's aircraft against the pinned submodule + its MODEL-DELTAS.md
+	@cd $(SELF_DIR) && python3 tools/verify_models.py --copies $(MOD_AIRCRAFT) --deltas $(MOD_AIRCRAFT)/MODEL-DELTAS.md
 
 # The STRUCTURE gate, verify-models' sibling: the directories under src/ are layers, and this asserts
 # that no #include points up the stack. Same reasoning for not being a build prerequisite -- it has

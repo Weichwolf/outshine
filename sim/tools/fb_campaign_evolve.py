@@ -189,7 +189,7 @@ def main():
     for k, why in blocked:
         print("   BLOCKED %-19s %s" % (k, why))
     if not arena.tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
     print("mission and model tree clean before the run")
     print("\narena: %d cells from %s" % (len(cells), os.path.basename(args.cells)))
     for c in cells:
@@ -296,7 +296,7 @@ def main():
                  "worse" if fit.compare(kc, kb) < 0 else "same"))
     print("\nruns: %d   archive: %d member(s) -> %s" % (pool.runs, len(archive), archive_path))
     if not arena.tree_clean():
-        print("VOID: sim/missions or sim/assets moved during the run")
+        print("VOID: the mod's missions or models moved during the run")
         return 1
     print("mission and model tree clean after the run")
     return 0

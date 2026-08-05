@@ -34,6 +34,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fb_fitness as fit
+import fb_mod as mod
 
 SIM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -579,7 +580,7 @@ def restore_decks():
     regeneration would leave it behind — measured: `tools/gen_air_decks.py --check` failed on three rows
     after the first attribution run, with an F100 deck sitting next to a turbojet."""
     for key in ROW_STORES:
-        shutil.rmtree(os.path.join(SIM_DIR, "assets", "aircraft", key), ignore_errors=True)
+        shutil.rmtree(os.path.join(mod.AIRCRAFT, key), ignore_errors=True)
     subprocess.run([sys.executable, os.path.join(SIM_DIR, "tools", "gen_air_decks.py")],
                    cwd=SIM_DIR, capture_output=True, text=True, check=True)
 

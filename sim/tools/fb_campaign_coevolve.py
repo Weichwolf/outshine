@@ -526,7 +526,7 @@ def main():
     alphabet = evo.pilot_alphabet(args.gym)
     duels = load_duels(args.cells)
     if not arena.tree_clean():
-        sys.exit("sim/missions or sim/assets is dirty BEFORE the run")
+        sys.exit("the mod's missions or models are dirty BEFORE the run")
     print("mission and model tree clean before the run")
     print("duels: %d, from %s" % (len(duels), os.path.basename(args.cells)))
     for d in duels:
@@ -720,7 +720,7 @@ def main():
         print("archive %s: %d member(s) -> %s" % (s, len(archive[s]), p))
     print("\nruns: %d" % pool.runs)
     if not arena.tree_clean():
-        print("VOID: sim/missions or sim/assets moved during the run")
+        print("VOID: the mod's missions or models moved during the run")
         return 1
     print("mission and model tree clean after the run")
     return 0

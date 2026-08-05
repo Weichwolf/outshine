@@ -1,6 +1,6 @@
 #!/bin/bash
-# Run every sim/missions/*.fbm into a snapshot directory, one subdirectory per mission.
-# Usage: tools/fb_regress.sh <outRoot> [threads] [--full]
+# Run every mission of the mod into a snapshot directory, one subdirectory per mission.
+# Usage: tools/fb_regress.sh <outRoot> [threads] [--full]   (MOD= to point at another scenario)
 #
 # The snapshot is what the byte-identity gate diffs; `wallS`/`speedup` and absolute paths are the only
 # fields allowed to move, so they are normalised out here rather than in the diff.
@@ -25,11 +25,13 @@ FULL="${3:-}"
 # Zwei Staende vergleichen heisst ZWEI Binaries, nicht zweimal den Baum umschalten: `GYM=` zeigt auf
 # eine weggelegte Kopie, damit der Arbeitsbaum waehrend eines 14-Minuten-Laufs unangetastet bleibt.
 GYM="${GYM:-./build/fb-gym}"
+MOD="${MOD:-../mods/f16}"
+MISSIONS="$MOD/$(sed -n 's/.*"missions"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MOD/mod.json")"
 mkdir -p "$OUT"
-for m in missions/*.fbm; do
+for m in "$MISSIONS"/*.fbm; do
   n=$(basename "$m" .fbm)
   mkdir -p "$OUT/$n"
-  "$GYM" --mission "$m" --out "$OUT/$n" --threads "$THREADS" >/dev/null 2>&1
+  "$GYM" --mission "$m" --mod "$MOD" --out "$OUT/$n" --threads "$THREADS" >/dev/null 2>&1
   echo "$? $n" >> "$OUT/exit.txt"
   # normalise: drop the two wall-clock fields and any absolute path
   if [ -f "$OUT/$n/events.log" ]; then

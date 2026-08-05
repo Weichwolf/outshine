@@ -11,7 +11,7 @@ in the shape doc/doctrine-evolution.md §2.2 asks for.
 WHAT IT CANNOT DO, STRUCTURALLY. It imports the mission generator and the scorer from
 `fb_tournament` / `fb_fitness` and NEVER the deck writer: `run_attr`, `restore_decks` and
 `gen_air_decks.py` are not reachable from any path below, and the run is void unless
-`git status --porcelain sim/assets` is empty before and after. That is checked here, not hoped for.
+`git status --porcelain` over the mod's model tree is empty before and after. That is checked here, not hoped for.
 
 WHY AN ARCHIVE. Co-evolutionary fitness is measured against the CURRENT opponents, so a population in
 which A beats B, B beats C and C beats A can circle forever while every generation's measured fitness
@@ -39,6 +39,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import fb_fitness as fit
+import fb_mod as mod
 import fb_tournament as tour
 
 SIM_DIR = tour.SIM_DIR
@@ -95,7 +96,7 @@ def pilot_alphabet(gym):
 
 
 def assets_clean():
-    r = subprocess.run(["git", "status", "--porcelain", "sim/assets"], cwd=REPO_DIR,
+    r = subprocess.run(["git", "status", "--porcelain"] + mod.GUARD_PATHS, cwd=REPO_DIR,
                        capture_output=True, text=True)
     return r.stdout.strip() == ""
 
@@ -334,8 +335,8 @@ def main():
     for k, why in blocked:
         print("   BLOCKED %-17s %s" % (k, why))
     if not assets_clean():
-        sys.exit("sim/assets is dirty BEFORE the run — an evolution run starts from a clean model tree")
-    print("model tree clean before the run (git status --porcelain sim/assets empty)")
+        sys.exit("the mod's model tree is dirty BEFORE the run — an evolution run starts from a clean one")
+    print("model tree clean before the run (git status --porcelain over the mod empty)")
 
     print("\narena gate: run tools/fb_arena_check.py first — no evolution run starts on an arena that")
     print("            has not passed (doc/doctrine-evolution.md E4). Geometry: %s" % args.geometry)
@@ -415,9 +416,9 @@ def main():
         print("    (needs at least four generations)")
     print("\narchive: %d member(s) -> %s" % (len(archive), archive_path))
     if not assets_clean():
-        print("VOID: sim/assets moved during the run — doc/doctrine-evolution.md §2.2 property 4")
+        print("VOID: the mod's model tree moved during the run — doc/doctrine-evolution.md §2.2 property 4")
         return 1
-    print("model tree clean after the run (git status --porcelain sim/assets empty)")
+    print("model tree clean after the run (git status --porcelain over the mod empty)")
     return 0
 
 

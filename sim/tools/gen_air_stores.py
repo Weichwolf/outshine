@@ -8,7 +8,7 @@ surface-to-air rounds of doc/modules/ground/catalogue.md; the ONE difference is 
 restored here: dV is a DELTA OVER A LAUNCH SPEED and not the whole terminal speed, because these
 rounds leave a rail at 250 m/s with full aerodynamic authority.
 
-    tools/gen_air_stores.py [--out assets/aircraft] [--check] [--cpp]
+    tools/gen_air_stores.py [--out <mod>/src/aircraft] [--check] [--cpp]
 
 --cpp prints the core/FBStore.h rows the same numbers imply, so the catalogue and the deck cannot say
 two different things about one round.
@@ -21,6 +21,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+
+import fb_mod as mod
 
 SIM_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -590,7 +592,7 @@ def write_round(root, r):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--out", default=os.path.join(SIM_DIR, "assets", "aircraft"))
+    ap.add_argument("--out", default=mod.AIRCRAFT)
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--cpp", action="store_true")
     a = ap.parse_args()

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """FlightBox — bake_swiss_dem.py: bakes a Switzerland-shaped DEM island into
-sim/assets/swiss-dem-90m.bin for FBBakedDemElevation (the gym's --elev swiss).
+the mod's data/swiss-dem-90m.bin for FBBakedDemElevation (the gym's --elev swiss).
 
 Manual, one-off tool (NOT a build dependency): run it against a LOCAL fb-tiles
 (default http://localhost:8081) once; the output asset is checked in.
@@ -22,6 +22,7 @@ Output format (little-endian, magic "FBDEM01"): see FBBakedDemElevation.cpp's
 banner for the exact byte layout this script writes.
 """
 import argparse
+import os
 import math
 import struct
 import sys
@@ -32,6 +33,8 @@ from io import BytesIO
 
 import numpy as np
 from PIL import Image
+
+import fb_mod as mod
 
 # Insel-Bounding-Box (task spec): 5.96-10.49 degE / 45.82-47.81 degN.
 LON_MIN, LON_MAX, LAT_MIN, LAT_MAX = 5.96, 10.49, 45.82, 47.81
@@ -82,7 +85,7 @@ def smoothstep(t):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--base", default="http://localhost:8081")
-    ap.add_argument("--out", default="assets/swiss-dem-90m.bin")
+    ap.add_argument("--out", default=os.path.join(mod.DATA, "swiss-dem-90m.bin"))
     ap.add_argument("--workers", type=int, default=16)
     args = ap.parse_args()
 
