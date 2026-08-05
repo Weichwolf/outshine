@@ -61,7 +61,7 @@ void Usage(const char *argv0) {
           "  --cloudcheck  evaluate core/FBCloudDensity.h and its WGSL twin over a sample set on the GPU\n"
           "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
           "  --mission NAME|FILE [--mod DIR] [--timeout N] [--interval S]  ground-spawn a .fbm mission of\n"
-          "    the mod (default ../mods/f16; doc/mods.md)\n"
+          "    the mod --mod names (doc/mods.md); the default is the one scenario in mods/\n"
           "  --map CALLSIGN [--map-span-km KM]  draw the TACTICAL MAP of that unit's fused picture\n"
           "    (the control node of its faction's net) instead of its cockpit -- an OSM raster sheet\n"
           "    off fb-tiles under APP-6 symbology. Only what that node has collected is drawn.\n"
