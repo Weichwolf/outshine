@@ -574,6 +574,15 @@ the browser build itself: `gpu mod id=f16 aircraft=/fb/mods/f16/src/aircraft mis
 Measured across the move: all 296 missions byte-identical, `payerne-full --threads 1/2/4` on
 `6e24090b7e861aa7`, ten harnesses unchanged, `test-air` at 5 outside band, `verify-trees` at 20 orphans.
 
+**A SECOND MOD IS IN THE BROWSER, and §1's `watched` reader exists.** `mods/f22` (eight sorties, its own
+DEM, `depends f16`) loads, flies and is WATCHABLE at `?mod=f22&mission=<name>&view=chase`. Measured in
+headless Chromium against real WebGPU, one screenshot per sortie: `gpu mod id=f22 … models=/fb/mods/f22/../f16/src/models`,
+`render unit_model type=f16 lods=4 parts=22 trisTotal=173330`, terrain and units drawn in six of the
+eight (the other two are moonless-night sorties, below). Two things had to be true and one was not:
+`"meshes"` is NOT inherited through `depends` — a root is a place a borrower needs, this list is what
+goes into THIS title's download — so f22 declares `"meshes": "f16"` and the borrowed files stay in the
+lender's preload rather than being copied under the borrower's id.
+
 **`verify-trees` has §3's one bit.** Two scopes, two rules, one exit code: the engine's three trees by
 path congruence (unchanged, **20 orphans**) and each mod by DOC PLUS PROOF — `doc/`, `src/`, at least
 one runnable `.fbm` under it, and no `test/`. Every orphan line names its scope (`engine` / `mod:<id>`)
@@ -637,6 +646,18 @@ inventory. See [`architecture.md`](architecture.md) §The layering pattern.
   every title is not decided.
 - **`mod.json` is unchecked by the gate.** Four titles have none, so the loader could not see them even
   once their `src/` exists. It is identity, not triad, which is why `verify-trees` stays out of it.
+- **ONE airframe mesh exists in the whole tree**, and it is why a watched campaign is half-empty:
+  `mods/f16/src/models/` ships `f16` and nothing else, so of the 59 units the eight f22 sorties spawn,
+  **22 are drawn and 37 are not** (per sortie: 2/4, 2/6, 3/8, 2/6, 4/8, 2/9, 3/8, 4/10). Everything the
+  campaign fights — `mig23`, `mig29`, `f15c`, `kc135`, `e3`, `sa2`, `sa18`, `p18`, `zsu23`, `zu23`,
+  `target_soft/hard` — publishes a type the renderer has no model for and is invisible, missiles
+  excepted (their smoke trail is the only evidence a hostile exists). This is the mesh half of the gap
+  below: there the registry lacks the type, here the type lacks the mesh.
+- **Two of the eight watched sorties are a black frame, and it is astronomy, not a defect.** `c01m07`
+  (1996-03-23T19:30Z) and `c01m08` (1996-03-24T20:00Z) fly at 02:30/03:00 local: sun 53.1°/46.5° below
+  the horizon, moon 48.5°/44.8° below it at phase 0.22/0.31 (`core/FBEphemeris.h`, measured). Nothing in
+  the scene emits light except missile plumes, and no night sortie in this campaign is watchable until
+  aircraft carry lights or an afterburner is in frame.
 - **A mesh key is a MODULE key, and modules are engine C++.** §3.1 lets a second mod declare its own
   meshes without touching code — but only for a type the engine's registry already builds. A
   `comanche.asset.json` draws nothing until `FBModuleRegistry` has a `comanche`, which is the same hole

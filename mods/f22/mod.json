@@ -6,5 +6,6 @@
   "data": "src/data",
   "dem": "mekong-dem-90m.bin",
   "depends": "f16",
+  "meshes": "f16",
   "default_mission": "c01m01-snake-eyes"
 }

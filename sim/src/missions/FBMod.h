@@ -25,7 +25,11 @@ struct FBMod {
   std::string Dem;
   /* MODULE REGISTRY KEYS that ship a mesh under Models — `<key>.asset.json` plus the `.glb` levels it
    * names (render/FBUnitModel.h). A key and not a filename, because the key is what a unit publishes
-   * as its visual type; a client that hard-coded one could only ever draw one mod's airframes. */
+   * as its visual type; a client that hard-coded one could only ever draw one mod's airframes.
+   * NOT inherited through `depends` like the roots below: a root is a place and a borrower needs the
+   * lender's, while this list is what goes into THIS title's download — a mod that borrows an aircraft
+   * tree of eighteen airframes to fly two of them declares two. Silence therefore means "no meshes",
+   * never "the lender's", and a borrower that wants them names them. */
   std::vector<std::string> Meshes;
   /* OTHER MOD IDS, searched in order for a root this manifest does not name — a sibling under the same
    * `mods/`. One level, no transitivity: a title that borrows another's airframes says so, and a

@@ -130,8 +130,13 @@ fbglbs = $(sort $(shell sed -n 's/.*"file"[[:space:]]*:[[:space:]]*"\([^"]*\)".*
 # airframes names no aircraft root (`depends`), and its files are already in the download under the mod
 # that owns them.
 fbpre  = $(if $(2),$(if $(wildcard $(1)/$(2)),--preload-file $(1)/$(2)@/fb/mods/$(call fbid,$(1))/$(2)))
-fbmeshpre = $(foreach f,$(2).asset.json $(call fbglbs,$(1)/$(call fbfield,$(1),models)/$(2).asset.json),\
-              $(call fbpre,$(1),$(call fbfield,$(1),models)/$(f)))
+# A mesh key on a mod with no `models` root of its own is a BORROWED airframe, and the files are already
+# in the download under the mod that owns them (the loader resolves the root through `depends`). So this
+# expands to nothing rather than to a second copy under the borrower's id.
+fbmeshdir = $(call fbfield,$(1),models)
+fbmeshpre = $(if $(call fbmeshdir,$(1)),\
+              $(foreach f,$(2).asset.json $(call fbglbs,$(1)/$(call fbmeshdir,$(1))/$(2).asset.json),\
+                $(call fbpre,$(1),$(call fbmeshdir,$(1))/$(f))))
 MOD_PRELOAD := --preload-file web/mods/index.txt@/fb/mods/index.txt \
   $(foreach d,$(MOD_DIRS),$(call fbpre,$(d),mod.json) $(call fbpre,$(d),$(call fbfield,$(d),aircraft)) \
     $(call fbpre,$(d),$(call fbfield,$(d),catalogue)) \

@@ -4786,3 +4786,38 @@ mit) — 296 Missionen folgen daraus, gleiches Binary, gleiche Eingaben · `paye
 Dateien: der neue Header) · `verify-guards` 8/8 · `verify-models` 1 Delta · `verify-types` symbol 434 /
 value 6 / comment 581 unverändert · `verify-trees` **20+3+2** (vorher 20+3): die zwei sind `missile` und
 `stores`, die kein `module.md` haben, in dem sie deklarieren könnten · `gym`/`native`/`wasm` bauen.
+
+## 2026-08-05 — Zusehen: die acht F-22-Sorties im Browser, und eine Kamera, die nicht nervt
+
+**Der Auftrag war Sichtbarkeit, das Ergebnis ist eine Liste.** Acht Missionen, echtes Chromium, echtes
+WebGPU, ein Bild je Sortie (Playwright, `?mod=f22&mission=<name>&view=chase`). Drei Dinge fehlten
+zwischen „läuft im Gym" und „sichtbar im Browser", und alle drei waren Deklaration, nicht Renderer:
+`"meshes"` wird **nicht** über `depends` vererbt (ein Wurzelpfad ist ein Ort, den ein Borger braucht —
+diese Liste ist, was in DIESEN Download geht), der Makefile-Preload wollte für einen Borger ohne eigene
+`models`-Wurzel eine zweite Kopie anlegen (`sed: ../mods/f22//f16.asset.json`), und die Browser-Wetterregel
+hängte an eine auf 1996 gepinnte Mission das GFS von heute: gemessene Mitteldecke 4 200–5 600 m unter
+einer Sortie auf 6 000 m — **alle acht rendern als Wolkenoberseite und sonst nichts**. Die Regel heisst
+jetzt: live nur, wenn die Mission WEDER `wx` NOCH `time` deklariert; damit fliegt der Browser dieselbe
+Atmosphäre wie `fb-gym` (§1 mods.md, zwei Leser einer Erklärung).
+
+**Die Zuschauerkamera ist eine Kamera, kein System.** 62 m hinter / 13 m über / 18 m rechts der Einheit,
+die dieser Client ohnehin fliegt — der ERSTE `unit`-Block, den jede Leseregel in `mods/f22` als ihr
+Urteil nennt — Blick 150 m VOR sie. Roll fällt weg, Kurs und Nicken laufen mit 0,45 s nach: eine starr
+an die Körperachsen genietete Kamera dreht 300 °/s mit und ist unansehbar. Das Cockpit-Overlay ist in
+dieser Sicht aus (es projizierte einen Flugwegmarker auf ein Boresight, das die Kamera nicht hat), also
+nimmt die Szene alle 720 Zeilen — die dokumentierte Passzahl-Variante, `passes=6` gegen `7`.
+
+**Gemessen: 6 von 8 sichtbar.** Gelände, Geländeschatten und Rauchfahnen kommen im Browser an (fb-tiles
+liefert Nordthailand, `/elev` 461,18 m bei 19,36/100,20). Die zwei fehlenden sind Astronomie, kein
+Defekt: `c01m07`/`c01m08` fliegen 02:30/03:00 lokal, Sonne 53,1°/46,5° unter dem Horizont, **Mond
+48,5°/44,8° darunter** (`core/FBEphemeris.h`, gerechnet) — ein mondloser Nachthimmel, in dem nur
+Flugkörper leuchten. Und die Zahl, die den Rest der Runde erklärt: von 59 Einheiten der acht Sorties
+werden **22 gezeichnet und 37 nicht**, weil der ganze Baum GENAU EIN Flugzeugnetz besitzt.
+
+**Tore:** die acht Gym-Urteile 3/3/1/0/1/3/3/3 unverändert · `fb-gym` **bytegleich** (`37c2dea7…`, mit
+und ohne die Kommentaränderung in `FBMod.h` gebaut) — 296 Missionen folgen daraus · `payerne-full
+--threads 1/2/4` = `6e24090b7e861aa7` · `test-air` 5 außerhalb · `verify-layers` 6 Leser ·
+`verify-guards` 8/8 · `verify-models` 1 Delta · `verify-types` 1 127 / symbol 434 / value 6 /
+comment 581 unverändert · `verify-trees` 20+3+2 · `gym`/`native`/`wasm` bauen · 60 fps ohne
+Frame-Verlust über 2 min je Sortie (`cpuprof rafMs` Median 16,67, Max 17,16) — auf einem M-Mac, was
+über A18 Pro und Xbox nichts sagt.

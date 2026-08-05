@@ -112,8 +112,14 @@ static bool gRunOver = false;
  * unit's own published blocks; the map draws the FACTION's fused picture at the control node of its
  * net. Selecting a unit here and pressing TAB means sitting in ITS cockpit, which sees LESS than the
  * map — if it ever sees more, this build is wrong (doc/player-layer.md §9.7). */
-enum class FBView { Cockpit, Map };
+/* CHASE is the third and it is neither: it changes no information at all — the same unit, the same
+ * published blocks, seen from outside. The one thing it is for is being WATCHED (doc/mods.md §1). */
+enum class FBView { Cockpit, Chase, Map };
 static FBView gView = FBView::Cockpit;
+static FBView gSceneView = FBView::Cockpit;   /* the non-map view TAB comes back to */
+static const char *ViewName(FBView v) {
+  return v == FBView::Map ? "map" : v == FBView::Chase ? "chase" : "cockpit";
+}
 static FBForcePicture gPic;
 static Render::FBTacticalMap gMap;
 static Systems::FBHudGeometry gMapGeo;
@@ -126,6 +132,27 @@ static uint32_t gOrderSeq = 0;
  * parallel — the basis collapses and the frame comes back empty. A tenth of a degree costs H*tan(0.1) =
  * 21 m of centre offset at 12 km, i.e. under a pixel. */
 static constexpr double kMapPitchDeg = -89.9;
+
+/* THE SPECTATOR CAMERA, and deliberately not a camera SYSTEM: one pose behind the unit this client
+ * already flies — which is the mission's first `unit` block and therefore the actor every reading rule
+ * in mods/f22 names as its verdict. Roll is DROPPED and heading is lagged, because a camera rigidly
+ * bolted to a fighter's body axes rolls 300 deg/s with it and is unwatchable; the lag is what makes a
+ * break turn read as the jet turning rather than the world spinning. [SET], from what the frames show. */
+static constexpr double kChaseBackM = 62.0, kChaseUpM = 13.0, kChaseSideM = 18.0;
+/* Aim AHEAD of the jet, not at it: the picture is then where it is going, and the airframe sits low and
+ * off-centre instead of dead centre with its own tail filling the frame. */
+static constexpr double kChaseLeadM = 150.0;
+static constexpr double kChaseLagS = 0.45;   /* 1/e of a heading change — the spring, as one number */
+static double gChaseYawDeg = 0.0, gChasePitchDeg = 0.0;
+static bool gChaseHave = false;
+
+/* What a view change costs outside the camera: the jet the camera sits INSIDE may not be drawn, and
+ * the one it looks AT must be. The lag starts over, so a switch snaps rather than swinging in. */
+static void ApplyView() {
+  if (!gOwnship) return;
+  W.SetEyeUnitId(gView == FBView::Chase ? -1 : gOwnship->GetId());
+  gChaseHave = false;
+}
 
 /* GROUND TRUTH FOR THE SIMULATION, from the same DEM the renderer draws, so gear/contact/crash collide
  * against real terrain. A cold /elev keeps the last good value for BOTH the FDM and the HUD/radar-alt
@@ -380,18 +407,30 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
    * knows and not what the page shows. The ground-albedo switch it used to throw moved to `t`. */
   if (std::strcmp(k, "Tab") == 0) {
     if (!down || repeat) return true;
-    gView = gView == FBView::Cockpit ? FBView::Map : FBView::Cockpit;
+    gView = gView == FBView::Map ? gSceneView : FBView::Map;
     if (gView == FBView::Map && gOwnship) {
       for (int i = 0; i < (int)gActors.size(); i++)
         if (gActors[i].get() == gOwnship) gSelected = i;
       gMap.SetSelected(gOwnship->GetName().c_str());
-    } else if (gView == FBView::Cockpit && gSelected >= 0 && gSelected < (int)gActors.size()) {
+    } else if (gSelected >= 0 && gSelected < (int)gActors.size()) {
       /* SELECT A UNIT AND PRESS TAB = SIT IN ITS COCKPIT. It is an information change: from here on the
        * picture is THAT unit's own blocks and it sees less than the map did. */
       gOwnship = gActors[gSelected].get();
       R.SetHudDisplay(gOwnship->Displays());
     }
-    FBLog::Info("view", "MODE", {{"view", gView == FBView::Map ? "map" : "cockpit"},
+    ApplyView();
+    FBLog::Info("view", "MODE", {{"view", ViewName(gView)},
+                                 {"unit", gOwnship ? gOwnship->GetName() : std::string()}});
+    return true;
+  }
+  /* THE WATCHED VIEW, and the only key that changes nothing the player KNOWS — which is why it is not
+   * on TAB's cycle: TAB returns to whichever of the two outside/inside views was last chosen. */
+  if (std::strcmp(k, "c") == 0 || std::strcmp(k, "C") == 0) {
+    if (!down || repeat) return true;
+    gSceneView = gSceneView == FBView::Chase ? FBView::Cockpit : FBView::Chase;
+    if (gView != FBView::Map) gView = gSceneView;
+    ApplyView();
+    FBLog::Info("view", "MODE", {{"view", ViewName(gView)},
                                  {"unit", gOwnship ? gOwnship->GetName() : std::string()}});
     return true;
   }
@@ -516,6 +555,29 @@ static Units::FBUnitPose EyeAt(double alpha) {
   p.PitchDeg = b.PitchDeg + alpha * FBWrap180(b.PitchDeg - a.PitchDeg);
   p.YawDeg = b.YawDeg + alpha * FBWrap180(b.YawDeg - a.YawDeg);
   return p;
+}
+
+/* The chase pose, overwriting the eye basis the caller built from the same jet pose. Two calls to
+ * FBCameraBasisEcef and not one: the first frame carries the OFFSET (where the camera hangs), the
+ * second the LOOK (where it points), and both angles below are the exact look-at because the offset
+ * lies in that first frame's own axes. */
+static void ChaseCamera(const Units::FBUnitPose &p, double dtS, double eye[3], double fwd[3],
+                        double right[3], double up[3]) {
+  const double a = gChaseHave ? 1.0 - std::exp(-dtS / kChaseLagS) : 1.0;
+  gChaseHave = true;
+  gChaseYawDeg += a * FBWrap180(p.YawDeg - gChaseYawDeg);
+  gChasePitchDeg += a * FBWrap180(p.PitchDeg - gChasePitchDeg);
+
+  double jet[3], ofwd[3], oright[3], oup[3];
+  FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, jet);
+  FBCameraBasisEcef(gChaseYawDeg, gChasePitchDeg, 0.0, p.LatDeg, p.LonDeg, ofwd, oright, oup);
+  for (int i = 0; i < 3; i++)
+    eye[i] = jet[i] - kChaseBackM * ofwd[i] + kChaseUpM * oup[i] + kChaseSideM * oright[i];
+
+  const double reach = kChaseBackM + kChaseLeadM;
+  const double pitchC = gChasePitchDeg - std::atan2(kChaseUpM, reach) / kDeg2Rad;
+  const double yawC = gChaseYawDeg - std::atan2(kChaseSideM, reach) / kDeg2Rad;
+  FBCameraBasisEcef(yawC, pitchC, 0.0, p.LatDeg, p.LonDeg, fwd, right, up);
 }
 
 static void frame(void) {
@@ -650,6 +712,7 @@ static void frame(void) {
   double eye[3], fwd[3], right[3], up[3];
   FBGeoToEcef(p.LatDeg, p.LonDeg, p.ElevM, eye);
   FBCameraBasisEcef(p.YawDeg, p.PitchDeg, p.RollDeg, p.LatDeg, p.LonDeg, fwd, right, up);
+  if (gView == FBView::Chase) ChaseCamera(p, dt, eye, fwd, right, up);
   R.SetCameraBasis(eye, fwd, right, up);
 
   /* The module's own telemetry, plus the browser-only home/mode/ephemeris fields below. */
@@ -704,6 +767,10 @@ static void frame(void) {
     hs.Env.CloudBaseAglM = sky.Deck[0].Cover > 0.0f ? sky.Deck[0].BaseM : 0.0f;
   }
   R.SetHud(hs, true);
+  /* AFTER SetHud, which turns the overlay back on by itself: a cockpit HUD drawn over an outside shot
+   * would project the flight-path marker on a boresight the camera does not have, i.e. it would lie.
+   * The scene then takes all 720 lines instead of the top two thirds (FBRenderer::ViewH). */
+  R.SetHudEnabled(gView != FBView::Chase);
 
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
 
@@ -887,17 +954,31 @@ int main() {
       FBLog::Info("gpu", "mission_clock", {{"utc", FBFormatIsoUtc(SimClock.T0S, iso, sizeof iso)}});
     }
     /* THE PRECEDENCE RULE (app/FBWeatherBoot.h): a mission that declares its weather keeps it, in the
-     * browser exactly as in fb-gym. Only a mission that does NOT gets this client's live default. */
+     * browser exactly as in fb-gym. Only a mission that declares NEITHER weather NOR a clock gets this
+     * client's live default — free flight and the sandbox, where "now" is the honest answer. */
     std::string werr;
     std::unique_ptr<FBWeatherProvider> declared = FBMakeMissionWeather(mission, gModelRoots, &werr);
     if (declared) {
       gWeather = std::move(declared);
       gWxLive = false;   /* nothing fetched, and a late arrival could not override it either */
       FBLog::Info("wx", "source", {{"source", "mission"}, {"url", gMissionUrl}});
-    } else if (!werr.empty()) {
-      /* The browser embeds no fixture (live is its default), so a fixture mission degrades to live
-       * rather than refusing to fly — the opposite of fb-gym, where the declaration IS the measurement. */
-      FBLog::Warn("wx", "mission_weather_unavailable", {{"reason", werr}, {"falling_back", "live /wx"}});
+    } else {
+      /* ...and a mission that pinned its own INSTANT gets no live default either, because today's GFS
+       * is not the weather of 1996-03-20T02:00Z. The clock is already the mission's here (the sky is
+       * drawn from it), so pairing it with live cloud would put a monsoon over an equinox morning —
+       * and it would make this file fly a different atmosphere in the browser than in fb-gym, which
+       * flies calm for exactly the same declaration (missions/FBMissionRunner.cpp). Measured on
+       * mods/f22 c01m01: live GFS puts a solid deck 4200-5600 m under a sortie cruising at 6000 m, so
+       * the whole campaign renders as cloud top and nothing else. */
+      const bool pinned = SimClock.Have;
+      if (pinned) gWxLive = false;
+      if (!werr.empty()) {
+        /* The browser embeds no fixture, so a fixture mission degrades rather than refusing to fly —
+         * the opposite of fb-gym, where the declaration IS the measurement. */
+        FBLog::Warn("wx", "mission_weather_unavailable",
+                    {{"reason", werr}, {"falling_back", pinned ? "calm" : "live /wx"}});
+      }
+      if (pinned) FBLog::Info("wx", "source", {{"source", "calm"}, {"reason", "mission clock pinned"}});
     }
   }
 
@@ -992,7 +1073,16 @@ int main() {
   }
   for (auto &a : gActors) gUnits.Register(a.get());   /* the App owns the units; everyone else borrows */
   W.SetUnits(&gUnits);
-  W.SetEyeUnitId(gOwnship->GetId());   /* the camera rides this one: drawing it would draw its inside */
+  /* WHICH VIEW THIS SESSION OPENS ON, read the way `?ground=` is: a URL word, no new exported symbol.
+   * `?view=chase` is what a watched run is started with (doc/mods.md §1) — the AI flies, nobody sits
+   * in the seat, and the frame is the whole product. */
+  {
+    const char *jv = emscripten_run_script_string(
+        "(new URLSearchParams(location.search).get('view')||'')");
+    if (jv && std::strcmp(jv, "chase") == 0) gView = gSceneView = FBView::Chase;
+    FBLog::Info("gpu", "view", {{"view", ViewName(gView)}});
+  }
+  ApplyView();   /* the camera rides a unit: drawing the one it sits INSIDE would draw its inside */
   W.SetWeather(gWeather.get());   /* the DATA side only; the frame swap below re-points it when /wx lands */
   FBLog::Info("gpu", "world_ready", {{"viewKm", viewM / 1000.0}});
 
