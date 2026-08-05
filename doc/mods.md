@@ -331,6 +331,36 @@ not detected. The varying part of every call is that entity's own picture, which
 This is not a compromise against caching; it is what makes caching work. The stable prefix is the part
 worth caching, and the part that must vary per entity is the part that must not be shared anyway.
 
+**And the cache is per entity — obligatory, not optional.**
+
+> Owner, 2026-08-05: *„ja du hast recht, aber jede intelligente Entität muss Prompt-Caching verwenden."*
+
+Which closes the trap for good, because it means **there is no shared context object at all — only
+shared text.** Each entity holds its own cached prefix:
+
+```
+[cached, per entity — long, stable, grows with the run]
+  the GM's world frame          copied in, identical wording for everyone
+  who this entity is            identity, allegiance, temperament
+  what it CAN                   its declaration list — the same one the regulator binds
+  its orders and doctrine
+  its own history               what it has seen, said and decided so far
+[varying — short]
+  its latest perception delta
+```
+
+Three consequences:
+
+1. **Leakage is structurally impossible, not merely avoided.** A shared context is an object two entities
+   could both read. Copied text is not — entity B's cache cannot contain what only A perceived, because
+   nothing ever put it there.
+2. **Cost falls where it actually hurts.** The expensive part of a tactical call is the long stable
+   preamble, and it is cached; the part that changes each call is a short delta. Without this, live play
+   would re-send an entity's whole identity every few seconds.
+3. **History belongs in the prefix, so caching grows with the run.** An entity that has been flying for
+   ten minutes has a longer cached prefix and a *cheaper* call than at spawn — the opposite of the naive
+   shape, where a growing conversation gets steadily more expensive.
+
 **The check must be structural, not editorial.** A prompt is a string, and a string can contain anything —
 so the entity's suffix must be *built from the same perception structs the regulator reads*, never from
 the registry. If the code that renders a prompt cannot see the registry, a GM cannot leak through it. That
