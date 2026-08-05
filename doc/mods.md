@@ -158,7 +158,60 @@ What this does and does not prove, stated exactly:
 - **Ages usefully.** When the sim changes enough that a protocol becomes nonsensical (the unit is dead at
   tick *T*), the replay diverges — and divergence is the signal, not a failure of the protocol.
 
+### 2.2 The same shape spans simulation and role-playing
+
+> Owner, 2026-08-05: *„das geht von der Simulation bis zum Rollenspiel. Auch Rollenspiel-Dialoge und
+> Entscheidungen lassen sich so abbilden."*
+
+This is the genericity claim's sharpest test, and the mapping is exact rather than approximate:
+
+| Simulation | Role-playing | Same artefact |
+|---|---|---|
+| a radio call | an NPC's line | pool entry |
+| a mission's course | a conversation | trace |
+| a wingman's decision to engage | an orc's decision to swing | a call on the module's declared list |
+| the mission goal + reading rule | the quest and its completion | `.fbm` |
+| „Fox two" reused across titles | a greeting reused across NPCs | one pool entry, shared |
+
+Nothing is bolted on. A dialogue system is a protocol whose outputs happen to be sentences, and a quest
+is a mission whose goal happens to be narrative — which is why this belongs here rather than in some
+future `dialogue.md`.
+
+**Two differences, and both are real:**
+
+1. **A conversation branches; a flight does not.** A mission's trace is one ordered sequence. A dialogue
+   forks at every player choice, so its trace is a **DAG, not a list** — again Git's shape, commits with
+   parents. The pool is untouched by this; only the trace's type changes.
+2. **The hashed input gets harder, not easier.** In a sim, the state that matters is physical and
+   naturally bounded: position, fuel, contacts, damage. In an RPG it is *narrative* — what this character
+   knows, what was already said, how the relationship stands — and narrative state has **no natural
+   bound**. Everything ever said is potentially relevant.
+
+So the role-playing case does not validate the design; it **stresses** it, at exactly the point already
+marked as the hardest in `## Gaps`. That is the useful result: the input-selection question must be
+answered with the RPG case in view, or it will be answered in a way that only works for aircraft.
+
+**And that fixes the shape of an output**, which had been left vague until now:
+
+> Owner, 2026-08-05: *„ein Response hat dann immer: was sagt der Akteur und was macht der Akteur
+> (function calling)."*
+
+Every pool output is a **pair — `say` and `do`** — and both may be empty:
+
+| | `say` | `do` |
+|---|---|---|
+| a wingman calling a shot | „Fox two" | `ReleaseWeapon(AIM-120, trk 3)` |
+| a silent break turn | — | `SetBank(-80)` |
+| an NPC refusing | „I'll not speak of it." | — |
+| an orc | a grunt | `Swing(club, target)` |
+
+This is why the sim and the RPG need no separate machinery: **a line without an action is a
+conversation, an action without a line is a manoeuvre, and both together are the normal case.** It also
+keeps the anti-cheat property exactly where it was — `do` is a call on the declared list and can be
+nothing else, while `say` reaches no state at all.
+
 ### 3. What a mod directory contains
+
 
 > Owner, 2026-08-05: *„`mods/` haben ihr eigenes `doc/`."*
 
