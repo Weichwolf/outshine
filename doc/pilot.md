@@ -865,7 +865,20 @@ airframe flies this law, and they must be: the cap INVERTS the plant, so with an
 numbers it is not a cap but an oscillator. The MiG-29 rolls 2.6× harder for the same stick (a = 0.819,
 K = 201 °/s against the F-16's 0.734 / 78.7, identified from its own BFM samples by the same ARX(1)
 fit), and with the F-16's constants its cap never bit: ±130° of bank in a limit cycle and a departure
-after 8.9 s. The defaults are the F-16's identified numbers, so nothing changed for it.
+after 8.9 s.
+
+**The generic default is 0/0 — no plant identified, hence NO cap** (it was the F-16's two numbers until
+this round, which made every airframe that had not been identified fly this jet's inversion silently).
+The F-16 declares 0.734 / 78.7 in `FBF16Pilot`, the MiG-29 its own, and a catalogue row its measured
+pair from step 7 of the flight-model recipe. Two guards, not one: `modules/air` refuses `set task bfm`
+without a plant, and `BfmCommands` skips the cap when the plant is undeclared (with 0/0 the inversion
+would divide by zero). Byte-identical across all 296 missions — the phase is unreachable without a
+plant.
+
+The COMMANDED rate cap (`BfmRollRateMaxDegS`) went the same way: its generic default is the closed form
+of the pilot's own reversal window (`180 / kBfmTurnTimeS`, a number of this class), and the F-16
+declares 90 °/s as the value its 16-approach sweep measured — the two coincide, and the override is
+there because the number was measured on the airframe rather than inherited from the pilot.
 
 #### 5.7.1 Why the previous form had to go (rejected: `cmd_prev · cap/rate`)
 
@@ -1094,8 +1107,9 @@ missions unchanged to the bit). Diagnosed in order, each exposing the next:
    drift drives the body-frame steering error into a roll limit cycle — the nose never settles on the
    antenna, no contact is ever built, and the monitor reads the sustained roll rate as a departure.
    Only the ROLL is capped (the g/pitch loop keeps holding altitude, else the scan drifts in pitch and
-   climbs/dives away — both measured). Hook, F-16 default 1.0 (no-op, its search legitimately uses full
-   roll — `bfm-blind` byte-identical), MiG 0.20 (≈40 °/s steady). [MESS] with it the MiG acquires and
+   climbs/dives away — both measured). Hook, generic default 1.0 = full deflection, i.e. the cap never
+   bites and claims nothing; the F-16 DECLARES 1.0 (its search legitimately uses full roll —
+   `bfm-blind` byte-identical), MiG 0.20 (≈40 °/s steady). [MESS] with it the MiG acquires and
    locks a trail defender (lock_s 0 → 58+).
 4. **`BfmRollRateMaxDegS` — the commanded roll-rate cap is a hook.** The default `180/kBfmTurnTimeS`
    = 90 °/s is the F-16's, and it stays the closed form (a reversal is a 180° roll in the time
@@ -1181,7 +1195,7 @@ the one the SMS's `RequiresLock` interlock reads, and the round's own limits are
 | 1 | the SELECTED store is an INFRARED round | `state.Stores.Station[SelectedStation−1]` → `FBStoreSpecOf` → `Seeker == FBSeekerKind::Infrared`. He checks what is on the rail rather than asking for a rail: [`duels.md`](duels.md) D4 says `WeaponSelect` is `NotImplemented` on both modules, so weapon choice is not a decision this pilot has. A radar round in a knife fight is a different weapon with a different rule and this gate declines it |
 | 2 | a LOCK | `state.Radar.LockIndex >= 0` — the same bit the interlock reads, so the pilot cannot ask for something the jet will refuse |
 | 3 | inside the LAUNCH ZONE | `fc.DlzValid && fc.InZone`, i.e. Rmin ≤ R ≤ Raero. In a merge this reduces to **Rmin**, which is `closure · ArmingS + kLaunchZoneMinTurnM` — at 700 m/s of head-on closure, 1,000 m. **The intercept's Rtr discipline is expressly NOT applied**: Rtr means "the round arrives even if he turns and runs", which buys a first shot from far out against somebody who might leave. A target already in a turning fight is not going to run, and demanding Rtr inside two miles would decline every shot the phase exists to take |
-| 4 | inside this aircraft's CUEING limit | `\|ATA\| ≤ BfmWvrCueDeg()`, a module hook, because the documented limit is the AIRCRAFT's and not the round's: [`modules/mig29/weapons.md`](modules/mig29/weapons.md) §3.3 states it in as many words — *"the 9-12's high-off-boresight capability is bounded by the HMS (±60° az) rather than by the missile (75° gimbal) … the CUEING limit is the module hook that decides whether a shot is offered"*. The generic default is **< 0 = the round's own `GimbalHalf`** (AIM-9M ±30° [T4], R-73 ±75°), the MiG-29 overrides with the Shchel-3UM's **60**, and the F-16 keeps the default because no HMCS is modelled |
+| 4 | inside this aircraft's CUEING limit | `\|ATA\| ≤ BfmWvrCueDeg()`, a module hook, because the documented limit is the AIRCRAFT's and not the round's: [`modules/mig29/weapons.md`](modules/mig29/weapons.md) §3.3 states it in as many words — *"the 9-12's high-off-boresight capability is bounded by the HMS (±60° az) rather than by the missile (75° gimbal) … the CUEING limit is the module hook that decides whether a shot is offered"*. The generic default is **< 0 = the round's own `GimbalHalf`** (AIM-9M ±30° [T4], R-73 ±75°), the MiG-29 overrides with the Shchel-3UM's **60**, and the F-16 DECLARES < 0 because no HMCS is modelled on it |
 | 5 | one shot at a time | `TimeS_ ≥ BfmShotNextS_`, re-armed on the OBSERVED release (`Stores.ReleasedCount`, an instrument, not a memory of one's own thumb) to `max(InterceptShotSpacingS(), fc.TimeToImpactS)`. At a 1–4 s WVR time of flight it is the time of flight that binds, which is the rule the intercept phase already carries |
 
 **Aspect is NOT a gate, and that is a finding rather than an omission.** Both rounds in the tree are
@@ -1884,7 +1898,7 @@ do not encode taste: a tournament may try a bad idea, it may not try 6,000 nm.
 | Key | Band | Decides | Note |
 |---|---|---|---|
 | `pilot_speed_kt` | 150…900 | intercept speed (kt TAS) | |
-| `pilot_lock_nm` | 1…40 | where the lock (and its warning) is issued | upper limit = the APG-68's gate |
+| `pilot_lock_nm` | 1…100 | where the lock (and its warning) is issued | upper limit [SET]: no fire control in this tree gates further, and the SET's own gate rejects a longer lock anyway — the rail does not borrow one aircraft's number |
 | `pilot_shot_rtr` | 0.1…3.0 | trigger at this multiple of Rtr | > 1 = beyond Rtr |
 | `pilot_shot_ata_deg` | 1…60 | how far off nose a shot is still taken | upper limit = gimbal limit |
 | `pilot_shot_spacing_s` | 0…120 | spacing of two shots at the same target | |

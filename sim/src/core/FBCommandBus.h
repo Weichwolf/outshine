@@ -17,7 +17,11 @@ namespace FlightBox {
 
 class FBCommandBus : public FBTelemetrySource {
 public:
-  /* The documented short/long press discriminator (doc/modules/f16/controls-commands.md §5). */
+  /* The documented short/long press discriminator (doc/modules/f16/controls-commands.md §5).
+   * STAYS HERE, and the reason is worth one line: `LatencyS` is STATIC and shared by every bus in the
+   * process, so the number cannot become a module's without turning a classification into an instance —
+   * and the only place it is written down is one aircraft's controls guide. Moving it would put the
+   * SAME quote into every module rather than into the one that owns it. verify-types `value`. */
   static constexpr double kHotasLatencyS = 0.5;
   /* FlightBox's own numbers, derived not quoted — the guides give neither. Derivations:
    * doc/core.md, Abschnitt 2.6. */

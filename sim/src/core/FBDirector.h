@@ -34,7 +34,9 @@ inline const char *FBDirectorStateStr(FBDirectorState s) {
 }
 
 /* Why a consent did not become a countdown. Every value is a documented boundary of the procedure,
- * never a FlightBox rule — doc/modules/mig29/weapons.md §5.4.2. */
+ * never a FlightBox rule — doc/modules/mig29/weapons.md §5.4.2. The whole TYPE, not one of its values,
+ * is that procedure: exactly one module has a director, so the remedy here is to move the type out of
+ * core (verify-types `symbol`) and not to lift a parameter out of it. verify-types `value`. */
 enum class FBDirectorRefusal : uint8_t {
   None = 0,
   NotEngaged,      /* no unguided store selected */

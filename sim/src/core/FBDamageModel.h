@@ -81,7 +81,8 @@ constexpr double kFragSpeedMs = 1800.0;  /* initial fragment ejection speed */
 /* ---- The PHYSICAL consequences, all applied through JSBSim and never by a second flight model.
  * Each derivation: doc/core.md, Abschnitt 6.2 ("Die physischen Folgen"). ---- */
 
-/* Half commanded deflection [SET, structural: the F-16 has two independent hydraulic systems]. */
+/* Half commanded deflection [SET, structural: DEGRADED is one of two redundant actuation channels
+ * lost, so what is left is half the authority — the ladder's middle rung, not a tuned number]. */
 constexpr double kAuthorityDegraded = 0.5;
 constexpr double kAuthorityFailed = 0.0;
 

@@ -44,7 +44,12 @@ public:
   FBMode GetMode(void) const { return Mode; }
   double GetTargetAlt(void) const { return AltM; }
 
-  /* Gains — public wie ein Config-Block; Defaults = das geflogene F-16-Preset. */
+  /* Gains — public wie ein Config-Block; Defaults = das geflogene F-16-Preset, und JEDES Muster des
+   * Baums fliegt sie heute unveraendert (kein Modul ueberschreibt eine dieser Zahlen). Sie bleiben
+   * deshalb hier: fuer eine aeussere Reglerverstaerkung gibt es keinen neutralen Wert, der „nicht
+   * erklaert" heisst, und sie in die Deklaration des einen Musters zu schieben wuerde die anderen
+   * zwingen, dessen Zahlen woertlich zu kopieren — dieselbe Behauptung an zwanzig Stellen statt an
+   * einer. Der Weg heraus ist ein Preset JE MUSTER mit eigener Messung. verify-types `value`. */
   double BankMaxDeg, KHdg, KAlt;
 
   /* Nur COURSE: Querablage (m) -> Intercept-Winkel (deg), gecappt; VS-Cap enger als DIRECTs. */

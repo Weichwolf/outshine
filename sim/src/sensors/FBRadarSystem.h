@@ -71,7 +71,10 @@ public:
   /* Die REFERENZ des Rueckstrahlquerschnitts: der Wert, fuer den die Reichweite eines Musters gilt, wie
    * sie in seinen Modus-Tabellen steht. Bewusst die F-16 (modules/f16/FBF16Module::RadarCrossSectionM2),
    * denn genau gegen sie ist jede Zahl im Baum gemessen worden — damit ist die RCS-Erweiterung fuer
-   * F-16-gegen-F-16 die Identitaet und keine Neukalibrierung. [SET, Kalibrierungswahl] */
+   * F-16-gegen-F-16 die Identitaet und keine Neukalibrierung. [SET, Kalibrierungswahl]
+   * BLEIBT HIER: eine Kalibrierungsreferenz ist keine Eigenschaft des SUCHENDEN Geraets, sondern des
+   * ZIELS, gegen das jede Reichweitentabelle des Baums vermessen wurde. Sie zu verschieben heisst,
+   * jede dieser Tabellen neu zu vermessen — eine Messrunde, keine Umzugsrunde. verify-types `value`. */
   static constexpr double kRefRcsM2 = 1.2;
 
   ~FBRadarSystem() override = default;

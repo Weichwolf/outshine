@@ -16,7 +16,9 @@ namespace FlightBox::Sensors {
 
 class FBCountermeasureSystem : public FBTelemetrySource {
 public:
-  /* PRGM 1-4 plus Slap-Switch-Programm 5 und Bypass-Programm 6 (doc/modules/f16/defence-rwr-cm.md §2.2). */
+  /* DIE KAPAZITAET DER PROGRAMMTABELLE, nicht die Programmzahl eines bestimmten Werfers: das Modul
+   * fuellt so viele Plaetze, wie sein Geraet hat, und begrenzt `cm_dispense` an derselben Zahl. Der
+   * letzte Platz ist per Konvention der Bypass — ein Wurf ohne Programm braucht trotzdem einen. */
   static constexpr int kProgramCount = 6;
   static constexpr int kBypassProgram = 6;
 

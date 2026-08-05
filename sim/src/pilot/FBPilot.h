@@ -68,6 +68,10 @@ public:
   Phase GetPhase() const { return CurPhase; }
   void  SetPhase(Phase p) { CurPhase = p; PhaseElapsedS = 0.0; }
 
+  /* IN DIESER ZEIT WILL DER PILOT EINEN LENKFEHLER WEGHABEN — seine Zahl, nicht die eines Flugwerks,
+   * und im Header, weil BfmRollRateMaxDegS() seinen Vorgabewert daraus bildet. */
+  static constexpr double kBfmTurnTimeS = 2.0;
+
   /* Der EINE Override-Punkt. `airframe` ist die Zelle, CONST geborgt: nur Instrumentenwerte, ueber
    * DIESELBE Schnittstelle, aus der die Kommandos zurueckkommen — der Pilot fasst nie ein FDM an.
    * MEHR STEHT NICHT IN DIESER SIGNATUR, und das ist der Punkt: ein Pilot fliegt auf Instrumenten und
@@ -185,7 +189,8 @@ protected:
    * nur ihr Vielfaches. Ein Absolutwert hat hier keine Syntax. doc/doctrine-evolution.md 2.2. */
   double TunedScale(FBPilotParam p, double own) const { return Tune_.Scaled(p, own); }
 
-  /* Die Zahlen der ZELLE — generische Platzhalter, FBF16Pilot ueberschreibt sie. NICHT der
+  /* Die Zahlen der ZELLE — generische Platzhalter, die JEDES Muster ueberschreibt; sie sind die Fahrten
+   * eines langsamen, leichten Flugzeugs und behaupten damit nichts ueber ein bestimmtes. NICHT der
    * Override-Punkt: das ist Config wie FBFlightControls Gain-Preset, nur als virtual ausgedrueckt, weil
    * RotationSpeedKt das Live-Abfluggewicht braucht. */
   virtual double RotationSpeedKt(double grossWeightLbs) const { (void)grossWeightLbs; return 65.0; }
@@ -218,21 +223,23 @@ protected:
   /* DIE ROLLSTRECKE Stick -> Rollrate, als HOOK und nicht als Konstante, seit ein zweites Muster den
    * BFM-Pfad fliegt. Der Deckel in FBPilot::BfmCommands INVERTIERT diese Strecke (p[n+1] = a*p[n] +
    * K*(1-a)*u[n], nach u aufgeloest), also ist er nur dann ein Deckel, wenn die beiden Zahlen von DEM
-   * Flugzeug stammen, das er stellt. Mit den Zahlen eines anderen ist er ein Oszillator: die MiG-29
-   * rollt 2,6x haerter je Vollausschlag, der aus den F-16-Zahlen gerechnete Stick liegt dann weit ueber
-   * dem, was der Deckel meint, und die Zelle rollt durch die Solllage hindurch (gemessen: +-130 deg
-   * Grenzzyklus, Departure nach 8,9 s). Die Defaults sind die identifizierten F-16-Zahlen, also aendert
-   * sich fuer sie nichts. doc/pilot.md, Abschnitt 5.7. */
-  virtual double BfmRollPlantA() const { return 0.734; }        /* Rollzeitkonstante 0,323 s bei 10 Hz */
-  virtual double BfmRollPlantKDegS() const { return 78.7; }     /* Rate je Vollausschlag, stationaer */
-  /* DER KOMMANDIERTE ROLLRATEN-DECKEL, jetzt HOOK: der Default 180/kBfmTurnTimeS = 90 deg/s ist die
-   * geschlossene Form (eine Umkehr = eine 180-deg-Rolle in der Zeitkonstante) und bleibt die F-16.
-   * Eine HAERTER rollende Zelle (MiG-29, K=201) ueberschiesst diesen Deckel zwischen zwei 10-Hz-
-   * Entscheidungen so weit, dass die Dauer-Rollrate der Verfolgung ueber die 60-deg/s-Departure-Schwelle
-   * des Monitors laeuft (gemessen ~118 deg/s, mig29-bfm) — der Pilot kommandiert die twitchy Zelle also
-   * konservativer, damit die 10-Hz-Schleife sie halten kann. Nur der LIMITER liest ihn; die Umkehr-
-   * Zonenlogik (kBfmReverseS) bleibt an kBfmTurnTimeS gebunden und damit bitgleich. doc/pilot.md 5.7. */
-  virtual double BfmRollRateMaxDegS() const { return 180.0 / 2.0; }
+   * Flugzeug stammen, das er stellt. Mit den Zahlen eines anderen ist er ein Oszillator: eine Zelle, die
+   * 2,6x haerter je Vollausschlag rollt, bekommt aus fremden Zahlen einen Stick weit ueber dem, was der
+   * Deckel meint, und rollt durch die Solllage hindurch (gemessen: +-130 deg Grenzzyklus, Departure nach
+   * 8,9 s). DESHALB IST 0 DER VORGABEWERT und nicht die Strecke irgendeines Flugzeugs: keine Strecke
+   * identifiziert heisst KEIN DECKEL, und das ist die einzige Antwort, die nicht die eines fremden
+   * Flugwerks ist. Wer den Deckel will, misst seine zwei Zahlen (Rezept Schritt 7); modules/air
+   * verweigert `set task bfm`, solange sie fehlen. doc/pilot.md, Abschnitt 5.7. */
+  virtual double BfmRollPlantA() const { return 0.0; }          /* Rollzeitkonstante als ARX(1)-Pol */
+  virtual double BfmRollPlantKDegS() const { return 0.0; }      /* Rate je Vollausschlag, stationaer */
+  /* DER KOMMANDIERTE ROLLRATEN-DECKEL. Der Vorgabewert ist die geschlossene Form aus der Zeitkonstante
+   * DES PILOTEN — eine Umkehr ist eine 180-deg-Rolle, und auch sie soll in kBfmTurnTimeS liegen —, also
+   * eine Zahl dieser Klasse und keines Flugwerks. Eine haerter rollende Zelle ueberschiesst ihn zwischen
+   * zwei 10-Hz-Entscheidungen so weit, dass die Dauer-Rollrate der Verfolgung ueber die 60-deg/s-
+   * Departure-Schwelle des Monitors laeuft (gemessen ~118 deg/s, mig29-bfm) — die twitchy Zelle wird
+   * also konservativer kommandiert, damit die 10-Hz-Schleife sie halten kann. Nur der LIMITER liest ihn;
+   * die Umkehr-Zonenlogik (kBfmReverseS) bleibt an kBfmTurnTimeS gebunden. doc/pilot.md 5.7. */
+  virtual double BfmRollRateMaxDegS() const { return 180.0 / kBfmTurnTimeS; }
   /* GEOMETRIE. Die Kontrollposition: hinter ihm, nah, Nase drauf, Lock gehalten. */
   virtual double BfmControlMinNm() const { return 0.5; }
   virtual double BfmControlMaxNm() const { return 1.5; }
@@ -259,9 +266,9 @@ protected:
   virtual double BfmScanPeriodS() const { return 30.0; }
   /* ROLLDECKEL IM SUCHLAUF (Anteil vollen Ausschlags), als HOOK, weil eine haerter rollende Zelle
    * sanfter scannen muss: das Such-aim ist eine VERMUTUNG, seine Rolle darf keinen Kampfzug fordern,
-   * sonst treibt die eigene Lagedrift einen Roll-Grenzzyklus (doc/pilot.md 5.4). Default 1,0 -> der
-   * Deckel greift nie, das Suchverhalten der F-16 bleibt bitgleich; eine Zelle mit hoher
-   * Roll-Verstaerkung (MiG-29) setzt ihn tief. Nur der SUCHLAUF ist betroffen, nicht die Verfolgung. */
+   * sonst treibt die eigene Lagedrift einen Roll-Grenzzyklus (doc/pilot.md 5.4). 1,0 = VOLLER
+   * AUSSCHLAG, der Deckel greift also nie und behauptet nichts; eine Zelle mit hoher Roll-Verstaerkung
+   * setzt ihn tief. Nur der SUCHLAUF ist betroffen, nicht die Verfolgung. */
   virtual double BfmSearchRollCap() const { return 1.0; }
   virtual double BfmFloorFt() const { return 2000.0; }   /* AGL, darunter wird der Zug nach oben gezogen */
   /* Die Laenge EINES Abzugsdrucks. Der Bus erzwingt 0,5 s zwischen zwei Handlungen an einem Schalter,
@@ -274,18 +281,17 @@ protected:
   virtual double BfmGunFireTolFrac() const { return 0.35; }
 
   /* WIE WEIT VON DER NASE WEG diese ZELLE einer Kurzstreckenrunde ihr Ziel uebergeben kann. Es ist eine
-   * Eigenschaft des FLUGZEUGS und nicht der Waffe, und die Quelle sagt das woertlich: die Hochwinkel-
-   * faehigkeit der 9-12 ist durch das Helmvisier (+-60 deg Azimut) begrenzt, nicht durch den 75-deg-
-   * Kardan des R-73 (doc/modules/mig29/weapons.md 3.3). < 0 = kein eigenes Visier, es gilt der Kardan
-   * der Runde selbst — die F-16 laesst das so, weil kein HMCS modelliert ist. doc/pilot.md 5.11. */
+   * Eigenschaft des FLUGZEUGS und nicht der Waffe, und die Quellen sagen das woertlich: wo ein Helmvisier
+   * modelliert ist, begrenzt DESSEN Azimut den Hochwinkelschuss und nicht der Kardan des Suchers
+   * (doc/modules/mig29/weapons.md 3.3). < 0 = KEIN EIGENES VISIER, dann gilt der Kardan der Runde selbst
+   * — der Vorgabewert nennt damit die Abwesenheit einer Box und keine Zahl. doc/pilot.md 5.11. */
   virtual double BfmWvrCueDeg() const { return -1.0; }
 
   /* Der NAHKAMPF-Radarmodus: das Modul-Ordinal des selbst-lockenden ACM-Musters, das die BFM-Phase
    * WAEHLT, sobald sie in den Kurvenkampf geht — die Erfassungs-Haelfte, die im Merge fehlte. Im
    * Nahkampf bedient niemand ein Radar von Hand, also uebernimmt der Auto-Lock des Modus die
-   * Designation, die die BVR-Phase noch mit dem Daumen faehrt (BfmDesignate). -1 = das Modul hat keinen
-   * umschaltbaren ACM-Modus, die Designation bleibt manuell. Die F-16 laesst -1: ihr acm_hud wird per
-   * Missionstext gesetzt und bleibt stehen, also aendert dieser Zweig NICHTS an ihr (byte-identisch).
+   * Designation, die die BVR-Phase noch mit dem Daumen faehrt (BfmDesignate). -1 = DAS MODUL HAT KEINEN
+   * umschaltbaren ACM-Modus, die Designation bleibt manuell und dieser Zweig laeuft nicht.
    * doc/modules/mig29/module.md gap 4h (a). */
   virtual int    BfmRadarModeOrdinal() const { return -1; }
 
@@ -350,13 +356,14 @@ protected:
   /* Der CRANK IST der Kardanwinkel der Antenne minus der Reserve, die ein manoevrierendes Ziel braucht:
    * weiter wegdrehen bricht den Track, und genau das darf die Support-Phase nicht. */
   virtual double InterceptCrankAtaDeg() const { return 45.0; }
-  /* SCHLIESSEN SICH STUETZEN UND VERTEIDIGEN AUS? Fuer eine aktive Runde nicht: der F-16-Schuetze
-   * crankt und darf trotzdem abdrehen, weil die AIM-120 ab der Suchereinschaltung allein weiterfliegt.
+  /* SCHLIESSEN SICH STUETZEN UND VERTEIDIGEN AUS? Fuer eine AKTIVE Runde nicht: der Schuetze crankt und
+   * darf trotzdem abdrehen, weil sie ab der Suchereinschaltung allein weiterfliegt.
    * Fuer eine HALBAKTIVE Runde schon — der Beam legt die eigene Radialgeschwindigkeit in den
    * gegnerischen Clutterfilter UND nimmt der eigenen Rakete die Beleuchtung, von der sie lebt
    * (doc/modules/mig29/weapons.md §3.2, Folge 4: „jousting"). Eine DOKTRIN-Frage, also ein
    * Modul-Hook: es geht nicht darum, was die Waffe kann, sondern was dieser Pilot zu tun bereit ist.
-   * false = die bisherige, unveraenderte Verhaltensweise jedes Bestandsmoduls. */
+   * false = KEINE BINDUNG, also die Phasenmaschine ohne diesen Zweig — der Vorgabewert fuegt nichts
+   * hinzu, statt die Doktrin irgendeines Schuetzen zu behaupten. */
   virtual bool SupportInhibitsDefend() const { return false; }
   /* Darunter ist das Gefecht nicht mehr BVR: weiterdruecken ist ein Merge, kein Schuss. */
   virtual double InterceptAbortRangeNm() const { return 5.0; }

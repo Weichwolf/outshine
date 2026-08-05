@@ -46,7 +46,11 @@ public:
    * velocity it is 0.178 s / 0.888 s of flight [DERIVED, kM61A1 1 030 m/s], and a gun's usable window is
    * a time of flight rather than a distance — the target's evasion during the round's flight is what
    * ends it. Cross-check on an independent source: 0.888 s at the GSh-301's 860 m/s gives 764 m against
-   * that gun's documented 800 m effective air-target limit (doc/modules/mig29/weapons.md §8.4). */
+   * that gun's documented 800 m effective air-target limit (doc/modules/mig29/weapons.md §8.4).
+   * IT STAYS A NUMBER OF THIS CLASS. Declaring it per gun would write the same two seconds into every
+   * row — the argument above IS that one time-of-flight window serves them all, and a copy per barrel
+   * would unsay it. The only published origin is ONE sight; the cross-check on a second gun is the line
+   * above. verify-types `value`. */
   static constexpr double kFunnelNearS = 0.178;
   static constexpr double kFunnelFarS = 0.888;
 

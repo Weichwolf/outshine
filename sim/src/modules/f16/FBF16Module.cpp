@@ -374,6 +374,9 @@ void FBF16Module::ApplyCommand(const FBAvionicsCommand &c, FBCommandOutcome &out
       GunSys->Trigger(c.Value, SimTimeS, outcome, reason);
       return;
     case FBCommandTarget::CmDispense:
+      /* This dispenser's own six: PRGM 1-4, the slap switch's programme 5 and the bypass programme 6
+       * (doc/modules/f16/defence-rwr-cm.md §2.2) — which is exactly the table's capacity, so the bound
+       * is the table's and no second number is written down. */
       if (c.Value < 0.0 || c.Value > (double)Sensors::FBCountermeasureSystem::kProgramCount) {
         outcome = FBCommandOutcome::Rejected;
         reason = FBCommandReason::OutOfRange;

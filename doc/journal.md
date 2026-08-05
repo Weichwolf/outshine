@@ -4471,3 +4471,46 @@ reason="cannot open /fb/mods/comanche/mod.json"`, Boot-Abbruch statt Ersatzflugz
 Harnesses unverändert (`test-air` 5 außerhalb) · `verify-layers` 6 Wahrnehmungs-Leser ·
 `verify-guards` 8/8 · `verify-models` grün · nativ fliegt mit Bild (`mission_0002.png`).
 `tools/wx_smoke.cjs` war seit dem Mod-Umzug tot (Fixture unter `sim/assets/`) und ist mitrepariert.
+
+## 2026-08-05 — Typwissen, Klasse `value`: 21 von 27 Zahlen sind umgezogen, 6 stehen mit ihrer Begründung
+
+**Die kleinste Klasse und die gefährlichste.** `verify-types` zählte 27 Stellen, an denen eine Zahl aus
+EINEM Flugzeug als Vorgabewert in generischem Code sitzt. Ein Symbol `FBF16Fcr` ist ehrlich; ein neutral
+benanntes Feld mit einer F-16-Zahl darin ist es nicht. **27 → 6**, und die sechs sind keine Restschuld,
+sondern sechs Fälle, in denen der Umzug das Wissen VERSCHLECHTERT hätte — jeder mit einer Zeile an
+seiner Deklaration.
+
+**Der Kern ist der Anstellwinkel-Begrenzer.** `kSosKp = 0,20` / `kSosLeadS = 0,45` standen als
+Dateikonstanten im generischen Regler und galten still für JEDE Zelle. Ein reiner P-Zweig hält die
+begrenzte Größe `Stick/Kp` UNTER dem Grenzwert — bei 0,20 bis zu 5 Einheiten, was auf einer fremden
+Zelle den ganzen ±5-%-Ankerkorridor auffrisst (`mig17` α 18,82 gegen 20 deg, −5,9 %). Die Zahl ist
+**nicht verändert** worden (das wäre Reglertuning und verboten), sondern in die Deklaration der Zelle
+gewandert, die sie gemessen hat: `FBFlightControl::AlphaLimitKp/AlphaLimitLeadS`, gesetzt in `Mig29()`,
+Vorgabewert 0 = kein Gesetz, Zweig tot. `Raw()` erbt sie weiter und trägt jetzt an Ort und Stelle, was
+das kostet.
+
+**Dieselbe Form überall:** die Rollstrecke des BFM-Deckels (0,734 / 78,7) und sein kommandierter
+Ratendeckel stehen jetzt in `FBF16Pilot`, der generische Vorgabewert ist **0 = keine Strecke
+identifiziert, also kein Deckel** (zweiter Riegel neben der Tier-Sperre in `modules/air`; die Inversion
+teilte sonst durch null). `PitchStickMax`/`KqDamp`/`KpDampRoll`/`AlphaLimitDeg`/`GLimitG` sind in
+`F16()` AUSGESCHRIEBEN statt geerbt — dieselben Werte, aber als Antwort des Jets und nicht als Vorgabe,
+die zufällig passt. Der Band-Deckel `pilot_lock_nm` hört auf, das Tor eines Radars zu leihen (40 → 100,
+[SET]); sechs Kern-Deklarationen (Tier-Leiter, `kAuthorityDegraded`, `RadarEmission`,
+`EmissionOrdinal`, `kProgramCount`, `IffXpdr`) sagen ihre Bedeutung jetzt neutral, und die
+typspezifische Aussage steht im Modul.
+
+**Was NICHT umgezogen ist und warum** — `kHotasLatencyS` (`LatencyS` ist statisch und von jedem Bus
+geteilt; die einzige Quelle ist ein Handbuch) · `FBCmProgram` (Schema EINES Werfers, Feld für Feld) ·
+`FBDirectorRefusal` (der ganze TYP ist ein Verfahren → Klasse `symbol`, nicht `value`) · `kRefRcsM2`
+(Kalibrierungsreferenz: verschieben heißt jede Reichweitentabelle neu vermessen) · `FBAutopilot`s
+`BankMaxDeg/KHdg/KAlt` (kein Modul überschreibt sie; eine äußere Verstärkung hat keinen neutralen Wert,
+der Weg heraus ist ein Preset JE Muster mit eigener Messung) · `kFunnelNearS/FarS` (ein Flugzeitfenster
+für sechs Rohre IST das Argument; eine Kopie je Rohr würde es zerreden).
+
+**Tore:** 296 Missionen bytegleich (`diff -r` leer) · `payerne-full --threads 1/2/4` =
+`6e24090b7e861aa7` · acht Harness-Binaries rc=0, `test-corner` 380 / 16,1805 · `test-air` **weiterhin
+5** außerhalb, dieselben fünf Zeilen mit denselben Zahlen (`mig17` α −5,9 %, A5 −11,6 % — der Beweis,
+dass es ein Umzug war) · `verify-layers` 6 Wahrnehmungs-Leser · `verify-guards` 8/8 · `verify-models` 1
+Delta · `verify-trees` 20+3 · `gym`/`native`/`wasm` bauen. `verify-types`: `value` 27 → 6, `symbol`
+480 → 474 (die zwei Konstanten heißen jetzt neutral), `comment` 658 → 632 (generische Deklarationen
+zitieren keine Muster mehr; die Aussagen stehen in den Moduldateien), `dir`/`key`/`text` unverändert.

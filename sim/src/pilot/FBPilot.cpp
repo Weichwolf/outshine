@@ -39,7 +39,6 @@ const double kGearUpAglFt = 10.0;
  * falsch waeren. Das Gesetz — EIN Auftriebsvektor, EIN Lastvielfaches — und alle Zahlen unten:
  * doc/pilot-ai.md, Abschnitt 5. */
 const double kBfmRollFullDeg = 60.0;      /* Rollfehler, der vollen Querausschlag verdient */
-const double kBfmTurnTimeS = 2.0;         /* in dieser Zeit will der Pilot den Lenkfehler weghaben */
 /* Eine Rollrate, die der Pilot auch STOPPEN kann — und jetzt die geschlossene Form statt eines Knopfes:
  * der GROESSTE Lenkfehler, den dieses Gesetz erzeugen kann, ist 180° (es nimmt immer den kurzen Weg),
  * und auch der schlimmste Fall muss in der Zeitkonstante geflogen werden, der die Rolle dient. Damit ist
@@ -47,7 +46,7 @@ const double kBfmTurnTimeS = 2.0;         /* in dieser Zeit will der Pilot den L
  * der NOMINALWERT eines Deckels, der seinen Wert nie hielt (gemessen 91 °/s gegen 60 nominal, s.u.);
  * gegen den korrigierten Deckel neu vermessen — 16-Anflug-Sweep, Deckel 60/75/82,5/90/97,5/105 °/s:
  * 8/9/11/12/9/10 Treffer, und nur bei 90 °/s kein einziges Departure in den acht BFM-Missionen. */
-const double kBfmRollRateMaxDegS = 180.0 / kBfmTurnTimeS;
+const double kBfmRollRateMaxDegS = 180.0 / FBPilot::kBfmTurnTimeS;
 /* DIESELBE 180° ALS DAUERSCHRANKE. Der Deckel darueber ist ein SPITZENWERT: er sagt, wie schnell eine
  * Umkehr geflogen werden darf, nicht wie lange. Gehalten wird er von einem Gesetz, dessen kommandierte
  * Auftriebsrichtung sich MITDREHEN kann — steht das Ziel quer und wandert die Sichtlinie schneller, als
@@ -75,7 +74,7 @@ const double kBfmSearchRangeM = 5556.0;   /* 3 nm: nur damit die kalte Suche ein
 const double kBfmLeadRateAlpha = 0.4;
 /* Ki ist HERGELEITET, keine Geschmacksfrage: das Gesetz kommandiert (e+I)/T gegen einen Winkel, der
  * Kreis schliesst als s² + s/T + Ki/T = 0, also Ki = 1/(2T) → zeta = 0,707. */
-const double kBfmTrackKi = 0.5 / kBfmTurnTimeS, kBfmTrackIMaxDeg = 10.0;
+const double kBfmTrackKi = 0.5 / FBPilot::kBfmTurnTimeS, kBfmTrackIMaxDeg = 10.0;
 /* Breiter und das Weben ist kein Suchmuster mehr, sondern eine Umkehr. */
 const double kBfmScanMaxAmpDeg = 45.0;
 /* Eine Suche steigt fest und sinkt sanft: HOCH ziehen ist bei jeder Lage ein aufrechter Zug, ein steiler
@@ -454,8 +453,14 @@ FBPilotCommands FBPilot::BfmCommands(const FBState &state, FBCommandBus &avionic
     rateCap *= Clamp(1.0 - std::fabs(rollWinDeg) / kBfmRollExtentDeg, 0.0, 1.0);
   if (st.p * rollCmd > 0.0) {
     double plantA = BfmRollPlantA(), plantK = BfmRollPlantKDegS();
-    double lim = Clamp((rateCap - plantA * std::fabs(st.p)) / (plantK * (1.0 - plantA)), 0.0, 1.0);
-    if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
+    /* OHNE IDENTIFIZIERTE STRECKE KEIN DECKEL. Der Ausdruck IST die Inversion der Strecke; mit der
+     * eines fremden Flugwerks ist er ein Oszillator (s. Hook), mit gar keiner eine Division durch
+     * null. Die Tier-Sperre in modules/air laesst eine unvermessene Zeile ohnehin nicht in diese
+     * Phase — das hier ist der zweite Riegel an der Stelle, die die Zahlen wirklich braucht. */
+    if (plantK > 0.0 && plantA > 0.0 && plantA < 1.0) {
+      double lim = Clamp((rateCap - plantA * std::fabs(st.p)) / (plantK * (1.0 - plantA)), 0.0, 1.0);
+      if (std::fabs(rollCmd) > lim) rollCmd = rollCmd > 0.0 ? lim : -lim;
+    }
   }
   /* IM SUCHLAUF IST DIE ROLLE EIN SCAN, KEIN KAMPFZUG. Das aim ist eine Vermutung (Heading/Datum);
    * fliegt eine haerter rollende Zelle (MiG-29, K=201) sie mit voller Rollautoritaet, treibt die eigene

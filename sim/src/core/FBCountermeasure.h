@@ -42,7 +42,10 @@ inline bool FBCmdsModeFromString(const char *s, FBCmdsMode &out) {
   return false;
 }
 
-/* One type's half of a program — the DED page's four fields with its documented ranges. */
+/* One type's half of a program — the DED page's four fields with its documented ranges. The SCHEMA is
+ * one dispenser's, field for field and range for range, and it stays that way until a second dispenser
+ * with a different page exists to generalise it against: a schema invented for a device nobody has
+ * modelled would be a guess wearing the shape of a fact. verify-types `value`. */
 struct FBCmProgramType {
   int    BurstQty = 0;           /* BQ, 0..99 cartridges per salvo (0 = type not in this program) */
   double BurstIntervalS = 0.1;   /* BI, 0.020..10.000 s between cartridges */

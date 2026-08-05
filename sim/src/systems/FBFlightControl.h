@@ -34,33 +34,41 @@ public:
   /* Gains — public Config-Block; Defaults im ctor, Zellenwerte via F16()/Mig29(). */
   int    Flcs;                           /* 1 = FLCS kommandieren, 0 = rohe Ruder-PD */
   double RollStickMax;
-  /* Das Gegenstueck zu RollStickMax in der Nickachse. 1,0 = kein Deckel (die F-16: hinter dem Ausgang
-   * sitzt ihre FLCS mit eigenem Anstellwinkel-Begrenzer, der Deckel waere dort eine zweite Meinung).
-   * Bei einer mechanisch gesteuerten Zelle IST der Ausgang der Ausschlag und es sitzt nichts dahinter —
-   * dort ist dieser Deckel der Grenzwertgeber, den die Zelle nicht hat. */
+  /* Das Gegenstueck zu RollStickMax in der Nickachse. 1,0 = KEIN DECKEL, und mehr behauptet der Vorgabe-
+   * wert nicht: was hinter dem Ausgang sitzt, weiss allein die Zelle. Schliesst dort ein eigener innerer
+   * Kreis mit eigenem Anstellwinkel-Begrenzer an, waere ein Deckel hier eine zweite Meinung; IST der
+   * Ausgang der Ausschlag, ist dieser Deckel der Grenzwertgeber, den die Zelle sonst nicht hat. */
   double PitchStickMax;
   double KRollRate, KG, KGi, KVs2g, KVsi, KNy, KNyi, KTi, KpSpd, ThrTrim;
   double KpRoll, KdRoll, KpPitch, KdPitch, KdYaw, KCoord, PitchMaxDeg, KAltRaw;
   double NzSlew;                         /* max. g-Kommandoaenderung je Sekunde */
-  /* DIE DAEMPFERGLIEDER DES g-ZWEIGS, und beide sind 0, wenn die ZELLE ihre eigenen hat. Der g-Ausgang
-   * ist bei der F-16 ein Kommando an eine echte FLCS, die Nick- und Rollrate selbst ausregelt; bei
-   * einer mechanisch gesteuerten Zelle IST derselbe Ausgang ein Ruderausschlag, und ein reiner
-   * Proportionalregler darauf schwingt in der Anstellwinkelschwingung. Die Zahl gehoert damit zur Zelle
-   * und ist Preset wie jede andere hier. */
+  /* DIE DAEMPFERGLIEDER DES g-ZWEIGS, in Stick je deg/s. 0 = KEIN eigenes Glied hier, und das ist die
+   * Vorgabe, weil eine Zelle, deren Ausgang in einen eigenen inneren Kreis geht, ihre Raten dort schon
+   * ausgeregelt bekommt — ein zweites Glied waere eine zweite Meinung. IST derselbe Ausgang ein Ruder-
+   * ausschlag, schwingt ein reiner Proportionalregler darauf in der Anstellwinkelschwingung, und die
+   * Zelle braucht die Glieder. Die Zahl gehoert damit zur Zelle und ist Preset wie jede andere hier. */
   double KqDamp, KpDampRoll;
-  /* DER ANSTELLWINKEL-BEGRENZER (die MiG-29 nennt ihn SOS), in Grad. 0 = AUS, und das ist die F-16:
-   * ihr Begrenzer sitzt in ihrer eigenen FLCS, ein zweiter hier waere eine konkurrierende Meinung.
+  /* DER ANSTELLWINKEL-BEGRENZER, in Grad, mit seinem Gesetz darunter. 0 = AUS, und mehr sagt die Vorgabe
+   * nicht: ob eine Zelle hier einen braucht, haengt daran, ob hinter dem Ausgang schon einer sitzt.
    * Er gehoert in diese Klasse und nicht ins Modell-Deck — die Begruendung steht seit der Modellrunde
-   * in doc/mig29/flight-model-spec.md §7.3 und gilt unveraendert: er ist eine STICK-KRAFT und damit
-   * uebersteuerbar, und im Deck vergraben waere er vor core/FBFlightMonitor versteckt, dessen ganzer
-   * Sinn es ist, NICHT der Begrenzer zu sein. Er darf nur ZIEHEN verbieten, nie druecken erzwingen. */
+   * in doc/modules/mig29/flight-model-spec.md §7.3 und gilt unveraendert: er ist eine STICK-KRAFT und
+   * damit uebersteuerbar, und im Deck vergraben waere er vor core/FBFlightMonitor versteckt, dessen
+   * ganzer Sinn es ist, NICHT der Begrenzer zu sein. Er darf nur ZIEHEN verbieten, nie druecken
+   * erzwingen. */
   double AlphaLimitDeg;
-  /* DER LASTVIELFACHEN-BEGRENZER, in g. 0 = AUS, und das sind F-16 wie MiG-29: die eine hat ihn in
-   * ihrer eigenen FLCS, die andere hat keinen. doc/modules/air/flight-model-recipe.md §6 nennt diese
-   * Klasse seit der Katalogrunde als den Ort des veroeffentlichten g-Limits (A5) — bis hierher stand
-   * dort nichts, und der Anker mass folglich die aerodynamische Grenze statt der strukturellen
-   * (gemessen: f15c 13,3 g gegen veroeffentlichte 9,0). Gesetz, Vorhalt und Anti-Windup sind Zeile fuer
-   * Zeile die des Anstellwinkel-Begrenzers: der KLEINERE von zwei Zweigen, nie ein erzwungener Druck. */
+  /* SEIN GESETZ, und es ist Preset wie der Grenzwert selbst: ein reiner P-Zweig laesst die begrenzte
+   * Groesse um Stick/Kp UNTER dem Grenzwert stehen, Kp ist also die Aussage darueber, wie hart diese
+   * Zelle an ihre eigene Grenze gehalten werden darf, und der Vorhalt die Zeitkonstante, mit der ihr
+   * Anstellwinkel aufbaut. 0 = kein Gesetz, dann laeuft der Zweig nicht: eine Zelle, die einen
+   * Grenzwinkel nennt, nennt auch dessen Gesetz. */
+  double AlphaLimitKp, AlphaLimitLeadS;
+  /* DER LASTVIELFACHEN-BEGRENZER, in g. 0 = AUS — eine Zelle ohne veroeffentlichtes Limit und eine, die
+   * ihres hinter dem Ausgang selbst haelt, sagen hier beide dasselbe. doc/modules/air/
+   * flight-model-recipe.md §6 nennt diese Klasse seit der Katalogrunde als den Ort des veroeffentlichten
+   * g-Limits (A5) — bis hierher stand dort nichts, und der Anker mass folglich die aerodynamische Grenze
+   * statt der strukturellen (gemessen: f15c 13,3 g gegen veroeffentlichte 9,0). Gesetz, Vorhalt und
+   * Anti-Windup sind Zeile fuer Zeile die des Anstellwinkel-Begrenzers: der KLEINERE von zwei Zweigen,
+   * nie ein erzwungener Druck. */
   double GLimitG;
 
   double GetGIterm(void) const { return GIterm; }

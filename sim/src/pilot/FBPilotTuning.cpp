@@ -8,7 +8,10 @@ namespace {
  * nicht 6.000 nm versuchen. Bedeutung je Schluessel: doc/pilot.md, Abschnitt 9. */
 constexpr FBPilotKey kParams[] = {
   {"pilot_speed_kt",       FBPilotParam::InterceptSpeedKt, FBPilotKeyKind::Free, 150.0,  900.0, ""},
-  {"pilot_lock_nm",        FBPilotParam::LockRangeNm,      FBPilotKeyKind::Free,   1.0,   40.0, ""},   /* das Tor des APG-68 */
+  /* [SET] Kein Feuerleitgeraet dieses Baums torrt weiter; jenseits davon ist die Zahl ein Vertipper und
+   * keine Doktrin. Das ECHTE Tor ist das des jeweiligen Geraets und lehnt einen weiteren Lock ohnehin
+   * ab — dieses Gelaender braucht die Zahl deshalb nicht von einem Muster zu leihen. */
+  {"pilot_lock_nm",        FBPilotParam::LockRangeNm,      FBPilotKeyKind::Free,   1.0,  100.0, ""},
   {"pilot_shot_rtr",       FBPilotParam::ShotRtrFactor,    FBPilotKeyKind::Free,   0.1,    3.0, ""},   /* >1 = jenseits von Rtr */
   {"pilot_shot_ata_deg",   FBPilotParam::ShotAtaDeg,       FBPilotKeyKind::Free,   1.0,   60.0, ""},   /* der Kardanwinkel */
   {"pilot_shot_spacing_s", FBPilotParam::ShotSpacingS,     FBPilotKeyKind::Free,   0.0,  120.0, ""},

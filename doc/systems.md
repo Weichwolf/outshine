@@ -405,6 +405,13 @@ line" means.
 
 #### 2.7 Gains (public config block, defaults = the flown F-16 preset)
 
+**They stay here, and the reason is measured rather than assumed:** no module overrides one of them, so
+the whole tree — MiG-29 and every catalogue row included — flies these numbers today. An outer-loop gain
+has no neutral value meaning "not declared", and moving them into one airframe's declaration would force
+the other twenty to copy that airframe's numbers verbatim: the same claim in twenty places instead of
+one. The way out is a preset PER airframe with its own measurement, which is a measuring round. Counted
+as an open `value` by `verify-types`.
+
 | Field | Default | Meaning |
 |---|---|---|
 | `BankMaxDeg` | 60 | bank limit; **fixes the entire law in DIRECT leg** |
@@ -552,6 +559,25 @@ no integrator movement, no loop.
 | `KpPitch`/`KdPitch` | 0.06 / 0.010 | (unused) | raw branch |
 | `KdYaw`/`KCoord` | 0.006 / 0.004 | (unused) | raw branch |
 | `PitchMaxDeg`/`KAltRaw` | 15 / 0.05 | (unused) | raw branch |
+| `PitchStickMax` | 1.0 | **1.0** | pitch-stick cap; 1.0 = NO cap |
+| `KqDamp`/`KpDampRoll` | 0.0 / 0.0 | **0.0 / 0.0** | own rate damper; 0 = none |
+| `AlphaLimitDeg` | 0.0 | **0.0** | α limiter; 0 = off |
+| `AlphaLimitKp`/`AlphaLimitLeadS` | 0.0 / 0.0 | 0.0 / 0.0 | its LAW; 0 = no law, branch dead |
+| `GLimitG` | 0.0 | **0.0** | structural g limiter; 0 = off |
+
+**The last five rows are written out in `F16()` although they equal the default, and that is the
+point:** each is this airframe's ANSWER (its own FLCS holds rate, incidence and load factor behind this
+output, so a second cap here would be a competing opinion), not a default that happens to fit. The
+generic constructor's values claim nothing about any aircraft — 1.0 is "no cap", 0 is "off".
+
+**The α limiter's LAW is a preset, not a class constant** (moved out of the file scope of
+`FBFlightControl.cpp`, where `kSosKp`/`kSosLeadS` silently applied to every airframe). A pure P branch
+holds the limited quantity `stick/Kp` BELOW the limit, so `Kp` is a statement about how hard THIS
+airframe may be held against its own boundary: at 0.20 the droop is up to 5 units, which on a foreign
+row eats a whole ±5 % anchor corridor (measured: `mig17` α 18.82 against 20 deg, −5.9 %,
+[`modules/air`](modules/air/module.md)). Only the derivative filter (0.15, ~0.07 s at 100 Hz) stays a
+class constant — it answers sampling, not an airframe. `Raw()` still inherits the law from the airframe
+it was measured on, which is exactly what that measured gap costs.
 
 **`RollStickMax = 0.15` is a measurement:** with it `nz` stays in the range **0.7…1.9 g**; at 0.35 it was
 **−1.1…+3.0 g**.

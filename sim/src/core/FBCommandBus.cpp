@@ -54,9 +54,8 @@ FBCommandClass FBCommandClassOf(FBCommandTarget t) {
     /* The CMDS mode knob is on the left console, not the stick; CmDispense/CmConsent are the CMS
      * switch and stay HOTAS — a countermeasure exists to be thrown mid-manoeuvre. */
     case FBCommandTarget::CmdsMode:
-    /* The emission control is a three-position switch on the left console (the MiG-29's PUR-31), not a
-     * throw the hand already rests on. No F-16 command ever carries this target — that airframe has no
-     * such switch and rejects it — so the classification is this aircraft's alone. */
+    /* A separate emission control is a console switch and not a throw the hand already rests on, so it
+     * costs a head-down entry like the rest of this list. A set without one never posts this target. */
     case FBCommandTarget::RadarEmission:
       return FBCommandClass::Ded;
     default:

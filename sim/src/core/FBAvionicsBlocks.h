@@ -235,10 +235,10 @@ struct FBRadarBlock {
   bool Powered = false;
   bool Radiating = false;      /* powered AND the active mode radiates */
   int  ModeOrdinal = 0;        /* the module's own mode label, not logic */
-  /* WHERE THE EMISSION SWITCH STANDS, for a set that has one BESIDE the mode selector (the MiG-29's
-   * PUR-31). -1 = this set has no such switch, which is what makes the field readable without asking
-   * which aircraft wrote it. It is here for the same reason `ModeOrdinal` is: a pilot who is to move a
-   * switch needs the SWITCH's state and never the picture's (doc/pilot.md §7.6b). */
+  /* WHERE THE EMISSION SWITCH STANDS, for a set that has one BESIDE the mode selector. -1 = THIS SET
+   * HAS NO SUCH SWITCH, which is what makes the field readable without asking which aircraft wrote it.
+   * It is here for the same reason `ModeOrdinal` is: a pilot who is to move a switch needs the SWITCH's
+   * state and never the picture's (doc/pilot.md §7.6b). */
   int  EmissionOrdinal = -1;
   int  ContactCount = 0;
   int  LockIndex = -1;         /* index into Contacts of the STT track; -1 = no lock */

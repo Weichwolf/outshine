@@ -23,8 +23,9 @@ enum class FBCommandTarget : uint8_t {
    * telemetry column value. IrstLaser is the only ACTIVE thing that station does — and the only
    * command in this table whose effect is a measurement rather than a state. */
   IrstMode, IrstDesignate, IrstLaser,
-  /* The EMISSION control of a radar that has one as a separate switch from power (ILLUM/DUMMY/OFF on
-   * the MiG-29's PUR-31). Value = the module's own ordinal, like RadarMode. */
+  /* The EMISSION control of a set whose radiating state is a SEPARATE switch from power, so that going
+   * quiet does not go through off. Value = the module's own ordinal, like RadarMode; a set without such
+   * a switch rejects this target. */
   RadarEmission,
   /* WHICH PAGE THE PILOT IS LOOKING AT. Value = the MODULE's own page ordinal, like RadarMode — the
    * catalogue is the aircraft's (an F-16 has no IRST page, a MiG-29 no datalink one), so a generic

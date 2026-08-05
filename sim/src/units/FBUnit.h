@@ -96,7 +96,7 @@ struct FBUnitSignature {
    * published STATE a semi-active weapon reads, not a message anybody delivers. Inactive for every unit
    * that never released a laser-guided round. doc/air-to-ground.md §3.2. */
   FBLaserDesignation Designation;
-  bool IffXpdr = false;       /* AN/APX-113 answering Mode 4 */
+  bool IffXpdr = false;       /* the transponder is answering Mode 4 */
   /* Any installed turbine in AUGMENTED thrust. Not an emission — a plume is not transmitted, it is
    * RADIATED heat — but the same question the rest of this struct answers: what may a foreign sensor
    * legitimately notice about this unit? An infrared head may notice exactly this

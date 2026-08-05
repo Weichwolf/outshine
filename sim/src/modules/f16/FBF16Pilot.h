@@ -37,6 +37,29 @@ protected:
   double BfmMaxG() const override { return 9.0; }
   double BfmMinSpeedKt() const override { return 300.0; }
   double BfmUnloadG() const override { return 3.0; }
+  /* [MESS] the roll plant this jet's rate cap inverts — ARX(1) fit p[n+1] = a·p[n] + K·(1−a)·u[n] over
+   * 15 325 ten-Hz samples from eight BFM runs, taken exclusively BELOW the cap (where the limiter is
+   * inactive and the fit is therefore open): a = 0.734 (roll time constant 0.323 s), K = 78.7 deg/s per
+   * full deflection. The same fit over ALL samples gives 0.772/90.5 and a cap gain 7 % off.
+   * doc/pilot.md 5.7. */
+  double BfmRollPlantA() const override { return 0.734; }
+  double BfmRollPlantKDegS() const override { return 78.7; }
+  /* [MESS] the commanded rate cap, swept against THIS plant — 16-approach sweep at 60/75/82.5/90/97.5/
+   * 105 deg/s: 8/9/11/12/9/10 hits, and only 90 deg/s flew all eight BFM missions without a departure.
+   * It lands exactly on the generic default (a reversal inside the pilot's own turn-time constant); the
+   * override is here because the number was MEASURED on this airframe, not inherited from that. */
+  double BfmRollRateMaxDegS() const override { return 90.0; }
+  /* This jet rolls gently enough for the search weave to use full deflection [MESS: bfm-blind flies the
+   * scan without a roll limit cycle], so the cap never bites. */
+  double BfmSearchRollCap() const override { return 1.0; }
+  /* No helmet sight is modelled on this jet, so the WVR handover angle is the round's own gimbal. */
+  double BfmWvrCueDeg() const override { return -1.0; }
+  /* The FCR's ACM mode is set from the mission text and stays put, so the close-combat phase does not
+   * command one — the designation stays on the thumb (doc/modules/f16/module.md). */
+  int    BfmRadarModeOrdinal() const override { return -1; }
+  /* An ACTIVE round does not bind its shooter: the AIM-120 flies on alone from seeker activation, so
+   * this shooter may crank and still defend (doc/duels.md D3c). */
+  bool   SupportInhibitsDefend() const override { return false; }
   double BfmControlMinNm() const override { return 0.5; }
   double BfmControlMaxNm() const override { return 1.5; }
   double BfmControlAspectDeg() const override { return 30.0; }

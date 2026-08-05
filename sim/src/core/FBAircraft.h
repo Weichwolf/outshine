@@ -29,7 +29,8 @@ enum class FBAirTier : uint8_t {
   Reflex,         /* T1: T0 plus ONE state — drag on its own RWR's report of a fire-control threat */
   Visual,         /* T2: the Bfm phase with NO radar picture — it fights what it can see */
   Gci,            /* T3: the seven-state intercept machine WITHOUT the cooperative half */
-  Peer,           /* T4: everything the F-16 accepts, formation included */
+  Peer,           /* T4: the whole phase machine, formation included — every `set task` the module
+                   * layer defines, with nothing withheld */
 };
 
 inline const char *FBAirTierStr(FBAirTier t) {

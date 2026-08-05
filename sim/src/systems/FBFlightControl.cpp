@@ -5,10 +5,12 @@ namespace FlightBox::Systems {
 
 static double Clamp(double v, double lo, double hi) { return v < lo ? lo : v > hi ? hi : v; }
 
-/* Das Gesetz des Anstellwinkel-Begrenzers, gemessen auf einer Zelle OHNE eigenen (s. Run()). Keine
- * Preset-Zahlen: der Begrenzer hat EINE Stellgroesse, seinen Grenzwinkel, und die ist AlphaLimitDeg.
- * kSosRateFilter ~ 0,07 s Zeitkonstante bei 100 Hz — eine rohe Differenz ist ueberwiegend Quantisierung. */
-static const double kSosKp = 0.20, kSosLeadS = 0.45, kSosRateFilter = 0.15;
+/* Der Ableitungsfilter BEIDER Begrenzerzweige und die einzige Zahl ihres Gesetzes, die keiner Zelle
+ * gehoert: ~0,07 s Zeitkonstante bei 100 Hz, weil eine rohe Differenz ueberwiegend Quantisierung ist.
+ * Verstaerkung und Vorhalt des Anstellwinkel-Zweigs sind dagegen Preset (AlphaLimitKp/AlphaLimitLeadS) —
+ * ein P-Zweig haelt die begrenzte Groesse Stick/Kp unter dem Grenzwert, also ist Kp eine AUSSAGE ueber
+ * die Zelle und keine Eigenschaft des Gesetzes. */
+static const double kSosRateFilter = 0.15;
 /* Der g-Zweig desselben Begrenzers. Ein PROPORTIONALER Begrenzer laesst die Groesse um Stick/kp unter
  * dem Grenzwert stehen; kGosKp ist deshalb aus einem genannten Kriterium GESETZT und nicht aus einer
  * Analogie: der Abfall soll bei voller Nickautoritaet unter 3 % des Grenzwerts bleiben. Die schaerfste
@@ -25,7 +27,7 @@ FBFlightControl::FBFlightControl()
     KTi(0.002), KpSpd(0.03), ThrTrim(0.55),
     KpRoll(0.022), KdRoll(0.004), KpPitch(0.06), KdPitch(0.010), KdYaw(0.006), KCoord(0.004),
     PitchMaxDeg(15), KAltRaw(0.05), NzSlew(1.5), KqDamp(0.0), KpDampRoll(0.0), AlphaLimitDeg(0.0),
-    GLimitG(0.0),
+    AlphaLimitKp(0.0), AlphaLimitLeadS(0.0), GLimitG(0.0),
     GIterm(0), VsIterm(0), NyIterm(0), ThrIterm(0), NzPrev(0),
     AlphaDot(0), AlphaPrev(0), AlphaPrimed(false),
     NzLimDot(0), NzLimPrev(0), NzLimPrimed(false) {}
@@ -38,10 +40,19 @@ void FBFlightControl::Reset(void) {
   NzLimPrimed = false;
 }
 
+/* DAS F-16-PRESET. Die vier Nullen und die 1,0 unten sind AUSGESCHRIEBEN und nicht geerbt: sie sind
+ * diesem Jet seine Antwort und nicht der Vorgabewert, der zufaellig passt. Alle fuenf folgen aus EINER
+ * strukturellen Aussage — hinter dem Ausgang dieser Klasse sitzt die eigene FLCS des Jets, die Raten,
+ * Anstellwinkel und Lastvielfache selbst haelt [SET, strukturell, doc/modules/f16/flight-controls.md].
+ * Was sie schon haelt, darf hier kein zweites Mal gehalten werden: ein Deckel, ein Daempfer oder ein
+ * Begrenzer waere hier eine konkurrierende Meinung ueber dieselbe Groesse. */
 FBFlightControl FBFlightControl::F16(void) {
   FBFlightControl c;
   c.Flcs = 1;
   c.RollStickMax = 0.15;   /* gemessen: nz bleibt 0,7..1,9 g; bei 0,35 waren es -1,1..+3,0 g */
+  c.PitchStickMax = 1.0;
+  c.KqDamp = 0.0; c.KpDampRoll = 0.0;
+  c.AlphaLimitDeg = 0.0; c.GLimitG = 0.0;
   c.KRollRate = 0.05; c.KG = 0.25; c.KGi = 0.8;
   c.KpSpd = 0.02; c.ThrTrim = 0.85;
   return c;
@@ -74,6 +85,14 @@ FBFlightControl FBFlightControl::F16(void) {
  *      den g-Sprung beim Wiedereinblenden des Nickzweigs mit vollem Stabilator und die Zelle tumbelte
  *      (Anstellwinkel-Spitzen 30..90 deg, LOC bei t=122 s). 26 deg ist die dokumentierte SOS-Grenze
  *      [T4, gestuetzt durch die 25-deg-Marke der Anzeige, DCS-EA p.19].
+ *      SEIN GESETZ IST DAS DIESER ZELLE UND NICHT DAS DER KLASSE. AlphaLimitKp = 0,20 und
+ *      AlphaLimitLeadS = 0,45 sind AUF IHR gemessen — dem Vorhalt liegt die Zeitkonstante ihres
+ *      Anstellwinkelaufbaus zugrunde, der Verstaerkung, wie hart ihr Stabilator an die Grenze gehen
+ *      darf, ohne die kurze Periode anzuregen. Beide standen bis hierher als Dateikonstanten im
+ *      generischen Regler und galten damit still fuer jede Zelle: ein P-Zweig haelt Stick/Kp UNTER dem
+ *      Grenzwert, mit 0,20 also bis zu 5 Einheiten, was auf einer fremden Zelle den ganzen Ankerkorridor
+ *      auffrisst (gemessen: mig17 Anstellwinkel -5,9 %, test/modules/air). Die Zahl bleibt hier
+ *      unveraendert; wer sie fuer eine andere Zelle braucht, misst sie DORT.
  *
  *   NICKDAEMPFUNG. KqDamp = 0,050 je deg/s. Der Stufe-1-Harness fliegt dieselbe Zelle mit 0,030..0,040
  *   (clients/FBTestMig29Envelope.cpp, alle drei Regler) — das ist die Groessenordnung, sie stammt von
@@ -106,7 +125,8 @@ FBFlightControl FBFlightControl::Mig29(void) {
   c.KG = 0.25; c.KGi = 0.050; c.KqDamp = 0.050;
   c.KNy = 0.0; c.KNyi = 0.0;
   c.KVs2g = 0.050; c.KVsi = 0.000;
-  c.AlphaLimitDeg = 26.0;
+  c.AlphaLimitDeg = 26.0; c.AlphaLimitKp = 0.20; c.AlphaLimitLeadS = 0.45;
+  c.GLimitG = 0.0;   /* kein veroeffentlichtes strukturelles Limit; es begrenzt allein der Grenzwinkel */
   c.KpSpd = 0.02; c.ThrTrim = 0.5;
   return c;
 }
@@ -131,7 +151,14 @@ FBFlightControl FBFlightControl::Mig29(void) {
  *      MiG-29). Ein g-Fehler kauft damit auf jeder Zeile denselben BRUCHTEIL ihrer eigenen Autoritaet
  *      statt denselben absoluten Ausschlag — und weil P nach 2. selbst in Vielfachen des Grenzwinkels
  *      definiert ist, ist der geschlossene Kreis zeilenunabhaengig in der Groesse, die er begrenzt.
- *      Ohne sie regelt eine Zelle mit dreifacher Ruderwirkung mit dreifacher Kreisverstaerkung. */
+ *      Ohne sie regelt eine Zelle mit dreifacher Ruderwirkung mit dreifacher Kreisverstaerkung.
+ *
+ * WAS ES ERBT UND WAS DAS KOSTET: das GESETZ des Begrenzers (AlphaLimitKp/AlphaLimitLeadS) kommt
+ * unveraendert von der Zelle mit, auf der es gemessen wurde. Ein P-Zweig laesst die begrenzte Groesse
+ * Stick/Kp unter dem Grenzwert stehen, bei 0,20 also bis zu 5 Einheiten — auf einer fremden Zeile ist
+ * das der ganze Ankerkorridor (gemessen: mig17 Anstellwinkel 18,8 gegen 20 deg, -5,9 %, +-5 %). Es
+ * bleibt hier, weil eine Zeile ohne eigene Messung kein besseres Gesetz hat; die Zeile, die ihres
+ * misst, setzt beide Zahlen selbst. */
 FBFlightControl FBFlightControl::Raw(double pitchStickMax, double alphaLimitDeg, double gLimitG) {
   FBFlightControl c = Mig29();
   double p = pitchStickMax > 0.0 ? pitchStickMax : c.PitchStickMax;
@@ -190,7 +217,7 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
      * DAS GESETZ IST DASSELBE wie unten, Zeile fuer Zeile — es gibt nur einen Begrenzer. Fuer eine
      * Zelle mit eigener FLCS im Deck ist AlphaLimitDeg 0 (F16()), der Zweig also tot und der Ausdruck
      * bitgleich zu dem ohne ihn. */
-    if (AlphaLimitDeg > 0.0) {
+    if (AlphaLimitDeg > 0.0 && AlphaLimitKp > 0.0) {
       if (AlphaPrimed) AlphaDot += kSosRateFilter * ((s.alphaDeg - AlphaPrev) / 0.01 - AlphaDot);
       AlphaPrev = s.alphaDeg;
       AlphaPrimed = true;
@@ -205,7 +232,7 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
        * heute anders abgefangen: AlphaPrimed haelt AlphaDot im ersten Tick auf 0 (byAlpha dann positiv),
        * und der Druck ist auf -PitchStickMax begrenzt, also im schlimmsten Fall der Ausschlag, den die
        * Zelle ohnehin fahren darf, nicht -44,6. */
-      double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
+      double byAlpha = AlphaLimitKp * (AlphaLimitDeg - s.alphaDeg - AlphaLimitLeadS * AlphaDot);
       if (byAlpha < -PitchStickMax) byAlpha = -PitchStickMax;
       if (byAlpha < o.Pitch) o.Pitch = byAlpha;
     }
@@ -254,11 +281,11 @@ FBControls FBFlightControl::Run(const FBGuidance &g, const Fdm::fb_fdm_state &s)
      * ausdrueckliche Wegwerf-Skizze, weil ihr Platz hier ist (flight-model-spec.md §7.3).
      * ANTI-WINDUP: fuehrt der Begrenzer, behaelt der Integrator seinen Stand von VOR diesem Schritt —
      * sonst kommandiert er nach dem Manoever genau den Zug nach, den der Begrenzer eben verboten hat. */
-    if (AlphaLimitDeg > 0.0) {
+    if (AlphaLimitDeg > 0.0 && AlphaLimitKp > 0.0) {
       if (AlphaPrimed) AlphaDot += kSosRateFilter * ((s.alphaDeg - AlphaPrev) / 0.01 - AlphaDot);
       AlphaPrev = s.alphaDeg;
       AlphaPrimed = true;
-      double byAlpha = kSosKp * (AlphaLimitDeg - s.alphaDeg - kSosLeadS * AlphaDot);
+      double byAlpha = AlphaLimitKp * (AlphaLimitDeg - s.alphaDeg - AlphaLimitLeadS * AlphaDot);
       if (byAlpha < cmd) {
         cmd = byAlpha;
         if (gErr > 0.0) GIterm = gHold;
