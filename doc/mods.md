@@ -40,8 +40,26 @@ The repair already exists in the tree and is the strongest evidence the idea is 
 | **scripted** — `fb-gym`, headless, deterministic | the pilot AI | **this is the test.** Byte-identical over `--threads 1/2/4`; a changed result is a regression |
 | **played** — the WASM app | the human | this is the game. The judges still run; their verdict is the player's score, not the engine's |
 
-One declaration, two consumers, and the sim never learns which one it is in. That is the same boundary
-as everywhere else in this tree: the GUI is a client on the simulation, never a second truth.
+One declaration, and the sim never learns which reader it is in. That is the same boundary as everywhere
+else in this tree: the GUI is a client on the simulation, never a second truth.
+
+**And a protocol (§2.1) adds a third reader that was not available before.**
+
+> Owner, 2026-08-05: *„die Missionen können damit auch als Demo in der WASM-App laufen."*
+
+| Third reader | Who flies | What it is for |
+|---|---|---|
+| **replayed** — the WASM app, mission **+ trace**, no model | the recording | the demo — and, unexpectedly, a test the other two cannot perform |
+
+Every mission ships as an attract-mode demo for free, which is how these four titles did it in 1994 and
+costs nothing here: the sim is deterministic given its inputs, so mission + trace reproduce the recorded
+run exactly, this time rendered.
+
+**The unexpected part is the test.** `fb-gym` and the WASM app have never had a shared checkable artefact
+— the gym has no renderer and the browser has no baseline. Now they do: **run the same mission with the
+same trace in both, and the telemetry must be identical.** If the browser diverges, the defect is in the
+client, and it is named by the tick where the hash sequences part. That is the first differential between
+the two clients over a whole mission rather than a frame.
 
 ### 2. The consequence that turns this into a work plan
 
