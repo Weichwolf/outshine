@@ -283,7 +283,61 @@ The hard rule from §2.1 lands as a **property of the class, not a policy in the
 returns an error and the run fails. The gym cannot reach a model because the object it holds has no way
 to reach one.
 
+### 2.4 System prompts, the rung boundary, and the Game Master's trap
+
+> Owner, 2026-08-05: *„im Database-Mode natürlich ohne System-Prompt. Im Online-Mode braucht jede
+> intelligente Entität einen System-Prompt. Aber LLM-Intelligenz nur für taktische Entscheidungen und zur
+> Kommunikation mit dem Spieler. Ich kann mir auch eine Art Game Master vorstellen, über den alles geht.
+> Prompt Caching, Kontext."*
+
+**No system prompt in database mode.** `FBActorVoicePool` looks up bytes; a system prompt would be one
+more thing to keep in sync with a recording that already contains its effect. It is not that the prompt is
+optional — it is that the *lookup* has no use for it. `FBActorVoiceOnline` owns it entirely.
+
+**The rung boundary is now stated, and it is a performance guarantee as much as a design one:**
+
+| Layer | Decider | Why |
+|---|---|---|
+| flight control, gunnery, evasion geometry | **regulation** — never an LLM | a sim tick is milliseconds; a model is not, and a control law is *better* at it |
+| tactical choice — engage, disengage, which target, when to go silent | **LLM** | the layer where judgement beats a gain |
+| speaking to the player | **LLM** | the only layer where language is the output |
+
+This is the ladder from *„KI kann von einfacher Regelung bis LLM-Integration skalieren"* given a cut line.
+It also removes the last objection to live play: the fast layer never waits on a model.
+
+#### The Game Master, and the trap in it
+
+One actor through which everything passes is attractive for three real reasons: coherence (it knows the
+story), cost (one context instead of N), and **prompt caching** (a long stable prefix, hit on every call).
+
+**And it is, stated plainly, the cheating vector this tree exists to forbid.** A GM that sees the whole
+world and then tells an entity what to do has given that entity sight through terrain — the entity did
+not perceive it, so the sensor boundary is bypassed without a single line of code touching the registry.
+`doc/architecture.md`'s six-file perception boundary would still pass its check and the property would be
+gone.
+
+**The resolution is to split what the GM shares from what it sees:**
+
+| | Content | Per entity? | Cacheable |
+|---|---|---|---|
+| **prefix** — the GM's part | rules, world, doctrine, the scenario's tone, the mission's frame | no — **identical for all** | **yes, and this is exactly what prompt caching wants** |
+| **suffix** — the entity's part | *its own* sensor picture, its state, its orders | yes | no |
+
+So the GM is **the shared prefix, not a shared observer.** It supplies context that a briefing would have
+supplied anyway — things every participant may know — and never the position of a contact the entity has
+not detected. The varying part of every call is that entity's own picture, which is the same rule as
+`FBUnitRegistry`'s six readers, applied one layer up.
+
+This is not a compromise against caching; it is what makes caching work. The stable prefix is the part
+worth caching, and the part that must vary per entity is the part that must not be shared anyway.
+
+**The check must be structural, not editorial.** A prompt is a string, and a string can contain anything —
+so the entity's suffix must be *built from the same perception structs the regulator reads*, never from
+the registry. If the code that renders a prompt cannot see the registry, a GM cannot leak through it. That
+file therefore belongs under the six-file rule, and `verify_layers.py` must count it.
+
 ### 3. What a mod directory contains
+
 
 
 > Owner, 2026-08-05: *„`mods/` haben ihr eigenes `doc/`."*
@@ -435,6 +489,10 @@ Nothing built.
   reading rule for a machine, not prose for a player.
 - **The protocol format does not exist.** §2.1 and §3 rest on recorded in→out pairs being loadable by
   `fb-gym`; nothing records one and nothing replays one.
+- **The prompt-rendering file has no home and no guard yet.** §2.4 requires that whatever builds an
+  entity's prompt suffix cannot see `FBUnitRegistry` — otherwise a Game Master leaks perfect knowledge
+  through a string. `verify_layers.py` counts six perception readers today and would not notice a
+  seventh that arrived as a prompt builder.
 - **How a played run is judged at all is unwritten** — the judges produce a verdict, but a game needs a
   score, and this tree has never had to say what a good run is as opposed to a passing one.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
