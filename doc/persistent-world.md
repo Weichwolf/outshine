@@ -309,11 +309,26 @@ of *distinct things touched*, not hours played.
 Bethesda is the existence proof, and the difference is narrow: their saves also store only changed
 objects. The unchanged ones come from a shipped file there and from the generator here.
 
-**One problem survives, and it is now the only one: hash stability across generator versions.** Change
-how a room is generated and its hashes change, orphaning the overlay. Same mitigation as consequence 2 —
-version the generator, or snapshot at the moment of change. It is worth designing the hash to depend on
-as little as possible: position in a stable frame and object class, not on mesh details that a better
-successor will improve.
+**The key is position, and nothing else.**
+
+> Owner: *„Position reicht eigentlich. Reine Physik. Keine zwei Objekte können am gleichen Ort sein."*
+
+Physics supplies the uniqueness, so identity needs no invention — and, crucially, position is
+**generator-independent**: a chair at a place stays that chair however much better its mesh becomes
+later. That is what keeps [`assets.md`](assets.md)'s „a successor must be able to improve everything"
+from invalidating every save.
+
+Two riders, or it fails:
+
+| | |
+|---|---|
+| **quantise** | position is floating point; regeneration must land on the same value or the lookup misses. Round to a grid — millimetres suffice — and the key survives any change in arithmetic order |
+| **key by *birth* position, not current** | otherwise moving a thing changes its identity and a shifted chair is a different chair. Key = where the generator put it; value = the offset since |
+
+Destruction falls out cleanly: the key stays, the value says *gone*.
+
+This also retires the generator-version worry for everything except *placement*: improving a mesh, a
+material or a growth rule changes nothing. Only moving where the generator puts things does.
 
 **Scope, corrected.** An earlier revision called interiors *„more work than everything else combined"*.
 On-entry generation makes that wrong. Full infrastructure remains large; interiors do not. Both are still
