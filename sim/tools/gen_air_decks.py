@@ -72,7 +72,15 @@ def sigma(h):
 # The TURBOFAN analogy: the pinned F-16 model's F100-PW-229 surfaces, exactly as the MiG-29 deck already
 # borrows them, with the 60k/70k columns continued by the ISA density ratio instead of the pinned deck's
 # zero column ("a wall, not a decay", doc/modules/f16/flight-model.md §12.3).
-TF_ALT = (-10000, 0, 10000, 20000, 30000, 40000, 50000, 60000, 70000)
+TF_ALT_BORROWED = (-10000, 0, 10000, 20000, 30000, 40000, 50000, 60000, 70000)
+# AND THE SAME WALL SITS AT THE OTHER END OF THE GRID. JSBSim CLAMPS at a table edge rather than
+# extrapolating (FGTable::GetValue, Constrain(0,...,1)), so a surface that stops at 70 000 ft is
+# CONSTANT above 21 336 m: the aeroplane keeps its 70 000 ft thrust for ever and has no ceiling at all.
+# Measured: mig23 held M 2.40 in a steady climb to 30 044 m, where its own polar needs 3.2x the thrust
+# the decaying law gives. The grid is continued to 100 000 ft so the tabulated law covers the whole
+# envelope every anchor is flown in, and the clamp binds where nothing flies.
+TF_ALT_TOP = (80000, 90000, 100000)
+TF_ALT = TF_ALT_BORROWED + TF_ALT_TOP
 TF_IDLE = (
     (0.0, (0.0430, 0.0488, 0.0528, 0.0694, 0.0899, 0.1183, 0.1467, 0.0908, 0.0508)),
     (0.2, (0.0500, 0.0501, 0.0335, 0.0544, 0.0797, 0.1049, 0.1342, 0.0831, 0.0464)),
@@ -108,6 +116,23 @@ TF_AUG = (
     (2.6, (2.2000, 1.9200, 1.6400, 1.4400, 1.1000, 0.8000, 0.5200, 0.3219, 0.1799)),
 )
 
+
+def tf_continue(rows):
+    """The borrowed columns end at 70 000 ft; TF_ALT_TOP continues each Mach row by the ISA density
+    ratio, which is what the borrowed deck's own 60k/70k pair already is."""
+    out = []
+    for m, cols in rows:
+        ext = list(cols)
+        prev = TF_ALT_BORROWED[-1]
+        for aft in TF_ALT_TOP:
+            ext.append(ext[-1] * sigma(aft / M_FT) / sigma(prev / M_FT))
+            prev = aft
+        out.append((m, tuple(ext)))
+    return tuple(out)
+
+
+TF_IDLE, TF_MIL, TF_AUG = tf_continue(TF_IDLE), tf_continue(TF_MIL), tf_continue(TF_AUG)
+
 # THE TURBOJET REFERENCE SURFACE -- the recipe's one genuine construction job, built once here and
 # reused by eight rows. It is NOT a second borrowed deck: no public turbojet deck exists in the tree, so
 # the surface is CONSTRUCTED from two physical statements and one calibration.
@@ -125,8 +150,8 @@ TF_AUG = (
 #      whose subsonic level equals the catalogue's one published CD0. kRam = 1.00 came out of that and
 #      is kept as the reference; the residual is absorbed by the polar per §0.
 #
-# The zero column of the borrowed turbofan deck is NOT reproduced: this surface decays to 70 000 ft, so
-# a ceiling is approached asymptotically rather than hit as a wall.
+# The zero column of the borrowed turbofan deck is NOT reproduced: this surface decays over the whole
+# TF_ALT grid, so a ceiling is approached asymptotically rather than hit as a wall at either end.
 TJ_MACH_DRY = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0)
 TJ_MACH_AUG = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8, 3.2)
 TJ_RAM_SCALE = 1.00   # calibrated on mig21, see 3. above
