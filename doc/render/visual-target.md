@@ -100,13 +100,18 @@ A reference scene that escalates in steps until the governor can no longer hold 
 comes out is the step where it broke**, and that number is comparable across commits, machines and
 rounds — which no frame-rate anecdote ever is.
 
+**Forest is the benchmark because every constraint peaks there**: most instances → most bandwidth ·
+alpha cutout → worst aliasing · wind animation → hardest motion vectors for TAA · most LOD levels → most
+visible transitions · self-shadowing → expensive and easily wrong. What holds a forest holds everything
+else. L-system trees give this hardest case an exact reference (§1.3).
+
 It belongs in `mods/` and not in `sim/test/` for a reason that is not filing: it must go through the
 **same** path a real scenario goes through. A bench that reaches past the mod boundary would measure a
 renderer nobody ships.
 
 | | |
 |---|---|
-| shape | one scene, N escalating steps: instance count, overdraw, shadow casters, particle load, view distance |
+| shape | **forest-centred**, N escalating steps: instance count, overdraw, shadow casters, view distance |
 | verdict | the highest step held at 720p30 **after thermal soak**, plus the quality settings the governor chose to hold it |
 | why both numbers | a step held by dropping every knob to minimum is not the same result as one held at full quality, and a single number would hide the difference |
 
