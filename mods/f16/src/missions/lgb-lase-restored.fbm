@@ -10,15 +10,15 @@ timeout 160
 # dies once and for good, while a Paveway's head is a passive energy detector that simply sees the spot
 # again. That difference is one branch in the gate and it is the whole reason this file exists.
 #
-# MEASURED: 42.96 m against 1 903 m broken and 52.78 m never broken. Six seconds of coast cost NOTHING
-# measurable — the reacquired round is if anything nearer than the one that never lost the spot, which
-# says the residual is the pursuit law's authority and not the coast.
+# MEASURED: 15.36 m against 1 906 m broken and 14.45 m never broken. Six seconds of coast cost about a
+# metre — the reacquired round is essentially as good as the one that never lost the spot, which says
+# the residual is the delivery and not the coast.
 #
-# THE ABSOLUTE NUMBER IS RED AND STAYS RED, and this file is not the place it is judged: the GBU-12
-# falls ~53 m short of a correctly designated spot (doc/air-to-ground.md `C30`, characteristic curve in
-# lgb-designate.fbm's header). The 11.4 m this file used to report was a 30.45 m spot-elevation error
-# cancelling that shortfall. What THIS file measures — that a Paveway head comes back and an R-27R's
-# does not — is unaffected, because it is a comparison against its own two siblings.
+# THE ABSOLUTE NUMBER IS RED AND STAYS RED, and this file is not the place it is judged: what is left
+# of the GBU-12's miss is the LASE WINDOW this file inherits from lgb-designate.fbm — 33.8 s against a
+# sourced 8-12 s — and the characteristic curve is in that file's header (doc/air-to-ground.md `C30`,
+# `N11`). What THIS file measures — that a Paveway head comes back and an R-27R's does not — is
+# unaffected, because it is a comparison against its own two siblings.
 #
 # WHAT TO READ:
 #   events.log      TWO `missile SEEKER_ACTIVE ... mode="semi-active laser"` lines around one

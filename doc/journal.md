@@ -4697,3 +4697,62 @@ Nicht-Lieferungen · `net-blind-cue` 78,37 → 17,40 · `sam-radar-kill` 12,99 �
 `344faa41e6c4f81c`, je identisch · `test-air` 5 außerhalb, dieselben fünf · `verify-layers` 6 ·
 `verify-guards` 8/8 · `verify-models` 1 Delta · `verify-trees` 20+3, unverändert · `verify-types`
 bytegleich zur Basis · `gym`/`native`/`wasm` bauen.
+
+---
+
+## 2026-08-05 — Der Paveway-Relais-Defekt: ein `if` zu viel, und der Rest ist eine Abwurfdoktrin
+
+**`C30`, 52,78 → 14,45 m, ohne eine einzige gedrehte Konstante.** Der Vorwurf lautete „das
+Verfolgungsgesetz kommt zu kurz". Er stimmt zu zwei Dritteln, und das Drittel, das übrig bleibt, ist
+nicht das Gesetz.
+
+**Der Defekt ist eine Kompetenzverletzung, keine Verstärkung.** Über den beiden Relaiskanälen saß ein
+Test auf der GESAMT-Fehlstellung — `if (errDeg > kLaserDeadBandDeg)` — der beide Kanäle stillegte,
+sobald der rohe Winkel unter dieselben 1,5° fiel, gegen die die Kanäle ihre VORGEHALTENEN Signale
+prüfen. Zwei verschiedene Größen, eine Schwelle: er feuerte auf einen Zustand, den kein Kanal sieht, und
+brachte den Nickkanal zum Schweigen, während dessen eigenes Signal noch den Anschlag verlangte.
+
+**Der Preis war die FREQUENZ, nicht die stillgelegten Ticks.** Gemessen an einem Sprung mit fester
+Kanardenstellung: **ζ ≈ 0,14, Periode ≈ 5 s, 12 s bis α = 20° steht**. Das Veto warf das Relais etwa
+einmal pro Periode aus seinem Grenzzyklus, jeder Wiedereintritt regte die Mode neu an, und der
+Bang-Bang saß AUF dem Flugwerk statt eine Größenordnung darüber. Pro Kanal wandert der Zyklus auf ~3 Hz
+und das Flugwerk integriert ihn: **Schaltungen/26 s 48 → 156 · α −7,8…25,8 → 9,2…25,7° · stehender
+Verfolgungsfehler 3,92 → 3,00° · `aimErrM` 52,78 → 14,45 m.** `lgb-lase-restored` 42,96 → 15,36 m.
+`lgb-lase-broken` 1 902,67 → 1 906,35 m — weiterhin der ballistische Abwurf, der Beleuchtungsbeweis hält.
+
+**Was der Rest IST, mit einem Orakel begrenzt statt behauptet.** Dieselbe Zelle, dieselbe Geometrie unter
+einem glatten, schwerkraftkompensierten Verfolgungsregler (Diagnose, zurückgenommen): **5,16 m lang**;
+ohne den Schwerkraftterm **10,60 m kurz**. Das Bang-Bang kostet also **3,9 m gegen einen glatten Regler**
+— genau [T4]s *„relatively little effect on accuracy"* — und die restlichen ~10 m sind der Nachlauf des
+reinen Verfolgungsgesetzes, den §Knowledge 4 ausdrücklich als dessen Preis nennt.
+
+**Zwei Reparaturen wurden gemessen und verworfen**, beide zurückgenommen: Ratenvorhalt gelöscht →
+**139,07 m** (das Relais sättigt, das Flugwerk schwingt frei), Vorhalt auf die Rate des Detektorfehlers
+statt auf die Kreisel → **109,04 m** (ė ist ~0,05 °/s, numerisch bedeutungslos, das Relais schaltet nie).
+Ein Schwerkraft-Bias auf den Relaisnullpunkt wurde **abgelehnt**: seine Größe braucht einen Horizont, den
+nichts in der Datei herleitet, und einen zu wählen wäre das Drehen, das dieser Baum verbietet.
+
+**Das letzte Drittel ist eine Abwurfdoktrin, und sie ist dreifach belegt.** [T4] *Paveway*: der Bang-Bang
+gibt *„a noticeable wobble … expends energy quickly, limiting effective range. As a consequence, most
+users release Paveway I and II weapons in a ballistic trajectory, activating the laser designator only
+late in the weapon's flight."* [T2] BMS TO 1F-16CMAM-34-1-1 §4.2.8: *„lasing should start 12 sec before
+impact (to minimize the movements of the 'bang-bang' control, and consequently the bomb falling short or
+long)."* [T2] ED: 8–12 s. **`lgb-designate` beleuchtet 33,8 s.** Gemessen auf exakt dieser Geometrie, nur
+der Beleuchtungsbeginn bewegt: `33,8 s → 14,40 m · 24,7 → 12,89 · 13,3 → **9,52** · 8,9 → 196,4`. Das
+belegte Fenster ist genau das, in dem das 6–9-m-Band fällt; darunter ist das Relais gesättigt (Finne auf
++1 in 89 von 90 geführten Ticks) und fliegt einen ~1,9-km-Ballistikfehler aus, den keine echte Paveway II
+korrigiert. **Nicht hier repariert** — die Geometrie der Datei ist gesperrt, und eine Beleuchtungsdoktrin
+ist eine eigene Runde: gebucht als `N11`.
+
+**Tore:** 296 f16-Missionen, **3 bewegt** (genau die drei `lgb-*`), **0 Exit-Code-Änderungen**, 293
+bytegleich · f22 8 Sorties bytegleich, Urteile 3/3/1/0/1/3/3/3 unverändert · Determinismus
+`--threads 1/2/4`, Exit-Codes identisch, `t2` und `t4` bytegleich (`5c497496d4dfe6a7`), gegen `t1`
+(`9c9245f19d0f7d39`) EINE Datei auseinander: `wx-ccrp-wind`s `ATTACK_RELEASE alongErrM` 151,763 gegen
+151,272 bei bytegleicher Telemetrie. **Kein Thread-Effekt** — sechs frische Läufe (`--threads 1/2/4` ×
+relativer/absoluter `--mod`) geben alle 151,272, und der `t1`-Schnappschuss teilt die 151,763 mit dem
+BASIS-Schnappschuss aus demselben Zeitfenster. Die `wx`-Missionen hängen an einer Wanduhr-Wetterquelle;
+das ist vorbestehend und orthogonal zu dieser Runde, aber es heißt, dass ein `wx-*`-Schnappschuss nur
+gegen einen gleichzeitig erzeugten diffbar ist · `test-air` 5 außerhalb, dieselben fünf ·
+`verify-layers` 6 · `verify-guards` 8/8 · `verify-models` 1 Delta · `verify-trees` 20+3 ·
+`verify-types` — alle fünf Torausgaben bytegleich zur Basis · sechs Harnesses rc=0 ·
+`gym`/`native`/`wasm` bauen.

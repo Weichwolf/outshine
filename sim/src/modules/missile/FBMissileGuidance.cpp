@@ -410,13 +410,22 @@ bool FBMissileGuidance::LaserCommand(const FBState &state, const Fdm::fb_fdm_sta
   double eYaw = std::asin(Clamp(pRight, -1.0, 1.0)) - kLaserRateLeadS * (st.r * kDeg2Rad);
   double band = kLaserDeadBandDeg * kDeg2Rad;
   double pitch = 0.0, yaw = 0.0;
-  if (errDeg > kLaserDeadBandDeg) {
-    /* Body +up is -down, and a positive pitch command pulls +nz. Nothing between the stops. */
-    if (ePitch > band) pitch = 1.0;
-    else if (ePitch < -band) pitch = -1.0;
-    if (eYaw > band) yaw = 1.0;
-    else if (eYaw < -band) yaw = -1.0;
-  }
+  /* EACH CHANNEL AGAINST ITS OWN DEAD BAND, and there is deliberately no test on the TOTAL misalignment
+   * over the top of them. One used to sit here, and it vetoed both channels whenever `errDeg` dipped
+   * inside the same 1.5 deg — a different quantity (the raw angle) against the same threshold the two
+   * channels test their LED signals against, so it fired on a state neither channel could see and
+   * silenced the one still asking for the stop. The cost was not the vetoed ticks but the FREQUENCY it
+   * imposed: it dropped the relay out of its limit cycle about once per airframe short period (measured
+   * on a constant-canard step: zeta 0.14, period 5 s, 12 s to settle), the round unloaded to alpha -8 deg
+   * and every re-entry re-excited the mode, so the limit cycle sat ON the airframe instead of an order
+   * above it. Per-channel it runs at ~3 Hz and the airframe integrates it: alpha 9..26 instead of
+   * -8..26 deg, the standing pursuit error 3.00 instead of 3.92 deg, `lgb-designate` 14.45 m instead of
+   * 52.78. doc/air-to-ground.md `C30`.
+   * Body +up is -down, and a positive pitch command pulls +nz. Nothing between the stops. */
+  if (ePitch > band) pitch = 1.0;
+  else if (ePitch < -band) pitch = -1.0;
+  if (eYaw > band) yaw = 1.0;
+  else if (eYaw < -band) yaw = -1.0;
   FinPitch_ = pitch;
   FinYaw_ = yaw;
   c.ManualPitch = pitch;

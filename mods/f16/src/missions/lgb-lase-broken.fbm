@@ -8,7 +8,7 @@ timeout 160
 #
 # WHAT THE ROUND DOES IS NOT A FAILURE PATH: with no spot the canards TRAIL and the bomb falls
 # BALLISTICALLY, which is the documented behaviour of the guidance kit. The ballistic error the kit was
-# there to correct is therefore never corrected, and the MEASURED miss is 1 895 m against 3.9 m held —
+# there to correct is therefore never corrected, and the MEASURED miss is 1 906 m against 14.45 m held —
 # the difference between the two files IS the shooter's obligation.
 #
 # WHAT TO READ:
