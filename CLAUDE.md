@@ -13,6 +13,12 @@ Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/`** (englisch), Ei
 
 **Widersprechen sich beide, hat `doc/` recht und diese Datei ist nachzuführen.**
 
+**`src/`, `doc/` und `test/` tragen denselben Baum.** Aus einem Pfad folgen die beiden anderen, ohne zu
+suchen — `sim/src/sensors/FBVisualSystem.cpp` → `doc/sensors/visual.md` → `sim/test/sensors/visual.json`.
+Und **eine Erwartung ist ein Datum, kein Programm**: eine Behauptung, die in C++ steckt, kann still
+aufhören zu prüfen (gemessen: sieben Anker jahrelang außerhalb ihres Bandes bei grünem Tor), eine
+fehlende Zeile in einer Tabelle sieht man. [`doc/testing.md`](doc/testing.md).
+
 Darin: `doc/modules/<jet>/` dokumentiert je den **echten** Jet aus den Handbüchern (Design-Ziele, keine
 Defektkriterien); `doc/missions/` ist die Referenz des `.fbm`-Formats.
 
