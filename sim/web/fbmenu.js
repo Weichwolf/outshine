@@ -1,13 +1,12 @@
-/* The player layer's screens: campaign select, mission select, the run, the debriefing.
- * It owns exactly one piece of mutable state — the save in localStorage — and reads everything else
- * off the campaign/mission files and the two judges' own log lines (doc/player-layer.md §§1, 6).
- * The simulation below it is untouched: the only thing this file hands the client is WHICH mission
- * to fly (window.FB_MISSION). */
+/* The player layer's screens: title (mod) select, campaign select, mission select, the run, the
+ * debriefing. It owns exactly one piece of mutable state — the save in localStorage — and reads
+ * everything else off the mod manifest, the campaign/mission files and the two judges' own log lines
+ * (doc/player-layer.md §§1, 6). The simulation below it is untouched: the only things this file hands
+ * the client are WHICH mod and WHICH mission (window.FB_MOD / window.FB_MISSION). */
 'use strict';
 (function () {
 
 const SAVE_KEY = 'fb.player.save.v1';
-const DEFAULT_MISSION = 'payerne-full';   /* the client's own default: FBAppWasm.cpp kDefaultMissionUrl */
 const PREVIEW =
   'PLAYABLE — keyboard stick, master arm, station select, pickle and gun trigger all travel the ' +
   'command bus the AI uses, and a released round flies, hits and damages through the same apparatus ' +
@@ -54,15 +53,38 @@ async function Text(url) {
   return r.text();
 }
 
-/* `mission ../missions/x.fbm` in a .fbc is relative to the campaign directory. */
-function MissionUrl(rel) { return new URL(rel, new URL('campaigns/', location.href)).pathname.replace(/^\//, ''); }
+/* WHICH TITLES THIS BUILD CARRIES. `make wasm` writes one id per line for every mod manifest it found
+ * and copies each manifest beside its missions, so this file names no mod, no directory and no
+ * mission — five titles and one behave identically here. */
+async function LoadMods() {
+  const index = await Text('mods/index.txt');
+  const ids = index.split('\n').map((s) => s.trim()).filter((s) => s);
+  const out = [];
+  for (const id of ids) {
+    const m = JSON.parse(await Text('mods/' + id + '/mod.json'));
+    m.Id = id;
+    m.Root = 'mods/' + id + '/';
+    /* A directory this manifest does not NAME is not this mod's — empty, never guessed. */
+    m.MissionDir = m.missions ? m.Root + m.missions + '/' : '';
+    m.CampaignDir = m.campaigns ? m.Root + m.campaigns + '/' : '';
+    out.push(m);
+  }
+  return out;
+}
+
+/* `mission ../missions/x.fbm` in a .fbc is relative to the campaign directory — the mod's own, which
+ * is why the manifest and not this file decides what that directory is called. */
+function MissionUrl(mod, rel) {
+  return new URL(rel, new URL(mod.CampaignDir, location.href)).pathname.replace(/^\//, '');
+}
 function MissionName(rel) { return rel.replace(/^.*\//, '').replace(/\.fbm$/, ''); }
 
-async function LoadCampaigns() {
-  const index = await Text('campaigns/index.txt');
+async function LoadCampaigns(mod) {
+  if (!mod.CampaignDir) return [];
+  const index = await Text(mod.CampaignDir + 'index.txt');
   const files = index.split('\n').map((s) => s.trim()).filter((s) => s.endsWith('.fbc'));
   const out = [];
-  for (const f of files) out.push(FBParseCampaign(await Text('campaigns/' + f), f));
+  for (const f of files) out.push(FBParseCampaign(await Text(mod.CampaignDir + f), f));
   return out;
 }
 
@@ -81,18 +103,41 @@ function Screen(title, sub) {
   return body;
 }
 
-async function ScreenCampaigns() {
+/* THE FRONT DOOR: one card per title this build carries. It is not skipped when there is only one —
+ * the screen is the same with one mod and with five, so nothing about it has to change when the next
+ * title lands. */
+async function ScreenMods() {
   const body = Screen('FLIGHTBOX', PREVIEW);
+  let mods;
+  try { mods = await LoadMods(); }
+  catch (e) { body.appendChild(el('p', 'fb-err', 'no mods: ' + e.message + ' (run `make -C sim wasm`)')); return; }
+  for (const m of mods) {
+    const card = el('div', 'fb-card fb-open');
+    card.appendChild(el('div', 'fb-card-t', m.id));
+    card.appendChild(el('div', 'fb-card-s', m.name || ''));
+    card.appendChild(el('div', 'fb-card-m',
+      ['aircraft ' + (m.aircraft || '—'), 'missions ' + (m.missions || '—'),
+       'campaigns ' + (m.campaigns || '—'), m.meshes ? 'meshes ' + m.meshes : null,
+       m.depends ? 'depends ' + m.depends : null].filter((x) => x).join(' · ')));
+    card.onclick = () => { location.search = '?mod=' + encodeURIComponent(m.Id); };
+    body.appendChild(card);
+  }
+}
+
+async function ScreenCampaigns(mod) {
+  const body = Screen(mod.id.toUpperCase(), mod.name + ' — ' + PREVIEW);
   const save = LoadSave();
   let campaigns;
-  try { campaigns = await LoadCampaigns(); }
+  try { campaigns = await LoadCampaigns(mod); }
   catch (e) { body.appendChild(el('p', 'fb-err', 'no campaigns: ' + e.message + ' (run `make -C sim wasm`)')); return; }
 
-  const free = el('div', 'fb-card fb-open');
-  free.appendChild(el('div', 'fb-card-t', 'FREE FLIGHT'));
-  free.appendChild(el('div', 'fb-card-s', DEFAULT_MISSION + ' — the client\'s own default sortie, outside every ladder'));
-  free.onclick = () => { location.search = '?mission=' + DEFAULT_MISSION; };
-  body.appendChild(free);
+  if (mod.default_mission && mod.MissionDir) {
+    const free = el('div', 'fb-card fb-open');
+    free.appendChild(el('div', 'fb-card-t', 'FREE FLIGHT'));
+    free.appendChild(el('div', 'fb-card-s', mod.default_mission + ' — the mod\'s own default sortie, outside every ladder'));
+    free.onclick = () => { location.search = ModQ(mod) + '&mission=' + mod.default_mission; };
+    body.appendChild(free);
+  }
 
   for (const c of campaigns) {
     let flown = 0, done = 0;
@@ -107,23 +152,26 @@ async function ScreenCampaigns() {
     card.appendChild(el('div', 'fb-card-m',
       c.Missions.length + ' rungs · flown ' + flown + '/' + c.Missions.length +
       ' · completed ' + done + '/' + c.Missions.length + (c.Time ? ' · ' + c.Time : '')));
-    card.onclick = () => { location.search = '?campaign=' + encodeURIComponent(c.Name); };
+    card.onclick = () => { location.search = ModQ(mod) + '&campaign=' + encodeURIComponent(c.Name); };
     body.appendChild(card);
   }
 
   const foot = el('div', 'fb-foot');
+  const back = el('button', null, '← titles');
+  back.onclick = () => { location.search = ''; };
+  foot.appendChild(back);
   const reset = el('button', null, 'reset progress');
-  reset.onclick = () => { localStorage.removeItem(SAVE_KEY); ScreenCampaigns(); };
+  reset.onclick = () => { localStorage.removeItem(SAVE_KEY); ScreenCampaigns(mod); };
   foot.appendChild(reset);
   const dump = el('pre', 'fb-save', FBFormatSave(save));
   foot.appendChild(dump);
   body.appendChild(foot);
 }
 
-async function ScreenMissions(name) {
-  const campaigns = await LoadCampaigns();
+async function ScreenMissions(mod, name) {
+  const campaigns = await LoadCampaigns(mod);
   const c = campaigns.find((x) => x.Name === name);
-  if (!c) { location.search = ''; return; }
+  if (!c) { location.search = ModQ(mod); return; }
   const body = Screen(c.Name, c.Headline +
     ' — the .fbc order IS the ladder; rung k+1 opens once rung k has been flown to a verdict. ' +
     'Each rung is flown STANDALONE: FBCampaignRunner is gym-only, so the browser carries neither the ' +
@@ -148,7 +196,7 @@ async function ScreenMissions(name) {
     card.appendChild(meta);
     body.appendChild(card);
 
-    Text(MissionUrl(c.Missions[i])).then((text) => {
+    Text(MissionUrl(mod, c.Missions[i])).then((text) => {
       const m = FBParseMission(text, MissionName(c.Missions[i]) + '.fbm');
       const seat = m.Seat;
       sub.textContent = m.Headline;
@@ -161,19 +209,19 @@ async function ScreenMissions(name) {
       card.appendChild(objs);
     }).catch((e) => { sub.textContent = 'mission file unreadable: ' + e.message; });
 
-    if (open) card.onclick = () => { location.search = '?campaign=' + encodeURIComponent(c.Name) + '&step=' + step; };
+    if (open) card.onclick = () => { location.search = ModQ(mod) + '&campaign=' + encodeURIComponent(c.Name) + '&step=' + step; };
   }
 
   const foot = el('div', 'fb-foot');
   const back = el('button', null, '← campaigns');
-  back.onclick = () => { location.search = ''; };
+  back.onclick = () => { location.search = ModQ(mod); };
   foot.appendChild(back);
   body.appendChild(foot);
 }
 
 /* ---------------- the run ---------------- */
 
-const Run = { Lines: [], Mission: null, Campaign: '', Step: 0, Attempt: 0, Recorded: false, Booted: false };
+const Run = { Lines: [], Mod: null, Mission: null, Campaign: '', Step: 0, Attempt: 0, Recorded: false, Booted: false };
 
 /* WER GERADE UMGESCHALTET HAT, WANN UND AUS WELCHER LAGE — die Zeile, die den Seitenwechsel lesbar
  * macht statt nur richtig. Beide Quellen sind Zeilen, die der Lauf ohnehin schreibt: die Phase, die
@@ -320,11 +368,11 @@ function ShowDebrief() {
   foot.appendChild(again);
   if (Run.Campaign) {
     const back = el('button', null, '← mission select');
-    back.onclick = () => { location.search = '?campaign=' + encodeURIComponent(Run.Campaign); };
+    back.onclick = () => { location.search = ModQ(Run.Mod) + '&campaign=' + encodeURIComponent(Run.Campaign); };
     foot.appendChild(back);
   }
   const home = el('button', null, '← campaigns');
-  home.onclick = () => { location.search = ''; };
+  home.onclick = () => { location.search = ModQ(Run.Mod); };
   foot.appendChild(home);
   const keep = el('button', null, 'keep watching');
   keep.onclick = () => { $('fb-ui').style.display = 'none'; $('fb-ui').dataset.screen = ''; $('fb-bar').style.display = 'flex'; $('fb-hud').style.display = 'block'; };
@@ -332,7 +380,8 @@ function ShowDebrief() {
   body.appendChild(foot);
 }
 
-function StartRun(missionName, campaign, step, manual) {
+function StartRun(mod, missionName, campaign, step, manual) {
+  Run.Mod = mod;
   Run.Campaign = campaign || '';
   Run.Step = step || 0;
   $('fb-ui').style.display = 'none';
@@ -344,7 +393,7 @@ function StartRun(missionName, campaign, step, manual) {
   end.onclick = ShowDebrief;
   bar.appendChild(end);
   const leave = el('button', null, '← menu');
-  leave.onclick = () => { location.search = campaign ? '?campaign=' + encodeURIComponent(campaign) : ''; };
+  leave.onclick = () => { location.search = ModQ(mod) + (campaign ? '&campaign=' + encodeURIComponent(campaign) : ''); };
   bar.appendChild(leave);
 
   const hud = $('fb-hud');
@@ -376,12 +425,14 @@ function StartRun(missionName, campaign, step, manual) {
   }
 
   if (!manual)
-    Text('missions/' + missionName + '.fbm')
+    Text(mod.MissionDir + missionName + '.fbm')
       .then((t) => { Run.Mission = FBParseMission(t, missionName + '.fbm'); })
       .catch(() => { Run.Mission = null; });
 
-  /* The ONE thing the layer hands the simulation: which file to fly. Read in FBAppWasm.cpp exactly
-   * the way FB_TILES_URL / FB_ORIGIN_LAT already are — and the manual sandbox has no mission at all. */
+  /* The ONLY things the layer hands the simulation: which mod, and which file of it to fly. Read in
+   * FBAppWasm.cpp exactly the way FB_TILES_URL / FB_ORIGIN_LAT already are — the client resolves both
+   * against the same manifest this file read, and the manual sandbox has no mission at all. */
+  window.FB_MOD = mod.Id;
   if (!manual) window.FB_MISSION = missionName;
   window.Module = window.Module || {};
   window.Module.print = CaptureLine;
@@ -393,23 +444,28 @@ function StartRun(missionName, campaign, step, manual) {
 
 /* ---------------- entry ---------------- */
 
-function Boot() {
+/* Every link below the title screen carries the mod, because every path below it is the mod's. */
+function ModQ(mod) { return '?mod=' + encodeURIComponent(mod.Id); }
+
+async function Boot() {
   const q = new URLSearchParams(location.search);
-  if (q.get('ap') === 'manual') { StartRun('', '', 0, true); return; }   /* the existing sandbox link */
+  const mods = await LoadMods().catch(() => []);
+  const mod = mods.find((m) => m.Id === q.get('mod')) || (q.get('ap') === 'manual' ? mods[0] : null);
+  if (!mod) { ScreenMods(); return; }
+  if (q.get('ap') === 'manual') { StartRun(mod, '', '', 0, true); return; }   /* the existing sandbox link */
   const mission = q.get('mission');
   const campaign = q.get('campaign');
   const step = parseInt(q.get('step') || '0', 10);
-  if (mission) { StartRun(mission.replace(/[^A-Za-z0-9._-]/g, ''), '', 0); return; }
+  if (mission) { StartRun(mod, mission.replace(/[^A-Za-z0-9._-]/g, ''), '', 0); return; }
   if (campaign && step > 0) {
-    LoadCampaigns().then((cs) => {
-      const c = cs.find((x) => x.Name === campaign);
-      if (!c || step > c.Missions.length) { location.search = ''; return; }
-      StartRun(MissionName(c.Missions[step - 1]), campaign, step);
-    });
+    const cs = await LoadCampaigns(mod);
+    const c = cs.find((x) => x.Name === campaign);
+    if (!c || step > c.Missions.length) { location.search = ModQ(mod); return; }
+    StartRun(mod, MissionName(c.Missions[step - 1]), campaign, step);
     return;
   }
-  if (campaign) { ScreenMissions(campaign); return; }
-  ScreenCampaigns();
+  if (campaign) { ScreenMissions(mod, campaign); return; }
+  ScreenCampaigns(mod);
 }
 
 window.addEventListener('DOMContentLoaded', Boot);

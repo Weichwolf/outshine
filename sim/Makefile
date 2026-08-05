@@ -59,11 +59,15 @@ CXXSTD    := -std=c++17
 DEPFLAGS := -MMD -MP
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
-# THE SCENARIO THIS TREE BUILDS AGAINST. The engine ships no aircraft, no mesh and no mission; the mod
+# THE SCENARIOS THIS TREE BUILDS AGAINST. The engine ships no aircraft, no mesh and no mission; a mod
 # names its own directories in mod.json and this reads them, so a path never exists twice
-# (doc/mods.md §3). Override with `make MOD_DIR=../mods/<other> wasm`.
+# (doc/mods.md §3). MOD_DIR is the one a NATIVE run flies (`make MOD_DIR=../mods/<other> native`);
+# MOD_DIRS is every mod with a manifest, because the browser carries all of them in one build and the
+# player picks. A directory without mod.json is documentation, not a mod, and drops out here.
 MOD_DIR ?= ../mods/f16
-fbmod = $(MOD_DIR)/$(shell sed -n 's/.*"$(1)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(MOD_DIR)/mod.json)
+MOD_DIRS := $(patsubst %/mod.json,%,$(wildcard ../mods/*/mod.json))
+fbfield = $(shell sed -n 's/.*"$(2)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(1)/mod.json)
+fbmod = $(MOD_DIR)/$(call fbfield,$(MOD_DIR),$(1))
 MOD_AIRCRAFT  := $(call fbmod,aircraft)
 MOD_MODELS    := $(call fbmod,models)
 MOD_MISSIONS  := $(call fbmod,missions)
@@ -109,14 +113,28 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 # Hand-listing them meant a new render/ file linked in one target and not the other.
 RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 
-# The airframe MESHES the units stage draws. PRELOAD, not embed: they are 12.3 MB against a 12.9 MB
-# gpu.wasm, and a preload lands in a separate web/gpu.data the browser fetches beside the module
-# instead of doubling the binary. The list is explicit rather than the whole directory so the
-# normal/ORM maps and the store meshes (no consumer yet) stay out of the download.
-# emcc forbids MIXING the two (emscripten #24803), so the model tree and the moon moved to preload with
-# them; the virtual paths are unchanged and main() still starts only once the data file has landed.
-UNIT_MODEL_FILES := f16.asset.json f16_L0.glb f16_L1.glb f16_L2.glb f16_L3.glb
-UNIT_MODEL_PRELOAD := $(foreach f,$(UNIT_MODEL_FILES),--preload-file $(MOD_MODELS)/$(f)@/fb/models/$(f))
+# WHAT EVERY MOD PUTS INTO THE BROWSER, under /fb/mods/<id>/ with mod.json's OWN relative directories
+# kept — so the manifest the client reads out of the virtual filesystem resolves there exactly as it
+# does on disk, and web/mods/<id>/ below mirrors it for the half that is fetched instead of preloaded.
+# PRELOAD, not embed: the meshes are 12.3 MB against a 12.9 MB gpu.wasm, and a preload lands in a
+# separate web/gpu.data the browser fetches beside the module instead of doubling the binary. emcc
+# forbids MIXING the two (emscripten #24803), so the model tree and the moon are preloaded as well and
+# main() starts only once the data file has landed.
+# The mesh files are not a hand list: the manifest names the module keys, and each key's sidecar names
+# its own `.glb` levels — a mod with other meshes therefore needs no line here. The normal/ORM maps and
+# the store meshes (no consumer yet) stay out of the download because no sidecar names them.
+fbid   = $(call fbfield,$(1),id)
+fbglbs = $(sort $(shell sed -n 's/.*"file"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(1)))
+# $(1) = mod dir, $(2) = relative path inside it -> one --preload-file mapping it to /fb/mods/<id>/.
+# Nothing is preloaded that the manifest does not NAME or that is not there: a mod that borrows another's
+# airframes names no aircraft root (`depends`), and its files are already in the download under the mod
+# that owns them.
+fbpre  = $(if $(2),$(if $(wildcard $(1)/$(2)),--preload-file $(1)/$(2)@/fb/mods/$(call fbid,$(1))/$(2)))
+fbmeshpre = $(foreach f,$(2).asset.json $(call fbglbs,$(1)/$(call fbfield,$(1),models)/$(2).asset.json),\
+              $(call fbpre,$(1),$(call fbfield,$(1),models)/$(f)))
+MOD_PRELOAD := --preload-file web/mods/index.txt@/fb/mods/index.txt \
+  $(foreach d,$(MOD_DIRS),$(call fbpre,$(d),mod.json) $(call fbpre,$(d),$(call fbfield,$(d),aircraft)) \
+    $(foreach m,$(call fbfield,$(d),meshes),$(call fbmeshpre,$(d),$(m))))
 
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
 # + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
@@ -177,7 +195,7 @@ CORE_LIB_SRCS := \
   src/units/FBSimUnit.cpp \
   src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-trees verify-tests verify-guards image up down restart clean
+.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-types verify-trees verify-tests verify-guards image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -198,6 +216,19 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    o=build/obj-wasm/$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
 	  done; \
+	  rm -rf web/mods; mkdir -p web/mods; \
+	  for d in $(MOD_DIRS); do \
+	    id=$$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
+	    mis=$$(sed -n 's/.*"missions"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
+	    cam=$$(sed -n 's/.*"campaigns"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
+	    mkdir -p web/mods/$$id; cp $$d/mod.json web/mods/$$id/mod.json; \
+	    if [ -n "$$mis" ] && [ -d $$d/$$mis ]; then mkdir -p web/mods/$$id/$$mis; \
+	      if ls $$d/$$mis/*.fbm >/dev/null 2>&1; then cp $$d/$$mis/*.fbm web/mods/$$id/$$mis/; fi; fi; \
+	    if [ -n "$$cam" ] && [ -d $$d/$$cam ]; then mkdir -p web/mods/$$id/$$cam; \
+	      if ls $$d/$$cam/*.fbc >/dev/null 2>&1; then cp $$d/$$cam/*.fbc web/mods/$$id/$$cam/; fi; \
+	      (cd $$d/$$cam && ls *.fbc 2>/dev/null || true) > web/mods/$$id/$$cam/index.txt; fi; \
+	    echo "$$id" >> web/mods/index.txt; \
+	  done; \
 	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
 	    src/clients/FBAppWasm.cpp src/clients/FBLogSinks.cpp src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
 	    $(RENDER_SRCS) \
@@ -205,14 +236,10 @@ wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,w
 	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
-	    --preload-file $(MOD_AIRCRAFT)@/fb/aircraft \
 	    --preload-file web/moon.jpg@/moon.jpg \
-	    $(UNIT_MODEL_PRELOAD) \
+	    $(MOD_PRELOAD) \
 	    -o web/gpu.js; \
-	  mkdir -p web/missions; cp $(MOD_MISSIONS)/*.fbm web/missions/; \
-	  mkdir -p web/campaigns; cp $(MOD_CAMPAIGNS)/*.fbc web/campaigns/; \
-	  (cd $(MOD_CAMPAIGNS) && ls *.fbc) > web/campaigns/index.txt; \
-	  echo "WASM -> web/gpu.js + web/fbtileworker.js + web/missions/ + web/campaigns/ (served at /)"
+	  echo "WASM -> web/gpu.js + web/fbtileworker.js + web/mods/{$$(tr '\n' ',' < web/mods/index.txt | sed 's/,$$//')} (served at /)"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
@@ -419,6 +446,12 @@ verify-tests:    ## judge every declaration under test/ against its band (harnes
 
 verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
+
+# The Prinzip-3 METER, and unlike its siblings it is RED on purpose: it counts what the engine still
+# knows about named aircraft types, broken down by how expensive each mention is to remove. Not part
+# of the green gate until the count reaches 0 -- tools/verify_types.py says why.
+verify-types:    ## count what src/ still knows about concrete aircraft types (rc=1 while > 0)
+	@cd $(SELF_DIR) && python3 tools/verify_types.py $(ARGS)
 
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .

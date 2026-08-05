@@ -6,6 +6,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include <ctime>
 #include <limits>
 #include <memory>
@@ -18,6 +19,7 @@
 #include "FBForcePicture.h"
 #include "FBTacticalOrder.h"
 #include "FBMissionSim.h"
+#include "FBMod.h"
 #include "FBOrdnance.h"
 #include "FBWorld.h"
 #include "FBCamera.h"
@@ -54,30 +56,36 @@ static const char *ModeLabel(FBMode m) {
 static const double kRadiusM = 8000.0;   /* ?ap=manual spawn offset */
 static const double kAglM = 1500.0;      /* ?ap=manual spawn height above ground */
 static const double kSpeedMs = 220.0;    /* ?ap=manual spawn speed */
-static const char *kSandboxModule = "f16";   /* ?ap=manual has no .fbm to name a module — the sandbox
-    picks this one by REGISTRY NAME, so even the debug path never names a concrete module type */
-/* A path in emscripten's embedded FS, filled by the wasm target's --embed-file line. */
-/* No asset root: the browser embeds the model tree and nothing else, so a mission's `wx fixture` has
+/* THE MOD THIS SESSION PLAYS, in its two mounts. The wasm target preloads every mod's manifest,
+ * aircraft and meshes under /fb/mods/<id>/ and copies the fetched half — missions, campaigns — to the
+ * SAME relative paths under /mods/<id>/, so one manifest names both and no directory is baked here. */
+static Missions::FBMod gMod;      /* preloaded files: aircraft, meshes */
+static Missions::FBMod gModWeb;   /* the same manifest resolved against the HTTP mount */
+/* No asset root: only the aircraft tree and the meshes are preloaded, so a mission's `wx fixture` has
  * nothing to resolve against here — live /wx is this client's weather (app/FBWeatherBoot.h). */
-static const FlightBox::Missions::FBModelRoots kWasmModelRoots{"/fb/aircraft", ""};
-static const char *kDefaultMissionName = "payerne-full";   /* the full autonomous sortie: ground start,
-    waypoint loop, landing to a full stop. web/missions/ is a build-time copy of sim/missions/
-    (make wasm) served by fb-sim's web/ mount — editable without a WASM rebuild */
-static char gMissionUrl[192] = "/missions/payerne-full.fbm";
+static Missions::FBModelRoots gModelRoots;
+static char gMissionUrl[256];
 
-/* WHICH file this session flies — the player layer's only reach into the client (window.FB_MISSION,
- * read exactly like FB_TILES_URL / FB_ORIGIN_LAT above it). It selects a mission and changes nothing
- * about one: same parser, same spawn, same judges. A name is a FILENAME and never a path, so anything
- * outside [A-Za-z0-9._-] falls back to the default rather than composing a URL from a JS string. */
-static void ResolveMissionUrl() {
-  const char *js = emscripten_run_script_string(
-      "(window.FB_MISSION||new URLSearchParams(location.search).get('mission')||'').toString()");
-  char name[128];
-  snprintf(name, sizeof name, "%s", js ? js : "");
-  for (const char *p = name; *p; p++)
-    if (!(isalnum((unsigned char)*p) || *p == '.' || *p == '_' || *p == '-')) { name[0] = 0; break; }
-  snprintf(gMissionUrl, sizeof gMissionUrl, "/missions/%s.fbm",
-           name[0] ? name : kDefaultMissionName);
+/* A NAME OUT OF JS IS A NAME, NEVER A PATH: anything outside [A-Za-z0-9._-] is dropped whole rather
+ * than composed into a URL. Both the mod and the mission arrive this way (window.FB_MOD /
+ * window.FB_MISSION, read exactly like FB_TILES_URL / FB_ORIGIN_LAT). */
+static std::string JsName(const char *expr) {
+  const char *js = emscripten_run_script_string(expr);
+  std::string s = js ? js : "";
+  for (char c : s)
+    if (!(isalnum((unsigned char)c) || c == '.' || c == '_' || c == '-')) return std::string();
+  return s;
+}
+
+/* WHICH MOD, and the fallback is data too: the wasm target writes every preloaded mod's id into
+ * /fb/mods/index.txt, first line first, so a build with one mod and a build with five behave alike and
+ * the engine still names no mod. */
+static std::string ResolveModId() {
+  std::string id = JsName("(window.FB_MOD||new URLSearchParams(location.search).get('mod')||'').toString()");
+  if (!id.empty()) return id;
+  std::ifstream index("/fb/mods/index.txt");
+  std::getline(index, id);
+  return id;
 }
 
 static Render::FBRenderer R;
@@ -89,8 +97,9 @@ static Units::FBActorList gActors;
 static Units::FBUnitRegistry gUnits;
 static Units::FBSimUnit *gOwnship = nullptr;
 /* WHAT LEAVES THE JET AND WHAT IT DOES — the identical object fb-gym drives (missions/FBOrdnance.h).
- * Without it the browser could press the pickle and the round would sit in the SMS queue forever. */
-static Missions::FBOrdnance gOrdnance{kWasmModelRoots};
+ * Without it the browser could press the pickle and the round would sit in the SMS queue forever.
+ * Built in main() and not at static init: its model root is the MOD's, which no line above main knows. */
+static std::unique_ptr<Missions::FBOrdnance> gOrdnance;
 /* THE SIMULATION, and the browser does not step it — it asks it to run until it stops or until this
  * frame owes the display a picture (missions/FBMissionSim.h). The end rule, the judges and the tick's
  * phase order live in there, which is why this client cannot fly a wreck: there is no way to advance
@@ -740,7 +749,26 @@ int main() {
    * REGISTRY NAME, so an unknown name stops the boot rather than flying something unasked for. */
   const char *jap = emscripten_run_script_string("(new URLSearchParams(location.search).get('ap')||'')");
   bool manualMode = jap && jap[0] == 'm';   /* only 'manual' is a recognised value */
-  ResolveMissionUrl();
+
+  /* THE MOD BEFORE ANYTHING IT OWNS: without its manifest this client knows no aircraft root, no mesh
+   * and no mission URL, so an unreadable one stops the boot here rather than failing later as a
+   * missing file nobody can attribute. */
+  const std::string modId = ResolveModId();
+  std::string moderr;
+  if (!Missions::FBLoadMod("/fb/mods/" + modId, gMod, &moderr) ||
+      !Missions::FBLoadMod("/fb/mods/" + modId, "/mods/" + modId, gModWeb, &moderr)) {
+    FBLog::Error("gpu", "mod_load_failed", {{"mod", modId}, {"reason", moderr}});
+    return 1;
+  }
+  gModelRoots = Missions::FBModelRoots{gMod.Aircraft, ""};
+  gOrdnance = std::make_unique<Missions::FBOrdnance>(gModelRoots);
+  {
+    std::string name = JsName("(window.FB_MISSION||new URLSearchParams(location.search).get('mission')||'').toString()");
+    snprintf(gMissionUrl, sizeof gMissionUrl, "%s",
+             gModWeb.Mission(name.empty() ? gMod.DefaultMission : name).c_str());
+  }
+  FBLog::Info("gpu", "mod", {{"id", gMod.Id}, {"name", gMod.Name}, {"aircraft", gMod.Aircraft},
+      {"models", gMod.Models}, {"mission", gMissionUrl}});
 
   Modules::FBRegisterBuiltinModules();
 
@@ -757,15 +785,15 @@ int main() {
   if (manualMode) {
     /* No mission file, so this builds its actor by hand — the ONE place this client touches the IC
      * directly, and it ends in the same state minus a plan to judge (hence no FBMissionMonitor). */
-    std::unique_ptr<Modules::FBModule> module = Modules::FBModuleRegistry::Create(kSandboxModule);
+    std::unique_ptr<Modules::FBModule> module = Modules::FBModuleRegistry::Create(gMod.Sandbox);
     if (!module) {
-      FBLog::Error("gpu", "unknown_module", {{"module", kSandboxModule}, {"source", "?ap=manual sandbox"}});
+      FBLog::Error("gpu", "unknown_module", {{"module", gMod.Sandbox}, {"source", "?ap=manual sandbox"}});
       return 1;
     }
     double altAsl = kConfigGroundM + kAglM;
     double slat = olat + kRadiusM / kMPerDeg, slon = olon;   /* 8 km due N, heading E */
     Fdm::FBFdmSpawn ic;
-    ic.ModelsRoot = kWasmModelRoots.Aircraft;
+    ic.ModelsRoot = gModelRoots.Aircraft;
     ic.Aircraft = module->FdmModelName();
     ic.LatDeg = slat; ic.LonDeg = slon; ic.GroundElevM = altAsl;
     ic.HeightOffsetM = 0.0;   /* airborne, no explicit offset — the IC's own provisional margin applies */
@@ -791,7 +819,7 @@ int main() {
     std::string perr;
     if (n <= 0 || n >= (int)sizeof missionText - 1 || !FBParseMissionFile(missionText, mission, &perr)) {
       FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl},
-          {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/missions/?)")
+          {"reason", n <= 0 ? std::string("fetch (is fb-sim serving web/mods/?)")
                    : n >= (int)sizeof missionText - 1 ? std::string("mission file exceeds the client buffer")
                    : perr}});
       return 1;
@@ -811,7 +839,7 @@ int main() {
        * of what a mission start IS. */
       std::string serr;
       std::unique_ptr<Units::FBSimUnit> unit =
-          FBMissionSpawnActor(kWasmModelRoots, mission, i, groundAsl, mission.TimeoutS, &serr);
+          FBMissionSpawnActor(gModelRoots, mission, i, groundAsl, mission.TimeoutS, &serr);
       if (!unit) {
         FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl}, {"reason", serr}});
         return 1;
@@ -840,7 +868,7 @@ int main() {
     /* THE PRECEDENCE RULE (app/FBWeatherBoot.h): a mission that declares its weather keeps it, in the
      * browser exactly as in fb-gym. Only a mission that does NOT gets this client's live default. */
     std::string werr;
-    std::unique_ptr<FBWeatherProvider> declared = FBMakeMissionWeather(mission, kWasmModelRoots, &werr);
+    std::unique_ptr<FBWeatherProvider> declared = FBMakeMissionWeather(mission, gModelRoots, &werr);
     if (declared) {
       gWeather = std::move(declared);
       gWxLive = false;   /* nothing fetched, and a late arrival could not override it either */
@@ -869,10 +897,10 @@ int main() {
   size_t maxActors = gActors.size();
   for (auto &a : gActors) maxActors += (size_t)a->Module().MaxReleases();
   gActors.reserve(maxActors);
-  gOrdnance.Reserve(maxActors);
+  gOrdnance->Reserve(maxActors);
   /* THE SIMULATION, built once every actor exists and the cast's ceiling is fixed. From here this
    * client owns no tick and no end rule — it owns a camera, a HUD and a keyboard. */
-  gSim = std::make_unique<Missions::FBMissionSim>(gActors, gUnits, gOrdnance, gElevation, *gWeather,
+  gSim = std::make_unique<Missions::FBMissionSim>(gActors, gUnits, *gOrdnance, gElevation, *gWeather,
                                                  timeoutS);
   gSim->SetClock(SimClock);
   gSim->SetRangeAware(needRanges);
@@ -931,10 +959,11 @@ int main() {
   }
   R.SetHudDisplay(gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
   R.SetMapSheetSource(&MapTileFetch);
-  /* The airframe meshes, preloaded into emscripten's FS by the wasm target. A miss leaves the units
-   * invisible and never blocks startup — exactly as a missing moon texture does. */
-  if (!R.AddUnitModel("f16", "/fb/models"))
-    FBLog::Warn("gpu", "unit_model_missing", {{"type", "f16"}, {"dir", "/fb/models"}});
+  /* The airframe meshes THE MOD DECLARES, preloaded into emscripten's FS by the wasm target. A miss
+   * leaves those units invisible and never blocks startup — exactly as a missing moon texture does. */
+  for (const std::string &mesh : gMod.Meshes)
+    if (!R.AddUnitModel(mesh.c_str(), gMod.Models.c_str()))
+      FBLog::Warn("gpu", "unit_model_missing", {{"type", mesh}, {"dir", gMod.Models}});
   R.Init("#gpu", 1280, 720);
   if (!W.Open(&R, base, olat, olon, 32, viewM, 512)) {
     FBLog::Error("gpu", "world_open_failed", {{"base", std::string(base)}});

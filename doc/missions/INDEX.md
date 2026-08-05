@@ -51,7 +51,7 @@ code ([`combat.md`](combat.md)).
 states in its own header what it PROVES and why it is built the way it is (which geometry, which single
 changed line against its sibling mission, which number it is the measurement for). That comment is part
 of the mission, not decoration: a run whose result contradicts its header comment is a finding, and a
-mission whose subject changes gets its header rewritten in the same round. `sim/web/missions/` holds
+mission whose subject changes gets its header rewritten in the same round. `sim/web/mods/<id>/` holds
 build artefacts — copies, never sources.
 
 **6 — Column order is append-only.** New telemetry sources are always registered at the end

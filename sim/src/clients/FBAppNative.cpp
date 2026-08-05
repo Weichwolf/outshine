@@ -363,9 +363,11 @@ int MapTileFetch(int z, int x, int y, int ts, unsigned char *dst) {
  * fb-gym's link GPU-free while both clients share one mission loop. */
 class FBNativeMissionHook : public FlightBox::Missions::FBMissionTickHook {
 public:
-  FBNativeMissionHook(std::string base, std::string outDir, std::string modelsDir, double intervalS,
+  FBNativeMissionHook(std::string base, std::string outDir, std::string modelsDir,
+                      std::vector<std::string> meshes, double intervalS,
                       bool groundPhoto = false, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), ModelsDir(std::move(modelsDir)),
+        Meshes(std::move(meshes)),
         IntervalS(intervalS), Width(width), Height(height), GroundPhoto(groundPhoto) {}
 
   /* THE TACTICAL MAP as a frame venue: `--map <callsign>` draws the picture of THAT unit's fusion --
@@ -415,8 +417,9 @@ public:
     }
     R->SetHudDisplay(primary.Displays());
     /* The airframe meshes, from the mod this run flies (missions/FBMod.h). */
-    if (!R->AddUnitModel("f16", ModelsDir.c_str()))
-      FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", "f16"}, {"dir", ModelsDir}});
+    for (const std::string &mesh : Meshes)
+      if (!R->AddUnitModel(mesh.c_str(), ModelsDir.c_str()))
+        FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", mesh}, {"dir", ModelsDir}});
     R->InitOffscreen(Width, Height);
     if (!R->Ready()) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
@@ -597,6 +600,7 @@ private:
   }
 
   std::string Base, OutDir, ModelsDir;
+  std::vector<std::string> Meshes;   /* the module keys the mod declares a mesh for (missions/FBMod.h) */
   FlightBox::Missions::FBMissionClock Clock;
   double IntervalS;
   int Width, Height;
@@ -670,7 +674,7 @@ int RunMission(const std::string &missionPath, const FlightBox::Missions::FBMod 
               double mapPanN, double mapHomeS, bool groundPhoto, const std::vector<std::string> &orderSpecs) {
   FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
-    FBNativeMissionHook hook(base, outDir, mod.Models, renderIntervalS, groundPhoto);
+    FBNativeMissionHook hook(base, outDir, mod.Models, mod.Meshes, renderIntervalS, groundPhoto);
     if (!mapNode.empty()) {
       hook.SetMapNode(mapNode, mapSpanM);
       hook.SetMapZoom(mapZoom);

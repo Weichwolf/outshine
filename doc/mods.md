@@ -509,6 +509,30 @@ Consequences:
    knowledge nor a verdict — it is this scenario's intent, and `mods/<title>/doc/terrain.md` is the only
    place it can live without polluting the other axis. Same for a manual's page number.
 
+### 3.1 The browser must be able to pick, and the picking is data too
+
+**Four titles in one WASM app is the goal, so the browser cannot be built for one.** A client that bakes
+`/fb/aircraft`, `/missions/<name>.fbm` and `AddUnitModel("f16", …)` has the scenario compiled into it —
+the same defect §3 removed from the engine, one layer up.
+
+The rule is therefore the same rule: **the manifest is the only place a directory or a type key is
+named**, and it must reach the browser instead of being read at build time and forgotten.
+
+| Half of a mod | How the browser gets it | Root |
+|---|---|---|
+| manifest, aircraft, meshes | preloaded into the virtual filesystem by `make wasm` | `/fb/mods/<id>/` |
+| missions, campaigns | fetched over HTTP from `web/` | `/mods/<id>/` |
+
+Both halves keep **mod.json's own relative directories**, so ONE manifest resolves in both mounts and no
+path exists twice. Which mod is a name like which mission is a name: it comes from the player layer
+(`window.FB_MOD`), is sanitised, and falls back to the first line of a generated index — so the engine
+still names no mod and a build with one behaves like a build with five.
+
+**Meshes are declared, not discovered.** `"meshes"` lists the MODULE REGISTRY KEYS that ship an
+airframe: the key is what a unit publishes as its visual type, the sidecar beside it names its own `.glb`
+levels, and the build derives the preload list from those two. A second mod with other meshes therefore
+needs no line of C++ and no line of Makefile.
+
 ### 4. Acceptance
 
 | Contract | Anchor |
@@ -520,6 +544,7 @@ Consequences:
 | A mod is a test | every mission runs headless in `fb-gym` with a verdict, and byte-identically over thread counts |
 | The played run cannot cheat | the WASM app consumes the identical `.fbm` and both judges run in it too |
 | The triad holds inside a mod | `verify-trees` walks `mods/<title>/` under §3's rule — two trees, doc plus proof — and counts those orphans apart from the engine's |
+| The client is title-free | no client names a mod, a directory, a mesh file or a type key: `grep` finds them only in `mod.json` (§3.1) |
 | The undeclarables are named | each round publishes what the titles could NOT declare — that list is the engine backlog |
 
 ## State
@@ -529,11 +554,23 @@ scenario: 127 model files (`src/aircraft/`, incl. `MODEL-DELTAS.md`), the mesh r
 415 `.fbm` (`src/missions/`, 296 of them in the regression glob), 12 `.fbc` (`src/campaigns/`) and the
 two baked blobs a mission names (`src/data/`). `sim/assets/` and `sim/missions/` are gone.
 
-**The loader is the smallest one that carries.** `mods/f16/mod.json` names five roots; three readers
-resolve them and no path exists twice: `sim/src/missions/FBMod.h` (C++ — clients, harnesses),
-`sim/tools/fb_mod.py` (the tool tree) and three `sed` calls in `sim/Makefile` (the WASM preload and the
-`web/` copy). `fb-gym --mission payerne-full` is a mod-relative NAME; a `.fbm`/`.fbc` suffix still means
-a path. One mod, no registry, no capability negotiation — `--mod DIR` is the only switch.
+**The loader is the smallest one that carries.** `mods/f16/mod.json` names five roots plus three names
+(`meshes`, `sandbox`, `default_mission`); three readers resolve them and no path exists twice:
+`sim/src/missions/FBMod.h` (C++ — clients, harnesses), `sim/tools/fb_mod.py` (the tool tree) and the
+`sed` calls in `sim/Makefile` (the WASM preload and the `web/` copy). `fb-gym --mission payerne-full` is
+a mod-relative NAME; a `.fbm`/`.fbc` suffix still means a path. No registry and no capability
+negotiation — `--mod DIR` is the only switch a native run needs.
+
+**§3.1 holds in the browser.** `make wasm` preloads every `mods/*/mod.json` it finds under
+`/fb/mods/<id>/` with the manifest's own relative directories, copies missions and campaigns to the same
+relative paths under `web/mods/<id>/`, and writes `web/mods/index.txt` (also preloaded as
+`/fb/mods/index.txt`). `FBAppWasm` loads that manifest TWICE — once against the preloaded root for
+aircraft and meshes, once against `/mods/<id>` for the mission URL — and `web/fbmenu.js` opens on a title
+screen whose cards, campaign directory and free-flight mission all come out of the manifest. Measured in
+the browser build itself: `gpu mod id=f16 aircraft=/fb/mods/f16/src/aircraft mission=/mods/f16/src/missions/payerne-full.fbm`,
+`render unit_model type=f16 lods=4 parts=22 trisTotal=173330`, and the run flies — pilot phase
+`Preflight → Takeoff → Route`, 2 000 m AGL at t=102 s. An unknown id stops the boot with
+`mod_load_failed reason="cannot open /fb/mods/<id>/mod.json"` instead of flying something unasked for.
 Measured across the move: all 296 missions byte-identical, `payerne-full --threads 1/2/4` on
 `6e24090b7e861aa7`, ten harnesses unchanged, `test-air` at 5 outside band, `verify-trees` at 20 orphans.
 
@@ -545,6 +582,17 @@ output. **4 mod orphans** today, all one shape: `f22`, `comanche`, `armored-fist
 `src/`. Path congruence is deliberately NOT applied inside a mod — §3's own directory picture is four
 flat texts against five declaration roots, so `doc/campaign.md` has no `src/campaign/` to match and the
 rule would report 78 holes in `mods/f16/src/aircraft/**` that nobody wants filled.
+
+**The engine is asset-free but not TYPE-free, and that is now a number.** `make -C sim verify-types`
+(`sim/tools/verify_types.py`, rc=1 on purpose until it reaches 0) counts every mention of a named
+aircraft type under `sim/src/` and breaks it down by how expensive the mention is to remove: today
+**1 324 mentions of 21 types in 117 of 335 files** — 48 `dir` (two module trees), 480 `symbol`,
+35 `key`, 76 `text`, 27 `value` (a type's number in generic code, a curated table because no regex can
+see a number that does not spell its type) and 658 `comment`. Ordnance and ground types are a separate
+inventory and printed on their own line (102), not folded in. The three costliest are
+`sim/src/modules/f16/` + `sim/src/modules/mig29/` (48 files of engine C++ about two aeroplanes),
+`sim/src/core/FBAircraft.h` (18 catalogue airframes with published numbers, 150 mentions) and the 27
+`value` sites, which are the only class with nowhere to move to.
 
 **§2.1's premise is**: the per-unit declaration list exists as runtime data
 (`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the
@@ -569,6 +617,14 @@ inventory. See [`architecture.md`](architecture.md) §The layering pattern.
   every title is not decided.
 - **`mod.json` is unchecked by the gate.** Four titles have none, so the loader could not see them even
   once their `src/` exists. It is identity, not triad, which is why `verify-trees` stays out of it.
+- **A mesh key is a MODULE key, and modules are engine C++.** §3.1 lets a second mod declare its own
+  meshes without touching code — but only for a type the engine's registry already builds. A
+  `comanche.asset.json` draws nothing until `FBModuleRegistry` has a `comanche`, which is the same hole
+  §2 already names one level down.
+- **The browser carries EVERY mod's aircraft and meshes in one `gpu.data`.** With one mod that is 13.5 MB
+  and correct; with four it is one download for four titles, and nothing streams a mod on demand. The
+  fetched half (missions, campaigns) already does, so the split exists — the preloaded half does not use
+  it.
 - **The HUD is C++**, so „HUD per title, declared" has no surface to be declared into.
 - **Three of the four titles are not aircraft**, and the body format that would carry them
   ([`body-format.md`](body-format.md)) is spec-only.

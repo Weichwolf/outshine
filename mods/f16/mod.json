@@ -5,5 +5,8 @@
   "models": "src/models",
   "missions": "src/missions",
   "campaigns": "src/campaigns",
-  "data": "src/data"
+  "data": "src/data",
+  "meshes": "f16",
+  "sandbox": "f16",
+  "default_mission": "payerne-full"
 }

@@ -191,5 +191,7 @@ No hidden agent memory — all operational knowledge is here.
 | Git | commit mail is the GitHub noreply alias; push via SSH insteadOf |
 | `timeout(1)` | **does not exist on macOS** — do not build it into scripts |
 
-The mission files are copied from `mods/f16/src/missions/` to `sim/web/missions/` during the WASM build; the copy
-is gitignored. A hand-kept second copy would be a source of errors, and once was.
+Every mod's missions and campaigns are copied to `sim/web/mods/<id>/` during the WASM build, keeping the
+relative directories `mod.json` names; its manifest, aircraft and meshes are preloaded to `/fb/mods/<id>/`
+instead ([`mods.md`](mods.md) §3.1). The copy is gitignored. A hand-kept second copy would be a source of
+errors, and once was.

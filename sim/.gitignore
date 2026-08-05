@@ -13,5 +13,4 @@ vendor/.compat-headers/
 # python bytecode
 __pycache__/
 *.pyc
-web/missions/
-web/campaigns/
+web/mods/
