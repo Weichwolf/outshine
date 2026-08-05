@@ -157,7 +157,7 @@ mods/<title>/
     sources.md        every claim with URL + page; manual-vs-wiki contradictions kept, not smoothed
   src/              WHAT WE CAN — declarations only, no code
     units/  modules/  missions/*.fbm  hud/
-    protocols/        recorded in→out pairs, content-addressed; calls, text and speech (§2.1)
+    protocols/        pool/ (hash→content) + traces/ (hash sequences per mission), §2.1
 ```
 
 > Owner, 2026-08-05: *„du kannst auch in den `mods/` feste LLM-Protokolle ablegen, die dann offline
@@ -177,7 +177,28 @@ whether a decision still reaches its system, whether the consequences still land
 > Owner, 2026-08-05: *„so können wir auch einfach textuelle/gesprochene Kommunikation speichern. Als
 > In-Out-Paare gehasht."*
 
-One shape covers all of it: **`hash(input) → output`**, content-addressed like a Git object. The input is
+> Owner, 2026-08-05: *„bzw. gehashte Strings in einer Tabelle und Verläufe mit nur Hashes in einer
+> anderen."*
+
+**Two tables, and the split is the whole trick:**
+
+| | Holds | Shape |
+|---|---|---|
+| **pool** | the content — prompts, replies, radio lines, audio blobs | `hash → bytes`, written once, never mutated |
+| **trace** | the course of a run | an ordered list of **hashes only** |
+
+This is Git's own model — objects and the commits that reference them — and it buys four things:
+
+1. **Deduplication.** *„Fox two"* spoken four hundred times is stored once. Audio, which dominates the
+   volume, is stored once per distinct utterance rather than once per occurrence.
+2. **A trace becomes comparable byte for byte.** Two runs' traces are two hash sequences; the existing
+   differential net compares them with the code it already has. A regression shows up as *a mismatch at
+   position N*, which names the tick.
+3. **A trace is readable without the payload.** It diffs, it fits in a commit, it can be reviewed. The
+   pool can be large and nobody has to look at it.
+4. **The pool is shareable across mods.** A radio phrase used by three titles has one entry.
+
+One shape covers the content: **`hash(input) → output`**, content-addressed like a Git object. The input is
 the situation the model was given; the output is what came back — a function call, a line of radio, or a
 rendered audio blob for it. Wingman chatter, ATC, a briefing read aloud, an enemy commander's order: all
 the same pair.
