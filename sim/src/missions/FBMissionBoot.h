@@ -10,6 +10,7 @@
 
 #include <memory>
 #include <string>
+#include "FBElevationProvider.h"
 #include "FBGeodesy.h"
 #include "FBLog.h"
 #include "FBMissionFile.h"
@@ -27,7 +28,8 @@ namespace FlightBox::Missions {
  * doc/units-and-missions.md §6. Returns nullptr with a human reason in *err; on success the
  * caller owns the actor and everything in it. */
 inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots &models, const FBMission &mission,
-                                                      size_t unitIdx, double groundAsl, double timeoutS,
+                                                      size_t unitIdx, double groundAsl,
+                                                      const FBElevationProvider &elevation, double timeoutS,
                                                       std::string *err) {
   auto fail = [err](std::string reason) -> std::unique_ptr<Units::FBSimUnit> {
     if (err) *err = std::move(reason);
@@ -63,8 +65,10 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
       /* The declarative spawn IS the whole truth about a mover: there is no airframe to trim into it. */
       gst.elev = sp.AltM;
       gst.speed = gst.gs = gst.cas = sp.SpeedKt * kKtToMs;
-      if (FBFlightPlan *plan = module->FlightPlan()) *plan = block.Plan;
-      else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
+      if (FBFlightPlan *plan = module->FlightPlan()) {
+        *plan = block.Plan;
+        plan->BriefGroundElevation(elevation, groundAsl);
+      } else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
     }
     Units::FBUnitKind gkind = module->UnitKind();   /* read BEFORE the move: argument order is unspecified */
     auto gunit = std::make_unique<Units::FBSimUnit>((int)unitIdx + 1, block.Id, gkind, block.Team,
@@ -96,8 +100,14 @@ inline std::unique_ptr<Units::FBSimUnit> FBMissionSpawnActor(const FBModelRoots 
   /* THE SPAWN COMMANDS WHAT THE MODULE DECLARED. A route this airframe cannot hold voids the spawn
    * rather than being dropped silently; the rest are wiring, and a module that declared no autopilot
    * simply is not put into manual. */
-  if (FBFlightPlan *plan = module->FlightPlan()) *plan = block.Plan;
-  else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
+  /* THE ROUTE AND ITS TERRAIN IN ONE STEP: the copy without the briefing is what left a ballistic
+   * delivery solving against the ground under the SHOOTER (mods/f22/doc/terrain.md, 1.8: +322.5 m of
+   * plane error, 230 m short), so the two lines stay together and the fallback is the spawn's own
+   * resolved sample rather than zero. */
+  if (FBFlightPlan *plan = module->FlightPlan()) {
+    *plan = block.Plan;
+    plan->BriefGroundElevation(elevation, groundAsl);
+  } else if (!block.Plan.Empty()) return fail("this module holds no flight plan");
   if (Systems::FBAutopilot *ap = module->Autopilot()) ap->SetManual(0.0, 0.0, 0.0, 0.0);
   if (Systems::FBAirframeControls *ctl = module->Controls()) {
     ctl->SetGear(true);

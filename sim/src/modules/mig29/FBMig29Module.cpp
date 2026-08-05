@@ -95,8 +95,7 @@ void FBMig29Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitReg
     Visual_.Run(SharedState, st, units, SimTimeS);   /* the eyes, ungated: not a box this jet carries */
     AirData->Run(SharedState, st, dt);
     RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
-    if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
-      NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
+    if (const FBWaypoint *swp = Plan_.ActiveWaypoint()) NavSys->SetSteerpoint(*swp);
     NavSys->Run(SharedState, st, dt);
     /* The SELECTED station's round: the launch zone computed is for the weapon that would actually
      * leave the jet if the pilot pressed the trigger now. */

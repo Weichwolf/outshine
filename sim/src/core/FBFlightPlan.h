@@ -5,6 +5,8 @@
 
 #include <vector>
 
+#include "FBElevationProvider.h"
+
 namespace FlightBox {
 
 enum class FBWaypointType { Takeoff, Enroute, Approach, Land };
@@ -14,12 +16,26 @@ struct FBWaypoint {
   double AltM = 0.0;      /* target altitude, m ASL */
   double SpeedKt = 0.0;   /* target speed, kt (CAS) */
   FBWaypointType Type = FBWaypointType::Enroute;
+  /* The TERRAIN under the fix, which is a different number from AltM (the altitude to fly) and the one
+   * a ballistic delivery solves against. Unresolved until the plan is briefed. */
+  double GroundElevM = kFBElevationUnresolved;
 };
 
 class FBFlightPlan {
 public:
   void AddWaypoint(const FBWaypoint &wp) { Waypoints.push_back(wp); }
   void Clear() { Waypoints.clear(); Active = 0; }
+
+  /* THE BRIEFING'S MAP, read ONCE at spawn and never in flight: a steerpoint elevation is data the
+   * pilot was handed, while a computer able to sample the ground at an arbitrary point would be a
+   * knowledge source no sensor paid for. Hence the mutation lives here and not behind a mutable
+   * accessor — there is exactly one moment a waypoint may learn its terrain. */
+  void BriefGroundElevation(const FBElevationProvider &elev, double fallbackM) {
+    for (FBWaypoint &wp : Waypoints) {
+      double m = elev.GroundElevM(wp.LatDeg, wp.LonDeg);
+      wp.GroundElevM = FBElevationResolved(m) ? m : fallbackM;
+    }
+  }
 
   int  Size() const { return (int)Waypoints.size(); }
   bool Empty() const { return Waypoints.empty(); }

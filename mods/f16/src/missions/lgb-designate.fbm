@@ -9,9 +9,23 @@ timeout 160
 # and the round has no idea where the point is except that somebody is holding it.
 #
 # The viper releases at 5.6 km from 4 000 m, CCRP, against a briefed steerpoint. The ballistic error at
-# release is over a kilometre; the kit flies it down to a MEASURED 3.9 m — inside the documented
+# release is over a kilometre; the kit flies it down to a MEASURED 52.78 m — OUTSIDE the documented
 # Paveway II CEP band of 6-9 m [T4], which is the number this file is checked against and which is NOT
 # a setting: the miss is whatever the pursuit law produces.
+#
+# THIS FILE IS RED AND STAYS RED, and the reason is worth more than the green was.
+# The 3.9 m this file used to report was never a property of the weapon. The laser spot's ELEVATION is
+# the CCRP impact plane, and that plane used to be the ground under the SHOOTER instead of under the
+# TARGET (doc/air-to-ground.md `C30`; the same defect that made mods/f22 c01m08 miss by 230 m). Here the
+# shooter sits 30.45 m above the target, so the spot hung 30.45 m in the air, the still-descending round
+# crossed the real surface further downrange, and one error cancelled the other to within 2 m.
+# MEASURED as a characteristic curve (temporary offset on the spot elevation, reverted):
+#     +30.45 m of spot error -> aimErrM  2.33 m      (what this file used to report)
+#     +15.00 m               -> aimErrM 28.01 m
+#      0     m, correct      -> aimErrM 52.78 m
+# ~1.66 m of miss per metre of spot error, zero crossing at +31.8 m. THE DEFECT THIS FILE NOW SHOWS IS
+# THE GUIDANCE: the GBU-12's bang-bang pursuit law runs out of authority ~53 m short of a correctly
+# designated spot. Do not relax the bound and do not move the geometry — repair the law.
 #
 # THE LAW IS NOT PROPORTIONAL NAVIGATION and must not be: the CCG's canards are bang-bang, so the round
 # aligns its velocity vector with the instantaneous line of sight and trails the fins when aligned. It
@@ -23,12 +37,13 @@ timeout 160
 #
 # WHAT TO READ:
 #   events.log      `missile SEEKER_ACTIVE ... mode="semi-active laser"`, NO `missile
-#                   ILLUMINATION_LOST` anywhere, and `stores DELIVERY ... aimErrM` under 10 m
-#   UNIT_RESULT     bunker DESTROYED
+#                   ILLUMINATION_LOST` anywhere, and `stores DELIVERY ... aimErrM` — today 52.78 m
+#   UNIT_RESULT     bunker DESTROYED (a soft target still dies at 53 m; the CEP claim is what fails)
 #
 # READING RULE: exit 0 is not the measurement. The MEASUREMENT is `aimErrM` on the `stores DELIVERY`
-# line against the published 6-9 m band, and `UNIT_RESULT unit=bunker result=DESTROYED`. Read as the
-# first of three: lgb-lase-broken.fbm and lgb-lase-restored.fbm move ONE line each.
+# line against the published 6-9 m band, and `UNIT_RESULT unit=bunker result=DESTROYED`. The band is
+# NOT met and the file is honest about it. Read as the first of three: lgb-lase-broken.fbm and
+# lgb-lase-restored.fbm move ONE line each.
 
 unit viper
   module f16

@@ -127,11 +127,11 @@ void FBF16Module::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
     else SharedState.AirData.H.Invalidate();
     if (SystemWorking(FBSystemId::RadarAlt)) RadarAlt->Run(SharedState, (float)st.elev, GroundAslM);
     else SharedState.RadarAlt.H.Invalidate();
-    /* Republished every sensor tick because the active waypoint advances during the run. A `wp` line
-     * declares the altitude to FLY, not the terrain under it, so the steerpoint's ground elevation is
-     * the only terrain figure the module has: this tick's sample under the aircraft. */
-    if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
-      NavSys->SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM * kMToFt);
+    /* Republished every sensor tick because the active waypoint advances during the run. The fix
+     * carries its OWN terrain out of the briefing (core/FBFlightPlan.h) — this tick's sample under the
+     * aircraft is a different place, and handing that in put the ballistic impact plane at the
+     * shooter's feet instead of the target's. */
+    if (const FBWaypoint *swp = Plan_.ActiveWaypoint()) NavSys->SetSteerpoint(*swp);
     if (SystemWorking(FBSystemId::Nav)) {
       NavSys->Run(SharedState, st, dt);
     } else {

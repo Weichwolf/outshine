@@ -3,9 +3,12 @@
 #ifndef FBNAVSYSTEM_H
 #define FBNAVSYSTEM_H
 
+#include <cassert>
+
 #include "FBFlightPlan.h"
 #include "FBState.h"
 #include "FBFdm.h"
+#include "FBUnits.h"
 
 namespace FlightBox::Systems {
 
@@ -13,8 +16,14 @@ class FBNavSystem {
 public:
   virtual ~FBNavSystem() = default;
 
-  /* elevFt: die EIGENE Bodenhoehe des Steerpoints (ASL) — Eingang fuer FBF16FireControls Slant-Range. */
+  /* elevFt: die EIGENE Bodenhoehe des Steerpoints (ASL) — Eingang fuer FBF16FireControls Slant-Range
+   * UND fuer dessen Ballistik-Ebene. Der Wegpunkt-Ueberladung den Vorzug geben, wo es einen gibt: sie
+   * nimmt die Hoehe aus dem gebrieften Fix statt aus einer Probe, die der Aufrufer waehlen darf. */
   void SetSteerpoint(double lat, double lon, double elevFt) { StLat = lat; StLon = lon; StElevFt = elevFt; Have = true; }
+  void SetSteerpoint(const FBWaypoint &wp) {
+    assert(FBElevationResolved(wp.GroundElevM) && "steerpoint from an unbriefed plan");
+    SetSteerpoint(wp.LatDeg, wp.LonDeg, wp.GroundElevM * kMToFt);
+  }
   void SetBullseye(double lat, double lon) { BullLat = lat; BullLon = lon; HaveBull = true; }
 
   virtual void Run(FBState &state, const Fdm::fb_fdm_state &fdm, double dt);

@@ -10,12 +10,20 @@ timeout 160
 # dies once and for good, while a Paveway's head is a passive energy detector that simply sees the spot
 # again. That difference is one branch in the gate and it is the whole reason this file exists.
 #
-# MEASURED: 9.1 m against 1 895 m broken and 3.9 m never broken. Six seconds of coast cost 5 m.
+# MEASURED: 42.96 m against 1 903 m broken and 52.78 m never broken. Six seconds of coast cost NOTHING
+# measurable — the reacquired round is if anything nearer than the one that never lost the spot, which
+# says the residual is the pursuit law's authority and not the coast.
+#
+# THE ABSOLUTE NUMBER IS RED AND STAYS RED, and this file is not the place it is judged: the GBU-12
+# falls ~53 m short of a correctly designated spot (doc/air-to-ground.md `C30`, characteristic curve in
+# lgb-designate.fbm's header). The 11.4 m this file used to report was a 30.45 m spot-elevation error
+# cancelling that shortfall. What THIS file measures — that a Paveway head comes back and an R-27R's
+# does not — is unaffected, because it is a comparison against its own two siblings.
 #
 # WHAT TO READ:
 #   events.log      TWO `missile SEEKER_ACTIVE ... mode="semi-active laser"` lines around one
 #                   `missile ILLUMINATION_LOST` — the second one IS the reacquisition — and
-#                   `stores DELIVERY ... aimErrM` back inside the published CEP band
+#                   `stores DELIVERY ... aimErrM` no worse than lgb-designate's
 #   UNIT_RESULT     bunker DESTROYED
 #
 # READING RULE: exit 0 is not the measurement. The MEASUREMENT is the SECOND `missile SEEKER_ACTIVE`

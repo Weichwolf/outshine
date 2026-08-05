@@ -4641,3 +4641,59 @@ verglichen (inkl. abgeleiteter Zonen und Flächen) — kein Bit anders; sieben N
 (unbekanntes Feld, unbekannter Tier/Gun, kaputte Zahl, fehlende Spannweite, Feld ohne Block, doppelter
 Key, fehlende Datei) melden Datei und Zeilennummer, ein fehlender Katalog beendet den Lauf mit
 `RESULT result=FAIL`.
+
+---
+
+## 2026-08-05 — Die Ballistik löst gegen den Boden am ZIEL, und darunter lag ein kompensierender Fehler
+
+`FBF16Module` reichte `SetSteerpoint(swp->Lat, swp->Lon, GroundAslM)` — die Bodenprobe unter dem
+**Flugzeug** — in `FBF16FireControl::SolveGroundAttack`. Über einer 0-m-Ebene sind Schützen- und
+Zielboden per Konstruktion gleich, der Fehler exakt null, deshalb jahrelang unsichtbar. Über echtem
+Gelände: `mods/f22` 1.8 Ebene 511,926 m gegen ein Ziel auf 834,358 m = **+322,43 m**, beide Mk-84
+230,49 m daneben, `s8cmd` überlebt — und der Rechner meldete `aimMissM` 65,3 m.
+
+**Entwurfsentscheidung: der Steuerpunkt trägt seine Höhe, der Löser holt sie nicht.** Ein gebrieftes
+Ziel trägt seine Kartenhöhe legitim (DTC); eine freie Geländeabfrage am Zielort wäre eine neue
+Wissensquelle. Also `FBWaypoint::GroundElevM`, EINMAL beim Spawn gefüllt
+(`FBFlightPlan::BriefGroundElevation`, aus dem Höhenanbieter, den der Missionsbesitzer ohnehin hält),
+und `FBNavSystem::SetSteerpoint` bekommt eine Wegpunkt-Überladung: **die falsche Sonde ist jetzt nicht
+mehr übergebbar**. Dieselbe Zeile stand dreimal im Baum (f16, mig29, air) und ist dreimal weg.
+`verify-layers` **6 Wahrnehmungs-Leser, unverändert** — Gelände ist nicht die Unit-Registry.
+
+**1.8 nachher:** Ebene 834,358 m = `s8cmd`s eigene Spawn-Höhe, Ziffer für Ziffer. Ebenenfehler
+**+322,43 → 0,00 m**, Lieferfehler **230,49 → 22,14 m**, `s8cmd` DESTROYED, `s8vam1` SUCCESS. Über alle
+acht Sorties: Lieferfehler summiert **629,9 → 247,1 m (−61 %)**, Streuung **10–230 → 15–46 m**. Der Rest
+ist ein gleichmäßiger **+18 m Überschuss** und gehört der Lieferkette, nicht der Ebene.
+
+**`aimMissM` war kein zweiter Defekt.** Die Lücke 65,3 gegen 230 m war ganz die Ebene. Danach: 57,37
+gemeldet, 22,14 geflogen, und die 35 m schließen sich metergenau aus zwei bereits gebuchten Posten —
+`predErrM` 78,66 m = **46,3 m** (0,2 s × 231,5 m/s, `C28`) + **32,4 m** (gespeicherte Tabelle gegen
+geflogene Aerodynamik, `doc/core.md` 7.3). `C28` wurde NICHT eingefaltet: eine Logzeilenänderung über
+jede Bombenmission hätte den Beweiswert dieses Diffs zerstört. Eigene Runde.
+
+**Und die eigentliche Entdeckung — `C30`.** Der Laserpunkt nimmt seine Höhe aus derselben Ebene. Mit
+korrekter Ebene fällt `lgb-designate` von 2,33 auf **52,78 m**. Kennlinie, kausal gemessen (temporärer
+Versatz auf die Punkthöhe, zurückgenommen, Gym-Binary danach bytegleich):
+
+| Höhenversatz des Punktes | `aimErrM` |
+|---|---|
+| +30,45 m (der alte Fehler) | 2,33 m |
+| +15,00 m | 28,01 m |
+| 0 m (korrekt) | 52,78 m |
+
+≈ **1,66 m Fehlweite je Meter Punktfehler**, Nulldurchgang bei **+31,8 m**. Die 3,9 m in
+`doc/air-to-ground.md` §3.2 waren nie eine Eigenschaft der Waffe, sondern 30 m Höhenversatz, die die
+letzten 50 m gearbeitet haben — gelöscht, nicht relativiert. **Das Verfolgungsgesetz der GBU-12 kommt
+53 m zu kurz**, `lgb-designate` und `lgb-lase-restored` bleiben ROT mit der Ursache im Kopfkommentar.
+Dieselbe Form in `mods/f22` 1.3: `s3sp1` fällt nicht mehr, und der Abschuss davor widersprach der
+eigenen Schlussfolgerung der Datei („`target_hard` braucht ~8 m … kein Waagerechtabwurf erreicht das") —
+ein −34,76-m-Ebenenfehler hatte den Abwurf 20 m näher gezogen. **INTACT ist hier der Gewinn.**
+
+**Tore:** 296 f16-Missionen, **19 bewegt, 0 Exit-Code- und 0 Urteilsänderungen** (10 × Payerne mit
+0,6–1,4 m Ebenenfehler: Vorhersage verschiebt sich, Lieferung bytegleich · 4 vorsätzliche
+Nicht-Lieferungen · `net-blind-cue` 78,37 → 17,40 · `sam-radar-kill` 12,99 → 7,40 · `mig29-opt-refused`
+−5,2/−2,2 · die drei `lgb-*` oben) · f22 8 Sorties, Exit-Codes identisch, Urteile bewegt nur in 1.8
+(Gewinn) und 1.3 (Ursache belegt) · Determinismus `--threads 1/2/4` f16 `5d9637929233fb18` und f22
+`344faa41e6c4f81c`, je identisch · `test-air` 5 außerhalb, dieselben fünf · `verify-layers` 6 ·
+`verify-guards` 8/8 · `verify-models` 1 Delta · `verify-trees` 20+3, unverändert · `verify-types`
+bytegleich zur Basis · `gym`/`native`/`wasm` bauen.

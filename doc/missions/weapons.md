@@ -260,9 +260,9 @@ attack phase). Three parts, one decision:
 
 **CCIP and CCRP are ONE computation, two questions** (`core/FBBallistics`, shared primitive): a forward
 integration of the store's ballistics table (`core/FBStore.h`'s `FBWeaponPerf` — mass, ONE Cd,
-reference area, arming time) against a flat impact plane. The plane is the **steerpoint elevation**,
-i.e. the `FBElevationProvider` value the radar altimeter also reads and against which the monitor
-judges the impact. From the same integration:
+reference area, arming time) against a flat impact plane. The plane is the **steerpoint's own terrain**,
+sampled at the briefed fix when the mission spawns — the target's ground, not the shooter's. From the
+same integration:
 
 | Mode | Cue the pilot releases on |
 |---|---|

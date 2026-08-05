@@ -761,8 +761,8 @@ the plane is interpolated linearly WITHIN the crossing step (quantisation to 0.0
 throw range at release speed).
 
 **The impact plane is PASSED IN, never looked up** — this file knows no terrain. The F-16 caller hands in
-the steerpoint elevation, hence the same `FBElevationProvider` value that the radar altimeter reads and
-against which the monitor judges the impact. A flat plane at that altitude is exactly what a jet with a
+the steerpoint elevation, i.e. the terrain the briefing sampled AT THE BRIEFED FIX, against which the
+monitor also judges the impact. A flat plane at the target's altitude is exactly what a jet with a
 barometric/steerpoint ranging solution has (provider letter `B`).
 
 **Outputs:**

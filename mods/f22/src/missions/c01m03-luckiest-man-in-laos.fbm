@@ -93,17 +93,25 @@ time 1996-03-20T11:00:00Z
 #     straight line is covered. Rounded UP to 50 m.) Nothing else in the file changed: the .ORF
 #     geometry is measured and is not negotiable.
 #
-# MEASURED (exit 1, real ground): ONE SPAN FALLS, THE LEADER DOES NOT COME HOME.
+# MEASURED (exit 1, real ground, CCRP plane on the TARGET): BOTH SPANS STAND, THE LEADER DOES NOT COME
+# HOME.
 #   t = 162.0-255.0 s   `s3aaa` (ZU-23-2, OPTICALLY laid) cycles SEARCH/TRACK/ENGAGE three times at
 #                       1 250 m against a pair now 1 590 m over the bridge. The campaign's only
 #                       exercise of `sensors/FBVisualSystem`
-#   t = 173.5 / 173.6 s both mk84 arrive. `s3sp2` INTACT, `s3sp1` DESTROYED — over the flat plane
-#                       NEITHER span fell, so the higher, longer-falling delivery is the one that
-#                       worked. That is a terrain-driven improvement and it is reported as one
+#   t = 173.7 / 173.8 s both mk84 arrive at `aimErrM` 36.03 and 46.16 m. BOTH SPANS INTACT
 #   t = 370.3 s         `s3lead` combat-ineffective to the Fulcrum's R-27R, missM 0.428; run ends
 #   verdict             `s3lead` FAIL, `s3esc` FAIL (`protect` violated), `s3two` TIMEOUT. Mission loss
-#   THE FLAT RUN LOST THE WINGMAN AND BOTH SPANS; THE REAL RUN LOSES THE LEADER AND KEEPS ONE SPAN.
+#   THE FLAT RUN LOST THE WINGMAN AND BOTH SPANS; THIS RUN LOSES THE LEADER AND KEEPS BOTH SPANS.
 #   Same exit code, different sortie. A hardened span at ~8 m tolerance stays a weapon problem.
+#
+# AND THE ROUND THAT TOOK THE SPAN BACK, because a lost kill can be a gain: `s3sp1` used to fall here
+# (`aimErrM` 15.72 m, one hit at 11.27 m) and no longer does. That kill CONTRADICTED THIS FILE'S OWN
+# CONCLUSION twenty lines above — "`target_hard` needs ~8 m for a kill. NO DELIVERY THIS TREE OFFERS
+# REACHES IT FROM LEVEL FLIGHT" — and it was an artefact: the CCRP impact plane was the ground under the
+# SHOOTER, 34.76 m BELOW the bridge, so the computer released early and the short fall landed 20 m
+# nearer than the delivery chain actually places it. With the plane on the target the two deliveries sit
+# at 36 and 46 m, in family with every other mk84 in the campaign, and the file now says one thing
+# instead of two. doc/air-to-ground.md `C30`, mods/f22/doc/terrain.md.
 
 unit s3lead
   module f16

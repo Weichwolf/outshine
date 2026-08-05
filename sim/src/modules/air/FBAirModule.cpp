@@ -338,8 +338,7 @@ void FBAirModule::Run(Fdm::fb_fdm_state &st, double dt, const Units::FBUnitRegis
 
     AirData_.Run(State_, st, dt);
     RadarAlt_.Run(State_, (float)st.elev, GroundAslM_);
-    if (const FBWaypoint *swp = Plan_.ActiveWaypoint())
-      Nav_.SetSteerpoint(swp->LatDeg, swp->LonDeg, GroundAslM_ * kMToFt);
+    if (const FBWaypoint *swp = Plan_.ActiveWaypoint()) Nav_.SetSteerpoint(*swp);
     Nav_.Run(State_, st, dt);
 
     ServiceCommands(FBCommandGroup::Stores);

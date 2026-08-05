@@ -164,6 +164,22 @@ static double gTickSubsteps = 0.0;
 static int gTicks = 0;
 static constexpr double kMaxFrameS = 0.25;   /* a stall/tab-switch clamp, so the sim does not lurch */
 static constexpr double kConfigGroundM = 430.0;   /* boot fallback until the first real /elev sample */
+
+/* THE SAME DEM, ASKED AT BOOT, where a cold /elev is the normal case and blocking is allowed: the tile
+ * under a spawn or a briefed steerpoint has not been streamed yet, and both need a resolved number
+ * BEFORE the first tick. Separate from gElevation because a per-tick sample must never sleep. */
+class FBBootElevation : public FBElevationProvider {
+public:
+  double GroundElevM(double latDeg, double lonDeg) const override {
+    for (int t = 0; t < 40; t++) {
+      double g = fb_stream_ground(latDeg, lonDeg);
+      if (FBElevationResolved(g)) return g;
+      emscripten_sleep(50);
+    }
+    return kConfigGroundM;   /* a slow or dead fb-tiles must not hang the boot */
+  }
+};
+static FBBootElevation gBootElevation;
 static double LastMs = 0.0;
 static double Olat = 47.179846, Olon = 7.411427;   /* ENU/home origin (config.js) */
 static time_t SimUtc = 0;                /* FB_SIM_UTC override; 0 = real wall clock (live sky) */
@@ -839,19 +855,12 @@ int main() {
     for (size_t i = 0; i < mission.Units.size(); i++) {
       const FBSpawn &sp = mission.Units[i].Spawn;
       FBLogUnitScope us(mission.Units.size() > 1 ? mission.Units[i].Id : std::string());
-      /* The real DEM ground before the IC. Bounded blocking wait (fb_stream_ground is async in WASM),
-       * falling back to the config default rather than hanging boot on a slow or dead fb-tiles. */
-      double groundAsl = kConfigGroundM;
-      for (int t = 0; t < 40; t++) {
-        double g = fb_stream_ground(sp.LatDeg, sp.LonDeg);
-        if (FBElevationResolved(g)) { groundAsl = g; break; }
-        emscripten_sleep(50);
-      }
+      double groundAsl = gBootElevation.GroundElevM(sp.LatDeg, sp.LonDeg);
       /* The SAME spawn the headless runner performs, so the browser cannot drift from fb-gym's notion
        * of what a mission start IS. */
       std::string serr;
       std::unique_ptr<Units::FBSimUnit> unit =
-          FBMissionSpawnActor(gModelRoots, mission, i, groundAsl, mission.TimeoutS, &serr);
+          FBMissionSpawnActor(gModelRoots, mission, i, groundAsl, gBootElevation, mission.TimeoutS, &serr);
       if (!unit) {
         FBLog::Error("gpu", "mission_boot_failed", {{"url", gMissionUrl}, {"reason", serr}});
         return 1;

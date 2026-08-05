@@ -58,25 +58,26 @@ time 1996-03-24T20:00:00Z
 #   FAIL. That is the sharpest case in the campaign of "the exit code is not the verdict".
 
 # MEASURED (exit 3, real ground): THE SWEEP EATS THE MAGAZINE AND SURVIVES IT — AND THE STRIKE THEN
-# MISSES ON THE CCRP PLANE.
+# KILLS ITS TARGET.
 #   t = 0.0 s           `mission CLOCK sunElDeg=-46.091` — night
 #   t = 123.2-166.5 s   `s8sa2` fires all six v-750 at the SWEEP at the SAME six timestamps as over the
 #                       flat plane. ALL SIX MISS. Over the plane round five killed `s8swp1` at
 #                       t = 182.6 with 9.42 m and ended the run there
-#   t = 386.6 s         Vampire releases, `planeM = 511.926` — the ground under the RELEASE POINT
-#   t = 409.0 / 409.1 s both mk84 impact 20.2085 N / 100.812 E, ~215 m SHORT of the command centre.
-#                       `s8cmd` INTACT
-#   verdict             all three of Storm/Vampire TIMEOUT, `kill unit s8cmd` unmet, exit 3
+#   t = 387.9 s         Vampire releases, `planeM = 834.358` — `s8cmd`'s OWN ground, digit for digit
+#   t = 410.0 s         both mk84 arrive at `aimErrM` 22.14 and 15.80 m. `s8cmd` DESTROYED
+#   verdict             `s8vam1` SUCCESS — the sortie's verdict by this file's reading rule below.
+#                       Storm still TIMEOUT, so the RUN exits 3, which the reading rule says is not it
 #
-# AND THE ENGINE FINDING REAL GROUND ADDED, measured here for the first time because a flat plane
-# cannot show it: THE CCRP IMPACT PLANE IS THE RELEASE POINT'S GROUND ELEVATION, NOT THE TARGET'S.
-# `FBF16Module.cpp` hands `SetSteerpoint(swp->Lat, swp->Lon, GroundAslM)` — this tick's sample under
-# the AIRCRAFT — and `FBF16FireControl::SolveGroundAttack` solves the ballistic integration against it.
-# Here: release ground 511.9 m, target ground 834.4 m, plane error +322.5 m, and the bomb is therefore
-# released 215 m too early on the ground track and clips the up-slope at 778.8 m. The computer's own
-# `aimMissM` reported 65.3 m and it was 215 m out. Over a 0 m plane the two elevations are equal by
-# construction and the error is exactly zero, which is why nothing had ever seen it.
-# It is a NAMED limitation in the code's own comment, not a regression — but it is now a measured one.
+# THIS SORTIE IS THE FILE THAT FOUND THE DEFECT, and the record of it is kept because the geometry that
+# exposed it is this one: THE CCRP IMPACT PLANE USED TO BE THE RELEASE POINT'S GROUND, NOT THE TARGET'S.
+# `FBF16Module.cpp` handed `SetSteerpoint(swp->Lat, swp->Lon, GroundAslM)` — the sample under the
+# AIRCRAFT — into `FBF16FireControl::SolveGroundAttack`. Here: release ground 511.9 m against a target
+# at 834.4 m = +322.4 m of plane error, the bomb released 230 m early on the ground track, clipping the
+# up-slope at 785.5 m while the computer's own `aimMissM` reported 65.3 m. Over a 0 m plane the two
+# elevations are equal BY CONSTRUCTION and the error is exactly zero, which is why nothing had ever seen
+# it. REPAIRED: the briefed fix carries its own terrain (doc/modules/f16/module.md 2.3), plane error
+# +322.43 -> 0.00 m, delivery 230.49 -> 22.14 m. Kept here because the next reader deserves to know
+# which file the number came out of.
 #
 # AND THE ENGINE FINDING THIS SORTIE EXISTS TO PRODUCE, stated as a limit and not as a bug report:
 #   A PACKAGE MISSION CANNOT MEASURE ITS OWN SUBJECT IF ANY MEMBER DIES FIRST. The run ends at the

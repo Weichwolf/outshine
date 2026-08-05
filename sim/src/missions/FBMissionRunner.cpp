@@ -272,7 +272,8 @@ int FBRunMission(const std::string &missionPath, double timeoutOverride, const s
         {"hdg", sp.HeadingDeg}, {"speedKt", sp.SpeedKt}});
 
     std::string serr;
-    std::unique_ptr<Units::FBSimUnit> unit = FBMissionSpawnActor(models, mission, i, groundAsl, timeoutS, &serr);
+    std::unique_ptr<Units::FBSimUnit> unit =
+        FBMissionSpawnActor(models, mission, i, groundAsl, elevation, timeoutS, &serr);
     if (!unit) {
       FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", serr}});
       return 1;

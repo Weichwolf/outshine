@@ -1525,10 +1525,10 @@ round is a point mass that never develops alpha), wind (there is none in this si
 term, the Mach dependence of Cd.
 
 **The impact plane is PASSED IN, never looked up**: this file knows no terrain. The caller supplies the
-elevation against which it solves — with the F-16 fire control the same elevation provider sample that
-the radar altimeter and the mission's ground truth already use. A flat plane at that altitude is
-exactly what a jet with a barometric/steerpoint-elevation ranging solution has (`'B'`, the same
-provider letter that the slant range carries).
+elevation against which it solves — with the F-16 fire control the briefed steerpoint's own terrain,
+sampled once at spawn from the same provider the mission's ground truth uses. A flat plane at the
+target's altitude is exactly what a jet with a barometric/steerpoint-elevation ranging solution has
+(`'B'`, the same provider letter that the slant range carries).
 
 **Numerics:**
 

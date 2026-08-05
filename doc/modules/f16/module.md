@@ -118,9 +118,10 @@ check against the current commit.
    the station data in the source is T4 (`weapons.md` §4.5).
 10. **No terrain masking in the radar** and no lofted AMRAAM midcourse in the DLZ — both explicitly
     declared as not modelled in the respective header.
-11. **Waypoint elevation:** the module uses the elevation sample UNDER THE AIRCRAFT of this tick as the
-    steerpoint elevation. A declared waypoint elevation is mission-format work; over gentle terrain the
-    approximation is correct, over mountains it is not.
+11. **Waypoint elevation:** the module hands `FBNavSystem` the WAYPOINT, which carries the terrain the
+    mission briefing sampled at it. The module can supply no other figure — the elevation under the
+    aircraft is a different place, and a computer able to probe the ground at an arbitrary point would
+    be a knowledge source no sensor paid for.
 12. **The MAX7456 artefact model** does not exist — `StyleGlyph` is the identity. The override point is
     real and instantiated so that the later implementation does not touch `render/`.
 13. **`FBF16Pilot::Run()` is not overridden** — the phase machine is entirely generic. This class is
@@ -318,11 +319,12 @@ The order is the data flow and not a matter of taste:
 `st` is the FDM state from the END of the PREVIOUS `Run()` — the same one-tick lag every other writer
 at this cadence has.
 
-The steerpoint elevation is a documented compromise: a `wp` line declares the altitude to be FLOWN, not
-the terrain below it, so the module supplies the only terrain number it has — the elevation sample
-under the aircraft of THIS tick, the same one the radar altimeter reads. Over gentle terrain that IS
-the waypoint's elevation; a declared waypoint elevation would be mission-format work and not a number
-to be invented here.
+The steerpoint elevation is BRIEFING data, not a sample: a `wp` line declares the altitude to be FLOWN,
+so the terrain under the fix is read once at spawn (`FBFlightPlan::BriefGroundElevation`, out of the
+mission's own elevation provider) and travels on the waypoint. `FBNavSystem::SetSteerpoint` therefore
+takes the waypoint, and the module has no way to hand in a different probe. The alternative — the fire
+control sampling the ground at the aim point per tick — is refused: a briefed target legitimately
+carries its map elevation, a free terrain query at the target would be a new knowledge source.
 
 #### 2.4 How a failed system drops out of the cadence
 
