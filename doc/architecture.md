@@ -97,7 +97,7 @@ Three clients link or compile against it:
 | **wasm** | `clients/FBAppWasm.cpp` | `make -C sim wasm` | the browser. |
 
 `fb-gym` options: `--mission FILE | --campaign FILE [--out DIR] [--timeout N] [--threads N]
-[--state FILE] [--carry LIST] [--elev tiles|const|swiss]`.
+[--state FILE] [--carry LIST] [--elev tiles|const|baked] [--dem PATH]`.
 `--threads` is **gym-only**.
 
 ### Directories

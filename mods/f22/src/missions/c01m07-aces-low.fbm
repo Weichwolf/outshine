@@ -58,16 +58,26 @@ time 1996-03-23T19:30:00Z
 #   before or after ROTATION. Nothing rotates. The two cases the original distinguishes collapse into
 #   one here, and no reading of this file's output separates them.
 
-# MEASURED (exit 1): THE SA-2 BELT GETS THE STRIKE 12 km SHORT OF THE FIELD.
+# MEASURED (exit 3, real ground): THE SA-2 BELT NO LONGER GETS THE STRIKE, AND ONE EF2000 BURNS.
 #   t = 0.0 s           `mission CLOCK sunElDeg=-53.181` — deep night, which is the check on D4's date
-#   t = 133.7-177.0 s   six v-750 in two salvoes; magazine empty
-#   t = 199.7 s         `s7lead` combat-ineffective at 3 000 m, 19.800 N / 99.881 E — 12.1 km from the
-#                       ramp. `FirstFlightKo` ends the run at t = 199.8
-#   verdict             `s7lead` FAIL, `s7esc` FAIL (`protect unit s7lead` violated), `s7two` TIMEOUT
-#                       with its `kill ... until 2700` unmet. Both parked Eurofighters INTACT
-#   THIS IS A MISSION LOSS AND NOT A DEFECT, and the reading rule above says so in advance. What it
-#   costs is that the sortie's own subject — the ground kill inside the window — was never reached.
-#   The F-15C 150 km out never entered the fight at all.
+#   t = 133.7-177.0 s   six v-750 in two salvoes at the SAME six timestamps as over the flat plane;
+#                       launch ranges 22 907 / 22 099 / 21 407 / 14 283 / 13 598 / 12 914 m against
+#                       22 955 / 22 149 / 21 459 / 14 360 / 13 679 / 13 000 m over the plane — 48-86 m
+#                       shorter, because the battery now stands on 395 m of ground
+#   t = 202.4 s         round FIVE detonates 11.80 m from `s7lead` AND DOES NOT KILL IT. Over the flat
+#                       plane it was round FOUR at 8.20 m, and that one did
+#   t = 209-213 s       rounds 1,2,3,4,6 fly on past the target and CFIT into the 403-431 m valley
+#                       floor 8-11 km SOUTH of the belt
+#   t = 260.0 s         `s7two` puts its mk84 on `s7ef2`: DESTROYED
+#   verdict             `s7two` SUCCESS, `s7lead` TIMEOUT (`s7ef1` INTACT), `s7esc` TIMEOUT, exit 3
+#
+# THE HEADLINE, AND ITS MARGIN, BOTH STATED. "The SA-2 kills the attack 12.1 km before the ramp" was a
+# FLAT-PLANE result and does not survive real ground: same battery, same six rounds, same seconds, no
+# kill. The CAUSE is that the launcher sits 395 m higher, so every intercept geometry shifts. The
+# MARGIN is 3.6 m of miss distance (8.20 -> 11.80), i.e. the flat-plane kill was already inside the
+# noise of its own geometry. Do not read this as "the SA-2 is harmless"; read it as "the flat plane
+# was deciding this sortie, and it was deciding it on a knife edge."
+# The F-15C 150 km out still never entered the fight.
 
 unit s7lead
   module f16

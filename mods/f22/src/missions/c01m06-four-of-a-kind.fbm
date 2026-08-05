@@ -44,7 +44,10 @@ time 1996-03-23T06:00:00Z
 #   exit 3 with everything met except a Mule's waypoints = the transports were slow, not shot. Read
 #   `activeWp` in their telemetry before reporting anything.
 
-# MEASURED (exit 3): ALL FOUR GALAXIES HOME, NOBODY SHOT DOWN, AND THE SORTIE IS A SUCCESS.
+# MEASURED (exit 3, real ground): ALL FOUR GALAXIES HOME, NOBODY SHOT DOWN, AND THE SORTIE IS A
+# SUCCESS. This file is BYTE-IDENTICAL over real ground and over the old flat plane — every telemetry
+# row of all nine actors — because nothing in it ever descends below 4 500 m of terrain clearance and
+# nothing is shot down. It is the campaign's cleanest single proof that terrain masks no sensor.
 #   t = 378.3 / 378.4 / 704.0 / 704.6 s   `s6mul1..4` each `all waypoints reached`
 #   t = 900.0 s         `s6esc1` SUCCESS — four `protect` met, `survive` met
 #                       `s6esc2` TIMEOUT — both `kill` unmet; the two interceptors were never brought

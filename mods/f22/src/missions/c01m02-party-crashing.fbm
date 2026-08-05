@@ -5,7 +5,7 @@ time 1996-03-20T08:00:00Z
 # F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.2 OF 8 — "PARTY CRASHING".
 # Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
 # mods/f22/doc/substitutions.md. THE FIVE CAMPAIGN-WIDE DISCLOSURES (no F-22, 60/60 instead of
-# 100/100, flat 0 m ground, [SET] date + [DERIV] clock, unproven north) are stated in full in
+# 100/100, real ground that masks no detection, [SET] date + [DERIV] clock, unproven north) are stated in
 # c01m01-snake-eyes.fbm and are NOT repeated here.
 #
 # THE TASK [TXT]: bomb the assembly house at Objective Talbot, briefed 45 NM NE, measured 45.6 NM on
@@ -49,16 +49,22 @@ time 1996-03-20T08:00:00Z
 #   looks like: a friendly with `survive` fails DECISIVELY, which ends the run before its wreck can
 #   reach the ground, and that reads exit 1 (measured four times over in this campaign).
 
-# MEASURED (exit 3): THE HOUSE FALLS AND THE SA-2 SHOOTS. The sortie succeeds by its own reading rule.
-#   t = 77.3 s          `s2sam` SEARCH -> TRACK, firm track at 29 946 m inside the envelope
-#   t = 108.2-151.5 s   SIX v-750 away in two salvoes of three; magazine empty, `site DEPLETED`,
-#                       GO_DARK, then RADIATE again on `emcon free`. ALL SIX MISS — every one ends
-#                       `monitor KO reason=CFIT` between t = 173.6 and 207.3. The launcher is NOT
-#                       silent, which is what the reading rule demanded be checked
-#   t = 234.8 s         `s2lead` releases one mk84, CCRP, predicted miss 44.7 m
-#   t = 261.1 s         `aimErrM` 37.22 -> `damage KILL unit=s2hous reason="structure destroyed"`
-#   verdict             `s2lead` SUCCESS. `s2esc` TIMEOUT (`kill unit s2mig` unmet — the MiG shot both
-#                       its R-24R at t = 213/226 and lived), which is what makes the exit code 3
+# MEASURED (exit 3, real ground): THE HOUSE FALLS AND THE SA-2 SHOOTS. The sortie succeeds by its own
+# reading rule.
+#   t = 77.3 s          `s2sam` SEARCH -> TRACK, firm track at 29 885 m inside the envelope (29 946 m
+#                       over the old flat plane — the site stands on 692 m of ground, so the slant
+#                       range to a 3 000 m target is 61 m shorter. That is the whole first-order
+#                       effect of terrain on a SAM in this tree)
+#   t = 108.2-151.5 s   SIX v-750 away in two salvoes of three at the SAME six timestamps as over the
+#                       plane; magazine empty, `site DEPLETED`, GO_DARK, then RADIATE again on
+#                       `emcon free`. ALL SIX MISS. The launcher is NOT silent, which is what the
+#                       reading rule demanded be checked
+#   t = 236.0 s         `s2lead` releases one mk84, CCRP, predicted miss 47.1 m, `planeM = 347.419`
+#   t = 260.8 s         `damage KILL unit=s2hous reason="structure destroyed"`
+#   verdict             `s2lead` SUCCESS, `s2esc` TIMEOUT, exit 3 — the same verdict the flat run gave
+#   THE CCRP PLANE IS THE RELEASE POINT'S GROUND AND NOT THE TARGET'S (`FBF16Module.cpp`:
+#   `SetSteerpoint(..., GroundAslM)`, and its comment says so). Here that is 347 m against the house's
+#   319 m — a 28 m plane error, absorbed. 1.8 is where the same mechanism costs the target: 322 m.
 #   `s2aaa` never fires, as the header predicted: 3 000 m is twice the ZSU-23-4's ceiling.
 
 unit s2lead

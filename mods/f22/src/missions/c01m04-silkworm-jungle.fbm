@@ -52,11 +52,15 @@ time 1996-03-21T01:00:00Z
 #   looks like: a friendly with `survive` fails DECISIVELY, which ends the run before its wreck can
 #   reach the ground, and that reads exit 1 (measured four times over in this campaign).
 
-# MEASURED (exit 0): ALL THREE, AND WELL INSIDE THE WINDOW.
+# MEASURED (exit 0, real ground): ALL THREE, AND WELL INSIDE THE WINDOW.
 #   t = 95.2 / 95.4 s   `s4an1` and `s4an2` combat-ineffective
 #   t = 242.0 s         `s4an3`; t = 243.7 s the escort
-#   verdict             `s4lead` SUCCESS, all three `until 548` kills met with 306 s to spare;
-#                       `s4two` SUCCESS. Run ends t = 329.3 s
+#   verdict             `s4lead` SUCCESS, all three `until 548` kills met with 309 s to spare;
+#                       `s4two` SUCCESS. Run ends t = 326.6 s
+#   TERRAIN-INVARIANT, like 1.1 and 1.6: against the flat-plane run every DETONATION time and every
+#   miss distance is identical to the digit, and the only number that moved is the escort's wreck
+#   reaching 775 m of Laotian hill instead of sea level (t = 329.3 -> 326.6). At 8 000 m this
+#   sortie never sees the ground.
 #   THE WINDOW DID NOT BIND on this run and was not meant to. What it does is make the condition
 #   machine-checkable: a kill at t = 549 would have read `state=unmet` with the object DESTROYED.
 

@@ -2107,7 +2107,7 @@ of `fb_stream_ground` already do.
 |---|---|---|---|
 | `FBConstantElevation` | `core/` | — | a fixed elevation everywhere |
 | `FBRunwayPlateauElevation` | `core/` | `--elev const` | runway plateaus + smoothstep falloff |
-| `FBBakedDemElevation` | `core/` | `--elev swiss` | a baked island raster, bilinear |
+| `FBBakedDemElevation` | `core/` | `--elev baked` (`swiss` still accepted) | the MOD's baked raster, named by `mod.json`'s `"dem"`, bilinear |
 | `FBTilesElevation` | **`world/`** (not part of the core lib) | `--elev tiles` | a thin pass-through onto the live fb-tiles DEM |
 
 ##### `FBConstantElevation`
@@ -2150,7 +2150,7 @@ covers only Switzerland, everything else reads sea level). On a load/format erro
 `GroundElevM` always returns 0 — it DEGRADES to the flat sea-level fallback instead of crashing a
 mission boot.
 
-**The numbers of the Swiss raster** (`sim/tools/bake_swiss_dem.py`, not a build target — run only on a
+**The numbers of the Swiss raster** (`sim/tools/bake_dem.py --region swiss`, not a build target — run only on a
 change):
 
 | Parameter | Value |
@@ -2182,7 +2182,7 @@ structure**, so that padding/alignment can never desynchronise the reader from t
 
 `kHeaderBytes = 56`. A grid with `cols < 2` or `rows < 2`, or a file that is too short, is rejected.
 
-**Gym default**: `swiss` if the asset is present, otherwise `const` — a bare `fb-gym --mission FILE`
+**Gym default**: `baked` if `mod.json` names a `"dem"` and it is on disk, otherwise `const` — a bare `fb-gym --mission FILE`
 always runs, with or without a network.
 
 ---

@@ -57,12 +57,26 @@ time 1996-03-24T20:00:00Z
 #   Vampire delivers and comes home has flown this sortie successfully, and the exit code will say
 #   FAIL. That is the sharpest case in the campaign of "the exit code is not the verdict".
 
-# MEASURED (exit 1): THE SWEEP EATS THE SAM MAGAZINE AND THE RUN ENDS WITH IT.
+# MEASURED (exit 3, real ground): THE SWEEP EATS THE MAGAZINE AND SURVIVES IT — AND THE STRIKE THEN
+# MISSES ON THE CCRP PLANE.
 #   t = 0.0 s           `mission CLOCK sunElDeg=-46.091` — night
-#   t = 123.2-166.5 s   `s8sa2` fires all six v-750 at the SWEEP, which is at 5 000 m on the run-in
-#   t = 182.6 s         `s8swp1` combat-ineffective at 20.052 N / 100.773 E, 4 124 m. The run ends at
-#                       t = 182.7 with Vampire still ~55 km short of the command centre
-#   verdict             `s8vam1` TIMEOUT, `kill unit s8cmd` unmet, `survive` met; `s8cmd` INTACT
+#   t = 123.2-166.5 s   `s8sa2` fires all six v-750 at the SWEEP at the SAME six timestamps as over the
+#                       flat plane. ALL SIX MISS. Over the plane round five killed `s8swp1` at
+#                       t = 182.6 with 9.42 m and ended the run there
+#   t = 386.6 s         Vampire releases, `planeM = 511.926` — the ground under the RELEASE POINT
+#   t = 409.0 / 409.1 s both mk84 impact 20.2085 N / 100.812 E, ~215 m SHORT of the command centre.
+#                       `s8cmd` INTACT
+#   verdict             all three of Storm/Vampire TIMEOUT, `kill unit s8cmd` unmet, exit 3
+#
+# AND THE ENGINE FINDING REAL GROUND ADDED, measured here for the first time because a flat plane
+# cannot show it: THE CCRP IMPACT PLANE IS THE RELEASE POINT'S GROUND ELEVATION, NOT THE TARGET'S.
+# `FBF16Module.cpp` hands `SetSteerpoint(swp->Lat, swp->Lon, GroundAslM)` — this tick's sample under
+# the AIRCRAFT — and `FBF16FireControl::SolveGroundAttack` solves the ballistic integration against it.
+# Here: release ground 511.9 m, target ground 834.4 m, plane error +322.5 m, and the bomb is therefore
+# released 215 m too early on the ground track and clips the up-slope at 778.8 m. The computer's own
+# `aimMissM` reported 65.3 m and it was 215 m out. Over a 0 m plane the two elevations are equal by
+# construction and the error is exactly zero, which is why nothing had ever seen it.
+# It is a NAMED limitation in the code's own comment, not a regression — but it is now a measured one.
 #
 # AND THE ENGINE FINDING THIS SORTIE EXISTS TO PRODUCE, stated as a limit and not as a bug report:
 #   A PACKAGE MISSION CANNOT MEASURE ITS OWN SUBJECT IF ANY MEMBER DIES FIRST. The run ends at the

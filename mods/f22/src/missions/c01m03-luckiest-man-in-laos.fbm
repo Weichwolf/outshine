@@ -82,24 +82,34 @@ time 1996-03-20T11:00:00Z
 #   can (mods/f16/src/missions/attack-hardened.fbm is the negative half of the same measurement).
 #   `s3esc`'s kills are COVERAGE for the two CAP aircraft, not the mission verdict.
 
-# MEASURED (exit 1): BOTH BOMBS ARRIVE, NEITHER SPAN FALLS, AND THE AAA IS THE ONE THING THAT WORKS.
-#   t = 171.3-177.9 s   `s3aaa` (ZU-23-2, OPTICALLY laid) fires eight bursts, 100 rounds down to 14 —
-#                       at 1800 local with the sun 5.96 deg above the horizon it SEES the pair. This
-#                       is the campaign's only working gun engagement and the only exercise of
-#                       `sensors/FBVisualSystem` in the eight files
-#   t = 172.9 / 173.0 s `aimErrM` 27.5523 and 34.7739, both long (aimLongM +25.69 / +33.28) and both
-#                       ~10 m left. `target_hard` needs ~8 m
-#   t = 408.0 s         `s3two` combat-ineffective to the CAP; run ends t = 408.1
-#   verdict             `s3sp1` and `s3sp2` both INTACT, `still standing`. Mission loss.
-#   THE CAUSE IS THE WEAPON AND IT IS MEASURED FOUR WAYS ABOVE, not the delivery: the CCRP solution
-#   itself is good to 63 m predicted / 28-35 m actual, which is the same figure every level laydown in
-#   this tree produces. A hardened span is a different weapon's problem.
+# T2  THE RUN-IN ALTITUDE IS THE ONE NUMBER REAL GROUND FORCED. The file's original 900 m was 900 m
+#     AGL over a plane that does not exist; over the real surface it flies INTO a 967 m shoulder at
+#     19.017 N / 100.694 E and a 1 150 m ridge on the egress leg. MEASURED, unchanged file on real
+#     ground: `s3lead` CFIT at t = 63.1 s, aglM -6.37, exit 2 — the strike never reached the bridge.
+#     The repair keeps the file's OWN declared clearance and re-expresses it per leg:
+#       run-in  967 m corridor max + 900 m = 1 867 -> declared 1 900 m
+#       egress 1 150 m corridor max + 900 m = 2 050 -> declared 2 050 m
+#     (corridor = the leg sampled at 45 m with +-1 km of cross-track, so a track that is not a perfect
+#     straight line is covered. Rounded UP to 50 m.) Nothing else in the file changed: the .ORF
+#     geometry is measured and is not negotiable.
+#
+# MEASURED (exit 1, real ground): ONE SPAN FALLS, THE LEADER DOES NOT COME HOME.
+#   t = 162.0-255.0 s   `s3aaa` (ZU-23-2, OPTICALLY laid) cycles SEARCH/TRACK/ENGAGE three times at
+#                       1 250 m against a pair now 1 590 m over the bridge. The campaign's only
+#                       exercise of `sensors/FBVisualSystem`
+#   t = 173.5 / 173.6 s both mk84 arrive. `s3sp2` INTACT, `s3sp1` DESTROYED — over the flat plane
+#                       NEITHER span fell, so the higher, longer-falling delivery is the one that
+#                       worked. That is a terrain-driven improvement and it is reported as one
+#   t = 370.3 s         `s3lead` combat-ineffective to the Fulcrum's R-27R, missM 0.428; run ends
+#   verdict             `s3lead` FAIL, `s3esc` FAIL (`protect` violated), `s3two` TIMEOUT. Mission loss
+#   THE FLAT RUN LOST THE WINGMAN AND BOTH SPANS; THE REAL RUN LOSES THE LEADER AND KEEPS ONE SPAN.
+#   Same exit code, different sortie. A hardened span at ~8 m tolerance stays a weapon problem.
 
 unit s3lead
   module f16
   team friendly
   flight storm3 1
-  spawn 18.95033 100.57010 900 60.3 450       # 40 km short of Madison, low, on the measured run-in
+  spawn 18.95033 100.57010 1900 60.3 450      # 40 km short of Madison, on the measured run-in; T2
   set gear up
   set fuel_int_pct 100
   set datalink on
@@ -115,8 +125,8 @@ unit s3lead
   set brief_master_arm arm
   set task attack
   set attack_mode ccrp
-  wp 19.12837 100.90028 900 450               # ITS aim point: the northern span
-  wp 19.21738 101.06550 900 450               # egress 20 km beyond
+  wp 19.12837 100.90028 1900 450              # ITS aim point: the northern span
+  wp 19.21738 101.06550 2050 450              # egress 20 km beyond, over 1 150 m of ridge (T2)
   objective kill unit s3sp1
   objective survive
 
@@ -124,7 +134,7 @@ unit s3two
   module f16
   team friendly
   flight storm3 2
-  spawn 18.93863 100.57716 900 60.3 450       # 1.5 km across track from the leader
+  spawn 18.93863 100.57716 1900 60.3 450      # 1.5 km across track from the leader
   set gear up
   set fuel_int_pct 100
   set datalink on
@@ -140,8 +150,8 @@ unit s3two
   set brief_master_arm arm
   set task attack
   set attack_mode ccrp
-  wp 19.12680 100.90122 900 450               # ITS aim point: the southern span, 200 m along the axis
-  wp 19.21738 101.06550 900 450
+  wp 19.12680 100.90122 1900 450              # ITS aim point: the southern span, 200 m along the axis
+  wp 19.21738 101.06550 2050 450
   objective kill unit s3sp2
   objective survive
 

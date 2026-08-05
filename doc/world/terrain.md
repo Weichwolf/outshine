@@ -268,7 +268,7 @@ stands behind it is the client's decision:
 |---|---|---|
 | `FBConstantElevation` | `core/` | the primitive foundation |
 | `FBRunwayPlateauElevation` | `core/` | `fb-gym --elev const` |
-| `FBBakedDemElevation` | `core/` | `fb-gym --elev swiss` (baked-in 90 m raster) |
+| `FBBakedDemElevation` | `core/` | `fb-gym --elev baked` (the mod's own 90 m raster) |
 | **`FBTilesElevation`** | **`world/`** | `fb-gym --elev tiles`, `gpu_native`, WASM — the only LIVE DEM source |
 
 The benefit of this seam: **one** ground truth for everything (mission ground spawn, AGL/radar altitude,

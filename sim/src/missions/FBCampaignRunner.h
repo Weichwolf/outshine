@@ -24,7 +24,7 @@ namespace FlightBox::Missions {
  * (a campaign never overrides it), and `--threads` is measured result-neutral. */
 struct FBCampaignEnv {
   std::string Elev;       /* the RESOLVED --elev mode, never the empty default */
-  std::string SwissDem;   /* the baked asset path — decides the ground under `swiss` */
+  std::string Dem;        /* the baked asset path — decides the ground under `baked` */
   std::string Base;       /* the tile server — decides the ground under `tiles` */
 };
 

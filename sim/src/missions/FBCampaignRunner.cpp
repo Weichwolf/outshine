@@ -198,7 +198,7 @@ int FBRunCampaign(const std::string &campaignPath, const std::string &outDir,
            * replay's own. `none` where the campaign declares none, so the record is always present. */
           << "time " << (campaign.HaveTime ? FBFormatIsoUtc(campaign.UtcT0S, iso, sizeof iso) : "none") << "\n"
           << "elev " << env.Elev << "\n"
-          << "swiss_dem " << env.SwissDem << "\n"
+          << "dem " << env.Dem << "\n"
           << "base " << env.Base << "\n"
           << "threads " << threads << "\n"
           << "missions " << steps.size() << " of " << missionPaths.size() << "\n";

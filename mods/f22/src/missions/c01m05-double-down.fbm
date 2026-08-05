@@ -65,9 +65,20 @@ time 1996-03-22T03:00:00Z
 #   reach the target, which is the sortie's third possible cause and the one c01m03 measures in
 #   detail. Do not merge it with either of the other two.
 
-# MEASURED (exit 1): THE BOMB RUN WORKS AND THE ESCORT DOES NOT.
-#   t = 86.3 / 86.7 s   both `target_soft` boats DESTROYED, `mk84` CCRP, structure destroyed
-#   t = 91.7 s          `s5lead` combat-ineffective to the MiG-29 pair; `FirstFlightKo` ends the run
+# T2  THE VIPER RUN-IN ALTITUDE IS THE ONE NUMBER REAL GROUND FORCED. 900 m ASL put `s5vip2` 44 m and
+#     `s5vip1` 133 m over the hillside they spawn on (856 m / 767 m). MEASURED, unchanged file on real
+#     ground: `s5vip2` STRUCTURE_CONTACT at t = 7.4 s, exit 2 — the sortie died in seven seconds. The
+#     repair keeps the file's own 900 m of clearance per leg:
+#       run-in 905 m corridor max + 900 = 1 805 -> declared 1 850 m (both Vipers, they fly formation)
+#       egress 586 m corridor max + 900 = 1 486 -> declared 1 500 m
+#     Nothing else changed. Note what this costs the fiction: a "low" attack on boats is now flown
+#     1 350 m over ground that has no water on it at all (terrain.md 6).
+#
+# MEASURED (exit 1, real ground): THE BOMB RUN WORKS AND THE ESCORT DOES NOT.
+#   t = 86.5 / 87.2 s   both `target_soft` boats DESTROYED, `mk84` CCRP, structure destroyed
+#   t = 91.7 s          `s5lead` combat-ineffective to the MiG-29 pair, missM 4.5826 — the SAME time
+#                       and the SAME miss distance as over the flat plane, because the escort fight
+#                       happens at 5 000 m and terrain cannot reach it. `FirstFlightKo` ends the run
 #   verdict             s5vip1/s5vip2 SUCCESS, s5two SUCCESS, s5lead FAIL, both `kill unit s5a*` unmet
 #   THE CAUSE, NAMED: two `f16` with AIM-120 do not beat two `mig29` with R-27R on a head-on 60 km
 #   merge in this tree. That is a doctrine/airframe result, not a defect, and it is the same pairing
@@ -135,7 +146,7 @@ unit s5vip1
   module f16
   team friendly
   flight viper5 1
-  spawn 18.38022 100.55829 900 156.2 450      # 20 km short of the boats, low — see the header
+  spawn 18.38022 100.55829 1850 156.2 450     # 20 km short of the boats — see the header; T2
   set gear up
   set fuel_int_pct 100
   set datalink on
@@ -151,8 +162,8 @@ unit s5vip1
   set brief_master_arm arm
   set task attack
   set attack_mode ccrp
-  wp 18.21583 100.63465 900 450               # ITS aim point: the northern boat
-  wp 18.06789 100.70332 900 450               # egress 18 km beyond
+  wp 18.21583 100.63465 1850 450              # ITS aim point: the northern boat
+  wp 18.06789 100.70332 1500 450              # egress 18 km beyond, over lower ground (T2)
   objective kill unit s5bt1
   objective survive
 
@@ -160,7 +171,7 @@ unit s5vip2
   module f16
   team friendly
   flight viper5 2
-  spawn 18.37478 100.54530 900 156.2 450      # 1.5 km across track from Viper lead
+  spawn 18.37478 100.54530 1850 156.2 450     # 1.5 km across track from Viper lead
   set gear up
   set fuel_int_pct 100
   set datalink on
@@ -176,8 +187,8 @@ unit s5vip2
   set brief_master_arm arm
   set task attack
   set attack_mode ccrp
-  wp 18.21692 100.63725 900 450               # ITS aim point: the southern boat, 300 m away
-  wp 18.06789 100.70332 900 450
+  wp 18.21692 100.63725 1850 450              # ITS aim point: the southern boat, 300 m away
+  wp 18.06789 100.70332 1500 450
   objective kill unit s5bt2
   objective survive
 

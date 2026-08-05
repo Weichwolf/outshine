@@ -281,7 +281,7 @@ and from then on holds EVERYTHING only through the generic `FBModule` accessors 
 `Telemetry()`/`ApplySetup()`) — the runner never names a concrete module type and contains no
 mission-specific code (no runway-threshold spawn, no waypoint advance — both sit in the boot resp. in
 `systems/FBNavSystem::AdvanceWaypoint`, the module itself). The ground elevation for a `ground` spawn
-comes from the injected `FBElevationProvider` (`--elev tiles|const|swiss`) — the file elevation of the
+comes from the injected `FBElevationProvider` (`--elev tiles|const|baked`) — the file elevation of the
 `runway` line is only documentation/fallback.
 
 ### Tick order and the snapshot rule

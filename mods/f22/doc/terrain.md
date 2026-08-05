@@ -210,16 +210,19 @@ correction**; it is not made here.
 
 1. **The heightfield is invented and was never recovered.** Real DEM under this box gives terrain of
    the right *kind*, never the same hills. No ridge, valley or lake will line up. Every objective sits
-   at a computed coordinate whose real elevation is unknown and may be a hilltop, a river or a
-   village.
+   at a computed coordinate whose real elevation is now MEASURED (§8) but is still a coordinate the
+   game never placed against real ground — FOB Tyler lands on a 741.9 m hilltop, and that is an
+   accident of the reconstruction, not a claim about the game.
 2. **Water features do not survive the anchoring at all** — §6. This is the one place where the
    assignment is not merely unproven but measurably false.
 3. **Country assignment per target point is not verified.** The source research places 1.2, 1.3 and 1.4
    in northern Laos, which is consistent with the fiction ("moving into Laos", the base "in Laotian
    territory"). **No border dataset was consulted**, here or in the source. Treat every "this is in
    Laos / this is in Thailand" statement about a target point as TODO.
-4. **Elevation range unsourced.** The source states "forested uplands 300–2,000 m". No DEM check was
-   performed in either run. The single verified elevation datum inside the box is VTCN at 209 m.
+4. **Elevation range was unsourced and is now measured.** The source states "forested uplands
+   300–2,000 m" from a description. `[MEAS]` the baked raster (§8) gives **97–2 547 m** over the box
+   and **271–1 485 m** under the eight sorties' tracks, so the description was low at both ends. The
+   independent datum still holds: the raster answers **208.34 m** at VTCN against a published 209 m.
 
 ### 6. The river problem — two missions, not one
 
@@ -271,17 +274,75 @@ accident inside a `.fbm`.**
 | Bangkok | Chang's political objective | **not obtained** | — |
 | FOB Tyler · Objective Madison · Objective Talbot | fictional; located only by §2–§3 | — | — |
 
+
+### 8. The baked DEM — what the campaign is actually flown over
+
+The eight sorties run on `../src/data/mekong-dem-90m.bin`, an offline raster of this box.
+`mod.json` names it (`"dem"`), so `fb-gym`'s elevation default over this mod is `baked`. The file is a
+BUILD OUTPUT and is not committed (`doc/assets.md` §0); the recipe is
+`sim/tools/bake_dem.py --region mekong`.
+
+| Decision | Value | Why |
+|---|---|---|
+| Box | **17.90–21.70 N / 98.85–102.35 E** | `[DERIV]` §4's campaign box does NOT enclose the sorties: their CAP spawn points sit outside it, up to 21.506 N / 102.156 E. The DEM box is the union of §4 and every lat/lon the eight files name, plus ~0.15° of margin, rounded outward to 0.05°. Outside a baked box `FBBakedDemElevation` answers 0 m, and a cliff at the boundary is worse than a wider file |
+| Source zoom | **13** = 18.0 m/px at 19.8 N | `[SET]` the same zoom `tiles/src/elev.c`'s `FB_DEM_Z` samples. The baked surface is therefore the SAME surface `--elev tiles` would answer, and the only difference left to measure is the output grid |
+| Output spacing | **90 m** (4 076 × 4 675, 38.11 MB) | `[SET]` the f16 fixture's spacing, so the two theatres' ground is comparable. `[MEAS]` its cost against the 18 m source is **rms 3.96 m** over 400 interior points (bias +0.28, max 15.74) — an order of magnitude below the terrain features that decide anything here |
+| Edge blend | **none** | the f16 fixture ramps its outer 15 km to 0 m because it is an ISLAND. This ground continues past its own box, and a ramp would invent a cliff exactly where 1.7's and 1.8's tracks cross the north edge |
+| Degree lengths | WGS84 at 19.80 N: 110 702 m/° lat, 104 786 m/° lon | `[DERIV]` so `90 m` is metres. §4's own 111.32 km/° for latitude is the equator's LONGITUDE degree and is 0.56 % wrong here — corrected for the raster, deliberately NOT for §3's coordinates, which would be false precision under an unproven north (see Gaps) |
+
+**What the ground can and cannot do to a sortie.** Exactly one sensor in the tree samples terrain:
+`sensors/FBGroundMap`, the fire-control radar's ground-MAPPING mode, which does compute a local grazing
+angle and geometric shadowing behind every crest. It writes a PICTURE — `FBGroundMapBlock`, read only
+by `systems/FBDisplaySystem` and `render/stages/FBGroundMapStage` — and never a detection, a track or a
+launch gate. **No air-to-air radar mode, no IRST, no visual channel and no RWR carries a terrain term
+at all**, `sensors/FBDatalinkSystem.h` says so in its own comment, and no sortie in this campaign
+selects `fcr_mode gm` anyway. Terrain reaches these eight files through exactly four doors:
+
+1. **CFIT** of aircraft, missiles and bombs (`core/FBFlightMonitor`, ground penetration).
+2. **The launch altitude of a ground site** — a battery on 395 m of hill flies a different intercept.
+3. **AGL-driven pilot behaviour**, and the spawn validator's "explicit altitude below ground" FAIL.
+4. **The datalink's radio horizon**, which is computed over AGL and not ASL — `[MEAS]` door four is
+   theoretical here: **zero** `horizon` events in either run, flat or real.
+
+Every detection range in this campaign is therefore STILL an upper bound. The reason changed: it used
+to be a missing asset, and it is now a named engine gap.
+
 ## State
 
-**All eight target points of §3 are flown**, in `../src/missions/`. §2.4's arithmetic was re-derived a
-third time when the files were written and reproduces to ±0.00001° — e.g. §3's Chiang Rai row
-(19.909 N / 99.828 E) comes out as 19.90868 / 99.82791 from the offsets alone.
+**All eight target points of §3 are flown on the real ground of §8**, in `../src/missions/`. §2.4's
+arithmetic was re-derived a third time when the files were written and reproduces to ±0.00001° — e.g.
+§3's Chiang Rai row (19.909 N / 99.828 E) comes out as 19.90868 / 99.82791 from the offsets alone.
 
-**The tileserver has still never been asked for these coordinates.** Every sortie runs under
-`--elev const` on a **flat 0 m plane**: no `.fbm` declares a `runway`, `../src/data/` carries no baked
-DEM, so `fb-gym`'s elevation default is `const` and `FBRunwayPlateauElevation` with no runway answers
-0 m everywhere. That is disclosure **D3** of `../src/missions/c01m01-snake-eyes.fbm` and it is the
-single largest thing separating these files from the real region.
+### The flat plane against the real ground, all eight
+
+Exit codes only; the reading rule of each file, not the code, is the verdict. Column **flat** is the
+old `--elev const` 0 m plane, **real** is the same files unchanged on the DEM, **repaired** is after
+the altitude corrections T2 that real ground forced on 1.3 and 1.5. Determinism checked at
+`--threads 1/2/4`, byte-identical.
+
+| # | Sortie | flat | real | repaired | Where the difference comes from |
+|---|---|---|---|---|---|
+| 1.1 | Snake Eyes | 3 | 3 | 3 | **nothing.** Every launch, DETONATION and miss distance identical to the digit; only the shot-down MiG's wreck lands 1.9 s earlier (428 m of ground) |
+| 1.2 | Party Crashing | 3 | 3 | 3 | SAM slant range 29 946 → 29 885 m (site on 692 m). Same six launches, same seconds, house still destroyed. CCRP plane 0 → 347 m against a 319 m target: absorbed |
+| 1.3 | Luckiest Man | 1 | **2** | 1 | 900 m run-in flies into a 967 m shoulder → CFIT at t = 63.1 s. Repaired to 1 900/2 050 m: one span now falls (flat: neither), the leader is lost instead of the wingman |
+| 1.4 | Silkworm Jungle | 0 | 0 | 0 | **nothing** at 8 000 m; only the escort's wreck lands 2.7 s earlier |
+| 1.5 | Double Down | 1 | **2** | 1 | 900 m spawn is 44 m over the hillside → STRUCTURE_CONTACT at t = 7.4 s. Repaired to 1 850/1 500 m: both boats destroyed again, escort fight unchanged to the digit (t = 91.7 s, missM 4.5826) |
+| 1.6 | Four of a Kind | 3 | 3 | 3 | **byte-identical**, all nine actors, whole telemetry |
+| 1.7 | Aces Low | **1** | **3** | 3 | the SA-2 launcher stands on 395 m. Same six rounds, same seconds, launch ranges 48–86 m shorter — and the lethal round moves from #4 at 8.20 m to #5 at 11.80 m, which does NOT kill. `s7lead` lives, `s7two` destroys one parked EF2000 |
+| 1.8 | Black Mariah | **1** | **3** | 3 | same battery effect: all six v-750 miss, the sweep survives, the run reaches the release — and then BOTH mk84 fall 215 m short because the CCRP plane is the release point's 511.9 m and the target sits at 834.4 m |
+
+Three sorties changed verdict and none of them changed because a sensor saw less. **Terrain masked
+nothing, anywhere, in any of the eight** (§8, and 1.1/1.4/1.6 are the byte-level proof).
+
+### What the flat plane had been hiding
+
+| Finding | Measurement |
+|---|---|
+| **The 1.7 headline was a flat-plane artefact.** "The SA-2 kills the attack 12.1 km before the ramp" does not survive real ground | 8.20 m → 11.80 m of miss distance. The margin is 3.6 m: the flat-plane kill was already on a knife edge |
+| **The CCRP impact plane is the RELEASE POINT's ground, not the target's.** `FBF16Module.cpp` hands `SetSteerpoint(..., GroundAslM)` — this tick's sample under the aircraft — into `FBF16FireControl::SolveGroundAttack`. Over a 0 m plane the two are equal by construction, so the error was exactly zero and invisible | 1.8: plane 511.9 m vs target 834.4 m = +322.5 m error → **215 m short**, target survives, while the computer reported `aimMissM` 65.3 m. 1.2: 28 m error, absorbed |
+| **Two of eight low-level profiles were unflyable** over the ground they were written for | 1.3 CFIT at t = 63.1 s, 1.5 at t = 7.4 s |
+| **FOB Tyler is a hilltop** | 741.9 m. Nothing in the reconstruction chose that; it is what §2.2's arithmetic lands on |
+| **The "300–2 000 m" description was low at both ends** | 97–2 547 m in the box |
 
 Three decisions §5–§6 left open are TAKEN in the files, each in the header of the sortie that takes it:
 
@@ -291,36 +352,49 @@ Three decisions §5–§6 left open are TAKEN in the files, each in the header o
 | §6, the boats and the Mekong | keep the measured point; there is no ship module, so a stationary `target_soft` | `c01m05-double-down.fbm` |
 | §5.3, re-anchoring on VTCT instead of the Chiang Rai centroid | **not** taken; the target stays on the centroid, 7.5 km from the real field | `c01m07-aces-low.fbm` |
 
+One decision §8 forced and the files record: **1.3's and 1.5's run-in altitudes are re-derived, their
+geometry is not.** The `.ORF` offsets are the one high-confidence thing here and no lat/lon moved.
+
 ## Gaps
 
-- **The box was never fetched from `fb-tiles` and every altitude in the eight `.fbm` files is ASL over
-  a plane that does not exist.** The real ground is 300–2 000 m by §5.4.4, from a description; the one
-  verified datum inside the box is VTCN at 209 m. Running the campaign with `--elev tiles` is the first
-  thing that would change every number in it — and would, on this terrain, put several run-ins
-  underground exactly as `mods/f16`'s W2 records for its own 30 m variant.
-- **No terrain masking is in play anywhere**, so every detection range and every SAM engagement in the
-  eight sorties is an UPPER bound.
+- **Terrain masks NO DETECTION — not radar, not IRST, not the eye, not the RWR.** Not a mod gap: the
+  only terrain-aware sensor in the tree, `sensors/FBGroundMap`, writes a display raster and gates
+  nothing, and no other sensor sees an `FBElevationProvider` at all. Every detection range and every
+  SAM engagement in the eight sorties is therefore STILL an upper bound, exactly as it was over the
+  flat plane, and the eight files say so in D3. Measured: 1.6 is byte-identical over the two grounds.
+- **The CCRP impact plane is the release point's ground, not the target's** (State, and
+  `c01m08-black-mariah.fbm`'s header). Cost measured once: 215 m short on a 322 m plane error. Fixing
+  it needs the module to sample terrain AT the steerpoint, which no module can do today.
+- **The `.fbm` altitudes are the campaign's weakest remaining numbers.** 1.3's and 1.5's are now
+  derived from the DEM (their own 900 m of clearance, per leg, +-1 km corridor); the other six are
+  still the flat-plane figures, kept because the ground does not break them — but nobody has checked
+  them against a *tactical* intent, only against the dirt.
 - **The north assumption is unproven** and everything in §3 hangs from it. Support is eight bearings
   landing in the right compass octant (mean +9.2°), which is consistent with a rotation of up to about
-  ±20° — the octant test simply cannot resolve better. If the map is rotated, every target point swings
-  around FOB Tyler by that angle, up to 50 km at mission 1.8's range.
-- **The Mekong does not pass through 1.3's or 1.5's target point** — §6, 105 km and 205 km off. Open,
-  deliberately unpatched, and the decision is not made.
+  ±20°. If the map is rotated, every target point swings around FOB Tyler by that angle — up to 50 km
+  at mission 1.8's range, and now over ground that is 97–2 547 m rather than flat, so a rotation would
+  also re-decide every altitude in §8's repair.
+- **The Mekong does not pass through 1.3's or 1.5's target point** — §6, 105 km and 205 km off. Real
+  DEM makes this worse rather than better: 1.5's "southern stretch of the Mekong" is now measurably
+  492 m of upland with no water on it, and its Vipers attack boats from 1 350 m.
 - **The `.ORF` parse is second-hand.** Re-derivation here proves consistency, not correctness of the
   byte-level read.
 - **5 m vs 4.989 m unresolved** (§2.3). 0.27 km at the anchor distance; the coordinates use 4.989 m
   while the source's own conclusion is 5 m.
-- **Latitude conversion uses 111.32 km/°, which is the *longitude* constant at the equator.** The
+- **§3's latitude conversion uses 111.32 km/°, which is the *longitude* constant at the equator.** The
   meridional degree at 19.4 N is 110.70 km `[DERIV]`, so every northward offset is understated by
-  0.56 % — `[DERIV]` **0.87 km at mission 1.8's 153.5 km**. Below the 18.5 km box margin, above the
-  precision the reconstruction otherwise claims. Not corrected here, because correcting it alone while
-  the north assumption stands would be false precision.
-- **The voxel heightfield was never decoded.** Not in `RESOURCE.RES`; `.PCX` and `.PAK` were not
-  decoded. Without it there is no way to compare game terrain against real DEM at all — the §5.2
-  character match is a match of *descriptions*, not of surfaces.
-- **`.REF` files uninspected** (49 × 24,576 bytes) — suspected terrain-tile or waypoint data. If they
-  hold the heightfield, the previous gap closes.
-- **No elevation was checked at any target point.** An objective may land on a 1,500 m ridge.
+  0.56 % — `[DERIV]` **0.87 km at mission 1.8's 153.5 km**. §8's raster uses the correct value; §3's
+  coordinates deliberately do not, because correcting them alone while the north assumption stands
+  would be false precision.
+- **The voxel heightfield was never decoded**, so the §5.2 character match is still a match of
+  *descriptions* against a real surface, not of two surfaces. `.REF` files (49 × 24,576 bytes) remain
+  uninspected.
 - **Country borders never consulted**, so §5.4.3 stands open.
-- **Whether `fb-tiles` even covers this box adequately is unmeasured** — DEM, OSM and imagery over
-  northern Laos at this scale. Unanswered because nothing has fetched it (bullet 1).
+- **Nine actors leave the DEM box before the run ends and the ground under them reads 0 m there.**
+  `[MEAS]` `s7lead/s7two/s7esc` at 24.6–24.8 N / 97.5 E, `s8ef` at 22.67 N, `s6esc1/s6esc2/s6mig2` at
+  17.5–17.7 N / 97.6–98.1 E, plus two rounds in flight — all of them past their last waypoint, all of
+  them at 3 000–6 250 m ASL, so nothing any verdict reads depends on it. Widening the box further
+  would only chase a pilot that has run out of plan; the honest fix is a plan that ends somewhere.
+- **Nothing has been flown under `--elev tiles`.** The baked raster is the same z13 surface the live
+  server samples (§8) and agrees with `/elev` to rms 3.96 m, but a `tiles` run is not replayable
+  across time and was therefore never made the reference.

@@ -242,25 +242,27 @@ declared today:
 [`substitutions.md`](substitutions.md). There is still no F-22 flight model and none was invented —
 Storm Squadron flies `module f16`, and the whole substitution table is that document.
 
-`fb-gym --mod mods/f22 --mission <name>`, measured, each read by **its own file's** reading rule and
-not by the exit code:
+`fb-gym --mod mods/f22 --mission <name>` on the campaign's REAL GROUND
+([`terrain.md`](terrain.md) §8), measured, each read by **its own file's** reading rule and not by the
+exit code. The `flat` column is the superseded 0 m plane, kept because the delta is the measurement:
 
-| # | File | Exit | Read as | What decided it |
-|---|---|---:|---|---|
-| 1.1 | `c01m01-snake-eyes` | 3 | **loss** | 1 of 2 Floggers down after ten AIM-120 |
-| 1.2 | `c01m02-party-crashing` | 3 | **success** | assembly house destroyed (`aimErrM` 37.2); the SA-2 fired all six and missed |
-| 1.3 | `c01m03-luckiest-man-in-laos` | 1 | **loss** | both bombs arrive at 27.6 / 34.8 m; a `target_hard` span needs ~8 m |
-| 1.4 | `c01m04-silkworm-jungle` | 0 | **success** | all three transports inside `until 548` |
-| 1.5 | `c01m05-double-down` | 1 | **loss** | both boats destroyed, Storm Leader shot by the MiG-29 pair |
-| 1.6 | `c01m06-four-of-a-kind` | 3 | **success** | four Galaxies home, four `protect` met, zero kills |
-| 1.7 | `c01m07-aces-low` | 1 | **loss** | the SA-2 belt kills the strike 12.1 km short of the ramp |
-| 1.8 | `c01m08-black-mariah` | 1 | **not measurable** | the sweep absorbs the SA-2 magazine and its loss ends the run 210 s before the strike would release |
+| # | File | flat | Exit | Read as | What decided it |
+|---|---|---:|---:|---|---|
+| 1.1 | `c01m01-snake-eyes` | 3 | 3 | **loss** | 1 of 2 Floggers down after ten AIM-120. Terrain-invariant to the digit |
+| 1.2 | `c01m02-party-crashing` | 3 | 3 | **success** | assembly house destroyed; the SA-2 fired all six and missed |
+| 1.3 | `c01m03-luckiest-man-in-laos` | 1 | 1 | **loss** | ONE span falls (flat: neither) and Storm Leader is shot. Run-in altitude re-derived from the DEM |
+| 1.4 | `c01m04-silkworm-jungle` | 0 | 0 | **success** | all three transports inside `until 548`. Terrain-invariant to the digit |
+| 1.5 | `c01m05-double-down` | 1 | 1 | **loss** | both boats destroyed, Storm Leader shot by the MiG-29 pair. Run-in altitude re-derived |
+| 1.6 | `c01m06-four-of-a-kind` | 3 | 3 | **success** | four Galaxies home, four `protect` met, zero kills. BYTE-IDENTICAL over both grounds |
+| 1.7 | `c01m07-aces-low` | 1 | **3** | **loss** | the SA-2 belt NO LONGER kills the strike — same six rounds, 11.80 m instead of 8.20 m. One EF2000 burns, the other lives |
+| 1.8 | `c01m08-black-mariah` | 1 | **3** | **loss** | the sweep survives the magazine, and both Mk84 then fall 215 m short on the CCRP plane error |
 
 Determinism: telemetry byte-identical over `--threads 1/2/4` for all eight, `events.log` identical
 modulo `wallS`/`speedup`/the output path.
 
-**Three of eight fly their own success condition. §3's reading rules are all satisfiable except
-1.7's rotation clause and 1.8's escort verdict** — see `## Gaps`.
+**Three of eight fly their own success condition.** 1.8 is no longer "not measurable" — real ground let
+the run reach its own release, and what it then measured is an engine defect in the delivery, not the
+verdict shape. §3's reading rules are all satisfiable except 1.7's rotation clause — see `## Gaps`.
 
 ## Gaps
 
@@ -272,11 +274,18 @@ modulo `wallS`/`speedup`/the output path.
   (used in 1.4 and 1.7). What is NOT declarable is the enemy owning it: nothing schedules a take-off,
   so 1.7's parked Eurofighters never roll and **§3's requirement that the telemetry separate a kill
   before rotation from one after it cannot be met at all**.
-- **Sortie 1.8 cannot measure its own subject, and this is the round's most valuable finding.** The run
-  ends at the first decisive failure and at the first physical K.O., so a package mission in which any
-  member dies first is truncated before the thing it exists to measure. Measured: the escort absorbing
-  an S-75 magazine at t = 123–167 s ends the run at t = 182.7 s with the strike 55 km short. No
-  declaration available today avoids it.
+- **The truncation rule that made 1.8 unmeasurable is still there; real ground merely stopped tripping
+  it.** The run ends at the first decisive failure and at the first physical K.O., so a package mission
+  in which any member dies first is truncated before the thing it exists to measure. Measured over the
+  flat plane: the escort absorbing an S-75 magazine at t = 123–167 s ended the run at t = 182.7 s with
+  the strike 55 km short. Over real ground the same magazine misses, the run reaches t = 900 and 1.8
+  measures its subject — but nothing about the DECLARATION changed, and the next SAM that connects
+  truncates it again. No declaration available today avoids it.
+- **The CCRP impact plane is the release point's ground, not the target's** — measured for the first
+  time in 1.8 (322.5 m plane error, 215 m short, target survives; `terrain.md` State). A flat plane
+  makes the error identically zero, which is why five earlier rounds of this campaign never saw it.
+  It is an ENGINE gap (`modules/f16/FBF16Module.cpp` has no way to sample terrain at the steerpoint),
+  recorded here because 1.8 is what found it.
 - **`set task attack` cannot deliver a guided bomb.** Four measured deliveries in
   [`substitutions.md`](substitutions.md) §6.1: the automatic attack phase releases and turns, the laser
   designation breaks in flight, and the miss grows with the time of flight (12.7 s → 122 m; 25.6 s →

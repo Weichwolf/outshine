@@ -4,6 +4,7 @@
   "missions": "src/missions",
   "campaigns": "src/campaigns",
   "data": "src/data",
+  "dem": "mekong-dem-90m.bin",
   "depends": "f16",
   "default_mission": "c01m01-snake-eyes"
 }

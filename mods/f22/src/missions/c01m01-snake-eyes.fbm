@@ -30,11 +30,22 @@ time 1996-03-20T02:00:00Z
 #     therefore declares 60/60. That is not a tuning choice, it is the substitute airframe's dispenser,
 #     and it means no F-22 mission in this campaign can measure the original's countermeasure DEPTH.
 #
-# D3  THE GROUND IS A FLAT 0 m PLANE. No `runway` line anywhere in the campaign, so `--elev const`
-#     (the mod's default: `mods/f22/src/data/` carries no baked DEM) answers 0 m everywhere. The real
-#     ground under this box is 300-2 000 m by terrain.md 5.4.4 and was NEVER MEASURED — not by the
-#     source research, not here. Every altitude in these files is therefore ASL over a plane that does
-#     not exist, every ground object sits at 0 m, and no terrain masking of any kind is in play.
+# D3  THE GROUND IS REAL AND MASKS NO DETECTION. `mods/f22/src/data/mekong-dem-90m.bin` is the
+#     campaign box baked out of fb-tiles at Terrarium z13 onto a 90 m grid (data/README.md), named by
+#     `mod.json`,
+#     and `--elev baked` is therefore the default: every altitude in these eight files is ASL over the
+#     real northern-Thai/Laotian surface, 97-2 547 m in the box, 271-1 485 m under the sorties. FOB
+#     Tyler's reconstructed point is a 741.9 m hilltop; the raster answers 208.34 m at VTCN against a
+#     published 209 m. WHAT THE GROUND STILL DOES NOT DO: exactly ONE sensor in the tree samples
+#     terrain — `sensors/FBGroundMap`, the FCR's ground-MAPPING mode, which does compute grazing angle
+#     and crest shadowing — and it writes a PICTURE (`FBGroundMapBlock` -> the MFD), never a detection.
+#     No air-to-air radar mode, no IRST, no eye and no RWR has a terrain term at all, and no sortie
+#     here selects `fcr_mode gm`. Measured: 1.1/1.4/1.6 fly byte-identically over real ground and over
+#     the old plane, every detection and every miss distance to the digit. Terrain reaches these
+#     sorties through exactly four doors: CFIT of aircraft, missiles and bombs; the launch ALTITUDE of
+#     a ground site; AGL-driven pilot behaviour; and — in principle only, zero `horizon` events in
+#     either run — the datalink's AGL radio horizon. Every detection range in this campaign is
+#     therefore STILL an upper bound, and the reason is now a named engine gap, not a missing asset.
 #
 # D4  THE CLOCK'S DATE IS [SET] AND ITS TIME IS [DERIV]. campaign.md gives day-of-campaign and a local
 #     hour, never a date. The base date is 1996-03-20, the EQUINOX, chosen because the sun's
@@ -78,14 +89,20 @@ time 1996-03-20T02:00:00Z
 #   `s1two`'s verdict is NOT the mission's: it carries `survive` alone so that its own loss stays
 #   legible, and Storm Two dying while the leader completes is a damaged squadron, not a failed sortie.
 
-# MEASURED (exit 3): ONE OF TWO. Storm fires ten rounds, brings one Flogger down and does not close
-# the second.
+# MEASURED (exit 3, real ground): ONE OF TWO. Storm fires ten rounds, brings one Flogger down and does
+# not close the second.
 #   t = 53.1 / 53.6 s   both leaders let an AIM-9 go first; eight AIM-120 follow between t = 66 and 398
-#   t = 396.6 s         `s1a1` combat-ineffective; its wreck reaches the ground at t = 422.5 and ends
-#                       the run (`FirstFlightKo`), which is why the sortie stops 278 s short of its
+#   t = 396.6 s         `s1a1` combat-ineffective; its wreck reaches the ground at t = 420.6 and ends
+#                       the run (`FirstFlightKo`), which is why the sortie stops 279 s short of its
 #                       own 700 s timeout
 #   verdict             `s1lead` TIMEOUT — `kill unit s1a1` met, `kill unit s1a2` UNMET, `survive` met.
-#                       `s1two` SUCCESS, `s1a2` alive at 692 m over the plane
+#                       `s1two` SUCCESS, `s1a2` alive
+#   THE TERRAIN DELTA IS ONE NUMBER, AND IT IS THE PROOF BEHIND D3. Against the same sortie flown over
+#   the old flat 0 m plane, every launch time, every DETONATION and every miss distance is IDENTICAL TO
+#   THE DIGIT (4.57283 / 5.37654 / 5.07686 / 1.09741 / 4.98977 m). The ONLY thing that moved is when
+#   `s1a1`'s wreck reached the ground: t = 422.5 -> 420.6, because the ground under 19.77 N / 99.98 E
+#   is 428 m and not 0. An all-air sortie is therefore terrain-INVARIANT in this tree, which is what
+#   "terrain masks no DETECTION" means when it is measured instead of asserted.
 #   READ THIS AS A MISSION LOSS, exactly as the rule above says. Ten AIM-120 for one MiG-23 is the
 #   number to report if anything here is to be reported as a defect, and it needs a second run before
 #   it is one.

@@ -80,7 +80,7 @@ def read_summary(campaign_dir):
                 exit_code = int(tok[1])
             elif tok[0] == "carry":
                 carry = tok[1]
-            elif tok[0] in ("elev", "swiss_dem", "base", "threads", "time"):
+            elif tok[0] in ("elev", "dem", "base", "threads", "time"):
                 env[tok[0]] = tok[1] if len(tok) > 1 else ""
     return steps, exit_code, carry, env
 
@@ -108,8 +108,8 @@ def env_flags(env):
     flags = []
     if env.get("elev"):
         flags += ["--elev", env["elev"]]
-    if env.get("elev") == "swiss" and env.get("swiss_dem"):
-        flags += ["--swiss-dem", env["swiss_dem"]]
+    if env.get("elev") == "baked" and env.get("dem"):
+        flags += ["--dem", env["dem"]]
     if env.get("elev") == "tiles" and env.get("base"):
         flags += ["--base", env["base"]]
     return flags

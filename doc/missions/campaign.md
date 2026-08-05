@@ -127,7 +127,7 @@ It is also what makes debugging a campaign tractable: any step is a normal `fb-g
 **A fingerprint is comparable only within ONE environment base.** It says "these two runs computed the
 same thing", never "this is the campaign's number in the absolute" — the ground alone changes every
 byte of it. The campaign therefore **records the ground it was flown over** beside its state
-(`campaign-summary.txt`: `elev`, `swiss_dem`, `base`, `threads`), and every comparison READS that record
+(`campaign-summary.txt`: `elev`, `dem`, `base`, `threads`), and every comparison READS that record
 instead of assuming one. A comparison across two bases is not a divergence, it is a category error, and
 a tool that guesses the base manufactures exactly that error. This is part of the contract because it
 decides what criterion 2 below even means.
@@ -200,7 +200,7 @@ would have drawn the opposite conclusion from a correct measurement.
 **Output per campaign** (`--out DIR`): `NN-<missionfile>/` per step with the ordinary per-run files plus
 `campaign-state.txt` (the state AFTER that step — so the state BEFORE step *k* is step *k−1*'s file, which
 is exactly what `--state` takes), plus `campaign.log` and `campaign-summary.txt` at the root. The summary
-carries the **environment record** (`time`, `elev`, `swiss_dem`, `base`, `threads`) the comparability rule of §5
+carries the **environment record** (`time`, `elev`, `dem`, `base`, `threads`) the comparability rule of §5
 requires; `FBCampaignEnv` is how the client tells the runner which ground it injected, because the runner
 sees only an `FBElevationProvider&` and could not name it.
 
@@ -253,7 +253,7 @@ Closed the way §5 closes the ground rather than by a better default, because it
 
 | Half | Where |
 |---|---|
-| the clock is **RECORDED** by the run | `campaign-summary.txt` gains `time <ISO>` (or `time none`), beside `elev`/`swiss_dem`/`base`/`threads` |
+| the clock is **RECORDED** by the run | `campaign-summary.txt` gains `time <ISO>` (or `time none`), beside `elev`/`dem`/`base`/`threads` |
 | the clock is **READ** by the replay, never guessed | `tools/fb_campaign_verify.py` passes what it read; a summary without the field is the pre-round shape and reads as `none` |
 | the receiving flag | `fb-gym --mission … --campaign-time <YYYY-MM-DDThh:mm:ssZ>`. It is campaign DATA, not a client clock: it goes into the same two `FBMissionCarry` fields the runner fills, so `FBResolveMissionClock` applies it by §6's rule — it fills in for a mission that declares no `time` and never displaces one that does. `--campaign-time` beside `--campaign` is the same refusal `--state` already gets |
 
@@ -294,7 +294,7 @@ All **104** `mods/f16/src/missions/*.fbm` + `missions/negative/*.fbm`, run singl
 |---|---|
 | ~~Only one campaign file exists~~ | **TWO as of 2026-07-29.** `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc` is the first of the ten real campaigns: ten new `.fbm`, both criteria measured on it, and it is the run that found the clock hole above. The other nine campaigns still have no `.fbm` files |
 | **A controlled variant cannot share a callsign with its control** | learnt building O4 and worth stating here, because it is a property of the LAYER: the store carry is keyed by callsign, so a mission that is "its sibling plus one line" ALSO inherits that sibling's expenditure and stops being a control. The rule that falls out — carry chains and controlled pairs must not overlap — is a campaign-authoring constraint the format cannot enforce |
-| The environment record names the DEM, it does not fingerprint it | `swiss_dem assets/swiss-dem-90m.bin` is a path. Re-bake the asset and every fingerprint changes while the record still reads the same — the comparison would then be across two grounds calling themselves one. Under `--elev tiles` it is worse and unfixable here: the ground is a live server's answer, so a `tiles` campaign is not replayable across time at all. **Never measured under `tiles`** |
+| The environment record names the DEM, it does not fingerprint it | `dem <the mod's data/….bin>` is a path. Re-bake the asset and every fingerprint changes while the record still reads the same — the comparison would then be across two grounds calling themselves one. Under `--elev tiles` it is worse and unfixable here: the ground is a live server's answer, so a `tiles` campaign is not replayable across time at all. **Never measured under `tiles`** |
 | ~~Both criteria are measured on ONE campaign~~ | **two campaigns, and the second one earned its keep**: O4's ten steps under `--elev const` (9 runs / 1 fingerprint `461e0ff5299d83d03b…`, 10/10 replays). The advice stands unchanged — every further campaign re-runs `tools/fb_campaign_verify.py replay` for itself, and O4 is the reason it is not optional |
 | Damage does not carry (`C21`) | double-blocked: no repair model, and no `.fbm` syntax to spawn a damaged jet. The first extension once either closes |
 | No replacement pool | a lost unit is dropped. Correct for O5, under-modelled for W3/W4's multi-week arcs — their headers must say so |

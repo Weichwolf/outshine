@@ -30,7 +30,7 @@ Nothing about the physics or the verdict may depend on which client is running.
 | Headless, no GPU device at all | no Dawn/wgpu symbol in the binary, verified with `nm` |
 | Runs as fast as the machine allows | wall-clock speed must not change the result (principle 4) |
 | `--threads N` parallelises exactly the STEP phase; everything else stays sequential | identical fingerprint over `--threads 1..4` × 5 repetitions |
-| Runs without a network | `--elev swiss` when the baked DEM asset exists, else `const`; a bare `fb-gym --mission FILE` always runs |
+| Runs without a network | `--elev baked` when the mod's declared DEM exists, else `const`; a bare `fb-gym --mission FILE` always runs |
 | This is the mission control loop | mission → telemetry → analysis → correction (`../build-and-ops.md`) |
 | **`--campaign` is gym-only** (`C0`, built) | `missions/FBCampaignRunner` is on the gym link line and in neither `libfbcore.a` nor the wasm build, for `FBTickPool`'s reason: a campaign is a sequence of headless runs, and neither the frame oracle nor the browser has one. Every step it runs is reachable as an ordinary `--mission … --state …` |
 
