@@ -26,6 +26,13 @@ std::unique_ptr<FBModule> FBModuleRegistry::Create(const std::string &name) {
   return m;
 }
 
+std::vector<std::string> FBModuleRegistry::Names() {
+  std::vector<std::string> out;
+  out.reserve(Registry().size());
+  for (const auto &kv : Registry()) out.push_back(kv.first);   /* std::map: already sorted */
+  return out;
+}
+
 void FBRegisterBuiltinModules() {
   FBRegisterF16Module();
   FBRegisterMig29Module();

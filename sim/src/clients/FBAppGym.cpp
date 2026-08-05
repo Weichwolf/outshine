@@ -7,6 +7,7 @@
 #include "FBCampaignRunner.h"
 #include "FBCampaignFile.h"
 #include "FBMissionFile.h"
+#include "FBModuleRegistry.h"
 #include "FBRunwayPlateauElevation.h"
 #include "FBBakedDemElevation.h"
 #include "FBTilesElevation.h"
@@ -58,7 +59,10 @@ void Usage(const char *argv0) {
           "  --swiss-dem PATH override the baked-DEM asset path (default %s)\n"
           "  --pilot-keys     print the pilot tuning ALPHABET and exit: one line per key,\n"
           "                   `<key> free|scale <lo> <hi> <hook>`. It is the ONE table, so an evolution\n"
-          "                   runner reads its genome out of the binary instead of copying it.\n",
+          "                   runner reads its genome out of the binary instead of copying it.\n"
+          "  --caps           print WHAT EVERY MODULE DECLARES and exit: one line per module and slot,\n"
+          "                   `<module> <capability> <c++ type>`. Same table the accessors bind from, so\n"
+          "                   a tool schema built from it cannot drift (doc/mods.md 2.1).\n",
           argv0, kDefaultSwissDem, kDefaultSwissDem);
 }
 
@@ -116,6 +120,19 @@ int main(int argc, char **argv) {
         const Pilot::FBPilotKey &e = Pilot::FBPilotKeys()[k];
         printf("%s %s %g %g %s\n", e.Key,
                e.Kind == Pilot::FBPilotKeyKind::Scale ? "scale" : "free", e.Lo, e.Hi, e.Hook);
+      }
+      return 0;
+    }
+    /* THE DECLARATION LIST AS DATA, one line per (module, capability): `module name type`. It is the
+     * same table modules/FBCapability.h binds the accessors from, so a tool schema built from this
+     * output cannot drift from what the code actually hands out. doc/mods.md §2.1. */
+    if (a == "--caps") {
+      Modules::FBRegisterBuiltinModules();
+      for (const std::string &name : Modules::FBModuleRegistry::Names()) {
+        std::unique_ptr<Modules::FBModule> m = Modules::FBModuleRegistry::Create(name);
+        if (!m) continue;
+        for (const Modules::FBCapabilityDesc &d : Modules::kFBCapabilityTable)
+          if (m->Has(d.Id)) printf("%s %s %s\n", name.c_str(), d.Name, d.Type);
       }
       return 0;
     }
