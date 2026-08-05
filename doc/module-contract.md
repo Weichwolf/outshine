@@ -139,6 +139,28 @@ instance path, two sources of address.
 | **epoch, decay** | `ambient` — one writer, so the honest triple (built epoch, observed epoch, maintenance) cannot contradict itself |
 | **a save after hundreds of hours** | `delta`, keyed by address: size tracks *distinct things touched*, not hours |
 
+### 4.1 Thousands of systems are free to build, not free to run
+
+> Owner, 2026-08-05: *„tausende Systeme und Dinge in Outshine Core abzubilden kostet nichts in der
+> Entwicklung, es muss nur gut strukturiert sein und darf zur Laufzeit keine Last sein."*
+
+For a human team a thousand systems is a thousand person-months, so the constraint is *build few*. Here
+it is not. The constraint becomes:
+
+> **A system that contributes nothing this frame must cost nothing this frame.** Not little — nothing.
+
+Three properties deliver it, and all three are already in the design rather than added for this:
+
+| | |
+|---|---|
+| **declaration binds** | what a module does not declare is never bound, so it is in no loop. `FBModule` going 28 pure virtuals → 1 *is* this rule: a module without a radar has no radar, not an empty one |
+| **nothing iterates „all systems"** | the tick runs over **active contributions**, never over the catalogue. Otherwise runtime grows with what exists instead of with what lives |
+| **the capability mask is a bit test** | skipping a whole class costs a comparison, not a loop |
+
+**And the real price, named:** writing a thousand systems is cheap; *knowing* a thousand systems is not.
+That is what `doc/` and `verify-trees` buy — not tidiness, but the only way a **discontinuous** developer
+works at that scale. Every session starts from the repository, so what is not in the tree does not exist.
+
 ### 5. The fixed parts of a module directory
 
 `verify-trees` gained a third scope. A module directory is `sim/src/modules/<id>/`, and it carries:
