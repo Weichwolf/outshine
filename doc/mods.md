@@ -104,17 +104,41 @@ line:
 
 | | Decider | Determinism |
 |---|---|---|
-| **`fb-gym`** — the test | regulation only, **never an LLM** | byte-identical over `--threads 1/2/4`, the gate stands untouched |
+| **`fb-gym`** — the test | regulation, or a **fixed protocol** (below); never a live LLM | byte-identical over `--threads 1/2/4`, the gate stands untouched |
 | **the played run** | may be an LLM per unit AI | not required and not claimed |
 
 The gate is not weakened, and the LLM is not crippled — they simply never meet. **What both sides share
 is the declaration list**, so the anti-cheat property holds identically in each: an LLM in the played run
 reaches exactly as far as the regulator in the gym, because it is the same list.
 
-The honest cost, stated rather than hidden: **the LLM decider is never exercised by the acceptance net.**
-What the net proves is the *reach* — that nothing beyond the declared surface is callable. Whether an LLM
-decides *well* is not a claim this tree can currently make, and it must not be smuggled in by pointing at
-a green gym.
+**But the LLM decider is not therefore unmeasurable** — it becomes measurable the moment its decisions
+are treated the way this tree treats every other claim.
+
+> Owner, 2026-08-05: *„ich korrigiere mich. Gym kann feste LLM-Protokolle laden."*
+
+A **protocol** is the recorded decision trace of an LLM run: at tick *T*, unit *U* called function *F*
+with arguments *A*. Recorded once from a played run, it is thereafter **data** — and `fb-gym` loads it
+like it loads a mission, replays it, and stays byte-identical. The live model is never in the loop; its
+output is.
+
+That is the same move as `envelope.json`: *an expectation is a datum, not a program.* **A decision is a
+datum too.** The rule does not gain an exception; it gains a second application.
+
+| | What is in the gym | Deterministic |
+|---|---|---|
+| regulation | a control law | yes |
+| **a protocol** | **a recorded decision trace** | **yes** |
+| a live LLM | — | never |
+
+What this does and does not prove, stated exactly:
+
+- **Does:** the consequences of those decisions in *today's* simulation. A protocol that produced a kill
+  last month and produces a crash today has found a regression — and it is a far sharper probe than a
+  regulator, because an LLM makes decisions no control law would.
+- **Does not:** that the model would decide the same way now. A protocol is a fixed trace, not a live
+  agent; re-running the model is a new recording, not a test.
+- **Ages usefully.** When the sim changes enough that a protocol becomes nonsensical (the unit is dead at
+  tick *T*), the replay diverges — and divergence is the signal, not a failure of the protocol.
 
 ### 3. What a mod directory contains
 
@@ -191,8 +215,9 @@ Nothing built.
   ([`body-format.md`](body-format.md)) is spec-only.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a
   reading rule for a machine, not prose for a player.
-- **The LLM decider has no measurement.** §2.1 resolves the determinism collision by keeping the LLM out
-  of `fb-gym` entirely, which means the acceptance net proves its *reach* and never its *quality*. How a
-  played run is judged at all is unwritten.
+- **The protocol format does not exist.** §2.1 rests on a recorded decision trace being loadable by
+  `fb-gym`; nothing records one and nothing replays one.
+- **How a played run is judged at all is unwritten** — the judges produce a verdict, but a game needs a
+  score, and this tree has never had to say what a good run is as opposed to a passing one.
 - **The module declaration list is not machine-readable yet.** §2.1 rests on it being one artefact; today
   it is C++ virtual overrides, which an LLM cannot be handed as a tool schema.
