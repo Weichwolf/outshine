@@ -13,6 +13,7 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBUnits.h"
+#include "FBMod.h"
 #include <cmath>
 #include <memory>
 
@@ -45,7 +46,7 @@ double BankHoldStick(double bankErrDeg) {
 
 bool MeasurePoint(double entryCasKt, SweepPoint &out) {
   Fdm::FBFdmSpawn ic;
-  ic.ModelsRoot = "assets/aircraft";
+  ic.ModelsRoot = Missions::FBDefaultMod().Aircraft;
   ic.Aircraft = "f16";
   ic.LatDeg = 46.7; ic.LonDeg = 6.8;
   ic.GroundElevM = 0.0;

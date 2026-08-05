@@ -1,4 +1,4 @@
-/* ONE airframe as the picture needs it: the glTF LOD stack of sim/assets/models flattened into a single
+/* ONE airframe as the picture needs it: the glTF LOD stack of the mod's models root flattened into a single
  * vertex range per level, plus the PART table its sidecar declares.
  *
  * THE FLATTENING is the whole idea. A glTF node tree would be one draw per node and one matrix upload

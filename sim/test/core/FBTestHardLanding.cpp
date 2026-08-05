@@ -8,6 +8,7 @@
 #include "FBLogSinks.h"
 #include "FBSimUnit.h"   /* FBBuildFlightMonitorSample: the same monitor input a real unit feeds */
 #include "FBFdmBoot.h"
+#include "FBMod.h"
 #include <cstdio>
 #include <memory>
 #include <string>
@@ -27,7 +28,7 @@ int main() {
 
   /* HeightOffsetM > 0 is the explicit AIRBORNE IC, not the ground-spawn-on-gear path (which uses < 0). */
   Fdm::FBFdmSpawn ic;
-  ic.ModelsRoot = "assets/aircraft"; ic.Aircraft = "f16";
+  ic.ModelsRoot = Missions::FBDefaultMod().Aircraft; ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon; ic.GroundElevM = groundAsl; ic.HeightOffsetM = spawnAglM;
   ic.SpeedMs = speedMs; ic.HeadingDeg = 0.0; ic.FbwOverride = true;
   std::unique_ptr<Fdm::FBFdm> fdm = Fdm::FBFdmBoot::Spawn(ic);

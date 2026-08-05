@@ -29,13 +29,14 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBUnits.h"
+#include "FBMod.h"
 
 using namespace FlightBox;
 using namespace FlightBox::Test;
 
 namespace {
 
-const char *kModelsRoot = "assets/aircraft";
+const std::string kModelsRoot = Missions::FBDefaultMod().Aircraft;
 const double kLatDeg = 46.7, kLonDeg = 6.8;
 const double kDt = Fdm::FBFdm::kStepS;
 

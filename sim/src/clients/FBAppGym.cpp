@@ -5,6 +5,7 @@
  * not. doc/build-and-ops.md. */
 #include "FBMissionRunner.h"
 #include "FBCampaignRunner.h"
+#include "FBMod.h"
 #include "FBCampaignFile.h"
 #include "FBMissionFile.h"
 #include "FBModuleRegistry.h"
@@ -26,14 +27,16 @@ using namespace FlightBox;
 
 namespace {
 
-const char *kDefaultSwissDem = "assets/swiss-dem-90m.bin";
+const char *kSwissDemFile = "swiss-dem-90m.bin";
 
 void Usage(const char *argv0) {
   fprintf(stderr,
-          "usage: %s --mission FILE | --campaign FILE [--out DIR] [--timeout N] [--threads N]\n"
-          "          [--state FILE] [--carry LIST] [--campaign-time ISO] [--elev tiles|const|swiss]\n"
-          "          [--base URL]\n"
-          "  --campaign FILE  run a .fbc campaign (doc/missions/campaign.md): its missions in file order\n"
+          "usage: %s --mission NAME|FILE | --campaign NAME|FILE [--mod DIR] [--out DIR] [--timeout N]\n"
+          "          [--threads N] [--state FILE] [--carry LIST] [--campaign-time ISO]\n"
+          "          [--elev tiles|const|swiss] [--base URL]\n"
+          "  --mod DIR        the scenario this run flies (default %s): its mod.json names the\n"
+          "                   aircraft, mission, campaign and data directories. The engine owns none.\n"
+          "  --campaign NAME  run a .fbc campaign (doc/missions/campaign.md): its missions in file order\n"
           "                   into --out/NN-<mission>/, carrying destroyed units, destroyed ground targets\n"
           "                   and expended stores from each into the next. Exit = the worst mission's.\n"
           "  --state FILE     run ONE mission with a campaign state file applied — the standalone replay\n"
@@ -43,7 +46,7 @@ void Usage(const char *argv0) {
           "                   --mission only, and it is campaign DATA, not a client clock: it fills in for a\n"
           "                   mission that declares no `time` and never displaces one that does. Without it a\n"
           "                   step of a clocked campaign cannot be replayed standalone (campaign.md §5 crit. 2)\n"
-          "  --mission FILE   ground-spawn a .fbm mission (doc/missions/syntax.md) on its runway threshold\n"
+          "  --mission NAME   ground-spawn a .fbm mission (doc/missions/syntax.md) on its runway threshold\n"
           "                   and run headless (JSBSim + the module's FBPilot phase machine) until SUCCESS/CRASH/\n"
           "                   TIMEOUT/FAIL; writes --out/telemetry.csv + --out/events.log, exit 0/1/2/3.\n"
           "  --timeout N      overrides the mission file's own timeout (sim-seconds)\n"
@@ -51,19 +54,20 @@ void Usage(const char *argv0) {
           "                   the sequential reference path; clamped to the unit count). Parallelises the\n"
           "                   per-unit STEP only — verdicts, telemetry and log order stay sequential, so a\n"
           "                   run's outputs are byte-identical whatever N is. GYM ONLY, by design.\n"
-          "  --elev tiles|const|swiss  ground-elevation source (default: swiss if %s exists, else const):\n"
+          "  --elev tiles|const|swiss  ground-elevation source (default: swiss if the mod's %s exists,\n"
+          "                   else const):\n"
           "                   tiles  = live fb-tiles /elev (--base, default http://localhost:8081)\n"
           "                   const  = the mission's own runway(s) on a flat base (FBRunwayPlateauElevation,\n"
           "                            no data/network needed — 'flat')\n"
           "                   swiss  = the baked Switzerland DEM island (tools/bake_swiss_dem.py)\n"
-          "  --swiss-dem PATH override the baked-DEM asset path (default %s)\n"
+          "  --swiss-dem PATH override the baked-DEM path (default: the mod's data/%s)\n"
           "  --pilot-keys     print the pilot tuning ALPHABET and exit: one line per key,\n"
           "                   `<key> free|scale <lo> <hi> <hook>`. It is the ONE table, so an evolution\n"
           "                   runner reads its genome out of the binary instead of copying it.\n"
           "  --caps           print WHAT EVERY MODULE DECLARES and exit: one line per module and slot,\n"
           "                   `<module> <capability> <c++ type>`. Same table the accessors bind from, so\n"
           "                   a tool schema built from it cannot drift (doc/mods.md 2.1).\n",
-          argv0, kDefaultSwissDem, kDefaultSwissDem);
+          argv0, Missions::FBDefaultModDir(), kSwissDemFile, kSwissDemFile);
 }
 
 bool FileExists(const std::string &path) {
@@ -110,7 +114,8 @@ bool ParseCarryList(const std::string &list, uint8_t &out) {
 
 int main(int argc, char **argv) {
   std::string missionPath, campaignPath, statePath, carryList, campaignTime;
-  std::string outDir = ".", base = "http://localhost:8081", elevMode, swissDemPath = kDefaultSwissDem;
+  std::string modDir = Missions::FBDefaultModDir();
+  std::string outDir = ".", base = "http://localhost:8081", elevMode, swissDemPath;
   double timeout = 0.0;
   long threads = 1;
   for (int i = 1; i < argc; i++) {
@@ -137,6 +142,7 @@ int main(int argc, char **argv) {
       return 0;
     }
     if (a == "--threads" && i + 1 < argc) threads = atol(argv[++i]);
+    else if (a == "--mod" && i + 1 < argc) modDir = argv[++i];
     else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
     else if (a == "--campaign" && i + 1 < argc) campaignPath = argv[++i];
     else if (a == "--state" && i + 1 < argc) statePath = argv[++i];
@@ -150,6 +156,15 @@ int main(int argc, char **argv) {
     else { Usage(argv[0]); return 1; }
   }
   if (missionPath.empty() == campaignPath.empty()) { Usage(argv[0]); return 1; }
+  Missions::FBMod mod;
+  std::string moderr;
+  if (!Missions::FBLoadMod(modDir, mod, &moderr)) {
+    fprintf(stderr, "fb-gym: --mod %s: %s\n", modDir.c_str(), moderr.c_str());
+    return 1;
+  }
+  if (!missionPath.empty()) missionPath = mod.Mission(missionPath);
+  if (!campaignPath.empty()) campaignPath = mod.Campaign(campaignPath);
+  if (swissDemPath.empty()) swissDemPath = mod.Data + "/" + kSwissDemFile;
   if (!campaignPath.empty() && (!statePath.empty() || !carryList.empty() || !campaignTime.empty())) {
     fprintf(stderr, "fb-gym: --state/--carry/--campaign-time belong to a single --mission; a campaign "
                     "carries its own\n");
@@ -198,7 +213,7 @@ int main(int argc, char **argv) {
 
   if (!campaignPath.empty()) {
     Missions::FBCampaignEnv env{elevMode, swissDemPath, base};
-    return Missions::FBRunCampaign(campaignPath, outDir, Missions::FBNativeModelRoots(), *elevation,
+    return Missions::FBRunCampaign(campaignPath, outDir, mod.Roots(), *elevation,
                                    (size_t)threads, env);
   }
 
@@ -231,6 +246,6 @@ int main(int argc, char **argv) {
     carry.In = &carried;
   }
   const bool asStep = !statePath.empty() || carry.HaveCampaignTime;
-  return FBRunMission(missionPath, timeout, outDir, Missions::FBNativeModelRoots(), *elevation, nullptr,
+  return FBRunMission(missionPath, timeout, outDir, mod.Roots(), *elevation, nullptr,
                       (size_t)threads, false, asStep ? &carry : nullptr);
 }

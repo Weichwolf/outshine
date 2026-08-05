@@ -50,7 +50,7 @@ FBFlightControl FBFlightControl::F16(void) {
 /* DAS MiG-29-PRESET. Es unterscheidet sich vom F-16-Preset an genau EINER strukturellen Stelle, und
  * alles andere folgt daraus: die F-16 hat eine echte FLCS, dieser Ausgang ist dort ein g-WUNSCH an
  * einen schnellen inneren Kreis, der ihn ausregelt und dabei den Anstellwinkel selbst begrenzt. Die
- * MiG-29 ist mechanisch gesteuert (assets/aircraft/mig29/mig29.xml §7, doc/mig29/flight-controls.md) —
+ * MiG-29 ist mechanisch gesteuert (<mod>/aircraft/mig29/mig29.xml §7, doc/mig29/flight-controls.md) —
  * derselbe Ausgang IST der Ausschlag, hinter nichts als der ARU-Uebersetzung und deren 2,0/s
  * Stellratenbegrenzung. Zwischen Kommando und g liegen damit zwei Verzoegerungen, die es bei der F-16
  * nicht gibt, und die drei Unterschiede unten sind genau die Antwort darauf.

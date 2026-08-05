@@ -8,6 +8,7 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBUnits.h"
+#include "FBMod.h"
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -21,7 +22,7 @@ constexpr double kHighAltM = 15000.0;     /* where a spec-sheet max-speed figure
 constexpr double kReleaseSpeedMs = 270.0; /* ~M 0.9 at 6 km — a fighter's launch speed */
 std::unique_ptr<Fdm::FBFdm> SpawnMissile(double altM) {
   Fdm::FBFdmSpawn ic;
-  ic.ModelsRoot = "assets/aircraft";
+  ic.ModelsRoot = Missions::FBDefaultMod().Aircraft;
   ic.Aircraft = "aim120";
   ic.LatDeg = 46.9; ic.LonDeg = 6.9;
   ic.GroundElevM = 0.0;

@@ -12,6 +12,7 @@
 #include "FBTacticalOrder.h"
 #include "FBUnits.h"
 #include "FBMissionRunner.h"
+#include "FBMod.h"
 #include "FBTerrainLoader.h"
 #include "FBTilesElevation.h"
 #include "FBLog.h"
@@ -59,7 +60,8 @@ void Usage(const char *argv0) {
           "    the way \"the same camera under two atmospheres\" is measured at all.\n"
           "  --cloudcheck  evaluate core/FBCloudDensity.h and its WGSL twin over a sample set on the GPU\n"
           "    and print the largest disagreement; exit 0 iff it is inside the stated tolerance.\n"
-          "  --mission FILE [--timeout N] [--interval S]  ground-spawn a .fbm mission (doc/missions/)\n"
+          "  --mission NAME|FILE [--mod DIR] [--timeout N] [--interval S]  ground-spawn a .fbm mission of\n"
+          "    the mod (default ../mods/f16; doc/mods.md)\n"
           "  --map CALLSIGN [--map-span-km KM]  draw the TACTICAL MAP of that unit's fused picture\n"
           "    (the control node of its faction's net) instead of its cockpit -- an OSM raster sheet\n"
           "    off fb-tiles under APP-6 symbology. Only what that node has collected is drawn.\n"
@@ -361,10 +363,10 @@ int MapTileFetch(int z, int x, int y, int ts, unsigned char *dst) {
  * fb-gym's link GPU-free while both clients share one mission loop. */
 class FBNativeMissionHook : public FlightBox::Missions::FBMissionTickHook {
 public:
-  FBNativeMissionHook(std::string base, std::string outDir, double intervalS, bool groundPhoto = false,
-                      int width = 1280, int height = 720)
-      : Base(std::move(base)), OutDir(std::move(outDir)), IntervalS(intervalS), Width(width), Height(height),
-        GroundPhoto(groundPhoto) {}
+  FBNativeMissionHook(std::string base, std::string outDir, std::string modelsDir, double intervalS,
+                      bool groundPhoto = false, int width = 1280, int height = 720)
+      : Base(std::move(base)), OutDir(std::move(outDir)), ModelsDir(std::move(modelsDir)),
+        IntervalS(intervalS), Width(width), Height(height), GroundPhoto(groundPhoto) {}
 
   /* THE TACTICAL MAP as a frame venue: `--map <callsign>` draws the picture of THAT unit's fusion --
    * the control node of the faction's net -- instead of its cockpit. The ground is an OSM raster sheet
@@ -412,9 +414,9 @@ public:
       return;
     }
     R->SetHudDisplay(primary.Displays());
-    /* The airframe meshes, from the model root this client already runs against (sim/). */
-    if (!R->AddUnitModel("f16", "assets/models"))
-      FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", "f16"}, {"dir", "assets/models"}});
+    /* The airframe meshes, from the mod this run flies (missions/FBMod.h). */
+    if (!R->AddUnitModel("f16", ModelsDir.c_str()))
+      FlightBox::FBLog::Warn("mission", "unit_model_missing", {{"type", "f16"}, {"dir", ModelsDir}});
     R->InitOffscreen(Width, Height);
     if (!R->Ready()) {
       FlightBox::FBLog::Error("mission", "RESULT", {{"result", "FAIL"}, {"reason", "gpu init"}});
@@ -594,7 +596,7 @@ private:
     }
   }
 
-  std::string Base, OutDir;
+  std::string Base, OutDir, ModelsDir;
   FlightBox::Missions::FBMissionClock Clock;
   double IntervalS;
   int Width, Height;
@@ -661,13 +663,14 @@ bool ParseOrderSpec(const std::string &spec, double &atS, std::string &unit,
 
 /* No FBRenderer/FBWorld/GPU device at all unless `renderIntervalS > 0` — the renderer is a bolt-on
  * here, never a dependency of the physics or the termination logic. */
-int RunMission(const std::string &missionPath, double timeoutOverride, double renderIntervalS,
+int RunMission(const std::string &missionPath, const FlightBox::Missions::FBMod &mod,
+              double timeoutOverride, double renderIntervalS,
               const std::string &base, const std::string &outDir, bool utcSet,
               const std::string &mapNode, double mapSpanM, int mapZoom, double mapPanE,
               double mapPanN, double mapHomeS, bool groundPhoto, const std::vector<std::string> &orderSpecs) {
   FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
-    FBNativeMissionHook hook(base, outDir, renderIntervalS, groundPhoto);
+    FBNativeMissionHook hook(base, outDir, mod.Models, renderIntervalS, groundPhoto);
     if (!mapNode.empty()) {
       hook.SetMapNode(mapNode, mapSpanM);
       hook.SetMapZoom(mapZoom);
@@ -686,9 +689,9 @@ int RunMission(const std::string &missionPath, double timeoutOverride, double re
       o.Seq = ++seq;
       hook.AddOrder(atS, unit, o);
     }
-    return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, &hook, 1, utcSet);
+    return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, mod.Roots(), elevation, &hook, 1, utcSet);
   }
-  return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, FlightBox::Missions::FBNativeModelRoots(), elevation, nullptr, 1, utcSet);
+  return FlightBox::Missions::FBRunMission(missionPath, timeoutOverride, outDir, mod.Roots(), elevation, nullptr, 1, utcSet);
 }
 
 }  // namespace
@@ -700,7 +703,7 @@ int main(int argc, char **argv) {
   int groundPhoto = 0, cloudCheck = 0;
   time_t utc = 0;   /* 0 = real wall clock */
   std::string base = "http://localhost:8081", outDir = ".", moonPath = "flightbox/web/moon.jpg";
-  std::string missionPath, wxPath, mapNode;
+  std::string missionPath, wxPath, mapNode, modDir = FlightBox::Missions::FBDefaultModDir();
   double missionTimeout = 0.0, mapSpanM = 0.0, mapPanE = 0.0, mapPanN = 0.0, mapHomeS = -1.0;
   int mapZoom = 0;
   std::vector<std::string> orderSpecs;
@@ -729,6 +732,7 @@ int main(int argc, char **argv) {
     else if (a == "--interval" && i + 1 < argc) { interval = atof(argv[++i]); intervalSet = true; }
     else if (a == "--out" && i + 1 < argc) outDir = argv[++i];
     else if (a == "--mission" && i + 1 < argc) missionPath = argv[++i];
+    else if (a == "--mod" && i + 1 < argc) modDir = argv[++i];
     else if (a == "--timeout" && i + 1 < argc) missionTimeout = atof(argv[++i]);   /* --mission: overrides the .fbm's own timeout */
     else if (a == "--map" && i + 1 < argc) mapNode = argv[++i];          /* the net's control node */
     else if (a == "--map-span-km" && i + 1 < argc) mapSpanM = atof(argv[++i]) * 1000.0;
@@ -753,6 +757,12 @@ int main(int argc, char **argv) {
 
   if (cloudCheck) return RunCloudDensityCheck();
   if (!missionPath.empty()) {
+    FlightBox::Missions::FBMod mod;
+    std::string moderr;
+    if (!FlightBox::Missions::FBLoadMod(modDir, mod, &moderr)) {
+      fprintf(stderr, "gpu_native: --mod %s: %s\n", modDir.c_str(), moderr.c_str());
+      return 1;
+    }
     /* Two weather sources cannot both be the mission's. The .fbm owns its own (missions/
      * FBWeatherBoot.h, and its precedence rule); --wx belongs to the mission-less screenshot venue. */
     if (!wxPath.empty()) {
@@ -760,7 +770,7 @@ int main(int argc, char **argv) {
                       "with a `wx` line (doc/missions/syntax.md)\n");
       return 1;
     }
-    return RunMission(missionPath, missionTimeout, intervalSet ? interval : 0.0, base, outDir, utc != 0,
+    return RunMission(mod.Mission(missionPath), mod, missionTimeout, intervalSet ? interval : 0.0, base, outDir, utc != 0,
                       mapNode, mapSpanM, mapZoom, mapPanE, mapPanN, mapHomeS, groundPhoto, orderSpecs);
   }
 

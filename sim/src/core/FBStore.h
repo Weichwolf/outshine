@@ -291,7 +291,7 @@ inline constexpr FBStoreSpec kR27r{
  * fly the same slender-body deck), and the motor sized by the rocket equation at Isp 235 s.
  * THE ONE DIFFERENCE, and it is physical: dV is the whole terminal speed instead of a delta over a
  * launch speed, because these leave a RAIL at zero airspeed. Every per-round derivation stands in the
- * round's own XML banner under sim/assets/aircraft/<key>/.
+ * round's own XML banner under the mod's aircraft root/<key>/.
  *
  * RequiresLock is FALSE for all six, and that is not a relaxation: it selects the SMS's air-to-air
  * DLZ interlock (FBStoresSystem::Release), which reads FBFireControlBlock — a box a battery does not

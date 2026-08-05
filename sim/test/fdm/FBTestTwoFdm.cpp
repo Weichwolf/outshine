@@ -6,6 +6,7 @@
 #include "FBFdmBoot.h"
 #include "FBLog.h"
 #include "FBLogSinks.h"
+#include "FBMod.h"
 #include <cmath>
 #include <memory>
 #include <string>
@@ -16,7 +17,7 @@ namespace {
 
 Fdm::FBFdmSpawn MakeSpawn(double lat, double lon, double groundM, double hdgDeg) {
   Fdm::FBFdmSpawn ic;
-  ic.ModelsRoot = "assets/aircraft";
+  ic.ModelsRoot = Missions::FBDefaultMod().Aircraft;
   ic.Aircraft = "f16";
   ic.LatDeg = lat; ic.LonDeg = lon;
   ic.GroundElevM = groundM;

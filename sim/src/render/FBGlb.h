@@ -3,7 +3,7 @@
  * each material's base colour (factor or texture) — and refuses anything it cannot represent instead of
  * approximating it (skins, morph targets, sparse accessors, non-triangle modes, strided views).
  *
- * Refusing is the point: the `.glb` files under sim/assets/models are OUR files, built by
+ * Refusing is the point: the `.glb` files under the mod's models root are OUR files, built by
  * build_f16.py, and a reader that silently dropped an attribute would show a wrong aeroplane rather
  * than fail. What the F-16 asset actually contains is asserted in doc/render/units-visual.md.
  *

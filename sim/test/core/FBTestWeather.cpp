@@ -1,5 +1,5 @@
 /* fb-test-weather: the sim-side FBWX mirror against the WIRE, not against a transcription. It parses the
- * committed fixture (assets/wx-2026-07-27T00Z.wxb, a byte copy of one real GET /wx body) and re-derives
+ * committed fixture (the mod's data/wx-2026-07-27T00Z.wxb, a byte copy of one real GET /wx body) and re-derives
  * the spot values doc/world/weather.md §9.7 published from an INDEPENDENT decoder
  * (ecCodes 2.41), so a drift between tiles/src/wxfmt.h and core/FBWxFormat.h shows up as a wrong number
  * rather than as silence. Then: header self-description (a synthetic blob with a different grid step and
@@ -13,6 +13,7 @@
 #include "FBLogSinks.h"
 #include "FBUnits.h"
 #include "FBWxFormat.h"
+#include "FBMod.h"
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -266,7 +267,7 @@ int main(int argc, char **argv) {
   FBLog::SetSink(&sink);
   FBLog::SetLevel(FBLogLevel::Debug);
 
-  std::string path = argc > 1 ? argv[1] : "assets/wx-2026-07-27T00Z.wxb";
+  std::string path = argc > 1 ? argv[1] : Missions::FBDefaultMod().Data + "/wx-2026-07-27T00Z.wxb";
   FBFixedWeather wx(path);
   if (!wx.Ok()) {
     FBLog::Error("wx", "FIXTURE_UNREADABLE", {{"path", path},

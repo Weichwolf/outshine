@@ -3,7 +3,7 @@
 namespace FlightBox::Modules {
 
 namespace {
-/* The deck's own references (assets/aircraft/mig29/mig29.xml): design CG at station 366 in, wingtips at
+/* The deck's own references (<mod>/aircraft/mig29/mig29.xml): design CG at station 366 in, wingtips at
  * y = +-223.6 in (half of the documented 37.27 ft span). Every pylon sits at the CG station
  * longitudinally — the same minimal assumption the F-16 slot makes, and for the same reason: no source
  * gives a per-station fuselage station, so a loadout produces no pitching moment and the LATERAL

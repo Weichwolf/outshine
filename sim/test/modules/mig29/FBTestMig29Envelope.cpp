@@ -1,4 +1,4 @@
-/* fb-test-mig29-envelope: the ACCEPTANCE TEST for sim/assets/aircraft/mig29, one measurement per
+/* fb-test-mig29-envelope: the ACCEPTANCE TEST for the mod's aircraft root/mig29, one measurement per
  * anchor of doc/modules/mig29/flight-model-spec.md §8. That table is the deliverable the spec says outlives
  * the rest of the file; this harness is the other half of it, and the model is only as built as the
  * numbers printed here.
@@ -18,6 +18,7 @@
 #include "FBLog.h"
 #include "FBLogSinks.h"
 #include "FBUnits.h"
+#include "FBMod.h"
 #include <cmath>
 #include <cstdio>
 #include <memory>
@@ -26,7 +27,7 @@ using namespace FlightBox;
 
 namespace {
 
-const char *kModelsRoot = "assets/aircraft";
+const std::string kModelsRoot = Missions::FBDefaultMod().Aircraft;
 const char *kAircraft = "mig29";
 const double kLatDeg = 46.7, kLonDeg = 6.8;   /* Payerne, the tree's usual reference point */
 
