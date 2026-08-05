@@ -210,7 +210,7 @@ conversation, an action without a line is a manoeuvre, and both together are the
 keeps the anti-cheat property exactly where it was — `do` is a call on the declared list and can be
 nothing else, while `say` reaches no state at all.
 
-### 2.3 The replay is a service, not a code path
+### 2.3 Two implementations, one interface
 
 > Owner, 2026-08-05: *„im Prinzip kannst du einen OpenRouter-kompatiblen LLM-Service erstellen, der aus
 > der DB die korrekten Antworten heraussucht. Es geht nur darum, das LLM deterministisch zu simulieren
@@ -220,13 +220,33 @@ The obvious implementation gives the engine two paths — *„if replaying, read
 model"* — and that branch is the defect. It is a second execution surface, it is only exercised in one
 mode, and the two halves drift.
 
-**Instead the engine has one path and always speaks the same protocol.** What changes is the endpoint:
+**The fix is not a service — it is the tree's own layering.** One interface, two implementations, chosen
+at construction:
 
-| Mode | Endpoint | Speed |
+> Owner, 2026-08-05: *„na du kannst schon zwei Implementationen vom LLM-Interface in C++ machen. Einmal
+> online und einmal Database."*
+
+```
+FBActorVoice                 the interface: request → {say, do}
+  FBActorVoiceOnline           OpenRouter-compatible HTTP; used when recording and in played runs
+  FBActorVoicePool             reads the pool by hash; in-process, no network at all
+```
+
+The caller holds an `FBActorVoice&` and cannot tell which it has — the same shape as
+`FBCore → Interface → Default → Override` everywhere else. What is forbidden is an `if (replaying)`
+**inside the caller**; a second implementation behind the interface is the opposite of that.
+
+`FBActorVoicePool` is the better choice for the gym for reasons a service could not give:
+
+| | in-process pool | local HTTP service |
 |---|---|---|
-| record | the real service (OpenRouter, etc.) | network |
-| **gym / demo** | **a local, OpenRouter-compatible service reading the pool** | a hash lookup |
-| played | the real service | network |
+| cost per call | a hash lookup | a round trip, even on loopback |
+| processes to start | none | one, and it can fail |
+| WASM | links and runs | cannot host a server |
+
+The OpenRouter compatibility stays where it earns its keep: **`FBActorVoiceOnline` speaks it**, so
+recording is the real thing and any provider works. And recording is that same class writing each pair as
+it passes — one component, not a proxy to operate.
 
 Four things follow, and the second is why it is worth building rather than special-casing:
 
@@ -238,12 +258,13 @@ Four things follow, and the second is why it is worth building rather than speci
 3. **The returns are tunable.** Editing an entry makes a unit decide differently on the next run — a
    lever for experiments that touches neither engine code nor a model. That is the doctrine-evolution
    loop applied to language instead of gains.
-4. **Recording is a proxy.** The same service, pointed at the real one, forwards and writes the pair.
-   Recording and replaying are one component in two configurations.
+4. **Recording is not a separate tool.** `FBActorVoiceOnline` writes each pair as it passes; the pool it
+   fills is what `FBActorVoicePool` later reads.
 
-The hard rule from §2.1 lands here as a **configuration of the service, not a policy in the caller**: in
-gym mode a miss returns an error and the run fails. There is no fall-through, because a gym whose
-determinism depends on a network is not a gym.
+The hard rule from §2.1 lands as a **property of the class, not a policy in the caller**:
+`FBActorVoicePool` has no fall-through to write — it holds no client, no URL and no socket. A miss
+returns an error and the run fails. The gym cannot reach a model because the object it holds has no way
+to reach one.
 
 ### 3. What a mod directory contains
 
