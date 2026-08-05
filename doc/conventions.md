@@ -136,6 +136,21 @@ A number without one of these three statements is a defect.
 > proof that no behaviour changed is the unchanged `sim/tools/strip_comments.py` hash. The existing
 > code previously carried these derivations as 15–25-line banners directly in the source.
 
+### Metric, decimal, throughout
+
+> Owner, 2026-08-05: *„bitte alles metrisch Dezimalsystem."*
+
+Project-wide, and it is not cosmetic. Standards frequently carry **two parallel, non-identical**
+requirement sets: API 650's shell table gives 5 mm *or* 3/16 in for the same diameter band, and 3/16 in
+is 4.7625 mm. Those are two numbers, not a conversion.
+
+Measured consequence, from the first asset built under this rule: computed in inches the tank **requires**
+an intermediate wind girder; computed in SI it does not (8.861 m transformed against H1 = 9.461 m). Mixing
+the systems produced a component that exists for one reason and is dimensioned by the other.
+
+So: **read the SI column, carry it through every table.** Where a source is imperial only, convert once at
+the boundary and record the conversion as the number's origin.
+
 ### Textbook C++, fast shaders — and why that is one goal
 
 > Owner, 2026-08-05: *„das ganze C++-Projekt nach Lehrbuch. Der WebGPU-Part max Performance. Ich denke,
