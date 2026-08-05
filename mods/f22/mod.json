@@ -1,0 +1,9 @@
+{
+  "id": "f22",
+  "name": "F-22 Lightning II (NovaLogic 1996) — Campaign One: Gambling on the Mekong",
+  "missions": "src/missions",
+  "campaigns": "src/campaigns",
+  "data": "src/data",
+  "depends": "f16",
+  "default_mission": "c01m01-snake-eyes"
+}

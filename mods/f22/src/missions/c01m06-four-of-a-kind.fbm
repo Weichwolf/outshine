@@ -1,0 +1,188 @@
+name c01m06-four-of-a-kind
+timeout 900
+time 1996-03-23T06:00:00Z
+
+# F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.6 OF 8 — "FOUR OF A KIND".
+# Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
+# mods/f22/doc/substitutions.md. The five campaign-wide disclosures: c01m01-snake-eyes.fbm.
+#
+# THE TASK [TXT]: escort four C-5 Galaxy of Mule Squadron, briefed 65 NM W; measured 65.3 NM on
+# bearing 246.2 deg [ORF] — the campaign's WORST briefing bearing, 23.8 deg off the stated octant, and
+# the single number that shows the prose cannot place anything (campaign.md 5).
+#
+# SUBSTITUTIONS IN THIS FILE
+#   C-5A/B Galaxy -> `kc135` x 4. Same reasoning as the An-225 of sortie 1.4: the catalogue's only
+#     large four-engine jet. Span 39.88 m against the C-5's 67.9 m, cruise 237 m/s against ~245 m/s.
+#     The speed is right; the span is 59 % of the original, so — again — visual acquisition of the
+#     thing being escorted happens LATER here than it would against the real aircraft.
+#   AWACS (`AWACS.PAK` [ORF]) -> `e3` (E-3 Sentry). The manual's friendly list names an E-767; the
+#     catalogue has the E-3, which is the same airframe family and the same role. It holds an orbit and
+#     publishes an `FBNetReport` — an anonymous point with its own look age, no identity, no team. It
+#     is NOT wired into a `net` block here: the escorts are `NetMember` rows, but nothing in any source
+#     read says the game's AWACS cued anybody, and wiring one would be inventing doctrine.
+#   MiG-27 / MiG-29 "from the north" [TXT] -> `mig23` + `mig29`, one each.
+#
+# WHY THE VERDICT SITS ON `s6esc1` AND THE KILLS ON `s6esc2`. campaign.md's reading rule: "own kills
+# are irrelevant to the verdict and must not enter it." But an uncovered death ends the run CRASH/exit
+# 2, so somebody has to declare the two interceptors. Split, exactly as in 1.4: `s6esc1` carries FOUR
+# `protect` lines and nothing else, `s6esc2` carries the two `kill`s. The sortie's verdict is
+# `s6esc1`'s UNIT_RESULT, and no kill can reach it.
+#
+# THE FOUR GALAXIES CARRY A ROUTE AND NO `objective` LINE, WHICH IS DELIBERATE. Without objectives the
+# flight plan IS the verdict (doc/missions/verdict.md), so each Mule's own UNIT_RESULT answers exactly
+# campaign.md's condition — "all four alive at their exit waypoint" — without a second mechanism. A
+# Galaxy that dies is a mission catastrophe and shows up as its own FAIL plus `s6esc1`'s violated
+# `protect`, in the same run, from two independent judges.
+#
+# READING RULE (binding). The verdict is `s6esc1`'s UNIT_RESULT.
+#   SUCCESS/exit 0 = all four `protect` met and Escort Lead combat-effective at the end; the four
+#   `mule` UNIT_RESULTs must independently read SUCCESS, and if the two disagree that IS the finding.
+#   `s6esc1` FAIL with a violated `protect` = a Galaxy was lost. Name which one; that is the whole
+#   report of this sortie.
+#   `s6esc2`'s two kills are NOT the verdict under any outcome. An escort that shoots nobody down and
+#   brings four Galaxies home has flown this sortie perfectly.
+#   exit 3 with everything met except a Mule's waypoints = the transports were slow, not shot. Read
+#   `activeWp` in their telemetry before reporting anything.
+
+# MEASURED (exit 3): ALL FOUR GALAXIES HOME, NOBODY SHOT DOWN, AND THE SORTIE IS A SUCCESS.
+#   t = 378.3 / 378.4 / 704.0 / 704.6 s   `s6mul1..4` each `all waypoints reached`
+#   t = 900.0 s         `s6esc1` SUCCESS — four `protect` met, `survive` met
+#                       `s6esc2` TIMEOUT — both `kill` unmet; the two interceptors were never brought
+#                       to a firing solution and both survive
+#   THE EXIT CODE IS 3 AND THE SORTIE PASSED. This is the file the campaign's split-declaration device
+#   exists for: an escort that shoots nobody down and delivers four transports has done its job, and
+#   the only unit whose verdict says so is `s6esc1`.
+#   The two Mule pairs finish 326 s apart — 1/2 at t = 378, 3/4 at t = 704 — because they are declared
+#   2 km abeam each other on the same two waypoints and the outer pair's capture geometry differs. Not
+#   a defect; noted so nobody reads it as one.
+
+unit s6esc1
+  module f16
+  team friendly
+  flight storm6 1
+  spawn 18.58090 99.75041 6000 246.2 480      # 52 km down-corridor, ahead of and above the transports
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 18.39240 99.29976 6000 480               # the Mule waypoint [ORF] 65.3 NM / 246.2 deg from Tyler
+  objective protect unit s6mul1
+  objective protect unit s6mul2
+  objective protect unit s6mul3
+  objective protect unit s6mul4
+  objective survive
+
+unit s6esc2
+  module f16
+  team friendly
+  flight storm6 2
+  spawn 18.59323 99.74467 6000 246.2 480      # 1.5 km across corridor from the escort lead
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 19.47037 99.29976 6000 480               # north, toward where the interceptors come from
+  objective kill unit s6mig1
+  objective kill unit s6mig2
+  objective survive
+
+unit s6mul1
+  module kc135
+  team friendly
+  spawn 18.60990 99.81979 7000 246.2 460      # 60 km short of the Mule waypoint
+  wp 18.39240 99.29976 7000 460
+  wp 18.28364 99.03999 7000 460               # the exit waypoint, 30 km beyond
+
+unit s6mul2
+  module kc135
+  team friendly
+  spawn 18.62634 99.81213 7000 246.2 460      # 2 km abeam
+  wp 18.39240 99.29976 7000 460
+  wp 18.28364 99.03999 7000 460
+
+unit s6mul3
+  module kc135
+  team friendly
+  spawn 18.64278 99.80448 7000 246.2 460      # 4 km abeam
+  wp 18.39240 99.29976 7000 460
+  wp 18.28364 99.03999 7000 460
+
+unit s6mul4
+  module kc135
+  team friendly
+  spawn 18.65922 99.79683 7000 246.2 460      # 6 km abeam
+  wp 18.39240 99.29976 7000 460
+  wp 18.28364 99.03999 7000 460
+
+unit s6awx
+  module e3
+  team friendly
+  spawn 18.66428 99.94990 9000 246.2 240      # behind the package, on station
+  set orbit 60000 900
+  set drag_threat_s 0                         # ordered to hold the orbit: the honest way to say "never runs"
+  wp 18.55553 99.68972 9000 240
+
+unit s6mig1
+  module mig23
+  team hostile
+  spawn 19.47037 99.29976 6000 180.0 450      # 120 km due north of the corridor
+  set gear up
+  set task intercept
+  set brief_gci 180 120 6000
+  set store 1 r24r
+  set store 2 r24r
+  set brief_master_arm arm
+  wp 18.39240 99.29976 6000 450
+  objective survive
+
+unit s6mig2
+  module mig29
+  team hostile
+  spawn 19.47037 99.27117 6000 180.0 450      # 3 km abeam its leader
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 7 r27r
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 18.39240 99.29976 6000 450
+  objective survive

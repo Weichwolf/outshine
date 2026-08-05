@@ -1,0 +1,227 @@
+name c01m03-luckiest-man-in-laos
+timeout 700
+time 1996-03-20T11:00:00Z
+
+# F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.3 OF 8 — "LUCKIEST MAN IN LAOS".
+# Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
+# mods/f22/doc/substitutions.md. The five campaign-wide disclosures: c01m01-snake-eyes.fbm.
+#
+# THE TASK [ORF, verbatim]: "Objective Madison is a bridge over the Mekong River being used by Warlord
+# forces to supply units in Laos." Briefed 35 NM NE; measured 36.1 NM on bearing 60.3 deg — the largest
+# bearing error in the campaign after 1.6 (+15.3 deg against the briefed octant).
+#
+# THE RIVER IS NOT THERE AND THIS FILE DOES NOT PRETEND IT IS (terrain.md 6). The computed target point
+# is 105 km from the nearest documented point of the real Mekong. terrain.md leaves the decision open
+# and names its three options; THE DECISION IS TAKEN HERE AND IT IS THE FIRST ONE: keep the measured
+# point, put the bridge on it, and accept that from the cockpit it will not look like the Mekong. The
+# reason is terrain.md's own ranking — the internal geometry is the only high-confidence thing in the
+# reconstruction, and moving the target to a real river would trade a KNOWN mismatch for a hidden one.
+#
+# THE SPAN COUNT IS NOT SOURCED, AND TWO IS WHAT THE ENGINE CAN SAY. campaign.md's reading rule demands
+# "every span destroyed"; no source read gives a span count (the .ORF loads `CTR`/`CTRMP` and stops).
+# FlightBox has NO multi-span structure and no per-span damage: a bridge is N independent objects or it
+# is one. Two is declared because the strike package is two aircraft and FlightBox gives each striker
+# exactly ONE aim point per pass with no re-attack — a third span could not be attacked at all, so
+# declaring three would build a mission that fails for a reason that is not about bridges.
+# WHAT IS THEREBY NOT MEASURED, named: dropping one span does not weaken its neighbour, and a real
+# bridge's spans are not independent.
+#
+# SUBSTITUTIONS IN THIS FILE
+#   bridge span -> `target_hard` x 2, 200 m apart on an axis 90 deg to the run-in (the axis is [SET];
+#     no source gives the bridge's orientation).
+#   GBU-30 (V)-1 JDAM 1000 -> `mk84`. THIS IS THE SUBSTITUTION THE MISSION FAILS ON, and the three
+#     measurements that decided it are below rather than in a report. The JDAM is GPS-guided, 1 000 lb,
+#     and [MAN p.84-85] "emits nothing, needs no uplink". FlightBox has NO autonomous guided bomb: the
+#     choice is an UNGUIDED 2 000 lb `mk84` (autonomy right, guidance absent) or a semi-active
+#     `gbu12` (guidance right, 500 lb, and it BINDS the shooter to the target, which is the one
+#     property the manual singles out as absent). MEASURED, all three on this file's geometry:
+#       mk84, `set task attack`, 900 m / 450 kt      -> aimErrM 27.55 and 34.77, both spans INTACT
+#       gbu12, `set task attack`, 900 m / 450 kt     -> `missile ILLUMINATION_LOST` at tofS 12.71,
+#                                                       aimErrM 122.43 and 140.50, spans INTACT
+#       gbu12, `set task attack`, 4 000 m / 450 kt   -> ILLUMINATION_LOST at tofS 25.61,
+#                                                       aimErrM 349.01 and 343.80, spans INTACT
+#       gbu12, `set task route` + `set brief_release_s 267`, 4 000 m / 250 kt (the geometry
+#         mods/f16/src/missions/lgb-designate.fbm demonstrates) -> lase HELD, aimErrM 23.83 and 25.28,
+#         spans STILL INTACT
+#     `target_hard` needs ~8 m for a kill. NO DELIVERY THIS TREE OFFERS REACHES IT FROM LEVEL FLIGHT,
+#     which is the same statement mods/f16/src/missions/attack-hardened.fbm leaves in the record. The
+#     file therefore flies the mk84 laydown — the best of the four numbers and the one substitution
+#     whose named error (guidance) is the honest one — and FAILS.
+#   AND THE ENGINE FINDING THAT FELL OUT OF IT, because it is worth more than the mission:
+#     `set task attack` CANNOT DELIVER A LASER-GUIDED WEAPON. The automatic attack phase releases and
+#     turns, the designation breaks in flight, and the miss grows with the time of flight (12.71 s ->
+#     122 m; 25.61 s -> 349 m). The only LGB delivery this tree demonstrates is a hand-computed
+#     briefed release on `set task route`. A MOD CANNOT DECLARE "attack this target with a guided
+#     bomb"; it has to do the shooter's arithmetic itself.
+#   MiG-27 -> `mig23`; MiG-29 -> `mig29` (EXACT, the tree's own module).
+#   AAA -> `zu23`, the optically-laid gun, deliberately and not `zsu23`: this run-in is at 900 m, inside
+#     the gun's 1 500 m ceiling and 2 500 m reach, so unlike sortie 1.2 the AAA here CAN shoot. Its
+#     detection is `sensors/FBVisualSystem`'s own measured behaviour, which at 1800 local with the sun
+#     on the horizon is the campaign's first real test of the visual channel.
+#
+# THE CAP SPAWNS 150 km BEYOND THE BRIDGE, AND THAT IS A CORRECTION THIS FILE RECORDS RATHER THAN
+# HIDES. At the first cut it sat 50 km beyond, and the MEASURED consequence was: the MiG-29's R-27R
+# made `s3esc` combat-ineffective at t = 144.2 s, `FBMissionRunner`'s `FirstFlightKo` ended the run
+# there, and both strikers were still 30 km short of the bridge — the file measured nothing about a
+# bridge at all. The two engagements are now separated in TIME, which is the same repair
+# mods/f16/src/missions/w2-06-escort.fbm records for the same cause: closure 478 m/s over an initial
+# 190 km puts the merge near t = 400 s while the strike releases inside ~175 s.
+#
+# 1800 LOCAL IS DUSK BY CONSTRUCTION, NOT BY ASSERTION. See disclosure D4 in c01m01: the equinox date
+# puts sunset within minutes of 1800 at 19.1 N. The `mission CLOCK` line at t=0 logs the computed sun
+# elevation at the primary actor's spawn point and IS the check — if it does not read close to zero,
+# the date choice is wrong and this comment is wrong with it.
+#
+# READING RULE (binding). The verdict is BOTH strikers' UNIT_RESULT, read together.
+#   SUCCESS/exit 0 requires `s3sp1` AND `s3sp2` destroyed and both strikers alive. One span down is a
+#   MISSION LOSS, not a partial success, and it reads as TIMEOUT/exit 3 with one `kill` unmet.
+#   A SPAN THAT DIES TO A SINGLE HIT IS A DAMAGE-MODEL FINDING, NOT A WIN: `target_hard` needs ~8 m for
+#   a kill and ~15 m to be hurt (modules/ground/FBGroundTarget.h). Read `stores DELIVERY aimErrM` and
+#   the arriving energy, not just the `damage KILL` line — a hard target destroyed at 40 m would mean
+#   the fragility class is not being applied, and that is the thing this sortie can find that no other
+#   can (mods/f16/src/missions/attack-hardened.fbm is the negative half of the same measurement).
+#   `s3esc`'s kills are COVERAGE for the two CAP aircraft, not the mission verdict.
+
+# MEASURED (exit 1): BOTH BOMBS ARRIVE, NEITHER SPAN FALLS, AND THE AAA IS THE ONE THING THAT WORKS.
+#   t = 171.3-177.9 s   `s3aaa` (ZU-23-2, OPTICALLY laid) fires eight bursts, 100 rounds down to 14 —
+#                       at 1800 local with the sun 5.96 deg above the horizon it SEES the pair. This
+#                       is the campaign's only working gun engagement and the only exercise of
+#                       `sensors/FBVisualSystem` in the eight files
+#   t = 172.9 / 173.0 s `aimErrM` 27.5523 and 34.7739, both long (aimLongM +25.69 / +33.28) and both
+#                       ~10 m left. `target_hard` needs ~8 m
+#   t = 408.0 s         `s3two` combat-ineffective to the CAP; run ends t = 408.1
+#   verdict             `s3sp1` and `s3sp2` both INTACT, `still standing`. Mission loss.
+#   THE CAUSE IS THE WEAPON AND IT IS MEASURED FOUR WAYS ABOVE, not the delivery: the CCRP solution
+#   itself is good to 63 m predicted / 28-35 m actual, which is the same figure every level laydown in
+#   this tree produces. A hardened span is a different weapon's problem.
+
+unit s3lead
+  module f16
+  team friendly
+  flight storm3 1
+  spawn 18.95033 100.57010 900 60.3 450       # 40 km short of Madison, low, on the measured run-in
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.12837 100.90028 900 450               # ITS aim point: the northern span
+  wp 19.21738 101.06550 900 450               # egress 20 km beyond
+  objective kill unit s3sp1
+  objective survive
+
+unit s3two
+  module f16
+  team friendly
+  flight storm3 2
+  spawn 18.93863 100.57716 900 60.3 450       # 1.5 km across track from the leader
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.12680 100.90122 900 450               # ITS aim point: the southern span, 200 m along the axis
+  wp 19.21738 101.06550 900 450
+  objective kill unit s3sp2
+  objective survive
+
+unit s3esc
+  module f16
+  team friendly
+  flight storm3 3
+  spawn 18.93000 100.58500 3000 60.3 480      # high cover, offset from the strike pair
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 19.79598 102.14166 3000 480              # toward the CAP
+  objective kill unit s3ful
+  objective kill unit s3flg
+  objective protect unit s3lead
+  objective survive
+
+unit s3ful
+  module mig29
+  team hostile
+  spawn 19.79598 102.14166 4000 240.3 450     # MiG-29, 150 km beyond the bridge — see the header
+  set gear up
+  set fuel_pct 70
+  set n019_mode rad
+  set n019_emission illum
+  set rwr on
+  set store 3 r27r
+  set store 7 r27r
+  set store 5 r73
+  set store 6 r73
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 30
+  set cmds_flare 30
+  set brief_master_arm arm
+  set task intercept
+  wp 18.95033 100.57010 4000 450
+  objective survive
+
+unit s3flg
+  module mig23
+  team hostile
+  spawn 19.77257 102.15585 4000 240.3 450     # MiG-27 stand-in, 3 km abeam the Fulcrum
+  set gear up
+  set task intercept
+  set brief_gci 240 150 3000
+  set store 1 r24r
+  set store 2 r24r
+  set brief_master_arm arm
+  wp 18.95033 100.57010 4000 450
+  objective survive
+
+unit s3sp1
+  module target_hard
+  team hostile
+  spawn 19.12837 100.90028 ground 60.3 0      # Objective Madison, northern span
+
+unit s3sp2
+  module target_hard
+  team hostile
+  spawn 19.12680 100.90122 ground 60.3 0      # southern span, 200 m away
+
+unit s3aaa
+  module zu23
+  team hostile
+  spawn 19.12524 100.90216 ground 60.3 0      # optically laid, 400 m off the bridge
+  set alert ready

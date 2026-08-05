@@ -1,0 +1,187 @@
+name c01m07-aces-low
+timeout 2800
+time 1996-03-23T19:30:00Z
+
+# F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.7 OF 8 — "ACES LOW".
+# Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
+# mods/f22/doc/substitutions.md. The five campaign-wide disclosures: c01m01-snake-eyes.fbm.
+#
+# THE TASK [TXT]: destroy the EF2000 of Flight Group `Epsilon` ON THE GROUND at Chiang Rai before they
+# take off at 0315. Take-off 0230, briefed 70 NM NW; measured 71.2 NM on bearing 335.5 deg [ORF].
+#
+# THIS IS THE ONE SORTIE WHOSE TARGET POINT IS A REAL PLACE AND NOT A RECONSTRUCTION. Chiang Rai is
+# the campaign's single anchor (terrain.md 2.1): the game names it, and FOB Tyler's coordinate is
+# DERIVED FROM IT, not the other way round. The target here is therefore 19.90868 N / 99.82791 E, the
+# city centroid — and terrain.md 5.3 records that the real Chiang Rai International (VTCT) is 7.5 km
+# NE of it. The airfield is NOT snapped to VTCT: re-anchoring is a decision terrain.md leaves open and
+# taking it here would move all eight sorties.
+#
+# SUBSTITUTIONS IN THIS FILE
+#   EF2000 PARKED ON THE RAMP -> `target_soft` x 2, 150 m apart. FlightBox has NO aircraft-on-the-
+#     ground-that-later-takes-off: a `module` with an FDM spawned at zero speed is an aeroplane sitting
+#     still, not a scheduled departure, and there is no way to declare "this unit starts rolling at
+#     t = X". A parked airframe is an unarmoured object, which is what the soft fragility class
+#     describes. WHAT IS THEREBY NOT MEASURED: they cannot escape, so the sortie cannot fail the way
+#     the original could.
+#   EF2000 AIRBORNE CAP -> `f15c` (F-15C). The catalogue has no Eurofighter. `f15c` is its only T4
+#     PEER row that is not Soviet: twin-engine, 8 stations, a gun, and a measured roll plant so it can
+#     fight. The error, named: no supercruise, no canard-delta, no helmet sight; a 160 km APG-63
+#     against a Captor whose reach nothing in the sources gives. It is a peer-class western fighter
+#     standing in for a peer-class western fighter, which is the closest this catalogue gets.
+#   `RDAR_03` -> `p18`. An early-warning antenna with no weapon: it finds and it radiates, and that is
+#     all the .ORF's model name claims.
+#   SA-2 -> `sa2`. EXACT.
+#   GBU-30 JDAM -> `mk84`, the campaign-wide rule (c01m03-luckiest-man-in-laos.fbm).
+#
+# "BEFORE THEY TAKE OFF" IS A DECLARED SPAN, AND IT DOES NOT BIND ON THIS INGRESS — SAID PLAINLY.
+# 0230 to 0315 is 45 min = 2 700 s, and `objective kill unit s7ef1 until 2700` freezes the objective's
+# state at that instant (doc/missions/verdict.md). The ingress is 60 km at 450 kt = 260 s, so the
+# deadline has ~2 440 s of slack and no run that flies this route can miss it. IT IS DECLARED ANYWAY,
+# for two reasons: it is the mission's actual condition and belongs in the file rather than in a
+# comment asking a reader to check a timestamp; and it fails a run that is DIVERTED, which is the only
+# way this sortie can lose the race with the engine as it stands.
+#
+# NIGHT. 0230 local at the equinox is deep night (disclosure D4). The `mission CLOCK` line at t = 0
+# gives the computed sun elevation at the primary actor's spawn and is the check. What that buys and
+# what it does not: the visual channel of `sensors/FBVisualSystem` reads ZERO at night, so the ZU-23
+# class of gun would see nothing here — which is why this sortie's ground defence is a RADAR SAM and
+# a radar, not a gun. Nothing about the renderer is exercised by `fb-gym`.
+#
+# READING RULE (binding). The verdict is `s7lead`'s and `s7two`'s UNIT_RESULT, read together.
+#   SUCCESS/exit 0 = both EF2000 objects destroyed INSIDE the declared window and both strikers alive.
+#   One aircraft destroyed is a MISSION LOSS and reads as TIMEOUT/exit 3 with the unmet `kill` named.
+#   A `kill` that is `state=unmet` while the object's own UNIT_RESULT reads DESTROYED would mean the
+#   kill landed after t = 2 700 — an ENGINE finding about the window, not a mission result. Check the
+#   `damage KILL` timestamp before reporting either way.
+#   Dying to the SA-2 or to the F-15C is a mission loss (exit 1), not a defect.
+#   THE THING THIS FILE CANNOT SAY, and campaign.md asks for it explicitly: whether a kill happened
+#   before or after ROTATION. Nothing rotates. The two cases the original distinguishes collapse into
+#   one here, and no reading of this file's output separates them.
+
+# MEASURED (exit 1): THE SA-2 BELT GETS THE STRIKE 12 km SHORT OF THE FIELD.
+#   t = 0.0 s           `mission CLOCK sunElDeg=-53.181` — deep night, which is the check on D4's date
+#   t = 133.7-177.0 s   six v-750 in two salvoes; magazine empty
+#   t = 199.7 s         `s7lead` combat-ineffective at 3 000 m, 19.800 N / 99.881 E — 12.1 km from the
+#                       ramp. `FirstFlightKo` ends the run at t = 199.8
+#   verdict             `s7lead` FAIL, `s7esc` FAIL (`protect unit s7lead` violated), `s7two` TIMEOUT
+#                       with its `kill ... until 2700` unmet. Both parked Eurofighters INTACT
+#   THIS IS A MISSION LOSS AND NOT A DEFECT, and the reading rule above says so in advance. What it
+#   costs is that the sortie's own subject — the ground kill inside the window — was never reached.
+#   The F-15C 150 km out never entered the fight at all.
+
+unit s7lead
+  module f16
+  team friendly
+  flight storm7 1
+  spawn 19.41822 100.06526 3000 335.5 450     # 60 km down-track of Chiang Rai, above the SA-2's floor
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.90868 99.82791 3000 450               # ITS aim point: the first parked Eurofighter
+  wp 20.07217 99.74863 3000 450               # egress 20 km beyond the field
+  objective kill unit s7ef1 until 2700
+  objective survive
+
+unit s7two
+  module f16
+  team friendly
+  flight storm7 2
+  spawn 19.42381 100.07827 3000 335.5 450     # 1.5 km across track from the leader
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.90868 99.82934 3000 450               # ITS aim point: the second, 150 m east
+  wp 20.07217 99.74863 3000 450
+  objective kill unit s7ef2 until 2700
+  objective survive
+
+unit s7esc
+  module f16
+  team friendly
+  flight storm7 3
+  spawn 19.41000 100.08500 5000 335.5 480     # high cover, behind and above the pair
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 21.13482 99.23126 5000 480               # toward the CAP
+  objective kill unit s7cap
+  objective protect unit s7lead
+  objective survive
+
+unit s7cap
+  module f15c
+  team hostile
+  spawn 21.13482 99.23126 6000 155.5 480      # 150 km beyond the field: the merge is AFTER the strike
+  set gear up
+  set task intercept
+  set brief_gci 155 150 5000
+  set store 1 aim120
+  set store 2 aim120
+  set store 3 aim120
+  set store 4 aim120
+  set brief_master_arm arm
+  wp 19.41822 100.06526 6000 480
+  objective survive
+
+unit s7ef1
+  module target_soft
+  team hostile
+  spawn 19.90868 99.82791 ground 335.5 0      # Flight Group Epsilon, parked
+
+unit s7ef2
+  module target_soft
+  team hostile
+  spawn 19.90868 99.82934 ground 335.5 0      # 150 m east
+
+unit s7sam
+  module sa2
+  team hostile
+  spawn 19.85963 99.85168 ground 335.5 0      # 6 km short of the field, ON the run-in
+  set alert ready
+  set emcon free
+
+unit s7rdr
+  module p18
+  team hostile
+  spawn 19.94138 99.81206 ground 335.5 0      # 4 km beyond the field
+  set emcon free

@@ -1,0 +1,150 @@
+name c01m04-silkworm-jungle
+timeout 700
+time 1996-03-21T01:00:00Z
+
+# F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.4 OF 8 — "SILKWORM JUNGLE".
+# Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
+# mods/f22/doc/substitutions.md. The five campaign-wide disclosures: c01m01-snake-eyes.fbm.
+#
+# THE TASK [TXT]: intercept three An-225 carrying Silkworm missiles out of Kunming. Flight group
+# `Alpha`, briefed 60 NM NNE; measured 56.5 NM on bearing 43.0 deg [ORF] — the campaign's second worst
+# briefing bearing (+20.5 deg off the stated octant).
+#
+# SUBSTITUTIONS IN THIS FILE
+#   An-225 Cossack -> `kc135` (KC-135R), and it is the catalogue's LARGE FOUR-ENGINE JET rather than
+#     its `an26`. What decides against a transport in this tree is span (the eye resolves on presented
+#     extent), speed and ceiling, and on all three the C-135 is the nearer row: span 39.88 m against
+#     the An-225's 88.4 m and the An-26's 29.3 m; cruise 237 m/s against ~222 m/s and 122 m/s. The
+#     error is still large and it runs AGAINST the mission: the substitute is HALF the wingspan, so
+#     visual acquisition happens later than it would against the real aircraft. It is a tanker row
+#     standing in for a freighter; nothing about it carries or drops anything, and the Silkworms it is
+#     supposed to be delivering exist only in the briefing.
+#   MiG-27 escort -> `mig23`, as everywhere in this campaign.
+#
+# "BEFORE THEY LEAVE THE BOX" IS A DECLARED SPAN, AND THAT IS THE ONE THING THIS SORTIE PROVES ABOUT
+# THE FORMAT. campaign.md's reading rule for 1.4 is a verdict against a clock, and `until <s>`
+# (doc/missions/verdict.md, "the seventh thing in the vocabulary") is exactly that: the objective's
+# state is FROZEN at the declared instant. THE NUMBER IS DERIVED, not chosen:
+#   route      alpha point -> bearing 223 deg, 130.0 km, which lands on 18.664 N / 100.185 E — the
+#              SOUTH-WEST CORNER of sortie 1.4's own bounding box (terrain.md 3: min_lat 18.664,
+#              min_lon 100.172). That is what "leaves the box" means, spelled as a waypoint.
+#   speed      `kc135`'s catalogue cruise, 237.0 m/s (core/FBAircraft.h, kKc135)
+#   until      130 000 / 237.0 = 548.5 s -> `until 548`, the last whole second still inside the box.
+# A kill at t = 549 is therefore NOT a kill for this mission's purposes, and the objective says so
+# instead of a header asking a reader to check a timestamp.
+#
+# WHY THE ESCORT'S KILL SITS ON THE WINGMAN. campaign.md: "the MiG-27 escort is a target of
+# opportunity and killing it proves nothing". But an aircraft that dies without being anybody's
+# declared objective ends the run CRASH/exit 2 (doc/missions/verdict.md, the combination rule), which
+# would make an irrelevant kill decide the mission. The declaration is therefore SPLIT: `s4lead`
+# carries the three transports and nothing else, `s4two` carries the escort. The escort's death is
+# then covered — the run stays legible — and it cannot enter the sortie's verdict, because the
+# sortie's verdict is `s4lead`'s UNIT_RESULT. This device is used in 1.4, 1.6 and 1.8.
+#
+# READING RULE (binding). The verdict is `s4lead`'s UNIT_RESULT.
+#   SUCCESS/exit 0 = all three `until 548` kills met and Storm Leader combat-effective at the end.
+#   Two of three is a MISSION LOSS and reads as TIMEOUT/exit 3 with the unmet kill named in the
+#   `mission OBJECTIVE` vector — the transport that got through is the one to report.
+#   `s4two`'s result is NOT the mission's under any outcome, and a run in which the escort survives
+#   while all three transports die is a full success of this sortie.
+#   exit 2 = a HOSTILE aircraft died that nobody declared, or an airframe departed controlled flight
+#   with nobody having shot it. It is an ENGINE finding either way. It is NOT what a friendly loss
+#   looks like: a friendly with `survive` fails DECISIVELY, which ends the run before its wreck can
+#   reach the ground, and that reads exit 1 (measured four times over in this campaign).
+
+# MEASURED (exit 0): ALL THREE, AND WELL INSIDE THE WINDOW.
+#   t = 95.2 / 95.4 s   `s4an1` and `s4an2` combat-ineffective
+#   t = 242.0 s         `s4an3`; t = 243.7 s the escort
+#   verdict             `s4lead` SUCCESS, all three `until 548` kills met with 306 s to spare;
+#                       `s4two` SUCCESS. Run ends t = 329.3 s
+#   THE WINDOW DID NOT BIND on this run and was not meant to. What it does is make the condition
+#   machine-checkable: a kill at t = 549 would have read `state=unmet` with the object DESTROYED.
+
+unit s4lead
+  module f16
+  team friendly
+  flight storm4 1
+  spawn 19.15691 100.67021 8000 43.0 480      # 55 km down-track of the Alpha point, at their altitude
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 19.51825 101.02731 8000 480              # the Alpha point [ORF] 56.5 NM / 43.0 deg from Tyler
+  objective kill unit s4an1 until 548
+  objective kill unit s4an2 until 548
+  objective kill unit s4an3 until 548
+  objective survive
+
+unit s4two
+  module f16
+  team friendly
+  flight storm4 2
+  spawn 19.14772 100.68064 8000 43.0 480      # 1.5 km across track from the leader
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 19.51825 101.02731 8000 480
+  objective kill unit s4esc
+  objective survive
+
+unit s4an1
+  module kc135
+  team hostile
+  spawn 19.51825 101.02731 8000 223.0 460     # AT the Alpha point, outbound on 223 deg
+  wp 18.66418 100.18452 8000 460              # the box's south-west corner, 130.0 km away
+
+unit s4an2
+  module kc135
+  team hostile
+  spawn 19.53051 101.01337 8000 223.0 460     # 2 km abeam
+  wp 18.66418 100.18452 8000 460
+
+unit s4an3
+  module kc135
+  team hostile
+  spawn 19.54276 100.99943 8000 223.0 460     # 4 km abeam
+  wp 18.66418 100.18452 8000 460
+
+unit s4esc
+  module mig23
+  team hostile
+  spawn 19.55767 101.06632 8000 223.0 450     # 6 km behind the transports, same track
+  set gear up
+  set task intercept
+  set brief_gci 223 60 8000
+  set store 1 r24r
+  set store 2 r24r
+  set brief_master_arm arm
+  wp 18.66418 100.18452 8000 450
+  objective survive

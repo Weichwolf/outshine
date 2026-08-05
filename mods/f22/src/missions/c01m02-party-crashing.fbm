@@ -1,0 +1,148 @@
+name c01m02-party-crashing
+timeout 700
+time 1996-03-20T08:00:00Z
+
+# F-22 LIGHTNING II (NovaLogic 1996), CAMPAIGN ONE, SORTIE 1.2 OF 8 — "PARTY CRASHING".
+# Spec: mods/f22/doc/campaign.md 2. Geometry: mods/f22/doc/terrain.md 3. Substitutions:
+# mods/f22/doc/substitutions.md. THE FIVE CAMPAIGN-WIDE DISCLOSURES (no F-22, 60/60 instead of
+# 100/100, flat 0 m ground, [SET] date + [DERIV] clock, unproven north) are stated in full in
+# c01m01-snake-eyes.fbm and are NOT repeated here.
+#
+# THE TASK [TXT]: bomb the assembly house at Objective Talbot, briefed 45 NM NE, measured 45.6 NM on
+# bearing 39.4 deg [ORF]. Chang is in session with his generals.
+#
+# OBJECTIVE TALBOT IS TWO DIFFERENT PLACES AND THIS FILE TAKES THE NEAR ONE (campaign.md 6). The game
+# issues the codename twice — an assembly house at 45.6 NM/39.4 deg here, a command centre at
+# 87.0 NM/17.6 deg in sortie 1.8, 88.3 km apart. Kept as found: this is Talbot-the-house, 1.8 is
+# Talbot-the-command-centre, and the two are not merged.
+#
+# SUBSTITUTIONS IN THIS FILE
+#   assembly house -> `target_soft`. An unhardened building is exactly the fragility class the
+#     catalogue's soft row describes (a Mk-84 near miss finishes it out to tens of metres).
+#   MiG-27 CAP -> `mig23`, as in 1.1 and for the reason given there.
+#   SA-2 -> `sa2`. EXACT: the S-75 is in the site catalogue with its own envelope, and this is the
+#     first of the three campaign-one SAM missions (1.2, 1.7, 1.8) [ORF].
+#   AAA (unspecified in the .ORF beyond `ARTEMIS`/`VTNM_04`) -> `zsu23`.
+#   "unspecified count of SAM sites" [TXT] -> ONE. The .ORF loads one `SA2` model and the count is not
+#     in any source read; inventing a belt would be inventing the mission.
+#
+# WHY THE RUN-IN IS AT 3 000 m AND THAT IS THE MISSION'S ONE REAL DECISION. The S-75's engagement floor
+# in this tree is 450 m and its minimum range 8 km (`core/FBSite.h`, kSa2). A laydown at 240 m — which
+# is what every W2 strike in mods/f16 flies — would pass UNDER the SA-2 and the file's own reading rule
+# ("an SA-2 that never launches is an engine defect") could never be tested, because a silent launcher
+# would then be correct behaviour. 3 000 m puts the package inside the envelope on purpose.
+# THE PRICE IS THE AAA: the ZSU-23-4's ceiling is 1 500 m, so at 3 000 m it is present and silent BY
+# GEOMETRY. That is a consequence of the declared altitude, not an omission, and it is why the AAA is
+# in the file at all — a gun that cannot reach is a measurement, an absent gun is a gap.
+#
+# READING RULE (binding). The verdict is `s2lead`'s UNIT_RESULT.
+#   SUCCESS/exit 0 = `s2hous` reads destroyed and Storm Leader is combat-effective at the end.
+#   Dying to the SA-2 on ingress or egress is a MISSION LOSS (exit 1 on s2lead), not an engine defect.
+#   AN SA-2 THAT NEVER LAUNCHES IS AN ENGINE DEFECT AND MUST BE READ AS ONE — the check is mechanical:
+#   `events.log` must carry `site` lines for `s2sam` (acquisition, then a release). If the package
+#   flies through 8-30 km slant range inside 450-25 000 m of altitude and the launcher stays silent,
+#   report that, do not re-read it as a good outcome.
+#   `s2esc`'s `kill unit s2mig` is COVERAGE, not the mission: without it the MiG's death would be
+#   nobody's declared objective and the run would end CRASH/exit 2 on a kill the mission wanted.
+#   exit 2 = a HOSTILE aircraft died that nobody declared, or an airframe departed controlled flight
+#   with nobody having shot it. It is an ENGINE finding either way. It is NOT what a friendly loss
+#   looks like: a friendly with `survive` fails DECISIVELY, which ends the run before its wreck can
+#   reach the ground, and that reads exit 1 (measured four times over in this campaign).
+
+# MEASURED (exit 3): THE HOUSE FALLS AND THE SA-2 SHOOTS. The sortie succeeds by its own reading rule.
+#   t = 77.3 s          `s2sam` SEARCH -> TRACK, firm track at 29 946 m inside the envelope
+#   t = 108.2-151.5 s   SIX v-750 away in two salvoes of three; magazine empty, `site DEPLETED`,
+#                       GO_DARK, then RADIATE again on `emcon free`. ALL SIX MISS — every one ends
+#                       `monitor KO reason=CFIT` between t = 173.6 and 207.3. The launcher is NOT
+#                       silent, which is what the reading rule demanded be checked
+#   t = 234.8 s         `s2lead` releases one mk84, CCRP, predicted miss 44.7 m
+#   t = 261.1 s         `aimErrM` 37.22 -> `damage KILL unit=s2hous reason="structure destroyed"`
+#   verdict             `s2lead` SUCCESS. `s2esc` TIMEOUT (`kill unit s2mig` unmet — the MiG shot both
+#                       its R-24R at t = 213/226 and lived), which is what makes the exit code 3
+#   `s2aaa` never fires, as the header predicted: 3 000 m is twice the ZSU-23-4's ceiling.
+
+unit s2lead
+  module f16
+  team friendly
+  flight storm2 1
+  spawn 19.00053 100.49597 3000 39.4 450      # 60 km short of Talbot, on the measured run-in bearing
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off                            # a striker does not radiate
+  set rwr on
+  set store 3 mk84
+  set store 7 mk84
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.41702 100.85826 3000 450              # THE AIM POINT: the assembly house
+  wp 19.59056 101.00948 3000 450              # egress 25 km beyond, straight through
+  objective kill unit s2hous
+  objective survive
+
+unit s2esc
+  module f16
+  team friendly
+  flight storm2 2
+  spawn 18.99198 100.50699 3000 39.4 450      # 1.5 km across track from the striker
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode crm
+  set fcr_range_nm 40
+  set rwr on
+  set store 1 aim9
+  set store 2 aim120
+  set store 3 aim120
+  set store 7 aim120
+  set store 8 aim120
+  set store 9 aim9
+  set gun_rounds 480
+  set cmds_mode auto
+  set cmds_program 1
+  set cmds_chaff 60
+  set cmds_flare 60
+  set brief_master_arm arm
+  set task intercept
+  wp 19.72939 101.13057 3000 480              # toward the CAP's scramble point, i.e. into the threat
+  objective kill unit s2mig
+  objective protect unit s2lead
+  objective survive
+
+unit s2mig
+  module mig23
+  team hostile
+  spawn 19.72939 101.13057 4000 219.4 450     # 45 km beyond the house, inbound down the raid's track
+  set gear up
+  set task intercept
+  set brief_gci 219 45 3000
+  set store 1 r24r
+  set store 2 r24r
+  set brief_master_arm arm
+  wp 19.00053 100.49597 4000 450
+  objective survive
+
+unit s2hous
+  module target_soft
+  team hostile
+  spawn 19.41702 100.85826 ground 39.4 0      # Objective Talbot, the assembly house
+
+unit s2sam
+  module sa2
+  team hostile
+  spawn 19.33372 100.78573 ground 39.4 0      # 12 km short of the house, ON the run-in
+  set alert ready
+  set emcon free
+
+unit s2aaa
+  module zsu23
+  team hostile
+  spawn 19.41531 100.86046 ground 39.4 0      # 300 m from the house; ceiling 1 500 m, see the header
+  set alert ready
+  set emcon free

@@ -1,0 +1,46 @@
+name c01-mekong
+carry units ground stores
+stop_on never
+
+# F-22 LIGHTNING II (NovaLogic 1996) — CAMPAIGN ONE: "GAMBLING ON THE MEKONG", ALL EIGHT SORTIES.
+# Spec: mods/f22/doc/campaign.md. Format: doc/missions/campaign.md.
+#
+# NO `time` LINE, AND THAT IS DELIBERATE. A campaign clock applies to every mission that declares none
+# of its own; all eight of these declare their own, because the campaign spans SIX DAYS and a `.fbc`
+# clock does not advance by mission duration (campaign.md 6). One instant for the whole campaign would
+# put the two night sorties in daylight.
+#
+# `stop_on never`, because attrition is the point: campaign.md's own reading rules make five of the
+# eight losable, and stopping at the first loss deletes the arc.
+#
+# `carry units ground stores` is the default and is written out so the file says what it does. WHAT IT
+# CANNOT CARRY, named: the mission order is the .ORF filename order and NOTHING READ SAYS THE CAMPAIGN
+# BRANCHES (campaign.md Gaps). Whether failing 1.3 changes what 1.4 is, is unknown; this file assumes
+# it does not.
+#
+# THE CALLSIGNS ARE PAIRWISE DISJOINT ACROSS ALL EIGHT FILES (`s1*` … `s8*`), which is what makes the
+# carry legible: a unit destroyed in sortie 3 can never be confused with a unit of sortie 4.
+#
+# READING RULE (binding). THE CAMPAIGN'S EXIT CODE IS THE WORST MISSION'S AND IS THEREFORE NOT THE
+# CAMPAIGN'S VERDICT. Each `.fbm` carries its own reading rule and names the ONE unit whose
+# UNIT_RESULT decides it; read the eight of them, in order, out of `campaign MISSION_RESULT` plus each
+# step's own `mission RESULT unit=<the named unit>`. Measured standalone at the time of writing:
+#   1.1 exit 3   one of two Floggers down                                   MISSION LOSS
+#   1.2 exit 3   assembly house destroyed, `s2lead` SUCCESS                 SORTIE SUCCESS
+#   1.3 exit 1   both bombs delivered, neither span falls                   MISSION LOSS (weapon)
+#   1.4 exit 0   all three transports inside the declared window            SORTIE SUCCESS
+#   1.5 exit 1   both boats destroyed, Storm Leader shot                    MISSION LOSS (air fight)
+#   1.6 exit 3   all four Galaxies home, `s6esc1` SUCCESS                   SORTIE SUCCESS
+#   1.7 exit 1   SA-2 kills the strike 12 km short                          MISSION LOSS
+#   1.8 exit 1   SA-2 kills the sweep, run ends before the release          NOT MEASURABLE — see file
+# Three of eight fly their own condition. The eighth cannot be measured at all with today's engine and
+# says so in its own header; that is the campaign's most valuable line.
+
+mission ../missions/c01m01-snake-eyes.fbm
+mission ../missions/c01m02-party-crashing.fbm
+mission ../missions/c01m03-luckiest-man-in-laos.fbm
+mission ../missions/c01m04-silkworm-jungle.fbm
+mission ../missions/c01m05-double-down.fbm
+mission ../missions/c01m06-four-of-a-kind.fbm
+mission ../missions/c01m07-aces-low.fbm
+mission ../missions/c01m08-black-mariah.fbm

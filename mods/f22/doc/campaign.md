@@ -237,11 +237,55 @@ declared today:
 
 ## State
 
-**Nothing.** No `mods/` loader, no `mod.json`, no `.fbm`, no unit declarations, no F-22 flight model.
-This directory contains four documents and no runnable artefact.
+**All eight sorties are built and run.** `mod.json` + `src/missions/c01m0{1..8}-*.fbm` +
+`src/campaigns/c01-mekong.fbc`; every substitution and its measured cost is in
+[`substitutions.md`](substitutions.md). There is still no F-22 flight model and none was invented —
+Storm Squadron flies `module f16`, and the whole substitution table is that document.
+
+`fb-gym --mod mods/f22 --mission <name>`, measured, each read by **its own file's** reading rule and
+not by the exit code:
+
+| # | File | Exit | Read as | What decided it |
+|---|---|---:|---|---|
+| 1.1 | `c01m01-snake-eyes` | 3 | **loss** | 1 of 2 Floggers down after ten AIM-120 |
+| 1.2 | `c01m02-party-crashing` | 3 | **success** | assembly house destroyed (`aimErrM` 37.2); the SA-2 fired all six and missed |
+| 1.3 | `c01m03-luckiest-man-in-laos` | 1 | **loss** | both bombs arrive at 27.6 / 34.8 m; a `target_hard` span needs ~8 m |
+| 1.4 | `c01m04-silkworm-jungle` | 0 | **success** | all three transports inside `until 548` |
+| 1.5 | `c01m05-double-down` | 1 | **loss** | both boats destroyed, Storm Leader shot by the MiG-29 pair |
+| 1.6 | `c01m06-four-of-a-kind` | 3 | **success** | four Galaxies home, four `protect` met, zero kills |
+| 1.7 | `c01m07-aces-low` | 1 | **loss** | the SA-2 belt kills the strike 12.1 km short of the ramp |
+| 1.8 | `c01m08-black-mariah` | 1 | **not measurable** | the sweep absorbs the SA-2 magazine and its loss ends the run 210 s before the strike would release |
+
+Determinism: telemetry byte-identical over `--threads 1/2/4` for all eight, `events.log` identical
+modulo `wallS`/`speedup`/the output path.
+
+**Three of eight fly their own success condition. §3's reading rules are all satisfiable except
+1.7's rotation clause and 1.8's escort verdict** — see `## Gaps`.
 
 ## Gaps
 
+- **§11's table is wrong on one row and it was wrong when it was written.** "Escort verdict on a third
+  party's survival" is declarable: `objective protect unit <callsign>` has existed since round `C12`
+  ([`doc/missions/verdict.md`](../../../doc/missions/verdict.md)) and sorties 1.5, 1.6 and 1.8 use it.
+  1.6 measures it green — four `protect` met, zero kills. The rest of §11 stands.
+- **§11's "kill-before-takeoff" row is half wrong too.** `objective ... until <s>` declares the clock
+  (used in 1.4 and 1.7). What is NOT declarable is the enemy owning it: nothing schedules a take-off,
+  so 1.7's parked Eurofighters never roll and **§3's requirement that the telemetry separate a kill
+  before rotation from one after it cannot be met at all**.
+- **Sortie 1.8 cannot measure its own subject, and this is the round's most valuable finding.** The run
+  ends at the first decisive failure and at the first physical K.O., so a package mission in which any
+  member dies first is truncated before the thing it exists to measure. Measured: the escort absorbing
+  an S-75 magazine at t = 123–167 s ends the run at t = 182.7 s with the strike 55 km short. No
+  declaration available today avoids it.
+- **`set task attack` cannot deliver a guided bomb.** Four measured deliveries in
+  [`substitutions.md`](substitutions.md) §6.1: the automatic attack phase releases and turns, the laser
+  designation breaks in flight, and the miss grows with the time of flight (12.7 s → 122 m; 25.6 s →
+  349 m). A mod has to compute the release instant itself.
+- **No air-to-ground delivery in this tree kills a `target_hard` from level flight.** Best of four
+  attempts: 23.8 m against a ~8 m radius. Sortie 1.3 is red for that reason and no other.
+- **Every combat outcome above is ONE run of ONE geometry.** `doc/doctrine-evolution.md` exists because
+  single runs of combat missions flip on a spawn grid; the delivery numbers (nothing shoots before the
+  release) are the trustworthy ones and the air-to-air verdicts are not.
 - **The `.ORF` measurements are second-hand.** `RESOURCE.RES` was not fetched or parsed in this run.
   Everything tagged `[ORF]` rests on the source research's parse. Its arithmetic reproduces exactly
   (§5, and [`terrain.md`](terrain.md) §2), which tests consistency — **not** that the bytes were read

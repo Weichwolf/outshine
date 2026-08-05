@@ -273,11 +273,33 @@ accident inside a `.fbm`.**
 
 ## State
 
-**Nothing.** No terrain declaration, no tile fetch for this box, no `.fbm`. The tileserver has never
-been asked for these coordinates.
+**All eight target points of §3 are flown**, in `../src/missions/`. §2.4's arithmetic was re-derived a
+third time when the files were written and reproduces to ±0.00001° — e.g. §3's Chiang Rai row
+(19.909 N / 99.828 E) comes out as 19.90868 / 99.82791 from the offsets alone.
+
+**The tileserver has still never been asked for these coordinates.** Every sortie runs under
+`--elev const` on a **flat 0 m plane**: no `.fbm` declares a `runway`, `../src/data/` carries no baked
+DEM, so `fb-gym`'s elevation default is `const` and `FBRunwayPlateauElevation` with no runway answers
+0 m everywhere. That is disclosure **D3** of `../src/missions/c01m01-snake-eyes.fbm` and it is the
+single largest thing separating these files from the real region.
+
+Three decisions §5–§6 left open are TAKEN in the files, each in the header of the sortie that takes it:
+
+| Left open by | Taken as | Where |
+|---|---|---|
+| §6, the bridge and the Mekong | keep the measured point, put a fictional bridge on it | `c01m03-luckiest-man-in-laos.fbm` |
+| §6, the boats and the Mekong | keep the measured point; there is no ship module, so a stationary `target_soft` | `c01m05-double-down.fbm` |
+| §5.3, re-anchoring on VTCT instead of the Chiang Rai centroid | **not** taken; the target stays on the centroid, 7.5 km from the real field | `c01m07-aces-low.fbm` |
 
 ## Gaps
 
+- **The box was never fetched from `fb-tiles` and every altitude in the eight `.fbm` files is ASL over
+  a plane that does not exist.** The real ground is 300–2 000 m by §5.4.4, from a description; the one
+  verified datum inside the box is VTCN at 209 m. Running the campaign with `--elev tiles` is the first
+  thing that would change every number in it — and would, on this terrain, put several run-ins
+  underground exactly as `mods/f16`'s W2 records for its own 30 m variant.
+- **No terrain masking is in play anywhere**, so every detection range and every SAM engagement in the
+  eight sorties is an UPPER bound.
 - **The north assumption is unproven** and everything in §3 hangs from it. Support is eight bearings
   landing in the right compass octant (mean +9.2°), which is consistent with a rotation of up to about
   ±20° — the octant test simply cannot resolve better. If the map is rotated, every target point swings
@@ -300,5 +322,5 @@ been asked for these coordinates.
   hold the heightfield, the previous gap closes.
 - **No elevation was checked at any target point.** An objective may land on a 1,500 m ridge.
 - **Country borders never consulted**, so §5.4.3 stands open.
-- **The box was never fetched from `fb-tiles`.** Whether DEM, OSM and imagery coverage over northern
-  Laos is adequate at this scale is unmeasured.
+- **Whether `fb-tiles` even covers this box adequately is unmeasured** — DEM, OSM and imagery over
+  northern Laos at this scale. Unanswered because nothing has fetched it (bullet 1).
