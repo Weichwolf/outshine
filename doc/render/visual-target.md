@@ -284,21 +284,21 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
 - **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
   minutes of continuous rendering is unmeasured, and Twitch means continuous by definition. Every frame
   budget here rests on it.
-- **Building extrusion and roofs are blocked by the tile server's zoom, not by missing data** — measured
-  2026-08-06 against a running `fb-tiles`:
+- **OSM buildings ARE available for every theatre — the work is extrusion, not acquisition.** Measured
+  2026-08-06 against a running `fb-tiles`, `/t/vector/z/x/y`:
 
-  | | `/t/vector/z/x/y` |
-  |---|---|
-  | z13 Payerne (control) | 14 314 B — `streets` `land` `water` |
-  | z13 Sindh (Armored Fist) | **37 172 B**, *more* than the control |
-  | **z15, z16, anywhere** | **14 B = `no such route`** |
+  | | z13 | **z14** |
+  |---|---|---|
+  | Payerne (control) | 14 314 B — `streets` `land` `water` | **15 410 B — `buildings` `streets` `land` `water` `street_polygons`** |
+  | Sindh (Armored Fist) | 37 172 B, no buildings | **32 711 B — `buildings` `streets`** |
+  | z15 / z16 anywhere | — | `no such route` (`FB_TILE_VECTOR.maxz = 14`) |
 
-  So OSM data is present for the foreign theatres; the endpoint serves **z13 only**, and at z13 the
-  upstream source carries no `buildings` layer. `tiles/src/raster.c` and `lights.c` both read a
-  `buildings` layer, so the pipeline can carry it — it never arrives. **Extrusion needs a zoom the server
-  does not serve**, and that is one route, not a data acquisition.
+  z13 carries no `buildings` layer; **z14 does, everywhere**, and `tiles/src/raster.c` and `lights.c`
+  already read it. Nothing is missing but the extrusion itself.
 
-  Two cold-cache traps corrected while measuring: a first request returns 9 B and the second the real
-  tile (same behaviour the DEM has), and an earlier note in this tree read „northern Thailand has no OSM
-  objects" off exactly that artefact.
+  **Two cold-cache traps, and this file recorded the wrong conclusion off each of them before the
+  measurement was finished:** a first request returns 9 B and a later one the real tile — the same
+  behaviour the DEM has. An earlier note read „northern Thailand has no OSM objects" off that artefact,
+  and a revision of this very entry called z14 a blocker without having tested z14. **Fetch twice, then
+  conclude.**
 - **Foliage** is named in the goal and absent from the tree.
