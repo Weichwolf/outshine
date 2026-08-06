@@ -1,0 +1,250 @@
+name c01m06-war-hammer
+timeout 900
+time 1994-10-07T06:00:00Z
+
+# ARMORED FIST (NovaLogic 1994), CAMPAIGN ONE "OVERWATCH", MISSION 6 OF 7 — `INDIA6`, WAR HAMMER.
+# THE SEVEN DISCLOSURES D1-D7 are stated in full in c01m01-slaughterzone.fbm and apply here unchanged.
+#
+# THE TASK [FSW]: neutralise the enemy IN-FIELD REFUEL DEPOT. Course 224 SSW for Echo 1, with ECHO 2 ON
+# 211 AND ECHO 3 ON 258 — the only mission in Overwatch whose briefing states a separate course per
+# platoon, and this file flies all three. Time limit 15 min [FSG].
+#
+# ENVELOPED FROM THE OUTSET, AND THE ENVELOPMENT DOES NOTHING. [GUIDE p.68] has Bandits 1-3 converging
+# from left, right and front, which is why they are laid at 134, 314 and 224 degrees from the depot.
+# Being enveloped costs blue exactly nothing here: red has no sensor and no weapon (D2). The whole
+# tactical proposition of this mission — three axes of fire on a company in the open — has no
+# representation at all. That is the clearest single statement in this campaign of what a ground title
+# needs and this engine has not got.
+#
+# THE APACHE IS DECLARED AND IT IS INERT. [GUIDE p.70] uses the AH-64 here as a reconnaissance platform
+# because "the CCV shows what the pilot sees". The catalogue HAS an `ah64` row and it is a KINEMATIC
+# MOVER: no flight model, no stations, no gun, no fire control, and its `radar_az_half_deg 0` says it
+# carries no radar in this tree. So it transits, it is visible, and it reports nothing to anybody —
+# there is no reconnaissance channel from a mover to another unit's picture. It is declared because the
+# gap is worth having in the telemetry rather than out of it.
+#
+# WHAT THIS FILE DECLARES
+#   Blue [GUIDE p.68]: Echo 1 = 2 M1A2 + 1 M3, Echo 2 = 2 M1A2, Echo 3 = 1 M1A2 + 1 M3. SEVEN vehicles.
+#     TWO CELLS OF THAT TABLE ARE UNREADABLE and campaign.md marks them `?`: Echo 2's M3 count and
+#     whether Echo 3 is "1 M1, 1 M3". Echo 2 is declared at its unambiguous 2 M1A2 and no M3; Echo 3 is
+#     declared as printed. Both readings are stated here so a re-read of the guide can correct them.
+#   Red  [GUIDE p.68]: Bandit 1 (3 T-80, 1 BMP), Bandit 2 (4 T-80, 1 BMP), Bandit 3 (3 T-80, 2 BMP),
+#   Bandit 4 (1 T-80). Plus the refuel depot and the fuel/propane tanks [GUIDE p.68-71].
+#   Goals: the DEPOT and the TANKS. The [FSW] task names the depot alone; the tanks are the guide's own
+#   naming of what is in it, they carry no count, and each is declared ONCE (understated).
+#
+# ECHO 3'S LOSS IS EXPECTED AND UNJUDGED. campaign.md §6: "loss of Echo-3's M1 is expected and does not
+# fail the run". Nothing here can shoot it (D2), so the clause has no object — the same shape as
+# mission 3's Echo-2 clause.
+#
+# READING RULE (binding). The verdict is `m6e1a`'s UNIT_RESULT and nothing else.
+#   SUCCESS/exit 0 requires the refuel depot AND the fuel/propane tanks destroyed inside 900 s. Both
+#   are `target_soft` and both lie under one canister's footprint, so this mission is winnable and a
+#   failure to win it is a delivery finding, not an arithmetic one.
+#   The other six passes are measurements, not conditions: four canisters on Bandits 1-4 and two Mk 84
+#   at Bandit 1's and Bandit 2's lead T-80 (doctrine b). Report the split and the two `aimErrM`.
+#   exit 1 on a blue unit is an ENGINE finding, not a mission loss (D2).
+
+unit m6e1a
+  module f16
+  team friendly
+  flight echo1 1
+  spawn 25.22417 68.13963 970 224.0 450       # 40 km short of the depot on Echo 1's [FSW] course 224
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 cbu87
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.96490 67.86430 970 450                # AIM POINT: the in-field refuel depot
+  wp 24.80286 67.69222 1570 450               # egress 25 km down Echo 1's axis
+  objective kill unit m6depot
+  objective kill unit m6tanks
+  objective survive
+
+unit m6e1b
+  module f16
+  team friendly
+  flight echo1 2
+  spawn 25.23356 68.12892 970 224.0 450
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 cbu87
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.95238 67.87856 970 450                # AIM POINT: Bandit 1, converging from the left
+  wp 24.80286 67.69222 1570 450
+  objective survive
+
+unit m6e1c
+  module f16
+  team friendly
+  flight echo1 3
+  spawn 25.24295 68.11820 990 224.0 450
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 cbu87
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.97742 67.85004 990 450                # AIM POINT: Bandit 2, converging from the right
+  wp 24.80286 67.69222 1590 450
+  objective survive
+
+unit m6e2a
+  module f16
+  team friendly
+  flight echo2 1
+  spawn 25.27384 68.06844 960 211.0 450       # Echo 2's own [FSW] course, 211
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 cbu87
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.95194 67.85053 960 450                # AIM POINT: Bandit 3, converging from the front
+  wp 24.77181 67.73671 1560 450               # egress 25 km down Echo 2's axis
+  objective survive
+
+unit m6e2b
+  module f16
+  team friendly
+  flight echo2 2
+  spawn 25.28081 68.05567 970 211.0 450
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84                            # doctrine (b)
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.95186 67.87914 970 450                # AIM POINT: Bandit 1's lead T-80, a point target
+  wp 24.77181 67.73671 1570 450
+  objective survive
+
+unit m6e3a
+  module f16
+  team friendly
+  flight echo3 1
+  spawn 25.03984 68.25200 970 258.0 450       # Echo 3's own [FSW] course, 258
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 cbu87
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.97786 67.87807 970 450                # AIM POINT: Bandit 4, the single T-80 in the rear
+  wp 24.91806 67.62199 1570 450               # egress 25 km down Echo 3's axis
+  objective survive
+
+unit m6e3b
+  module f16
+  team friendly
+  flight echo3 2
+  spawn 25.05306 68.24890 990 258.0 450
+  set gear up
+  set fuel_int_pct 100
+  set fcr_mode off
+  set rwr on
+  set store 3 mk84                            # doctrine (b)
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 24.97673 67.85083 990 450                # AIM POINT: Bandit 2's lead T-80, a point target
+  wp 24.91806 67.62199 1590 450
+  objective survive
+
+# ---- THE CALLABLE AIR SUPPORT [GUIDE p.70]: an `ah64` mover, 300 m over its ground, transiting the
+# ---- objective. It carries nothing and reports to nobody.
+unit m6apache
+  module ah64
+  team friendly
+  spawn 25.06213 67.96755 350 224.0 140
+  wp 24.99083 67.89183 350 140
+
+# ---- THE OBJECTIVE AREA
+unit m6depot
+  module target_soft
+  team hostile
+  spawn 24.96490 67.86430 ground 224.0 0
+unit m6tanks
+  module target_soft
+  team hostile
+  spawn 24.96393 67.86327 ground 224.0 0      # 150 m down-axis: the fuel and propane tanks
+
+# ---- BANDIT 1 [GUIDE p.68]: 3 T-80, 1 BMP — from the LEFT
+unit m6b1v1
+  module target_hard
+  team hostile
+  spawn 24.95201 67.87898 ground 224.0 0
+unit m6b1v2
+  module target_soft
+  team hostile
+  spawn 24.95226 67.87870 ground 224.0 0
+unit m6b1v3
+  module target_hard
+  team hostile
+  spawn 24.95251 67.87841 ground 224.0 0
+unit m6b1v4
+  module target_hard
+  team hostile
+  spawn 24.95276 67.87813 ground 224.0 0
+# ---- BANDIT 2 [GUIDE p.68]: 4 T-80, 1 BMP — from the RIGHT
+unit m6b2v1
+  module target_hard
+  team hostile
+  spawn 24.97692 67.85061 ground 224.0 0
+unit m6b2v2
+  module target_soft
+  team hostile
+  spawn 24.97717 67.85033 ground 224.0 0
+unit m6b2v3
+  module target_hard
+  team hostile
+  spawn 24.97742 67.85004 ground 224.0 0
+unit m6b2v4
+  module target_hard
+  team hostile
+  spawn 24.97767 67.84976 ground 224.0 0
+unit m6b2v5
+  module target_hard
+  team hostile
+  spawn 24.97792 67.84947 ground 224.0 0
+# ---- BANDIT 3 [GUIDE p.68]: 3 T-80, 2 BMP — from the FRONT
+unit m6b3v1
+  module target_hard
+  team hostile
+  spawn 24.95144 67.85110 ground 224.0 0
+unit m6b3v2
+  module target_soft
+  team hostile
+  spawn 24.95169 67.85082 ground 224.0 0
+unit m6b3v3
+  module target_hard
+  team hostile
+  spawn 24.95194 67.85053 ground 224.0 0
+unit m6b3v4
+  module target_soft
+  team hostile
+  spawn 24.95219 67.85025 ground 224.0 0
+unit m6b3v5
+  module target_hard
+  team hostile
+  spawn 24.95244 67.84996 ground 224.0 0
+# ---- BANDIT 4 [GUIDE p.68]: 1 T-80
+unit m6b4v1
+  module target_hard
+  team hostile
+  spawn 24.97786 67.87807 ground 224.0 0

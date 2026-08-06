@@ -259,14 +259,30 @@ Six of seven agree, one does not. **Hypothesis, not a finding**; the counterexam
 
 ## State
 
-Nothing built. No `.fbm`, no tile fetch, no terrain profile for this box.
+**Built and flown.** `src/data/sindh-dem-90m.bin` is the union box of §4 widened to hold every
+coordinate the seven missions name, Terrarium z13 onto a 90 m grid: **24.65–27.10 N / 66.55–71.40 E**,
+5 402 × 3 017, 32.60 MB, 7 345 unique tiles, **0 holes**, elevation **−33 … 2 028 m** (mean 144.0 m),
+`/elev` agreement bias **+0.14 m** rms **1.63 m** max **7.86 m** over 400 points. Recipe:
+`python3 sim/tools/bake_dem.py --region sindh --verify 400`, 5.3 min. Full sheet:
+[`../src/data/README.md`](../src/data/README.md).
+
+`[MEAS]` ground under the seven objective centres: 75.1 / 248.6 / 138.8 / 42.9 / 21.1 / 62.2 / 51.7 m —
+Night Forger highest in the Thar dune belt, Night's Quest lowest on the Indus plain, exactly the
+gradient §5 predicts for the real region.
+
+**The relief decided nothing.** Every `stores DELIVERY` line reports the CCRP computation plane against
+the real ground at the impact point; over 29 deliveries the mean disagreement is **0.65 m** and the
+worst **2.44 m**. The ground under an Overwatch battlefield is flat, so the DEM is here because the
+theatre is real, not because it changes a result — and that is now measured rather than assumed.
 
 ## Gaps
 
 - **Metres per world unit is unknown** (§6), so no mission's battlefield can be sized from the
   original. Every extent above is in game units and stays that way.
 - **The 10 km box is a choice** (§4), not a measurement, and will need revising the moment §6 is
-  answered.
+  answered. What was built uses the box's CENTRE only: the run-in is 40 km and the egress 25 km, both
+  outside it, both [SET]. The 40 km turned out to decide the campaign's armoured half
+  ([`substitutions.md`](substitutions.md) §6.4) — a scale answer would replace it with a derived number.
 - **Dadu is misplaced on the campaign map** or misidentified here (§3); positions west of ~68 E carry
   the extra doubt.
 - **Marker → mission for Thunderclap is by elimination** (§4.1).

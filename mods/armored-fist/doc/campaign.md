@@ -391,7 +391,28 @@ record header was identified. Not decoded in this run; see `## Gaps`.
 
 ## State
 
-Nothing built. This file is `doc/` only; `mods/armored-fist/src/` does not exist.
+**All seven missions are built and run.** `src/missions/c01m01…c01m07`, plus
+`src/campaigns/c01-overwatch.fbc` and the baked theatre DEM (`src/data/`). Every substitution and every
+number behind the results is [`substitutions.md`](substitutions.md); the reading rules of §6 are in each
+file's own header, restated against what the engine can actually judge.
+
+| # | Mission | exit | goals dead / declared | why |
+|---|---|---|---|---|
+| 1 | Slaughterzone! | 3 | 4 / 12 | 2 delivery units, 4 aim points; 6 T-80s unreachable |
+| 2 | Night Forger | 3 | 3 / 12 | 2 delivery units, 3 platoons; 7 T-80s unreachable |
+| 3 | Rubicon | **0** | 2 / 2 | both installations under one canister — **won** |
+| 4 | Thunderclap | 3 | 4 / 11 | 4 of the 11 are in the platoon the reading rule forbids engaging |
+| 5 | Night's Quest | 3 | 2 / 13 | 9 bunkers against 5 Mk 84 at 62.5–70.0 m; none inside 17.7 m |
+| 6 | War Hammer | **0** | 2 / 2 | refuel depot and fuel tanks — **won** |
+| 7 | Corrosion | 3 | 4 / 6 | both compound T-80s stood |
+
+`--threads 1/2/4` byte-identical over 162 telemetry files and all seven `events.log`. Campaign exit 3
+(the worst mission's, which is not the campaign's verdict — see the `.fbc` header).
+
+**Two of seven fly their own condition, and the five that do not fail for exactly two reasons**:
+`target_hard` is unreachable by any weapon this tree can deliver on a 40 km run-in (0 of 29 deliveries
+inside 17.7 m, mean 46.0 m), and a delivery unit gets ONE pass, so a mission with 11 or 13 goals cannot
+service them. Both are measurements this campaign was built to take, not defects.
 
 ## Gaps
 
@@ -406,6 +427,11 @@ Nothing built. This file is `doc/` only; `mods/armored-fist/src/` does not exist
 - **Air and artillery allocations per mission are not quantified** by any source found.
 - **Mission 2's night status is contradictory** (§4b) and mission 2's name is contradictory (§4a).
 - **The guide's campaign order contradicts the game menu** at positions 3 and 5 (§1.1).
+- **The reading rules of §6 are only half judgeable.** Three of the seven ("Echo-1's M1 survives",
+  "Echo-2 losses do not fail the run", "loss of Echo-3's M1 is expected") turn on a blue loss, and no
+  red unit in Overwatch has a sensor or a weapon, so **no mission in this campaign is losable**. Two
+  more turn on ORDER (mission 5's rear-threat-first, mission 7's links-then-compound) and `objective`
+  carries no sequence. Measured, not argued: `substitutions.md` §6.1 and §6.6.
 - **Engine, not source**: nothing in this tree can run a tracked vehicle, a platoon, or a commander
   seat. The undeclarables this campaign names, per [`doc/mods.md`](../../../doc/mods.md) §2:
   tracked-vehicle contacts and drive torque; a formation/standing-order layer that is *declared* and

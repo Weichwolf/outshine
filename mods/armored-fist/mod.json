@@ -1,0 +1,11 @@
+{
+  "id": "armored-fist",
+  "name": "Armored Fist (NovaLogic 1994) — Campaign One: Overwatch",
+  "missions": "src/missions",
+  "campaigns": "src/campaigns",
+  "data": "src/data",
+  "dem": "sindh-dem-90m.bin",
+  "depends": "f16",
+  "meshes": "f16",
+  "default_mission": "c01m01-slaughterzone"
+}

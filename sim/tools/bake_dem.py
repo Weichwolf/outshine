@@ -66,6 +66,15 @@ REGIONS = {
     "mekong": dict(mod="f22", out="mekong-dem-90m.bin", zoom=13, target_m=90.0, edge_blend_m=0.0,
                    geodetic=True,
                    lon_min=98.85, lon_max=102.35, lat_min=17.90, lat_max=21.70),
+    # The armored-fist Overwatch theatre: Sindh + western Rajasthan. Box [DERIV]:
+    # mods/armored-fist/doc/terrain.md §4's campaign union box widened to enclose every lat/lon the
+    # seven sorties name — their run-in spawns sit up to 40 km outside it, and Corrosion's egress
+    # crosses the Karachi coast — then rounded outward to 0.05 deg.
+    # Same zoom and same no-edge-blend reasoning as mekong; the Indus delta's real 0 m coastline is in
+    # the data and must not be confused with a synthetic ramp.
+    "sindh": dict(mod="armored-fist", out="sindh-dem-90m.bin", zoom=13, target_m=90.0,
+                  edge_blend_m=0.0, geodetic=True,
+                  lon_min=66.55, lon_max=71.40, lat_min=24.65, lat_max=27.10),
 }
 
 

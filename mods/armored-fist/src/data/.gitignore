@@ -1,0 +1,4 @@
+# sindh-dem-90m.bin is a BUILD OUTPUT: sim/tools/bake_dem.py regenerates it deterministically from the
+# `sindh` row of its region table against a local fb-tiles (doc/assets.md §0, "version the recipe,
+# never the cake"). 65 MB per round buys nothing a bake does not restore.
+*.bin
