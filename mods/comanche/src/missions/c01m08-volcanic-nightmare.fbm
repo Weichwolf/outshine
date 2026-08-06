@@ -1,0 +1,209 @@
+name c01m08-volcanic-nightmare
+timeout 600
+time 1992-10-29T22:21:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 8 OF 10 -- {Volcanic Nightmare}* [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: 19 of 20 objects -- 12 T-80s and 7 Werewolves -- "by killing them all". A pure
+# clear-the-board, and campaign.md 8 nominates it as the campaign's cheapest regression probe.
+#
+# THE FIELD [MIS]: map 3 (Ka'u Desert, Hawaii, terrain.md 6), day -- sun +56.61 deg at the lead's
+# spawn, computed by the runner. 19 starred objects, unlock marker *.
+# THE CAST: 7 Werewolf -> `ah64` - 12 T-80 -> `target_hard` - wingman -> `f16`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 8, Stinger 8, artillery 8, wingman 10, fuel
+# 8000. Declared here: 4 x `mk82`, 4 x `aim9`, gun 500, `set fuel_int_pct 40` = 8000 against the
+# campaign's own maximum of 20 000. The rockets and the artillery have no row and no mechanism;
+# the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s.
+#   SUCCESS/exit 0 requires all 19 starred objects. campaign.md 8 nominates this file as the campaign's
+#   cheapest regression probe -- a pure clear-the-board with no fuel constraint, no artillery, no
+#   schedule and no SAM -- so if anything in weapons or damage drifts, THIS is the file that moves
+#   first, and its met count is the number to watch.
+#   exit 3 = the expected reading; report the met count against 19.
+
+# MEASURED (exit 3, `--elev const`): FOUR OF NINETEEN.
+#   t = 21.5 / 24.7 s   two Mk-82 away, aimErrM 14.44 (`two`, at t05) and 7.73 (`lead`, at t01)
+#   the 14.44 m MISSES  `target_hard` needs about 8 m to be finished, so `two`'s bomb kills nothing and
+#                       the whole yield is `lead`'s single hit on the four-T-80 stack at 230,450. This
+#                       is the file that shows the fragility class doing its job
+#   verdict             `lead` TIMEOUT, 4 of 19 met, `survive` met; `two` SUCCESS. No SAM.
+
+unit lead
+  module f16
+  team friendly
+  flight m08 1
+  spawn 19.38269 -155.28829 150 313.5 300
+  set gear up
+  set fuel_int_pct 40
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.41419 -155.32353 150 300
+  wp 19.43817 -155.35037 1000 300
+  objective kill unit t01
+  objective kill unit t02
+  objective kill unit t03
+  objective kill unit t04
+  objective kill unit t05
+  objective kill unit t06
+  objective kill unit t07
+  objective kill unit t08
+  objective kill unit t09
+  objective kill unit t10
+  objective kill unit t11
+  objective kill unit t12
+  objective kill unit w01
+  objective kill unit w02
+  objective kill unit w03
+  objective kill unit w04
+  objective kill unit w05
+  objective kill unit w06
+  objective kill unit w07
+  objective survive
+
+unit two
+  module f16
+  team friendly
+  flight m08 2
+  spawn 19.38791 -155.29581 150 256.2 300
+  set gear up
+  set fuel_int_pct 40
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 19.37820 -155.33782 150 300
+  wp 19.37008 -155.37288 1000 300
+  objective survive
+
+unit t01
+  module target_hard
+  team hostile
+  spawn 19.41419 -155.32353 ground 0.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn 19.41419 -155.32353 ground 90.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn 19.41419 -155.32353 ground 180.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn 19.41419 -155.32353 ground 270.0 0
+
+unit t05
+  module target_hard
+  team hostile
+  spawn 19.37820 -155.33782 ground 0.0 0
+
+unit t06
+  module target_hard
+  team hostile
+  spawn 19.37820 -155.33782 ground 90.0 0
+
+unit t07
+  module target_hard
+  team hostile
+  spawn 19.37820 -155.33782 ground 180.0 0
+
+unit t08
+  module target_hard
+  team hostile
+  spawn 19.37820 -155.33782 ground 270.0 0
+
+unit t09
+  module target_hard
+  team hostile
+  spawn 19.43129 -155.34258 ground 0.0 0
+
+unit t10
+  module target_hard
+  team hostile
+  spawn 19.43129 -155.34258 ground 90.0 0
+
+unit t11
+  module target_hard
+  team hostile
+  spawn 19.43129 -155.34258 ground 180.0 0
+
+unit t12
+  module target_hard
+  team hostile
+  spawn 19.43129 -155.34258 ground 270.0 0
+
+unit w01
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 45.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 90.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 135.0 143
+
+unit w05
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 180.0 143
+
+unit w06
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 225.0 143
+
+unit w07
+  module ah64
+  team hostile
+  spawn 19.39709 -155.30353 100 270.0 143

@@ -69,6 +69,12 @@ plain[i] = cipher[i] XOR K[i mod 4]        K = 03 06 12 11
    both campaign files becomes clean ASCII. A wrong key cannot produce a self-consistent record
    structure across 24 396 bytes.
 
+**Re-executed end to end when the missions were built** (`.7z` 4 147 030 B → three FAT12 images →
+`overkill.exe` 4 059 001 B → 92 LHA members → `1.MIS` 13 200 B → the key above). Every number this
+file and [`campaign.md`](campaign.md) state about `1.MIS` came back identical, the ten goal counts
+26 / 17 / 5 / 14 / 3 / 4 / 11 / 19 / 16 / 12 included — so the reconstruction is reproducible from the
+recipe alone, and nothing in `mods/comanche/src/` rests on a cached artefact.
+
 The decoded record format:
 
 ```

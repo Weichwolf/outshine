@@ -240,8 +240,9 @@ a **scale anchor** — the derivation is in [`terrain.md`](terrain.md) §4.
 
 ### 8. Reading rule per mission
 
-The `.fbm` header in this tree states how its exit code is read (`CLAUDE.md`). No `.fbm` exists yet, so
-the rule is intent — one sentence, the thing that decides. The **goal set is data, not opinion**: it is
+The `.fbm` header in this tree states how its exit code is read (`CLAUDE.md`). Each rule below is now
+the binding header of the file of the same number in `../src/missions/`; what the run then MEASURED
+against it is in [`substitutions.md`](substitutions.md) §6. The **goal set is data, not opinion**: it is
 the starred object list of §5, and the engine's own Mission Status Display counts down exactly that set
 `[MAN p.42]`.
 
@@ -297,27 +298,43 @@ That is the campaign's central asymmetry and it is in the manual, not inferred.
 
 ## State
 
-**Nothing.** No `mods/` loader, no `mod.json`, no `.fbm`, no unit declarations, no rotorcraft flight
-model. This directory holds four documents and no runnable artefact.
+**All ten missions are built and run**: `mod.json` (`depends f16`, no catalogue and no DEM of its own)
+plus `src/missions/c01m01…c01m10-*.fbm`, one file per record of `1.MIS`, every object of §5 placed at
+its measured cell through §7's frame. `./build/fb-gym --mod ../mods/comanche --mission <name>`; the
+verdicts, the goal counts and what each of them measures are in
+[`substitutions.md`](substitutions.md) §6, the reading rule of §8 is the header of each file.
+
+**There is still no rotorcraft.** The player and the wingman fly `module f16`, the Werewolf is an
+`ah64` mover that fires nothing, and the four axes of that substitution are measured in
+[`substitutions.md`](substitutions.md) §2.1 — which is what this round set out to produce.
+
+**19 of 127 goals fall.** Not because of the airframe: `set task attack` is ONE briefed pass at ONE
+active waypoint and hands back to `Route`, so the game's own cast (player + wingman when field 6 is
+non-zero) can strike at most two aim points against goal sets of 3 to 26.
 
 ## Gaps
 
 **What the engine cannot declare today** — this is the deliverable of the round, per
-[`doc/mods.md`](../../../doc/mods.md) §2:
+[`doc/mods.md`](../../../doc/mods.md) §2. Every row that a run in this round could put a number on now
+carries one; the rest stayed exactly as written before the missions existed.
 
 | What Comanche needs | Why it is not declarable |
 |---|---|
 | **A rotorcraft at all** | the body format ([`doc/body-format.md`](../../../doc/body-format.md)) spans it in principle; nothing implements it. **No rotor, no collective, no cyclic, no tail-rotor authority, no ground effect** — and ground effect is not cosmetic here, the manual builds NoE flight on it `[MAN p.18]` |
-| A flight envelope of **0–500 ft and 0–177 kt** | the whole tree's flight regime is an F-16's. Nothing has been flown below 500 ft over terrain |
+| A flight envelope of **0–500 ft and 0–177 kt** | **measured, and it is the airframe that refuses.** The pass flown at the original's own speeds — 180 / 200 / 220 kt — CRASHES on `FBPilot`'s attack egress (120° turn + 500 m climb bleeds the F-16 to 88 kt CAS at 543 m); 250 and 275 kt crash on mission 2's geometry; 300 kt survives. The height half is the opposite: at 150 m the CCRP delivery misses by 8.01 m against 26.60 m from 900 m |
 | **Hover as a commanded state** (`*` key = auto-hover at NoE height) | no hover, no auto-hover, no altitude-hold-over-terrain law |
 | **Yaw decoupled from turn** (fantail rotation in place, `Ins`/`Del`) | fixed-wing control mapping has no equivalent |
-| **Terrain seen and used at 10–50 m** — terrain masking is *"the essence of modern helicopter warfare"* `[MAN p.2]` | terrain, buildings and foliage at that scale |
-| A **wingman as a weapon system** — `N` designates a target and *his* Hellfire flies `[MAN p.51]` | no unit may command another unit's release |
-| **Off-map fire support** (155 mm / MLRS called by TAS coordinates, N per mission) | no artillery, no C2 net, no delayed-arrival ordnance |
-| **A helicopter enemy with a 30 mm gun and AAMs** | no rotorcraft opponent, and `FBSystemId` is a closed 14-entry aircraft enum |
+| **Terrain seen and used at 10–50 m** — terrain masking is *"the essence of modern helicopter warfare"* `[MAN p.2]` | terrain, buildings and foliage at that scale — and, newly named: **a mod carries exactly one `"dem"`** and this campaign is four disjoint theatres, so its ground could not be baked even if the heightfields loaded ([`terrain.md`](terrain.md) §State) |
+| A **wingman as a weapon system** — `N` designates a target and *his* Hellfire flies `[MAN p.51]` | no unit may command another unit's release. The wingman here flies its own briefed pass instead, which is a different tactic with the same airframe |
+| **Off-map fire support** (155 mm / MLRS called by TAS coordinates, N per mission) | no artillery, no C2 net, no delayed-arrival ordnance. Mission 7 is built on 8 calls and flies without them |
+| **A helicopter enemy with a 30 mm gun and AAMs** | **measured, and it is not merely unwritten.** A hand-written `ka50` catalogue row (mover, T2, `gsh301`, 500 rounds, 4 stations) behaves BYTE-IDENTICALLY to the unarmed `ah64`: T2's only combat phase is `Bfm`, `set task bfm` is refused at spawn on a row with no measured roll plant, and every mover has none. Across the ten missions: **82 Werewolves, 0 weapon events** |
+| **A rocket pod** — 62 unguided 70 mm per mission, in all twenty missions of the release `[MIS]` | no rocket store row exists; `hydra70` / `s8` are specified in [`doc/air-to-ground.md`](../../../doc/air-to-ground.md) §3.5 and not built |
+| **A second pass** — the campaign's goal sets run 3 to 26 objects for one aircraft and a wingman | `set task attack` is ONE briefed pass at the ACTIVE waypoint; it egresses and hands back to `Route`, and nothing in the format or in `FBPilot` re-enters it. **This, not the airframe, is why 19 of 127 goals fall** |
+| **A run-in the striker flies itself onto** | measured: the attack phase anchors its leg at the phase's first tick and never corrects a lateral offset — spawned on the game's own start heading the strikers released 249.33 m (mission 1) and 8 382.30 m (mission 3) across track |
+| **A schedule** — mission 1's 14-ship stagger, mission 6's four waves at ticks 3 600–7 200 | `.fbm` is not a schedule; all 29 objects stand at t = 0, so mission 6's *"a slow run meets an enemy a fast run never sees"* has no object |
 | **A tank that shoots at helicopters** (T-80 "Songster") | ground units are declared in the body format, absent in code |
 | **Six discrete damage areas** (tail rotor / engine / TAS / weapon mount / cannon / TAC display) with named consequences `[MAN p.57–58]` | `FBSystemHealth` is monotone and typed, but the *areas* and their flight-behaviour effects are aircraft ones |
-| **Automatic** chaff and flare on detection, with manual override | countermeasures are not automatic anywhere in this tree |
+| **Automatic** chaff and flare on detection, with manual override | `set cmds_mode auto` covers the automatic half on the substitute airframe; the game states no magazine, so the count is the F-16's |
 | Briefing prose per mission | `.fbm` carries a reading rule for a machine, not prose for a player |
 
 **What is measured but not understood** — every one of these is a hole in the reconstruction, not in the

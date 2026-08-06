@@ -1,0 +1,162 @@
+name c01m03-tactical-run
+timeout 600
+time 1992-10-29T19:20:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 3 OF 10 -- {Tactical Run} [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: "destroy the fuel tanks" -- 5 of 17 objects, on 6 000 fuel, alone, from a start
+# line the file gives as 0,0,0: the map corner, 8.3 km from the nearest goal. Recorded as measured;
+# whether the engine reads that as "no start given" is unknown (campaign.md 7).
+#
+# THE FIELD [MIS]: map 2 (Canyonlands, Utah, terrain.md 6), day -- sun +37.89 deg at the lead's
+# spawn, computed by the runner. 5 starred objects, unlock marker none - open from the start.
+# THE CAST: 4 Werewolf -> `ah64` - 6 T-80 -> `target_hard` - 5 fuel tank -> `target_soft` - 2
+# Gecko -> `sa8`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 6, Stinger 10, artillery 0, wingman 0, fuel
+# 6000. Declared here: 4 x `mk82`, 4 x `aim9`, gun 500, `set fuel_int_pct 30` = 6000 against the
+# campaign's own maximum of 20 000. The rockets and the artillery have no row and no mechanism;
+# the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s.
+#   SUCCESS/exit 0 requires all 5 fuel tanks destroyed ON 6 000 FUEL. Running dry short of the target
+#   would be a mission loss; reaching the target with fuel to spare at a lower throttle setting than
+#   the model allows would be an engine defect. MEASURED: neither happens, because the campaign's fuel
+#   figure has no decoded unit and the only defensible mapping is the RATIO against the campaign's own
+#   maximum (6 000 / 20 000 = 30 % internal). At 30 % the F-16 burns 2 091 -> 1 506 lbs over the whole
+#   600 s run with no BINGO and no warning. The mission's defining constraint is therefore NOT
+#   REPRODUCED, and that is a statement about the substitute's fuel fraction, not about the mission.
+#   exit 3 = the expected reading; report the met count.
+
+# MEASURED (exit 3, `--elev const`): ONE OF FIVE.
+#   t = 56.8 s          one Mk-82 away, aimErrM 9.75; f03 destroyed
+#   fuel                2 091.49 -> 1 506.43 lbs over 600 s. No BINGO, no warning (see the rule above)
+#   verdict             `lead` TIMEOUT, 1 of 5 met, `survive` met. 12 SA-8 launches, closest 13.21 m
+#                       against a 6 m fuze -- two near misses that a metre of geometry would flip.
+
+unit lead
+  module f16
+  team friendly
+  flight m03 1
+  spawn 38.23524 -109.94380 150 145.9 300
+  set gear up
+  set fuel_int_pct 30
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 38.17882 -109.89522 150 300
+  wp 38.15155 -109.87174 1000 300
+  objective kill unit f01
+  objective kill unit f02
+  objective kill unit f03
+  objective kill unit f04
+  objective kill unit f05
+  objective survive
+
+unit t01
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 0.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 45.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 90.0 0
+
+unit g01
+  module sa8
+  team hostile
+  spawn 38.17135 -109.89465 ground 135.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 180.0 0
+
+unit t05
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 225.0 0
+
+unit t06
+  module target_hard
+  team hostile
+  spawn 38.17135 -109.89465 ground 270.0 0
+
+unit g02
+  module sa8
+  team hostile
+  spawn 38.17135 -109.89465 ground 315.0 0
+
+unit f01
+  module target_soft
+  team hostile
+  spawn 38.17621 -109.89968 ground 0.0 0
+
+unit f02
+  module target_soft
+  team hostile
+  spawn 38.17621 -109.89854 ground 0.0 0
+
+unit f03
+  module target_soft
+  team hostile
+  spawn 38.17882 -109.89522 ground 0.0 0
+
+unit f04
+  module target_soft
+  team hostile
+  spawn 38.17738 -109.89625 ground 0.0 0
+
+unit f05
+  module target_soft
+  team hostile
+  spawn 38.17738 -109.89465 ground 0.0 0
+
+unit w01
+  module ah64
+  team hostile
+  spawn 38.17135 -109.89465 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn 38.17135 -109.89465 100 90.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn 38.17135 -109.89465 100 180.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn 38.17135 -109.89465 100 270.0 143

@@ -1,0 +1,204 @@
+name c01m04-rivers-run-deep
+timeout 600
+time 1992-10-29T07:20:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 4 OF 10 -- {Rivers Run Deep}* [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: 14 goals -- 3 + 4 Werewolves, 2 T-80s and 5 Geckos -- and the briefing gives an
+# ORDER: "the squadron of Werewolves giving air support ... we recommend that you take them out
+# first."
+#
+# THE FIELD [MIS]: map 2 (Canyonlands, Utah, terrain.md 6), night -- sun -65.11 deg at the lead's
+# spawn, computed by the runner. 14 starred objects, unlock marker *.
+# THE CAST: 7 Werewolf -> `ah64` - 7 T-80 -> `target_hard` - 5 Gecko -> `sa8` - wingman -> `f16`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 8, Stinger 8, artillery 6, wingman 8, fuel
+# 8000. Declared here: 4 x `mk82`, 4 x `aim9`, gun 500, `set fuel_int_pct 40` = 8000 against the
+# campaign's own maximum of 20 000. The rockets and the artillery have no row and no mechanism;
+# the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s.
+#   SUCCESS/exit 0 requires all 14 goals. The briefing orders the Werewolves killed FIRST, so telemetry
+#   must carry the kill ORDER or the tactical claim of this mission cannot be checked at all.
+#   MEASURED: it cannot be checked. No Werewolf in this tree can be killed by anything (D2), so the
+#   ordering claim has no object and this file measures the ground half only.
+#   exit 3 = the expected reading; report the met count. exit 1 on `two` = a damaged flight.
+
+# MEASURED (exit 3, `--elev const`): FOUR OF FOURTEEN, and FIVE objects destroyed.
+#   t = 20.7 / 24.0 s   two Mk-82 away, aimErrM 11.23 and 2.54; t04+g04 and t06+t07+g05 die
+#   verdict             `lead` TIMEOUT, 4 of 14 met, `survive` met; `two` SUCCESS. 18 SA-8 launches,
+#                       closest 18.28 m, no hit.
+#   THE ORDERING CLAIM IS UNMEASURED and cannot be measured: 0 of the 7 Werewolves can be engaged.
+
+unit lead
+  module f16
+  team friendly
+  flight m04 1
+  spawn 38.17225 -109.89465 150 347.9 300
+  set gear up
+  set fuel_int_pct 40
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 38.20375 -109.90322 150 300
+  wp 38.23848 -109.91268 1000 300
+  objective kill unit g01
+  objective kill unit g02
+  objective kill unit g03
+  objective kill unit t04
+  objective kill unit g04
+  objective kill unit t06
+  objective kill unit g05
+  objective kill unit w01
+  objective kill unit w02
+  objective kill unit w03
+  objective kill unit w04
+  objective kill unit w05
+  objective kill unit w06
+  objective kill unit w07
+  objective survive
+
+unit two
+  module f16
+  team friendly
+  flight m04 2
+  spawn 38.17675 -109.89465 150 346.3 300
+  set gear up
+  set fuel_int_pct 40
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 38.21545 -109.90665 150 300
+  wp 38.24982 -109.91732 1000 300
+  objective survive
+
+unit t01
+  module target_hard
+  team hostile
+  spawn 38.22624 -109.83408 ground 0.0 0
+
+unit g01
+  module sa8
+  team hostile
+  spawn 38.22624 -109.83408 ground 90.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn 38.21185 -109.85808 ground 180.0 0
+
+unit g02
+  module sa8
+  team hostile
+  spawn 38.21185 -109.85808 ground 270.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn 38.23254 -109.93694 ground 0.0 0
+
+unit g03
+  module sa8
+  team hostile
+  spawn 38.23254 -109.93694 ground 90.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn 38.20375 -109.90322 ground 0.0 0
+
+unit t05
+  module target_hard
+  team hostile
+  spawn 38.20375 -109.90322 ground 90.0 0
+
+unit g04
+  module sa8
+  team hostile
+  spawn 38.20375 -109.90322 ground 180.0 0
+
+unit t06
+  module target_hard
+  team hostile
+  spawn 38.21545 -109.90665 ground 270.0 0
+
+unit t07
+  module target_hard
+  team hostile
+  spawn 38.21545 -109.90665 ground 0.0 0
+
+unit g05
+  module sa8
+  team hostile
+  spawn 38.21545 -109.90665 ground 180.0 0
+
+unit w01
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 45.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 90.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 135.0 143
+
+unit w05
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 180.0 143
+
+unit w06
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 225.0 143
+
+unit w07
+  module ah64
+  team hostile
+  spawn 38.19925 -109.84779 100 270.0 143

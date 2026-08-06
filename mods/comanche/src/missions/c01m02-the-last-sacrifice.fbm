@@ -1,0 +1,239 @@
+name c01m02-the-last-sacrifice
+timeout 600
+time 1992-10-29T17:08:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 2 OF 10 -- {The Last Sacrifice} [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: "eliminate all ground support in the quadrant" -- 12 T-80s and 5 fuel tanks. The
+# 8 Werewolves in the air are NOT goals, which is the one thing this mission's verdict turns on.
+#
+# THE FIELD [MIS]: map 1 (Alto Mayo, Peru, terrain.md 6), day -- sun +81.37 deg at the lead's
+# spawn, computed by the runner. 17 starred objects, unlock marker none - open from the start.
+# THE CAST: 8 Werewolf -> `ah64` - 12 T-80 -> `target_hard` - 5 fuel tank -> `target_soft` -
+# wingman -> `f16`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 6, Stinger 10, artillery 5, wingman 6, fuel
+# 20000. Declared here: 4 x `mk82`, 4 x `aim9`, gun 500, `set fuel_int_pct 100` = 20000 against
+# the campaign's own maximum of 20 000. The rockets and the artillery have no row and no
+# mechanism; the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s.
+#   SUCCESS/exit 0 requires all 17 ground goals. The 8 Werewolves are NOT goals, so a run that killed
+#   every Werewolf and no tank would be a FAIL -- and if a harness ever reports Werewolf kills here as
+#   progress, the harness is wrong. In this tree the question cannot arise from the other side either:
+#   nothing can kill a Werewolf (D2).
+#   exit 3 = the expected reading; report the met count.
+#   exit 1 on `lead` = the leader was shot: a mission loss. exit 1 on `two` alone is a damaged flight.
+#   exit 2 = an engine finding (D1).
+
+# MEASURED (exit 3, `--elev const`): FOUR OF SEVENTEEN.
+#   t = 40.3 / 44.1 s   two Mk-82 away, aimErrM 4.56 and 4.78; four T-80s die (t05+t06 and t03+t04,
+#                       two stacked pairs)
+#   verdict             `lead` TIMEOUT, 4 of 17 met, `survive` met; `two` SUCCESS. No SAM in this
+#                       mission at all -- it places no type-5 object -- so nothing shot at anybody.
+
+unit lead
+  module f16
+  team friendly
+  flight m02 1
+  spawn -6.05892 -76.98615 150 342.6 300
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp -6.01167 -77.00105 150 300
+  wp -5.97735 -77.01188 1000 300
+  objective kill unit f01
+  objective kill unit f02
+  objective kill unit f03
+  objective kill unit f04
+  objective kill unit f05
+  objective kill unit t01
+  objective kill unit t02
+  objective kill unit t03
+  objective kill unit t04
+  objective kill unit t05
+  objective kill unit t06
+  objective kill unit t07
+  objective kill unit t08
+  objective kill unit t09
+  objective kill unit t10
+  objective kill unit t11
+  objective kill unit t12
+  objective survive
+
+unit two
+  module f16
+  team friendly
+  flight m02 2
+  spawn -6.06341 -76.98841 150 352.9 300
+  set gear up
+  set fuel_int_pct 100
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp -6.00942 -76.99518 150 300
+  wp -5.97371 -76.99966 1000 300
+  objective survive
+
+unit f01
+  module target_soft
+  team hostile
+  spawn -6.00807 -76.97929 ground 0.0 0
+
+unit f02
+  module target_soft
+  team hostile
+  spawn -6.00672 -76.97992 ground 90.0 0
+
+unit f03
+  module target_soft
+  team hostile
+  spawn -5.99845 -76.98127 ground 180.0 0
+
+unit f04
+  module target_soft
+  team hostile
+  spawn -6.00834 -76.96772 ground 270.0 0
+
+unit f05
+  module target_soft
+  team hostile
+  spawn -6.00358 -76.98461 ground 0.0 0
+
+unit t01
+  module target_hard
+  team hostile
+  spawn -5.99413 -76.94550 ground 90.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn -5.99413 -76.94550 ground 180.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn -6.00942 -76.99518 ground 0.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn -6.00942 -76.99518 ground 270.0 0
+
+unit t05
+  module target_hard
+  team hostile
+  spawn -6.01167 -77.00105 ground 0.0 0
+
+unit t06
+  module target_hard
+  team hostile
+  spawn -6.01167 -77.00105 ground 270.0 0
+
+unit t07
+  module target_hard
+  team hostile
+  spawn -6.00223 -76.97938 ground 0.0 0
+
+unit t08
+  module target_hard
+  team hostile
+  spawn -6.00223 -76.97938 ground 90.0 0
+
+unit t09
+  module target_hard
+  team hostile
+  spawn -6.00223 -76.96447 ground 180.0 0
+
+unit t10
+  module target_hard
+  team hostile
+  spawn -6.00223 -76.96447 ground 270.0 0
+
+unit t11
+  module target_hard
+  team hostile
+  spawn -6.00762 -76.95228 ground 90.0 0
+
+unit t12
+  module target_hard
+  team hostile
+  spawn -6.00762 -76.95228 ground 180.0 0
+
+unit w01
+  module ah64
+  team hostile
+  spawn -6.01581 -77.00214 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn -6.01581 -77.00214 100 90.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn -6.01581 -77.00214 100 180.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn -6.01581 -77.00214 100 270.0 143
+
+unit w05
+  module ah64
+  team hostile
+  spawn -5.99800 -76.98425 100 0.0 143
+
+unit w06
+  module ah64
+  team hostile
+  spawn -5.99800 -76.98425 100 90.0 143
+
+unit w07
+  module ah64
+  team hostile
+  spawn -5.99800 -76.98425 100 180.0 143
+
+unit w08
+  module ah64
+  team hostile
+  spawn -5.99800 -76.98425 100 270.0 143

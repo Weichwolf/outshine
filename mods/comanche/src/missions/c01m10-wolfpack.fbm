@@ -1,0 +1,249 @@
+name c01m10-wolfpack
+timeout 600
+time 1992-10-29T19:48:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 10 OF 10 -- {Wolfpack}*1 [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: 12 ground goals -- 4 T-80s and 8 Geckos -- while 8 Werewolves that are NOT goals
+# hunt the player, who carries exactly 8 Stingers. "You have one Stinger for each Werewolf, so Don't
+# Miss!"
+#
+# THE FIELD [MIS]: map 4 (Khash Rud, Afghanistan, terrain.md 6), night -- sun -71.56 deg at the
+# lead's spawn, computed by the runner. 12 starred objects, unlock marker *1.
+# THE CAST: 8 Werewolf -> `ah64` - 12 T-80 -> `target_hard` - 8 Gecko -> `sa8` - wingman -> `f16`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 8, Stinger 8, artillery 0, wingman 12, fuel
+# 12000. Declared here: 4 x `mk82`, 4 x `aim9`, gun 500, `set fuel_int_pct 60` = 12000 against the
+# campaign's own maximum of 20 000. The rockets and the artillery have no row and no mechanism;
+# the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s.
+#   SUCCESS/exit 0 requires the 12 ground goals. The 8 Werewolves are not goals, but the loadout
+#   carries exactly 8 Stingers, so a run that spends Stingers on anything else and still wins would
+#   have found a hole in the Stinger model. MEASURED: no Stinger is ever spent. The Werewolves cannot
+#   be engaged (D2) and nothing else in the mission is an air target, so the `aim9` rack is carried and
+#   never used -- the mission's title claim is untestable in this tree.
+#   exit 3 = the expected reading; report the met count against 12.
+
+# MEASURED (exit 3, `--elev const`): TWO OF TWELVE, and the closest the SA-8 comes all campaign.
+#   t = 21.3 / 24.5 s   two Mk-82 away, aimErrM 4.89 and 17.96; g01 and g02 destroyed
+#   t = 32 launches     closest approach 6.84 m and 8.53 m against a 6 m fuze. The campaign's threat is
+#                       one metre of geometry away from being real, at 150 m, at night
+#   verdict             `lead` TIMEOUT, 2 of 12 met, `survive` met; `two` SUCCESS.
+#   8 Stingers declared, 4 `aim9` carried, 0 fired: no Werewolf can be engaged (D2).
+
+unit lead
+  module f16
+  team friendly
+  flight m10 1
+  spawn 31.79188 63.00548 150 274.3 300
+  set gear up
+  set fuel_int_pct 60
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 31.79440 62.96617 150 300
+  wp 31.79670 62.93025 1000 300
+  objective kill unit t01
+  objective kill unit t02
+  objective kill unit t03
+  objective kill unit t04
+  objective kill unit g01
+  objective kill unit g02
+  objective kill unit g03
+  objective kill unit g04
+  objective kill unit g05
+  objective kill unit g06
+  objective kill unit g07
+  objective kill unit g08
+  objective survive
+
+unit two
+  module f16
+  team friendly
+  flight m10 2
+  spawn 31.79188 63.00019 150 270.9 300
+  set gear up
+  set fuel_int_pct 60
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set store 8 aim9
+  set store 9 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 31.79233 62.96458 150 300
+  wp 31.79278 62.92859 1000 300
+  objective survive
+
+unit w01
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 45.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 90.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 135.0 143
+
+unit w05
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 180.0 143
+
+unit w06
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 225.0 143
+
+unit w07
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 270.0 143
+
+unit w08
+  module ah64
+  team hostile
+  spawn 31.79818 62.98128 100 315.0 143
+
+unit t01
+  module target_hard
+  team hostile
+  spawn 31.79080 62.96215 ground 45.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn 31.74212 62.99015 ground 90.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn 31.75192 62.92622 ground 0.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn 31.80744 62.93615 ground 45.0 0
+
+unit g01
+  module sa8
+  team hostile
+  spawn 31.79440 62.96617 ground 270.0 0
+
+unit g02
+  module sa8
+  team hostile
+  spawn 31.79233 62.96458 ground 270.0 0
+
+unit t05
+  module target_hard
+  team hostile
+  spawn 31.79854 62.95063 ground 0.0 0
+
+unit t06
+  module target_hard
+  team hostile
+  spawn 31.79539 62.97261 ground 90.0 0
+
+unit g03
+  module sa8
+  team hostile
+  spawn 31.73996 62.97842 ground 135.0 0
+
+unit g04
+  module sa8
+  team hostile
+  spawn 31.73663 62.98128 ground 0.0 0
+
+unit t07
+  module target_hard
+  team hostile
+  spawn 31.74320 62.99427 ground 0.0 0
+
+unit t08
+  module target_hard
+  team hostile
+  spawn 31.73672 62.99205 ground 270.0 0
+
+unit g05
+  module sa8
+  team hostile
+  spawn 31.80474 62.92865 ground 180.0 0
+
+unit g06
+  module sa8
+  team hostile
+  spawn 31.80519 62.94556 ground 180.0 0
+
+unit t09
+  module target_hard
+  team hostile
+  spawn 31.81068 62.94207 ground 180.0 0
+
+unit t10
+  module target_hard
+  team hostile
+  spawn 31.81032 62.92812 ground 0.0 0
+
+unit g07
+  module sa8
+  team hostile
+  spawn 31.75192 62.92622 ground 0.0 0
+
+unit g08
+  module sa8
+  team hostile
+  spawn 31.75192 62.92622 ground 90.0 0
+
+unit t11
+  module target_hard
+  team hostile
+  spawn 31.75192 62.92622 ground 180.0 0
+
+unit t12
+  module target_hard
+  team hostile
+  spawn 31.75192 62.92622 ground 270.0 0

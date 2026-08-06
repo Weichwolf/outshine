@@ -4978,3 +4978,50 @@ gleich (2 abgebrochen wegen Laufzeit) · `payerne-full --threads 1/2/4` eine Sig
 `verify-models` grün · `verify-types` **11 Typen in 114 Dateien** · `verify-trees` 25 Orphans ·
 `gym`/`native`/`wasm` bauen, Warnings = Errors · `gpu_native --mission payerne-takeoff` 18 PNGs, Urteil
 unverändert.
+
+## 2026-08-06 — Comanche fliegt, und was daran nicht fliegt, ist jetzt eine Zahl
+
+Die zehn Missionen von **Operation Maximum Overkill** (NovaLogic 1992) laufen als `.fbm` unter
+`mods/comanche/`. Die Quelle wurde in diesem Lauf **reproduziert statt zitiert**: Archive-Image →
+FAT12 → `overkill.exe` → LHA → `1.MIS` XOR `03 06 12 11`. Das ergibt Namen, Briefings, Ladung,
+Nachtflag und **jedes Objekt mit Zelle, Kurs und Zielflagge** — Zielzahlen 26/17/5/14/3/4/11/19/16/12,
+identisch mit `campaign.md`. Über `terrain.md` §5 (10 m/Zelle, vier Anker bei (512,512)) wird daraus
+Geometrie; erfunden ist nur die Zuweisung, welches Ziel wer angreift, und die steht als Regel im Kopf.
+
+**Die Engine hat keinen Drehflügler, und das kostet messbar.** Vier Achsen, drei davon geflogen:
+
+| | Original | Hier | Messung |
+|---|---|---|---|
+| Tempo | 177 kt `[MAN p.37]` | **300 kt** | 180/200/220 kt **CRASH** — der Attack-Egress (120°, +500 m) bläst den F-16 auf **88 kt CAS bei 543 m**; 250/275 kt CRASH auf Mission 2 |
+| Höhe | ~500 ft | **150 m** | die EINZIGE Achse, die hilft: dieselbe CCRP-Lösung trifft aus 900 m auf **26,60 m**, aus 150 m auf **8,01 m** — ein `target_hard` überlebt oben und stirbt unten |
+| Schweben | Kollektiv/Zyklik/Heckrotor/Bodeneffekt | **nichts davon** | nicht messbar |
+| Gegner | Ka-50, 30 mm, LFK | `ah64`-Mover | **82 Werewolves, 0 Waffenereignisse** |
+
+Der Werewolf-Befund ist der schärfste und er ist **negativ belegt**, nicht vermutet: eine
+handgeschriebene `ka50`-Katalogzeile (Mover, T2, `gsh301`, 500 Schuss, 4 Stationen) verhält sich
+**byte-identisch** zum unbewaffneten `ah64`. T2s einzige Kampfphase ist `Bfm`, `set task bfm` wird beim
+Spawn abgelehnt („no roll plant"), und ein Mover hat nie einen. **Ein bewaffneter Hubschrauber ist
+nicht deklarierbar** — nicht bloß ungeschrieben. Von der anderen Seite dasselbe: F-16 mit
+`task intercept`, AIM-9 und AIM-120 gegen einen `ah64` bekommt **einen** Radarkontakt auf 3,65 nm und
+schießt nie.
+
+**Warum trotzdem nur 19 von 127 Zielen fallen, liegt nicht am Flugzeug.** `set task attack` ist EIN
+gebriefter Pass auf EINEN aktiven Wegpunkt, danach `Route`, und niemand geht wieder hinein. Blau ist
+die Besetzung des Spiels (Spieler + Flügelmann genau dann, wenn Feld 6 ≠ 0, 6 von 10) — also höchstens
+zwei Zielpunkte gegen Sätze von 3 bis 26. Ausbeuten über zwei kommen ausschließlich daher, dass das
+Spiel Objekte auf einer Zelle **stapelt** (vier T-80 auf 230,450; drei T-80 + ein Gecko auf 690,475).
+
+Zwei weitere benannte Löcher, beide gemessen: die Attack-Phase **fliegt sich nicht selbst auf ihren
+Anflug** — auf dem Startkurs des Spiels gespawnt warf sie **249,33 m** (M1) bzw. **8 382,30 m** (M3)
+querab, also spawnt jeder Stürmer auf der Peilung zu seinem Zielpunkt. Und ein Mod trägt **genau ein
+`"dem"`**, diese Kampagne aber vier disjunkte Theater (Peru, Utah, Hawaii, Afghanistan): der Boden ist
+flach, Terrain-Masking — laut Handbuch „the essence of modern helicopter warfare" — existiert nicht.
+
+Ohne Zeile: 70-mm-Raketen (62 pro Mission, keine Store-Zeile), Artillerie (2–8 Rufe in 5 von 10),
+Flügelmann-Hellfire-Übergabe, Spawn-Verzögerungen, „Songster" des T-80.
+
+**Tore:** zehn Missionen laufen (Exit 1/3/3/3/3/3/3/3/3/3, gelesen nach der Leseregel im jeweiligen
+Kopf) · `--threads 1/2/4` Telemetrie **byte-identisch**, Events identisch modulo `wallS`/`speedup` ·
+`verify-trees` Mod-Waisen **3 → 1** (armored-fist landete gleichzeitig), gesamt 25 → 23 · f22-Urteile
+**3/3/1/0/1/3/3/3** unverändert · `test-air` **5 außerhalb**, dieselben fünf · `verify-layers` 6/1 ·
+`verify-guards` 8/8 · `verify-models` grün · `verify-types` 11/114 · `gym`/`native`/`wasm` bauen.

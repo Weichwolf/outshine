@@ -1,0 +1,194 @@
+name c01m09-valley-of-instant-death
+timeout 600
+time 1992-10-29T07:48:00Z
+
+# COMANCHE: MAXIMUM OVERKILL (NovaLogic 1992), CAMPAIGN ONE "OPERATION MAXIMUM OVERKILL",
+# MISSION 9 OF 10 -- {Valley of Instant Death}* [MIS].
+# Spec, provenance and every open question: mods/comanche/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [MIS]: 16 goals -- 4 T-80s, 4 fuel tanks and 8 Geckos -- alone, with 14 Hellfires for
+# 16 targets. The arithmetic is deliberately short and the briefing says why: "we accentally told all
+# the news stations where you would be and sold the enemy a few truck loads of guided missles."
+#
+# THE FIELD [MIS]: map 4 (Khash Rud, Afghanistan, terrain.md 6), day -- sun +44.51 deg at the
+# lead's spawn, computed by the runner. 16 starred objects, unlock marker *.
+# THE CAST: 6 Werewolf -> `ah64` - 4 T-80 -> `target_hard` - 4 fuel tank -> `target_soft` - 8
+# Gecko -> `sa8`.
+# THE LOADOUT [MIS]: cannon 500, rockets 62, Hellfire 14, Stinger 2, artillery 5, wingman 0, fuel
+# 10000. Declared here: 4 x `mk82`, 2 x `aim9`, gun 500, `set fuel_int_pct 50` = 10000 against the
+# campaign's own maximum of 20 000. The rockets and the artillery have no row and no mechanism;
+# the truncation of the other two is the F-16's nine pylons.
+
+# ---- THE SEVEN DISCLOSURES ARE STATED IN FULL IN c01m01-werewolves-on-patrol.fbm AND APPLY HERE
+# ---- UNCHANGED: D1 no rotorcraft (the RAH-66 flies as `module f16`, 300 kt because 180-275 kt crash
+# ---- the egress) - D2 the Werewolf is an `ah64` mover and fires nothing, ever - D3 flat 0 m ground,
+# ---- because one mod carries one DEM and this campaign needs four theatres - D4 the clock is checked
+# ---- against the logged sun elevation - D5 the anchoring is terrain.md's reconstruction and the
+# ---- campaign names no place - D6 the striker spawns on the bearing to its aim point, because the
+# ---- attack phase cannot fly itself onto its own run-in - D7 one striker is one aim point.
+#
+# READING RULE (binding). The verdict is `lead`'s, and it flies ALONE.
+#   SUCCESS/exit 0 requires the 16 ground goals with 14 Hellfires -- deliberately two short, so a win
+#   is only a win if the shortfall was covered by cannon or rockets, and telemetry must say which.
+#   MEASURED: the question cannot be put. The F-16 has nine pylons, so 14 Hellfires truncate to four
+#   `mk82`; there is no rocket row in this tree at all; and D7 caps the sortie at one release. The
+#   campaign's sharpest arithmetic constraint is unreachable from below, not from above.
+#   exit 3 = the expected reading; report the met count against 16.
+
+# MEASURED (exit 3, `--elev const`): ONE OF SIXTEEN -- the campaign's worst ratio, and the mission
+#   whose own premise is arithmetic.
+#   t = 21.4 s          one Mk-82 away, aimErrM 4.61; f04 destroyed
+#   verdict             `lead` TIMEOUT, 1 of 16 met, `survive` met. 48 SA-8 launches, no hit.
+#   14 Hellfires declared by the game, 4 `mk82` carried, 1 released.
+
+unit lead
+  module f16
+  team friendly
+  flight m09 1
+  spawn 31.75750 62.97546 150 316.5 300
+  set gear up
+  set fuel_int_pct 50
+  set datalink on
+  set fcr_mode off
+  set rwr on
+  set store 3 mk82
+  set store 4 mk82
+  set store 6 mk82
+  set store 7 mk82
+  set store 1 aim9
+  set store 2 aim9
+  set gun_rounds 500
+  set cmds_mode auto
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp 31.79278 62.93605 150 300
+  wp 31.81678 62.90923 1000 300
+  objective kill unit t01
+  objective kill unit t02
+  objective kill unit t03
+  objective kill unit t04
+  objective kill unit g01
+  objective kill unit g02
+  objective kill unit g03
+  objective kill unit g04
+  objective kill unit g05
+  objective kill unit g06
+  objective kill unit g07
+  objective kill unit g08
+  objective kill unit f01
+  objective kill unit f02
+  objective kill unit f03
+  objective kill unit f04
+  objective survive
+
+unit w01
+  module ah64
+  team hostile
+  spawn 31.79638 62.92199 100 0.0 143
+
+unit w02
+  module ah64
+  team hostile
+  spawn 31.79638 62.92199 100 90.0 143
+
+unit w03
+  module ah64
+  team hostile
+  spawn 31.79638 62.92199 100 180.0 143
+
+unit w04
+  module ah64
+  team hostile
+  spawn 31.79638 62.92199 100 270.0 143
+
+unit t01
+  module target_hard
+  team hostile
+  spawn 31.79638 62.92886 ground 0.0 0
+
+unit t02
+  module target_hard
+  team hostile
+  spawn 31.79638 62.92886 ground 90.0 0
+
+unit t03
+  module target_hard
+  team hostile
+  spawn 31.79638 62.92886 ground 180.0 0
+
+unit t04
+  module target_hard
+  team hostile
+  spawn 31.79638 62.92886 ground 270.0 0
+
+unit w05
+  module ah64
+  team hostile
+  spawn 31.79512 62.94059 100 0.0 143
+
+unit w06
+  module ah64
+  team hostile
+  spawn 31.80250 62.91830 100 0.0 143
+
+unit g01
+  module sa8
+  team hostile
+  spawn 31.79188 62.92464 ground 135.0 0
+
+unit g02
+  module sa8
+  team hostile
+  spawn 31.79188 62.92464 ground 315.0 0
+
+unit g03
+  module sa8
+  team hostile
+  spawn 31.79098 62.92252 ground 0.0 0
+
+unit g04
+  module sa8
+  team hostile
+  spawn 31.79098 62.92252 ground 180.0 0
+
+unit g05
+  module sa8
+  team hostile
+  spawn 31.79863 62.92358 ground 135.0 0
+
+unit g06
+  module sa8
+  team hostile
+  spawn 31.79863 62.92358 ground 315.0 0
+
+unit g07
+  module sa8
+  team hostile
+  spawn 31.80402 62.92675 ground 45.0 0
+
+unit g08
+  module sa8
+  team hostile
+  spawn 31.80402 62.92675 ground 225.0 0
+
+unit f01
+  module target_soft
+  team hostile
+  spawn 31.79728 62.92062 ground 0.0 0
+
+unit f02
+  module target_soft
+  team hostile
+  spawn 31.79827 62.92062 ground 0.0 0
+
+unit f03
+  module target_soft
+  team hostile
+  spawn 31.79305 62.93394 ground 0.0 0
+
+unit f04
+  module target_soft
+  team hostile
+  spawn 31.79278 62.93605 ground 0.0 0

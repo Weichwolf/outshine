@@ -1,0 +1,8 @@
+{
+  "id": "comanche",
+  "name": "Comanche: Maximum Overkill (NovaLogic 1992) — Campaign One: Operation Maximum Overkill",
+  "missions": "src/missions",
+  "depends": "f16",
+  "meshes": "f16",
+  "default_mission": "c01m01-werewolves-on-patrol"
+}

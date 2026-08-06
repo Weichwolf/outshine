@@ -299,8 +299,17 @@ minutes.
 
 ## State
 
-**Nothing.** No terrain loader for these maps, no `.fbm`, no rotorcraft. The maps have been decoded and
-measured in this run; nothing consumes the measurements.
+**§5's frame and §6's anchors are consumed; §1–§3's heightfields are not.** All ten `.fbm` files in
+`../src/missions/` place every object of `1.MIS` through the cell → lat/lon formula of §5 at 10 m per
+cell with §6's four anchors at (512, 512); the per-mission boxes of §7.2 are reproduced by
+construction rather than repeated.
+
+**The ground under them is FLAT — `--elev const`, 0 m** — and §8's open decision is therefore answered
+in the negative for both of its options, for a reason that is structural and not a preference:
+nothing in this tree loads a `Kyle DTA`, and **`mod.json` carries exactly ONE `"dem"`** while these
+four maps are anchored to four disjoint theatres. One mod, one raster, four continents. Consequence,
+stated where it hurts: terrain masking — *"the essence of modern helicopter warfare"* `[MAN p.2]` —
+does not exist in this mod, and neither does the 148 m of relief the game does have.
 
 ## Gaps
 
