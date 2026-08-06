@@ -179,7 +179,16 @@ declaration. That list is the honest size of the remaining work.
   source directory: eight subjects are a single `.md` leaf (`core`, `fdm`, `pilot`, `sensors`,
   `systems`, `weapons`, `world/terrain`, `modules/stores`), four have no doc node at all
   (`units`, `render/stages`, `modules/f16/displays`, `modules/missile`), and three doc directories have
-  no source (`campaigns`, `render/clouds-legacy` + its `exhibits`).
+  no source (`render/clouds-legacy` + its `exhibits`).
+
+  **Two of those are permanent by design and the count has a floor.** `render/clouds-legacy/` is a
+  closed archive of twelve cloud studies, kept deliberately for its measurements and its *rejected*
+  approaches — `CLAUDE.md` requires exactly that: a discarded approach with its measurement is a
+  statement that holds **today**, so it belongs in the present. It will never gain a `src/`.
+
+  So „no directory with two of three" reads **15**, not 0, and the two are named rather than excepted.
+  A gate with a hidden exception list is the failure this file exists to prevent; a gate that stays red
+  for a reason anyone can read is doing its job.
 - **`missions/payerne-takeoff.fbm` is red at HEAD** — touchdown 11.0 km off the runway on a 620 m
   hillside, and both judges stay silent.
 - **The binary's exit code is no longer a verdict** for `air-envelope`, by design. Anything that read
