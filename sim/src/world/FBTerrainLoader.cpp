@@ -7,10 +7,13 @@
 #include "FBChunkMesh.h"
 #include "geo.h"
 #include "osmmesh.h"
+#include "terrain.h"
+#include "tilemath.h"   /* fb-tiles' OWN tile maths: /elev and this oracle must not drift apart */
 #include "FBLog.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
 #else
@@ -387,35 +390,6 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   return fbw_pyr_poll(z, (int)x, (int)y, mode, ts, dst);
 }
 
-/* ASYNC: kicks one /elev fetch when idle and returns the last resolved ASL (-1e9 until the first
- * lands), so the render thread never holds a connection open. */
-EM_JS(double, fbw_ground_poll, (double lat, double lon), {
-  var G = Module.__fbG || (Module.__fbG = { val: -1e9, busy: false });
-  if (!G.busy) {
-    var base = window.FB_TILES_URL;
-    if (base) {
-      G.busy = true;
-      fetch(base + '/elev?lat=' + lat + '&lon=' + lon)
-        .then(function (r) { return r.ok ? r.text() : null; })
-        /* Number(), not parseFloat(): the latter stops at the first non-numeric character, so an error
-         * page or a "442 m" body would parse to a plausible elevation. Number("") is 0, hence the guard. */
-        .then(function (t) { if (t !== null) { var s = t.trim();
-                               var v = s.length ? Number(s) : NaN;
-                               if (isFinite(v)) G.val = v; }
-                             G.busy = false; })
-        .catch(function () { G.busy = false; });
-    }
-  }
-  return G.val;
-})
-double fb_stream_ground(double lat, double lon) {
-  while (lon > 180.0) lon -= 360.0;   /* normalize lon before the /elev query (dateline) */
-  while (lon < -180.0) lon += 360.0;
-  double v = fbw_ground_poll(lat, lon);
-  /* Sea-level clamp on REAL samples only; the -1e9 "not yet" sentinel stays. §3.3 */
-  return v < -1e8 ? v : (v < 0.0 ? 0.0 : v);
-}
-
 /* Non-blocking DEM-tile cache. FBTerrainField decodes immediately, so a single static buffer is safe.
  * 0 = pending; do NOT cache that as a hole. */
 EM_JS(int, fbw_dem_poll, (int z, int x, int y, uint8_t *dst, int cap), {
@@ -643,54 +617,6 @@ int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *
   return Render::fb_pyramid_bytes(ts);
 }
 
-/* The whole body must be ONE finite number: atof() alone returns 0.0 for an error page, and 0.0 passes
- * the validity test, gets cached and poisons AGL/radar altitude/crash check from then on. §3.3 */
-static int fbs_parse_elev(const char *text, double *out) {
-  const char *p = text;
-  while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-  if (!*p) return 0;
-  char *end = 0;
-  double v = strtod(p, &end);
-  if (end == p) return 0;
-  while (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n') end++;
-  if (*end) return 0;
-  if (!(v > -1e30 && v < 1e30)) return 0;   /* NaN/Inf: the comparison is false for NaN by construction */
-  *out = v;
-  return 1;
-}
-
-/* Synchronous curl (block=1 waits for a cold origin DEM), cached per ~tile-cell (33 m). */
-double fb_stream_ground(double lat, double lon) {
-  static double clat = 1e9, clon = 1e9, cval = -1e9;
-  while (lon > 180.0) lon -= 360.0;   /* normalize lon before the /elev query (dateline) */
-  while (lon < -180.0) lon += 360.0;
-  double dlat = lat - clat, dlon = lon - clon;
-  if (dlat < 0) dlat = -dlat;
-  if (dlon < 0) dlon = -dlon;
-  if (dlat < 3.0e-4 && dlon < 4.5e-4 && cval > -1e8) return cval;
-  char url[320];
-  snprintf(url, sizeof url, "%s/elev?lat=%.6f&lon=%.6f&block=1", fb_base, lat, lon);
-  uint8_t *buf = 0;
-  size_t n = 0;
-  if (fb_get(url, &buf, &n) && buf) {
-    char tmp[64];
-    size_t k = n < sizeof tmp - 1 ? n : sizeof tmp - 1;
-    memcpy(tmp, buf, k);
-    tmp[k] = 0;
-    free(buf);
-    double v = 0.0;
-    if (!fbs_parse_elev(tmp, &v)) {
-      FlightBox::FBLog::Warn("world", "elev_reply_invalid", {{"lat", lat}, {"lon", lon}, {"body", std::string(tmp)}});
-      return cval;   /* NOT cached: a bad reply must not become this cell's permanent ground truth */
-    }
-    /* Sea-level clamp on REAL samples only; the -1e9 sentinel stays. §3.3 */
-    if (v > -1e8) { if (v < 0.0) v = 0.0; clat = lat; clon = lon; cval = v; return v; }
-  } else if (buf) {
-    free(buf);
-  }
-  return cval;
-}
-
 /* The pointer is INTO the byte cache — valid until evicted; FBTerrainField decodes immediately. */
 int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   char path[96];
@@ -718,6 +644,85 @@ void fb_stream_close(void) {
 }
 
 #endif /* __EMSCRIPTEN__ */
+
+/* THE HEIGHT ORACLE, and it is deliberately OUTSIDE the platform split: a ground truth that differs
+ * between two clients is not a ground truth. It reproduces fb-tiles' /elev exactly — same DEM zoom,
+ * same tile, same bilinear (tiles/src/elev.c, fb_elev_at) — out of the tile bytes the client already
+ * streams, so on both sides of the wire the answer is a PURE FUNCTION OF POSITION.
+ *
+ * WHY THE TILE AND NOT THE POINT. /elev is one round trip per position, and in the browser that trip
+ * lands AFTER the tick that asked: a per-point cache can therefore never answer the question the
+ * simulation is asking, and the un-keyed one that stood here answered it with somebody else's position
+ * entirely. [MESS, mods/f22 c01m05] the browser briefed both strike aircraft's targets with the flight
+ * LEADER's spawn ground — 777.06 m for 510.93 / 442.26 m — put the CCRP plane 270 m high, released
+ * 1.6 s late and dropped 344 m short, while fb-gym flew the same file and destroyed both targets.
+ * Keying that point cache fixed the briefing and left the per-tick samples permanently unresolved —
+ * the stores then hit their carrier's spawn elevation, 350 m above the ground. ONE TILE IS 4.8 km of
+ * ground at this zoom, twenty seconds of flight: the transport now happens two hundred times more
+ * rarely than the question, which is what makes a streamed ground truth usable at all.
+ * doc/world/terrain.md §3.3. */
+namespace {
+
+constexpr int kFbDemZ = 13;        /* fb-tiles' FB_DEM_Z — the zoom /elev samples (tiles/src/elev.c) */
+constexpr int kFbDemSlots = 12;    /* a cast plus its stores sits in a handful of tiles at once */
+
+struct FbDemTile {
+  int Z = -1;
+  long X = 0, Y = 0;
+  uint32_t Cols = 0, Rows = 0;
+  std::vector<float> H;
+  bool Hole = false;
+  uint64_t Used = 0;
+};
+
+FbDemTile fb_dem[kFbDemSlots];
+uint64_t fb_dem_clock = 0;
+
+/* Null = not usable yet: PENDING in the browser (retry next tick) or a real hole. Both leave the
+ * caller with its last good value, which is the one behaviour a client may have for missing ground. */
+const FbDemTile *fb_dem_tile(int z, long x, long y) {
+  FbDemTile *victim = &fb_dem[0];
+  for (FbDemTile &t : fb_dem) {
+    if (t.Z == z && t.X == x && t.Y == y) { t.Used = ++fb_dem_clock; return t.Hole ? nullptr : &t; }
+    if (t.Used < victim->Used) victim = &t;
+  }
+  const uint8_t *bytes = 0;
+  int len = 0;
+  const int rc = fb_stream_dem(z, (int)x, (int)y, &bytes, &len);
+  if (rc == 0) return nullptr;   /* pending — NOT cached, or the hole would be permanent */
+  victim->Z = z; victim->X = x; victim->Y = y;
+  victim->Used = ++fb_dem_clock;
+  victim->Hole = true;
+  victim->Cols = victim->Rows = 0;
+  if (rc != 1 || !bytes || len <= 0) return nullptr;
+  osmmesh_terrain_grid grid{};
+  if (osmmesh_terrain_decode_png(bytes, (size_t)len, &grid) != OSMMESH_TERRAIN_OK || !grid.heights)
+    return nullptr;
+  victim->Cols = grid.cols;
+  victim->Rows = grid.rows;
+  victim->H.assign(grid.heights, grid.heights + (size_t)grid.cols * grid.rows);
+  osmmesh_terrain_grid_free(&grid);
+  victim->Hole = false;
+  return victim;
+}
+
+} // namespace
+
+double fb_stream_ground(double lat, double lon) {
+  while (lon > 180.0) lon -= 360.0;   /* normalize lon before the tile maths (dateline) */
+  while (lon < -180.0) lon += 360.0;
+  double tx = 0.0, ty = 0.0;
+  fb_geo_to_tile(lat, lon, kFbDemZ, &tx, &ty);
+  long x = (long)tx, y = (long)ty;
+  if (!fb_tile_wrap(kFbDemZ, &x, &y)) return -1e9;
+  const FbDemTile *t = fb_dem_tile(kFbDemZ, x, y);
+  if (!t) return -1e9;
+  /* The fraction comes off the UNWRAPPED tx/ty, exactly as tile_sample takes it from its caller. */
+  const double v = fb_bilinear(t->H.data(), t->Cols, t->Rows,
+                               (tx - (double)(long)tx) * (double)t->Cols,
+                               (ty - (double)(long)ty) * (double)t->Rows);
+  return v < 0.0 ? 0.0 : v;   /* the sea-level clamp; the -1e9 "not yet" sentinel never reaches here */
+}
 
 int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
   FILE *f = fopen(path, "rb");

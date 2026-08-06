@@ -188,7 +188,7 @@ tile's mean height + `kLightLiftM` = 6 m lift (so that terrain occludes cleanly)
 | `fb_stream_campos(lat, lon)` | running camera track for the worker's nearest-first pump |
 | `fb_stream_build(z,x,y,grid, &verts,&nverts,origin,&err)` | 1 = ready (malloc'd verts, caller frees), 0 = requested/pending |
 | `fb_stream_pyramid(z,x,y,mode,ts,dst)` | > 0 = bytes written of the whole pyramid, 0 = pending, **−1 = a real hole** (server 204) |
-| `fb_stream_ground(lat, lon)` | ground height m ASL; WASM async (last resolved value), native synchronous; ≤ −1e8 = never yet a real sample |
+| `fb_stream_ground(lat, lon)` | ground height m ASL, sampled out of the z13 DEM tile (§3.3) — ONE implementation for both link targets; ≤ −1e8 = the tile is not resident yet (WASM) or is a hole |
 | `fb_stream_dem(z,x,y,&bytes,&len)` | raw terrarium bytes; 1 = ready, 0 = **pending** (do not cache as a hole!), −1 = hole |
 | `fb_stream_lights(z,x,y,dst,cap)` | ≥ 4 bytes (header even at count = 0), 0 = pending, −1 = not available |
 | `fb_load_image_file(path, …)` | image file → RGBA8 (WASM: embedded MEMFS, e.g. `/moon.jpg`) |
@@ -229,20 +229,26 @@ Shared on the render-thread side is one structure (`Module.__fbw`):
 `fb_stream_campos`). The streaming is therefore **camera-prioritised**, and precisely at the place
 where it counts (the assignment to workers), in addition to the sorting of the `WorkList` in `FBWorld`.
 
-#### 3.3 `/elev`: the strict answer check
+#### 3.3 The height oracle: one tile, one implementation, both clients
 
-`atof()` alone returns **0.0** for an HTML error page, a proxy notice or a truncated body — and 0.0
-passes the validity test `> −1e8`, gets **cached** and from then on poisons AGL, radar altitude and the
-crash check with "sea level", wherever the aircraft is. The client therefore parses strictly: the whole
-body must be ONE finite number (leading/trailing whitespace allowed, the server terminates with a
-newline). Anything else is not a measurement.
+`fb_stream_ground` sits OUTSIDE the platform split, and that is the point: a ground truth that differs
+between two clients is not a ground truth. It reproduces `/elev` exactly — same zoom (**z13**,
+`FB_DEM_Z`), same tile, same bilinear (`tiles/src/elev.c`, `fb_elev_at`, through fb-tiles' own
+`tilemath.h`) — out of the Terrarium bytes `fb_stream_dem` already streams. The answer is therefore a
+**pure function of position** on both sides of the wire, and the client-side cache is 12 decoded tiles
+LRU.
 
-Natively it is cached per ≈ tile cell (**≈ 33 m**) — a flying aircraft only asks again after a
-noticeable distance, a stationary camera exactly once. The start path asks with `?block=1` (see §7.3).
+**Why the tile and not the point.** `/elev` is one round trip per position, and in the browser that trip
+lands AFTER the tick that asked — so a per-point cache can never answer the question the simulation is
+asking. The same argument `tools/bake_dem.py` makes one level up ("why the tile route, not point
+`/elev` requests"). One z13 tile is **4.8 km** of ground, twenty seconds of flight: the transport
+happens two hundred times more rarely than the question. Native asks blocking, the browser asks
+asynchronously and returns the −1e9 sentinel until the tile is resident — the caller
+(`units/FBSimUnit::UpdateGroundAsl`) then keeps its last good value.
 
 **Clamping to sea level (both platforms).** A REAL sample is clamped to ≥ 0: open bathymetry is
 negative (ETOPO seabed), but the water *surface* — and with it the aircraft's ground reference and the
-JSBSim ground — is at 0, not on the sea floor. The `−1e9` "no sample yet" sentinel is left untouched by
+JSBSim ground — is at 0, not on the sea floor. The −1e9 "no sample yet" sentinel is left untouched by
 this, otherwise callers could no longer distinguish whether a sample has landed.
 
 #### 3.4 `[tileperf]` — the cold-start instrumentation
@@ -257,7 +263,11 @@ before convergence is the total cold-start time. Costs nothing when off (a cache
 `sim/src/world/FBTilesElevation.h`. A **thin pass-through**: `GroundElevM(lat, lon)` calls
 `fb_stream_ground(lat, lon)`, nothing else. The constructor only does `fb_stream_open(base, 0, 0, 8)` —
 `fb_stream_ground` reads the base URL set by the open and is independent of the (lat, lon) passed
-there; that only seeds the render quadtree and is meaningless for a point query to `/elev`.
+there; that only seeds the render quadtree.
+
+`GroundElevPatch` stays an override rather than the base class's loop for ONE reason: it picks its
+zoom from the patch's own post spacing, while `GroundElevM` is fixed at the zoom `/elev` uses. A 20 nm
+radar-map patch therefore touches a 4×4 field instead of ~100 z13 tiles.
 
 **It lies in `world/`, not in `core/` — and is therefore NOT part of the core lib.** Reason: it hangs
 on the tile-streaming C ABI, which belongs to `render`/`world` and which the core library deliberately
@@ -435,7 +445,7 @@ delivers, under which endpoints, at which resolution.
 | `/bake/photo/z/x/y?tex=N` | aerial-imagery albedo mosaic | 200 / 204 | `fb_stream_pyramid(mode=1)` |
 | `/t/lights/z/x/y` | binary night-light list | 200 (even empty) / 204 (no vector datum) | `fb_stream_lights` |
 | `/t/stars/{band}/0/0` | HYG star band, 6 B/star | 200 / 404 | `fb_fetch_stars` (4 bands, concatenated) |
-| `/elev?lat=&lon=[&block=1]` | text: one number (m ASL) + newline | 200 / **503 "no dem"** (cold) | `fb_stream_ground` |
+| `/elev?lat=&lon=[&block=1]` | text: one number (m ASL) + newline | 200 / **503 "no dem"** (cold) | nothing in this tree since §3.3; the server's own point-query API |
 | `/wx` | global wind/cloud package, binary format `FBWX` | 200 / **503** (no GFS run reachable) | `FBWeatherProvider` — see [`weather.md`](weather.md) |
 | `/health` | text statistics line | 200 | operations |
 
@@ -512,6 +522,7 @@ defined anywhere.
 | `FBTerrainLoader` | built; one poll ABI, two byte back-ends (EM_JS async / libcurl blocking) |
 | Worker pool | built; N = clamp(hardwareConcurrency − 2, 1, 6), own WASM artefact, transferables |
 | `FBTilesElevation` | built; thin pass-through, the only live DEM source |
+| The height oracle | built; §3.3, one tile-sampling implementation for wasm and native. `payerne-full --elev tiles` flies to **exit 0 ("stopped on the runway", t = 734.1 s)**; against the ≈ 33 m point cache it replaced it was exit 2, hard landing at t = 719.0 s |
 | Terrain library | built; ENU model with documented bounds, terrarium decode, stitching, exact ECEF end stage |
 | Night lights | built; EVS night only, three LUTs, 65,536-sprite cap |
 | `fb-tiles` client view | documented; six data endpoints plus `/elev`, `/wx` and `/health` |
@@ -520,7 +531,6 @@ defined anywhere.
 
 | Gap | Detail |
 |---|---|
-| **`payerne-full` crashes under `--elev tiles`** | the mission flies cleanly to exit 0 with `--elev const`/`swiss`; not against the live DEM. Cause not investigated in that round. Suspect areas this text can only name: the resolution difference (`/elev` samples z13 terrarium bilinearly, while `FBBakedDemElevation` is a 90 m raster), the native cache cell of ≈ 33 m (a landing therefore samples the runway height quantised) and the cold-start path (503 → the last valid value stands). **While this is open, the mission control loop is effectively bound to `const`/`swiss` and the live DEM is untested.** |
 | `FBUnitsStage` is NoOp | `FBWorld` already **borrows** the unit registry for the drawing side, but there is no consumer. Other units, weapons and ground targets are invisible in the picture — see [`../render/units-visual.md`](../render/units-visual.md) |
 | Terrain masking for sensors is missing | the `const FBWorld*` is passed down into the module `Run()` so that a sensor CAN check lines of sight against terrain — today none does. `sensors/FBRadarSystem` documents this explicitly as a deliberate omission (a DEM raymarch per contact per look). The hook exists, the computation does not. |
 | `fb_stream_ground` returns a point, not a field | `FBElevationProvider` already declares `GroundElevPatch` (an area query) for future terrain sampling; `FBTilesElevation` implements only `GroundElevM`. Terrain-following flight, radar-altitude look-ahead and CFIT prediction therefore have no source. |

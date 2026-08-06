@@ -112,7 +112,19 @@ Nothing needs building now. But nothing may be built that assumes:
 
 ## State
 
-Nothing built. `fb-gym`, `gpu_native` and wasm all link one library and read the filesystem.
+Nothing of the client/server LINE is built. `fb-gym`, `gpu_native` and wasm all link one library and
+read the filesystem.
+
+§4.1's rule, however, has now been tested, because the browser already streams one thing from a server
+— the ground — and it broke exactly the way this section predicts. Its `/elev` cache held ONE global
+value with no key, so the answer a client got was the FETCH ARRIVAL ORDER: `mods/f22 c01m05` briefed
+both strike aircraft's targets with the flight leader's spawn ground (777.06 m for 510.93 / 442.26 m),
+released 1.6 s late and dropped 344 m short of the run `fb-gym` flew from the same file. The pace
+produced the result. The repair is §4's own condition applied to ground truth — the unit of transport
+is the TILE (4.8 km, twenty seconds of flight) and not the point, so the datum is there before the tick
+that needs it ([`world/terrain.md`](world/terrain.md) §3.3). Same file, both clients, now: `c01m05`
+456 event lines with 4 differing (a 1e-12-degree numerical zero), `c01m07` 670 lines over 415.5 mission
+seconds with none.
 
 ## Gaps
 

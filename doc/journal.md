@@ -4923,3 +4923,58 @@ f22-Urteile **3/3/1/0/1/3/3/3** unverändert · `test-air` 5 außerhalb, dieselb
 `verify-layers` **6/1** · `verify-guards` 8/8 · `verify-models` grün · `verify-types` 11 Typen in 114
 Dateien · `verify-trees` 25 Orphans unverändert · `nm build/fb-gym` 0 Dawn/WebGPU-Symbole ·
 `gym`/`native`/`wasm` bauen, Warnings = Errors.
+
+## 2026-08-06 — Derselbe Boden für beide Clients: eine Antwort gehört zu ihrer Frage
+
+**Der Befund der Regie-Runde war echt und die Ursache eine Zeile JavaScript.** `fbw_ground_poll` in
+`sim/src/world/FBTerrainLoader.cpp` hielt EINEN globalen Wert ohne Schlüssel: jede Bodenfrage des
+Browsers wurde mit dem zuletzt eingetroffenen Punkt beantwortet, egal wonach gefragt war. In
+`mods/f22 c01m05` brieften deshalb BEIDE Angriffsflugzeuge ihr Ziel mit dem Spawn-Boden des
+Verbandsführers — **777,06 m statt 510,93 / 442,26 m** (die drei Zahlen sind `/elev` an genau diesen
+drei Punkten). Die CCRP-Ebene lag 270 m zu hoch, der Abwurf kam 1,6 s zu spät, die Bombe 344 m zu kurz,
+und kein Bodenziel starb. Welche Antwort man bekam, entschied die Ankunftsreihenfolge der Fetches —
+also das Tempo, was Prinzip 4 einen Bug nennt.
+
+**Reparatur: die Kachel ist die Transporteinheit, nicht der Punkt.** `fb_stream_ground` steht jetzt
+AUSSERHALB des Plattform-Splits — eine Implementierung für wasm und nativ — und sampelt die z13-DEM-
+Kachel exakt so, wie `/elev` sie sampelt (dieselbe `tilemath.h` des Tileservers, dieselbe Bilineare wie
+`fb_elev_at`). Eine Kachel sind 4,8 km Boden, zwanzig Sekunden Flug: der Transport passiert
+zweihundertmal seltener als die Frage. Das reine Keying des Punkt-Caches reichte NICHT und ist als
+gemessener Fehlschlag verzeichnet — die Position einer fallenden Bombe ist jeden Tick neu, die Antwort
+landet immer nach dem Tick, der fragte, und die Stores endeten 350 m über Grund auf der Spawn-Höhe
+ihres Trägers.
+
+**Zweite Ursache, unabhängig:** `FBSimUnit::PrimeState` SCHRITT die FDM um 0,01 s, damit das erste Bild
+des Browsers einen gefüllten Zustand liest — ein Schritt, den kein anderer Client machte. Jetzt liest
+es die Engine nur aus (`Sample`). Der Rest-Diff bei t = 0,0 verschwand damit.
+
+**Beweis ist ein Vergleich, keine Erklärung.** Dieselbe `.fbm`, headless Chromium gegen
+`fb-gym --elev tiles`, normalisiertes Konsolenlog gegen `events.log`: `c01m05` **456 Zeilen, 4
+abweichend** — alle vier der Tick-0-RWR-Elevationswinkel eines höhengleichen Kontakts,
+−1,08419e-12 gegen −2,16847e-12 GRAD, eine numerische Null, die die zwei Codegeneratoren verschieden
+runden (Peilung und Signal derselben Zeilen sind identisch). `c01m07` über 415,5 Missionssekunden:
+**670 Zeilen, 0 abweichend** — dort tötete der Browser vorher den Führer bei t = 203,2 s, jetzt gehen
+die vier V-750 wie im Gym ins Gelände und bei t = 260,2 s zerstört eine mk84 `s7ef2`. **Eine
+F-22-Sortie zerstört im Browser ein Bodenziel** (`c01m05`: beide `target_soft` tot, `s5vip1`/`s5vip2`
+SUCCESS statt TIMEOUT) — vorher null von acht. **Wiederholbarkeit:** zwei `c01m05`-Browserläufe bei
+absichtlich verschiedenem Tempo (der zweite unter zwei parallelen 296-Missionen-Sweeps) —
+**456 Zeilen, 0 Unterschiede**; damit fällt auch `clients.md` 5.9b.
+
+**Nebenbefund, gemessen:** `payerne-full --elev tiles` fliegt zum ersten Mal durch — **Exit 2 (harte
+Landung, t = 719,0 s) → Exit 0 ("stopped on the runway", t = 734,1 s)**. Der offene Gap in
+`world/terrain.md` hatte die 33-m-Cache-Zelle als Verdächtigen benannt; sie war es, und sie ist weg.
+`/elev` ruft im ganzen Baum niemand mehr — der Client sampelt die Kachel, die er ohnehin lädt.
+
+**Was NICHT geschlossen ist, benannt:** fb-gym fliegt für einen Mod mit `dem` per Default sein
+gebackenes 90-m-Raster, der Browser hat nur den Tileserver. Dieselbe Quelle, zwei Auflösungen:
+`c01m05`-Abwurfebene 506,504 m gebacken gegen 510,926 m Kacheln = **4,4 m**, Einschlagpunkte 11 m
+auseinander, beide Ziele sterben in beiden Fällen. Und der 1e-12-Grad-Rest oben ist FP-Contraction
+zwischen wasm und arm64, nicht abgestellt.
+
+**Tore:** 296 f16-Missionen **byte-identisch** (`diff -r` zweier voller Snapshots = 0 Bytes, 296 Exit-
+Codes gleich) · f22-Urteile **3/3/1/0/1/3/3/3** unverändert, unter `--elev tiles` 6 von 8 vorher/nachher
+gleich (2 abgebrochen wegen Laufzeit) · `payerne-full --threads 1/2/4` eine Signatur (`73e62b5a…`) ·
+`test-air` 5 außerhalb, dieselben fünf · `verify-layers` **6/1** · `verify-guards` 8/8 ·
+`verify-models` grün · `verify-types` **11 Typen in 114 Dateien** · `verify-trees` 25 Orphans ·
+`gym`/`native`/`wasm` bauen, Warnings = Errors · `gpu_native --mission payerne-takeoff` 18 PNGs, Urteil
+unverändert.

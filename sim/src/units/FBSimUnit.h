@@ -126,9 +126,12 @@ private:
    * function, is what makes a multi-unit tick order-independent. */
   void PublishPose();
 
-  /* One FDM step so a client's first frame reads a filled state (boot only). Nothing to step without
-   * an airframe — the spawn pose is already the whole truth about such a unit. */
-  void PrimeState() { if (Fdm_) Fdm_->Step(St_); PublishPose(); }
+  /* THE ENGINE READ OUT, NOT STEPPED, so a client's first frame sees a filled state (boot only).
+   * Stepping here cost the browser one 0.01 s integration that fb-gym never made, and the same file
+   * then flew two different runs: measured on mods/f22 c01m05, every unit's tick-0 RWR bearing
+   * differed in the fifth decimal and its elevation angle by 2.7e-5 deg. A client owes the simulation no time
+   * for wanting a picture. */
+  void PrimeState() { if (Fdm_) Fdm_->Sample(St_); PublishPose(); }
 
   /* An unresolved sample keeps the last good value: ONE number reaches both JSBSim's contact floor and
    * the module's HUD/radar-alt path, so the two can never disagree about where the ground is. */

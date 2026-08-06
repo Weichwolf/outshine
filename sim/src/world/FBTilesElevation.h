@@ -19,11 +19,11 @@ public:
     return fb_stream_ground(latDeg, lonDeg);
   }
 
-  /* THE BATCH DECODE the base class left open, and it is not an optimisation but the difference
-   * between usable and not: GroundElevM is one /elev round trip per point (1.75 ms measured against
-   * the local fb-tiles), so the default loop would cost a minute for a radar-map patch. This one
-   * fetches whole Terrarium DEM TILES — the same ones the mesh is built from, so a patch and the
-   * terrain a frame draws cannot disagree — and samples them in memory. */
+  /* THE BATCH DECODE the base class left open. Both sample whole Terrarium DEM TILES — the same ones
+   * the mesh is built from, so a patch and the terrain a frame draws cannot disagree — but this one
+   * picks its ZOOM from the patch's own post spacing, while GroundElevM is fixed at the zoom /elev
+   * uses. A 20 nm radar-map patch therefore touches a 4x4 field instead of the ~100 z13 tiles the
+   * default loop would fetch one point at a time. */
   bool GroundElevPatch(double latMinDeg, double lonMinDeg, double latMaxDeg, double lonMaxDeg,
                        int cols, int rows, double *out) const override;
 

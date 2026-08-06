@@ -150,8 +150,8 @@ static void ApplyView() {
 }
 
 /* GROUND TRUTH FOR THE SIMULATION, from the same DEM the renderer draws, so gear/contact/crash collide
- * against real terrain. A cold /elev keeps the last good value for BOTH the FDM and the HUD/radar-alt
- * path (units/FBSimUnit::UpdateGroundAsl) — they must not disagree about where the ground is. The wall
+ * against real terrain. An unresident DEM tile keeps the last good value for BOTH the FDM and the
+ * HUD/radar-alt path (units/FBSimUnit::UpdateGroundAsl) — they must not disagree about where the ground is. The wall
  * time spent in here is the [cpuprof] `groundMs` field: this IS the browser's ground cost, measured
  * where it is paid. */
 class FBStreamElevation : public FBElevationProvider {
@@ -185,20 +185,27 @@ static bool gHavePose = false;
 static double gTickSubsteps = 0.0;
 static int gTicks = 0;
 static constexpr double kMaxFrameS = 0.25;   /* a stall/tab-switch clamp, so the sim does not lurch */
-static constexpr double kConfigGroundM = 430.0;   /* boot fallback until the first real /elev sample */
+static constexpr double kConfigGroundM = 430.0;   /* boot fallback until the first real DEM sample */
 
-/* THE SAME DEM, ASKED AT BOOT, where a cold /elev is the normal case and blocking is allowed: the tile
+/* THE SAME DEM, ASKED AT BOOT, where a cold theatre is the normal case and blocking is allowed: the tile
  * under a spawn or a briefed steerpoint has not been streamed yet, and both need a resolved number
  * BEFORE the first tick. Separate from gElevation because a per-tick sample must never sleep. */
 class FBBootElevation : public FBElevationProvider {
 public:
   double GroundElevM(double latDeg, double lonDeg) const override {
-    for (int t = 0; t < 40; t++) {
+    /* Longer than fb-tiles' own 3 s block=1 deadline, so a cold DEM tile is WAITED OUT rather than
+     * substituted: this number becomes a spawn's ground and a steerpoint's release plane, and both
+     * clients must read the same one out of the same file. */
+    for (int t = 0; t < 80; t++) {
       double g = fb_stream_ground(latDeg, lonDeg);
       if (FBElevationResolved(g)) return g;
       emscripten_sleep(50);
     }
-    return kConfigGroundM;   /* a slow or dead fb-tiles must not hang the boot */
+    /* A slow or dead fb-tiles must not hang the boot — but a session flying a made-up plateau says so,
+     * because every ballistic solution in it is then measured against a number nobody asked for. */
+    FBLog::Warn("world", "elev_boot_unresolved",
+                {{"lat", latDeg}, {"lon", lonDeg}, {"substituteM", kConfigGroundM}});
+    return kConfigGroundM;
   }
 };
 static FBBootElevation gBootElevation;
@@ -236,8 +243,8 @@ extern "C" EMSCRIPTEN_KEEPALIVE void fb_wx_ready(uint8_t *bytes, int n) {
   gWxIncoming = std::move(wx);
 }
 
-/* The /elev lesson applied to weather: an unreachable or broken endpoint is a LOG LINE, never a boot
- * failure — the session goes on flying the calm air it started in. */
+/* The ground-truth lesson applied to weather: an unreachable or broken endpoint is a LOG LINE, never
+ * a boot failure — the session goes on flying the calm air it started in. */
 extern "C" EMSCRIPTEN_KEEPALIVE void fb_wx_failed(int status) {
   FBLog::Warn("wx", "live_unavailable", {{"status", status}, {"flying", "calm"}});
 }
