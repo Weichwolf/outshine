@@ -284,4 +284,21 @@ also the part §3 says carries the high-altitude image, so that is fortunate rat
 - **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
   minutes of continuous rendering is unmeasured, and Twitch means continuous by definition. Every frame
   budget here rests on it.
-- **Building extrusion and roofs** are named in the goal and absent from the tree.
+- **Building extrusion and roofs are blocked by the tile server's zoom, not by missing data** — measured
+  2026-08-06 against a running `fb-tiles`:
+
+  | | `/t/vector/z/x/y` |
+  |---|---|
+  | z13 Payerne (control) | 14 314 B — `streets` `land` `water` |
+  | z13 Sindh (Armored Fist) | **37 172 B**, *more* than the control |
+  | **z15, z16, anywhere** | **14 B = `no such route`** |
+
+  So OSM data is present for the foreign theatres; the endpoint serves **z13 only**, and at z13 the
+  upstream source carries no `buildings` layer. `tiles/src/raster.c` and `lights.c` both read a
+  `buildings` layer, so the pipeline can carry it — it never arrives. **Extrusion needs a zoom the server
+  does not serve**, and that is one route, not a data acquisition.
+
+  Two cold-cache traps corrected while measuring: a first request returns 9 B and the second the real
+  tile (same behaviour the DEM has), and an earlier note in this tree read „northern Thailand has no OSM
+  objects" off exactly that artefact.
+- **Foliage** is named in the goal and absent from the tree.
