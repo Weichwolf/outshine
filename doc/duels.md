@@ -213,7 +213,7 @@ GATE says so where the old −250 could be repaid by energy plus defence plus su
 
 ### The campaign extension, and the entry-range sweep this family never had
 
-[`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md) re-frames this family around its
+[`campaigns/o4-gaf-mig29g-dact.md`](../mods/f16/mods/f16/doc/campaigns/o4-gaf-mig29g-dact.md) re-frames this family around its
 historical anchor and was BUILT on 2026-07-29 (`mods/f16/src/missions/o4-*.fbm`). Three of its results belong
 beside the table above rather than in a campaign narrative:
 

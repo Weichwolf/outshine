@@ -38,10 +38,10 @@ exception to the mirror rule and [`INDEX.md`](INDEX.md) names it as one.
 |---|---|
 | **In-tree primary** | [`modules/f16/weapons.md`](modules/f16/weapons.md) §2.6/§3 (ED EA Guide p.549–632, p.34–42 — HARM/LGB/cluster/rocket employment and specs) · [`modules/mig29/weapons.md`](modules/mig29/weapons.md) §5 (DCS MiG-29 manuals — the FAB/RBK/S-8/S-24 family with its release envelopes) |
 | **In-tree contracts consumed** | [`weapons.md`](weapons.md) (weapon-as-unit, the three resolution boundaries, the damage model) · [`sensors.md`](sensors.md) §1/§5 (the perception boundary, the RWR) · [`missions/verdict.md`](missions/verdict.md) (what a judge may measure) · [`modules/ground/module.md`](modules/ground/module.md) + [`catalogue.md`](modules/ground/catalogue.md) (the target) · [`air-defence-network.md`](air-defence-network.md) (the net that keeps it alive) · [`pilot.md`](pilot.md) §4 (the attack phase that exists) |
-| **Requirement sources** | [`campaigns/w3-desert-storm.md`](campaigns/w3-desert-storm.md) (`w3-04`/`w3-05`: a suppression element with nothing to suppress with) · [`campaigns/w4-allied-force.md`](campaigns/w4-allied-force.md) (`w4-04`/`w4-05`/`w4-07`: *"the campaign's defining aircraft cannot carry its defining weapon"*) |
+| **Requirement sources** | [`campaigns/w3-desert-storm.md`](../mods/f16/mods/f16/doc/campaigns/w3-desert-storm.md) (`w3-04`/`w3-05`: a suppression element with nothing to suppress with) · [`campaigns/w4-allied-force.md`](../mods/f16/mods/f16/doc/campaigns/w4-allied-force.md) (`w4-04`/`w4-05`/`w4-07`: *"the campaign's defining aircraft cannot carry its defining weapon"*) |
 | **External** | cited per row in §Knowledge 6, tiered |
 
-Marking: `[T1]`…`[T4]` as [`campaigns/INDEX.md`](campaigns/INDEX.md) · `[SET]` = a FlightBox setting with
+Marking: `[T1]`…`[T4]` as [`campaigns/INDEX.md`](../mods/f16/mods/f16/doc/campaigns/INDEX.md) · `[SET]` = a FlightBox setting with
 its one-sentence reason · `[DERIVED]` = computed from a named relation · `[MESS]` = measured in this tree ·
 `[DISPUTED]` = sources conflict, both carried · `[TODO]` = open.
 
@@ -936,4 +936,4 @@ which is the nearest thing to a [T1] statement about the memory mode this file's
 | [`missions/verdict.md`](missions/verdict.md) | the rule `objective suppress` had to pass, and the roster whose price it pays in one bool |
 | [`pilot.md`](pilot.md) | the attack phase that gains one cue and nothing else |
 | [`modules/f16/weapons.md`](modules/f16/weapons.md) · [`modules/mig29/weapons.md`](modules/mig29/weapons.md) | the two reference bases every store number in §§2–3 is read out of |
-| [`campaigns/w3-desert-storm.md`](campaigns/w3-desert-storm.md) · [`campaigns/w4-allied-force.md`](campaigns/w4-allied-force.md) | the two campaigns that ask for this, and the two that measure it |
+| [`campaigns/w3-desert-storm.md`](../mods/f16/mods/f16/doc/campaigns/w3-desert-storm.md) · [`campaigns/w4-allied-force.md`](../mods/f16/mods/f16/doc/campaigns/w4-allied-force.md) | the two campaigns that ask for this, and the two that measure it |

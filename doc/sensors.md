@@ -1622,7 +1622,7 @@ nose and is now a type: `core/FBBodyAngle`.
 
 **Result: 41 handovers, 4 defects, all four of one kind and all four fixed.** Three of the four were
 already known one at a time (this file's §Gaps, [`pilot.md`](pilot.md) §Gaps 2.15,
-[`campaigns/w5-baltic-qra.md`](campaigns/w5-baltic-qra.md) §Findings); the fourth (item 4) was found by
+[`campaigns/w5-baltic-qra.md`](../mods/f16/mods/f16/doc/campaigns/w5-baltic-qra.md) §Findings); the fourth (item 4) was found by
 the walk. The structural answer is in [`conventions.md`](conventions.md) §Frames: the frame is a TYPE
 (`core/FBBodyAngle`), the antenna is reachable through ONE door (`FBCommandBus::PostAntennaAz/El`), and
 `make -C sim verify-layers` prints the number of files that may name a slew target — **1**.

@@ -1779,7 +1779,7 @@ Zehn `sim/missions/o5-*.fbm` + `sim/campaigns/o5-airfield-defence.fbc`, Batajnic
 Missionen — die Binärdatei, die O5 geflogen hat, ist die, die alles vorher geflogen hat. Beide
 Determinismus-Kriterien beim ersten Versuch: 9 Läufe eine Kampagnen-Signatur
 (`f59fc642c86ccecd2691…`), 10/10 Schritte einzeln reproduziert. Vollständige Messung in
-[`campaigns/o5-airfield-defence.md`](campaigns/o5-airfield-defence.md) `## State`.
+[`campaigns/o5-airfield-defence.md`](../mods/f16/mods/f16/doc/campaigns/o5-airfield-defence.md) `## State`.
 
 **Die Antwort auf die eigene Frage — was hält den Flugplatz?** Eine Rotte, die schon oben steht. Sie
 verweigert einem Zweierpack die Hälfte seiner Bomben, und nichts sonst in diesem Baum kommt in die

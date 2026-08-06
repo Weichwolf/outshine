@@ -29,7 +29,7 @@ deliberate exception to the mirror rule, and [`INDEX.md`](INDEX.md) names it as 
 
 | Source class | What it is |
 |---|---|
-| **Requirement sources** | the five campaigns whose subject is the net and not the position: [`campaigns/o1-bekaa-1982.md`](campaigns/o1-bekaa-1982.md), [`campaigns/w3-desert-storm.md`](campaigns/w3-desert-storm.md), [`campaigns/w4-allied-force.md`](campaigns/w4-allied-force.md), [`campaigns/o5-airfield-defence.md`](campaigns/o5-airfield-defence.md), [`campaigns/o3-yom-kippur-1973.md`](campaigns/o3-yom-kippur-1973.md) |
+| **Requirement sources** | the five campaigns whose subject is the net and not the position: [`campaigns/o1-bekaa-1982.md`](../mods/f16/mods/f16/doc/campaigns/o1-bekaa-1982.md), [`campaigns/w3-desert-storm.md`](../mods/f16/mods/f16/doc/campaigns/w3-desert-storm.md), [`campaigns/w4-allied-force.md`](../mods/f16/mods/f16/doc/campaigns/w4-allied-force.md), [`campaigns/o5-airfield-defence.md`](../mods/f16/mods/f16/doc/campaigns/o5-airfield-defence.md), [`campaigns/o3-yom-kippur-1973.md`](../mods/f16/mods/f16/doc/campaigns/o3-yom-kippur-1973.md) |
 | **FlightBox sources** | [`sensors.md`](sensors.md) §1 (the perception boundary) and §3 (the cooperative net), [`formation.md`](formation.md) §§2/5 (a reported POINT and its correlation gate), [`modules/mig29/datalink-gci.md`](modules/mig29/datalink-gci.md) §2.2 (a cue is typed in, with latency), [`missions/verdict.md`](missions/verdict.md) (what a judge may measure), [`core.md`](core.md) §§6.1/8.3 |
 
 Marking: `[SET]` = a FlightBox setting with its one-sentence reason · `[DERIVED]` = computed from a named
@@ -49,7 +49,7 @@ that would decide it does not exist, so a run produces a number that says nothin
 | 1 | **Early warning cues a fire unit** | *Is killing an early-warning radar worth a sortie?* Today the answer is structurally **no**: an EW set cues nobody, so a mission with a `p18` plus an `sa3` is arithmetically identical to one with the `sa3` alone. That is a model artefact wearing a finding's clothes | `w3-01` (the opening move of the whole war as one aircraft), `w4-04`/`w4-05`, `o1-01`, `o2-01` |
 | 2 | **Layered belts and sectors, declared and judged** | *Does the altitude that escapes the AAA put you in the SAM?* The 15,000 ft floor, the low ingress and the "under the belt" route are the same one decision seen from three campaigns, and today a run can report a kill and a loss but never **where in the layer cake** either happened | `w4-01`…`w4-10` (the floor), `o1-07` (`under-the-belt`), `o3-06` (`inside-the-umbrella`, and there the belt is OURS), `w3-10` |
 | 3 | **Doctrine and control** | *What does a defence look like when the net is taken from it* — and its dual, *how many rounds does an uncoordinated defence spend on one aircraft?* The saturation arithmetic every SEAD package rests on is currently unopposed, because no site knows any other exists | `o1-02`/`o1-10`, `o5-04`, `w3-08`, `w3-09` (Package Q failure mode 3) |
-| 4 | **Communications jamming (the minimum)** | *How much of the Israeli result was the jamming?* The present stand-in deletes the controller **at spawn**; the anchor removed him **mid-intercept**. [`campaigns/o1-bekaa-1982.md`](campaigns/o1-bekaa-1982.md) §Knowledge 4 already tabulates the two as different failure modes — blindness against **confident** blindness — and calls the second the more dangerous one | `o1-02`, `o1-10`; `C13` is named there as "the one thing in the set with no substitute at all" |
+| 4 | **Communications jamming (the minimum)** | *How much of the Israeli result was the jamming?* The present stand-in deletes the controller **at spawn**; the anchor removed him **mid-intercept**. [`campaigns/o1-bekaa-1982.md`](../mods/f16/mods/f16/doc/campaigns/o1-bekaa-1982.md) §Knowledge 4 already tabulates the two as different failure modes — blindness against **confident** blindness — and calls the second the more dangerous one | `o1-02`, `o1-10`; `C13` is named there as "the one thing in the set with no substitute at all" |
 | 5 | **What the net means to the attacking pilot** | *Can an attacker tell a system from a transmitter?* `w4-05` asks it directly (one real emitter, three decoys, a receiver that measures power and never range). Without a stated boundary the question decays into "did we accidentally give him a threat-ring display" | `w4-05`, `w4-04`, `w3-04` |
 
 ### 1. The contract
@@ -324,7 +324,7 @@ that makes that one question measurable is therefore **a link that can be denied
 
 **What it buys, precisely:** `o1-02` stops being a stand-in. The controller is removed **during** the run,
 on geometry, at the moment the jammer closes — which is the case
-[`campaigns/o1-bekaa-1982.md`](campaigns/o1-bekaa-1982.md) §Knowledge 4 says is the interesting one and
+[`campaigns/o1-bekaa-1982.md`](../mods/f16/mods/f16/doc/campaigns/o1-bekaa-1982.md) §Knowledge 4 says is the interesting one and
 the present mechanism cannot produce. `C13` does **not** close: it splits, and the radar half stays open.
 
 ---
@@ -638,7 +638,7 @@ scan. **The mechanism is refused until the catalogue declares which sets can.**
 |---|---|---|
 | O1: the RPVs made the SAM radars radiate; the emissions were relayed to E-2Cs and analysed | baiting works (`emcon hold` is a receiver), but the relay and the analysis have no representation | still none — **that is an ELINT loop, not a defence net**, and it is not in this file. Named so nobody reads §6 as covering it |
 | O1: the 707s "cut them off from ground control" | nothing to cut | `C24`: a link denied on geometry, mid-run |
-| W3: "Kari", a centralised, French-built integrated air-defence system | a set of unconnected emitters, and the campaign file says so | a node, sectors, a WCS — **but the Kari architecture itself is not sourced beyond the name** ([`campaigns/w3-desert-storm.md`](campaigns/w3-desert-storm.md) §Knowledge 2), so the mission declares a plausible one and labels it `[SET]` |
+| W3: "Kari", a centralised, French-built integrated air-defence system | a set of unconnected emitters, and the campaign file says so | a node, sectors, a WCS — **but the Kari architecture itself is not sourced beyond the name** ([`campaigns/w3-desert-storm.md`](../mods/f16/mods/f16/doc/campaigns/w3-desert-storm.md) §Knowledge 2), so the mission declares a plausible one and labels it `[SET]` |
 | W3: the mission commander took ~80 % of all calls | no channel to saturate | still none. §N6's one-report-per-cycle is a *capacity*, not a voice net (`C18`) |
 | W4: dispersed, radars mostly not emitting, extensive decoys | expressible per position | expressible as a **posture**: a net whose members are `Dark` and are woken only by a node, and decoys that never are |
 | W4: SA-6 shoot-and-scoot cycle times | `set scoot_s`, and the campaign says the timings are unsourced | unchanged — and a scooting member drops off the net for exactly as long, which is a second observable of the same act |
@@ -677,7 +677,7 @@ timings are not. That is the same sourcing asymmetry
 declared again rather than hidden. The [T1] material that would fix it is the same material named
 unread there — TRADOC's *Worldwide Equipment Guide*, the FM 44 series, and the CIA reading room's
 Soviet air-defence assessments — plus the two reading-room documents
-[`campaigns/PROGRESS.md`](campaigns/PROGRESS.md) already calls the highest-value unread sources in the
+[`campaigns/PROGRESS.md`](../mods/f16/mods/f16/doc/campaigns/PROGRESS.md) already calls the highest-value unread sources in the
 directory.
 
 ---
@@ -692,5 +692,5 @@ directory.
 | [`formation.md`](formation.md) | the reported POINT, its correlation gate and its ambiguity rule — one mechanism, two consumers |
 | [`missions/verdict.md`](missions/verdict.md) | what a judge may measure, and why `avoid zone` is admissible under it |
 | [`missions/syntax.md`](missions/syntax.md) | the two scopes a `net`/`zone` block joins |
-| [`campaigns/INDEX.md`](campaigns/INDEX.md) | `C22`/`C23`/`C24`, and the five campaigns whose subject is the net |
+| [`campaigns/INDEX.md`](../mods/f16/mods/f16/doc/campaigns/INDEX.md) | `C22`/`C23`/`C24`, and the five campaigns whose subject is the net |
 | [`core.md`](core.md) | `FBSystemHealth::Datalink`, `FBEmitterSignature`, `FBUnitSignature` — the value layer this contract extends by one type and one scalar |

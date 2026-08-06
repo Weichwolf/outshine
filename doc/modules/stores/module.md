@@ -119,7 +119,7 @@ Deliberately not built (§Spec). Naming the consequences is the price of that de
 | Question | Why the tank cannot answer it |
 |---|---|
 | **A profile longer than one full fuel load** | a tank raises the reach ONCE. Anything beyond internal + external is a transfer in flight and has no expression at all |
-| **A tanker that is late, weathered in, or at the wrong track** — Package Q's failure mode 1 ([`../campaigns/w3-desert-storm.md`](../campaigns/w3-desert-storm.md)) | the failure is a rendezvous that does not happen. Without a rendezvous there is nothing to fail; W3 sortie 06 therefore measures the EFFECT of a fuel state and never its cause |
+| **A tanker that is late, weathered in, or at the wrong track** — Package Q's failure mode 1 ([`../campaigns/w3-desert-storm.md`](../../mods/f16/mods/f16/doc/campaigns/w3-desert-storm.md)) | the failure is a rendezvous that does not happen. Without a rendezvous there is nothing to fail; W3 sortie 06 therefore measures the EFFECT of a fuel state and never its cause |
 | **The cost of the join-up itself** | time, the drop out of the package, the fuel burnt getting to the boom and the fuel burnt holding position |
 | **A jet that goes home because it could not take fuel** | the only fuel decision in the tree is the minimum-fuel break-off ([`../pilot.md`](../pilot.md) §7.4a); "could not take fuel" is not a state anything can enter |
 | **Everything downstream of a boom**: a receiver's FLCS gain change with the refuelling door open, the tanker as a unit with a track, a boom operator | all of it is the expensive half |

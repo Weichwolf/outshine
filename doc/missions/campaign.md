@@ -7,7 +7,7 @@ below is unchanged and is what was built against; `## State` names the four plac
 NARROWER or more explicit than the text, and both acceptance criteria of §5 with their numbers.
 
 **The problem, in one line.** Ten `.fbm` files are ten unrelated runs
-([`../campaigns/INDEX.md`](../campaigns/INDEX.md), gap `C0`): nothing carries a loss, a destroyed target
+([`../campaigns/INDEX.md`](../../mods/f16/mods/f16/doc/campaigns/INDEX.md), gap `C0`): nothing carries a loss, a destroyed target
 or an expended missile from one to the next. All ten campaign specs name it; O1 states it sharpest —
 *the SAM belt destroyed on mission 1 is intact on mission 2.*
 
@@ -243,7 +243,7 @@ before its judges are finished.
 
 Criterion 2 is a statement about the campaign layer, and it was only ever tested on `viper-attrition`,
 which declares **no** `time`. The first campaign that does — `mods/f16/src/campaigns/o4-gaf-mig29g-dact.fbc`
-([`../campaigns/o4-gaf-mig29g-dact.md`](../campaigns/o4-gaf-mig29g-dact.md)) — replayed **9 of 10 steps
+([`../campaigns/o4-gaf-mig29g-dact.md`](../../mods/f16/mods/f16/doc/campaigns/o4-gaf-mig29g-dact.md)) — replayed **9 of 10 steps
 DIVERGED** on the first attempt, and the one that matched was the only mission declaring its own clock.
 The cause is exactly what criterion 2 exists to catch: `FBMissionCarry` has carried `CampaignUtcT0S` /
 `HaveCampaignTime` since the layer was built, and **`fb-gym --mission --state` had no way to fill them**,

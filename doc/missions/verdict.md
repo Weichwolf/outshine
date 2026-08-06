@@ -129,7 +129,7 @@ every monitor — no module is asked about its opponent and none about itself.
 ### The four new objective kinds (`C12`) — **built**
 
 Five of the ten campaign specs cannot state what they measured
-([`../campaigns/INDEX.md`](../campaigns/INDEX.md)): W5 and O2 have no *identify* and no *do-not-fire*,
+([`../campaigns/INDEX.md`](../../mods/f16/mods/f16/doc/campaigns/INDEX.md)): W5 and O2 have no *identify* and no *do-not-fire*,
 O5's entire success condition is **something not happening**. This is the contract that closes it;
 the grammar is in [`syntax.md`](syntax.md).
 

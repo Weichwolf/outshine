@@ -263,7 +263,7 @@ sum, and every one of them is declared in the mission file or measured, so none 
 |---|---|---|
 | opposing cast: count, module/catalogue row, `flight` structure | the `.fbm`'s `unit` blocks | |
 | ground threat: `net` block, site rows, `zone` cylinders | the `.fbm` | the belt is the difference between airspace and a corridor |
-| sky and light: `wx`, `time` | the `.fbm` | **and the honest caveat:** night today moves 6 of 184 telemetry columns and reaches no decision ([`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md) sortie 9). A night tier would be a claim the tree cannot back |
+| sky and light: `wx`, `time` | the `.fbm` | **and the honest caveat:** night today moves 6 of 184 telemetry columns and reaches no decision ([`campaigns/o4-gaf-mig29g-dact.md`](../mods/f16/mods/f16/doc/campaigns/o4-gaf-mig29g-dact.md) sortie 9). A night tier would be a claim the tree cannot back |
 | own loadout and timeout | the `.fbm` `set store` lines, `timeout` | O4 measured the magazine as worth more than any doctrine lever |
 | the AI's own outcome on that file | the reference run's exit code + objective vector | the only ordinal input that is actually about difficulty |
 | **`ACCEPTED` vs `ALPHA` of every catalogue row in the cast** | [`modules/air/flight-model-recipe.md`](modules/air/flight-model-recipe.md) | **not a difficulty input — an ADMISSION filter.** An `ALPHA` row *"may fly in a mission; it may not answer a campaign question"*. A mission whose opponent is `ALPHA` may be offered, and its briefing must carry that word, because the player's loss might be the deck rather than the pilot |
@@ -779,7 +779,7 @@ Spec's §§1–5 reading half, §6's screens and §4.2's ladder exist; §§8–1
 | `UNIT_RESULT` with `result`/`reason`/`decisive` | built | [`missions/output.md`](missions/output.md) |
 | the nine objective kinds | built | [`missions/verdict.md`](missions/verdict.md) |
 | the campaign layer: ordered missions, three carried facts, a text entry state per step, standalone replay of any step | built | [`missions/campaign.md`](missions/campaign.md), 2 campaigns, both criteria measured |
-| two real campaigns as material | built and flown | [`campaigns/o4-gaf-mig29g-dact.md`](campaigns/o4-gaf-mig29g-dact.md), [`campaigns/o1-bekaa-1982.md`](campaigns/o1-bekaa-1982.md) |
+| two real campaigns as material | built and flown | [`campaigns/o4-gaf-mig29g-dact.md`](../mods/f16/mods/f16/doc/campaigns/o4-gaf-mig29g-dact.md), [`campaigns/o1-bekaa-1982.md`](../mods/f16/mods/f16/doc/campaigns/o1-bekaa-1982.md) |
 | the seat's own debrief channels (`eng_*`, 27 columns) | built | [`pilot.md`](pilot.md) §8 |
 | a browser that flies, renders and trims | built, partial | [`clients/clients.md`](clients/clients.md) |
 | the force's own picture, per flight, from `FBState` blocks only | built | `pilot/FBFlightPicture`, [`formation.md`](formation.md) §3 |
