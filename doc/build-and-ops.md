@@ -35,7 +35,7 @@ directions (see the detail below and [`journal.md`](journal.md)).
 | Thing | Where it is tracked |
 |---|---|
 | The mission control loop effectively runs on `const`/`swiss` elevation because `payerne-full` crashes under `--elev tiles` | [`clients/clients.md`](clients/clients.md) |
-| The delta entry format is untested for a multi-file delta or a new file (diff against `/dev/null`) | [`aircraft/stores.md`](modules/stores.md) |
+| The delta entry format is untested for a multi-file delta or a new file (diff against `/dev/null`) | [`aircraft/stores.md`](modules/stores/module.md) |
 
 ## Knowledge
 

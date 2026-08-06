@@ -1,9 +1,11 @@
 # Stores — the model side
 
+**Contributes:** `simulated` `instances`
+
 **Subject:** the JSBSim models a store flies on, and the discipline that keeps a copy honest against
 the pinned upstream. The *behaviour* of stores — release path, guidance, ballistics, hit resolution,
 damage — is not here: it is in
-[`../weapons.md`](../weapons.md). A weapon on a pylon has no behaviour
+[`../../weapons.md`](../../weapons.md). A weapon on a pylon has no behaviour
 at all, only mass, drag and a model name (`core/FBStore.h`); its behaviour **is** the FDM it becomes
 when it is released.
 
@@ -147,7 +149,7 @@ a real delta — lives with the carrier: [`f16/module.md`](f16/module.md), Gaps,
 | A released store is structurally a full unit: own FDM instance, own module from the same registry, own telemetry file, the same two judges; its end is a detonation, not a crash (`UNIT_RESULT … IMPACT`) | [`../missions/runtime.md`](../missions/runtime.md) |
 | Its initial condition comes from the carrier state (position + station offset, carrier attitude, carrier velocity at that station including ω × r) — no trim, no invented ejector impulse | [`../missions/runtime.md`](../missions/runtime.md) |
 | Aircraft XML carries its OWN licence (F-16 = GPL, most LGPL); the `<fileheader>` of every copy stays unchanged | [`../architecture.md`](../architecture.md) |
-| F-16 station geometry as the model itself gives it (tank butt line ±65 in, half span 180 in, CG station longitudinally) — and why it is longitudinally collapsed | [`f16/module.md`](f16/module.md), [`../weapons.md`](../weapons.md) |
+| F-16 station geometry as the model itself gives it (tank butt line ±65 in, half span 180 in, CG station longitudinally) — and why it is longitudinally collapsed | [`f16/module.md`](f16/module.md), [`../../weapons.md`](../../weapons.md) |
 
 ### The 370-gallon wing tank — every number and where it comes from
 

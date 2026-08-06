@@ -207,7 +207,7 @@ file names it by path, an unknown word names the legal list, and a one-sided dec
 |---|---|
 | **Nothing binds the vocabulary in C++** | `FBContribution.h` compiles and is read by the gate; no module calls a `Declare…`. The binder is the migration round, and it is the point at which `doc/` and code could disagree — a cross-check of the `module.md` line against the runtime mask is the gate that closes it |
 | **The declaration is uniform today** | see State. Four modules, one pair. Not a defect, but it means the vocabulary is *reasoned*, not yet *measured* |
-| **`missile` and `stores` cannot declare** | no `doc/modules/<id>/module.md`. `stores` needs `doc/modules/stores.md` split into a directory; `missile` needs one written |
+| **`missile` cannot declare** | no `doc/modules/missile/module.md`; it needs one written. `stores` closed 2026-08-06 by moving its leaf into a directory — one class, one file, so the split was a rename |
 | **No module owns its state explicitly** | state is spread across `core/`, and who may write it is a compile-time argument rather than a structural one. §4 names the five state classes; nothing sorts today's state into them |
 | **The engine scope still has 20 orphans** | unchanged by this round and untouched on purpose: eight `LEAF` splits and nine `MISSING` trees are content work, not structure work |
 | **Rejected: `collision` as a word** | §4. It is `surface`/`instances` read by physics — a separate word makes one shape two truths |

@@ -185,7 +185,7 @@ That row is the doctrine in one line: **go dark, and stay dark until it is over.
 | `MassLbs` | 2,039 (925 kg) nominal; 1,972–2,083 lb depending on fin/fuze | [T4] Wikipedia, Mark 84 |
 | `WarheadKg` | **428.6** (945 lb Tritonal) | [T4], corroborated by [T2] `modules/f16/weapons.md` §3 |
 | `DragAreaFt2`, `Perf.*` | from its own deck, by the Mk-82's rule (§`core.md` 7.1) | `[DERIVED]` |
-| Deck | FlightBox's own, scaled from the `mk82` deck | **and it inherits that deck's fidelity caveat in full** ([`modules/stores.md`](modules/stores.md) Gaps 1): the delivery error against it is fidelity to the MODEL, never to a real release |
+| Deck | FlightBox's own, scaled from the `mk82` deck | **and it inherits that deck's fidelity caveat in full** ([`modules/stores/module.md`](modules/stores/module.md) Gaps 1): the delivery error against it is fidelity to the MODEL, never to a real release |
 
 **Employment:** identical to the Mk-82 — CCIP/CCRP, one release path, no new mode. What changes is the
 release *altitude* the crew can survive: a 100 m lethal radius on a soft target is a fragment envelope the

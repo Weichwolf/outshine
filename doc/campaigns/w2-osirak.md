@@ -158,7 +158,7 @@ Campaign fingerprint under `--elev const`:
 
 Attribution run **A1**, outside the ten: one straight leg at **240 m / 400 kt / `fuel_int_pct 100`**,
 flown to fuel exhaustion, one configuration per row. The 8,000 m rows are the committed ones from
-[`../modules/stores.md`](../modules/stores.md) and are here only as the altitude control.
+[`../modules/stores/module.md`](../modules/stores/module.md) and are here only as the altitude control.
 
 | configuration | fuel at t=0 | flameout | lb/km | **radius** (half, zero reserve) | vs the anchor's 982.9 km each way |
 |---|---:|---:|---:|---:|---|
