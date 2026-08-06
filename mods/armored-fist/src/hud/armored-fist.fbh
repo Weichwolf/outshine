@@ -1,0 +1,50 @@
+# ARMORED FIST (NovaLogic 1994) — the M1A2 gunner's sight, declared.
+# Source of record: mods/armored-fist/doc/hud.md §3 (the viewport display) and §2 (the console
+# callouts that sit inside the sight). Format: doc/render/hud-declaration.md.
+#
+# THE SIGHT IS THE DISPLAY. §2's nineteen callouts are CONSOLE furniture around the viewport — buttons,
+# tillers, dials, two screens — and a HUD declaration draws over a rendered scene, not a bitmap
+# console. What is declared here is exactly §3: what is printed INSIDE the sight.
+#
+# WHAT THIS FILE CANNOT SAY (hud.md §State carries the measurement):
+#   turret angle 000    the flown airframe has no turret; nothing publishes a mount bearing
+#   GOALS REMAINING     FBMissionMonitor judges from its own plan copy and publishes no count to a
+#                       display block — deliberately, so a cockpit cannot read the verdict
+#   1x / 3x / 10x       magnification is a camera state, not symbology
+#   TTS night device    the night picture is an MFD page (FBNvisStage), not a HUD element
+#   LOADED / READY      the stores block publishes a station and an arm state, not a breech state
+
+hud armored-fist
+scale 1.9
+color 0.40 1.00 0.40
+inset 14
+tfov 25
+
+text x 0.5 y 0 dy 30 align c size 3 text "NO TELEMETRY" color 1.0 0.8 0.2 when !telemetry
+
+# ---- The reticle: "cross with a graduated horizontal ladder below it and two curved range wings"
+# [SHOT]. The cross is the gun line; the wings are the gunner's own lead solution, which in this tree
+# is the same EEGS geometry every gun uses.
+cross x 0.5 y 0.5 gap 7 len 26
+funnel h 40 size 8 when gun_valid
+
+# ---- Range readout, small numeral at the RIGHT EDGE of the sight — `03.9` on the screenshot, unit not
+# stated by any source [SHOT]. Nautical miles here, because that is the unit this bus publishes.
+text x 1 dx -16 y 0.5 align r size 1.3 fmt "%04.1f" src tgt_range_nm color 1.0 0.30 0.25 when locked
+
+# ---- Speedometer [EN p.34] and the fuel gauge paired with it [EN p.34], centre-left of the console.
+text x 0 dx 16 y 1 dy -44 size 1.2 fmt "%3.0f MPH" src gs_kt
+bar x 0 dx 30 y 1 dy -22 w 60 h 9 span 100 src fuel_pct color 1.0 0.62 0.15
+text x 0 dx 16 y 1 dy -22 align c size 0.9 text "F" color 1.0 0.62 0.15
+
+# ---- Weapon Select with its ammunition counter, BOTTOM RIGHT [EN p.41].
+text x 1 dx -16 y 1 dy -44 align r size 1.2 fmt "MAIN %4.0f" src gun_rounds when gun_ready
+text x 1 dx -16 y 1 dy -26 align r size 1.2 text weapon when station_selected
+
+# ---- Threat Indicator Display, upper right [EN p.40]: it warns of what has SEEN you, so the honest
+# feed is the contact count this vehicle's own set holds, and nothing about identity.
+text x 1 dx -16 y 0 dy 26 align r size 1.15 fmt "THREAT %2.0f" src contacts when radar_contact
+text x 1 dx -16 y 0 dy 26 align r size 1.15 text "THREAT  0" when !radar_contact
+
+# ---- Tactical "Spin Map", bottom left [EN p.39]: a plan view with the vehicle at its foot.
+scope x 0.13 y 0.74 w 130 h 110 span 10 when radar_on

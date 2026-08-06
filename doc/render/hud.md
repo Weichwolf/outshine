@@ -1,9 +1,9 @@
 # HUD — the backend
 
 **Origin:** moved out of `rendering.md` §7 (state `793e1fe`), taken over unchanged. The **symbology**
-(what is drawn) is not here but in `systems/FBDisplaySystem` and its F-16 override — see
-[`../sim/systems.md`](../systems.md) and [`../modules/f16/module.md`](../modules/f16/module.md). This file
-describes the **backend** (what it is drawn with).
+(what is drawn) is not here: it is a MOD's declaration, read by `systems/FBDeclaredHud` — see
+[`hud-declaration.md`](hud-declaration.md). This file describes the **backend** (what it is drawn
+with), and nothing in it knows a title.
 
 ## Spec
 
@@ -11,7 +11,7 @@ The HUD **backend**: how the picture is drawn, never what is drawn.
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| Airframe-agnostic | the geometry buffer, the font and the stage know no aircraft type; symbology lives in `systems/FBDisplaySystem` and its module override |
+| Airframe-agnostic | the geometry buffer, the font and the stage know no aircraft type; symbology is a mod's `.fbh` deck ([`hud-declaration.md`](hud-declaration.md)) |
 | Geometry is CPU-side and WebGPU-free | `systems/FBHudGeometry.cpp` is the documented core-lib exception |
 | Real antialiasing from area coverage | 8-bit coverage atlas + sharp-bilinear reconstruction, no hard alpha test — coverage-agnostic, unchanged since the 1 bpp era |
 | Font is baked, not a build dependency | `sim/tools/bake_hud_font.py` runs only on font/charset change; `FBHudFontRom.h` is generated, `FBHudFont.h` is hand-kept |
@@ -27,8 +27,10 @@ Built; three cleanly separated layers (geometry → backend → font).
 | Generic default HUD in the displays slot | built | `4cb92e8` |
 | Coverage AA instead of alpha test; generic font system split from the MAX7456 hook; 16×16 glyphs from B612 Mono | built | `2f3c277`, `8997eec`, `6f160af` |
 | F-16 main HUD in the real combiner aperture, legible at 720p | built | `6802a6d`, `d31b1a9` |
+| The symbology left the engine: five titles' decks are data, `FBF16Hud.cpp` is deleted | built | [`hud-declaration.md`](hud-declaration.md) |
 
-The symbology implementation is documented in [`../modules/f16/module.md`](../modules/f16/module.md).
+The backend was NOT touched by that move: `FBHudStage` still asks a borrowed `FBDisplaySystem` for one
+`FBHudGeometry` per frame and uploads it verbatim. What changed is who fills it.
 
 ## Gaps
 
@@ -38,6 +40,7 @@ The symbology implementation is documented in [`../modules/f16/module.md`](../mo
 |---|---|
 | 4.5 | the 8-tap HUD glow is missing (`TODO` in `FBHudStage.cpp`) — it is what gives a real combiner its luminance feel. **Load-bearing since the symbology fills the whole windscreen (2026-08-03):** green ink over the white SVS ground is now measurably marginal in the lower half of the window, where the bands and the steering line sit. The MFD bays solved the same problem with a veil; the HUD cannot use one (it must not tint the world) and needs the glow instead |
 | 5.4 | no lock / TD-box symbology, because `doc/modules/f16/hud-symbology.md` documents none. It will not be invented (see `../aircraft/f16.md`). |
+| — | the pass the symbology is drawn in is entered only when something declares a deck; a WATCHED run therefore costs one `Begin*Pass` more than it did (5 → 6 measured, `?watch=off` puts it back) |
 
 ### Inventory (from the previous `Open points` section)
 

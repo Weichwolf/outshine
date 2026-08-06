@@ -195,9 +195,32 @@ indicator.
 
 ## State
 
-**Nothing, and the six missions did not change that.** The FlightBox HUD is C++ and F-16-shaped; there
-is no declaration format a per-title HUD could be expressed in
-([`doc/mods.md`](../../../doc/mods.md) `## Gaps`). `../src/missions/` renders through the F-16's HUD
+**Declared and drawn: `../src/hud/delta-force.fbh`, 14 rows.** Format:
+[`doc/render/hud-declaration.md`](../../../doc/render/hud-declaration.md). Proof: a real Chromium on
+the deployed WASM app, `sim/build/shots-hud/delta-force/sandbox-t60.png`,
+`gpu hud deck=delta-force kind=cockpit elements=14` — the boxed round count, the compass ROSE with its
+waypoint dot, the ammo and waypoint boxes top right, the centre crosshair, the heading/range lines
+bottom left and the mission lines bottom right.
+
+**§1's shape is the declaration**: everything numeric in one bar at the TOP, text only at the bottom,
+nothing at the sides — so this deck has no tape, no ladder and no horizon, and that absence is
+declared rather than omitted.
+
+**Six of the ten named elements are partial or absent, each for a stated reason:** the Health Bar (own
+damage is monotone state in `core/FBSystemHealth`, not a display block); the Situational Icon
+(stand/crouch/prone is a body state the engine has no body for); the magazine count and the chambered-
+round box (the gun block publishes rounds remaining, nothing else); `Carrying: <item>` (no mission item
+is on the bus); the Information Link (a message queue the engine does not have); the grid square `I13`
+(no map-grid designator is published). The waypoint line loses its CODE NAME for the same reason and
+keeps its number and distance. `(117m)` also loses its parentheses: the HUD font's charset is uppercase
+plus `0-9 - . : / + °`.
+
+**The six missions cannot be flown in a client with real terrain**, which is why the proof frame is the
+`?ap=manual` sandbox: every one spawns at 150 m ASL and the Peruvian ground under them is 280–1 033 m
+(measured with `gpu_native --mission … --mod ../mods/delta-force`, which refuses the spawn). That is
+this mod's own gap, unrelated to the HUD.
+
+## Gaps`). `../src/missions/` renders through the F-16's HUD
 unaltered, so every element of §2 is either absent or is an F-16 element wearing a Delta Force
 mission's name. Two of this file's strings did reach the missions, and only as text: the goal wording
 of §3's *End of mission* group is what each `.fbm`'s reading rule paraphrases, and the waypoint format

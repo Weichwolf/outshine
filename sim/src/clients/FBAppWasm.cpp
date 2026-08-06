@@ -20,6 +20,8 @@
 #include "FBTacticalOrder.h"
 #include "FBMissionSim.h"
 #include "FBCatalogueBoot.h"
+#include "FBDeclaredHud.h"
+#include "FBHudBoot.h"
 #include "FBMod.h"
 #include "FBOrdnance.h"
 #include "FBWorld.h"
@@ -135,6 +137,17 @@ static uint32_t gOrderSeq = 0;
  * 21 m of centre offset at 12 km, i.e. under a pixel. */
 static constexpr double kMapPitchDeg = -89.9;
 
+/* THE TWO DECLARED HUDS OF THIS TITLE (doc/render/hud-declaration.md). The cockpit deck replaces the
+ * module's own Displays slot for DRAWING only — the slot keeps running its 20 Hz logic and its MFD
+ * bank. The watch deck is the picture's caption in the directed view, and it reads the feed below,
+ * which no simulation object can see. Either may be absent; then the generic default HUD draws. */
+static std::unique_ptr<Systems::FBDeclaredHud> gCockpitHud, gWatchHud;
+/* `?watch=off` drops the caption and with it the whole symbology pass in the directed view — the
+ * frame this build's predecessor drew, kept measurable rather than remembered (render/passcount). */
+static bool gWatchCaption = true;
+static Systems::FBHudWatch gWatch;
+static std::string gWatchMission, gWatchSubject, gWatchTeam, gWatchKind;
+
 /* THE REGIE, and the camera behind it (clients/FBCameraDirector.h). It is handed a copy of what every unit
  * PUBLISHES once per tick and returns one pose per frame; it reaches nothing else in this file. The
  * stage vector is a member so a steady cast allocates nothing after the first tick. */
@@ -147,6 +160,14 @@ static std::vector<Clients::FBStageUnit> gStage;
 static void ApplyView() {
   if (!gOwnship) return;
   W.SetEyeUnitId(gView == FBView::Director ? -1 : gOwnship->GetId());
+}
+
+/* WHICH DECK DRAWS: the spectator's in the directed view, this title's cockpit deck otherwise, and
+ * the engine's generic default for a mod that declares neither. */
+static const Systems::FBDisplaySystem *HudDeck() {
+  if (gView == FBView::Director) return gWatchCaption ? gWatchHud.get() : nullptr;
+  if (gView != FBView::Director && gCockpitHud) return gCockpitHud.get();
+  return gOwnship ? gOwnship->Displays() : nullptr;
 }
 
 /* GROUND TRUTH FOR THE SIMULATION, from the same DEM the renderer draws, so gear/contact/crash collide
@@ -418,7 +439,7 @@ static bool HandleKey(const char *k, bool down, bool repeat) {
       /* SELECT A UNIT AND PRESS TAB = SIT IN ITS COCKPIT. It is an information change: from here on the
        * picture is THAT unit's own blocks and it sees less than the map did. */
       gOwnship = gActors[gSelected].get();
-      R.SetHudDisplay(gOwnship->Displays());
+      R.SetHudDisplay(HudDeck());
     }
     ApplyView();
     FBLog::Info("view", "MODE", {{"view", ViewName(gView)},
@@ -784,8 +805,45 @@ static void frame(void) {
   R.SetHud(hs, true);
   /* AFTER SetHud, which turns the overlay back on by itself: a cockpit HUD drawn over an outside shot
    * would project the flight-path marker on a boresight the camera does not have, i.e. it would lie.
-   * The scene then takes all 720 lines instead of the top two thirds (FBRenderer::ViewH). */
-  R.SetHudEnabled(gView != FBView::Director);
+   * The directed view keeps the symbology PASS and drops the 3x3 grid — the scene takes all 720 lines
+   * (FBRenderer::ViewH) and the caption is the only thing over it. */
+  R.SetHudDisplay(HudDeck());
+  if (gView == FBView::Director) {
+    /* WHAT THE PICTURE IS TOLD TO SAY. Every field is a fact this client already published or
+     * observed — the cast copy it hands the director, and the director's own cut. */
+    gWatchSubject.clear(); gWatchTeam.clear(); gWatchKind.clear();
+    gWatch.Friendly = gWatch.Hostile = 0.0f;
+    for (const Clients::FBStageUnit &u : gStage) {
+      if (u.Kind == Units::FBUnitKind::Aircraft && !u.Damage.Destroyed) {
+        if (u.Team == FBUnitTeam::Friendly) gWatch.Friendly += 1.0f;
+        else if (u.Team == FBUnitTeam::Hostile) gWatch.Hostile += 1.0f;
+      }
+      if (u.Id != gDirector.SubjectId()) continue;
+      gWatchSubject = u.Name ? u.Name : "";
+      gWatchTeam = FBUnitTeamStr(u.Team);
+      gWatchKind = u.Kind == Units::FBUnitKind::Aircraft ? "AIR"
+                 : u.Kind == Units::FBUnitKind::Ground ? "GROUND" : "WEAPON";
+      if (u.Damage.Destroyed) gWatchKind += " DESTROYED";
+      else if (!u.Damage.CombatEffective) gWatchKind += " HIT";
+    }
+    gWatch.Title = gMod.Name.c_str();
+    gWatch.Mission = gWatchMission.c_str();
+    gWatch.Subject = gWatchSubject.c_str();
+    gWatch.SubjectTeam = gWatchTeam.c_str();
+    gWatch.SubjectKind = gWatchKind.c_str();
+    gWatch.Shot = Clients::FBShotName(gDirector.ShotKind());
+    gWatch.Event = gDirector.EventName();
+    gWatch.EventTeam = gDirector.EventTeam();
+    gWatch.EventAgeS = gDirector.EventS() < 0.0 ? -1.0f : (float)(simT - gDirector.EventS());
+    gWatch.SimT = (float)simT;
+    gWatch.Held = gDirector.Held();
+    R.SetHudWatch(&gWatch);
+    /* NO DECK, NO PASS: a mod that declares no caption gets the frame it always had. */
+    R.SetHudOverlay(gWatchCaption && gWatchHud != nullptr);
+  } else {
+    R.SetHudWatch(nullptr);
+    R.SetHudEnabled(true);
+  }
 
   double cp_d = emscripten_get_now();   /* end: pose/HUD/ephemeris */
 
@@ -866,9 +924,26 @@ int main() {
     std::string name = JsName("(window.FB_MISSION||new URLSearchParams(location.search).get('mission')||'').toString()");
     snprintf(gMissionUrl, sizeof gMissionUrl, "%s",
              gModWeb.Mission(name.empty() ? gMod.DefaultMission : name).c_str());
+    gWatchMission = name.empty() ? gMod.DefaultMission : name;
   }
   FBLog::Info("gpu", "mod", {{"id", gMod.Id}, {"name", gMod.Name}, {"aircraft", gMod.Aircraft},
       {"models", gMod.Models}, {"mission", gMissionUrl}});
+
+  /* THE TITLE'S HUDS. A declared deck that will not PARSE stops the boot the way a bad catalogue
+     does — a HUD silently falling back to the generic one is a defect a screenshot cannot show. */
+  for (int which = 0; which < 2; which++) {
+    const std::string &path = which ? gMod.HudWatch : gMod.Hud;
+    if (path.empty()) continue;
+    Systems::FBHudDeck deck;
+    std::string huderr;
+    if (!Missions::FBLoadHud(path, deck, &huderr)) {
+      FBLog::Error("gpu", "hud_load_failed", {{"mod", gMod.Id}, {"reason", huderr}});
+      return 1;
+    }
+    FBLog::Info("gpu", "hud", {{"deck", deck.Name}, {"kind", which ? "watch" : "cockpit"},
+                               {"elements", (int)deck.Elements.size()}, {"path", path}});
+    (which ? gWatchHud : gCockpitHud) = std::make_unique<Systems::FBDeclaredHud>(std::move(deck));
+  }
 
   Modules::FBRegisterBuiltinModules();
   {
@@ -1075,7 +1150,7 @@ int main() {
     if (sn > 0) { R.SetStars(stars, sn, olat, olon); FBLog::Info("gpu", "star_catalogue", {{"bytes", sn}, {"stars", sn / 6}}); }
     else FBLog::Warn("gpu", "star_catalogue_unreachable", {{"base", std::string(base)}});
   }
-  R.SetHudDisplay(gOwnship->Displays());   /* HUD symbology: the module's Displays slot (default HUD) */
+  R.SetHudDisplay(HudDeck());   /* the title's declared deck, or the module's generic slot */
   R.SetMapSheetSource(&MapTileFetch);
   /* The airframe meshes THE MOD DECLARES, preloaded into emscripten's FS by the wasm target. A miss
    * leaves those units invisible and never blocks startup — exactly as a missing moon texture does. */
@@ -1105,7 +1180,10 @@ int main() {
       gView = gSceneView = FBView::Director;
       if (std::strcmp(jv, "chase") == 0) gDirector.ToggleHold();
     }
-    FBLog::Info("gpu", "view", {{"view", ViewName(gView)}});
+    const char *jw = emscripten_run_script_string(
+        "(new URLSearchParams(location.search).get('watch')||'')");
+    if (jw && std::strcmp(jw, "off") == 0) gWatchCaption = false;
+    FBLog::Info("gpu", "view", {{"view", ViewName(gView)}, {"caption", gWatchCaption}});
   }
   ApplyView();   /* the camera rides a unit: drawing the one it sits INSIDE would draw its inside */
   W.SetWeather(gWeather.get());   /* the DATA side only; the frame swap below re-points it when /wx lands */

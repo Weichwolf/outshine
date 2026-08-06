@@ -7,6 +7,8 @@
   "campaigns": "src/campaigns",
   "data": "src/data",
   "catalogue": "src/catalogue.fba",
+  "hud": "src/hud/f16.fbh",
+  "hud_watch": "src/hud/watch.fbh",
   "dem": "swiss-dem-90m.bin",
   "meshes": "f16",
   "sandbox": "f16",

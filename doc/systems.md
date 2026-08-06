@@ -848,6 +848,13 @@ by=capture|passed|orbited})`.
 `systems/FBDisplaySystem.h`, `systems/FBDisplaySystem.cpp`. The first slot with a REAL instead of a NoOp
 default — which is why it grew out of `FBSystemSlots.h`.
 
+**And the module override point is gone from this slot**, replaced by ONE derivation the whole tree
+shares: `systems/FBDeclaredHud` walks a table a MOD ships (`systems/FBHudDecl`, format in
+[`render/hud-declaration.md`](render/hud-declaration.md)). A per-title HUD class was the last thing in
+this slot that had to be C++, and `modules/f16/displays/FBF16Hud.cpp` was the only instance; it is
+deleted. A module still composes the slot for its `Run()` and its MFD bank — the client chooses which
+DECK draws over the frame.
+
 #### 8.1 Two separate entry points
 
 | Method | Rate | Caller | Purpose |

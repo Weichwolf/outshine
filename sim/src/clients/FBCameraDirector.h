@@ -60,6 +60,12 @@ public:
   void Step(int dir);
 
   bool Held() const { return Held_; }
+  /* WHO WAS LOST LAST, and when — the one fact a spectator wants that no camera pose carries. Recorded
+   * when the event is POSTED, not when it is cut to: a wreck the director never had room for still
+   * happened, and a caption that only named cut-to deaths would be a caption about the camera. */
+  const char *EventName() const { return Event_.c_str(); }
+  const char *EventTeam() const { return EventTeam_.c_str(); }
+  double EventS() const { return EventS_; }
   int SubjectId() const { return Shot_.Subject; }
   FBShotKind ShotKind() const { return Shot_.Kind; }
 
@@ -111,6 +117,8 @@ private:
   bool ChaseHave_ = false;
   double LastEye_[3] = {0, 0, 0};   /* where the camera stood, so a cut keeps the side it was on */
   bool HaveEye_ = false;
+  std::string Event_, EventTeam_;
+  double EventS_ = -1.0;
 };
 
 } // namespace FlightBox::Clients

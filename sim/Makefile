@@ -94,7 +94,7 @@ JSB_HOST     := build/jsbsim-host
 # FBMissionBoot/FBTickPool); clients = the entry points; render = FBRenderer + the WebGPU stages;
 # world = FBWorld/tile streaming, with world/terrain the lean terrain API (flat) under it;
 # vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/f16/displays -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground -Isrc/modules/air
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground -Isrc/modules/air
 # The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
 INC_CLIENT := -Isrc/missions -Isrc/clients
 # missions/ IS part of the core library (CLAUDE.md's layer list), so its headers belong on the core-lib
@@ -140,6 +140,7 @@ fbmeshpre = $(if $(call fbmeshdir,$(1)),\
 MOD_PRELOAD := --preload-file web/mods/index.txt@/fb/mods/index.txt \
   $(foreach d,$(MOD_DIRS),$(call fbpre,$(d),mod.json) $(call fbpre,$(d),$(call fbfield,$(d),aircraft)) \
     $(call fbpre,$(d),$(call fbfield,$(d),catalogue)) \
+    $(call fbpre,$(d),$(call fbfield,$(d),hud)) $(call fbpre,$(d),$(call fbfield,$(d),hud_watch)) \
     $(foreach m,$(call fbfield,$(d),meshes),$(call fbmeshpre,$(d),$(m))))
 
 # The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
@@ -169,6 +170,7 @@ CORE_LIB_SRCS := \
   src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
   src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
   src/systems/FBInputSystem.cpp src/systems/FBMfdSystem.cpp \
+  src/systems/FBHudDecl.cpp src/systems/FBDeclaredHud.cpp \
   src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp src/sensors/FBGroundMap.cpp \
   src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
   src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \
@@ -198,9 +200,9 @@ CORE_LIB_SRCS := \
   src/modules/missile/FBMissileArSeeker.cpp \
   src/modules/missile/FBMissileGuidance.cpp \
   src/modules/missile/FBMissileUplink.cpp \
-  src/modules/f16/displays/FBF16Hud.cpp \
   src/units/FBSimUnit.cpp \
   src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp \
+  src/missions/FBHudBoot.cpp \
   src/missions/FBCatalogueBoot.cpp
 
 .PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-types verify-trees verify-tests verify-guards image up down restart clean

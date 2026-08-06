@@ -74,7 +74,14 @@ public:
 
   /* The live pose the symbology reads; `have` false -> "NO TELEMETRY". */
   void SetHud(const FBState &s, bool have);
-  void SetHudEnabled(bool e) { HudEnabled = e; }   /* draw the HUD overlay (off for the cloud lab) */
+  void SetHudEnabled(bool e) { HudEnabled = e; HudBank = e; }   /* the cockpit, whole (off for the cloud lab) */
+  /* THE OVERLAY WITHOUT THE COCKPIT: the symbology pass runs, the 3x3 grid does not — the scene keeps
+   * all 720 lines and no MFD bay is drawn. What a WATCHED run needs, where nobody is in the seat and
+   * the picture is still supposed to say what it shows. It COSTS ONE Begin*Pass against `false`; the
+   * count is logged per frame (render/passcount) so the difference is read rather than assumed. */
+  void SetHudOverlay(bool e) { HudEnabled = e; HudBank = false; }
+  /* Borrowed spectator facts for a watch deck; nullptr in a cockpit. */
+  void SetHudWatch(const Systems::FBHudWatch *w) { Hud->SetWatch(w); }
   /* Borrowed from the active module and forwarded to FBHudStage; nullptr draws an empty HUD. */
   void SetHudDisplay(const Systems::FBDisplaySystem *disp) { Hud->SetDisplaySystem(disp); }
   /* THE TACTICAL MAP as the frame's overlay: it REPLACES the cockpit symbology in the same pass, so
@@ -161,7 +168,7 @@ public:
    * off and gets the full frame it always had. doc/render/renderer.md §2.4. */
   int SceneW(void) const { return Width; }
   int SceneH(void) const { return Height; }
-  int ViewH(void) const { return HudEnabled ? Height - Height / 3 : Height; }
+  int ViewH(void) const { return HudEnabled && HudBank ? Height - Height / 3 : Height; }
   /* The boresight's NDC offset: the scene covers the whole frame (so the bank has a world to be
    * translucent over) while its centre sits at the WINDSCREEN's centre. 0 without a cockpit. */
   float ViewShiftNdc(void) const { return 1.0f - (float)ViewH() / (float)Height; }
@@ -253,7 +260,7 @@ private:
    * that guarantee. The zeros are a DEFINED state — "no weather report", for which the cloud march has
    * its own default deck. */
   FBState HudState{};
-  bool HudEnabled, HudHave;
+  bool HudEnabled, HudBank, HudHave;
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */
 
   double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */

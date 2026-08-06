@@ -14,3 +14,8 @@ vendor/.compat-headers/
 __pycache__/
 *.pyc
 web/mods/
+
+# --- the browser proof harness's own dependency (tools/watch_browser.cjs); not a build input ---
+node_modules/
+package.json
+package-lock.json

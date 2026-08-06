@@ -194,7 +194,7 @@ void FBHudStage::Init(const FBGpu &gpu) {
 void FBHudStage::Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Geometry.Reset();
   if (!Overlay && Disp) {
-    Systems::FBHudEnv env{ctx.Width, ctx.Height, ctx.ViewH, Agl, Have};
+    Systems::FBHudEnv env{ctx.Width, ctx.Height, ctx.ViewH, Agl, Have, Watch};
     Disp->BuildHud(State, env, Geometry);
     /* The bank appends into the SAME geometry and therefore the same pass: three more displays must
      * not cost a Begin*Pass, which is the stage contract. Only when the grid actually has a bottom

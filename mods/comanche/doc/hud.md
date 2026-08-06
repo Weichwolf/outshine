@@ -272,8 +272,27 @@ is global, not per-viewport.
 
 ## State
 
-**Nothing.** The HUD in this tree is C++ and fixed-wing. Nothing here is declared, drawn or measured
-against.
+**Declared and drawn: `../src/hud/comanche.fbh`, 13 rows** — §2's HID plus the two panel readouts that
+have a source. Format: [`doc/render/hud-declaration.md`](../../../doc/render/hud-declaration.md).
+Proof: a real Chromium on the deployed WASM app, `sim/build/shots-hud/comanche/sandbox-t60.png`,
+`gpu hud deck=comanche kind=cockpit elements=13` — compass ribbon, artificial horizon with its pitch
+ladder, radar altimeter tape in feet AGL, rate of climb, the Heading Velocity Display, the digital
+speed indicator, the laser-lock line, chaff/flare counts and the fuel bar.
+
+**The structural difference is NOT reproduced and is not hidden.** *"the HID is not limited to the view
+directly in front of the windshield"* `[MAN p.35]` — symbology follows the HEAD. This tree has no head
+tracker, so every row is drawn in the airframe's frame.
+
+**What has no source, and why:** the collective and thrust bars are the fly-by-wire's CHOSEN pitch and
+throttle and nothing publishes either (§6 is explicit that drawing them from stick position would be
+the wrong thing); the IR and radar lamps would need the RWR block's emitter list reduced to two lamps;
+the TAC monitors and the weapon page are the MFD bank, which is not a HUD declaration; the target box
+needs a TAS this airframe does not have.
+
+**The ten missions cannot be flown in a client with real terrain**, which is why the proof frame is the
+`?ap=manual` sandbox: every one of them spawns the lead at 150 m ASL, and the ground under the ten
+boxes is 873–1 255 m (measured with `gpu_native --mission … --mod ../mods/comanche`, which refuses the
+spawn). That is this mod's own gap, unrelated to the HUD.
 
 ## Gaps
 

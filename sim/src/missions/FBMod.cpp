@@ -65,6 +65,8 @@ bool Manifest(const std::string &dir, const std::string &root, FBMod &out, std::
   for (size_t i = 0; i < sizeof(kRootKeys) / sizeof(*kRootKeys); ++i)
     Dir(text, root, kRootKeys[i], *RootSlot(out, i));
   Field(text, "dem", out.Dem);   /* still the bare filename here; Data may only arrive from `depends` */
+  Dir(text, root, "hud", out.Hud);
+  Dir(text, root, "hud_watch", out.HudWatch);
   return true;
 }
 

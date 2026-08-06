@@ -76,7 +76,7 @@ undeclarables today, from the four titles:
 | Armored Fist: a tracked vehicle on terrain | contacts and drive torque are declared in the format, absent in code |
 | Delta Force: a man on foot | ditto, plus a segment tree with foot contacts that come and go |
 | all three: ground seen from ten metres | terrain, buildings and foliage at that scale |
-| all four: a per-title HUD | the HUD is C++ today, not a declaration |
+| ~~all four: a per-title HUD~~ | **CLOSED** — `mods/<title>/src/hud/*.fbh`, one row per element ([`render/hud-declaration.md`](render/hud-declaration.md)). What is left of it is narrower and named there: no numeric expression, one flag per `when`, no state-dependent colour, no message queue |
 | all four: mission briefing text and objectives | `.fbm` has a reading rule, not a briefing |
 | `FBSystemId` is a closed 14-entry aircraft enum | blocks every non-aircraft downstream |
 
@@ -626,6 +626,25 @@ consequences beyond the count:
   source is unnamed is drift waiting to happen — CLAUDE.md's "jede Zahl trägt ihre Herkunft" outranks
   the counter.
 
+**A HUD IS A TABLE NOW, and the engine holds no title's glass.** `systems/FBHudDecl` (three closed
+enums = the whole vocabulary a mod may name, resolved once at parse time) + `systems/FBDeclaredHud`
+(nineteen element kinds, one walk per frame) + `missions/FBHudBoot` (the file half, kept out of
+`systems/` because the layers below the clients are I/O-free). Five titles ship ten decks;
+`sim/src/modules/f16/displays/FBF16Hud.cpp` is deleted and its BMS milliradian numbers moved into
+`mods/f16/src/hud/f16.fbh` with their sources. Measured: `verify-types` 1127 → **1110** mentions,
+`dir` 48 → **46**, `symbol` 434 → **429**; `verify-trees` engine orphans 20 → **19** (the deleted
+directory was one); the declared F-16 deck against the class it replaced is the same frame to **4
+pixels** outside its two text readouts, which moved 6 px because text is now anchored on its centre.
+
+**And the WATCHED run says what it shows.** The director knew (`director CUT shot=wreck subject=sam
+team=hostile`) and told only the console; `"hud_watch"` is a second deck whose vocabulary is a
+BROADCAST's — title, mission, the unit the cut is on, its side, its damage state, why the camera is
+there, who was destroyed last, and how many of each side are still flying. It is filled by the client
+from its own cast copy, never by a sensor, and travels in `FBHudEnv` because none of it is simulation
+state. Measured in Chromium on `c01m04-silkworm-jungle`: `S4AN2 / HOSTILE / AIR HIT / WRECK` under the
+burning battery it cut to. The price is stated rather than moved: the directed view's frame goes
+`passes=5 hud=0` → `passes=6 hud=1`, exactly one `Begin*Pass`, and `?watch=off` reproduces the old one.
+
 **§2.1's premise is**: the per-unit declaration list exists as runtime data
 (`sim/src/modules/FBCapability.h`, one table, twenty rows of `(accessor, C++ type, wire name)`), the
 `FBModule` base demands none of it (one pure virtual left, `Run`), and `fb-gym --caps` emits it as
@@ -669,7 +688,17 @@ inventory. See [`architecture.md`](architecture.md) §The layering pattern.
   and correct; with four it is one download for four titles, and nothing streams a mod on demand. The
   fetched half (missions, campaigns) already does, so the split exists — the preloaded half does not use
   it.
-- **The HUD is C++**, so „HUD per title, declared" has no surface to be declared into.
+- **Four HUD elements of the F-22's twenty-one cannot be fed**, and each names a hole one layer down:
+  `THR: 85%` (no throttle/thrust field on the bus), `AIRFRAME: 100%` (own damage is monotone state in
+  `core/FBSystemHealth`, deliberately not a display block), `FLAPS` (no flap position), and the Shoot
+  List's `MIG-27 ALPHA 1` — which is not a hole at all but the anti-cheat rule holding: a radar contact
+  carries no identity. Comanche loses its collective/thrust bars and its two panel lamps for the same
+  reason. Measured per title in each mod's `doc/hud.md` §State.
+- **"Which weapon is SELECTED" is not published**, only "which station" and "is the gun ready". Both
+  the F-16 and the F-22 deck work around it, the F-22's visibly: its manual switches the ASE circle for
+  the gunsight *"when guns are selected"*, and the two available readings were each measured wrong
+  (`gun_ready` is true all sortie, `gun_valid` from the first track) before gun RANGE was declared
+  instead.
 - **Three of the four titles are not aircraft**, and the body format that would carry them
   ([`body-format.md`](body-format.md)) is spec-only.
 - **Whether a briefing belongs in the mission or beside it** is undecided; the `.fbm` header carries a

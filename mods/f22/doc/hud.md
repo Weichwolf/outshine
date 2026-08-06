@@ -297,7 +297,33 @@ Nothing the source research asserted was **contradicted**. It was under-complete
 
 ## State
 
-**Nothing.** The FlightBox HUD is C++ and F-16-shaped ([`doc/mods.md`](../../../doc/mods.md) `## Gaps`:
+**Declared and drawn: `../src/hud/f22.fbh`, 27 rows.** The format is
+[`doc/render/hud-declaration.md`](../../../doc/render/hud-declaration.md); this file's §2 inventory and
+§3 position map are what the deck was written from, one row per table line, each carrying its manual
+page. Proof: a real Chromium on the deployed WASM app, `?mod=f22&mission=c01m01-snake-eyes&view=cockpit`
+— `sim/build/shots-hud/c01m01-snake-eyes-t85.png`, `gpu hud deck=f22 kind=cockpit elements=27`.
+
+**Seventeen of the twenty-one elements of §2 are declared. Four are not, and each names an engine hole
+rather than a missing row:**
+
+| §2 element | Why not |
+|---|---|
+| `THR: 85%` | no throttle or thrust field is published on the bus (`FBAirframeBlock` carries gear, brake, fuel, engine-running) |
+| `AIRFRAME: 100%` | own damage lives in `core/FBSystemHealth`, monotone with private mutators, and is deliberately not a display block |
+| Shoot List line 1, `MIG-27 ALPHA 1` | **a radar contact carries no identity in this tree** — this is the anti-cheat rule holding, not a defect. The only identity source is IFF Mode 4, and it knows no "hostile" |
+| `FLAPS` | no flap position is published |
+
+Two deviations from the manual, both measured rather than decided:
+
+- **"When guns are selected" cannot be declared** — no master mode and no selected-weapon KIND is on
+  the bus. `gun_ready` (fitted, armed, loaded) is true for the whole sortie, so the ASE circle never
+  appeared once; `gun_valid` (a ballistic solution exists) is true from the first radar track and its
+  lead point at 2 NM lies off the glass, so the frame had neither circle nor pipper. The deck declares
+  gun RANGE instead: outside it the steering circle, inside it the sight.
+- **The Target Designation Box does not turn red.** §4's green→red at the shoot cue needs a colour that
+  depends on state; a row has one ink.
+
+## Gaps`:
 *"The HUD is C++, so 'HUD per title, declared' has no surface to be declared into"*). There is no
 declaration format for a HUD, so none of the above can be expressed yet.
 

@@ -26,7 +26,7 @@ FBRenderer::FBRenderer()
   : SurfaceFormat(wgpu::TextureFormat::Undefined), HdrFormat(wgpu::TextureFormat::RGBA16Float),
     SwapW(0), SwapH(0),
     MoonW(0), MoonH(0), MoonScale(1.0), SkyClock(0),
-    HudState{}, HudEnabled(false), HudHave(false),
+    HudState{}, HudEnabled(false), HudBank(true), HudHave(false),
     Center{0, 0, 0}, GroundPhoto(false), HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
     Fwd{0, 0, 0}, Right{0, 0, 0}, Up{0, 0, 0}, Width(0), Height(0), DeviceReady(false),
     DeviceLost(false), Mode(Target::Surface), Blocking(false), Selector(nullptr), FrameNo(0) {}
@@ -35,6 +35,7 @@ void FBRenderer::SetHud(const FBState &s, bool have) {
   HudState = s;
   HudHave = have;
   HudEnabled = true;
+  HudBank = true;
 }
 
 void FBRenderer::SetAgl(float agl) { Hud->SetAgl(agl); }

@@ -6,6 +6,7 @@
 
 #include <cmath>
 
+#include "FBHudDecl.h"
 #include "FBHudGeometry.h"
 #include "FBMasterMode.h"
 #include "FBState.h"
@@ -23,6 +24,9 @@ struct FBHudEnv {
   int ViewH;
   float Agl;   /* m, ASL - DEM-Boden; AGL-Anzeige + Horizont-Dip-Fallback bei alt<=1 */
   bool Have;   /* Telemetrie vorhanden; false -> nur der NO-TELEMETRY-Fallback */
+  /* THE SPECTATOR'S FACTS, borrowed, nullptr in a cockpit. It travels here and not in FBState because
+   * it is not sim state: nobody perceived any of it, a client observed it (doc/mods.md §1 `watched`). */
+  const FBHudWatch *Watch = nullptr;
 };
 
 /* THE BANK'S GEOMETRY IN FRAME PIXELS, as ONE function: the page symbology is drawn here, the sensor

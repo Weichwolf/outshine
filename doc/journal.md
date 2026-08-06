@@ -5084,3 +5084,71 @@ an den sechs Boxmitten, erste Anfrage `no dem`, zweite antwortet. Geflogen wird 
 Datei angefasst**, also können die 296 f16-Missionen nicht wandern · `test-air` **5 außerhalb**,
 dieselben fünf · `verify-layers` 6/1 · `verify-guards` 8/8 · `verify-models` grün · `verify-types`
 11/114 · `gym`/`native`/`wasm` bauen.
+
+## 2026-08-06 — Das HUD ist eine Tabelle, und der Zuschauer erfährt endlich, wen er sieht
+
+Zwei Runden hatten unabhängig denselben Mangel gemeldet — *„nichts benennt, was man sieht"* und
+*„kein Titel-HUD"* — und [`doc/mods.md`](mods.md) §2 führte *„all four: a per-title HUD"* als
+**Undeklarierbares**. Beides ist geschlossen, und zwar mit EINEM Artefakt:
+[`doc/render/hud-declaration.md`](render/hud-declaration.md), `.fbh`, eine Zeile je Element.
+
+**`modules/f16/displays/FBF16Hud.cpp` ist gelöscht.** 299 Zeilen Engine-C++ über EIN Flugzeug; sein
+Ersatz ist `mods/f16/src/hud/f16.fbh`, 13 Zeilen, mit denselben BMS-Milliradian-Quellen an denselben
+Symbolen. Der Fundus wurde herausgezogen, nicht neu erfunden: die neunzehn Elementarten in
+`systems/FBDeclaredHud` sind die Bausteine dieser Datei plus die des generischen Default-HUD (Band,
+Tape, Leiter, Horizont) plus fünf, die erst die anderen vier Titel verlangten (`rose`, `scope`,
+`vector`, `bar`, `ils`).
+
+**Der Beweis, dass der Umzug nichts verschoben hat, ist ein Bild gegen ein Bild.** Dasselbe Frame
+(`gpu_native --mission ar-01-headon-noon`), einmal mit der gelöschten Klasse, einmal mit der
+Deklaration: **584 von 921 600 Pixeln unterschiedlich, davon 4 außerhalb der zwei Textzeilen**,
+maximale Abweichung dort 64 auf einer antialiasten Kante. Die zwei Zeilen sind um ~6 px gewandert,
+weil Text jetzt auf seiner MITTE sitzt statt auf seiner oberen linken Ecke.
+
+**Das Vokabular IST die Grenze**, und dort landet die Anti-Cheat-Regel unverändert: drei geschlossene
+Enums (Zahlen, Zeichenketten, Bedingungen), jeder Eintrag ein publiziertes Blockfeld oder dessen
+Umrechnung, aufgelöst EINMAL beim Parsen. Ein unbekanntes Wort ist ein Fehler mit Zeilennummer und
+kein stillschweigend verworfenes Element — ein HUD, das heimlich auf das generische zurückfällt, kann
+kein Screenshot zeigen.
+
+**Vier von einundzwanzig F-22-Elementen lassen sich nicht füttern, und jedes benennt ein Loch eine
+Schicht tiefer** (je Titel gemessen in dessen `doc/hud.md` §State): `THR: 85%` — kein Schub auf dem
+Bus; `AIRFRAME: 100%` — eigener Schaden ist monotoner Zustand in `core/FBSystemHealth`, absichtlich
+kein Anzeigeblock; `FLAPS` — keine Klappenstellung; und die Shoot-List-Zeile `MIG-27 ALPHA 1`, die
+gar kein Loch ist, sondern die Regel: **ein Radarkontakt trägt keine Identität.** Comanche verliert
+Kollektiv- und Schubbalken sowie die zwei Lampen aus demselben Grund.
+
+**Ein fünftes Loch ist teurer als die vier und wurde zweimal falsch geraten, bevor es benannt war:**
+„welche Waffe GEWÄHLT ist" steht nicht auf dem Bus. Das F-22-Handbuch tauscht den ASE-Kreis gegen das
+Visier *„when guns are selected"*; mit `gun_ready` (Kanone montiert, scharf, geladen) erschien der
+Kreis **in keinem einzigen Frame** der ganzen Sortie, mit `gun_valid` (ballistische Lösung vorhanden)
+lag der Bleipunkt bei 2 NM außerhalb der Scheibe und das Bild hatte **weder Kreis noch Pipper**.
+Deklariert wird jetzt die Schuss-ENTFERNUNG. Beide Fehlversuche stehen in der `.fbh` neben der Zeile.
+
+**Und die Regie sagt es endlich jemandem.** `"hud_watch"` ist ein zweites Deck, dessen Vokabular das
+einer ÜBERTRAGUNG ist — Titel, Mission, das Subjekt des Schnitts, seine Seite, sein Schadenszustand,
+warum die Kamera dort steht, wer zuletzt zerstört wurde, wie viele je Seite noch fliegen. Gefüllt vom
+Client aus seiner eigenen Besetzungskopie, nie von einem Sensor, und es reist in `FBHudEnv`, weil
+nichts davon Simulationszustand ist. Gemessen in echtem Chromium auf `c01m04-silkworm-jungle`:
+**`S4AN2` / `DESTROYED`** mittig, während unten links `S4AN1 / HOSTILE / AIR HIT / WRECK` steht — die
+Kamera auf dem einen Wrack, die Meldung über das andere, acht Sekunden lang (die Zahl steht im Deck).
+
+**Der Preis wird genannt statt bewegt:** die Regie-Ansicht geht von `passes=5 hud=0` auf
+`passes=6 hud=1` — genau EIN `Begin*Pass` —, und `?watch=off` stellt das alte Bild wieder her. Ein Mod
+ohne `hud_watch` betritt den Pass gar nicht erst.
+
+**Bilder je Titel, alle aus echtem Chromium** (`sim/build/shots-hud/`): f16 Cockpit + Regie,
+f22 Cockpit (siebzehn Elemente in einem Frame) + drei Regie-Schnitte, comanche, armored-fist,
+delta-force. Comanche und Delta Force mussten dafür in den `?ap=manual`-Sandkasten: **alle sechzehn
+ihrer Missionen setzen den Spieler auf 150 m ASL, und der echte Boden darunter liegt bei 280–1 255 m**
+(`gpu_native` verweigert den Spawn). Das ist die Lücke dieser Mods, nicht die des HUD, und sie steht
+jetzt mit Zahl in deren `doc/hud.md`.
+
+**Tore:** 296 f16-Missionen **byte-identisch** (zwei volle Snapshots, `diff -r` = 0) · f22-Urteile
+**3/3/1/0/1/3/3/3**, comanche **1/3/3/3/3/3/3/3/3/3**, armored-fist **3/3/0/3/3/0/3**, delta-force
+**3/0/3/0/3/3** — jeweils gegen ein HEAD-Binary gegengeprüft, nicht gegen die Erinnerung ·
+`payerne-full --threads 1/2/4` eine Signatur · acht Harnesses rc = 0 · `test-air` **5 außerhalb,
+dieselben fünf** · `verify-layers` 13 Schichten grün · `verify-guards` 8/8 · `verify-models` grün ·
+`verify-trees` **19+0+2** (Engine-Waisen 20 → 19: das gelöschte `src/modules/f16/displays/` war eine) ·
+`verify-types` **1127 → 1110**, `dir` **48 → 46**, `symbol` **434 → 429** · `gym`/`native`/`wasm`
+bauen, Warnings = Errors.

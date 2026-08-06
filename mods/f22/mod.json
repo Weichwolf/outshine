@@ -4,8 +4,11 @@
   "missions": "src/missions",
   "campaigns": "src/campaigns",
   "data": "src/data",
+  "hud": "src/hud/f22.fbh",
+  "hud_watch": "src/hud/watch.fbh",
   "dem": "mekong-dem-90m.bin",
   "depends": "f16",
   "meshes": "f16",
+  "sandbox": "f16",
   "default_mission": "c01m01-snake-eyes"
 }

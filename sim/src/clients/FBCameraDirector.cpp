@@ -206,6 +206,11 @@ void FBCameraDirector::Observe(const std::vector<FBStageUnit> &stage, double sim
 }
 
 void FBCameraDirector::Post(Track &t, FBShotKind kind) {
+  if (kind == FBShotKind::Wreck) {
+    Event_ = t.Name;
+    EventTeam_ = FBUnitTeamStr(t.Team);
+    EventS_ = SimS_;
+  }
   if (t.HavePend && Prio(t.PendKind) > Prio(kind)) return;
   t.HavePend = true;
   t.PendKind = kind;

@@ -1,0 +1,57 @@
+# DELTA FORCE (NovaLogic 1998) — the operator's status bar, declared.
+# Source of record: mods/delta-force/doc/hud.md §1 (the shape) and §2 (the ten named elements), with
+# the manual page on each row. Format: doc/render/hud-declaration.md.
+#
+# THE SHAPE IS THE FINDING: "Everything numeric is in one bar at the TOP. The bottom bar is text only.
+# There is nothing at the sides." (§1) — so this deck has no tapes, no ladder and no horizon, and that
+# absence is the declaration, not an omission.
+#
+# WHAT THIS FILE CANNOT SAY (hud.md §State carries the measurement):
+#   Health Bar            own damage is monotone state in core/FBSystemHealth, not a display block
+#   Situational Icon      stand / crouch / prone is a body state the engine has no body for
+#   magazines + chamber   the gun block publishes rounds remaining, not magazines or a chambered round
+#   Carrying: <item>      no mission item is carried on the bus
+#   Information Link      a message queue is an engine gap (doc/mods.md §2, briefings)
+#   Grid square I13       no map-grid designator is published
+
+hud delta-force
+scale 1.9
+color 0.40 1.00 0.45
+inset 10
+tfov 25
+
+text x 0.5 y 0 dy 40 align c size 3 text "NO TELEMETRY" color 1.0 0.8 0.2 when !telemetry
+
+# ---- Element 3, Current Weapon Selected: top bar, centre-left, one text line "<weapon>, <fire mode>"
+# and a boxed round count [MAN p.14].
+text x 0 dx 14 y 0 dy 14 size 1.25 text weapon when station_selected
+text x 0 dx 14 y 0 dy 14 size 1.25 text "M61A1 AUTO" when gun_ready
+box  x 0 dx 130 y 0 dy 14 w 62 h 20
+text x 0 dx 130 y 0 dy 14 align c size 1.25 fmt "%4.0f" src gun_rounds
+
+# ---- Element 8, Compass Heading: "a round rose with N/E/S/W, not a tape. The direction of your next
+# waypoint is connoted by a green dot" [MAN p.15, Addendum p.3]. The centre dot is the team colour.
+rose x 0.60 y 0 dy 30 w 46 size 0.85 src steer_rel_brg
+
+# ---- Element 7, Waypoint Indicator: "code name and distance in meters to your next waypoint", format
+# `WP3: CP BRAVO (117m)` [MAN p.15, SHOT]. The code name is mission text this bus does not carry, so
+# the number is declared and the name is not invented.
+text x 1 dx -14 y 0 dy 34 align r size 1.15 fmt "WP%1.0f: %5.0fM" src steer_num src2 steer_dist_nm when nav_valid
+
+# ---- Element 6, right box of the pair: what is being carried. Nothing on the bus names an item, so
+# the box is declared with what the operator IS carrying that the bus does know.
+text x 1 dx -14 y 0 dy 14 align r size 1.15 fmt "AMMO %3.0f" src stores_loaded
+
+# ---- The crosshair: "small, green, screen centre" [MAN p.11].
+cross x 0.5 y 0.5 gap 5 len 14
+
+# ---- Element 10, Mission Information: bottom bar right, two lines, GREEN — operative name, current
+# mission, and a timer "if appropriate to the mission type" [MAN p.15].
+text x 1 dx -14 y 1 dy -30 align r size 1.15 text mode
+text x 1 dx -14 y 1 dy -14 align r size 1.15 fmt "T+%4.0f" src sim_t
+
+# ---- Binocular mode: "Heading:" and "Distance:" with format "%s %3im", saturating at 1 km
+# [GAME strings, §3]. Declared on the laser/lock state, which is when this tree has a range at all.
+text x 0 dx 14 y 1 dy -30 size 1.15 fmt "HEADING: %3.0f" src heading
+text x 0 dx 14 y 1 dy -14 size 1.15 fmt "RANGE: %5.0f" src tgt_range_nm when locked
+text x 0 dx 14 y 1 dy -14 size 1.15 text "NO TARGET" when !locked

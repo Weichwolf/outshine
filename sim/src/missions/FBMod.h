@@ -19,6 +19,11 @@ struct FBMod {
   /* The scenario's cast of catalogue airframes, as ONE declaration file rather than a directory — what
    * the engine used to hold as a table in core/ (doc/mods.md §3, CLAUDE.md Prinzip 3). */
   std::string Catalogue;
+  /* THIS TITLE'S TWO HUDS, each a FILE like `catalogue` and each optional: `hud` is what a pilot sees
+   * through the glass, `hud_watch` what a SPECTATOR is told about the picture (doc/mods.md §1). Never
+   * resolved through `depends` — a borrowed cockpit would put another title's instrument in this
+   * title's aeroplane, and silence here means "this mod declares none", never "the lender's". */
+  std::string Hud, HudWatch;
   /* THIS TITLE'S BAKED DEM under Data, or empty. Never resolved through `depends`, unlike the roots
    * above: a theatre's ground is the one asset a sibling's cannot stand in for, and borrowing it
    * silently is how a Swiss island ends up answering 0 m over northern Thailand. */

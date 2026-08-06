@@ -1,8 +1,11 @@
 {
   "id": "delta-force",
   "name": "Delta Force (NovaLogic 1998) — Campaign One: Peru",
+  "hud": "src/hud/delta-force.fbh",
+  "hud_watch": "src/hud/watch.fbh",
   "missions": "src/missions",
   "depends": "f16",
   "meshes": "f16",
+  "sandbox": "f16",
   "default_mission": "c02m01-insurrection"
 }

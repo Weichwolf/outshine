@@ -13,6 +13,8 @@
 #include "FBUnits.h"
 #include "FBMissionRunner.h"
 #include "FBMod.h"
+#include "FBDeclaredHud.h"
+#include "FBHudBoot.h"
 #include "FBTerrainLoader.h"
 #include "FBTilesElevation.h"
 #include "FBLog.h"
@@ -364,10 +366,10 @@ int MapTileFetch(int z, int x, int y, int ts, unsigned char *dst) {
 class FBNativeMissionHook : public FlightBox::Missions::FBMissionTickHook {
 public:
   FBNativeMissionHook(std::string base, std::string outDir, std::string modelsDir,
-                      std::vector<std::string> meshes, double intervalS,
+                      std::vector<std::string> meshes, std::string hudPath, double intervalS,
                       bool groundPhoto = false, int width = 1280, int height = 720)
       : Base(std::move(base)), OutDir(std::move(outDir)), ModelsDir(std::move(modelsDir)),
-        Meshes(std::move(meshes)),
+        HudPath(std::move(hudPath)), Meshes(std::move(meshes)),
         IntervalS(intervalS), Width(width), Height(height), GroundPhoto(groundPhoto) {}
 
   /* THE TACTICAL MAP as a frame venue: `--map <callsign>` draws the picture of THAT unit's fusion --
@@ -415,7 +417,17 @@ public:
       R.reset(); W.reset();
       return;
     }
-    R->SetHudDisplay(primary.Displays());
+    /* THE FRAME ORACLE DRAWS THE TITLE'S OWN GLASS. Without this the PNG would prove the generic
+     * default HUD and nothing about the declaration the mod ships. */
+    if (!HudPath.empty()) {
+      FlightBox::Systems::FBHudDeck deck;
+      std::string huderr;
+      if (FlightBox::Missions::FBLoadHud(HudPath, deck, &huderr)) {
+        FlightBox::FBLog::Info("mission", "hud", {{"deck", deck.Name}, {"elements", (int)deck.Elements.size()}});
+        Hud = std::make_unique<FlightBox::Systems::FBDeclaredHud>(std::move(deck));
+      } else FlightBox::FBLog::Error("mission", "hud_load_failed", {{"reason", huderr}});
+    }
+    R->SetHudDisplay(Hud ? (const FlightBox::Systems::FBDisplaySystem *)Hud.get() : primary.Displays());
     /* The airframe meshes, from the mod this run flies (missions/FBMod.h). */
     for (const std::string &mesh : Meshes)
       if (!R->AddUnitModel(mesh.c_str(), ModelsDir.c_str()))
@@ -600,8 +612,9 @@ private:
     }
   }
 
-  std::string Base, OutDir, ModelsDir;
+  std::string Base, OutDir, ModelsDir, HudPath;
   std::vector<std::string> Meshes;   /* the module keys the mod declares a mesh for (missions/FBMod.h) */
+  std::unique_ptr<FlightBox::Systems::FBDeclaredHud> Hud;   /* this title's glass, or none */
   FlightBox::Missions::FBMissionClock Clock;
   double IntervalS;
   int Width, Height;
@@ -675,7 +688,7 @@ int RunMission(const std::string &missionPath, const FlightBox::Missions::FBMod 
               double mapPanN, double mapHomeS, bool groundPhoto, const std::vector<std::string> &orderSpecs) {
   FlightBox::World::FBTilesElevation elevation(base.c_str());
   if (renderIntervalS > 0.0) {
-    FBNativeMissionHook hook(base, outDir, mod.Models, mod.Meshes, renderIntervalS, groundPhoto);
+    FBNativeMissionHook hook(base, outDir, mod.Models, mod.Meshes, mod.Hud, renderIntervalS, groundPhoto);
     if (!mapNode.empty()) {
       hook.SetMapNode(mapNode, mapSpanM);
       hook.SetMapZoom(mapZoom);

@@ -349,8 +349,24 @@ with `CURRENT PLAYER: <name>` printed across the bottom. Verified against myaban
 
 ## State
 
-Nothing built. The engine's HUD is C++ ([`doc/mods.md`](../../../doc/mods.md) §Gaps), so none of the
-above has a surface to be declared into.
+**Declared and drawn: `../src/hud/armored-fist.fbh`, 12 rows** — exactly §3, what is printed INSIDE the
+sight, plus the console readouts of §2 that have a source. Format:
+[`doc/render/hud-declaration.md`](../../../doc/render/hud-declaration.md). Proof: a real Chromium on
+the deployed WASM app, `sim/build/shots-hud/armored-fist/c01m01-slaughterzone-s40.png`, and the native
+frame oracle, `sim/build/shots-hud/armored-fist-native/mission_0001.png`
+(`mission hud deck=armored-fist elements=12`) — reticle with its lead solution, range readout at the
+right edge of the sight, speedometer, fuel bar, `MAIN`/weapon counter, threat count, spin map.
+
+**§2's nineteen callouts are console FURNITURE** — buttons, tillers, dials, two screens — around the
+viewport. A HUD declaration draws over a rendered scene, not over a bitmap console, so they are out of
+scope here rather than missing.
+
+**What has no source:** the turret angle `000` (the flown airframe has no turret and nothing publishes
+a mount bearing); `GOALS REMAINING: n` (`FBMissionMonitor` judges from its own plan copy and publishes
+no count to any display block — deliberately, so a cockpit cannot read the verdict); the 1×/3×/10×
+magnification (a camera state, not symbology); the TTS/IIT night device (an MFD page,
+`render/stages/FBNvisStage`); `LOADED`/`READY` (the stores block publishes a station and an arm state,
+not a breech state).
 
 ## Gaps
 

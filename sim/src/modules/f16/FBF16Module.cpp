@@ -1,5 +1,4 @@
 #include "FBF16Module.h"
-#include "FBF16Hud.h"
 #include "FBLog.h"
 #include "FBUnits.h"
 #include <cerrno>
@@ -14,7 +13,9 @@ FBF16Module::FBF16Module()
       FC(std::make_unique<Systems::FBFlightControl>(Systems::FBFlightControl::F16())),
       Input(std::make_unique<Systems::FBInputSystem>()),
       Propulsion(std::make_unique<Systems::FBPropulsionSystem>()),
-      Disp(std::make_unique<FBF16Hud>()),
+      /* The glass is a DECLARATION now (a mod's src/hud deck): a module composes the
+       * generic slot, and what its HUD looks like is the scenario's to say. */
+      Disp(std::make_unique<Systems::FBDisplaySystem>()),
       Chip(std::make_unique<FBF16Max7456>()),
       Fcr_(std::make_unique<FBF16Fcr>()),
       Weapons(std::make_unique<Systems::FBWeaponSystem>()),

@@ -27,6 +27,8 @@ public:
    * nullptr = the cockpit. The PASS COUNT is unaffected either way — the same pass, other strokes. */
   void SetOverlay(const Systems::FBHudGeometry *g) { Overlay = g; }
   void SetAgl(float agl) { Agl = agl; }   /* feeds FBHudEnv, for the horizon-dip calc + AGL readout */
+  /* What a WATCHED run's deck reads instead of a cockpit's blocks. Borrowed, nullptr in a cockpit. */
+  void SetWatch(const Systems::FBHudWatch *w) { Watch = w; }
 
   /* Regenerates the symbology for THIS frame's State, then draws. */
   void Encode(const FBFrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
@@ -48,6 +50,7 @@ private:
   const Systems::FBDisplaySystem *Disp = nullptr;
   Systems::FBHudGeometry Geometry;
   const Systems::FBHudGeometry *Overlay = nullptr;
+  const Systems::FBHudWatch *Watch = nullptr;
   std::vector<float> LoadingGlyphs;
 };
 
