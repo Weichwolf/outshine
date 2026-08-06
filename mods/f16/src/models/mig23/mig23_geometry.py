@@ -44,25 +44,55 @@ TAU = 2.0 * math.pi
 # [BP] Bildkoordinaten des Risses. Grundriss: Nase LINKS, x_px waechst nach ACHTERN.
 #      Seitenriss: Nase RECHTS, x_px waechst nach VORN. Beide Ansichten haengen ueber
 #      kPxViewSum zusammen: x_seite + x_grund = konstant.
-kPxPlanCentre = 792.0                    # Symmetrieachse im Grundriss, aus dem Bugkegel
-#      (x=400: 781..803 -> 792.0; x=450: 763..821 -> 792.0)
-kPxPivot = 2251.0                        # Drehzapfenstation im Grundriss (s. kPivotY unten)
+kPxPlanCentre = 792.0                    # [BP] Symmetrieachse im Grundriss, als Mitte der
+#      Rumpfhuelle an sechs Stationen gemessen: x = 500/700/800/900/1100/1200 geben
+#      792.0/792.0/792.5/792.0/793.0/794.0. ACHTUNG: dieselbe Messung am HECK (x = 3550/3600)
+#      gibt 817.5/817.0 — der Riss ist achtern um rund 25 px verzogen. Derselbe Verzug macht
+#      die Leitwerksspitzen ungleich (DEFECTS.md #11) und die beiden Zapfensymbole
+#      unsymmetrisch (s. kPivotXPx).
+kPxPivot = 2251.6                        # [BP] Drehzapfenstation im Grundriss, x-Mittel der
+#      beiden kreisgefitteten Zapfensymbole (2251.2 / 2252.0)
 kPxEngineAxis = 2432.0                   # Duesenmitte im Seitenriss (x=190: 2307..2557)
-kPxViewSum = 3797.0                      # Seiten- + Grundriss-Station derselben Spantstelle:
-#      Radomspitze Seite 3408 / Grund 388 -> 3796; Pitotspitze Seite 3626 / Grund 168 -> 3794.
-#      Genommen wird 3797, der Mittelwert ueber beide Marken (Streuung 2 px = 10 mm).
+kPxViewSum = 3799.0                      # [BP] Seiten- + Grundriss-Station derselben Stelle,
+#      aus den ZWEI Marken, die in beiden Ansichten scharf sind:
+#        Pitotspitze        Seite 3626.5 / Grund 165.5 -> 3792
+#        Duesenaustrittsebene Seite 191.0 / Grund 3615.0 -> 3806
+#      Genommen wird das Mittel 3799. Die Streuung von 14 px ist KEIN Messrauschen, sondern
+#      ein Massstabsunterschied der Ansichten: Pitot..Duese misst im Seitenriss 3435.5 px,
+#      im Grundriss 3449.5 px — der Grundriss ist 0.41 % groesser gezeichnet.
+#      Die Radomspitze taugt als dritte Marke NICHT: sie laeuft in beiden Ansichten in das
+#      Pitotrohr aus, und der Uebergang ist nur auf +-10 px lesbar.
 
-# [DERIVED] Massstab. Der Balken des Risses (0..5 m ueber 1007.0 px, Strichmitten x = 99.5
-# und 1106.5 bei y = 540) gibt 4.96524 mm/px. Genommen wird NICHT er, sondern die
-# Anpassung an die ZWEI veroeffentlichten Spannweiten, weil die den Riss an zwei weit
-# auseinanderliegenden Stellen festnageln statt an einer:
-#   gepfeilt  7.779 m [PUB] / (792.0 - 12.0) px  = 4.98654 mm/px
-#   gespreizt 13.965 m [PUB] / (2194.0 - 792.0) px = 4.98003 mm/px
-# Beide liegen 0.27 % bzw. 0.30 % ueber dem Balken — der Riss ist also gleichmaessig um
-# 0.3 % geschrumpft (Scan/Papier), und genau das gleicht dieser Faktor aus.
-kPxM = 0.0049814
-kPxMScaleBar = 0.00496524                # zum Vergleich, s. DEFECTS.md #1
-kPxMBarDelta = kPxM / kPxMScaleBar - 1.0        # +0.328 %
+# [BP] Massstab: DER BALKEN DES RISSES. Strichmitten x = 100.0 und 1106.0 (Spalten mit
+# >= 28 Ink-Pixeln in den Zeilen 535..600; beide Striche 5 px breit), also 1006.0 px fuer
+# 5 m -> 4.97018 mm/px, Unsicherheit +-1 px = +-0.10 %.
+#
+# WARUM NICHT MEHR DIE ANPASSUNG AN BEIDE SPANNWEITEN (Runde 1). Die trug auf einer falsch
+# gelesenen Fluegelspitze: der Randbogen des gespreizten Fluegels liegt bei Zeile 2231.5
+# (Aussenkontur 2230..2233 ueber x = 2410..2645), nicht bei 2194 — 2194 ist die Fuge der
+# Fluegelendkappe ("Zakonzowka kryla" im Riss beschriftet) und laeuft mitten durch den
+# Fluegel. Mit der richtigen Spitze verlangen die beiden veroeffentlichten Spannweiten
+# Massstaebe, die 2.95 % auseinanderliegen — es gibt keinen, der beide traegt:
+kPxMFromSwept = 7.779 / (2.0 * (792.0 - 15.0))          # 5.00579 mm/px (Kontur 13..16)
+kPxMFromSpread = 13.965 / (2.0 * (2231.5 - 792.0))      # 4.85138 mm/px
+kPxM = 0.00497018
+# GEGENPROBE, die den Balken traegt: Radomspitze (3408, wo die Radomkontur in das Pitotrohr
+# laeuft) bis hinterster Zellenpunkt (36.5, Spitze der Bremsschirmverkleidung ueber der
+# Duese) = 3371.5 px.
+# Der Balken ist ausserdem der einzige Massstab, der nicht von einer veroeffentlichten Zahl
+# abhaengt, die er nachher pruefen soll. Die Probe steht bei kLengthMeasured.
+#
+# HINTERSTER ZELLENPUNKT: die Bremsschirmverkleidung ueber der Duese. Sie ist in BEIDEN
+# Ansichten sichtbar und beidemal 43 px breit bzw. hoch angelegt — im Grundriss als
+# Mittellinienkoerper (Zeilen 795..838) bis x = 3733, im Seitenriss als flache Klinge
+# (Zeilen 2379..2400) bis x = 36. Ueber kPxViewSum umgerechnet sind das 66 bzw. 36 in
+# Seitenriss-Zaehlung — 30 px auseinander, dasselbe Registrierungsspiel wie bei kPxViewSum.
+# Genommen wird das Mittel. Was NICHT der hinterste Punkt ist: das Hoehenleitwerk. Sein
+# hinterster Punkt ist der Knick der Hinterkante bei Zeile 1265 / x 3735 (Grundriss), also
+# Seitenriss 64 — Runde 1 hielt ihn fuer den hintersten und mass die Laenge auf 66.
+kPxRearmost = 51.0
+kPxNoseTip = 3408.0
+kPxPitotTip = 3626.5
 
 
 def y_side(px):
@@ -94,15 +124,14 @@ kWingAreaSwept = 34.16                   # [PUB] "34.16 m2 fully-swept"
 kAirfoilRootThk = 0.065                  # [PUB] "root: TsAGI SR-12S (6.5%)"
 kAirfoilTipThk = 0.055                   # [PUB] "tip: TsAGI SR-12S (5.5%)"
 
-# [DERIVED] Probe des Risses gegen [PUB]: Radomspitze bis Hoehenleitwerksspitze.
-# Seitenriss 3408 px (Kegelspitze) bis 66 px (hinterste Leitwerksecke) = 3342 px.
-kLengthMeasured = 3342.0 * kPxM                   # 16.648 m
-kLengthErrRel = kLengthMeasured / kLength - 1.0   # -0.31 %
-# DIE ENTSCHEIDUNG, DIE DARAN HAENGT: die 16.7 m sind OHNE Pitotrohr. Mit Rohr misst der
-# Riss 17.735 m; waeren die 16.7 m MIT Rohr gemeint, muesste der Laengenrest -5.8 % sein,
-# waehrend beide Spannweiten auf demselben Massstab -0.3 % liegen. Ein Massstab kann nicht
-# gleichzeitig zwei Spannweiten auf 0.3 % treffen und eine Laenge um 5.8 % verfehlen.
-kLengthOverall = (3626.0 - 66.0) * kPxM           # 17.735 m, mit Pitotrohr
+# [DERIVED] Probe des Balkens gegen [PUB]: Radomspitze bis hinterster Zellenpunkt.
+kLengthMeasured = (kPxNoseTip - kPxRearmost) * kPxM       # 16.757 m
+kLengthErrRel = kLengthMeasured / kLength - 1.0           # +0.34 %
+# Dieselben zwei Punkte mit dem Massstab aus Runde 1 (4.9814 mm/px): 16.795 m, +0.57 %.
+# DIE ENTSCHEIDUNG, DIE DARAN HAENGT: die 16.7 m sind OHNE Pitotrohr. Mit Rohr misst der Riss
+# 17.842 m (+6.8 %); ein Massstab, der eine Marke auf 0.3 % trifft, verfehlt dieselbe Groesse
+# nicht um 7 %.
+kLengthOverall = (kPxPitotTip - kPxRearmost) * kPxM       # 17.842 m, mit Pitotrohr
 
 # [DOC] doc/modules/air/catalogue.md §mig23 / FBAirAnchors.h — dieselben [PUB]-Zahlen,
 # hier nur zur Gegenprobe, dass Netz und Flugmodell aus einer Quelle kommen.
@@ -128,8 +157,14 @@ kSweepDefault = 16.0                     # [SET] Bauzustand: gespreizt, wie am B
 #   b/2(16) = kPivotX + r cos(theta0)      = 6.9825
 #   b/2(72) = kPivotX + r cos(theta0 + 56) = 3.8895
 # Zwei Gleichungen, drei Unbekannte -> kPivotX kommt aus dem Riss, r und theta0 werden geloest.
-kPivotX = 1.5144                         # [BP] 304 px seitlich der Achse (Zapfenkreise
-#                                          Grundriss y = 488 / 1096, x = 2251)
+# [BP] Beide Zapfensymbole sind KREISGEFITTET (Ringpunkte, 6 Iterationen mit 2-px-Ausreisser-
+# schnitt): oben (2251.2, 498.6) r 19.42, Residuum 0.99 px ueber 376 Punkte; unten
+# (2252.0, 1118.1) r 21.87, Residuum 1.10 px ueber 378 Punkte. Ihre Abstaende von der
+# Mittellinie 792.0 sind 293.4 und 326.1 px — sie sind NICHT symmetrisch. Genommen wird das
+# Mittel; die Spreizung von +-16.35 px (+-0.081 m) ist der Riss-Verzug aus kPxPlanCentre und
+# steht als Unsicherheit dieser Zahl.
+kPivotXPx = 309.75
+kPivotX = kPivotXPx * kPxM               # 1.5395 m
 kPivotY = 0.0                            # [DERIVED] Definition des Nullpunkts
 kPivotZ = 0.16                           # [SET] Zapfenhoehe ueber der Triebwerksachse,
 #                                          s. DEFECTS.md #5
@@ -150,55 +185,62 @@ def _solve_panel():
     return a / math.cos(t), math.degrees(t)
 
 
-kPanelTipR, kPanelTipTheta = _solve_panel()      # 5.5343 m, 8.536 Grad
-# [BP] GEGENPROBE, und sie ist der Grund, dieser Konstruktion zu glauben: die so bestimmte
-# Spitze wird an BEIDEN gezeichneten Stellungen mit dem Riss verglichen.
-#   72 Grad: gerechnet Grundriss (3258.5, 10.2) — gemessen (3255, 12)  -> 3.5 / 1.8 px
-#   16 Grad: gerechnet (2416.5, 2200.3)          — gemessen (2420, 2194) -> 3.5 / 6.3 px
-# 6 px sind 30 mm auf einer 7-m-Halbspannweite.
-kPanelCheckPx = ((3258.5, 10.2, 3255.0, 12.0), (2416.5, 2200.3, 2420.0, 2194.0))
+kPanelTipR, kPanelTipTheta = _solve_panel()      # 5.5070 m, 8.741 Grad
+kPanelLeTipU = kPanelTipR * math.cos(math.radians(kPanelTipTheta))         # 5.4430 m
+kPanelLeTipV = kPanelTipR * math.sin(math.radians(kPanelTipTheta))         # 0.8370 m
 
-# [BP] Fluegelgrundriss im PANEELRAHMEN (u = spannweitig ab Zapfen, v = nach achtern),
-# und der Paneelrahmen IST die 16-Grad-Stellung: dort steht der Randbogen parallel zur
-# Rumpfachse (gemessen 1.08 Grad Abweichung), also ist es der Rahmen, in dem der Fluegel
-# konstruiert wurde. Alle Punkte sind am 72-Grad-Fluegel des Risses abgelesen und um
-# -56 Grad in diesen Rahmen gedreht.
-kPanelLeRootU, kPanelLeRootV = 0.3160, -0.9405   # Grundriss (2198, 296)
-kPanelLeTipU, kPanelLeTipV = 5.4723, 0.8309      # Grundriss (3255, 12)
-kPanelTeTipU, kPanelTeTipV = 5.4928, 1.9142      # Grundriss (3380, 190)
-kPanelTeRootU, kPanelTeRootV = 0.0385, 0.7891    # Grundriss (2346, 615)
-kPanelRootU = 0.42                       # [SET] Trennfuge Paneel/Handschuh, s. DEFECTS.md #6
-
-kPanelLeSweep = math.degrees(math.atan2(kPanelLeTipV - kPanelLeRootV,
-                                        kPanelLeTipU - kPanelLeRootU))     # 18.97 Grad
-kPanelTeSweep = math.degrees(math.atan2(kPanelTeTipV - kPanelTeRootV,
-                                        kPanelTeTipU - kPanelTeRootU))     # 11.66 Grad
-# [BP] GEGENPROBE ZWEI: 18.97 Grad ist die Vorderkantenpfeilung in der "16-Grad"-Stellung.
-# Die Literatur nennt fuer die MiG-23 zu den Zapfenwinkeln 16/45/72 die Vorderkantenwinkel
-# 18 Grad 45' / 47 Grad 40' / 74 Grad 40'. 18.97 gegen 18.75 = +1.2 %, und am 72-Grad-Riss
-# misst dieselbe Kante ueber eine 1000-px-Basis 74.97 gegen 74.67 Grad.
+# [BP] PLANFORM DES PANEELS (u = spannweitig ab Zapfen, v = nach achtern). Gemessen an der
+# GESPREIZTEN Fluegelhaelfte des Grundrisses, nicht an der gepfeilten: der Paneelrahmen IST
+# die 16-Grad-Stellung — dort steht der Randbogen parallel zur Rumpfachse —, also braucht
+# diese Messung keine Drehung. Genau die Drehung hat Runde 1 die Hinterkante gekostet: ihr
+# HK-Wurzelpunkt (2346, 615) liegt 127 px INNERHALB des Zapfens und im Riss in leerer
+# Flaeche, und die daraus gerechnete HK-Pfeilung war 11.66 statt 2.40 Grad.
+#
+# Beide Kanten sind als GERADE ueber ihre volle lesbare Laenge gefittet (Zeilenscan in
+# 5-px-Schritten, fuer die VK mit Fensterverfolgung, Ursprung = untere Zapfenzeile 1118.1):
+#   VK  Zeilen 1600..2165, 114 Punkte: x = 2030.5 + 0.33951 * du, Residuum 0.48 px
+#   HK  Zeilen 1150..2155, 202 Punkte: x = 2575.5 + 0.041857 * du, Residuum 0.57 px
+kPanelLeSweep = math.degrees(math.atan(0.33951))                           # 18.753 Grad
+kPanelTeSweep = math.degrees(math.atan(0.041857))                          # 2.397 Grad
+# [BP] GEGENPROBE: die Literatur nennt fuer die Zapfenwinkel 16/45/72 die Vorderkantenwinkel
+# 18 Grad 45' / 47 Grad 40' / 74 Grad 40'. Der Fit gibt 18.753 gegen 18.750 — 0.02 %.
 kLeSweepDocDeg = 18.75
 
-kPanelTipChord = math.hypot(kPanelTeTipU - kPanelLeTipU,
-                            kPanelTeTipV - kPanelLeTipV)                   # 1.083 m
+# [BP] Randbogensehne: die beiden Geraden an der gemessenen Randbogenzeile 2231.5 ausgewertet,
+# 2622.10 - 2408.52 = 213.58 px.
+kPanelTipChordPx = 213.58
+kPanelTipChord = kPanelTipChordPx * kPxM                                   # 1.0615 m
+kPanelRootU = 0.42                       # [SET] Trennfuge Paneel/Handschuh, s. DEFECTS.md #6
+
+# [BP] WAS DER RISS UND [PUB] NICHT TEILEN, beziffert statt verschwiegen. Der Riss ist mit
+# SICH SELBST konsistent — jede Haelfte im eigenen Zapfensymbol gemessen gibt fuer die
+# VK-Gerade denselben Zapfenabstand (209.4 gegen 208.3 px) und einen Winkelunterschied von
+# 55.570 Grad gegen die nominellen 56. Er ist nur GLEICHMAESSIG ZU GROSS: Zapfen plus
+# Randbogenabstand liegt gespreizt +1.30 %, gepfeilt +1.44 % ueber [PUB]. Der gezeichnete
+# Randbogen liegt 1113.4 px = 5.5337 m vom unteren Zapfen; die aus BEIDEN veroeffentlichten
+# Spannweiten geloeste Spitze liegt bei 5.4430 m, also 1.64 % weiter innen.
+# Gebaut wird [PUB] — die Form kommt aus dem Riss, die Spannweite aus der Veroeffentlichung.
+kPanelTipUDrawn = 1113.4 * kPxM
+kPanelCheckPct = ((16.0, 1.30), (72.0, 1.44))
 
 
 def panel_le_v(u):
-    return kPanelLeRootV + math.tan(math.radians(kPanelLeSweep)) * (u - kPanelLeRootU)
+    return kPanelLeTipV - math.tan(math.radians(kPanelLeSweep)) * (kPanelLeTipU - u)
 
 
 def panel_te_v(u):
-    return kPanelTeRootV + math.tan(math.radians(kPanelTeSweep)) * (u - kPanelTeRootU)
+    return (kPanelLeTipV + kPanelTipChord
+            - math.tan(math.radians(kPanelTeSweep)) * (kPanelLeTipU - u))
 
 
 def panel_chord(u):
     return panel_te_v(u) - panel_le_v(u)
 
 
-kPanelRootChord = panel_chord(kPanelRootU)                                 # 1.771 m
+kPanelRootChord = panel_chord(kPanelRootU)                                 # 2.565 m
 kPanelExposedArea = 0.5 * (kPanelRootChord + kPanelTipChord) * (kPanelLeTipU - kPanelRootU)
-# [DERIVED] beide Paneele zusammen; der Rest der Bezugsflaeche steckt im Handschuh und im
-# Rumpfdurchgang. 2 * 7.36 = 14.7 m2 von 37.35 m2 [PUB].
+# [DERIVED] je Paneel; der Rest der Bezugsflaeche steckt im Handschuh und im Rumpfdurchgang.
+# 2 * 9.16 = 18.3 m2 von 37.35 m2 [PUB].
 
 kPanelDihedralDeg = -1.0                 # [SET] leichte V-Stellung nach unten, s. DEFECTS.md #7
 
@@ -341,24 +383,39 @@ kRudderMaxDeg = 25.0                     # [SET]
 # nicht gebaut — die eine bewusste Abweichung des Modells vom herangezogenen Riss.
 kDorsalFin = False
 
-# [BP] Hoehenleitwerk (Taileron), Grundriss. Spitze 3734/1250 px (Steuerbord),
-# Wurzel-VK etwa 3050/952 px. Anhedral aus dem Schnitt G-G des Risses.
-# Die SPITZE ist der Punkt groesster seitlicher Ausdehnung, nicht die hinterste Ecke: die
-# Hinterkante des Leitwerks ist nach VORN gepfeilt, der hinterste Punkt sitzt an der Wurzel.
-# Die erste Fassung verwechselte beides und baute 4.55 statt 5.60 m Spannweite — im ersten
-# Bild als zu kleines Leitwerk sichtbar, danach am Riss nachgemessen: bei x = 3650 px reicht
-# der Umriss auf 253 bzw. 1378 px, also 539 / 586 px beidseits der Achse. Genommen wird das
-# Mittel 562.5 px; die Differenz von 47 px (0.23 m) ist Risverzug und steht in DEFECTS.md #11.
-kTailTipPx = (3655.0, 1354.5)
-kTailRootLePx = (3055.0, 900.0)
-kTailRootTePx = (3731.0, 900.0)
-kTailTipChord = 0.55                     # [SET] Randbogensehne, DEFECTS.md #11
-kTailAnhedralDeg = -10.0                 # [SET] aus Schnitt G-G abgeschaetzt, DEFECTS.md #11
+# [BP] Hoehenleitwerk (Taileron), Grundriss. BEIDE Kanten sind gefittet, nicht abgelesen —
+# Runde 1 las die VK bei Zeile 952 ab und setzte den Wert bei Zeile 900 ein, und weil die VK
+# 1.44 px je Zeile wandert, stand das ganze Leitwerk 99 px = 0.49 m zu weit achtern.
+#   VK  Zeilen 1000..1380, 20 Punkte: x = 3100.0 + 1.4368 * (Zeile - 1000)
+#   HK  Zeilen 1000..1260, 14 Punkte: x = 3667.0 + 0.2615 * (Zeile - 1000)  (innerer Ast)
+# Die HK hat bei Zeile 1265 einen KNICK und laeuft von dort mit -0.744 px/Zeile nach VORN zur
+# Spitze. Der hinterste Punkt des Leitwerks ist deshalb dieser Knick (x = 3735), nicht die
+# Wurzel — Runde 1 hatte es umgekehrt und legte die Wurzel-HK auf 3731.
+kTailTipPx = (3609.3, 1354.5)            # Spitzen-VK; Halbspannweite 562.5 px, s. unten
+kTailRootLePx = (2956.3, 900.0)
+kTailRootTePx = (3640.9, 900.0)
+kTailTipChord = (3668.4 - 3609.3) * kPxM  # [BP] 59.1 px = 0.294 m an der Spitzenzeile
+# [BP] Halbspannweite: der Umriss reicht steuerbord bis Zeile 1382, backbord bis 253, also
+# 590 / 539 px beidseits der Mittellinie. Genommen wird das Mittel 562.5 px; die Differenz
+# von 51 px (0.25 m) ist derselbe Heckverzug wie bei kPxPlanCentre (DEFECTS.md #11).
+kTailAnhedralDeg = -10.0                 # [SET], aber jetzt gestuetzt: im Seitenriss ist die
+#                                          Leitwerksprojektion 80 px hoch (Zeilen 2220..2300)
+#                                          ueber 2.5 m Halbspannweite -> 9.1 Grad. DEFECTS.md #11
 kTailHingeFrac = 0.28                    # [SET] Drehachse in Sehnenanteilen ab VK
 kTailZPx = 2258.0                        # [BP] Hoehe der Leitwerkswurzel im Seitenriss
 kTailThkRoot = 0.14                      # [SET]
 kTailThkTip = 0.06                       # [SET]
 kTailMaxDeg = 20.0                       # [SET] Ausschlag
+
+# [BP] Bremsschirmverkleidung ueber der Duese — der HINTERSTE Koerper des Flugzeugs, und
+# deshalb derjenige, an dem die Gesamtlaenge gemessen wird. Grundriss: Mittellinienkoerper,
+# Zeilen 795..838 (43 px = 0.214 m breit) von der Duesenaustrittsebene bis x = 3733.
+# Seitenriss: flache Klinge, Zeilen 2379..2400 (bis 25 px = 0.124 m hoch) mit Spitze bei
+# x = 36. Sie ist BREITER ALS HOCH; die erste Fassung baute sie als Rohr nach VORN.
+kChuteHalfW = 0.107
+kChuteHalfH = 0.062
+kChuteTipY = y_side(kPxRearmost)         # -7.4404 m
+kChuteRootY = y_side(191.0)              # -6.7443 m, Duesenaustrittsebene
 
 # [BP]/[WEB] Bauchflosse. "the MiG-23 had a ventral fin ... During take-off and landing, the
 # fin hinged sideways when the landing gear was extended to prevent it striking the ground"
@@ -397,9 +454,30 @@ kTireMainW = 0.225                       # Gegenprobe am Riss: Frontansicht 48 p
 kTireNoseDia = 0.520                     # [WEB] Bugrad 520 x 125 mm (Zwillingsrad)
 kTireNoseW = 0.125
 kTrack = 2.658                           # [WEB] Spurweite MiG-23
-kWheelbase = 5.77                        # [SET] Radstand, s. DEFECTS.md #12
-kNoseGearY = 3.35                        # [SET] Bugbeinstation vor dem Drehzapfen
-kMainGearY = kNoseGearY - kWheelbase     # [DERIVED]
+
+# [WEB] RADSTANDSTATIONEN AUS EINEM ZWEITEN, UNABHAENGIGEN RISS. Der herangezogene
+# M-Dreiseitenriss zeigt das Fahrwerk nur in der Frontansicht, ohne Laengsstation — Runde 1
+# hat beide Stationen deshalb [SET] und traf sie um 1.7 bis 2.2 m daneben. Genommen wird
+# jetzt der MiG-23ML-Seitenriss
+# [WEB https://upload.wikimedia.org/wikipedia/commons/a/a5/Mikoyan-Gurevich_MiG-23ML_profile_line_drawing.svg]
+# (Commons, 1800 x 550, quadratisch gerastert auf 4000 px). Dort sind beide Raeder als
+# gestrichelte Kreise gezeichnet; kreisgefittet ergeben sie
+#   Bugrad   Mitte (1117.80, 2466.54)  r 56.01  Residuum 0.93 px
+#   Hauptrad Mitte (2450.72, 2414.94)  r 88.61  Residuum 0.95 px
+# GEGENPROBE DES RISSES MIT SICH SELBST: die Raddurchmesser stehen 177.23 / 112.03, also
+# 1.582 zueinander; die belegte Bereifung 830 / 520 mm gibt 1.596 — 0.9 %. Und die
+# gestrichelte Bodenlinie ist an BEIDE Kreise tangential (Bugrad 2522.5 gegen Boden 2522.5,
+# Hauptrad 2503.5 gegen 2503.9).
+# UEBERTRAGUNG IN DEN M-RISS ueber zwei Punkte, die in beiden Rissen scharf sind — Radomspitze
+# und Flossenspitze. Damit ist die Uebertragung MASSSTABSFREI; sie setzt nur voraus, dass
+# beide Risse dieselben Proportionen zeigen.
+#   ML: Radom 307.0, Flossenspitze 3648.0 -> 3341.0 px Basis
+#   M : Radom 3408.0, Flossenspitze 305.0 -> 3103.0 px Basis (Zaehlrichtung umgekehrt)
+kNoseGearPx = 3408.0 - (1117.80 - 307.0) / 3341.0 * 3103.0        # 2654.96
+kMainGearPx = 3408.0 - (2450.72 - 307.0) / 3341.0 * 3103.0        # 1416.99
+kNoseGearY = y_side(kNoseGearPx)         # +5.502 m (Runde 1: +3.35)
+kMainGearY = y_side(kMainGearPx)         # -0.651 m (Runde 1: -2.42)
+kWheelbase = kNoseGearY - kMainGearY     # [DERIVED] 6.153 m (Runde 1: 5.77 [SET])
 kGearDoorThk = 0.020                     # [SET]
 
 
@@ -418,12 +496,23 @@ kNozzleDepth = 0.55                      # [SET] Sichttiefe in die Duese
 kGunY = 1.55                             # [SET] Station der GSh-23L unter dem Rumpf
 kGunLen = 1.30                           # [SET]
 kPylonGloveX = 1.05                      # [SET] Handschuhpylon, seitliche Lage
-kPylonGloveY = -0.35                     # [SET]
+kPylonGloveY = 0.85                      # [SET] Laengslage. Sie MUSS vor dem jetzt gemessenen
+#                                          Hauptfahrwerksbein liegen: das laeuft bei x = 1.05
+#                                          durch y = -0.24, und mit dem alten Wert -0.35 stand
+#                                          der Pylon zu 11.5 % in der Strebe (1523 cm3, von der
+#                                          Durchdringungspruefung gefunden). Bei +0.85 reicht
+#                                          er von 0.075 bis 1.625 und bleibt damit innerhalb
+#                                          der Handschuhtiefe (VK etwa +1.8, HK -1.60).
 kPylonFusX = 0.52                        # [SET] Rumpfpylon
 kPylonFusY = 1.10                        # [SET]
 kPylonChord = 1.55                       # [SET]
 kPylonThk = 0.11                         # [SET]
-kIrstY = 4.55                            # [SET] TP-23-Waermepeiler unter dem Bug
+kIrstY = 6.30                            # [SET] TP-23-Waermepeiler unter dem Bug. Er MUSS vor
+#                                          dem jetzt gemessenen Bugfahrwerksschacht liegen
+#                                          (Bein 5.50 m, Klappe bis 6.05 m); im ML-Riss sitzt
+#                                          an der anchor-gemappten Station 6.31 m eine
+#                                          Unterrumpfverkleidung. Runde 1 hatte 4.55, das
+#                                          liegt jetzt mitten im Schacht.
 kAirbrakeY = -2.60                       # [SET] Bremsklappen am Heck
 kAirbrakeMaxDeg = 45.0                   # [SET]
 
@@ -433,8 +522,6 @@ kAirbrakeMaxDeg = 45.0                   # [SET]
 # [DERIVED] Sehwinkel eines Pixels im Zielbild: doc/render/visual-target.md nennt 1280 px
 # ueber 60 Grad horizontalem Sichtfeld.
 kPixelAngle = math.radians(60.0) / 1280.0         # 8.181e-4 rad
-
-kLodSegments = (48, 32, 20, 12)          # Umfangsteilung der Rumpfschnitte je Stufe
 
 
 def ring_error(r, n):

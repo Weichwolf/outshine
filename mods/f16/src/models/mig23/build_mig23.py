@@ -31,6 +31,7 @@ import argparse
 import json
 import math
 import os
+import struct
 import sys
 import time
 
@@ -632,17 +633,158 @@ def check_overlap(bodies, vol_cm3, n0=10, nmax=20, rtol=0.10):
     return sorted(hits, key=lambda x: -x[2])
 
 
-# ================================================================ Normpruefung AM GEBAUTEN NETZ
+# ================================================================ Die AUSGELIEFERTE Szene lesen
+#
+# WARUM DAS HIER STEHT UND NICHT DIE NETZE VON VORHIN GEMESSEN WERDEN. Runde 1 mass am
+# gebauten Netz — und genau in dem Spalt zwischen "gebautes Netz" und "was in der Datei
+# steht" sass ihr schwerster Fehler: die Knotenmatrizen entstehen NACH den Netzen, und ein
+# Vorzeichenfehler in ihnen stellte sechs Koerper bis 3.3 m neben das Flugzeug, waehrend elf
+# Masse gruen meldeten und die Bodenfreiheit 0.000 m. Die Regel lautet deshalb nicht mehr
+# "miss am gebauten Netz", sondern MISS AN DER AUSGELIEFERTEN SZENE: .glb einlesen,
+# Knotenhierarchie aufloesen, danach messen. Der Leser hier ist bewusst EIGENSTAENDIG (kein
+# bpy-Reimport), sonst teilte er einen Fehler mit dem Exporteur, der ihn erzeugt hat.
+
+_kGltfComp = {5120: 'i1', 5121: 'u1', 5122: 'i2', 5123: 'u2', 5125: 'u4', 5126: 'f4'}
+_kGltfCount = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4, "MAT4": 16}
+
+# glTF (+Y oben, -Z vorwaerts) -> Bauframe (+X rechts, +Y vorwaerts, +Z oben)
+kGltfToBuild = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
+
+
+def _gltf_accessor(doc, blob, i):
+    a = doc["accessors"][i]
+    n = _kGltfCount[a["type"]]
+    dt = np.dtype("<" + _kGltfComp[a["componentType"]])
+    bv = doc["bufferViews"][a["bufferView"]]
+    off = bv.get("byteOffset", 0) + a.get("byteOffset", 0)
+    stride = bv.get("byteStride", dt.itemsize * n)
+    if stride == dt.itemsize * n:
+        return np.frombuffer(blob, dtype=dt, count=a["count"] * n,
+                             offset=off).reshape(a["count"], n)
+    raw = np.frombuffer(blob, dtype=np.uint8, count=a["count"] * stride, offset=off)
+    return raw.reshape(a["count"], stride)[:, :dt.itemsize * n].copy().view(dt)
+
+
+def _gltf_local(nd):
+    if "matrix" in nd:
+        return np.array(nd["matrix"], dtype=np.float64).reshape(4, 4).T
+    m = np.eye(4)
+    if "rotation" in nd:
+        x, y, z, w = nd["rotation"]
+        m[:3, :3] = [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]
+    if "scale" in nd:
+        m[:3, :3] = m[:3, :3] @ np.diag(nd["scale"])
+    if "translation" in nd:
+        m[:3, 3] = nd["translation"]
+    return m
+
+
+def read_glb(path):
+    """(Knotenweltmatrizen, Koerper) aus der FERTIGEN Datei, alles im Bauframe."""
+    raw = open(path, "rb").read()
+    doc, blob, off = None, None, 12
+    while off < len(raw):
+        ln, ty = struct.unpack_from("<II", raw, off)
+        if ty == 0x4E4F534A:
+            doc = json.loads(raw[off + 8:off + 8 + ln].decode("utf-8"))
+        elif ty == 0x004E4942:
+            blob = raw[off + 8:off + 8 + ln]
+        off += 8 + ln + ((-ln) % 4)
+    nds = doc["nodes"]
+    parent = {c: i for i, nd in enumerate(nds) for c in nd.get("children", [])}
+    world = {}
+
+    def wm(i):
+        if i not in world:
+            world[i] = (_gltf_local(nds[i]) if i not in parent
+                        else wm(parent[i]) @ _gltf_local(nds[i]))
+        return world[i]
+
+    r4 = np.eye(4)
+    r4[:3, :3] = kGltfToBuild
+    r4i = np.linalg.inv(r4)
+    node_world, bodies = {}, []
+    for i, nd in enumerate(nds):
+        m = wm(i)
+        name = nd.get("name", "node%d" % i)
+        node_world[name] = r4 @ m @ r4i
+        if "mesh" not in nd:
+            continue
+        me = Mesh(name, None)
+        base = 0
+        for p in doc["meshes"][nd["mesh"]]["primitives"]:
+            v = _gltf_accessor(doc, blob, p["attributes"]["POSITION"]).astype(np.float64)
+            v = ((m[:3, :3] @ v.T).T + m[:3, 3]) @ kGltfToBuild.T
+            idx = _gltf_accessor(doc, blob, p["indices"]).astype(np.int64).reshape(-1, 3)
+            me.v += [tuple(x) for x in v]
+            me.f += [tuple(t) for t in (idx + base)]
+            base += len(v)
+        bodies.append(me)
+    return node_world, bodies
+
+
+def check_placement(bodies, nodes, node_world, scene):
+    """Steht in der DATEI, was gebaut wurde? Zwei Fragen, beide exakt beantwortbar.
+
+    (1) Traegt jeder Gelenkknoten die Weltmatrix aus node_table()? (2) Deckt sich die
+    Punktwolke jedes Koerpers in der Datei mit der gebauten? Toleranz 1 mm bzw. 0.05 Grad —
+    weit ueber dem float32-Ruecklauf (~1e-6 m) und weit unter jedem Platzierungsfehler.
+    """
+    fails, rows = [], []
+    worst_o, worst_a, worst_o_n, worst_a_n = 0.0, 0.0, "-", "-"
+    for nd in nodes:
+        got = node_world.get(nd["node"])
+        if got is None:
+            fails.append("Platzierung: Knoten %s fehlt in der Datei" % nd["node"])
+            continue
+        want = _mat4(nd["origin"], nd["axis"])
+        do = float(np.linalg.norm(got[:3, 3] - want[:3, 3]))
+        da = math.degrees(math.acos(max(-1.0, min(1.0, float(np.dot(got[:3, 0], want[:3, 0]))))))
+        if do > worst_o:
+            worst_o, worst_o_n = do, nd["node"]
+        if da > worst_a:
+            worst_a, worst_a_n = da, nd["node"]
+        if do > 1e-3 or da > 0.05:
+            fails.append("Platzierung: %s steht %.4f m / %.3f Grad neben node_table()"
+                         % (nd["node"], do, da))
+    built = {m.name: m for _, m in bodies}
+    got = {m.name: m for m in scene}
+    for miss in sorted(set(built) - set(got)):
+        fails.append("Platzierung: Koerper %s fehlt in der Datei" % miss)
+    for extra in sorted(set(got) - set(built)):
+        fails.append("Platzierung: Koerper %s steht in der Datei, wurde aber nicht gebaut"
+                     % extra)
+    worst_b, worst_b_n = 0.0, "-"
+    for nm in sorted(set(built) & set(got)):
+        a, b = np.array(built[nm].v), np.array(got[nm].v)
+        d = max(float(np.abs(a.min(0) - b.min(0)).max()),
+                float(np.abs(a.max(0) - b.max(0)).max())) if len(a) == len(b) else 9e9
+        if d > worst_b:
+            worst_b, worst_b_n = d, nm
+        if d > 1e-3:
+            fails.append("Platzierung: Koerper %s liegt in der Datei %.4f m daneben" % (nm, d))
+    rows = dict(worst_node_origin_m=round(worst_o, 6), worst_node_origin=worst_o_n,
+                worst_node_axis_deg=round(worst_a, 6), worst_node_axis=worst_a_n,
+                worst_body_bbox_m=round(worst_b, 6), worst_body=worst_b_n,
+                tolerance_m=1e-3, tolerance_deg=0.05,
+                nodes=len(nodes), bodies=len(got), passed=not fails)
+    return rows, fails
+
+
+# ================================================================ Normpruefung AN DER SZENE
 
 class Norms:
-    """Jedes Mass wird am fertigen Netz NACHGEMESSEN, nicht an den Eingaben nachgerechnet.
+    """Jedes Mass wird an der AUSGELIEFERTEN SZENE nachgemessen, nicht an den Eingaben und
+    nicht an den Netzen vor dem Parenting.
 
-    Die Regel, die der Tank in Runde 4 teuer gelernt hat und die hier von Anfang an gilt:
-        Eine Pruefung in einem Bauskript misst am gebauten Netz, nie an den Eingaben.
-    Es steht deshalb KEIN ausfuehrbares `assert` in diesem Verzeichnis. Eine Bandpruefung
-    kann mehr: sie haelt beim ersten Verstoss nicht an, legt JEDE Zeile mit Wert, Grenze und
-    Quelle im Sidecar ab, faellt nicht weg wenn jemand mit -O startet, und unterscheidet das
-    URTEIL (L0) vom blossen Messen (L1..L3).
+    Die Regel, die der Tank in Runde 4 teuer gelernt hat und die Runde 1 hier zu eng gefasst
+    hat: eine Pruefung in einem Bauskript misst an dem, was AUSGELIEFERT wird. Es steht
+    deshalb KEIN ausfuehrbares `assert` in diesem Verzeichnis. Eine Bandpruefung kann mehr:
+    sie haelt beim ersten Verstoss nicht an, legt JEDE Zeile mit Wert, Grenze und Quelle im
+    Sidecar ab, faellt nicht weg wenn jemand mit -O startet, und unterscheidet das URTEIL
+    (L0) vom blossen Messen (L1..L3).
     """
 
     def __init__(self, bodies):
@@ -694,8 +836,8 @@ def check_norms(bodies, lod):
     allv = N.pts("")
     N.band("length.overall", float(allv[:, 1].max() - allv[:, 1].min()),
            G.kLengthOverall * 0.995, G.kLengthOverall * 1.005, "m",
-           "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = %.3f m, Band 0.5 %%"
-           % G.kLengthOverall)
+           "[BP] Pitotspitze bis Spitze der Bremsschirmverkleidung, Riss %.1f..%.1f px "
+           "= %.3f m, Band 0.5 %%" % (G.kPxPitotTip, G.kPxRearmost, G.kLengthOverall))
 
     # Laenge OHNE Pitotrohr — die Zahl, die [PUB] mit 16.7 m nennt.
     noboom = N.pts("fus.", "ctl.", "wing.", "glove.", "fin", "nozzle", "canopy", "inlet.",
@@ -890,7 +1032,9 @@ def _views(k):
     k MUSS TEILERFREMD ZU JEDER SEGMENTZAHL DER LEITER SEIN, sonst misst das Tor sich selbst.
     Der Tank hat das gemessen: 180/360/720 Azimute lieferten dreimal EXAKT denselben Wert am
     selben Azimut, weil ggT(k,20)=20 dieselben Facettenphasen abtastet — ein Alias, keine
-    Konvergenz. 361 = 19^2 ist teilerfremd zu 64, 40, 24 und 14.
+    Konvergenz. Die Leiter DIESES Assets hat 72/48/32/22 Segmente (kLod); 361 = 19^2 ist zu
+    allen vieren teilerfremd, weil 19 keine davon teilt. Runde 1 nannte hier 64/40/24/14 —
+    Zahlen, die in diesem Asset nicht vorkommen, aus einem anderen uebernommen.
     """
     out = []
     for j in range(k):
@@ -904,15 +1048,52 @@ def _views(k):
 
 
 kSilAzimuths = 361
-kSilSupShortfallPp = 0.03     # [SET] Zuschlag fuer das, was ein endliches Raster am Supremum
-#                               vorbeilaeuft; der Tank hat 0.026 pp gemessen (0.05-Grad-Raster).
+# [MESSUNG + EXTRAPOLATION] Zuschlag fuer das, was ein endliches Azimutraster am Supremum
+# vorbeilaeuft. Runde 1 setzte 0.03 pp und NANNTE ES SCHRANKE — das ist es nicht. Gemessen
+# (--refine-sil, Paarung L0->L3, 1024 px):
+#     361 Azimute 0.9440 %   1447 Azimute 1.0309 %   2887 Azimute 1.0799 %
+# Die Zuwaechse sind +0.0869 und +0.0490 pp je Vervierfachung, Verhaeltnis 0.564. Als
+# geometrische Folge fortgesetzt bleibt ein Rest von 0.0490 * 0.564/(1-0.564) = 0.063 pp,
+# also liegt das Supremum etwa 0.199 pp ueber dem 361er-Wert. Genommen wird 0.20.
+# DAS IST EINE SCHAETZUNG DES ABSTANDS, KEINE SCHRANKE — das Wort faellt bewusst weg.
+kSilSupShortfallPp = 0.20
+kSilRefine = (361, 1447, 2887)
+kSilRefineResult = dict(azimuths=[361, 1447, 2887], pair="L0->L3", res_px=1024,
+                        worst_pct=[0.9440, 1.0309, 1.0799],
+                        increments_pp=[0.0869, 0.0490], ratio=0.564,
+                        extrapolated_tail_pp=0.063, gap_to_361_pp=0.199,
+                        note=("Gemessen mit --refine-sil (211.7 s). Die Folge steigt noch; "
+                              "kSilSupShortfallPp ist die geometrische Fortsetzung, keine "
+                              "obere Schranke."))
 kSilCoarse = 4
 kSilScreenAbove = 300
 kSilResCap = 1024             # [SET] feinste Rasterung; s. DEFECTS.md #15
 
 
+def refine_silhouette(stats, ranges, azimuths):
+    """Misst die schlechteste Paarung ueber eine REIHE von Azimutzahlen. Der einzige Weg,
+    den Zuschlag kSilSupShortfallPp zu belegen statt ihn zu behaupten."""
+    global kSilAzimuths
+    keep, out = kSilAzimuths, []
+    for k in azimuths:
+        kSilAzimuths = k
+        sil, _ = check_silhouette(stats, ranges)
+        out.append((k, sil["worst"]["pair"], sil["worst"]["pct"]))
+    kSilAzimuths = keep
+    print("  SIL-VERFEINERUNG " + "  ".join("%d:%s %.4f %%" % r for r in out))
+    inc = [out[i + 1][2] - out[i][2] for i in range(len(out) - 1)]
+    r = inc[-1] / inc[-2] if len(inc) > 1 and abs(inc[-2]) > 1e-12 else 0.0
+    tail = inc[-1] * r / (1.0 - r) if 0.0 < r < 1.0 else float("inf")
+    gap = sum(inc) + tail
+    print("  SIL-VERFEINERUNG Zuwaechse %s pp, Verhaeltnis %.3f, geometrischer Rest %.4f pp "
+          "-> Abstand zum Supremum %.4f pp; kSilSupShortfallPp = %.2f  %s"
+          % ("/".join("%+.4f" % i for i in inc), r, tail, gap, kSilSupShortfallPp,
+             "DECKT" if kSilSupShortfallPp >= gap else "ZU KLEIN"))
+    return out
+
+
 def check_silhouette(stats, ranges, limit=2.0):
-    """Silhouetten-Tor OHNE Renderer, 361 Azimute plus Draufsicht."""
+    """Silhouetten-Tor OHNE Renderer, kSilAzimuths Azimute plus Draufsicht."""
     lo = np.array([stats[0]["bbox"][k][0] for k in "xyz"])
     hi = np.array([stats[0]["bbox"][k][1] for k in "xyz"])
     ctr = (lo + hi) / 2.0
@@ -976,12 +1157,17 @@ def check_silhouette(stats, ranges, limit=2.0):
                            res=worst_row[3], pct=round(worst_row[4], 4),
                            judged_pct=round(worst, 4)),
                 method=(
-                    "%d Azimute plus Draufsicht, fest und teilerfremd zu 64/40/24/14. "
-                    "Nur die dem Betrachter ZUGEWANDTEN Dreiecke werden gerastert: bei einem "
-                    "geschlossenen Koerper ist deren Projektion exakt die Silhouette, und das "
-                    "halbiert die Arbeit ohne einen Pixel zu aendern. Rasterzuschlag %.2f pp "
-                    "fuer das Supremum zwischen zwei Azimutproben (am Tank gemessen: 0.026 pp "
-                    "zwischen 1-Grad- und 0.05-Grad-Raster)." % (kSilAzimuths, kSilSupShortfallPp)),
+                    "%d Azimute plus Draufsicht, fest und teilerfremd zu den vier "
+                    "Segmentzahlen dieser Leiter (72/48/32/22). Nur die dem Betrachter "
+                    "ZUGEWANDTEN Dreiecke werden gerastert: bei einem geschlossenen Koerper "
+                    "ist deren Projektion exakt die Silhouette, und das halbiert die Arbeit "
+                    "ohne einen Pixel zu aendern. Azimutzuschlag %.2f pp — GEMESSEN, nicht "
+                    "hergeleitet: die schlechteste Paarung gibt bei %s Azimuten die Werte, "
+                    "die unter azimuth_refinement stehen, und die Folge steigt noch. Der "
+                    "Zuschlag ist die dreifache gemessene Differenz, keine Schranke."
+                    % (kSilAzimuths, kSilSupShortfallPp,
+                       "/".join(str(k) for k in kSilRefine))),
+                azimuth_refinement=kSilRefineResult,
                 rows=rows), ok
 
 
@@ -1108,8 +1294,8 @@ def wing_controls(cfg):
     """Vorfluegel, Landeklappe, Stoerklappe — je ein Koerper mit eigenem Gelenk."""
     u0, u1 = G.kPanelRootU, G.kPanelLeTipU - 1e-3
     n = max(3, cfg["span"] // 2)
-    out = [_flap_body("ctl.slat.r", "skin", u0, u1, 0.0, G.kSlatChordFrac - 0.004, n, cfg["af"]),
-           _flap_body("ctl.flap.r", "skin", u0, u1,
+    out = [_flap_body("ctl.slat.r.skin", "skin", u0, u1, 0.0, G.kSlatChordFrac - 0.004, n, cfg["af"]),
+           _flap_body("ctl.flap.r.skin", "skin", u0, u1,
                       1.0 - G.kFlapChordFrac + 0.004, 1.0, n, cfg["af"])]
     if cfg["detail"] >= 1:
         # Die Stoerklappe LIEGT AUF der Oberseite (sie faehrt nach oben aus), sie steckt nicht
@@ -1126,7 +1312,7 @@ def wing_controls(cfg):
             lo = [(x, naca_t(x, thk) + 0.001) for x in reversed(xs)]
             rings.append(_panel_to_body(
                 [(u, v0 + c * px, dz + c * py) for px, py in up + lo], "r"))
-        out.append(solid("ctl.spoiler.r", "frame", rings))
+        out.append(solid("ctl.spoiler.r.skin", "frame", rings))
     return out
 
 
@@ -1267,19 +1453,20 @@ def fin(cfg):
     out = [_plate("fin", "skin", (root[0], cut(root[0], root[1], hinge)),
                   (tip[0], cut(tip[0], tip[1], hinge)),
                   G.kFinThickRoot, G.kFinThickTip, max(3, cfg["span"] // 2), cfg["af"], axis=0)]
-    out.append(_plate("ctl.rudder", "skin", (cut(root[0], root[1], hinge), root[1]),
+    out.append(_plate("ctl.rudder.skin", "skin", (cut(root[0], root[1], hinge), root[1]),
                       (cut(tip[0], tip[1], hinge), tip[1]),
                       G.kFinThickRoot * 0.6, G.kFinThickTip * 0.7,
                       max(3, cfg["span"] // 3), max(10, cfg["af"] // 2), axis=0))
-    # Bremsschirmbehaelter am Flossenfuss ("which also stored the brake parachute")
-    n = max(6, cfg["seg"] // 5)
-    y0, y1 = yr_te - 0.05, yr_te + 1.25
-    n = max(6, (n // 2) * 2)      # gerade, sonst hat kein Punkt einen Spiegelpartner
+    # Bremsschirmverkleidung. Sie laeuft NACH ACHTERN und endet auf dem am Riss gemessenen
+    # hintersten Zellenpunkt — die erste Fassung baute ein Rohr nach VORN und liess das
+    # Flugzeug 0.16 m zu kurz enden. Querschnitt flach (breiter als hoch), s. kChuteHalfW/H.
+    n = max(6, ((max(6, cfg["seg"] // 5)) // 2) * 2)   # gerade -> jeder Punkt hat sein Spiegelbild
+    zc = G.z_side(2389.5)
     rings = []
-    for f, r in ((0.0, 0.02), (0.12, 0.17), (0.75, 0.20), (1.0, 0.10)):
-        y = y0 + f * (y1 - y0)
-        rings.append([(r * math.cos(TAU * i / n), y, zr + 0.16 + r * math.sin(TAU * i / n))
-                      for i in range(n)])
+    for f, s in ((0.0, 0.25), (0.22, 0.92), (0.62, 1.0), (0.88, 0.62), (1.0, 0.06)):
+        y = G.kChuteRootY + f * (G.kChuteTipY - G.kChuteRootY)
+        rings.append([(s * G.kChuteHalfW * math.cos(TAU * i / n), y,
+                       zc + s * G.kChuteHalfH * math.sin(TAU * i / n)) for i in range(n)])
     out.append(tube("fin.chute", "skin", rings))
     if cfg["detail"] >= 2:
         # UNTER der Flossenspitze: die veroeffentlichte Standhoehe misst bis zur Flosse, und
@@ -1301,10 +1488,11 @@ def taileron(cfg):
     root = ((xr, G.y_plan(G.kTailRootLePx[0]), zr),
             (xr, G.y_plan(G.kTailRootTePx[0]), zr))
     dz = (xt - xr) * math.tan(a)
+    # kTailTipPx ist die SPITZEN-VORDERKANTE, die Sehne laeuft von dort nach ACHTERN. Runde 1
+    # legte sie mittig um diesen Punkt und schob die Spitze damit eine halbe Sehne nach vorn.
     y_tip = G.y_plan(G.kTailTipPx[0])
-    tip = ((xt, y_tip + 0.5 * G.kTailTipChord, zr + dz),
-           (xt, y_tip - 0.5 * G.kTailTipChord, zr + dz))
-    return _plate("ctl.taileron.r", "skin", root, tip,
+    tip = ((xt, y_tip, zr + dz), (xt, y_tip - G.kTailTipChord, zr + dz))
+    return _plate("ctl.taileron.r.skin", "skin", root, tip,
                   G.kTailThkRoot, G.kTailThkTip, max(3, cfg["span"] // 2), cfg["af"], axis=2)
 
 
@@ -1320,7 +1508,7 @@ def ventral(cfg):
     rings = []
     for x, sc in ((-t / 2, 1.0), (t / 2, 1.0)):
         rings.append([(x, y, z) for y, z in prof])
-    return solid("ctl.ventral", "skin", rings)
+    return solid("ctl.ventral.skin", "skin", rings)
 
 
 def canopy(cfg):
@@ -1515,7 +1703,7 @@ def stores_side(cfg):
                           (x + xo, y - G.kPylonChord * 0.40, zb - 0.34),
                           (x + xo, y - G.kPylonChord * 0.5, zb)])
         out.append(solid("pylon.%s.r" % nm, "skin", rings))
-    out.append(box("ctl.airbrake.r", "skin",
+    out.append(box("ctl.airbrake.r.skin", "skin",
                    (0.20, G.kAirbrakeY - 0.42, G.z_side(2600.0)),
                    (0.56, G.kAirbrakeY + 0.42, G.z_side(2585.0))))
     return out
@@ -1804,9 +1992,65 @@ def build_lod(cfg, out_dir, keep_blend=False):
     if not merge_ok:
         fails.append("merge: dV=%.3e  dBox=%.3e" % (d_vol, d_box))
 
+    # ------------------------------------------------------------ erst BAUEN und AUSLIEFERN
+    made = {}
+    for key in sorted(kMat):
+        eff = kMatCollapse.get(key, key) if cfg["single_mat"] else key
+        if eff not in made:
+            made[eff] = make_material(eff)
+    mats = {k: made[kMatCollapse.get(k, k) if cfg["single_mat"] else k] for k in kMat}
+
+    root = empty("%s_%s" % (kPrefix, cfg["name"]), None, np.eye(4))
+    groups = {g: empty(g, root, np.eye(4)) for g in ("airframe", "wing", "tail", "gear", "stores")}
+    # node_table() gibt JEDE Gelenkmatrix in WELTKOORDINATEN. Blenders matrix_local ist
+    # relativ zum Elternteil, also muss die Elternwelt HERAUSGERECHNET werden. Runde 1
+    # multiplizierte sie stattdessen HINEIN (world = m_par @ m), und weil der Koerper danach
+    # inv(m) als lokale Matrix bekam, stand er um m_par^2 verschoben in der Datei: sechs
+    # Klappenkoerper bis 3.3 m neben dem Flugzeug, 1.33 m unter der Aufstandsebene.
+    nodes, invs, world_of = {}, {}, {}
+    for nd in node_table():
+        m = _mat4(nd["origin"], nd["axis"])
+        p = nd["parent"]
+        local = m if not p else (np.linalg.inv(world_of[p]) @ m)
+        nodes[nd["node"]] = empty(nd["node"], nodes[p] if p else root, local)
+        world_of[nd["node"]] = m
+        invs[nd["node"]] = np.linalg.inv(m)
+
+    tris = 0
+    for g, me in bodies:
+        nd = owner(me.name)
+        parent = nodes[nd] if nd is not None else groups[g]
+        inv = mathutils.Matrix(invs[nd].tolist()) if nd is not None else None
+        to_blender(me, mats, parent, inv)
+        tris += sum(len(f) - 2 for f in me.f)
+
+    t1 = time.time()
+    path = os.path.join(out_dir, "%s_%s.glb" % (kAsset, cfg["name"]))
+    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=False,
+                              export_yup=True, export_apply=False, export_normals=True,
+                              export_texcoords=False, export_materials='EXPORT')
+    clock['export'] = time.time() - t1
+
+    # ------------------------------------------------------------ dann DIE DATEI messen
+    t1 = time.time()
+    node_world, scene_meshes = read_glb(path)
+    by_name = {m.name: m for m in scene_meshes}
+    scene = [(g, by_name[me.name]) for g, me in bodies if me.name in by_name]
+    clock['rueckgelesen'] = time.time() - t1
+    slo = np.min([np.array(m.bbox()[0]) for _, m in scene], axis=0)
+    shi = np.max([np.array(m.bbox()[1]) for _, m in scene], axis=0)
+    place, place_fails = check_placement(bodies, node_table(), node_world, scene_meshes)
+    fails += place_fails
+    print("  PLATZ %d Knoten, %d Koerper aus %s zurueckgelesen; schlechtester Knoten %.2e m / "
+          "%.2e Grad (%s), schlechteste Koerperbox %.2e m (%s)  %s"
+          % (place["nodes"], place["bodies"], os.path.basename(path),
+             place["worst_node_origin_m"], place["worst_node_axis_deg"],
+             place["worst_node_origin"], place["worst_body_bbox_m"], place["worst_body"],
+             "OK" if place["passed"] else "DURCHGEFALLEN"))
+
     vol_of = {m.name: abs(s["volume"]) * 1e6 for (_, m), (_, s) in zip(bodies, per_body)}
     t1 = time.time()
-    all_ov = check_overlap([(m.name, m) for _, m in bodies], vol_of)
+    all_ov = check_overlap([(m.name, m) for _, m in scene], vol_of)
     clock['durchdringung'] = time.time() - t1
     joints, bounded, ov, tiny = [], [], [], []
     for a, b, cm3, nn, rel in all_ov:
@@ -1838,13 +2082,13 @@ def build_lod(cfg, out_dir, keep_blend=False):
              "OK" if not ov else "DURCHGEFALLEN"))
 
     t1 = time.time()
-    norm_rows, norm_fails = check_norms(bodies, cfg["name"])
+    norm_rows, norm_fails = check_norms(scene, cfg["name"])
     clock['norm'] = time.time() - t1
     judged = cfg["name"] == kLod[0]["name"]
     if judged:
         fails += norm_fails
     n_checked = sum(1 for r in norm_rows if r["passed"] is not None)
-    print("  NORM %d Masse am gebauten Netz gegen [PUB]/[BP] gemessen, %d ohne Bezug, "
+    print("  NORM %d Masse AM AUSGELIEFERTEN .glb gegen [PUB]/[BP] gemessen, %d ohne Bezug, "
           "%d ausserhalb  (%s)  %s"
           % (n_checked, len(norm_rows) - n_checked, len(norm_fails),
              "geurteilt" if judged else "nur gemessen, L0 urteilt",
@@ -1858,54 +2102,18 @@ def build_lod(cfg, out_dir, keep_blend=False):
     print("  PRUEFUNG %d Koerper: dicht/Windung/Normalen/T-Stoesse/Verschweissung/Merge  %s"
           % (len(bodies), "OK" if not fails else "DURCHGEFALLEN (%d)" % len(fails)))
 
-    made = {}
-    for key in sorted(kMat):
-        eff = kMatCollapse.get(key, key) if cfg["single_mat"] else key
-        if eff not in made:
-            made[eff] = make_material(eff)
-    mats = {k: made[kMatCollapse.get(k, k) if cfg["single_mat"] else k] for k in kMat}
-
-    root = empty("%s_%s" % (kPrefix, cfg["name"]), None, np.eye(4))
-    groups = {g: empty(g, root, np.eye(4)) for g in ("airframe", "wing", "tail", "gear", "stores")}
-    nodes, invs = {}, {}
-    for nd in node_table():
-        m = _mat4(nd["origin"], nd["axis"])
-        par = nodes.get(nd["parent"]) if nd["parent"] else root
-        world = m if not nd["parent"] else (invs[nd["parent"]][1] @ m)
-        nodes[nd["node"]] = empty(nd["node"], par, world)
-        wm = invs[nd["parent"]][1] @ world if nd["parent"] else world
-        invs[nd["node"]] = (np.linalg.inv(m), m)
-
-    tris = 0
-    for g, me in bodies:
-        nd = owner(me.name)
-        if nd is not None:
-            parent = nodes[nd]
-            inv = mathutils.Matrix(invs[nd][0].tolist())
-        else:
-            parent = groups[g]
-            inv = None
-        to_blender(me, mats, parent, inv)
-        tris += sum(len(f) - 2 for f in me.f)
-
-    t1 = time.time()
-    path = os.path.join(out_dir, "%s_%s.glb" % (kAsset, cfg["name"]))
-    bpy.ops.export_scene.gltf(filepath=path, export_format='GLB', use_selection=False,
-                              export_yup=True, export_apply=False, export_normals=True,
-                              export_texcoords=False, export_materials='EXPORT')
-    clock['export'] = time.time() - t1
     print("  ZEIT  " + "  ".join("%s %.1f s" % (k, v) for k, v in clock.items()))
     used = sorted(set(mats[k].name for k in kMat))
     print("  ASSET %-3s %-24s %8d B %7d Tri %d Mat  x[%.2f %.2f] y[%.2f %.2f] z[%.2f %.2f]"
           % (cfg["name"], os.path.basename(path), os.path.getsize(path), tris, len(used),
-             lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]))
+             slo[0], shi[0], slo[1], shi[1], slo[2], shi[2]))
     if keep_blend:
         bpy.ops.wm.save_as_mainfile(
             filepath=os.path.join(out_dir, "%s_%s.blend" % (kAsset, cfg["name"])))
     return dict(lod=cfg["name"], file=os.path.basename(path), segments=cfg["seg"],
                 triangles=tris, bytes=os.path.getsize(path), bodies=len(bodies),
                 materials=used, checks_failed=fails, norms=norm_rows, genus=genus,
-                volume_sum_m3=round(vol_sum, 6),
+                placement=place, volume_sum_m3=round(vol_sum, 6),
                 merge=dict(v_parts=round(vol_sum, 6), v_merged=round(mv, 6),
                            d_volume=d_vol, d_bbox=d_box, passed=bool(merge_ok)),
                 overlaps=[dict(a=a, b=b, cm3=round(c, 2), grid=n, converged_rel=round(r, 4),
@@ -1921,10 +2129,10 @@ def build_lod(cfg, out_dir, keep_blend=False):
                             note=("Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug "
                                   "ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je "
                                   "Paar in kJoint; alles ausserhalb der Liste ist ein Defekt.")),
-                bbox={k: [round(float(lo[i]), 4), round(float(hi[i]), 4)]
+                bbox={k: [round(float(slo[i]), 4), round(float(shi[i]), 4)]
                       for i, k in enumerate("xyz")},
-                size_m={k: round(float(hi[i] - lo[i]), 4) for i, k in enumerate("xyz")},
-                _bodies=bodies)
+                size_m={k: round(float(shi[i] - slo[i]), 4) for i, k in enumerate("xyz")},
+                _bodies=scene)
 
 
 # ================================================================ Umschaltweiten und Sidecar
@@ -1998,17 +2206,25 @@ def sidecar(out_dir, stats, sil, steps, seconds):
         },
         "calibration": {
             "m_per_px": G.kPxM,
-            "m_per_px_scale_bar": G.kPxMScaleBar,
-            "scale_bar_delta": round(G.kPxMBarDelta, 6),
-            "method": ("NICHT der Massstabsbalken, sondern die Anpassung an die ZWEI "
-                       "veroeffentlichten Spannweiten — die nageln den Riss an zwei weit "
-                       "auseinanderliegenden Stellen fest statt an einer. Beide liegen 0.27 "
-                       "bzw. 0.30 %% ueber dem Balken; der Riss ist gleichmaessig geschrumpft. "
-                       "Gegenprobe: die Laenge OHNE Pitotrohr misst damit %.3f m gegen [PUB] "
-                       "16.7 m (%.2f %%). Ein Massstab kann nicht zwei Spannweiten auf 0.3 %% "
-                       "treffen und eine Laenge um 5.8 %% verfehlen — deshalb sind die 16.7 m "
-                       "OHNE Rohr gemeint."
-                       % (G.kLengthMeasured, 100 * G.kLengthErrRel)),
+            "source": ("DER MASSSTABSBALKEN DES RISSES: Strichmitten x = 100.0 und 1106.0, "
+                       "1006.0 px fuer 5 m. Er ist der einzige Massstab dieses Risses, der "
+                       "nicht von einer veroeffentlichten Zahl abhaengt, die er nachher "
+                       "pruefen soll."),
+            "m_per_px_from_swept_span": round(G.kPxMFromSwept, 8),
+            "m_per_px_from_spread_span": round(G.kPxMFromSpread, 8),
+            "why_not_the_spans": (
+                "Runde 1 nahm die Anpassung an BEIDE veroeffentlichten Spannweiten. Das trug "
+                "auf einer um 36 px falsch gelesenen Fluegelspitze (Zeile 2194 statt 2231.5; "
+                "2194 ist die Fuge der Fluegelendkappe und laeuft mitten durch den Fluegel). "
+                "Mit der richtigen Spitze verlangen die beiden Spannweiten Massstaebe, die "
+                "%.2f %% auseinanderliegen — es gibt keinen, der beide traegt."
+                % (100 * (G.kPxMFromSwept / G.kPxMFromSpread - 1.0))),
+            "check_length_m": round(G.kLengthMeasured, 4),
+            "check_length_rel": round(G.kLengthErrRel, 5),
+            "check_note": ("Radomspitze (3408) bis hinterster Zellenpunkt (36.5, Spitze der "
+                           "Bremsschirmverkleidung) gegen [PUB] 16.7 m. Mit dem Massstab aus "
+                           "Runde 1 waeren es +0.57 %. Die 16.7 m sind OHNE Pitotrohr: mit "
+                           "Rohr misst der Riss 17.842 m."),
         },
         "reference_dimensions_m": {
             "length_airframe": G.kLength,
@@ -2032,14 +2248,28 @@ def sidecar(out_dir, stats, sil, steps, seconds):
             "root_chord_m": round(G.kPanelRootChord, 4),
             "tip_chord_m": round(G.kPanelTipChord, 4),
             "exposed_area_both_m2": round(2 * G.kPanelExposedArea, 3),
-            "derivation": ("Zapfenlage seitlich aus dem Riss, r und theta0 GESCHLOSSEN aus den "
-                           "beiden veroeffentlichten Spannweiten geloest. Gegenprobe an BEIDEN "
-                           "gezeichneten Stellungen: 72 Grad gerechnet (3258.5, 10.2) gegen "
-                           "gemessen (3255, 12); 16 Grad gerechnet (2416.5, 2200.3) gegen "
-                           "gemessen (2420, 2194) — 6 px sind 30 mm auf 7 m Halbspannweite. "
-                           "Zweite Gegenprobe: die so bestimmte VK-Pfeilung in der "
-                           "16-Grad-Stellung faellt mit %.2f Grad heraus, die Literatur nennt "
-                           "18 Grad 45'." % G.kPanelLeSweep),
+            "derivation": (
+                "Zapfenlage seitlich als Mittel ZWEIER kreisgefitteter Zapfensymbole "
+                "(293.4 / 326.1 px von der Mittellinie — der Riss ist achtern verzogen, "
+                "s. DEFECTS.md #11). r und theta0 GESCHLOSSEN aus den beiden "
+                "veroeffentlichten Spannweiten geloest, beide werden dadurch exakt "
+                "getroffen. Die PLANFORM kommt dagegen aus dem Riss: VK- und HK-Pfeilung "
+                "sind Geradenfits an der GESPREIZTEN Fluegelhaelfte (Residuen 0.48 und "
+                "0.57 px ueber 565 bzw. 1005 Zeilen), die Randbogensehne ist an der "
+                "gemessenen Randbogenzeile 2231.5 abgegriffen. Die VK-Pfeilung faellt mit "
+                "%.3f Grad heraus, die Literatur nennt 18 Grad 45' = 18.750."
+                % G.kPanelLeSweep),
+            "drawing_vs_published": (
+                "Der Riss ist mit sich selbst konsistent: die VK-Geraden beider gezeichneter "
+                "Stellungen haben denselben Zapfenabstand (209.4 gegen 208.3 px) und stehen "
+                "55.570 statt 56.000 Grad zueinander. Er ist gleichmaessig zu gross — Zapfen "
+                "plus Randbogenabstand liegt bei %.0f Grad %+.2f %% und bei %.0f Grad %+.2f %% "
+                "ueber [PUB]. Der gezeichnete Randbogen liegt %.4f m vom Zapfen, die aus [PUB] "
+                "geloeste Spitze bei %.4f m (%.2f %%). Gebaut wird [PUB]."
+                % (G.kPanelCheckPct[0][0], G.kPanelCheckPct[0][1],
+                   G.kPanelCheckPct[1][0], G.kPanelCheckPct[1][1],
+                   G.kPanelTipUDrawn, G.kPanelLeTipU,
+                   100 * (G.kPanelTipUDrawn / G.kPanelLeTipU - 1.0))),
         },
         "nodes": [dict(node=n["node"], parent=n["parent"],
                        origin=[round(float(c), 4) for c in n["origin"]],
@@ -2070,6 +2300,7 @@ def main():
     ap.add_argument("--out", default=os.path.dirname(os.path.abspath(__file__)))
     ap.add_argument("--lod", default="")
     ap.add_argument("--blend", action="store_true")
+    ap.add_argument("--refine-sil", action="store_true")
     a = ap.parse_args(argv)
     os.makedirs(a.out, exist_ok=True)
     levels = [kLod[int(a.lod)]] if a.lod else kLod
@@ -2078,9 +2309,14 @@ def main():
     if len(stats) > 1:
         steps = switch_table(stats)
         t0 = time.time()
-        sil, ok = check_silhouette(stats, [x["max_range_m"] or 0.0 for x in steps])
+        rng = [x["max_range_m"] or 0.0 for x in steps]
+        sil, ok = check_silhouette(stats, rng)
         print("  ZEIT  silhouette %.1f s" % (time.time() - t0))
         rc = rc or (0 if ok else 1)
+        if a.refine_sil:
+            t0 = time.time()
+            refine_silhouette(stats, rng, kSilRefine)
+            print("  ZEIT  silhouette-verfeinerung %.1f s" % (time.time() - t0))
     else:
         sil, steps = dict(passed=None, rows=[]), []
     if len(stats) == len(kLod):

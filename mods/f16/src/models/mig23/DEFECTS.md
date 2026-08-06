@@ -2,129 +2,179 @@
 
 > Der Startpunkt der nächsten Runde. `doc/assets.md` §1: *„The critic's open defects survive"*.
 >
-> **Runde 1.** Das Asset ist grün an allen Toren, die es sich selbst stellt: 51–54 geschlossene
-> Körper je Stufe, null ungewollte Durchdringungen, 11 Maße am **gebauten Netz** gegen [PUB]/[BP]
-> gemessen, Silhouette 1,20 % gegen 2 % über 361 Azimute, zweimal gebaut → bytegleich, 43–46 s.
-> Was hier steht, ist das, was **trotzdem** falsch oder unbelegt ist — gereiht nach dem, was ein
-> Kenner auf einem Frame zuerst sieht.
+> **Runde 2.** Was Runde 1 an Toren grün meldete, war teilweise unbelegt: elf Maße wurden an den
+> Netzen VOR dem Parenting gemessen, während sechs Klappenkörper in der ausgelieferten Datei bis
+> 3,3 m neben dem Flugzeug standen. Die Regel heißt seither **miss an der ausgelieferten Szene**
+> — `check_norms`, `check_overlap`, das Silhouettentor und die Umschalttabelle lesen das fertige
+> `.glb` zurück (eigener glTF-Leser, kein `bpy`-Reimport), und `check_placement` vergleicht jede
+> Knotenweltmatrix und jede Körperpunktwolke gegen `node_table()` bzw. das gebaute Netz.
+>
+> Stand: 54/54/51/51 geschlossene Körper je Stufe, null ungewollte Durchdringungen, 11 Maße am
+> **ausgelieferten `.glb`** gegen [PUB]/[BP], Silhouette 0,944 % + 0,20 pp gegen 2 % über 361
+> Azimute, zweimal gebaut → bytegleich, 56–58 s.
 
 ---
 
-## A — sichtbar falsch (was das nächste Bild verbessert)
+## A — was Runde 2 geschlossen hat (mit Zahl vorher/nachher)
 
-### 1. Bei 72° klafft die Wurzelfuge zwischen Paneel und Handschuh
+| War | Ist | Beleg |
+|---|---|---|
+| sechs Klappenknoten trugen `m_par @ m` statt `inv(m_par) @ m`; Netto-Weltmatrix der Netze `m_par²`, Versatz bis 3,3 m, z = −1,936 | Weltmatrix jedes der 18 Knoten stimmt auf **0,000 m / 0,016°**, jede der 54 Körperboxen auf **3·10⁻⁶ m** | `check_placement`, Sidecar `lods[].placement` |
+| Prüfung las `me.v` vor dem Parenting | Prüfung liest das `.glb` | `read_glb` + `check_placement` |
+| HK-Wurzelpunkt (2346, 615) lag 127 px innerhalb des Zapfens in leerer Fläche; HK-Pfeilung 11,66° | HK-Pfeilung **2,397°** aus 202 Punkten, Residuum 0,57 px über 1005 Zeilen; VK 18,753° aus 114 Punkten, Residuum 0,48 px (Literatur 18°45′) | `kPanelTeSweep`, `kPanelLeSweep` |
+| Flügeltiefe bei u = 0,42 m: 1,771 m | **2,557 m** (+44 %); freitragende Paneelfläche 14,7 → **18,2 m²** | `kPanelRootChord` |
+| Bugbein +3,35 m, Hauptbein −2,42 m, Radstand 5,77 m (alle `[SET]`) | **+5,505 / −0,648 / 6,153 m** aus dem ML-Seitenriss, kreisgefittete Räder (Residuum 0,93/0,95 px), Übertragung über Radomspitze + Flossenspitze | `kNoseGearPx`, `kMainGearPx` |
+| Kalibrierung ruhte auf der Anpassung an beide Spannweiten, deren gespreizte Marke 36 px falsch lag | **Maßstabsbalken**, 1006,0 px für 5 m. Probe: Zellenlänge 16,685 m gegen [PUB] 16,7 → **−0,09 %** | `kPxM` |
+| `kPxViewSum = 3797` (Marken gaben 3796/3794) | **3799** als Mittel zweier nachgemessener Marken (Pitotspitze 3792, Düsenaustrittsebene 3806) | `kPxViewSum` |
+| Zapfen bei 304 px, aus zwei behaupteten Kreislagen | **309,75 px**, Mittel zweier KREISGEFITTETER Symbole (293,4 / 326,1 px, Residuen 0,99/1,10 px) | `kPivotXPx` |
+| Höhenleitwerk stand 99 px = **0,49 m zu weit achtern** (VK bei Zeile 952 abgelesen, bei Zeile 900 eingesetzt) | beide Kanten gefittet, Wurzel-VK 2956,3 statt 3055 | `kTailRootLePx` |
+| Randbogensehne 0,55 m `[SET]`, mittig um die Spitze gelegt | **0,294 m [BP]**, von der Spitzen-VK nach achtern | `kTailTipChord` |
+| Bremsschirmverkleidung lief als Rohr nach VORN; Flugzeug endete 0,16 m zu früh | flache Verkleidung nach ACHTERN auf den gemessenen hintersten Zellenpunkt | `kChuteTipY` |
+| `kSilSupShortfallPp = 0,03` „obere Schranke" | **0,20**, gemessene Reihe 361/1447/2887 → 0,9440/1,0309/1,0799 %, geometrische Fortsetzung +0,199 pp. Das Wort Schranke ist weg | `--refine-sil` |
+| Alias-Begründung nannte 64/40/24/14 | 72/48/32/22 — die Segmentzahlen DIESES Assets | `_views` |
+| `kLodSegments` unbenutzt | gelöscht | — |
+| Netznamen kollidierten mit Knotennamen → Exporteur benannte sie in `.001` um | Netze heißen `<knoten>.skin` | — |
 
-**Gemessen im gerenderten Bild (Draufsicht, `ctl.wingsweep.* = 56°`).** Das Paneel dreht korrekt —
-Spannweite 7,779 m, beide Seiten symmetrisch —, aber seine Wurzel wandert dabei **von x = 1,934 m
-auf 1,749 m nach innen und 0,96 m nach achtern**, während die Handschuhkante bei 1,934 m stehen
-bleibt. Es entsteht ein offener Keil von rund 0,2 × 1,0 m je Seite.
+---
 
-Das ist kein Rechenfehler, sondern ein **fehlendes Bauteil**: die MiG-23 hat an dieser Stelle eine
-Wurzeldichtung (der Handschuh überlappt das Paneel, das darunter gleitet). Nachfolger: einen Körper
-`glove.seal.<side>` bauen, der den überstrichenen Sektor abdeckt — er ist ein Kreisringsegment um
-den Drehzapfen mit dem Radius der Paneelwurzel und dem Öffnungswinkel 56°.
+## B — sichtbar falsch (was das nächste Bild verbessert)
 
-### 2. Die Kanzel liest sich nicht als Kanzel
+### 1. Die Kanzel liest sich nicht als Kanzel
 
-Im ersten Bild war sie **gar nicht** zu sehen: die spaltenweise Extremwertsuche im Seitenriss kann
-Haubenoberkante und Rumpfrücken nicht trennen, und der Rumpf bekam die Haubenlinie als eigene
-Oberkante. Nach der Korrektur (Deck in der Cockpitbucht auf die Brüstungslinie gelegt,
-`kFusStations` 2400…2800 px) steht die Haube 0,32 m über dem Deck und die zwei Bügel sind sichtbar
-— **die Verglasung selbst ist es kaum**. Das Material wurde deshalb von α 0,20 auf 0,55 gezogen; das
-ist ein Kompromiss, kein Beleg.
+Die Haube steht 0,32 m über dem Deck, die zwei Bügel sind sichtbar — **die Verglasung selbst ist
+es kaum**. Im Dreiviertelbild von Runde 2 ist die Kanzel nur als schwacher Buckel zu erkennen.
+Das Material wurde in Runde 1 von α 0,20 auf 0,55 gezogen; das ist ein Kompromiss, kein Beleg.
 
-Offen: die Haubenkontur ist [SET] (fünf Stationen, `kCanopy*Px`), es fehlen Spriegel, Rückspiegel,
-Schleudersitz und ein Cockpitboden. Ein Blick von vorn/oben zeigt heute eine leere Wanne.
+Offen: die Haubenkontur ist `[SET]` (fünf Stationen, `kCanopy*Px`), es fehlen Spriegel,
+Rückspiegel, Schleudersitz und ein Cockpitboden. Ein Blick von vorn/oben zeigt eine leere Wanne.
+
+### 2. Das Fahrwerk ist eine Skizze
+
+Die Stationen sind jetzt gemessen (s. A), die KINEMATIK nicht. Die MiG-23 hat ein sehr
+eigenwilliges Hauptfahrwerk (Zug-Druck-Kinematik mit zwei Streben und querliegendem Radträger).
+Gebaut sind zwei Rundstäbe, ein Rad, eine Klappe und ein Schleppstab; im Seitenbild lesen sie
+sich als Striche. Alle Einzugswinkel (`gear.nose` 95°, `gear.main.*` 88°) sind `[SET]`.
 
 ### 3. Einlauf und Rumpf stoßen mit einer Kante aneinander
 
-Der Einlaufkasten ist ein sauberer Hohlkörper mit echtem, 1,35 m tiefem Kanal (Geschlecht 1, keine
-Durchdringung mit der dunklen Grundplatte) — aber er **verschneidet sich nicht** mit der
-Rumpfseite, sondern steht als Quader daneben. Auf der echten MiG-23 läuft die Einlaufaußenwand in
-den Rumpf über und die Grenzschichtplatte sitzt in einer Nut. Sichtbar im Viertelbild als harte
-Stufe.
+Der Einlaufkasten ist ein sauberer Hohlkörper mit 1,35 m tiefem Kanal, aber er **verschneidet
+sich nicht** mit der Rumpfseite, sondern steht als Quader daneben. Auf der echten MiG-23 läuft
+die Einlaufaußenwand in den Rumpf über und die Grenzschichtplatte sitzt in einer Nut.
 
-### 4. Das Fahrwerk ist eine Skizze
+### 4. Zwei Durchbrüche von je 0,136 m² in der Draufsicht
 
-Die MiG-23 hat ein sehr eigenwilliges Hauptfahrwerk (Zug-Druck-Kinematik mit zwei Streben und einem
-querliegenden Radträger). Gebaut sind zwei Rundstäbe, ein Rad, eine Klappe und ein Schleppstab. Der
-Radstand `kWheelbase = 5,77 m` ist **[SET]** und durch nichts belegt; Bugbeinstation 3,35 m ebenso.
-Die Spurweite 2,658 m ist [WEB] und wird am Netz geprüft, der Radstand nicht.
+Gemessen am gerenderten Alpha der Draufsicht (2000 px, 9,77 mm/px, Flutfüllung vom Bildrand):
+zwei eingeschlossene Hintergrundgebiete von je **1426 px = 0,136 m²**, x = ±0,93 m,
+y = −0,01 … +2,92 m — also ein 0,088 × 2,93 m langer Schlitz zwischen Einlaufaußenwand und
+Rumpf. Das IST die Grenzschichtspalte (`kInletRampGapPx`), und am Original ist sie oben offen —
+aber nicht auf 2,9 m Länge bis zum Boden durch. Runde-1-Kritik nannte 0,022 m² am Hauptfahrwerk;
+diese sind mit der neuen Fahrwerks- und Pylonlage **verschwunden**.
 
-### 5. Bauchflosse und Bremsklappen sind Platten
+### 5. Bei 72° klafft die Wurzelfuge zwischen Paneel und Handschuh
 
-`ctl.ventral` ist ein 0,10 m dickes Prisma mit fünf Eckpunkten, die Bremsklappen sind Quader. Die
-Bauchflosse hat am Original ein Profil und einen Knick; die Bremsklappen sitzen an anderer Stelle
-(`kAirbrakeY` ist [SET]) und haben drei statt zwei Blätter.
+**Richtiggestellt gegenüber Runde 1:** die Lochfläche in der Draufsicht ist bei 56° Zapfendrehung
+**identisch zu 16°** (dieselben zwei Schlitze aus #4, 0,136 m² je Seite) — das Paneel gleitet
+unter den Handschuh, es entsteht KEIN zusätzlicher Lichtdurchlass. Was bleibt, ist eine **Kerbe
+im Umriss**: die Paneelwurzel wandert beim Pfeilen nach innen und achtern, die Handschuhkante
+bleibt stehen. Deshalb steht dieser Punkt jetzt hier unten und nicht mehr an erster Stelle.
+Nachfolger: ein Körper `glove.seal.<side>` als Kreisringsegment um den Zapfen, Öffnungswinkel 56°.
+
+### 6. Bauchflosse und Bremsklappen sind Platten
+
+`ctl.ventral` ist ein 0,10 m dickes Prisma mit fünf Eckpunkten, die Bremsklappen sind Quader.
+Die Bauchflosse hat am Original ein Profil und einen Knick; `kAirbrakeY` ist `[SET]`.
 
 ---
 
-## B — Zahlen ohne Beleg (jede [SET]-Zahl dieses Assets)
+## C — Zahlen ohne Beleg (jede [SET]-Zahl dieses Assets)
 
 | # | Konstante | Was fehlt |
 |---|---|---|
-| 6 | `kPivotZ = 0,16 m` | Höhe des Drehzapfens über der Triebwerksachse. Der Riss zeigt sie nur in einem Schnitt, den ich nicht kalibrieren konnte |
-| 7 | `kPanelRootU = 0,42 m` | Trennfuge Paneel/Handschuh. Aus dem 72°-Riss geschätzt |
-| 8 | `kPanelDihedralDeg = −1,0°` | V-Stellung des Paneels. Keine Quelle nennt sie |
-| 9 | `kSlatChordFrac 0,16 · kFlapChordFrac 0,26 · kSpoilerChordFrac 0,14` und alle Ausschläge (20°/25°/45°) | Sehnenanteile und Grenzen der Klappen. **Belegt ist nur, DASS es Vorflügel, Landeklappen und Störklappen gibt** [WEB] |
-| 10 | `kGloveTeY = −1,60 m`, `kGloveSawtoothU/Depth` | Handschuhhinterkante und Sägezahn. Der MLD-Sägezahn ist [WEB] belegt, seine Größe nicht |
-| 11 | `kTailAnhedralDeg = −10°`, `kTailTipChord = 0,55 m`, `kTailHingeFrac = 0,28` | Anhedral aus Schnitt Г-Г abgeschätzt. **Zusatzbefund:** die Leitwerksspitze liegt im Riss beidseits ungleich weit außen (539 gegen 586 px, 0,23 m) — Rissverzug, genommen wird das Mittel |
-| 12 | `kWheelbase`, `kNoseGearY`, alle Einzugswinkel | s. #4 |
-| 13 | `kNozzleThroatDia 0,86 m`, `kNozzlePetals 24`, `kNozzleDepth 0,55 m` | nur der Austrittsdurchmesser (1,245 m) ist [BP] |
-| 14 | Profilform | Die **Dicke** ist [PUB] (TsAGI SR-12S, 6,5 % / 5,5 %), die **Form** ist eine symmetrische NACA-Vierziffernverteilung. SR-12S-Koordinaten sind nicht öffentlich |
-| 15 | `kSilResCap = 1024 px` | Feinste Rasterung des Silhouettentors. Bei der hergeleiteten L2→L3-Weite von 9,3 m füllt das Flugzeug mehr als das Zielbild; 1024 px ist eine Kostenentscheidung, keine Herleitung |
-| 16 | `kRudderMaxDeg 25°`, `kRudderChordFrac 0,26` | |
-| 17 | `kAirbrakeY`, `kAirbrakeMaxDeg` | |
-| 18 | Alle sieben Materialien | Ein Anstrich hat keine Norm; die PBR-Werte sind plausibel gewählt, nicht gemessen |
-| 19 | Rumpfoberkante 2400…2800 px, Formexponenten `kFusShapeKnots` | s. #2. Die Exponenten (2,0…2,9) sind aus den Schnitten А-А/Б-Б/В-В/Г-Г qualitativ abgelesen, nicht bemaßt |
-| 20 | Rumpfhalbbreiten achtern von 1400 px | Der Grundriss ist dort von Flügel und Handschuh verdeckt; die Werte sind aus den lesbaren Stellen fortgeschrieben |
+| 7 | `kPivotZ = 0,16 m` | Höhe des Drehzapfens über der Triebwerksachse. Der Riss zeigt sie nur in einem Schnitt, den ich nicht kalibrieren konnte |
+| 8 | `kPanelRootU = 0,42 m` | Trennfuge Paneel/Handschuh |
+| 9 | `kPanelDihedralDeg = −1,0°` | V-Stellung des Paneels. Keine Quelle nennt sie |
+| 10 | `kSlatChordFrac 0,16 · kFlapChordFrac 0,26 · kSpoilerChordFrac 0,14` und alle Ausschläge (20°/25°/45°) | **Belegt ist nur, DASS es Vorflügel, Landeklappen und Störklappen gibt** [WEB] |
+| 11 | `kGloveTeY = −1,60 m`, `kGloveSawtoothU/Depth` | Der MLD-Sägezahn ist [WEB] belegt, seine Größe nicht. Gestützt: die gemessene Paneel-HK trifft an der Zapfenstation −1,608 m, also 8 mm neben `kGloveTeY` |
+| 12 | `kTailAnhedralDeg = −10°`, `kTailHingeFrac = 0,28`, `kTailThk*` | Anhedral gestützt (Seitenrissprojektion 80 px über 2,5 m → 9,1°), aber nicht bemaßt. **Der Riss ist achtern verzogen:** Leitwerksspitzen 590/539 px beidseits, Zapfensymbole 293,4/326,1 px, Rumpfmitte vorn 792 gegen achtern 817 |
+| 13 | alle Fahrwerks-Einzugswinkel | s. B#2 |
+| 14 | `kNozzleThroatDia 0,86 m`, `kNozzlePetals 24`, `kNozzleDepth 0,55 m` | nur der Austrittsdurchmesser (1,245 m) ist [BP] |
+| 15 | Profilform | Die **Dicke** ist [PUB] (TsAGI SR-12S, 6,5 % / 5,5 %), die **Form** ist eine symmetrische NACA-Vierziffernverteilung. SR-12S-Koordinaten sind nicht öffentlich |
+| 16 | `kSilResCap = 1024 px` | Kostenentscheidung, keine Herleitung |
+| 17 | `kRudderMaxDeg 25°`, `kRudderChordFrac 0,26`, `kAirbrakeY`, `kAirbrakeMaxDeg` | |
+| 18 | Alle sieben Materialien | Ein Anstrich hat keine Norm |
+| 19 | Rumpfoberkante 2400…2800 px, Formexponenten `kFusShapeKnots` | Exponenten aus den Schnitten А-А/Б-Б/В-В/Г-Г qualitativ abgelesen, nicht bemaßt |
+| 20 | Rumpfhalbbreiten achtern von 1400 px | Der Grundriss ist dort verdeckt; fortgeschrieben |
+| 21 | `kPylonGloveX/Y`, `kPylonFusX/Y`, `kGunY`, `kIrstY` | Alle Außenlaststationen sind gesetzt. `kPylonGloveY` und `kIrstY` sind in Runde 2 aus einem MESSBAREN Grund verschoben worden (Kollision mit dem jetzt gemessenen Fahrwerk), nicht aus einer Quelle |
 
 ---
 
-## C — Belegte Widersprüche, die stehen bleiben
+## D — belegte Widersprüche, die stehen bleiben
 
-### 21. Höhe: Riss 4,52 m gegen [PUB] 4,82 m — **6,3 %**
+### 22. Der gezeichnete Flügel ist 1,3 % größer als der veröffentlichte
 
-Die Frontansicht des Risses gibt Flossenspitze über Bodenlinie **906,5 px = 4,515 m**. [PUB] sagt
-4,82 m. Beide Spannweiten und die Länge treffen auf demselben Maßstab **±0,3 %** — die Höhe ist der
-einzige Ausreißer, also teilen Front- und Seitenriss keine Höhenbezugslinie.
+**Der Riss ist mit sich selbst konsistent** — das ist nachgemessen, nicht angenommen. Jede
+Hälfte in ihrem EIGENEN Zapfensymbol gemessen:
 
-**Entscheidung:** das Modell baut **4,82 m [PUB]**, und die Fahrwerksbeinlänge ist daraus
-*gerechnet* (`kGroundZ = kFinTipZ − kHeight`). Der Preis: die Bodenfreiheit ist nicht gemessen,
-sondern die Restgröße. Wer eine Beinlänge findet, dreht die Rechnung um und prüft die Höhe.
+| | gespreizte Hälfte | gepfeilte Hälfte | Differenz |
+|---|---|---|---|
+| Abstand Zapfen → VK-Gerade | 209,4 px | 208,3 px | **1,1 px** |
+| Winkel der VK-Geraden | 18,753° | 74,323° | **55,570°** (nominal 56) |
+| Zapfen + Randbogenabstand gegen [PUB] | +1,30 % | +1,44 % | — |
 
-### 22. Der Maßstabsbalken ist um 0,33 % zu kurz
+Beide Stellungen sind also **gleichmäßig 1,3–1,4 % zu groß** gezeichnet, und die 56°-Drehung
+zwischen ihnen stimmt auf 0,43°. Der Fehler steckt nicht in einer der beiden Stellungen, sondern
+in der Panelgröße insgesamt. Deshalb: **Form aus dem Riss, Spannweite aus [PUB]** — `_solve_panel`
+erzwingt beide veröffentlichten Spannweiten und schrumpft die Spitze dabei um 1,64 % gegen den
+Riss (5,443 statt 5,534 m ab Zapfen, θ₀ 8,74° statt 8,02°).
 
-Balken: 4,96524 mm/px. Beide veröffentlichten Spannweiten verlangen 4,9800 bzw. 4,9865 mm/px.
-Genommen wird **4,9814 mm/px** (Anpassung an beide Spannweiten), weil zwei weit auseinanderliegende
-Marken stärker sind als eine. Der Riss ist gleichmäßig geschrumpft — Papier oder Scan.
+Von der Mittellinie statt vom Zapfen gemessen fällt die Abweichung auseinander (+2,46 % gespreizt,
+−0,65 % gepfeilt) — das ist der Heckverzug aus #12, nicht der Flügel.
 
-### 23. Die 16,7 m sind OHNE Pitotrohr — hergeleitet, nicht nachgeschlagen
+### 23. Die beiden Ansichten haben verschiedene Maßstäbe
 
-Der Riss misst Radomspitze→hinterste Leitwerksecke **16,648 m** (−0,31 % gegen [PUB] 16,7) und mit
-Rohr **17,734 m** (+6,2 %). Ein Maßstab, der zwei Spannweiten auf 0,3 % trifft, kann eine Länge
-nicht um 6 % verfehlen — also meint [PUB] die Zelle ohne Rohr. **Keine Quelle sagt das ausdrücklich.**
+Pitotspitze bis Düsenaustrittsebene: Seitenriss 3435,5 px, Grundriss 3449,5 px — der Grundriss
+ist **0,41 % größer** gezeichnet. `kPxViewSum` ist deshalb ein Mittel, kein exakter Wert; die
+Streuung von ±7 px = ±35 mm trifft jede Größe, die eine Seitenrissstation gegen eine
+Grundrissstation stellt.
 
-### 24. Der Riss zeigt die MiG-23M, das Modell ist die MLD
+### 24. Der Maßstabsbalken ist um 0,5–0,7 % zu kurz
 
-Eine bewusste Abweichung ist gebaut: **die Rückenflosse der M entfällt** („with the dorsal fin
-extension removed", [WEB], MiG-23ML). Nicht behandelt sind: die andere Bodenlage der ML (leichteres,
-neu ausgelegtes Hauptfahrwerk), der SOS-3-4-Anbau und die Wirbelerzeuger am Pitotrohr (nur als
-Fugen angedeutet).
+Balken 4,97018 mm/px. Die gepfeilte Spannweite verlangt 5,00579 (+0,72 %), die Zellenlänge
+4,99701 (+0,54 %), die gespreizte Spannweite 4,85138 (−2,39 %). Genommen wird trotzdem **der
+Balken**: er ist die einzige direkte Maßstabsaussage des Risses und hängt von keiner Zahl ab,
+die er prüfen soll; die Zellenlänge trifft er auf −0,09 %. Wer die drei Marken gewichtet
+zusammenfasst, kommt auf 4,997 und macht das Modell 0,55 % größer — das ist eine Entscheidung,
+die ein Nachfolger mit einer besseren Quelle treffen soll, nicht mit denselben drei Marken.
 
-### 25. Die vierte Raste (33°) ist gebaut, aber unbelegt in ihrer Wirkung
+### 25. Die 16,7 m sind OHNE Pitotrohr — hergeleitet, nicht nachgeschlagen
 
-`kSweepDetents` enthält 33° [WEB, MLD]. Die Kinematik gibt sie kostenlos her; ob die dort gemessene
-Spannweite (13,006 m) stimmt, sagt keine Quelle — sie folgt aus derselben Drehung wie 16/45/72.
+Riss ohne Rohr 16,685 m (−0,09 % gegen [PUB] 16,7), mit Rohr 17,771 m (+6,4 %). **Keine Quelle
+sagt es ausdrücklich.**
+
+### 26. Der Riss zeigt die MiG-23M, das Modell ist die MLD
+
+Eine bewusste Abweichung: **die Rückenflosse der M entfällt** [WEB, MiG-23ML]. Für die andere
+Bodenlage der ML ist jetzt der ML-Riss herangezogen (Fahrwerk). Nicht behandelt: SOS-3-4-Anbau,
+Wirbelerzeuger am Pitotrohr.
+
+### 27. Die vierte Raste (33°) ist gebaut, aber unbelegt in ihrer Wirkung
+
+`kSweepDetents` enthält 33° [WEB, MLD]. Ob die dort gemessene Spannweite stimmt, sagt keine
+Quelle — sie folgt aus derselben Drehung wie 16/45/72.
+
+**Geschlossen: die alte #21 (Höhe 4,52 gegen 4,82 m).** Der unabhängige ML-Riss gibt bei seinem
+eigenen Maßstab (Rad- und Höhenmarke, 4,665 mm/px) 4,826 m — [PUB] 4,82 hat recht, die
+Frontansicht des M-Risses nicht. Die Entscheidung von Runde 1, 4,82 m zu bauen, war richtig.
 
 ---
 
-## D — Prüfungen, die dieses Asset NICHT hat
+## E — Prüfungen, die dieses Asset NICHT hat
 
 | # | Fehlt | Warum das zählt |
 |---|---|---|
-| 26 | **Kein Vergleich gegen ein Foto.** Alle Tore sind Selbstkonsistenz oder Riss. Die 2-%-Silhouettenschranke misst L0 gegen L3, nicht L0 gegen die Wirklichkeit | genau der Fehler, den der Tank in Runde 4 am Dachrandgeländer bezahlt hat |
-| 27 | **Die Flügelfläche wird nicht geprüft.** [PUB] nennt 37,35 m² gespreizt; das Netz baut 14,4 m² freitragende Paneelfläche plus einen Handschuh, dessen Bezugsfläche niemand definiert | eine Bezugsfläche ist eine Konvention, kein Maß — deshalb bewusst kein Band, aber es fehlt eine Aussage |
-| 28 | **Kein LOD-Test der Knoten.** Dass `ctl.*` und `gear.*` auf allen vier Stufen dieselben Ursprünge und Achsen haben, wird nicht gemessen | ein Knoten, der auf L2 woanders sitzt, springt beim Umschalten |
-| 29 | **Die Umschaltweiten sind sehr kurz** (2,0 / 4,4 / 9,3 m). Treiber ist die Facettierung des größten Rumpfradius; bei einem schlanken Jet ist der klein, also wird spät umgeschaltet | konservativ, aber teuer: L0 läuft bis 2 m, danach L1 bis 4,4 m — praktisch immer L3. Ein zweiter Treiber (kleinstes sichtbares Bauteil) fehlt |
-| 30 | **Kein Test gegen den Renderer.** Ob `sim/src/render/` die Knotenkonvention (lokale +X = Achse) liest, ist ungeprüft | die Konvention ist im Sidecar erklärt und sonst nirgends verankert |
+| 28 | **Kein Vergleich gegen ein Foto.** Alle Tore sind Selbstkonsistenz oder Riss | die 2-%-Silhouettenschranke misst L0 gegen L3, nicht L0 gegen die Wirklichkeit |
+| 29 | **Die Flügelfläche wird nicht geprüft.** [PUB] nennt 37,35 m² gespreizt; das Netz baut 18,2 m² freitragende Paneelfläche plus einen Handschuh, dessen Bezugsfläche niemand definiert | eine Bezugsfläche ist eine Konvention, kein Maß — deshalb bewusst kein Band, aber es fehlt eine Aussage |
+| 30 | **Kein LOD-Test der Knoten.** Dass `ctl.*` und `gear.*` auf allen vier Stufen dieselben Ursprünge haben, wird je Stufe gegen `node_table()` geprüft, aber nicht Stufe gegen Stufe | ein Knoten, der auf L2 woanders sitzt, springt beim Umschalten. Heute nur mittelbar gedeckt |
+| 31 | **Die Umschaltweiten sind sehr kurz** (2,0 / 4,4 / 9,3 m) | Treiber ist allein die Facettierung des größten Rumpfradius; ein zweiter Treiber (kleinstes sichtbares Bauteil) fehlt |
+| 32 | **Kein Test gegen den Renderer.** Ob `sim/src/render/` die Knotenkonvention (lokale +X = Achse) liest, ist ungeprüft | die Konvention ist im Sidecar erklärt und sonst nirgends verankert |
+| 33 | **Das Silhouettentor konvergiert nicht.** 361/1447/2887 Azimute geben 0,9440/1,0309/1,0799 % | `kSilSupShortfallPp` ist eine geometrische Fortsetzung, keine Schranke — ein Nachfolger mit mehr Rechenzeit soll die Reihe verlängern |

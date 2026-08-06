@@ -2,7 +2,7 @@
   "asset": "mig23",
   "name": "Mikoyan-Gurevich MiG-23MLD 'Flogger-K'",
   "unit_scale_m": 1.0,
-  "origin": "y = 0 ist die DREHZAPFENSTATION der Schwenkfluegel, z = 0 die TRIEBWERKSACHSE, x = 0 die Symmetrieebene. Der Zapfen ist der einzige Punkt des Risses, der in beiden Ansichten UND in beiden gezeichneten Pfeilstellungen unabhaengig belegt ist. Die Aufstandsebene liegt bei z = -1.9358 m.",
+  "origin": "y = 0 ist die DREHZAPFENSTATION der Schwenkfluegel, z = 0 die TRIEBWERKSACHSE, x = 0 die Symmetrieebene. Der Zapfen ist der einzige Punkt des Risses, der in beiden Ansichten UND in beiden gezeichneten Pfeilstellungen unabhaengig belegt ist. Die Aufstandsebene liegt bei z = -1.9423 m.",
   "axes": "glTF +Y oben / -Z vorwaerts; gebaut in +X rechts / +Y vorwaerts / +Z oben",
   "built_sweep_deg": 16.0,
   "used_by": "doc/modules/air/catalogue.md \u00a7mig23 (Zeile `mig23`), sim/test/modules/air/FBAirAnchors.h, mods/f22/doc/substitutions.md (alle acht MiG-27-Sorties).",
@@ -12,14 +12,18 @@
     "WEB": "https://en.wikipedia.org/wiki/Mikoyan-Gurevich_MiG-23 \u2014 Schwenkstellungen 16/45/72 Grad und die vierte der MLD bei 33 Grad; Rollsteuerung ueber Stoerklappen statt Querruder; klappbare Bauchflosse; Wegfall der Rueckenflosse bei der ML."
   },
   "calibration": {
-    "m_per_px": 0.0049814,
-    "m_per_px_scale_bar": 0.00496524,
-    "scale_bar_delta": 0.003255,
-    "method": "NICHT der Massstabsbalken, sondern die Anpassung an die ZWEI veroeffentlichten Spannweiten \u2014 die nageln den Riss an zwei weit auseinanderliegenden Stellen fest statt an einer. Beide liegen 0.27 bzw. 0.30 % ueber dem Balken; der Riss ist gleichmaessig geschrumpft. Gegenprobe: die Laenge OHNE Pitotrohr misst damit 16.648 m gegen [PUB] 16.7 m (-0.31 %). Ein Massstab kann nicht zwei Spannweiten auf 0.3 % treffen und eine Laenge um 5.8 % verfehlen \u2014 deshalb sind die 16.7 m OHNE Rohr gemeint."
+    "m_per_px": 0.00497018,
+    "source": "DER MASSSTABSBALKEN DES RISSES: Strichmitten x = 100.0 und 1106.0, 1006.0 px fuer 5 m. Er ist der einzige Massstab dieses Risses, der nicht von einer veroeffentlichten Zahl abhaengt, die er nachher pruefen soll.",
+    "m_per_px_from_swept_span": 0.00500579,
+    "m_per_px_from_spread_span": 0.00485064,
+    "why_not_the_spans": "Runde 1 nahm die Anpassung an BEIDE veroeffentlichten Spannweiten. Das trug auf einer um 36 px falsch gelesenen Fluegelspitze (Zeile 2194 statt 2231.5; 2194 ist die Fuge der Fluegelendkappe und laeuft mitten durch den Fluegel). Mit der richtigen Spitze verlangen die beiden Spannweiten Massstaebe, die 3.20 % auseinanderliegen \u2014 es gibt keinen, der beide traegt.",
+    "check_length_m": 16.6849,
+    "check_length_rel": -0.0009,
+    "check_note": "Radomspitze (3408) bis hinterster Zellenpunkt (36.5, Spitze der Bremsschirmverkleidung) gegen [PUB] 16.7 m. Mit dem Massstab aus Runde 1 waeren es +0.57 %. Die 16.7 m sind OHNE Pitotrohr: mit Rohr misst der Riss 17.842 m."
   },
   "reference_dimensions_m": {
     "length_airframe": 16.7,
-    "length_overall_with_probe": 17.7338,
+    "length_overall_with_probe": 17.7709,
     "span_spread": 13.965,
     "span_swept": 7.779,
     "height_on_gear": 4.82,
@@ -29,32 +33,33 @@
   },
   "wing_kinematics": {
     "pivot_m": [
-      1.5144,
+      1.5395,
       0.0,
       0.16
     ],
-    "tip_radius_m": 5.5297,
-    "tip_theta_deg_at_16": 8.5633,
+    "tip_radius_m": 5.5069,
+    "tip_theta_deg_at_16": 8.7396,
     "detents_deg": [
       16.0,
       33.0,
       45.0,
       72.0
     ],
-    "le_sweep_at_16_deg": 18.96,
+    "le_sweep_at_16_deg": 18.753,
     "le_sweep_documented_deg": 18.75,
-    "te_sweep_at_16_deg": 11.655,
-    "root_chord_m": 1.7726,
-    "tip_chord_m": 1.0835,
-    "exposed_area_both_m2": 14.43,
-    "derivation": "Zapfenlage seitlich aus dem Riss, r und theta0 GESCHLOSSEN aus den beiden veroeffentlichten Spannweiten geloest. Gegenprobe an BEIDEN gezeichneten Stellungen: 72 Grad gerechnet (3258.5, 10.2) gegen gemessen (3255, 12); 16 Grad gerechnet (2416.5, 2200.3) gegen gemessen (2420, 2194) \u2014 6 px sind 30 mm auf 7 m Halbspannweite. Zweite Gegenprobe: die so bestimmte VK-Pfeilung in der 16-Grad-Stellung faellt mit 18.96 Grad heraus, die Literatur nennt 18 Grad 45'."
+    "te_sweep_at_16_deg": 2.397,
+    "root_chord_m": 2.5566,
+    "tip_chord_m": 1.0615,
+    "exposed_area_both_m2": 18.174,
+    "derivation": "Zapfenlage seitlich als Mittel ZWEIER kreisgefitteter Zapfensymbole (293.4 / 326.1 px von der Mittellinie \u2014 der Riss ist achtern verzogen, s. DEFECTS.md #11). r und theta0 GESCHLOSSEN aus den beiden veroeffentlichten Spannweiten geloest, beide werden dadurch exakt getroffen. Die PLANFORM kommt dagegen aus dem Riss: VK- und HK-Pfeilung sind Geradenfits an der GESPREIZTEN Fluegelhaelfte (Residuen 0.48 und 0.57 px ueber 565 bzw. 1005 Zeilen), die Randbogensehne ist an der gemessenen Randbogenzeile 2231.5 abgegriffen. Die VK-Pfeilung faellt mit 18.753 Grad heraus, die Literatur nennt 18 Grad 45' = 18.750.",
+    "drawing_vs_published": "Der Riss ist mit sich selbst konsistent: die VK-Geraden beider gezeichneter Stellungen haben denselben Zapfenabstand (209.4 gegen 208.3 px) und stehen 55.570 statt 56.000 Grad zueinander. Er ist gleichmaessig zu gross \u2014 Zapfen plus Randbogenabstand liegt bei 16 Grad +1.30 % und bei 72 Grad +1.44 % ueber [PUB]. Der gezeichnete Randbogen liegt 5.5338 m vom Zapfen, die aus [PUB] geloeste Spitze bei 5.4430 m (1.67 %). Gebaut wird [PUB]."
   },
   "nodes": [
     {
       "node": "ctl.wingsweep.l",
       "parent": null,
       "origin": [
-        -1.5144,
+        -1.5395,
         0.0,
         0.16
       ],
@@ -80,7 +85,7 @@
       "node": "ctl.wingsweep.r",
       "parent": null,
       "origin": [
-        1.5144,
+        1.5395,
         0.0,
         0.16
       ],
@@ -106,13 +111,13 @@
       "node": "ctl.slat.l",
       "parent": "ctl.wingsweep.l",
       "origin": [
-        -1.9844,
-        0.6051,
+        -2.0095,
+        0.445,
         0.16
       ],
       "axis": [
-        -0.94575,
-        0.3249,
+        -0.94691,
+        0.32149,
         0.0
       ],
       "limits_deg": [
@@ -127,13 +132,13 @@
       "node": "ctl.slat.r",
       "parent": "ctl.wingsweep.r",
       "origin": [
-        1.9844,
-        0.6051,
+        2.0095,
+        0.445,
         0.16
       ],
       "axis": [
-        0.94575,
-        0.3249,
+        0.94691,
+        0.32149,
         0.0
       ],
       "limits_deg": [
@@ -148,13 +153,13 @@
       "node": "ctl.flap.l",
       "parent": "ctl.wingsweep.l",
       "origin": [
-        -1.9844,
-        -0.419,
+        -2.0095,
+        -1.0293,
         0.16
       ],
       "axis": [
-        -0.97938,
-        0.20202,
+        -0.99913,
+        0.04182,
         0.0
       ],
       "limits_deg": [
@@ -169,13 +174,13 @@
       "node": "ctl.flap.r",
       "parent": "ctl.wingsweep.r",
       "origin": [
-        1.9844,
-        -0.419,
+        2.0095,
+        -1.0293,
         0.16
       ],
       "axis": [
-        0.97938,
-        0.20202,
+        0.99913,
+        0.04182,
         0.0
       ],
       "limits_deg": [
@@ -190,13 +195,13 @@
       "node": "ctl.spoiler.l",
       "parent": "ctl.wingsweep.l",
       "origin": [
-        -3.0644,
-        -0.1628,
+        -3.0895,
+        -0.4476,
         0.18
       ],
       "axis": [
-        -0.97938,
-        0.20202,
+        -0.99913,
+        0.04182,
         0.0
       ],
       "limits_deg": [
@@ -211,13 +216,13 @@
       "node": "ctl.spoiler.r",
       "parent": "ctl.wingsweep.r",
       "origin": [
-        3.0644,
-        -0.1628,
+        3.0895,
+        -0.4476,
         0.18
       ],
       "axis": [
-        0.97938,
-        0.20202,
+        0.99913,
+        0.04182,
         0.0
       ],
       "limits_deg": [
@@ -233,8 +238,8 @@
       "parent": null,
       "origin": [
         -0.3,
-        -4.9479,
-        0.8668
+        -4.4552,
+        0.8648
       ],
       "axis": [
         -0.98481,
@@ -254,8 +259,8 @@
       "parent": null,
       "origin": [
         0.3,
-        -4.9479,
-        0.8668
+        -4.4552,
+        0.8648
       ],
       "axis": [
         0.98481,
@@ -275,8 +280,8 @@
       "parent": null,
       "origin": [
         0.0,
-        -6.954,
-        0.7074
+        -6.9453,
+        0.7058
       ],
       "axis": [
         0.0,
@@ -296,8 +301,8 @@
       "parent": null,
       "origin": [
         0.0,
-        -2.8195,
-        -0.8967
+        -2.8201,
+        -0.8946
       ],
       "axis": [
         0.0,
@@ -318,7 +323,7 @@
       "origin": [
         -0.2,
         -2.18,
-        -0.797
+        -0.7952
       ],
       "axis": [
         -1.0,
@@ -339,7 +344,7 @@
       "origin": [
         0.2,
         -2.18,
-        -0.797
+        -0.7952
       ],
       "axis": [
         1.0,
@@ -359,8 +364,8 @@
       "parent": null,
       "origin": [
         0.0,
-        4.4534,
-        0.3686
+        4.4364,
+        0.3678
       ],
       "axis": [
         1.0,
@@ -380,8 +385,8 @@
       "parent": null,
       "origin": [
         0.0,
-        3.35,
-        -0.8369
+        5.5048,
+        -0.835
       ],
       "axis": [
         1.0,
@@ -401,8 +406,8 @@
       "parent": null,
       "origin": [
         -0.42,
-        -1.7,
-        -0.8369
+        0.0718,
+        -0.835
       ],
       "axis": [
         0.0,
@@ -422,8 +427,8 @@
       "parent": null,
       "origin": [
         0.42,
-        -1.7,
-        -0.8369
+        0.0718,
+        -0.835
       ],
       "axis": [
         0.0,
@@ -445,8 +450,8 @@
       "lod": "L0",
       "file": "mig23_L0.glb",
       "segments": 72,
-      "triangles": 39662,
-      "bytes": 2198944,
+      "triangles": 39690,
+      "bytes": 2200488,
       "bodies": 54,
       "materials": [
         "mig23_dark",
@@ -461,20 +466,20 @@
       "norms": [
         {
           "key": "length.overall",
-          "measured": 17.733784,
-          "min": 17.64511508,
-          "max": 17.822452919999996,
+          "measured": 17.768394,
+          "min": 17.68202419705,
+          "max": 17.85973298295,
           "unit": "m",
-          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "rule": "[BP] Pitotspitze bis Spitze der Bremsschirmverkleidung, Riss 3626.5..51.0 px = 17.771 m, Band 0.5 %",
           "passed": true
         },
         {
           "key": "length.airframe",
-          "measured": 16.647839,
+          "measured": 16.684894,
           "min": 16.532999999999998,
           "max": 16.867,
           "unit": "m",
-          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.685 m (-0.09 %), Band 1 %",
           "passed": true
         },
         {
@@ -488,7 +493,7 @@
         },
         {
           "key": "wing.span.built",
-          "measured": 13.9714,
+          "measured": 13.963002,
           "min": 13.895175,
           "max": 14.034824999999998,
           "unit": "m",
@@ -497,7 +502,7 @@
         },
         {
           "key": "wing.pivot_radius_max",
-          "measured": 5.795026,
+          "measured": 5.763551,
           "min": null,
           "max": null,
           "unit": "m",
@@ -506,7 +511,7 @@
         },
         {
           "key": "wing.span.sweep16",
-          "measured": 13.9714,
+          "measured": 13.963,
           "min": 13.82535,
           "max": 14.10465,
           "unit": "m",
@@ -515,7 +520,7 @@
         },
         {
           "key": "wing.span.sweep72",
-          "measured": 7.770699,
+          "measured": 7.778444,
           "min": 7.70121,
           "max": 7.85679,
           "unit": "m",
@@ -524,16 +529,16 @@
         },
         {
           "key": "fin.tip_z",
-          "measured": 2.884231,
+          "measured": 2.877734,
           "min": null,
           "max": null,
           "unit": "m",
-          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.878 m ueber der Triebwerksachse",
           "passed": null
         },
         {
           "key": "tailplane.span",
-          "measured": 5.604075,
+          "measured": 5.591456,
           "min": null,
           "max": null,
           "unit": "m",
@@ -542,11 +547,11 @@
         },
         {
           "key": "nozzle.exit_diameter",
-          "measured": 1.262785,
-          "min": 1.2079895,
-          "max": 1.2827105000000003,
+          "measured": 1.259941,
+          "min": 1.20526865,
+          "max": 1.27982135,
           "unit": "m",
-          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.243 m, Band 3 %",
           "passed": true
         },
         {
@@ -587,7 +592,7 @@
         },
         {
           "key": "triangles",
-          "measured": 39662.0,
+          "measured": 39690.0,
           "min": null,
           "max": null,
           "unit": "-",
@@ -599,37 +604,65 @@
         0,
         1
       ],
-      "volume_sum_m3": 30.368969,
+      "placement": {
+        "worst_node_origin_m": 0.0,
+        "worst_node_origin": "ctl.flap.l",
+        "worst_node_axis_deg": 0.015896,
+        "worst_node_axis": "ctl.rudder",
+        "worst_body_bbox_m": 3e-06,
+        "worst_body": "ctl.taileron.l.skin",
+        "tolerance_m": 0.001,
+        "tolerance_deg": 0.05,
+        "nodes": 18,
+        "bodies": 54,
+        "passed": true
+      },
+      "volume_sum_m3": 30.881458,
       "merge": {
-        "v_parts": 30.368969,
-        "v_merged": 30.368969,
-        "d_volume": 2.4513724383723456e-13,
+        "v_parts": 30.881458,
+        "v_merged": 30.881458,
+        "d_volume": 1.9184653865522705e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "overlaps_below_verdict": {
         "threshold_cm3": 25.0,
-        "pairs": 0,
-        "cm3": 0,
-        "pairs_listed": []
+        "pairs": 4,
+        "cm3": 0.045,
+        "pairs_listed": [
+          {
+            "a": "glove.r",
+            "b": "ctl.flap.r.skin",
+            "cm3": 0.0163
+          },
+          {
+            "a": "glove.r",
+            "b": "ctl.slat.r.skin",
+            "cm3": 0.0137
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.slat.l.skin",
+            "cm3": 0.0125
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.flap.l.skin",
+            "cm3": 0.0021
+          }
+        ]
       },
       "joints": {
-        "pairs": 25,
-        "cm3": 1280729.6,
-        "bounded_pairs": 13,
+        "pairs": 23,
+        "cm3": 1245603.7,
+        "bounded_pairs": 14,
         "worst": [
           {
             "a": "fus.body",
             "b": "nozzle",
-            "fraction": 0.7696,
+            "fraction": 0.7693,
             "cap": 0.9
-          },
-          {
-            "a": "gear.main.r.arm",
-            "b": "gear.main.r.wheel",
-            "fraction": 0.7088,
-            "cap": 0.75
           },
           {
             "a": "gear.main.l.arm",
@@ -638,33 +671,39 @@
             "cap": 0.75
           },
           {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.7088,
+            "cap": 0.75
+          },
+          {
             "a": "fin",
             "b": "antenna.fin",
-            "fraction": 0.5237,
+            "fraction": 0.5235,
             "cap": 0.7
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.l",
-            "fraction": 0.441,
+            "b": "ctl.airbrake.l.skin",
+            "fraction": 0.4391,
             "cap": 0.45
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.r",
-            "fraction": 0.441,
+            "b": "ctl.airbrake.r.skin",
+            "fraction": 0.439,
             "cap": 0.45
           },
           {
             "a": "fus.body",
             "b": "gun.gsh23",
-            "fraction": 0.421,
+            "fraction": 0.4253,
             "cap": 0.6
           },
           {
             "a": "fus.body",
             "b": "sensor.irst",
-            "fraction": 0.3394,
+            "fraction": 0.3872,
             "cap": 0.6
           }
         ],
@@ -672,21 +711,21 @@
       },
       "bbox": {
         "x": [
-          -6.9857,
-          6.9857
+          -6.9815,
+          6.9815
         ],
         "y": [
-          -7.3725,
-          10.3613
+          -7.4374,
+          10.331
         ],
         "z": [
-          -1.9358,
-          2.8842
+          -1.9423,
+          2.8777
         ]
       },
       "size_m": {
-        "x": 13.9714,
-        "y": 17.7338,
+        "x": 13.963,
+        "y": 17.7684,
         "z": 4.82
       }
     },
@@ -694,8 +733,8 @@
       "lod": "L1",
       "file": "mig23_L1.glb",
       "segments": 48,
-      "triangles": 20034,
-      "bytes": 1140064,
+      "triangles": 20050,
+      "bytes": 1140348,
       "bodies": 54,
       "materials": [
         "mig23_dark",
@@ -710,20 +749,20 @@
       "norms": [
         {
           "key": "length.overall",
-          "measured": 17.733784,
-          "min": 17.64511508,
-          "max": 17.822452919999996,
+          "measured": 17.768394,
+          "min": 17.68202419705,
+          "max": 17.85973298295,
           "unit": "m",
-          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "rule": "[BP] Pitotspitze bis Spitze der Bremsschirmverkleidung, Riss 3626.5..51.0 px = 17.771 m, Band 0.5 %",
           "passed": true
         },
         {
           "key": "length.airframe",
-          "measured": 16.647839,
+          "measured": 16.684894,
           "min": 16.532999999999998,
           "max": 16.867,
           "unit": "m",
-          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.685 m (-0.09 %), Band 1 %",
           "passed": true
         },
         {
@@ -737,7 +776,7 @@
         },
         {
           "key": "wing.span.built",
-          "measured": 13.9714,
+          "measured": 13.963002,
           "min": 13.895175,
           "max": 14.034824999999998,
           "unit": "m",
@@ -746,7 +785,7 @@
         },
         {
           "key": "wing.pivot_radius_max",
-          "measured": 5.795026,
+          "measured": 5.763551,
           "min": null,
           "max": null,
           "unit": "m",
@@ -755,7 +794,7 @@
         },
         {
           "key": "wing.span.sweep16",
-          "measured": 13.9714,
+          "measured": 13.963,
           "min": 13.82535,
           "max": 14.10465,
           "unit": "m",
@@ -764,7 +803,7 @@
         },
         {
           "key": "wing.span.sweep72",
-          "measured": 7.770699,
+          "measured": 7.778444,
           "min": 7.70121,
           "max": 7.85679,
           "unit": "m",
@@ -773,16 +812,16 @@
         },
         {
           "key": "fin.tip_z",
-          "measured": 2.884231,
+          "measured": 2.877734,
           "min": null,
           "max": null,
           "unit": "m",
-          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.878 m ueber der Triebwerksachse",
           "passed": null
         },
         {
           "key": "tailplane.span",
-          "measured": 5.604075,
+          "measured": 5.591456,
           "min": null,
           "max": null,
           "unit": "m",
@@ -791,11 +830,11 @@
         },
         {
           "key": "nozzle.exit_diameter",
-          "measured": 1.262785,
-          "min": 1.2079895,
-          "max": 1.2827105000000003,
+          "measured": 1.259941,
+          "min": 1.20526865,
+          "max": 1.27982135,
           "unit": "m",
-          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.243 m, Band 3 %",
           "passed": true
         },
         {
@@ -836,7 +875,7 @@
         },
         {
           "key": "triangles",
-          "measured": 20034.0,
+          "measured": 20050.0,
           "min": null,
           "max": null,
           "unit": "-",
@@ -848,37 +887,65 @@
         0,
         1
       ],
-      "volume_sum_m3": 30.310598,
+      "placement": {
+        "worst_node_origin_m": 0.0,
+        "worst_node_origin": "ctl.flap.l",
+        "worst_node_axis_deg": 0.015896,
+        "worst_node_axis": "ctl.rudder",
+        "worst_body_bbox_m": 3e-06,
+        "worst_body": "ctl.taileron.l.skin",
+        "tolerance_m": 0.001,
+        "tolerance_deg": 0.05,
+        "nodes": 18,
+        "bodies": 54,
+        "passed": true
+      },
+      "volume_sum_m3": 30.830257,
       "merge": {
-        "v_parts": 30.310598,
-        "v_merged": 30.310598,
-        "d_volume": 1.4210854715202004e-14,
+        "v_parts": 30.830257,
+        "v_merged": 30.830257,
+        "d_volume": 3.304023721284466e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "overlaps_below_verdict": {
         "threshold_cm3": 25.0,
-        "pairs": 0,
-        "cm3": 0,
-        "pairs_listed": []
+        "pairs": 4,
+        "cm3": 0.045,
+        "pairs_listed": [
+          {
+            "a": "glove.r",
+            "b": "ctl.flap.r.skin",
+            "cm3": 0.0163
+          },
+          {
+            "a": "glove.r",
+            "b": "ctl.slat.r.skin",
+            "cm3": 0.0137
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.slat.l.skin",
+            "cm3": 0.0125
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.flap.l.skin",
+            "cm3": 0.0021
+          }
+        ]
       },
       "joints": {
-        "pairs": 26,
-        "cm3": 1277146.2,
-        "bounded_pairs": 12,
+        "pairs": 24,
+        "cm3": 1241758.5,
+        "bounded_pairs": 13,
         "worst": [
           {
             "a": "fus.body",
             "b": "nozzle",
-            "fraction": 0.7702,
+            "fraction": 0.7699,
             "cap": 0.9
-          },
-          {
-            "a": "gear.main.r.arm",
-            "b": "gear.main.r.wheel",
-            "fraction": 0.6941,
-            "cap": 0.75
           },
           {
             "a": "gear.main.l.arm",
@@ -887,33 +954,39 @@
             "cap": 0.75
           },
           {
+            "a": "gear.main.r.arm",
+            "b": "gear.main.r.wheel",
+            "fraction": 0.6941,
+            "cap": 0.75
+          },
+          {
             "a": "fin",
             "b": "antenna.fin",
-            "fraction": 0.5236,
+            "fraction": 0.5233,
             "cap": 0.7
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.l",
-            "fraction": 0.4402,
+            "b": "ctl.airbrake.l.skin",
+            "fraction": 0.438,
             "cap": 0.45
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.r",
-            "fraction": 0.4399,
+            "b": "ctl.airbrake.r.skin",
+            "fraction": 0.4375,
             "cap": 0.45
           },
           {
             "a": "fus.body",
             "b": "gun.gsh23",
-            "fraction": 0.4178,
+            "fraction": 0.4218,
             "cap": 0.6
           },
           {
             "a": "fus.body",
-            "b": "gear.nose.strut",
-            "fraction": 0.3435,
+            "b": "sensor.irst",
+            "fraction": 0.373,
             "cap": 0.6
           }
         ],
@@ -921,21 +994,21 @@
       },
       "bbox": {
         "x": [
-          -6.9857,
-          6.9857
+          -6.9815,
+          6.9815
         ],
         "y": [
-          -7.3725,
-          10.3613
+          -7.4374,
+          10.331
         ],
         "z": [
-          -1.9358,
-          2.8842
+          -1.9423,
+          2.8777
         ]
       },
       "size_m": {
-        "x": 13.9714,
-        "y": 17.7338,
+        "x": 13.963,
+        "y": 17.7684,
         "z": 4.82
       }
     },
@@ -943,8 +1016,8 @@
       "lod": "L2",
       "file": "mig23_L2.glb",
       "segments": 32,
-      "triangles": 9776,
-      "bytes": 582472,
+      "triangles": 9788,
+      "bytes": 583148,
       "bodies": 51,
       "materials": [
         "mig23_dark",
@@ -956,20 +1029,20 @@
       "norms": [
         {
           "key": "length.overall",
-          "measured": 17.733784,
-          "min": 17.64511508,
-          "max": 17.822452919999996,
+          "measured": 17.768394,
+          "min": 17.68202419705,
+          "max": 17.85973298295,
           "unit": "m",
-          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "rule": "[BP] Pitotspitze bis Spitze der Bremsschirmverkleidung, Riss 3626.5..51.0 px = 17.771 m, Band 0.5 %",
           "passed": true
         },
         {
           "key": "length.airframe",
-          "measured": 16.647839,
+          "measured": 16.684894,
           "min": 16.532999999999998,
           "max": 16.867,
           "unit": "m",
-          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.685 m (-0.09 %), Band 1 %",
           "passed": true
         },
         {
@@ -983,7 +1056,7 @@
         },
         {
           "key": "wing.span.built",
-          "measured": 13.9714,
+          "measured": 13.963002,
           "min": 13.895175,
           "max": 14.034824999999998,
           "unit": "m",
@@ -992,7 +1065,7 @@
         },
         {
           "key": "wing.pivot_radius_max",
-          "measured": 5.795026,
+          "measured": 5.763551,
           "min": null,
           "max": null,
           "unit": "m",
@@ -1001,7 +1074,7 @@
         },
         {
           "key": "wing.span.sweep16",
-          "measured": 13.9714,
+          "measured": 13.963,
           "min": 13.82535,
           "max": 14.10465,
           "unit": "m",
@@ -1010,7 +1083,7 @@
         },
         {
           "key": "wing.span.sweep72",
-          "measured": 7.770699,
+          "measured": 7.778444,
           "min": 7.70121,
           "max": 7.85679,
           "unit": "m",
@@ -1019,16 +1092,16 @@
         },
         {
           "key": "fin.tip_z",
-          "measured": 2.884231,
+          "measured": 2.877734,
           "min": null,
           "max": null,
           "unit": "m",
-          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.878 m ueber der Triebwerksachse",
           "passed": null
         },
         {
           "key": "tailplane.span",
-          "measured": 5.604075,
+          "measured": 5.591456,
           "min": null,
           "max": null,
           "unit": "m",
@@ -1037,11 +1110,11 @@
         },
         {
           "key": "nozzle.exit_diameter",
-          "measured": 1.262785,
-          "min": 1.2079895,
-          "max": 1.2827105000000003,
+          "measured": 1.259941,
+          "min": 1.20526865,
+          "max": 1.27982135,
           "unit": "m",
-          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.243 m, Band 3 %",
           "passed": true
         },
         {
@@ -1082,7 +1155,7 @@
         },
         {
           "key": "triangles",
-          "measured": 9776.0,
+          "measured": 9788.0,
           "min": null,
           "max": null,
           "unit": "-",
@@ -1094,30 +1167,64 @@
         0,
         1
       ],
-      "volume_sum_m3": 30.229586,
+      "placement": {
+        "worst_node_origin_m": 0.0,
+        "worst_node_origin": "ctl.flap.l",
+        "worst_node_axis_deg": 0.015896,
+        "worst_node_axis": "ctl.rudder",
+        "worst_body_bbox_m": 3e-06,
+        "worst_body": "ctl.taileron.l.skin",
+        "tolerance_m": 0.001,
+        "tolerance_deg": 0.05,
+        "nodes": 18,
+        "bodies": 51,
+        "passed": true
+      },
+      "volume_sum_m3": 30.757176,
       "merge": {
-        "v_parts": 30.229586,
-        "v_merged": 30.229586,
-        "d_volume": 1.4566126083082054e-13,
+        "v_parts": 30.757176,
+        "v_merged": 30.757176,
+        "d_volume": 4.973799150320701e-14,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "overlaps_below_verdict": {
         "threshold_cm3": 25.0,
-        "pairs": 0,
-        "cm3": 0,
-        "pairs_listed": []
+        "pairs": 4,
+        "cm3": 0.045,
+        "pairs_listed": [
+          {
+            "a": "glove.r",
+            "b": "ctl.flap.r.skin",
+            "cm3": 0.0163
+          },
+          {
+            "a": "glove.r",
+            "b": "ctl.slat.r.skin",
+            "cm3": 0.0137
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.slat.l.skin",
+            "cm3": 0.0125
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.flap.l.skin",
+            "cm3": 0.0021
+          }
+        ]
       },
       "joints": {
-        "pairs": 23,
-        "cm3": 1260538.9,
-        "bounded_pairs": 13,
+        "pairs": 21,
+        "cm3": 1228922.2,
+        "bounded_pairs": 14,
         "worst": [
           {
             "a": "fus.body",
             "b": "nozzle",
-            "fraction": 0.7677,
+            "fraction": 0.7675,
             "cap": 0.9
           },
           {
@@ -1134,54 +1241,54 @@
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.l",
-            "fraction": 0.4375,
+            "b": "ctl.airbrake.l.skin",
+            "fraction": 0.4355,
             "cap": 0.45
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.r",
-            "fraction": 0.4366,
+            "b": "ctl.airbrake.r.skin",
+            "fraction": 0.4344,
             "cap": 0.45
           },
           {
             "a": "fus.body",
             "b": "gun.gsh23",
-            "fraction": 0.413,
+            "fraction": 0.4173,
             "cap": 0.6
           },
           {
             "a": "fus.body",
             "b": "sensor.irst",
-            "fraction": 0.3155,
+            "fraction": 0.3685,
             "cap": 0.6
           },
           {
-            "a": "ctl.rudder",
-            "b": "fin.chute",
-            "fraction": 0.3085,
-            "cap": 0.35
+            "a": "fus.body",
+            "b": "inlet.box.l",
+            "fraction": 0.2736,
+            "cap": 0.55
           }
         ],
         "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -6.9857,
-          6.9857
+          -6.9815,
+          6.9815
         ],
         "y": [
-          -7.3725,
-          10.3613
+          -7.4374,
+          10.331
         ],
         "z": [
-          -1.9358,
-          2.8842
+          -1.9423,
+          2.8777
         ]
       },
       "size_m": {
-        "x": 13.9714,
-        "y": 17.7338,
+        "x": 13.963,
+        "y": 17.7684,
         "z": 4.82
       }
     },
@@ -1189,8 +1296,8 @@
       "lod": "L3",
       "file": "mig23_L3.glb",
       "segments": 22,
-      "triangles": 5002,
-      "bytes": 322804,
+      "triangles": 5014,
+      "bytes": 323904,
       "bodies": 51,
       "materials": [
         "mig23_dark",
@@ -1202,20 +1309,20 @@
       "norms": [
         {
           "key": "length.overall",
-          "measured": 17.733784,
-          "min": 17.64511508,
-          "max": 17.822452919999996,
+          "measured": 17.768394,
+          "min": 17.68202419705,
+          "max": 17.85973298295,
           "unit": "m",
-          "rule": "[BP] Pitotspitze bis hinterste Leitwerksecke, Riss 3626..66 px = 17.734 m, Band 0.5 %",
+          "rule": "[BP] Pitotspitze bis Spitze der Bremsschirmverkleidung, Riss 3626.5..51.0 px = 17.771 m, Band 0.5 %",
           "passed": true
         },
         {
           "key": "length.airframe",
-          "measured": 16.647839,
+          "measured": 16.684894,
           "min": 16.532999999999998,
           "max": 16.867,
           "unit": "m",
-          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.648 m (-0.31 %), Band 1 %",
+          "rule": "[PUB] 16.7 m ohne Pitotrohr; Riss misst 16.685 m (-0.09 %), Band 1 %",
           "passed": true
         },
         {
@@ -1229,7 +1336,7 @@
         },
         {
           "key": "wing.span.built",
-          "measured": 13.9714,
+          "measured": 13.963002,
           "min": 13.895175,
           "max": 14.034824999999998,
           "unit": "m",
@@ -1238,7 +1345,7 @@
         },
         {
           "key": "wing.pivot_radius_max",
-          "measured": 5.795026,
+          "measured": 5.763551,
           "min": null,
           "max": null,
           "unit": "m",
@@ -1247,7 +1354,7 @@
         },
         {
           "key": "wing.span.sweep16",
-          "measured": 13.9714,
+          "measured": 13.963,
           "min": 13.82535,
           "max": 14.10465,
           "unit": "m",
@@ -1256,7 +1363,7 @@
         },
         {
           "key": "wing.span.sweep72",
-          "measured": 7.770699,
+          "measured": 7.778444,
           "min": 7.70121,
           "max": 7.85679,
           "unit": "m",
@@ -1265,16 +1372,16 @@
         },
         {
           "key": "fin.tip_z",
-          "measured": 2.884231,
+          "measured": 2.877734,
           "min": null,
           "max": null,
           "unit": "m",
-          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.884 m ueber der Triebwerksachse",
+          "rule": "[BP] Flossenspitze, Riss 1853 px -> 2.878 m ueber der Triebwerksachse",
           "passed": null
         },
         {
           "key": "tailplane.span",
-          "measured": 5.604075,
+          "measured": 5.591456,
           "min": null,
           "max": null,
           "unit": "m",
@@ -1283,11 +1390,11 @@
         },
         {
           "key": "nozzle.exit_diameter",
-          "measured": 1.227915,
-          "min": 1.2079895,
-          "max": 1.2827105000000003,
+          "measured": 1.225149,
+          "min": 1.20526865,
+          "max": 1.27982135,
           "unit": "m",
-          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.245 m, Band 3 %",
+          "rule": "[BP] Seitenriss x=188 px, 2307..2557 px = 1.243 m, Band 3 %",
           "passed": true
         },
         {
@@ -1328,7 +1435,7 @@
         },
         {
           "key": "triangles",
-          "measured": 5002.0,
+          "measured": 5014.0,
           "min": null,
           "max": null,
           "unit": "-",
@@ -1340,30 +1447,64 @@
         0,
         1
       ],
-      "volume_sum_m3": 30.117117,
+      "placement": {
+        "worst_node_origin_m": 0.0,
+        "worst_node_origin": "ctl.flap.l",
+        "worst_node_axis_deg": 0.015896,
+        "worst_node_axis": "ctl.rudder",
+        "worst_body_bbox_m": 3e-06,
+        "worst_body": "ctl.taileron.l.skin",
+        "tolerance_m": 0.001,
+        "tolerance_deg": 0.05,
+        "nodes": 18,
+        "bodies": 51,
+        "passed": true
+      },
+      "volume_sum_m3": 30.644559,
       "merge": {
-        "v_parts": 30.117117,
-        "v_merged": 30.117117,
-        "d_volume": 1.9895196601282805e-13,
+        "v_parts": 30.644559,
+        "v_merged": 30.644559,
+        "d_volume": 1.3500311979441904e-13,
         "d_bbox": 0.0,
         "passed": true
       },
       "overlaps": [],
       "overlaps_below_verdict": {
         "threshold_cm3": 25.0,
-        "pairs": 0,
-        "cm3": 0,
-        "pairs_listed": []
+        "pairs": 4,
+        "cm3": 0.045,
+        "pairs_listed": [
+          {
+            "a": "glove.r",
+            "b": "ctl.flap.r.skin",
+            "cm3": 0.0163
+          },
+          {
+            "a": "glove.r",
+            "b": "ctl.slat.r.skin",
+            "cm3": 0.0137
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.slat.l.skin",
+            "cm3": 0.0125
+          },
+          {
+            "a": "glove.l",
+            "b": "ctl.flap.l.skin",
+            "cm3": 0.0021
+          }
+        ]
       },
       "joints": {
-        "pairs": 24,
-        "cm3": 1258702.8,
-        "bounded_pairs": 12,
+        "pairs": 21,
+        "cm3": 1226806.5,
+        "bounded_pairs": 14,
         "worst": [
           {
             "a": "fus.body",
             "b": "nozzle",
-            "fraction": 0.7751,
+            "fraction": 0.7743,
             "cap": 0.9
           },
           {
@@ -1380,54 +1521,54 @@
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.l",
-            "fraction": 0.4272,
+            "b": "ctl.airbrake.l.skin",
+            "fraction": 0.4251,
             "cap": 0.45
           },
           {
             "a": "fus.body",
-            "b": "ctl.airbrake.r",
-            "fraction": 0.4239,
+            "b": "ctl.airbrake.r.skin",
+            "fraction": 0.4216,
             "cap": 0.45
           },
           {
             "a": "fus.body",
             "b": "gun.gsh23",
-            "fraction": 0.4083,
-            "cap": 0.6
-          },
-          {
-            "a": "fus.body",
-            "b": "gear.nose.strut",
-            "fraction": 0.345,
+            "fraction": 0.4121,
             "cap": 0.6
           },
           {
             "a": "fus.body",
             "b": "sensor.irst",
-            "fraction": 0.3151,
+            "fraction": 0.3615,
             "cap": 0.6
+          },
+          {
+            "a": "fus.body",
+            "b": "inlet.box.r",
+            "fraction": 0.2726,
+            "cap": 0.55
           }
         ],
         "note": "Absichtlich geteiltes Volumen an ANSCHLUESSEN. Ein Flugzeug ist kein Tank: ein Holm steckt im Rumpf. Die Kappe steht je Paar in kJoint; alles ausserhalb der Liste ist ein Defekt."
       },
       "bbox": {
         "x": [
-          -6.9857,
-          6.9857
+          -6.9815,
+          6.9815
         ],
         "y": [
-          -7.3725,
-          10.3613
+          -7.4374,
+          10.331
         ],
         "z": [
-          -1.9358,
-          2.8842
+          -1.9423,
+          2.8777
         ]
       },
       "size_m": {
-        "x": 13.9714,
-        "y": 17.7338,
+        "x": 13.963,
+        "y": 17.7684,
         "z": 4.82
       }
     }
@@ -1436,17 +1577,39 @@
     "limit_pct": 2.0,
     "passed": true,
     "azimuths": 361,
-    "sup_shortfall_pp": 0.03,
+    "sup_shortfall_pp": 0.2,
     "coarse_divisor": 4,
     "res_cap": 1024,
     "worst": {
       "pair": "L0->L3",
       "view": "az089.7507",
       "res": 1024,
-      "pct": 1.1716,
-      "judged_pct": 1.2016
+      "pct": 0.944,
+      "judged_pct": 1.144
     },
-    "method": "361 Azimute plus Draufsicht, fest und teilerfremd zu 64/40/24/14. Nur die dem Betrachter ZUGEWANDTEN Dreiecke werden gerastert: bei einem geschlossenen Koerper ist deren Projektion exakt die Silhouette, und das halbiert die Arbeit ohne einen Pixel zu aendern. Rasterzuschlag 0.03 pp fuer das Supremum zwischen zwei Azimutproben (am Tank gemessen: 0.026 pp zwischen 1-Grad- und 0.05-Grad-Raster).",
+    "method": "361 Azimute plus Draufsicht, fest und teilerfremd zu den vier Segmentzahlen dieser Leiter (72/48/32/22). Nur die dem Betrachter ZUGEWANDTEN Dreiecke werden gerastert: bei einem geschlossenen Koerper ist deren Projektion exakt die Silhouette, und das halbiert die Arbeit ohne einen Pixel zu aendern. Azimutzuschlag 0.20 pp \u2014 GEMESSEN, nicht hergeleitet: die schlechteste Paarung gibt bei 361/1447/2887 Azimuten die Werte, die unter azimuth_refinement stehen, und die Folge steigt noch. Der Zuschlag ist die dreifache gemessene Differenz, keine Schranke.",
+    "azimuth_refinement": {
+      "azimuths": [
+        361,
+        1447,
+        2887
+      ],
+      "pair": "L0->L3",
+      "res_px": 1024,
+      "worst_pct": [
+        0.944,
+        1.0309,
+        1.0799
+      ],
+      "increments_pp": [
+        0.0869,
+        0.049
+      ],
+      "ratio": 0.564,
+      "extrapolated_tail_pp": 0.063,
+      "gap_to_361_pp": 0.199,
+      "note": "Gemessen mit --refine-sil (211.7 s). Die Folge steigt noch; kSilSupShortfallPp ist die geometrische Fortsetzung, keine obere Schranke."
+    },
     "rows": [
       {
         "pair": "L0->L1",
@@ -1454,23 +1617,23 @@
         "res_full": 1024,
         "range_m": 2.0,
         "azimuths": 361,
-        "worst_pct": 0.4827,
-        "judged_pct": 0.5127,
-        "worst_view": "az086.7590",
+        "worst_pct": 0.5113,
+        "judged_pct": 0.7113,
+        "worst_view": "az085.7618",
         "escalated": false,
         "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
       },
       {
         "pair": "L1->L2",
-        "res": 256,
+        "res": 1024,
         "res_full": 1024,
         "range_m": 4.4,
         "azimuths": 361,
-        "worst_pct": 0.8621,
-        "judged_pct": 0.8921,
-        "worst_view": "az093.7396",
-        "escalated": false,
-        "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
+        "worst_pct": 0.5315,
+        "judged_pct": 0.7315,
+        "worst_view": "az268.2548",
+        "escalated": true,
+        "note": "volle Aufloesung"
       },
       {
         "pair": "L2->L3",
@@ -1478,9 +1641,9 @@
         "res_full": 1024,
         "range_m": 9.3,
         "azimuths": 361,
-        "worst_pct": 0.6217,
-        "judged_pct": 0.6517,
-        "worst_view": "az088.7535",
+        "worst_pct": 0.463,
+        "judged_pct": 0.663,
+        "worst_view": "az250.3047",
         "escalated": false,
         "note": "grob gemessen und angenommen: obere Schranke unter der halben Grenze, die feine Messung kann nur kleiner sein"
       },
@@ -1490,8 +1653,8 @@
         "res_full": 1024,
         "range_m": 9.3,
         "azimuths": 361,
-        "worst_pct": 1.1716,
-        "judged_pct": 1.2016,
+        "worst_pct": 0.944,
+        "judged_pct": 1.144,
         "worst_view": "az089.7507",
         "escalated": true,
         "note": "volle Aufloesung"
@@ -1501,7 +1664,7 @@
   "switch": [
     {
       "lod": "L0",
-      "driver": "Rundung n=48 am groessten Rumpfradius 0.747 m",
+      "driver": "Rundung n=48 am groessten Rumpfradius 0.746 m",
       "feature_m": 0.0016,
       "max_range_m": 2.0,
       "lost_bodies": 0,
@@ -1510,12 +1673,12 @@
     },
     {
       "lod": "L1",
-      "driver": "Rundung n=32 am groessten Rumpfradius 0.747 m",
-      "feature_m": 0.0036,
+      "driver": "Rundung n=32 am groessten Rumpfradius 0.746 m",
+      "feature_m": 0.00359,
       "max_range_m": 4.4,
       "lost_bodies": 3,
       "lost_cauchy_m": {
-        "antenna.fin": 0.2647,
+        "antenna.fin": 0.2644,
         "gear.main.r.scissor": 0.0931,
         "gear.main.l.scissor": 0.0931
       },
@@ -1527,8 +1690,8 @@
     },
     {
       "lod": "L2",
-      "driver": "Rundung n=22 am groessten Rumpfradius 0.747 m",
-      "feature_m": 0.00761,
+      "driver": "Rundung n=22 am groessten Rumpfradius 0.746 m",
+      "feature_m": 0.00759,
       "max_range_m": 9.3,
       "lost_bodies": 0,
       "lost_cauchy_m": {},
@@ -1544,7 +1707,7 @@
     }
   ],
   "build": {
-    "seconds": 45.7,
+    "seconds": 44.0,
     "determinism": "zweimal bauen, Bytes vergleichen (doc/assets.md \u00a74)"
   },
   "open_defects": "DEFECTS.md"
