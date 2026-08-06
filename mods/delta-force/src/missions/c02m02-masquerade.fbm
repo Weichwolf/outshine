@@ -1,0 +1,270 @@
+name c02m02-masquerade
+timeout 300
+time 1998-10-14T05:00:00Z
+
+# DELTA FORCE (NovaLogic 1998), CAMPAIGN ONE "PERU", FILE SLOT C02M02, PLAY ORDER 5 OF 6 --
+# {Masquerade}, working title "C02M02 - Steal Radio Book", Objective CALM [BMS]. TWO predecessors,
+# Flood and Bad Habit -- the campaign is a graph, not a list [CAMP].
+# Spec and provenance: mods/delta-force/doc/. Format: doc/missions/syntax.md.
+#
+# THE TASK [CAMP]: "Infiltrate the mercenary base-camp, designated Objective Calm, and steal a copy of
+# the enemy's encryption codebook." M02SUBGOAL01 "Retrieve the code book from Objective Calm." +
+# M02SUBGOAL02 "Reach the extraction point." FAIL M02SUBFAIL01 "Black Widow is eliminated."
+# THE RADIO [DLG]: "Proceed east and obtain enemy code book." + "Do so without alerting the enemy to
+# your presence." + "Proceed to extraction point."
+# THE FIELD [BMS]: 725 objects, 1537 x 1186 m, IP (-645.3,-545.0), enemy centroid (-283.0,-483.8) =
+# 367 m at 080 deg = "east". C2M2.TRN "Death & More Death", NIGHT preset [TRN] -- which is what the
+# briefing's "the need for absolute stealth" and the radio's "without alerting" are made of.
+# THE CAST: 33 hostiles -> lattice pitch 235.0 m, the campaign's thinnest - Objective Calm, the tent
+# group (`tent, netting` + `tent, long` + 2x `tent, small`) as ONE neutral object at (-139.1,-522.7) -
+# two abandoned villages, 7 parts at (-765.9,-227.8) and 4 parts at (-715.5,-832.9), one object each
+# (D5); their 692.7 m at 295 deg from the objective is the measurement that agrees with the briefing's
+# "690m northwest" to 3 m and proves the metre a second time - and ZERO friendly soldiers, matching
+# "no other team members have been assigned to this operation" [CAMP]. campaign.md 10 states the
+# consequence as a test: any friendly unit here is a mod defect. The one friendly-team object is the
+# Black Widow, which is not a team member but the extraction asset.
+# THREE THINGS THIS FILE CANNOT SAY, AND ONE IT CAN SAY EXACTLY:
+#   `Carrying: Code Book` [GAME] is a HUD state the unit model has no slot for, so goal 1 degrades
+#   from RETRIEVE to OVERFLY -- the objective becomes a waypoint on Objective Calm.
+#   The Black Widow's coordinate was not recorded, so it stands on the IP, like Weatherman's EP.
+#   The extraction leg is 506.7 m, i.e. barely more than the 500 m capture radius (D4).
+#   What it CAN say exactly is the stealth constraint: "without alerting the enemy" is
+#   `objective no_fire`, and this is the only mission of the four mods where a briefing sentence maps
+#   onto an objective keyword with no loss at all. So `bravo2` carries NO ordnance and flies
+#   `set task route`.
+#
+# READING RULE (binding), and it is the sharpest one here because the file can go GREEN. campaign.md
+# 10: three ways to fail and one to pass -- no codebook, no extraction, or Black Widow destroyed.
+# exit 0 is REACHABLE and it is the emptiest result in the campaign: it proves that the substitute can
+# fly 1.5 km without firing, which is every property of Masquerade except the mission. Read exit 0
+# here as a measurement of the FORMAT (three goals expressed, one of them exactly), never of the
+# simulation. An exit other than 0 is the interesting outcome and must be reported with its cause.
+
+# ---- THE NINE DISCLOSURES. Full text in c02m01-insurrection.fbm; in force here unchanged.
+#   D1 no man on foot: Bravo Two flies as `f16`, 300 kt vs a 1.4 m/s walk, 150 m vs a 1.7 m eye, no
+#      posture, no ground LOS, no cover - D2 the hostile soldier is a `target_soft` and cannot shoot
+#      (measured: ground vs ground = 0 weapon events) - D3 the rifle has no target (gun bundles resolve
+#      against aircraft only); 2 satchel charges -> 2 x `mk82` - D4 the waypoint capture radius is
+#      500 m and not tunable, which is wider than four of six missions' whole ingress - D5 the N
+#      hostiles are a lattice on the measured centroid at pitch sqrt(EW*NS/N); count, centroid and
+#      areal density measured, arrangement reconstructed - D6 `--elev const`, flat 0 m, though fb-tiles
+#      does cover Peru (629.30-688.72 m at the six box centres) - D7 the striker spawns 3 000 m out on
+#      the bearing to its aim point, outside the mission box - D8 one striker is one aim point, and it
+#      is also ONE RELEASE: 2 x mk82 declared, 1 fired, in every armed file - D9 date 1998-10-13 [MAN],
+#      instant checked against the runner's own CLOCK line.
+
+# MEASURED (exit 0, `--elev const`, `--threads 1/2/4` byte-identical): THE EMPTY GREEN, EXACTLY AS THE
+# READING RULE PREDICTS.
+#   t = 0.0 s    CLOCK sunElDeg -73.05 -- the .TRN night preset, checked
+#   t = 14.7 s   wp0 `by=capture` -- Objective Calm, the tent group, i.e. "the codebook"
+#   t = 14.8 s   wp1 `by=capture` -- the extraction point, 506.7 m away, 0.1 s later (D4)
+#   t = 300.1 s  all three objectives met: `waypoints`, `no_fire`, `protect unit blackwidow`
+#   weapons      ZERO releases, ZERO gun events, no ordnance carried at all
+#   verdict      SUCCESS. What that proves: the format can state all three of this mission's
+#                conditions, and one of them -- "without alerting the enemy" -> `objective no_fire` --
+#                is the only briefing sentence in the four NovaLogic mods that maps onto an objective
+#                keyword with NO loss. What it does not prove: anything about infiltration, stealth,
+#                night, or a codebook, none of which exist here.
+
+unit bravo2
+  module f16
+  team friendly
+  spawn -8.72739 -76.18199 150 227.5 300
+  set gear up
+  set fuel_int_pct 60
+  set datalink off
+  set fcr_mode off
+  set rwr off
+  set gun_rounds 30
+  set cmds_mode off
+  set task route
+  wp -8.74560 -76.20209 150 300
+  wp -8.74252 -76.19869 150 300
+  objective waypoints
+  objective no_fire
+  objective protect unit blackwidow
+
+unit h001
+  module target_soft
+  team hostile
+  spawn -8.74504 -76.20086 ground 140.0 0
+
+unit h002
+  module target_soft
+  team hostile
+  spawn -8.74665 -76.19948 ground 140.0 0
+
+unit h003
+  module target_soft
+  team hostile
+  spawn -8.74801 -76.20112 ground 140.0 0
+
+unit h004
+  module target_soft
+  team hostile
+  spawn -8.74639 -76.20249 ground 140.0 0
+
+unit h005
+  module target_soft
+  team hostile
+  spawn -8.74478 -76.20387 ground 140.0 0
+
+unit h006
+  module target_soft
+  team hostile
+  spawn -8.74342 -76.20223 ground 140.0 0
+
+unit h007
+  module target_soft
+  team hostile
+  spawn -8.74206 -76.20059 ground 140.0 0
+
+unit h008
+  module target_soft
+  team hostile
+  spawn -8.74368 -76.19922 ground 140.0 0
+
+unit h009
+  module target_soft
+  team hostile
+  spawn -8.74530 -76.19785 ground 140.0 0
+
+unit h010
+  module target_soft
+  team hostile
+  spawn -8.74827 -76.19811 ground 140.0 0
+
+unit h011
+  module target_soft
+  team hostile
+  spawn -8.74963 -76.19975 ground 140.0 0
+
+unit h012
+  module target_soft
+  team hostile
+  spawn -8.75099 -76.20138 ground 140.0 0
+
+unit h013
+  module target_soft
+  team hostile
+  spawn -8.74937 -76.20276 ground 140.0 0
+
+unit h014
+  module target_soft
+  team hostile
+  spawn -8.74775 -76.20413 ground 140.0 0
+
+unit h015
+  module target_soft
+  team hostile
+  spawn -8.74613 -76.20550 ground 140.0 0
+
+unit h016
+  module target_soft
+  team hostile
+  spawn -8.74452 -76.20687 ground 140.0 0
+
+unit h017
+  module target_soft
+  team hostile
+  spawn -8.74316 -76.20524 ground 140.0 0
+
+unit h018
+  module target_soft
+  team hostile
+  spawn -8.74180 -76.20360 ground 140.0 0
+
+unit h019
+  module target_soft
+  team hostile
+  spawn -8.74044 -76.20197 ground 140.0 0
+
+unit h020
+  module target_soft
+  team hostile
+  spawn -8.73909 -76.20033 ground 140.0 0
+
+unit h021
+  module target_soft
+  team hostile
+  spawn -8.74071 -76.19896 ground 140.0 0
+
+unit h022
+  module target_soft
+  team hostile
+  spawn -8.74232 -76.19758 ground 140.0 0
+
+unit h023
+  module target_soft
+  team hostile
+  spawn -8.74394 -76.19621 ground 140.0 0
+
+unit h024
+  module target_soft
+  team hostile
+  spawn -8.74556 -76.19484 ground 140.0 0
+
+unit h025
+  module target_soft
+  team hostile
+  spawn -8.74691 -76.19647 ground 140.0 0
+
+unit h026
+  module target_soft
+  team hostile
+  spawn -8.74989 -76.19674 ground 140.0 0
+
+unit h027
+  module target_soft
+  team hostile
+  spawn -8.75125 -76.19837 ground 140.0 0
+
+unit h028
+  module target_soft
+  team hostile
+  spawn -8.75260 -76.20001 ground 140.0 0
+
+unit h029
+  module target_soft
+  team hostile
+  spawn -8.75396 -76.20165 ground 140.0 0
+
+unit h030
+  module target_soft
+  team hostile
+  spawn -8.75234 -76.20302 ground 140.0 0
+
+unit h031
+  module target_soft
+  team hostile
+  spawn -8.75073 -76.20439 ground 140.0 0
+
+unit h032
+  module target_soft
+  team hostile
+  spawn -8.74911 -76.20577 ground 140.0 0
+
+unit h033
+  module target_soft
+  team hostile
+  spawn -8.74749 -76.20714 ground 140.0 0
+
+unit calm
+  module target_soft
+  team neutral
+  spawn -8.74560 -76.20209 ground 140.0 0
+
+unit villagenw
+  module target_soft
+  team neutral
+  spawn -8.74401 -76.19600 ground 140.0 0
+
+unit villagesw
+  module target_soft
+  team neutral
+  spawn -8.74014 -76.19988 ground 140.0 0
+
+unit blackwidow
+  module target_soft
+  team friendly
+  spawn -8.74252 -76.19869 ground 140.0 0

@@ -209,8 +209,29 @@ they are what makes each mission the mission `[BMS]` / `[CAMP]`:
 
 ## State
 
-**Nothing built.** No `.fbm`, no terrain fetch for these boxes, no check that `fb-tiles` has DEM
-coverage for them.
+**The six boxes are in use**, one `.fbm` each. §5's centre / `rotate` pair is the whole transform: the
+game's mission origin (0,0) is laid on the box centre and a game bearing `b` becomes a real bearing
+`b - rotate`. That sign is DERIVED, not read — §5's own table gives `rotate` without stating its sense,
+and the six rows fix it unambiguously (172-(-18)=190, 270-(-140)=050, 270-62=208, 315-(-173)=128,
+315-(-12)=327, 000-(-134)=134, each reproducing its own "high ground in box" bearing exactly).
+
+**`fb-tiles` DOES cover Peru.** Measured this round at the six box centres — the request is answered on
+the second call, the first returning `no dem` while the tile fetch runs:
+
+| # | Mission | Box centre | `/elev` |
+|---|---|---|---|
+| 1 | Insurrection | −8.9800, −76.1600 | **629.30 m** |
+| 2 | Masquerade | −8.7500, −76.2000 | **537.00 m** |
+| 3 | Flood | −8.2150, −76.5650 | **516.55 m** |
+| 4 | Weatherman | −9.1800, −75.9600 | **638.00 m** |
+| 5 | Bad Habit | −9.0369, −75.5075 | **281.90 m** |
+| 6 | Headhunter | −9.2900, −75.9900 | **688.72 m** |
+
+That confirms §6's 274–1458 m band from below and closes this file's own coverage gap. The missions
+nevertheless fly `--elev const` on a flat 0 m datum: `mod.json` names no `"dem"`, because a baked
+raster is untracked by rule ([`doc/assets.md`](../../../doc/assets.md)) and a mission is a test that
+has to run without a tile server. The relief is therefore recorded, not used —
+[`substitutions.md`](substitutions.md) §5.
 
 ## Gaps
 
@@ -225,8 +246,9 @@ coverage for them.
   coordinates on Insurrection: IP→Alpha gives 3.33 m per unit in x and 5.53 m per unit in y;
   IP→Charlie gives 4.30 and 2.88. **Not a projection — hand-placed label anchors.** Recorded so nobody
   repeats the test.
-- **`fb-tiles` coverage for Peru is unverified.** The engine's DEM path is proven for Switzerland
-  (`sim/`), not for −9 °S.
+- **The six boxes were never flown on their own ground.** Coverage is now measured (`## State`) but
+  every run is `--elev const`; what 74–267 m of relief does to a 150 m pass over these boxes is
+  unmeasured, and it cannot restore ground LOS, which is the deficit that decides the campaign.
 - **Ground at ten metres does not exist in the engine.** From
   [`doc/mods.md`](../../../doc/mods.md) §2: *"all three: ground seen from ten metres — terrain,
   buildings and foliage at that scale"*. These boxes are 1.5–2.5 km across and the player walks them:

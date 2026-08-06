@@ -1,0 +1,479 @@
+name c02m01-insurrection
+timeout 300
+time 1998-10-13T17:00:00Z
+
+# DELTA FORCE (NovaLogic 1998), CAMPAIGN ONE "PERU", FILE SLOT C02M01, PLAY ORDER 1 OF 6 --
+# {Insurrection}, working title "C02M01 - Clear Camp", Objective BREEZE, designer Steve McNally [BMS].
+# Spec, provenance and every open question: mods/delta-force/doc/campaign.md, terrain.md,
+# substitutions.md, hud.md. Format: doc/missions/syntax.md.
+#
+# THE TASK [CAMP]: "Eliminate the mercenary detachment located at Objective Breeze."
+# Goal M01SUBGOAL01: "Eliminate all enemy soldiers at Objective Breeze." No extraction goal, and the
+# mission carries no extraction aircraft [BMS] -- the two facts agree, 3 of 3 / 0 of 3 across the
+# campaign.
+# THE RADIO [DLG], the whole of it: "Proceed southwest and neutralize all hostiles."
+# THE FIELD [BMS]: 492 objects, footprint 1052 x 771 m, insertion point (-187.6,-108.0), enemy
+# centroid (-380.2,-301.4) = 273 m at 225 deg -- and 225 deg is what "southwest" says, one of the six
+# checks that fix +x = east / +y = north. Terrain C2M1.TRN "Jungle Terrain 1", day, high sun.
+# THE CAST: 58 hostiles -> `target_soft` on the D5 lattice (pitch 118.3 m) - 4 Squad Member (5002) ->
+# friendly `target_soft` at their measured range/bearing from the IP: Alpha 129 m/146 deg and
+# 131 m/142 deg, Charlie 232 m and 236 m/287 deg [BMS], the pair whose 1 m and 5-8 m agreement with the
+# briefing's "approximately 130 meters" and "about 240 metres" is what proves the METRE - one
+# `tower, guard` (3014) at (-370.6,-373.2), neutral.
+# NOT DECLARED, for want of a coordinate rather than a mechanism (D5): the two building groups of 3
+# and 4 parts, and the 2 vehicles (type 2009). The research recorded their COUNT and nothing else.
+#
+# READING RULE (binding). The verdict is `bravo2`'s.
+#   SUCCESS/exit 0 requires `kill team hostile` -- all 58 -- and nothing else: campaign.md 10 says the
+#   hostile-alive count reaching zero IS the verdict, so a run that clears the camp and then dies
+#   walking home still passed, and that is why this file declares no `survive`.
+#   exit 3 = the expected reading. Report the COUNT of dead hostiles; that number is the measurement
+#   this file exists to take, and D8 bounds it at one aim point.
+#   exit 2 = an airframe departed controlled flight with nobody having shot it: an ENGINE finding,
+#   since nothing in this mission can shoot at all (D2).
+
+# ---- THE NINE DISCLOSURES THAT APPLY TO ALL SIX FILES. Stated in full HERE; the other five carry
+# ---- the short form and point back at this file.
+#
+# D1  THERE IS NO MAN ON FOOT IN THIS TREE AND NONE WAS INVENTED (CLAUDE.md Prinzip 1). Bravo Two, one
+#     soldier walking, flies as `module f16`. This is the largest substitution in any of the five mods
+#     and its error is total, not directional:
+#       SPEED    the original walks. 300 kt = 154.3 m/s against a walking 1.4 m/s = 110x. 300 kt is the
+#                lowest run-in speed measured to survive `set task attack`'s egress (mods/comanche D1);
+#                nothing slower is available, because below it the jet mushes in.
+#       HEIGHT   the original's eye sits at 1.7 m standing [MAN p.14, the three-posture icon]. Every
+#                file flies its pass at 150 m = 88x, and there is no lower number: see D7.
+#       POSTURE  stand / crouch / prone are three contact sets with three eye heights. Nothing in
+#                doc/body-format.md is implemented; there is one posture and it is `airborne`.
+#       LOS      every mission in this campaign is decided by whether a position 200-500 m away
+#                OVERLOOKS the objective (terrain.md 1). There is no terrain LOS query at man height,
+#                and D6 removes the terrain as well.
+#       COVER    hostiles stand behind barrels, in windows and in a guard tower. Without occlusion
+#                those placements carry no meaning, and the guard tower here is a soft block.
+#
+# D2  THE HOSTILE SOLDIER IS A TENT, AND HE DOES NOT SHOOT BACK. Types 5005/5006/5007/5041 ->
+#     `target_soft`, the softer of the tree's TWO ground classes; `target_hard` is the other one, and
+#     no third exists, so this is a substitution with no refused alternative. Two errors, both large:
+#     the class carries a +-10 m damage zone and a 2.8e3 structural fail threshold for a man 0.5 m
+#     wide who dies to one rifle round; and a ground unit has no weapon against another ground unit.
+#     MEASURED in this round: a hostile `zsu23` at 200 m from a friendly `target_soft`, 120 s, ZERO
+#     weapon events, both INTACT. The firefight -- which is the whole of all six missions -- is deleted.
+#     `target_hard` is used NOWHERE in this campaign: no object in the six missions is armoured.
+#
+# D3  THE PRIMARY WEAPON HAS NO TARGET. The M4, the MP5, the SAW, the M40A1 and the Barrett all fire
+#     bullets, and `modules/ground/FBGroundTarget.h` states in its own source why that cannot reach a
+#     ground object: presented area and extent are ZERO "because gun bundles are resolved against
+#     aircraft only". Every file declares `set gun_rounds 30` -- one M4 magazine [MAN p.8] -- and it
+#     fires nothing at anything, in every run. What CAN be delivered is the secondary: 2 satchel
+#     charges [MAN p.9] -> 2 x `mk82`, 227 kg against roughly 10 kg. The 6 fragmentation grenades, the
+#     M203, the laser designator, the Ka-Bar and the claymores have no row and no mechanism.
+#
+# D4  THE NAVIGATION QUANTUM IS LARGER THAN THE MISSION. `systems/FBNavSystem`'s waypoint capture
+#     radius is 500 m, a default argument, and it is NOT in `--pilot-keys`: a mission cannot change it.
+#     Four of the six missions' entire briefed ingress fits inside ONE capture radius -- Insurrection
+#     273 m, Weatherman 308 m, Masquerade 367 m, Headhunter 406 m -- and in Weatherman and Masquerade
+#     the objective and the extraction point are 450.0 m and 506.7 m apart, so the second goal of each
+#     is met by not moving. MEASURED separately on a `target_soft` given a flight plan: a waypoint
+#     391 m away is WP_REACHED `by=capture` at t = 0.1 s from a unit that never moves and cannot.
+#
+# D5  THE SOLDIER LATTICE, AND WHY IT CANNOT FLATTER THE RESULT. The research recorded each mission's
+#     hostile COUNT, its measured CENTROID and its measured FOOTPRINT, not the per-record coordinates
+#     (campaign.md 6). The N records are therefore laid on a square lattice centred on the measured
+#     centroid with pitch sqrt(EW*NS/N) -- count, centroid and areal density measured, arrangement
+#     reconstructed, and one record sits exactly ON the centroid so that the aim point is not decided
+#     by the parity of a grid. MEASURED in this round, over the five deliveries: everything within
+#     31.3 m of an impact died and nothing beyond 61.2 m did. The lattice pitch is 118-235 m, i.e.
+#     twice the widest kill measured, so NO bomb ever gets two lattice neighbours -- unlike
+#     mods/comanche, where the source data's own stacking raised the yield, nothing here is stacked.
+#     A group with a MEASURED EXTENT (Flood's airfield, Weatherman's Objective Gale, Headhunter's
+#     villa) is laid on that extent instead; a group with a
+#     centre but no extent is ONE object carrying its part count in a comment; a group with neither is
+#     NOT DECLARED, and each file lists what it therefore omits.
+#
+# D6  THE GROUND IS FLAT AND IT IS NOT PERU'S. `--elev const`, 0 m datum, so every altitude here is
+#     ASL and AGL at once. And this is a CHOICE against available data, not an absence: `fb-tiles`
+#     DOES cover the Alto Huallaga -- MEASURED in this round at the six box centres of terrain.md 5,
+#     629.30 / 537.00 / 516.55 / 638.00 / 281.90 / 688.72 m, which closes terrain.md's own "fb-tiles
+#     coverage for Peru is unverified" gap and confirms its 274-1458 m band from below -- but
+#     `mod.json` names no "dem", because a baked raster is untracked by rule (doc/assets.md) and a
+#     mission is a test that must run without a server. What is lost is exactly
+#     what terrain.md 1 says every mission needs: 74-267 m of relief and a position that overlooks
+#     another.
+#
+# D7  THE RUN-IN IS LONGER THAN THE CAMPAIGN. `set task attack` anchors its run-in leg at the phase's
+#     first tick and never corrects a lateral offset (measured for mods/comanche: 249-8382 m across
+#     track when spawned on the game's own heading). Every striker here therefore spawns ON the bearing
+#     from the game's insertion point to its aim point, 3 000 m out -- 4x to 11x the mission's own
+#     insertion-to-objective distance, and outside all six of terrain.md 5's bounding boxes. The
+#     game's insertion point is not the spawn; it is the last point on the run-in before the target.
+#
+# D8  ONE STRIKER IS ONE AIM POINT. Measured for mods/comanche and unchanged here: `set task attack`
+#     releases at the ACTIVE waypoint, flies its egress and hands back to `Route`, and nothing in the
+#     format or in FBPilot re-enters it. Delta Force sends ONE man, so there is not even a wingman to
+#     make it two -- one aim point against 33 to 96 hostiles, and that ratio is this campaign's headline.
+#
+# D9  THE CLOCK. Date 1998-10-13 -- the single dated artefact in the whole source set, the Manual
+#     Addendum's own date stamp [MAN], because the game data carries no date at all. The instant per
+#     mission is chosen to reproduce terrain.md 8's measured `.TRN` preset (day / night / dusk) at
+#     Peru's UTC-5, and it is CHECKED, not asserted: the runner's `mission CLOCK` line prints the
+#     computed sun elevation at the striker's spawn, and the six measure +87.48 / +62.13 / +57.85 deg
+#     for the three the .TRN calls day, -69.11 / -73.05 deg for the two it calls night, and -1.10 deg
+#     for Headhunter, which the .TRN calls sunset and which is civil twilight to a tenth of a degree.
+#
+# WHAT COULD NOT BE DECLARED AT ALL, each a missing engine capability rather than a missing asset:
+#   the three postures (D1) - ground line of sight and therefore cover (D1) - a CARRIED MISSION ITEM
+#   (`Carrying: Code Book` [GAME]: the unit model has no slot, so Masquerade's first goal degrades to
+#   an overflight) - a MOVING CONVOY (Bad Habit's 1 891 m route is three AI chains of 12 nodes; there
+#   is no ground mover in this tree, movers are aircraft, so the nine vehicles stand still) - foliage
+#   (Bad Habit's 73 + 120 palms are not units) - the six briefings, the 34 radio lines and the 11 goal
+#   texts AS TEXT (a .fbm carries a reading rule for a machine) - spawn delays and difficulty-scaled
+#   enemy counts (a .fbm is not a schedule) - and CAPTURE: "he must be taken alive" is expressible only
+#   as `protect unit druglord`, which is not the same statement.
+
+# MEASURED (exit 3, `--elev const`, `--threads 1/2/4` byte-identical): ONE OF FIFTY-EIGHT.
+#   t = 11.6 s   ATTACK_RELEASE ccrp accepted at 150.0 m and 171.5 m/s ground speed, throw 918.4 m,
+#                the CCRP solution's own predicted miss 23.3 m
+#   t = 12.2 s   ONE Mk-82 away, station 3 -- and station 7 is still loaded at t = 300: `set task
+#                attack` is one pass and one release, so the game's TWO satchel charges are one here
+#   t = 14.7 s   wp0 `by=capture`. The run-in took 14.7 s; a man walking this mission's 1052 m edge at
+#                1.4 m/s needs 751 s, and the striker crosses it in 6.1 s
+#   t = 18.0 s   impact 31.3 m from the aim point. `h001` -- the one hostile record standing ON the
+#                measured centroid -- is destroyed. The `tower, guard` at 50.1 m survives the same burst
+#   guns         ZERO events in 300 s with 30 rounds loaded, against 58 men (D3)
+#   verdict      TIMEOUT, `kill team hostile` 1 of 58. The 57 that live were never engaged by anything:
+#                there is one aim point (D8) and no second weapon that reaches the ground (D3).
+
+unit bravo2
+  module f16
+  team friendly
+  spawn -8.96924 -76.13985 150 242.9 300
+  set gear up
+  set fuel_int_pct 60
+  set datalink off
+  set fcr_mode off
+  set rwr off
+  set gun_rounds 30
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode off
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp -8.98152 -76.16414 150 300
+  wp -8.99380 -76.18842 1000 300
+  objective kill team hostile
+
+unit h001
+  module target_soft
+  team hostile
+  spawn -8.98152 -76.16414 ground 18.0 0
+
+unit h002
+  module target_soft
+  team hostile
+  spawn -8.98051 -76.16380 ground 18.0 0
+
+unit h003
+  module target_soft
+  team hostile
+  spawn -8.98084 -76.16278 ground 18.0 0
+
+unit h004
+  module target_soft
+  team hostile
+  spawn -8.98185 -76.16311 ground 18.0 0
+
+unit h005
+  module target_soft
+  team hostile
+  spawn -8.98286 -76.16345 ground 18.0 0
+
+unit h006
+  module target_soft
+  team hostile
+  spawn -8.98253 -76.16447 ground 18.0 0
+
+unit h007
+  module target_soft
+  team hostile
+  spawn -8.98220 -76.16549 ground 18.0 0
+
+unit h008
+  module target_soft
+  team hostile
+  spawn -8.98119 -76.16516 ground 18.0 0
+
+unit h009
+  module target_soft
+  team hostile
+  spawn -8.98018 -76.16483 ground 18.0 0
+
+unit h010
+  module target_soft
+  team hostile
+  spawn -8.97950 -76.16347 ground 18.0 0
+
+unit h011
+  module target_soft
+  team hostile
+  spawn -8.97983 -76.16245 ground 18.0 0
+
+unit h012
+  module target_soft
+  team hostile
+  spawn -8.98016 -76.16143 ground 18.0 0
+
+unit h013
+  module target_soft
+  team hostile
+  spawn -8.98117 -76.16176 ground 18.0 0
+
+unit h014
+  module target_soft
+  team hostile
+  spawn -8.98218 -76.16209 ground 18.0 0
+
+unit h015
+  module target_soft
+  team hostile
+  spawn -8.98319 -76.16242 ground 18.0 0
+
+unit h016
+  module target_soft
+  team hostile
+  spawn -8.98420 -76.16275 ground 18.0 0
+
+unit h017
+  module target_soft
+  team hostile
+  spawn -8.98387 -76.16378 ground 18.0 0
+
+unit h018
+  module target_soft
+  team hostile
+  spawn -8.98354 -76.16480 ground 18.0 0
+
+unit h019
+  module target_soft
+  team hostile
+  spawn -8.98321 -76.16582 ground 18.0 0
+
+unit h020
+  module target_soft
+  team hostile
+  spawn -8.98288 -76.16685 ground 18.0 0
+
+unit h021
+  module target_soft
+  team hostile
+  spawn -8.98187 -76.16651 ground 18.0 0
+
+unit h022
+  module target_soft
+  team hostile
+  spawn -8.98086 -76.16618 ground 18.0 0
+
+unit h023
+  module target_soft
+  team hostile
+  spawn -8.97985 -76.16585 ground 18.0 0
+
+unit h024
+  module target_soft
+  team hostile
+  spawn -8.97884 -76.16552 ground 18.0 0
+
+unit h025
+  module target_soft
+  team hostile
+  spawn -8.97917 -76.16449 ground 18.0 0
+
+unit h026
+  module target_soft
+  team hostile
+  spawn -8.97849 -76.16314 ground 18.0 0
+
+unit h027
+  module target_soft
+  team hostile
+  spawn -8.97882 -76.16212 ground 18.0 0
+
+unit h028
+  module target_soft
+  team hostile
+  spawn -8.97915 -76.16109 ground 18.0 0
+
+unit h029
+  module target_soft
+  team hostile
+  spawn -8.97947 -76.16007 ground 18.0 0
+
+unit h030
+  module target_soft
+  team hostile
+  spawn -8.98048 -76.16040 ground 18.0 0
+
+unit h031
+  module target_soft
+  team hostile
+  spawn -8.98149 -76.16073 ground 18.0 0
+
+unit h032
+  module target_soft
+  team hostile
+  spawn -8.98250 -76.16107 ground 18.0 0
+
+unit h033
+  module target_soft
+  team hostile
+  spawn -8.98351 -76.16140 ground 18.0 0
+
+unit h034
+  module target_soft
+  team hostile
+  spawn -8.98453 -76.16173 ground 18.0 0
+
+unit h035
+  module target_soft
+  team hostile
+  spawn -8.98554 -76.16206 ground 18.0 0
+
+unit h036
+  module target_soft
+  team hostile
+  spawn -8.98521 -76.16309 ground 18.0 0
+
+unit h037
+  module target_soft
+  team hostile
+  spawn -8.98488 -76.16411 ground 18.0 0
+
+unit h038
+  module target_soft
+  team hostile
+  spawn -8.98455 -76.16513 ground 18.0 0
+
+unit h039
+  module target_soft
+  team hostile
+  spawn -8.98422 -76.16616 ground 18.0 0
+
+unit h040
+  module target_soft
+  team hostile
+  spawn -8.98389 -76.16718 ground 18.0 0
+
+unit h041
+  module target_soft
+  team hostile
+  spawn -8.98357 -76.16820 ground 18.0 0
+
+unit h042
+  module target_soft
+  team hostile
+  spawn -8.98256 -76.16787 ground 18.0 0
+
+unit h043
+  module target_soft
+  team hostile
+  spawn -8.98155 -76.16754 ground 18.0 0
+
+unit h044
+  module target_soft
+  team hostile
+  spawn -8.98053 -76.16720 ground 18.0 0
+
+unit h045
+  module target_soft
+  team hostile
+  spawn -8.97952 -76.16687 ground 18.0 0
+
+unit h046
+  module target_soft
+  team hostile
+  spawn -8.97851 -76.16654 ground 18.0 0
+
+unit h047
+  module target_soft
+  team hostile
+  spawn -8.97750 -76.16621 ground 18.0 0
+
+unit h048
+  module target_soft
+  team hostile
+  spawn -8.97783 -76.16518 ground 18.0 0
+
+unit h049
+  module target_soft
+  team hostile
+  spawn -8.97816 -76.16416 ground 18.0 0
+
+unit h050
+  module target_soft
+  team hostile
+  spawn -8.97748 -76.16281 ground 18.0 0
+
+unit h051
+  module target_soft
+  team hostile
+  spawn -8.97781 -76.16178 ground 18.0 0
+
+unit h052
+  module target_soft
+  team hostile
+  spawn -8.97813 -76.16076 ground 18.0 0
+
+unit h053
+  module target_soft
+  team hostile
+  spawn -8.97846 -76.15974 ground 18.0 0
+
+unit h054
+  module target_soft
+  team hostile
+  spawn -8.97879 -76.15871 ground 18.0 0
+
+unit h055
+  module target_soft
+  team hostile
+  spawn -8.97980 -76.15905 ground 18.0 0
+
+unit h056
+  module target_soft
+  team hostile
+  spawn -8.98081 -76.15938 ground 18.0 0
+
+unit h057
+  module target_soft
+  team hostile
+  spawn -8.98182 -76.15971 ground 18.0 0
+
+unit h058
+  module target_soft
+  team hostile
+  spawn -8.98283 -76.16004 ground 18.0 0
+
+unit tower
+  module target_soft
+  team neutral
+  spawn -8.98216 -76.16425 ground 190.0 0
+
+unit alpha1
+  module target_soft
+  team friendly
+  spawn -8.98152 -76.16160 ground 18.0 0
+
+unit alpha2
+  module target_soft
+  team friendly
+  spawn -8.98151 -76.16152 ground 18.0 0
+
+unit charlie1
+  module target_soft
+  team friendly
+  spawn -8.97921 -76.16365 ground 18.0 0
+
+unit charlie2
+  module target_soft
+  team friendly
+  spawn -8.97919 -76.16368 ground 18.0 0

@@ -1,0 +1,8 @@
+{
+  "id": "delta-force",
+  "name": "Delta Force (NovaLogic 1998) — Campaign One: Peru",
+  "missions": "src/missions",
+  "depends": "f16",
+  "meshes": "f16",
+  "default_mission": "c02m01-insurrection"
+}

@@ -1,0 +1,590 @@
+name c02m03-flood
+timeout 300
+time 1998-10-13T15:00:00Z
+
+# DELTA FORCE (NovaLogic 1998), CAMPAIGN ONE "PERU", FILE SLOT C02M03, PLAY ORDER 2 OF 6 --
+# {Flood}, working title "C02M03 - Capture Airfield", Objective RAIN [BMS]. Unlocked by Insurrection.
+# Spec and provenance: mods/delta-force/doc/. Format: doc/missions/syntax.md.
+#
+# THE TASK, AND THE CONTRADICTION INSIDE THE SHIPPED DATA, KEPT [CAMP]: the campaign screen says
+# "Capture all vehicles, equipment, and contraband at the enemy airfield designated Objective Rain."
+# The only goal, M03SUBGOAL01, says "Eliminate all enemy soldiers at Objective Rain." The C-130, the
+# tents and the oil tank are scenery, and they are declared `neutral` for exactly that reason.
+# THE RADIO [DLG]: "Proceed south and secure the airstrip." + "Notebook was destroyed."
+# THE FIELD [BMS]: 948 objects, 1151 x 1236 m, IP (559.0,319.1), enemy centroid (534.2,-208.0) =
+# 528 m at 183 deg = "south". C2M3.TRN "Jungle", day. The ONE Peru mission with water
+# (`water_height 28` [TRN]); there is no water here, and no mechanism for any.
+# THE CAST: 93 hostiles -> lattice pitch 123.7 m - the `C130` (2004) at (462.9,-311.5) heading 090,
+# neutral - the airfield group, 5 parts (2 hangars, `oil tank`, `tent, netting`, `tower, guard`) on
+# its MEASURED 114 x 70 m extent about (463.9,-342.7), neutral - the village group, 6 parts, ONE
+# object at (681.2,-43.5) because only its centre was measured (D5) - 4 Squad Member as two pairs
+# 890 m and 948 m due south of the IP, friendly.
+#
+# READING RULE (binding). Judge on hostiles only (campaign.md 10): the statement promises captured
+# vehicles and contraband, the goal table asks for dead soldiers, so destroying or sparing the C-130
+# changes no verdict -- and this file therefore reports collateral on the neutrals as a NUMBER, never
+# as a verdict. exit 3 expected; the measurement is the dead-hostile count out of 93.
+
+# ---- THE NINE DISCLOSURES. Full text in c02m01-insurrection.fbm; in force here unchanged.
+#   D1 no man on foot: Bravo Two flies as `f16`, 300 kt vs a 1.4 m/s walk, 150 m vs a 1.7 m eye, no
+#      posture, no ground LOS, no cover - D2 the hostile soldier is a `target_soft` and cannot shoot
+#      (measured: ground vs ground = 0 weapon events) - D3 the rifle has no target (gun bundles resolve
+#      against aircraft only); 2 satchel charges -> 2 x `mk82` - D4 the waypoint capture radius is
+#      500 m and not tunable, which is wider than four of six missions' whole ingress - D5 the N
+#      hostiles are a lattice on the measured centroid at pitch sqrt(EW*NS/N); count, centroid and
+#      areal density measured, arrangement reconstructed - D6 `--elev const`, flat 0 m, though fb-tiles
+#      does cover Peru (629.30-688.72 m at the six box centres) - D7 the striker spawns 3 000 m out on
+#      the bearing to its aim point, outside the mission box - D8 one striker is one aim point, and it
+#      is also ONE RELEASE: 2 x mk82 declared, 1 fired, in every armed file - D9 date 1998-10-13 [MAN],
+#      instant checked against the runner's own CLOCK line.
+
+# MEASURED (exit 3, `--elev const`, `--threads 1/2/4` byte-identical): ONE OF NINETY-THREE.
+#   t = 11.6 s   ATTACK_RELEASE ccrp, 150.1 m, 171.5 m/s, throw 918.5 m, solution miss 21.9 m
+#   t = 12.2 s   one Mk-82 away, station 3; station 7 unfired at the end
+#   t = 14.7 s   wp0 `by=capture`
+#   t = 18.0 s   impact 38.6 m from the aim point, `h001` destroyed. Nearest survivor `field03`
+#                (neutral, the airfield group) at 67.5 m
+#   collateral   ZERO. The `C130` stands 97.0 m from the impact and is INTACT at the end -- which the
+#                reading rule says changes no verdict, and here it did not have to
+#   guns         ZERO events, 30 rounds, 93 men
+#   verdict      TIMEOUT, `kill team hostile` 1 of 93 -- the campaign's worst ratio, 1.1 %.
+
+unit bravo2
+  module f16
+  team friendly
+  spawn -8.19788 -76.58447 150 120.7 300
+  set gear up
+  set fuel_int_pct 60
+  set datalink off
+  set fcr_mode off
+  set rwr off
+  set gun_rounds 30
+  set store 3 mk82
+  set store 7 mk82
+  set cmds_mode off
+  set brief_master_arm arm
+  set task attack
+  set attack_mode ccrp
+  wp -8.21164 -76.56106 150 300
+  wp -8.22540 -76.53764 1000 300
+  objective kill team hostile
+
+unit h001
+  module target_soft
+  team hostile
+  spawn -8.21164 -76.56106 ground 298.0 0
+
+unit h002
+  module target_soft
+  team hostile
+  spawn -8.21112 -76.56205 ground 298.0 0
+
+unit h003
+  module target_soft
+  team hostile
+  spawn -8.21014 -76.56152 ground 298.0 0
+
+unit h004
+  module target_soft
+  team hostile
+  spawn -8.21066 -76.56053 ground 298.0 0
+
+unit h005
+  module target_soft
+  team hostile
+  spawn -8.21118 -76.55954 ground 298.0 0
+
+unit h006
+  module target_soft
+  team hostile
+  spawn -8.21216 -76.56007 ground 298.0 0
+
+unit h007
+  module target_soft
+  team hostile
+  spawn -8.21314 -76.56059 ground 298.0 0
+
+unit h008
+  module target_soft
+  team hostile
+  spawn -8.21262 -76.56158 ground 298.0 0
+
+unit h009
+  module target_soft
+  team hostile
+  spawn -8.21210 -76.56258 ground 298.0 0
+
+unit h010
+  module target_soft
+  team hostile
+  spawn -8.21060 -76.56304 ground 298.0 0
+
+unit h011
+  module target_soft
+  team hostile
+  spawn -8.20962 -76.56251 ground 298.0 0
+
+unit h012
+  module target_soft
+  team hostile
+  spawn -8.20863 -76.56199 ground 298.0 0
+
+unit h013
+  module target_soft
+  team hostile
+  spawn -8.20916 -76.56099 ground 298.0 0
+
+unit h014
+  module target_soft
+  team hostile
+  spawn -8.20968 -76.56000 ground 298.0 0
+
+unit h015
+  module target_soft
+  team hostile
+  spawn -8.21020 -76.55901 ground 298.0 0
+
+unit h016
+  module target_soft
+  team hostile
+  spawn -8.21072 -76.55802 ground 298.0 0
+
+unit h017
+  module target_soft
+  team hostile
+  spawn -8.21170 -76.55855 ground 298.0 0
+
+unit h018
+  module target_soft
+  team hostile
+  spawn -8.21268 -76.55907 ground 298.0 0
+
+unit h019
+  module target_soft
+  team hostile
+  spawn -8.21366 -76.55960 ground 298.0 0
+
+unit h020
+  module target_soft
+  team hostile
+  spawn -8.21465 -76.56013 ground 298.0 0
+
+unit h021
+  module target_soft
+  team hostile
+  spawn -8.21412 -76.56112 ground 298.0 0
+
+unit h022
+  module target_soft
+  team hostile
+  spawn -8.21360 -76.56211 ground 298.0 0
+
+unit h023
+  module target_soft
+  team hostile
+  spawn -8.21308 -76.56310 ground 298.0 0
+
+unit h024
+  module target_soft
+  team hostile
+  spawn -8.21256 -76.56409 ground 298.0 0
+
+unit h025
+  module target_soft
+  team hostile
+  spawn -8.21158 -76.56357 ground 298.0 0
+
+unit h026
+  module target_soft
+  team hostile
+  spawn -8.21008 -76.56403 ground 298.0 0
+
+unit h027
+  module target_soft
+  team hostile
+  spawn -8.20909 -76.56350 ground 298.0 0
+
+unit h028
+  module target_soft
+  team hostile
+  spawn -8.20811 -76.56298 ground 298.0 0
+
+unit h029
+  module target_soft
+  team hostile
+  spawn -8.20713 -76.56245 ground 298.0 0
+
+unit h030
+  module target_soft
+  team hostile
+  spawn -8.20765 -76.56146 ground 298.0 0
+
+unit h031
+  module target_soft
+  team hostile
+  spawn -8.20818 -76.56047 ground 298.0 0
+
+unit h032
+  module target_soft
+  team hostile
+  spawn -8.20870 -76.55948 ground 298.0 0
+
+unit h033
+  module target_soft
+  team hostile
+  spawn -8.20922 -76.55848 ground 298.0 0
+
+unit h034
+  module target_soft
+  team hostile
+  spawn -8.20974 -76.55749 ground 298.0 0
+
+unit h035
+  module target_soft
+  team hostile
+  spawn -8.21026 -76.55650 ground 298.0 0
+
+unit h036
+  module target_soft
+  team hostile
+  spawn -8.21124 -76.55703 ground 298.0 0
+
+unit h037
+  module target_soft
+  team hostile
+  spawn -8.21222 -76.55756 ground 298.0 0
+
+unit h038
+  module target_soft
+  team hostile
+  spawn -8.21320 -76.55808 ground 298.0 0
+
+unit h039
+  module target_soft
+  team hostile
+  spawn -8.21419 -76.55861 ground 298.0 0
+
+unit h040
+  module target_soft
+  team hostile
+  spawn -8.21517 -76.55914 ground 298.0 0
+
+unit h041
+  module target_soft
+  team hostile
+  spawn -8.21615 -76.55966 ground 298.0 0
+
+unit h042
+  module target_soft
+  team hostile
+  spawn -8.21563 -76.56066 ground 298.0 0
+
+unit h043
+  module target_soft
+  team hostile
+  spawn -8.21510 -76.56165 ground 298.0 0
+
+unit h044
+  module target_soft
+  team hostile
+  spawn -8.21458 -76.56264 ground 298.0 0
+
+unit h045
+  module target_soft
+  team hostile
+  spawn -8.21406 -76.56363 ground 298.0 0
+
+unit h046
+  module target_soft
+  team hostile
+  spawn -8.21354 -76.56462 ground 298.0 0
+
+unit h047
+  module target_soft
+  team hostile
+  spawn -8.21302 -76.56561 ground 298.0 0
+
+unit h048
+  module target_soft
+  team hostile
+  spawn -8.21204 -76.56508 ground 298.0 0
+
+unit h049
+  module target_soft
+  team hostile
+  spawn -8.21106 -76.56456 ground 298.0 0
+
+unit h050
+  module target_soft
+  team hostile
+  spawn -8.20955 -76.56502 ground 298.0 0
+
+unit h051
+  module target_soft
+  team hostile
+  spawn -8.20857 -76.56449 ground 298.0 0
+
+unit h052
+  module target_soft
+  team hostile
+  spawn -8.20759 -76.56397 ground 298.0 0
+
+unit h053
+  module target_soft
+  team hostile
+  spawn -8.20661 -76.56344 ground 298.0 0
+
+unit h054
+  module target_soft
+  team hostile
+  spawn -8.20563 -76.56291 ground 298.0 0
+
+unit h055
+  module target_soft
+  team hostile
+  spawn -8.20615 -76.56192 ground 298.0 0
+
+unit h056
+  module target_soft
+  team hostile
+  spawn -8.20667 -76.56093 ground 298.0 0
+
+unit h057
+  module target_soft
+  team hostile
+  spawn -8.20719 -76.55994 ground 298.0 0
+
+unit h058
+  module target_soft
+  team hostile
+  spawn -8.20772 -76.55895 ground 298.0 0
+
+unit h059
+  module target_soft
+  team hostile
+  spawn -8.20824 -76.55796 ground 298.0 0
+
+unit h060
+  module target_soft
+  team hostile
+  spawn -8.20876 -76.55697 ground 298.0 0
+
+unit h061
+  module target_soft
+  team hostile
+  spawn -8.20928 -76.55598 ground 298.0 0
+
+unit h062
+  module target_soft
+  team hostile
+  spawn -8.20980 -76.55498 ground 298.0 0
+
+unit h063
+  module target_soft
+  team hostile
+  spawn -8.21078 -76.55551 ground 298.0 0
+
+unit h064
+  module target_soft
+  team hostile
+  spawn -8.21176 -76.55604 ground 298.0 0
+
+unit h065
+  module target_soft
+  team hostile
+  spawn -8.21275 -76.55657 ground 298.0 0
+
+unit h066
+  module target_soft
+  team hostile
+  spawn -8.21373 -76.55709 ground 298.0 0
+
+unit h067
+  module target_soft
+  team hostile
+  spawn -8.21471 -76.55762 ground 298.0 0
+
+unit h068
+  module target_soft
+  team hostile
+  spawn -8.21569 -76.55815 ground 298.0 0
+
+unit h069
+  module target_soft
+  team hostile
+  spawn -8.21667 -76.55867 ground 298.0 0
+
+unit h070
+  module target_soft
+  team hostile
+  spawn -8.21765 -76.55920 ground 298.0 0
+
+unit h071
+  module target_soft
+  team hostile
+  spawn -8.21713 -76.56019 ground 298.0 0
+
+unit h072
+  module target_soft
+  team hostile
+  spawn -8.21661 -76.56118 ground 298.0 0
+
+unit h073
+  module target_soft
+  team hostile
+  spawn -8.21609 -76.56217 ground 298.0 0
+
+unit h074
+  module target_soft
+  team hostile
+  spawn -8.21556 -76.56316 ground 298.0 0
+
+unit h075
+  module target_soft
+  team hostile
+  spawn -8.21504 -76.56416 ground 298.0 0
+
+unit h076
+  module target_soft
+  team hostile
+  spawn -8.21452 -76.56515 ground 298.0 0
+
+unit h077
+  module target_soft
+  team hostile
+  spawn -8.21400 -76.56614 ground 298.0 0
+
+unit h078
+  module target_soft
+  team hostile
+  spawn -8.21348 -76.56713 ground 298.0 0
+
+unit h079
+  module target_soft
+  team hostile
+  spawn -8.21250 -76.56660 ground 298.0 0
+
+unit h080
+  module target_soft
+  team hostile
+  spawn -8.21152 -76.56608 ground 298.0 0
+
+unit h081
+  module target_soft
+  team hostile
+  spawn -8.21053 -76.56555 ground 298.0 0
+
+unit h082
+  module target_soft
+  team hostile
+  spawn -8.20903 -76.56601 ground 298.0 0
+
+unit h083
+  module target_soft
+  team hostile
+  spawn -8.20805 -76.56549 ground 298.0 0
+
+unit h084
+  module target_soft
+  team hostile
+  spawn -8.20707 -76.56496 ground 298.0 0
+
+unit h085
+  module target_soft
+  team hostile
+  spawn -8.20609 -76.56443 ground 298.0 0
+
+unit h086
+  module target_soft
+  team hostile
+  spawn -8.20511 -76.56390 ground 298.0 0
+
+unit h087
+  module target_soft
+  team hostile
+  spawn -8.20413 -76.56338 ground 298.0 0
+
+unit h088
+  module target_soft
+  team hostile
+  spawn -8.20465 -76.56239 ground 298.0 0
+
+unit h089
+  module target_soft
+  team hostile
+  spawn -8.20517 -76.56140 ground 298.0 0
+
+unit h090
+  module target_soft
+  team hostile
+  spawn -8.20569 -76.56040 ground 298.0 0
+
+unit h091
+  module target_soft
+  team hostile
+  spawn -8.20621 -76.55941 ground 298.0 0
+
+unit h092
+  module target_soft
+  team hostile
+  spawn -8.20674 -76.55842 ground 298.0 0
+
+unit h093
+  module target_soft
+  team hostile
+  spawn -8.20726 -76.55743 ground 298.0 0
+
+unit c130
+  module target_soft
+  team neutral
+  spawn -8.21264 -76.56053 ground 28.0 0
+
+unit field01
+  module target_soft
+  team neutral
+  spawn -8.21277 -76.56028 ground 298.0 0
+
+unit field02
+  module target_soft
+  team neutral
+  spawn -8.21260 -76.56060 ground 298.0 0
+
+unit field03
+  module target_soft
+  team neutral
+  spawn -8.21228 -76.56043 ground 298.0 0
+
+unit field04
+  module target_soft
+  team neutral
+  spawn -8.21245 -76.56011 ground 298.0 0
+
+unit field05
+  module target_soft
+  team neutral
+  spawn -8.21262 -76.55979 ground 298.0 0
+
+unit village
+  module target_soft
+  team neutral
+  spawn -8.20978 -76.56175 ground 298.0 0
+
+unit alpha1
+  module target_soft
+  team friendly
+  spawn -8.21297 -76.55804 ground 298.0 0
+
+unit alpha2
+  module target_soft
+  team friendly
+  spawn -8.21297 -76.55804 ground 298.0 0
+
+unit charlie1
+  module target_soft
+  team friendly
+  spawn -8.21322 -76.55758 ground 298.0 0
+
+unit charlie2
+  module target_soft
+  team friendly
+  spawn -8.21322 -76.55758 ground 298.0 0

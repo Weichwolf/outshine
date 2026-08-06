@@ -5025,3 +5025,62 @@ Kopf) · `--threads 1/2/4` Telemetrie **byte-identisch**, Events identisch modul
 `verify-trees` Mod-Waisen **3 → 1** (armored-fist landete gleichzeitig), gesamt 25 → 23 · f22-Urteile
 **3/3/1/0/1/3/3/3** unverändert · `test-air` **5 außerhalb**, dieselben fünf · `verify-layers` 6/1 ·
 `verify-guards` 8/8 · `verify-models` grün · `verify-types` 11/114 · `gym`/`native`/`wasm` bauen.
+
+## 2026-08-06 — Delta Force: sechs Missionen, und der eine Titel, dessen Hauptwaffe kein Ziel hat
+
+Die sechs Missionen der Kampagne **PERU** (NovaLogic 1998) laufen als `.fbm` unter
+`mods/delta-force/`. Damit hat die letzte Mod-Waise ihr `src/`: `verify-trees` Mod-Waisen **1 → 0**.
+Die Quelle stand fertig da (`doc/campaign.md`, `terrain.md`, `hud.md`, `sources.md`, aus `DFCAMP02.BIN`
+und `C02M0n.BMS` gelesen); dieser Lauf hat sie **nicht neu geöffnet**, sondern deklariert und gemessen.
+
+**Gespielt wird Infanterie, und die Engine hat keinen Körper.** Bravo Two fliegt als `f16`. Sechs
+Achsen, alle benannt, vier davon mit Zahl:
+
+| | Original | Hier | Faktor |
+|---|---|---|---|
+| Tempo | ein Mann geht, ~1,4 m/s | 300 kt, gemessene Grundgeschwindigkeit **171,5 m/s** | **110×** |
+| Höhe | Auge bei 1,7 m `[MAN p.14]` | **150 m** (Wurfweite gemessen 918,4–919,1 m) | **88×** |
+| Haltung | Stehen/Knien/Liegen, drei Kontaktsätze | eine, und die ist „fliegend" | — |
+| Boden-Sichtlinie | entscheidet jede der sechs Missionen | **existiert nicht** | — |
+
+Drei Befunde, die der Comanche-Lauf noch nicht hatte, alle in diesem Lauf gemessen:
+
+1. **Die Primärwaffe hat kein Ziel.** `FBGroundTarget.h` sagt es in der eigenen Quelle — präsentierte
+   Fläche 0, „gun bundles are resolved against aircraft only". **1 518 Sim-Sekunden, 180 deklarierte
+   Schuss, null Waffenereignisse** gegen 435 Feindsoldaten. Und von der anderen Seite: ein feindlicher
+   `zsu23` 200 m neben einer freundlichen Bodeneinheit, 120 s, **null Ereignisse, beide INTAKT**. Es
+   gibt kein Boden-gegen-Boden.
+2. **Das Navigationsquant ist größer als die Mission.** `FBNavSystem`s Fangradius ist **500 m**, fest,
+   nicht in `--pilot-keys`. Vier der sechs Anmärsche (273/308/367/406 m) passen ganz hinein, und bei
+   Weatherman und Masquerade liegen Ziel und Extraktionspunkt 450,0 m bzw. 506,7 m auseinander: das
+   zweite Missionsziel ist **0,1 s** nach dem ersten erfüllt, ohne dass das Flugzeug irgendwohin fliegt.
+   Gegenprobe: ein `target_soft` mit Flugplan meldet WP_REACHED `by=capture` bei t = 0,1 s auf 391 m,
+   ohne sich zu bewegen — eine Bodeneinheit kann Boden nicht durchqueren, und der Richter merkt es nicht.
+3. **Ein Stürmer ist ein Zielpunkt — und EIN Abwurf.** Zwei `mk82` deklariert (die zwei Satchel Charges
+   des Spiels), **einer geworfen**, Station 7 am Ende noch voll, in allen fünf bewaffneten Dateien.
+
+**Ergebnis: 20 von 251 deklarierten Zielobjekten**, Exits **3/3/0/3/0/3** (Spielreihenfolge). Die zwei
+Grünen stehen mit ihrer Ursache im eigenen Kopf: Weatherman fällt, weil eine **227-kg-Bombe** für zwei
+Satchel Charges einspringt und ein 86 × 59 m großes Neundorf auf 55,7 m ausräumt; Masquerade ist ein
+Jet, der 1,5 km fliegt und nicht schießt — und zugleich die einzige Briefingzeile aller vier
+NovaLogic-Mods, die **verlustfrei** auf ein Objektiv-Schlüsselwort fällt: „without alerting the enemy"
+→ `objective no_fire`.
+
+Zwei Rekonstruktionen, beide offengelegt: die Einzelpositionen der 33–96 Soldaten wurden nie
+ausgelesen, also liegen sie auf einem Gitter mit Schrittweite `sqrt(EW·NS/N)` um den **gemessenen**
+Schwerpunkt, in Ringen statt zeilenweise — sonst entschiede die Parität von `ceil(sqrt(N))` die
+Ausbeute (gemessen: zeilenweise **0/58, 0/93, 0/82**, in Ringen **1/58, 1/93, 1/82**). Und die
+Drehrichtung von `terrain.md` §5 stand ohne Vorzeichen da; sechs Zeilen legen sie eindeutig fest:
+reale Peilung = Spielpeilung − `rotate`.
+
+Nebenbei geschlossen: **`fb-tiles` deckt Peru** — 629,30 / 537,00 / 516,55 / 638,00 / 281,90 / 688,72 m
+an den sechs Boxmitten, erste Anfrage `no dem`, zweite antwortet. Geflogen wird trotzdem
+`--elev const`: ein Mod trägt genau ein `"dem"`, und ein gebackenes Raster ist per Regel ungetrackt.
+
+**Tore:** sechs Missionen laufen (Exit 3/3/0/3/0/3, gelesen nach der Leseregel im jeweiligen Kopf) ·
+`--threads 1/2/4` **524 Telemetriedateien byte-identisch**, sechs Eventlogs identisch modulo
+`wallS`/`speedup`/Pfad · `verify-trees` Mod-Waisen **1 → 0**, gesamt 23 → 22 · Comanche-Urteile
+**1/3/3/3/3/3/3/3/3/3** und f22-Urteile **3/3/1/0/1/3/3/3** unverändert · unter `sim/` wurde **keine
+Datei angefasst**, also können die 296 f16-Missionen nicht wandern · `test-air` **5 außerhalb**,
+dieselben fünf · `verify-layers` 6/1 · `verify-guards` 8/8 · `verify-models` grün · `verify-types`
+11/114 · `gym`/`native`/`wasm` bauen.

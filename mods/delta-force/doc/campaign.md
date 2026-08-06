@@ -267,8 +267,26 @@ One sentence each, in the sense of `.fbm` header reading rules — how a run's o
 
 ## State
 
-**Nothing built.** `mods/delta-force/` carries this `doc/` only. There is no `src/`, no `mod.json`, no
-`.fbm`, and no loader that would give them meaning ([`doc/mods.md`](../../../doc/mods.md) `## Gaps`).
+**All six missions are built and run**, `../src/missions/c02m0n-<name>.fbm` plus `../mod.json`
+(`depends f16`, no own aircraft, no own DEM). The substitution table with its measured error direction
+per role is [`substitutions.md`](substitutions.md); every number below comes from `fb-gym`,
+`--elev const`, `--threads 1/2/4` byte-identical over 524 telemetry files.
+
+| Play | Slot | Mission | Exit | Read by §10's rule |
+|---|---|---|---|---|
+| 1 | C02M01 | Insurrection | **3** | 1 of 58 hostiles |
+| 2 | C02M03 | Flood | **3** | 1 of 93 hostiles; the C-130 untouched at 97.0 m |
+| 3 | C02M04 | Weatherman | **0** | 9 of 9 crates; the extraction goal met 0.1 s later by the capture radius |
+| 4 | C02M05 | Bad Habit | **3** | 8 of 9 convoy vehicles; the 9th at 72.0 m survived |
+| 5 | C02M02 | Masquerade | **0** | 3 of 3, zero shots fired — the campaign's emptiest green |
+| 6 | C02M06 | Headhunter | **3** | 1 of 82 hostiles, the druglord alive at 99.8 m from the impact |
+
+**20 of 251 declared goal objects.** Five of the eleven goal strings of §4 map onto an objective
+keyword without loss (`kill team hostile` ×2, `kill unit` ×2 sets, `protect unit` ×2, `no_fire`); the
+codebook retrieval maps only as an overflight; the six briefings and the 34 radio lines are comments.
+The player's waypoint chain (`## Gaps`) turned out **not to be needed**: the insertion point, the
+objective centroid and the named groups are all measured coordinates, and a route through them is a
+route through the game's own geometry — what is lost is the shape of the walk, not its ends.
 
 ## Gaps
 
@@ -288,9 +306,10 @@ One sentence each, in the sense of `.fbm` header reading rules — how a run's o
   subset by difficulty, is not established. `Enemy AI: Hard` and co-op *"increase in the number of
   enemies encountered"* `[MAN p.6, Addendum p.6]` say the number is variable; the mechanism is not in
   the fields inspected.
-- **A man on foot is the one thing the engine cannot do at all.** From
-  [`doc/mods.md`](../../../doc/mods.md) §2: *"Delta Force: a man on foot — ditto, plus a segment tree
-  with foot contacts that come and go"*. Concretely missing, and each item blocks a mission above:
+- **A man on foot is the one thing the engine cannot do at all**, and the six runs now put numbers on
+  it. From [`doc/mods.md`](../../../doc/mods.md) §2: *"Delta Force: a man on foot — ditto, plus a
+  segment tree with foot contacts that come and go"*. Concretely missing, and each item blocks a
+  mission above — measurements in [`substitutions.md`](substitutions.md) §2.1 and §7:
   - **segment tree with intermittent foot contacts** — stand / crouch / prone are three postures with
     different contact sets and different eye heights `[MAN p.10]`; nothing in
     [`body-format.md`](../../../doc/body-format.md) is implemented.
@@ -301,3 +320,13 @@ One sentence each, in the sense of `.fbm` header reading rules — how a run's o
   - **carried mission items** — `Carrying: Code Book` `[GAME]` is a state the unit model has no slot for.
   - **a briefing** — `.fbm` carries a reading rule for a machine, not the six briefing texts a player
     would need.
+  - **a rifle with something to shoot at** — measured this round and not previously named: the gun
+    bundle resolves against AIRCRAFT ONLY (`modules/ground/FBGroundTarget.h`), so the primary weapon of
+    all six missions has no target. 1 518 sim-seconds, 180 rounds declared, **zero gun events**.
+  - **ground-to-ground fire of any kind** — measured: a hostile `zsu23` 200 m from a friendly ground
+    unit produces **zero weapon events in 120 s**. The 435 hostile records of this campaign are
+    scenery, exactly as `mods/comanche`'s 82 Werewolves were.
+  - **a walk shorter than the navigation quantum** — `systems/FBNavSystem`'s waypoint capture radius is
+    **500 m** and is not in `--pilot-keys`. Four of the six missions' entire briefed ingress (273 /
+    308 / 367 / 406 m) fits inside one, and Weatherman's and Masquerade's extraction goals are met
+    **0.1 s** after their objectives.

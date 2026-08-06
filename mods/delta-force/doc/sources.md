@@ -181,7 +181,11 @@ strings in `DFGAME.BIN` plus the absence of any night-vision key, which the prio
 
 ## State
 
-**Nothing built.** These four files are the whole of `mods/delta-force/`.
+**Five files now**, plus `../src/` and `../mod.json`. This file is unchanged by the build round: no
+source was re-read and no measurement above was revised. What the round added is a fifth document,
+[`substitutions.md`](substitutions.md), whose `[MESS]` rows are measured against the ENGINE and not
+against the game, and whose §6 states which of this file's measurements a `.fbm` could use directly
+(coordinates, counts, extents, footprints) and which it had to reconstruct (per-record arrangement).
 
 ## Gaps
 

@@ -195,8 +195,15 @@ indicator.
 
 ## State
 
-**Nothing.** The FlightBox HUD is C++ and F-16-shaped; there is no declaration format a per-title HUD
-could be expressed in ([`doc/mods.md`](../../../doc/mods.md) `## Gaps`).
+**Nothing, and the six missions did not change that.** The FlightBox HUD is C++ and F-16-shaped; there
+is no declaration format a per-title HUD could be expressed in
+([`doc/mods.md`](../../../doc/mods.md) `## Gaps`). `../src/missions/` renders through the F-16's HUD
+unaltered, so every element of §2 is either absent or is an F-16 element wearing a Delta Force
+mission's name. Two of this file's strings did reach the missions, and only as text: the goal wording
+of §3's *End of mission* group is what each `.fbm`'s reading rule paraphrases, and the waypoint format
+`WP3: CP BRAVO (117m)` is what [`campaign.md`](campaign.md) `## Gaps` was asking about — answered
+sideways in [`substitutions.md`](substitutions.md) §5, where the player chain turns out not to be
+needed to declare a route.
 
 ## Gaps
 
