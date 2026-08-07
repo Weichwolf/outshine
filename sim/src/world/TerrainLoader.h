@@ -9,28 +9,9 @@
  * is part of the contract. Every caller is C++ (see the C-ISLAND note in tools/verify_layers.py). */
 extern "C" {
 
-#define FB_TERRAIN_MAX_TILES 64
-
-typedef struct {
-  float   *verts;    /* merged Render::ChunkVtx: pos3+uv2+norm3 (8 floats), pos = ECEF offset from tile origin */
-  uint32_t nverts;   /* total vertices across all tiles */
-  int      ntiles;
-  uint32_t voff[FB_TERRAIN_MAX_TILES];      /* first vertex of tile i in verts[] */
-  uint32_t vcnt[FB_TERRAIN_MAX_TILES];      /* vertex count of tile i */
-  double   origin[FB_TERRAIN_MAX_TILES][3]; /* per-tile ECEF origin (double) */
-  double   center[3];                        /* field-centre ECEF (double), the camera look-at anchor */
-  uint8_t *albedo;   /* ntiles layers of ts*ts RGBA8 (sRGB), layer i = tile i; real bake or fallback */
-  int      albedo_ts;                        /* albedo layer edge length in texels (512) */
-} fb_terrain;
-
-/* The static one-shot bring-up path: a 4x4 field, blocking, merged into ONE vertex array. */
-int  fb_terrain_load(const char *base, double lat, double lon, int z, int grid, fb_terrain *out);
-void fb_terrain_free(fb_terrain *t);
-
 /* Open once, then poll each frame: a poll kicks the fetch on a miss and returns 0 until the bytes
  * are resident. Nothing here ever blocks the browser's render loop. */
 int  fb_stream_open(const char *base, double lat, double lon, int z);
-void fb_stream_set_base(int mode);          /* boot base mode (0 osm, 1 photo) — worker priority hint */
 void fb_stream_campos(double lat, double lon);   /* live camera track for the worker's nearest-first pump */
 /* THE TILE AS THE RENDERER DRAWS IT: the cluster DAG, not the vertex soup. Both are built where the
  * bytes land — the browser's tile worker, a native worker thread — because the DAG is 3.68 ms of a
@@ -48,9 +29,6 @@ int  fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int
 int  fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
                    outshine::Render::DagCluster **clusters, int *nclusters);
 
-/* Levels 0..N packed contiguous; mode 0 = /bake/osm, 1 = /bake/photo. >0 resident, 0 pending,
- * -1 a real 204 hole. */
-int  fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *dst);
 void fb_stream_close(void);
 
 /* The SAME DEM the mesh and HUD use, so JSBSim's ground-reaction floor matches the rendered terrain.

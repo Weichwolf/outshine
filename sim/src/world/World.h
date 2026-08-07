@@ -228,7 +228,6 @@ private:
   std::vector<Node> Nodes;
   std::vector<int> DrawSlots;
   std::vector<Work> WorkList;
-  std::vector<uint8_t> Scratch;
   unsigned Pass;
   long Evicted;
   long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */

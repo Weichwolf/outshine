@@ -1,7 +1,6 @@
 #include "World.h"
 #include "Renderer.h"
 #include "TerrainLoader.h"
-#include "Mips.h"         /* Render::fb_pyramid_bytes — the albedo scratch now holds a whole mip pyramid */
 #include "Camera.h"
 #include "Geodesy.h"
 #include "Log.h"
@@ -82,7 +81,6 @@ bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, 
   ViewM = viewMeters;
   Lat0 = lat;
   Lon0 = lon;
-  Scratch.resize((size_t)Render::fb_pyramid_bytes(TS));   /* holds a whole finished mip pyramid, not one level */
   gIndex.clear();
   if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
   Cls_.Open(lat, lon);

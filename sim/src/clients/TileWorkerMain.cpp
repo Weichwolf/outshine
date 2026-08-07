@@ -1,5 +1,5 @@
 /* The off-thread tile worker (WASM, its own module): the whole blocking pipeline leaves the render
- * thread and finished vertex arrays + mip pyramids come back zero-copy across postMessage.
+ * thread and finished vertex arrays come back zero-copy across postMessage.
  *
  * A WORKER AND NOT A PTHREAD: the byte cache is a main-thread JS Map, so a pthread would proxy every
  * fetch back into the very thread being emptied.
@@ -25,16 +25,11 @@
 using namespace outshine;
 
 /* stb_image's implementation lives in terrain.cpp — declared, never re-implemented. */
-extern "C" {
-unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
-                                     int *channels_in_file, int desired_channels);
-void stbi_image_free(void *retval_from_stbi_load);
-}
 
 /* C linkage so the -sEXPORTED_FUNCTIONS names resolve unmangled; the definitions inherit it. */
 extern "C" {
 int      fbtw_open(const char *base, double lat, double lon);
-int      fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what);
+int      fbtw_build(int z, int x, int y, int grid);
 float   *fbtw_verts(void);
 int      fbtw_nverts(void);
 uint8_t *fbtw_clusters(void);
@@ -43,9 +38,6 @@ int      fbtw_clusterbytes(void);
 int      fbtw_dag(const float *soup, int nverts, int seamAttr);
 float    fbtw_err(void);
 double  *fbtw_origin(void);
-uint8_t *fbtw_mips(void);
-int      fbtw_mipbytes(void);
-int      fbtw_ts(void);
 void     fbtw_release(void);
 }
 
@@ -54,18 +46,15 @@ static char tw_base[160] = "";
 
 /* [tileperf-worker]: the browser-side half of the cold-boot timing — the venue the DEM cache actually
  * runs in, since native headless never reaches drawn>0. §3.4 */
-static double twp_osmfetch = 0, twp_mesh = 0, twp_albfetch = 0, twp_decode = 0, twp_mips = 0, twp_t0 = 0;
-static long twp_nmesh = 0, twp_npyr = 0;
+static double twp_osmfetch = 0, twp_mesh = 0, twp_t0 = 0;
+static long twp_nmesh = 0;
 static void twp_report(void) {
   double wall = emscripten_get_now() - twp_t0;
-  long m = twp_nmesh ? twp_nmesh : 1, p = twp_npyr ? twp_npyr : 1;
+  long m = twp_nmesh ? twp_nmesh : 1;
   outshine::Log::Debug("worker", "tileperf",
-      {{"wallMs", wall}, {"meshTiles", (int)twp_nmesh}, {"pyrTiles", (int)twp_npyr},
+      {{"wallMs", wall}, {"meshTiles", (int)twp_nmesh},
        {"osmFetchMs", twp_osmfetch}, {"osmFetchMsPerTile", twp_osmfetch / m},
-       {"meshMs", twp_mesh}, {"meshMsPerTile", twp_mesh / m},
-       {"albFetchMs", twp_albfetch}, {"albFetchMsPerTile", twp_albfetch / p},
-       {"decodeMs", twp_decode}, {"decodeMsPerTile", twp_decode / p},
-       {"mipsMs", twp_mips}, {"mipsMsPerTile", twp_mips / p}});
+       {"meshMs", twp_mesh}, {"meshMsPerTile", twp_mesh / m}});
 }
 
 /* A worker MAY block. 200 = bytes, 204 = a real hole, everything else = retry. */
@@ -89,7 +78,7 @@ static int tw_get(const char *url, uint8_t **out, size_t *len) {
     }
     emscripten_fetch_close(f);
     if (st == 204 || st == 404) return 0;   /* nothing here (fb-tiles 404s genuinely-missing tiles) */
-    emscripten_sleep(50);                    /* 202/5xx: queued or transient — wait for the bake */
+    emscripten_sleep(50);                    /* 202/5xx: queued or transient — the server is fetching */
   }
   return 0;
 }
@@ -119,7 +108,7 @@ int fbtw_open(const char *base, double lat, double lon) {
   cfg.enable_terrain = 1;
   if (osmmesh_create(&cfg, &tw_osm) != OSMMESH_OK) { tw_osm = 0; return 0; }
   twp_t0 = emscripten_get_now();
-  twp_osmfetch = twp_mesh = twp_albfetch = twp_decode = twp_mips = 0; twp_nmesh = twp_npyr = 0;
+  twp_osmfetch = twp_mesh = 0; twp_nmesh = 0;
   return 1;
 }
 
@@ -130,9 +119,6 @@ static std::vector<float> tw_dagverts;
 static std::vector<Render::DagCluster> tw_clusters;
 static float tw_err = 0.0f;
 static double tw_origin[3] = {0, 0, 0};
-static uint8_t *tw_mips = 0;
-static int tw_mipbytes = 0;
-static int tw_ts = 0;
 
 EMSCRIPTEN_KEEPALIVE float  *fbtw_verts(void)    { return tw_dagverts.data(); }
 EMSCRIPTEN_KEEPALIVE int     fbtw_nverts(void)   { return (int)(tw_dagverts.size() / 8); }
@@ -142,18 +128,12 @@ EMSCRIPTEN_KEEPALIVE int     fbtw_nclusters(void){ return (int)tw_clusters.size(
 EMSCRIPTEN_KEEPALIVE int     fbtw_clusterbytes(void){ return (int)(tw_clusters.size() * sizeof(Render::DagCluster)); }
 EMSCRIPTEN_KEEPALIVE float   fbtw_err(void)      { return tw_err; }
 EMSCRIPTEN_KEEPALIVE double *fbtw_origin(void)   { return tw_origin; }
-EMSCRIPTEN_KEEPALIVE uint8_t *fbtw_mips(void)    { return tw_mips; }
-EMSCRIPTEN_KEEPALIVE int     fbtw_mipbytes(void) { return tw_mipbytes; }
-EMSCRIPTEN_KEEPALIVE int     fbtw_ts(void)       { return tw_ts; }
 
 EMSCRIPTEN_KEEPALIVE
 void fbtw_release(void) {
   std::vector<float>().swap(tw_dagverts);
   std::vector<Render::DagCluster>().swap(tw_clusters);
   tw_err = 0.0f;
-  free(tw_mips);
-  tw_mips = 0;
-  tw_mipbytes = 0;
 }
 
 /* THE DAG OF A GIVEN SOUP (pos3+norm3+uv2). Same worker, same exports, no fetch — the caller sends
@@ -184,47 +164,14 @@ int fbtw_dag(const float *soup, int nverts, int seamAttr) {
   return 1;
 }
 
-/* 1 on a real image, 0 on a miss — the caller falls back. */
-static int tw_albedo(int z, int x, int y, int mode, int ts) {
-  char url[256];
-  /* ?v= busts the browser's immutable cache when the OSM bake style changes */
-  snprintf(url, sizeof url, mode ? "%s/bake/photo/%d/%d/%d?tex=%d" : "%s/bake/osm/%d/%d/%d?tex=%d&v=" FB_OSM_STYLE_VER_S,
-           tw_base, z, x, y, ts);
-  uint8_t *enc = 0;
-  size_t n = 0;
-  double tf = emscripten_get_now();
-  int got = tw_get(url, &enc, &n);
-  twp_albfetch += emscripten_get_now() - tf;
-  if (!got) return 0;
-  int w = 0, h = 0, comp = 0;
-  double td = emscripten_get_now();
-  uint8_t *px = stbi_load_from_memory(enc, (int)n, &w, &h, &comp, 4);
-  twp_decode += emscripten_get_now() - td;
-  free(enc);
-  if (!px) return 0;
-  if (w != ts || h != ts) { stbi_image_free(px); return 0; }
-  int bytes = Render::fb_pyramid_bytes(ts);
-  uint8_t *mips = (uint8_t *)malloc((size_t)bytes);
-  if (!mips) { stbi_image_free(px); return 0; }
-  double tp = emscripten_get_now();
-  Render::fb_build_pyramid(px, ts, mips);
-  twp_mips += emscripten_get_now() - tp;
-  if (++twp_npyr % 32 == 0) twp_report();
-  stbi_image_free(px);
-  tw_mips = mips;
-  tw_mipbytes = bytes;
-  tw_ts = ts;
-  return 1;
-}
-
-/* `what` is a bitmask (bit0 mesh, bit1 albedo pyramid); mesh and albedo are DECOUPLED so the main
- * thread can queue them at different priorities. Returns the bitmask of what actually succeeded. */
+/* Returns 1 if the mesh + DAG were built. There is no second channel: the albedo pyramid it used to
+ * carry was a raster of an authored bake, and the classification needs the class, not a picture. */
 EMSCRIPTEN_KEEPALIVE
-int fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what) {
+int fbtw_build(int z, int x, int y, int grid) {
   fbtw_release();
   int result = 0;
 
-  if ((what & 1) && tw_osm) {
+  if (tw_osm) {
     osmmesh_tile t = {};
     double tof = emscripten_get_now();
     int fetched = (osmmesh_fetch_tile(tw_osm, (uint8_t)z, (uint32_t)x, (uint32_t)y, &t) == OSMMESH_OK && t.terrain);
@@ -241,12 +188,12 @@ int fbtw_build(int z, int x, int y, int grid, int mode, int ts, int what) {
         meshed = !tw_dagverts.empty() && !tw_clusters.empty();
       }
       Render::ChunkFree(&chunk);
-      twp_mesh += emscripten_get_now() - tm; twp_nmesh++;
+      twp_mesh += emscripten_get_now() - tm;
+      if (++twp_nmesh % 32 == 0) twp_report();
       if (meshed) result |= 1;
     }
     osmmesh_free_tile(&t);
   }
 
-  if ((what & 2) && tw_albedo(z, x, y, mode, ts)) result |= 2;
   return result;
 }

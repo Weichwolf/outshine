@@ -1,6 +1,5 @@
 #include "TilesStage.h"
 #include "SceneTargets.h"
-#include "Mips.h"
 #include "Frustum.h"
 #include "AtmoCommon.h"
 #include "AtmoSample.h"

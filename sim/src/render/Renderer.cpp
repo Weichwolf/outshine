@@ -313,7 +313,7 @@ void Renderer::CreateTerrainPipeline(void) {
 
 void Renderer::CreateTileTexture(void) {
   wgpu::SamplerDescriptor sd{};
-  sd.addressModeU = wgpu::AddressMode::ClampToEdge;   /* a bake is exactly one tile — no wrap/repeat */
+  sd.addressModeU = wgpu::AddressMode::ClampToEdge;
   sd.addressModeV = wgpu::AddressMode::ClampToEdge;
   sd.magFilter = wgpu::FilterMode::Linear;
   sd.minFilter = wgpu::FilterMode::Linear;

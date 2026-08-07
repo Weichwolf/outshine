@@ -1,5 +1,5 @@
 /* The tile-streaming C ABI: fb-tiles bytes -> osmmesh -> camera-relative ECEF meshes + albedo mip
- * pyramids, polled per pass by World. Vertrag, Plattform-Split und Worker-Pool:
+ * meshes, polled per pass by World. Vertrag, Plattform-Split und Worker-Pool:
  * doc/world/terrain.md, Abschnitt 3. */
 #include "TerrainLoader.h"
 #include "Mips.h"
@@ -34,13 +34,6 @@ using namespace outshine;
 
 /* stb_image's implementation lives in terrain.cpp — declared here, never re-implemented: two
  * implementations in one link would collide. */
-extern "C" {
-unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
-                                     int *channels_in_file, int desired_channels);
-void stbi_image_free(void *retval_from_stbi_load);
-}
-
-static char fb_base[160] = "";
 
 #ifdef __EMSCRIPTEN__
 /* emscripten_fetch's SYNCHRONOUS mode is Web-Worker-only (NULL on a page's main thread), so the
@@ -126,178 +119,21 @@ static int fb_get(const char *url, uint8_t **out, size_t *len) {
 }
 #endif
 
-static int fb_provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_t y,
-                       uint8_t **out, size_t *len) {
-  (void)user;
-  static const char *names[] = {"vector", "terrain", "imagery"};
-  if ((int)kind < 0 || (int)kind >= 3) return 0;
-  char url[256];
-  snprintf(url, sizeof url, "%s/t/%s/%u/%u/%u", fb_base, names[kind], z, x, y);
-  return fb_get(url, out, len);
-}
-
-/* An unmistakable "no bake here" marker. */
-static void fb_albedo_fallback(int ts, uint8_t *dst) {
-  for (int y = 0; y < ts; y++)
-    for (int x = 0; x < ts; x++) {
-      int chk = ((x >> 6) ^ (y >> 6)) & 1;
-      uint8_t *p = dst + ((size_t)y * ts + x) * 4;
-      p[0] = chk ? 200 : 40;
-      p[1] = chk ? 20 : 40;
-      p[2] = chk ? 200 : 40;
-      p[3] = 255;
-    }
-}
-
-/* 1 on a real image, 0 on any miss/decode failure — the caller then draws the fallback. */
-static int fb_load_albedo(int z, uint32_t x, uint32_t y, int ts, uint8_t *dst) {
-  char url[256];
-  snprintf(url, sizeof url, "%s/bake/osm/%d/%u/%u?tex=%d&v=" FB_OSM_STYLE_VER_S, fb_base, z, x, y, ts);
-  uint8_t *enc = 0;
-  size_t n = 0;
-  if (!fb_get(url, &enc, &n)) return 0;
-  int w = 0, h = 0, comp = 0;
-  uint8_t *px = stbi_load_from_memory(enc, (int)n, &w, &h, &comp, 4);
-  free(enc);
-  if (!px) return 0;
-  if (w != ts || h != ts) { stbi_image_free(px); return 0; }
-  memcpy(dst, px, (size_t)ts * ts * 4);
-  stbi_image_free(px);
-  return 1;
-}
-
-int fb_terrain_load(const char *base, double lat, double lon, int z, int grid, fb_terrain *out) {
-  if (!out) return 0;
-  memset(out, 0, sizeof *out);
-  snprintf(fb_base, sizeof fb_base, "%s", base ? base : "");
-
-  uint32_t cx = 0, cy = 0;
-  if (osmmesh_geo_to_tile(lon, lat, (uint8_t)z, &cx, &cy) != 0) {
-    outshine::Log::Error("world", "geo_to_tile_failed", {{"lat", lat}, {"lon", lon}, {"z", z}});
-    return 0;
-  }
-
-  osmmesh_config cfg = {};
-  cfg.origin_lat = lat;
-  cfg.origin_lon = lon;
-  cfg.tile_provider = fb_provider;
-  cfg.provider_terrain_max_zoom = 15;
-  cfg.enable_terrain = 1;
-  osmmesh_ctx *ctx = 0;
-  if (osmmesh_create(&cfg, &ctx) != OSMMESH_OK || !ctx) {
-    outshine::Log::Error("world", "osmmesh_create_failed");
-    return 0;
-  }
-
-  const int TS = 512;   /* 512-bake this stage (ramp comes later) */
-  const size_t layerBytes = (size_t)TS * TS * 4;
-  out->albedo = (uint8_t *)malloc(layerBytes * FB_TERRAIN_MAX_TILES);
-  if (!out->albedo) { osmmesh_destroy(ctx); return 0; }
-  out->albedo_ts = TS;
-
-  float *merged = 0;
-  uint32_t total = 0;
-  double ground = 0.0;
-  int have_ground = 0;
-  /* Span -1..+2 so (lat,lon) lands near the middle of the 4x4 field. */
-  for (int dy = -1; dy <= 2; dy++)
-    for (int dx = -1; dx <= 2; dx++) {
-      uint32_t tx = cx + (uint32_t)dx, ty = cy + (uint32_t)dy;
-      osmmesh_tile t = {};
-      if (osmmesh_fetch_tile(ctx, (uint8_t)z, tx, ty, &t) != OSMMESH_OK || !t.terrain) {
-        outshine::Log::Debug("world", "tile_no_terrain", {{"z", z}, {"x", (int)tx}, {"y", (int)ty}});
-        osmmesh_free_tile(&t);
-        continue;
-      }
-      if (tx == cx && ty == cy) {
-        float best = 1e30f;
-        for (uint32_t i = 0; i < t.terrain->n_vertices; i++)
-          if (t.terrain->positions[i * 3 + 2] < best) best = t.terrain->positions[i * 3 + 2];
-        ground = (double)best;
-        have_ground = 1;
-      }
-      Render::Chunk chunk = {};
-      double origin[3];
-      int ok = Render::ChunkBuildEcef(t.terrain, z, tx, ty, grid, &chunk, origin);
-      osmmesh_free_tile(&t);
-      if (!ok || chunk.nverts <= 0) {
-        outshine::Log::Warn("world", "mesh_build_failed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty}});
-        Render::ChunkFree(&chunk);
-        continue;
-      }
-      int idx = out->ntiles;
-      float *grow = (float *)realloc(merged, (size_t)(total + (uint32_t)chunk.nverts) * 8 * sizeof(float));
-      if (!grow) { Render::ChunkFree(&chunk); free(merged); free(out->albedo); out->albedo = 0; osmmesh_destroy(ctx); return 0; }
-      merged = grow;
-      memcpy(merged + (size_t)total * 8, chunk.verts, (size_t)chunk.nverts * 8 * sizeof(float));
-      out->voff[idx] = total;
-      out->vcnt[idx] = (uint32_t)chunk.nverts;
-      out->origin[idx][0] = origin[0];
-      out->origin[idx][1] = origin[1];
-      out->origin[idx][2] = origin[2];
-      total += (uint32_t)chunk.nverts;
-      out->ntiles = idx + 1;
-      outshine::Log::Debug("world", "tile_meshed", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
-                                                       {"nverts", chunk.nverts}, {"errM", (double)chunk.err}});
-      Render::ChunkFree(&chunk);
-
-      uint8_t *lay = out->albedo + (size_t)idx * layerBytes;
-      if (fb_load_albedo(z, tx, ty, TS, lay))
-        outshine::Log::Debug("world", "tile_albedo", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
-                                                         {"layer", idx}, {"ts", TS}, {"src", "/bake/osm"}});
-      else {
-        fb_albedo_fallback(TS, lay);
-        outshine::Log::Debug("world", "tile_albedo", {{"z", z}, {"x", (int)tx}, {"y", (int)ty},
-                                                         {"layer", idx}, {"src", "fallback_checker"}});
-      }
-    }
-
-  osmmesh_destroy(ctx);
-  if (out->ntiles == 0 || total == 0) {
-    free(merged);
-    free(out->albedo);
-    out->albedo = 0;
-    return 0;
-  }
-
-  osmmesh_geo cg = {lon, lat, have_ground ? ground : 0.0};
-  osmmesh_ecef ce = osmmesh_geo_to_ecef(cg);
-  out->center[0] = ce.x;
-  out->center[1] = ce.y;
-  out->center[2] = ce.z;
-  out->verts = merged;
-  out->nverts = total;
-  outshine::Log::Info("world", "terrain_loaded", {{"tiles", out->ntiles}, {"verts", (int)total},
-                                                     {"groundM", have_ground ? ground : 0.0},
-                                                     {"ecefX", ce.x}, {"ecefY", ce.y}, {"ecefZ", ce.z}});
-  return 1;
-}
-
-void fb_terrain_free(fb_terrain *t) {
-  if (!t) return;
-  free(t->verts);
-  free(t->albedo);
-  t->verts = 0;
-  t->albedo = 0;
-  t->nverts = 0;
-  t->ntiles = 0;
-}
-
 /* The streaming layer. fb_stream_* is COMMON to both platforms; only the three byte primitives
  * fbs_init/fbs_size/fbs_copy differ — WASM a non-blocking JS async cache, native blocking libcurl.
  * doc/world/terrain.md §3.1. */
 #ifdef __EMSCRIPTEN__
 /* WASM: every blocking step runs in a worker pool; the render thread only posts requests and polls
- * finished results (whole vertex arrays + mip pyramids, zero-copy across postMessage). The ASYNCIFY
+ * finished results (whole vertex arrays, zero-copy across postMessage). The ASYNCIFY
  * "one build in flight" rule holds PER worker instance, so N parallel builds are safe.
  * Pool-Struktur + Prioritaetsschluessel: doc/world/terrain.md §3.2. */
 EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
   var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), 6));
   var T = { workers: [], readyCount: 0, q: [], done: new Map(),
-            req: new Set(), baseMode: 1, camLat: lat, camLon: lon };
+            req: new Set(), camLat: lat, camLon: lon };
   Module.__fbw = T;
   var baseStr = UTF8ToString(base);
-  T.key = function (z, x, y, what, mode) { return z + '/' + x + '/' + y + '/' + what + '/' + mode; };
+  T.key = function (z, x, y, what) { return z + '/' + x + '/' + y + '/' + what; };
   T.dist = function (z, x, y) {                     /* tile-space distance^2 to the camera tile at z */
     var n = Math.pow(2, z);
     var cx = (T.camLon + 180) / 360 * n;
@@ -318,7 +154,7 @@ EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
       var req = T.q.splice(bi, 1)[0];
       W.busy = true;
       if (req.what === 4) { W.w.postMessage({ cmd: 'dag', id: req.id, soup: req.soup, nverts: req.nverts, seam: req.seam }, [req.soup]); continue; }
-      W.w.postMessage({ cmd: 'build', z: req.z, x: req.x, y: req.y, grid: req.grid, mode: req.mode, ts: req.ts, what: req.what });
+      W.w.postMessage({ cmd: 'build', z: req.z, x: req.x, y: req.y, grid: req.grid });
     }
   };
   for (var i = 0; i < N; i++) {
@@ -327,7 +163,7 @@ EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
       W.w.onmessage = function (e) {
         var d = e.data;
         if (d.cmd === 'opened') { W.ready = true; T.readyCount++; if (T.readyCount === 1) console.log('[tilepool] ' + N + ' workers'); T.pump(); return; }
-        if (d.cmd === 'built') { W.busy = false; T.builtCount = (T.builtCount | 0) + 1; T.done.set(T.key(d.z, d.x, d.y, d.what, d.mode), d); T.pump(); return; }
+        if (d.cmd === 'built') { W.busy = false; T.builtCount = (T.builtCount | 0) + 1; T.done.set(T.key(d.z, d.x, d.y, 1), d); T.pump(); return; }
         if (d.cmd === 'dagged') { W.busy = false; T.done.set('dag/' + d.id, d); T.pump(); }
       };
       W.w.postMessage({ cmd: 'open', base: baseStr, lat: lat, lon: lon });
@@ -336,7 +172,6 @@ EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
   }
 })
 
-EM_JS(void, fbw_set_base, (int mode), { if (Module.__fbw) Module.__fbw.baseMode = mode; })
 EM_JS(void, fbw_campos, (double lat, double lon), {
   var T = Module.__fbw; if (T) { T.camLat = lat; T.camLon = lon; }
 })
@@ -345,7 +180,7 @@ EM_JS(void, fbw_campos, (double lat, double lon), {
  * request and return 0. */
 EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *nv, uint8_t **cptr, int *nc, double *origin, float *errp), {
   var T = Module.__fbw; if (!T) return 0;
-  var k = T.key(z, x, y, 1, 0);
+  var k = T.key(z, x, y, 1);
   var d = T.done.get(k);
   if (d) {
     T.done.delete(k);
@@ -362,25 +197,7 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
     HEAPF64[origin >> 3] = d.origin[0]; HEAPF64[(origin >> 3) + 1] = d.origin[1]; HEAPF64[(origin >> 3) + 2] = d.origin[2];
     return 1;
   }
-  if (!T.req.has(k)) { T.req.add(k); T.q.push({ z: z, x: x, y: y, grid: grid, mode: 0, ts: 0, what: 1, prio: 0, dist: T.dist(z, x, y) }); T.pump(); }
-  return 0;
-})
-
-/* Base-mode requests are priority 0 (with the mesh); the lazy overlay is priority 1. */
-EM_JS(int, fbw_pyr_poll, (int z, int x, int y, int mode, int ts, uint8_t *dst), {
-  var T = Module.__fbw; if (!T) return 0;
-  var k = T.key(z, x, y, 2, mode);
-  var d = T.done.get(k);
-  if (d) {
-    T.done.delete(k); T.req.delete(k);
-    if (!(d.res & 2)) return -1;
-    HEAPU8.set(new Uint8Array(d.mips), dst);
-    return d.mipbytes;
-  }
-  if (!T.req.has(k)) {
-    var prio = (mode === T.baseMode) ? 0 : 1;
-    T.req.add(k); T.q.push({ z: z, x: x, y: y, grid: 0, mode: mode, ts: ts, what: 2, prio: prio, dist: T.dist(z, x, y) }); T.pump();
-  }
+  if (!T.req.has(k)) { T.req.add(k); T.q.push({ z: z, x: x, y: y, grid: grid, what: 1, prio: 0, dist: T.dist(z, x, y) }); T.pump(); }
   return 0;
 })
 
@@ -389,7 +206,6 @@ int fb_stream_open(const char *base, double lat, double lon, int z) {
   fbw_init(base, lat, lon);
   return 1;
 }
-void fb_stream_set_base(int mode) { fbw_set_base(mode); }
 void fb_stream_campos(double lat, double lon) { fbw_campos(lat, lon); }
 
 int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
@@ -400,10 +216,6 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
                          (uint8_t **)clusters, nclusters, origin, &e);
   if (ok && err) *err = e;
   return ok;
-}
-
-int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *dst) {
-  return fbw_pyr_poll(z, (int)x, (int)y, mode, ts, dst);
 }
 
 /* Priority -1: the soup is already decoded and the frame it belongs to is waiting on it. */
@@ -523,6 +335,8 @@ void fb_stream_close(void) {}
 
 #else /* native: a worker-thread pool with the same contract the browser pool has */
 
+static char fb_base[160] = "";
+
 struct fbs_ent { char path[192]; uint8_t *data; int len; };   /* len 0 = hole; data 0 iff len 0 */
 static struct fbs_ent fbs_cache[2048];
 static int fbs_cache_n = 0, fbs_cache_head = 0;
@@ -540,23 +354,19 @@ static inline double fbtp_ms(void) {
   return (double)ts.tv_sec * 1e3 + (double)ts.tv_nsec * 1e-6;
 }
 static double fbtp_t0_ = 0;
-static struct { double demfetch, mesh, albfetch, decode, mips, provfetch; long nmesh, npyr, holes, provcalls, provkind[3]; } fbtp_;
+static struct { double demfetch, mesh, provfetch; long nmesh, holes, provcalls, provkind[3]; } fbtp_;
 static void fbtp_report(void) {
   if (!fbtp()) return;
   double wall = fbtp_ms() - fbtp_t0_;
-  long m = fbtp_.nmesh ? fbtp_.nmesh : 1, p = fbtp_.npyr ? fbtp_.npyr : 1;
+  long m = fbtp_.nmesh ? fbtp_.nmesh : 1;
   double demInternal = fbtp_.demfetch - fbtp_.provfetch;   /* osmmesh work minus the HTTP it triggered */
   outshine::Log::Debug("world", "tileperf",
-      {{"wallMs", wall}, {"meshTiles", (int)fbtp_.nmesh}, {"pyrTiles", (int)fbtp_.npyr}, {"holes", (int)fbtp_.holes},
+      {{"wallMs", wall}, {"meshTiles", (int)fbtp_.nmesh}, {"holes", (int)fbtp_.holes},
        {"demFetchMs", fbtp_.demfetch}, {"demFetchMsPerTile", fbtp_.demfetch / m},
        {"provHttpMs", fbtp_.provfetch}, {"provHttpMsPerTile", fbtp_.provfetch / m}, {"provCalls", (int)fbtp_.provcalls},
        {"provVec", (int)fbtp_.provkind[0]}, {"provTer", (int)fbtp_.provkind[1]}, {"provImg", (int)fbtp_.provkind[2]},
        {"osmInternalMs", demInternal}, {"osmInternalMsPerTile", demInternal / m},
-       {"meshMs", fbtp_.mesh}, {"meshMsPerTile", fbtp_.mesh / m},
-       {"albFetchMs", fbtp_.albfetch}, {"albFetchMsPerTile", fbtp_.albfetch / p},
-       {"decodeMs", fbtp_.decode}, {"decodeMsPerTile", fbtp_.decode / p},
-       {"mipsMs", fbtp_.mips}, {"mipsMsPerTile", fbtp_.mips / p},
-       {"cpuSumMs", fbtp_.demfetch + fbtp_.mesh + fbtp_.albfetch + fbtp_.decode + fbtp_.mips}});
+       {"meshMs", fbtp_.mesh}, {"meshMsPerTile", fbtp_.mesh / m},       {"cpuSumMs", fbtp_.demfetch + fbtp_.mesh}});
 }
 
 static void fbs_init(const char *base) {
@@ -605,8 +415,8 @@ static void fbs_copy(const char *path, uint8_t *dst) {
  *
  * The SAME SHAPE the browser has (doc/world/terrain.md §3.2) and for the same measured reason: one
  * tile is 10.7 ms of work — DEM fetch 2.00, Terrarium decode + stitch 2.79, mesh 0.11, cluster DAG
- * 3.68, albedo fetch/decode/mips 2.14 (FB_TILEPERF=1 over 128 tiles) — and a frame that pays it has
- * already lost. `fb_stream_build`/`fb_stream_pyramid` post and poll; nothing here blocks the caller.
+ * 3.68 (FB_TILEPERF=1 over 128 tiles) — and a frame that pays it has
+ * already lost. `fb_stream_build` posts and polls; nothing here blocks the caller.
  *
  * EACH WORKER OWNS ITS OWN osmmesh_ctx. The context carries a DEM LRU and is written by the tile it
  * is building, so sharing one would need a lock around the whole build and the pool would be a
@@ -661,12 +471,12 @@ int FbpFetch(const char *path, uint8_t **out, size_t *len) {
   return 1;
 }
 
-struct FbpStats { double DemFetch = 0, Mesh = 0, AlbFetch = 0, Decode = 0, Mips = 0, ProvFetch = 0;
+struct FbpStats { double DemFetch = 0, Mesh = 0, ProvFetch = 0;
                   long ProvCalls = 0, ProvKind[3] = {0, 0, 0}; };
 
 struct FbpJob {
-  int Kind = 0;                   /* 1 = mesh + DAG, 2 = albedo pyramid, 3 = the DAG of a given soup */
-  int Z = 0, Grid = 0, Mode = 0, TS = 0, SeamAttr = -1;
+  int Kind = 0;                   /* 1 = mesh + DAG, 3 = the DAG of a given soup */
+  int Z = 0, Grid = 0, SeamAttr = -1;
   uint32_t X = 0, Y = 0;
   uint64_t Key = 0;
   double Dist = 0.0;              /* tile-space distance^2 to the camera, the pump's order */
@@ -681,12 +491,11 @@ struct FbpResult {
   int NClusters = 0;
   double Origin[3] = {0, 0, 0};
   float Err = 0.0f;
-  std::vector<uint8_t> Mips;
   int TS = 0;
 };
 
-uint64_t FbpKey(int kind, int z, uint32_t x, uint32_t y, int mode) {
-  return ((uint64_t)(kind & 3) << 62) | ((uint64_t)(mode & 1) << 61) | ((uint64_t)(z & 31) << 56)
+uint64_t FbpKey(int kind, int z, uint32_t x, uint32_t y) {
+  return ((uint64_t)(kind & 3) << 62) | ((uint64_t)(z & 31) << 56)
        | ((uint64_t)(x & 0xFFFFFFFu) << 28) | (uint64_t)(y & 0xFFFFFFFu);
 }
 
@@ -791,33 +600,6 @@ void FbpRunDag(const FbpJob &j, FbpResult *r) {
   r->Ok = true;
 }
 
-void FbpRunPyramid(const FbpJob &j, FbpResult *r, FbpStats *st) {
-  char path[160];
-  snprintf(path, sizeof path,
-           j.Mode ? "/bake/photo/%d/%u/%u?tex=%d" : "/bake/osm/%d/%u/%u?tex=%d&v=" FB_OSM_STYLE_VER_S,
-           j.Z, j.X, j.Y, j.TS);
-  uint8_t *enc = 0;
-  size_t n = 0;
-  const double t0 = fbtp() ? fbtp_ms() : 0;
-  const int got = FbpFetch(path, &enc, &n);
-  if (fbtp()) st->AlbFetch += fbtp_ms() - t0;
-  if (!got) return;               /* a real 204 hole; Ok stays false and the caller falls back */
-  int w = 0, h = 0, comp = 0;
-  const double t1 = fbtp() ? fbtp_ms() : 0;
-  uint8_t *px = stbi_load_from_memory(enc, (int)n, &w, &h, &comp, 4);
-  if (fbtp()) st->Decode += fbtp_ms() - t1;
-  free(enc);
-  if (!px) return;
-  if (w != j.TS || h != j.TS) { stbi_image_free(px); return; }
-  r->Mips.resize((size_t)outshine::Render::fb_pyramid_bytes(j.TS));
-  const double t2 = fbtp() ? fbtp_ms() : 0;
-  outshine::Render::fb_build_pyramid(px, j.TS, r->Mips.data());
-  if (fbtp()) st->Mips += fbtp_ms() - t2;
-  stbi_image_free(px);
-  r->TS = j.TS;
-  r->Ok = true;
-}
-
 void FbpWorker(void) {
   osmmesh_config cfg = {};
   FbpStats st;
@@ -847,16 +629,14 @@ void FbpWorker(void) {
     FbpResult res;
     if (job.Kind == 1) { if (ctx) FbpRunMesh(ctx, job, &res, &st); }
     else if (job.Kind == 3) FbpRunDag(job, &res);
-    else FbpRunPyramid(job, &res, &st);
     {
       std::lock_guard<std::mutex> lk(fbp_mu);
       fbp_done[job.Key] = std::move(res);
       if (fbtp()) {
-        fbtp_.demfetch += st.DemFetch; fbtp_.mesh += st.Mesh; fbtp_.albfetch += st.AlbFetch;
-        fbtp_.decode += st.Decode; fbtp_.mips += st.Mips; fbtp_.provfetch += st.ProvFetch;
+        fbtp_.demfetch += st.DemFetch; fbtp_.mesh += st.Mesh; fbtp_.provfetch += st.ProvFetch;
         fbtp_.provcalls += st.ProvCalls;
         for (int k = 0; k < 3; k++) fbtp_.provkind[k] += st.ProvKind[k];
-        if (job.Kind == 1) fbtp_.nmesh++; else fbtp_.npyr++;
+        if (job.Kind == 1) fbtp_.nmesh++;
         st = FbpStats();
       }
     }
@@ -907,7 +687,6 @@ int fb_stream_open(const char *base, double lat, double lon, int z) {
   outshine::Log::Info("world", "tilepool", {{"workers", n}, {"hardwareThreads", (int)hw}});
   return 1;
 }
-void fb_stream_set_base(int mode) { (void)mode; }
 void fb_stream_campos(double lat, double lon) {
   std::lock_guard<std::mutex> lk(fbp_mu);
   fbp_cam_lat = lat;
@@ -919,7 +698,7 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
                     double origin[3], float *err) {
   FbpJob j;
   j.Kind = 1; j.Z = z; j.X = x; j.Y = y; j.Grid = grid;
-  j.Key = FbpKey(1, z, x, y, 0);
+  j.Key = FbpKey(1, z, x, y);
   j.Dist = FbpTileDist(z, x, y);
   FbpResult r;
   if (!FbpPoll(j, &r)) return 0;
@@ -964,33 +743,6 @@ int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **v
 }
 
 /* Levels 0..N packed contiguous. >0 = bytes written, 0 = not yet, -1 = a real hole. */
-int fb_stream_pyramid(int z, uint32_t x, uint32_t y, int mode, int ts, uint8_t *dst) {
-  FbpJob j;
-  j.Kind = 2; j.Z = z; j.X = x; j.Y = y; j.Mode = mode; j.TS = ts;
-  j.Key = FbpKey(2, z, x, y, mode);
-  j.Dist = FbpTileDist(z, x, y);
-  FbpResult r;
-  {
-    std::unique_lock<std::mutex> lk(fbp_mu);
-    auto it = fbp_done.find(j.Key);
-    if (it != fbp_done.end()) {
-      r = std::move(it->second);
-      fbp_done.erase(it);
-      if (r.Ok) fbp_asked.erase(j.Key);
-      lk.unlock();
-      if (!r.Ok) return -1;      /* the provider has nothing here — the caller falls back to OSM */
-      memcpy(dst, r.Mips.data(), r.Mips.size());
-      return outshine::Render::fb_pyramid_bytes(r.TS);
-    }
-    if (fbp_asked.insert(j.Key).second) {
-      fbp_queue.push_back(j);
-      lk.unlock();
-      fbp_cv.notify_one();
-    }
-  }
-  return 0;
-}
-
 /* The pointer is INTO the byte cache — valid until evicted; TerrainField decodes immediately. */
 int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   char path[96];
@@ -1116,6 +868,14 @@ double fb_stream_ground(double lat, double lon) {
   double v = 0.0;
   if (!fb_dem_bilinear(kFbDemZ, tx, ty, kFbDemN, fb_dem_texel, &z, &v)) return -1e9;
   return v < 0.0 ? 0.0 : v;   /* the sea-level clamp; the -1e9 "not yet" sentinel never reaches here */
+}
+
+/* The one raster left in this file: the moon, which is a MEASURED image of a real body and not
+ * authored appearance (CLAUDE.md principle 2). Everything the bake used to decode is gone. */
+extern "C" {
+unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
+                                     int *channels_in_file, int desired_channels);
+void stbi_image_free(void *retval_from_stbi_load);
 }
 
 int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {

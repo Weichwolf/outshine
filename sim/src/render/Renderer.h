@@ -307,7 +307,7 @@ private:
   std::unique_ptr<AoStage> Ao = std::make_unique<AoStage>();
   std::unique_ptr<ExposureStage> Exposure = std::make_unique<ExposureStage>();
   wgpu::Buffer CsmBuf;                            /* the cascade uniform every lit surface binds */
-  wgpu::Sampler Samp;              /* shared linear sampler: TilesStage's albedo, tonemap's HdrTex read */
+  wgpu::Sampler Samp;              /* shared linear sampler: unit textures, TAA history, tonemap's HdrTex read */
   wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: TilesStage/SkyStage draw into them, clouds sample DepthTex */
   /* THE SECOND SCENE ATTACHMENT (stages/SceneTargets.h): screen-space motion of whatever owns the
    * depth. Cleared to the "world-fixed" sentinel every frame, written only by geometry that moved

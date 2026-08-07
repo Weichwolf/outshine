@@ -1,6 +1,6 @@
 /* FlightBox tile-worker entry (runs inside the Web Worker fb_terrain.c spawns). Loads the worker WASM
- * module (fbtileworker.js) and services 'open'/'build' messages: fetch + decode + mesh + sRGB mips run
- * here, off the render thread, and finished vertex arrays + mip pyramids go back as transferables. ONE
+ * module (fbtileworker.js) and services 'open'/'build' messages: fetch + decode + mesh run here, off
+ * the render thread, and finished vertex arrays go back as transferables. ONE
  * build in flight (the main side gates it): fbtw_build SUSPENDS on the synchronous fetch under ASYNCIFY,
  * so it is called async (ccall async) and a second overlapping call would corrupt shared state. */
 var ready = false;
@@ -38,9 +38,9 @@ function handle(d) {
   }
   if (d.cmd === 'build') {
     Module.ccall('fbtw_build', 'number',
-      ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
-      [d.z, d.x, d.y, d.grid, d.mode, d.ts, d.what], { async: true }).then(function (res) {
-        var msg = { cmd: 'built', z: d.z, x: d.x, y: d.y, mode: d.mode, what: d.what, res: res };
+      ['number', 'number', 'number', 'number'],
+      [d.z, d.x, d.y, d.grid], { async: true }).then(function (res) {
+        var msg = { cmd: 'built', z: d.z, x: d.x, y: d.y, res: res };
         var transfer = [];
         if (res & 1) {   /* mesh: the DAG's own verts + clusters, copied out (the heap is reused) */
           var nv = Module._fbtw_nverts(), vp = Module._fbtw_verts();
@@ -55,12 +55,6 @@ function handle(d) {
           msg.clusters = cbuf;
           msg.origin = [Module.HEAPF64[op], Module.HEAPF64[op + 1], Module.HEAPF64[op + 2]];
           transfer.push(vbuf); transfer.push(cbuf);
-        }
-        if (res & 2) {   /* albedo mip pyramid */
-          var mp = Module._fbtw_mips(), mb = Module._fbtw_mipbytes();
-          var mbuf = Module.HEAPU8.slice(mp, mp + mb).buffer;
-          msg.mips = mbuf; msg.mipbytes = mb; msg.ts = Module._fbtw_ts();
-          transfer.push(mbuf);
         }
         Module._fbtw_release();
         self.postMessage(msg, transfer);
