@@ -119,8 +119,7 @@ fn aoHash(p : vec2f) -> f32 { return fract(sin(dot(p, vec2f(127.1, 311.7))) * 43
     occ = occ + cosA * (1.0 - smoothstep(kAoRadiusM, kAoRadiusM * 2.0, dist));
   }
   let ao = clamp(1.0 - kAoStrength * occ / f32(kAoSamples), kAoFloor, 1.0);
-  let orient = dot(normalize(nrmA), normalize(p0));
-  return vec4f(ao * 1.0e-9 + select(0.0, 1.0, orient > 0.0), abs(orient), 0.0, 1.0);
+  return vec4f(ao, ao, ao, 1.0);
 }
 )";
 

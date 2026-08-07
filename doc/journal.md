@@ -6730,3 +6730,56 @@ und Wolken (Zeilen 0–375) **bitgleich**, Belichtungsanker unverändert, Frame-
 während dieser Runde in der Hand eines anderen Agenten; verifiziert wurde in einem privaten Baum mit
 byteidentischer `SurfaceLight.h` (`make walk` und `make wasm` grün, `verify-layers` grün, zwei Läufe
 md5-gleich).
+
+## 2026-08-07 — Schwarze Schatten: der AO-Puffer trug eine Diagnosezeile, zum zweiten Mal
+
+Eignerbefund: *„gebäudeschatten sind momentan komplett schwarz"*. Er hat recht und die Zahl sagt, wie
+weit: eine beschattete Fassade in Hamelns Altstadt las `log2 L = −7,330` (sRGB 13,13,13 — **neutral**
+unter blauem Himmel, und genau das ist der Verräter, denn Himmelslicht ist hier 0,030/0,051/0,089).
+
+**Die Ursache ist eine Zeile, und es ist dieselbe Sorte wie letzte Runde im Tonemap.** `AoStage.cpp`
+endete auf
+
+```wgsl
+return vec4f(ao * 1.0e-9 + select(0.0, 1.0, orient > 0.0), abs(orient), 0.0, 1.0);
+```
+
+`orient = dot(nrmA, p0)`, und `nrmA` wird zwei Zeilen darüber so gewählt, dass dieses Produkt **nie**
+positiv ist. Der Rotkanal — der einzige, den das Compositing liest — war also **0 auf jedem Pixel, auf
+dem der Pass lief**; das `1.0e-9` hielt bloß den Compiler davon ab, das gerade berechnete AO
+wegzuoptimieren. `lit = scene.rgb · mix(ao, 1, alpha)` mit `alpha = 0,12` für eine rein
+himmelsbeleuchtete Fläche ist **−3,06 EV**.
+
+Gemessen mit dem Tonemap als Lineal (`FB_TONE_PROBE=-16,4`, Exponent 1, kein Fuß, ein PNG-Byte ist
+`log2 L`): Fassade **−7,330 → −4,193**, also **+3,137 EV** gegen die 3,06 EV, die allein das
+Compositing vorhersagt. In der Referenzszene selbst trifft es nur die ferne Stadt: **67 von 691 200
+Pixeln** über 20 Codes, alle im Gebäudeband bei y ≈ 358–362, von 44 auf 125.
+
+**Der Sonne-Schatten-Kontrast am Boden ist jetzt messbar und beträgt 1,31 EV.** Profil senkrecht über
+eine Gebäudeschattenkante auf **einem** Belag, Plateaus ≥ 1 m vom Wandfuß: besonnt **−3,79 ± 0,09**,
+beschattet **−5,10 ± 0,05**, Übergang **ein** 10-px-Schritt, keine Rampe. Der Farbton kippt mit dem
+Illuminanten — (220,202,188) gegen (183,195,218).
+
+**Die 1,74 EV der Abnahme sind nicht die Zahl dieser Szene, und der Unterschied ist hergeleitet.**
+1,74 EV = `totalHorizY/skyDiffuseHorizY` ist das **klare** Verhältnis; die Szene deklariert
+`cloudCover 0.55`. Löst man die Gleichung aus `doc/render/lighting.md` §2 nach der Strahltransmittanz
+auf, die 1,31 EV erzeugt, kommt **τ = 0,620** heraus — plausibel für 0,55 Bedeckung. Dieselbe
+Gleichung bei τ = 1 gibt **2,18 EV**, und bei τ = 1 **mit `kSelfShelter` = 0** gibt sie **1,743 EV**,
+also die Abnahmezahl auf drei Stellen. Die Latte ist damit die klare, ungeschützte Schranke genau
+dieser Gleichung, und das gebaute Modell liegt **0,44 EV** darüber — vollständig `kSelfShelter`.
+`kSelfShelter` wurde **nicht** angefasst: eine physikalische Konstante zu verstellen, damit eine
+Abnahmezahl passt, ist Fälschung, und die vorige Runde hat den Term auf einer Wand bereits mit
+−0,303 EV vermessen.
+
+**Kein Pixel liegt auf Code 0** — in drei Frames, 691 200 Pixel je Frame, Minimum 8/255 auf einem
+Dachstuhl tief im Hof (`mix(kAoFloor, 1, 0.12)` = 0,34). Frame-Zeit gegen ein in derselben Sitzung
+gebautes Basis-Binary, `walkbench.py`, p99 über vier Geschwindigkeiten: **18,29 / 19,76 / 19,69 /
+20,16** gegen **19,37 / 20,79 / 20,43 / 20,30** ms, 0,00 % über 2,5 Vsync-Perioden in allen acht
+Läufen. Der Shader hat zwei Operationen verloren.
+
+**Was offen bleibt:** die beiden AO-Messungen der Vorrunde (Auflösungsbias 0,662/0,861/0,885, Median
+0,730) wurden **durch eine Stufe hindurch genommen, die 0 zurückgab** — es sind Rekonstruktionen aus
+einem `FB_GEOM`-Paar, keine Ablesungen des Puffers, den das Compositing benutzt hat. Sie sind zu
+wiederholen. Und: zweimal in zwei Runden hat eine Debugzeile im einzigen gelesenen Kanal wochenlang
+überlebt, weil das Bild **plausibel** blieb. Ein Shader, dessen Ausgabe nie gegen eine gerechnete
+Erwartung gehalten wird, hat kein Tor.

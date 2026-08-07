@@ -166,6 +166,32 @@ constant.
   (`black −6.53538 · white +5.15062 · contrast 1.09241`), where the image meter moved white by
   0.281 EV and the exponent by 0.126 across the same four. There is no histogram left to meter with.
 - `kNightAmbient` is a `[SET]` constant with no sourced value.
+- **The sun/shadow contrast on the ground is measured and it is 1.31 EV at this scene.** Owner report
+  2026-08-07, *„gebäudeschatten sind momentan komplett schwarz"*: the cause was `AoStage` returning a
+  diagnostic instead of its result ([`stages/ao.md`](stages/ao.md) `## State`), not this equation.
+  With that fixed, a profile perpendicular to a building's shadow edge on one road surface
+  (`FB_TONE_PROBE=-16,4`, 10 px steps, plateaus taken ≥ 1 m clear of the wall foot) reads
+  **sunlit −3.79 ± 0.09** against **shadowed −5.10 ± 0.05**, i.e. **1.31 EV**, and the transition is
+  one 10 px step — no ramp. The hue flips with the illuminant, which is the other half of the check:
+  sunlit `(220,202,188)`, shadowed `(183,195,218)`.
+
+  **The 1.74 EV a clear sky would give is not this scene's number, and the difference is derived, not
+  excused.** `totalHorizY / skyDiffuseHorizY` = 0.16512 / 0.04933 = 3.348 = 1.744 EV is the *clear-sky*
+  ratio of the irradiance readback; `mods/demo/scene.json` declares `cloudCover 0.55`, and the deck both
+  attenuates the beam by `thru` and re-emits `kDeckDiffuse` of what it intercepts back into the sky
+  term. Solving the equation of §2 for the beam transmittance that produces the measured 1.31 EV, with
+  `alb` 0.12 and the logged `I.sky` 0.04933, `I.sun` 0.59373, `I.sunDeck` 0.6408, `sin el` 0.19506:
+
+  ```
+  E_sh  = S·(0.65 + 0.12·0.35)              S = I.sky + I.sunDeck·sin(el)·(1−τ)·kDeckDiffuse
+  E_lit = E_sh + D·(1 + 0.12·0.35)          D = I.sun·sin(el)·τ
+  2^1.31 = 2.480  ⟹  D/S = 0.9829  ⟹  τ = 0.620
+  ```
+
+  τ = 0.62 through a 0.55-cover deck. The same equation at τ = 1 gives **2.18 EV**, and at τ = 1 *with*
+  `kSelfShelter` = 0 gives **1.743 EV** — the acceptance figure exactly. So the 1.74 EV bar is the
+  clear-sky, shelter-free bound of this very equation, and the built model sits 0.44 EV above it by
+  `kSelfShelter` alone.
 
 ## Gaps
 
@@ -186,6 +212,9 @@ constant.
   geometry, and `aoHash`'s per-pixel rotation is never resolved by anything. §2.3 stops the result
   being black; it does not make the estimate right. Owner of the estimator:
   [`stages/ao.md`](stages/ao.md).
+  **Both of those measurements were taken through a stage that was returning 0**, so the AO factors
+  quoted above are reconstructions from an `FB_GEOM` pair and not readings of the buffer the composite
+  used. They are due a repeat now that the buffer carries the estimate.
 - ~~**The deck's downward re-emission carries the GROUND-LEVEL solar spectrum.**~~ **CLOSED
   2026-08-06 — and the diagnosis under it was wrong, which is the more useful half.** `litRadiance`
   now takes the deck term from `I.sunDeck`, a third irradiance `IrradianceStage` publishes: the beam
