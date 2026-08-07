@@ -251,8 +251,18 @@ same speed, 600 frames, three consecutive runs:
 
 **A spread of 5.1 ms — 31 % of the whole 16.67 ms budget.** A single run's p99 is a sample from a
 distribution, not the distribution, and every over-budget/under-budget verdict taken from one run so far
-has been noise-limited. Until the bench repeats and reports the spread of its p99, it cannot settle
-whether the budget is met, and `GpuTimer` is the only instrument here that measures what it claims to.
+has been noise-limited.
+
+`walkbench.py` now runs every stage `--repeats` times and its verdict rests on AGREEMENT rather than on
+a narrow spread: all runs on one side settles it however wide they scatter, runs that straddle the
+ceiling settle nothing, and it exits 2 and says so instead of picking the side its median happens to
+land on. Seven runs of `7a1359a1…` at 1.4 m/s, in run order: 18.80, 17.79, 16.02, 19.04, 14.50, 17.33,
+16.99 — **no monotone climb, so the scatter is scheduling noise and not thermal throttling**, and
+5 of 7 sit over the ceiling with a median of 17.33 ms.
+
+**So the honest state is: the frame sits AT the budget and this machine cannot say which side.** That is
+a different claim from "it is over", and both are different from the single-run numbers this file
+carried before.
 
 ### The frame is dominated by PASS COUNT, not by shading — measured 2026-08-07
 

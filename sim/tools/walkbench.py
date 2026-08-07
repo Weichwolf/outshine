@@ -13,7 +13,15 @@ per quarter of the distance so a trend over the walk is visible.
 Every speed stage is a separate process with its own warm-up, so the stages are comparable to each
 other and not to whatever the previous stage left resident.
 
-Exit 0 = every stage stayed under the declared ceilings, 1 = at least one did not.
+EVERY STAGE IS RUN --repeats TIMES, and the reason is measured: the same binary at the same speed over
+600 frames gave p99 19.23 / 14.16 / 18.39 ms on three consecutive runs — a spread of 5.1 ms, which is
+31 % of the whole 16.67 ms budget. A single run's p99 is a sample from a distribution and not the
+distribution, so one run cannot settle whether a 4 ms change helped. What is reported is therefore the
+MEDIAN p99 over the repeats and the spread around it, and a verdict the spread cannot support says so
+instead of picking a side.
+
+Exit 0 = every stage stayed under the declared ceilings, 1 = at least one did not, 2 = the spread is
+too wide for the verdict to mean anything.
 """
 
 import argparse
@@ -111,6 +119,8 @@ def main():
     ap.add_argument("--dir", default="")
     ap.add_argument("--max-p99", type=float, default=FRAME_MS * 1.5)
     ap.add_argument("--max-late2", type=float, default=0.5, help="%% of frames past 2.5 periods")
+    ap.add_argument("--repeats", type=int, default=3,
+                    help="runs per speed; the reported p99 is their median and the spread is printed")
     args = ap.parse_args()
 
     args.bin = os.path.abspath(args.bin)
@@ -123,21 +133,48 @@ def main():
     print()
 
     bad = []
+    unresolved = []
     for s in [float(x) for x in args.speeds.split(",")]:
-        csv = os.path.join(work, "speed_%g.csv" % s)
-        rows = stage(args.bin, args, s, csv)
-        r = report("%.1f m/s" % s, rows)
-        # The binary is hashed again per stage: a build swapping it mid-run would make the stages
-        # measurements of two different programs, and nothing in the numbers would say so.
-        if not os.path.exists(args.bin):
-            raise SystemExit("the binary went away mid-run — the stages are not one measurement")
-        if hashlib.md5(open(args.bin, "rb").read()).hexdigest() != binhash:
-            raise SystemExit("binary changed during the run")
-        if r["p99"] > args.max_p99 or r["late2"] > args.max_late2:
-            bad.append("%.1f m/s: p99 %.2f ms, %.2f %% past 2.5 periods" % (s, r["p99"], r["late2"]))
+        runs = []
+        for k in range(args.repeats):
+            csv = os.path.join(work, "speed_%g_run%d.csv" % (s, k))
+            rows = stage(args.bin, args, s, csv)
+            runs.append(report("%.1f m/s #%d" % (s, k + 1), rows))
+            # The binary is hashed again per run: a build swapping it mid-bench would make the runs
+            # measurements of two different programs, and nothing in the numbers would say so.
+            if not os.path.exists(args.bin):
+                raise SystemExit("the binary went away mid-run — the runs are not one measurement")
+            if hashlib.md5(open(args.bin, "rb").read()).hexdigest() != binhash:
+                raise SystemExit("binary changed during the run")
+            print()
+
+        order = [r["p99"] for r in runs]          # RUN ORDER, not sorted: a monotone climb across the
+        p99s = sorted(order)                       # set is thermal throttling and not measurement noise
+        med = statistics.median(p99s)
+        spread = p99s[-1] - p99s[0]
+        worst_late2 = max(r["late2"] for r in runs)
+        trend = "climbing" if order == sorted(order) and spread > 1.0 else "no trend"
+        print("%.1f m/s  OVER %d RUNS: p99 median %.2f ms  spread %.2f ms  in run order %s  [%s]"
+              % (s, len(runs), med, spread, "  ".join("%.2f" % v for v in order), trend))
+        # A verdict needs the runs to AGREE, not to be narrow. All of them on one side of the ceiling
+        # settles it however wide the spread is; runs that straddle it settle nothing, and saying so is
+        # the only honest answer — a median picked out of a straddling set invents the side.
+        over = sum(1 for v in p99s if v > args.max_p99)
+        if 0 < over < len(p99s):
+            unresolved.append("%.1f m/s: %d of %d runs over the %.2f ms ceiling (%s) — the runs straddle it"
+                              % (s, over, len(p99s), args.max_p99, "  ".join("%.2f" % v for v in p99s)))
+        elif over == len(p99s) or worst_late2 > args.max_late2:
+            bad.append("%.1f m/s: EVERY run over — p99 median %.2f ms, best %.2f, %.2f %% past 2.5 periods"
+                       % (s, med, p99s[0], worst_late2))
         print()
 
     print("csv in %s" % work)
+    if unresolved:
+        print("UNRESOLVED — these stages' runs STRADDLE the ceiling, so they have no verdict. Raise")
+        print("--repeats or quiet the machine; do not read a side into them:")
+        for u in unresolved:
+            print("  " + u)
+        return 2
     if bad:
         print("OVER CEILING (p99 <= %.2f ms, past-2.5-periods <= %.2f %%):" % (args.max_p99, args.max_late2))
         for b in bad:
