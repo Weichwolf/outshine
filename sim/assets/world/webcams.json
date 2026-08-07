@@ -1,0 +1,31 @@
+{
+  "schema": "outshine/webcams/1",
+  "subject": "Das staendige Feld: 24 feste Kameras von foto-webcam.eu, gegen deren Livebild gerendert wird.",
+  "poseOrigin": "lat/lon/altM sind die STANDORTE, so gut wie sie ohne veroeffentlichte Koordinaten zu bestimmen sind — die Seite nennt Berg und Hoehe im Text, die Gipfelkoordinate ist allgemein bekannt, EXIF ist leer (geprueft: die Bilder tragen nur einen gd-jpeg-Kommentar). yawDeg/pitchDeg/fovDeg sind ANFANGSWERTE und keine Messung; sie werden je Kamera EINMAL aus dem Horizont gegen den DEM eingepasst und dann eingefroren. Solange `fitted` false ist, vergleicht die Seite zwei verschiedene Ausschnitte und jeder Unterschied darin ist der Pose zuzuschreiben, nicht dem Shader.",
+  "cams": [
+    { "slug": "zugspitze",     "name": "Zugspitze Gipfel",      "lat": 47.42122, "lon": 10.98531, "altM": 2962, "yawDeg":  90, "pitchDeg":  -6, "fovDeg": 50, "fitted": false },
+    { "slug": "nebelhorn",     "name": "Nebelhorn",             "lat": 47.42500, "lon": 10.34200, "altM": 2224, "yawDeg": 180, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "fellhorn",      "name": "Fellhorn",              "lat": 47.35800, "lon": 10.22400, "altM": 2037, "yawDeg": 200, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "hochgrat",      "name": "Hochgrat",              "lat": 47.51100, "lon": 10.02100, "altM": 1834, "yawDeg": 160, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "hochries",      "name": "Hochries",              "lat": 47.75300, "lon": 12.24500, "altM": 1568, "yawDeg": 180, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "kampenwand",    "name": "Kampenwand",            "lat": 47.74900, "lon": 12.35000, "altM": 1669, "yawDeg": 180, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "herzogstand",   "name": "Herzogstand",           "lat": 47.60300, "lon": 11.30400, "altM": 1731, "yawDeg": 200, "pitchDeg":  -8, "fovDeg": 55, "fitted": false },
+    { "slug": "grainau",       "name": "Grainau",               "lat": 47.47600, "lon": 11.02100, "altM":  750, "yawDeg": 210, "pitchDeg":   0, "fovDeg": 55, "fitted": false },
+    { "slug": "karwendel",     "name": "Karwendel",             "lat": 47.41500, "lon": 11.27300, "altM": 2244, "yawDeg": 180, "pitchDeg":  -6, "fovDeg": 55, "fitted": false },
+    { "slug": "kochelsee",     "name": "Kochelsee",             "lat": 47.65900, "lon": 11.35300, "altM":  600, "yawDeg": 200, "pitchDeg":  -2, "fovDeg": 55, "fitted": false },
+    { "slug": "seefeld",       "name": "Seefeld",               "lat": 47.32900, "lon": 11.18800, "altM": 1180, "yawDeg": 180, "pitchDeg":  -3, "fovDeg": 55, "fitted": false },
+    { "slug": "innsbruck",     "name": "Innsbruck",             "lat": 47.26900, "lon": 11.40100, "altM":  600, "yawDeg": 180, "pitchDeg":  -3, "fovDeg": 55, "fitted": false },
+    { "slug": "kitzsteinhorn", "name": "Kitzsteinhorn",         "lat": 47.18800, "lon": 12.68700, "altM": 3029, "yawDeg":   0, "pitchDeg":  -6, "fovDeg": 55, "fitted": false },
+    { "slug": "hochkoenig",    "name": "Hochkoenig",            "lat": 47.42000, "lon": 13.06000, "altM": 1900, "yawDeg": 180, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "salzburg",      "name": "Salzburg",              "lat": 47.79800, "lon": 13.04700, "altM":  540, "yawDeg": 180, "pitchDeg":  -3, "fovDeg": 55, "fitted": false },
+    { "slug": "gaisberg",      "name": "Gaisberg",              "lat": 47.80400, "lon": 13.11000, "altM": 1287, "yawDeg": 240, "pitchDeg":  -5, "fovDeg": 55, "fitted": false },
+    { "slug": "koenigssee",    "name": "Koenigssee",            "lat": 47.58800, "lon": 12.98800, "altM":  610, "yawDeg": 180, "pitchDeg":  -2, "fovDeg": 55, "fitted": false },
+    { "slug": "predigtstuhl",  "name": "Predigtstuhl",          "lat": 47.71400, "lon": 12.85300, "altM": 1613, "yawDeg": 180, "pitchDeg":  -6, "fovDeg": 55, "fitted": false },
+    { "slug": "lofer",         "name": "Lofer",                 "lat": 47.58500, "lon": 12.69600, "altM":  640, "yawDeg": 180, "pitchDeg":  -2, "fovDeg": 55, "fitted": false },
+    { "slug": "soell",         "name": "Soell",                 "lat": 47.50400, "lon": 12.19300, "altM":  700, "yawDeg": 200, "pitchDeg":  -2, "fovDeg": 55, "fitted": false },
+    { "slug": "mayrhofen",     "name": "Mayrhofen",             "lat": 47.16600, "lon": 11.86000, "altM":  630, "yawDeg": 180, "pitchDeg":  -2, "fovDeg": 55, "fitted": false },
+    { "slug": "kaunertal",     "name": "Kaunertal",             "lat": 46.86000, "lon": 10.72900, "altM": 2750, "yawDeg": 180, "pitchDeg":  -6, "fovDeg": 55, "fitted": false },
+    { "slug": "lech",          "name": "Lech am Arlberg",       "lat": 47.20800, "lon": 10.14300, "altM": 1450, "yawDeg": 180, "pitchDeg":  -4, "fovDeg": 55, "fitted": false },
+    { "slug": "damuels",       "name": "Damuels",               "lat": 47.28000, "lon":  9.90600, "altM": 1430, "yawDeg": 180, "pitchDeg":  -4, "fovDeg": 55, "fitted": false }
+  ]
+}

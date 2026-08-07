@@ -473,7 +473,8 @@
       "origins": {
         "grass.perM2": "[SET] between pasture and bare ground — patchy by construction, which is what heightJitter 0.7 encodes",
         "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here",
-        "ground.edgeReachM": "[SET] 1.0 m, see edgeModel"
+        "ground.edgeReachM": "[SET] 1.0 m, see edgeModel",
+        "osm.glacier": "Ein Gletscher ist Firn und Eis, keine offene Wasserflaeche und keine Vegetation — er liegt hier bei `heide`, weil das von den neun Vorlagen die einzige mit Sand-Reflektanz und ohne Bewuchsannahme ist. Das ist eine NOTLOESUNG und keine Klasse; sie faellt, sobald eine Firnvorlage existiert. rank 55 ueber water_polygons/water, weil ein Gletscher auf einem See liegt und nicht darunter."
       },
       "osm": [
         {
@@ -532,6 +533,11 @@
           "kind": "bridleway",
           "rank": 80,
           "widthM": 1.5
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "glacier",
+          "rank": 55
         }
       ]
     },

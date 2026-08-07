@@ -46,3 +46,6 @@ sim/web/gpu.wasm
 sim/web/fbtileworker.js
 
 sim/walk.png
+sim/web/cams/*.jpg
+sim/web/cams/*.png
+sim/web/cams/*-scene.json
