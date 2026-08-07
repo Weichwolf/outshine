@@ -949,7 +949,8 @@
       "origins": {
         "grass.perM2": "0 is a STATEMENT, not a missing value: nothing is scattered on open water, and the wetland greens are folded in here so a marsh does not grow a pasture",
         "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry",
-        "ground.edgeReachM": "[SET] 0.4 m, see edgeModel"
+        "ground.edgeReachM": "[SET] 0.4 m, see edgeModel",
+        "osm.ocean_rank": "5 und nicht 50: der Kachelserver zeichnet die Ebene `ocean` VOR `land`, damit an der Kueste das Land obenauf liegt (tiles/src/raster.c). Ueber allen land-Raengen (max 49) wuerde das Meer die Kueste ueberdecken. Unter ihnen deckt eine offene Seekachel weiter voll, weil ein Rang nur Gleichstand bricht und nicht ueber Bedeckung entscheidet."
       },
       "osm": [
         {
@@ -1005,7 +1006,7 @@
         {
           "layer": "water_polygons",
           "kind": "ocean",
-          "rank": 50
+          "rank": 5
         },
         {
           "layer": "water_lines",
