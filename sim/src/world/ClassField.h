@@ -1,28 +1,32 @@
-/* THE GROUND CLASS AS A WORLD-ANCHORED FIELD OF COVERAGE WEIGHTS, rasterised from the OSM vectors.
+/* THE GROUND CLASS, EVALUATED FROM THE VECTORS THEMSELVES — no class raster anywhere, on either side.
  *
- * WHY WEIGHTS AND NOT AN INDEX. A class index is nominal: the mean of "meadow" and "asphalt" is not a
- * class, so an index may not be filtered, so it has no resolution ladder — a coarse level would be a
- * different answer rather than a summary. A COVERAGE FRACTION is a quantity. It may be averaged, and
- * a coarser level of it is a correct aggregation of the finer one. That single change is what makes
- * the ladder below legitimate, and it is also what puts the class boundary INSIDE a texel: a texel
- * that a straight edge crosses at 30 % carries 0.30/0.70, so the edge is reconstructed to a fraction
- * of a texel from a NEAREST read. The fray is therefore one texel wide and it is centimetres.
+ * WHY NO RASTER. A raster has a resolution, and a resolution is what made the class a function of the
+ * viewer three times running: the mip level, the tile zoom, the consumer's own lattice. Remove the
+ * raster and that whole failure class is gone STRUCTURALLY rather than forbidden by a rule. What
+ * replaces it is the technique glyph rasterisers use: the outlines live in a storage buffer and every
+ * fragment evaluates them analytically, so the answer is resolution-free and the boundary is exact.
  *
- * WHY IT CANNOT LIVE ON THE TILES. The per-tile class array is indexed by tile slot and its ground
- * resolution is the tile span over its texel count — 2.9342 m at the terrain tree's finest cut. A
- * 5.5 m street can never be free of its neighbours there. This field is anchored to the WORLD and
- * knows nothing about the terrain quadtree, its zoom range or its tiling: its lattice is an ENU grid
- * in metres at a fixed origin, its levels are metres, and the only thing it takes from the tile
- * server is the vector geometry itself.
+ * MEASURED, over the 3x3 z14 block at the reference standpoint (20.3 km^2, 2 246 area features,
+ * 25 501 edges after every line is widened to its declared metre width): with a 16 m acceleration
+ * cell a fragment sees a MEAN of 3.87 edges and 2.11 features, p99 16 edges, worst cell 45 edges and
+ * 14 features. That is the number the whole approach stands on, and it is why no fragment ever tests
+ * against everything.
  *
- * THE LADDER. kLevels levels, kSide x kSide texels each, texel = kTexel0M * 2^level, every level
- * centred on the camera and scrolled in WHOLE TEXELS, so a texel keeps its world position for as long
- * as it is resident and refilling is an edge strip and never the whole window.
+ * THE ACCELERATION STRUCTURE IS A GRID, and it carries exactly two things per cell:
+ *   base   — the winning class of every feature that covers the cell WITHOUT a boundary in it, so the
+ *            common case costs one byte and no geometry at all;
+ *   seeds  — for each feature that does have a boundary in the cell, its winding number at the cell's
+ *            south-west corner plus that cell's edges of it. A fragment walks corner -> (px, cy) -> p,
+ *            two axis-aligned legs that cannot leave the cell, so only this cell's edges can cross
+ *            them and the winding is exact.
  *
- * FOUR CHANNELS IS A DECLARED BOUND, not a natural number: `land` alone carries 15 kinds and the whole
- * table 99 rows, so a texel may hold more classes than fit. The measured overlap of `land` with itself
- * is 2.41 % of the reference tile over nine pairs, so a texel with more than three classes in it is
- * rare; the tail beyond the four largest is dropped and the four are renormalised. */
+ * THE ORDER IS DECLARED, NOT INHERITED. Features are laid down by the `rank` on their row in
+ * vegetation.json; the tile server has none inside a layer and relies on the provider's emission
+ * order over features that overlap by 2.41 % of the tile.
+ *
+ * TWO TIERS, and the split is a property of the VECTOR FETCH and of nothing else: z14 within 1024 m
+ * (a 3x3 block guarantees 1502.33 m) and z11 within 8192 m (a 3x3 block guarantees 12018.6 m). Beyond
+ * that there is no datum and the declared default is the honest answer. */
 #ifndef CLASSFIELD_H
 #define CLASSFIELD_H
 
@@ -39,63 +43,41 @@ class VegetationTemplates;
 
 class ClassField {
 public:
-  static constexpr int kSide = 512;
-  static constexpr int kLevels = 8;
-  static constexpr int kChannels = 4;
-  /* Sub-texels per texel per axis for the coverage measurement: 16 subcells give the weight a
-   * quantisation of 1/16 texel, i.e. 1.6 cm at level 0 — an order under the 14.0 cm mean residual the
-   * vector source itself carries against raw OSM. */
-  static constexpr int kSub = 4;
-  /* [SET] 0.25 m, BRACKETED by the source rather than chosen: the vector tiles quantise to 0.3668 m
-   * at this latitude and their mean residual against raw OSM is 0.140 m. A lattice coarser than
-   * 0.3668 m throws away structure the source has; one finer than 0.140 m resamples noise. 0.25 m
-   * sits between them and is a round number of METRES, which an ENU lattice should be — it is not a
-   * subdivision of any tile. */
-  static constexpr double kTexel0M = 0.25;
-
-  /* A rectangle of one level, in TOROIDAL texel coordinates, whose weights changed this pass. */
-  struct Chunk { int Level, X, Y, W, H; };
-
   explicit ClassField(const VegetationTemplates *veg) : Veg_(veg) {}
 
   void Open(double lat, double lon);
-  /* One budgeted pass: at most one vector tile per source, then at most kTexelBudget texels of
-   * refill. Fills Written() with what has to reach the GPU. */
+  /* One budgeted pass: at most one vector tile per tier, and at most one tier rebuilt. */
   void Update(double camLat, double camLon);
 
-  const std::vector<Chunk> &Written() const { return Written_; }
-  /* The whole level, kSide*kSide*kChannels bytes; a Chunk indexes into it at (Y*kSide + X)*kChannels. */
-  const uint8_t *Ids(int level) const { return Levels_[level].Ids.data(); }
-  const uint8_t *Weights(int level) const { return Levels_[level].Wts.data(); }
+  /* The whole structure, ready for a storage buffer. Dirty() falls to false once the caller has
+   * uploaded it. */
+  const uint32_t *Buffer() const { return Buf_.data(); }
+  size_t BufferBytes() const { return Buf_.size() * sizeof(uint32_t); }
+  bool Dirty() const { return Dirty_; }
+  void ClearDirty() { Dirty_ = false; }
 
-  /* Every level filled and no vector tile still out. The frame oracle waits on this. */
-  bool Complete() const;
-  int PendingTiles() const { return Near_.PendingTiles() + Far_.PendingTiles(); }
-
-  /* The class with the largest coverage at a world point on one level, or -1 outside the level's
-   * window. THE CACHE IS DERIVED: two levels must answer the same away from a boundary, and that is
-   * the check, not an assumption. */
-  int DominantAt(int level, double lat, double lon) const;
-  bool WeightsAt(int level, double lat, double lon, uint8_t ids[kChannels],
-                 uint8_t wts[kChannels]) const;
-
-  /* The shader needs the camera's own position on each level's lattice, in texels, measured from that
-   * level's window origin — everything else it derives from the ECEF offset it already has. */
-  void WindowFrac(float out[kLevels * 2]) const;
-  int OriginWrap(int level, int axis) const {
-    return (axis ? Levels_[level].OriginJ : Levels_[level].OriginI) & (kSide - 1);
-  }
+  /* The ECEF frame the buffer's metres are measured in. The fragment projects its own camera-relative
+   * offset on these very axes, so CPU and GPU place a world point identically by construction. */
   const double *OriginEcef() const { return O_; }
   const double *EastEcef() const { return East_; }
   const double *NorthEcef() const { return North_; }
 
-  /* Three outcomes, three counters. NoData is the truth about OSM and not a fault; UnknownKinds is
-   * the one that hid 81 barrier ways; BadTiles is a broken fetch or an unusable geometry. */
-  double NoDataFraction() const { return SubTotal_ ? (double)SubNoData_ / (double)SubTotal_ : 0.0; }
+  bool Complete() const;
+  int PendingTiles() const { return Near_.Field.PendingTiles() + Far_.Field.PendingTiles(); }
+
+  /* THE ONE EVALUATOR, in C++ — the WGSL one reads the same bytes with the same rule. -1 = no datum
+   * at this place, which is a state and not a default: the caller decides what to do with it. */
+  int ClassAt(double lat, double lon) const;
+  /* Metres to the boundary of the winning class, and the class on the other side of it. */
+  int ClassAt(double lat, double lon, double *distM, int *runnerUp) const;
+
+  double NoDataFraction() const { return Probe_ ? (double)ProbeNoData_ / (double)Probe_ : 0.0; }
   long UnknownKinds() const { return (long)Unknown_.size(); }
   long UnknownFeatures() const { return UnknownFeats_; }
-  long RasterTexels() const { return Texels_; }
-  double RasterMs() const { return RasterMs_; }
+  double BuildMs() const { return BuildMs_; }
+  long EdgeCount() const { return Edges_; }
+  long SeedCount() const { return Seeds_; }
+  int SeedOverflow() const { return Overflow_; }
 
 private:
   struct Feat {
@@ -106,64 +88,57 @@ private:
     float WidthM;
     float MinE, MinN, MaxE, MaxN;
   };
-  struct Source {
+  struct Tier {
     OsmField Field;
     int Ring;
-    std::vector<float> Pts;    /* (e,n) metres, parallel to Field.Points() pairs */
+    double CellM;
+    int Half;          /* cells from the grid centre; the grid is 2*Half square */
+    double SlackM;     /* how far the camera may leave the grid centre before a re-anchor */
+    std::vector<float> Pts;
     size_t PtsDone = 0;
-    std::vector<Feat> Feats;   /* rank ascending: the painter's order, declared and not inherited */
+    std::vector<Feat> Feats;
     size_t FeatsDone = 0;
-    Source(int zoom, std::initializer_list<const char *> layers, int ring)
-        : Field(zoom, layers), Ring(ring) {}
-  };
-  struct Rect { int I0, J0, I1, J1; };
-  struct Level {
-    int OriginI = 0, OriginJ = 0;
+    double OrgE = 0, OrgN = 0;
     bool Have = false;
-    std::vector<uint8_t> Ids, Wts;
-    std::vector<Rect> Dirty;
+    bool Stale = true;
+    Tier(int zoom, std::initializer_list<const char *> layers, int ring, double cellM, int half,
+         double slackM)
+        : Field(zoom, layers), Ring(ring), CellM(cellM), Half(half), SlackM(slackM) {}
   };
 
   void Project(double lat, double lon, double *e, double *n) const;
-  void Ingest(Source &src);
-  void PushDirty(int level, double minE, double minN, double maxE, double maxN);
-  void Scroll(int level, double camE, double camN);
-  void Raster(int level, const Rect &r);
-  void EdgeRing(const float *pts, uint32_t first, uint32_t count);
-  void EdgeQuad(const float q[8]);
-  void Fill(uint8_t v);
+  void Ingest(Tier &t);
+  void BuildTier(Tier &t, double camE, double camN);
+  void Pack();
+  int Evaluate(double e, double n, double *distM, int *runnerUp) const;
 
-  /* Levels 0..4 (texel <= 4 m, half-window <= 1024 m) come off the z14 tiles, whose 3x3 block
-   * guarantees 1502.33 m in every direction. Levels 5..7 (half-window <= 8192 m) come off z11, whose
-   * 3x3 block guarantees 12018.6 m. Both are properties of the VECTOR FETCH and of nothing else. */
-  static constexpr int kNearLevels = 5;
-  static constexpr int kTexelBudget = 1 << 17;
-  static constexpr int kChunkSide = 128;
-  static constexpr int kChunkTexels = 1 << 14;
+  /* Per-tier packed block, kept apart so a rebuild of one does not touch the other. */
+  struct Block {
+    std::vector<uint32_t> Cells;   /* 2 u32: [base | seedCount<<8], seedFirst */
+    std::vector<uint32_t> Seeds;   /* 2 u32: [tpl | rank<<8 | refCount<<16 | (wind+128)<<24], refFirst */
+    std::vector<uint32_t> Refs;    /* edge index */
+    std::vector<float> Edges;      /* x0,y0,x1,y1 */
+    int W = 0, H = 0;
+    double OrgE = 0, OrgN = 0, CellM = 1;
+  };
 
   const VegetationTemplates *Veg_;
-  Source Near_{14, {"land", "streets", "water_polygons", "water_lines", "sites", "street_polygons",
-                    "buildings"}, 1};
-  Source Far_{11, {"land", "streets", "water_polygons", "water_lines"}, 1};
-  Level Levels_[kLevels];
-  std::vector<Chunk> Written_;
-
-  /* The chunk being rasterised: sub-cell ids, and the scanline scratch that fills them. */
-  std::vector<uint8_t> Sub_;
-  std::vector<float> Edges_;       /* x0,y0,x1,y1 per edge, sub-cell units */
-  std::vector<float> Xs_;
-  std::vector<int> Dirs_;
-  int SubW_ = 0, SubH_ = 0;
-  double SubOrgE_ = 0.0, SubOrgN_ = 0.0, SubStep_ = 1.0;
+  Tier Near_{14, {"land", "streets", "water_polygons", "water_lines", "sites", "street_polygons",
+                  "buildings"}, 1, 16.0, 64, 256.0};
+  /* The far tier carries AREAS only: at a kilometre a 7.5 m road is under a pixel, and the street
+   * lines are two thirds of the z11 edge count. */
+  Tier Far_{11, {"land", "water_polygons"}, 1, 64.0, 128, 1024.0};
+  Block NearB_, FarB_;
+  std::vector<uint32_t> Buf_;
+  bool Dirty_ = false;
 
   double O_[3] = {0, 0, 0}, East_[3] = {1, 0, 0}, North_[3] = {0, 1, 0};
-  double CamE_ = 0.0, CamN_ = 0.0;
   bool Opened_ = false;
 
   std::unordered_set<std::string> Unknown_;
-  long UnknownFeats_ = 0;
-  long SubNoData_ = 0, SubTotal_ = 0, Texels_ = 0;
-  double RasterMs_ = 0.0;
+  long UnknownFeats_ = 0, Edges_ = 0, Seeds_ = 0, Probe_ = 0, ProbeNoData_ = 0;
+  int Overflow_ = 0;
+  double BuildMs_ = 0.0;
 };
 
 } // namespace outshine::World

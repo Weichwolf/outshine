@@ -31,6 +31,30 @@ systems/` and most of `core/` — was deleted on 2026-08-07 rather than repaired
 | `wasm` + `worker` | build |
 | `units/` | only `Unit.h` and `UnitRegistry.h` survive, kept alive by `world/World.cpp`'s effect path |
 
+### Why GPU-driven is not a preference: the CPU is the scarce resource, by orders of magnitude
+
+**~2000 GFLOPS across 640 shader units against 2 fast cores.** Two cores deliver some tens of GFLOPS for
+branchy code, so the ratio is one to two orders of magnitude — and it holds on the declared target
+hardware: the A18 Pro pairs 2 performance cores with ~2.6 TFLOPS, the PS4 paired 8 slow Jaguar cores with
+1.84 TFLOPS. Both times the CPU is what runs out.
+
+This session measured the imbalance without looking for it:
+
+| measured | |
+|---|---|
+| the whole GPU frame without grass | **6.6 ms** |
+| terrain mesh + DAG per tile, CPU | **12.8 ms** |
+| two of those per pass while streaming | **24–30 ms per frame** |
+| one building-DAG spike | **260–473 ms** |
+
+**The GPU idles at 6.6 ms while the CPU stalls the frame.** Moving the mesh and both DAGs into worker
+threads took p99 from 49.68 to 18.01 ms — but worker threads share the same two cores; the pool takes
+`hardware_concurrency() − 2` capped at six, which on two fast cores is optimistic because it counts
+efficiency cores. **Threads redistribute the CPU; they do not add any.**
+
+That is what makes "vectors on the GPU, bounding volumes on the CPU" the only split that fits the
+machine, rather than the tidier one.
+
 ### What the vectors on the GPU dissolve, and the one question they open
 
 The numbers are already measured and they point one way: a whole vector tile is **153 kB raw / 89.8 kB
