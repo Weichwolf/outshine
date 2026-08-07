@@ -427,6 +427,49 @@ carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
 
+### Water is geometry, not a class — and the regime that will judge it
+
+Owner, 2026-08-07: *„wasser kann keine steigung haben"*, *„wasser würde ich wie jeder engine als eigene
+geometrie rendern"*. Painted as a ground class, a lake follows the hillside under it and a 3 m brook is
+a sampling problem on a 16 m grid — **17 % coverage over 731 m of the Hannover canal, unchanged by the
+centreline rewrite because that rewrite never touched it**. A surface is not level because a shader
+says so; it is level because its mesh is.
+
+`world/WaterField` is the answer and it is deliberately BuildingField's shape: a lake is a footprint
+whose height comes from the shore instead of from a tag. The level is the ring's **5th percentile** of
+terrain, not its minimum — measured on the Weser at Hameln over 26 292 water pixels, min 62.97 m
+against p5 63.00 m against **max 129.93 m**, so outliers exist at both ends and only one of them is
+cheap to be wrong about. A ring point more than 5 m above the level is counted, because that is OSM and
+the DEM disagreeing about where the bank is. **Nothing draws it yet — there is no WaterStage.**
+
+**The regime that judges stage 3**, from the same conversation, recorded because it decides what is
+worth building:
+
+| | measures | target |
+|---|---|---|
+| **320×180, numeric** | ΔE per cell, sky gradient, horizon position, haze profile against a live webcam frame | the trainable signal |
+| **full resolution, LLM** | "which of these two is the photograph", order randomised | **50 % — indistinguishable** |
+
+At 320×180 a tree at 100 m is two pixels and a building ten: silhouette and mass survive, texture does
+not. That band carries exactly what an engine controls — **large-scale radiometry** — and drops what it
+can never match. The owner's reasoning is the load-bearing part: get the coarse light right and the
+full-resolution frame reads as real without being identical, so the answer to a bad comparison is never
+more detail.
+
+The reference is a fixed camera (foto-webcam.eu: position and altitude published, **no EXIF** —
+verified, the images are re-encoded by gd-jpeg and carry nothing but a quality comment). Orientation
+and field of view are solved ONCE per camera from landmark buildings whose OSM position we already
+render, and **the residual after that fit is the admission test**: a camera whose landmarks cannot be
+reconciled by any single pose is rejected rather than used, or the fit absorbs our own error into the
+reference. Weather is the trap — an overcast frame against a clear render is a weather difference and
+not an engine defect — so frames are selected by weather first and driven from `/wx` later. Season is
+an open gap: the epoch regulator is declared and not built.
+
+Performance is proven by a **360° yaw in 6 s** (60 °/s, 1° per frame at 60 fps, 360 frames): every tile
+enters and leaves, the class field re-anchors, and unlike the walking benchmark the path is identical
+every run — that benchmark's p99 scattered 5.1 ms on one binary.
+
+
 ### Stage 1 against the OSM bake — first critic cycle, 2026-08-07
 
 Binary pinned `c411c12e…`, three places at z14, orthographic, 2.93 m/px. What the critic measured and
