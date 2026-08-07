@@ -6783,3 +6783,27 @@ einem `FB_GEOM`-Paar, keine Ablesungen des Puffers, den das Compositing benutzt 
 wiederholen. Und: zweimal in zwei Runden hat eine Debugzeile im einzigen gelesenen Kanal wochenlang
 überlebt, weil das Bild **plausibel** blieb. Ein Shader, dessen Ausgabe nie gegen eine gerechnete
 Erwartung gehalten wird, hat kein Tor.
+
+## 2026-08-07 — Die L-Taste stand schon; was fehlte, war der Beweis und der Pfad im Dokument
+
+Der Standpunktlog war gebaut (`AppWasm.cpp` `PostShot`, `Snapshot.h`, `SimHost.cpp` `POST /shot/*`,
+`gpu_walk --snapshot`) und **nirgends nachgewiesen**. Ein Mechanismus ohne Messung ist eine Behauptung,
+also die Kette einmal ganz durchgezogen:
+
+Headless Chromium auf die ausgelieferte App, 75 s einschwingen, ein `L`:
+`{"ev":"shot_posted","pngBytes":759942,"http":200}`, eine Zeile an `sim/shots/shots.jsonl`.
+`gpu_walk --size 1280x720 --snapshot shots/shot-20260807T111409Z-001.json` stellt sie nach und
+**subtrahiert die abgeleiteten Größen selbst**: `dGroundM −3,133e−05 m`, `dSunElDeg −3,549e−05°`,
+`dSunAzDeg −4,458e−05°`. Das ist der Teil, den ein Pixelvergleich nie zuordnen könnte.
+
+**Die Abweichung ist eine Zahl:** 1280 × 720, **89,75 % bitgleich**, **99,44 % innerhalb von 2 Codes**,
+mittleres |Δ| 0,188, p99 = 1, Maximum 61. Jedes Pixel über 8 Codes — **2 087, also 0,226 %** — liegt im
+51 Zeilen hohen Band `y 330…381`: die ferne Stadt am Horizont, der Streaming-Schnitt der beiden
+Clients, nicht der Standpunkt.
+
+**Der feste Pfad steht jetzt in `doc/clients/clients.md`** — `sim/shots/shots.jsonl` auf dem Host,
+`SHOT_ROOT=shots/` im Container, von `up.sh` gemountet. Die Zeile ist selbsttragend: `camera`,
+die `scene`-Identität, gegen die `Matches()` prüft, und ein `derived`-Block, der nur da ist, um
+abgezogen zu werden. PNG zuerst, dann die Zeile, die es benennt.
+
+**Der Browser trägt die AO-Reparatur mit**: dasselbe Bild, dieselben grauen Fernhäuser statt schwarzer.
