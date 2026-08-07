@@ -237,23 +237,41 @@ key belongs on the tag, not on the paint.
 
 ### The declaration, and it is one file that already exists
 
-**`sim/assets/world/vegetation.json` is the right place and a third file would be a defect.** Each
-template already carries a `keySrgb` list — a list of keys that select it. The change is that the key
-space becomes `(layer, kind)` instead of a bake colour, as a sibling list on the same row, with a
-declared `rank` for the overlap order:
+**`sim/assets/world/vegetation.json` is the right place and a third file would be a defect.** The key
+space is `(layer, kind)` — the tag, never a paint — as a list on the same row that already carries the
+template, with a declared `rank` for the overlap order and, for a line layer, a `widthM`:
 
 ```
-{ "name": "wiese",
-  "osm": [ {"layer":"land","kind":"meadow","rank":30}, {"layer":"land","kind":"grass","rank":30},
-           {"layer":"land","kind":"grassland","rank":30}, {"layer":"land","kind":"park","rank":32},
-           {"layer":"land","kind":"village_green","rank":32}, ... ] }
+{ "name": "versiegelt",
+  "osm": [ {"layer":"streets","kind":"residential","rank":83,"widthM":5.5},
+           {"layer":"sites","kind":"parking","rank":62}, ... ] }
 ```
 
-**A further OSM layer is a row, not an edit**, which is the whole test: `layer` is a string the shared
-vector store already resolves (`OsmField::Layer`), so `barrier`, `landuse` or anything `tiles/` later
-carries is reachable without touching C++. The nine templates cover the 15 kinds `land` delivers plus
-`farmyard` and `plant_nursery`; the two that stay unreachable are the two this file already names —
-`nadelwald` (shortbread carries no leaf type) and `ufer` (a distance-to-water derivation, never a tag).
+**99 rows, 7 layers, and the layer list is DERIVED from them** — `VegetationTemplates::Layers()` — so no
+layer name exists in C++ at all. That matters because the tile server's layer set depends on the
+place: thirteen of the schema's layers are absent from the demo tile, and Manhattan carries its water
+in `ocean`/`water_polygons` and its street surface in `street_polygons`, which the Weserbergland tile
+does not have. A classifier wired to one region's layer set is blind in another.
+
+**`kind: "*"` is a declaration, not a fallback.** `buildings` emits no `kind` at all, so one wildcard row
+says *the kind does not change the class here*. A kind with neither an own row nor a wildcard is a
+`Log::Error` — that is the mechanism, and it fired on its first outing: `sites/sports_centre` (the
+British spelling) was unclassified, logged with its tag, and fixed by **one JSON line and no C++**.
+
+**The rank bands follow the server's declared inter-layer order** — land 10–49 → water_polygons 50 →
+sites 60 → street_polygons 70 → buildings 75 → streets 80 → water_lines 90. **Inside `land` the
+principle is that a broad land-use envelope loses to the more specific cover mapped inside it**: a wood
+inside a residential outline is a wood. That is the ordering the server does not have, over features
+that overlap by 2.41 % of the tile.
+
+**The width is a METRE value from the kind and it is decided here once**, because the later
+infrastructure geometry must read the number the classifier used. German design-standard carriageway
+widths without verges (RAA RQ 28 → 12.0 motorway; RAL 2012 RQ 11.5/9.5/7.5 → trunk/primary/secondary;
+RASt 06 6.5/5.5/4.75/3.5 → tertiary/residential/living_street/service; ERA 2010 2.0 cycleway; KTBL 443
+3.0 track crown; 1.8 footway, 1.5 path). Rail is the single-track ballast crown 3.8 m, ICAO Annex 14
+code 4 gives runway 45 and taxiway 23. The waterway widths are `[SET]` representatives — OSM carries no
+width on a water_line — and their only job is to keep a brook and a river an order of magnitude apart:
+drain 1.0, ditch 1.5, stream 2.0, canal 8.0, river 12.0.
 
 ### Three outcomes, three treatments, and a counter is not an error
 
@@ -265,29 +283,53 @@ carries is reachable without touching C++. The nine templates cover the 15 kinds
 | **a tag arrives that the table does not know** | **`Log::Error`, with the layer and the tag string.** This is the case the server watches with `style_unknown_kind`, and it is the one that hid 81 barrier ways for thirty hours |
 | **tile missing, parse failed, geometry unusable** | **`Log::Error`, loud, with the tile** |
 
-### The near field needs a cache the tile quadtree cannot give it
+### There is no class raster, and that is the point
 
-This is the structural consequence and it is why this is a round of its own rather than a swap of one
-function. The per-tile class array is indexed by tile slot and its ground resolution is
-`SpanM(z)/TS`; `kMaxZ` = 14 puts a hard floor of **2.9342 m** under it, so **rasterising the vectors
-into the existing array would fix the semantics and leave every acceptance number above unchanged.**
-A 5.5 m street still could not be free of grass.
+> Owner, 2026-08-07: *„können shader nicht direkt mit den osm vektordaten rechnen?"*
 
-What the near field needs is therefore a **world-anchored** cache, independent of the quadtree:
-snapped to a world lattice, scrolled in whole texels, and carrying **weights and not an index** —
-per texel the four largest area fractions and the four class ids they belong to, so the shader does
-the same four table reads it does today and the weights are *coverages* rather than bilinear
-distances. Naming the resolution decision, as required: **four channels is a choice, because `land`
-alone carries 15 kinds**; the measured overlap is 2.41 % of the tile over nine pairs, so a texel with
-more than three classes in it is rare and four is a bound with a measurement under it, not a guess.
-Below **≈ 0.37 m** any raster is resampling the vectors' own quantisation (`extent 4096` over
-1502.33 m = 0.3668 m per unit, mean residual 0.140 m against raw OSM), so a finer cache must justify
-itself; the fray the class boundary is allowed to carry is then the cache texel, and it is
-centimetres by choice of that texel and not by a blend width.
+They can, and the measurement decided it before a line of cache was kept. **The outlines live in a
+storage buffer and every fragment evaluates them**, the way a glyph rasteriser evaluates a contour:
+resolution-free, so the class has no resolution that could make it a function of the viewer. The
+failure this file spent three rounds forbidding by rule is now not expressible.
 
-**The cache is derived and never authoritative**, and the check is a pair: the same world point, two
-cache resolutions, one class.
+**The one condition it stands on is that no fragment tests against everything, and that is a number.**
+Measured over the 3×3 z14 block at the reference standpoint — 20.3 km², 2 246 area features, 25 501
+edges after every line is widened to its declared metre width:
 
+| acceleration cell | edges per cell, mean | p95 | p99 | worst | features per cell, mean | worst | buffer |
+|---|---|---|---|---|---|---|---|
+| 4 m | 2.90 | 6 | 11 | 25 | 1.86 | 14 | 16.6 MB |
+| 8 m | 3.16 | 8 | 12 | 35 | 1.93 | 14 | 4.9 MB |
+| **16 m (built)** | **3.87** | **10** | **16** | **45** | **2.11** | **14** | **1.8 MB** |
+| 32 m | 5.81 | 18 | 27 | 73 | 2.47 | 19 | 1.0 MB |
+
+**The acceleration structure carries exactly two things per cell**, and the first of them is why the
+common case costs no geometry at all:
+
+| | |
+|---|---|
+| **base** | the winning class of every feature that covers the cell **without a boundary in it** — one byte, no edges touched |
+| **seed** | for each feature that does have a boundary in the cell: its winding number at the cell's south-west corner, and that cell's edges of it |
+
+A fragment walks **corner → (px, cy) → p**, two axis-aligned legs that cannot leave the cell, so only
+this cell's edges can cross them and the winding is exact. Both legs use one sign rule each, and only
+their *consistency* matters — the winding is tested against zero and never read as a number.
+
+**Two tiers, and the split is a property of the VECTOR FETCH and of nothing else.** `kMaxZ` does not
+appear anywhere in this chain: z14 within 1024 m of the camera (a 3×3 block guarantees 1502.33 m) and
+z11 within 8192 m (a 3×3 block guarantees 12018.6 m). The far tier carries the **area** layers alone,
+because at a kilometre a 7.5 m road is under a pixel and the street lines are two thirds of the z11
+edge count. Beyond 8192 m there is no datum and the declared default is the honest answer.
+
+**One geometry, one predicate, two evaluators.** `ClassField::ClassAt` (CPU, no GPU in the call at all
+— that is the headless side) and `clsTier` (WGSL) read the *same bytes* with the *same* rule.
+Refinement is one-way and lives only in the shader: the boundary fray is
+`max(0.05 m, footM)` wide and the CPU does not have it. **So the two agree to within the fray, and
+that bound is stated rather than assumed zero.**
+
+**Four coverage weights per texel are retired with the raster that needed them.** At a point there is
+exactly ONE class; the second one exists only to antialias the boundary, and the shader knows the
+exact distance to it. That is strictly more than four quantised area fractions could say.
 ### The conflict rule
 
 Stated once so it is not invented per stage: **OSM vector beats position beats albedo.** A mapped road is
@@ -311,155 +353,100 @@ her."*
 | Axis the class must not depend on | Why it is a separate instance |
 |---|---|
 | **Mip level** | a class index is nominal, so its only defensible filter is the MODE — and a mode filter has no in-between: level 3 says meadow, level 4 says field, and one step across the mip boundary flips the material under the walker's feet. The `R8Uint` array carries **exactly one level** and the shader reads level 0 unconditionally |
-| **Tile zoom** | one array layer per resident tile, each in its OWN zoom at the same texel count, so the class raster's *ground* resolution doubles per zoom step and a boundary lands on a different lattice at a split. In the STEADY state that is real and invisible, and MEASURED as such: within one zoom every tile shares a grid, so only a split can move a boundary; the z13→z14 split sits at `SpanM(z)·kSseK/kEdgeTau` = 3000.8 × 623.54/384 = **4873 m**, where one z14 texel (±2.93 m) subtends 0.60 mrad = **0.41 px** at 688 px/rad. Sub-pixel. **What that measurement does NOT cover is a coarse tile drawn CLOSE because its child has not arrived**, and that is a second instance with its own size: a z13 parent under the walker's feet answers at 5.86 m/texel. Fixed for the ground cover, bounded for the terrain shader (`## State`) |
-| **The consumer's own sampling lattice** | this WAS the reported defect. A stage that re-samples the class on a grid anchored to the camera makes the class a function of where the viewer stands, even though the class texture itself is innocent. Measured: grass coverage in a fixed WORLD strip swung **5.8×** with a period of exactly 2.0 m — the field spacing. The lattice must be anchored to the world, and the anchor must be exact |
+| **Tile zoom** | one array layer per resident tile, each in its OWN zoom at the same texel count, so the class raster's *ground* resolution doubles per zoom step and a boundary lands on a different lattice at a split. In the STEADY state that is real and invisible, and MEASURED as such: within one zoom every tile shares a grid, so only a split can move a boundary; the z13→z14 split sits at `SpanM(z)·kSseK/kEdgeTau` = 3000.8 × 623.54/384 = **4873 m**, where one z14 texel (±2.93 m) subtends 0.60 mrad = **0.41 px** at 688 px/rad. Sub-pixel. **What that measurement does NOT cover is a coarse tile drawn CLOSE because its child has not arrived**, and that is a second instance with its own size: a z13 parent under the walker's feet answers at 5.86 m/texel. Fixed for the ground cover, bounded for the terrain shader (`## State
 
-Everything the distance *is* allowed to change — the relief octaves, the Toksvig roughness, the litter
-mix — is derived from the pixel footprint further down the same function.
+**The class is EVALUATED from the vectors and there is no class raster on either side.** `world/ClassField.h`
+owns the whole chain: it streams the OSM vector tiles into `OsmField`, resolves every feature through
+the declared `(layer, kind)` table, lays the features down in declared rank order into a 16 m
+acceleration grid and packs the result into ONE storage buffer that the fragment and the CPU read with
+the same predicate. `TilesStage` binds it at slot 13; the per-tile `R8Uint` class array, its layer
+allocator and `/bake/osm` in the class path are gone.
 
-**Temporal smoothing is not a fix.** Hysteresis, a fade over time or a blend between the old and new
-answer all leave the class a function of the viewer and merely make the dependency harder to see. The
-acceptance is not "it looks stable": it is that a **fixed world point returns an identical class index
-across a whole walk**, including points inside a transition zone, where it is not free.
+### The four acceptance numbers, before and after
 
-**"Not yet known" is a state and it must be carried, not filled in.** Where the data for a place has
-not arrived, the honest answer is that there is no class there — and a consumer that decides EXISTENCE
-must then produce nothing. Letting a coarser ancestor answer in the meantime is the same defect as the
-mip filter with a clock on it: it makes the class a function of the streaming state, and the streaming
-state is a function of where the camera has been. No grass reads as "not loaded"; the wrong grass reads
-as the world changing its mind.
+Before, 2026-08-07, against the baked class raster; after, 2026-08-07, against the CPU evaluator
+sampled on a world-snapped lattice (5 cm at the standpoint, 2 cm in the settlement 1.24 km west).
 
-### The class boundary is CLEAN and HARD — the fray is centimetres
-
-> Owner, 2026-08-07: *„die grenzen müssen sauber verlaufen und relativ hart was die bodentextur angeht.
-> mit ausfransen meine ich lediglich cm."*
-
-**Two different things were conflated here and only one belongs to this file.**
-
-| | Scale | Whose |
+| | before | after |
 |---|---|---|
-| **The ground class boundary** — where meadow becomes field in the ground shader | **centimetres** | this file |
-| **The vegetation edge** — how trees thin out at a forest margin | metres | the tree layer, a PLACEMENT question |
+| perpendicular wobble of a **straight** OSM `land` boundary | RMS **1.192 m** over 12 segments; **0.955 m** over the 11 no second feature crosses; worst 14.5 m | RMS **0.1803 m** over 78 segments ≥ 25 m, 3 053 transects; **0.0689 m** over the 94.4 % no second feature crosses within 0.5 m; worst 0.997 m. **6.6× / 13.9×** |
+| residential street, drawn width (real 5.5–6.0 m) | **3.52 m** at every texture size | **5.50 m** median, n = 93 — the declared value, exactly |
+| stream against river | **4.40 m, both alike** | stream **1.98 m**, river **11.98 m** — the declared 2.0 and 12.0 |
+| grass-free width | nothing under **5.868 m** could be free of its neighbours (±2.934 m bilinear support) | the fray is **max(0.05 m, footM)**: a 5.5 m street is pure over **5.40 m** at 1.70 m eye height |
 
-The ground boundary is not an ecological zone. It is a **line treatment**: an OSM boundary is a
-mathematical straight edge, and a few centimetres of world-fixed irregularity on the class weights stop
-it reading as a drawn vector. Nothing more. **A road stays hard, and so does a field edge.**
+Two more widths measured the same way: `service` 3.55 m (declared 3.50, one 5 cm sample step),
+`track` 3.05 m (declared 3.00), `footway` 1.80 m (declared 1.80).
 
-| Contract | Acceptance / measurement anchor |
+### The class does not depend on the viewer, and it is a measurement rather than a rule now
+
+| Check | Result |
 |---|---|
-| The boundary is clean and hard | no ramp in metres, no per-class-pair width table for the ground |
-| The fray is **centimetres**, and it is world-fixed | frequency declared in metres, evaluated at the world coordinate — never at a texel, a raster cell or a screen coordinate. A field whose frequency scales with the raster jumps at a zoom step, only less visibly |
-| **Stability outranks the fray** | if the two collide the fray is dropped and reported as open. An edge that looks soft but breathes when you walk is worse than a hard edge that stands |
+| **CPU against GPU**, the acceptance headless demands | 1 280×720 at the reference scene, class-viz frame plus the depth buffer, every ground pixel reprojected and asked of `ClassField::ClassAt`: **100.0000 %** agreement over **448 837** pixels in the 3 solid colours (98.2 % of ground pixels). Over all 457 014 compared pixels including the resolve filter's 1 489 edge-blend colours: 99.913 %. 1 514 pixels (0.33 %) lay inside the fray and are excluded by the declared bound |
+| **World-fixity and cache consistency in one** | two runs, camera **600 m** apart, the acceleration grid re-anchored between them, class sampled on the same world-snapped 25 cm lattice over the 599 × 1200 m overlap: **0 of 11 496 000 samples differ** |
+| Mip level, tile zoom, consumer lattice | not applicable: no raster exists to have a level, a zoom or a lattice |
 
-**Research that answered the OTHER question, kept because the tree layer will need it.** Measured
-forest-edge widths for beech-on-limestone in this landscape: two thirds of all edges are **under 5 m**
-(Lewark 1971, Hann. Münden, ~300 km of edge length); beech makes a ground-deep steep edge at ~1 m,
-spruce 0.5 m, only oak on a S/W aspect reaches 5 m. The 20–30 m "ideal forest edge" of the guidance
-leaflets is a *Leitbild* traced to romantic landscape painting (Gehlken 2014) and is fallow where it
-occurs at all. **That is a placement rule for trees, not a blend width for the ground.**
+### The three outcomes are separated and counted
 
-### One transition that is not a gradient, and it is not the ground's
+| Case | Built | Measured at the reference scene |
+|---|---|---|
+| no OSM datum at this place | declared default (`osmDefault`, `wiese`), a **counter**, never a log line | **18.5 %** of the near grid's cell centres (17.2 % in the settlement) |
+| a tag the table does not know | `Log::Error` with layer and kind, once per distinct pair, plus a feature counter | fired on `sites/sports_centre`; **0** after one JSON row |
+| layer absent from the tile | **counter** — 13 of the schema's layers are absent from the demo tile and that is a property of the PLACE | `OsmField::MissingLayers()` |
+| tile missing, bytes undecodable | `Log::Error` with the tile | `OsmField::BadTiles()` |
 
-The unpaved field path is a **stripe pattern**, not a blend: grass — wheel rut — grass (centre strip) —
-wheel rut — grass. Five bands, four hard edges, verge 1.0 m per side on a 5.50 m crown width (KTBL 443).
-It is the one case where "clean and hard" produces structure rather than a single line, and it belongs
-to whoever draws the path.
+### What it costs
 
+| | before | after |
+|---|---|---|
+| class VRAM | 32.5 MB (124 tiles × 512² × 1 B) | **3.48 MB**, one buffer — and it does not grow with the tile count, because it has nothing to do with tiles |
+| albedo VRAM | 0 (already) | 0 |
+| structure rebuild | — | **max 9.7 ms**, and it runs when the camera leaves its grid by 448 m (near) / 3800 m (far) or a vector tile lands. `walkbench` green over 1.4 / 4.2 / 15 / 150 m/s: p99 19.1 / 20.7 / 20.7 / 18.9 ms, > 2.5 frame periods **0.00 %** at every speed |
+| per fragment | one `textureLoad` of an `R8Uint` array + 4 storage reads | one cell read + **3.87 storage reads on average**, p99 16 |
 
-## State
+### The decoder bug this round found, and it had eaten every line feature
 
-**The raster colour is now an INDEX by construction, not by convention.** `World::ClassifyRaster` is the
-only reader of the decoded bake: it resolves each texel through the 32³ LUT to one byte and the colour
-bytes are dropped. The GPU array is `R8Uint`, so no fragment can reach a cartographic colour even by
-mistake — the error this file warns about (road fill at 0.79 linear where asphalt is 0.12) is no longer
-expressible. Measured side effect: `albedoVramMB` 130 → 0, `classVramMB` 43.33
-([`stages/terrain.md`](stages/terrain.md) `## State`).
+`OsmVector` emitted a `Ring` **only on ClosePath**, and a LINESTRING never sends one. Every way in every
+tile therefore arrived with `RingCount` 0 — no error, no counter, a legal-looking empty feature. **206
+street features and 12 water lines per 3×3 block, silently.** That is why the previous round could
+only measure lines through the tile server's own raster. Now each MoveTo and the end of the geometry
+stream close the open run.
 
-**The class is read at level 0 and the class texture has no other level.** The mode-filtered mip chain
-that stood here made the class a function of the pixel footprint, i.e. of the viewer's distance — owner
-report 2026-08-06, *„bei Bewegung wechselt die Klassifizierung hin und her."* MEASURED at the reference
-scene (identical camera, mip-filtered read vs. level-0 read, class index rendered per pixel):
-**0.000 %** of ground pixels below 30 m disagree, **6.05 %** at 100–300 m, **5.72 %** at 300–1000 m and
-**7.66 %** beyond 1000 m — that share of the far field was being renamed by the filter alone, and it
-changed whenever the camera moved. Reprojected onto ground cells, the level-0 read gives the same class
-at the same place from two camera positions 8 m apart across **5 927** boundary-free 0.5 m cells
-(100.0000 %). Side effects: `classVramMB` 40 → 30 (the chain was 4/3 of level 0), one `WriteTexture`
-per tile instead of ten, frame time 6.80 → 6.93 ms at a run-to-run spread of 0.15 ms, i.e. inside the
-noise. The mode filter also **deleted thin classes** — a road one texel wide loses every majority vote —
-which is visible as broken road lines in the far field of the old class image.
+The second half of the same class of defect: `OsmVector::Parse` returned the same bare `false` for *this
+tile has no such layer* and *these bytes will not decode*. An island has no `water_lines`; that is not a
+parser failure. Separated, with `present` as an out-parameter.
 
-**There is ONE class path left, and it is the fragment's own.** The second path — a 49×49 height/class
-field that `World` rasterised for the cover stage — was deleted with that stage on 2026-08-07, and with
-it the defect it carried: the field was centred on the EYE, so its samples resampled the class raster at
-sliding points. The finding it produced survives as a rule rather than as a field, because the lattice
-the stand is hashed on is now the graticule and nothing else
-([`stages/terrain.md`](stages/terrain.md) `## Spec`).
+### What is NOT built
 
-**The class the shader draws is still the drawn leaf's, and the fixed-zoom form is measurably dead for
-it.** Expressing the 130 drawn leaves of the reference scene at `kMaxZ` needs `Σ 4^(14−z)` = 11 776
-class tiles = 2 944 MiB and 11 776 array layers against a 2 048-layer device cap — 5.75× over. What
-the drawn class actually costs is bounded instead: 0 pixels of 921 600 differ between a walking frame
-and a converged one at 1.0 m per pass, 2.23 % at 16 m per pass. Named in
-[`stages/terrain.md`](stages/terrain.md) `## Gaps`.
+**The building branch has nothing beyond the footprint.** Geo-coordinate, base albedo, epoch and decay are
+declared in the Spec and read by nothing. Height is a `[SET]` 9.0 m on 95.8 % of the reference town,
+because `fb-tiles` does not carry `building:levels`.
 
-**Nothing of the vector path is built, and the measurements above are the "before" half of its
-acceptance.** What was done in the round of 2026-08-07 is the reading, the arithmetic and the
-decisions: the server's chain was read and its three answers judged (one adopted, one found implicit,
-one rejected with a measurement), the declaration was placed on the row that already carries a key
-list, the three log outcomes were separated, and the structural blocker was found and stated —
-`kMaxZ` = 14 puts a **2.9342 m** floor under every per-tile class raster, so the near field needs a
-cache the quadtree cannot give it. **No line of the classifier exists.** The two blockers that were
-named at the start of that round were already gone: `OsmVector::Str` and `OsmField::Str` read string
-tags, and `OsmField` is the shared geodetic vector store across tile seams, already declaring
-`{"buildings", "land"}` with `land` unread.
-
-**Vegetation branch: one of three inputs is wired.** The albedo path exists as a 32³ LUT over the key
-colours (`sim/src/world/VegetationTemplates.h` and the table it indexes); position and OSM vector are not
-read by the classifier at all. There is no class model in the sense of `## Spec` — no class list with
-declared inputs, no conflict resolution, and nothing downstream that reads a class rather than a colour.
-
-**Building branch: nothing of it is built.** What exists is footprint extrusion and one albedo for
-everything — no type, no region, no epoch, no decay. Measured in `sim/src/world/BuildingField.cpp` on
-`/t/vector/14/8617/5404` (Hameln): **1634 of 1706 footprints carry exactly the provider's fill value 5**
-— 95.8 %, integer — over an Altstadt that is three and four storeys of half-timber. The code therefore
-substitutes a `[SET]` **9.0 m** (2 × 2.9 m floor-to-floor to the eaves plus a 3.2 m pitched roof on a
-~9 m span at 35°) for that fill, and the right fix is named upstream: `fb-tiles` must carry OSM's
-`building:levels`.
+**`nadelwald` and `ufer` are still unreachable**, and now for a stated reason rather than a missing key:
+shortbread carries no leaf type, and `ufer` is a distance-to-water derivation, not a tag. Both rows
+carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
 
-- **Two of three vegetation inputs are unwired.** Position (latitude, elevation, slope, aspect) and the
-  OSM vector layers are named in the Spec and read by nothing. The vector tiles are already fetched and
-  parsed for building footprints, so the acquisition half is done and the classifier half is not.
-- **The measured consequence: `nadelwald` and `ufer` are unreachable.** The OSM raster paints deciduous
-  and coniferous forest with the same `(70,105,60)`, and `ufer` is a distance-to-water question. Both
-  classes exist in `vegetation.json` with no key colour, which is the class model asking for the input
-  it does not get.
-- **The 8-bit albedo quantisation and the latitude/elevation plausibility filter do not exist.** They are
-  the index side of [`vegetation.md`](vegetation.md)'s 256 templates.
-- **The building branch has no inputs at all beyond the footprint.** Geo-coordinate, base albedo, epoch
-  and decay are declared here and read by nothing. There is no building-type list, no regional
-  distribution, and no generator that takes one.
-- **Height is a default, not a measurement, on 95.8 % of the reference town** (`## State`). Every
-  building-type decision downstream inherits that: a type that implies storeys cannot be checked against
-  a height that came from a constant.
-- **Uniform decay is a named defect with no mechanism to avoid it.** The rule (edge, plinth, weather
-  side) is written down in the `architect` agent's acceptance list; nothing in the tree computes a
-  decay field with those anchors.
-- **The vector classifier is specified and not built**, and the acceptance numbers stand measured at
-  their "before" values: straight-boundary RMS **1.192 m**, residential street painted **3.52 m**
-  where it is 5.5–6.0 m, stream and river painted **4.40 m** alike.
-- **`tex=512` is a `[SET]` constant in two clients and nothing measures it.** It is what makes 144 of
-  206 street features absent, and it is the whole reason `classVramMB` is 32.5 rather than 130. Raising
-  it is the cheapest available improvement to the built path *and* it cannot reach the acceptance,
-  because the stroke width is scale-invariant. Recorded so the option is not rediscovered as a fix.
-- **`vegetation.json` is keyed by the bake's palette.** Every one of the nine templates selects itself
-  through `keySrgb`, i.e. through a colour `tiles/src/style.h` chose. Deleting the bake without moving
-  that key first leaves the class model with no key space at all.
-- **The class list itself is unwritten, on both branches.** The build order puts the class model first;
-  what exists is a colour LUT, which is step zero of it. Until the lists, their inputs and their conflict
-  resolution are written down, every consumer is free to re-derive — which is exactly what the chain
-  forbids.
+- **`/bake/photo` and the PNG path in the tile worker are still in the tree.** The class no longer touches
+  the bake — `/bake/osm` has no reader left and neither client requests it in its default mode — but
+  `fb_stream_pyramid`, `WriteAlbedoLayer`, the photo array and the worker's PNG decode still exist behind
+  the EVS toggle. Deleting them is a wide, mechanical removal across `TerrainLoader`, `TileWorkerMain`,
+  `TilesStage`, `Renderer`, `World` and both clients, and it was not done in this round.
+- **The far tier answers with the DECLARED DEFAULT beyond 8192 m.** Flat ground beyond that subtends
+  688 × 1.7 / 8192 = **0.14 px** from a 1.70 m eye, so it is only relief above the horizon that is
+  affected; how much of the frame that is has not been measured.
+- **A feature narrower than the pixel still flickers.** The fray blends the boundary over `footM`, which
+  antialiases an edge but not a road narrower than a fragment: the fragment centre is either on it or
+  not. A raster's mip averaged that; this does not. Not measured, not fixed.
+- **`kSeedCap` = 32 and `kRefCap` = 255 are `[SET]` caps with a measurement under them** (worst cell 14
+  features, 45 edges) and a counted fallback: over the cap the feature is written into `base` instead
+  of getting a seed, which keeps its class and loses its boundary. `SeedOverflow()` is **0** at the
+  reference scene and in the settlement.
+- **Both branches' position input is still unwired.** Latitude, elevation, slope and aspect are named in
+  the Spec and read by nothing; the conflict rule's middle term therefore does not exist yet.
+- **Uniform decay is a named defect with no mechanism to avoid it.**
+- **`verify-trees` is red for `world/terrain` and `mods/demo`**, unchanged by this round (9 orphans before
+  and after).
 
 ## Knowledge
 

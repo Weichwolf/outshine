@@ -466,7 +466,7 @@ delivers, under which endpoints, at which resolution.
 | `/t/terrain/z/x/y` | terrarium RGB PNG (DEM) | 200 / 202 "fetching" / 204 "absent" | osmmesh via the provider callback; `fb_stream_dem` raw |
 | `/t/vector/z/x/y` | Mapbox vector tile (pbf) | ditto | server-internal (bakes); the sim client does not ask for it directly |
 | `/t/imagery/z/x/y` | JPEG aerial imagery | ditto | server-internal (photo bakes) |
-| `/bake/osm/z/x/y?tex=N&v=VER` | rendered OSM albedo (PNG) | 200 / 204 | `fb_stream_pyramid(mode=0)` |
+| `/bake/osm/z/x/y?tex=N&v=VER` | rendered OSM albedo (PNG) | 200 / 204 | **no reader in the class path any more** — the ground class is evaluated from `/t/vector` ([`../render/classification.md`](../render/classification.md)). `fb_stream_pyramid(mode=0)` survives only as the EVS overlay's fallback |
 | `/bake/photo/z/x/y?tex=N` | aerial-imagery albedo mosaic | 200 / 204 | `fb_stream_pyramid(mode=1)` |
 | `/t/lights/z/x/y` | binary night-light list | 200 (even empty) / 204 (no vector datum) | `fb_stream_lights` |
 | `/t/stars/{band}/0/0` | HYG star band, 6 B/star | 200 / 404 | `fb_fetch_stars` (4 bands, concatenated) |
@@ -641,8 +641,20 @@ monotone). It would also leave a declared 0.30 m close-up silently rendered from
 | **Two bake modes, one single visible switch** *(parked in the roadmap until this split; now homed here)* | SVS (OSM) and EVS (photo) have different lighting semantics ([`../render/renderer.md`](../render/renderer.md)): SVS pins day = 1 and switches stars/lights/clouds off. The switch today is the TAB key in the browser. There is no declaration layer for it — **a scenario cannot declare the picture mode at all.** |
 | **TLS is not wired in the tile server** *(parked in the roadmap until this split; now homed here)* | `tiles/nginx.conf`, explicitly noted as a documented gap: `FB_DOMAIN` exists as an env hook, but there is no `listen 443 ssl;` block and no ACME. For central hosting that is a piece of work of its own, not a flag. |
 | **A give-up and a hole are the same return value.** `fb_get` (`TerrainLoader.cpp`) retries 60 × 50 ms = **3 s** and then returns 0 — the identical value it returns for HTTP 204, a genuine hole. A cold tile that is slow is therefore indistinguishable from a tile with no data, and `osmmesh` builds an empty one without anybody being told. Measured 2026-08-07 over twelve cold world tiles (Tokyo, Osaka, Seoul, Delhi, Istanbul, Moscow, Lagos, Mexico City, Buenos Aires, Jakarta, Chicago, Madrid): readiness p50 **114 ms**, max **396 ms**, **0/12** over 3 s — so the budget is 7.6× the worst case and this does not fire today. It is latent, and it is exactly the silent substitution the rules forbid |
-| **`OsmVector::Parse` returns `false` for "layer absent" and for "bytes broken" alike.** Manhattan carries no `water_lines` — it is an island, and the water is in `ocean`, `water_polygons` and `pier_lines` — and that correct absence is reported as a decode failure. An ocean would count as a parser error and a parser error as an empty ocean |
-| **The layer set is location-dependent and nothing declares it.** Thirteen layers occur in city tiles that the demo tile does not have (below). A classifier wired to the Weserbergland set is blind in Manhattan, where `street_polygons` carries the road AREA and `ocean` the water. The layer list belongs in the JSON declaration, not in the code |
+
+**`OsmVector` decoded no line feature at all until 2026-08-07.** A `Ring` was emitted only on ClosePath
+and a LINESTRING never sends one, so every way arrived with `RingCount` 0 — no error, no counter, a
+feature that looks legal and is empty. **206 street features and 12 water lines per 3×3 z14 block**,
+silently, for as long as the reader existed. Each MoveTo and the end of the geometry stream now close
+the open run. The polygon path is unchanged and its ring winding still decides exterior/interior.
+
+**`Parse` no longer conflates "layer absent" with "bytes broken".** An island has no `water_lines`; the
+demo tile has none of thirteen of the schema's layers. The out-parameter `present` separates them, and
+`OsmField` counts the first (`MissingLayers()`) and logs the second with its tile (`BadTiles()`).
+
+**The layer set is no longer written in C++.** `VegetationTemplates::Layers()` derives it from the
+declared `(layer, kind)` rows, so a region whose tiles carry `ocean` or `street_polygons` is reached by
+a JSON row.
 
 ## Knowledge
 

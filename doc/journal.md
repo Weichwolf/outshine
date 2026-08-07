@@ -6912,3 +6912,29 @@ Offen und Voraussetzung: das Höhenorakel widerspricht dem gezeichneten Netz um 
 1,89 m**, weil `ChunkBuildEcef` 256² auf 33² Stützstellen dezimiert (46,9 m bei z14). Ein Baum stünde
 damit bis zu 1,89 m falsch. Behebung benannt und ungebaut: das Orakel wertet die GEZEICHNETE Fläche aus
 statt das DEM ein zweites Mal.
+
+## 2026-08-07 — Die Klassifizierung hat kein Raster mehr
+
+**Gemessen, bevor gebaut wurde, und die Messung hat den Bau umgeworfen.** Der Auftrag war eine
+weltverankerte Clipmap aus Deckungsgewichten. Die Frage „können shader nicht direkt mit den osm
+vektordaten rechnen?" wurde vor der Fertigstellung gestellt und ist mit den echten Daten entschieden:
+über dem 3×3-z14-Block am Referenzstandpunkt (20,3 km², 2246 Flächenmerkmale, 25501 Kanten nach dem
+Verbreitern jeder Linie auf ihre erklärte Meterbreite) sieht ein Fragment bei 16-m-Beschleunigungszelle
+im Mittel **3,87 Kanten und 2,11 Merkmale**, p99 16 Kanten, schlimmste Zelle 45 Kanten und 14 Merkmale.
+Der Puffer wiegt **1,8 MB** gegen 32,5 MB Klassenraster. Damit war die Clipmap eine Optimierung ohne
+Messung dahinter, und sie ist weggefallen statt fertiggebaut worden.
+
+**Was das strukturell erledigt:** ein Raster hat eine Auflösung, und die Auflösung war dreimal die
+Ursache dafür, dass die Klasse von der Kamera abhing (Mipstufe, Kachelzoom, Abtastgitter des
+Verbrauchers). Ohne Raster ist die Fehlerklasse nicht mehr ausdrückbar, nicht mehr nur verboten.
+
+**Vier Abnahmezahlen, vorher → nachher:** gerade Nutzungsgrenze RMS **1,192 → 0,180 m** (0,955 → 0,069 m
+ohne kreuzendes zweites Merkmal), Wohnstraße **3,52 → 5,50 m** bei erklärten 5,5, Bach gegen Fluss
+**4,40/4,40 → 1,98/11,98 m**, Grasfreiheit von „nichts unter 5,868 m" auf eine Ausfransung von
+**max(0,05 m, footM)**. CPU gegen GPU: **100,0000 %** über 448837 Bodenpixel. Weltfestigkeit: zwei
+Läufe, Kamera 600 m auseinander, Gitter neu verankert, **0 von 11496000** Abweichungen.
+
+**Der Fund, der dreißig Stunden gekostet hätte:** `OsmVector` gab für JEDE Linie eine leere Geometrie
+zurück — Ringe wurden nur bei ClosePath ausgegeben, und ein LINESTRING sendet keins. 206 Straßen und 12
+Wasserläufe je Block kamen als `RingCount` 0 an, ohne Fehler und ohne Zähler. Genau der Defekt, gegen
+den die drei getrennten Fehlerbehandlungen dieser Runde gebaut wurden, im eigenen Dekoder.
