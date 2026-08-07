@@ -77,6 +77,14 @@ assumption that was false, and 466 measured lines were lost proving it.
 hundred frames, with movement at walking, sprint and well above, plus fast panning. Report p50, p95, p99
 and the trend. Stutter is a p99 event.
 
+**When stuck or going in circles, do it the way the established AAA titles do.** Owner, 2026-08-07:
+*„bitte immer wenn du nicht weiter kommst oder dich im kreis drehst mach es wie die etablierten AAA
+titel es machen"*, *„versuch doch hier nicht das rad neu zu erfinden"*. Twice in one round this was the
+shorter path: water is a SEPARATE animated surface in every game, which ended a design deliberation
+before it started, and a water plane is LIFTED off the terrain exactly as a decal is, which doubled its
+coverage after cycles of theorising. A settled industry answer is evidence, not a shortcut — and this
+does not suspend the measuring rules, it decides which thing to measure.
+
 **Measure rather than reason.** Owner, 2026-08-07: *„viel und ausgiebig messen und benchen ist eh gut.
 rechenzeit ist billig, du bist teuer."* Do not argue about what a number probably is — run it. Do not
 take one sample where hundreds are free. Do not carry a stale figure forward; re-measure. Every wrong
