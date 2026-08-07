@@ -34,11 +34,21 @@ public:
   /* One-sided lamina area of the WHOLE crown, m^2 — the numerator of a leaf area index. */
   double LeafAreaM2() const { return AreaM2_; }
   double OneLeafAreaM2() const { return Count() > 0 ? AreaM2_ / (double)Count() : 0.0; }
+  /* Area of ONE lamina at leaf-local length 1: the shape's own constant, free of any metre. */
+  double LaminaAreaLocal() const { return LocalArea_; }
+
+  /* THE LEAF LENGTH A CLUSTER CARD MUST DRAW. `leavesPerCard` laminae on each of Count() cards have
+   * to add up to the declared leaf area index over the crown's projected area, and that fixes the
+   * length: lai * proj = Count * per * LocalArea * L^2. The drawn leaf comes out larger than the
+   * species' own — that is the price of a closed canopy at two triangles per card, and it is a
+   * DERIVED price rather than a chosen one. */
+  float CardLeafM(int leavesPerCard, double lai, double crownProjM2) const;
 
 private:
   std::vector<float> Inst_;
   float ScaleM_ = 0.1f;
   double AreaM2_ = 0.0;
+  double LocalArea_ = 0.0;
 };
 
 } // namespace outshine::World

@@ -4,6 +4,7 @@
   "habit": "kurzer Stamm, breite Krone, lange ueberhaengende bis bodenlange Zweige",
   "height_m": 18, "spread_m": 18,
   "bhd_cm": 51, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.35. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Trauerweide, sehr kurzer sehr dicker Schaft unter einer haengenden Krone. 18 / 0.35 = 51.4 cm, gerundet 51.",
+  "lai": 4.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Weide, haengende lichte Krone. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 16, "trunk_sides": 10, "base_radius": 0.085, "step_len": 0.16,
   "trunk_steps": 16, "bare_steps": 4, "taper": 0.95, "min_radius": 0.004, "twig_radius": 0.008,
   "branch_chance": 0.85, "max_order": 3, "terminal_fork": 1,

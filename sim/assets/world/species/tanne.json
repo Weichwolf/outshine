@@ -4,6 +4,7 @@
   "habit": "schmal kegelfoermig, gerader Leittrieb, waagerechte Aeste in etagen, oben spitz",
   "height_m": 40, "spread_m": 7,
   "bhd_cm": 53, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.75. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Weisstanne, dickschaeftiger als Fichte bei gleicher Hoehe. 40 / 0.75 = 53.3 cm, gerundet 53.",
+  "lai": 9.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Weisstanne, die schattenvertraeglichste und dichtest benadelte Art hier. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 20, "trunk_sides": 10, "base_radius": 0.06, "step_len": 0.16,
   "trunk_steps": 32, "bare_steps": 5, "taper": 0.965, "min_radius": 0.005, "twig_radius": 0.012,
   "branch_chance": 0.9, "max_order": 3, "terminal_fork": 0,

@@ -4,6 +4,7 @@
   "habit": "hoher gerader Stamm, hochangesetzte dichte rundliche Krone, aufstrebende dann ausladende Aeste",
   "height_m": 30, "spread_m": 18, "height_sigma": 0.066,
   "bhd_cm": 43, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.70. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Rotbuche im geschlossenen Bestand; 0,6...0,8 ist das Stabilitaetsband, >1,0 gilt als schneebruchgefaehrdet. 30 / 0.70 = 42.9 cm, gerundet 43.",
+  "lai": 6.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Laubwald, geschlossener Buchenaltbestand; Band 5...7 aus Streufall- und Hemispheric-Photo-Messungen. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 11, "shade_prune": 0.6, "trunk_sides": 11, "base_radius": 0.08, "step_len": 0.16,
   "trunk_steps": 26, "bare_steps": 9, "taper": 0.955, "min_radius": 0.005, "twig_radius": 0.012,
   "branch_chance": 0.85, "max_order": 4, "terminal_fork": 1,

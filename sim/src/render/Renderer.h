@@ -139,13 +139,27 @@ public:
                    const float *inst, uint32_t ninst, float scaleM) {
     Trees->SetLeaf(verts, nverts, idx, nidx, inst, ninst, scaleM);
   }
+  void SetTreeCards(const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
+    Trees->SetCards(inst, n, leafLenM, spreadDeg);
+  }
   void SetTreeLook(const TreeLook &look) { Trees->SetLook(look); }
-  void SetTreeStands(const float *inst, uint32_t n) { Trees->SetStands(inst, n); }
+  void SetTreeStands(const float *inst, uint32_t n, const float *distM) {
+    Trees->SetStands(inst, n, distM);
+  }
+  long TreeMeshStands() const { return Trees->MeshStands(); }
+  double TreeMeshRadiusM() const { return Trees->MeshRadiusM(); }
   void SetTreeStand(double eastM, double northM, double eyeAglM, double heightM) {
     Trees->SetStand(eastM, northM, eyeAglM, heightM);
   }
+  void SetTreeCrown(float halfWidth, float top, float bottom) {
+    Trees->SetCrown(halfWidth, top, bottom);
+  }
+  /* THE ONE PASS THAT IS NOT PER FRAME. Renderer opens every render pass, and the impostor atlas is
+   * baked ONCE at load into its own command buffer — the per-frame pass count is untouched. */
+  void BakeTreeImpostor(void);
   void SetTreeLeavesVisible(bool on) { Trees->SetLeavesVisible(on); }
   long TreeTriangleCount(void) const { return Trees->TriangleCount(); }
+  long TreeImpostorStands(void) const { return Trees->ImpostorStands(); }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). Nothing
    * below the size of a tree answers to it (doc/goal.md), so it is held for the consumers that owe a

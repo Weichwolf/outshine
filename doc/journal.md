@@ -32,6 +32,50 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-07 — Die LOD-Kette: der ferne Rang traegt 34 052 Baeume fuer 4,68 ms, der nahe kostet 79
+
+**Der Feldpfad zeichnet Laub, und zwar als Clusterkarte.** Zwei Dreiecke schneiden sich
+`kLeavesPerCard = 16` Laminae aus `world/TreeLeaf::ProfileWidth` selbst aus — dieselbe Kurve, in
+WGSL. Kein Atlas traegt eine Blattform. Die Kartengroesse ist hergeleitet:
+`lai · Kronenprojektion = Kartenzahl · Blaetter je Karte · Laminaflaeche · L²`, mit `lai` je Art
+deklariert; fuer die Buche 0,098 m gegen 0,100 m deklarierte Blattlaenge.
+
+**Der ferne Rang ist ein oktaedrischer Impostor**, 8x8 Hemi-Oktaeder-Ansichten von Albedo+Deckung und
+Normale, aus dem gewachsenen Netz gebacken und nie ausgeliefert — der Cache einer berechenbaren
+Funktion, Prinzip 2. `Renderer::BakeTreeImpostor` oeffnet EINEN Pass EINMAL beim Laden; die Bildzahl
+der Passes bleibt 7.
+
+**Die Grenze ist hergeleitet.** Der Atlas traegt 256 Pixel je Zelle, also einen Modellfehler von
+H/256 m, und der projiziert auf ein Pixel bei `d = H·f_px/256` — doc/render/lod.md's eigene
+Ungleichung mit lambda = H/256. Bei 720p/55 Grad: 81,04 m, gemessen exakt so.
+
+**Gemessen** (`build/gpu_walk` md5 `3319908a8e0e8985d53d4dbb6bda453d`, `--spin 360`, 1280x720,
+damuels): ganze Kette 84,24 / 85,95 / 86,42 ms (p50/p95/p99) bei 30 324 800 Dreiecken; NUR Impostoren
+4,68 / 4,87 / 5,00 ms bei 68 104 Dreiecken fuer 34 052 Baeume. **570 Netzbaeume kosten 79 ms mehr als
+34 052 Impostoren.** Der Blocker ist der Preis EINES nahen Baumes — 53 084 Dreiecke gegen SpeedTrees
+10 000 bis 20 000 auf LOD 0 — und damit der Generator, nicht die Kette. Der mittlere Rang fehlt.
+
+**Der Stamm traegt einen BHD.** `base_radius` lebte in Grower-Einheiten und wurde durch eine Hoehe
+geteilt, die die Aeste entscheiden: dasselbe 0,08 kam als 70 cm auf der Buche und 80 cm auf der Ulme
+heraus. Die Art deklariert `bhd_cm = height_m / (H/D)` mit dem forstlichen Schlankheitsgrad; der
+Grower skaliert base/twig/min gemeinsam, bis das gewachsene Netz ihn trifft. Alle 16 Arten in zwei
+Paessen unter 0,5 % Restfehler. Buche 43 cm gegen vorher 70 cm.
+
+**Die Normierung setzte y = 0 auf den tiefsten Vertex.** Die Trauerweide schwebte 6,87 m, die Fichte
+3,67 m ueber dem Boden; die x/z-Zentrierung auf die Kronenbox verschob den Stamm bis 5,65 m (Kiefer)
+vom Standpunkt weg, und die Gierung schwenkte den Baum auf diesem Radius. Jetzt ist y = 0 der
+Stammfuss.
+
+**Die Dichte war NIE angewandt.** `U(h >> 16)` liess von 24 Bit sechzehn uebrig und lieferte
+hoechstens 0,0039 — ueber jeder deklarierten Dichte. Die 219 240 Staende der Vorrunde waren nicht
+0,09/m2, sie waren 95,8 % aller Zellen. Mit vollen 24 Bit und ueber Reineke (1933) hergeleiteten
+Dichten — Laubmischwald 284/ha, Nadelwald 331/ha — sind es 34 052, gegen 32 201 aus der Klassenkarte
+vorhergesagt.
+
+Bild: `sim/build/out/lod-koenigssee.png`. Offen und auf dem Bild sichtbar: die besonnte Flanke ist
+strohgelb, weil die Krone den Stamm nicht deckt und `bark_*` etwa doppelt so hell ist wie eine
+Buchenrinde.
+
 ### 2026-08-04 — Acht stille Gene waren DREI verschiedene Tatsachen, und nur eine davon war ein Defekt
 
 **`E19` hat gemessen, dass acht von neun Genen auf der MiG-29 bitstill sind, und das als EINE Tatsache

@@ -3,15 +3,19 @@
 #include "ClassField.h"
 #include "VegetationTemplates.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 
 namespace outshine::World {
 
 namespace {
 
-/* Die Zelle ist so gross, dass die dichteste deklarierte Klasse (Nadelwald, 0.09/m2) im Mittel EINEN
- * Baum je Zelle traegt: 1/0.09 = 11.1 m2, also 3.33 m Kante. Eine Zelle, ein Wurf — damit ist die
- * Streuung eine Funktion der Zelle und nicht einer Reihenfolge. */
+/* Eine Zelle, ein Wurf — damit ist die Streuung eine Funktion der Zelle und nicht einer Reihenfolge.
+ * Die Kante muss DEUTLICH unter dem mittleren Standabstand liegen: bei 11.09 m2 nimmt die dichteste
+ * deklarierte Klasse (Nadelwald, 0.033/m2) 36.6 % der Zellen an, zwei von drei bleiben leer, und
+ * genau das verhindert, dass das Gitter als Reihe liest. Bei einer Kante um den Standabstand herum
+ * waere die Annahmewahrscheinlichkeit 1 und der Wald ein Raster. */
 constexpr double kCellM = 3.33;
 
 inline uint32_t Hash(int32_t i, int32_t j, uint32_t salt) {
@@ -34,8 +38,9 @@ inline float SizeFactor(uint32_t h, float sigma) {
 void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
                         double eyeE, double eyeN, double eyeAsl, float sizeSigma,
                         double (*ground)(void *, double, double), void *user,
-                        std::vector<float> &out) const {
+                        std::vector<float> &out, std::vector<float> &dist) const {
   out.clear();
+  dist.clear();
   Count_ = 0;
   const VegetationTemplates::Row *rows = veg.Rows();
   if (!rows) return;
@@ -55,7 +60,11 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       if (tpl < 0 || tpl >= nrows) continue;
       const float perM2 = rows[tpl].Edge[2];
       if (perM2 <= 0.0f) continue;
-      if (U(h >> 16) > (float)(perM2 * kCellM * kCellM)) continue;
+      /* EIGENER WURF mit vollen 24 Bit. `U(h >> 16)` liess nur 16 Bit uebrig und lieferte damit
+       * hoechstens 0.0039: die Annahmeschwelle lag ueber JEDER deklarierten Dichte, also wurde jede
+       * Zelle mit perM2 > 0 angenommen. Die 219 240 Staende in 900 m waren nicht 0.09/m2, sie waren
+       * "alles, was kein Acker, Wasser oder Siegel ist". */
+      if (U(Hash(i, j, 0xd3adu)) > (float)(perM2 * kCellM * kCellM)) continue;
 
       const double gz = ground ? ground(user, e, n) : eyeAsl;
       if (gz <= -1.0e7) continue;
@@ -68,9 +77,26 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
        * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
       out.push_back(SizeFactor(Hash(i, j, 0x9e37u), sizeSigma));
+      const double dz = gz - eyeAsl;
+      dist.push_back((float)std::sqrt(de * de + dn * dn + dz * dz));
       Count_++;
     }
   }
+
+  const size_t n = dist.size();
+  std::vector<uint32_t> order(n);
+  for (size_t k = 0; k < n; k++) order[k] = (uint32_t)k;
+  std::sort(order.begin(), order.end(),
+            [&dist](uint32_t a, uint32_t c) { return dist[a] < dist[c]; });
+  std::vector<float> so(out.size()), sd(n);
+  for (size_t k = 0; k < n; k++) {
+    sd[k] = dist[order[k]];
+    for (int c = 0; c < kStandFloats; c++) {
+      so[k * (size_t)kStandFloats + (size_t)c] = out[(size_t)order[k] * (size_t)kStandFloats + (size_t)c];
+    }
+  }
+  out.swap(so);
+  dist.swap(sd);
 }
 
 } // namespace outshine::World

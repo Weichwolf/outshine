@@ -4,6 +4,7 @@
   "habit": "dichte eifoermige bis herzfoermige Krone, aufsteigende Aeste, dicht verzweigt",
   "height_m": 25, "spread_m": 15,
   "bhd_cm": 45, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.55. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Winterlinde, kurzschaeftig mit dickem Stamm. 25 / 0.55 = 45.5 cm, gerundet 45.",
+  "lai": 6.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Linde, sehr dichte Krone. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 13, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
   "trunk_steps": 24, "bare_steps": 8, "taper": 0.955, "min_radius": 0.005, "twig_radius": 0.011,
   "branch_chance": 0.9, "max_order": 4, "terminal_fork": 1,

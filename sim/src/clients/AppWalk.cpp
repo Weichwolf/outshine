@@ -19,6 +19,7 @@
 #include "TreeFoliage.h"
 #include "TreeGrower.h"
 #include "TreeField.h"
+#include "stages/TreeStage.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
@@ -28,6 +29,7 @@
 #include "VegetationTemplates.h"
 #include "Log.h"
 #include "LogSinks.h"
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -64,6 +66,34 @@ const char *kSpeciesDir = "assets/world/species";
  * draws a broadleaf stand in. A species' declared `leaf_r/g/b` multiplies it, which is what makes
  * that triple a TINT (spruce 0.40/0.74/0.55 is darker and bluer than beech, not a colour of its own). */
 const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
+
+/* [SET] The fan a shoot's leaves stand in about their stalk, full angle. A card is one shoot tip, and
+ * a rosette of four laminae over less than a right angle stacks into a line from every direction but
+ * one. */
+constexpr float kCardFanDeg = 110.0f;
+
+Render::TreeLook TreeLookOf(const World::TreeSpecies &sp) {
+  Render::TreeLook look;
+  const World::TreeSpecies::Shading &sh = sp.ShadingParams();
+  const World::TreeSpecies::Leaf &lf = sp.LeafParams();
+  for (int c = 0; c < 3; c++) {
+    look.BarkRgb[c] = sh.BarkColor[c];
+    look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
+  }
+  look.BarkDark = sh.BarkDark;
+  look.BarkFreq = sh.BarkFreq;
+  look.BarkRidge = sh.BarkRidge;
+  look.LeafWidth = lf.Width;
+  look.LeafWidest = lf.Widest;
+  look.LeafTip = lf.Tip;
+  look.LeafBaseFill = lf.BaseFill;
+  look.LeafLobes = (float)lf.Lobes;
+  look.LeafLobeDepth = lf.LobeDepth;
+  look.LeafSerration = lf.Serration;
+  look.LeafFold = lf.Fold;
+  look.NeedleWidth = lf.Kind == World::TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f;
+  return look;
+}
 
 /* THE BENCH'S FLOOR IS THE TEMPLATE'S DECLARED SUBSTRATE, and it has to be read from the class table
  * rather than from the resolved vegetation row: `swardClosure` overwrites a row's ground reflectance
@@ -106,11 +136,14 @@ bool ReadWholeFile(const char *path, std::string *out) {
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s [--size WxH] [--warm N] [--view KM] [--base URL] [--out PATH]\n"
-          "       [--ev STOPS] [--bench N] [--eye M] [--pitch DEG] [--yaw DEG]\n"
+          "       [--ev STOPS] [--bench N] [--spin N] [--eye M] [--pitch DEG] [--yaw DEG]\n"
           "       [--snapshot PATH]\n"
           "       [--rig TEMPLATE] [--rig-species NAME] [--rig-height M] [--rig-out DIR]\n"
           "       [--rig-turn N] [--rig-no-leaves]\n"
           "       [--wind-t S] [--wind-deg D] [--wind-ms X] [--seq N] [--seq-dt S] [--seq-out DIR]\n"
+          "  --spin N    a full 360 deg turntable in N frames, each one WAITED FOR: p50/p95/p99\n"
+          "              of the frame time. A still frame prices one azimuth; a forest is not\n"
+          "              isotropic, so a scattered field has no price without this\n"
           "  --snapshot  a standpoint another client wrote (clients/Snapshot.h): lat/lon/yaw/pitch\n"
           "              out of one line of fb-sim's shots.jsonl. It REPLACES --stepE/--stepN/\n"
           "              --yaw/--pitch and is refused if the scene it names is not this one\n"
@@ -158,7 +191,7 @@ int main(int argc, char **argv) {
   int width = 1280, height = 720, warm = 4000, walkPasses = 240, settle = -1;
   double viewKm = 60.0;
   std::string base = "http://localhost:8081", outPath = "walk.png", depthPath;
-  int bench = 0;
+  int bench = 0, spin = 0;
   bool manualEv = false;
   double evStops = 0.0;
   /* The STANDPOINT, not the scene: a LOD ladder has to be judged from more than one distance
@@ -199,6 +232,7 @@ int main(int argc, char **argv) {
     else if (a == "--out" && i + 1 < argc) outPath = argv[++i];
     else if (a == "--depth" && i + 1 < argc) depthPath = argv[++i];
     else if (a == "--bench" && i + 1 < argc) bench = atoi(argv[++i]);
+    else if (a == "--spin" && i + 1 < argc) spin = atoi(argv[++i]);
     else if (a == "--ev" && i + 1 < argc) { manualEv = true; evStops = atof(argv[++i]); }
     else if (a == "--scene" && i + 1 < argc) scenePath = argv[++i];
     else if (a == "--ortho" && i + 1 < argc) orthoM = atof(argv[++i]);
@@ -302,7 +336,7 @@ int main(int argc, char **argv) {
 
   World::TreeMesh worldTree;
   World::TreeField treeField;
-  std::vector<float> treeStands;
+  std::vector<float> treeStands, treeDist;
   float worldTreeSigma = 0.0f;
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
@@ -350,16 +384,7 @@ int main(int argc, char **argv) {
       const double crownZ = (double)(mesh.BoxMax.Z - mesh.BoxMin.Z) * h;
       const double proj = 0.25 * 3.14159265358979 * crownX * crownZ;
 
-      Render::TreeLook look;
-      const World::TreeSpecies::Shading &sh = sp.ShadingParams();
-      for (int c = 0; c < 3; c++) {
-        look.BarkRgb[c] = sh.BarkColor[c];
-        look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
-      }
-      look.BarkDark = sh.BarkDark;
-      look.BarkFreq = sh.BarkFreq;
-      look.BarkRidge = sh.BarkRidge;
-      R.SetTreeLook(look);
+      R.SetTreeLook(TreeLookOf(sp));
       R.SetTreeBark(mesh.BarkVerts.data(), (uint32_t)mesh.BarkVertexCount(), mesh.BarkIdx.data(),
                     (uint32_t)mesh.BarkIdx.size());
       R.SetTreeLeaf(mesh.LeafVerts.data(), (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
@@ -469,18 +494,34 @@ int main(int argc, char **argv) {
     if (!txt.empty() && sp.Parse(txt.c_str(), txt.size())) {
       World::TreeGrower g;
       g.Grow(sp, worldTree);
-      Render::TreeLook look;
-      const World::TreeSpecies::Shading &sh = sp.ShadingParams();
-      for (int c = 0; c < 3; c++) { look.BarkRgb[c] = sh.BarkColor[c]; }
-      look.BarkDark = sh.BarkDark; look.BarkFreq = sh.BarkFreq; look.BarkRidge = sh.BarkRidge;
-      R.SetTreeLook(look);
+      World::TreeLeaf::Build(sp.LeafParams(), worldTree);
+      World::TreeFoliage foliage;
+      foliage.Build(worldTree, sp.LeafParams(), 1);
+      const double h = (double)sp.HeightM();
+      const double proj = 0.25 * 3.14159265358979 *
+                          (double)(worldTree.BoxMax.X - worldTree.BoxMin.X) * h *
+                          (double)(worldTree.BoxMax.Z - worldTree.BoxMin.Z) * h;
+      const float cardLeafM =
+          foliage.CardLeafM(Render::TreeStage::kLeavesPerCard, (double)sp.Lai(), proj);
+      R.SetTreeLook(TreeLookOf(sp));
       R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
                     worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
+      R.SetTreeCards(foliage.Instances().data(), (uint32_t)foliage.Count(), cardLeafM,
+                     kCardFanDeg);
       /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
-      R.SetTreeStand(0.0, 0.0, 0.0, (double)sp.HeightM());
+      R.SetTreeStand(0.0, 0.0, 0.0, h);
+      R.SetTreeCrown(std::fmax(std::fmax(-worldTree.BoxMin.X, worldTree.BoxMax.X),
+                               std::fmax(-worldTree.BoxMin.Z, worldTree.BoxMax.Z)),
+                     worldTree.BoxMax.Y, worldTree.BoxMin.Y);
+      R.BakeTreeImpostor();
       worldTreeSigma = sp.HeightSigma();
       Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()},
-          {"heightM", (double)sp.HeightM()}, {"heightSigma", (double)worldTreeSigma}});
+          {"barkTris", (double)(worldTree.BarkIdx.size() / 3)},
+          {"heightM", h}, {"heightSigma", (double)worldTreeSigma},
+          {"bhdCm", 200.0 * (double)worldTree.BhdRadius * h},
+          {"cards", (double)foliage.Count()}, {"leavesPerCard", (double)Render::TreeStage::kLeavesPerCard},
+          {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
+          {"crownProjM2", proj}, {"lai", (double)sp.Lai()}});
     }
   }
 
@@ -532,9 +573,10 @@ int main(int argc, char **argv) {
        * am Auge, also muss die Augenhoehe hier schon abgezogen sein. */
       treeField.Scatter(W.Classes(), veg, 900.0, ee, nn,
                         (ElevationResolved(gcam) ? gcam : ground) + eyeM, worldTreeSigma,
-                        groundAt, &gc, treeStands);
+                        groundAt, &gc, treeStands, treeDist);
       constexpr int kSF = World::TreeField::kStandFloats;
-      R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / (size_t)kSF));
+      R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / (size_t)kSF),
+                      treeDist.data());
       double lo[kSF], hi[kSF], sum = 0.0;
       for (int c = 0; c < kSF; c++) { lo[c] = 1e30; hi[c] = -1e30; }
       for (size_t s = 0; s + (size_t)kSF <= treeStands.size(); s += (size_t)kSF)
@@ -603,6 +645,11 @@ int main(int argc, char **argv) {
   R.ResetTemporal();
   for (int f = 0; f < settleFrames; f++) R.RenderFrame();
   Log::Info("walk", "settled", {{"frames", settleFrames}});
+  if (!treeStands.empty()) {
+    Log::Info("walk", "trees_lod", {{"stands", (double)(treeStands.size() / 5)},
+        {"meshStands", (double)R.TreeMeshStands()}, {"meshRadiusM", R.TreeMeshRadiusM()},
+        {"tris", (double)R.TreeTriangleCount()}});
+  }
 
   /* THE FIELD ITSELF. Nothing below the size of a tree answers to it (doc/goal.md), so no stage reads
    * it today; it is published because a branch and a rotor owe the anchor and the field is what they
@@ -642,6 +689,40 @@ int main(int argc, char **argv) {
     R.ReadPixels(warmRgba);
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     Log::Info("walk", "bench", {{"frames", bench}, {"totalMs", ms}, {"msPerFrame", ms / bench}});
+  }
+  /* THE TURNTABLE, and it is the only price a scattered field has: a still frame prices one azimuth
+   * and a forest is not isotropic. One full revolution, one measurement per frame, and the frame is
+   * WAITED FOR — an unsynchronised loop times the encoder and not the GPU. */
+  if (spin > 0) {
+    std::vector<double> ms((size_t)spin);
+    long lastMesh = 0, lastImp = 0, lastTris = 0;
+    R.SyncGpu();
+    for (int f = 0; f < spin; f++) {
+      const double yd = yawDeg + 360.0 * (double)f / (double)spin;
+      CameraBasisEcef(yd, pitchDeg, 0.0, clat, clon, fwd, right, up);
+      R.SetCameraBasis(eye, fwd, right, up);
+      const auto s0 = std::chrono::steady_clock::now();
+      R.RenderFrame();
+      R.SyncGpu();
+      ms[(size_t)f] = std::chrono::duration<double, std::milli>(
+                          std::chrono::steady_clock::now() - s0).count();
+      lastMesh = R.TreeMeshStands();
+      lastImp = R.TreeImpostorStands();
+      lastTris = R.TreeTriangleCount();
+    }
+    std::vector<double> so = ms;
+    std::sort(so.begin(), so.end());
+    const auto pct = [&so](double p) {
+      size_t i = (size_t)(p * (double)(so.size() - 1) + 0.5);
+      return so[i];
+    };
+    double sum = 0.0;
+    for (double v : ms) sum += v;
+    Log::Info("walk", "spin", {{"frames", (double)spin}, {"meanMs", sum / (double)spin},
+        {"p50Ms", pct(0.50)}, {"p95Ms", pct(0.95)}, {"p99Ms", pct(0.99)},
+        {"minMs", so.front()}, {"maxMs", so.back()},
+        {"meshStands", (double)lastMesh}, {"impostorStands", (double)lastImp},
+        {"treeTris", (double)lastTris}, {"width", (double)width}, {"height", (double)height}});
   }
 
   float met[Render::ExposureStage::kMeterFloats] = {};

@@ -537,6 +537,43 @@ void Renderer::CreateOffscreenTarget(void) {
   OffscreenTex = Device.CreateTexture(&td);
 }
 
+void Renderer::BakeTreeImpostor(void) {
+  if (!Device || !Trees->WantsBake()) return;
+  Trees->CreateImpostor();
+  if (!Trees->ImpostorDepthTarget()) return;
+
+  wgpu::RenderPassColorAttachment ca[2] = {};
+  ca[0].view = Trees->ImpostorAlbedoTarget();
+  ca[0].loadOp = wgpu::LoadOp::Clear;
+  ca[0].storeOp = wgpu::StoreOp::Store;
+  ca[0].clearValue = {0.0, 0.0, 0.0, 0.0};
+  ca[1] = ca[0];
+  ca[1].view = Trees->ImpostorNormalTarget();
+  ca[1].clearValue = {0.5, 0.5, 0.5, 0.0};
+  wgpu::RenderPassDepthStencilAttachment da{};
+  da.view = Trees->ImpostorDepthTarget();
+  da.depthLoadOp = wgpu::LoadOp::Clear;
+  da.depthStoreOp = wgpu::StoreOp::Discard;
+  da.depthClearValue = 0.0f;   /* reversed-Z, as every scene surface */
+  wgpu::RenderPassDescriptor rp{};
+  rp.colorAttachmentCount = 2;
+  rp.colorAttachments = ca;
+  rp.depthStencilAttachment = &da;
+
+  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
+  wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
+  Trees->EncodeBake(pass);
+  pass.End();
+  wgpu::CommandBuffer cb = enc.Finish();
+  Queue.Submit(1, &cb);
+  Trees->FinishBake();
+  Log::Info("render", "tree_impostor_baked",
+            {{"cells", (double)(TreeStage::kCells * TreeStage::kCells)},
+             {"cellPx", (double)TreeStage::kCellSize},
+             {"atlasMb", 2.0 * (double)(TreeStage::kCells * TreeStage::kCellSize) *
+                             (double)(TreeStage::kCells * TreeStage::kCellSize) * 4.0 / 1048576.0}});
+}
+
 void Renderer::RenderFrame(void) {
   if (!DeviceReady) return;
 #ifdef FB_GPU_NOOP

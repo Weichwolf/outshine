@@ -6,6 +6,7 @@
   "habit": "schmal kegelfoermig, durchgehender gerader Leittrieb, quirlfoermige waagerechte bis leicht haengende Aeste, oben kuerzer",
   "height_m": 35, "spread_m": 6,
   "bhd_cm": 41, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.85. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Fichte im bewirtschafteten Reinbestand; genau das Band, in dem der Schneebruch beginnt. 35 / 0.85 = 41.2 cm, gerundet 41.",
+  "lai": 8.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Nadelwald traegt mehr Blattflaeche als Laubwald, Band 7...11: Nadeln stehen steil und beschatten sich weniger. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
 
   "seed": 3,
   "trunk_sides": 10,

@@ -4,6 +4,7 @@
   "habit": "lockere rundliche Krone, kraeftige aufsteigende Aeste, derbe Zweige",
   "height_m": 30, "spread_m": 14,
   "bhd_cm": 43, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.70. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Esche, Kronen- und Schaftform wie Buche. 30 / 0.70 = 42.9 cm, gerundet 43.",
+  "lai": 5.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Eschenkrone lichter, gefiedertes Blatt. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 14, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
   "trunk_steps": 24, "bare_steps": 9, "taper": 0.955, "min_radius": 0.006, "twig_radius": 0.015,
   "branch_chance": 0.7, "max_order": 3, "terminal_fork": 1,

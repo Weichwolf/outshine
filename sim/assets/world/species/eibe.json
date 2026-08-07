@@ -4,6 +4,7 @@
   "habit": "dichte breit-kegelfoermige bis rundliche Krone, kurzer Stamm, dicht verzweigt",
   "height_m": 14, "spread_m": 10,
   "bhd_cm": 25, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.55. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Eibe, gedrungen, oft mehrstaemmig. 14 / 0.55 = 25.5 cm, gerundet 25.",
+  "lai": 7.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Eibe, dichte immergruene Krone. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 22, "trunk_sides": 9, "base_radius": 0.07, "step_len": 0.16,
   "trunk_steps": 20, "bare_steps": 3, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.011,
   "branch_chance": 0.92, "max_order": 3, "terminal_fork": 0,

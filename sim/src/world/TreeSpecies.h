@@ -94,6 +94,8 @@ public:
   /* Breast-height diameter at 1.3 m, in METRES. The only metric a stem carries, and the grower solves
    * its radius cascade against it. 0 leaves the declared `base_radius` alone. */
   float BhdM() const { return BhdM_; }
+  /* One-sided leaf area per m^2 of crown projection. The number that sizes a cluster card. */
+  float Lai() const { return Lai_; }
 
 private:
   std::string Error_, Name_, Botanical_;
@@ -106,6 +108,7 @@ private:
    * ein Feld stellt, ohne sie zu deklarieren, bekommt sichtbar identische Hoehen. */
   float HeightSigma_ = 0.0f;
   float BhdM_ = 0.0f;
+  float Lai_ = 0.0f;
 };
 
 } // namespace outshine::World

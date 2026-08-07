@@ -47,7 +47,14 @@ void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies::Leaf &leaf, int
     const double cz = e0[0] * e1[1] - e0[1] * e1[0];
     lamina += 0.5 * std::sqrt(cx * cx + cy * cy + cz * cz);
   }
+  LocalArea_ = lamina;
   AreaM2_ = lamina * (double)ScaleM_ * (double)ScaleM_ * (double)Count();
+}
+
+float TreeFoliage::CardLeafM(int leavesPerCard, double lai, double crownProjM2) const {
+  const double per = (double)(leavesPerCard > 0 ? leavesPerCard : 1) * (double)Count() * LocalArea_;
+  if (per <= 0.0 || lai <= 0.0 || crownProjM2 <= 0.0) { return ScaleM_; }
+  return (float)std::sqrt(lai * crownProjM2 / per);
 }
 
 } // namespace outshine::World

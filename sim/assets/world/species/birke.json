@@ -6,6 +6,7 @@
   "habit": "schlanker Stamm, lockere lichte Krone, feine ueberhaengende Zweige (pendula)",
   "height_m": 22, "spread_m": 9,
   "bhd_cm": 26, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.85. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Sandbirke, Pionier, schlank und kurzlebig. 22 / 0.85 = 25.9 cm, gerundet 26.",
+  "lai": 3.5, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. Birke, Lichtbaumart mit sehr lichter Krone. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
 
   "seed": 5,
   "trunk_sides": 9,

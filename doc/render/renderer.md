@@ -29,6 +29,9 @@ physics or the termination logic.
 | Native and WASM render the same frame | `gpu_walk` is the headless PNG oracle for frame proofs (`../build-and-ops.md`) |
 | Feature gates are baked constants | a disabled pass costs nothing |
 | **An overlay is a BODY's capability, not renderer equipment** | `Renderer` holds one borrowed `OverlayStage*` (`render/OverlayStage.h`), registered by whoever HAS the capability, and knows no overlay type. **Nothing registers one today** — the avionics group that did was deleted on 2026-08-07 and `render/` has no text stage at all. Pass count with no overlay: 7, verified `passcount passes=7 clouds=1 cloudPass=0 overlay=0` |
+| **VEGETATION IS A LADDER OF RANKS AND THE RANK IS A RANGE** | Ein Stand bekommt sein Detail aus dem Bildschirmfehler und aus nichts sonst ([`lod.md`](lod.md)). `world/TreeField` liefert die Staende NACH ENTFERNUNG SORTIERT, also ist ein Rang eine zusammenhaengende Instanzspanne und die Wahl eine binaere Suche — kein Durchlauf ueber das Feld je Bild. Zwei Raenge stehen: das gewachsene Netz mit Blattkarten, und der **Impostor** — ein kameragerichtetes Quad je Stand aus einem oktaedrischen Atlas. Die Grenze ist HERGELEITET: der Atlas hat `kCellPx` Pixel je Zelle, also traegt er einen Modellfehler von `H/kCellPx` Metern, und der projiziert auf ein Pixel bei `d = H · f_px / kCellPx`. Kein Abstand wird deklariert; Aufloesung und Sichtfeld verschieben ihn von selbst |
+| **DER IMPOSTOR-ATLAS IST DER CACHE EINER BERECHENBAREN FUNKTION** | Prinzip 2 laesst genau das zu. Er wird bei Ladeschluss aus dem gewachsenen Netz gebacken und NIE ausgeliefert: `kCells²` Hemi-Oktaeder-Ansichten von Albedo+Deckung und von der Normalen im Baumraum, damit der ferne Rang von derselben `SurfaceLight` beleuchtet wird wie der nahe. **Die Bildzahl der Passes bleibt unberuehrt** — `Renderer::BakeTreeImpostor` oeffnet EINEN Pass EINMAL, in einem eigenen Command Buffer, ausserhalb der Bildschleife |
+| **Blattgeometrie steht nur auf der Subjektbank** | Im Feld ist ein Blatt eine **Clusterkarte**: zwei Dreiecke, die sich `kLeavesPerCard` Laminae aus `world/TreeLeaf::ProfileWidth` — derselben Kurve, in WGSL — selbst ausschneiden. Damit ist die Silhouette die deklarierte und **kein Atlas traegt eine Blattform**. Die Kartengroesse ist hergeleitet: `lai · Kronenprojektion = Kartenzahl · Blaetter je Karte · Laminaflaeche · L²` |
 | **The vertical FOV is a RUNTIME number out of the scene** | `Scene::FovDeg()` → `Renderer::SetFovDeg` → the projection, the atmosphere uniform and `FrameContext::FovDeg`. There is no `kSceneVerticalFovDeg` any more, so there is no second copy to drift from. Verified: the same scene at `fovDeg` 60 and 30 renders a clean 2× zoom with sky and terrain still agreeing on the horizon |
 
 ## State
@@ -45,7 +48,7 @@ Built; the stage split is finished (zero inline shaders in `Renderer.cpp`).
 | Text / overlay backend | **deleted 2026-08-07** with the avionics group. `OverlayStage.h` is a seam nothing implements — §7 | — |
 | Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
 | Units | **built** — one indexed draw per entity from the published pose, LOD off the asset sidecar, moving parts off the published articulation. Pass count unchanged. **No mesh ships and no topic file describes it** | — |
-| Trees | **built and verified in a frame** — `world/TreeField` streut 179 181…219 240 Staende in 900 m, ein Netz, ein Draw, N Instanzen; Ort, Fuss, Gierung und Groesse je Stand aus dem Ort. **Ohne Laub** — der Feldpfad zeichnet nur Rinde | `build/out/koenigssee.png` |
+| Trees | **Kette gebaut und gemessen** — `world/TreeField` streut 34 052 (damuels) / 41 344 (koenigssee) Staende in 900 m, sortiert; `TreeStage` zieht Netz + Karten fuer die Spanne innerhalb `H·f_px/256` und Impostoren fuer den Rest. Der ferne Rang traegt 34 052 Baeume fuer **4,68 ms p50** bei 720p; der nahe Rang kostet **79 ms** und ist damit der Blocker | `build/out/lod-koenigssee.png` |
 | Sprites | **built, and its combat effect catalogue is being removed** — one instanced draw for every effect in the frame, physical size in metres with an energy-preserving sub-pixel floor. The inputs it read (nozzle bit, store burn window, countermeasure age curves, hit count, wreck bit) have no writer since 2026-08-07 | — |
 
 ### The present path sRGB-encodes, and until this round the browser did not
@@ -61,74 +64,81 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
-### Der Wald steht verteilt; was fehlt, ist das Laub — 2026-08-07
+### Die LOD-Kette steht, der ferne Rang ist bezahlt, der nahe nicht — 2026-08-07
 
-Die Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die deklarierte Dichte
-(`trees.perM2`: Laubmischwald 0.04, Nadelwald 0.09) —, also haelt keine Seite eine Liste und dieselbe
-Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper. `TreeStage` zieht die Staende
-als Instanzen: ein Netz, ein Draw, N Instanzen.
+Gemessen, `build/gpu_walk` md5 `3319908a8e0e8985d53d4dbb6bda453d`, `--warm 12000 --spin 360`,
+1280x720, damuels (47.28 / 9.906, Auge 3 m):
 
-**Die Wand aus Staemmen hatte ZWEI Ursachen, und beide sind gemessen geschlossen.** `Scatter` schrieb
-die ABSOLUTE ENU-Koordinate in den Instanzpuffer, waehrend `vsBark` den Stand auf die ECEF-Achsen am
-Augpunkt legt — ein Versatz von Kilometern, der jeden Stand aus dem Frustum in denselben Fleck warf. Und
-`eyeAsl` bekam den Boden UNTER der Kamera statt den Augpunkt, also stand jeder Baum um die Augenhoehe zu
-hoch. Der Verdacht auf Schrittweite/Schrittmodus des zweiten Vertexpuffers war falsch.
-
-Gemessen, `build/gpu_walk` md5 `745f1d92`, `--warm 12000 --eye 3.0 --size 640x360`:
-
-| Kamera | Staende | east min/max | north min/max | Fuss ueber Auge min/max | Bild |
+| Was gezeichnet wird | Staende | Dreiecke | p50 | p95 | p99 |
 |---|---|---|---|---|---|
-| `damuels` | 219 240 | −888,2 / +898,2 m | −898,2 / +898,2 m | −111,9 / +417,3 m | `build/out/damuels.png` |
-| `koenigssee` | 179 181 | −898,3 / +898,2 m | −898,2 / +898,2 m | −19,5 / +489,1 m | `build/out/koenigssee.png` |
+| Netz + Karten innerhalb 81,04 m **und** Impostoren dahinter | 570 + 33 482 | 30 324 800 | **84,24 ms** | 85,95 | 86,42 |
+| NUR Impostoren (Sichtfeld 170 Grad, also mehr Gelaende, kein Netzrang) | 0 + 34 052 | 68 104 | **4,68 ms** | 4,87 | 5,00 |
+| koenigssee, Sichtfeld 55 Grad, Kamera am Seeufer | 30 + 41 314 | 1 675 150 | **10,96 ms** | 15,56 | 16,05 |
 
-Die Spanne trifft den Streuradius (900 m, Zellkante 3,33 m). Die Fuesse sitzen auf dem echten Gelaende:
-`/elev` auf einem 150-m-Raster ueber dieselbe Scheibe um `damuels` liefert −94,6 / +362,7 m gegen Auge,
-und 219 240 Einzelziehungen finden vom selben Relief erwartungsgemaess breitere Extreme.
+**Der ferne Rang ist praktisch umsonst und der nahe ist der ganze Preis.** 34 052 Baeume auf 900 m
+kosten 4,68 ms; 570 Baeume in 81 m kosten 79 ms mehr. Das ist keine Frage der Streuung und keine
+Frage des Impostors — es ist der Preis EINES Baumes im nahen Rang: 26 462 Rindendreiecke plus
+13 311 Karten zu je zwei = **53 084 Dreiecke**. SpeedTree faehrt fuer einen Heldenbaum 10 000 bis
+20 000 auf LOD 0. Der Generator ist der Blocker, nicht die Kette.
 
-**Die Hoehe ist jetzt eine Eigenschaft der Art.** `height_sigma` in `species/*.json`, fuenfter Wert je
-Instanz, eigener Hashwurf (Salz `0x9e37`), damit die Groesse nicht mit der Gierung korreliert und den
-Wald in Baendern streift. Die Ziehung ist dreieckig (Summe zweier Gleichverteilter, Faktor
-1/sqrt(2/12) = 2,4494897 auf sigma) und damit bei mu ± 2,449 sigma HART begrenzt — eine normale Ziehung
-liefert ueber 200 000 Staende sicher einen 4-sigma-Baum, und der ist im Bild ein Fehler.
+**Die Grenze ist hergeleitet, nicht gesetzt.** Der Atlas hat 256 Pixel je Zelle, also traegt er einen
+Modellfehler von H/256 Metern; projiziert ergibt das ein Pixel bei d = H·f_px/256. Bei 720p und
+55 Grad ist f_px = 0,5·720/tan(27,5 Grad) = 691,5, also 30·691,5/256 = **81,04 m** — genau der
+gemessene Wert. Bei 640x360 halbiert sich f_px und die Grenze faellt auf 40,52 m; gemessen 148 statt
+570 Netzbaeume und 22,68 ms statt 84,24 ms.
 
-`buche.height_sigma = 0.066`, hergeleitet: Mittelhoehe/Oberhoehe im gleichaltrigen Buchenbestand
-hg/h100 = 0,94 (Band 0,93…0,95), h100 = Mittel der 100 staerksten Staemme je ha, N = 250/ha, also
-Oberanteil p = 0,4. Bei normalverteilter Hoehe ist E[z | oberste p] = phi(Phi^-1(1−p))/p = 0,9659,
-somit sigma/hg = (1/0,94 − 1)/0,9659 = 0,0661. Ueber das Band und N = 200…300/ha spannt das
-0,048…0,094 — die Zahl ist so genau wie ihre Ertragstafelannahme und nicht genauer. Gemessen im Bild:
-`scaleMin` 0,8385, `scaleMax` 1,1614, `scaleMean` 0,99991 gegen hergeleitet 1 ± 0,066·2,4494897 =
-0,83833…1,16167, also 25,2 m bis 34,8 m Baumhoehe.
+**Der Atlas ist 32 MB** (2 Texturen, 2048x2048, RGBA8) fuer EINE Art. Bei sechzehn Arten waeren das
+512 MB gegen die 4 GB aus `visual-target.md` — nicht tragbar. Die Zellzahl ist der Hebel und sie
+haengt an derselben Ungleichung: weniger Pixel je Zelle heisst frueherer Impostor heisst mehr Speicher
+pro Sichtbarkeit. Ungemessen.
 
-**Was das Bild zeigt.** `koenigssee`: die Flanken tragen einzeln stehende, sich selbst verdeckende
-Baeume mit sichtbar ungleichen Hoehen und einer zackigen Kante gegen Himmel und Fels — ein Wald, keine
-Tapete. `damuels`: die Kamera steht mitten im Bestand, das Frame ist von nahen Staemmen gefuellt, es
-gibt keine Silhouette. Das ist kein Fehler der Streuung, sondern ihre Dichte: 219 240 / (pi · 900²) =
-0,0862/m², also 862 Staemme je Hektar bei 30 m Bestandeshoehe — das Drei- bis Vierfache eines
-Altbestandes.
+**Was das Bild zeigt** (`build/out/lod-koenigssee.png`, dieselbe Binaerdatei): beide Flanken und der
+Talschluss tragen einen dichten Wald aus einzeln unterscheidbaren Baeumen mit zackiger Kante gegen den
+Himmel — aus 200 bis 900 m ein Wald und keine Tapete. Zwei Fehler sind darauf zu sehen und beide sind
+der BAUM, nicht die Kette:
 
-**Offen, und das ist der auffaelligste Posten:** auf dem Feldpfad zeichnet KEIN Blatt. `LeafInst` haengt
-an `standOrigin()`, also am einzelnen Stand; die N Instanzen bekommen nur Rinde. Ein Hang aus 179 181
-kahlen, rindengrauen Kronen liest sich aus 500 m als helles Stoppelfeld, nicht als Wald.
+* **Die besonnte Flanke ist strohgelb statt gruen.** Die Krone deckt den Stamm nicht, also besteht die
+  Impostor-Silhouette groesstenteils aus Rinde. `bark_r/g/b = 0.53/0.51/0.48` ist ein 50-%-Grau —
+  fuer einen Buchenstamm etwa das Doppelte des Richtigen.
+* **Unter der Kronenlinie haengen helle senkrechte Streifen.** Das sind Staemme: 30 m hoch, 43 cm
+  dick, korrekt platziert, und wegen derselben zu hellen Rinde vor dunklem Hang weiss.
 
-**Offen: der Stamm ist zu dick.** Am gewachsenen Netz gemessen (Radienprofil ueber 13 233 Rindenverts):
-Fussradius 1,54 m, Krone bis 8,87 m Radius bei y = 0,6…0,7. 3,1 m Stammdurchmesser bei 30 m Hoehe ist
-etwa das Vierfache einer Buche; `base_radius = 0.08` ist die Stellschraube und traegt keine Herkunft.
+`build/out/lod-damuels-hi.png` (Auge 25 m ueber dem Bestand, nur naher Rang): geschlossenes gruenes
+Laub aus Clusterkarten, und quer durch alles lange gerade blasse Stangen — die Aeste hoeherer Ordnung
+tragen kein Blatt und verjuengen sich sichtbar nicht. Owner, 2026-08-07: *„der baumgenerator ist nur
+ein kleiner prototyp"*.
+
+**Offen: der mittlere Rang.** Die Tabelle in doc/render/lod.md nennt ihn (reduziertes Netz, weniger
+und groessere Blattkarten) und er ist nicht gebaut. Die Rechnung dafuer: bei 3 Mio. Dreiecken Budget
+und 570 Baeumen in 81 m duerfte ein Baum 5 260 Dreiecke kosten, das ist ein Zehntel des heutigen. Ein
+zweiter Wuchs mit `max_order - 1` und verdoppeltem `min_radius` ist der bewaehrte Weg (SpeedTree
+laesst Astgenerationen fallen); ungemessen.
+
+**Offen: das Uebergangsband.** Netz und Impostor schalten hart. `lod.md` verlangt entweder tau unter
+einem Pixel — dann braucht es nichts — oder gehashtes, objektraumverankertes Dithering. Gemessen ist
+nichts davon; ob der Schnitt bei 81 m in Bewegung poppt, ist unbelegt, weil das Standbild es nicht
+zeigen kann.
+
+**Offen: der Impostor hat keine Eigenverschattung.** Gebacken werden Albedo und Normale, nicht die
+Verdeckung im Kroneninneren. Der ferne Baum ist damit flacher und heller als derselbe Baum im nahen
+Rang. Ein gebackener AO-Kanal ist der uebliche Ausgleich; nicht gebaut.
+
+**Die Dichte war nie angewandt.** `U(h >> 16)` schob 24 Bit weit und liess 16 uebrig, lieferte also
+hoechstens 0,0039 — ueber JEDER deklarierten Dichte. Die frueheren 219 240 Staende in 900 m waren
+nicht 0,09/m2, sie waren *„alles, was kein Acker, kein Wasser und nicht versiegelt ist"*: 95,8 % aller
+Zellen. Mit vollen 24 Bit und den ueber Reineke hergeleiteten Dichten (Laubmischwald 0,028,
+Nadelwald 0,033) sind es 34 052 bei damuels gegen 32 201 aus der Klassenkarte vorhergesagt — 5,7 %
+auseinander, weil die Karte ein 1800-m-Quadrat auf 6 m abtastet und die Streuung eine 900-m-Scheibe
+je Zelle zieht.
+
+**Offen bleibt das Hoehenorakel:** es muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite
+(0,383 m RMS, max 1,89 m Abweichung gegen das Netz). Die Streuung fragt heute 34 052 Mal einzeln.
 
 **Offen: fuenfzehn der sechzehn Arten haben kein `height_sigma`** und rendern damit als gleich hohe
 Kopien. Der Vorgabewert 0 ist Absicht — wer eine Art ins Feld stellt, ohne sie zu deklarieren, sieht es.
 
-**Offen: die 7,60 ms von 166 823 Staenden am selben Ort sind keine Messung mehr** — sie hatte die
-Ueberzeichnung eines einzigen Flecks als Gegenstand. Der Rahmenpreis eines verteilten Waldes ist
-ungemessen.
-
-**Offen bleibt auch das Hoehenorakel:** es muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite
-(0,383 m RMS, max 1,89 m Abweichung gegen das Netz). 200 000 Einzelabfragen je Streuung sind dafuer kein
-gangbarer Weg; die Hoehe muss aus derselben Funktion kommen, die das Netz baut.
-
-Owner, 2026-08-07, zur Einordnung: *„der baumgenerator ist nur ein kleiner prototyp. du musst den schon
-noch auf speedtree niveau bringen"*, und *„das bild entsteht aus foliage, material, rocks, buildings,
-infrastruktur, trees, water — farbkorrektur kommt zuletzt"*. Die Kurvenarbeit an einem leeren Hang war
-verlorene Zeit.
+Owner, 2026-08-07, zur Einordnung: *„das bild entsteht aus foliage, material, rocks, buildings,
+infrastruktur, trees, water — farbkorrektur kommt zuletzt"*.
 
 
 ### Nach der Rueckkehr der Schatten: die Struktur ist da, die Kurve zerdrueckt sie — 2026-08-07

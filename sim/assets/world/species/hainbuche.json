@@ -4,6 +4,7 @@
   "habit": "dichte eifoermige Krone, sehr fein und dicht verzweigt, geriffelter Stamm",
   "height_m": 18, "spread_m": 12,
   "bhd_cm": 28, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.65. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Hainbuche als Nebenbestand unter Buche, dort schlanker als im Freistand. 18 / 0.65 = 27.7 cm, gerundet 28.",
+  "lai": 5.0, "lai_origin": "[SET] Blattflaechenindex, einseitige Blattflaeche je m2 Kronenprojektion. wie Eiche. Setzt die Kartengroesse: lai * Kronenprojektion = Kartenzahl * Blaetter je Karte * Laminaflaeche * L^2.",
   "seed": 19, "shade_prune": 0.6, "trunk_sides": 9, "base_radius": 0.06, "step_len": 0.16,
   "trunk_steps": 22, "bare_steps": 7, "taper": 0.955, "min_radius": 0.004, "twig_radius": 0.008,
   "branch_chance": 0.95, "max_order": 4, "terminal_fork": 1,
