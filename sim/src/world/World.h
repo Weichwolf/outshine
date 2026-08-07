@@ -245,7 +245,7 @@ private:
   std::vector<uint8_t> LightBytes;   /* scratch for one tile's /t/lights payload */
   int LightsResident;                /* count emitted last pass (log) */
 
-  OsmField Vectors{14, {"buildings"}};
+  OsmField Vectors{14, {"buildings", "water_polygons", "water_lines"}};
   ClassField Cls_;
   BuildingField Buildings;
   WaterField Water;

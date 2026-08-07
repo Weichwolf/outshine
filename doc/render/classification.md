@@ -427,6 +427,40 @@ carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
 
+### Water as geometry — three cycles, and what each of them actually found
+
+**Cycle 1 built the wrong thing and the critic proved it without reading the source.** The class-view
+frames before and after were **bit-identical, 0 differing pixels on two tiles** — so nothing new was
+drawn. Cause: `World.h`'s `OsmField Vectors{14, {"buildings"}}` parses one layer, `Layer("water_polygons")`
+returns −1, `f.Layer` is `uint16_t`, and the comparison is never true. Zero surfaces, zero vertices,
+`SetWaterMesh` never called.
+
+**The dark shapes taken for water were shadowed vegetation.** Water in an orthographic frame from
+2 500 m is not dark, it is *bright*: p50 luminance 116 against an image median of 112.7, and the darkest
+2 % are **41 % depleted** at water. The discriminator is chromaticity — B−R ≥ +15 inside the outline,
+≤ +12 outside, a clean cut over 262 144 pixels. Cross-correlating that mask against the bake's finds its
+maximum at **dx = dy = 0 at every threshold**: the class placement was never wrong.
+
+**The 731 m canal is `kind=drain, tunnel=1`** — a culvert. `tiles/src/raster.c` draws water_lines with
+no tunnel test, so over half the bake's water on that tile is underground. Chasing 100 % coverage there
+would be rebuilding the reference's artefact; `WaterField` skips it and the defect as originally framed
+is void.
+
+**Cycle 2 drew, and folded.** A fan triangulation over a concave lake outline covered 13.0 % of the
+bake's water at **51.9 % precision** — half of what it drew lay outside the shore. Ear clipping took
+precision to **96.7 %** at the same recall: what is drawn is now water.
+
+| triangulation | recall | precision |
+|---|---|---|
+| fan | 13.0 % | 51.9 % |
+| **ear clip** | 13.1 % | **96.7 %** |
+
+**Open, and named rather than guessed at:** recall is 13 %. Roughly half the bake's water on that tile
+is the culvert we correctly omit, which leaves the polygons themselves under-covered. The next
+measurement is how many rings `Ingest` actually accepts against the eight the tile carries — the
+suspects are the `Exterior` filter and the 512-point cap, neither of which has been checked.
+
+
 ### Water is geometry, not a class — and the regime that will judge it
 
 Owner, 2026-08-07: *„wasser kann keine steigung haben"*, *„wasser würde ich wie jeder engine als eigene

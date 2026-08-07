@@ -35,6 +35,9 @@ uint32_t WaterField::Ingest(const OsmField &field, float defaultHalfWidthM) {
 
   for (; Consumed_ < feats.size() && feats[Consumed_].Tile == tile; Consumed_++) {
     const OsmField::Feature &f = feats[Consumed_];
+    /* A culvert carries no water at the surface. The bake draws one anyway (tiles/src/raster.c has
+     * no tunnel test), so chasing its coverage would be rebuilding its artefact. */
+    if (field.Num(f, "tunnel", 0.0) > 0.5) continue;
     if (f.Type == 2 && (int)f.Layer == line) {
       for (uint32_t r = 0; r < f.RingCount; r++) {
         const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
@@ -124,15 +127,48 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
                 s.LevelM, p);
       for (int c = 0; c < 3; c++) p3[(size_t)k * 3 + c] = p[c] - Anchor_[c];
     }
-    /* A fan, not an ear clip: a lake outline is convex enough that a fan covers it, and a concave one
-     * folds visibly rather than silently — which is the failure worth seeing first. */
-    for (uint32_t k = 1; k + 1 < n; k++) {
-      const uint32_t idx[3] = {0, k, k + 1};
-      for (int t = 0; t < 3; t++) {
-        const double *v = &p3[(size_t)idx[t] * 3];
-        out.push_back((float)v[0]); out.push_back((float)v[1]); out.push_back((float)v[2]);
-        out.push_back((float)up[0]); out.push_back((float)up[1]); out.push_back((float)up[2]);
+    /* EAR CLIPPING, because a fan folded: measured on the Hannover tile it covered 13 % of the water
+     * at 52 % precision — half of what it drew lay outside the outline. A lake is concave often
+     * enough that the convex shortcut is simply wrong. */
+    std::vector<double> en((size_t)n * 2);
+    for (uint32_t k = 0; k < n; k++)
+      EnuOffsetM(refLat, refLon, ring[((size_t)s.FirstPoint + k) * 2],
+                 ring[((size_t)s.FirstPoint + k) * 2 + 1], en[(size_t)k * 2], en[(size_t)k * 2 + 1]);
+    double area2 = 0.0;
+    for (uint32_t k = 0; k < n; k++) {
+      const uint32_t j = (k + 1) % n;
+      area2 += en[(size_t)k * 2] * en[(size_t)j * 2 + 1] - en[(size_t)j * 2] * en[(size_t)k * 2 + 1];
+    }
+    std::vector<uint32_t> poly(n);
+    for (uint32_t k = 0; k < n; k++) poly[k] = area2 >= 0.0 ? k : n - 1 - k;
+    auto cross = [&](uint32_t a2, uint32_t b2, uint32_t c2) {
+      return (en[(size_t)b2 * 2] - en[(size_t)a2 * 2]) * (en[(size_t)c2 * 2 + 1] - en[(size_t)a2 * 2 + 1]) -
+             (en[(size_t)b2 * 2 + 1] - en[(size_t)a2 * 2 + 1]) * (en[(size_t)c2 * 2] - en[(size_t)a2 * 2]);
+    };
+    auto inside = [&](uint32_t a2, uint32_t b2, uint32_t c2, uint32_t q) {
+      return cross(a2, b2, q) >= 0.0 && cross(b2, c2, q) >= 0.0 && cross(c2, a2, q) >= 0.0;
+    };
+    size_t guard = (size_t)n * (size_t)n + 16;   /* a self-intersecting ring must not spin forever */
+    while (poly.size() >= 3 && guard-- > 0) {
+      bool clipped = false;
+      for (size_t k = 0; k < poly.size(); k++) {
+        const uint32_t a2 = poly[(k + poly.size() - 1) % poly.size()], b2 = poly[k],
+                       c2 = poly[(k + 1) % poly.size()];
+        if (cross(a2, b2, c2) <= 0.0) continue;                 /* reflex */
+        bool clear = true;
+        for (uint32_t q : poly)
+          if (q != a2 && q != b2 && q != c2 && inside(a2, b2, c2, q)) { clear = false; break; }
+        if (!clear) continue;
+        for (uint32_t idx : {a2, b2, c2}) {
+          const double *v = &p3[(size_t)idx * 3];
+          out.push_back((float)v[0]); out.push_back((float)v[1]); out.push_back((float)v[2]);
+          out.push_back((float)up[0]); out.push_back((float)up[1]); out.push_back((float)up[2]);
+        }
+        poly.erase(poly.begin() + (long)k);
+        clipped = true;
+        break;
       }
+      if (!clipped) break;
     }
   }
 
