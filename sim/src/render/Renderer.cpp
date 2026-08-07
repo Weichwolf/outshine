@@ -206,11 +206,20 @@ void Renderer::OnDevice(wgpu::Device d) {
 /* The irradiance buffer exists BEFORE any lit stage, for the same reason CreateAtmosphere does: a
  * WebGPU bind group pins its views and buffers at creation. */
 void Renderer::CreateSceneLight(void) {
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Shadow->Init(gpu);
+  wgpu::BufferDescriptor bd{};
+  bd.size = kShadowUniFloats * sizeof(float);
+  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
+  CsmBuf = Device.CreateBuffer(&bd);
 }
 
 SceneLight Renderer::Light(void) const {
   SceneLight l{};
   l.Irradiance = IrrBuf;
+  l.Cascades = CsmBuf;
+  l.ShadowAtlas = Shadow->AtlasView();
+  l.ShadowCompare = Shadow->CompareSampler();
   return l;
 }
 
@@ -734,6 +743,45 @@ void Renderer::RenderFrame(void) {
     cp.End();
   }
 
+
+  /* SUN SHADOWS. A NEW pass boundary, and it is Renderer's like every other: the four cascades are
+   * four viewports into one depth atlas, so the count rises by exactly one however many cascades
+   * there are. The cascade matrices are built here because every receiver reads the same uniform. */
+  Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterVertexCount(),
+                     Buildings->CasterClusters(), Buildings->CasterClusterCount(),
+                     Buildings->CasterAnchor());
+  /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
+   * a ridge shadows a whole valley while a building shadows a street. Measured affordable before it
+   * was built (stages/ShadowStage.h). */
+  Tiles->CollectCasters(TerrainCasters);
+  ShadowTerrain.resize(TerrainCasters.size());
+  for (size_t i = 0; i < TerrainCasters.size(); i++) {
+    ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
+    ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
+    for (int a2 = 0; a2 < 3; a2++) {
+      ShadowTerrain[i].Origin[a2] = TerrainCasters[i].Origin[a2];
+      ShadowTerrain[i].BoundCtr[a2] = TerrainCasters[i].BoundCtr[a2];
+    }
+    ShadowTerrain[i].BoundRad = TerrainCasters[i].BoundRad;
+  }
+  Shadow->SetTerrainCasters(ShadowTerrain);
+  Shadow->Update(ctx);
+  Queue.WriteBuffer(CsmBuf, 0, Shadow->CsmUniform(), kShadowUniFloats * sizeof(float));
+  {
+    wgpu::RenderPassDepthStencilAttachment sda{};
+    sda.view = Shadow->AtlasView();
+    sda.depthLoadOp = wgpu::LoadOp::Clear;
+    sda.depthStoreOp = wgpu::StoreOp::Store;
+    sda.depthClearValue = 1.0f;   /* plain [0,1] ortho depth, not the scene's reversed-Z */
+    wgpu::RenderPassDescriptor shp{};
+    shp.colorAttachmentCount = 0;
+    shp.depthStencilAttachment = &sda;
+    shp.timestampWrites = GpuTime.Writes(GpuTimer::Shadow);
+    wgpu::RenderPassEncoder sh = enc.BeginRenderPass(&shp);
+    passCount++;
+    Shadow->Encode(ctx, sh);
+    sh.End();
+  }
 
   /* Scene pass -> HDR offscreen: linear radiance, [0,1] reversed-Z depth. Sky fills the background
    * first (depth Always / no write); terrain draws over it. */

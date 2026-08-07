@@ -22,6 +22,9 @@ struct Gpu {
  * cascades, so no surface can end up lit by a second sun. */
 struct SceneLight {
   wgpu::Buffer Irradiance;
+  wgpu::Buffer Cascades;
+  wgpu::TextureView ShadowAtlas;
+  wgpu::Sampler ShadowCompare;
   /* The three decks plus the anchor frame their horizontal field is measured in — the SAME buffer
    * CloudLayerStage marches. A second cloud field would put the shadow somewhere other than under
    * the cloud, so there is one and every lit surface reads it. */

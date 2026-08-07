@@ -29,6 +29,7 @@
 #include "stages/MoonStage.h"
 #include "stages/TilesStage.h"
 #include "stages/BenchGroundStage.h"
+#include "stages/ShadowStage.h"
 #include "stages/BuildingsStage.h"
 #include "stages/WaterStage.h"
 #include "stages/TreeStage.h"
@@ -320,7 +321,9 @@ private:
   wgpu::Buffer VegBuf;
   std::vector<uint8_t> VegRows;
   std::unique_ptr<BenchGroundStage> BenchGround = std::make_unique<BenchGroundStage>();
+  std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();
   std::unique_ptr<BuildingsStage> Buildings = std::make_unique<BuildingsStage>();
+  wgpu::Buffer CsmBuf;
   std::unique_ptr<WaterStage> Water = std::make_unique<WaterStage>();
   std::unique_ptr<TreeStage> Trees = std::make_unique<TreeStage>();
 
@@ -333,7 +336,8 @@ private:
    * hold only the pipeline/bind group built from views injected at Configure(). §4 */
   wgpu::Texture TransLUT, MsLUT, SkyLUT;          /* 256x64, 32x32, 192x108 rgba16float (storage + sampled) */
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
-  std::vector<TilesStage::Caster> TerrainCasters;        /* reused, so a steady scene allocates nothing */
+  std::vector<TilesStage::Caster> TerrainCasters;
+  std::vector<ShadowStage::TerrainCaster> ShadowTerrain;        /* reused, so a steady scene allocates nothing */
   GpuTimer GpuTime;                               /* per-pass GPU time, inert unless FB_GPUTIME */
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
   wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */

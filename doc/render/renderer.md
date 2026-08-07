@@ -60,6 +60,38 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
+### Das art-director-Urteil gegen die Webcams, und warum Schatten zurueckkamen — 2026-08-07
+
+Acht Alpenkameras, Livebild gegen unseren Render, beides zur selben Minute bei 1,2 bis 3,1 Grad
+Sonnenhoehe. Das Urteil war **NACHBESSERN**, und es nennt einen einzigen Grund:
+
+| | dunkelster Pixel | unter 0.10 | ueber 0.90 | Spanne p1..p99 |
+|---|---|---|---|---|
+| unsere Renders (Median) | 0.41 | **0.0 %** | **0.0 %** | **0.90 EV** |
+| die Fotos (Median) | 0.00 | 1.5 % | 6 % | **3.15 EV** |
+
+**Aber die Zahl ist das Symptom, nicht die Ursache.** Woertlich: *„Wir haben den Farbstich der
+Daemmerung ohne ihre Selektivitaet."* Bei 2 Grad Sonnenhoehe wirft ein 100-m-Huegel **2,9 km**
+Schatten; die Grate brennen und die Taeler sind blauschwarz. Wir legten stattdessen einen
+gleichmaessigen Sepiafilter ueber eine gleichmaessig beleuchtete Landschaft — **das Licht hatte keine
+Richtung.**
+
+Und die Warnung, die den ganzen Tag zusammenfasst: eine filmische Kurve mit echtem Schwarzpunkt haette
+die Kennzahl sofort repariert (3 EV statt 0.9) und **das Bild verschlechtert** — Tonwertumfang ohne
+Tonwertaufbau.
+
+**Konsequenz: der Schattenpass ist zurueck.** Nicht neu gebaut, sondern aus `900c970^` zurueckgeholt —
+Kaskadenschattenkarten sind, was Witcher 3 und GTA 5 2015 hatten, und die Kosten waren schon gemessen.
+Gemessen nach der Rueckholung, Kochelsee bei 640x360, Binary `b937ab7c…`: **shadow 1,97 ms, Frame
+7,34 ms** von 16,67. Wolken bleiben draussen.
+
+Weiter offen aus demselben Urteil, unbearbeitet: drei Renders waren **gar keine Bilder** (innsbruck
+einfarbig 0.00 EV, seefeld einfarbig, salzburg mit senkrechten Naehten bei x=161 und x=251); `damuels`
+zeigt **senkrechte Kordstreifung** (Spaltenmittel schwanken um 63,5 Stufen, Zeilenmittel um 2,8); die
+Saettigung liegt bei 0,48-0,62 gegen 0,28-0,35 im Foto, also doppelt so bunt bei einem Drittel des
+Umfangs; und das Gelaende ist eine Steppdecke ohne Grate und Runsen.
+
+
 ### Contradictions between claim and code (from the retired `TODO.md` §1)
 
 | Place | Contradiction |
