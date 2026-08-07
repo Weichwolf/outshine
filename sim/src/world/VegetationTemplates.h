@@ -67,10 +67,19 @@ public:
   int DefaultTemplate() const { return Default_; }
   size_t RuleCount() const { return Rules_.size(); }
 
+  /* WHICH OSM LAYERS THIS CLASS MODEL READS, derived from the rows and never written down twice: the
+   * layer set is a property of the declaration, so a new layer is a JSON row and not a C++ edit. The
+   * tile server's layer set varies with the PLACE — thirteen of the schema's layers are absent from
+   * the demo tile and Manhattan carries its water in layers the Weserbergland does not have. */
+  const std::vector<std::string> &Layers() const { return Layers_; }
+  /* Layers whose rows declare no width: the areas alone, for a coarse tier where a line is sub-pixel. */
+  const std::vector<std::string> &AreaLayers() const { return AreaLayers_; }
+
 private:
   std::vector<Row> Table_;
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;   /* key "layer/kind", or the layer's wildcard row */
+  std::vector<std::string> Layers_, AreaLayers_;
   std::string Error_;
   int Default_ = 0;
 };

@@ -27,8 +27,11 @@ public:
     int Type = 0;                          /* 1 point, 2 line, 3 polygon */
   };
 
-  /* `name` selects ONE layer; everything else in the tile is skipped without being decoded. */
-  bool Parse(const uint8_t *bytes, size_t len, const char *layer);
+  /* `name` selects ONE layer; everything else in the tile is skipped without being decoded.
+   * `present` separates the two things a bare false conflates: a tile that simply has no such layer
+   * (Manhattan has no `water_lines`, and 13 of the schema's layers are absent from the demo tile) and
+   * bytes that would not decode. One is a counter, the other is an error. */
+  bool Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present = nullptr);
 
   int Extent() const { return Extent_; }
   const std::vector<Feature> &Features() const { return Features_; }

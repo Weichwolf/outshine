@@ -32,6 +32,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <string>
 #include <sys/stat.h>
 #include <vector>
@@ -168,6 +169,7 @@ int main(int argc, char **argv) {
   double stepEastM = 0.0, stepNorthM = 0.0, walkEastM = 0.0, walkNorthM = 0.0;
   std::string classDump;
   double classSpan = 400.0, classStep = 0.05;
+  bool classCmp = false;
   double cloudQ = 0.0;
   /* The wind clock and the wind itself are BENCH parameters for the same reason the standpoint is:
    * the scene declares one condition and a measurement needs a bracket around it. */
@@ -226,6 +228,7 @@ int main(int argc, char **argv) {
     else if (a == "--class-dump" && i + 1 < argc) classDump = argv[++i];
     else if (a == "--class-span" && i + 1 < argc) classSpan = atof(argv[++i]);
     else if (a == "--class-step" && i + 1 < argc) classStep = atof(argv[++i]);
+    else if (a == "--class-cmp") classCmp = true;
     else if (a == "--size" && i + 1 < argc) {
       std::string s = argv[++i];
       size_t x = s.find('x');
@@ -500,21 +503,26 @@ int main(int argc, char **argv) {
     if (!cf) { Log::Error("walk", "class_dump_open_failed", {{"path", classDump}}); return 1; }
     double ce = 0, cn = 0;
     W.Classes().ToEnu(clat, clon, &ce, &cn);
-    fprintf(cf, "# origin %.6f %.6f camE %.4f camN %.4f step %.4f span %.1f\n",
-            clat, clon, ce, cn, classStep, classSpan);
-    fprintf(cf, "e,n,cls,dist,second\n");
-    const long n = (long)(classSpan / classStep);
-    for (long j = 0; j <= n; j++)
-      for (long i = 0; i <= n; i++) {
-        const double e = ce - classSpan * 0.5 + (double)i * classStep;
-        const double nn = cn - classSpan * 0.5 + (double)j * classStep;
-        double d = 0;
-        int second = -1;
-        const int c = W.Classes().ClassAtEnu(e, nn, &d, &second);
-        fprintf(cf, "%.4f,%.4f,%d,%.4f,%d\n", e, nn, c, d > 1e6 ? -1.0 : d, second);
+    const int n = (int)(classSpan / classStep);
+    /* SNAPPED TO THE WORLD, not to the camera: two runs from different standpoints must sample the
+     * same points, or a sub-sample offset would show up as a disagreement that is not one. */
+    const double e0 = std::floor((ce - classSpan * 0.5) / classStep) * classStep;
+    const double n0 = std::floor((cn - classSpan * 0.5) / classStep) * classStep;
+    char hdr[256];
+    const int hl = snprintf(hdr, sizeof hdr, "OSCLS1 %d %.6f %.6f %.6f %.6f %.6f\n", n, e0, n0,
+                            classStep, ce, cn);
+    fwrite(hdr, 1, (size_t)hl, cf);
+    std::vector<uint8_t> row((size_t)n);
+    for (int j = 0; j < n; j++) {
+      for (int i = 0; i < n; i++) {
+        const int c = W.Classes().ClassAtEnu(e0 + ((double)i + 0.5) * classStep,
+                                             n0 + ((double)j + 0.5) * classStep, nullptr, nullptr);
+        row[(size_t)i] = (uint8_t)(c < 0 ? 255 : c);
       }
+      fwrite(row.data(), 1, row.size(), cf);
+    }
     fclose(cf);
-    Log::Info("walk", "class_dumped", {{"path", classDump}, {"samples", (double)((n + 1) * (n + 1))}});
+    Log::Info("walk", "class_dumped", {{"path", classDump}, {"side", n}, {"stepM", classStep}});
   }
 
   /* THE ACCUMULATOR IS EMPTIED AND REFILLED FROM THE RESIDENT SCENE ALONE. Without this the picture
@@ -589,6 +597,69 @@ int main(int argc, char **argv) {
       {"unknownKinds", (int)W.Classes().UnknownKinds()},
       {"unknownFeatures", (int)W.Classes().UnknownFeatures()},
       {"seedOverflow", W.Classes().SeedOverflow()}, {"buildMs", W.Classes().BuildMs()}});
+
+  /* CPU AGAINST GPU, on the very pixels that were drawn: one geometry, one predicate, two evaluators
+   * (doc/architecture.md). The GPU class index is not read back — it is not expressible through the
+   * tone curve — so the picture is PARTITIONED by its own colour and each partition is checked
+   * against the CPU answer. A bijection is 0 % disagreement; the bound is the fray, because the
+   * fragment refines the boundary and the CPU does not. */
+  if (classCmp) {
+    std::vector<uint8_t> viz;
+    std::vector<float> depth;
+    if (!R.ReadPixels(viz) || !R.ReadDepth(depth)) {
+      Log::Error("walk", "class_cmp_readback_failed");
+      return 1;
+    }
+    const double tanH = std::tan(0.5 * (double)scene.FovDeg() * kDeg2Rad);
+    const double aspect = (double)width / (double)height;
+    std::map<uint32_t, std::map<int, long>> hist;
+    long ground = 0, edgeNear = 0;
+    const double *O = W.Classes().OriginEcef(), *Ea = W.Classes().EastEcef(),
+                 *No = W.Classes().NorthEcef();
+    for (int py = 0; py < height; py++)
+      for (int px = 0; px < width; px++) {
+        const float d = depth[(size_t)py * width + px];
+        if (!(d > 1.0e-6f) || d >= 1.0f) continue;
+        const double sx = (2.0 * ((double)px + 0.5) / width - 1.0) * tanH * aspect;
+        const double sy = (1.0 - 2.0 * ((double)py + 0.5) / height) * tanH;
+        double dir[3];
+        for (int k = 0; k < 3; k++) dir[k] = fwd[k] + right[k] * sx + up[k] * sy;
+        const double len = std::sqrt(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+        for (int k = 0; k < 3; k++) dir[k] /= len;
+        const double cosOff = 1.0 / len;   /* dir . fwd, since fwd is a unit vector */
+        const double range = (double)Render::Renderer::kNearM / ((double)d * cosOff);
+        if (range > 2000.0) continue;      /* beyond the near tier the CPU answers from the far one */
+        double p[3];
+        for (int k = 0; k < 3; k++) p[k] = eye[k] + dir[k] * range - O[k];
+        const double pe = p[0] * Ea[0] + p[1] * Ea[1] + p[2] * Ea[2];
+        const double pn = p[0] * No[0] + p[1] * No[1] + p[2] * No[2];
+        double dist = 0.0;
+        const int c = W.Classes().ClassAtEnu(pe, pn, &dist, nullptr);
+        if (c < 0) continue;
+        ground++;
+        /* Within one fray width of an outline the two are ALLOWED to differ: the fragment blends and
+         * the point query does not. footM at this range is the fragment's own width. */
+        if (dist < 0.05 + range / 688.0) { edgeNear++; continue; }
+        const size_t o = ((size_t)py * width + px) * 4;
+        const uint32_t key = ((uint32_t)viz[o] << 16) | ((uint32_t)viz[o + 1] << 8) | viz[o + 2];
+        hist[key][c]++;
+      }
+    long agree = 0, total = 0, solidAgree = 0, solidTotal = 0, solidColours = 0;
+    for (const auto &kv : hist) {
+      long best = 0, sum = 0;
+      for (const auto &cc : kv.second) { sum += cc.second; if (cc.second > best) best = cc.second; }
+      agree += best;
+      total += sum;
+      /* A colour carried by a thousand pixels is a CLASS; one carried by a handful is the resolve
+       * filter's blend across an edge and says nothing about either evaluator. */
+      if (sum >= 1000) { solidAgree += best; solidTotal += sum; solidColours++; }
+    }
+    Log::Info("walk", "class_cmp", {{"groundPx", (double)ground}, {"comparedPx", (double)total},
+        {"withinFrayPx", (double)edgeNear}, {"colours", (int)hist.size()},
+        {"agreePct", total ? 100.0 * (double)agree / (double)total : 0.0},
+        {"solidColours", (int)solidColours}, {"solidPx", (double)solidTotal},
+        {"solidAgreePct", solidTotal ? 100.0 * (double)solidAgree / (double)solidTotal : 0.0}});
+  }
 
   std::vector<uint8_t> rgba;
   if (!R.ReadPixels(rgba)) { Log::Error("walk", "readback_failed"); return 1; }

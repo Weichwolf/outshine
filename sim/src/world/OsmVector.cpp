@@ -55,7 +55,8 @@ int32_t ZigZag(uint64_t v) { return (int32_t)((v >> 1) ^ (~(v & 1) + 1)); }
 
 }  // namespace
 
-bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer) {
+bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer, bool *present) {
+  if (present) *present = false;
   Features_.clear();
   Rings_.clear();
   Points_.clear();
@@ -86,6 +87,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer) {
       } else if (!probe.Skip(w2)) break;
     }
     if (name != layer) continue;
+    if (present) *present = true;
 
     std::vector<Reader> featureBodies;
     while (L.Field(num, wire)) {
@@ -153,6 +155,17 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer) {
       size_t gi = 0;
       uint32_t ringFirst = 0;
       int ringCount = 0;
+      /* A LINESTRING never sends ClosePath, so a decoder that only emits on cmd 7 keeps polygons and
+       * drops every way — silently, because RingCount 0 is a legal feature. Each MoveTo, and the end
+       * of the stream, closes the run that was open. */
+      const auto flushLine = [&]() {
+        if (f.Type != 2 || ringCount < 2) return;
+        Ring r{};
+        r.First = ringFirst;
+        r.Count = (uint32_t)ringCount;
+        r.Exterior = true;
+        Rings_.push_back(r);
+      };
       while (gi < geom.size()) {
         const uint32_t cmd = geom[gi] & 7, cnt = geom[gi] >> 3;
         gi++;
@@ -162,7 +175,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer) {
             cx += ZigZag(geom[gi]);
             cy += ZigZag(geom[gi + 1]);
             gi += 2;
-            if (cmd == 1) { ringFirst = (uint32_t)Points_.size() / 2; ringCount = 0; }
+            if (cmd == 1) { flushLine(); ringFirst = (uint32_t)Points_.size() / 2; ringCount = 0; }
             Points_.push_back(cx);
             Points_.push_back(cy);
             ringCount++;
@@ -189,6 +202,7 @@ bool OsmVector::Parse(const uint8_t *bytes, size_t len, const char *layer) {
           break;
         }
       }
+      flushLine();
       f.RingCount = (uint32_t)Rings_.size() - f.FirstRing;
       Features_.push_back(f);
     }

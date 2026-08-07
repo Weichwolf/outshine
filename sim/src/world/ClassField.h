@@ -31,6 +31,7 @@
 #define CLASSFIELD_H
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -64,7 +65,7 @@ public:
   const double *NorthEcef() const { return North_; }
 
   bool Complete() const;
-  int PendingTiles() const { return Near_.Field.PendingTiles() + Far_.Field.PendingTiles(); }
+  int PendingTiles() const { return Near_.Field ? Near_.Field->PendingTiles() + Far_.Field->PendingTiles() : -1; }
 
   /* THE ONE EVALUATOR, in C++ — the WGSL one reads the same bytes with the same rule. -1 = no datum
    * at this place, which is a state and not a default: the caller decides what to do with it. */
@@ -80,6 +81,8 @@ public:
   double NoDataFraction() const { return Probe_ ? (double)ProbeNoData_ / (double)Probe_ : 0.0; }
   long UnknownKinds() const { return (long)Unknown_.size(); }
   long UnknownFeatures() const { return UnknownFeats_; }
+  long MissingLayers() const { return Near_.Field ? Near_.Field->MissingLayers() + Far_.Field->MissingLayers() : 0; }
+  long BadTiles() const { return Near_.Field ? Near_.Field->BadTiles() + Far_.Field->BadTiles() : 0; }
   double BuildMs() const { return BuildMsMax_; }
   long EdgeCount() const { return Edges_; }
   long SeedCount() const { return Seeds_; }
@@ -95,7 +98,7 @@ private:
     float MinE, MinN, MaxE, MaxN;
   };
   struct Tier {
-    OsmField Field;
+    std::unique_ptr<OsmField> Field;
     int Ring;
     double CellM;
     int Half;          /* cells from the grid centre; the grid is 2*Half square */
@@ -107,9 +110,9 @@ private:
     double OrgE = 0, OrgN = 0;
     bool Have = false;
     bool Stale = true;
-    Tier(int zoom, std::initializer_list<const char *> layers, int ring, double cellM, int half,
-         double slackM)
-        : Field(zoom, layers), Ring(ring), CellM(cellM), Half(half), SlackM(slackM) {}
+    Tier(int zoom, int ring, double cellM, int half, double slackM)
+        : Ring(ring), CellM(cellM), Half(half), SlackM(slackM), Zoom(zoom) {}
+    int Zoom;
   };
 
   void Project(double lat, double lon, double *e, double *n) const;
@@ -129,11 +132,11 @@ private:
   };
 
   const VegetationTemplates *Veg_ = nullptr;
-  Tier Near_{14, {"land", "streets", "water_polygons", "water_lines", "sites", "street_polygons",
-                  "buildings"}, 1, 16.0, 64, 256.0};
-  /* The far tier carries AREAS only: at a kilometre a 7.5 m road is under a pixel, and the street
-   * lines are two thirds of the z11 edge count. */
-  Tier Far_{11, {"land", "water_polygons"}, 1, 64.0, 128, 1024.0};
+  /* Both tiers read the layers the DECLARATION names; the far one takes the area layers alone,
+   * because at a kilometre a 7.5 m road is under a pixel and the street lines are two thirds of the
+   * z11 edge count. */
+  Tier Near_{14, 1, 16.0, 64, 448.0};
+  Tier Far_{11, 1, 64.0, 128, 3800.0};
   Block NearB_, FarB_;
   std::vector<uint32_t> Buf_;
   bool Dirty_ = false;

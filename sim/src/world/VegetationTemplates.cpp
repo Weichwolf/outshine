@@ -24,6 +24,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Table_.clear();
   Names_.clear();
   Rules_.clear();
+  Layers_.clear();
+  AreaLayers_.clear();
   Error_.clear();
   Default_ = 0;
 
@@ -141,6 +143,19 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
   if (Rules_.empty()) { Error_ = "no osm rows declared"; return false; }
 
+  std::unordered_map<std::string, bool> hasLine;
+  for (size_t i = 0; i < tpls.Size(); i++) {
+    const Render::Json::Ref rows = tpls[i]["osm"];
+    for (size_t k = 0; k < rows.Size(); k++) {
+      const std::string layer = rows[k]["layer"].Str("");
+      auto it = hasLine.find(layer);
+      const bool line = rows[k]["widthM"].Num(0.0) > 0.0;
+      if (it == hasLine.end()) { Layers_.push_back(layer); hasLine.emplace(layer, line); }
+      else if (line) it->second = true;
+    }
+  }
+  for (const std::string &l : Layers_) if (!hasLine[l]) AreaLayers_.push_back(l);
+
   const std::string def = doc.Root()["osmDefault"].Str("");
   Default_ = -1;
   for (size_t i = 0; i < Names_.size(); i++)
@@ -148,7 +163,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   if (Default_ < 0) { Error_ = "osmDefault names no template: " + def; return false; }
 
   Log::Info("veg", "table", {{"path", path}, {"templates", (int)Table_.size()},
-                             {"osmRules", (int)Rules_.size()}, {"default", def}});
+                             {"osmRules", (int)Rules_.size()}, {"layers", (int)Layers_.size()},
+                             {"areaLayers", (int)AreaLayers_.size()}, {"default", def}});
   return true;
 }
 

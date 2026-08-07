@@ -68,7 +68,7 @@ void ClassField::Project(double lat, double lon, double *e, double *n) const {
 }
 
 void ClassField::Ingest(Tier &t) {
-  const std::vector<double> &pts = t.Field.Points();
+  const std::vector<double> &pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
   if (havePts > t.PtsDone) {
     t.Pts.resize(havePts * 2);
@@ -81,13 +81,13 @@ void ClassField::Ingest(Tier &t) {
     t.PtsDone = havePts;
   }
 
-  const std::vector<OsmField::Feature> &feats = t.Field.Features();
+  const std::vector<OsmField::Feature> &feats = t.Field->Features();
   if (feats.size() <= t.FeatsDone) return;
 
   for (size_t i = t.FeatsDone; i < feats.size(); i++) {
     const OsmField::Feature &f = feats[i];
-    const std::string_view layer = t.Field.LayerName((int)f.Layer);
-    const std::string_view kind = t.Field.Str(f, "kind");
+    const std::string_view layer = t.Field->LayerName((int)f.Layer);
+    const std::string_view kind = t.Field->Str(f, "kind");
     const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
     if (!rule) {
       std::string key(layer);
@@ -118,7 +118,7 @@ void ClassField::Ingest(Tier &t) {
     rec.MinE = rec.MinN = 1e30f;
     rec.MaxE = rec.MaxN = -1e30f;
     for (uint32_t r = 0; r < f.RingCount; r++) {
-      const OsmField::Ring &ring = t.Field.Rings()[f.FirstRing + r];
+      const OsmField::Ring &ring = t.Field->Rings()[f.FirstRing + r];
       for (uint32_t k = 0; k < ring.Count; k++) {
         const float e = t.Pts[((size_t)ring.First + k) * 2];
         const float n = t.Pts[((size_t)ring.First + k) * 2 + 1];
@@ -153,7 +153,11 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
 
   const int def = Veg_->DefaultTemplate();
   std::vector<uint8_t> base((size_t)W * H, 0xFF), baseRank((size_t)W * H, 0);
-  std::vector<std::vector<uint32_t>> seedOf((size_t)W * H);   /* seed indices per cell */
+  /* Per-cell seed lists as an intrusive linked list over two flat arrays: a vector of vectors here
+   * allocates once per cell and that alone was two thirds of the rebuild. */
+  std::vector<int32_t> seedHead((size_t)W * H, -1);
+  std::vector<int32_t> seedNext;
+  std::vector<uint32_t> seedCount((size_t)W * H, 0);
   B.Seeds.clear();
   B.Refs.clear();
   B.Edges.clear();
@@ -161,19 +165,26 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
   std::vector<float> ex;      /* this feature's edges: x0,y0,x1,y1 */
   std::vector<uint32_t> byY;  /* edge order by ymin */
   std::vector<uint32_t> act;
-  std::vector<std::vector<uint32_t>> cellEdge;   /* per cell of this feature's bbox */
+  /* The same for one feature's edges over the cells of its bounding box, with a VERSION STAMP so the
+   * head array is never cleared between features. */
+  std::vector<int32_t> ceHead;
+  std::vector<uint32_t> ceStamp;
+  std::vector<int32_t> ceNext;
+  std::vector<uint32_t> ceEdge;
+  std::vector<uint32_t> ceCount;
+  uint32_t stamp = 0;
   struct Hit { double X; int Dir; };
   std::vector<Hit> hits;
 
   for (const Feat &f : t.Feats) {
     if (f.MaxE < B.OrgE || f.MinE > B.OrgE + W * cell) continue;
     if (f.MaxN < B.OrgN || f.MinN > B.OrgN + H * cell) continue;
-    const OsmField::Feature &of = t.Field.Features()[f.Idx];
+    const OsmField::Feature &of = t.Field->Features()[f.Idx];
 
     ex.clear();
     if (f.Type == 3) {
       for (uint32_t k = 0; k < of.RingCount; k++) {
-        const OsmField::Ring &ring = t.Field.Rings()[of.FirstRing + k];
+        const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
         for (uint32_t s = 0; s < ring.Count; s++) {
           const uint32_t a = ring.First + s, b = ring.First + ((s + 1) % ring.Count);
           ex.push_back(t.Pts[(size_t)a * 2]); ex.push_back(t.Pts[(size_t)a * 2 + 1]);
@@ -183,7 +194,7 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
     } else {
       const float hw = f.WidthM * 0.5f;
       for (uint32_t k = 0; k < of.RingCount; k++) {
-        const OsmField::Ring &ring = t.Field.Rings()[of.FirstRing + k];
+        const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
         for (uint32_t s = 0; s + 1 < ring.Count; s++) {
           const float ax = t.Pts[((size_t)ring.First + s) * 2];
           const float ay = t.Pts[((size_t)ring.First + s) * 2 + 1];
@@ -219,7 +230,14 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
     if (i0 > i1 || j0 > j1) continue;
     const int bw = i1 - i0 + 1, bh = j1 - j0 + 1;
 
-    cellEdge.assign((size_t)bw * bh, {});
+    stamp++;
+    if (ceHead.size() < (size_t)bw * bh) {
+      ceHead.resize((size_t)bw * bh, -1);
+      ceStamp.resize((size_t)bw * bh, 0);
+      ceCount.resize((size_t)bw * bh, 0);
+    }
+    ceNext.clear();
+    ceEdge.clear();
     for (size_t e = 0; e < ne; e++) {
       const float *p = &ex[e * 4];
       const int ei0 = std::max(i0, (int)std::floor((std::min(p[0], p[2]) - B.OrgE) / cell));
@@ -227,8 +245,14 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
       const int ej0 = std::max(j0, (int)std::floor((std::min(p[1], p[3]) - B.OrgN) / cell));
       const int ej1 = std::min(j1, (int)std::floor((std::max(p[1], p[3]) - B.OrgN) / cell));
       for (int j = ej0; j <= ej1; j++)
-        for (int i = ei0; i <= ei1; i++)
-          cellEdge[(size_t)(j - j0) * bw + (size_t)(i - i0)].push_back((uint32_t)e);
+        for (int i = ei0; i <= ei1; i++) {
+          const size_t c = (size_t)(j - j0) * bw + (size_t)(i - i0);
+          if (ceStamp[c] != stamp) { ceStamp[c] = stamp; ceHead[c] = -1; ceCount[c] = 0; }
+          ceNext.push_back(ceHead[c]);
+          ceEdge.push_back((uint32_t)e);
+          ceHead[c] = (int32_t)(ceNext.size() - 1);
+          ceCount[c]++;
+        }
     }
 
     byY.resize(ne);
@@ -270,18 +294,21 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
       for (int i = i0; i <= i1; i++) {
         const double cx = B.OrgE + (double)i * cell;
         while (hi < hits.size() && hits[hi].X < cx) { wind += hits[hi].Dir; hi++; }
-        const std::vector<uint32_t> &ce = cellEdge[(size_t)(j - j0) * bw + (size_t)(i - i0)];
+        const size_t bc = (size_t)(j - j0) * bw + (size_t)(i - i0);
+        const uint32_t nce = ceStamp[bc] == stamp ? ceCount[bc] : 0u;
         const size_t ci = (size_t)j * W + (size_t)i;
-        if (ce.empty() || seedOf[ci].size() >= (size_t)kSeedCap || ce.size() > (size_t)kRefCap) {
-          if (!ce.empty()) Overflow_++;
+        if (nce == 0 || seedCount[ci] >= (uint32_t)kSeedCap || nce > (uint32_t)kRefCap) {
+          if (nce != 0) Overflow_++;
           if (wind != 0) { base[ci] = (uint8_t)f.Tpl; baseRank[ci] = (uint8_t)f.Rank; }
           continue;
         }
         const uint32_t refFirst = (uint32_t)B.Refs.size();
-        for (uint32_t e : ce) B.Refs.push_back((uint32_t)(B.Edges.size() / 4) + e);
-        seedOf[ci].push_back((uint32_t)(B.Seeds.size() / 2));
-        B.Seeds.push_back((uint32_t)f.Tpl | ((uint32_t)f.Rank << 8) |
-                          ((uint32_t)ce.size() << 16) |
+        for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[(size_t)k])
+          B.Refs.push_back((uint32_t)(B.Edges.size() / 4) + ceEdge[(size_t)k]);
+        seedNext.push_back(seedHead[ci]);
+        seedHead[ci] = (int32_t)(B.Seeds.size() / 2);
+        seedCount[ci]++;
+        B.Seeds.push_back((uint32_t)f.Tpl | ((uint32_t)f.Rank << 8) | ((uint32_t)nce << 16) |
                           ((uint32_t)(uint8_t)(std::max(-128, std::min(127, wind)) + 128) << 24));
         B.Seeds.push_back(refFirst);
       }
@@ -296,9 +323,12 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
   B.Cells.assign((size_t)W * H * 2, 0);
   for (size_t ci = 0; ci < (size_t)W * H; ci++) {
     const uint32_t first = (uint32_t)(seeds.size() / 2);
-    for (uint32_t s : seedOf[ci]) { seeds.push_back(B.Seeds[s * 2]); seeds.push_back(B.Seeds[s * 2 + 1]); }
+    for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[(size_t)s]) {
+      seeds.push_back(B.Seeds[(size_t)s * 2]);
+      seeds.push_back(B.Seeds[(size_t)s * 2 + 1]);
+    }
     B.Cells[ci * 2] = (uint32_t)base[ci] | ((uint32_t)baseRank[ci] << 8) |
-                      ((uint32_t)seedOf[ci].size() << 16);
+                      ((uint32_t)seedCount[ci] << 16);
     B.Cells[ci * 2 + 1] = first;
   }
   B.Seeds.swap(seeds);
@@ -356,8 +386,13 @@ void ClassField::Pack() {
 
 void ClassField::Update(double camLat, double camLon) {
   if (!Opened_ || !Veg_ || !Veg_->Ready()) return;
-  Near_.Field.Build(camLat, camLon, Near_.Ring);
-  Far_.Field.Build(camLat, camLon, Far_.Ring);
+  /* THE LAYER SET IS THE DECLARATION'S, so it cannot be known before the table is loaded. */
+  if (!Near_.Field) {
+    Near_.Field = std::make_unique<OsmField>(Near_.Zoom, Veg_->Layers());
+    Far_.Field = std::make_unique<OsmField>(Far_.Zoom, Veg_->AreaLayers());
+  }
+  Near_.Field->Build(camLat, camLon, Near_.Ring);
+  Far_.Field->Build(camLat, camLon, Far_.Ring);
   Ingest(Near_);
   Ingest(Far_);
 
@@ -383,7 +418,7 @@ void ClassField::Update(double camLat, double camLon) {
 }
 
 bool ClassField::Complete() const {
-  return Opened_ && Near_.Field.PendingTiles() == 0 && Far_.Field.PendingTiles() == 0 &&
+  return Opened_ && Near_.Field && Far_.Field && Near_.Field->PendingTiles() == 0 && Far_.Field->PendingTiles() == 0 &&
          Near_.Have && Far_.Have && !Near_.Stale && !Far_.Stale;
 }
 

@@ -17,10 +17,7 @@ uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_
 
 }  // namespace
 
-OsmField::OsmField(int zoom, std::initializer_list<const char *> layers) : Zoom_(zoom) {
-  Layers_.reserve(layers.size());
-  for (const char *l : layers) Layers_.emplace_back(l);
-}
+OsmField::OsmField(int zoom, const std::vector<std::string> &layers) : Layers_(layers), Zoom_(zoom) {}
 
 uint32_t OsmField::Intern(std::vector<std::string> &pool,
                           std::unordered_map<std::string, uint32_t> &index, std::string_view s) {
@@ -69,9 +66,15 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
 
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
-    if (got < 0 || !mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str())) {
-      Log::Debug("world", "vectile", {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got},
-                                     {"layer", Layers_[li]}, {"parsed", false}});
+    bool present = false;
+    if (got < 0 || !mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str(), &present)) {
+      if (present || got < 0) {
+        Bad_++;
+        Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
+                                                   {"bytes", got}, {"layer", Layers_[li]}});
+      } else {
+        Missing_++;   /* the tile carries no such layer at all — normal, and a property of the PLACE */
+      }
       continue;
     }
     const double ext = (double)mvt.Extent();

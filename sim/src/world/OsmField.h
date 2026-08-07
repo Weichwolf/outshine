@@ -46,7 +46,7 @@ public:
   /* `zoom` is the VECTOR SOURCE's own maxzoom for this field, and it belongs here rather than to
    * any consumer: a coarse field over a wide area and a fine one over a narrow one are the same class
    * reading two generalisations of one dataset. */
-  OsmField(int zoom, std::initializer_list<const char *> layers);
+  OsmField(int zoom, const std::vector<std::string> &layers);
 
   /* AT MOST ONE TILE PER CALL. Everything downstream of a decoded tile is main-thread work in the
    * frame that asked; a ring of nine landing together is one frame doing nine tiles' worth of it.
@@ -54,6 +54,10 @@ public:
   int Build(double lat, double lon, int ringTiles);
 
   int Zoom() const { return Zoom_; }
+  /* A layer this tile stream simply does not carry is normal and counted; bytes that would not decode
+   * are an error and logged with the tile. */
+  long MissingLayers() const { return Missing_; }
+  long BadTiles() const { return Bad_; }
   /* Tiles of the block the last Build() left undecoded. 0 = complete, -1 = never asked. */
   int PendingTiles() const { return Pending_; }
 
@@ -96,6 +100,7 @@ private:
   std::vector<uint8_t> Scratch_;   /* the tile buffer, once — not once per frame */
   int Zoom_;
   int Pending_ = -1;
+  long Missing_ = 0, Bad_ = 0;
 };
 
 } // namespace outshine::World

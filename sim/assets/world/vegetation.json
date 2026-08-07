@@ -297,6 +297,11 @@
           "layer": "sites",
           "kind": "sports_center",
           "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "sports_centre",
+          "rank": 60
         }
       ]
     },
