@@ -90,6 +90,44 @@ eviction, `kNodeCeil`, the imagery mode not being declarable at all, TLS not wir
    the drawing half needs a `render/entities.md` as soon as a body exists to point it at.
 
 
+### The sim-critic's verdict on the built layers, 2026-08-07 — eight defects, none closed
+
+First critic judgement of the round; binary pinned `7a1359a1…`, `judge.png` reproduced bit-identical,
+plus eleven of the critic's own frames at six azimuths and three standpoints. **The gate stands at 0 of
+10.** In the owner's own order — geometry → LOD → lighting → colour — the first two entries are the same
+missing thing and they cause the third.
+
+| # | defect | the measurement |
+|---|---|---|
+| 1 | **Buildings take no directional light** | a silo's cylinder wall is 88.9 % exactly `(114,114,120)`; 14 probes across it, zero counts of variation. Roof (horizontal) 117.6 against wall (vertical) 113.9 — **4 counts**. Terrain on the same frame has std 13.5 |
+| 2 | **No cast shadow anywhere, and no contact shadow** | a 15 m silo at an 11.3° sun owes 75 m of shadow. The apron in front of it has blue std 1.70; the ground gets *brighter* toward the wall foot, not darker. `shadowTris` 3023 against `terrainTris` 52992 — **the terrain is not a caster at all** |
+| 3 | **No black point** | 0.000 % of the frame under luminance 32, minimum 100. A consequence of 1 and 2: nothing is dark because nothing is in shadow |
+| 4 | **Detail falls off toward the viewer** | luminance std 5.00 at 12.4 m, 1.38 at 0.9 m. At 2.3 mm per pixel the ground carries 3.0 % contrast |
+| 5 | **Clouds are thresholded SDFs** | the blue channel varies by 5 steps over 72 800 px — less than the clear sky beside it. Monotone 40 px ramp, then 90 px of constant |
+| 6 | **No foreground** | 210 m without one vertical. Green rises in saturation with distance (G−B 69 at 3 m, 89 at 212 m) instead of falling. `fovDeg` 60 is vertical, so hFOV is really **91.5°** and the edges stretch 2.05× |
+| 7 | **Class edges are 0.91 px** | declared up to 0.90 m; measured 0.91 px ≈ 1.7 cm at 19 mm/px — a factor of ~50. Straight to 0.29 px of residual. Not TAA convergence: `--settle` 64 against 128 moves the mean by 0.0014 |
+| 8 | **Screen-space black specks** | 120 on concrete, 124 on asphalt, 23 on grass; darkest luminance 30 against a median of 116. **Size independent of distance, some in diagonal chains** — so screen space, not material |
+
+**On (1), what the model predicts against what the picture shows.** With `kGroundBounce` 0.12,
+`kSelfShelter` 0.35 and concrete albedo 0.29, back-lit so the sun terms drop out:
+
+```
+roof (n·up = 1):  0.650·S + 0      + 0.29·0.350·S = 0.752·S
+wall (n·up = 0):  0.325·S + 0.06·S + 0.29·0.175·S = 0.436·S      ratio 1.724 = 0.79 EV
+```
+
+**`litRadiance` separates them by 0.79 EV and the frame shows 0.05 EV — a factor of 16.** The tone curve
+does not explain it: over an 11.7 EV span at contrast 1.09, 0.79 EV is about **17 codes**, and 4 were
+measured. The named suspect is `stages/BuildingsStage.cpp:53`, which turns every normal toward the
+camera (`dot(in.nrm, in.rel) > 0`) — right for a wall, and for a horizontal cap it flips `n·up` from +1
+to −1 and drops the roof into the wall's ambient branch. **Suspected, not proven: the next measurement
+is one line, the building normal written out as colour.**
+
+**On (7), what is already excluded.** `kClsFray` forced 0.05 → 0.30 moves 2597 px (max Δ 54) and forcing
+`zone` to 0.30 moves 3888 px, so the width does reach `half`; the JSON carries the nine declared values
+and `VegetationTemplates.cpp` reads both of them. So the break is between the class row and `zone`, and
+the next measurement is `half` and `hit.dist` written out as colour.
+
 ## Knowledge
 
 Derivations, formulas and measured constants — the distilled body of this file.
