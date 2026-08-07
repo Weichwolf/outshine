@@ -640,8 +640,42 @@ monotone). It would also leave a declared 0.30 m close-up silently rendered from
 | The night-light cap is a set number | 65,536 sprites ("team-lead cap"), not derived from a measurement. Likewise the class LUTs for colour/radius/brightness — explicitly "cosmetic LUT". |
 | **Two bake modes, one single visible switch** *(parked in the roadmap until this split; now homed here)* | SVS (OSM) and EVS (photo) have different lighting semantics ([`../render/renderer.md`](../render/renderer.md)): SVS pins day = 1 and switches stars/lights/clouds off. The switch today is the TAB key in the browser. There is no declaration layer for it — **a scenario cannot declare the picture mode at all.** |
 | **TLS is not wired in the tile server** *(parked in the roadmap until this split; now homed here)* | `tiles/nginx.conf`, explicitly noted as a documented gap: `FB_DOMAIN` exists as an env hook, but there is no `listen 443 ssl;` block and no ACME. For central hosting that is a piece of work of its own, not a flag. |
+| **A give-up and a hole are the same return value.** `fb_get` (`TerrainLoader.cpp`) retries 60 × 50 ms = **3 s** and then returns 0 — the identical value it returns for HTTP 204, a genuine hole. A cold tile that is slow is therefore indistinguishable from a tile with no data, and `osmmesh` builds an empty one without anybody being told. Measured 2026-08-07 over twelve cold world tiles (Tokyo, Osaka, Seoul, Delhi, Istanbul, Moscow, Lagos, Mexico City, Buenos Aires, Jakarta, Chicago, Madrid): readiness p50 **114 ms**, max **396 ms**, **0/12** over 3 s — so the budget is 7.6× the worst case and this does not fire today. It is latent, and it is exactly the silent substitution the rules forbid |
+| **`OsmVector::Parse` returns `false` for "layer absent" and for "bytes broken" alike.** Manhattan carries no `water_lines` — it is an island, and the water is in `ocean`, `water_polygons` and `pier_lines` — and that correct absence is reported as a decode failure. An ocean would count as a parser error and a parser error as an empty ocean |
+| **The layer set is location-dependent and nothing declares it.** Thirteen layers occur in city tiles that the demo tile does not have (below). A classifier wired to the Weserbergland set is blind in Manhattan, where `street_polygons` carries the road AREA and `ocean` the water. The layer list belongs in the JSON declaration, not in the code |
 
 ## Knowledge
+
+### The tile server's cold-start handshake, and what the layer set actually is
+
+**A cold tile answers HTTP 202 with a 9-byte body and `Content-Type: application/vnd.mapbox-vector-tile`** —
+the server accepts the job and fetches upstream in the background. The content type does not change, so
+**a client that reads the body without reading the status feeds nine bytes to its decoder.** `fb_get`
+reads the status: only 200 with a non-empty body hands bytes over, 202 retries, 204 is a hole.
+
+Outshine's own decoder was run against four dense city tiles (2026-08-07, standalone harness over
+unmodified `OsmVector.cpp`) and cross-checked against an independent parser — **the counts agree
+exactly**, which is what makes them evidence rather than one program's opinion:
+
+| z14 tile | bytes | buildings | building verts | landcover | streets |
+|---|---|---|---|---|---|
+| demo 52.106/9.435 | 4 970 | 9 | 92 | 8 / 469 | 16 / 274 |
+| Hameln | 152 998 | 1 706 | 9 563 | 15 / 1 138 | — |
+| Hannover | 269 489 | 3 487 | 21 080 | 22 / 3 795 | 118 / 5 789 |
+| Berlin Mitte | 257 744 | 1 291 | 13 140 | 12 / 3 784 | 108 / 5 986 |
+| Manhattan | 465 404 | 4 765 | 31 067 | 15 / 2 560 | 122 / 6 758 |
+| Paris Châtelet | 625 312 | 4 706 | 45 806 | 10 / 2 437 | 116 / 10 113 |
+
+**Layer occurrence over six tiles.** Always present: `buildings`, `land`, `streets`, `sites`,
+`addresses`, `street_labels`. Usually (5/6): `water_lines`, `water_lines_labels`, `water_polygons`,
+`place_labels`, `pois`, `public_transport`. Sometimes (4/6): `bridges`, `street_polygons`,
+`streets_polygons_labels`, `water_polygons_labels`, `pier_lines`. Rarely (1–2/6): `ocean`,
+`pier_polygons`, `ferries`, `street_labels_points`.
+
+**A building footprint has six points** (mean 5.6–10.2 across the six tiles, max 136). That is the
+number behind [`../architecture.md`](../architecture.md)'s three tiers: keeping the source polygon
+instead of its AABB costs a factor of 2.6, and buys the only geometry a CPU point query can answer with.
+
 
 - **Why line of sight may not cost coverage.** `walk.h` treated "outside the view" at a split like
   "outside the map" and deleted the parent's quadrant. The corrected rule tests the viability of all
