@@ -16,19 +16,15 @@ struct Gpu {
   wgpu::Instance Instance;             /* only for the rare stage that blocks on MapAsync (Instance::WaitAny) */
 };
 
-/* What a SUN-LIT surface binds, as one bundle: IrradianceStage's two irradiances and ShadowStage's
+/* What a SUN-LIT surface binds, as one bundle: IrradianceStage's two irradiances and
  * cascade uniform plus its atlas. Terrain and buildings take the same four handles, which is
  * the C++ half of the promise stages/SurfaceLight.h makes in WGSL — one light, one scale, one set of
  * cascades, so no surface can end up lit by a second sun. */
 struct SceneLight {
   wgpu::Buffer Irradiance;
-  wgpu::Buffer Cascades;
-  wgpu::TextureView ShadowAtlas;
-  wgpu::Sampler ShadowCompare;
   /* The three decks plus the anchor frame their horizontal field is measured in — the SAME buffer
    * CloudLayerStage marches. A second cloud field would put the shadow somewhere other than under
    * the cloud, so there is one and every lit surface reads it. */
-  wgpu::Buffer CloudSky;
 };
 
 } // namespace outshine::Render

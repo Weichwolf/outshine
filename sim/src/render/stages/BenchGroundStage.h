@@ -7,7 +7,7 @@
  * shader's own defects stay off the plant's account.
  *
  * What it is NOT allowed to be is a second lighting model: it splices the same SurfaceLight.h,
- * ShadowSample.h and CloudShadow.h every lit surface in the frame splices, and binds the same
+ * every lit surface in the frame splices, and binds the same
  * SceneLight bundle. Self-gates on "no plane declared", so the scene pass is untouched. */
 #ifndef BENCHGROUNDSTAGE_H
 #define BENCHGROUNDSTAGE_H

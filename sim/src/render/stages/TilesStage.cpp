@@ -9,7 +9,6 @@
  * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
  * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
 #include "SurfaceLight.h"
-#include "ShadowSample.h"
 #include "CloudDensityWGSL.h"
 #include "Sward.h"
 #include "Graticule.h"
@@ -56,9 +55,6 @@ struct Tile { a : vec4f, b : vec4f, c : vec4f };
 @group(0) @binding(5) var svLUT : texture_2d<f32>;
 @group(0) @binding(6) var<uniform> A : Atmo;
 @group(0) @binding(9) var<storage, read> I : Irr;      /* IrradianceStage: the ONE scale */
-@group(0) @binding(10) var<uniform> C : Csm;
-@group(0) @binding(11) var shMap : texture_depth_2d;
-@group(0) @binding(12) var shSamp : sampler_comparison;
 struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
               @location(1) @interpolate(flat) layer : u32, @location(2) wpos : vec3f,
               @location(3) gpos : vec3f };
@@ -104,7 +100,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
   // itself is worth casting one (stages/CloudShadow.h).
   let sunThru = 1.0;
   let meanThru = 1.0;
-  let sunVis = csmSunVis(shMap, shSamp, C, in.wpos, nrmN, sunN);
+  let sunVis = 1.0;
   let night = kNightAmbient * (1.0 - A.skyExtra.x);
   // ROUGHNESS IS THE SEPARATOR, not the albedo: asphalt 0.120 and forest floor 0.148 are 0.30 EV
   // apart, so what has to tell them apart is the specular lobe and the relief. Shading uses the
@@ -598,7 +594,7 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
   /* Atmo struct + sky-view sampling + THE shared air (constants, extinction law, inscatter colour) —
    * the same three splices the cloud pass makes, in the same order. */
   const std::string terrSrc = std::string(kSceneScaleWGSL) + kAtmoCommon + kAtmoSample
-                            + HazeConstsWGSL() + kHazeWGSL + kSurfaceLightWGSL + ShadowSampleWGSL()
+                            + HazeConstsWGSL() + kHazeWGSL + kSurfaceLightWGSL
                             /* [SET] 0.05 m: the world-fixed FLOOR under the boundary fray, so a
                              * boundary a fragment could resolve to nothing still has a width. Under
                              * the 0.140 m mean residual the vector source carries against raw OSM. */
@@ -715,9 +711,6 @@ void TilesStage::RebuildBind(void) {
   int nbe = 5;
   if (VegBuf) { be[nbe].binding = 7; be[nbe].buffer = VegBuf; be[nbe].size = wgpu::kWholeSize; nbe++; }
   be[nbe].binding = 9;  be[nbe].buffer = Light.Irradiance; be[nbe].size = wgpu::kWholeSize; nbe++;
-  be[nbe].binding = 10; be[nbe].buffer = Light.Cascades;   be[nbe].size = kShadowUniFloats * sizeof(float); nbe++;
-  be[nbe].binding = 11; be[nbe].textureView = Light.ShadowAtlas; nbe++;
-  be[nbe].binding = 12; be[nbe].sampler = Light.ShadowCompare;   nbe++;
   if (VegBuf) { be[nbe].binding = 13; be[nbe].buffer = ClassBuf; be[nbe].size = wgpu::kWholeSize; nbe++; }
   wgpu::BindGroupDescriptor bgd{};
   bgd.layout = Pipe.GetBindGroupLayout(0);

@@ -77,7 +77,7 @@ public:
   long GetBundleRecords(void) const { return TerrainBundleRecords; }
 
 private:
-  SceneLight Light;   /* borrowed: IrradianceStage's buffer + ShadowStage's cascades and atlas */
+  SceneLight Light;   /* borrowed: IrradianceStage's buffer */
 
   /* Bound* is the whole tile over EVERY level, taken off the vertices and not off the DAG spheres. */
   struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float Anchor[3];

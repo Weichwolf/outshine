@@ -31,8 +31,6 @@
 #include "stages/BenchGroundStage.h"
 #include "stages/BuildingsStage.h"
 #include "stages/TreeStage.h"
-#include "stages/CloudLayerStage.h"
-#include "stages/ShadowStage.h"
 #include "stages/AoStage.h"
 #include "stages/ExposureStage.h"
 #include "stages/TaaStage.h"
@@ -184,8 +182,6 @@ public:
   long TemporalVramBytes(void) const {
     return Taa->HistoryBytes() + (long)Width * (long)Height * 4L;
   }
-  long ShadowTriangleCount(void) const { return Shadow->TriangleCount(); }
-  int  ShadowDrawCalls(void) const { return Shadow->DrawCallCount(); }
 
   /* THE BUDGET INSTRUMENT (doc/goal.md §5): triangles the last frame submitted, over every geometry
    * stage there is. */
@@ -200,12 +196,7 @@ public:
   void SetMoonScale(double s) { MoonScale = s > 0.0 ? s : 1.0; }
 
   /* Scales the march step counts; 0 disables the cloud pass entirely. */
-  void SetCloudQuality(double q) { CloudQuality = q; Clouds->SetQuality(q); }
 
-  /* The weather sample the clouds are built from, sampled by the CLIENT (which knows where it is) via
-   * core/CloudDensity.h's CloudSkyFromWeather. Unset = no decks = no cloud pass at all; the
-   * TERRAIN gets the same sample (haze + how much sun a deck lets down to it). */
-  void SetCloudSky(const CloudSky &sky);
 
   /* 6 B/star, mag-sorted. Call before Init; placed at true alt/az for the given origin. */
   void SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon);
@@ -302,10 +293,8 @@ private:
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
   /* Sun shadows and contact occlusion. Both own a target and neither owns a pass: the shadow atlas is
    * filled in a pass Renderer opens before the scene, the AO buffer in one it opens after. */
-  std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();
   std::unique_ptr<AoStage> Ao = std::make_unique<AoStage>();
   std::unique_ptr<ExposureStage> Exposure = std::make_unique<ExposureStage>();
-  wgpu::Buffer CsmBuf;                            /* the cascade uniform every lit surface binds */
   wgpu::Sampler Samp;              /* shared linear sampler: unit textures, TAA history, tonemap's HdrTex read */
   wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: TilesStage/SkyStage draw into them, clouds sample DepthTex */
   /* THE SECOND SCENE ATTACHMENT (stages/SceneTargets.h): screen-space motion of whatever owns the
@@ -340,7 +329,6 @@ private:
   wgpu::Texture TransLUT, MsLUT, SkyLUT;          /* 256x64, 32x32, 192x108 rgba16float (storage + sampled) */
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
   std::vector<TilesStage::Caster> TerrainCasters;        /* reused, so a steady scene allocates nothing */
-  std::vector<ShadowStage::TerrainCaster> ShadowTerrain;
   GpuTimer GpuTime;                               /* per-pass GPU time, inert unless FB_GPUTIME */
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
   wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */
@@ -371,15 +359,11 @@ private:
   std::unique_ptr<SpritesStage> Sprites = std::make_unique<SpritesStage>();
 
   /* THE cloud chain: one stage, one pass, straight into HdrTex. doc/render/clouds.md. */
-  std::unique_ptr<CloudLayerStage> Clouds = std::make_unique<CloudLayerStage>();
 
   /* THE ONE cloud field, as a buffer: the march reads it and so does every lit surface, because a
    * shadow computed from a second field would not lie under its cloud. Renderer-owned for the same
    * reason AtmoBuf is — four consumers, one writer. */
-  wgpu::Buffer CloudBuf;
-  CloudSky SkyParams;
   double CloudQuality = 0.0;   /* 0 = the sheet; > 0 drives the volumetric march (stages/clouds.md) */
-  void WriteCloudSky(const FrameContext &ctx);
   /* The field's horizontal origin is a PLACE (SkyParams.Anchor*), never the camera: pinning it at the
    * first eye made the cloud pattern a function of where the session started. */
   bool HaveCloudAnchor = false;

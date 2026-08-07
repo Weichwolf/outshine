@@ -106,7 +106,6 @@ void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s [--size WxH] [--warm N] [--view KM] [--base URL] [--out PATH]\n"
           "       [--ev STOPS] [--bench N] [--eye M] [--pitch DEG] [--yaw DEG]\n"
-          "       [--stepE M] [--stepN M] [--walkE M] [--walkN M] [--depth PATH] [--cloudq Q]\n"
           "       [--snapshot PATH]\n"
           "       [--rig TEMPLATE] [--rig-species NAME] [--rig-height M] [--rig-out DIR]\n"
           "       [--rig-turn N] [--rig-no-leaves]\n"
@@ -126,7 +125,6 @@ void Usage(const char *argv0) {
           "  --rig-height  overrides the template's own plant height; a 25 m tree needs no other flag\n"
           "  --walkE/N   metres per streaming pass — the camera MOVES while the tiles arrive, which is\n"
           "              the only condition under which a class can be caught renaming its ground\n"
-          "  --cloudq    0 (default) draws the deck as a sheet; > 0 marches it volumetrically\n"
           "  --wind-t    the WIND clock in seconds. It is not the sky clock: the sun stands where the\n"
           "              scene declared it while the flow runs, which is what a wave measurement needs\n"
           "  --wind-deg/--wind-ms  override the scene's declared met wind. A BENCH parameter, like\n"
@@ -170,7 +168,6 @@ int main(int argc, char **argv) {
   std::string classDump;
   double classSpan = 400.0, classStep = 0.05;
   bool classCmp = false;
-  double cloudQ = 0.0;
   /* The wind clock and the wind itself are BENCH parameters for the same reason the standpoint is:
    * the scene declares one condition and a measurement needs a bracket around it. */
   double windT = 0.0, windDegOverride = 1.0e9, windMsOverride = -1.0;
@@ -201,7 +198,6 @@ int main(int argc, char **argv) {
     else if (a == "--eye" && i + 1 < argc) eyeOverrideM = atof(argv[++i]);
     else if (a == "--pitch" && i + 1 < argc) pitchOverrideDeg = atof(argv[++i]);
     else if (a == "--yaw" && i + 1 < argc) yawOverrideDeg = atof(argv[++i]);
-    else if (a == "--cloudq" && i + 1 < argc) cloudQ = atof(argv[++i]);
     else if (a == "--wind-t" && i + 1 < argc) windT = atof(argv[++i]);
     else if (a == "--wind-deg" && i + 1 < argc) windDegOverride = atof(argv[++i]);
     else if (a == "--wind-ms" && i + 1 < argc) windMsOverride = atof(argv[++i]);
@@ -450,8 +446,6 @@ int main(int argc, char **argv) {
   const WindNed w = wind.WindNedMs(lat, lon, altAsl);
   /* The field's horizontal origin is the SCENE's own point, never the standpoint: --stepE/--stepN
    * move the camera under one sky instead of carrying the sky with them. */
-  R.SetCloudSky(CloudSkyFromWeather(wind, lat, lon, clk, scene.Lat(), scene.Lon()));
-  R.SetCloudQuality(cloudQ);   /* 0 = the sheet, > 0 the volumetric march */
   W.SetVegetation(&veg);
   W.SetSunElevationDeg(sunEl);
   W.SetWeather(&wind);
@@ -581,7 +575,6 @@ int main(int argc, char **argv) {
       {"terrainTiles", R.TerrainVisibleTiles()},
       {"terrainDraws", R.TerrainDrawCalls()}, {"terrainTris", (double)R.TerrainTriangleCount()},
       {"buildingTris", (double)(R.BuildingVertexCount() / 3)},
-      {"shadowTris", (double)R.ShadowTriangleCount()}, {"shadowDraws", R.ShadowDrawCalls()},
       {"triangles", (double)R.TriangleCount()},
       {"classVramMB", (double)R.ClassVramBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
@@ -717,7 +710,7 @@ int main(int argc, char **argv) {
       if (!prof) { Log::Error("walk", "seq_prof_open_failed", {{"path", seqProf}}); return 1; }
       fprintf(prof, "frame,distM,frameMs,worldMs,meshMs,albedoMs,uploadMs,buildingMs,bDecodeMs,"
                     "renderMs,gpuMs,"
-                    "nodes,drawnLeaves,terrainTiles,draws,terrainTris,shadowTris,shadowDraws,"
+                    "nodes,drawnLeaves,terrainTiles,draws,terrainTris,"
                     "buildingVerts,built,evicted,classVramMB,temporalVramMB\n");
     }
     if (!prof) mkdir(seqOut.c_str(), 0755);
@@ -746,12 +739,12 @@ int main(int argc, char **argv) {
           return std::chrono::duration<double, std::milli>(b - a).count();
         };
         fprintf(prof, "%d,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
-                      "%d,%d,%d,%d,%ld,%ld,%d,%u,%ld,%ld,%.3f,%.3f\n",
+                      "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f\n",
                 f, stepM * (double)f, ms(tf0, tf3), W.UpdateMs(),
                 W.MeshMs(), W.AlbedoMs(), W.UploadMs(), W.BuildingMs(), W.BuildingDecodeMs(),
                 ms(tf1, tf2), ms(tf2, tf3),
                 W.NodeCount(), W.DrawnLeafCount(), R.TerrainVisibleTiles(), R.DrawCount(),
-                R.TerrainTriangleCount(), R.ShadowTriangleCount(), R.ShadowDrawCalls(),
+                R.TerrainTriangleCount(),
                 R.BuildingVertexCount(), W.BuiltCount(), W.EvictedCount(),
                 (double)R.ClassVramBytes() / (1024.0 * 1024.0),
                 (double)R.TemporalVramBytes() / (1024.0 * 1024.0));

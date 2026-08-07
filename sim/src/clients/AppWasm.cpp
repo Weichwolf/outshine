@@ -377,9 +377,6 @@ int main(void) {
   /* Borrowed by World for the whole session, so it must outlive main's frame. */
   static Clients::SceneWeather gWind(gScene);
   const WindNed w = gWind.WindNedMs(gScene.Lat(), gScene.Lon(), altAsl);
-  /* The field's horizontal origin is the scene's own point, so walking does not carry the sky along. */
-  gR.SetCloudSky(CloudSkyFromWeather(gWind, gScene.Lat(), gScene.Lon(), clk,
-                                     gScene.Lat(), gScene.Lon()));
   gW.SetVegetation(&gVeg);
   gW.SetSunElevationDeg(sunEl);
   gW.SetWeather(&gWind);

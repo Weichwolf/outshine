@@ -6,8 +6,6 @@
  * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
  * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
 #include "SurfaceLight.h"
-#include "ShadowSample.h"
-#include "CloudDensityWGSL.h"
 
 #include <cmath>
 #include <cstring>
@@ -28,9 +26,6 @@ struct T {
 };
 @group(0) @binding(0) var<uniform> b : T;
 @group(0) @binding(1) var<storage, read> I : Irr;
-@group(0) @binding(2) var<uniform> C : Csm;
-@group(0) @binding(3) var shMap : texture_depth_2d;
-@group(0) @binding(4) var shSamp : sampler_comparison;
 
 /* Tree space is y-up and metric once multiplied by the declared height; the stand maps it onto the
  * ECEF triad the whole frame is built in. One place, both nets. */
@@ -101,7 +96,7 @@ fn furrow(nlx : f32, nlz : f32, y : f32, f : f32) -> f32 {
   let radial = length(vec2f(in.loc.x, in.loc.z));
   let fr = furrow(in.loc.x, in.loc.z, in.loc.y, b.bpar.x) * radial;
   let alb = b.bark.rgb * mix(b.bark.w, 1.0, mix(1.0, fr, b.bpar.y));
-  let sunVis = csmSunVis(shMap, shSamp, C, in.rel, upB, sunB);
+  let sunVis = 1.0;
   return litRadiance(I, alb, 1.0, nB, upB, sunB, sunVis,
                      1.0, 1.0, b.sun.w);
 }
@@ -114,7 +109,7 @@ fn furrow(nlx : f32, nlz : f32, y : f32, f : f32) -> f32 {
   let viewSide = dot(n0, vB);
   let nB = select(-n0, n0, viewSide >= 0.0);
   let alb = b.leaf.rgb;
-  let sunVis = csmSunVis(shMap, shSamp, C, in.rel, upB, sunB);
+  let sunVis = 1.0;
   let thruDir = 1.0;
   let lit = litRadiance(I, alb, 1.0, nB, upB, sunB, sunVis, thruDir,
                         1.0, b.sun.w);
@@ -140,7 +135,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Queue = gpu.Queue;
   Light = light;
 
-  const std::string src = std::string(kSceneScaleWGSL) + kSurfaceLightWGSL + ShadowSampleWGSL()
+  const std::string src = std::string(kSceneScaleWGSL) + kSurfaceLightWGSL
                         + kTreeWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
@@ -176,7 +171,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   ble[5].visibility = wgpu::ShaderStage::Fragment;
   ble[5].buffer.type = wgpu::BufferBindingType::Uniform;
   wgpu::BindGroupLayoutDescriptor bgld{};
-  bgld.entryCount = 5;
+  bgld.entryCount = 2;
   bgld.entries = ble;
   wgpu::BindGroupLayout bgl = Device.CreateBindGroupLayout(&bgld);
   wgpu::PipelineLayoutDescriptor pld{};
@@ -242,15 +237,12 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  wgpu::BindGroupEntry be[5] = {};
+  wgpu::BindGroupEntry be[2] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = Light.Irradiance; be[1].size = wgpu::kWholeSize;
-  be[2].binding = 2; be[2].buffer = Light.Cascades;   be[2].size = kShadowUniFloats * sizeof(float);
-  be[3].binding = 3; be[3].textureView = Light.ShadowAtlas;
-  be[4].binding = 4; be[4].sampler = Light.ShadowCompare;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = bgl;
-  bg.entryCount = 5;
+  bg.entryCount = 2;
   bg.entries = be;
   Bind = Device.CreateBindGroup(&bg);
 }

@@ -7,8 +7,8 @@
  * not know how a species grows. Self-gates on "no bark uploaded", so every client that never called
  * SetStand pays nothing.
  *
- * NOT A SECOND LIGHTING MODEL: both fragments splice SurfaceLight.h, ShadowSample.h and CloudShadow.h
- * and bind the same SceneLight bundle every lit surface binds. The one term the opaque BRDF has no
+ * NOT A SECOND LIGHTING MODEL: both fragments splice SurfaceLight.h and bind the same SceneLight
+ * bundle every lit surface binds. The one term the opaque BRDF has no
  * place for is a thin leaf's TRANSMISSION, and it carries no new constant — see the WGSL. */
 #ifndef TREESTAGE_H
 #define TREESTAGE_H

@@ -220,8 +220,6 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   R_.SetWindClock(0.0);
 
   OvercastWeather wx(cloudCover * 100.0);
-  R_.SetCloudSky(CloudSkyFromWeather(wx, camLat, camLon, 0.0, camLat, camLon));
-  R_.SetCloudQuality(0.0);
   R_.SetFovDeg(fov);
 
   State hs{};

@@ -28,7 +28,7 @@ public:
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
   uint32_t VertexCount() const { return DrawnVerts; }
-  /* Borrowed by ShadowStage: the casters ARE this mesh, never a second copy of it, and the DAG comes
+  /* The caster mesh, kept for the day shadows return: never a second copy, and the DAG comes
    * with them — a shadow view is a VIEW, so it takes its own cut at its own error rather than the
    * whole of level 0. */
   uint32_t CasterVertexCount() const { return BaseVerts; }

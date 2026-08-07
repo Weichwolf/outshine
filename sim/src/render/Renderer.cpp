@@ -4,7 +4,6 @@
 #include "Geodesy.h"
 #include "Log.h"
 #include "stages/AtmoHaze.h"
-#include "stages/CloudShadow.h"
 #include "stages/SceneTargets.h"
 #include <cstdint>
 #include <algorithm>
@@ -203,98 +202,20 @@ void Renderer::OnDevice(wgpu::Device d) {
  * CreateAtmosphere: Tiles' bind group pins the LUT views that method created. */
 /* ONE weather sample, two consumers: the deck the cloud pass marches and the air the terrain fades
  * into are the same atmosphere, so they are set from the same call rather than sampled twice. */
-void Renderer::SetCloudSky(const CloudSky &sky) {
-  SkyParams = sky;
-  HaveCloudAnchor = false;
-  LoggedCloudShadow = false;
-  Clouds->SetSky(sky);
-  Tiles->SetSky(sky);
-  Units->SetSky(sky);
-  Sprites->SetSky(sky);
-}
-
-/* The shadow atlas, the cascade uniform and the irradiance buffer exist BEFORE any lit stage, for the
- * same reason CreateAtmosphere does: a WebGPU bind group pins its views and buffers at creation. */
+/* The irradiance buffer exists BEFORE any lit stage, for the same reason CreateAtmosphere does: a
+ * WebGPU bind group pins its views and buffers at creation. */
 void Renderer::CreateSceneLight(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Shadow->Init(gpu);
-  wgpu::BufferDescriptor bd{};
-  bd.size = kShadowUniFloats * sizeof(float);
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  CsmBuf = Device.CreateBuffer(&bd);
-  bd.size = kCloudSkyBytes;
-  CloudBuf = Device.CreateBuffer(&bd);
-  const std::vector<float> zero((size_t)kCloudSkyFloats, 0.0f);
-  Queue.WriteBuffer(CloudBuf, 0, zero.data(), kCloudSkyBytes);   /* no weather = no deck = thru 1 */
 }
 
 SceneLight Renderer::Light(void) const {
   SceneLight l{};
   l.Irradiance = IrrBuf;
-  l.Cascades = CsmBuf;
-  l.ShadowAtlas = Shadow->AtlasView();
-  l.ShadowCompare = Shadow->CompareSampler();
-  l.CloudSky = CloudBuf;
   return l;
 }
 
 /* The whole cloud field as one upload, once a frame. Two things live here rather than in the stage:
  * the WORLD anchor (a place, so four yaws and two standpoints see one sky) and the sun geometry the
  * shadow offset needs, which the march and the ground would otherwise each derive for themselves. */
-void Renderer::WriteCloudSky(const FrameContext &ctx) {
-  if (!CloudBuf) return;
-  if (!HaveCloudAnchor) {
-    GeoToEcef(SkyParams.AnchorLatDeg, SkyParams.AnchorLonDeg, 0.0, CloudAnchor);
-    double anchorUp[3];
-    EnuAxesEcef(SkyParams.AnchorLatDeg, SkyParams.AnchorLonDeg, CloudAxisE, CloudAxisN, anchorUp);
-    HaveCloudAnchor = true;
-  }
-  const double rel[3] = {ctx.Eye[0] - CloudAnchor[0], ctx.Eye[1] - CloudAnchor[1],
-                         ctx.Eye[2] - CloudAnchor[2]};
-  const double eyeLen = std::sqrt(ctx.Eye[0] * ctx.Eye[0] + ctx.Eye[1] * ctx.Eye[1] + ctx.Eye[2] * ctx.Eye[2]);
-  const double sunUp = ctx.SunDir[0] * ctx.Up[0] + ctx.SunDir[1] * ctx.Up[1] + ctx.SunDir[2] * ctx.Up[2];
-  double sunE = ctx.SunDir[0] * CloudAxisE[0] + ctx.SunDir[1] * CloudAxisE[1] + ctx.SunDir[2] * CloudAxisE[2];
-  double sunN = ctx.SunDir[0] * CloudAxisN[0] + ctx.SunDir[1] * CloudAxisN[1] + ctx.SunDir[2] * CloudAxisN[2];
-  const double horiz = std::sqrt(sunE * sunE + sunN * sunN);
-  if (horiz > 1.0e-6) { sunE /= horiz; sunN /= horiz; }
-
-  float u[kCloudSkyFloats] = {};
-  for (int a = 0; a < 3; a++) { u[a] = (float)CloudAxisE[a]; u[4 + a] = (float)CloudAxisN[a]; }
-  u[3] = (float)(rel[0] * CloudAxisE[0] + rel[1] * CloudAxisE[1] + rel[2] * CloudAxisE[2]);
-  u[7] = (float)(rel[0] * CloudAxisN[0] + rel[1] * CloudAxisN[1] + rel[2] * CloudAxisN[2]);
-  u[8] = (float)((eyeLen - (double)ctx.AltM) / 1.0e6);
-  u[9] = (float)CloudQuality;
-  u[10] = HazeSigma0(SkyParams.VisibilityM);
-  u[11] = ctx.AltM;
-  u[12] = (float)sunE;
-  u[13] = (float)sunN;
-  u[14] = (float)sunUp;
-  /* cot(elevation) with the SAME grazing floor every Beer path in this renderer uses, so the shadow
-   * of a deck and the light through it stop diverging as the sun sets. */
-  u[15] = (float)(horiz / std::max(sunUp, (double)kMinSunUp));
-  for (int i = 0; i < 3; i++) u[16 + i] = DeckSunOpticalDepth(SkyParams.Deck[i], (float)sunUp);
-  static_assert(sizeof(CloudDeckParams) == 16 * sizeof(float),
-                "the deck struct is memcpy'd into the uniform — 16 tight floats, 64 B stride");
-  std::memcpy(&u[20], SkyParams.Deck, 3 * sizeof(CloudDeckParams));
-  Queue.WriteBuffer(CloudBuf, 0, u, sizeof u);
-
-  /* WHAT THE SKY IS DOING AT MY FEET, as a number: the same expression the fragment shader evaluates,
-   * on the same field, at the camera's own ground point. It is the world-fixedness test — four yaws
-   * from one standpoint must print one value, two standpoints must print two. */
-  if (SkyParams.Any() && !LoggedCloudShadow) {
-    LoggedCloudShadow = true;
-    const CloudDeckParams &d = SkyParams.Deck[0];
-    const float zC = 0.5f * (std::max(d.BaseM, ctx.AltM) + d.TopM);
-    const float horiz = (zC - ctx.AltM) * u[15];
-    const float cover = CloudCoverage(d, u[3] + (float)sunE * horiz, u[7] + (float)sunN * horiz).Coverage;
-    Log::Debug("render", "cloud_shadow",
-               {{"eastM", (double)u[3]}, {"northM", (double)u[7]}, {"sunOffsetM", (double)horiz},
-                {"localCover", (double)cover},
-                {"localSunThru", (double)DeckSunTransmittance(u[16], cover, 1.0f)},
-                {"meanSunThru", (double)DeckSunTransmittance(u[16], d.Cover, 1.0f)}});
-  }
-}
-
 void Renderer::CreateTerrainPipeline(void) {
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
@@ -419,8 +340,6 @@ void Renderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, double
  * doc/render/clouds.md. */
 void Renderer::CreateClouds(void) {
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Clouds->Configure(gpu, AtmoBuf, CloudBuf, LutSamp, SkyLUT.CreateView(), TransLUT.CreateView(),
-                    DepthTex.CreateView());
 }
 
 
@@ -460,13 +379,7 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[42] = 0.0f;
   a[43] = 0.0045f * (float)MoonScale;               /* real angular radius x FB_MOON_SCALE (default 1) */
   a[44] = ViewShiftNdc();
-  /* view.y — the LOWEST standing deck's base, ASL. IrradianceStage needs an altitude to sample the
-   * transmittance LUT at, and it does not see the cloud uniform; one float is cheaper than a second
-   * binding, and the lowest deck is the one whose re-emission reaches the ground. */
-  a[45] = 0.0f;
-  for (int i = 0; i < 3; i++)
-    if (SkyParams.Deck[i].Cover > 0.0f && (a[45] <= 0.0f || SkyParams.Deck[i].BaseM < a[45]))
-      a[45] = SkyParams.Deck[i].BaseM;
+  a[45] = 0.0f;   /* was the lowest deck base; there are no decks */
   /* view.zw — the frame's sub-pixel sample offset in NDC. camRay() subtracts it, because the ray
    * that belongs to a pixel is the one the JITTERED projection would have put there; without it the
    * sun disc's own edge and the sky behind a terrain silhouette would sample half a pixel apart. */
@@ -741,9 +654,7 @@ void Renderer::RenderFrame(void) {
     Norm3(moon);
   }
   /* There is ONE cloud field and CloudLayerStage draws it — as a march or as a sheet, both out of
-   * CloudSkyU. The dome's private noise sheet that used to stand in for it is gone with its scalar:
-   * it had no altitude, so it could cast no shadow, and while it was drawn the picture carried two
-   * cloud fields and the ground was shadowed by neither of the ones it showed. */
+*/
   UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, SceneState.Env.MoonPhase);
   Stars->Update(SkyClock);
 
@@ -775,12 +686,6 @@ void Renderer::RenderFrame(void) {
   ctx.Dt = 1.0f / 60.0f;
 
   if (Overlay) Overlay->Update(ctx);
-
-  /* Unconditional: the field is what every LIT surface reads, and it exists whether or not the march
-   * gets a pass of its own. */
-  WriteCloudSky(ctx);
-  Clouds->Update(ctx);
-  const bool cloudPass = Clouds->Active();
 
   GpuTime.BeginFrame();
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
@@ -817,44 +722,6 @@ void Renderer::RenderFrame(void) {
     cp.End();
   }
 
-  /* SUN SHADOWS. A NEW pass boundary, and it is Renderer's like every other: the four cascades are
-   * four viewports into one depth atlas, so the count rises by exactly one however many cascades
-   * there are. The cascade matrices are built here because every receiver reads the same uniform. */
-  Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterVertexCount(),
-                     Buildings->CasterClusters(), Buildings->CasterClusterCount(),
-                     Buildings->CasterAnchor());
-  /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
-   * a ridge shadows a whole valley while a building shadows a street. Measured affordable before it
-   * was built (stages/ShadowStage.h). */
-  Tiles->CollectCasters(TerrainCasters);
-  ShadowTerrain.resize(TerrainCasters.size());
-  for (size_t i = 0; i < TerrainCasters.size(); i++) {
-    ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
-    ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
-    for (int a2 = 0; a2 < 3; a2++) {
-      ShadowTerrain[i].Origin[a2] = TerrainCasters[i].Origin[a2];
-      ShadowTerrain[i].BoundCtr[a2] = TerrainCasters[i].BoundCtr[a2];
-    }
-    ShadowTerrain[i].BoundRad = TerrainCasters[i].BoundRad;
-  }
-  Shadow->SetTerrainCasters(ShadowTerrain);
-  Shadow->Update(ctx);
-  Queue.WriteBuffer(CsmBuf, 0, Shadow->CsmUniform(), kShadowUniFloats * sizeof(float));
-  {
-    wgpu::RenderPassDepthStencilAttachment sda{};
-    sda.view = Shadow->AtlasView();
-    sda.depthLoadOp = wgpu::LoadOp::Clear;
-    sda.depthStoreOp = wgpu::StoreOp::Store;
-    sda.depthClearValue = 1.0f;   /* plain [0,1] ortho depth, not the scene's reversed-Z */
-    wgpu::RenderPassDescriptor shp{};
-    shp.colorAttachmentCount = 0;
-    shp.depthStencilAttachment = &sda;
-    shp.timestampWrites = GpuTime.Writes(GpuTimer::Shadow);
-    wgpu::RenderPassEncoder sh = enc.BeginRenderPass(&shp);
-    passCount++;
-    Shadow->Encode(ctx, sh);
-    sh.End();
-  }
 
   /* Scene pass -> HDR offscreen: linear radiance, [0,1] reversed-Z depth. Sky fills the background
    * first (depth Always / no write); terrain draws over it. */
@@ -892,11 +759,6 @@ void Renderer::RenderFrame(void) {
 
   Stars->Encode(ctx, scene);   /* additive, over the sky and under the terrain; self-gates */
 
-  /* The deck as a sheet — over sun, moon and stars because an opaque deck hides them, under the
-   * terrain because a hill is nearer than a cloud. Self-gates on the quality dial: when the march is
-   * driven instead, this draws nothing and the march's own pass does the work. */
-  Clouds->EncodeSheet(ctx, scene);
-
   BenchGround->SetSun(ctx.SunDir, NightAmbient(ctx));
   BenchGround->Encode(ctx, scene);   /* the subject bench's card, in the terrain's slot; self-gates off */
   Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
@@ -914,24 +776,6 @@ void Renderer::RenderFrame(void) {
   Sprites->Encode(ctx, scene);
   scene.End();
 
-  /* A SEPARATE pass because it must SAMPLE the depth texture that was an attachment a moment ago —
-   * and it blends premultiplied straight back into HdrTex, so nothing downstream knows about clouds.
-   * It exists only when the weather actually has a deck: no weather, no pass, and the passcount log
-   * below carries both numbers so a frame's topology is readable from the telemetry. */
-  if (cloudPass) {
-    wgpu::RenderPassColorAttachment cca{};
-    cca.view = HdrTex.CreateView();
-    cca.loadOp = wgpu::LoadOp::Load;     /* the scene stays; the cloud goes OVER it */
-    cca.storeOp = wgpu::StoreOp::Store;
-    wgpu::RenderPassDescriptor cp{};
-    cp.colorAttachmentCount = 1;
-    cp.colorAttachments = &cca;
-    cp.timestampWrites = GpuTime.Writes(GpuTimer::Cloud);
-    wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
-    passCount++;
-    Clouds->Encode(ctx, cl);   /* same full-frame window as the scene it blends into, same depth texels */
-    cl.End();
-  }
 
   /* AMBIENT OCCLUSION. Its own pass because it SAMPLES the depth texture that was an attachment a
    * moment ago — the same argument the cloud pass makes. The composite is not a pass: the tonemap
@@ -1019,9 +863,7 @@ void Renderer::RenderFrame(void) {
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
-    Log::Debug("render", "passcount", {{"passes", passCount}, {"cloudPass", cloudPass},
-                                         {"cloudSheet", Clouds->SheetActive()},
-                                         {"overlay", overlayPass}});
+    Log::Debug("render", "passcount", {{"passes", passCount}, {"overlay", overlayPass}});
   }
 
   GpuTime.Resolve(enc);
