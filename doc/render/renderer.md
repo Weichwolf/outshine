@@ -45,6 +45,7 @@ Built; the stage split is finished (zero inline shaders in `Renderer.cpp`).
 | Text / overlay backend | **deleted 2026-08-07** with the avionics group. `OverlayStage.h` is a seam nothing implements — §7 | — |
 | Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
 | Units | **built** — one indexed draw per entity from the published pose, LOD off the asset sidecar, moving parts off the published articulation. Pass count unchanged. **No mesh ships and no topic file describes it** | — |
+| Trees | **built and verified in a frame** — `world/TreeField` streut 179 181…219 240 Staende in 900 m, ein Netz, ein Draw, N Instanzen; Ort, Fuss, Gierung und Groesse je Stand aus dem Ort. **Ohne Laub** — der Feldpfad zeichnet nur Rinde | `build/out/koenigssee.png` |
 | Sprites | **built, and its combat effect catalogue is being removed** — one instanced draw for every effect in the frame, physical size in metres with an energy-preserving sub-pixel floor. The inputs it read (nozzle bit, store burn window, countermeasure age curves, hit count, wreck bit) have no writer since 2026-08-07 | — |
 
 ### The present path sRGB-encodes, and until this round the browser did not
@@ -60,39 +61,69 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
-### Die Baumstreuung steht bis auf die Hoehe — 2026-08-07
+### Der Wald steht verteilt; was fehlt, ist das Laub — 2026-08-07
 
-Gebaut und gemessen: `world/TreeField` streut **166 823 Staende** in 900 m Umkreis, `TreeStage` zieht
-sie als Instanzen (ein Netz, ein Draw, N Instanzen), das Frame kostet **7,60 ms** von 16,67. Die
-Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die deklarierte Dichte
+Die Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die deklarierte Dichte
 (`trees.perM2`: Laubmischwald 0.04, Nadelwald 0.09) —, also haelt keine Seite eine Liste und dieselbe
-Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper.
+Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper. `TreeStage` zieht die Staende
+als Instanzen: ein Netz, ein Draw, N Instanzen.
 
-**Baeume zeichnen, und die Ursache fand EINE Messung, nachdem fuenf Vermutungen daneben lagen.** Der
-Stammshader auf eine feste Farbe gezwungen: **null Fragmente** — also weder Schattierung noch Maszstab
-noch Hoehe. Danach die Draw-Parameter selbst gedruckt: `barkIdx=0, vtx=0, idx=0` bei `heightM=30`. Die
-Stage hatte **gar kein Netz**: `SetBark` lief, bevor das Geraet existierte, und `TreeStage::Upload` gibt
-ohne Geraet stillschweigend nichts zurueck. Der Stamm wurde verworfen, ohne dass irgendetwas es meldete.
+**Die Wand aus Staemmen hatte ZWEI Ursachen, und beide sind gemessen geschlossen.** `Scatter` schrieb
+die ABSOLUTE ENU-Koordinate in den Instanzpuffer, waehrend `vsBark` den Stand auf die ECEF-Achsen am
+Augpunkt legt — ein Versatz von Kilometern, der jeden Stand aus dem Frustum in denselben Fleck warf. Und
+`eyeAsl` bekam den Boden UNTER der Kamera statt den Augpunkt, also stand jeder Baum um die Augenhoehe zu
+hoch. Der Verdacht auf Schrittweite/Schrittmodus des zweiten Vertexpuffers war falsch.
 
-Behoben, indem der Baum nach `SetCameraBasis` waechst. Was die fuenf Vermutungen unterwegs trotzdem
-richtig repariert haben: das Selbsttor (`HeightM <= 0`), die Baumhoehe aus der Art (`bpar.z` war 0, also
-jede Instanz auf Groesse null), und der Fuss auf der Gelaendehoehe (`ClassField::FromEnu` plus
-`fb_stream_ground`).
+Gemessen, `build/gpu_walk` md5 `745f1d92`, `--warm 12000 --eye 3.0 --size 640x360`:
 
-**Und ein Haenger, den ich selbst vorhergesagt und dann gebaut hatte:** die Streuung lief alle 32 Paesse
-und fragt je Stand die Gelaendehoehe — 166 823 Abfragen mal 625 Streuungen sind hundert Millionen ueber
-einen Vorlauf. Jetzt EINMAL bei Residenz.
+| Kamera | Staende | east min/max | north min/max | Fuss ueber Auge min/max | Bild |
+|---|---|---|---|---|---|
+| `damuels` | 219 240 | −888,2 / +898,2 m | −898,2 / +898,2 m | −111,9 / +417,3 m | `build/out/damuels.png` |
+| `koenigssee` | 179 181 | −898,3 / +898,2 m | −898,2 / +898,2 m | −19,5 / +489,1 m | `build/out/koenigssee.png` |
 
-**Offen: alle 166 823 Staende stehen am selben Ort**, eine Wand aus Staemmen vor der Kamera statt eines
-Waldes. Der Instanzversatz (`b.ax * st.x + b.ay * st.y`) kommt nicht an — Verdacht auf die Schrittweite
-oder den Schrittmodus des zweiten Vertexpuffers, und das ist eine Messung und keine Vermutung.
+Die Spanne trifft den Streuradius (900 m, Zellkante 3,33 m). Die Fuesse sitzen auf dem echten Gelaende:
+`/elev` auf einem 150-m-Raster ueber dieselbe Scheibe um `damuels` liefert −94,6 / +362,7 m gegen Auge,
+und 219 240 Einzelziehungen finden vom selben Relief erwartungsgemaess breitere Extreme.
 
-Die Hoehe selbst ist geloest und war ein echter Fund: Ein Stand traegt Ost, Nord, Groesse und
-Gierung; seine LAGE in der Vertikalen fehlt, also sitzen alle auf der Augenhoehe der Kamera — an einem
-Berghang heisst das im Fels oder in der Luft. Das ist derselbe offene Posten wie den ganzen Tag: das
-Hoehenorakel muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite (0,383 m RMS, max 1,89 m
-Abweichung gegen das Netz). 166 823 Einzelabfragen je Streuung sind dafuer kein gangbarer Weg; die
-Hoehe muss aus derselben Funktion kommen, die das Netz baut.
+**Die Hoehe ist jetzt eine Eigenschaft der Art.** `height_sigma` in `species/*.json`, fuenfter Wert je
+Instanz, eigener Hashwurf (Salz `0x9e37`), damit die Groesse nicht mit der Gierung korreliert und den
+Wald in Baendern streift. Die Ziehung ist dreieckig (Summe zweier Gleichverteilter, Faktor
+1/sqrt(2/12) = 2,4494897 auf sigma) und damit bei mu ± 2,449 sigma HART begrenzt — eine normale Ziehung
+liefert ueber 200 000 Staende sicher einen 4-sigma-Baum, und der ist im Bild ein Fehler.
+
+`buche.height_sigma = 0.066`, hergeleitet: Mittelhoehe/Oberhoehe im gleichaltrigen Buchenbestand
+hg/h100 = 0,94 (Band 0,93…0,95), h100 = Mittel der 100 staerksten Staemme je ha, N = 250/ha, also
+Oberanteil p = 0,4. Bei normalverteilter Hoehe ist E[z | oberste p] = phi(Phi^-1(1−p))/p = 0,9659,
+somit sigma/hg = (1/0,94 − 1)/0,9659 = 0,0661. Ueber das Band und N = 200…300/ha spannt das
+0,048…0,094 — die Zahl ist so genau wie ihre Ertragstafelannahme und nicht genauer. Gemessen im Bild:
+`scaleMin` 0,8385, `scaleMax` 1,1614, `scaleMean` 0,99991 gegen hergeleitet 1 ± 0,066·2,4494897 =
+0,83833…1,16167, also 25,2 m bis 34,8 m Baumhoehe.
+
+**Was das Bild zeigt.** `koenigssee`: die Flanken tragen einzeln stehende, sich selbst verdeckende
+Baeume mit sichtbar ungleichen Hoehen und einer zackigen Kante gegen Himmel und Fels — ein Wald, keine
+Tapete. `damuels`: die Kamera steht mitten im Bestand, das Frame ist von nahen Staemmen gefuellt, es
+gibt keine Silhouette. Das ist kein Fehler der Streuung, sondern ihre Dichte: 219 240 / (pi · 900²) =
+0,0862/m², also 862 Staemme je Hektar bei 30 m Bestandeshoehe — das Drei- bis Vierfache eines
+Altbestandes.
+
+**Offen, und das ist der auffaelligste Posten:** auf dem Feldpfad zeichnet KEIN Blatt. `LeafInst` haengt
+an `standOrigin()`, also am einzelnen Stand; die N Instanzen bekommen nur Rinde. Ein Hang aus 179 181
+kahlen, rindengrauen Kronen liest sich aus 500 m als helles Stoppelfeld, nicht als Wald.
+
+**Offen: der Stamm ist zu dick.** Am gewachsenen Netz gemessen (Radienprofil ueber 13 233 Rindenverts):
+Fussradius 1,54 m, Krone bis 8,87 m Radius bei y = 0,6…0,7. 3,1 m Stammdurchmesser bei 30 m Hoehe ist
+etwa das Vierfache einer Buche; `base_radius = 0.08` ist die Stellschraube und traegt keine Herkunft.
+
+**Offen: fuenfzehn der sechzehn Arten haben kein `height_sigma`** und rendern damit als gleich hohe
+Kopien. Der Vorgabewert 0 ist Absicht — wer eine Art ins Feld stellt, ohne sie zu deklarieren, sieht es.
+
+**Offen: die 7,60 ms von 166 823 Staenden am selben Ort sind keine Messung mehr** — sie hatte die
+Ueberzeichnung eines einzigen Flecks als Gegenstand. Der Rahmenpreis eines verteilten Waldes ist
+ungemessen.
+
+**Offen bleibt auch das Hoehenorakel:** es muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite
+(0,383 m RMS, max 1,89 m Abweichung gegen das Netz). 200 000 Einzelabfragen je Streuung sind dafuer kein
+gangbarer Weg; die Hoehe muss aus derselben Funktion kommen, die das Netz baut.
 
 Owner, 2026-08-07, zur Einordnung: *„der baumgenerator ist nur ein kleiner prototyp. du musst den schon
 noch auf speedtree niveau bringen"*, und *„das bild entsteht aus foliage, material, rocks, buildings,

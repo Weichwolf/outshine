@@ -303,6 +303,7 @@ int main(int argc, char **argv) {
   World::TreeMesh worldTree;
   World::TreeField treeField;
   std::vector<float> treeStands;
+  float worldTreeSigma = 0.0f;
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
   R.SetWind(windDeg, windMs);
@@ -477,7 +478,9 @@ int main(int argc, char **argv) {
                     worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
       /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
       R.SetTreeStand(0.0, 0.0, 0.0, (double)sp.HeightM());
-      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()}});
+      worldTreeSigma = sp.HeightSigma();
+      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()},
+          {"heightM", (double)sp.HeightM()}, {"heightSigma", (double)worldTreeSigma}});
     }
   }
 
@@ -524,10 +527,28 @@ int main(int argc, char **argv) {
         ((GroundCtx *)u)->c->FromEnu(e2, n2, &la, &lo);
         return fb_stream_ground(la, lo);
       };
-      treeField.Scatter(W.Classes(), veg, 900.0, ee, nn, fb_stream_ground(clat, clon), groundAt, &gc, treeStands);
-      R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / 4));
-      if (true)
-        Log::Debug("walk", "trees", {{"stands", (int)(treeStands.size() / 4)}, {"eastM", ee}, {"northM", nn}});
+      const double gcam = fb_stream_ground(clat, clon);
+      /* Der AUGPUNKT, nicht der Boden unter ihm: der Shader legt den Fuss direkt auf die Aufhaengung
+       * am Auge, also muss die Augenhoehe hier schon abgezogen sein. */
+      treeField.Scatter(W.Classes(), veg, 900.0, ee, nn,
+                        (ElevationResolved(gcam) ? gcam : ground) + eyeM, worldTreeSigma,
+                        groundAt, &gc, treeStands);
+      constexpr int kSF = World::TreeField::kStandFloats;
+      R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / (size_t)kSF));
+      double lo[kSF], hi[kSF], sum = 0.0;
+      for (int c = 0; c < kSF; c++) { lo[c] = 1e30; hi[c] = -1e30; }
+      for (size_t s = 0; s + (size_t)kSF <= treeStands.size(); s += (size_t)kSF)
+        for (int c = 0; c < kSF; c++) {
+          const double v = treeStands[s + (size_t)c];
+          if (v < lo[c]) lo[c] = v;
+          if (v > hi[c]) hi[c] = v;
+          if (c == 4) sum += v;
+        }
+      const size_t nst = treeStands.size() / (size_t)kSF;
+      Log::Debug("walk", "trees", {{"stands", (int)nst},
+          {"eastM", lo[0]}, {"eastMax", hi[0]}, {"northM", lo[1]}, {"northMax", hi[1]},
+          {"footM", lo[2]}, {"footMax", hi[2]},
+          {"scaleMin", lo[4]}, {"scaleMax", hi[4]}, {"scaleMean", nst ? sum / (double)nst : 0.0}});
     }
     R.RenderFrame();
     warmed++;

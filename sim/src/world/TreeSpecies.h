@@ -90,6 +90,7 @@ public:
   const Shading &ShadingParams() const { return Shading_; }
   float HeightM() const { return HeightM_; }
   float SpreadM() const { return SpreadM_; }
+  float HeightSigma() const { return HeightSigma_; }
 
 private:
   std::string Error_, Name_, Botanical_;
@@ -98,6 +99,9 @@ private:
   Shading Shading_;
   float HeightM_ = 20.0f;
   float SpreadM_ = 10.0f;
+  /* 0 heisst "eine Art ohne gemessene Bestandesstreuung", nicht "kein Baum streut": wer eine Art in
+   * ein Feld stellt, ohne sie zu deklarieren, bekommt sichtbar identische Hoehen. */
+  float HeightSigma_ = 0.0f;
 };
 
 } // namespace outshine::World

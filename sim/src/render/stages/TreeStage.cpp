@@ -48,11 +48,11 @@ struct TOut { @builtin(position) pos : vec4f, @location(0) rel : vec3f, @locatio
               @location(2) loc : vec3f };
 
 /* Ein Stand: xy Ost/Nord in Metern vom Kamerastandpunkt, z der Fuss ueber der Augenhoehe, w die
- * Gierung. Die Groesse traegt b.bpar.z, also die Art. */
+ * Gierung. b.bpar.z ist die Hoehe der Art, `sf` die des einzelnen Standes darin. */
 @vertex fn vsBark(@location(0) p : vec3f, @location(1) n : vec3f,
-                  @location(2) st : vec4f) -> TOut {
+                  @location(2) st : vec4f, @location(3) sf : f32) -> TOut {
   var o : TOut;
-  var pm = p * b.bpar.z;
+  var pm = p * (b.bpar.z * sf);
   let cy = cos(st.w); let sy = sin(st.w);
   pm = vec3f(pm.x * cy - pm.z * sy, pm.y, pm.x * sy + pm.z * cy);
   let rel = standOrigin() + b.ax.xyz * st.x + b.ay.xyz * st.y + b.az.xyz * st.z + toEcef(pm);
@@ -202,13 +202,14 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   barkBuf.arrayStride = kBarkFloats * sizeof(float);
   barkBuf.attributeCount = 2;
   barkBuf.attributes = barkAttr;
-  wgpu::VertexAttribute standAttr{};
-  standAttr.format = wgpu::VertexFormat::Float32x4; standAttr.offset = 0; standAttr.shaderLocation = 2;
+  wgpu::VertexAttribute standAttr[2] = {};
+  standAttr[0].format = wgpu::VertexFormat::Float32x4; standAttr[0].offset = 0;  standAttr[0].shaderLocation = 2;
+  standAttr[1].format = wgpu::VertexFormat::Float32;   standAttr[1].offset = 16; standAttr[1].shaderLocation = 3;
   wgpu::VertexBufferLayout standBuf{};
-  standBuf.arrayStride = 4 * sizeof(float);
+  standBuf.arrayStride = kStandFloats * sizeof(float);
   standBuf.stepMode = wgpu::VertexStepMode::Instance;
-  standBuf.attributeCount = 1;
-  standBuf.attributes = &standAttr;
+  standBuf.attributeCount = 2;
+  standBuf.attributes = standAttr;
   wgpu::VertexBufferLayout barkBufs[2] = {barkBuf, standBuf};
 
   wgpu::RenderPipelineDescriptor rp{};
@@ -310,7 +311,7 @@ void TreeStage::SetStand(double eastM, double northM, double eyeAglM, double hei
 void TreeStage::SetStands(const float *inst, uint32_t n) {
   StandCount = n;
   if (n == 0 || !Device) return;
-  StandBuf = Upload(inst, (size_t)n * 4 * sizeof(float), wgpu::BufferUsage::Vertex);
+  StandBuf = Upload(inst, (size_t)n * kStandFloats * sizeof(float), wgpu::BufferUsage::Vertex);
 }
 
 void TreeStage::SetSun(const double sunEcef[3], float nightAmbient) {
@@ -352,7 +353,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   } else {
     /* Ein einzelner Stand ist der Sonderfall von N: die Bank bleibt eine Instanz. */
     if (!OneStand) {
-      const float one[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+      const float one[kStandFloats] = {0.0f, 0.0f, 0.0f, 0.0f, 1.0f};
       OneStand = Upload(one, sizeof one, wgpu::BufferUsage::Vertex);
     }
     pass.SetVertexBuffer(1, OneStand);

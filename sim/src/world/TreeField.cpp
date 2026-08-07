@@ -20,11 +20,19 @@ inline uint32_t Hash(int32_t i, int32_t j, uint32_t salt) {
   return h;
 }
 inline float U(uint32_t h) { return (float)(h & 0xFFFFFFu) / 16777216.0f; }
+inline float U16(uint32_t h) { return (float)(h & 0xFFFFu) / 65536.0f; }
+
+/* Dreieckig statt normal, weil die Verteilung bei mu +- 2.449 sigma HART endet: ueber 166 000 Staende
+ * liefert eine normale Ziehung sicher einen 4-sigma-Baum, und der ist im Bild ein Fehler, keine
+ * Streuung. 2.4494897 = 1/sqrt(2/12), die Standardabweichung der Summe zweier Gleichverteilter. */
+inline float SizeFactor(uint32_t h, float sigma) {
+  return 1.0f + sigma * (U16(h) + U16(h >> 16) - 1.0f) * 2.4494897f;
+}
 
 }  // namespace
 
 void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
-                        double eyeE, double eyeN, double eyeAsl,
+                        double eyeE, double eyeN, double eyeAsl, float sizeSigma,
                         double (*ground)(void *, double, double), void *user,
                         std::vector<float> &out) const {
   out.clear();
@@ -51,11 +59,15 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
 
       const double gz = ground ? ground(user, e, n) : eyeAsl;
       if (gz <= -1.0e7) continue;
-      /* east, north, Fuss ueber der Augenhoehe, Gierung. Die Groesse traegt die Art; ihre Streuung
-       * ist die naechste Runde und braucht ein fuenftes Feld. */
-      out.push_back((float)e); out.push_back((float)n);
+      /* RELATIV ZUR KAMERA, weil der Stand im Shader auf die ECEF-Achsen am Augpunkt gelegt wird: ein
+       * absoluter ENU-Wert waere dort ein Versatz von Kilometern. Die Suche laeuft dagegen absolut,
+       * denn Klasse und Gelaende sind Eigenschaften des Ortes und nicht des Betrachters. */
+      out.push_back((float)(e - eyeE)); out.push_back((float)(n - eyeN));
       out.push_back((float)(gz - eyeAsl));
       out.push_back(U(h >> 20) * 6.2831853f);
+      /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
+       * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
+      out.push_back(SizeFactor(Hash(i, j, 0x9e37u), sizeSigma));
       Count_++;
     }
   }

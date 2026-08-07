@@ -6938,3 +6938,23 @@ Läufe, Kamera 600 m auseinander, Gitter neu verankert, **0 von 11496000** Abwei
 zurück — Ringe wurden nur bei ClosePath ausgegeben, und ein LINESTRING sendet keins. 206 Straßen und 12
 Wasserläufe je Block kamen als `RingCount` 0 an, ohne Fehler und ohne Zähler. Genau der Defekt, gegen
 den die drei getrennten Fehlerbehandlungen dieser Runde gebaut wurden, im eigenen Dekoder.
+
+## 2026-08-07 — Der Wald steht verteilt, und die Höhe ist eine Eigenschaft der Art
+
+Die Wand aus Stämmen hatte zwei Ursachen, keine davon im Vertexformat: `TreeField::Scatter` schrieb die
+absolute ENU-Koordinate in den Instanzpuffer, während `vsBark` den Stand auf die ECEF-Achsen am Augpunkt
+legt, und `eyeAsl` bekam den Boden unter der Kamera statt den Augpunkt. Gemessen mit
+`build/gpu_walk` md5 `745f1d92`: `damuels` 219 240 Stände, east −888,2/+898,2 m, north −898,2/+898,2 m,
+Fuß über Auge −111,9/+417,3 m gegen ein `/elev`-Raster von −94,6/+362,7 m; `koenigssee` 179 181 Stände,
+−898,3/+898,2 m, −898,2/+898,2 m, −19,5/+489,1 m.
+
+Fünfter Instanzwert: der Größenfaktor aus `species.height_sigma`, dreieckig gezogen und bei
+mu ± 2,4494897 sigma hart begrenzt, eigener Hashwurf gegen die Kopplung an die Gierung.
+`buche.height_sigma = 0.066` ist hergeleitet aus hg/h100 = 0,94 bei N = 250/ha:
+sigma/hg = (1/0,94 − 1) / (phi(Phi^-1(0,6))/0,4) = 0,0661. Gemessen 0,8385…1,1614 bei Mittel 0,99991
+gegen hergeleitet 0,83833…1,16167, also 25,2…34,8 m.
+
+Auf `build/out/koenigssee.png` stehen die Bäume einzeln, verdecken sich und tragen eine zackige Kante
+gegen Himmel und Fels. Was fehlt und in `doc/render/renderer.md` `## Gaps` steht: der Feldpfad zeichnet
+kein Blatt, der Stammdurchmesser ist mit 3,1 m bei 30 m Höhe rund viermal zu groß, die Dichte ist mit
+862 Stämmen/ha drei- bis vierfach zu hoch, und fünfzehn Arten deklarieren kein `height_sigma`.

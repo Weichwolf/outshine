@@ -14,13 +14,16 @@ class VegetationTemplates;
 
 class TreeField {
 public:
-  /* east, north, HoeheM, Gierung — je Baum vier Werte, wie TreeStage sie erwartet. */
+  /* east, north, Fuss ueber der Augenhoehe, Gierung, Groessenfaktor — je Baum fuenf Werte, wie
+   * TreeStage sie erwartet. `sizeSigma` ist die relative Streuung der Bestandeshoehe der Art. */
   /* `ground` beantwortet die Hoehe an einem Ort in ENU-Metern; ohne sie saessen alle Staende auf der
    * Augenhoehe der Kamera, also am Hang im Fels oder in der Luft. */
   void Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
-               double eyeE, double eyeN, double eyeAsl,
+               double eyeE, double eyeN, double eyeAsl, float sizeSigma,
                double (*ground)(void *, double, double), void *user,
                std::vector<float> &out) const;
+
+  static constexpr int kStandFloats = 5;
 
   long Count() const { return Count_; }
 
