@@ -6807,3 +6807,48 @@ die `scene`-Identität, gegen die `Matches()` prüft, und ein `derived`-Block, d
 abgezogen zu werden. PNG zuerst, dann die Zeile, die es benennt.
 
 **Der Browser trägt die AO-Reparatur mit**: dasselbe Bild, dieselben grauen Fernhäuser statt schwarzer.
+
+## 2026-08-07 — Die Klassifizierung: gelesen, gerechnet, entschieden — und nicht gebaut
+
+Dritte Aufgabe der Runde, und sie bleibt offen. Was fertig ist, ist alles, was **vor** der ersten
+Codezeile hätte stehen müssen, und eine Messung, die nur **jetzt** möglich war.
+
+**Die beiden gemeldeten Sperren gab es nicht mehr.** `OsmVector::Str` und `OsmField::Str` lesen
+String-Tags; `OsmField` ist der gemeinsame Vektorspeicher in Geodätik über Kachelnähte, und er
+deklariert bereits `{"buildings", "land"}` — `land` hatte nur keinen Leser.
+
+**Der Kachelserver wurde gelesen, wie angewiesen, und keine seiner drei Antworten ist die erwartete.**
+`w3_landcolor` bildet 60 `kind` auf **RGB** ab, nicht auf Klassen — die Aufzählung ist wertvoll, die
+Abbildung ist eine Palette. Die Prioritätsordnung **zwischen** Ebenen ist deklariert und wird
+übernommen (`ocean` → `land` → `water_polygons` → `sites` → `street_polygons` → `buildings`, dann
+Linien); **innerhalb** von `land` gibt es keine — es ist die Emissionsreihenfolge des Anbieters, der
+letzte gewinnt, bei 2,41 % Überlappung. Das ist der Fund: implizit heißt nicht deterministisch.
+`w3_roadstyle` liefert **Texel an einer 1024er Referenz**, keine Meter, und wird **nicht** übernommen.
+
+**Der strukturelle Blocker, und er macht daraus eine eigene Runde.** `World::kMaxZ` = 14. Das feinste
+Kachelklassenraster, das dieser Build irgendwo auf der Erde erzeugen kann, ist `SpanM(14)/TS` =
+1502,33/512 = **2,9342 m je Texel**, per Konstruktion. Die Vektoren in dasselbe Array zu rastern würde
+die Semantik reparieren und **jede Abnahmezahl unverändert lassen**. Das Nahfeld braucht einen
+weltverankerten Cache neben dem Quadtree, mit **Gewichten statt Index**.
+
+**Die Vorher-Messungen, und sie sind nach der Bake-Löschung nicht mehr nehmbar:**
+
+| | gemessen | hergeleitet |
+|---|---|---|
+| gerade OSM-`land`-Grenze im Klassenraster | **RMS 1,192 m** (12 Segmente ≥ 117 m, je 40 Proben); 0,955 m über die 11 unkreuzten; schlechtestes Einzelresiduum 14,5 m | Quantisierung auf ±½ Texel ist gleichverteilt, RMS = `Texel/(2√3)` = **0,847 m**. 13 % Abweichung |
+| Wege im 3×3-z14-Block um den Standpunkt | **144 von 206 Straßen-Features (69,9 %), 86,4 km, erreichen das Klassenraster gar nicht** — `fb_lod_line_ok` sperrt service/track/path/footway/cycleway bei `lod_ts < 1024`, der Client fragt `tex=512` | |
+| Wohnstraße, gezeichnete Breite | **3,52 m** bei realen 5,5–6,0 m | `w3_roadstyle` 2,4 Texel × 512/1024 × 2,9342 m |
+| Bach und Fluss | **4,40 m, beide gleich** | eine Strichbreite für 1–3 m und für 10–40 m |
+| bilineare Stützweite des Bodenshaders | ±2,934 m — schmaler als **5,868 m** kann nichts grasfrei sein | |
+
+**Die Deklaration gehört in `vegetation.json` und ein drittes File wäre ein Defekt.** Jede der neun
+Vorlagen trägt schon eine Schlüsselliste — `keySrgb`, also **die Farbe, die der Server gewählt hat**.
+Genau diese Kopplung ist zu schneiden: der Schlüssel gehört an das Tag. Eine weitere OSM-Ebene ist
+dann eine Zeile, weil `layer` ein String ist, den `OsmField::Layer` ohnehin auflöst.
+
+**Drei Ausgänge, drei Behandlungen:** kein OSM-Datum am Ort (14,48 % der Referenzkachel) → deklarierte
+Vorgabe und ein **Zähler**; Tag da, Tabelle kennt es nicht → **`Log::Error` mit dem Tag**; Kachel
+fehlt oder Parse scheitert → **`Log::Error` mit dem Ort**.
+
+**Nicht gebaut und nicht als gebaut gemeldet.** Der Bake ist deshalb auch **nicht** gelöscht: ohne
+Ersatz wäre die Szene ohne Landbedeckung, und `vegetation.json` hätte keinen Schlüsselraum mehr.

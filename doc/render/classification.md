@@ -166,6 +166,112 @@ The same shape, four inputs plus the footprint. What each one decides:
    a mistake in the sparse one is not. On the building side: massing, then roof, then facade
    articulation, for the same reason in reverse — the silhouette is what reads first.
 
+### The source is the VECTOR, and the raster is a derivation with a stated accuracy
+
+> Owner, 2026-08-07: *„die klassifizierung wird sich vor allem darin zeigen müssen, dass
+> nutzungsgrenzen gerade sind und kleine strassen und flüsse sichtbar werden."*
+
+Both of those are things a raster cannot do, and that is why they are the acceptance. The numbers
+below are the state of the built path, measured 2026-08-07 against the raw vector tiles; they are the
+"before" half of the pair and they can only be taken while `/bake/osm` still exists.
+
+**The finest class raster this build can produce anywhere on Earth is 2.9342 m per texel, and that is
+a construction, not a budget.** `World`'s `kMaxZ` = 14 stops the quadtree, so the finest tile spans
+`SpanM(14)` = 1502.33 m at the reference latitude over `TS` = 512 texels. Every consequence below
+follows from that one number:
+
+| | measured | derived expectation |
+|---|---|---|
+| perpendicular wobble of a **straight** OSM `land` boundary in the class raster | **RMS 1.192 m** over 12 segments ≥ 117 m, 40 samples each; **0.955 m** over the 11 that no second feature crosses; worst single residual 14.5 m | a straight edge quantised to a texel lattice has a residual uniform on ±½ texel, so RMS = `texel/(2√3)` = 2.9342/3.464 = **0.847 m**. Measurement and theory agree to 13 % — the raster is doing exactly what a raster does |
+| bilinear support of the ground shader's class read | ±1 texel = **±2.934 m** | a feature narrower than **5.868 m** can therefore never be free of its neighbours' material |
+
+**And a narrow feature mostly does not arrive at all.** Counted over the 3×3 z14 block around the
+reference standpoint (8620–8622 / 5403–5405), against `tiles/src/raster.c`'s own `fb_lod_line_ok`,
+which the client triggers at `tex=512`:
+
+| kind | features | length | stroke in the class raster | reaches it at all |
+|---|---|---|---|---|
+| track · path · service · footway · cycleway | **144** | **86.4 km** | — | **no** — gated at `lod_ts ≥ 1024` |
+| residential · living_street · unclassified | 28 | 28.3 km | **3.52 m** | yes |
+| tertiary / secondary / primary / trunk / rail | 34 | 24.7 km | 4.69 / 5.87 / 7.34 / 8.80 / 2.93 m | yes |
+| stream · ditch · river (`water_lines`) | 12 | 12.5 km | **4.40 m, all three alike** | yes |
+
+**144 of 206 street features — 69.9 % — are absent from the class raster**, and the ones present carry
+a **cartographic stroke, not a width**: `w3_roadstyle` returns texels at a reference texture size
+(`FB_STYLE_REF_TEX` 1024), so a residential street 5.5–6.0 m wide is painted 3.52 m and a 1–3 m stream
+and a 10–40 m river are painted 4.40 m each. Those numbers are a map style and **must not be adopted as
+metres.**
+
+### What the tile server already decides, and which half of it we take
+
+`tiles/src/style.h` and `tiles/src/raster.c` run this whole chain already — decode MVT, map `kind`,
+rasterise. Read before building, as instructed, and the three answers are not the three that were
+expected:
+
+| Question | What the server has | Verdict |
+|---|---|---|
+| **`kind` → class** | `w3_landcolor`, **60 kinds → an RGB colour**, with a rose-grey debug fallback, a `/health` counter `style_unknown_kind` and one stderr line per distinct unknown kind | **the kind ENUMERATION is worth taking, the mapping is not** — it maps to a palette for a map image, not to a class. Its 60 kinds are the honest list of what OSM emits here and are more than the 15 `land` currently carries; the *meaning* lives in `vegetation.json` |
+| **overlap priority** | inter-layer: **declared**, six literal lines — `ocean` → `land` → `water_polygons` → `sites` → `street_polygons` → `buildings`, then `streets` lines in two passes (non-rail, then rail), then `water_lines`. Intra-`land`: **none — the provider's feature emission order, last drawn wins** | **the inter-layer order is adopted verbatim.** The intra-layer order is the finding: it is implicit, therefore not deterministic, and `land`'s features overlap by 2.41 % of the tile. It must be **declared per row** |
+| **line → area width** | `w3_roadstyle`, texels at a 1024 reference, plus `fb_lod_line_ok` as a per-kind visibility floor on `lod_ts` | **not adopted.** See the table above: it is a stroke. The width has to be a declared metre value on the shared vector store, because the later infrastructure geometry must read the same number the classifier used |
+
+**Neither class model is superfluous, and saying so is the point.** The server's table is a palette with
+a rich kind list; `vegetation.json` is a class model with a poor key space — its nine templates are
+keyed by `keySrgb`, i.e. by the *colour the server chose*. That is the coupling this round cuts: the
+key belongs on the tag, not on the paint.
+
+### The declaration, and it is one file that already exists
+
+**`sim/assets/world/vegetation.json` is the right place and a third file would be a defect.** Each
+template already carries a `keySrgb` list — a list of keys that select it. The change is that the key
+space becomes `(layer, kind)` instead of a bake colour, as a sibling list on the same row, with a
+declared `rank` for the overlap order:
+
+```
+{ "name": "wiese",
+  "osm": [ {"layer":"land","kind":"meadow","rank":30}, {"layer":"land","kind":"grass","rank":30},
+           {"layer":"land","kind":"grassland","rank":30}, {"layer":"land","kind":"park","rank":32},
+           {"layer":"land","kind":"village_green","rank":32}, ... ] }
+```
+
+**A further OSM layer is a row, not an edit**, which is the whole test: `layer` is a string the shared
+vector store already resolves (`OsmField::Layer`), so `barrier`, `landuse` or anything `tiles/` later
+carries is reachable without touching C++. The nine templates cover the 15 kinds `land` delivers plus
+`farmyard` and `plant_nursery`; the two that stay unreachable are the two this file already names —
+`nadelwald` (shortbread carries no leaf type) and `ufer` (a distance-to-water derivation, never a tag).
+
+### Three outcomes, three treatments, and a counter is not an error
+
+> Owner, 2026-08-07: *„fehlgeschlagene klassifizierung muss im error log erscheinen"*
+
+| Case | Treatment |
+|---|---|
+| **no OSM datum at this place** — 14.48 % of the reference tile, of which only 1.01 % lies under a closed way at all | expected, and the truth about OSM. A **declared** default class and a **counter**. Never a line per occurrence, or the log is unreadable |
+| **a tag arrives that the table does not know** | **`Log::Error`, with the layer and the tag string.** This is the case the server watches with `style_unknown_kind`, and it is the one that hid 81 barrier ways for thirty hours |
+| **tile missing, parse failed, geometry unusable** | **`Log::Error`, loud, with the tile** |
+
+### The near field needs a cache the tile quadtree cannot give it
+
+This is the structural consequence and it is why this is a round of its own rather than a swap of one
+function. The per-tile class array is indexed by tile slot and its ground resolution is
+`SpanM(z)/TS`; `kMaxZ` = 14 puts a hard floor of **2.9342 m** under it, so **rasterising the vectors
+into the existing array would fix the semantics and leave every acceptance number above unchanged.**
+A 5.5 m street still could not be free of grass.
+
+What the near field needs is therefore a **world-anchored** cache, independent of the quadtree:
+snapped to a world lattice, scrolled in whole texels, and carrying **weights and not an index** —
+per texel the four largest area fractions and the four class ids they belong to, so the shader does
+the same four table reads it does today and the weights are *coverages* rather than bilinear
+distances. Naming the resolution decision, as required: **four channels is a choice, because `land`
+alone carries 15 kinds**; the measured overlap is 2.41 % of the tile over nine pairs, so a texel with
+more than three classes in it is rare and four is a bound with a measurement under it, not a guess.
+Below **≈ 0.37 m** any raster is resampling the vectors' own quantisation (`extent 4096` over
+1502.33 m = 0.3668 m per unit, mean residual 0.140 m against raw OSM), so a finer cache must justify
+itself; the fray the class boundary is allowed to carry is then the cache texel, and it is
+centimetres by choice of that texel and not by a blend width.
+
+**The cache is derived and never authoritative**, and the check is a pair: the same world point, two
+cache resolutions, one class.
+
 ### The conflict rule
 
 Stated once so it is not invented per stage: **OSM vector beats position beats albedo.** A mapped road is
@@ -280,6 +386,17 @@ the drawn class actually costs is bounded instead: 0 pixels of 921 600 differ be
 and a converged one at 1.0 m per pass, 2.23 % at 16 m per pass. Named in
 [`stages/terrain.md`](stages/terrain.md) `## Gaps`.
 
+**Nothing of the vector path is built, and the measurements above are the "before" half of its
+acceptance.** What was done in the round of 2026-08-07 is the reading, the arithmetic and the
+decisions: the server's chain was read and its three answers judged (one adopted, one found implicit,
+one rejected with a measurement), the declaration was placed on the row that already carries a key
+list, the three log outcomes were separated, and the structural blocker was found and stated —
+`kMaxZ` = 14 puts a **2.9342 m** floor under every per-tile class raster, so the near field needs a
+cache the quadtree cannot give it. **No line of the classifier exists.** The two blockers that were
+named at the start of that round were already gone: `OsmVector::Str` and `OsmField::Str` read string
+tags, and `OsmField` is the shared geodetic vector store across tile seams, already declaring
+`{"buildings", "land"}` with `land` unread.
+
 **Vegetation branch: one of three inputs is wired.** The albedo path exists as a 32³ LUT over the key
 colours (`sim/src/world/VegetationTemplates.h` and the table it indexes); position and OSM vector are not
 read by the classifier at all. There is no class model in the sense of `## Spec` — no class list with
@@ -313,6 +430,13 @@ substitutes a `[SET]` **9.0 m** (2 × 2.9 m floor-to-floor to the eaves plus a 3
 - **Uniform decay is a named defect with no mechanism to avoid it.** The rule (edge, plinth, weather
   side) is written down in the `architect` agent's acceptance list; nothing in the tree computes a
   decay field with those anchors.
+- **The vector classifier is specified and not built**, and the acceptance numbers stand measured at
+  their "before" values: straight-boundary RMS **1.192 m**, **144 of 206** street features absent from
+  the class raster, residential street painted **3.52 m** where it is 5.5–6.0 m, stream and river
+  painted **4.40 m** alike. They cannot be re-taken once `/bake/osm` is deleted.
+- **`vegetation.json` is keyed by the bake's palette.** Every one of the nine templates selects itself
+  through `keySrgb`, i.e. through a colour `tiles/src/style.h` chose. Deleting the bake without moving
+  that key first leaves the class model with no key space at all.
 - **The class list itself is unwritten, on both branches.** The build order puts the class model first;
   what exists is a colour LUT, which is step zero of it. Until the lists, their inputs and their conflict
   resolution are written down, every consumer is free to re-derive — which is exactly what the chain
