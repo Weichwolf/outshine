@@ -18,9 +18,41 @@ It is not a claim. It is **four build decisions**, and each one closes a questio
 | Part | What follows | Where it is worked out |
 |---|---|---|
 | **the world is loaded, not modelled** | terrain, land cover, buildings, vegetation, weather and the night sky come from `fb-tiles`. Every point on Earth is a valid start. No level editor, no authored map, no shipped world | [`world/terrain.md`](world/terrain.md), [`world/weather.md`](world/weather.md), [`render/classification.md`](render/classification.md) |
-| **ONE physics system** carries walking, driving, flying and swimming | rigid bodies plus contacts plus one propulsion model per class; aerodynamics as coefficients, not as a table work | [`body-format.md`](body-format.md) |
+| **ONE physics system** carries walking, driving, flying and swimming | rigid bodies plus contacts plus one propulsion model per class; aerodynamics as coefficients, not as a table lookup | [`body-format.md`](body-format.md) |
 | **an epoch and decay regulator** dresses the same geometry | a building is a house or a ruin, a road is asphalt or broken-up — same OSM dataset, one selection | [`goal.md`](goal.md) |
 | **the actors think** instead of running state machines | an entity's brain is a regulation or an LLM, and it is the reason the perception boundary below stops being hygiene and becomes load-bearing | [`mods.md`](mods.md) |
+
+## The bar: a world sandbox at Unreal level, out of tile data alone
+
+**The measuring stick for everything visible.** Not "good for a procedural engine", not "good for one
+developer" — the picture is held against the impression a commercially built world sandbox leaves, and
+the epoch dial does not buy an exemption.
+
+What the bar is **not**: Unreal's feature set, its editor, its material graph, or any particular one of
+its techniques. Outshine is [cut for a machine](#what-cut-for-a-machine-actually-means) and ships no
+authoring surface at all. **The bar is on what the camera sees, and only there** — which is the same
+reading as the reference titles below, who reach their impact with less detail than a photograph.
+
+Why that is reachable from tile-server data alone rests on three legs, and each can be attacked
+separately:
+
+| Leg | The claim | Why it holds |
+|---|---|---|
+| **the geometry already exists** | an open world's dominant cost is **authoring**, not rendering. A studio pays artists to build a street grid, a building footprint set and a land-cover map that OSM and the DEM already contain — for the whole planet, not for one shipped square | the density actually delivered at the acceptance location is measured under [The acceptance](#the-acceptance-one-place-three-epochs): named streets, addresses, POIs and real relief, in one z14 tile |
+| **the rendering technique is published** | full field of view, GPU-driven placement and lighting decoupled from geometry are **solved and documented**, and Days Gone / Horizon Forbidden West are the existence proof that they fit the budget | the remaining work is integration, not research — which is exactly why a stage names its source in one line ([`conventions.md`](conventions.md)) |
+| **there is no asset budget to lose** | the usual reason a sandbox needs a studio is the texture and mesh pipeline. Outshine has none: appearance is a **function**, and the only rasters allowed are a cache of a computable function or measured data ([`CLAUDE.md`](../CLAUDE.md) principle 2) | the side effect is the larger one — mip dependence, zoom pops, sampling grids and filter artefacts **cannot occur in a function** |
+
+What the legs do **not** cover, stated so the bar is not mistaken for a proof: authored art still buys
+**intent** — a silhouette placed by a human because it reads well. Outshine has to earn that from data
+and rules instead, and the two places where that is decided are
+[`render/visual-target.md`](render/visual-target.md) §1.3 (how "near-equal quality" becomes a number)
+and the critics.
+
+**The bar and the budget can collide, and the collision is not resolved by wishing.** The budget below
+is hard (16.67 ms), the technique ceiling is 2015-hardware-class, and a bar that turns out to be
+arithmetically unreachable inside them is **disproved, not voted away**: the disproof with its
+measurement goes into the `## Gaps` of the file that ran into it, and what happens next is a decision by
+the owner, not by the round that hit the wall.
 
 ## The hardware IS the goal, not a constraint
 
@@ -40,6 +72,34 @@ at delivery ([`render/visual-target.md`](render/visual-target.md) §1).
 
 The technique ceiling is 2015-hardware-class rendering. What that includes and excludes concretely is
 [`render/visual-target.md`](render/visual-target.md) §2.1.
+
+## Proven first — an invention needs a reason
+
+**Be inventive, but build on what works.** Experimenting is wanted; reinventing the wheel is not. Where
+a problem has been solved several times over, **the established way is the starting point**, and a
+deviation from it carries its reason where the deviation is.
+
+| Field | Whose solution is the starting point | What is taken from it |
+|---|---|---|
+| frame structure, placement, lighting | **AAA open-world titles**, Days Gone and Horizon Forbidden West first | the technique, itemised in the table above — and nothing beyond it |
+| vegetation LOD, aggregate and cut-off | **SpeedTree**, and the shipped foliage switches of current engines | where the transitions sit and what they are allowed to cost |
+| tags, geometry cleanup, classification | **OSM reference implementations** | the tag semantics and the arbitration order — the meaning of a tag is not ours to redefine |
+| a whole globe from vector plus elevation | **Microsoft Flight Simulator** | that streamed vector + DEM data carries a playable world at planetary scale, and that OSM footprints raised by rules are the answer wherever nothing is modelled — which, for an unbounded area, is everywhere |
+
+The rule has a mechanism, not just an attitude: a stage that implements a published technique **names it
+in one line, with its deviation** ([`conventions.md`](conventions.md)). A successor then reads whether
+the stage does the standard thing or whether somebody improvised.
+
+**And the converse is stated, so "proven" does not become an excuse.** Three things here have no prior
+art with our constraints, and they are inventions by necessity rather than by taste:
+
+| Invented here | Why nothing can be copied |
+|---|---|
+| the **epoch/decay dial** over one OSM dataset | engines dress *authored* geometry; nobody dresses a dataset that must stay the same dataset |
+| **thinking actors behind a sensor boundary** | scripted AI has no need for the boundary, so no shipped engine has had to hold it |
+| **one body format** for furniture, human, wolf, tank, aircraft | each field has its own solver and its own file format; the union is the point ([`body-format.md`](body-format.md)) |
+
+Everything else is integration. **"Novel" is not a value here; measured is.**
 
 ## „Optically, in content AND functionally" — the sharpest word is the last one
 
@@ -93,11 +153,11 @@ Concretely, and each half is checkable rather than promised:
 The payoff is not fairness, it is **readability**: an actor that acts on the information its kind
 actually has makes mistakes a player can read as mistakes.
 
-**Nothing enforces this today.** The judges, the monotone health register and the friend-locked tick
-surface went with the simulation layer on 2026-08-07, and `verify-guards` — the gate that proved them by
-trying to break them — went too. The one boundary still standing is the layer gate's `RESTRICTED` table
-over `units/UnitRegistry.h`. Whatever spawns and steps a body under [`body-format.md`](body-format.md)
-has to re-earn those shapes before the first brain is connected, not after.
+**Nothing enforces this today.** The one boundary standing is the layer gate's `RESTRICTED` table over
+`units/UnitRegistry.h`. Whatever spawns and steps a body under [`body-format.md`](body-format.md) has to
+earn the enforcing shapes — private with exactly one friend, a type with no syntax for the wrong thing,
+a gate that prints a number ([`conventions.md`](conventions.md)) — **before the first brain is
+connected, not after.**
 
 ## Epoch and decay — discrete, and a selection
 
@@ -193,6 +253,47 @@ side-by-side comparison is not a defect; a body that fails list A is.
 
 Tier A is the only one with a written plan. AA and AAA are named so the direction is not lost, not
 scheduled.
+
+## The way is the goal
+
+**This runs over months and has no acceptance date.** Nothing above is a delivery promise; the tiers are
+a direction. What follows from that is the working posture, and it is not softness:
+
+> **A round that learned something is a good round even if it delivered nothing — but only if what it
+> learned stays put, with its measurement.**
+
+| | What it means concretely |
+|---|---|
+| **learned means measured** | a round that ends with an impression ended with nothing. The unit of learning is a number and how it was obtained. An unmeasured round did not learn, it guessed |
+| **where it stays** | `## Gaps` of the topic file, with the measurement. A rejected approach is a **currently true statement about what does not work** — deleting it means somebody re-runs the experiment ([`conventions.md`](conventions.md)) |
+| **what it does not license** | a rushed completeness claim. "Done" is a claim about a measurement, and a partial round says which part is left |
+| **the failure mode it prevents** | pressure to ship something visible per round, which buys a demo and pays for it in dead paths |
+
+The corollary for a bar as high as the one above: it is reached by a series of measured steps, and the
+step that **disproves** a plan is worth as much as the step that implements one.
+
+## Nothing here is a possession
+
+**No format, no directory, no algorithm and no document in this tree obliges anyone to anything.** Only
+the goal is in focus. If an existing approach does not bring the picture closer to photography, it goes
+— and the rule *"what is replaced disappears in the same round"* exists precisely for that moment.
+
+**This is not a blank cheque, and the distinction is the whole point:**
+
+| Revisable — every one of them a **decision** | Not revisable — the **tools** revision is done with |
+|---|---|
+| a file format, a directory layout, an algorithm, a stage, a document, an accepted result | the duty to **measure** rather than judge by eye |
+| the classification chain, the body format, the epoch dial's shape | the **provenance of every number** — derived, measured or `[SET]` |
+| anything in `## Spec`, by decision, and anything in `## State`, by building | **deleting what is superseded, in the same round** |
+
+The right-hand column is not sentiment: without it the left-hand column cannot be exercised. A tree that
+keeps its dead paths cannot afford to revise anything, because nobody can tell which path fired. A tree
+whose numbers have no origin cannot compare the successor to the predecessor at all.
+
+**And a revision is a decision, made where decisions are made.** A `## Spec` and this file change by the
+owner's call — not by the round that found the existing shape inconvenient. "Nothing is a possession"
+removes the *obligation* to keep something, never the requirement to say what replaces it and to show
+the measurement that made the swap worth it.
 
 ## What Outshine is not
 
