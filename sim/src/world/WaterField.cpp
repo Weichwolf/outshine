@@ -30,7 +30,7 @@ constexpr double kLiftM = 0.15;
 
 }  // namespace
 
-uint32_t WaterField::Ingest(const OsmField &field, float defaultHalfWidthM) {
+uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Consumed_ >= feats.size()) return (uint32_t)Surfaces_.size();
 
@@ -69,7 +69,8 @@ uint32_t WaterField::Ingest(const OsmField &field, float defaultHalfWidthM) {
         c.FirstPoint = ring.First;
         c.PointCount = ring.Count;
         c.FirstLevel = (uint32_t)Levels_.size();
-        c.HalfWidthM = defaultHalfWidthM;
+        const VegetationTemplates::Rule *rule = veg.Find(field.LayerName((int)f.Layer), field.Str(f, "kind"));
+        c.HalfWidthM = rule && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
         for (double h : hs) Levels_.push_back((float)h);
         if (!HaveAnchor_) {
           GeoToEcef(pts[(size_t)c.FirstPoint * 2], pts[(size_t)c.FirstPoint * 2 + 1], hs[0], Anchor_);

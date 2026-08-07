@@ -12,6 +12,7 @@
 #define WATERFIELD_H
 
 #include "OsmField.h"
+#include "VegetationTemplates.h"
 
 #include <cstdint>
 #include <vector>
@@ -34,7 +35,9 @@ public:
   };
 
   /* Consumes whatever `field` has decoded and this has not seen yet; returns the surfaces standing. */
-  uint32_t Ingest(const OsmField &field, float defaultHalfWidthM);
+  /* The width of a watercourse is DECLARED per kind (vegetation.json, water_lines: drain 1.0 m to
+   * river 12.0 m); one number for all of them drew a river as a ditch. */
+  uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
   const std::vector<Surface> &Surfaces() const { return Surfaces_; }
   const std::vector<Course> &Courses() const { return Courses_; }

@@ -950,7 +950,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     /* [SET] 1.5 m half width for a watercourse: the narrow end of what OSM maps as a line — a ditch
      * or a stream. The right number is per kind and lives in vegetation.json's widthM; this stands
      * until WaterField reads it. */
-    Water.Ingest(Vectors, 1.5f);
+    if (Veg_) Water.Ingest(Vectors, *Veg_);
     if (!Water.Surfaces().empty() || !Water.Courses().empty()) {
       Water.Tessellate(Vectors, WaterVerts);
       if (R && !WaterVerts.empty())

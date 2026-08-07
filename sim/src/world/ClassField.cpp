@@ -167,6 +167,10 @@ void ClassField::Ingest(Tier &t) {
       UnknownFeats_++;
       continue;
     }
+    /* A culvert or a tunnel carries nothing at the surface. shortbread hands us `tunnel` on every
+     * layer that can have one and every OSM renderer acts on it; the bake does not, which is why its
+     * water looks fuller than the ground actually is. */
+    if (t.Field->Num(f, "tunnel", 0.0) > 0.5) continue;
     if (f.Type != 2 && f.Type != 3) continue;
     if (f.Type == 2 && rule->WidthM <= 0.0f) {
       std::string key(layer);
