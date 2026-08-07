@@ -38,6 +38,7 @@ public:
     float Grass[4];     /* rgb linear fresh blade, w = blades/m^2 */
     float Dry[4];       /* rgb linear dry blade, w = blade height (m) */
     float Param[4];     /* x = height jitter, y = blade width (m), z = clutter/m^2, w = dry fraction */
+    float Edge[4];      /* x = edgeReachM, y = 1 if the edge is BUILT (a seam) and 0 if grown (a zone); z,w spare */
   };
 
   /* What one declared (layer, kind) selects. `WidthM` is 0 for an area feature and the drawn width in

@@ -282,7 +282,7 @@ static constexpr int kReliefOctaves = 12;
  * ground slide along with the walker: invisible in a still frame, unmissable in motion. */
 static const char *kVegOnWGSL = R"(
 struct VegRow { ground : vec4f, litter : vec4f, gsurf : vec4f, lsurf : vec4f, mixp : vec4f,
-                grass : vec4f, dry : vec4f, par : vec4f };
+                grass : vec4f, dry : vec4f, par : vec4f, edge : vec4f };
 @group(0) @binding(7) var<storage, read> vegTbl : array<VegRow>;
 struct GroundMat { alb : vec3f, rough : f32, nrm : vec3f, spec : f32, cls : u32,
                    gr : vec4f, dr : vec4f, pr : vec4f };
@@ -497,10 +497,20 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
   let kDef = clsBuf[2];
   let win = select(kDef, hit.best, hit.have);
   let los = select(kDef, hit.second, hit.have && hit.second != win);
-  /* THE BOUNDARY IS HARD AND ITS FRAY IS THE PIXEL. There is no ramp in metres and no per-class-pair
-   * table: the distance to the winner's own outline is known exactly, so the transition is exactly as
-   * wide as the fragment is and no wider. kClsFray is the world-fixed floor under it. */
-  let half = max(kClsFray, footM);
+  /* THE TRANSITION BELONGS TO THE PAIR, and a BUILT edge and a GROWN edge are not the same thing
+   * (doc/goal.md). A built edge is a COMPONENT: tarmac ends where it was laid, and a diffuse
+   * neighbour cannot widen a seam — so if either class is built, the pair takes the smallest built
+   * reach. Two grown edges are two overlapping GRADIENTS, so the zone is their union and the pair
+   * takes the larger. That is why road-against-meadow is 0.05 m and wood-against-meadow 0.90 m out
+   * of one expression. footM keeps it at least one fragment wide, because narrower than a pixel is
+   * aliasing and not a hard edge; kClsFray is the floor under a class that declares nothing. */
+  let ea = vegTbl[win].edge;
+  let eb = vegTbl[los].edge;
+  let builtA = select(1.0e9, ea.x, ea.y > 0.5);
+  let builtB = select(1.0e9, eb.x, eb.y > 0.5);
+  let seam = min(builtA, builtB);
+  let zone = max(ea.x, eb.x);
+  let half = max(max(kClsFray, select(zone, seam, seam < 1.0e8)), footM);
   let mixW = clamp(0.5 + hit.dist / (2.0 * half), 0.0, 1.0);
   o.cls = select(los, win, mixW >= 0.5);
   let ra = vegTbl[win];

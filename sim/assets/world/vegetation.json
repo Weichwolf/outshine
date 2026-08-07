@@ -12,6 +12,8 @@
       "name": "laubmischwald",
       "ground": {
         "class": "waldboden",
+        "edgeReachM": 0.9,
+        "edgeConstructed": 0,
         "litterClass": "laubstreu",
         "contrast": 0.55
       },
@@ -72,7 +74,8 @@
         "grass.perM2": "[SET] closed-canopy forest floor is grass-poor; 90/m^2 is the visual-closure target at 1 m, not a tiller count",
         "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
         "ground.colorSrgb": "[SET] beech leaf litter; the layer the eye actually sees under a closed canopy",
-        "clutter.perM2": "[SET] deadwood + stones"
+        "clutter.perM2": "[SET] deadwood + stones",
+        "ground.edgeReachM": "[SET] 0.9 m, see edgeModel"
       },
       "osm": [
         {
@@ -91,6 +94,8 @@
       "name": "nadelwald",
       "ground": {
         "class": "waldboden",
+        "edgeReachM": 0.6,
+        "edgeConstructed": 0,
         "litterClass": "nadelstreu",
         "contrast": 0.45
       },
@@ -142,7 +147,8 @@
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
         "trees.perM2": "[SET] 900 stems/ha for a managed spruce stand -> 0.09/m^2",
-        "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure"
+        "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure",
+        "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },
       "osm": []
     },
@@ -150,6 +156,8 @@
       "name": "wiese",
       "ground": {
         "class": "grasfilz",
+        "edgeReachM": 0.3,
+        "edgeConstructed": 0,
         "contrast": 0.42,
         "swardClosure": 1.0
       },
@@ -205,7 +213,8 @@
         "trees.perM2": "[SET] 8 solitary trees per hectare — the scattered pasture oak",
         "ground.class": "grasfilz, NOT a soil. doc/render/vegetation.md ## Spec: under working grassland the open-soil fraction at eye height is 0 percent, so the previous erde_trocken drew a surface that does not occur under a meadow. The felt carries the moos overlay its own class declares (0.15), which is where the botanist's third component enters.",
         "ground.swardClosure": "1.0, derived, and the number is not close to its alternatives. Closure is the fraction of the ground plane hidden by standing foliage, 1 - P0, with the Beer-Lambert gap fraction P0 = exp(-G * LAI / sin(beta)) for view elevation beta. At the cover stage's fade radius - RadiusM = 2.0 m spacing * 48 * 0.5 * 0.92 = 44.16 m, eye 1.70 m - beta = atan(1.70/44.16) = 2.205 deg, and with LAI 3 (doc/render/vegetation.md ## Spec, Grummet, Spektrum Lexikon der Biologie) and the spherical-distribution G = 0.5, P0 = exp(-38.98) = 1.2e-17. A sward seen almost edge-on hides its own floor completely, so beyond the fade radius the terrain layer IS the sward and its albedo has to be the blades'. WHAT THIS COSTS AND IT IS NOT SMALL: one number serves every view elevation, so the floor's CHROMA stops showing between the blades in the near field too, where the true closure is far below 1 - at 2 m the same formula gives P0 = 0.10. Only the floor's colour is taken; roughness, grain, relief and specular stay the felt's, and they are what the near field still reads. Making closure a function of footM belongs in groundMat (render/stages/TilesStage.cpp) and is doc/render/vegetation.md ## Gaps. G = 0.5 is [SET]: the spherical distribution is the standard default and this sward is erectophile, which raises G at a grazing view, so the error runs toward MORE occlusion, not less.",
-        "forbs.species": "the scene stands on 6 August (mods/demo/scene.json) and every species named here is in flower on that date. Wiesenkerbel (Anthriscus sylvestris) was removed for two independent reasons: its Bluetezeit is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: Wilde Moehre (Daucus carota), Bluetezeit May to September (de.wikipedia.org/wiki/Wilde_Möhre), and Wiesen-Flockenblume (Centaurea jacea), Bluetezeit late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list. See doc/render/vegetation.md ## Gaps."
+        "forbs.species": "the scene stands on 6 August (mods/demo/scene.json) and every species named here is in flower on that date. Wiesenkerbel (Anthriscus sylvestris) was removed for two independent reasons: its Bluetezeit is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: Wilde Moehre (Daucus carota), Bluetezeit May to September (de.wikipedia.org/wiki/Wilde_Möhre), and Wiesen-Flockenblume (Centaurea jacea), Bluetezeit late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list. See doc/render/vegetation.md ## Gaps.",
+        "ground.edgeReachM": "[SET] 0.3 m, see edgeModel"
       },
       "osm": [
         {
@@ -309,6 +318,8 @@
       "name": "acker",
       "ground": {
         "class": "erde_trocken",
+        "edgeReachM": 0.1,
+        "edgeConstructed": 0,
         "contrast": 0.6
       },
       "grass": {
@@ -355,7 +366,8 @@
         "grass.heightM": "[SET] 0.12 m, STUBBLE. The scene stands on 6 August (mods/demo/scene.json) and winter wheat on Weserbergland loess is threshed by then, so the previous 0.55 m drew a standing half-ripe crop two months out of date. 0.10-0.15 m is the usual combine cutter-bar setting for winter wheat; 0.12 is the middle of it and no measurement of a local field is behind it. The alternative correct state - already grubbed, i.e. bare tilled soil with no stand at all - is not chosen because it would take the row to perM2 0 and delete the field's texture entirely.",
         "grass.dryFraction": "[SET] 0.92. A stubble is dead straw; the remaining 8 percent is the volunteer cereal and the weed flush that germinate within days of the harvest and are green on 6 August.",
         "grass.drySrgb": "chromaticity derived from measurement, LEVEL UNCHANGED AND STILL UNSOURCED. The Rec.709 luminance of the retired [186,166,92] is kept exactly (linear Y 0.3848) and only the RGB ratio is replaced by the measured straw chromaticity 1.000:0.674:0.280 - ECOSTRESS Spectral Library v1.0 spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, chromaticity path B, the same measurement that gives ground-materials.json its grasfilz. Encoding the result to 8 bit costs 0.24 percent of the luminance and 0.004 of the ratio.",
-        "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field"
+        "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field",
+        "ground.edgeReachM": "[SET] 0.1 m, see edgeModel"
       },
       "osm": [
         {
@@ -410,6 +422,8 @@
       "name": "heide",
       "ground": {
         "class": "sand",
+        "edgeReachM": 1.0,
+        "edgeConstructed": 0,
         "contrast": 0.5
       },
       "grass": {
@@ -458,7 +472,8 @@
       },
       "origins": {
         "grass.perM2": "[SET] between pasture and bare ground — patchy by construction, which is what heightJitter 0.7 encodes",
-        "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here"
+        "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here",
+        "ground.edgeReachM": "[SET] 1.0 m, see edgeModel"
       },
       "osm": [
         {
@@ -524,6 +539,8 @@
       "name": "siedlung",
       "ground": {
         "class": "erde_trocken",
+        "edgeReachM": 0.15,
+        "edgeConstructed": 1,
         "contrast": 0.65
       },
       "grass": {
@@ -577,7 +594,8 @@
         "grass.perM2": "[SET] mown lawn: shorter and denser than pasture",
         "grass.heightM": "[SET] mown, 0.08-0.15 m",
         "trees.perM2": "[SET] 60 street/garden trees per hectare",
-        "trees.species": "[SET] the German Strassenbaum canon; all five exist in wasm-tree"
+        "trees.species": "[SET] the German Strassenbaum canon; all five exist in wasm-tree",
+        "ground.edgeReachM": "[SET] 0.15 m, see edgeModel"
       },
       "osm": [
         {
@@ -636,6 +654,8 @@
       "name": "versiegelt",
       "ground": {
         "class": "asphalt",
+        "edgeReachM": 0.05,
+        "edgeConstructed": 1,
         "contrast": 0.28
       },
       "grass": {
@@ -678,7 +698,8 @@
       "origins": {
         "keySrgb": "buildings (128,114,102 — tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
         "grass.perM2": "[SET] joint weeds only — NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
-        "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there"
+        "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there",
+        "ground.edgeReachM": "0.05 m = the construction seam, see edgeModel"
       },
       "osm": [
         {
@@ -874,6 +895,8 @@
       "name": "wasser",
       "ground": {
         "class": "wasser",
+        "edgeReachM": 0.4,
+        "edgeConstructed": 0,
         "contrast": 0.15
       },
       "grass": {
@@ -913,7 +936,8 @@
       },
       "origins": {
         "grass.perM2": "0 is a STATEMENT, not a missing value: nothing is scattered on open water, and the wetland greens are folded in here so a marsh does not grow a pasture",
-        "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry"
+        "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry",
+        "ground.edgeReachM": "[SET] 0.4 m, see edgeModel"
       },
       "osm": [
         {
@@ -1007,6 +1031,8 @@
       "name": "ufer",
       "ground": {
         "class": "schlamm",
+        "edgeReachM": 0.6,
+        "edgeConstructed": 0,
         "contrast": 0.5
       },
       "grass": {
@@ -1055,11 +1081,13 @@
       },
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — a riparian strip is a BUFFER around the water polygon, not a colour. Reachable once the OSM water overlay can dilate; declared now so the Weser bank has somewhere to go.",
-        "trees.species": "[SET] the Weser bank at Hameln"
+        "trees.species": "[SET] the Weser bank at Hameln",
+        "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },
       "osm": []
     }
   ],
   "groundClassOrigin": "the template REFERENCES a class of sim/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: laubmischwald/nadelwald -> waldboden with a leaf/needle litter override, wiese -> grasfilz (see the template's own ground.class origin), acker/siedlung -> erde_trocken, heide -> sand, versiegelt -> asphalt, wasser -> wasser, ufer -> schlamm. litterClass is omitted where the material's own litter declaration applies.",
-  "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(colorSrgb, drySrgb, E[dryness]) - the same two colours and the same expected dryness the ground-cover shader draws with, read back out of the row, so the terrain and the blades cannot drift apart when either colour is retuned. It exists because the ground-cover stage stops drawing blades at 44.16 m and the terrain layer is then the ONLY thing showing the meadow: a soil-coloured terrain there puts a hard chroma step at the fade radius. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real."
+  "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(colorSrgb, drySrgb, E[dryness]) - the same two colours and the same expected dryness the ground-cover shader draws with, read back out of the row, so the terrain and the blades cannot drift apart when either colour is retuned. It exists because the ground-cover stage stops drawing blades at 44.16 m and the terrain layer is then the ONLY thing showing the meadow: a soil-coloured terrain there puts a hard chroma step at the fade radius. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real.",
+  "edgeModel": "TWO KINDS OF EDGE, because they are two different things (doc/goal.md): a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two — tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. versiegelt 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. siedlung 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. laubmischwald 0.90 / nadelwald 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one — the tree line is metres wide, the litter gradient under it is not. acker 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. wiese 0.30 [SET]: a mower's overlap band. heide 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. wasser 0.40 / ufer 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured."
 }

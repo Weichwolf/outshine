@@ -103,6 +103,8 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row.Param[1]  = (float)gr["widthM"].Num(0.01);
     row.Param[2]  = (float)t["clutter"]["perM2"].Num(0.0);
     row.Param[3]  = (float)gr["dryFraction"].Num(0.35);
+    row.Edge[0]   = (float)g["edgeReachM"].Num(0.05);
+    row.Edge[1]   = (float)g["edgeConstructed"].Num(0.0);
 
     /* Beyond the cover stage's fade radius no blade is drawn and the terrain layer is the only thing
      * left showing the meadow, so its albedo has to be the SWARD's and not the floor's. The aggregate
