@@ -360,7 +360,10 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
         const size_t ci = (size_t)j * W + (size_t)i;
         if (nce == 0 || seedCount[ci] >= (uint32_t)kSeedCap || nce > (uint32_t)kRefCap) {
           if (nce != 0) Overflow_++;
-          if (wind != 0) { base[ci] = (uint8_t)f.Tpl; baseRank[ci] = (uint8_t)f.Rank; }
+          /* An OPEN centreline has no inside, so its winding is not a coverage test — and the running
+           * counter would carry it along the scanline. A line covers a cell only through its seed,
+           * where the distance decides; without a seed it covers nothing. */
+          if (f.Type == 3 && wind != 0) { base[ci] = (uint8_t)f.Tpl; baseRank[ci] = (uint8_t)f.Rank; }
           continue;
         }
         const uint32_t refFirst = (uint32_t)B.Refs.size();
