@@ -114,12 +114,7 @@ fn aoHash(p : vec2f) -> f32 { return fract(sin(dot(p, vec2f(127.1, 311.7))) * 43
     let toward = sceneP - p0;
     let dist = length(toward);
     if (dist > kAoRadiusM * 2.0) { continue; }       /* range check: a far wall is not contact */
-    /* THE TAP THAT LANDS ON ITS OWN TEXEL. aoProject rounds to the depth grid, so a tap inside the
-     * same texel as p0 gives toward = 0, normalize(0) = NaN — and NaN survives the cosA reject below,
-     * because every comparison with NaN is false. One such tap poisons the whole sum and the pixel
-     * arrives in the composite as an isolated black speck of screen-space size, which is exactly what
-     * the sim-critic measured on concrete, asphalt AND grass (doc/render/renderer.md, defect 8).
-     * 1 mm: far under the 0.9 m radius, far over any float error in the reprojection. */
+    /* normalize(0) is NaN and NaN passes the cosA reject below, because NaN compares false. */
     if (dist < 1.0e-3) { continue; }
     let cosA = dot(normalize(toward), nrmA);
     if (cosA <= 0.05) { continue; }

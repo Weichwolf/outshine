@@ -450,6 +450,44 @@ carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Knowledge
 
+### A way is a SAMPLE of a curve, and the chords are the sampling artefact
+
+Owner, 2026-08-07: *„eine strasse ist kurviger als die osm vermessung"*. A surveyor sets a node where
+the bend needs one; the straight line between two nodes is an artefact of that sampling, not the road.
+Drawing the polyline draws the sampling grid. So every ring is resampled along a **centripetal
+Catmull-Rom through its own nodes** before it becomes edges — it passes through every declared node, so
+no surveyed position moves, and it only adds points where the curve leaves the chord by more than
+`kCurveTolM`.
+
+**It is done at bake time and not in the shader, and that is the load-bearing choice.** Which class a
+point belongs to is decided by a winding test against the edges, and how soft the boundary is by the
+distance to them. Curving only the *distance* would leave inside/outside and edge position on two
+different geometries — the same class of contradiction that went unnoticed for thirty hours in the DEM
+registration. As geometry, both evaluators see one curve.
+
+**Measured on the 3×3 z14 block at the reference standpoint** (each a pinned binary):
+
+| tolerance | edges | buffer | build |
+|---|---|---|---|
+| polyline (before) | 105 304 | 3.56 MB | 7.1 ms |
+| 0.15 m | 638 172 | 11.92 MB | 50.6 ms |
+| **0.60 m (shipped)** | **393 293** | **7.91 MB** | **31.5 ms** |
+| 1.20 m | 293 889 | 6.31 MB | 27.7 ms |
+
+**The cost is intrinsic, not a parameter to tune away**: even a 1.20 m tolerance keeps 2.8× the edges,
+because the ways really do bend that much. A line feature is the expensive half — each span becomes a
+four-edge quad, so subdividing it into n pieces costs 4n.
+
+**Centripetal bought nothing measurable and is kept only for correctness.** The first build used the
+uniform parameterisation while its own comment claimed centripetal; switching to the real thing moved
+638 172 edges from 699 202 and cost 34 % more build time. So the overshoot the centripetal form exists
+to prevent was not what drove the count — the survey's own curvature was. Recorded so the experiment is
+not repeated.
+
+**Open:** the 31.5 ms build is a refill stall on tile arrival, four times what it was. It is a p99 event
+and it is not yet measured in the moving benchmark.
+
+
 Nothing is derived here yet. The measurements this file rests on are stated in place with their subject:
 the shared forest colour `(70,105,60)` in the OSM raster and the missing key colours for `nadelwald` and
 `ufer` (`## Spec`), and the 1634-of-1706 footprint-height fill with the `[SET]` 9.0 m substitution

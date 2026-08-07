@@ -11,6 +11,75 @@
 
 namespace outshine::World {
 
+/* An OSM way is a SAMPLE of a curve, not a description of a polygon: a surveyor sets a node where
+ * the bend needs one, and the chord between two nodes is the sampling artefact, not the road. So the
+ * chords are replaced by the centripetal Catmull-Rom through the same nodes — it passes through every
+ * one of them, so no declared position moves, and it only adds where the curve leaves the chord.
+ *
+ * kCurveTolM 0.60 m [SET]: the cost is measured in doc/render/classification.md, not guessed here. */
+static constexpr float kCurveTolM = 0.60f;
+static constexpr int kCurveMaxSplit = 8;
+
+/* Barry-Goldman, knots spaced by sqrt of chord length: the CENTRIPETAL parameterisation, which is
+ * the one that cannot cusp or loop between two nodes however uneven the survey's spacing. */
+static void CatmullPoint(const float *p0, const float *p1, const float *p2, const float *p3,
+                         float u, float *out) {
+  auto knot = [](float t, const float *a, const float *b) {
+    const float dx = b[0] - a[0], dy = b[1] - a[1];
+    return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + 1.0e-6f);
+  };
+  const float t0 = 0.0f, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+  const float t = t1 + u * (t2 - t1);
+  float a1[2], a2[2], a3[2], b1[2], b2[2];
+  for (int a = 0; a < 2; a++) {
+    a1[a] = ((t1 - t) * p0[a] + (t - t0) * p1[a]) / (t1 - t0);
+    a2[a] = ((t2 - t) * p1[a] + (t - t1) * p2[a]) / (t2 - t1);
+    a3[a] = ((t3 - t) * p2[a] + (t - t2) * p3[a]) / (t3 - t2);
+  }
+  for (int a = 0; a < 2; a++) {
+    b1[a] = ((t2 - t) * a1[a] + (t - t0) * a2[a]) / (t2 - t0);
+    b2[a] = ((t3 - t) * a2[a] + (t - t1) * a3[a]) / (t3 - t1);
+  }
+  for (int a = 0; a < 2; a++) out[a] = ((t2 - t) * b1[a] + (t - t1) * b2[a]) / (t2 - t1);
+}
+
+/* Ring points in, curve points out. `closed` wraps the neighbour lookup; an open way reflects its
+ * end tangents so the first and last spans bend like their neighbours instead of going straight. */
+static void CurveRing(const float *pts, uint32_t first, uint32_t count, bool closed,
+                      std::vector<float> &out) {
+  out.clear();
+  if (count < 2) return;
+  auto P = [&](int i) -> const float * {
+    int n = (int)count;
+    if (closed) { i = ((i % n) + n) % n; }
+    else { i = i < 0 ? 0 : (i >= n ? n - 1 : i); }
+    return pts + ((size_t)first + (size_t)i) * 2;
+  };
+  const int spans = closed ? (int)count : (int)count - 1;
+  for (int s = 0; s < spans; s++) {
+    const float *p0 = P(s - 1), *p1 = P(s), *p2 = P(s + 1), *p3 = P(s + 2);
+    float mid[2];
+    CatmullPoint(p0, p1, p2, p3, 0.5f, mid);
+    const float cx = 0.5f * (p1[0] + p2[0]), cy = 0.5f * (p1[1] + p2[1]);
+    const float dev = std::sqrt((mid[0] - cx) * (mid[0] - cx) + (mid[1] - cy) * (mid[1] - cy));
+    int n = 1;
+    if (dev > kCurveTolM) {
+      n = (int)std::ceil(std::sqrt(dev / kCurveTolM));
+      if (n > kCurveMaxSplit) n = kCurveMaxSplit;
+    }
+    for (int k = 0; k < n; k++) {
+      float q[2];
+      CatmullPoint(p0, p1, p2, p3, (float)k / (float)n, q);
+      out.push_back(q[0]); out.push_back(q[1]);
+    }
+  }
+  if (!closed) {
+    const float *last = pts + ((size_t)first + count - 1) * 2;
+    out.push_back(last[0]); out.push_back(last[1]);
+  }
+}
+
+
 namespace {
 
 double Clock() {
@@ -163,6 +232,7 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
   B.Edges.clear();
 
   std::vector<float> ex;      /* this feature's edges: x0,y0,x1,y1 */
+  std::vector<float> curve;   /* the way resampled along its Catmull-Rom, reused per feature */
   std::vector<uint32_t> byY;  /* edge order by ymin */
   std::vector<uint32_t> act;
   /* The same for one feature's edges over the cells of its bounding box, with a VERSION STAMP so the
@@ -185,21 +255,25 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
     if (f.Type == 3) {
       for (uint32_t k = 0; k < of.RingCount; k++) {
         const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
-        for (uint32_t s = 0; s < ring.Count; s++) {
-          const uint32_t a = ring.First + s, b = ring.First + ((s + 1) % ring.Count);
-          ex.push_back(t.Pts[(size_t)a * 2]); ex.push_back(t.Pts[(size_t)a * 2 + 1]);
-          ex.push_back(t.Pts[(size_t)b * 2]); ex.push_back(t.Pts[(size_t)b * 2 + 1]);
+        CurveRing(t.Pts.data(), ring.First, ring.Count, true, curve);
+        const size_t nc = curve.size() / 2;
+        for (size_t s = 0; s < nc; s++) {
+          const size_t a = s, b = (s + 1) % nc;
+          ex.push_back(curve[a * 2]); ex.push_back(curve[a * 2 + 1]);
+          ex.push_back(curve[b * 2]); ex.push_back(curve[b * 2 + 1]);
         }
       }
     } else {
       const float hw = f.WidthM * 0.5f;
       for (uint32_t k = 0; k < of.RingCount; k++) {
         const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
-        for (uint32_t s = 0; s + 1 < ring.Count; s++) {
-          const float ax = t.Pts[((size_t)ring.First + s) * 2];
-          const float ay = t.Pts[((size_t)ring.First + s) * 2 + 1];
-          const float bx = t.Pts[((size_t)ring.First + s + 1) * 2];
-          const float by = t.Pts[((size_t)ring.First + s + 1) * 2 + 1];
+        CurveRing(t.Pts.data(), ring.First, ring.Count, false, curve);
+        const size_t nc = curve.size() / 2;
+        for (size_t s = 0; s + 1 < nc; s++) {
+          const float ax = curve[s * 2];
+          const float ay = curve[s * 2 + 1];
+          const float bx = curve[(s + 1) * 2];
+          const float by = curve[(s + 1) * 2 + 1];
           float dx = bx - ax, dy = by - ay;
           const float len = std::sqrt(dx * dx + dy * dy);
           if (len < 1.0e-6f) continue;

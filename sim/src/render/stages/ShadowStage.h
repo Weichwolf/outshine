@@ -1,34 +1,9 @@
 /* The casting half of the cascaded shadow maps. Depth only, one pipeline, one draw per cascade into
- * a strip atlas — so ONE render pass covers all four, and the pass boundary is Renderer's as always.
- * The receiving half is ShadowSample.h, which every lit surface splices.
+ * a strip atlas. The receiving half is ShadowSample.h.
  *
- * Casters are the OSM building prisms, and TERRAIN DOES NOT CAST — which is the largest single defect
- * in the picture, not a detail. The justification that stood here said the ridge shadows were not
- * worth four re-draws "at a pedestrian's sun angles", and that is measurably backwards for the scene
- * this engine is built against: it declares an 11.2 deg sun, where terrain shadows are at their
- * LONGEST and carry the whole modelling of the land. The sim-critic measured the consequence
- * (2026-08-07, doc/render/renderer.md): no cast shadow in eleven frames from six azimuths, ground that
- * grows BRIGHTER toward a wall foot instead of darker, and a frame with 0.000 % of its pixels under
- * luminance 32 because nothing anywhere is in shadow.
- *
- * The cost half of the old note is REFUTED too, and by the cheap experiment rather than by the build:
- * drawing the existing casters 1x / 5x / 15x into the same pass gives 4 323 / 21 615 / 64 845 triangles
- * over 19 / 95 / 285 draws for 0.459 / 0.131 / 0.262 ms — UNSORTED, because at 65 536 ns per timer tick
- * those are 7, 2 and 4 ticks and the pass never leaves the resolution floor. Fifteen times the caster
- * load costs nothing measurable. Terrain is ~49 000 triangles x 4 cascades with ~470 draws, three times
- * the 15x case, which is still far under a millisecond.
- *
- * BUILT 2026-08-07, and it needed no second pipeline: both vertex strides are 32 bytes with position
- * at offset 0, so the terrain rides the building pipeline and differs only in WHICH uniform block a
- * draw reads. That is a dynamic offset, which is why the layout is explicit — blocks 0..3 are the
- * cascades, everything after is one block per cascade per tile.
- *
- * MEASURED against the pinned pair `7a1359a1…` / `5ac44d7c…`: shadow triangles 4 323 -> 319 607 (74x),
- * draws 19 -> 93, the shadow pass 0.07 -> 0.85 ms, the whole frame 13.30 ms. Looking AWAY from the sun
- * it changes 3.64 % of the frame with 12 905 pixels measurably darker and a peak of 55 codes; looking
- * INTO the sun it changes nothing at all, which is correct and not a failure — a viewer facing the sun
- * sees lit faces. The reference standpoint's own yaw is 280 deg against a sun azimuth of 282.6, so
- * THAT VIEW CANNOT SHOW THIS LAYER; it is the case doc/goal.md reserves for moving the standpoint. */
+ * Casters are the building prisms AND the terrain. Terrain rides the same pipeline because both
+ * vertex strides are 32 bytes with position at 0; the per-tile origin is a dynamic uniform offset,
+ * which is why the bind group layout is explicit. Cost and effect: doc/render/renderer.md. */
 #ifndef SHADOWSTAGE_H
 #define SHADOWSTAGE_H
 
