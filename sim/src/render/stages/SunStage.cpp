@@ -27,7 +27,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   let dir = camRay(A, in.ndc);
   let day = A.skyExtra.x;
   let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
-  let sup = smoothstep(-0.06, 0.0, A.sunDir.y * 0.0 + dot(A.sunDir.xyz, A.up.xyz));
+  let sup = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
   let disc = select(0.0, 1.0, dot(dir, A.sunDir.xyz) > A.params.z);
   let sunT = textureSampleLevel(tLUT, lsamp, tLUTuv(atmoPos(A), A.sunDir.xyz), 0.0).rgb;
   let glow = (exp(-sa * 7.0) * 0.35 + exp(-sa * 1.5) * 0.12 * day) * kSceneExposure;
