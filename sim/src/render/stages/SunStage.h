@@ -1,5 +1,4 @@
-/* The sun disc + forward glow as an ADDITIVE draw (One/One), encoded directly after SkyStage.
- * Returns vec4f(0) whenever EVS is off, so the blend adds nothing at all. */
+/* The sun disc + forward glow as an ADDITIVE draw (One/One), encoded directly after SkyStage. */
 #ifndef SUNSTAGE_H
 #define SUNSTAGE_H
 

@@ -51,7 +51,7 @@ static inline uint64_t Key(int z, long x, long y) {
 static std::unordered_map<uint64_t, int> gIndex;
 
 World::World()
-  : R(nullptr), Photo(false), DefaultPhoto(false), Grid(32), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
+  : R(nullptr), Grid(32), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0), MeshVram(0),
     NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
 
@@ -87,7 +87,6 @@ bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, 
   if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
   Cls_.Open(lat, lon);
   Opened = true;
-  fb_stream_set_base(DefaultPhoto ? 1 : 0);        /* worker priority: base tiles before the overlay */
   /* Sprite positions are stored relative to this anchor, so the renderer holds float offsets. */
   osmmesh_geo g0{}; g0.lat = lat; g0.lon = lon; g0.alt = 0.0;
   osmmesh_ecef a0 = osmmesh_geo_to_ecef(g0);
@@ -227,7 +226,7 @@ bool World::CanCover(int z, long x, long y, const double eye[3]) const {
     if (anyV && allC) return true;
   }
   int idx = Find(z, x, y);
-  return idx >= 0 && CoversInMode(Nodes[idx]);   /* mode-aware: right mode ready, or already-drawn (keep old at TAB) */
+  return idx >= 0 && Ready(Nodes[idx]);
 }
 
 /* Intermediate nodes are only touched (kept alive as refine-holds); only target leaves get AddWork'd. */
@@ -288,7 +287,7 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
    * so an ancestor keeps holding. */
   if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
   Emit(idx);
-  return CoversInMode(Nodes[idx]) ? 1 : 0;
+  return Ready(Nodes[idx]) ? 1 : 0;
 }
 
 /* Side-effect-free walk of the target cut: the LoadProgress that gates the loading screen. */
@@ -914,25 +913,6 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       }
     }
     UploadMs_ += Clock() - tUp;
-  }
-
-  /* Symmetric: whichever mode is not the eager base is fetched lazily for on-screen tiles. A 204
-   * marks the node -1 — give up, the tile keeps drawing its base. */
-  if (Photo != DefaultPhoto && R && R->DeviceUsable()) {
-    int altBudget = 2;
-    int altMode = Photo ? 1 : 0;   /* the non-base mode: base photo -> osm overlay, base osm -> photo */
-    for (Node &nd : Nodes) {
-      if (altBudget == 0) break;
-      if (nd.touch != Pass || nd.slot < 0 || nd.alt != 0) continue;
-      int r = fb_stream_pyramid(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, altMode, TS, Scratch.data());
-      if (r > 0) {
-        nd.alt = R->UploadTilePhoto(nd.slot, Scratch.data(), TS, nd.z) ? 1 : -1;
-        nd.altPass = Pass;   /* 2-phase on the overlay axis: drawable a later pass */
-        altBudget--;
-      } else if (r < 0) {
-        nd.alt = -1;   /* no overlay on the server here — keep the base for good */
-      }
-    }
   }
 
   /* No re-emit: Descend already built DrawSlots from tiles ready THIS pass, and newly uploaded ones

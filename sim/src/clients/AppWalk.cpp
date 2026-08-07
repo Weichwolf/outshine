@@ -293,10 +293,7 @@ int main(int argc, char **argv) {
 
   Render::Renderer R;
   R.SetVegetationTable(veg.Rows(), veg.RowBytes());
-  R.SetStreaming(512);
-  R.SetGroundMode(0);   /* OSM classification is where land cover comes from (doc/goal.md §1) */
   R.SetSkyClock(clk);
-  R.SetLiveSun(true);   /* a pedestrian stands at a time, not in a database */
   R.SetFovDeg(scene.FovDeg());
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
@@ -456,7 +453,6 @@ int main(int argc, char **argv) {
   R.SetCloudSky(CloudSkyFromWeather(wind, lat, lon, clk, scene.Lat(), scene.Lon()));
   R.SetCloudQuality(cloudQ);   /* 0 = the sheet, > 0 the volumetric march */
   W.SetVegetation(&veg);
-  W.SetGroundMode(0);
   W.SetSunElevationDeg(sunEl);
   W.SetWeather(&wind);
   Log::Info("walk", "stand", {{"groundM", ground}, {"eyeM", eyeM}, {"pitchDeg", pitchDeg}, {"aslM", altAsl},
@@ -587,7 +583,6 @@ int main(int argc, char **argv) {
       {"buildingTris", (double)(R.BuildingVertexCount() / 3)},
       {"shadowTris", (double)R.ShadowTriangleCount()}, {"shadowDraws", R.ShadowDrawCalls()},
       {"triangles", (double)R.TriangleCount()},
-      {"albedoVramMB", (double)R.AlbedoVramBytes() / (1024.0 * 1024.0)},
       {"classVramMB", (double)R.ClassVramBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
       {"buildingVerts", (int)R.BuildingVertexCount()}});
@@ -723,7 +718,7 @@ int main(int argc, char **argv) {
       fprintf(prof, "frame,distM,frameMs,worldMs,meshMs,albedoMs,uploadMs,buildingMs,bDecodeMs,"
                     "renderMs,gpuMs,"
                     "nodes,drawnLeaves,terrainTiles,draws,terrainTris,shadowTris,shadowDraws,"
-                    "buildingVerts,built,evicted,classVramMB,albedoVramMB,temporalVramMB\n");
+                    "buildingVerts,built,evicted,classVramMB,temporalVramMB\n");
     }
     if (!prof) mkdir(seqOut.c_str(), 0755);
     const double stepM = std::sqrt(seqStepE * seqStepE + seqStepN * seqStepN);
@@ -751,7 +746,7 @@ int main(int argc, char **argv) {
           return std::chrono::duration<double, std::milli>(b - a).count();
         };
         fprintf(prof, "%d,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
-                      "%d,%d,%d,%d,%ld,%ld,%d,%u,%ld,%ld,%.3f,%.3f,%.3f\n",
+                      "%d,%d,%d,%d,%ld,%ld,%d,%u,%ld,%ld,%.3f,%.3f\n",
                 f, stepM * (double)f, ms(tf0, tf3), W.UpdateMs(),
                 W.MeshMs(), W.AlbedoMs(), W.UploadMs(), W.BuildingMs(), W.BuildingDecodeMs(),
                 ms(tf1, tf2), ms(tf2, tf3),
@@ -759,7 +754,6 @@ int main(int argc, char **argv) {
                 R.TerrainTriangleCount(), R.ShadowTriangleCount(), R.ShadowDrawCalls(),
                 R.BuildingVertexCount(), W.BuiltCount(), W.EvictedCount(),
                 (double)R.ClassVramBytes() / (1024.0 * 1024.0),
-                (double)R.AlbedoVramBytes() / (1024.0 * 1024.0),
                 (double)R.TemporalVramBytes() / (1024.0 * 1024.0));
         continue;
       }

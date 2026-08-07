@@ -24,7 +24,7 @@ struct Atmo {
   camPosMm : vec4f, sunDir : vec4f, up : vec4f, sunTan : vec4f, side : vec4f,
   camRight : vec4f, camUp : vec4f, camFwd : vec4f, params : vec4f,
   moonDir : vec4f,   /* xyz = ECEF dir to moon, w = illuminated phase fraction */
-  skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y = EVS gate (1=photo), z = spare, w = moon radius */
+  skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y/z = spare, w = moon radius */
   view : vec4f,      /* x = the boresight's NDC shift (Renderer::ViewShiftNdc), y = lowest deck base
                         ASL, zw = this frame's sub-pixel jitter in NDC (render/TemporalJitter.h) */
 };

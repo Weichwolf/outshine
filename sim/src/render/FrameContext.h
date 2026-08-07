@@ -18,17 +18,11 @@ struct FrameContext {
   float JitterNdc[2], PrevJitterNdc[2];
   bool HistoryValid;       /* false on the first frame and after a device reset: no history to blend */
   double SunDir[3], MoonDir[3];
-  double DayFactor;        /* 0 night .. 1 day (core/Ephemeris.h DaylightFactor), EVS only; SVS pins 1.0 */
+  double DayFactor;        /* 0 night .. 1 day (core/Ephemeris.h DaylightFactor) */
   double MoonPhase;
   float CloudCover;        /* State.Env total cover, as the client sampled it */
   float CloudLow, CloudMid, CloudHigh, CloudBaseAGL;  /* the weather deck mix as the client sampled it */
   float AltM;               /* HudState.alt (m ASL) — the cloud shell radii are absolute, referenced off it */
-  bool GroundPhoto;         /* WHICH ALBEDO is on the terrain: OSM classification (false) or photo (true) */
-  /* WHETHER THE SKY IS REAL — night ambient, stars, tile lights, cloud and the daylight factor all
-   * hang off this and NOT off the albedo. They shared one flag until a pedestrian stood at 18:25 UTC
-   * on OSM ground and got a noon sky: the SVS's constant day is a property of the avionics view, not
-   * of where the ground colour came from. */
-  bool RealSky;
   double SkyClock;          /* sim UTC (unix seconds) driving sidereal placement */
   float DayFade;            /* StarDayFade: (float)DayFactor, the night-only-draw gate stars/lights share */
   float Dt;

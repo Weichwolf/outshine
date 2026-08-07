@@ -82,7 +82,6 @@ public:
 
   /* Enable before Init: the terrain source is per-tile buffers plus a growable CLASS array driven
    * by World. */
-  void SetStreaming(int albedoTS) { Tiles->EnableStreaming(albedoTS); }
   bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
 
   /* A table slot id, or -1 if the device is gone or the class array is full. */
@@ -93,12 +92,8 @@ public:
     Tiles->SetClassFrame(east, north, camOffset);
   }
   void WriteClassBuffer(const uint32_t *words, size_t bytes) { Tiles->WriteClassBuffer(words, bytes); }
-  /* The lazy overlay: a SECOND array layer for `slot`. 0 = the caller stops retrying and the tile
-   * keeps drawing its base. */
-  int  UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z);
   void ReleaseTile(int slot) { Tiles->ReleaseTile(slot); }         /* free the buffer, recycle both layers */
   void SetDrawList(const int *slots, int n) { Tiles->SetDrawList(slots, n); }  /* the tiles to draw this frame (World's leaves) */
-  long AlbedoVramBytes(void) const { return Tiles->AlbedoVramBytes(); }  /* the EVS photo array, empty until EVS is used */
   long ClassVramBytes(void) const { return Tiles->ClassVramBytes(); }    /* the classification input */
 
   /* THE ENVIRONMENT the frame is lit and hazed by — sun, moon, cloud deck, altitude. Nothing to do
@@ -181,15 +176,6 @@ public:
   }
   uint32_t BuildingVertexCount(void) const { return Buildings->VertexCount(); }
 
-  /* The whole sky follows the published ephemeris even with the OSM ground: sun angle, daylight
-   * factor, cloud, stars, night ambient. A pedestrian oracle has a clock; the SVS page does not.
-   * Off by default, so every avionics client is unchanged. */
-  void SetLiveSun(bool on) { LiveSun = on; }
-
-  /* 0 = OSM/SVS (a constant-daylight database view), 1 = photo/EVS (lit by the real ephemeris sun).
-   * Per tile, with a silent fallback, so the flip is never a hole. */
-  void SetGroundMode(int photo);
-  int  GetGroundMode(void) const { return GroundPhoto ? 1 : 0; }
   int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
   int  TerrainDrawCalls(void) const { return Tiles->DrawCallCount(); }
   int  TerrainVisibleTiles(void) const { return Tiles->VisibleTileCount(); }
@@ -410,9 +396,6 @@ private:
   bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */
 
   double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */
-  bool GroundPhoto;   /* SetGroundMode: the currently VIEWED mode (TAB); drives sun/moon/cloud selection too */
-  bool LiveSun = false;
-  bool RealSky(void) const { return GroundPhoto || LiveSun; }
   int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to Tiles->Configure() */
   bool HaveCamera;                      /* SetCamera used (scripted path) vs the default orbit */
   bool CameraFull;                      /* SetCameraBasis used (full rolled basis) — wins over both */

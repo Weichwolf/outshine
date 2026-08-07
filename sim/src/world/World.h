@@ -78,9 +78,7 @@ public:
 
   /* Currently VIEWED mode (0 = OSM, 1 = photo). Whichever is NOT the boot default is the lazy
    * OVERLAY: fetched only while viewed, for on-screen tiles, then cached. */
-  void SetGroundMode(int photo) { Photo = photo != 0; }
   /* The EAGER base albedo source, uploaded with every tile. */
-  void SetDefaultMode(int photo) { DefaultPhoto = photo != 0; }
 
   /* Fraction of the geometry target cut that is GPU-ready. The client holds the loading screen (and
    * JSBSim) until this crosses its threshold. */
@@ -128,9 +126,7 @@ private:
     int stale;
     int slot;              /* Renderer table slot, -1 until uploaded */
     int haveMesh;
-    int alt;               /* the NON-base overlay albedo: 0 unfetched, 1 attached, -1 none/give-up */
     unsigned readyPass;    /* pass the GPU upload was issued; drawable only in a LATER pass (2-phase) */
-    unsigned altPass;      /* pass the OVERLAY upload was issued (2-phase on the overlay axis) */
     unsigned emitPass;     /* last pass this tile was drawn — lets a mode switch keep it (old mode) vs re-coarsen */
     std::vector<float> verts;              /* the DAG soup: every level's clusters, level 0 first */
     std::vector<Render::DagCluster> clusters;
@@ -148,17 +144,6 @@ private:
   /* Two-phase commit: drawable only ONE pass after the upload was issued, so the WriteTexture is
    * submitted and visible before any draw references the layer. */
   bool Ready(const Node &n) const { return Uploaded(n) && Pass > n.readyPass; }
-  /* Drawable IN THE CURRENT DISPLAY MODE, so a fine tile is never shown in the WRONG mode while its
-   * overlay streams — the coarser right-mode parent holds instead. */
-  bool ReadyMode(const Node &n) const {
-    if (!Ready(n)) return false;
-    if (Photo == DefaultPhoto) return true;
-    /* +1 mirrors the renderer's own overlay 2-phase, else there is a 1-frame wrong-mode gap. */
-    return n.alt == -1 || (n.alt == 1 && Pass > n.altPass + 1);
-  }
-  /* A TAB switch KEEPS the resident fine tile in the old mode until its new overlay lands (no
-   * re-coarsen, no flash); a NEW tile counts only once mode-ready, so it never pops in the wrong one. */
-  bool CoversInMode(const Node &n) const { return ReadyMode(n) || (Ready(n) && n.emitPass + 1 >= Pass); }
   bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
   bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */
   int  Find(int z, long x, long y) const;                            /* node idx or -1 (no create) */
@@ -238,8 +223,6 @@ private:
   const VegetationTemplates *Veg_ = nullptr;  /* borrowed, see SetVegetation's banner */
 
   Render::Renderer *R;
-  bool Photo;            /* currently viewed mode (SetGroundMode) */
-  bool DefaultPhoto;     /* boot default = eager base source (SetDefaultMode) */
   int Grid, TS;
   double ViewM, Lat0, Lon0;
   std::vector<Node> Nodes;

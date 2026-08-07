@@ -111,7 +111,7 @@ void TileLightsStage::SetLights(const float *inst, int count) {
 }
 
 void TileLightsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
-  if (!(ctx.RealSky && ctx.DayFade < 0.6f && NLights > 0)) return;
+  if (!(ctx.DayFade < 0.6f && NLights > 0)) return;
   float lu[24];
   for (int i = 0; i < 16; i++) lu[i] = ctx.Mvp20[i];   /* same camera-relative MVP as the terrain */
   lu[16] = ctx.DayFade; lu[17] = (float)ctx.Width; lu[18] = (float)ctx.Height; lu[19] = 1.7320508f;   /* focal = 1/tan(30°) */

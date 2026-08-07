@@ -311,10 +311,7 @@ int main(void) {
   }
 
   gR.SetVegetationTable(gVeg.Rows(), gVeg.RowBytes());
-  gR.SetStreaming(512);
-  gR.SetGroundMode(0);   /* OSM classification is where land cover comes from (doc/goal.md §1) */
   gR.SetSkyClock(clk);
-  gR.SetLiveSun(true);
   gR.SetWind(gScene.WindDeg(), gScene.WindMs());
   gR.SetFovDeg(gScene.FovDeg());
   {
@@ -384,7 +381,6 @@ int main(void) {
   gR.SetCloudSky(CloudSkyFromWeather(gWind, gScene.Lat(), gScene.Lon(), clk,
                                      gScene.Lat(), gScene.Lon()));
   gW.SetVegetation(&gVeg);
-  gW.SetGroundMode(0);
   gW.SetSunElevationDeg(sunEl);
   gW.SetWeather(&gWind);
   Log::Info("walk", "stand", {{"groundM", ground}, {"eyeM", gScene.EyeM()}, {"aslM", altAsl},

@@ -25,9 +25,9 @@ static void Norm3(double v[3]);
 
 /* The ambient floor a lit surface gets when the sun is down. Radiometrically night is far below what
  * a fixed exposure can show, and there is no auto-exposure yet; stages/SurfaceLight.h derives the
- * number and this is where the daylight factor gates it. SVS is a constant daylit view -> none. */
+ * number and this is where the daylight factor gates it. */
 static float NightAmbient(const FrameContext &ctx) {
-  return ctx.RealSky ? (float)(0.00914 * (1.0 - ctx.DayFactor)) : 0.0f;
+  return (float)(0.00914 * (1.0 - ctx.DayFactor));
 }
 
 /* Dawn callback messages are non-null-terminated views, not C strings. */
@@ -37,7 +37,7 @@ Renderer::Renderer()
   : SurfaceFormat(wgpu::TextureFormat::Undefined), HdrFormat(wgpu::TextureFormat::RGBA16Float),
     SwapW(0), SwapH(0),
     MoonW(0), MoonH(0), MoonScale(1.0), SkyClock(0), SceneState{},
-    Center{0, 0, 0}, GroundPhoto(false), HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
+    Center{0, 0, 0}, HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
     Fwd{0, 0, 0}, Right{0, 0, 0}, Up{0, 0, 0}, Width(0), Height(0), DeviceReady(false),
     DeviceLost(false), Mode(Target::Surface), Blocking(false), Selector(nullptr), FrameNo(0) {}
 
@@ -304,7 +304,7 @@ void Renderer::CreateTerrainPipeline(void) {
   VelTex = Device.CreateTexture(&td);
 
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Tiles->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
+  Tiles->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
                    Light());
   /* Same air, same LUT, same scene targets: a unit fades into exactly what the terrain fades into. */
   Units->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf);
@@ -327,13 +327,6 @@ int Renderer::UploadTile(const float *verts, uint32_t nverts, const DagCluster *
   if (!DeviceUsable()) return -1;
   return Tiles->UploadTile(verts, nverts, clusters, nclusters, origin, anchor);
 }
-
-int Renderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {
-  if (!DeviceUsable()) return 0;
-  return Tiles->UploadTilePhoto(slot, photo, ts, z, FrameNo);
-}
-
-void Renderer::SetGroundMode(int photo) { GroundPhoto = photo != 0; }
 
 
 /* Lighting stays linear upstream; this is the only place display encoding happens. It knows nothing
@@ -458,8 +451,8 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[34] = std::cos(0.5f * 3.14159265f / 180.0f);   /* sun angular radius */
   a[35] = 30.0f;                                    /* sun disc intensity */
   put(9, moonDir); a[39] = (float)moonPh;           /* moonDir.w = phase */
-  a[40] = (float)dayF;                              /* skyExtra: day, EVS gate, spare, moon radius */
-  a[41] = RealSky() ? 1.0f : 0.0f;
+  a[40] = (float)dayF;                              /* skyExtra: day, spare, spare, moon radius */
+  a[41] = 0.0f;
   a[42] = 0.0f;
   a[43] = 0.0045f * (float)MoonScale;               /* real angular radius x FB_MOON_SCALE (default 1) */
   a[44] = ViewShiftNdc();
@@ -724,23 +717,17 @@ void Renderer::RenderFrame(void) {
 
   float u[20];
   MvpCamRel(u, right, camUp, fwd, Width, ViewH(), Height, FovDeg, jitNdcX, jitNdcY);
-  /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree. SVS is a time-independent
-   * database view -> a fixed 45° sun facing south; EVS is the real camera -> the live ephemeris sun. */
-  /* The fixed 45 deg / due south belongs to the avionics SVS, which is a TIME-INDEPENDENT database
-   * view. A pedestrian carries a clock, so LiveSun decouples "which albedo" from "which sun" — before
-   * it existed, every walk frame was lit from the south at 45 deg however its --utc was set, and the
-   * sun angle the walk log printed was decoration. */
-  double elDeg = 45.0, azDeg = 180.0;
-  if (RealSky()) { elDeg = SceneState.Env.SunElDeg; azDeg = SceneState.Env.SunAzDeg; }
+  /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree, and it is the ephemeris
+   * sun of the scene's declared instant — there is no second, time-independent one to choose. */
+  const double elDeg = SceneState.Env.SunElDeg, azDeg = SceneState.Env.SunAzDeg;
   const double el = elDeg * 3.14159265 / 180.0, az = azDeg * 3.14159265 / 180.0;
   const double ce = std::cos(el), se = std::sin(el), caz = std::cos(az), saz = std::sin(az);
   double sun[3];
   for (int a = 0; a < 3; a++) sun[a] = up[a] * se + (north[a] * caz + east[a] * saz) * ce;
   Norm3(sun);
   u[16] = (float)sun[0]; u[17] = (float)sun[1]; u[18] = (float)sun[2]; u[19] = 0;
-  /* Moon direction + real-sky factors, EVS only: SVS pins day=1 and the sky pass gates the extras off. */
   double sunElDeg = std::asin(std::max(-1.0, std::min(1.0, sun[0] * up[0] + sun[1] * up[1] + sun[2] * up[2]))) * 180.0 / 3.14159265;
-  double dayF = RealSky() ? DaylightFactor(sunElDeg) : 1.0;
+  const double dayF = DaylightFactor(sunElDeg);
   double moon[3];
   {
     double mel = SceneState.Env.MoonElDeg * 3.14159265 / 180.0, maz = SceneState.Env.MoonAzDeg * 3.14159265 / 180.0;
@@ -763,7 +750,7 @@ void Renderer::RenderFrame(void) {
   for (int i = 0; i < 20; i++) ctx.Mvp20[i] = u[i];
   for (int a = 0; a < 3; a++) { ctx.SunDir[a] = sun[a]; ctx.MoonDir[a] = moon[a]; }
   ctx.DayFactor = dayF; ctx.MoonPhase = SceneState.Env.MoonPhase;
-  ctx.GroundPhoto = GroundPhoto; ctx.RealSky = RealSky(); ctx.SkyClock = SkyClock; ctx.DayFade = (float)dayF;
+  ctx.SkyClock = SkyClock; ctx.DayFade = (float)dayF;
   ctx.CloudCover = SceneState.Env.CloudCover;
   ctx.CloudLow = SceneState.Env.CloudLow; ctx.CloudMid = SceneState.Env.CloudMid; ctx.CloudHigh = SceneState.Env.CloudHigh;
   ctx.CloudBaseAGL = SceneState.Env.CloudBaseAglM; ctx.AltM = SceneState.Platform.AltM;

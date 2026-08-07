@@ -21,7 +21,7 @@
 
 namespace outshine::Render {
 
-/* The terrain draw. Per-draw data, albedo array, grazing mip bias, RenderBundle signature and the
+/* The terrain draw. Per-draw data, RenderBundle signature and the
  * invariant counters: doc/render/renderer.md, Abschnitt 6. */
 static const char *kTerrainWGSL = R"(
 /* haze:  x = sigma0 (1/m, Koschmieder of the reported visibility), y = camera altitude ASL (m),
@@ -43,14 +43,12 @@ struct U { mvp : mat4x4f, sun : vec4f, haze : vec4f,
            cay : vec4f }; // ECEF north axis of the class origin, w = camera north (m)
 @group(0) @binding(0) var<uniform> u : U;
 // per-draw storage entry: a.xyz = camera-relative ECEF offset (origin_ecef - cam_ecef, float),
-// a.w = CLASS array layer; b.x = per-tile PHOTO brightness GAIN, b.y = photo array layer or -1;
+// a.w = CLASS array layer; b = spare;
 // c.xyz = origin_ecef - anchor_ecef, the WORLD-FIXED frame the procedural surface is evaluated in.
 // The draw selects entry i via firstInstance, so instance_index == draw index.
 struct Tile { a : vec4f, b : vec4f, c : vec4f };
 @group(0) @binding(1) var<storage, read> tiles : array<Tile>;
-@group(0) @binding(2) var samp : sampler;
-@group(0) @binding(3) var albedo : texture_2d_array<f32>;
-/* The LUT sampler, NOT the albedo one: the sky-view LUT wraps in azimuth (AddressMode::Repeat) and its
+/* The LUT sampler: the sky-view LUT wraps in azimuth (AddressMode::Repeat) and its
  * seam sits at u = 0, which is the SUN's own azimuth — sampling it clamped puts a filtered seam right
  * across the brightest part of the far field. */
 @group(0) @binding(4) var lsamp : sampler;
@@ -61,47 +59,28 @@ struct Tile { a : vec4f, b : vec4f, c : vec4f };
 @group(0) @binding(11) var shMap : texture_depth_2d;
 @group(0) @binding(12) var shSamp : sampler_comparison;
 @group(0) @binding(14) var<uniform> S : CloudSkyU;
-struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location(1) nrm : vec3f,
-              @location(2) @interpolate(flat) layer : u32, @location(3) wpos : vec3f,
-              @location(4) @interpolate(flat) gain : f32, @location(5) gpos : vec3f,
-              @location(6) @interpolate(flat) photo : i32 };
+struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
+              @location(1) @interpolate(flat) layer : u32, @location(2) wpos : vec3f,
+              @location(3) gpos : vec3f };
 @vertex fn vs(@builtin(instance_index) inst : u32,
               @location(0) p : vec3f, @location(1) uv : vec2f, @location(2) n : vec3f) -> VOut {
   var o : VOut;
   let t = tiles[inst];
   let rel = p + t.a.xyz;                    // camera-relative ECEF (metres); a.xyz = origin - cam
   o.pos = u.mvp * vec4f(rel, 1.0);
-  o.uv = uv;
   o.nrm = n;
   o.layer = u32(t.a.w);
   o.wpos = rel;
-  o.gain = t.b.x;
-  o.photo = i32(t.b.y);
   o.gpos = p + t.c.xyz;                     // anchored ECEF: the same point gives the same value for ever
   return o;
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
   let nrmN = normalize(in.nrm);
-  // At grazing the uv FOOTPRINT anisotropy exceeds the 16:1 HW aniso cap; the sampler under-filters the
-  // major axis -> VERTICAL STREAKS. Clamp the effective anisotropy to 16:1 with a mip bias derived from
-  // the ACTUAL screen-space uv derivatives (dpdx/dpdy) — not the surface normal, which mis-reads on
-  // camera-facing slopes. bias = log2(aniso/16), so only the >16:1 tail coarsens; near/overhead (aniso
-  // ~1) gets bias 0 and stays fully sharp. Cap 4 so the far band can't blur to mush.
-  // Grazing view -> the albedo footprint elongates along the depth axis past the 16:1 HW aniso cap ->
-  // the major axis under-filters into VERTICAL STREAKS. Coarsen the mip by the view GRAZING (the view
-  // ray vs the radial up — a robust screen-projection signal; the per-tile uv derivatives underestimate
-  // it because far tiles carry a coarse mesh, and the surface normal mis-reads on camera-facing slopes).
-  // grazeV = downward component of the view ray; bias climbs as it shallows, 0 above ~30° depression so
-  // near/steep terrain stays fully sharp, ~2.8 at the horizon band. Cap 3.5 so the far band can't mush.
+  // NO TEXTURE, SO NO FILTER: the ground is a function of position, and mip choice, zoom steps,
+  // sampling lattices and filter artefacts cannot occur in one (CLAUDE.md principle 2). The mip-bias
+  // ramp that fought the grazing-anisotropy streaks went with the raster it was correcting.
   let vdir = normalize(in.wpos);
   let upR = normalize(A.camPosMm.xyz);
-  let grazeV = max(-dot(vdir, upR), 0.01);
-  // SHARPNESS PRIORITY (user finding 2026-07-23 overrides the critic's streak finding): the old
-  // cap 4 (16x blur) bought a streak-free far band with MUSH. Retuned — onset only below ~10°
-  // depression (2^-2.5) so near+mid+most of the far field stay FULLY sharp, cap 1.2 (~2.3x footprint)
-  // so the extreme-grazing horizon band gets a light coarsen, not a smear. Residual streaks in that
-  // last band are ACCEPTED (sharp > streak-free, by explicit user preference).
-  let gbias = clamp(1.0 * (-log2(grazeV) - 2.5), 0.0, 1.2);
   let distM = length(in.wpos);
   // THE RASTER COLOUR IS AN INDEX. What is drawn is the MATERIAL the index selects: linear
   // reflectance, roughness and a procedural surface, all of them world-fixed
@@ -115,13 +94,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
     let ka = f32(m.cls % 3u); let kb = f32((m.cls / 3u) % 3u); let kc = f32((m.cls / 9u) % 3u);
     return vec4f(0.05 + ka * 0.15, 0.05 + kb * 0.15, 0.05 + kc * 0.15, 1.0);
   }
-  // EVS keeps the photograph: an orthophoto IS a measured reflectance, so where a photo layer is
-  // attached it replaces the material's albedo and nothing else. in.gain lifts the dark low-zoom
-  // composite toward the orthophoto level (per-tile, linear; 1.0 for bright tiles).
-  // Sampled unconditionally: textureSampleBias needs uniform control flow, and the photo array is a
-  // single 1x1 layer until EVS is switched on for the first time.
-  let phc = textureSampleBias(albedo, samp, in.uv, max(in.photo, 0), gbias).rgb * in.gain;
-  let base = select(m.alb, phc, in.photo >= 0);
+  let base = m.alb;
   // The fragment's OWN altitude: which decks stand between it and the sun is a property of where it
   // is, and in the Alps a ridge really does poke through a 2 991 m base while the valley does not.
   let fragAltM = (length(A.camPosMm.xyz + in.wpos * 1.0e-6) - u.haze.z) * 1.0e6;
@@ -134,7 +107,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
   let sunThru = cloudSunThru(S, in.wpos, upN);
   let meanThru = cloudMeanThru(S, in.wpos, upN);
   let sunVis = csmSunVis(shMap, shSamp, C, in.wpos, nrmN, sunN);
-  let night = select(0.0, kNightAmbient * (1.0 - A.skyExtra.x), A.skyExtra.y > 0.5);
+  let night = kNightAmbient * (1.0 - A.skyExtra.x);
   // ROUGHNESS IS THE SEPARATOR, not the albedo: asphalt 0.120 and forest floor 0.148 are 0.30 EV
   // apart, so what has to tell them apart is the specular lobe and the relief. Shading uses the
   // PERTURBED normal, the shadow lookup the geometric one — a per-grain normal must not self-shadow.
@@ -585,19 +558,7 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
 /* The storage-buffer and draw-loop bound; a multi-LOD cut to 240 km stays well under it. */
 static const int kMaxDraws = 4096;
 
-/* Mip levels are built off this thread; the renderer only uploads what fb_stream_pyramid hands it. */
-static int MipCountFor(int ts) { return fb_mip_count(ts); }
-
-/* [SET] the zoom at which a photo layer stops being "far": below it a tile gets the brightness gain,
- * at and above it the tile IS the reference the gain is measured against. */
-static constexpr int kPhotoNearZ = 11;
-static float fbTileYlin(const uint8_t *pyramid, int ts) {
-  const uint8_t *top = pyramid + (fb_pyramid_bytes(ts) - 4);   /* 1x1 mip = the tile MEAN (sRGB bytes) */
-  fb_srgb_lut_();
-  return 0.2126f * fb_srgb_lin_[top[0]] + 0.7152f * fb_srgb_lin_[top[1]] + 0.0722f * fb_srgb_lin_[top[2]];
-}
-
-void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
+void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
                              wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers,
                              wgpu::Buffer vegTable, const SceneLight &light) {
   VegBuf = vegTable;
@@ -605,16 +566,11 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lut
   Device = gpu.Device;
   Queue = gpu.Queue;
   HdrFormat = gpu.HdrFormat;
-  Samp = samp;
   LutSamp = lutSamp;
   SkyLutView = skyLutView;
   AtmoBuf = atmoBuf;
   MaxLayers = maxLayers;
 
-  /* The PHOTO array starts at ONE layer and grows only if EVS is ever switched on. Nothing in the
-   * pedestrian bench does, which is why the 130 MB the OSM albedo used to hold is simply never
-   * allocated — the classification needs the class, not the picture. */
-  EnsurePhotoCap(1);
   {
     wgpu::BufferDescriptor cb{};
     cb.size = 256;
@@ -732,59 +688,15 @@ void TilesStage::WriteClassBuffer(const uint32_t *words, size_t bytes) {
 }
 
 /* Recreate at double the cap and copy the resident layers over. Rare. */
-static wgpu::Texture GrowArray(wgpu::Device &dev, wgpu::Queue &q, wgpu::Texture old, int oldLayers,
-                               int ts, int mips, wgpu::TextureFormat fmt, int cap) {
-  wgpu::TextureDescriptor td{};
-  td.size = {(uint32_t)ts, (uint32_t)ts, (uint32_t)cap};
-  td.mipLevelCount = (uint32_t)mips;
-  td.format = fmt;
-  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst | wgpu::TextureUsage::CopySrc;
-  wgpu::Texture grown = dev.CreateTexture(&td);
-  if (old && oldLayers > 0) {   /* carry every resident layer AND its whole mip chain across */
-    wgpu::CommandEncoder enc = dev.CreateCommandEncoder();
-    for (int lv = 0; lv < mips; lv++) {
-      uint32_t d = (uint32_t)(ts >> lv); if (d == 0) d = 1;
-      wgpu::TexelCopyTextureInfo src{}, dst{};
-      src.texture = old;   src.mipLevel = (uint32_t)lv;
-      dst.texture = grown; dst.mipLevel = (uint32_t)lv;
-      wgpu::Extent3D ext{d, d, (uint32_t)oldLayers};
-      enc.CopyTextureToTexture(&src, &dst, &ext);
-    }
-    wgpu::CommandBuffer cmd = enc.Finish();
-    q.Submit(1, &cmd);
-  }
-  return grown;
-}
-
-void TilesStage::EnsurePhotoCap(int need) {
-  if (need <= PhotoCap) return;
-  int cap = PhotoCap ? PhotoCap : 1;
-  while (cap < need) cap *= 2;
-  if (cap > MaxLayers) cap = MaxLayers;
-  if (need > cap) return;
-  Albedo = GrowArray(Device, Queue, Albedo, PhotoCap, AlbedoTS, MipCountFor(AlbedoTS),
-                     wgpu::TextureFormat::RGBA8UnormSrgb, cap);
-  PhotoCap = cap;
-  if (Pipe) RebuildBind();
-}
-
-/* Also called whenever EnsureAlbedoCap swaps the array texture out: a bind group PINS a view. */
 void TilesStage::RebuildBind(void) {
-  wgpu::TextureViewDescriptor avd{};
-  avd.dimension = wgpu::TextureViewDimension::e2DArray;
   wgpu::BindGroupEntry be[15] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = TileBuf; be[1].size = TileBuf.GetSize();
-  be[2].binding = 2; be[2].sampler = Samp;
-  be[3].binding = 3; be[3].textureView = Albedo.CreateView(&avd);
-  be[4].binding = 4; be[4].sampler = LutSamp;            /* azimuth-wrapping, for the sky-view LUT */
-  be[5].binding = 5; be[5].textureView = SkyLutView;     /* the haze's inscatter colour */
-  be[6].binding = 6; be[6].buffer = AtmoBuf; be[6].size = kAtmoUniformBytes;
-  int nbe = 7;
-  if (VegBuf) {
-    be[7].binding = 7; be[7].buffer = VegBuf; be[7].size = wgpu::kWholeSize;
-    nbe = 8;
-  }
+  be[2].binding = 4; be[2].sampler = LutSamp;            /* azimuth-wrapping, for the sky-view LUT */
+  be[3].binding = 5; be[3].textureView = SkyLutView;     /* the haze's inscatter colour */
+  be[4].binding = 6; be[4].buffer = AtmoBuf; be[4].size = kAtmoUniformBytes;
+  int nbe = 5;
+  if (VegBuf) { be[nbe].binding = 7; be[nbe].buffer = VegBuf; be[nbe].size = wgpu::kWholeSize; nbe++; }
   be[nbe].binding = 9;  be[nbe].buffer = Light.Irradiance; be[nbe].size = wgpu::kWholeSize; nbe++;
   be[nbe].binding = 10; be[nbe].buffer = Light.Cascades;   be[nbe].size = kShadowUniFloats * sizeof(float); nbe++;
   be[nbe].binding = 11; be[nbe].textureView = Light.ShadowAtlas; nbe++;
@@ -798,70 +710,8 @@ void TilesStage::RebuildBind(void) {
   Bind = Device.CreateBindGroup(&bgd);
 }
 
-int TilesStage::AllocPhotoLayer(void) {
-  if (!FreePhoto.empty()) { int l = FreePhoto.back(); FreePhoto.pop_back(); return l; }
-  EnsurePhotoCap(PhotoUsed + 1);
-  if (PhotoUsed >= PhotoCap) return -1;
-  return PhotoUsed++;
-}
-
 /* No mip building here — that already ran off-thread or synchronously. */
-void TilesStage::WriteAlbedoLayer(int layer, const uint8_t *pyramid, int ts) {
-  const uint8_t *p = pyramid;
-  int w = ts, level = 0;
-  for (;;) {
-    wgpu::TexelCopyTextureInfo dst{};
-    dst.texture = Albedo;
-    dst.mipLevel = (uint32_t)level;
-    dst.origin = {0, 0, (uint32_t)layer};
-    wgpu::TexelCopyBufferLayout lay{};
-    lay.bytesPerRow = (uint32_t)w * 4;
-    lay.rowsPerImage = (uint32_t)w;
-    wgpu::Extent3D ext{(uint32_t)w, (uint32_t)w, 1};
-    Queue.WriteTexture(&dst, p, (size_t)w * w * 4, &lay, &ext);
-    if (w == 1) break;
-    p += (size_t)w * w * 4;
-    w >>= 1;
-    level++;
-  }
-}
-
-void TilesStage::SetLayerPhoto(int layer, float ylin, int z) {
-  if (layer < 0) return;
-  if (layer >= (int)LayerKind.size()) { LayerKind.resize((size_t)layer + 1, 0); LayerYlin.resize((size_t)layer + 1, 0.0f); }
-  if (layer >= (int)Gains.size()) Gains.resize((size_t)layer + 1, 1.0f);
-  LayerYlin[layer] = ylin;
-  LayerKind[layer] = (int8_t)(z < kPhotoNearZ ? 1 : 2);   /* 1 = far (gets gain), 2 = near (Ytarget ref) */
-}
-
-void TilesStage::ClearLayer(int layer) {
-  if (layer < 0 || layer >= (int)LayerKind.size()) return;
-  LayerKind[layer] = 0;
-  if (layer < (int)Gains.size()) Gains[layer] = 1.0f;
-}
-
 /* EMA-smoothed, so the far field does not flicker as tiles stream and evict. */
-static constexpr double kPhotoEma = 0.08;      /* [SET] smoothing rate per frame */
-static constexpr float kPhotoMaxGain = 2.5f;   /* [SET] the ceiling a far tile may be lifted by */
-void TilesStage::UpdatePhotoGains(void) {
-  double sum = 0.0; int n = 0;
-  for (size_t l = 0; l < LayerKind.size(); l++)
-    if (LayerKind[l] == 2 && LayerYlin[l] > 1e-4f) { sum += LayerYlin[l]; n++; }
-  if (n > 0) {
-    double mean = sum / n;
-    PhotoYTarget = PhotoYValid ? PhotoYTarget * (1.0 - kPhotoEma) + mean * kPhotoEma : mean;
-    PhotoYValid = true;
-  }
-  for (size_t l = 0; l < LayerKind.size(); l++) {
-    float g = 1.0f;
-    if (LayerKind[l] == 1 && PhotoYValid && LayerYlin[l] > 1e-4f) {
-      g = (float)(PhotoYTarget / LayerYlin[l]);
-      if (g < 1.0f) g = 1.0f; else if (g > kPhotoMaxGain) g = kPhotoMaxGain;
-    }
-    if (l < Gains.size()) Gains[l] = g;
-  }
-}
-
 int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters,
                              int nclusters, const double origin[3], const double anchor[3]) {
   int slot = -1;
@@ -887,23 +737,8 @@ int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster
     d.Clusters.push_back(c);
   }
   for (int a = 0; a < 3; a++) { d.Origin[a] = origin[a]; d.Anchor[a] = (float)(origin[a] - anchor[a]); }
-  d.PhotoLayer = -1;   /* fetched lazily on the first EVS toggle (UploadTilePhoto) */
-  d.PhotoUpTick = 0;
   d.Used = true;
   return slot;
-}
-
-int TilesStage::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z, unsigned frameNo) {
-  if (slot < 0 || slot >= (int)DynTiles.size() || !DynTiles[slot].Used) return 0;
-  DynTile &d = DynTiles[slot];
-  if (d.PhotoLayer >= 0) return 1;   /* already attached */
-  int layer = AllocPhotoLayer();
-  if (layer < 0) return 0;            /* array full — caller stops retrying, tile stays on its material */
-  WriteAlbedoLayer(layer, photo, ts);
-  SetLayerPhoto(layer, fbTileYlin(photo, ts), z);
-  d.PhotoLayer = layer;
-  d.PhotoUpTick = frameNo;   /* 2-phase: draw the photo layer only once its upload is committed */
-  return 1;
 }
 
 void TilesStage::ReleaseTile(int slot) {
@@ -912,11 +747,9 @@ void TilesStage::ReleaseTile(int slot) {
   d.Vtx = nullptr;   /* drop the ref -> buffer freed */
   d.Clusters.clear();
   d.Used = false;
-  if (d.PhotoLayer >= 0) { ClearLayer(d.PhotoLayer); FreePhoto.push_back(d.PhotoLayer); d.PhotoLayer = -1; }
 }
 
 void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
-  UpdatePhotoGains();   /* adaptive Ytarget from near photo tiles -> per-frame far-tile gains */
 
   static std::vector<float> off;
   int nDraw;
@@ -962,17 +795,9 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       e[1] = (float)(d.Origin[1] - ctx.Eye[1]);
       e[2] = (float)(d.Origin[2] - ctx.Eye[2]);
       e[3] = 0.0f;
-      /* The photo layer is the EVS override and nothing else: without one the tile draws its
-       * material, which is the mode the classification chain produces. */
-      const bool overlayReady = (d.PhotoLayer >= 0 && ctx.FrameNo > d.PhotoUpTick + 1);
-      const int photo = (ctx.GroundPhoto && overlayReady) ? d.PhotoLayer : -1;
-      e[4] = (photo >= 0 && photo < (int)Gains.size()) ? Gains[photo] : 1.0f;
-      e[5] = (float)photo;
       e[8] = d.Anchor[0];
       e[9] = d.Anchor[1];
       e[10] = d.Anchor[2];
-      if (!tileIn) continue;   /* not drawn -> not a mode violation */
-      if (ctx.GroundPhoto && photo < 0) WrongModeDraws++;   /* EVS wanted, material shown */
     }
   }
   if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));

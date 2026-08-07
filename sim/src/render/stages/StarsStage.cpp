@@ -193,7 +193,7 @@ void StarsStage::Update(double nowSec) {
 }
 
 void StarsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
-  if (!(ctx.RealSky && ctx.DayFade < 0.6f && NStarVis > 0)) return;
+  if (!(ctx.DayFade < 0.6f && NStarVis > 0)) return;
   float su[20];
   for (int i = 0; i < 16; i++) su[i] = ctx.Mvp20[i];   /* same camera-relative MVP as the terrain */
   su[16] = ctx.DayFade; su[17] = 1.0f; su[18] = (float)ctx.Width; su[19] = (float)ctx.Height;

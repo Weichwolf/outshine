@@ -197,7 +197,7 @@ fn hazeInscatter(svLUT : texture_2d<f32>, lsamp : sampler, A : Atmo, dir : vec3f
   let sunUpF = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
   let halo = (exp(-sunAng * 7.0) * 0.35 + exp(-sunAng * 1.5) * 0.12 * A.skyExtra.x) * kSceneExposure;
   return skyViewSample(svLUT, lsamp, A, hazeDir)
-       + halo * vec3f(1.0, 0.80, 0.55) * sunUpF * A.skyExtra.y;
+       + halo * vec3f(1.0, 0.80, 0.55) * sunUpF;
 }
 )";
 

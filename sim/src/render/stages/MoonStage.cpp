@@ -21,9 +21,8 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   return o;
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let evs = A.skyExtra.y;
   let moonUp = A.moonDir.xyz;
-  if (evs <= 0.5 || dot(moonUp, A.up.xyz) <= -0.03) { return vec4f(0.0); }   /* SVS, or moon below horizon */
+  if (dot(moonUp, A.up.xyz) <= -0.03) { return vec4f(0.0); }   /* moon below horizon */
   let dir = camRay(A, in.ndc);
   let mr = A.skyExtra.w;               /* moon angular radius: 0.0045 rad (real) x FB_MOON_SCALE */
   let cosA = dot(dir, moonUp);

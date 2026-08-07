@@ -22,8 +22,6 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   return o;
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
-  let evs = A.skyExtra.y;
-  if (evs <= 0.5) { return vec4f(0.0); }   /* SVS: no sun disc/glow — additive contributes nothing */
   let dir = camRay(A, in.ndc);
   let day = A.skyExtra.x;
   let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));

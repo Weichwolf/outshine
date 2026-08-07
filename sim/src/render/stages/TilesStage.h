@@ -17,7 +17,7 @@ class TilesStage : public DrawStage {
 public:
   /* `vegTable` may be null: the ground-cover branch is then a baked-const OFF and the shader keeps its
    * raw albedo, which is exactly the picture before the template table existed. */
-  void Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
+  void Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
                 wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers,
                 wgpu::Buffer vegTable, const SceneLight &light);
 
@@ -39,7 +39,6 @@ public:
                 const double up[3]);
 
   /* World drives a mutable per-tile table. Call before Configure(). */
-  void EnableStreaming(int albedoTS) { AlbedoTS = albedoTS; }
 
   /* A table slot id, or -1 if the class array is full. The caller has checked DeviceUsable().
    * `clusters` is the tile's DAG (doc/render/lod.md): every level lives in the one vertex buffer and
@@ -47,12 +46,8 @@ public:
    * from; `origin - anchor` must stay small enough for float. */
   int UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
                 const double origin[3], const double anchor[3]);
-  /* `frameNo` timestamps the 2-phase commit: the photo layer draws only once its upload is a pass old. */
-  int UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z, unsigned frameNo);
   void ReleaseTile(int slot);
   void SetDrawList(const int *slots, int n) { DrawList.assign(slots, slots + n); }
-  /* The photo array, which is EMPTY until EVS is switched on for the first time. */
-  long AlbedoVramBytes(void) const { return (long)(PhotoUsed - (int)FreePhoto.size()) * AlbedoTS * AlbedoTS * 4; }
   /* The classification input. It does not grow with the tile count, because it has nothing to do
    * with tiles — it is the vector geometry itself plus the grid that finds it. */
   long ClassVramBytes(void) const { return ClassBytes; }
@@ -80,25 +75,18 @@ private:
 
   /* Bound* is the whole tile over EVERY level, taken off the vertices and not off the DAG spheres. */
   struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float Anchor[3];
-                   int PhotoLayer; unsigned PhotoUpTick; bool Used; std::vector<DagCluster> Clusters;
+                   bool Used; std::vector<DagCluster> Clusters;
                    float BoundCtr[3]; float BoundRad; };
   struct DrawRange { uint32_t Slot, First, Count; };
 
   static constexpr int kUniFloats = 52;   /* mat4 + sun + haze + stand + class frame; WGSL `U` verbatim */
   static constexpr int kTileFloats = 12;  /* the WGSL `Tile`: three vec4 */
 
-  void EnsurePhotoCap(int need);
   void RebuildBind(void);
-  int AllocPhotoLayer(void);
-  void WriteAlbedoLayer(int layer, const uint8_t *pyramid, int ts);
-  void SetLayerPhoto(int layer, float ylin, int z);
-  void ClearLayer(int layer);
-  void UpdatePhotoGains(void);
 
   wgpu::Device Device;
   wgpu::Queue Queue;
   wgpu::TextureFormat HdrFormat;
-  wgpu::Sampler Samp;   /* borrowed from Renderer, shared with the (not yet extracted) tonemap pass */
   wgpu::Sampler LutSamp;
   wgpu::TextureView SkyLutView;
   wgpu::Buffer AtmoBuf;
@@ -112,24 +100,15 @@ private:
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;
   wgpu::Buffer Uni, TileBuf;
-  wgpu::Texture Albedo;
   wgpu::Buffer ClassBuf;
   wgpu::RenderBundle Bundle;
   uint64_t BundleSig = 0;
   long TerrainBundleRecords = 0;
 
-  int AlbedoTS = 0;
   int MaxLayers = 256;
   long ClassBytes = 0;
   double ClsEast[3] = {1, 0, 0}, ClsNorth[3] = {0, 1, 0}, ClsCam[2] = {0, 0};
-  int PhotoCap = 0, PhotoUsed = 0;
   std::vector<DynTile> DynTiles;
-  std::vector<int> FreePhoto;
-  std::vector<float> Gains;
-  std::vector<float> LayerYlin;
-  std::vector<int8_t> LayerKind;
-  double PhotoYTarget = 0.0;
-  bool PhotoYValid = false;
   float LoggedSigma0 = -1.0f, LoggedSunThru = -1.0f;
   std::vector<int> DrawList;
   std::vector<DrawRange> Ranges;   /* the cut, rebuilt every frame; reused, so no per-frame heap */
