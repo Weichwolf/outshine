@@ -44,3 +44,5 @@ sim/*.f32
 sim/web/gpu.js
 sim/web/gpu.wasm
 sim/web/fbtileworker.js
+
+sim/walk.png
