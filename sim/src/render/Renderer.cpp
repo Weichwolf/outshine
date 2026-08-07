@@ -402,7 +402,7 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
  * a camera property — every world-fixed thing keeps its place, and only the grid the rasteriser asks
  * its coverage question on moves (render/TemporalJitter.h). */
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w,
-                      int hVp, int hFull, float fovDeg, float jitNdcX, float jitNdcY) {
+                      int hVp, int hFull, float fovDeg, float jitNdcX, float jitNdcY, float orthoM) {
   const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)hFull;
   const float zn = 0.05f;
   const float f = 1.0f / std::tan(fov / 2.0f);
@@ -414,6 +414,17 @@ static void MvpCamRel(float *m, const double R[3], const double Uc[3], const dou
   /* infinite reversed-Z projection ([0,1]): z_clip = zn, w = -z_eye -> depth = zn / -z_eye.
    * y_clip = f*y_eye + shift*w, i.e. the z column carries -shift on the y row. */
   float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, -jitNdcX, -(shift + jitNdcY), 0, -1, 0, 0, zn, 0};
+  if (orthoM > 0.0f) {
+    /* A comparison against a map is a comparison against a PARALLEL projection; under perspective the
+     * same field is two different shapes at the centre and at the corner. */
+    const float hw = 0.5f * orthoM * asp, hh = 0.5f * orthoM;
+    const float zf = 60000.0f, rz = 1.0f / (zf - zn);
+    const float q[16] = {1.0f / hw, 0, 0, 0,
+                         0, 1.0f / hh, 0, 0,
+                         0, 0, rz, 0,
+                         -jitNdcX, -(shift + jitNdcY), zf * rz, 1};
+    for (int i = 0; i < 16; i++) p[i] = q[i];
+  }
   for (int c = 0; c < 4; c++)
     for (int r = 0; r < 4; r++) {
       m[c * 4 + r] = 0;
@@ -633,7 +644,7 @@ void Renderer::RenderFrame(void) {
   const float jitNdcY = 2.0f * Jitter.PixelY() / (float)Height;
 
   float u[20];
-  MvpCamRel(u, right, camUp, fwd, Width, ViewH(), Height, FovDeg, jitNdcX, jitNdcY);
+  MvpCamRel(u, right, camUp, fwd, Width, ViewH(), Height, FovDeg, jitNdcX, jitNdcY, OrthoM);
   /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree, and it is the ephemeris
    * sun of the scene's declared instant — there is no second, time-independent one to choose. */
   const double elDeg = SceneState.Env.SunElDeg, azDeg = SceneState.Env.SunAzDeg;

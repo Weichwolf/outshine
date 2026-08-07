@@ -240,6 +240,7 @@ public:
    * Call before the first frame; it enters the projection and the atmosphere uniform together, so
    * there is never a second copy to drift from. */
   void SetFovDeg(double deg) { FovDeg = deg > 0.0 ? (float)deg : FovDeg; }
+  void SetOrthoM(double m) { OrthoM = (float)m; }
   float GetFovDeg(void) const { return FovDeg; }
 
   /* THE 3x3 GRID. The windscreen is the top two rows; the bottom row is an equipped body's MFD bank.
@@ -388,6 +389,7 @@ private:
   double Eye[3], LookTarget[3];
   double Fwd[3], Right[3], Up[3];       /* explicit ECEF camera basis (SetCameraBasis) */
   float FovDeg = 60.0f;                 /* [SET] until a scene declares one; SetFovDeg is the only writer */
+  float OrthoM = 0.0f;                  /* > 0: parallel projection covering this many metres */
 
   int Width, Height;
   bool DeviceReady, DeviceLost;

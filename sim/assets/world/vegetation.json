@@ -699,7 +699,8 @@
         "keySrgb": "buildings (128,114,102 — tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
         "grass.perM2": "[SET] joint weeds only — NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
         "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there",
-        "ground.edgeReachM": "0.05 m = the construction seam, see edgeModel"
+        "ground.edgeReachM": "0.05 m = the construction seam, see edgeModel",
+        "osm.runway_busway": "street_polygons/runway ist die Bahn als FLAECHE und braucht daher keine Breite; rank 72 ueber service, weil eine Piste alles ueberdeckt, worauf sie liegt. streets/busway [SET] 6.5 m = zwei Busspuren, dieselbe Breite wie tertiary, weil ein Busway baulich eine zweispurige Fahrbahn ohne Seitenraum ist."
       },
       "osm": [
         {
@@ -888,6 +889,17 @@
           "kind": "runway",
           "rank": 88,
           "widthM": 45.0
+        },
+        {
+          "layer": "street_polygons",
+          "kind": "runway",
+          "rank": 72
+        },
+        {
+          "layer": "streets",
+          "kind": "busway",
+          "rank": 84,
+          "widthM": 6.5
         }
       ]
     },

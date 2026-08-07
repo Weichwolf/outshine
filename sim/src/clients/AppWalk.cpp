@@ -45,7 +45,7 @@ namespace {
 
 /* HARD-WIRED, because this is a bench and not a game: there is exactly one scene and choosing it is
  * not a feature. Relative to sim/, where the make targets run. */
-const char *kScenePath = "../mods/demo/scene.json";
+const char *kScenePath = "../mods/demo/scene.json";   /* --scene overrides it, bench only */
 const char *kVegetationPath = "assets/world/vegetation.json";
 const char *kGroundMaterialPath = "assets/world/ground-materials.json";
 
@@ -178,6 +178,10 @@ int main(int argc, char **argv) {
   double seqYawDeg = 0.0, seqStepE = 0.0, seqStepN = 0.0;
   std::string seqOut = "seq", windProbe, seqProf;
   std::string rigTemplate, rigSpecies, rigOut = "bench";
+  /* A BENCH parameter like --eye: the engine still has ONE declared scene, and a comparison over
+   * several places needs to point at several declarations of it. */
+  std::string scenePath = kScenePath;
+  double orthoM = 0.0;
   bool rigLeaves = true;
   int rigLeafMult = 1;
   std::string snapshotPath;
@@ -195,6 +199,8 @@ int main(int argc, char **argv) {
     else if (a == "--depth" && i + 1 < argc) depthPath = argv[++i];
     else if (a == "--bench" && i + 1 < argc) bench = atoi(argv[++i]);
     else if (a == "--ev" && i + 1 < argc) { manualEv = true; evStops = atof(argv[++i]); }
+    else if (a == "--scene" && i + 1 < argc) scenePath = argv[++i];
+    else if (a == "--ortho" && i + 1 < argc) orthoM = atof(argv[++i]);
     else if (a == "--eye" && i + 1 < argc) eyeOverrideM = atof(argv[++i]);
     else if (a == "--pitch" && i + 1 < argc) pitchOverrideDeg = atof(argv[++i]);
     else if (a == "--yaw" && i + 1 < argc) yawOverrideDeg = atof(argv[++i]);
@@ -239,8 +245,8 @@ int main(int argc, char **argv) {
   Log::SetLevel(LogLevel::Debug);
 
   Clients::Scene scene;
-  if (!scene.Load(kScenePath)) {
-    Log::Error("walk", "scene_load_failed", {{"path", kScenePath}, {"why", scene.Error()}});
+  if (!scene.Load(scenePath.c_str())) {
+    Log::Error("walk", "scene_load_failed", {{"path", scenePath}, {"why", scene.Error()}});
     return 1;
   }
   /* A STANDPOINT SOMEONE ELSE STOOD AT (clients/Snapshot.h). It replaces the standpoint flags rather
@@ -291,6 +297,7 @@ int main(int argc, char **argv) {
   R.SetVegetationTable(veg.Rows(), veg.RowBytes());
   R.SetSkyClock(clk);
   R.SetFovDeg(scene.FovDeg());
+  R.SetOrthoM(orthoM);
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
   R.SetWind(windDeg, windMs);
