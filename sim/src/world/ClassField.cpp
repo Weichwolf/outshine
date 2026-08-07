@@ -122,6 +122,7 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
 }  // namespace
 
 void ClassField::Open(double lat, double lon) {
+  Lat0_ = lat; Lon0_ = lon;
   GeoToEcef(lat, lon, 0.0, O_);
   double up[3];
   EnuAxesEcef(lat, lon, East_, North_, up);
@@ -134,6 +135,18 @@ void ClassField::Project(double lat, double lon, double *e, double *n) const {
   const double d[3] = {p[0] - O_[0], p[1] - O_[1], p[2] - O_[2]};
   *e = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
   *n = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
+}
+
+void ClassField::FromEnu(double e, double n, double *lat, double *lon) const {
+  const double p[3] = {O_[0] + East_[0] * e + North_[0] * n,
+                       O_[1] + East_[1] * e + North_[1] * n,
+                       O_[2] + East_[2] * e + North_[2] * n};
+  (void)p;
+  /* Die lokale Tangentialebene: ueber die 900 m, in denen gestreut wird, liegt ihr Fehler unter einem
+   * Meter, und die Hoehe, die damit erfragt wird, hat selbst 47 m Stuetzstellenabstand. */
+  constexpr double kMPerDeg = 111320.0;
+  *lat = Lat0_ + n / kMPerDeg;
+  *lon = Lon0_ + e / (kMPerDeg * std::cos(Lat0_ * 3.14159265358979 / 180.0));
 }
 
 void ClassField::Ingest(Tier &t) {

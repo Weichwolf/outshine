@@ -323,6 +323,8 @@ int main(int argc, char **argv) {
       R.SetTreeLook(look);
       R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
                     worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
+      /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
+      R.SetTreeStand(0.0, 0.0, 0.0, (double)sp.HeightM());
       Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()}});
     }
   }
@@ -511,7 +513,13 @@ int main(int argc, char **argv) {
     if (!worldTree.BarkIdx.empty() && (warmed % 32) == 0) {
       double ee = 0.0, nn = 0.0;
       W.Classes().Project(clat, clon, &ee, &nn);
-      treeField.Scatter(W.Classes(), veg, 900.0, ee, nn, treeStands);
+      struct GroundCtx { const World::ClassField *c; } gc{&W.Classes()};
+      auto groundAt = [](void *u, double e2, double n2) -> double {
+        double la = 0.0, lo = 0.0;
+        ((GroundCtx *)u)->c->FromEnu(e2, n2, &la, &lo);
+        return fb_stream_ground(la, lo);
+      };
+      treeField.Scatter(W.Classes(), veg, 900.0, ee, nn, fb_stream_ground(clat, clon), groundAt, &gc, treeStands);
       R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / 4));
       if (true)
         Log::Debug("walk", "trees", {{"stands", (int)(treeStands.size() / 4)}, {"eastM", ee}, {"northM", nn}});

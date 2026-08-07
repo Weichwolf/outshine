@@ -68,7 +68,18 @@ Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die dekl
 (`trees.perM2`: Laubmischwald 0.04, Nadelwald 0.09) —, also haelt keine Seite eine Liste und dieselbe
 Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper.
 
-**Kein Baum ist im Bild, und der Grund ist die fehlende Hoehe.** Ein Stand traegt Ost, Nord, Groesse und
+**Kein Baum ist im Bild, und ich habe die Ursache NICHT gefunden.** Fuenf Runden blindes Iterieren,
+jede mit einer plausiblen Hypothese, keine davon war es: das Selbsttor der Stage (`HeightM <= 0`) ist
+geoeffnet, die Baumhoehe kommt jetzt aus der Art (`bpar.z`, vorher 0 — jede Instanz war auf Groesse null
+skaliert), der Fuss sitzt auf der Gelaendehoehe (`FromEnu` plus `fb_stream_ground`), die Achsen sind
+geprueft (ax Ost, ay Nord, az Hoch). Der Szenenpass wurde dabei nicht teurer (1.77 gegen 2.03 ms), was
+gegen jedes Zeichnen spricht.
+
+**Die naechste Handlung ist eine MESSUNG, keine sechste Vermutung**: den Stammshader eine feste Farbe
+ausgeben lassen und zaehlen, ob ein einziges Fragment ankommt. Erst wenn feststeht, ob der Draw
+ueberhaupt Fragmente erzeugt, ist die Suche wieder gerichtet.
+
+Die Hoehe selbst ist geloest und war ein echter Fund: Ein Stand traegt Ost, Nord, Groesse und
 Gierung; seine LAGE in der Vertikalen fehlt, also sitzen alle auf der Augenhoehe der Kamera — an einem
 Berghang heisst das im Fels oder in der Luft. Das ist derselbe offene Posten wie den ganzen Tag: das
 Hoehenorakel muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite (0,383 m RMS, max 1,89 m

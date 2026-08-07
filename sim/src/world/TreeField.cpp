@@ -24,7 +24,9 @@ inline float U(uint32_t h) { return (float)(h & 0xFFFFFFu) / 16777216.0f; }
 }  // namespace
 
 void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
-                        double eyeE, double eyeN, std::vector<float> &out) const {
+                        double eyeE, double eyeN, double eyeAsl,
+                        double (*ground)(void *, double, double), void *user,
+                        std::vector<float> &out) const {
   out.clear();
   Count_ = 0;
   const VegetationTemplates::Row *rows = veg.Rows();
@@ -47,12 +49,13 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       if (perM2 <= 0.0f) continue;
       if (U(h >> 16) > (float)(perM2 * kCellM * kCellM)) continue;
 
-      /* Hoehe aus der Art zu ziehen ist die naechste Runde; bis dahin die deklarierte Bestandshoehe
-       * mit dem Streuungsanteil, den die Vorlage fuer Halme fuehrt. */
-      const float base = perM2 > 0.06f ? 22.0f : 26.0f;
-      const float hgt = base * (0.7f + 0.6f * U(h >> 4));
+      const double gz = ground ? ground(user, e, n) : eyeAsl;
+      if (gz <= -1.0e7) continue;
+      /* east, north, Fuss ueber der Augenhoehe, Gierung. Die Groesse traegt die Art; ihre Streuung
+       * ist die naechste Runde und braucht ein fuenftes Feld. */
       out.push_back((float)e); out.push_back((float)n);
-      out.push_back(hgt); out.push_back(U(h >> 20) * 6.2831853f);
+      out.push_back((float)(gz - eyeAsl));
+      out.push_back(U(h >> 20) * 6.2831853f);
       Count_++;
     }
   }

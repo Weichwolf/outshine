@@ -71,6 +71,8 @@ public:
    * at this place, which is a state and not a default: the caller decides what to do with it. */
   /* Der Rahmen, in dem ClassAtEnu misst — ein Streuer braucht ihn, um vom Standpunkt aus zu zaehlen. */
   void Project(double lat, double lon, double *e, double *n) const;
+  /* Die Umkehrung: ein Streuer rechnet in ENU und braucht Grad, um die Hoehe zu erfragen. */
+  void FromEnu(double e, double n, double *lat, double *lon) const;
   int ClassAt(double lat, double lon) const;
   /* Metres to the boundary of the winning class, and the class on the other side of it. */
   int ClassAt(double lat, double lon, double *distM, int *runnerUp) const;
@@ -144,6 +146,7 @@ private:
   bool Dirty_ = false;
 
   double O_[3] = {0, 0, 0}, East_[3] = {1, 0, 0}, North_[3] = {0, 1, 0};
+  double Lat0_ = 0.0, Lon0_ = 0.0;
   double Cam_[2] = {0, 0};
   bool Opened_ = false;
 

@@ -47,15 +47,15 @@ fn toEcef(local : vec3f) -> vec3f {
 struct TOut { @builtin(position) pos : vec4f, @location(0) rel : vec3f, @location(1) nrm : vec3f,
               @location(2) loc : vec3f };
 
-/* Ein Stand: xy sind Ost/Nord in Metern vom Kamerastandpunkt, z die Hoehe, w die Gierung. */
+/* Ein Stand: xy Ost/Nord in Metern vom Kamerastandpunkt, z der Fuss ueber der Augenhoehe, w die
+ * Gierung. Die Groesse traegt b.bpar.z, also die Art. */
 @vertex fn vsBark(@location(0) p : vec3f, @location(1) n : vec3f,
                   @location(2) st : vec4f) -> TOut {
   var o : TOut;
-  let hs = select(b.bpar.z, st.z, st.z > 0.0);
-  var pm = p * hs;
+  var pm = p * b.bpar.z;
   let cy = cos(st.w); let sy = sin(st.w);
   pm = vec3f(pm.x * cy - pm.z * sy, pm.y, pm.x * sy + pm.z * cy);
-  let rel = standOrigin() + b.ax.xyz * st.x + b.ay.xyz * st.y + toEcef(pm);
+  let rel = standOrigin() + b.ax.xyz * st.x + b.ay.xyz * st.y + b.az.xyz * st.z + toEcef(pm);
   o.pos = b.mvp * vec4f(rel, 1.0);
   o.rel = rel;
   let cy2 = cos(st.w); let sy2 = sin(st.w);
