@@ -127,7 +127,7 @@ private:
     unsigned touch;
     int stale;
     int slot;              /* Renderer table slot, -1 until uploaded */
-    int haveMesh, haveAlbedo;
+    int haveMesh;
     int alt;               /* the NON-base overlay albedo: 0 unfetched, 1 attached, -1 none/give-up */
     unsigned readyPass;    /* pass the GPU upload was issued; drawable only in a LATER pass (2-phase) */
     unsigned altPass;      /* pass the OVERLAY upload was issued (2-phase on the overlay axis) */
@@ -144,7 +144,7 @@ private:
   struct Work { int idx; double prio; };
 
   int Ensure(int z, long x, long y);                              /* node index (creates on miss) */
-  bool Uploaded(const Node &n) const { return n.haveMesh && n.haveAlbedo && n.slot >= 0; }
+  bool Uploaded(const Node &n) const { return n.haveMesh && n.slot >= 0; }
   /* Two-phase commit: drawable only ONE pass after the upload was issued, so the WriteTexture is
    * submitted and visible before any draw references the layer. */
   bool Ready(const Node &n) const { return Uploaded(n) && Pass > n.readyPass; }

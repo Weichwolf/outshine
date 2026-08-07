@@ -58,6 +58,8 @@ public:
   /* The ECEF frame the buffer's metres are measured in. The fragment projects its own camera-relative
    * offset on these very axes, so CPU and GPU place a world point identically by construction. */
   const double *OriginEcef() const { return O_; }
+  /* The camera's own place in this frame, the offset a fragment adds to its camera-relative one. */
+  const double *Cam() const { return Cam_; }
   const double *EastEcef() const { return East_; }
   const double *NorthEcef() const { return North_; }
 
@@ -69,11 +71,16 @@ public:
   int ClassAt(double lat, double lon) const;
   /* Metres to the boundary of the winning class, and the class on the other side of it. */
   int ClassAt(double lat, double lon, double *distM, int *runnerUp) const;
+  /* The same predicate on the structure's own metric frame, for a caller that already has one. */
+  int ClassAtEnu(double e, double n, double *distM, int *runnerUp) const {
+    return Evaluate(e, n, distM, runnerUp);
+  }
+  void ToEnu(double lat, double lon, double *e, double *n) const { Project(lat, lon, e, n); }
 
   double NoDataFraction() const { return Probe_ ? (double)ProbeNoData_ / (double)Probe_ : 0.0; }
   long UnknownKinds() const { return (long)Unknown_.size(); }
   long UnknownFeatures() const { return UnknownFeats_; }
-  double BuildMs() const { return BuildMs_; }
+  double BuildMs() const { return BuildMsMax_; }
   long EdgeCount() const { return Edges_; }
   long SeedCount() const { return Seeds_; }
   int SeedOverflow() const { return Overflow_; }
@@ -132,12 +139,13 @@ private:
   bool Dirty_ = false;
 
   double O_[3] = {0, 0, 0}, East_[3] = {1, 0, 0}, North_[3] = {0, 1, 0};
+  double Cam_[2] = {0, 0};
   bool Opened_ = false;
 
   std::unordered_set<std::string> Unknown_;
   long UnknownFeats_ = 0, Edges_ = 0, Seeds_ = 0, Probe_ = 0, ProbeNoData_ = 0;
   int Overflow_ = 0;
-  double BuildMs_ = 0.0;
+  double BuildMs_ = 0.0, BuildMsMax_ = 0.0;
 };
 
 } // namespace outshine::World

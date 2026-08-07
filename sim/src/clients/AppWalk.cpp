@@ -166,6 +166,8 @@ int main(int argc, char **argv) {
    * world-fixed placement only from more than one position. Everything else the scene still declares. */
   double eyeOverrideM = -1.0, pitchOverrideDeg = 1.0e9, yawOverrideDeg = 1.0e9;
   double stepEastM = 0.0, stepNorthM = 0.0, walkEastM = 0.0, walkNorthM = 0.0;
+  std::string classDump;
+  double classSpan = 400.0, classStep = 0.05;
   double cloudQ = 0.0;
   /* The wind clock and the wind itself are BENCH parameters for the same reason the standpoint is:
    * the scene declares one condition and a measurement needs a bracket around it. */
@@ -221,6 +223,9 @@ int main(int argc, char **argv) {
     else if (a == "--stepN" && i + 1 < argc) stepNorthM = atof(argv[++i]);
     else if (a == "--walkE" && i + 1 < argc) walkEastM = atof(argv[++i]);
     else if (a == "--walkN" && i + 1 < argc) walkNorthM = atof(argv[++i]);
+    else if (a == "--class-dump" && i + 1 < argc) classDump = argv[++i];
+    else if (a == "--class-span" && i + 1 < argc) classSpan = atof(argv[++i]);
+    else if (a == "--class-step" && i + 1 < argc) classStep = atof(argv[++i]);
     else if (a == "--size" && i + 1 < argc) {
       std::string s = argv[++i];
       size_t x = s.find('x');
@@ -487,6 +492,31 @@ int main(int argc, char **argv) {
   Log::Info("walk", "resident", {{"passes", warmed}, {"ceiling", warm},
       {"targetTotal", W.TargetTotal()}, {"progress", (double)W.LoadProgress()}});
 
+  /* THE CLASS AS THE SIMULATION SEES IT: the CPU evaluator over a declared world square, in the
+   * class structure's own metric frame. No GPU is involved — this is the answer a headless actor
+   * gets, and the picture is judged against it. */
+  if (!classDump.empty()) {
+    FILE *cf = fopen(classDump.c_str(), "wb");
+    if (!cf) { Log::Error("walk", "class_dump_open_failed", {{"path", classDump}}); return 1; }
+    double ce = 0, cn = 0;
+    W.Classes().ToEnu(clat, clon, &ce, &cn);
+    fprintf(cf, "# origin %.6f %.6f camE %.4f camN %.4f step %.4f span %.1f\n",
+            clat, clon, ce, cn, classStep, classSpan);
+    fprintf(cf, "e,n,cls,dist,second\n");
+    const long n = (long)(classSpan / classStep);
+    for (long j = 0; j <= n; j++)
+      for (long i = 0; i <= n; i++) {
+        const double e = ce - classSpan * 0.5 + (double)i * classStep;
+        const double nn = cn - classSpan * 0.5 + (double)j * classStep;
+        double d = 0;
+        int second = -1;
+        const int c = W.Classes().ClassAtEnu(e, nn, &d, &second);
+        fprintf(cf, "%.4f,%.4f,%d,%.4f,%d\n", e, nn, c, d > 1e6 ? -1.0 : d, second);
+      }
+    fclose(cf);
+    Log::Info("walk", "class_dumped", {{"path", classDump}, {"samples", (double)((n + 1) * (n + 1))}});
+  }
+
   /* THE ACCUMULATOR IS EMPTIED AND REFILLED FROM THE RESIDENT SCENE ALONE. Without this the picture
    * carries a history built while the tiles were still arriving, and two runs whose tiles arrived in
    * a different order differ in colour (0.44-0.53 % of pixels, measured 2026-08-07) although their
@@ -553,6 +583,12 @@ int main(int argc, char **argv) {
       {"classVramMB", (double)R.ClassVramBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
       {"buildingVerts", (int)R.BuildingVertexCount()}});
+  Log::Info("walk", "class", {{"edges", (int)W.Classes().EdgeCount()},
+      {"seeds", (int)W.Classes().SeedCount()}, {"bufferKB", W.Classes().BufferBytes() / 1024.0},
+      {"noDataFrac", W.Classes().NoDataFraction()},
+      {"unknownKinds", (int)W.Classes().UnknownKinds()},
+      {"unknownFeatures", (int)W.Classes().UnknownFeatures()},
+      {"seedOverflow", W.Classes().SeedOverflow()}, {"buildMs", W.Classes().BuildMs()}});
 
   std::vector<uint8_t> rgba;
   if (!R.ReadPixels(rgba)) { Log::Error("walk", "readback_failed"); return 1; }

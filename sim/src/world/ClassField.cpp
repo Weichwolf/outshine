@@ -363,6 +363,8 @@ void ClassField::Update(double camLat, double camLon) {
 
   double camE = 0, camN = 0;
   Project(camLat, camLon, &camE, &camN);
+  Cam_[0] = camE;
+  Cam_[1] = camN;
 
   const double t0 = Clock();
   bool rebuilt = false;
@@ -376,6 +378,7 @@ void ClassField::Update(double camLat, double camLon) {
     }
   }
   BuildMs_ = rebuilt ? Clock() - t0 : 0.0;
+  if (BuildMs_ > BuildMsMax_) BuildMsMax_ = BuildMs_;
   if (rebuilt) Pack();
 }
 

@@ -14,9 +14,10 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | Every `#include` points DOWN the stack | `make -C sim verify-layers`, a machine-checked matrix |
 | **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
 | **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
-| **What the SIMULATION needs must exist without a GPU; what only the PICTURE needs may live on the GPU** | the engine has to run headless. Height at a point, building footprint, class at a point and object positions are simulation and answer on the CPU; the cluster DAG, the triangle meshes of terrain, buildings and trees, and all appearance are picture and need not. **One geometry, one predicate, two evaluators** — the edge test a fragment runs is the same one a CPU query runs, shared code and not two implementations. Acceptance: a sample of world points, CPU answer against GPU answer, and the difference is a number. That check did not exist for the two DEM samplings, and they disagreed with the drawn mesh for 30 hours |
+| **What the SIMULATION needs must exist without a GPU; what only the PICTURE needs may live on the GPU** | the engine has to run headless. Height at a point, building footprint, class at a point and object positions are simulation and answer on the CPU; the cluster DAG, the triangle meshes of terrain, buildings and trees, and all appearance are picture and need not. **One geometry, one predicate, two evaluators** — the edge test a fragment runs is the same one a CPU query runs, shared code and not two implementations. They agree **to within the refinement the GPU adds** — the centimetre fringe, and that width is a stated number, never assumed zero. Acceptance: a sample of world points, CPU answer against GPU answer, and the difference is a number against that bound. That check did not exist for the two DEM samplings, and they disagreed with the drawn mesh for 30 hours |
 | **Everything visual is created on the GPU; the CPU does administration** | owner, 2026-08-07: *„am besten entsteht alles visuelle in der gpu und die cpu macht nur verwaltung."* Administration is: what is resident, what cuts the frustum, what to fetch, what to evict — bounding volumes and residency, nothing that has vertices or pixels in it. **Every move is measured before it is made**, in the order of the CPU cost it removes |
-| **The OSM vectors are the truth; the GPU holds a copy for derivation** | building extrusion from footprints, classification per fragment, vegetation scattered over landcover polygons, road surface from linestrings — all compute or fragment work over one resident vector set. The vectors themselves are fetched and parsed once and stay reachable by the CPU, because the simulation queries them. **Beyond that the CPU keeps only bounding volumes**: what is resident, what cuts the frustum, what to fetch. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is the same sentence as "the index owns nothing", carried to its end |
+| **Three tiers over the OSM vectors, and refinement is ONE-WAY** | **AABB** — CPU, everywhere: residency, frustum, broad phase, what to fetch and evict. That is the large majority of all CPU touches. **Source polygon** — CPU, on demand, for exactly three point queries: am I inside this building, what class is at this point, where does this road run. **Refinement** — GPU only: extrusion, roof, tessellation, the centimetre fringe, scattering, cluster LOD. It never travels back, so there is nothing to synchronise. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is "the index owns nothing" carried to its end |
+| **Derived objects are stored by NEITHER side** | scattering is a function of position, so the GPU evaluates it for every visible cell and the CPU evaluates it for the one cell a body stands in. Same function, two callers, zero bytes. This is the general form of "the mesh is a FUNCTION, not a buffer" — it is what makes tree collision possible headless without a tree list existing anywhere |
 | **Vegetation follows the same rule, and there it is compulsory** | measured: 0.417 ms and 770 kB per tree, so **per species** it is free (16 species = 6.8 ms, 12 MB) and **per instance** it is dead (5000 trees = **3.7 GB**). Either every beech is identical and the forest looks stamped, or growth moves to where per-instance is affordable. The strong form is the texture rule one level up: **the mesh is a FUNCTION, not a buffer** — a tree is `(species declaration, seed, place)`, nothing is stored, and LOD becomes "evaluate fewer segments" rather than a second geometry |
 | **The index is fed by the ECS and never authoritative** | position is a component in `float64`; the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is streamed, not simulated, and an index may carry both because it needs only place and extent |
 
@@ -221,3 +222,22 @@ tick all entities compute first, then a barrier makes the new poses jointly visi
 therefore always yields the state of the last **completed** tick — tick order cannot influence any
 result. That is what makes a parallel run byte-identical to a serial one, and the check is running the
 same declaration over several thread counts.
+
+### What the CPU may forget, measured
+
+Three z14 tiles off the running tile server, vector geometry counted (2026-08-07,
+`/t/vector/14/{x}/{y}`, MVT command stream, `extent 4096`):
+
+| tile | features | vertices | buildings | vert/building | max |
+|---|---|---|---|---|---|
+| demo 52.106/9.435 | 44 | 954 | 9 | 10.2 | 18 |
+| Hameln | 4 403 | 18 042 | 1 706 | 5.6 | 82 |
+| Hannover | 7 218 | 37 457 | 3 487 | 6.0 | 136 |
+
+**A building footprint has six points; its AABB has four.** Keeping the full source geometry instead of
+bounds alone costs, on the densest tile measured, 37 457 against 14 436 vertices — **a factor of 2.6**
+on 150 kB per tile at u16 tile coordinates. Over 49 resident tiles that is 7.3 MB against 2.8 MB. The
+saving is 4.5 MB and the price would be an approximation in collision and classification: an AABB makes
+a courtyard walk-blocked that you can see into, and it cannot answer a class boundary at all. So the CPU
+keeps the source polygon and forgets everything derived from it.
+

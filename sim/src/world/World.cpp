@@ -85,6 +85,7 @@ bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, 
   Scratch.resize((size_t)Render::fb_pyramid_bytes(TS));   /* holds a whole finished mip pyramid, not one level */
   gIndex.clear();
   if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
+  Cls_.Open(lat, lon);
   Opened = true;
   fb_stream_set_base(DefaultPhoto ? 1 : 0);        /* worker priority: base tiles before the overlay */
   /* Sprite positions are stored relative to this anchor, so the renderer holds float offsets. */
@@ -939,6 +940,14 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   if (R) R->SetDrawList(DrawSlots.data(), (int)DrawSlots.size());
 
   PublishUnits();
+
+  /* THE GROUND CLASS. It is a property of the PLACE, so it is built here once and read by the
+   * fragment and by every CPU consumer from the same bytes (world/ClassField.h). */
+  Cls_.Update(camLat, camLon);
+  if (R) {
+    R->SetClassFrame(Cls_.EastEcef(), Cls_.NorthEcef(), Cls_.Cam());
+    if (Cls_.Dirty()) { R->WriteClassBuffer(Cls_.Buffer(), Cls_.BufferBytes()); Cls_.ClearDirty(); }
+  }
 
   /* WHERE THE STAND STANDS. The ground fragment IS the stand (render/Sward.h) and reads it off the
    * world graticule, so all the renderer needs is the place and the local basis. */
