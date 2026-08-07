@@ -15,6 +15,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
 | **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
 | **The OSM vectors live in GPU memory, and everything derived is built there** | building extrusion from footprints, classification per fragment, vegetation scattered over landcover polygons, road surface from linestrings — all compute or fragment work over one resident vector set. **The CPU keeps only bounding volumes**: what is resident, what cuts the frustum, what to fetch. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is the same sentence as "the index owns nothing", carried to its end |
+| **Vegetation follows the same rule, and there it is compulsory** | measured: 0.417 ms and 770 kB per tree, so **per species** it is free (16 species = 6.8 ms, 12 MB) and **per instance** it is dead (5000 trees = **3.7 GB**). Either every beech is identical and the forest looks stamped, or growth moves to where per-instance is affordable. The strong form is the texture rule one level up: **the mesh is a FUNCTION, not a buffer** — a tree is `(species declaration, seed, place)`, nothing is stored, and LOD becomes "evaluate fewer segments" rather than a second geometry |
 | **The index is fed by the ECS and never authoritative** | position is a component in `float64`; the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is streamed, not simulated, and an index may carry both because it needs only place and extent |
 
 ## State
@@ -40,6 +41,14 @@ Dissolved rather than fixed: the CPU extrusion in `world/BuildingField` — and 
 260 ms hitch that one round only *mitigated* by decoding one tile per call; the class raster and its
 32.5 MB; tile residency as textures rather than as bounds; and vegetation placement, which stops being a
 new problem and becomes the same compute pass over the same polygons.
+
+**For vegetation the obstacle is the recursion.** Growth branches and the output size is not known in
+advance, but a vertex shader needs to answer, for vertex *i*, which branch segment it belongs to — the
+growth has to become **indexable** rather than sequential. That decides whether it works without an
+intermediate buffer or whether a compute pass has to materialise the mesh. **What is not lost either
+way:** the C++ generator built on 2026-08-07 becomes the ORACLE for the GPU version — it is byte-identical
+to its own reference across 80 buffers and 16 species, and the GPU version must pass the same test against
+it. Without it, "looks like a tree" would be the only yardstick.
 
 **The open question, and it must be answered before the build, not after:** the cluster DAG. If buildings
 are born on the GPU their LOD ladder has to be born there too, and `render/ClusterDag` is only Nanite's
