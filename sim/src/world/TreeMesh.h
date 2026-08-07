@@ -29,6 +29,11 @@ public:
   std::vector<uint32_t> LeafIdx;
   std::vector<LeafPoint> LeafPoints;
   TreeVec3 BoxMin, BoxMax;
+  /* Trunk radii as a FRACTION OF THE TREE'S HEIGHT, so metres = value x TreeSpecies::HeightM. The
+   * grown mesh's own answer to the one number forestry measures, and what the calibration in
+   * TreeGrower drives. */
+  float FootRadius = 0.0f;
+  float BhdRadius = 0.0f;
 
   size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
   size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
@@ -47,6 +52,8 @@ public:
     LeafPoints.clear();
     BoxMin = TreeVec3{};
     BoxMax = TreeVec3{};
+    FootRadius = 0.0f;
+    BhdRadius = 0.0f;
   }
 };
 

@@ -3,6 +3,7 @@
   "name": "kastanie", "botanical": "Aesculus hippocastanum", "common": "Gemeine Rosskastanie / Horse chestnut",
   "habit": "dicker Stamm, breite rundliche ausladende Krone, schwere Aeste, handfoermig gefingerte Blaetter",
   "height_m": 25, "spread_m": 20,
+  "bhd_cm": 50, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.50. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Rosskastanie, Parkbaum mit sehr dickem kurzem Schaft. 25 / 0.50 = 50.0 cm, gerundet 50.",
   "seed": 17, "shade_prune": 0.6, "trunk_sides": 12, "base_radius": 0.105, "step_len": 0.16,
   "trunk_steps": 20, "bare_steps": 6, "taper": 0.95, "min_radius": 0.006, "twig_radius": 0.015,
   "branch_chance": 0.7, "max_order": 3, "terminal_fork": 1,

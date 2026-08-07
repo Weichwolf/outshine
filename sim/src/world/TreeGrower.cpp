@@ -180,13 +180,40 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
   Queue_.push_back(b);
 }
 
+/* THE STEM IS SOLVED, NOT DECLARED. `base_radius` lives in grower units and the mesh is normalised by
+ * a height the branches decide, so the same 0.08 came out as 70 cm on a beech and 80 cm on an elm —
+ * measured. The species declares the number forestry measures (`bhd_cm`) and the whole radius cascade
+ * is scaled to hit it; scaling base, twig and min together keeps every branch's termination and every
+ * leaf point exactly where they were, so only the thickness moves. */
 void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out) {
-  const TreeSpecies::Growth &g = species.GrowthParams();
+  TreeSpecies::Growth g = species.GrowthParams();
+  const float h = species.HeightM();
+  const float targetR = species.BhdM() * 0.5f;
 
+  Passes_ = 1;
+  GrowOnce(g, h, out);
+  BhdErrorRel_ = 0.0f;
+  if (targetR <= 0.0f || h <= 0.0f) { return; }
+
+  for (int i = 0; i < 4; ++i) {
+    const float haveR = out.BhdRadius * h;
+    BhdErrorRel_ = haveR > 0.0f ? (haveR - targetR) / targetR : 0.0f;
+    if (haveR <= 0.0f || std::fabs(BhdErrorRel_) < 0.005f) { break; }
+    const float f = targetR / haveR;
+    g.BaseRadius *= f;
+    g.MinRadius *= f;
+    g.TwigRadius *= f;
+    GrowOnce(g, h, out);
+    Passes_++;
+  }
+}
+
+void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh &out) {
   Verts_.clear();
   Faces_.clear();
   Dead_.clear();
   Queue_.clear();
+  TrunkProfile_.clear();
   out.Clear();
   Rng_ = TreeRandom(g.Seed);
 
@@ -214,6 +241,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out) {
       trunk.Ring[i] = AddVert(trunk.Pos + d * trunk.Radius);
     }
   }
+  TrunkProfile_.push_back(Vec3(trunk.Pos.Y, trunk.Radius, 0.0f));
   CapRing(trunk, false);
 
   Queue_.push_back(trunk);
@@ -242,6 +270,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out) {
       const int first = ExtrudeCap(t, oldDir, g.StepLen, nr, newRing);
       lastFirst = first;
       for (int i = 0; i < t.K; ++i) { t.Ring[i] = newRing[i]; }
+      if (t.Order == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
 
       const bool leaderOk = (t.Order != 0) || (s >= (int)(g.CrownBase * (float)t.Steps));
       const bool foliated = t.Foliate && leaderOk &&
@@ -294,7 +323,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out) {
   }
 
   Export(out);
-  NormalizeToUnitHeight(out);
+  NormalizeToUnitHeight(out, heightM);
 }
 
 void TreeGrower::Export(TreeMesh &out) const {
@@ -338,7 +367,11 @@ void TreeGrower::Export(TreeMesh &out) const {
   }
 }
 
-void TreeGrower::NormalizeToUnitHeight(TreeMesh &out) {
+/* THE ORIGIN IS THE TRUNK FOOT, and the crown's bounding box has no say in it. Centring x/z on the box
+ * put the stem up to 5.65 m (kiefer, measured) off the point the scatter placed the tree at, and yaw
+ * then swung the whole tree around that point on that radius. The trunk grows from (0, ·, 0), so the
+ * only thing to do is not to move it. */
+void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
   if (out.BarkVerts.empty()) { return; }
   TreeVec3 mn = Vec3(1e30f, 1e30f, 1e30f), mx = Vec3(-1e30f, -1e30f, -1e30f);
   for (size_t i = 0; i < out.BarkVertexCount(); ++i) {
@@ -346,21 +379,40 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out) {
     mn = Vec3(std::fmin(mn.X, v[0]), std::fmin(mn.Y, v[1]), std::fmin(mn.Z, v[2]));
     mx = Vec3(std::fmax(mx.X, v[0]), std::fmax(mx.Y, v[1]), std::fmax(mx.Z, v[2]));
   }
-  float h = mx.Y - mn.Y;
+  /* Y = 0 IS THE TRUNK FOOT, not the lowest vertex, and `height_m` is measured from there — which is
+   * what a stand height is. Taking the mesh minimum put a Trauerweide's foot 6,87 m and a Fichte's
+   * 3,67 m above the ground (measured), because both hang branches below their own base. A branch
+   * below zero belongs below the terrain; that is where it grows. */
+  const float y0 = TrunkProfile_.empty() ? mn.Y : TrunkProfile_[0].X - 0.6f * TrunkProfile_[0].Y;
+  float h = mx.Y - y0;
   if (h < 1e-6f) { h = 1.0f; }
   const float s = 1.0f / h;
-  const float cx = (mn.X + mx.X) * 0.5f, cz = (mn.Z + mx.Z) * 0.5f, y0 = mn.Y;
   for (size_t i = 0; i < out.BarkVertexCount(); ++i) {
     float *v = &out.BarkVerts[i * TreeMesh::kBarkFloats];
-    v[0] = (v[0] - cx) * s;
+    v[0] *= s;
     v[1] = (v[1] - y0) * s;
-    v[2] = (v[2] - cz) * s;
+    v[2] *= s;
   }
   for (TreeMesh::LeafPoint &p : out.LeafPoints) {
-    p.Pos = Vec3((p.Pos.X - cx) * s, (p.Pos.Y - y0) * s, (p.Pos.Z - cz) * s);
+    p.Pos = Vec3(p.Pos.X * s, (p.Pos.Y - y0) * s, p.Pos.Z * s);
   }
-  out.BoxMin = Vec3((mn.X - cx) * s, 0.0f, (mn.Z - cz) * s);
-  out.BoxMax = Vec3((mx.X - cx) * s, (mx.Y - y0) * s, (mx.Z - cz) * s);
+  out.BoxMin = Vec3(mn.X * s, (mn.Y - y0) * s, mn.Z * s);
+  out.BoxMax = Vec3(mx.X * s, (mx.Y - y0) * s, mx.Z * s);
+
+  if (TrunkProfile_.empty()) { return; }
+  out.FootRadius = TrunkProfile_[0].Y * s;
+  out.BhdRadius = out.FootRadius;
+  if (heightM <= 0.0f) { return; }
+  const float yb = 1.3f / heightM;   /* breast height, in the mesh's own unit-height metric */
+  for (size_t i = 1; i < TrunkProfile_.size(); ++i) {
+    const float ya = (TrunkProfile_[i - 1].X - y0) * s, yc = (TrunkProfile_[i].X - y0) * s;
+    if (yb > yc) { continue; }
+    float u = yc > ya ? (yb - ya) / (yc - ya) : 0.0f;
+    if (u < 0.0f) { u = 0.0f; }
+    out.BhdRadius = (TrunkProfile_[i - 1].Y + (TrunkProfile_[i].Y - TrunkProfile_[i - 1].Y) * u) * s;
+    return;
+  }
+  out.BhdRadius = TrunkProfile_.back().Y * s;
 }
 
 } // namespace outshine::World

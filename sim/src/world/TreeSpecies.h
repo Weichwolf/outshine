@@ -91,6 +91,9 @@ public:
   float HeightM() const { return HeightM_; }
   float SpreadM() const { return SpreadM_; }
   float HeightSigma() const { return HeightSigma_; }
+  /* Breast-height diameter at 1.3 m, in METRES. The only metric a stem carries, and the grower solves
+   * its radius cascade against it. 0 leaves the declared `base_radius` alone. */
+  float BhdM() const { return BhdM_; }
 
 private:
   std::string Error_, Name_, Botanical_;
@@ -102,6 +105,7 @@ private:
   /* 0 heisst "eine Art ohne gemessene Bestandesstreuung", nicht "kein Baum streut": wer eine Art in
    * ein Feld stellt, ohne sie zu deklarieren, bekommt sichtbar identische Hoehen. */
   float HeightSigma_ = 0.0f;
+  float BhdM_ = 0.0f;
 };
 
 } // namespace outshine::World

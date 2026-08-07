@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
   TreeMesh mesh;
   printf("species,bark_v,bark_i,leaf_v,leaf_i,leaf_pts,bbmin_x,bbmin_y,bbmin_z,bbmax_x,bbmax_y,"
          "bbmax_z,grow_ms,leaf_ms,bark_kb,leaf_kb,pts_kb,g_nadir,g0,g1,gp,g_resid,stalk_el_deg,"
-         "angle_ms\n");
+         "angle_ms,foot_d_cm,bhd_cm,bhd_want_cm,hd,passes\n");
   for (int i = 0; i < kSpeciesCount; ++i) {
     std::string text;
     const std::string path = assets + "/" + kSpecies[i] + ".json";
@@ -105,8 +105,9 @@ int main(int argc, char **argv) {
     lad.Measure(mesh);
     const auto a1 = std::chrono::steady_clock::now();
 
+    const double bhdCm = 2.0 * (double)mesh.BhdRadius * (double)sp.HeightM() * 100.0;
     printf("%s,%zu,%zu,%zu,%zu,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.4f,%.4f,%.1f,%.1f,%.1f,"
-           "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f\n",
+           "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%d\n",
            kSpecies[i], mesh.BarkVertexCount(), mesh.BarkIdx.size(), mesh.LeafVertexCount(),
            mesh.LeafIdx.size(), mesh.LeafPoints.size(), (double)mesh.BoxMin.X, (double)mesh.BoxMin.Y,
            (double)mesh.BoxMin.Z, (double)mesh.BoxMax.X, (double)mesh.BoxMax.Y, (double)mesh.BoxMax.Z,
@@ -115,7 +116,10 @@ int main(int argc, char **argv) {
            (double)(mesh.LeafVerts.size() * 4 + mesh.LeafIdx.size() * 4) / 1024.0,
            (double)(mesh.LeafPoints.size() * sizeof(TreeMesh::LeafPoint)) / 1024.0,
            (double)lad.Sampled(90), (double)lad.G0(), (double)lad.G1(), (double)lad.Gp(),
-           (double)lad.MaxResidual(), (double)lad.MeanStalkElevationDeg(), Millis(a0, a1));
+           (double)lad.MaxResidual(), (double)lad.MeanStalkElevationDeg(), Millis(a0, a1),
+           2.0 * (double)mesh.FootRadius * (double)sp.HeightM() * 100.0, bhdCm,
+           (double)sp.BhdM() * 100.0, bhdCm > 0.0 ? (double)sp.HeightM() / bhdCm : -1.0,
+           grower.Passes());
 
     if (angles) {
       fprintf(stderr, "# %s G(el) per degree\n", kSpecies[i]);

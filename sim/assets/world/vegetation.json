@@ -53,7 +53,7 @@
         "status": "declared"
       },
       "trees": {
-        "perM2": 0.04,
+        "perM2": 0.028,
         "species": {
           "buche": 0.42,
           "eiche": 0.18,
@@ -69,7 +69,7 @@
         "perM2": 0.18
       },
       "origins": {
-        "trees.perM2": "[SET] 400 stems/ha for a mature Central European beech stand -> 0.04/m^2",
+        "trees.perM2": "hergeleitet ueber Reineke (1933): SDI = N \u00b7 (d_g/25)^1.605, N je ha, d_g quadratischer Mitteldurchmesser in cm. d_g aus der deklarierten Artmischung und deren bhd_cm: sqrt(0.42\u00b743\u00b2 + 0.18\u00b750\u00b2 + 0.14\u00b728\u00b2 + 0.10\u00b743\u00b2 + 0.07\u00b747\u00b2 + 0.05\u00b726\u00b2 + 0.04\u00b745\u00b2) = 42.3 cm. SDI_max fuer Buche 1100 [SET, Literaturband 1000...1200], bewirtschaftet 60 % davon = 660. N = 660 \u00b7 (25/42.3)^1.605 = 284/ha = 0.0284/m^2, gerundet 0.028. Die alte 0.04 (400/ha) war eine nackte Setzung und ignorierte, dass Stammzahl und Durchmesser nicht unabhaengig sind: 400/ha bei 42 cm liegt ueber der Selbstdurchforstungsgrenze.",
         "trees.species": "[SET] Weserbergland slope forest; the names are the wasm-tree species files (~/Git/wasm-tree/species/*.json), no second parameterisation",
         "grass.perM2": "[SET] closed-canopy forest floor is grass-poor; 90/m^2 is the visual-closure target at 1 m, not a tiller count",
         "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
@@ -132,7 +132,7 @@
         "status": "declared"
       },
       "trees": {
-        "perM2": 0.09,
+        "perM2": 0.033,
         "species": {
           "fichte": 0.62,
           "kiefer": 0.24,
@@ -146,7 +146,7 @@
       },
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
-        "trees.perM2": "[SET] 900 stems/ha for a managed spruce stand -> 0.09/m^2",
+        "trees.perM2": "hergeleitet ueber Reineke, dieselbe Zeile wie beim Laubmischwald. d_g = sqrt(0.62\u00b741\u00b2 + 0.24\u00b740\u00b2 + 0.10\u00b753\u00b2 + 0.04\u00b725\u00b2) = 41.6 cm. SDI_max fuer Fichte 1250 [SET, Literaturband 1200...1400], bewirtschaftet 60 % davon = 750. N = 750 \u00b7 (25/41.6)^1.605 = 331/ha = 0.0331/m^2, gerundet 0.033. Die alte 0.09 (900/ha) beschreibt eine Stangenholzdichte bei ~22 m Hoehe, nicht den 35-m-Bestand, den fichte.json deklariert.",
         "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure",
         "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },

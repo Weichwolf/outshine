@@ -3,6 +3,7 @@
   "name": "ulme", "botanical": "Ulmus minor", "common": "Feldulme / Field elm",
   "habit": "vasen-/trichterfoermige Krone, Aeste steil aufstrebend und nach aussen geschwungen",
   "height_m": 28, "spread_m": 16,
+  "bhd_cm": 45, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.62. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Bergulme, zwischen Buche und Ahorn. 28 / 0.62 = 45.2 cm, gerundet 45.",
   "seed": 15, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
   "trunk_steps": 20, "bare_steps": 6, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.011,
   "branch_chance": 0.88, "max_order": 4, "terminal_fork": 1,

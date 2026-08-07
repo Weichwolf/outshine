@@ -5,6 +5,7 @@
   "common": "Stieleiche / English oak",
   "habit": "kurzer dicker Stamm, breite rundliche ausladende Krone, schwere knorrige Aeste, weite Winkel, schwacher Leittrieb",
   "height_m": 25, "spread_m": 22,
+  "bhd_cm": 50, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.50. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Stieleiche, lichtbeduerftig und breitkronig, waechst in den Durchmesser statt in die Hoehe. 25 / 0.50 = 50.0 cm, gerundet 50.",
 
   "seed": 2, "shade_prune": 0.6,
   "trunk_sides": 12,

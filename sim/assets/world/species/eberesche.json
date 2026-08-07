@@ -3,6 +3,7 @@
   "name": "eberesche", "botanical": "Sorbus aucuparia", "common": "Eberesche / Rowan",
   "habit": "kleiner schlanker Baum, lockere rundliche Krone, aufsteigende Aeste",
   "height_m": 12, "spread_m": 6,
+  "bhd_cm": 15, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.80. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Vogelbeere, kleiner Pionierbaum. 12 / 0.80 = 15.0 cm, gerundet 15.",
   "seed": 18, "shade_prune": 0.6, "trunk_sides": 9, "base_radius": 0.05, "step_len": 0.16,
   "trunk_steps": 20, "bare_steps": 7, "taper": 0.955, "min_radius": 0.004, "twig_radius": 0.01,
   "branch_chance": 0.78, "max_order": 3, "terminal_fork": 1,

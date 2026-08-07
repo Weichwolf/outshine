@@ -3,6 +3,7 @@
   "name": "ahorn", "botanical": "Acer pseudoplatanus", "common": "Bergahorn / Sycamore maple",
   "habit": "breite gewoelbte Krone, kraeftiger Stamm, aufstrebend dann breit ausladend",
   "height_m": 28, "spread_m": 18,
+  "bhd_cm": 47, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.60. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Bergahorn, breitere Krone als Buche, entsprechend niedrigerer Schlankheitsgrad. 28 / 0.60 = 46.7 cm, gerundet 47.",
   "seed": 12, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.085, "step_len": 0.16,
   "trunk_steps": 22, "bare_steps": 7, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.013,
   "branch_chance": 0.82, "max_order": 4, "terminal_fork": 1,

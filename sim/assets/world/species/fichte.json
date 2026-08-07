@@ -5,6 +5,7 @@
   "common": "Gemeine Fichte / Norway spruce",
   "habit": "schmal kegelfoermig, durchgehender gerader Leittrieb, quirlfoermige waagerechte bis leicht haengende Aeste, oben kuerzer",
   "height_m": 35, "spread_m": 6,
+  "bhd_cm": 41, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.85. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Fichte im bewirtschafteten Reinbestand; genau das Band, in dem der Schneebruch beginnt. 35 / 0.85 = 41.2 cm, gerundet 41.",
 
   "seed": 3,
   "trunk_sides": 10,

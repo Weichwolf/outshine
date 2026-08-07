@@ -44,6 +44,7 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   HeightM_ = NumF(r, "height_m", HeightM_);
   SpreadM_ = NumF(r, "spread_m", SpreadM_);
   HeightSigma_ = NumF(r, "height_sigma", HeightSigma_);
+  BhdM_ = NumF(r, "bhd_cm", 0.0f) * 0.01f;
 
   Growth &g = Growth_;
   g.Seed = (uint32_t)NumI(r, "seed", (int)g.Seed);

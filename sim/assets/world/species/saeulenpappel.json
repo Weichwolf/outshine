@@ -5,6 +5,7 @@
   "common": "Saeulenpappel / Lombardy poplar",
   "habit": "schmal saeulenfoermig, steil aufrecht dem Stamm anliegende Aeste, sehr schmale Krone",
   "height_m": 30, "spread_m": 4,
+  "bhd_cm": 25, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 1.20. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Pyramidenpappel: die Sorte IST die Schlankheit, ueber 1,0 und nur deshalb standfest, weil die Krone keine Angriffsflaeche bietet. 30 / 1.20 = 25.0 cm, gerundet 25.",
 
   "seed": 7,
   "trunk_sides": 9,

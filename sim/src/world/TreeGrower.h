@@ -18,8 +18,12 @@ namespace outshine::World {
 
 class TreeGrower {
 public:
-  /* Delivers `out` normalised: base at y = 0, centred in x/z, height 1. */
+  /* Delivers `out` normalised: base at y = 0, the SEED RING on the y axis, height 1. */
   void Grow(const TreeSpecies &species, TreeMesh &out);
+
+  /* How many grow passes the last Grow spent solving the declared BHD, and what it missed by. */
+  int Passes() const { return Passes_; }
+  float BhdErrorRel() const { return BhdErrorRel_; }
 
 private:
   static constexpr int kMaxSides = 16;
@@ -53,15 +57,19 @@ private:
   void SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int first, float roll, int step);
   void EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count,
                       float roll);
+  void GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh &out);
   void Export(TreeMesh &out) const;
-  static void NormalizeToUnitHeight(TreeMesh &out);
+  void NormalizeToUnitHeight(TreeMesh &out, float heightM);
 
   std::vector<TreeVec3> Verts_;
   std::vector<Face> Faces_;
   std::vector<uint8_t> Dead_;
   std::vector<Tip> Queue_;
+  std::vector<TreeVec3> TrunkProfile_; /* X = height above the seed ring, Y = radius, both grower units */
   mutable std::vector<TreeVec3> Normals_;
   TreeRandom Rng_{1};
+  int Passes_ = 0;
+  float BhdErrorRel_ = 0.0f;
 };
 
 } // namespace outshine::World
