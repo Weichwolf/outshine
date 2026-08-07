@@ -3,10 +3,12 @@
 #include <cmath>
 #include "Frustum.h"
 #include "SceneScale.h"
+/* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
+ * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
+ * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
 #include "SurfaceLight.h"
 #include "ShadowSample.h"
 #include "CloudDensityWGSL.h"
-#include "CloudShadow.h"
 #include <string>
 
 namespace outshine::Render {
@@ -20,7 +22,6 @@ struct B { mvp : mat4x4f, anc : vec4f, sun : vec4f, up : vec4f };
 @group(0) @binding(2) var<uniform> C : Csm;
 @group(0) @binding(3) var shMap : texture_depth_2d;
 @group(0) @binding(4) var shSamp : sampler_comparison;
-@group(0) @binding(5) var<uniform> S : CloudSkyU;
 
 /* [SET] REFLECTANCE, not a display colour: lime render measures 0.35-0.50 and weathered plaster with
  * timber framing sits lower; a red-clay pantile roof measures 0.10-0.15 with the red dominant. These
@@ -64,7 +65,7 @@ struct BFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
   let upB = normalize(b.up.xyz);
   var o : BFrag;
   o.col = litRadiance(I, alb, 1.0, nrmB, upB, sunB, sunVis,
-                      cloudSunThru(S, in.rel, upB), cloudMeanThru(S, in.rel, upB), b.up.w);
+                      1.0, 1.0, b.up.w);
   /* A prism is world-fixed, so its motion is the camera's and the resolve gets that from depth. The
    * write is not redundant: this stage draws AFTER the ground cover and a facade in front of a blade
    * would otherwise keep the blade's velocity. */
@@ -79,7 +80,6 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Light = light;
 
   const std::string src = std::string(kSceneScaleWGSL) + kSurfaceLightWGSL + ShadowSampleWGSL()
-                        + CloudDensityConstsWGSL() + kCloudDensityWGSL + kCloudShadowWGSL
                         + kVelocityWGSL + kBuildingWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
@@ -125,16 +125,15 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  wgpu::BindGroupEntry be[6] = {};
+  wgpu::BindGroupEntry be[5] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = Light.Irradiance; be[1].size = wgpu::kWholeSize;
   be[2].binding = 2; be[2].buffer = Light.Cascades;   be[2].size = kShadowUniFloats * sizeof(float);
   be[3].binding = 3; be[3].textureView = Light.ShadowAtlas;
   be[4].binding = 4; be[4].sampler = Light.ShadowCompare;
-  be[5].binding = 5; be[5].buffer = Light.CloudSky; be[5].size = kCloudSkyBytes;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = Pipe.GetBindGroupLayout(0);
-  bg.entryCount = 6;
+  bg.entryCount = 5;
   bg.entries = be;
   Bind = Device.CreateBindGroup(&bg);
 }

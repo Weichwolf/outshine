@@ -5,10 +5,12 @@
 #include "AtmoSample.h"
 #include "AtmoHaze.h"
 #include "SceneScale.h"
+/* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
+ * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
+ * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
 #include "SurfaceLight.h"
 #include "ShadowSample.h"
 #include "CloudDensityWGSL.h"
-#include "CloudShadow.h"
 #include "Sward.h"
 #include "Graticule.h"
 #include "Log.h"
@@ -57,7 +59,6 @@ struct Tile { a : vec4f, b : vec4f, c : vec4f };
 @group(0) @binding(10) var<uniform> C : Csm;
 @group(0) @binding(11) var shMap : texture_depth_2d;
 @group(0) @binding(12) var shSamp : sampler_comparison;
-@group(0) @binding(14) var<uniform> S : CloudSkyU;
 struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
               @location(1) @interpolate(flat) layer : u32, @location(2) wpos : vec3f,
               @location(3) gpos : vec3f };
@@ -99,12 +100,10 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
   let fragAltM = (length(A.camPosMm.xyz + in.wpos * 1.0e-6) - u.haze.z) * 1.0e6;
   let sunN = normalize(u.sun.xyz);
   let upN = normalize(A.camPosMm.xyz + in.wpos * 1.0e-6);
-  // WEATHER LIGHT, and it is now a PLACE and not an average: cloudSunThru walks the sun ray from this
-  // fragment up to the deck it pierces and asks THE field the march draws (stages/CloudShadow.h), so
-  // what darkens the ground lies under the cloud that darkens it. The deck's own downward re-emission
-  // stays the area mean — a hole in the deck does not stop the rest of it glowing overhead.
-  let sunThru = cloudSunThru(S, in.wpos, upN);
-  let meanThru = cloudMeanThru(S, in.wpos, upN);
+  // WEATHER LIGHT as a deck-mean and not a place: the cast cloud shadow is out until the cloud
+  // itself is worth casting one (stages/CloudShadow.h).
+  let sunThru = 1.0;
+  let meanThru = 1.0;
   let sunVis = csmSunVis(shMap, shSamp, C, in.wpos, nrmN, sunN);
   let night = kNightAmbient * (1.0 - A.skyExtra.x);
   // ROUGHNESS IS THE SEPARATOR, not the albedo: asphalt 0.120 and forest floor 0.148 are 0.30 EV
@@ -603,7 +602,6 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
    * the same three splices the cloud pass makes, in the same order. */
   const std::string terrSrc = std::string(kSceneScaleWGSL) + kAtmoCommon + kAtmoSample
                             + HazeConstsWGSL() + kHazeWGSL + kSurfaceLightWGSL + ShadowSampleWGSL()
-                            + CloudDensityConstsWGSL() + kCloudDensityWGSL + kCloudShadowWGSL
                             /* [SET] 0.05 m: the world-fixed FLOOR under the boundary fray, so a
                              * boundary a fragment could resolve to nothing still has a width. Under
                              * the 0.140 m mean residual the vector source carries against raw OSM. */
@@ -724,7 +722,6 @@ void TilesStage::RebuildBind(void) {
   be[nbe].binding = 11; be[nbe].textureView = Light.ShadowAtlas; nbe++;
   be[nbe].binding = 12; be[nbe].sampler = Light.ShadowCompare;   nbe++;
   if (VegBuf) { be[nbe].binding = 13; be[nbe].buffer = ClassBuf; be[nbe].size = wgpu::kWholeSize; nbe++; }
-  be[nbe].binding = 14; be[nbe].buffer = Light.CloudSky; be[nbe].size = kCloudSkyBytes; nbe++;
   wgpu::BindGroupDescriptor bgd{};
   bgd.layout = Pipe.GetBindGroupLayout(0);
   bgd.entryCount = (uint32_t)nbe;

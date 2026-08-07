@@ -21,7 +21,7 @@ namespace {
 
 /* WHY THE OVERCAST AND NOT A SWITCH. "Pure sky light" has to come out of the engine's own model or it
  * measures something the scene can never show: a closed deck extinguishes the direct beam through the
- * very cloudSunThru every lit surface already reads, and hands the loss back as the deck's downward
+ * very cloudMeanThru every lit surface already reads, and hands the loss back as the deck's downward
  * diffuse. Switching the sun term off by hand would be a second lighting model. */
 class OvercastWeather : public CalmWeather {
 public:

@@ -64,7 +64,7 @@ fn deckHazeFactor(I : Irr, sunUp : f32, thruMean : f32) -> f32 {
  * upv      unit geodetic up at the fragment
  * sunDir   unit ECEF direction to the sun
  * sunVis   0..1 unshadowed fraction of the sun disc (cascaded shadow maps)
- * thruDir  cloud transmittance of the beam ON THIS RAY (stages/CloudShadow.h cloudSunThru)
+ * thruDir  cloud transmittance of the beam (stages/CloudShadow.h cloudMeanThru)
  * thruMean the same, AREA-MEANED over the deck — what the deck re-emits downward is a hemisphere
  *          average, so standing in a sunbeam one still sees the whole lit underside
  * kdDir    1 - F(v.h) for the SUN's half-vector: what the coherent specular takes out of the beam is

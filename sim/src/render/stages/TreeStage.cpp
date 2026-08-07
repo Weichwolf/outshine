@@ -2,10 +2,12 @@
 
 #include "SceneTargets.h"
 #include "SceneScale.h"
+/* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
+ * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
+ * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
 #include "SurfaceLight.h"
 #include "ShadowSample.h"
 #include "CloudDensityWGSL.h"
-#include "CloudShadow.h"
 
 #include <cmath>
 #include <cstring>
@@ -29,7 +31,6 @@ struct T {
 @group(0) @binding(2) var<uniform> C : Csm;
 @group(0) @binding(3) var shMap : texture_depth_2d;
 @group(0) @binding(4) var shSamp : sampler_comparison;
-@group(0) @binding(5) var<uniform> S : CloudSkyU;
 
 /* Tree space is y-up and metric once multiplied by the declared height; the stand maps it onto the
  * ECEF triad the whole frame is built in. One place, both nets. */
@@ -102,7 +103,7 @@ fn furrow(nlx : f32, nlz : f32, y : f32, f : f32) -> f32 {
   let alb = b.bark.rgb * mix(b.bark.w, 1.0, mix(1.0, fr, b.bpar.y));
   let sunVis = csmSunVis(shMap, shSamp, C, in.rel, upB, sunB);
   return litRadiance(I, alb, 1.0, nB, upB, sunB, sunVis,
-                     cloudSunThru(S, in.rel, upB), cloudMeanThru(S, in.rel, upB), b.sun.w);
+                     1.0, 1.0, b.sun.w);
 }
 
 @fragment fn fsLeaf(in : TOut) -> @location(0) vec4f {
@@ -114,9 +115,9 @@ fn furrow(nlx : f32, nlz : f32, y : f32, f : f32) -> f32 {
   let nB = select(-n0, n0, viewSide >= 0.0);
   let alb = b.leaf.rgb;
   let sunVis = csmSunVis(shMap, shSamp, C, in.rel, upB, sunB);
-  let thruDir = cloudSunThru(S, in.rel, upB);
+  let thruDir = 1.0;
   let lit = litRadiance(I, alb, 1.0, nB, upB, sunB, sunVis, thruDir,
-                        cloudMeanThru(S, in.rel, upB), b.sun.w);
+                        1.0, b.sun.w);
 
   /* THE ONE TERM AN OPAQUE BRDF HAS NO PLACE FOR. A leaf is 0.2 mm of mesophyll: in the visible it
    * transmits about as much as it reflects (LOPEX/PROSPECT, tau ~ rho at 550 and 650 nm), so the
@@ -140,7 +141,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Light = light;
 
   const std::string src = std::string(kSceneScaleWGSL) + kSurfaceLightWGSL + ShadowSampleWGSL()
-                        + CloudDensityConstsWGSL() + kCloudDensityWGSL + kCloudShadowWGSL + kTreeWGSL;
+                        + kTreeWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
   wgpu::ShaderModuleDescriptor smd{};
@@ -175,7 +176,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   ble[5].visibility = wgpu::ShaderStage::Fragment;
   ble[5].buffer.type = wgpu::BufferBindingType::Uniform;
   wgpu::BindGroupLayoutDescriptor bgld{};
-  bgld.entryCount = 6;
+  bgld.entryCount = 5;
   bgld.entries = ble;
   wgpu::BindGroupLayout bgl = Device.CreateBindGroupLayout(&bgld);
   wgpu::PipelineLayoutDescriptor pld{};
@@ -241,16 +242,15 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  wgpu::BindGroupEntry be[6] = {};
+  wgpu::BindGroupEntry be[5] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = Light.Irradiance; be[1].size = wgpu::kWholeSize;
   be[2].binding = 2; be[2].buffer = Light.Cascades;   be[2].size = kShadowUniFloats * sizeof(float);
   be[3].binding = 3; be[3].textureView = Light.ShadowAtlas;
   be[4].binding = 4; be[4].sampler = Light.ShadowCompare;
-  be[5].binding = 5; be[5].buffer = Light.CloudSky; be[5].size = kCloudSkyBytes;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = bgl;
-  bg.entryCount = 6;
+  bg.entryCount = 5;
   bg.entries = be;
   Bind = Device.CreateBindGroup(&bg);
 }
