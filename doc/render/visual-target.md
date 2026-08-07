@@ -4,6 +4,11 @@
 > für einen cinematischen look sorgen."* · *„eher in anti aliasing investieren. kanten sind der optik
 > killer bei niedrigen auflösungen."* · *„schön anzusehen ist auch wichtiger als korrekt."*
 
+**This file is the overarching goal, not a pass description.** What the image must look like, what it may
+cost, and how that is judged. Every render pass has a file of its own under [`stages/`](stages/); the
+three cross-cutting subjects that are not passes are [`classification.md`](classification.md),
+[`vegetation.md`](vegetation.md) and [`lod.md`](lod.md).
+
 Spec-first. `## State` is what exists; almost nothing does.
 
 ## Spec
@@ -154,7 +159,7 @@ Measuring only the total would confuse the two: a large gap might be a bad LOD d
 shading model that was never close. Separating them says which.
 
 The pieces already exist and were built for other reasons: **headless Blender** runs the asset pipeline,
-and **`gpu_native` is already the tree's frame oracle**. What is missing is the matched-pair harness and
+and **`gpu_walk` is already the tree's frame oracle**. What is missing is the matched-pair harness and
 the distance metric.
 
 ### 1.4 Style: pairwise choice, not taste
@@ -194,11 +199,165 @@ false gate this tree spent today removing.**
 | motion blur | **subtle** — short shutter, a hint | owner: it must not smear |
 | **anti-aliasing** | **the priority investment** | at 720p, edges are the dominant defect. Alpha-cutout foliage in motion is the worst case in the whole scene |
 
-**TAA is the keystone and it earns its cost twice.** It resolves foliage aliasing, and it makes *„keine
-Geometrie darf poppen"* nearly free: LOD transitions rendered as stochastic dither resolve temporally
-into a smooth blend. One technique, two requirements. The cost is that 30 fps leaves longer between
-samples, so motion vectors must be correct everywhere — including on instanced, wind-animated foliage,
-where they are easy to get wrong.
+**TAA is the keystone and it earns its cost twice** — but only under conditions the literature states
+explicitly, and they are not free. It resolves foliage aliasing, and it makes *„keine Geometrie darf
+poppen"* cheap. The published form of the argument is Karis's, for Nanite: *„if we only draw clusters
+that are less than 1 pixel of error they are imperceptibly different and temporal antialiasing smoothes
+out any change. TAA is built to blend subpixel differences over time. It does our work for us **so long
+as the error is subpixel**."* (Karis, Stubbe, Wihlidal, *A Deep Dive into Nanite Virtualized Geometry*,
+SIGGRAPH 2021 Advances in Real-Time Rendering,
+[PDF](https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf).)
+
+**Read the conditional.** TAA does not dissolve an arbitrary LOD transition; it dissolves a *subpixel*
+one. Nanite therefore needs neither geomorphing nor cross-fading — it keeps the error under τ instead.
+Below τ, dithering has nothing left to hide. The three conditions the LOD ladder must respect are in
+[`lod.md`](lod.md) `## Knowledge`.
+
+The cost is that 30 fps leaves longer between samples, so motion vectors must be correct everywhere —
+including on instanced, wind-animated foliage, where they are easy to get wrong, and where the primary
+sources are silent ([`lod.md`](lod.md) `## Gaps`).
+
+### 2.1 2015 is the QUALITY bar; WebGPU is the means, and it is to be used fully
+
+> Owner, 2026-08-06: *„du sollst keine 2015er Technik verwenden sondern WebGPU voll ausschöpfen. Die
+> Annahme ist, dass du mit modernen Mitteln die Qualität 2015er Titel erreichen solltest."*
+
+Two separate statements, and conflating them was the earlier error in this file:
+
+| | |
+|---|---|
+| **Witcher 3 · GTA 5 · Fallout 4** | the **quality** bar — what the image must look like |
+| **WebGPU** | the **means**, to be exhausted — not the methods of 2015 |
+
+**The only real exclusion list is what WebGPU provably cannot do**, not what a 2015 title did not do.
+
+#### What the quality bar actually cost in 2015
+
+Only GTA 5 has a public frame-level teardown. What is listed here is read off it; the other two titles
+are **unsourced in this file** and are named as such (`## Gaps`).
+
+**GTA 5 (PC, April 2015)** — Adrian Courrèges, *GTA V — Graphics Study*, 2015,
+[adriancourreges.com](https://www.adriancourreges.com/blog/2015/11/02/gta-v-graphics-study/):
+
+| Stage | What the study shows |
+|---|---|
+| shading | deferred, MRT G-buffer, HDR throughout |
+| shadows | CSM, **4 cascades in one 1024×4096 texture**, dither-sampled then depth-aware blurred; an ⅛-scale „early out" texture skips the blur where it cannot matter |
+| ambient occlusion | SSAO at **half resolution**, noisy then blurred |
+| volumetrics | light-shaft map at **half resolution**, ray-marched against the sun shadow map |
+| reflections | realtime environment cubemap at **128×128 per face**, converted to a dual-paraboloid map |
+| water | scene re-rendered upside-down into a **240×120** texture, 650 draw calls |
+| tonemap | Hable/Uncharted-2 filmic operator (Duiker's 2006 curve) |
+| **anti-aliasing** | **FXAA** — a post filter. **Not TAA** |
+| **LOD transition** | **alpha stippling**: a dither pattern makes an opaque mesh look part-transparent while it crosses between LODs. Courrèges reports it as *visible* — „Do you notice some pixels missing? It's especially visible for the trees" |
+| vegetation LOD | **distance-declared**: „beyond a certain distance the grass or the flowers are never rendered" |
+
+**Three corrections to what this file previously asserted**, all from that one source:
+
+1. **GTA 5 had no TAA.** It had FXAA. The 2015 bar was reached *without* the technique §2 calls the
+   keystone — so TAA is our lever, not theirs, and it is a genuine advantage rather than parity.
+2. **Dithered LOD transitions predate TAA and were visible without it.** GTA 5 shipped exactly the
+   mechanism [`lod.md`](lod.md) names, and the public teardown calls out the stipple. Dither is not what makes a
+   transition invisible; keeping the error subpixel is (§2, Karis 2021).
+3. **GTA 5's vegetation LOD is distance-declared**, which is the formulation [`lod.md`](lod.md) rules out. The bar
+   title does the thing this spec forbids — so matching its *look* does not mean copying its *rule*.
+
+#### What WebGPU gives, measured and specified
+
+Two sources, and they are **different devices** — neither is the A18 Pro that §1 names the budget:
+
+* the W3C specification's *default* (guaranteed-everywhere) limits — [W3C WebGPU](https://www.w3.org/TR/webgpu/), §Limits
+* [`doc/webgl-webgpu-report.txt`](../webgl-webgpu-report.txt), generated 2026-07-22 on an **Intel HD Graphics via ANGLE/D3D11**, 2560×1440, 4 cores
+
+| Limit | Spec default | `webgl-webgpu-report.txt` | §1 claims for Xbox Edge |
+|---|---|---|---|
+| `maxStorageBufferBindingSize` | 128 MiB | 1 GB | 2 GB |
+| `maxBufferSize` | 256 MiB | 1 GB | — |
+| `maxComputeWorkgroupStorageSize` | 16 KiB | 32 KiB | 32 KB |
+| `maxComputeInvocationsPerWorkgroup` | 256 | 1024 | 1024 |
+| `maxComputeWorkgroupsPerDimension` | 65535 | 65535 | — |
+| `maxColorAttachments` | 8 | 8 | — |
+| **`maxColorAttachmentBytesPerSample`** | **32 B** | 128 B | — |
+| `maxStorageBuffersPerShaderStage` | 8 | 64 | — |
+| `maxStorageTexturesPerShaderStage` | 4 | 64 | — |
+| `maxBindGroups` | 4 | 8 | — |
+| `maxTextureDimension2D` | 8192 | 16384 | — |
+
+**`maxColorAttachmentBytesPerSample` = 32 B by default is the one that bites.** A 2015-style fat G-buffer
+does not fit in it: albedo+AO (4 B) + normal+roughness (8 B) + specular (4 B) + emissive (4 B) + depth
+already crowds it, and anything richer needs the raised limit that is *not* guaranteed. This is an
+argument for a **visibility buffer** (one 32-bit ID + depth, materials evaluated in a second pass) over a
+fat deferred G-buffer — the same argument Karis 2021 makes on bandwidth grounds, arriving here from the
+portability side instead.
+
+**Present in core WebGPU** (spec-guaranteed, no feature flag): compute shaders · storage buffers and
+storage textures · `drawIndirect` / `drawIndexedIndirect` / `dispatchWorkgroupsIndirect` · reversed-Z via
+`depth32float` · `rg11b10ufloat` and `rgba16float` render targets · read-write storage textures (WGSL).
+
+**Optional features, present on the report device**: `timestamp-query` (profiling — this is how
+`mods/bench/` gets its numbers), `shader-f16`, `float32-filterable`, `indirect-first-instance`,
+`bgra8unorm-storage`, `depth-clip-control`, `texture-compression-bc`, DP4a.
+
+**Optional and ABSENT on the report device**: `subgroups` · `dual-source-blending` · `clip-distances` ·
+`float32-blendable` · `texture-compression-astc` and `-etc2` (that device is desktop Intel; ASTC is the
+mobile format and the A18 Pro would have it — **unmeasured on our actual targets**).
+
+#### What WebGPU provably cannot do
+
+Searched in the W3C WebGPU and WGSL specifications; each of these terms has **zero occurrences**:
+
+| Absent | Consequence here |
+|---|---|
+| **hardware ray tracing** (no acceleration structures, no ray queries) | no RTGI, no ray-traced shadows or reflections. Screen-space and compute-marched methods only |
+| **mesh / task shaders** | cluster expansion must run as an ordinary compute dispatch feeding indirect draws |
+| **geometry and tessellation shaders** | displacement and expansion are compute-side or vertex-side, never fixed-function |
+| **multi-draw indirect** | one indirect draw per batch; the count comes from the GPU but the calls do not |
+| **bindless / `binding_array`** | material and texture indexing goes through atlases or texture arrays, not a descriptor heap |
+| **64-bit integers and 64-bit atomics** | see below — this is the load-bearing one |
+
+**The 64-bit hole, exactly.** WGSL §6.2.8: *„atomic<T> — T must be either u32 or i32."* And the note in
+its host-shareable-types section: *„WGSL does not have a concrete 64-bit integer type."*
+([W3C WGSL](https://www.w3.org/TR/WGSL/)). There is a **draft proposal**, `atomic_vec2u_min_max`
+(gpuweb/gpuweb [issue #5071](https://github.com/gpuweb/gpuweb/issues/5071), proposal file
+`proposals/atomic-64-min-max.md`, created 2025-09-15), which would add exactly `atomicStoreMin` /
+`atomicStoreMax` on a `vec2u` surrogate, storage buffers only, no return value. Its own requirements
+section records that **Metal restricts 64-bit atomics to min/max and to feature family Apple 9** — which
+is the A17 Pro/M3 generation and later, so an **A18 Pro can do it in hardware; WebGPU just does not
+expose it yet.** Vulkan coverage cited there: `shaderBufferInt64Atomics` 87.7 % on Linux, **31 % on
+Android**.
+
+Why that one gap matters more than the rest is [`lod.md`](lod.md)'s subject, and it is worked through there.
+
+#### Where a modern method beats the 2015 method, with its source
+
+| 2015 method | Modern replacement, WebGPU-feasible | Evidence |
+|---|---|---|
+| SSAO / HBAO ([`stages/ao.md`](stages/ao.md)) | **GTAO** — closed-form horizon integral, matches a ray-traced ground truth | Jimenez et al., *Practical Real-Time Strategies for Accurate Indirect Occlusion*, SIGGRAPH 2016 Course. Reports **0.5 ms on PS4 at 1080p** for GTAO+GI at a half-res occlusion buffer — cheaper than what §1 budgets, on weaker hardware. Pure compute, no ray tracing |
+| CSM, fixed cascade split ([`stages/shadow.md`](stages/shadow.md)) | **Virtual shadow maps** — paged, cached, resolution follows screen-space need | Nanite's companion system (Karis et al. 2021 and the UE5 documentation). Feasible in principle by compute + indirect draw; **no WebGPU implementation found** (`## Gaps`) |
+| baked GI / ambient + sky | **radiance cascades** — probe cascades with distance-proportional angular resolution, no ray-tracing hardware | Osborne & Sannikov, *Radiance Cascades: A Novel High-Resolution Formal Solution for Multidimensional Non-LTE Radiative Transfer*, [arXiv:2408.14425](https://arxiv.org/abs/2408.14425), 2024. **Caveat, stated because it matters:** the paper is astrophysical radiative transfer, not a game-GI paper. The formulation is primary; the game application is not published there |
+| baked GI / ambient + sky | **DDGI** — irradiance probes with per-probe visibility, no hardware RT required if the trace is a compute march | Majercik et al., *Dynamic Diffuse Global Illumination with Ray-Traced Irradiance Fields*, JCGT 8(2), 2019 |
+| FXAA / SMAA | **TAA** — and §2 has the sourced conditions under which it works | Karis, *High-Quality Temporal Supersampling*, SIGGRAPH 2014 Advances |
+| alpha-cutout foliage with a fixed threshold | **hashed alpha testing** — object-space-anchored hash instead of a fixed 0.5 threshold; distant foliage stops dissolving | Wyman & McGuire, *Hashed Alpha Testing*, I3D 2017. Measured cost at 1920×1080 on a GTX 1080: European Beech 386 k tris **0.39 ms → 0.50 ms** vs. traditional; UE3 FoliageMap 3 000 k tris **2.52 ms → 2.86 ms**. Stochastic (unhashed) is 3–4× worse: 1.69 ms and 11.42 ms |
+| discrete LOD ladder per asset class | **cluster-DAG virtualised geometry** (Nanite class) | Karis et al. 2021 — judged in [`lod.md`](lod.md), because it is a decision, not a menu item |
+
+### 2.2 Procedural first; Blender only where procedure will not reach
+
+> Owner: *„wo nötig in Blender modellieren und Texturen erzeugen. aber was immer geht prozedural."*
+
+A strict order of preference, and a producer must justify stepping down a rung:
+
+1. **Grown or generated at load/build time from parameters** — trees, grass, ground cover, perennials,
+   bark, leaf venation, extruded buildings, terrain detail. Resolution-independent, diffable, and one
+   parameter change restyles a whole species. This is the default and it covers most of the world.
+2. **Procedurally baked in headless Blender**, checked in as glTF — where growth rules do not describe the
+   shape: a vehicle, a specific landmark, a piece of furniture. Still a script with named, sourced
+   dimensions, never a hand-pulled mesh. **Version the recipe, never the cake**: what is committed is
+   the script, the dimensions it was produced from and their sources; a `.glb` is a build output and
+   stays untracked.
+3. **Authored by hand** — only where neither reaches, and named as an exception when it happens.
+
+The same order applies to textures: generated in the shader or baked from a generator beats a painted
+image, because a generator carries its own provenance and rescales for free.
 
 ### 3. Altitude splits the problem
 
@@ -214,6 +373,8 @@ where they are easy to get wrong.
 These are different subsystems, not one system at different detail. Trees at 10 000 m are not required —
 **geometry that pops is**, at every altitude. Continuous LOD is therefore a hard rule: geomorphing on
 terrain, dithered temporal transitions on instances, crossfaded impostors. No mesh swap is ever visible.
+The rule, its threshold and the mechanism that must not be re-invented per layer are in
+[`lod.md`](lod.md).
 
 ### 4. The world is procedural; OSM is an overlay
 
@@ -228,24 +389,19 @@ correct answer for most genuinely unmapped land.
 parked cars; it cannot be relit, and time of day and weather are declared per mission. Imagery is used
 **only as a coarse albedo hint at DEM resolution**. Everything visible is generated.
 
-Two consequences worth stating: night vision and the radar map need *geometry*, which a photograph cannot
-supply — and procedural detail is resolution-independent, where imagery runs out.
+One consequence worth stating: procedural detail is resolution-independent, where imagery runs out.
 
-### 5. Vegetation: 256 templates from albedo
+**How that world is actually produced has four files of its own**, because none of it is a pass:
 
-> Owner: *„wenn dir der grobe albedo reicht kannst du den auf 8 bit komprimieren und bekommst 256
-> vegetationstemplates … müssen dann natürlich fliessend übergehen."*
+| Subject | File |
+|---|---|
+| the chain before the first pass — albedo + position + OSM → class, and the same structure for buildings from geo-coordinate, base albedo, epoch and decay | [`classification.md`](classification.md) |
+| the ground as a **material** rather than a colour, and the stand it carries as a fragment term | [`stages/terrain.md`](stages/terrain.md) |
+| the 256 templates, the 0–40 m stack, the species | [`vegetation.md`](vegetation.md) |
+| continuous LOD: screen-space error, the Nanite judgement, FLIP — it binds **every** pass | [`lod.md`](lod.md) |
 
-Quantise the coarse albedo triple to an 8-bit index into 256 vegetation templates. A template declares a
-species mix, densities, ground cover and clutter — not a texture.
-
-- **Blend the distributions, not the images.** Interpolating species mix and density across a boundary
-  leaves no seam; interpolating textures leaves a visible one.
-- **Latitude and elevation are a plausibility filter** on the index. Albedo alone is seasonal — a winter
-  photograph would otherwise make a deciduous forest permanently snowbound.
-- **Growth, not assets.** `~/Git/wasm-tree` is the *idea*: trees grown from JSON parameters as watertight
-  meshes with instanced leaf cards, venation normal maps, hierarchical wind and an octahedral-impostor
-  LOD ladder. Its sixteen Central European species do not transfer; the growth method does.
+One document per render pass sits under [`stages/`](stages/); the orchestrator and the pass topology are
+[`renderer.md`](renderer.md).
 
 ### 6. Acceptance
 
@@ -259,46 +415,114 @@ species mix, densities, ground cover and clutter — not a texture.
 
 ## State
 
-Nothing here is built. Clouds and atmosphere landed recently and are the furthest advanced part; they are
-also the part §3 says carries the high-altitude image, so that is fortunate rather than planned.
+**Of the bar and the budget in this file, nothing is built.** There is no governor, no bench mod, no
+ground-truth differential, no thermal measurement and no anti-aliasing of any kind — so neither half of
+the contract „hold 720p30, then spend everything left on quality" has a mechanism.
+
+What *is* built is passes, and each one carries its own honest state: the atmosphere chain is the
+furthest advanced ([`stages/atmosphere.md`](stages/atmosphere.md)), which is also the part §3 says carries
+the high-altitude image, so that is fortunate rather than planned. The low-altitude regime §3 names —
+vegetation, buildings, materials, shadows, ground detail — is where the empty `## State` sections are.
+
 
 ## Gaps
 
 - **„Cinematic" has no anchor.** §2 states it in words. Which grade, which grain, how much depth of field
   — undecided, and it is the kind of thing that drifts into taste unless a reference frame is pinned.
-- **Motion vectors for wind-animated instanced foliage** are the known-hard part of TAA and nothing
-  produces them today.
-- **The fixed-function raster path is *less* specified than the shaders**, and it lands exactly on §2's
-  priority investment: edge coverage „not defined", the **multisample resolve algorithm is not specified
-  at all**, and alpha-to-coverage is „platform-dependent and can vary for different pixels" and not
-  monotonic in alpha. Alpha-cutout foliage is the worst case in the scene and three of those four
-  sentences aim at it. See [`gpu-determinism.md`](gpu-determinism.md).
-- **The 256 templates do not exist**, nor does the quantisation, nor the latitude/elevation filter.
 - **The ground-truth differential (§1.3) does not exist.** The pieces do — headless Blender runs for
-  assets, `gpu_native` is already named the frame oracle — but nothing renders a matched pair or measures
+  assets, `gpu_walk` is already named the frame oracle — but nothing renders a matched pair or measures
   the distance between them.
 - **The floor is unknown.** §1.3 rests on measuring the engine-vs-Blender gap at *maximum* quality first.
   That number has never been taken, and if it is large, the governor's contribution disappears inside it.
 - **The governor does not exist**, nor do the knobs it would turn. Today quality is fixed and the frame
   rate floats, which is exactly backwards.
+- **`mods/bench/` does not exist**, so §1.2's one comparable number — the step at which the governor
+  broke — has never been taken on any commit.
 - **No thermal measurement.** §1's numbers are all peak or nominal. What the sustained clock is after ten
   minutes of continuous rendering is unmeasured, and Twitch means continuous by definition. Every frame
   budget here rests on it.
-- **OSM buildings ARE available for every theatre — the work is extrusion, not acquisition.** Measured
-  2026-08-06 against a running `fb-tiles`, `/t/vector/z/x/y`:
+- **§1's WebGPU limits and `doc/webgl-webgpu-report.txt` are from different devices and neither is a
+  target.** §1 attributes 2 GB `maxStorageBufferBindingSize` to Xbox Edge; the checked-in report shows
+  1 GB on an Intel HD Graphics machine via ANGLE (2560×1440, 4 cores). Both may be true of their own
+  device. **Nothing in this file is measured on the A18 Pro, which §1 names as the budget.** The spec
+  *defaults* in §2.1 are verified against the W3C text and are the only numbers here that hold
+  everywhere.
+- **ASTC on the actual targets is unmeasured.** The report device is desktop Intel and reports BC only.
+  Texture compression availability decides whether §1's bandwidth argument survives contact.
+- **Witcher 3 and Fallout 4 are unsourced in this file.** §2.1 documents GTA 5 from Courrèges' frame
+  study and deliberately asserts nothing about the other two. Attempts to reach CD Projekt RED's
+  REDengine 3 / landscape GDC material and Bethesda/NVIDIA's Fallout 4 volumetrics material failed
+  (dead GDC Vault mirror; the search engines reachable from here return CAPTCHA challenges). **Their
+  anti-aliasing in particular is unknown to this file** — GTA 5's being FXAA is established, and
+  generalising from one title to three is precisely the error being corrected. Until a primary source
+  is read, §2.1's bar rests on one title.
+- **The fixed-function raster path is *less* specified than the shaders**, and it lands exactly on §2's
+  priority investment: edge coverage „not defined", the **multisample resolve algorithm is not specified
+  at all**, and alpha-to-coverage is „platform-dependent and can vary for different pixels" and not
+  monotonic in alpha. Alpha-cutout foliage is the worst case in the scene and three of those four
+  sentences aim at it. See [`gpu-determinism.md`](gpu-determinism.md), and
+  [`stages/tonemap.md`](stages/tonemap.md) for the pass it lands in.
+- **No WebGPU virtual-shadow-map implementation was found.** §2.1 lists VSM as the modern replacement
+  for CSM on the strength of Epic's system; nothing establishes it is reachable within this budget.
+  [`stages/shadow.md`](stages/shadow.md) carries what is built instead.
 
-  | | z13 | **z14** |
-  |---|---|---|
-  | Payerne (control) | 14 314 B — `streets` `land` `water` | **15 410 B — `buildings` `streets` `land` `water` `street_polygons`** |
-  | Sindh (Armored Fist) | 37 172 B, no buildings | **32 711 B — `buildings` `streets`** |
-  | z15 / z16 anywhere | — | `no such route` (`FB_TILE_VECTOR.maxz = 14`) |
+## Knowledge
 
-  z13 carries no `buildings` layer; **z14 does, everywhere**, and `tiles/src/raster.c` and `lights.c`
-  already read it. Nothing is missing but the extrusion itself.
+Derivations, measured constants and the conditions this file's Spec rests on. Every entry names its
+origin; where none exists the entry says so instead of supplying one. The derivations that belong to one
+pass or to one cross-cutting mechanism live in that file's own `## Knowledge` — the screen-space-error
+threshold and the TAA/dither conditions in [`lod.md`](lod.md), the soil-albedo measurement in
+[`stages/terrain.md`](stages/terrain.md), the exposure constant in
+[`stages/tonemap.md`](stages/tonemap.md).
 
-  **Two cold-cache traps, and this file recorded the wrong conclusion off each of them before the
-  measurement was finished:** a first request returns 9 B and a later one the real tile — the same
-  behaviour the DEM has. An earlier note read „northern Thailand has no OSM objects" off that artefact,
-  and a revision of this very entry called z14 a blocker without having tested z14. **Fetch twice, then
-  conclude.**
-- **Foliage** is named in the goal and absent from the tree.
+### WebGPU: verified spec defaults, and the one hole that matters
+
+Verified against [W3C WebGPU](https://www.w3.org/TR/webgpu/) §Limits — §1's „WebGPU default" column is
+correct: `maxStorageBufferBindingSize` 134 217 728 B (128 MiB), `maxComputeWorkgroupStorageSize` 16 384 B,
+`maxComputeInvocationsPerWorkgroup` 256. Additionally `maxBufferSize` 268 435 456 B (256 MiB),
+`maxColorAttachments` 8, **`maxColorAttachmentBytesPerSample` 32 B**, `maxBindGroups` 4,
+`maxStorageBuffersPerShaderStage` 8, `maxStorageTexturesPerShaderStage` 4, `maxTextureDimension2D` 8192.
+
+**The 64-bit hole, in the specifications' own words:**
+
+* WGSL §6.2.8 Atomic Types: *„atomic<T> — Atomic of type T. **T must be either u32 or i32**."*
+* WGSL §Host-shareable types: *„Note: **WGSL does not have a concrete 64-bit integer type**."*
+* Atomics are further restricted to *„variables in the workgroup address space or … storage buffer
+  variables with a read_write access mode"* — **no texture atomics**, so a visibility buffer must be a
+  storage buffer regardless.
+
+**Draft remedy:** `atomic_vec2u_min_max` (gpuweb/gpuweb `proposals/atomic-64-min-max.md`, created
+2025-09-15, [issue #5071](https://github.com/gpuweb/gpuweb/issues/5071)), adding `atomicStoreMin` /
+`atomicStoreMax` on a `vec2u` surrogate, storage buffers only, **no return value**. Backend coverage the
+proposal itself records:
+
+| Backend | Requirement | Coverage it cites |
+|---|---|---|
+| Vulkan | `VK_KHR_shader_atomic_int64` / Vulkan 1.2 `shaderBufferInt64Atomics` | 87.7 % Linux, **31 % Android** |
+| Metal | 2.4; **min/max only**, feature family **Apple 9** | Apple 9 = A17 Pro / M3 and later — so an **A18 Pro has it in hardware** |
+| D3D12 | SM 6.6 `Int64ShaderOps` | — |
+
+So the constraint is the **API**, not our hardware, and it is dated rather than permanent.
+
+**Absent from the W3C WebGPU and WGSL specifications entirely** (zero occurrences of each term):
+ray tracing / acceleration structures · mesh and task shaders · geometry and tessellation shaders ·
+multi-draw indirect · bindless / `binding_array`.
+
+### Sources
+
+| # | Source |
+|---|---|
+| 7 | Karis, Stubbe & Wihlidal, *A Deep Dive into Nanite Virtualized Geometry*, SIGGRAPH 2021 Advances in Real-Time Rendering — https://advances.realtimerendering.com/s2021/Karis_Nanite_SIGGRAPH_Advances_2021_final.pdf |
+| 11 | Karis, *High-Quality Temporal Supersampling*, SIGGRAPH 2014 Advances — http://advances.realtimerendering.com/s2014/epic/TemporalAA.pptx |
+| 13 | Jimenez et al., *Practical Real-Time Strategies for Accurate Indirect Occlusion* (GTAO), SIGGRAPH 2016 Course |
+| 14 | Majercik et al., *Dynamic Diffuse Global Illumination with Ray-Traced Irradiance Fields*, JCGT 8(2), 2019 — https://jcgt.org/published/0008/02/01/ |
+| 15 | Osborne & Sannikov, *Radiance Cascades*, arXiv:2408.14425, 2024 — https://arxiv.org/abs/2408.14425 |
+| 16 | Courrèges, *GTA V — Graphics Study*, 2015 — https://www.adriancourreges.com/blog/2015/11/02/gta-v-graphics-study/ |
+| 20 | W3C, *WebGPU* and *WGSL* specifications — https://www.w3.org/TR/webgpu/ · https://www.w3.org/TR/WGSL/ |
+| 21 | gpuweb, *64 Bit atomics (storage buffers)* draft proposal — https://github.com/gpuweb/gpuweb/issues/5071 |
+
+**The numbering is shared across `doc/render/`** and this file started it: a number means the same paper
+in every file. The rows that are not here went with the claims they support — 1–6, 8–10, 12, 17, 19,
+22, 23 to [`lod.md`](lod.md), 18 and 25–29 to [`stages/terrain.md`](stages/terrain.md), 24 to
+[`stages/tonemap.md`](stages/tonemap.md), 30–33 to [`vegetation.md`](vegetation.md), 13 additionally
+to [`stages/ao.md`](stages/ao.md).

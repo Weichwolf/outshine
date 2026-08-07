@@ -1,6 +1,0 @@
-# Bauergebnisse. doc/assets.md §0: das Rezept versionieren, nie den Kuchen.
-# build_mig23.py stellt sie bytegleich wieder her; Bauzeit s. mig23.asset.json.
-*.glb
-*.blend
-*.png
-__pycache__/

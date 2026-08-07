@@ -1,0 +1,798 @@
+{
+  "schema": 1,
+  "quantiser": {
+    "kind": "lut",
+    "space": "gamma2",
+    "grid": [
+      32,
+      32,
+      32
+    ],
+    "index": "cell = (qb*32 + qg)*32 + qr,  q = floor(sqrt(clamp(linear,0,1)) * 32); the LUT cell holds the 8-bit template index",
+    "origin": "measured — no uniform 8-bit BIT CUT separates this palette: 3-3-2 merges eight buckets across template boundaries (residential onto sand, meadow onto allotments, farmland onto siedlung) and the best of all 21 splits, 3-1-4, still merges four. A 32^3 grid over the same space merges none: the smallest distance between key colours of two different templates is 0.0126 in gamma-2 and a cell is 0.031 wide, and no cell holds two. 128 kB on the GPU, one read per fragment."
+  },
+  "grassReflectanceGain": 0.5,
+  "grassReflectanceGainOrigin": "measured, and a KNOWN APPROXIMATION - it now applies to the GRASS row alone. grass.colorSrgb/drySrgb are DISPLAY colours and the shader multiplies reflectances: sunlit meadow read display Y 0.600, which back through the tone curve and the scene exposure is a green reflectance of 0.21 against a visible-band 0.10 for green grass. The ground half of this hack is retired - reflectance, roughness and relief come per class from ground-materials.json.",
+  "dryFractionOrigin": "[SET] the share of blades drawn toward drySrgb rather than colorSrgb. It is a TEMPLATE property, not a shader constant: a sown crop in ear is mostly dry, a mown lawn is not, and a joint weed on tarmac is whatever survived. Season is not modelled, so these are the mid-summer values.",
+  "keyOrigin": "measured — every keySrgb triple below is copied verbatim from tiles/src/style.h (w3_landcolor / w3_roadstyle / the buildings fill in tiles/src/raster.c:109). These are the exact bytes the /bake/osm albedo carries, not an estimate of them.",
+  "templates": [
+    {
+      "name": "laubmischwald",
+      "keySrgb": [
+        [
+          70,
+          105,
+          60
+        ]
+      ],
+      "ground": {
+        "class": "waldboden",
+        "litterClass": "laubstreu",
+        "contrast": 0.55
+      },
+      "grass": {
+        "perM2": 90,
+        "heightM": 0.22,
+        "heightJitter": 0.6,
+        "widthM": 0.01,
+        "dryFraction": 0.45,
+        "colorSrgb": [
+          74,
+          92,
+          46
+        ],
+        "drySrgb": [
+          116,
+          106,
+          62
+        ]
+      },
+      "forbs": {
+        "perM2": 1.2,
+        "species": [
+          "farn",
+          "brombeere",
+          "buschwindroeschen"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.05,
+        "species": [
+          "hasel",
+          "holunder",
+          "weissdorn"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.04,
+        "species": {
+          "buche": 0.42,
+          "eiche": 0.18,
+          "hainbuche": 0.14,
+          "esche": 0.1,
+          "ahorn": 0.07,
+          "birke": 0.05,
+          "ulme": 0.04
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.18
+      },
+      "origins": {
+        "trees.perM2": "[SET] 400 stems/ha for a mature Central European beech stand -> 0.04/m^2",
+        "trees.species": "[SET] Weserbergland slope forest; the names are the wasm-tree species files (~/Git/wasm-tree/species/*.json), no second parameterisation",
+        "grass.perM2": "[SET] closed-canopy forest floor is grass-poor; 90/m^2 is the visual-closure target at 1 m, not a tiller count",
+        "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
+        "ground.colorSrgb": "[SET] beech leaf litter; the layer the eye actually sees under a closed canopy",
+        "clutter.perM2": "[SET] deadwood + stones"
+      }
+    },
+    {
+      "name": "nadelwald",
+      "keySrgb": [],
+      "ground": {
+        "class": "waldboden",
+        "litterClass": "nadelstreu",
+        "contrast": 0.45
+      },
+      "grass": {
+        "perM2": 35,
+        "heightM": 0.14,
+        "heightJitter": 0.5,
+        "widthM": 0.008,
+        "dryFraction": 0.4,
+        "colorSrgb": [
+          63,
+          82,
+          48
+        ],
+        "drySrgb": [
+          104,
+          96,
+          60
+        ]
+      },
+      "forbs": {
+        "perM2": 0.5,
+        "species": [
+          "heidelbeere",
+          "farn"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.02,
+        "species": [
+          "hasel"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.09,
+        "species": {
+          "fichte": 0.62,
+          "kiefer": 0.24,
+          "tanne": 0.1,
+          "eibe": 0.04
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.25
+      },
+      "origins": {
+        "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
+        "trees.perM2": "[SET] 900 stems/ha for a managed spruce stand -> 0.09/m^2",
+        "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure"
+      }
+    },
+    {
+      "name": "wiese",
+      "keySrgb": [
+        [
+          156,
+          192,
+          112
+        ],
+        [
+          162,
+          196,
+          116
+        ],
+        [
+          142,
+          192,
+          122
+        ],
+        [
+          150,
+          192,
+          120
+        ],
+        [
+          150,
+          190,
+          120
+        ],
+        [
+          122,
+          156,
+          112
+        ],
+        [
+          165,
+          198,
+          120
+        ],
+        [
+          160,
+          195,
+          116
+        ],
+        [
+          158,
+          193,
+          114
+        ],
+        [
+          136,
+          150,
+          130
+        ],
+        [
+          152,
+          186,
+          148
+        ]
+      ],
+      "ground": {
+        "class": "grasfilz",
+        "contrast": 0.42,
+        "swardClosure": 1.0
+      },
+      "grass": {
+        "perM2": 800,
+        "heightM": 0.3,
+        "heightJitter": 0.45,
+        "widthM": 0.011,
+        "dryFraction": 0.3,
+        "colorSrgb": [
+          104,
+          140,
+          58
+        ],
+        "drySrgb": [
+          162,
+          152,
+          84
+        ]
+      },
+      "forbs": {
+        "perM2": 6.0,
+        "species": [
+          "loewenzahn",
+          "schafgarbe",
+          "wildemoehre",
+          "wiesenflockenblume"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.002,
+        "species": [
+          "weissdorn"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0008,
+        "species": {
+          "eiche": 0.4,
+          "linde": 0.3,
+          "esche": 0.3
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.05
+      },
+      "origins": {
+        "grass.perM2": "[SET] visual-closure target. A real pasture carries 5 000-20 000 tillers/m^2; that is not drawable, and 800/m^2 is the density at which the near metre reads as closed sward at 1.70 m eye height",
+        "grass.heightM": "[SET] grazed/mown pasture, 0.2-0.4 m",
+        "trees.perM2": "[SET] 8 solitary trees per hectare — the scattered pasture oak",
+        "ground.class": "grasfilz, NOT a soil. doc/render/vegetation.md ## Spec: under working grassland the open-soil fraction at eye height is 0 percent, so the previous erde_trocken drew a surface that does not occur under a meadow. The felt carries the moos overlay its own class declares (0.15), which is where the botanist's third component enters.",
+        "ground.swardClosure": "1.0, derived, and the number is not close to its alternatives. Closure is the fraction of the ground plane hidden by standing foliage, 1 - P0, with the Beer-Lambert gap fraction P0 = exp(-G * LAI / sin(beta)) for view elevation beta. At the cover stage's fade radius - RadiusM = 2.0 m spacing * 48 * 0.5 * 0.92 = 44.16 m, eye 1.70 m - beta = atan(1.70/44.16) = 2.205 deg, and with LAI 3 (doc/render/vegetation.md ## Spec, Grummet, Spektrum Lexikon der Biologie) and the spherical-distribution G = 0.5, P0 = exp(-38.98) = 1.2e-17. A sward seen almost edge-on hides its own floor completely, so beyond the fade radius the terrain layer IS the sward and its albedo has to be the blades'. WHAT THIS COSTS AND IT IS NOT SMALL: one number serves every view elevation, so the floor's CHROMA stops showing between the blades in the near field too, where the true closure is far below 1 - at 2 m the same formula gives P0 = 0.10. Only the floor's colour is taken; roughness, grain, relief and specular stay the felt's, and they are what the near field still reads. Making closure a function of footM belongs in groundMat (render/stages/TilesStage.cpp) and is doc/render/vegetation.md ## Gaps. G = 0.5 is [SET]: the spherical distribution is the standard default and this sward is erectophile, which raises G at a grazing view, so the error runs toward MORE occlusion, not less.",
+        "forbs.species": "the scene stands on 6 August (mods/demo/scene.json) and every species named here is in flower on that date. Wiesenkerbel (Anthriscus sylvestris) was removed for two independent reasons: its Bluetezeit is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: Wilde Moehre (Daucus carota), Bluetezeit May to September (de.wikipedia.org/wiki/Wilde_Möhre), and Wiesen-Flockenblume (Centaurea jacea), Bluetezeit late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list. See doc/render/vegetation.md ## Gaps."
+      }
+    },
+    {
+      "name": "acker",
+      "keySrgb": [
+        [
+          206,
+          192,
+          142
+        ],
+        [
+          192,
+          178,
+          132
+        ],
+        [
+          182,
+          186,
+          122
+        ],
+        [
+          170,
+          180,
+          120
+        ],
+        [
+          140,
+          175,
+          90
+        ],
+        [
+          148,
+          182,
+          100
+        ],
+        [
+          180,
+          160,
+          110
+        ],
+        [
+          172,
+          148,
+          98
+        ]
+      ],
+      "ground": {
+        "class": "erde_trocken",
+        "contrast": 0.6
+      },
+      "grass": {
+        "perM2": 260,
+        "heightM": 0.12,
+        "heightJitter": 0.25,
+        "widthM": 0.014,
+        "dryFraction": 0.92,
+        "colorSrgb": [
+          124,
+          138,
+          62
+        ],
+        "drySrgb": [
+          194,
+          162,
+          108
+        ]
+      },
+      "forbs": {
+        "perM2": 0.4,
+        "species": [
+          "kornblume",
+          "mohn"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.01
+      },
+      "origins": {
+        "ground.colorSrgb": "[SET] Loess-derived Braunerde, the dominant arable soil of the Weserbergland",
+        "grass.perM2": "[SET] a cereal stand runs 300-500 ears/m^2, and a stubble carries the SAME count because every ear was one culm; 260 is that order at the drawable end",
+        "grass.heightM": "[SET] 0.12 m, STUBBLE. The scene stands on 6 August (mods/demo/scene.json) and winter wheat on Weserbergland loess is threshed by then, so the previous 0.55 m drew a standing half-ripe crop two months out of date. 0.10-0.15 m is the usual combine cutter-bar setting for winter wheat; 0.12 is the middle of it and no measurement of a local field is behind it. The alternative correct state - already grubbed, i.e. bare tilled soil with no stand at all - is not chosen because it would take the row to perM2 0 and delete the field's texture entirely.",
+        "grass.dryFraction": "[SET] 0.92. A stubble is dead straw; the remaining 8 percent is the volunteer cereal and the weed flush that germinate within days of the harvest and are green on 6 August.",
+        "grass.drySrgb": "chromaticity derived from measurement, LEVEL UNCHANGED AND STILL UNSOURCED. The Rec.709 luminance of the retired [186,166,92] is kept exactly (linear Y 0.3848) and only the RGB ratio is replaced by the measured straw chromaticity 1.000:0.674:0.280 - ECOSTRESS Spectral Library v1.0 spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, chromaticity path B, the same measurement that gives ground-materials.json its grasfilz. Encoding the result to 8 bit costs 0.24 percent of the luminance and 0.004 of the ratio.",
+        "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field"
+      }
+    },
+    {
+      "name": "heide",
+      "keySrgb": [
+        [
+          125,
+          150,
+          85
+        ],
+        [
+          150,
+          160,
+          100
+        ],
+        [
+          190,
+          185,
+          175
+        ],
+        [
+          195,
+          190,
+          182
+        ],
+        [
+          225,
+          215,
+          170
+        ],
+        [
+          235,
+          225,
+          180
+        ]
+      ],
+      "ground": {
+        "class": "sand",
+        "contrast": 0.5
+      },
+      "grass": {
+        "perM2": 320,
+        "heightM": 0.26,
+        "heightJitter": 0.7,
+        "widthM": 0.012,
+        "dryFraction": 0.55,
+        "colorSrgb": [
+          110,
+          116,
+          60
+        ],
+        "drySrgb": [
+          158,
+          142,
+          88
+        ]
+      },
+      "forbs": {
+        "perM2": 2.5,
+        "species": [
+          "heidekraut",
+          "ginster"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.08,
+        "species": [
+          "weissdorn",
+          "schlehe"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.004,
+        "species": {
+          "birke": 0.6,
+          "kiefer": 0.4
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.4
+      },
+      "origins": {
+        "grass.perM2": "[SET] between pasture and bare ground — patchy by construction, which is what heightJitter 0.7 encodes",
+        "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here"
+      }
+    },
+    {
+      "name": "siedlung",
+      "keySrgb": [
+        [
+          206,
+          199,
+          189
+        ],
+        [
+          196,
+          181,
+          166
+        ],
+        [
+          202,
+          182,
+          162
+        ],
+        [
+          195,
+          190,
+          185
+        ],
+        [
+          205,
+          213,
+          200
+        ]
+      ],
+      "ground": {
+        "class": "erde_trocken",
+        "contrast": 0.65
+      },
+      "grass": {
+        "perM2": 420,
+        "heightM": 0.12,
+        "heightJitter": 0.3,
+        "widthM": 0.01,
+        "dryFraction": 0.2,
+        "colorSrgb": [
+          96,
+          132,
+          54
+        ],
+        "drySrgb": [
+          148,
+          146,
+          88
+        ]
+      },
+      "forbs": {
+        "perM2": 1.0,
+        "species": [
+          "loewenzahn"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.03,
+        "species": [
+          "liguster",
+          "hasel"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.006,
+        "species": {
+          "linde": 0.34,
+          "kastanie": 0.24,
+          "ahorn": 0.22,
+          "birke": 0.12,
+          "eberesche": 0.08
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.3
+      },
+      "origins": {
+        "keySrgb": "residential/commercial/retail LANDUSE, not the buildings themselves — this is the ground BETWEEN the houses, which is garden and lawn",
+        "grass.perM2": "[SET] mown lawn: shorter and denser than pasture",
+        "grass.heightM": "[SET] mown, 0.08-0.15 m",
+        "trees.perM2": "[SET] 60 street/garden trees per hectare",
+        "trees.species": "[SET] the German Strassenbaum canon; all five exist in wasm-tree"
+      }
+    },
+    {
+      "name": "versiegelt",
+      "keySrgb": [
+        [
+          128,
+          114,
+          102
+        ],
+        [
+          235,
+          231,
+          221
+        ],
+        [
+          236,
+          233,
+          225
+        ],
+        [
+          246,
+          242,
+          222
+        ],
+        [
+          250,
+          242,
+          205
+        ],
+        [
+          250,
+          222,
+          165
+        ],
+        [
+          250,
+          205,
+          140
+        ],
+        [
+          176,
+          166,
+          176
+        ],
+        [
+          168,
+          166,
+          172
+        ],
+        [
+          174,
+          172,
+          178
+        ],
+        [
+          178,
+          176,
+          182
+        ],
+        [
+          172,
+          168,
+          176
+        ],
+        [
+          214,
+          213,
+          213
+        ],
+        [
+          95,
+          95,
+          105
+        ],
+        [
+          180,
+          170,
+          160
+        ],
+        [
+          200,
+          175,
+          140
+        ]
+      ],
+      "ground": {
+        "class": "asphalt",
+        "contrast": 0.28
+      },
+      "grass": {
+        "perM2": 8,
+        "heightM": 0.1,
+        "heightJitter": 0.9,
+        "widthM": 0.009,
+        "dryFraction": 0.5,
+        "colorSrgb": [
+          96,
+          118,
+          56
+        ],
+        "drySrgb": [
+          140,
+          132,
+          78
+        ]
+      },
+      "forbs": {
+        "perM2": 0.1,
+        "species": [
+          "loewenzahn"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.05
+      },
+      "origins": {
+        "keySrgb": "buildings (128,114,102 — tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
+        "grass.perM2": "[SET] joint weeds only — NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
+        "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there"
+      }
+    },
+    {
+      "name": "wasser",
+      "keySrgb": [
+        [
+          92,
+          140,
+          190
+        ],
+        [
+          145,
+          178,
+          160
+        ],
+        [
+          140,
+          172,
+          162
+        ],
+        [
+          128,
+          162,
+          150
+        ]
+      ],
+      "ground": {
+        "class": "wasser",
+        "contrast": 0.15
+      },
+      "grass": {
+        "perM2": 0,
+        "heightM": 0.0,
+        "heightJitter": 0.0,
+        "widthM": 0.0,
+        "dryFraction": 0.0,
+        "colorSrgb": [
+          43,
+          67,
+          86
+        ],
+        "drySrgb": [
+          43,
+          67,
+          86
+        ]
+      },
+      "forbs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.0
+      },
+      "origins": {
+        "grass.perM2": "0 is a STATEMENT, not a missing value: nothing is scattered on open water, and the wetland greens are folded in here so a marsh does not grow a pasture",
+        "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry"
+      }
+    },
+    {
+      "name": "ufer",
+      "keySrgb": [],
+      "ground": {
+        "class": "schlamm",
+        "contrast": 0.5
+      },
+      "grass": {
+        "perM2": 700,
+        "heightM": 0.75,
+        "heightJitter": 0.55,
+        "widthM": 0.016,
+        "dryFraction": 0.35,
+        "colorSrgb": [
+          98,
+          128,
+          60
+        ],
+        "drySrgb": [
+          160,
+          150,
+          88
+        ]
+      },
+      "forbs": {
+        "perM2": 4.0,
+        "species": [
+          "schilf",
+          "maedesuess"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.12,
+        "species": [
+          "korbweide"
+        ],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.02,
+        "species": {
+          "trauerweide": 0.5,
+          "esche": 0.3,
+          "saeulenpappel": 0.2
+        },
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.2
+      },
+      "origins": {
+        "keySrgb": "EMPTY ON PURPOSE — a riparian strip is a BUFFER around the water polygon, not a colour. Reachable once the OSM water overlay can dilate; declared now so the Weser bank has somewhere to go.",
+        "trees.species": "[SET] the Weser bank at Hameln"
+      }
+    }
+  ],
+  "groundClassOrigin": "the template REFERENCES a class of sim/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: laubmischwald/nadelwald -> waldboden with a leaf/needle litter override, wiese -> grasfilz (see the template's own ground.class origin), acker/siedlung -> erde_trocken, heide -> sand, versiegelt -> asphalt, wasser -> wasser, ufer -> schlamm. litterClass is omitted where the material's own litter declaration applies.",
+  "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(colorSrgb, drySrgb, E[dryness]) - the same two colours and the same expected dryness the ground-cover shader draws with, read back out of the row, so the terrain and the blades cannot drift apart when either colour is retuned. It exists because the ground-cover stage stops drawing blades at 44.16 m and the terrain layer is then the ONLY thing showing the meadow: a soil-coloured terrain there puts a hard chroma step at the fade radius. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real."
+}

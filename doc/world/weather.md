@@ -3,13 +3,14 @@
 **Sources of this file:** the former `doc/flightbox/world-and-terrain.md` §9 (German, translated and split off in
 the Phase-3 mirror rebuild). Server side: `tiles/src/wx.c` (endpoint, run determination,
 quantisation), `tiles/src/grib2.c` (GRIB2 decoder), `tiles/src/wxfmt.h` (**the format constants — that
-header is the machine-readable part of this file**). Sim side: `sim/src/core/FBWeatherProvider.h`,
-`FBCalmWeather.h`, `FBConstantWindWeather.h`, `FBFixedWeather.h/.cpp`, `FBWxFormat.h`. Fixture of a
-real fetch: `tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb` (+ `manifest.txt`).
+header is the machine-readable part of this file**). Sim side: `sim/src/core/WeatherProvider.h`,
+`CalmWeather.h`, `ConstantWindWeather.h` — **and no more.** Fixture of a real fetch:
+`tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb` (+ `manifest.txt`).
 
-The **mission-author's** view of weather — the `wx` line, the three providers, the precedence rule and
-the measured wind cases — is in [`../missions/weather.md`](../missions/weather.md). Its neighbour on
-this side is [`terrain.md`](terrain.md), which documents the other three data kinds.
+**Weather is one of the four data kinds the engine's world stands on** — OSM, elevation, weather, stars
+([`../vision.md`](../vision.md)). The intent is unchanged; what is deleted is the sim-side path that consumed
+it, see `## State`. Its neighbour on this side is [`terrain.md`](terrain.md), which documents the other
+three.
 
 ---
 
@@ -296,7 +297,7 @@ cloud layers are computed from relative humidity, not the GFS's own LCDC/MCDC/HC
 60 S/60 W Open-Meteo reports "high 100 %" while GFS itself (confirmed via ecCodes) says 0 %. For the
 clouds, ecCodes is the reference, not Open-Meteo.
 
-### 9.8 Determinism and the gym fixture
+### 9.8 Determinism and the fixture
 
 A blob is a **pure function of (GFS run, format version, `grid_step`)**. There is no creation timestamp
 in it (offset 36 is deliberately reserved and zero), no random number, no data-derived quantisation. Two
@@ -306,7 +307,7 @@ gcc/Debian in the container) — deliver **byte-identical** 8,317,984 bytes (mea
 
 For the baked-in fixture that means: `tiles/testdata/wx-gfs-2026-07-27T00Z-step2-v1.wxb`, sha256
 `acded0200d49926203d4548301a2fd1586b6e3c5ecbf61fbd0355e6f9c609ede`. It is an unaltered 200 body of
-`/wx` and can be adopted as a fixed gym weather situation; a regression test may compare it by checksum
+`/wx` and can be adopted as a fixed weather situation; a regression test may compare it by checksum
 instead of by tolerance. The file names on disk carry `grid_step` and the format version
 (`gfs2_2026072700_v1.wxb`), so like the bake file names they are coupled to the version — a format
 change moves the artefact instead of poisoning the old one.
@@ -345,27 +346,26 @@ and `wx_decode_fail` are the real error counters.
 
 ## State
 
-### 9.10 What the simulator builds from it (built, commit 43b82b5)
+### 9.10 The server half is built; the sim half no longer reads FBWX
 
-The consumer exists. `core/FBWeatherProvider` is the sibling of `FBElevationProvider` —
-`WindNedMs(lat,lon,altM)` (linear between the pressure surfaces over their own geopotential; below the
-10 m level the 10 m field, above 250 hPa the topmost surface holds), `CloudLayers(lat,lon)`,
-`VisibilityM(lat,lon)`. Four implementations: `FBCalmWeather` (default, no wind),
-`FBConstantWindWeather` (one vector everywhere — a measuring instrument, not weather), `FBFixedWeather`
-(the FBWX blob, from a FILE for the gym and from MEMORY for the browser) and, as pure configuration
-rather than a fifth class, the live path: the browser fetches `/wx` once per session and constructs the
-same `FBFixedWeather`. The MIRROR of the format lies in `sim/src/core/FBWxFormat.h` (`core/` must not
-point at `tiles/`); against drift stands `build/fb-test-weather`, which parses the fixture and
-recomputes §9.7's ecCodes sample values with the quantisation step of each field as the tolerance.
+**The interface stands and nothing consumes it.** `core/WeatherProvider` is the sibling of
+`ElevationProvider` — `WindNedMs(lat,lon,altM)` (linear between the pressure surfaces over their own
+geopotential; below the 10 m level the 10 m field, above 250 hPa the topmost surface holds),
+`CloudLayers(lat,lon)`, `VisibilityM(lat,lon)`.
+
+**Two implementations survive**, and neither reads a blob: `CalmWeather` (no wind) and
+`ConstantWindWeather` (one vector everywhere — a measuring instrument, not weather). Both clients
+construct `clients/SceneWeather`, which widens `scene.json`'s one wind vector and one cover fraction
+into the interface, and `clients/SubjectBench` derives an overcast case from `CalmWeather` for the rig.
 
 | Item | State |
 |---|---|
-| `/wx` endpoint | built; one blob, three filter requests, run determination with disk fallback and stale flag |
-| GRIB2 decoder | built; ~330 lines, templates 3.0/4.0/5.0/5.3, everything else rejected by name |
-| FBWX format | built and frozen at version 1; 64 B header, 24 B descriptors, 20 fields |
-| Determinism | measured: byte-identical across machines and compilers, md5 `17b33c82…` |
-| Sim-side consumer | built (`43b82b5`); four provider implementations, mirror header, drift checker |
-| Mission declaration | built — see [`../missions/weather.md`](../missions/weather.md) |
+| `/wx` endpoint | **built**; one blob, three filter requests, run determination with disk fallback and stale flag |
+| GRIB2 decoder | **built**; ~330 lines, templates 3.0/4.0/5.0/5.3, everything else rejected by name |
+| FBWX format | **built and frozen at version 1**; 64 B header, 24 B descriptors, 20 fields |
+| Determinism | **measured**: byte-identical across machines and compilers, md5 `17b33c82…` |
+| Sim-side FBWX consumer | **deleted 2026-08-07.** `FixedWeather.h/.cpp`, the format mirror `WxFormat.h`, the drift checker `build/fb-test-weather` and the browser's `/wx` fetch all went with the simulation layer. The measured server-side figures above are unaffected — they were measured on `tiles/` |
+| Declaration surface | **none.** `scene.json` declares one wind and one cover; there is no way to name a fixture or a live fetch ([`../mods.md`](../mods.md) `## Gaps`) |
 
 ## Gaps
 
@@ -373,8 +373,8 @@ recomputes §9.7's ecCodes sample values with the quantisation step of each fiel
 |---|---|
 | **Only the analysis step f000, no forecast (`fXXX`)** | server-side open and deliberately left so: a session longer than the run sees the same atmosphere until nginx pulls the next run. The structure carries it (`valid_epoch` is a header field of its own, `parse_product` already computes forecast times), there is simply no consumer yet that would need a time axis. |
 | The 10 m surface is anchored at 10 m ASL, not above ground | the one approximation, documented in the provider; a terrain-dependent boundary-layer wind would need the elevation hook as a second input |
-| Cloud rendering does not consume the provider yet | it is reached through `FBWorld::SetWeather/Weather()` (borrowed, like the unit registry); the rendering side is the cloud round — see [`../render/clouds.md`](../render/clouds.md) |
-| Terrain masking is unrelated but still open | named here only because §9.10 listed it together with the time axis; it belongs to [`terrain.md`](terrain.md) |
+| **Real weather never reaches the engine.** The server produces FBWX and nothing parses it | the whole `/wx` half is a measured artefact with no consumer. Closing it means a new FBWX reader in `core/`, a format mirror that cannot drift from `tiles/src/wxfmt.h`, and a declaration surface that can name a fixture or a live fetch. **None of it is written** |
+| The clouds read the provider, the terrain haze reads the same numbers | reached through `World::SetWeather/Weather()` (borrowed); today both are fed from `scene.json`'s single cover fraction — see [`../render/clouds.md`](../render/clouds.md) |
 | The format has no per-field unit code | the unit follows from `var`, which is compact but means a new variable kind needs a format-version bump |
 | Only one missing-value field | only the cloud ceiling declares "no value"; the other 19 fields saturate at their window edges instead |
 

@@ -1,0 +1,16 @@
+{
+  "bark_r":0.30,"bark_g":0.22,"bark_b":0.18,"bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.42,
+  "name": "eibe", "botanical": "Taxus baccata", "common": "Eibe / Yew",
+  "habit": "dichte breit-kegelfoermige bis rundliche Krone, kurzer Stamm, dicht verzweigt",
+  "height_m": 14, "spread_m": 10,
+  "seed": 22, "trunk_sides": 9, "base_radius": 0.07, "step_len": 0.16,
+  "trunk_steps": 20, "bare_steps": 3, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.011,
+  "branch_chance": 0.92, "max_order": 3, "terminal_fork": 0,
+  "branch_angle": 68, "branch_angle_var": 20, "order_len": 0.56, "order_radius": 0.5,
+  "wander": 10, "leader_bias": 0.2, "branch_up_bias": 0.06, "conical": 0.35,
+  "foliage_factor": 11.0, "foliage_on_leader": 1,
+  "leaf_kind": "needle", "leaf_length": 0.7, "leaf_needle_width": 0.02, "leaf_needle_len": 0.15, "leaf_needle_fwd": 0.32,
+  "leaf_fold": 0.0, "leaf_curve": 0.10,
+  "leaf_card_w": 0.12, "leaf_card_h": 0.15, "leaf_cards": 7, "leaf_card_budget": 8000,
+  "leaf_r": 0.17, "leaf_g": 0.34, "leaf_b": 0.24
+}

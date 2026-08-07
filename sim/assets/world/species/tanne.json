@@ -1,0 +1,17 @@
+{
+  "bark_r":0.34,"bark_g":0.34,"bark_b":0.32,"bark_dark":0.65,"bark_freq":4.0,"bark_ridge":0.25,
+  "name": "tanne", "botanical": "Abies alba", "common": "Weisstanne / Silver fir",
+  "habit": "schmal kegelfoermig, gerader Leittrieb, waagerechte Aeste in etagen, oben spitz",
+  "height_m": 40, "spread_m": 7,
+  "seed": 20, "trunk_sides": 10, "base_radius": 0.06, "step_len": 0.16,
+  "trunk_steps": 32, "bare_steps": 5, "taper": 0.965, "min_radius": 0.005, "twig_radius": 0.012,
+  "branch_chance": 0.9, "max_order": 3, "terminal_fork": 0,
+  "branch_angle": 90, "branch_angle_var": 5, "order_len": 0.42, "order_radius": 0.40,
+  "wander": 3, "leader_bias": 0.6, "branch_up_bias": -0.02, "conical": 0.92,
+  "whorl_count": 5, "whorl_spacing": 3,
+  "foliage_factor": 9.5, "foliage_on_leader": 1,
+  "leaf_kind": "needle", "leaf_length": 0.6, "leaf_needle_width": 0.024, "leaf_needle_len": 0.18, "leaf_needle_fwd": 0.30,
+  "leaf_fold": 0.0, "leaf_curve": 0.08,
+  "leaf_r":0.62,"leaf_g":0.84,"leaf_b":0.80,
+  "leaf_card_w": 0.09, "leaf_card_h": 0.125, "leaf_cards": 6, "leaf_card_budget": 6000
+}

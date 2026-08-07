@@ -1,38 +1,17 @@
-# fb-sim — the FlightBox Command Center. Self-contained: this Makefile, Dockerfile, the C++ source
-# under src/, and the vendored toolchain under vendor/ (JSBSim submodule, Dawn, emdawnwebgpu, stb,
-# build scripts) all live under this one directory. libJSBSim is compiled from the pinned
-# vendor/jsbsim submodule; the only cross-directory reference is fb-tiles' public bake-version header
-# (../tiles/src/style_ver.h).
+# fb-sim — the outshine Command Center. Self-contained: this Makefile, Dockerfile, the C++ source
+# under src/, and the vendored toolchain under vendor/ (Dawn, emdawnwebgpu, stb, build scripts) all
+# live under this one directory. The only cross-directory reference is fb-tiles' public bake-version
+# header (../tiles/src/style_ver.h).
 #
-#   make wasm     build the WASM Command Center (F-16 sim + renderer) + tile worker (depends on worker,
-#                 so a browser boot never hangs on a missing worker) -> web/gpu.js + web/fbtileworker.js
+#   make wasm     build the WASM pedestrian bench + tile worker (depends on worker, so a browser boot
+#                 never hangs on a missing worker) -> web/gpu.js + web/fbtileworker.js
 #   make worker   build the off-thread tile worker (fetch/decode/mesh/mips) alone -> web/fbtileworker.js
-#   make core-lib build the FlightBox core library (sim+missions+FDM, no render/world) -> build/libfbcore.a
-#   make native   build the native headless WebGPU oracle (Dawn + --mission)  -> build/gpu_native
-#   make gym      build the headless mission client (no GPU/render link)     -> build/fb-gym
-#   make test-monitor  build FBFlightMonitors negative-proof harnesses (hard landing, LOC departure,
-#                 numerical divergence) -> build/fb-test-{hard-landing,loc-departure,nan-divergence}
-#   make test-fdm  build the two-instance FDM coexistence proof   -> build/fb-test-two-fdm
-#   make test-corner  measure the vanilla model's corner speed (BFM energy reference)
-#                 -> build/fb-test-corner-speed
-#   make test-missile  fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof)
-#                 -> build/fb-test-missile-airframe
-#   make test-gun  check the M61A1's ballistics, dispersion fit, EEGS funnel geometry and the lead
-#                 solution against doc/f16/weapons.md -> build/fb-test-gun
-#   make test-weather  check the FBWX format mirror against the committed /wx fixture
-#                 -> build/fb-test-weather
-#   make test-mig29  measure the FlightBox MiG-29 model against every envelope anchor of
-#                 doc/mig29/flight-model-spec.md §8 -> build/fb-test-mig29-envelope
-#   make test-air  build the catalogue-deck harness AND judge every declaration in
-#                 test/modules/air/envelope.json against its band -> build/fb-test-air-envelope
-#   make verify-models  every model copy under the mod's aircraft root differs from the pinned submodule
-#                 by EXACTLY the deltas its MODEL-DELTAS.md names -- no unexplained byte
-#   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree, the
-#                 "Kein Cheaten"-Regeln and the Core-Lib boundary as a machine-checked matrix
+#   make walk     build the native pedestrian frame oracle (Dawn + fb-tiles terrain) -> build/gpu_walk
+#   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree as a
+#                 machine-checked matrix
 #   make verify-trees  doc/ (what we want), src/ (what we can) and test/ (what we prove) carry the
 #                 same directory tree -- an orphan is a named hole
-#   make verify-tests  run every DECLARATION under test/ (doc/testing.md §2): the harness measures,
-#                 tools/fb_test.py compares against the declared band
+#   make verify-types  what src/ still knows about concrete aircraft types (rc=1 while > 0)
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -50,8 +29,8 @@ CXXSTD    := -std=c++17
 
 # Incremental compiles WITH header dependencies. The object-building recipes below are shell loops, not
 # make pattern rules, so make's own prerequisite graph never sees a header: a plain `[ obj -nt src ]`
-# guard silently keeps objects built against an OLD header (change FBFdm.h/FBState.h and the next
-# `make gym` links stale code — and every number measured from that binary is a phantom). DEPFLAGS makes
+# guard silently keeps objects built against an OLD header (change State.h and the next `make walk`
+# links stale code — and every number measured from that binary is a phantom). DEPFLAGS makes
 # each compile write its full prerequisite list to <obj>.d; fb_uptodate re-reads it and rebuilds unless
 # the object is newer than its source AND every header it actually included. ($$(...) command
 # substitution, not backticks: inside backticks the shell eats one level of backslash even in single
@@ -59,49 +38,20 @@ CXXSTD    := -std=c++17
 DEPFLAGS := -MMD -MP
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
-# THE SCENARIOS THIS TREE BUILDS AGAINST. The engine ships no aircraft, no mesh and no mission; a mod
-# names its own directories in mod.json and this reads them, so a path never exists twice
-# (doc/mods.md §3). MOD_DIR is the one a NATIVE run flies (`make MOD_DIR=../mods/<other> native`);
-# MOD_DIRS is every mod with a manifest, because the browser carries all of them in one build and the
-# player picks. A directory without mod.json is documentation, not a mod, and drops out here.
-MOD_DIR ?= ../mods/f16
-MOD_DIRS := $(patsubst %/mod.json,%,$(wildcard ../mods/*/mod.json))
-fbfield = $(shell sed -n 's/.*"$(2)"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(1)/mod.json)
-fbmod = $(MOD_DIR)/$(call fbfield,$(MOD_DIR),$(1))
-MOD_AIRCRAFT  := $(call fbmod,aircraft)
-MOD_MODELS    := $(call fbmod,models)
-MOD_MISSIONS  := $(call fbmod,missions)
-MOD_CAMPAIGNS := $(call fbmod,campaigns)
-
 DAWN_OUT     := vendor/dawn/out
 DAWN_LIBDIR  := $(DAWN_OUT)/src/dawn/native
 CURL_COMPAT  := vendor/.compat-headers
-JSBSIM       := vendor/jsbsim
-JSB_WASM     := build/jsbsim-wasm
-JSB_HOST     := build/jsbsim-host
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename — which is why moving a
 # file between these directories touches no source line). The directories ARE the layers `make
-# verify-layers` enforces: core = value types + the two channels + the incorruptible judges + the
-# camera/matrix maths (FBState/FBMode/FBCamera/FBMat4/telemetry/FBFlightPlan/FBRunway); fdm = the
-# JSBSim adapter (namespace FlightBox, ONE-TU JSBSim seam, one FBFdm per airframe); units = FBUnit/
-# FBUnitRegistry/FBSimUnit (world-entity identity/pose + the whole flown unit); sensors = the slots
-# that read the unit registry (datalink/radar/RWR/countermeasures); weapons = the stores + gun slots;
-# systems = the airframe-agnostic flight/avionics slots (FBAutopilot/FBFlightControl/FBDisplaySystem/
-# FBAirframeControls) plus the CPU-side HUD geometry + font they hand to the renderer; pilot = the
-# mission layer above guidance (FBPilot/FBBfmTrack/FBEngagement/FBPilotTuning); modules/* = the
-# airframes composing all of the above; missions = the GPU-free orchestrator (FBMissionRunner/
-# FBMissionBoot/FBTickPool); clients = the entry points; render = FBRenderer + the WebGPU stages;
-# world = FBWorld/tile streaming, with world/terrain the lean terrain API (flat) under it;
-# vendor/jsbsim/src = the JSBSim headers.
-INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units -Isrc/systems -Isrc/sensors -Isrc/weapons -Isrc/pilot -Isrc/modules -Isrc/modules/f16 -Isrc/modules/mig29 -Isrc/modules/stores -Isrc/modules/missile -Isrc/modules/ground -Isrc/modules/air
-# The two roots only a CLIENT link line needs: the orchestrator and the I/O sinks it attaches.
-INC_CLIENT := -Isrc/missions -Isrc/clients
-# missions/ IS part of the core library (CLAUDE.md's layer list), so its headers belong on the core-lib
-# compile line; only the two orchestrator TUs (FBMissionRunner/FBTickPool) stay client-side.
-INC_CORELIB := $(INC_MODULES) -Isrc/missions
-INC_WASM   := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain -I$(JSBSIM)/src
-INC_NATIVE := $(INC_MODULES) -Isrc/fdm -Isrc/world/terrain
+# verify-layers` enforces: core = shared value types and services (State/Mode/Camera/Mat4/Geodesy/
+# telemetry/elevation); units = the world-entity identity/pose the renderer draws; render = Renderer +
+# the WebGPU stages; world = World/tile streaming, with world/terrain the lean terrain API under it;
+# clients = the entry points.
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units
+INC_CLIENT := -Isrc/clients
+INC_WASM   := $(INC_MODULES) -Isrc/world/terrain
+INC_NATIVE := $(INC_MODULES) -Isrc/world/terrain
 INC_TILES := -I../tiles/src
 
 # EVERY WebGPU render stage, one class per shader (CLAUDE.md render/stages). A wildcard, not a hand list:
@@ -109,350 +59,114 @@ INC_TILES := -I../tiles/src
 # remembering both and a browser-only link error was the failure mode. Now a new file in the directory is
 # a new stage in BOTH targets, by construction.
 RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
-# ...and the same statement one level up: FBRenderer, the tactical map, the map's view types.
-# Hand-listing them meant a new render/ file linked in one target and not the other.
+# ...and the same statement one level up, for Renderer and its neighbours: hand-listing them meant a
+# new render/ file linked in one target and not the other.
 RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 
-# WHAT EVERY MOD PUTS INTO THE BROWSER, under /fb/mods/<id>/ with mod.json's OWN relative directories
-# kept — so the manifest the client reads out of the virtual filesystem resolves there exactly as it
-# does on disk, and web/mods/<id>/ below mirrors it for the half that is fetched instead of preloaded.
-# PRELOAD, not embed: the meshes are 12.3 MB against a 12.9 MB gpu.wasm, and a preload lands in a
-# separate web/gpu.data the browser fetches beside the module instead of doubling the binary. emcc
-# forbids MIXING the two (emscripten #24803), so the model tree and the moon are preloaded as well and
-# main() starts only once the data file has landed.
-# The mesh files are not a hand list: the manifest names the module keys, and each key's sidecar names
-# its own `.glb` levels — a mod with other meshes therefore needs no line here. The normal/ORM maps and
-# the store meshes (no consumer yet) stay out of the download because no sidecar names them.
-fbid   = $(call fbfield,$(1),id)
-fbglbs = $(sort $(shell sed -n 's/.*"file"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $(1)))
-# $(1) = mod dir, $(2) = relative path inside it -> one --preload-file mapping it to /fb/mods/<id>/.
-# Nothing is preloaded that the manifest does not NAME or that is not there: a mod that borrows another's
-# airframes names no aircraft root (`depends`), and its files are already in the download under the mod
-# that owns them.
-fbpre  = $(if $(2),$(if $(wildcard $(1)/$(2)),--preload-file $(1)/$(2)@/fb/mods/$(call fbid,$(1))/$(2)))
-# A mesh key on a mod with no `models` root of its own is a BORROWED airframe, and the files are already
-# in the download under the mod that owns them (the loader resolves the root through `depends`). So this
-# expands to nothing rather than to a second copy under the borrower's id.
-fbmeshdir = $(call fbfield,$(1),models)
-fbmeshpre = $(if $(call fbmeshdir,$(1)),\
-              $(foreach f,$(2).asset.json $(call fbglbs,$(1)/$(call fbmeshdir,$(1))/$(2).asset.json),\
-                $(call fbpre,$(1),$(call fbmeshdir,$(1))/$(f))))
-MOD_PRELOAD := --preload-file web/mods/index.txt@/fb/mods/index.txt \
-  $(foreach d,$(MOD_DIRS),$(call fbpre,$(d),mod.json) $(call fbpre,$(d),$(call fbfield,$(d),aircraft)) \
-    $(call fbpre,$(d),$(call fbfield,$(d),catalogue)) \
-    $(call fbpre,$(d),$(call fbfield,$(d),hud)) $(call fbpre,$(d),$(call fbfield,$(d),hud_watch)) \
-    $(foreach m,$(call fbfield,$(d),meshes),$(call fbmeshpre,$(d),$(m))))
+# THE PEDESTRIAN, ONE LIST FOR BOTH CLIENTS: render/ + world/ + exactly the core/ implementations
+# those two reference. gpu_walk and the browser link the SAME engine, which is what makes a PNG from
+# one a statement about the other.
+# THE TREE GENERATOR: one mesh out of one species declaration (doc/render/vegetation.md). Linked into
+# both clients so that the layer under construction is held to the same -Werror on both toolchains; the
+# consumer is the next layer, and `treebench` is what measures it today.
+TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLeaf.cpp \
+  src/world/TreeFoliage.cpp src/world/LeafAngleDistribution.cpp
 
-# The FlightBox core library (Auftrag "Lib/Client-Split"): core/ + fdm/ + units/ + sensors/ + weapons/
-# + systems/ + pilot/ + modules/ + libJSBSim, EVERYTHING a headless mission run needs and NOTHING
-# render/world-streaming-specific (CLAUDE.md: "render/ und world/-Streaming gehoeren NICHT zur
-# Core-Lib"). NO exception any more: the CPU-side HUD geometry FBDisplaySystem structurally needs used
-# to be render/FBHudGeometry.cpp and had to be named here by hand; it now lives in systems/ next to the
-# display slot it serves, so this list is exactly "the layers below the clients" and nothing else.
-# This library is a NATIVE-TOOLCHAIN archive (build/libfbcore.a) shared by
-# native + gym; the WASM client is a different toolchain entirely (emcc/wasm32) and necessarily
-# RE-COMPILES this same list itself in the wasm target below — cross-compilation, not duplication.
-# ONE LIST, LITERALLY: the wasm target loops over THIS variable. It used to keep a hand-written copy that
-# had silently drifted by five translation units (FBModuleRegistry, FBF16ModuleRegistration,
-# FBFdmTelemetrySource, FBRunwayPlateauElevation, FBBakedDemElevation were core-lib-only), i.e. the
-# browser was built from a different simulator than fb-gym. Per-TU FLAGS may differ per toolchain (FBFdm
-# needs -fexceptions + em_compat.h under emcc); the LIST cannot.
-CORE_LIB_SRCS := \
-  src/fdm/FBFdm.cpp src/fdm/FBFdmBoot.cpp src/fdm/FBFdmTelemetrySource.cpp \
-  src/core/FBLog.cpp src/core/FBTelemetry.cpp src/core/FBMissionFile.cpp src/core/FBCommandBus.cpp src/core/FBStateBusTelemetry.cpp \
-  src/core/FBCampaignFile.cpp src/core/FBCampaignState.cpp \
-  src/core/FBRunwayPlateauElevation.cpp src/core/FBBakedDemElevation.cpp src/core/FBFixedWeather.cpp \
-  src/core/FBFlightMonitor.cpp src/core/FBForcePicture.cpp \
-  src/core/FBMissionMonitor.cpp src/core/FBSystemHealth.cpp src/core/FBDamageModel.cpp \
-  src/core/FBGunBallistics.cpp src/core/FBGunProjectiles.cpp src/core/FBBallistics.cpp \
-  src/core/FBAircraftCatalogue.cpp \
-  src/systems/FBAutopilot.cpp src/systems/FBFlightControl.cpp src/systems/FBDisplaySystem.cpp \
-  src/systems/FBAirDataSystem.cpp src/systems/FBRadarAltimeter.cpp src/systems/FBNavSystem.cpp \
-  src/systems/FBAirframeControls.cpp src/systems/FBWarningSystem.cpp src/systems/FBHudGeometry.cpp \
-  src/systems/FBInputSystem.cpp src/systems/FBMfdSystem.cpp \
-  src/systems/FBHudDecl.cpp src/systems/FBDeclaredHud.cpp \
-  src/sensors/FBDatalinkSystem.cpp src/sensors/FBRadarSystem.cpp src/sensors/FBGroundMap.cpp \
-  src/sensors/FBRwrSystem.cpp src/sensors/FBCountermeasureSystem.cpp \
-  src/sensors/FBIrstSystem.cpp src/sensors/FBVisualSystem.cpp \
-  src/weapons/FBStoresSystem.cpp src/weapons/FBGunSystem.cpp src/weapons/FBLaunchZone.cpp \
-  src/pilot/FBPilot.cpp src/pilot/FBBfmTrack.cpp \
-  src/pilot/FBEngagement.cpp src/pilot/FBPilotTuning.cpp src/pilot/FBFlightPicture.cpp \
-  src/modules/FBModuleRegistry.cpp \
-  src/modules/f16/FBF16Fcr.cpp src/modules/f16/FBF16Cmds.cpp src/modules/f16/FBF16Damage.cpp \
-  src/modules/f16/FBF16Max7456.cpp src/modules/f16/FBF16Module.cpp src/modules/f16/FBF16FireControl.cpp \
-  src/modules/f16/FBF16Ufc.cpp src/modules/f16/FBF16Sms.cpp src/modules/f16/FBF16Gun.cpp \
-  src/modules/f16/FBF16Pilot.cpp \
-  src/modules/f16/FBF16ModuleRegistration.cpp \
-  src/modules/mig29/FBMig29Module.cpp src/modules/mig29/FBMig29Damage.cpp \
-  src/modules/mig29/FBMig29Radar.cpp src/modules/mig29/FBMig29Rwr.cpp src/modules/mig29/FBMig29Irst.cpp \
-  src/modules/mig29/FBMig29Pilot.cpp src/modules/mig29/FBMig29Sms.cpp src/modules/mig29/FBMig29Gun.cpp \
-  src/modules/mig29/FBMig29FireControl.cpp src/modules/mig29/FBMig29Cmds.cpp \
-  src/modules/mig29/FBMig29Director.cpp \
-  src/modules/mig29/FBMig29ModuleRegistration.cpp \
-  src/modules/stores/FBStoreModule.cpp src/modules/stores/FBStoreModuleRegistration.cpp \
-  src/modules/ground/FBGroundModuleRegistration.cpp \
-  src/modules/ground/FBSiteModule.cpp src/modules/ground/FBSiteFireControl.cpp \
-  src/modules/air/FBAirModule.cpp src/modules/air/FBAirMover.cpp src/modules/air/FBAirPilot.cpp \
-  src/modules/air/FBAirFireControl.cpp \
-  src/modules/air/FBAirModuleRegistration.cpp \
-  src/modules/missile/FBMissileModule.cpp src/modules/missile/FBMissileModuleRegistration.cpp \
-  src/modules/missile/FBMissileSeeker.cpp src/modules/missile/FBMissileIrSeeker.cpp \
-  src/modules/missile/FBMissileArSeeker.cpp \
-  src/modules/missile/FBMissileGuidance.cpp \
-  src/modules/missile/FBMissileUplink.cpp \
-  src/units/FBSimUnit.cpp \
-  src/missions/FBOrdnance.cpp src/missions/FBMissionSim.cpp src/missions/FBMod.cpp \
-  src/missions/FBHudBoot.cpp \
-  src/missions/FBCatalogueBoot.cpp
+PEDESTRIAN_SRCS := \
+  src/core/Log.cpp src/core/Telemetry.cpp \
+  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/BuildingField.cpp \
+  $(TREE_SRCS)
 
-.PHONY: help wasm worker core-lib native gym test-monitor test-fdm test-corner test-missile test-gun test-weather test-mig29 test-air verify-models verify-layers verify-types verify-trees verify-tests verify-guards image up down restart clean
+# Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
+WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
+  $(patsubst src/world/terrain/%.cpp,build/obj-wasm/%.o,$(wildcard src/world/terrain/*.cpp))
+
+# THE ONE SCENE (doc/goal.md §1). Both clients hard-wire it; this is only where the browser build
+# finds the file to preload.
+SCENE_JSON := ../mods/demo/scene.json
+
+.PHONY: help wasm worker walk treebench verify-layers verify-types verify-trees image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
 
-wasm: worker     ## build the WASM Command Center + tile worker -> web/gpu.{js,wasm} + web/fbtileworker.{js,wasm}
+wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js,wasm} + web/fbtileworker.{js,wasm}
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
-	  	  test -f $(JSB_WASM)/src/libJSBSim.a || bash vendor/build_jsbsim_wasm.sh; \
 	  mkdir -p build/obj-wasm; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
-	  emcc src/world/FBTerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
-	    -c -o build/obj-wasm/FBTerrainLoader.o; \
-	  o=build/obj-wasm/FBFdm.o; f=src/fdm/FBFdm.cpp; \
-	  fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -fexceptions \
-	    -include src/fdm/em_compat.h -I$(JSBSIM)/src -Isrc/fdm -Isrc/core -c -o "$$o"; \
-	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
-	    o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
-	  done; \
-	  rm -rf web/mods; mkdir -p web/mods; \
-	  for d in $(MOD_DIRS); do \
-	    id=$$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
-	    mis=$$(sed -n 's/.*"missions"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
-	    cam=$$(sed -n 's/.*"campaigns"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' $$d/mod.json); \
-	    mkdir -p web/mods/$$id; cp $$d/mod.json web/mods/$$id/mod.json; \
-	    if [ -n "$$mis" ] && [ -d $$d/$$mis ]; then mkdir -p web/mods/$$id/$$mis; \
-	      if ls $$d/$$mis/*.fbm >/dev/null 2>&1; then cp $$d/$$mis/*.fbm web/mods/$$id/$$mis/; fi; fi; \
-	    if [ -n "$$cam" ] && [ -d $$d/$$cam ]; then mkdir -p web/mods/$$id/$$cam; \
-	      if ls $$d/$$cam/*.fbc >/dev/null 2>&1; then cp $$d/$$cam/*.fbc web/mods/$$id/$$cam/; fi; \
-	      (cd $$d/$$cam && ls *.fbc 2>/dev/null || true) > web/mods/$$id/$$cam/index.txt; fi; \
-	    echo "$$id" >> web/mods/index.txt; \
-	  done; \
-	  emcc build/obj-wasm/*.o $(JSB_WASM)/src/libJSBSim.a \
-	    src/clients/FBAppWasm.cpp src/clients/FBCameraDirector.cpp src/clients/FBLogSinks.cpp src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
+	  emcc src/world/TerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
+	    -c -o build/obj-wasm/TerrainLoader.o; \
+	  emcc $(WASM_TERRAIN_OBJS) \
+	    src/clients/AppWasm.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp src/clients/LogSinks.cpp \
+	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
-	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_toggle_ground,_fb_set_ground,_fb_wx_ready,_fb_wx_failed \
+	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free \
 	    --preload-file web/moon.jpg@/moon.jpg \
-	    $(MOD_PRELOAD) \
+	    --preload-file $(SCENE_JSON)@/scene.json \
+	    --preload-file assets/world/vegetation.json@/vegetation.json \
+    --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js + web/fbtileworker.js + web/mods/{$$(tr '\n' ',' < web/mods/index.txt | sed 's/,$$//')} (served at /)"
+	  echo "WASM -> web/gpu.js + web/fbtileworker.js (scene: $(SCENE_JSON))"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
 	  	  mkdir -p build/obj-worker; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -Ivendor -c -o "$$o"; done; \
-	  emcc src/core/FBLog.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/FBLog.o; \
-	  emcc build/obj-worker/*.o src/clients/FBTileWorkerMain.cpp src/clients/FBLogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
+	  emcc src/core/Log.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/Log.o; \
+	  emcc build/obj-worker/*.o src/clients/TileWorkerMain.cpp src/clients/LogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
 	    -Isrc/render -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 -sFETCH \
-	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_verts,_fbtw_nverts,_fbtw_err,_fbtw_origin,_fbtw_mips,_fbtw_mipbytes,_fbtw_ts,_fbtw_release \
+	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_dag,_fbtw_verts,_fbtw_nverts,_fbtw_clusters,_fbtw_nclusters,_fbtw_clusterbytes,_fbtw_err,_fbtw_origin,_fbtw_mips,_fbtw_mipbytes,_fbtw_ts,_fbtw_release \
 	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
 	    -o web/fbtileworker.js; \
 	  echo "WASM worker -> web/fbtileworker.js"
 
-core-lib:        ## build the FlightBox core library (sim+missions+FDM, no render/world) -> build/libfbcore.a
+walk:            ## build the pedestrian frame oracle (render+world) -> build/gpu_walk
 	@cd $(SELF_DIR); set -e; \
 	  $(FB_UPTODATE) \
-	  	  test -f $(JSB_HOST)/lib/libJSBSim.a || bash vendor/build_jsbsim_host.sh; \
-	  mkdir -p build/obj-core; \
-	  o=build/obj-core/FBFdm.o; f=src/fdm/FBFdm.cpp; \
-	  fb_uptodate "$$o" "$$f" || c++ "$$f" -std=c++17 -O2 $(CXX_WARN) $(DEPFLAGS) \
-	    -Isrc/fdm -Isrc/core -isystem $(JSB_HOST)/include/JSBSim -c -o "$$o"; \
-	  for f in $(filter-out src/fdm/FBFdm.cpp,$(CORE_LIB_SRCS)); do \
-	    o=build/obj-core/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" -std=c++17 -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/fdm $(INC_CORELIB) -Isrc/world/terrain -c -o "$$o"; \
-	  done; \
-	  ar rcs build/libfbcore.a build/obj-core/*.o; \
-	  echo "core-lib -> build/libfbcore.a ($$(ls build/obj-core/*.o | wc -l | tr -d ' ') objects)"
-
-native: core-lib ## build the native headless WebGPU oracle (Dawn + real fb-tiles terrain + in-process F-16 for --fly) -> build/gpu_native
-	@cd $(SELF_DIR); set -e; \
-	  $(FB_UPTODATE) \
-	  	  PLATFORM_LIBS=""; \
+	  PLATFORM_LIBS=""; \
 	  if [ "$$(uname -s)" = "Darwin" ]; then \
 	    PLATFORM_LIBS="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"; \
 	  fi; \
 	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
-	  mkdir -p build/obj-native; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-native/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
-	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
-	    -isystem $(CURL_COMPAT) -c -o build/obj-native/FBTerrainLoader.o; \
-	  c++ src/clients/FBAppNative.cpp src/missions/FBMissionRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
-	    src/world/FBWorld.cpp src/world/FBTilesElevation.cpp \
+	  mkdir -p build/obj-walk; \
+	  for f in src/world/terrain/*.cpp; do o=build/obj-walk/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
+	  c++ src/world/TerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
+	    -isystem $(CURL_COMPAT) -c -o build/obj-walk/TerrainLoader.o; \
+	  c++ src/clients/AppWalk.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp src/clients/SubjectBench.cpp \
+	    src/clients/LogSinks.cpp \
+	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
-	    build/obj-native/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
+	    build/obj-walk/*.o \
 	    -std=c++20 -O2 $(CXX_WARN) \
 	    $(INC_NATIVE) $(INC_CLIENT) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
-	    -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
+	    -isystem $(CURL_COMPAT) \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
-	    -o build/gpu_native; \
-	  echo "native -> build/gpu_native"
+	    -o build/gpu_walk; \
+	  echo "walk -> build/gpu_walk"
 
-# The GPU-freeness claim in CLAUDE.md and in FBAppGym.cpp's banner is ENFORCED here, not asserted: the
-# link is followed by an nm scan of the defined external symbols, and any wgpu*/dawn*/webgpu* match
-# deletes the binary and fails the build. Without it, "verifiziert per nm" was a comment.
-gym: core-lib    ## build the headless mission client (Mission in, Telemetrie raus; NO GPU/render link) -> build/fb-gym
+treebench:       ## grow all sixteen species and measure them -> build/treebench (CSV on stdout)
 	@cd $(SELF_DIR); set -e; \
-	  $(FB_UPTODATE) \
-	  	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
-	  mkdir -p build/obj-gym; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-gym/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core -isystem vendor -c -o "$$o"; done; \
-	  c++ src/world/FBTerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
-	    -isystem $(CURL_COMPAT) -c -o build/obj-gym/FBTerrainLoader.o; \
-	  c++ src/clients/FBAppGym.cpp src/world/FBTilesElevation.cpp src/missions/FBMissionRunner.cpp src/missions/FBCampaignRunner.cpp src/missions/FBTickPool.cpp src/clients/FBLogSinks.cpp src/clients/FBTelemetrySinks.cpp \
-	    build/obj-gym/*.o build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(CURL_COMPAT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
-	    -o build/fb-gym; \
-	  gpusyms=$$(nm -gU build/fb-gym 2>/dev/null | grep -Eic '(^|[^a-z])(wgpu|dawn)[A-Za-z_]|webgpu' || true); \
-	  if [ "$$gpusyms" != "0" ]; then \
-	    nm -gU build/fb-gym | grep -Ei '(^|[^a-z])(wgpu|dawn)[A-Za-z_]|webgpu' | head -20; \
-	    rm -f build/fb-gym; \
-	    echo "gym: FAILED — $$gpusyms Dawn/WebGPU symbol(s) leaked into the headless client" >&2; exit 1; \
-	  fi; \
-	  echo "gym -> build/fb-gym (GPU-free: 0 Dawn/WebGPU symbols)"
-
-test-monitor: core-lib   ## build FBFlightMonitor's negative-proof harnesses -> build/fb-test-hard-landing, build/fb-test-loc-departure
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/core/FBTestHardLanding.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-hard-landing; \
-	  c++ test/core/FBTestLocDeparture.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-loc-departure; \
-	  c++ test/core/FBTestNanDivergence.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-nan-divergence; \
-	  echo "test-monitor -> build/fb-test-hard-landing build/fb-test-loc-departure build/fb-test-nan-divergence"
-
-test-fdm: core-lib       ## build the two-instance FDM coexistence proof (multi-unit stage 1) -> build/fb-test-two-fdm
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/fdm/FBTestTwoFdm.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-two-fdm; \
-	  echo "test-fdm -> build/fb-test-two-fdm"
-
-test-corner: core-lib    ## measure the vanilla model's corner speed (BFM energy reference) -> build/fb-test-corner-speed
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/modules/f16/FBTestCornerSpeed.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-corner-speed; \
-	  echo "test-corner -> build/fb-test-corner-speed"
-
-test-gun: core-lib     ## check the gun's ballistics/EEGS geometry against doc/f16/weapons.md -> build/fb-test-gun
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/weapons/FBTestGun.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-gun; \
-	  echo "test-gun -> build/fb-test-gun"
-
-test-weather: core-lib   ## check the FBWX mirror against the committed /wx fixture -> build/fb-test-weather
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/core/FBTestWeather.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-weather; \
-	  echo "test-weather -> build/fb-test-weather"
-
-test-mig29: core-lib     ## measure the FlightBox MiG-29 model against the spec §8 envelope anchors -> build/fb-test-mig29-envelope
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/modules/mig29/FBTestMig29Envelope.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-mig29-envelope; \
-	  echo "test-mig29 -> build/fb-test-mig29-envelope"
-
-# BUILD AND JUDGE, unlike its nine siblings, which only build. The harness itself no longer carries a
-# verdict — it measures and prints, and tools/fb_test.py compares against test/modules/air/envelope.json
-# — so a target that stopped at the link would report nothing at all.
-test-air: core-lib       ## build the air harness and judge every declaration under test/modules/air
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/modules/air/FBTestAirEnvelope.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-air-envelope; \
-	  echo "test-air -> build/fb-test-air-envelope"
-	@cd $(SELF_DIR) && python3 tools/fb_test.py --harness air-envelope
-
-test-missile: core-lib   ## fly the FlightBox AIM-120 model open-loop (motor/drag/trim proof) -> build/fb-test-missile-airframe
-	@cd $(SELF_DIR); set -e; \
-	  c++ test/modules/missile/FBTestMissileAirframe.cpp src/clients/FBLogSinks.cpp \
-	    build/libfbcore.a $(JSB_HOST)/lib/libJSBSim.a \
-	    -std=c++17 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) -isystem $(JSB_HOST)/include/JSBSim \
-	    -lpthread -ldl -lm \
-	    -o build/fb-test-missile-airframe; \
-	  echo "test-missile -> build/fb-test-missile-airframe"
-
-# The delta gate (CLAUDE.md, Prinzip 1). NOT a prerequisite of the build targets: it
-# only has anything to say when a file under the mod's aircraft root or the pinned submodule changes, and making
-# every compile wait on python3 for that would put an interpreter on the critical path of a C++ build.
-# Run it whenever a model is touched, and as part of the acceptance gate.
-verify-models:   ## check the mod's aircraft against the pinned submodule + its MODEL-DELTAS.md
-	@cd $(SELF_DIR) && python3 tools/verify_models.py --copies $(MOD_AIRCRAFT) --deltas $(MOD_AIRCRAFT)/MODEL-DELTAS.md
-
-# The STRUCTURE gate, verify-models' sibling: the directories under src/ are layers, and this asserts
-# that no #include points up the stack. Same reasoning for not being a build prerequisite -- it has
-# something to say only when a file moves or grows an include, and an interpreter has no business on
-# the critical path of a C++ build. Run it whenever src/ is restructured, and as part of the gate.
-verify-guards:   ## prove the compile-time guarantees by trying to break them (tools/verify_guards.sh)
-	@cd $(SELF_DIR); bash tools/verify_guards.sh "$(INC_CORELIB) -Isrc/fdm -isystem $(JSB_HOST)/include/JSBSim"
+	  mkdir -p build; \
+	  c++ src/clients/TreeBench.cpp $(TREE_SRCS) src/render/Json.cpp \
+	    $(CXXSTD) -O2 $(CXX_WARN) -Isrc/world -Isrc/render -Isrc/core \
+	    -o build/treebench; \
+	  echo "treebench -> build/treebench"
 
 # The TRIAD gate: doc/ = what we want, src/ = what we can, test/ = what we prove, and the three carry
 # the same directory tree. Same reasoning as its two siblings for not being a build prerequisite.
 verify-trees:    ## check that doc/, src/ and test/ carry the same directory tree
 	@cd $(SELF_DIR) && python3 tools/verify_trees.py
-
-# THE ASSERTIVE NET. The harnesses only measure; every expectation is a declaration under test/ and the
-# comparison happens here (doc/testing.md §2). Separate from the test-* targets because those BUILD and
-# this one FLIES: a full run is minutes of simulated envelope work.
-verify-tests:    ## judge every declaration under test/ against its band (harness binaries must exist)
-	@cd $(SELF_DIR) && python3 tools/fb_test.py
 
 verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
@@ -474,8 +188,6 @@ down:            ## stop the web host
 
 restart: down up ## stop and start the web host
 
-clean:           ## remove build artifacts (WASM + worker + core-lib + native + gym)
-	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-worker build/obj-core build/obj-native build/obj-gym \
-	  build/libfbcore.a build/gpu_native build/fb-gym build/fb-test-hard-landing \
-	  build/fb-test-loc-departure build/fb-test-two-fdm \
+clean:           ## remove build artifacts (WASM + worker + walk)
+	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-worker build/obj-walk build/gpu_walk \
 	  web/gpu.js web/gpu.wasm web/gpu.data web/fbtileworker.js web/fbtileworker.wasm

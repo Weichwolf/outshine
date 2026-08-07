@@ -1,0 +1,16 @@
+{
+  "bark_r":0.74,"bark_g":0.42,"bark_b":0.20,"bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.5,"bark_style":2,
+  "name": "kiefer", "botanical": "Pinus sylvestris", "common": "Waldkiefer / Scots pine",
+  "habit": "hoher astfreier Stamm, lockere schirmfoermige Krone nur oben, oranger Stamm",
+  "height_m": 30, "spread_m": 9,
+  "seed": 21, "trunk_sides": 10, "base_radius": 0.07, "step_len": 0.16,
+  "trunk_steps": 28, "bare_steps": 17, "taper": 0.96, "min_radius": 0.005, "twig_radius": 0.013,
+  "branch_chance": 0.6, "max_order": 3, "terminal_fork": 1,
+  "branch_angle": 74, "branch_angle_var": 18, "order_len": 0.74, "order_radius": 0.52,
+  "wander": 10, "leader_bias": 0.06, "branch_up_bias": 0.18, "conical": 0.0,
+  "leaf_kind": "needle", "leaf_length": 0.85, "leaf_needle_width": 0.02, "leaf_needle_len": 0.42, "leaf_needle_fwd": 0.72,
+  "leaf_fold": 0.0, "leaf_curve": 0.18,
+  "leaf_r":0.52,"leaf_g":0.62,"leaf_b":0.60,
+  "foliage_factor": 3.8, "foliage_on_leader": 1, "crown_base": 0.62,
+  "leaf_cards": 6, "leaf_card_w": 0.06, "leaf_card_h": 0.10
+}

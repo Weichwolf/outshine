@@ -2,8 +2,10 @@
 
 Two decisions taken on 2026-08-05 collide here, and the collision was asserted away rather than measured:
 
-- [`persistent-world.md`](../persistent-world.md) §5.1: **identity of an entity = its quantised birth
-  position**, and a save is a sparse overlay keyed by that.
+- **Identity of an entity = its quantised birth position**, and a save is a sparse overlay keyed by
+  that. Owner, 2026-08-05: *„Position reicht eigentlich. Reine Physik. Keine zwei Objekte können am
+  gleichen Ort sein."* — the file that carried that design was retired with the mission layer; the
+  claim is restated here because this file is its refutation and a refutation needs its subject.
 - [`visual-target.md`](visual-target.md) §1: terrain and vegetation are **generated on the GPU**, because
   bandwidth is the shortage and upload is traffic too.
 
@@ -192,7 +194,7 @@ indeterminate values for exactly those.
 
 ### 3. Quantisation does not rescue a float pipeline — the derivation
 
-[`persistent-world.md`](../persistent-world.md) §5.1 carries the rider:
+The position-key design carried a rider:
 
 > *„quantise — position is floating point; regeneration must land on the same value or the lookup misses.
 > Round to a grid — **millimetres suffice** — and the key survives any change in arithmetic order"*
@@ -244,7 +246,7 @@ is not reproducible on the machine that reports it.
 | | |
 |---|---|
 | **it does not span a planet** | `i32` millimetres reach ±2 147 483 647 mm = **±2 147 km**. A global key needs `i64` or a tile-relative split — and a tile-relative split *is* a birth address with extra steps |
-| **its claimed advantage is illusory** | *„a chair at a place stays that chair however much better its mesh becomes"* is true of a seed key too. And `persistent-world.md` §5.1 already concedes the other side: *„This also retires the generator-version worry for everything except placement."* Both keys survive a mesh change; **neither survives a placement change.** The position key buys nothing the seed key does not already have |
+| **its claimed advantage is illusory** | *„a chair at a place stays that chair however much better its mesh becomes"* is true of a seed key too — and its own design already conceded the other side: *„this retires the generator-version worry for everything except placement."* Both keys survive a mesh change; **neither survives a placement change.** The position key buys nothing the seed key does not already have |
 
 ### 4. Order — the larger problem, confirmed
 
@@ -342,8 +344,8 @@ ladder** — and the only one available to a page that ships to unknown hardware
    *decisions* portable, and verify by hashing the state on both architectures. §6's anchor is that test,
    with backends where Factorio had architectures.
 
-3. **It ratifies the split the tree already has.** `fb-gym` is headless and GPU-free by construction
-   (`nm build/fb-gym` = 0 Dawn/WebGPU symbols is a build gate), and that is precisely the property that
+3. **It ratifies the split the tree used to have.** The headless client was GPU-free by construction
+   (`nm` = 0 Dawn/WebGPU symbols was a build gate) and is deleted; that is precisely the property that
    makes the mission regression and the `--threads 1/2/4` determinism gate mean anything. **Nothing in
    §1–§4 may be read as permission to move a physics step, a sensor evaluation or a pilot decision onto
    WebGPU.** The prior art is unanimous and the specification offers nothing to appeal to. This file is
@@ -392,16 +394,15 @@ So every input to an accept/reject test is integer or fixed-point:
 |---|---|
 | hash / jitter | `u32` PCG or Wang — §1 makes these exact, §1.1 rule 1 makes them `u32`-only |
 | density threshold | `u32` compare against the hash, not a `f32` compare against a noise value in [0,1] |
-| landcover / vegetation template | the 8-bit albedo index of [`visual-target.md`](visual-target.md) §5 — already integer |
+| landcover / vegetation template | the 8-bit albedo index of [`vegetation.md`](vegetation.md) — already integer |
 | terrain height (tree line, water line) | fixed-point over the DEM's integer samples, with a power-of-two cell so the bilinear weights are dyadic and the interpolation is an exact integer expression. **The width is not chosen and it is not free** — derivation: the four weights sum to `N²`, so the accumulator peaks at `h_max · N²`. With `h_max` = 9 000 m in centimetres = 9 × 10⁵, `N = 2⁶` gives 3.69 × 10⁹ and fits `u32` (4.29 × 10⁹) with 14 % to spare; `N = 2⁸` gives 5.9 × 10¹⁰ and does not. **So the interpolation weight has at most 6 fractional bits in `u32`**, or the accumulation must be staged. Named as work, not waved through |
 | slope | fixed-point cross-difference of the same integer samples, compared against an integer threshold |
 
 `f32` may then compute the *position within the cell*, the height offset for the visual, the wind phase,
 the LOD blend — everything downstream of existence.
 
-**GD6 — identity is committed on the CPU, at first touch.** [`persistent-world.md`](../persistent-world.md)
-§5.1: *„a delta store for **touched** things only, never for generated ones. A house nobody touched costs
-zero bytes."* The count of touched things is hundreds to thousands, not millions, so the whole identity
+**GD6 — identity is committed on the CPU, at first touch.** The save model it serves is *„a delta store
+for **touched** things only, never for generated ones. A house nobody touched costs zero bytes."* The count of touched things is hundreds to thousands, not millions, so the whole identity
 system lives on the CPU where determinism is total and free. The GPU's only obligation is to hand back
 the birth address of what was hit — integer data it carried, not data it computed. **The GPU never reads
 and never writes the delta store**, which is also the right shape for the tree's other rule: the delta
@@ -414,7 +415,7 @@ it, one is rejected — and the fifth row is the option the design started from.
 
 | Candidate | Verdict | Why |
 |---|---|---|
-| **Placement on the CPU** | **REJECTED** | it buys a determinism GD2 already has, and pays with the one *measured* shortage — 60 GB/s, [`visual-target.md`](visual-target.md) §1, where the whole „generate, don't upload" decision comes from. And it does not even solve the real problem: GD5's predicate would then exist twice, once on each side, and two implementations of one truth is the failure mode [`../missions/verdict.md`](../missions/verdict.md) exists to forbid |
+| **Placement on the CPU** | **REJECTED** | it buys a determinism GD2 already has, and pays with the one *measured* shortage — 60 GB/s, [`visual-target.md`](visual-target.md) §1, where the whole „generate, don't upload" decision comes from. And it does not even solve the real problem: GD5's predicate would then exist twice, once on each side, and two implementations of one truth is the failure mode this tree forbids everywhere else |
 | **Identity from the generation seed** | **ADOPTED — this is GD2/GD3** | integer by construction because it is *enumerated, not computed*; upstream of every approximation; 64 bits; planet-wide; sorts by locality. Nothing about it can be corrupted by anything downstream, which is the entire property that was wanted |
 | **Fixed-point `i32` with hand-written operations** | **ADOPTED as a COMPONENT of GD2, not as an alternative** | and narrower than proposed: §1 shows WGSL already defines `+ * >> /` `%` exhaustively and the CTS asserts it, so hand-writing *arithmetic* would re-derive a normative guarantee. What must be written in fixed point is only what would **otherwise be float** — GD5's DEM interpolation, slope and density tests. That is a handful of functions, not an arithmetic layer |
 | **Identity at first touch** | **ADOPTED as a COMPLEMENT of GD2 — this is GD6** | it cannot stand alone: a touch must *name* what it touched, and the name is a birth address. What it buys is scale — identities number in the thousands, not the millions, so the whole identity system lives on the CPU where determinism is total and free |
@@ -438,11 +439,11 @@ put in rather than the thing that came out.*
 ## State
 
 **Nothing in §5 is built** — no placement compute shader, no instance record, no birth address, no delta
-store, no two-backend harness. [`visual-target.md`](visual-target.md) State: *„Nothing here is built."*
+store, no two-backend harness. [`vegetation.md`](vegetation.md) State: *„Nothing of the template system is built."*
 
 **But GD1 is already practised in the tree, one scale down, and it was arrived at independently.** The
-cloud density field is *one formula, two evaluators*: `core/FBCloudDensity.h` in C++ and
-`render/stages/FBCloudDensityWGSL.h` as a transliteration whose constants are emitted from the C++ ones
+cloud density field is *one formula, two evaluators*: `core/CloudDensity.h` in C++ and
+`render/stages/CloudDensityWGSL.h` as a transliteration whose constants are emitted from the C++ ones
 ([`clouds.md`](clouds.md)). Its author reasoned exactly as §1.1 does, in the source:
 
 > *„Integer hash. **uint32 wraps identically in C++ and WGSL**, which is the whole reason the noise is
@@ -450,7 +451,7 @@ cloud density field is *one formula, two evaluators*: `core/FBCloudDensity.h` in
 > equivalents: `smoothstep` and integer hashing **must be bit-comparable against WGSL, and the built-ins
 > are not specified to the same rule**."*
 
-Both sentences are confirmed by §1 and §2 respectively. `FBCloudHash2`/`FBCloudHash3` are `u32`-only
+Both sentences are confirmed by §1 and §2 respectively. `CloudHash2`/`CloudHash3` are `u32`-only
 murmur-style finalizers, which is §1.1 rule 1 held before it was written down.
 
 **And the measured agreement is the empirical core of this file:**
@@ -473,25 +474,25 @@ What else exists and is relevant:
 |---|---|
 | the two specifications' guarantees, as tabulated in §1–§4 | **read and quoted**; this file is that reading |
 | `--cloudcheck` — a C++ vs. WGSL differential harness | **built**, and it is the shape §6 needs. What it lacks is a second *device* |
-| determinism discipline on the CPU side | **built and gated** — `--threads 1/2/4` over all `sim/missions/*.fbm`, and the mission fingerprint ([`../missions/campaign.md`](../missions/campaign.md)) |
-| `gpu_native` as the frame oracle | **built**, and it is the natural first of the two backends §6 needs |
-| the 8-bit albedo → vegetation template index | **specified only** ([`visual-target.md`](visual-target.md) §5), and it is the one existence input that is already integer by design |
+| determinism discipline on the CPU side | **built, and currently without a subject** — the `--threads 1/2/4` fingerprint gate stands; there is no scenario left to run it on |
+| `gpu_walk` as the frame oracle | **built**, and it is the natural first of the two backends §6 needs |
+| the 8-bit albedo → vegetation template index | **specified only** ([`vegetation.md`](vegetation.md)), and it is the one existence input that is already integer by design |
 
 ## Gaps
 
 | Gap | Detail |
 |---|---|
-| **`persistent-world.md` §5.1 still says „millimetres suffice"** | §3 shows it is wrong by a factor of ~4 at 10 km and by ~500× at ECEF magnitudes. **This file does not edit that file** — the correction is owed and is a one-line Spec change there, not here |
+| **Rejected, with its measurement: „millimetres suffice" as a quantisation grid** | §3 shows it is wrong by a factor of ~4 at 10 km and by ~500× at ECEF magnitudes. ULP(f32) at 10 km is 0.98 mm. The design that asserted it is retired; the refutation is kept because it is what stops the next round re-deriving the same key |
 | **The existence predicate has no design** | GD5 names its five inputs and their integer forms. Fixed-point DEM interpolation and the slope test are unwritten, and the tree-line/water-line comparison is the case most likely to need care |
-| **One float claim in `FBCloudDensity.h` is stronger than §2 permits** | the source says *„cos/sin of that angle are exact in binary floating point, so the two evaluators stay bit-comparable"*. The **constants** are exact; the **operations** consuming them are not, and §2 grants reassociation, fusion and flush-to-zero regardless. The measured 1.9 × 10⁻⁵ is the proof that „bit-comparable" was never achieved. Harmless for a picture — the sentence should say *„comparable to 10⁻⁴"*, which is what the harness actually asserts |
+| **One float claim in `CloudDensity.h` is stronger than §2 permits** | the source says *„cos/sin of that angle are exact in binary floating point, so the two evaluators stay bit-comparable"*. The **constants** are exact; the **operations** consuming them are not, and §2 grants reassociation, fusion and flush-to-zero regardless. The measured 1.9 × 10⁻⁵ is the proof that „bit-comparable" was never achieved. Harmless for a picture — the sentence should say *„comparable to 10⁻⁴"*, which is what the harness actually asserts |
 | **The two-backend harness does not exist** | §6's only falsifying test cannot be run today. Until it can, GD1–GD6 are a *reasoned* design, not a *measured* one, and this file says so rather than implying otherwise |
-| **A C++ reference of the existence predicate is UB by default** | §1.1: signed overflow, wide shifts and division by zero are undefined in C++17 and defined in WGSL. If `gpu_native` or `fb-gym` ever evaluates the predicate on the CPU — for a cut, a spawn or a test oracle — it must be written in `uint32_t` with explicit masks, or it will disagree with the shader on exactly the inputs nobody tests. No such reference exists yet, which is the moment to state the rule rather than to discover it |
+| **A C++ reference of the existence predicate is UB by default** | §1.1: signed overflow, wide shifts and division by zero are undefined in C++17 and defined in WGSL. If any client ever evaluates the predicate on the CPU — for a cut, a spawn or a test oracle — it must be written in `uint32_t` with explicit masks, or it will disagree with the shader on exactly the inputs nobody tests. No such reference exists yet, which is the moment to state the rule rather than to discover it |
 | **Conformance is necessary, not sufficient** | the CTS tests operations one at a time. Nothing in it compares a whole shader's output between two vendors, so a passing implementation is still free to differ wherever §2 grants latitude |
 | **Subgroup operations are excluded, and that costs performance** | §4: the proposal itself says *„portability cannot be guaranteed"*, and Chrome's own cross-device matrix recorded an NVIDIA device giving **non-deterministic results across multiple runs**. The fastest reduction and compaction idioms are therefore unavailable to the existence predicate. Unmeasured cost |
-| **Owed to `visual-target.md`: the raster path is less specified than the shaders** | §4's note. Edge coverage undefined, multisample **resolve** algorithm unspecified, alpha-to-coverage *„platform-dependent and can vary for different pixels"* and not monotone in alpha, per-sample shading collapsible to per-pixel. `visual-target.md` §2 makes anti-aliasing on alpha-cutout foliage **the priority investment**; three of those four land on it. **Not this file's decision** — it belongs in that file's Spec, and this row exists so the finding is not lost |
+| **Owed to `visual-target.md`: the raster path is less specified than the shaders** | §4's note. Edge coverage undefined, multisample **resolve** algorithm unspecified, alpha-to-coverage *„platform-dependent and can vary for different pixels"* and not monotone in alpha, per-sample shading collapsible to per-pixel. `visual-target.md` §2 makes anti-aliasing on alpha-cutout foliage **the priority investment**; three of those four land on it. **Not this file's decision** — it belongs in the Spec of [`stages/tonemap.md`](stages/tonemap.md), the pass it lands in, and this row exists so the finding is not lost |
 | **Found and not filed: a contradiction inside the WebGPU CRD** | [23.2.5](https://www.w3.org/TR/webgpu/#rasterization) says *„Implementations must use the standard sample pattern"* and lists the 1× and 4× positions; [23.2.5.4](https://www.w3.org/TR/webgpu/#polygon-rasterization) says the locations *„are implementation-defined"*. No gpuweb issue was found for it. Reported here because a design that leans on the first sentence would be leaning on the wrong one |
 | **The mod-authored object is untouched** | a chair a scenario *declares* has no birth address, because no generator placed it. Its identity is presumably its declaration site in the mod file — stated as an open question, not a decision. [`../mods.md`](../mods.md) owns it |
-| **Rejected: placement on the CPU** | it buys a determinism the birth address already has, and pays with the one measured shortage — 60 GB/s, [`visual-target.md`](visual-target.md) §1. Worse, it does not solve GD5: a CPU predicate and a GPU renderer must then agree about what exists, which is two truths about one world — the failure mode [`../missions/verdict.md`](../missions/verdict.md) exists to prevent |
+| **Rejected: placement on the CPU** | it buys a determinism the birth address already has, and pays with the one measured shortage — 60 GB/s, [`visual-target.md`](visual-target.md) §1. Worse, it does not solve GD5: a CPU predicate and a GPU renderer must then agree about what exists, which is two truths about one world |
 | **Rejected: hand-written fixed-point instead of trusting the language** | §1 shows WGSL already defines every integer edge case and the CTS asserts them. Hand-written wrap/shift helpers would add code to re-derive a guarantee that is already normative. Fixed-point is still needed — but only for the quantities that would *otherwise be float* (GD5's DEM and slope), not as a replacement for `+`, `*` or `>>` |
 | **Rejected: the quantised birth position as the key** | §3, with its derivation. Kept here with the numbers so nobody re-derives it as a simplification |
 | **Rejected: `@invariant` as a portability tool** | §2. It covers only the `position` built-in and only within one implementation |
@@ -513,13 +514,13 @@ What else exists and is relevant:
   it certain. There is no grid size at which a float becomes an integer.
 - **Why the position key and the seed key fail identically under a placement change, and why that settles
   it.** Both keys are functions of where the generator puts things. Change the placement rule and both
-  move. `persistent-world.md` §5.1 already states this for the position key
-  (*„except placement"*), so the position key's advertised advantage over a seed key does not exist —
+  move. The position-key design already conceded this (*„except placement"*), so its advertised
+  advantage over a seed key does not exist —
   while its disadvantages (float derivation, ±2 147 km range, 96 bits) are real.
 - **Why identity must be the generator's input rather than its output.** An output is downstream of every
   approximation in the pipeline; an input is upstream of all of them. That is the whole argument in one
   sentence, and it generalises beyond graphics: it is the same reason
-  [`../missions/verdict.md`](../missions/verdict.md) defines the verdict in terms of the state vector
+  the run judge defines the verdict in terms of the state vector
   rather than storing it separately.
 - **Why an atomic counter's final value is deterministic but its returned values are not.** The final
   value is a sum, and integer addition modulo 2³² is associative and commutative, so order does not reach

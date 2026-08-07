@@ -1,6 +1,0 @@
-# Die veroeffentlichte Doktrinverschiebung (E13) gegen ihre Saat, zur VALIDIERUNG auf der
-# Kampagnenbreite. Der Champion wurde auf dem Messplatz SELEKTIERT; hier wird gemessen, ob er
-# ausserhalb davon haelt. Paragraph 5s X1 im staerksten Sinn: 154 Zellen, die keine Rolle bei
-# seiner Auswahl gespielt haben.
-seed       pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_stack_frac=1.5 pilot_flight_trail_frac=1.5
-champ      pilot_attack_bias_s=-0.625 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.5391 pilot_flight_stack_frac=0.75 pilot_flight_trail_frac=1.125 dl=on

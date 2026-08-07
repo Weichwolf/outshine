@@ -1,0 +1,14 @@
+{
+  "bark_r":0.41,"bark_g":0.37,"bark_b":0.31,"bark_dark":0.60,"bark_freq":4.0,"bark_ridge":0.35,
+  "name": "ahorn", "botanical": "Acer pseudoplatanus", "common": "Bergahorn / Sycamore maple",
+  "habit": "breite gewoelbte Krone, kraeftiger Stamm, aufstrebend dann breit ausladend",
+  "height_m": 28, "spread_m": 18,
+  "seed": 12, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.085, "step_len": 0.16,
+  "trunk_steps": 22, "bare_steps": 7, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.013,
+  "branch_chance": 0.82, "max_order": 4, "terminal_fork": 1,
+  "branch_angle": 52, "branch_angle_var": 18, "order_len": 0.64, "order_radius": 0.52,
+  "wander": 11, "leader_bias": 0.1, "branch_up_bias": 0.1, "conical": 0.0,
+  "leaf_kind": "palmate", "leaf_length": 1.0, "leaf_width": 0.5, "leaf_palmate_lobes": 5,
+  "leaf_palmate_spread": 85, "leaf_lobe_depth": 0.30, "leaf_serration": 0.12,
+  "leaf_fold": 0.06, "leaf_curve": 0.12
+}

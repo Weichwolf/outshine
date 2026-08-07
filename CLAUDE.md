@@ -1,152 +1,101 @@
-# FlightBox
+# Outshine
 
-Ein **JSBSim-gestützter F-16-Simulator auf DCS-World-Niveau** — WASM-App plus Tileserver-Backend, das
-die ganze Welt abbildet. Die Physik ist JSBSim; FlightBox ist die Welt drumherum: globales Gelände,
-Renderer, HUD, Avionik, Piloten-KI. **Genau zwei Qualitätsachsen zählen: korrektes Rendering und
-realistisches F-16-Flugverhalten.**
+> **Eine Game Engine, die auf PS4- und A18-Pro-Hardware in 720p60 läuft, mit der Technologie von Days
+> Gone und Horizon Forbidden West, und in der sich Spiele wie Witcher 3, Fallout 4 und GTA 5 optisch,
+> inhaltlich und funktionell rein über deklarative `mods/` abbilden lassen. Grundlage der prozeduralen
+> Welt sind OSM-, Höhen-, Wetter- und Sternendaten vom Kachelserver. Durch LLM-Integration werden alle
+> Entitäten intelligent und die Spielwelt dynamisch.**
+
+Eine Engine, **auf eine Maschine zugeschnitten** — nicht auf Entwickler und Artists. Szenario rein,
+spielbares Spiel raus. Vier Bauentscheidungen: die Welt wird **aus OSM geladen** statt modelliert ·
+**ein** Physiksystem trägt Laufen, Fahren, Fliegen, Schwimmen · ein **Epochen- und Verfallsregler**
+kleidet dieselbe Geometrie ein · die Akteure **denken**. [`doc/vision.md`](doc/vision.md)
+
+**OSM ist die Welt, keine Datenquelle unter mehreren.** Gelände, Landbedeckung, Bauwerke, Infrastruktur
+und Vegetationsverteilung kommen aus denselben Vektoren — deshalb sind das gezeichnete und das
+klassifizierte Ding **per Konstruktion dieselbe Linie**.
+
+**Das laufende Ziel steht in [`doc/goal.md`](doc/goal.md), bindend bis widerrufen; Kommentare des
+Eigners schlagen es.**
 
 ## Der Dreiklang
 
 > **`doc/` = was wir wollen · `src/` = was wir können · `test/` = was wir beweisen.**
+Jede Aussage hat **genau einen Ort**; `doc/` spiegelt **Verzeichnisse** von `sim/src/`. **Beschreibt ein
+Dokument etwas Gelöschtes, fliegt es** — für die Historie ist Git zuständig.
 
-Jede Aussage hat **genau einen Ort**, und die drei Bäume sind **identisch**: aus einem Pfad folgen die
-beiden anderen, ohne zu suchen.
-
-```
-sim/src/sensors/FBVisualSystem.cpp   ← was wir können
-doc/sensors/visual.md                ← was wir wollen
-sim/test/sensors/visual.json         ← was wir beweisen
-```
-
-Daraus wird eine **Vollständigkeitsprüfung**: ein Verzeichnis mit zwei von drei hat ein benanntes Loch.
-Absicht ohne Umsetzung = Lücke in `src/`. Umsetzung ohne Beleg = Lücke in `test/`. Beleg ohne Absicht =
-ein Test, den niemand bestellt hat.
-
-**Was das mit Kommentaren macht.** Sie fallen fast vollständig weg — Kopfblöcke, Benutzungshinweise,
-jede Beschreibung des *was*, und jede Prosa über die Funktionsweise (die gehört nach `doc/`). Es bleibt
-genau EINE Aufgabe: **das lokale Warum am Entscheidungspunkt** — warum diese Form *hier* statt der
-naheliegenden Alternative, warum diese Zahl in *dieser* Klasse, warum diese Zeile gelöscht wurde. Das
-trägt weder `doc/` (dort würde es zum Codekommentar mit Verzeichnis, und die Datei hörte auf, Absicht zu
-sein) noch `test/` (der belegt das Ergebnis, nicht die Wahl). Beispiele: `kSeparationDelayS` wohnt beim
-Besitzer der Warteschlange, weil `pilot/` nicht nach `missions/` sehen darf · `Resync_` gehört in
-`FBRadarSystem` statt `FBF16Fcr`, weil ein Modul, das Emission über den MODUS führt, sonst keine Stelle
-hätte · der Artfilter im Auge ist weg, weil die nächste Zeile der bessere Filter ist.
-
-**Eine Erwartung ist ein Datum, kein Programm.** Eine Behauptung, die in C++ steckt, kann still aufhören
-zu prüfen — gemessen: sieben Anker außerhalb ihres Bandes bei grünem Tor, und fünf von sechs absichtlich
-zerstörten Modellwerten kamen durch das ganze Netz. Eine fehlende Zeile in einer Tabelle sieht man.
-[`doc/testing.md`](doc/testing.md).
-
-## Das Wissen steht in doc/
-
-Diese Datei ist ein Session-Start-Zettel, kein Wissensspeicher. Alles Inhaltliche — Architektur, jedes
-Subsystem, Soll/Ist/Lücken, Herleitungen — steht in **`doc/`** (englisch), Einstieg
-[`doc/INDEX.md`](doc/INDEX.md); der EINE Skill `flightbox` lädt es.
-
-**Widersprechen sich beide, hat `doc/` recht und diese Datei ist nachzuführen.**
-
-Darin: `doc/modules/<jet>/` dokumentiert je den **echten** Jet aus den Handbüchern (Design-Ziele, keine
-Defektkriterien); `doc/missions/` ist die Referenz des `.fbm`-Formats.
+**Kommentare fallen fast vollständig weg** — keine Kopfblöcke, keine Benutzungshinweise, keine
+Beschreibung des *was*. Es bleibt EINE Aufgabe: **das lokale Warum am Entscheidungspunkt.**
 
 **Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
-erfüllt (gemessen an dessen Ankern), führt `## State`/`## Gaps` nach und trägt eine Zeile ins
-`journal.md`. Verworfenes bleibt mit seiner Messung in `## Gaps` — ein gemessener Fehlschlag ist Wissen.
+erfüllt, führt `## State`/`## Gaps` nach und schreibt eine Zeile ins `journal.md`. Verworfenes bleibt mit
+seiner **Messung** in `## Gaps`. Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit.
 
-**Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit.** Für die Historie ist Git zuständig:
-eine überschriebene Fassung wird GELÖSCHT, nicht darunter stehen gelassen. Das ist kein Widerspruch zum
-Satz davor — ein verworfener Ansatz mit seiner Messung ist eine *heute geltende* Aussage darüber, was
-nicht funktioniert, und gehört als `## Gaps`-Zeile in die Gegenwart. Eine alte Formulierung derselben
-Sache ist es nicht.
+Diese Datei bleibt **unter 100 Zeilen**. Einstieg [`doc/INDEX.md`](doc/INDEX.md).
 
 ## Prinzipien (nicht verhandelbar)
 
-1. **JSBSim ist das ORAKEL, nicht mehr die Abhängigkeit** — Eignerentscheid, gestuft. Ziel ist eigene
-   Physik, die von Möblierung bis Rakete trägt ([`doc/body-format.md`](doc/body-format.md)); JSBSim
-   bleibt gepinntes read-only Submodul und nie gepatcht, aber als **Messlatte**, gegen die geflogen
-   wird, nicht als Motor. **Bis Liste A grün ist, bleibt es verlinkt und die alte Regel gilt
-   unverändert:** geflogen wird FlightBox' Modellkopie (`sim/assets/aircraft/`, die EINE Wurzel), jede
-   Abweichung ist ein benannter, BELEGTER Eintrag in `mods/f16/src/aircraft/MODEL-DELTAS.md` (ein besseres
-   Missionsergebnis ist kein Beleg), Gate `make -C sim verify-models`. Der Maßstab ist
-   **Glaubhaftigkeit, nicht Treue** — „in einem Game Engine ist immer alles falsch, die Frage ist, ist
-   es noch glaubhaft"; was das heißt, ist Liste A, und die entsteht VOR dem Löser.
-2. **JSBSim läuft IM Client.** libJSBSim linkt direkt ins Command Center, WASM wie nativ. Keine
-   Telemetrie-Grenze zwischen Physik und Bild — ein Prozess, ein Adressraum.
-3. **Outshine weiß alles, ein Mod kennt nur, was er kennt.** Die Grenze ist erkenntnistheoretisch, nicht
-   inhaltlich, und damit prüfbar: *braucht dieses Ding Wissen, das kein Teilnehmer haben könnte?* Ja →
-   Engine. Nein → Mod. Die Engine baut und simuliert die Welt (Gelände, OSM, Bewuchs, Infrastruktur,
-   Gebäude, Innenräume) und ist darin allwissend; ein Mod bringt Akteure, Entitäten, benutzbare Objekte
-   und das Szenario — jeder mit seiner beschränkten Sicht. Dieselbe Grenze wie `FBUnitRegistry` gegen die
-   Module, eine Ebene höher. Folge: `sim/` enthält keine Flugmodelle, Missionen, Kampagnen oder Meshes,
-   alles liegt in `mods/` über `mod.json`. Ein Mod bringt **keine `.cpp` und keine Welt**; Shader für das
-   Aussehen der eigenen Entitäten sind erlaubt, denn Aussehen ist kein Wissen.
+1. **Rein deklarativ, und die Sprache ist JSON.** Ein Titel bringt **keine `.cpp` und keine Welt**. JSON
+   ist schema-prüfbar, diffbar und **erzeugbar**; ein Eigenformat wäre ein Parser, den niemand bestellt
+   hat. Shader für das Aussehen eigener Entitäten sind erlaubt — Aussehen ist kein Wissen.
    [`doc/mods.md`](doc/mods.md)
-4. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081, Tile-API) und `fb-sim` (`sim/`,
-   :8080, Web-Host). Alles andere ist Client.
-5. **Sim läuft so schnell wie sinnvoll.** Die Mathematik ist deterministisch. Gibt das Tempo das
-   Ergebnis, ist die Kopplung nicht-deterministisch — ein Bug.
-6. **F-16 zuerst.** Referenz ist das **Modell**, nicht der echte Jet — seine Eigenschaften sind
-   akzeptiert, keine Defekte, und FlightBox muss es treu fliegen. Das gilt, weil das geflogene Modell
-   exakt benannt ist: gepinnter Stand plus die belegte Delta-Liste aus Prinzip 1 (heute leer).
+2. **Die Engine ist texturfrei.** Zulässig sind nur der **Cache einer berechenbaren Funktion** (Sky-,
+   Transmissions-LUT) und **Messdaten, die naturgemäß ein Raster sind** (DEM, Luftbild, Sterne) — **nie
+   autoriertes Aussehen**; es gibt keine Artists. Der Nebengewinn ist der größere: Mip-Abhängigkeit,
+   Zoomsprünge, Abtastgitter und Filterartefakte **können in einer Funktion nicht auftreten**.
+3. **Die Physik ist unsere eigene und deklarativ.** Ein Körper sind fünf Teile — Segmente, Gelenke,
+   Kontakte, Kraftquellen, Medium — plus Modell, Materialien, Gehirn; dasselbe Format trägt Möbel,
+   Mensch, Wolf, Panzer, Flugzeug. [`doc/body-format.md`](doc/body-format.md). **Sie muss für die
+   Darstellung reichen, nicht mehr.**
+4. **Outshine weiß alles, ein Mod kennt nur, was er kennt.** Prüfbar: *braucht dieses Ding Wissen, das
+   kein Teilnehmer haben könnte?* Ja → Engine, nein → Mod. **Mit LLM-Akteuren ist das die tragende
+   Regel**: ein Gehirn sieht nur über Sensoren und wirkt nur über simulierte Systeme; ein Kontakt trägt
+   keine Identität.
+5. **Alles läuft IM Client.** Physik, Welt und Bild sind ein Prozess, ein Adressraum, WASM wie nativ.
+6. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081) und `fb-sim` (`sim/`, :8080).
+   Der Kachelserver liefert DEM, OSM, Luftbild, Wetter und Sternenkarte — sonst nichts.
+7. **Die Mathematik ist deterministisch.** Gibt das Tempo das Ergebnis, ist die Kopplung ein Bug.
 
-## Kein Cheaten
-
-Die KI darf nicht an der Simulation vorbeigreifen. Strukturell gesichert, wo möglich per Compiler:
-
-- **Zwei unbestechliche Richter**, nie vermischt, nie vom Modul gesehen: `core/FBFlightMonitor`
-  (physikalisches K.O., modell-abgeleitet) und `core/FBMissionMonitor` (Missions-Urteil aus eigener
-  Plankopie). Jeder Client, der eine Sim-Schleife fährt, füttert beide.
-- **Wirken nur über simulierte Systeme.** Einziger State-Schreiber ist der Boot-Spawn: `FBFdm`s
-  ladender Konstruktor ist privat, einziger Friend `FBFdmBoot`, das nur `missions/` und `clients/` nennen.
-- **Sehen nur über Sensoren.** Die Unit-Registry erreicht genau sechs Dateien (Datalink, Radar, RWR,
-  IRST, Auge, Flugkörper-Uplink). Ein Radarkontakt trägt keine Identität; die einzige Identitätsquelle
-  ist IFF Mode 4, und die kennt kein „hostile". Ein Sichtkontakt trägt nicht einmal eine Entfernung —
-  nur einen TYP, sobald die Winkelgröße ihn hergibt, und der ist der Modul-Registry-Schlüssel.
-- **Schaden ist typgeschützt.** `core/FBSystemHealth` ist monoton, alle Mutatoren privat, genau ein
-  Friend (`FBDamageModel`). Selbstheilung kompiliert nicht.
-
-## Architektur in drei Sätzen
+## Architektur
 
 ```
-fb-tiles (DEM/OSM/Luftbild)  ──HTTP──▶  Command Center = JSBSim + FBW + Autopilot + Renderer + HUD
-                                        als EIN Prozess (WASM | native)
+fb-tiles (DEM/OSM/Luftbild/Wetter/Sterne)  ──HTTP──▶  Client = Physik + Welt + Renderer + KI
+                                                      als EIN Prozess (WASM | native)
 ```
 
-FlightBox Core ist eine **reine Bibliothek** (`build/libfbcore.a`: alle Schichten unter den Clients
-— `core/ fdm/ units/ sensors/ weapons/ systems/ pilot/ modules/ missions/` + libJSBSim; Schichtordnung — `make verify-layers` prüft die Ordnung). Drei Clients linken dagegen: **`fb-gym`** (headless, GPU-frei, der Missions-Kern),
-**`gpu_native`** (Referenz-Renderer und Frame-Orakel) und **wasm** (der Browser).
-
-Schichtung überall: **FBCore → Interface → Default → modul-spezifischer Override.**
+`sim/src/` hat **fünf** Verzeichnisse: `clients`, `core`, `render`, `units`, `world`. **Zwei Clients auf
+derselben Quellenliste** — **`gpu_walk`** (nativ, das Frame-Orakel) und **wasm**; beide lesen
+`mods/demo/scene.json` und sonst nichts. Kampfschicht, `core-lib`, `fb-gym`, `.fbm` und die
+Testmaschinerie sind gelöscht.
 
 ## Build
 
-Nur über Make-Targets. `sim/`: `core-lib` | `gym` | `native` | `wasm` (baut `worker` immer mit) |
-`worker` | `image` | `up`.
-Tore: `verify-layers` | `verify-guards` | `verify-models` | `verify-trees` | `verify-tests`.
-Harnesses (zehn, unter `sim/test/<pfad>` neben ihrem Subjekt): `test-monitor` | `test-fdm` |
-`test-corner` | `test-missile` | `test-gun` | `test-air` | `test-mig29` | `test-weather`.
-`tiles/`: `build` | `image` | `run`.
+Nur über Make-Targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Tore: `verify-layers` |
+`verify-trees` | `verify-types`. **Der wasm-Client baut in JEDER Runde mit.** Warnings = Errors
+(`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · vendor read-only.
 
-**Gates:** Warnings = Errors (`-Wall -Wextra -Wpedantic`) · `nm build/fb-gym` = 0 Dawn/WebGPU-Symbole und 0 HTTP-Client-Symbole (das Gym erreicht kein Modell, weil es keins linkt) ·
-zehn Harnesses mit unveraendertem Ergebnis (`test-air` ist rot und nennt sieben Anker) · Frame-Beweis oder numerische Messung · Regression über alle `sim/missions/*.fbm`
-mit einzeln begründeten Abweichungen · Determinismus über `--threads 1/2/4` · `make wasm` baut und die
-App startet · `verify-models` grün · vendor bleibt read-only.
-
-**Regelkreis:** Mission definieren → headless simulieren → Telemetrie analysieren → Korrektur → Loop.
-Exit 0/1/2/3 = SUCCESS/FAIL/CRASH/TIMEOUT. Der Exit-Code ist nicht immer das Urteil — die Leseregel
-steht im Kopfkommentar der jeweiligen `.fbm`-Datei und ist verbindlich.
+**Leistung ist eine Verteilung über eine bewegte Kamera**, nie Mittelwert, nie Minimum:
+`tools/walkbench.py` (vier Geschwindigkeiten, p50/p95/p99), `tools/determinism.py` — **jede Messung
+pinnt ihr Binary.**
 
 ## Harte Regeln im Code
 
-- **Keine verstreuten Ausgaben.** Ereignisse über `FBLog`, Zustand über `FBTelemetryBus`. Ausnahmen nur:
-  die Sink-Implementierungen und CLI-UX in `clients/`. Core ist I/O-frei.
-- **Jede Zahl trägt ihre Herkunft** — hergeleitet (mit Formel), gemessen (mit Messung) oder `[SET]`.
-  Eine Zahl ohne eine der drei Angaben ist ein Defekt.
-- `core/` zeigt nie nach `systems/` oder `modules/`. Peers rufen sich nie gegenseitig.
-- `extern "C"` nur für von JS namentlich gerufene Symbole (heute zwei).
-- C++17, JSBSim-naher Stil: `FB`-Präfix, PascalCase, `namespace FlightBox`, Klasse pro Datei.
+- **Keine verstreuten Ausgaben.** `Log` für Ereignisse, `TelemetryBus` für Zustand. Core ist I/O-frei.
+- **Jede Zahl trägt ihre Herkunft** — hergeleitet, gemessen oder `[SET]`.
+- **Was ersetzt wird, wird in derselben Runde gelöscht** — ein toter Pfad, der noch feuern kann, ist
+  schlimmer als eine Zeile zu viel. Rückfalltüren sind tote Pfade, Diagnosen nicht.
+- **Es gibt eine Fassung.** Keine Qualitätsstufen während der Grundentwicklung.
+- **Entwicklung läuft strikt seriell** — ein Agent im Baum. Dateitrennung verhindert Überschreiben, nicht
+  Störung: Baum und Compiler sind gemeinsam.
+- **Nach JEDEM abgenommenen Entwicklungsschritt wird committed.** „Git holt es zurück" gilt nur, wenn es
+  drin ist.
+- `core/` zeigt nie nach oben. Peers rufen sich nie gegenseitig.
+- C++17, **kein Präfix**, PascalCase, **`namespace outshine`**, Klasse pro Datei. Ausnahmen:
+  `world/terrain/` (kleingeschriebene C-ABI-Bibliothek, weil `tiles/` denselben DEM-Dekoder ruft),
+  `FBWX` (Formatname).
 
 ## Host
 
 emsdk in `~/Git/emsdk`, `nproc`-Shim in `~/.local/bin`. Container: `podman machine start`, dann
-`tiles/up.sh` (:8081) und `sim/up.sh` (:8080); fb-sim mountet `sim/web` live. Native Builds brauchen
-`sim/vendor/.compat-headers` (host-lokal). **macOS hat kein `timeout(1)`** — nicht in Skripte einbauen.
+`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native Builds brauchen `sim/vendor/.compat-headers`;
+**macOS hat kein `timeout(1)`**. Baumvorlage: `~/Git/wasm-tree` (16 Arten als JSON).

@@ -1,0 +1,13 @@
+{
+  "bark_r":0.39,"bark_g":0.34,"bark_b":0.27,"bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.42,
+  "name": "linde", "botanical": "Tilia cordata", "common": "Winterlinde / Small-leaved lime",
+  "habit": "dichte eifoermige bis herzfoermige Krone, aufsteigende Aeste, dicht verzweigt",
+  "height_m": 25, "spread_m": 15,
+  "seed": 13, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
+  "trunk_steps": 24, "bare_steps": 8, "taper": 0.955, "min_radius": 0.005, "twig_radius": 0.011,
+  "branch_chance": 0.9, "max_order": 4, "terminal_fork": 1,
+  "branch_angle": 42, "branch_angle_var": 15, "order_len": 0.64, "order_radius": 0.5,
+  "wander": 9, "leader_bias": 0.18, "branch_up_bias": 0.18, "conical": 0.08,
+  "leaf_kind": "broad", "leaf_length": 1.0, "leaf_width": 0.52, "leaf_widest": 0.38,
+  "leaf_base_fill": 0.45, "leaf_tip": 0.40, "leaf_serration": 0.4, "leaf_fold": 0.12, "leaf_curve": 0.20
+}

@@ -1,0 +1,167 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Outshine — Präferenz</title>
+<style>
+  :root { color-scheme: dark; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#000; overflow:hidden;
+              font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:#ddd; }
+  #stage { display:flex; height:100%; width:100%; }
+  .side { position:relative; flex:1 1 50%; height:100%; cursor:pointer;
+          display:flex; align-items:center; justify-content:center; background:#000; }
+  .side img { max-width:100%; max-height:100%; object-fit:contain; display:block;
+              -webkit-user-drag:none; user-select:none; }
+  .side::after { content:''; position:absolute; inset:0; box-shadow:inset 0 0 0 0 #fff;
+                 transition:box-shadow .08s; pointer-events:none; }
+  .side:hover::after { box-shadow:inset 0 0 0 3px #fff; }
+  .key { position:absolute; bottom:14px; opacity:.35; font-size:11px; letter-spacing:.08em; }
+  #l .key { left:16px; } #r .key { right:16px; }
+  #split { width:1px; background:#222; flex:0 0 1px; }
+  #bar { position:fixed; top:0; left:0; right:0; height:2px; background:#111; }
+  #fill { height:100%; width:0; background:#6f6; transition:width .15s; }
+  #hud { position:fixed; top:10px; left:50%; transform:translateX(-50%);
+         background:rgba(0,0,0,.72); padding:5px 12px; border-radius:3px;
+         letter-spacing:.06em; pointer-events:none; white-space:nowrap; }
+  #hud b { color:#6f6; font-weight:400; }
+  #done { position:fixed; inset:0; background:#0b0b0b; display:none;
+          flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:40px; }
+  #done.on { display:flex; }
+  #tally { max-height:52vh; overflow:auto; font-size:12px; border-collapse:collapse; }
+  #tally td,#tally th { padding:3px 14px; text-align:left; border-bottom:1px solid #1c1c1c; }
+  #tally th { color:#888; font-weight:400; }
+  .win { color:#6f6; }
+  button { font:inherit; background:#1b1b1b; color:#ddd; border:1px solid #333;
+           padding:7px 16px; border-radius:3px; cursor:pointer; }
+  button:hover { background:#262626; }
+  #err { position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+         padding:40px; text-align:center; color:#f88; line-height:1.7; }
+</style>
+
+<div id="bar"><div id="fill"></div></div>
+<div id="stage">
+  <div class="side" id="l"><img id="li" alt=""><span class="key">← A</span></div>
+  <div id="split"></div>
+  <div class="side" id="r"><img id="ri" alt=""><span class="key">D →</span></div>
+</div>
+<div id="hud"></div>
+<div id="err"></div>
+
+<div id="done">
+  <div style="letter-spacing:.1em;opacity:.6">FERTIG</div>
+  <table id="tally"></table>
+  <div style="display:flex;gap:10px">
+    <button id="dl">votes.json laden</button>
+    <button id="again">nochmal</button>
+  </div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const LS = 'outshine.votes.v1';
+
+let pairs = [], i = 0, votes = {}, flipped = false, set = 'unbenannt';
+
+/* Die Seite wird pro Paar gewuerfelt und die Zuordnung MITGESPEICHERT: ohne das misst ein
+   Praeferenztest die Gewohnheit, nach links zu greifen, und nicht die Praeferenz. */
+const rngFlip = () => Math.random() < 0.5;
+
+async function boot() {
+  let m;
+  try {
+    const r = await fetch('pairs.json?' + Date.now());
+    if (!r.ok) throw new Error('pairs.json: HTTP ' + r.status);
+    m = await r.json();
+  } catch (e) {
+    $('#err').style.display = 'flex';
+    $('#err').innerHTML = 'Kein Paar-Manifest.<br><br><code>sim/web/vote/pairs.json</code> fehlt oder ist ungültig.<br>'
+      + String(e).replace(/</g,'&lt;') + '<br><br>Erzeugen mit <code>sim/tools/vote.py</code>.';
+    return;
+  }
+  set   = m.set || 'unbenannt';
+  pairs = m.pairs || [];
+  if (!pairs.length) { $('#err').style.display='flex'; $('#err').textContent='pairs.json enthält keine Paare.'; return; }
+  try { votes = JSON.parse(localStorage.getItem(LS) || '{}')[set] || {}; } catch {}
+  i = pairs.findIndex(p => !(p.id in votes));
+  if (i < 0) i = pairs.length;
+  show();
+}
+
+function preload(n) {
+  const p = pairs[n]; if (!p) return;
+  [p.a, p.b].forEach(src => { const im = new Image(); im.src = src; });
+}
+
+function show() {
+  if (i >= pairs.length) return finish();
+  const p = pairs[i];
+  flipped = rngFlip();
+  $('#li').src = flipped ? p.b : p.a;
+  $('#ri').src = flipped ? p.a : p.b;
+  $('#fill').style.width = (i / pairs.length * 100) + '%';
+  /* Waehrend der Wahl KEIN Label: sonst liest man die Beschriftung statt das Bild. */
+  $('#hud').innerHTML = `${p.question || m_question(p)} &nbsp; <b>${i + 1}</b>/${pairs.length}`;
+  preload(i + 1);
+}
+const m_question = p => (p.group || 'welches sieht besser aus?');
+
+function pick(side) {                       /* side: 'l' | 'r' */
+  if (i >= pairs.length) return;
+  const p = pairs[i];
+  const chosen = (side === 'l') === !flipped ? 'a' : 'b';
+  votes[p.id] = { pick: chosen, leftWas: flipped ? 'b' : 'a', t: Date.now() };
+  persist(); i++; show();
+}
+
+function back() { if (i > 0) { i--; delete votes[pairs[i].id]; persist(); show(); } }
+
+function persist() {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(LS) || '{}'); } catch {}
+  all[set] = votes;
+  localStorage.setItem(LS, JSON.stringify(all));
+}
+
+function finish() {
+  $('#fill').style.width = '100%';
+  $('#hud').textContent = '';
+  const byGroup = {};
+  for (const p of pairs) {
+    const v = votes[p.id]; if (!v) continue;
+    const g = p.group || '—';
+    byGroup[g] ??= {};
+    const label = p.meta?.[v.pick] ?? v.pick;
+    byGroup[g][label] = (byGroup[g][label] || 0) + 1;
+  }
+  let html = '<tr><th>Gruppe</th><th>Variante</th><th>Stimmen</th></tr>';
+  for (const [g, counts] of Object.entries(byGroup)) {
+    const rows = Object.entries(counts).sort((x, y) => y[1] - x[1]);
+    const top = rows[0]?.[1];
+    rows.forEach(([lab, n], k) => {
+      html += `<tr><td>${k ? '' : esc(g)}</td><td class="${n === top ? 'win' : ''}">${esc(lab)}</td><td>${n}</td></tr>`;
+    });
+  }
+  $('#tally').innerHTML = html;
+  $('#done').classList.add('on');
+}
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+$('#l').onclick = () => pick('l');
+$('#r').onclick = () => pick('r');
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') pick('l');
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') pick('r');
+  if (e.key === 'Backspace') { e.preventDefault(); back(); }
+  if (e.key === 'f' || e.key === 'F') document.documentElement.requestFullscreen?.();
+});
+$('#dl').onclick = () => {
+  const out = { set, when: new Date().toISOString(), votes,
+                pairs: pairs.map(p => ({ id: p.id, group: p.group, meta: p.meta })) };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+  a.download = 'votes-' + set + '.json'; a.click();
+};
+$('#again').onclick = () => {
+  votes = {}; persist(); i = 0; $('#done').classList.remove('on'); show();
+};
+boot();
+</script>

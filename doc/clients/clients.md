@@ -1,254 +1,155 @@
-# Clients — gym, native, wasm
+# Clients — walk and wasm
 
-**Subject:** the three programs that link or compile against the core library, and what each of them
-is allowed to be. The library itself is described in [`../architecture.md`](../architecture.md); the
-mission loop they share is in [`../missions/runtime.md`](../missions/runtime.md), the
-build targets and gates in [`../build-and-ops.md`](../build-and-ops.md).
+**Subject:** the two programs that link the engine, and what each of them is allowed to be. The floor
+plan is in [`../architecture.md`](../architecture.md); the build targets and gates in
+[`../build-and-ops.md`](../build-and-ops.md).
 
-The split is deliberate: the simulator is a **library** (`sim/`'s `core-lib` target →
-`build/libfbcore.a`), and a client adds exactly one thing — an entry point and an output medium.
-Nothing about the physics or the verdict may depend on which client is running.
+A client adds exactly one thing — an entry point and an output medium. **Nothing about the physics may
+depend on which client is running.**
+
+`gpu_walk` and wasm are **the same bench in two toolchains**: both link `PEDESTRIAN_SRCS` +
+`render/` + `world/`. Both hard-wire `mods/demo/scene.json`
+([`../goal.md`](../goal.md) §1) and read nothing else — no mission, no menu, no mod scan. What the
+browser adds is a swapchain and a main loop.
 
 ## Spec
 
-### All three
+### All of them
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| The simulation is identical across clients | same mission, same result; the renderer is a bolt-on, never a dependency of the physics or the termination logic |
-| **The sim tick is a property of the SIMULATION, not a client's choice** (`C4`, built) | one constant, `missions/FBSimTick.h`'s `kSimTickS = 0.1 s`, and every client advances the sim in whole multiples of it. Acceptance: the same mission gives the same numbers at ANY frame rate — measured in Chrome at 60 fps and at ~600 fps, `aimMissM = 20.7715` in both, digit for digit |
-| **A mission-declared clock binds all three clients** (`C2`, built) | one `time` line, one instant, one sun angle in gym / native / wasm; a client flag that contradicts it is a boot error, never a precedence — see below |
-| **No client runs a sim loop — every client DRIVES the one loop** | `missions/FBMissionSim` owns the tick and the rule that ends a run; a client calls `Advance(budgetS)` (browser) or `RunToConclusion()` (headless) and is TOLD the run state. Acceptance: `verify-guards` (a client that drops the verdict does not compile), `verify-layers` prints **1** simulation-loop driver |
-| Both judges are fed, and OBEYED, by every client | one loop feeds `FBFlightMonitor` + `FBMissionMonitor`; a physical K.O. lands in the damage register and the loop stops on it. Measured in Chrome: `monitor KO reason=CFIT` at `t=40.3` → `mission RESULT result=CRASH` → 13 s of further frames at `simTicksPerS=0` |
-| Only a client may apply initial conditions | `FBFdmBoot` is reachable from `missions/` and `clients/` only |
-| A client owns exactly one unit registry and passes it down at tick time | `FBSimUnit::Run` → `FBModule::Run` → sensor slot; `FBWorld` only borrows it for drawing |
+| The simulation is identical across clients | same declaration, same result; the renderer is a bolt-on, never a dependency of the physics |
+| **The sim tick is a property of the SIMULATION, not a client's choice** | one constant, and every client advances the sim in whole multiples of it. Acceptance: the same run gives the same numbers at ANY frame rate. **Nothing implements this today** — the tick constant and the one loop that owned it were deleted with the combat layer |
+| **A declared clock binds every client** | one declared instant, one sun angle everywhere; a client flag that contradicts it is a **boot error, never a precedence** |
+| **No client runs a sim loop — every client DRIVES the one loop** | a client calls into the loop and is TOLD the run state; it may not write its own tick. Acceptance was `verify-guards` (a client that drops the verdict does not compile), and **that gate is gone with its subject** — nothing enforces this today |
+| Only a client may apply initial conditions | the boot spawn is the single state writer |
+| A client owns exactly one entity registry and passes it down at tick time | the world layer only **borrows** it for drawing |
 
-### `fb-gym` — the reference path
-
-| Contract | Acceptance / measurement anchor |
-|---|---|
-| Headless, no GPU device at all | no Dawn/wgpu symbol in the binary, verified with `nm` |
-| Runs as fast as the machine allows | wall-clock speed must not change the result (principle 4) |
-| `--threads N` parallelises exactly the STEP phase; everything else stays sequential | identical fingerprint over `--threads 1..4` × 5 repetitions |
-| Runs without a network | `--elev baked` when the mod's declared DEM exists, else `const`; a bare `fb-gym --mission FILE` always runs |
-| This is the mission control loop | mission → telemetry → analysis → correction (`../build-and-ops.md`) |
-| **`--campaign` is gym-only** (`C0`, built) | `missions/FBCampaignRunner` is on the gym link line and in neither `libfbcore.a` nor the wasm build, for `FBTickPool`'s reason: a campaign is a sequence of headless runs, and neither the frame oracle nor the browser has one. Every step it runs is reachable as an ordinary `--mission … --state …` |
-
-### `gpu_native` — the frame oracle
+### `gpu_walk` — the pedestrian frame oracle
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| Reference renderer: whatever it draws is the truth about the picture | headless PNG proof frames, `--mission --interval` |
-| Proof frames ride on the SAME `FBRunMission` loop through a GPU-free tick hook | `--mission` without `--interval` stays headless and numerically unchanged |
-| A frame proof is a deliverable, not a screenshot | build-effective changes count as verified only with a rendered frame or a numerical measurement |
+| **A camera at eye height over the declared scene, the terrain streamer, one PNG — and nothing else** | no loop, no entities, no sensors, no overlay |
+| **It links `render/` + `world/` and the `core/` value translation units those two reference** | `PEDESTRIAN_SRCS` in `sim/Makefile`, and nothing else. `nm` shows no simulation symbol — there is no simulation layer left to show |
+| **The scene is a FILE, not a command line** | `mods/demo/scene.json`, hard-wired. Every field is required and none has a default: an incomplete declaration stops the boot rather than being filled in |
+| **The ground is DERIVED, never declared** | the scene states a height above ground; `fb_stream_ground` answers from the same DEM the mesh is built from. An unresolved sample stops the boot — a substituted plateau would move the whole picture |
+| **The scene's `fovDeg` is honoured, not compared** | it reaches `Renderer::SetFovDeg` and from there the projection, the atmosphere uniform and `FrameContext::FovDeg`; there is no engine-side constant left to disagree with. Verified: the demo scene at 30° instead of 60° renders a clean 2× zoom, sky and terrain still on one horizon |
+| **The WHOLE scene must be resident before the shot, and a pass count does not buy that** | since the tile pool the loading is asynchronous: at `--warm 240` the reference scene stood at `progress` 0.25, at 600 at 1 (measured 2026-08-07). So `--warm N` is now the **CEILING** and the run warms until `World::Resident()` — the geometry target cut complete (`progress == 1`), the 3×3 OSM building block decoded, and no building DAG in flight. **When the ceiling bites it is an error with a message** (`warm_ceiling_reached`, exit 2, no PNG written), never a quiet substitute: a picture of a half-loaded scene is not a measurement. Off a warm tile server the reference scene reaches residency in 232–570 passes depending on the pool width |
+| **The shot is a function of the SCENE, not of the tiles' arrival order** | residency alone is not enough — the TAA history is built while the tiles arrive, and two runs whose tiles landed in a different order used to differ in 0.43–0.48 % of pixels with a bit-identical depth buffer (reproduced 2026-08-07: three runs of the old procedure, three md5s). So the oracle calls `Renderer::ResetTemporal()` after residency and renders `TemporalSettleFrames()` = **128** more frames **without stepping the world**, then reads back. Acceptance: `tools/determinism.py`, 16 runs at `FB_TILEWORKERS` 1/2/4/6 (residency at 517/437/343/260 passes), **one** md5 `b9a48a34…`. `--settle N` overrides the number; the curve that fixed it is in [`../render/stages/taa.md`](../render/stages/taa.md) §7 |
+| **A declared walk stays declared** | `--walkE/N` metres per pass are applied over `--walk N` passes (default 240) and the warm-up then converges standing still. Tying the walk's length to the warm-up would make its end standpoint a property of the network |
+| A pedestrian carries no glass | he registers no `OverlayStage`, and there is no overlay group left to register — it was deleted with the avionics layer, so the scene keeps all its lines |
+| **Every frame reports its triangle count** | the budget curve ([`../goal.md`](../goal.md) §5) is a series, not a point |
+
+### `gpu_walk --rig` — the subject bench
+
+[`../goal.md`](../goal.md) §3 requires a subject to be rendered ALONE before it enters the scene. That
+bench is a **mode of the frame oracle, not a third client**: a client is an entry point plus an output
+medium, and the bench changes neither — it is the same binary, the same `Renderer`, the same stages,
+with the scene's *inputs* replaced by declared ones. A third client would be a third truth about the
+same picture; two of them already have to be kept identical by construction.
+
+**What it replaces and what it may not.** The bench replaces the WORLD (no `World::Open`, no tile
+stream, no OSM, no DEM, no buildings) and the LIGHT (declared, never inherited). It may not replace
+anything that draws the SUBJECT.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| **The subject is drawn by the scene's own stage, shader and lighting path — there is no bench-side copy of any of it** | the blades come from `render/stages/GroundCoverStage` fed through `Renderer::SetGroundField`, the same call `world/World` makes. A bench that generated its own geometry would measure itself |
+| **The floor is the subject's OWN declared substrate, and the neutral card stands beside the plant and never behind it** | `render/stages/BenchGroundStage` draws two surfaces. The PLANE takes the linear reflectance of the ground-material class the vegetation template references (`wiese` → `grasfilz`, **0.1430 / 0.0964 / 0.0400**, luminance 0.1023) — read from `assets/world/ground-materials.json` and **not** from the resolved `Row::Ground`, whose `swardClosure` (1.0 for `wiese`) has already overwritten it with the aggregate blade colour for the far field. The CARD is 18 % neutral, upright, square to the sight line, **an eighth of the frame wide at the frame's left edge**, and as tall as the frame or 1.5 × the subject, whichever is more. Neither is the scene's classified ground, so the ground shader's own defects still stay off the plant's account — what changes is that the contrast question the bench exists for, *soil against blade*, is now askable |
+| **The light is DECLARED and NAMED, three cases plus a turntable, and every output carries its name and its relative bearing** | `frontlit` (sun el 11°, azimuth = camera yaw + 180°, over the camera's shoulder), `backlit` (el 11°, azimuth = camera yaw, behind the subject), `skylight` (a closed deck, `cloudCover` 1.0 — the engine's own overcast, so the direct beam is extinguished by the same `cloudSunThru` the scene uses and nothing is switched off by hand). `turn###` is a FAMILY and not a fourth light: the sun stays where that view's own `frontlit` put it and the camera azimuth steps over 360°. Both families are indexed by the same logged quantity, `sunRelDeg = sunAz − camAz`, so `turn000` is `frontlit` to the bit |
+| **The matrix is FULL — every view under every light** | 7 views × 3 lights = 21, plus 8 turntable steps on `portrait`, `tuft` and `eye` = 45, plus a 0/6/12 m/s WIND row on `portrait`, `tuft`, `sward` and `eye` = **57 images**. There is no per-view light mask: a ragged matrix is a hole nobody declared, and the one that stood here cost the `botanist` his coverage verdict — `sward` carried `skylight` alone, so a black pixel on it could be blade or shadow and no second light existed to decide |
+| **The three lights are radiometrically comparable** | ONE manual exposure for the whole run, derived from the `frontlit` case's own measured irradiance and then held: `KeyEv = log2(kSceneExposure · 0.18 / π · E_horiz)`. Auto-exposure per image would normalise each light and make the transmission/reflection comparison meaningless. The card is the proof it holds: at a given `sunRelDeg` it reads the same code in every view of a run |
+| **Every shot measures what it contains, and an EMPTY view is distinguishable from a BLACK one** | three renders of one camera — subject + card, card + floor, floor — separate the three things a bench frame can hold. `fillPct` is the subject's share of the OPEN picture (the card's own area removed), `cardPct` and `cardMedian` say whether the reference survived and what it read, `subjectMedian` is the subject's own median code. Taken off the DEPTH buffer and the readback, never off a hue: a dry blade has no hue a test could find, and a colour difference counts the plant's shadow on bare floor beside it as plant (measured on `wiese`: 64.7 % against 13.0 % of actual cover). A frame with `fillPct ≥ 10` and `subjectMedian ≤ 1` raises `rig subject_below_floor` |
+| **Scale is in the image, not only in the log** | every view declares its FRAME WIDTH at the subject plane; the camera distance follows from it and the declared `fovDeg` (`d = 0.5·W / tan(atan(tan(0.5·fov)·w/h))`). A calibrated bar with a printed length is burned into the readback, and the neutral card carries a grid whose spacing is a 1-2-5 rounding of `frameWidth/8`. Both are logged with the frame |
+| **It is a bench for VEGETATION, not for grass** | nothing in it names a species or a layer: a view is `(frame width, pitch, eye height, azimuth)` and the subject height is a number. `--rig-height 25` frames a 25 m tree — floor radius, grid spacing, eye height and camera distance all follow from it, and no line of code changes |
+| **It never touches the scene** | no `World`, no network, no `fb-tiles`; `BenchGroundStage` self-gates on "no plane declared" and adds no `Begin*Pass`. Acceptance: `sim/walk-demo.png` before and after is **0 differing pixels** |
+| **A view that the engine cannot honestly fill is reported as a gap, never rendered** | an image of an unmodelled state is worse than a named hole ([`../goal.md`](../goal.md) §7). `_wind` was refused on exactly that ground and is rendered as of 2026-08-07, because the flow now exists; `_season` is still refused |
+| **The WIND is a bench parameter and it blows ACROSS the frame** | the row declares the 10 m met wind, not a bend: 0 / 6 / 12 m/s from `camAz + 270`, so it blows toward the camera's right and a lean is a lean and not a foreshortening. Same geometry, same light, same held exposure — a difference between two of the three files can be nothing else |
+| **A measurement over TIME needs a second clock, and the scene does not grow one** | `--wind-t S` sets the WIND clock and `--seq N --seq-dt S --seq-out DIR` writes a frame sequence after the warm-up, advancing that clock alone: one standpoint, one sun, one streaming state, one moving quantity. `--depth` writes the matching `%%04d.f32` beside every frame. `--wind-deg/--wind-ms` bracket the declared wind the way `--eye/--yaw` bracket the declared standpoint. `--wind-probe PATH` is the STATE channel — the same `WindField` object the stage is handed, sampled on a world line with no GPU in the path. **A temporal filter cannot be judged on a still camera**, so the sequence also carries `--seq-yaw D` (degrees per frame) and `--seq-stepE/N M` (metres per frame); with all three at zero it is the wind-only sequence the previous round used |
+
+**The view list.** Two critics asked for it; the `art-director`'s lights are orthogonal to the
+`botanist`'s framings, so the bench is a *view × light* matrix and both lists fall out of it. Every
+cell of it is written.
+
+| View | Frame width | Camera | Turntable | Asked by |
+|---|---|---|---|---|
+| `portrait` | subject height × 16/9 | horizontal, at mid-height | yes | `art-director` |
+| `a` / `b` | from a declared 1 m distance | horizontal, at mid-height, azimuth 0° / 90° | no | `botanist` |
+| `closeup_hd` | **0.060 m** at the blade foot | horizontal | no | `botanist` |
+| `tuft` | **0.40 m** | −35°, obliquely from above | yes | `botanist` |
+| `sward` | **1.00 m**, square crop = 1.000 m² | −90°, nadir | no | `botanist` |
+| `eye` | **4.0 m** | −3°, eye 1.70 m | yes | `botanist` |
+
+`sward` is a MEASUREMENT and not only a picture: at nadir `fillPct` IS the botanical coverage, and at
+no other pointing is it, so only there is it also logged as `coverPct`. It carries **no** card — its
+picture is the measured square metre, and a card inside it would be area subtracted from the answer.
+
+**`backlit` and `turn180` are the same LIGHT and not the same PICTURE, and the card proves both
+halves.** `backlit` moves the sun and leaves the camera; the turntable moves the camera and leaves the
+sun. Both reach `sunRelDeg = 0`, but the camera then stands on opposite faces of a stand whose blades
+are hashed out of their world cells, so the two frames sample different blades. Measured on `wiese`,
+`portrait`, one run, one shader build: the neutral card — the one surface whose orientation relative to
+the camera is identical in both — reads **code 67 in both**, while the subject's median reads **64**
+(`backlit`, camera 0°) against **94** (`turn180`, camera 180°). A four-face control at that same
+framing and that same bearing gives 64 / 88 / 94 / 106 for camera 0 / 90 / 180 / 270 — a **42-code**
+spread, inside which the 30-code gap sits. At `sunRelDeg = 180` the same control gives 50 / 71 / 74 / 84,
+a 34-code spread. **The residual is the stand's own face-to-face variance, not a lighting difference.**
+Making the two identical would cost a measurement either way: moving `backlit`'s camera would make the
+frontlit/backlit pair two different compositions and destroy the transmission comparison the
+`art-director` reads off it, and moving the turntable's sun with the camera would make eight identical
+pictures. So both stay, and `sunRelDeg` is what reads them against each other.
 
 ### wasm — the browser
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| Same source list, other toolchain (emcc/wasm32) — cross-compile, not a second architecture | `make -C sim wasm` builds gpu.js/gpu.wasm **and** the tile worker |
-| **A human in the seat gets no right the AI does not have** | his stick reaches the FLCS only as `FBPilotGuidance::Manual` through the module's own `ApplyPilotCommands`, and EVERY switch action of his exists only as an `FBCommandBus::Post` — same latency class, same occupancy rule, same rejection catalogue. Acceptance: a browser run shows `CMD_REJECT`/`CMD_ACK outcome=rejected` against the human exactly as against a pilot, and the set of state writers is unchanged (`FBFdmBoot` only) |
-| **What leaves the jet is resolved by ONE apparatus, not by a client's copy of one** | `missions/FBOrdnance` is on the core-lib source list and both the runner and the browser call the same three per-tick methods. Acceptance: moving it out of `FBMissionRunner.cpp` changed no artefact byte |
-| Single-threaded sim loop by design | real time needs no parallel physics, and the browser is spared the pthreads/SharedArrayBuffer build |
-| Model and mission data travel in Emscripten's virtual FS | one embedded model root, one build-copied mission directory (never a hand-kept second copy) |
-| **The browser does not own a tick and cannot end up with its own rules** | it hands `FBMissionSim::Advance(dt)` the wall time it owes a picture for; the phase order, the judges, the timeout and the verdict are the simulation's. What is left in `FBAppWasm.cpp` per tick is a READ (the eye's two poses, through the GPU-free `FBMissionTickHook`) |
-| **A finished run is a picture, not a second truth** | on `FBRunState::Concluded` the client stops advancing, emits the same `mission RESULT` line the runner emits, and keeps rendering the frozen scene; the player layer's debriefing already listens for that line (`web/fbmenu.js`, [`../player-layer.md`](../player-layer.md) §5) |
-| **The camera keeps the frame rate the sim does not have** | the eye pose is carried across the sub-tick gap (`EyeAt(alpha)`, extrapolated from the last two tick poses) and is read by NOTHING the simulation sees. Cost, stated: the HUD is generated by the display slot at 10 Hz, so during a manoeuvre its symbology and the terrain differ by up to one tick of attitude change |
-| **The camera KNOWS what is happening** (`C28`, built) | a watched run is watched by a DIRECTOR, not by a fixed rig: it reads the published pose and the published `FBDamageSignature` of every unit, decides which of six shot kinds is worth looking at, cuts, and holds long enough that the event can be read. Acceptance: a wreck fire is in frame — the case a chase rig can never reach, because the attack egresses away from what it destroyed and a friendly-only selector cannot see the other side |
-| **The director is a SPECTATOR, not a participant** | it is handed a plain `FBStageUnit` copy (id, kind, team, callsign, pose, damage signature, silhouette) and reaches no simulation object at all. Acceptance: `clients/FBCameraDirector.h` names no registry header, so `verify-layers` still prints **6** perception readers and **1** drawing-side viewer |
-| **The watcher can take the camera** | one key holds the cut where it is, one steps the subject by hand. Acceptance: a still taken past the running shot's own hold still shows the same subject |
-| **A frame proof can be aimed at a SIM second** | the client already stamps every console line with the mission clock; the harness reads it. Acceptance: a screenshot requested for sim second X lands within one log interval of it, whatever the tile load did to the wall clock |
-| Eventually: everything a pilot can do in the gym, a human can do in the browser | that is the direction of roadmap R9, not a claim about today |
+| Same source list, other toolchain (emcc/wasm32) — cross-compile, not a second architecture | `make -C sim wasm` builds the app **and** the tile worker |
+| **The same scene as the native oracle, from the same file** | `mods/demo/scene.json` is preloaded into Emscripten's virtual FS by the build; the client reads it and the vegetation table and nothing else |
+| **No menu, no mod scan, no mission** | the page is a canvas; the only exported symbols are `_main`, `_malloc`, `_free` |
+| **The browser advances a WIND clock and not a second sky** | `SetWindClock(wall time)` while `SetSkyClock` keeps the scene's declared moment, so the ground cover moves in the browser and the shadows stand where the scene put them |
+| **Its picture must be the native oracle's picture** | same triangle count within the streaming difference, same pass count, same sun |
+| **It is the ONLY client that is steered** | WASD in the horizontal view plane (Shift = 3×), pointer-lock free look at 0.12 deg/px with pitch clamped to ±89° and no roll, `R` back to the declared standpoint. It ends at `Renderer::SetCameraBasis` — `Renderer.cpp` learns nothing. `gpu_walk` keeps its fixed stand so measurements stay comparable between rounds. Measured in headless Chromium: **1.402 m/s** walking and **4.205 m/s** with Shift over 20 s holds (declared 1.4 / 4.2); 600 px of pointer travel turned the head 72.0° (600 × 0.12); ESC released the lock and 800 px of unlocked travel moved yaw and pitch by 0 |
 
 ## State
 
-| Client | State | Anchor |
-|---|---|---|
-| `fb-gym` | **built and load-bearing.** All 85 missions, all seven harnesses and the tournament runner drive it. Threading proven deterministic. | `705c90a`, `6d7ed5a` |
-| `gpu_native` | **built.** Terrain + HUD frames; last proof `gpu_native --mission payerne-takeoff --interval 20` → 28 PNGs. | `c9206eb`…`2099cb0` |
-| wasm | **built, and now playable.** Flies, renders, trims (`trimConverged=1` from the embedded `/fb/aircraft`), and since the player-control round: a bound keyboard stick, master arm / station select / pickle / gun trigger over `FBCommandBus`, and the full release + damage apparatus (`missions/FBOrdnance`) the runner drives. Still missing: cockpit displays and lock/TD-box symbology. | `705c90a` + model-root round + this round |
-| wasm: the human in the seat (`5.1`, `5.3`) | **built.** `systems/FBInputSystem` is a REAL slot; `FBModule::HumanInput()` hands it out and is null for every module without a cockpit. The analogue half becomes `FBPilotGuidance::Manual` through the module's own `ApplyPilotCommands`; the discrete half exists ONLY as `FBCommandBus::Post`. With a human engaged the AI pilot is not run at all. | measured in Chrome: `hotas STICK state=taken` → `gun TRIGGER burstS=0.6 rounds=510` → `sms RELEASE station=3 store=mk82` → `stores IMPACT tofS=10.17` → `damage DAMAGE unit=bunker` (§Knowledge, browser proof) |
-| wasm: the ordnance world (`5.1`) | **built and SHARED.** The store/gun apparatus moved out of `FBMissionRunner.cpp` into `missions/FBOrdnance` — three calls per tick (`Resolve` → `Launch` → `SnapPoses`), driven identically by the runner and the browser frame loop. The runner keeps ONE thing of its own: opening a telemetry CSV per released store, through `OnStoreSpawned`. | pure move: **31 missions** (12 chosen for weapon coverage — gun/missile/CCIP/CCRP/cluster/ARM/net/duel — plus 19 of a stratified every-4th-file sweep, incl. the 8-ship `ar-*` arena rungs), **368 artefacts** (`events.log` + every `telemetry*.csv`) **byte-identical** to the pre-move binary, 0 exit-code differences |
-| wasm: WHICH mod and WHICH mission it flies | **selectable.** `window.FB_MOD` (or `?mod=`) picks the scenario, `window.FB_MISSION` (or `?mission=`) a file of it; both sanitised to names and resolved against the mod's OWN manifest, preloaded at `/fb/mods/<id>/mod.json` and copied to `web/mods/<id>/` (`mods.md` §3.1). Absent mod = the first line of the generated index, absent mission = the manifest's `default_mission`. The mission buffer went 8 KB → 64 KB and a FULL buffer is now refused, because `fb_fetch_text` truncates silently and a mission cut at a line boundary parses into a smaller cast | the player layer's only reach into the client, [`../player-layer.md`](../player-layer.md) §11 B6 |
-| the mission clock (`C2`) | **built in all three.** `missions/FBClockBoot.h` decides, `core/FBEphemeris.h` computes, `FBEnvironmentBlock` carries it. The 84 pre-round missions are byte-identical; the flag collision is a boot error with a printed reason | `26dd3f2` |
-| **the two clients fly the same file** | **proven this round, and it was not true before it.** Same `.fbm`, headless Chromium against `fb-gym --elev tiles`, normalised console log against `events.log`: `c01m05` 456 lines / 4 differing (all four a 1e-12-degree numerical zero, §Gaps 5.9), `c01m07` 670 lines over 415.5 mission seconds / **0 differing**. Two causes were removed: the un-keyed ground-truth cache (`world/terrain.md` §3.3) and `FBSimUnit::PrimeState`, which STEPPED the FDM 0.01 s for the browser's first frame and for no other client | this round; `payerne-full --elev tiles` goes exit 2 → **exit 0** on the same repair |
-| the browser's clock (`C4`) | **built, and since this round the accumulator is the SIMULATION's** (`FBMissionSim::Advance`/`TickPhase`). The frame loop hands over wall time and gets whole `kSimTickS` steps; the camera is extrapolated between them and the frame rate touches nothing else. `FBLog` in the browser now stamps SIM seconds like the runner, which is what makes one console log diffable against one `events.log` | this round, table in Gaps `5.5` |
-| the campaign layer (`C0`) | **built in the gym only, by decision.** `fb-gym --campaign` loops `FBRunMission`; the 104 missions run singly stay byte-identical, 9 campaign runs give 1 fingerprint and every step replays standalone, under `swiss` as well as `const` | this round |
+| Client | State |
+|---|---|
+| `gpu_walk` | **built and measured, 2026-08-06.** Links warning-free under `-Wall -Wextra -Wpedantic -Werror`. `mods/demo/scene.json` after the standpoint move ([`../goal.md`](../goal.md) §2 — 52.10602 N, 9.43453 E, eye 1.70 m, yaw 280, 2026-08-06T17:40:00Z): ground **100.596 m** (`/elev?block=1` answers 100.60), sun **el 11.202 / az 282.601**, **7** render passes, **312,442** triangles (130 draws, 54 terrain tiles, 246,284 blades, 49,152 building vertices), `classVramMB` 32.5. The ground field converges to **3822 of 3822** cells covered with `classUnknown=0`, modal template **`wiese`** at 1702 cells — the old point returned `laubmischwald`. Frame: `sim/walk-demo.png` |
+| wasm | **built, 2026-08-06**, same scene preloaded from the same file. **The browser run has not been re-measured since the standpoint moved** — the numbers that stood here (7 passes, 552,899 triangles, sun disc at the predicted pixel) were taken at 52.10499/9.43424 and are not carried forward |
+| `gpu_walk --rig` | **built and measured, 2026-08-07.** `--rig wiese` writes **45** images to `sim/bench/` — 7 views × 3 lights + 3 × 8 turntable steps — with no network at all, in **13 s**. Lens 30° = **44.78 mm** on 35 mm format, `focalPx` **1343.54**; the macro views switch to a held working distance and a derived lens (`closeup_hd`: 0.600 m at **426.7 mm**, frame width 0.060 m, **0.0469 mm/px**). One exposure for the whole run, `KeyEv` **−3.887**, metered off the `frontlit` case (`horizE` 0.1608, sunY 0.5874, skyY 0.0487). The isolated patch is one field quad, **1.228 m × 2.000 m**, and the stand snaps to its centre (moved 0.540 m E / 0.854 m N). Floor `grasfilz`, card 0.18: the card holds **12.4 %** of the frame where the framing allows it (`portrait` 7.57 %, `eye` 10.35 %, `a` 10.94 %) and reads **171 / 67 / 90** at `sunRelDeg` 180 / 0 / skylight in EVERY view of the run. `sward` is **1.000 m²** as a 720 × 720 crop and measures **93.51 %** cover by depth under all three lights. `--rig-height 25` re-frames every view for a 25 m subject with no code change (`portrait` 44.44 × 25 m from 50 m with a 5.56 × 37.5 m card at 12.41 % of frame, `eye` re-aims from −3° to **+11.63°**, `sward` stays 1 m²) and the fill measurement names the consequence itself: `fillPct` **0** on every view but `sward` and `eye`, because a 0.3 m sward is all the subject there is. **It never touches the scene**: `sim/walk-demo.png` rendered by a binary built before and after this round is **byte-identical**, 7 passes and 1,459,400 triangles both times |
 
-| **the second loop (`C5`)** | **CLOSED, and it was the defect the owner found: "der flieger ist einfach in den berg geflogen und die simulation lief weiter".** `clients/FBAppWasm.cpp` had written itself a tick (`SimTick()`) that called `RunMonitors` and threw the result away — no `FirstFlightKo`, no verdict check, no timeout, no end. The loop is now `missions/FBMissionSim` for both clients, `Tick()` is private, the unit tick surface is friend-locked to it, and `FBRunState` is `[[nodiscard]]`. | proof: `missions/cfit-oberland.fbm` in Chrome — `t=40.3 monitor KO reason=CFIT`, `mission RESULT result=CRASH reason="ground penetration"`, then 13 s of frames with `simTicksPerS=0 substepsPerFrame=0` while `frames≈60`; the same file in fb-gym: exit 2, `CRASH`, same reason, `t=39.9` (the 0.4 s is the elevation source, §5.9). Regression: 281 missions, byte-identical |
+Everything these clients were once measured against — the scenarios, the mods, the meshes — is deleted.
+**No figure from those runs is carried into this file.**
 
-| **the TACTICAL MAP, in both graphical clients** | **built.** `gpu_native --map <callsign> [--map-span-km KM]` draws the fused picture of that unit — the control node of its faction's net — instead of its cockpit: nadir over the node, OSM ground from the terrain renderer, APP-6 symbology from `render/FBTacticalMap` into the EXISTING HUD pass. In the browser **TAB is the view** (cockpit ↔ map) and the ground-albedo toggle it used to throw moved to `t`; selecting a unit on the map and pressing TAB sits in ITS cockpit, which is an INFORMATION change and sees less than the map | frames in `sim/build/tactical-map/`; the log carries `map frame own=… contacts=… bearings=…` and one `map contact` line per unknown datum, so the picture is checkable without reading pixels. [`../player-layer.md`](../player-layer.md) §12 |
-| **the SCRIPTED COMMANDER** | **built, native only.** `--order AT:UNIT:KIND[:A[:B[:C]]]` hands one tactical order to one unit's AI at one sim second — the same input a click on the map is, and it ends in the same inbox. It writes no simulation state: there is no path from the flag to one | `KIND = waypoint|steer|attack (lat:lon[:altM]) | abort | emcon:0\|1 | wcs:free\|tight\|hold` |
-| **the DIRECTED view** ([`../mods.md`](../mods.md) §1) | **built, browser only** (`clients/FBCameraDirector.*`). `C` (or `?view=director` at boot) hands the camera to a director; `?view=chase` is the same camera with the cutting switched off and is byte-for-byte the old rig. It knows six shot kinds, in priority order **home < takeoff < launch < landing < impact < wreck**, all six read off published state alone: a unit that was not in the cast last tick and is a `Weapon` LEFT A RAIL · a rise in `FBDamageSignature::Hits` is one detonation · `!CombatEffective \|\| Destroyed` is a burn, and the same thing below 8 m AGL (or on a `Ground` unit) is a WRECK · an aircraft crossing 8 m AGL upward above 30 m/s has taken off, downward above 15 m/s has landed. A higher kind cuts a lower one mid-shot; an equal or lower one waits out the running shot's hold (impact 7 s, wreck 14 s on the ground and the impact's 7 s in the air, because the 14 s is the standing smoke column's own clock and a flying wreck has no column, launch 5 s, takeoff 8 s, landing 12 s, minimum shot 2 s), and a refused event is POSTED and retried for 15 s rather than lost — which is the bug that hid every wreck: the bomb that kills the target lands while the camera is still on the hit before it. Between events the camera returns to the mission's FIRST `unit` block, the actor every reading rule names as its verdict. Two framings: a chase (62 m behind, 13 m above, 18 m right, aiming 150 m ahead, 0.45 s heading lag) and a TRIPOD that stands still at a place and orbits it at 3.5 °/s, used only where the event itself stands still. Keys: `K` holds the cut, `N`/`]` and `[` step the subject by hand (a spent round is skipped) | the cockpit overlay is off in this view (it would project a flight-path marker on a boresight the camera does not have), so the scene takes all 720 lines and the per-frame pass count is the documented no-HUD variant. Measured in headless Chromium/WebGPU, `sim/build/watched-director/`: on `mods/f16`'s `suppress-killed` the AGM-88 kills the battery at `t=27.3` and the director cuts `wreck … frame=tripod holdS=14` at `t=27.4` — **43/108/74 saturated flame pixels** at sim 29.3/34.4/40.3 in a 13 × 16 px box three quarters down the frame, against **1 px** for the same event framed off the WRECK instead of off the FIRE. `K` at sim 28.8 kept **85 and 38** flame pixels in frame at sim 35.0 and **55.0** — 13.6 s past the shot's own hold, which would have ended at 41.4; `N` at sim 64.8 stepped to the aircraft and left **0**. On `mods/f22` the earlier figure still holds: `render passcount passes=6 clouds=1 hud=0` against `passes=7 … hud=1` in the cockpit, 60 fps with no dropped frame in 2 min per sortie (`cpuprof rafMs` median 16.67, max 17.16; loop 0.9–2.2 ms of it) |
-| **the map's own keys in the browser** | **built.** `TAB` view · `N`/`B` select the next/previous own unit · `[`/`]` zoom · `E`/`R` EMCON silent/radiate · `H`/`G` weapons hold/free · `A` engage the freshest UNKNOWN datum on the map · `X` abort. Every one of them ends in `FBPilot::ReceiveOrder`, and the answer is an `order ACCEPTED`/`order REFUSED` line | there is no cursor yet, so `waypoint`/`steer` are reachable from the native `--order` and not from the browser — booked below |
+What survives as *knowledge* rather than as a number, because each is a property of code that still
+stands:
+
+| Claim | Why it still holds |
+|---|---|
+| **The browser must not own a tick.** It once wrote itself a second loop, called the monitors and threw the result away — so an entity that had already hit the ground kept being integrated while the judge's own K.O. line stood in the console | the fix was structural: ONE loop, its tick private, the entity tick surface friend-locked to it, the run state `[[nodiscard]]`. **All of that is deleted.** The lesson stands; nothing enforces it, and whatever loop comes next must re-earn the shape |
+| **A throttled slot must be handed its own PERIOD, not the frame `dt`.** A slot that accumulates the outer `dt` runs its own clock at `dt / period` of sim speed | the module base that carried the coupling is deleted. Recorded so the next scheduler does not rediscover it |
+| **A point cache for ground elevation must be KEYED, and even keyed it is the wrong granularity.** An unkeyed cache answers every question with the last point that resolved, so the answer depends on fetch arrival order; a keyed one leaves every per-tick sample permanently unresolved, because a moving body's position is new each tick and the reply always lands after the tick that asked | the fix is the TILE and not the point ([`../world/terrain.md`](../world/terrain.md) §3.3), and it is in place |
+| **The browser and a headless run did not agree on a timed decision**, and the elevation source was ruled out as the cause | what is left is the decision under the browser's pacing. A browser run is **not deterministic and not claimed to be** ([`../mods.md`](../mods.md) §1); this is what that costs |
 
 ## Gaps
 
-### From the tactical-map round
-
-| Gap | Detail |
-|---|---|
-| **No cursor on the map, so `waypoint`/`steer` are native-only** | the browser binds keys, not a pointer; the two orders that need a PLACE are reachable from `gpu_native --order` and from nothing else. `FBTacticalMap::Unproject` exists and is the map's own projection inverted, so the click handler is the missing half and not the arithmetic |
-| **The map is ONE node's fusion** | `FBForcePicture::Ingest` is called once, for the control node. The class takes any number of contributors; what is missing is a RULE for which own units may contribute, and "all of them" would hand the map the picture of a jet that is off the link |
-| **The map's node is found by callsign, and a dead node leaves the map with the ownship's own picture** | `FBModule::NetControlNode()` returns what the mission declared; if that unit is not in the actor list the client falls back to the ownship. That is the smaller claim of the two, but a NODE THAT HAS BEEN SHOT DOWN is not distinguishable on the screen from one that was never declared |
-| **The browser's map is BUILT but UNMEASURED on a browser** | no Chromium in the build environment: `make wasm` builds warning-free and deploys to `sim/web/`, and the C++ behind TAB is byte-for-byte the code the native oracle's frames and `order …` lines come out of — but no browser frame of the map and no browser `view MODE` line has been seen. It is the user's hardware's proof, not this round's |
-| **A refusal is a log line, not a screen element** | the map's status line shows the order that was SENT (`ORDER attack -> vip1 (SEQ 4)`); the ANSWER is `order ACCEPTED`/`order REFUSED` in `events.log` and in `web/fbmenu.js`'s feed. A commander watching only the map sees his own word and not the reply |
-
-### What the browser did NOT have, in full (`C5` round)
-
-The end rule was the one that cost a run, but it was not alone. Everything the runner's tick did and
-the browser's copy did not, listed whether or not this round fixed it:
-
-| # | Rule the runner had | Browser before | Now |
-|---|---|---|---|
-| 1 | **end the run on a physical K.O.** (`FirstFlightKo`) | absent — the `monitor KO` line was printed and integration continued | **fixed**, and generalised: the loop asks the damage register (`FBSystemHealth::Destroyed`) |
-| 2 | **end the run on a deciding mission failure / all judged concluded** | absent | **fixed** (same predicate, one place) |
-| 3 | **the mission `timeout`** | never read; a browser run had no clock that could end it | **fixed** (`FBMissionSim` takes it; the `?ap=manual` sandbox declares infinity, honestly, because it has no plan) |
-| 4 | **`FinalizeMission` for every open judge** | absent — a `survive` objective never concluded, so no `mission OBJECTIVE` vector was ever published in the browser and the debrief had to read "never judged" as "nothing met" | **fixed** |
-| 5 | **the combined RESULT line** | absent (only the monitors' own lines) | **fixed** — same line, same fields as `FBRunMission` |
-| 6 | **`CheckEnvelope()`** — stall/overspeed/sink warnings | absent | **fixed** |
-| 7 | **`UpdateSky()`** — the cloud decks per actor | absent: a module's optical/IR sensors flew in clear air even under an overcast the RENDERER was drawing | **fixed** |
-| 8 | **`UpdateSolar()`** — sun/moon per actor under a declared `time` | absent: `FBEnvironmentBlock` stayed Invalid, so a visual sensor's day/night rules never applied in the browser | **fixed** |
-| 9 | **`SampleTelemetry()`** | absent | called, but a no-op: the browser has no telemetry SINK. Open — see 5.12 |
-| 10 | **spawn validation**: unresolved elevation = FAIL, declared altitude below ground = FAIL | absent: after 40 × 50 ms of polling the browser falls back to `kConfigGroundM = 430 m` and flies | **open (5.13)** — client-specific boot, not part of the tick |
-| 11 | **a telemetry CSV per released store** (`OnStoreSpawned`) | absent | by design: no file system |
-| 12 | **`UNIT_RESULT` per actor at the end** | absent | by design for now: the browser has no telemetry paths to name, and the debrief reads the per-unit lines out of the log |
-| 13 | **a declared `wx fixture` is a FAIL** | degrades to live `/wx` | by design, already documented above |
-| 14 | **campaign carry**, `--threads` | absent | by design (`C0`) |
-
-### Open work (from the retired `TODO.md` §5)
-
 | # | Client | Thing |
 |---|---|---|
-| ~~5.1~~ | wasm | **CLOSED this round.** The apparatus is `missions/FBOrdnance` and both clients drive it. |
-| ~~5.2~~ | wasm | **CLOSED this round for the MFD half.** The screen is a 3x3 grid: the upper six quadrants are out-the-window + HUD (a real scene VIEWPORT, not an overlay — `doc/render/renderer.md` §2.4), the lower three are an MFD bank drawn by `systems/FBDisplaySystem::BuildMfd` from published blocks only, in the HUD stage's own geometry and therefore at zero extra render passes. Which page a bay carries is itself a published block (`FBMfdBlock`), and the PILOT switches it over `FBCommandTarget::MfdPageSelect`. The HUD gave its state readouts up in exchange (`doc/modules/f16/hud-symbology.md`). **Still missing:** ICP/DED/OSB bezels, DTE, analog instruments — and the gaps opened by this round are D1..D7 in [`../modules/f16/cockpit-displays.md`](../modules/f16/cockpit-displays.md). |
-| 5.10 | wasm | **The cockpit strip has no author for a command.** It shows the pilot's PHASE (from the 1 Hz `pilot phase` line) beside the `mfd_page` `CMD_ISSUE`/`CMD_ACK` pair, which is the honest pair of facts the run publishes; it cannot show WHO posted the command, because `FBAvionicsCommand` carries no author, nor the ENGAGEMENT state, because that is a telemetry column and the browser has no telemetry sink. Both are named in `cockpit-displays.md` D2/D3 rather than reconstructed in the frontend. |
-| 5.11 | wasm | **The canvas is now the whole 3x3 grid, so the DOM must stay off it.** `#fb-bar` (top) and `#fb-hud` (bottom) take their height OUT of the canvas (`height:calc(100vh - 28px - 108px)`) instead of floating over it — an overlay would have covered the bank or the windscreen, which is exactly what the layout forbids. Consequence, stated: the picture is smaller than the window by 136 px, and there is no full-screen-without-chrome mode other than `F`. |
-| ~~5.3~~ | wasm | **CLOSED this round** for the keyboard. A gamepad is still unbound, and the CONTROL CURVE is still undecided (below). |
-| ~~5.5~~ | wasm | **CLOSED this round, and the mechanism was measured before anything was changed.** Not the cadence `FBF16Module::Due` picks — that one is right at any dt (a 10 Hz slot fires every 6th frame at 1/60 s, i.e. still 10 Hz). It is the `dt` HANDED THROUGH a throttled slot: `FBPilot::Run` does `TimeS_ += dt` and is called at 10 Hz, so with the frame's dt its own clock runs at `dt / 0.1` of sim speed. Convicted with two probes in fb-gym (both reverted): (a) with the tick forced to 1/60 s the GYM reproduces the browser — `aimMissM 22.5 → 117.9`, `leadS 0.6 → 0.5167`, and the pilot's clock reads **11.92 s while the world is at 71.5 s** (factor 6.0), so its pickle is stamped 60 s in the past, the bus finds it due at once, the 0.5 s HOTAS latency the pilot leads for never happens and the store leaves 0.42 s early = 97 m short at 231 m/s; (b) hand each throttled slot its own PERIOD instead of the frame dt and the same 1/60 s tick gives `aimMissM = 12.1` with both targets dead — a sampling-phase residual, not a bias. The fix is therefore the CLIENT's: `missions/FBSimTick.h` is the one tick constant, `FBMissionRunner` and the browser both step it, and the browser's frame loop turns wall time into whole ticks. **After, same file, same air (`wx calm`), same machine:** cbu87-footprint `aimMissM` browser **20.77** against gym **22.54** (the 1.8 m rest is the terrain seam — the browser samples the streamed tile raster, the gym the baked swiss DEM: impact plane 430.13 m against 430.007 m; `fb-gym --elev tiles` gives 22.62), both targets `DESTROYED` in both; the held trigger gives `1, 5, 9, 10, 10 …` rounds per bundle at exactly 0.1 s spacing — **the gym's own gun-bfm sequence, digit for digit** — 53 bundles in 5.3 s and **0 `BURST_DROPPED`** (before: 128 bundles of 1 round and **185** dropped). Cross-check `attack-ccrp`: `aimLongM` gym +38.56 m, browser after +41.98 m, browser before **−72.63 m** with no `damage DAMAGE` line at all |
-| **5.6** | wasm | **No control curve** (`doc/player-layer.md` §7 3b, unchanged). A key is a switch, so `FBInputSystem` ramps the axis to full deflection over `kAxisRampS`, and that constant is `FBCommandBus::kHotasLatencyS` — reused, not invented, because it is the tree's one measure of how long a HOTAS action takes. It is NOT the F-16's force-sensor law, and no source for one has been read. |
-| **5.8** | modules | **The trap is disarmed, not removed.** `FBF16Module::Run` still hands the OUTER dt to every slot `Due` throttles, so the coupling that produced 5.5 is intact and merely unreachable while every client steps `kSimTickS`. Handing each slot its own period is a MODULE round with its own acceptance, because it moves the 20 Hz slots (Displays, Weapons) from the 10 Hz they run at today to their declared rate and would move the regression. Measured cost of the wrong dt, so the next round starts from a number: at a 1/60 s tick the pilot's clock runs at 1/6 sim speed and `cbu87-footprint` misses by 117.9 m instead of 22.5 m. |
-| ~~5.9b~~ | wasm | **CLOSED, and the cause was worse than "whatever LOD is resident": the browser's `/elev` cache had NO KEY.** One global slot answered every question with the last point that resolved, so which answer you got was fetch ARRIVAL ORDER. Measured on `mods/f22` `c01m05`: both strike aircraft briefed their targets with the flight LEADER's spawn ground, **777.06 m instead of 510.93 / 442.26 m** — the CCRP plane 270 m high, release **1.6 s late**, impact **344 m short**, and neither target destroyed where fb-gym destroyed both. Keying the cache fixed the briefing and left every per-tick sample permanently unresolved (a bomb's position is new each tick, so the reply always lands after the tick that asked) — the stores then terminated on their carrier's spawn elevation, 350 m above the ground. The fix is therefore the TILE and not the point: [`../world/terrain.md`](../world/terrain.md) §3.3. **Repeatability now:** two `c01m05` browser runs at deliberately different paces (the second under two concurrent 296-mission gym sweeps, sim/wall 4.1 s/11.7 s against 4.1 s/9.0 s at the same mark) — **456 event lines, zero differences.** |
-| ~~5.9~~ | wasm/gym | **CLOSED: they ARE one sampler now.** The question this row left open ("whether they can be made ONE sampler is unasked") was asked and answered — `fb_stream_ground` is one implementation outside the platform split, sampling the z13 DEM tile exactly as `/elev` samples it, so the endpoint and the tile raster stopped being two samplers of one DEM. **Measured:** `c01m05` in Chromium against `fb-gym --elev tiles`, **456 event lines, 4 differing** — all four the tick-0 RWR elevation angle of a co-altitude contact, `−1.08419e-12` against `−2.16847e-12` DEGREES, i.e. a numerical zero the two code generators round differently; bearing and signal on the same lines are identical. `c01m07` over 415.5 mission seconds: **670 lines, 0 differing.** What remains between the clients is the DEM SOURCE, not the sampler: fb-gym's default for a mod that declares one is the baked 90 m raster and the browser has only the tile server (`c01m05` release plane 506.504 m baked against 510.926 m tiles = **4.4 m**, impact point 11 m apart, both targets destroyed either way). |
-| **5.7** | wasm | **The keyboard is bound to the WINDOW for the whole session**, so the arrow keys do not scroll the debriefing either. The handler consumes only the keys it uses and returns `EM_FALSE` for everything else. |
-| **5.12** | wasm | **The browser publishes no telemetry.** `FBTelemetryBus` needs a sink and the browser has no file system; the loop samples every actor per tick and the call is a no-op there. Consequence, stated: every `eng_*`-style debrief row the player layer could show is unreachable in the browser and only fb-gym can produce it. |
-| **5.13** | wasm | **The browser's spawn is not validated the way the runner's is.** An unresolved `/elev` after 2 s of polling falls back to `kConfigGroundM = 430 m` and the run starts anyway; a mission whose declared altitude is below ground is refused in fb-gym and flown in the browser. Both are boot-time client code, outside `FBMissionSim`. |
-| 5.4 | wasm/native | No lock / TD-box HUD symbology, because `doc/modules/f16/hud-symbology.md` documents none. It will not be invented — see [`../render/hud.md`](../render/hud.md). |
-
-### Open work (from the retired `TODO.md` §4.2)
-
-| # | Client | Thing |
-|---|---|---|
-| 4.2 | native/gym | **`payerne-full` crashes under `--elev tiles`.** Three suspect areas named: z13 bilinear against the 90 m raster, the 33 m cache cell, a 503 on cold start. While this is open, the mission control loop effectively hangs on `const`/`swiss` — i.e. the loop that decides pilot-AI questions never sees real terrain. |
-
-### Specified, not built
-
-None open for the clients themselves. The clock (`C2`) closed in this round; its consumer (`C3`,
-visual acquisition) is a `sensors/` gap, not a client one.
-
-### From the director round
-
-| Gap | Detail |
-|---|---|
-| **The BROWSER and `fb-gym` do not fly the same air-to-ground pass, and the difference is a release time** | measured on `mods/f22`'s `c01m05-double-down`: the two Mk-84s leave the rails at `t = 69.6` in the gym (`--elev baked` and `--elev tiles` alike) and at `t = 71.2 / 76.3` in Chromium — 1.6 s and 6.7 s late, which at 240 m/s is 384 m and 1 608 m of range. The gym kills `s5bt1`/`s5bt2` at `t = 86.8 / 87.3`; the browser's bombs hit bare ground 333 m and 390 m short and kill nothing. `c01m02` shows the same shape (gym kills `s2hous` at `t = 260.7`, the browser's bomb craters 55 m away and no `damage DAMAGE` line is emitted). The elevation source is RULED OUT — `--elev tiles` gives the gym the browser's own DEM and it still hits — so what is left is the release DECISION under the browser's pacing, and `../mods.md` §1's "not deterministic and not claimed to be" is doing more work than it looks. **Consequence for this round: no f22 sortie destroys a ground target in the browser, which is the second reason a wreck fire had never been seen.** The proof was taken on `mods/f16`'s `suppress-killed`, whose weapon HOMES and is therefore indifferent to a late release |
-| **A concluded run freezes the world, so the last shot is a photograph under an overlay** | `c01m07-aces-low` in Chromium ends at `t = 203.2` (the SA-2 kills the attack, which the gym's own run of the same file does NOT do — it degrades `s7lead` and runs to the 2 800 s timeout). The director cuts `impact` on that tick and then holds a scene that no longer moves, under the debriefing overlay. Named in [`../render/units-visual.md`](../render/units-visual.md) Gap 12 as well, because it is where it shows |
-| **The director is browser-only** | `gpu_native --mission --interval` still frames the mission's first unit and nothing else. Nothing in `FBCameraDirector` needs emscripten — it takes a vector of PODs and returns a camera basis — but the native oracle's PNG baselines are pinned to the camera it has, so wiring it there is a separate round with its own re-baselining |
-| **A director cut jumps the terrain stream** | the tripod is placed at the event, the quadtree is then refined around the camera's new position, and the first second or two of a cut to something kilometres away is coarser than the shot that follows. Not measured as a number this round; visible in `sim/build/watched-director/suppress-killed.webm` at the wreck cut |
-
-### Unverified
-
-- **The phase order is no longer a comparison.** There is ONE tick body (`missions/FBMissionSim::RunPhases`)
-  and both clients run it; the only phase a client places itself is STEP (`FBActorStepper`: a thread
-  pool in the gym, the frame thread in the browser). What remains unverified is the browser's BOOT
-  path, which is still its own code and still differs from the runner's (Gaps 5.13).
-
-## Knowledge
-
-| Fact | Source |
-|---|---|
-| `fb-gym` options: `--mission FILE \| --campaign FILE [--out DIR] [--timeout N] [--threads N] [--state FILE] [--carry LIST] [--elev tiles\|const\|swiss]`; `--threads`, `--campaign` and `--state` are gym-only | [`../architecture.md`](../architecture.md) |
-| Exit codes 0/1/2/3 = SUCCESS/FAIL/CRASH+LOC/TIMEOUT | [`../missions/runtime.md`](../missions/runtime.md) |
-| Per-run output: `telemetry.csv` (10 Hz, fixed column count) + `telemetry_<callsign>.csv` per further unit + `events.log` | [`../missions/runtime.md`](../missions/runtime.md) |
-| Threading measurements (2 units 1.29–1.41× at 2 threads; 4 units up to 1.77× at 4 threads; the ceiling is the machine) | [`../missions/runtime.md`](../missions/runtime.md) |
-| `missions/FBTickPool` is gym-only, not part of the core lib, never reaches the WASM build | [`../architecture.md`](../architecture.md) |
-| Host operation: podman VM, `tiles/up.sh` (:8081), `sim/up.sh` (:8080, mounts `sim/web` live) | [`../build-and-ops.md`](../build-and-ops.md) |
-
-### The human in the seat — what is bound, and where each half goes
-
-| Key | Half | Where it lands |
-|---|---|---|
-| `P` | seat | `FBInputSystem::TakeStick()` / `ReleaseStick()`. Taking it SEEDS the slot from the airframe (throttle from the last FLCS command, speedbrake and gear from `FBAirframeControls`) — a seat booting on defaults would put the gear down at altitude |
-| `↑ ↓` `← →` `, .` | analogue | axis INTENT (−1/0/+1) → ramp over `kAxisRampS` → `FBStickInput` → `FBPilotCommands{Manual}` → `ApplyPilotCommands` → `FBAutopilot::SetManual` → FLCS → `FBFdm::SetControls`. The identical path the AI's Manual guidance takes |
-| `W` `S` | analogue | throttle intent; the throttle HOLDS at intent 0 where the stick self-centres — a quadrant is not a spring |
-| `B` `G` | analogue | speedbrake / gear, through the same `FBPilotCommands` fields the pilot uses |
-| `M` | discrete | `FBCommandTarget::MasterArm`, value read off the seat's own published `FBStoresBlock::Arm` — the key is the THROW, the jet knows the position |
-| `1..9` | discrete | `FBCommandTarget::StationSelect`; an empty station answers `OutOfContext` and the player sees why |
-| `ENTER` | discrete | `FBCommandTarget::WeaponRelease` — the pickle, the one way a store leaves |
-| `SPACE` | discrete, HELD | `FBCommandTarget::GunTrigger`, value = the squeeze length. A held key is the same action REPEATED, paced by two guards: `kTriggerRepeatS` (= `kHotasLatencyS + kTriggerLatencyS`) covers the time before the first completion, and `FBCommandBus::SwitchReady` covers the time after it. Only the first guard is derivable; the window itself runs from the COMPLETION, whose time is the answering box's cadence, so it is ASKED. Without either, one keypress filled the whole 8-slot queue or earned one `ChannelBusy` per repeat — both measured |
-
-`FBCommandBus::SwitchReady` is the round's one new bus member: a const query of the occupancy rule `Post()` already applies, so it changes no outcome and only stops a doomed post from being made.
-
-### Weather defaults per client (R4, commit `43b82b5`)
-
-Precedence lives in one place, `missions`-side (`FBWeatherBoot.h`): **a mission that declares `wx`
-always wins** — a scenario with declared wind keeps it. Without a declaration the client default
-applies:
-
-| Client | Default | Why |
-|---|---|---|
-| gym | calm | the regression baseline stays byte-identical |
-| native | calm | the frame oracle needs reproducibility |
-| wasm | **live `/wx`**, but only for a mission that also pins no `time` | the browser flies today's real weather where "today" is what the run means — free flight and the sandbox. A mission that declared its INSTANT gets calm, like the other two clients, because today's GFS is not the weather of that instant: measured on `mods/f22/src/missions/c01m01`, live cloud put a solid deck at 4 200–5 600 m under a sortie cruising at 6 000 m, so all eight watched runs rendered as cloud top and nothing else |
-
-The browser fetches once per session (a GFS cycle is valid 6 h), flies calm until the blob arrives,
-and adopts it ATOMICALLY at a frame boundary — under ASYNCIFY a callback can land between two
-substeps. A dead endpoint is a warning, never a boot failure (the `/elev` lesson). No CLI flag, by
-decision: weather is part of the SCENARIO like the runway and the spawn — a flag would let a
-measurement silently run in air the file did not declare.
-
-### Clock defaults per client (`C2`) — **built**
-
-The contract of the `time` line is in [`../missions/syntax.md`](../missions/syntax.md); what belongs
-*here* is which clock a client runs when the mission declares none, and what happens when a client flag
-and a mission line both speak.
-
-Each client's own path when the mission declares nothing — unchanged by the round, deliberately:
-
-| Client | No `time` in the mission |
-|---|---|
-| `fb-gym` | **no clock and no ephemeris.** `FBEnvironmentBlock` stays `Invalid`, `blk_env` stays 0, nothing is computed — the reason the 84 pre-round missions are byte-identical |
-| `gpu_native` | `--utc SECS` (Unix seconds; `0`/absent = the host wall clock) |
-| wasm | `window.FB_SIM_UTC` (Unix seconds; `0`/unset = the host wall clock) |
-
-Precedence in ONE place on the `missions` side (`FBClockBoot.h`, the sibling of `FBWeatherBoot.h`):
-
-| Situation | Rule |
-|---|---|
-| mission declares `time` | that instant, on **all three clients**, identically |
-| mission declares no `time` | the client default: gym **none** (no ephemeris, exactly as today), native/wasm **their existing wall-clock or flag path**, unchanged |
-| mission declares `time` **and** `--utc` / `FB_SIM_UTC` is also set | **hard boot error, exit 1.** Not a precedence. Checked BEFORE the spawn, so it needs neither terrain nor a GPU; fixture `mods/f16/src/missions/negative/clock-flag-collision.fbm` |
-
-That last row is where this rule deliberately differs from `wx`, and the difference is worth stating.
-Weather has **no flag at all**, so no conflict can arise; the clock has one, and it has to keep it,
-because `gpu_native` also runs **without a mission** (the cloud proof cameras `p1`…`p5` are free-camera
-runs with no file to declare anything). Keeping the flag and making the collision an error costs one
-comparison and buys the same guarantee the `wx` rule buys by deletion: *a measurement can never
-silently run under a sky the file did not declare.* Silent precedence would leave a stale `--utc` in a
-shell history able to move a measured detection range without a line in the output.
-
-Consequence for the gym, and it is the load-bearing one: as soon as a **sensor** consumes the clock
-(`C3` visual acquisition, [`../sensors.md`](../sensors.md) §9) the clock stops being a renderer switch.
-`fb-gym` must then compute the same ephemeris the renderer does, from the same pure functions — which
-is why those functions moved down to `core/` in the C2 round.
-
-**How the clock reaches a client.** It is pushed by the OWNER, never pulled by a system: the runner (and
-the WASM frame loop) samples `FBSolarAt(lat, lon, T0 + simT)` per actor per decision tick, beside the
-cloud sample and for the same reason, and hands it down `FBSimUnit::UpdateSolar` → `FBModule::SetSolar`
-→ `FBEnvironmentBlock`. **No system below the owner holds a clock**, exactly as no sensor queries the
-world. The native hook takes the resolved clock through `FBMissionTickHook::OnClock` before
-`OnMissionStart`, so the first drawn frame already stands at the declared instant.
-
-**Where the layer move landed.** `core/FBEphemeris.h` (namespace `FlightBox`, `FBSunPos`/`FBMoonPos`,
-`double` Unix seconds), plus `core/FBCivilTime.h` for the calendar. `render/` no longer contains an
-ephemeris; both clients include it from below. Proof that the move changed nothing: the screenshot
-venue's PNGs at `--utc 922312800`, SVS and EVS, are byte-identical to the pre-round binary.
+| 3 | walk | **It has no body.** The stand point is a command-line argument, not a simulated pedestrian: nothing walks, nothing collides, the eye height is a number the caller supplies. That is the point of the target and it is also its limit |
+| 5 | wasm | **No overlay symbology for a body that is not an aircraft.** What the previous era drew was an aircraft's glass, declared by a title in a dead format. A first-person pedestrian needs a different surface, and none is specified |
+| 8 | walk/wasm | **The near field is black at a low sun.** Measured mean luminance of the lower half of `walk-demo.png` is **7.1 / 255** while the mid-distance reads 200+; at a 54-degree sun the same frame is correctly lit. There is no auto-exposure, so `totalHorizY = 0.058` tonemaps to nothing. This is the ground-shader step's problem, not the scene's |
+| 9 | wasm | **Half closed.** `windDeg`/`windMs` now reach `Renderer::SetWind` → `GroundCoverStage` and drive the ground cover; the browser advances the WIND clock off wall time while the sky keeps the scene's declared moment. What still drives nothing is the `ConstantWindWeather` in `world/` — two paths carry the same declaration and only one is read. `cloudCover` reaches the atmosphere uniform and tints the sky dome, but no deck is declared so the volumetric pass stays off (`cloudPass=0`) |
+| 10 | wasm | **The walker is a camera, not a body.** The eye rides the DEM (`fb_stream_ground` + the scene's `eyeM`) and nothing else: no collision with buildings or terrain slope, no step height, no gravity, no fall. Walking into a wall walks through it. That is [`../body-format.md`](../body-format.md)'s job and is not started |
+| 10a | wasm | **`R` teleports, and a BODY must never be allowed to.** `CLAUDE.md`'s rule is *„wirken nur über simulierte Systeme — einziger State-Schreiber ist der Boot-Spawn"*, and a jump to the declared standpoint is exactly the write that rule forbids. It is admissible today **only because gap 10 holds**: a camera is not a participant, so nothing in the world can react to it moving impossibly. **The moment the walker becomes a body, `R` is a cheat** and must either go or become an explicitly named debug path outside the simulated one — it may not simply survive the transition. Recorded here so it is not inherited by accident |
+| 11 | wasm | **A cold DEM tile freezes the eye height instead of stopping.** Boot refuses an unresolved ground, but a walker who crosses into a tile that has not streamed keeps the last resolved height until it arrives. The alternative — dropping to sea level — is worse; the honest fix is to bound how long it may lag |
+| 12 | render | **There is no text stage at all.** The glyph pipeline lived in `HudStage`, deleted 2026-08-07 with the avionics group. No client calls `SetLoadingScreen`, so nothing regresses; a pedestrian loading screen needs its own text stage in `render/` |
+| 13 | rig | **„A single plant" is not renderable, and the reason is structural.** A blade has no identity above its instance index: it is hashed out of its world cell in `GroundCoverStage`'s vertex shader, and the only quantity that can switch it off is the COVERAGE field, declared every `kFieldStride · kCellM` = 2 m. The smallest region that can carry cover 1 with cover 0 around it is therefore one field quad — measured **1.228 m × 2.000 m** at 52.1° N — and that is what `portrait`, `a`, `b` and `closeup_hd` frame the near edge of. A tuft, a shoot count, a leaf as an addressable object and the `botanist`'s `_leaf` view all need the plant to become a BODY ([`../body-format.md`](../body-format.md)), not a hashed instance |
+| 14 | rig | **`_wind` is rendered as of 2026-08-07, and the refusal is redeemed.** Four framings (`portrait`, `tuft`, `sward`, `eye`) each carry a 0 / 6 / 12 m/s row on identical geometry, light and exposure — twelve files, `wiese-<view>-wind{00,06,12}.png`. They are actually different: on `tuft`, 96.9 / 98.3 / 97.9 % of pixels differ by more than two codes between the three pairings (mean \|Δ\| 46.3 / 53.6 / 50.4 codes, max 190), and the subject's median display code falls 132 → 119 → 113 as the stand lies over. The named lights stay at zero wind by decision — a still-life judges FORM, which is what the botanist pinned, and it keeps those 45 files comparable between rounds |
+| 15 | rig | **`_season` is refused for the same reason.** No season parameter exists anywhere — the epoch/decay regulator of [`../vision.md`](../vision.md) is not built — so four dates would be four copies |
+| 16 | rig | **Nothing casts a sun shadow onto the card.** `ShadowStage`'s casters are the OSM building prisms only, and the bench has no buildings, so `csmSunVis` returns 1 everywhere: the contact shading visible at a blade's foot is `GroundCoverStage`'s own `shade` ramp (0.45 at the base, 1.0 at the tip) plus screen-space AO, and not a cast shadow. The `art-director`'s „Kontaktverschattung am Ansatz" is therefore readable as *what exists today*, not as what a shadow would give |
+| 17 | rig | **The bench cannot draw a tree yet.** `--rig-height 25` re-frames every view correctly and the numbers prove it, but the only subject the engine has is the grass layer, so a 25 m run photographs 0.3 m blades in a 25 m frame. The framing half of the bench is done; the subject half waits on step 5 |
+| 18 | rig | **The card's rendered colour is the illuminant's, not neutral.** Its reflectance is exactly 0.18 neutral, so under an 11° sun (`sunRGB` 0.783/0.561/0.342) it reads warm beige and only under `skylight` does it read grey. That is correct radiometry and it is also a trap for a critic reading hue off the `frontlit` frames — the neutral reference is the `skylight` pair |
+| 19 | rig | **A macro view inside a closed canopy cannot carry a visible reference, and the bench now says so instead of pretending.** Measured `cardPct`: `closeup_hd` **0 %** (the card stands at the patch's near edge and the outermost blades lean in front of it), `tuft` **0.5–2.5 %**. Both are frames whose `fillPct` is 90–98 % — there is no line of sight to a reference left. The reference for those two views is therefore the run's held exposure and the neighbouring wide views, and the log states it |
+| 20 | rig | **`closeup_hd` renders 89.60 % filled at median code 0.** Measured 2026-08-07: the frame carries geometry (`fillPct` 89.60, `blades` 230,770 instanced) and the subject's median code is exactly 0 under all three lights, so `rig subject_below_floor` fires on all three. It is a `GroundCoverStage` shading defect and not a bench one — `portrait-skylight` fires on the same measurement at `fillPct` 83.63 — and the bench's own share of it is closed: an empty view and a black one are now different numbers. **The proof that it was never empty is in the artefact:** the sky pass writes 144/177/216 over the sward in `portrait`, and no sky pixel can be code 0, yet the closeup's top four rows and its horizon row are 100 % (0,0,0) |
+| 21 | rig | **`closeup_hd` cannot show a ligula or a cross-section, at any exposure.** A blade is a zero-thickness parallel-sided ribbon with a 4 cm taper (`GroundCoverStage`) — there is no sheath, no ligula and no section to photograph. What 60 mm of frame width CAN answer is blade width (declared 11 mm, ~5 blades across the frame), the litter/floor transition and the base's contact shading. The rest waits on the plant becoming a body ([Gap 13](#gaps)) |
+| 22 | rig | **The floor is visible beyond the blade draw radius and reads as a step.** The stand ends where a blade's width stops covering τ pixels (`min(RadiusM, MaxWidthM · fPx / τ)`) while the bench floor reaches the eye's geometric horizon, so `eye` shows a band of bare `grasfilz` above the sward. It is logged as `bladeRadiusM` with every shot so it is identifiable, but it is still a hard chroma step in the picture — the world hides it with `swardClosure`, which the bench must not use |

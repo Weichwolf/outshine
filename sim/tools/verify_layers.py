@@ -6,36 +6,36 @@ asserted here instead of hoped for.
 
 The layers, bottom to top (RANK below). The order is the measured include graph, not a wish:
 
-  core        value types, the two channels (FBLog/FBTelemetry), the incorruptible judges
-              (FBFlightMonitor/FBMissionMonitor/FBSystemHealth/FBDamageModel), the camera/matrix
+  core        value types, the two channels (Log/Telemetry), the incorruptible judges
+              (FlightMonitor/MissionMonitor/SystemHealth/DamageModel), the camera/matrix
               maths. Includes NOTHING above itself — that is what makes it the anti-cheat anchor.
-  fdm         the JSBSim adapter (one FBFdm per airframe).
+  fdm         the JSBSim adapter (one Fdm per airframe).
   units       world-entity identity + the registry of who exists.
   sensors     the slots that may READ that registry: datalink, radar, RWR, IRST, visual,
               countermeasures.
   weapons     the stores + gun slots.
   systems     the airframe-agnostic flight/avionics slots + the CPU-side HUD geometry/font.
-              ABOVE sensors because FBSystemSlots.h aggregates the sensor slots for FBModule.
-  pilot       the mission layer above guidance: FBPilot, FBBfmTrack, FBEngagement, FBPilotTuning.
+              ABOVE sensors because SystemSlots.h aggregates the sensor slots for Module.
+  pilot       the mission layer above guidance: Pilot, BfmTrack, Engagement, PilotTuning.
   modules     the airframes composing all of the above.
   missions    the GPU-free mission orchestrator.
   clients     the entry points.
   render      the WebGPU renderer, driven by clients, borrowing systems/ and core/.
-  world       FBWorld + tile streaming, on world/terrain (a LEAF: it includes nothing of ours).
+  world       World + tile streaming, on world/terrain (a LEAF: it includes nothing of ours).
   test        sim/test, mirroring sim/src path for path (make verify-trees) and ranked above every
               layer it judges. A harness may reach anything; nothing may reach a harness.
 
 Four rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
-  * units/FBUnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST, visual) and
+  * units/UnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST, visual) and
     the missile's uplink RECEIVER.
-  * pilot/ includes neither units/ nor sensors/ — a pilot sees the world only through FBState.
-  * fdm/FBFdmBoot.h (the only door to a JSBSim IC) is named only by missions/ and clients/.
+  * pilot/ includes neither units/ nor sensors/ — a pilot sees the world only through State.
+  * fdm/FdmBoot.h (the only door to a JSBSim IC) is named only by missions/ and clients/.
   * core/ includes nothing above itself.
 
 The namespace half (NAMESPACE below) says the same thing to a reader that the include half says to
-the build: core/ IS the root `namespace FlightBox` — its value types are everywhere, and nesting them
+the build: core/ IS the root `namespace outshine` — its value types are everywhere, and nesting them
 would be noise — while every layer ABOVE it nests one level, so a cross-layer name carries its layer
-at the point of use (`Fdm::FBFdm`, `Systems::FBAutopilot`, `Units::FBUnitRegistry`).
+at the point of use (`Fdm::Fdm`, `Systems::Autopilot`, `Units::UnitRegistry`).
 
 Stdlib only, no build dependency. Exit 0 = clean, 1 = at least one illegal include or namespace.
 """
@@ -82,18 +82,18 @@ RANK = {
 # Files whose LAYER is not their directory's. Each is a real statement about the graph, not a waiver:
 # the file genuinely sits at this rank and is held to it.
 FILE_RANK = {
-    # FBSimUnit OWNS the FBModule it flies, so it sits above modules/ — while FBUnit.h/
-    # FBUnitRegistry.h (the identity + "who exists" that the sensor slots read) sit below them.
+    # SimUnit OWNS the Module it flies, so it sits above modules/ — while Unit.h/
+    # UnitRegistry.h (the identity + "who exists" that the sensor slots read) sit below them.
     # One directory, two layers; splitting the directory would separate a unit from its own registry.
-    "units/FBSimUnit.h": 8.5,
-    "units/FBSimUnit.cpp": 8.5,
+    "units/SimUnit.h": 8.5,
+    "units/SimUnit.cpp": 8.5,
     # The I/O edge of core's two channels. Deliberately NOT in core (CLAUDE.md: core stays I/O-free),
     # but attached by the mission orchestrator as well as by every client, so they cannot BE the
     # client layer. They include core and nothing else, and this rank pins that.
-    "clients/FBLogSinks.h": 1.5,
-    "clients/FBLogSinks.cpp": 1.5,
-    "clients/FBTelemetrySinks.h": 1.5,
-    "clients/FBTelemetrySinks.cpp": 1.5,
+    "clients/LogSinks.h": 1.5,
+    "clients/LogSinks.cpp": 1.5,
+    "clients/TelemetrySinks.h": 1.5,
+    "clients/TelemetrySinks.cpp": 1.5,
 }
 
 # Named exceptions: (includer-pattern, included-file) pairs allowed against the rank order.
@@ -101,20 +101,20 @@ FILE_RANK = {
 EXCEPTIONS = ()
 
 # The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
-# its own directory (inside it, the header is the seam's own implementation detail — FBFdm.cpp is
-# FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
+# its own directory (inside it, the header is the seam's own implementation detail — Fdm.cpp is
+# FdmBoot's friend by declaration, so hiding the header from it would be theatre).
 # THE PERCEPTION BOUNDARY, as a LIST and not as a sentence: the files that may read who exists in the
 # world. Every one of them is a simulated SENSOR (or a weapon's RECEIVER), and each pays a stated price
 # for the privilege — doc/sensors.md 1.2/9.2. Its LENGTH is the number the whole anti-cheat promise
 # hangs on, so it is printed at the end of a run: a reader added anywhere in the tree moves it, and a
 # human reading the gate's output sees that it moved.
 PERCEPTION_READERS = (
-    "sensors/FBDatalinkSystem.cpp",
-    "sensors/FBRadarSystem.cpp",
-    "sensors/FBRwrSystem.cpp",
-    "sensors/FBIrstSystem.cpp",
-    "sensors/FBVisualSystem.cpp",
-    "modules/missile/FBMissileUplink.cpp",  # a RECEIVER listening to a published emission
+    "sensors/DatalinkSystem.cpp",
+    "sensors/RadarSystem.cpp",
+    "sensors/RwrSystem.cpp",
+    "sensors/IrstSystem.cpp",
+    "sensors/VisualSystem.cpp",
+    "modules/missile/MissileUplink.cpp",  # a RECEIVER listening to a published emission
 )
 
 # The OWNER side of the same header, which is a different thing and is deliberately counted separately:
@@ -123,50 +123,50 @@ REGISTRY_OWNERS = (
     # THE SIMULATION LOOP. It builds nothing and reads nothing out of the registry: it hands the borrowed
     # list DOWN to the modules' sensor slots on the step it owns, which is the owner's role and not a
     # perceiver's.
-    "missions/FBMissionSim.h",
-    "missions/FBMissionSim.cpp",
-    "missions/FBMissionRunner.h",
-    "missions/FBMissionRunner.cpp",
-    "missions/FBMissionBoot.h",
+    "missions/MissionSim.h",
+    "missions/MissionSim.cpp",
+    "missions/MissionRunner.h",
+    "missions/MissionRunner.cpp",
+    "missions/MissionBoot.h",
     # The owner's ordnance book: a released store BECOMES a unit, so the thing that creates it is the
     # thing that must enter it in the registry. It reads nothing out of it -- Register() is the only
     # member it names -- which is exactly what separates this list from PERCEPTION_READERS above.
-    "missions/FBOrdnance.cpp",
-    "clients/FBAppWasm.cpp",
+    "missions/Ordnance.cpp",
+    "clients/AppWasm.cpp",
 )
 
-# THE THIRD CATEGORY, and it is neither a perceiver nor an owner: the DRAWING side. FBWorld turns the
-# registry's PUBLISHED poses into render/FBUnitDraw records once a frame so the picture can show the
+# THE THIRD CATEGORY, and it is neither a perceiver nor an owner: the DRAWING side. World turns the
+# registry's PUBLISHED poses into render/UnitDraw records once a frame so the picture can show the
 # cast the simulation already has. It is counted separately because the price it pays is different:
 # it reads everything a unit publishes, degrades none of it, and cannot feed anything back — an
-# FBUnitDraw carries no simulation type, and render/ sits ABOVE modules/ and pilot/ in the rank order,
+# UnitDraw carries no simulation type, and render/ sits ABOVE modules/ and pilot/ in the rank order,
 # so no module and no pilot can reach it. A reader added here does NOT widen what an AI may know; one
 # added to PERCEPTION_READERS does, which is why the two counts stay apart.
 DRAW_VIEWERS = (
-    "world/FBWorld.cpp",
+    "world/World.cpp",
 )
 
 # The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
-# its own directory (inside it, the header is the seam's own implementation detail — FBFdm.cpp is
-# FBFdmBoot's friend by declaration, so hiding the header from it would be theatre).
+# its own directory (inside it, the header is the seam's own implementation detail — Fdm.cpp is
+# FdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
-    "units/FBUnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS + DRAW_VIEWERS,
-    # A DECLARED BELT is judge data. core/ reaches it inside its own directory (FBMissionFile parses it,
-    # FBMissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
+    "units/UnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS + DRAW_VIEWERS,
+    # A DECLARED BELT is judge data. core/ reaches it inside its own directory (MissionFile parses it,
+    # MissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
     # not a sensor. This entry is a NARROWING: a pilot able to read a declared zone would know where the
     # SAMs are without a sensor. doc/air-defence-network.md 7.
-    "core/FBZone.h": (),
-    "fdm/FBFdmBoot.h": (
+    "core/Zone.h": (),
+    "fdm/FdmBoot.h": (
         # The only door to a JSBSim initial condition: mission boot and the test harnesses.
-        "missions/FBMissionBoot.h",
-        "clients/FBAppWasm.cpp",
-        "test/core/FBTestHardLanding.cpp",
-        "test/core/FBTestLocDeparture.cpp",
-        "test/fdm/FBTestTwoFdm.cpp",
-        "test/modules/f16/FBTestCornerSpeed.cpp",
-        "test/modules/mig29/FBTestMig29Envelope.cpp",
-        "test/modules/air/FBTestAirEnvelope.cpp",
-        "test/modules/missile/FBTestMissileAirframe.cpp",
+        "missions/MissionBoot.h",
+        "clients/AppWasm.cpp",
+        "test/core/TestHardLanding.cpp",
+        "test/core/TestLocDeparture.cpp",
+        "test/fdm/TestTwoFdm.cpp",
+        "test/modules/f16/TestCornerSpeed.cpp",
+        "test/modules/mig29/TestMig29Envelope.cpp",
+        "test/modules/air/TestAirEnvelope.cpp",
+        "test/modules/missile/TestMissileAirframe.cpp",
     ),
 }
 
@@ -175,100 +175,100 @@ RESTRICTED = {
 # elevation, a spawn-tick pose that was still the identity — doc/pilot.md 2.15, doc/sensors.md). Every
 # one of them compiled, because both frames are `double` and both are degrees.
 #
-# So the frame became a TYPE (core/FBBodyAngle.h, obtainable only through a named conversion) and the
-# posting became a single door (FBCommandBus::PostAntennaAz/El). This list is the door's own guard: the
+# So the frame became a TYPE (core/BodyAngle.h, obtainable only through a named conversion) and the
+# posting became a single door (CommandBus::PostAntennaAz/El). This list is the door's own guard: the
 # tokens RadarSlewAz/RadarSlewEl may appear in a POST expression in exactly these files. A fourth cue
 # source cannot reach the antenna without either going through the conversion or moving this number —
 # and the number is printed at the end of a run, exactly like the registry-reader count above it.
-SLEW_POSTERS = ("core/FBCommandBus.h",)
-RE_SLEW_POST = re.compile(r"Post\w*\(\s*FBCommandTarget::RadarSlew(?:Az|El)")
+SLEW_POSTERS = ("core/CommandBus.h",)
+RE_SLEW_POST = re.compile(r"Post\w*\(\s*CommandTarget::RadarSlew(?:Az|El)")
 
 # WHO DRIVES A SIMULATION TICK, and it is ONE file. A client that steps units itself is a client that
 # writes its own loop, and a second loop is a second set of rules: the browser had one, forgot the end
 # rule in it, and flew a CFIT'd F-16 on while the frame loop kept integrating. Since then the tick
-# surface of units/FBSimUnit is private with a single friend (missions/FBMissionSim), so a second driver
+# surface of units/SimUnit is private with a single friend (missions/MissionSim), so a second driver
 # does not COMPILE — this list is that guarantee's readable half, and its LENGTH is printed at the end
 # of a run exactly like the perception-reader count above: a driver added anywhere moves the number.
-# units/FBSimUnit.* are the definition site and name these members without calling them on an object.
-TICK_DRIVERS = ("missions/FBMissionSim.cpp",)
+# units/SimUnit.* are the definition site and name these members without calling them on an object.
+TICK_DRIVERS = ("missions/MissionSim.cpp",)
 RE_TICK_CALL = re.compile(r"(?:->|\.)\s*(?:PublishPose|PrimeState|RunMonitors|FinalizeMission|"
                           r"CheckEnvelope|UpdateGroundAsl|UpdateWind|UpdateSky|UpdateSolar)\s*\(")
-TICK_DEFINITION = ("units/FBSimUnit.h", "units/FBSimUnit.cpp")
+TICK_DEFINITION = ("units/SimUnit.h", "units/SimUnit.cpp")
 
 # Layers that may not appear ANYWHERE in a directory's include closure, regardless of rank.
 FORBIDDEN_DIRS = {
-    # A pilot sees other units only through FBState, written by the sensor slots.
+    # A pilot sees other units only through State, written by the sensor slots.
     "pilot": ("units", "sensors"),
 }
 
-# The namespace a directory's files declare. core/ IS the root: its value types (FBState, FBLog,
-# FBGeodesy, the judges) appear in every layer's signatures, and nesting them would add a qualifier
+# The namespace a directory's files declare. core/ IS the root: its value types (State, Log,
+# Geodesy, the judges) appear in every layer's signatures, and nesting them would add a qualifier
 # to every line without adding information. Everything ABOVE core nests exactly one level, so a
 # cross-layer name carries its layer where it is USED, not where it is declared.
 LAYER_NS = {
     "world/terrain": None,   # C island, see C_ISLAND
-    "core": "FlightBox",
-    "fdm": "FlightBox::Fdm",
-    "units": "FlightBox::Units",
-    "sensors": "FlightBox::Sensors",
-    "weapons": "FlightBox::Weapons",
-    "systems": "FlightBox::Systems",
-    "pilot": "FlightBox::Pilot",
-    "modules": "FlightBox::Modules",
-    "modules/f16": "FlightBox::Modules",
-    "modules/f16/displays": "FlightBox::Modules",
-    "modules/mig29": "FlightBox::Modules",
-    "modules/stores": "FlightBox::Modules",
-    "modules/missile": "FlightBox::Modules",
-    "modules/ground": "FlightBox::Modules",
-    "modules/air": "FlightBox::Modules",
-    "missions": "FlightBox::Missions",
-    "render": "FlightBox::Render",
-    "render/stages": "FlightBox::Render",
-    "world": "FlightBox::World",
-    "clients": "FlightBox::Clients",
+    "core": "outshine",
+    "fdm": "outshine::Fdm",
+    "units": "outshine::Units",
+    "sensors": "outshine::Sensors",
+    "weapons": "outshine::Weapons",
+    "systems": "outshine::Systems",
+    "pilot": "outshine::Pilot",
+    "modules": "outshine::Modules",
+    "modules/f16": "outshine::Modules",
+    "modules/f16/displays": "outshine::Modules",
+    "modules/mig29": "outshine::Modules",
+    "modules/stores": "outshine::Modules",
+    "modules/missile": "outshine::Modules",
+    "modules/ground": "outshine::Modules",
+    "modules/air": "outshine::Modules",
+    "missions": "outshine::Missions",
+    "render": "outshine::Render",
+    "render/stages": "outshine::Render",
+    "world": "outshine::World",
+    "clients": "outshine::Clients",
     # One namespace for the whole test tree: a harness is a `main` (exempt by law, see RE_MAIN) and the
     # few headers beside them are declaration tables, not a layer anyone links against.
-    "test/core": "FlightBox::Test",
-    "test/fdm": "FlightBox::Test",
-    "test/weapons": "FlightBox::Test",
-    "test/modules/f16": "FlightBox::Test",
-    "test/modules/mig29": "FlightBox::Test",
-    "test/modules/air": "FlightBox::Test",
-    "test/modules/missile": "FlightBox::Test",
+    "test/core": "outshine::Test",
+    "test/fdm": "outshine::Test",
+    "test/weapons": "outshine::Test",
+    "test/modules/f16": "outshine::Test",
+    "test/modules/mig29": "outshine::Test",
+    "test/modules/air": "outshine::Test",
+    "test/modules/missile": "outshine::Test",
 }
 KNOWN_NS = {v for v in LAYER_NS.values() if v}
 
-# modules/ deliberately does NOT get a second level per airframe. FlightBox::Modules::F16 would be
+# modules/ deliberately does NOT get a second level per airframe. outshine::Modules::F16 would be
 # the only member with more than a handful of files, the FB-prefixed class names already carry the
-# airframe (FBF16Fcr, FBStoreModule, FBGroundModule), and nothing outside modules/ names any of them:
-# the whole layer is reached through FBModule* and the registry's string key.
+# airframe (FBF16Fcr, StoreModule, GroundModule), and nothing outside modules/ names any of them:
+# the whole layer is reached through Module* and the registry's string key.
 
-# The C ISLAND: files that are not C++ FlightBox code but a C-shaped seam, and whose namelessness is
+# The C ISLAND: files that are not C++ outshine code but a C-shaped seam, and whose namelessness is
 # therefore the point, not an omission. A namespace here would either break the contract or lie about
 # it. Each entry names the contract it serves. (world/terrain/* is the same statement made by
 # directory, above: LAYER_NS[world/terrain] is None.)
 C_ISLAND = {
     # The tile-streaming C ABI (fb_terrain_*/fb_stream_*), whose header is `extern "C"`-guarded and
     # whose declarations must stay unmangled for the browser side that calls them.
-    "world/FBTerrainLoader.h",
-    "world/FBTerrainLoader.cpp",
+    "world/TerrainLoader.h",
+    "world/TerrainLoader.cpp",
     # The tile worker is its OWN wasm module; every _fbtw_* in the Makefile's EXPORTED_FUNCTIONS is
     # an extern "C" definition in this TU, and a mangled name would silently fail to export.
-    "clients/FBTileWorkerMain.cpp",
+    "clients/TileWorkerMain.cpp",
     # Force-included (emcc -include) into the PINNED JSBSim sources so the submodule stays vanilla:
     # it must be valid in whatever translation unit it lands in, including C ones.
     "fdm/em_compat.h",
-    # A standalone static-file host: its own binary, no FlightBox type in it, C throughout.
-    "clients/FBSimHost.cpp",
+    # A standalone static-file host: its own binary, no outshine type in it, C throughout.
+    "clients/SimHost.cpp",
 }
 
 # A TU that defines the global `main` cannot be wrapped — C++ requires main at global scope. That is
-# a law, not a waiver, so it is DETECTED rather than listed: such a TU reaches FlightBox through a
+# a law, not a waiver, so it is DETECTED rather than listed: such a TU reaches outshine through a
 # file-scope `using namespace` and keeps its own helpers in an anonymous namespace.
 RE_MAIN = re.compile(r"^\s*(?:int|auto)\s+main\s*\(", re.M)
 # `namespace [X] {` opening a block at column 0. A one-liner that also CLOSES on its line is a forward
-# declaration (`namespace FlightBox::Units { class FBUnit; }`) and is judged separately. The tree's
+# declaration (`namespace outshine::Units { class Unit; }`) and is judged separately. The tree's
 # own `} // namespace ...` marker is what closes one here (every file that opens one carries it), so
 # nesting is tracked without parsing C++: only a DEPTH-0 opener names the file's layer.
 RE_NS_OPEN = re.compile(r"^namespace\s*([A-Za-z_][A-Za-z0-9_:]*)?\s*\{(.*)$")
@@ -416,12 +416,12 @@ def main():
     for p in sorted(text):
         if RE_TICK_CALL.search(text[p]) and p not in TICK_DRIVERS and p not in TICK_DEFINITION:
             errors.append(f"SECOND SIM LOOP: {p} steps units itself — one tick body and one end rule "
-                          f"live in missions/FBMissionSim; a client ASKS it to advance (see that "
+                          f"live in missions/MissionSim; a client ASKS it to advance (see that "
                           f"header)")
         if RE_SLEW_POST.search(text[p]) and p not in SLEW_POSTERS:
             errors.append(f"ANTENNA FRAME: {p} posts a RadarSlew target directly — an antenna command "
-                          f"is body-referenced, so it goes through FBCommandBus::PostAntennaAz/El with "
-                          f"a core/FBBodyAngle (see that header)")
+                          f"is body-referenced, so it goes through CommandBus::PostAntennaAz/El with "
+                          f"a core/BodyAngle (see that header)")
 
     if errors:
         return report(errors)

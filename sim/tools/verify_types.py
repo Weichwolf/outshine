@@ -21,7 +21,7 @@ THE BREAKDOWN IS THE POINT, not the total: it says which share is cheap and whic
 
   dir      the file LIVES in a type-named directory (modules/f16/)   -> move the directory out
   symbol   the token is part of a C++ identifier -- class, member, enum value, factory, macro argument
-           (FBF16Module, FBFlightControl::F16(), FBGunKind::Gsh301)  -> generic class + declaration
+           (FBF16Module, FlightControl::F16(), GunKind::Gsh301)  -> generic class + declaration
   key      a bare lowercase string literal, i.e. a registry/asset key ("f16", "su27", "m61a1")
                                                                      -> manifest out of the mod
   text     a string literal a human reads ("F-15C Eagle")            -> label out of the manifest
@@ -59,7 +59,11 @@ import sys
 # assumed. Patterns whose plain form collides with ordinary code are narrowed and the collision is
 # named -- see `e3` and `b707` below; both were MEASURED false positives, not guesses.
 AIRFRAMES = {
-    "f16":   [r"F-16", r"F16", r"\bf16\b", r"[Vv]iper", r"Fighting Falcon"],
+    # `f16` is also the WGSL/graphics HALF FLOAT, and this is a WebGPU renderer: `representable in
+    # f16`, `vec2<f16>`, `RG16Float`. The bare lowercase form is therefore matched only where a
+    # registry key would write it -- quoted, or as a whole path segment -- never as free prose.
+    "f16":   [r"F-16", r"F16", r'(?<=")f16(?=")', r"(?<=/)f16(?=[/\"])", r"[Vv]iper",
+              r"Fighting Falcon"],
     "mig29": [r"MiG-29", r"MIG-?29", r"Mig29", r"\bmig29\b", r"[Ff]ulcrum"],
     "f15c":  [r"F-15C", r"\bF15c\b", r"\bf15c\b", r"\bEagle\b"],
     "su27":  [r"Su-27", r"\bSu27\b", r"\bsu27\b", r"[Ff]lanker"],
@@ -71,7 +75,7 @@ AIRFRAMES = {
     "su22":  [r"Su-22", r"Su-20", r"Su-17", r"\bSu22\b", r"\bsu22\b", r"[Ff]itter"],
     "mirf1": [r"Mirage", r"\bMirf1\b", r"\bmirf1\b"],
     "f5e":   [r"F-5E", r"Tiger II", r"\bF5e\b", r"\bf5e\b"],
-    # `E3` alone is an ENU basis vector in clients/FBAppNative.cpp (double E3[3]), so the bare capital
+    # `E3` alone is an ENU basis vector in clients/AppNative.cpp (double E3[3]), so the bare capital
     # form is matched only where a row would actually write it, never on its own.
     "e3":    [r"E-3\b", r"\bSentry\b", r"\bkE3\b", r"\be3\b"],
     "e2c":   [r"E-2C", r"[Hh]awkeye", r"\bE2c\b", r"\be2c\b"],
@@ -82,7 +86,7 @@ AIRFRAMES = {
     "mi8":   [r"Mi-8", r"\bMi8\b", r"\bmi8\b"],
     "ah64":  [r"AH-64", r"\bApache\b", r"\bAh64\b", r"\bah64\b"],
     # The 707 airframe family, named as the RCS stand-in and as the KC-135's basis. The digit guard is
-    # the damping ratio 0,707 in pilot/FBPilot.cpp, which is not an aeroplane.
+    # the damping ratio 0,707 in pilot/Pilot.cpp, which is not an aeroplane.
     "b707":  [r"(?<![0-9,.])707(?![0-9])", r"\bBoeing\b"],
 }
 
@@ -120,24 +124,10 @@ RE_OTHER = re.compile("|".join(OTHER_TYPES))
 # twelve lines above it; either failing is a STALE entry and fails the run. One entry = one
 # declaration = one unit of repair.
 VALUES = (
-    ("core/FBCommandBus.h", "kHotasLatencyS = 0.5", "f16",
-     "the F-16's documented short/long press discriminator, and `LatencyS` is static: the number "
-     "cannot become a module's without turning a shared classification into an instance"),
-    ("core/FBCountermeasure.h", "struct FBCmProgram", "f16",
-     "the dispense program's schema is the AN/ALE-47's, field for field and range for range"),
-    ("core/FBDirector.h", "enum class FBDirectorRefusal", "mig29",
-     "every refusal is a documented boundary of the MiG-29's director delivery -- the whole TYPE is "
-     "that procedure, so the remedy is `symbol` (move it out of core), not a parameter"),
-    ("sensors/FBRadarSystem.h", "kRefRcsM2 = 1.2", "f16",
-     "the range equation's calibration aircraft, so an F-16 gate against an F-16 is exactly 1.0; "
-     "moving it re-measures every range table in the tree"),
-    ("systems/FBAutopilot.h", "double BankMaxDeg, KHdg, KAlt;", "f16",
-     "the gain block's defaults are the flown F-16 preset and EVERY module flies them unchanged -- an "
-     "outer-loop gain has no neutral value, so the way out is a preset per airframe with its own "
-     "measurement"),
-    ("modules/air/FBAirFireControl.h", "kFunnelNearS = 0.178", "f16",
-     "the F-16's published EEGS window divided by the M61A1's muzzle velocity -- one funnel for six "
-     "guns is the whole argument, and a copy per barrel would unsay it"),
+    ("core/Countermeasure.h", "struct CmProgram", "f16",
+     "the dispense program's schema is the AN/ALE-47's, field for field and range for range. The "
+     "designation is the RANGES' provenance, so removing it to lower this counter would trade a "
+     "number's origin for a number in this report"),
 )
 
 RE_HEX = re.compile(r"0[xX][0-9A-Fa-f]+")

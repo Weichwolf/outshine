@@ -1,79 +1,22 @@
 <!doctype html>
 <html>
-<head><meta charset="utf-8"><title>FlightBox</title>
+<head><meta charset="utf-8"><title>Outshine</title>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#000000">
-<!-- Canvas backbuffer is fixed 1280x720 (the render target); CSS fits it to the viewport, object-fit
-     contain keeps the 16:9 aspect (letterbox, no stretch). A display-resolution upscale pass lands
-     later with the video-loop/present task; for now the browser scales the fixed backbuffer.
-     The player layer (fbplay.js + fbmenu.js) owns the page until a mission is chosen: gpu.js is
-     injected only when there is something to fly. -->
+<!-- The pedestrian bench: one declared scene (mods/demo/scene.json, preloaded into gpu.data) and
+     nothing to choose. Canvas backbuffer is fixed 1280x720; CSS fits it to the viewport, object-fit
+     contain keeps 16:9 (letterbox, no stretch). -->
 <style>
 html,body{margin:0;height:100%;background:#000;color:#c8d2c8;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
-/* Das 3x3-Raster IST der Canvas: obere zwei Reihen Aussenansicht+HUD, untere Reihe die MFD-Bank.
-   Deshalb darf keine DOM-Schicht darauf liegen — Leiste oben und Streifen unten nehmen ihre Hoehe
-   aus dem Canvas heraus, statt in die Quadranten hineinzuragen. */
-canvas{display:block;width:100vw;height:calc(100vh - 28px - 108px);margin-top:28px;object-fit:contain}
-#fb-ui{position:fixed;inset:0;overflow:auto;background:#05070a;padding:28px 32px 48px;box-sizing:border-box}
-#fb-ui h1{font-size:20px;letter-spacing:.22em;margin:0 0 6px;color:#e8f0e8}
-#fb-ui h2{font-size:12px;letter-spacing:.18em;margin:22px 0 6px;color:#7f8f7f;font-weight:400}
-.fb-sub{margin:0 0 22px;max-width:104ch;color:#7f8f7f}
-.fb-body{max-width:104ch}
-.fb-card{border:1px solid #1e2a1e;border-left:3px solid #2f4a2f;padding:10px 14px;margin:0 0 8px}
-.fb-open{cursor:pointer}
-.fb-open:hover{background:#0b1410;border-left-color:#6ee08a}
-.fb-locked{opacity:.38;border-left-color:#2a2a2a}
-.fb-card-t{color:#e8f0e8;letter-spacing:.08em}
-.fb-card-s{color:#8fa08f}
-.fb-card-m{color:#5f6f5f;font-size:12px;margin-top:4px}
-.fb-lock{color:#c07a4a;letter-spacing:.18em}
-.fb-objs{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px}
-.fb-k{color:#5f6f5f;font-size:12px}
-.fb-o{border:1px solid #24361f;color:#a8c8a8;padding:0 6px;font-size:12px}
-.fb-none{color:#6f7f6f;border-color:#2a2a2a}
-.fb-verdict{font-size:22px;letter-spacing:.2em;padding:12px 0 4px}
-.fb-ok{color:#7ee89a}
-.fb-no{color:#e8a06a}
-.fb-t{border-collapse:collapse;width:100%;max-width:104ch}
-.fb-t td{border-bottom:1px solid #141c14;padding:3px 8px 3px 0;vertical-align:top}
-.fb-l{color:#7f8f7f;white-space:pre-wrap;width:44%}
-.fb-v{color:#dce8dc;white-space:pre-wrap}
-.fb-note{color:#6f7f6f;max-width:104ch;margin-top:18px}
-.fb-err{color:#e07a5a}
-.fb-save{color:#4f5f4f;font-size:12px;white-space:pre-wrap;margin-top:12px}
-.fb-foot{margin-top:24px;display:flex;gap:8px;flex-wrap:wrap}
-button{background:#0b1410;color:#c8d2c8;border:1px solid #2f4a2f;padding:5px 12px;font:inherit;font-size:12px;cursor:pointer;letter-spacing:.08em}
-button:hover{background:#14241a;border-color:#6ee08a}
-#fb-bar{display:none;position:fixed;top:0;left:0;right:0;gap:10px;align-items:center;
-        background:rgba(5,7,10,.72);border-bottom:1px solid #1e2a1e;padding:5px 10px;font-size:12px}
-.fb-bar-t{color:#a8c8a8;letter-spacing:.1em;margin-right:auto}
-/* The cockpit strip: what the hands can do, what the armament boxes published, what just happened.
-   Pointer-events off — it is a readout, never a control surface. */
-#fb-hud{display:none;position:fixed;left:0;right:0;bottom:0;height:108px;box-sizing:border-box;
-        padding:4px 10px 6px;font-size:12px;overflow:hidden;
-        background:#05070a;border-top:1px solid #1e2a1e;pointer-events:none}
-.fb-keys,.fb-armrow{display:flex;flex-wrap:wrap;gap:14px;color:#7f8f7f}
-.fb-armrow{margin-top:4px;color:#c8d2c8;letter-spacing:.06em}
-.fb-ck{color:#6ee08a;font-weight:400;letter-spacing:.1em}
-.fb-feedrow{margin-top:4px;max-height:44px;overflow:hidden}
-.fb-fl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#8fa08f}
+canvas{display:block;width:100vw;height:100vh;object-fit:contain}
 </style>
 </head>
 <body>
 <canvas id="gpu" width="1280" height="720"></canvas>
-<div id="fb-bar"></div>
-<div id="fb-hud"></div>
-<div id="fb-ui"></div>
-<!-- FlightBox: WebGPU engine (JSBSim in-process + FBWorld + Hillaire + MIL-STD-1787 HUD). -->
 <script src="config.js"></script>
 <script>
-  // TAB = the VIEW (cockpit <-> tactical map). The browser steals Tab for focus traversal, so the
-  // preventDefault has to happen at the DOM; the SWITCH itself lives in the WASM, because it changes
-  // what the player KNOWS and not what this page shows (doc/player-layer.md 9.7). The ground-albedo
-  // toggle TAB used to throw moved to `t`, and is still reachable as ?ground=.
+  // F = fullscreen. The canvas backbuffer stays 1280x720; the browser scales it to the screen.
   window.addEventListener('keydown', function(e){
     if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
-    if(e.key==='Tab'){ e.preventDefault(); return; }
-    // F = fullscreen. The canvas backbuffer stays 1280x720; the browser scales it to the screen.
     if(e.key==='f'||e.key==='F'){
       e.preventDefault(); var c=document.getElementById('gpu');
       var req=c.requestFullscreen||c.webkitRequestFullscreen;
@@ -81,18 +24,7 @@ button:hover{background:#14241a;border-color:#6ee08a}
       else { (document.exitFullscreen||document.webkitExitFullscreen).call(document); }
     }
   });
-  // ?ground=photo|osm — the same switch TAB throws, reachable without a keypress so a headless browser
-  // can screenshot BOTH ground sources. The renderer starts on OSM.
-  (function(){
-    var want=new URLSearchParams(location.search).get('ground');
-    if(want!=='photo' && want!=='osm') return;
-    var t=setInterval(function(){
-      if(!(window.Module && Module._fb_set_ground && Module.calledRun)) return;
-      clearInterval(t); Module._fb_set_ground(want==='photo'?1:0);
-    },100);
-  })();
 </script>
-<script src="fbplay.js"></script>
-<script src="fbmenu.js"></script>
+<script src="gpu.js"></script>
 </body>
 </html>

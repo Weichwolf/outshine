@@ -1,9 +1,0 @@
-# Selektion AUF DER BREITE: nur das Gen, das der veroeffentlichte Mechanismus (E13 Paragraph 4) benennt,
-# ueber alle 154 Kampagnenzellen abgetastet. Kein Fischen — die Achse steht vorher fest.
-seed       pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_stack_frac=1.5 pilot_flight_trail_frac=1.5
-stack0   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=0
-stack0.25   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=0.25
-stack0.5   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=0.5
-stack0.75   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=0.75
-stack1.0   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=1.0
-stack2.0   pilot_attack_bias_s=0 pilot_attack_ccip_m=1000.5 pilot_cover_frac=1.5 pilot_emcon_frac=1.5 pilot_energy_frac=0.95 pilot_flight_spread_frac=1.625 pilot_flight_trail_frac=1.5 dl=on pilot_flight_stack_frac=2.0

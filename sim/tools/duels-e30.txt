@@ -1,6 +1,0 @@
-# TWO-SIDED MESSZELLEN — doc/doctrine-evolution.md E-30, Runde E30.
-# Format wie tools/duels-sat.txt: <mission> <blue team> <blue module> <red team> <red module>.
-# BEIDE Seiten sind DEKLARIERT; das Tor dazu ist tools/fb_duel_arena.py.
-sat-10-duel-merge             friendly  f16   hostile  mig29
-sat-11-duel-qra               friendly  f16   hostile  mig29
-sat-12-duel-gate              friendly  f16   hostile  mig29

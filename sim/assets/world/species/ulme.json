@@ -1,0 +1,13 @@
+{
+  "bark_r":0.37,"bark_g":0.33,"bark_b":0.27,"bark_dark":0.52,"bark_freq":5.0,"bark_ridge":0.52,
+  "name": "ulme", "botanical": "Ulmus minor", "common": "Feldulme / Field elm",
+  "habit": "vasen-/trichterfoermige Krone, Aeste steil aufstrebend und nach aussen geschwungen",
+  "height_m": 28, "spread_m": 16,
+  "seed": 15, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
+  "trunk_steps": 20, "bare_steps": 6, "taper": 0.95, "min_radius": 0.005, "twig_radius": 0.011,
+  "branch_chance": 0.88, "max_order": 4, "terminal_fork": 1,
+  "branch_angle": 32, "branch_angle_var": 12, "order_len": 0.66, "order_radius": 0.5,
+  "wander": 9, "leader_bias": 0.07, "branch_up_bias": 0.3, "conical": 0.0,
+  "leaf_kind": "broad", "leaf_length": 1.0, "leaf_width": 0.42, "leaf_widest": 0.55,
+  "leaf_base_fill": 0.12, "leaf_base_skew": 0.7, "leaf_tip": 0.5, "leaf_serration": 0.55, "leaf_fold": 0.08, "leaf_curve": 0.16
+}

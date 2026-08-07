@@ -1,0 +1,263 @@
+#include "TreeLeaf.h"
+
+#include <cmath>
+#include <vector>
+
+#include "TreeRandom.h"
+
+namespace outshine::World {
+
+namespace {
+
+constexpr float kTau = 6.2831853f;
+constexpr float kDeg = 0.01745f;
+
+class Sink {
+public:
+  explicit Sink(TreeMesh &m) : Mesh_(m) {}
+
+  uint32_t Vert(TreeVec3 p, TreeVec3 n, float u, float v) {
+    const uint32_t idx = (uint32_t)(Mesh_.LeafVerts.size() / TreeMesh::kLeafFloats);
+    Mesh_.LeafVerts.insert(Mesh_.LeafVerts.end(), {p.X, p.Y, p.Z, n.X, n.Y, n.Z, u, v});
+    return idx;
+  }
+  void Tri(uint32_t a, uint32_t b, uint32_t c) {
+    Mesh_.LeafIdx.push_back(a);
+    Mesh_.LeafIdx.push_back(b);
+    Mesh_.LeafIdx.push_back(c);
+  }
+
+private:
+  TreeMesh &Mesh_;
+};
+
+/* Half width of the lamina at t along the midrib. A beta profile with its maximum at `Widest`: the base
+ * stays rounded whatever `Tip` does, so acuminate (oak, birch) and elliptic (beech) are one family and
+ * not a diamond. */
+float ProfileWidth(const TreeSpecies::Leaf &p, float t) {
+  if (p.Kind == TreeSpecies::LeafKind::Needle) {
+    float w = p.NeedleWidth * (1.0f - 0.12f * t);
+    if (t > 0.82f) { w *= (1.0f - t) / 0.18f; }
+    return w;
+  }
+  const float a = p.Widest * 1.5f + 0.80f;
+  float b = (1.0f - p.Widest) * 1.5f + 0.95f - p.Tip * 1.25f;
+  if (b < 0.55f) { b = 0.55f; }
+  const float peak = std::pow(p.Widest, a) * std::pow(1.0f - p.Widest, b);
+  float w = (peak > 1e-6f) ? std::pow(t, a) * std::pow(1.0f - t, b) / peak : 0.0f;
+  w *= p.Width;
+  if (p.BaseFill > 0.0f) { w += p.BaseFill * p.Width * std::exp(-t * 9.0f); }
+  if (p.Lobes > 0) {
+    const float lob = 0.5f + 0.5f * std::cos(kTau * (float)p.Lobes * t);
+    w *= 1.0f - p.LobeDepth * lob;
+  }
+  if (p.Serration > 0.0f) {
+    const float f = (float)(p.Lobes > 0 ? p.Lobes : 7) * 2.0f;
+    const float saw = std::fabs(2.0f * (t * f - std::floor(t * f + 0.5f)));
+    w *= 1.0f - p.Serration * 0.45f * saw;
+  }
+  return w;
+}
+
+/* One lamina: midrib from `base` at angle `ang` in the XY plane, three strips (left rim, midrib, right
+ * rim) so that fold and lengthwise curvature have somewhere to live. */
+void BuildBlade(Sink &sink, const TreeSpecies::Leaf &p, TreeVec3 base, float ang, float lenScale) {
+  int n = p.Segments;
+  if (n < 4) { n = 4; }
+  const int nv = (n + 1) * 3;
+  std::vector<TreeVec3> pos((size_t)nv), nrm((size_t)nv);
+  std::vector<float> uu((size_t)nv);
+  const TreeVec3 dir = Vec3(std::sin(ang), std::cos(ang), 0.0f);
+  const TreeVec3 side = Vec3(std::cos(ang), -std::sin(ang), 0.0f);
+  const float len = p.Length * lenScale;
+  for (int i = 0; i <= n; ++i) {
+    const float t = (float)i / (float)n;
+    const float w = ProfileWidth(p, t) * len;
+    const float z = -p.Curve * len * t * t;
+    const float fz = p.Fold * w;
+    const float skf = p.BaseSkew * (1.0f - t);
+    const float wl = w * (1.0f + skf * 0.9f), wr = w * (1.0f - skf * 0.9f);
+    const TreeVec3 c = base + (dir * (t * len) + Vec3(0, 0, z));
+    const int b3 = i * 3;
+    pos[(size_t)b3 + 0] = c + (side * (-wl) + Vec3(0, 0, fz));
+    uu[(size_t)b3 + 0] = 0.0f;
+    pos[(size_t)b3 + 1] = c;
+    uu[(size_t)b3 + 1] = 0.5f;
+    pos[(size_t)b3 + 2] = c + (side * wr + Vec3(0, 0, fz));
+    uu[(size_t)b3 + 2] = 1.0f;
+  }
+  for (int i = 0; i < n; ++i) {
+    const int a = i * 3, d = (i + 1) * 3;
+    const int tri[4][3] = {{a, a + 1, d + 1}, {a, d + 1, d}, {a + 1, a + 2, d + 2}, {a + 1, d + 2, d + 1}};
+    for (int k = 0; k < 4; ++k) {
+      const TreeVec3 fn = Cross(pos[(size_t)tri[k][1]] - pos[(size_t)tri[k][0]],
+                                pos[(size_t)tri[k][2]] - pos[(size_t)tri[k][0]]);
+      for (int e = 0; e < 3; ++e) { nrm[(size_t)tri[k][e]] = nrm[(size_t)tri[k][e]] + fn; }
+    }
+  }
+  std::vector<uint32_t> idx((size_t)nv);
+  for (int i = 0; i < nv; ++i) {
+    idx[(size_t)i] = sink.Vert(pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i],
+                               (float)(i / 3) / (float)n);
+  }
+  for (int i = 0; i < n; ++i) {
+    const int a = i * 3, d = (i + 1) * 3;
+    sink.Tri(idx[(size_t)a], idx[(size_t)a + 1], idx[(size_t)d + 1]);
+    sink.Tri(idx[(size_t)a], idx[(size_t)d + 1], idx[(size_t)d]);
+    sink.Tri(idx[(size_t)a + 1], idx[(size_t)a + 2], idx[(size_t)d + 2]);
+    sink.Tri(idx[(size_t)a + 1], idx[(size_t)d + 2], idx[(size_t)d + 1]);
+  }
+}
+
+/* A palmate leaf (maple) as ONE connected sheet: a radial net from the leaf base to a lobed outline, so
+ * the lobes are cut out of a single lamina rather than assembled from overlapping blades. */
+void BuildPalmate(Sink &sink, const TreeSpecies::Leaf &p) {
+  const int r = 6;
+  int a = p.Segments;
+  if (a < 16) { a = 16; }
+  int nl = p.PalmateLobes;
+  if (nl < 3) { nl = 3; }
+  const float spread = p.PalmateSpread * kDeg;
+
+  const int nv = 1 + r * (a + 1);
+  std::vector<TreeVec3> pos((size_t)nv), nrm((size_t)nv);
+  std::vector<float> uu((size_t)nv), vv((size_t)nv);
+  pos[0] = Vec3(0, 0, 0);
+  uu[0] = 0.5f;
+  vv[0] = 0.0f;
+
+  for (int i = 1; i <= r; ++i) {
+    for (int j = 0; j <= a; ++j) {
+      const float t = (float)j / (float)a, th = -spread + 2.0f * spread * t;
+      const float x = t * (float)(nl - 1), fk = x - std::floor(x);
+      const float tri = std::fabs(2.0f * fk - 1.0f);
+      float outl = p.Length * (1.0f - p.LobeDepth * (1.0f - tri));
+      outl *= 0.82f + 0.18f * std::cos(th * (1.5708f / spread));
+      if (p.Serration > 0.0f) {
+        const float f = (float)(nl - 1) * 4.0f;
+        const float saw = std::fabs(2.0f * (t * f - std::floor(t * f + 0.5f)));
+        outl *= 1.0f - p.Serration * 0.10f * saw;
+      }
+      const float rr = outl * (float)i / (float)r;
+      const TreeVec3 dir = Vec3(std::sin(th), std::cos(th), 0.0f);
+      const float z = -p.Curve * p.Length * (float)(i * i) / (float)(r * r);
+      const int idx = 1 + (i - 1) * (a + 1) + j;
+      pos[(size_t)idx] = dir * rr + Vec3(0, 0, z);
+      uu[(size_t)idx] = t;
+      vv[(size_t)idx] = (float)i / (float)r;
+    }
+  }
+  auto at = [a](int i, int j) { return (size_t)(1 + (i - 1) * (a + 1) + j); };
+  for (int j = 0; j < a; ++j) {
+    const size_t b = at(1, j), c = at(1, j + 1);
+    const TreeVec3 fn = Cross(pos[b] - pos[0], pos[c] - pos[0]);
+    nrm[0] = nrm[0] + fn;
+    nrm[b] = nrm[b] + fn;
+    nrm[c] = nrm[c] + fn;
+  }
+  for (int i = 1; i < r; ++i) {
+    for (int j = 0; j < a; ++j) {
+      const size_t q[4] = {at(i, j), at(i, j + 1), at(i + 1, j + 1), at(i + 1, j)};
+      const size_t tr[2][3] = {{q[0], q[1], q[2]}, {q[0], q[2], q[3]}};
+      for (int k = 0; k < 2; ++k) {
+        const TreeVec3 fn = Cross(pos[tr[k][1]] - pos[tr[k][0]], pos[tr[k][2]] - pos[tr[k][0]]);
+        for (int e = 0; e < 3; ++e) { nrm[tr[k][e]] = nrm[tr[k][e]] + fn; }
+      }
+    }
+  }
+  std::vector<uint32_t> idx((size_t)nv);
+  for (int i = 0; i < nv; ++i) {
+    idx[(size_t)i] = sink.Vert(pos[(size_t)i], Normalize(nrm[(size_t)i]), uu[(size_t)i], vv[(size_t)i]);
+  }
+  for (int j = 0; j < a; ++j) { sink.Tri(idx[0], idx[at(1, j)], idx[at(1, j + 1)]); }
+  for (int i = 1; i < r; ++i) {
+    for (int j = 0; j < a; ++j) {
+      sink.Tri(idx[at(i, j)], idx[at(i, j + 1)], idx[at(i + 1, j + 1)]);
+      sink.Tri(idx[at(i, j)], idx[at(i + 1, j + 1)], idx[at(i + 1, j)]);
+    }
+  }
+}
+
+/* A needle "card" is a densely needled SHORT SHOOT, not a single needle: that is the unit a conifer
+ * canopy is actually built from. NeedleLen separates the long-needled pine from spruce and fir. */
+void BuildNeedleShoot(Sink &sink, const TreeSpecies::Leaf &p) {
+  const float len = p.Length;
+  int n = (int)(len / 0.0085f);
+  if (n < 44) { n = 44; }
+  if (n > 180) { n = 180; }
+  const float nl = len * p.NeedleLen;
+  const float nw = std::fmax(p.NeedleWidth * 0.26f, 0.0042f);
+  const float fwd = p.NeedleFwd;
+  TreeRandom rng(99u);
+  const float sw = len * 0.010f;
+  const TreeVec3 up = Vec3(0, 0, 1);
+  const uint32_t s0 = sink.Vert(Vec3(-sw, 0, 0), up, 0.47f, 0.0f);
+  const uint32_t s1 = sink.Vert(Vec3(sw, 0, 0), up, 0.53f, 0.0f);
+  const uint32_t s2 = sink.Vert(Vec3(sw, len, 0), up, 0.53f, 1.0f);
+  const uint32_t s3 = sink.Vert(Vec3(-sw, len, 0), up, 0.47f, 1.0f);
+  sink.Tri(s0, s1, s2);
+  sink.Tri(s0, s2, s3);
+  for (int i = 0; i < n; ++i) {
+    const float t = (float)(i + 1) / (float)(n + 1), y = t * len;
+    const int side = (i % 2) ? 1 : -1;
+    const float sx = (float)side * (1.0f - fwd) + rng.Signed() * 0.05f;
+    const TreeVec3 dir = Normalize(Vec3(sx, fwd + rng.Signed() * 0.10f, 0.0f));
+    const TreeVec3 base = Vec3(0, y, 0);
+    const TreeVec3 tip = base + dir * (nl * (0.8f + 0.35f * rng.Unit()));
+    const TreeVec3 perp = Normalize(Vec3(dir.Y, -dir.X, 0.0f)) * nw;
+    const uint32_t a = sink.Vert(base - perp, up, 0.0f, t);
+    const uint32_t b = sink.Vert(base + perp, up, 1.0f, t);
+    const uint32_t c = sink.Vert(tip, up, 0.5f, t);
+    sink.Tri(a, b, c);
+  }
+}
+
+/* Pinnate (ash, rowan): a thin rachis with paired leaflets and a terminal one, each a small lamina. */
+void BuildPinnate(Sink &sink, const TreeSpecies::Leaf &p) {
+  const int pairs = p.Leaflets > 0 ? p.Leaflets : 5;
+  const float len = p.Length, rw = len * 0.006f;
+  const TreeVec3 up = Vec3(0, 0, 1);
+  const uint32_t r0 = sink.Vert(Vec3(-rw, 0, 0), up, 0.48f, 0.0f);
+  const uint32_t r1 = sink.Vert(Vec3(rw, 0, 0), up, 0.52f, 0.0f);
+  const uint32_t r2 = sink.Vert(Vec3(rw, len * 0.95f, 0), up, 0.52f, 1.0f);
+  const uint32_t r3 = sink.Vert(Vec3(-rw, len * 0.95f, 0), up, 0.48f, 1.0f);
+  sink.Tri(r0, r1, r2);
+  sink.Tri(r0, r2, r3);
+  const float ls = 0.34f, ang = 1.02f;
+  for (int i = 0; i < pairs; ++i) {
+    const float t = 0.14f + 0.78f * (pairs > 1 ? (float)i / (float)(pairs - 1) : 0.5f);
+    const TreeVec3 base = Vec3(0, t * len, 0);
+    BuildBlade(sink, p, base, ang, ls);
+    BuildBlade(sink, p, base, -ang, ls);
+  }
+  BuildBlade(sink, p, Vec3(0, len * 0.93f, 0), 0.0f, ls);
+}
+
+/* Palmately compound (horse chestnut): leaflets radiating from one point, the middle ones longest. */
+void BuildPalmateCompound(Sink &sink, const TreeSpecies::Leaf &p) {
+  const int n = p.Leaflets > 0 ? p.Leaflets : 5;
+  const float spread = (p.PalmateSpread > 0 ? p.PalmateSpread : 80.0f) * kDeg;
+  for (int i = 0; i < n; ++i) {
+    const float t = (n > 1) ? (float)i / (float)(n - 1) : 0.5f;
+    const float ang = -spread + 2.0f * spread * t;
+    const float ls = 0.62f + 0.38f * (1.0f - std::fabs(2.0f * t - 1.0f));
+    BuildBlade(sink, p, Vec3(0, 0, 0), ang, ls);
+  }
+}
+
+} // namespace
+
+void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
+  out.LeafVerts.clear();
+  out.LeafIdx.clear();
+  Sink sink(out);
+  switch (leaf.Kind) {
+  case TreeSpecies::LeafKind::Palmate: BuildPalmate(sink, leaf); break;
+  case TreeSpecies::LeafKind::Pinnate: BuildPinnate(sink, leaf); break;
+  case TreeSpecies::LeafKind::PalmateCompound: BuildPalmateCompound(sink, leaf); break;
+  case TreeSpecies::LeafKind::Needle: BuildNeedleShoot(sink, leaf); break;
+  case TreeSpecies::LeafKind::Broad: BuildBlade(sink, leaf, Vec3(0, 0, 0), 0.0f, 1.0f); break;
+  }
+}
+
+} // namespace outshine::World

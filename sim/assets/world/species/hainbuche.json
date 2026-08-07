@@ -1,0 +1,13 @@
+{
+  "bark_r":0.49,"bark_g":0.48,"bark_b":0.45,"bark_dark":0.72,"bark_freq":3.5,"bark_ridge":0.15,
+  "name": "hainbuche", "botanical": "Carpinus betulus", "common": "Hainbuche / Hornbeam",
+  "habit": "dichte eifoermige Krone, sehr fein und dicht verzweigt, geriffelter Stamm",
+  "height_m": 18, "spread_m": 12,
+  "seed": 19, "shade_prune": 0.6, "trunk_sides": 9, "base_radius": 0.06, "step_len": 0.16,
+  "trunk_steps": 22, "bare_steps": 7, "taper": 0.955, "min_radius": 0.004, "twig_radius": 0.008,
+  "branch_chance": 0.95, "max_order": 4, "terminal_fork": 1,
+  "branch_angle": 48, "branch_angle_var": 18, "order_len": 0.6, "order_radius": 0.48,
+  "wander": 12, "leader_bias": 0.14, "branch_up_bias": 0.14, "conical": 0.05,
+  "leaf_kind": "broad", "leaf_length": 1.0, "leaf_width": 0.42, "leaf_widest": 0.42,
+  "leaf_base_fill": 0.06, "leaf_tip": 0.35, "leaf_serration": 0.5, "leaf_fold": 0.12, "leaf_curve": 0.18
+}

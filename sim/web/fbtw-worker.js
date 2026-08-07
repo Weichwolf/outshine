@@ -16,19 +16,45 @@ function handle(d) {
     self.postMessage({ cmd: 'opened' });
     return;
   }
+  if (d.cmd === 'dag') {
+    /* No fetch, so no ASYNCIFY: the soup goes in, the ladder comes straight back out. */
+    var sb = new Uint8Array(d.soup), sp = Module._malloc(sb.length);
+    Module.HEAPU8.set(sb, sp);
+    var ok = Module._fbtw_dag(sp, d.nverts, d.seam);
+    Module._free(sp);
+    var out = { cmd: 'dagged', id: d.id, res: ok };
+    var tr = [];
+    if (ok) {
+      var vp = Module._fbtw_verts(), nv = Module._fbtw_nverts();
+      var vb = Module.HEAPU8.slice(vp, vp + nv * 8 * 4).buffer;
+      var cp = Module._fbtw_clusters(), cbytes = Module._fbtw_clusterbytes();
+      var cb = Module.HEAPU8.slice(cp, cp + cbytes).buffer;
+      out.verts = vb; out.nverts = nv; out.clusters = cb; out.nclusters = Module._fbtw_nclusters();
+      tr.push(vb); tr.push(cb);
+    }
+    Module._fbtw_release();
+    self.postMessage(out, tr);
+    return;
+  }
   if (d.cmd === 'build') {
     Module.ccall('fbtw_build', 'number',
       ['number', 'number', 'number', 'number', 'number', 'number', 'number'],
       [d.z, d.x, d.y, d.grid, d.mode, d.ts, d.what], { async: true }).then(function (res) {
         var msg = { cmd: 'built', z: d.z, x: d.x, y: d.y, mode: d.mode, what: d.what, res: res };
         var transfer = [];
-        if (res & 1) {   /* mesh: copy verts out (the worker heap is reused for the next build) */
+        if (res & 1) {   /* mesh: the DAG's own verts + clusters, copied out (the heap is reused) */
           var nv = Module._fbtw_nverts(), vp = Module._fbtw_verts();
           var vbuf = Module.HEAPU8.slice(vp, vp + nv * 8 * 4).buffer;
+          /* raw bytes, and their COUNT comes from the module too: a sizeof written down here would
+             be a second declaration of the struct's layout */
+          var cp = Module._fbtw_clusters(), cbytes = Module._fbtw_clusterbytes();
+          var cbuf = Module.HEAPU8.slice(cp, cp + cbytes).buffer;
+          msg.nclusters = Module._fbtw_nclusters();
           var op = Module._fbtw_origin() >> 3;
           msg.verts = vbuf; msg.nverts = nv; msg.err = Module._fbtw_err();
+          msg.clusters = cbuf;
           msg.origin = [Module.HEAPF64[op], Module.HEAPF64[op + 1], Module.HEAPF64[op + 2]];
-          transfer.push(vbuf);
+          transfer.push(vbuf); transfer.push(cbuf);
         }
         if (res & 2) {   /* albedo mip pyramid */
           var mp = Module._fbtw_mips(), mb = Module._fbtw_mipbytes();

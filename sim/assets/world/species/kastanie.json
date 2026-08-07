@@ -1,0 +1,15 @@
+{
+  "bark_r":0.35,"bark_g":0.30,"bark_b":0.24,"bark_dark":0.50,"bark_freq":4.5,"bark_ridge":0.52,
+  "name": "kastanie", "botanical": "Aesculus hippocastanum", "common": "Gemeine Rosskastanie / Horse chestnut",
+  "habit": "dicker Stamm, breite rundliche ausladende Krone, schwere Aeste, handfoermig gefingerte Blaetter",
+  "height_m": 25, "spread_m": 20,
+  "seed": 17, "shade_prune": 0.6, "trunk_sides": 12, "base_radius": 0.105, "step_len": 0.16,
+  "trunk_steps": 20, "bare_steps": 6, "taper": 0.95, "min_radius": 0.006, "twig_radius": 0.015,
+  "branch_chance": 0.7, "max_order": 3, "terminal_fork": 1,
+  "branch_angle": 58, "branch_angle_var": 22, "order_len": 0.62, "order_radius": 0.55,
+  "wander": 13, "leader_bias": 0.06, "branch_up_bias": 0.1, "conical": 0.0,
+  "leaf_kind": "palmate_compound", "leaf_leaflets": 6, "leaf_palmate_spread": 78,
+  "leaf_length": 1.0, "leaf_width": 0.14, "leaf_widest": 0.66,
+  "leaf_base_fill": 0.0, "leaf_tip": 0.55, "leaf_serration": 0.4, "leaf_fold": 0.10, "leaf_curve": 0.14,
+  "leaf_card_w": 0.12, "leaf_card_h": 0.13, "leaf_cards": 3
+}

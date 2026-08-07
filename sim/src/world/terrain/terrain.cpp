@@ -4,6 +4,7 @@
 
 #include "terrain.h"
 #include "mesh.h"
+#include "tilemath.h"   /* fb-tiles' OWN tile maths: the mesh's postings and /elev must not drift apart */
 
 #include <math.h>
 #include <stdio.h>
@@ -164,15 +165,18 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
 
     for (uint32_t r = 0; r < rows_out; r++) {
         double fr = (double)r * inv_rm1;           /* [0..1], north->south */
-        uint32_t src_r = r * S;                     /* row in input grid */
+        double gy = fb_texel_index(fr, rows);
         for (uint32_t c = 0; c < cols_out; c++) {
             double fc = (double)c * inv_cm1;        /* [0..1], west->east */
-            uint32_t src_c = c * S;
             uint32_t vi = r * cols_out + c;
 
             double e = map->origin_e + fc * tile_w_e;
             double n = map->origin_n + fr * tile_h_n;  /* tile_h_n is <0 */
-            float  u = grid->heights[(size_t)src_r * cols + src_c];
+            /* A posting sits on the tile fraction, a texel sample half a texel inside it, so the
+             * height is interpolated and not indexed. The clamp at fr/fc = 0 and 1 is exact rather
+             * than approximate: the stitch has already replaced the edge row/column with the mean of
+             * the two texels straddling the border, which IS the field's value on the border. */
+            float  u = fb_bilinear(grid->heights, cols, rows, fb_texel_index(fc, cols), gy);
 
             positions[3*vi + 0] = (float)e;
             positions[3*vi + 1] = (float)n;

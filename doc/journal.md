@@ -5152,3 +5152,1581 @@ dieselben fünf** · `verify-layers` 13 Schichten grün · `verify-guards` 8/8 �
 `verify-trees` **19+0+2** (Engine-Waisen 20 → 19: das gelöschte `src/modules/f16/displays/` war eine) ·
 `verify-types` **1127 → 1110**, `dir` **48 → 46**, `symbol` **434 → 429** · `gym`/`native`/`wasm`
 bauen, Warnings = Errors.
+
+## Der Schnitt — Outshine ohne JSBSim, ohne F-16, ohne MiG-29
+
+**Eignerentscheid, sofort vollzogen.** JSBSim fliegt komplett als Abhängigkeit raus, `mods/f16` wird
+gelöscht, die F-16- und MiG-29-Referenzbanken fliegen raus. Ziel ist, Comanche 1, Armored Fist 1,
+Delta Force 1 und F-22 als `mods/` **rein deklarativ** zu bauen. Die Reihenfolge „erst löschen, dann neu
+bauen" war die ausdrückliche Wahl gegen die empfohlene („erst ersetzen"); die Konsequenz — der Baum
+kompiliert nicht und misst nichts, bis der Löser steht — ist angenommen, nicht übersehen.
+
+**Die neue Spec, in einem Satz:** *Outshine ist ein OSM-basiertes GTA 5, und die Epoche steuert den Look
+von Witcher 3 bis Fallout 4.* Daraus drei Bauentscheidungen: die Welt wird geladen statt modelliert; EIN
+Physiksystem trägt Laufen/Fahren/Fliegen/Schwimmen; ein globaler Epochen- und Verfallsparameter kleidet
+dieselbe OSM-Geometrie von intakt bis überwuchert ein. `CLAUDE.md` ist danach neu geschrieben — die zwei
+Qualitätsachsen sind jetzt **korrektes Rendering und glaubhafte Körper**, Prinzip 1 ist die eigene
+deklarative Physik, Prinzip 5 („F-16 zuerst") ist ersatzlos weg.
+
+**Gelöscht:** `sim/vendor/jsbsim` (42 MB, Submodul) + `.gitmodules` · `sim/src/fdm/` · `mods/f16`
+(617 Dateien: 38 Decks, 15 `.glb`, 296 Missionen, 12 Kampagnendateien, Katalog, HUD, DEM) ·
+`doc/modules/f16/` (20) · `doc/modules/mig29/` (13) · `sim/src/modules/f16/` (23) ·
+`sim/src/modules/mig29/` (23). **675 Dateien.**
+
+**Gerettet, weil es nie JSBSim war:** der Zustandsvektor. `Fdm::fb_fdm_state` → `core/FBBodyState.h`,
+mechanisch über **76 Dateien** umbenannt, Includes umgehängt, 0 Restvorkommen. Er trägt jeden
+Körpertyp — Kettenfahrzeug, Mensch, Drehflügler, Flugzeug, Flugkörper — und nennt keinen Löser.
+
+**Entkoppelt:** die vier Titel verlieren `depends`/`sandbox` auf `f16`, bekommen eigenes `meshes` und
+den neuen Schlüssel `bodies` → `src/bodies/`. Keine `mod.json` nennt `f16` mehr.
+
+**Makefile:** JSBSim-Variablen, -Regeln und -Bauskripte raus; die fünf Ziele, die an gelöschten Bauteilen
+hingen (`test-fdm`, `test-corner`, `test-mig29`, `test-air`, `verify-models`), gestrichen. Parst.
+
+**Tore: KEINE.** Das ist der ehrliche Stand und kein Versehen — `sim/src` kompiliert nicht, weil 23
+Dateien ein `FBFdm` nennen, das es nicht mehr gibt. Nichts wurde gemessen, weil nichts läuft. Offen und
+benannt: 23 Dateien mit `FBFdm`, 11 mit `FBF16`/`FBMig29`, 59 `doc/`-Dateien mit F-16/MiG-29/JSBSim,
+`doc/fdm.md` als Themendatei ohne Verzeichnis, 73 Unit-Blöcke `module f16` in den vier Titeln, und der
+Skill heißt noch `flightbox`. Nächste Runde ist `doc/body-format.md`: Liste A, dann der Löser.
+
+## 2026-08-06 — Die Szene ist eine Datei, und die Uhr stellt endlich die Sonne
+
+Zwei Clients statt vier: `gpu_walk` (nativ) und wasm laden beide `mods/demo/scene.json` und sonst
+nichts. `clients/Scene.{h,cpp}` liest sie über den vorhandenen `render/Json`-DOM — keine neue
+Abhängigkeit, kein neues Format. Jedes Feld ist Pflicht, keins hat einen Default: eine unvollständige
+Deklaration bricht den Start ab, statt Inhalt zu erfinden, den niemand geschrieben hat. Die Bodenhöhe
+steht NICHT drin — die Szene erklärt eine Augenhöhe über Grund, und der Grund ist die Antwort des DEM
+(97.861 m; `/elev?block=1` sagt 97.86).
+
+**Der Fund.** `--albedo osm` hat nicht nur die Sonnenrichtung gepinnt — `LiveSun` hatte die schon
+gelöst — sondern über denselben Schalter auch den Tageslichtfaktor auf 1.0, die Bewölkung auf 0, die
+Sterne und das Nachtambiente aus. „Welches Albedo" und „welcher Himmel" waren EIN Flag. Sie sind jetzt
+zwei: `FrameContext::RealSky` neben `GroundPhoto`. Gemessen als A/B über dieselbe Szene mit zwei
+Uhrzeiten: 11:00Z → el 54.08 / az 168.4, blauer Himmel, beleuchtetes Gras; 18:25Z → el 4.589 /
+az 291.206, ausgewaschener warmer Himmel, schwarzer Vordergrund. Die unabhängige NOAA-Rechnung sagt
+4.591 / 291.206 — die Ephemeride stimmt auf 0.002 Grad. Der Sonnenfleck im Bild sitzt bei (896, 300),
+vorhergesagt (882, 306): 1.0 Grad.
+
+**Die Zahl, die ab jetzt jede Runde mitkommt:** 563.686 Dreiecke (130 Kachel-Draws, 240.000
+Grashalme, 72.498 Gebäude-Vertices), 7 Pässe. Im Browser 552.899 bei 7 Pässen — dieselbe Szene, weniger
+OSM-Gebäude im Moment des Schusses. `TilesStage::TriangleCount()` zählt, was der letzte Encode
+tatsächlich abgeschickt hat, nicht was resident ist.
+
+**Weg:** `AppNative.cpp` (909 Zeilen), `CameraDirector` (527), das `native`-Target, `web/fbplay.js`,
+`web/fbmenu.js` und die ganze Mod-Preload-Maschinerie im Makefile. Begründung: gpu_native linkt seit
+dem Fdm-Schnitt nicht, und alles daran, was noch funktioniert, ist AppWalks Aufgabe — zwei Wahrheiten
+für einen Prüfstand sind eine zu viel. `make wasm` scheiterte an `FixedWeather`: eine Methode hieß wie
+ihr Rückgabetyp (`CloudLayers`). Nicht mit `struct`-Tag zugeklebt, sondern die Kollision entfernt —
+`WeatherProvider::Clouds()`.
+
+**Offen und benannt:** Der Vordergrund ist bei 4.6 Grad Sonne schwarz (mittlere Leuchtdichte 7.1/255
+gegen 200+ in der Ferne) — es gibt keine Belichtungsregelung, das ist die Aufgabe des Bodenshaders.
+`fovDeg` wird nur bei 60 angenommen, weil `kSceneVerticalFovDeg` eine Konstante ist, die sich das HUD
+teilt. Wind und Bewölkung kommen an und werden geloggt, bewegen aber noch nichts.
+
+## 2026-08-06 — Die Belichtung ist ein Messwert, und die ACES-Kurve konnte diese Szene nicht
+
+Der Vordergrund stand bei 7.1/255 gegen 200+ in der Ferne, und der Defekt war nicht der Wert, sondern
+dass es keinen Regler gab: `kSceneExposure = 11.0` plus ein fester ACES-Pfad. Neu ist `ExposureStage` —
+ein 256-Bin-Log-Luminanz-Histogramm des Bildes, drei Dispatches, die im vorhandenen Sky-View-Compute-Pass
+mitfahren. **Null neue Passes** (`passcount` bleibt 7); bezahlt wird das damit, dass der Messpass das
+HDR-Ziel des VORIGEN Frames liest — es steht dort noch, der Szenenpass füllt es erst danach neu.
+
+Die ACES-Kurve ist weg, und nicht aus Geschmack. Gegen das gemessene Histogramm gerechnet: die Szene
+spannt 11.8 EV (2^-7.89 … 2^3.92), der Narkowicz-Fit sättigt bei Eingang 7.24 und erreicht 250/255 schon
+bei 3.05 — bei der Verstärkung, die den Boden auf 45/255 hebt (+2.39 EV, hergeleitet durch Invertieren
+des Fits auf den gemessenen 0.00687), klippt die halbe Fläche. Hables Schulter asymptotiert bei 0.9333,
+und die beiden Bedingungen verlangen ein Kurvenverhältnis von 45.0 zwischen p98 und Boden: Hable schafft
+53.3 bei g = 9.79 und 26.9 bei g = 20, der Schnittpunkt bräuchte `f(W) = 0.946`. **Es gibt kein
+Weißpunkt.** Gebaut und trotzdem gemessen: 1.93 % Clipping bei nur 46.3/255 — auf der Kante von beiden
+Seiten. Sechs Blenden Himmel oben unterzubringen braucht eine logarithmische Antwort, also ist die ganze
+Kurve eine: `pow(clamp((log2(Y) - black) / (white - black)), contrast)`, alle drei Zahlen gemessen.
+
+Zwei Messungen haben unterwegs korrigiert, was plausibel klang. Kanalweise angewandt lag der Blaukanal
+bei **99.96 %** des Vordergrunds exakt auf 0 — eine 4.6-Grad-Sonne ist 6:3:1, Blau fällt unter den
+Schwarzpunkt, während die Luminanz es nicht tut, und das Feld kam rostrot. Auf Luminanz umgestellt und
+die Chroma mitgeführt, trug das Verhältnis dann einen Kanal an Weiß vorbei: 3.38 % über 250 gegen 1.93 %
+Luminanz-Clipping. Beides steht als Zahl im Shader-Kommentar, nicht als Behauptung.
+
+**Gemessen, `mods/demo/scene.json` unverändert (SHA geprüft):** untere Bildhälfte 7.1 → **48.4/255**,
+Spreizung **7.45 EV**, ≥250 **1.90 %**, ≤25 in allen Kanälen 43.9 → **1.27 %**, Dreiecke 563 686, Passes
+7 — alle vier Bänder erfüllt. Gegenprobe 11:00Z (Sonne 54.1°): Spanne 11.62 → **7.97 EV**, Exponent
+1.466 → 1.615, untere Hälfte **59.3/255**, ≥250 **1.14 %**. Vordergrundfarbe 44/33/20 gegen 44/36/21 im
+Referenzfoto. Kosten **≈0.08–0.11 ms/Frame** bei 1280×720 (Apple A18 Pro, Dawn/Metal, Minimum aus je
+sechs 800-Frame-Läufen; die Lauf-zu-Lauf-Drift ist 0.35 ms, die Zahl ist also eine Schranke).
+
+**Offen und benannt:** Beide Adaptionskonstanten sind `[SET]` und wurden von keiner Messung berührt —
+beide Frames sind statisch und laufen in den Snap. Das Messfenster 5–45 % verallgemeinert per Argument,
+nicht per Messung. `NvisStage` und `SpritesStage` haben ihre Zahlen gegen den ACES-Fit hergeleitet und
+sind damit veraltet (beide in der Demo-Szene inaktiv, deshalb nicht mitgezogen). `kSceneExposure = 11.0`
+ist jetzt eine freie Skala, die der Messer ohnehin wieder herausrechnet.
+
+## 2026-08-06 — Das HUD ist eine Fahrzeugfähigkeit, und der Browser darf endlich gehen
+
+**Der Eigner:** *„welches HUD? raus damit"*, präzisiert zu *„HUD ist optional wenn man ein
+Fahrzeug/Flugzeug besteigt"* · *„WASD-Steuerung mit Mouse-Capture und Free-Look einbauen, ESC
+Mouse-Release"* · *„Steuerung sollte render.cpp nicht beeinflussen, nur die Kamera."*
+
+**Gelöscht wurde nichts.** `Renderer` hält jetzt genau einen geborgten `OverlayStage*`, den der
+Besitzer der Fähigkeit registriert; `render/AvionicsOverlay` bündelt `HudStage` + `MapSheetStage` +
+`GroundMapStage` + `NvisStage` dahinter. Der Fussgänger registriert keinen — und **linkt die Gruppe
+gar nicht mehr**: `AVIONICS_SRCS` fällt per `filter-out` aus `RENDER_SRCS`, `PEDESTRIAN_SRCS` verliert
+`DisplaySystem.cpp` (536 Zeilen) und `HudGeometry.cpp` (136) und steht bei sechs
+Übersetzungseinheiten. Ausschluss statt Aufzählung, damit eine NEUE Stage weiterhin von selbst in
+jedem Target landet. Weil kein Client die Gruppe mehr baut, hält `make -C sim avionics` sie
+übersetzbar (10 Objekte, kein Link) — sonst verrottet sie unbemerkt bis zum ersten Fahrzeug.
+
+**Damit ist `kSceneVerticalFovDeg` weg statt frei.** Die Szene liefert `fovDeg` an
+`Renderer::SetFovDeg`, von dort in Projektion, Atmosphären-Uniform und `FrameContext::FovDeg`;
+`NvisStage` und `HudEnv` lesen die Laufzeitzahl. Die Boot-Abweisung ≠ 60 ist gestrichen. **Gemessen:**
+dieselbe Szene bei 30° ist ein sauberer 2×-Zoom, Himmel und Gelände weiter auf einem Horizont;
+`mods/demo/scene.json` danach SHA-identisch (`a00bfcfb…`).
+
+**Das Bild hat sich nicht bewegt, und das ist der Beleg.** `build/gpu_walk` vorher/nachher:
+**passes 7 → 7**, **563 686 Dreiecke → 563 686**, PNG **bytegleich** (`cc38f7df…`), Irradianz
+identisch. Teil A durfte das Bild nicht verändern; es hat es nicht.
+
+**Der Browser geht.** Nur `AppWasm.cpp`, `Renderer.cpp` unangetastet: die Steuerung hält ihren eigenen
+Kamerazustand und ruft `SetCameraBasis`. WASD in der horizontalen Blickebene (Diagonalen nicht
+schneller), Shift × 3, Maus bei Pointer Lock 0.12 °/px, Nick auf ±89° geklemmt, kein Roll, `R` zurück
+auf den deklarierten Standpunkt, Augenhöhe = DEM-Boden am aktuellen Ort + `eyeM`. **Gemessen in
+headless Chromium über :8080:** 20 s W = **1.402 m/s** (deklariert 1.4), 20 s Shift+W = **4.205 m/s**
+(deklariert 4.2), 600 px Zeigerweg = **72.0°** Gier (600 × 0.12), 60 px = **−7.2°** Nick, ESC gibt
+frei (`pointerlock locked=0`), danach 800 px Mausweg = **0°** Gier und Nick, `R` trifft
+52.105 / 9.43424 / 270 / 0 exakt.
+
+**Eine Korrektur unterwegs:** ESC gab in der ersten Messung NICHT frei — Chromium beendet Pointer Lock
+nur bei echtem Tastendruck, nicht bei synthetisiertem. Der Client ruft `emscripten_exit_pointerlock()`
+jetzt selbst; damit ist die Freigabe in beiden Fällen dasselbe Ereignis und überhaupt erst prüfbar.
+
+**Offen und benannt:** Der Läufer ist eine Kamera, kein Körper — keine Kollision, keine Schwerkraft
+(`clients.md` Lücke 10). Ein kalter DEM-Kachel friert die Augenhöhe ein statt zu stoppen (11). Der
+Boot-Ladebildschirm hat ohne Avionik-Overlay keinen Text, weil seine Glyphen-Pipeline in `HudStage`
+wohnt; kein Client ruft `SetLoadingScreen`, also regressiert heute nichts (12).
+
+## 2026-08-06 — Terrain und Gebaeude auf Nanite Haelfte 1: der Cluster-DAG steht und ist gemessen
+
+`render/ClusterDag.h` — Cluster-DAG plus monotoner Screen-Space-Error-Schnitt, auf Terrain UND
+Gebaeuden. Haelfte 2 (Compute-Rasterizer) ist nicht gebaut und kann es nicht sein: WGSL kennt kein
+64-Bit-Atomic.
+
+**Gemessen auf Apple A18 Pro (Mac17,5, 5 GPU-Kerne, macOS 26.4.1), 1280x720, min-of-5 ueber je 500
+Frames, `FB_GEOM=1`** (ohne CSM, ohne AO, mit eingefrorener Belichtungskurve, ohne Gras — Geometrie
+darf nicht durch Licht beurteilt werden). Das ist zugleich die erste Messung dieses Baums auf der
+Zielklasse, die `visual-target.md` bisher als offene Luecke fuehrt.
+
+`FB_DAG=0` ist dasselbe Binary mit entschaerftem DAG und liefert ein **bytegleiches** Bild wie der
+Stand davor — jede Zahl ist damit eine gepaarte Messung an EINEM Renderer, kein Vergleich zweier.
+
+| Standpunkt | Terrain | Gebaeude | gesamt | ms/Frame |
+|---|---|---|---|---|
+| Auge 1,7 m, pitch 0 — flach | 299 520 | 24 166 | 323 686 | 1,859 |
+| Auge 1,7 m, pitch 0 — DAG | **99 968** | 24 166 | **124 134** | **1,411** |
+| Auge 12 km, pitch −25 — flach | 158 976 | 24 166 | 183 142 | 1,516 |
+| Auge 12 km, pitch −25 — DAG | **48 348** | **8 674** | **57 022** | **1,154** |
+
+Das Bild bleibt: auf Augenhoehe weichen **0,126 % der Pixel um mehr als 2/255 ab, und alle liegen in
+den Zeilen 332–371** — dem Horizontband, genau dort, wo 1 px geometrischer Fehler landet. Die
+Stetigkeitsmessung findet **keine neue Stufe**: die Kurven mit und ohne DAG stimmen in der vierten
+Nachkommastelle ueberein, schlechtestes Nachbarverhaeltnis 2,40 bei 101 m in BEIDEN — das gehoert dem
+Bodenshader, nicht dieser Leiter.
+
+**Drei Defekte hat die Deckungsmessung gefunden, nicht das Auge** (Schnitt in die XY-Ebene
+rasterisiert, Deckungen pro Probe gezaehlt; jetzt 0 Loecher und 0 Ueberdeckungen in 200 704 Proben je
+Fall, ueber zehn Entfernungen von 50 m bis 25,6 km): der flaechengewichtete Quadric-Fehler skalierte
+mit der Dreiecksgroesse (6-m-Hoehenfeld meldete 40 m); monotoner FEHLER genuegt nicht, weil `sse` auch
+den Radius traegt und der Schnitt sonst zweimal kreuzt (175 doppelt gedeckte Proben); und der
+Umklapp-Test brauchte eine Qualitaetsschranke, weil die Normale eines Splitters auf einem Hoehenfeld
+fast waagerecht liegt und ein spaeterer Kollaps ihn mit `dot = +1026` umklappte.
+
+**Gebaeude tragen denselben Mechanismus und er zahlt sich noch nicht aus, und der Grund ist
+strukturell:** ein extrudiertes Prisma hat keine inneren Vertices. Die erste grobe Stufe kostet
+5,90…16,63 m Fehler, bei tau = 1 px also erst ab 3,7…10,4 km zulaessig — das Feld ist ~3 km breit.
+Aus der Luft feuert sie (12 km: 72 498 → 26 022 Vertices, −64 %). Was zahlen wuerde, ist
+Grundriss-Dezimierung VOR der Extrusion, und das ist eine 2D-Operation, die ein Mesh-DAG nicht kennt.
+
+**Offen und benannt:** der DAG-Bau kostet 3,68 ms je Kachel auf dem Hauptthread (gehoert in den
+Tile-Worker); die Fehlermetrik begrenzt nur die POSITION, nicht die Normale (bei 4,6° Sonne weichen
+aus 12 km 24,4 % der Pixel um >2/255 ab); die Splitterschranke kostet Vereinfachungstiefe (64er-Kachel
+endet bei 1138 statt 254 Dreiecken, Epic endet bei 128); die Schuerze ist ein Drittel des
+Terrain-Budgets und der DAG ruehrt sie nicht an.
+
+## 2026-08-06 — Der gespeicherte Fehler ist jetzt eine Schranke, und was nicht im Bild ist, wird nicht gezeichnet
+
+Optimierungsrunde zu Schritt 1. Drei Punkte des `perf-engineer`, in seiner Reihenfolge.
+
+**Frustum-Culling gab es nirgends.** `kCosView` war ein Streaming-Gewicht, kein Cull; beide Stages
+liefen ueber die volle Liste. Jetzt fuenf Ebenen aus der MVP der Kamera selbst (`render/Frustum.h`,
+Gribb/Hartmann — die Nahebene ist unter Reversed-Z `w − z ≥ 0`, eine Fernebene hat eine unendliche
+Projektion nicht), erst je Kachel gegen ihre Vertex-Huelle, dann je Cluster gegen die Kugel, die der
+DAG ohnehin fuehrt. `FB_CULL=0` entschaerft es auf demselben Binary.
+
+Dabei fiel ein Defekt auf, den der Cull nicht verursacht hat: der **Wurzelcluster des Nicht-DAG-Pfades
+trug keine Kugel** (Mittelpunkt 0, Radius 0). Mit `FB_DAG=0` testete der Cluster-Test damit einen Punkt
+im Kachelursprung und loeschte die Kachel unter der Kamera — sichtbar als flache helle Flaeche im
+Vordergrund. Jeder Cluster traegt jetzt eine Kugel, auch die entarteten Wurzeln.
+
+**Der gespeicherte Fehler war keine Schranke.** Der Garland-Heckbert-Rest ist ein RMS-Abstand zu
+akkumulierten Ebenen; gemessen lag die wahre vertikale Abweichung bis **2,8×** darueber (32er-Hoehenfeld,
+Amplituden 0,01/1/40 m, Verhaeltnis skaleninvariant: L1 1,91× · L2 2,13× · L3 2,57× · L4 1,23×). Genau
+diese Groesse traegt Karis' „< 1 Pixel" und das TAA-Argument dieser Datei — und sie wurde nicht begrenzt.
+
+Jetzt wird gemessen statt geschaetzt: nach jeder Gruppen-Vereinfachung die **maximale Abweichung gegen
+Level 0**, vertikal wo die Flaeche eine Vertikale hat (Ulrich, `ClusterDagOpts::Up`), sonst naechster
+Punkt auf der vereinfachten Flaeche (Gebaeude — durch eine Wand geht kein Lotstrahl). Ein
+Half-Edge-Kollaps bewegt keinen Vertex, also ist jede Position jeder Stufe eine Originalposition und die
+verschwundenen sind genau das Messgut; `dag::Absorb` fuehrt sie je Vertreter, `dag::DevMesh` macht die
+Abfrage O(1). Gemessen wird gegen die **ganze Stufe**, nicht die Gruppe: ein gesperrter Randvertex steht
+fuer Positionen, die seine eigenen Dreiecke nicht mehr decken, und gegen die Gruppe allein misst man den
+Abstand zur naechsten Kante statt der Abweichung. Der QEM-Rest bleibt die Kollaps-REIHENFOLGE — das ist
+das Einzige, wofuer er hergeleitet wurde.
+
+Ergebnis: **Verhaeltnis 1,000 auf jeder Stufe und in jedem einzelnen Cluster**, bei 0,01 m wie bei 40 m
+Amplitude, auf 32er- wie 64er-Feld. Die Schranke ist nicht nur konservativ, sie ist scharf. Preis:
+**+26,5 % Dreiecke** (99 968 → 126 496 auf Augenhoehe, der Kritiker rechnete +16 % vor) und **+0,51 ms**
+Bauzeit je Kachel (gepaart, min-of-20 ueber ein 2 312-Dreieck-Feld: 3,34 → 3,85 ms). Der 3,0×-Gewinn
+wird 2,4×. Das Bild wird genauer: 0,43 % der Pixel aendern sich, Mittel 3,5/255, alle an den fernen
+Kaemmen.
+
+**Der Schattenpass ignorierte den Schnitt.** `CasterVertexCount()` gab die Summe aller Level-0-Cluster
+zurueck, mal vier Kaskaden: 96 664 Dreiecke je Frame in den 1024er-Atlas, ungeschnitten, ungecullt. Er
+war der groesste einzelne Geometrieverbraucher im Frame. Jetzt leiht sich `ShadowStage` den DAG statt
+nur den Buffer und schneidet **je Kaskade** — orthographisch, also ohne Entfernung im Mass: `err_m /
+texelM` gegen `kShadowTauTexels = 2.0` (`[SET]`, weil der Empfaenger ohnehin ueber 3×3 PCF filtert) —
+und die Kaskadenbox ist der Cull. **96 664 → 8 550 Dreiecke, −91 %, bei bytegleichem Bild.**
+
+Ehrlich dazu: der ganze Gewinn ist der **Cull**. Der tau-Schnitt waehlt in jeder Kaskade Level 0, weil
+die erste grobe Stufe des Gebaeude-DAG schon 7,9…11,0 m kostet und zwei Texel der letzten Kaskade
+2,34 m sind. Gebaut, korrekt, wirkungslos — er wird die bindende Haelfte an dem Tag, an dem
+Grundriss-Dezimierung den Gebaeuden eine billige grobe Stufe gibt.
+
+**Gemessen** auf `mods/demo/scene.json`, 1280×720, Apple A18 Pro, Dawn/Metal, min-of-6 ueber je 60
+Frames, am **ECHTEN Frame** (Gras, CSM, AO, Belichtung an — eine Ersparnis, die es nur unter `FB_GEOM`
+gibt, ist keine). Ein Binary, zwei Schalter; `FB_DAG=0 FB_CULL=0` ist bytegleich zum Stand davor:
+
+| `FB_DAG` `FB_CULL` | Terrain | Terrain-Draws | Gebaeude | Schatten | ms/Frame |
+|---|---|---|---|---|---|
+| 0 · 0 — davor | 299 520 | 130 | 24 166 | 96 664 | 5,373 |
+| 1 · 0 — nur Leiter | 126 496 | 287 | 24 166 | 96 664 | 4,969 |
+| 1 · 1 — Leiter + Cull | **51 054** | **120** | **17 024** | **8 550** | **4,763** |
+
+Von 130 Kacheln sind **53 im Bild**, was ein 91,5°-Horizontalfeld ueber einen Kachelring vorhersagt.
+Der Cull allein ist −0,206 ms am echten Frame und −0,153 ms unter `FB_GEOM=1` (1,440 → 1,287 ms). Und
+er aendert das Bild an vier Standpunkten (1,7 m pitch 0 · 1,7 m pitch +20 · 200 m pitch −30 · 2000 m
+pitch −60) um **0 von 921 600 Pixeln**.
+
+**Offen und benannt:** der Bau kostet jetzt ~4,4 ms je Kachel auf dem Hauptthread; die Schranke ist
+fuer Terrain belegt und fuer Gebaeude nur gemessen, nicht geprueft (kein Harness misst den
+Naechster-Punkt-Pfad gegen ein Prisma); eine sichtbare Kachel kostet 2,3 Draw-Calls, weil ihr Schnitt
+ueber Stufen laeuft und Stufen im Buffer nicht zusammenhaengen — der Cull hat das nicht verschlechtert
+und auch nicht behoben.
+
+## Bodenshader — die Rasterfarbe wird ein Index, das Material wird gezeichnet
+
+`TilesStage` zeichnet die gebackene OSM-Kachel nicht mehr. Der Texel ist ein **Klassenindex**, die
+Klasse benennt eine Zeile von `sim/assets/world/ground-materials.json`, und gezeichnet werden deren
+lineare Reflektanz, ihre Rauheit und eine aus der Korngrösse erzeugte Oberfläche in zwei Oktaven.
+`vegetation.json` deklariert keine Bodenfarbe mehr, sondern eine Klasse; `reflectanceGain 0.50` ist für
+den Boden erledigt.
+
+**Strukturell, nicht per Konvention:** `World::ClassifyRaster` ist der einzige Leser der dekodierten
+Kachel, die Farbbytes werden verworfen, das GPU-Array ist `R8Uint`. `albedoVramMB` **130 → 0**,
+`classVramMB` **43,33** — mit Mipkette real **173,3 → 43,3 MiB**, also **−130,0 MiB**. `/bake/osm` wird
+weiter GEHOLT: es ist der einzige verdrahtete Klassifikationseingang.
+
+Gemessen (erzwungene Einzelklasse, `FB_GEOM=1`, gleiche Kamera und gleiches Licht): trockene Erde gegen
+Asphalt **+0,474 EV** in der Reflektanz und **+0,146 EV** im Bild bei yaw 90; die Trennung von Asphalt
+gegen Waldboden (0,091 EV im Albedo) kommt aus der Struktur — Nahfeld-RMS **0,0333 gegen 0,1357**, also
+**4,1×**, genau aus `heightPacking` versiegelt gegen locker. Weltfest belegt wie das Gras: 0,10 m
+Seitversatz ergibt Verschiebungen von 1/4/8/15/20 px gegen vorhergesagte 2,4/5,0/9,4/15,9/20,0 px, r bis
+0,92 am Peak und ≤ 0 bei Nullverschiebung; vier Yaw-Winkel korrelieren untereinander mit ≤ 0,022. Die
+zweite Oktave füllt das 9-px-Band um **3,6–9,9×**. Das Stetigkeitsmass aus `lod.md` fällt von
+**4,65 @ 88 m** auf **1,72 @ 33 m**. Frame 5,270 → **5,916 ms**, Dreiecke, Draws und Pässe unverändert.
+
+**Offen und benannt:** die Tabelle ist BREITBAND-Reflektanz in einer Sichtband-Pipeline (Mittelgrund
+rendert als blasser warmer Sand); wiese/acker/siedlung landen alle auf `erde_trocken`, das Bodenlayer
+trägt also keine Landbedeckung mehr — die trägt erst das, was darauf wächst; ≥ 1,0 EV Materialkontrast
+im Bild ist mit dieser Tabelle und der Tonkurve arithmetisch nicht erreichbar (0,474 EV / Faktor 3);
+und in die tiefe Sonne gesehen kehrt die Albedo-Ordnung um, weil die Spiegelkeule ohne `E_bounce` und
+ohne Deckendämpfung auf einen zu niedrigen diffusen Boden trifft.
+
+---
+
+**2026-08-06 — Die belegten Bodenfarben wirken, das Umgebungsspekular war der Grünstich, und der
+Wolkenmarsch fährt nicht mehr.** Drei Änderungen, jede einzeln gemessen.
+
+*Erstens, das Bandverhältnis.* `visibleBroadbandRatio` wird in `GroundMaterials::Load` als SKALIERUNG
+auf das Albedo-Tripel gelegt, in derselben Anweisung wie der Feuchte-Dial — die Chromatizität stammt
+aus einer eigenen Quelle und bewegt sich nicht. Allein gemessen (fünf Standpunkte, ohne Halme):
+Bodenton 25,7° → 24,5°, Sättigung 0,255 → **0,205**. Beides in die falsche Richtung, und das war der
+Befund: die Reflektanz sinkt um Faktor 0,50–0,99, das achromatische Spekular darüber nicht.
+
+*Zweitens, das Umgebungsspekular.* An seiner Stelle stand der blanke Schlick-mit-Rauheit-FRESNEL, als
+wäre er das ganze Split-Sum-Integral — ohne Maskierungsterm, also bei streifendem Blick
+`max(1 − rough, F0)` der ganzen Himmelskuppel. Gemessen: 23–39 % der Bodenleuchtdichte, und das
+10–200-m-Band bei **Farbton 218°**, also blauer Boden. Ersetzt durch Lazarovs analytische (A, B)-Fit
+(SIGGRAPH 2013 / Karis, Mobile-UE4), gefüttert mit `sqrt(rough)`, weil der Fit α = r² annimmt und
+dieser Shader α = r definiert. Bodenton **24,5° → 28,3°**, Sättigung **0,205 → 0,330**, und
+Grün-unter-beiden im Mittelgrund **9,39 % → 0,00 %**.
+
+*Drittens, das Deckenspektrum — und die vorige Diagnose war falsch.* `litRadiance` nimmt die
+Abwärts-Reemission jetzt aus `I.sunDeck`, einer dritten Bestrahlungsstärke: der Strahl an der
+Deckbasis, über die SENKRECHTE Säule heruntergebracht statt über den 11°-Schrägweg. Gemessen
+0,7832/0,5610/0,3423 → 0,8212/0,6077/0,4025 (+4,9 / +8,3 / **+17,6 %**). MARSCHIERT, nicht getappt:
+die Transmittanz-LUT hat 64 Zeilen über 100 km, ihre ersten beiden Texelmitten liegen bei 781 m und
+2 344 m, eine 1 200-m-Deckbasis fällt hinein — der Tap gab 4,7 % Blau, wo das Modell 19,6 % hergibt.
+**Die Grün-Regression war es aber nicht:** ein Kontrollbuild mit dem alten `I.sun` und nur korrigiertem
+Spekular misst bereits 0,00 %.
+
+*Viertens, die Wolken.* Der volumetrische Marsch bleibt gebaut und wird nicht gefahren
+(`CloudQuality` = 0). Gezeichnet wird eine SCHICHT auf der Kuppel — dasselbe `CloudSkyU`, dieselbe
+`cloudDensity`, dieselben drei Wrenninge-Oktaven gegen dasselbe `S.tau`, ein Knoten am Schnittpunkt
+mit der Mittelschale. Sie reitet im Szenenpass und kostet keinen Pass. Ein Binary, min aus 3 × 200
+Frames: **11,222 ms / 8 Pässe → 6,946 ms / 7 Pässe**, der Wolkenzug allein 4,906 → **0,630 ms**.
+Bildunterschied über fünf Standpunkte: mittleres |Δ| 0,0158 im Bild, 0,0348 am Himmel, **0,00000000
+auf jedem Bodenpixel**; `localSunThru` = 0,698577 in beiden, auf jede Ziffer. Tonwertspreizung steigt
+(6,22–6,58 → 6,25–6,75 EV), weil der Marsch bei dieser Sonnenhöhe eine strukturlose orange Fläche
+integrierte und die Schicht ein lesbares Band mit Blau dazwischen zeichnet.
+
+**Offen und benannt:** das DIREKTE Spekular trägt weiter 15–44 % der Bodenleuchtdichte (F(v·h) = 0,56
+bei 83° Mikrofacetten-Einfall, GGX-Keule 0,455 sr⁻¹ gegen 0,031 diffus) und hält die Sättigung bei
+0,306–0,334 statt bei den 0,50 der Tabelle; die Tonwertspreizung im Vollbild sinkt leicht (7,07 →
+6,93 EV bei yaw 270), weil genau diese Glanzlichter fehlen; und die Kuppel-Schicht hat keinen
+Helligkeitsverlauf über eine Wolke — sie liest sich als glatter Scherenschnitt.
+
+## 2026-08-06 — Das Wasser spiegelt eine Richtung, und das Relief ist eine Leiter statt zweier Töne
+
+**Zwei Zeilen im selben Fragmentshader, beide gemessen.** `specE` war `E_sky/pi`, die Leuchtdichte
+einer GLEICHFÖRMIGEN Kuppel — eine Zahl für jede Blickrichtung, also die Kuppelfarbe auf jedem Wasser
+der Welt. Gemessen an der Weser: der Fluss trug den Ton der Kuppel-Bestrahlung (219,1° linear) auf
+4–24° genau, über drei Blickrichtungen, und lag 1,02–1,37 EV unter dem Himmel, den er spiegelt. Jetzt
+`skyViewSample(reflect(v, n))`, am lokalen Horizont abgeschnitten, über die Rauheit gegen den
+Kuppelmittelwert geblendet. Danach: Ton 100,1° / 47,3° / 44,6° bei yaw 180/270/283 — 119–174° von der
+Kuppel weg, und der Unterschied ZWISCHEN zwei Richtungen wächst von 17° auf 53°. Die Leuchtdichte folgt
+demselben Test: in die Sonne +0,22 EV, von ihr weg +0,05 EV. Unter den Bodenobjekten wird das Wasser
+vom dunkelsten zum hellsten (99. Perzentil 0,398 → 0,470 gegen Land 0,408 → 0,407).
+
+**Die verbleibenden 0,80–1,32 EV sind die Rauheit der Tabelle, nicht die Richtung**, und das ist die
+Zahl, die den Auftrag korrigiert: der geforderte Schlick-Wert 0,905 gilt für einen ebenen Spiegel. Das
+Split-Sum-Integral für die Fläche, die `ground-materials.json` deklariert (GGX, α = 0,05), ist **0,534**
+— gemessen mit 200 k Monte-Carlo-Samples, `F0 = 0,0204`, `N·V = 0,0202`. Es ist nicht fehlende
+Mehrfachstreuung (Fdez-Agüera holt hier +0,004), sondern `F(v·h)` über die sichtbaren Facetten: 2° RMS
+Neigung bei 1° Streifwinkel zeigt lokale Einfallswinkel von 83° bis 89°, und `(1−cos)^5` mittelt darüber
+zu 0,53. 0,905 ist die Zahl für `roughness → 0`. `wasser.roughness` ist `[SET]` und heisst in der
+Tabelle selbst „Platzhalter, bis es einen Wassershader gibt" — bleibt stehen, in `## Gaps`.
+
+**Das Relief war zwei Töne 6,7 auseinander, dazwischen die ganze Dekade leer.** Gemessen:
+Peak/Median im Band 6–70 px **22 / 46 / 131** über drei Bodenabstände, Spektralneigung β = 1,05 / 2,21 /
+**4,92**. β ≈ 5 ist eine Note. Jetzt eine Leiter, deren beide Enden und deren Schritt aus der Tabelle
+kommen: Start bei der deklarierten groben Skala, Schritt `sqrt(6.7)` (womit die deklarierte feine Skala
+exakt Sprosse 2 ist), Ende bei `grainSizeM`. Jede Sprosse gegen die vorige um den goldenen Anteil der
+90°-Symmetrie des Gitters gedreht. Danach **6,63 / 7,33 / 10,79**, β = 0,95 / 1,30 / 2,14, Residuum über
+der gefitteten Potenzkurve 7,63 → 3,05, 5,66 → 2,27, 3,20 → 2,16. Die Vorhersage war β = 2H = 1,6, der
+Mittelwert ist 1,46 — die Leiter liefert den Exponenten des Materialmodells, ohne ihn zu kennen.
+
+**Peak/Median unter 5 ist bei H = 0,8 nicht erreichbar, und das ist Arithmetik:** eine perfekte
+`f^(−1,6)`-Potenzkurve erreicht über 6–70 px allein schon 6,3. Die drei Werte liegen 1,05× / 1,16× /
+1,71× über diesem Boden. Was ein Gitter von einer Fläche trennt, ist das Residuum, nicht das Verhältnis.
+
+**`octWeight` musste eine ganze Oktave breit ausblenden**, weil `amp/L` mit `L^(H−1)` wächst und damit
+die feinste aufgelöste Sprosse die steilsten Hänge trägt: mit der alten Stufe (volle Amplitude bei 4 px
+Periode) lag das Pixel-RMS im Nahfeld bei **0,1893** gegen 0,0073 der Zwei-Oktaven-Fassung — 26×. Mit
+der Rampe (nichts bei 4 px, alles bei 8) **0,0566**. Was die Rampe wegnimmt, landet in der
+Toksvig-Varianz.
+
+**Weltfest blieb**, nachgemessen: zwei Bilder 0,10 m seitlich, Bandpass 4–24 px, gemessene Verschiebung
+4 / 9 / 16 / 20 px gegen vorhergesagte 5,0 / 9,4 / 15,9 / 20,0 px, Korrelation 0,63–0,72 am Maximum
+gegen −0,29…0,10 bei null.
+
+**Kosten:** 6,663 → **6,975 ms** (+4,7 %), Dreiecke 314 362 und `classVramMB` 32,5 unverändert, keine
+Pass-, Draw- oder Bindungsänderung. Die fünf Anker hielten: Bodenton max Δ 0,09°, Sättigung max Δ 0,006,
+grün-unter-beiden max Δ 0,012 pp, Tonwertspreizung max Δ 0,01 EV.
+
+## 2026-08-06 — Schritt 2 abgenommen, und die Klassenstabilität wird eine Spec-Zeile
+
+`sim-critic` nimmt den **Bodenshader ab**: `NO DEFECTS` über neun Azimute und sieben Pitchwinkel, alle
+Bilder im selben Lauf gerendert. Die beiden Blocker auf seiner eigenen Metrik nachgeprüft — Wassermaske
+gegen zwei erzwungene Klassen validiert (151 784 / 151 784 px, 0 Fehlklassen), Wasserton streut über
+vier Azimute um **35,5°** gegen 1,3° des Landes, und die Helligkeit steigt **monoton**, je näher der
+Blick an den Sonnenazimut 282,6° rückt. Das ist Spiegelverhalten und kein Kuppelmittel.
+
+**Zwei meiner Zielmarken sind widerlegt, nicht getunt** — beide stehen in [`goal.md`](goal.md) §2, damit
+sie niemand erneut erhebt: Fresnel 0,905 gilt nur für `roughness → 0` (Split-Sum für α = 0,05 ist
+**0,534**, 200 000 Monte-Carlo-Samples, Multi-Scatter +0,004 bei A+B = 0,877), und Peak/Median < 5×
+liegt unter dem arithmetischen Boden (ein perfektes `f^−1,6`-Gesetz erreicht **6,3** by construction).
+
+**Der Standpunkt steht im Wald.** OSM gibt 78 % Wald über 76 m, die Klassenkarte `laubmischwald` auf
+98 % der Bodenpixel innerhalb 50 m — und im Bild steht kein Baum. Daran hängt auch die Leere der Ferne
+(RMS-Kontrast 0,023–0,032 bei 200–800 m gegen 0,63 bei 25–50 m): **ein Wald ohne Bäume, kein Boden ohne
+Struktur.** Gehört Schritt 5, blockiert Schritt 2 nicht, macht aber Schritt 3 unbeurteilbar.
+
+**Der Eigner meldet die Klassifizierung zum zweiten Mal springend.** Der Mip-Fix der Vorrunde war nur
+eine der Achsen; die zweite ist die **Tile-Zoomstufe** — eine Array-Ebene je residentem Tile, jede in
+ihrer eigenen Zoomstufe bei gleicher Texelzahl, also verdoppelt sich die Bodenauflösung des
+Klassenrasters pro Stufe. [`render/classification.md`](render/classification.md) `## Spec` führt beide
+Achsen jetzt als Tabelle und verbietet zeitliche Glättung ausdrücklich: die Abnahme ist ein **identischer
+Klassenindex an einem festen Weltpunkt über eine ganze Laufstrecke**, auch innerhalb einer Übergangszone.
+
+**Das Ausfransen der OSM-Kanten bekommt seine Spec, bevor es gebaut wird.** Eigner: *„strassen haben
+harte kanten. waldränder und feldwege sind etwas difuser."* Die Übergangsbreite ist ein Datum am
+**geordneten Klassenpaar**, nicht eine Shader-Konstante — eine gebaute Kante ist ein Bauteil, eine
+gewachsene eine Zone. Die Breiten werden belegt statt gesetzt; bis dahin `[SET]`. Stabilität schlägt
+den Übergang: kollidieren beide, fällt der Übergang.
+
+**Die zweite Ursache des Klassen-Springens lag im Grasfeld, nicht im Bodenshader.** Die Klasse des
+Bodens stand schon (Frontlage x = −37,244 m ± 0,03 über 4 m Gehweg); gesprungen ist die ART der Halme.
+Das 49×49-Höhen-/Klassenfeld war AUF DAS AUGE zentriert, also tasteten seine Stützstellen das
+Klassenraster an wandernden Punkten ab und die bilinearen Gewichte, aus denen ein weltfester Halm sein
+Template zieht, wanderten mit — gemessen: Halmdeckung in einem festen Weltstreifen 0,026 → 0,151 →
+0,026 mit einer Periode von exakt 2,0 m, der alten Feldweite. Das Feld liegt jetzt auf demselben
+Gradnetz wie die Halmzelle (`render/CoverGrid.h`); über Gehwege von 0,37–4,0 m ändert **keine** von
+3 525–3 822 gemeinsamen Gitterzellen ihren Bucket. Offen bleibt der Streaming-Fall: ein z13-Elter
+antwortet für sein z14-Kind, bis das Kind da ist (49,97 % nach 8 Pässen, 0,00 % nach 20). Das
+Ausfransen ist nicht gebaut — Stabilität ging vor.
+
+## 2026-08-06 — Das springende Gras war nicht die Klasse, sondern ihr Leser
+
+Meine Hypothese war die Tile-Zoomstufe. Sie ist **widerlegt und die Widerlegung ist die bessere Zahl**:
+innerhalb einer Zoomstufe teilen sich alle Kacheln ein Texelgitter, also kann nur ein Split eine Grenze
+verschieben, und der z13→z14-Split liegt bei `SpanM(z)·kSseK/kEdgeTau` = 3000,8 × 623,54/384 = **4873 m**
+— dort überspannt ein z14-Texel (±2,93 m) 0,60 mrad = **0,41 px** bei 688 px/rad. Der Mechanismus ist
+real und unterhalb eines Pixels.
+
+**Der Fehler saß im Konsumenten.** Die Bodendeckung tastete die Klasse auf einem Gitter ab, das an der
+Kamera hing; die Klassentextur war unschuldig. Trennscharf gemessen an einem festen WELTstreifen über
+neun Läufe zu je 0,5 m: Halmdeckung schwankt **5,8×** mit Periode exakt **2,0 m** (dem Feldabstand),
+während die Klassenkante darunter um 0,057 m steht. Zwei unabhängige Terrainproben bestätigen die
+Unschuld der Klasse: Klassenflächen in einer festen Weltbox konstant auf ±4 m² von 5042 m², also
+Grenzversatz 0,005 m.
+
+**Die Behebung ist das Gradnetz, und die verworfene Alternative ist die lehrreiche.** Ein Metergitter
+braucht einen Ursprung; jeder verfügbare ist entweder eine Sitzungseigenschaft — dann sind zwei Clients
+über die Art eines Halms uneins — oder ein projiziertes Gitter, und das **driftet 0,26 m pro 2 m
+Nordbewegung** bei lon 9,43° (`Δ = X·tan φ·Δφ`, Ostskala 643 900 m). Langsamer als der Fehler, nicht
+anders. Preis des Gradnetzes ist die rechteckige Zelle (1,00 m Nord × 0,613 m Ost), also 78 × 49 statt
+49² Feldstützstellen: Upload 38,4 → 141,9 KB, Frame-Zeit 8,32 → 8,16 ms, beides im Rauschen.
+
+Nachweis in der vom Eigner verlangten Identitätsform (`FB_FIELD_DUMP=1`, Zellen nach absoluter
+Gitterzelle geschlüsselt): **0 abweichende Zellen** über fünf Läufe bis 4,0 m, Übergangszone
+eingeschlossen. Streifenschwankung 161 → 9 %, 56 → 15 %, 57 → 12 %; der Rest ist monoton mit dem Azimut
+statt periodisch, also das Billboard, kein Klassenwechsel.
+
+**Offen und dieselbe Meldung:** ein ankommendes Tile benennt den Boden unter sich um, weil das Feld
+seine Klasse vom Patch des GEZEICHNETEN Blattes nimmt — ein z13-Elternteil antwortet für sein z14-Kind.
+**49,97 %** von 3 822 Zellen weichen nach 8 Streaming-Durchläufen ab, 0,00 % nach 20. Im Stehen
+konvergiert es, beim Laufen in frisches Gelände kreuzt man es dauernd. Eigene Runde, läuft. *(Nachtrag:
+die 49,97 % waren ein Feld ohne Deckung, nicht der Fehler — siehe die Runde vom selben Tag.)*
+
+## 2026-08-06 — Die Klasse wird auf EINER Zoomstufe gelesen, und "noch nicht bekannt" ist ein Zustand
+
+Die Meldung des Eigners war zwei Runden alt und hing an einem Satz aus `classification.md`: *ein Filter
+darf entscheiden, was GEZEICHNET wird, nie was DA IST*. Das Bodendeckungsfeld nahm seine Klasse vom
+Raster des Blattes, das gerade gezeichnet wurde — also antwortete ein z13-Elternteil für sein z14-Kind,
+solange das Kind unterwegs war. Jetzt rechnet die Gitterzelle ihre eigene Länge und Breite aus (eine
+Zelle IST ein ganzes Vielfaches von `kCellM` Bogenmaß, also exakt) und liest `kMaxZ`; wessen Kachel
+fehlt, erzeugt **nichts** statt eine Vermutung.
+
+**Erst die Korrektur der eigenen Zahl.** Die 49,97 % nach 8 Durchläufen, die hier standen, waren kein
+umbenannter Boden, sondern ein Feld ganz ohne Deckung, das als Klasse 0 gedruckt wurde. Im Stehen feuert
+der Fehler gar nicht: der Streamer steigt tiefenzuerst ab, unter der Kamera liegt z14 ab dem ersten
+gezeichneten Durchlauf, und die alte Fassung ändert zwischen Durchlauf 11 und 60 **0 von 3 822** Zellen.
+
+**Der Fehler feuert beim LAUFEN, und dafür gibt es jetzt `--walkE/--walkN`** — Meter pro
+Streaming-Durchlauf, die Kamera bewegt sich also, während die Kacheln ankommen. Vorher wechselten
+**237 / 256 / 482** Zellen auf drei Strecken ihre Klasse, nachher **0 von 97 410 / 188 435 / 704 150**.
+Und alle Wechsel lagen in einer Übergangszone (5,91 % / 4,73 % / 1,98 % der Zonenzellen gegen 0,000 %
+im Inneren) — genau die Form, die ein gröberes Raster vorhersagt: es verschiebt eine GRENZE, es
+übermalt keine Fläche. Am Standpunkt: 0 abweichende Zellen bei 1, 2, 4, 8, 20 und 60 Durchläufen.
+
+**Die naheliegende Form ist für den Terrain-Shader tot, gemessen statt vermutet.** Alle 130 gezeichneten
+Blätter der Referenzszene auf `kMaxZ` auszudrücken sind `Σ 4^(14−z)` = **11 776** Klassenkacheln =
+**2 944 MiB** und **11 776 Array-Ebenen** gegen eine Gerätegrenze von 2 048 — Faktor 5,75. Für die
+Bodendeckung dagegen ist dieselbe Regel gratis: die Scheibe hat 44,16 m Radius, eine z14-Kachel 1 502 m,
+also höchstens vier Seiten. Der Preis ist ein Nullsummenspiel, weil `EnsureNear` seinerseits kein Raster
+mehr holt: `classPulls : nearFills` = **1:2 / 3:3 / 15:15**. Frame-Zeit nicht auflösbar (6,995 gegen
+7,084 ms bei 0,69 ms Streuung), Pässe, Draws und `classVramMB` unverändert.
+
+**Was offen bleibt und jetzt eine Zahl hat:** der Terrain-Shader liest weiter das gezeichnete Blatt.
+Bei 1,0 m/Durchlauf weichen **0 von 921 600** Pixeln vom konvergierten Bild ab, bei 16 m/Durchlauf
+**2,23 %** — er hinkt nur, wenn das Auge den Streamer überholt. Eine Klassenauflage nur für die Nähe
+wäre die Reparatur und ist abgelehnt: nah exakt, fern gefiltert, ist wieder eine Klasse, die vom
+Betrachter abhängt.
+
+## 2026-08-06 — Der ideale Waldrand ist ein Trugbild
+
+Recherche zu den Übergangsbreiten, weil ich sie sonst erfunden hätte. Befund: die 20–30-m-Zone aus den
+Merkblatt-Grafiken ist ein **Leitbild aus der romantischen Landschaftsmalerei** (Gehlken 2014) und real
+fast nie vorhanden; wo sie vorkommt, ist sie Brache. Die geografisch nächste Messung — Lewark 1971,
+Hann. Münden, ~300 km Randlänge, gleiche Buche-auf-Kalk-Landschaft — findet **zwei Drittel aller Ränder
+unter 5 m**. Buche bildet einen bodentiefen Steilrand mit ~1 m, Fichte 0,5 m, nur Eiche/Edellaub in
+Süd-/Westlage erreicht 5 m. Abschlag obendrauf: Krüsi und Lauterbach rechneten den gemähten Ackerrain
+dem Krautsaum zu, obwohl der Rain unabhängig vom Gehölz existiert.
+
+**Ein Paar trägt zwei Zahlen:** Gesamtbreite und Anteil auf Seite A. Am Waldrand liegt die Zone zu ~80 %
+INNERHALB des Waldpolygons (Mantel im Kronentrauf, Saum unter dem Mantel), bei Straße und Wasser zu
+100 % auf der Landseite. Eine richtungsabhängige BREITE existiert dagegen nicht — dafür fand sich kein
+Beleg. **Drei Übergänge sind keine Gradienten:** Waldrand (vertikaler Stapel unter 5 m, in der Fläche
+verflochtenes Mosaik mit gebuchteter Grenzlinie), unbefestigter Feldweg (fünf Bänder, vier harte
+Kanten), verbautes Ufer (Materialwechsel an scharfer Deckwerkskante). Tabelle mit Quellen in
+[`render/classification.md`](render/classification.md) `## Spec`.
+
+Zwei eigene Korrekturen: der Ort ist **Hastenbeck/Halvestorf bei Hameln, Niedersachsen** (NWG, nicht
+LWG NRW), nicht Fürstenberg/Höxter; und die Klassen stehen in `vegetation.json` (9 Templates), nicht in
+`ground-materials.json` (16 Materialien).
+
+## 2026-08-06 — Der Standpunkt stand im Wald, und das war die halbe Wüste
+
+Die Klasse springt beim Laufen nicht mehr. Der Reststand aus der Vorrunde — ein ankommendes Tile
+benennt den Boden um — ist behoben, indem die Bodendeckung ihre Klasse nicht mehr vom gezeichneten
+Blatt nimmt, sondern jede Gitterzelle über ihre eigene Lat/Lon auf einer `kMaxZ`-Seite auflöst; eine
+Zelle ohne Daten erzeugt **kein Gras** statt falsches Gras.
+
+**Die geerbten 49,97 % haben nichts gemessen** und das gehört zum Ergebnis: Der alte Dump gab bei
+Durchlauf 8 `covered = 0` aus, den Initialwert, den der Vergleich als Klasse 0 las. Im kalten Stand
+ändert schon der alte Code 0 von 3 822 Zellen. Der Fehler feuert beim **Laufen**, und dort ist er jetzt
+beziffert: 237 / 256 / 482 Zellen mit zwei Klassen auf drei Strecken (1,0 / 4,0 / 16 m je Durchlauf)
+gegen **0** danach. **100 % der Umbenennungen lagen auf einer Klassengrenze**, keine im Inneren — genau
+das, was ein gröberes Raster vorhersagt.
+
+**Die Ausweitung auf den Terrain-Shader ist an einer Zahl gestorben**, nicht an einer Meinung:
+130 gezeichnete Blätter über z9…z14 brauchen `Σ 4^(14−z)` = **11 776** Klassenkacheln = 2 944 MiB und
+11 776 Array-Ebenen gegen `maxTextureArrayLayers` 2048. Faktor 46. Der Terrain-Shader liest weiter das
+gezeichnete Blatt, beziffert: **0 px von 921 600** bei 1,0 m je Durchlauf, 2,23 % erst bei 16 m — er
+hinkt nur, wenn das Auge den Streamer überholt.
+
+**Standpunkt verschoben: 52,10499/9,43424 → 52,10602/9,43453, yaw 270 → 280.** Der alte Punkt lag
+per Punkt-in-Polygon INNERHALB eines Waldpolygons, 31,4 m von dessen Kante. Der Boden unterm Auge war
+`waldboden`, und das Bild las sich als Wüste — nackter Waldboden mit Grashalmen darauf, weil die Bäume
+darüber Schritt 5 sind. Die Wüstenanmutung war nie ein Shader- und nie ein Grasfehler. Der neue Punkt
+steht auf `wiese` (modale Vorlage 1702 von 3822 Zellen gegen vorher `laubmischwald`), Waldkante 25 m
+auf 117°, nächstes Windrad 340 m auf 250° mit OSM-`height` 134 m — das einzige im Nahfeld mit
+Höhenangabe. Geländeprofil geprüft: der Windradfuß liegt 15 m UNTER dem Auge, die Spitze steht bei
++19,0° gegen eine Bildoberkante von 30°. `fovDeg` ist die **vertikale** Öffnung, das horizontale Feld
+also 91,5° bei 16:9, und 250° liegt im Sektor 234…326° der deklarierten Blickrichtung.
+
+Boden 100,596 m (`/elev` antwortet 100,60), Sonne el 11,202 / az 282,601, 7 Pässe, 312 442 Dreiecke,
+`classVramMB` 32,5. Der wasm-Client baut mit dem neuen Szenenfile, ist im Browser aber **nicht
+nachgemessen**; die alten Browserzahlen sind gestrichen statt übernommen.
+
+## 2026-08-07 — Der Prüfstand ist ein Schalter am Frame-Orakel, kein dritter Client
+
+`doc/goal.md` §3 verlangt seit je, dass eine Pflanze ZUERST allein gerendert wird; es gab ihn nicht.
+Gebaut als `gpu_walk --rig <template>` — **kein dritter Client**, weil ein Client genau Einstiegspunkt
+plus Ausgabemedium ist und der Prüfstand beides unverändert lässt. Ersetzt werden nur die EINGABEN:
+die Welt (kein `World::Open`, keine Kachel, kein OSM, kein DEM, kein Netz) und das Licht (deklariert,
+nie geerbt). Was das Subjekt zeichnet, bleibt `GroundCoverStage` über `Renderer::SetGroundField` —
+derselbe Aufruf, den `World` macht.
+
+Der Boden ist Studiomobiliar und heißt so: `render/stages/BenchGroundStage`, 18 % neutral, mit
+kalibriertem Raster, gespleißt aus denselben `SurfaceLight.h`/`ShadowSample.h`/`CloudShadow.h` wie
+jede beleuchtete Fläche. Selbst-abgeschaltet, kein zusätzlicher Pass.
+
+39 Bilder aus 7 Ansichten × 4 Lichtern (`art-director`: Auflicht/Gegenlicht el 11°, reines Himmelslicht
+als geschlossene Decke über `cloudSunThru`, Turntable 360°; `botanist`: `portrait a b closeup_hd tuft
+sward eye`). EINE Belichtung für den ganzen Lauf, `KeyEv` −3,887, am Auflicht gemessen — sonst sind
+vier Lichter nicht vergleichbar. Objektiv 30° = 44,78 mm; `closeup_hd` schaltet auf 355,6 mm bei
+0,500 m Arbeitsabstand, weil ein Makro ein längeres Objektiv ist und keine nähere Kamera.
+
+**Zwei Messungen statt Schätzungen.** `sward` ist 1,000 m² als 720×720-Ausschnitt und misst
+**13,02 %** Deckung — über die TIEFE, nicht über die Farbe: die Farbdifferenz gegen dieselbe Fläche
+ohne Pflanze zählt die Schirmverschattung mit und ergab 64,7 %. Der isolierbare Kleinstbereich ist ein
+Deckungsfeld-Quad, gemessen **1,228 m × 2,000 m** — feiner kann Deckung nicht deklariert werden, also
+gibt es keine „Einzelpflanze", und das steht als Lücke 13 statt als Bild.
+
+`_wind` und `_season` werden **verweigert**: der Wind erreicht den Shader nicht, eine Jahreszeit ist
+nicht modelliert, drei bzw. vier identische Dateien wären eine Lüge. `--rig-height 25` rahmt jede
+Ansicht ohne Codeänderung neu (`eye` schwenkt von −3° auf +11,63°, `sward` bleibt 1 m²).
+
+Nebenbefund und echter Defekt: `CameraBasisEcef` lieferte bei Pitch ±90° eine **Nullbasis** — das
+Kreuzprodukt verschwindet und die substituierte Länge 1.0 ließ den Seitenvektor bei null. Der Grenzwert
+ist die Horizontale des Yaw; ohne das gab es kein Nadir-Bild. Die Szene bleibt bitgleich:
+`sim/walk-demo.png` vorher/nachher **0 abweichende Pixel**, 312 442 Dreiecke unverändert.
+
+## 2026-08-07 — Das weiße Band war ein Loch, und darunter lag eine Registrierung
+
+Ich hatte den weißen Streifen über der Halmbasis als nicht bandbegrenztes Detailrauschen des
+Bodenshaders vermutet und aus der Entsättigung geschlossen, dass etwas Achromatisches mit voller
+Amplitude eingemischt wird. **Beides falsch, dreifach widerlegt:** der Klassen-Visualisierungspfad kehrt
+vor Relief, Licht und AO zurück und zeichnet flaches Rot — das Band bleibt; Specular, AO und Schattenpass
+einzeln aus ändern es auf drei Stellen nicht; und der Tiefenpuffer im Band ist **exakt 0,0**, dort wurde
+nie Geometrie rasterisiert. Die Entsättigung ist keine Wäsche, sondern eine binäre Mischung: 48,3 % der
+Pixel exakt (195,192,176), 9,9 % exakt (82,76,69) — Wolkenschicht gegen Himmels-LUT unter dem Horizont,
+durch das Loch gesehen. Zwei-Punkt-Modell mit p = 0,830 sagt σ = 42/44/40 voraus, gemessen 45/50/50.
+
+**Die Ursache: Höhenorakel und Netz tasten das DEM nicht an derselben Stelle ab.** Das gezeichnete
+Gelände liegt **0,266 m über** der Höhe, auf die die Kamera gesetzt wird, unabhängig von der Augenhöhe.
+`TerrainLoader.cpp` nimmt Index `frac·cols`, `terrain.cpp` legt Stützstelle *i* auf `i/(cols−1)`. Die
+Differenz ist `frac` Texel — null an der West-/Nordkante, ein volles Texel an der Ost-/Südkante, und ein
+z13-Texel misst hier 11,74 m. **`tiles/src/elev.c` trägt dieselbe Rechnung**, also stimmen Client und
+Server miteinander überein und beide widersprechen dem Netz; deshalb stand es.
+
+**Entschieden wird das nicht durch Vorliebe, sondern durch Zoomkonsistenz:** Texelmitte
+(`frac·cols − 0,5`) liefert 100,909 / 100,882 / 100,907 bei z13 / z14 / z15 — derselbe Punkt durch drei
+Raster. `frac·cols` liefert 100,596 und ist der Ausreißer.
+
+**Preis: Schritt 2 wird neu abgenommen.** Zwei von fünf Ankern brechen — Bodenton 0,214° gegen Toleranz
+0,09°, Grünanteil 0,94 pp gegen 0,012 pp. Das ist es wert; ein grünes Häkchen ist kein Grund, jeden
+künftigen Körper einen Vierteilmeter unter die Erde zu setzen. Der Agent hat den Fix ausdrücklich NICHT
+hinter der Abnahme angewendet, sondern seinen Preis gemessen und die Entscheidung vorgelegt — richtig.
+
+**Als Betrug abgelehnt, mit Messung:** `kNearM` 0,05 → 0,01 entfernt das Band und ist beweisbar
+bildneutral (`zn` steht nur in der z-Zeile der Projektion), würde aber eine deklarierte 0,30-m-Nahsicht
+still aus 0,034 m rendern. Einzelheiten in [`world/terrain.md`](world/terrain.md) `## Gaps`.
+
+## 2026-08-07 — Der Streufilz ist so rotbraun wie der Löss, und damit ist die Kante keine Materialfrage
+
+`grasfilz` ist die 17. Klasse von `ground-materials.json` und schließt die vom Botaniker benannte
+Lücke: unter einer Wirtschaftswiese liegt kein Boden. Chromatizität **1,000 : 0,674 : 0,280** und
+`visibleBroadbandRatio` **0,579**, beides Pfad B über die zwei ECOSTRESS-Spektren *Avena fatua* litter
+(vh354/vh355, UCSB ASD) — Grasstreu, als Streu gemessen. Die Pipeline ist an den eigenen Zahlen der
+Datei verifiziert: sie reproduziert Quercus-Streu 1,000:0,720:0,429 / 0,654 und die Nadelmischung
+1,000:0,606:0,348 / 0,514 auf jede gedruckte Stelle. `albedoBroadband` bleibt **[SET] 0,20**, geklammert
+von zwei gemessenen Kurzwellen-Verhältnissen, die sich um 17 % widersprechen (0,199 über laubstreu,
+0,234 über erde_trocken) — und die Gegenprobe der Methode am eigenen Streu-Paar der Tabelle
+**scheitert** (0,836 statt 0,700), was Material und Packung sauber trennt.
+
+**Die Vermutung beider Kritiker ist widerlegt, nicht bestätigt.** Grasstreu hat G/R 0,674 gegen 0,675
+des Lösses — dasselbe Rotbraun auf 0,001, nur das Blau trennt sie (0,280 gegen 0,382). Der Materialtausch
+bewegt R−G an der Deckungskante um 4 Codes (+30,2 → +26,1) und die Helligkeit um 26 (110,9 → 137,3).
+**Ein Filz repariert die Substanz und nicht die Kante.**
+
+Die Kante bewegt `swardClosure`, ein Templatefeld, das die Bodenreflexion der Zeile gegen
+`mix(colorSrgb, drySrgb, dryFraction)` zieht — die drei eigenen Deklarationen des Templates, keine
+Shaderkonstante. `wiese` deklariert **1,0**, hergeleitet: bei 44,16 m und 1,70 m Auge steht der Blick
+2,205° über der Ebene, Beer-Lambert mit LAI 3 und G = 0,5 gibt eine Lückenrate von 1,2e−17. Gemessen bei
+Auge 6,0 m, Pitch −12°, nach Distanz gebinnt: R−G außen **+30,2 → +7,0**, Δ(R−G) gegen die Narbe
+**44,2 → 21,0**, ΔL **−13,0 → +17,0**.
+
+**Beide Latten reißen** (|Δ(R−G)| < 6, |ΔL| < 5), und der Rest ist gemessen statt geraten: bei Closure
+1,0 tragen Boden und Halme **dieselbe Albedo** und rendern trotzdem 21 Codes in R−G und 17 in L
+auseinander. Das ist der Lichtpfad — die Halme tragen `occ` (⟨occ⟩ = 0,389) und eine
+Vorwärts-Transmission bis 2,5×, der Boden keines von beidem. **Keine Albedo kann das schließen**; das
+Aggregat gehört dorthin, wo `occ` wohnt.
+
+Nebenbefund derselben Messung: der Deckungsshader liefert die deklarierte `dryFraction` 0,30 als
+flächengewichtete **0,129** aus (`kWholeDry` 0,35, `kTipRun` 0,25) — dieselbe Regel wie bei der Dichte,
+ein Feld weiter. Und das Fade-Band ist ein dunkler Ring: L **123,9 → 56,7 → 86,4 → 140,8** über
+32–36 / 36–40 / 40–44,2 / 44,2–48 m, vor und nach dieser Runde identisch.
+
+Zwei phänologische Fehler korrigiert, beide an das **Datum** der Szene gehängt und nicht an einen
+Parameter: `wiese.forbs` tauscht Wiesenkerbel (Blütezeit IV–VII) gegen Wilde Möhre (V–IX) und
+Wiesen-Flockenblume (VI–X/XI); `acker` steht auf 0,12 m Stoppel mit `dryFraction` 0,92 statt 0,55 m
+halbreifem Weizen, und seine `drySrgb` behält ihre Leuchtdichte und bekommt die gemessene
+Stroh-Chromatizität. Die Acker-Änderung allein bewegt 5 679 px der Referenzansicht.
+
+Die fünf Anker von Schritt 2 halten, fünf Yaws, gepinnte Binärdatei: Bodenton max Δ **0,401°**,
+Sättigung **0,001**, grün-unter-beiden **0,000 pp**, Tonwertspreizung **0,198 EV**, Weltfestigkeit
+identisch (Spitzenverschiebung +18 / +16 px vorher wie nachher). Grün-dominante Bodenpixel steigen um
+bis zu **2,02 pp** — die beabsichtigte Richtung.
+
+## 2026-08-07 — Die Wiese ist eine Wiese, und sie kostet 56 ms
+
+Deckung **13,02 % → 93,51 %** auf dem neuen Prüfstand (1 m² senkrecht, kalibriert). Die Arbeit steckt
+in EINER Ableitung, die vier Defekte gleichzeitig erledigt: die Vorlage deklariert Halme/m², Breite und
+Bestandshöhe, aber nicht die **Länge** eines Blattes — ein Blatt, das mit 65° austritt und sich
+überbiegt, erreicht weit weniger Höhe als es lang ist. `L = Höhe / ⟨sin φ⟩`, `⟨sin φ⟩ = 0,5696`
+(Monte-Carlo über die deklarierte Neigungs- und Bogenverteilung, 4·10⁵ Halme × 128 Stationen). Daraus
+fallen L:B **47,9:1** (Band 40–55), LAI **4,63** (1–5), Deckung **95,2 %** (95–100), mittlere Neigung
+**65,0°** (55–75), Spitzenauslenkung **0,413** (0,30–0,50), und Spitzenhöhen mean 0,30 / p90 0,51 /
+p99 0,64 m — **geschlossene Blattmasse und aufgeschossene Halme sind dieselbe Population.**
+`kBladesPerM2 = 150` und der `widen`-Mechanismus sind ersatzlos weg.
+
+**Der fehlende Gegenlichteffekt hatte eine andere Ursache als den fehlenden Term:** das kamerazugewandte
+Billboard. Eine kamerafeste Breite macht jede Normale zum Blickvektor, dann hat `N·L` denselben Betrag,
+egal auf welcher Seite die Sonne steht. Gegenlicht ÷ Auflicht im p95 (szenenlinear, weil die Tonkurve im
+Handbetrieb geschlossen und invertierbar ist): **0,93 → 2,16**.
+
+**Bestandslicht als Physik statt Kurve:** der Strahl wird über seinen Schrägweg abgebaut
+(`G(el)/sin el` = 2,220 bei 11° gegen 0,655 im Nadir), der Abwärtsfluss mit `sqrt(1−ω)` mal dem
+hemisphärisch integrierten Koeffizienten (0,795 bei LAI 4,6). Beide mit dem Strahlgesetz zu dämpfen legte
+55,4 % des Bildes auf Code 0; die **Differenz** ist das diffuse Feld im Bestand. `G(el)` ist dieselbe
+Blattwinkelpopulation, aus der die Geometrie gebaut ist. Boden gegen Halm im Nahfeld 103,5/104,2 →
+**113,9/121,3**, Bodenanteil 14,48 % → **0,79 %**.
+
+**Das Budget ist gemessen und gerissen: 56,26 ms gegen 33,3 ms, Faktor 1,69.** 1 393 949 Halme,
+12 545 541 Dreiecke. **50,9× die Dreiecke kosten 11,4× die Zeit — füllbegrenzt, nicht vertexbegrenzt.**
+Ursache benannt und offen: es gibt kein LOD, ein 11-mm-Blatt in 8 m ist 0,9 px breit und kostet trotzdem
+einen Fünf-Segment-Streifen. Einzelheiten in [`goal.md`](goal.md) §5.
+
+## 2026-08-07 — Der Streufilz behebt die Substanz und NICHT die Kante
+
+Neues Material `grasfilz` (17. Klasse), Chromatizität aus zwei ECOSTRESS-Spektren von *Avena
+fatua*-Streu, Ableitungsweg **zuerst gegen die publizierten Werte der Datei verifiziert** (Eichenstreu,
+Nadelstreu, Grüngras, Flachreflektor — alle auf die gedruckte Stelle reproduziert).
+
+**Meine Synthese „zwei Kritiker, ein Fehler" ist widerlegt.** Grasstreu hat G/R = **0,674**, Löss
+**0,675** — identisches Rotbraun bis auf die dritte Stelle, nur Blau unterscheidet sich (0,280 gegen
+0,382). Und der Grund liegt tiefer: bei voller Bestandsschließung tragen Terrain und Halme **dieselbe
+Albedo** und stehen immer noch 21 Codes in R−G und 17 in L auseinander, weil die Halme `occ`
+(⟨occ⟩ = 0,389) und eine Transmissionskeule bis 2,5× tragen und das Terrain keins von beidem.
+**Die Fade-Kante ist ein Beleuchtungsbruch, kein Farbbruch** — keine Albedo kann sie schließen. Latte
+|Δ(R−G)| < 6 und |ΔL| < 5 nicht erreicht (40,1 → 21,0 über fünf Schließungsstufen, monoton, mehr ist
+nicht zu holen).
+
+**Die Methode der Materialdatei prüft sich selbst und fällt durch:** `SW(Nadeln)/SW(Eiche)` = 0,836, wo
+die Tabelle 0,700 impliziert — 17 % Widerspruch in einer abgenommenen Datei. Gemeldet, nicht kaschiert.
+
+**Neue Instanz derselben Fehlerklasse wie die Dichte:** `vegetation.json` deklariert `dryFraction: 0.30`,
+der Shader realisiert flächengewichtet **0,129**. Code überstimmt eine Deklaration, ein Feld weiter.
+
+Phänologie korrigiert: `acker` 0,55 m stehender Halbreifweizen → **0,12 m** Stoppel bei `dryFraction`
+0,92 (Mähdrescher-Schnitthöhe 0,10–0,15 m, `[SET]` auf die Mitte); `forbs` Wiesenkerbel (blüht IV–VII,
+Saumart) → Wilde Möhre + Wiesen-Flockenblume. Die Jahreszeit ist **nicht** modelliert und wurde nicht
+eingeführt — die Werte hängen an einem Datum statt an einem Parameter, eingetragen in `## Gaps`.
+
+## 2026-08-07 — Die DEM-Registrierung, entschieden von der Quelle statt von meiner Probe
+
+Behoben in einer Runde über Client, Netz und Server: **ein DEM-Texel ist eine FLÄCHE**, die Abtastung
+liegt auf `frac·n − 0,5`, und alle drei gehen durch **einen** Ausdruck (`fb_texel_index` in
+`tiles/src/tilemath.h`, vom `sim/Makefile` auf die vier Terrain-Übersetzungseinheiten gelegt).
+
+**Die Quelle entscheidet, nicht die Probe.** `tilezen/joerd`, `mercator.py`: `_merc_bbox` ist die ÄUSSERE
+Bounding-Box der Kachel, `dst_x_res = (bbox[2]−bbox[0]) / size` — durch 256, nicht durch 255 — und die
+GDAL-Geotransformation verankert die Außenkante des linken oberen Pixels. Mitte von Texel *i* auf
+`(i+0,5)/N`, vom Erzeuger der Daten.
+
+Zwei unabhängige Bestätigungen. Über eine z13-Naht: `|A[:,255] − B[:,0]|` im Mittel **0,955 m** gegen
+0,982 m für zwei benachbarte Spalten INNERHALB einer Kachel — ein Texel Abstand, keine Überlappung. Und
+200 Zufallspunkte durch drei Zoomstufen:
+
+| Abtastung | RMS(z13−z15) | RMS(z14−z15) | Verhältnis |
+|---|---|---|---|
+| `frac·n` (Orakel, alt) | 0,538 | 0,193 | 2,79 |
+| `frac·(n−1)` (Netz, alt) | 0,316 | 0,201 | 1,57 |
+| **`frac·n − 0,5`** | **0,056** | **0,058** | **0,96** |
+
+Das VERHÄLTNIS ist der Beweis: ein Registrierungsversatz ist ein fester Texelanteil, halbiert sich je
+Zoomstufe und muss ≈3 ergeben. 0,96 heißt, es ist keine zoomabhängige Komponente mehr da.
+
+Abnahme: Netz − Orakel **0,2670 → 0,0382 m**, bei Auge 1,70 und 0,40 auf fünf Stellen gleich (also reiner
+Höhenversatz, kein Skalenfehler). Client gegen Server ≤ **0,004 m**, gegen unabhängigen Sampler
+≤ 0,0003 m. **Hangfall** am steilsten Punkt in 700 m (Gefälle 0,330 m/m): der Boden, auf den ein Körper
+gesetzt wird, wandert um **−0,849 m**, und das Vorzeichen kippt gegenüber dem Referenzpunkt — der Fehler
+war eine horizontale Verschiebung, keine Vorspannung. Lochschwelle der nahen Ebene 0,3015 → **0,088 m**.
+
+**Zwei meiner Angaben korrigiert:** das gezeichnete Blatt ist z14, nicht z15 (`kMaxZ` = 14), und meine
+„0,73 m bei +100/+100" mischten zwei Konventionen — es sind 0,023 m.
+
+**Meine Annahme zum z13-gegen-z14-Rest ist gekippt:** das Orakel auf die gezeichnete Zoomstufe zu ziehen
+hilft NICHT (RMS 0,404 gegen 0,383). Der Rest ist nicht das Raster, sondern dass `ChunkBuildEcef` 256²
+auf 33² Stützstellen dezimiert = **46,9 m** Abstand bei z14. Der Hebel wäre, dass das Orakel die
+gezeichnete FLÄCHE auswertet; das ist eine Architekturentscheidung (`fb_stream_ground` ist eine freie
+C-Funktion ohne Zugriff auf `kMaxZ` und `Grid`) und steht beziffert in `world/terrain.md` `## Gaps`.
+
+**Preis, gemessen:** Schritt-2-Anker bewegen sich stärker als von mir vorhergesagt — Bodenton 0,873°
+statt 0,214°, Grünanteil 1,511 pp statt 0,94 —, weil das Gelände ein halbes Texel horizontal wanderte
+UND die Kamera 0,313 m stieg. Die Weltfestigkeit ist mit der bisherigen Methode bei 1,39 Mio. Halmen
+**nicht mehr auflösbar** (bandgefilterte Korrelation 0,19–0,41); beide Builds zeigen dieselbe monotone
+Parallaxe, aber die Aussage trägt so nicht mehr und ist als offene Frage an den Kritiker gegangen.
+
+## 2026-08-07 — Zwei Kritiker, ein Clamp, und meine Physik war keine
+
+Beide Nachprüfungen NACHBESSERN, und beide zeigen unabhängig auf dieselbe Codestelle.
+
+**Der Ambient im Bestand wird auf null GEKLEMMT, nicht gedämpft.** Belichtungsunabhängig dreifach
+bewiesen: (1) Histogramm unter reiner Halbkugel — `portrait-skylight` hat **75,92 %** auf exakt Code 0
+und die Codes 1…16 zusammen 1,15 %, Verhältnis **66:1**; eine gedämpfte Innenraumradianz erzeugt einen
+langen BESETZTEN Schwanz, ein Dorn auf null mit leerem Schwanz ist ein Schnitt. (2) `closeup_hd-frontlit`
+mit linearem Gain 6 nachgezogen — das Schwarz bleibt Schwarz, also liegt dort keine beschnittene
+Struktur, sondern Leere. (3) **Die radiometrische Schranke:** die 18-%-Karte steht HINTER dem Bestand bei
+Code 145, die Halme DAVOR bei Code 0; beide sehen dieselbe Halbkugel, Blattalbedo 0,10–0,14 gegen 0,18
+der Karte. 145:0 verlangt Einstrahlung null.
+
+**Die Ursache ist mein eigener Satz aus der Vorrunde.** „Die Differenz der beiden Transmissionen ist das
+diffuse Feld im Bestand" ersetzt einen Clamp durch einen zweiten: eine Differenz zweier Exponentialterme
+wird negativ und wird dann geklemmt — genau der Dorn. Ich habe das als Physik weitergegeben.
+
+Der Sollwert, unabhängig hergeleitet: Botaniker `exp(−0,795·4,63) = 0,0246` = **5,3 Blenden** (nicht die
+gemeldeten 6,9 — es fehlen 1,6, Verdacht: der Bestandsabbau wirkt zweimal); Art Director 2–5 % des
+offenen Himmels = −4,3…−5,6 Blenden = **Code 3, nicht Code 0**. Beide nennen denselben Grund, warum es
+nie null werden kann: **Mehrfachstreuung** — ein Blatt leitet bei 550 nm ~0,25 weiter oder wirft zurück.
+Ein Bestand ist ein streuendes Medium; der heutige Term kennt nur Absorption.
+
+**Ich hatte beide gefragt, ob der Hebel in der Belichtung liegt. Beide: nein.** *„Aus einem schwarzen Loch
+würde ein graues Loch."* Der Zeh der Tonkurve fehlt wirklich, aber nachgeordnet — sonst kalibriert man
+gegen eine Leere.
+
+**Ein Ein-Ursachen-Fehler mit drei Symptomen:** die Rückseite des Streifens wird ungeleuchtet gezeichnet.
+Halme kippen an einer harten Segmentgrenze in reines Schwarz und laufen dahinter grün weiter; dasselbe in
+Subpixelbreite ergibt schwarze Haarlinien quer über den Himmel.
+
+**Der Botaniker korrigiert seine eigene 8,7-mm-Regel gegen mich:** sie ist eine Regel über GRÖSSEN, nicht
+über WINKEL. Der Kiel hat keine Länge, er ist die Normale — er wirkt auf jeder Entfernung. `o.nrm` hängt
+heute nur von der Bogenstation ab und hat keine Komponente entlang `side`; Zeilenscan quer über die Halme
+findet Läufe von **65, 75 und 192 px in exakt einer Farbe**. Derselbe Mangel lässt jeden Halm, dessen
+`side` parallel zur Blickrichtung steht, auf null Breite kollabieren — das war der unbeglichene Preis der
+Billboard-Entfernung. Eine laterale Normalenkippung behebt beides für null Dreiecke.
+
+**Die Deckungszahl der Vorrunde ist nicht zertifiziert:** 19,1 % von `sward-skylight` sind exakt (0,0,0),
+also unentscheidbar Halm oder Boden. Die Deckung liegt zwischen **73,1 % und 93,1 %**; die gemeldeten
+93,51 % setzen voraus, dass alles Schwarze Vegetation ist. Unter einer Halbkugel kann im Nadir kein Pixel
+exakt null werden.
+
+**Reihenfolge korrigiert — ich hatte AA als eigene Runde nach der Halmform geplant, beide Kritiker
+widersprechen:** der Zerfall dünner Halme in gestrichelte Linien ist **verlorene Deckung, kein
+Kantenproblem**, und kein Post-Filter holt eine Kante zurück, die nie gerastert wurde
+(`visual-target.md` §2 zitiert Karis dazu selbst). Neue Ordnung: **Shading (diese Runde) → LOD mit
+deckungstragender Fernstufe → Wind → TAA**, mit einem Wegwerf-FXAA davor. Der Wind gehört dazwischen,
+weil TAA auf bewegtem Laub an den Motion Vectors hängt. Die Fernstufe darf **nicht durch Ausdünnen**
+entstehen — das ist genau das Popping, das TAA danach nicht auflösen kann. Und die Fade-Kante gehört in
+dieselbe Runde wie das LOD, weil das Terrain eine Gras-Aggregatschicht mit Verdeckung und Transmission
+braucht: **ein Bau, zwei Defekte.**
+
+**Der Prüfstand hat selbst vier Mängel** und ist an genau den Stellen blind, für die er gebaut wurde:
+`closeup_hd` ist leer (10 verschiedene Farben in 921 600 px, `frontlit` und `backlit` unterscheiden sich
+um 1 Code auf 412 Pixeln), `sward` hat nur EIN Licht, die 18-%-Karte dient als Substrat unter der Pflanze
+statt als Randreferenz, und `turn180` ist nicht `backlit`. Eigene Runde, läuft.
+
+**Vierte Instanz von „Deklaration wird nicht realisiert":** `grasfilz` steht korrekt in
+`ground-materials.json` mit 1 : 0,674 : 0,280, der gerenderte Boden misst linear 1 : 0,830 : 0,726 — und
+zwar identisch auf 0,5 m, 3 m und 20 m, was Dunst ausschließt.
+
+## 2026-08-07 — Schritt 2 abgenommen, Schritt 3 nicht, und das Werkzeug misst sich selbst
+
+**Schritt 2 ist wieder abgenommen** — und zwar nicht über meine Ankertabelle, sondern über eine
+unabhängige Prüfung gegen den Kachelserver: pro Bildspalte die oberste Tiefentrefferzeile in einen
+Elevationswinkel umgerechnet (mit Off-Axis-`f` und Erdkrümmung 1/1,13) und gegen das DEM-Maximum
+entlang derselben Peilung bis 16 km gehalten. **13 von 14 Spalten unter 0,09°, also unter einem Pixel**
+(10,88 px/Grad); der einzige Ausreißer bei 14 km ist die Abtastschrittweite der Prüfung selbst. Dazu
+0 Löcher, 0 Nähte (13 Ein-Pixel-Spitzen in 84 358 Fernterrain-Pixeln = 0,015 %), Streaming schon bei
+`--warm 60` bitgleich mit `--warm 900`.
+
+**Der Renderer ist nicht deterministisch, und das entwertet die Messungen der ganzen Runde.**
+Unveränderte Kommandozeile, drei stabile Ausgaben: `grasL` 0,1491 / 0,1711 / 0,4748, **1,66 EV
+auseinander**. A gegen B 39,02 % der Pixel > 2 Codes, 5,33 % > 32, max 151. Der Diff ist
+**ausschließlich die Narbe**, pro Halm strukturiert; Himmel und Terrain bitgleich, `blades`,
+`terrainTiles` und `blackLog2` in allen Fällen identisch. Trigger nicht isoliert (`--warm 30/240/1200`,
+`FB_NODEMCACHE=1`, `FB_AO=0`, Vorlauf bei anderem yaw).
+
+Preis: drei von vier Ankern schwanken zwischen zwei **identischen** Läufen stärker als zwischen den
+beiden Builds des DEM-Fix — Bodenton 2,291° gegen gemeldete 0,873°, Grünanteil 3,688 pp gegen 1,511,
+Tonwertspreizung 0,528 EV gegen 0,266. Nur die Sättigung liegt außerhalb des Rauschens. `CLAUDE.md`
+Prinzip 6 gilt hier wörtlich.
+
+**Die Weltfestigkeit ist wieder messbar — im Tiefenpuffer statt im Bild**, und die neue Methode ist der
+alten überlegen: Restfehler **3,8 mm** gegen eine Nullhypothese bei 60,5 mm, Signal/Boden 8,8:1, und sie
+wird mit steigender Dichte **besser** statt schlechter, weil sie eine starre Transformation fittet statt
+Bildtextur zu korrelieren. Rezept und Zahlen in [`render/renderer.md`](render/renderer.md) §1.9.
+
+**Der fehlende Eigenschatten der Narbe, beziffert:** Bestandsoberkante sd **0,162 m** (aus derselben
+Tiefenrekonstruktion, n=253), bei 11,2° Sonne also Schatten von **0,82 m** Länge auf einem 0,25-m-Raster.
+Erwartet 1,74 EV zwischen Sonnen- und Schattenfleck (aus `skyDiffuseHorizY` 0,0491 gegen `totalHorizY`
+0,1642), gemessen **0,42 EV, richtungslos**. `FB_CSM=0` ändert `grasL` um 0,0001, der Schattenpass führt
+7014 von 1 456 000 Dreiecken — kein Halm. Eine `occ`-Keule ist eine 1-D-Funktion der Höhe und kann kein
+Muster erzeugen. **Das ist der Grund, warum die Narbe trotz richtiger Deckung, Breite und Gegenlicht wie
+ein Teppich liest** — und es ist genau das, was der Einzelpflanzen-Prüfstand nicht zeigen kann.
+
+**Die Fade-Kante hat eine große Bildfolge**, größer als der Ring selbst: im yaw-100-Frame liegen
+**21,5 % aller Bodenpixel** jenseits von 42 m, und dort fällt der Grünanteil von 73 % auf 9,6 %. Der Ring
+selbst ist bei Pitch 0 nur 4 px hoch, clippt aber auf **exakt Code 0** (bis 110 von 360 Pixeln einer
+Zeile).
+
+**Reihenfolge, endgültig — die beiden Kritiker widersprachen sich und ich entscheide gegen meine eigene
+frühere Fassung:** `lod.md` begründet seine Auswahlregel selbst damit, dass die Sub-τ-Diskrepanz „the
+class of error TAA is built to absorb" sei und dass es deshalb „no crossfade, no geomorph anywhere"
+brauche — **die LOD-Konstruktion setzt TAA voraus.** Dazu liegt das Aliasmaximum bei **8–15 m**
+(|Laplace| 0,257), mitten in der Deckungsscheibe, wo kein LOD je vereinfacht. Und ohne AA misst die
+LOD-Abnahme den eigenen Rauschteppich: der Schritt an der Scheibenkante ist 0,218 → 0,072, der
+Untergrund im Bestand liegt bei 0,22. Der Einwand des `art-director` — verlorene Deckung sei durch
+keinen Filter zurückzuholen — trifft Post-Filter, nicht TAA mit Subpixel-Jitter, das genau diese Deckung
+statistisch wiederherstellt. Sein zweiter Punkt bleibt und wird eingebaut: **die Fernstufe darf nicht
+durch Ausdünnen entstehen**, und **Wind kommt vor TAA**, weil die Motion Vectors sonst zweimal gebaut
+werden.
+
+**Determinismus → Shading (Rückseiten, geklemmter Ambient) → Eigenschatten → Wind → TAA → LOD.**
+
+## 2026-08-07 — Der Prüfstand kann jetzt leer von schwarz unterscheiden
+
+`closeup_hd` war **nie leer, es war voll und schwarz** — und der Beleg brauchte keine Änderung, nur das
+vorhandene Bild: der Himmelspass schreibt 144/177/216, **kein Himmelspixel kann Code 0 sein**, und
+trotzdem waren die obersten vier Zeilen und die Horizontzeile zu 100 % exakt (0,0,0). Füllung
+**89,60 %**, `blades=230770` für diese Ansicht. Alle vier von mir genannten Kandidaten einzeln
+ausgeschlossen: Fleckposition (0,600 m freier Boden vor der Wand), nahe Ebene (0,05 gegen 0,600 m),
+Kamera im Halm (Deckung ist 0 außerhalb des Flecks, der nackte Boden rendert), Zielrichtung.
+Es ist derselbe geklemmte Ambient aus der parallelen Runde.
+
+**Der eigentliche Mangel war, dass der Prüfstand leer nicht von schwarz unterscheiden konnte.** Jetzt
+misst er `fillPct`, `cardPct`, `cardMedian` und `subjectMedian` aus dem Tiefenpuffer (drei Renders) und
+meldet `rig subject_below_floor`, wenn Geometrie da ist und trotzdem nichts leuchtet — heute auf 4 von
+45 Bildern, und die Warnung zeigt auf eine fremde Datei, statt sie anzufassen.
+
+**Karte und Substrat sind getrennt, und der Zielkonflikt löste sich auf statt abgewogen zu werden:** Der
+Grund für die neutrale Karte war, dass der klassifizierte Bodenshader mit seinen Defekten sonst auf das
+Konto der Pflanze misst — aber `BenchGroundStage` war nie dieser Shader, sondern eine flache Ebene mit
+einer deklarierten Konstante. Boden ist jetzt das deklarierte Substrat der Vorlage (`wiese` → `grasfilz`,
+linear 0,1430/0,0964/0,0400), gelesen aus `ground-materials.json` und ausdrücklich **nicht** aus der
+aufgelösten Zeile, weil `swardClosure` = 1,0 deren Bodenreflexion vollständig mit der Aggregatfarbe der
+Halme überschrieben hat. Die 18-%-Karte steht aufrecht am linken Bildrand als **Geometrie** durch
+denselben `litRadiance` — eine radiometrische Referenz, kein Bildschirmanstrich. `sward` bekommt per
+Deklaration keine Karte: sein Bild IST der gemessene Quadratmeter.
+
+**`turn180` ≠ `backlit`: Ursache gefunden, Gleichmachen verweigert.** `backlit` bewegt die Sonne, das
+Turntable die Kamera; beide erreichen `sunRelDeg` 0, und die Karte — die einzige Fläche mit identischer
+Orientierung in beiden — liest **67 in beiden**, das Licht ist also dasselbe. Die 30 Codes Unterschied am
+Bestand liegen **innerhalb** der 42 Codes, die derselbe Stand über vier Kamerarichtungen streut
+(64/88/94/106). Beide Zwangsangleichungen wären Schaden: die Kamera von `backlit` zu bewegen macht
+Auf- und Gegenlicht zu zwei Kompositionen, die Sonne des Turntables zu bewegen macht acht identische
+Bilder. Stattdessen ein latenter Fehler behoben — die Turntable-Sonne war hart auf 180° verdrahtet statt
+blickrelativ — und beide Familien tragen jetzt `sunRelDeg` im Log. `turn000` ist `frontlit` auf das Bit.
+
+**`sward` hat drei Lichter**, alle drei messen **93,51 %** Deckung bei Subjektmedian 106/105/88. Der
+Einwand des Botanikers (schwarze Pixel unentscheidbar) ist damit beantwortet.
+
+Szene byteidentisch: zwei Binaries aus demselben Baum, eines mit zurückgenommenen Änderungen,
+**0 abweichende Pixel** bei gleichen 1 459 400 Dreiecken und 1 393 949 Halmen.
+
+Offen: bei 90–98 % Füllung hat eine Makroansicht **keine Sichtlinie mehr zur Referenzkarte**
+(`cardPct` 0 % bei `closeup_hd`); Ligula und Blattquerschnitt sind bei keiner Belichtung darstellbar,
+weil das Halmmodell ein Band ohne Dicke ist; und `--rig-height 25` meldet ehrlich `fillPct = 0` auf allen
+Ansichten außer `sward` und `eye` — eine 0,3-m-Narbe ist alles, was die Engine an Motiv hat.
+
+## 2026-08-07 — Der Nichtdeterminismus war meine Orchestrierung
+
+**`build/gpu_walk` wurde zwischen den Läufen des Kritikers von einem parallel arbeitenden Agenten
+überschrieben. Die drei „Zustände" waren drei Binaries.** Direkt beobachtet: die md5 der ausführbaren
+Datei änderte sich in 34 Minuten dreimal und **kehrte zu einem früheren Wert zurück** — genau die
+gemeldete Phänomenologie „stabil über Minuten, dann kippt es". Die Zuordnung ist exakt: das angepinnte
+Binary `052057d8…` rendert `md5 f0fbe616…`, einen der drei Hashes des Kritikers, Bit für Bit, mit
+`grasL` 0,1711 gegen dessen 0,1711.
+
+**Die Engine ist deterministisch.** 37 Läufe mit angepinntem Binary, **0 Kipper**, obere 95-%-Schranke
+für einen Kipper pro Lauf 7,8 %. Und der Test, der `CLAUDE.md` Prinzip 6 direkt prüft: ein konkurrierender
+`gpu_walk` streckte die Laufzeit von 11,8 s auf 74,0 s — **6,3× auf der Uhr, 0 Pixel Unterschied.**
+
+Ausgeschlossen, jedes mit einer Messung: der **Server** (hermetische Wiedergabe aus einem eingefrorenen
+428-Pfad-Korpus rendert bitgleich zum Live-Lauf; zwei Korpora 20 min auseinander, 428/428 Pfade,
+0 abweichende Antworten; `baked=0 bake_fail=0 absent=0`), und das **Deckungsfeld** (`FB_FIELD_DUMP`
+byteidentisch **zwischen den beiden Binaries, die verschieden rendern**). Damit ist auch meine
+Kurskorrektur auf den Ersetzungspfad und den Bake-Zustand widerlegt.
+
+**Drei Logwerte, die ich als Beweis für einen identischen Zustand behandelt habe, können sich mit dem
+Grasbild strukturell gar nicht bewegen:** `blades` = Zellenzahl × Tabellenwert (das Feld geht nie ein),
+`blackLog2` misst nur die Himmelsbestrahlung (das gerenderte Bild erreicht den Messer nie),
+`terrainTiles` ist eine Sichtbarkeitszählung. „Die Logzeilen stimmen überein, die Bilder nicht" war kein
+Rätsel.
+
+**Zwei Agenten hatten mich gewarnt und ihre eigenen Binaries gepinnt** — einer schrieb wörtlich,
+`GroundCoverStage.cpp` habe sich dreimal während seiner Messung geändert. Ich habe die Sorgfalt gelobt
+und nicht verallgemeinert, und dann einen Kritiker rendern lassen, während ein Entwickler dieselbe Datei
+neu baute.
+
+Zwei Werkzeuge daraus: `sim/tools/determinism.py` (N Läufe, md5-Verteilung, Differenzkarte, **hasht die
+ausführbare Datei vor jedem Lauf** und meldet einen Wechsel mitten im Experiment — gegen einen absichtlich
+getauschten Binary verifiziert) und `sim/tools/tileproxy.py` (Aufnahme/Wiedergabe vor `fb-tiles`, für
+hermetische Renders und zum Diffen der Serverantworten zwischen zwei Zeitpunkten).
+
+**Nebenbefund, eigenständig zu beheben:** `FB_FIELD_DUMP` druckt nur Kanal 1 (Bucket). Kanal 0 (Höhe) und
+Kanal 2 (Deckung) fehlen, also kann „der Dump ist identisch" das Feld allein nie entlasten. Hier trugen
+`hCentre` und die hermetische Wiedergabe das Loch; im Allgemeinen tun sie es nicht.
+
+Regel, ab sofort in [`goal.md`](goal.md) §7: **jede Messung pinnt ihr Binary**, und **kein Kritiker
+rendert, während ein Entwickler dieselbe Datei hält.** Die vier Anker des `sim-critic` sind gegen
+angepinnte Binaries neu zu messen, bevor eine dieser Zahlen geglaubt wird.
+
+## 2026-08-07 — Der Ambient war nicht geklemmt, die Kurve schneidet ab
+
+Zurückgenommen: meine Meldung, der Bestandsambient sei auf null geklemmt und das sei
+belichtungsunabhängig bewiesen. Der Entwickler hat den Schwarzanker diagnostisch um 8 EV nach unten
+gezogen (danach zurückgebaut, `grep DIAGNOSTIC` = 0) und die HDR-Verteilung der Halmpixel unter
+`skylight` gemessen: **glatt und voll besetzt über 6,21 EV** (p1..p99), **42,42 % der Halmpixel unter dem
+Anker**. Kein Dorn, ein Schnitt — in der Tonkurve, nicht im Shading.
+
+Beide Kritikerbeweise zerlegt: der lineare Gain-Test kann geclippte 8-Bit-Daten nicht wiederherstellen,
+also hat er nichts gezeigt; und das Karte-gegen-Halm-Argument beweist nur, dass der Halm mehr als 2,7 EV
+unter der Karte liegt — was er berechtigterweise tut. Das 8-Bit-Histogramm ist mit beiden Erklärungen
+verträglich, die HDR-Messung nur mit einer.
+
+**Auch die vermutete Doppelwirkung des Bestandsabbaus gibt es nicht**, durchgespurt: `exp()` einmal im
+Vertex, Quotient einmal im Fragment, `alb = col*occ` einmal, und `vis` teilt den Direktterm wieder heraus.
+Die fehlenden 1,6 EV waren die Halbkugelgewichtung von `litRadiance` — Ambient bei `n·up = −1` von
+**0,120 auf 0,738**, und der Sprung über die Zweiseitigkeitsgrenze (die harte schwarze Segmentkante) von
+**2,60 EV auf 0,17 EV**.
+
+Gebaut: Kiel als Normalendrehung um die Tangente (20°, `[SET]`, Randkontrast cos25/cos65 = 2,14),
+`o.occ.x = max(T_tot, T_beam)`, und ein zweiter `litRadiance` mit `−nb` als durch die Blattspreite
+transmittierter Himmel (`kLeafTrans` 0,85 war bereits deklariert). Null zusätzliche Dreiecke, kein neuer
+freier Parameter.
+
+| | vorher | nachher |
+|---|---|---|
+| Haarlinien `portrait-frontlit` | 61 | **0** |
+| Schwarze Blöcke, dieselbe Ansicht | 50 223 px | **0** |
+| Einfarbige Läufe quer über den Halm, `tuft` | Mittel 9,26 / max 198 / ≥64 px: 211 | **2,17 / 81 / 22** |
+| Code 0 unter `skylight`, `eye` | 13,43 % | **1,44 %** |
+| dito `portrait` | 70,89 % | 49,06 % |
+
+**Der Nullbreiten-Kollaps ist NICHT behoben und wird nicht so gemeldet:** 643 Ein-Pixel-Spannen in
+`b-frontlit` sind bitgleich vor und nach der Änderung. Eine Normalendrehung kann keine Silhouette ändern
+— das braucht Geometrie (3 Vertizes je Station, +50 % Dreiecke) oder TAA.
+
+Hergeleitete Restanforderung: `portrait-skylight` erreicht einstelliges Clipping erst, wenn der
+Schwarzanker um **1,88 EV** fällt (`kBlackBelowA` 2,678 → 4,56). Bis dahin ist keine LOD-Zahl, die aus
+Halmluminanz im unteren Bilddrittel gewonnen wird, etwas wert.
+
+**Offen und eigenständig:** `kSelfShelter = 0,35` wird in `SurfaceLight.h` auf ein Blatt angewandt und
+zieht netto **−0,53 EV** ab, obwohl ein glattes Blatt kein Subpixel-Relief hat und seine Selbstverdeckung
+schon in `occ` steckt — falsches Modell für diesen Aufrufer. Und die Wolkendecke ist als **gleichförmig**
+modelliert, während echter Overcast am Zenit ~3× heller ist (Moon–Spencer); das ist der einzige
+Orientierungshinweis, der unter `skylight` übrig bleibt, und er fehlt.
+
+## 2026-08-07 — Der Zeh statt des Ankers, und die Narbe wirft immer noch keinen Schatten
+
+**Defekt 1, geschlossen.** Die Tonkurve klemmte am Schwarzanker; jetzt hat sie einen **Zeh** — unterhalb
+`kToe = 0,0551` der Spanne läuft der Log-Ast in eine Exponentialfußkurve gleichen Wertes und gleicher
+Steigung aus und erreicht Code 0 nur asymptotisch. `kToe = 0` reproduziert die alte Kurve bitgleich.
+Anteil Code 0 unter `skylight` vorher → nachher: `portrait` **49,06 → 5,35 %**, `tuft` 7,50 → 0,29,
+`sward` 15,82 → 0,43, `eye` 1,44 → 0,22; der Schwanz 1…16 wächst mit: 1,58 → **35,35 %**, 0,62 → 4,66,
+1,12 → 10,43, 0,14 → 0,66.
+
+**Die vorige Runde hatte die Größe falsch.** Mit `FB_TONE_PROBE` (Exponent 1, kein Zeh — die Kurve als
+Lineal) und `FB_COVER=0` als Halmmaske gemessen: **61,2 %** der Halmpixel von `portrait` liegen unter dem
+Anker, nicht 42,42 %, und p10 liegt bei **−9,237**, also **2,672 EV** unter dem ausgelieferten Anker
+−6,565, nicht 1,88. Probe gegen das Bild geprüft: 48,84 % vorhergesagt gegen 49,06 % gemessen.
+
+**Verworfen mit Messung: den Anker verschieben.** `kBlackBelowA` 2,678 → 5,350 schafft `portrait` auf
+10,45 %, hebt aber den Himmelmittelwert 195,61 → **210,14**, das Terrain 164,86 → 172,14 und das
+Himmelclipping 0,024 → **0,995 %** — Schwarz und Weiß sind EINE Spanne, und der Exponent wird von 1,092
+auf 2,060 mitgezogen. Pattanaiks 5/32 bleibt, wo es ist; der Zeh ändert nur, was DARUNTER passiert.
+Gegenprobe: Zeilen 0–375 des Demo-Frames ändern **keinen einzigen Code**, der Tiefenpuffer ist byteweise
+identisch, `passes` 7 und `draws` 130 unverändert; gezeigte Spreizung 5,11 → **8,02 EV** (Band ≥ 6).
+
+**Defekt 2, NICHT geschlossen, aber beziffert.** Der Strahlweg wird jetzt entlang der Sonne integriert
+statt senkrecht (ein Newton-Schritt, ein zusätzlicher Feldabgriff, `kSlopeFloor = 0,70` gegen einen
+256-Schritt-Marsch hergeleitet: 0,247 EV mittlerer Fehler, Korrelation 0,929 — die Spaltenform, die er
+ersetzt, korreliert **−0,080**, sie trug gar keine Richtung). Er bewegt die Abnahme um **0,01 EV**:
+Makrokontrast 1,624 → 1,641 gegen Ziel 1,74 EV, Musterkorrelation zwischen zwei Sonnenpeilungen
+0,348 → 0,334.
+
+**Der Grund ist das Feld, nicht die Näherung, und er ist gemessen:** `standMod` hat sd **0,0266 m** und
+Richtungssteigung p01/p99 **±0,142** gegen `tan(11,2°) = 0,194` — eine Fläche, die flacher als die Sonne
+ist, verschattet sich nicht. Die GEZEICHNETE Geometrie tut es sehr wohl: die realisierte Spitzenhülle
+derselben Population auf 3-cm-Raster hat sd **0,0781 m**, und ein Strahlmarsch darüber stellt bei 11°
+**61,3 %** (Peilung 0°) bzw. **61,6 %** (90°) der Hülle in den eigenen Schatten. Dazu kommt, dass die
+sichtbare Oberfläche per Konstruktion bei optischer Tiefe 0 liegt: `clamp(z/swardH,0,1)` sättigt für
+jeden Halm, der über `swardH` hinausragt — genau die, die der Nadirblick sieht.
+
+Kosten des Richtungsterms: **nicht auflösbar.** ABBA-balanciert, 15 Läufe à 300 Frames, driftete die
+Maschine monoton 66,97 → 70,44 ms; die gepaarte Differenz kam mit **−0,35 ms** heraus, also unter dem
+Rauschen. Mehr als „unter 1 ms auf ~70 ms" ist daraus nicht zu holen und wird auch nicht behauptet.
+
+## 2026-08-07 — Der Zeh sitzt, der Eigenschatten scheitert am Feld
+
+**Meine hergeleitete Ankergröße war falsch, und zwar im Histogramm, nicht in der Rechnung.** Der
+Entwickler hat die Halmpopulation direkt gemessen, indem er die Tonkurve zu einem Lineal machte
+(`FB_TONE_PROBE`, Exponent 1, kein Zeh — dann ist ein zurückgelesener PNG-Code exakt
+`(log2 L − black)/(white − black)`), Halme maskiert über einen Paarrender mit `FB_COVER=0`. **61,2 %**
+der Halmpixel liegen unter dem Anker, nicht 42,42 %; der nötige Fall ist **2,672 EV**, nicht 1,88. Die
+Sonde ist gegen das Bild validiert, das sie erklärt: 48,84 % vorhergesagt gegen 49,06 % gemessenes
+Code-0.
+
+**Der Anker wurde abgelehnt, der Zeh gewählt — mit Messung und mit einem Quellenargument.** Schwarz und
+Weiß sind EINE Spanne: den Anker um 2,672 EV zu senken zieht Weiß mit auf +2,479 und schleift den
+Exponenten aus seiner eigenen Herleitung von 1,092 auf 2,060 — **Himmelsclipping mal 41**. Und
+Pattanaiks 5/32 bleibt stehen, weil es eine Aussage über den Schwarzpunkt eines ANZEIGEGERÄTS ist; ein
+Zeh ändert nur, was darunter passiert, und dazu sagt die Quelle nichts. Form:
+`t = kToe·exp(tlin/kToe − 1)` unterhalb `kToe = 0,0551`, gleicher Wert und gleiche Steigung am Knie,
+`kToe = 0` stellt die alte Kurve bitgleich wieder her.
+
+| unter `skylight` | Code 0 | Codes 1–16 |
+|---|---|---|
+| `portrait` | 49,06 → **5,35 %** | 1,58 → **35,35 %** |
+| `sward` | 15,82 → **0,43 %** | 1,12 → **10,43 %** |
+| `eye` | 1,44 → **0,22 %** | 0,14 → **0,66 %** |
+
+**Die Gegenprobe wurde stärker geführt als verlangt:** statt die Horizontprüfung von Schritt 2 zu
+wiederholen, wurde nachgewiesen, dass der **Tiefenpuffer byteidentisch** ist (3 686 400 Bytes, `cmp`) —
+und die Prüfung ist eine reine Funktion dieses Puffers, also kann ihr Ergebnis sich nicht bewegt haben.
+Zeilen 0–375 des Demobildes ändern sich um keinen einzigen Code; 2,40 % des Bildes überhaupt.
+
+**Der Eigenschatten ist gescheitert: 0,71 EV gegen 1,74.** Die Diagnose ist die eigentliche Nachricht.
+`skylight` — komplett bedeckt, kein Direktstrahl — misst 1,562 gegen 1,635 bei Sonne: **die Sonne trägt
+0,066 EV Makrostruktur bei, was da moduliert ist Halmdichte.** Und der Grund liegt im Feld, nicht in der
+Näherung: das Bestandsdach, gegen das das Licht rechnet, hat sd **0,0266 m** und Richtungsgefälle
+±0,142, während `tan(11,2°)` = **0,194** ist. **Eine Fläche, die flacher ist als die Sonne, beschattet
+sich nicht selbst.** Die gezeichnete Geometrie dagegen hat auf einem 3-cm-Raster sd **0,0781 m**, und ein
+Strahlmarsch bei 11° legt **61,3 %** davon in den eigenen Schatten.
+
+Der gerichtete analytische Term wurde trotzdem gebaut und gegen einen 256-Schritt-Marsch validiert —
+mittlerer Fehler 1,060 → **0,247 EV**, Korrelation −0,080 → **0,929**, `kSlopeFloor` 0,70 aus einem
+Sweep — und bewegt die Abnahme um 0,01 EV. **Der Schattenpass ist mit einer Zahl verworfen:** Kaskade 0
+löst 47 mm/Texel auf, ein Halm ist 11 mm breit; eine Karte, die ihn sieht, bräuchte 2 mm/Texel, also
+4096² über 4 m Radius gegen ein 44-m-Feld — und damit die Aggregatstufe, die das LOD schuldet. Zweimal
+bauen wäre der Fehler.
+
+**Kosten nicht genannt, und das war richtig:** ABBA-gepaart über 15 Läufe driftete die Maschine
+66,97 → 70,44 ms, die gepaarte Differenz kam mit **−0,35 ms** heraus — der Build mit der Änderung maß
+schneller. Unter der Rauschgrenze, also keine Zahl.
+
+Offen: `kToe` ist aus EINER Population hergeleitet (`wiese`, `skylight`, 11° Sonne); kein zweites
+Template, keine zweite Sonnenhöhe, kein Nachtbild hat das Knie belastet.
+
+## 2026-08-07 — Schritt 3 (Gras), Runde 4: der Wind erreicht die Pflanze
+
+**Die Szene deklarierte seit Beginn `windDeg 250, windMs 6.0`, und der Vektor starb in
+`World::SetWeather`.** Er hat jetzt einen zweiten, gelesenen Weg: `render/WindField.h` →
+`Renderer::SetWind` → `GroundCoverStage`. Ein `sin(t)` im Shader wäre genau das, was `goal.md` §4
+verbietet, und 1,39 Mio. Halme können keine 1,39 Mio. Körper sein. Die Auflösung ist eine Teilung, und
+sie trägt nur, weil **beide** Hälften belegt sind: das **Feld** ist ein deklarierter Fluss mit
+publizierten Eigenschaften, die **Antwort** ist die geschlossene Lösung der Biegegleichung des Halms,
+je Instanz ausgewertet.
+
+**Drei publizierte Relationen, und die dritte fällt aus den ersten beiden heraus.** Py, de Langre &
+Moulia 2006 (JFM 568): die Phasengeschwindigkeit der Honami-Welle ist die Windgeschwindigkeit am
+Bestandsdach (*„we have globally c ≈ U"*), ihre Frequenz ist die Eigenfrequenz der Pflanze und rührt
+sich mit dem Wind nicht (Frequency Lock-in, `f/f0` = 1,06 bzw. 0,81), also ist die Wellenlänge
+`λ = c/f` **keine dritte Deklaration**. Die deklarierte Szene landet bei `λ/h` = 1,46, mitten im
+gemessenen Band 1–4 derselben Arbeit.
+
+**Die Antwort ist Gosselin, de Langre & Machado-Almeida 2010 (JFM 650), Gl. (5.5), gelöst statt
+zitiert.** `sim/tools/elastica.py` schießt das Randwertproblem `θ''' = Cy·cos²θ` über `Cy` 0,02…44,4;
+die Spitzenauslenkung passt auf **0,2702°** und 0,65 % relativ, und **beide Asymptoten sind hergeleitet,
+nicht gefittet** — `Cy/6` des linearen Kragarms bei kleiner Last, `π/2` bei unendlicher. Die *Form*
+braucht überhaupt keinen Fit: `1−(1−s)³` hält über die ganze Familie auf 0,0655. Der Prüfstein ist der
+**Vogel-Exponent**, den der eigene Löser produziert: **−0,000 / −0,870 / −0,961** über die
+Laststufen gegen die publizierten −2/3 (Dimensionsanalyse) und −1,4 (deren eigener Fit).
+
+**Gemessen im BILD und in den ZAHLEN, und die beiden teilen unterhalb der Konstanten keinen Code.**
+240 Bilder zu 1/60 s, ein Standpunkt, eine Sonne, ein Streaming-Zustand — bewegt wird allein die
+**Winduhr**, die absichtlich nicht die Himmelsuhr ist. Jeder Pixel wird durch seine eigene Tiefe auf ein
+30-mm-Weltgitter entprojiziert, der oberste Treffer je Säule ist das Bestandsdach, der zeitliche
+Mittelwert je Zelle entfernt die 0,26 m statische Rauigkeit exakt:
+
+| | deklariert | Bild | Zustand |
+|---|---|---|---|
+| Frequenz | 2,3028 Hz | **2,293** | **2,2915** |
+| Wellenlänge | 0,4392 m | **0,4367** | **0,4391** |
+| **Phasengeschwindigkeit** | **1,0114 m/s** | **+1,0012** | **+1,0062** |
+
+`c/U_h` = **0,990**. Weltfest ist zweimal belegt: die in Dritteln des Bandes gemessene Wellenlänge
+bleibt bei **0,4259 / 0,4350 / 0,4380 m** über 0–3,9 / 3,9–7,8 / 7,8–11,7 m Bodenentfernung — eine am
+Bildschirm klebende Welle müsste dort Faktor 3 zeigen —, und die §1.9-Registrierung der **Welle allein**
+(zwei Standpunkte 0,5 m auseinander, je zwei Winduhren) findet **(−0,180, −0,480) m** gegen die
+vorhergesagten (−0,171, −0,470), Rest 0,0374 m gegen 0,0554 m bei der Bildschirm-Hypothese.
+
+**`_wind` ist eingelöst.** Der Prüfstand verweigerte die Ansicht, weil drei identische Dateien eine Lüge
+gewesen wären; jetzt tragen vier Rahmungen je eine 0/6/12-m/s-Zeile auf identischer Geometrie, und sie
+sind es tatsächlich: auf `tuft` unterscheiden sich 96,9–98,3 % der Pixel um mehr als zwei Codes.
+Am Bestandsdach der Szene gemessen sinkt es um **12,6 / 37,7 / 56,9 mm** bei 6 / 12 / 24 m/s.
+
+**Die Kosten sind genannt, weil sie diesmal weit über der Rauschgrenze liegen: +18,09 ms, sd 0,13.**
+ABBA-gepaart über fünf Blöcke `FB_WIND=1/0/0/1` auf einem gepinnten Binary — **+26,6 %** auf eine
+68,1-ms-Kontrolle. Ursache ist Vertex-ALU: sechs zusätzliche `sin`/`cos`-Paare und sechs
+Rodrigues-Drehungen je Vertex über 15,3 Mio. Vertices, also **1,18 ns/Vertex**. Die Schicht war schon
+1,69× über dem Budget; bezahlt wird das in der LOD-Runde.
+
+Offen und benannt: `kGustAmp` = 0,5 ist die einzige Zahl im Fluss ohne Quelle und die, auf die das Bild
+am stärksten reagiert; die Antwort ist **quasistatisch**, obwohl die Anregung durch das Lock-in exakt
+auf der Resonanz sitzt — dort antwortet ein Halm über die Dämpfung, nicht über die Steifigkeit; die
+Amplitudenabnahme zum Ausblendrand ist nur in der **Frequenz** sauber belegt (2,298–2,315 Hz über vier
+Entfernungsbänder), nicht in der Amplitude, weil dem 30-mm-Weltgitter jenseits 22 m die Pixel ausgehen.
+
+## 2026-08-07 — Der Wind ist Physik, und der Anker ist publiziert
+
+**Py, de Langre & Moulia 2006, JFM 568:425–449** liefert den Anker wörtlich: *„the combined parameter
+c = λf, which is the phase velocity, would not show any lock-in behaviour: we have globally c ≈ U as in
+a Kelvin–Helmholtz instability"* — `U` gemessen mit einem Hitzdraht direkt über dem Bestandsdach. Dazu
+Frequenz-Lock-in `f = f₀` unabhängig von `U` (f/f₀ = 1,06 Luzerne, 0,81 Weizen, beide = 1 innerhalb des
+Sukhatme-d-Tests).
+
+**Die drei Beziehungen sind nicht unabhängig:** aus `c ≈ U` und `f = f₀` folgt `λ/h = Ur` zwingend. Wer
+zwei deklariert, erzwingt die dritte — deklariert wurden die beiden gemessenen, und die dritte kam mit
+`λ/h = 1,46` innerhalb des publizierten Bandes heraus.
+
+| | deklariert | Bild | Zustand |
+|---|---|---|---|
+| Frequenz | 2,3028 Hz | 2,293 Hz | 2,2915 Hz |
+| Wellenlänge | 0,4392 m | 0,4367 m | 0,4391 m |
+| **Phasengeschwindigkeit** | 1,0114 m/s | **+1,0012 m/s** | +1,0062 m/s |
+
+`c/U_h = 0,990`. Bild und Zustand stimmen auf **0,5 %**, und die beiden Pfade teilen unterhalb der
+Konstanten keinen Code. Die deklarierten 6,0 m/s liegen auf 10 m; das Bestandsdach sieht 1,0114 m/s über
+das Logprofil (d/h 0,67, z0/h 0,13, beide innerhalb der publizierten Bänder, Sensitivität ±10 %).
+
+**Die Biegung wurde gelöst statt zitiert:** die Elastica `θ''' = Cy·cos²θ` aus Gosselin, de Langre &
+Machado-Almeida 2010, JFM 650, numerisch integriert. Die Validierung ist, dass der Löser den
+publizierten **Vogel-Exponenten reproduziert** — Theorie −2/3, gemessene V = −0,000 / −0,870 / −0,961
+über steigende Last. Prüfung, nicht Anpassung. Die geschlossene Spitzenauslenkung hat beide Asymptoten
+hergeleitet (`Cy/6` linear, `π/2` im Grenzfall), nur das Knie ist auf 0,65 % gefittet, und die Biegeform
+`θ(s)/Θ = 1−(1−s)³` braucht **keinen Fit** (max. Fehler 0,0655 über die ganze Familie).
+
+**Weltfestigkeit, umsonst und trotzdem der beste Beweis der Sitzung:** eine bildschirmfeste Welle hat
+konstante Wellenlänge in PIXELN, also eine mit der Entfernung wachsende in Metern. Über drei
+Entfernungsdrittel von 0 bis 11,7 m gemessen: **λ = 0,4259 / 0,4350 / 0,4380 m**, 2,8 % Streuung gegen
+den Faktor 3, den die Nullhypothese zeigen müsste. Zusätzlich die §1.9-Methode auf der Welle allein:
+vorhergesagt (−0,1710, −0,4698) m, best fit (−0,1800, −0,4800) m, Residuum 0,0374 gegen 0,0554 m bei
+Nullverschiebung.
+
+**Die Szene bekam keine zweite Wahrheit:** der Renderer hat jetzt eine **zweite Uhr**
+(`SetWindClock` neben `SetSkyClock`), und `--seq N --seq-dt S` rückt nur diese vor — ein Standpunkt, eine
+Sonne, ein Streaming-Zustand, eine bewegte Größe. `_wind` auf dem Prüfstand ist damit eingelöst
+(0/6/12 m/s, 96,9–98,3 % der Pixel unterscheiden sich um mehr als 2 Codes).
+
+**Kosten: +18,09 ms, sd 0,13, auf 68,1 ms Kontrolle = +26,6 %**, ABBA-gepaart über fünf Blöcke mit
+angepinntem Binary. Ursache exakt: 6 Sinus-Kosinus-Paare und 6 Rodrigues-Drehungen je Vertex über
+15,3 Mio. Vertizes = **1,18 ns/Vertex** — Vertex-ALU, nicht Füllrate.
+
+**Zwei Selbstkritiken des Erbauers, beide berechtigt:** `kGustAmp` = 0,5 ist die einzige Zahl im Fluss
+ohne Quelle und die, auf die das Bild am stärksten reagiert. Und die Antwort ist quasistatisch gerechnet,
+obwohl das Lock-in die Welle **genau auf** die Eigenfrequenz legt — dort antwortet ein Halm über die
+Dämpfung, nicht über die Steifigkeit, und aerodynamische Dämpfung in Luft ist stark. Die wahre Amplitude
+liegt vermutlich **unter** der statischen. Benannt, ungemessen.
+
+**Übergabe an TAA, ausdrücklich hinterlassen:** die einzige zeitabhängige Größe ist die Phase `wave.z`,
+und das Uniform trägt `wave.w` = dieselbe Phase einen Frame früher; `windBend`/`windTipAngle`/
+`windBendShape` nehmen den Winkel als Argument statt eine Uhr zu lesen. Eine Vorframe-Vertexposition ist
+dieselbe Vertexfunktion an `wave.w`.
+
+## 2026-08-07 — Schritt 3, Runde 5: TAA. Die Deckung, die nie im Bild war, kommt über die Frames zurück
+
+**Die Übergabe der Windrunde hat gereicht, wörtlich.** `bladeStation` nimmt den Kippwinkel als Argument,
+also ist die Vorframe-Position dieselbe Funktion an `wave.w`. Neu hergeleitet wurde nichts; dazugekommen
+sind genau zwei Größen im `FrameContext` — die Vorframe-View-Projection und der Schritt des Auges — plus
+die beiden Jitter, deren Differenz der Resolve **einmal** abzieht, für die tiefenrekonstruierte und die
+vertex-geschriebene Hälfte gleichermaßen.
+
+**Bauform:** Subpixel-Jitter (Halton(2,3), 8 Phasen) auf demselben Term der Projektion, auf dem schon der
+Boresight-Versatz sitzt — eine Scherung des Frustums, keine Verschiebung der Welt. Dazu ein **zweiter
+Farbanhang** an der Szenen-Pass (`rg16float`, Sentinel −1e4 = „weltfest") und ein eigener Resolve-Pass
+zwischen Occlusion und Tonemap. Pass-Zahl 7 → **8**, nativ wie im Browser. Verworfen: FXAA/SMAA (kann
+keine Deckung erfinden), TAA im Anzeigeraum (8 Bit Historie, und der Overlay-Pass verseucht sie), Resolve
+im Tonemap-Pass per MRT (spart einen Pass, macht aber aus einer Klasse zwei Aufgaben).
+
+**Weltfest bleibt weltfest, und der Beweis ist ganzzahlig statt korreliert** — was zählt, weil genau die
+Bildkorrelation aus §1.9 bei 1,39 Mio. Halmen gestorben ist. `FB_JITTER=1.0,0.0` muss das Bild von
+`FB_JITTER=0,0` sein, um **exakt ein Pixel** verschoben: mittleres |ΔY| **0,020 Codes** über 482 263
+Bodenpixel, 0,207 % über 2 Codes, Tiefenpuffer **bitgleich** bis 35 m. Dieselbe Rechnung ohne die
+Verschiebung: 10,667 Codes und 43,8 %. Kein Parallaxe-Anteil, in 0–3 m dieselbe Verschiebung wie in
+44–80 m.
+
+**Die fünf Abnahmen** (gepinntes Binary `a386ccc0`, beide Arme dasselbe Binary über `FB_TAA=0/1`):
+Kanten 7,740 % → **1,757 %** in der Szene und 8,034 % → **1,091 %** auf `eye-frontlit`. |Laplace| im
+Band 8–15 m, dem gemeldeten Maximum, 0,2398 → **0,0850**; über allen Bodenpixeln 0,2392 → 0,1074. Von
+den 648 Ein-Pixel-Spannen bleiben **373**, und die Zahl, die die Krankheit wirklich misst — eingeschlossene
+Bruchstücke bei gleicher Nachweisschwelle — fällt von 59/160/546 auf **23/79/431** (Schwelle 2/8/32
+Codes). Gegen eine 16×-Referenz (16 gepinnte Subpixel-Phasen, in linearem Licht gemittelt): RMSE 11,432
+→ **3,959**, Nyquist-Oktave 4,305× → **0,956×**, Mittelband 2,242× → **0,924×**.
+
+**Kein Ghosting, und die naheliegende Messung dafür war falsch.** Residuum gegen den Vorframe-Schritt zu
+korrelieren ist **verzerrt**: beide Terme enthalten das Aliasrauschen desselben Frames mit gleichem
+Vorzeichen, das gibt +0,63 auch bei null Nachzieheffekt. Ersetzt durch dieselbe Pose auf zwei Wegen —
+**gefahren** (Frame k einer Sequenz) gegen **gesetzt** (Kamera hingestellt, Historie verworfen, 240
+Frames eingeschwungen). Ergebnis: **0,148 Frames Nachlauf** bei 3,8 px/Frame Bildbewegung = **0,56 px**,
+und das gefahrene TAA-Bild ist der geisterfreien Antwort *näher* (4,00 Codes) als ein gar nicht
+geglättetes Bild derselben Pose (5,01).
+
+**Zwei Konstanten wurden gemessen statt gesetzt.** γ = **1,5** und nicht Karis' 1,0: bei 1,0 verliert
+diese Szene ein Viertel ihres echten Details (Mittelband 0,753×), bei 2,0 kommt die Nyquist-Oktave über
+1,0 zurück. Und die Rückkopplung ist **keine Konstante** — bei 21,8 px/Frame filzt eine Historie, die
+jeden Frame weit versetzt nachgeschlagen wird; `α = clamp(0,1 + |v|_px · 0,015, 0,1, 0,85)` ist der
+größte Anstieg, der das Versprechen im Schwenk noch hält (Nyquist 1,118× gegen 2,504× bei 0,030).
+
+**Die Kosten sind die eigentliche Nachricht: +20,33 ms, und der Resolve ist davon 0,798 ms.** Der Rest
+ist der Bewegungsvektor des Grases — 3,11 ms für den zweiten Anhang über 1,4 Mio. Halme und **12,23 ms**
+für die zweite Auswertung der Biegegleichung je Vertex. Was diese 12 ms kaufen, ist gemessen und klein:
+**18 % weniger Nachlauf** (0,204 → 0,168 Frames) bei 6 m/s. Speicher **17,578 MiB**, GPU-seitig — der
+WASM-Heap bleibt bei exakt 256 MB, die Historie kostet den Browser nichts, was er hätte wachsen müssen.
+**Verworfen mit Messung:** die Vorframe-Station erster Ordnung spart 4,63 ms und irrt sich um bis zu
+**56 Codes** an den nächsten Halmen, weil die Welle 0,48 rad Phase je Frame läuft — kein kleiner Winkel.
+
+**Offen und benannt:** ein Schwenk weicht auf (0,299 des Standbild-Mittelbands bei 3,8 px/Frame), und
+der übliche Ausgleich, ein Schärfer auf dem Resolve, ist nicht gebaut. Die Occlusion liegt außerhalb der
+Akkumulation. Ein Disocclusion-Test über die Tiefe fehlt; die Nachbarschaftsklammer trägt den Nachlauf
+allein.
+
+## 2026-08-07 — TAA: die gestrichelten Halme waren verlorene Deckung
+
+Subpixel-Jitter in der Projektion (Halton(2,3), 8 Phasen, ±0,5 px) auf **demselben Term** wie der
+Boresight-Versatz — eine Scherung des Frustums, keine Verschiebung der Welt; `camRay()` zieht ihn ab,
+damit Himmel und Sonne denselben Strahl abtasten wie die Geometrie. Bewegungsvektoren als zweiter
+Farbanhang mit Sentinel −1e4 = weltfest: weltfeste Pixel werden im Resolve aus der **Tiefe**
+rückprojiziert (exakt, kostet keinen Schreibvorgang), nur die Bodendeckung schreibt echte Bewegung, und
+die opaken Stages danach schreiben den Sentinel — sonst erbt eine Fassade die Geschwindigkeit eines
+Halms. Pässe 7 → 8.
+
+| | ohne | mit |
+|---|---|---|
+| Kanten > 40 Codes, Szene | 7,740 % | **1,757 %** |
+| dasselbe, `eye-frontlit` | 8,034 % | **1,091 %** |
+| \|Laplace\| bei 8–15 m | 0,2398 | **0,0850** |
+| RMSE gegen 16×-Referenz | 11,432 | **3,959** |
+| **Nyquist-Oktave relativ zur Referenz** | **4,305×** | **0,956×** |
+| Nachlauf bei 3,8 px/Frame | — | 0,148 Frames = **0,56 px** |
+
+Die Nyquist-Zeile ist die Aussage: 0,956× heißt aufgelöst, nicht weichgezeichnet.
+
+**Zwei Messungen verworfen, weil sie falsch sind.** (a) Die naheliegende Geistermessung — Residuum gegen
+den Vorframe-Schritt korrelieren — ist verzerrt, weil beide Terme das Aliasrauschen desselben Frames
+enthalten: **+0,63 bei null Nachzieheffekt**. Ersetzt durch dieselbe Pose gefahren gegen gesetzt; das
+gefahrene TAA-Bild liegt der geisterfreien Antwort näher (4,00 Codes) als ein ungeglättetes derselben
+Pose (5,01). (b) **Meine eigene Abnahmegröße war die falsche:** die 1-px-Spannen fallen 648 → 373, die
+2-px-Spannen **steigen** 499 → 582 — weil ein korrekt aufgelöster subpixelbreiter Halm 1–2 px breit
+*ist*. Die Krankheit ist die Lücke, nicht die Breite; eingeschlossene Bruchstücke bei gleicher Schwelle
+59/160/546 → **23/79/431**. Das Instrument wurde vorher gegen die publizierten 643/498 kalibriert und
+reproduzierte 648/500.
+
+**Weltfest ganzzahlig statt korrelativ:** ein Jitter von exakt einem Pixel muss ein exakt um ein Pixel
+verschobenes Bild ergeben. Gemessen mittleres |ΔY| **0,020 Codes**, 0,207 % über 2 Codes, Tiefenpuffer
+bitgleich bis 35 m; ohne die Verschiebung 10,667 Codes. Diese Probe trägt bei jeder Instanzdichte, wo die
+Bildkorrelation aus §1.9 versagt.
+
+Zwei Konstanten gemessen statt gesetzt: γ = **1,5** (bei Karis' 1,0 verliert die Szene ein Viertel ihres
+echten Details, bei 2,0 kommt die Nyquist-Oktave über 1,0 zurück) und die Rückkopplungsrampe
+`clamp(0,1 + |v|px·0,015, 0,1, 0,85)`.
+
+**Die Windübergabe hat wörtlich gereicht:** `bladeStation` nimmt den Kippwinkel als Argument, also ist
+die Vorframe-Position dieselbe Funktion an `wave.w`. Neu hergeleitet wurde nichts.
+
+**Kosten 20,33 ms (83,31 → 103,64 ms), Speicher 17,578 MiB GPU, Browser-Heap unverändert 256 MB.**
+Aufgeschlüsselt: Resolve **0,798**, Bewegungsanhang 3,112, **Vorframe-Blattstation 12,23**. Der Erbauer
+markiert den letzten Posten selbst als faul: *„12 der 20 ms sind eine zweite Auswertung der
+Biegegleichung je Vertex, und sie kaufen 18 % Nachlauf. Ein aggregiert gezeichneter Halm hat keine
+Station, die man zweimal auswertet."*
+
+Offen: ein schneller Schwenk weicht auf (bei 3,8 px/Frame hält der Resolve 0,299 des Standbild-
+Mittelbands), der übliche Ausgleich — ein Schärfer auf dem Resolve — ist nicht gebaut und nicht gemessen.
+
+## 2026-08-07 — Was andere tun, und wo niemand eine Antwort hat
+
+Recherche zur Fernfelddarstellung von Gras, ausgelöst von der Eignervorgabe *„wenn Geometrie nicht mehr
+nötig ist, wird sie zur Fragmentfarbe des Bodens."* Belegte Befunde, Quellen in der Agentenmeldung:
+
+| Titel | Befund | Quelle |
+|---|---|---|
+| **Ghost of Tsushima** | über 1 Mio. Kandidaten, **83 000 gerendert, 2,5 ms**. Wir zeichnen 1 393 949 — **Faktor 17** | sekundär, drei unabhängige Mitschriften |
+| dito, Fernfeld | *„render artist-created textures at that terrain location instead of the underlying material"* — **die Zielform ist belegt**, aber die Texturen sind gemalt, und das ist bei uns ausgeschlossen | sekundär |
+| dito, Anti-Popping | vor dem Kachelwechsel drei von vier Halmen ausblenden **und** die Halmform zur niedrigen Stufe hin überblenden | sekundär |
+| **SpeedTree** | *„Grass models also do not use billboards for the lowest LOD since there is no LOD in the grass system"* + *„The far clipping plane is used to keep the grass's population restricted to a short distance."* **Unsere Referenz umgeht die Frage** — Bäume bekommen Billboards, Gras wird weggeschnitten | primär (Unity-Spiegel des Runtime-SDK-Handbuchs) |
+| **Horizon Zero Dawn** | schrumpft statt wegzulassen: *„we vertically push the vertices of the mesh down · Displacement = [Percentage of Object Height] based on Distance to Camera"*, dazu *„we scale the whole animation part down"* — **die Animation fährt mit herunter**, also genau `goal.md` §4 in einem ausgelieferten Spiel | primär |
+| **Unreal 5.7** | *„once Nanite clusters become small enough they seamlessly transition to voxels… without resorting to billboards or LODs in the distance"*, *„near pixel-sized aggregate voxels that preserve triangle details, animation, and material properties"*. Epic selbst: *„use caution when shipping with it."* Der generische Mechanismus, aber ein **Volumen**, keine Fragmentfarbe | primär |
+| Unreal, Kosten | *„Masked-out pixels cost nearly as much as drawn pixels."* Erklärt unsere Füllbegrenzung (50,9× Dreiecke für 11,4× Zeit) | primär |
+| Unreal 5.1 | *„Preserve Area … prevents thinning out of geometry at far distances when enabled for foliage"* — Cooks Aggregaterhaltung als ausgelieferter Schalter | primär |
+| **Witcher 3** | **umgekehrte Richtung:** Draufsicht des Geländes als „Pigment Map", die Grashalme werden **daraus eingefärbt**. Kommen beide aus einer Quelle, kann die Kante farblich nicht springen — löst aber die **Verdeckung** nicht, und die trägt bei uns die Differenz | primär (OCR der GDC-2014-Folien) |
+| Red Dead 2, Death Stranding | **nichts gefunden.** Kein Vegetationsvortrag in „Advances in Real-Time Rendering" über alle Jahrgänge | — |
+
+**Zwei Ergebnisse, die etwas entscheiden.** Erstens: Die Größenordnung, in der ein ausgeliefertes
+Open-World-Spiel arbeitet, ist **einige zehntausend gezeichnete Halme**, nicht 1,4 Millionen. Zweitens:
+**Für die Fernstufe von Gras gibt es keinen Stand der Technik, an dem man sich entlanghangeln kann** —
+SpeedTree schneidet weg, GoT malt, Unreal voxelisiert seit einer Version und warnt davor. Das ist kein
+Grund, es nicht zu bauen; es ist der Grund, es selbst zu belegen.
+
+**Ehrlichkeit der Quellenlage:** jede Ghost-of-Tsushima-Zeile ist sekundär. Der Originalvortrag ist ein
+20-MB-Bilddeck ohne Textebene, drei unabhängige Mitschriften stimmen überein, aber **keine Quelle nennt
+die Umschaltentfernungen in Metern**, und keine sagt, ob die 2,5 ms nur das Gras sind.
+
+## 2026-08-07 — Vier Eignerentscheidungen, die den Entwurf tragen
+
+**1. Die Fernstufe IST der Bodenshader.** *„wenn geometrie nicht mehr nötig ist, wird sie zur
+fragmentfarbe des bodens."* Damit stoßen nicht mehr zwei Systeme aneinander — es gibt keine Kante zu
+verstecken, weil es keine Grenze zwischen zwei Systemen gibt, nur einen Maßstabswechsel in einem.
+Vertrag in [`render/vegetation.md`](render/vegetation.md) `## Spec`.
+
+**2. Das Optimierungsziel ist 16,67 ms, nicht „50 % Last".** *„720p60 ist das optimierungs target, dann
+läuft 720p30 mit sicherheit."* Eine Frame-Zeit kann „50 % GPU-Last" nicht messen, 16,67 ms kann sie.
+
+**3. Verfall ist diskret: drei Epochen × drei Stufen, eine Auswahl.** Damit entfällt die
+Interpolationsfrage, statt vertagt zu werden — und jede Stufe muss für sich verteidigbar sein, was
+prüfbar ist. Nicht bauen; nur zwei Indizes durchreichen. `epoch` und `decay` kommen heute **nirgends**
+im Code vor.
+
+**4. Die einzige LOD-Konstante ist das Budget.** τ, Radius, Halmzahl, Segmentzahl werden **gelöst**.
+Konflikt mit Prinzip 6 aufgelöst durch drei Ebenen: Budget deklariert · Kostenmodell **gemessen und dann
+festgeschrieben** · alles Übrige gelöst. Die gemessene Frame-Zeit darf berichtet werden, **nie
+zurückwirken** — sonst gibt das Tempo das Ergebnis.
+
+**Dazu: ein Pixel, eine Schattierung.** *„jeder bildpunkt sollte ungefähr die gleiche rechenzeit
+bekommen."* Das ist der Visibility Buffer mit Deferred Texturing (Guerrilla, Horizon Forbidden West,
+ausdrücklich für Laub), und daraus fällt eine szenenunabhängige Latte: **16,67 ms / 921 600 px = 18,1 ns
+je Pixel.** Und es ist dieselbe Aussage wie Entscheidung 1 von der Kostenseite: wenn ein ferner Pixel
+fünfzig Halme überdeckt und **eine** Schattierung bekommt, muss diese eine das Aggregat sein.
+
+## 2026-08-07 — Gras ans Ende, und Gras ist statisch
+
+**Gras rutscht ans Ende der Reihenfolge** (*„zuletzt machen oder garnicht"*). Begründung aus der
+Recherche: Bruneton & Neyret haben den **Wald** gelöst (0,6 ms shader-map bei 180 000 Bäumen) und Gras
+ausdrücklich als ihre offene Zukunftsarbeit benannt. Wir haben die Aggregatmaschine am Fall ohne
+Präzedenzfall gebaut statt am gemessenen. Dazu die eigenen Zahlen: **101 von 103,64 ms für eine Schicht
+ohne jede Silhouette**, während der lauteste Bildfehler *„ein Wald ohne Bäume"* ist — 98 % der
+Bodenpixel innerhalb 50 m sind `laubmischwald` und es steht kein Baum darin.
+
+**Gras ist statisch, und alles unterhalb der Baumgröße auch** (*„fallout 4 war komplett statisch und das
+sah gut aus"* — eine der drei deklarierten visuellen Referenzen des Projekts, also unser eigener
+Maßstab). Das streicht **33,43 ms**: Wind im Vertex-Shader 18,09 · TAA-Vorframe-Blattstation 12,23 ·
+TAA-Bewegungsanhang 3,112. **103,64 → ~70 ms durch eine Entscheidung statt durch Optimierung.**
+
+Und es löst die schwerste offene Frage der Recherche auf: **niemand hat je ein Aggregat unter
+Windmodulation gezeigt.** Die Fernvarianz des Ozeanpapiers enthält kein `t`; das Waldpapier schreibt
+*„trees cannot be animated to move in the wind."* Beide publizierten Lösungen sind im Fernfeld statisch —
+wir wären die Einzigen gewesen, die es versuchen.
+
+Prinzip 6 bleibt unberührt: *„nichts bewegt sich von selbst"* beschränkt, WIE sich etwas bewegen darf,
+nicht DASS etwas stillsteht. Ein statischer Halm behauptet nichts und braucht keinen Anker. Verboten
+bleibt eine kleine Restbewegung „für den Eindruck". Die Windarbeit bleibt erhalten — `WindField`,
+Elastica-Löser, zweite Uhr, `--seq` — für Zweige und Rotor, also für das, was sich bewegen soll.
+
+## 2026-08-07 — Das Orakel wartet auf die Welt, nicht auf eine Passzahl
+
+Die vorige Runde hat den Befund gestellt, diese behebt ihn — zwei Defekte, beide gemessen.
+
+**Defekt 1: `--warm N` garantierte keine Residenz mehr.** Seit dem Kachel-Pool lädt asynchron; dieselbe
+Szene, 640x360: `--warm 240` -> `progress` 0,49, `--warm 600` -> 1. Jeder Vergleich bei fester Passzahl
+verglich seither teilgeladene Szenen. **`--warm` ist jetzt die OBERGRENZE**, gewärmt wird bis
+`World::Resident()` — Geometrie-Zielschnitt vollständig, der 3x3-OSM-Gebäudeblock dekodiert, kein
+Gebäude-DAG in Arbeit. Greift die Grenze, ist es `warm_ceiling_reached`, Exit 2, **kein PNG**.
+`BuildingField::Build()` scannt dafür den ganzen Block statt beim ersten Treffer abzubrechen und meldet
+`PendingTiles()` als Zahl.
+
+**Defekt 2: das Bild hing am Ankunftszeitplan der Kacheln.** Reproduziert mit dem alten Verfahren
+(`--warm 900`, kein Reset): drei Läufe, drei Hashes, **0,428 / 0,469 / 0,476 %** abweichende Pixel bei
+bitgleicher Tiefe. Behoben durch `ResetTemporal()` nach der Residenz plus `TemporalSettleFrames()`
+weitere Frames **ohne Weltschritt**. Dazu gehörte ein zweiter Fund: `ResetTemporal()` leerte den
+Akkumulator, ließ aber die **Jitter-Phase** stehen — eine Settle-Strecke, die bei Phase `n mod 8`
+beginnt, besucht dieselben acht Positionen in gedrehter Reihenfolge und die Rückkopplung gewichtet sie
+ungleich. `TemporalJitter::Reset()` gehört dazu, sonst bleibt das Bild eine Funktion der Aufwärmlänge.
+
+**Die Settle-Zahl ist gemessen, nicht gesetzt:** `--settle N` gegen `--settle 512`, Pixel mit mehr als
+zwei Codes Unterschied — 3924 bei 0, 22 bei 48, **7 bei 128**, und 7 bei 192/256/384. 128 ist das Knie,
+`kTemporalSettleFrames` steht dort. Die verbleibenden 7 px und die 0,15–0,47 % Ein-Code-Pixel sind das
+letzte Bit der f16-History: die Akkumulation läuft in einen GRENZZYKLUS der acht Jitter-Phasen, nicht in
+einen Fixpunkt, deshalb wird der Unterschied gegen eine *andere* Settle-Länge nie null.
+
+**Abnahme.** `FB_TILEWORKERS=n` (nativ) erzwingt verschiedene Ankunftsreihenfolgen — 1/2/4/6 Worker
+erreichen die Residenz nach **517/437/343/260** Pässen. 16 Läufe `tools/determinism.py` über diese vier
+Breiten: **ein** Hash, `b9a48a34…`. Sequenzen (`--seq`) und der Subject-Bench (`--rig`, 39 Bilder)
+ebenso. Das Referenzbild hat sich gegenüber dem alten `--warm 900`-Stand um **8,46 %** der Pixel (0,42 %
+über 2 Codes, max 39) bewegt — der alte Stand war mitten in der Akkumulation aufgenommen.
+
+`FB_TAA=0` bleibt als **Messwerkzeug**: es entwaffnet Jitter und History, behält aber Pass, Puffer und
+Passzahl. Drei Aufgaben — den Beitrag des Filters beziffern, den Kritikern das ungefilterte Bild zeigen,
+und die deterministische Grundlinie liefern (ohne TAA ist das Frame über 1/2/6 Worker byteidentisch,
+gemessen).
+
+**Nicht behoben, mit Messung: die schwarzen Flecken an Gebäuden.** Reproduziert im Dorf
+(`--stepE -13 --stepN 2035 --yaw 90`): 834 Pixel, die mehr als 25 Codes unter ihrem 7x7-Median liegen,
+auf Gebäudewänden im mittleren Bereich (mittlere Entfernung der Fleckenpixel **243 m** gegen 31 m im
+Bild). **Sie sind kein TAA-Artefakt** — ohne TAA sind es 834, mit TAA 724. Ausschluss: AO-Stärke 0
+ändert nichts (836), Schatten aus lässt sie stehen (491), erst die eingefrorene Tonkurve (`FB_GEOM=1`)
+lässt sie verschwinden (149) — sie liegen also im HDR-Radianzbild der Gebäude und werden vom Zeh der
+gemessenen Kurve auf schwarz gedrückt. Die Tiefe an den Flecken zeigt zwei Wandebenen ~4 cm auseinander:
+überlappende OSM-Grundrisse, die auf Subpixelbreite abwechselnd die besonnte und die beschattete Seite
+zeigen. Was der Eigner als „laufen hinterher" sieht, ist die 0,56-px-Nachlaufzeit von TAA auf einem
+flackernden Muster — die Ursache liegt in der Gebäudegeometrie, nicht im Filter. Offen.
+
+## 2026-08-07 — Das Referenzbild ist nicht reproduzierbar, und die Ursache ist TAA
+
+Beim Aufräumen gemessen: **dasselbe Binary liefert je Sitzung einen stabilen, aber unterschiedlichen
+Hash.** Innerhalb einer Sitzung 4–5 Läufe byteidentisch, über Sitzungen `d6a2` → `8b25` → `7ea6`.
+Geometrie, Belichtung und Einstrahlung sind dabei bitgleich (`terrainTris=49062 buildingTris=16025
+blades=98200`); der Unterschied liegt in **3 961 von 921 600 Pixeln**, max. Kanaldelta 18, Zeilen
+318–719 — die Bodenhälfte.
+
+Nachgewiesen durch Ausschluss und Kontrolle:
+
+| | `--warm 240` | `--warm 480` |
+|---|---|---|
+| Vorgabe | `7ea6…` | `7eba…` |
+| photometrische Glättung aus | `7ea6…` | `7eba…` |
+| **TAA aus** | `e3d0…` | **`e3d0…`** |
+
+**Die TAA-History konvergiert bei stehender Kamera nie exakt** — der Jitter rotiert weiter und die
+History ist ein undichter Akkumulator. Das Frame ist damit eine Funktion der Aufwärmpasszahl und, über
+Sitzungen, davon, in welchem Pass welche Kachel ankam.
+
+**Folge für die Abnahme: `sim/walk-demo.png` ist nur bei fester `--warm`-Zahl UND ausgeglichenem
+Streaming ein Referenzbild.** Ein Frame-Orakel muss die History zurücksetzen und danach eine feste Zahl
+Frames laufen, nachdem das Streaming konvergiert ist — sonst ist es eine Funktion des Zeitplans statt
+der Szene. Offen, gehört dem Renderer.
+
+## 2026-08-07 — `ground-cover.md` aufgelöst statt gelöscht
+
+Die Halmgeometrie ist weg (`GroundCoverStage`, `CoverGrid.h`, das CPU-Bodenfeld in `World.cpp`), aber
+`doc/render/stages/ground-cover.md` beschrieb zwei Dinge in einer Datei: die gelöschte Stufe **und** den
+Bodenshader, der weiterlebt. Die 756 Zeilen sind deshalb **aufgeteilt** worden, nicht entsorgt.
+
+| wohin | was |
+|---|---|
+| `render/stages/terrain.md` | Bodenmaterial (Klassenliste, Feldtabelle, BRDF-Lesart, Reliefexponent), der Aggregatterm als eigener Spec-Abschnitt, Gradnetz, Level-0-Klasse, Klassenstapelung, alle Materialmessungen, Munsell-/ECOSTRESS-Wissen, Quellen 18 und 25–29 |
+| `render/vegetation.md` | die Windkette (`WindField.h`, Elastica-Fit, Py/Gosselin) als `## Knowledge` samt Quellen 30–33, plus deren `[SET]`-Lücken |
+| gelöscht | Instanzpfad, Halmform, Kiel, Fünf-Segment-Streifen, Horste als Geometrie, Deckungsscheibe, Fade-Kante, Feldbefüllung, Winddurchreichung an den Halm |
+
+Als **Wissen** überlebt, mit Messung, in `## Gaps` der aufnehmenden Datei: die Deckung kostete 10,3 ms
+von 17,0 ms GPU (61 % des Frames) für zehn Meter Band · der Übergang verfehlte \|Δ(R−G)\| < 6 und
+\|ΔL\| < 5 · der Eigenschatten steht bei 0,326/0,402 EV gegen ein Ziel von 1,74 · Farbabgleich schließt
+keine Übergabe (21 Codes R−G, 17 L bei **identischem** Albedo) · die deklarierte Radius-Auswahl bewegte
+die Bodenprofil-Energie um Faktor 23 auf 8 m · Bruneton & Neyrets Drei-Pixel-Kriterium hat ohne nahe
+Geometrie keinen Gegenstand mehr. `FB_TAU` hat wieder genau einen Besitzer, `render/ClusterDag.h`.
+
+Der Vermerk über die **~466 verlorenen Zeilen gemessenen Zustands** ist mitgewandert und steht jetzt in
+`terrain.md` `## Gaps`. Nichts davon ist rekonstruiert worden: eine erinnerte Messung ist keine.
+
+`verify-trees` bewegt sich dadurch nicht — es zählt Verzeichnisse, und `doc/render/stages/` ist weiter
+belegt: 9 Waisen vorher, 9 nachher.
+
+## 2026-08-07 — Der Baumgenerator ist C++, und er liefert den Prototyp Bit für Bit
+
+`~/Git/wasm-tree` ist neu implementiert, nicht portiert: sieben Dateien in `sim/src/world/`, C++17,
+`namespace outshine::World`, eine Klasse je Datei — `TreeVec3.h` · `TreeRandom.h` · `TreeSpecies` ·
+`TreeMesh.h` · `TreeGrower` · `TreeLeaf` · `LeafAngleDistribution`. Keine zweite C-Insel;
+`world/terrain/` bleibt die einzige. Die 16 Arten-JSON liegen **byte-identisch** unter
+`sim/assets/world/species/`. `make treebench` misst, `walk` und `wasm` linken mit.
+
+**Die Abnahme ist bestanden, und zwar in ihrer härtesten Form.** Der Prototyp-Kern wurde nativ gebaut
+und ausgeführt; verglichen wurden alle 16 Arten × 5 Puffer: **80 von 80 byte-identisch**, 2 159 272
+Floats und 996 096 Indizes, 12,6 MB. Keine Abweichung war zu benennen, weil es keine gibt.
+
+**Topologie ist werkzeugkettenunabhängig, Koordinaten sind es nicht.** Zählungen und Indizes stimmen
+über `-O0 -O1 -O2 -O3 -Os`, `-ffp-contract=off` und **emcc `-O1` unter node**; die Positionen driften
+nativ↔wasm um höchstens 6,8e-6 der Einheitshöhe (Normalen 4,8e-5). `-ffast-math` bricht es: `kiefer`
+verliert eine Nadel, weil `(int)(0.85f/0.0085f)` exakt auf 100 sitzt.
+
+**Ein Baum wird je ART erzeugt, nie je Instanz** — 0,18–1,10 ms (Mittel 0,417) und 390–2042 kB
+(Mittel 770). 5000 Bäume je Instanz wären 2,1 s und **3,7 GB**; je Art sind es 12 MB.
+
+**`G(el)` wird jetzt am gewachsenen Baum GEMESSEN**, nicht deklariert — der Kreis, den Gras nie
+geschlossen hat. Aus `leaf_pts` folgt mit „die Spreite rollt frei um ihren Stiel" analytisch
+`E_roll|n·s| = (2/π)·√(1−(u·s)²)`; übrig bleibt ein Mittel über Population und Azimut. Prüfung, die
+niemand eingebaut hat: die drei Nadelbäume landen auf der isotropen Vorhersage (mittlere Stielhöhe
+π/2−1 = 32,70°; gemessen 32,63 / 33,05 / 33,52°, G flach bei 0,494–0,503). Bäume sind nahezu sphärisch,
+`Sward.h`s Wiese ist erectophil — mit den Grasskonstanten läge eine Buchenkrone im Zenit 17,3 % zu hoch.
+
+**Der Fund der Runde ist `spread_m`.** Beide Meterfelder standen in allen 16 Dateien und wurden vom
+Prototyp NIE gelesen, also nie geprüft. Gemessen: gewachsene Kronenbreite gegen `spread_m/height_m`
+zwischen **0,66× und 4,56×**, Mittel 1,44. `fichte` deklariert 35 m × 6 m und wächst 27 m breit.
+`spread_m` ist heute kein Parameter, sondern ein Kommentar.
+
+Kein Rendern, keine Platzierung, kein LOD, kein Wind — genau ein Netz aus genau einer Deklaration.
+`verify-layers` grün (148 Dateien), `verify-trees` unverändert bei 9 Waisen (kein neues Verzeichnis).
+
+## 2026-08-07 — Die schwarzen Wände sind kein Ambient-Fehler, sondern ein Loch statt eines Nachbarn
+
+**Die Hypothese des Eigners ist widerlegt, und zwar arithmetisch.** Die Halbkugelkorrektur, die den
+Bestandsambient bei `n·up = −1` von 0,120 auf 0,738 hob, saß NIE im gemeinsamen Header. Sie ist der
+zweite `litRadiance`-Aufruf in `Sward.h` mit `−nAgg` und `kLeafTrans` 0,85 — durch die Blattspreite
+durchgelassener Himmel. Die Tabelle folgt exakt aus `nachher(n) = vorher(n) + 0,85·vorher(−n)` mit
+Blattalbedo 0,22: `0,120 + 0,85·0,727 = 0,738`, `0,727 + 0,85·0,120 = 0,829`, Mitte `0,4235·1,85 =
+0,784`. Eine opake Mauer hat keinen durchgelassenen Himmel; Gebäude hatten die Korrektur nie und
+dürfen sie nicht bekommen. `(1 + n·up)/2` ist für eine isotrope Kuppel korrekt und bleibt.
+
+**Gemessen, was die abgewandte Wand wirklich bekommt** (Referenzszene, Kamera 210 m vor einem
+freistehenden Hof, Sonne 11,20°, `FB_TONE_PROBE=-14,2` als Lineal, 1188 px reine Wand): ohne AO
+`log2 L = −4,038`, flach über 0,31 EV. Die physikalische Schranke einer senkrechten Fläche —
+`0,5·E_Himmel,h + 0,5·0,12·(E_Himmel,h + E_Sonne,h)` = 0,0548 gegen geliefert 0,0444 — liegt **0,303 EV**
+höher, und diese Lücke ist vollständig `kSelfShelter`. 0,3 EV sind nicht schwarz.
+
+**Schwarz macht die Verdeckung.** `FB_GEOM`-Paar auf einer sonnenabgewandten Wand isoliert genau das
+AO (der Direktterm ist dort ohnehin null): AO-Faktor Median **0,730**, p10 **0,361**, Minimum **0,226**
+auf einer Wand, bei der nichts im Umkreis von 0,9 m steht. Auflösungsreihe bei identischer Kamera —
+Scheibenradius **2,67 px → 0,662**, **5,34 px → 0,861**, **8,02 px → 0,885**: kein Rauschen, sondern
+ein auflösungsabhängiger Bias mit fester Moiréstruktur. `kAoMinPx` = 2,5 lässt genau das Band durch,
+in dem die Schätzung keine Geometrie mehr trägt.
+
+**Repariert wurde nicht der Schätzer, sondern was aus seinem Fehler wird.** Ein Verdecker ist eine
+Fläche, kein Loch: was er dem Himmel nimmt, gibt er zu `kGroundBounce` zurück. Eine Zeile in
+`SurfaceLight.h` — `alpha = 1 − ambFrac·(1 − kGroundBounce)` — und das Compositing bleibt ein `mix()`,
+die Zahl bleibt an einem Ort. Wandmaske 9 488 px: Pixel unter Code 64 **1 548 (16,32 %) → 135 (1,42 %)**,
+p01 43 → **63**, p50 101 → 104, p90 118 unverändert; HDR p01 −6,249 → **−5,773** (+0,476 EV). Himmel
+und Wolken (Zeilen 0–375) **bitgleich**, Belichtungsanker unverändert, Frame-Mittel 146,084 → 146,226.
+
+**Nicht behoben und ausdrücklich nicht so gemeldet:** die graue Sprenkelung bleibt. `AoStage.cpp` lag
+während dieser Runde in der Hand eines anderen Agenten; verifiziert wurde in einem privaten Baum mit
+byteidentischer `SurfaceLight.h` (`make walk` und `make wasm` grün, `verify-layers` grün, zwei Läufe
+md5-gleich).

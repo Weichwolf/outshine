@@ -13,9 +13,12 @@ THREE SCOPES, THREE RULES, because the subjects differ (doc/mods.md §3, doc/mod
            says and because it is the only half a machine can check without knowing what a file means.
 
   mod      mods/<id>/doc/   what we want
-           mods/<id>/src/   what we can do, AND the proof — a mission is a declaration, so fb-gym
-                            running it IS the assertion. A mod therefore has NO test/, and a test/
-                            beside it would be the same claim written twice.
+           mods/<id>/src/   what we can do, AND the proof — a mod's declarations ARE the assertion,
+                            because running them is the only way to be wrong. A mod therefore has NO
+                            test/, and a test/ beside it would be the same claim written twice.
+                            THE RUNNABLE-PROOF CHECK IS GONE, 2026-08-07: it demanded a `.fbm`, and the
+                            parser for that format was deleted with the combat layer. A gate that asks
+                            for a capability the engine no longer has proves nothing.
            Not a directory rule: a mod's doc/ is prose per subject (campaign, terrain, hud, sources)
            against a src/ of declarations, so path congruence would be a category error here. What is
            checkable without knowing what a mod is, is §3's own formulation — DOC PLUS PROOF.
@@ -23,11 +26,11 @@ THREE SCOPES, THREE RULES, because the subjects differ (doc/mods.md §3, doc/mod
   module   src/modules/<id>/  the FIXED PARTS a module directory carries, named one by one, so that
            integrating a module is unambiguous instead of learned by reading a neighbour:
 
-             FB*Module.h                 the FBModule subclass
+             FB*Module.h                 the Module subclass
              FB*ModuleRegistration.cpp   exactly one — the single place the registry key is bound
              doc/modules/<id>/module.md  the contract statement, and in it:
              **Contributes:** …          the module's declaration, in words of the CLOSED VOCABULARY
-                                         of src/modules/FBContribution.h — at least one State word
+                                         of src/modules/Contribution.h — at least one State word
                                          and at least one Geometry word, because a module owns a piece
                                          of world state and derives geometry from it
 
@@ -64,7 +67,7 @@ TREES = ("doc", "src", "test")
 MOD_TREES = ("doc", "src")
 KINDS = ("MISSING", "LEAF", "EXTRA")
 
-CONTRIB_HEADER = os.path.join("modules", "FBContribution.h")
+CONTRIB_HEADER = os.path.join("modules", "Contribution.h")
 CONTRIB_ROW = re.compile(r'^\s*X\(\s*(\w+)\s*,\s*(\w+)\s*,\s*"([^"]+)"')
 CONTRIB_LINE = re.compile(r"^\s*\*\*Contributes:\*\*(.*)$")
 MODULE_CLASS = "FB*Module.h"
@@ -96,15 +99,6 @@ def leaf_docs(root):
                 p = os.path.relpath(os.path.join(dp, fn[:-3]), root).replace(os.sep, "/")
                 out.add(p)
     return out
-
-
-def has_mission(root):
-    """A runnable .fbm anywhere under root — a mod's proof (doc/mods.md §3)."""
-    for dp, dns, fns in os.walk(root):
-        dns[:] = [d for d in dns if not d.startswith(".")]
-        if any(fn.endswith(".fbm") for fn in fns):
-            return True
-    return False
 
 
 def engine_orphans(roots):
@@ -162,9 +156,6 @@ def mod_orphans(root):
         for t in MOD_TREES:
             if state[t] == "-":
                 orphans.append((f"mod:{mod}", "MISSING", f"{rel}/{t}", c, f"add {rel}/{t}/"))
-        if state["src"] == "dir" and not has_mission(os.path.join(base, "src")):
-            orphans.append((f"mod:{mod}", "MISSING", f"{rel}/src/**.fbm", c,
-                            "a mod's proof is a runnable mission — add one under src/"))
         if os.path.isdir(os.path.join(base, "test")):
             orphans.append((f"mod:{mod}", "EXTRA", f"{rel}/test", c,
                             f"a mod has no test/ — fold {rel}/test into a mission"))
@@ -175,7 +166,7 @@ def mod_orphans(root):
 
 def vocabulary(src_root):
     """The closed contribution vocabulary, read from the ONE table that defines it. The gate does not
-    keep a second copy: a word exists because src/modules/FBContribution.h has a row for it."""
+    keep a second copy: a word exists because src/modules/Contribution.h has a row for it."""
     path = os.path.join(src_root, CONTRIB_HEADER)
     words = {}
     try:
@@ -202,7 +193,7 @@ def module_orphans(roots):
     legal = {s: sorted(w for w, sd in vocab.items() if sd == s) for s in sides}
     orphans = []
 
-    if not vocab:
+    if ids and not vocab:
         orphans.append(("module", "MISSING", os.path.relpath(vpath, os.path.dirname(roots["src"])),
                         "vocab=-", "the vocabulary is this gate's input — restore the "
                                    "FB_MODULE_CONTRIBUTIONS table"))
@@ -233,7 +224,7 @@ def module_orphans(roots):
 
         if not glob.glob(os.path.join(base, MODULE_CLASS)):
             orphan("MISSING", f"src/modules/{mid}/{MODULE_CLASS}",
-                   f"add the FBModule subclass src/modules/{mid}/FB<Name>Module.h")
+                   f"add the Module subclass src/modules/{mid}/FB<Name>Module.h")
         regs = glob.glob(os.path.join(base, MODULE_REG))
         if not regs:
             orphan("MISSING", f"src/modules/{mid}/{MODULE_REG}",

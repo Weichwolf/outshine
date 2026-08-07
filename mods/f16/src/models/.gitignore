@@ -1,9 +1,0 @@
-# Die .glb sind BAUERGEBNISSE: build_f16.py erzeugt sie deterministisch aus f16_geometry.py,
-# und f16_geometry.py traegt die Quelle jeder Zahl. Versioniert wird das Rezept, nicht der Kuchen —
-# 11,7 MB je Runde in ein Repo zu legen, das schon 197 MB .git traegt, kauft nichts, was ein
-# Blender-Lauf nicht in zwei Minuten wiederherstellt.
-*.glb
-sil_*.png
-
-# python bytecode
-__pycache__/

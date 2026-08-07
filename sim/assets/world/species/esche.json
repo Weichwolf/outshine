@@ -1,0 +1,15 @@
+{
+  "bark_r":0.45,"bark_g":0.43,"bark_b":0.38,"bark_dark":0.58,"bark_freq":5.0,"bark_ridge":0.45,
+  "name": "esche", "botanical": "Fraxinus excelsior", "common": "Gemeine Esche / European ash",
+  "habit": "lockere rundliche Krone, kraeftige aufsteigende Aeste, derbe Zweige",
+  "height_m": 30, "spread_m": 14,
+  "seed": 14, "shade_prune": 0.6, "trunk_sides": 10, "base_radius": 0.08, "step_len": 0.16,
+  "trunk_steps": 24, "bare_steps": 9, "taper": 0.955, "min_radius": 0.006, "twig_radius": 0.015,
+  "branch_chance": 0.7, "max_order": 3, "terminal_fork": 1,
+  "branch_angle": 40, "branch_angle_var": 14, "order_len": 0.6, "order_radius": 0.55,
+  "wander": 7, "leader_bias": 0.2, "branch_up_bias": 0.2, "conical": 0.05,
+  "leaf_kind": "pinnate", "leaf_leaflets": 5,
+  "leaf_length": 1.0, "leaf_width": 0.16, "leaf_widest": 0.42,
+  "leaf_base_fill": 0.0, "leaf_tip": 0.7, "leaf_serration": 0.35, "leaf_fold": 0.08, "leaf_curve": 0.14,
+  "leaf_card_w": 0.10, "leaf_card_h": 0.12, "leaf_cards": 3
+}

@@ -1,0 +1,13 @@
+{
+  "bark_r":0.53,"bark_g":0.51,"bark_b":0.48,"bark_dark":0.80,"bark_freq":3.0,"bark_ridge":0.08,
+  "name": "buche", "botanical": "Fagus sylvatica", "common": "Rotbuche / European beech",
+  "habit": "hoher gerader Stamm, hochangesetzte dichte rundliche Krone, aufstrebende dann ausladende Aeste",
+  "height_m": 30, "spread_m": 18,
+  "seed": 11, "shade_prune": 0.6, "trunk_sides": 11, "base_radius": 0.08, "step_len": 0.16,
+  "trunk_steps": 26, "bare_steps": 9, "taper": 0.955, "min_radius": 0.005, "twig_radius": 0.012,
+  "branch_chance": 0.85, "max_order": 4, "terminal_fork": 1,
+  "branch_angle": 45, "branch_angle_var": 16, "order_len": 0.66, "order_radius": 0.52,
+  "wander": 9, "leader_bias": 0.18, "branch_up_bias": 0.15, "conical": 0.1,
+  "leaf_kind": "broad", "leaf_length": 1.0, "leaf_width": 0.40, "leaf_widest": 0.46,
+  "leaf_base_fill": 0.05, "leaf_tip": 0.30, "leaf_serration": 0.12, "leaf_fold": 0.12, "leaf_curve": 0.18
+}

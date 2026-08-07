@@ -12,6 +12,7 @@
 #include <pthread.h>
 
 #define FB_DEM_Z    13
+#define FB_DEM_N    256   /* Terrarium texels per tile edge; a grid of any other size is refused */
 #define FB_MEM_TILES 24
 
 static fb_lru_slot g_slot[FB_MEM_TILES];
@@ -34,56 +35,54 @@ int fb_elev_init(const char *cache_dir) {
  * tolerance elsewhere, e.g. cache.c's absent-marking), holding a lock across it is not: it would
  * serialize ALL /elev traffic behind one decode.
  *
- * The bilinear SAMPLE itself also happens inside the lock, not after returning a grid pointer to
- * the caller: a returned `osmmesh_terrain_grid *` into g_grid[] would be a dangling reference the
- * instant another thread's fb_lru_victim reclaims that exact slot for a different tile -- with many
- * concurrent /elev callers and only FB_MEM_TILES slots, that eviction race is real, not theoretical.
- * Folding find-or-decode-then-sample into one function keeps the unsafe pointer entirely inside the
- * critical section; only a plain double crosses back out. */
-static int tile_sample(int z, long x, long y, double tx, double ty, double *out) {
+ * The READ itself also happens inside the lock, not after returning a grid pointer to the caller: a
+ * returned `osmmesh_terrain_grid *` into g_grid[] would be a dangling reference the instant another
+ * thread's fb_lru_victim reclaims that exact slot for a different tile -- with many concurrent /elev
+ * callers and only FB_MEM_TILES slots, that eviction race is real, not theoretical. Folding
+ * find-or-decode-then-read into one function keeps the unsafe pointer entirely inside the critical
+ * section; only a plain float crosses back out. */
+struct dem_gather { int z; int decoded; };
+
+static int tile_texel(void *user, long x, long y, uint32_t col, uint32_t row, float *out) {
+    struct dem_gather *q = (struct dem_gather *)user;
     pthread_mutex_lock(&g_mx);
     if (!g_lru_ready) { fb_lru_init(&g_lru, g_slot, FB_MEM_TILES); g_lru_ready = 1; }
-    int i = fb_lru_find(&g_lru, z, x, y);
+    int i = fb_lru_find(&g_lru, q->z, x, y);
     if (i >= 0) {
-        double fx = (tx - (double)(long)tx) * (double)g_grid[i].cols;
-        double fy = (ty - (double)(long)ty) * (double)g_grid[i].rows;
-        *out = fb_bilinear(g_grid[i].heights, g_grid[i].cols, g_grid[i].rows, fx, fy);
+        int ok = g_grid[i].cols == FB_DEM_N && g_grid[i].rows == FB_DEM_N;
+        if (ok) *out = g_grid[i].heights[(size_t)row * FB_DEM_N + col];
         pthread_mutex_unlock(&g_mx);
-        __atomic_fetch_add(&g_hits, 1, __ATOMIC_RELAXED);
-        return 1;
+        return ok;
     }
     pthread_mutex_unlock(&g_mx);
 
     uint8_t *png = 0; size_t n = 0;
-    if (!fb_cache_ondisk(FB_TILE_TERRAIN, z, x, y, &png, &n)) {
-        fb_pf_fetch(FB_TILE_TERRAIN, z, x, y);
-        __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
+    if (!fb_cache_ondisk(FB_TILE_TERRAIN, q->z, x, y, &png, &n)) {
+        fb_pf_fetch(FB_TILE_TERRAIN, q->z, x, y);
+        return 0;
     }
     osmmesh_terrain_grid grid = {0};
     int rc = osmmesh_terrain_decode_png(png, n, &grid);
     free(png);
-    if (rc != OSMMESH_TERRAIN_OK || !grid.heights) {
-        __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
-    }
+    if (rc != OSMMESH_TERRAIN_OK || !grid.heights) return 0;
+    q->decoded = 1;
 
     pthread_mutex_lock(&g_mx);
     /* re-check: another thread may have decoded and claimed this exact tile while we were unlocked. */
-    int j = fb_lru_find(&g_lru, z, x, y);
+    int j = fb_lru_find(&g_lru, q->z, x, y);
     if (j < 0) {
         int slot = fb_lru_victim(&g_lru);
         if (fb_lru_occupied(&g_lru, slot)) osmmesh_terrain_grid_free(&g_grid[slot]);
         g_grid[slot] = grid;
-        fb_lru_claim(&g_lru, slot, z, x, y);
+        fb_lru_claim(&g_lru, slot, q->z, x, y);
         j = slot;
     } else {
         osmmesh_terrain_grid_free(&grid);   /* lost the race: someone else's decode already landed */
     }
-    double fx = (tx - (double)(long)tx) * (double)g_grid[j].cols;
-    double fy = (ty - (double)(long)ty) * (double)g_grid[j].rows;
-    *out = fb_bilinear(g_grid[j].heights, g_grid[j].cols, g_grid[j].rows, fx, fy);
+    int ok = g_grid[j].cols == FB_DEM_N && g_grid[j].rows == FB_DEM_N;
+    if (ok) *out = g_grid[j].heights[(size_t)row * FB_DEM_N + col];
     pthread_mutex_unlock(&g_mx);
-    __atomic_fetch_add(&g_miss, 1, __ATOMIC_RELAXED);
-    return 1;
+    return ok;
 }
 
 int fb_elev_at(double lat, double lon, double *out) {
@@ -91,7 +90,12 @@ int fb_elev_at(double lat, double lon, double *out) {
     fb_geo_to_tile(lat, lon, FB_DEM_Z, &tx, &ty);
     long x = (long)tx, y = (long)ty;
     if (!fb_tile_wrap(FB_DEM_Z, &x, &y)) return 0;
-    return tile_sample(FB_DEM_Z, x, y, tx, ty, out);
+    struct dem_gather q = { FB_DEM_Z, 0 };
+    if (!fb_dem_bilinear(FB_DEM_Z, tx, ty, FB_DEM_N, tile_texel, &q, out)) {
+        __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
+    }
+    __atomic_fetch_add(q.decoded ? &g_miss : &g_hits, 1, __ATOMIC_RELAXED);
+    return 1;
 }
 
 /* /elev is a POINT query: the caller wants THE answer, and the one DEM tile lands in <1 s

@@ -27,3 +27,20 @@ temp/aircraft/SITL.elf
 .claude/settings.local.json
 temp/inav-src/
 .DS_Store
+
+# Laufdaten und Build-Ausgaben, nie eingecheckt
+sim/telemetry_*.csv
+sim/web/gpu.*
+sim/web/mods/
+
+# --- subject-bench output (gpu_walk --rig): a measurement series, regenerated on demand ---
+sim/bench/
+
+# --- Messartefakte, nicht versionieren ---
+sim/shots/
+sim/walk-demo.png
+sim/wasm-demo.png
+sim/*.f32
+sim/web/gpu.js
+sim/web/gpu.wasm
+sim/web/fbtileworker.js

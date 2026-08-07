@@ -1,7 +1,0 @@
-# Bauergebnisse. doc/assets.md §0: das Rezept versionieren, nie den Kuchen.
-# build_fuel_tank.py stellt sie bytegleich wieder her; gemessen 43 s auf leerer,
-# 53 s auf mitbelegter Maschine (Lastmittel 3.5 von 6 Kernen), Minimum aus drei Laeufen.
-*.glb
-*.blend
-*.png
-__pycache__/

@@ -1,9 +1,9 @@
 # World, terrain and tile streaming — `world/`
 
-**Sources of this file:** `sim/src/world/` (`FBWorld.h/.cpp`, `FBTerrainLoader.h/.cpp`,
-`FBTilesElevation.h`), `sim/src/world/terrain/` (`geo.h/.cpp`, `geo_ecef.cpp`, `mesh.h`,
-`terrain.h/.cpp`, `osmmesh.h`, `osmmesh_terrain.cpp`), `sim/src/render/FBChunkMesh.h` +
-`FBChunkVtx.h` (the mesh end stage), `sim/src/clients/FBTileWorkerMain.cpp` +
+**Sources of this file:** `sim/src/world/` (`World.h/.cpp`, `TerrainLoader.h/.cpp`,
+`TilesElevation.h`), `sim/src/world/terrain/` (`geo.h/.cpp`, `geo_ecef.cpp`, `mesh.h`,
+`terrain.h/.cpp`, `osmmesh.h`, `osmmesh_terrain.cpp`), `sim/src/render/ChunkMesh.h` +
+`ChunkVtx.h` (the mesh end stage), `sim/src/clients/TileWorkerMain.cpp` +
 `sim/web/fbtw-worker.js`, `sim/Makefile` (targets `wasm`/`worker`) and `tiles/` (server: `Makefile`,
 `nginx.conf`, `src/*`) — the server is documented here **from the client's point of view**. Plus
 CLAUDE.md's sections `world/`, `terrain/` and "Rendering".
@@ -23,10 +23,11 @@ once it is on the GPU), [`../architecture.md`](../architecture.md) (the lib/clie
 | Nothing is preloaded — every point on earth is a valid start | a `spawn` line anywhere works without any area being defined; the root ring is laid around the camera |
 | The render loop is never blocked in the browser | `fb_stream_*` is a poll interface; fetch/decode/mesh/mips run in Web Workers |
 | Line of sight must not cost coverage | a child beyond the view radius makes its parent a drawn leaf — detail is dropped, area never |
-| One ground truth for everybody | mission ground spawn, AGL/radar altitude and crash detection all go through `FBElevationProvider`; the DEM the renderer draws is the DEM JSBSim collides against |
+| One ground truth for everybody | ground spawn, AGL and ground-contact detection all go through `ElevationProvider`; **the DEM the renderer draws is the DEM the physics collides against** |
+| A DEM texel is an AREA, not a lattice point | mesh, client oracle and `/elev` all sample at `frac·n − 0.5` through the one expression `fb_texel_index` (`tiles/src/tilemath.h`); the same point through z13/z14/z15 then agrees to RMS **0.056 m** against 0.538 m for `frac·n` |
 | Missing data is a defined state, not an error | 204 = hole (photo falls back to OSM), a missing neighbour tile = a gap the skirts cover, cold `/elev` = 503 and the start path asks with `?block=1` |
 | An `/elev` answer is a number or it is not a measurement | the whole body must be ONE finite number; `atof` alone would cache an HTML error page as "sea level" |
-| The core library must not depend on tile streaming | `FBTilesElevation` lives in `world/`, not in `core/`; the core side sees only the `FBElevationProvider` interface |
+| The core library must not depend on tile streaming | `TilesElevation` lives in `world/`, not in `core/`; the core side sees only the `ElevationProvider` interface |
 
 ### 1 The data path, drawn through once
 
@@ -39,23 +40,23 @@ fb-tiles :8081  ──HTTP──▶  byte cache (JS map in the browser | in-memo
       /elev?lat&lon                │
                                    ▼
                     w3_chunk_build_ecef  ──▶ w3_vtx[] (ECEF offset to the tile origin,
-                    (render/FBChunkMesh.h)     UV, ECEF normal) + err (m) + origin (double)
+                    (render/ChunkMesh.h)     UV, ECEF normal) + err (m) + origin (double)
                                    │
                                    ▼        + fb_build_pyramid (sRGB mip chain of the albedo)
-                            FBWorld (quadtree, budgets, 2-phase commit, eviction)
+                            World (quadtree, budgets, 2-phase commit, eviction)
                                    │  UploadTile / SetDrawList
                                    ▼
-                            FBRenderer → FBTilesStage
+                            Renderer → TilesStage
 ```
 
 In the browser the framed block (fetch, decode, mesh, mips) runs in **its own Web Workers**; natively
 it runs inline with blocking libcurl. The poll interface above it (`fb_stream_*`) is identical for
 both.
 
-### 2 `FBWorld` — the streamer
+### 2 `World` — the streamer
 
-`sim/src/world/FBWorld.h/.cpp`. A chunked-LOD **quadtree** (Cesium style) which per frame hands a draw
-list of the LOD cut to `FBRenderer`. Ported from the predecessor engine code (`tiles/walk.h` priority
+`sim/src/world/World.h/.cpp`. A chunked-LOD **quadtree** (Cesium style) which per frame hands a draw
+list of the LOD cut to `Renderer`. Ported from the predecessor engine code (`tiles/walk.h` priority
 refinement, `lru.h` grace eviction/budget), with **corrected** coverage semantics (see §2.3).
 
 #### 2.1 What it owns and what it only borrows
@@ -63,18 +64,18 @@ refinement, `lru.h` grace eviction/budget), with **corrected** coverage semantic
 | | Content |
 |---|---|
 | **Owns** | the node table `std::vector<Node>` + the `unordered_map` index, the draw list `DrawSlots`, the work list `WorkList`, the pyramid scratch, the night-light buffer, all counters |
-| **Borrows** | `FBRenderer*` (upload target) and **`const FBUnitRegistry*`** (`SetUnits`/`Units()`) |
+| **Borrows** | `Renderer*` (upload target) and **`const UnitRegistry*`** (`SetUnits`/`Units()`) |
 
 **Why the registry is only borrowed** — that is not cosmetics but the consequence of the lib/client
 split: the cast of the world ("who exists where") is **simulation state**, not a rendering thing. It
-used to be a member of `FBWorld`, i.e. on the **renderer side** of the split. `fb-gym` links no
+used to be a member of `World`, i.e. on the **renderer side** of the split. A headless client links no
 `world/` — and therefore handed every module `world = nullptr`, so that a simulated sensor could never
 have seen another unit in precisely the client that actually runs the mission loop. Today
-`units/FBUnitRegistry` lives in the core lib, the client owns exactly one, `FBWorld` only holds a
-pointer to it — for the **drawing side** (`FBUnitsStage`, today NoOp). No ownership, no world mutation
+`units/UnitRegistry` lives in the core lib, the client owns exactly one, `World` only holds a
+pointer to it — for the **drawing side** (`UnitsStage`, today NoOp). No ownership, no world mutation
 path.
 
-Separately beside it stands the `const FBWorld*` a sensor gets: that is the **terrain side**
+Separately beside it stands the `const World*` a sensor gets: that is the **terrain side**
 (masking), not the unit side.
 
 #### 2.2 Constants
@@ -89,7 +90,7 @@ Separately beside it stands the `const FBWorld*` a sensor gets: that is the **te
 | `kCosView` | 0.5 | frustum weight: < 60° off axis = full priority, otherwise factor 0.05 |
 | `kNodeCeil` | 6000 | safety cap on the working set |
 | `kEarthCirc` | 40,075,016.686 m | equatorial circumference for `SpanM(z)` |
-| View radius | `FB_VIEW_KM · 1000`, default **240 km** | client parameter (`clients/FBAppWasm.cpp`) |
+| View radius | `FB_VIEW_KM · 1000`, default **240 km** | client parameter (`clients/AppWasm.cpp`) |
 | `Grid` | 32 | decimation of the tile grid (32×32 quads) |
 | `TS` | 512 | albedo edge length in texels |
 
@@ -139,7 +140,7 @@ request goes straight to the end leaves, without an LOD ladder and without build
 | `CoversInMode(n)` | `ReadyMode` **or** (`Ready` and drawn in the last pass) | on a TAB switch the resident fine tile stays in the OLD mode until its new overlay lands — no re-coarsening, no flashing. A NEW tile only counts with `ReadyMode`, so that it never pops up in the wrong mode |
 
 The `+1` in `ReadyMode` mirrors exactly the renderer side (`FrameNo > PhotoUpTick + 1`,
-`FBTilesStage`) — otherwise there would be a one-frame gap in the wrong mode.
+`TilesStage`) — otherwise there would be a one-frame gap in the wrong mode.
 
 #### 2.5 Budgets per pass
 
@@ -150,7 +151,7 @@ outside) and then worked off within budget:
 |---|---|---|
 | `build` | 2 | `fb_stream_build` — poll the mesh |
 | `albedo` | 2 | `fb_stream_pyramid` — poll the base mip pyramid |
-| `upload` | 6 | `FBRenderer::UploadTile` |
+| `upload` | 6 | `Renderer::UploadTile` |
 | `altBudget` | 2 | lazy overlay of the NON-base mode (only for tiles touched this pass) |
 | Lights | 3 decodes | `/t/lights` per pass, lowest priority |
 
@@ -162,8 +163,14 @@ base. An overlay hole marks the node permanently with `alt = -1` (do not ask aga
 - **Eviction**: nodes not touched this pass age (`stale++`); after `kGrace` = 180 passes they are
   released (`ReleaseTile`, `free(verts)`, index fix by swap-pop).
 - **`LoadProgress()`** = `TargetRdy / TargetTot` over the **geometry target cut** (`CountTargets`,
-  side-effect-free). Until the threshold the client shows the loading screen and holds JSBSim frozen.
-- **Log** (1 Hz, `FBLog::Debug("world","fbworld")`): `leaves`, `drawn`, `pending`, `evicted`, `vramMB`
+  side-effect-free). Until the threshold the client shows the loading screen and holds the simulation frozen.
+- **`Resident()`** = `LoadProgress() == 1` **and** `BuildingField::PendingTiles() == 0` **and** no
+  building DAG in flight. Three streams, because a client that wants a picture of the whole scene —
+  the frame oracle does — cannot ask the geometry cut alone: the OSM building block is a separate
+  stream and its last tile's cluster DAG is a third. `PendingTiles()` is exact rather than "the first
+  miss": `Build()` decodes at most one tile per pass but scans the whole 3×3 block, so what is still
+  out is a count and not a flag.
+- **Log** (1 Hz, `Log::Debug("world","fbworld")`): `leaves`, `drawn`, `pending`, `evicted`, `vramMB`
   (mesh + albedo), `nodes`, `lights`, plus the **thrash probe** `buildsPerMin` / `evictPerMin`. Both go
   to 0 in a converged, stationary loiter; a steady rise is evict/rebuild churn.
 
@@ -176,9 +183,9 @@ tile's mean height + `kLightLiftM` = 6 m lift (so that terrain occludes cleanly)
 `kLightGain` = 3.0 additive HDR gain, so that the cores get through the ACES compressor. Cap
 `kLightBudget` = 65,536 sprites, nearest first.
 
-### 3 `FBTerrainLoader` — the streaming C ABI
+### 3 `TerrainLoader` — the streaming C ABI
 
-`sim/src/world/FBTerrainLoader.h/.cpp`. A flat `extern "C"` interface; `FBWorld` polls it every pass.
+`sim/src/world/TerrainLoader.h/.cpp`. A flat `extern "C"` interface; `World` polls it every pass.
 **Nothing ever blocks the render loop in the browser.**
 
 | Function | Contract |
@@ -202,15 +209,24 @@ tile's mean height + `kLightLiftM` = 6 m lift (so that terrain occludes cleanly)
 |---|---|---|
 | Mechanism | JS-side async cache (EM_JS), **non-blocking** | blocking libcurl behind a small in-memory cache |
 | Status codes | 200 terminal, 204 = hole, everything else = "ask again" | the same retry rule |
-| Reason | a page must not stop its frame loop | `gpu_native` is a CLI with its own control flow; a PNG dump frame may block |
+| Reason | a page must not stop its frame loop | `gpu_walk` is a CLI with its own control flow; a PNG dump frame may block |
 | Retry | ASYNCIFY `emscripten_sleep(50)`, up to 60 attempts | `usleep`, same count |
 
 The rest (`fb_stream_*` itself) is **shared**; only the three byte primitives `fbs_init`/`fbs_size`/
 `fbs_copy` differ.
 
-#### 3.2 The worker pool (WASM only)
+#### 3.2 The worker pool
 
-`N = clamp(navigator.hardwareConcurrency − 2, 1, 6)` independent `fbtileworker` instances. Each is
+Native it is `N = clamp(hardware_concurrency − 2, 1, 6)` `std::thread`s over one queue, each owning its
+own `osmmesh_ctx` (the context carries a DEM LRU and is written by the tile it builds), over a shared
+byte cache that only ever hands out copies. **`FB_TILEWORKERS=n` overrides N** (native only, 1…32) and
+is a measurement switch, not a setting: **the pool width IS the arrival schedule**, and a picture that
+claims to be a function of the scene has to come out the same at one worker and at six. That is what
+the frame oracle's determinism acceptance runs on ([`../clients/clients.md`](../clients/clients.md)) —
+1/2/4/6 workers take the reference scene to residency in 517/437/343/260 passes and produce one md5.
+
+In the browser it is `N = clamp(navigator.hardwareConcurrency − 2, 1, 6)` independent `fbtileworker`
+instances. Each is
 **its own WASM module** with its own `osmmesh` context and its own DEM cache — the ASYNCIFY rule "one
 build at a time" applies **per instance**, so N parallel builds are safe; the small cache redundancy
 between instances is accepted.
@@ -227,16 +243,21 @@ Shared on the render-thread side is one structure (`Module.__fbw`):
 **Priority key**: `prio · 1e18 + dist²` — base tiles (`prio = 0`) always before the lazy overlay
 (`prio = 1`), within a class **nearest first** (tile-space distance to the camera tile, from
 `fb_stream_campos`). The streaming is therefore **camera-prioritised**, and precisely at the place
-where it counts (the assignment to workers), in addition to the sorting of the `WorkList` in `FBWorld`.
+where it counts (the assignment to workers), in addition to the sorting of the `WorkList` in `World`.
 
 #### 3.3 The height oracle: one tile, one implementation, both clients
 
 `fb_stream_ground` sits OUTSIDE the platform split, and that is the point: a ground truth that differs
 between two clients is not a ground truth. It reproduces `/elev` exactly — same zoom (**z13**,
-`FB_DEM_Z`), same tile, same bilinear (`tiles/src/elev.c`, `fb_elev_at`, through fb-tiles' own
-`tilemath.h`) — out of the Terrarium bytes `fb_stream_dem` already streams. The answer is therefore a
-**pure function of position** on both sides of the wire, and the client-side cache is 12 decoded tiles
+`FB_DEM_Z`), same texels, same `fb_dem_bilinear` (`tiles/src/elev.c`, `fb_elev_at`, through fb-tiles'
+own `tilemath.h`) — out of the Terrarium bytes `fb_stream_dem` already streams. The answer is therefore
+a **pure function of position** on both sides of the wire, and the client-side cache is 12 decoded tiles
 LRU.
+
+**The sample sits on the texel centre, and the query may cross tiles.** `fb_texel_index(frac, n)` =
+`frac·n − 0.5` is the ONE place that expresses the registration; the mesh builder reads the same line.
+Within half a texel of a tile border the four bilinear corners lie in up to four tiles, so the gather
+crosses them and a neighbour that is not resident yet falls back to the query tile's own edge texel.
 
 **Why the tile and not the point.** `/elev` is one round trip per position, and in the browser that trip
 lands AFTER the tick that asked — so a per-point cache can never answer the question the simulation is
@@ -244,11 +265,11 @@ asking. The same argument `tools/bake_dem.py` makes one level up ("why the tile 
 `/elev` requests"). One z13 tile is **4.8 km** of ground, twenty seconds of flight: the transport
 happens two hundred times more rarely than the question. Native asks blocking, the browser asks
 asynchronously and returns the −1e9 sentinel until the tile is resident — the caller
-(`units/FBSimUnit::UpdateGroundAsl`) then keeps its last good value.
+(`units/SimUnit::UpdateGroundAsl`) then keeps its last good value.
 
 **Clamping to sea level (both platforms).** A REAL sample is clamped to ≥ 0: open bathymetry is
 negative (ETOPO seabed), but the water *surface* — and with it the aircraft's ground reference and the
-JSBSim ground — is at 0, not on the sea floor. The −1e9 "no sample yet" sentinel is left untouched by
+physics ground — is at 0, not on the sea floor. The −1e9 "no sample yet" sentinel is left untouched by
 this, otherwise callers could no longer distinguish whether a sample has landed.
 
 #### 3.4 `[tileperf]` — the cold-start instrumentation
@@ -258,9 +279,9 @@ pipeline: DEM fetch+decode (`osmmesh_fetch_tile`), mesh (`w3_chunk_build_ecef`),
 decode (stbi), mip pyramid (`fb_build_pyramid`). Summary every 32 pyramids and at close; the last line
 before convergence is the total cold-start time. Costs nothing when off (a cached env test).
 
-### 4 `FBTilesElevation` — the elevation provider on `fb_stream_ground`
+### 4 `TilesElevation` — the elevation provider on `fb_stream_ground`
 
-`sim/src/world/FBTilesElevation.h`. A **thin pass-through**: `GroundElevM(lat, lon)` calls
+`sim/src/world/TilesElevation.h`. A **thin pass-through**: `GroundElevM(lat, lon)` calls
 `fb_stream_ground(lat, lon)`, nothing else. The constructor only does `fb_stream_open(base, 0, 0, 8)` —
 `fb_stream_ground` reads the base URL set by the open and is independent of the (lat, lon) passed
 there; that only seeds the render quadtree.
@@ -271,20 +292,17 @@ radar-map patch therefore touches a 4×4 field instead of ~100 z13 tiles.
 
 **It lies in `world/`, not in `core/` — and is therefore NOT part of the core lib.** Reason: it hangs
 on the tile-streaming C ABI, which belongs to `render`/`world` and which the core library deliberately
-excludes. The core side sees only the interface `core/FBElevationProvider.h`; which implementation
+excludes. The core side sees only the interface `core/ElevationProvider.h`; which implementation
 stands behind it is the client's decision:
 
-| Provider | File | Client / switch |
-|---|---|---|
-| `FBConstantElevation` | `core/` | the primitive foundation |
-| `FBRunwayPlateauElevation` | `core/` | `fb-gym --elev const` |
-| `FBBakedDemElevation` | `core/` | `fb-gym --elev baked` (the mod's own 90 m raster) |
-| **`FBTilesElevation`** | **`world/`** | `fb-gym --elev tiles`, `gpu_native`, WASM — the only LIVE DEM source |
+**No provider ships.** All four — `ConstantElevation`, `RunwayPlateauElevation`, `BakedDemElevation`
+and `world/TilesElevation` — were deleted on 2026-08-07 with the headless client that selected between
+them. Both surviving clients call `fb_stream_ground` directly. `core/ElevationProvider.h` is a hook with
+no derived class ([`../core.md`](../core.md) `## Gaps` 4).
 
-The benefit of this seam: **one** ground truth for everything (mission ground spawn, AGL/radar altitude,
-crash detection) — and the same DEM number the renderer draws also goes into JSBSim as
-`position/terrain-elevation-asl-ft` (the "crash contract": the gear collides against the terrain one
-sees).
+The benefit of this seam: **one** ground truth for everything (ground spawn, AGL, ground-contact
+detection) — and the same DEM number the renderer draws also goes into the physics as
+its ground-elevation input (the **contact contract**: a body collides against the terrain one sees).
 
 ### 5 The terrain library (`sim/src/world/terrain/`)
 
@@ -353,6 +371,13 @@ Grid orientation: row 0 = **north**, column 0 = **west** (PNG layout and slippy 
 `build_mesh` places vertex `(r,c)` at `(c·dx, r·dy)`; because `map->scale_n` is already negative (ENU N
 grows northwards, `r` southwards), the positions come out ENU-correct without any further sign change.
 
+**A posting sits on its tile fraction, a texel sample half a texel inside it**, so the height is
+interpolated at `fb_texel_index(frac, cols)` and not indexed. At `frac` 0 and 1 the in-tile clamp is
+exact rather than approximate: the stitch below has already replaced the edge row/column with the mean
+of the two texels straddling the border, which IS the field's value on the border. Cropping a sub-tile
+out of a parent (only above `provider_terrain_max_zoom`) therefore also copies exactly the sub-tile's
+own texels — an overlap column would put a sample half a texel outside the tile it belongs to.
+
 **Triangle winding — proved algebraically, not by trial.** If a test fails here: check the mathematics
 first, do not flip the sign. With `e = origin_e + lx·scale_e` (scale_e > 0) and
 `n = origin_n + ly·scale_n` (scale_n < 0): `P(r+1,c)` lies SOUTH of `P(r,c)`, `P(r,c+1)` EAST of it.
@@ -386,7 +411,7 @@ the dominant cold-start cost.
 Missing tiles are **not an error**: `osmmesh_fetch_tile` returns `OSMMESH_OK` with `terrain == NULL`.
 Absence is not treated as a fault at this level; only decode errors and OOM give negative codes.
 
-#### 5.2 The end stage: `w3_chunk_build_ecef` (`render/FBChunkMesh.h`)
+#### 5.2 The end stage: `w3_chunk_build_ecef` (`render/ChunkMesh.h`)
 
 Formally it lies in `render/` but belongs in this chain. It takes **only the height field** from the ENU
 mesh (whose edges are already stitched) and reprojects **every** node through the exact Mercator
@@ -405,12 +430,12 @@ tolerable gap. The mesh must be a **regular grid**; a triangle soup is rejected 
 
 ### 6 The tile worker
 
-`sim/src/clients/FBTileWorkerMain.cpp` (C++/WASM) + `sim/web/fbtw-worker.js` (JS shim) +
+`sim/src/clients/TileWorkerMain.cpp` (C++/WASM) + `sim/web/fbtw-worker.js` (JS shim) +
 `sim/web/fbtileworker.js/.wasm` (artefact).
 
 **Why its own WASM artefact and not a pthread?** The byte cache is a **main-thread JS map**. A pthread
 would proxy every fetch back into exactly the thread one is trying to relieve. A Web Worker owns its
-fetch itself. That is why the worker is its own module — **without WebGPU, without JSBSim** — with its
+fetch itself. That is why the worker is its own module — **without WebGPU, without the simulation** — with its
 own small export set.
 
 | Aspect | Detail |
@@ -446,7 +471,7 @@ delivers, under which endpoints, at which resolution.
 | `/t/lights/z/x/y` | binary night-light list | 200 (even empty) / 204 (no vector datum) | `fb_stream_lights` |
 | `/t/stars/{band}/0/0` | HYG star band, 6 B/star | 200 / 404 | `fb_fetch_stars` (4 bands, concatenated) |
 | `/elev?lat=&lon=[&block=1]` | text: one number (m ASL) + newline | 200 / **503 "no dem"** (cold) | nothing in this tree since §3.3; the server's own point-query API |
-| `/wx` | global wind/cloud package, binary format `FBWX` | 200 / **503** (no GFS run reachable) | `FBWeatherProvider` — see [`weather.md`](weather.md) |
+| `/wx` | global wind/cloud package, binary format `FBWX` | 200 / **503** (no GFS run reachable) | `WeatherProvider` — see [`weather.md`](weather.md) |
 | `/health` | text statistics line | 200 | operations |
 
 **The status-code semantics are the actual contract:**
@@ -455,7 +480,7 @@ delivers, under which endpoints, at which resolution.
 |---|---|
 | 200 | terminal — bytes present |
 | 202 | accepted, fetch running — **ask again later** |
-| 204 | a **real hole**: there is nothing here and there will not be → do not retry (`fb_stream_pyramid` returns −1, `FBWorld` remembers `alt = -1`) |
+| 204 | a **real hole**: there is nothing here and there will not be → do not retry (`fb_stream_pyramid` returns −1, `World` remembers `alt = -1`) |
 | 404 / 5xx | transient → retry |
 | 503 on `/elev` | DEM still cold; `?block=1` waits instead, up to 3 s |
 
@@ -506,22 +531,22 @@ Nothing is preloaded. The consequences, in the order in which they take effect:
 2. **The target cut is pure geometry** (`WantSplit`) and therefore known immediately: a teleport
    requests its end leaves directly instead of building itself up through an LOD ladder.
 3. **The loading screen holds the sim** until the target cut is 95 % resident. The first flown frame is
-   therefore already fully resolved — and the ground DEM under the spawn is loaded before JSBSim
+   therefore already fully resolved — and the ground DEM under the spawn is loaded before the physics
    integrates for the first time.
 4. **Missing data is a defined state, not an error**: 204 = hole (photo falls back to OSM), a missing
    neighbour tile = a gap the skirts cover, cold `/elev` = 503 and the start path asks with `?block=1`.
 
-With that a `spawn` entry in a `.fbm` file is valid anywhere on earth, without any area having to be
+With that a declared spawn is valid anywhere on earth, without any area having to be
 defined anywhere.
 
 ## State
 
 | Item | State |
 |---|---|
-| `FBWorld` quadtree | built; distance-based LOD, corrected coverage semantics, 2-phase commit, two modes |
-| `FBTerrainLoader` | built; one poll ABI, two byte back-ends (EM_JS async / libcurl blocking) |
+| `World` quadtree | built; distance-based LOD, corrected coverage semantics, 2-phase commit, two modes |
+| `TerrainLoader` | built; one poll ABI, two byte back-ends (EM_JS async / libcurl blocking) |
 | Worker pool | built; N = clamp(hardwareConcurrency − 2, 1, 6), own WASM artefact, transferables |
-| `FBTilesElevation` | built; thin pass-through, the only live DEM source |
+| `TilesElevation` | built; thin pass-through, the only live DEM source |
 | The height oracle | built; §3.3, one tile-sampling implementation for wasm and native. `payerne-full --elev tiles` flies to **exit 0 ("stopped on the runway", t = 734.1 s)**; against the ≈ 33 m point cache it replaced it was exit 2, hard landing at t = 719.0 s |
 | Terrain library | built; ENU model with documented bounds, terrarium decode, stitching, exact ECEF end stage |
 | Night lights | built; EVS night only, three LUTs, 65,536-sprite cap |
@@ -529,16 +554,91 @@ defined anywhere.
 
 ## Gaps
 
+**The oracle answers a different question than the renderer draws — the registration half is closed, the
+decimation half is not.** The DEM is sampled at the texel CENTRE everywhere since 2026-08-07: one
+expression, `fb_texel_index(frac, n) = frac·n − 0.5` in `tiles/src/tilemath.h`, read by the mesh
+(`world/terrain/terrain.cpp`), by the client oracle (`world/TerrainLoader.cpp`) and by the server
+(`tiles/src/elev.c`). Half a texel from a tile border the four corners lie in different tiles, so
+`fb_dem_bilinear` crosses them; an unresident neighbour falls back to the old in-tile clamp.
+
+**Why the texel centre, from the producer and not from a preference.** tilezen/joerd writes a Terrarium
+tile through a GDAL geotransform of the tile's own bbox with `res = span/N` (`joerd/mercator.py`), and a
+GDAL geotransform anchors the OUTER edge of the top-left pixel — so texel *i* covers `[i/N,(i+1)/N]` and
+its sample sits at `(i+0.5)/N`. Two independent measurements agree: across a tile seam, the last column
+of tile *x* and the first of *x+1* differ by |Δ| 0.955 m against 0.982 m for two adjacent columns INSIDE
+a tile (row-wise 1.010 vs 1.000) — one texel apart, not the same sample, so the tiles do not overlap. And
+over 200 points around the reference, the disagreement between zoom levels is
+
+| sampling | RMS(z13−z15) | RMS(z14−z15) | ratio |
+|---|---|---|---|
+| `frac·n` (until 2026-08-07) | 0.538 m | 0.193 m | 2.79 |
+| `frac·(n−1)` (the mesh, until 2026-08-07) | 0.316 m | 0.201 m | 1.57 |
+| **`frac·n − 0.5`** | **0.056 m** | **0.058 m** | **0.96** |
+
+A registration error is a fixed fraction of a texel, so it halves per zoom level and shows a ratio near 3
+(`4e−e` against `2e−e`); the texel centre measures 0.96, i.e. no zoom-dependent component at all. The
+0.056 m that stays is the difference between three rasters resampled from the same source, and it is the
+floor.
+
+**What that bought, measured at the reference scene** (nadir depth readback, `--pitch -90`, centre pixel):
+
+| | before | after |
+|---|---|---|
+| drawn ground minus camera ground, eye 1.70 / 0.40 | 0.2670 / 0.2669 m | **0.0382 / 0.0382 m** |
+| the same on a 33 % slope (500 m S, 489 m E of the scene) | −1.339 m | **−0.824 m**, and the ground the body stands on moves 143.517 → 142.668 m |
+| near-plane hole onset (`kNearM` 0.05) | eye < 0.3015 m | eye < 0.088 m (hole at 0.080, none at 0.095) |
+| client `fb_stream_ground` vs server `/elev` vs an independent sampler | 100.596 / 100.60 / — | 100.909 / 100.91 / 100.9092, and ≤ 0.004 m over four points, two of them inside half a texel of a z13 tile border |
+
+**What is left is NOT a zoom problem, and that is measured.** The drawn leaf is **z14** (`kMaxZ`, measured
+via `FB_ZOOM_HIST=1`: `z14=28` at the near cut — the earlier note that the mesh draws z15 was wrong), and
+`ChunkBuildEcef` decimates its 256² grid to `Grid+1 = 33²` postings, i.e. one posting every **46.9 m** at
+this latitude. The oracle interpolates the DEM, the renderer draws that lattice, and the two are not the
+same surface. Over 120 points around the reference, oracle minus drawn surface:
+
+| oracle | bias | RMS | max |
+|---|---|---|---|
+| z13, `frac·n` (before) | +0.430 m | 0.974 m | 4.03 m |
+| z13, texel centre (today) | +0.001 m | 0.383 m | 1.89 m |
+| z14, texel centre | +0.006 m | 0.404 m | 1.84 m |
+| z15, texel centre | +0.008 m | 0.400 m | 1.97 m |
+
+**Pulling the oracle to the drawn zoom is therefore the wrong lever and is not to be proposed again:** it
+does not reduce the disagreement, it slightly increases it (0.383 → 0.404 RMS), because the residual is
+the 46.9 m posting lattice and not the raster. The lever that closes it is to make the oracle EVALUATE
+the drawn surface — the same posting indices `i·(C−1)/G`, the same NW→SE triangle split — which is exact
+by construction wherever the drawn leaf is `kMaxZ`, and elsewhere off by the LOD error, which is bounded
+in SCREEN space by `kEdgeTau` and therefore sub-pixel from the camera. The price is a coupling: the
+oracle would have to know `kMaxZ` and `Grid`, which today are `World`'s and the client's, and a free C
+function has no way to ask. That is a design decision, not a patch, and it is open.
+
+| # | What still stands | Size |
+|---|---|---|
+| 1 | The oracle interpolates the DEM, the renderer draws a 46.9 m posting lattice: every body on `fb_stream_ground` floats or sinks by the difference | RMS **0.383 m**, max **1.89 m** around the reference; 0.038 m at the scene point, 0.824 m on the 33 % slope |
+| 2 | A camera below eye 0.088 m still falls behind the 0.05 m near plane and **paints a hole** | confined to eye < 0.088 m (was < 0.3015 m) |
+| 3 | Through that hole the cloud sheet and the sky LUT are evaluated for DOWNWARD rays and return a two-value per-pixel dither — 48.3 % exactly (195,192,176), 9.9 % exactly (82,76,69). Not a defensible fallback even if unreachable | — |
+| 4 | Within half a texel of a tile border a NOT-YET-RESIDENT neighbour falls back to the in-tile clamp, so client and server can disagree by up to half a texel × gradient while streaming | 0.39 % of the area at z13; steady state exact |
+
+**What it cost step 2**, five yaws (0/90/180/270/280), same binary pair, ground pixels = rows ≥ 380:
+ground hue max Δ **0.873°**, saturation **0.0088**, green-dominant fraction **1.511 pp**, tonal spread
+(p90/p10) **0.266 EV**. World-fixedness is no longer resolvable by the previous method at this round's
+grass density (1.39 M blades): a lateral 0.0985 m step gives band-passed correlations of only 0.19–0.41,
+and within that both builds show the same monotone parallax (+27/+23/+21/+17/+11/+7 px over 3.0–15.1 m
+after, +27/+26/+20/+14/+9 px before). Nothing here is a regression of the fix; the picture moved because
+the terrain moved half a texel and the camera 0.313 m.
+
+**Rejected as fraud, with its measurement:** lowering `kNearM` from 0.05 to 0.01 removes the band and is
+provably image-neutral (`zn` appears only in the projection's z row, x/y/w untouched, depth ordering
+monotone). It would also leave a declared 0.30 m close-up silently rendered from 0.034 m.
+
 | Gap | Detail |
 |---|---|
-| `FBUnitsStage` is NoOp | `FBWorld` already **borrows** the unit registry for the drawing side, but there is no consumer. Other units, weapons and ground targets are invisible in the picture — see [`../render/units-visual.md`](../render/units-visual.md) |
-| Terrain masking for sensors is missing | the `const FBWorld*` is passed down into the module `Run()` so that a sensor CAN check lines of sight against terrain — today none does. `sensors/FBRadarSystem` documents this explicitly as a deliberate omission (a DEM raymarch per contact per look). The hook exists, the computation does not. |
-| `fb_stream_ground` returns a point, not a field | `FBElevationProvider` already declares `GroundElevPatch` (an area query) for future terrain sampling; `FBTilesElevation` implements only `GroundElevM`. Terrain-following flight, radar-altitude look-ahead and CFIT prediction therefore have no source. |
-| The static load path is bring-up legacy | `fb_terrain_load`, `FB_TERRAIN_MAX_TILES` = 64. Both clients run streaming; the static path still exists (including its own code half in `FBTilesStage`) and is never regularly exercised. |
+| `UnitsStage` draws nothing | `World` already **borrows** the entity registry for the drawing side, but nothing populates it and no mesh ships |
+| `fb_stream_ground` returns a point, not a field | `ElevationProvider` already declares `GroundElevPatch` (an area query) for future terrain sampling; `TilesElevation` implements only `GroundElevM`. Terrain-following flight, radar-altitude look-ahead and CFIT prediction therefore have no source. |
+| The static load path is bring-up legacy | `fb_terrain_load`, `FB_TERRAIN_MAX_TILES` = 64. Both clients run streaming; the static path still exists (including its own code half in `TilesStage`) and is never regularly exercised. |
 | **The DEM cache is per worker instance** *(parked in the roadmap until this split; now homed here)* | at N = 6 workers the same neighbour tile is fetched and decoded up to six times. Noted in the code as "minor cross-instance cache redundancy accepted" — not measured how expensive it really is at cold start. |
 | Eviction is purely time-based | `kGrace` = 180 passes, not memory-based: there is no VRAM or node-pressure trigger apart from the hard cap `kNodeCeil` = 6000, which on being reached simply **refuses every further split**. What happens when a very long flight reaches that cap is undocumented and apparently unmeasured. |
 | The night-light cap is a set number | 65,536 sprites ("team-lead cap"), not derived from a measurement. Likewise the class LUTs for colour/radius/brightness — explicitly "cosmetic LUT". |
-| **Two bake modes, one single visible switch** *(parked in the roadmap until this split; now homed here)* | SVS (OSM) and EVS (photo) have different lighting semantics ([`../render/renderer.md`](../render/renderer.md)): SVS pins day = 1 and switches stars/lights/clouds off. The switch today is the TAB key in the browser; `gpu_native` has `--albedo osm\|photo`. There is no mission-data layer for it — a `.fbm` cannot declare the picture mode. |
+| **Two bake modes, one single visible switch** *(parked in the roadmap until this split; now homed here)* | SVS (OSM) and EVS (photo) have different lighting semantics ([`../render/renderer.md`](../render/renderer.md)): SVS pins day = 1 and switches stars/lights/clouds off. The switch today is the TAB key in the browser. There is no declaration layer for it — **a scenario cannot declare the picture mode at all.** |
 | **TLS is not wired in the tile server** *(parked in the roadmap until this split; now homed here)* | `tiles/nginx.conf`, explicitly noted as a documented gap: `FB_DOMAIN` exists as an env hook, but there is no `listen 443 ssl;` block and no ACME. For central hosting that is a piece of work of its own, not a flag. |
 
 ## Knowledge

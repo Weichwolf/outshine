@@ -1,0 +1,17 @@
+{
+  "bark_r":0.37,"bark_g":0.32,"bark_b":0.25,"bark_dark":0.52,"bark_freq":5.0,"bark_ridge":0.55,
+  "name": "trauerweide", "botanical": "Salix x sepulcralis", "common": "Trauerweide / Weeping willow",
+  "habit": "kurzer Stamm, breite Krone, lange ueberhaengende bis bodenlange Zweige",
+  "height_m": 18, "spread_m": 18,
+  "seed": 16, "trunk_sides": 10, "base_radius": 0.085, "step_len": 0.16,
+  "trunk_steps": 16, "bare_steps": 4, "taper": 0.95, "min_radius": 0.004, "twig_radius": 0.008,
+  "branch_chance": 0.85, "max_order": 3, "terminal_fork": 1,
+  "branch_angle": 55, "branch_angle_var": 16, "order_len": 0.72, "order_radius": 0.5,
+  "wander": 11, "leader_bias": 0.06, "branch_up_bias": -0.28, "conical": 0.0,
+  "leaf_kind": "broad", "leaf_length": 1.0, "leaf_width": 0.10, "leaf_widest": 0.42,
+  "leaf_base_fill": 0.0, "leaf_tip": 0.55, "leaf_serration": 0.12, "leaf_fold": 0.05, "leaf_curve": 0.20,
+  "foliage_factor": 13.0,
+  "wind_amp": 0.030, "wind_freq": 1.3,
+  "leaf_card_w": 0.05, "leaf_card_h": 0.19, "leaf_cards": 4, "leaf_droop": 1,
+  "leaf_r": 0.85, "leaf_g": 1.0, "leaf_b": 0.78
+}

@@ -1,41 +1,48 @@
-# FlightBox — knowledge base
+# Outshine — knowledge base
 
-What FlightBox is, what it must become, and what is actually built. This collection is the
+What Outshine is, what it must become, and what is actually built. This collection is the
 **authority**; `CLAUDE.md` in the repository root is a session-start card and points here. If the two
 disagree, this wins and `CLAUDE.md` is to be corrected.
 
-Loaded task-wise through the skill **`flightbox`** (`.claude/skills/flightbox/SKILL.md`) — the one
-skill for the whole collection, including the two module reference bases.
+Loaded task-wise through the skill **`outshine`** (`.claude/skills/outshine/SKILL.md`).
 
-State: restructured to the spec-driven form on 2026-07-27; **`doc/` is a 1:1 mirror of `sim/src/`**
-since the Phase-3 mirror rebuild on 2026-07-28.
+> **Outshine is an OSM-based GTA 5, and the epoch parameter drives the look from Witcher 3 to
+> Fallout 4.**
+
+## Read this first — the state of the tree, 2026-08-07
+
+Two hard cuts happened. What they removed is not "deprecated", it is **gone**:
+
+| Gone | Consequence for this collection |
+|---|---|
+| JSBSim, the F-16, the MiG-29, their reference bases and modules | no file here may cite an aircraft model, a JSBSim property or an envelope anchor |
+| the four NovaLogic titles | every mod example is hypothetical until one is written |
+| the four line formats `.fbm` · `.fbc` · `.fba` · `.fbh` | **declarations are JSON.** A hand-written parser for a bespoke line format is not written again |
+| the combat tooling, the mission/campaign gyms, the ten campaign specs | no measured combat number in this tree has a subject any more |
+| **the whole simulation layer** — `sensors/ weapons/ pilot/ modules/ missions/ systems/`, the avionics group in `render/`, `core-lib`, `fb-gym`, `verify-guards`, `verify-tests`, `fb_test.py` and every `test-*` target | there is no runner, no judge, no health register, no sensor and no headless client. **`sim/test/` does not exist** |
+
+**`sim/src/` is exactly five directories: `clients` · `core` · `render` · `units` · `world`.**
+Both clients build and `verify-layers` is green.
+
+**205 files and ~32 000 lines left `sim/src/`, and `doc/` followed.** Retired on 2026-08-07 because
+their whole subject was deleted: `testing.md`, `client-server.md`, `persistent-world.md`,
+`actor-scale.md`, `player-layer.md`, `assets.md`. Git holds them; nothing here points at them.
 
 ## The mirror
 
 The directory layout is not a taxonomy of its own — it is `sim/src/`, one file or one directory per
-source directory. If you know where the code is, you know where its file is.
+source **directory** (not per file).
 
 | `sim/src/` | `doc/` |
 |---|---|
 | `core/` | [core.md](core.md) |
-| `fdm/` | [fdm.md](fdm.md) |
-| `systems/` | [systems.md](systems.md) |
-| `sensors/` | [sensors.md](sensors.md) |
-| `weapons/` | [weapons.md](weapons.md) |
-| `pilot/` | [pilot.md](pilot.md) |
-| *(missions, not a source dir)* | [duels.md](duels.md) — the asymmetric duel campaign |
-| *(cross-cutting, not a source dir)* | [formation.md](formation.md) — the flight as a fighting unit |
-| *(cross-cutting, not a source dir)* | [air-defence-network.md](air-defence-network.md) — the net above the single ground position |
-| *(cross-cutting, not a source dir)* | [air-to-ground.md](air-to-ground.md) — the air-to-ground half: beating that defence down |
-| *(cross-cutting, not a source dir)* | [doctrine-evolution.md](doctrine-evolution.md) — what the tournament optimises, may change, and must not measure on |
-| *(cross-cutting, not a source dir)* | [player-layer.md](player-layer.md) — FlightBox as a playable game: **specified, not built, deliberately last** |
-| *(cross-cutting, not a source dir)* | [persistent-world.md](persistent-world.md) — world snapshots and the mission as a window into them: **ideas and constraints, not a design** |
-| `missions/` + `units/` | [missions/](missions/INDEX.md) |
-| `modules/` | [modules/](modules/f16/INDEX.md) |
-| `render/` | [render/](render/renderer.md) |
-| `world/` | [world/](world/terrain.md) |
-| `clients/` | [clients/](clients/clients.md) |
-| *(no source dir)* | the meta files at the root: this index, `vision.md`, `roadmap.md`, `journal.md`, `conventions.md`, `architecture.md`, `build-and-ops.md` |
+| `render/`, `render/stages/` | [render/](render/renderer.md) — nine files plus `render/stages/`, one document per pass |
+| `world/`, `world/terrain/` | [world/](world/terrain.md) — two files |
+| `clients/` | [clients/clients.md](clients/clients.md) |
+| `units/` | **no topic file today.** Only `Unit.h` + `UnitRegistry.h` survive, kept alive by `world/World.cpp`'s effect path. A named hole, not an oversight |
+| `test/` | **does not exist, and no document describes what it should be.** `verify-trees` names it in 5 of its 9 orphans, and that is the gate working |
+| *(no source dir yet)* | [body-format.md](body-format.md), [mods.md](mods.md) |
+| *(meta)* | this index, [goal.md](goal.md), [vision.md](vision.md), [roadmap.md](roadmap.md), [journal.md](journal.md), [conventions.md](conventions.md), [architecture.md](architecture.md), [build-and-ops.md](build-and-ops.md) |
 
 ## How to read a file
 
@@ -44,123 +51,94 @@ Every topic file carries the same four sections:
 | Section | What it is | Use it when |
 |---|---|---|
 | `## Spec` | the contract — what it must do, acceptance criteria, measurement anchors. Changes by decision, not by building. | you are about to change behaviour: change this first |
-| `## State` | what is built, with commit and measurement. Honest, including "nothing". | you need to know what exists today |
+| `## State` | what is built, with commit and measurement. Honest, including "nothing built" | you need to know what exists today |
 | `## Gaps` | Spec − State, ordered by value, **including rejected approaches with their measurements** | you are looking for work, or about to retry something |
 | `## Knowledge` | derivations, formulas, measured constants | you need the number and where it came from |
 
 The working rule that binds a round to this shape is in [`conventions.md`](conventions.md).
 
-Seven files are deliberately outside the mirror because their subject is: [`duels.md`](duels.md) (a
-PAIRING), [`formation.md`](formation.md) (a FLIGHT — it cuts through core, units, sensors, pilot and
-missions at once, and belongs whole in one place rather than in fifths),
-[`air-defence-network.md`](air-defence-network.md) (a NET — the same cut, on the ground side, and the
-sequel to `modules/ground/` rather than a part of it),
-[`air-to-ground.md`](air-to-ground.md) (an ENGAGEMENT of the one by the other — a weapon family, a
-sensor function, a verdict kind and a pilot cue, which live in five layers and belong in one argument)
-[`doctrine-evolution.md`](doctrine-evolution.md) (a MEASUREMENT — a fitness sits on `pilot/`'s
-genome, `core/`'s judge, `missions/`' arena text and `tools/`, which is not in the mirror at all) and
-[`player-layer.md`](player-layer.md) (a VIEW — it sits on the judge's output, both mission formats, the
-browser and a UI half that has no source directory yet) and
-[`persistent-world.md`](persistent-world.md) (a WORLD ABOVE THE RUN — a snapshot artefact, the cut into
-a mission, the class boundary and an offline generator, which touch `core/`, `units/`, `sensors/`,
-`missions/` and `tools/` at once).
+The **meta files** (this index, `goal.md`, `vision.md`, `roadmap.md`, `journal.md`, `conventions.md`)
+carry no Spec/State/Gaps — they *are* the direction, the order, the history and the rules.
 
-Exceptions, all deliberate: the **meta files** (this index, `vision.md`, `roadmap.md`, `journal.md`,
-`conventions.md`) carry no Spec/State/Gaps — they *are* the direction, the order, the history and the
-rules. The same holds for the `INDEX.md`/`PROGRESS.md` of the module reference bases, and for
-`render/clouds-legacy/`, which is a closed archive of prior studies.
-
-**Language:** English throughout. The last German bodies (`mission-format.md`, `world-and-terrain.md`)
-were translated in the Phase-3 split; no German prose remains in `doc/`.
+**Language:** English throughout. `journal.md` is the exception by decision: it is the chronicle, it is
+German, and it may carry names of things that no longer exist. **It is never rewritten.**
 
 ## Start here
 
 | File | Content |
 |---|---|
-| [vision.md](vision.md) | what FlightBox is *for*: tactical air combat on real physics, the staggered scale, the two mission classes, and why anti-cheat is a game decision |
-| [roadmap.md](roadmap.md) | the stages R1–R10, thin — each one points at the file whose Spec it must satisfy |
+| **[goal.md](goal.md)** | **the standing goal and it is binding until revoked** — one reference scene, the order of work, the rules, the measurement discipline, who judges what |
+| [vision.md](vision.md) | what Outshine is *for*: an engine cut for a machine, the three epoch mods at one place as its acceptance, believability over fidelity, the tiers A/AA/AAA |
+| [roadmap.md](roadmap.md) | the layers in order — each one points at the file whose Spec it must satisfy |
 | [conventions.md](conventions.md) | naming, structure, the no-printf rule, **every number carries its provenance**, and the spec-first working rule |
-| [architecture.md](architecture.md) | process model, core-lib plus three clients, directory map, the layering pattern, multi-unit in brief |
-| [journal.md](journal.md) | the chronicle: one entry per finished round, plus the defect classes the control loop uncovered |
-| [build-and-ops.md](build-and-ops.md) | make targets, the **gates**, measurement discipline, the mission control loop, host specifics |
+| [architecture.md](architecture.md) | process model, the two clients, directory map, the layering pattern |
+| [journal.md](journal.md) | the chronicle: one entry per finished round |
+| [build-and-ops.md](build-and-ops.md) | make targets, the **gates**, the measurement tools, measurement discipline, host specifics |
 
-## The simulator
-
-| File | Content |
-|---|---|
-| [core.md](core.md) | the avionics block bus with three-state validity, the command bus with acknowledgement and rejection catalogue, `FBLog`/`FBTelemetry`, the **two judges**, mission-data types, objectives, health register and damage model, ballistics, elevation hook, geodesy |
-| [fdm.md](fdm.md) | the JSBSim adapter: the one-TU seam, instance capability, **IC lockdown**, ownership, carriage and damage channels through model-owned APIs, the full load sequence |
-| [systems.md](systems.md) | the generic slots: guidance (incl. the **full path-following derivation**), FBW inner loop, air data, radar altimeter as the reference case for `Invalid`, warnings, navigation, display slot, airframe controls |
-| [sensors.md](sensors.md) | datalink, radar, RWR, countermeasures — and **the perception boundary**: who may see the registry, why a contact is anonymous, why IFF is two-valued |
-| [weapons.md](weapons.md) | weapon-as-unit, SMS and gun, shared ballistics, the **three resolution boundaries**, the damage model from geometry to system consequence, and the coupling "failure → block invalid" |
-| [pilot.md](pilot.md) | phase machine, attack, BFM with its own control law, the **datum** as the pilot's memory, BVR intercept, debriefing channels, variants and tournament, the mission control loop |
-| [duels.md](duels.md) | the **asymmetric measurement campaign** — `missions/duel-*.fbm`, the geometry × outcome table, the four asymmetries with their numbers, the EMCON timeline, the mixed tournament |
-| [formation.md](formation.md) | the **flight**: roles as mission data, the wingman's station on a moving point, target sorting from the shared picture against the briefed contract, the cover rule and why it is free for one weapon and unavailable for the other |
-| [air-defence-network.md](air-defence-network.md) | the **connected air defence** (`C22`/`C23`/`C24`, **BUILT** — that file's §State; three of its measured runs are pre-fix and marked): the cue that aims a fire unit's antenna and can never create a track, the belt declared as zones and read out of the verdict, weapons control and sector responsibility, what a defence becomes when its node is killed or jammed, and the bounded comms-jamming model. **The net adds no seventh registry reader** |
-| [air-to-ground.md](air-to-ground.md) | the **air-to-ground half** — `C8` (built, minus the rocket pod), `C26` and `C27` closed, `C25` still open: the anti-radiation weapon whose seeker IS the warning receiver and whose memory is a RATE and never a point, so a crew that goes dark still escapes — MEASURED at 85.0 % / 88.1 % of the flight against a predicted 61 % / 76 %, with the deviation's three causes named; five more stores each with the one quantity that decides it; **suppressed against destroyed** as a mechanism plus one objective kind; and the pre-existing defect that made a bunker and a falling bomb radiate a fighter radar |
-| [doctrine-evolution.md](doctrine-evolution.md) | **what the evolutionary tournament optimises, and the proof that today it optimises the wrong thing** (spec only): the present fitness ranks the doctrine that abandons the sort ABOVE the one that keeps it, and lets craft overturn outcome by 1.5 points — replaced by a **lexicographic** order (judge's verdict → objectives met → craft, which orders and never decides); the **five doctrine genes** (formation, cover, sort, energy rule, EMCON timing) with the `Free`/`Scale` split that makes an airframe number inexpressible rather than merely forbidden; the **non-dominated archive** against co-evolutionary circling with its exact cyclic-triple statistic; and the **saturation criterion** an arena must pass before any of it measures anything — today 18 of 19 runs return one number |
-| [player-layer.md](player-layer.md) | **FlightBox as a playable game — SPECIFIED, NOT BUILT, deliberately last** (roadmap R9). The player layer is a **VIEW on a run**, never a second truth: it reads, omits and summarises, and may add nothing the run did not contain. **No score** — completion is a RULE over the judge's own `mission OBJECTIVE` vector plus the briefing's primary marks, so a measuring rig whose passing value is a TIMEOUT carries a playable task without one byte changing. Primary/secondary is an ANNOTATION outside `.fbm`/`.fbc`, which is what keeps the game grade out of the fitness by construction. Difficulty is declared with a reference run, never computed; the unlock graph is the `.fbc` order; a retry re-enters at step *k−1*'s state file. The **two-part view**: an OSM map that draws only what the own faction has detected — with age, `held`/`valid` uncertainty and anonymous contacts — and TAB into a unit is an INFORMATION change, not a camera move. Commanding is a **proposal on the existing command bus**, so the player stands on the AI's side of the anti-cheat boundary and nothing has to be relaxed for him |
-| [campaigns/](../mods/f16/mods/f16/doc/campaigns/INDEX.md) | the **ten scenario specifications** — five flown by the F-16, five by the MiG-29, ten missions each, every anchor cited and tiered; plus the aggregated cast list, the capability gaps ordered by blocking degree, the identification task as an anti-cheat test and Bekaa as a measurable yardstick. **ALL TEN BUILT AND FLOWN** (2026-07-28…30 — one hundred `.fbm` and ten `.fbc`, every one with both determinism criteria measured, and all nine earlier campaigns re-verified on 2026-07-30 after the pilot's branch re-order: 81 campaign runs, 90 standalone replays, 0 divergences). W1 is the one campaign put through the saturation gate, which **refuses** its arena — the air half of a result above 2v2 is a fixed point in this tree; W2 is the last and the only one whose central result is a subtraction — **874.4 km of combat radius against the 982.9 km its raid needed** |
-
-## Missions — `missions/`
-
-The `.fbm` format and the runtime that consumes it. Entry point: [missions/INDEX.md](missions/INDEX.md)
-(the leading rules and the exit codes).
+## The engine
 
 | File | Content |
 |---|---|
-| [missions/syntax.md](missions/syntax.md) | line syntax, the two scopes, the keyword table, parse errors versus runtime FAIL, the data model, tick order and snapshot rule |
-| [missions/verdict.md](missions/verdict.md) | the two judges, the combination rule, waypoint reach, combat objectives, the expected-loss rule, landing standstill |
-| [missions/sensors.md](missions/sensors.md) | the `set` keys and rules for datalink, FCR/IFF, RWR and countermeasures |
-| [missions/avionics.md](missions/avionics.md) | three-state block validity, the command bus outcomes, and the `brief_*` lines |
-| [missions/weapons.md](missions/weapons.md) | load-out, release, gun, store life cycle, guided round, ground targets, air-to-ground and its measured error budget |
-| [missions/combat.md](missions/combat.md) | `set task bfm`/`intercept`, the engagement state machine, the `bfm_*`/`eng_*` columns, the `pilot_*` variants and the tournament |
-| [missions/weather.md](missions/weather.md) | the `wx` line, the three providers, the precedence rule, the measured crosswind and release cases |
-| [missions/output.md](missions/output.md) | the files per run, damage events, unit attribution, `UNIT_RESULT`, the example-mission catalogue |
-| [missions/runtime.md](missions/runtime.md) | `FBUnit`/`FBSimUnit`/`FBUnitRegistry`, the snapshot barrier, the four-step orchestrator, multi-unit incl. thread pool and scaling numbers, detonation and impact resolution |
-| [missions/campaign.md](missions/campaign.md) | the **campaign layer** (`C0`, built): `.fbc`, the three carried facts, the overlay that only deletes, the campaign fingerprint and the standalone replay of every step |
-
-## Modules — `modules/`
-
-One directory per airframe: the **module** file (what FlightBox implements) beside its **reference
-base** (what the real aircraft documentably does).
-
-| Place | Content |
-|---|---|
-| [modules/f16/module.md](modules/f16/module.md) | the F-16 module: composition, cadence, command router, every override with its numbers and their provenance, HUD symbology implementation |
-| [modules/f16/INDEX.md](modules/f16/INDEX.md) | the **real F-16C** reference base — 19 files distilled from the DCS Viper Guide and the ED EA Guide plus researched engineering depth, incl. `flight-model.md` (the pinned JSBSim model itself) |
-| [modules/mig29/module.md](modules/mig29/module.md) | the first opponent — **spec only, nothing built**. BVR scale, model per `flight-model-spec.md`, module per the registry pattern, GCI-led doctrine. |
-| [modules/mig29/INDEX.md](modules/mig29/INDEX.md) | the **real MiG-29A (9-12)** reference base — 12 files from the two DCS manuals plus research |
-| [modules/ground/](modules/ground/INDEX.md) | **`C1` — the ground unit that emits and shoots. BUILT** (2026-07-28; the launch initial condition 2026-07-29, `module.md` §4.1 — the rounds no longer destroy their own launchers)**.** The line between a module and a unit; one data-driven class with nine sourced catalogue rows (`p18` `sa2` `sa3` `sa6` `sa8` `zsu23` `zu23` `sa7` `sa18`); how it sees without widening the registry gate; and the rest of the campaign cast at four quantities per type |
-| [modules/air/](modules/air/INDEX.md) | **`C7` — the catalogue aircraft, the third level below the module. BUILT 2026-07-28; every generated deck is `ALPHA` and no row may answer a campaign question yet.** One data-driven class with eighteen sourced rows (`e3` `e2c` `f15c` `mig21` `mig23` `mig25` `mig17` `su7` `su22` `su27` `mirf1` `f5e` `kc135` `tu95` `an26` `ef111` `mi8` `ah64`); the two-part test that decides whether a row flies on a **generated** JSBSim deck or moves kinematically; the recipe that builds those decks from eight published anchors with a closed-form drag inversion; **five pilot tiers instead of one pilot**; the early-warning row and the one interface price it costs; and the attribution test that separates *"he lost as a MiG-21"* from *"he lost as a coarse deck"* |
-| [modules/stores/module.md](modules/stores/module.md) | the model side of mk82/aim120, the **MODEL-DELTAS discipline** and its gate, and the Mk-82 fidelity caveat |
+| [body-format.md](body-format.md) | the declarative body: five declarations (segments, joints, contacts, force sources, medium) plus model, materials and brain — the one format from furniture to rockets. **Spec only** |
+| [mods.md](mods.md) | what a title may declare and what it may not — the epistemic boundary (*does this need knowledge no participant could have?*), why declarations are JSON, and why a mod adds no world |
+| [core.md](core.md) | the shared floor: log and telemetry buses, geodesy, units, matrices, calendar and ephemeris, the elevation hook, the weather providers |
 
 ## Rendering — `render/`
 
+**One document per render pass**, under `render/stages/`; everything above them is the goal, the
+orchestrator, or a mechanism that binds all of them.
+
 | File | Content |
 |---|---|
-| [render/renderer.md](render/renderer.md) | WebGPU, ECEF camera-relative, reversed-Z, the **pass topology as a contract**, the stage catalogue, atmosphere, terrain stage, camera and ground truth |
-| [render/hud.md](render/hud.md) | the HUD backend: geometry buffer, WebGPU stage, the generic font system with coverage AA |
-| [render/clouds.md](render/clouds.md) | the **cloud rebuild spec** (bounded-volumetric but simple, incl. the cirrus layer) against the chain it replaces |
-| [render/units-visual.md](render/units-visual.md) | units, weapons and effects in the picture — spec written, **nothing built**: `FBUnitsStage`/`FBSpritesStage` are NoOp |
-| [render/clouds-legacy/](render/clouds-legacy/INDEX.md) | the twelve cloud studies that preceded the rebuild — a closed archive, kept for its measurements and its rejected approaches |
+| [render/visual-target.md](render/visual-target.md) | the look bar and the budget: Witcher 3 / Fallout 4 / GTA 5, 2015er technique, procedural first. **The overarching goal, not a pass** |
+| [render/renderer.md](render/renderer.md) | WebGPU, ECEF camera-relative, reversed-Z, the **pass topology as a contract**, the stage catalogue, camera and ground truth |
+| [render/classification.md](render/classification.md) | the chain **before** the first pass: albedo + position + OSM → class weights, and the same structure for buildings |
+| [render/lod.md](render/lod.md) | continuous LOD 1 m…>1000 m: screen-space error and its threshold τ, the Nanite judgement, hashed alpha, FLIP as the popping gate. **Binds every pass** |
+| [render/lighting.md](render/lighting.md) | the light budget: what lights what, and where the scale comes from |
+| [render/vegetation.md](render/vegetation.md) | 256 templates from albedo, the 0–40 m layer stack, the sixteen Weserbergland species, `wasm-tree` measured |
+| [render/clouds.md](render/clouds.md) | the cloud rebuild spec — bounded-volumetric but simple, including the cirrus layer |
+| [render/gpu-determinism.md](render/gpu-determinism.md) | what the WebGPU/WGSL specifications actually guarantee, and what an entity identity may therefore be made of |
+
+### The passes — `render/stages/`
+
+| File | Pass(es) | Why grouped that way |
+|---|---|---|
+| [render/stages/terrain.md](render/stages/terrain.md) | Tiles | **plus the ground material and the stand** — the ground is a material, not a colour, and everything below the size of a tree is a term in that fragment |
+| [render/stages/buildings.md](render/stages/buildings.md) | Buildings | |
+| [render/stages/shadow.md](render/stages/shadow.md) | Shadow | |
+| [render/stages/ao.md](render/stages/ao.md) | Ao | |
+| [render/stages/taa.md](render/stages/taa.md) | Taa | **plus the sub-pixel jitter**, which is not a pass but is the half that makes the resolve worth having |
+| [render/stages/atmosphere.md](render/stages/atmosphere.md) | Transmittance · MultiScatter · SkyView · Sky · Irradiance | **one LUT chain** — none of them is judgeable alone |
+| [render/stages/celestial.md](render/stages/celestial.md) | Sun · Moon · Stars | one ephemeris |
+| [render/stages/tonemap.md](render/stages/tonemap.md) | Tonemap · Upscale · Exposure | one exposure scale at the end of the chain — **the anchor comes from the irradiance, never from the picture** |
+| [render/stages/tile-lights.md](render/stages/tile-lights.md) | TileLights | |
+| [render/clouds.md](render/clouds.md) | CloudLayer | its own rebuild spec, above |
+
+**Two named holes in this table:**
+
+- **`UnitsStage` and `SpritesStage` have no topic file.** `render/units-visual.md` was retired on
+  2026-08-07 with its subject — a combat effect catalogue (nozzle plume, motor trail, countermeasures,
+  detonation, wreck fire, navigation lights) whose inputs no longer have a writer. The **entity drawing**
+  half survives in code and needs a `render/entities.md` as soon as a body exists to point it at.
+  Interim: [render/renderer.md](render/renderer.md) §3.
+- **`BenchGroundStage`** — the `--rig` bench's floor and neutral card. Its contract is written in
+  [clients/clients.md](clients/clients.md), not in `stages/`.
 
 ## World — `world/`
 
 | File | Content |
 |---|---|
-| [world/terrain.md](world/terrain.md) | `FBWorld`, tile streaming and worker, elevation over tiles, the terrain library, `fb-tiles` from the client's side |
+| [world/terrain.md](world/terrain.md) | the world object, tile streaming and the worker, elevation over tiles, the terrain library, `fb-tiles` from the client's side |
 | [world/weather.md](world/weather.md) | the `/wx` data kind: the FBWX format, the GFS run determination, the GRIB2 decoder and its independent verification, the operating figures |
 
 ## Clients — `clients/`
 
 | File | Content |
 |---|---|
-| [clients/clients.md](clients/clients.md) | gym (the reference path), native (the frame oracle), wasm (the browser) — contract, state and gaps per client |
+| [clients/clients.md](clients/clients.md) | what each client must be — the native frame oracle, its `--rig` subject bench, the browser — contract, state and gaps per client |
 
 ## Not part of the mirror
 
 | Place | Subject |
 |---|---|
-| `doc/*.pdf` | the four DCS manuals the two reference bases are distilled from — gitignored, cited by page |
-| `doc/webgl-webgpu-report.txt` | the target GPU capability survey |
+| `doc/webgl-webgpu-report.txt` | the target GPU capability survey — the hardware the 16.67 ms budget is spent on |

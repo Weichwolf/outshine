@@ -33,16 +33,9 @@ static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind,
     return ctx->tile_provider(ctx->tile_provider_user, kind, z, x, y, out, len) ? 1 : 0;
 }
 
-static int om_dem_cache_off(void)
-{
-    static int v = -1;
-    if (v < 0) { const char *e = getenv("FB_NODEMCACHE"); v = (e && e[0] && e[0] != '0') ? 1 : 0; }
-    return v;
-}
 static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                           osmmesh_terrain_grid *out)
 {
-    if (om_dem_cache_off()) return 0;
     for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
         om_dem_ent *e = &ctx->dem_lru[i];
         if (!e->used || e->z != z || e->x != x || e->y != y) continue;
@@ -61,7 +54,6 @@ static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
 static void om_dem_lru_put(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                            const osmmesh_terrain_grid *grid)
 {
-    if (om_dem_cache_off()) return;
     if (!grid->heights || grid->rows < 1 || grid->cols < 1) return;
     int vict = -1; uint64_t oldest = UINT64_MAX;
     for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
@@ -127,10 +119,11 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
         }
         uint32_t src_x0 = sub_x * crop_cols;
         uint32_t src_y0 = sub_y * crop_rows;
-        uint32_t out_cols = crop_cols + 1;
-        uint32_t out_rows = crop_rows + 1;
-        if (src_x0 + out_cols > grid.cols) out_cols = grid.cols - src_x0;
-        if (src_y0 + out_rows > grid.rows) out_rows = grid.rows - src_y0;
+        /* Exactly the sub-tile's own texels, no overlap column: a texel is an AREA, so the sub-tile
+         * is covered by crop_cols of them and the value ON its border comes from the stitch, the same
+         * way an uncropped tile gets it. An extra column would put a sample half a texel outside. */
+        uint32_t out_cols = crop_cols;
+        uint32_t out_rows = crop_rows;
         float *crop = (float *)malloc((size_t)out_rows * out_cols * sizeof(float));
         if (!crop) {
             osmmesh_terrain_grid_free(&grid);

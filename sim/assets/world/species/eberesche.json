@@ -1,0 +1,15 @@
+{
+  "bark_r":0.48,"bark_g":0.46,"bark_b":0.42,"bark_dark":0.70,"bark_freq":3.5,"bark_ridge":0.18,
+  "name": "eberesche", "botanical": "Sorbus aucuparia", "common": "Eberesche / Rowan",
+  "habit": "kleiner schlanker Baum, lockere rundliche Krone, aufsteigende Aeste",
+  "height_m": 12, "spread_m": 6,
+  "seed": 18, "shade_prune": 0.6, "trunk_sides": 9, "base_radius": 0.05, "step_len": 0.16,
+  "trunk_steps": 20, "bare_steps": 7, "taper": 0.955, "min_radius": 0.004, "twig_radius": 0.01,
+  "branch_chance": 0.78, "max_order": 3, "terminal_fork": 1,
+  "branch_angle": 45, "branch_angle_var": 16, "order_len": 0.62, "order_radius": 0.48,
+  "wander": 9, "leader_bias": 0.16, "branch_up_bias": 0.18, "conical": 0.05,
+  "leaf_kind": "pinnate", "leaf_leaflets": 8,
+  "leaf_length": 1.0, "leaf_width": 0.13, "leaf_widest": 0.45,
+  "leaf_base_fill": 0.0, "leaf_tip": 0.5, "leaf_serration": 0.5, "leaf_fold": 0.08, "leaf_curve": 0.12,
+  "leaf_card_w": 0.10, "leaf_card_h": 0.12, "leaf_cards": 3
+}

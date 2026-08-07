@@ -1,9 +1,0 @@
-<?xml version="1.0"?>
-<!-- FlightBox — the R-40R's nozzle. JSBSim subtracts ambient pressure * exit area from the vacuum
-     thrust (FGNozzle::Calculate), which is what makes a solid motor weaker at sea level than at
-     altitude. area 0.4346 FT2 [DERIVED] = 53.5 % of this round's 0.8124 ft^2 body
-     cross-section, the same proportion the AIM-120 nozzle occupies. The exit diameter is [SET].
--->
-<nozzle name="R-40R nozzle (FlightBox)">
-  <area unit="FT2"> 0.4346 </area>
-</nozzle>
