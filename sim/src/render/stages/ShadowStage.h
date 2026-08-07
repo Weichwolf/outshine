@@ -11,10 +11,16 @@
  * grows BRIGHTER toward a wall foot instead of darker, and a frame with 0.000 % of its pixels under
  * luminance 32 because nothing anywhere is in shadow.
  *
- * What is true in the old note is the COST, and it is unmeasured: the cut is ~110 per-tile buffers, so
- * four cascades are ~440 draws with a per-tile offset each, against a shadow pass that costs 0.07 ms
- * today. That is the number to take before building, not after — but it is a cost to weigh, never a
- * reason. Terrain casting is owed. */
+ * The cost half of the old note is REFUTED too, and by the cheap experiment rather than by the build:
+ * drawing the existing casters 1x / 5x / 15x into the same pass gives 4 323 / 21 615 / 64 845 triangles
+ * over 19 / 95 / 285 draws for 0.459 / 0.131 / 0.262 ms — UNSORTED, because at 65 536 ns per timer tick
+ * those are 7, 2 and 4 ticks and the pass never leaves the resolution floor. Fifteen times the caster
+ * load costs nothing measurable. Terrain is ~49 000 triangles x 4 cascades with ~470 draws, three times
+ * the 15x case, which is still far under a millisecond.
+ *
+ * So terrain casting is affordable and it is owed. What it needs is a per-tile offset, because the cut
+ * is ~110 separate buffers with their own origins while `anc` is one value per cascade — a second
+ * pipeline on the terrain vertex stride plus a dynamic uniform offset per draw. */
 #ifndef SHADOWSTAGE_H
 #define SHADOWSTAGE_H
 
