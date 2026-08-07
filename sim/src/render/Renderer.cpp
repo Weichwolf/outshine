@@ -132,6 +132,10 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
   if (rg11) feats.push_back(wgpu::FeatureName::RG11B10UfloatRenderable);
+  /* Asked for only when the diagnostic is on, so a normal run requests exactly what it uses and an
+   * adapter without the feature is not refused a device it could have had. */
+  if (GpuTimer::Wanted() && a.HasFeature(wgpu::FeatureName::TimestampQuery))
+    feats.push_back(wgpu::FeatureName::TimestampQuery);
   if (!feats.empty()) { dd.requiredFeatureCount = feats.size(); dd.requiredFeatures = feats.data(); }
   /* The multi-LOD albedo array outgrows the default 256-layer cap; ask for the adapter's real max. */
   wgpu::Limits adapterLimits{};
@@ -187,6 +191,7 @@ void Renderer::OnDevice(wgpu::Device d) {
   CreateTonemapPipeline();
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   if (Overlay) Overlay->Init(gpu, Samp, HdrTex.CreateView());
+  GpuTime.Configure(Device);
   DeviceReady = true;
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
                                          {"target", Mode == Target::Surface ? "surface" : "offscreen"},
@@ -778,6 +783,7 @@ void Renderer::RenderFrame(void) {
   Clouds->Update(ctx);
   const bool cloudPass = Clouds->Active();
 
+  GpuTime.BeginFrame();
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
 
   /* PASS TOPOLOGY IS A CONTRACT: only this function opens and closes passes — a stage draws into the
@@ -791,7 +797,9 @@ void Renderer::RenderFrame(void) {
    * one's writes visible to the second, so the multiple-scattering bake reads the transmittance LUT
    * written a dispatch earlier without costing a pass. */
   {
-    wgpu::ComputePassEncoder cp = enc.BeginComputePass();
+    wgpu::ComputePassDescriptor cpd{};
+    cpd.timestampWrites = GpuTime.Writes(GpuTimer::Compute);
+    wgpu::ComputePassEncoder cp = enc.BeginComputePass(&cpd);
     passCount++;
     Transmittance->EncodeCompute(ctx, cp);
     MultiScatter->EncodeCompute(ctx, cp);
@@ -827,6 +835,7 @@ void Renderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor shp{};
     shp.colorAttachmentCount = 0;
     shp.depthStencilAttachment = &sda;
+    shp.timestampWrites = GpuTime.Writes(GpuTimer::Shadow);
     wgpu::RenderPassEncoder sh = enc.BeginRenderPass(&shp);
     passCount++;
     Shadow->Encode(ctx, sh);
@@ -856,6 +865,7 @@ void Renderer::RenderFrame(void) {
   sp.colorAttachmentCount = 2;
   sp.colorAttachments = ca;
   sp.depthStencilAttachment = &da;
+  sp.timestampWrites = GpuTime.Writes(GpuTimer::Scene);
   wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
   passCount++;
   /* NO viewport: the world covers the WHOLE frame and continues behind the MFD bank, which is what the
@@ -902,6 +912,7 @@ void Renderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor cp{};
     cp.colorAttachmentCount = 1;
     cp.colorAttachments = &cca;
+    cp.timestampWrites = GpuTime.Writes(GpuTimer::Cloud);
     wgpu::RenderPassEncoder cl = enc.BeginRenderPass(&cp);
     passCount++;
     Clouds->Encode(ctx, cl);   /* same full-frame window as the scene it blends into, same depth texels */
@@ -920,6 +931,7 @@ void Renderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor ap{};
     ap.colorAttachmentCount = 1;
     ap.colorAttachments = &aca;
+    ap.timestampWrites = GpuTime.Writes(GpuTimer::Ao);
     wgpu::RenderPassEncoder aoPass = enc.BeginRenderPass(&ap);
     passCount++;
     Ao->Encode(ctx, aoPass);
@@ -940,6 +952,7 @@ void Renderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor tp2{};
     tp2.colorAttachmentCount = 1;
     tp2.colorAttachments = &tca2;
+    tp2.timestampWrites = GpuTime.Writes(GpuTimer::Taa);
     wgpu::RenderPassEncoder taa = enc.BeginRenderPass(&tp2);
     passCount++;
     Taa->Encode(ctx, taa);
@@ -956,6 +969,7 @@ void Renderer::RenderFrame(void) {
   wgpu::RenderPassDescriptor tp{};
   tp.colorAttachmentCount = 1;
   tp.colorAttachments = &tca;
+  tp.timestampWrites = GpuTime.Writes(GpuTimer::Tonemap);
   wgpu::RenderPassEncoder tone = enc.BeginRenderPass(&tp);
   passCount++;
   Tonemap->Encode(ctx, tone);
@@ -974,6 +988,7 @@ void Renderer::RenderFrame(void) {
     wgpu::RenderPassDescriptor hp{};
     hp.colorAttachmentCount = 1;
     hp.colorAttachments = &hca;
+    hp.timestampWrites = GpuTime.Writes(GpuTimer::Overlay);
     wgpu::RenderPassEncoder ov = enc.BeginRenderPass(&hp);
     passCount++;
     Overlay->Encode(ctx, ov);
@@ -1005,8 +1020,10 @@ void Renderer::RenderFrame(void) {
                                          {"overlay", overlayPass}});
   }
 
+  GpuTime.Resolve(enc);
   wgpu::CommandBuffer cmd = enc.Finish();
   Queue.Submit(1, &cmd);
+  GpuTime.Poll();
 
   /* THIS FRAME BECOMES THE PREVIOUS ONE. The matrix is stored WITH its jitter: the resolve subtracts
    * the difference of the two jitters once, so both the depth reprojection and the velocity a moving

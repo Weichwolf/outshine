@@ -13,6 +13,7 @@
 #include "State.h"
 #include "Gpu.h"
 #include "FrameContext.h"
+#include "GpuTimer.h"
 #include "OverlayStage.h"
 #include "stages/StarsStage.h"
 #include "stages/TileLightsStage.h"
@@ -340,6 +341,7 @@ private:
    * hold only the pipeline/bind group built from views injected at Configure(). §4 */
   wgpu::Texture TransLUT, MsLUT, SkyLUT;          /* 256x64, 32x32, 192x108 rgba16float (storage + sampled) */
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
+  GpuTimer GpuTime;                               /* per-pass GPU time, inert unless FB_GPUTIME */
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
   wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */
   wgpu::Buffer MeterBuf;                          /* ExposureStage's gain + white point, read by the tonemap */

@@ -224,6 +224,40 @@ therefore always yields the state of the last **completed** tick — tick order 
 result. That is what makes a parallel run byte-identical to a serial one, and the check is running the
 same declaration over several thread counts.
 
+### The frame is dominated by PASS COUNT, not by shading — measured 2026-08-07
+
+`render/GpuTimer.h` (a diagnostic, inert unless `FB_GPUTIME`) puts a timestamp pair around every pass.
+The reference scene, resident, `gpu_walk` pinned `4d1374c4…`, on the declared target hardware — **Apple
+A18 Pro, 5 GPU cores, Metal, integrated** (the adapter log says so; this is not a desktop GPU):
+
+| pass | ms | what is in it |
+|---|---|---|
+| compute | 0.33 | transmittance, multi-scatter, sky-view, irradiance, exposure |
+| shadow | 0.07 | the building prisms |
+| **scene** | **3.80** | sky, sun, moon, stars, terrain, buildings — the relief ladder and the per-fragment class walk included |
+| ao | 4.06 | **half resolution** |
+| taa | 4.98 | full |
+| tonemap | 5.05 | full |
+| **sum** | **18.28** | |
+
+**Everything the engine actually draws costs 3.80 ms. Three full-screen post passes cost 14.09 ms —
+77 % of the frame.** A tonemap is a few dozen ALU ops per pixel: 921 600 px × ~50 flop = 46 MFLOP, which
+is microseconds on any GPU here. 5.05 ms is not arithmetic.
+
+**The proof that it is a per-pass and not a per-pixel cost is already in the table: the AO pass runs at
+a QUARTER of the pixels and costs 80 % of the full-resolution tonemap.** If cost tracked pixels it would
+be four times cheaper. It is not, so what is being paid is the pass itself — on a tile-based deferred
+renderer every full-screen pass stores the framebuffer out of tile memory and loads it back, and three
+separate passes over the same pixels pay that three times.
+
+This is also the answer to "why does Cyberpunk 2077 have so many render passes": it targets
+immediate-mode desktop GPUs, where a pass is nearly free. On A18 Pro the pass count IS the cost, and
+the layer order stays the same while the topology must collapse.
+
+**So the optimisation is not to move work onto the GPU — it is to stop paying for the trips.** Folding
+tonemap into the TAA resolve removes one full-screen round trip outright; AO wants to become part of
+the scene pass or of the resolve rather than a pass of its own. Nothing about what is drawn changes.
+
 ### What the frame actually costs, and what it does not
 
 Four binaries differing only in `kReliefOctaves`, each pinned and benched over 300 frames at 1.4 m/s
