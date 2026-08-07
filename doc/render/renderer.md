@@ -85,8 +85,16 @@ Kaskadenschattenkarten sind, was Witcher 3 und GTA 5 2015 hatten, und die Kosten
 Gemessen nach der Rueckholung, Kochelsee bei 640x360, Binary `b937ab7c…`: **shadow 1,97 ms, Frame
 7,34 ms** von 16,67. Wolken bleiben draussen.
 
-Weiter offen aus demselben Urteil, unbearbeitet: drei Renders waren **gar keine Bilder** (innsbruck
-einfarbig 0.00 EV, seefeld einfarbig, salzburg mit senkrechten Naehten bei x=161 und x=251); `damuels`
+**Die drei „kaputten" Renders waren nicht kaputt, sie waren falsch gezielt.** Gemessen: alle vier
+Kameras streamen vollstaendig (Fortschritt 1, 49 000 bis 61 000 Dreiecke, plausible Bodenhoehen), und
+Innsbruck steht auf 577 m im Inntal, wo eine geratene Pose von 180 Grad bei −3 Grad Neigung direkt in
+die Talflanke blickt. Dieselbe Kamera mit 90 Grad und +2 Grad: Luminanzspanne **0,0 → 35,4**. Das ist
+ein Fehler in meinen geratenen Posen, kein Renderfehler — und er entwertet einen Teil des Urteils, weil
+mehrere der beurteilten Bilder gegen eine Wand schauten. **Das Feld sagt nichts, solange die Posen nicht
+eingepasst sind**, und der Horizonteinpasser braucht dafuer eine zweite Bindung (Passpunkte aus
+OSM-Gebaeuden), weil er in der Bildwinkelachse nicht konvergiert.
+
+Weiter offen aus demselben Urteil, unbearbeitet: salzburg mit senkrechten Naehten bei x=161 und x=251; `damuels`
 zeigt **senkrechte Kordstreifung** (Spaltenmittel schwanken um 63,5 Stufen, Zeilenmittel um 2,8); die
 Saettigung liegt bei 0,48-0,62 gegen 0,28-0,35 im Foto, also doppelt so bunt bei einem Drittel des
 Umfangs; und das Gelaende ist eine Steppdecke ohne Grate und Runsen.
