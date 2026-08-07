@@ -127,7 +127,7 @@ def main():
 
         r = subprocess.run(
             [binp, "--scene", str(scene), "--out", str(shot), "--warm", str(args.warm),
-             "--eye", str(c["altM"] + 3.0), "--size", f"{W}x{H}"],
+             "--eye", "3.0", "--size", f"{W}x{H}"],
             capture_output=True, text=True, cwd=str(SIM))
         sun = ""
         for l in (r.stdout + r.stderr).splitlines():
