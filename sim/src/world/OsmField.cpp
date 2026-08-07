@@ -11,14 +11,13 @@ namespace outshine::World {
 
 namespace {
 
-constexpr int kZ = 14;              /* the only zoom /t/vector answers today (z16+ are 404) */
 constexpr int kMaxTileBytes = 4 << 20;
 
 uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y; }
 
 }  // namespace
 
-OsmField::OsmField(std::initializer_list<const char *> layers) {
+OsmField::OsmField(int zoom, std::initializer_list<const char *> layers) : Zoom_(zoom) {
   Layers_.reserve(layers.size());
   for (const char *l : layers) Layers_.emplace_back(l);
 }
@@ -36,11 +35,10 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 
 int OsmField::Build(double lat, double lon, int ringTiles) {
   uint32_t cx = 0, cy = 0;
-  osmmesh_geo_to_tile(lon, lat, (uint8_t)kZ, &cx, &cy);
-  Zoom_ = kZ;
+  osmmesh_geo_to_tile(lon, lat, (uint8_t)Zoom_, &cx, &cy);
   if (Scratch_.empty()) Scratch_.resize((size_t)kMaxTileBytes);
 
-  const long n = 1L << kZ;
+  const long n = 1L << Zoom_;
   int added = 0;
   bool decoded = false;
   Pending_ = 0;
@@ -63,16 +61,16 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
 }
 
 bool OsmField::AddTile(int tx, int ty, int &added) {
-  const int got = fb_stream_vector(kZ, (uint32_t)tx, (uint32_t)ty, Scratch_.data(), kMaxTileBytes);
+  const int got = fb_stream_vector(Zoom_, (uint32_t)tx, (uint32_t)ty, Scratch_.data(), kMaxTileBytes);
   if (got == 0) return false;   /* pending — retry next pass, do NOT mark done */
 
   const uint32_t tile = (uint32_t)Tiles_.size();
-  Tiles_.push_back(Tile{kZ, tx, ty});
+  Tiles_.push_back(Tile{Zoom_, tx, ty});
 
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
     if (got < 0 || !mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str())) {
-      Log::Debug("world", "vectile", {{"z", kZ}, {"x", tx}, {"y", ty}, {"bytes", got},
+      Log::Debug("world", "vectile", {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got},
                                      {"layer", Layers_[li]}, {"parsed", false}});
       continue;
     }
@@ -98,7 +96,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
         for (uint32_t k = 0; k < sr.Count; k++) {
           const double px = (double)pts[((size_t)sr.First + k) * 2];
           const double py = (double)pts[((size_t)sr.First + k) * 2 + 1];
-          const osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)kZ, (uint32_t)tx, (uint32_t)ty,
+          const osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)Zoom_, (uint32_t)tx, (uint32_t)ty,
                                                          px / ext, py / ext);
           Points_.push_back(g.lat);
           Points_.push_back(g.lon);
@@ -126,7 +124,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
       Features_.push_back(f);
       added++;
     }
-    Log::Debug("world", "vectile", {{"z", kZ}, {"x", tx}, {"y", ty}, {"bytes", got},
+    Log::Debug("world", "vectile", {{"z", Zoom_}, {"x", tx}, {"y", ty}, {"bytes", got},
                                    {"layer", Layers_[li]}, {"parsed", true},
                                    {"feats", (int)mvt.Features().size()},
                                    {"rings", (int)mvt.Rings().size()}});

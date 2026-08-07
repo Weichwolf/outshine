@@ -6861,3 +6861,54 @@ die Wohnstraße bei jeder Auflösung 3,52 m breit. Auflösung kauft Anwesenheit 
 **Nicht gebaut und nicht als gebaut gemeldet.** Der Bake bleibt serverseitig ohnehin bestehen
 (Eignerentscheid) — hier bleibt er auch clientseitig, weil `vegetation.json` heute über `keySrgb`
 ausschließlich an ihm hängt.
+
+## 2026-08-07 — Ein Baum, mit Höhe, und die Genauigkeit kommt aus der Darstellung
+
+Entscheidung des Eigners, in vier Schritten gereift und am Ende einfacher als der Anfang:
+
+**EIN räumlicher Index, kein Quadtree neben einem Oktree.** Zwei Indizes wären zwei Wahrheiten — dieselbe
+Fehlerklasse, die diese Sitzung dreimal gekostet hat (zwei Klassenpfade, zwei DEM-Abtastungen, zwei
+Klassenmodelle).
+
+**Quadtree mit Höhenausdehnung je Knoten**, vertikal geteilt nur dort, wo der Inhalt es verlangt. Der
+Eigner nannte es zuerst „Oktree-Schale, N km dick, in Sektoren geteilt" — das ist dasselbe, bis auf die
+Frage, ob die Höhe mitteilt oder nur begrenzt. Begründung für die Säule: Gelände, Gebäude, Vegetation und
+Bauwerke kleben sämtlich an der Oberfläche; ein Flugzeug in 10 km liegt in der SÄULE seiner Zelle, und
+ein Frustum schneidet Säulen so zuverlässig wie Würfel. Ein Oktree passt schlecht auf eine Kugel
+(Würfelkugel oder entartete Zellen) und die Schale ist zu über 99 % Luft. **Geteilt wird, wenn es sich
+rechnet, nicht weil die Struktur es vorsieht** — dieselbe Regel wie beim LOD, wo die einzige deklarierte
+Zahl das Budget ist.
+
+**Die Genauigkeit kommt NICHT aus der Struktur.** `float64` ECEF löst am Erdradius rund einen Nanometer
+auf; Millimeter sind millionenfach übererfüllt. Zellursprünge braucht es dafür nicht. Der Renderer
+rechnet bereits kamerarelativ — die Regel wird allgemein: **`float64` ist die Wahrheit, die Umrechnung auf
+kamerarelatives `float32` passiert EINMAL und SPÄT, an einer benannten Stelle.** Jeder Zwischenschritt,
+der absolut in `float32` rechnet, verliert die Genauigkeit, bevor die Umrechnung sie retten könnte — und
+man sieht es nicht, weil das Ergebnis um einen halben Meter danebenliegt und plausibel aussieht. Genau
+diese Klasse hat heute zweimal zugeschlagen.
+
+**Der Baum ist ein abgeleiteter INDEX, kein Speicher.** Das ECS hält die Wahrheit (Position als
+Komponente in `float64`), der Baum beantwortet Wo-Fragen und **darf nie eine Position besitzen, die das
+ECS nicht auch hat.** Gelände ist dabei keine Entität — Kachelgeometrie wird gestreamt, nicht simuliert.
+Für einen Index ist das gleichgültig, für einen Speicher wäre es falsch. Reihenfolge: erst der Baum, dann
+das ECS darauf; der Baum trägt schon heute Kacheln, ein ECS ohne Index wäre sofort langsam.
+
+**Was mit dem Umbau von selbst verschwindet**, statt dokumentiert zu werden: `kMaxZ` als geteilte Grenze
+für drei Datenarten mit verschiedenen Maxzooms (Terrain 15, Vektoren 14, Luftbild 19), gesetzt auf die
+schwächste und **ohne Herkunft**; die Aufteilungsregel mit ihrer Begründung „gleiche Albedo-Auflösung bei
+gleicher Entfernung", deren Albedo gerade gelöscht wird; `kNodeCeil` und `kGrace`.
+
+**Der Kachelserver spricht weiter Slippy.** `z/x/y` bleibt die Adressierung der Quelle; was fällt, ist der
+Quadtree als Index der Engine.
+
+**Heute existiert kein ECS.** `units/` hält 214 Zeilen — `Unit.h` mit `UnitPose`, `UnitArticulation`,
+`UnitSignature` und einem virtuellen `Run(dt, units, world)`, konstruiert von nichts. Ein Rest der
+Kampfschicht.
+
+**Und der Grund für JETZT:** es ist noch nichts platziert. Bäume, Stauden, Windrad und Entitäten kommen
+alle erst. Was nach der Umstellung platziert wird, sitzt richtig.
+
+Offen und Voraussetzung: das Höhenorakel widerspricht dem gezeichneten Netz um **0,383 m RMS, max
+1,89 m**, weil `ChunkBuildEcef` 256² auf 33² Stützstellen dezimiert (46,9 m bei z14). Ein Baum stünde
+damit bis zu 1,89 m falsch. Behebung benannt und ungebaut: das Orakel wertet die GEZEICHNETE Fläche aus
+statt das DEM ein zweites Mal.

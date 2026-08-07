@@ -1,30 +1,15 @@
 {
   "schema": 1,
-  "quantiser": {
-    "kind": "lut",
-    "space": "gamma2",
-    "grid": [
-      32,
-      32,
-      32
-    ],
-    "index": "cell = (qb*32 + qg)*32 + qr,  q = floor(sqrt(clamp(linear,0,1)) * 32); the LUT cell holds the 8-bit template index",
-    "origin": "measured — no uniform 8-bit BIT CUT separates this palette: 3-3-2 merges eight buckets across template boundaries (residential onto sand, meadow onto allotments, farmland onto siedlung) and the best of all 21 splits, 3-1-4, still merges four. A 32^3 grid over the same space merges none: the smallest distance between key colours of two different templates is 0.0126 in gamma-2 and a cell is 0.031 wide, and no cell holds two. 128 kB on the GPU, one read per fragment."
-  },
+  "osmDefault": "wiese",
+  "osmDefaultOrigin": "[SET] the class of a place OSM says nothing about. Measured over the reference z14 tile: 14.48 % of its area lies under no closed way at all. The world defaults to NATURE and OSM overlays civilisation where it is mapped (doc/render/visual-target.md 4), so the default is the commonest unmapped cover of this landscape and never a sealed or built one.",
+  "osmOrigin": "Each row is one (layer, kind) the tile server can emit, the template it selects, and its RANK. Rank is the overlap order and it is DECLARED here because the server has none inside a layer -- it relies on the provider's emission order, last drawn wins, over features that overlap by 2.41 % of the reference tile (nine pairs, forest x residential alone 1.09 %). Higher rank wins. The bands follow the server's declared inter-layer order (land 10-49 -> water_polygons 50 -> sites 60 -> street_polygons 70 -> buildings 75 -> streets 80 -> water_lines 90); inside `land` the principle is that a broad land-use envelope loses to the more specific cover mapped inside it -- a wood inside a residential outline is a wood. `kind: \"*\"` matches any kind of that layer and is a DECLARATION that the kind does not change the class; a kind with neither an own row nor a wildcard is a Log::Error, which is what hid 81 barrier ways for thirty hours.",
+  "osmWidthOrigin": "widthM is the drawn width of a LINE feature in METRES and it is decided once, here, because the later infrastructure geometry must read the same number the classifier used. It is NOT the tile server's stroke: w3_roadstyle scales in texels of a 1024 reference, so its residential street is 3.52 m at every texture size and its stream and its river are 4.40 m alike. Road widths are German design-standard carriageway widths without verges: RAA RQ 28 per carriageway 2x3.75 + 2.5 hard shoulder = 12.0 (motorway); RAL 2012 RQ 11.5 (trunk), RQ 9.5 (primary), RQ 7.5 (secondary); RASt 06 6.5 (tertiary), 5.5 (residential/unclassified, and the measured real width of the reference street), 4.75 (living_street), 3.5 (service); ERA 2010 2.0 (cycleway); KTBL 443 3.0 (track crown, the 5.50 m of that leaflet includes 1.0 m of verge per side and is the PATH stripe pattern, not the belt); 1.8 footway, 1.5 path/bridleway/steps. Rail is the single-track ballast crown 3.8 m; ICAO Annex 14 code 4 gives runway 45 and taxiway 23. The waterway widths are [SET] representatives of their class -- OSM carries no width on a water_line -- and the only thing they must do is keep a brook and a river an order of magnitude apart: drain 1.0, ditch 1.5, stream 2.0, canal 8.0, river 12.0.",
   "grassReflectanceGain": 0.5,
   "grassReflectanceGainOrigin": "measured, and a KNOWN APPROXIMATION - it now applies to the GRASS row alone. grass.colorSrgb/drySrgb are DISPLAY colours and the shader multiplies reflectances: sunlit meadow read display Y 0.600, which back through the tone curve and the scene exposure is a green reflectance of 0.21 against a visible-band 0.10 for green grass. The ground half of this hack is retired - reflectance, roughness and relief come per class from ground-materials.json.",
   "dryFractionOrigin": "[SET] the share of blades drawn toward drySrgb rather than colorSrgb. It is a TEMPLATE property, not a shader constant: a sown crop in ear is mostly dry, a mown lawn is not, and a joint weed on tarmac is whatever survived. Season is not modelled, so these are the mid-summer values.",
-  "keyOrigin": "measured — every keySrgb triple below is copied verbatim from tiles/src/style.h (w3_landcolor / w3_roadstyle / the buildings fill in tiles/src/raster.c:109). These are the exact bytes the /bake/osm albedo carries, not an estimate of them.",
   "templates": [
     {
       "name": "laubmischwald",
-      "keySrgb": [
-        [
-          70,
-          105,
-          60
-        ]
-      ],
       "ground": {
         "class": "waldboden",
         "litterClass": "laubstreu",
@@ -88,11 +73,22 @@
         "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
         "ground.colorSrgb": "[SET] beech leaf litter; the layer the eye actually sees under a closed canopy",
         "clutter.perM2": "[SET] deadwood + stones"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "wood",
+          "rank": 40
+        },
+        {
+          "layer": "land",
+          "kind": "forest",
+          "rank": 40
+        }
+      ]
     },
     {
       "name": "nadelwald",
-      "keySrgb": [],
       "ground": {
         "class": "waldboden",
         "litterClass": "nadelstreu",
@@ -147,67 +143,11 @@
         "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
         "trees.perM2": "[SET] 900 stems/ha for a managed spruce stand -> 0.09/m^2",
         "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure"
-      }
+      },
+      "osm": []
     },
     {
       "name": "wiese",
-      "keySrgb": [
-        [
-          156,
-          192,
-          112
-        ],
-        [
-          162,
-          196,
-          116
-        ],
-        [
-          142,
-          192,
-          122
-        ],
-        [
-          150,
-          192,
-          120
-        ],
-        [
-          150,
-          190,
-          120
-        ],
-        [
-          122,
-          156,
-          112
-        ],
-        [
-          165,
-          198,
-          120
-        ],
-        [
-          160,
-          195,
-          116
-        ],
-        [
-          158,
-          193,
-          114
-        ],
-        [
-          136,
-          150,
-          130
-        ],
-        [
-          152,
-          186,
-          148
-        ]
-      ],
       "ground": {
         "class": "grasfilz",
         "contrast": 0.42,
@@ -266,52 +206,102 @@
         "ground.class": "grasfilz, NOT a soil. doc/render/vegetation.md ## Spec: under working grassland the open-soil fraction at eye height is 0 percent, so the previous erde_trocken drew a surface that does not occur under a meadow. The felt carries the moos overlay its own class declares (0.15), which is where the botanist's third component enters.",
         "ground.swardClosure": "1.0, derived, and the number is not close to its alternatives. Closure is the fraction of the ground plane hidden by standing foliage, 1 - P0, with the Beer-Lambert gap fraction P0 = exp(-G * LAI / sin(beta)) for view elevation beta. At the cover stage's fade radius - RadiusM = 2.0 m spacing * 48 * 0.5 * 0.92 = 44.16 m, eye 1.70 m - beta = atan(1.70/44.16) = 2.205 deg, and with LAI 3 (doc/render/vegetation.md ## Spec, Grummet, Spektrum Lexikon der Biologie) and the spherical-distribution G = 0.5, P0 = exp(-38.98) = 1.2e-17. A sward seen almost edge-on hides its own floor completely, so beyond the fade radius the terrain layer IS the sward and its albedo has to be the blades'. WHAT THIS COSTS AND IT IS NOT SMALL: one number serves every view elevation, so the floor's CHROMA stops showing between the blades in the near field too, where the true closure is far below 1 - at 2 m the same formula gives P0 = 0.10. Only the floor's colour is taken; roughness, grain, relief and specular stay the felt's, and they are what the near field still reads. Making closure a function of footM belongs in groundMat (render/stages/TilesStage.cpp) and is doc/render/vegetation.md ## Gaps. G = 0.5 is [SET]: the spherical distribution is the standard default and this sward is erectophile, which raises G at a grazing view, so the error runs toward MORE occlusion, not less.",
         "forbs.species": "the scene stands on 6 August (mods/demo/scene.json) and every species named here is in flower on that date. Wiesenkerbel (Anthriscus sylvestris) was removed for two independent reasons: its Bluetezeit is April to July (de.wikipedia.org/wiki/Wiesen-Kerbel), so it is over, and it is a hedge- and wayside species rather than a meadow interior. Replacements: Wilde Moehre (Daucus carota), Bluetezeit May to September (de.wikipedia.org/wiki/Wilde_Möhre), and Wiesen-Flockenblume (Centaurea jacea), Bluetezeit late May/June to October/November (de.wikipedia.org/wiki/Wiesen-Flockenblume). SEASON IS NOT MODELLED - this list is pinned to the scene's DATE, not to a parameter, and a second scene in April would need a second list. See doc/render/vegetation.md ## Gaps."
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "meadow",
+          "rank": 21
+        },
+        {
+          "layer": "land",
+          "kind": "grass",
+          "rank": 21
+        },
+        {
+          "layer": "land",
+          "kind": "grassland",
+          "rank": 21
+        },
+        {
+          "layer": "land",
+          "kind": "greenfield",
+          "rank": 21
+        },
+        {
+          "layer": "land",
+          "kind": "park",
+          "rank": 30
+        },
+        {
+          "layer": "land",
+          "kind": "garden",
+          "rank": 30
+        },
+        {
+          "layer": "land",
+          "kind": "village_green",
+          "rank": 30
+        },
+        {
+          "layer": "land",
+          "kind": "recreation_ground",
+          "rank": 30
+        },
+        {
+          "layer": "land",
+          "kind": "playground",
+          "rank": 31
+        },
+        {
+          "layer": "land",
+          "kind": "golf_course",
+          "rank": 31
+        },
+        {
+          "layer": "land",
+          "kind": "miniature_golf",
+          "rank": 31
+        },
+        {
+          "layer": "land",
+          "kind": "cemetery",
+          "rank": 32
+        },
+        {
+          "layer": "land",
+          "kind": "grave_yard",
+          "rank": 32
+        },
+        {
+          "layer": "land",
+          "kind": "aerodrome",
+          "rank": 33
+        },
+        {
+          "layer": "land",
+          "kind": "model_aerodrome",
+          "rank": 33
+        },
+        {
+          "layer": "land",
+          "kind": "airstrip",
+          "rank": 33
+        },
+        {
+          "layer": "sites",
+          "kind": "danger_area",
+          "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "sports_center",
+          "rank": 60
+        }
+      ]
     },
     {
       "name": "acker",
-      "keySrgb": [
-        [
-          206,
-          192,
-          142
-        ],
-        [
-          192,
-          178,
-          132
-        ],
-        [
-          182,
-          186,
-          122
-        ],
-        [
-          170,
-          180,
-          120
-        ],
-        [
-          140,
-          175,
-          90
-        ],
-        [
-          148,
-          182,
-          100
-        ],
-        [
-          180,
-          160,
-          110
-        ],
-        [
-          172,
-          148,
-          98
-        ]
-      ],
       "ground": {
         "class": "erde_trocken",
         "contrast": 0.6
@@ -361,42 +351,58 @@
         "grass.dryFraction": "[SET] 0.92. A stubble is dead straw; the remaining 8 percent is the volunteer cereal and the weed flush that germinate within days of the harvest and are green on 6 August.",
         "grass.drySrgb": "chromaticity derived from measurement, LEVEL UNCHANGED AND STILL UNSOURCED. The Rec.709 luminance of the retired [186,166,92] is kept exactly (linear Y 0.3848) and only the RGB ratio is replaced by the measured straw chromaticity 1.000:0.674:0.280 - ECOSTRESS Spectral Library v1.0 spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, chromaticity path B, the same measurement that gives ground-materials.json its grasfilz. Encoding the result to 8 bit costs 0.24 percent of the luminance and 0.004 of the ratio.",
         "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "farmland",
+          "rank": 20
+        },
+        {
+          "layer": "land",
+          "kind": "orchard",
+          "rank": 22
+        },
+        {
+          "layer": "land",
+          "kind": "vineyard",
+          "rank": 22
+        },
+        {
+          "layer": "land",
+          "kind": "plant_nursery",
+          "rank": 22
+        },
+        {
+          "layer": "land",
+          "kind": "allotments",
+          "rank": 23
+        },
+        {
+          "layer": "land",
+          "kind": "farmyard",
+          "rank": 23
+        },
+        {
+          "layer": "land",
+          "kind": "brownfield",
+          "rank": 24
+        },
+        {
+          "layer": "land",
+          "kind": "landfill",
+          "rank": 24
+        },
+        {
+          "layer": "streets",
+          "kind": "track",
+          "rank": 80,
+          "widthM": 3.0
+        }
+      ]
     },
     {
       "name": "heide",
-      "keySrgb": [
-        [
-          125,
-          150,
-          85
-        ],
-        [
-          150,
-          160,
-          100
-        ],
-        [
-          190,
-          185,
-          175
-        ],
-        [
-          195,
-          190,
-          182
-        ],
-        [
-          225,
-          215,
-          170
-        ],
-        [
-          235,
-          225,
-          180
-        ]
-      ],
       "ground": {
         "class": "sand",
         "contrast": 0.5
@@ -448,37 +454,69 @@
       "origins": {
         "grass.perM2": "[SET] between pasture and bare ground — patchy by construction, which is what heightJitter 0.7 encodes",
         "clutter.perM2": "[SET] stones dominate; the highest clutter of any template here"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "scrub",
+          "rank": 41
+        },
+        {
+          "layer": "land",
+          "kind": "heath",
+          "rank": 41
+        },
+        {
+          "layer": "land",
+          "kind": "bare_rock",
+          "rank": 44
+        },
+        {
+          "layer": "land",
+          "kind": "scree",
+          "rank": 44
+        },
+        {
+          "layer": "land",
+          "kind": "shingle",
+          "rank": 44
+        },
+        {
+          "layer": "land",
+          "kind": "sand",
+          "rank": 45
+        },
+        {
+          "layer": "land",
+          "kind": "beach",
+          "rank": 45
+        },
+        {
+          "layer": "land",
+          "kind": "quarry",
+          "rank": 46
+        },
+        {
+          "layer": "sites",
+          "kind": "construction",
+          "rank": 61
+        },
+        {
+          "layer": "streets",
+          "kind": "path",
+          "rank": 80,
+          "widthM": 1.5
+        },
+        {
+          "layer": "streets",
+          "kind": "bridleway",
+          "rank": 80,
+          "widthM": 1.5
+        }
+      ]
     },
     {
       "name": "siedlung",
-      "keySrgb": [
-        [
-          206,
-          199,
-          189
-        ],
-        [
-          196,
-          181,
-          166
-        ],
-        [
-          202,
-          182,
-          162
-        ],
-        [
-          195,
-          190,
-          185
-        ],
-        [
-          205,
-          213,
-          200
-        ]
-      ],
       "ground": {
         "class": "erde_trocken",
         "contrast": 0.65
@@ -535,92 +573,62 @@
         "grass.heightM": "[SET] mown, 0.08-0.15 m",
         "trees.perM2": "[SET] 60 street/garden trees per hectare",
         "trees.species": "[SET] the German Strassenbaum canon; all five exist in wasm-tree"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "residential",
+          "rank": 10
+        },
+        {
+          "layer": "land",
+          "kind": "commercial",
+          "rank": 11
+        },
+        {
+          "layer": "land",
+          "kind": "retail",
+          "rank": 11
+        },
+        {
+          "layer": "land",
+          "kind": "garages",
+          "rank": 13
+        },
+        {
+          "layer": "land",
+          "kind": "greenhouse_horticulture",
+          "rank": 13
+        },
+        {
+          "layer": "sites",
+          "kind": "university",
+          "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "college",
+          "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "school",
+          "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "hospital",
+          "rank": 60
+        },
+        {
+          "layer": "sites",
+          "kind": "prison",
+          "rank": 60
+        }
+      ]
     },
     {
       "name": "versiegelt",
-      "keySrgb": [
-        [
-          128,
-          114,
-          102
-        ],
-        [
-          235,
-          231,
-          221
-        ],
-        [
-          236,
-          233,
-          225
-        ],
-        [
-          246,
-          242,
-          222
-        ],
-        [
-          250,
-          242,
-          205
-        ],
-        [
-          250,
-          222,
-          165
-        ],
-        [
-          250,
-          205,
-          140
-        ],
-        [
-          176,
-          166,
-          176
-        ],
-        [
-          168,
-          166,
-          172
-        ],
-        [
-          174,
-          172,
-          178
-        ],
-        [
-          178,
-          176,
-          182
-        ],
-        [
-          172,
-          168,
-          176
-        ],
-        [
-          214,
-          213,
-          213
-        ],
-        [
-          95,
-          95,
-          105
-        ],
-        [
-          180,
-          170,
-          160
-        ],
-        [
-          200,
-          175,
-          140
-        ]
-      ],
       "ground": {
         "class": "asphalt",
         "contrast": 0.28
@@ -666,32 +674,199 @@
         "keySrgb": "buildings (128,114,102 — tiles/src/raster.c:109), every road class from w3_roadstyle, rail, runway/taxiway/apron, industrial and quarry: everything the raster paints that a plant does not grow on",
         "grass.perM2": "[SET] joint weeds only — NOT zero, because a perfectly bare surface reads as a rendering hole rather than as pavement",
         "grass.heightJitter": "[SET] HIGH: what grows in a pavement joint is whatever got there"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "industrial",
+          "rank": 12
+        },
+        {
+          "layer": "land",
+          "kind": "railway",
+          "rank": 48
+        },
+        {
+          "layer": "land",
+          "kind": "apron",
+          "rank": 48
+        },
+        {
+          "layer": "land",
+          "kind": "runway",
+          "rank": 49
+        },
+        {
+          "layer": "land",
+          "kind": "taxiway",
+          "rank": 49
+        },
+        {
+          "layer": "land",
+          "kind": "helipad",
+          "rank": 49
+        },
+        {
+          "layer": "sites",
+          "kind": "parking",
+          "rank": 62
+        },
+        {
+          "layer": "sites",
+          "kind": "bicycle_parking",
+          "rank": 62
+        },
+        {
+          "layer": "street_polygons",
+          "kind": "pedestrian",
+          "rank": 70
+        },
+        {
+          "layer": "street_polygons",
+          "kind": "service",
+          "rank": 71
+        },
+        {
+          "layer": "buildings",
+          "kind": "*",
+          "rank": 75
+        },
+        {
+          "layer": "streets",
+          "kind": "footway",
+          "rank": 80,
+          "widthM": 1.8
+        },
+        {
+          "layer": "streets",
+          "kind": "steps",
+          "rank": 81,
+          "widthM": 1.5
+        },
+        {
+          "layer": "streets",
+          "kind": "cycleway",
+          "rank": 81,
+          "widthM": 2.0
+        },
+        {
+          "layer": "streets",
+          "kind": "service",
+          "rank": 81,
+          "widthM": 3.5
+        },
+        {
+          "layer": "streets",
+          "kind": "living_street",
+          "rank": 82,
+          "widthM": 4.75
+        },
+        {
+          "layer": "streets",
+          "kind": "pedestrian",
+          "rank": 82,
+          "widthM": 6.0
+        },
+        {
+          "layer": "streets",
+          "kind": "residential",
+          "rank": 83,
+          "widthM": 5.5
+        },
+        {
+          "layer": "streets",
+          "kind": "unclassified",
+          "rank": 83,
+          "widthM": 5.5
+        },
+        {
+          "layer": "streets",
+          "kind": "tertiary",
+          "rank": 84,
+          "widthM": 6.5
+        },
+        {
+          "layer": "streets",
+          "kind": "rail",
+          "rank": 84,
+          "widthM": 3.8
+        },
+        {
+          "layer": "streets",
+          "kind": "light_rail",
+          "rank": 84,
+          "widthM": 3.8
+        },
+        {
+          "layer": "streets",
+          "kind": "tram",
+          "rank": 84,
+          "widthM": 3.0
+        },
+        {
+          "layer": "streets",
+          "kind": "narrow_gauge",
+          "rank": 84,
+          "widthM": 2.5
+        },
+        {
+          "layer": "streets",
+          "kind": "subway",
+          "rank": 84,
+          "widthM": 3.8
+        },
+        {
+          "layer": "streets",
+          "kind": "monorail",
+          "rank": 84,
+          "widthM": 3.0
+        },
+        {
+          "layer": "streets",
+          "kind": "funicular",
+          "rank": 84,
+          "widthM": 3.0
+        },
+        {
+          "layer": "streets",
+          "kind": "secondary",
+          "rank": 85,
+          "widthM": 7.5
+        },
+        {
+          "layer": "streets",
+          "kind": "primary",
+          "rank": 86,
+          "widthM": 9.5
+        },
+        {
+          "layer": "streets",
+          "kind": "taxiway",
+          "rank": 87,
+          "widthM": 23.0
+        },
+        {
+          "layer": "streets",
+          "kind": "trunk",
+          "rank": 87,
+          "widthM": 11.5
+        },
+        {
+          "layer": "streets",
+          "kind": "motorway",
+          "rank": 88,
+          "widthM": 12.0
+        },
+        {
+          "layer": "streets",
+          "kind": "runway",
+          "rank": 88,
+          "widthM": 45.0
+        }
+      ]
     },
     {
       "name": "wasser",
-      "keySrgb": [
-        [
-          92,
-          140,
-          190
-        ],
-        [
-          145,
-          178,
-          160
-        ],
-        [
-          140,
-          172,
-          162
-        ],
-        [
-          128,
-          162,
-          150
-        ]
-      ],
       "ground": {
         "class": "wasser",
         "contrast": 0.15
@@ -734,11 +909,97 @@
       "origins": {
         "grass.perM2": "0 is a STATEMENT, not a missing value: nothing is scattered on open water, and the wetland greens are folded in here so a marsh does not grow a pasture",
         "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry"
-      }
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "bog",
+          "rank": 36
+        },
+        {
+          "layer": "land",
+          "kind": "marsh",
+          "rank": 36
+        },
+        {
+          "layer": "land",
+          "kind": "swamp",
+          "rank": 36
+        },
+        {
+          "layer": "land",
+          "kind": "string_bog",
+          "rank": 36
+        },
+        {
+          "layer": "land",
+          "kind": "wet_meadow",
+          "rank": 36
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "water",
+          "rank": 50
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "reservoir",
+          "rank": 50
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "basin",
+          "rank": 51
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "dock",
+          "rank": 51
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "river",
+          "rank": 52
+        },
+        {
+          "layer": "water_polygons",
+          "kind": "ocean",
+          "rank": 50
+        },
+        {
+          "layer": "water_lines",
+          "kind": "drain",
+          "rank": 90,
+          "widthM": 1.0
+        },
+        {
+          "layer": "water_lines",
+          "kind": "ditch",
+          "rank": 90,
+          "widthM": 1.5
+        },
+        {
+          "layer": "water_lines",
+          "kind": "stream",
+          "rank": 91,
+          "widthM": 2.0
+        },
+        {
+          "layer": "water_lines",
+          "kind": "canal",
+          "rank": 92,
+          "widthM": 8.0
+        },
+        {
+          "layer": "water_lines",
+          "kind": "river",
+          "rank": 92,
+          "widthM": 12.0
+        }
+      ]
     },
     {
       "name": "ufer",
-      "keySrgb": [],
       "ground": {
         "class": "schlamm",
         "contrast": 0.5
@@ -790,7 +1051,8 @@
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — a riparian strip is a BUFFER around the water polygon, not a colour. Reachable once the OSM water overlay can dilate; declared now so the Weser bank has somewhere to go.",
         "trees.species": "[SET] the Weser bank at Hameln"
-      }
+      },
+      "osm": []
     }
   ],
   "groundClassOrigin": "the template REFERENCES a class of sim/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: laubmischwald/nadelwald -> waldboden with a leaf/needle litter override, wiese -> grasfilz (see the template's own ground.class origin), acker/siedlung -> erde_trocken, heide -> sand, versiegelt -> asphalt, wasser -> wasser, ufer -> schlamm. litterClass is omitted where the material's own litter declaration applies.",

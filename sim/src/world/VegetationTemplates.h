@@ -1,22 +1,24 @@
-/* THE 8-BIT ALBEDO INDEX and the table it indexes (doc/render/visual-target.md §5): the coarse albedo
- * triple is quantised to one byte, and that byte selects a template which declares a species mix,
- * densities, ground cover and clutter — never a texture. Loaded from JSON, so a template gains a field
- * without a rebuild.
+/* THE CLASS MODEL: one template per ground class, keyed by the OSM (layer, kind) pairs that select it
+ * and by nothing else. A template declares a species mix, densities, ground cover and clutter — never
+ * a texture. Loaded from JSON, so a template gains a field, a tag or a whole OSM layer without a
+ * rebuild.
  *
- * THE QUANTISER IS A LUT, NOT A BIT CUT, and that is a measured decision rather than a taste. The OSM
- * bake's palette (tiles/src/style.h) puts 51 declared key colours into a narrow, high-lightness band:
- * the best uniform 8-bit RGB cut of it (3-1-4) still merges four buckets across template boundaries,
- * and the natural-looking 3-3-2 merges eight — residential lands on sand, meadow on allotments. A
- * 32x32x32 grid over the same space separates all nine templates with ZERO collisions (min
- * inter-template key distance 0.0126 in gamma-2 space, cell size 0.031, measured: no cell holds two).
- * So the CPU resolves 32768 cells to a template index once, and both the shader and the tile indexer
- * READ that table instead of each running a formula that has to be kept identical. */
+ * THE KEY IS THE TAG, NOT A COLOUR. The key space used to be `keySrgb`, i.e. the palette
+ * tiles/src/style.h picked for a map image: the class model was addressed through a paint. That made
+ * two classes unreachable by construction (deciduous and coniferous forest share one colour) and it
+ * pinned the whole model to a bake that no longer exists.
+ *
+ * RANK IS DECLARED PER ROW because nothing upstream declares it: the tile server orders its LAYERS
+ * (six literal lines) but inside `land` it relies on the provider's emission order — last drawn wins
+ * over features that overlap by 2.41 % of the reference tile. An implicit order is not a
+ * deterministic one. Higher rank wins. */
 #ifndef VEGETATIONTEMPLATES_H
 #define VEGETATIONTEMPLATES_H
 
-#include <cmath>
 #include <cstdint>
 #include <string>
+#include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include "GroundMaterials.h"
@@ -38,47 +40,39 @@ public:
     float Param[4];     /* x = height jitter, y = blade width (m), z = clutter/m^2, w = dry fraction */
   };
 
-  static constexpr int kLutSide = 32;
-  static constexpr int kLutCells = kLutSide * kLutSide * kLutSide;
+  /* What one declared (layer, kind) selects. `WidthM` is 0 for an area feature and the drawn width in
+   * METRES for a line one — the ONE place a road's width is decided, because the infrastructure
+   * geometry that later lays the same surface must read the number the classifier used. */
+  struct Rule {
+    int Tpl = 0;
+    int Rank = 0;
+    float WidthM = 0.0f;
+  };
 
-  /* `mats` must be Ready(): a template that names a class this table does not know is a load error,
-   * not a silent default — an unresolved ground class draws the wrong material everywhere it wins. */
   bool Load(const char *path, const GroundMaterials &mats);
 
   const Row *Rows() const { return Table_.data(); }
   size_t RowBytes() const { return Table_.size() * sizeof(Row); }
-  const uint32_t *Lut() const { return Lut_.data(); }
-  size_t LutBytes() const { return Lut_.size() * sizeof(uint32_t); }
-  bool Ready() const { return !Table_.empty() && !Lut_.empty(); }
+  bool Ready() const { return !Table_.empty(); }
   size_t TemplateCount() const { return Table_.size(); }
   const std::string &Name(size_t i) const { return Names_[i]; }
   const std::string &Error() const { return Error_; }
 
-  /* Cells holding key colours of two different templates: 8 bits could not tell them apart, and the
-   * loser is silently gone. A number that must stay 0, reported rather than assumed. */
-  int LutCollisions() const { return Collisions_; }
+  /* nullptr = this layer/kind is declared nowhere, which is an ERROR at the call site and not a
+   * default: a tag the table does not know is exactly the case that hid 81 barrier ways. A layer may
+   * declare `kind: "*"`, which is the statement that the kind does not change the class. */
+  const Rule *Find(std::string_view layer, std::string_view kind) const;
 
-  static float SrgbToLinear(float s) {
-    return s <= 0.04045f ? s / 12.92f : std::pow((s + 0.055f) / 1.055f, 2.4f);
-  }
-
-  /* Gamma-2 (sqrt of linear) is the LUT's address space: perceptually even enough that a uniform grid
-   * over it spends its cells where a palette actually varies, and one instruction in WGSL. */
-  static int Cell(float lr, float lg, float lb) {
-    const auto q = [](float v) {
-      const float c = v < 0.0f ? 0.0f : (v > 1.0f ? 1.0f : v);
-      const int i = (int)(std::sqrt(c) * (float)kLutSide);
-      return i < 0 ? 0 : (i > kLutSide - 1 ? kLutSide - 1 : i);
-    };
-    return (q(lb) * kLutSide + q(lg)) * kLutSide + q(lr);
-  }
+  /* The class of a place OSM says nothing about. Declared, never guessed at the call site. */
+  int DefaultTemplate() const { return Default_; }
+  size_t RuleCount() const { return Rules_.size(); }
 
 private:
   std::vector<Row> Table_;
-  std::vector<uint32_t> Lut_;
   std::vector<std::string> Names_;
+  std::unordered_map<std::string, Rule> Rules_;   /* key "layer/kind", plus "layer/*" */
   std::string Error_;
-  int Collisions_ = 0;
+  int Default_ = 0;
 };
 
 } // namespace outshine::World

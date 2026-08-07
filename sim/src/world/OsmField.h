@@ -43,7 +43,10 @@ public:
     int Z = 0, X = 0, Y = 0;
   };
 
-  explicit OsmField(std::initializer_list<const char *> layers);
+  /* `zoom` is the VECTOR SOURCE's own maxzoom for this field, and it belongs here rather than to
+   * any consumer: a coarse field over a wide area and a fine one over a narrow one are the same class
+   * reading two generalisations of one dataset. */
+  OsmField(int zoom, std::initializer_list<const char *> layers);
 
   /* AT MOST ONE TILE PER CALL. Everything downstream of a decoded tile is main-thread work in the
    * frame that asked; a ring of nine landing together is one frame doing nine tiles' worth of it.
@@ -90,7 +93,7 @@ private:
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
   std::vector<uint64_t> Done_;
   std::vector<uint8_t> Scratch_;   /* the tile buffer, once — not once per frame */
-  int Zoom_ = 0;
+  int Zoom_;
   int Pending_ = -1;
 };
 

@@ -3,6 +3,7 @@
 #include "Json.h"
 #include "Log.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
@@ -11,20 +12,20 @@ namespace outshine::World {
 
 namespace {
 
-struct KeyColor { float G[3]; int Tpl; };
-
-float SrgbLinImpl(double byte255) {
-  return VegetationTemplates::SrgbToLinear((float)(byte255 / 255.0));
+float SrgbToLinear(float s) {
+  return s <= 0.04045f ? s / 12.92f : std::pow((s + 0.055f) / 1.055f, 2.4f);
 }
+
+float SrgbLinImpl(double byte255) { return SrgbToLinear((float)(byte255 / 255.0)); }
 
 }  // namespace
 
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Table_.clear();
   Names_.clear();
-  Lut_.clear();
+  Rules_.clear();
   Error_.clear();
-  Collisions_ = 0;
+  Default_ = 0;
 
   FILE *f = fopen(path, "rb");
   if (!f) { Error_ = std::string("open failed: ") + path; return false; }
@@ -52,7 +53,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
    * bit-identical to tiles/src/style.h. */
   const float grassGain = (float)doc.Root()["grassReflectanceGain"].Num(1.0);
 
-  std::vector<KeyColor> keys;
   Table_.reserve(tpls.Size());
 
   const auto fillSurf = [](float *dst, const GroundMaterials::Material &m) {
@@ -117,49 +117,51 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     }
     Table_.push_back(row);
 
-    const Render::Json::Ref ks = t["keySrgb"];
-    for (size_t k = 0; k < ks.Size(); k++) {
-      KeyColor kc{};
-      kc.Tpl = (int)i;
-      for (int c = 0; c < 3; c++)
-        kc.G[c] = std::sqrt(SrgbLinImpl(ks[k][(size_t)c].Num(0.0)));
-      keys.push_back(kc);
+  }
+
+  /* The osm rows come SECOND, so every row can name a template by index without a forward pass. */
+  for (size_t i = 0; i < tpls.Size(); i++) {
+    const Render::Json::Ref rows = tpls[i]["osm"];
+    for (size_t k = 0; k < rows.Size(); k++) {
+      const Render::Json::Ref r = rows[k];
+      const std::string layer = r["layer"].Str("");
+      const std::string kind = r["kind"].Str("");
+      if (layer.empty() || kind.empty()) {
+        Error_ = "osm row without layer or kind on template " + Names_[i];
+        return false;
+      }
+      Rule rule{};
+      rule.Tpl = (int)i;
+      rule.Rank = (int)r["rank"].Num(-1.0);
+      rule.WidthM = (float)r["widthM"].Num(0.0);
+      if (rule.Rank < 0) { Error_ = "osm row without rank: " + layer + "/" + kind; return false; }
+      const std::string key = layer + "/" + kind;
+      if (!Rules_.emplace(key, rule).second) { Error_ = "duplicate osm row: " + key; return false; }
     }
   }
-  if (keys.empty()) { Error_ = "no key colours declared"; return false; }
+  if (Rules_.empty()) { Error_ = "no osm rows declared"; return false; }
 
-  /* Every cell to the NEAREST declared key. A cell that holds two templates' keys at once is the one
-   * failure mode of an 8-bit index, so it is counted rather than resolved quietly. */
-  std::vector<int> holder((size_t)kLutCells, -1);
-  for (const KeyColor &k : keys) {
-    const int cell = (int)(k.G[2] * kLutSide) * kLutSide * kLutSide +
-                     (int)(k.G[1] * kLutSide) * kLutSide + (int)(k.G[0] * kLutSide);
-    const int c = cell < 0 ? 0 : (cell > kLutCells - 1 ? kLutCells - 1 : cell);
-    if (holder[(size_t)c] >= 0 && holder[(size_t)c] != k.Tpl) Collisions_++;
-    holder[(size_t)c] = k.Tpl;
-  }
-
-  Lut_.assign((size_t)kLutCells, 0u);
-  for (int b = 0; b < kLutSide; b++)
-    for (int g = 0; g < kLutSide; g++)
-      for (int r = 0; r < kLutSide; r++) {
-        const size_t cell = (size_t)((b * kLutSide + g) * kLutSide + r);
-        if (holder[cell] >= 0) { Lut_[cell] = (uint32_t)holder[cell]; continue; }
-        const float c[3] = {(r + 0.5f) / kLutSide, (g + 0.5f) / kLutSide, (b + 0.5f) / kLutSide};
-        float best = 1e30f;
-        int win = 0;
-        for (const KeyColor &k : keys) {
-          const float d = (k.G[0] - c[0]) * (k.G[0] - c[0]) + (k.G[1] - c[1]) * (k.G[1] - c[1]) +
-                          (k.G[2] - c[2]) * (k.G[2] - c[2]);
-          if (d < best) { best = d; win = k.Tpl; }
-        }
-        Lut_[cell] = (uint32_t)win;
-      }
+  const std::string def = doc.Root()["osmDefault"].Str("");
+  Default_ = -1;
+  for (size_t i = 0; i < Names_.size(); i++)
+    if (Names_[i] == def) Default_ = (int)i;
+  if (Default_ < 0) { Error_ = "osmDefault names no template: " + def; return false; }
 
   Log::Info("veg", "table", {{"path", path}, {"templates", (int)Table_.size()},
-                             {"keys", (int)keys.size()}, {"lutCells", kLutCells},
-                             {"collisions", Collisions_}});
+                             {"osmRules", (int)Rules_.size()}, {"default", def}});
   return true;
+}
+
+const VegetationTemplates::Rule *VegetationTemplates::Find(std::string_view layer,
+                                                           std::string_view kind) const {
+  std::string key;
+  key.reserve(layer.size() + kind.size() + 1);
+  key.append(layer).append("/").append(kind);
+  auto it = Rules_.find(key);
+  if (it != Rules_.end()) return &it->second;
+  key.assign(layer).append("/*");
+  it = Rules_.find(key);
+  return it != Rules_.end() ? &it->second : nullptr;
 }
 
 } // namespace outshine::World
