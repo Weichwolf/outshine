@@ -1,5 +1,6 @@
 {
-  "bark_r":0.34,"bark_g":0.34,"bark_b":0.32,"bark_dark":0.65,"bark_freq":4.0,"bark_ridge":0.25,
+  "bark_r":0.34,"bark_g":0.34,"bark_b":0.32,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.095/0.095/0.084. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
+  "bark_dark":0.65,"bark_freq":4.0,"bark_ridge":0.25,
   "name": "tanne", "botanical": "Abies alba", "common": "Weisstanne / Silver fir",
   "habit": "schmal kegelfoermig, gerader Leittrieb, waagerechte Aeste in etagen, oben spitz",
   "height_m": 40, "spread_m": 7,

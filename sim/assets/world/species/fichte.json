@@ -1,5 +1,6 @@
 {
-  "bark_r":0.28,"bark_g":0.23,"bark_b":0.18,"bark_dark":0.55,"bark_freq":6.0,"bark_ridge":0.58,
+  "bark_r":0.28,"bark_g":0.23,"bark_b":0.18,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.064/0.043/0.027. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
+  "bark_dark":0.55,"bark_freq":6.0,"bark_ridge":0.58,
   "name": "fichte",
   "botanical": "Picea abies",
   "common": "Gemeine Fichte / Norway spruce",

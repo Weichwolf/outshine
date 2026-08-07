@@ -29,6 +29,20 @@ TreeVec3 TreeGrower::FaceNormal(int fi) const {
   return Normalize(Cross(b - a, c - a));
 }
 
+/* A regular n-gon of radius r misses its circle by r(1 - cos(pi/n)); half a pixel of that is the whole
+ * budget, and the species' own `trunk_sides` stays the ceiling — the rule may make a tube coarser,
+ * never rounder than the declaration. */
+int TreeGrower::SidesFor(float radius, int declared) const {
+  int cap = declared < kMaxSides ? declared : kMaxSides;
+  if (cap < 3) { cap = 3; }
+  if (PixelGrow_ <= 0.0f || radius <= 0.0f) { return cap; }
+  const float c = 1.0f - 0.5f * PixelGrow_ / radius;
+  if (c <= -1.0f) { return 3; }
+  const int n = (int)std::ceil(3.14159265f / std::acos(c));
+  if (n < 3) { return 3; }
+  return n < cap ? n : cap;
+}
+
 TreeVec3 TreeGrower::FaceCentroid(int fi) const {
   const Face &f = Faces_[(size_t)fi];
   const int n = f.D < 0 ? 3 : 4;
@@ -59,7 +73,8 @@ int TreeGrower::ExtrudeCap(Tip &t, TreeVec3 oldDir, float step, float radius, in
   return first;
 }
 
-TreeGrower::Tip TreeGrower::BranchFromFace(int fi, TreeVec3 dir, float radius, float step) {
+TreeGrower::Tip TreeGrower::BranchFromFace(int fi, TreeVec3 dir, float radius, float step,
+                                           int sides) {
   const Face parent = Faces_[(size_t)fi];
   const int o[4] = {parent.A, parent.B, parent.C, parent.D};
   const TreeVec3 ctr = FaceCentroid(fi);
@@ -76,10 +91,10 @@ TreeGrower::Tip TreeGrower::BranchFromFace(int fi, TreeVec3 dir, float radius, f
 
   Dead_[(size_t)fi] = 1;
 
-  /* A REGULAR octagon at the collar AND at the first ring: equal segments, no distortion where the
+  /* A REGULAR polygon at the collar AND at the first ring: equal segments, no distortion where the
    * branch leaves the trunk. */
-  const int kb = kBranchSides;
-  int inner[kBranchSides], ring[kBranchSides];
+  const int kb = sides;
+  int inner[kMaxSides], ring[kMaxSides];
   const TreeVec3 nPos = ctr + dir * step;
   for (int j = 0; j < kb; ++j) {
     const float a = kTau * (float)j / (float)kb;
@@ -121,6 +136,7 @@ TreeGrower::Tip TreeGrower::BranchFromFace(int fi, TreeVec3 dir, float radius, f
 }
 
 void TreeGrower::CapRing(const Tip &t, bool forward) {
+  if (t.K == 0) { return; }
   const TreeVec3 c = t.Pos + t.Dir * (t.Radius * (forward ? 2.4f : -0.6f));
   const int ci = AddVert(c);
   for (int k = 0; k < t.K; ++k) {
@@ -149,6 +165,7 @@ void TreeGrower::EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeV
 
 void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int first, float roll,
                               int step) {
+  if (t.K == 0) { return; }
   int k0 = (int)(roll / kTau * (float)t.K) % t.K;
   if (k0 < 0) { k0 += t.K; }
   const int fi = first + k0;
@@ -167,7 +184,16 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
       if (dOut < -0.05f && Rng_.Unit() < g.ShadePrune) { return; }
     }
   }
-  Tip b = BranchFromFace(fi, dir, br, g.StepLen);
+  Tip b;
+  if (2.0f * br <= PixelGrow_) {
+    b.K = 0;
+    b.Dir = dir;
+    b.Up = FaceNormal(fi);
+    b.Pos = FaceCentroid(fi);
+    b.Radius = br;
+  } else {
+    b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
+  }
   b.Order = t.Order + 1;
   float cLen = g.OrderLen;
   if (t.Order == 0 && g.Conical > 0.0f) {
@@ -185,13 +211,29 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
  * measured. The species declares the number forestry measures (`bhd_cm`) and the whole radius cascade
  * is scaled to hit it; scaling base, twig and min together keeps every branch's termination and every
  * leaf point exactly where they were, so only the thickness moves. */
-void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out) {
+void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeightFrac) {
   TreeSpecies::Growth g = species.GrowthParams();
   const float h = species.HeightM();
   const float targetR = species.BhdM() * 0.5f;
 
+  /* The rule arrives in tree HEIGHTS and the grower works in its own units, so the first pass is a
+   * CALIBRATION: it grows the declared mesh only to learn what height that is. `trunk_steps *
+   * step_len` will not do — the crown reaches well past the leader's own run (buche 6,80 against
+   * 4,16, eiche 4,54 against 2,24, both measured), and a pixel 60 % too small buys detail nobody
+   * sees. */
+  PixelGrow_ = 0.0f;
+  NormHeight_ = 0.0f;
   Passes_ = 1;
   GrowOnce(g, h, out);
+  if (pixelHeightFrac > 0.0f) {
+    PixelGrow_ = pixelHeightFrac * GrowHeight_;
+    /* EVERY RANK IS THE SAME TREE AND MUST BE THE SAME SIZE. A coarse rank has no bark on its
+     * topmost shoots, so its own box is up to a quarter shorter (measured, buche rank 2: 5,08 grower
+     * units against 6,80) — normalising by that box would make the tree jump when the rank changes. */
+    NormHeight_ = GrowHeight_;
+    GrowOnce(g, h, out);
+    Passes_++;
+  }
   BhdErrorRel_ = 0.0f;
   if (targetR <= 0.0f || h <= 0.0f) { return; }
 
@@ -219,8 +261,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
 
   const float leafThreshold = g.TwigRadius * g.FoliageFactor;
 
-  int k = g.TrunkSides;
-  if (k > kMaxSides) { k = kMaxSides; }
+  const int k = SidesFor(g.BaseRadius, g.TrunkSides);
   Tip trunk;
   trunk.K = k;
   trunk.Dir = Vec3(0, 1, 0);
@@ -267,9 +308,23 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
       t.Dir = Normalize(want);
 
       const float nr = t.Radius * g.Taper;
-      const int first = ExtrudeCap(t, oldDir, g.StepLen, nr, newRing);
-      lastFirst = first;
-      for (int i = 0; i < t.K; ++i) { t.Ring[i] = newRing[i]; }
+      /* The rule follows the TAPER, not just the spawn: a shoot that starts a pixel wide and thins
+       * over its run would otherwise carry its spawn ring to its tip. It is capped where it crosses
+       * and goes on as a point tip, so its leaves stay where they grew. */
+      if (t.K > 0 && 2.0f * nr <= PixelGrow_) {
+        CapRing(t, true);
+        t.K = 0;
+        lastFirst = -1;
+      }
+      int first = -1;
+      if (t.K > 0) {
+        first = ExtrudeCap(t, oldDir, g.StepLen, nr, newRing);
+        lastFirst = first;
+        for (int i = 0; i < t.K; ++i) { t.Ring[i] = newRing[i]; }
+      } else {
+        t.Pos = t.Pos + t.Dir * g.StepLen;
+        t.Radius = nr;
+      }
       if (t.Order == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
 
       const bool leaderOk = (t.Order != 0) || (s >= (int)(g.CrownBase * (float)t.Steps));
@@ -306,7 +361,17 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
         if (Dead_[(size_t)fi]) { continue; }
         const TreeVec3 fn = FaceNormal(fi);
         const TreeVec3 dir = Normalize(t.Dir + fn * 0.55f);
-        Tip b = BranchFromFace(fi, dir, t.Radius * 0.74f, g.StepLen);
+        const float br = t.Radius * 0.74f;
+        Tip b;
+        if (2.0f * br <= PixelGrow_) {
+          b.K = 0;
+          b.Dir = dir;
+          b.Up = fn;
+          b.Pos = FaceCentroid(fi);
+          b.Radius = br;
+        } else {
+          b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
+        }
         b.Order = t.Order + 1;
         b.Steps = (int)((float)t.Steps * g.OrderLen);
         if (b.Steps < 3) { b.Steps = 3; }
@@ -386,6 +451,8 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
   const float y0 = TrunkProfile_.empty() ? mn.Y : TrunkProfile_[0].X - 0.6f * TrunkProfile_[0].Y;
   float h = mx.Y - y0;
   if (h < 1e-6f) { h = 1.0f; }
+  GrowHeight_ = h;
+  if (NormHeight_ > 0.0f) { h = NormHeight_; }
   const float s = 1.0f / h;
   for (size_t i = 0; i < out.BarkVertexCount(); ++i) {
     float *v = &out.BarkVerts[i * TreeMesh::kBarkFloats];

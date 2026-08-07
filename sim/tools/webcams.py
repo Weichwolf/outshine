@@ -7,31 +7,63 @@
 Schreibt web/cams/ mit den Bildpaaren und index.html. Die Seite ist der Stand — sie wird
 angesehen, nicht berichtet.
 """
-import argparse, datetime, hashlib, json, os, pathlib, subprocess, sys, urllib.request
+import argparse, datetime, hashlib, json, os, pathlib, re, subprocess, sys, urllib.request
+import zoneinfo
 
 W, H = 320, 180
 SIM = pathlib.Path(__file__).resolve().parent.parent
 OUT = SIM / "web" / "cams"
 BASE = "https://www.foto-webcam.eu/webcam"
 UA = {"User-Agent": "Mozilla/5.0 (outshine reference harness)"}
+MAX_AGE_S = 3600
+CAM_TZ = zoneinfo.ZoneInfo("Europe/Berlin")
+ARCHIVE = re.compile(r'"(20\d\d)\\?/(\d\d)\\?/(\d\d)\\?/(\d\d)(\d\d)_hd\.jpg"')
+
+
+def get(url, timeout=30):
+    return urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=timeout)
+
+
+def header_time(slug):
+    """Nur zur Gegenprobe: der Last-Modified von current/1920.jpg."""
+    try:
+        lm = get(f"{BASE}/{slug}/current/1920.jpg", 20).headers.get("Last-Modified")
+        return datetime.datetime.strptime(lm, "%a, %d %b %Y %H:%M:%S %Z").replace(
+            tzinfo=datetime.timezone.utc)
+    except Exception:
+        return None
 
 
 def live(slug, dst):
-    """Das aktuelle Bild und, wenn der Server ihn nennt, sein Zeitstempel."""
-    req = urllib.request.Request(f"{BASE}/{slug}/current/1920.jpg", headers=UA)
+    """Das juengste Archivbild: sein Zeitstempel steht in seinem eigenen Pfad, in Ortszeit der Kamera.
+
+    Nicht current/1920.jpg — dessen Last-Modified ist der einzige Zeuge seiner selbst, und bei einer
+    abgeschalteten Kamera zeigt er jahrealt weiter auf das letzte Bild. Das Bild selbst traegt keine
+    eingebrannte Zeit (gemessen an zugspitze 2026-08-07: weder in den oberen 90 noch in den unteren
+    60 Zeilen steht Text), also ist der Pfad die einzige selbstbeschreibende Quelle."""
     try:
-        r = urllib.request.urlopen(req, timeout=30)
-        d = r.read()
-        if len(d) < 10000:
-            return None, None
-        dst.write_bytes(d)
-        lm = r.headers.get("Last-Modified")
-        if lm:
-            t = datetime.datetime.strptime(lm, "%a, %d %b %Y %H:%M:%S %Z")
-            return len(d), t.replace(tzinfo=datetime.timezone.utc)
-        return len(d), datetime.datetime.now(datetime.timezone.utc)
-    except Exception:
-        return None, None
+        page = get(f"{BASE}/{slug}/", 30).read().decode("utf-8", "replace")
+    except Exception as e:
+        return None, None, f"Seite nicht erreichbar: {e}"
+    m = ARCHIVE.search(page)
+    if not m:
+        return None, None, "kein Archivbild auf der Seite"
+    y, mo, d, hh, mm = (int(v) for v in m.groups())
+    when = datetime.datetime(y, mo, d, hh, mm, tzinfo=CAM_TZ).astimezone(datetime.timezone.utc)
+    age = (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds()
+    if abs(age) > MAX_AGE_S:
+        return None, when, f"kein Livebild: {age / 3600.0:.1f} h alt ({when:%Y-%m-%d %H:%M} UTC)"
+    try:
+        data = get(f"{BASE}/{slug}/{y:04d}/{mo:02d}/{d:02d}/{hh:02d}{mm:02d}_hd.jpg", 30).read()
+    except Exception as e:
+        return None, when, f"Archivbild nicht abrufbar: {e}"
+    if len(data) < 10000:
+        return None, when, f"Archivbild zu klein ({len(data)} B)"
+    dst.write_bytes(data)
+    lm = header_time(slug)
+    if lm and abs((lm - when).total_seconds()) > MAX_AGE_S:
+        return len(data), when, f"Header weicht ab: {lm:%Y-%m-%d %H:%M} UTC gegen Pfad"
+    return len(data), when, ""
 
 
 def fogged(path):
@@ -111,12 +143,16 @@ def main():
         slug = c["slug"]
         photo = OUT / f"{slug}-live.jpg"
         shot = OUT / f"{slug}-outshine.png"
-        n, when = live(slug, photo)
+        n, when, why = live(slug, photo)
         fog, st = (fogged(photo) if n else (False, {}))
         if n is None:
-            print(f"{slug:16s} {'FEHLT':>8s}")
-            rows.append((c, None, None, False))
+            photo.unlink(missing_ok=True)
+            shot.unlink(missing_ok=True)
+            print(f"{slug:16s} {'VERWORFEN':>9s}  {why}")
+            rows.append((c, when, None, False))
             continue
+        if why:
+            print(f"{slug:16s} {'WARNUNG':>9s}  {why}")
 
         scene = OUT / f"{slug}-scene.json"
         scene.write_text(json.dumps({
@@ -152,6 +188,8 @@ def main():
             f"erzeugt {datetime.datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M} UTC</p>",
             "<div class=g>"]
     for c, when, ok, fog in rows:
+        if not ok:
+            continue
         fit = "" if c.get("fitted") else "<span class=w>Pose ungefittet</span>"
         if fog: fit += " <span class=w>in Wolken</span>"
         ts = when.strftime("%H:%M UTC") if when else "&mdash;"
@@ -159,6 +197,9 @@ def main():
                     f"<div class=p><img src='{c['slug']}-live.jpg'>"
                     f"<img src='{c['slug']}-outshine.png'></div></div>")
     html.append("</div>")
+    dead = [c["name"] for c, _w, ok, _f in rows if not ok]
+    if dead:
+        html.append(f"<p class=n>Ohne Livebild und darum nicht gerendert: {', '.join(dead)}</p>")
     (OUT / "index.html").write_text("\n".join(html))
     print(f"\n{OUT/'index.html'}")
     return 0

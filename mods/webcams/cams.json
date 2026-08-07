@@ -1,7 +1,7 @@
 {
   "schema": "outshine/webcams/1",
-  "subject": "Deklarierte Standpunkte: 24 feste Kameras von foto-webcam.eu, gegen deren Livebild gerendert wird. Ein Satz Standpunkte ist ein MOD und kein Enginebestandteil — die Engine kennt keine Kamera, sie kennt eine Szene.",
-  "poseOrigin": "lat/lon/altM sind die Standorte: die Seite nennt Berg und Hoehe im Text, die Gipfelkoordinate ist allgemein bekannt, EXIF ist leer (geprueft — die Bilder tragen nur einen gd-jpeg-Kommentar). yawDeg/pitchDeg/fovDeg werden VON HAND eingestellt und hier festgehalten. Der automatische Horizonteinpasser (tools/posefit.py) ist dreimal gescheitert: Azimut und Bildwinkel sind zusammen unterbestimmt, und bei festem Bildwinkel lieferte er fuer den Kochelsee konsistent einen Blick steil nach Nordosten, wo die Kamera nach Sueden auf den Herzogstand zeigt. Er bleibt als Werkzeug liegen, das Ergebnis wird nicht uebernommen. `fitted` heisst hier: von Hand geprueft und fuer gut befunden.",
+  "subject": "Deklarierte Standpunkte: 14 feste Kameras von foto-webcam.eu, gegen deren Livebild gerendert wird. Ein Satz Standpunkte ist ein MOD und kein Enginebestandteil \u2014 die Engine kennt keine Kamera, sie kennt eine Szene. Zehn weitere Standpunkte sind am 2026-08-07 geflogen, weil ihre Kamera abgeschaltet ist: das juengste Archivbild lag zwischen 1,5 und 8,3 Jahren zurueck (koenigssee 2018-04-29, hochgrat 2018-05-12, kaunertal 2018-10-20, gaisberg 2020-02-23, soell 2020-05-20, predigtstuhl 2020-09-06, grainau 2022-04-22, kitzsteinhorn 2022-07-18, karwendel 2025-01-25) oder das Bild war aelter als eine Stunde (seefeld). Gegen ein Standbild von 2018 zu rendern misst nichts.",
+  "poseOrigin": "lat/lon/altM sind die Standorte: die Seite nennt Berg und Hoehe im Text, die Gipfelkoordinate ist allgemein bekannt, EXIF ist leer (geprueft \u2014 die Bilder tragen nur einen gd-jpeg-Kommentar). yawDeg/pitchDeg/fovDeg werden VON HAND eingestellt und hier festgehalten. Der automatische Horizonteinpasser (tools/posefit.py) ist dreimal gescheitert: Azimut und Bildwinkel sind zusammen unterbestimmt, und bei festem Bildwinkel lieferte er fuer den Kochelsee konsistent einen Blick steil nach Nordosten, wo die Kamera nach Sueden auf den Herzogstand zeigt. Er bleibt als Werkzeug liegen, das Ergebnis wird nicht uebernommen. `fitted` heisst hier: von Hand geprueft und fuer gut befunden.",
   "cams": [
     {
       "slug": "zugspitze",
@@ -32,17 +32,6 @@
       "lon": 10.224,
       "altM": 2037,
       "yawDeg": 200,
-      "pitchDeg": -5,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "hochgrat",
-      "name": "Hochgrat",
-      "lat": 47.511,
-      "lon": 10.021,
-      "altM": 1834,
-      "yawDeg": 160,
       "pitchDeg": -5,
       "fovDeg": 55,
       "fitted": false
@@ -81,28 +70,6 @@
       "fitted": false
     },
     {
-      "slug": "grainau",
-      "name": "Grainau",
-      "lat": 47.476,
-      "lon": 11.021,
-      "altM": 750,
-      "yawDeg": 210,
-      "pitchDeg": 0,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "karwendel",
-      "name": "Karwendel",
-      "lat": 47.415,
-      "lon": 11.273,
-      "altM": 2244,
-      "yawDeg": 180,
-      "pitchDeg": -6,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
       "slug": "kochelsee",
       "name": "Herzogstand / Fahrenbergkopf",
       "lat": 47.6075,
@@ -112,18 +79,7 @@
       "pitchDeg": -18,
       "fovDeg": 60,
       "fitted": false,
-      "hand": "Die Bildunterschrift nennt den Standort: Fahrenbergkopf, Blick ueber den Kochelsee ins Oberland. Die Kamera steht also 1000 m ueber dem See und schaut steil nach Norden hinab — meine erste Eintragung setzte sie ans Seeufer mit Blick nach Sueden."
-    },
-    {
-      "slug": "seefeld",
-      "name": "Seefeld",
-      "lat": 47.329,
-      "lon": 11.188,
-      "altM": 1180,
-      "yawDeg": 180,
-      "pitchDeg": -3,
-      "fovDeg": 55,
-      "fitted": false
+      "hand": "Die Bildunterschrift nennt den Standort: Fahrenbergkopf, Blick ueber den Kochelsee ins Oberland. Die Kamera steht also 1000 m ueber dem See und schaut steil nach Norden hinab \u2014 meine erste Eintragung setzte sie ans Seeufer mit Blick nach Sueden."
     },
     {
       "slug": "innsbruck",
@@ -133,17 +89,6 @@
       "altM": 600,
       "yawDeg": 180,
       "pitchDeg": -3,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "kitzsteinhorn",
-      "name": "Kitzsteinhorn",
-      "lat": 47.188,
-      "lon": 12.687,
-      "altM": 3029,
-      "yawDeg": 0,
-      "pitchDeg": -6,
       "fovDeg": 55,
       "fitted": false
     },
@@ -170,56 +115,12 @@
       "fitted": false
     },
     {
-      "slug": "gaisberg",
-      "name": "Gaisberg",
-      "lat": 47.804,
-      "lon": 13.11,
-      "altM": 1287,
-      "yawDeg": 240,
-      "pitchDeg": -5,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "koenigssee",
-      "name": "Koenigssee",
-      "lat": 47.588,
-      "lon": 12.988,
-      "altM": 610,
-      "yawDeg": 180,
-      "pitchDeg": -2,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "predigtstuhl",
-      "name": "Predigtstuhl",
-      "lat": 47.714,
-      "lon": 12.853,
-      "altM": 1613,
-      "yawDeg": 180,
-      "pitchDeg": -6,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
       "slug": "lofer",
       "name": "Lofer",
       "lat": 47.585,
       "lon": 12.696,
       "altM": 640,
       "yawDeg": 180,
-      "pitchDeg": -2,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "soell",
-      "name": "Soell",
-      "lat": 47.504,
-      "lon": 12.193,
-      "altM": 700,
-      "yawDeg": 200,
       "pitchDeg": -2,
       "fovDeg": 55,
       "fitted": false
@@ -232,17 +133,6 @@
       "altM": 630,
       "yawDeg": 180,
       "pitchDeg": -2,
-      "fovDeg": 55,
-      "fitted": false
-    },
-    {
-      "slug": "kaunertal",
-      "name": "Kaunertal",
-      "lat": 46.86,
-      "lon": 10.729,
-      "altM": 2750,
-      "yawDeg": 180,
-      "pitchDeg": -6,
       "fovDeg": 55,
       "fitted": false
     },

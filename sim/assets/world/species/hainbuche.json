@@ -1,5 +1,6 @@
 {
-  "bark_r":0.49,"bark_g":0.48,"bark_b":0.45,"bark_dark":0.72,"bark_freq":3.5,"bark_ridge":0.15,
+  "bark_r":0.49,"bark_g":0.48,"bark_b":0.45,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.205/0.196/0.171. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
+  "bark_dark":0.72,"bark_freq":3.5,"bark_ridge":0.15,
   "name": "hainbuche", "botanical": "Carpinus betulus", "common": "Hainbuche / Hornbeam",
   "habit": "dichte eifoermige Krone, sehr fein und dicht verzweigt, geriffelter Stamm",
   "height_m": 18, "spread_m": 12,

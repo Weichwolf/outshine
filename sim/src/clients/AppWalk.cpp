@@ -72,12 +72,21 @@ const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
  * one. */
 constexpr float kCardFanDeg = 110.0f;
 
+/* A DECLARED COLOUR IS sRGB; a reflectance is linear. `kLeafBaseLinear` above is the same conversion
+ * spelled out by hand, and `bark_r/g/b` never got it: 0.53 read as a reflectance is a 50 % grey, and
+ * a beech drawn in it is a birch. Linearised, the sixteen declarations land where bark is measured —
+ * beech 0.246, oak 0.076, spruce 0.060, birch 0.677 against published visible-band reflectances of
+ * roughly 0.05...0.25 for temperate bark and 0.45...0.60 for birch. */
+float SrgbToLinear(float v) {
+  return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
+}
+
 Render::TreeLook TreeLookOf(const World::TreeSpecies &sp) {
   Render::TreeLook look;
   const World::TreeSpecies::Shading &sh = sp.ShadingParams();
   const World::TreeSpecies::Leaf &lf = sp.LeafParams();
   for (int c = 0; c < 3; c++) {
-    look.BarkRgb[c] = sh.BarkColor[c];
+    look.BarkRgb[c] = SrgbToLinear(sh.BarkColor[c]);
     look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
   }
   look.BarkDark = sh.BarkDark;
@@ -372,7 +381,7 @@ int main(int argc, char **argv) {
       }
       World::TreeGrower grower;
       const auto t0 = std::chrono::steady_clock::now();
-      grower.Grow(sp, mesh);
+      grower.Grow(sp, mesh, 0.0f);
       const auto t1 = std::chrono::steady_clock::now();
       World::TreeLeaf::Build(sp.LeafParams(), mesh);
       const auto t2 = std::chrono::steady_clock::now();
@@ -385,7 +394,7 @@ int main(int argc, char **argv) {
       const double proj = 0.25 * 3.14159265358979 * crownX * crownZ;
 
       R.SetTreeLook(TreeLookOf(sp));
-      R.SetTreeBark(mesh.BarkVerts.data(), (uint32_t)mesh.BarkVertexCount(), mesh.BarkIdx.data(),
+      R.SetTreeBark(0, mesh.BarkVerts.data(), (uint32_t)mesh.BarkVertexCount(), mesh.BarkIdx.data(),
                     (uint32_t)mesh.BarkIdx.size());
       R.SetTreeLeaf(mesh.LeafVerts.data(), (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
                     (uint32_t)mesh.LeafIdx.size(), foliage.Instances().data(),
@@ -492,36 +501,61 @@ int main(int argc, char **argv) {
     }
     World::TreeSpecies sp;
     if (!txt.empty() && sp.Parse(txt.c_str(), txt.size())) {
-      World::TreeGrower g;
-      g.Grow(sp, worldTree);
-      World::TreeLeaf::Build(sp.LeafParams(), worldTree);
-      World::TreeFoliage foliage;
-      foliage.Build(worldTree, sp.LeafParams(), 1);
       const double h = (double)sp.HeightM();
-      const double proj = 0.25 * 3.14159265358979 *
-                          (double)(worldTree.BoxMax.X - worldTree.BoxMin.X) * h *
-                          (double)(worldTree.BoxMax.Z - worldTree.BoxMin.Z) * h;
-      const float cardLeafM =
-          foliage.CardLeafM(Render::TreeStage::kLeavesPerCard, (double)sp.Lai(), proj);
-      R.SetTreeLook(TreeLookOf(sp));
-      R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
-                    worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
-      R.SetTreeCards(foliage.Instances().data(), (uint32_t)foliage.Count(), cardLeafM,
-                     kCardFanDeg);
-      /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
-      R.SetTreeStand(0.0, 0.0, 0.0, h);
-      R.SetTreeCrown(std::fmax(std::fmax(-worldTree.BoxMin.X, worldTree.BoxMax.X),
-                               std::fmax(-worldTree.BoxMin.Z, worldTree.BoxMax.Z)),
-                     worldTree.BoxMax.Y, worldTree.BoxMin.Y);
+      World::TreeGrower g;
+      World::TreeFoliage foliage;
+      std::vector<float> rankCards;
+      double crownProjM2 = 0.0;
+      /* ONE MESH PER RANK, and the ladder is the stage's own: rank k may be one pixel coarse at its
+       * nearest stand, and its cards are thinned by four per step so a card keeps the same size on
+       * screen. `CardLeafM` then re-derives the leaf each card draws, so the declared leaf area index
+       * survives the thinning — fewer, larger leaves, the same canopy. */
+      for (int rank = 0; rank < Render::TreeStage::kRanks; ++rank) {
+        g.Grow(sp, worldTree, Render::TreeStage::RankPixel(rank));
+        World::TreeLeaf::Build(sp.LeafParams(), worldTree);
+        foliage.Build(worldTree, sp.LeafParams(), 1);
+        const uint32_t stride = 1u << (2u * (unsigned)rank);
+        rankCards.clear();
+        for (size_t i = 0; i < foliage.Count(); i += stride) {
+          const float *c = &foliage.Instances()[i * World::TreeFoliage::kFloats];
+          rankCards.insert(rankCards.end(), c, c + World::TreeFoliage::kFloats);
+        }
+        const uint32_t nCards = (uint32_t)(rankCards.size() / World::TreeFoliage::kFloats);
+        /* THE CROWN'S PROJECTION IS THE SPECIES', not the rank's. A coarse rank drops the thin shoots
+         * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
+         * shrink the canopy exactly where it is already thinnest. */
+        if (rank == 0) {
+          crownProjM2 = 0.25 * 3.14159265358979 *
+                        (double)(worldTree.BoxMax.X - worldTree.BoxMin.X) * h *
+                        (double)(worldTree.BoxMax.Z - worldTree.BoxMin.Z) * h;
+        }
+        const float cardLeafM = foliage.CardLeafM(Render::TreeStage::kLeavesPerCard, nCards,
+                                                  (double)sp.Lai(), crownProjM2);
+        R.SetTreeBark(rank, worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
+                      worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
+        R.SetTreeCards(rank, rankCards.data(), nCards, cardLeafM, kCardFanDeg);
+        Log::Info("walk", "trees_grown", {{"rank", (double)rank},
+            {"pixelHeightFrac", (double)Render::TreeStage::RankPixel(rank)},
+            {"barkVerts", (int)worldTree.BarkVertexCount()},
+            {"barkTris", (double)(worldTree.BarkIdx.size() / 3)},
+            {"heightM", h}, {"bhdCm", 200.0 * (double)worldTree.BhdRadius * h},
+            {"cards", (double)nCards},
+            {"leavesPerCard", (double)Render::TreeStage::kLeavesPerCard},
+            {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
+            {"crownProjM2", crownProjM2}, {"lai", (double)sp.Lai()},
+            {"growHeight", (double)g.GrowHeight()}});
+        if (rank == 0) {
+          R.SetTreeLook(TreeLookOf(sp));
+          /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf
+           * null. */
+          R.SetTreeStand(0.0, 0.0, 0.0, h);
+          R.SetTreeCrown(std::fmax(std::fmax(-worldTree.BoxMin.X, worldTree.BoxMax.X),
+                                   std::fmax(-worldTree.BoxMin.Z, worldTree.BoxMax.Z)),
+                         worldTree.BoxMax.Y, worldTree.BoxMin.Y);
+        }
+      }
       R.BakeTreeImpostor();
       worldTreeSigma = sp.HeightSigma();
-      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()},
-          {"barkTris", (double)(worldTree.BarkIdx.size() / 3)},
-          {"heightM", h}, {"heightSigma", (double)worldTreeSigma},
-          {"bhdCm", 200.0 * (double)worldTree.BhdRadius * h},
-          {"cards", (double)foliage.Count()}, {"leavesPerCard", (double)Render::TreeStage::kLeavesPerCard},
-          {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
-          {"crownProjM2", proj}, {"lai", (double)sp.Lai()}});
     }
   }
 
@@ -648,6 +682,8 @@ int main(int argc, char **argv) {
   if (!treeStands.empty()) {
     Log::Info("walk", "trees_lod", {{"stands", (double)(treeStands.size() / 5)},
         {"meshStands", (double)R.TreeMeshStands()}, {"meshRadiusM", R.TreeMeshRadiusM()},
+        {"rank0", (double)R.TreeRankStands(0)}, {"rank1", (double)R.TreeRankStands(1)},
+        {"rank2", (double)R.TreeRankStands(2)}, {"rank3", (double)R.TreeRankStands(3)}, {"impostors", (double)R.TreeImpostorStands()},
         {"tris", (double)R.TreeTriangleCount()}});
   }
 

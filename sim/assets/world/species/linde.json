@@ -1,5 +1,6 @@
 {
-  "bark_r":0.39,"bark_g":0.34,"bark_b":0.27,"bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.42,
+  "bark_r":0.39,"bark_g":0.34,"bark_b":0.27,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.126/0.095/0.059. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
+  "bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.42,
   "name": "linde", "botanical": "Tilia cordata", "common": "Winterlinde / Small-leaved lime",
   "habit": "dichte eifoermige bis herzfoermige Krone, aufsteigende Aeste, dicht verzweigt",
   "height_m": 25, "spread_m": 15,

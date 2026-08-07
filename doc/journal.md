@@ -7002,3 +7002,29 @@ Auf `build/out/koenigssee.png` stehen die Bäume einzeln, verdecken sich und tra
 gegen Himmel und Fels. Was fehlt und in `doc/render/renderer.md` `## Gaps` steht: der Feldpfad zeichnet
 kein Blatt, der Stammdurchmesser ist mit 3,1 m bei 30 m Höhe rund viermal zu groß, die Dichte ist mit
 862 Stämmen/ha drei- bis vierfach zu hoch, und fünfzehn Arten deklarieren kein `height_sigma`.
+
+## 2026-08-08 — Der Sonnentest, die Uhr der Webcams und die vierstufige Baumleiter
+
+Der Vorwurf, die Geländenormale erreiche die Beleuchtung nicht, ist widerlegt: die Szenenuhr des
+Königssees stand auf `2018-04-29T18:35:15Z`, und der Renderer meldet dazu selbst `sunElDeg=-3,61`
+mit `sunRGB=0,0,0`. Unter einer isotropen Halbkugel IST N·L richtungsfrei. Mit umgekehrtem
+Sonnenazimut schwingt derselbe Geländefleck um 115 Luminanzstufen und das Vorzeichen kehrt sich auf
+der Gegenflanke um; über 200 Blöcke sind es 181 Stufen. Die Beleuchtung ist in Ordnung.
+
+Der Vorwurf, `Last-Modified` liefere Müll, ist ebenfalls widerlegt — die Königsseekamera ist seit
+2018 abgeschaltet und ihr `current/1920.jpg` ist ehrlich alt. `tools/webcams.py` nimmt trotzdem
+nicht mehr den Header, sondern das jüngste Archivbild: sein Zeitstempel steht in seinem eigenen Pfad,
+und genau dieses Bild wird geladen. Älter als eine Stunde heißt kein Livebild und wird laut verworfen.
+Von 24 Standpunkten haben 14 ein Livebild; die zehn toten sind aus `mods/webcams/cams.json` geflogen.
+Offen und teurer: `altM` wird von niemandem gelesen, und an sieben Standpunkten liegt das DEM 400 bis
+1000 m neben der deklarierten Kamerahöhe — dort rendern wir die Unterseite eines Berges.
+
+Das LOD-0-Budget ist geholt. `TreeGrower` bekommt jetzt EIN Pixel — die Kantenlänge eines Bildpunkts
+am nächsten Stand seines Rangs, als Bruchteil der Baumhöhe — und leitet daraus die Seitenzahl jedes
+Rohrs und die Frage ab, ob ein Trieb überhaupt eines bekommt. 21 392 von 26 462 Rindendreiecken einer
+Buche hatten ihre kürzeste Kante unter 2,5 cm; das war der ganze Preis. Vier gewachsene Netze statt
+einem, Karten je Rang auf ein Viertel, Blattlänge über `lai · Kronenprojektion` nachgeführt: 360-Bild-
+Drehung bei 1280×720 über damuels, p50 **95,04 → 14,28 ms** mit dem Wald im Bild. `bark_r/g/b` war ein
+Farbraumfehler — sRGB als lineare Reflexion gelesen —, ist linearisiert und trägt in allen sechzehn
+Artdateien ein `bark_origin`. Was bleibt, ist ein Wuchsfehler: die echte Laminageometrie zeichnet
+lai 0,391 gegen deklarierte 6,0, und darum deckt die Krone den Stamm nicht.

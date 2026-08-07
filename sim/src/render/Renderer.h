@@ -132,15 +132,16 @@ public:
   /* THE SUBJECT BENCH'S PLANT, in the same camera-relative ground frame the bench's floor and card
    * use. The mesh arrives as raw arrays because render/ draws a tree it is handed and does not know
    * how a species grows; `heightM` <= 0 is the state every other client stays in. */
-  void SetTreeBark(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx) {
-    Trees->SetBark(verts, nverts, idx, nidx);
+  void SetTreeBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx,
+                   uint32_t nidx) {
+    Trees->SetBark(rank, verts, nverts, idx, nidx);
   }
   void SetTreeLeaf(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                    const float *inst, uint32_t ninst, float scaleM) {
     Trees->SetLeaf(verts, nverts, idx, nidx, inst, ninst, scaleM);
   }
-  void SetTreeCards(const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
-    Trees->SetCards(inst, n, leafLenM, spreadDeg);
+  void SetTreeCards(int rank, const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
+    Trees->SetCards(rank, inst, n, leafLenM, spreadDeg);
   }
   void SetTreeLook(const TreeLook &look) { Trees->SetLook(look); }
   void SetTreeStands(const float *inst, uint32_t n, const float *distM) {
@@ -160,6 +161,7 @@ public:
   void SetTreeLeavesVisible(bool on) { Trees->SetLeavesVisible(on); }
   long TreeTriangleCount(void) const { return Trees->TriangleCount(); }
   long TreeImpostorStands(void) const { return Trees->ImpostorStands(); }
+  long TreeRankStands(int k) const { return Trees->RankStands(k); }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). Nothing
    * below the size of a tree answers to it (doc/goal.md), so it is held for the consumers that owe a

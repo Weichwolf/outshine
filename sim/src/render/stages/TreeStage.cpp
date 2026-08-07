@@ -15,7 +15,6 @@
 
 namespace outshine::Render {
 
-constexpr uint32_t kZeroOffset = 0;
 
 static const char *kTreeWGSL = R"(
 const kCardLeaves : i32 = 16;
@@ -34,7 +33,7 @@ struct T {
   lsh  : vec4f,   // lamina outline: width, widest, tip, base fill
   lsh2 : vec4f,   // lamina outline: lobes, lobe depth, serration, fold
   cpar : vec4f,   // x = card leaf length (m), y = fan half angle (rad), z = needle width, w = cards per tree
-  lpro : vec4f,   // the lamina profile's constants: exponent a, exponent b, 1/peak, unused
+  lpro : vec4f,   // the lamina profile's constants: exponent a, exponent b, 1/peak, w = this rank's first card
   ipar : vec4f,   // x = octahedral cells per side, y = crown half width, z = crown centre, w = crown half size
 };
 @group(0) @binding(0) var<uniform> b : T;
@@ -133,7 +132,7 @@ fn quadCorner(vi : u32) -> vec2f {
 @vertex fn vsCard(@builtin(vertex_index) vi : u32, @builtin(instance_index) ii : u32) -> COut {
   var o : COut;
   let nc = u32(b.cpar.w);
-  let ci = (ii % nc) * 8u;
+  let ci = (u32(b.lpro.w) + ii % nc) * 8u;
   let si = (ii / nc + u32(b.leaf.w)) * 5u;
   let st = vec4f(St[si], St[si + 1u], St[si + 2u], St[si + 3u]);
   let sf = St[si + 4u];
@@ -487,7 +486,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   CardBakePipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
-  bd.size = 2 * kUniFloats * sizeof(float);
+  bd.size = (kRanks + 1) * kUniFloats * sizeof(float);   /* one slot per mesh rank plus the impostor */
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
@@ -592,12 +591,15 @@ wgpu::Buffer TreeStage::Upload(const void *data, size_t bytes, wgpu::BufferUsage
   return b;
 }
 
-void TreeStage::SetBark(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx) {
-  BarkCount = 0;
+void TreeStage::SetBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx,
+                        uint32_t nidx) {
+  if (rank < 0 || rank >= kRanks) return;
+  BarkCount[rank] = 0;
   if (!Device || !verts || nverts == 0 || nidx == 0) return;
-  BarkVtx = Upload(verts, (size_t)nverts * kBarkFloats * sizeof(float), wgpu::BufferUsage::Vertex);
-  BarkIdx = Upload(idx, (size_t)nidx * sizeof(uint32_t), wgpu::BufferUsage::Index);
-  BarkCount = nidx;
+  BarkVtx[rank] =
+      Upload(verts, (size_t)nverts * kBarkFloats * sizeof(float), wgpu::BufferUsage::Vertex);
+  BarkIdx[rank] = Upload(idx, (size_t)nidx * sizeof(uint32_t), wgpu::BufferUsage::Index);
+  BarkCount[rank] = nidx;
 }
 
 void TreeStage::SetLeaf(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
@@ -613,13 +615,25 @@ void TreeStage::SetLeaf(const float *verts, uint32_t nverts, const uint32_t *idx
   LeafScaleM = scaleM;
 }
 
-void TreeStage::SetCards(const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
-  CardCount = 0;
-  if (!Device || !inst || n == 0) return;
-  CardInst = Upload(inst, (size_t)n * kInstFloats * sizeof(float), wgpu::BufferUsage::Storage);
-  CardCount = n;
-  CardLeafM = leafLenM;
+/* All ranks live in ONE storage buffer with a per-rank base, because the bind group is built once and
+ * a second card buffer would mean a second group for a draw that differs in a single integer. */
+void TreeStage::SetCards(int rank, const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
+  if (rank < 0 || rank >= kRanks) return;
+  CardStage[rank].assign(inst && n ? inst : nullptr,
+                         inst && n ? inst + (size_t)n * kInstFloats : nullptr);
+  CardLeafM[rank] = leafLenM;
   CardSpreadDeg = spreadDeg;
+  if (!Device) return;
+  std::vector<float> all;
+  uint32_t base = 0;
+  for (int k = 0; k < kRanks; k++) {
+    CardBase[k] = base;
+    CardCount[k] = (uint32_t)(CardStage[k].size() / kInstFloats);
+    all.insert(all.end(), CardStage[k].begin(), CardStage[k].end());
+    base += CardCount[k];
+  }
+  if (all.empty()) return;
+  CardInst = Upload(all.data(), all.size() * sizeof(float), wgpu::BufferUsage::Storage);
   Rebind();
 }
 
@@ -641,7 +655,7 @@ void TreeStage::SetStands(const float *inst, uint32_t n, const float *distM) {
 }
 
 void TreeStage::CreateImpostor() {
-  if (!Device || BarkCount == 0) return;
+  if (!Device || BarkCount[0] == 0) return;
   const uint32_t side = (uint32_t)(kCells * kCellSize);
   wgpu::TextureDescriptor td{};
   td.size = {side, side, 1};
@@ -676,13 +690,14 @@ void TreeStage::EncodeBake(wgpu::RenderPassEncoder &pass) {
   u[40] = Look.LeafRgb[0]; u[41] = Look.LeafRgb[1]; u[42] = Look.LeafRgb[2]; u[43] = 0.0f;
   u[44] = Look.LeafWidth; u[45] = Look.LeafWidest; u[46] = Look.LeafTip; u[47] = Look.LeafBaseFill;
   u[48] = Look.LeafLobes; u[49] = Look.LeafLobeDepth; u[50] = Look.LeafSerration; u[51] = Look.LeafFold;
-  u[52] = CardLeafM; u[53] = CardSpreadDeg * 0.017453292f * 0.5f; u[54] = Look.NeedleWidth;
-  u[55] = (float)CardCount;
+  u[52] = CardLeafM[0]; u[53] = CardSpreadDeg * 0.017453292f * 0.5f; u[54] = Look.NeedleWidth;
+  u[55] = (float)CardCount[0];
   const float ea = Look.LeafWidest * 1.5f + 0.80f;
   float eb = (1.0f - Look.LeafWidest) * 1.5f + 0.95f - Look.LeafTip * 1.25f;
   if (eb < 0.55f) eb = 0.55f;
   const float peak = std::pow(Look.LeafWidest, ea) * std::pow(1.0f - Look.LeafWidest, eb);
   u[56] = ea; u[57] = eb; u[58] = peak > 1.0e-6f ? 1.0f / peak : 0.0f;
+  u[59] = (float)CardBase[0];
 
   for (int j = 0; j < kCells; j++) {
     for (int i = 0; i < kCells; i++) {
@@ -695,13 +710,13 @@ void TreeStage::EncodeBake(wgpu::RenderPassEncoder &pass) {
                        (float)kCellSize, 0.0f, 1.0f);
       pass.SetPipeline(BarkBakePipe);
       pass.SetBindGroup(0, BakeBind, 1, &off);
-      pass.SetVertexBuffer(0, BarkVtx);
-      pass.SetIndexBuffer(BarkIdx, wgpu::IndexFormat::Uint32);
-      pass.DrawIndexed(BarkCount, 1);
-      if (CardCount > 0) {
+      pass.SetVertexBuffer(0, BarkVtx[0]);
+      pass.SetIndexBuffer(BarkIdx[0], wgpu::IndexFormat::Uint32);
+      pass.DrawIndexed(BarkCount[0], 1);
+      if (CardCount[0] > 0) {
         pass.SetPipeline(CardBakePipe);
         pass.SetBindGroup(0, BakeBind, 1, &off);
-        pass.Draw(6, CardCount);
+        pass.Draw(6, CardCount[0]);
       }
     }
   }
@@ -724,8 +739,9 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Drawn = 0;
   MeshN = 0;
   MeshRadius = 0.0;
+  for (int k = 0; k < kRanks; k++) RankN[k] = 0;
   /* Ein Stand aus SetStand ODER ein Feld aus SetStands; ohne beides zeichnet die Stage nichts. */
-  if (!BarkPipe || BarkCount == 0 || (HeightM <= 0.0 && StandCount == 0)) return;
+  if (!BarkPipe || BarkCount[0] == 0 || (HeightM <= 0.0 && StandCount == 0)) return;
 
   double east[3], north[3];
   const double up[3] = {ctx.Up[0], ctx.Up[1], ctx.Up[2]};
@@ -742,12 +758,26 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
    * reaches one pixel. Resolution and FOV therefore move the rank on their own. */
   const double fPx = 0.5 * (double)ctx.Height / std::tan(0.5 * (double)ctx.FovDeg * 0.017453292519943295);
   MeshRadius = HeightM * fPx / (double)kCellPx;
+  /* Rank k ends where rank k+1's own error first stays under a pixel; the last one ends at the
+   * impostor. The stands arrive sorted, so every rank is a contiguous range. */
+  uint32_t first[kRanks] = {}, cnt[kRanks] = {};
   uint32_t nMesh = StandCount;
   if (StandCount > 0) {
-    const auto e = std::upper_bound(StandDist.begin(), StandDist.end(), (float)MeshRadius);
-    nMesh = (uint32_t)(e - StandDist.begin());
+    uint32_t lo = 0;
+    for (int k = 0; k < kRanks; k++) {
+      const double edge = HeightM * fPx * (double)RankPixel(k + 1);
+      const auto e = std::upper_bound(StandDist.begin(), StandDist.end(), (float)edge);
+      const uint32_t hi = (uint32_t)(e - StandDist.begin());
+      first[k] = lo;
+      cnt[k] = hi > lo ? hi - lo : 0u;
+      lo = hi > lo ? hi : lo;
+    }
+    nMesh = lo;
+  } else {
+    cnt[0] = 1;
   }
   MeshN = (long)nMesh;
+  for (int k = 0; k < kRanks; k++) RankN[k] = (long)cnt[k];
 
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
@@ -760,8 +790,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   u[40] = Look.LeafRgb[0]; u[41] = Look.LeafRgb[1]; u[42] = Look.LeafRgb[2]; u[43] = 0.0f;
   u[44] = Look.LeafWidth; u[45] = Look.LeafWidest; u[46] = Look.LeafTip; u[47] = Look.LeafBaseFill;
   u[48] = Look.LeafLobes; u[49] = Look.LeafLobeDepth; u[50] = Look.LeafSerration; u[51] = Look.LeafFold;
-  u[52] = CardLeafM; u[53] = CardSpreadDeg * 0.017453292f * 0.5f; u[54] = Look.NeedleWidth;
-  u[55] = (float)CardCount;
+  u[53] = CardSpreadDeg * 0.017453292f * 0.5f; u[54] = Look.NeedleWidth;
   const float ea = Look.LeafWidest * 1.5f + 0.80f;
   float eb = (1.0f - Look.LeafWidest) * 1.5f + 0.95f - Look.LeafTip * 1.25f;
   if (eb < 0.55f) eb = 0.55f;
@@ -771,36 +800,46 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   u[61] = CrownHalf;
   u[62] = (CrownTop + CrownBot) * 0.5f;
   u[63] = std::fmax(CrownHalf, (CrownTop - CrownBot) * 0.5f);
-  /* TWO SLOTS, WRITTEN BEFORE ANY DRAW. A queue write is ordered against the SUBMIT, not against the
-   * draw it was recorded next to, so a second write into one slot would reach every draw in the pass.
-   * The impostor rank differs from the mesh rank in one field — which stand its instance 0 is. */
-  Queue.WriteBuffer(Uni, 0, u, sizeof u);
+  /* ONE SLOT PER RANK, ALL WRITTEN BEFORE ANY DRAW. A queue write is ordered against the SUBMIT, not
+   * against the draw it was recorded next to, so writing one slot twice would reach every draw in the
+   * pass. A rank differs from its neighbours in four fields: its first stand, its card range and the
+   * leaf its cards draw. */
+  uint32_t off[kRanks + 1] = {};
+  for (int k = 0; k < kRanks; k++) {
+    off[k] = (uint32_t)(k * kUniFloats * sizeof(float));
+    u[43] = (float)first[k];
+    u[52] = CardLeafM[k];
+    u[55] = (float)CardCount[k];
+    u[59] = (float)CardBase[k];
+    Queue.WriteBuffer(Uni, off[k], u, sizeof u);
+  }
+  off[kRanks] = (uint32_t)(kRanks * kUniFloats * sizeof(float));
   u[43] = (float)nMesh;
-  Queue.WriteBuffer(Uni, kUniFloats * sizeof(float), u, sizeof u);
-  const uint32_t impOffset = (uint32_t)(kUniFloats * sizeof(float));
+  Queue.WriteBuffer(Uni, off[kRanks], u, sizeof u);
 
-  const uint32_t barkInst = StandCount > 0 ? nMesh : 1u;
-  if (barkInst > 0) {
+  for (int k = 0; k < kRanks; k++) {
+    if (BarkCount[k] == 0 || cnt[k] == 0) continue;
     pass.SetPipeline(BarkPipe);
-    pass.SetBindGroup(0, Bind, 1, &kZeroOffset);
-    pass.SetVertexBuffer(0, BarkVtx);
-    pass.SetIndexBuffer(BarkIdx, wgpu::IndexFormat::Uint32);
-    pass.DrawIndexed(BarkCount, barkInst);
-    Drawn += (long)BarkCount / 3 * (long)barkInst;
+    pass.SetBindGroup(0, Bind, 1, &off[k]);
+    pass.SetVertexBuffer(0, BarkVtx[k]);
+    pass.SetIndexBuffer(BarkIdx[k], wgpu::IndexFormat::Uint32);
+    pass.DrawIndexed(BarkCount[k], cnt[k]);
+    Drawn += (long)BarkCount[k] / 3 * (long)cnt[k];
   }
 
   if (!LeavesOn) return;
   if (StandCount > 0) {
-    if (CardCount > 0 && nMesh > 0) {
+    for (int k = 0; k < kRanks; k++) {
+      if (CardCount[k] == 0 || cnt[k] == 0) continue;
       pass.SetPipeline(CardPipe);
-      pass.SetBindGroup(0, Bind, 1, &kZeroOffset);
-      pass.Draw(6, CardCount * nMesh);
-      Drawn += 2 * (long)CardCount * (long)nMesh;
+      pass.SetBindGroup(0, Bind, 1, &off[k]);
+      pass.Draw(6, CardCount[k] * cnt[k]);
+      Drawn += 2 * (long)CardCount[k] * (long)cnt[k];
     }
     ImpN = (long)(StandCount - nMesh);
     if (ImpPipe && ImpAlbedo && ImpN > 0) {
       pass.SetPipeline(ImpPipe);
-      pass.SetBindGroup(0, Bind, 1, &impOffset);
+      pass.SetBindGroup(0, Bind, 1, &off[kRanks]);
       pass.Draw(6, (uint32_t)ImpN);
       Drawn += 2 * ImpN;
     }
@@ -808,7 +847,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   }
   if (LeafCount == 0 || InstCount == 0) return;
   pass.SetPipeline(LeafPipe);
-  pass.SetBindGroup(0, Bind, 1, &kZeroOffset);
+  pass.SetBindGroup(0, Bind, 1, &off[0]);
   pass.SetVertexBuffer(0, LeafVtx);
   pass.SetVertexBuffer(1, LeafInst);
   pass.SetIndexBuffer(LeafIdx, wgpu::IndexFormat::Uint32);

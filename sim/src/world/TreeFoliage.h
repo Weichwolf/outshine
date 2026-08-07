@@ -37,12 +37,13 @@ public:
   /* Area of ONE lamina at leaf-local length 1: the shape's own constant, free of any metre. */
   double LaminaAreaLocal() const { return LocalArea_; }
 
-  /* THE LEAF LENGTH A CLUSTER CARD MUST DRAW. `leavesPerCard` laminae on each of Count() cards have
+  /* THE LEAF LENGTH A CLUSTER CARD MUST DRAW. `leavesPerCard` laminae on each of `cards` cards have
    * to add up to the declared leaf area index over the crown's projected area, and that fixes the
-   * length: lai * proj = Count * per * LocalArea * L^2. The drawn leaf comes out larger than the
+   * length: lai * proj = cards * per * LocalArea * L^2. The drawn leaf comes out larger than the
    * species' own — that is the price of a closed canopy at two triangles per card, and it is a
-   * DERIVED price rather than a chosen one. */
-  float CardLeafM(int leavesPerCard, double lai, double crownProjM2) const;
+   * DERIVED price rather than a chosen one. `cards` is not Count() because a distant rank draws a
+   * THINNED set: fewer cards, each with a longer leaf, the same leaf area index. */
+  float CardLeafM(int leavesPerCard, size_t cards, double lai, double crownProjM2) const;
 
 private:
   std::vector<float> Inst_;

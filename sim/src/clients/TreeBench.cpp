@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
     double growMs = 1e30, leafMs = 1e30;
     for (int r = 0; r < reps; ++r) {
       const auto t0 = std::chrono::steady_clock::now();
-      grower.Grow(sp, mesh);
+      grower.Grow(sp, mesh, 0.0f);
       const auto t1 = std::chrono::steady_clock::now();
       TreeLeaf::Build(sp.LeafParams(), mesh);
       const auto t2 = std::chrono::steady_clock::now();

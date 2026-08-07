@@ -1,5 +1,6 @@
 {
-  "bark_r":0.48,"bark_g":0.46,"bark_b":0.42,"bark_dark":0.70,"bark_freq":3.5,"bark_ridge":0.18,
+  "bark_r":0.48,"bark_g":0.46,"bark_b":0.42,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.196/0.179/0.147. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
+  "bark_dark":0.70,"bark_freq":3.5,"bark_ridge":0.18,
   "name": "eberesche", "botanical": "Sorbus aucuparia", "common": "Eberesche / Rowan",
   "habit": "kleiner schlanker Baum, lockere rundliche Krone, aufsteigende Aeste",
   "height_m": 12, "spread_m": 6,

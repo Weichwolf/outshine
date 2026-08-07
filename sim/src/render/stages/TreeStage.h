@@ -48,19 +48,37 @@ struct TreeLook {
 class TreeStage : public DrawStage {
 public:
   static constexpr int kLeavesPerCard = 16;   /* the WGSL `kCardLeaves` — change one, change both */
+  /* THE MESH RANKS, and their number is the only thing about them that is chosen. Everything else
+   * follows from `kCellPx`: rank k's mesh may be as coarse as one pixel at its NEAREST stand, its
+   * near edge is where the rank below hands over, and the last one hands over to the impostor at
+   * `kCellPx`. `RankPixel(k)` and `RankEdge(k)` are that ladder. */
+  static constexpr int kRanks = 4;
+  /* THE IMPOSTOR'S TEXEL IS THE MODEL-SPACE ERROR every mesh rank is measured against: a tree of
+   * height H baked into a cell of this many pixels carries an error of H/kCellPx metres, and that
+   * projects to one pixel at d = H * f_px / kCellPx. That inequality — doc/render/lod.md's, with
+   * lambda = H/kCellPx — is the ONLY thing that decides where the mesh stops. */
+  static constexpr float kCellPx = 256.0f;
+  /* One pixel at rank k's NEAREST stand, as a fraction of the tree's height — the grower's whole
+   * detail input. The impostor's cell is the anchor and every rank below it halves. */
+  static constexpr float RankPixel(int k) {
+    return 1.0f / (kCellPx * (float)(1u << (unsigned)(kRanks - k)));
+  }
 
   void Configure(const Gpu &gpu, const SceneLight &light);
 
-  /* pos3 + nrm3 + uv2 + tan3 per vertex, in NORMALISED tree space (foot at y = 0, height 1). */
-  void SetBark(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx);
+  /* pos3 + nrm3 + uv2 + tan3 per vertex, in NORMALISED tree space (foot at y = 0, height 1).
+   * One mesh per rank, grown at `RankPixel(rank)`. */
+  void SetBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx);
   /* The single lamina (pos3 + nrm3 + uv2, leaf-local units) plus its instances (pos3 + roll + dir3 +
    * pad). `scaleM` is metres per leaf-local unit. THE SUBJECT BENCH'S leaf: one stand, true geometry. */
   void SetLeaf(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                const float *inst, uint32_t ninst, float scaleM);
   /* THE FIELD'S CROWN. Same instance layout as SetLeaf's, but every instance is a quad carrying
    * kLeavesPerCard laminae of `leafLenM` rooted along a shoot and fanned over `spreadDeg` — the
-   * cluster card every engine draws a canopy with. */
-  void SetCards(const float *inst, uint32_t n, float leafLenM, float spreadDeg);
+   * cluster card every engine draws a canopy with. One set per rank: a card's own size on screen is
+   * held constant across the ladder, so the count quarters as the rank's edge doubles and the leaf
+   * the card draws grows to keep the declared leaf area index. */
+  void SetCards(int rank, const float *inst, uint32_t n, float leafLenM, float spreadDeg);
   void SetLook(const TreeLook &look) { Look = look; }
   /* Where the tree stands, in ground metres east/north of the CAMERA. `heightM` <= 0 retires the
    * whole stage. */
@@ -80,7 +98,7 @@ public:
    * shipped: kCells x kCells hemi-octahedral views of albedo+coverage and of the tree-space normal,
    * so the far rank is lit by the same SurfaceLight the near rank is. Renderer owns the pass; this
    * allocates the targets and records the cells into it. */
-  bool WantsBake() const { return BarkCount > 0 && !ImpAlbedo; }
+  bool WantsBake() const { return BarkCount[0] > 0 && !ImpAlbedo; }
   void CreateImpostor();
   void EncodeBake(wgpu::RenderPassEncoder &pass);
   void FinishBake();
@@ -98,6 +116,7 @@ public:
   long MeshStands() const { return MeshN; }
   double MeshRadiusM() const { return MeshRadius; }
   long ImpostorStands() const { return ImpN; }
+  long RankStands(int k) const { return RankN[k]; }
 
 private:
   static constexpr int kUniFloats = 64;
@@ -105,11 +124,6 @@ private:
   static constexpr int kLeafFloats = 8;
   static constexpr int kInstFloats = 8;
   static constexpr int kStandFloats = 5;
-  /* THE IMPOSTOR'S TEXEL IS THE MODEL-SPACE ERROR the mesh rank has to beat: a tree of height H baked
-   * into a cell of this many pixels carries an error of H/kCellPx metres, and that projects to one
-   * pixel at d = H * f_px / kCellPx. That inequality — doc/render/lod.md's, with lambda = H/kCellPx —
-   * is the ONLY thing that decides where the mesh stops. */
-  static constexpr float kCellPx = 256.0f;
 
   wgpu::Buffer Upload(const void *data, size_t bytes, wgpu::BufferUsage usage);
   void Rebind();
@@ -119,7 +133,8 @@ private:
   wgpu::RenderPipeline BarkPipe, LeafPipe, CardPipe, ImpPipe, BarkBakePipe, CardBakePipe;
   wgpu::BindGroupLayout Bgl;
   wgpu::BindGroup Bind, BakeBind;
-  wgpu::Buffer Uni, BakeUni, BarkVtx, BarkIdx, LeafVtx, LeafIdx, LeafInst, CardInst, StandBuf;
+  wgpu::Buffer Uni, BakeUni, LeafVtx, LeafIdx, LeafInst, CardInst, StandBuf;
+  wgpu::Buffer BarkVtx[kRanks], BarkIdx[kRanks];
   wgpu::Texture ImpAlbedo, ImpNormal, ImpDepth;
   wgpu::TextureView ImpAlbedoView, ImpNormalView, ImpDepthView;
   wgpu::Sampler ImpSamp;
@@ -127,15 +142,19 @@ private:
 
   TreeLook Look;
   std::vector<float> StandDist;
+  std::vector<float> CardStage[kRanks];
   double SunDir[3] = {0, 0, 1};
   double EastM = 0.0, NorthM = 0.0, EyeAglM = 0.0, HeightM = 0.0;
   float LeafScaleM = 0.1f;
-  float CardLeafM = 0.2f, CardSpreadDeg = 110.0f;
+  float CardLeafM[kRanks] = {0.2f, 0.2f, 0.2f};
+  float CardSpreadDeg = 110.0f;
   float NightAmbient = 0.0f;
-  uint32_t BarkCount = 0, LeafCount = 0, InstCount = 0, CardCount = 0, StandCount = 0;
+  uint32_t BarkCount[kRanks] = {}, CardCount[kRanks] = {}, CardBase[kRanks] = {};
+  uint32_t LeafCount = 0, InstCount = 0, StandCount = 0;
   float CrownHalf = 0.35f, CrownTop = 1.0f, CrownBot = 0.0f;
   bool LeavesOn = true;
   long Drawn = 0, MeshN = 0, ImpN = 0;
+  long RankN[kRanks] = {};
   double MeshRadius = 0.0;
 };
 

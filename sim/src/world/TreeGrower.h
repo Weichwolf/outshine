@@ -18,12 +18,25 @@ namespace outshine::World {
 
 class TreeGrower {
 public:
-  /* Delivers `out` normalised: base at y = 0, the SEED RING on the y axis, height 1. */
-  void Grow(const TreeSpecies &species, TreeMesh &out);
+  /* Delivers `out` normalised: base at y = 0, the SEED RING on the y axis, height 1.
+   *
+   * `pixelHeightFrac` IS THE MODEL LENGTH OF ONE PIXEL, as a fraction of the tree's own height, at
+   * the nearest distance this mesh will be drawn from. It is the only detail knob and it decides two
+   * things by the same inequality the impostor's cell size decides its distance by: how many sides a
+   * tube gets (silhouette sagitta under half a pixel) and whether a shoot gets a tube at all (a shoot
+   * thinner than one pixel is a line, and a line drawn as an eight-sided pipe is 81 % of this mesh —
+   * measured, buche: 21 392 of 26 462 triangles have their shortest edge under 2,5 cm). A shoot
+   * without a tube still grows and still carries its leaf points, so the crown keeps its shape.
+   *
+   * 0 grows the mesh the species declares. */
+  void Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeightFrac);
 
   /* How many grow passes the last Grow spent solving the declared BHD, and what it missed by. */
   int Passes() const { return Passes_; }
   float BhdErrorRel() const { return BhdErrorRel_; }
+  /* The height the last mesh had BEFORE normalisation, in grower units — what `pixelHeightFrac` was
+   * converted with. Reported so the estimate below can be checked against it. */
+  float GrowHeight() const { return GrowHeight_; }
 
 private:
   static constexpr int kMaxSides = 16;
@@ -50,9 +63,10 @@ private:
   int AddFace(int a, int b, int c, int d);
   TreeVec3 FaceNormal(int fi) const;
   TreeVec3 FaceCentroid(int fi) const;
+  int SidesFor(float radius, int declared) const;
 
   int ExtrudeCap(Tip &t, TreeVec3 oldDir, float step, float radius, int *ringOut);
-  Tip BranchFromFace(int fi, TreeVec3 dir, float radius, float step);
+  Tip BranchFromFace(int fi, TreeVec3 dir, float radius, float step, int sides);
   void CapRing(const Tip &t, bool forward);
   void SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int first, float roll, int step);
   void EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count,
@@ -70,6 +84,9 @@ private:
   TreeRandom Rng_{1};
   int Passes_ = 0;
   float BhdErrorRel_ = 0.0f;
+  float PixelGrow_ = 0.0f;
+  float GrowHeight_ = 0.0f;
+  float NormHeight_ = 0.0f;
 };
 
 } // namespace outshine::World

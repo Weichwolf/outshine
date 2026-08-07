@@ -29,7 +29,9 @@ physics or the termination logic.
 | Native and WASM render the same frame | `gpu_walk` is the headless PNG oracle for frame proofs (`../build-and-ops.md`) |
 | Feature gates are baked constants | a disabled pass costs nothing |
 | **An overlay is a BODY's capability, not renderer equipment** | `Renderer` holds one borrowed `OverlayStage*` (`render/OverlayStage.h`), registered by whoever HAS the capability, and knows no overlay type. **Nothing registers one today** — the avionics group that did was deleted on 2026-08-07 and `render/` has no text stage at all. Pass count with no overlay: 7, verified `passcount passes=7 clouds=1 cloudPass=0 overlay=0` |
-| **VEGETATION IS A LADDER OF RANKS AND THE RANK IS A RANGE** | Ein Stand bekommt sein Detail aus dem Bildschirmfehler und aus nichts sonst ([`lod.md`](lod.md)). `world/TreeField` liefert die Staende NACH ENTFERNUNG SORTIERT, also ist ein Rang eine zusammenhaengende Instanzspanne und die Wahl eine binaere Suche — kein Durchlauf ueber das Feld je Bild. Zwei Raenge stehen: das gewachsene Netz mit Blattkarten, und der **Impostor** — ein kameragerichtetes Quad je Stand aus einem oktaedrischen Atlas. Die Grenze ist HERGELEITET: der Atlas hat `kCellPx` Pixel je Zelle, also traegt er einen Modellfehler von `H/kCellPx` Metern, und der projiziert auf ein Pixel bei `d = H · f_px / kCellPx`. Kein Abstand wird deklariert; Aufloesung und Sichtfeld verschieben ihn von selbst |
+| **VEGETATION IS A LADDER OF RANKS AND THE RANK IS A RANGE** | Ein Stand bekommt sein Detail aus dem Bildschirmfehler und aus nichts sonst ([`lod.md`](lod.md)). `world/TreeField` liefert die Staende NACH ENTFERNUNG SORTIERT, also ist ein Rang eine zusammenhaengende Instanzspanne und die Wahl eine binaere Suche — kein Durchlauf ueber das Feld je Bild. **`kRanks` gewachsene Netze plus der Impostor**, und nur `kRanks` ist gewaehlt: der Atlas traegt einen Modellfehler von `H/kCellPx`, der bei `d = H · f_px / kCellPx` auf ein Pixel projiziert, und jeder Rang darunter halbiert. `RankPixel(k) = 1/(kCellPx · 2^(kRanks−k))` ist die Kantenlaenge EINES Pixels am NAECHSTEN Stand des Rangs, als Bruchteil der Baumhoehe — dimensionslos, also unabhaengig von Aufloesung und Sichtfeld. Kein Abstand wird deklariert |
+| **DER WUCHS BEKOMMT DIESES PIXEL, NICHT DER RENDERER** | Ein Rang ist keine vereinfachte Kopie, sondern ein **eigener Wuchs** mit `TreeGrower::Grow(species, out, pixelHeightFrac)`. Dasselbe Pixel entscheidet zweierlei: die Seitenzahl eines Rohrs (Sehnenfehler `r(1−cos(π/n))` unter einem halben Pixel, die deklarierten `trunk_sides` bleiben die Obergrenze) und ob ein Trieb ueberhaupt ein Rohr bekommt (`2r ≤ 1 px` → Punkttrieb: er waechst, verjuengt sich und traegt seine Blattpunkte weiter, aber ohne Flaechen). **Jeder Rang normiert auf DIESELBE Hoehe** — die des Eichpasses —, sonst schrumpft der grobe Rang um bis zu ein Viertel und der Baum springt beim Rangwechsel |
+| **DIE KARTE BEHAELT IHRE BILDGROESSE UEBER DIE LEITER** | Kartenzahl je Rang `N_k = N_0/4^k`, weil die Rangkante sich verdoppelt; `TreeFoliage::CardLeafM(…, cards, lai, proj)` leitet daraus das Blatt neu her, sodass `lai · Kronenprojektion` erhalten bleibt — weniger, groessere Blaetter, dieselbe Kronendecke. Die **Kronenprojektion ist die der ART**, nie die des Rangs: ein grober Rang verliert genau die duennen Triebe, die am weitesten hinausreichen |
 | **DER IMPOSTOR-ATLAS IST DER CACHE EINER BERECHENBAREN FUNKTION** | Prinzip 2 laesst genau das zu. Er wird bei Ladeschluss aus dem gewachsenen Netz gebacken und NIE ausgeliefert: `kCells²` Hemi-Oktaeder-Ansichten von Albedo+Deckung und von der Normalen im Baumraum, damit der ferne Rang von derselben `SurfaceLight` beleuchtet wird wie der nahe. **Die Bildzahl der Passes bleibt unberuehrt** — `Renderer::BakeTreeImpostor` oeffnet EINEN Pass EINMAL, in einem eigenen Command Buffer, ausserhalb der Bildschleife |
 | **Blattgeometrie steht nur auf der Subjektbank** | Im Feld ist ein Blatt eine **Clusterkarte**: zwei Dreiecke, die sich `kLeavesPerCard` Laminae aus `world/TreeLeaf::ProfileWidth` — derselben Kurve, in WGSL — selbst ausschneiden. Damit ist die Silhouette die deklarierte und **kein Atlas traegt eine Blattform**. Die Kartengroesse ist hergeleitet: `lai · Kronenprojektion = Kartenzahl · Blaetter je Karte · Laminaflaeche · L²` |
 | **The vertical FOV is a RUNTIME number out of the scene** | `Scene::FovDeg()` → `Renderer::SetFovDeg` → the projection, the atmosphere uniform and `FrameContext::FovDeg`. There is no `kSceneVerticalFovDeg` any more, so there is no second copy to drift from. Verified: the same scene at `fovDeg` 60 and 30 renders a clean 2× zoom with sky and terrain still agreeing on the horizon |
@@ -48,7 +50,7 @@ Built; the stage split is finished (zero inline shaders in `Renderer.cpp`).
 | Text / overlay backend | **deleted 2026-08-07** with the avionics group. `OverlayStage.h` is a seam nothing implements — §7 | — |
 | Cloud chain | rebuilt: ONE stage over ONE shared density function — see [`clouds.md`](clouds.md) | `9ca2c0e` + the R5 follow-up round |
 | Units | **built** — one indexed draw per entity from the published pose, LOD off the asset sidecar, moving parts off the published articulation. Pass count unchanged. **No mesh ships and no topic file describes it** | — |
-| Trees | **Kette gebaut und gemessen** — `world/TreeField` streut 34 052 (damuels) / 41 344 (koenigssee) Staende in 900 m, sortiert; `TreeStage` zieht Netz + Karten fuer die Spanne innerhalb `H·f_px/256` und Impostoren fuer den Rest. Der ferne Rang traegt 34 052 Baeume fuer **4,68 ms p50** bei 720p; der nahe Rang kostet **79 ms** und ist damit der Blocker | `build/out/lod-koenigssee.png` |
+| Trees | **Leiter gebaut, Budget gehalten** — `world/TreeField` streut 34 052 (damuels) / 41 344 (koenigssee) Staende in 900 m, sortiert; `TreeStage` zieht VIER gewachsene Netze plus Impostoren. 360-Bild-Drehung bei 1280×720, damuels: **p50 11,56 ms** (Auge 3 m) und **14,28 ms** (Auge 25 m, Wald im Bild) gegen 83,81 / 95,04 vorher — Faktor 7,25 bzw. 6,66, beide unter 16,67 | `build/sun/r5-damuels-hi.png`, `build/sun/r5-koenigssee.png` |
 | Sprites | **built, and its combat effect catalogue is being removed** — one instanced draw for every effect in the frame, physical size in metres with an energy-preserving sub-pixel floor. The inputs it read (nozzle bit, store burn window, countermeasure age curves, hit count, wreck bit) have no writer since 2026-08-07 | — |
 
 ### The present path sRGB-encodes, and until this round the browser did not
@@ -64,78 +66,90 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
-### Die LOD-Kette steht, der ferne Rang ist bezahlt, der nahe nicht — 2026-08-07
+### Die LOD-Leiter traegt das Budget; was bleibt, ist der Wuchs — 2026-08-08
 
-Gemessen, `build/gpu_walk` md5 `3319908a8e0e8985d53d4dbb6bda453d`, `--warm 12000 --spin 360`,
-1280x720, damuels (47.28 / 9.906, Auge 3 m):
+Gemessen, `--warm 12000 --spin 360`, 1280x720, damuels (47,28 / 9,906), Binaerdateien gepinnt.
 
-| Was gezeichnet wird | Staende | Dreiecke | p50 | p95 | p99 |
+| Stand | Binary md5 | Auge | Dreiecke | p50 | p95 | p99 |
+|---|---|---|---|---|---|---|
+| vorher, zwei Raenge | `3319908a…` | 3 m | 30 324 800 | 83,81 | 85,49 | 85,80 |
+| nachher, vier Raenge | `acc9d3aa…` | 3 m | 3 556 100 | **11,56** | 12,29 | 12,54 |
+| vorher, zwei Raenge | `3319908a…` | 25 m | 28 838 500 | 95,04 | 96,34 | 96,77 |
+| nachher, vier Raenge | `acc9d3aa…` | 25 m | 2 424 560 | **14,28** | 14,83 | 14,99 |
+
+Das Auge auf 3 m steht bei damuels UNTER dem Gelaende (die Pose ist ungefittet, siehe unten), also ist
+die 25-m-Zeile die belastbare: der Wald steht im Bild und die Drehung kostet **14,28 ms p50** gegen ein
+Budget von 16,67. **Der Faktor ist 6,66, nicht Feintuning.**
+
+Woher er kommt, gemessen an EINER Buche (`build/treebench`, `tools/pngstat.py` auf den Bildern):
+
+| Rang | 1 px als Bruchteil der Hoehe | Kante | Rindendreiecke | Karten | Staende (Auge 3 m) |
 |---|---|---|---|---|---|
-| Netz + Karten innerhalb 81,04 m **und** Impostoren dahinter | 570 + 33 482 | 30 324 800 | **84,24 ms** | 85,95 | 86,42 |
-| NUR Impostoren (Sichtfeld 170 Grad, also mehr Gelaende, kein Netzrang) | 0 + 34 052 | 68 104 | **4,68 ms** | 4,87 | 5,00 |
-| koenigssee, Sichtfeld 55 Grad, Kamera am Seeufer | 30 + 41 314 | 1 675 150 | **10,96 ms** | 15,56 | 16,05 |
+| 0 | 1/4096 | 0…10,13 m | 20 644 | 13 311 | 10 |
+| 1 | 1/2048 | 10,13…20,26 m | 15 594 | 3 320 | 26 |
+| 2 | 1/1024 | 20,26…40,52 m | 10 840 | 835 | 112 |
+| 3 | 1/512 | 40,52…81,04 m | 2 044 | 207 | 422 |
+| Impostor | 1/256 | ab 81,04 m | 2 | — | 33 482 |
 
-**Der ferne Rang ist praktisch umsonst und der nahe ist der ganze Preis.** 34 052 Baeume auf 900 m
-kosten 4,68 ms; 570 Baeume in 81 m kosten 79 ms mehr. Das ist keine Frage der Streuung und keine
-Frage des Impostors — es ist der Preis EINES Baumes im nahen Rang: 26 462 Rindendreiecke plus
-13 311 Karten zu je zwei = **53 084 Dreiecke**. SpeedTree faehrt fuer einen Heldenbaum 10 000 bis
-20 000 auf LOD 0. Der Generator ist der Blocker, nicht die Kette.
+Die Staende folgen der Flaeche: `0,028/m² · π · d²` gibt 9 / 27 / 108 / 433 gegen gemessene
+10 / 26 / 112 / 422.
 
-**Die Grenze ist hergeleitet, nicht gesetzt.** Der Atlas hat 256 Pixel je Zelle, also traegt er einen
-Modellfehler von H/256 Metern; projiziert ergibt das ein Pixel bei d = H·f_px/256. Bei 720p und
-55 Grad ist f_px = 0,5·720/tan(27,5 Grad) = 691,5, also 30·691,5/256 = **81,04 m** — genau der
-gemessene Wert. Bei 640x360 halbiert sich f_px und die Grenze faellt auf 40,52 m; gemessen 148 statt
-570 Netzbaeume und 22,68 ms statt 84,24 ms.
+**Der Hebel war die Segmentzahl beim Wuchs, nicht eine weitere LOD-Stufe.** Gemessen an der
+ungeaenderten Buche: **21 392 von 26 462 Rindendreiecken haben ihre kuerzeste Kante unter 2,5 cm** —
+das ist der Umfang eines achtseitigen Rohrs von 2 cm Radius, also ein Zweig, der ab 20 m unter einem
+halben Pixel liegt. `TreeGrower` bekommt jetzt EIN Pixel und leitet daraus beides ab; die deklarierten
+`trunk_sides` bleiben die Obergrenze, die Regel macht ein Rohr nur groeber.
 
-**Der Atlas ist 32 MB** (2 Texturen, 2048x2048, RGBA8) fuer EINE Art. Bei sechzehn Arten waeren das
-512 MB gegen die 4 GB aus `visual-target.md` — nicht tragbar. Die Zellzahl ist der Hebel und sie
-haengt an derselben Ungleichung: weniger Pixel je Zelle heisst frueherer Impostor heisst mehr Speicher
-pro Sichtbarkeit. Ungemessen.
+**Der Eichpass ist noetig und er ist nicht gratis wegzurechnen.** Die Regel kommt in Baumhoehen, der
+Wuchs rechnet in eigenen Einheiten, und `trunk_steps · step_len` taugt als Umrechnung NICHT: gemessen
+buche 6,80 gegen 4,16, eiche 4,54 gegen 2,24 — die Krone reicht weit ueber den Lauf des Leittriebs.
+Also waechst jeder Rang zweimal, der erste Durchlauf nur, um seine Hoehe zu erfahren.
 
-**Was das Bild zeigt** (`build/out/lod-koenigssee.png`, dieselbe Binaerdatei): beide Flanken und der
-Talschluss tragen einen dichten Wald aus einzeln unterscheidbaren Baeumen mit zackiger Kante gegen den
-Himmel — aus 200 bis 900 m ein Wald und keine Tapete. Zwei Fehler sind darauf zu sehen und beide sind
-der BAUM, nicht die Kette:
+**Ein grober Rang ist kuerzer als ein feiner, wenn man ihn selbst normieren laesst** — buche Rang 3:
+5,08 Wuchseinheiten gegen 6,80, also ein Viertel kleiner, weil seine obersten Triebe keine Rinde mehr
+haben. Jeder Rang normiert deshalb auf die Hoehe des Eichpasses. Ohne das misst die Leiter 16,92 ms
+statt 18,02 — und kauft die Differenz mit Baeumen, die beim Rangwechsel springen.
 
-* **Die besonnte Flanke ist strohgelb statt gruen.** Die Krone deckt den Stamm nicht, also besteht die
-  Impostor-Silhouette groesstenteils aus Rinde. `bark_r/g/b = 0.53/0.51/0.48` ist ein 50-%-Grau —
-  fuer einen Buchenstamm etwa das Doppelte des Richtigen.
-* **Unter der Kronenlinie haengen helle senkrechte Streifen.** Das sind Staemme: 30 m hoch, 43 cm
-  dick, korrekt platziert, und wegen derselben zu hellen Rinde vor dunklem Hang weiss.
+**Das Uebergangsband ist zum ersten Mal gemessen und es ist unauffaellig.** Dolly durch alle vier
+Rangkanten, 640x360, Auge 25 m: bei 1,0-m-Schritten Bild-zu-Bild-RMS median 7,37 / max 8,71
+(max/median **1,18**), bei 0,2-m-Schritten median 5,98 / max 9,16 (**1,53**). Kein Ausreisser, der als
+Sprung lesbar waere. Einschraenkung: in derselben Reihe liegen die Kachelankuenfte des Streamings, und
+die kann ich ohne weitere Instrumentierung nicht abtrennen — die 1,53 ist eine OBERE Schranke.
 
-`build/out/lod-damuels-hi.png` (Auge 25 m ueber dem Bestand, nur naher Rang): geschlossenes gruenes
-Laub aus Clusterkarten, und quer durch alles lange gerade blasse Stangen — die Aeste hoeherer Ordnung
-tragen kein Blatt und verjuengen sich sichtbar nicht. Owner, 2026-08-07: *„der baumgenerator ist nur
-ein kleiner prototyp"*.
+**`bark_r/g/b` hat jetzt eine Herkunft, und sie war ein Farbraumfehler.** Die sechzehn Zahlen sind
+sRGB-Farbwerte und wurden als lineare Reflexion gelesen. Buche 0,53 gelesen als Reflexion ist ein
+50-%-Grau; linearisiert sind es **0,243/0,223/0,196**. Eiche 0,076, Fichte 0,060, Birke 0,677 — damit
+liegt jede der sechzehn im gemessenen Band (heimische Rinde 0,05…0,25 im Sichtbaren, Betula
+0,45…0,60), ungewandelt lag jede zwei- bis vierfach darueber. Gewandelt wird an derselben Stelle, an
+der `kLeafBaseLinear` schon seit jeher gewandelt wurde (`clients/AppWalk.cpp`); jede Artdatei traegt
+das Feld `bark_origin`.
 
-**Offen: der mittlere Rang.** Die Tabelle in doc/render/lod.md nennt ihn (reduziertes Netz, weniger
-und groessere Blattkarten) und er ist nicht gebaut. Die Rechnung dafuer: bei 3 Mio. Dreiecken Budget
-und 570 Baeumen in 81 m duerfte ein Baum 5 260 Dreiecke kosten, das ist ein Zehntel des heutigen. Ein
-zweiter Wuchs mit `max_order - 1` und verdoppeltem `min_radius` ist der bewaehrte Weg (SpeedTree
-laesst Astgenerationen fallen); ungemessen.
+**Was das Bild zeigt** (`build/sun/r5-damuels-hi.png`, Auge 25 m ueber dem Bestand): eine geschlossene
+gruene Kronendecke aus grossen Blattschnitten, kein Loch — die Kartenausduennung auf 1/64 im fernsten
+Rang haelt die Decke. Quer durch alles liegen lange gerade Aeste ohne ein einziges Blatt, jetzt
+dunkelbraun statt hellgrau; sie treten zurueck, aber sie sind da.
 
-**Offen: das Uebergangsband.** Netz und Impostor schalten hart. `lod.md` verlangt entweder tau unter
-einem Pixel — dann braucht es nichts — oder gehashtes, objektraumverankertes Dithering. Gemessen ist
-nichts davon; ob der Schnitt bei 81 m in Bewegung poppt, ist unbelegt, weil das Standbild es nicht
-zeigen kann.
+**Offen und unveraendert: die Krone deckt den Stamm nicht.** `build/sun/r5-koenigssee.png` zeigt es am
+deutlichsten — unter der Kronenlinie haengt an jedem Impostor ein blasser Stamm mit ein paar kurzen
+Seitenaesten, und das gruene Gesprenkel sitzt nur obenauf. Die Zahl dazu steht im Rig-Log:
+`gpu_walk --rig-species buche` meldet `leafAreaM2=65,3` ueber `crownProjM2=167,1`, also **lai 0,391
+gegen deklarierte 6,0** — die echte Laminageometrie zeichnet 6,5 % der deklarierten Blattflaeche. Der
+Feldpfad haelt lai 6 nur, weil eine Karte `kLeavesPerCard = 16` Laminae vertritt. **Das ist ein
+Wuchsfehler, kein Farbfehler**, und er ist die naechste Runde.
 
 **Offen: der Impostor hat keine Eigenverschattung.** Gebacken werden Albedo und Normale, nicht die
-Verdeckung im Kroneninneren. Der ferne Baum ist damit flacher und heller als derselbe Baum im nahen
-Rang. Ein gebackener AO-Kanal ist der uebliche Ausgleich; nicht gebaut.
+Verdeckung im Kroneninneren. Ein gebackener AO-Kanal ist der uebliche Ausgleich; nicht gebaut.
 
-**Die Dichte war nie angewandt.** `U(h >> 16)` schob 24 Bit weit und liess 16 uebrig, lieferte also
-hoechstens 0,0039 — ueber JEDER deklarierten Dichte. Die frueheren 219 240 Staende in 900 m waren
-nicht 0,09/m2, sie waren *„alles, was kein Acker, kein Wasser und nicht versiegelt ist"*: 95,8 % aller
-Zellen. Mit vollen 24 Bit und den ueber Reineke hergeleiteten Dichten (Laubmischwald 0,028,
-Nadelwald 0,033) sind es 34 052 bei damuels gegen 32 201 aus der Klassenkarte vorhergesagt — 5,7 %
-auseinander, weil die Karte ein 1800-m-Quadrat auf 6 m abtastet und die Streuung eine 900-m-Scheibe
-je Zelle zieht.
-
-**Offen bleibt das Hoehenorakel:** es muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite
-(0,383 m RMS, max 1,89 m Abweichung gegen das Netz). Die Streuung fragt heute 34 052 Mal einzeln.
+**Offen: der Atlas ist 32 MB** (2 Texturen, 2048x2048, RGBA8) fuer EINE Art; bei sechzehn Arten waeren
+das 512 MB gegen die 4 GB aus `visual-target.md`. Der memorieneutrale Tausch waere `kCells = 4`,
+`kCellSize = 512`: derselbe Atlas, `kCellPx = 512`, also Impostor schon ab 40,5 m und nur noch 144
+statt 570 Netzstaende — bezahlt mit 16 statt 64 Ansichtsrichtungen. Ungemessen.
 
 **Offen: fuenfzehn der sechzehn Arten haben kein `height_sigma`** und rendern damit als gleich hohe
 Kopien. Der Vorgabewert 0 ist Absicht — wer eine Art ins Feld stellt, ohne sie zu deklarieren, sieht es.
+
+**Offen: das Hoehenorakel** muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite (0,383 m RMS,
+max 1,89 m Abweichung gegen das Netz). Die Streuung fragt heute 34 052 Mal einzeln.
 
 Owner, 2026-08-07, zur Einordnung: *„das bild entsteht aus foliage, material, rocks, buildings,
 infrastruktur, trees, water — farbkorrektur kommt zuletzt"*.
@@ -175,6 +189,76 @@ Von Hand geht es besser, und die Quelle steht im Bild selbst: die Einblendung de
 *„Herzogstand / Fahrenbergkopf — Blick ueber den Kochelsee ins Oberland"*. Meine erste Eintragung setzte
 sie ans Seeufer auf 600 m mit Blick nach Sueden; sie steht auf 1620 m und schaut nach Norden hinab. Die
 Bildunterschrift ist die zuverlaessigste Posenquelle, die diese Seite hat.
+
+
+### Die Gelaendenormale erreicht die Beleuchtung; der Befund war eine Uhr — 2026-08-08
+
+Vorwurf: in `build/out/koenigssee.png` liegen vier verschieden orientierte Haenge auf 0,7 %
+Helligkeitsspanne (129,4 / 131,3 / 131,2 / 131,3), also komme die Normale nicht im N·L an.
+**Widerlegt, und die Ursache ist die Szenenuhr.** `web/cams/koenigssee-scene.json` trug
+`2018-04-29T18:35:15Z`; der Renderer meldet dazu selbst `sunElDeg=-3,61 sunDirectNormalY=0
+sunRGB=0,000000,0,000000,0,000000`. Die Sonne steht UNTER dem Horizont, das einzige Licht ist
+isotroper Himmel, und unter einer isotropen Halbkugel IST N·L richtungsfrei. Die 0,7 % sind das, was
+die Physik verlangt.
+
+Entschieden mit einer Azimutumkehr statt einer Meinung, gleiche Kamera, gleiche Bildregionen,
+Binary `3319908a…`, 640x360:
+
+| Zeit (UTC) | `sunElDeg` | Block x=608 y=16 | Block x=64 y=128 |
+|---|---|---|---|
+| 2018-04-29T18:35:15 | −3,61 | Y = 83,64 | Y = 120,59 |
+| 2026-06-21T05:00:00 (Sonne Ost) | +15,49 | Y = **148,35** | Y = 95,41 |
+| 2026-06-21T16:20:00 (Sonne West) | +25,30 | Y = **32,92** | Y = 161,37 |
+
+Derselbe Gelaendefleck schwingt um **115 Luminanzstufen** und das VORZEICHEN kehrt sich auf der
+gegenueberliegenden Talflanke um. Ueber 200 Bloecke a 32x16 im Gelaendeband: Schwung 181 Stufen; die
+Spanne innerhalb EINES Bildes waechst von 65,8 (Sonne unter dem Horizont) auf 96,4 bzw. 140,4.
+`stages/TilesStage` fuehrt die Vertexnormale als `nrmN` in `groundMat` und weiter als `m.nrm` in
+`surfaceLight`, wo `max(dot(n, sunDir), 0)` steht — Mechanismus und Messung sagen dasselbe.
+Bilder: `build/sun/koe-east.png`, `build/sun/koe-west.png`, `build/sun/koe-high.png`.
+
+### Die Uhr der Webcams ist der Pfad, nicht der Header — und zehn Kameras sind tot — 2026-08-08
+
+Vorwurf: `Last-Modified` von `/current/1920.jpg` liefere Muell, weil er fuer koenigssee 2018 meldet.
+**Widerlegt.** Die Kameraseite selbst nennt als juengstes Archivbild `2018/04/29/1351_hd.jpg` — die
+Kamera ist seit dem 29.04.2018 abgeschaltet und `current/1920.jpg` liefert seither dasselbe Standbild.
+Gegenprobe am 2026-08-07 um 21:51 UTC ueber sieben Kameras: bei sechs stimmt `Last-Modified` mit dem
+juengsten Archivpfad auf die Minute (zugspitze 21:30 UTC gegen `2330_hd.jpg` Ortszeit, lech 21:50
+gegen `2350`), bei koenigssee stimmt er auch — nur eben mit 2018.
+
+Trotzdem hat der Header keinen Platz mehr, denn er ist der einzige Zeuge seiner selbst.
+`tools/webcams.py` nimmt jetzt **das juengste Archivbild**: sein Zeitstempel steht in seinem eigenen
+Pfad, und genau dieses Bild wird geladen — Bild und Zeit sind dasselbe Objekt. Ortszeit → UTC ueber
+`Europe/Berlin` (alle Standpunkte liegen zwischen 9,9 und 13,1 Grad Ost, also in einer Zone). Der
+Header bleibt als GEGENPROBE. **Aelter als eine Stunde heisst kein Livebild**: die Kamera wird laut
+verworfen und gar nicht erst gerendert. Das Bild selbst traegt keine Zeit — an zugspitze
+`2026/08/07/2330_hd.jpg` steht weder in den oberen 90 noch in den unteren 60 Zeilen Text; die
+Einblendung macht die Webseite.
+
+Gemessen ueber alle 24 Standpunkte: **14 mit Livebild, 10 verworfen.** Neun davon sind seit Jahren
+abgeschaltet (koenigssee 2018-04-29, hochgrat 2018-05-12, kaunertal 2018-10-20, gaisberg 2020-02-23,
+soell 2020-05-20, predigtstuhl 2020-09-06, grainau 2022-04-22, kitzsteinhorn 2022-07-18, karwendel
+2025-01-25), seefeld lag 67,7 min zurueck. Sie sind aus `mods/webcams/cams.json` geflogen; gegen ein
+Standbild von 2018 zu rendern misst nichts.
+
+**Offen und teurer als die Uhr: die Posen stimmen nicht.** `altM` steht in `cams.json` und wird von
+niemandem gelesen; die Szene setzt stur `eyeM = 3`. Gegen `fb-tiles` `/elev` an derselben Koordinate:
+
+| Kamera | `altM` | DEM | Differenz |
+|---|---|---|---|
+| karwendel | 2244 | 1247,1 | **+996,9** |
+| predigtstuhl | 1613 | 698,6 | +914,4 |
+| hochgrat | 1834 | 1204,6 | +629,4 |
+| herzogstand | 1731 | 1210,9 | +520,1 |
+| hochries | 1568 | 1137,4 | +430,6 |
+| nebelhorn | 2224 | 1795,7 | +428,3 |
+| hochkoenig | 1900 | 2853,6 | **−953,6** |
+
+Das ist keine Turmhoehe, das ist eine falsche Koordinate: die Standpunkte tragen die Ortslage, nicht
+die Kamera. Die Folge ist im Bild — `build/sun/kochelsee-high.png` und `build/sun/damuels-high.png`
+zeigen die UNTERSEITE des Gelaendes mit herabhaengenden Staemmen, `build/sun/nebelhorn-east.png` eine
+gleichfoermig dunkelgruene Wand. Nur koenigssee und hochries liefern in dieser Runde einen offenen
+Blick. Nicht repariert: 14 Posen neu einzupassen ist eine eigene Runde.
 
 
 ### Das art-director-Urteil gegen die Webcams, und warum Schatten zurueckkamen — 2026-08-07
