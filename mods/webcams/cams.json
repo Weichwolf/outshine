@@ -1,7 +1,7 @@
 {
   "schema": "outshine/webcams/1",
-  "subject": "Das staendige Feld: 24 feste Kameras von foto-webcam.eu, gegen deren Livebild gerendert wird.",
-  "poseOrigin": "lat/lon/altM sind die STANDORTE, so gut wie sie ohne veroeffentlichte Koordinaten zu bestimmen sind — die Seite nennt Berg und Hoehe im Text, die Gipfelkoordinate ist allgemein bekannt, EXIF ist leer (geprueft: die Bilder tragen nur einen gd-jpeg-Kommentar). yawDeg/pitchDeg/fovDeg sind ANFANGSWERTE und keine Messung; sie werden je Kamera EINMAL aus dem Horizont gegen den DEM eingepasst und dann eingefroren. Solange `fitted` false ist, vergleicht die Seite zwei verschiedene Ausschnitte und jeder Unterschied darin ist der Pose zuzuschreiben, nicht dem Shader.",
+  "subject": "Deklarierte Standpunkte: 24 feste Kameras von foto-webcam.eu, gegen deren Livebild gerendert wird. Ein Satz Standpunkte ist ein MOD und kein Enginebestandteil — die Engine kennt keine Kamera, sie kennt eine Szene.",
+  "poseOrigin": "lat/lon/altM sind die Standorte: die Seite nennt Berg und Hoehe im Text, die Gipfelkoordinate ist allgemein bekannt, EXIF ist leer (geprueft — die Bilder tragen nur einen gd-jpeg-Kommentar). yawDeg/pitchDeg/fovDeg werden VON HAND eingestellt und hier festgehalten. Der automatische Horizonteinpasser (tools/posefit.py) ist dreimal gescheitert: Azimut und Bildwinkel sind zusammen unterbestimmt, und bei festem Bildwinkel lieferte er fuer den Kochelsee konsistent einen Blick steil nach Nordosten, wo die Kamera nach Sueden auf den Herzogstand zeigt. Er bleibt als Werkzeug liegen, das Ergebnis wird nicht uebernommen. `fitted` heisst hier: von Hand geprueft und fuer gut befunden.",
   "cams": [
     {
       "slug": "zugspitze",
@@ -104,14 +104,15 @@
     },
     {
       "slug": "kochelsee",
-      "name": "Kochelsee",
-      "lat": 47.659,
-      "lon": 11.353,
-      "altM": 600,
-      "yawDeg": 200,
-      "pitchDeg": -2,
-      "fovDeg": 55,
-      "fitted": false
+      "name": "Herzogstand / Fahrenbergkopf",
+      "lat": 47.6075,
+      "lon": 11.3085,
+      "altM": 1620,
+      "yawDeg": 10,
+      "pitchDeg": -18,
+      "fovDeg": 60,
+      "fitted": false,
+      "hand": "Die Bildunterschrift nennt den Standort: Fahrenbergkopf, Blick ueber den Kochelsee ins Oberland. Die Kamera steht also 1000 m ueber dem See und schaut steil nach Norden hinab — meine erste Eintragung setzte sie ans Seeufer mit Blick nach Sueden."
     },
     {
       "slug": "seefeld",
@@ -254,8 +255,7 @@
       "yawDeg": 184.2,
       "pitchDeg": -7.4,
       "fovDeg": 35.0,
-      "fitted": false,
-      "fitNote": "VERWORFEN. Der Horizonteinpasser lieferte 184.2/-7.4/35.0 bei 23.1 px Formklaffen, und der Render daraus zeigt Haeuser aus fuenfzig Metern, wo das Foto ein Talpanorama zeigt. Der Bildwinkel lag am unteren Rand des Suchbereichs, war also nie konvergiert: ein schmaler Ausschnitt findet im Rundumprofil immer ein zufaellig passendes Stueck. Die Methode braucht eine zweite Bindung — Passpunkte aus OSM-Gebaeuden, wie beim Rueckwaertseinschneiden ueblich — bevor ihr Ergebnis eingefroren werden darf."
+      "fitted": false
     },
     {
       "slug": "damuels",

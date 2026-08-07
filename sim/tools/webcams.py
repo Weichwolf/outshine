@@ -95,7 +95,7 @@ def main():
     ap.add_argument("--warm", type=int, default=12000)
     args = ap.parse_args()
 
-    cams = json.loads((SIM / "assets/world/webcams.json").read_text())["cams"]
+    cams = json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]
     if args.only:
         want = set(args.only.split(","))
         cams = [c for c in cams if c["slug"] in want]

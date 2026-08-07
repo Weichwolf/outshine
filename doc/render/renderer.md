@@ -60,6 +60,42 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
+### Nach der Rueckkehr der Schatten: die Struktur ist da, die Kurve zerdrueckt sie — 2026-08-07
+
+Ein Weitwinkelblick vom Fahrenbergkopf bei Tageslicht, Binary `b937ab7c…`, 960x360:
+
+| | |
+|---|---|
+| Luminanz min / p1 / p5 / p50 / max | 1.7 / 2.0 / 2.7 / **6.5** / 148.9 |
+| unter Luminanz 10 | **73.6 % des Bildes** |
+
+Das Verhaeltnis beleuchtet zu verschattet ist **23, also 4,5 EV** — und das ist genau das gemessene
+Verhaeltnis der Bestrahlungsstaerken (`sunRGB` 0.85/0.67/0.48 gegen `skyRGB` 0.027/0.049/0.096). **Die
+Beleuchtung rechnet richtig; die Anzeigekurve zerdrueckt das Ergebnis.**
+
+Damit ist der Fall eingetreten, vor dem das art-director-Urteil gewarnt hat — spiegelbildlich. Es hiess:
+eine filmische Kurve OHNE Schattenstruktur gebe Tonwertumfang ohne Tonwertaufbau und mache das Bild
+schlechter. Jetzt ist die Struktur da und die Kurve ist an der Reihe: der Fuss (`kToe` = 0.0551 in
+`TaaStage.h`) hebt die Tiefen zu wenig, und 74 % einer Landschaft im Schatten eines Grates ist kein
+Bild, sondern eine Silhouette.
+
+### Die Standpunkte sind ein MOD, und sie werden von Hand gestellt
+
+`mods/webcams/cams.json`, nicht `sim/assets/`. Owner, 2026-08-07: *„Posen von Hand nachjustieren … kann
+man ja in nem json speichern"*, *„mehrere positionen im mods/"*. Die Engine kennt keine Kamera, sie
+kennt eine Szene.
+
+`tools/posefit.py` bleibt als Werkzeug liegen und **sein Ergebnis wird nicht uebernommen** — es ist
+dreimal gescheitert: Azimut und Bildwinkel sind zusammen unterbestimmt (die Suche lief an den Rand des
+Bildwinkelbereichs), und bei festgehaltenem Bildwinkel lieferte es fuer den Kochelsee konsistent einen
+Blick steil nach Nordosten, wo die Kamera nach Norden hinabschaut.
+
+Von Hand geht es besser, und die Quelle steht im Bild selbst: die Einblendung der Kochelseekamera lautet
+*„Herzogstand / Fahrenbergkopf — Blick ueber den Kochelsee ins Oberland"*. Meine erste Eintragung setzte
+sie ans Seeufer auf 600 m mit Blick nach Sueden; sie steht auf 1620 m und schaut nach Norden hinab. Die
+Bildunterschrift ist die zuverlaessigste Posenquelle, die diese Seite hat.
+
+
 ### Das art-director-Urteil gegen die Webcams, und warum Schatten zurueckkamen — 2026-08-07
 
 Acht Alpenkameras, Livebild gegen unseren Render, beides zur selben Minute bei 1,2 bis 3,1 Grad

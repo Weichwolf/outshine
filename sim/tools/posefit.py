@@ -92,9 +92,11 @@ def main():
     ap.add_argument("--time", required=True, help="hhmm UTC+2 der Kamera")
     ap.add_argument("--warm", type=int, default=20000)
     ap.add_argument("--work", default="/tmp/posefit")
+    ap.add_argument("--fov", type=float, default=55.0,
+                    help="fester Bildwinkel; NICHT mitgesucht, siehe Kommentar in der Suche")
     args = ap.parse_args()
 
-    cams = json.loads((SIM / "assets/world/webcams.json").read_text())["cams"]
+    cams = json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]
     cam = next((c for c in cams if c["slug"] == args.cam), None)
     if not cam: sys.exit(f"unbekannte Kamera {args.cam}")
     work = pathlib.Path(args.work); work.mkdir(parents=True, exist_ok=True)
@@ -139,10 +141,11 @@ def main():
         if ring[i] is None: ring[i] = ring[i-1]
 
     best = None
-    # Ein Webcamobjektiv liegt zwischen Weitwinkel und leichtem Tele. Ohne diese Schranke laeuft die
-    # Anpassung an den unteren Rand: ein schmaler Bildwinkel findet im Rundumprofil immer ein zufaellig
-    # passendes Stueck, und das Restklaffen sagt dann nichts mehr ueber die Pose.
-    for fov in [x*0.5 for x in range(70, 181)]:            # 35 bis 90 Grad
+    # DER BILDWINKEL WIRD NICHT MITGESUCHT. Azimut und Bildwinkel zusammen sind unterbestimmt: ein
+    # schmaler Ausschnitt findet im Rundumprofil immer ein zufaellig passendes Stueck, und die Suche
+    # lief dreimal an den unteren Rand. Eine feste Webcam hat ein festes Objektiv, also ist der
+    # Bildwinkel ein Prior und keine Unbekannte; --fov setzt ihn.
+    for fov in [args.fov]:
         span = fov/360.0*COLS
         for yaw10 in range(0, 3600):
             c0 = yaw10/10.0/360.0*COLS - span/2
