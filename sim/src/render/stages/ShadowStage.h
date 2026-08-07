@@ -2,10 +2,19 @@
  * a strip atlas — so ONE render pass covers all four, and the pass boundary is Renderer's as always.
  * The receiving half is ShadowSample.h, which every lit surface splices.
  *
- * Casters are the OSM building prisms. Terrain does not cast this round: the tile draw is a render
- * bundle of hundreds of per-tile buffers with no per-cascade cull, so re-drawing it four times would
- * cost more than the ridge shadows it would buy at a pedestrian's sun angles. Named as a gap rather
- * than hidden. */
+ * Casters are the OSM building prisms, and TERRAIN DOES NOT CAST — which is the largest single defect
+ * in the picture, not a detail. The justification that stood here said the ridge shadows were not
+ * worth four re-draws "at a pedestrian's sun angles", and that is measurably backwards for the scene
+ * this engine is built against: it declares an 11.2 deg sun, where terrain shadows are at their
+ * LONGEST and carry the whole modelling of the land. The sim-critic measured the consequence
+ * (2026-08-07, doc/render/renderer.md): no cast shadow in eleven frames from six azimuths, ground that
+ * grows BRIGHTER toward a wall foot instead of darker, and a frame with 0.000 % of its pixels under
+ * luminance 32 because nothing anywhere is in shadow.
+ *
+ * What is true in the old note is the COST, and it is unmeasured: the cut is ~110 per-tile buffers, so
+ * four cascades are ~440 draws with a per-tile offset each, against a shadow pass that costs 0.07 ms
+ * today. That is the number to take before building, not after — but it is a cost to weigh, never a
+ * reason. Terrain casting is owed. */
 #ifndef SHADOWSTAGE_H
 #define SHADOWSTAGE_H
 
