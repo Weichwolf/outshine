@@ -6836,9 +6836,10 @@ weltverankerten Cache neben dem Quadtree, mit **Gewichten statt Index**.
 | | gemessen | hergeleitet |
 |---|---|---|
 | gerade OSM-`land`-Grenze im Klassenraster | **RMS 1,192 m** (12 Segmente ≥ 117 m, je 40 Proben); 0,955 m über die 11 unkreuzten; schlechtestes Einzelresiduum 14,5 m | Quantisierung auf ±½ Texel ist gleichverteilt, RMS = `Texel/(2√3)` = **0,847 m**. 13 % Abweichung |
-| Wege im 3×3-z14-Block um den Standpunkt | **144 von 206 Straßen-Features (69,9 %), 86,4 km, erreichen das Klassenraster gar nicht** — `fb_lod_line_ok` sperrt service/track/path/footway/cycleway bei `lod_ts < 1024`, der Client fragt `tex=512` | |
-| Wohnstraße, gezeichnete Breite | **3,52 m** bei realen 5,5–6,0 m | `w3_roadstyle` 2,4 Texel × 512/1024 × 2,9342 m |
-| Bach und Fluss | **4,40 m, beide gleich** | eine Strichbreite für 1–3 m und für 10–40 m |
+| Wege im 3×3-z14-Block um den Standpunkt | **144 von 206 Straßen-Features (69,9 %), 86,4 km, erreichen das Klassenraster gar nicht** | **und das ist der Client, nicht der Bake.** `fb_lod_line_ok` sperrt bei `lod_ts < 1024`, `bake_native` reicht das angeforderte `tex` als `lod_ts` durch, und beide Clients fragen `tex=512` (`AppWalk.cpp:402`, `AppWasm.cpp:331`). Bei `tex=1024` zeichnen alle 144 |
+| Wohnstraße, gezeichnete Breite | **3,52 m** bei realen 5,5–6,0 m | `w3_roadstyle` skaliert MIT `tex` — die Meterbreite ist auflösungsinvariant: 3,52 m bei 512, 1024, 2048 und 4096 |
+| Bach und Fluss | **4,40 m, beide gleich** | eine Strichbreite für 1–3 m und für 10–40 m, bei jeder Auflösung |
+| Klassen-VRAM gegen `tex` | 32,5 / 130 / 520 / **2 081 MB** bei 512 / 1024 / 2048 / 4096 über 124 Kacheln | `tex²` × 1 B × 124 |
 | bilineare Stützweite des Bodenshaders | ±2,934 m — schmaler als **5,868 m** kann nichts grasfrei sein | |
 
 **Die Deklaration gehört in `vegetation.json` und ein drittes File wäre ein Defekt.** Jede der neun
@@ -6850,5 +6851,13 @@ dann eine Zeile, weil `layer` ein String ist, den `OsmField::Layer` ohnehin aufl
 Vorgabe und ein **Zähler**; Tag da, Tabelle kennt es nicht → **`Log::Error` mit dem Tag**; Kachel
 fehlt oder Parse scheitert → **`Log::Error` mit dem Ort**.
 
-**Nicht gebaut und nicht als gebaut gemeldet.** Der Bake ist deshalb auch **nicht** gelöscht: ohne
-Ersatz wäre die Szene ohne Landbedeckung, und `vegetation.json` hätte keinen Schlüsselraum mehr.
+**Eine eigene Korrektur, weil eine falsche Zahl in `doc/` schlimmer ist als keine.** Die erste Fassung
+dieses Eintrags las die 144 fehlenden Wege als Eigenschaft des Bakes. Sie sind eine Eigenschaft von
+`tex=512`, einer `[SET]`-Konstante in beiden Clients, die nichts misst. Der Bake hat die Wege; wir
+fragen sie nicht ab. Was `tex` **nicht** kauft, ist Breite — `w3_roadstyle` skaliert mit, also bleibt
+die Wohnstraße bei jeder Auflösung 3,52 m breit. Auflösung kauft Anwesenheit und Kantenschärfe
+(RMS fällt mit `Texel/(2√3)` auf 0,423 / 0,212 / 0,106 m) und kostet `tex²` VRAM.
+
+**Nicht gebaut und nicht als gebaut gemeldet.** Der Bake bleibt serverseitig ohnehin bestehen
+(Eignerentscheid) — hier bleibt er auch clientseitig, weil `vegetation.json` heute über `keySrgb`
+ausschließlich an ihm hängt.

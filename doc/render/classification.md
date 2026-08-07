@@ -196,11 +196,27 @@ which the client triggers at `tex=512`:
 | tertiary / secondary / primary / trunk / rail | 34 | 24.7 km | 4.69 / 5.87 / 7.34 / 8.80 / 2.93 m | yes |
 | stream · ditch · river (`water_lines`) | 12 | 12.5 km | **4.40 m, all three alike** | yes |
 
-**144 of 206 street features — 69.9 % — are absent from the class raster**, and the ones present carry
-a **cartographic stroke, not a width**: `w3_roadstyle` returns texels at a reference texture size
-(`FB_STYLE_REF_TEX` 1024), so a residential street 5.5–6.0 m wide is painted 3.52 m and a 1–3 m stream
-and a 10–40 m river are painted 4.40 m each. Those numbers are a map style and **must not be adopted as
-metres.**
+**144 of 206 street features — 69.9 % — are absent from the class raster.** That share is a property
+of **this client**, not of the bake, and the distinction matters: `fb_lod_line_ok` gates on `lod_ts`,
+`bake_native` passes the requested `tex` as `lod_ts`, and both clients ask **`tex=512`**
+(`AppWalk.cpp:402`, `AppWasm.cpp:331`). At `tex=1024` every one of the 144 draws. The bake is not
+short of detail; the client asked for a small texture.
+
+**What resolution does NOT buy is width, and that is the finding that survives.** `w3_roadstyle`
+scales its stroke *with* `tex`, so the metre width is scale-invariant:
+
+| `tex` | m/texel | residential stroke | service/track/path/footway/cycleway | class VRAM at 124 tiles |
+|---|---|---|---|---|
+| **512** (built) | 2.9342 | **3.52 m** | absent | 32.5 MB |
+| 1024 | 1.4671 | **3.52 m** | drawn, 2.05 m | 130 MB |
+| 2048 | 0.7336 | **3.52 m** | drawn, 2.05 m | 520 MB |
+| 4096 | 0.3668 | **3.52 m** | drawn, 2.05 m | 2 081 MB |
+
+A residential street is painted **3.52 m at every texture size** where it is 5.5–6.0 m, and a 1–3 m
+stream and a 10–40 m river are painted **4.40 m each** at every texture size. Those are map strokes
+and **must not be adopted as metres.** Raising `tex` moves the boundary quantisation (RMS falls as
+`texel/(2√3)`: 0.847 → 0.423 → 0.212 → 0.106 m) and buys presence — it never buys a width, and it
+costs VRAM as `tex²`.
 
 ### What the tile server already decides, and which half of it we take
 
@@ -431,9 +447,12 @@ substitutes a `[SET]` **9.0 m** (2 × 2.9 m floor-to-floor to the eaves plus a 3
   side) is written down in the `architect` agent's acceptance list; nothing in the tree computes a
   decay field with those anchors.
 - **The vector classifier is specified and not built**, and the acceptance numbers stand measured at
-  their "before" values: straight-boundary RMS **1.192 m**, **144 of 206** street features absent from
-  the class raster, residential street painted **3.52 m** where it is 5.5–6.0 m, stream and river
-  painted **4.40 m** alike. They cannot be re-taken once `/bake/osm` is deleted.
+  their "before" values: straight-boundary RMS **1.192 m**, residential street painted **3.52 m**
+  where it is 5.5–6.0 m, stream and river painted **4.40 m** alike.
+- **`tex=512` is a `[SET]` constant in two clients and nothing measures it.** It is what makes 144 of
+  206 street features absent, and it is the whole reason `classVramMB` is 32.5 rather than 130. Raising
+  it is the cheapest available improvement to the built path *and* it cannot reach the acceptance,
+  because the stroke width is scale-invariant. Recorded so the option is not rediscovered as a fix.
 - **`vegetation.json` is keyed by the bake's palette.** Every one of the nine templates selects itself
   through `keySrgb`, i.e. through a colour `tiles/src/style.h` chose. Deleting the bake without moving
   that key first leaves the class model with no key space at all.
