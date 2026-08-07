@@ -15,6 +15,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
 | **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
 | **What the SIMULATION needs must exist without a GPU; what only the PICTURE needs may live on the GPU** | the engine has to run headless. Height at a point, building footprint, class at a point and object positions are simulation and answer on the CPU; the cluster DAG, the triangle meshes of terrain, buildings and trees, and all appearance are picture and need not. **One geometry, one predicate, two evaluators** — the edge test a fragment runs is the same one a CPU query runs, shared code and not two implementations. They agree **to within the refinement the GPU adds** — the centimetre fringe, and that width is a stated number, never assumed zero. Acceptance: a sample of world points, CPU answer against GPU answer, and the difference is a number against that bound. That check did not exist for the two DEM samplings, and they disagreed with the drawn mesh for 30 hours |
+| **MEASURE WHICH SIDE IS SCARCE BEFORE MOVING WORK — 2026-08-07 it is the GPU, not the CPU** | at 1.4 m/s over the reference scene, fully resident: GPU p99 **18.79 ms** against world+render **0.86 ms** — the GPU costs **ten times** the CPU, and moving work onto it would enlarge the bottleneck, not relieve it. Slow is dearer than fast (p99 18.98 walking, 14.91 at 15 m/s, 15.21 at 150 m/s) because a resident scene at walking pace shades every fragment at the finest level. The earlier row claiming the CPU is the scarce resource was measured against a tree three commits older and is **withdrawn** |
 | **Everything visual is created on the GPU; the CPU does administration** | owner, 2026-08-07: *„am besten entsteht alles visuelle in der gpu und die cpu macht nur verwaltung."* Administration is: what is resident, what cuts the frustum, what to fetch, what to evict — bounding volumes and residency, nothing that has vertices or pixels in it. **Every move is measured before it is made**, in the order of the CPU cost it removes |
 | **Three tiers over the OSM vectors, and refinement is ONE-WAY** | **AABB** — CPU, everywhere: residency, frustum, broad phase, what to fetch and evict. That is the large majority of all CPU touches. **Source polygon** — CPU, on demand, for exactly three point queries: am I inside this building, what class is at this point, where does this road run. **Refinement** — GPU only: extrusion, roof, tessellation, the centimetre fringe, scattering, cluster LOD. It never travels back, so there is nothing to synchronise. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is "the index owns nothing" carried to its end |
 | **Derived objects are stored by NEITHER side** | scattering is a function of position, so the GPU evaluates it for every visible cell and the CPU evaluates it for the one cell a body stands in. Same function, two callers, zero bytes. This is the general form of "the mesh is a FUNCTION, not a buffer" — it is what makes tree collision possible headless without a tree list existing anywhere |
@@ -222,6 +223,28 @@ tick all entities compute first, then a barrier makes the new poses jointly visi
 therefore always yields the state of the last **completed** tick — tick order cannot influence any
 result. That is what makes a parallel run byte-identical to a serial one, and the check is running the
 same declaration over several thread counts.
+
+### What the frame actually costs, and what it does not
+
+Four binaries differing only in `kReliefOctaves`, each pinned and benched over 300 frames at 1.4 m/s
+(2026-08-07):
+
+| octaves | GPU p50 | GPU p99 |
+|---|---|---|
+| 1 | 5.55 | 17.22 |
+| 4 | 6.33 | 17.90 |
+| 8 | 6.02 | 22.02 |
+| 12 (shipped) | 6.86 | 16.12 |
+
+**Twelve octaves cost 1.3 ms of p50 against one, and p99 is unsorted across the series** — the relief
+ladder is not the bottleneck and deleting the procedural surface would not buy the budget. Hypothesis
+refuted by measurement, recorded so nobody re-runs it.
+
+What the numbers do say: p50 **6.9 ms** against p99 **16.1 ms** — a factor of 2.3 with a camera that
+covers seven metres in 300 frames. That is not a steady price, it is an **intermittent ~10 ms spike**,
+and it sits in `gpuMs` while `worldMs` p99 is 0.61 ms. **Which pass causes it is unknown, because there
+is no per-pass GPU timing** — the eight passes are one number. That instrumentation is the next thing
+to build; without it every optimisation is a guess.
 
 ### What the CPU may forget, measured
 
