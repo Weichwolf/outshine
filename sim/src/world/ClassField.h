@@ -82,6 +82,9 @@ public:
   /* The shader needs the camera's own position on each level's lattice, in texels, measured from that
    * level's window origin — everything else it derives from the ECEF offset it already has. */
   void WindowFrac(float out[kLevels * 2]) const;
+  int OriginWrap(int level, int axis) const {
+    return (axis ? Levels_[level].OriginJ : Levels_[level].OriginI) & (kSide - 1);
+  }
   const double *OriginEcef() const { return O_; }
   const double *EastEcef() const { return East_; }
   const double *NorthEcef() const { return North_; }
@@ -126,12 +129,9 @@ private:
   void PushDirty(int level, double minE, double minN, double maxE, double maxN);
   void Scroll(int level, double camE, double camN);
   void Raster(int level, const Rect &r);
-  void PaintRing(const float *pts, uint32_t first, uint32_t count, uint8_t v);
-  void PaintQuad(const float q[8], uint8_t v);
-  void Flush(uint8_t v);
-  static const Source &SourceFor(const ClassField &f, int level) {
-    return level < kNearLevels ? f.Near_ : f.Far_;
-  }
+  void EdgeRing(const float *pts, uint32_t first, uint32_t count);
+  void EdgeQuad(const float q[8]);
+  void Fill(uint8_t v);
 
   /* Levels 0..4 (texel <= 4 m, half-window <= 1024 m) come off the z14 tiles, whose 3x3 block
    * guarantees 1502.33 m in every direction. Levels 5..7 (half-window <= 8192 m) come off z11, whose

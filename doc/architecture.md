@@ -12,6 +12,9 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | Nothing is preloaded | every tile on demand — **every point on Earth is a valid start** |
 | `src/`, `doc/` and `test/` carry the same directory tree | `make -C sim verify-trees`; an orphan is a named hole |
 | Every `#include` points DOWN the stack | `make -C sim verify-layers`, a machine-checked matrix |
+| **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
+| **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
+| **The index is fed by the ECS and never authoritative** | position is a component in `float64`; the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is streamed, not simulated, and an index may carry both because it needs only place and extent |
 
 ## State
 
@@ -26,7 +29,45 @@ systems/` and most of `core/` — was deleted on 2026-08-07 rather than repaired
 | `wasm` + `worker` | build |
 | `units/` | only `Unit.h` and `UnitRegistry.h` survive, kept alive by `world/World.cpp`'s effect path |
 
+### Why a quadtree with height and not an octree
+
+The owner proposed an "octree shell, N km thick, divided into sectors". That is the same structure —
+the only difference is whether the vertical axis *subdivides* or merely *bounds*.
+
+Terrain, buildings, vegetation and structures all cling to the surface. An aircraft at 10 km lies in the
+**column** of its cell, and a frustum cuts columns as reliably as cubes. An octree wins only when dense
+content sits at many altitudes, which will not be true for a long time — and it fits a sphere badly
+(cubed-sphere, or degenerate cells), with a shell that is over 99 % air and eight children per node of
+which nearly all are empty. The quadtree fits the sphere because the slippy scheme *is* a sphere
+subdivision, and it fits the source, which speaks `z/x/y` and will keep doing so — **what falls is the
+quadtree as the engine's INDEX, not slippy as the source's addressing.**
+
+**Subdivide when it pays, not because the structure provides for it** — the same rule as the LOD ladder,
+where the only declared number is the frame budget. A column stays a column while its content lies
+together; the one column that spans 30 km with a single object at the top splits vertically, and its
+neighbours do not.
+
+**Precision was never the tree's job.** The two problems the shell was aimed at — millimetre placement
+and culling — are solved by `float64` plus the camera-relative conversion, and by bounding volumes.
+
 ## Gaps
+
+- **The spatial index is specified and not built.** Today `world/World.cpp` carries a surface quadtree
+  whose `kMaxZ = 14` is a **bare constant with no provenance**, set to the weakest of three sources
+  (terrain DEM 15, OSM vectors 14, imagery 19) and shared by all three. Its split rule is justified in the
+  code as *"equal albedo resolution by distance"* — and the albedo is being deleted, so the justification
+  goes with it. `kNodeCeil` and `kGrace` hang off the same structure.
+- **The height oracle disagrees with the drawn mesh: 0.383 m RMS, max 1.89 m.** Not the raster — measured
+  and ruled out — but `ChunkBuildEcef` decimating 256² to 33² postings, i.e. **46.9 m spacing at z14**. A
+  tree placed on that height stands up to 1.89 m wrong, and a better index would only index the error
+  precisely. Named fix, unbuilt: **the oracle evaluates the DRAWN surface** — same posting indices, same
+  triangle split — instead of interpolating the DEM a second time. It is an interface decision, because
+  `fb_stream_ground` is a free C function with no access to the mesh parameters. **This is a precondition
+  for placing anything, not a follow-up.**
+- **There is no ECS.** `units/` holds 214 lines — `Unit.h` with `UnitPose`, `UnitArticulation`,
+  `UnitSignature` and a virtual `Run(dt, units, world)`, constructed by nothing. A remnant of the combat
+  layer. Order: the tree first (it already indexes tiles), the ECS on top; an ECS without an index would
+  be slow immediately.
 
 | Finding | Where |
 |---|---|

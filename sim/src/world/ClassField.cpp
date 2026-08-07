@@ -175,7 +175,7 @@ void ClassField::Scroll(int level, double camE, double camN) {
 /* Nonzero winding over EVERY ring of the feature at once, which is what makes a multipolygon hole a
  * hole: MVT declares interior rings by their winding, so counting the crossings signed is the whole
  * rule and no ring has to be classified first. */
-void ClassField::Flush(uint8_t v) {
+void ClassField::Fill(uint8_t v) {
   if (Edges_.empty()) return;
   const size_t ne = Edges_.size() / 5;
   static thread_local std::vector<uint32_t> order;
@@ -240,15 +240,15 @@ void ClassField::Flush(uint8_t v) {
   Edges_.clear();
 }
 
-void ClassField::PaintRing(const float *pts, uint32_t first, uint32_t count, uint8_t) {
+void ClassField::EdgeRing(const float *pts, uint32_t first, uint32_t count) {
   if (count < 3) return;
   const double inv = 1.0 / SubStep_;
-  float px = 0, py = 0, fx = 0, fy = 0;
+  float px = 0, py = 0;
   for (uint32_t k = 0; k <= count; k++) {
     const uint32_t idx = first + (k == count ? 0 : k);
     const float x = (float)(((double)pts[(size_t)idx * 2] - SubOrgE_) * inv);
     const float y = (float)(((double)pts[(size_t)idx * 2 + 1] - SubOrgN_) * inv);
-    if (k == 0) { px = fx = x; py = fy = y; continue; }
+    if (k == 0) { px = x; py = y; continue; }
     if (y != py) {
       const float y0 = std::min(py, y), y1 = std::max(py, y);
       const float dxdy = (x - px) / (y - py);
@@ -260,10 +260,9 @@ void ClassField::PaintRing(const float *pts, uint32_t first, uint32_t count, uin
     }
     px = x; py = y;
   }
-  (void)fx; (void)fy;
 }
 
-void ClassField::PaintQuad(const float q[8], uint8_t) {
+void ClassField::EdgeQuad(const float q[8]) {
   const double inv = 1.0 / SubStep_;
   for (int k = 0; k < 4; k++) {
     const int a = k, b = (k + 1) & 3;
@@ -299,9 +298,9 @@ void ClassField::Raster(int level, const Rect &r) {
     if (f.Type == 3) {
       for (uint32_t k = 0; k < of.RingCount; k++) {
         const OsmField::Ring &ring = src.Field.Rings()[of.FirstRing + k];
-        PaintRing(src.Pts.data(), ring.First, ring.Count, v);
+        EdgeRing(src.Pts.data(), ring.First, ring.Count);
       }
-      Flush(v);
+      Fill(v);
     } else {
       const float hw = f.WidthM * 0.5f;
       for (uint32_t k = 0; k < of.RingCount; k++) {
@@ -321,8 +320,8 @@ void ClassField::Raster(int level, const Rect &r) {
           const float gx = bx + dx * hw, gy = by + dy * hw;
           const float px = -dy * hw, py = dx * hw;
           const float q[8] = {ex + px, ey + py, gx + px, gy + py, gx - px, gy - py, ex - px, ey - py};
-          PaintQuad(q, v);
-          Flush(v);
+          EdgeQuad(q);
+          Fill(v);
         }
       }
     }

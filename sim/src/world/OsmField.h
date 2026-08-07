@@ -64,6 +64,7 @@ public:
 
   /* -1 when the layer was never asked for. Resolve once, then compare Feature::Layer. */
   int Layer(const char *name) const;
+  const std::string &LayerName(int i) const { return Layers_[(size_t)i]; }
 
   double Num(const Feature &f, const char *key, double def) const;
   /* Empty when absent or numeric. Points into this field and survives until it is destroyed —
