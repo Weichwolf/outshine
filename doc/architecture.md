@@ -50,10 +50,27 @@ way:** the C++ generator built on 2026-08-07 becomes the ORACLE for the GPU vers
 to its own reference across 80 buffers and 16 species, and the GPU version must pass the same test against
 it. Without it, "looks like a tree" would be the only yardstick.
 
-**The open question, and it must be answered before the build, not after:** the cluster DAG. If buildings
-are born on the GPU their LOD ladder has to be born there too, and `render/ClusterDag` is only Nanite's
-first half — the second is impossible in WGSL for want of 64-bit atomics. Either the DAG runs in the
-compute pass or buildings get no cluster ladder. Measurable, so measure it.
+**The cluster DAG — and a correction, because the blocker was named wrong.** Today **neither** half runs
+on the GPU: the DAG is BUILT in CPU worker threads (`clients/TileWorkerMain.cpp` in the browser,
+`world/TerrainLoader.cpp` natively) and the cut is SELECTED on the CPU every frame
+(`render/stages/TilesStage.cpp`, a loop over every cluster of every visible tile).
+
+The 64-bit-atomics wall is **Nanite's software rasteriser** — it packs depth and triangle id into one
+`atomicMax` — and it does not apply to cluster selection. Our selection is a **pure per-cluster
+predicate**:
+
+```
+DagSelect(c) = Sse(c) <= tau  &&  Sse(parent(c)) > tau
+```
+
+Two screen-space error tests and **no traversal**, because monotone error along every root-to-leaf path
+makes it a single crossing: exactly one cluster per region of the surface answers true. That
+parallelises completely — one thread per cluster, no atomic for the selection itself. Only the
+compaction into draw ranges needs coordination, and that is a prefix sum plus an indirect draw. Five
+compute stages already exist in the tree, all in the atmosphere.
+
+**So the selection can move to the GPU without what WGSL lacks.** The DAG *build* is the harder question
+— edge collapse and error bounds — but it already runs off the frame thread. Measure before building.
 
 ### Why a quadtree with height and not an octree
 
