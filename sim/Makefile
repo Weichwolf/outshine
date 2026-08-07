@@ -74,7 +74,7 @@ TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLe
 
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp \
-  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp \
+  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp src/world/WaterField.cpp \
   $(TREE_SRCS)
 
 # Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.

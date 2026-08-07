@@ -30,6 +30,7 @@
 #include "stages/TilesStage.h"
 #include "stages/BenchGroundStage.h"
 #include "stages/BuildingsStage.h"
+#include "stages/WaterStage.h"
 #include "stages/TreeStage.h"
 #include "stages/AoStage.h"
 #include "stages/ExposureStage.h"
@@ -173,6 +174,8 @@ public:
     Buildings->SetMesh(verts, nverts, clusters, nclusters, anchor);
   }
   uint32_t BuildingVertexCount(void) const { return Buildings->VertexCount(); }
+  void SetWaterMesh(const float *v, uint32_t n, const double anchor[3]) { Water->SetMesh(v, n, anchor); }
+  uint32_t WaterVertexCount(void) const { return Water->VertexCount(); }
 
   int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
   int  TerrainDrawCalls(void) const { return Tiles->DrawCallCount(); }
@@ -318,6 +321,7 @@ private:
   std::vector<uint8_t> VegRows;
   std::unique_ptr<BenchGroundStage> BenchGround = std::make_unique<BenchGroundStage>();
   std::unique_ptr<BuildingsStage> Buildings = std::make_unique<BuildingsStage>();
+  std::unique_ptr<WaterStage> Water = std::make_unique<WaterStage>();
   std::unique_ptr<TreeStage> Trees = std::make_unique<TreeStage>();
 
   /* The whole frame lands in a FIXED 720p FrameTex; only the upscale pass follows the display size. */

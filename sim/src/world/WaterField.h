@@ -25,10 +25,20 @@ public:
     float LevelM = 0.0f;                       /* the water surface, ASL — ONE value for the whole ring */
   };
 
+  /* A watercourse. Level across it, falling along it, so the level belongs to the VERTEX and the
+   * ribbon is level across each rung. */
+  struct Course {
+    uint32_t FirstPoint = 0, PointCount = 0;
+    uint32_t FirstLevel = 0;                   /* into Levels(), PointCount entries */
+    float HalfWidthM = 0.0f;
+  };
+
   /* Consumes whatever `field` has decoded and this has not seen yet; returns the surfaces standing. */
-  uint32_t Ingest(const OsmField &field);
+  uint32_t Ingest(const OsmField &field, float defaultHalfWidthM);
 
   const std::vector<Surface> &Surfaces() const { return Surfaces_; }
+  const std::vector<Course> &Courses() const { return Courses_; }
+  const std::vector<float> &Levels() const { return Levels_; }
   const double *Anchor() const { return Anchor_; }
   bool HaveAnchor() const { return HaveAnchor_; }
 
@@ -40,6 +50,8 @@ public:
 
 private:
   std::vector<Surface> Surfaces_;
+  std::vector<Course> Courses_;
+  std::vector<float> Levels_;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
   uint32_t Consumed_ = 0;

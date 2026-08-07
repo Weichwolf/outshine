@@ -13,6 +13,7 @@
 #include "SpriteDraw.h"
 #include "UnitDraw.h"
 #include "BuildingField.h"
+#include "WaterField.h"
 #include "ClassField.h"
 #include "ClusterDag.h"
 
@@ -247,6 +248,8 @@ private:
   OsmField Vectors{14, {"buildings"}};
   ClassField Cls_;
   BuildingField Buildings;
+  WaterField Water;
+  std::vector<float> WaterVerts;
   uint32_t BuildingVerts = 0;
   std::vector<float> BuildingDagVerts;
   std::vector<Render::DagCluster> BuildingClusters;

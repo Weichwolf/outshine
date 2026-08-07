@@ -182,6 +182,7 @@ void Renderer::OnDevice(wgpu::Device d) {
   Stars->Init(gpu);
   TileLights->Init(gpu);
   Buildings->Configure(gpu, Light());
+  Water->Configure(gpu, Light());
   /* Units and Sprites are Configure()d with the terrain instead: both need the atmosphere LUT views. */
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   BenchGround->Configure(gpu, Light());
@@ -774,7 +775,10 @@ void Renderer::RenderFrame(void) {
   BenchGround->Encode(ctx, scene);   /* the subject bench's card, in the terrain's slot; self-gates off */
   Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
   Buildings->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
-  Buildings->Encode(ctx, scene);   /* opaque, depth-written, same pass — no Begin*Pass is added */
+  Buildings->Encode(ctx, scene);
+  /* After the terrain and the prisms: a water surface is opaque here and depth sorts it. */
+  Water->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
+  Water->Encode(ctx, scene);   /* opaque, depth-written, same pass — no Begin*Pass is added */
   Trees->SetSun(ctx.SunDir, NightAmbient(ctx));
   Trees->Encode(ctx, scene);   /* the subject bench's plant, same pass, same light; self-gates off */
 

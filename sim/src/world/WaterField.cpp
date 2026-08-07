@@ -4,6 +4,7 @@
 #include "TerrainLoader.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace outshine::World {
 
@@ -22,18 +23,53 @@ constexpr double kShoreToleranceM = 5.0;
 
 }  // namespace
 
-uint32_t WaterField::Ingest(const OsmField &field) {
+uint32_t WaterField::Ingest(const OsmField &field, float defaultHalfWidthM) {
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Consumed_ >= feats.size()) return (uint32_t)Surfaces_.size();
 
-  const int layer = field.Layer("water_polygons");
+  const int poly = field.Layer("water_polygons");
+  const int line = field.Layer("water_lines");
   const uint32_t tile = feats[Consumed_].Tile;
   const std::vector<double> &pts = field.Points();
   std::vector<double> hs;
 
   for (; Consumed_ < feats.size() && feats[Consumed_].Tile == tile; Consumed_++) {
     const OsmField::Feature &f = feats[Consumed_];
-    if (f.Type != 3 || (int)f.Layer != layer) continue;
+    if (f.Type == 2 && (int)f.Layer == line) {
+      for (uint32_t r = 0; r < f.RingCount; r++) {
+        const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
+        if (ring.Count < 2 || ring.Count > 512) continue;
+        hs.clear();
+        bool ok = true;
+        for (uint32_t k = 0; k < ring.Count; k++) {
+          const double e = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+                                            pts[((size_t)ring.First + k) * 2 + 1]);
+          if (e <= -1e7) { ok = false; break; }
+          hs.push_back(e);
+        }
+        if (!ok) { NoGround_++; continue; }
+        /* Water runs downhill, so the sequence along the way is monotone — which end is downstream is
+         * whichever end sits lower. Enforcing it turns the terrain's own noise into a surface that
+         * cannot run uphill, and that is the whole claim being made here. */
+        if (hs.front() >= hs.back())
+          for (size_t k = 1; k < hs.size(); k++) hs[k] = std::min(hs[k], hs[k - 1]);
+        else
+          for (size_t k = hs.size() - 1; k-- > 0;) hs[k] = std::min(hs[k], hs[k + 1]);
+        Course c{};
+        c.FirstPoint = ring.First;
+        c.PointCount = ring.Count;
+        c.FirstLevel = (uint32_t)Levels_.size();
+        c.HalfWidthM = defaultHalfWidthM;
+        for (double h : hs) Levels_.push_back((float)h);
+        if (!HaveAnchor_) {
+          GeoToEcef(pts[(size_t)c.FirstPoint * 2], pts[(size_t)c.FirstPoint * 2 + 1], hs[0], Anchor_);
+          HaveAnchor_ = true;
+        }
+        Courses_.push_back(c);
+      }
+      continue;
+    }
+    if (f.Type != 3 || (int)f.Layer != poly) continue;
 
     for (uint32_t r = 0; r < f.RingCount; r++) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
@@ -95,6 +131,42 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       for (int t = 0; t < 3; t++) {
         const double *v = &p3[(size_t)idx[t] * 3];
         out.push_back((float)v[0]); out.push_back((float)v[1]); out.push_back((float)v[2]);
+        out.push_back((float)up[0]); out.push_back((float)up[1]); out.push_back((float)up[2]);
+      }
+    }
+  }
+
+  for (const Course &c : Courses_) {
+    if (c.PointCount < 2) continue;
+    const double refLat = ring[(size_t)c.FirstPoint * 2], refLon = ring[(size_t)c.FirstPoint * 2 + 1];
+    double up[3], ea[3], no[3];
+    EnuAxesEcef(refLat, refLon, ea, no, up);
+    std::vector<double> L((size_t)c.PointCount * 3), R((size_t)c.PointCount * 3);
+    for (uint32_t k = 0; k < c.PointCount; k++) {
+      double e0 = 0.0, n0 = 0.0, e1 = 0.0, n1 = 0.0;
+      const uint32_t a = k > 0 ? k - 1 : k, b = k + 1 < c.PointCount ? k + 1 : k;
+      EnuOffsetM(refLat, refLon, ring[((size_t)c.FirstPoint + a) * 2],
+                 ring[((size_t)c.FirstPoint + a) * 2 + 1], e0, n0);
+      EnuOffsetM(refLat, refLon, ring[((size_t)c.FirstPoint + b) * 2],
+                 ring[((size_t)c.FirstPoint + b) * 2 + 1], e1, n1);
+      double tx = e1 - e0, ty = n1 - n0;
+      const double tl = std::sqrt(tx * tx + ty * ty);
+      if (tl < 1e-9) { tx = 1.0; ty = 0.0; } else { tx /= tl; ty /= tl; }
+      const double px = -ty * c.HalfWidthM, py = tx * c.HalfWidthM;
+      const double lat = ring[((size_t)c.FirstPoint + k) * 2], lon = ring[((size_t)c.FirstPoint + k) * 2 + 1];
+      const double lev = Levels_[c.FirstLevel + k];
+      double base[3];
+      GeoToEcef(lat, lon, lev, base);
+      for (int cc = 0; cc < 3; cc++) {
+        L[(size_t)k * 3 + cc] = base[cc] - Anchor_[cc] + ea[cc] * px + no[cc] * py;
+        R[(size_t)k * 3 + cc] = base[cc] - Anchor_[cc] - ea[cc] * px - no[cc] * py;
+      }
+    }
+    for (uint32_t k = 0; k + 1 < c.PointCount; k++) {
+      const double *q[6] = {&L[(size_t)k * 3], &R[(size_t)k * 3], &R[(size_t)(k + 1) * 3],
+                            &L[(size_t)k * 3], &R[(size_t)(k + 1) * 3], &L[(size_t)(k + 1) * 3]};
+      for (int t = 0; t < 6; t++) {
+        out.push_back((float)q[t][0]); out.push_back((float)q[t][1]); out.push_back((float)q[t][2]);
         out.push_back((float)up[0]); out.push_back((float)up[1]); out.push_back((float)up[2]);
       }
     }

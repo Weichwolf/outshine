@@ -947,6 +947,14 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   const double tBld = Clock();
   if (R && BuildingDagId == 0) {
     Vectors.Build(camLat, camLon, 1);
+    /* [SET] 1.5 m half width for a watercourse: the narrow end of what OSM maps as a line — a ditch
+     * or a stream. The right number is per kind and lives in vegetation.json's widthM; this stands
+     * until WaterField reads it. */
+    if (Water.Ingest(Vectors, 1.5f) > 0) {
+      Water.Tessellate(Vectors, WaterVerts);
+      if (R && !WaterVerts.empty())
+        R->SetWaterMesh(WaterVerts.data(), (uint32_t)(WaterVerts.size() / 6), Water.Anchor());
+    }
     if (Buildings.Build(Vectors) > 0 && Buildings.AddedCount() > 0) {
       BuildingVerts = (uint32_t)(Buildings.Verts().size() / 8);
       BuildingDecodeMs_ = Clock() - tBld;
