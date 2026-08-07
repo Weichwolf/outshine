@@ -523,17 +523,25 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
   o.dr = mix(rb.dry, ra.dry, mixW);
   o.pr = mix(rb.par, ra.par, mixW);
 
-  /* A world-fixed tangent frame off the geodetic up: east from the polar axis, north from the two.
-   * Both are functions of the PLACE, so the surface cannot rotate with the camera. */
+  /* THE FIELD IS A FUNCTION OF THE PLACE ON THE MAP, not of the surface it lands on. The frame that
+   * stood here was built from the SURFACE NORMAL — cross(polar, n) — so it turned and sheared with
+   * every change of slope, and the pattern stretched along hillsides. Its own comment claimed the
+   * geodetic up and did not use it.
+   *
+   * `pe`/`pn` are already the world east/north metres the classification is evaluated in, anchored
+   * and camera-independent, so the material now shares them: one horizontal frame for what is at a
+   * place and what it looks like. A slope foreshortens the pattern, which is what a vertical
+   * projection does and the only honest answer — a square metre of map is a square metre of material.
+   * UV never enters it. */
   let nn = normalize(nrmIn);
-  var eastv = cross(vec3f(0.0, 0.0, 1.0), nn);
-  let el = length(eastv);
-  eastv = select(vec3f(1.0, 0.0, 0.0), eastv / max(el, 1.0e-6), el > 1.0e-4);
-  let northv = cross(nn, eastv);
-
-  let rel = reliefField(dot(gposIn, eastv), dot(gposIn, northv), gsf.x, gsf.y,
-                        max(gsf.z, 0.05), max(gsf.w, 0.01), footM);
-  o.nrm = normalize(nn - eastv * rel.sx - northv * rel.sy);
+  let rel = reliefField(pe, pn, gsf.x, gsf.y, max(gsf.z, 0.05), max(gsf.w, 0.01), footM);
+  /* The perturbation still has to lie IN the surface, so the two world axes are projected into it —
+   * that tilts the tangents with the ground without letting them rotate the field. */
+  var we = u.cax.xyz - nn * dot(nn, u.cax.xyz);
+  let wl = length(we);
+  we = select(vec3f(1.0, 0.0, 0.0), we / max(wl, 1.0e-6), wl > 1.0e-4);
+  let wn = cross(nn, we);
+  o.nrm = normalize(nn - we * rel.sx - wn * rel.sy);
 
   /* The detail field also decides WHICH of the two materials is on top here: litter is a coverage
    * fraction, not a second class, so it lands in the hollows the same field carves. */
