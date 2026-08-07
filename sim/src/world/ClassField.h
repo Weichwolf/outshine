@@ -69,6 +69,8 @@ public:
 
   /* THE ONE EVALUATOR, in C++ — the WGSL one reads the same bytes with the same rule. -1 = no datum
    * at this place, which is a state and not a default: the caller decides what to do with it. */
+  /* Der Rahmen, in dem ClassAtEnu misst — ein Streuer braucht ihn, um vom Standpunkt aus zu zaehlen. */
+  void Project(double lat, double lon, double *e, double *n) const;
   int ClassAt(double lat, double lon) const;
   /* Metres to the boundary of the winning class, and the class on the other side of it. */
   int ClassAt(double lat, double lon, double *distM, int *runnerUp) const;
@@ -115,7 +117,7 @@ private:
     int Zoom;
   };
 
-  void Project(double lat, double lon, double *e, double *n) const;
+
   void Ingest(Tier &t);
   void BuildTier(Tier &t, double camE, double camN);
   void Pack();

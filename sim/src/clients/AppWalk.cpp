@@ -18,6 +18,7 @@
 #include "TerrainLoader.h"
 #include "TreeFoliage.h"
 #include "TreeGrower.h"
+#include "TreeField.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
@@ -298,6 +299,33 @@ int main(int argc, char **argv) {
   R.SetSkyClock(clk);
   R.SetFovDeg(scene.FovDeg());
   R.SetOrthoM(orthoM);
+
+  /* EIN Baum waechst, und er steht tausendfach. Die Art ist die haeufigste des deklarierten
+   * Laubmischwaldes; Artenmischung je Stand ist die naechste Runde. */
+  World::TreeMesh worldTree;
+  World::TreeField treeField;
+  std::vector<float> treeStands;
+  {
+    std::string txt;
+    if (FILE *f = fopen("assets/world/species/buche.json", "rb")) {
+      char buf[8192]; size_t k;
+      while ((k = fread(buf, 1, sizeof buf, f)) > 0) txt.append(buf, k);
+      fclose(f);
+    }
+    World::TreeSpecies sp;
+    if (!txt.empty() && sp.Parse(txt.c_str(), txt.size())) {
+      World::TreeGrower g;
+      g.Grow(sp, worldTree);
+      Render::TreeLook look;
+      const World::TreeSpecies::Shading &sh = sp.ShadingParams();
+      for (int c = 0; c < 3; c++) { look.BarkRgb[c] = sh.BarkColor[c]; }
+      look.BarkDark = sh.BarkDark; look.BarkFreq = sh.BarkFreq; look.BarkRidge = sh.BarkRidge;
+      R.SetTreeLook(look);
+      R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
+                    worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
+      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()}});
+    }
+  }
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
   R.SetWind(windDeg, windMs);
@@ -477,6 +505,17 @@ int main(int argc, char **argv) {
       R.SetCameraBasis(eye, fwd, right, up);
     }
     W.Update(clat, clon, eye, fwd, (double)warmed * 1000.0 / 60.0);
+    /* Die Streuung ist eine Funktion des Ortes, also wird sie neu ausgewertet und nicht fortgeschrieben.
+     * 900 m: darueber ist ein 25-m-Baum bei 720p unter zwei Pixel breit und gehoert in die Ferne, die
+     * das Material traegt. */
+    if (!worldTree.BarkIdx.empty() && (warmed % 32) == 0) {
+      double ee = 0.0, nn = 0.0;
+      W.Classes().Project(clat, clon, &ee, &nn);
+      treeField.Scatter(W.Classes(), veg, 900.0, ee, nn, treeStands);
+      R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / 4));
+      if (true)
+        Log::Debug("walk", "trees", {{"stands", (int)(treeStands.size() / 4)}, {"eastM", ee}, {"northM", nn}});
+    }
     R.RenderFrame();
     warmed++;
   }

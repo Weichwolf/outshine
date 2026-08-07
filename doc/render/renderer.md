@@ -60,6 +60,27 @@ drop it. Measured after: browser 69.60 / 5.77 EV / 0.01 % / 0.00 % against nativ
 
 ## Gaps
 
+### Die Baumstreuung steht bis auf die Hoehe — 2026-08-07
+
+Gebaut und gemessen: `world/TreeField` streut **166 823 Staende** in 900 m Umkreis, `TreeStage` zieht
+sie als Instanzen (ein Netz, ein Draw, N Instanzen), das Frame kostet **7,60 ms** von 16,67. Die
+Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die deklarierte Dichte
+(`trees.perM2`: Laubmischwald 0.04, Nadelwald 0.09) —, also haelt keine Seite eine Liste und dieselbe
+Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper.
+
+**Kein Baum ist im Bild, und der Grund ist die fehlende Hoehe.** Ein Stand traegt Ost, Nord, Groesse und
+Gierung; seine LAGE in der Vertikalen fehlt, also sitzen alle auf der Augenhoehe der Kamera — an einem
+Berghang heisst das im Fels oder in der Luft. Das ist derselbe offene Posten wie den ganzen Tag: das
+Hoehenorakel muss die GEZEICHNETE Flaeche beantworten, nicht eine zweite (0,383 m RMS, max 1,89 m
+Abweichung gegen das Netz). 166 823 Einzelabfragen je Streuung sind dafuer kein gangbarer Weg; die
+Hoehe muss aus derselben Funktion kommen, die das Netz baut.
+
+Owner, 2026-08-07, zur Einordnung: *„der baumgenerator ist nur ein kleiner prototyp. du musst den schon
+noch auf speedtree niveau bringen"*, und *„das bild entsteht aus foliage, material, rocks, buildings,
+infrastruktur, trees, water — farbkorrektur kommt zuletzt"*. Die Kurvenarbeit an einem leeren Hang war
+verlorene Zeit.
+
+
 ### Nach der Rueckkehr der Schatten: die Struktur ist da, die Kurve zerdrueckt sie — 2026-08-07
 
 Ein Weitwinkelblick vom Fahrenbergkopf bei Tageslicht, Binary `b937ab7c…`, 960x360:

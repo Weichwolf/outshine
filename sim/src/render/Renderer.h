@@ -140,6 +140,7 @@ public:
     Trees->SetLeaf(verts, nverts, idx, nidx, inst, ninst, scaleM);
   }
   void SetTreeLook(const TreeLook &look) { Trees->SetLook(look); }
+  void SetTreeStands(const float *inst, uint32_t n) { Trees->SetStands(inst, n); }
   void SetTreeStand(double eastM, double northM, double eyeAglM, double heightM) {
     Trees->SetStand(eastM, northM, eyeAglM, heightM);
   }

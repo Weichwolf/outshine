@@ -47,14 +47,21 @@ fn toEcef(local : vec3f) -> vec3f {
 struct TOut { @builtin(position) pos : vec4f, @location(0) rel : vec3f, @location(1) nrm : vec3f,
               @location(2) loc : vec3f };
 
-@vertex fn vsBark(@location(0) p : vec3f, @location(1) n : vec3f) -> TOut {
+/* Ein Stand: xy sind Ost/Nord in Metern vom Kamerastandpunkt, z die Hoehe, w die Gierung. */
+@vertex fn vsBark(@location(0) p : vec3f, @location(1) n : vec3f,
+                  @location(2) st : vec4f) -> TOut {
   var o : TOut;
-  let pm = p * b.bpar.z;
-  let rel = standOrigin() + toEcef(pm);
+  let hs = select(b.bpar.z, st.z, st.z > 0.0);
+  var pm = p * hs;
+  let cy = cos(st.w); let sy = sin(st.w);
+  pm = vec3f(pm.x * cy - pm.z * sy, pm.y, pm.x * sy + pm.z * cy);
+  let rel = standOrigin() + b.ax.xyz * st.x + b.ay.xyz * st.y + toEcef(pm);
   o.pos = b.mvp * vec4f(rel, 1.0);
   o.rel = rel;
-  o.nrm = toEcef(n);
-  o.loc = vec3f(n.x, pm.y, n.z);   /* the furrow reads a circumferential angle and a height, no uv */
+  let cy2 = cos(st.w); let sy2 = sin(st.w);
+  let nr = vec3f(n.x * cy2 - n.z * sy2, n.y, n.x * sy2 + n.z * cy2);
+  o.nrm = toEcef(nr);
+  o.loc = vec3f(nr.x, pm.y, nr.z);   /* the furrow reads a circumferential angle and a height, no uv */
   return o;
 }
 
@@ -195,13 +202,22 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   barkBuf.arrayStride = kBarkFloats * sizeof(float);
   barkBuf.attributeCount = 2;
   barkBuf.attributes = barkAttr;
+  wgpu::VertexAttribute standAttr{};
+  standAttr.format = wgpu::VertexFormat::Float32x4; standAttr.offset = 0; standAttr.shaderLocation = 2;
+  wgpu::VertexBufferLayout standBuf{};
+  standBuf.arrayStride = 4 * sizeof(float);
+  standBuf.stepMode = wgpu::VertexStepMode::Instance;
+  standBuf.attributeCount = 1;
+  standBuf.attributes = &standAttr;
+  wgpu::VertexBufferLayout barkBufs[2] = {barkBuf, standBuf};
 
   wgpu::RenderPipelineDescriptor rp{};
   rp.layout = pl;
   rp.vertex.module = m;
   rp.vertex.entryPoint = "vsBark";
   rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = &barkBuf;
+  rp.vertex.bufferCount = 2;
+  rp.vertex.buffers = barkBufs;
   wgpu::FragmentState fs{};
   fs.module = m;
   fs.entryPoint = "fsBark";
@@ -291,6 +307,12 @@ void TreeStage::SetStand(double eastM, double northM, double eyeAglM, double hei
   HeightM = heightM;
 }
 
+void TreeStage::SetStands(const float *inst, uint32_t n) {
+  StandCount = n;
+  if (n == 0 || !Device) return;
+  StandBuf = Upload(inst, (size_t)n * 4 * sizeof(float), wgpu::BufferUsage::Vertex);
+}
+
 void TreeStage::SetSun(const double sunEcef[3], float nightAmbient) {
   for (int i = 0; i < 3; i++) SunDir[i] = sunEcef[i];
   NightAmbient = nightAmbient;
@@ -298,7 +320,8 @@ void TreeStage::SetSun(const double sunEcef[3], float nightAmbient) {
 
 void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Drawn = 0;
-  if (!BarkPipe || BarkCount == 0 || HeightM <= 0.0) return;
+  /* Ein Stand aus SetStand ODER ein Feld aus SetStands; ohne beides zeichnet die Stage nichts. */
+  if (!BarkPipe || BarkCount == 0 || (HeightM <= 0.0 && StandCount == 0)) return;
 
   double east[3], north[3];
   const double up[3] = {ctx.Up[0], ctx.Up[1], ctx.Up[2]};
@@ -324,8 +347,18 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   pass.SetPipeline(BarkPipe);
   pass.SetBindGroup(0, Bind);
   pass.SetVertexBuffer(0, BarkVtx);
+  if (StandCount > 0 && StandBuf) {
+    pass.SetVertexBuffer(1, StandBuf);
+  } else {
+    /* Ein einzelner Stand ist der Sonderfall von N: die Bank bleibt eine Instanz. */
+    if (!OneStand) {
+      const float one[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+      OneStand = Upload(one, sizeof one, wgpu::BufferUsage::Vertex);
+    }
+    pass.SetVertexBuffer(1, OneStand);
+  }
   pass.SetIndexBuffer(BarkIdx, wgpu::IndexFormat::Uint32);
-  pass.DrawIndexed(BarkCount, 1);
+  pass.DrawIndexed(BarkCount, StandCount > 0 ? StandCount : 1u);
   Drawn += (long)BarkCount / 3;
 
   if (!LeavesOn || LeafCount == 0 || InstCount == 0) return;

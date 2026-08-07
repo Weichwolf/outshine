@@ -43,6 +43,9 @@ public:
   /* Where the tree stands, in ground metres east/north of the CAMERA — the frame BenchGroundStage's
    * plane and card already use. `heightM` <= 0 retires the whole stage. */
   void SetStand(double eastM, double northM, double eyeAglM, double heightM);
+  /* THE STAND, MANY TIMES OVER. Four floats per tree: east, north, height in metres and the yaw its
+   * own hash gave it. One mesh, one draw, N instances — what every engine does with vegetation. */
+  void SetStands(const float *inst, uint32_t n);
   void SetSun(const double sunEcef[3], float nightAmbient);
   void SetLeavesVisible(bool on) { LeavesOn = on; }
 
@@ -70,7 +73,8 @@ private:
   double EastM = 0.0, NorthM = 0.0, EyeAglM = 0.0, HeightM = 0.0;
   float LeafScaleM = 0.1f;
   float NightAmbient = 0.0f;
-  uint32_t BarkCount = 0, LeafCount = 0, InstCount = 0;
+  uint32_t BarkCount = 0, LeafCount = 0, InstCount = 0, StandCount = 0;
+  wgpu::Buffer StandBuf, OneStand;
   bool LeavesOn = true;
   long Drawn = 0;
 };
