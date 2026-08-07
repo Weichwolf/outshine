@@ -19,16 +19,14 @@ public:
    * raw albedo, which is exactly the picture before the template table existed. */
   void Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
                 wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers,
-                wgpu::Buffer vegTable, int classDefault, const SceneLight &light);
+                wgpu::Buffer vegTable, const SceneLight &light);
 
-  /* THE WORLD-ANCHORED CLASS CLIPMAP (world/ClassField.h). `east`/`north` are the ECEF axes of the
-   * field origin — the fragment projects its own camera-relative offset on them, so CPU and GPU place
-   * a world point on the same lattice by construction and not by two matching formulas. */
-  static constexpr int kClassSide = 512;
-  static constexpr int kClassLevels = 8;
-  void SetClassWindow(const float frac[kClassLevels * 2], const int wrap[kClassLevels * 2],
-                     const double east[3], const double north[3]);
-  void WriteClass(int level, int x, int y, int w, int h, const uint8_t *ids, const uint8_t *wts);
+  /* THE CLASS STRUCTURE (world/ClassField.h): OSM outlines plus their acceleration grid, evaluated
+   * per fragment. `east`/`north` are the ECEF axes of the structure's own origin — the fragment
+   * projects its camera-relative offset on THESE axes, so CPU and GPU place a world point identically
+   * by construction and not by two formulas that have to agree. */
+  void SetClassFrame(const double east[3], const double north[3], const double camOffset[2]);
+  void WriteClassBuffer(const uint32_t *words, size_t bytes);
 
   /* The SAME weather sample the cloud pass marches (Renderer::SetCloudSky hands it to both): the
    * terrain reads its visibility for the haze and its decks for how much sun reaches the ground.
@@ -55,11 +53,9 @@ public:
   void SetDrawList(const int *slots, int n) { DrawList.assign(slots, slots + n); }
   /* The photo array, which is EMPTY until EVS is switched on for the first time. */
   long AlbedoVramBytes(void) const { return (long)(PhotoUsed - (int)FreePhoto.size()) * AlbedoTS * AlbedoTS * 4; }
-  /* The classification input: kClassLevels windows of ids + weights, allocated once and scrolled.
-   * It does not grow with the tile count, because it has nothing to do with tiles. */
-  long ClassVramBytes(void) const {
-    return (long)kClassLevels * kClassSide * kClassSide * 4 * 2;
-  }
+  /* The classification input. It does not grow with the tile count, because it has nothing to do
+   * with tiles — it is the vector geometry itself plus the grid that finds it. */
+  long ClassVramBytes(void) const { return ClassBytes; }
   int DrawCount(void) const { return (int)DrawList.size(); }
   /* Draw CALLS the last Encode recorded, which is not the tile count once the cut merges runs and the
    * frustum drops tiles — the two numbers used to be equal and the budget needs the one that is paid. */
@@ -88,7 +84,7 @@ private:
                    float BoundCtr[3]; float BoundRad; };
   struct DrawRange { uint32_t Slot, First, Count; };
 
-  static constexpr int kUniFloats = 84;   /* mat4 + sun + haze + stand + class window; WGSL `U` verbatim */
+  static constexpr int kUniFloats = 52;   /* mat4 + sun + haze + stand + class frame; WGSL `U` verbatim */
   static constexpr int kTileFloats = 12;  /* the WGSL `Tile`: three vec4 */
 
   void EnsurePhotoCap(int need);
@@ -116,17 +112,16 @@ private:
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;
   wgpu::Buffer Uni, TileBuf;
-  wgpu::Texture Albedo, ClsIds, ClsWts;
+  wgpu::Texture Albedo;
+  wgpu::Buffer ClassBuf;
   wgpu::RenderBundle Bundle;
   uint64_t BundleSig = 0;
   long TerrainBundleRecords = 0;
 
   int AlbedoTS = 0;
   int MaxLayers = 256;
-  int ClassDefault = 0;
-  float ClsFrac[kClassLevels * 2] = {};
-  int ClsWrap[kClassLevels * 2] = {};
-  double ClsEast[3] = {1, 0, 0}, ClsNorth[3] = {0, 1, 0};
+  long ClassBytes = 0;
+  double ClsEast[3] = {1, 0, 0}, ClsNorth[3] = {0, 1, 0}, ClsCam[2] = {0, 0};
   int PhotoCap = 0, PhotoUsed = 0;
   std::vector<DynTile> DynTiles;
   std::vector<int> FreePhoto;

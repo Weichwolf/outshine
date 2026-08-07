@@ -14,6 +14,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | Every `#include` points DOWN the stack | `make -C sim verify-layers`, a machine-checked matrix |
 | **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
 | **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
+| **Everything visual is created on the GPU; the CPU does administration** | owner, 2026-08-07: *„am besten entsteht alles visuelle in der gpu und die cpu macht nur verwaltung."* Administration is: what is resident, what cuts the frustum, what to fetch, what to evict — bounding volumes and residency, nothing that has vertices or pixels in it. **Every move is measured before it is made**, in the order of the CPU cost it removes |
 | **The OSM vectors live in GPU memory, and everything derived is built there** | building extrusion from footprints, classification per fragment, vegetation scattered over landcover polygons, road surface from linestrings — all compute or fragment work over one resident vector set. **The CPU keeps only bounding volumes**: what is resident, what cuts the frustum, what to fetch. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is the same sentence as "the index owns nothing", carried to its end |
 | **Vegetation follows the same rule, and there it is compulsory** | measured: 0.417 ms and 770 kB per tree, so **per species** it is free (16 species = 6.8 ms, 12 MB) and **per instance** it is dead (5000 trees = **3.7 GB**). Either every beech is identical and the forest looks stamped, or growth moves to where per-instance is affordable. The strong form is the texture rule one level up: **the mesh is a FUNCTION, not a buffer** — a tree is `(species declaration, seed, place)`, nothing is stored, and LOD becomes "evaluate fewer segments" rather than a second geometry |
 | **The index is fed by the ECS and never authoritative** | position is a component in `float64`; the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is streamed, not simulated, and an index may carry both because it needs only place and extent |
@@ -118,6 +119,18 @@ neighbours do not.
 and culling — are solved by `float64` plus the camera-relative conversion, and by bounding volumes.
 
 ## Gaps
+
+- **GPU-first is a work list, and it is ordered by measured CPU cost.** Nothing here is assumed; each
+  line is a move to be benchmarked against what it replaces.
+
+  | move | CPU cost today | note |
+  |---|---|---|
+  | building DAG | **260–473 ms** per spike | the largest single win; superlinear in the total set before it was made incremental |
+  | terrain mesh + DAG | **12.8 ms/tile**, 2 per pass | `ChunkBuildEcef` 0.109 ms, `ClusterDagBuild` 3.685 ms, DEM decode + stitch 4.795 ms |
+  | building extrusion | 4.5–6.3 ms/tile | decode + extrude, on the frame thread before it moved to workers |
+  | cluster **selection** | a per-frame CPU loop over every cluster of every visible tile | the cheapest to move: a pure per-cluster predicate, no traversal, no atomics — see below |
+  | classification | in build | the vectors have to be GPU-resident for it anyway |
+  | vegetation growth and placement | not built | per instance it is 3.7 GB on the CPU, i.e. it was never an option |
 
 - **The spatial index is specified and not built.** Today `world/World.cpp` carries a surface quadtree
   whose `kMaxZ = 14` is a **bare constant with no provenance**, set to the weakest of three sources

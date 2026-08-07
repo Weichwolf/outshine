@@ -35,7 +35,12 @@ struct U { mvp : mat4x4f, sun : vec4f, haze : vec4f,
            say : vec4f,   // ECEF north axis, w = the graticule cell north (m)
            saz : vec4f,   // ECEF up at the camera, w = sin(sun elevation)
            sgr : vec4f,   // x,y = the eye's offset inside its own cell (m); z,w unused
-           sbs : vec4i }; // xy = the eye's own cell on the world graticule
+           sbs : vec4i,   // xy = the eye's own cell on the world graticule
+           /* THE CLASS FRAME: the ECEF axes of the class structure's origin, and the camera's own
+            * position in it. A fragment adds its camera-relative offset and is on the lattice the
+            * CPU rasterised, exactly. */
+           cax : vec4f,   // ECEF east  axis of the class origin, w = camera east  (m)
+           cay : vec4f }; // ECEF north axis of the class origin, w = camera north (m)
 @group(0) @binding(0) var<uniform> u : U;
 // per-draw storage entry: a.xyz = camera-relative ECEF offset (origin_ecef - cam_ecef, float),
 // a.w = CLASS array layer; b.x = per-tile PHOTO brightness GAIN, b.y = photo array layer or -1;
@@ -102,7 +107,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f, @location
   // reflectance, roughness and a procedural surface, all of them world-fixed
   // (doc/render/stages/ground-cover.md 4.1, doc/render/classification.md 0).
   let footM = distM * u.haze.w;                 // one pixel on the ground, metres
-  let m = groundMat(in.uv, i32(in.layer), in.gpos, nrmN, footM);
+  let m = groundMat(in.wpos, in.gpos, nrmN, footM);
   // FB_GROUND_CLASS_VIZ=1: the RESOLVED class index as a colour, before light, haze and AO, so that
   // "is the class at this ground point the same from two camera positions" is a pixel comparison and
   // not an inference. Base-3 digits per channel: 27 separable indices for a 16-class table.
@@ -307,8 +312,6 @@ static const char *kVegOnWGSL = R"(
 struct VegRow { ground : vec4f, litter : vec4f, gsurf : vec4f, lsurf : vec4f, mixp : vec4f,
                 grass : vec4f, dry : vec4f, par : vec4f };
 @group(0) @binding(7) var<storage, read> vegTbl : array<VegRow>;
-@group(0) @binding(13) var clsTex : texture_2d_array<u32>;
-
 struct GroundMat { alb : vec3f, rough : f32, nrm : vec3f, spec : f32, cls : u32,
                    gr : vec4f, dr : vec4f, pr : vec4f };
 
@@ -427,49 +430,117 @@ fn reliefField(pu : f32, pv : f32, grain : f32, ampGrain : f32,
   return o;
 }
 
-/* LEVEL 0, ALWAYS. A class index is a DECISION about a place, and a mode-filtered mip makes that
- * decision a function of the viewer's distance instead: level 3 says meadow, level 4 says field, and
- * walking two metres flips the material under your feet (owner report 2026-08-06). The mip may filter
- * what is DRAWN; it may not pick what is THERE. Everything the distance is allowed to change — the
- * relief octaves, the Toksvig roughness, the litter mix — is derived from footM further down. */
-fn clsAt(uvi : vec2i, layerIn : i32) -> u32 {
-  return select(textureLoad(clsTex, uvi, layerIn, 0).r, u32(kForceCls), kForceCls >= 0);
+/* THE CLASS IS EVALUATED, NOT SAMPLED. There is no class texture and therefore no resolution that
+ * could make the answer depend on where the camera stands — the failure this file used to warn about
+ * is not expressible any more. The structure is world/ClassField.h verbatim:
+ *   cell   -> base class (every feature that covers this cell without a boundary in it) + its seeds
+ *   seed   -> one feature with a boundary here: its winding at the cell's south-west corner and the
+ *             range of this cell's edges of it
+ * The fragment walks corner -> (px, cy) -> p, two axis-aligned legs that cannot leave the cell, so
+ * only this cell's edges can cross them. MEASURED over the reference block: 3.87 edges and 2.11
+ * features per cell on average, p99 16 edges, worst cell 45.
+ *
+ * TWO TIERS, finer first, and beyond the coarse one there is no OSM datum at all — the declared
+ * default is the honest answer there and it is COUNTED on the CPU, never guessed here. */
+@group(0) @binding(13) var<storage, read> clsBuf : array<u32>;
+
+fn clsF32(i : u32) -> f32 { return bitcast<f32>(clsBuf[i]); }
+
+/* Sign conventions identical to ClassField.cpp's CrossX/CrossY. Only their CONSISTENCY matters —
+ * the winding is tested against zero and never read as a number. */
+fn clsCrossX(e : vec4f, cy : f32, xa : f32, xb : f32) -> i32 {
+  if ((e.y <= cy) == (e.w <= cy)) { return 0; }
+  let xi = e.x + (cy - e.y) * (e.z - e.x) / (e.w - e.y);
+  if (xi < xa || xi >= xb) { return 0; }
+  return select(-1, 1, e.w > e.y);
+}
+fn clsCrossY(e : vec4f, cx : f32, ya : f32, yb : f32) -> i32 {
+  if ((e.x <= cx) == (e.z <= cx)) { return 0; }
+  let yi = e.y + (cx - e.x) * (e.w - e.y) / (e.z - e.x);
+  if (yi < ya || yi >= yb) { return 0; }
+  return select(1, -1, e.z > e.x);
+}
+fn clsSegDist(px : f32, py : f32, e : vec4f) -> f32 {
+  let d = vec2f(e.z - e.x, e.w - e.y);
+  let l2 = dot(d, d);
+  let t = clamp(select(0.0, dot(vec2f(px - e.x, py - e.y), d) / max(l2, 1.0e-12), l2 > 0.0), 0.0, 1.0);
+  return length(vec2f(e.x, e.y) + d * t - vec2f(px, py));
 }
 
-fn groundMat(uvIn : vec2f, layerIn : i32, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> GroundMat {
+struct ClsHit { best : u32, second : u32, dist : f32, have : bool };
+
+fn clsTier(h : u32, pe : f32, pn : f32) -> ClsHit {
+  var o = ClsHit(0u, 0u, 1.0e30, false);
+  if (h == 0u) { return o; }
+  let gw = i32(clsBuf[h + 0u]);
+  let gh = i32(clsBuf[h + 1u]);
+  let org = vec2f(clsF32(h + 2u), clsF32(h + 3u));
+  let cm = clsF32(h + 4u);
+  let gi = i32(floor((pe - org.x) / cm));
+  let gj = i32(floor((pn - org.y) / cm));
+  if (gi < 0 || gj < 0 || gi >= gw || gj >= gh) { return o; }
+  let cellOfs = clsBuf[h + 5u];
+  let seedOfs = clsBuf[h + 6u];
+  let refOfs = clsBuf[h + 7u];
+  let edgeOfs = clsBuf[h + 8u];
+  let ci = cellOfs + u32(gj * gw + gi) * 2u;
+  let c0 = clsBuf[ci];
+  var bestRank : i32 = -1;
+  var secondRank : i32 = -1;
+  if ((c0 & 0xFFu) != 0xFFu) { o.best = c0 & 0xFFu; bestRank = i32((c0 >> 8u) & 0xFFu); o.have = true; }
+  let nseed = (c0 >> 16u) & 0xFFu;
+  let seedFirst = clsBuf[ci + 1u];
+  let cx = org.x + f32(gi) * cm;
+  let cy = org.y + f32(gj) * cm;
+  for (var s = 0u; s < nseed; s = s + 1u) {
+    let w0 = clsBuf[seedOfs + (seedFirst + s) * 2u];
+    let refFirst = clsBuf[seedOfs + (seedFirst + s) * 2u + 1u];
+    let tpl = w0 & 0xFFu;
+    let rank = i32((w0 >> 8u) & 0xFFu);
+    let nref = (w0 >> 16u) & 0xFFu;
+    var wind = i32((w0 >> 24u) & 0xFFu) - 128;
+    var d = 1.0e30;
+    for (var r = 0u; r < nref; r = r + 1u) {
+      let ei = edgeOfs + clsBuf[refOfs + refFirst + r] * 4u;
+      let ed = vec4f(clsF32(ei), clsF32(ei + 1u), clsF32(ei + 2u), clsF32(ei + 3u));
+      wind = wind + clsCrossX(ed, cy, cx, pe) + clsCrossY(ed, pe, cy, pn);
+      d = min(d, clsSegDist(pe, pn, ed));
+    }
+    if (wind == 0) { continue; }
+    if (rank > bestRank) {
+      o.second = o.best; secondRank = bestRank;
+      o.best = tpl; bestRank = rank; o.dist = d; o.have = true;
+    } else if (rank > secondRank) { o.second = tpl; secondRank = rank; }
+  }
+  return o;
+}
+
+fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> GroundMat {
   var o : GroundMat;
   o.nrm = nrmIn;
-  let dims = vec2f(textureDimensions(clsTex, 0));
-  let tc = uvIn * dims - vec2f(0.5, 0.5);
-  let b0 = floor(tc);
-  let fr = tc - b0;
-  let hi = vec2i(dims) - vec2i(1, 1);
-  let i00 = clamp(vec2i(b0), vec2i(0, 0), hi);
-  let i11 = clamp(vec2i(b0) + vec2i(1, 1), vec2i(0, 0), hi);
-  let k00 = clsAt(vec2i(i00.x, i00.y), layerIn);
-  let k10 = clsAt(vec2i(i11.x, i00.y), layerIn);
-  let k01 = clsAt(vec2i(i00.x, i11.y), layerIn);
-  let k11 = clsAt(vec2i(i11.x, i11.y), layerIn);
-  let wt = vec4f((1.0 - fr.x) * (1.0 - fr.y), fr.x * (1.0 - fr.y),
-                 (1.0 - fr.x) * fr.y,         fr.x * fr.y);
-  let kNear = select(select(select(k00, k10, wt.y >= wt.x),
-                            k01, wt.z >= max(wt.x, wt.y)),
-                     k11, wt.w >= max(max(wt.x, wt.y), wt.z));
-  o.cls = kNear;
-  let r00 = vegTbl[k00];
-  let r10 = vegTbl[k10];
-  let r01 = vegTbl[k01];
-  let r11 = vegTbl[k11];
-  let gnd = r00.ground * wt.x + r10.ground * wt.y + r01.ground * wt.z + r11.ground * wt.w;
-  let ltr = r00.litter * wt.x + r10.litter * wt.y + r01.litter * wt.z + r11.litter * wt.w;
-  let gsf = r00.gsurf * wt.x + r10.gsurf * wt.y + r01.gsurf * wt.z + r11.gsurf * wt.w;
-  let lsf = r00.lsurf * wt.x + r10.lsurf * wt.y + r01.lsurf * wt.z + r11.lsurf * wt.w;
-  let mxp = r00.mixp * wt.x + r10.mixp * wt.y + r01.mixp * wt.z + r11.mixp * wt.w;
-  /* The stand's own declaration travels with the material, blended as PARAMETERS like everything
-   * else here — so a meadow/field boundary mixes two swards instead of meeting at a line. */
-  o.gr = r00.grass * wt.x + r10.grass * wt.y + r01.grass * wt.z + r11.grass * wt.w;
-  o.dr = r00.dry * wt.x + r10.dry * wt.y + r01.dry * wt.z + r11.dry * wt.w;
-  o.pr = r00.par * wt.x + r10.par * wt.y + r01.par * wt.z + r11.par * wt.w;
+  let pe = u.cax.w + dot(wposIn, u.cax.xyz);
+  let pn = u.cay.w + dot(wposIn, u.cay.xyz);
+  var hit = clsTier(clsBuf[0], pe, pn);
+  if (!hit.have) { hit = clsTier(clsBuf[1], pe, pn); }
+  let kDef = clsBuf[2];
+  let win = select(kDef, hit.best, hit.have);
+  let los = select(kDef, hit.second, hit.have && hit.second != win);
+  /* THE BOUNDARY IS HARD AND ITS FRAY IS THE PIXEL. There is no ramp in metres and no per-class-pair
+   * table: the distance to the winner's own outline is known exactly, so the transition is exactly as
+   * wide as the fragment is and no wider. kClsFray is the world-fixed floor under it. */
+  let half = max(kClsFray, footM);
+  let mixW = clamp(0.5 + hit.dist / (2.0 * half), 0.0, 1.0);
+  o.cls = select(los, win, mixW >= 0.5);
+  let ra = vegTbl[win];
+  let rb = vegTbl[los];
+  let gnd = mix(rb.ground, ra.ground, mixW);
+  let ltr = mix(rb.litter, ra.litter, mixW);
+  let gsf = mix(rb.gsurf, ra.gsurf, mixW);
+  let lsf = mix(rb.lsurf, ra.lsurf, mixW);
+  let mxp = mix(rb.mixp, ra.mixp, mixW);
+  o.gr = mix(rb.grass, ra.grass, mixW);
+  o.dr = mix(rb.dry, ra.dry, mixW);
+  o.pr = mix(rb.par, ra.par, mixW);
 
   /* A world-fixed tangent frame off the geodetic up: east from the polar axis, north from the two.
    * Both are functions of the PLACE, so the surface cannot rotate with the camera. */
@@ -506,7 +577,7 @@ fn groundMat(uvIn : vec2f, layerIn : i32, gposIn : vec3f, nrmIn : vec3f, footM :
 static const char *kVegOffWGSL = R"(
 struct GroundMat { alb : vec3f, rough : f32, nrm : vec3f, spec : f32, cls : u32,
                    gr : vec4f, dr : vec4f, pr : vec4f };
-fn groundMat(uvIn : vec2f, layerIn : i32, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> GroundMat {
+fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> GroundMat {
   return GroundMat(vec3f(0.15), 0.9, nrmIn, 0.0, 0u, vec4f(0.0), vec4f(0.0), vec4f(0.0));
 }
 )";
@@ -565,7 +636,10 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lut
   const std::string terrSrc = std::string(kSceneScaleWGSL) + kAtmoCommon + kAtmoSample
                             + HazeConstsWGSL() + kHazeWGSL + kSurfaceLightWGSL + ShadowSampleWGSL()
                             + CloudDensityConstsWGSL() + kCloudDensityWGSL + kCloudShadowWGSL
-                            + "const kForceCls : i32 = -1;\n"
+                            /* [SET] 0.05 m: the world-fixed FLOOR under the boundary fray, so a
+                             * boundary a fragment could resolve to nothing still has a width. Under
+                             * the 0.140 m mean residual the vector source carries against raw OSM. */
+                            + "const kClsFray : f32 = 0.05;\n"
                             + "const kOctN : i32 = " + std::to_string(kReliefOctaves) + ";\n"
                             + "const kSpecOn : f32 = 1.0;\n"
                             /* THE ONE DIAGNOSTIC LEFT IN THIS SHADER (doc/goal.md): the RESOLVED class
