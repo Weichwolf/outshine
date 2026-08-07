@@ -19,7 +19,16 @@ public:
    * raw albedo, which is exactly the picture before the template table existed. */
   void Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lutSamp,
                 wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers,
-                wgpu::Buffer vegTable, const SceneLight &light);
+                wgpu::Buffer vegTable, int classDefault, const SceneLight &light);
+
+  /* THE WORLD-ANCHORED CLASS CLIPMAP (world/ClassField.h). `east`/`north` are the ECEF axes of the
+   * field origin — the fragment projects its own camera-relative offset on them, so CPU and GPU place
+   * a world point on the same lattice by construction and not by two matching formulas. */
+  static constexpr int kClassSide = 512;
+  static constexpr int kClassLevels = 8;
+  void SetClassWindow(const float frac[kClassLevels * 2], const int wrap[kClassLevels * 2],
+                     const double east[3], const double north[3]);
+  void WriteClass(int level, int x, int y, int w, int h, const uint8_t *ids, const uint8_t *wts);
 
   /* The SAME weather sample the cloud pass marches (Renderer::SetCloudSky hands it to both): the
    * terrain reads its visibility for the haze and its decks for how much sun reaches the ground.
@@ -36,21 +45,20 @@ public:
 
   /* A table slot id, or -1 if the class array is full. The caller has checked DeviceUsable().
    * `clusters` is the tile's DAG (doc/render/lod.md): every level lives in the one vertex buffer and
-   * the per-frame cut picks the ranges. `cls` is ts*ts CLASS INDICES, one byte each — the raster
-   * colour has already stopped existing on the CPU side. `anchor` is the ECEF point the procedural
-   * surface is measured from; `origin - anchor` must stay small enough for float. */
+   * the per-frame cut picks the ranges. `anchor` is the ECEF point the procedural surface is measured
+   * from; `origin - anchor` must stay small enough for float. */
   int UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
-                const double origin[3], const double anchor[3], const uint8_t *cls, int ts);
+                const double origin[3], const double anchor[3]);
   /* `frameNo` timestamps the 2-phase commit: the photo layer draws only once its upload is a pass old. */
   int UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z, unsigned frameNo);
   void ReleaseTile(int slot);
   void SetDrawList(const int *slots, int n) { DrawList.assign(slots, slots + n); }
   /* The photo array, which is EMPTY until EVS is switched on for the first time. */
   long AlbedoVramBytes(void) const { return (long)(PhotoUsed - (int)FreePhoto.size()) * AlbedoTS * AlbedoTS * 4; }
-  /* The classification input, one byte per texel. NO mip chain: the class is a DECISION per ground
-   * point, so it may not be a function of the viewer's distance (doc/render/classification.md 0). */
+  /* The classification input: kClassLevels windows of ids + weights, allocated once and scrolled.
+   * It does not grow with the tile count, because it has nothing to do with tiles. */
   long ClassVramBytes(void) const {
-    return (long)(LayerUsed - (int)FreeLayers.size()) * AlbedoTS * AlbedoTS;
+    return (long)kClassLevels * kClassSide * kClassSide * 4 * 2;
   }
   int DrawCount(void) const { return (int)DrawList.size(); }
   /* Draw CALLS the last Encode recorded, which is not the tile count once the cut merges runs and the
@@ -75,20 +83,17 @@ private:
   SceneLight Light;   /* borrowed: IrradianceStage's buffer + ShadowStage's cascades and atlas */
 
   /* Bound* is the whole tile over EVERY level, taken off the vertices and not off the DAG spheres. */
-  struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float Anchor[3]; int Layer;
+  struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float Anchor[3];
                    int PhotoLayer; unsigned PhotoUpTick; bool Used; std::vector<DagCluster> Clusters;
                    float BoundCtr[3]; float BoundRad; };
   struct DrawRange { uint32_t Slot, First, Count; };
 
-  static constexpr int kUniFloats = 44;   /* mat4 + sun + haze + the stand block; WGSL `U` verbatim */
+  static constexpr int kUniFloats = 84;   /* mat4 + sun + haze + stand + class window; WGSL `U` verbatim */
   static constexpr int kTileFloats = 12;  /* the WGSL `Tile`: three vec4 */
 
-  void EnsureClassCap(int need);
   void EnsurePhotoCap(int need);
   void RebuildBind(void);
-  int AllocLayer(void);
   int AllocPhotoLayer(void);
-  void WriteClassLayer(int layer, const uint8_t *cls, int ts);
   void WriteAlbedoLayer(int layer, const uint8_t *pyramid, int ts);
   void SetLayerPhoto(int layer, float ylin, int z);
   void ClearLayer(int layer);
@@ -111,16 +116,20 @@ private:
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;
   wgpu::Buffer Uni, TileBuf;
-  wgpu::Texture Albedo, Classes;
+  wgpu::Texture Albedo, ClsIds, ClsWts;
   wgpu::RenderBundle Bundle;
   uint64_t BundleSig = 0;
   long TerrainBundleRecords = 0;
 
   int AlbedoTS = 0;
-  int LayerCap = 0, LayerUsed = 0, MaxLayers = 256;
+  int MaxLayers = 256;
+  int ClassDefault = 0;
+  float ClsFrac[kClassLevels * 2] = {};
+  int ClsWrap[kClassLevels * 2] = {};
+  double ClsEast[3] = {1, 0, 0}, ClsNorth[3] = {0, 1, 0};
   int PhotoCap = 0, PhotoUsed = 0;
   std::vector<DynTile> DynTiles;
-  std::vector<int> FreeLayers, FreePhoto;
+  std::vector<int> FreePhoto;
   std::vector<float> Gains;
   std::vector<float> LayerYlin;
   std::vector<int8_t> LayerKind;

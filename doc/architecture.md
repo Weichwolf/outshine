@@ -14,6 +14,7 @@ The floor plan: who owns what, what links against what, and where a file belongs
 | Every `#include` points DOWN the stack | `make -C sim verify-layers`, a machine-checked matrix |
 | **ONE spatial index, and it is derived** | a quadtree over the sphere with a **vertical extent per node**, split vertically only where the content demands it. Never a second index beside it: two indexes are two truths, and that failure class has cost this project three rounds (two class paths, two DEM samplings, two class models). It answers *where*; it **owns nothing** |
 | **`float64` is the truth, `float32` is camera-relative, and the conversion happens ONCE and LATE** | ECEF in double resolves ~1 nm at Earth radius, so millimetres are met by a factor of a million and no cell origin is needed for them. Any intermediate that computes in absolute `float32` has lost the precision before the conversion could save it — and it is invisible, because the result lands half a metre off and looks plausible. Acceptance: one named conversion site |
+| **The OSM vectors live in GPU memory, and everything derived is built there** | building extrusion from footprints, classification per fragment, vegetation scattered over landcover polygons, road surface from linestrings — all compute or fragment work over one resident vector set. **The CPU keeps only bounding volumes**: what is resident, what cuts the frustum, what to fetch. That is GPU-driven placement, the property the declared reference (Days Gone, Horizon Forbidden West) is named for — and it is the same sentence as "the index owns nothing", carried to its end |
 | **The index is fed by the ECS and never authoritative** | position is a component in `float64`; the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is streamed, not simulated, and an index may carry both because it needs only place and extent |
 
 ## State
@@ -28,6 +29,22 @@ systems/` and most of `core/` — was deleted on 2026-08-07 rather than repaired
 | `walk` (the pedestrian frame oracle) | builds; `render/` + `world/` + the `core/` value TUs those two reference |
 | `wasm` + `worker` | build |
 | `units/` | only `Unit.h` and `UnitRegistry.h` survive, kept alive by `world/World.cpp`'s effect path |
+
+### What the vectors on the GPU dissolve, and the one question they open
+
+The numbers are already measured and they point one way: a whole vector tile is **153 kB raw / 89.8 kB
+gzip**, the `land` layer alone **3.1 kB**, against **32.5 MB** for the class raster it replaces — four
+orders of magnitude. Vectors are also resolution-free, so nothing downstream inherits a texel size.
+
+Dissolved rather than fixed: the CPU extrusion in `world/BuildingField` — and with it the cause of the
+260 ms hitch that one round only *mitigated* by decoding one tile per call; the class raster and its
+32.5 MB; tile residency as textures rather than as bounds; and vegetation placement, which stops being a
+new problem and becomes the same compute pass over the same polygons.
+
+**The open question, and it must be answered before the build, not after:** the cluster DAG. If buildings
+are born on the GPU their LOD ladder has to be born there too, and `render/ClusterDag` is only Nanite's
+first half — the second is impossible in WGSL for want of 64-bit atomics. Either the DAG runs in the
+compute pass or buildings get no cluster ladder. Measurable, so measure it.
 
 ### Why a quadtree with height and not an octree
 
