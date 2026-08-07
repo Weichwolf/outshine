@@ -68,16 +68,24 @@ Streuung ist eine FUNKTION des Ortes — ein Hash je 3,33-m-Zelle gegen die dekl
 (`trees.perM2`: Laubmischwald 0.04, Nadelwald 0.09) —, also haelt keine Seite eine Liste und dieselbe
 Rechnung beantwortet spaeter "steht hier ein Stamm" fuer einen Koerper.
 
-**Kein Baum ist im Bild, und ich habe die Ursache NICHT gefunden.** Fuenf Runden blindes Iterieren,
-jede mit einer plausiblen Hypothese, keine davon war es: das Selbsttor der Stage (`HeightM <= 0`) ist
-geoeffnet, die Baumhoehe kommt jetzt aus der Art (`bpar.z`, vorher 0 — jede Instanz war auf Groesse null
-skaliert), der Fuss sitzt auf der Gelaendehoehe (`FromEnu` plus `fb_stream_ground`), die Achsen sind
-geprueft (ax Ost, ay Nord, az Hoch). Der Szenenpass wurde dabei nicht teurer (1.77 gegen 2.03 ms), was
-gegen jedes Zeichnen spricht.
+**Baeume zeichnen, und die Ursache fand EINE Messung, nachdem fuenf Vermutungen daneben lagen.** Der
+Stammshader auf eine feste Farbe gezwungen: **null Fragmente** — also weder Schattierung noch Maszstab
+noch Hoehe. Danach die Draw-Parameter selbst gedruckt: `barkIdx=0, vtx=0, idx=0` bei `heightM=30`. Die
+Stage hatte **gar kein Netz**: `SetBark` lief, bevor das Geraet existierte, und `TreeStage::Upload` gibt
+ohne Geraet stillschweigend nichts zurueck. Der Stamm wurde verworfen, ohne dass irgendetwas es meldete.
 
-**Die naechste Handlung ist eine MESSUNG, keine sechste Vermutung**: den Stammshader eine feste Farbe
-ausgeben lassen und zaehlen, ob ein einziges Fragment ankommt. Erst wenn feststeht, ob der Draw
-ueberhaupt Fragmente erzeugt, ist die Suche wieder gerichtet.
+Behoben, indem der Baum nach `SetCameraBasis` waechst. Was die fuenf Vermutungen unterwegs trotzdem
+richtig repariert haben: das Selbsttor (`HeightM <= 0`), die Baumhoehe aus der Art (`bpar.z` war 0, also
+jede Instanz auf Groesse null), und der Fuss auf der Gelaendehoehe (`ClassField::FromEnu` plus
+`fb_stream_ground`).
+
+**Und ein Haenger, den ich selbst vorhergesagt und dann gebaut hatte:** die Streuung lief alle 32 Paesse
+und fragt je Stand die Gelaendehoehe — 166 823 Abfragen mal 625 Streuungen sind hundert Millionen ueber
+einen Vorlauf. Jetzt EINMAL bei Residenz.
+
+**Offen: alle 166 823 Staende stehen am selben Ort**, eine Wand aus Staemmen vor der Kamera statt eines
+Waldes. Der Instanzversatz (`b.ax * st.x + b.ay * st.y`) kommt nicht an — Verdacht auf die Schrittweite
+oder den Schrittmodus des zweiten Vertexpuffers, und das ist eine Messung und keine Vermutung.
 
 Die Hoehe selbst ist geloest und war ein echter Fund: Ein Stand traegt Ost, Nord, Groesse und
 Gierung; seine LAGE in der Vertikalen fehlt, also sitzen alle auf der Augenhoehe der Kamera — an einem

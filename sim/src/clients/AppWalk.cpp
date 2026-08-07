@@ -300,34 +300,9 @@ int main(int argc, char **argv) {
   R.SetFovDeg(scene.FovDeg());
   R.SetOrthoM(orthoM);
 
-  /* EIN Baum waechst, und er steht tausendfach. Die Art ist die haeufigste des deklarierten
-   * Laubmischwaldes; Artenmischung je Stand ist die naechste Runde. */
   World::TreeMesh worldTree;
   World::TreeField treeField;
   std::vector<float> treeStands;
-  {
-    std::string txt;
-    if (FILE *f = fopen("assets/world/species/buche.json", "rb")) {
-      char buf[8192]; size_t k;
-      while ((k = fread(buf, 1, sizeof buf, f)) > 0) txt.append(buf, k);
-      fclose(f);
-    }
-    World::TreeSpecies sp;
-    if (!txt.empty() && sp.Parse(txt.c_str(), txt.size())) {
-      World::TreeGrower g;
-      g.Grow(sp, worldTree);
-      Render::TreeLook look;
-      const World::TreeSpecies::Shading &sh = sp.ShadingParams();
-      for (int c = 0; c < 3; c++) { look.BarkRgb[c] = sh.BarkColor[c]; }
-      look.BarkDark = sh.BarkDark; look.BarkFreq = sh.BarkFreq; look.BarkRidge = sh.BarkRidge;
-      R.SetTreeLook(look);
-      R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
-                    worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
-      /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
-      R.SetTreeStand(0.0, 0.0, 0.0, (double)sp.HeightM());
-      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()}});
-    }
-  }
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
   const double windMs = windMsOverride >= 0.0 ? windMsOverride : scene.WindMs();
   R.SetWind(windDeg, windMs);
@@ -478,6 +453,34 @@ int main(int argc, char **argv) {
   hs.Env.CloudCover = (float)scene.CloudCover();
   R.SetSceneState(hs);
   R.SetCameraBasis(eye, fwd, right, up);
+  /* NACH SetCameraBasis, weil TreeStage::Upload ohne Geraet nichts zurueckgibt: der Stamm wurde
+   * vorher still verworfen und die Stage zeichnete jahrelang nichts.
+   * EIN Baum waechst, und er steht tausendfach. Die Art ist die haeufigste des deklarierten
+   * Laubmischwaldes; Artenmischung je Stand ist die naechste Runde. */
+        {
+    std::string txt;
+    if (FILE *f = fopen("assets/world/species/buche.json", "rb")) {
+      char buf[8192]; size_t k;
+      while ((k = fread(buf, 1, sizeof buf, f)) > 0) txt.append(buf, k);
+      fclose(f);
+    }
+    World::TreeSpecies sp;
+    if (!txt.empty() && sp.Parse(txt.c_str(), txt.size())) {
+      World::TreeGrower g;
+      g.Grow(sp, worldTree);
+      Render::TreeLook look;
+      const World::TreeSpecies::Shading &sh = sp.ShadingParams();
+      for (int c = 0; c < 3; c++) { look.BarkRgb[c] = sh.BarkColor[c]; }
+      look.BarkDark = sh.BarkDark; look.BarkFreq = sh.BarkFreq; look.BarkRidge = sh.BarkRidge;
+      R.SetTreeLook(look);
+      R.SetTreeBark(worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
+                    worldTree.BarkIdx.data(), (uint32_t)worldTree.BarkIdx.size());
+      /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf null. */
+      R.SetTreeStand(0.0, 0.0, 0.0, (double)sp.HeightM());
+      Log::Info("walk", "trees_grown", {{"barkVerts", (int)worldTree.BarkVertexCount()}});
+    }
+  }
+
 
   Clients::SceneWeather wind(scene);
   const WindNed w = wind.WindNedMs(lat, lon, altAsl);
@@ -510,7 +513,9 @@ int main(int argc, char **argv) {
     /* Die Streuung ist eine Funktion des Ortes, also wird sie neu ausgewertet und nicht fortgeschrieben.
      * 900 m: darueber ist ein 25-m-Baum bei 720p unter zwei Pixel breit und gehoert in die Ferne, die
      * das Material traegt. */
-    if (!worldTree.BarkIdx.empty() && (warmed % 32) == 0) {
+    /* EINMAL, wenn die Kacheln stehen. Die Streuung fragt je Stand die Gelaendehoehe, und 166 823
+     * Abfragen alle 32 Paesse sind hundert Millionen ueber einen Vorlauf — gemessen als Haenger. */
+    if (!worldTree.BarkIdx.empty() && treeStands.empty() && W.Resident()) {
       double ee = 0.0, nn = 0.0;
       W.Classes().Project(clat, clon, &ee, &nn);
       struct GroundCtx { const World::ClassField *c; } gc{&W.Classes()};
