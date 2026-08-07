@@ -823,6 +823,21 @@ void Renderer::RenderFrame(void) {
   Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterVertexCount(),
                      Buildings->CasterClusters(), Buildings->CasterClusterCount(),
                      Buildings->CasterAnchor());
+  /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
+   * a ridge shadows a whole valley while a building shadows a street. Measured affordable before it
+   * was built (stages/ShadowStage.h). */
+  Tiles->CollectCasters(TerrainCasters);
+  ShadowTerrain.resize(TerrainCasters.size());
+  for (size_t i = 0; i < TerrainCasters.size(); i++) {
+    ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
+    ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
+    for (int a2 = 0; a2 < 3; a2++) {
+      ShadowTerrain[i].Origin[a2] = TerrainCasters[i].Origin[a2];
+      ShadowTerrain[i].BoundCtr[a2] = TerrainCasters[i].BoundCtr[a2];
+    }
+    ShadowTerrain[i].BoundRad = TerrainCasters[i].BoundRad;
+  }
+  Shadow->SetTerrainCasters(ShadowTerrain);
   Shadow->Update(ctx);
   Queue.WriteBuffer(CsmBuf, 0, Shadow->CsmUniform(), kShadowUniFloats * sizeof(float));
   {

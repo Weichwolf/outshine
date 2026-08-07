@@ -65,6 +65,12 @@ public:
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
   /* Invariant telemetry, read by Renderer's periodic [present] log. */
+  /* The resident tiles as CASTERS: the same buffers the scene pass draws, never a second copy. A
+   * shadow cascade is a different view, so it takes no part of the camera's cut — it takes the whole
+   * residency and culls against its own box. */
+  struct Caster { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float BoundCtr[3], BoundRad; };
+  void CollectCasters(std::vector<Caster> &out) const;
+
   long GetNotReadyDraws(void) const { return NotReadyDraws; }
   long GetWrongModeDraws(void) const { return WrongModeDraws; }
   long GetBlackDraws(void) const { return BlackDraws; }

@@ -18,9 +18,17 @@
  * load costs nothing measurable. Terrain is ~49 000 triangles x 4 cascades with ~470 draws, three times
  * the 15x case, which is still far under a millisecond.
  *
- * So terrain casting is affordable and it is owed. What it needs is a per-tile offset, because the cut
- * is ~110 separate buffers with their own origins while `anc` is one value per cascade — a second
- * pipeline on the terrain vertex stride plus a dynamic uniform offset per draw. */
+ * BUILT 2026-08-07, and it needed no second pipeline: both vertex strides are 32 bytes with position
+ * at offset 0, so the terrain rides the building pipeline and differs only in WHICH uniform block a
+ * draw reads. That is a dynamic offset, which is why the layout is explicit — blocks 0..3 are the
+ * cascades, everything after is one block per cascade per tile.
+ *
+ * MEASURED against the pinned pair `7a1359a1…` / `5ac44d7c…`: shadow triangles 4 323 -> 319 607 (74x),
+ * draws 19 -> 93, the shadow pass 0.07 -> 0.85 ms, the whole frame 13.30 ms. Looking AWAY from the sun
+ * it changes 3.64 % of the frame with 12 905 pixels measurably darker and a peak of 55 codes; looking
+ * INTO the sun it changes nothing at all, which is correct and not a failure — a viewer facing the sun
+ * sees lit faces. The reference standpoint's own yaw is 280 deg against a sun azimuth of 282.6, so
+ * THAT VIEW CANNOT SHOW THIS LAYER; it is the case doc/goal.md reserves for moving the standpoint. */
 #ifndef SHADOWSTAGE_H
 #define SHADOWSTAGE_H
 
@@ -40,6 +48,11 @@ public:
    * and its DAG so each cascade can take its own cut. */
   void SetCasters(wgpu::Buffer vtx, uint32_t nverts, const DagCluster *clusters, int nclusters,
                   const double anchor[3]);
+
+  /* The terrain half. Each tile is its own buffer with its own origin, so it rides the SAME pipeline
+   * (both strides are 32 bytes with position at 0) and differs only in the per-draw offset. */
+  struct TerrainCaster { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float BoundCtr[3], BoundRad; };
+  void SetTerrainCasters(const std::vector<TerrainCaster> &tiles) { Terrain = tiles; }
 
   /* Rebuilds the four cascade projections around this frame's camera and sun. Renderer calls it
    * before the shadow pass, because the same matrices go into every receiver's uniform. */
@@ -74,7 +87,13 @@ private:
   wgpu::Texture Atlas;
   wgpu::Sampler Cmp;
   wgpu::Buffer Uni;
-  wgpu::BindGroup Bind[kShadowCascades];
+  wgpu::BindGroupLayout Bgl;
+  wgpu::BindGroup Bind;                     /* ONE group; the block is chosen by a dynamic offset */
+  std::vector<TerrainCaster> Terrain;
+  std::vector<uint32_t> TerrainCut[kShadowCascades];   /* indices into Terrain, per cascade */
+  /* [SET] 256 tiles. The reference block is 54; the cap is what bounds the uniform buffer, and a cut
+   * that would exceed it is TRUNCATED and counted, never silently dropped. */
+  static constexpr uint32_t kMaxShadowTiles = 256;
 
   wgpu::Buffer Vtx;
   uint32_t NVerts = 0;
@@ -86,6 +105,7 @@ private:
   std::vector<DrawRange> Ranges[kShadowCascades];   /* reused, so a steady scene allocates nothing */
   long DrawnVerts = 0;
   int DrawCalls = 0;
+  long TerrainOverflow = 0;
 };
 
 } // namespace outshine::Render

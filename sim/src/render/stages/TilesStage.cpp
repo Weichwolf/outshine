@@ -660,6 +660,19 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
   RebuildBind();
 }
 
+void TilesStage::CollectCasters(std::vector<Caster> &out) const {
+  out.clear();
+  for (const DynTile &d : DynTiles) {
+    if (!d.Used || !d.Vtx || d.NVerts == 0) continue;
+    Caster c{};
+    c.Vtx = d.Vtx;
+    c.NVerts = d.NVerts;
+    for (int i = 0; i < 3; i++) { c.Origin[i] = d.Origin[i]; c.BoundCtr[i] = d.BoundCtr[i]; }
+    c.BoundRad = d.BoundRad;
+    out.push_back(c);
+  }
+}
+
 void TilesStage::SetSward(double lat, double lon, const double east[3], const double north[3],
                           const double up[3]) {
   const Graticule cg = Graticule::At(lat, lon);
