@@ -224,6 +224,31 @@ therefore always yields the state of the last **completed** tick — tick order 
 result. That is what makes a parallel run byte-identical to a serial one, and the check is running the
 same declaration over several thread counts.
 
+### Folding AO into the resolve as well — refuted before it was built, 2026-08-07
+
+The same experiment as the octaves, on `kAoSamples`, each count a pinned binary, `FB_GPUTIME`:
+
+| taps | AO pass |
+|---|---|
+| 2 | 3.80 ms |
+| 4 | 4.19 |
+| 16 (shipped) | 5.11 |
+| 32 | 5.31 |
+
+**Sixteen times the sampling costs 1.31 ms.** The floor at two taps is 3.80 ms, so the pass is again
+mostly its own overhead and a tap is about 0.09 ms.
+
+That kills the merge rather than justifying it. AO runs at HALF resolution; the resolve is full. Folding
+it in would save the 3.80 ms of pass overhead and multiply the tap work by four — 1.31 → 5.24 ms — for a
+net **+0.13 ms**, and it would additionally sharpen the AO field, because the half-resolution target and
+its linear read ARE the blur ([`render/stages/AoStage.h`](render/stages/AoStage.h)). A zero-sum trade
+bought with a change in the picture is not an optimisation. **AO keeps its pass.**
+
+What the two experiments together establish: a full-screen render pass on this hardware costs ~3.8 ms
+before it does anything, and neither the relief ladder nor the AO taps are within an order of magnitude
+of that. Further budget comes from removing passes whose work can ride in another one — which the
+display curve could and AO cannot — and not from thinning what any pass computes.
+
 ### The wall-clock benchmark cannot resolve what the pass timer can — measured 2026-08-07
 
 Folding the display curve into the temporal resolve (one pass, two attachments) removed a whole
