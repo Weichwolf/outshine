@@ -87,7 +87,12 @@ public:
 
   /* A table slot id, or -1 if the device is gone or the class array is full. */
   int  UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
-                 const double origin[3], const double anchor[3], const uint8_t *cls, int ts);
+                 const double origin[3], const double anchor[3]);
+  /* THE CLASS STRUCTURE, borrowed for the length of the call (world/ClassField.h). */
+  void SetClassFrame(const double east[3], const double north[3], const double camOffset[2]) {
+    Tiles->SetClassFrame(east, north, camOffset);
+  }
+  void WriteClassBuffer(const uint32_t *words, size_t bytes) { Tiles->WriteClassBuffer(words, bytes); }
   /* The lazy overlay: a SECOND array layer for `slot`. 0 = the caller stops retrying and the tile
    * keeps drawing its base. */
   int  UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z);

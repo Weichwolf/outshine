@@ -60,7 +60,7 @@ public:
 
   /* nullptr = this layer/kind is declared nowhere, which is an ERROR at the call site and not a
    * default: a tag the table does not know is exactly the case that hid 81 barrier ways. A layer may
-   * declare `kind: "*"`, which is the statement that the kind does not change the class. */
+   * declare a `*` kind, which is the statement that the kind does not change the class. */
   const Rule *Find(std::string_view layer, std::string_view kind) const;
 
   /* The class of a place OSM says nothing about. Declared, never guessed at the call site. */
@@ -70,7 +70,7 @@ public:
 private:
   std::vector<Row> Table_;
   std::vector<std::string> Names_;
-  std::unordered_map<std::string, Rule> Rules_;   /* key "layer/kind", plus "layer/*" */
+  std::unordered_map<std::string, Rule> Rules_;   /* key "layer/kind", or the layer's wildcard row */
   std::string Error_;
   int Default_ = 0;
 };

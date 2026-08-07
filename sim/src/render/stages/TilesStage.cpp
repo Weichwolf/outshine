@@ -611,13 +611,16 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::Sampler lut
   AtmoBuf = atmoBuf;
   MaxLayers = maxLayers;
 
-  LayerCap = 0;
-  LayerUsed = 0;
-  EnsureClassCap(64);
   /* The PHOTO array starts at ONE layer and grows only if EVS is ever switched on. Nothing in the
    * pedestrian bench does, which is why the 130 MB the OSM albedo used to hold is simply never
    * allocated — the classification needs the class, not the picture. */
   EnsurePhotoCap(1);
+  {
+    wgpu::BufferDescriptor cb{};
+    cb.size = 256;
+    cb.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    ClassBuf = Device.CreateBuffer(&cb);
+  }
 
   /* osmmesh emits a triangle SOUP (6 verts/quad), so the draw is non-indexed.
    * TODO: weld + index on upload — it would halve the traffic. */
@@ -705,6 +708,29 @@ void TilesStage::SetSward(double lat, double lon, const double east[3], const do
   SwHave = true;
 }
 
+void TilesStage::SetClassFrame(const double east[3], const double north[3],
+                               const double camOffset[2]) {
+  for (int i = 0; i < 3; i++) { ClsEast[i] = east[i]; ClsNorth[i] = north[i]; }
+  ClsCam[0] = camOffset[0];
+  ClsCam[1] = camOffset[1];
+}
+
+/* One buffer, rewritten whole when the structure changes. It is rebuilt only when the camera leaves
+ * its grid or a vector tile lands, so this is not a per-frame cost. */
+void TilesStage::WriteClassBuffer(const uint32_t *words, size_t bytes) {
+  if (!Device || bytes == 0) return;
+  const uint64_t need = ((uint64_t)bytes + 255u) & ~(uint64_t)255u;
+  if (!ClassBuf || ClassBuf.GetSize() < need) {
+    wgpu::BufferDescriptor bd{};
+    bd.size = need;
+    bd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
+    ClassBuf = Device.CreateBuffer(&bd);
+    if (Pipe) RebuildBind();
+  }
+  Queue.WriteBuffer(ClassBuf, 0, words, (bytes + 3u) & ~(size_t)3u);
+  ClassBytes = (long)need;
+}
+
 /* Recreate at double the cap and copy the resident layers over. Rare. */
 static wgpu::Texture GrowArray(wgpu::Device &dev, wgpu::Queue &q, wgpu::Texture old, int oldLayers,
                                int ts, int mips, wgpu::TextureFormat fmt, int cap) {
@@ -728,18 +754,6 @@ static wgpu::Texture GrowArray(wgpu::Device &dev, wgpu::Queue &q, wgpu::Texture 
     q.Submit(1, &cmd);
   }
   return grown;
-}
-
-void TilesStage::EnsureClassCap(int need) {
-  if (need <= LayerCap) return;
-  int cap = LayerCap ? LayerCap : 64;
-  while (cap < need) cap *= 2;
-  if (cap > MaxLayers) cap = MaxLayers;
-  if (need > cap) return;   /* at the device array-layer ceiling — caller handles the -1 */
-  Classes = GrowArray(Device, Queue, Classes, LayerCap, AlbedoTS, 1,
-                      wgpu::TextureFormat::R8Uint, cap);
-  LayerCap = cap;
-  if (Pipe) RebuildBind();
 }
 
 void TilesStage::EnsurePhotoCap(int need) {
@@ -775,7 +789,7 @@ void TilesStage::RebuildBind(void) {
   be[nbe].binding = 10; be[nbe].buffer = Light.Cascades;   be[nbe].size = kShadowUniFloats * sizeof(float); nbe++;
   be[nbe].binding = 11; be[nbe].textureView = Light.ShadowAtlas; nbe++;
   be[nbe].binding = 12; be[nbe].sampler = Light.ShadowCompare;   nbe++;
-  if (VegBuf) { be[nbe].binding = 13; be[nbe].textureView = Classes.CreateView(&avd); nbe++; }
+  if (VegBuf) { be[nbe].binding = 13; be[nbe].buffer = ClassBuf; be[nbe].size = wgpu::kWholeSize; nbe++; }
   be[nbe].binding = 14; be[nbe].buffer = Light.CloudSky; be[nbe].size = kCloudSkyBytes; nbe++;
   wgpu::BindGroupDescriptor bgd{};
   bgd.layout = Pipe.GetBindGroupLayout(0);
@@ -784,30 +798,11 @@ void TilesStage::RebuildBind(void) {
   Bind = Device.CreateBindGroup(&bgd);
 }
 
-/* A recycled slot or a freshly grown one; -1 at the device ceiling. */
-int TilesStage::AllocLayer(void) {
-  if (!FreeLayers.empty()) { int l = FreeLayers.back(); FreeLayers.pop_back(); return l; }
-  EnsureClassCap(LayerUsed + 1);
-  if (LayerUsed >= LayerCap) return -1;
-  return LayerUsed++;
-}
-
 int TilesStage::AllocPhotoLayer(void) {
   if (!FreePhoto.empty()) { int l = FreePhoto.back(); FreePhoto.pop_back(); return l; }
   EnsurePhotoCap(PhotoUsed + 1);
   if (PhotoUsed >= PhotoCap) return -1;
   return PhotoUsed++;
-}
-
-void TilesStage::WriteClassLayer(int layer, const uint8_t *cls, int ts) {
-  wgpu::TexelCopyTextureInfo dst{};
-  dst.texture = Classes;
-  dst.origin = {0, 0, (uint32_t)layer};
-  wgpu::TexelCopyBufferLayout lay{};
-  lay.bytesPerRow = (uint32_t)ts;
-  lay.rowsPerImage = (uint32_t)ts;
-  wgpu::Extent3D ext{(uint32_t)ts, (uint32_t)ts, 1};
-  Queue.WriteTexture(&dst, cls, (size_t)ts * ts, &lay, &ext);
 }
 
 /* No mip building here — that already ran off-thread or synchronously. */
@@ -868,14 +863,7 @@ void TilesStage::UpdatePhotoGains(void) {
 }
 
 int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters,
-                             int nclusters, const double origin[3], const double anchor[3],
-                             const uint8_t *cls, int ts) {
-  AlbedoTS = ts;
-
-  int layer = AllocLayer();
-  if (layer < 0) return -1;
-  WriteClassLayer(layer, cls, ts);
-
+                             int nclusters, const double origin[3], const double anchor[3]) {
   int slot = -1;
   for (int i = 0; i < (int)DynTiles.size(); i++)
     if (!DynTiles[i].Used) { slot = i; break; }
@@ -899,7 +887,6 @@ int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster
     d.Clusters.push_back(c);
   }
   for (int a = 0; a < 3; a++) { d.Origin[a] = origin[a]; d.Anchor[a] = (float)(origin[a] - anchor[a]); }
-  d.Layer = layer;
   d.PhotoLayer = -1;   /* fetched lazily on the first EVS toggle (UploadTilePhoto) */
   d.PhotoUpTick = 0;
   d.Used = true;
@@ -925,7 +912,6 @@ void TilesStage::ReleaseTile(int slot) {
   d.Vtx = nullptr;   /* drop the ref -> buffer freed */
   d.Clusters.clear();
   d.Used = false;
-  FreeLayers.push_back(d.Layer);
   if (d.PhotoLayer >= 0) { ClearLayer(d.PhotoLayer); FreePhoto.push_back(d.PhotoLayer); d.PhotoLayer = -1; }
 }
 
@@ -975,7 +961,7 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       e[0] = (float)(d.Origin[0] - ctx.Eye[0]);
       e[1] = (float)(d.Origin[1] - ctx.Eye[1]);
       e[2] = (float)(d.Origin[2] - ctx.Eye[2]);
-      e[3] = (float)d.Layer;
+      e[3] = 0.0f;
       /* The photo layer is the EVS override and nothing else: without one the tile draws its
        * material, which is the mode the classification chain produces. */
       const bool overlayReady = (d.PhotoLayer >= 0 && ctx.FrameNo > d.PhotoUpTick + 1);
@@ -986,8 +972,7 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       e[9] = d.Anchor[1];
       e[10] = d.Anchor[2];
       if (!tileIn) continue;   /* not drawn -> not a mode violation */
-      if (d.Layer < 0) { NotReadyDraws++; BlackDraws++; }
-      else if (ctx.GroundPhoto && photo < 0) WrongModeDraws++;   /* EVS wanted, material shown */
+      if (ctx.GroundPhoto && photo < 0) WrongModeDraws++;   /* EVS wanted, material shown */
     }
   }
   if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));
@@ -1020,6 +1005,9 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
   uni[39] = 0.0f;
   const int32_t swBase[4] = {(int32_t)SwBaseI, (int32_t)SwBaseJ, 0, 0};
   std::memcpy(&uni[40], swBase, sizeof swBase);
+  for (int i = 0; i < 3; i++) { uni[44 + i] = (float)ClsEast[i]; uni[48 + i] = (float)ClsNorth[i]; }
+  uni[47] = (float)ClsCam[0];
+  uni[51] = (float)ClsCam[1];
   float groundThru = 1.0f, tauLog[3] = {};
   for (int i = 0; i < 3; i++) {
     const CloudDeckParams &d = Sky.Deck[i];

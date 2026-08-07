@@ -323,10 +323,9 @@ void Renderer::CreateTileTexture(void) {
 }
 
 int Renderer::UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters,
-                           int nclusters, const double origin[3], const double anchor[3],
-                           const uint8_t *cls, int ts) {
+                           int nclusters, const double origin[3], const double anchor[3]) {
   if (!DeviceUsable()) return -1;
-  return Tiles->UploadTile(verts, nverts, clusters, nclusters, origin, anchor, cls, ts);
+  return Tiles->UploadTile(verts, nverts, clusters, nclusters, origin, anchor);
 }
 
 int Renderer::UploadTilePhoto(int slot, const uint8_t *photo, int ts, int z) {

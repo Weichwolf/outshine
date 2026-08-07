@@ -819,30 +819,6 @@ void World::PublishUnits() {
 }
 
 
-/* ---- ground classification ---------------------------------------------------------------------- */
-
-/* sRGB byte -> linear, once. The per-texel path runs 262 144 times per patch and a pow() there is the
- * whole cost of the patch. */
-static const float *SrgbLut(void) {
-  static float lut[256];
-  static bool built = false;
-  if (!built) {
-    for (int i = 0; i < 256; i++) lut[i] = VegetationTemplates::SrgbToLinear((float)i / 255.0f);
-    built = true;
-  }
-  return lut;
-}
-
-/* The ONE place the raster colour is read. Level 0 leads the pyramid; the 32^3 LUT resolves the
- * gamma-2 cell to a template, and the template names the ground material. */
-void World::ClassifyRaster(const uint8_t *rgba, uint8_t *out, size_t n) const {
-  const float *lut = SrgbLut();
-  const uint32_t *cells = Veg_->Lut();
-  for (size_t i = 0; i < n; i++)
-    out[i] = (uint8_t)cells[VegetationTemplates::Cell(lut[rgba[i * 4]], lut[rgba[i * 4 + 1]],
-                                                      lut[rgba[i * 4 + 2]])];
-}
-
 /* The frame the procedural ground surface is measured in: the tile's z10 ancestor, so every tile
  * within ~39 km shares one origin and the surface is continuous across their seams. A float holding
  * a 39 km offset resolves 2.3 mm, which is under the finest detail octave (0.12 m). */
@@ -886,10 +862,10 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
    * A wall-clock slice was measured HERE and rejected — it moved the cost rather than removing it,
    * p95 17.9 -> 25.8 ms with the same maximum, because the work is not divisible below one tile. */
   std::sort(WorkList.begin(), WorkList.end(), [](const Work &a, const Work &b) { return a.prio > b.prio; });
-  int build = 2, albedo = 2, upload = 6;
+  int build = 2, upload = 6;
   MeshMs_ = AlbedoMs_ = UploadMs_ = BuildingMs_ = 0.0;
   for (const Work &w : WorkList) {
-    if (build == 0 && albedo == 0 && upload == 0) break;
+    if (build == 0 && upload == 0) break;
     Node &nd = Nodes[w.idx];
     const double tMesh = Clock();
     if (!nd.haveMesh && build > 0) {
@@ -922,34 +898,15 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       }
     }
     MeshMs_ += Clock() - tMesh;
-    const double tAlb = Clock();
-    if (!nd.haveAlbedo && albedo > 0) {
-      /* A photo base with no Esri coverage (204) falls back to OSM, so every tile can draw a base. */
-      int baseMode = DefaultPhoto ? 1 : 0;
-      int r = fb_stream_pyramid(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, baseMode, TS, Scratch.data());
-      if (r < 0 && baseMode == 1)   /* photo hole -> OSM base */
-        r = fb_stream_pyramid(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, 0, TS, Scratch.data());
-      if (r > 0) {
-        /* The RASTER COLOUR NEVER LEAVES THIS FUNCTION. It is resolved to a class index here and the
-         * bytes are dropped: what the GPU holds is the classification, not the picture
-         * (doc/render/classification.md 0). */
-        nd.albedo.resize((size_t)TS * TS);
-        ClassifyRaster(Scratch.data(), nd.albedo.data(), (size_t)TS * TS);
-        nd.haveAlbedo = 1;
-        albedo--;
-      }
-    }
-    AlbedoMs_ += Clock() - tAlb;
     const double tUp = Clock();
-    if (nd.haveMesh && nd.haveAlbedo && nd.slot < 0 && upload > 0 && R && R->DeviceUsable()) {
+    if (nd.haveMesh && nd.slot < 0 && upload > 0 && R && R->DeviceUsable()) {
       double anchor[3];
       SurfaceAnchor(nd.z, nd.x, nd.y, anchor);
       nd.slot = R->UploadTile(nd.verts.data(), (uint32_t)nd.nverts, nd.clusters.data(),
-                              (int)nd.clusters.size(), nd.origin, anchor, nd.albedo.data(), TS);
+                              (int)nd.clusters.size(), nd.origin, anchor);
       if (nd.slot >= 0) {
         std::vector<float>().swap(nd.verts);
         std::vector<Render::DagCluster>().swap(nd.clusters);
-        nd.albedo.clear();
         nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the upload is submitted */
         upload--;
         Built++;   /* build completion (thrash: builds/min ~0 in a converged loiter, climbs if evict-rebuild) */

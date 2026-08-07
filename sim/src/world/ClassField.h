@@ -43,8 +43,7 @@ class VegetationTemplates;
 
 class ClassField {
 public:
-  explicit ClassField(const VegetationTemplates *veg) : Veg_(veg) {}
-
+  void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
   void Open(double lat, double lon);
   /* One budgeted pass: at most one vector tile per tier, and at most one tier rebuilt. */
   void Update(double camLat, double camLon);
@@ -122,7 +121,7 @@ private:
     double OrgE = 0, OrgN = 0, CellM = 1;
   };
 
-  const VegetationTemplates *Veg_;
+  const VegetationTemplates *Veg_ = nullptr;
   Tier Near_{14, {"land", "streets", "water_polygons", "water_lines", "sites", "street_polygons",
                   "buildings"}, 1, 16.0, 64, 256.0};
   /* The far tier carries AREAS only: at a kilometre a 7.5 m road is under a pixel, and the street

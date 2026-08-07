@@ -13,6 +13,7 @@
 #include "SpriteDraw.h"
 #include "UnitDraw.h"
 #include "BuildingField.h"
+#include "ClassField.h"
 #include "ClusterDag.h"
 
 namespace outshine::Render { class Renderer; }
@@ -58,7 +59,11 @@ public:
    * client sets one, and nothing here draws weather today. */
   /* BORROWED: the client owns the table (it also hands the same rows to the renderer). Null = no
    * near-field ground field is built at all. */
-  void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; }
+  void SetVegetation(const VegetationTemplates *veg) { Veg_ = veg; Cls_.SetVegetation(veg); }
+
+  /* THE CLASS, for every consumer that is not a fragment: -1 where OSM has no datum, which is a
+   * state and not a default (doc/render/classification.md). */
+  const ClassField &Classes() const { return Cls_; }
 
   void SetWeather(const WeatherProvider *weather) { Weather_ = weather; }
   const WeatherProvider *Weather() const { return Weather_; }
@@ -89,7 +94,7 @@ public:
    * of the tile that block last decoded. */
   bool Resident() const {
     return TargetTot > 0 && TargetRdy == TargetTot && Vectors.PendingTiles() == 0 &&
-           BuildingDagId == 0;
+           BuildingDagId == 0 && Cls_.Complete();
   }
   int BuildingPendingTiles() const { return Vectors.PendingTiles(); }
 
@@ -167,7 +172,6 @@ private:
   double SpanM(int z) const;
   void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
 
-  void ClassifyRaster(const uint8_t *rgba, uint8_t *out, size_t n) const;
   void SurfaceAnchor(int z, long x, long y, double out[3]) const;
 
   /* The published cast turned into draw records, rebuilt every Update() and handed to the renderer.
@@ -258,10 +262,8 @@ private:
   std::vector<uint8_t> LightBytes;   /* scratch for one tile's /t/lights payload */
   int LightsResident;                /* count emitted last pass (log) */
 
-  /* The layers every consumer of OSM geometry shares. `land` has no reader yet — it is here because
-   * the ground classification and the footprints must come off ONE decode of ONE tile, and a second
-   * schedule for the same bytes is the disagreement it exists to prevent. */
-  OsmField Vectors{"buildings", "land"};
+  OsmField Vectors{14, {"buildings"}};
+  ClassField Cls_;
   BuildingField Buildings;
   uint32_t BuildingVerts = 0;
   std::vector<float> BuildingDagVerts;
