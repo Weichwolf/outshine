@@ -1,4 +1,8 @@
 #include "TaaStage.h"
+#include "ExposureStage.h"
+#include "GeometryIsolation.h"
+#include <cstdio>
+#include <cstdlib>
 #include "AtmoCommon.h"
 #include "SceneTargets.h"
 #include <cstdlib>
@@ -37,6 +41,8 @@ struct T {
 @group(0) @binding(4) var depthTex : texture_depth_2d;
 @group(0) @binding(5) var<uniform> A : Atmo;
 @group(0) @binding(6) var<uniform> t : T;
+@group(0) @binding(7) var aoTex : texture_2d<f32>;
+@group(0) @binding(8) var<storage, read> meter : Meter;
 
 /* MvpCamRel's near plane; depth = zn / (-z_eye) is the whole of the reversed-Z projection. */
 const kZNear : f32 = 0.05;
@@ -98,6 +104,55 @@ fn sampleHistory(uv : vec2f, dims : vec2f) -> vec4f {
 }
 
 struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
+/* THE RESOLVE AND THE DISPLAY CURVE ARE ONE PASS. They were two, and on a tile-based GPU that cost a
+ * whole extra store-and-load of the frame: MEASURED on A18 Pro, taa 4.98 ms and tonemap 5.05 ms while
+ * everything the engine draws came to 3.80 ms (doc/architecture.md). The curve is a pure function of
+ * the resolved radiance, so it rides out of the same fragment on a second attachment — the history
+ * stays linear HDR, the swapchain gets display codes, and nothing about either is changed. */
+struct FOut { @location(0) history : vec4f, @location(1) surface : vec4f };
+struct Meter {
+  outBlack : f32, outWhite : f32, contrast : f32, keyLog : f32,
+  blackLog : f32, whiteLog : f32, valid : f32, pad0 : f32,
+};
+/* A LOG-DOMAIN curve, and not the ACES fit that stood here, because the fit could not do this scene:
+ * measured, the demo frame spans 11.8 EV (2^-7.89 .. 2^3.92) and its ground sits 8 stops under its
+ * sky. Narkowicz ACES saturates at an input of 7.2 and Hable's shoulder asymptotes at 0.933 — solved
+ * against the measured histogram, BOTH put more than 4 % of the frame past 250/255 at the gain the
+ * foreground needs, whatever their white point. Compressing six stops of sky into the top of the
+ * range needs a logarithmic response there, so the whole curve is one.
+ *
+ * The two anchors and the exponent are METERED (stages/ExposureStage.h); this shader has no constant
+ * of its own left. Applied to LUMINANCE and not per channel: measured, the per-channel form put the
+ * blue channel of 99.96 % of the foreground at exactly 0 — a low sun is 6:3:1, so at these levels
+ * blue falls below the black anchor while luminance does not, and the field came out rust. */
+fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
+  var o : FOut;
+  o.history = scene;
+  /* alpha = the DIRECT fraction of this pixel's radiance; occlusion darkens only the rest. The AO
+   * target is half resolution and read at the matching texel. */
+  let ao = textureLoad(aoTex, vec2i(fragXY * 0.5), 0).r;
+  let lit = scene.rgb * mix(ao, 1.0, clamp(scene.a, 0.0, 1.0));
+  let lum = max(dot(lit, vec3f(0.2126, 0.7152, 0.0722)), 1e-7);
+  let ob = mix(meter.outBlack, kFrozenBlack, kFreeze);
+  let span = max(mix(meter.outWhite, kFrozenWhite, kFreeze) - ob, 1.0);
+  let tlin = (log2(lum) - ob) / span;
+  /* THE TOE. Below kToe the log-linear ramp is replaced by an exponential foot of the same value and
+   * the same slope at the knee, so nothing above the knee moves by a bit and nothing below reaches
+   * zero. kToe = 0 restores the hard clamp exactly. */
+  let ktoe = max(mix(kToe, kFrozenToe, kFreeze), 1.0e-6);
+  let tt = clamp(select(tlin, ktoe * exp(tlin / ktoe - 1.0), tlin < ktoe), 0.0, 1.0);
+  let out = pow(tt, mix(meter.contrast, kFrozenContrast, kFreeze));
+  /* Chroma rides along untouched through the shadows and mid-tones and is let go of toward white:
+   * without this the curve compresses LUMINANCE while the ratio carries a channel straight past 1,
+   * measured as 3.38 % of the frame at 250+ against a 1.93 % luminance clip. 0.6 is where the roll
+   * starts; below it nothing in this scene's ground or sky is touched. */
+  let desat = smoothstep(0.6, 1.0, out);
+  let rgb = mix(lit * (out / lum), vec3f(out), desat);
+  let peak = max(max(rgb.r, rgb.g), rgb.b);
+  let pull = select(1.0, (1.0 - out) / max(peak - out, 1e-5), peak > 1.0);
+  o.surface = vec4f(clamp(vec3f(out) + (rgb - vec3f(out)) * pull, vec3f(0.0), vec3f(1.0)), 1.0);
+  return o;
+}
 @vertex fn vs(@builtin(vertex_index) i : u32) -> VOut {
   var c = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
   var o : VOut;
@@ -107,7 +162,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   return o;
 }
 
-@fragment fn fs(in : VOut) -> @location(0) vec4f {
+@fragment fn fs(in : VOut) -> FOut {
   let dims = vec2f(t.par.xy);
   let px = vec2i(in.pos.xy);
   let lim = vec2i(dims) - vec2i(1, 1);
@@ -115,7 +170,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   let ndc = vec2f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
 
   let centre = textureLoad(cur, px, 0);
-  if (t.par.z < 0.5) { return centre; }
+  if (t.par.z < 0.5) { return resolved(centre, in.pos.xy); }
 
   /* The 3x3 neighbourhood as first and second moment, in YCoCg. The box is the intersection of the
    * min/max hull with mean +- kGamma*sigma: the hull alone is too permissive in a field where one
@@ -153,7 +208,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   v = v - (t.jitter.xy - t.jitter.zw);
   let prevUv = uv + vec2f(-v.x, v.y) * 0.5;
 
-  if (prevUv.x < 0.0 || prevUv.y < 0.0 || prevUv.x > 1.0 || prevUv.y > 1.0) { return centre; }
+  if (prevUv.x < 0.0 || prevUv.y < 0.0 || prevUv.x > 1.0 || prevUv.y > 1.0) { return resolved(centre, in.pos.xy); }
 
   let raw = sampleHistory(prevUv, dims);
   let clipped = ycocg2rgb(clipToBox(bmin, bmax, rgb2ycocg(centre.rgb), rgb2ycocg(raw.rgb)));
@@ -173,13 +228,37 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
   let rgb = (centre.rgb * wc + clipped * wh) / max(wc + wh, 1.0e-6);
   /* Alpha is the DIRECT fraction the tonemap weights its occlusion by (stages/SurfaceLight.h) — a
    * per-pixel share, not a radiance, so it accumulates but is not clipped against a colour box. */
-  return vec4f(rgb, centre.a * a + raw.a * (1.0 - a));
+  return resolved(vec4f(rgb, centre.a * a + raw.a * (1.0 - a)), in.pos.xy);
 }
 )";
 
+/* FB_GEOM freezes the metered curve at the values this scene METERED before the DAG existed
+ * (walk --bench 500: blackLog2 -8.20303, whiteLog2 3.51562, contrast 1.38095), so a geometry change
+ * cannot move the exposure and then be read back off the PNG as a geometry difference. The freeze is
+ * about the ANCHORS; the toe is not one, so FB_GEOM keeps the shipped curve's foot.
+ * FB_TONE_PROBE=black,white — the curve as a RULER: exponent 1, no toe, so the frame's own display
+ * luminance IS (log2 L - black)/(white - black) and a PNG read back through the sRGB decode is the
+ * scene's HDR histogram. It is the only way to measure the population BELOW the black anchor, where
+ * the shipped curve has no inverse. */
+static std::string CurveConstsWGSL(void) {
+  double fb = -8.20303, fw = 3.51562, fc = 1.38095, ft = TaaStage::kToe;
+  bool freeze = GeometryIsolation();
+  if (const char *e = getenv("FB_TONE_PROBE")) {
+    double b = 0.0, w = 0.0;
+    if (std::sscanf(e, "%lf,%lf", &b, &w) == 2 && w > b) { fb = b; fw = w; fc = 1.0; ft = 0.0; freeze = true; }
+  }
+  return std::string(freeze ? "const kFreeze : f32 = 1.0;\n" : "const kFreeze : f32 = 0.0;\n")
+       + "const kFrozenBlack : f32 = " + std::to_string(fb) + ";\n"
+         "const kFrozenWhite : f32 = " + std::to_string(fw) + ";\n"
+         "const kFrozenContrast : f32 = " + std::to_string(fc) + ";\n"
+         "const kFrozenToe : f32 = " + std::to_string(ft) + ";\n"
+         "const kToe : f32 = " + std::to_string(TaaStage::kToe) + ";\n";
+}
+
 void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
                          wgpu::TextureView velView, wgpu::TextureView depthView,
-                         wgpu::Buffer atmoBuf, int width, int height) {
+                         wgpu::Buffer atmoBuf, wgpu::TextureView aoView, wgpu::Buffer meterBuf,
+                         int width, int height) {
   Queue = gpu.Queue;
   Width = width;
   Height = height;
@@ -216,6 +295,7 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
       /* [SET] 0.85. A pixel moving fast enough to reach the cap has nothing usable in the history
        * anyway; leaving 0.15 keeps the edges of slow objects inside a fast pan from re-aliasing. */
       + "const kFeedMax : f32 = " + std::to_string(kTaaFeedMax) + ";\n"
+      + CurveConstsWGSL()
       + kTaaWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
@@ -223,14 +303,16 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
   smd.nextInChain = &wsl;
   wgpu::ShaderModule m = gpu.Device.CreateShaderModule(&smd);
 
-  wgpu::ColorTargetState ct{};
-  ct.format = gpu.HdrFormat;
+  /* TWO attachments: the linear history the next frame reads, and the display-coded surface. */
+  wgpu::ColorTargetState ct[2] = {};
+  ct[0].format = gpu.HdrFormat;
+  ct[1].format = gpu.SurfaceFormat;
   wgpu::RenderPipelineDescriptor rp{};
   rp.vertex.module = m;
   wgpu::FragmentState fs{};
   fs.module = m;
-  fs.targetCount = 1;
-  fs.targets = &ct;
+  fs.targetCount = 2;
+  fs.targets = ct;
   rp.fragment = &fs;
   Pipe = gpu.Device.CreateRenderPipeline(&rp);
 
@@ -240,7 +322,7 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
   Uni = gpu.Device.CreateBuffer(&bd);
 
   for (int i = 0; i < 2; i++) {
-    wgpu::BindGroupEntry be[7] = {};
+    wgpu::BindGroupEntry be[9] = {};
     be[0].binding = 0; be[0].sampler = samp;
     be[1].binding = 1; be[1].textureView = hdrView;
     be[2].binding = 2; be[2].textureView = Hist[1 - i].CreateView();
@@ -248,9 +330,11 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
     be[4].binding = 4; be[4].textureView = depthView;
     be[5].binding = 5; be[5].buffer = atmoBuf; be[5].size = kAtmoUniformBytes;
     be[6].binding = 6; be[6].buffer = Uni; be[6].size = kUniFloats * sizeof(float);
+    be[7].binding = 7; be[7].textureView = aoView;
+    be[8].binding = 8; be[8].buffer = meterBuf; be[8].size = ExposureStage::kMeterBytes;
     wgpu::BindGroupDescriptor bg{};
     bg.layout = Pipe.GetBindGroupLayout(0);
-    bg.entryCount = 7;
+    bg.entryCount = 9;
     bg.entries = be;
     Bind[i] = gpu.Device.CreateBindGroup(&bg);
   }

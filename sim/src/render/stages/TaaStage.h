@@ -23,11 +23,16 @@ public:
    * `atmoBuf` the camera basis that reconstruction needs (the SAME camRay() the sky uses). */
   void Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
                  wgpu::TextureView velView, wgpu::TextureView depthView, wgpu::Buffer atmoBuf,
-                 int width, int height);
+                 wgpu::TextureView aoView, wgpu::Buffer meterBuf, int width, int height);
+
+  /* The display curve's one constant, and the only one this pair still owns. Origin: Pattanaik et al.
+   * 2000 §4.2 gives white = 5A and black = (5/32)A; the toe is the exponential foot fitted to that. */
+  static constexpr double kToe = 0.0551;
 
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
-  /* The attachment Renderer opens the resolve pass on, and the texture the tonemap then reads. */
+  /* The LINEAR attachment Renderer opens the resolve pass on; the display-coded one is the swapchain
+   * view it passes beside this. */
   wgpu::TextureView Output(unsigned frameNo) const { return Hist[frameNo & 1u].CreateView(); }
   wgpu::TextureView History(int i) const { return Hist[i & 1].CreateView(); }
   long HistoryBytes(void) const { return Bytes; }

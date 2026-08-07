@@ -224,6 +224,36 @@ therefore always yields the state of the last **completed** tick — tick order 
 result. That is what makes a parallel run byte-identical to a serial one, and the check is running the
 same declaration over several thread counts.
 
+### The wall-clock benchmark cannot resolve what the pass timer can — measured 2026-08-07
+
+Folding the display curve into the temporal resolve (one pass, two attachments) removed a whole
+full-screen store-and-load. `GpuTimer` on the pinned binary `7a1359a1…`:
+
+| | before | after |
+|---|---|---|
+| taa | 4.98 | 4.52 – 5.05 |
+| tonemap | 5.05 | **absent** |
+| sum | 18.28 | **12.52 – 14.09** |
+
+The resolve did **not** get dearer for doing the curve as well — which is the hypothesis confirmed: the
+cost was the pass, not the work. The frame differs from the unmerged one in 2.91 % of pixels by exactly
+**one code**, none by more, and the merged version is the more accurate of the two because the radiance
+no longer round-trips an RGBA16F texture before the curve sees it.
+
+**`tools/walkbench.py` cannot see that improvement, and the reason is its own variance.** Same binary,
+same speed, 600 frames, three consecutive runs:
+
+| run | p99 |
+|---|---|
+| 1 | 19.23 ms |
+| 2 | 14.16 ms |
+| 3 | 18.39 ms |
+
+**A spread of 5.1 ms — 31 % of the whole 16.67 ms budget.** A single run's p99 is a sample from a
+distribution, not the distribution, and every over-budget/under-budget verdict taken from one run so far
+has been noise-limited. Until the bench repeats and reports the spread of its p99, it cannot settle
+whether the budget is met, and `GpuTimer` is the only instrument here that measures what it claims to.
+
 ### The frame is dominated by PASS COUNT, not by shading — measured 2026-08-07
 
 `render/GpuTimer.h` (a diagnostic, inert unless `FB_GPUTIME`) puts a timestamp pair around every pass.

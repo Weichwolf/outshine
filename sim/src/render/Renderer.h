@@ -36,7 +36,6 @@
 #include "stages/AoStage.h"
 #include "stages/ExposureStage.h"
 #include "stages/TaaStage.h"
-#include "stages/TonemapStage.h"
 #include "TemporalJitter.h"
 
 namespace outshine::Render {
@@ -268,7 +267,7 @@ private:
   enum class Target { Surface, Offscreen };
 
   void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + Tiles->Configure() */
-  void CreateTonemapPipeline(void);   /* the meter + the fullscreen display curve: HDR -> sRGB swapchain */
+  void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
   void CreatePresent(void);           /* fixed-720p frame target + the display upscale pass */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
   void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
@@ -301,7 +300,6 @@ private:
   }
   void ConfigureSwapchain(void);
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
-  std::unique_ptr<TonemapStage> Tonemap = std::make_unique<TonemapStage>();
   /* Sun shadows and contact occlusion. Both own a target and neither owns a pass: the shadow atlas is
    * filled in a pass Renderer opens before the scene, the AO buffer in one it opens after. */
   std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();

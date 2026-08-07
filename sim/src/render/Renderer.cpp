@@ -188,7 +188,7 @@ void Renderer::OnDevice(wgpu::Device d) {
   BenchGround->Configure(gpu, Light());
   Trees->Configure(gpu, Light());
   CreateClouds();
-  CreateTonemapPipeline();
+  CreateResolvePipeline();
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   if (Overlay) Overlay->Init(gpu, Samp, HdrTex.CreateView());
   GpuTime.Configure(Device);
@@ -334,15 +334,14 @@ int Renderer::UploadTile(const float *verts, uint32_t nverts, const DagCluster *
 }
 
 
-/* Lighting stays linear upstream; this is the only place display encoding happens. It knows nothing
- * about clouds any more: the cloud pass blends into HdrTex itself, so there is ONE pipeline again. */
-void Renderer::CreateTonemapPipeline(void) {
+/* Lighting stays linear upstream; the resolve is the only place display encoding happens, and it does
+ * it in the same fragment that resolves — one pass, two attachments. */
+void Renderer::CreateResolvePipeline(void) {
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Ao->Configure(gpu, DepthTex.CreateView(), AtmoBuf, Width, Height);
   Exposure->Configure(gpu, MeterBuf, IrrBuf);
   Taa->Configure(gpu, Samp, HdrTex.CreateView(), VelTex.CreateView(), DepthTex.CreateView(),
-                 AtmoBuf, Width, Height);
-  Tonemap->Configure(gpu, Samp, Taa->History(0), Taa->History(1), Ao->OutputView(), MeterBuf);
+                 AtmoBuf, Ao->OutputView(), MeterBuf, Width, Height);
 }
 
 void Renderer::CreatePresent(void) {
@@ -938,42 +937,32 @@ void Renderer::RenderFrame(void) {
     aoPass.End();
   }
 
-  /* THE TEMPORAL RESOLVE. Its own pass for the same reason the cloud and occlusion passes are: it
-   * SAMPLES the depth and the colour that were attachments a moment ago. It sits after the occlusion
-   * buffer and before the display curve, so what accumulates is linear radiance — a history kept in
-   * display codes would quantise the accumulation at 8 bits and could not carry the direct fraction
-   * the tonemap weights its occlusion by. */
+  /* THE TEMPORAL RESOLVE AND THE DISPLAY CURVE, ONE PASS. Its own pass for the same reason the cloud
+   * and occlusion passes are: it SAMPLES the depth and the colour that were attachments a moment ago.
+   * What accumulates in attachment 0 is LINEAR radiance — a history kept in display codes would
+   * quantise the accumulation at 8 bits and could not carry the direct fraction the curve weights its
+   * occlusion by — while attachment 1 takes the display codes. They were two passes until the per-pass
+   * timing showed what that costs on a tile renderer: 4.98 + 5.05 ms against 3.80 ms for everything the
+   * engine draws (doc/architecture.md). Merging removes one whole store-and-load of the frame. */
   {
-    wgpu::RenderPassColorAttachment tca2{};
-    tca2.view = Taa->Output(FrameNo);
-    tca2.loadOp = wgpu::LoadOp::Clear;
-    tca2.storeOp = wgpu::StoreOp::Store;
-    tca2.clearValue = {0, 0, 0, 1};   /* every pixel is written; the clear only defines the untouched */
+    wgpu::RenderPassColorAttachment tca2[2] = {};
+    tca2[0].view = Taa->Output(FrameNo);
+    tca2[0].loadOp = wgpu::LoadOp::Clear;
+    tca2[0].storeOp = wgpu::StoreOp::Store;
+    tca2[0].clearValue = {0, 0, 0, 1};   /* every pixel is written; the clear only defines the untouched */
+    tca2[1].view = frameView;
+    tca2[1].loadOp = wgpu::LoadOp::Clear;
+    tca2[1].storeOp = wgpu::StoreOp::Store;
+    tca2[1].clearValue = {0, 0, 0, 1};
     wgpu::RenderPassDescriptor tp2{};
-    tp2.colorAttachmentCount = 1;
-    tp2.colorAttachments = &tca2;
+    tp2.colorAttachmentCount = 2;
+    tp2.colorAttachments = tca2;
     tp2.timestampWrites = GpuTime.Writes(GpuTimer::Taa);
     wgpu::RenderPassEncoder taa = enc.BeginRenderPass(&tp2);
     passCount++;
     Taa->Encode(ctx, taa);
     taa.End();
   }
-
-  /* A 1:1 HdrTex -> FrameTex map, the whole frame, bank row included — that row now carries world, and
-   * the bays are drawn translucently over it. */
-  wgpu::RenderPassColorAttachment tca{};   /* tonemap -> FrameTex: sRGB-encode on store, no depth */
-  tca.view = frameView;
-  tca.loadOp = wgpu::LoadOp::Clear;
-  tca.storeOp = wgpu::StoreOp::Store;
-  tca.clearValue = {0, 0, 0, 1};
-  wgpu::RenderPassDescriptor tp{};
-  tp.colorAttachmentCount = 1;
-  tp.colorAttachments = &tca;
-  tp.timestampWrites = GpuTime.Writes(GpuTimer::Tonemap);
-  wgpu::RenderPassEncoder tone = enc.BeginRenderPass(&tp);
-  passCount++;
-  Tonemap->Encode(ctx, tone);
-  tone.End();
 
   /* THE VEHICLE'S OVERLAY. Same target, loadOp Load to preserve the tonemapped scene. The `if` sits
    * OUTSIDE the pass on purpose: an empty pass would still be a pass, and the pass count is the
