@@ -455,10 +455,30 @@ precision to **96.7 %** at the same recall: what is drawn is now water.
 | fan | 13.0 % | 51.9 % |
 | **ear clip** | 13.1 % | **96.7 %** |
 
-**Open, and named rather than guessed at:** recall is 13 %. Roughly half the bake's water on that tile
-is the culvert we correctly omit, which leaves the polygons themselves under-covered. The next
-measurement is how many rings `Ingest` actually accepts against the eight the tile carries — the
-suspects are the `Exterior` filter and the 512-point cap, neither of which has been checked.
+**Both suspects for the low recall were refuted by measurement.** The tile carries 8 water polygons,
+each ONE ring of 7 to 68 points — so neither the `Exterior` filter nor the 512-point cap fires, and the
+field collects 84 surfaces and 53 courses over the resident block, 2 383 triangles. The geometry was
+built; it was not winning the depth test.
+
+**It was coplanarity, and the fix is the one every engine uses.** The DEM already carries a flat surface
+under a water body (Weser at Hameln, p5..p95 = 1.12 m over 1.5 km), so the water mesh and the terrain
+mesh land in the same plane and fight for every pixel. Lifting the water 0.15 m — under the terrain's
+own 47 m support spacing, over any float error at ECEF magnitudes, the same reason a decal is lifted:
+
+| | recall | precision |
+|---|---|---|
+| fan, coplanar | 13.0 % | 51.9 % |
+| ear clip, coplanar | 13.1 % | 96.7 % |
+| **ear clip, lifted** | **26.7 %** | **97.0 %** |
+
+Against the right denominator it is higher still: of the bake's 3 784 water pixels roughly 2 170 are the
+culvert we correctly omit, so **1 042 of ~1 614 real water pixels = ~65 %**.
+
+**Two surfaces, not one.** Owner, 2026-08-07: *„von mir aus gesehen braucht es zwei erdoberflächen.
+wasser und erde"*, and *„alle spiele machen wasser seperat weil es animiert werden muss"*. The slope
+still visible is the CLASS, not the mesh: `wasser` is still painted on the tilted terrain wherever the
+geometry does not cover. The class stops being a ground class once the mesh covers what it claims —
+until then two surfaces assert the same thing and one of them is wrong.
 
 
 ### Water is geometry, not a class — and the regime that will judge it

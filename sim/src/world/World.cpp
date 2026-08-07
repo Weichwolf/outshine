@@ -955,6 +955,11 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       Water.Tessellate(Vectors, WaterVerts);
       if (R && !WaterVerts.empty())
         R->SetWaterMesh(WaterVerts.data(), (uint32_t)(WaterVerts.size() / 6), Water.Anchor());
+      Log::Debug("world", "water", {{"surfaces", (int)Water.Surfaces().size()},
+                                    {"courses", (int)Water.Courses().size()},
+                                    {"tris", (int)(WaterVerts.size() / 18)},
+                                    {"noGround", (int)Water.NoGroundCount()},
+                                    {"outliers", (int)Water.OutlierCount()}});
     }
     if (Buildings.Build(Vectors) > 0 && Buildings.AddedCount() > 0) {
       BuildingVerts = (uint32_t)(Buildings.Verts().size() / 8);

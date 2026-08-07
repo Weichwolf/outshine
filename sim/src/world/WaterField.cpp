@@ -21,6 +21,13 @@ constexpr double kLevelPercentile = 0.05;
  * fall contributes across a whole z14 tile, well under the 67 m the disagreement produced. */
 constexpr double kShoreToleranceM = 5.0;
 
+/* [SET] 0.15 m of lift. The DEM already carries a flat surface under a water body — measured on the
+ * Weser at Hameln, p5..p95 = 1.12 m over 1.5 km — so the water mesh and the terrain mesh land
+ * COPLANAR and fight for every pixel. Every engine lifts its water plane for the same reason it lifts
+ * a decal; 0.15 m is under the terrain's own 47 m support spacing and over any float error at ECEF
+ * magnitudes. */
+constexpr double kLiftM = 0.15;
+
 }  // namespace
 
 uint32_t WaterField::Ingest(const OsmField &field, float defaultHalfWidthM) {
@@ -124,7 +131,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
     for (uint32_t k = 0; k < n; k++) {
       double p[3];
       GeoToEcef(ring[((size_t)s.FirstPoint + k) * 2], ring[((size_t)s.FirstPoint + k) * 2 + 1],
-                s.LevelM, p);
+                s.LevelM + kLiftM, p);
       for (int c = 0; c < 3; c++) p3[(size_t)k * 3 + c] = p[c] - Anchor_[c];
     }
     /* EAR CLIPPING, because a fan folded: measured on the Hannover tile it covered 13 % of the water
@@ -190,7 +197,7 @@ void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) cons
       if (tl < 1e-9) { tx = 1.0; ty = 0.0; } else { tx /= tl; ty /= tl; }
       const double px = -ty * c.HalfWidthM, py = tx * c.HalfWidthM;
       const double lat = ring[((size_t)c.FirstPoint + k) * 2], lon = ring[((size_t)c.FirstPoint + k) * 2 + 1];
-      const double lev = Levels_[c.FirstLevel + k];
+      const double lev = (double)Levels_[c.FirstLevel + k] + kLiftM;
       double base[3];
       GeoToEcef(lat, lon, lev, base);
       for (int cc = 0; cc < 3; cc++) {
