@@ -460,20 +460,26 @@ fn clsTier(h : u32, pe : f32, pn : f32) -> ClsHit {
   let cx = org.x + f32(gi) * cm;
   let cy = org.y + f32(gj) * cm;
   for (var s = 0u; s < nseed; s = s + 1u) {
-    let w0 = clsBuf[seedOfs + (seedFirst + s) * 2u];
-    let refFirst = clsBuf[seedOfs + (seedFirst + s) * 2u + 1u];
+    let w0 = clsBuf[seedOfs + (seedFirst + s) * 3u];
+    let refFirst = clsBuf[seedOfs + (seedFirst + s) * 3u + 1u];
+    let halfW = clsF32(seedOfs + (seedFirst + s) * 3u + 2u);
     let tpl = w0 & 0xFFu;
     let rank = i32((w0 >> 8u) & 0xFFu);
     let nref = (w0 >> 16u) & 0xFFu;
     var wind = i32((w0 >> 24u) & 0xFFu) - 128;
     var d = 1.0e30;
+    /* halfW > 0 marks a LINE, and a line is its centreline: the test is the distance against half the
+     * declared width, which yields a coverage instead of an inside/outside. */
     for (var r = 0u; r < nref; r = r + 1u) {
       let ei = edgeOfs + clsBuf[refOfs + refFirst + r] * 4u;
       let ed = vec4f(clsF32(ei), clsF32(ei + 1u), clsF32(ei + 2u), clsF32(ei + 3u));
-      wind = wind + clsCrossX(ed, cy, cx, pe) + clsCrossY(ed, pe, cy, pn);
+      if (halfW <= 0.0) { wind = wind + clsCrossX(ed, cy, cx, pe) + clsCrossY(ed, pe, cy, pn); }
       d = min(d, clsSegDist(pe, pn, ed));
     }
-    if (wind == 0) { continue; }
+    if (halfW > 0.0) {
+      if (d > halfW) { continue; }
+      d = halfW - d;
+    } else if (wind == 0) { continue; }
     if (rank > bestRank) {
       o.second = o.best; secondRank = bestRank;
       o.best = tpl; bestRank = rank; o.dist = d; o.have = true;

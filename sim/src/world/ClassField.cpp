@@ -265,55 +265,16 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
         }
       }
     } else {
-      /* ONE CONTOUR PER WAY, not a quad per span. A quad per span overlaps its neighbour at every
-       * bend and the two windings partly cancel — that is what turned a road into a chain of wedges
-       * and blobs. Offsetting the centreline both ways with a mitre at each knee closes the whole way
-       * as a single ring: constant width, no overlap, nothing to cancel. */
-      const float hw = f.WidthM * 0.5f;
+      /* A line is its CENTRELINE. Extruding it to a polygon makes the answer binary, and a way
+       * narrower than a pixel is then hit whole or missed whole — 3073 fragments against the bake's
+       * 31 (doc/render/classification.md). Half the width lives in the seed instead. */
       for (uint32_t k = 0; k < of.RingCount; k++) {
         const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
         CurveRing(t.Pts.data(), ring.First, ring.Count, false, curve);
         const size_t nc = curve.size() / 2;
-        if (nc < 2) continue;
-        side.clear();
-        auto offs = [&](size_t i, float sgn) {
-          /* Tangent = the mean of the two adjacent directions; the mitre scale 1/cos(theta/2) turns
-           * that into the offset that keeps BOTH neighbouring edges at half-width. Capped at 4, or a
-           * hairpin would throw the corner to infinity. */
-          float tx = 0.0f, ty = 0.0f;
-          if (i > 0) {
-            float dx = curve[i * 2] - curve[(i - 1) * 2], dy = curve[i * 2 + 1] - curve[(i - 1) * 2 + 1];
-            const float l = std::sqrt(dx * dx + dy * dy);
-            if (l > 1.0e-6f) { tx += dx / l; ty += dy / l; }
-          }
-          if (i + 1 < nc) {
-            float dx = curve[(i + 1) * 2] - curve[i * 2], dy = curve[(i + 1) * 2 + 1] - curve[i * 2 + 1];
-            const float l = std::sqrt(dx * dx + dy * dy);
-            if (l > 1.0e-6f) { tx += dx / l; ty += dy / l; }
-          }
-          const float tl = std::sqrt(tx * tx + ty * ty);
-          if (tl < 1.0e-6f) { tx = 1.0f; ty = 0.0f; }
-          else { tx /= tl; ty /= tl; }
-          float scale = 1.0f;
-          if (i > 0 && i + 1 < nc) {
-            float ax = curve[i * 2] - curve[(i - 1) * 2], ay = curve[i * 2 + 1] - curve[(i - 1) * 2 + 1];
-            const float al = std::sqrt(ax * ax + ay * ay);
-            if (al > 1.0e-6f) {
-              ax /= al; ay /= al;
-              const float c = ax * tx + ay * ty;          /* cos(theta/2) */
-              scale = c > 0.25f ? 1.0f / c : 4.0f;
-            }
-          }
-          side.push_back(curve[i * 2] - ty * hw * sgn * scale);
-          side.push_back(curve[i * 2 + 1] + tx * hw * sgn * scale);
-        };
-        for (size_t i = 0; i < nc; i++) offs(i, 1.0f);
-        for (size_t i = nc; i-- > 0;) offs(i, -1.0f);
-        const size_t np = side.size() / 2;
-        for (size_t i = 0; i < np; i++) {
-          const size_t a = i, b = (i + 1) % np;
-          ex.push_back(side[a * 2]); ex.push_back(side[a * 2 + 1]);
-          ex.push_back(side[b * 2]); ex.push_back(side[b * 2 + 1]);
+        for (size_t i = 0; i + 1 < nc; i++) {
+          ex.push_back(curve[i * 2]);       ex.push_back(curve[i * 2 + 1]);
+          ex.push_back(curve[(i + 1) * 2]); ex.push_back(curve[(i + 1) * 2 + 1]);
         }
       }
     }
@@ -335,12 +296,15 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
     }
     ceNext.clear();
     ceEdge.clear();
+    /* A centreline reaches half its width sideways, so the cells it must appear in reach that far too;
+     * without the pad the fragment beside the axis never sees the edge it is measured against. */
+    const float epad = (f.Type == 3) ? 0.0f : f.WidthM * 0.5f;
     for (size_t e = 0; e < ne; e++) {
       const float *p = &ex[e * 4];
-      const int ei0 = std::max(i0, (int)std::floor((std::min(p[0], p[2]) - B.OrgE) / cell));
-      const int ei1 = std::min(i1, (int)std::floor((std::max(p[0], p[2]) - B.OrgE) / cell));
-      const int ej0 = std::max(j0, (int)std::floor((std::min(p[1], p[3]) - B.OrgN) / cell));
-      const int ej1 = std::min(j1, (int)std::floor((std::max(p[1], p[3]) - B.OrgN) / cell));
+      const int ei0 = std::max(i0, (int)std::floor((std::min(p[0], p[2]) - epad - B.OrgE) / cell));
+      const int ei1 = std::min(i1, (int)std::floor((std::max(p[0], p[2]) + epad - B.OrgE) / cell));
+      const int ej0 = std::max(j0, (int)std::floor((std::min(p[1], p[3]) - epad - B.OrgN) / cell));
+      const int ej1 = std::min(j1, (int)std::floor((std::max(p[1], p[3]) + epad - B.OrgN) / cell));
       for (int j = ej0; j <= ej1; j++)
         for (int i = ei0; i <= ei1; i++) {
           const size_t c = (size_t)(j - j0) * bw + (size_t)(i - i0);
@@ -403,11 +367,16 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
         for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[(size_t)k])
           B.Refs.push_back((uint32_t)(B.Edges.size() / 4) + ceEdge[(size_t)k]);
         seedNext.push_back(seedHead[ci]);
-        seedHead[ci] = (int32_t)(B.Seeds.size() / 2);
+        seedHead[ci] = (int32_t)(B.Seeds.size() / 3);
         seedCount[ci]++;
         B.Seeds.push_back((uint32_t)f.Tpl | ((uint32_t)f.Rank << 8) | ((uint32_t)nce << 16) |
                           ((uint32_t)(uint8_t)(std::max(-128, std::min(127, wind)) + 128) << 24));
         B.Seeds.push_back(refFirst);
+        {
+          const float hw = (f.Type == 3) ? 0.0f : f.WidthM * 0.5f;
+          uint32_t bits; std::memcpy(&bits, &hw, sizeof bits);
+          B.Seeds.push_back(bits);
+        }
       }
     }
     B.Edges.insert(B.Edges.end(), ex.begin(), ex.end());
@@ -419,10 +388,11 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
   seeds.reserve(B.Seeds.size());
   B.Cells.assign((size_t)W * H * 2, 0);
   for (size_t ci = 0; ci < (size_t)W * H; ci++) {
-    const uint32_t first = (uint32_t)(seeds.size() / 2);
+    const uint32_t first = (uint32_t)(seeds.size() / 3);
     for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[(size_t)s]) {
-      seeds.push_back(B.Seeds[(size_t)s * 2]);
-      seeds.push_back(B.Seeds[(size_t)s * 2 + 1]);
+      seeds.push_back(B.Seeds[(size_t)s * 3]);
+      seeds.push_back(B.Seeds[(size_t)s * 3 + 1]);
+      seeds.push_back(B.Seeds[(size_t)s * 3 + 2]);
     }
     B.Cells[ci * 2] = (uint32_t)base[ci] | ((uint32_t)baseRank[ci] << 8) |
                       ((uint32_t)seedCount[ci] << 16);
@@ -477,7 +447,7 @@ void ClassField::Pack() {
     std::memcpy(&Buf_[at], B.Edges.data(), B.Edges.size() * 4);
   }
   Edges_ = (long)((NearB_.Edges.size() + FarB_.Edges.size()) / 4);
-  Seeds_ = (long)((NearB_.Seeds.size() + FarB_.Seeds.size()) / 2);
+  Seeds_ = (long)((NearB_.Seeds.size() + FarB_.Seeds.size()) / 3);
   Dirty_ = true;
 }
 
@@ -538,8 +508,9 @@ int ClassField::Evaluate(double e, double n, double *distM, int *runnerUp) const
     if ((c0 & 0xFF) != 0xFF) { best = (int)(c0 & 0xFF); bestRank = (int)((c0 >> 8) & 0xFF); }
     const double cx = B.OrgE + (double)i * B.CellM, cy = B.OrgN + (double)j * B.CellM;
     for (uint32_t s = 0; s < nseed; s++) {
-      const uint32_t w0 = B.Seeds[(seedFirst + s) * 2];
-      const uint32_t refFirst = B.Seeds[(seedFirst + s) * 2 + 1];
+      const uint32_t w0 = B.Seeds[(seedFirst + s) * 3];
+      const uint32_t refFirst = B.Seeds[(seedFirst + s) * 3 + 1];
+      float halfW; std::memcpy(&halfW, &B.Seeds[(seedFirst + s) * 3 + 2], sizeof halfW);
       const int tpl = (int)(w0 & 0xFF);
       const int rank = (int)((w0 >> 8) & 0xFF);
       const uint32_t nref = (w0 >> 16) & 0xFF;
@@ -547,11 +518,14 @@ int ClassField::Evaluate(double e, double n, double *distM, int *runnerUp) const
       double d = 1.0e30;
       for (uint32_t r = 0; r < nref; r++) {
         const float *p = &B.Edges[(size_t)B.Refs[refFirst + r] * 4];
-        wind += CrossX(p[0], p[1], p[2], p[3], cy, cx, e);
-        wind += CrossY(p[0], p[1], p[2], p[3], e, cy, n);
+        if (halfW <= 0.0f) {
+          wind += CrossX(p[0], p[1], p[2], p[3], cy, cx, e);
+          wind += CrossY(p[0], p[1], p[2], p[3], e, cy, n);
+        }
         d = std::min(d, SegDist(e, n, p[0], p[1], p[2], p[3]));
       }
-      if (wind == 0) continue;
+      if (halfW > 0.0f) { if (d > halfW) continue; d = (double)halfW - d; }
+      else if (wind == 0) continue;
       if (rank > bestRank) {
         second = best; secondRank = bestRank;
         best = tpl; bestRank = rank; bestDist = d;
