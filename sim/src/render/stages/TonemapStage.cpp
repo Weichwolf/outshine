@@ -68,7 +68,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
   let rgb = mix(lit * (out / lum), vec3f(out), desat);
   let peak = max(max(rgb.r, rgb.g), rgb.b);
   let pull = select(1.0, (1.0 - out) / max(peak - out, 1e-5), peak > 1.0);
-  return vec4f(clamp(vec3f(out) + (rgb - vec3f(out)) * pull, vec3f(0.0), vec3f(1.0)) * 1.0e-9 + aoAll.rgb, 1.0);
+  return vec4f(clamp(vec3f(out) + (rgb - vec3f(out)) * pull, vec3f(0.0), vec3f(1.0)), 1.0);
 }
 )";
 
