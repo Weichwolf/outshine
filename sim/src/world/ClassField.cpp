@@ -233,6 +233,7 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
 
   std::vector<float> ex;      /* this feature's edges: x0,y0,x1,y1 */
   std::vector<float> curve;   /* the way resampled along its Catmull-Rom, reused per feature */
+  std::vector<float> side;    /* the stroked contour of one line feature, reused */
   std::vector<uint32_t> byY;  /* edge order by ymin */
   std::vector<uint32_t> act;
   /* The same for one feature's edges over the cells of its bounding box, with a VERSION STAMP so the
@@ -264,33 +265,55 @@ void ClassField::BuildTier(Tier &t, double camE, double camN) {
         }
       }
     } else {
+      /* ONE CONTOUR PER WAY, not a quad per span. A quad per span overlaps its neighbour at every
+       * bend and the two windings partly cancel — that is what turned a road into a chain of wedges
+       * and blobs. Offsetting the centreline both ways with a mitre at each knee closes the whole way
+       * as a single ring: constant width, no overlap, nothing to cancel. */
       const float hw = f.WidthM * 0.5f;
       for (uint32_t k = 0; k < of.RingCount; k++) {
         const OsmField::Ring &ring = t.Field->Rings()[of.FirstRing + k];
         CurveRing(t.Pts.data(), ring.First, ring.Count, false, curve);
         const size_t nc = curve.size() / 2;
-        for (size_t s = 0; s + 1 < nc; s++) {
-          const float ax = curve[s * 2];
-          const float ay = curve[s * 2 + 1];
-          const float bx = curve[(s + 1) * 2];
-          const float by = curve[(s + 1) * 2 + 1];
-          float dx = bx - ax, dy = by - ay;
-          const float len = std::sqrt(dx * dx + dy * dy);
-          if (len < 1.0e-6f) continue;
-          dx /= len; dy /= len;
-          /* Square caps extended by half the width: a bend closes without a mitre, and the quads of
-           * one way overlap rather than leaving a notch. Their winding does not cancel because the
-           * quad's orientation is taken from the offset and not from the direction of travel. */
-          const float e0x = ax - dx * hw, e0y = ay - dy * hw;
-          const float e1x = bx + dx * hw, e1y = by + dy * hw;
-          const float px = -dy * hw, py = dx * hw;
-          const float q[8] = {e0x + px, e0y + py, e1x + px, e1y + py,
-                              e1x - px, e1y - py, e0x - px, e0y - py};
-          for (int j = 0; j < 4; j++) {
-            const int a = j, b = (j + 1) & 3;
-            ex.push_back(q[a * 2]); ex.push_back(q[a * 2 + 1]);
-            ex.push_back(q[b * 2]); ex.push_back(q[b * 2 + 1]);
+        if (nc < 2) continue;
+        side.clear();
+        auto offs = [&](size_t i, float sgn) {
+          /* Tangent = the mean of the two adjacent directions; the mitre scale 1/cos(theta/2) turns
+           * that into the offset that keeps BOTH neighbouring edges at half-width. Capped at 4, or a
+           * hairpin would throw the corner to infinity. */
+          float tx = 0.0f, ty = 0.0f;
+          if (i > 0) {
+            float dx = curve[i * 2] - curve[(i - 1) * 2], dy = curve[i * 2 + 1] - curve[(i - 1) * 2 + 1];
+            const float l = std::sqrt(dx * dx + dy * dy);
+            if (l > 1.0e-6f) { tx += dx / l; ty += dy / l; }
           }
+          if (i + 1 < nc) {
+            float dx = curve[(i + 1) * 2] - curve[i * 2], dy = curve[(i + 1) * 2 + 1] - curve[i * 2 + 1];
+            const float l = std::sqrt(dx * dx + dy * dy);
+            if (l > 1.0e-6f) { tx += dx / l; ty += dy / l; }
+          }
+          const float tl = std::sqrt(tx * tx + ty * ty);
+          if (tl < 1.0e-6f) { tx = 1.0f; ty = 0.0f; }
+          else { tx /= tl; ty /= tl; }
+          float scale = 1.0f;
+          if (i > 0 && i + 1 < nc) {
+            float ax = curve[i * 2] - curve[(i - 1) * 2], ay = curve[i * 2 + 1] - curve[(i - 1) * 2 + 1];
+            const float al = std::sqrt(ax * ax + ay * ay);
+            if (al > 1.0e-6f) {
+              ax /= al; ay /= al;
+              const float c = ax * tx + ay * ty;          /* cos(theta/2) */
+              scale = c > 0.25f ? 1.0f / c : 4.0f;
+            }
+          }
+          side.push_back(curve[i * 2] - ty * hw * sgn * scale);
+          side.push_back(curve[i * 2 + 1] + tx * hw * sgn * scale);
+        };
+        for (size_t i = 0; i < nc; i++) offs(i, 1.0f);
+        for (size_t i = nc; i-- > 0;) offs(i, -1.0f);
+        const size_t np = side.size() / 2;
+        for (size_t i = 0; i < np; i++) {
+          const size_t a = i, b = (i + 1) % np;
+          ex.push_back(side[a * 2]); ex.push_back(side[a * 2 + 1]);
+          ex.push_back(side[b * 2]); ex.push_back(side[b * 2 + 1]);
         }
       }
     }
