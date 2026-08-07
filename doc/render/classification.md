@@ -427,6 +427,41 @@ carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
 
+### Stage 1 against the OSM bake — first critic cycle, 2026-08-07
+
+Binary pinned `c411c12e…`, three places at z14, orthographic, 2.93 m/px. What the critic measured and
+did **not** fault:
+
+| | Weserbergland | Hameln | Hannover |
+|---|---|---|---|
+| class agreement on mapped bake pixels | 97.6 % | 88.7 % | 83.4 % |
+| residual after eroding a 1 px band | **0.37 %** | **1.47 %** | **1.44 %** |
+| after 2 px | 0.12 % | 0.82 % | 0.51 % |
+| bake road pixels with our sealed class within 2 px | 100 % | 99.1 % | 96.5 % |
+| building IoU | — | 0.874 | 0.889 |
+
+**Nearly the whole disagreement is a one-pixel band at class edges** — the best registration is
+dx = dy = 0 over a ±4 px search, no bake building is missing from ours and none of ours is absent from
+the bake, and a building edge falls off within a single pixel. Geometry and placement are not the
+problem.
+
+**Two of the three defects are one defect.** A line feature is extruded to a polygon and then tested
+inside/outside, which is a binary answer: a 2 m way at 2.93 m/px is **0.68 px** wide and is either hit
+whole or missed whole. Hameln has **3 073 connected components of sealed surface against the bake's 31**,
+2 873 of them ≤ 4 px, sitting exactly on way axes; Hannover's canal loses **407 m of 814 m** with a
+longest gap of 137 m. Both are the same missing quantity: **coverage**.
+
+The fix is the one the owner named — the font-rendering form. Distance to the CENTRELINE against the
+declared half width gives coverage as a number (`clamp(0.5 + (halfWidth − dist)/footM, 0, 1)`), so a
+0.68 px road draws at 0.68 coverage instead of 0 or 1. It replaces the stroked contour built earlier the
+same day and costs FEWER edges, because a line stops being a polygon.
+
+**Third defect, and it is honest that it stays open:** a Hameln forest polygon covers 2.0 ha of what the
+bake draws as residential. Both sides resolve overlapping land use by feature order without sorting, and
+the critic's own reading is that ours is likely the more correct of the two. It is a form difference
+against the reference either way.
+
+
 - **`/bake/photo` and the PNG path in the tile worker are still in the tree.** The class no longer touches
   the bake — `/bake/osm` has no reader left and neither client requests it in its default mode — but
   `fb_stream_pyramid`, `WriteAlbedoLayer`, the photo array and the worker's PNG decode still exist behind
