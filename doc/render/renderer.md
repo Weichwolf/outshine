@@ -106,7 +106,7 @@ missing thing and they cause the third.
 | 5 | **Clouds are thresholded SDFs** | the blue channel varies by 5 steps over 72 800 px — less than the clear sky beside it. Monotone 40 px ramp, then 90 px of constant |
 | 6 | **No foreground** | 210 m without one vertical. Green rises in saturation with distance (G−B 69 at 3 m, 89 at 212 m) instead of falling. `fovDeg` 60 is vertical, so hFOV is really **91.5°** and the edges stretch 2.05× |
 | 7 | **Class edges are 0.91 px** | declared up to 0.90 m; measured 0.91 px ≈ 1.7 cm at 19 mm/px — a factor of ~50. Straight to 0.29 px of residual. Not TAA convergence: `--settle` 64 against 128 moves the mean by 0.0014 |
-| 8 | **Screen-space black specks** | 120 on concrete, 124 on asphalt, 23 on grass; darkest luminance 30 against a median of 116. **Size independent of distance, some in diagonal chains** — so screen space, not material |
+| 8 | ~~Screen-space black specks~~ **CLOSED 2026-08-07** | it was `AoStage`, and it was a NaN. `aoProject` rounds a tap back to the depth grid, so a tap landing inside p0's own texel gives `toward = 0` and `normalize(0) = NaN` — which then SURVIVES the `cosA <= 0.05` reject, because every comparison with NaN is false. One such tap poisoned the whole sum. Measured at a standpoint where it is severe (eye 40 m, yaw 100): road darkest 65.1 -> **87.9**, ploughed field 58.1 -> **83.8**, outliers 5 -> **0** and 16 -> **0** — exactly the AO-disabled values, so every dark outlier in the frame was this. AO itself is intact: it still changes 64.11 % of a village frame with a peak of 127 codes, and correctly nothing in an open view. Guard is `dist < 1.0e-3` |
 
 **On (1), what the model predicts against what the picture shows.** With `kGroundBounce` 0.12,
 `kSelfShelter` 0.35 and concrete albedo 0.29, back-lit so the sun terms drop out:
@@ -122,6 +122,13 @@ measured. The named suspect is `stages/BuildingsStage.cpp:53`, which turns every
 camera (`dot(in.nrm, in.rel) > 0`) — right for a wall, and for a horizontal cap it flips `n·up` from +1
 to −1 and drops the roof into the wall's ambient branch. **Suspected, not proven: the next measurement
 is one line, the building normal written out as colour.**
+
+**On (8), one refutation on the way.** The first hypothesis was that the golden-angle spiral's
+per-pixel hash rotation left neighbouring estimates uncorrelated, so an unlucky rotation had nothing to
+cancel it. Interleaved gradient noise was built and **measured to fail**: road outliers 5 -> 3, field
+16 -> 15, and the darkest pixel got WORSE (58.1 -> 53.0). Reverted rather than kept, because its comment
+claimed an effect the measurement denied. The silhouette-safe normal reconstruction was already in place
+and was never the cause either.
 
 **On (7), what is already excluded.** `kClsFray` forced 0.05 → 0.30 moves 2597 px (max Δ 54) and forcing
 `zone` to 0.30 moves 3888 px, so the width does reach `half`; the JSON carries the nine declared values
