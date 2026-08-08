@@ -37,13 +37,15 @@ des Ersetzten in derselben Runde — das sind die Werkzeuge, mit denen revidiert
 | **der Code** | was das Ding kann. **Nur Korrektes wird committed** — es gibt keinen zweiten Ort, an dem Korrektheit behauptet wird |
 | **`git log`** | was war. Kein Journal, kein Verlauf in einer Datei |
 | [`doc/vision.md`](doc/vision.md) | wofür, und wo die Latte hängt |
-| [`doc/architecture.md`](doc/architecture.md) | warum der Schnitt so ist |
+| [`doc/architecture.md`](doc/architecture.md) | wie Outshine gebaut sein soll — Entscheidungen, keine Prosa |
+| [`doc/todo.md`](doc/todo.md) | die nächsten Schritte, in Reihenfolge |
 | `.claude/agents/` | **`engine-developer`** baut und misst · **`engine-architect`** plant und urteilt, nur lesend |
 | diese Datei | die Regeln. Höchstens **200 Zeilen** |
 
-`doc/` hat **zwei** Dateien und bekommt keine dritte. Ein Dokument, das beschreibt, was der Code tut, ist
-dasselbe in zwei Sprachen — und die zweite kann lügen. Ein verworfener Versuch wird nicht aufbewahrt: die
-Ausgangslage ändert sich laufend, und eine konservierte Messung führt später in die Irre.
+`doc/` hat **drei** Dateien — Zweck, Bauform, Reihenfolge — und bekommt keine vierte. Ein Dokument, das
+beschreibt, was der Code **tut**, ist dasselbe in zwei Sprachen, und die zweite kann lügen. Ein
+verworfener Versuch wird nicht aufbewahrt: die Ausgangslage ändert sich laufend, und eine konservierte
+Messung führt später in die Irre.
 
 **Kommentare fallen fast vollständig weg.** Es bleibt EINE Aufgabe: **das lokale Warum am
 Entscheidungspunkt**, eine Zeile. Nie, was der Code tut.
