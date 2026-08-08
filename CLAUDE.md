@@ -2,7 +2,7 @@
 
 > **Eine Game Engine, die auf PS4- und A18-Pro-Hardware in 720p60 läuft, mit der Technologie von Days
 > Gone und Horizon Forbidden West, und in der sich Spiele wie Witcher 3, Fallout 4 und GTA 5 optisch,
-> inhaltlich und funktionell rein über deklarative `mods/` abbilden lassen. Grundlage der prozeduralen
+> inhaltlich und funktionell rein über deklarative `scenarios/` abbilden lassen. Grundlage der prozeduralen
 > Welt sind OSM-, Höhen-, Wetter- und Sternendaten vom Kachelserver. Durch LLM-Integration werden alle
 > Entitäten intelligent und die Spielwelt dynamisch.**
 
@@ -71,7 +71,9 @@ Entscheidungspunkt**, eine Zeile. Nie, was der Code tut.
 ## Architektur & Build
 
 `fb-tiles` liefert per HTTP an den Client aus Prinzip 5. `sim/src/` hat **fünf** Verzeichnisse:
-`clients`, `core`, `render`, `units`, `world`.
+`clients`, `core`, `generators`, `render`, `units`, `world` — **Kern** ist die nackte Welt (Gelände,
+Klassifizierung, Atmosphäre, Wolken, Gestirne, Renderer), **Generatoren** liefern daraus Inhalt
+(Vegetation, Bauwerke, Infrastruktur, Wasser) und sind austauschbar, weil sie dieselbe Eingabe lesen.
 
 **EIN Programm, zwei Übersetzungen, EIN Eintrittspunkt.** `clients/Outshine` besitzt World und
 Renderer und ist das Einzige, was eine Welt aufbaut; ein Client ist `main()` plus Ausgabemedium
