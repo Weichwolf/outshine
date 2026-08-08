@@ -21,14 +21,27 @@ namespace outshine::World {
 class TreeFoliage {
 public:
   static constexpr int kFloats = 8; /* pos(3) roll(1) dir(3) pad(1) */
+  /* [SET] one crown's instance buffer: 1e6 * kFloats * 4 B = 32 MB, well inside the 256 MB
+   * maxBufferSize the target survey reports (doc/webgl-webgpu-report.txt). */
+  static constexpr int kMaxInstances = 1000000;
 
-  /* `mult` is a BENCH BRACKET on the declared `leaf_cards`, the way --ev brackets the declared
-   * exposure: the crown a species declares comes out at 1, and a critic who has to rule on whether
-   * the declaration is right needs to see the same tree at another density. Never a scene parameter. */
-  void Build(const TreeMesh &mesh, const TreeSpecies::Leaf &leaf, int mult = 1);
+  /* AREA IS BOUGHT IN COUNT. The species declares its leaf's own length (`leaf_card_h`) and the leaf
+   * area index its stand was measured at, so the only free quantity is HOW MANY laminae an attachment
+   * point carries — `lai * crownProjection / laminaArea`, spread over the grown points. Paying the
+   * index in leaf SIZE instead would draw a beech leaf the size of a plate.
+   *
+   * `mult` is a BENCH BRACKET on that count, the way --ev brackets the declared exposure: the crown
+   * a species declares comes out at 1, and a critic who has to rule on whether the declaration is
+   * right needs to see the same tree at another density. Never a scene parameter. */
+  void Build(const TreeMesh &mesh, const TreeSpecies &species, int mult = 1);
 
   const std::vector<float> &Instances() const { return Inst_; }
   size_t Count() const { return Inst_.size() / kFloats; }
+  /* Laminae per grown attachment point — THE METER ON THE WUCHS. A shoot point stands for one leaf
+   * cluster, so a tree whose shoot system is honest lands between 1 and 5; a large number is a crown
+   * with too few shoots, and it says so in the picture as rosettes on a bare skeleton. */
+  double PerPoint() const { return PerPoint_; }
+  double CrownProjM2() const { return CrownProjM2_; }
   /* Metres per unit of leaf-local length: the declared card height over the declared leaf length. */
   float ScaleM() const { return ScaleM_; }
   /* One-sided lamina area of the WHOLE crown, m^2 — the numerator of a leaf area index. */
@@ -50,6 +63,8 @@ private:
   float ScaleM_ = 0.1f;
   double AreaM2_ = 0.0;
   double LocalArea_ = 0.0;
+  double PerPoint_ = 0.0;
+  double CrownProjM2_ = 0.0;
 };
 
 } // namespace outshine::World

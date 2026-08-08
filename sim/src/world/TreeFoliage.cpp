@@ -15,25 +15,13 @@ constexpr float kGolden = 2.39996323f;
 
 } // namespace
 
-void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies::Leaf &leaf, int mult) {
+void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies &species, int mult) {
+  const TreeSpecies::Leaf &leaf = species.LeafParams();
   Inst_.clear();
   AreaM2_ = 0.0;
+  PerPoint_ = 0.0;
   const float len = leaf.Length > 1.0e-4f ? leaf.Length : 1.0f;
   ScaleM_ = leaf.CardH > 0.0f ? leaf.CardH / len : 0.1f;
-
-  const int perPoint = (leaf.CardsPerPoint > 0 ? leaf.CardsPerPoint : 1) * (mult > 0 ? mult : 1);
-  const size_t total = mesh.LeafPoints.size() * (size_t)perPoint;
-  if (total == 0) { return; }
-  Inst_.reserve(total * kFloats);
-
-  TreeRandom rng(0x1eaf0001u);
-  for (const TreeMesh::LeafPoint &p : mesh.LeafPoints) {
-    for (int k = 0; k < perPoint; ++k) {
-      const float roll = kGolden * (float)Inst_.size() / (float)kFloats + rng.Signed() * 0.35f;
-      Inst_.insert(Inst_.end(), {p.Pos.X, p.Pos.Y, p.Pos.Z, std::fmod(roll, kTau),
-                                 p.Dir.X, p.Dir.Y, p.Dir.Z, 0.0f});
-    }
-  }
 
   double lamina = 0.0;
   for (size_t i = 0; i + 2 < mesh.LeafIdx.size(); i += 3) {
@@ -48,7 +36,39 @@ void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies::Leaf &leaf, int
     lamina += 0.5 * std::sqrt(cx * cx + cy * cy + cz * cz);
   }
   LocalArea_ = lamina;
-  AreaM2_ = lamina * (double)ScaleM_ * (double)ScaleM_ * (double)Count();
+
+  const size_t points = mesh.LeafPoints.size();
+  const double oneM2 = lamina * (double)ScaleM_ * (double)ScaleM_;
+  const double h = (double)species.HeightM();
+  CrownProjM2_ = 0.25 * 3.14159265358979 * (double)(mesh.BoxMax.X - mesh.BoxMin.X) * h *
+                 (double)(mesh.BoxMax.Z - mesh.BoxMin.Z) * h;
+  if (points == 0 || oneM2 <= 0.0) { return; }
+  double want = (double)species.Lai() * CrownProjM2_ / oneM2;
+  want *= (double)(mult > 0 ? mult : 1);
+  /* The count is what carries the index, so the buffer is what limits it. A capped crown reports the
+   * index it actually built — a species that needs the cap has a crown too coarse to hold its own
+   * declaration, and LeafAreaM2 says so instead of the code pretending. */
+  if (want > (double)kMaxInstances) { want = (double)kMaxInstances; }
+  PerPoint_ = want > 0.0 ? want / (double)points
+                         : (double)leaf.CardsPerPoint * (double)(mult > 0 ? mult : 1);
+  if (PerPoint_ <= 0.0) { return; }
+  Inst_.reserve((size_t)(PerPoint_ * (double)points + 1.0) * kFloats);
+
+  TreeRandom rng(0x1eaf0001u);
+  double owed = 0.0;
+  for (const TreeMesh::LeafPoint &p : mesh.LeafPoints) {
+    /* The count per point is fractional and the debt is carried, so the crown's total is the declared
+     * one to the last lamina instead of a rounding per point. */
+    owed += PerPoint_;
+    const long n = (long)(owed + 0.5);
+    owed -= (double)n;
+    for (long k = 0; k < n; ++k) {
+      const float roll = kGolden * (float)Inst_.size() / (float)kFloats + rng.Signed() * 0.35f;
+      Inst_.insert(Inst_.end(), {p.Pos.X, p.Pos.Y, p.Pos.Z, std::fmod(roll, kTau),
+                                 p.Dir.X, p.Dir.Y, p.Dir.Z, 0.0f});
+    }
+  }
+  AreaM2_ = oneM2 * (double)Count();
 }
 
 float TreeFoliage::CardLeafM(int leavesPerCard, size_t cards, double lai,

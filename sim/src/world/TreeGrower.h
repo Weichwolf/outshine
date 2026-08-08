@@ -41,8 +41,10 @@ public:
 private:
   static constexpr int kMaxSides = 16;
   static constexpr int kBranchSides = 8;
-  static constexpr int kVertexCeiling = 200000;
-  static constexpr int kSpawnCeiling = 220000;
+  /* The mesh a rank may cost, in vertices; the pixel rule is solved against it. The spawn stop
+   * is the hard floor under that solve and must never be what shapes a tree. */
+  static constexpr int kVertexBudget = 200000;
+  static constexpr int kSpawnCeiling = 400000;
 
   struct Tip {
     int Ring[kMaxSides] = {};
@@ -86,7 +88,6 @@ private:
   float BhdErrorRel_ = 0.0f;
   float PixelGrow_ = 0.0f;
   float GrowHeight_ = 0.0f;
-  float NormHeight_ = 0.0f;
 };
 
 } // namespace outshine::World

@@ -7042,3 +7042,30 @@ Die Sensorbreite 22,3 mm steht auf den drei Kameras, deren Silhouette zur Deckun
 22, 21–22 und 21–25 mm), und auf dem Sichtbefund, dass der Hochvogel bei 36 mm um 300 px danebensitzt.
 Sechs von 14 sind aufgenommen, herzogstand legt den Walchensee samt Insel deckungsgleich. `posefit.py`
 ist gelöscht.
+
+## 2026-08-08 — Die Krone hing an einer Zahl: `min_radius` war ein Ast, kein Trieb
+
+Am Subject-Rig trug die Buche `lai` 0,391 gegen deklarierte 6,0, und die Silhouette war zu 1,5 % Blatt.
+Ursache ist keine Farbe und kein Shader: `min_radius` stand in allen sechzehn Arten auf
+`base_radius/16` — der feinste Trieb, den der Wuchs machen durfte, war ein 3 cm dicker Ast, und
+`SpawnLateral` verwirft jedes Kind mit `order_radius * r <= min_radius`. Der Wuchs endete zwei
+Ordnungen unter der deklarierten (Buche Ordnung 3: 8 Triebe, Ordnung 4: keiner), die Krone bestand aus
+166 Trieben. `min_radius = base_radius/160` (Stammfuss zu Endtrieb eines Altbaums, 0,24 m zu 0,0015 m)
+und `max_order` 5 heben sie auf 7 000 Triebe und 129 070 Blattpunkte.
+
+Drei Dinge im Grower mussten mit: ein Trieb ohne Rohr verzweigte nicht, also hing die KRONENFORM am
+Detailregler — jetzt ankert die Seitenfläche nur noch, sie entscheidet nichts. Die Höhe wird über Rinde
+UND Blattpunkte gemessen, damit sie detailinvariant ist; `NormHeight_` und der teure Kalibrierdurchlauf
+bei Pixel 0 sind damit weg. Und die Eckpunktzahl wird GELÖST statt geschnitten: ein Deckel schneidet den
+breitenzuerst-Zweig zuletzt ab, also genau die äussersten Triebe.
+
+Der Blattflächenindex wird in ANZAHL bezahlt, nie in Blattgrösse — dieselbe Regel, die für die Wiese
+schon dasteht. `lai * Kronenprojektion / Laminafläche`, verteilt über die gewachsenen Punkte, Fehler
+diffundiert. Damit trifft `lai` die Deklaration per Konstruktion und die Zahl, die den Wuchs richtet,
+ist `Laminae/Punkt`: neun von sechzehn Arten liegen bei 2,0…4,5, sieben nicht — eiche 131, tanne 46,
+saeulenpappel 0,15. Das sind Deklarationsfehler, sie stehen mit ihrer Zahl in `## Gaps`.
+
+Gemessen: Rig-Buche `lai` 0,391 → 6,000, Blattpunkte 4 437 → 129 070, Grünanteil der Kronenkiste im
+Gegenlicht 1,5 % → 31,2 %. Feld 1280×720, `--spin 8`: p50 10,71 → 7,81 ms, Baumdreiecke 687 436 →
+533 856. Das Rig wuchs bisher mit Pixel 0, also mit einem Rohr auf jedem 3-mm-Zweig; es wächst jetzt
+mit `RankPixel(0)` wie der nächste Feldrang.

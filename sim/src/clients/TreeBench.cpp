@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "LeafAngleDistribution.h"
+#include "TreeFoliage.h"
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
@@ -58,9 +59,12 @@ int main(int argc, char **argv) {
   std::string dumpDir;
   int reps = 1;
   bool angles = false;
+  float pixel = 0.0f;
   for (int i = 1; i < argc; ++i) {
     if (!strcmp(argv[i], "--assets") && i + 1 < argc) {
       assets = argv[++i];
+    } else if (!strcmp(argv[i], "--pixel") && i + 1 < argc) {
+      pixel = (float)atof(argv[++i]);
     } else if (!strcmp(argv[i], "--dump") && i + 1 < argc) {
       dumpDir = argv[++i];
     } else if (!strcmp(argv[i], "--reps") && i + 1 < argc) {
@@ -75,7 +79,7 @@ int main(int argc, char **argv) {
   TreeMesh mesh;
   printf("species,bark_v,bark_i,leaf_v,leaf_i,leaf_pts,bbmin_x,bbmin_y,bbmin_z,bbmax_x,bbmax_y,"
          "bbmax_z,grow_ms,leaf_ms,bark_kb,leaf_kb,pts_kb,g_nadir,g0,g1,gp,g_resid,stalk_el_deg,"
-         "angle_ms,foot_d_cm,bhd_cm,bhd_want_cm,hd,passes\n");
+         "angle_ms,foot_d_cm,bhd_cm,bhd_want_cm,hd,passes,laminae,leaf_m2,crown_m2,lai,lai_want,per_pt\n");
   for (int i = 0; i < kSpeciesCount; ++i) {
     std::string text;
     const std::string path = assets + "/" + kSpecies[i] + ".json";
@@ -92,7 +96,7 @@ int main(int argc, char **argv) {
     double growMs = 1e30, leafMs = 1e30;
     for (int r = 0; r < reps; ++r) {
       const auto t0 = std::chrono::steady_clock::now();
-      grower.Grow(sp, mesh, 0.0f);
+      grower.Grow(sp, mesh, pixel);
       const auto t1 = std::chrono::steady_clock::now();
       TreeLeaf::Build(sp.LeafParams(), mesh);
       const auto t2 = std::chrono::steady_clock::now();
@@ -105,9 +109,13 @@ int main(int argc, char **argv) {
     lad.Measure(mesh);
     const auto a1 = std::chrono::steady_clock::now();
 
+    TreeFoliage foliage;
+    foliage.Build(mesh, sp, 1);
+    const double crownM2 = foliage.CrownProjM2();
+
     const double bhdCm = 2.0 * (double)mesh.BhdRadius * (double)sp.HeightM() * 100.0;
     printf("%s,%zu,%zu,%zu,%zu,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.4f,%.4f,%.1f,%.1f,%.1f,"
-           "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%d\n",
+           "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%d,%zu,%.1f,%.1f,%.3f,%.3f,%.3f\n",
            kSpecies[i], mesh.BarkVertexCount(), mesh.BarkIdx.size(), mesh.LeafVertexCount(),
            mesh.LeafIdx.size(), mesh.LeafPoints.size(), (double)mesh.BoxMin.X, (double)mesh.BoxMin.Y,
            (double)mesh.BoxMin.Z, (double)mesh.BoxMax.X, (double)mesh.BoxMax.Y, (double)mesh.BoxMax.Z,
@@ -119,7 +127,9 @@ int main(int argc, char **argv) {
            (double)lad.MaxResidual(), (double)lad.MeanStalkElevationDeg(), Millis(a0, a1),
            2.0 * (double)mesh.FootRadius * (double)sp.HeightM() * 100.0, bhdCm,
            (double)sp.BhdM() * 100.0, bhdCm > 0.0 ? (double)sp.HeightM() / bhdCm : -1.0,
-           grower.Passes());
+           grower.Passes(), foliage.Count(), foliage.LeafAreaM2(), crownM2,
+           crownM2 > 0.0 ? foliage.LeafAreaM2() / crownM2 : -1.0, (double)sp.Lai(),
+           foliage.PerPoint());
 
     if (angles) {
       fprintf(stderr, "# %s G(el) per degree\n", kSpecies[i]);

@@ -163,14 +163,25 @@ void TreeGrower::EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeV
   }
 }
 
+/* A SHOOT WITHOUT A TUBE STILL BRANCHES. Returning here on `t.K == 0` made the crown's shape depend
+ * on the detail knob: every rank coarse enough to drop a shoot's tube lost that shoot's whole
+ * sub-tree and with it its leaf points. The side face is only where a branch is ANCHORED — without
+ * one the tip's own frame gives the same direction. */
 void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int first, float roll,
                               int step) {
-  if (t.K == 0) { return; }
-  int k0 = (int)(roll / kTau * (float)t.K) % t.K;
-  if (k0 < 0) { k0 += t.K; }
-  const int fi = first + k0;
-  if (Dead_[(size_t)fi]) { return; }
-  const TreeVec3 fn = FaceNormal(fi);
+  int fi = -1;
+  TreeVec3 fn;
+  if (t.K > 0 && first >= 0) {
+    int k0 = (int)(roll / kTau * (float)t.K) % t.K;
+    if (k0 < 0) { k0 += t.K; }
+    fi = first + k0;
+    if (Dead_[(size_t)fi]) { return; }
+    fn = FaceNormal(fi);
+  } else {
+    TreeVec3 n, b;
+    FrameFrom(t.Dir, t.Up, n, b);
+    fn = n * std::cos(roll) + b * std::sin(roll);
+  }
   const float a = (g.BranchAngle + Rng_.Signed() * g.BranchAngleVar) * kDeg;
   const TreeVec3 dir = Normalize(t.Dir * std::cos(a) + fn * std::sin(a));
   const float br = t.Radius * g.OrderRadius;
@@ -185,11 +196,11 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
     }
   }
   Tip b;
-  if (2.0f * br <= PixelGrow_) {
+  if (fi < 0 || 2.0f * br <= PixelGrow_) {
     b.K = 0;
     b.Dir = dir;
-    b.Up = FaceNormal(fi);
-    b.Pos = FaceCentroid(fi);
+    b.Up = fn;
+    b.Pos = fi >= 0 ? FaceCentroid(fi) : t.Pos;
     b.Radius = br;
   } else {
     b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
@@ -216,21 +227,26 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeig
   const float h = species.HeightM();
   const float targetR = species.BhdM() * 0.5f;
 
-  /* The rule arrives in tree HEIGHTS and the grower works in its own units, so the first pass is a
-   * CALIBRATION: it grows the declared mesh only to learn what height that is. `trunk_steps *
-   * step_len` will not do — the crown reaches well past the leader's own run (buche 6,80 against
-   * 4,16, eiche 4,54 against 2,24, both measured), and a pixel 60 % too small buys detail nobody
-   * sees. */
-  PixelGrow_ = 0.0f;
-  NormHeight_ = 0.0f;
+  /* The rule arrives in tree HEIGHTS and the grower works in its own units, so the first pass runs on
+   * an ESTIMATE of the height and the second on the one it measured. `trunk_steps * step_len` alone
+   * will not do — the crown reaches well past the leader's own run (buche 6,80 against 4,16, eiche
+   * 4,54 against 2,24, both measured) — so the estimate carries that factor and the refinement
+   * removes it. */
+  PixelGrow_ = pixelHeightFrac > 0.0f ? pixelHeightFrac * 1.6f * (float)g.TrunkSteps * g.StepLen : 0.0f;
   Passes_ = 1;
   GrowOnce(g, h, out);
   if (pixelHeightFrac > 0.0f) {
     PixelGrow_ = pixelHeightFrac * GrowHeight_;
-    /* EVERY RANK IS THE SAME TREE AND MUST BE THE SAME SIZE. A coarse rank has no bark on its
-     * topmost shoots, so its own box is up to a quarter shorter (measured, buche rank 2: 5,08 grower
-     * units against 6,80) — normalising by that box would make the tree jump when the rank changes. */
-    NormHeight_ = GrowHeight_;
+    GrowOnce(g, h, out);
+    Passes_++;
+  }
+  /* THE VERTEX COUNT IS A BUDGET AND IT IS SOLVED, NOT CUT. Truncating the queue at a ceiling drops
+   * whichever tips the breadth-first order reached last — the outermost shoots, the ones the crown
+   * is made of. Coarsening the pixel drops TUBES instead, and a shoot without a tube still grows,
+   * still branches and still carries its leaves. */
+  for (int i = 0; i < 4 && (int)Verts_.size() > kVertexBudget; ++i) {
+    const float over = std::sqrt((float)Verts_.size() / (float)kVertexBudget);
+    PixelGrow_ = (PixelGrow_ > 0.0f ? PixelGrow_ : 2.0f * g.MinRadius) * over;
     GrowOnce(g, h, out);
     Passes_++;
   }
@@ -293,7 +309,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
     int lastFirst = -1;
     float leafRoll = t.Roll;
     for (int s = 0; s < t.Steps; ++s) {
-      if ((int)Verts_.size() > kVertexCeiling) { break; }
+      if ((int)Verts_.size() > kVertexBudget) { break; }
       const TreeVec3 oldDir = t.Dir;
       /* Wander plus tropism: the leader holds its own axis (LeaderBias), a branch follows
        * BranchUpBias, which is negative for a weeping habit. */
@@ -353,21 +369,23 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
       if (t.Radius < g.MinRadius) { break; }
     }
     /* A shoot still thick enough forks into two instead of ending in a flat cap. */
-    if (g.TerminalFork && lastFirst >= 0 && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
+    if (g.TerminalFork && t.Radius > g.TwigRadius && t.Order <= g.MaxOrder &&
         (int)Verts_.size() < kSpawnCeiling) {
       const int km[2] = {0, t.K / 2};
+      TreeVec3 fnA, fnB;
+      FrameFrom(t.Dir, t.Up, fnA, fnB);
       for (int j = 0; j < 2; ++j) {
-        const int fi = lastFirst + km[j];
-        if (Dead_[(size_t)fi]) { continue; }
-        const TreeVec3 fn = FaceNormal(fi);
+        const int fi = (lastFirst >= 0 && t.K > 0) ? lastFirst + km[j] : -1;
+        if (fi >= 0 && Dead_[(size_t)fi]) { continue; }
+        const TreeVec3 fn = fi >= 0 ? FaceNormal(fi) : (j == 0 ? fnA : fnA * -1.0f);
         const TreeVec3 dir = Normalize(t.Dir + fn * 0.55f);
         const float br = t.Radius * 0.74f;
         Tip b;
-        if (2.0f * br <= PixelGrow_) {
+        if (fi < 0 || 2.0f * br <= PixelGrow_) {
           b.K = 0;
           b.Dir = dir;
           b.Up = fn;
-          b.Pos = FaceCentroid(fi);
+          b.Pos = fi >= 0 ? FaceCentroid(fi) : t.Pos;
           b.Radius = br;
         } else {
           b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
@@ -444,6 +462,13 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
     mn = Vec3(std::fmin(mn.X, v[0]), std::fmin(mn.Y, v[1]), std::fmin(mn.Z, v[2]));
     mx = Vec3(std::fmax(mx.X, v[0]), std::fmax(mx.Y, v[1]), std::fmax(mx.Z, v[2]));
   }
+  /* THE CROWN IS THE BOX, NOT THE BARK. Bark disappears from the finest shoots as the detail knob
+   * coarsens; the leaf points do not, so measuring the box over both is what makes one tree the same
+   * size at every rank. */
+  for (const TreeMesh::LeafPoint &p : out.LeafPoints) {
+    mn = Vec3(std::fmin(mn.X, p.Pos.X), std::fmin(mn.Y, p.Pos.Y), std::fmin(mn.Z, p.Pos.Z));
+    mx = Vec3(std::fmax(mx.X, p.Pos.X), std::fmax(mx.Y, p.Pos.Y), std::fmax(mx.Z, p.Pos.Z));
+  }
   /* Y = 0 IS THE TRUNK FOOT, not the lowest vertex, and `height_m` is measured from there — which is
    * what a stand height is. Taking the mesh minimum put a Trauerweide's foot 6,87 m and a Fichte's
    * 3,67 m above the ground (measured), because both hang branches below their own base. A branch
@@ -452,7 +477,6 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
   float h = mx.Y - y0;
   if (h < 1e-6f) { h = 1.0f; }
   GrowHeight_ = h;
-  if (NormHeight_ > 0.0f) { h = NormHeight_; }
   const float s = 1.0f / h;
   for (size_t i = 0; i < out.BarkVertexCount(); ++i) {
     float *v = &out.BarkVerts[i * TreeMesh::kBarkFloats];

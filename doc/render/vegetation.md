@@ -178,6 +178,36 @@ delivers the sampled `G(el)`, the least-squares fit `G = g0 + g1·sin(el)^p` in 
 its residual, and the stalk-elevation histogram the fit came from. **This round measures it and no
 consumer reads it yet** — the consumer is the tree's own canopy shading, one layer on.
 
+#### The crown carries the declared leaf area index, and it buys it in COUNT
+
+The species declares `lai` (one-sided leaf area per m² of crown projection, measured by forestry) and
+`leaf_card_h` (its leaf's own length in metres, botany). Those two plus the **grown** crown projection
+fix the only free quantity there is — how many laminae one attachment point carries:
+
+```
+laminae_total      = lai * crownProjM2 / laminaAreaM2
+laminae_per_point  = laminae_total / leafPoints
+```
+
+**Area is bought in count, never in leaf size** — the same rule the sward's density contract states one
+section up. A crown that pays its index by growing the leaf draws a beech leaf the size of a plate.
+Paying in count leaves exactly one number free to judge the growth by:
+
+| Acceptance | Anchor |
+|---|---|
+| `lai` at the subject bench equals the declaration | it does by construction; the measurement that means something is the one below |
+| **`laminae_per_point` between 1 and 5** | a shoot point stands for one leaf cluster. A large number is a crown with too few shoots and it shows in the picture as rosettes on a bare skeleton |
+| the crown hides the trunk from every direction but from below | measured as green coverage of the crown's own box in the backlit silhouette |
+
+**A shoot without a tube is still a shoot.** `pixelHeightFrac` decides which shoots get bark; it may
+decide **nothing** about where a shoot goes, whether it branches, or how many leaves it carries. The
+leaf-point cloud is therefore the same at every rank, and it — not the bark — is what the bounding box
+and the tree's height are measured over.
+
+**The vertex count is a budget that is SOLVED, not a ceiling that cuts.** Truncating the growth queue
+drops whichever tips the breadth-first order reached last, which is the outermost shoots — the crown
+itself. Coarsening `pixelHeightFrac` until the mesh fits drops tubes instead.
+
 #### What this round is NOT
 
 No placement, no LOD, no impostor, no wind, no leaf cards, no scene. `leaf_card_*` and `leaf_droop` are
@@ -205,24 +235,41 @@ all sixteen species, five buffers each (bark verts, bark indices, leaf verts, le
 Vertex/index/leaf-point counts and the bounding box therefore agree to the last digit and no deviation
 needed naming.
 
-| | bark verts | bark idx | leaf verts | leaf idx | leaf points | mesh KB | grow ms |
+**That identity was given up on 2026-08-08, on purpose, and the table below is what it cost.** The
+prototype's declarations grew a winter skeleton: `min_radius` stood at `base_radius / 16`, so the finest
+shoot the grower would make was a **3 cm branch**, and `TreeGrower::SpawnLateral` refuses any child with
+`order_radius * r <= min_radius`. Growth therefore stopped two orders below the declared `max_order` —
+measured on buche, rank 0: **order 3 had 8 tips and order 4 none, out of a declared four orders**, and
+the crown consisted of 166 shoots. The consequence at the subject bench was
+**`lai` 0,391 against the declared 6,0** and a silhouette that was **1,5 % leaf** by green coverage of
+its own crown box. The prototype is no longer the yardstick for the shoot system; it remains it for the
+leaf mesh, the RMF frame and the bark topology, none of which changed.
+
+**The sixteen at rank 0 (`pixelHeightFrac` = `TreeStage::RankPixel(0)` = 1/4096 of the tree's own
+height), measured 2026-08-08, `make treebench --pixel 0.000244140625`, native `-O2`:**
+
+| species | leaf points | laminae | laminae/point | lai built | lai declared | bark tris | grow ms |
 |---|---|---|---|---|---|---|---|
-| ahorn | 11735 | 70398 | 175 | 924 | 3917 | 880 | 0.72 |
-| birke | 5211 | 31254 | 87 | 336 | 1692 | 390 | 0.29 |
-| buche | 13233 | 79386 | 87 | 336 | 4437 | 987 | 0.66 |
-| eberesche | 4467 | 26790 | 1483 | 5718 | 1442 | 399 | 0.22 |
-| eibe | 6938 | 41616 | 250 | 252 | 2302 | 524 | 0.34 |
-| eiche | 7818 | 46896 | 87 | 336 | 2455 | 581 | 0.37 |
-| esche | 5928 | 35556 | 961 | 3702 | 1929 | 483 | 0.29 |
-| fichte | 8928 | 53556 | 196 | 198 | 2999 | 670 | 0.44 |
-| hainbuche | 12107 | 72630 | 87 | 336 | 4039 | 903 | 0.60 |
-| kastanie | 13208 | 79236 | 522 | 2016 | 4321 | 1003 | 0.64 |
-| kiefer | 5365 | 32178 | 304 | 306 | 1785 | 409 | 0.28 |
-| linde | 11727 | 70350 | 87 | 336 | 3916 | 875 | 0.58 |
-| saeulenpappel | 8693 | 52146 | 87 | 336 | 2835 | 648 | 0.53 |
-| tanne | 8195 | 49158 | 214 | 216 | 2671 | 614 | 0.54 |
-| trauerweide | 27486 | 164904 | 87 | 336 | 9060 | 2042 | 1.34 |
-| ulme | 12339 | 74022 | 87 | 336 | 4151 | 921 | 0.61 |
+| ahorn | 66 983 | 302 246 | 4.51 | 5.50 | 5.5 | 101 276 | 46.3 |
+| birke | 124 826 | 253 100 | 2.03 | 3.50 | 3.5 | 93 562 | 12.7 |
+| buche | 129 070 | 325 833 | 2.52 | 6.00 | 6.0 | 144 484 | 34.9 |
+| eberesche | 17 866 | 40 600 | 2.27 | 3.50 | 3.5 | 30 514 | 5.8 |
+| eibe | 29 292 | 583 932 | 19.93 | 7.00 | 7.0 | 53 934 | 7.0 |
+| eiche | 5 978 | 782 920 | 130.97 | 5.00 | 5.0 | 26 664 | 2.6 |
+| esche | 24 311 | 261 364 | 10.75 | 5.00 | 5.0 | 44 162 | 4.6 |
+| fichte | 76 503 | 1 000 000 | 13.07 | **1.13** | 8.0 | 91 958 | 10.6 |
+| hainbuche | 69 166 | 145 453 | 2.10 | 5.00 | 5.0 | 106 504 | 20.3 |
+| kastanie | 26 163 | 245 143 | 9.37 | 5.50 | 5.5 | 73 396 | 11.8 |
+| kiefer | 195 308 | 676 500 | 3.46 | 3.50 | 3.5 | 93 054 | 18.1 |
+| linde | 79 333 | 157 411 | 1.98 | 6.00 | 6.0 | 132 670 | 17.0 |
+| saeulenpappel | 69 052 | 10 122 | 0.15 | 4.00 | 4.0 | 55 728 | 7.5 |
+| tanne | 21 914 | 1 000 000 | 45.63 | **2.08** | 9.0 | 35 632 | 6.1 |
+| trauerweide | 100 894 | 437 341 | 4.33 | 4.00 | 4.0 | 286 282 | 31.3 |
+| ulme | 70 142 | 170 596 | 2.43 | 5.50 | 5.5 | 102 012 | 23.0 |
+
+**Nine of sixteen carry an honest crown** — `laminae/point` 2.0…4.5. The seven that do not name their
+own defect and are listed in `## Gaps`; `fichte` and `tanne` are the two that hit the 1 000 000-instance
+buffer cap and therefore report a leaf area index BELOW their declaration instead of pretending.
 
 **A TREE IS GROWN PER SPECIES, NEVER PER INSTANCE, and the two numbers decide it.** Growth costs
 **0.18–1.10 ms** (mean 0.417 ms, best of 50, native `-O2`, Apple silicon) and the mesh costs
@@ -293,6 +340,28 @@ template's own three declarations, no shader constant. `wiese` declares **1.0**.
   its stalk" is what closes the roll analytically and it is what the prototype's leaf cards also do
   (`canopy_build_instances` rolls the card normal at random about the leaf axis). It is stated, not
   measured, and the thing that would measure it is a rendered canopy.
+- **Seven of sixteen crowns are too coarse to hold their own declared leaf area index**, and the meter
+  that says so is `laminae/point` (`## State`). Measured 2026-08-08 at rank 0:
+
+  | species | laminae/point | why |
+  |---|---|---|
+  | eiche | **131** | `trunk_steps` 14 and `branch_chance` 0.6: the whole skeleton is 330 shoots, an order of magnitude under a beech's |
+  | tanne | **46** (capped) | crown grows 28 m wide against a declared 7 m — the `spread_m` gap below, and it inflates the projection the index is multiplied by |
+  | fichte | **13** (capped) | dito, 31 m against 6 m |
+  | eibe | 19.9 | `conical` 0.35 with `max_order` shoots too short |
+  | esche | 10.8 | `branch_chance` 0.7 over a 24-step leader |
+  | kastanie | 9.4 | dito, 20 steps |
+  | saeulenpappel | **0.15** | the opposite fault: 69 000 shoot points inside a 4 m columnar crown |
+
+  Every one of them is a **declaration** defect, not a grower defect — the same grower delivers 2.0–4.5
+  for the other nine. `fichte` and `tanne` are additionally clamped by the instance budget and report
+  the index they built (1.13 and 2.08) rather than the one declared. Not fixed in this round: each needs
+  its own skeleton reconsidered against the species, which is a botanist's judgement on a rendered tree.
+- **The subject bench draws sub-pixel laminae and undersamples its own crown.** At the `eye` framing a
+  0.10 m beech leaf on a 30 m tree covers well under one pixel, so the backlit silhouette measures
+  **31.2 % green coverage of its crown box** where a leaf area index of 6 is nearly opaque. The area is
+  there (`lai` 6.00 built); the rasteriser is throwing it away. The rig draws true laminae at every
+  distance and has no card rank of its own — that is what has to change, not the growth.
 - **`spread_m` and the grown crown disagree by up to a factor 4.6, and this is the round's real find.**
   Both metre fields were declared in all sixteen files and read by NOTHING in the prototype, so nobody
   had ever compared them. Measured now — grown box width (mean of x and z, at height 1) against the

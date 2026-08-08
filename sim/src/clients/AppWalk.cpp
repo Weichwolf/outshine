@@ -381,11 +381,14 @@ int main(int argc, char **argv) {
       }
       World::TreeGrower grower;
       const auto t0 = std::chrono::steady_clock::now();
-      grower.Grow(sp, mesh, 0.0f);
+      /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every
+       * 3 mm twig — a mesh nobody draws and, before the budget was solved rather than cut, one that
+       * truncated the crown. */
+      grower.Grow(sp, mesh, Render::TreeStage::RankPixel(0));
       const auto t1 = std::chrono::steady_clock::now();
       World::TreeLeaf::Build(sp.LeafParams(), mesh);
       const auto t2 = std::chrono::steady_clock::now();
-      foliage.Build(mesh, sp.LeafParams(), rigLeafMult);
+      foliage.Build(mesh, sp, rigLeafMult);
       const auto t3 = std::chrono::steady_clock::now();
 
       const double h = rigHeightM > 0.0 ? rigHeightM : (double)sp.HeightM();
@@ -416,6 +419,7 @@ int main(int argc, char **argv) {
           {"oneLeafAreaM2", foliage.OneLeafAreaM2()},
           {"leafAreaM2", foliage.LeafAreaM2()}, {"crownProjM2", proj},
           {"lai", proj > 0.0 ? foliage.LeafAreaM2() / proj : -1.0},
+          {"laiDeclared", (double)sp.Lai()}, {"laminaePerPoint", foliage.PerPoint()},
           {"meshKb", (double)mesh.Bytes() / 1024.0},
           {"instKb", (double)(foliage.Instances().size() * sizeof(float)) / 1024.0},
           {"growMs", ms(t0, t1)}, {"leafMs", ms(t1, t2)}, {"foliageMs", ms(t2, t3)},
@@ -507,14 +511,16 @@ int main(int argc, char **argv) {
       std::vector<float> rankCards;
       double crownProjM2 = 0.0;
       /* ONE MESH PER RANK, and the ladder is the stage's own: rank k may be one pixel coarse at its
-       * nearest stand, and its cards are thinned by four per step so a card keeps the same size on
-       * screen. `CardLeafM` then re-derives the leaf each card draws, so the declared leaf area index
-       * survives the thinning — fewer, larger leaves, the same canopy. */
+       * nearest stand. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kLeavesPerCard grown
+       * laminae, each drawing the species' own leaf. Only the ranks above it thin, by four per step
+       * so a card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the
+       * declared index survives the thinning. */
       for (int rank = 0; rank < Render::TreeStage::kRanks; ++rank) {
         g.Grow(sp, worldTree, Render::TreeStage::RankPixel(rank));
         World::TreeLeaf::Build(sp.LeafParams(), worldTree);
-        foliage.Build(worldTree, sp.LeafParams(), 1);
-        const uint32_t stride = 1u << (2u * (unsigned)rank);
+        foliage.Build(worldTree, sp, 1);
+        const uint32_t stride =
+            (uint32_t)Render::TreeStage::kLeavesPerCard << (2u * (unsigned)rank);
         rankCards.clear();
         for (size_t i = 0; i < foliage.Count(); i += stride) {
           const float *c = &foliage.Instances()[i * World::TreeFoliage::kFloats];
@@ -524,11 +530,7 @@ int main(int argc, char **argv) {
         /* THE CROWN'S PROJECTION IS THE SPECIES', not the rank's. A coarse rank drops the thin shoots
          * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
          * shrink the canopy exactly where it is already thinnest. */
-        if (rank == 0) {
-          crownProjM2 = 0.25 * 3.14159265358979 *
-                        (double)(worldTree.BoxMax.X - worldTree.BoxMin.X) * h *
-                        (double)(worldTree.BoxMax.Z - worldTree.BoxMin.Z) * h;
-        }
+        if (rank == 0) { crownProjM2 = foliage.CrownProjM2(); }
         const float cardLeafM = foliage.CardLeafM(Render::TreeStage::kLeavesPerCard, nCards,
                                                   (double)sp.Lai(), crownProjM2);
         R.SetTreeBark(rank, worldTree.BarkVerts.data(), (uint32_t)worldTree.BarkVertexCount(),
@@ -543,6 +545,8 @@ int main(int argc, char **argv) {
             {"leavesPerCard", (double)Render::TreeStage::kLeavesPerCard},
             {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
             {"crownProjM2", crownProjM2}, {"lai", (double)sp.Lai()},
+            {"leafPoints", (double)worldTree.LeafPoints.size()},
+            {"laminae", (double)foliage.Count()}, {"perPoint", foliage.PerPoint()},
             {"growHeight", (double)g.GrowHeight()}});
         if (rank == 0) {
           R.SetTreeLook(TreeLookOf(sp));
