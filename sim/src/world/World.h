@@ -96,6 +96,9 @@ public:
            BuildingDagId == 0 && Cls_.Complete();
   }
   int BuildingPendingTiles() const { return Vectors.PendingTiles(); }
+  /* Das Dach ueber einem Ort, ASL, oder -1e30 wo kein Grundriss steht. Ein Auge in einer Wand ist
+   * kein Standpunkt, und nur diese beiden Felder zusammen koennen das sagen. */
+  double RoofAslAt(double lat, double lon) const { return Buildings.RoofAslAt(Vectors, lat, lon); }
 
   /* THE RESIDENCY COUNTERS, for a moving measurement: a per-frame series that does not settle is the
    * defect, and none of these is visible in a picture. */

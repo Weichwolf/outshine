@@ -7069,3 +7069,27 @@ Gemessen: Rig-Buche `lai` 0,391 → 6,000, Blattpunkte 4 437 → 129 070, Grüna
 Gegenlicht 1,5 % → 31,2 %. Feld 1280×720, `--spin 8`: p50 10,71 → 7,81 ms, Baumdreiecke 687 436 →
 533 856. Das Rig wuchs bisher mit Pixel 0, also mit einem Rohr auf jedem 3-mm-Zweig; es wächst jetzt
 mit `RankPixel(0)` wie der nächste Feldrang.
+
+## 2026-08-08 — Ein Auge im Festen ist kein Standpunkt, und eine Nacht ist kein Vergleich
+
+`mayrhofen` zeigte einen grauen Kasten, `kampenwand` eine Krone von innen. Der Kasten war nicht das
+DEM, sondern ein OSM-Gebäude: die Kamera stand mit 2 m über Grund zwischen vier extrudierten Wänden.
+Drei Körper können ein Objektiv begraben, und sie werden nicht gleich behandelt, weil sie nicht
+dasselbe sind — Gelände und Gebäude sind DATEN, also wird das Auge über sie GEHOBEN und der Hub
+berichtet; ein Baum ist ein WURF aus der Landbedeckungsdichte, also wird der Stand VERWORFEN, dessen
+Krone das Auge enthält. Ein Baum am Mast einer realen Webcam existiert dort nicht.
+
+Die Prüfung sitzt im Client, weil nur er das DEM und die Kacheln hat, die er zeichnet: `--eye-asl`
+nimmt die Objektivhöhe über NN und rechnet die Höhe über Grund selbst aus. Über die 14 Standpunkte:
+drei gehoben (herzogstand 7,7 m und damuels 3,5 m über dem DEM, mayrhofen 11,0 m über einem Dach),
+einer freigeräumt (kampenwand, 9 Stände), 14 von 14 rendern eine Szene.
+
+Der Vergleichslauf fiel zuletzt auf 00:30 Ortszeit mit `sunElDeg ≈ −24°` — ein gültiger Zustand und
+ein nutzloser Vergleich. Unter 5° Sonnenhöhe tritt jetzt das jüngste Archivbild mit Sonne darüber an
+die Stelle des Livebildes, beschriftet, mit seiner eigenen Zeit; der Zeitstempel des Livebildes bleibt
+daneben stehen. Nicht der Horizont entscheidet, sondern das Gelände: unter 5° steht ein Berghang in
+seinem eigenen Schatten.
+
+Und die Seite darf nicht leer werden: ein 502 der Gegenstelle — heute für alle 14 gleichzeitig
+gemessen — nahm jedem verworfenen Paar seine Bilder mit. Jetzt drei Versuche mit Backoff, danach
+bleibt das letzte gute Paar mit seiner Zeit und dem Grund stehen (`web/cams/state.json`).

@@ -189,6 +189,36 @@ Optik, sondern `1170/focalLen` (exakt getroffen bei den ungerundeten Werten: f=1
 f=32 → 36,5625, f=55 → 21,2727…), also ein Kartenkegel in Kleinwinkelnaeherung.
 
 
+### Ein Auge im Festen ist kein Standpunkt — 2026-08-08
+
+**Wir haben das Auge gesetzt, ohne zu pruefen, ob es frei steht.** `mayrhofen` zeigte einen grauen
+Kasten und `kampenwand` eine Krone von innen. Drei Koerper koennen ein Objektiv begraben, und sie
+werden **nicht gleich** behandelt, weil sie nicht dasselbe sind:
+
+| Koerper | Herkunft | Regel | Warum |
+|---|---|---|---|
+| Gelaende | DEM, z13, 12,9 m Abtastung | **heben** auf `kMinStandClearM` = 2 m ueber Grund, Hub berichten | Das DEM ist die Naeherung, `altM` des Betreibers das Datum. Ein Talboden oder ein scharfer Grat wird um Meter verfehlt — gemessen: mayrhofen 633 m Objektiv gegen 634,9 m DEM |
+| Gebaeude | OSM-Grundriss, extrudiert | **heben** auf 2 m ueber das Dach unter dem Auge, Hub berichten | Das Haus ist ein Datum und steht wirklich dort; die Kamera sitzt darauf, nicht darin. mayrhofen: **11,0 m Hub**, danach steht die Kamera ueber den Daechern statt zwischen vier Waenden |
+| Baum | Streuung aus der Landbedeckungsdichte | **verwerfen**, wenn die Krone das Auge enthaelt | Kein Datum, ein Wurf. Ein Baum am Mast einer realen Webcam existiert dort nicht. kampenwand: **9 Staende entfernt** |
+
+Der Test ist bei jedem derselbe — steht das Auge INNERHALB des Koerpers —, und er gilt fuer alle 14,
+nicht fuer die zwei auffaelligen. Die Pruefung sitzt im Client, weil nur er das DEM und die Kacheln
+hat, die er selbst zeichnet: `gpu_walk --eye-asl M` nimmt die Objektivhoehe ueber NN, rechnet die Hoehe
+ueber Grund gegen SEIN DEM aus und meldet `standpoint` bzw. `standpoint_roof` mit dem Hub.
+`TreeField::Scatter` bekommt die Krone der Art und laesst jeden Stand aus, dessen Krone das Auge
+enthaelt; ein Fussgaenger auf 1,7 m liegt unter jedem Kronenansatz und verliert damit nichts.
+
+**Eine Nacht ist ein gueltiger Zustand und ein nutzloser Vergleich.** Steht die Sonne unter **5°**,
+tritt das juengste Archivbild mit Sonne darueber an die Stelle des Livebildes — beschriftet, mit
+seiner eigenen Zeit, und der Zeitstempel des Livebildes bleibt daneben stehen. Nicht der Horizont
+entscheidet, sondern das Gelaende: unter 5° steht ein Berghang in seinem eigenen Schatten. Bei 47° N
+wird die Schwelle an jedem Tag des Jahres erreicht.
+
+**Die Seite ist der Stand, also darf sie nicht leer werden.** Ein 502 der Gegenstelle — am 2026-08-08
+fuer alle 14 Kameras gleichzeitig gemessen — hat die Seite vorher geleert, weil jedes verworfene Paar
+seine Bilder mitnahm. Jetzt: drei Versuche mit Backoff, und danach bleibt das letzte gute Paar mit
+seiner eigenen Zeit und dem Grund stehen (`web/cams/state.json`).
+
 ### Die Gelaendenormale erreicht die Beleuchtung; der Befund war eine Uhr — 2026-08-08
 
 Vorwurf: in `build/out/koenigssee.png` liegen vier verschieden orientierte Haenge auf 0,7 %
@@ -224,8 +254,8 @@ Augen stehen bis zu einem Kilometer neben dem Gelaende. **Beides erledigt, und n
 jetzt eine Turmhoehe, keine Ortslage: die Differenz `altM − Boden` liegt ueber alle 14 Kameras
 zwischen **−5,7 m und +58,7 m** (vorher −953,6 bis +996,9). Negative Werte sind kein falscher Punkt,
 sondern ein geglaetteter Gipfel — herzogstand −5,7 m, mayrhofen −1,9 m, damuels −1,5 m; das z12-DEM
-schneidet einen scharfen Grat um diese Groessenordnung ab. `tools/webcams.py` setzt
-`eyeM = max(altM − Boden, 2)`; die feste `3.0` ist weg.
+schneidet einen scharfen Grat um diese Groessenordnung ab. `tools/webcams.py` uebergibt `--eye-asl altM`, und die Hoehe ueber Grund faellt im Renderer gegen sein
+eigenes DEM an — siehe „Ein Auge im Festen ist kein Standpunkt".
 
 **Der Bildwinkel ist hergeleitet, nicht gefittet.** Er folgt aus der veroeffentlichten Brennweite und
 einer Sensorbreite von **22,3 mm**. Die ist gemessen, nicht gesetzt: `tools/campose.py --scan` faehrt

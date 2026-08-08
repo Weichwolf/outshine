@@ -88,6 +88,24 @@ int BuildingField::Build(const OsmField &field) {
   return (int)Prints_.size();
 }
 
+double BuildingField::RoofAslAt(const OsmField &field, double lat, double lon) const {
+  const std::vector<double> &pts = field.Points();
+  double best = -1.0e30;
+  for (const Footprint &f : Prints_) {
+    if (f.PointCount < 3) { continue; }
+    const double top = (double)f.BaseM + (double)f.HeightM;
+    if (top <= best) { continue; }
+    bool in = false;
+    for (uint32_t i = 0, j = f.PointCount - 1; i < f.PointCount; j = i++) {
+      const double ai = pts[(size_t)(f.FirstPoint + i) * 2], oi = pts[(size_t)(f.FirstPoint + i) * 2 + 1];
+      const double aj = pts[(size_t)(f.FirstPoint + j) * 2], oj = pts[(size_t)(f.FirstPoint + j) * 2 + 1];
+      if ((ai > lat) != (aj > lat) && lon < (oj - oi) * (lat - ai) / (aj - ai) + oi) { in = !in; }
+    }
+    if (in) { best = top; }
+  }
+  return best;
+}
+
 void BuildingField::Extrude(const OsmField &field, const Footprint &f) {
   const std::vector<double> &ring = field.Points();
   const uint32_t n = f.PointCount;

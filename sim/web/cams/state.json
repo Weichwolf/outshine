@@ -1,0 +1,114 @@
+{
+  "damuels": {
+    "cleared": 0,
+    "eye": 2.0,
+    "fog": false,
+    "lift": 3.5472,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "fellhorn": {
+    "cleared": 0,
+    "eye": 7.48871,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "herzogstand": {
+    "cleared": 0,
+    "eye": 2.0,
+    "fog": false,
+    "lift": 7.70701,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "hochkoenig": {
+    "cleared": 0,
+    "eye": 10.7149,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T17:50:00+00:00"
+  },
+  "hochries": {
+    "cleared": 0,
+    "eye": 21.6285,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T17:50:00+00:00"
+  },
+  "innsbruck": {
+    "cleared": 0,
+    "eye": 34.8063,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "kampenwand": {
+    "cleared": 9,
+    "eye": 15.7716,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T17:50:00+00:00"
+  },
+  "kochelsee": {
+    "cleared": 0,
+    "eye": 29.6604,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "lech": {
+    "cleared": 0,
+    "eye": 12.3709,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "lofer": {
+    "cleared": 0,
+    "eye": 2.29015,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T17:50:00+00:00"
+  },
+  "mayrhofen": {
+    "cleared": 0,
+    "eye": 9.11469,
+    "fog": false,
+    "lift": 10.999,
+    "roof": true,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "nebelhorn": {
+    "cleared": 0,
+    "eye": 52.652,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  },
+  "salzburg": {
+    "cleared": 0,
+    "eye": 58.7035,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T17:50:00+00:00"
+  },
+  "zugspitze": {
+    "cleared": 0,
+    "eye": 17.1427,
+    "fog": false,
+    "lift": 0.0,
+    "roof": false,
+    "shown": "2026-08-07T18:00:00+00:00"
+  }
+}

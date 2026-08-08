@@ -37,11 +37,12 @@ inline float SizeFactor(uint32_t h, float sigma) {
 
 void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
                         double eyeE, double eyeN, double eyeAsl, float sizeSigma,
-                        double (*ground)(void *, double, double), void *user,
+                        const Crown &crown, double (*ground)(void *, double, double), void *user,
                         std::vector<float> &out, std::vector<float> &dist) const {
   out.clear();
   dist.clear();
   Count_ = 0;
+  Cleared_ = 0;
   const VegetationTemplates::Row *rows = veg.Rows();
   if (!rows) return;
   const int nrows = (int)(veg.RowBytes() / sizeof(VegetationTemplates::Row));
@@ -68,15 +69,25 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
 
       const double gz = ground ? ground(user, e, n) : eyeAsl;
       if (gz <= -1.0e7) continue;
+      /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
+       * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
+      const float size = SizeFactor(Hash(i, j, 0x9e37u), sizeSigma);
+      if (crown.HeightM > 0.0f && crown.HalfWidth > 0.0f) {
+        const double hm = (double)crown.HeightM * (double)size;
+        const double half = hm * (double)crown.HalfWidth;
+        if (eyeAsl > gz + hm * (double)crown.Bottom && eyeAsl < gz + hm * (double)crown.Top &&
+            de * de + dn * dn < half * half) {
+          Cleared_++;
+          continue;
+        }
+      }
       /* RELATIV ZUR KAMERA, weil der Stand im Shader auf die ECEF-Achsen am Augpunkt gelegt wird: ein
        * absoluter ENU-Wert waere dort ein Versatz von Kilometern. Die Suche laeuft dagegen absolut,
        * denn Klasse und Gelaende sind Eigenschaften des Ortes und nicht des Betrachters. */
       out.push_back((float)(e - eyeE)); out.push_back((float)(n - eyeN));
       out.push_back((float)(gz - eyeAsl));
       out.push_back(U(h >> 20) * 6.2831853f);
-      /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
-       * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
-      out.push_back(SizeFactor(Hash(i, j, 0x9e37u), sizeSigma));
+      out.push_back(size);
       const double dz = gz - eyeAsl;
       dist.push_back((float)std::sqrt(de * de + dn * dn + dz * dz));
       Count_++;

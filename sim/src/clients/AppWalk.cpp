@@ -57,6 +57,9 @@ const char *kGroundMaterialPath = "assets/world/ground-materials.json";
  * own measured ground (`/elev?lat=52.10602&lon=9.43453&block=1`), so the air column over the bench is
  * the air column over the scene. */
 const double kRigGroundAslM = 100.6;
+/* [SET] the least clearance at which an eye is outside the ground. Two metres is a standing person's
+ * eye and it is under the DEM's own sample error, so it corrects the lens as little as it can. */
+const double kMinStandClearM = 2.0;
 
 /* ONE SPECIES = ONE FILE, and the bench names it. */
 const char *kSpeciesDir = "assets/world/species";
@@ -145,7 +148,8 @@ bool ReadWholeFile(const char *path, std::string *out) {
 void Usage(const char *argv0) {
   fprintf(stderr,
           "usage: %s [--size WxH] [--warm N] [--view KM] [--base URL] [--out PATH]\n"
-          "       [--ev STOPS] [--bench N] [--spin N] [--eye M] [--pitch DEG] [--yaw DEG]\n"
+          "       [--ev STOPS] [--bench N] [--spin N] [--eye M] [--eye-asl M] [--pitch DEG]\n"
+          "       [--yaw DEG]\n"
           "       [--snapshot PATH]\n"
           "       [--rig TEMPLATE] [--rig-species NAME] [--rig-height M] [--rig-out DIR]\n"
           "       [--rig-turn N] [--rig-no-leaves]\n"
@@ -172,6 +176,10 @@ void Usage(const char *argv0) {
           "              scene declared it while the flow runs, which is what a wave measurement needs\n"
           "  --wind-deg/--wind-ms  override the scene's declared met wind. A BENCH parameter, like\n"
           "              --eye/--yaw: the scene keeps one declaration and the bench brackets it\n"
+          "  --eye-asl   the LENS ALTITUDE above sea level, which is what a camera operator publishes.\n"
+          "              The height above ground follows from this DEM, and a lens the DEM buries is\n"
+          "              lifted to the minimum clearance and the lift is reported. A standpoint is\n"
+          "              not a standpoint if the eye is inside the ground\n"
           "  --seq N     after the warm-up, write N frames %%04d.png into --seq-out, advancing the WIND\n"
           "              clock by --seq-dt between them and nothing else. One streaming state, one sun\n"
           "  --seq-yaw D  degrees of yaw PER SEQUENCE FRAME. A temporal filter can only be judged on a\n"
@@ -206,7 +214,7 @@ int main(int argc, char **argv) {
   /* The STANDPOINT, not the scene: a LOD ladder has to be judged from more than one distance
    * (doc/goal.md §5 wants a curve, not a point), an exposure anchor from more than one pointing, and
    * world-fixed placement only from more than one position. Everything else the scene still declares. */
-  double eyeOverrideM = -1.0, pitchOverrideDeg = 1.0e9, yawOverrideDeg = 1.0e9;
+  double eyeOverrideM = -1.0, eyeAslM = -1.0e9, pitchOverrideDeg = 1.0e9, yawOverrideDeg = 1.0e9;
   double stepEastM = 0.0, stepNorthM = 0.0, walkEastM = 0.0, walkNorthM = 0.0;
   std::string classDump;
   double classSpan = 400.0, classStep = 0.05;
@@ -246,6 +254,7 @@ int main(int argc, char **argv) {
     else if (a == "--scene" && i + 1 < argc) scenePath = argv[++i];
     else if (a == "--ortho" && i + 1 < argc) orthoM = atof(argv[++i]);
     else if (a == "--eye" && i + 1 < argc) eyeOverrideM = atof(argv[++i]);
+    else if (a == "--eye-asl" && i + 1 < argc) eyeAslM = atof(argv[++i]);
     else if (a == "--pitch" && i + 1 < argc) pitchOverrideDeg = atof(argv[++i]);
     else if (a == "--yaw" && i + 1 < argc) yawOverrideDeg = atof(argv[++i]);
     else if (a == "--wind-t" && i + 1 < argc) windT = atof(argv[++i]);
@@ -345,6 +354,7 @@ int main(int argc, char **argv) {
 
   World::TreeMesh worldTree;
   World::TreeField treeField;
+  World::TreeField::Crown treeCrown;
   std::vector<float> treeStands, treeDist;
   float worldTreeSigma = 0.0f;
   const double windDeg = windDegOverride < 1.0e8 ? windDegOverride : scene.WindDeg();
@@ -463,10 +473,24 @@ int main(int argc, char **argv) {
     Log::Error("walk", "ground_unresolved", {{"lat", lat}, {"lon", lon}, {"base", base}});
     return 1;
   }
-  const double eyeM = eyeOverrideM >= 0.0 ? eyeOverrideM : scene.EyeM();
+  /* AN EYE INSIDE THE GROUND IS NOT A STANDPOINT. The DEM samples 12.9 m at z13, so on a valley
+   * floor or a sharp ridge it misses the lens by metres in either direction — measured, mayrhofen:
+   * the lens stands at 633 m and this DEM answers 635.6 m. The operator's altitude is the datum and
+   * the DEM is the approximation, so the eye is lifted to the minimum clearance and the LIFT is
+   * reported: a camera whose lift is not zero stands on a DEM that misses its point, and the page
+   * says so instead of showing a grey box. */
+  double standLiftM = 0.0;
+  double eyeM = eyeOverrideM >= 0.0 ? eyeOverrideM : scene.EyeM();
+  if (eyeAslM > -1.0e8) {
+    const double want = eyeAslM - ground;
+    eyeM = want < kMinStandClearM ? kMinStandClearM : want;
+    standLiftM = eyeM - want;
+    Log::Info("walk", "standpoint", {{"lensAslM", eyeAslM}, {"groundM", ground},
+        {"eyeM", eyeM}, {"liftM", standLiftM}, {"minClearM", kMinStandClearM}});
+  }
   const double pitchDeg = haveSnapshot ? snap.PitchDeg()
                                        : (pitchOverrideDeg < 1.0e8 ? pitchOverrideDeg : scene.PitchDeg());
-  const double altAsl = ground + eyeM;
+  double altAsl = ground + eyeM;
   /* WHAT THE OTHER CLIENT ANSWERED AT THE SAME PLACE, subtracted here and nowhere else: a DEM or an
    * ephemeris that disagreed moves the whole picture, and no pixel comparison would name the cause. */
   if (haveSnapshot)
@@ -477,6 +501,7 @@ int main(int argc, char **argv) {
         {"dSunElDeg", (double)sunEl - snap.SunElDeg()},
         {"dSunAzDeg", (double)sunAz - snap.SunAzDeg()}});
 
+  bool standChecked = false;
   double eye[3], fwd[3], right[3], up[3];
   GeoToEcef(lat, lon, altAsl, eye);
   CameraBasisEcef(yawDeg, pitchDeg, 0.0, lat, lon, fwd, right, up);
@@ -553,9 +578,12 @@ int main(int argc, char **argv) {
           /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf
            * null. */
           R.SetTreeStand(0.0, 0.0, 0.0, h);
-          R.SetTreeCrown(std::fmax(std::fmax(-worldTree.BoxMin.X, worldTree.BoxMax.X),
-                                   std::fmax(-worldTree.BoxMin.Z, worldTree.BoxMax.Z)),
-                         worldTree.BoxMax.Y, worldTree.BoxMin.Y);
+          treeCrown.HalfWidth = std::fmax(std::fmax(-worldTree.BoxMin.X, worldTree.BoxMax.X),
+                                          std::fmax(-worldTree.BoxMin.Z, worldTree.BoxMax.Z));
+          treeCrown.Bottom = worldTree.BoxMin.Y;
+          treeCrown.Top = worldTree.BoxMax.Y;
+          treeCrown.HeightM = (float)h;
+          R.SetTreeCrown(treeCrown.HalfWidth, treeCrown.Top, treeCrown.Bottom);
         }
       }
       R.BakeTreeImpostor();
@@ -597,6 +625,28 @@ int main(int argc, char **argv) {
      * das Material traegt. */
     /* EINMAL, wenn die Kacheln stehen. Die Streuung fragt je Stand die Gelaendehoehe, und 166 823
      * Abfragen alle 32 Paesse sind hundert Millionen ueber einen Vorlauf — gemessen als Haenger. */
+    /* THE STANDPOINT IS CHECKED AGAINST WHAT IS DATA AND WHAT IS DRAWN. Terrain and buildings come
+     * from DEM and OSM, so the eye is LIFTED above them and the lift is reported; a tree is a draw
+     * from a landcover density, so a tree whose crown holds the eye is REFUSED (TreeField::Crown).
+     * Buildings only exist once the vector tiles have landed, which is why this waits for residency
+     * and re-seats the camera. */
+    if (!standChecked && eyeAslM > -1.0e8 && W.Resident()) {
+      standChecked = true;
+      const double roof = W.RoofAslAt(lat, lon);
+      const double wantAsl = ground + eyeM;
+      if (roof > -1.0e29 && wantAsl < roof + kMinStandClearM) {
+        const double lift = roof + kMinStandClearM - wantAsl;
+        eyeM += lift;
+        standLiftM += lift;
+        altAsl = ground + eyeM;
+        GeoToEcef(lat, lon, altAsl, eye);
+        R.SetCameraBasis(eye, fwd, right, up);
+        hs.Platform.AltM = (float)altAsl;
+        R.SetSceneState(hs);
+        Log::Info("walk", "standpoint_roof", {{"roofAslM", roof}, {"liftM", lift},
+            {"eyeM", eyeM}, {"totalLiftM", standLiftM}});
+      }
+    }
     if (!worldTree.BarkIdx.empty() && treeStands.empty() && W.Resident()) {
       double ee = 0.0, nn = 0.0;
       W.Classes().Project(clat, clon, &ee, &nn);
@@ -610,7 +660,7 @@ int main(int argc, char **argv) {
       /* Der AUGPUNKT, nicht der Boden unter ihm: der Shader legt den Fuss direkt auf die Aufhaengung
        * am Auge, also muss die Augenhoehe hier schon abgezogen sein. */
       treeField.Scatter(W.Classes(), veg, 900.0, ee, nn,
-                        (ElevationResolved(gcam) ? gcam : ground) + eyeM, worldTreeSigma,
+                        (ElevationResolved(gcam) ? gcam : ground) + eyeM, worldTreeSigma, treeCrown,
                         groundAt, &gc, treeStands, treeDist);
       constexpr int kSF = World::TreeField::kStandFloats;
       R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / (size_t)kSF),
@@ -625,6 +675,12 @@ int main(int argc, char **argv) {
           if (c == 4) sum += v;
         }
       const size_t nst = treeStands.size() / (size_t)kSF;
+      if (treeField.Cleared() > 0) {
+        Log::Info("walk", "stand_cleared", {{"trees", (double)treeField.Cleared()},
+            {"crownHalfM", (double)(treeCrown.HalfWidth * treeCrown.HeightM)},
+            {"crownBottomM", (double)(treeCrown.Bottom * treeCrown.HeightM)},
+            {"crownTopM", (double)(treeCrown.Top * treeCrown.HeightM)}});
+      }
       Log::Debug("walk", "trees", {{"stands", (int)nst},
           {"eastM", lo[0]}, {"eastMax", hi[0]}, {"northM", lo[1]}, {"northMax", hi[1]},
           {"footM", lo[2]}, {"footMax", hi[2]},
