@@ -42,7 +42,7 @@ vollständig weg**; es bleibt EINE Aufgabe: **das lokale Warum am Entscheidungsp
 **Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
 erfüllt, führt `## State`/`## Gaps` nach und schreibt eine Zeile ins `journal.md`. Verworfenes bleibt mit
 seiner **Messung** in `## Gaps`. Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit. Diese
-Datei bleibt eine **Karte, rund 110 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
+Datei bleibt eine **Karte, höchstens 200 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
 
 ## Prinzipien (nicht verhandelbar)
 
