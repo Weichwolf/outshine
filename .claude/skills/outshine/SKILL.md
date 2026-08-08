@@ -1,114 +1,85 @@
 ---
 name: outshine
-description: The Outshine knowledge base — an OSM-based open-world game engine cut for a machine to build games with, where an epoch parameter drives the look from Witcher 3 to Fallout 4. Covers the vision and roadmap, the declarative body format, the mod boundary and module contract, the renderer and its stages, terrain/tile streaming and weather, the persistent world, assets, the client split, testing philosophy and coding conventions. Load when working ON Outshine's code or architecture, on a mod's declaration, on the renderer or the world; when judging whether a change fits; or when answering what must be true, what is built, what is missing and what comes next.
+description: Wie an Outshine gearbeitet wird — der OSM-basierten Open-World-Engine (C++17, WebGPU/WASM auf Chromium/Edge, weltweiter Kachelserver in C). Wo was liegt, wie eine Runde läuft, wer entwirft und wer baut, und die Fallen, in die dieses Projekt nachweislich tappt. Laden, wenn an Outshines Code, Architektur, Szenarien, Generatoren, dem Renderer oder der Welt gearbeitet wird, oder wenn zu beurteilen ist, ob eine Änderung passt.
 ---
 
-# Outshine Reference
+# Outshine
 
-> **Outshine is an OSM-based GTA 5, and the epoch parameter drives the look from Witcher 3 to
-> Fallout 4.**
+> **Eine weltweite Sandbox auf GTA-5-Niveau: man läuft überall hin, und alles strömt, entsteht und wird
+> platziert, während man geht. Einzige Eingabe ist, was der Kachelserver liefert.**
 
-The knowledge base lives in `<repo>/doc/`. It is the authority on **what Outshine must be and how it is
-built**. `CLAUDE.md` is a session-start card and points here; if the two disagree, `doc/` is right and
-`CLAUDE.md` needs fixing.
+## Was bindend ist
 
-Start at [`doc/INDEX.md`](../../../doc/INDEX.md).
-
-## Read this first, always
-
-| File | Why |
+| Ort | Inhalt |
 |---|---|
-| `CLAUDE.md` (repo root) | the principles and the anti-cheat guarantees, condensed. A change that violates one of these is wrong even if it works |
-| `doc/vision.md` | what the thing is *for*, and the staggered scale — it decides how deep a subsystem may go |
-| `doc/conventions.md` | naming, structure, the no-printf rule, **every number carries its provenance**, and the spec-first working rule |
+| **`CLAUDE.md`** | die Regeln. Bindend, und ein Verstoß ist falsch, auch wenn er funktioniert. **Lies es zuerst.** |
+| `doc/vision.md` | wofür, und wo die Latte hängt |
+| `doc/architecture.md` | warum der Schnitt so ist |
 
-## The map: `doc/` mirrors `sim/src/`
+**`doc/` hat zwei Dateien und bekommt keine dritte.** Kein Spec, kein State, kein Gaps, kein Journal —
+ein Dokument, das beschreibt, was der Code tut, ist dasselbe in zwei Sprachen, und die zweite kann lügen.
+Was war, steht in `git log`. Was ist, steht im Code. **Nur Korrektes wird committed**, also gibt es
+keinen zweiten Ort, an dem Korrektheit behauptet wird.
 
-The layout is the source tree, not a taxonomy of its own. `doc/` mirrors **directories**, not files.
+## Der Baum
 
-| `sim/src/` | `doc/` |
+```
+sim/src/  clients · core · generators · render · units · world
+tiles/    fb-tiles, der C-Kachelserver
+scenarios/  die deklarierten Welten
+```
+
+**Kern** ist die nackte Welt — Gelände, Klassifizierung, Atmosphäre, Wolken, Gestirne, Renderer, und
+*wo* Wasser steht. **Generatoren** machen daraus Inhalt — Vegetation, Bauwerke, Infrastruktur, das
+*Aussehen* von Wasser — und sind austauschbar, weil sie dieselbe Eingabe lesen. Ein Generator ist eine
+reine Funktion `(Region, Ground) → Yield`: er zeichnet nicht, kennt keine Kamera, keinen Frame, kein
+Gerät. Der Scheduler weiß, wo das Auge ist, der Generator nie.
+
+**Ein Programm, ein Eintrittspunkt.** `clients/Outshine` besitzt Welt und Renderer und ist das Einzige,
+was eine Szene baut; ein Client ist `main()` plus Ausgabemedium. Gebaut wird nur über Make-Targets;
+`verify-layers` und `verify-clients` sind die Tore.
+
+## Wie eine Runde läuft
+
+| Wer | Was |
 |---|---|
-| `core/` | `core.md` |
-| `render/` | `render/visual-target.md` (the goal), `render/renderer.md` (the orchestrator), `render/classification.md`, `render/lod.md`, `render/vegetation.md`, `render/hud.md`, `render/clouds.md`, `render/gpu-determinism.md`, `render/units-visual.md` |
-| `render/stages/` | **one file per pass**: `terrain.md` (Tiles) · `ground-cover.md` (GroundCover + the ground material) · `buildings.md` · `shadow.md` · `ao.md` · `atmosphere.md` (Transmittance · MultiScatter · SkyView · Sky · Irradiance) · `celestial.md` (Sun · Moon · Stars) · `tonemap.md` (Tonemap · Upscale · Exposure) · `nvis.md` · `ground-map.md` · `map-sheet.md` · `tile-lights.md`. CloudLayer is `render/clouds.md`, Units/Sprites `render/units-visual.md`, Hud `render/hud.md` |
-| `world/` | `world/terrain.md`, `world/weather.md` |
-| `clients/` | `clients/clients.md` |
-| *(no source dir yet)* | `body-format.md`, `mods.md`, `module-contract.md`, `persistent-world.md`, `actor-scale.md`, `player-layer.md`, `assets.md`, `client-server.md`, `testing.md` |
-| *(meta)* | `INDEX.md`, `vision.md`, `roadmap.md`, `journal.md`, `conventions.md`, `architecture.md`, `build-and-ops.md` |
+| **`engine-architect`** | entwirft, bevor gebaut wird, und urteilt danach. Nur lesend. Für eine gegnerische Prüfung **frisch** aufrufen, ohne den Planungslauf |
+| **`engine-developer`** | baut und misst. Genau einer im Baum — Entwicklung läuft strikt seriell |
 
-## The shape of every topic file
+Ein Auftrag nennt **Ziel, Zwang und Abnahmezahl**. Einen Mechanismus nennt er nur, wenn der belegt ist —
+sonst heißt es „finde heraus, wie X es löst, und schlage vor". Ein konkreter falscher Mechanismus im
+Auftrag schlägt jede richtige Parole daneben.
 
-Spec-driven. Four sections, and which one you read depends on the question:
+## Die Fallen, in die dieses Projekt tappt
 
-| Section | What it holds | Read it when |
-|---|---|---|
-| `## Spec` | the contract: what it must do, acceptance criteria, measurement anchors | you are about to change behaviour — **change this first** |
-| `## State` | what is built, with commit and measurement. Honest, including "nothing" | you need to know what exists today |
-| `## Gaps` | Spec − State by value, **including rejected approaches with their measurements** | you are picking work, or about to retry something that already failed |
-| `## Knowledge` | derivations, formulas, measured constants | you need a number and where it came from |
+Alle gemessen, keine erfunden:
 
-Meta files carry no schema — they are the direction, the order, the history and the rules.
+- **Flüssigkeit ist verdächtig.** Ein plausibler Satz über einen Streamer entsteht schneller, als die
+  Prüfung dauert, ob er stimmt. Vor dem Bauen das Problem im **Vokabular der Sache** benennen — „Level
+  Load", „Streaming", „LOD-Übergang", „Resektion". Findet sich kein solcher Name, kennst du das Feld
+  nicht, und dann wird recherchiert statt improvisiert.
+- **Messung vor Griff.** Fünf Vermutungen kosteten hier mehr als die eine Messung, mit der man hätte
+  anfangen sollen. Eine Messung, die deine Vermutung widerlegt, ist das Ergebnis der Runde.
+- **Die teuren Fehler sind Bedeutungsfehler, keine C++-Fehler.** Ein absoluter Wert in einem
+  kamerarelativen Puffer, 16 von 24 Hashbits, ein Weißpunkt aus dem sRGB-Container, ein Trieb mit 3 cm
+  Mindestradius — jede dieser Zeilen hätte jedes Review bestanden. **Einheit und Bezugssystem gehören
+  zur Herkunft einer Zahl.**
+- **Ein Kommentar ist eine Behauptung ohne Test.** Sechs davon logen in einer einzigen Sitzung. Nur das
+  lokale, nicht offensichtliche *Warum*, eine Zeile; nie, was der Code tut; nie eine Messung — die
+  verfällt, der Kommentar bleibt.
+- **Ein grünes Tor beweist nur, was es prüft.** Zehn Runden lang bewies `make wasm`, dass der Browser
+  *übersetzt* — nicht, dass er dasselbe *zeigt*. Ein Tor, das Struktur misst, hätte es sofort gefunden.
+- **Ein konfundierter Befund kostet eine Runde.** „Kein Richtungslicht" war eine Szene bei Sonnenstand
+  −3,6°. Vor jedem Defekt aktiv die harmlose Erklärung suchen und sagen, warum sie ausscheidet.
+- **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Popping, Ghosting, ein Ruckler beim
+  Nachladen, eine Streuung mit Radius — ein Einzelbild zeigt keins davon.
 
-## Then read what the task touches
+## Wenn du nicht weiterkommst
 
-| Task | Read |
-|---|---|
-| Orientation — where does a file belong | `architecture.md` |
-| What comes next, in which order | `roadmap.md`; history in `journal.md` |
-| **A body that moves — a person, a vehicle, an aircraft, a crate** | `body-format.md` — five declarations (segments, joints, contacts, force sources, medium) plus model, materials and brain. **SPEC ONLY, nothing built** |
-| **Writing or changing a mod** — what a title may declare and what it may not | `mods.md` (the epistemic boundary: does this need knowledge no participant could have? yes → engine, no → mod) |
-| What every core module must satisfy | `module-contract.md` |
-| Renderer, camera, pass topology — the orchestrator | `render/renderer.md` |
-| **One specific render pass** | `render/stages/<pass>.md` — the table above maps pass → file |
-| The look bar, the frame budget, what may be spent | `render/visual-target.md` |
-| LOD, popping, screen-space error, Nanite, TAA conditions | `render/lod.md` |
-| What decides a ground class or a building type | `render/classification.md` |
-| Species, templates, the 0–40 m stack, wind | `render/vegetation.md` |
-| HUD/overlay backend, geometry buffer, font | `render/hud.md` — the backend only; the declaration surface it reads is **dead and unreplaced** |
-| Frame determinism, the PNG oracle | `render/gpu-determinism.md` |
-| World, terrain, tile streaming, `fb-tiles`, elevation | `world/terrain.md` |
-| Weather data, GFS run, GRIB2 | `world/weather.md` |
-| gym / native / wasm: what each client must be | `clients/clients.md` |
-| The epoch and decay parameter, world persistence | `persistent-world.md` |
-| How many actors, at what fidelity, how far out | `actor-scale.md` |
-| The game as a view over the simulation | `player-layer.md` |
-| Asset ladder, glTF, LODs, the modeller/critic pair | `assets.md` |
-| Why expectations are DATA and not C++ | `testing.md` |
-| Build targets, gates, host specifics | `build-and-ops.md` |
+Mach es wie die Etablierten. Der Kanon steht in `CLAUDE.md ## Referenzen`, die **C++ Core Guidelines
+sind verbindlich**. Suche die Quelle, nenn sie in einer Zeile am Entscheidungspunkt, und weiche nur mit
+einem Grund ab, der bei der Abweichung steht.
 
-## The state of the tree (2026-08-06) — do not be surprised
-
-A hard cut happened on this date and much of `doc/` has not caught up yet:
-
-- **JSBSim, the F-16 and the MiG-29 are deleted.** So are their reference bases, their modules, the four
-  NovaLogic titles, the `.fbm`/`.fbc`/`.fba`/`.fbh` formats and the combat tooling.
-- **No `FB` prefix** on any file or class; the namespace is `outshine`. Exceptions: `world/terrain/` is
-  a lowercase library, and `FBWX` survives as the name of a file format.
-- **`core-lib` does not link** — ~23 files in the simulation/combat layer still name a deleted `Fdm`
-  class. `render/` and `world/` are clean.
-- **Declarations are JSON.** A hand-written parser for a bespoke line format is not written again.
-- **`doc/` was swept on 2026-08-06** — `INDEX.md`, `vision.md`, `roadmap.md`, `core.md`,
-  `architecture.md`, `mods.md`, `player-layer.md`, `actor-scale.md`, `build-and-ops.md`,
-  `conventions.md`, `body-format.md`, `render/units-visual.md`, `render/renderer.md`, `render/hud.md`,
-  `world/terrain.md` and `clients/clients.md` are current. `doc/render/clouds.md` still carries
-  measurement records naming deleted scenarios; `persistent-world.md`, `testing.md` and `assets.md`
-  still carry examples from the deleted era. Trust `CLAUDE.md`, `doc/INDEX.md` and this file over a
-  stale passage, and say so rather than working from it.
-- The class names in `doc/` are the current ones: **no `FB` prefix**. `FBWX` (a file format) and
-  `FBDEM01` (a file magic) are not class names and are unchanged.
-
-## Ground rules when applying this knowledge
-
-- **Read `Spec` for the target and `State` for what exists — never assume a documented system is built.**
-  Coverage is uneven on purpose.
-- The standard is **believability, not fidelity**. The physics bar is explicitly *"enough for graphical
-  representation"*. Believability is judged on three separate axes — **motion, decision, representation**
-  (`body-format.md` §0.1).
-- The anti-cheat structure is load-bearing for the *game*, not only the engineering: an actor sees only
-  through its sensors and acts only through simulated systems. If a task seems to require reading the
-  unit registry directly or writing state behind the simulation, the task is wrong, not the structure.
-- **Do not invent a number.** Derived (with the formula), measured (with the measurement), or `[SET]`
-  and named as such — otherwise it does not go in.
-- The working rule is binding: change the **Spec** first, build until **State** meets it, then update
-  State and Gaps and add one line to `journal.md`. Rejected approaches stay in Gaps with their
-  measurements. There is no second list of open work.
+Und prüfe die Quelle, statt sie zu zitieren: Microsoft Flight Simulator trägt **nicht** als Beleg für
+Laufzeiterzeugung — dort ist alles vorab in der Cloud erzeugt worden. Für eine Welt, die entsteht,
+während man läuft, ist Guerrillas *Horizon Zero Dawn* der Beleg.
