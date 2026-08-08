@@ -13,6 +13,8 @@
 #include "Log.h"
 #include "LogSinks.h"
 #include "Mod.h"
+#include "SceneRunner.h"
+#include "ServerArtifacts.h"
 #include "Outshine.h"
 #include "ServerLog.h"
 #include "ServerTelemetry.h"
@@ -39,6 +41,8 @@ const Clients::Scene *gScene = nullptr;
 std::unique_ptr<Clients::Outshine> gApp;
 std::unique_ptr<Clients::ServerLog> gLog;
 std::unique_ptr<Clients::ServerTelemetry> gTelemetry;
+std::unique_ptr<Clients::ServerArtifacts> gArtifacts;
+std::string gSimUrl;
 Clients::Walker gWalker;
 
 double gPrevMs = 0.0, gLastLogMs = 0.0, gLastCpuMs = 0.0, gLastEncodeMs = 0.0;
@@ -217,8 +221,9 @@ bool Boot(void) {
         {"has", gMod.Ids()}});
     return false;
   }
+  gSimUrl = PageValue("(window.FB_SIM_URL||'').toString()", "");
   gLog = std::make_unique<Clients::ServerLog>(
-      PageValue("(window.FB_SIM_URL||'').toString()", ""),
+      gSimUrl,
       Clients::ServerLog::Identity{modName, sceneId, "wasm",
                                    PageValue("(window.FB_BUILD||'').toString()", ""),
                                    PageValue("location.host", "")});
@@ -228,13 +233,36 @@ bool Boot(void) {
   both.Add(gLog.get());
   Log::SetSink(&both);
 
-  gTelemetry = std::make_unique<Clients::ServerTelemetry>(
-      PageValue("(window.FB_SIM_URL||'').toString()", ""), gLog->RunId());
+  gTelemetry = std::make_unique<Clients::ServerTelemetry>(gSimUrl, gLog->RunId());
+  gArtifacts = std::make_unique<Clients::ServerArtifacts>(gSimUrl, gLog->RunId());
   gApp = std::make_unique<Clients::Outshine>(*gScene, kAssets);
   gApp->SetTelemetrySink(gTelemetry.get());
   gApp->SetTilesBase(PageValue("(window.FB_TILES_URL||'http://localhost:8081').toString()",
                                "http://localhost:8081"));
-  return gApp->Configure({kCanvas, 1280, 720});
+  const Clients::Scene::Capture &cap = gScene->Recording();
+  const bool record = gScene->What() == Clients::Scene::Kind::Run;
+  /* A RUN SCENE IS THE SAME RUN IN THIS TRANSLATION. The canvas is the target either way — the
+   * offscreen path is native Dawn's and there is no second one here — so a recording simply asks
+   * for the declared frame size and reads its own picture back. Only PREPARE here: the subject
+   * bench stops between the two phases (Outshine.h), and it is the run that decides. */
+  return gApp->Prepare({kCanvas, record ? cap.Width : 1280, record ? cap.Height : 720});
+}
+
+/* THE DECLARED RUN, IN THE BROWSER. Same SceneRunner, same order, same numbers to compare against —
+ * only the destination of the products differs, and that is the whole point of Artifacts.h. */
+void Record(void) {
+  Clients::SceneRunner runner(*gApp, *gScene, *gArtifacts);
+  const int rc = runner.IsSubjectBench() ? runner.RunSubject()
+                 : gApp->Open()          ? runner.Run()
+                                         : 1;
+  Log::Info("run", "finished", {{"rc", rc}, {"runId", gLog->RunId()}});
+  gTelemetry->Flush();
+  gLog->Flush();
+/* `$0` is EM_ASM's only way to reach an argument and -Wpedantic sees a C identifier. */
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdollar-in-identifier-extension"
+  EM_ASM({ window.FB_RUN_DONE = $0; }, rc);
+#pragma clang diagnostic pop
 }
 
 }  // namespace
@@ -244,7 +272,11 @@ int main(void) {
   Log::SetSink(&boot);
   Log::SetLevel(LogLevel::Debug);
   if (!Boot()) return 1;
-
+  if (gScene->What() == Clients::Scene::Kind::Run) {
+    Record();
+    return 0;
+  }
+  if (!gApp->Open()) return 1;
   gWalker.Reset(DeclaredStance());
   BindInput();
   emscripten_set_main_loop(Frame, 0, 1);

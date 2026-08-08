@@ -29,6 +29,9 @@
  * run is reconstructible from this directory alone -- which mod, which scene, which build, which
  * numbers. The channel is one-way and diagnostic, exactly like the shots. */
 #define LOG_ROOT "logs"
+/* WHAT A RUN PRODUCED. A browser has no filesystem to write a PNG or a CSV to, so a declared
+ * artifact lands here under its run id -- the same evidence a native run leaves on disk. */
+#define ART_ROOT "runs"
 /* A 1280x720 PNG measures ~1 MB; the cap is there so a wrong Content-Length cannot ask for the heap. */
 #define MAX_BODY (16u * 1024u * 1024u)
 
@@ -39,7 +42,7 @@ typedef struct {
     uint8_t *body;        /* POST only, malloc'd to Content-Length */
     size_t need, got;
     char name[128];       /* the basename this body belongs to */
-    int kind;             /* 0 = a shot, 1 = a run-log batch, 2 = a telemetry batch */
+    int kind;             /* 0 = a shot, 1 = a run-log batch, 2 = telemetry, 3 = an artifact */
 } client_t;
 static client_t cl[MAX_CLIENTS];
 
@@ -111,6 +114,17 @@ static int shot_store(const char*name,const uint8_t*body,size_t n){
 
 /* Appended, never rewritten: a client posts its log in batches and the order of the batches is the
  * order of the run. */
+static int artifact_store(const char*name,const uint8_t*body,size_t n){
+    mkdir(ART_ROOT,0775);
+    char file[384]; snprintf(file,sizeof file,"%s/%s",ART_ROOT,name);
+    FILE*f=fopen(file,"wb");
+    if(!f) return 0;
+    const size_t w=fwrite(body,1,n,f);
+    fclose(f);
+    fprintf(stderr,"[fb-sim] artifact %s (%zu B)\n",name,n);
+    return w==n;
+}
+
 static int log_append(const char*name,const uint8_t*body,size_t n,const char*ext){
     mkdir(LOG_ROOT,0775);
     char file[384]; snprintf(file,sizeof file,"%s/%s.%s",LOG_ROOT,name,ext);
@@ -155,6 +169,7 @@ static int http_handle(client_t*c){
         if(strncmp(path,"/shot/",6)==0){ base=path+6; c->kind=0; }
         else if(strncmp(path,"/log/",5)==0){ base=path+5; c->kind=1; }
         else if(strncmp(path,"/telemetry/",11)==0){ base=path+11; c->kind=2; }
+        else if(strncmp(path,"/artifact/",10)==0){ base=path+10; c->kind=3; }
         if(!base||!safe_name(base)){ reply(c->fd,"404 Not Found","no"); c->rxn=0; return 1; }
         if(need<0||(unsigned long)need>MAX_BODY){ reply(c->fd,"413 Payload Too Large","no"); c->rxn=0; return 1; }
         snprintf(c->name,sizeof c->name,"%s",base);
@@ -169,8 +184,9 @@ static int http_handle(client_t*c){
         c->got=take;
         c->rxn=0;
         if(c->got<c->need) return 0;   /* the read loop keeps filling c->body */
-        const int ok=c->kind?log_append(c->name,c->body,c->got,c->kind==2?"csv":"log")
-                            :shot_store(c->name,c->body,c->got);
+        const int ok=c->kind==3?artifact_store(c->name,c->body,c->got)
+                    :c->kind  ?log_append(c->name,c->body,c->got,c->kind==2?"csv":"log")
+                              :shot_store(c->name,c->body,c->got);
         reply(c->fd,ok?"200 OK":"500 Internal Server Error",ok?"ok":"no");
         return 1;
     }
@@ -194,7 +210,7 @@ static int http_handle(client_t*c){
         const char*md=getenv("OUTSHINE_MOD"), *sc=getenv("OUTSHINE_SCENE");
         char body[512]; int bn=snprintf(body,sizeof body,
             "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';window.FB_GROUND_CLEAR=%.3f;"
-            "window.FB_MOD='%s';window.FB_SCENE='%s';window.FB_BUILD='%016llx';\n",
+            "window.FB_MOD=window.FB_MOD||'%s';window.FB_SCENE=window.FB_SCENE||'%s';window.FB_BUILD='%016llx';\n",
             la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"", clr,
             md&&*md?md:"demo", sc&&*sc?sc:"walk", wasm_build_id());
         char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
@@ -249,7 +265,9 @@ int main(void){
                 if(n<=0){ client_close(&cl[i]); continue; }
                 cl[i].got+=(size_t)n;
                 if(cl[i].got<cl[i].need) continue;
-                const int ok=cl[i].kind
+                const int ok=cl[i].kind==3
+                    ?artifact_store(cl[i].name,cl[i].body,cl[i].got)
+                    :cl[i].kind
                     ?log_append(cl[i].name,cl[i].body,cl[i].got,cl[i].kind==2?"csv":"log")
                     :shot_store(cl[i].name,cl[i].body,cl[i].got);
                 reply(cl[i].fd,ok?"200 OK":"500 Internal Server Error",ok?"ok":"no");

@@ -56,6 +56,8 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
   if (Scene_.HasLensAslM()) Stand_.SetLensAslM(Scene_.LensAslM());
 }
 
+void Outshine::Pump() { PumpMs(0); }
+
 void Outshine::SetFovDeg(double deg) { R_.SetFovDeg(deg); }
 
 void Outshine::SetExposureCompEv(double ev) {

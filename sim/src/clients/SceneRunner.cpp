@@ -99,6 +99,7 @@ bool SceneRunner::Warm() {
     }
     p = App_.Stream((double)Warmed_ * 1000.0 / 60.0);
     App_.Frame();
+    Outshine::Pump();
     Warmed_++;
   }
   if (!p.Resident) {
@@ -177,7 +178,10 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
   Settled_ = cap.SettleFrames >= 0 ? cap.SettleFrames : R.TemporalSettleFrames();
   apply(0.0);
   R.ResetTemporal();
-  for (int f = 1; f < Settled_; f++) App_.Frame();
+  for (int f = 1; f < Settled_; f++) {
+    App_.Frame();
+    Outshine::Pump();
+  }
   Log::Info("run", "settled", {{"frames", Settled_}, {"path", m.Path},
       {"channels", (double)m.Move.ChannelCount()}});
 
@@ -200,6 +204,7 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     const auto t1 = std::chrono::steady_clock::now();
     App_.Frame();
     const auto t2 = std::chrono::steady_clock::now();
+    Outshine::Pump();
     if (!profile) {
       const std::string name = m.Frames == 1 ? m.Path : FrameName(m.Path, f, "png");
       if (!WritePng(name)) return 1;

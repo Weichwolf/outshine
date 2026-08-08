@@ -81,7 +81,8 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/Snapshot.cpp src/clients/LogSinks.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
   src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
-  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp
+  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp \
+  src/clients/ServerArtifacts.cpp
 
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \

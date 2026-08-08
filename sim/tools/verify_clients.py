@@ -33,7 +33,7 @@ ENTRY_POINTS = ("AppWalk.cpp", "AppWasm.cpp")
 # An entry point's whole world. Everything else it might want is Outshine's or the bench's.
 ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "Walker.h", "Scene.h", "Snapshot.h",
                   "Mod.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
-                  "ServerLog.h", "ServerTelemetry.h"}
+                  "ServerLog.h", "ServerTelemetry.h", "ServerArtifacts.h"}
 # F.3. 40 native / 30 browser was the owner's order of magnitude; this is that with headroom for the
 # emscripten glue, and it is deliberately not generous.
 MAIN_LINES_MAX = 40

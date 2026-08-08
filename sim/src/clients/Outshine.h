@@ -73,6 +73,11 @@ public:
   void SetExposureCompEv(double ev);
   void SetSkyOffsetS(double s);
 
+  /* GIVE THE HOST ITS TURN. Natively nothing: the run owns the process. In the browser a headless
+   * run holds the one thread the tile fetches complete on, so a run that never yielded would wait
+   * for a world that can never arrive. */
+  static void Pump();
+
   /* THE FPS SPECTRUM RIDES ALONG (FrameTelemetry.h). Frame() feeds it and emits one row per second,
    * so a client that only draws is observable without declaring a measurement. A null sink makes
    * the whole path a clock read. */
