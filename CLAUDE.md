@@ -42,7 +42,7 @@ vollständig weg**; es bleibt EINE Aufgabe: **das lokale Warum am Entscheidungsp
 **Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
 erfüllt, führt `## State`/`## Gaps` nach und schreibt eine Zeile ins `journal.md`. Verworfenes bleibt mit
 seiner **Messung** in `## Gaps`. Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit. Diese
-Datei bleibt **unter 100 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
+Datei bleibt eine **Karte, rund 110 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
 
 ## Prinzipien (nicht verhandelbar)
 
@@ -103,12 +103,9 @@ pinnt ihr Binary.**
 ## Referenzen
 
 **Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — VERBINDLICH.**
-Kein Vorschlag und keine Anregung: sie entscheiden Besitz, Lebensdauer, Schnittstelle und Stil, und eine
-Abweichung ist ein Fehler, bis sie mit Grund danebensteht. Wo sie und eine Hausmeinung kollidieren,
-gewinnen sie.
-
-Der Rest ist Kanon, kein Gesetz — Ausgangspunkt statt Eigenerfindung. Wo jeder Titel beißt, sagt
-[`doc/references.md`](doc/references.md).
+Sie entscheiden Besitz, Lebensdauer, Schnittstelle und Stil; eine Abweichung ist ein Fehler, bis sie mit
+Grund danebensteht, und gegen eine Hausmeinung gewinnen sie. Der Rest ist Kanon, kein Gesetz —
+Ausgangspunkt statt Eigenerfindung; wo jeder Titel beißt, sagt [`doc/references.md`](doc/references.md).
 
 | Feld | Titel |
 |---|---|
