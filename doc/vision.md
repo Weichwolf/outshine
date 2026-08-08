@@ -243,6 +243,29 @@ That is the whole requirement outside list A. Not fidelity, not an error band ag
 The consequence, stated plainly so nobody mistakes it for neglect: a body that fails a specialist's
 side-by-side comparison is not a defect; a body that fails list A is.
 
+## The persistent Outshine server
+
+**A persistent world server is Outshine without the picture** — the same engine, the same world, the
+same generators, compiled without `render/`. It is **not built**, and this section says only what has to
+stay true so that it remains possible.
+
+**What keeps it possible is a build target, not a rule someone maintains.** Core, world, generators and
+physics compile without `-Isrc/render`; if they stop doing so, the server stops existing, and that is a
+compile error rather than a note in a document. This is the strongest form the layering rule can take:
+the boundary is not asserted, it is *delivered*.
+
+From it follows what "the simulation must exist without a GPU" actually costs. Height at a point, class
+at a point, a building footprint, a water level and the occupancy a body collides with all answer on the
+CPU with no device present. **Appearance may never be a precondition for physics** — a body swims
+because the core knows the water level, not because a water generator drew a surface. Today the counter-
+example is exact: the forest returns nothing without a live device, so on a server there would be no
+trunk to walk into.
+
+It sharpens two principles rather than contradicting them. *Everything runs in the client* stays true of
+the game: the client is complete and owns its simulation; the server is the same program with the
+picture removed, not a hub that owns the world while a thin client watches. *Two lean containers* is a
+statement about today and will need the owner's decision when the server arrives.
+
 ## The staging
 
 > Owner: *„Wir steigern uns. Dieses Jahr A, nächstes AA und in zwei Jahren AAA."*
