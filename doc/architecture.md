@@ -6,7 +6,8 @@ The floor plan: who owns what, what links against what, and where a file belongs
 
 | Contract | Acceptance / measurement anchor |
 |---|---|
-| The two clients link ONE source list | `PEDESTRIAN_SRCS` + `render/` + `world/` in `sim/Makefile`; a PNG out of `gpu_walk` is therefore a statement about the browser |
+| **ONE PROGRAM, TWO TRANSLATIONS, ONE ENTRY POINT** | `clients/Outshine` owns `World` + `Renderer` and is the only thing in the tree that builds a scene. A client is a `main()` plus an output medium over it: it constructs the system, hands it a `Gpu`, and renders. **A shared source list is not this contract and cannot stand in for it** — it proves both clients *compile*, not that both *show* the same thing, and for ten rounds it covered the fact that the forest was grown in `AppWalk.cpp` alone (`AppWalk.cpp` named `Tree` 72 times, `AppWasm.cpp` 0). Acceptance: `make -C sim verify-clients` — an entry point includes nothing of `render/` or `world/`, its `main()` is under 40 lines (C++ Core Guidelines F.3), and the scene-building renderer calls exist in exactly one translation unit |
+| The two clients link ONE source list | `APP_SRCS` + `PEDESTRIAN_SRCS` + `render/` + `world/` in `sim/Makefile`. Necessary, not sufficient — see the row above |
 | WASM is a cross-compile of the same source list, never a second architecture | `make -C sim wasm` |
 | Server-side there are exactly two lean containers | `fb-tiles` (:8081, tile API) and `fb-sim` (:8080, web host). No world process, no hub |
 | Nothing is preloaded | every tile on demand — **every point on Earth is a valid start** |
@@ -30,7 +31,9 @@ systems/` and most of `core/` — was deleted on 2026-08-07 rather than repaired
 
 | Piece | State |
 |---|---|
-| Directory stack and the layer gate | green — **measured 2026-08-07: 136 files, 312 internal includes**, no upward include |
+| Directory stack and the layer gate | green — **measured 2026-08-08: 173 files, 385 internal includes**, no upward include |
+| **The one entry point** | **built and measured, 2026-08-08.** `clients/Outshine` is **373 lines** (150 h + 223 cpp). `AppWalk.cpp` fell from **1049 lines / an 846-line `main()` with 56 locals** to **17 lines / a 9-line `main()` with 1 local**; `AppWasm.cpp` from 391 to **218** lines and its `main()` from 111 to **19** with 1 local. What moved out of `clients/` into `world/`: the whole forest — grow the four mesh ranks, bake the impostor, scatter the stands — as `world/Forest` (**242** lines), and the eye-height policy as `world/Standpoint` (**42** lines). What moved sideways into a bench layer the browser never links: `clients/WalkBench` (**807** lines); the browser's steered stance became `clients/Walker` (**88** lines). `make verify-clients` is the gate |
+| **The two clients show the same thing** | **measured 2026-08-08.** Same scene, native against headless Chromium at 1280×720: **72.10 % of pixels bit-identical, 89.14 % within 2 codes, 98.37 % within 8, mean \|Δ\| 0.710, p99 = 1... 11, max 206.** Tree stands **15 995 in both**, tree triangles **533 856 in both**, ground 100.909 m in both, sun el 11.2021 / az 282.601 in both. **Every pixel over 8 codes lies in rows 0…395** — canopy and horizon — and below y = 450 the two agree to within 8 codes on **every** pixel. The residual is the TAA settle (the oracle resets and renders 128 frames on a frozen world; the browser runs live) and the streaming cut (`buildingVerts` 48 075 against 29 712) |
 | `walk` (the pedestrian frame oracle) | builds; `render/` + `world/` + the `core/` value TUs those two reference |
 | `wasm` + `worker` | build |
 | `units/` | only `Unit.h` and `UnitRegistry.h` survive, kept alive by `world/World.cpp`'s effect path |
@@ -176,23 +179,33 @@ fb-tiles (server: worldwide DEM / OSM / aerial imagery)  ──HTTP──▶  Cl
 Nothing is preloaded — every tile on demand. From which follows: **every point on Earth is a valid
 start**, and the engine ships no world.
 
-### The two clients
+### One program, two translations
 
-They link the SAME source list — `PEDESTRIAN_SRCS` + `render/` + `world/` — which is what makes a PNG
-from one a statement about the other. WASM is a different toolchain target (emcc/wasm32) that recompiles
-that list: a cross-compile, not a duplication of the architecture.
+`clients/Outshine` **is** the program: it holds the declared `Scene`, the ground-material and
+vegetation tables, `Render::Renderer`, `World::World`, `World::Forest` and `World::Standpoint`, and it
+is the only object that puts a piece of world into a picture. Its surface is four calls and a
+parameter object each (C++ Core Guidelines I.23):
 
-| Client | Source | Target | Role |
+| Call | What it is |
+|---|---|
+| `Outshine(const Scene &, const Assets &)` | a declaration and the paths the toolchain mounts it at. Nothing else |
+| `Prepare(Gpu)` / `Open()` / `Configure(Gpu)` | the two bring-up phases. `Phase{Declared, Prepared, Streaming}` is a state machine, not two booleans; the subject bench stops at `Prepared` because it must touch no world and no network |
+| `Look(Stance)` | where the eye is, geodetic. The height above sea level follows from the DEM; the ECEF basis is derived here and nowhere else |
+| `Stream(nowMs) -> Progress` | one streaming pass. **It decides nothing about images** — the caller renders, or does not |
+| `Frame()` / `Measured() -> Counters` | one image, and the numbers a client is allowed to report without reaching into a peer |
+
+| Client | Entry point | Layer over `Outshine` | Target |
 |---|---|---|---|
-| **`gpu_walk`** | `clients/AppWalk.cpp` | `make -C sim walk` | **the pedestrian frame oracle.** A camera at eye height over a named coordinate, the terrain streamer, one PNG |
-| **wasm** | `clients/AppWasm.cpp` | `make -C sim wasm` | the browser. Builds the tile worker with it, so a boot never hangs on a missing worker |
+| **`gpu_walk`** | `clients/AppWalk.cpp`, **9-line `main()`** | `clients/WalkBench` — argv, the brackets over the declaration, and the extra products (rig, spin, seq, snapshot, class dump, wind probe, depth) | `make -C sim walk` |
+| **wasm** | `clients/AppWasm.cpp`, **19-line `main()`** | `clients/Walker` — the steered stance, and the emscripten glue. Builds the tile worker with it | `make -C sim wasm` |
 
-A third entry point, `clients/SimHost.cpp`, is not an engine client: it is the 118-line static HTTP
-server the `fb-sim` container compiles to serve `web/`.
+A third entry point, `clients/SimHost.cpp`, is not an engine client: it is the static HTTP server the
+`fb-sim` container compiles to serve `web/`.
 
-`gpu_walk` flags: `--lat --lon --ground --eye --yaw --pitch --view --albedo osm|photo --utc --warm
---base --size WxH --out`. `--warm N` is the number of streaming passes before the shot: the near cut has
-to be resident before a frame means anything.
+**Why a bench is a layer over the system and not a mode inside it:** a bench is a viewer with unusual
+wishes. Everything it adds — a bracket over the declared exposure, a turntable, a CSV, a second PNG —
+is a property of the observation, not of the world; putting it inside `Outshine` would put the
+browser's build under flags it can never set.
 
 ### Directories
 

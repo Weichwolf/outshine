@@ -7371,3 +7371,39 @@ Ast-und-Blatt-Geometrie, und die Bäume sind nicht zu groß — aus dem Tiefenpu
 Zu groß ist das **Blattplättchen**: rund **0,76 m** quer, gegen 0,06–0,10 m an einer Buche. Es fällt aus
 `TreeFoliage::CardLeafM` = `sqrt(LAI·Kronenfläche/Blattzahl)`, ist also eine Folge der Instanzzahl und
 liegt in der Vegetationsschicht, nicht hier.
+
+## 2026-08-08 — Ein Eintrittspunkt: das Programm ist `Outshine`, nicht `main()`
+
+`AppWalk.cpp` war 1049 Zeilen mit einem 846-Zeilen-`main()` und 56 lokalen Variablen, `AppWasm.cpp`
+391 mit 111. Weil es zwei `main()` gab, stand die halbe Weltlogik nur in einem: `AppWalk.cpp` nannte
+`Tree` 72 Mal, `AppWasm.cpp` **null** Mal, und `TreeStage::Encode` kehrt bei `BarkCount[0] == 0`
+sofort zurück — **der Browser hat in zehn Baumrunden keinen einzigen Baum gezeichnet.** Ein grünes
+`make wasm` hat das die ganze Zeit gedeckt: es beweist, dass beide übersetzen, nicht, dass beide
+dasselbe zeigen.
+
+Jetzt gibt es genau eine Anwendungsklasse. `clients/Outshine` (373 Zeilen) besitzt Renderer und World
+und ist das Einzige, was eine Szene aufbaut; `Prepare` → `Open` → `Look`/`Stream`/`Frame`, mit
+`Phase{Declared, Prepared, Streaming}` als Maschine statt zweier Booleans. `main()` nativ: **9
+Zeilen, eine lokale Variable.** `main()` wasm: **19.** Nach `world/` gewandert sind der ganze Wald
+(`Forest`: vier Mesh-Ränge, Impostor-Bake, Streuung) und die Augenhöhe (`Standpoint`: Boden,
+Mindestabstand, Dach). Die Bank ist eine Schicht **über** dem System (`WalkBench`, 807 Zeilen), die
+der Browser nie linkt — eine Bank ist ein Betrachter mit besonderen Wünschen, kein Teil des Systems.
+
+**Das Bild nativ ist bitgleich:** `walk-demo.png` vor und nach dem Umbau, **0 von 921 600 Pixeln**,
+md5 `67978b94ddc4a3e0621ad026fdaef1d9` beide Male, 7 Pässe beide Male — und das einschließlich Mond
+und Sternenkatalog, die der native Client vorher gar nicht geladen hatte und die bei Sonnenstand 11,2°
+kein Pixel bewegen.
+
+**Der Browser zeigt jetzt, was das Orakel zeigt:** dieselben `trees_grown`-Zahlen über alle vier
+Ränge, **15 995 Stände** wie nativ, **533 856 Baumdreiecke** wie nativ, Boden 100,909 m wie nativ.
+72,10 % der Pixel bitgleich, 89,14 % innerhalb 2 Codes, 98,37 % innerhalb 8, mittleres |Δ| 0,710. Jedes
+Pixel über 8 Codes liegt in den Zeilen 0…395 — Krone und Horizont; der ganze Nahboden ab y = 450 trägt
+**null** davon. Der Rest ist der TAA-Einschwung (das Orakel leert den Akkumulator und rendert 128
+Bilder auf stehender Welt, der Browser läuft live) und der Streaming-Schnitt (48 075 gegen 29 712
+Gebäude-Vertices).
+
+**Und ein Tor, das es hält:** `make verify-clients`. Ein Eintrittspunkt darf keinen `render/`- oder
+`world/`-Header einbinden und keinen Peer nennen, jedes `main()` bleibt unter 40 Zeilen (Core
+Guidelines F.3), und die szenenbauenden Renderer-Aufrufe existieren in genau einer Übersetzungseinheit
+— 18 im einen Bauer plus `world/`, 13 in zwei benannten Bank-Dateien, **0 sonst**.
+

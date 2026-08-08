@@ -11,7 +11,7 @@ What a proof is, and what has to hold before a change counts as verified.
 |---|---|
 | Warnings = errors | all targets clean under `-Wall -Wextra -Wpedantic -Werror` |
 | Tree congruence | `verify-trees`, and **every** orphan count it prints is read |
-| Layer + count gate | `verify-layers` green, **and the numbers it prints are read** — a gate whose output nobody reads is not a gate |
+| Layer + count gate | `verify-layers` and `verify-clients` green, **and the numbers they print are read** — a gate whose output nobody reads is not a gate |
 | Frame proof | build-effective changes need a rendered frame **or** a numerical measurement |
 | Regression | every measured deviation justified individually. **No subject today** — see `## Gaps` |
 | Determinism | `--threads 1/2/4` × repetitions produce a single signature |
@@ -31,7 +31,7 @@ the ones that read the *tree* rather than a run:
 
 | Gate | Runnable today |
 |---|---|
-| `verify-layers`, `verify-trees`, `verify-types` | yes — they read source and directories |
+| `verify-layers`, `verify-clients`, `verify-trees`, `verify-types` | yes — they read source and directories |
 | Warnings = errors | for `walk`, `wasm`, `worker` and `tiles/` |
 | everything that needs a scenario | **no** |
 
@@ -62,6 +62,7 @@ Every project carries its own Makefile. `make help` prints the live list; this t
 | `worker` | `web/fbtileworker.js` + `.wasm` — callable on its own |
 | `image`, `up`, `down`, `restart` | container build and lifecycle; the image compiles `src/clients/SimHost.cpp` and nothing else |
 | `verify-layers` | `sim/src` is a stack; every `#include` points down it, as a machine-checked matrix |
+| `verify-clients` | **one program, two translations.** An entry point includes nothing of `render/` or `world/` and names no peer; each `main()` is under 40 lines; the scene-building renderer calls exist in exactly one translation unit, plus a printed list of declared subject-bench exceptions. The gate the shared source list could not be: a green `make wasm` proved the browser COMPILED the forest code it did not have |
 | `verify-types` | how much `sim/src/` still knows about concrete named types, by cost class. **rc=1 until the count is 0** |
 | `verify-trees` | `doc/`, `sim/src/` and `sim/test/` carry the same directory tree; every `mods/<id>/` carries `doc/` plus a runnable proof |
 

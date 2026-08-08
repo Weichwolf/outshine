@@ -68,11 +68,18 @@ Datei bleibt **unter 100 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
 ## Architektur & Build
 
 `fb-tiles` liefert per HTTP an den Client aus Prinzip 5. `sim/src/` hat **fünf** Verzeichnisse:
-`clients`, `core`, `render`, `units`, `world`, und **zwei Clients auf derselben Quellenliste**:
-**`gpu_walk`** (nativ, das Frame-Orakel) und **wasm**. Beide lesen nur `mods/demo/scene.json`.
+`clients`, `core`, `render`, `units`, `world`.
+
+**EIN Programm, zwei Übersetzungen, EIN Eintrittspunkt.** `clients/Outshine` besitzt World und
+Renderer und ist das Einzige, was eine Welt aufbaut; ein Client ist `main()` plus Ausgabemedium
+darüber — **`gpu_walk`** (nativ, Frame-Orakel, Bank `WalkBench`) und **wasm** (Browser, `Walker`).
+Beide lesen nur `mods/demo/scene.json`. Eine gemeinsame Quellenliste allein deckte den Drift zehn
+Runden: sie beweist, dass beide *übersetzen*, nicht, dass beide dasselbe *zeigen* — das tut
+`verify-clients`.
 
 Gebaut wird nur über Make-Targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Tore:
-`verify-layers` | `verify-trees` | `verify-types`. **Der wasm-Client baut in JEDER Runde mit.**
+`verify-layers` | `verify-clients` | `verify-trees` | `verify-types`. **Der wasm-Client baut in JEDER
+Runde mit.**
 Warnings = Errors (`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · vendor read-only.
 **Leistung ist eine Verteilung über eine bewegte Kamera**, nie Mittelwert, nie Minimum:
 `tools/walkbench.py` (vier Geschwindigkeiten, p50/p95/p99), `tools/determinism.py` — **jede Messung

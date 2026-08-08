@@ -9,6 +9,8 @@
 #   make walk     build the native pedestrian frame oracle (Dawn + fb-tiles terrain) -> build/gpu_walk
 #   make verify-layers  src/ is a stack and every #include points DOWN it -- the directory tree as a
 #                 machine-checked matrix
+#   make verify-clients  both main()s are entry points and nothing else, and the scene is built in
+#                 exactly one place -- what one client shows, the other cannot fail to show
 #   make verify-trees  doc/ (what we want), src/ (what we can) and test/ (what we prove) carry the
 #                 same directory tree -- an orphan is a named hole
 #   make verify-types  what src/ still knows about concrete aircraft types (rc=1 while > 0)
@@ -72,9 +74,15 @@ RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLeaf.cpp \
   src/world/TreeFoliage.cpp src/world/LeafAngleDistribution.cpp
 
+# THE ONE PROGRAM. Outshine owns World + Renderer and is the only thing in the tree that builds a
+# scene; a client adds an entry point and an output medium over it. Both link this list, which is
+# what `make verify-clients` holds them to.
+APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp \
+  src/clients/LogSinks.cpp
+
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp \
-  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp \
+  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 
 # Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
@@ -85,7 +93,7 @@ WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
 # finds the file to preload.
 SCENE_JSON := ../mods/demo/scene.json
 
-.PHONY: help wasm worker walk treebench verify-layers verify-types verify-trees image up down restart clean
+.PHONY: help wasm worker walk treebench verify-layers verify-types verify-trees verify-clients image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -99,7 +107,7 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	  emcc src/world/TerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
 	    -c -o build/obj-wasm/TerrainLoader.o; \
 	  emcc $(WASM_TERRAIN_OBJS) \
-	    src/clients/AppWasm.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp src/clients/LogSinks.cpp \
+	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
 	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
@@ -109,6 +117,7 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(SCENE_JSON)@/scene.json \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
+	    --preload-file assets/world/species/buche.json@/species.json \
     --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
 	  echo "WASM -> web/gpu.js + web/fbtileworker.js (scene: $(SCENE_JSON))"
@@ -142,8 +151,7 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/TerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-walk/TerrainLoader.o; \
-	  c++ src/clients/AppWalk.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp src/clients/SubjectBench.cpp \
-	    src/clients/LogSinks.cpp \
+	  c++ src/clients/AppWalk.cpp src/clients/WalkBench.cpp src/clients/SubjectBench.cpp $(APP_SRCS) \
 	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
 	    build/obj-walk/*.o \
@@ -170,6 +178,12 @@ verify-trees:    ## check that doc/, src/ and test/ carry the same directory tre
 
 verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
+
+# ONE PROGRAM, TWO TRANSLATIONS. The gate that would have caught the forest living in one main() for
+# ten rounds: an entry point may not build anything, and the scene-building calls exist in exactly
+# one translation unit.
+verify-clients:  ## check that both entry points are entry points and share one scene builder
+	@cd $(SELF_DIR) && python3 tools/verify_clients.py
 
 # The Prinzip-3 METER, and unlike its siblings it is RED on purpose: it counts what the engine still
 # knows about named aircraft types, broken down by how expensive each mention is to remove. Not part
