@@ -32,6 +32,33 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-08 — Die 1,2 EV sind der Bestand, nicht das Licht: Fels steht richtig, die Grasnarbe ist eine Blattzahl
+
+**Nichts am Renderer geaendert, und das ist das Ergebnis.** Die Spreizung Fels zu Rasen ist restlos
+zerlegt (`doc/render/stages/terrain.md` `## Gaps`): 1,153 EV traegt der Grasnarben-Aggregat, das eine
+BLATT-Reflexion in eine BESTANDES-Reflexion verwandelt (gemessen 0,0486 gegen die
+Zweistrom-Halbraumalbedo 0,0511 bei omega = 0,185 — 0,07 EV), 0,486 EV der ACES-Fuss (lokales Gamma
+1,561 an der Narbe gegen 0,780 am Fels), 0,088 EV die Albedo-Asymmetrie von `kSelfShelter`. Rest
+**0,00**. Der Fels liegt auf **0,008 EV** auf seinem eigenen Lambert-Wert — er ist nicht zu hell.
+
+**Alle drei Verdaechtigen sind mit Zahlen widerlegt.** Fuelllicht 4,2 % → 12 % (Kontrollbau, Himmel
+x3,062, md5 `7e51b418a30ef7c4da9c056aebfddcde`): Verhaeltnis 8,08 → 7,78, also **0,05 EV von 1,69**,
+und beide Fotoabstaende werden schlechter (Mittel 0,1963 → 0,1830 gegen 0,3120, sd 0,1567 → 0,1462
+gegen 0,2209). Ein Term mal `albedo` kann ein Verhaeltnis zweier Albedos nicht stauchen — das steht
+jetzt als Suchregel in `doc/render/lighting.md` §2.4. Belichtung: 2,50 wird erst bei **+2,05 EV**
+erreicht, dann steht der Kalk auf 0,856 gegen die 0,320 des Fotos. Kurve je Kanal gegen Luminanz:
+8,08 → 8,23, falsche Richtung.
+
+**Das Foto ist ausserhalb von ~2 EV kein Photometer**, und das ist gemessen: es setzt den klaren
+Himmel der Zeile 2 auf **1,74x** den besonnten Kalk desselben Bildes, wo die Sonde dieses Renderers
+0,162x und eine Handrechnung 0,23…0,36x liefert — **2,3…3,4 EV** daneben.
+
+**Die benannte Ursache: `osmDefault: wiese`.** Jedes nicht kartierte Polygon der Erde, auch die
+Almmatte auf 2 000 m, ist eine gemaehte Talwiese mit LAI 4,64; `natural=fell` steht in keiner
+`osm`-Liste. Bilder: `sim/build/out/spread-{nebelhorn,hochkoenig}-base.png`, Kontrollen
+`spread-nebelhorn-swardoff.png` (Aggregat aus, Verhaeltnis 2,56 gegen 2,50 des Fotos) und
+`spread-nebelhorn-fill12.png`.
+
 ### 2026-08-07 — Die LOD-Kette: der ferne Rang traegt 34 052 Baeume fuer 4,68 ms, der nahe kostet 79
 
 **Der Feldpfad zeichnet Laub, und zwar als Clusterkarte.** Zwei Dreiecke schneiden sich

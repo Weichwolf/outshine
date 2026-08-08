@@ -31,6 +31,7 @@ this chain is where it is applied).
 | the curve runs **per channel** | the shoulder desaturating a channel that runs past white is what a photograph of a clear sky does — its blue saturates while red and green climb. Applied to luminance alone the ratio is kept and the channel clips square |
 | the frame is rendered at **fixed 720p** and upscaled to the display | [`../visual-target.md`](../visual-target.md) §2: a quarter of 1440p's pixels, and the film look is what hides the resolution |
 | **anti-aliasing is the priority investment** and it lands here | at 720p, edges are the dominant defect; alpha-cutout foliage in motion is the worst case in the scene |
+| **a reference photograph is a ruler for RATIOS INSIDE ~2 EV and for nothing wider** | MEASURED at the nebelhorn fit pose: the photograph puts the clear sky of row 2 at **1.74×** the sunlit karst of the same frame, where this renderer's own probe puts it at **0.162×** and a hand check off the irradiances puts it at **0.23…0.36×** (`E_sky/π` against `ρ·E_global/π`, at the model's own `0.0539/0.841` and again at 100/980 W m⁻² from the literature). The webcam is **2.3…3.4 EV** out on that one pair. Ground against ground it is usable; ground against sky it is not, and an acceptance number taken across that span measures the camera |
 
 ## State
 
@@ -54,6 +55,13 @@ out      = filmic(lit · expScale)                    per channel, clamped   ←
 | night floor on E | `kNightAmbient` | the residual illumination `SurfaceLight.h` already adds to every surface. **Unexercised — no night frame** |
 | measured, nebelhorn fit pose 2026-07-28 11:00Z | `horizE 0.840962`, `keyLog2 −1.50085`, `expScale 0.368407` | `walk/exposure`, binary md5 `ac7ebf39409b80d65384bcdd0455e60a` |
 | `FB_GEOM` freeze | **1.886873** | derived from the demo scene's own irradiance (`horizE 0.164203`): `kFilmicMid / (0.12 · 0.164203 / π · 11)`. Checked: `FB_GEOM=1` and the metered path render the demo frame to the same mean 163.5, p1 84.9, p99 242.1 |
+
+**The curve's local gamma is measured, because it is what turns a scene ratio into a display ratio.**
+`d log filmic / d log x`, evaluated at the two levels the nebelhorn ground actually occupies:
+**1.561** at `x = 0.0535` (the sward, 1.9 EV under the key) and **0.780** at `x = 0.3124` (the karst,
+1.25 EV over it). A 2.53 EV scene ratio therefore leaves the curve as **3.01 EV**. That expansion is
+an S-curve doing what an S-curve does — it is the frame's contrast — and it is a term in every
+„two classes are too far apart" accounting, never the whole of one.
 
 **What replaced what, and it was one decision with four measurements.** The curve that stood here was a
 logarithmic ramp between an irradiance-derived black anchor and a white anchor **11.686 EV** above it —
@@ -127,8 +135,25 @@ angles. That is how `celestial.md`'s glow row got its measurement.
   nebelhorn: ground p100 `Y = 0.350` against a key of 0.353, ground p50 `Y = 0.148`. The key is the
   radiance of a FLAT surface at the mean reflectance in full sun, so a landscape of slopes sits below it
   by its own mean cosine. The lower-half median comes out 64 … 103 against the photographs' 77 … 114.
-  Whether the key should carry a mean-cosine term is an open question and must not be answered by moving
-  a number until it is measured.
+  **Whether the key should carry a mean-cosine term is still open, and it is now bounded from both
+  sides.** Upper bound, derived: total flux onto a closed rough surface is `E_horiz · A_horiz`, so the
+  mean per unit TERRAIN area is `E_horiz · ⟨cos slope⟩` and the key falls by at most
+  `−log₂⟨cos slope⟩` = **0.21 EV at a 30° mean slope, 0.38 EV at 40°** — the frame gets that much
+  brighter, no more. Measured against what it would have to buy: the rock/sward display ratio at
+  nebelhorn reaches the photograph's 2.50 only at **+2.05 EV** of exposure, at which point the karst
+  sits at display-linear **0.856** (code ≈ 240) against the photograph's **0.320** and the frame mean
+  at **0.56** against **0.312**. The mean cosine is worth a sixth of that and spends all of it making
+  the rock whiter. So it is not the lever for the spread; it is worth having for its own sake if and
+  when a landscape-wide slope statistic exists that is not a statistic of the picture.
+- **The per-channel/luminance question is answered and the answer is „keep per channel", by 0.03 EV.**
+  A/B offline on the delivered nebelhorn frame (the curve is invertible, so the frame IS its own HDR
+  source): applying `filmic` to luminance with the channel ratio carried through moves the rock/sward
+  display ratio **8.08 → 8.23**, i.e. the WRONG way. What it does buy is chroma — the sward's
+  `R/G 0.480 → 0.620` and `B/G 0.429 → 0.549` against the photograph's `0.840 / 0.549` — and the
+  whole-frame mean/sd move 0.1963/0.1567 → 0.1979/0.1591 against 0.3120/0.2209, both marginally
+  toward the photograph. A 0.03 EV cost against a Spec row that has a measurement of its own (the
+  clear sky's blue pinning while red and green climb) is not enough to move the row. It is recorded so
+  that the next round does not re-run it.
 - **`kSceneExposure = 11.0` is now a pure unit choice with a stale derivation.** Its comment still ends
   at „placing that at ACES input 0.32", which was a different placement in a different chain. Under the
   present chain `expScale` divides it straight back out: the product `kSceneExposure · expScale` is the

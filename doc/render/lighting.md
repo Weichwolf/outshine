@@ -121,6 +121,32 @@ darker version of the neighbourhood.
 The lift is `(ao + (1−ao)·0.12)/ao`: **+0.50 EV** where the estimate sits at the AO floor 0.25,
 **+0.06 EV** at the median, and exactly zero where `ao = 1`.
 
+### 2.4 Where a tonal-spread defect can live, and where it provably cannot
+
+Every term of §2 carries the factor `albedo`. Two surfaces in the SAME light therefore stand in the
+ratio of their reflectances whatever the illumination is, and **no change to any irradiance can
+compress or widen that ratio** — raising a fill light adds `ρ·ΔE` to both and leaves `ρ₁/ρ₂` where it
+was. That is not an opinion about magnitudes; it is the algebra of the equation, and it fixes the
+search order for any „two classes are too far apart" report:
+
+| Where the spread between two SUNLIT classes can come from | Can an irradiance change it? |
+|---|---|
+| the two declared reflectances | — they are the ratio |
+| a term that is NOT proportional to albedo (`kSelfShelter`'s near bounce is `alb²`) | only through the albedo asymmetry, **0.09 EV** at the nebelhorn pair (derived) |
+| a per-class surface model between the declared reflectance and the delivered one — the sward aggregate is one | **yes, and it is the only large one** |
+| the display curve's local gamma at the two levels | yes, and it is the exposure that decides which part of the curve they sit on |
+| the sky, the bounce, the shadow fill, the AO floor, the deck | **no.** All of them are `ρ · E` |
+
+**MEASURED, and it is why the fill hypothesis is closed** (nebelhorn fit pose, 320×180, rock/sward
+masks frozen on the reference frame so the population cannot move with the light): building
+`IrradianceStage` with the sky integral scaled ×3.062 — the factor that takes a clear-sky shadow from
+4.2 % of the sunlit level to **12 %**, the middle of the literature band — moves the display ratio
+from **8.08 to 7.78**, i.e. it closes **0.05 EV of 1.69**. It costs the frame in both directions the
+photographs are measured in: whole-frame mean luminance **0.1963 → 0.1830** against the photograph's
+**0.3120**, standard deviation **0.1567 → 0.1462** against **0.2209**. Control binary md5
+`7e51b418a30ef7c4da9c056aebfddcde`, reference `b46d733028f8d4b43d4a6547ba9c44a2`. The exposure follows
+the irradiance, so a brighter sky is a lower `expScale` and the fill gives back most of what it adds.
+
 ### 3. Ambient is not a fudge — it is the light that is actually there
 
 `kNightAmbient` exists today and its own comment calls itself a crutch for the auto-exposure. As
@@ -206,6 +232,10 @@ constant.
   is visible and measured: near-field cast shadow renders at display code 12–15 against 50 in the
   reference photograph, and the shadow's own colour is the product of a blue sky and a green surface —
   B/G **0.52** predicted, 0.52 measured — never the photograph's blue.
+  **What this gap is NOT, and it was the standing hypothesis: it is not the seat of the ground's tonal
+  spread.** §2.4 carries the paired control — closing this number to 12 % moves the rock/sward display
+  ratio by 0.05 EV of 1.69 and moves both photograph distances the wrong way. This entry stays open on
+  its own terms, the level and the colour of a shadow, and it is not the lever for anything else.
 - ~~E_bounce does not exist~~ — **closed**, §2.1, in two half-spaces. What replaces it as a gap:
   `kSelfShelter` 0.35 is `[SET]` with no measurement, and the near term uses the fragment's own albedo
   as the reflectance of its own neighbourhood, which is right for ground and vegetation and wrong for a

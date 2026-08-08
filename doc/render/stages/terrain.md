@@ -171,9 +171,14 @@ transition in 380…780 nm; the CO3 overtones sit at 1.9, 2.16 and 2.35 µm).
 reference frame of 2026-07-28 the sunlit karst plateau (4 169 px at 320×180, selected by saturation
 < 0.12 and R ≥ G) has linear-sRGB luminance **0.3151** and the sunlit alpine sward in the same frame
 (1 150 px, G > R + 0.02, saturation > 0.10) **0.1318** — ratio **2.39**, and a ratio inside one
-photograph carries neither an exposure nor a tone curve. The engine's declared pair is
-`kalk` 0.2823 against the `wiese` row's sward 0.1213, ratio **2.33**. Munsell N6 alone gives 0.2857,
-i.e. 0.02 EV from the photometric number: two independent routes inside a twentieth of a stop.
+photograph carries no exposure. It DOES carry a tone curve, and how much is measured in
+[`tonemap.md`](tonemap.md) `## Spec`; over a pair of sunlit ground classes, inside ~2 EV of each
+other, the carry is small and this is the one comparison these photographs support. Munsell N6 alone
+gives 0.2857, i.e. 0.02 EV from the photometric number: two independent routes inside a twentieth of
+a stop, and `kalk`'s level is what that fixes.
+**The `wiese` sward's 0.1213 is NOT the second half of that pair and must not be read as one** — it
+is a LEAF reflectance, and what the picture shows is the CANOPY built out of it, 0.0486. The full
+accounting is in `## Gaps`.
 
 **`kalkschutt` lost its one-chip step in the same round it was written.** It first carried N7 against
 `kalk`'s N6 (0.4094 against 0.2857, 0.50 EV) on the argument that a talus cone is renewed faster than
@@ -340,15 +345,43 @@ layout has two fewer slots and the whole branch dead-strips into one neutral mat
 
 ## Gaps
 
-- **THE LARGEST OPEN NUMBER THIS FILE LEAVES: the rendered ground spreads two classes 1.95 EV further
-  apart than the photograph does, and the material table is not the reason.** Measured on `nebelhorn`,
-  same pixel classification on both sides at 320×180: photo rock/sward display-linear **2.39**, render
-  **9.21**. The REFLECTANCE ratio is right (2.33 declared against 2.39 measured, 0.04 EV). The
-  Narkowicz fit alone, evaluated at ρ̄ 0.15…0.22, predicts a display ratio of only **2.7…3.2**, and a
-  sun-facing 45° wall against flat ground at 50° sun elevation buys another **0.38 EV**. That leaves
-  about **1.2 EV unaccounted for** — the render's sward sits at 0.0492 where the curve predicts
-  0.077…0.135, and its rock at 0.4530 where the curve predicts 0.245…0.367. Both wrong, in opposite
-  directions. Until this is closed, alpine rock reads as snow in a summer frame.
+- **THE ROCK/SWARD SPREAD IS ACCOUNTED FOR END TO END, and the seat of it is the SWARD, not the rock,
+  not the light and not the curve.** Measured on `nebelhorn` at 320×180 with binary md5
+  `b46d733028f8d4b43d4a6547ba9c44a2`, rock and sward masks frozen on the reference frame (a
+  colour-keyed population moves with the light and is not a ruler; the earlier 9.21/2.39 pair was
+  taken with a looser key that also admitted sky and haze — the same measurement with `R ≥ B` on rock
+  and `G ≥ B` on sward reads **8.08** render against **2.50** photograph, i.e. **1.69 EV** of excess):
+
+  | Step | EV | How |
+  |---|---|---|
+  | declared pair, `kalk` 0.2823 against the `wiese` sward's `colIn` 0.1157 | 1.287 | the two declarations |
+  | **the sward aggregate turns a LEAF reflectance into a CANOPY reflectance** | **1.153** | measured, `FB_TONE_PROBE=-16,4`: sward population mean scene radiance **0.1560** against the flat-sunlit Lambertian **0.3469** at `colIn` |
+  | `kSelfShelter`'s near bounce, which is `alb²` and therefore albedo-asymmetric | 0.088 | derived from the equation of [`../lighting.md`](../lighting.md) §2 |
+  | = the SCENE ratio | **2.528** | measured: probe, rock **0.8999** / sward **0.1560** = 5.769 |
+  | the ACES toe, local gamma **1.561** at the sward against **0.780** at the rock | 0.486 | measured: display 3.014 − scene 2.528, and the two gammas are `d log filmic/d log x` ([`tonemap.md`](tonemap.md) `## State`) |
+  | = the DISPLAY ratio | **3.014** | measured: 8.08 |
+  | photograph | 1.322 | measured: 2.50 |
+  | **unaccounted** | **0.00** | |
+
+  **The rock is exactly where the equation puts it**: probe scene radiance **0.8999** against the
+  derived flat-sunlit Lambertian `3.5014 · 0.2823 · (0.82206 + 0.29434 · 0.2823)` = **0.8947**, i.e.
+  **0.008 EV**. All of the excess is on the sward side, and the paired control says so directly —
+  with `swardAggregate` removed so that the `grasfilz` floor draws as a Lambertian at its own 0.1022,
+  the same frozen masks read **2.56** against the photograph's **2.50** (control binary md5
+  `cd13bde1ecef60dffa383423c304c44b`, frame `sim/build/out/spread-nebelhorn-swardoff.png`).
+  **That control is a diagnosis and NOT a candidate**: the canopy model is not wrong. Its delivered
+  reflectance, 0.0486 against `colIn` 0.1157, sits **0.07 EV** from the two-stream semi-infinite
+  canopy albedo `(1 − √(1 − ω))/(1 + √(1 − ω))` = 0.0511 at the ω = 0.185 `render/Sward.h` already
+  declares in `kScatCut`. A closed green grass canopy has a visible-band luminance factor near 0.05,
+  and this one has it.
+  **What IS wrong is which stand stands there.** `vegetation.json` declares `osmDefault: wiese`, so
+  every unmapped polygon on Earth — including the alpine turf above the treeline at `nebelhorn`,
+  2 000…2 200 m — is a 0.30 m mown lowland hay meadow at 800 blades/m², LAI **4.64**, dry fraction
+  0.30. `natural=fell` is in no template's `osm` list at all. The next round is the alpine sward: a
+  short, half-senescent turf over a stony floor is a different LAI, a different dry share and a floor
+  that shows, and every one of those three raises the delivered reflectance for a reason that is not
+  the picture. Until it exists, the alpine karst reads as snow — not because the rock is wrong, but
+  because its neighbour is 1.15 EV under what a turf returns.
 - **`kalk`'s and `kalkschutt`'s `visibleBroadbandRatio` is a stated 1.000 no-op**, the posture `wasser`
   already takes. The sign is known — calcite's only shortwave absorptions are the three CO3 overtones
   beyond 1.8 µm, so the true ratio is slightly ABOVE 1.000 — and the size is not. ECOSTRESS carries
