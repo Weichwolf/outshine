@@ -12,7 +12,7 @@ worden, dreimal in einer Sitzung.
 **Du schreibst keinen Code und keine Datei.** Du lieferst einen Entwurf oder ein Urteil.
 
 `<repo>/CLAUDE.md` ist bindend und du liest es zuerst, dazu `doc/vision.md` für das Ziel und
-`doc/references.md` für den Maßstab.
+`doc/architecture.md` für den Schnitt. Mehr gibt es nicht — `doc/` hat zwei Dateien.
 
 ## Zwei Aufträge, und der Aufrufer sagt dir welcher
 
@@ -38,7 +38,7 @@ gegenseitig, eine Klasse je Datei.
 **Kanon für die Sache selbst:** Gregory *Game Engine Architecture* · Lengyel *Foundations of Game Engine
 Development* · Akenine-Möller *Real-Time Rendering* · Pharr *Physically Based Rendering* · Lagarde/de
 Rousiers *Moving Frostbite to PBR* · Ebert/Musgrave/Perlin/Worley *Texturing & Modeling* · Ericson ·
-Bridson. `doc/references.md` sagt, wo jeder beißt.
+Bridson. Der Kanon steht in `CLAUDE.md ## Referenzen`.
 
 **Das Bildziel:** GTA 5, Witcher 3, Fallout 4 — 2015er Technik, aber ihr Bildeindruck, und eine World
 Sandbox auf Unreal-Niveau allein aus Kachelserverdaten. Verglichen wird bei **320×180**, weil dort Licht,

@@ -18,10 +18,8 @@ klassifizierte Ding **per Konstruktion dieselbe Linie**.
 ## Haltung
 
 **Die Messlatte ist eine World Sandbox auf Unreal-Niveau, allein aus dem, was der Kachelserver liefert**
-— sie gilt für alles Sichtbare. Das laufende Ziel darunter steht in [`doc/goal.md`](doc/goal.md), bindend
-bis widerrufen; **Kommentare des Eigners schlagen es.** Und **der Weg ist das Ziel**: Monate, kein
-Abnahmetermin — eine Runde, die etwas gelernt hat, ist auch ohne Lieferung eine gute Runde, aber nur,
-wenn das Gelernte **mit seiner Messung** in `## Gaps` stehenbleibt.
+— sie gilt für alles Sichtbare. **Kommentare des Eigners schlagen alles.** Und **der Weg ist das Ziel**:
+Monate, kein Abnahmetermin — eine Runde, die etwas gelernt hat, ist auch ohne Lieferung eine gute Runde.
 
 **Erfinderisch sein, auf Bewährtes aufbauen.** Der Stand der Technik ist geschrieben — siehe
 `## Referenzen`. Der etablierte Weg ist der Ausgangspunkt, **die Abweichung braucht einen Grund**, und
@@ -32,31 +30,36 @@ Bringt ein Ansatz das Bild nicht näher an die Fotografie, fliegt er. **Kein Fre
 jede getroffene *Entscheidung*, nicht die Messpflicht, nicht die Herkunft jeder Zahl, nicht das Löschen
 des Ersetzten in derselben Runde — das sind die Werkzeuge, mit denen revidiert wird.
 
-## Der Dreiklang
+## Wo was steht
 
-> **`doc/` = was wir wollen · `src/` = was wir können · `test/` = was wir beweisen.**
-Jede Aussage hat **genau einen Ort**; `doc/` spiegelt **Verzeichnisse** von `sim/src/`. **Beschreibt ein
-Dokument etwas Gelöschtes, fliegt es** — für die Historie ist Git zuständig. **Kommentare fallen fast
-vollständig weg**; es bleibt EINE Aufgabe: **das lokale Warum am Entscheidungspunkt.**
+| Ort | Inhalt |
+|---|---|
+| **der Code** | was das Ding kann. **Nur Korrektes wird committed** — es gibt keinen zweiten Ort, an dem Korrektheit behauptet wird |
+| **`git log`** | was war. Kein Journal, kein Verlauf in einer Datei |
+| [`doc/vision.md`](doc/vision.md) | wofür, und wo die Latte hängt |
+| [`doc/architecture.md`](doc/architecture.md) | warum der Schnitt so ist |
+| `.claude/agents/` | **`engine-developer`** baut und misst · **`engine-architect`** plant und urteilt, nur lesend |
+| diese Datei | die Regeln. Höchstens **200 Zeilen** |
 
-**Spec zuerst.** Jede Runde ändert ZUERST das `## Spec` ihrer Themendatei, baut, bis `## State` es
-erfüllt, führt `## State`/`## Gaps` nach und schreibt eine Zeile ins `journal.md`. Verworfenes bleibt mit
-seiner **Messung** in `## Gaps`. Dokumente enthalten Gegenwart und Zukunft, nie Vergangenheit. Diese
-Datei bleibt eine **Karte, höchstens 200 Zeilen**; Einstieg ist [`doc/INDEX.md`](doc/INDEX.md).
+`doc/` hat **zwei** Dateien und bekommt keine dritte. Ein Dokument, das beschreibt, was der Code tut, ist
+dasselbe in zwei Sprachen — und die zweite kann lügen. Ein verworfener Versuch wird nicht aufbewahrt: die
+Ausgangslage ändert sich laufend, und eine konservierte Messung führt später in die Irre.
+
+**Kommentare fallen fast vollständig weg.** Es bleibt EINE Aufgabe: **das lokale Warum am
+Entscheidungspunkt**, eine Zeile. Nie, was der Code tut.
 
 ## Prinzipien (nicht verhandelbar)
 
 1. **Rein deklarativ, und die Sprache ist JSON.** Ein Titel bringt **keine `.cpp` und keine Welt**. JSON
    ist schema-prüfbar, diffbar und **erzeugbar**; ein Eigenformat wäre ein Parser, den niemand bestellt
-   hat. Shader für eigenes Aussehen sind erlaubt — Aussehen ist kein Wissen. [`doc/mods.md`](doc/mods.md)
+   hat. Shader für eigenes Aussehen sind erlaubt — Aussehen ist kein Wissen.
 2. **Die Engine ist texturfrei.** Zulässig sind nur der **Cache einer berechenbaren Funktion** (Sky-,
    Transmissions-LUT) und **Messdaten, die naturgemäß ein Raster sind** (DEM, Luftbild, Sterne) — **nie
    autoriertes Aussehen**; es gibt keine Artists. Nebengewinn: Mip-Abhängigkeit, Zoomsprünge,
    Abtastgitter und Filterartefakte **können in einer Funktion nicht auftreten**.
 3. **Die Physik ist unsere eigene und deklarativ.** Fünf Teile — Segmente, Gelenke, Kontakte,
    Kraftquellen, Medium — plus Modell, Materialien, Gehirn; dasselbe Format trägt Möbel, Mensch, Wolf,
-   Panzer, Flugzeug — [`doc/body-format.md`](doc/body-format.md). **Sie muss für die Darstellung
-   reichen, nicht mehr.**
+   Panzer, Flugzeug. **Sie muss für die Darstellung reichen, nicht mehr.**
 4. **Outshine weiß alles, ein Mod kennt nur, was er kennt.** Prüfbar: *braucht das Wissen, das kein
    Teilnehmer haben könnte?* Ja → Engine, sonst Mod. **Mit LLM-Akteuren ist es die tragende Regel**: ein
    Gehirn sieht nur über Sensoren, wirkt nur über simulierte Systeme; ein Kontakt trägt keine Identität.
@@ -73,7 +76,7 @@ Datei bleibt eine **Karte, höchstens 200 Zeilen**; Einstieg ist [`doc/INDEX.md`
 **EIN Programm, zwei Übersetzungen, EIN Eintrittspunkt.** `clients/Outshine` besitzt World und
 Renderer und ist das Einzige, was eine Welt aufbaut; ein Client ist `main()` plus Ausgabemedium
 darüber — **`gpu_walk`** (nativ, Frame-Orakel, Bank `WalkBench`) und **wasm** (Browser, `Walker`).
-Beide lesen nur `mods/demo/scene.json`. Eine gemeinsame Quellenliste allein deckte den Drift zehn
+Beide bekommen zwei Wörter: welcher Mod, welche Szene. Eine gemeinsame Quellenliste allein deckte den Drift zehn
 Runden: sie beweist, dass beide *übersetzen*, nicht, dass beide dasselbe *zeigen* — das tut
 `verify-clients`.
 
@@ -120,7 +123,7 @@ springt. **Ein Beleg aus einem Standbild belegt sie nicht** — bewegte Aufnahme
 **Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — VERBINDLICH.**
 Sie entscheiden Besitz, Lebensdauer, Schnittstelle und Stil; eine Abweichung ist ein Fehler, bis sie mit
 Grund danebensteht, und gegen eine Hausmeinung gewinnen sie. Der Rest ist Kanon, kein Gesetz —
-Ausgangspunkt statt Eigenerfindung; wo jeder Titel beißt, sagt [`doc/references.md`](doc/references.md).
+Ausgangspunkt statt Eigenerfindung.
 
 | Feld | Titel |
 |---|---|
