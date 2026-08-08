@@ -99,17 +99,32 @@ numbers, and it carries no field that could switch a pipeline state** — no ble
 shader body, no attribute layout. A generator supplies no shader source at all, so a region crossing
 compiles nothing; it writes into buffers that already exist.
 
-What the core provides instead of blend declarations:
+**A generator declares optical properties of a thing in the world** — reflectance, roughness, coverage,
+transmission, tint, index of refraction, emission — and the core derives the state from them. Coverage
+below one with no transmission is discarded against a threshold; transmission through something thin is
+lit from both sides; transmission through something smooth and refractive is blended back to front. The
+generator never names a blend mode, and the core never asks what the thing is.
 
-- **Coverage, not blending.** A fragment yields a coverage value and is discarded against a threshold —
-  opaque depth, one pass. That is what shipped foliage pipelines do, and it is why foliage works in a
-  shadow map at all.
-- **Two-sidedness is a core decision**, taken once for everything, not a material property.
-- **Transmission is a term** in the one surface model, not a second lighting path.
+**Transparency costs no pass, and that follows from the same property that forbids a visibility buffer.**
+A blend state is a *pipeline* state: a second pipeline inside one render pass costs a state change and a
+draw call, not the store-and-load from tile memory. Our scene pass is **forward** — every surface splices
+the same lighting and binds the same light data — so there is no G-buffer for transparency to fall out
+of. Engines that need a separate forward pass for it need one because their opaque path is deferred.
 
-Order-dependent transparency — glass one sees a room through, smoke — is a **core decision with its own
-justification against the price of a pass**, and when it is taken it holds for everything. Never because
-a generator asked for it.
+Three optical protocols therefore live inside the one scene pass: **opaque**; **coverage** for leaf,
+needle, fence and grate, discarded in the opaque part and writing depth; and **transmission** for glass,
+blended after the opaque part with depth writes off. Foliage needs no blending at all — it is a binary
+coverage mask cut in the fragment, which is why it works in a shadow map.
+
+**Water is not a transparency case.** Depth below the surface is the water level minus the ground height,
+and the core owns both exactly — so the body colour follows analytically from that depth and the rest is
+reflection. No blended fragment, more accurate than blending, and it reuses the numbers physics needs
+anyway.
+
+Sorting stays cheap because the *amount* is a picture decision, not a hope: at the resolution where light,
+colour and silhouette decide, a distant window is a dark reflecting rectangle, not a view into a room.
+Real blending is a near-field case — the windscreen of the vehicle one sits in. Above a declared budget of
+blended clusters the **core** changes its resolution method; a generator never can.
 
 **Geometry consolidates before it is drawn.** Every generator delivers into one cluster format with a
 model-space error, and one screen-space-error rule selects across all of them. There is one ladder, not
