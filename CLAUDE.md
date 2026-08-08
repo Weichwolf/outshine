@@ -88,10 +88,11 @@ Frame ist ein **Feld**, kein Grund, den Lauf zu verwerfen. **Leistung ist eine V
 bewegte Kamera** — p50/p95/p99, nie Mittelwert, nie Minimum. Jede Zeile trägt Mod, Szene, wasm-Hash und
 Browserversion.
 
-**Ein Ladevorgang blockiert NIE den Renderer.** Der Renderer läuft durchgehend — er zeigt erst den
-Fortschritt, dann die Welt; Outshine wärmt nicht auf. Holen, Dekodieren und Hochladen laufen neben ihm,
-und was pro Frame auf die GPU geht, ist ein Budget. **Ein Ruckler beim Nachladen ist ein Fehler**, kein
-Naturgesetz — und er ist genau die Sorte, die ein Standbild nicht zeigt.
+**Erstladung und Nachströmen sind zwei Dinge.** Die Erstladung hält die Welt zurück und zeigt
+Fortschritt — dafür ist der Ladebildschirm da; Outshine wärmt nicht auf. **Was während des Spielens
+nachströmt, hält die Pipeline NIE an**: Holen und Dekodieren laufen neben dem Renderfaden, das Hochladen
+je Frame ist ein Budget, und eine Kachel wird sichtbar, wenn sie fertig ist — nie halb. **Ein Ruckler
+beim Nachladen ist ein Fehler**, kein Naturgesetz, und genau die Sorte, die ein Standbild nicht zeigt.
 
 **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
 muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
