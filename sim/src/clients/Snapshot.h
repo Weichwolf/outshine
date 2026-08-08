@@ -36,7 +36,7 @@ public:
 
   const std::string &Error() const { return Error_; }
   const std::string &Name() const { return Name_; }
-  const std::string &ScenePath() const { return ScenePath_; }
+  const std::string &SceneId() const { return ScenePath_; }
   const std::string &Client() const { return Client_; }
 
   double Lat() const { return Lat_; }

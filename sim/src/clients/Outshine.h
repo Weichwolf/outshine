@@ -7,6 +7,7 @@
 #include <string>
 
 #include "ExposureParams.h"
+#include "FrameTelemetry.h"
 #include "Forest.h"
 #include "GroundMaterials.h"
 #include "Renderer.h"
@@ -14,6 +15,7 @@
 #include "SceneWeather.h"
 #include "Standpoint.h"
 #include "State.h"
+#include "Telemetry.h"
 #include "VegetationTemplates.h"
 #include "World.h"
 
@@ -57,20 +59,24 @@ public:
 
   Outshine(const Scene &scene, const Assets &assets);
 
-  /* The bench's brackets over the declaration. All are read by Prepare/Open, so they are refused
+  /* THE ONLY TWO THINGS A CLIENT STILL SAYS. The tile server's address is where this machine
+   * reaches the data and no property of the world; the stance is overridden only by a snapshot
+   * another client wrote (Snapshot.h). Both are read by Prepare/Open, so they are refused
    * afterwards rather than silently ignored. */
   void SetTilesBase(const std::string &url) { if (Phase_ == Phase::Declared) Base_ = url; }
-  void SetViewM(double m) { if (Phase_ == Phase::Declared) ViewM_ = m; }
-  void SetOrthoM(double m) { if (Phase_ == Phase::Declared) OrthoM_ = m; }
-  void SetExposureCompEv(double ev) { if (Phase_ == Phase::Declared) Exposure_.CompEv = (float)ev; }
-  void SetWind(double fromDeg, double speedMs) {
-    if (Phase_ != Phase::Declared) return;
-    WindDeg_ = fromDeg;
-    WindMs_ = speedMs;
-  }
   void SetStance(const Stance &s) { if (Phase_ == Phase::Declared) Stance_ = s; }
-  void SetEyeAglM(double m) { if (Phase_ == Phase::Declared) Stand_.SetEyeAglM(m); }
-  void SetLensAslM(double m) { if (Phase_ == Phase::Declared) Stand_.SetLensAslM(m); }
+
+  /* WHAT AN ANIMATION CHANNEL MAY MOVE PER FRAME (Animation.h). Each one ends in a renderer setter
+   * that is safe to call inside a run; the quantities that are NOT here are the ones a mid-run
+   * change would have to re-bake, and they are named in doc/clients/clients.md's Gaps. */
+  void SetFovDeg(double deg);
+  void SetExposureCompEv(double ev);
+  void SetSkyOffsetS(double s);
+
+  /* THE FPS SPECTRUM RIDES ALONG (FrameTelemetry.h). Frame() feeds it and emits one row per second,
+   * so a client that only draws is observable without declaring a measurement. A null sink makes
+   * the whole path a clock read. */
+  void SetTelemetrySink(TelemetrySink *sink) { Bus_.SetSink(sink); }
 
   /* TWO PHASES, because one consumer stops between them: the subject bench (goal.md §3) judges a
    * plant with no world and no network at all, so it prepares and never opens. */
@@ -103,6 +109,7 @@ public:
   const World::VegetationTemplates &Vegetation() const { return Veg_; }
   const World::GroundMaterials &Materials() const { return Mats_; }
   const Scene &Declared() const { return Scene_; }
+  const Assets &Files() const { return Assets_; }
 
   double Lat() const { return Stance_.Lat; }
   double Lon() const { return Stance_.Lon; }
@@ -137,6 +144,9 @@ private:
   World::Forest Forest_;
   World::Standpoint Stand_;
   State State_;
+  FrameTelemetry Frames_;
+  TelemetryBus Bus_;
+  double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;
 
   std::string Base_ = "http://localhost:8081";
   double ViewM_ = 60000.0, OrthoM_ = 0.0;

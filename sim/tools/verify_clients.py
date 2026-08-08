@@ -31,8 +31,9 @@ SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "src")
 
 ENTRY_POINTS = ("AppWalk.cpp", "AppWasm.cpp")
 # An entry point's whole world. Everything else it might want is Outshine's or the bench's.
-ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "WalkBench.h", "Walker.h", "Scene.h",
-                  "Snapshot.h"}
+ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "Walker.h", "Scene.h", "Snapshot.h",
+                  "Mod.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
+                  "ServerLog.h", "ServerTelemetry.h"}
 # F.3. 40 native / 30 browser was the owner's order of magnitude; this is that with headroom for the
 # emscripten glue, and it is deliberately not generous.
 MAIN_LINES_MAX = 40
@@ -54,7 +55,7 @@ BUILDER_DIRS = ("world",)
 # THE SUBJECT BENCH reaches past the system on purpose: it replaces the world and the light with
 # declared ones and judges a single plant (doc/goal.md §3). Its length is printed, exactly like
 # verify-layers prints its registry-reader count -- a second one moves the number.
-BENCH_BUILDERS = ("clients/WalkBench.cpp", "clients/SubjectBench.cpp")
+BENCH_BUILDERS = ("clients/SceneRunner.cpp", "clients/SubjectBench.cpp")
 
 RE_INCLUDE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.M)
 RE_MAIN = re.compile(r"^(?:int|auto)\s+main\s*\(", re.M)

@@ -1,19 +1,13 @@
 #include "GpuTimer.h"
 #include "Log.h"
-#include <cstdlib>
 
 namespace outshine::Render {
 
-bool GpuTimer::Wanted(void) {
-  static const bool on = [] {
-    const char *e = getenv("FB_GPUTIME");
-    return e && atoi(e) != 0;
-  }();
-  return on;
-}
-
-void GpuTimer::Configure(const wgpu::Device &dev) {
-  if (!Wanted()) return;
+void GpuTimer::Configure(const wgpu::Device &dev, bool featureGranted) {
+  if (!featureGranted) {
+    Log::Warn("render", "gputime_unavailable");
+    return;
+  }
   Dev_ = dev;
 
   wgpu::QuerySetDescriptor qd{};
@@ -75,22 +69,23 @@ void GpuTimer::Poll(void) {
           if (t) {
             /* A pass that did not run leaves its pair unwritten; -1 says absent, which is a different
              * fact from 0.0 ms and must not be averaged with it. */
-            double ms[kPassCount];
-            double sum = 0.0;
-            for (int i = 0; i < kPassCount; i++) {
-              if (!Used_[i] || t[i * 2 + 1] <= t[i * 2]) { ms[i] = -1.0; continue; }
-              ms[i] = (double)(t[i * 2 + 1] - t[i * 2]) * 1.0e-6;   /* ticks are nanoseconds */
-              sum += ms[i];
-            }
-            Log::Debug("render", "gputime",
-                       {{"computeMs", ms[Compute]}, {"shadowMs", ms[Shadow]}, {"sceneMs", ms[Scene]},
-                        {"cloudMs", ms[Cloud]}, {"aoMs", ms[Ao]}, {"taaMs", ms[Taa]},
-                        {"tonemapMs", ms[Tonemap]}, {"overlayMs", ms[Overlay]}, {"sumMs", sum}});
+            for (int i = 0; i < kPassCount; i++)
+              Last_[i] = (!Used_[i] || t[i * 2 + 1] <= t[i * 2])
+                             ? -1.0
+                             : (double)(t[i * 2 + 1] - t[i * 2]) * 1.0e-6;   /* ticks are ns */
+            Fresh_ = true;
           }
           Read_[slot].Unmap();
         }
         Busy_[slot] = false;
       });
+}
+
+bool GpuTimer::Take(double ms[kPassCount]) {
+  if (!Fresh_) return false;
+  for (int i = 0; i < kPassCount; i++) ms[i] = Last_[i];
+  Fresh_ = false;
+  return true;
 }
 
 } // namespace outshine::Render

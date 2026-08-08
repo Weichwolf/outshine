@@ -9,9 +9,13 @@
 #include <emscripten.h>
 #include <emscripten/html5.h>
 
+#include "Env.h"
 #include "Log.h"
 #include "LogSinks.h"
+#include "Mod.h"
 #include "Outshine.h"
+#include "ServerLog.h"
+#include "ServerTelemetry.h"
 #include "Snapshot.h"
 #include "Walker.h"
 
@@ -19,9 +23,9 @@ using namespace outshine;
 
 namespace {
 
-/* Preloaded into emscripten's virtual FS by the wasm target: these are the only files this client
- * reads, and all of them are hard-wired. */
-const char *kScenePath = "/scene.json";
+/* Preloaded into emscripten's virtual FS by the wasm target. `/mods` is the SAME directory the
+ * native oracle reads off disk, so `<mod> <scene>` means the same two words in both translations. */
+const char *kModRoot = "/mods";
 const char *kCanvas = "#gpu";
 const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.json",
                                         "/species.json", "/moon.jpg"};
@@ -30,8 +34,11 @@ const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.j
 constexpr double kLateMs = 25.0;
 constexpr double kLogEveryMs = 2000.0;
 
-Clients::Scene gScene;
+Clients::Mod gMod;
+const Clients::Scene *gScene = nullptr;
 std::unique_ptr<Clients::Outshine> gApp;
+std::unique_ptr<Clients::ServerLog> gLog;
+std::unique_ptr<Clients::ServerTelemetry> gTelemetry;
 Clients::Walker gWalker;
 
 double gPrevMs = 0.0, gLastLogMs = 0.0, gLastCpuMs = 0.0, gLastEncodeMs = 0.0;
@@ -42,7 +49,7 @@ bool gShotPending = false;
 unsigned gShotNo = 0;
 
 Clients::Outshine::Stance DeclaredStance(void) {
-  return {gScene.Lat(), gScene.Lon(), gScene.YawDeg(), gScene.PitchDeg()};
+  return {gScene->Lat(), gScene->Lon(), gScene->YawDeg(), gScene->PitchDeg()};
 }
 
 bool OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
@@ -103,7 +110,7 @@ void PostShot(void) {
 
   Clients::Snapshot snap;
   snap.SetName(name);
-  snap.SetScene(gScene);
+  snap.SetScene(*gScene);
   snap.SetCamera(gApp->Lat(), gApp->Lon(), gApp->YawDeg(), gApp->PitchDeg());
   const Clients::Outshine::Counters c = gApp->Measured();
   snap.SetDerived(c.GroundAslM, c.AltAslM, gApp->SunElDeg(), gApp->SunAzDeg());
@@ -189,27 +196,54 @@ void BindInput(void) {
                                             OnLockChange);
 }
 
-std::string TilesBase(void) {
-  const char *js = emscripten_run_script_string(
-      "(window.FB_TILES_URL||'http://localhost:8081').toString()");
-  return js && js[0] ? std::string(js) : std::string("http://localhost:8081");
+/* THE PAGE IS THE ENVIRONMENT here, exactly as getenv is natively (Env.h): which mod, which scene,
+ * where the tiles are, which build this is. Nothing about the world comes through this door. */
+std::string PageValue(const char *expr, const char *fallback) {
+  const char *js = emscripten_run_script_string(expr);
+  return js && js[0] ? std::string(js) : std::string(fallback);
+}
+
+/* Boot in its own function so main() stays an entry point (verify-clients, F.3). */
+bool Boot(void) {
+  const std::string modName = PageValue("(window.FB_MOD||'demo').toString()", "demo");
+  const std::string sceneId = PageValue("(window.FB_SCENE||'walk').toString()", "walk");
+  if (!gMod.Load(kModRoot, modName)) {
+    Log::Error("run", "mod_load_failed", {{"why", gMod.Error()}});
+    return false;
+  }
+  gScene = gMod.Find(sceneId);
+  if (!gScene) {
+    Log::Error("run", "unknown_scene", {{"mod", modName}, {"asked", sceneId},
+        {"has", gMod.Ids()}});
+    return false;
+  }
+  gLog = std::make_unique<Clients::ServerLog>(
+      PageValue("(window.FB_SIM_URL||'').toString()", ""),
+      Clients::ServerLog::Identity{modName, sceneId, "wasm",
+                                   PageValue("(window.FB_BUILD||'').toString()", ""),
+                                   PageValue("location.host", "")});
+  static Clients::CompositeLogSink both;
+  static Clients::StdoutLogSink console;
+  both.Add(&console);
+  both.Add(gLog.get());
+  Log::SetSink(&both);
+
+  gTelemetry = std::make_unique<Clients::ServerTelemetry>(
+      PageValue("(window.FB_SIM_URL||'').toString()", ""), gLog->RunId());
+  gApp = std::make_unique<Clients::Outshine>(*gScene, kAssets);
+  gApp->SetTelemetrySink(gTelemetry.get());
+  gApp->SetTilesBase(PageValue("(window.FB_TILES_URL||'http://localhost:8081').toString()",
+                               "http://localhost:8081"));
+  return gApp->Configure({kCanvas, 1280, 720});
 }
 
 }  // namespace
 
 int main(void) {
-  static Clients::StdoutLogSink sink;
-  Log::SetSink(&sink);
+  static Clients::StdoutLogSink boot;
+  Log::SetSink(&boot);
   Log::SetLevel(LogLevel::Debug);
-
-  if (!gScene.Load(kScenePath)) {
-    Log::Error("walk", "scene_load_failed", {{"path", std::string(kScenePath)},
-        {"why", gScene.Error()}});
-    return 1;
-  }
-  gApp = std::make_unique<Clients::Outshine>(gScene, kAssets);
-  gApp->SetTilesBase(TilesBase());
-  if (!gApp->Configure({kCanvas, 1280, 720})) return 1;
+  if (!Boot()) return 1;
 
   gWalker.Reset(DeclaredStance());
   BindInput();

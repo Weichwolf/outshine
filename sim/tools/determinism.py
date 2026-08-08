@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Run one render command N times, group the results by md5, and quantify the spread.
 
-  tools/determinism.py -n 12 -- ./build/gpu_walk --size 640x360 --warm 240 --yaw 190
+  tools/determinism.py -n 12 -- ./build/gpu_walk demo frame
 
-The command must accept --out PATH; the tool injects it. Every state that appears gets one
+The command is a declared run; the tool re-runs it into its own artifact root (OUTSHINE_OUT) and
+compares the one PNG each run wrote. Every state that appears gets one
 representative PNG kept in the work dir. If more than one state appears, the two most frequent are
 differenced pixel by pixel and the difference is reported as: share of pixels off by more than 2
 codes, share off by more than 32, the maximum deviation, and the bounding rows/columns of the
@@ -135,17 +136,24 @@ def main():
 
     states, order, runs, bins = {}, [], [], {}
     for i in range(args.runs):
-        out = os.path.join(args.dir, "run%03d.png" % i)
+        # The declared run names its own artifact; only the ROOT is the tool's. Whatever single PNG
+        # the run wrote is the state under comparison.
+        root = os.path.join(args.dir, "run%03d" % i)
+        os.makedirs(root, exist_ok=True)
         # The binary is measured per run, not once: a concurrent build swapping it under the
         # experiment is indistinguishable from nondeterminism unless it is recorded here.
         bh = binhash()
         bins.setdefault(bh, []).append(i)
         t0 = time.time()
-        r = subprocess.run(cmd + ["--out", out], capture_output=True, text=True)
+        env = dict(os.environ)
+        env["OUTSHINE_OUT"] = root
+        r = subprocess.run(cmd, capture_output=True, text=True, env=env)
         dt = time.time() - t0
-        if r.returncode != 0 or not os.path.exists(out):
-            print("run %d FAILED rc=%d\n%s" % (i, r.returncode, r.stderr[-2000:]))
+        pngs = [os.path.join(root, f) for f in sorted(os.listdir(root)) if f.endswith(".png")]
+        if r.returncode != 0 or len(pngs) != 1:
+            print("run %d FAILED rc=%d, %d png\n%s" % (i, r.returncode, len(pngs), r.stderr[-2000:]))
             continue
+        out = pngs[0]
         h = hashlib.md5(open(out, "rb").read()).hexdigest()
         if h not in states:
             states[h] = []
@@ -156,7 +164,7 @@ def main():
         if args.log:
             open(os.path.join(args.dir, "run%03d.log" % i), "w").write(r.stdout + r.stderr)
         if not args.keep_all:
-            os.remove(out)
+            shutil.rmtree(root, ignore_errors=True)
         print("run %3d  %s  %5.1fs  state %d" % (i, h[:8], dt, order.index(h)), flush=True)
 
     print("\n%d runs, %d distinct states" % (len(runs), len(states)))

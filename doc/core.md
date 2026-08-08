@@ -26,6 +26,10 @@ behaviour**.
 | `core/` never points at any layer above it | include graph; `grep -rn '#include' sim/src/core` finds only `core/`'s own headers and standard headers |
 | I/O-free, not format-free | no `FILE*`/`fstream`; `snprintf` into a local buffer is allowed ([`conventions.md`](conventions.md)) |
 | Events run through `Log`, periodic state through `TelemetryBus` | no scattered `printf` outside the sink implementations and `clients/` |
+| **Both channels end at `fb-sim`, not in a terminal nobody reads** | the sinks are `clients/`'s (core stays I/O-free), but the contract is here: a run is reconstructible from the server's copy alone. See [`clients/clients.md`](clients/clients.md) |
+| **The FPS spectrum is a telemetry row, one per second** | per stage the MEAN over the second — the question is *where the time goes*, and a share is a mean. For the whole frame the DISTRIBUTION p50/p95/p99 — the question is *whether it stutters*, and a mean is exactly what hides it (`CLAUDE.md`: never a mean, never a minimum). The two aggregations differ on purpose |
+| **Graded honesty about what the device grants** | the frame distribution costs a clock read and is always there. The per-stage times need WebGPU `timestamp-query`, which Chrome only grants under `--enable-dawn-features=allow_unsafe_apis`; without it the row says `gpu=absent` and the stage columns stay EMPTY. **An absent measurement is not a measurement of zero.** A pass that did not run in a frame is likewise skipped, not averaged as 0 |
+| **A keyframe evaluator is a CORE capability, not a scene-format feature** | Prinzip 3's joints, an entity on a searched path and the smoothing of OSM geometry all need the same arithmetic, and none of them reads JSON. `core/Keyframes` evaluates; `core/CatmullRom` supplies tangents; the JSON reader is `clients/Animation` (F.2) |
 | Every number carries its provenance | derived / measured / `[SET]` — see [`conventions.md`](conventions.md) |
 
 ## State
@@ -38,6 +42,9 @@ behaviour**.
 | `State.h` + `AvionicsBlocks.h` — **two blocks left**, `Platform` and `Env`; the other 22 went with their writers | built, and read by `Renderer` and `SubjectBench` only |
 | `ElevationProvider.h` — the hook | built, header-only. **No implementation ships**: constant, runway-plateau, baked-DEM and tiles providers are all deleted; both clients read ground straight out of `world/terrain`'s stream |
 | `Geodesy`, `Units`, `Mat4`, `Camera` | built, header-only, subject-independent |
+| **`Keyframes`** — the evaluator | **built 2026-08-08.** A non-owning VIEW over the caller's arrays: N components with a stride, STEP / LINEAR / CUBICSPLINE (glTF's Hermite basis with the tangents scaled by the segment length), interval by binary search, result written into a caller-provided buffer. No virtual call and no allocation on the path, because the heaviest consumer is a bake over hundreds of thousands of points |
+| **`CatmullRom`** — the tangent supplier | **built 2026-08-08.** `CurveKnots` (centripetal α = 0.5 / chordal / uniform) and `CatmullRomTangents`, which writes glTF triples straight into the layout `Keyframes` reads. Separate from the evaluator (F.2): one consumer brings tangents, two have only points |
+| **`FrameTelemetry`** (in `clients/`, rank 1.5 with the other sink-side files) | **built and measured 2026-08-08.** One row a second: `frames, windowMs, fps, p50Ms, p95Ms, p99Ms, maxMs, gpu, computeMs…overlayMs, gpuSumMs`. Measured on `demo/frame`, native, 1280 × 720: p50 **6.08 ms** / p95 **8.14** / p99 **18.45** in the sixth second of streaming, with `sceneMs` 4.35, `taaMs` 4.15, `aoMs` 3.56, `shadowMs` 1.90 as means over that second |
 | Calendar (`CivilTime.h`) + sun/moon ephemeris (`Ephemeris.h`) | built. Pure functions, no state; the ephemeris sits in `core/` because `core/` may not include `render/` |
 | Weather providers (`WeatherProvider.h` + `CalmWeather`, `ConstantWindWeather`) | built — see [`world/weather.md`](world/weather.md) |
 | `Store.h`, `Countermeasure.h`, `Emitter.h`, `Flight.h`, `NetReport.h`, `Team.h`, `VisualContact.h`, `WeaponUplink.h`, `Mode.h`, `BlockStatus.h` | **the last combat value types**, alive only because `world/World.cpp` includes `units/Unit.h` for its effect path. Measured 2026-08-07: `Countermeasure.h` carries 3 of the 4 aircraft-type mentions `verify-types` still counts, plus most of its 68 uncounted ordnance mentions |
@@ -52,7 +59,20 @@ behaviour**.
 2. **`ElevationProvider` has no implementation in the tree.** The header is on both clients' include
    lines and nothing derives from it; ground comes out of `world/terrain`'s tile stream directly. Either
    an implementation lands or the hook goes.
-3. **`core/` still carries ten value types it cannot justify** — see the last row of `## State`. They
+3. **Arc-length reparameterisation is not built, and somebody has to DECIDE it rather than drift into
+   it.** A spline through evenly spaced waypoints does not give even speed: the parameter `t` is not
+   arc length, so an entity accelerates and brakes between points — visible as gliding and dragging,
+   and exactly the class of defect a still cannot show. For a camera move `t` is RIGHT, because the
+   author places the keyframes; for a walking entity it is WRONG. The consumer that will need it is
+   the path follower, not the scene channel. Standard cure: a length table or a Newton iteration.
+4. **`world/ClassField.cpp`'s `CurveRing()` still derives its own centripetal Catmull-Rom** (α = 0.5,
+   `kCurveTolM` = 0.60 m) instead of calling `core/CatmullRom`. It is not a duplicate today — the road
+   smoothing that will make it one has not been built — and the cut is such that it becomes a call and
+   not a second implementation.
+5. **`Keyframes` has no test.** `sim/test/` does not exist ([`INDEX.md`](INDEX.md)); the only thing
+   holding the evaluator honest today is that `demo/frame` reproduces the oracle bit for bit with an
+   empty channel list, which exercises nothing but the empty case.
+6. **`core/` still carries ten value types it cannot justify** — see the last row of `## State`. They
    leave when `world/World.cpp`'s effect path stops needing `units/Unit.h`.
 
 The **three-state validity head** (`Invalid` / `Valid` / `Held`) is the one idea from the deleted block

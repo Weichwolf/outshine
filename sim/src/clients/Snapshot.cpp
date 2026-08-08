@@ -49,7 +49,7 @@ bool Near(double a, double b, double tol) { return std::fabs(a - b) <= tol; }
 void Snapshot::SetName(const char *name) { Name_ = name ? name : ""; }
 
 void Snapshot::SetScene(const Scene &s) {
-  ScenePath_ = s.Path();
+  ScenePath_ = s.Id();
   SceneLat_ = s.Lat();
   SceneLon_ = s.Lon();
   SceneEyeM_ = s.EyeM();

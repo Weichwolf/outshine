@@ -18,6 +18,9 @@ import io
 import json
 import math
 import pathlib
+import sys as _sys
+_sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import webcammod
 import sys
 import urllib.request
 
@@ -76,7 +79,7 @@ def main():
     ap.add_argument("--z", type=int, default=14)
     ap.add_argument("--ring", type=int, default=1)
     a = ap.parse_args()
-    cams = {c["slug"]: c for c in json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]}
+    cams = {c["slug"]: c for c in webcammod.cams()}
     want = a.only.split(",") if a.only else CAMS
     grids = [int(g) for g in a.grid.split(",")]
 

@@ -31,6 +31,7 @@ WARUM DIESE ZAHL HAELT -- vier Punkte, und jeder ist gemessen statt behauptet.
 import argparse
 import hashlib
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -99,7 +100,6 @@ def main():
     ap.add_argument("--photo", action="store_true")
     ap.add_argument("--only")
     o = ap.parse_args()
-    cams = {c["slug"]: c for c in json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]}
     want = o.only.split(",") if o.only else CAMS
 
     if o.render:
@@ -109,12 +109,10 @@ def main():
         for s in want:
             if (d / f"{s}-fit.f32").exists():
                 continue
-            subprocess.run([str(pathlib.Path(o.render).resolve()),
-                            "--scene", str(SIM / "web" / "cams" / f"{s}-fit-scene.json"),
-                            "--out", str(d / f"{s}-fit.png"), "--depth", str(d / f"{s}-fit.f32"),
-                            "--warm", "20000",
-                            "--eye-asl", f"{float(cams[s]['altM']):.2f}", "--size", f"{W}x{H}"],
-                           capture_output=True, text=True, cwd=str(SIM))
+            # The fit scene declares its own PNG and its own depth file (mods/webcams).
+            subprocess.run([str(pathlib.Path(o.render).resolve()), "webcams", f"{s}-fit"],
+                           capture_output=True, text=True, cwd=str(SIM),
+                           env=dict(os.environ, OUTSHINE_OUT=str(d)))
         return 0
 
     A = pathlib.Path(o.a)

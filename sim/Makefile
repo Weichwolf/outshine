@@ -77,11 +77,14 @@ TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLe
 # THE ONE PROGRAM. Outshine owns World + Renderer and is the only thing in the tree that builds a
 # scene; a client adds an entry point and an output medium over it. Both link this list, which is
 # what `make verify-clients` holds them to.
-APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Snapshot.cpp \
-  src/clients/LogSinks.cpp
+APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
+  src/clients/Animation.cpp src/clients/Snapshot.cpp src/clients/LogSinks.cpp \
+  src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
+  src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
+  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp
 
 PEDESTRIAN_SRCS := \
-  src/core/Log.cpp src/core/Telemetry.cpp \
+  src/core/Log.cpp src/core/Telemetry.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
   src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 
@@ -89,9 +92,9 @@ PEDESTRIAN_SRCS := \
 WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
   $(patsubst src/world/terrain/%.cpp,build/obj-wasm/%.o,$(wildcard src/world/terrain/*.cpp))
 
-# THE ONE SCENE (doc/goal.md §1). Both clients hard-wire it; this is only where the browser build
-# finds the file to preload.
-SCENE_JSON := ../mods/demo/scene.json
+# THE MODS, whole. A mod is a set of declared scenes and nothing else; the browser gets the same
+# directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
+MODS_DIR := ../mods
 
 .PHONY: help wasm worker walk treebench verify-layers verify-types verify-trees verify-clients image up down restart clean
 
@@ -111,16 +114,16 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
-	    $(INC_WASM) $(INC_CLIENT) \
+	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free \
 	    --preload-file web/moon.jpg@/moon.jpg \
-	    --preload-file $(SCENE_JSON)@/scene.json \
+	    --preload-file $(MODS_DIR)@/mods \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
 	    --preload-file assets/world/species/buche.json@/species.json \
     --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js + web/fbtileworker.js (scene: $(SCENE_JSON))"
+	  echo "WASM -> web/gpu.js + web/fbtileworker.js (mods: $(MODS_DIR))"
 
 worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
@@ -151,7 +154,7 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
 	  c++ src/world/TerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_NATIVE) $(INC_TILES) \
 	    -isystem $(CURL_COMPAT) -c -o build/obj-walk/TerrainLoader.o; \
-	  c++ src/clients/AppWalk.cpp src/clients/WalkBench.cpp src/clients/SubjectBench.cpp $(APP_SRCS) \
+	  c++ src/clients/AppWalk.cpp $(APP_SRCS) \
 	    src/world/World.cpp $(PEDESTRIAN_SRCS) \
 	    $(RENDER_SRCS) \
 	    build/obj-walk/*.o \

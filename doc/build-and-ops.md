@@ -57,7 +57,7 @@ Every project carries its own Makefile. `make help` prints the live list; this t
 
 | Target | Result |
 |---|---|
-| `walk` | `build/gpu_walk` — **the pedestrian frame oracle**: `render/` + `world/` + the core value translation units those two reference |
+| `walk` | `build/gpu_walk` — **the pedestrian frame oracle**: `render/` + `world/` + the core value translation units those two reference. Invoked `gpu_walk <mod> <scene>` and nothing else |
 | `wasm` | `web/gpu.js` + `web/gpu.wasm` — **depends on `worker` and always builds both** |
 | `worker` | `web/fbtileworker.js` + `.wasm` — callable on its own |
 | `image`, `up`, `down`, `restart` | container build and lifecycle; the image compiles `src/clients/SimHost.cpp` and nothing else |
@@ -68,6 +68,23 @@ Every project carries its own Makefile. `make help` prints the live list; this t
 
 If the tile worker is missing, the WASM app hangs silently at startup (a 404 in the worker). Hence the
 fixed dependency instead of two separately memorised targets.
+
+### The environment, and why each entry is environment and not a declaration
+
+The test is one question: **does this differ between a laptop, a container and a browser while the
+scene stays the same word for word?** Everything about the world, the camera, the clock, the weather
+and the recording fails that test and lives in `mods/` ([`mods.md`](mods.md)). Five things pass it.
+
+| Name (native `getenv` · browser `window.`) | Default | Why it is environment |
+|---|---|---|
+| `OUTSHINE_TILES` · `FB_TILES_URL` | `http://localhost:8081` | the ADDRESS of a service, not a property of the world. `localhost` from a shell, a published host name from a page, a container name from a compose network — and the same scene must render against any mirror |
+| `OUTSHINE_MODS` · (the preloaded `/mods`) | `../mods` | where the tree is MOUNTED. Native runs read the working copy; the browser reads a virtual FS baked at link time; a tool that generates a scene points it at a scratch directory. The mod's own name is the declaration, its path is not |
+| `OUTSHINE_OUT` · (POST to `fb-sim`) | `.` | the artifact ROOT. The declaration names *what* is produced (`walk.png`, `spin.csv`); where a machine keeps its scratch is not a property of the recording, and two tools rendering the same declared scene into two directories is the normal case |
+| `OUTSHINE_SIM` · `location.origin` | `http://localhost:8080` | the collector's address. Same argument as the tile server |
+| `OUTSHINE_BUILD` · `FB_BUILD` | unset → `unset` in the log | WHICH BUILD produced the numbers. It cannot be a declaration: a binary cannot hash the file it is currently executing without reading it back, so the value is supplied by whoever launched it — the tools pass the binary's md5, and `fb-sim` hashes the `gpu.wasm` it actually serves |
+
+`OUTSHINE_MOD` / `OUTSHINE_SCENE` on the **container** are not a sixth entry of the same kind: they are
+the two words `main()` takes, handed to the page through `/config.js` because a browser has no `argv`.
 
 #### `tiles/`
 

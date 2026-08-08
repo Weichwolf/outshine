@@ -16,7 +16,7 @@ Zwei Zahlen je Maske, beide in Anzeigecodes auf 320x180:
   |dL|      Betrag des Unterschieds der mittleren Luminanz
   |dSigma|  Betrag des Unterschieds der Luminanz-Standardabweichung
 """
-import argparse, hashlib, json, pathlib, subprocess, sys
+import argparse, hashlib, json, os, pathlib, subprocess, sys
 
 import numpy as np
 from PIL import Image
@@ -64,8 +64,6 @@ def main():
     ap.add_argument("--only")
     ap.add_argument("--out", default=str(SIM / "web" / "cams"))
     a = ap.parse_args()
-    cams = json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]
-    alt = {c["slug"]: c["altM"] for c in cams}
     want = a.only.split(",") if a.only else CAMS
     out = pathlib.Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -98,11 +96,9 @@ def main():
             for k, d in sets.items():
                 png = d / f"{s}-fit.png"
                 if a.render and not png.exists():
-                    scene = SIM / "web" / "cams" / f"{s}-fit-scene.json"
-                    subprocess.run([str(pathlib.Path(a.render).resolve()), "--scene", str(scene),
-                                    "--out", str(png), "--warm", "12000",
-                                    "--eye-asl", f"{float(alt[s]):.2f}", "--size", f"{W}x{H}"],
-                                   capture_output=True, text=True, cwd=str(SIM))
+                    subprocess.run([str(pathlib.Path(a.render).resolve()), "webcams", f"{s}-fit"],
+                                   capture_output=True, text=True, cwd=str(SIM),
+                                   env=dict(os.environ, OUTSHINE_OUT=str(d)))
                 rm, rs = stats(rgb(png), m)
                 vals[k] = (abs(rm - pm), abs(rs - ps))
                 line.append(f"{k} {rm:6.1f}/{rs:5.1f}  |dL| {vals[k][0]:5.2f} |dS| {vals[k][1]:5.2f}")

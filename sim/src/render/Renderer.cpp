@@ -133,10 +133,13 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
   if (rg11) feats.push_back(wgpu::FeatureName::RG11B10UfloatRenderable);
-  /* Asked for only when the diagnostic is on, so a normal run requests exactly what it uses and an
-   * adapter without the feature is not refused a device it could have had. */
-  if (GpuTimer::Wanted() && a.HasFeature(wgpu::FeatureName::TimestampQuery))
-    feats.push_back(wgpu::FeatureName::TimestampQuery);
+  /* The per-pass clock is TELEMETRY and not a mode (doc/core.md), so it is asked for whenever the
+   * adapter has it. An adapter without it is not refused a device it could have had — the row then
+   * says the stage times are absent. In Chrome the feature needs
+   * --enable-dawn-features=allow_unsafe_apis; without it HasFeature is false and this is the branch
+   * that reports it. */
+  GpuTimeGranted = a.HasFeature(wgpu::FeatureName::TimestampQuery);
+  if (GpuTimeGranted) feats.push_back(wgpu::FeatureName::TimestampQuery);
   if (!feats.empty()) { dd.requiredFeatureCount = feats.size(); dd.requiredFeatures = feats.data(); }
   /* The multi-LOD albedo array outgrows the default 256-layer cap; ask for the adapter's real max. */
   wgpu::Limits adapterLimits{};
@@ -193,7 +196,7 @@ void Renderer::OnDevice(wgpu::Device d) {
   CreateResolvePipeline();
   CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
   if (Overlay) Overlay->Init(gpu, Samp, HdrTex.CreateView());
-  GpuTime.Configure(Device);
+  GpuTime.Configure(Device, GpuTimeGranted);
   DeviceReady = true;
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
                                          {"target", Mode == Target::Surface ? "surface" : "offscreen"},

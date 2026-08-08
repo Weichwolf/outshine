@@ -2,7 +2,7 @@
 """Resektion einer festen Webcam: Azimut, Neigung, Rollung und Bildwinkel aus dem DEM-Horizont.
 
   tools/campose.py --cam hochries              # eine Kamera einpassen
-  tools/campose.py --all --write               # alle einpassen und cams.json fortschreiben
+  tools/campose.py --all --write               # alle einpassen und den Mod fortschreiben
 
 Der Betreiber veroeffentlicht Standort, Objektivhoehe, Blickrichtung und Brennweite; er
 veroeffentlicht NICHT den Sensor, also auch nicht den Bildwinkel, und die Bilder tragen kein EXIF.
@@ -17,7 +17,8 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 SIM = pathlib.Path(__file__).resolve().parent.parent
-CAMS = SIM.parent / "mods/webcams/cams.json"
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import webcammod
 TILES = os.environ.get("FB_TILES", "http://localhost:8081")
 WORK = pathlib.Path(os.environ.get("CAMPOSE_WORK", "/tmp/campose"))
 UA = {"User-Agent": "Mozilla/5.0 (outshine reference harness)"}
@@ -416,8 +417,8 @@ def main():
     ap.add_argument("--accept", type=float, default=10.0, help="Restklaffen-Schranke in Pixeln")
     args = ap.parse_args()
 
-    doc = json.loads(CAMS.read_text())
-    cams = doc["cams"]
+    doc = webcammod.load()
+    cams = webcammod.cams(doc)
     if args.cam:
         want = args.cam.split(",")
         cams = [c for c in cams if c["slug"] in want]
@@ -490,8 +491,10 @@ def main():
         c["fitted"] = bool(ok)
 
     if args.write:
-        CAMS.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n")
-        print(f"\n{CAMS}")
+        for c in cams:
+            webcammod.apply(doc, c["slug"], c)
+        webcammod.save(doc)
+        print(f"\n{webcammod.MOD}")
     return 0
 
 

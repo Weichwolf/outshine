@@ -190,6 +190,11 @@ public:
   static constexpr int kTemporalSettleFrames = 128;
   int TemporalSettleFrames(void) const { return kTemporalSettleFrames; }
 
+  /* THE PER-PASS CLOCK, for whoever aggregates it. False means the device refused the feature, and
+   * that is a different statement from eight zeroes. */
+  bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
+  bool TakeGpuTimes(double ms[GpuTimer::kPassCount]) { return GpuTime.Take(ms); }
+
   /* The extruded OSM footprints World decoded; positions are ECEF offsets from `anchor`. */
   void SetBuildingMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                        const DagCluster *clusters, int nclusters,
@@ -363,7 +368,8 @@ private:
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
   std::vector<TilesStage::Caster> TerrainCasters;
   std::vector<ShadowStage::TerrainCaster> ShadowTerrain;        /* reused, so a steady scene allocates nothing */
-  GpuTimer GpuTime;                               /* per-pass GPU time, inert unless FB_GPUTIME */
+  GpuTimer GpuTime;                               /* per-pass GPU time, telemetry */
+  bool GpuTimeGranted = false;
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
   wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */
   wgpu::Buffer MeterBuf;                          /* ExposureStage's gain + white point, read by the tonemap */

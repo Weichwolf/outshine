@@ -1,0 +1,218 @@
+{
+  "schema": "outshine/mod/1",
+  "name": "demo",
+  "subject": "Der Weserbergland-Bezugspunkt (doc/goal.md §1): eine interaktive Szene, in der gelaufen wird, und die Laeufe, die dieselbe Stelle aufzeichnen. Bewegung ist die Normalform - ein Standbild ist der Lauf mit einem Frame und ohne Kanal.",
+  "scenes": [
+    {
+      "id": "walk",
+      "kind": "interactive",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55
+    },
+    {
+      "id": "frame",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "walk.png" }
+      ]
+    },
+    {
+      "id": "spin",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 240,
+          "fps": 60,
+          "world": "frozen",
+          "give": "profile",
+          "path": "spin.csv",
+          "animation": {
+            "samplers": [
+              { "input": [0, 240], "output": [280, 640], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "camera.yawDeg" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "sequence",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 600,
+          "fps": 30,
+          "world": "streaming",
+          "give": "profile",
+          "path": "sequence.csv",
+          "animation": {
+            "samplers": [
+              { "input": [0, 600], "output": [280, 320], "interpolation": "LINEAR" },
+              { "input": [0, 600], "output": [0, 28], "interpolation": "LINEAR" },
+              { "input": [0, 600], "output": [0, 20], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "camera.yawDeg" },
+              { "sampler": 1, "target": "camera.eastM" },
+              { "sampler": 2, "target": "wind.clockS" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "classes",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        { "kind": "classDump", "path": "classes.bin", "spanM": 400, "stepM": 0.05 },
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "classes.png" },
+        { "kind": "classCompare" }
+      ]
+    },
+    {
+      "id": "wind",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 320, "height": 180 },
+      "runs": [
+        { "kind": "windProbe", "path": "wind.csv", "samples": 512, "frames": 240,
+          "dxM": 0.03, "dtS": 0.0333333333 }
+      ]
+    },
+    {
+      "id": "sunrise",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 100,
+      "pitchDeg": 4,
+      "fovDeg": 60,
+      "utc": "2026-08-06T03:00:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 640, "height": 360 },
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 24,
+          "fps": 24,
+          "world": "frozen",
+          "give": "stills",
+          "path": "sunrise",
+          "animation": {
+            "samplers": [
+              { "input": [0, 23], "output": [0, 10800], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "sky.clockS" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "subject-buche",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        { "kind": "subject", "species": "buche", "dir": "bench", "turnSteps": 8, "leafMult": 1,
+          "foliage": "leaves" }
+      ]
+    },
+    {
+      "id": "subject-wiese",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        { "kind": "subject", "template": "wiese", "dir": "bench-wiese", "turnSteps": 8 }
+      ]
+    }
+  ]
+}

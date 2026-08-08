@@ -3,7 +3,8 @@
 > Owner, 2026-08-05: *„daraus folgt auch, dass die `mods/` komplett deklarativ sind."* ·
 > *„Szenarien sind `mods/` auf die Outshine-Engine."*
 
-Spec-first. **`mods/` holds one directory, `demo`, and it holds one file.** See `## State`.
+Spec-first. **`mods/` holds two mods, `demo` and `webcams`, and each holds one `mod.json`.** See
+`## State`.
 
 ## Spec
 
@@ -21,7 +22,30 @@ That draws a line the current goal makes concrete:
 | Owns | What |
 |---|---|
 | **Outshine** | **Earth.** Terrain, land cover, vegetation, water · infrastructure — roads, rails, bridges, power · buildings · the epoch and decay parameters. All of it derived from DEM, OSM and the classification chain |
-| **a mod** | actors, entities, usable objects, and the scene: position, direction, time, wind, cloud cover |
+| **a mod** | actors, entities, usable objects, and its **scenes**: position, direction, field of view, time, wind, cloud cover, exposure — and, where nobody is watching, the recording itself |
+
+### 0.0.1 A mod is a set of scenes, and a scene is one of two kinds
+
+`mods/<name>/mod.json` is `{"schema": "outshine/mod/1", "name": …, "scenes": [ … ]}`. A client is told
+two words — **which mod, which scene** — and that is the entire command line. Everything else that used
+to be a switch is a property here; what is left is where this machine keeps things, and that list with
+its justification is in [`build-and-ops.md`](build-and-ops.md).
+
+| Scene kind | What it is |
+|---|---|
+| `interactive` | the viewer stands in it and can walk. `demo/walk` |
+| `run` | it executes without a viewer and delivers products: `capture` (frame size, warm ceiling, settle length) plus an ordered `runs` array |
+
+**The run kinds are `motion`, `classDump`, `classCompare`, `windProbe` and `subject`,** and `motion` is
+the one that records: `frames`, `fps`, `world` (`frozen`|`streaming`), `give` (`stills`|`profile`),
+`path`, an optional `depth`, and an `animation`. Movement is glTF's channel/sampler shape with the
+keyframes measured in **frames**; the targets, the interpolations and the accumulated-angle rule are in
+[`clients/clients.md`](clients/clients.md) § *The run language*. **A still is the run with one frame and
+no channel** — not a separate concept.
+
+A scene may carry blocks the engine does not read; `webcams` carries a `pose` block with the resection's
+provenance (`fitted`, `residPx`, `fitImage`, the reported bearing and focal length). The engine reads
+what it knows and the mod's own tooling reads the rest.
 
 **A mod never declares a tree and never declares a turbine** ([`goal.md`](goal.md)). A road is not
 scenario, it is Earth. If a mod could place a plant, the claim that the engine generates the world would
@@ -144,9 +168,15 @@ no path exists twice.
 
 ## State
 
-**`mods/` holds `demo/scene.json` and nothing else** — position, direction, time, wind, cloud cover.
-Both clients hard-wire that path and read no manifest, no mod scan and no menu
-([`clients/clients.md`](clients/clients.md)).
+**Built 2026-08-08.** `mods/` holds two mods and both clients read them through `clients/Mod`:
+
+| Mod | Scenes |
+|---|---|
+| `demo` | **9** — `walk` (interactive) plus `frame`, `spin`, `sequence`, `classes`, `wind`, `sunrise`, `subject-buche`, `subject-wiese`. `frame` reproduces the pre-conversion oracle frame **bit for bit** (md5 `67978b94ddc4a3e0621ad026fdaef1d9`) |
+| `webcams` | **26** — one live scene per camera plus a `-fit` scene per camera that has a fitted pose, carrying the resection provenance. `tools/webcams.py` no longer invents a scene: it writes back the one thing that changes per run, the live image's `utc`, and then runs `gpu_walk webcams <slug>` |
+
+`mods/demo/scene.json` and `mods/webcams/cams.json` are **deleted** — the first is `demo/walk` plus
+`demo/frame`, the second is the `webcams` mod's scenes and their `pose` blocks.
 
 The five titles that existed on 2026-08-05 are deleted with the era they belonged to. What their
 existence proved is kept as knowledge and nothing more:
@@ -162,9 +192,17 @@ No number from that era is carried into this file. They measured deleted subject
 
 ## Gaps
 
-- **The JSON surfaces do not exist.** A manifest, a body and an entity each need a schema, and none is
-  written. `scene.json` has no schema either — an incomplete declaration stops the boot, which is a
-  parser behaviour and not a validation.
+- **There is still no SCHEMA, only a parser.** `mod.json` declares `"schema": "outshine/mod/1"` and
+  nothing checks it: an incomplete declaration stops the boot, which is parser behaviour and not
+  validation. A body and an entity have no surface at all.
+- **A mod may carry keys the engine silently ignores** (`webcams`' `pose`). That is deliberate — the
+  provenance of a resection is the mod's business — but it means a typo in a key the engine DOES read
+  is indistinguishable from a key it never read. A schema fixes both at once.
+- **Three animation targets the language wants and the engine cannot apply per frame:**
+  `wind.fromDeg`, `wind.speedMs`, `weather.cloudCover`. They feed `World::SetWeather` and the class and
+  albedo bake, so moving them mid-run would have to re-bake tiles; the five that only reach a renderer
+  setter (`camera.*`, `sky.clockS`, `wind.clockS`, `exposure.compEv`) are built. They are refused at
+  load rather than silently ignored.
 - **The epoch has no declaration surface.** [`vision.md`](vision.md)'s central claim — two mods, one
   place, one dial — cannot even be expressed today.
 - **The body format is spec-only**, so none of the three epoch mods' bodies can be declared at all.

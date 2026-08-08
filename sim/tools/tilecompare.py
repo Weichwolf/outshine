@@ -9,7 +9,10 @@ rendert der Vergleichslauf die Klassenvisualisierung; --shaded nimmt stattdessen
 
 Exit 0, wenn jeder Ort seine drei Bilder hat.
 """
-import argparse, hashlib, json, math, os, pathlib, subprocess, sys, urllib.request
+import argparse
+import sys as _sys, pathlib as _pl
+_sys.path.insert(0, str(_pl.Path(__file__).resolve().parent))
+import runscene, hashlib, json, math, os, pathlib, subprocess, sys, urllib.request
 
 Z = 14
 ORTS = [
@@ -83,19 +86,14 @@ def main():
         nb = fetch(f"{args.base}/bake/osm/{Z}/{x}/{y}?tex={args.size}", bake)
         np_ = fetch(f"{args.base}/t/imagery/{Z}/{x}/{y}", photo)
 
-        scene = out / f"{name}-scene.json"
-        scene.write_text(json.dumps({
-            "lat": latm, "lon": lonm, "eyeM": 1.70, "yawDeg": 0, "pitchDeg": -90,
-            "fovDeg": 60, "utc": "2026-06-21T11:00:00Z",
-            "windDeg": 250, "windMs": 2.0, "cloudCover": 0.0}, indent=2))
-
-        cmd = [binp, "--scene", str(scene), "--out", str(ours), "--warm", str(args.warm),
-               "--eye", str(args.eye), "--pitch", "-90", "--ortho", f"{widthM:.2f}",
-               "--size", f"{args.size}x{args.size}"]
-        env = dict(os.environ)
-        if not args.shaded:
-            env["FB_GROUND_CLASS_VIZ"] = "1"
-        r = subprocess.run(cmd, capture_output=True, text=True, env=env, cwd=str(pathlib.Path(__file__).resolve().parent.parent))
+        # ONE DECLARED SCENE PER KACHEL, straight down and orthographic: the tile's own width is
+        # the picture's width, so the render and the bake are the same square of ground.
+        scene = runscene.still(name, latm, lonm, ours.name,
+                               eyeM=float(args.eye), pitchDeg=-90, orthoM=round(widthM, 2),
+                               capture={"width": args.size, "height": args.size,
+                                        "warmCeiling": args.warm})
+        env = {} if args.shaded else {"FB_GROUND_CLASS_VIZ": "1"}
+        r = runscene.run(binp, scene, out_root=str(out), env=env)
         ok = ours.exists() and ours.stat().st_size > 512
         print(f"{name:16s} {Z}/{x}/{y:<9} {widthM:8.1f}m {nb:8d} {np_:9d}  {'ok' if ok else 'FEHLT'}")
         if not ok:

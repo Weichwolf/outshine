@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Das staendige Feld: je Kamera das Livebild und unser Render nebeneinander, 320x180.
 
-  tools/webcams.py --bin build/gpu_walk            # alle 24
+  tools/webcams.py --bin build/gpu_walk            # alle Kameras des Mods
   tools/webcams.py --bin build/gpu_walk --only zugspitze,nebelhorn
 
 Schreibt web/cams/ mit den Bildpaaren und index.html. Die Seite ist der Stand — sie wird
@@ -9,6 +9,9 @@ angesehen, nicht berichtet.
 """
 import argparse, datetime, hashlib, json, os, pathlib, re, subprocess, sys, urllib.request
 import zoneinfo
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import webcammod
 
 W, H = 320, 180
 SIM = pathlib.Path(__file__).resolve().parent.parent
@@ -161,10 +164,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default="build/gpu_walk")
     ap.add_argument("--only", default="")
-    ap.add_argument("--warm", type=int, default=12000)
     args = ap.parse_args()
 
-    cams = json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]
+    mod = webcammod.load()
+    cams = webcammod.cams(mod)
     if args.only:
         want = set(args.only.split(","))
         cams = [c for c in cams if c["slug"] in want]
@@ -218,21 +221,16 @@ def main():
             else:
                 sub = f"Nacht ({el_live:+.0f}\u00b0), kein Tagbild im Archiv"
 
-        # DER STANDPUNKT WIRD GEPRUEFT, NICHT GESETZT. `altM` ist die Objektivhoehe des Betreibers
+        # DIE SZENE IST DEKLARIERT (mods/webcams). Dieses Werkzeug erfindet keine mehr -- es
+        # schreibt genau das eine fort, was sich je Lauf aendert: die Uhr des Livebildes. Der
+        # Standpunkt wird geprueft, nicht gesetzt: `lensAslM` ist die Objektivhoehe des Betreibers
         # und damit das Datum; die Hoehe ueber Grund faellt im Renderer gegen SEIN DEM an, und ein
-        # Objektiv, das dieses DEM begraebt, wird auf die Mindestfreiheit gehoben. Der Hub steht
-        # danach auf der Seite. Ein Baum, dessen Krone das Auge enthaelt, faellt im Renderer weg.
-        scene = OUT / f"{slug}-scene.json"
-        scene.write_text(json.dumps({
-            "lat": c["lat"], "lon": c["lon"], "eyeM": 2.0,
-            "yawDeg": c["yawDeg"], "pitchDeg": c["pitchDeg"], "fovDeg": c["fovDeg"],
-            "utc": shown.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "windDeg": 250, "windMs": 4.0, "cloudCover": 0.0}, indent=2))
+        # Objektiv, das dieses DEM begraebt, wird auf die Mindestfreiheit gehoben.
+        webcammod.scene(mod, slug)["utc"] = shown.strftime("%Y-%m-%dT%H:%M:%SZ")
+        webcammod.save(mod)
 
-        r = subprocess.run(
-            [binp, "--scene", str(scene), "--out", str(shot), "--warm", str(args.warm),
-             "--eye-asl", f"{float(c['altM']):.2f}", "--size", f"{W}x{H}"],
-            capture_output=True, text=True, cwd=str(SIM))
+        r = subprocess.run([binp, "webcams", slug], capture_output=True, text=True, cwd=str(SIM),
+                           env=dict(os.environ, OUTSHINE_OUT=str(OUT)))
         sun, eye, lift, cleared, roof = "", 0.0, 0.0, 0, False
         for l in (r.stdout + r.stderr).splitlines():
             if "sunElDeg=" in l and "irradiance" in l:
@@ -250,16 +248,9 @@ def main():
         fit_shotpng = OUT / f"{slug}-fit.png"
         ft = fit_shot(c, fit_photo)
         if ft:
-            fscene = OUT / f"{slug}-fit-scene.json"
-            fscene.write_text(json.dumps({
-                "lat": c["lat"], "lon": c["lon"], "eyeM": eye,
-                "yawDeg": c["yawDeg"], "pitchDeg": c["pitchDeg"], "fovDeg": c["fovDeg"],
-                "utc": ft.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "windDeg": 250, "windMs": 4.0, "cloudCover": 0.0}, indent=2))
-            subprocess.run(
-                [binp, "--scene", str(fscene), "--out", str(fit_shotpng), "--warm", str(args.warm),
-                 "--eye-asl", f"{float(c['altM']):.2f}", "--size", f"{W}x{H}"],
-                capture_output=True, text=True, cwd=str(SIM))
+            # Das Einpassbild aendert sich nicht je Lauf; seine Szene steht fertig im Mod.
+            subprocess.run([binp, "webcams", f"{slug}-fit"], capture_output=True, text=True,
+                           cwd=str(SIM), env=dict(os.environ, OUTSHINE_OUT=str(OUT)))
         ok = shot.exists() and shot.stat().st_size > 1000
         marks = []
         if fog: marks.append("in Wolken")

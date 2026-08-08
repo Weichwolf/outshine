@@ -25,6 +25,10 @@
 #define WEB_ROOT "web"
 #define SHOT_ROOT "shots"
 #define SHOT_LOG SHOT_ROOT "/shots.jsonl"
+/* THE RUN LOG. Every client posts its whole log here in batches; one file per run id, appended, so a
+ * run is reconstructible from this directory alone -- which mod, which scene, which build, which
+ * numbers. The channel is one-way and diagnostic, exactly like the shots. */
+#define LOG_ROOT "logs"
 /* A 1280x720 PNG measures ~1 MB; the cap is there so a wrong Content-Length cannot ask for the heap. */
 #define MAX_BODY (16u * 1024u * 1024u)
 
@@ -34,13 +38,14 @@ typedef struct {
     int rxn;
     uint8_t *body;        /* POST only, malloc'd to Content-Length */
     size_t need, got;
-    char name[128];       /* the shot basename this body belongs to */
+    char name[128];       /* the basename this body belongs to */
+    int kind;             /* 0 = a shot, 1 = a run-log batch, 2 = a telemetry batch */
 } client_t;
 static client_t cl[MAX_CLIENTS];
 
 static void client_close(client_t *c){
     if(c->fd>=0) close(c->fd);
-    c->fd=-1; c->rxn=0; c->need=0; c->got=0; c->name[0]=0;
+    c->fd=-1; c->rxn=0; c->need=0; c->got=0; c->name[0]=0; c->kind=0;
     free(c->body); c->body=NULL;
 }
 
@@ -104,6 +109,34 @@ static int shot_store(const char*name,const uint8_t*body,size_t n){
     return 1;
 }
 
+/* Appended, never rewritten: a client posts its log in batches and the order of the batches is the
+ * order of the run. */
+static int log_append(const char*name,const uint8_t*body,size_t n,const char*ext){
+    mkdir(LOG_ROOT,0775);
+    char file[384]; snprintf(file,sizeof file,"%s/%s.%s",LOG_ROOT,name,ext);
+    FILE*f=fopen(file,"ab");
+    if(!f) return 0;
+    const size_t w=fwrite(body,1,n,f);
+    fclose(f);
+    fprintf(stderr,"[fb-sim] log %s (+%zu B)\n",name,n);
+    return w==n;
+}
+
+/* THE BUILD'S IDENTITY, taken off the bytes this server actually hands out. A browser cannot hash
+ * the module it is currently executing without fetching it a second time, and an environment
+ * variable would only repeat what somebody typed. FNV-1a 64 because this is an identity and not a
+ * signature: it names a build, it defends nothing. */
+static unsigned long long wasm_build_id(void){
+    FILE*f=fopen(WEB_ROOT "/gpu.wasm","rb");
+    if(!f) return 0;
+    unsigned long long h=1469598103934665603ULL;
+    unsigned char b[65536]; size_t n;
+    while((n=fread(b,1,sizeof b,f))>0)
+        for(size_t i=0;i<n;i++){ h^=b[i]; h*=1099511628211ULL; }
+    fclose(f);
+    return h;
+}
+
 /* 1 = served (the caller closes the fd), 0 = headers still incomplete or a body is being collected. */
 static int http_handle(client_t*c){
     /* The recv is capped one byte short of the buffer so this terminator lands on FREE space. It used
@@ -118,9 +151,13 @@ static int http_handle(client_t*c){
         char path[256]="/"; sscanf(req,"POST %255s",path);
         const char*cl_=strcasestr(req,"\r\nContent-Length:");
         long need=cl_?atol(cl_+17):-1;
-        if(strncmp(path,"/shot/",6)!=0||!safe_name(path+6)){ reply(c->fd,"404 Not Found","no"); c->rxn=0; return 1; }
+        const char*base=NULL;
+        if(strncmp(path,"/shot/",6)==0){ base=path+6; c->kind=0; }
+        else if(strncmp(path,"/log/",5)==0){ base=path+5; c->kind=1; }
+        else if(strncmp(path,"/telemetry/",11)==0){ base=path+11; c->kind=2; }
+        if(!base||!safe_name(base)){ reply(c->fd,"404 Not Found","no"); c->rxn=0; return 1; }
         if(need<0||(unsigned long)need>MAX_BODY){ reply(c->fd,"413 Payload Too Large","no"); c->rxn=0; return 1; }
-        snprintf(c->name,sizeof c->name,"%s",path+6);
+        snprintf(c->name,sizeof c->name,"%s",base);
         c->need=(size_t)need;
         c->got=0;
         c->body=(uint8_t*)malloc(c->need?c->need:1);
@@ -132,7 +169,8 @@ static int http_handle(client_t*c){
         c->got=take;
         c->rxn=0;
         if(c->got<c->need) return 0;   /* the read loop keeps filling c->body */
-        const int ok=shot_store(c->name,c->body,c->got);
+        const int ok=c->kind?log_append(c->name,c->body,c->got,c->kind==2?"csv":"log")
+                            :shot_store(c->name,c->body,c->got);
         reply(c->fd,ok?"200 OK":"500 Internal Server Error",ok?"ok":"no");
         return 1;
     }
@@ -151,9 +189,14 @@ static int http_handle(client_t*c){
         /* The camera never sinks below (ground + clearance), so the eye rests at the model's
          * geometry-true lowest height rather than on the dirt. */
         double clr=0.0; { FILE*cf=fopen("/tmp/fb_clearance","r"); if(cf){ if(fscanf(cf,"%lf",&clr)!=1) clr=0; fclose(cf); } }
-        char body[384]; int bn=snprintf(body,sizeof body,
-            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';window.FB_GROUND_CLEAR=%.3f;\n",
-            la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"", clr);
+        /* WHICH MOD, WHICH SCENE -- the browser's two words, and the only thing a client is told
+         * beyond where the data lives. */
+        const char*md=getenv("OUTSHINE_MOD"), *sc=getenv("OUTSHINE_SCENE");
+        char body[512]; int bn=snprintf(body,sizeof body,
+            "window.FB_ORIGIN_LAT=%s;window.FB_ORIGIN_LON=%s;window.FB_SIM_UTC=%s;window.FB_TILES_URL='%s';window.FB_GROUND_CLEAR=%.3f;"
+            "window.FB_MOD='%s';window.FB_SCENE='%s';window.FB_BUILD='%016llx';\n",
+            la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"", clr,
+            md&&*md?md:"demo", sc&&*sc?sc:"walk", wasm_build_id());
         char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
             "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",bn);
         send(c->fd,hdr,hn,MSG_NOSIGNAL); send(c->fd,body,bn,MSG_NOSIGNAL); c->rxn=0; return 1;
@@ -206,7 +249,9 @@ int main(void){
                 if(n<=0){ client_close(&cl[i]); continue; }
                 cl[i].got+=(size_t)n;
                 if(cl[i].got<cl[i].need) continue;
-                const int ok=shot_store(cl[i].name,cl[i].body,cl[i].got);
+                const int ok=cl[i].kind
+                    ?log_append(cl[i].name,cl[i].body,cl[i].got,cl[i].kind==2?"csv":"log")
+                    :shot_store(cl[i].name,cl[i].body,cl[i].got);
                 reply(cl[i].fd,ok?"200 OK":"500 Internal Server Error",ok?"ok":"no");
                 client_close(&cl[i]);
                 continue;

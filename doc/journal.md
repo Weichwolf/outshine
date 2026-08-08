@@ -7407,3 +7407,42 @@ Gebäude-Vertices).
 Guidelines F.3), und die szenenbauenden Renderer-Aufrufe existieren in genau einer Übersetzungseinheit
 — 18 im einen Bauer plus `world/`, 13 in zwei benannten Bank-Dateien, **0 sonst**.
 
+
+## 2026-08-08 — Die Kommandozeile war eine zweite Sprache; jetzt gibt es nur noch JSON
+
+`WalkBench` trug rund dreißig Schalter. Jeder, der etwas über die Welt oder die Aufnahme sagte, ist
+eine deklarierte Eigenschaft geworden; `main()` bekommt zwei Wörter, **welcher Mod, welche Szene**.
+`mods/demo/scene.json` und `mods/webcams/cams.json` sind gelöscht — `demo` hat 9 Szenen, `webcams` 26,
+und `tools/webcams.py` erfindet keine Szene mehr, sondern schreibt genau das eine fort, was sich je
+Lauf ändert: die Uhr des Livebildes.
+
+**Bewegung ist die Normalform, das Standbild ihr Sonderfall mit einem Frame.** Ein Lauf deklariert
+`frames`, `fps` und eine Animation nach glTFs Kanal/Sampler-Modell — mit zwei begründeten Abweichungen:
+die Schlüsselbilder sind **Frames** (Prinzip 7; eine Sekundenachse koppelt das Ergebnis an die
+Wanduhr), und die Ziele sind unsere (`camera.eastM/northM/yawDeg/pitchDeg/fovDeg`, `sky.clockS`,
+`wind.clockS`, `exposure.compEv`), weil eine lokale TRS auf einer Kugel eine Lüge wäre. `--spin`,
+`--seq`, `--seq-yaw`, `--seq-stepE/N` sind Sonderfälle davon und als eigene Begriffe verschwunden.
+Ein Winkelkanal trägt einen **aufsummierten** Winkel, keine Kompasspeilung: 280 → 640 ist eine volle
+Drehung, und die Reduktion modulo 360 passiert erst beim Anwenden — eine Kürzeste-Bogen-Regel machte
+die volle Drehung (Δ 360 → 0) unsagbar.
+
+**Der Auswerter liegt im Kern, nicht im Szenenformat.** `core/Keyframes` ist eine nicht besitzende
+Sicht über N Komponenten mit Schrittweite, STEP · LINEAR · CUBICSPLINE, Ergebnis in einen Puffer des
+Aufrufers — kein virtueller Aufruf, keine Allokation je Punkt, weil der schwerste Verbraucher die
+Backzeit über Hunderttausende OSM-Punkte ist. Die Tangentenerzeugung ist davon getrennt
+(`core/CatmullRom`, F.2): einer bringt Tangenten mit, zwei haben nur Punkte. Das JSON liest
+`clients/Animation`.
+
+**Log und Telemetrie gehen an `fb-sim`.** `POST /log/<runId>` gebündelt (Flush bei 1 MB und am
+Laufende — ein Lauf sind ein paar hundert Kilobyte, also genau EIN Request nach dem letzten Frame), und
+das FPS-Spektrum als Telemetrie: eine Zeile je Sekunde, je Stage der **Mittelwert** (wo geht die Zeit
+hin), für den Frame die **Verteilung** p50/p95/p99 (ruckelt es). `FB_GPUTIME` ist gefallen — eine
+Umgebungsvariable ist im Browser keine Schnittstelle; gibt das Gerät `timestamp-query` nicht her, sagt
+die Zeile `gpu=absent` und die Stage-Spalten bleiben **leer**. Eine fehlende Messung ist keine Messung
+von null.
+
+**Der Beweis:** `gpu_walk demo frame` liefert md5 `67978b94ddc4a3e0621ad026fdaef1d9` — Pixel für Pixel
+dasselbe Bild wie `6a7d9ff`, **0 von 921 600** unterschiedlich, obwohl der ganze Weg dorthin ein anderer
+ist. Gemessen daneben: `demo/spin` p50 12,11 / p95 23,02 / p99 25,19 ms über 240 Frames, und
+`demo/sunrise` fährt die Sonne mit EINEM Kanal drei Stunden über den Himmel, ohne einen eigenen
+Codepfad.

@@ -9,7 +9,7 @@
 3 Mittlerer lokaler Gradient (|dx|+|dy| auf L) in der unteren Bildhaelfte.
 4 Mittleres RGB der dunkelsten 2 % — soll B>G>R und L>=20 sein.
 """
-import argparse, hashlib, json, pathlib, subprocess, sys
+import argparse, hashlib, json, os, pathlib, subprocess, sys
 
 SIM = pathlib.Path(__file__).resolve().parent.parent
 CAMS = ["nebelhorn", "herzogstand", "innsbruck", "hochries", "zugspitze", "hochkoenig"]
@@ -55,8 +55,6 @@ def main():
     ap.add_argument("--out")
     ap.add_argument("--only")
     a = ap.parse_args()
-    cams = json.loads((SIM.parent / "mods/webcams/cams.json").read_text())["cams"]
-    alt = {c["slug"]: c["altM"] for c in cams}
     want = a.only.split(",") if a.only else CAMS
     outdir = pathlib.Path(a.out) if a.out else SIM / "web" / "cams"
     outdir.mkdir(parents=True, exist_ok=True)
@@ -66,11 +64,10 @@ def main():
     for s in want:
         png = outdir / f"{s}-fit.png"
         if a.render:
-            scene = SIM / "web" / "cams" / f"{s}-fit-scene.json"
-            subprocess.run([str(pathlib.Path(a.render).resolve()), "--scene", str(scene),
-                            "--out", str(png), "--warm", "12000",
-                            "--eye-asl", f"{float(alt[s]):.2f}", "--size", f"{W}x{H}"],
-                           capture_output=True, text=True, cwd=str(SIM))
+            # THE SCENE IS DECLARED (mods/webcams). Only the artifact root is this tool's.
+            subprocess.run([str(pathlib.Path(a.render).resolve()), "webcams", f"{s}-fit"],
+                           capture_output=True, text=True, cwd=str(SIM),
+                           env=dict(os.environ, OUTSHINE_OUT=str(outdir)))
         r = metrics(load(png))
         p = metrics(load(SIM / "web" / "cams" / f"{s}-fit.jpg"))
         res[s] = {"render": r, "photo": p}

@@ -1,5 +1,6 @@
 #include "Outshine.h"
 
+#include <chrono>
 #include <cstdlib>
 
 #include "Camera.h"
@@ -32,6 +33,12 @@ constexpr int kDeviceTries = 2000;
 constexpr int kAlbedoTileSize = 512;
 constexpr int kStarBytes = 262144;
 
+double NowMs() {
+  return std::chrono::duration<double, std::milli>(
+             std::chrono::steady_clock::now().time_since_epoch())
+      .count();
+}
+
 }  // namespace
 
 Outshine::Outshine(const Scene &scene, const Assets &assets)
@@ -43,7 +50,32 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
       WindDeg_(Scene_.WindDeg()),
       WindMs_(Scene_.WindMs()),
       Clk_((double)Scene_.UtcS()) {
+  ViewM_ = Scene_.ViewM();
+  OrthoM_ = Scene_.OrthoM();
   Stand_.SetEyeAglM(Scene_.EyeM());
+  if (Scene_.HasLensAslM()) Stand_.SetLensAslM(Scene_.LensAslM());
+}
+
+void Outshine::SetFovDeg(double deg) { R_.SetFovDeg(deg); }
+
+void Outshine::SetExposureCompEv(double ev) {
+  Exposure_.CompEv = (float)ev;
+  R_.SetExposure(Exposure_);
+}
+
+/* THE SKY CLOCK MOVES, the wind clock is a different one (SetWindClock). Everything the sun and the
+ * moon reach from here is a setter; nothing below re-bakes a tile, which is why this is the only
+ * clock a run may drive today. */
+void Outshine::SetSkyOffsetS(double s) {
+  const double t = Clk_ + s;
+  SunPos(Stance_.Lat, Stance_.Lon, t, &SunEl_, &SunAz_);
+  MoonPos(Stance_.Lat, Stance_.Lon, t, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
+          &State_.Env.MoonPhase);
+  State_.Env.SunElDeg = SunEl_;
+  State_.Env.SunAzDeg = SunAz_;
+  R_.SetSkyClock(t);
+  W_.SetSunElevationDeg(SunEl_);
+  R_.SetSceneState(State_);
 }
 
 bool Outshine::ResolveGround(double lat, double lon, double *out) const {
@@ -60,7 +92,7 @@ bool Outshine::ResolveGround(double lat, double lon, double *out) const {
 bool Outshine::Prepare(const Gpu &gpu) {
   if (Phase_ != Phase::Declared) return false;
   SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
-  Log::Info("outshine", "scene", {{"path", Scene_.Path()}, {"lat", Stance_.Lat},
+  Log::Info("outshine", "scene", {{"scene", Scene_.Id()}, {"lat", Stance_.Lat},
       {"lon", Stance_.Lon}, {"eyeM", Stand_.EyeAglM()}, {"yawDeg", Stance_.YawDeg},
       {"pitchDeg", Stance_.PitchDeg}, {"fovDeg", Scene_.FovDeg()}, {"utc", Scene_.Utc()},
       {"utcS", Clk_}, {"windDeg", WindDeg_}, {"windMs", WindMs_},
@@ -96,6 +128,11 @@ bool Outshine::Prepare(const Gpu &gpu) {
     Log::Error("outshine", "device_init_failed");
     return false;
   }
+  Frames_.SetGpuAvailable(R_.GpuTimingAvailable());
+  Bus_.Register(&Frames_);
+  Bus_.Start();
+  ClockOriginMs_ = NowMs();
+  Frames_.Open(ClockOriginMs_);
   Phase_ = Phase::Prepared;
   return true;
 }
@@ -157,7 +194,20 @@ bool Outshine::Open() {
 
 void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
-void Outshine::Frame() { R_.RenderFrame(); }
+/* The interval between two Frame() calls, not the encode: what a viewer feels is the period, and
+ * everything the client did in between — streaming, a readback, a PNG — is part of it. */
+void Outshine::Frame() {
+  const double now = NowMs();
+  if (LastFrameMs_ > 0.0) Frames_.AddFrame(now - LastFrameMs_);
+  LastFrameMs_ = now;
+  R_.RenderFrame();
+  double stage[Render::GpuTimer::kPassCount];
+  if (R_.TakeGpuTimes(stage)) Frames_.AddStages(stage);
+  if (Frames_.Due(now)) {
+    Bus_.Tick((now - ClockOriginMs_) * 0.001);
+    Frames_.Reset(now);
+  }
+}
 
 Outshine::Counters Outshine::Measured() const {
   Counters c;

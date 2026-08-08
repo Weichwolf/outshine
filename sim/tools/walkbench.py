@@ -6,7 +6,7 @@
 
 A stutter is the tail of a per-frame series. A mean hides it, a minimum hides it twice, and a
 standing bench cannot see it at all: the cost that produces it is paid when the world under the
-camera changes. This runs `gpu_walk --seq-prof`, which writes one CSV row per sequence frame, and
+camera changes. This declares one motion run per speed whose product is the profile -- one CSV row per frame -- and
 reports p50/p90/p95/p99/max plus the share of frames past one and two 60 Hz periods — per speed, and
 per quarter of the distance so a trend over the walk is visible.
 
@@ -31,6 +31,8 @@ import statistics
 import subprocess
 import sys
 import tempfile
+
+import runscene
 
 HZ = 60.0
 FRAME_MS = 1000.0 / HZ
@@ -58,19 +60,32 @@ def summarise(rows, key):
 
 
 def stage(binary, args, speed_ms, out_csv):
-    """One stage: `frames` sequence frames at `speed_ms`, stepping east, plus a constant yaw rate."""
-    step = speed_ms * args.dt
-    cmd = [binary,
-           "--size", args.size,
-           "--warm", str(args.warm),
-           "--seq", str(args.frames),
-           "--seq-dt", str(args.dt),
-           "--seq-stepE", "%.6f" % step,
-           "--seq-yaw", "%.6f" % (args.yaw_rate * args.dt),
-           "--seq-prof", out_csv]
-    if args.base:
-        cmd += ["--base", args.base]
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    """One stage: `frames` frames at `speed_ms` east plus a constant yaw rate, as ONE declared
+    motion run -- two keyframes per channel, LINEAR, and the frame count is the run's own."""
+    w, h = args.size.split("x")
+    fps = 1.0 / args.dt
+    scene = {
+        "id": "bench", "kind": "run",
+        "lat": 52.10602, "lon": 9.43453, "eyeM": 1.70,
+        "yawDeg": 280, "pitchDeg": 0, "fovDeg": 60,
+        "utc": "2026-08-06T17:40:00Z", "windDeg": 250, "windMs": 6.0, "cloudCover": 0.55,
+        "capture": {"width": int(w), "height": int(h), "warmCeiling": args.warm},
+        "runs": [{
+            "kind": "motion", "frames": args.frames, "fps": fps,
+            "world": "streaming", "give": "profile", "path": os.path.basename(out_csv),
+            "animation": {
+                "samplers": [
+                    {"input": [0, args.frames], "output": [280, 280 + args.yaw_rate * args.frames * args.dt],
+                     "interpolation": "LINEAR"},
+                    {"input": [0, args.frames], "output": [0, speed_ms * args.frames * args.dt],
+                     "interpolation": "LINEAR"},
+                    {"input": [0, args.frames], "output": [0, args.frames * args.dt],
+                     "interpolation": "LINEAR"}],
+                "channels": [
+                    {"sampler": 0, "target": "camera.yawDeg"},
+                    {"sampler": 1, "target": "camera.eastM"},
+                    {"sampler": 2, "target": "wind.clockS"}]}}]}
+    r = runscene.run(binary, scene, out_root=os.path.dirname(out_csv) or ".", tiles=args.base)
     if r.returncode != 0 or not os.path.exists(out_csv):
         sys.stderr.write(r.stdout[-4000:] + r.stderr[-4000:])
         raise SystemExit("stage %.1f m/s failed" % speed_ms)
