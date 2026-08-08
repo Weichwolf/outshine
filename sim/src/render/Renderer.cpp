@@ -382,7 +382,10 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[32] = std::tan(halfFov);
   a[33] = (float)Width / (float)Height;
   a[34] = std::cos(0.5f * 3.14159265f / 180.0f);   /* sun angular radius */
-  a[35] = 30.0f;                                    /* sun disc intensity */
+  /* Radiance of the DRAWN disc per unit top-of-atmosphere irradiance, which is what every atmosphere
+   * shader is normalised to: L = E / omega with omega = 2 pi (1 - cos theta) of the very cosine above,
+   * so widening the disc cannot change the flux it carries. 0.5 deg gives 1/2.392e-4 = 4180. */
+  a[35] = 1.0f / (2.0f * 3.14159265f * (1.0f - a[34]));
   put(9, moonDir); a[39] = (float)moonPh;           /* moonDir.w = phase */
   a[40] = (float)dayF;                              /* skyExtra: day, spare, spare, moon radius */
   a[41] = 0.0f;

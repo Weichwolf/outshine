@@ -287,12 +287,12 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   float met[Render::ExposureStage::kMeterFloats] = {};
   if (!R_.ReadExposure(met)) return false;
   if (metering) {
-    KeyEv_ = met[3];
+    KeyEv_ = met[1];
     Metered_ = true;
     float irr[Render::IrradianceStage::kFloats] = {};
     R_.ReadIrradiance(irr);
     Log::Info("rig", "meter", {{"keyEv", (double)KeyEv_}, {"light", lightName},
-        {"horizE", (double)met[6]}, {"sunY", 0.2126 * irr[0] + 0.7152 * irr[1] + 0.0722 * irr[2]},
+        {"horizE", (double)met[2]}, {"sunY", 0.2126 * irr[0] + 0.7152 * irr[1] + 0.0722 * irr[2]},
         {"skyY", 0.2126 * irr[4] + 0.7152 * irr[5] + 0.0722 * irr[6]}});
     return true;
   }

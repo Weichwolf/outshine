@@ -116,7 +116,7 @@ darker version of the neighbourhood.
 | HDR log2 L, p01 / p10 / p50 (`FB_TONE_PROBE=-14,2`) | −6.249 / −5.578 / −4.555 | **−5.773 / −5.373 / −4.524** |
 | sky and cloud pixels changed (rows 0–300) | — | **0, bit-exact** |
 | whole-frame mean display code | 146.084 | 146.226 |
-| metered anchors `blackLog2 / whiteLog2 / contrast` | −6.5387 / 5.14729 / 1.09241 | **unchanged** |
+| the metered exposure | irradiance-derived, no picture in it | **unchanged** — the AO composite is downstream of it |
 
 The lift is `(ao + (1−ao)·0.12)/ao`: **+0.50 EV** where the estimate sits at the AO floor 0.25,
 **+0.06 EV** at the median, and exactly zero where `ao = 1`.
@@ -195,6 +195,17 @@ constant.
 
 ## Gaps
 
+- **A clear-sky shadow carries 4.2 % of the sunlit illumination in this model, and the measured world
+  says 10–15 %.** Derived from the model's own parts on horizontal ground at the nebelhorn fit pose
+  (sun 61.03°, `walk/irradiance`): `E_sky/E_global = 0.0539189/0.840962 = 6.4 %`, times the
+  `1 − kSelfShelter = 0.65` the sky term is weighted by in §2, plus a neighbourhood bounce that is
+  exactly zero because its weight is `(0.5 − 0.5 n·up)`. Two separable causes and neither is a knob:
+  (a) 6.4 % is itself low — clear-sky diffuse fractions measured at 2 000 m with the sun at 61° run
+  8–12 %, and this atmosphere has no aerosol worth the name ([`stages/atmosphere.md`](stages/atmosphere.md));
+  (b) an infinite plane cannot see itself, which is correct geometry and wrong terrain. The consequence
+  is visible and measured: near-field cast shadow renders at display code 12–15 against 50 in the
+  reference photograph, and the shadow's own colour is the product of a blue sky and a green surface —
+  B/G **0.52** predicted, 0.52 measured — never the photograph's blue.
 - ~~E_bounce does not exist~~ — **closed**, §2.1, in two half-spaces. What replaces it as a gap:
   `kSelfShelter` 0.35 is `[SET]` with no measurement, and the near term uses the fragment's own albedo
   as the reflectance of its own neighbourhood, which is right for ground and vegetation and wrong for a

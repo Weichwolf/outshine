@@ -1,5 +1,6 @@
 #include "TaaStage.h"
 #include "ExposureStage.h"
+#include "Filmic.h"
 #include "GeometryIsolation.h"
 #include <cstdio>
 #include <cstdlib>
@@ -110,21 +111,15 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
  * the resolved radiance, so it rides out of the same fragment on a second attachment — the history
  * stays linear HDR, the swapchain gets display codes, and nothing about either is changed. */
 struct FOut { @location(0) history : vec4f, @location(1) surface : vec4f };
-struct Meter {
-  outBlack : f32, outWhite : f32, contrast : f32, keyLog : f32,
-  blackLog : f32, whiteLog : f32, valid : f32, pad0 : f32,
-};
-/* A LOG-DOMAIN curve, and not the ACES fit that stood here, because the fit could not do this scene:
- * measured, the demo frame spans 11.8 EV (2^-7.89 .. 2^3.92) and its ground sits 8 stops under its
- * sky. Narkowicz ACES saturates at an input of 7.2 and Hable's shoulder asymptotes at 0.933 — solved
- * against the measured histogram, BOTH put more than 4 % of the frame past 250/255 at the gain the
- * foreground needs, whatever their white point. Compressing six stops of sky into the top of the
- * range needs a logarithmic response there, so the whole curve is one.
+struct Meter { expScale : f32, keyLog : f32, horizE : f32, pad0 : f32 };
+/* ONE MULTIPLY AND ONE CURVE. The multiply is metered from this frame's illumination
+ * (stages/ExposureStage.h), the curve is fixed (stages/Filmic.h); this shader owns no constant of the
+ * display chain at all.
  *
- * The two anchors and the exponent are METERED (stages/ExposureStage.h); this shader has no constant
- * of its own left. Applied to LUMINANCE and not per channel: measured, the per-channel form put the
- * blue channel of 99.96 % of the foreground at exactly 0 — a low sun is 6:3:1, so at these levels
- * blue falls below the black anchor while luminance does not, and the field came out rust. */
+ * FB_TONE_PROBE turns the same fragment into a RULER: display luminance becomes (log2 L - black) /
+ * (white - black) with the ratio carried through, so a PNG read back through the sRGB decode IS the
+ * frame's HDR histogram, per channel. It is a diagnosis and not a second look — the constants below
+ * are baked, so exactly one of the two branches survives compilation. */
 fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
   var o : FOut;
   o.history = scene;
@@ -132,25 +127,13 @@ fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
    * target is half resolution and read at the matching texel. */
   let ao = textureLoad(aoTex, vec2i(fragXY * 0.5), 0).r;
   let lit = scene.rgb * mix(ao, 1.0, clamp(scene.a, 0.0, 1.0));
-  let lum = max(dot(lit, vec3f(0.2126, 0.7152, 0.0722)), 1e-7);
-  let ob = mix(meter.outBlack, kFrozenBlack, kFreeze);
-  let span = max(mix(meter.outWhite, kFrozenWhite, kFreeze) - ob, 1.0);
-  let tlin = (log2(lum) - ob) / span;
-  /* THE TOE. Below kToe the log-linear ramp is replaced by an exponential foot of the same value and
-   * the same slope at the knee, so nothing above the knee moves by a bit and nothing below reaches
-   * zero. kToe = 0 restores the hard clamp exactly. */
-  let ktoe = max(mix(kToe, kFrozenToe, kFreeze), 1.0e-6);
-  let tt = clamp(select(tlin, ktoe * exp(tlin / ktoe - 1.0), tlin < ktoe), 0.0, 1.0);
-  let out = pow(tt, mix(meter.contrast, kFrozenContrast, kFreeze));
-  /* Chroma rides along untouched through the shadows and mid-tones and is let go of toward white:
-   * without this the curve compresses LUMINANCE while the ratio carries a channel straight past 1,
-   * measured as 3.38 % of the frame at 250+ against a 1.93 % luminance clip. 0.6 is where the roll
-   * starts; below it nothing in this scene's ground or sky is touched. */
-  let desat = smoothstep(0.6, 1.0, out);
-  let rgb = mix(lit * (out / lum), vec3f(out), desat);
-  let peak = max(max(rgb.r, rgb.g), rgb.b);
-  let pull = select(1.0, (1.0 - out) / max(peak - out, 1e-5), peak > 1.0);
-  o.surface = vec4f(clamp(vec3f(out) + (rgb - vec3f(out)) * pull, vec3f(0.0), vec3f(1.0)), 1.0);
+  if (kProbe > 0.5) {
+    let plum = max(dot(lit, vec3f(0.2126, 0.7152, 0.0722)), 1.0e-7);
+    let pt = clamp((log2(plum) - kProbeBlack) / (kProbeWhite - kProbeBlack), 0.0, 1.0);
+    o.surface = vec4f(clamp(lit * (pt / plum), vec3f(0.0), vec3f(1.0)), 1.0);
+    return o;
+  }
+  o.surface = vec4f(filmic(lit * mix(meter.expScale, kFrozenExp, kFreeze)), 1.0);
   return o;
 }
 @vertex fn vs(@builtin(vertex_index) i : u32) -> VOut {
@@ -232,27 +215,22 @@ fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
 }
 )";
 
-/* FB_GEOM freezes the metered curve at the values this scene METERED before the DAG existed
- * (walk --bench 500: blackLog2 -8.20303, whiteLog2 3.51562, contrast 1.38095), so a geometry change
- * cannot move the exposure and then be read back off the PNG as a geometry difference. The freeze is
- * about the ANCHORS; the toe is not one, so FB_GEOM keeps the shipped curve's foot.
- * FB_TONE_PROBE=black,white — the curve as a RULER: exponent 1, no toe, so the frame's own display
- * luminance IS (log2 L - black)/(white - black) and a PNG read back through the sRGB decode is the
- * scene's HDR histogram. It is the only way to measure the population BELOW the black anchor, where
- * the shipped curve has no inverse. */
+/* FB_GEOM freezes the exposure at what the demo scene meters, so a geometry change cannot move it and
+ * then be read back off the PNG as a geometry difference. DERIVED from that scene's own irradiance
+ * (walk/irradiance 17:40Z: horizE 0.164203, so keyL = 0.12 * 0.164203 / PI * 11 = 0.0689900):
+ * kFilmicMid / keyL = 0.13017527 / 0.0689900 = 1.886873.
+ * FB_TONE_PROBE=black,white swaps the curve for a linear log2 ruler (see resolved()). */
 static std::string CurveConstsWGSL(void) {
-  double fb = -8.20303, fw = 3.51562, fc = 1.38095, ft = TaaStage::kToe;
-  bool freeze = GeometryIsolation();
-  if (const char *e = getenv("FB_TONE_PROBE")) {
-    double b = 0.0, w = 0.0;
-    if (std::sscanf(e, "%lf,%lf", &b, &w) == 2 && w > b) { fb = b; fw = w; fc = 1.0; ft = 0.0; freeze = true; }
-  }
-  return std::string(freeze ? "const kFreeze : f32 = 1.0;\n" : "const kFreeze : f32 = 0.0;\n")
-       + "const kFrozenBlack : f32 = " + std::to_string(fb) + ";\n"
-         "const kFrozenWhite : f32 = " + std::to_string(fw) + ";\n"
-         "const kFrozenContrast : f32 = " + std::to_string(fc) + ";\n"
-         "const kFrozenToe : f32 = " + std::to_string(ft) + ";\n"
-         "const kToe : f32 = " + std::to_string(TaaStage::kToe) + ";\n";
+  double pb = 0.0, pw = 0.0;
+  bool probe = false;
+  if (const char *e = getenv("FB_TONE_PROBE"))
+    probe = std::sscanf(e, "%lf,%lf", &pb, &pw) == 2 && pw > pb;
+  return std::string(GeometryIsolation() ? "const kFreeze : f32 = 1.0;\n"
+                                         : "const kFreeze : f32 = 0.0;\n")
+       + "const kFrozenExp : f32 = 1.886873;\n"
+       + (probe ? "const kProbe : f32 = 1.0;\n" : "const kProbe : f32 = 0.0;\n")
+       + "const kProbeBlack : f32 = " + std::to_string(pb) + ";\n"
+         "const kProbeWhite : f32 = " + std::to_string(pw > pb ? pw : pb + 1.0) + ";\n";
 }
 
 void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
@@ -296,6 +274,7 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
        * anyway; leaving 0.15 keeps the edges of slow objects inside a fast pan from re-aliasing. */
       + "const kFeedMax : f32 = " + std::to_string(kTaaFeedMax) + ";\n"
       + CurveConstsWGSL()
+      + kFilmicWGSL
       + kTaaWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();

@@ -177,10 +177,8 @@ fn deckSunThru(dk : vec4f, altM : f32) -> f32 {
   return (1.0 - dk.w) + dk.w * exp(-dk.z * frac);
 }
 /* The colour the far field converges to as transmittance -> 0, and it has to be the colour the SKY
- * pass paints in that direction or the horizon grows an edge: sky = skyViewSample + the sun-glow halo
- * (SunStage, character-identical below), so haze = the same sum. The glow is gated on the EVS flag
- * exactly as SunStage gates it — in SVS there is no sun disc and no halo, so there must be none in
- * the haze either.
+ * pass paints in that direction or the horizon grows an edge. The sky pass is skyViewSample and
+ * nothing else, so this is skyViewSample and nothing else.
  *
  * BELOW the horizon the sky-view LUT is asked a different question than the one we need: it marches
  * single scattering only to the ground intersection, through a MOLECULAR atmosphere whose extinction
@@ -193,11 +191,7 @@ fn deckSunThru(dk : vec4f, altM : f32) -> f32 {
  * changes, and a peak against the sky still fades into the sky it stands in front of. */
 fn hazeInscatter(svLUT : texture_2d<f32>, lsamp : sampler, A : Atmo, dir : vec3f) -> vec3f {
   let hazeDir = normalize(dir - A.up.xyz * min(dot(dir, A.up.xyz), 0.0));
-  let sunAng = acos(clamp(dot(hazeDir, A.sunDir.xyz), -1.0, 1.0));
-  let sunUpF = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
-  let halo = (exp(-sunAng * 7.0) * 0.35 + exp(-sunAng * 1.5) * 0.12 * A.skyExtra.x) * kSceneExposure;
-  return skyViewSample(svLUT, lsamp, A, hazeDir)
-       + halo * vec3f(1.0, 0.80, 0.55) * sunUpF;
+  return skyViewSample(svLUT, lsamp, A, hazeDir);
 }
 )";
 

@@ -14,6 +14,8 @@ that gives the sun its colour), [`tile-lights.md`](tile-lights.md) (the other ni
 |---|---|
 | all three read **one ephemeris**, `core/Ephemeris.h` | it lives in `core/` and not in `render/` because visual acquisition needs the sun too, and `core/`/`sensors/` may not include `render/` |
 | each is an **additive draw** (`One`/`One`) right after the sky dome | they add light to a dome that is already there; they never own the pixel |
+| the sun contributes **the disc and nothing else**. There is no glow, no halo and no aureole term here | the aureole is Mie forward scattering and it is already in the sky-view LUT (phase g = 0.8). A hand-written lobe on top is a second sky: measured at nebelhorn 2026-07-28 11:00Z, the one that stood here added (0.417, 0.333, 0.228) at 22.8° elevation to a LUT radiance of (0.129, 0.275, 0.608) and turned a B/R that falls 4.73 → 3.81 toward the horizon into one that rises 1.53 → 2.14 |
+| the disc's radiance is **derived from the drawn solid angle**, `L = E_TOA / (2π(1 − cos θ))` with θ the same angular radius the disc is cut at | widening the disc then cannot change the flux it carries. At θ = 0.5° that is 1/2.392e-4 = **4180** per unit TOA irradiance; the `30` that stood there was a `[SET]` with no origin |
 | each **self-gates** and costs nothing when it cannot contribute | the sun returns `vec4f(0)` outside EVS; the stars need SVS off, night, and a catalogue |
 | the moon is an **illuminated sphere**, not a painted disc | phase and terminator then emerge physically instead of being drawn, and the moonlight the ground receives is the same quantity |
 | the moon **owns** its albedo texture | it is the sole consumer of the NASA LROC map |
@@ -27,7 +29,7 @@ that gives the sun its colour), [`tile-lights.md`](tile-lights.md) (the other ni
 
 | Stage | What is built |
 |---|---|
-| `SunStage` | disc + forward glow, additive, sun colour from the transmittance LUT; angular radius `cos(0.5°)` in `AtmoBuf` |
+| `SunStage` | disc only, additive, sun colour from the transmittance LUT; angular radius `cos(0.5°)` and the derived radiance `1/(2π(1 − cos 0.5°))` in `AtmoBuf` |
 | `MoonStage` | lit sphere with the LROC albedo, phase from the ephemeris, angular radius 0.0045 rad × `FB_MOON_SCALE` |
 | `StarsStage` | HYG field, instanced additive quads at true alt/az, self-gated on SVS, daylight and a missing catalogue |
 
@@ -38,6 +40,11 @@ phase and not enough for navigation. The phase is `(1 − cos(elongation))/2`.
 
 ## Gaps
 
+- **The sun has no glare and the frame has no bloom.** With the authored halo gone the disc is a hard
+  three-pixel dot at 320×180 (frame: `sim/web/cams/` — render a pose with the sun in view). Physically
+  that is what a 0.5° source is; what a photograph adds is lens flare and what an eye adds is scatter in
+  its own optics, and neither is in this renderer. A bloom pass would be the honest answer and it is a
+  pass, so it is not free. Until then the sun in frame is under-sold.
 - **`FB_MOON_SCALE` exists**, which means the moon can be drawn at a size that is not its own. A scale
   factor with no declared value in this document is a knob without a number; what it is set to, and why,
   belongs in a Spec row and is missing.

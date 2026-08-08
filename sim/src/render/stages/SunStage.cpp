@@ -7,7 +7,13 @@
 
 namespace outshine::Render {
 
-/* Disc = solar transmittance, glow = a soft forward halo. */
+/* The disc alone: solar transmittance across the drawn solid angle. THE AUREOLE IS NOT DRAWN HERE and
+ * must not be — it is Mie forward scattering, it is already in the sky-view LUT (phase g = 0.8), and
+ * the soft halo that used to be added on top was an authored white term with an e-fold of 1/1.5 rad
+ * = 38 deg. MEASURED against the LUT's own radiance at nebelhorn 2026-07-28 11:00Z: at 22.8 deg
+ * elevation it contributed (0.417, 0.333, 0.228) of a total (0.546, 0.608, 0.836), which is what
+ * turned a sky whose B/R falls 4.73 -> 3.81 from 23 deg down to 9 deg into one that RISES 1.53 ->
+ * 2.14. A sky drawn from a table plus a hand-written lobe is two skies. */
 static const char *kSunWGSL = R"(
 @group(0) @binding(0) var<uniform> A : Atmo;
 @group(0) @binding(1) var lsamp : sampler;
@@ -23,14 +29,10 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
   let dir = camRay(A, in.ndc);
-  let day = A.skyExtra.x;
-  let sa = acos(clamp(dot(dir, A.sunDir.xyz), -1.0, 1.0));
   let sup = smoothstep(-0.06, 0.0, dot(A.sunDir.xyz, A.up.xyz));
   let disc = select(0.0, 1.0, dot(dir, A.sunDir.xyz) > A.params.z);
   let sunT = textureSampleLevel(tLUT, lsamp, tLUTuv(atmoPos(A), A.sunDir.xyz), 0.0).rgb;
-  let glow = (exp(-sa * 7.0) * 0.35 + exp(-sa * 1.5) * 0.12 * day) * kSceneExposure;
-  let col = (disc * sunT * A.params.w + glow * vec3f(1.0, 0.80, 0.55)) * sup;
-  return vec4f(col, 1.0);
+  return vec4f(disc * sunT * A.params.w * kSceneExposure * sup, 1.0);
 }
 )";
 

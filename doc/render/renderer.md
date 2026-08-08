@@ -170,9 +170,11 @@ Beleuchtung rechnet richtig; die Anzeigekurve zerdrueckt das Ergebnis.**
 
 Damit ist der Fall eingetreten, vor dem das art-director-Urteil gewarnt hat — spiegelbildlich. Es hiess:
 eine filmische Kurve OHNE Schattenstruktur gebe Tonwertumfang ohne Tonwertaufbau und mache das Bild
-schlechter. Jetzt ist die Struktur da und die Kurve ist an der Reihe: der Fuss (`kToe` = 0.0551 in
-`TaaStage.h`) hebt die Tiefen zu wenig, und 74 % einer Landschaft im Schatten eines Grates ist kein
-Bild, sondern eine Silhouette.
+schlechter. Jetzt ist die Struktur da und die Kurve ist ihr nachgezogen worden
+([`stages/tonemap.md`](stages/tonemap.md), 2026-08-08): eine Belichtung aus der Beleuchtung mal einer
+festen filmischen Kurve statt einer logarithmischen Rampe ueber 11,686 EV. Was die Kurve NICHT loest,
+steht als Zahl in derselben Datei: ein Schatten unter klarem Himmel traegt in diesem Modell 4,2 % der
+besonnten Beleuchtung, die Literatur sagt 10-15 %, und das ist eine Frage an die Beleuchtung.
 
 ### Die Standpunkte sind ein MOD, und der Betreiber veroeffentlicht sie selbst
 
@@ -823,7 +825,7 @@ the client (`FB_LOAD_THRESH` 0.95; `FB_LOAD_TIMEOUT_MS` 30000 — `clients/AppWa
 | `IrradianceStage` | compute | the two irradiances — **THE** scale everything else is metered against | always |
 | `ShadowStage` | render, depth only | the sun cascade; casters are the OSM building prisms | a caster set exists |
 | `SkyStage` | render | sky dome + cloud-deck value-noise sheet | always (SVS pins day=1) |
-| `SunStage` | render, additive | sun disc + forward glow | returns `vec4f(0)` outside EVS |
+| `SunStage` | render, additive | the sun disc, at the radiance its own drawn solid angle implies; no glow ([`stages/celestial.md`](stages/celestial.md)) | returns `vec4f(0)` outside EVS |
 | `MoonStage` | render, additive | moon as an illuminated sphere; owns the NASA LROC albedo texture | as sun |
 | `StarsStage` | render, instanced additive | HYG star field at true alt/az | self-gated: no SVS, no day, no catalogue → no draw |
 | `TilesStage` | render | terrain, the ground material and the stand over it (§6, [`stages/terrain.md`](stages/terrain.md)) | always, once configured |
@@ -966,7 +968,7 @@ the cloud march):
 | deck attenuation | `sunThru = Π_i [(1−cover_i) + cover_i·exp(−τ_i·frac_i)]`, `frac_i = clamp((top_i − z_frag)/thick_i, 0, 1)` | statistical, per deck, per fragment — **not** a shadow map. `cover` is calibrated to be an area fraction, so `1−cover` really is the share of sun rays that miss the deck; `frac` is what makes a ridge inside the deck partly lit and one above its top fully lit |
 | lit albedo | `albedo · (0.4 + 0.15·(1−sunThru) + 3.0·N·L·sunThru) · light` | the direct term is what a deck takes away; `0.15` is what it gives back as diffuse (derivation in the shader comment: overcast diffuse illuminance ≈ 1.0–1.5× clear-sky diffuse) |
 | haze | `T₁₃ = exp(−[β_R·exp(−z̄/8000) + σ_A·exp(−z̄/1200)]·d)`, `c = c·T + inscatter·(1−T)` | σ₀ = 3.912/visibility (Koschmieder) split into a fixed molecular part β_R and the aerosol remainder σ_A; two scale heights, and β_R is a **vec3** (λ⁻⁴) so the extinction colours. `z̄` = mean altitude of the sight line, `d` = the camera-relative fragment distance. Derivations + citations: [`clouds.md`](clouds.md) |
-| inscatter | `skyViewSample(dir↓horizon) + the sun halo × EVS` | identical to what the sky pass paints, so the horizon has no edge; a below-horizon direction is projected onto the horizon, because the LUT's below-horizon branch answers a different question (`AtmoHaze.h` comment) |
+| inscatter | `skyViewSample(dir↓horizon)` | identical to what the sky pass paints, so the horizon has no edge; a below-horizon direction is projected onto the horizon, because the LUT's below-horizon branch answers a different question (`AtmoHaze.h` comment) |
 
 Telemetry: `Log::Debug("render","terrain_light")` on change — `visM`, `sigma0PerM`, the three decks'
 `τ`, `groundSunThru` and `groundLitFrac` (the share of ground radiance that is direction-dependent

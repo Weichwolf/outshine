@@ -23,6 +23,7 @@ and moon, drawn additively right after the dome), [`terrain.md`](terrain.md) and
 | the chain is **compute for the LUTs, one fullscreen draw for the dome** | the LUTs are camera-independent or nearly so, and recomputing them per pixel is the thing the LUT exists to avoid |
 | **ONE scene-referred scale.** Radiance is computed in the units the LUTs are in — top-of-atmosphere solar irradiance = 1 — and exactly one exposure is applied on the way to ACES | two independently fitted scales is what put zenith sky and sunlit ground **2.5–3.6 EV** apart. There is now one number to move ([`tonemap.md`](tonemap.md)) |
 | the ground's ambient **IS** the integral of the sky the sky pass draws | not a second constant fitted against it — that is what `IrradianceStage` exists for |
+| **the sky is the table and nothing but the table.** No stage may add a lobe, a halo or a tint to the dome or to the haze inscatter | a hand-written term on top of a solved integral is a second sky, and the two disagree exactly where they overlap. MEASURED, nebelhorn fit pose 2026-07-28 11:00Z: a 38°-wide authored halo inverted the sky's own B/R — 4.73 → 3.81 falling toward the horizon in the table, 1.53 → 2.14 rising in the frame ([`celestial.md`](celestial.md)) |
 | the multiple-scattering LUT is **not optional** | without it the sky-view march is single-scatter only, which measures **1.4 EV too dark at the zenith** and leaves ground and sky on two different scales however the ground is fitted |
 | **ONE atmosphere** for dome, terrain and cloud deck | one σ₀ from one weather sample, one inscatter colour, in one shared function both shaders splice ([`../clouds.md`](../clouds.md)) |
 | the sky-view LUT **wraps in azimuth** and its seam sits at the sun's own azimuth | so it is sampled with the LUT sampler (`Repeat` in U), never the tile sampler — a filtered seam through the brightest part of the far field is the failure this prevents |
@@ -62,6 +63,15 @@ round** and are deliberately not guessed here.
   matched-pair harness would settle sky brightness, colour and the zenith/ground ratio in one number, and
   it does not exist. The 1.4 EV and 2.5–3.6 EV figures above are what wrong looks like when it is finally
   measured — there is no standing gate that would catch the next one.
+- **The sky-view LUT's air and the terrain haze's air are still two mixtures.** `AtmoCommon.h` bakes
+  Hillaire's fixed `mieScatteringBase = 3.996 /Mm` while `AtmoHaze.h` derives the aerosol from the
+  weather's reported visibility — at the reference poses' 100 km that is **25.56 /Mm** at sea level,
+  6.4× more. **Measured, and it is why this was not fixed in the round that found it:** rebaking the
+  whole chain with the visibility-derived aerosol (23.0 scattering + 2.56 absorption, ssa 0.9, the same
+  1.2 km scale height) moves `E_sky` from 0.0537 to 0.0552 (+2.8 %) and the sky radiance by under 5 % at
+  every elevation, because a camera at 2 224 m stands above `exp(−2.224/1.2) = 16 %` of the aerosol
+  column. It moves no acceptance number for a mountain camera. It is still two mixtures where the Spec
+  says one, and a sea-level pose has never been measured.
 - **The two scale heights owe their citation.** [`../clouds.md`](../clouds.md) states the requirement:
   the molecular (~8 km) and aerosol (~1.2 km) terms must be **published and cited**, and the rule that
   divides σ₀ between them argued rather than tuned. That is that file's Spec and this chain's dependency.

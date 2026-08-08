@@ -235,8 +235,7 @@ drift:
 | full frame with the deck, after | 16.27…16.55, median **16.36** (alternating re-run 16.54) | **+0.65 ms, +4.1 %** |
 
 So the terrain haze itself costs **0.36 ms** and the remaining **≈0.29 ms** is the cloud pass paying
-for the shared inscatter — it now carries the sun halo it did not have, which is the price of deck and
-ground converging on one colour. Against the cloud march's own ~14 ms at this camera, +4 %.
+for the shared inscatter, which is the price of deck and ground converging on one colour. Against the cloud march's own ~14 ms at this camera, +4 %.
 
 Pass topology unchanged: `passes=7 clouds=1 cloudPass=1` with a deck, `passes=6 … cloudPass=0`
 without. Telemetry unchanged: **11 telemetry CSVs over 6 mission runs byte-identical** to the binary
@@ -335,8 +334,9 @@ per frame. Written to `sim/build/r6-cloud-proofs/` (gitignored, `build/` is).
 deck's inscatter colour changed with it), and the reproducibility claim was re-measured the same way —
 **0 of 12 differing between two fresh independent runs.** What the set shows now that it did not:
 `p2f-below` and `p1` carry real depth cueing instead of a full-brightness horizon, and `p3`'s
-underside shows the sun's position through the air in FRONT of the deck (the haze inscatter's halo),
-where before it was a featureless dark base.
+underside shows the sun's position through the air in FRONT of the deck, where before it was a
+featureless dark base. **That reading is stale as of 2026-08-08**: the authored halo the haze inscatter
+carried is deleted (`stages/celestial.md`), and what is left there is the sky-view LUT's own aureole.
 
 **Re-taken again the same day** after the scale-height correction, and the reproducibility claim is no
 longer a footnote: `VERIFY=1 tools/capture_cloud_proofs.sh` takes the set TWICE into sibling

@@ -76,8 +76,8 @@ public:
    * and needs no declaration. Takes effect on the next frame. */
   void SetExposure(const ExposureParams &p) { Exposure->SetParams(p); }
 
-  /* [outBlack, outWhite, contrast, adaptLog2, blackLog2, whiteLog2, horizE, _], all log2 of scene
-   * radiance except horizE and the exponent. Blocking. */
+  /* [expScale, keyLog2, horizE, _]: the scalar the resolve multiplies scene radiance by, the log2 of
+   * the radiance it places at middle grey, and the horizontal irradiance it came from. Blocking. */
   bool ReadExposure(float out[ExposureStage::kMeterFloats]);
 
   /* Enable before Init: the terrain source is per-tile buffers plus a growable CLASS array driven

@@ -823,9 +823,8 @@ int main(int argc, char **argv) {
 
   float met[Render::ExposureStage::kMeterFloats] = {};
   if (R.ReadExposure(met)) {
-    Log::Info("walk", "exposure", {{"blackLog2", (double)met[0]}, {"whiteLog2", (double)met[1]},
-        {"contrast", (double)met[2]}, {"adaptLog2", (double)met[3]}, {"horizE", (double)met[6]},
-        {"spanEv", (double)(met[1] - met[0])}});
+    Log::Info("walk", "exposure", {{"expScale", (double)met[0]}, {"keyLog2", (double)met[1]},
+        {"horizE", (double)met[2]}});
   }
   Log::Info("walk", "terrain", {{"targetTotal", W.TargetTotal()}, {"targetReady", W.TargetReadyN()},
       {"progress", (double)W.LoadProgress()}, {"draws", R.DrawCount()},

@@ -7093,3 +7093,53 @@ seinem eigenen Schatten.
 Und die Seite darf nicht leer werden: ein 502 der Gegenstelle — heute für alle 14 gleichzeitig
 gemessen — nahm jedem verworfenen Paar seine Bilder mit. Jetzt drei Versuche mit Backoff, danach
 bleibt das letzte gute Paar mit seiner Zeit und dem Grund stehen (`web/cams/state.json`).
+
+## 2026-08-08 — Zwei Himmel waren einer zu viel, und die Kurve war ein Container
+
+Ein Kritiker maß die sechs eingepassten Kamerapaare bei 320×180 und fand vier Befunde. Zwei davon sind
+jetzt Zahlen statt Befunde, zwei sind Zahlen statt Vermutungen.
+
+**Der Himmelsgradient war vorzeichenverkehrt, und der Grund war ein zweiter Himmel.** Die Tabellenkette
+(Transmittance → MultiScatter → SkyView → Irradiance, Hillaire 2020) stand seit Wochen und rechnete
+richtig: offline mit 512 Marschschritten nachgebaut gibt sie am Nebelhorn bei 22,8° Höhe
+(0,129 / 0,275 / 0,608) und bei 8,7° (0,279 / 0,555 / 1,063) — B/R fällt 4,73 → 3,81 zum Horizont, wie
+Rayleigh es verlangt. Das Bild zeigte 1,53 → 2,14, also das Gegenteil. Die Differenz ist
+(0,417 / 0,333 / 0,228) und (0,299 / 0,245 / 0,176) — Verhältnis 1 : 0,80 : 0,55, genau der Farbton des
+Halos, den `SunStage` additiv daraufschrieb, mit einer e-Faltung von 1/1,5 rad = **38 Grad**. Ein
+handgeschriebener Lappen über dem halben Himmel, und `hazeInscatter` trug denselben, damit der Horizont
+keine Kante bekommt. Beide sind weg. Die Sonnenscheibe bleibt und bekommt ihre Herkunft: `L = E/Ω` mit
+demselben Kosinus, an dem sie abgeschnitten wird, also 4180 statt der nackten 30.
+
+**Es gab keinen Weißpunkt, weil die Spanne aus dem falschen System kam.** Die Anzeigekurve war eine
+logarithmische Rampe über **11,686 EV** — das ist das Verhältnis von sRGB-Code 1 zu Code 255, also der
+Umfang eines *Anzeigegeräts*, auf die Szenenseite verpflanzt. Gegen diese Szene setzte das den Weißpunkt
+auf Szenenradianz 2^7,51 = 182, während das hellste Pixel im Bild bei 1,5 lag: 6,9 Blenden leerer
+Spielraum, und deshalb in 6 von 6 Bildern **exakt 0,000** Pixel über L 200. Ersetzt durch das, was
+Photographie tut: eine Belichtung aus der Beleuchtung mal einer festen filmischen Kurve. Die Belichtung
+ist eine Zahl, `kFilmicMid / (ρ̄ · E_h/π · kSceneExposure)`, und ρ̄ ist die gemessene mittlere
+Reflektanz mitteleuropäischer Landbedeckung, die diese Engine ohnehin führt. Die Kurve ist Narkowicz'
+ACES-Fit, **pro Kanal** — was ein Photo des klaren Himmels zeigt (Blau bei 253 festgenagelt, Rot und
+Grün steigen), kann eine Kurve auf der Luminanz nicht. Beide Konstanten der Kurve sind aus ihr selbst
+gelöst: Mitte bei 0,13017527, Weiß bei 7,24166, also 5,798 Blenden Kopffreiheit.
+
+Gemessen, sechs Paare, Binär `5e0d6ae4…` gegen `ac7ebf39…`: B−R fällt jetzt in **6 von 6** (vorher
+0 von 6), Pixel über L 200 gibt es in **5 von 6** (vorher 0 von 6), die Luminanz-Streuung geht von
+24…37 auf 33…53 gegen 46…75 im Foto. Bildpreis über 360 Frames bei 1280×720: p50 4,586 → **4,262** ms,
+p95 5,436 → **4,520**, p99 5,756 → **4,655**. Paßzahl **7 → 7**.
+
+**Die zwei übrigen Befunde sind jetzt vermessen und liegen woanders.** Der lokale Gradient in der
+unteren Bildhälfte erreicht die halbe Photozahl in 3 von 6 — aber nach Tiefenband getrennt ist es nicht
+die Fernluft: im Band 90–120 übertreffen wir das Foto bei herzogstand (19,1/7,2), hochries (32,8/9,4)
+und hochkoenig (12,4/9,6), und wir fehlen im NÄCHSTEN Band 150–179, wo es keine Luftperspektive gibt
+und das Foto Kalk, Schutt, Wege und Seilbahnen hat, die wir nicht modellieren. Und der Eigenschatten:
+er ist kein Kurvenproblem, er ist ein Beleuchtungsproblem mit einer Herleitung. `E_sky/E_global` =
+0,0539/0,841 = **6,4 %**, mal dem Gewicht 0,65, plus einer Nachbarschaftsreflexion, die auf ebenem Grund
+per Formel null ist — macht **4,2 %**, wo die Literatur 10–15 % mißt. Die Schattenfarbe ist dabei exakt
+das Produkt aus blauem Himmel und grüner Fläche, B/G 0,52 vorhergesagt und 0,52 gemessen; das Foto ist
+dort blau, weil seine dunkelsten 2 % 5–10 km entfernte Hänge unter Dunst sind und nicht Schattenwurf im
+Vordergrund. Und die sechs Referenzphotos selbst erfüllen dieses Abnahmekriterium in 2 von 6.
+
+Was nicht gemacht wurde und warum, mit Messung: die Vereinheitlichung des Aerosols zwischen
+Himmelstabelle und Bodendunst (6,4-fach auseinander) bewegt `E_sky` um 2,8 % und die Himmelsradianz um
+unter 5 %, weil eine Kamera auf 2 224 m über 84 % der Aerosolsäule steht. Sie steht als Lücke, nicht als
+Erfolg.
