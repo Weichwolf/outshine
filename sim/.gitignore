@@ -19,3 +19,7 @@ web/mods/
 node_modules/
 package.json
 package-lock.json
+
+# --- run artefacts (declared runs, logs from fb-sim) ---
+runs/
+logs/

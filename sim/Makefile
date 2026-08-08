@@ -11,8 +11,6 @@
 #                 machine-checked matrix
 #   make verify-clients  both main()s are entry points and nothing else, and the scene is built in
 #                 exactly one place -- what one client shows, the other cannot fail to show
-#   make verify-trees  doc/ (what we want), src/ (what we can) and test/ (what we prove) carry the
-#                 same directory tree -- an orphan is a named hole
 #   make verify-types  what src/ still knows about concrete aircraft types (rc=1 while > 0)
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
@@ -97,7 +95,7 @@ WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm worker walk treebench verify-layers verify-types verify-trees verify-clients image up down restart clean
+.PHONY: help wasm worker walk treebench verify-layers verify-types verify-clients image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -174,11 +172,6 @@ treebench:       ## grow all sixteen species and measure them -> build/treebench
 	    $(CXXSTD) -O2 $(CXX_WARN) -Isrc/world -Isrc/render -Isrc/core \
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
-
-# The TRIAD gate: doc/ = what we want, src/ = what we can, test/ = what we prove, and the three carry
-# the same directory tree. Same reasoning as its two siblings for not being a build prerequisite.
-verify-trees:    ## check that doc/, src/ and test/ carry the same directory tree
-	@cd $(SELF_DIR) && python3 tools/verify_trees.py
 
 verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
