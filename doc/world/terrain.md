@@ -471,6 +471,7 @@ delivers, under which endpoints, at which resolution.
 | `/t/lights/z/x/y` | binary night-light list | 200 (even empty) / 204 (no vector datum) | `fb_stream_lights` |
 | `/t/stars/{band}/0/0` | HYG star band, 6 B/star | 200 / 404 | `fb_fetch_stars` (4 bands, concatenated) |
 | `/elev?lat=&lon=[&block=1]` | text: one number (m ASL) + newline | 200 / **503 "no dem"** (cold) | nothing in this tree since §3.3; the server's own point-query API |
+| `/peaks?lat=&lon=[&r=]` | TSV `lat lon ele name`, one named `natural=peak` per line, radius filter in metres (default 50 000) | 200 / **503** (upstream unreachable) | `tools/campose.py` (camera resection); no engine reader |
 | `/wx` | global wind/cloud package, binary format `FBWX` | 200 / **503** (no GFS run reachable) | `WeatherProvider` — see [`weather.md`](weather.md) |
 | `/health` | text statistics line | 200 | operations |
 
@@ -486,6 +487,14 @@ delivers, under which endpoints, at which resolution.
 
 The difference between **absent** (204) and **empty** (200 with count = 0) is explicitly modelled at
 `/t/lights`: a dark ocean tile is something different from a missing vector datum.
+
+**`/peaks` is not a tile.** The vector tiles are the VersaTiles/shortbread schema, and shortbread
+carries no `natural=peak` — measured on `/t/vector/14/8691/5734`, the Zugspitze summit tile: its
+`pois` layer holds the summit restaurant, the transmitter mast and four `man_made=surveillance` nodes
+(the webcams themselves), but no peak. A named summit with an `ele` is the only point-shaped,
+height-accurate control point the Alps offer, so it comes from Overpass instead, in CSV, cached per
+0.5-degree cell under `<cache>/peaks/` and served verbatim (`tiles/src/peaks.c`). One cell answers in
+one round trip; 50 km around the Zugspitze are 1 778 named peaks.
 
 #### 7.2 Data sources and resolution
 

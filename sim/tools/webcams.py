@@ -67,57 +67,35 @@ def live(slug, dst):
 
 
 def fogged(path):
-    """Wolke oder Nebel: wenig Buntheit UND wenig Kontrast ueber das ganze Bild. Gegen ein Nebelbild
-    zu rendern misst nichts — der Unterschied waere dann das Wetter und nicht die Engine."""
-    try:
-        import subprocess, json as _j
-        r = subprocess.run(["python3", "-c", _PROBE, str(path)], capture_output=True, text=True)
-        d = _j.loads(r.stdout)
-    except Exception:
-        return False, {}
-    return (d["sat"] < 0.10 and d["p95p5"] < 70), d
+    """Wolke oder Nebel: wenig Buntheit UND wenig Kontrast. Gegen ein Nebelbild zu rendern misst
+    nichts -- der Unterschied waere dann das Wetter und nicht die Engine."""
+    import numpy as np
+    from PIL import Image
+    a = np.asarray(Image.open(path).convert("RGB").resize((256, 144)), np.float32)
+    mx, mn = a.max(2), a.min(2)
+    sat = float(((mx - mn) / np.maximum(mx, 1.0)).mean())
+    lum = 0.2126 * a[:, :, 0] + 0.7152 * a[:, :, 1] + 0.0722 * a[:, :, 2]
+    con = float(np.percentile(lum, 95) - np.percentile(lum, 5))
+    return sat < 0.10 and con < 70.0, sat, con
 
 
-_PROBE = r"""
-import sys, struct, zlib
-# Ein JPEG ohne Fremdbibliothek zu dekodieren waere unverhaeltnismaessig; stattdessen die DC-Statistik
-# ueber die Datei selbst: Buntheit und Kontacht schaetzen wir aus dem heruntergerechneten PNG, das der
-# Renderer ohnehin schreibt. Hier reicht die Dateigroesse NICHT, also nutzen wir sips (macOS).
-import subprocess, json, os, tempfile
-src = sys.argv[1]
-tmp = tempfile.mktemp(suffix=".png")
-subprocess.run(["sips", "-s", "format", "png", "-Z", "64", src, "--out", tmp],
-               capture_output=True)
-d = open(tmp, "rb").read(); os.unlink(tmp)
-i = 8; w = h = 0; idat = b""
-while i < len(d):
-    ln = struct.unpack(">I", d[i:i+4])[0]; t = d[i+4:i+8]
-    if t == b"IHDR": w, h, bd, ct = struct.unpack(">IIBB", d[i+8:i+18])
-    elif t == b"IDAT": idat += d[i+8:i+8+ln]
-    i += 12 + ln
-raw = zlib.decompress(idat); bpp = 4 if ct == 6 else 3; stride = w*bpp
-out = bytearray(); prev = bytearray(stride); o = 0
-for y in range(h):
-    f = raw[o]; o += 1; line = bytearray(raw[o:o+stride]); o += stride
-    for x in range(stride):
-        a = line[x-bpp] if x >= bpp else 0; b = prev[x]; c = prev[x-bpp] if x >= bpp else 0
-        if f == 1: line[x] = (line[x]+a) & 255
-        elif f == 2: line[x] = (line[x]+b) & 255
-        elif f == 3: line[x] = (line[x]+(a+b)//2) & 255
-        elif f == 4:
-            pa = abs(b-c); pb = abs(a-c); pc = abs(a+b-2*c)
-            pr = a if (pa <= pb and pa <= pc) else (b if pb <= pc else c)
-            line[x] = (line[x]+pr) & 255
-    out += line; prev = line
-lum = []; sat = 0.0; n = 0
-for i2 in range(0, len(out), bpp):
-    r, g, b2 = out[i2], out[i2+1], out[i2+2]
-    mx, mn = max(r, g, b2), min(r, g, b2)
-    sat += (mx-mn)/max(mx, 1); n += 1
-    lum.append(0.2126*r+0.7152*g+0.0722*b2)
-lum.sort()
-print(json.dumps({"sat": sat/max(n,1), "p95p5": lum[19*len(lum)//20]-lum[len(lum)//20]}))
-"""
+def fit_shot(c, dst):
+    """Das Bild, auf das die Pose eingepasst wurde, mit seiner eigenen Uhr.
+
+    Das Livebild kommt zu jeder Tageszeit, und um Mitternacht steht auf beiden Seiten Nacht. Die
+    Guete der Pose ist dann nicht zu sehen; das Fitbild zeigt sie."""
+    when = c.get("fitImage")
+    if not when:
+        return None
+    y, mo, d, hm = when.split("/")
+    t = datetime.datetime(int(y), int(mo), int(d), int(hm[:2]), int(hm[2:]),
+                          tzinfo=CAM_TZ).astimezone(datetime.timezone.utc)
+    if not dst.exists() or dst.stat().st_size < 10000:
+        try:
+            dst.write_bytes(get(f"{BASE}/{c['slug']}/{when}_hd.jpg", 60).read())
+        except Exception:
+            return None
+    return t
 
 
 def main():
@@ -144,35 +122,54 @@ def main():
         photo = OUT / f"{slug}-live.jpg"
         shot = OUT / f"{slug}-outshine.png"
         n, when, why = live(slug, photo)
-        fog, st = (fogged(photo) if n else (False, {}))
+        fog, sat, con = (fogged(photo) if n else (False, 0.0, 0.0))
         if n is None:
             photo.unlink(missing_ok=True)
             shot.unlink(missing_ok=True)
             print(f"{slug:16s} {'VERWORFEN':>9s}  {why}")
-            rows.append((c, when, None, False))
+            rows.append((c, when, None, False, 0.0))
             continue
         if why:
             print(f"{slug:16s} {'WARNUNG':>9s}  {why}")
 
+        # Die Augenhoehe ist gemessen, nicht gesetzt: der Betreiber nennt die Objektivhoehe ueber
+        # NN, /elev nennt den Boden darunter. Zwei Meter Untergrenze, weil das DEM einen scharfen
+        # Gipfel um bis zu 10 m abschneidet und die Kamera sonst im Berg staende.
+        eye = max(float(c["altM"]) - float(c["groundM"]), 2.0)
         scene = OUT / f"{slug}-scene.json"
         scene.write_text(json.dumps({
-            "lat": c["lat"], "lon": c["lon"], "eyeM": 3.0,
+            "lat": c["lat"], "lon": c["lon"], "eyeM": eye,
             "yawDeg": c["yawDeg"], "pitchDeg": c["pitchDeg"], "fovDeg": c["fovDeg"],
             "utc": when.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "windDeg": 250, "windMs": 4.0, "cloudCover": 0.0}, indent=2))
 
         r = subprocess.run(
             [binp, "--scene", str(scene), "--out", str(shot), "--warm", str(args.warm),
-             "--eye", "3.0", "--size", f"{W}x{H}"],
+             "--eye", f"{eye:.2f}", "--size", f"{W}x{H}"],
             capture_output=True, text=True, cwd=str(SIM))
         sun = ""
         for l in (r.stdout + r.stderr).splitlines():
             if "sunElDeg=" in l and "irradiance" in l:
                 sun = l.split("sunElDeg=")[1].split()[0][:5]
+        fit_photo = OUT / f"{slug}-fit.jpg"
+        fit_shotpng = OUT / f"{slug}-fit.png"
+        ft = fit_shot(c, fit_photo)
+        if ft:
+            fscene = OUT / f"{slug}-fit-scene.json"
+            fscene.write_text(json.dumps({
+                "lat": c["lat"], "lon": c["lon"], "eyeM": eye,
+                "yawDeg": c["yawDeg"], "pitchDeg": c["pitchDeg"], "fovDeg": c["fovDeg"],
+                "utc": ft.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "windDeg": 250, "windMs": 4.0, "cloudCover": 0.0}, indent=2))
+            subprocess.run(
+                [binp, "--scene", str(fscene), "--out", str(fit_shotpng), "--warm", str(args.warm),
+                 "--eye", f"{eye:.2f}", "--size", f"{W}x{H}"],
+                capture_output=True, text=True, cwd=str(SIM))
         ok = shot.exists() and shot.stat().st_size > 1000
         mark = "in Wolken" if fog else ""
-        print(f"{slug:16s} {n:8d} {when.strftime('%Y-%m-%d %H:%M'):>17s} {sun:>7s}  {'ok' if ok else 'FEHLT'} {mark}")
-        rows.append((c, when, ok, fog))
+        print(f"{slug:16s} {n:8d} {when.strftime('%Y-%m-%d %H:%M'):>17s} {sun:>7s}  "
+              f"Auge {eye:5.1f} m  {'ok' if ok else 'FEHLT'} {mark}")
+        rows.append((c, when, ok, fog, eye))
 
     html = ["<!doctype html><meta charset=utf-8><title>Outshine gegen foto-webcam.eu</title>",
             "<style>body{background:#111;color:#ccc;font:13px/1.4 system-ui;margin:16px}",
@@ -187,17 +184,28 @@ def main():
             f"<p class=n>Binary <code>{md5}</code> &middot; 320&times;180 &middot; "
             f"erzeugt {datetime.datetime.now(datetime.timezone.utc):%Y-%m-%d %H:%M} UTC</p>",
             "<div class=g>"]
-    for c, when, ok, fog in rows:
+    for c, when, ok, fog, eye in rows:
         if not ok:
             continue
-        fit = "" if c.get("fitted") else "<span class=w>Pose ungefittet</span>"
+        fit = (f"Klaffen {c['residPx']} px" if c.get("fitted")
+               else f"<span class=w>Pose ungefittet ({c.get('residPx', '?')} px)</span>")
         if fog: fit += " <span class=w>in Wolken</span>"
         ts = when.strftime("%H:%M UTC") if when else "&mdash;"
-        html.append(f"<div class=c><div class=t><b>{c['name']}</b><span>{ts} {fit}</span></div>"
+        pair2 = ""
+        if (OUT / f"{c['slug']}-fit.png").exists():
+            pair2 = (f"<div class=p><img src='{c['slug']}-fit.jpg'>"
+                     f"<img src='{c['slug']}-fit.png'></div>")
+        html.append(f"<div class=c><div class=t><b>{c['name']}</b>"
+                    f"<span>{ts} &middot; {fit}</span></div>"
                     f"<div class=p><img src='{c['slug']}-live.jpg'>"
-                    f"<img src='{c['slug']}-outshine.png'></div></div>")
+                    f"<img src='{c['slug']}-outshine.png'></div>{pair2}"
+                    f"<div class=n>{c['altM']} m ueber NN, {eye:.0f} m ueber Grund &middot; "
+                    f"Azimut {c['yawDeg']:.1f}&deg;, Neigung {c['pitchDeg']:.1f}&deg;, "
+                    f"Bildwinkel {c['fovDeg']:.1f}&deg;"
+                    + (f" &middot; Einpassbild {c['fitImage']} Ortszeit" if c.get("fitImage") else "")
+                    + "</div></div>")
     html.append("</div>")
-    dead = [c["name"] for c, _w, ok, _f in rows if not ok]
+    dead = [c["name"] for c, _w, ok, _f, _e in rows if not ok]
     if dead:
         html.append(f"<p class=n>Ohne Livebild und darum nicht gerendert: {', '.join(dead)}</p>")
     (OUT / "index.html").write_text("\n".join(html))

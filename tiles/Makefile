@@ -20,7 +20,7 @@ CURL_LIBS   ?= -lcurl
 TILES_PORT  ?= 8081
 
 SRC := $(addprefix src/,main.c elev.c cache.c route.c tilesrc.c prefetch.c raster.c bake.c \
-       bakepool.c tilemap.c stars.c lights.c grib2.c wx.c) $(wildcard osmmesh/*.c)
+       bakepool.c tilemap.c stars.c lights.c grib2.c wx.c peaks.c) $(wildcard osmmesh/*.c)
 BIN := fb-tiles
 
 # This Makefile's own directory, absolute -- so `image` resolves the repo root correctly no matter

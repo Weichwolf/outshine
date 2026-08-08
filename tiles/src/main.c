@@ -9,6 +9,7 @@
 #include "lights.h"
 #include "tilemap_api.h"
 #include "wx.h"
+#include "peaks.h"
 #include "reply.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -104,6 +105,21 @@ static void handle(int fd, char *req) {
         return;
     }
 
+    if (!strcmp(path, "/peaks")) {
+        double lat, lon, r = 50000.0;
+        if (!fb_query_double(qs, "lat", &lat) || !fb_query_double(qs, "lon", &lon)) {
+            fb_reply(fd, "400 Bad Request", "text/plain", "need lat & lon\n"); return;
+        }
+        fb_query_double(qs, "r", &r);
+        char *body = 0; size_t n = 0;
+        if (!fb_peaks_get(lat, lon, r, &body, &n)) {
+            fb_reply(fd, "503 Service Unavailable", "text/plain", "no peaks\n"); return;
+        }
+        fb_reply_bin(fd, "text/tab-separated-values", (const uint8_t *)body, n);
+        free(body);
+        return;
+    }
+
     if (!strcmp(path, "/wx")) {
         /* One global blob per GFS run, no tiling and no parameters: at 0.25 deg a whole variable is
          * a 1440x721 field, so the DEM's argument runs backwards here -- splitting it would cost
@@ -190,6 +206,7 @@ static void handle(int fd, char *req) {
         long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
         long tq, tmh, tmm, tl, td, bnative, bsuper, lbaked, lserved, bpserved;
         long wxs, wxb, wxd, wxff, wxdf, wxst, wxfb;
+        long pks, pkc, pkf, pkx;
         int pth, cthreads; long cbusy, cqueued;
         fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
         fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
@@ -199,8 +216,9 @@ static void handle(int fd, char *req) {
         fb_lights_stats(&lbaked, &lserved);
         fb_bakepool_stats(&bpserved);
         fb_wx_stats(&wxs, &wxb, &wxd, &wxff, &wxdf, &wxst, &wxfb);
+        fb_peaks_stats(&pks, &pkc, &pkf, &pkx);
         pool_stats(&cthreads, &cbusy, &cqueued);
-        char body[1600];
+        char body[1800];
         snprintf(body, sizeof body,
                  "ok pool_threads=%d pool_busy=%ld pool_queued=%ld | "
                  "dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
@@ -214,12 +232,13 @@ static void handle(int fd, char *req) {
                  "tilemap_queries=%ld hits=%ld misses=%ld learned=%ld dropped=%ld | "
                  "lights_baked=%ld lights_served=%ld | "
                  "wx_served=%ld wx_built=%ld wx_disk_hits=%ld wx_fetch_fail=%ld wx_decode_fail=%ld "
-                 "wx_stale_served=%ld wx_run_fallback=%ld\n",
+                 "wx_stale_served=%ld wx_run_fallback=%ld | "
+                 "peaks_served=%ld peak_cells_cached=%ld peak_cells_fetched=%ld peak_fail=%ld\n",
                  cthreads, cbusy, cqueued,
                  h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows(), fb_style_unknown_count(), bnative, bsuper, bpserved,
                  tq, tmh, tmm, tl, td, lbaked, lserved,
-                 wxs, wxb, wxd, wxff, wxdf, wxst, wxfb);
+                 wxs, wxb, wxd, wxff, wxdf, wxst, wxfb, pks, pkc, pkf, pkx);
         fb_reply(fd, "200 OK", "text/plain", body);
         return;
     }
@@ -247,6 +266,7 @@ int main(void) {
     fb_bake_init(cache);
     fb_lights_init(cache);
     fb_wx_init(cache);
+    fb_peaks_init(cache);
     fb_stars_init(getenv("STARS_DIR") ? getenv("STARS_DIR") : "/usr/local/share/fb-stars");
     fb_pf_start();
 
@@ -279,7 +299,7 @@ int main(void) {
     listen(lfd, 256);
     fprintf(stderr, "[fb-tiles] %s:%d  cache=%s  pool=%d threads  "
                     "(/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , /t/lights/z/x/y , "
-                    "/t/stars/{band}/0/0 , /wx , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
+                    "/t/stars/{band}/0/0 , /wx , /peaks?lat=&lon=&r= , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
                     port, cache, g_cthreads);
 
     for (;;) {

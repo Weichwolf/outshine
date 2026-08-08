@@ -7028,3 +7028,17 @@ Drehung bei 1280×720 über damuels, p50 **95,04 → 14,28 ms** mit dem Wald im 
 Farbraumfehler — sRGB als lineare Reflexion gelesen —, ist linearisiert und trägt in allen sechzehn
 Artdateien ein `bark_origin`. Was bleibt, ist ein Wuchsfehler: die echte Laminageometrie zeichnet
 lai 0,391 gegen deklarierte 6,0, und darum deckt die Krone den Stamm nicht.
+
+## 2026-08-08 — Die Standpunkte kommen vom Betreiber, der Bildwinkel aus drei Kameras
+
+Die Kameraseiten von foto-webcam.eu tragen ein `metadata`-Objekt mit Objektivkoordinate, Objektivhöhe,
+Blickrichtung und Brennweite — geraten wurde bisher, was veröffentlicht ist. Gegen `/elev` steht die
+Augenhöhe jetzt zwischen −5,7 und +58,7 m über Grund statt −953,6 bis +996,9; `webcams.py` setzt
+`eyeM = altM − Boden` statt der festen 3. `tiles/` bekommt `/peaks` (Overpass-CSV, 0,5°-Zellen), weil
+Shortbread kein `natural=peak` führt — am Zugspitzgipfel gemessen. `tools/campose.py` passt Azimut,
+Neigung und Rollung gegen den DEM-Horizont ein; der Bildwinkel wird NICHT mitgesucht, weil das
+Restklaffen über ihm flach ist (14 Kameras, Sensorbreite 14–40 mm, Median 10,7–20,4 px ohne Minimum).
+Die Sensorbreite 22,3 mm steht auf den drei Kameras, deren Silhouette zur Deckung kommt (Minimum bei
+22, 21–22 und 21–25 mm), und auf dem Sichtbefund, dass der Hochvogel bei 36 mm um 300 px danebensitzt.
+Sechs von 14 sind aufgenommen, herzogstand legt den Walchensee samt Insel deckungsgleich. `posefit.py`
+ist gelöscht.

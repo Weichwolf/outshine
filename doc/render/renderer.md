@@ -174,21 +174,19 @@ schlechter. Jetzt ist die Struktur da und die Kurve ist an der Reihe: der Fuss (
 `TaaStage.h`) hebt die Tiefen zu wenig, und 74 % einer Landschaft im Schatten eines Grates ist kein
 Bild, sondern eine Silhouette.
 
-### Die Standpunkte sind ein MOD, und sie werden von Hand gestellt
+### Die Standpunkte sind ein MOD, und der Betreiber veroeffentlicht sie selbst
 
 `mods/webcams/cams.json`, nicht `sim/assets/`. Owner, 2026-08-07: *„Posen von Hand nachjustieren … kann
 man ja in nem json speichern"*, *„mehrere positionen im mods/"*. Die Engine kennt keine Kamera, sie
 kennt eine Szene.
 
-`tools/posefit.py` bleibt als Werkzeug liegen und **sein Ergebnis wird nicht uebernommen** — es ist
-dreimal gescheitert: Azimut und Bildwinkel sind zusammen unterbestimmt (die Suche lief an den Rand des
-Bildwinkelbereichs), und bei festgehaltenem Bildwinkel lieferte es fuer den Kochelsee konsistent einen
-Blick steil nach Nordosten, wo die Kamera nach Norden hinabschaut.
-
-Von Hand geht es besser, und die Quelle steht im Bild selbst: die Einblendung der Kochelseekamera lautet
-*„Herzogstand / Fahrenbergkopf — Blick ueber den Kochelsee ins Oberland"*. Meine erste Eintragung setzte
-sie ans Seeufer auf 600 m mit Blick nach Sueden; sie steht auf 1620 m und schaut nach Norden hinab. Die
-Bildunterschrift ist die zuverlaessigste Posenquelle, die diese Seite hat.
+**Geraten wurde bisher, was veroeffentlicht ist.** Jede Kameraseite von foto-webcam.eu traegt ein
+JavaScript-Objekt `metadata` mit dem vollstaendigen Kameraverzeichnis, und darin steht je Kamera
+`latitude`, `longitude`, `elevation` (die Hoehe des OBJEKTIVS, nicht des Ortes), `direction` (die
+Blickrichtung in ganzen Grad) und `focalLen` (die Brennweite in mm). Drei Seiten gegeneinander gelesen
+liefern fuer alle 14 Kameras denselben Satz. Was dort NICHT steht, ist der Sensor — `sector` ist keine
+Optik, sondern `1170/focalLen` (exakt getroffen bei den ungerundeten Werten: f=17 → 68,8235…,
+f=32 → 36,5625, f=55 → 21,2727…), also ein Kartenkegel in Kleinwinkelnaeherung.
 
 
 ### Die Gelaendenormale erreicht die Beleuchtung; der Befund war eine Uhr — 2026-08-08
@@ -217,6 +215,95 @@ Spanne innerhalb EINES Bildes waechst von 65,8 (Sonne unter dem Horizont) auf 96
 `surfaceLight`, wo `max(dot(n, sunDir), 0)` steht — Mechanismus und Messung sagen dasselbe.
 Bilder: `build/sun/koe-east.png`, `build/sun/koe-west.png`, `build/sun/koe-high.png`.
 
+### Die Standpunkte stimmen jetzt, die Pose zur Haelfte — 2026-08-08
+
+Vorwurf der letzten Runde: `altM` wird von niemandem gelesen, die Koordinaten sind Ortslagen und die
+Augen stehen bis zu einem Kilometer neben dem Gelaende. **Beides erledigt, und nicht durch Raten.**
+
+**Der Standpunkt kommt vom Betreiber.** Gegen `fb-tiles /elev?block=1` an derselben Koordinate steht
+jetzt eine Turmhoehe, keine Ortslage: die Differenz `altM − Boden` liegt ueber alle 14 Kameras
+zwischen **−5,7 m und +58,7 m** (vorher −953,6 bis +996,9). Negative Werte sind kein falscher Punkt,
+sondern ein geglaetteter Gipfel — herzogstand −5,7 m, mayrhofen −1,9 m, damuels −1,5 m; das z12-DEM
+schneidet einen scharfen Grat um diese Groessenordnung ab. `tools/webcams.py` setzt
+`eyeM = max(altM − Boden, 2)`; die feste `3.0` ist weg.
+
+**Der Bildwinkel ist hergeleitet, nicht gefittet.** Er folgt aus der veroeffentlichten Brennweite und
+einer Sensorbreite von **22,3 mm**. Die ist gemessen, nicht gesetzt: `tools/campose.py --scan` faehrt
+das Restklaffen ueber der Sensorbreite von 14 bis 40 mm, und bei den drei Kameras, deren Silhouette
+ueberhaupt zur Deckung kommt, liegt das Minimum bei **nebelhorn 22 mm (2,09 px)**, **herzogstand
+21–22 mm (2,88 px)** und **innsbruck 21–25 mm (2,85 px)**. Der Gegentest ist ein Bild: bei 36 mm
+sitzt die Marke „Hochvogel" im Nebelhornbild rund 300 px neben der Pyramide, bei 22,3 mm auf ihrer
+Spitze (`/tmp/campose/nebelhorn/overlay.png`).
+
+**Warum der Bildwinkel NICHT mitgesucht wird**, obwohl er die naheliegende Unbekannte ist: bei freiem
+Bildwinkel ist das Restklaffen ueber ihm flach. Gemessen ueber 14 Kameras und Sensorbreiten 14–40 mm
+schwankt der Median des Restklaffens zwischen 10,7 und 20,4 px ohne Minimum, und ein freier Fit lief
+bei sieben Kameras an die obere Schranke (36,7–37,0 mm) und bei drei an die untere (10,0–14,0 mm).
+Azimut und Bildwinkel handeln miteinander: ein breiteres Bild laesst sich durch ein Verdrehen wieder
+zur Deckung bringen. Erst mit festem Bildwinkel ist der Azimut ein reiner Versatz und bestimmt.
+
+**Die Resektion selbst** (`tools/campose.py`) rechnet nach Udeuschle: das DEM (z12 = 25,9 m, die
+native Aufloesung der Quelle) wird je 0,02&deg; Azimut auf 50 km abgetastet, mit Erdkruemmung minus
+Refraktion (`k = 0,13`), und liefert den Hoehenwinkel des Gelaendes. Im Livebild wird die Silhouette
+als kuerzester Weg durch ein Himmel/Gelaende-Feld bestimmt; das Himmelsmodell ist eine Flaeche ueber
+(x, y) und wird im Wechsel mit dem Weg neu geschaetzt (EM), weil der Himmel oben dunkelblau und ueber
+dem Grat dunstig hell ist. Das Kriterium ist VORZEICHENBEHAFTET — Wolken sind heller als der Himmel,
+ein Kriterium auf den Betrag legt den Weg auf die Wolkenkante (gemessen, `sl4.png`-Runde). Frei
+bleiben Azimut (± 4&deg; um die gemeldete Blickrichtung), Neigung und Rollung. Gewertet wird die
+bessere Haelfte von zehn Aufnahmen aus 14 Tagen, sonst stuetzt EIN Dunstbild eine Pose, die kein
+zweites bestaetigt.
+
+**Sechs von 14 kommen zur Deckung** (Schranke 10 px getrimmtes Restklaffen, 1920&times;1080):
+
+| Kamera | lat / lon | `altM` | Boden `/elev` | ueber Grund | mm | Fitbild | Bildwinkel | Azimut | Neigung | Klaffen px |
+|---|---|---|---|---|---|---|---|---|---|---|
+| zugspitze | 47.42083 / 10.98473 | 2962 | 2935.4 | **+26.6** | 18 | 2026/07/28/1300 | 63.55 | 79.9&deg; (80 gemeldet) | -9.13 | **7.79** |
+| nebelhorn | 47.42168 / 10.34251 | 2224 | 2169.5 | **+54.5** | 18 | 2026/07/28/1300 | 63.55 | 133.4&deg; (130 gemeldet) | -8.31 | **2.29** |
+| fellhorn | 47.34808 / 10.21617 | 1967 | 1949.2 | **+17.8** | 18 | 2026/08/07/1700 | 63.55 | 143.3&deg; (140 gemeldet) | +5.28 | 130.23 |
+| hochries | 47.74721 / 12.24904 | 1569 | 1547.0 | **+22.0** | 20 | 2026/07/26/1700 | 58.28 | 256.7&deg; (260 gemeldet) | -7.13 | **7.06** |
+| kampenwand | 47.75481 / 12.35672 | 1520 | 1505.7 | **+14.3** | 18 | 2026/08/03/0900 | 63.55 | 5.8&deg; (7 gemeldet) | -5.30 | 11.71 |
+| herzogstand | 47.60663 / 11.31613 | 1600 | 1600.8 | **-0.8** | 18 | 2026/07/28/1300 | 63.55 | 182.2&deg; (180 gemeldet) | -7.77 | **2.93** |
+| kochelsee | 47.60701 / 11.31646 | 1627 | 1596.3 | **+30.7** | 20 | 2026/08/05/1100 | 58.28 | 17.7&deg; (20 gemeldet) | +0.75 | 62.65 |
+| innsbruck | 47.30557 / 11.37786 | 1945 | 1900.7 | **+44.3** | 20 | 2026/07/28/1700 | 58.28 | 172.7&deg; (170 gemeldet) | -8.02 | **4.79** |
+| hochkoenig | 47.42014 / 13.06214 | 2941 | 2916.8 | **+24.2** | 18 | 2026/07/28/1500 | 63.55 | 234.0&deg; (230 gemeldet) | -9.65 | **9.08** |
+| salzburg | 47.75505 / 12.84980 | 1750 | 1691.6 | **+58.4** | 18 | 2026/07/27/0900 | 63.55 | 62.0&deg; (70 gemeldet) | -5.99 | 179.81 |
+| lofer | 47.58841 / 12.69470 | 623 | 618.2 | **+4.8** | 10 | 2026/07/26/1700 | 96.22 | 86.0&deg; (90 gemeldet) | -15.93 | 33.41 |
+| mayrhofen | 47.16681 / 11.86047 | 633 | 635.6 | **-2.6** | 18 | 2026/07/28/0900 | 63.55 | 216.0&deg; (220 gemeldet) | +6.94 | 27.49 |
+| lech | 47.21977 / 10.17180 | 1970 | 1954.1 | **+15.9** | 18 | 2026/08/07/0900 | 63.55 | 241.8&deg; (240 gemeldet) | -4.26 | 14.58 |
+| damuels | 47.28545 / 9.89054 | 1400 | 1399.9 | **+0.1** | 18 | 2026/07/28/1500 | 63.55 | 180.9&deg; (180 gemeldet) | +6.44 | 29.81 |
+
+Was scheitert, scheitert sichtbar und aus einem benennbaren Grund: **lofer** und **mayrhofen** stehen
+im Tal und haben gar keinen Horizont im Bild (lofer schaut in eine Klamm, mayrhofen ueber einen
+Hotelgarten), **damuels** und **kampenwand** sehen nur einen nahen Hang bzw. eine dunstige Ebene ohne
+Relief, **kochelsee** legt den Modellhorizont quer durch den See, **fellhorn** und **salzburg** haben
+in 14 Tagen keine drei brauchbaren Aufnahmen. Sie stehen in `cams.json` mit `fitted: false` und die
+Seite markiert sie.
+
+**Die Restklaffen sind ehrlich, aber nicht klein.** Die gemessene Silhouette liegt systematisch
+10–40 px UEBER dem Grat, weil das Dunstband direkt darueber dem Himmelsmodell zu dunkel ist; die
+Neigung schluckt den Versatz, die FORM stimmt. Das ist der Grund, warum die Schranke bei 10 px liegt
+und nicht bei 2.
+
+**Was die Bilder zeigen** (`sim/web/cams/index.html`, je Kamera zwei Paare: Livebild gegen Render und
+Einpassbild gegen Render zur Uhrzeit des Einpassbilds; Binary `acc9d3aa…`, 320&times;180). Der
+staerkste Beleg ist **herzogstand**: im Render liegt der Walchensee mit seiner Insel an derselben
+Stelle und in derselben Form wie im Foto, dahinter derselbe Karwendelgrat. Bei **nebelhorn** faellt
+dieselbe Hochflaeche nach links weg und der Grat steht rechts der Mitte. Vorher war an dieser Stelle
+die UNTERSEITE des Gelaendes zu sehen — dieser Befund ist erledigt.
+
+Zwei sichtbare Maengel bleiben, beide ausserhalb der Pose: **mayrhofen** rendert einen grauen Kasten
+statt einer Szene (Auge auf 2 m geklemmt, weil das DEM dort 2,6 m ueber der Objektivhoehe liegt), und
+**kampenwand** setzt das Auge auf 14,3 m mitten in eine Baumkrone. Ein Auge, das im Bestand steht,
+braucht eine Behandlung, die es heute nicht gibt.
+
+**Der Bildwinkel ist NICHT unabhaengig bestaetigt.** Die 22,3 mm stehen auf drei Kameras und einem
+Sichtbefund; die anderen elf tragen dazu nichts bei, weil ihr Restklaffen ueber der Sensorbreite
+flach ist. Wer das haerten will, braucht Punktkorrespondenzen statt eines Profils: zwei im Bild
+zweifelsfrei identifizierte Gipfel legen Azimut und Brennweite exakt fest. Der Weg dahin ist die
+Silhouette in Bildaufloesung mit scharfen Gipfeln statt der geglaetteten Kurve, die der kuerzeste Weg
+heute liefert.
+
+
 ### Die Uhr der Webcams ist der Pfad, nicht der Header — und zehn Kameras sind tot — 2026-08-08
 
 Vorwurf: `Last-Modified` von `/current/1920.jpg` liefere Muell, weil er fuer koenigssee 2018 meldet.
@@ -240,26 +327,6 @@ abgeschaltet (koenigssee 2018-04-29, hochgrat 2018-05-12, kaunertal 2018-10-20, 
 soell 2020-05-20, predigtstuhl 2020-09-06, grainau 2022-04-22, kitzsteinhorn 2022-07-18, karwendel
 2025-01-25), seefeld lag 67,7 min zurueck. Sie sind aus `mods/webcams/cams.json` geflogen; gegen ein
 Standbild von 2018 zu rendern misst nichts.
-
-**Offen und teurer als die Uhr: die Posen stimmen nicht.** `altM` steht in `cams.json` und wird von
-niemandem gelesen; die Szene setzt stur `eyeM = 3`. Gegen `fb-tiles` `/elev` an derselben Koordinate:
-
-| Kamera | `altM` | DEM | Differenz |
-|---|---|---|---|
-| karwendel | 2244 | 1247,1 | **+996,9** |
-| predigtstuhl | 1613 | 698,6 | +914,4 |
-| hochgrat | 1834 | 1204,6 | +629,4 |
-| herzogstand | 1731 | 1210,9 | +520,1 |
-| hochries | 1568 | 1137,4 | +430,6 |
-| nebelhorn | 2224 | 1795,7 | +428,3 |
-| hochkoenig | 1900 | 2853,6 | **−953,6** |
-
-Das ist keine Turmhoehe, das ist eine falsche Koordinate: die Standpunkte tragen die Ortslage, nicht
-die Kamera. Die Folge ist im Bild — `build/sun/kochelsee-high.png` und `build/sun/damuels-high.png`
-zeigen die UNTERSEITE des Gelaendes mit herabhaengenden Staemmen, `build/sun/nebelhorn-east.png` eine
-gleichfoermig dunkelgruene Wand. Nur koenigssee und hochries liefern in dieser Runde einen offenen
-Blick. Nicht repariert: 14 Posen neu einzupassen ist eine eigene Runde.
-
 
 ### Das art-director-Urteil gegen die Webcams, und warum Schatten zurueckkamen — 2026-08-07
 
