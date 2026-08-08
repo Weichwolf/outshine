@@ -15,6 +15,7 @@
 #include "SceneWeather.h"
 #include "Standpoint.h"
 #include "State.h"
+#include "StreamTelemetry.h"
 #include "Telemetry.h"
 #include "VegetationTemplates.h"
 #include "World.h"
@@ -53,9 +54,14 @@ public:
     bool Resident = false;
   };
   /* A DEVICE IS A PROMISE AND A TILE SERVER IS A NETWORK, so bring-up cannot finish in a
-   * constructor. It is a state machine and not two booleans: every call below states the phase it
-   * needs, and one consumer — the subject bench — deliberately stops at `Prepared`. */
-  enum class Phase { Declared, Prepared, Streaming };
+   * constructor. It is a state machine and not a pile of booleans: every call below states the
+   * phase it needs, and one consumer — the subject bench — deliberately stops at `Prepared`.
+   *
+   * `Loading` and `Playing` are the APPLICATION's two working states and neither is the renderer's
+   * business: what is loading and when that ends is Outshine's, the renderer is only told which
+   * frame to draw. Loading holds the world back; Playing never holds anything back — what arrives
+   * after it enters the picture beside the loop, never instead of it. */
+  enum class Phase { Declared, Prepared, Loading, Playing };
 
   Outshine(const Scene &scene, const Assets &assets);
 
@@ -78,10 +84,12 @@ public:
    * for a world that can never arrive. */
   static void Pump();
 
-  /* THE FPS SPECTRUM RIDES ALONG (FrameTelemetry.h). Frame() feeds it and emits one row per second,
-   * so a client that only draws is observable without declaring a measurement. A null sink makes
-   * the whole path a clock read. */
+  /* THE FPS SPECTRUM AND THE STREAMING STAGES RIDE ALONG (FrameTelemetry.h, StreamTelemetry.h).
+   * Frame() and Stream() feed them and one row per second goes out, so a client that only draws is
+   * observable without declaring a measurement. A null sink makes the whole path a clock read.
+   * The identity source is BORROWED and registered ahead of both, so every row names its run. */
   void SetTelemetrySink(TelemetrySink *sink) { Bus_.SetSink(sink); }
+  void SetTelemetryIdentity(TelemetrySource *id) { Identity_ = id; }
 
   /* TWO PHASES, because one consumer stops between them: the subject bench (goal.md §3) judges a
    * plant with no world and no network at all, so it prepares and never opens. */
@@ -98,10 +106,19 @@ public:
    * stance now is and a cold tile leaves the last resolved answer standing. */
   void Look(const Stance &s);
 
+  /* THE FIRST LOAD, AND IT IS NOT A WARM-UP. Outshine does not converge on residency as a
+   * side-effect of drawn world frames — it declares the standpoint, asks the streamer what is
+   * missing, takes it, and renders a progress bar at full rate meanwhile. The world is held back
+   * until every stream is in; nothing half-arrived is ever presented. There is no ceiling: a tile
+   * server that never answers is a tile server that never answers, and a picture of a half-loaded
+   * scene would be the worse report. Ends in `Playing`, which nothing returns from. */
+  bool Load();
+
   /* One streaming pass. It decides nothing about images: the caller renders, or does not. */
   Progress Stream(double nowMs);
   void Frame();
   Counters Measured() const;
+  const StreamTelemetry &Loading() const { return Stream_; }
 
   /* THE TWO PEERS, borrowed. A bench reads back pixels, depth and counters and the browser reads
    * none of them, so narrowing this to the union of both callers would be forty forwarders that say
@@ -134,6 +151,9 @@ public:
 private:
   bool ResolveGround(double lat, double lon, double *out) const;
   void CheckRoof();
+  /* The frame clock, around whichever picture the renderer just drew. */
+  double OpenFrame();
+  void CloseFrame(double startedMs);
 
   Scene Scene_;
   Assets Assets_;
@@ -150,6 +170,8 @@ private:
   World::Standpoint Stand_;
   State State_;
   FrameTelemetry Frames_;
+  StreamTelemetry Stream_;
+  TelemetrySource *Identity_ = nullptr;
   TelemetryBus Bus_;
   double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;
 

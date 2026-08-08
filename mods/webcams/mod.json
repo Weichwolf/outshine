@@ -30,8 +30,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -68,8 +67,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -107,8 +105,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -145,8 +142,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -182,8 +178,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -220,8 +215,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -258,8 +252,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -297,8 +290,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -335,8 +327,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -374,8 +365,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -412,8 +402,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -451,8 +440,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -489,8 +477,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -528,8 +515,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -566,8 +552,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -605,8 +590,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -643,8 +627,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -680,8 +663,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -718,8 +700,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -756,8 +737,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -795,8 +775,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -833,8 +812,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -872,8 +850,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -910,8 +887,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -949,8 +925,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {
@@ -987,8 +962,7 @@
       },
       "capture": {
         "width": 320,
-        "height": 180,
-        "warmCeiling": 20000
+        "height": 180
       },
       "runs": [
         {

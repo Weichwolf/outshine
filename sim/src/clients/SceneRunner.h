@@ -26,8 +26,6 @@ public:
   int Run();
 
 private:
-  bool Warm();
-  void Settle();
   void ReportSettled() const;
   void ReportCounters() const;
 
@@ -44,7 +42,7 @@ private:
   Outshine &App_;
   const Scene &Scene_;
   Artifacts &Out_;
-  int Warmed_ = 0, Settled_ = 0;
+  int Settled_ = 0;
   std::vector<uint8_t> Rgba_;
 };
 

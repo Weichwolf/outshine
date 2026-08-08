@@ -7,6 +7,7 @@
 #include "Log.h"
 #include "LogSinks.h"
 #include "Mod.h"
+#include "RunIdentity.h"
 #include "SceneRunner.h"
 #include "ServerLog.h"
 #include "ServerTelemetry.h"
@@ -40,9 +41,13 @@ bool Stand(const Clients::Scene &scene, Clients::Outshine &app) {
   return true;
 }
 
-int Record(const Clients::Scene &scene, const std::string &runId) {
+int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
+           const std::string &runId) {
   Clients::Outshine app(scene, kAssets);
   Clients::ServerTelemetry telemetry(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), runId);
+  /* Natively there is no browser to pin, and an invented agent string would be worse than none. */
+  Clients::RunIdentity identity({id.Mod, id.Scene, id.Client, id.Build, ""});
+  app.SetTelemetryIdentity(&identity);
   app.SetTelemetrySink(&telemetry);
   app.SetTilesBase(Clients::Env("OUTSHINE_TILES", "http://localhost:8081"));
   if (!Stand(scene, app)) return 1;
@@ -62,9 +67,10 @@ int main(int argc, char **argv) {
     return 2;
   }
   Clients::StdoutLogSink console;
-  Clients::ServerLog server(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"),
-                            {argv[1], argv[2], "gpu_walk", Clients::Env("OUTSHINE_BUILD", ""),
-                             Clients::Env("HOSTNAME", "")});
+  const Clients::ServerLog::Identity id{argv[1], argv[2], "gpu_walk",
+                                        Clients::Env("OUTSHINE_BUILD", ""),
+                                        Clients::Env("HOSTNAME", "")};
+  Clients::ServerLog server(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), id);
   Clients::CompositeLogSink both;
   both.Add(&console);
   both.Add(&server);
@@ -86,5 +92,5 @@ int main(int argc, char **argv) {
     Log::Error("run", "scene_is_interactive", {{"scene", scene->Id()}});
     return 1;
   }
-  return Record(*scene, server.RunId());
+  return Record(*scene, id, server.RunId());
 }

@@ -86,6 +86,9 @@ public:
   float LoadProgress() const { return TargetTot > 0 ? (float)TargetRdy / (float)TargetTot : 0.0f; }
   int TargetTotal() const { return TargetTot; }
   int TargetReadyN() const { return TargetRdy; }
+  /* WHAT THE CAMERA CAN SEE of the target cut. Residency is still the whole radius; this is the
+   * number that says what a frustum-scoped one would have cost. */
+  int TargetInViewN() const { return TargetView; }
 
   /* NOTHING IS STILL ON ITS WAY. Streaming is asynchronous, so a fixed number of passes says nothing
    * about what has arrived; an oracle that wants a picture of the whole scene waits on this instead.
@@ -155,7 +158,8 @@ private:
   bool CanCover(int z, long x, long y, const double eye[3]) const;    /* subtree fully ready? (pure) */
   void RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]);  /* cascade request to targets */
   int  Descend(int z, long x, long y, const double eye[3], const double fwd[3]);  /* draw traversal; 1 = covered */
-  void CountTargets(int z, long x, long y, const double eye[3], int &total, int &ready) const;  /* target-cut progress */
+  void CountTargets(int z, long x, long y, const double eye[3], const double fwd[3], int &total,
+                    int &ready, int &inView) const;   /* target-cut progress + the share the camera sees */
   void Emit(int idx);
   void AddWork(int idx, int z, long x, long y, const double eye[3], const double fwd[3]);
   void Center(int z, long x, long y, double out[3]) const;
@@ -240,6 +244,7 @@ private:
   double LastLog;
   int Leaves, DrawnReady, Pending;   /* per-pass counters */
   int TargetTot, TargetRdy;          /* geometry target-cut: total leaves / GPU-ready (LoadProgress) */
+  int TargetView = 0;                /* of those, the share inside the camera cone — published only */
   long MeshVram;
 
   bool NightLights;                  /* stream + emit night lights this run */

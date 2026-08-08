@@ -70,9 +70,21 @@ void Renderer::Init(const char *canvasSelector, int width, int height) {
   Selector = canvasSelector;
   Width = width;
   Height = height;
-  wgpu::InstanceDescriptor id{};
-  Instance = wgpu::CreateInstance(&id);
+  Instance = MakeInstance();
   StartAdapterRequest();
+}
+
+/* ONE INSTANCE DESCRIPTOR FOR BOTH TRANSLATIONS. `TimedWaitAny` is what makes a blocking wait legal
+ * at all — without it `WaitAny` returns Error before it looks at the future, so every readback in
+ * the build returns false and every product is silently missing. Only the offscreen path used to ask
+ * for it, which is why the browser delivered no PNG, no depth, no irradiance and no exposure. Under
+ * emdawnwebgpu the wait runs through ASYNCIFY, which this build has. */
+wgpu::Instance Renderer::MakeInstance(void) {
+  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
+  wgpu::InstanceDescriptor id{};
+  id.requiredFeatureCount = 1;
+  id.requiredFeatures = &kTimedWaitAny;
+  return wgpu::CreateInstance(&id);
 }
 
 void Renderer::InitOffscreen(int width, int height) {
@@ -83,11 +95,7 @@ void Renderer::InitOffscreen(int width, int height) {
   Height = height;
   /* Native Dawn drives Request{Adapter,Device} synchronously: there is no browser event loop here to
    * pump AllowSpontaneous callbacks. */
-  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
-  wgpu::InstanceDescriptor id{};
-  id.requiredFeatureCount = 1;
-  id.requiredFeatures = &kTimedWaitAny;
-  Instance = wgpu::CreateInstance(&id);
+  Instance = MakeInstance();
   StartAdapterRequest();
 }
 
@@ -291,6 +299,7 @@ void Renderer::CreatePresent(void) {
 
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Upscale->Configure(gpu, FrameTex.CreateView());
+  Progress->Init(gpu);
 }
 
 void Renderer::CreateAtmosphere(void) {
@@ -535,14 +544,15 @@ void Renderer::SyncSwapSize(void) {
 #endif
 }
 
-/* RGBA8UnormSrgb so the GPU sRGB-encodes on store, exactly as the surface's sRGB view does:
- * CopyTextureToBuffer then hands back bytes a PNG writer uses directly, with no CPU encode step. */
+/* RGBA8UnormSrgb so the GPU sRGB-encodes on store, exactly as the surface's sRGB view does — and so
+ * the presented bytes need no CPU encode step. It is a present target only; the readback takes
+ * FrameTex, which both translations have. */
 void Renderer::CreateOffscreenTarget(void) {
   SurfaceFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
   td.format = SurfaceFormat;
-  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc;
+  td.usage = wgpu::TextureUsage::RenderAttachment;
   OffscreenTex = Device.CreateTexture(&td);
 }
 
@@ -583,63 +593,72 @@ void Renderer::BakeTreeImpostor(void) {
                              (double)(TreeStage::kCells * TreeStage::kCellSize) * 4.0 / 1048576.0}});
 }
 
+/* THE ONE PLACE A PRESENTABLE TARGET IS ACQUIRED. Both frame kinds go through it, so neither can
+ * end up presenting to something the other configured. False = there is nothing to draw into this
+ * tick, which on a canvas is a normal state and not an error. */
+bool Renderer::AcquireTarget(wgpu::TextureView &finalView) {
+  if (!DeviceReady || DeviceLost) return false;
+  if (Mode != Target::Surface) {
+    finalView = OffscreenTex.CreateView();
+    return true;
+  }
+  SyncSwapSize();   /* match the swapchain to the live display size before acquiring it */
+  wgpu::SurfaceTexture st{};
+  Surface.GetCurrentTexture(&st);
+  if (FrameNo < 3 || !st.texture)
+    Log::Debug("render", "surface_texture", {{"frame", (int)FrameNo}, {"status", (int)st.status},
+                                                {"texture", st.texture ? "ok" : "NULL"}});
+  if (!st.texture) return false;
+  wgpu::TextureViewDescriptor vd{};
+  vd.format = SurfaceFormat;
+  finalView = st.texture.CreateView(&vd);
+  return true;
+}
+
+/* TWO PASSES INSTEAD OF EIGHT, into the same FrameTex the scene uses, so a readback and the display
+ * see this frame exactly as they see a scene frame. doc/render/renderer.md §2.2. */
+void Renderer::RenderProgress(float fraction) {
+  wgpu::TextureView finalView;
+  if (!AcquireTarget(finalView)) return;
+  Progress->SetFraction(Queue, fraction);
+  FrameNo++;
+  FrameContext ctx{};   /* neither stage reads it here; kept for interface uniformity */
+  ctx.Width = Width; ctx.Height = Height; ctx.ViewH = Height; ctx.FovDeg = FovDeg;
+  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
+  {
+    wgpu::RenderPassColorAttachment ca{};
+    ca.view = FrameTex.CreateView(); ca.loadOp = wgpu::LoadOp::Clear; ca.storeOp = wgpu::StoreOp::Store;
+    ca.clearValue = {0, 0, 0, 1};
+    wgpu::RenderPassDescriptor rp{}; rp.colorAttachmentCount = 1; rp.colorAttachments = &ca;
+    wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
+    Progress->Encode(ctx, pass);
+    pass.End();
+  }
+  {
+    wgpu::RenderPassColorAttachment uca{};
+    uca.view = finalView; uca.loadOp = wgpu::LoadOp::Clear; uca.storeOp = wgpu::StoreOp::Store;
+    uca.clearValue = {0, 0, 0, 1};
+    wgpu::RenderPassDescriptor upd{}; upd.colorAttachmentCount = 1; upd.colorAttachments = &uca;
+    wgpu::RenderPassEncoder up = enc.BeginRenderPass(&upd);
+    Upscale->Encode(ctx, up);
+    up.End();
+  }
+  wgpu::CommandBuffer cmd = enc.Finish();
+  Queue.Submit(1, &cmd);
+}
+
 void Renderer::RenderFrame(void) {
-  if (!DeviceReady) return;
 #ifdef FB_GPU_NOOP
   return;   /* bisect stage 2: totally inert frames — init-side death vs frame-side */
 #endif
   wgpu::TextureView finalView;
-  if (Mode == Target::Surface) {
-    SyncSwapSize();   /* match the swapchain to the live display size before acquiring it */
-    wgpu::SurfaceTexture st{};
-    Surface.GetCurrentTexture(&st);
-    if (FrameNo < 3 || !st.texture)
-      Log::Debug("render", "surface_texture", {{"frame", (int)FrameNo}, {"status", (int)st.status},
-                                                  {"texture", st.texture ? "ok" : "NULL"}});
-    if (!st.texture) return;
-    wgpu::TextureViewDescriptor vd{};
-    vd.format = SurfaceFormat;
-    finalView = st.texture.CreateView(&vd);
-  } else {
-    finalView = OffscreenTex.CreateView();
-  }
+  if (!AcquireTarget(finalView)) return;
   /* Scene + tonemap + HUD all land in the fixed-720p FrameTex; only the upscale pass touches finalView. */
   wgpu::TextureView frameView = FrameTex.CreateView();
 #ifdef FB_GPU_BISECT
   FrameNo++;
   return;   /* bisect: acquire only — does the device still die? */
 #endif
-  if (DeviceLost) return;   /* device gone (headless SwiftShader): CPU streaming lives on elsewhere */
-
-  /* Its own short frame path, 2 passes: the app freezes JSBSim until the target cut is resident, so
-   * the first scene frame is already full resolution. doc/render/renderer.md §2.2. */
-  if (LoadingScreen) {
-    FrameNo++;
-    FrameContext lctx{};   /* Upscale::Encode ignores ctx today; kept for interface uniformity */
-    lctx.Width = Width; lctx.Height = Height; lctx.ViewH = Height; lctx.FovDeg = FovDeg;
-    wgpu::CommandEncoder lenc = Device.CreateCommandEncoder();
-    {
-      wgpu::RenderPassColorAttachment ca{};
-      ca.view = frameView; ca.loadOp = wgpu::LoadOp::Clear; ca.storeOp = wgpu::StoreOp::Store;
-      ca.clearValue = {0, 0, 0, 1};
-      wgpu::RenderPassDescriptor rp{}; rp.colorAttachmentCount = 1; rp.colorAttachments = &ca;
-      wgpu::RenderPassEncoder pass = lenc.BeginRenderPass(&rp);
-      if (Overlay) Overlay->EncodeLoadingText(pass, Width, Height, LoadPct, LoadReady, LoadTotal);
-      pass.End();
-    }
-    {
-      wgpu::RenderPassColorAttachment uca{};
-      uca.view = finalView; uca.loadOp = wgpu::LoadOp::Clear; uca.storeOp = wgpu::StoreOp::Store;
-      uca.clearValue = {0, 0, 0, 1};
-      wgpu::RenderPassDescriptor upd{}; upd.colorAttachmentCount = 1; upd.colorAttachments = &uca;
-      wgpu::RenderPassEncoder up = lenc.BeginRenderPass(&upd);
-      Upscale->Encode(lctx, up);
-      up.End();
-    }
-    wgpu::CommandBuffer lcmd = lenc.Finish(); Queue.Submit(1, &lcmd);
-    if (FrameNo == 1) Log::Debug("render", "passcount", {{"passes", 2}, {"loading_screen", true}});
-    return;
-  }
 
   double t = FrameNo++ / 60.0;
 
@@ -1010,8 +1029,16 @@ void Renderer::SyncGpu(void) {
 }
 
 /* CopyTextureToBuffer into a MapRead staging buffer (256-byte row pitch, the WebGPU rule), then
- * MapAsync blocking via Instance::WaitAny. Strips the row padding on the way out. */
+ * MapAsync blocking via Instance::WaitAny. Strips the row padding on the way out.
+ *
+ * THE SOURCE IS FrameTex AND NOT THE TARGET. Only the offscreen path had a copyable target — on a
+ * canvas the swapchain texture is the browser's and carries no CopySrc — so a browser run threw
+ * `Failed to read the 'texture' property` on its first readback and the run died there, which is
+ * every product the browser never delivered. FrameTex exists in BOTH translations, is the same fixed
+ * 720p the upscale reads, and carries CopySrc; reading it makes the two clients read the same
+ * texture instead of two different ones. */
 bool Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
+  if (!DeviceUsable() || !FrameTex) return false;
   const uint32_t bpp = 4;
   const uint32_t unpaddedRow = (uint32_t)Width * bpp;
   const uint32_t paddedRow = (unpaddedRow + 255u) & ~255u;
@@ -1023,7 +1050,7 @@ bool Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   wgpu::Buffer staging = Device.CreateBuffer(&bd);
 
   wgpu::TexelCopyTextureInfo src{};
-  src.texture = OffscreenTex;
+  src.texture = FrameTex;
   wgpu::TexelCopyBufferInfo dst{};
   dst.buffer = staging;
   dst.layout.bytesPerRow = paddedRow;
@@ -1050,6 +1077,11 @@ bool Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   for (int y = 0; y < Height; y++)
     memcpy(&rgba[(size_t)y * unpaddedRow], mapped + (size_t)y * paddedRow, unpaddedRow);
   staging.Unmap();
+  /* Chrome's canvas offers only BGRA (measured, `swap=27`); native Dawn takes RGBA. A PNG writer
+   * takes one order, so the swap happens once, here, rather than in every consumer. */
+  if (SurfaceFormat == wgpu::TextureFormat::BGRA8Unorm ||
+      SurfaceFormat == wgpu::TextureFormat::BGRA8UnormSrgb)
+    for (size_t i = 0; i + 2 < rgba.size(); i += 4) std::swap(rgba[i], rgba[i + 2]);
   return true;
 }
 

@@ -7,7 +7,6 @@
 #include "Log.h"
 #include "State.h"
 #include "Units.h"
-#include "stb_image_write.h"
 
 #include <algorithm>
 #include <cmath>
@@ -315,7 +314,7 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   char path[512];
   std::snprintf(path, sizeof path, "%s/%s-%s-%s.png", OutDir_.c_str(), Template_.c_str(), v.Name,
                 lightName);
-  if (!stbi_write_png(path, outW, outH, 4, img.data(), outW * 4)) {
+  if (!Out_.Png(path, img.data(), outW, outH)) {
     Log::Error("rig", "png_write_failed", {{"path", path}});
     return false;
   }

@@ -81,7 +81,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/Snapshot.cpp src/clients/LogSinks.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
   src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
-  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp \
+  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp src/clients/StreamTelemetry.cpp \
   src/clients/ServerArtifacts.cpp
 
 PEDESTRIAN_SRCS := \
@@ -121,7 +121,7 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
-	    --preload-file assets/world/species/buche.json@/species.json \
+	    --preload-file assets/world/species@/assets/world/species \
     --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
 	  echo "WASM -> web/gpu.js + web/fbtileworker.js (mods: $(MODS_DIR))"

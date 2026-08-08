@@ -20,6 +20,7 @@
 #include "stages/UnitsStage.h"
 #include "stages/SpritesStage.h"
 #include "stages/UpscaleStage.h"
+#include "stages/ProgressStage.h"
 #include "stages/TransmittanceStage.h"
 #include "stages/MultiScatterStage.h"
 #include "stages/IrradianceStage.h"
@@ -107,8 +108,10 @@ public:
    * before or after the device exists; Init() is driven from here either way. */
   void SetOverlay(OverlayStage *o);
 
-  /* While on, RenderFrame draws only the loading text and the client keeps its sim frozen. §2.2 */
-  void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
+  /* A SECOND THING TO DRAW, not a second state to be in. The renderer holds no notion of loading:
+   * the caller says which frame it wants this tick, exactly as it says where the camera is. Two
+   * passes instead of eight, so the bar keeps full rate while the streams land. §2.2 */
+  void RenderProgress(float fraction);
 
   /* THE VEGETATION TABLE, before Init: 256 resolved rows (world/VegetationTemplates::Row). Without it
    * the terrain keeps its raw albedo — the pre-template picture, on purpose. `bareRockRow` and
@@ -296,6 +299,8 @@ private:
   void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
   void CreatePresent(void);           /* fixed-720p frame target + the display upscale pass */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
+  bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
+  static wgpu::Instance MakeInstance(void);           /* the one instance descriptor both paths use */
   void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
   void CreateAtmosphere(void);        /* Hillaire LUT/uniform/moon resources + Configure()s the atmosphere stages */
   void CreateSceneLight(void);        /* shadow atlas + cascade uniform + irradiance buffer, before any lit stage */
@@ -360,6 +365,7 @@ private:
   /* The whole frame lands in a FIXED 720p FrameTex; only the upscale pass follows the display size. */
   wgpu::Texture FrameTex;
   std::unique_ptr<UpscaleStage> Upscale = std::make_unique<UpscaleStage>();
+  std::unique_ptr<ProgressStage> Progress = std::make_unique<ProgressStage>();
   int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
   /* Hillaire 2020. These resources stay Renderer-owned because 3+ consumers read them; the stages
@@ -419,7 +425,6 @@ private:
    * silently drop that guarantee. The zeros are a DEFINED state — "no weather report", for which the
    * cloud march has its own default deck. */
   State SceneState{};
-  bool LoadingScreen = false; float LoadPct = 0.0f; int LoadReady = 0, LoadTotal = 0;   /* boot loading screen */
 
   double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */
   int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to Tiles->Configure() */

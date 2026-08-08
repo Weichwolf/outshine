@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include "Artifacts.h"
 #include "Renderer.h"
 #include "VegetationTemplates.h"
 
@@ -25,8 +26,11 @@ namespace outshine::Clients {
 
 class SubjectBench {
 public:
-  SubjectBench(Render::Renderer &renderer, const World::VegetationTemplates &veg)
-      : R_(renderer), Veg_(veg) {}
+  /* THE SINK IS THE RUN'S, not the process's working directory (Artifacts.h): a bench that wrote
+   * with stbi_write_png delivered nothing in the browser at all and failed natively for every
+   * declared directory that did not already exist in the tree. */
+  SubjectBench(Render::Renderer &renderer, const World::VegetationTemplates &veg, Artifacts &out)
+      : R_(renderer), Out_(out), Veg_(veg) {}
 
   /* `heightOverrideM` <= 0 takes the template's own declared plant height, which is what makes this a
    * VEGETATION bench: nothing below names a species or a layer. */
@@ -98,6 +102,7 @@ private:
   enum class Subject { None, Herb, Tree };
 
   Render::Renderer &R_;
+  Artifacts &Out_;
   const World::VegetationTemplates &Veg_;
 
   Subject Kind_ = Subject::None;

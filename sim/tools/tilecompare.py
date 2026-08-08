@@ -63,7 +63,6 @@ def main():
     ap.add_argument("--out", default="/tmp/tilecompare")
     ap.add_argument("--base", default="http://localhost:8081")
     ap.add_argument("--size", type=int, default=512)
-    ap.add_argument("--warm", type=int, default=1500)
     ap.add_argument("--eye", type=float, default=2500.0)
     ap.add_argument("--shaded", action="store_true", help="Material statt Klassenvisualisierung")
     ap.add_argument("--only", default="", help="nur diese Orte, kommagetrennt")
@@ -90,8 +89,7 @@ def main():
         # the picture's width, so the render and the bake are the same square of ground.
         scene = runscene.still(name, latm, lonm, ours.name,
                                eyeM=float(args.eye), pitchDeg=-90, orthoM=round(widthM, 2),
-                               capture={"width": args.size, "height": args.size,
-                                        "warmCeiling": args.warm})
+                               capture={"width": args.size, "height": args.size})
         env = {} if args.shaded else {"FB_GROUND_CLASS_VIZ": "1"}
         r = runscene.run(binp, scene, out_root=str(out), env=env)
         ok = ours.exists() and ours.stat().st_size > 512

@@ -13,6 +13,7 @@
 #include "Log.h"
 #include "LogSinks.h"
 #include "Mod.h"
+#include "RunIdentity.h"
 #include "SceneRunner.h"
 #include "ServerArtifacts.h"
 #include "Outshine.h"
@@ -29,8 +30,12 @@ namespace {
  * native oracle reads off disk, so `<mod> <scene>` means the same two words in both translations. */
 const char *kModRoot = "/mods";
 const char *kCanvas = "#gpu";
+/* THE SPECIES DIRECTORY IS MOUNTED WHOLE, at the SAME relative path the native oracle reads off
+ * disk: a subject run names a species and the two translations have to resolve that name to one
+ * file. A single preloaded `/species.json` could only ever serve one species, and `subject-buche`
+ * died on `subject_species_unreadable` because of it. */
 const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.json",
-                                        "/species.json", "/moon.jpg"};
+                                        "assets/world/species/buche.json", "/moon.jpg"};
 
 /* One and a half 60 Hz periods: past this the compositor has skipped at least one vsync. */
 constexpr double kLateMs = 25.0;
@@ -42,6 +47,7 @@ std::unique_ptr<Clients::Outshine> gApp;
 std::unique_ptr<Clients::ServerLog> gLog;
 std::unique_ptr<Clients::ServerTelemetry> gTelemetry;
 std::unique_ptr<Clients::ServerArtifacts> gArtifacts;
+std::unique_ptr<Clients::RunIdentity> gIdentity;
 std::string gSimUrl;
 Clients::Walker gWalker;
 
@@ -233,9 +239,14 @@ bool Boot(void) {
   both.Add(gLog.get());
   Log::SetSink(&both);
 
+  /* THE BROWSER VERSION IS PART OF EVERY MEASUREMENT (CLAUDE.md), and only the page can say it. */
+  gIdentity = std::make_unique<Clients::RunIdentity>(Clients::RunIdentity::Fields{
+      modName, sceneId, "wasm", PageValue("(window.FB_BUILD||'').toString()", ""),
+      PageValue("navigator.userAgent", "")});
   gTelemetry = std::make_unique<Clients::ServerTelemetry>(gSimUrl, gLog->RunId());
   gArtifacts = std::make_unique<Clients::ServerArtifacts>(gSimUrl, gLog->RunId());
   gApp = std::make_unique<Clients::Outshine>(*gScene, kAssets);
+  gApp->SetTelemetryIdentity(gIdentity.get());
   gApp->SetTelemetrySink(gTelemetry.get());
   gApp->SetTilesBase(PageValue("(window.FB_TILES_URL||'http://localhost:8081').toString()",
                                "http://localhost:8081"));
@@ -276,7 +287,9 @@ int main(void) {
     Record();
     return 0;
   }
-  if (!gApp->Open()) return 1;
+  /* SZENE LADEN, DANN SPIELEN. The loop below starts when the world is there and then runs
+   * through; what streams in afterwards arrives beside it. */
+  if (!gApp->Open() || !gApp->Load()) return 1;
   gWalker.Reset(DeclaredStance());
   BindInput();
   emscripten_set_main_loop(Frame, 0, 1);

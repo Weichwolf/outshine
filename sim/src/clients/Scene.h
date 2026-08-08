@@ -27,13 +27,12 @@ class Scene {
 public:
   enum class Kind { Interactive, Run };
 
-  /* The frame and the brackets around the warm-up. `SettleFrames` < 0 asks the renderer for its own
-   * temporal settle length, which is the only honest default for a number the renderer owns. */
+  /* The frame, and how much temporal history every delivered frame carries. `SettleFrames` < 0 asks
+   * the renderer for its own settle length, which is the only honest default for a number the
+   * renderer owns. There is no warm-up to bracket: the load runs until the world is there. */
   struct Capture {
     int Width = 1280, Height = 720;
-    int WarmCeiling = 4000, SettleFrames = -1;
-    int WalkPasses = 240;
-    double WalkE = 0.0, WalkN = 0.0;
+    int SettleFrames = -1;
   };
 
   /* ONE PRODUCT OF A RUN SCENE. Each kind reads its own parameter object rather than a shared flag

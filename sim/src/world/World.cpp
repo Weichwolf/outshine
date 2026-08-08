@@ -293,20 +293,32 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
 }
 
 /* Side-effect-free walk of the target cut: the LoadProgress that gates the loading screen. */
-void World::CountTargets(int z, long x, long y, const double eye[3], int &total, int &ready) const {
+void World::CountTargets(int z, long x, long y, const double eye[3], const double fwd[3],
+                         int &total, int &ready, int &inView) const {
   if (WantSplit(z, x, y, eye)) {
     bool anyV = false;
     for (int q = 0; q < 4; q++) {
       long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
       if (!Viable(z + 1, cx, cy, eye)) continue;
       anyV = true;
-      CountTargets(z + 1, cx, cy, eye, total, ready);
+      CountTargets(z + 1, cx, cy, eye, fwd, total, ready, inView);
     }
     if (anyV) return;
   }
   total++;
   int idx = Find(z, x, y);
   if (idx >= 0 && Ready(Nodes[idx])) ready++;
+  /* PUBLISHED, NOT ACTED ON. The target cut is the view RADIUS; how much of it the camera can
+   * actually see is a different, smaller number, and the two are only comparable if both are
+   * counted. The cone is `kCosView`, the same one AddWork prioritises by — wider than the real
+   * frustum, so this is an upper bound on what a frustum-scoped cut would have to wait for. */
+  double c[3];
+  Center(z, x, y, c);
+  const double d = Dist(c, eye);
+  if (d < 1.0) { inView++; return; }
+  const double dot = ((c[0] - eye[0]) * fwd[0] + (c[1] - eye[1]) * fwd[1] +
+                      (c[2] - eye[2]) * fwd[2]) / d;
+  if (dot > kCosView) inView++;
 }
 
 /* ---- THE EFFECTS ------------------------------------------------------------------------------
@@ -849,13 +861,13 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   double span = SpanM(kRootZ);
   long Rt = (long)std::ceil(ViewM / span) + 1;
   long n = 1L << kRootZ;
-  TargetTot = TargetRdy = 0;
+  TargetTot = TargetRdy = TargetView = 0;
   for (long ty = (long)ry - Rt; ty <= (long)ry + Rt; ty++)
     for (long tx = (long)rx - Rt; tx <= (long)rx + Rt; tx++) {
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
       if (Viable(kRootZ, tx, ty, eyeEcef)) {
         Descend(kRootZ, tx, ty, eyeEcef, fwdEcef);
-        CountTargets(kRootZ, tx, ty, eyeEcef, TargetTot, TargetRdy);
+        CountTargets(kRootZ, tx, ty, eyeEcef, fwdEcef, TargetTot, TargetRdy, TargetView);
       }
     }
 

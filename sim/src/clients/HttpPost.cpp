@@ -10,18 +10,28 @@ namespace outshine::Clients {
 
 #ifdef __EMSCRIPTEN__
 
-bool HttpPost(const std::string &url, const void *body, size_t bytes, const char *contentType) {
-  /* A COPY IS TAKEN INSIDE THE CALL, because fetch keeps the buffer alive past this frame while the
-   * caller's std::string is about to be cleared. */
+/* AWAITED, AND THE STATUS IS THE ANSWER. Fire-and-forget returned true for a POST the collector had
+ * refused, so a 64 MB class dump that hit the host's body limit was reported as a delivered product
+ * — a run that says rc=0 and leaves nothing behind. The wait costs one ASYNCIFY unwind on a call
+ * that happens a handful of times per run, never inside a frame that is being measured.
+ *
+ * A COPY IS TAKEN INSIDE THE CALL, because fetch keeps the buffer alive past this turn while the
+ * caller's std::string is about to be cleared. */
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdollar-in-identifier-extension"
-  EM_ASM({
-    var postBody = HEAPU8.slice($1, $1 + $2);
-    fetch(UTF8ToString($0), {method: 'POST', headers: {'Content-Type': UTF8ToString($3)},
-                             body: postBody}).catch(function () {});
-  }, url.c_str(), body, (int)bytes, contentType);
+EM_ASYNC_JS(int, fb_post, (const char *url, const uint8_t *body, int bytes, const char *ct), {
+  try {
+    var r = await fetch(UTF8ToString(url),
+                        {method: 'POST', headers: {'Content-Type': UTF8ToString(ct)},
+                         body: HEAPU8.slice(body, body + bytes)});
+    return r.status | 0;
+  } catch (e) { return 0; }
+})
 #pragma clang diagnostic pop
-  return true;
+
+bool HttpPost(const std::string &url, const void *body, size_t bytes, const char *contentType) {
+  const int status = fb_post(url.c_str(), (const uint8_t *)body, (int)bytes, contentType);
+  return status >= 200 && status < 300;
 }
 
 #else

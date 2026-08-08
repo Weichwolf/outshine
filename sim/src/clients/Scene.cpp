@@ -129,11 +129,7 @@ bool Scene::ReadCapture(const Ref &node, std::string &err) {
   if (!Need(c, "height", 16.0, 8192.0, h, err)) return false;
   Capture_.Width = (int)w;
   Capture_.Height = (int)h;
-  if (!OptionalInt(c, "warmCeiling", 1.0, 1.0e6, Capture_.WarmCeiling, err)) return false;
   if (!OptionalInt(c, "settleFrames", -1.0, 4096.0, Capture_.SettleFrames, err)) return false;
-  if (!OptionalInt(c, "walkPasses", 0.0, 1.0e6, Capture_.WalkPasses, err)) return false;
-  if (!Optional(c, "walkE", -1.0e4, 1.0e4, Capture_.WalkE, err)) return false;
-  if (!Optional(c, "walkN", -1.0e4, 1.0e4, Capture_.WalkN, err)) return false;
   return true;
 }
 

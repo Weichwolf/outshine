@@ -81,50 +81,19 @@ std::string SceneRunner::FrameName(const std::string &path, int frame, const cha
   return path + buf;
 }
 
-bool SceneRunner::Warm() {
-  const Scene::Capture &cap = Scene_.Recording();
-  const double lat0 = App_.Lat(), lon0 = App_.Lon();
-  const double lonPerM = 1.0 / (kMPerDeg * std::cos(lat0 * kDeg2Rad));
-  /* WARM UNTIL THE WORLD IS THERE, not for a number of passes. The walk, if one was declared, has a
-   * declared length so its end standpoint stays a property of the scene and not of the network. */
-  const bool walking = cap.WalkE != 0.0 || cap.WalkN != 0.0;
-  Outshine::Progress p;
-  Warmed_ = 0;
-  while (Warmed_ < cap.WarmCeiling && !p.Resident) {
-    if (walking && Warmed_ < cap.WalkPasses) {
-      const Outshine::Stance s{lat0 + cap.WalkN * (double)Warmed_ / kMPerDeg,
-                               lon0 + cap.WalkE * (double)Warmed_ * lonPerM, App_.YawDeg(),
-                               App_.PitchDeg()};
-      App_.Look(s);
-    }
-    p = App_.Stream((double)Warmed_ * 1000.0 / 60.0);
-    App_.Frame();
-    Outshine::Pump();
-    Warmed_++;
-  }
-  if (!p.Resident) {
-    /* A PICTURE OF A HALF-LOADED SCENE IS NOT A MEASUREMENT. The ceiling is a guard against a hung
-     * server, never a quiet substitute for the shot that was asked for. */
-    Log::Error("run", "warm_ceiling_reached", {{"passes", Warmed_}, {"ceiling", cap.WarmCeiling},
-        {"targetTotal", App_.Scenery().TargetTotal()},
-        {"targetReady", App_.Scenery().TargetReadyN()}, {"progress", (double)p.Fraction},
-        {"buildingTilesPending", App_.Scenery().BuildingPendingTiles()}});
-    return false;
-  }
-  Log::Info("run", "resident", {{"passes", Warmed_}, {"ceiling", cap.WarmCeiling},
-      {"targetTotal", App_.Scenery().TargetTotal()}, {"progress", (double)p.Fraction}});
-  return true;
-}
-
+/* THE COUNTERS COME AFTER THE PRODUCTS, because they describe what was DRAWN and the load draws no
+ * world at all — read before the first scene frame they would all be zero. Every run restores the
+ * declared standpoint and the declared clocks, so what they describe is still the declared scene. */
 int SceneRunner::Run() {
-  if (!Warm()) return 2;
+  if (!App_.Load()) return 2;
+  int rc = 0;
+  for (const Scene::Run &r : Scene_.Runs()) {
+    rc = Dispatch(r);
+    if (rc != 0) break;
+  }
   ReportSettled();
   ReportCounters();
-  for (const Scene::Run &r : Scene_.Runs()) {
-    const int rc = Dispatch(r);
-    if (rc != 0) return rc;
-  }
-  return 0;
+  return rc;
 }
 
 int SceneRunner::Dispatch(const Scene::Run &run) {
@@ -182,6 +151,10 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     App_.Frame();
     Outshine::Pump();
   }
+  /* THE SETTLE FRAMES ARE SUBMITTED AND NOT WAITED FOR, so without this the first timed frame pays
+   * the whole queue: measured 503.8 ms of which 496.0 was GPU, against a 11.3 ms median over the
+   * same 240 frames. That is a number about the encoder, not about the frame. */
+  R.SyncGpu();
   Log::Info("run", "settled", {{"frames", Settled_}, {"path", m.Path},
       {"channels", (double)m.Move.ChannelCount()}});
 
@@ -200,7 +173,9 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     const auto t0 = std::chrono::steady_clock::now();
     apply((double)f);
     if (m.World == Scene::Run::Stream::Streaming)
-      App_.Stream((double)(Warmed_ + Settled_ + f) * 1000.0 / 60.0);
+      /* The virtual clock is the streaming PASS index at 60 Hz — monotonic across the load and the
+       * run, which is what the world's 1 Hz counters are read against. */
+      App_.Stream((double)App_.Loading().PassCount() * 1000.0 / 60.0);
     const auto t1 = std::chrono::steady_clock::now();
     App_.Frame();
     const auto t2 = std::chrono::steady_clock::now();
@@ -475,7 +450,7 @@ bool SceneRunner::WriteDepth(const std::string &name) const {
  * doc/goal.md §3 — a plant is judged alone before it is allowed into the picture. */
 int SceneRunner::RunSubject() {
   const Scene::Run::SubjectRun &s = Scene_.Runs().front().Subject;
-  SubjectBench bench(App_.Renderer(), App_.Vegetation());
+  SubjectBench bench(App_.Renderer(), App_.Vegetation(), Out_);
   /* Held for the whole bench run: the arrays are uploaded once and the numbers below are logged off
    * the same objects the picture was drawn from. */
   World::TreeMesh mesh;

@@ -36,6 +36,44 @@
       ]
     },
     {
+      "id": "depth",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "depth.png",
+          "depth": "depth.f32" }
+      ]
+    },
+    {
+      "id": "ortho",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 2500,
+      "yawDeg": 280,
+      "pitchDeg": -90,
+      "fovDeg": 60,
+      "orthoM": 1222.99,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 512, "height": 512 },
+      "runs": [
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "ortho.png" }
+      ]
+    },
+    {
       "id": "spin",
       "kind": "run",
       "lat": 52.10602,

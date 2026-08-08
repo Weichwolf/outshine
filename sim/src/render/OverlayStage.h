@@ -32,13 +32,6 @@ public:
   virtual void Update(const FrameContext &ctx) { (void)ctx; }
 
   virtual void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) = 0;
-
-  /* The boot loading screen's text, in the short pass Renderer opens INSTEAD of the scene. Without an
-   * overlay there is no text pipeline in the build, so the screen stays a clear. */
-  virtual void EncodeLoadingText(wgpu::RenderPassEncoder &pass, int width, int height, float pct,
-                                 int ready, int total) {
-    (void)pass; (void)width; (void)height; (void)pct; (void)ready; (void)total;
-  }
 };
 
 } // namespace outshine::Render

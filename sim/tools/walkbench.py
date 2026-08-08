@@ -10,7 +10,7 @@ camera changes. This declares one motion run per speed whose product is the prof
 reports p50/p90/p95/p99/max plus the share of frames past one and two 60 Hz periods — per speed, and
 per quarter of the distance so a trend over the walk is visible.
 
-Every speed stage is a separate process with its own warm-up, so the stages are comparable to each
+Every speed stage is a separate process with its own load, so the stages are comparable to each
 other and not to whatever the previous stage left resident.
 
 EVERY STAGE IS RUN --repeats TIMES, and the reason is measured: the same binary at the same speed over
@@ -69,7 +69,7 @@ def stage(binary, args, speed_ms, out_csv):
         "lat": 52.10602, "lon": 9.43453, "eyeM": 1.70,
         "yawDeg": 280, "pitchDeg": 0, "fovDeg": 60,
         "utc": "2026-08-06T17:40:00Z", "windDeg": 250, "windMs": 6.0, "cloudCover": 0.55,
-        "capture": {"width": int(w), "height": int(h), "warmCeiling": args.warm},
+        "capture": {"width": int(w), "height": int(h)},
         "runs": [{
             "kind": "motion", "frames": args.frames, "fps": fps,
             "world": "streaming", "give": "profile", "path": os.path.basename(out_csv),
@@ -121,10 +121,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--bin", default="build/gpu_walk")
     ap.add_argument("--frames", type=int, default=600)
-    # --warm is the CEILING on streaming passes, not a count: gpu_walk warms until the world
-    # reports full residency and fails if it does not get there. A stage that started
-    # half-loaded would measure the loader.
-    ap.add_argument("--warm", type=int, default=4000)
     ap.add_argument("--dt", type=float, default=1.0 / HZ)
     ap.add_argument("--size", default="1280x720")
     ap.add_argument("--base", default="")
@@ -143,8 +139,8 @@ def main():
     os.makedirs(work, exist_ok=True)
     binhash = hashlib.md5(open(args.bin, "rb").read()).hexdigest()
     print("binary %s  md5 %s" % (args.bin, binhash))
-    print("frames %d  warm<=%d  dt %.5f s  yaw %.1f deg/s  size %s"
-          % (args.frames, args.warm, args.dt, args.yaw_rate, args.size))
+    print("frames %d  dt %.5f s  yaw %.1f deg/s  size %s"
+          % (args.frames, args.dt, args.yaw_rate, args.size))
     print()
 
     bad = []

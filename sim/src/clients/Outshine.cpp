@@ -28,6 +28,10 @@ void PumpMs(int ms) {
 #endif
 }
 
+/* [SET] 10 s without one more ready tile. Long enough that the slowest single tile measured on this
+ * host (a cold z14 vector bake, ~3 s) never trips it, short enough to name a hung server. */
+constexpr double kStallSayMs = 10000.0;
+
 constexpr int kGroundTries = 200;
 constexpr int kDeviceTries = 2000;
 constexpr int kAlbedoTileSize = 512;
@@ -131,10 +135,13 @@ bool Outshine::Prepare(const Gpu &gpu) {
     return false;
   }
   Frames_.SetGpuAvailable(R_.GpuTimingAvailable());
+  if (Identity_) Bus_.Register(Identity_);
   Bus_.Register(&Frames_);
+  Bus_.Register(&Stream_);
   Bus_.Start();
   ClockOriginMs_ = NowMs();
   Frames_.Open(ClockOriginMs_);
+  Stream_.Open(ClockOriginMs_);
   Phase_ = Phase::Prepared;
   return true;
 }
@@ -190,25 +197,36 @@ bool Outshine::Open() {
       {"sunElDeg", (double)SunEl_}, {"sunAzDeg", (double)SunAz_},
       {"moonElDeg", (double)State_.Env.MoonElDeg}, {"cloudCover", (double)State_.Env.CloudCover},
       {"windN", w.N}, {"windE", w.E}, {"windD", w.D}});
-  Phase_ = Phase::Streaming;
+  Phase_ = Phase::Loading;
   return true;
 }
 
 void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
-/* The interval between two Frame() calls, not the encode: what a viewer feels is the period, and
- * everything the client did in between — streaming, a readback, a PNG — is part of it. */
-void Outshine::Frame() {
+/* The interval between two frames, not the encode: what a viewer feels is the period, and everything
+ * the client did in between — streaming, a readback, a PNG — is part of it. A progress frame is
+ * metered by the same pair, because there is no measurement mode: whether a second was spent loading
+ * is a FIELD of its row (StreamTelemetry.h), never a reason to leave it out. */
+double Outshine::OpenFrame() {
   const double now = NowMs();
   if (LastFrameMs_ > 0.0) Frames_.AddFrame(now - LastFrameMs_);
   LastFrameMs_ = now;
-  R_.RenderFrame();
+  return now;
+}
+
+void Outshine::CloseFrame(double startedMs) {
   double stage[Render::GpuTimer::kPassCount];
   if (R_.TakeGpuTimes(stage)) Frames_.AddStages(stage);
-  if (Frames_.Due(now)) {
-    Bus_.Tick((now - ClockOriginMs_) * 0.001);
-    Frames_.Reset(now);
-  }
+  if (!Frames_.Due(startedMs)) return;
+  Bus_.Tick((startedMs - ClockOriginMs_) * 0.001);
+  Frames_.Reset(startedMs);
+  Stream_.Reset();
+}
+
+void Outshine::Frame() {
+  const double now = OpenFrame();
+  R_.RenderFrame();
+  CloseFrame(now);
 }
 
 Outshine::Counters Outshine::Measured() const {
@@ -263,13 +281,67 @@ void Outshine::CheckRoof() {
 }
 
 Outshine::Progress Outshine::Stream(double nowMs) {
-  if (Phase_ != Phase::Streaming) return {};
+  if (Phase_ < Phase::Loading) return {};
   W_.Update(Stance_.Lat, Stance_.Lon, Eye_, Fwd_, nowMs);
   if (W_.Resident()) {
     if (!RoofChecked_ && Stand_.LensDeclared()) CheckRoof();
     Forest_.Scatter(R_, W_.Classes(), Veg_, Stance_.Lat, Stance_.Lon, Stand_.EyeAglM());
   }
+  StreamTelemetry::Pass p;
+  p.WorldMs = W_.UpdateMs();
+  p.MeshMs = W_.MeshMs();
+  p.AlbedoMs = W_.AlbedoMs();
+  p.UploadMs = W_.UploadMs();
+  p.BuildingMs = W_.BuildingMs();
+  p.BuildingDecodeMs = W_.BuildingDecodeMs();
+  p.TilesTotal = W_.TargetTotal();
+  p.TilesReady = W_.TargetReadyN();
+  p.TilesInView = W_.TargetInViewN();
+  p.VectorTilesPending = W_.BuildingPendingTiles();
+  p.Built = W_.BuiltCount();
+  p.Evicted = W_.EvictedCount();
+  p.Resident = W_.Resident();
+  Stream_.AddPass(p);
   return {W_.LoadProgress(), W_.Resident()};
+}
+
+/* THE PROGRESS FRAME IS A FRAME LIKE ANY OTHER, and that is the whole point: the renderer never
+ * stops, so the bar moves at the display's rate while the fetches and the decodes run beside it.
+ * What the loop does NOT do is draw the world — a half-arrived scene is not a picture of anything.
+ * The virtual clock is the pass index at 60 Hz, so the world's own 1 Hz counters keep the same
+ * meaning they have inside a run. */
+bool Outshine::Load() {
+  if (Phase_ != Phase::Loading) return false;
+  Progress p;
+  long passes = 0;
+  const double t0 = NowMs();
+  double movedMs = t0, saidMs = t0;
+  int wasReady = -1;
+  while (!p.Resident) {
+    p = Stream((double)passes * 1000.0 / 60.0);
+    const double frameMs = OpenFrame();
+    R_.RenderProgress(p.Fraction);
+    CloseFrame(frameMs);
+    Pump();
+    passes++;
+    /* A STALL IS SAID, NOT CAPPED. There is no ceiling to hit — a server that stops answering is a
+     * fact about the server — but a load that spins in silence is a fact nobody can read. */
+    const double now = NowMs();
+    if (W_.TargetReadyN() != wasReady) { wasReady = W_.TargetReadyN(); movedMs = now; }
+    if (now - movedMs > kStallSayMs && now - saidMs > kStallSayMs) {
+      saidMs = now;
+      Log::Warn("outshine", "load_stalled", {{"stalledS", (now - movedMs) * 0.001},
+          {"passes", (double)passes}, {"targetReady", wasReady},
+          {"targetTotal", W_.TargetTotal()}, {"vectorPending", W_.BuildingPendingTiles()},
+          {"progress", (double)p.Fraction}});
+    }
+  }
+  Stream_.MarkResident(NowMs());
+  Phase_ = Phase::Playing;
+  Log::Info("outshine", "loaded", {{"passes", (double)passes}, {"loadMs", NowMs() - t0},
+      {"targetTotal", W_.TargetTotal()}, {"targetInView", W_.TargetInViewN()},
+      {"progress", (double)p.Fraction}});
+  return true;
 }
 
 } // namespace outshine::Clients

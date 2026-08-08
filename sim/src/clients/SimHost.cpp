@@ -32,8 +32,11 @@
 /* WHAT A RUN PRODUCED. A browser has no filesystem to write a PNG or a CSV to, so a declared
  * artifact lands here under its run id -- the same evidence a native run leaves on disk. */
 #define ART_ROOT "runs"
-/* A 1280x720 PNG measures ~1 MB; the cap is there so a wrong Content-Length cannot ask for the heap. */
-#define MAX_BODY (16u * 1024u * 1024u)
+/* The cap is there so a wrong Content-Length cannot ask for the heap. The largest DECLARED product
+ * sets it: mods/demo's class dump is spanM 400 / stepM 0.05 = 8000 x 8000 bytes + header = 64.0 MB,
+ * and 16 MB refused it with a 413 that nothing noticed. Doubled once so the next declared span does
+ * not have to come back here. */
+#define MAX_BODY (128u * 1024u * 1024u)
 
 typedef struct {
     int fd;
