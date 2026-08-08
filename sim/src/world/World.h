@@ -70,7 +70,7 @@ public:
   const WeatherProvider *Weather() const { return Weather_; }
 
   /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
-  bool Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon, int grid,
+  bool Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon,
             double viewMeters, int albedoTS);
 
   /* One budgeted refinement pass; `nowMs` drives the 1 Hz counter log. */
@@ -227,7 +227,7 @@ private:
   const VegetationTemplates *Veg_ = nullptr;  /* borrowed, see SetVegetation's banner */
 
   Render::Renderer *R;
-  int Grid, TS;
+  int TS;
   double ViewM, Lat0, Lon0;
   std::vector<Node> Nodes;
   std::vector<int> DrawSlots;

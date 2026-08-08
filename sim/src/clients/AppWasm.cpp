@@ -326,7 +326,7 @@ int main(void) {
   }
   gR.Init("#gpu", 1280, 720);
 
-  if (!gW.Open(&gR, base, gScene.Lat(), gScene.Lon(), 32, 60000.0, 512)) {
+  if (!gW.Open(&gR, base, gScene.Lat(), gScene.Lon(), 60000.0, 512)) {
     Log::Error("walk", "world_open_failed", {{"base", std::string(base)}});
     return 1;
   }

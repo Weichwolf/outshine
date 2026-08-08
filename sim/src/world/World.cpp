@@ -40,6 +40,12 @@ static const double kEarthCirc = 40075016.686;
  * Herleitung + Konstantentabelle: doc/world/terrain.md, Abschnitt 2.2. */
 static const double kSseK = 720.0 / (2.0 * 0.57735026919);   /* H / (2 tan(fov/2)) */
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
+/* Quads per tile edge, and it is the ZERO POINT of the whole LOD chain: the cluster DAG's level 0 IS
+ * this mesh, so no tolerance below its own decimation error can ever be honoured. kEdgeTau/kGrid is
+ * that error in pixels -- 4 px against the DAG's declared 1 px (render/ClusterDag.h). 96 is where the
+ * price stops: a 256-texel DEM tile would carry 255, and 128 measured 1029 MB of tile VRAM against
+ * 615 at 96 and p95 18.4 ms against 13.1. doc/world/terrain.md 2.2. */
+static const int kGrid = 96;
 static const double kCosView = 0.5;            /* frustum weight: <60deg off-axis -> full priority */
 static const int kNodeCeil = 6000;             /* safety backstop on the working set */
 
@@ -50,7 +56,7 @@ static inline uint64_t Key(int z, long x, long y) {
 static std::unordered_map<uint64_t, int> gIndex;
 
 World::World()
-  : R(nullptr), Grid(32), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
+  : R(nullptr), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0), MeshVram(0),
     NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
 
@@ -73,10 +79,9 @@ static const int kLightBudget = 65536;   /* max sprites resident (team-lead cap)
 static const double kLightLiftM = 6.0;   /* sit lights just above the DEM so terrain occludes cleanly */
 static const float kLightGain = 3.0f;    /* additive HDR gain so cores pop (ACES compresses highlights) */
 
-bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon, int grid,
+bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon,
                    double viewMeters, int albedoTS) {
   R = renderer;
-  Grid = grid;
   TS = albedoTS;
   ViewM = viewMeters;
   Lat0 = lat;
@@ -874,7 +879,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       float err = 0.f;
       /* The DAG arrived built (world/TerrainLoader.h): what this frame pays is the copy into the
        * node, not the simplifier. */
-      if (fb_stream_build(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, Grid, &v, &nv, &cl, &ncl, o, &err)) {
+      if (fb_stream_build(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &v, &nv, &cl, &ncl, o, &err)) {
         nd.verts.assign(v, v + (size_t)nv * 8);
         nd.clusters.assign(cl, cl + ncl);
         if (getenv("FB_DAGLOG")) {

@@ -462,7 +462,7 @@ int main(int argc, char **argv) {
   }
 
   World::World W;
-  if (!W.Open(&R, base.c_str(), lat, lon, 32, viewKm * 1000.0, 512)) {
+  if (!W.Open(&R, base.c_str(), lat, lon, viewKm * 1000.0, 512)) {
     Log::Error("walk", "world_open_failed", {{"base", base}});
     return 1;
   }

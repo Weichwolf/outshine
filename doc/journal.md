@@ -7285,3 +7285,50 @@ Hochkönig unter dem Fels, der sich als Schneefeld liest.
 Bildpreis über 360 Frames einer vollen Drehung bei 1280×720 vom Hochkönig, Paßzahl **7 → 7**, Median über
 6 bzw. 3 Läufe: p50 5,090 → **4,903**, p95 9,503 → **6,620**, p99 13,857 → **7,150**. Die Streuung der
 Einzelläufe ist zu breit für mehr als „nicht gestiegen".
+
+## 2026-08-08 — Der Grat fehlte im Netz, nicht im Höhenmodell: `kGrid` 32 → 96
+
+**Die 10–100-m-Struktur ging in EINER Zeile verloren, und es ist nicht das DEM.** Eine Terrarium-Kachel
+trägt auf jeder Zoomstufe 256 Stützstellen je Kante — **6,46 m** auf z14 bei 47,4°
+(`40075017·cos(lat)/(2^14·256)`) —, und `ChunkBuildEcef` hat davon jede achte punktweise abgetastet.
+Was dabei wegfiel, gemessen gegen das Quellgitter auf der z14-Kachel jeder Kamera (max/RMS in Metern):
+Hochkönig **116,57 / 9,10** · Zugspitze 61,88 / 8,85 · Hochries 34,91 / 2,51 · Innsbruck 29,59 / 3,47 ·
+Nebelhorn 27,69 / 2,16 · Herzogstand 26,74 / 1,57. Das IST das gesuchte Band.
+
+**Das Höhenmodell ist nicht zu grob, und das ist getrennt gemessen:** z14 minus bilinear hochgerechnetes
+z13 hat RMS **2,93 m** und max 62,94 m, trägt also echte Information; z15 gegen z14 nur noch RMS 0,84 m.
+Der Server liefert bis z15 (3,23 m). Wir haben die Daten und haben sie 8:1 weggeworfen.
+
+**Der zweite Verdächtige ist derselbe Hebel.** Die Kante eines Level-0-Dreiecks ist `kEdgeTau / kGrid`
+Pixel bei 720p — bei 32 also **12 px** gegen die vom Cluster-DAG selbst erklärte Toleranz von **1 px**
+(`SseTauPx`). Der Nullpunkt der Leiter lag zwölffach über ihrer eigenen Toleranz, also konnte kein
+Schnitt darunter etwas auswählen: `FB_TAU` von 1 auf 0,25 bewegt die Silhouette um **unter 0,05 px**.
+`kGrid` = 96 setzt ihn auf 4 px, Abtastung 17,24 m auf z14, RMS-Fehler 3,2–4,9× kleiner an allen sechs.
+
+Preis über 360 Frames einer vollen Drehung bei 1280×720 vom Hochkönig, Median aus drei Läufen, je ein
+gepinntes Binär, Paßzahl **7 → 7**: p50 **4,79 → 10,36** · p95 5,54 → 13,36 · p99 5,79 → 15,35 ms;
+Kachel-VRAM **167,6 → 615,3 MB**; Gelände-Dreiecke 85 504 → 420 614. `kGrid` = 128 ist mit **1 029 MB**
+und p95 18,43 ms an beiden Budgets gescheitert und steht mit dieser Messung in den Gaps; 64 war zu
+wenig (RMS 4,43 m am Hochkönig).
+
+**Die Abnahmezahl 1 mißt auf diesen sechs Paaren nicht die Silhouette, und auch das ist gemessen.** Die
+B−R-Himmelsregel aus `swardaudit.py` findet wegen des Dunstes keine Himmelskante, sondern eine
+chromatische Höhenlinie mitten im Bild — am Hochkönig im Talgrund. Mit der richtigen Kante
+(Luminanzsprung, `tools/ridgeaudit.py`) steht der Fernhorizont laut Tiefenpuffer bei **29,8 / 45,8 /
+66,7 km** (p10/p50/p90), wo ein Pixel bei 320×180 **347 m** Gelände deckt und die Foto-Kante an vier von
+sechs Kameras Wolkenoberkante ist. Rauheit vorher → nachher: Nebelhorn 0,17 → 0,23 · Herzogstand 1,87 →
+1,85 · Innsbruck 0,16 → 0,17 · Hochries 0,83 → 0,86 · Zugspitze 0,06 → 0,08 · Hochkönig 0,11 → 0,10 —
+**3 von 6 über der halben Fotorauheit, vorher wie nachher.** Die Zahl ist nicht erreicht und das Ziel
+wird nicht verschoben. Abstand zum Foto auf eingefrorenen Masken, Boden |dΣ|: 3 von 6 näher.
+
+**Was im Bild steht, steht dagegen fest** (`web/cams/{hochkoenig,innsbruck,nebelhorn}-round-mesh-photo-before-after.png`,
+Foto / vorher / nachher, 1280×720): die Hochkönig-Flanke hat Rinnen, Grate und einen Kamm statt einer
+glatten weißen Kuppe, und in Innsbruck bekommen Karwendel und Stubaier Zacken und Schneeflecken statt
+einer weichen blauen Welle.
+
+**Nebenbefund Herzogstand, gemessen statt vermutet:** es sind keine Impostoren, sondern volle
+Ast-und-Blatt-Geometrie, und die Bäume sind nicht zu groß — aus dem Tiefenpuffer 8,54 m auf 11,0 m ·
+11,27 m auf 14,9 m · 6,87 m auf 9,7 m Entfernung, jeweils Untergrenze, weil die Krone aus dem Bild läuft.
+Zu groß ist das **Blattplättchen**: rund **0,76 m** quer, gegen 0,06–0,10 m an einer Buche. Es fällt aus
+`TreeFoliage::CardLeafM` = `sqrt(LAI·Kronenfläche/Blattzahl)`, ist also eine Folge der Instanzzahl und
+liegt in der Vegetationsschicht, nicht hier.
