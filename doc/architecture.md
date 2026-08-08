@@ -54,6 +54,68 @@ that is only a folder name decays — this one is a contract, and it is enforced
 viewer walks anywhere while everything streams, is generated and is placed. A contract that only carries
 the initial load is already wrong at design time.
 
+### The contract
+
+**A generator is a pure function `(Region, Ground) -> Yield`.** It knows no camera, no frame, no device;
+`Generate` is `const`, which is what pays for running N regions concurrently without a lock. **The
+scheduler knows where the eye is. The generator never does.**
+
+`Region` is derived, not chosen: the tile address the vector source already keys on. Its seed follows
+from the key, so determinism is a property of the place and not of the call order. A second grid beside
+it would be a second index.
+
+`Ground` is the core's read-only view — ground height, slope, class with its edge distance, the source
+feature and its ring, the water level, the declared tables. It has no member that could deliver a camera,
+a frustum, a frame index or a clock, so a generator cannot reach for one.
+
+**Three products, three receivers, and the separation is the contract:**
+
+| Product | Receiver | Carries | Never carries |
+|---|---|---|---|
+| **occupancy** | the engine — index and physics, and it is in the server target | bounds, a substitute body for contact, mass, a contact-material index | no triangles, no material, **no kind** |
+| **draw** | the renderer, and it is *not* in the server target | clusters with a model-space error, instances, a material row | no bounds, no mass |
+| **point query** | both, headless | what stands at this place, with no buffer existing anywhere | — |
+
+**The engine knows only physics.** A trunk is a cylinder with a radius and a height, and that is all it
+learns; a tree, a house and a car are the same thing to it. There is therefore **no taxonomy of content
+in the engine** — every purpose a content enumeration might serve is either declared by the generator
+itself or answered by the data. What the scheduler needs is a distance and a region size, and both are
+statements about *place*, not about kind.
+
+**Actors are not generators.** A generated yield is a pure function of its region: discard it and
+regenerate it identically. An actor has state, so regeneration is not idempotent, and promising the same
+interface for it would kill the purity that pays for the concurrency. An actor spawner shares the region
+key and hands seed to the entity store, which owns the lifetime.
+
+### The core dictates the render pipeline
+
+**As few passes as possible, as many as necessary — and a generator has no say in it.** On tile-based
+deferred hardware a full-screen pass costs its base price before it does anything, so cost follows the
+*pass*, not the pixels. The pass count is therefore a deliberate decision of the core that one has to
+argue against, never a by-product of how much content someone declared.
+
+This is enforced by construction rather than guarded: **the material a generator supplies is a row of
+numbers, and it carries no field that could switch a pipeline state** — no blend mode, no cull mode, no
+shader body, no attribute layout. A generator supplies no shader source at all, so a region crossing
+compiles nothing; it writes into buffers that already exist.
+
+What the core provides instead of blend declarations:
+
+- **Coverage, not blending.** A fragment yields a coverage value and is discarded against a threshold —
+  opaque depth, one pass. That is what shipped foliage pipelines do, and it is why foliage works in a
+  shadow map at all.
+- **Two-sidedness is a core decision**, taken once for everything, not a material property.
+- **Transmission is a term** in the one surface model, not a second lighting path.
+
+Order-dependent transparency — glass one sees a room through, smoke — is a **core decision with its own
+justification against the price of a pass**, and when it is taken it holds for everything. Never because
+a generator asked for it.
+
+**Geometry consolidates before it is drawn.** Every generator delivers into one cluster format with a
+model-space error, and one screen-space-error rule selects across all of them. There is one ladder, not
+one per kind of content — a second ladder for a second kind of content is the same mistake as a second
+index.
+
 ## Directories
 
 | Directory | Responsibility |
@@ -117,6 +179,21 @@ the load — a server that stops answering is a fact about the server.
 **The index is fed by the entity store and never authoritative.** Position is a component in `float64`;
 the tree may not hold a position the store does not. Terrain is **not** an entity — tile geometry is
 streamed, not simulated.
+
+## The layering is a build target, not a lint
+
+Higher layers depend on lower ones and never the reverse. **The enforcement is that core, world,
+generators and physics compile without the renderer** — see the persistent server in
+[`vision.md`](vision.md). A breach shows up as a target that no longer builds, not as a message someone
+has to read.
+
+A hand-maintained checker is a second truth about the structure, and a second truth decays: the one this
+replaced grew a rank table full of layers that no longer existed while letting the single edge that
+mattered pass. What a build cannot express is small and keeps a small check: a namespace per layer, and
+a forward declaration passed through opaquely.
+
+**One consequence is structural.** The object that owns both world and renderer cannot itself be in the
+server target. It splits: a simulation half that all targets share, and a picture half over it.
 
 ## An entity is a body
 
