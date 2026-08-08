@@ -23,15 +23,9 @@ bis widerrufen; **Kommentare des Eigners schlagen es.** Und **der Weg ist das Zi
 Abnahmetermin — eine Runde, die etwas gelernt hat, ist auch ohne Lieferung eine gute Runde, aber nur,
 wenn das Gelernte **mit seiner Messung** in `## Gaps` stehenbleibt.
 
-**Erfinderisch sein, auf Bewährtes aufbauen.** Der Stand der Technik ist geschrieben; der etablierte Weg
-ist der Ausgangspunkt, **die Abweichung braucht einen Grund**, und der steht bei ihr. Kanon, Begründung
-je Titel in [`doc/references.md`](doc/references.md): **Engine** Gregory *Game Engine Architecture* 3e ·
-Lengyel *Foundations of Game Engine Development* I–III — **Rendering** Akenine-Möller *Real-Time
-Rendering* 4e · Pharr *Physically Based Rendering* 4e · Lagarde/de Rousiers *Moving Frostbite to PBR* —
-**Prozedural** Ebert/Musgrave/Perlin/Worley *Texturing & Modeling* — **C++** *C++ Core Guidelines* ·
-Meyers *Effective Modern C++* · Pikus *The Art of Writing Efficient Programs* — **Physik** Ericson
-*Real-Time Collision Detection* · Bridson *Fluid Simulation*. Dazu als Implementierungen: AAA-Titel,
-SpeedTree, OSM-Viewer, Microsoft Flight Simulator.
+**Erfinderisch sein, auf Bewährtes aufbauen.** Der Stand der Technik ist geschrieben — siehe
+`## Referenzen`. Der etablierte Weg ist der Ausgangspunkt, **die Abweichung braucht einen Grund**, und
+der steht bei ihr.
 
 **Nichts im Baum ist Besitzstand** — kein Format, kein Verzeichnis, kein Algorithmus, kein Dokument.
 Bringt ein Ansatz das Bild nicht näher an die Fotografie, fliegt er. **Kein Freibrief:** revidierbar ist
@@ -95,8 +89,28 @@ pinnt ihr Binary.**
   nicht vor Störung: Baum und Compiler sind gemeinsam.
 - **Nach JEDEM abgenommenen Schritt wird committed** — „Git holt es zurück" gilt nur, wenn es drin ist.
 - `core/` zeigt nie nach oben. Peers rufen sich nie gegenseitig.
+- **Die C++ Core Guidelines gelten** (`## Referenzen`); das Folgende sind nur die Hausabweichungen.
 - C++17, **kein Präfix**, PascalCase, **`namespace outshine`**, Klasse pro Datei. Ausnahmen:
   `world/terrain/` (C-ABI-Bibliothek, `tiles/` ruft denselben DEM-Dekoder) und `FBWX` (Formatname).
+
+## Referenzen
+
+**Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — VERBINDLICH.**
+Kein Vorschlag und keine Anregung: sie entscheiden Besitz, Lebensdauer, Schnittstelle und Stil, und eine
+Abweichung ist ein Fehler, bis sie mit Grund danebensteht. Wo sie und eine Hausmeinung kollidieren,
+gewinnen sie.
+
+Der Rest ist Kanon, kein Gesetz — Ausgangspunkt statt Eigenerfindung. Wo jeder Titel beißt, sagt
+[`doc/references.md`](doc/references.md).
+
+| Feld | Titel |
+|---|---|
+| **Engine** | Gregory, *Game Engine Architecture* 3e · Lengyel, *Foundations of Game Engine Development* I–III |
+| **Rendering** | Akenine-Möller u.a., *Real-Time Rendering* 4e · Pharr u.a., *Physically Based Rendering* 4e · Lagarde/de Rousiers, *Moving Frostbite to PBR* |
+| **Prozedural** | Ebert/Musgrave/Perlin/Worley, *Texturing & Modeling* — der Kanon für „Aussehen ist eine Funktion", samt seiner Grenzen |
+| **C++** | Meyers, *Effective Modern C++* · Pikus, *The Art of Writing Efficient Programs* |
+| **Physik** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation for Computer Graphics* |
+| **Implementierungen** | AAA-Titel · SpeedTree · OSM-Viewer (OSM2World, F4map) · Microsoft Flight Simulator |
 
 ## Host
 

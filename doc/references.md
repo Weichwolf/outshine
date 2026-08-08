@@ -43,7 +43,7 @@ drift.
 
 | Title | Where it bites |
 |---|---|
-| Bjarne Stroustrup, Herb Sutter, **C++ Core Guidelines** (isocpp.github.io/CppCoreGuidelines) | The arbiter when style is disputed. Living document, versioned, and it answers ownership, lifetime and interface questions without a house opinion. |
+| Bjarne Stroustrup, Herb Sutter, **C++ Core Guidelines** (isocpp.github.io/CppCoreGuidelines) | **BINDING, by the owner's decision** — not a canon entry but a rule, ranked with the hard rules in [`CLAUDE.md`](../CLAUDE.md). It settles ownership, lifetime, interface and style; a departure is a defect until its reason stands beside it, and where it collides with a house opinion it wins. Everything `CLAUDE.md` states about C++ is a **house deviation from it**, not a substitute. |
 | Scott Meyers, **Effective Modern C++** | Move semantics, `auto`, lambdas, smart-pointer ownership — the idiom layer this tree is written in. |
 | Fedor Pikus, **The Art of Writing Efficient Programs** | Where the performance work actually lives: memory order, cache behaviour, allocation, and — its most useful chapter here — how to measure so the measurement is not the artefact. This tree's rule that a benchmark pins its binary is the same instinct. |
 
