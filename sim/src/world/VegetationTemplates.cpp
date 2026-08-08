@@ -10,16 +10,6 @@
 
 namespace outshine::World {
 
-namespace {
-
-float SrgbToLinear(float s) {
-  return s <= 0.04045f ? s / 12.92f : std::pow((s + 0.055f) / 1.055f, 2.4f);
-}
-
-float SrgbLinImpl(double byte255) { return SrgbToLinear((float)(byte255 / 255.0)); }
-
-}  // namespace
-
 bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Table_.clear();
   Names_.clear();
@@ -50,10 +40,25 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
 
   if (!mats.Ready()) { Error_ = "ground-material table not loaded"; return false; }
 
-  /* Only the BLADE colours are still display values; the ground half of that hack retired with the
-   * material table. Keys are NOT scaled: they address the raster's own bytes and must stay
-   * bit-identical to tiles/src/style.h. */
-  const float grassGain = (float)doc.Root()["grassReflectanceGain"].Num(1.0);
+  const Render::Json::Ref blades = doc.Root()["bladeClasses"];
+  std::unordered_map<std::string, Blade> bladeByName;
+  for (size_t i = 0; i < blades.Size(); i++) {
+    const Render::Json::Ref b = blades[i];
+    Blade bl{};
+    for (int c = 0; c < 3; c++) {
+      bl.Green[c] = (float)b["greenLinear"][(size_t)c].Num(-1.0);
+      bl.Dry[c] = (float)b["dryLinear"][(size_t)c].Num(-1.0);
+      if (bl.Green[c] < 0.0f || bl.Dry[c] < 0.0f) {
+        Error_ = "blade class without greenLinear/dryLinear: " + b["name"].Str("?");
+        return false;
+      }
+    }
+    if (!bladeByName.emplace(b["name"].Str("?"), bl).second) {
+      Error_ = "duplicate blade class: " + b["name"].Str("?");
+      return false;
+    }
+  }
+  if (bladeByName.empty()) { Error_ = "no bladeClasses declared"; return false; }
 
   Table_.reserve(tpls.Size());
 
@@ -81,13 +86,16 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     if (!lname.empty() && li < 0) { Error_ = "unknown litter class: " + lname; return false; }
     const GroundMaterials::Material &lm = mats.At((size_t)(li >= 0 ? li : gi));
 
-    const Render::Json::Ref bc = gr["colorSrgb"], dc = gr["drySrgb"];
+    const std::string bname = gr["class"].Str("");
+    auto bit = bladeByName.find(bname);
+    if (bit == bladeByName.end()) { Error_ = "unknown blade class: " + bname; return false; }
+
     Row row{};
     for (int c = 0; c < 3; c++) {
       row.Ground[c] = gm.Albedo[c];
       row.Litter[c] = lm.Albedo[c];
-      row.Grass[c]  = grassGain * SrgbLinImpl(bc[(size_t)c].Num(128.0));
-      row.Dry[c]    = grassGain * SrgbLinImpl(dc[(size_t)c].Num(128.0));
+      row.Grass[c]  = bit->second.Green[c];
+      row.Dry[c]    = bit->second.Dry[c];
     }
     row.Ground[3] = gm.Roughness;
     row.Litter[3] = lm.Roughness;

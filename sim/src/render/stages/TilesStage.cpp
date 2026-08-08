@@ -186,8 +186,10 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
      * The one nAgg here is therefore the ground's own normal, and the substitution below is what
      * turns litRadiance's surface term into the canopy's own. */
     let nAgg = nrmN;
-    /* The population's own mean colour: the declared dry SHARE on whole blades plus the tip ramp's
-     * own mean over a blade's length, which is what the near scale draws blade by blade. */
+    /* THE POPULATION'S MEAN DRYNESS, and it is not the declared share: a grass leaf dies from the
+     * TIP down, so a blade that has begun to senesce is dry over kTipRun of its length and only
+     * kWholeDry of the affected blades are dry end to end (render/Sward.h). That is a statement
+     * about senescence and it outlived the blade geometry that first needed it. */
     let meanDry = m.pr.w * (kWholeDry + (1.0 - kWholeDry) * 0.5 * kTipRun);
     let swCol = mix(m.gr.rgb, m.dr.rgb, meanDry);
     let agg = swardAggregate(I, swCol, dens, hTop, m.pr.x, slantM, nAgg, upN, sunN, vdir,

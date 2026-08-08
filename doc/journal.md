@@ -7218,3 +7218,70 @@ Baumdreiecke 271 694 → 144 484. Paßzahl **7 → 7**.
 als das Foto (9,21 gegen 2,39), obwohl das Reflexionsverhältnis auf 0,04 EV stimmt. Der Narkowicz-Fit
 allein sagt bei ρ̄ 0,15…0,22 nur 2,7…3,2 voraus, die Hangneigung kauft 0,38 EV — rund **1,2 EV sind
 unerklärt**, und solange sie es sind, liest sich Alpenkalk im Sommerbild wie Schnee.
+
+## 2026-08-08 — Das Grasblatt ist gemessen, der Anpassungsfaktor ist weg, und der Alpenrasen hat eine Vorlage
+
+`grassReflectanceGain = 0.50` ist gelöscht. Er war gegen eine Tonwertkurve angepaßt, die seither zweimal
+ersetzt wurde, und er stand zwischen einer Anzeigefarbe und dem, was der Shader las: die Datei
+deklarierte für `wiese` eine Bestandesfarbe von linear **Y 0,2464**, die Kette lieferte **0,1232**. Beides
+ist fort. `vegetation.json` deklariert jetzt EINE Blattklasse `suessgras` als **lineare Reflexion** im
+selben Raum wie `ground-materials.json` — grün `[0,1506 0,1892 0,0803]`, Y **0,1731**, Verhältnis
+0,796:1,000:0,425; dürr `[0,3526 0,2377 0,0988]`, Y **0,2521**, Verhältnis 1,000:0,674:0,280 —, und alle
+dreizehn Vorlagen verweisen darauf. Pfad B über vier **grüne** Grasblatt-Spektren der ECOSTRESS-Bibliothek
+(*Avena fatua* vh352/vh353, *Bromus diandrus* vh350/vh351, UCSB ASD, alle 2015-03-18) und die zwei
+**seneszenten** derselben Art und Kampagne (vh354/vh355) — dieselben zwei, aus denen `grasfilz` seine
+Chromatizität hat. Die Umsetzung reproduziert die eigenen veröffentlichten Zahlen dieses Baums exakt:
+1,000:0,668:0,287 / 1,000:0,681:0,272, Mittel 1,000:0,674:0,280, „own visible luminance factor" 0,2521,
+sichtbar 0,2229 / kurzwellig 0,3855 / Verhältnis 0,579, und die 0,807:1,000:0,385 aus dem `moos`-Eintrag.
+
+**Das Niveau kommt aus dem Spektrum selbst und nicht aus einem Feldalbedo mal Bandverhältnis**, weil ein
+Blatt in der Ulbricht-Kugel das Blatt IST. Der Gegenbeweis liegt in derselben Bibliothek: die *Green Rye
+grass*-SODE — ein Bestand, bei 60° gemessen — ergibt Y **0,0839** gegen die Blattmittel 0,1731, Faktor
+**0,485**, und die geschlossene Bestandesgrenze (1−√(1−ω))/(1+√(1−ω)) bei ω = 0,27 sagt 0,079. Genau
+diesen Faktor rechnet `swardAggregate`: gemessen gegen eine Lambert-Fläche gleicher Beleuchtung ist
+`A_eff/colIn` **0,298** im Nadir bei 40°-Sonne, **0,456** streifend, **0,73** bei 11°. Für `wiese` sind das
+0,0586 / 0,0897 / 0,1428 — der alte Gain lieferte 0,0343 / 0,0525, also **0,77 EV unter** dem gemessenen
+Bestand.
+
+**Damit ist die Hälfte der offenen Tonwertspreizung der Vorrunde erklärt und sie lag in der Deklaration:**
+Fels gegen Wiese, wie die Kette sie liefert, war **8,33×** im Nadir (die Vorrunde maß 9,21 im Bild) gegen
+2,39 im Foto. Jetzt **4,88×** für `wiese` und **4,08×** für den neuen `alpenrasen` — **0,77** bzw.
+**1,03 EV** der 1,95 EV geschlossen, ohne eine Felsreflexion und ohne die Tonwertkette anzufassen.
+
+`alpenrasen` ist neu und belegt: **LAI 2,7** destruktiv gemessen (Rossini et al. 2012, Biogeosciences 9,
+2565, Torgnon IT-Tor, 2160 m, unbewirtschafteter Nardus-Rasen, 12 Flächen 30×30 cm, LI-3100; Maximum
+2,7/2009 und 3,0/2010, beide DOY 194–201, also VOR dem 6. August der Szene) gegen `wiese`s Kettenwert
+4,64 — 0,78 EV weniger Blattfläche, und allein das senkt die vertikale Deckung im Nadir von 0,952 auf
+0,829. Höhe **0,12 m**, hergeleitet aus den unteren Rändern der Wuchshöhen der Bestandesbildner in EINER
+Flora (Kaplan et al. 2019 über Pladias): *Nardus stricta* 0,10 · *Anthoxanthum alpinum* 0,15 · *Poa
+alpina* 0,10. Halmzahl **1165/m²** ist danach hergeleitet und nicht gewählt. Boden `kalk` mit `grasfilz`
+als Streu zu 0,58 (das Verhältnis 2,7/4,64). `natural=grassland` wechselt von `wiese` hierher, Rang 21 →
+41 zu seinen Geschwistern `heath` und `scrub`.
+
+**`natural=fell` und `natural=tundra` sind nicht zuordenbar, und das ist gemessen:** shortbread 1.0 führt
+im `land`-Layer nur `heath`, `scrub`, `grassland`, `bare_rock`, `scree`, `shingle` als Naturbedeckung,
+und in 100 z14-Kacheln der Alpen (x 8600–8818, y 5725–5749) taucht keine der beiden auf. Was ankommt:
+Wald 45,70 % · Wiese 17,18 % · Fels 5,45 % · Gebüsch 5,25 % · Rasen 3,63 % · Schutt 2,00 %, unkartiert
+15,18 %.
+
+**`osmDefault` darf nicht `wiese` sein und kann keine Konstante sein.** Unkartierter Anteil der nahen
+Klassenkarte: Nebelhorn 0,590 · Herzogstand 0,341 · Innsbruck 0,214 · Hochkönig 0,042 · Hochries 0,004 ·
+Zugspitze 0,000. Er folgt **nicht der Höhe** — Hochkönig steht auf 2 941 m und ist der zweitniedrigste —,
+also ist unkartiert dort, wo niemand kartiert hat, und keine höhenabhängige Konstante trifft es. Die alte
+Begründung („die häufigste unkartierte Bedeckung dieser Landschaft") war nie meßbar; die häufigste
+KARTIERTE ist Wald mit 45,70 %. `osmDefault = alpenrasen` wurde probiert und gemessen: schlechter an 4 von
+6 Kameras. `wiese` bleibt, mit der Feststellung, daß es drei Dinge behauptet, die OSM nicht sagt.
+
+Abstand zum Foto auf **auf dem Foto eingefrorenen** Masken (`tools/swardaudit.py`, 320×180, Anzeigecodes),
+vorher → nachher. Boden |ΔL|: Nebelhorn 25,39 → **8,57** · Herzogstand 24,76 → **9,19** · Innsbruck 20,49
+→ **2,84** · Zugspitze 0,30 → 2,93 · Hochries 2,16 → 7,31 · Hochkönig 56,35 → 60,72. Narbe |ΔL|:
+Nebelhorn 16,67 → **0,90** · Herzogstand 22,30 → **0,30** · Zugspitze 33,45 → **28,61** · Innsbruck 7,75 →
+9,83 · Hochkönig 26,71 → 29,56 · Hochries 6,62 → 25,12. **Das geforderte 4-von-6 in BEIDEN Zahlen ist
+nicht erreicht: es sind 2** (Nebelhorn, Zugspitze). Die Standardabweichung mißt an fünf Kameras das
+fehlende Relief und nicht die Narbe, und die zwei Kameras, die im Mittelwert verlieren, standen vorher
+zufällig nahe (Hochries 2,16, Zugspitze 0,30) — Hochries unter Hochnebel, wo unser Himmel klar ist,
+Hochkönig unter dem Fels, der sich als Schneefeld liest.
+
+Bildpreis über 360 Frames einer vollen Drehung bei 1280×720 vom Hochkönig, Paßzahl **7 → 7**, Median über
+6 bzw. 3 Läufe: p50 5,090 → **4,903**, p95 9,503 → **6,620**, p99 13,857 → **7,150**. Die Streuung der
+Einzelläufe ist zu breit für mehr als „nicht gestiegen".

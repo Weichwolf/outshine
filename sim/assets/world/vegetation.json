@@ -1,12 +1,33 @@
 {
   "schema": 1,
   "osmDefault": "wiese",
-  "osmDefaultOrigin": "[SET] the class of a place OSM says nothing about. Measured over the reference z14 tile: 14.48 % of its area lies under no closed way at all. The world defaults to NATURE and OSM overlays civilisation where it is mapped (doc/render/visual-target.md 4), so the default is the commonest unmapped cover of this landscape and never a sealed or built one.",
+  "osmDefaultOrigin": "[SET] wiese, and the number that would justify it does not exist -- this entry now says so. What is measured: the share of the near class grid that lies under no closed way at all is 0.590 at Nebelhorn, 0.341 Herzogstand, 0.214 Innsbruck, 0.042 Hochkoenig, 0.004 Hochries, 0.000 Zugspitze (clients/AppWalk `walk class noDataFrac`, one build, six fit poses), and 0.152 averaged over 100 z14 tiles of the Alps. It does NOT follow elevation -- Hochkoenig at 2941 m is the second LOWEST of the six -- so unmapped ground is where the mappers did not go, not where the trees stop, and no altitude-keyed constant can fix it. The old justification here, 'the commonest unmapped cover of this landscape', was never measurable: what is measurable is the commonest MAPPED cover, and over those 100 alpine tiles that is forest at 45.70 percent, not meadow at 17.18. wiese stays only because every alternative constant is the same defect with another parish, and it asserts three things OSM did not -- mowing, a closed sward and 0 percent open soil. The fix is a per-place default and it is doc/render/classification.md ## Gaps.",
   "osmOrigin": "Each row is one (layer, kind) the tile server can emit, the template it selects, and its RANK. Rank is the overlap order and it is DECLARED here because the server has none inside a layer -- it relies on the provider's emission order, last drawn wins, over features that overlap by 2.41 % of the reference tile (nine pairs, forest x residential alone 1.09 %). Higher rank wins. The bands follow the server's declared inter-layer order (land 10-49 -> water_polygons 50 -> sites 60 -> street_polygons 70 -> buildings 75 -> streets 80 -> water_lines 90); inside `land` the principle is that a broad land-use envelope loses to the more specific cover mapped inside it -- a wood inside a residential outline is a wood. `kind: \"*\"` matches any kind of that layer and is a DECLARATION that the kind does not change the class; a kind with neither an own row nor a wildcard is a Log::Error, which is what hid 81 barrier ways for thirty hours.",
   "osmWidthOrigin": "widthM is the drawn width of a LINE feature in METRES and it is decided once, here, because the later infrastructure geometry must read the same number the classifier used. It is NOT the tile server's stroke: w3_roadstyle scales in texels of a 1024 reference, so its residential street is 3.52 m at every texture size and its stream and its river are 4.40 m alike. Road widths are German design-standard carriageway widths without verges: RAA RQ 28 per carriageway 2x3.75 + 2.5 hard shoulder = 12.0 (motorway); RAL 2012 RQ 11.5 (trunk), RQ 9.5 (primary), RQ 7.5 (secondary); RASt 06 6.5 (tertiary), 5.5 (residential/unclassified, and the measured real width of the reference street), 4.75 (living_street), 3.5 (service); ERA 2010 2.0 (cycleway); KTBL 443 3.0 (track crown, the 5.50 m of that leaflet includes 1.0 m of verge per side and is the PATH stripe pattern, not the belt); 1.8 footway, 1.5 path/bridleway/steps. Rail is the single-track ballast crown 3.8 m; ICAO Annex 14 code 4 gives runway 45 and taxiway 23. The waterway widths are [SET] representatives of their class -- OSM carries no width on a water_line -- and the only thing they must do is keep a brook and a river an order of magnitude apart: drain 1.0, ditch 1.5, stream 2.0, canal 8.0, river 12.0.",
-  "grassReflectanceGain": 0.5,
-  "grassReflectanceGainOrigin": "measured, and a KNOWN APPROXIMATION - it now applies to the GRASS row alone. grass.colorSrgb/drySrgb are DISPLAY colours and the shader multiplies reflectances: sunlit meadow read display Y 0.600, which back through the tone curve and the scene exposure is a green reflectance of 0.21 against a visible-band 0.10 for green grass. The ground half of this hack is retired - reflectance, roughness and relief come per class from ground-materials.json.",
-  "dryFractionOrigin": "[SET] the share of blades drawn toward drySrgb rather than colorSrgb. It is a TEMPLATE property, not a shader constant: a sown crop in ear is mostly dry, a mown lawn is not, and a joint weed on tarmac is whatever survived. Season is not modelled, so these are the mid-summer values.",
+  "bladeModel": "A blade colour is a LINEAR reflectance and nothing scales it. It lives in the same space as ground-materials.json's albedo triples -- linear sRGB/Rec.709 primaries, D65, CIE 1931 2 degree observer -- and it is the reflectance of ONE BLADE, not of a stand. What a stand does to that number is the sward model's work (render/Sward.h, render/stages/TilesStage.cpp): the aggregate multiplies the blade colour by its own occlusion `occ` and splits the beam between the lit and the transmitting face, so a canopy is DARKER than its blades by construction and no factor here may pre-pay for that. The retired grassReflectanceGain 0.50 did exactly that and it was tuned against a tone curve that has since been replaced twice; ground-materials.json's own visibleBandModel.whyNotOneNumber already recorded it as a failure.",
+  "bladeClasses": [
+    {
+      "name": "suessgras",
+      "greenLinear": [
+        0.1506,
+        0.1892,
+        0.0803
+      ],
+      "dryLinear": [
+        0.3526,
+        0.2377,
+        0.0988
+      ],
+      "origins": {
+        "subject": "The blade of a temperate sward grass, in its green and in its senescent state. ONE class serves every template here, because the difference between a forest-floor sedge and a pasture grass is a DENSITY and a DRY SHARE, which the template declares, and no measurement in reach says their blade pigments differ. A template that later needs its own blade -- heather, reed, a crop in ear -- declares a second class here and names it.",
+        "greenLinear": "derived from measurement, chromaticity path B of ground-materials.json applied to the four GREEN grass-leaf spectra of the ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009, Remote Sens. Environ. 113, 711-715): vegetation.grass.avena.fatua.vswir.vh352/vh353 and vegetation.grass.bromus.diandrus.vswir.vh350/vh351, all UCSB ASD, all collected 2015-03-18 in one campaign. Per-spectrum Rec.709 luminance 0.1793 / 0.1605 / 0.1919 / 0.1608, mean of the four TRIPLES [0.1506, 0.1892, 0.0803], Y 0.1731, ratio 0.796:1.000:0.425. THE LEVEL IS TAKEN FROM THE SPECTRUM ITSELF and not from a field albedo times a band ratio, which is what ground-materials.json does for a soil: the two-step exists there because a laboratory sample of loose grains is not the field surface, and a leaf in an integrating sphere IS the leaf. THE CROSS-CHECK, and it is the one that decides the whole file: the same library's vegetation.grass.unknown.unknown.all.grass.jhu.becknic is a SOD -- 'Green Rye grass ... a large piece of sod ... measured at a reflectance angle of 60 degrees to avoid viewing the thatch' -- i.e. a canopy, and by the same path it converts to Y 0.0839, a factor 0.485 below the leaf. That factor is canopy multiple scattering and gap darkening; the closed-canopy limit (1-sqrt(1-omega))/(1+sqrt(1-omega)) with omega = rho+tau = 0.17+0.10 gives 0.079 against the sod's measured 0.0839. It is what render/Sward.h computes and it is the reason no gain belongs in this file. WEAKNESS, NAMED: Avena fatua and Bromus diandrus are Californian annual grasses (34.41 N), not the Arrhenatherum/Nardus/Carex of a Central European sward -- the same weakness ground-materials.json's grasfilz already carries, and the two now at least name the same campaign.",
+        "dryLinear": "derived from measurement, same path, the TWO senescent spectra of the SAME species and the SAME campaign: nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, UCSB name 'Avena fatua litter', described as 'alive; but dying and were yellow' -- standing senescent blade, which is what dryFraction draws. Mean triple [0.3526, 0.2377, 0.0988], Y 0.2521, ratio 1.000:0.674:0.280. These are the identical two spectra ground-materials.json uses for grasfilz, so the standing dead blade and the felt it becomes cannot disagree about which material was measured; grasfilz keeps its own LEVEL (0.20 shortwave x 0.579 = 0.116 visible) because a compacted felt is not a standing leaf.",
+        "pipeline": "MEASURED against this repository's own published numbers, which is the only end-to-end check these four lines have. The path B implementation used here reproduces ground-materials.json's grasfilz origins exactly: per-sample ratios 1.000:0.668:0.287 and 1.000:0.681:0.272 (file: identical), mean 1.000:0.674:0.280 (file: identical), 'own visible luminance factor' 0.2521 (file: 0.2521), visible 0.2229 / shortwave 0.3855 / ratio 0.579 (file: 0.2231 / 0.3855 / 0.579), and the green grass chromaticity 0.807:1.000:0.385 quoted in that file's moos entry (identical). CIE data from RIT MCSL all_1nm_data.xls, solar spectrum ASTM G173-03 as distributed with pvlib-python.",
+        "whatChanged": "the retired declaration was a pair of DISPLAY bytes per template plus a global 0.50. For wiese it linearised to green Y 0.2200 ratio 0.528:1.000:0.161 and dry Y 0.3078 ratio 1.000:0.869:0.245; after the gain the shader saw a sward mix of Y 0.1232 at dryFraction 0.30. It now sees Y 0.1968 -- 0.68 EV brighter -- and the green is far less saturated (0.528 -> 0.796 in red, 0.161 -> 0.425 in blue). Both directions are what the reference photographs show and neither was chosen to make them show it."
+      }
+    }
+  ],
+  "dryFractionOrigin": "[SET] the share of blades drawn toward dryLinear rather than greenLinear. It is a TEMPLATE property, not a shader constant: a sown crop in ear is mostly dry, a mown lawn is not, an uncut alpine sward carries last year's leaf standing, and a joint weed on tarmac is whatever survived. Season is not modelled, so these are the mid-summer values.",
   "templates": [
     {
       "name": "laubmischwald",
@@ -23,16 +44,7 @@
         "heightJitter": 0.6,
         "widthM": 0.01,
         "dryFraction": 0.45,
-        "colorSrgb": [
-          74,
-          92,
-          46
-        ],
-        "drySrgb": [
-          116,
-          106,
-          62
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 1.2,
@@ -73,7 +85,6 @@
         "trees.species": "[SET] Weserbergland slope forest; the names are the wasm-tree species files (~/Git/wasm-tree/species/*.json), no second parameterisation",
         "grass.perM2": "[SET] closed-canopy forest floor is grass-poor; 90/m^2 is the visual-closure target at 1 m, not a tiller count",
         "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
-        "ground.colorSrgb": "[SET] beech leaf litter; the layer the eye actually sees under a closed canopy",
         "clutter.perM2": "[SET] deadwood + stones",
         "ground.edgeReachM": "[SET] 0.9 m, see edgeModel"
       },
@@ -105,16 +116,7 @@
         "heightJitter": 0.5,
         "widthM": 0.008,
         "dryFraction": 0.4,
-        "colorSrgb": [
-          63,
-          82,
-          48
-        ],
-        "drySrgb": [
-          104,
-          96,
-          60
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.5,
@@ -167,16 +169,7 @@
         "heightJitter": 0.45,
         "widthM": 0.011,
         "dryFraction": 0.3,
-        "colorSrgb": [
-          104,
-          140,
-          58
-        ],
-        "drySrgb": [
-          162,
-          152,
-          84
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 6.0,
@@ -225,11 +218,6 @@
         {
           "layer": "land",
           "kind": "grass",
-          "rank": 21
-        },
-        {
-          "layer": "land",
-          "kind": "grassland",
           "rank": 21
         },
         {
@@ -315,6 +303,70 @@
       ]
     },
     {
+      "name": "alpenrasen",
+      "ground": {
+        "class": "kalk",
+        "edgeReachM": 0.6,
+        "edgeConstructed": 0,
+        "litterClass": "grasfilz",
+        "litterCoverage": 0.58,
+        "contrast": 0.5
+      },
+      "grass": {
+        "class": "suessgras",
+        "perM2": 1165,
+        "heightM": 0.12,
+        "heightJitter": 0.55,
+        "widthM": 0.011,
+        "dryFraction": 0.45
+      },
+      "forbs": {
+        "perM2": 12.0,
+        "species": [
+          "silberwurz",
+          "alpenaster",
+          "gemskresse",
+          "enzian"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.5
+      },
+      "origins": {
+        "subject": "The sward above the treeline and the unmanaged grassland of the alpine belt -- Nardetum, Seslerio-Caricetum, Caricetum firmae. It exists because wiese is a MOWN lowland hay meadow by every one of its own declarations (0.30 m, LAI 4.64, open soil 0 percent, swardClosure 1.0) and natural=grassland at 2 000 m is none of those things. All six reference cameras stand in the Northern Calcareous Alps, which is why its substrate is limestone.",
+        "grass.laiTarget": "MEASURED 2.7. Rossini, Cogliati, Meroni, Migliavacca, Galvagno, Busetto, Cremonese, Julitta, Siniscalco, Morra di Cella & Colombo 2012, Biogeosciences 9, 2565-2584, doi:10.5194/bg-9-2565-2012, site IT-Tor Torgnon, Aosta Valley, 45 deg 50' 40'' N 7 deg 34' 41'' E, 2160 m a.s.l., an UNMANAGED subalpine-alpine grassland dominated by Nardus stricta, Arnica montana, Trifolium alpinum and Carex sempervirens: 'LAI was determined destructively every two weeks ... at 12 plots of 30 x 30 cm ... run through an area meter (LI-3100)'. 'The maximum LAI in 2009 was 2.7 m2 m-2 (DOY 194), slightly lower than the 3 m2 m-2 in 2010'. The lower and drier of the two years is taken, and the scene stands on 6 August, which is 17-24 days PAST that maximum in both years, so 2.7 is already the generous end. Against it wiese's chain LAI is 800 x 0.011 / 0.5696 x 0.30 = 4.64: the alpine sward carries 0.78 EV less leaf area, and that alone turns the aggregate's vertical cover at a nadir view from 0.952 to 0.829 -- the gappiness is the measurement, not a dial.",
+        "grass.heightM": "derived 0.12 m from ONE flora: Kaplan et al. 2019, Key to the Flora of the Czech Republic, as served by Pladias (pladias.cz, field 'Height [m]', the common range of fully developed mature GENERATIVE plants). Of the community's dominants that flora carries, the lower bound of the common range is Nardus stricta 0.10, Anthoxanthum alpinum 0.15, Poa alpina 0.10 -- mean 0.117. The lower bound and not the midpoint, because the drawn quantity is the LEAF canopy and the tabulated one is the flowering culm. The same flora gives wiese's dominants Arrhenatherum elatius 0.60-1.20 and Dactylis glomerata 0.50-1.80 against a drawn 0.30 m, so the two classes are 2.5x apart in the file where their floras are 5-9x apart in the culm; the difference is that wiese is CUT and this class never is.",
+        "grass.widthM": "0.011 m, HELD from wiese and NOT sourced for this community, which is the weakest number in this template. It costs no picture: the ground fragment reads only the PRODUCT perM2 x widthM (render/stages/TilesStage.cpp, `dens = m.gr.w * m.pr.y / kMeanSin`), and that product is pinned by the measured LAI. The split would matter the moment a blade is drawn as geometry again, and the true value is far lower -- Nardus stricta is setaceous, a bristle, not an 11 mm ribbon.",
+        "grass.perM2": "DERIVED, not set: perM2 = LAI x kMeanSin / (widthM x heightM) = 2.7 x 0.5696 / (0.011 x 0.12) = 1165. kMeanSin 0.5696 is render/Sward.h. It is the one number this template does not choose -- fixing the measured LAI, the sourced height and the held width leaves no freedom. It reads high against wiese's 800 and that is right: a short mat at LAI 2.7 packs its leaf area into 0.12 m instead of 0.30 m.",
+        "grass.dryFraction": "[SET] 0.45, inside a bracket this file already carries and with one site-specific observation behind it, and it is NOT a measured fraction. Above wiese's 0.30 because a cut removes the standing dead and this class is never cut: Rossini et al. 2012 state of this very site that 'yellow and/or dead biomass represented a significant fraction of the above-ground biomass during much of the growing season' -- that is why they had to introduce a green fIPAR at all -- and Nardus tussocks are described as wrapped in the previous year's yellow leaves whose litter is slow to decompose (Oberdorfer 2001; Conert 1992). Below acker's 0.92, which is dead straw. The published green fraction exists only as a figure, so the interior of 0.30-0.92 stays unmeasured.",
+        "ground.class": "kalk, and it is a REGIONAL declaration. All six reference cameras -- Nebelhorn, Zugspitze, Herzogstand, Hochries, Innsbruck Nordkette, Hochkoenig -- stand in the Northern Calcareous Alps, where the alpine sward is a Seslerio-Caricetum or Caricetum firmae on Rendzina over limestone and what shows in its gaps is limestone, not brown soil. This is the same class felsflur already declares for the same landscape. WEAKNESS, NAMED AND NOT SMALL: on the crystalline Central Alps the same OSM tag stands on gneiss and raw humus, and this declaration is then wrong by the full kalk-versus-waldboden distance. The class field has no lithology to ask.",
+        "ground.litterClass": "grasfilz at coverage 0.58, DERIVED with a named assumption: the felt is laid down by the sward that dies into it, so its share of the ground plane scales with the sward's own leaf area, and 2.7/4.64 = 0.58 against wiese's felt-covered 1.0. The assumption -- felt area proportional to LAI -- is not measured.",
+        "ground.swardClosure": "ABSENT ON PURPOSE, i.e. 0, where wiese declares 1.0. wiese overwrites its terrain albedo with the sward's because under a closed working grassland there is no floor to see. Here there is: the aggregate's own vertical cover 1 - exp(-G(view)/sin(view) x LAI) is 0.829 at a nadir view with LAI 2.7, so 17 percent of every such fragment is the ground pair below -- limestone with felt in the hollows. That mosaic is the measured LAI showing through and not a second declaration.",
+        "forbs.perM2": "[SET] 12/m^2, twice wiese's 6. Alpine swards are forb-rich by every releve of them; the count is a visual-closure declaration and the layer is not built.",
+        "trees.perM2": "0, and it is a statement about the TAG and not about the altitude: natural=grassland is grassland, tree cover under 10 percent. The treeline (alpineLimit) is a second and independent gate and it is not this number.",
+        "clutter.perM2": "[SET] 0.5/m^2, between wiese's 0.05 and felsflur's 0.6 -- loose limestone through a broken turf is the defining texture of this class.",
+        "osm": "natural=grassland only, and its rank moves from 21 to 41 to join its siblings natural=heath and natural=scrub. At 21 it sat among the LANDUSE greens and lost to landuse=forest (40); the file's own principle is that a specific natural cover mapped inside a broad landuse envelope wins. MEASURED over 100 z14 tiles of the Alps (x 8600-8818, y 5725-5749 step 12/6, fb-tiles /t/vector): grassland covers 3.63 percent of the land there against meadow 17.18, forest 45.70, bare_rock 5.45, scrub 5.25, scree 2.00. natural=fell and natural=tundra CANNOT be assigned: shortbread 1.0's land layer has no such kind (schema, layer `land`: heath, scrub, grassland, bare_rock, scree, shingle are the whole natural vocabulary) and neither appears in those 100 tiles. That loss happens upstream of fb-tiles and a row for it here would be a dead path."
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "grassland",
+          "rank": 41
+        }
+      ]
+    },
+    {
       "name": "acker",
       "ground": {
         "class": "erde_trocken",
@@ -328,16 +380,7 @@
         "heightJitter": 0.25,
         "widthM": 0.014,
         "dryFraction": 0.92,
-        "colorSrgb": [
-          124,
-          138,
-          62
-        ],
-        "drySrgb": [
-          194,
-          162,
-          108
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.4,
@@ -361,11 +404,9 @@
         "perM2": 0.01
       },
       "origins": {
-        "ground.colorSrgb": "[SET] Loess-derived Braunerde, the dominant arable soil of the Weserbergland",
         "grass.perM2": "[SET] a cereal stand runs 300-500 ears/m^2, and a stubble carries the SAME count because every ear was one culm; 260 is that order at the drawable end",
         "grass.heightM": "[SET] 0.12 m, STUBBLE. The scene stands on 6 August (mods/demo/scene.json) and winter wheat on Weserbergland loess is threshed by then, so the previous 0.55 m drew a standing half-ripe crop two months out of date. 0.10-0.15 m is the usual combine cutter-bar setting for winter wheat; 0.12 is the middle of it and no measurement of a local field is behind it. The alternative correct state - already grubbed, i.e. bare tilled soil with no stand at all - is not chosen because it would take the row to perM2 0 and delete the field's texture entirely.",
         "grass.dryFraction": "[SET] 0.92. A stubble is dead straw; the remaining 8 percent is the volunteer cereal and the weed flush that germinate within days of the harvest and are green on 6 August.",
-        "grass.drySrgb": "chromaticity derived from measurement, LEVEL UNCHANGED AND STILL UNSOURCED. The Rec.709 luminance of the retired [186,166,92] is kept exactly (linear Y 0.3848) and only the RGB ratio is replaced by the measured straw chromaticity 1.000:0.674:0.280 - ECOSTRESS Spectral Library v1.0 spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, chromaticity path B, the same measurement that gives ground-materials.json its grasfilz. Encoding the result to 8 bit costs 0.24 percent of the luminance and 0.004 of the ratio.",
         "grass.heightJitter": "[SET] LOW on purpose — a sown crop is uniform, a cutter bar more so, and that uniformity is what makes a field read as a field",
         "ground.edgeReachM": "[SET] 0.1 m, see edgeModel"
       },
@@ -432,16 +473,7 @@
         "heightJitter": 0.7,
         "widthM": 0.012,
         "dryFraction": 0.55,
-        "colorSrgb": [
-          110,
-          116,
-          60
-        ],
-        "drySrgb": [
-          158,
-          142,
-          88
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 2.5,
@@ -535,16 +567,7 @@
         "heightJitter": 0.8,
         "widthM": 0.006,
         "dryFraction": 0.5,
-        "colorSrgb": [
-          96,
-          108,
-          74
-        ],
-        "drySrgb": [
-          140,
-          132,
-          96
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.08,
@@ -573,7 +596,6 @@
         "shrubs.perM2": "0 for the same reason. Krummholz belongs to the treeline band, which alpineLimit handles as a density ramp on the classes that HAVE woody instances; it is not a property of bare rock.",
         "grass.perM2": "[SET] 6/m^2. Rock-crevice communities (Potentilletalia caulescentis) cover a few percent of a wall; 6 blades/m^2 against wiese's 800 is that few percent, and the cover stage stops drawing blades at 44.16 m anyway, so this is a near-field statement only.",
         "forbs.species": "[SET] the two names an alpine botanist gives first for a limestone crevice; no species file exists for either, so the row is declared and not grown.",
-        "grass.colorSrgb": "[SET] the grey-green of a crevice cushion, desaturated against wiese because there is no sward under it.",
         "ground.edgeReachM": "[SET] 1.5 m, the widest grown reach in the file. A rock/turf boundary is not a line: it is the metre or two over which the mantle thins out, and it is wider than the wood/meadow 0.9 m because there is no root plate holding it.",
         "clutter.perM2": "[SET] 0.6 - fallen blocks, the densest clutter declared here."
       },
@@ -604,16 +626,7 @@
         "heightJitter": 0.8,
         "widthM": 0.007,
         "dryFraction": 0.5,
-        "colorSrgb": [
-          104,
-          112,
-          76
-        ],
-        "drySrgb": [
-          150,
-          140,
-          100
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.25,
@@ -672,16 +685,7 @@
         "heightJitter": 0.0,
         "widthM": 0.01,
         "dryFraction": 0.0,
-        "colorSrgb": [
-          128,
-          128,
-          128
-        ],
-        "drySrgb": [
-          128,
-          128,
-          128
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.0,
@@ -728,16 +732,7 @@
         "heightJitter": 0.3,
         "widthM": 0.01,
         "dryFraction": 0.2,
-        "colorSrgb": [
-          96,
-          132,
-          54
-        ],
-        "drySrgb": [
-          148,
-          146,
-          88
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 1.0,
@@ -843,16 +838,7 @@
         "heightJitter": 0.9,
         "widthM": 0.009,
         "dryFraction": 0.5,
-        "colorSrgb": [
-          96,
-          118,
-          56
-        ],
-        "drySrgb": [
-          140,
-          132,
-          78
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.1,
@@ -1096,16 +1082,7 @@
         "heightJitter": 0.0,
         "widthM": 0.0,
         "dryFraction": 0.0,
-        "colorSrgb": [
-          43,
-          67,
-          86
-        ],
-        "drySrgb": [
-          43,
-          67,
-          86
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 0.0,
@@ -1127,7 +1104,6 @@
       },
       "origins": {
         "grass.perM2": "0 is a STATEMENT, not a missing value: nothing is scattered on open water, and the wetland greens are folded in here so a marsh does not grow a pasture",
-        "ground.colorSrgb": "[SET] Weser water colour under an overcast-neutral sky; a real water shader replaces this whole entry",
         "ground.edgeReachM": "[SET] 0.4 m, see edgeModel",
         "osm.ocean_rank": "5 und nicht 50: der Kachelserver zeichnet die Ebene `ocean` VOR `land`, damit an der Kueste das Land obenauf liegt (tiles/src/raster.c). Ueber allen land-Raengen (max 49) wuerde das Meer die Kueste ueberdecken. Unter ihnen deckt eine offene Seekachel weiter voll, weil ein Rang nur Gleichstand bricht und nicht ueber Bedeckung entscheidet."
       },
@@ -1233,16 +1209,7 @@
         "heightJitter": 0.55,
         "widthM": 0.016,
         "dryFraction": 0.35,
-        "colorSrgb": [
-          98,
-          128,
-          60
-        ],
-        "drySrgb": [
-          160,
-          150,
-          88
-        ]
+        "class": "suessgras"
       },
       "forbs": {
         "perM2": 4.0,
@@ -1280,7 +1247,7 @@
     }
   ],
   "groundClassOrigin": "the template REFERENCES a class of sim/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: laubmischwald/nadelwald -> waldboden with a leaf/needle litter override, wiese -> grasfilz (see the template's own ground.class origin), acker/siedlung -> erde_trocken, heide -> sand, versiegelt -> asphalt, wasser -> wasser, ufer -> schlamm. litterClass is omitted where the material's own litter declaration applies.",
-  "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(colorSrgb, drySrgb, E[dryness]) - the same two colours and the same expected dryness the ground-cover shader draws with, read back out of the row, so the terrain and the blades cannot drift apart when either colour is retuned. It exists because the ground-cover stage stops drawing blades at 44.16 m and the terrain layer is then the ONLY thing showing the meadow: a soil-coloured terrain there puts a hard chroma step at the fade radius. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real.",
+  "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(greenLinear, dryLinear, E[dryness]) - the same blade class and the same expected dryness the ground fragment shades with, read back out of the row, so the terrain and the sward cannot drift apart when the blade class is re-measured. It exists because a soil-coloured terrain under a class whose stand hides its own floor completely puts a chroma step where the aggregate's cover reaches 1. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real, and alpenrasen keeps 0 because its measured LAI leaves 17 percent of a nadir fragment showing the limestone below (see its own ground.swardClosure origin).",
   "edgeModel": "TWO KINDS OF EDGE, because they are two different things (doc/goal.md): a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two — tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. versiegelt 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. siedlung 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. laubmischwald 0.90 / nadelwald 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one — the tree line is metres wide, the litter gradient under it is not. acker 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. wiese 0.30 [SET]: a mower's overlap band. heide 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. wasser 0.40 / ufer 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured.",
   "alpineLimit": {
     "subject": "WHERE NOTHING GROWS, asked of the DEM and not of OSM. OSM says where the rock is mapped; this says where nothing can stand even though nothing is mapped, and it is the rule every OSM reference implementation carries for the same reason. Two independent limits, because they answer two different questions: the TREELINE gates woody instances and leaves the ground alone (there is closed alpine sward for hundreds of metres above the last tree), and the SLOPE gates both, because a wall carries neither a plant nor a soil.",

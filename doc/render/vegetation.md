@@ -96,6 +96,40 @@ where the stand's own cover falls short of 1.
 | Growth is clumped | tussock centre plus tillers; an evenly scattered population reads as a drilled crop. It survives as the crown rung of the canopy-top field ([`stages/terrain.md`](stages/terrain.md)) |
 | **Declared weather does NOT drive the plant** | reversed by decision, 2026-08-07: nothing below the size of a tree moves ([`../goal.md`](../goal.md)). The scene keeps declaring its wind and `render/WindField.h` keeps serving it; the consumers are a branch and a rotor |
 
+### The blade is a LINEAR REFLECTANCE, and it is one measurement for the whole file
+
+**A blade colour is what one leaf reflects, and nothing scales it.** It lives in the space
+`ground-materials.json` already uses — linear sRGB/Rec.709 primaries, D65, CIE 1931 2° — so a template
+declares the same kind of number for its blade as for its floor. A *stand* of those blades is darker
+than one blade, and turning the leaf into the canopy is the sward model's job (`render/Sward.h`); a
+factor in the declaration that pre-pays for it is a second, silent model.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| **One number, one meaning** | what `vegetation.json` declares for a blade is what `VegetationTemplates::Row.Grass/Dry` carries, bit for bit. No gain, no linearisation, no display bytes |
+| **The leaf level is measured, not anchored** | `ground-materials.json` takes a soil's LEVEL from a field albedo and only its CHROMATICITY from a laboratory spectrum, because a prepared sample of loose grains is not the field surface. A leaf in an integrating sphere **is** the leaf, so its own spectrum carries both |
+| **The canopy factor is the model's, and it is checkable** | leaf → canopy must land on an independently measured canopy of the same material. ECOSTRESS's *Green Rye grass* SOD converts to Rec.709 Y **0.0839** against the leaf mean **0.1731**, a factor 0.485; the closed-canopy limit (1−√(1−ω))/(1+√(1−ω)) at ω = ρ+τ = 0.27 gives 0.079 |
+| **The blade class is shared** | one `bladeClasses` row serves every template that grows the same leaf. What separates a forest-floor sedge from a pasture grass is `perM2`, `heightM` and `dryFraction`, which the template declares |
+
+### Alpine sward — a second grassland class, because `wiese` is a MOWN one
+
+`landuse=meadow` is a managed hay meadow and every one of `wiese`'s numbers says so. Above the treeline
+the same shape of stand is shorter, has less leaf area, carries more standing dead and stands on rock.
+That is a different class and it is `alpenrasen`.
+
+| Quantity | Value | Source |
+|---|---|---|
+| **LAI** | 2.7 | MEASURED — Rossini et al. 2012, *Biogeosciences* 9, 2565–2584, doi:10.5194/bg-9-2565-2012. Site IT-Tor Torgnon, 45°50′40″ N 7°34′41″ E, **2160 m**, unmanaged *Nardus stricta* grassland; destructive LAI, 12 plots of 30 × 30 cm, LI-3100. Max 2.7 (2009) / 3.0 (2010), both peaking DOY 194–201, i.e. **before** the scene's 6 August |
+| canopy height | 0.12 m | derived — lower bounds of the common generative height range of the community's dominants in Kaplan et al. 2019, *Key to the Flora of the Czech Republic* (via Pladias): *Nardus stricta* 0.10, *Anthoxanthum alpinum* 0.15, *Poa alpina* 0.10 |
+| blades/m² | 1165 | derived — `LAI · kMeanSin / (widthM · heightM)`, no freedom left once the three above are fixed |
+| senescent share | 0.45 | `[SET]` in a bracket: above `wiese` 0.30 because the class is never cut (Rossini et al. name the site *unmanaged* and report standing yellow/dead biomass as „a significant fraction … during much of the growing season"), below `acker` 0.92 |
+| substrate | `kalk` + `grasfilz` at 0.58 | REGIONAL: all six reference cameras stand in the Northern Calcareous Alps. The litter share is derived as the LAI ratio 2.7/4.64 against `wiese`'s felt-covered 1.0 |
+
+**`natural=fell` and `natural=tundra` cannot be assigned.** shortbread 1.0's `land` layer carries only
+`heath`, `scrub`, `grassland`, `bare_rock`, `scree`, `shingle` as natural covers, and neither kind
+appears in 100 z14 tiles of the Alps. The loss is upstream of `fb-tiles`; a row for it here would be a
+dead path. What arrives is `natural=grassland`, **3.63 %** of the mapped land in that sample.
+
 ### Ground shader and grass shader are ONE system — and now there is one scale
 
 > Owner, 2026-08-07: *„ich denke der bodenshader und grasshader müssen sich auch 'kennen'. wenn
@@ -318,11 +352,75 @@ ratio 0.579, both path B over the two ECOSTRESS *Avena fatua* litter spectra (vh
 The thatch fixes the SUBSTANCE under a meadow and moves no hue.
 
 **`swardClosure` is live**, a template field read by `src/world/VegetationTemplates.cpp`: the terrain
-row's ground and litter reflectance are pulled toward `mix(colorSrgb, drySrgb, dryFraction)` — the
-template's own three declarations, no shader constant. `wiese` declares **1.0**.
+row's ground and litter reflectance are pulled toward `mix(greenLinear, dryLinear, dryFraction)` — the
+template's own blade class and its own dry share, no shader constant. `wiese` declares **1.0**;
+`alpenrasen` declares nothing, so its measured LAI leaves 17 % of a nadir fragment showing the
+limestone below.
+
+**The blade is measured and the gain is gone.** `vegetation.json` carries one `bladeClasses` row,
+`suessgras`, and thirteen templates reference it:
+
+| | linear triple | Y | ratio |
+|---|---|---|---|
+| green blade | `[0.1506, 0.1892, 0.0803]` | 0.1731 | 0.796 : 1.000 : 0.425 |
+| dry blade | `[0.3526, 0.2377, 0.0988]` | 0.2521 | 1.000 : 0.674 : 0.280 |
+
+Chromaticity path B over four ECOSTRESS **green** grass-leaf spectra (`vegetation.grass.avena.fatua`
+vh352/vh353, `vegetation.grass.bromus.diandrus` vh350/vh351, all UCSB ASD, all 2015-03-18) and the two
+**senescent** ones of the same species and campaign (vh354/vh355) — the identical pair that gives
+`grasfilz` its chromaticity, so standing dead blade and the felt it becomes cannot disagree about which
+material was measured. **The path B implementation reproduces this repository's own published numbers
+exactly**: per-sample ratios 1.000:0.668:0.287 / 1.000:0.681:0.272, mean 1.000:0.674:0.280, „own visible
+luminance factor" 0.2521, visible 0.2229 / shortwave 0.3855 / ratio 0.579, and the green-grass
+chromaticity 0.807:1.000:0.385 quoted in `moos`.
+
+**What the retired declaration was**: two DISPLAY bytes per template plus a global
+`grassReflectanceGain = 0.50` tuned against a tone curve replaced twice since. For `wiese` the shader
+saw a sward of Y **0.1232**; it now sees **0.1968**, and the declaration and the delivery are the same
+number for the first time.
+
+**The chain's leaf → canopy factor is measured, not assumed.** Evaluating `swardAggregate` against a
+Lambertian of the same illumination gives an effective canopy albedo of `A_eff / colIn` = **0.298** at a
+nadir view with a 40° sun, **0.456** grazing, **0.73** at the reference scene's 11° sun. For `wiese`
+that is A_eff 0.0586 / 0.0897 / 0.1428 against the measured sod canopy **0.0839** and against
+`kGroundBounce`'s own „grass ~0.10". Under the retired gain the same view chain gave **0.0343 /
+0.0525**, i.e. **0.77 EV** below the measured canopy.
+
+**Half of the previous round's unexplained tone spread was in this declaration.** Rock against meadow,
+as the chain delivers it: `kalk` 0.2857 against the meadow's effective canopy albedo was **8.33×** at a
+nadir view (the round before measured 9.21 in a picture) where the reference photograph carries 2.39.
+It is now **4.88×** for `wiese` and **4.08×** for `alpenrasen` — **0.77** and **1.03 EV** of the 1.95 EV
+gap closed, without touching a rock reflectance or the tone chain.
 
 ## Gaps
 
+- **`osmDefault` is a constant where the question is per place, and no constant answers it.** Measured
+  over the six fit poses, the share of the near class grid under no closed way at all is 0.590
+  Nebelhorn · 0.341 Herzogstand · 0.214 Innsbruck · 0.042 Hochkönig · 0.004 Hochries · 0.000 Zugspitze,
+  and 0.152 averaged over 100 z14 tiles of the Alps. **It does not follow elevation** — Hochkönig at
+  2941 m is the second lowest of the six — so unmapped ground is where the mappers did not go, not
+  where the trees stop. The old justification, „the commonest unmapped cover of this landscape", was
+  never measurable; the commonest MAPPED cover over those tiles is forest at 45.70 %, not meadow at
+  17.18 %. `osmDefault = alpenrasen` was tried and MEASURED: it moves the frozen-mask distance the
+  wrong way at 4 of 6 cameras (`narbe` |ΔL| Nebelhorn 3.96 → 8.96, Herzogstand 3.74 → 6.68, Innsbruck
+  12.86 → 16.53, Hochries 28.27 → 33.81). `wiese` stays, and it still asserts three things OSM did not:
+  mowing, a closed sward, 0 % open soil.
+- **`alpenrasen` reaches 3.63 % of the mapped alpine land and none of the Nebelhorn tile.** The class
+  is right and the selector is thin: what stands above the treeline arrives as `natural=grassland` only
+  where somebody drew it, and at Nebelhorn 63.7 % of the tile is drawn by nobody at all.
+- **`kWholeDry` 0.35 / `kTipRun` 0.25 were written for a blade shader that no longer exists.** What
+  survives the deletion is the senescence — a grass leaf dies from the tip down — so the pair stays and
+  the population mean dryness is 0.431 × the declared `dryFraction`. **Neither number is measured
+  against a phenological series**, and every template's `dryFraction` is `[SET]` against that 0.431.
+  Removing the pair was tried and MEASURED: `boden` |ΔL| improves at 3 of 6 (Nebelhorn 8.57 → 5.68,
+  Herzogstand 9.19 → 6.41, Innsbruck 2.84 → 0.01) and `narbe` |ΔL| worsens at 4 of 6; the picture goes
+  khaki at Nebelhorn and washes out the Hochkönig valley. It was not shipped.
+- **`alpenrasen.widthM` is `wiese`'s and is not sourced.** Only the product `perM2 × widthM` reaches the
+  fragment, so it costs no picture today; *Nardus stricta* is a bristle and the true width is far below
+  11 mm.
+- **`alpenrasen.ground.class = kalk` is regional.** It is right for all six reference cameras (Northern
+  Calcareous Alps) and wrong by the full `kalk`↔`waldboden` distance on the crystalline Central Alps.
+  The class field has no lithology to ask.
 - **The 256 templates do not exist**, nor does the template stack, nor anything that reads one. The
   index side (quantisation, plausibility filter) is [`classification.md`](classification.md)'s gap.
 - **The generator has no consumer.** A tree mesh exists and nothing in the frame asks for one: no

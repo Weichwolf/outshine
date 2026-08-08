@@ -489,6 +489,13 @@ carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
 
+- **The default class is one constant for a per-place question.** `osmDefault = wiese` paints a mown
+  lowland hay meadow wherever OSM is silent, which is 0.590 of the near class grid at Nebelhorn (2 224 m)
+  and 0.000 at Zugspitze. The measurement that decides the shape of the fix: the unmapped share does NOT
+  follow elevation (Hochkönig 2 941 m → 0.042), so it is a mapping-coverage artefact and no
+  altitude-keyed constant can answer it. Substituting the new `alpenrasen` was tried and measured worse
+  at 4 of 6 cameras. The numbers and the alternative that was rejected are in
+  [`vegetation.md`](vegetation.md) `## Gaps`.
 - **The treeline law has two named residuals and models neither.** `treelinePerDegM` −58.8 m/° comes
   from two anchors of the same maritime-mountain type, 47.4° N/1900 m (Northern Calcareous Alps) and
   61.0° N/1100 m (Jotunheimen). Extrapolated it reaches sea level at 79.7° N where the real polar

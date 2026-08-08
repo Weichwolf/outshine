@@ -706,7 +706,9 @@ is the dominant approximation in these numbers.
 | *green grass, for the spread* | 0.063 | 0.246 | **0.257** |
 
 **A global gain cannot be right.** The sourced classes span **0.502 to 0.986**, a factor of 2.0, and
-against green vegetation the spread is **3.7×**. A single `reflectanceGain 0.50` — retired — sat below
+against green vegetation the spread is **3.7×**. Its BLADE half survived the ground half by two rounds
+and is retired too: `vegetation.json` now declares linear blade reflectances measured the same way
+([`../vegetation.md`](../vegetation.md)). A single `reflectanceGain 0.50` — retired — sat below
 every mineral class in this table and above green vegetation, which is why it darkened field and forest
 at once. Dark igneous rock is nearly *flat* across the shortwave (0.986) and needs no correction at all;
 the humus of a forest floor needs the most of any mineral surface (0.502).

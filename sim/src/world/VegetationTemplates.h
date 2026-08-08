@@ -52,6 +52,13 @@ public:
     float WidthM = 0.0f;
   };
 
+  /* A blade in its two states, LINEAR reflectance in the same space as GroundMaterials::Albedo.
+   * Templates reference it by name so one measurement serves every stand that grows the same leaf. */
+  struct Blade {
+    float Green[3];
+    float Dry[3];
+  };
+
   bool Load(const char *path, const GroundMaterials &mats);
 
   const Row *Rows() const { return Table_.data(); }

@@ -61,6 +61,11 @@ inline std::string SwardConstsWGSL(void) {
   s += "const kTransIso : f32 = 0.35;\n";
   s += "const kTransFwd : f32 = 2.6;\n";
   s += "const kTransP : f32 = 4.0;\n";
+  /* [SET] HOW A LEAF DIES, not how one is drawn: a grass blade senesces from the TIP down, so of the
+   * blades a template's dryFraction calls dry, kWholeDry are dry end to end and the rest carry a dry
+   * tip over kTipRun of their length. The population mean is therefore 0.431 * dryFraction. The pair
+   * was written for a blade shader that has since been deleted; what survives the deletion is the
+   * senescence, and NEITHER number is measured against a phenological series. */
   s += "const kWholeDry : f32 = 0.35;\n";
   s += "const kTipRun : f32 = 0.25;\n";
   /* [SET] 8, the midpoint of the 3-15 leaves a tussock fans out. */
