@@ -81,10 +81,12 @@ Gebaut wird nur über Make-Targets. `sim/`: `walk` | `wasm` | `worker` | `image`
 `verify-layers` | `verify-clients` | `verify-trees` | `verify-types`. **Der wasm-Client baut in JEDER
 Runde mit.**
 Warnings = Errors (`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · vendor read-only.
-**Leistung ist eine Verteilung über eine bewegte Kamera**, nie Mittelwert, nie Minimum:
-`tools/walkbench.py` (vier Geschwindigkeiten, p50/p95/p99), `tools/determinism.py` — **jede Messung
-pinnt ihr Binary.** Und sie **beginnt erst, wenn das Laden fertig ist**: Ladezeit ist keine Frame-Zeit,
-ein p95 mit einer Kachelankunft darin misst das Netz. Outshine wärmt nicht auf, es lädt und zeichnet dann.
+**Jede Stufe misst sich selbst, laufend, und das Ergebnis geht in die Telemetrie** — Kachelabruf,
+Dekodierung, Upload, Residenz, jeder Pass, der Frame. Es gibt keinen Messmodus: eine Bank ist ein
+deklarierter Lauf, kein anderer Codepfad. Ausgewertet wird über die Zeitreihe; eine Kachelankunft im
+Frame ist ein **Feld**, kein Grund, den Lauf zu verwerfen. **Leistung ist eine Verteilung über eine
+bewegte Kamera** — p50/p95/p99, nie Mittelwert, nie Minimum. Jede Zeile trägt Mod, Szene, wasm-Hash und
+Browserversion. Outshine wärmt nicht auf: es lädt, zeigt den Fortschritt, und zeichnet dann.
 
 **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
 muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
