@@ -86,7 +86,12 @@ Dekodierung, Upload, Residenz, jeder Pass, der Frame. Es gibt keinen Messmodus: 
 deklarierter Lauf, kein anderer Codepfad. Ausgewertet wird über die Zeitreihe; eine Kachelankunft im
 Frame ist ein **Feld**, kein Grund, den Lauf zu verwerfen. **Leistung ist eine Verteilung über eine
 bewegte Kamera** — p50/p95/p99, nie Mittelwert, nie Minimum. Jede Zeile trägt Mod, Szene, wasm-Hash und
-Browserversion. Outshine wärmt nicht auf: es lädt, zeigt den Fortschritt, und zeichnet dann.
+Browserversion.
+
+**Ein Ladevorgang blockiert NIE den Renderer.** Der Renderer läuft durchgehend — er zeigt erst den
+Fortschritt, dann die Welt; Outshine wärmt nicht auf. Holen, Dekodieren und Hochladen laufen neben ihm,
+und was pro Frame auf die GPU geht, ist ein Budget. **Ein Ruckler beim Nachladen ist ein Fehler**, kein
+Naturgesetz — und er ist genau die Sorte, die ein Standbild nicht zeigt.
 
 **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
 muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
