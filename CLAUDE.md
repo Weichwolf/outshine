@@ -83,7 +83,8 @@ Runde mit.**
 Warnings = Errors (`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · vendor read-only.
 **Leistung ist eine Verteilung über eine bewegte Kamera**, nie Mittelwert, nie Minimum:
 `tools/walkbench.py` (vier Geschwindigkeiten, p50/p95/p99), `tools/determinism.py` — **jede Messung
-pinnt ihr Binary.**
+pinnt ihr Binary.** Und sie **beginnt erst, wenn das Laden fertig ist**: Ladezeit ist keine Frame-Zeit,
+ein p95 mit einer Kachelankunft darin misst das Netz. Outshine wärmt nicht auf, es lädt und zeichnet dann.
 
 **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
 muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
