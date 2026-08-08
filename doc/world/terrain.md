@@ -24,7 +24,9 @@ once it is on the GPU), [`../architecture.md`](../architecture.md) (the lib/clie
 | The render loop is never blocked in the browser | `fb_stream_*` is a poll interface; fetch/decode/mesh/mips run in Web Workers |
 | Line of sight must not cost coverage | a child beyond the view radius makes its parent a drawn leaf — detail is dropped, area never |
 | One ground truth for everybody | ground spawn, AGL and ground-contact detection all go through `ElevationProvider`; **the DEM the renderer draws is the DEM the physics collides against** |
-| The drawn mesh is the zero point of the LOD chain, so its own decimation error bounds every tolerance below it | `kEdgeTau / kGrid` is that error in pixels at 720p and it must stay within one factor of the cluster DAG's `SseTauPx` — 384/96 = **4 px** against 1 px. Height thrown away against the source z14 grid: RMS **2.83 m** at the Hochkönig against 9.10 m at `kGrid` = 32 |
+| The drawn mesh is the zero point of the LOD chain, so its own decimation error bounds every tolerance below it | `kEdgeTau / kGrid` is that error in pixels at 720p and it must stay within one factor of the cluster DAG's `SseTauPx` — 384/128 = **3 px** against 1 px. Height thrown away against the source z14 grid over the 3×3 z14 ring under each camera (`tools/meshdev.py`): RMS **1.47 m** max **57.33 m** at the Hochkönig, against 2.41 / 68.43 at `kGrid` = 96 and 7.69 / 133.90 at 32 |
+| A tile's geometry costs ONE vertex per posting, not six | the mesh is a regular grid and the DAG welds it anyway, so the buffer is indexed and every DAG level shares the one vertex array. Resident tile geometry at the reference scene: **177.5 MB** at `kGrid` = 128, against 471.8 MB at `kGrid` = 96 non-indexed |
+| The mesh density is chosen against BOTH budgets, and the frame is the binding one | over a 360-frame rotation at 1280×720 from the Hochkönig, median of five interleaved rounds: p50 and p95 both under 16.67 ms. `kGrid` = 192 is refused at p95 **21.05 ms** |
 | A DEM texel is an AREA, not a lattice point | mesh, client oracle and `/elev` all sample at `frac·n − 0.5` through the one expression `fb_texel_index` (`tiles/src/tilemath.h`); the same point through z13/z14/z15 then agrees to RMS **0.056 m** against 0.538 m for `frac·n` |
 | Missing data is a defined state, not an error | 204 = hole (photo falls back to OSM), a missing neighbour tile = a gap the skirts cover, cold `/elev` = 503 and the start path asks with `?block=1` |
 | An `/elev` answer is a number or it is not a measurement | the whole body must be ONE finite number; `atof` alone would cache an HTML error page as "sea level" |
@@ -93,43 +95,54 @@ Separately beside it stands the `const World*` a sensor gets: that is the **terr
 | `kNodeCeil` | 6000 | safety cap on the working set |
 | `kEarthCirc` | 40,075,016.686 m | equatorial circumference for `SpanM(z)` |
 | View radius | `FB_VIEW_KM · 1000`, default **240 km** | client parameter (`clients/AppWasm.cpp`) |
-| `kGrid` | **96** | quads per tile edge, and the ZERO POINT of the LOD chain — see below |
+| `kGrid` | **128** | quads per tile edge, and the ZERO POINT of the LOD chain — see below |
 | `TS` | 512 | albedo edge length in texels |
 
 **`kGrid` is a streamer constant, not a client parameter.** The mesh density is a property of the tile
 stream, and a knob two clients could set differently is a knob that lets them draw two different
 worlds. `World::Open` therefore no longer takes it.
 
-**Why 96 and what it costs.** A terrarium tile carries 256 texels per edge at every zoom — 6.46 m at
-z14 and 47.4° (`40075017·cos(lat)/(2^14·256)`). `kGrid` = 32 point-samples every 8th of them, and the
-height that is thrown away is measured against the source grid on each camera's own z14 tile
-(max/RMS in metres): Hochkönig **116.57 / 9.10** · Zugspitze 61.88 / 8.85 · Hochries 34.91 / 2.51 ·
-Innsbruck 29.59 / 3.47 · Nebelhorn 27.69 / 2.16 · Herzogstand 26.74 / 1.57. **That IS the 10–100 m
-band** — grates, gullies, wall steps — and no material noise can put it back, because a ridge that
-stands in the picture has to be a ridge in the terrain.
+**Why 128 and what it costs.** A terrarium tile carries 256 texels per edge at every zoom — 6.46 m at
+z14 and 47.4° (`40075017·cos(lat)/(2^14·256)`). `kGrid` = 32 point-sampled every 8th of them; the height
+that is thrown away is measured per SOURCE TEXEL against the drawn surface over the 3×3 z14 ring under
+each camera (`tools/meshdev.py`, max/RMS in metres):
 
-At `kGrid` = 96 the same measurement gives 81.37 / 2.83 · 35.43 / 2.46 · 28.12 / 1.01 · 9.10 / 0.85 ·
-6.80 / 0.39 · 8.38 / 0.32 — the RMS falls by **3.2× to 4.9×** on all six.
+| camera | 32 | 64 | 96 | **128** | 192 | 255 |
+|---|---|---|---|---|---|---|
+| Hochkönig | 133.90 / 7.69 | 121.50 / 3.78 | 68.43 / 2.41 | **57.33 / 1.47** | 47.26 / 0.96 | 0.00 / 0.00 |
+| Zugspitze | 135.40 / 5.98 | 114.18 / 2.80 | 130.66 / 1.83 | **78.74 / 1.20** | 66.06 / 0.80 | 0.00 / 0.00 |
+| Innsbruck | 64.85 / 5.25 | 50.99 / 2.46 | 33.99 / 1.51 | **25.77 / 0.90** | 25.38 / 0.59 | 0.00 / 0.00 |
+| Hochries | 34.32 / 1.98 | 29.13 / 0.89 | 26.68 / 0.60 | **25.64 / 0.44** | 25.64 / 0.30 | 0.00 / 0.00 |
+| Nebelhorn | 48.32 / 1.91 | 15.59 / 0.67 | 10.02 / 0.37 | **6.37 / 0.20** | 5.86 / 0.13 | 0.00 / 0.00 |
+| Herzogstand | 33.11 / 1.42 | 16.63 / 0.52 | 10.06 / 0.30 | **5.68 / 0.16** | 5.68 / 0.11 | 0.00 / 0.00 |
+
+**That IS the 10–100 m band** — grates, gullies, wall steps — and no material noise can put it back,
+because a ridge that stands in the picture has to be a ridge in the terrain. **255 is exactly zero on
+every camera and that is arithmetic, not luck:** `W3_CI(i) = i·(C−1)/(gc−1)` with `C` = 256 and
+`gc` = 256 is the identity, so every source texel IS a posting and nothing is decimated at all.
 
 The screen-space consequence is one division: a level-0 triangle's edge is `kEdgeTau / kGrid` pixels at
 720p, so 32 gave **12 px** against the cluster DAG's own declared tolerance of **1 px**
 (`render/ClusterDag.h`, `SseTauPx`). **The ladder's zero point was twelve times above its own
 tolerance, so no cut below it could ever be honoured** — measured: `FB_TAU` 1 → 0.25 moves the
-silhouette by under 0.05 px. 96 puts it at 4 px.
+silhouette by under 0.05 px. 128 puts it at 3 px.
 
-The price, measured over a 360-frame full rotation at 1280×720 from the Hochkönig, median of three
-runs, one binary per row:
+The price, measured over a 360-frame full rotation at 1280×720 from the Hochkönig, **median of five
+rounds run round-robin** — the machine drifts, and the same binary gave p50 9.99 cold and 13.47 in the
+fifth consecutive run, so a blockwise comparison compares temperature and not code:
 
-| `kGrid` | z14 post | tile VRAM | terrain tris | p50 | p95 | p99 |
-|---|---|---|---|---|---|---|
-| 32 | 51.72 m | 167.6 MB | 85 504 | 4.79 | 5.54 | 5.79 |
-| 64 | 25.86 m | 321.7 MB | 246 580 | 8.09 | 8.96 | 9.66 |
-| **96** | **17.24 m** | **615.3 MB** | **420 614** | **10.36** | **13.36** | **15.35** |
-| 128 | 12.93 m | 1029.2 MB | 626 234 | 14.96 | 18.43 | 19.67 |
+| `kGrid` | z14 post | tile mesh | terrain tris | draws | shadow tris | p50 | p95 | p99 |
+|---|---|---|---|---|---|---|---|---|
+| 96 | 17.24 m | 100.1 MB | 380 574 | 350 | 474 470 | 8.29 | 11.35 | 13.55 |
+| **128** | **12.93 m** | **177.5 MB** | **562 122** | **501** | **807 526** | **10.27** | **13.84** | **16.13** |
+| 192 | 8.62 m | 402.2 MB | 976 446 | 1128 | 1 690 470 | 13.73 | 21.05 | 22.71 |
+| 255 | 6.49 m | 700.4 MB | 1 404 470 | 1929 | 2 821 930 | 17.69 | 23.29 | 27.18 |
 
-128 is refused on both budgets: 1 029 MB of tile VRAM against the 4 GB of
-[`../render/visual-target.md`](../render/visual-target.md), and a p95 past the 16.67 ms frame. 96 is
-where the price stops.
+**192 is refused on the frame, not on memory**: p95 **21.05 ms** against the 16.67 ms frame, consistent
+to ±0.7 ms over five rounds, while its 402 MB is a tenth of the 4 GB of
+[`../render/visual-target.md`](../render/visual-target.md). 255 misses on p50 as well. **128 is where the
+price stops, and it is cheaper than 96 was before this round** — 96 non-indexed and without the shadow
+ladder measured p50 12.60 / p95 16.52 / p99 20.72 at 471.8 MB in the same interleaved session.
 
 **LOD is purely distance-based** (owner decision 2026-07-23): a split happens when the projected **edge
 length** `SpanM(z) · kSseK / dist` exceeds the threshold `kEdgeTau`. Height variance deliberately does
@@ -590,7 +603,9 @@ defined anywhere.
 | Item | State |
 |---|---|
 | `World` quadtree | built; distance-based LOD, corrected coverage semantics, 2-phase commit, two modes |
-| `kGrid` | **96 since 2026-08-08**, a streamer constant instead of a client argument. Level-0 decimation RMS against the source z14 grid falls 3.2–4.9× on all six cameras (9.10 → 2.83 m at the Hochkönig); tile VRAM 167.6 → 615.3 MB, p50/p95/p99 4.79/5.54/5.79 → 10.36/13.36/15.35 ms, 7 render passes unchanged |
+| `kGrid` | **128 since 2026-08-08**, a streamer constant instead of a client argument. Decimation RMS against the source z14 grid 2.41 → 1.47 m at the Hochkönig, and under 1.5 m on all six cameras; 7 render passes unchanged. §2.2 carries the whole ladder |
+| Tile vertex format | **indexed since 2026-08-08.** 32 B per vertex (`pos` f32×3, `uv` f32×2, `norm` f32×3) plus a `uint32` index buffer, ONE vertex array for every DAG level. `render/ClusterDag.h` builds it (`ClusterDag::Idx`); `World::Node` carries `idx`/`nidx`; `TilesStage` uploads both and draws `DrawIndexed`. The change is image-neutral: **0 of 921 600 pixels** differ at the reference frame |
+| Resident tile geometry | **`TilesStage::TileMeshBytes()`**, logged as `tileMeshMB` — the RESIDENT bytes, not the drawn share of them. The old `vramMB` in `world/fbworld` still reports drawn mesh + drawn albedo and is a streaming-thrash probe, not a memory figure |
 | `TerrainLoader` | built; one poll ABI, two byte back-ends (EM_JS async / libcurl blocking) |
 | Worker pool | built; N = clamp(hardwareConcurrency − 2, 1, 6), own WASM artefact, transferables |
 | `TilesElevation` | built; thin pass-through, the only live DEM source |
@@ -602,25 +617,48 @@ defined anywhere.
 
 ## Gaps
 
-**The mesh still throws away 2.7 of every 3.7 DEM texels, and the thing that stops `kGrid` = 255 is the
-vertex format, not the data.** A terrain vertex is 32 bytes (`pos` f32×3, `uv` f32×2, `norm` f32×3) in a
-**non-indexed** soup — six vertices per quad, where a welded index buffer needs one. On the regular grid
-level 0 is, that is a factor of six sitting in VRAM for nothing: 615 MB at `kGrid` = 96 would be ~110 MB
-indexed, and `kGrid` = 128 would cost less than today's 96 does. The DAG already welds internally
-(`ClusterDag.h`, `dag::Weld` builds `Corner[] → attribute vertex`) and then expands back to a soup, so
-the index buffer is being computed and thrown away. Two cheaper halves of the same lever, both
-unmeasured: `norm` as two snorm16 and `uv` as two unorm16 take the vertex to 20 bytes (1.6×), and the
-DAG levels a tile's own zoom can never select — every level except two, for every tile below `kMaxZ`,
-because such a tile is only ever drawn over a 2:1 distance band — are dead weight (~2×).
+**The mesh still throws away 1 of every 2 DEM texels at `kGrid` = 128, and what stops 255 now is the
+FRAME, not the format.** The index buffer landed (`## State`) and took the resident geometry from 471.8 MB
+at 96 to 100.1 MB; 255 costs 700.4 MB, which is affordable, and p50 **17.69 ms**, which is not. Two levers
+remain, both unmeasured: `norm` as two snorm16 and `uv` as two unorm16 take the vertex from 32 to 20 bytes
+(1.6× on the vertex half, which is now 36 % of the tile) — and the index half, now the larger one, halves
+with `uint16` for every `kGrid` ≤ 250, because 251²  + skirt is the last count that fits 65 536. The DAG
+levels a tile's own zoom can never select are NOT the lever they were: with one shared vertex array a dead
+level costs only its indices, and capping the ladder at two levels saves 25 % of the index buffer, not the
+2× it saved when every level carried its own vertices.
 
-**The far silhouette does not respond to `kGrid` at all, and the reason is measured.** Over the six
-camera pairs the skyline roughness (`tools/ridgeaudit.py`, mean |dy/dx| of the sky edge per column at
-320×180) moves by under 0.05 px between `kGrid` 32 and 128, and `FB_TAU` 1 → 0.25 moves it by the same
-nothing. The depth readback says why: at the Hochkönig the skyline stands at **29.8 / 45.8 / 66.7 km**
-(p10/p50/p90), where one pixel at 320×180 is **347 m** of terrain — the DAG's 1 px tolerance and the
-signal are the same size. Hoppe's own answer is an **anisotropic** error whose projection peaks across
-the view axis, i.e. a tolerance that tightens on the silhouette; ours is isotropic. Raising `--view`
-from 60 to 250 km was measured and is NOT the cause: the skyline row moves 65.9 → 65.6 of 180.
+**The far silhouette moves at the 1-pixel level for every rung of the ladder, and that is now measured
+properly.** `tools/skylinedev.py` takes the skyline from the DEPTH BUFFER — reversed-Z, sky is exactly 0 —
+so there is no threshold, no contrast and therefore no haze in the comparison, and it measures at
+**1280×720** where one pixel is 0.87 mrad = 39 m at 45 km, against 3.5 mrad = 156 m at the 320×180 the
+previous round used. Per-column |Δrow| between builds, six cameras:
+
+| step | columns that move | median | p95 | max |
+|---|---|---|---|---|
+| 96 → 128 | 6.9…34.0 % | 0.00 px | 1 px | 1…9 px |
+| 128 → 192 | 3.8…20.3 % | 0.00 px | 0…1 px | 1…5 px |
+| 128 → 255 | 5.2…24.8 % | 0.00 px | 1 px | 1…3 px |
+
+So the mesh does move the far skyline — a quarter to a third of all columns at the Nebelhorn — but by one
+pixel, and the fraction does not grow with `kGrid`. **The floor is the DEM pyramid, not `kGrid`**: with
+`kEdgeTau` = 384 and `kSseK` = 623.54 a tile of span `S` is drawn out to `S·1.6238`, so 30…67 km is z10
+and z9, whose texels are 103.4 m and 206.9 m — 2.6 and 5.3 pixels at 45 km. A mesh finer than one texel
+cannot exist there. Raising `--view` from 60 to 250 km was re-measured and is NOT the cause: nebelhorn and
+innsbruck move **0 columns**, the Hochkönig 32.9 % by up to 9 px.
+
+**Hoppe's anisotropic weight is built (`../render/lod.md`) and it buys 0.1 % here, measured**, because the
+weighted error `e·f·x/(x²+h²)` peaks at `x = h` and inside `x < h` the `1/d` term has already forced
+level 0.
+
+**The render's skyline stands 58…79 px BELOW the photo's at five of six cameras, and that dwarfs
+everything `kGrid` can do.** `tools/skylinedev.py --photo`, 1280×720: Nebelhorn −74, Innsbruck −78,
+Hochries −61, Zugspitze −58, Hochkönig −79 (Herzogstand has no sky band above its edge, so its detector
+cannot be calibrated). 74 px of 720 at a 38.4° vertical field is **3.9°**. Until that is resolved no
+photo can judge silhouette DETAIL, and this round did not touch it — camera model and georegistration
+were out of scope. The image detector itself is not the problem and that is measured too: calibrated
+against the depth truth on the render it lands within 1 px of the true edge in **99.8…100 %** of columns
+at the Nebelhorn, Innsbruck and Hochkönig after a constant −1/−2 row offset, and in 73 % at the Hochries
+and the Zugspitze.
 
 **The oracle answers a different question than the renderer draws — the registration half is closed, the
 decimation half is not.** The DEM is sampled at the texel CENTRE everywhere since 2026-08-07: one

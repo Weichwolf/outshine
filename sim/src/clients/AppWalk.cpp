@@ -832,13 +832,20 @@ int main(int argc, char **argv) {
     Log::Info("walk", "exposure", {{"expScale", (double)met[0]}, {"keyLog2", (double)met[1]},
         {"horizE", (double)met[2]}});
   }
-  Log::Info("walk", "terrain", {{"targetTotal", W.TargetTotal()}, {"targetReady", W.TargetReadyN()},
+  std::string lvl;
+  for (int i = 0; i < Render::TilesStage::kLevelBins; i++)
+    if (R.TerrainTrianglesByLevel()[i] > 0)
+      lvl += "L" + std::to_string(i) + "=" + std::to_string(R.TerrainTrianglesByLevel()[i]) + " ";
+  Log::Info("walk", "terrain", {{"cutLevels", lvl}, {"targetTotal", W.TargetTotal()}, {"targetReady", W.TargetReadyN()},
       {"progress", (double)W.LoadProgress()}, {"draws", R.DrawCount()},
       {"terrainTiles", R.TerrainVisibleTiles()},
       {"terrainDraws", R.TerrainDrawCalls()}, {"terrainTris", (double)R.TerrainTriangleCount()},
       {"buildingTris", (double)(R.BuildingVertexCount() / 3)},
+      {"shadowTris", (double)R.ShadowTriangleCount()},
+      {"shadowDraws", R.ShadowDrawCalls()},
       {"triangles", (double)R.TriangleCount()},
       {"classVramMB", (double)R.ClassVramBytes() / (1024.0 * 1024.0)},
+      {"tileMeshMB", (double)R.TileMeshBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
       {"buildingVerts", (int)R.BuildingVertexCount()}});
   Log::Info("walk", "class", {{"edges", (int)W.Classes().EdgeCount()},

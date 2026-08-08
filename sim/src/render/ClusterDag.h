@@ -77,8 +77,12 @@ inline float SseTauPx(void) {
   return tau;
 }
 
+/* ONE vertex per position-and-attribute tuple for EVERY level: a half-edge collapse never moves a
+ * vertex, so a coarse level indexes the same array the fine one does. `First`/`Count` of a cluster
+ * are therefore an INDEX range, not a vertex range. */
 struct ClusterDag {
   std::vector<float> Verts;
+  std::vector<uint32_t> Idx;
   std::vector<DagCluster> Clusters;
   int Stride = 8;
   int Levels = 0;
@@ -102,22 +106,50 @@ struct ClusterDagOpts {
   float Up[3] = {0.0f, 0.0f, 0.0f};
 };
 
+/* HOPPE'S ANISOTROPY, and on a height field it is one sine. The stored error is a VERTICAL distance
+ * (Ulrich), so the length it actually moves the picture is its component ACROSS the view ray:
+ * |e·u − (e·u·v)v| = e·sin∠(u,v). Along the ray the surface only changes depth; across it the
+ * silhouette moves. An isotropic tolerance pays sin = 1 everywhere and so buys nothing at the horizon
+ * it does not also buy under the camera's feet, where the same metres are invisible.
+ *
+ * Taken over the WHOLE bounding sphere, not at its centre, and that is what keeps the cut single-
+ * crossing: a parent sphere contains its children's, so its cone of directions contains theirs, so
+ * its maximum sine is never smaller — the ordering the DAG is built on survives the weighting. A
+ * camera inside the sphere sees the full cone and the factor is 1, which is exactly the old metric. */
+inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], const float up[3]) {
+  const double u2 = (double)up[0] * up[0] + (double)up[1] * up[1] + (double)up[2] * up[2];
+  if (u2 < 1.0e-12) return 1.0f;
+  const double dx = (double)ctr[0] - eye[0], dy = (double)ctr[1] - eye[1], dz = (double)ctr[2] - eye[2];
+  const double d = std::sqrt(dx * dx + dy * dy + dz * dz);
+  if (!(d > 1.0e-6) || (double)rad >= d) return 1.0f;
+  const double iu = 1.0 / std::sqrt(u2);
+  const double cosT = ((double)up[0] * dx + (double)up[1] * dy + (double)up[2] * dz) * iu / d;
+  const double theta = std::acos(cosT < -1.0 ? -1.0 : (cosT > 1.0 ? 1.0 : cosT));
+  const double alpha = std::asin((double)rad / d);
+  const double lo = theta - alpha, hi = theta + alpha;
+  const double kHalfPi = 1.5707963267948966;
+  if (lo <= kHalfPi && hi >= kHalfPi) return 1.0f;
+  return (float)std::max(std::sin(lo < 0.0 ? 0.0 : lo), std::sin(hi > 3.14159265358979 ? 3.14159265358979 : hi));
+}
+
 /* sse_px = err_m * f_px / d, d measured CONSERVATIVELY to the nearest point of the bounding sphere
- * (Ponchio 2008 §3.6.1). doc/render/lod.md. */
-inline float DagSse(const float ctr[3], float rad, float err, const double eye[3], float fPx) {
+ * (Ponchio 2008 §3.6.1). doc/render/lod.md. `up` zero = no vertical, hence no anisotropy. */
+inline float DagSse(const float ctr[3], float rad, float err, const double eye[3], float fPx,
+                    const float up[3]) {
   if (!(err > 0.0f)) return 0.0f;
   if (err >= kDagRootErr) return kDagRootErr;
   const double dx = (double)ctr[0] - eye[0], dy = (double)ctr[1] - eye[1], dz = (double)ctr[2] - eye[2];
   double d = std::sqrt(dx * dx + dy * dy + dz * dz) - (double)rad;
   if (d < 0.05) d = 0.05;
-  return (float)((double)err * (double)fPx / d);
+  return (float)((double)err * (double)DagCrossFactor(ctr, rad, eye, up) * (double)fPx / d);
 }
 
 /* THE CUT. Monotone error along every root-to-leaf path makes this a single crossing, so exactly one
  * cluster per region of the surface answers true — no gap, no overlap, no traversal. */
-inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau) {
-  return DagSse(c.SelfCenter, c.SelfRadius, c.SelfErr, eye, fPx) <= tau &&
-         DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx) > tau;
+inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau,
+                      const float up[3]) {
+  return DagSse(c.SelfCenter, c.SelfRadius, c.SelfErr, eye, fPx, up) <= tau &&
+         DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
 }
 
 namespace dag {
@@ -206,9 +238,14 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
   m->Corner.resize(nverts);
 
   std::unordered_map<PosKey, uint32_t, PosKeyHash, PosKeyEq> pmap;
-  std::unordered_map<uint64_t, uint32_t> amap;   /* (posId, class) -> attribute vertex */
+  /* Keyed on the WHOLE vertex, not on (position, class): the index buffer replaces the soup, so a
+   * corner must come back with the bytes it went in with. Two walls meeting at one point disagree in
+   * their normal and stay two vertices; on a height-field grid every corner of a posting is byte-
+   * identical and they all collapse to one. */
+  std::unordered_multimap<uint64_t, uint32_t> amap;
   pmap.reserve(nverts);
   amap.reserve(nverts);
+  const size_t vbytes = (size_t)stride * sizeof(float);
   for (uint32_t i = 0; i < nverts; i++) {
     const float *v = soup + (size_t)i * (size_t)stride;
     const PosKey pk{(int64_t)std::llround((double)v[0] * 1.0e4),
@@ -223,14 +260,26 @@ inline void Weld(const float *soup, uint32_t nverts, int stride, int (*classOf)(
       pmap.emplace(pk, pid);
     }
     const uint32_t cls = classOf ? (uint32_t)classOf(v) : 0u;
-    const uint64_t ak = ((uint64_t)pid << 8) | (cls & 0xff);
-    auto ait = amap.find(ak);
-    if (ait != amap.end()) { m->Corner[i] = ait->second; continue; }
-    const uint32_t id = (uint32_t)(m->V.size() / (size_t)stride);
-    m->V.insert(m->V.end(), v, v + stride);
-    m->Pos.push_back(pid);
-    m->Cls.push_back((uint8_t)cls);
-    amap.emplace(ak, id);
+    uint64_t ak = ((uint64_t)pid << 8) | (cls & 0xff);
+    {
+      uint64_t h = ak * 1099511628211ull;
+      const unsigned char *b = (const unsigned char *)v;
+      for (size_t k = 0; k < vbytes; k++) { h ^= b[k]; h *= 1099511628211ull; }
+      ak = h;
+    }
+    uint32_t id = 0xffffffffu;
+    for (auto it = amap.equal_range(ak); it.first != it.second; ++it.first) {
+      const uint32_t cand = it.first->second;
+      if (m->Pos[cand] == pid && m->Cls[cand] == (uint8_t)cls &&
+          std::memcmp(&m->V[(size_t)cand * (size_t)stride], v, vbytes) == 0) { id = cand; break; }
+    }
+    if (id == 0xffffffffu) {
+      id = (uint32_t)(m->V.size() / (size_t)stride);
+      m->V.insert(m->V.end(), v, v + stride);
+      m->Pos.push_back(pid);
+      m->Cls.push_back((uint8_t)cls);
+      amap.emplace(ak, id);
+    }
     m->Corner[i] = id;
   }
   m->NPos = (int)(m->PP.size() / 3);
@@ -760,13 +809,13 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
 
 }  // namespace dag
 
-/* `soup` is a triangle list of `nverts` vertices, `stride` floats each, position first. Level 0 is
- * emitted from the ORIGINAL corners, so the finest level is byte-identical to the flat mesh; only
- * simplified levels take welded attributes. */
+/* `soup` is a triangle list of `nverts` vertices, `stride` floats each, position first. The welded
+ * vertices are byte-identical to the soup's, so level 0 draws the flat mesh exactly. */
 inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
                             const ClusterDagOpts &opts, ClusterDag *out) {
   if (!soup || !out || nverts < 3 || stride < 3) return false;
   out->Verts.clear();
+  out->Idx.clear();
   out->Clusters.clear();
   out->Stride = stride;
   out->Levels = 0;
@@ -780,18 +829,15 @@ inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
   std::vector<uint32_t> order, starts;
   dag::Partition(m, tri, opts.MaxTrisPerCluster, &order, &starts);
 
-  /* Level 0 emits the SOUP's own corners in the partitioned order; `srcCorner` is that permutation. */
-  std::vector<uint32_t> lvlTri, srcCorner;
+  out->Verts = m.V;
+
+  std::vector<uint32_t> lvlTri;
   std::vector<std::pair<uint32_t, uint32_t>> lvlRange;
   lvlTri.reserve(tri.size());
-  srcCorner.reserve(tri.size());
   for (size_t g = 0; g + 1 < starts.size(); g++) {
     const uint32_t first = (uint32_t)(lvlTri.size() / 3);
     for (uint32_t i = starts[g]; i < starts[g + 1]; i++)
-      for (int k = 0; k < 3; k++) {
-        lvlTri.push_back(tri[(size_t)order[i] * 3 + (size_t)k]);
-        srcCorner.push_back(order[i] * 3 + (uint32_t)k);
-      }
+      for (int k = 0; k < 3; k++) lvlTri.push_back(tri[(size_t)order[i] * 3 + (size_t)k]);
     lvlRange.emplace_back(first, (uint32_t)(lvlTri.size() / 3) - first);
   }
 
@@ -806,14 +852,11 @@ inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
       DagCluster c = self[ci];
       c.Level = (uint8_t)level;
       c.ParentErr = kDagRootErr;
-      c.First = (uint32_t)(out->Verts.size() / (size_t)stride);
+      c.First = (uint32_t)out->Idx.size();
       c.Count = lvlRange[ci].second * 3;
       const size_t base = (size_t)lvlRange[ci].first * 3;
-      for (uint32_t i = 0; i < c.Count; i++) {
-        const float *v = level == 0 ? soup + (size_t)srcCorner[base + i] * (size_t)stride
-                                    : m.P(lvlTri[base + i]);
-        out->Verts.insert(out->Verts.end(), v, v + stride);
-      }
+      out->Idx.insert(out->Idx.end(), lvlTri.begin() + (long)base,
+                      lvlTri.begin() + (long)(base + c.Count));
       if (level == 0) dag::Sphere(m, lvlTri, base, c.Count, c.SelfCenter, &c.SelfRadius);
       out->Clusters.push_back(c);
     }
@@ -945,9 +988,10 @@ inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
  * builder: it shares the tile's boundary edge, and an edge with two users is not a boundary, so the
  * simplifier would be free to move the very ring that has to match the neighbouring tile. */
 inline void TileDagBuild(const float *soup, int nverts, int gridverts, const double origin[3],
-                         std::vector<float> &outVerts,
+                         std::vector<float> &outVerts, std::vector<uint32_t> &outIdx,
                          std::vector<DagCluster> &outClusters) {
   outVerts.clear();
+  outIdx.clear();
   outClusters.clear();
   if (!soup || nverts <= 0) return;
   if (gridverts <= 0 || gridverts > nverts) gridverts = nverts;
@@ -964,9 +1008,12 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
   }
   if (ClusterDagBuild(soup, (uint32_t)gridverts, 8, opts, &dag)) {
     outVerts = std::move(dag.Verts);
+    outIdx = std::move(dag.Idx);
     outClusters = std::move(dag.Clusters);
   } else {
     outVerts.assign(soup, soup + (size_t)gridverts * 8);
+    outIdx.resize((size_t)gridverts);
+    for (int i = 0; i < gridverts; i++) outIdx[(size_t)i] = (uint32_t)i;
     DagCluster c{};
     c.Count = (uint32_t)gridverts;
     c.ParentErr = kDagRootErr;
@@ -975,8 +1022,9 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
   }
   const int skirt = nverts - gridverts;
   if (skirt <= 0) return;
+  const uint32_t skirtBase = (uint32_t)(outVerts.size() / 8);
   DagCluster sc{};
-  sc.First = (uint32_t)(outVerts.size() / 8);
+  sc.First = (uint32_t)outIdx.size();
   sc.Count = (uint32_t)skirt;
   sc.SelfErr = 0.0f;
   sc.ParentErr = kDagRootErr;
@@ -995,6 +1043,7 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
   }
   sc.SelfRadius = (float)std::sqrt(r2);
   outVerts.insert(outVerts.end(), soup + (size_t)gridverts * 8, soup + (size_t)nverts * 8);
+  for (int i = 0; i < skirt; i++) outIdx.push_back(skirtBase + (uint32_t)i);
   outClusters.push_back(sc);
 }
 

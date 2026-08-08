@@ -693,7 +693,11 @@ void TilesStage::CollectCasters(std::vector<Caster> &out) const {
     if (!d.Used || !d.Vtx || d.NVerts == 0) continue;
     Caster c{};
     c.Vtx = d.Vtx;
+    c.Idx = d.Idx;
     c.NVerts = d.NVerts;
+    c.NIdx = d.NIdx;
+    c.Clusters = d.Clusters.data();
+    c.NClusters = (int)d.Clusters.size();
     for (int i = 0; i < 3; i++) { c.Origin[i] = d.Origin[i]; c.BoundCtr[i] = d.BoundCtr[i]; }
     c.BoundRad = d.BoundRad;
     out.push_back(c);
@@ -760,8 +764,9 @@ void TilesStage::RebuildBind(void) {
 
 /* No mip building here — that already ran off-thread or synchronously. */
 /* EMA-smoothed, so the far field does not flicker as tiles stream and evict. */
-int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters,
-                             int nclusters, const double origin[3], const double anchor[3]) {
+int TilesStage::UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                             const DagCluster *clusters, int nclusters,
+                             const double origin[3], const double anchor[3]) {
   int slot = -1;
   for (int i = 0; i < (int)DynTiles.size(); i++)
     if (!DynTiles[i].Used) { slot = i; break; }
@@ -774,11 +779,19 @@ int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster
   d.Vtx = Device.CreateBuffer(&bd);
   Queue.WriteBuffer(d.Vtx, 0, verts, (size_t)nverts * 8 * sizeof(float));
   d.NVerts = nverts;
+  MeshBytes += (long)bd.size;
+  wgpu::BufferDescriptor id{};
+  id.size = (uint64_t)nidx * sizeof(uint32_t);
+  id.usage = wgpu::BufferUsage::Index | wgpu::BufferUsage::CopyDst;
+  d.Idx = Device.CreateBuffer(&id);
+  Queue.WriteBuffer(d.Idx, 0, idx, (size_t)nidx * sizeof(uint32_t));
+  d.NIdx = nidx;
+  MeshBytes += (long)id.size;
   BoundingSphere(verts, nverts, 8, d.BoundCtr, &d.BoundRad);
   d.Clusters.assign(clusters, clusters + (nclusters > 0 ? nclusters : 0));
   if (d.Clusters.empty()) {   /* no DAG: one root cluster over the whole soup keeps the cut uniform */
     DagCluster c{};
-    c.Count = nverts;
+    c.Count = nidx;
     c.ParentErr = kDagRootErr;
     for (int a = 0; a < 3; a++) c.SelfCenter[a] = d.BoundCtr[a];
     c.SelfRadius = d.BoundRad;   /* the frustum test must mean the same thing with and without a DAG */
@@ -792,7 +805,11 @@ int TilesStage::UploadTile(const float *verts, uint32_t nverts, const DagCluster
 void TilesStage::ReleaseTile(int slot) {
   if (slot < 0 || slot >= (int)DynTiles.size() || !DynTiles[slot].Used) return;
   DynTile &d = DynTiles[slot];
+  MeshBytes -= (long)d.NVerts * 8 * (long)sizeof(float) + (long)d.NIdx * (long)sizeof(uint32_t);
   d.Vtx = nullptr;   /* drop the ref -> buffer freed */
+  d.Idx = nullptr;
+  d.NVerts = 0;
+  d.NIdx = 0;
   d.Clusters.clear();
   d.Used = false;
 }
@@ -802,6 +819,7 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
   static std::vector<float> off;
   int nDraw;
   DrawnVerts = 0;
+  for (int i = 0; i < kLevelBins; i++) DrawnByLevel[i] = 0;
   Ranges.clear();
   CutClusters = 0;
   /* THE CUT, per cluster and not per tile: one tile can answer at several levels at once, which is
@@ -824,12 +842,18 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
        * frustum actually straddles pay the per-cluster one. */
       const bool tileIn = fr.Visible(rel, d.BoundCtr, d.BoundRad);
       if (tileIn) VisibleTiles++;
+      /* Geocentric up at the tile centre — the direction the DAG measured its error along. */
+      const double oLen = std::sqrt(d.Origin[0] * d.Origin[0] + d.Origin[1] * d.Origin[1] +
+                                    d.Origin[2] * d.Origin[2]);
+      const float up[3] = {(float)(d.Origin[0] / oLen), (float)(d.Origin[1] / oLen),
+                           (float)(d.Origin[2] / oLen)};
       for (const DagCluster &c : d.Clusters) {
         if (!tileIn) break;
-        if (!DagSelect(c, eyeLocal, fPx, SseTauPx())) continue;
+        if (!DagSelect(c, eyeLocal, fPx, SseTauPx(), up)) continue;
         if (!fr.Visible(rel, c.SelfCenter, c.SelfRadius)) continue;
         CutClusters++;
         DrawnVerts += (long)c.Count;
+        DrawnByLevel[c.Level < kLevelBins ? c.Level : kLevelBins - 1] += (long)c.Count / 3;
         /* Clusters are laid down level by level in Morton order, so a run of neighbours at one level
          * is contiguous and collapses into ONE draw. */
         if (!Ranges.empty() && Ranges.back().Slot == (uint32_t)i &&
@@ -924,8 +948,13 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       rbe.SetBindGroup(0, Bind);
       uint32_t bound = 0xffffffffu;
       for (const DrawRange &r : Ranges) {
-        if (r.Slot != bound) { rbe.SetVertexBuffer(0, DynTiles[DrawList[r.Slot]].Vtx); bound = r.Slot; }
-        rbe.Draw(r.Count, 1, r.First, r.Slot);
+        if (r.Slot != bound) {
+          const DynTile &t = DynTiles[DrawList[r.Slot]];
+          rbe.SetVertexBuffer(0, t.Vtx);
+          rbe.SetIndexBuffer(t.Idx, wgpu::IndexFormat::Uint32);
+          bound = r.Slot;
+        }
+        rbe.DrawIndexed(r.Count, 1, r.First, 0, r.Slot);
       }
       Bundle = rbe.Finish();
       BundleSig = sig;

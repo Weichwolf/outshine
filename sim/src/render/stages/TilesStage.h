@@ -51,13 +51,17 @@ public:
    * `clusters` is the tile's DAG (doc/render/lod.md): every level lives in the one vertex buffer and
    * the per-frame cut picks the ranges. `anchor` is the ECEF point the procedural surface is measured
    * from; `origin - anchor` must stay small enough for float. */
-  int UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
+  int UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                const DagCluster *clusters, int nclusters,
                 const double origin[3], const double anchor[3]);
   void ReleaseTile(int slot);
   void SetDrawList(const int *slots, int n) { DrawList.assign(slots, slots + n); }
   /* The classification input. It does not grow with the tile count, because it has nothing to do
    * with tiles — it is the vector geometry itself plus the grid that finds it. */
   long ClassVramBytes(void) const { return ClassBytes; }
+  /* The RESIDENT tile geometry, not the drawn share of it: eviction and the frustum move the drawn
+   * set every frame, so a figure taken from it is a sample and not the memory that is held. */
+  long TileMeshBytes(void) const { return MeshBytes; }
   int DrawCount(void) const { return (int)DrawList.size(); }
   /* Draw CALLS the last Encode recorded, which is not the tile count once the cut merges runs and the
    * frustum drops tiles — the two numbers used to be equal and the budget needs the one that is paid. */
@@ -67,6 +71,10 @@ public:
   /* Triangles the LAST Encode actually submitted, not the ones resident — the budget curve
    * (doc/goal.md §5) is about what the frame paid for. Triangle-list, hence /3. */
   long TriangleCount(void) const { return DrawnVerts / 3; }
+  /* WHICH RUNG the cut stands on, per level, in triangles — the only evidence that a tolerance change
+   * moved anything at all. */
+  const long *TrianglesByLevel(void) const { return DrawnByLevel; }
+  static constexpr int kLevelBins = 8;
 
   /* Self-contained: there is always terrain to draw once configured. */
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
@@ -74,8 +82,9 @@ public:
   /* Invariant telemetry, read by Renderer's periodic [present] log. */
   /* The resident tiles as CASTERS: the same buffers the scene pass draws, never a second copy. A
    * shadow cascade is a different view, so it takes no part of the camera's cut — it takes the whole
-   * residency and culls against its own box. */
-  struct Caster { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float BoundCtr[3], BoundRad; };
+   * residency, culls against its own box and cuts the DAG at its own tolerance. */
+  struct Caster { wgpu::Buffer Vtx, Idx; uint32_t NVerts, NIdx; const DagCluster *Clusters;
+                  int NClusters; double Origin[3]; float BoundCtr[3], BoundRad; };
   void CollectCasters(std::vector<Caster> &out) const;
 
   long GetNotReadyDraws(void) const { return NotReadyDraws; }
@@ -87,7 +96,7 @@ private:
   SceneLight Light;   /* borrowed: IrradianceStage's buffer */
 
   /* Bound* is the whole tile over EVERY level, taken off the vertices and not off the DAG spheres. */
-  struct DynTile { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float Anchor[3];
+  struct DynTile { wgpu::Buffer Vtx, Idx; uint32_t NVerts, NIdx; double Origin[3]; float Anchor[3];
                    bool Used; std::vector<DagCluster> Clusters;
                    float BoundCtr[3]; float BoundRad; };
   struct DrawRange { uint32_t Slot, First, Count; };
@@ -121,7 +130,7 @@ private:
   long TerrainBundleRecords = 0;
 
   int MaxLayers = 256;
-  long ClassBytes = 0;
+  long ClassBytes = 0, MeshBytes = 0;
   double ClsEast[3] = {1, 0, 0}, ClsNorth[3] = {0, 1, 0}, ClsCam[2] = {0, 0};
   std::vector<DynTile> DynTiles;
   float LoggedSigma0 = -1.0f, LoggedSunThru = -1.0f;
@@ -131,6 +140,7 @@ private:
 
   long NotReadyDraws = 0, WrongModeDraws = 0, BlackDraws = 0;
   long DrawnVerts = 0;
+  long DrawnByLevel[kLevelBins] = {};
   int VisibleTiles = 0;
 };
 

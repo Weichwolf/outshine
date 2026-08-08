@@ -32,6 +32,8 @@ int      fbtw_open(const char *base, double lat, double lon);
 int      fbtw_build(int z, int x, int y, int grid);
 float   *fbtw_verts(void);
 int      fbtw_nverts(void);
+uint32_t *fbtw_idx(void);
+int      fbtw_nidx(void);
 uint8_t *fbtw_clusters(void);
 int      fbtw_nclusters(void);
 int      fbtw_clusterbytes(void);
@@ -116,12 +118,15 @@ int fbtw_open(const char *base, double lat, double lon) {
  * LEAVES HERE IS THE DAG: the simplifier is 3.68 ms of a measured 10.7 ms per tile natively and far
  * more in the browser, and the render thread may not pay it. */
 static std::vector<float> tw_dagverts;
+static std::vector<uint32_t> tw_dagidx;
 static std::vector<Render::DagCluster> tw_clusters;
 static float tw_err = 0.0f;
 static double tw_origin[3] = {0, 0, 0};
 
 EMSCRIPTEN_KEEPALIVE float  *fbtw_verts(void)    { return tw_dagverts.data(); }
 EMSCRIPTEN_KEEPALIVE int     fbtw_nverts(void)   { return (int)(tw_dagverts.size() / 8); }
+EMSCRIPTEN_KEEPALIVE uint32_t *fbtw_idx(void)    { return tw_dagidx.data(); }
+EMSCRIPTEN_KEEPALIVE int     fbtw_nidx(void)     { return (int)tw_dagidx.size(); }
 EMSCRIPTEN_KEEPALIVE uint8_t *fbtw_clusters(void){ return (uint8_t *)tw_clusters.data(); }
 EMSCRIPTEN_KEEPALIVE int     fbtw_nclusters(void){ return (int)tw_clusters.size(); }
 /* The JS shim copies the cluster array out as raw bytes and must not carry a sizeof of its own. */
@@ -132,6 +137,7 @@ EMSCRIPTEN_KEEPALIVE double *fbtw_origin(void)   { return tw_origin; }
 EMSCRIPTEN_KEEPALIVE
 void fbtw_release(void) {
   std::vector<float>().swap(tw_dagverts);
+  std::vector<uint32_t>().swap(tw_dagidx);
   std::vector<Render::DagCluster>().swap(tw_clusters);
   tw_err = 0.0f;
 }
@@ -152,9 +158,12 @@ int fbtw_dag(const float *soup, int nverts, int seamAttr) {
   if (seamAttr >= 0 && seamAttr < 8) opts.ClassOf = tw_seam[seamAttr];
   if (Render::ClusterDagBuild(soup, (uint32_t)nverts, 8, opts, &dag)) {
     tw_dagverts = std::move(dag.Verts);
+    tw_dagidx = std::move(dag.Idx);
     tw_clusters = std::move(dag.Clusters);
   } else {
     tw_dagverts.assign(soup, soup + (size_t)nverts * 8);
+    tw_dagidx.resize((size_t)nverts);
+    for (int i = 0; i < nverts; i++) tw_dagidx[(size_t)i] = (uint32_t)i;
     Render::DagCluster c{};
     c.Count = (uint32_t)nverts;
     c.ParentErr = Render::kDagRootErr;
@@ -184,8 +193,8 @@ int fbtw_build(int z, int x, int y, int grid) {
       if (meshed) {
         tw_err = chunk.err;
         Render::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, tw_origin,
-                             tw_dagverts, tw_clusters);
-        meshed = !tw_dagverts.empty() && !tw_clusters.empty();
+                             tw_dagverts, tw_dagidx, tw_clusters);
+        meshed = !tw_dagverts.empty() && !tw_dagidx.empty() && !tw_clusters.empty();
       }
       Render::ChunkFree(&chunk);
       twp_mesh += emscripten_get_now() - tm;

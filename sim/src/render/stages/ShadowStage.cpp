@@ -116,9 +116,10 @@ void ShadowStage::Init(const Gpu &gpu) {
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void ShadowStage::SetCasters(wgpu::Buffer vtx, uint32_t nverts, const DagCluster *clusters,
-                             int nclusters, const double anchor[3]) {
+void ShadowStage::SetCasters(wgpu::Buffer vtx, wgpu::Buffer idx, uint32_t nverts,
+                             const DagCluster *clusters, int nclusters, const double anchor[3]) {
   Vtx = vtx;
+  Idx = idx;
   NVerts = nverts;
   Clusters = clusters;
   NClusters = nclusters;
@@ -230,16 +231,18 @@ void ShadowStage::Update(const FrameContext &ctx) {
 
   /* THE TERRAIN CUT. A cascade is a box of half-width R around its own centre, so a tile enters it
    * when its bounding sphere reaches that box — the cheapest cull there is, and it is the same test
-   * for every cascade. No cluster ladder here: a tile's mesh is already decimated to 33x33 supports
-   * and the shadow's own tau would not remove a second level. */
+   * for every cascade. Inside the tile the SAME ladder the buildings take: without it every level of
+   * every tile is rasterised at once, and the coarse ones poke above level 0, so the map holds the
+   * wrong depth as well as 2.9x the triangles. */
   TerrainOverflow = 0;
-  for (int c = 0; c < kShadowCascades; c++) TerrainCut[c].clear();
+  for (int c = 0; c < kShadowCascades; c++) { TerrainCut[c].clear(); TerrainRanges[c].clear(); }
   if (!Terrain.empty()) {
     const double ratio2 = std::pow((double)kShadowFarM / (double)kShadowNearM,
                                    1.0 / (double)(kShadowCascades - 1));
     for (int c = 0; c < kShadowCascades; c++) {
       const double R = (double)kShadowNearM * std::pow(ratio2, (double)c);
       const double C[3] = {fh[0] * R * 0.5, fh[1] * R * 0.5, fh[2] * R * 0.5};
+      const float errM = (float)(kShadowTauTexels * 2.0 * R / (double)kShadowTexels);
       for (uint32_t i = 0; i < (uint32_t)Terrain.size(); i++) {
         const TerrainCaster &t = Terrain[i];
         /* Tile centre relative to the camera; BoundCtr is relative to the tile's own origin. */
@@ -253,7 +256,21 @@ void ShadowStage::Update(const FrameContext &ctx) {
         if (std::fabs(Dot3(d, Y)) > R + t.BoundRad) continue;
         if (Dot3(d, L) > R + 100.0 + t.BoundRad) continue;
         if (TerrainCut[c].size() >= kMaxShadowTiles) { TerrainOverflow++; continue; }
+        const uint32_t cut = (uint32_t)TerrainCut[c].size();
         TerrainCut[c].push_back(i);
+        if (!t.Clusters || t.NClusters <= 0) {
+          TerrainRanges[c].push_back(TerrainRange{cut, 0, t.NIdx});
+          continue;
+        }
+        for (int k = 0; k < t.NClusters; k++) {
+          const DagCluster &cl = t.Clusters[k];
+          if (!(cl.SelfErr <= errM && cl.ParentErr > errM)) continue;
+          if (!TerrainRanges[c].empty() && TerrainRanges[c].back().Cut == cut &&
+              TerrainRanges[c].back().First + TerrainRanges[c].back().Count == cl.First)
+            TerrainRanges[c].back().Count += cl.Count;
+          else
+            TerrainRanges[c].push_back(TerrainRange{cut, cl.First, cl.Count});
+        }
       }
     }
     blocks.resize(fpb * kShadowCascades * (1 + kMaxShadowTiles), 0.0f);
@@ -278,28 +295,35 @@ void ShadowStage::Encode(const FrameContext &, wgpu::RenderPassEncoder &pass) {
   if ((NVerts == 0 || !Vtx) && Terrain.empty()) return;
   pass.SetPipeline(Pipe);
   for (int c = 0; c < kShadowCascades; c++) {
-    if (Ranges[c].empty() && TerrainCut[c].empty()) continue;
+    if (Ranges[c].empty() && TerrainRanges[c].empty()) continue;
     pass.SetViewport((float)(c * kShadowTexels), 0.0f, (float)kShadowTexels, (float)kShadowTexels,
                      0.0f, 1.0f);
     if (!Ranges[c].empty() && Vtx) {
       const uint32_t off = (uint32_t)c * kCascadeStride;
       pass.SetBindGroup(0, Bind, 1, &off);
       pass.SetVertexBuffer(0, Vtx);
+      pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
       for (const DrawRange &r : Ranges[c]) {
-        pass.Draw(r.Count, 1, r.First);
+        pass.DrawIndexed(r.Count, 1, r.First, 0, 0);
         DrawnVerts += (long)r.Count;
         DrawCalls++;
       }
     }
     /* One tile, one buffer, one offset — the vertex buffer changes per draw here, which the building
      * half never needs. That is the whole extra cost of terrain casting. */
-    for (size_t k = 0; k < TerrainCut[c].size(); k++) {
-      const TerrainCaster &t = Terrain[TerrainCut[c][k]];
-      const uint32_t off = (uint32_t)((kShadowCascades + (size_t)c * kMaxShadowTiles + k) * kCascadeStride);
-      pass.SetBindGroup(0, Bind, 1, &off);
-      pass.SetVertexBuffer(0, t.Vtx);
-      pass.Draw(t.NVerts);
-      DrawnVerts += (long)t.NVerts;
+    uint32_t boundCut = 0xffffffffu;
+    for (const TerrainRange &r : TerrainRanges[c]) {
+      const TerrainCaster &t = Terrain[TerrainCut[c][r.Cut]];
+      if (r.Cut != boundCut) {
+        const uint32_t off =
+            (uint32_t)((kShadowCascades + (size_t)c * kMaxShadowTiles + r.Cut) * kCascadeStride);
+        pass.SetBindGroup(0, Bind, 1, &off);
+        pass.SetVertexBuffer(0, t.Vtx);
+        pass.SetIndexBuffer(t.Idx, wgpu::IndexFormat::Uint32);
+        boundCut = r.Cut;
+      }
+      pass.DrawIndexed(r.Count, 1, r.First, 0, 0);
+      DrawnVerts += (long)r.Count;
       DrawCalls++;
     }
   }

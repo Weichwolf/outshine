@@ -16,8 +16,10 @@ void fb_stream_campos(double lat, double lon);   /* live camera track for the wo
 /* THE TILE AS THE RENDERER DRAWS IT: the cluster DAG, not the vertex soup. Both are built where the
  * bytes land — the browser's tile worker, a native worker thread — because the DAG is 3.68 ms of a
  * measured 10.7 ms per tile and a frame thread that pays it drops the frame (doc/world/terrain.md).
- * `verts` and `clusters` are malloc'd; the caller frees both. 0 = not resident yet, poll again. */
+ * `verts`, `idx` and `clusters` are malloc'd; the caller frees all three. A cluster's First/Count is
+ * an INDEX range. 0 = not resident yet, poll again. */
 int  fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
+                     uint32_t **idx, int *nidx,
                      outshine::Render::DagCluster **clusters, int *nclusters,
                      double origin[3], float *err);   /* err = geometric error (m), drives the SSE LOD */
 /* THE CLUSTER DAG OF A VERTEX SOUP (pos3 + norm3 + uv2), off the frame thread — the same pool the
@@ -25,8 +27,9 @@ int  fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int
  * the first call. `seamAttr` >= 0 names a float whose SIGN marks an attribute seam: two vertices at
  * one position that disagree in it weld as one point and stay two for drawing, which is how a roof
  * cap keeps its crease without reading as a mesh boundary. -1 = no seam.
- * 1 + both arrays (malloc'd, caller frees), or 0 = not ready. */
+ * 1 + all three arrays (malloc'd, caller frees), or 0 = not ready. */
 int  fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
+                   uint32_t **idx, int *nidx,
                    outshine::Render::DagCluster **clusters, int *nclusters);
 
 void fb_stream_close(void);

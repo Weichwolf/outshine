@@ -32,6 +32,45 @@ State of the entries below: commit `793e1fe` + the model-root/delta round (2026-
 
 ## Chronology
 
+### 2026-08-08 — Der Indexpuffer war schon berechnet: kGrid 128 kostet weniger als 96 vorher
+
+**Der DAG hat seinen Index gebaut und weggeworfen.** `dag::Weld` fuellt `Corner[] -> Attributvertex`,
+und `ClusterDagBuild` hat daraus wieder eine Suppe expandiert — sechs Vertices je Quad auf einem
+regelmaessigen Gitter. Jetzt traegt `ClusterDag` ein `Idx`, `First`/`Count` einer Cluster ist ein
+INDEX-Bereich, und alle Leitersprossen zeigen in EIN Vertexfeld, weil ein Half-Edge-Collapse nie einen
+Vertex bewegt. Der Weld-Schluessel ist der ganze Vertex statt `(Position, Klasse)`, damit Level 0
+byteweise die flache Masche bleibt: **0 von 921 600 Pixeln** unterscheiden sich. Residente
+Kachelgeometrie 471,8 -> 100,1 MB bei gleicher Dreiecks- und Draw-Zahl, Faktor 4,71.
+
+**Der Schattenpass hat jede Kachel mit ALLEN Leveln gleichzeitig gezeichnet**, 1 093 110 Dreiecke gegen
+373 814 der Szene. Das war nicht nur Verschwendung: die groben Level stehen stellenweise UEBER Level 0,
+also hielt die Karte die falsche Tiefe. Jede Kaskade nimmt jetzt denselben Schnitt, den die Gebaeude
+schon nahmen — 474 470 Dreiecke, und 16 021 Pixel im Nahhang werden von 90,0 auf 147,1 mittlere Leuchte
+hell: die schwarzen Keile und die Streifenbaenderung sind weg
+(`sim/build/out/shadowcut-hochkoenig-{before,after}.png`).
+
+**kGrid 96 -> 128.** Ueber 360 Frames einer Drehung bei 1280x720 vom Hochkoenig, Median aus fuenf
+Runden REIHUM (blockweise misst Temperatur, nicht Code — derselbe Bau gab p50 9,99 kalt und 13,47 im
+fuenften Lauf): 96 -> 8,29/11,35/13,55 · **128 -> 10,27/13,84/16,13** · 192 -> 13,73/21,05/22,71 ·
+255 -> 17,69/23,29/27,18 ms. 192 faellt am Rahmen, nicht am Speicher (402 MB von 4 GB). Gegen den
+Stand vor dieser Runde — 96, nicht indiziert, ohne Schattenleiter — ist 128 SCHNELLER: 12,60/16,52/20,72
+bei 471,8 MB. Abweichung gegen das z14-Quellgitter (`sim/tools/meshdev.py`, 3x3-Ring) am Hochkoenig
+68,43/2,41 -> 57,33/1,47 m. Passzahl 7 auf 7.
+
+**Hoppes anisotrope Gewichtung ist gebaut und bringt 0,1 %, gemessen.** Der gespeicherte Fehler ist
+vertikal, seine Bildlaenge also `e·sin(up,Blick)`; das Maximum ueber die BOUNDING SPHERE genommen, damit
+die Elternsphaere nie kleiner gewichtet als ihr Kind und der Schnitt einfach bleibt. Ueber sechs Kameras
+mal drei Neigungen aendert sich die Dreieckszahl in 2 von 18 Faellen um 0,1 %. Grund ist Arithmetik:
+`e·f·x/(x²+h²)` hat sein Maximum bei `x = h`, und innerhalb `x < h` hat `1/d` die Flaeche laengst auf
+Level 0 gezwungen.
+
+**Die Silhouette wird jetzt aus dem TIEFENPUFFER gemessen** (`sim/tools/skylinedev.py`), also ohne
+Schwellwert, ohne Kontrast und damit ohne Dunst, und bei 1280x720 statt 320x180 — dort ist ein Pixel
+39 m auf 45 km statt 156 m. kGrid 96 -> 128 bewegt 6,9 bis 34,0 % der Spalten, Median 0, p95 1 px;
+128 -> 255 genauso. Der Boden ist die DEM-Pyramide: 30 bis 67 km sind z10/z9 mit 103/207 m je Texel.
+**Gegen das Foto steht die Kante des Baus an fuenf von sechs Kameras 58 bis 79 px ZU TIEF** — 3,9 Grad —,
+und das ueberdeckt alles, was kGrid tun kann. `tools/ridgeaudit.py` ist damit ersetzt und geloescht.
+
 ### 2026-08-08 — Die 1,2 EV sind der Bestand, nicht das Licht: Fels steht richtig, die Grasnarbe ist eine Blattzahl
 
 **Nichts am Renderer geaendert, und das ist das Ergebnis.** Die Spreizung Fels zu Rasen ist restlos

@@ -27,10 +27,13 @@ function handle(d) {
     if (ok) {
       var vp = Module._fbtw_verts(), nv = Module._fbtw_nverts();
       var vb = Module.HEAPU8.slice(vp, vp + nv * 8 * 4).buffer;
+      var ip = Module._fbtw_idx(), ni = Module._fbtw_nidx();
+      var ib = Module.HEAPU8.slice(ip, ip + ni * 4).buffer;
       var cp = Module._fbtw_clusters(), cbytes = Module._fbtw_clusterbytes();
       var cb = Module.HEAPU8.slice(cp, cp + cbytes).buffer;
-      out.verts = vb; out.nverts = nv; out.clusters = cb; out.nclusters = Module._fbtw_nclusters();
-      tr.push(vb); tr.push(cb);
+      out.verts = vb; out.nverts = nv; out.idx = ib; out.nidx = ni;
+      out.clusters = cb; out.nclusters = Module._fbtw_nclusters();
+      tr.push(vb); tr.push(ib); tr.push(cb);
     }
     Module._fbtw_release();
     self.postMessage(out, tr);
@@ -45,6 +48,8 @@ function handle(d) {
         if (res & 1) {   /* mesh: the DAG's own verts + clusters, copied out (the heap is reused) */
           var nv = Module._fbtw_nverts(), vp = Module._fbtw_verts();
           var vbuf = Module.HEAPU8.slice(vp, vp + nv * 8 * 4).buffer;
+          var ni = Module._fbtw_nidx(), ip = Module._fbtw_idx();
+          var ibuf = Module.HEAPU8.slice(ip, ip + ni * 4).buffer;
           /* raw bytes, and their COUNT comes from the module too: a sizeof written down here would
              be a second declaration of the struct's layout */
           var cp = Module._fbtw_clusters(), cbytes = Module._fbtw_clusterbytes();
@@ -52,9 +57,10 @@ function handle(d) {
           msg.nclusters = Module._fbtw_nclusters();
           var op = Module._fbtw_origin() >> 3;
           msg.verts = vbuf; msg.nverts = nv; msg.err = Module._fbtw_err();
+          msg.idx = ibuf; msg.nidx = ni;
           msg.clusters = cbuf;
           msg.origin = [Module.HEAPF64[op], Module.HEAPF64[op + 1], Module.HEAPF64[op + 2]];
-          transfer.push(vbuf); transfer.push(cbuf);
+          transfer.push(vbuf); transfer.push(ibuf); transfer.push(cbuf);
         }
         Module._fbtw_release();
         self.postMessage(msg, transfer);

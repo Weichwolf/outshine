@@ -28,6 +28,21 @@ sse_px = size_m · f_px / d      →  drawn while  sse_px > τ
 out of the same line, three decades apart, because their `size_m` differs by three decades. Nobody writes
 either number down.
 
+**The error is a VECTOR, so the tolerance weighs its screen component and not its length.** A height
+field's stored error is a vertical distance (Ulrich); what it does to the picture is `e · sin∠(up, view)`
+— along the ray it only changes depth, across it the silhouette moves. Hoppe 1997 says the same thing in
+its general form and this is that statement for one axis:
+
+```
+sse_px = err_m · k · f_px / (d − r),   k = max over the cluster's bounding sphere of sin∠(up, direction)
+```
+
+**`k` is taken over the whole sphere, not at its centre, and that is what keeps the cut single-crossing:**
+a parent sphere contains its children's, hence its cone of directions contains theirs, hence its `k` is
+never smaller — the ordering the DAG is built on survives the weighting. A camera inside the sphere sees
+the full cone and `k` = 1, which is the unweighted metric. A body with no vertical (a building prism)
+declares no up and gets `k` = 1 by the same expression.
+
 **The formulation is not ours and the pixel unit is the literature's.** Ponchio states it in exactly this
 shape: *„We use the screen projection error E which is simply the projection of the model space error λ
 on screen. In order to have a conservative estimate of the error, the closest point in the bounding
@@ -291,10 +306,27 @@ the compute software rasteriser — is not built and cannot be (WGSL §6.2.8, no
 
 What exists: a cluster DAG builder (Morton partition into 128-triangle clusters, groups of 4, QEM
 half-edge collapse to 50 % per group with the group's outer edges LOCKED, re-split, repeat) plus the
-per-cluster cut `sse_px = err_m · f_px / (d − r) ≤ τ < parent's`. Every cluster stores TWO spheres and
+per-cluster cut `sse_px = err_m · k · f_px / (d − r) ≤ τ < parent's`. Every cluster stores TWO spheres and
 TWO errors — its source group's and its destination group's — so siblings switch on the same frame.
 The cut runs on the CPU per cluster per frame and merges neighbouring selected clusters into one draw;
 the terrain bundle re-records only when the cut's structure changes.
+
+**THE DAG IS INDEXED since 2026-08-08, and the whole ladder shares ONE vertex array.** `dag::Weld` always
+built the corner→vertex map and `ClusterDagBuild` then expanded it back to a soup; now `ClusterDag` carries
+`Idx` and a cluster's `First`/`Count` is an index range. A half-edge collapse never moves a vertex, so every
+level indexes the same array — the buffer grows with the SURFACE, not with the ladder. The weld key is the
+whole vertex, not `(position, class)`, so a corner comes back with the bytes it went in with and level 0 is
+byte-identical to the flat mesh: measured, the reference frame is **0 of 921 600 pixels different**
+(`build/gpu_walk` md5 `6c1b6b67…` against `ebc29d42…`). Resident terrain geometry at the reference scene
+falls **471.8 → 100.1 MB**, a factor **4.71**, at unchanged triangle count and unchanged draw calls.
+
+**The anisotropic weight `k` is built and it is worth nothing at these standpoints, measured.** Over six
+cameras × three pitches (scene, −45°, −75°) the drawn triangle count changes in 2 of 18 cases and by
+**0.1 %** (263 326 → 263 070 and 53 716 → 53 460 at the Hochkönig); the cut's level histogram is otherwise
+identical. The reason is arithmetic and belongs in `## Knowledge`: for a camera at height `h` the weighted
+error is `e·f·x/(x²+h²)`, which PEAKS at `x = h` — the weight only bites at `x < h`, and inside `x < h` the
+`1/d` term has already put the surface on level 0. It is kept because it makes the metric a bound instead
+of an over-estimate, it is provably single-crossing, and its cost is one `acos` and two `sin` per cluster.
 
 **τ = 1.0 px, in ABSOLUTE pixels.** `[SET]`, `FB_TAU` overrides it for measurement. No dither, no
 crossfade, no geomorph anywhere — sub-τ selection is what pays for them.

@@ -21,8 +21,8 @@ public:
   /* pos3 + norm3 + uv2 per vertex, positions as ECEF offsets from `anchor`. `clusters` is the DAG
    * (doc/render/lod.md); level 0 leads the buffer, which is what lets the shadow cast keep using the
    * finest geometry while the camera pass takes the cut. */
-  void SetMesh(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
-               const double anchor[3]);
+  void SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+               const DagCluster *clusters, int nclusters, const double anchor[3]);
   void SetSun(const double sunEcef[3], const double up[3], float nightAmbient);
 
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
@@ -33,6 +33,7 @@ public:
    * whole of level 0. */
   uint32_t CasterVertexCount() const { return BaseVerts; }
   wgpu::Buffer CasterBuffer() const { return Vtx; }
+  wgpu::Buffer CasterIndexBuffer() const { return Idx; }
   const double *CasterAnchor() const { return Anchor; }
   const DagCluster *CasterClusters() const { return Clusters.data(); }
   int CasterClusterCount() const { return (int)Clusters.size(); }
@@ -44,14 +45,14 @@ private:
   wgpu::Queue Queue;
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;
-  wgpu::Buffer Uni, Vtx;
+  wgpu::Buffer Uni, Vtx, Idx;
 
   SceneLight Light;
   double Anchor[3] = {0, 0, 0};
   double SunDir[3] = {0, 0, 1};
   double Up[3] = {0, 0, 1};
   float NightAmbient = 0.0f;
-  uint32_t NVerts = 0, Cap = 0, BaseVerts = 0, DrawnVerts = 0;
+  uint32_t NVerts = 0, NIdx = 0, Cap = 0, IdxCap = 0, BaseVerts = 0, DrawnVerts = 0;
   std::vector<DagCluster> Clusters;
   struct DrawRange { uint32_t First, Count; };
   std::vector<DrawRange> Ranges;

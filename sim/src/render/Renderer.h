@@ -85,7 +85,8 @@ public:
   bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
 
   /* A table slot id, or -1 if the device is gone or the class array is full. */
-  int  UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
+  int  UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                 const DagCluster *clusters, int nclusters,
                  const double origin[3], const double anchor[3]);
   /* THE CLASS STRUCTURE, borrowed for the length of the call (world/ClassField.h). */
   void SetClassFrame(const double east[3], const double north[3], const double camOffset[2]) {
@@ -95,6 +96,7 @@ public:
   void ReleaseTile(int slot) { Tiles->ReleaseTile(slot); }         /* free the buffer, recycle both layers */
   void SetDrawList(const int *slots, int n) { Tiles->SetDrawList(slots, n); }  /* the tiles to draw this frame (World's leaves) */
   long ClassVramBytes(void) const { return Tiles->ClassVramBytes(); }    /* the classification input */
+  long TileMeshBytes(void) const { return Tiles->TileMeshBytes(); }      /* the resident tile geometry */
 
   /* THE ENVIRONMENT the frame is lit and hazed by — sun, moon, cloud deck, altitude. Nothing to do
    * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
@@ -189,9 +191,10 @@ public:
   int TemporalSettleFrames(void) const { return kTemporalSettleFrames; }
 
   /* The extruded OSM footprints World decoded; positions are ECEF offsets from `anchor`. */
-  void SetBuildingMesh(const float *verts, uint32_t nverts, const DagCluster *clusters, int nclusters,
+  void SetBuildingMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                       const DagCluster *clusters, int nclusters,
                        const double anchor[3]) {
-    Buildings->SetMesh(verts, nverts, clusters, nclusters, anchor);
+    Buildings->SetMesh(verts, nverts, idx, nidx, clusters, nclusters, anchor);
   }
   uint32_t BuildingVertexCount(void) const { return Buildings->VertexCount(); }
   void SetWaterMesh(const float *v, uint32_t n, const double anchor[3]) { Water->SetMesh(v, n, anchor); }
@@ -199,6 +202,9 @@ public:
 
   int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
   int  TerrainDrawCalls(void) const { return Tiles->DrawCallCount(); }
+  const long *TerrainTrianglesByLevel(void) const { return Tiles->TrianglesByLevel(); }
+  long ShadowTriangleCount(void) const { return Shadow->TriangleCount(); }
+  int  ShadowDrawCalls(void) const { return Shadow->DrawCallCount(); }
   int  TerrainVisibleTiles(void) const { return Tiles->VisibleTileCount(); }
   long TerrainTriangleCount(void) const { return Tiles->TriangleCount(); }
   /* The two accumulation buffers plus the motion attachment — the whole price of TAA in memory. */

@@ -260,10 +260,11 @@ void Renderer::CreateTileTexture(void) {
   Samp = Device.CreateSampler(&sd);
 }
 
-int Renderer::UploadTile(const float *verts, uint32_t nverts, const DagCluster *clusters,
-                           int nclusters, const double origin[3], const double anchor[3]) {
+int Renderer::UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                           const DagCluster *clusters, int nclusters, const double origin[3],
+                           const double anchor[3]) {
   if (!DeviceUsable()) return -1;
-  return Tiles->UploadTile(verts, nverts, clusters, nclusters, origin, anchor);
+  return Tiles->UploadTile(verts, nverts, idx, nidx, clusters, nclusters, origin, anchor);
 }
 
 
@@ -789,7 +790,8 @@ void Renderer::RenderFrame(void) {
   /* SUN SHADOWS. A NEW pass boundary, and it is Renderer's like every other: the four cascades are
    * four viewports into one depth atlas, so the count rises by exactly one however many cascades
    * there are. The cascade matrices are built here because every receiver reads the same uniform. */
-  Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterVertexCount(),
+  Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterIndexBuffer(),
+                     Buildings->CasterVertexCount(),
                      Buildings->CasterClusters(), Buildings->CasterClusterCount(),
                      Buildings->CasterAnchor());
   /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
@@ -799,7 +801,11 @@ void Renderer::RenderFrame(void) {
   ShadowTerrain.resize(TerrainCasters.size());
   for (size_t i = 0; i < TerrainCasters.size(); i++) {
     ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
+    ShadowTerrain[i].Idx = TerrainCasters[i].Idx;
     ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
+    ShadowTerrain[i].NIdx = TerrainCasters[i].NIdx;
+    ShadowTerrain[i].Clusters = TerrainCasters[i].Clusters;
+    ShadowTerrain[i].NClusters = TerrainCasters[i].NClusters;
     for (int a2 = 0; a2 < 3; a2++) {
       ShadowTerrain[i].Origin[a2] = TerrainCasters[i].Origin[a2];
       ShadowTerrain[i].BoundCtr[a2] = TerrainCasters[i].BoundCtr[a2];

@@ -2,7 +2,7 @@
 
 **Pass:** `ShadowStage` (`sim/src/render/stages/ShadowStage.{h,cpp}`), receiving half `ShadowSample.h`.
 Neighbours: [`buildings.md`](buildings.md) (the casters **are** that pass's vertex buffer),
-[`terrain.md`](terrain.md) (which does not cast today, and why), [`ao.md`](ao.md) (the other occlusion
+[`terrain.md`](terrain.md) (the other caster), [`ao.md`](ao.md) (the other occlusion
 term, and the one that must not double-count this one), [`tonemap.md`](tonemap.md) (where the two are
 combined), and [`../renderer.md`](../renderer.md) (the pass topology).
 
@@ -12,7 +12,8 @@ combined), and [`../renderer.md`](../renderer.md) (the pass topology).
 |---|---|
 | **ONE render pass for all cascades** — depth only, one pipeline, one draw per cascade into a strip atlas | the pass boundary belongs to `Renderer` and a stage split may not multiply passes ([`../renderer.md`](../renderer.md)) |
 | the casting half is a stage, the **receiving half is a WGSL splice** every lit surface includes | one binding and one sampler per receiver however many cascades there are |
-| casters are **borrowed**, never copied | the same vertex buffer the scene pass draws ([`buildings.md`](buildings.md)) |
+| casters are **borrowed**, never copied | the same vertex and index buffers the scene pass draws ([`buildings.md`](buildings.md), [`terrain.md`](terrain.md)) |
+| a cascade is a VIEW, so it takes **its own cut of every caster's DAG** | a caster drawn at all its levels at once is not merely 2.9× the triangles — the coarse levels stand ABOVE level 0 in places, so the map holds the wrong depth and the surface shadows itself |
 | a **plain [0,1] ortho depth**, not the scene's reversed-Z | a comparison sampler carries exactly one compare function, and `Less` is the one that reads naturally for „nearer to the light than the caster" |
 | **normal offset**, not a constant depth bias alone | it moves the lookup off the surface by about one cascade texel, which removes acne on grazing lit slopes without the peter-panning a constant bias large enough to do the same would cost |
 | the shadow term is the **unshadowed fraction of the direct beam**, and only the direct beam | ambient occlusion darkens sky light, not sunlight ([`ao.md`](ao.md), [`tonemap.md`](tonemap.md)) |
@@ -33,17 +34,25 @@ What its own source declares, with the provenance the source carries:
 | last cascade outer radius | **600 m** | `[SET]` |
 | filter | 3×3 PCF | `[SET]` |
 
-**Casters: OSM building prisms only.** Terrain does not cast this round, and the source names the reason
-rather than hiding it — the tile draw is a render bundle of hundreds of per-tile buffers with no
-per-cascade cull, so re-drawing it four times would cost more than the ridge shadows it would buy at a
-pedestrian's sun angles.
+**Casters: OSM building prisms AND the resident terrain tiles.** Both ride one pipeline — the two vertex
+strides are 32 bytes with position at 0 — and differ only in the per-draw uniform offset that carries the
+tile origin.
 
-**A cascade is a VIEW and takes its own cut.** It borrows BuildingsStage's cluster DAG, not just its
-vertex buffer, and selects per cascade against **two shadow texels** (`kShadowTauTexels`, `[SET]`: the
+**A cascade is a VIEW and takes its own cut, of BOTH casters since 2026-08-08.** It borrows the cluster
+DAG, not just the buffers, and selects per cascade against **two shadow texels** (`kShadowTauTexels`,
+`[SET]`: the
 receiver already filters over a 3×3 grid of hardware-PCF taps, so an error under the kernel width cannot
 move an edge in the picture). The projection is orthographic, so the metric carries no distance at all —
 `err_m / texelM` is one number for the whole cascade — and the cascade box is the cull, sphere against
 ±(R + r) in both map axes and against the depth span the projection itself clips to.
+
+**The terrain half was drawing its WHOLE buffer per cascade until 2026-08-08 — every level at once —
+and that was not only waste.** Measured at the Hochkönig, 1280×720, `kGrid` = 96: **1 093 110 → 474 470**
+triangles into the atlas (−57 %), draws 28 → 76. The picture is NOT identical and the difference is the
+point: 16 021 pixels change by more than 8 codes, all of them in the near slope (rows 379…719, columns
+715…1184), and the mean luminance there rises **90.0 → 147.1**. What went away are the black wedges and
+the stripe banding a coarse level cast onto the level-0 surface under it.
+`sim/build/out/shadowcut-hochkoenig-before.png` against `-after.png`.
 
 **Measured**, `mods/demo/scene.json`, 1280×720, Dawn/Metal on Apple A18 Pro, one binary with `FB_CULL`:
 
@@ -61,9 +70,10 @@ becomes the binding half the day footprint decimation gives buildings a cheap co
 
 ## Gaps
 
-- **Terrain casts nothing.** At a pedestrian's sun angles this is cheap to accept and at any other
-  altitude regime it is not: no ridge shadow, no valley in shade, no self-shadowed slope. The blocker is
-  named — the tile bundle has no per-cascade cull — and removing it is the work.
+- **The shadow cut is isotropic while the camera's is not.** [`../lod.md`](../lod.md) weighs a vertical
+  error by its component ACROSS the view ray; for a directional light the same argument gives
+  `sin∠(up, light)`, and a sun near the zenith would then need almost no caster detail at all. Not built,
+  not measured.
 - **Vegetation casts nothing**, because there is no vegetation ([`../vegetation.md`](../vegetation.md)).
   Foliage self-shadowing is named in [`../visual-target.md`](../visual-target.md) §1.2 as one of the five
   constraints that peak in a forest, and it is the one with no producer at all.

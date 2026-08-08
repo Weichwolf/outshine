@@ -132,9 +132,10 @@ private:
     int haveMesh;
     unsigned readyPass;    /* pass the GPU upload was issued; drawable only in a LATER pass (2-phase) */
     unsigned emitPass;     /* last pass this tile was drawn — lets a mode switch keep it (old mode) vs re-coarsen */
-    std::vector<float> verts;              /* the DAG soup: every level's clusters, level 0 first */
+    std::vector<float> verts;              /* ONE vertex per posting; every level indexes into it */
+    std::vector<uint32_t> idx;             /* every level's clusters, level 0 first */
     std::vector<Render::DagCluster> clusters;
-    int nverts;
+    int nverts, nidx;
     double origin[3];      /* tile-centre ECEF (from the mesh, once built) */
     float err;             /* geometric error (m), valid once haveMesh */
     std::vector<uint8_t> albedo;
@@ -255,6 +256,7 @@ private:
   std::vector<float> WaterVerts;
   uint32_t BuildingVerts = 0;
   std::vector<float> BuildingDagVerts;
+  std::vector<uint32_t> BuildingDagIdx;
   std::vector<Render::DagCluster> BuildingClusters;
   std::vector<float> BuildingSoup;   /* the one tile whose DAG is in flight; empty otherwise */
   int BuildingDagId = 0, BuildingDagSeq = 0;

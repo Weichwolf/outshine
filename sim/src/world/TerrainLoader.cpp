@@ -178,7 +178,7 @@ EM_JS(void, fbw_campos, (double lat, double lon), {
 
 /* 1 + the DAG (verts and clusters, both malloc'd, caller frees) when ready, else queue a mesh
  * request and return 0. */
-EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *nv, uint8_t **cptr, int *nc, double *origin, float *errp), {
+EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *nv, uint8_t **iptr, int *ni, uint8_t **cptr, int *nc, double *origin, float *errp), {
   var T = Module.__fbw; if (!T) return 0;
   var k = T.key(z, x, y, 1);
   var d = T.done.get(k);
@@ -189,9 +189,12 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
     T.req.delete(k);
     var vb = new Uint8Array(d.verts);
     var p = _malloc(vb.length); HEAPU8.set(vb, p);
+    var ib = new Uint8Array(d.idx);
+    var r = _malloc(ib.length); HEAPU8.set(ib, r);
     var cb = new Uint8Array(d.clusters);
     var q = _malloc(cb.length); HEAPU8.set(cb, q);
     HEAPU32[vptr >> 2] = p; HEAP32[nv >> 2] = d.nverts;
+    HEAPU32[iptr >> 2] = r; HEAP32[ni >> 2] = d.nidx;
     HEAPU32[cptr >> 2] = q; HEAP32[nc >> 2] = d.nclusters;
     HEAPF32[errp >> 2] = d.err;
     HEAPF64[origin >> 3] = d.origin[0]; HEAPF64[(origin >> 3) + 1] = d.origin[1]; HEAPF64[(origin >> 3) + 2] = d.origin[2];
@@ -209,10 +212,12 @@ int fb_stream_open(const char *base, double lat, double lon, int z) {
 void fb_stream_campos(double lat, double lon) { fbw_campos(lat, lon); }
 
 int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
+                    uint32_t **idx, int *nidx,
                     outshine::Render::DagCluster **clusters, int *nclusters,
                     double origin[3], float *err) {
   float e = 0.f;
   int ok = fbw_mesh_poll(z, (int)x, (int)y, grid, (uint8_t **)verts, nverts,
+                         (uint8_t **)idx, nidx,
                          (uint8_t **)clusters, nclusters, origin, &e);
   if (ok && err) *err = e;
   return ok;
@@ -220,7 +225,7 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
 
 /* Priority -1: the soup is already decoded and the frame it belongs to is waiting on it. */
 EM_JS(int, fbw_dag_poll, (int id, const float *soup, int nverts, int seamAttr,
-                          uint8_t **vptr, int *nv, uint8_t **cptr, int *nc), {
+                          uint8_t **vptr, int *nv, uint8_t **iptr, int *ni, uint8_t **cptr, int *nc), {
   var T = Module.__fbw; if (!T) return 0;
   var k = 'dag/' + id;
   var d = T.done.get(k);
@@ -229,9 +234,12 @@ EM_JS(int, fbw_dag_poll, (int id, const float *soup, int nverts, int seamAttr,
     if (!d.res) return 0;
     var vb = new Uint8Array(d.verts);
     var p = _malloc(vb.length); HEAPU8.set(vb, p);
+    var ib = new Uint8Array(d.idx);
+    var r = _malloc(ib.length); HEAPU8.set(ib, r);
     var cb = new Uint8Array(d.clusters);
     var q = _malloc(cb.length); HEAPU8.set(cb, q);
     HEAPU32[vptr >> 2] = p; HEAP32[nv >> 2] = d.nverts;
+    HEAPU32[iptr >> 2] = r; HEAP32[ni >> 2] = d.nidx;
     HEAPU32[cptr >> 2] = q; HEAP32[nc >> 2] = d.nclusters;
     return 1;
   }
@@ -245,9 +253,10 @@ EM_JS(int, fbw_dag_poll, (int id, const float *soup, int nverts, int seamAttr,
 })
 
 int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
+                  uint32_t **idx, int *nidx,
                   outshine::Render::DagCluster **clusters, int *nclusters) {
   return fbw_dag_poll(id, soup, nverts, seamAttr, (uint8_t **)verts, nverts_out,
-                      (uint8_t **)clusters, nclusters);
+                      (uint8_t **)idx, nidx, (uint8_t **)clusters, nclusters);
 }
 
 /* Non-blocking DEM-tile cache. TerrainField decodes immediately, so a single static buffer is safe.
@@ -487,6 +496,8 @@ struct FbpResult {
   bool Ok = false;
   float *Verts = nullptr;
   int NVerts = 0;
+  uint32_t *Idx = nullptr;
+  int NIdx = 0;
   outshine::Render::DagCluster *Clusters = nullptr;
   int NClusters = 0;
   double Origin[3] = {0, 0, 0};
@@ -530,6 +541,27 @@ int FbpProvider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint
   return got;
 }
 
+/* Three malloc'd arrays or none: a partial result is a cluster list that describes a buffer the
+ * caller does not have. */
+bool FbpPublish(FbpResult *r, const std::vector<float> &dv, const std::vector<uint32_t> &di,
+                const std::vector<outshine::Render::DagCluster> &dc) {
+  r->Verts = (float *)malloc(dv.size() * sizeof(float));
+  r->Idx = (uint32_t *)malloc(di.size() * sizeof(uint32_t));
+  r->Clusters = (outshine::Render::DagCluster *)malloc(dc.size() * sizeof(outshine::Render::DagCluster));
+  if (!r->Verts || !r->Idx || !r->Clusters) {
+    free(r->Verts); free(r->Idx); free(r->Clusters);
+    r->Verts = 0; r->Idx = 0; r->Clusters = 0;
+    return false;
+  }
+  memcpy(r->Verts, dv.data(), dv.size() * sizeof(float));
+  memcpy(r->Idx, di.data(), di.size() * sizeof(uint32_t));
+  memcpy(r->Clusters, dc.data(), dc.size() * sizeof(outshine::Render::DagCluster));
+  r->NVerts = (int)(dv.size() / 8);
+  r->NIdx = (int)di.size();
+  r->NClusters = (int)dc.size();
+  return true;
+}
+
 void FbpRunMesh(osmmesh_ctx *ctx, const FbpJob &j, FbpResult *r, FbpStats *st) {
   osmmesh_tile t = {};
   const double t0 = fbtp() ? fbtp_ms() : 0;
@@ -545,19 +577,13 @@ void FbpRunMesh(osmmesh_ctx *ctx, const FbpJob &j, FbpResult *r, FbpStats *st) {
   if (!ok || chunk.nverts <= 0) { outshine::Render::ChunkFree(&chunk); return; }
 
   std::vector<float> dv;
+  std::vector<uint32_t> di;
   std::vector<outshine::Render::DagCluster> dc;
-  outshine::Render::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, o, dv, dc);
+  outshine::Render::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, o, dv, di, dc);
   r->Err = chunk.err;
   outshine::Render::ChunkFree(&chunk);
-  if (dv.empty() || dc.empty()) return;
-
-  r->NVerts = (int)(dv.size() / 8);
-  r->Verts = (float *)malloc(dv.size() * sizeof(float));
-  r->NClusters = (int)dc.size();
-  r->Clusters = (outshine::Render::DagCluster *)malloc(dc.size() * sizeof(outshine::Render::DagCluster));
-  if (!r->Verts || !r->Clusters) { free(r->Verts); free(r->Clusters); r->Verts = 0; r->Clusters = 0; return; }
-  memcpy(r->Verts, dv.data(), dv.size() * sizeof(float));
-  memcpy(r->Clusters, dc.data(), dc.size() * sizeof(outshine::Render::DagCluster));
+  if (dv.empty() || di.empty() || dc.empty()) return;
+  if (!FbpPublish(r, dv, di, dc)) return;
   for (int a = 0; a < 3; a++) r->Origin[a] = o[a];
   r->Ok = true;
 }
@@ -576,27 +602,25 @@ void FbpRunDag(const FbpJob &j, FbpResult *r) {
   outshine::Render::ClusterDagOpts opts;
   if (j.SeamAttr >= 0 && j.SeamAttr < 8) opts.ClassOf = kFbpSeam[j.SeamAttr];
   std::vector<float> dv;
+  std::vector<uint32_t> di;
   std::vector<outshine::Render::DagCluster> dc;
   if (outshine::Render::ClusterDagBuild(soup, (uint32_t)nv, 8, opts, &dag)) {
     dv = std::move(dag.Verts);
+    di = std::move(dag.Idx);
     dc = std::move(dag.Clusters);
   } else {
     /* A soup too small to partition still has to appear as ONE cluster, or the caller's cluster list
      * stops describing its own buffer. */
     dv.assign(soup, soup + j.Soup.size());
+    di.resize((size_t)nv);
+    for (int i = 0; i < nv; i++) di[(size_t)i] = (uint32_t)i;
     outshine::Render::DagCluster c{};
     c.Count = (uint32_t)nv;
     c.ParentErr = outshine::Render::kDagRootErr;
     outshine::Render::BoundingSphere(soup, (uint32_t)nv, 8, c.SelfCenter, &c.SelfRadius);
     dc.push_back(c);
   }
-  r->NVerts = (int)(dv.size() / 8);
-  r->NClusters = (int)dc.size();
-  r->Verts = (float *)malloc(dv.size() * sizeof(float));
-  r->Clusters = (outshine::Render::DagCluster *)malloc(dc.size() * sizeof(outshine::Render::DagCluster));
-  if (!r->Verts || !r->Clusters) { free(r->Verts); free(r->Clusters); r->Verts = 0; r->Clusters = 0; return; }
-  memcpy(r->Verts, dv.data(), dv.size() * sizeof(float));
-  memcpy(r->Clusters, dc.data(), dc.size() * sizeof(outshine::Render::DagCluster));
+  if (!FbpPublish(r, dv, di, dc)) return;
   r->Ok = true;
 }
 
@@ -694,6 +718,7 @@ void fb_stream_campos(double lat, double lon) {
 }
 
 int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
+                    uint32_t **idx, int *nidx,
                     outshine::Render::DagCluster **clusters, int *nclusters,
                     double origin[3], float *err) {
   FbpJob j;
@@ -704,6 +729,8 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
   if (!FbpPoll(j, &r)) return 0;
   *verts = r.Verts;
   *nverts = r.NVerts;
+  *idx = r.Idx;
+  *nidx = r.NIdx;
   *clusters = r.Clusters;
   *nclusters = r.NClusters;
   origin[0] = r.Origin[0];
@@ -714,6 +741,7 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
 }
 
 int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
+                  uint32_t **idx, int *nidx,
                   outshine::Render::DagCluster **clusters, int *nclusters) {
   const uint64_t key = ((uint64_t)3 << 62) | (uint64_t)(uint32_t)id;
   std::unique_lock<std::mutex> lk(fbp_mu);
@@ -725,6 +753,7 @@ int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **v
     lk.unlock();
     if (!r.Ok) return 0;
     *verts = r.Verts; *nverts_out = r.NVerts;
+    *idx = r.Idx; *nidx = r.NIdx;
     *clusters = r.Clusters; *nclusters = r.NClusters;
     return 1;
   }

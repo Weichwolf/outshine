@@ -21,12 +21,15 @@ public:
 
   /* Borrowed from BuildingsStage: the same vertex buffer the scene pass draws, never a second copy,
    * and its DAG so each cascade can take its own cut. */
-  void SetCasters(wgpu::Buffer vtx, uint32_t nverts, const DagCluster *clusters, int nclusters,
-                  const double anchor[3]);
+  void SetCasters(wgpu::Buffer vtx, wgpu::Buffer idx, uint32_t nverts, const DagCluster *clusters,
+                  int nclusters, const double anchor[3]);
 
   /* The terrain half. Each tile is its own buffer with its own origin, so it rides the SAME pipeline
    * (both strides are 32 bytes with position at 0) and differs only in the per-draw offset. */
-  struct TerrainCaster { wgpu::Buffer Vtx; uint32_t NVerts; double Origin[3]; float BoundCtr[3], BoundRad; };
+  /* `Clusters` is BORROWED from the tile table for the length of the frame — residency only changes
+   * in World::Update, which has already run when Renderer collects the casters. */
+  struct TerrainCaster { wgpu::Buffer Vtx, Idx; uint32_t NVerts, NIdx; const DagCluster *Clusters;
+                         int NClusters; double Origin[3]; float BoundCtr[3], BoundRad; };
   void SetTerrainCasters(const std::vector<TerrainCaster> &tiles) { Terrain = tiles; }
 
   /* Rebuilds the four cascade projections around this frame's camera and sun. Renderer calls it
@@ -66,11 +69,13 @@ private:
   wgpu::BindGroup Bind;                     /* ONE group; the block is chosen by a dynamic offset */
   std::vector<TerrainCaster> Terrain;
   std::vector<uint32_t> TerrainCut[kShadowCascades];   /* indices into Terrain, per cascade */
+  struct TerrainRange { uint32_t Cut, First, Count; };  /* Cut = position in TerrainCut, = uniform block */
+  std::vector<TerrainRange> TerrainRanges[kShadowCascades];
   /* [SET] 256 tiles. The reference block is 54; the cap is what bounds the uniform buffer, and a cut
    * that would exceed it is TRUNCATED and counted, never silently dropped. */
   static constexpr uint32_t kMaxShadowTiles = 256;
 
-  wgpu::Buffer Vtx;
+  wgpu::Buffer Vtx, Idx;
   uint32_t NVerts = 0;
   const DagCluster *Clusters = nullptr;
   int NClusters = 0;

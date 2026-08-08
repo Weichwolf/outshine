@@ -137,13 +137,14 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void BuildingsStage::SetMesh(const float *verts, uint32_t nverts, const DagCluster *clusters,
-                             int nclusters, const double anchor[3]) {
+void BuildingsStage::SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                             const DagCluster *clusters, int nclusters, const double anchor[3]) {
   NVerts = nverts;
+  NIdx = nidx;
   Clusters.assign(clusters, clusters + (nclusters > 0 ? nclusters : 0));
   if (Clusters.empty() && nverts > 0) {
     DagCluster c{};
-    c.Count = nverts;
+    c.Count = nidx;
     c.ParentErr = kDagRootErr;
     BoundingSphere(verts, nverts, 8, c.SelfCenter, &c.SelfRadius);
     Clusters.push_back(c);
@@ -161,6 +162,14 @@ void BuildingsStage::SetMesh(const float *verts, uint32_t nverts, const DagClust
     Cap = nverts;
   }
   Queue.WriteBuffer(Vtx, 0, verts, (size_t)nverts * 8 * sizeof(float));
+  if (IdxCap < nidx) {
+    wgpu::BufferDescriptor bd{};
+    bd.size = (uint64_t)nidx * sizeof(uint32_t);
+    bd.usage = wgpu::BufferUsage::Index | wgpu::BufferUsage::CopyDst;
+    Idx = Device.CreateBuffer(&bd);
+    IdxCap = nidx;
+  }
+  Queue.WriteBuffer(Idx, 0, idx, (size_t)nidx * sizeof(uint32_t));
 }
 
 void BuildingsStage::SetSun(const double sunEcef[3], const double up[3], float nightAmbient) {
@@ -179,7 +188,10 @@ void BuildingsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pa
   fr.Set(ctx.Mvp20);
   Ranges.clear();
   for (const DagCluster &c : Clusters) {
-    if (!DagSelect(c, eyeLocal, fPx, SseTauPx())) continue;
+    /* A prism has no up: the DAG measured its error as a nearest-point distance, which is already
+     * the length in every direction. */
+    static const float kNoUp[3] = {0.0f, 0.0f, 0.0f};
+    if (!DagSelect(c, eyeLocal, fPx, SseTauPx(), kNoUp)) continue;
     if (!fr.Visible(rel, c.SelfCenter, c.SelfRadius)) continue;
     DrawnVerts += c.Count;
     if (!Ranges.empty() && Ranges.back().First + Ranges.back().Count == c.First)
@@ -201,7 +213,8 @@ void BuildingsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pa
   pass.SetPipeline(Pipe);
   pass.SetBindGroup(0, Bind);
   pass.SetVertexBuffer(0, Vtx);
-  for (const DrawRange &r : Ranges) pass.Draw(r.Count, 1, r.First);
+  pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
+  for (const DrawRange &r : Ranges) pass.DrawIndexed(r.Count, 1, r.First, 0, 0);
 }
 
 } // namespace outshine::Render

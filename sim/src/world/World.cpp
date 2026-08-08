@@ -42,10 +42,9 @@ static const double kSseK = 720.0 / (2.0 * 0.57735026919);   /* H / (2 tan(fov/2
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
 /* Quads per tile edge, and it is the ZERO POINT of the whole LOD chain: the cluster DAG's level 0 IS
  * this mesh, so no tolerance below its own decimation error can ever be honoured. kEdgeTau/kGrid is
- * that error in pixels -- 4 px against the DAG's declared 1 px (render/ClusterDag.h). 96 is where the
- * price stops: a 256-texel DEM tile would carry 255, and 128 measured 1029 MB of tile VRAM against
- * 615 at 96 and p95 18.4 ms against 13.1. doc/world/terrain.md 2.2. */
-static const int kGrid = 96;
+ * that error in pixels -- 3 px against the DAG's declared 1 px (render/ClusterDag.h). 128 is where
+ * the price stops: 192 measured p95 21.4 ms against the 16.67 ms frame. doc/world/terrain.md 2.2. */
+static const int kGrid = 128;
 static const double kCosView = 0.5;            /* frustum weight: <60deg off-axis -> full priority */
 static const int kNodeCeil = 6000;             /* safety backstop on the working set */
 
@@ -155,7 +154,7 @@ void World::Emit(int idx) {
   if (Ready(n)) {   /* committed on the GPU (uploaded + one pass elapsed) — safe to draw */
     n.emitPass = Pass;   /* drawn this pass -> a mode switch may keep showing it (old mode) until the overlay lands */
     DrawnReady++;
-    MeshVram += (long)n.nverts * 32;
+    MeshVram += (long)n.nverts * 32 + (long)n.nidx * 4;
     DrawSlots.push_back(n.slot);
     /* The drawn LOD cut, unconditionally: it hosts the night lights AND it is the only list that says
      * which mesh the near-field ground field may rasterise. Gating it on NightLights made the ground
@@ -873,14 +872,17 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     const double tMesh = Clock();
     if (!nd.haveMesh && build > 0) {
       float *v = nullptr;
+      uint32_t *ix = nullptr;
       Render::DagCluster *cl = nullptr;
-      int nv = 0, ncl = 0;
+      int nv = 0, ni = 0, ncl = 0;
       double o[3];
       float err = 0.f;
       /* The DAG arrived built (world/TerrainLoader.h): what this frame pays is the copy into the
        * node, not the simplifier. */
-      if (fb_stream_build(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &v, &nv, &cl, &ncl, o, &err)) {
+      if (fb_stream_build(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &v, &nv, &ix, &ni, &cl, &ncl,
+                          o, &err)) {
         nd.verts.assign(v, v + (size_t)nv * 8);
+        nd.idx.assign(ix, ix + ni);
         nd.clusters.assign(cl, cl + ncl);
         if (getenv("FB_DAGLOG")) {
           long per[16] = {0};
@@ -892,8 +894,10 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
               {"clusters", ncl}, {"levels", t}});
         }
         free(v);
+        free(ix);
         free(cl);
         nd.nverts = nv;
+        nd.nidx = ni;
         nd.err = err;
         nd.origin[0] = o[0]; nd.origin[1] = o[1]; nd.origin[2] = o[2];
         nd.haveMesh = 1;
@@ -905,10 +909,11 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     if (nd.haveMesh && nd.slot < 0 && upload > 0 && R && R->DeviceUsable()) {
       double anchor[3];
       SurfaceAnchor(nd.z, nd.x, nd.y, anchor);
-      nd.slot = R->UploadTile(nd.verts.data(), (uint32_t)nd.nverts, nd.clusters.data(),
-                              (int)nd.clusters.size(), nd.origin, anchor);
+      nd.slot = R->UploadTile(nd.verts.data(), (uint32_t)nd.nverts, nd.idx.data(), (uint32_t)nd.nidx,
+                              nd.clusters.data(), (int)nd.clusters.size(), nd.origin, anchor);
       if (nd.slot >= 0) {
         std::vector<float>().swap(nd.verts);
+        std::vector<uint32_t>().swap(nd.idx);
         std::vector<Render::DagCluster>().swap(nd.clusters);
         nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the upload is submitted */
         upload--;
@@ -976,20 +981,24 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   }
   if (R && BuildingDagId != 0) {
     float *dv = nullptr;
+    uint32_t *di = nullptr;
     Render::DagCluster *dc = nullptr;
-    int ndv = 0, ndc = 0;
+    int ndv = 0, ndi = 0, ndc = 0;
     /* Float 6 is uv.x, and a negative one tags the roof cap: an ATTRIBUTE seam, so the cap and its
      * wall keep two vertices but collapse as one point — otherwise the ring would read as a mesh
      * boundary and nothing would move. */
     if (fb_stream_dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 6,
-                      &dv, &ndv, &dc, &ndc)) {
-      const uint32_t base = (uint32_t)(BuildingDagVerts.size() / 8);
+                      &dv, &ndv, &di, &ndi, &dc, &ndc)) {
+      const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
+      const uint32_t ibase = (uint32_t)BuildingDagIdx.size();
       BuildingDagVerts.insert(BuildingDagVerts.end(), dv, dv + (size_t)ndv * 8);
+      for (int i = 0; i < ndi; i++) BuildingDagIdx.push_back(di[i] + vbase);
       for (int i = 0; i < ndc; i++) {
-        dc[i].First += base;
+        dc[i].First += ibase;
         BuildingClusters.push_back(dc[i]);
       }
       free(dv);
+      free(di);
       free(dc);
       BuildingDagId = 0;
       std::vector<float>().swap(BuildingSoup);
@@ -1012,6 +1021,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
             {"levels", t}});
       }
       R->SetBuildingMesh(BuildingDagVerts.data(), (uint32_t)(BuildingDagVerts.size() / 8),
+                         BuildingDagIdx.data(), (uint32_t)BuildingDagIdx.size(),
                          BuildingClusters.data(), (int)BuildingClusters.size(), Buildings.Anchor());
     }
   }
