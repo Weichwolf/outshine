@@ -310,7 +310,8 @@ int main(void) {
     return 1;
   }
 
-  gR.SetVegetationTable(gVeg.Rows(), gVeg.RowBytes());
+  gR.SetVegetationTable(gVeg.Rows(), gVeg.RowBytes(), gVeg.BareRockTemplate(),
+                        gVeg.Limit().SlopeBandDeg());
   gR.SetSkyClock(clk);
   gR.SetWind(gScene.WindDeg(), gScene.WindMs());
   gR.SetFovDeg(gScene.FovDeg());

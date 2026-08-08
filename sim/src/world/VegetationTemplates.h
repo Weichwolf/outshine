@@ -21,6 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "AlpineLimit.h"
 #include "GroundMaterials.h"
 
 namespace outshine::World {
@@ -38,7 +39,8 @@ public:
     float Grass[4];     /* rgb linear fresh blade, w = blades/m^2 */
     float Dry[4];       /* rgb linear dry blade, w = blade height (m) */
     float Param[4];     /* x = height jitter, y = blade width (m), z = clutter/m^2, w = dry fraction */
-    float Edge[4];      /* x = edgeReachM, y = 1 built / 0 grown, z = trees per m^2, w spare */
+    float Edge[4];      /* x = edgeReachM, y = 1 built / 0 grown, z = trees per m^2,
+                           w = the ground class's slope.plausibleDeg[1] */
   };
 
   /* What one declared (layer, kind) selects. `WidthM` is 0 for an area feature and the drawn width in
@@ -66,6 +68,9 @@ public:
 
   /* The class of a place OSM says nothing about. Declared, never guessed at the call site. */
   int DefaultTemplate() const { return Default_; }
+  /* The DEM's own answer where OSM has none (AlpineLimit.h), and the row it names. */
+  const AlpineLimit &Limit() const { return Limit_; }
+  int BareRockTemplate() const { return RockTpl_; }
   size_t RuleCount() const { return Rules_.size(); }
 
   /* WHICH OSM LAYERS THIS CLASS MODEL READS, derived from the rows and never written down twice: the
@@ -81,8 +86,9 @@ private:
   std::vector<std::string> Names_;
   std::unordered_map<std::string, Rule> Rules_;   /* key "layer/kind", or the layer's wildcard row */
   std::vector<std::string> Layers_, AreaLayers_;
+  AlpineLimit Limit_;
   std::string Error_;
-  int Default_ = 0;
+  int Default_ = 0, RockTpl_ = 0;
 };
 
 } // namespace outshine::World

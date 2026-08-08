@@ -28,6 +28,7 @@ once it is on the GPU), [`../architecture.md`](../architecture.md) (the lib/clie
 | Missing data is a defined state, not an error | 204 = hole (photo falls back to OSM), a missing neighbour tile = a gap the skirts cover, cold `/elev` = 503 and the start path asks with `?block=1` |
 | An `/elev` answer is a number or it is not a measurement | the whole body must be ONE finite number; `atof` alone would cache an HTML error page as "sea level" |
 | The core library must not depend on tile streaming | `TilesElevation` lives in `world/`, not in `core/`; the core side sees only the `ElevationProvider` interface |
+| Where nothing can grow is asked of the DEM, at the DEM's own resolution | `AlpineLimit` samples `fb_stream_ground` at z13's own post spacing, `40075017·cos(lat)/(2^13·256)` m — 12.93 m at 47.4°. Measured: from z13 to z15 the slope p90 moves at most 1.9°, from z12 to z13 it moves 4.0° |
 
 ### 1 The data path, drawn through once
 
@@ -560,6 +561,7 @@ defined anywhere.
 | Terrain library | built; ENU model with documented bounds, terrarium decode, stitching, exact ECEF end stage |
 | Night lights | built; EVS night only, three LUTs, 65,536-sprite cap |
 | `fb-tiles` client view | documented; six data endpoints plus `/elev`, `/wx` and `/health` |
+| `AlpineLimit` | built 2026-08-08; the treeline and slope rule, declared in `vegetation.json`'s `alpineLimit` block, one expression on the CPU (`TreeField::Scatter`) and one in WGSL (`TilesStage`'s `groundMat`) |
 
 ## Gaps
 
@@ -666,6 +668,30 @@ declared `(layer, kind)` rows, so a region whose tiles carry `ocean` or `street_
 a JSON row.
 
 ## Knowledge
+
+### Which zoom carries a slope — measured 2026-08-08
+
+Terrarium DEM straight off the tile server, a 1 040 m box, central differences at each zoom's own post
+spacing. Two walls, both bare in their reference photographs.
+
+| zoom | post | Mandlwand 47.4145/13.0570 p50/p90/p99 | Zugspitze N face 47.4180/10.9880 p50/p90/p99 |
+|---|---|---|---|
+| z12 | 25.86 m | 44.5 / 58.4 / 69.3 | 35.0 / 54.7 / 67.6 |
+| z13 | 12.93 m | 45.0 / 62.4 / 74.6 | 36.2 / 55.8 / 73.7 |
+| z14 | 6.47 m | 45.1 / 63.7 / 77.2 | 36.2 / 55.8 / 75.5 |
+| z15 | 3.23 m | 45.2 / 64.3 / 77.7 | 36.0 / 55.2 / 75.7 |
+
+**z13 is enough and z12 is not.** From z13 to z15 the median moves ≤ 0.8°, the p90 ≤ 1.9°, and the
+quantile RMS between the two distributions is **1.27°** (Mandlwand) and **0.62°** (Zugspitze). From z13
+down to z12 the p90 loses 4.0° and the p99 6.1°. `fb_stream_ground` reads z13, so the CPU stand gate
+measures the wall; the ground fragment uses the drawn mesh normal, which is z15 near the camera and
+therefore never flatter than the gate's.
+
+**A stencil WIDER than the post spacing is the thing that flattens a wall**, not the DEM itself:
+sampling `/elev` (z13 bilinear) on a 104 m stencil instead of a 13 m one costs the Mandlwand 10.1° at
+the p90 and the Zugspitze 8.5°. That is why the gate's stencil is the post spacing and not a round
+number of metres.
+
 
 ### The tile server's cold-start handshake, and what the layer set actually is
 

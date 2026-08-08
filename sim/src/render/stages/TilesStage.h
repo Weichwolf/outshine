@@ -38,6 +38,13 @@ public:
   void SetSward(double lat, double lon, const double east[3], const double north[3],
                 const double up[3]);
 
+  /* The declared bare-rock row and how wide the slope transition onto it is
+   * (assets/world/vegetation.json alpineLimit, world/AlpineLimit.h). Zero band = the fallback is off,
+   * which is what a table without the block means. */
+  void SetBareRock(int vegRow, float slopeBandDeg) {
+    BareRockRow = vegRow; BareSlopeBandDeg = slopeBandDeg;
+  }
+
   /* World drives a mutable per-tile table. Call before Configure(). */
 
   /* A table slot id, or -1 if the class array is full. The caller has checked DeviceUsable().
@@ -102,6 +109,8 @@ private:
   double SwEast[3] = {1, 0, 0}, SwNorth[3] = {0, 1, 0}, SwUp[3] = {0, 0, 1};
   long SwBaseI = 0, SwBaseJ = 0;
   bool SwHave = false;
+  int BareRockRow = 0;
+  float BareSlopeBandDeg = 0.0f;
 
   wgpu::RenderPipeline Pipe;
   wgpu::BindGroup Bind;

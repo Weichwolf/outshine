@@ -71,7 +71,7 @@
     "note": "This is 4.1's 'scree above, soil below' as a number: schotter and fels use favourHigh over the same 68-496 m span that the soil and litter classes use with favourLow."
   },
   "litterModel": "litter is an OVERLAY that references another class in this file by name, with a coverage fraction. It belongs to the ground, not to the tree, but its CLASS must be set by the vegetation template above it - the defaults here are what a class carries when no template speaks. slope.litterShedAboveDeg removes it on a face steeper than the named angle.",
-  "provenanceSummary": "17 classes. albedoBroadband: 7 carry a measured or published value with a named source (sand, erde_trocken, erde_feucht, schlamm, moos, asphalt, wasser - five distinct values, because erde_trocken/erde_feucht/schlamm share one substance by design); 4 are derived from measurements with the arithmetic written out (schotter, waldboden, pflaster, beton); 6 are [SET] and each names the measured bracket that constrains it (kies, fels, laubstreu, nadelstreu, torf, grasfilz). 7+4+6=17. albedo RGB RATIO (the chromaticity, chromaticityModel): 2 are published Munsell notations converted by path A (erde_trocken 10YR 5/3, erde_feucht 10YR 3/3), 1 more reuses the wet one for the same substance (schlamm); 7 are measured spectra of the material itself converted by path B (sand, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, beton); 4 are measured mixtures whose components are named and whose MIXING WEIGHTS are [SET] (kies, schotter, fels, pflaster); 3 are [SET] with a named measured bracket and no source of their own (moos, torf, wasser). 2+1+7+4+3=17. visibleBroadbandRatio (visibleBandModel): 12 derived from the same measured spectra as the chromaticity (sand, kies, schotter, fels, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, pflaster, beton, erde_trocken); 2 are [SET] carry-overs of erde_trocken with the direction of the error named (erde_feucht, schlamm); 3 are [SET] (moos and torf at the midpoint of a named measured bracket, wasser a stated 1.000 no-op). 12+2+3=17. Every roughness is [SET]. Every moisture is [SET] or a stated 0/1. grainSizeM: 3 derived from measurement (sand, kies, grasfilz), 1 a stated 0 (wasser), 13 [SET]. Every heightAmplitudeM is derived from grainSizeM by heightAmplitudeModel, whose three packing factors are [SET]. Every detailScaleM coarse octave is [SET], every fine octave is derived from it. Every slope and heightResponse number is [SET] except the three surveyed elevation anchors. surface (specularModel) is 5 coherent (fels, asphalt, pflaster, beton, wasser) and 12 particulate; all 17 are [SET] and each carries its one-line reason in origins.surface. 5+12=17. NOTHING IN THIS FILE IS A GUESS PRESENTED AS A MEASUREMENT.",
+  "provenanceSummary": "20 classes. albedoBroadband: 7 carry a measured or published value with a named source (sand, erde_trocken, erde_feucht, schlamm, moos, asphalt, wasser - five distinct values, because erde_trocken/erde_feucht/schlamm share one substance by design); 4 are derived from measurements with the arithmetic written out (schotter, waldboden, pflaster, beton); 6 are [SET] and each names the measured bracket that constrains it (kies, fels, laubstreu, nadelstreu, torf, grasfilz). 7+4+6=17. albedo RGB RATIO (the chromaticity, chromaticityModel): 2 are published Munsell notations converted by path A (erde_trocken 10YR 5/3, erde_feucht 10YR 3/3), 1 more reuses the wet one for the same substance (schlamm); 7 are measured spectra of the material itself converted by path B (sand, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, beton); 4 are measured mixtures whose components are named and whose MIXING WEIGHTS are [SET] (kies, schotter, fels, pflaster); 3 are [SET] with a named measured bracket and no source of their own (moos, torf, wasser). 2+1+7+4+3=17. visibleBroadbandRatio (visibleBandModel): 12 derived from the same measured spectra as the chromaticity (sand, kies, schotter, fels, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, pflaster, beton, erde_trocken); 2 are [SET] carry-overs of erde_trocken with the direction of the error named (erde_feucht, schlamm); 3 are [SET] (moos and torf at the midpoint of a named measured bracket, wasser a stated 1.000 no-op). 12+2+3=17. Every roughness is [SET]. Every moisture is [SET] or a stated 0/1. grainSizeM: 3 derived from measurement (sand, kies, grasfilz), 1 a stated 0 (wasser), 13 [SET]. Every heightAmplitudeM is derived from grainSizeM by heightAmplitudeModel, whose three packing factors are [SET]. Every detailScaleM coarse octave is [SET], every fine octave is derived from it. Every slope and heightResponse number is [SET] except the three surveyed elevation anchors. surface (specularModel) is 5 coherent (fels, asphalt, pflaster, beton, wasser) and 12 particulate; all 17 are [SET] and each carries its one-line reason in origins.surface. 5+12=17. NOTHING IN THIS FILE IS A GUESS PRESENTED AS A MEASUREMENT. ADDED 2026-08-08, the alpine rock/ice group: kalk, kalkschutt and firn. kalk and kalkschutt take albedoBroadband from Munsell neutral chips (N6, N7) through the ASTM D1535 quintic - a THIRD path beside A and B, and the only one that gives a chromaticity for free, because the neutral page has none. Their visibleBroadbandRatio is a stated 1.000 no-op with the sign named. firn's albedoBroadband is measured (Cuffey & Paterson) with a [SET] 50/50 area mix, its chromaticity is [SET] inside a derived bracket, and its band ratio is a three-band integral with [SET] band reflectances. 20 = 17 + 3.",
   "classes": [
     {
       "name": "sand",
@@ -343,6 +343,146 @@
         "slope.plausibleDeg": "[SET] rock is the only class that survives a vertical face; below 30 deg it is buried under soil.",
         "slope.litterShedAboveDeg": "[SET] low, at 25 deg: 4.1's 'a steep face sheds litter' bites hardest here.",
         "surface": "[SET] an outcrop is ONE solid body, so the shaded normal really is the normal of an interface - a dry rock face has a sheen and a gravel bed does not."
+      }
+    },
+    {
+      "name": "kalk",
+      "albedo": [
+        0.2857,
+        0.2857,
+        0.2857
+      ],
+      "albedoBroadband": 0.2857,
+      "visibleBroadbandRatio": 1.0,
+      "roughness": 0.72,
+      "moisture": 0.03,
+      "surface": "coherent",
+      "grainSizeM": 0.4,
+      "heightAmplitudeM": 0.04,
+      "heightPacking": "sealed",
+      "detailScaleM": [
+        7.0,
+        1.045
+      ],
+      "slope": {
+        "plausibleDeg": [
+          30,
+          90
+        ],
+        "litterShedAboveDeg": 25
+      },
+      "heightResponse": {
+        "mode": "flat"
+      },
+      "litter": {
+        "class": null,
+        "coverage": 0.0
+      },
+      "origins": {
+        "albedo": "derived - Munsell N6 ('medium light grey'), the GSA Rock-Color Chart notation for a weathered Wetterstein-/Dachsteinkalk face, through the ASTM D1535 value-to-luminance quintic Y = 1.1914V - 0.22533V^2 + 0.23352V^3 - 0.020484V^4 + 0.00081939V^5: Y(6) = 29.30 % of magnesium oxide, times Ymgo = 0.975 = 0.2857. A rock-colour chart is read ON THE OUTCROP, so the lichen-and-soot discount that fels applies by hand is already inside the chip and must not be applied twice. The CHIP is [SET] inside the chart's own limestone range N5...N8 (0.188...0.562); N6 is the field-standard reading for the light grey, lichen-spotted Hochkoenig and Zugspitze walls. CROSS-CHECK: fels, bracketed independently off Levinson & Akbari 2002, lands at 0.30, i.e. 0.014 away. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the wiese row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. N6 gives 0.2857, i.e. 0.02 EV from it: two independent routes, a Munsell chip and a photometric ratio, agreeing inside a twentieth of a stop.",
+        "albedo.chroma": "derived - 1.000:1.000:1.000, and it is a MINERALOGICAL derivation, not a mix: Munsell N is the NEUTRAL page, so the chip has no hue and no chroma and its chromaticity IS the illuminant's. That the page is the right one for this rock is physics - calcite has no electronic transition in 380...780 nm (its shortwave features are the CO3(2-) overtones at 1.9, 2.16 and 2.35 um), so a high-purity carbonate is colourless in the visible and everything that tints a limestone is an impurity. Wettersteinkalk and Dachsteinkalk are >97 % CaCO3. This is why the alpine rock is NOT fels: fels is a [SET] 50/50 of limestone with Buntsandstein and carries the red sandstone's hue, which is right for the Weserbergland and wrong here.",
+        "visibleBroadbandRatio": "[SET] 1.000, a STATED NO-OP whose sign is known and whose size is not, the same posture wasser takes. Calcite's only shortwave absorptions are the three CO3 overtones beyond 1.8 um, so the true ratio is slightly ABOVE 1.000 - the visible band is the brighter one. No 0.3...2.5 um spectrum of an alpine limestone face was found: ECOSTRESS carries rock.sedimentary.limestone.coarse as crushed particulate only, and it is already spent inside fels' mix.",
+        "roughness": "[SET] a cleaved bedding plane carries a real specular lobe, marginally rougher than fels' 0.70 because karren solution pitting roughens a carbonate face that a sandstone face does not get.",
+        "moisture": "[SET] a wall sheds water in minutes; drier than fels' 0.05 because it is above the treeline and out of the ground-water zone.",
+        "grainSizeM": "[SET] 0.4 m is JOINT AND BEDDING SPACING, not grain. Wetterstein- and Dachsteinkalk are massive to thick-bedded (bank thickness decimetres to metres), coarser than fels' 0.25 m, which is a thin-bedded Muschelkalk.",
+        "detailScaleM": "[SET] 7.0 m coarse, fine = coarse/6.7 = 1.045 (detailScaleModel). Above fels' 6.0 m for the same reason the grain is above it: the relief of a massive limestone wall is buttress-and-gully at the decametre, not slab-and-ledge at the metre.",
+        "heightAmplitudeM": "derived - grain x the table's own sealed packing factor 0.1 (fels 0.25 -> 0.025), so 0.4 -> 0.04.",
+        "slope.plausibleDeg": "[SET] identical to fels and for the identical reason: rock is the only class that survives a vertical face, and below 30 deg it is buried under its own weathering mantle. THIS NUMBER IS NOW READ: it is the slope above which no template's instances stand and above which the ground turns to this class (vegetation.json alpineLimit).",
+        "slope.litterShedAboveDeg": "[SET] 25 deg, fels' number - nothing about the shedding changes with the lithology.",
+        "surface": "[SET] an outcrop is ONE solid body; the shaded normal is the normal of an interface."
+      }
+    },
+    {
+      "name": "kalkschutt",
+      "albedo": [
+        0.2857,
+        0.2857,
+        0.2857
+      ],
+      "albedoBroadband": 0.2857,
+      "visibleBroadbandRatio": 1.0,
+      "roughness": 0.88,
+      "moisture": 0.03,
+      "surface": "particulate",
+      "grainSizeM": 0.064,
+      "heightAmplitudeM": 0.0256,
+      "heightPacking": "loose",
+      "detailScaleM": [
+        3.5,
+        0.522
+      ],
+      "slope": {
+        "plausibleDeg": [
+          25,
+          38
+        ],
+        "litterShedAboveDeg": 35
+      },
+      "heightResponse": {
+        "mode": "flat"
+      },
+      "litter": {
+        "class": null,
+        "coverage": 0.0
+      },
+      "origins": {
+        "albedo": "derived - the SAME value as kalk, 0.2857, because it is the same lithology and the one measurement available cannot tell the two apart. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the wiese row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. That plateau IS a wall-and-talus mosaic, so 0.290 is the mixture's number and neither member's. This row first carried Munsell N7 against kalk's N6, 0.4094 against 0.2857, on the ARGUMENT that a talus cone is renewed by rockfall faster than lichen colonises it and therefore shows fresher rock. The argument still stands; the 0.50 EV step it was worth does not, because no measurement sees it. An assertion a measurement cannot see is not kept. What separates the two classes is what the file says separates classes of equal reflectance: grain 0.064 m against 0.4 m, loose against sealed packing, particulate against coherent.",
+        "albedo.chroma": "derived - 1.000:1.000:1.000, kalk's mineralogical argument verbatim: the clasts ARE the wall.",
+        "visibleBroadbandRatio": "[SET] 1.000, kalk's stated no-op verbatim.",
+        "roughness": "[SET] 0.88, schotter's number: angular fracture faces, matt with mineral glints.",
+        "moisture": "[SET] a talus cone is the fastest-draining ground there is.",
+        "grainSizeM": "derived - alpine limestone talus is cobble grade; 0.064 m is the Wentworth cobble/pebble boundary and is taken as d50. The plates a Kalkschutt cone is made of run 2...20 cm, so the boundary sits inside the range rather than at its edge.",
+        "heightAmplitudeM": "derived - grain x the table's own LOOSE packing factor 0.4 (kies 0.016 -> 0.0064, schotter 0.032 -> 0.0128), so 0.064 -> 0.0256.",
+        "detailScaleM": "derived - log-interpolated on grain between the table's own two mineral anchors, schotter (0.032 m grain, 2.2 m coarse) and fels (0.25 m grain, 6.0 m coarse): ln(0.064/0.032)/ln(0.25/0.032) = 0.337, so 2.2 + 0.337 x 3.8 = 3.48, taken as 3.5. Fine = 3.5/6.7 = 0.522.",
+        "slope.plausibleDeg": "derived - the lower bound 25 deg is schotter's declared 'scree exists above where soil stops'. The upper bound is the ANGLE OF REPOSE of angular coarse debris, 33...38 deg; 38 deg is its top, because a cone that stands steeper than its repose angle is not a cone any more, it is the wall above it.",
+        "slope.litterShedAboveDeg": "[SET] 35 deg - a moving talus surface holds nothing anyway.",
+        "surface": "[SET] a heap of clasts: each plate is coherent, the heap is not."
+      }
+    },
+    {
+      "name": "firn",
+      "albedo": [
+        0.4619,
+        0.4942,
+        0.5312
+      ],
+      "albedoBroadband": 0.49,
+      "visibleBroadbandRatio": 1.46,
+      "roughness": 0.9,
+      "moisture": 0.0,
+      "surface": "particulate",
+      "grainSizeM": 0.001,
+      "heightAmplitudeM": 0.00025,
+      "heightPacking": "packed",
+      "detailScaleM": [
+        1.2,
+        0.179
+      ],
+      "slope": {
+        "plausibleDeg": [
+          0,
+          50
+        ],
+        "litterShedAboveDeg": 0
+      },
+      "heightResponse": {
+        "mode": "flat"
+      },
+      "litter": {
+        "class": null,
+        "coverage": 0.0
+      },
+      "origins": {
+        "albedo": "derived - Cuffey & Paterson, The Physics of Glaciers, 4th ed. 2010, table of measured surface albedos: firn 0.43...0.69, clean glacier ice 0.34...0.51. An OSM glacier polygon covers the WHOLE glacier, so the class has to be both: midpoint of firn 0.56 and midpoint of clean ice 0.425, mixed 50/50 = 0.4925, taken as 0.49. THE 50/50 IS [SET] - it stands for an accumulation-area ratio of one half, which is below the balanced 2/3 and is what an Alpine glacier in the 2020s actually shows in late July. Debris cover is NOT modelled and its sign is known: it only ever lowers this number.",
+        "albedo.chroma": "[SET] 1.000:1.070:1.150 inside a bracket that is derived. The PHYSICS is not in doubt: the absorption coefficient of pure ice rises about two orders of magnitude from 400 to 700 nm (Warren & Brandt 2008), so every ice-scattering medium reflects blue better than red and the coarser the scatterer the stronger the tilt. The BRACKET is the two ends the surface mixes: fine-grained firn at a 1 mm grain radius (Wiscombe & Warren 1980 model spectra) reads about 1.000:1.011:1.027, bare glacier ice about 1.000:1.15:1.30. The value sits nearer the firn end because firn covers the larger area. The digits are read off published curves, not integrated; treat them as +-0.03 per channel. Locked to albedoBroadband: 0.2126 + 0.7152 x 1.070 + 0.0722 x 1.150 = 1.0609, so the triple is 0.49/1.0609 x the ratio.",
+        "visibleBroadbandRatio": "derived, with [SET] band values - a three-band integral against the AM1.5G energy split (UV 300...400 nm 4 %, visible 400...700 nm 39 %, NIR 700...1400 nm 40 %, SWIR 1400...2500 nm 17 %). Snow and ice reflectance collapses beyond 1.4 um, which is the whole reason this class needs a ratio far from 1: with band reflectances 0.90 / 0.90 / 0.55 / 0.05 read off Wiscombe & Warren 1980 for a 1 mm grain, the shortwave mean is 0.6155 against a visible 0.90, ratio 1.46. Same arithmetic on bare ice (0.55 visible) gives 1.47, so the number does not depend on which end of the mix is taken. Uncertainty +-0.1; the band reflectances are read off curves.",
+        "roughness": "[SET] 0.90 - snow and firn are the most nearly Lambertian natural surface there is; the specular lobe belongs to a refrozen melt crust, which this class does not model.",
+        "moisture": "[SET] 0.0, AND THAT IS NOT A CLAIM THAT FIRN IS DRY. Summer Alpine firn is wet, but the measured albedos above are ALREADY melt-season values; running the moisture dial over them would take the darkening twice. The specular film of a wet surface is the price of stating it this way.",
+        "grainSizeM": "derived - 1 mm, the grain radius of the Wiscombe & Warren model spectrum that both the chromaticity and the band ratio are read from, and the middle of the 0.5...2 mm range a snow-pit grain-size classification gives Alpine summer firn.",
+        "heightAmplitudeM": "derived - grain x the table's own PACKED factor 0.25 (sand 0.00065 -> 0.000162), so 0.001 -> 0.00025.",
+        "detailScaleM": "[SET] 1.2 m coarse, fine = 1.2/6.7 = 0.179. The relief of a summer glacier surface at the metre is sun cups and ablation hollows, 0.5...2 m across.",
+        "slope.plausibleDeg": "[SET] a snow and firn cover does not lie on a face steeper than about 50 deg; steeper ice faces exist and are ice, not firn. The lower bound is 0 - a glacier is flat wherever it wants to be.",
+        "surface": "[SET] particulate: firn is a sintered heap of grains, and with moisture 0 the loader gives it no specular lobe at all, which is the Lambertian scatterer it should be."
       }
     },
     {

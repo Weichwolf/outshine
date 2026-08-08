@@ -69,7 +69,7 @@
         "perM2": 0.18
       },
       "origins": {
-        "trees.perM2": "hergeleitet ueber Reineke (1933): SDI = N \u00b7 (d_g/25)^1.605, N je ha, d_g quadratischer Mitteldurchmesser in cm. d_g aus der deklarierten Artmischung und deren bhd_cm: sqrt(0.42\u00b743\u00b2 + 0.18\u00b750\u00b2 + 0.14\u00b728\u00b2 + 0.10\u00b743\u00b2 + 0.07\u00b747\u00b2 + 0.05\u00b726\u00b2 + 0.04\u00b745\u00b2) = 42.3 cm. SDI_max fuer Buche 1100 [SET, Literaturband 1000...1200], bewirtschaftet 60 % davon = 660. N = 660 \u00b7 (25/42.3)^1.605 = 284/ha = 0.0284/m^2, gerundet 0.028. Die alte 0.04 (400/ha) war eine nackte Setzung und ignorierte, dass Stammzahl und Durchmesser nicht unabhaengig sind: 400/ha bei 42 cm liegt ueber der Selbstdurchforstungsgrenze.",
+        "trees.perM2": "hergeleitet ueber Reineke (1933): SDI = N · (d_g/25)^1.605, N je ha, d_g quadratischer Mitteldurchmesser in cm. d_g aus der deklarierten Artmischung und deren bhd_cm: sqrt(0.42·43² + 0.18·50² + 0.14·28² + 0.10·43² + 0.07·47² + 0.05·26² + 0.04·45²) = 42.3 cm. SDI_max fuer Buche 1100 [SET, Literaturband 1000...1200], bewirtschaftet 60 % davon = 660. N = 660 · (25/42.3)^1.605 = 284/ha = 0.0284/m^2, gerundet 0.028. Die alte 0.04 (400/ha) war eine nackte Setzung und ignorierte, dass Stammzahl und Durchmesser nicht unabhaengig sind: 400/ha bei 42 cm liegt ueber der Selbstdurchforstungsgrenze.",
         "trees.species": "[SET] Weserbergland slope forest; the names are the wasm-tree species files (~/Git/wasm-tree/species/*.json), no second parameterisation",
         "grass.perM2": "[SET] closed-canopy forest floor is grass-poor; 90/m^2 is the visual-closure target at 1 m, not a tiller count",
         "grass.heightM": "[SET] shade grasses/sedges under canopy, 0.15-0.30 m",
@@ -146,7 +146,7 @@
       },
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
-        "trees.perM2": "hergeleitet ueber Reineke, dieselbe Zeile wie beim Laubmischwald. d_g = sqrt(0.62\u00b741\u00b2 + 0.24\u00b740\u00b2 + 0.10\u00b753\u00b2 + 0.04\u00b725\u00b2) = 41.6 cm. SDI_max fuer Fichte 1250 [SET, Literaturband 1200...1400], bewirtschaftet 60 % davon = 750. N = 750 \u00b7 (25/41.6)^1.605 = 331/ha = 0.0331/m^2, gerundet 0.033. Die alte 0.09 (900/ha) beschreibt eine Stangenholzdichte bei ~22 m Hoehe, nicht den 35-m-Bestand, den fichte.json deklariert.",
+        "trees.perM2": "hergeleitet ueber Reineke, dieselbe Zeile wie beim Laubmischwald. d_g = sqrt(0.62·41² + 0.24·40² + 0.10·53² + 0.04·25²) = 41.6 cm. SDI_max fuer Fichte 1250 [SET, Literaturband 1200...1400], bewirtschaftet 60 % davon = 750. N = 750 · (25/41.6)^1.605 = 331/ha = 0.0331/m^2, gerundet 0.033. Die alte 0.09 (900/ha) beschreibt eine Stangenholzdichte bei ~22 m Hoehe, nicht den 35-m-Bestand, den fichte.json deklariert.",
         "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure",
         "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },
@@ -489,21 +489,6 @@
         },
         {
           "layer": "land",
-          "kind": "bare_rock",
-          "rank": 44
-        },
-        {
-          "layer": "land",
-          "kind": "scree",
-          "rank": 44
-        },
-        {
-          "layer": "land",
-          "kind": "shingle",
-          "rank": 44
-        },
-        {
-          "layer": "land",
           "kind": "sand",
           "rank": 45
         },
@@ -533,7 +518,195 @@
           "kind": "bridleway",
           "rank": 80,
           "widthM": 1.5
+        }
+      ]
+    },
+    {
+      "name": "felsflur",
+      "ground": {
+        "class": "kalk",
+        "edgeReachM": 1.5,
+        "edgeConstructed": 0,
+        "contrast": 0.6
+      },
+      "grass": {
+        "perM2": 6.0,
+        "heightM": 0.05,
+        "heightJitter": 0.8,
+        "widthM": 0.006,
+        "dryFraction": 0.5,
+        "colorSrgb": [
+          96,
+          108,
+          74
+        ],
+        "drySrgb": [
+          140,
+          132,
+          96
+        ]
+      },
+      "forbs": {
+        "perM2": 0.08,
+        "species": [
+          "silberwurz",
+          "steinbrech"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.6
+      },
+      "origins": {
+        "subject": "OSM natural=bare_rock and natural=cliff. THE CLASS THAT WAS MISSING: these tags were routed to heide, a heath on sand with 0.004 trees/m^2, which is how deciduous trees came to stand on the Mandlwand and on the Zugspitze summit at 2962 m. The tile server passes bare_rock, scree and glacier through at every zoom 9...14 (checked 2026-08-08 on the z14 tiles of hochkoenig 8786/5734, zugspitze 8691/5734 and nebelhorn 8662/5734, and on z9...z14 at hochkoenig), so nothing had to be added to tiles/.",
+        "trees.perM2": "0, and it is a STATEMENT and not a rounding: a rock face has no rooting medium. The engine's own material table says the same thing in its own units - kalk declares slope.plausibleDeg [30, 90], i.e. it is the class that exists where nothing else does.",
+        "shrubs.perM2": "0 for the same reason. Krummholz belongs to the treeline band, which alpineLimit handles as a density ramp on the classes that HAVE woody instances; it is not a property of bare rock.",
+        "grass.perM2": "[SET] 6/m^2. Rock-crevice communities (Potentilletalia caulescentis) cover a few percent of a wall; 6 blades/m^2 against wiese's 800 is that few percent, and the cover stage stops drawing blades at 44.16 m anyway, so this is a near-field statement only.",
+        "forbs.species": "[SET] the two names an alpine botanist gives first for a limestone crevice; no species file exists for either, so the row is declared and not grown.",
+        "grass.colorSrgb": "[SET] the grey-green of a crevice cushion, desaturated against wiese because there is no sward under it.",
+        "ground.edgeReachM": "[SET] 1.5 m, the widest grown reach in the file. A rock/turf boundary is not a line: it is the metre or two over which the mantle thins out, and it is wider than the wood/meadow 0.9 m because there is no root plate holding it.",
+        "clutter.perM2": "[SET] 0.6 - fallen blocks, the densest clutter declared here."
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "bare_rock",
+          "rank": 44
         },
+        {
+          "layer": "land",
+          "kind": "cliff",
+          "rank": 47
+        }
+      ]
+    },
+    {
+      "name": "schutthalde",
+      "ground": {
+        "class": "kalkschutt",
+        "edgeReachM": 1.2,
+        "edgeConstructed": 0,
+        "contrast": 0.55
+      },
+      "grass": {
+        "perM2": 14.0,
+        "heightM": 0.08,
+        "heightJitter": 0.8,
+        "widthM": 0.007,
+        "dryFraction": 0.5,
+        "colorSrgb": [
+          104,
+          112,
+          76
+        ],
+        "drySrgb": [
+          150,
+          140,
+          100
+        ]
+      },
+      "forbs": {
+        "perM2": 0.25,
+        "species": [
+          "leimkraut",
+          "taeschelkraut"
+        ],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 1.2
+      },
+      "origins": {
+        "subject": "OSM natural=scree and natural=shingle. Split off felsflur because a talus cone and the wall above it are not the same surface: the cone is loose, mobile, cobble-grade and one Munsell step brighter (ground-materials.json kalkschutt).",
+        "trees.perM2": "0. A mobile talus surface buries or shears off anything that germinates on it; that is what makes it talus and not a slope.",
+        "shrubs.perM2": "0, same argument.",
+        "grass.perM2": "[SET] 14/m^2. Scree pioneer communities (Thlaspietalia rotundifolii) are more than a rock face and far less than a sward.",
+        "forbs.species": "[SET] two scree pioneers; no species file exists for either.",
+        "ground.edgeReachM": "[SET] 1.2 m - narrower than the wall's 1.5 m because a cone has a toe, where the sward starts within a metre.",
+        "clutter.perM2": "[SET] 1.2 - the surface IS clutter; this is the densest row in the file."
+      },
+      "osm": [
+        {
+          "layer": "land",
+          "kind": "scree",
+          "rank": 44
+        },
+        {
+          "layer": "land",
+          "kind": "shingle",
+          "rank": 44
+        }
+      ]
+    },
+    {
+      "name": "gletscher",
+      "ground": {
+        "class": "firn",
+        "edgeReachM": 0.5,
+        "edgeConstructed": 0,
+        "contrast": 0.35
+      },
+      "grass": {
+        "perM2": 0.0,
+        "heightM": 0.0,
+        "heightJitter": 0.0,
+        "widthM": 0.01,
+        "dryFraction": 0.0,
+        "colorSrgb": [
+          128,
+          128,
+          128
+        ],
+        "drySrgb": [
+          128,
+          128,
+          128
+        ]
+      },
+      "forbs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "shrubs": {
+        "perM2": 0.0,
+        "species": [],
+        "status": "declared"
+      },
+      "trees": {
+        "perM2": 0.0,
+        "species": {},
+        "status": "declared"
+      },
+      "clutter": {
+        "perM2": 0.0
+      },
+      "origins": {
+        "subject": "OSM natural=glacier, which the tile server carries in water_polygons. It used to select heide, i.e. a sand-coloured heath with birches on the Schneeferner and on the Uebergossene Alm.",
+        "trees.perM2": "0, and every other density is 0 as well: nothing at all stands on a glacier. This is the only template in the file whose whole plant declaration is empty, and the empty blade colours are there so the sward aggregate cannot pull the ice toward a green.",
+        "ground.edgeReachM": "[SET] 0.5 m. An ice margin is nearly a line - it is a melt edge, not a gradient - but it is not CONSTRUCTED either, so it stays a grown edge with the smallest reach declared for one."
+      },
+      "osm": [
         {
           "layer": "water_polygons",
           "kind": "glacier",
@@ -1108,5 +1281,27 @@
   ],
   "groundClassOrigin": "the template REFERENCES a class of sim/assets/world/ground-materials.json and no longer declares a colour: reflectance, roughness, grain, height amplitude and the two detail octaves all come from the material. Assignment [SET], from the albedo report: laubmischwald/nadelwald -> waldboden with a leaf/needle litter override, wiese -> grasfilz (see the template's own ground.class origin), acker/siedlung -> erde_trocken, heide -> sand, versiegelt -> asphalt, wasser -> wasser, ufer -> schlamm. litterClass is omitted where the material's own litter declaration applies.",
   "swardClosureOrigin": "OPTIONAL PER TEMPLATE, default 0, applied by src/world/VegetationTemplates.cpp. It is the fraction of the ground plane hidden by the template's own standing foliage, and it pulls the ROW's ground and litter reflectance toward the aggregate blade colour mix(colorSrgb, drySrgb, E[dryness]) - the same two colours and the same expected dryness the ground-cover shader draws with, read back out of the row, so the terrain and the blades cannot drift apart when either colour is retuned. It exists because the ground-cover stage stops drawing blades at 44.16 m and the terrain layer is then the ONLY thing showing the meadow: a soil-coloured terrain there puts a hard chroma step at the fade radius. Declared today for wiese alone; acker keeps 0 because open soil between the rows of a stubble is real.",
-  "edgeModel": "TWO KINDS OF EDGE, because they are two different things (doc/goal.md): a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two — tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. versiegelt 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. siedlung 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. laubmischwald 0.90 / nadelwald 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one — the tree line is metres wide, the litter gradient under it is not. acker 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. wiese 0.30 [SET]: a mower's overlap band. heide 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. wasser 0.40 / ufer 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured."
+  "edgeModel": "TWO KINDS OF EDGE, because they are two different things (doc/goal.md): a BUILT edge is a component and a GROWN edge is a zone. edgeConstructed says which this class has; edgeReachM says how wide. The ordered pair resolves as: if EITHER class is constructed, the transition is the SMALLEST constructed reach of the two — tarmac ends where it was laid, and a diffuse neighbour cannot widen a seam. If BOTH are grown, it is the LARGER of the two reaches, because the two gradients overlap and the zone is their union, not their intersection. That is why road-against-meadow is 0.05 m and wood-against-meadow is 0.90 m out of one expression. versiegelt 0.05 m is the only non-[SET] number: a bound carriageway ends at a construction seam or kerb, which German road standards define as an edge and not a zone. siedlung 0.15 m [SET]: yards and drives are laid too, but with domestic and not road tolerances. laubmischwald 0.90 / nadelwald 0.60 [SET] and BRACKETED, not guessed: the upper bracket is the crown drip line (mature beech crown radius ~7 m), the lower the 0.10 m implement cut, and the wind-drift band of shed litter sits an order under the drip line; needle litter is heavier per piece and drifts less, so conifer sits under broadleaf. This is a GROUND-MATERIAL width and not a vegetation one — the tree line is metres wide, the litter gradient under it is not. acker 0.10 [SET]: a ploughed boundary is cut by the implement and the furrow IS the line, the sharpest grown edge there is. wiese 0.30 [SET]: a mower's overlap band. heide 1.00 [SET]: dwarf-shrub heath thins into sand with no cutting agent at all. wasser 0.40 / ufer 0.60 [SET]: the wetted edge moves with the level. Every [SET] value is falsifiable against a photograph and none is defended as measured.",
+  "alpineLimit": {
+    "subject": "WHERE NOTHING GROWS, asked of the DEM and not of OSM. OSM says where the rock is mapped; this says where nothing can stand even though nothing is mapped, and it is the rule every OSM reference implementation carries for the same reason. Two independent limits, because they answer two different questions: the TREELINE gates woody instances and leaves the ground alone (there is closed alpine sward for hundreds of metres above the last tree), and the SLOPE gates both, because a wall carries neither a plant nor a soil.",
+    "treelineBaseLatDeg": 47.4,
+    "treelineBaseM": 1900.0,
+    "treelinePerDegM": -58.8,
+    "treelineBandM": 200.0,
+    "treelineJitterM": 150.0,
+    "treelineJitterScaleM": 700.0,
+    "slopeBandDeg": 4.0,
+    "bareRockTemplate": "felsflur",
+    "origins": {
+      "treelineBaseM": "measured - the closed-forest limit of the Northern Calcareous Alps, 1900 m. treelineBaseM and treelineBandM are the TWO EDGES OF ONE MEASURED BAND (1900...2100 m), not a value with an error bar: 1900 m is where closed forest ends and 2100 m is the tree species limit, above which no tree of any species stands. Density is full at or below the first and exactly zero at or above the second.",
+      "treelineBandM": "measured - 200 m, the upper edge of that same band minus its lower edge. This is the Kampfzone, and it is why the transition is a ramp: a single elevation threshold would draw a contour line across every slope in the picture.",
+      "treelinePerDegM": "derived from two anchors of the SAME mountain type, maritime and oceanic, so that continentality is not silently inside the slope: 47.4 deg N / 1900 m (Northern Calcareous Alps, the closed-forest limit above) and 61.0 deg N / 1100 m (Jotunheimen, Scandes, the pine forest limit). (1100 - 1900) / (61.0 - 47.4) = -58.8 m per degree of latitude. TWO RESIDUALS ARE NAMED AND NEITHER IS MODELLED: extrapolated the law reaches sea level at 79.7 deg N while the real polar forest limit reaches it near 70 deg N, so it is about 10 degrees too generous at the top and the clamp at 0 is what carries it there; and it is far too low in continental interiors - the Sierra Nevada of California at 37 deg N carries its treeline at 3300 m against this law's 2512 m, because the Massenerhebung effect and continentality raise it and neither is an input this engine has. Inside the Alps the same effect is worth 300...500 m between the northern rim and the central chain and is likewise not modelled.",
+      "treelineJitterM": "[SET] 150 m, and it is applied DOWNWARD ONLY. The species limit is a climatic ceiling and really is flat over a massif (Koerner & Paulsen 2004 measure a 6.4 +- 0.7 K growing-season soil isotherm at 46 sites worldwide), but the closed-forest limit below it wanders with aspect, avalanche tracks and centuries of Almwirtschaft, and 100...200 m is the ordinary spread on one massif. Jittering the ceiling as well would put trees above the measured species limit, which is exactly the number this round is judged on.",
+      "treelineJitterScaleM": "[SET] 700 m of wavelength. Shorter than a slope's own width and the ramp reads as noise on one hillside; longer and the ragged edge stops being ragged inside a single frame.",
+      "slopeBandDeg": "derived - 4 deg, the width of the measured angle-of-repose range for angular coarse debris (33...38 deg, see ground-materials.json kalkschutt). The transition is that band because the mantle's stability limit is that band. It is NOT a resolution allowance: the DEM's own slope uncertainty was measured over the reference walls and is an order of magnitude smaller - see slopeSource.",
+      "slopeSource": "measured 2026-08-08 - which zoom must carry the slope, over a 1040 m box on the Mandlwand (47.4145, 13.0570) and the Zugspitze north face (47.4180, 10.9880), terrarium DEM straight off the tile server, central differences at the post spacing. Mandlwand p50/p90/p99 by zoom: z12 (25.86 m post) 44.5/58.4/69.3, z13 (12.93 m) 45.0/62.4/74.6, z14 (6.47 m) 45.1/63.7/77.2, z15 (3.23 m) 45.2/64.3/77.7. Zugspitze: z12 35.0/54.7/67.6, z13 36.2/55.8/73.7, z14 36.2/55.8/75.5, z15 36.0/55.2/75.7. z13 IS ENOUGH: from z13 to z15 the median moves at most 0.8 deg and the p90 at most 1.9 deg, and the quantile RMS between the two is 1.27 deg (Mandlwand) and 0.62 deg (Zugspitze). z12 is NOT enough - it loses 4.0 deg at the p90 and 6.1 deg at the p99. The instance gate samples the DEM at z13's own 12.93 m post spacing, which is what fb_stream_ground delivers; the ground material uses the drawn mesh normal, which is z15 near the camera and therefore never flatter than the gate's.",
+      "slopeThreshold": "NOT DECLARED HERE, and deliberately: the threshold is the ground class's own slope.plausibleDeg[1] in ground-materials.json, which already carries its own origin per class - waldboden 35, grasfilz 40, sand 34, kalk 90. This block only declares how WIDE the transition off it is. Two numbers for one fact is how they drift apart.",
+      "bareRockTemplate": "[SET] felsflur, i.e. limestone. This is the whole regional-lithology assumption of the engine in one line, and it is wrong outside the Calcareous Alps - granite, basalt and sandstone all have their own chromaticity and the engine has no lithology map. Declared as one name so that a mod restates it, and named in doc/world/terrain.md ## Gaps."
+    }
+  }
 }

@@ -273,6 +273,33 @@ code 4 gives runway 45 and taxiway 23. The waterway widths are `[SET]` represent
 width on a water_line — and their only job is to keep a brook and a river an order of magnitude apart:
 drain 1.0, ditch 1.5, stream 2.0, canal 8.0, river 12.0.
 
+### The DEM answers where OSM has no answer, and it answers two different questions
+
+> Every OSM reference implementation — OSM2World, F4map, MSFS — carries the same fallback, and for the
+> same reason: OSM says where rock is MAPPED, and a landscape needs an answer where nothing is.
+
+The two limits are separate because they are not the same statement. Both are declared in
+`sim/assets/world/vegetation.json`'s `alpineLimit` block and read by `world/AlpineLimit.h`.
+
+| Limit | Gates | Threshold | Band |
+|---|---|---|---|
+| **treeline** | woody instances only — the ground stays what it is, because closed alpine sward runs for hundreds of metres above the last tree | `treelineBaseM` 1900 m at 47.4° N, falling `treelinePerDegM` −58.8 m per degree of latitude | `treelineBandM` 200 m upward to the tree species limit; the FLOOR is jittered downward by `treelineJitterM` 150 m at a 700 m wavelength, the CEILING is not |
+| **slope** | instances AND ground | the winning class's own `slope.plausibleDeg[1]` in `ground-materials.json` — `waldboden` 35°, `grasfilz` 40°, `sand` 34° | `slopeBandDeg` 4°, the width of the measured angle-of-repose range for angular coarse debris (33…38°) |
+
+**Both edges of the treeline are one measured band and neither is a value with an error bar.** The
+Northern Calcareous Alps carry closed forest to 1900 m and the last individual tree at 2100 m; density is
+full at or below the first and exactly zero at or above the second.
+
+**The ceiling is not jittered and that is physics, not caution.** The species limit is a climatic
+isotherm — Körner & Paulsen 2004 measure a 6.4 ± 0.7 K growing-season soil temperature at 46 treeline
+sites worldwide — and it really is flat over one massif. The closed-forest limit below it wanders 100…200 m
+with aspect, avalanche tracks and centuries of Almwirtschaft, so THAT is what the noise moves. Jittering
+the ceiling would put a tree above the measured species limit, and a single threshold, jittered or not,
+draws a contour line across every slope in the picture.
+
+**The slope threshold is NOT declared in `alpineLimit`.** It is the ground class's own number, which
+already carries its own origin per class. Two numbers for one fact is how they drift apart.
+
 ### Three outcomes, three treatments, and a counter is not an error
 
 > Owner, 2026-08-07: *„fehlgeschlagene klassifizierung muss im error log erscheinen"*
@@ -415,6 +442,41 @@ The second half of the same class of defect: `OsmVector::Parse` returned the sam
 tile has no such layer* and *these bytes will not decode*. An island has no `water_lines`; that is not a
 parser failure. Separated, with `present` as an out-parameter.
 
+### The alpine classes, and the two limits — built 2026-08-08, binary `b46d7330`
+
+**The tile server already carried the data and nothing in `tiles/` had to change.** Checked on the z14
+tiles of `hochkoenig` 8786/5734, `zugspitze` 8691/5734 and `nebelhorn` 8662/5734, and on z9…z14 at
+hochkoenig: `land/bare_rock`, `land/scree`, `land/shingle` and `water_polygons/glacier` are emitted at
+every one of those zooms. **The defect was on our side**: all four rows selected `heide`, a heath on
+`sand` with 0.004 trees/m², so the Mandlwand drew khaki-green with birches on it and the Zugspitze
+summit grew trees at 2 962 m. They now select three new templates — `felsflur`, `schutthalde`,
+`gletscher` — with every woody density at zero. 12 templates, 104 osm rows.
+
+**The instance gate, measured on the six fit cameras.** Highest surviving stand above sea level, from
+`walk treeline` (an exact per-run count, not an estimate):
+
+| Camera | eye ASL | species limit | before | after | refused above the line / too steep |
+|---|---|---|---|---|---|
+| `herzogstand` | 1 600 m | 2 087.9 m | 1 702.2 m | **1 694.5 m** | 0 / 6 879 |
+| `hochries` | 1 569 m | 2 079.6 m | 1 546.2 m | **1 546.2 m** | 0 / 6 883 |
+| `innsbruck` | 1 945 m | 2 105.6 m | 2 419.7 m | **1 998.7 m** | 10 / 2 124 |
+| `nebelhorn` | 2 224 m | 2 098.7 m | 2 186.9 m | **2 002.4 m** | 11 / 106 |
+| `zugspitze` | 2 962 m | 2 098.8 m | 2 949.8 m | **no stand at all** | 27 / 0 |
+| `hochkoenig` | 2 941 m | 2 098.7 m | 2 939.4 m | **no stand at all** | 27 / 0 |
+
+**Four of six carried a tree above 2 100 m; none does.** The before column is the baseline binary's `footMax` plus its own logged
+`groundM + eyeM + liftM`; the after column is logged directly.
+
+**The scatter's own distribution was not touched.** Cell size, hash, jitter, size draw and the
+near-to-far sort are unchanged; the gate is one further draw against `WoodyFraction × (1 − BareBySlope)`
+on its own hash salt, evaluated after the density test so the four extra DEM lookups are only paid by a
+cell that already holds a stand.
+
+**It made the frame cheaper, because a refused stand is a stand not drawn.** 360-frame turntable at
+1280×720 from the `hochkoenig` standpoint, both binaries pinned: p50 **8.137 → 4.542 ms**, p95
+**14.549 → 4.934**, p99 **16.502 → 5.286**, mean 8.779 → 4.545. 10 051 impostor stands above the species
+limit became 0; drawn tree triangles 271 694 → 144 484. Begin*Pass count per frame **7 → 7**.
+
 ### What is NOT built
 
 **The building branch has nothing beyond the footprint.** Geo-coordinate, base albedo, epoch and decay are
@@ -426,6 +488,24 @@ shortbread carries no leaf type, and `ufer` is a distance-to-water derivation, n
 carry an empty `osm` list, which is the class model naming its own hole.
 
 ## Gaps
+
+- **The treeline law has two named residuals and models neither.** `treelinePerDegM` −58.8 m/° comes
+  from two anchors of the same maritime-mountain type, 47.4° N/1900 m (Northern Calcareous Alps) and
+  61.0° N/1100 m (Jotunheimen). Extrapolated it reaches sea level at 79.7° N where the real polar
+  forest limit reaches it near 70° N, so it is ~10 degrees too generous at the top and only the clamp
+  at zero carries it there. And it is far too low in continental interiors: the Sierra Nevada of
+  California at 37° N carries its treeline at 3 300 m against this law's 2 512 m. Inside the Alps the
+  same Massenerhebung effect is worth 300…500 m between the northern rim and the central chain. No
+  input this engine has can see either.
+- **`waldboden`'s 35° may be too low for an Alpine Schutzwald**, which stands on 40…45° routinely. The
+  number is `[SET]` in `ground-materials.json` and is now READ rather than merely declared, so the cost
+  of it being wrong went up. At `nebelhorn` the slope gate refused 6 879 of ~7 900 candidates — 87 % —
+  and the photograph agrees there; at `herzogstand` it refused 6 % of 35 535 and the photograph shows
+  forest on that flank. Not falsified, not confirmed.
+- **`heide`'s ground class is `sand` and that is wrong above the treeline.** Alpine dwarf-shrub heath
+  (Latschen, Alpenrosen) is dark green; `sand`'s orange-brown reads mauve under haze and it covers
+  large parts of the mid field at `hochkoenig`. `heide` also has to serve the Lüneburger Heide, where
+  sandy ground is right, so the fix is a split and not an edit. Not this round's subject.
 
 ### Water as geometry — three cycles, and what each of them actually found
 

@@ -106,6 +106,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     row.Edge[0]   = (float)g["edgeReachM"].Num(0.05);
     row.Edge[1]   = (float)g["edgeConstructed"].Num(0.0);
     row.Edge[2]   = (float)t["trees"]["perM2"].Num(0.0);
+    row.Edge[3]   = gm.SlopeMaxDeg;
 
     /* Beyond the cover stage's fade radius no blade is drawn and the terrain layer is the only thing
      * left showing the meadow, so its albedo has to be the SWARD's and not the floor's. The aggregate
@@ -165,9 +166,20 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     if (Names_[i] == def) Default_ = (int)i;
   if (Default_ < 0) { Error_ = "osmDefault names no template: " + def; return false; }
 
+  if (!Limit_.Load(doc.Root())) { Error_ = Limit_.Error(); return false; }
+  RockTpl_ = -1;
+  for (size_t i = 0; i < Names_.size(); i++)
+    if (Names_[i] == Limit_.RockTemplateName()) RockTpl_ = (int)i;
+  if (RockTpl_ < 0) {
+    Error_ = "alpineLimit.bareRockTemplate names no template: " + Limit_.RockTemplateName();
+    return false;
+  }
+
   Log::Info("veg", "table", {{"path", path}, {"templates", (int)Table_.size()},
                              {"osmRules", (int)Rules_.size()}, {"layers", (int)Layers_.size()},
-                             {"areaLayers", (int)AreaLayers_.size()}, {"default", def}});
+                             {"areaLayers", (int)AreaLayers_.size()}, {"default", def},
+                             {"bareRock", Limit_.RockTemplateName()},
+                             {"slopeBandDeg", (double)Limit_.SlopeBandDeg()}});
   return true;
 }
 

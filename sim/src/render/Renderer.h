@@ -109,8 +109,10 @@ public:
   void SetLoadingScreen(bool on, float pct, int ready, int total) { LoadingScreen = on; LoadPct = pct; LoadReady = ready; LoadTotal = total; }
 
   /* THE VEGETATION TABLE, before Init: 256 resolved rows (world/VegetationTemplates::Row). Without it
-   * the terrain keeps its raw albedo — the pre-template picture, on purpose. */
-  void SetVegetationTable(const void *rows, size_t rowBytes);
+   * the terrain keeps its raw albedo — the pre-template picture, on purpose. `bareRockRow` and
+   * `slopeBandDeg` come out of the same declaration and travel with it, so the row the ground falls
+   * back to on a wall can never name a table that is not loaded. */
+  void SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow, float slopeBandDeg);
 
   /* WHERE THE STAND IS READ. The ground fragment IS the stand (render/Sward.h), so it needs the
    * place and the local basis and nothing else — the geodetic position picks the graticule cell the

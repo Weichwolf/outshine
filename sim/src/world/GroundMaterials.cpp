@@ -55,6 +55,9 @@ bool GroundMaterials::Load(const char *path) {
     m.DetailCoarseM = (float)c["detailScaleM"][(size_t)0].Num(2.0);
     m.DetailFineM = (float)c["detailScaleM"][(size_t)1].Num(0.3);
     m.LitterCoverage = (float)c["litter"]["coverage"].Num(0.0);
+    const Render::Json::Ref pd = c["slope"]["plausibleDeg"];
+    if (pd.Size() != 2) { Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair"; return false; }
+    m.SlopeMaxDeg = (float)pd[(size_t)1].Num(90.0);
     litterName[i] = c["litter"]["class"].Str("");
 
     /* Cook-Torrance wants a continuous dielectric interface; a heap of grains has none, so its

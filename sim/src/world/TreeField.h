@@ -30,19 +30,29 @@ public:
     float HalfWidth = 0.0f, Bottom = 0.0f, Top = 0.0f, HeightM = 0.0f;
   };
 
+  /* `camLatDeg` places the treeline: it falls 58.8 m per degree of latitude (world/AlpineLimit.h) and
+   * over the 900 m radius that is 0.5 m, so the camera's own latitude carries the whole disc. */
   void Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
-               double eyeE, double eyeN, double eyeAsl, float sizeSigma, const Crown &crown,
-               double (*ground)(void *, double, double), void *user,
+               double eyeE, double eyeN, double eyeAsl, double camLatDeg, float sizeSigma,
+               const Crown &crown, double (*ground)(void *, double, double), void *user,
                std::vector<float> &out, std::vector<float> &dist) const;
 
   static constexpr int kStandFloats = 5;
 
   long Count() const { return Count_; }
   long Cleared() const { return Cleared_; }
+  /* What the DEM refused, split by which limit refused it, and the highest stand that survived. The
+   * treeline is only countable if the count is kept. */
+  long AboveTreeline() const { return AboveLine_; }
+  long TooSteep() const { return TooSteep_; }
+  double HighestStandAslM() const { return HighestAsl_; }
 
 private:
   mutable long Count_ = 0;
   mutable long Cleared_ = 0;
+  mutable long AboveLine_ = 0;
+  mutable long TooSteep_ = 0;
+  mutable double HighestAsl_ = -1.0e30;
 };
 
 } // namespace outshine::World

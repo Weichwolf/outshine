@@ -7143,3 +7143,51 @@ Was nicht gemacht wurde und warum, mit Messung: die Vereinheitlichung des Aeroso
 Himmelstabelle und Bodendunst (6,4-fach auseinander) bewegt `E_sky` um 2,8 % und die Himmelsradianz um
 unter 5 %, weil eine Kamera auf 2 224 m über 84 % der Aerosolsäule steht. Sie steht als Lücke, nicht als
 Erfolg.
+
+## 2026-08-08 — Über der Baumgrenze wächst nichts, und Kalk ist grau
+
+`b46d7330` gegen `ac7ebf39`. Der Kachelserver führte `natural=bare_rock`, `scree`, `shingle` und
+`glacier` die ganze Zeit — nachgeprüft auf den z14-Kacheln von hochkoenig 8786/5734, zugspitze
+8691/5734 und nebelhorn 8662/5734 und über z9…z14 am Hochkönig. **An `tiles/` war nichts zu tun; der
+Fehler stand bei uns**: alle vier Zeilen wählten `heide`, eine Heide auf `sand` mit 0,004 Bäumen je m²,
+und deshalb standen Laubbäume auf der Mandlwand und auf dem Zugspitzgipfel in 2 962 m.
+
+Drei Materialien und drei Vorlagen. `kalk` und `kalkschutt` holen ihre Helligkeit über einen **dritten
+Herkunftspfad** neben A und B — ein Munsell-NEUTRAL-Chip durch die ASTM-D1535-Quintik — und dieser Pfad
+liefert die Chromatizität geschenkt, weil die Neutralseite keine hat: 1,000:1,000:1,000, was Calcit von
+der Mineralogie her trägt (kein elektronischer Übergang in 380…780 nm, die CO3-Obertöne liegen bei 1,9,
+2,16 und 2,35 µm). Gegengeprüft an einem VERHÄLTNIS innerhalb eines Fotos, das weder Belichtung noch
+Tonwertkurve mitträgt: sonnenbeschienene Karstfläche 0,3151 gegen sonnenbeschienene Almwiese 0,1318 im
+selben nebelhorn-Bild, Verhältnis **2,39**, gegen das deklarierte Paar 0,2823/0,1213 = **2,33** —
+**0,04 EV**. `kalkschutt` verlor seinen N7-gegen-N6-Schritt in derselben Runde, in der er geschrieben
+wurde: das Argument (frischer Schutt gegen verwitterte Wand) steht, die 0,50 EV nicht, weil keine
+Messung sie sieht.
+
+Zwei Grenzen, und sie beantworten zwei verschiedene Fragen. Die **Baumgrenze** sperrt nur Instanzen —
+über dem letzten Baum liegt hunderte Meter geschlossener Rasen — 1 900 m bei 47,4° N, −58,8 m je Grad
+Breite, Band 200 m bis zur Artgrenze; der BODEN des Bandes wird um 150 m nach unten verrauscht, die
+DECKE nicht, weil die Artgrenze eine klimatische Isotherme ist und ein verrauschter Deckel Bäume über
+die gemessene Artgrenze setzt. Die **Neigung** sperrt beides, und ihre Schwelle steht nicht im neuen
+Block, sondern ist `slope.plausibleDeg[1]` der gewinnenden Klasse — zwei Zahlen für eine Tatsache ist,
+wie sie auseinanderdriften.
+
+Gemessen, welche Zoomstufe die Neigung trägt: z13 reicht (p90 bewegt sich bis z15 um höchstens 1,9°,
+Quantil-RMS 1,27°/0,62°), z12 reicht nicht (−4,0° am p90). Was eine Wand flachbügelt, ist ein zu
+breiter Stern, nicht das DEM: 104 m statt 13 m kosten 10,1°.
+
+Höchster überlebender Stand je Kamera: herzogstand 1 694,5 · hochries 1 546,2 · innsbruck 1 998,7 ·
+nebelhorn 2 002,4 · zugspitze und hochkoenig **kein einziger**. Vier von sechs trugen vorher einen Baum
+über 2 100 m, keine tut es noch. B−R im zugspitze-Ausschnitt −1,5 → **+19,8** (Foto +8,6), im
+hochkoenig-Ausschnitt −33,1 → **−3,8** (Foto +11,9) — das Vorzeichen kippt dort NICHT, und der Grund ist
+gemessen: das Foto trägt in diesem Ausschnitt L 43…154, wir 160…181. Die +11,9 des Fotos entstehen in
+seiner beschatteten Hälfte; über sein hellstes Viertel allein misst das Foto **+0,5**, also neutral, und
+das ist genau, was unser neutrales Albedo liefert. Die Wand fehlt uns, nicht die Farbe.
+
+Bildpreis über 360 Frames bei 1280×720 vom Hochkönig, beide Binärdateien gepinnt: p50 8,137 → **4,542**
+ms, p95 14,549 → **4,934**, p99 16,502 → **5,286**. 10 051 Impostor-Stände über der Artgrenze wurden 0,
+Baumdreiecke 271 694 → 144 484. Paßzahl **7 → 7**.
+
+**Die größte offene Zahl dieser Runde:** der gerenderte Boden spreizt zwei Klassen **1,95 EV** weiter
+als das Foto (9,21 gegen 2,39), obwohl das Reflexionsverhältnis auf 0,04 EV stimmt. Der Narkowicz-Fit
+allein sagt bei ρ̄ 0,15…0,22 nur 2,7…3,2 voraus, die Hangneigung kauft 0,38 EV — rund **1,2 EV sind
+unerklärt**, und solange sie es sind, liest sich Alpenkalk im Sommerbild wie Schnee.

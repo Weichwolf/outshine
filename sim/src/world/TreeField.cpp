@@ -36,18 +36,27 @@ inline float SizeFactor(uint32_t h, float sigma) {
 }  // namespace
 
 void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
-                        double eyeE, double eyeN, double eyeAsl, float sizeSigma,
+                        double eyeE, double eyeN, double eyeAsl, double camLatDeg, float sizeSigma,
                         const Crown &crown, double (*ground)(void *, double, double), void *user,
                         std::vector<float> &out, std::vector<float> &dist) const {
   out.clear();
   dist.clear();
   Count_ = 0;
   Cleared_ = 0;
+  AboveLine_ = 0;
+  TooSteep_ = 0;
+  HighestAsl_ = -1.0e30;
   const VegetationTemplates::Row *rows = veg.Rows();
   if (!rows) return;
   const int nrows = (int)(veg.RowBytes() / sizeof(VegetationTemplates::Row));
   const int r = (int)std::ceil(radiusM / kCellM);
   const int ci = (int)std::floor(eyeE / kCellM), cj = (int)std::floor(eyeN / kCellM);
+  const AlpineLimit &limit = veg.Limit();
+  /* THE DEM'S OWN POST SPACING, so the stencil neither smooths the wall nor interpolates its own
+   * bilinear filter: fb_stream_ground reads z13, whose post is 40075017*cos(lat)/(2^13*256) m —
+   * 12.93 m at 47.4 deg. Measured over the Mandlwand and the Zugspitze north face, z13 carries the
+   * slope: from z13 to z15 the p90 moves at most 1.9 deg (vegetation.json alpineLimit.slopeSource). */
+  const double postM = 40075017.0 * std::cos(camLatDeg * 3.14159265358979 / 180.0) / (8192.0 * 256.0);
 
   for (int j = cj - r; j <= cj + r; j++) {
     for (int i = ci - r; i <= ci + r; i++) {
@@ -69,6 +78,22 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
 
       const double gz = ground ? ground(user, e, n) : eyeAsl;
       if (gz <= -1.0e7) continue;
+      /* THE DEM DECIDES WHERE NOTHING STANDS, and it decides it in one draw against one fraction —
+       * two draws would let a stand survive the treeline only to be counted again against the wall. */
+      const double woody = limit.WoodyFraction(camLatDeg, gz, e, n);
+      double steep = 0.0;
+      if (woody > 0.0 && ground) {
+        const double ze = ground(user, e + postM, n), zw = ground(user, e - postM, n);
+        const double zn = ground(user, e, n + postM), zs = ground(user, e, n - postM);
+        if (ze > -1.0e7 && zw > -1.0e7 && zn > -1.0e7 && zs > -1.0e7) {
+          const double dzde = (ze - zw) / (2.0 * postM), dzdn = (zn - zs) / (2.0 * postM);
+          steep = limit.BareBySlope(std::atan(std::sqrt(dzde * dzde + dzdn * dzdn)) * 57.29577951308232,
+                                    (double)rows[tpl].Edge[3]);
+        }
+      }
+      if (woody <= 0.0) { AboveLine_++; continue; }
+      if (steep >= 1.0) { TooSteep_++; continue; }
+      if ((double)U(Hash(i, j, 0xa17eu)) >= woody * (1.0 - steep)) continue;
       /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
        * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
       const float size = SizeFactor(Hash(i, j, 0x9e37u), sizeSigma);
@@ -84,6 +109,7 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       /* RELATIV ZUR KAMERA, weil der Stand im Shader auf die ECEF-Achsen am Augpunkt gelegt wird: ein
        * absoluter ENU-Wert waere dort ein Versatz von Kilometern. Die Suche laeuft dagegen absolut,
        * denn Klasse und Gelaende sind Eigenschaften des Ortes und nicht des Betrachters. */
+      if (gz > HighestAsl_) HighestAsl_ = gz;
       out.push_back((float)(e - eyeE)); out.push_back((float)(n - eyeN));
       out.push_back((float)(gz - eyeAsl));
       out.push_back(U(h >> 20) * 6.2831853f);

@@ -347,7 +347,8 @@ int main(int argc, char **argv) {
   }
 
   Render::Renderer R;
-  R.SetVegetationTable(veg.Rows(), veg.RowBytes());
+  R.SetVegetationTable(veg.Rows(), veg.RowBytes(), veg.BareRockTemplate(),
+                        veg.Limit().SlopeBandDeg());
   R.SetSkyClock(clk);
   R.SetFovDeg(scene.FovDeg());
   R.SetOrthoM(orthoM);
@@ -660,8 +661,8 @@ int main(int argc, char **argv) {
       /* Der AUGPUNKT, nicht der Boden unter ihm: der Shader legt den Fuss direkt auf die Aufhaengung
        * am Auge, also muss die Augenhoehe hier schon abgezogen sein. */
       treeField.Scatter(W.Classes(), veg, 900.0, ee, nn,
-                        (ElevationResolved(gcam) ? gcam : ground) + eyeM, worldTreeSigma, treeCrown,
-                        groundAt, &gc, treeStands, treeDist);
+                        (ElevationResolved(gcam) ? gcam : ground) + eyeM, clat, worldTreeSigma,
+                        treeCrown, groundAt, &gc, treeStands, treeDist);
       constexpr int kSF = World::TreeField::kStandFloats;
       R.SetTreeStands(treeStands.data(), (uint32_t)(treeStands.size() / (size_t)kSF),
                       treeDist.data());
@@ -681,6 +682,11 @@ int main(int argc, char **argv) {
             {"crownBottomM", (double)(treeCrown.Bottom * treeCrown.HeightM)},
             {"crownTopM", (double)(treeCrown.Top * treeCrown.HeightM)}});
       }
+      Log::Info("walk", "treeline",
+          {{"speciesLimitAslM", veg.Limit().SpeciesLimitM(clat)},
+           {"highestStandAslM", treeField.HighestStandAslM()},
+           {"refusedAboveLine", (double)treeField.AboveTreeline()},
+           {"refusedTooSteep", (double)treeField.TooSteep()}});
       Log::Debug("walk", "trees", {{"stands", (int)nst},
           {"eastM", lo[0]}, {"eastMax", hi[0]}, {"northM", lo[1]}, {"northMax", hi[1]},
           {"footM", lo[2]}, {"footMax", hi[2]},

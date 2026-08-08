@@ -35,7 +35,8 @@ struct U { mvp : mat4x4f, sun : vec4f, haze : vec4f,
            sax : vec4f,   // ECEF east  axis, w = the graticule cell east (m)
            say : vec4f,   // ECEF north axis, w = the graticule cell north (m)
            saz : vec4f,   // ECEF up at the camera, w = sin(sun elevation)
-           sgr : vec4f,   // x,y = the eye's offset inside its own cell (m); z,w unused
+           sgr : vec4f,   // x,y = the eye's offset inside its own cell (m)
+                          // z = the declared bare-rock veg row, w = the slope band in degrees
            sbs : vec4i,   // xy = the eye's own cell on the world graticule
            /* THE CLASS FRAME: the ECEF axes of the class structure's origin, and the camera's own
             * position in it. A fragment adds its camera-relative offset and is on the lattice the
@@ -520,14 +521,37 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
   o.cls = select(los, win, mixW >= 0.5);
   let ra = vegTbl[win];
   let rb = vegTbl[los];
-  let gnd = mix(rb.ground, ra.ground, mixW);
-  let ltr = mix(rb.litter, ra.litter, mixW);
-  let gsf = mix(rb.gsurf, ra.gsurf, mixW);
-  let lsf = mix(rb.lsurf, ra.lsurf, mixW);
-  let mxp = mix(rb.mixp, ra.mixp, mixW);
+  var gnd = mix(rb.ground, ra.ground, mixW);
+  var ltr = mix(rb.litter, ra.litter, mixW);
+  var gsf = mix(rb.gsurf, ra.gsurf, mixW);
+  var lsf = mix(rb.lsurf, ra.lsurf, mixW);
+  var mxp = mix(rb.mixp, ra.mixp, mixW);
   o.gr = mix(rb.grass, ra.grass, mixW);
   o.dr = mix(rb.dry, ra.dry, mixW);
   o.pr = mix(rb.par, ra.par, mixW);
+
+  /* THE DEM ANSWERS WHERE OSM DID NOT: on a face steeper than the class's own declared
+   * slope.plausibleDeg[1] there is no soil to hold anything, so the ground turns to the declared
+   * bare-rock row over a band the width of the angle-of-repose range (world/AlpineLimit.h — the SAME
+   * expression the stand scatter uses, so a tree is never left standing on a pixel painted rock).
+   * A FRACTION AND NOT A SECOND CLASS: a fraction has no boundary, and the slope field at the mesh's
+   * own resolution is already ragged, so nothing here can draw a contour. */
+  let upB = normalize(A.camPosMm.xyz + wposIn * 1.0e-6);
+  let slopeDeg = degrees(acos(clamp(dot(normalize(nrmIn), upB), 0.0, 1.0)));
+  let slopeMax = mix(rb.edge.w, ra.edge.w, mixW);
+  let bare = select(0.0, smoothstep(slopeMax, slopeMax + u.sgr.w, slopeDeg), u.sgr.w > 0.0);
+  if (bare > 0.0) {
+    let rr = vegTbl[u32(u.sgr.z)];
+    gnd = mix(gnd, rr.ground, bare);
+    ltr = mix(ltr, rr.litter, bare);
+    gsf = mix(gsf, rr.gsurf, bare);
+    lsf = mix(lsf, rr.lsurf, bare);
+    mxp = mix(mxp, rr.mixp, bare);
+    o.gr = mix(o.gr, rr.grass, bare);
+    o.dr = mix(o.dr, rr.dry, bare);
+    o.pr = mix(o.pr, rr.par, bare);
+    o.cls = select(o.cls, u32(u.sgr.z), bare >= 0.5);
+  }
 
   /* pe/pn, not a frame off the normal: a frame off the normal shears the pattern with the slope. */
   let nn = normalize(nrmIn);
@@ -848,8 +872,8 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
   uni[35] = SwHave ? std::max(0.0f, std::min(1.0f, sunUp)) : 0.0f;
   uni[36] = (float)SwFracE;
   uni[37] = (float)SwFracN;
-  uni[38] = 0.0f;
-  uni[39] = 0.0f;
+  uni[38] = (float)BareRockRow;
+  uni[39] = BareSlopeBandDeg;
   const int32_t swBase[4] = {(int32_t)SwBaseI, (int32_t)SwBaseJ, 0, 0};
   std::memcpy(&uni[40], swBase, sizeof swBase);
   for (int i = 0; i < 3; i++) { uni[44 + i] = (float)ClsEast[i]; uni[48 + i] = (float)ClsNorth[i]; }

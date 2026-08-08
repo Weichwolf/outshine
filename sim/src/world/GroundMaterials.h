@@ -23,6 +23,9 @@ public:
     float HeightAmplitudeM;
     float DetailCoarseM;
     float DetailFineM;
+    /* slope.plausibleDeg[1]: the steepest face this material still lies on. Above it the ground is
+     * the bare-rock class and nothing stands (vegetation.json alpineLimit). */
+    float SlopeMaxDeg;
     int LitterClass;        /* index into this table, or -1 */
     float LitterCoverage;
   };

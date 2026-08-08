@@ -39,8 +39,20 @@ inside the template. Foliage, clutter and every grown thing sit ON TOP of it and
 where density goes to zero, what remains visible is still a material, not a flat fill.
 
 **The class list**, and it is a first cut, not a closed set: `sand` · `erde_trocken` · `erde_feucht` ·
-`kies` · `schotter` · `fels` · `waldboden` · `laubstreu` · `nadelstreu` · `grasfilz` · `moos` · `torf` ·
-`schlamm` · `asphalt` · `pflaster` · `beton` · `wasser`.
+`kies` · `schotter` · `fels` · `kalk` · `kalkschutt` · `firn` · `waldboden` · `laubstreu` · `nadelstreu` ·
+`grasfilz` · `moos` · `torf` · `schlamm` · `asphalt` · `pflaster` · `beton` · `wasser`.
+
+**Rock, scree and firn are a class, not an omission.** OSM carries `natural=bare_rock`,
+`natural=scree` and `natural=glacier` across the whole Alpine arc and the tile server passes all three
+through; a landscape above the treeline that has no rock class draws heath on a limestone wall. `fels`
+is the Weserbergland rock — a declared 50/50 of Muschelkalk with red Buntsandstein — and its hue is
+wrong for a carbonate massif, so the alpine group is its own three rows and `fels` is left alone.
+
+| Contract | Acceptance / measurement anchor |
+|---|---|
+| the ground turns to bare rock where **no soil can lie**, not where an elevation says so | the threshold is the winning class's own `slope.plausibleDeg[1]`, the band above it is `alpineLimit.slopeBandDeg`, and the fragment's slope comes from the DRAWN mesh normal — no second slope estimate exists |
+| the fallback is a **fraction, never a second class** | a fraction has no boundary; the acceptance is that no horizontal edge crosses a slope that the transition itself created |
+| the CPU stand gate and the GPU ground must not disagree about a wall | one expression, `AlpineLimit::BareBySlope`, in C++ and in WGSL; the CPU stencil is the DEM's own z13 post spacing, which measures within 1.9 deg (p90) of z15 |
 
 **What each class declares** — and every one of these is a *procedural* parameter, never a painted
 texture ([`../visual-target.md`](../visual-target.md) §2.2 rung 1):
@@ -146,6 +158,41 @@ rounds of 2026-08-06/07 and are the surviving half of the deleted cover stage.
 > **Every figure below is a measurement of the GROUND FRAGMENT** — taken with the blade geometry
 > removed, on a forced class, or as a paired frame. The two frame-time rows are the exception and say
 > so. **The frame as a whole has not been measured since the cover stage was deleted** (`## Gaps`).
+
+**The alpine rock group is built** (2026-08-08, binary `b46d7330`). Three classes were added and the
+table is 20 rows: `kalk` (weathered Wetterstein-/Dachsteinkalk face), `kalkschutt` (its talus) and
+`firn` (an OSM glacier polygon, firn and bare ice together). `kalk` and `kalkschutt` take their
+brightness through a THIRD provenance path beside A and B — a Munsell NEUTRAL chip through the ASTM
+D1535 value quintic — and that path hands over the chromaticity for free, because the neutral page has
+none: R:G:B = 1.000:1.000:1.000, which is what a >97 % calcite carries by mineralogy (no electronic
+transition in 380…780 nm; the CO3 overtones sit at 1.9, 2.16 and 2.35 µm).
+
+**The level is cross-checked against a photograph and it holds to 0.04 EV.** On the `nebelhorn`
+reference frame of 2026-07-28 the sunlit karst plateau (4 169 px at 320×180, selected by saturation
+< 0.12 and R ≥ G) has linear-sRGB luminance **0.3151** and the sunlit alpine sward in the same frame
+(1 150 px, G > R + 0.02, saturation > 0.10) **0.1318** — ratio **2.39**, and a ratio inside one
+photograph carries neither an exposure nor a tone curve. The engine's declared pair is
+`kalk` 0.2823 against the `wiese` row's sward 0.1213, ratio **2.33**. Munsell N6 alone gives 0.2857,
+i.e. 0.02 EV from the photometric number: two independent routes inside a twentieth of a stop.
+
+**`kalkschutt` lost its one-chip step in the same round it was written.** It first carried N7 against
+`kalk`'s N6 (0.4094 against 0.2857, 0.50 EV) on the argument that a talus cone is renewed faster than
+lichen colonises it. The argument stands; the step does not, because the one measurement available
+cannot see it. The two classes now differ only in grain (0.064 m against 0.4 m), packing (loose against
+sealed) and surface (particulate against coherent), which is what this file says separates classes of
+equal reflectance.
+
+**The specular declaration was A/B'd and is worth nothing here.** `kalk` declares `surface: coherent`,
+i.e. `SpecularScale` 1.0, on `fels`' argument that a cleaved face has a sheen. Measured on the
+`nebelhorn` frame, same binary, only the flag changed: rock display luminance **0.4530** coherent
+against **0.4516** particulate — **0.004 EV**. The declaration is kept because it is the right
+statement about the surface, not because it is visible.
+
+**The slope fallback is built.** `groundMat` mixes every row parameter toward the declared
+`alpineLimit.bareRockTemplate` by `smoothstep(slopeMax, slopeMax + 4°, slope)`, where `slopeMax` is the
+winning pair's own `slope.plausibleDeg[1]` carried in `VegRow.edge.w` and the two constants ride in the
+uniform's previously unused `sgr.zw`. It costs one `acos`, one `smoothstep` and eight `mix` per ground
+fragment, inside the existing pass — the Begin*Pass count per frame is unchanged at **7**.
 
 **The material exists.** `TilesStage` does not draw the raster: the texel is a CLASS INDEX, the class
 names a row of `sim/assets/world/ground-materials.json`, and what is drawn is that row's linear
@@ -292,6 +339,37 @@ construction and is what closes it.
 layout has two fewer slots and the whole branch dead-strips into one neutral material.
 
 ## Gaps
+
+- **THE LARGEST OPEN NUMBER THIS FILE LEAVES: the rendered ground spreads two classes 1.95 EV further
+  apart than the photograph does, and the material table is not the reason.** Measured on `nebelhorn`,
+  same pixel classification on both sides at 320×180: photo rock/sward display-linear **2.39**, render
+  **9.21**. The REFLECTANCE ratio is right (2.33 declared against 2.39 measured, 0.04 EV). The
+  Narkowicz fit alone, evaluated at ρ̄ 0.15…0.22, predicts a display ratio of only **2.7…3.2**, and a
+  sun-facing 45° wall against flat ground at 50° sun elevation buys another **0.38 EV**. That leaves
+  about **1.2 EV unaccounted for** — the render's sward sits at 0.0492 where the curve predicts
+  0.077…0.135, and its rock at 0.4530 where the curve predicts 0.245…0.367. Both wrong, in opposite
+  directions. Until this is closed, alpine rock reads as snow in a summer frame.
+- **`kalk`'s and `kalkschutt`'s `visibleBroadbandRatio` is a stated 1.000 no-op**, the posture `wasser`
+  already takes. The sign is known — calcite's only shortwave absorptions are the three CO3 overtones
+  beyond 1.8 µm, so the true ratio is slightly ABOVE 1.000 — and the size is not. ECOSTRESS carries
+  `rock.sedimentary.limestone.coarse` as crushed particulate only, and that spectrum is already spent
+  inside `fels`' mix.
+- **`firn` is the weakest of the three and says so in three places.** Its `albedoBroadband` 0.49 is a
+  [SET] 50/50 of Cuffey & Paterson's measured firn (0.43…0.69) and clean-ice (0.34…0.51) midpoints,
+  i.e. an accumulation-area ratio of one half; its chromaticity 1.000:1.070:1.150 is [SET] inside a
+  derived bracket (fine firn 1.000:1.011:1.027, bare ice 1.000:1.15:1.30) read off published curves at
+  ±0.03 per channel; its band ratio 1.46 is a three-band integral with [SET] band reflectances at
+  ±0.1. Debris cover is not modelled and its sign is known: it only lowers the number.
+- **One lithology for the whole planet.** `alpineLimit.bareRockTemplate` names `felsflur`, i.e.
+  limestone, everywhere. Granite, basalt and sandstone each carry their own chromaticity and the engine
+  has no lithology map. It is one declared name so a mod can restate it, and that is the whole of the
+  mitigation.
+- **The relief ladder cannot reach the mid field, by construction, and rock is where that hurts.**
+  `octWeight` retires an octave whose period is under four pixels; at 2 km with a 63.55° frame at
+  320 px one pixel is 13.8 m of ground, so an octave needs a 55 m period to survive and `kalk`'s
+  coarsest is 7.0 m. The amplitude law is not the problem — a self-affine rock surface at H = 0.8
+  really does carry only ~2 m of relief over 55 m, which is 2°. What the photograph shows at that range
+  is buttress-and-gully geometry at 10…100 m of amplitude, and that is the DEM's, not the material's.
 
 - **`## State` LOST ~466 MEASURED LINES ON 2026-08-07 AND THEY ARE NOT COMING BACK.** A tidy-up script
   editing the file this section was migrated from ran past its intended end and deleted that file's

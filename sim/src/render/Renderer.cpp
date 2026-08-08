@@ -47,8 +47,10 @@ void Renderer::SetOverlay(OverlayStage *o) {
                   HdrTex.CreateView());
 }
 
-void Renderer::SetVegetationTable(const void *rows, size_t rowBytes) {
+void Renderer::SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow,
+                                  float slopeBandDeg) {
   VegRows.assign((const uint8_t *)rows, (const uint8_t *)rows + rowBytes);
+  Tiles->SetBareRock(bareRockRow, slopeBandDeg);
 }
 
 void Renderer::SetCamera(const double eye[3], const double target[3]) {
