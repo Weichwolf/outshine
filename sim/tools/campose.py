@@ -396,6 +396,13 @@ def prepare(c, shots):
     return dem, ground, az_h, el_h, fits, shown
 
 
+def unfitted(c):
+    """Eine gescheiterte Einpassung hinterlaesst keine Zahl aus einem frueheren Lauf."""
+    c["yawDeg"], c["pitchDeg"], c["rollDeg"] = c["dirDeg"], 0.0, 0.0
+    c["fitted"] = False
+    c.pop("residPx", None); c.pop("fitImage", None)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cam", default="")
@@ -440,11 +447,11 @@ def main():
         lat, lon, eye = c["lat"], c["lon"], float(c["altM"])
         shots = clear_images(c["slug"], args.days, work, args.shots)
         if not shots:
-            print(f"{c['slug']:12s} kein Archivbild"); c["fitted"] = False; continue
+            print(f"{c['slug']:12s} kein Archivbild"); unfitted(c); continue
         dem, ground, az_h, el_h, fits, shown = prepare(c, shots)
         if not fits:
             print(f"{c['slug']:12s} keine Silhouette in {len(shots)} Aufnahmen")
-            c["fitted"] = False; continue
+            unfitted(c); continue
 
         mm = float(c["fovMm"])
         fov = fov_from_mm(mm, args.sensor)
@@ -452,7 +459,7 @@ def main():
         ps = Pose(fits, c["dirDeg"], fov)
         got = ps.solve(w)
         if got is None:
-            print(f"{c['slug']:12s} keine Grobloesung"); c["fitted"] = False; continue
+            print(f"{c['slug']:12s} keine Grobloesung"); unfitted(c); continue
         pose, resid = got
         yaw, pitch, roll, _ = pose
         per = ps.each(pose[:3])

@@ -259,14 +259,14 @@ zweites bestaetigt.
 |---|---|---|---|---|---|---|---|---|---|---|
 | zugspitze | 47.42083 / 10.98473 | 2962 | 2935.4 | **+26.6** | 18 | 2026/07/28/1300 | 63.55 | 79.9&deg; (80 gemeldet) | -9.13 | **7.79** |
 | nebelhorn | 47.42168 / 10.34251 | 2224 | 2169.5 | **+54.5** | 18 | 2026/07/28/1300 | 63.55 | 133.4&deg; (130 gemeldet) | -8.31 | **2.29** |
-| fellhorn | 47.34808 / 10.21617 | 1967 | 1949.2 | **+17.8** | 18 | 2026/08/07/1700 | 63.55 | 143.3&deg; (140 gemeldet) | +5.28 | 130.23 |
+| fellhorn | 47.34808 / 10.21617 | 1967 | 1949.2 | **+17.8** | 18 | &mdash; | 63.55 | 140.0&deg; (140 gemeldet) | +0.00 | &mdash; |
 | hochries | 47.74721 / 12.24904 | 1569 | 1547.0 | **+22.0** | 20 | 2026/07/26/1700 | 58.28 | 256.7&deg; (260 gemeldet) | -7.13 | **7.06** |
 | kampenwand | 47.75481 / 12.35672 | 1520 | 1505.7 | **+14.3** | 18 | 2026/08/03/0900 | 63.55 | 5.8&deg; (7 gemeldet) | -5.30 | 11.71 |
 | herzogstand | 47.60663 / 11.31613 | 1600 | 1600.8 | **-0.8** | 18 | 2026/07/28/1300 | 63.55 | 182.2&deg; (180 gemeldet) | -7.77 | **2.93** |
 | kochelsee | 47.60701 / 11.31646 | 1627 | 1596.3 | **+30.7** | 20 | 2026/08/05/1100 | 58.28 | 17.7&deg; (20 gemeldet) | +0.75 | 62.65 |
 | innsbruck | 47.30557 / 11.37786 | 1945 | 1900.7 | **+44.3** | 20 | 2026/07/28/1700 | 58.28 | 172.7&deg; (170 gemeldet) | -8.02 | **4.79** |
 | hochkoenig | 47.42014 / 13.06214 | 2941 | 2916.8 | **+24.2** | 18 | 2026/07/28/1500 | 63.55 | 234.0&deg; (230 gemeldet) | -9.65 | **9.08** |
-| salzburg | 47.75505 / 12.84980 | 1750 | 1691.6 | **+58.4** | 18 | 2026/07/27/0900 | 63.55 | 62.0&deg; (70 gemeldet) | -5.99 | 179.81 |
+| salzburg | 47.75505 / 12.84980 | 1750 | 1691.6 | **+58.4** | 18 | &mdash; | 63.55 | 70.0&deg; (70 gemeldet) | +0.00 | &mdash; |
 | lofer | 47.58841 / 12.69470 | 623 | 618.2 | **+4.8** | 10 | 2026/07/26/1700 | 96.22 | 86.0&deg; (90 gemeldet) | -15.93 | 33.41 |
 | mayrhofen | 47.16681 / 11.86047 | 633 | 635.6 | **-2.6** | 18 | 2026/07/28/0900 | 63.55 | 216.0&deg; (220 gemeldet) | +6.94 | 27.49 |
 | lech | 47.21977 / 10.17180 | 1970 | 1954.1 | **+15.9** | 18 | 2026/08/07/0900 | 63.55 | 241.8&deg; (240 gemeldet) | -4.26 | 14.58 |
@@ -276,7 +276,7 @@ Was scheitert, scheitert sichtbar und aus einem benennbaren Grund: **lofer** und
 im Tal und haben gar keinen Horizont im Bild (lofer schaut in eine Klamm, mayrhofen ueber einen
 Hotelgarten), **damuels** und **kampenwand** sehen nur einen nahen Hang bzw. eine dunstige Ebene ohne
 Relief, **kochelsee** legt den Modellhorizont quer durch den See, **fellhorn** und **salzburg** haben
-in 14 Tagen keine drei brauchbaren Aufnahmen. Sie stehen in `cams.json` mit `fitted: false` und die
+in 14 Tagen keine drei brauchbaren Aufnahmen (kein Restklaffen, weil keine Loesung). Sie stehen in `cams.json` mit `fitted: false` und die
 Seite markiert sie.
 
 **Die Restklaffen sind ehrlich, aber nicht klein.** Die gemessene Silhouette liegt systematisch

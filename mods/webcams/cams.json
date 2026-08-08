@@ -46,13 +46,11 @@
       "groundM": 1949.2,
       "dirDeg": 140.0,
       "fovMm": 18,
-      "yawDeg": 143.32,
-      "pitchDeg": 5.28,
-      "rollDeg": -6.04,
+      "yawDeg": 140.0,
+      "pitchDeg": 0.0,
+      "rollDeg": 0.0,
       "fovDeg": 63.55,
-      "fitted": false,
-      "residPx": 130.23,
-      "fitImage": "2026/08/07/1700"
+      "fitted": false
     },
     {
       "slug": "hochries",
@@ -165,13 +163,11 @@
       "groundM": 1691.6,
       "dirDeg": 70.0,
       "fovMm": 18,
-      "yawDeg": 62.0,
-      "pitchDeg": -5.99,
-      "rollDeg": 6.02,
+      "yawDeg": 70.0,
+      "pitchDeg": 0.0,
+      "rollDeg": 0.0,
       "fovDeg": 63.55,
-      "fitted": false,
-      "residPx": 179.81,
-      "fitImage": "2026/07/27/0900"
+      "fitted": false
     },
     {
       "slug": "lofer",
