@@ -92,8 +92,21 @@ pinnt ihr Binary.**
 - C++17, **kein Präfix**, PascalCase, **`namespace outshine`**, Klasse pro Datei. Ausnahmen:
   `world/terrain/` (C-ABI-Bibliothek, `tiles/` ruft denselben DEM-Dekoder) und `FBWX` (Formatname).
 
+## Referenzen
+
+Der Stand der Technik ist geschrieben. Wer hier etwas neu erfindet, schuldet den Grund — und der steht
+neben der Abweichung. Begründung je Titel in [`doc/references.md`](doc/references.md).
+
+| Feld | Kanon |
+|---|---|
+| **Engine** | Gregory, *Game Engine Architecture* 3e · Lengyel, *Foundations of Game Engine Development* I–III |
+| **Rendering** | Akenine-Möller u.a., *Real-Time Rendering* 4e · Pharr u.a., *Physically Based Rendering* 4e · Lagarde/de Rousiers, *Moving Frostbite to PBR* |
+| **Prozedural** | Ebert/Musgrave/Perlin/Worley, *Texturing & Modeling* — der Kanon für „Aussehen ist eine Funktion" |
+| **C++** | Stroustrup/Sutter, *C++ Core Guidelines* · Meyers, *Effective Modern C++* · Pikus, *The Art of Writing Efficient Programs* |
+| **Physik** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation for Computer Graphics* |
+
 ## Host
 
 emsdk in `~/Git/emsdk`, `nproc`-Shim in `~/.local/bin`. Container: `podman machine start`, dann
-`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native Builds brauchen `sim/vendor/.compat-headers`;
-**macOS hat kein `timeout(1)`**. Baumvorlage: `~/Git/wasm-tree` (16 Arten als JSON).
+`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native Builds: `sim/vendor/.compat-headers`; **macOS hat
+kein `timeout(1)`**. Baumvorlage: `~/Git/wasm-tree` (16 Arten als JSON).
