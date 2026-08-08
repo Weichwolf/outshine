@@ -85,6 +85,12 @@ Warnings = Errors (`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · v
 `tools/walkbench.py` (vier Geschwindigkeiten, p50/p95/p99), `tools/determinism.py` — **jede Messung
 pinnt ihr Binary.**
 
+**Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
+muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
+Einzelbild nicht zeigen kann: Popping am LOD-Wechsel, eine Streuung, die an einem Radius endet, Ghosting
+und Schlieren im Zeitfilter, ein Ruckler beim Nachladen, eine Schattierung, die beim Netzwechsel
+springt. **Ein Beleg aus einem Standbild belegt sie nicht** — bewegte Aufnahme oder es gilt als ungeprüft.
+
 ## Harte Regeln im Code
 
 - **Keine verstreuten Ausgaben.** `Log` für Ereignisse, `TelemetryBus` für Zustand. Core ist I/O-frei.
