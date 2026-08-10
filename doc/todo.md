@@ -19,6 +19,18 @@ read, and a yield carrying a stale version is discarded and re-requested.
 Done when: a region crossing is invisible in the frame distribution over a moving camera, measured with
 repeats, and a worker can never observe a half-swapped buffer.
 
+## 1.5 — Heap and stack telemetry
+
+There is none, and its absence has already been used as a reason not to decide something. That is the
+wrong way round: a missing measurement is a task, not a constraint.
+
+Heap size and its high-water mark per second into the telemetry; per-thread stack high-water from the
+stack base against the current pointer. Cheap, and it unblocks two decisions that are otherwise guesses —
+the memory budget and the per-purpose stack sizes.
+
+Done when: a full moving-camera run publishes heap high-water against the declared ceiling, and every
+thread publishes how much stack it actually used.
+
 ## 2 — The height oracle evaluates the drawn surface
 
 The oracle interpolates the DEM a second time instead of evaluating the surface that is drawn, and
