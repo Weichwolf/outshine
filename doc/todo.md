@@ -8,16 +8,41 @@ that makes 5 onwards enforceable rather than intended.
 
 ## 1 — Classification off the render thread
 
-Building the class structure runs on the render thread and costs several frames' worth of time at a
-region's first arrival. Today it hides behind the loading bar; the moment a viewer crosses a region
-boundary it is the forbidden hitch.
+The grid is laid down on its own thread and arrives as an immutable published structure. **Not
+copy-on-write:** a rebuild touches one of the two grids, the other is handed on by pointer, and the
+outline arrays are LENT to the job by move and handed back with the result, so a rebuild copies
+nothing. A reader takes one `shared_ptr<const>` and holds it; there is no non-`const` handle to a
+published structure anywhere, so a half-swapped buffer is not expressible rather than unlikely.
 
-**Riskiest step, therefore first.** The risk is not the thread — it is that packing swaps its buffer
-while a worker reads. Needs a versioned, copy-on-write class structure: a reader holds the version it
-read, and a yield carrying a stale version is discarded and re-requested.
+The discard half of the original design — a yield carrying a stale version is thrown away and
+re-requested — is **deliberately not built**: every reader today runs on the render thread inside the
+frame that asked, so there is no stale yield to discard, and a path with no consumer is a dead path.
+The version is carried and published; it is the hook when a reader becomes asynchronous (step 5).
 
-Done when: a region crossing is invisible in the frame distribution over a moving camera, measured with
-repeats, and a worker can never observe a half-swapped buffer.
+**The crossing is not yet invisible, and the number is this:** over 2 x 4 runs of `demo/crossing`
+(900 frames, 150 m/s, five re-anchors), the crossing frames average **+7.3 ms** over the other frames
+and land around the **p95** of their own run; in 2 of 4 runs one of them is still the worst frame.
+`worldMs` max fell from 30.02 to 16.48 ms pooled, `frameMs` max from 64.84 to 53.16 ms, and the class
+stage left on the render thread is `classMs` p99 0.42 ms, max 6.48 ms.
+
+What the remaining +7.3 ms is, measured, and none of it is the grid:
+
+| | |
+|---|---|
+| +4.5 ms | `gpuMs` — the device consuming the 8 MB class buffer written that frame |
+| +1.7 ms | `classMs` — of which the `WriteBuffer` call is 1.04 ms mean (max 3.51); `OsmField::Build` is 0.10 ms and `Ingest` is 0.00 ms, so **the residual is the upload, not the streaming** |
+| +1.6 ms | `bDecodeMs` — the OSM building decode, a different subsystem, coinciding at four of the eight crossing frames |
+
+Left to close it: the upload is one 8 MB write per publish and the only per-region cost that has no
+place to go but the queue thread. It shrinks when the structure becomes per-region rather than one
+camera-anchored grid (step 8) — until then the honest statement is p95, not invisible.
+
+**Why the structure cannot simply be appended to:** the grid is anchored on the camera and dense
+(`cell = j*W + i` against its origin), so a re-anchor changes what every index means; features are laid
+down in ascending declared rank, so a later one rewrites cells an earlier one won; and a cell's seeds
+must be contiguous because the fragment reads `seedFirst + s`. Append-only needs an absolute region
+grid, non-contiguous seed lists in the fragment and rank resolution at evaluation time — a different
+structure and a different shader, which is step 8.
 
 ## 1.5 — Heap and stack telemetry
 
@@ -27,6 +52,19 @@ wrong way round: a missing measurement is a task, not a constraint.
 Heap size and its high-water mark per second into the telemetry; per-thread stack high-water from the
 stack base against the current pointer. Roughly twenty-five lines together, and they unblock two numbers
 that are otherwise set rather than measured — the memory budget and the per-purpose stack sizes.
+
+**The fixed heap is what pays for the threads, and it has a price today.** With `-pthread` and a
+growing heap, emscripten guards every heap access in its glue (395 call sites in `web/gpu.js`) because a
+growth on one thread leaves another's typed view over the shorter buffer. That guard costs `frameMs`
+p50 **18.05 -> 19.67 ms** over 3 x 900 frames. It is a speed cost, not a safety one — the guard is
+correct and C++ holds no view at all.
+
+**`-sGROWABLE_ARRAYBUFFERS=2` cannot remove it, and the blocker is named:** with the heap as a
+resizable buffer the client throws on the main thread at the first render pass —
+`Failed to execute 'setBindGroup' on 'GPURenderPassEncoder': The provided ArrayBuffer value must not be
+resizable` — before any growth has happened (zero growth events in the runtime-debug log). WebGPU
+forbids a resizable ArrayBuffer as an argument source, so no emscripten setting reaches it. The only
+route to dropping the guard is the fixed heap, and the budget for it is what this step measures.
 
 **Every pool reports its bytes, or it is a leak with a name.** One structure already does; the caches and
 the class blocks do not, and the largest resident item on the device side has no budget at all.
@@ -163,6 +201,8 @@ infrastructure.
   and its field meanings are pinned against the shader.
 - `scenarios/` is the decided name; the tree still says `mods/`.
 - Comment density in the tree is far above the rule, and the worst file is more than half prose.
+- German comments and German commit messages from earlier rounds. The repository speaks English; the
+  history stays as it is, everything touched from here on gets translated as it is touched.
 - **Naming needs a pass of its own.** A name that needs a comment to be understood is the wrong name —
   the comment is the evidence, not the fix. Borrowed jargon that says nothing about the thing, and magic
   sentinel values where the type system has an answer, are the two patterns to look for. A new identifier

@@ -1,155 +1,157 @@
 # Outshine
 
-> **Eine Game Engine, die auf PS4- und A18-Pro-Hardware in 720p60 läuft, mit der Technologie von Days
-> Gone und Horizon Forbidden West, und in der sich Spiele wie Witcher 3, Fallout 4 und GTA 5 optisch,
-> inhaltlich und funktionell rein über deklarative `scenarios/` abbilden lassen. Grundlage der prozeduralen
-> Welt sind OSM-, Höhen-, Wetter- und Sternendaten vom Kachelserver. Durch LLM-Integration werden alle
-> Entitäten intelligent und die Spielwelt dynamisch.**
+> **A game engine that runs at 720p60 within a PS4- and A18-Pro-class budget, with the technology of Days
+> Gone and Horizon Forbidden West, in which games like Witcher 3, Fallout 4 and GTA 5 can be reproduced —
+> optically, in content and functionally — purely through declarative `scenarios/`. The basis of the
+> procedural world is OSM, elevation, weather and star data from the tile server. Through LLM integration
+> every entity is intelligent and the game world is dynamic.**
 
-Eine Engine, **auf eine Maschine zugeschnitten** — nicht auf Entwickler und Artists. Szenario rein,
-spielbares Spiel raus. Vier Bauentscheidungen: die Welt wird **aus OSM geladen** statt modelliert ·
-**ein** Physiksystem trägt Laufen, Fahren, Fliegen, Schwimmen · ein **Epochen- und Verfallsregler**
-kleidet dieselbe Geometrie ein · die Akteure **denken**. [`doc/vision.md`](doc/vision.md)
+An engine **cut for one machine** — not for developers and artists. Scenario in, playable game out. Four
+build decisions: the world is **loaded from OSM** instead of modelled · **one** physics system carries
+walking, driving, flying and swimming · an **epoch and decay dial** dresses the same geometry · the actors
+**think**. [`doc/vision.md`](doc/vision.md)
 
-**OSM ist die Welt, keine Datenquelle unter mehreren.** Gelände, Landbedeckung, Bauwerke, Infrastruktur
-und Vegetationsverteilung kommen aus denselben Vektoren — deshalb sind das gezeichnete und das
-klassifizierte Ding **per Konstruktion dieselbe Linie**.
+**OSM is the world, not one data source among several.** Terrain, land cover, structures, infrastructure
+and vegetation distribution come from the same vectors — which is why the drawn thing and the classified
+thing are **the same line by construction**.
 
-## Haltung
+**The repository speaks one language: English.** Code, comments, documents, commit messages.
 
-**Die Messlatte ist eine World Sandbox auf Unreal-Niveau, allein aus dem, was der Kachelserver liefert**
-— sie gilt für alles Sichtbare. **Kommentare des Eigners schlagen alles.** Und **der Weg ist das Ziel**:
-Monate, kein Abnahmetermin — eine Runde, die etwas gelernt hat, ist auch ohne Lieferung eine gute Runde.
+## Stance
 
-**Erfinderisch sein, auf Bewährtes aufbauen.** Der Stand der Technik ist geschrieben — siehe
-`## Referenzen`. Der etablierte Weg ist der Ausgangspunkt, **die Abweichung braucht einen Grund**, und
-der steht bei ihr.
+**The bar is a world sandbox at Unreal level, out of what the tile server delivers alone** — it holds for
+everything visible. **The owner's comments outrank everything.** And **the way is the goal**: months, no
+acceptance date — a round that learned something is a good round even without a delivery.
 
-**Der Rahmen steht, der Code ist im Wandel.** Fest sind **wasm32 und WebGPU** — eine virtuelle Konsole,
-und ihre Grenzen sind die Grenzen. Alles andere im Baum ist **Material**: Formate, Verzeichnisse,
-Algorithmen, Schnittstellen, Build, Werkzeuge. Wir bauen etwas Neues; nichts hier ist Besitzstand, und
-was die Vision verlangt, wird gebaut oder geändert.
+**Be inventive, build on what is proven.** The state of the art is written down — see `## References`. The
+established way is the starting point, **a deviation needs a reason**, and the reason stands next to it.
 
-**Fehlt etwas, ist das eine Aufgabe und keine Grenze.** „Diese Zahl gibt es nicht" endet mit „also wird
-das Werkzeug gebaut", nicht mit „also ist es nicht entscheidbar". Unterscheide **nicht messbar** (die
-Sache gibt keine Zahl her) von **noch nicht gemessen** (das Werkzeug fehlt) — das zweite hat einen
-Aufwand, keine Grenze. Bleibt ein Entwurf an etwas Vorhandenem hängen, lautet die Frage nicht „wie
-arbeite ich darum herum", sondern **„gehört das Vorhandene geändert"**, samt der Angabe was es kostet.
+**The frame is fixed, the code is in flux.** Fixed are **wasm32 and WebGPU** — a virtual console, and its
+limits are the limits. Everything else in the tree is **material**: formats, directories, algorithms,
+interfaces, build, tools. We are building something new; nothing here is a possession, and what the vision
+requires gets built or changed.
 
-**Kein Freibrief:** revidierbar ist jede getroffene *Entscheidung*, nicht die Messpflicht, nicht die
-Herkunft jeder Zahl, nicht das Löschen des Ersetzten in derselben Runde — das sind die Werkzeuge, mit
-denen revidiert wird.
+**Something missing is a task, not a limit.** "That number does not exist" ends with "so the tool gets
+built", never with "so it cannot be decided". Distinguish **not measurable** (the thing yields no number)
+from **not yet measured** (the tool is missing) — the second has a cost, not a boundary. When a design
+snags on something that exists, the question is not "how do I work around it" but **"should the existing
+thing change"**, together with what that costs.
 
-## Wo was steht
+**No blank cheque:** every *decision* is revisable — the duty to measure, the origin of every number, and
+deleting what is superseded in the same round are not. Those are the tools revision is done with.
 
-| Ort | Inhalt |
+## Where things live
+
+| Place | Content |
 |---|---|
-| **der Code** | was das Ding kann. **Nur Korrektes wird committed** — es gibt keinen zweiten Ort, an dem Korrektheit behauptet wird |
-| **`git log`** | was war. Kein Journal, kein Verlauf in einer Datei |
-| [`doc/vision.md`](doc/vision.md) | wofür, und wo die Latte hängt |
-| [`doc/architecture.md`](doc/architecture.md) | wie Outshine gebaut sein soll — Entscheidungen, keine Prosa |
-| [`doc/todo.md`](doc/todo.md) | die nächsten Schritte, in Reihenfolge |
-| `.claude/agents/` | **`engine-developer`** baut und misst · **`engine-architect`** plant und urteilt, nur lesend |
-| diese Datei | die Regeln. Höchstens **200 Zeilen** |
+| **the code** | what the thing can do. **Only correct work is committed** — there is no second place where correctness is claimed |
+| **`git log`** | what was. No journal, no history in a file |
+| [`doc/vision.md`](doc/vision.md) | what for, and where the bar sits |
+| [`doc/architecture.md`](doc/architecture.md) | how Outshine is to be built — decisions, not prose |
+| [`doc/todo.md`](doc/todo.md) | the next steps, in order |
+| `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs and judges, read-only |
+| this file | the rules. At most **200 lines** |
 
-`doc/` hat **drei** Dateien — Zweck, Bauform, Reihenfolge — und bekommt keine vierte. Ein Dokument, das
-beschreibt, was der Code **tut**, ist dasselbe in zwei Sprachen, und die zweite kann lügen. Ein
-verworfener Versuch wird nicht aufbewahrt: die Ausgangslage ändert sich laufend, und eine konservierte
-Messung führt später in die Irre.
+`doc/` holds **three** files — purpose, shape, order — and gets no fourth. A document describing what the
+code **does** is the same thing in two languages, and the second one can lie. A rejected attempt is not
+preserved: the starting position keeps moving, and a conserved measurement misleads a later round.
 
-**Kommentare fallen fast vollständig weg.** Es bleibt EINE Aufgabe: **das lokale Warum am
-Entscheidungspunkt**, eine Zeile. Nie, was der Code tut.
+**Comments almost entirely disappear.** ONE task remains: **the local why at the decision point**, one
+line. Never what the code does. **A name that needs a comment is the wrong name.**
 
-## Prinzipien (nicht verhandelbar)
+## Principles (not negotiable)
 
-1. **Rein deklarativ, und die Sprache ist JSON.** Ein Titel bringt **keine `.cpp` und keine Welt**. JSON
-   ist schema-prüfbar, diffbar und **erzeugbar**; ein Eigenformat wäre ein Parser, den niemand bestellt
-   hat. Shader für eigenes Aussehen sind erlaubt — Aussehen ist kein Wissen.
-2. **Die Engine ist texturfrei.** Zulässig sind nur der **Cache einer berechenbaren Funktion** (Sky-,
-   Transmissions-LUT) und **Messdaten, die naturgemäß ein Raster sind** (DEM, Luftbild, Sterne) — **nie
-   autoriertes Aussehen**; es gibt keine Artists. Nebengewinn: Mip-Abhängigkeit, Zoomsprünge,
-   Abtastgitter und Filterartefakte **können in einer Funktion nicht auftreten**.
-3. **Die Physik ist unsere eigene und deklarativ.** Fünf Teile — Segmente, Gelenke, Kontakte,
-   Kraftquellen, Medium — plus Modell, Materialien, Gehirn; dasselbe Format trägt Möbel, Mensch, Wolf,
-   Panzer, Flugzeug. **Sie muss für die Darstellung reichen, nicht mehr.**
-4. **Outshine weiß alles, ein Mod kennt nur, was er kennt.** Prüfbar: *braucht das Wissen, das kein
-   Teilnehmer haben könnte?* Ja → Engine, sonst Mod. **Mit LLM-Akteuren ist es die tragende Regel**: ein
-   Gehirn sieht nur über Sensoren, wirkt nur über simulierte Systeme; ein Kontakt trägt keine Identität.
-5. **Alles läuft IM Client.** Physik, Welt und Bild sind ein Prozess, ein Adressraum, WASM wie nativ.
-6. **Server-seitig nur zwei Container:** `fb-tiles` (`tiles/`, :8081) und `fb-sim` (`sim/`, :8080).
-   Der Kachelserver liefert DEM, OSM, Luftbild, Wetter und Sternenkarte — sonst nichts.
-7. **Die Mathematik ist deterministisch.** Gibt das Tempo das Ergebnis, ist die Kopplung ein Bug.
+1. **Purely declarative, and the language is JSON.** A title brings **no `.cpp` and no world**. JSON is
+   schema-checkable, diffable and **generatable**; a bespoke format would be a parser nobody ordered.
+   Shaders for a title's own appearance are allowed — appearance is not knowledge.
+2. **The engine is texture-free.** Admissible are only the **cache of a computable function** (sky and
+   transmittance LUTs) and **measured data that is a raster by nature** (DEM, imagery, stars) — **never
+   authored appearance**; there are no artists. Side benefit: mip dependence, zoom pops, sampling grids
+   and filter artefacts **cannot occur in a function**.
+3. **The physics is our own and declarative.** Five parts — segments, joints, contacts, force sources,
+   medium — plus model, materials, brain; the same format carries furniture, human, wolf, tank, aircraft.
+   **It must suffice for the depiction, no more.**
+4. **Outshine knows everything, a scenario knows only what it knows.** Checkable: *does this need
+   knowledge no participant could have?* Yes → engine, otherwise scenario. **With LLM actors this is the
+   load-bearing rule**: a brain sees only through sensors, acts only through simulated systems; a contact
+   carries no identity.
+5. **Everything runs IN the client.** Physics, world and picture are one process, one address space, WASM
+   like native.
+6. **Server-side only two containers:** `fb-tiles` (`tiles/`, :8081) and `fb-sim` (`sim/`, :8080). The tile
+   server delivers DEM, OSM, imagery, weather and the star catalogue — nothing else.
+7. **The mathematics is deterministic.** If pace decides the result, the coupling is a bug.
 
-## Architektur & Build
+## Architecture and build
 
-`fb-tiles` liefert per HTTP an den Client aus Prinzip 5. `sim/src/` hat **fünf** Verzeichnisse:
-`clients`, `core`, `generators`, `render`, `units`, `world` — **Kern** ist die nackte Welt (Gelände,
-Klassifizierung, Atmosphäre, Wolken, Gestirne, Renderer), **Generatoren** liefern daraus Inhalt
-(Vegetation, Bauwerke, Infrastruktur, Wasser) und sind austauschbar, weil sie dieselbe Eingabe lesen.
+`fb-tiles` delivers over HTTP to the client from principle 5. `sim/src/` has six directories: `clients`,
+`core`, `generators`, `render`, `units`, `world` — **core** is the naked world (terrain, classification,
+atmosphere, clouds, celestial bodies, renderer), **generators** turn that into content (vegetation,
+structures, infrastructure, water) and are exchangeable because they read the same input.
 
-**EIN Programm, zwei Übersetzungen, EIN Eintrittspunkt.** `clients/Outshine` besitzt World und
-Renderer und ist das Einzige, was eine Welt aufbaut; ein Client ist `main()` plus Ausgabemedium
-darüber — **`gpu_walk`** (nativ, Frame-Orakel, Bank `WalkBench`) und **wasm** (Browser, `Walker`).
-Beide bekommen zwei Wörter: welcher Mod, welche Szene. Eine gemeinsame Quellenliste allein deckte den Drift zehn
-Runden: sie beweist, dass beide *übersetzen*, nicht, dass beide dasselbe *zeigen* — das tut
-`verify-clients`.
+**ONE program, two translations, ONE entry point.** `clients/Outshine` owns world and renderer and is the
+only thing that builds a scene; a client is `main()` plus an output medium over it — **`gpu_walk`**
+(native, frame oracle, bench `WalkBench`) and **wasm** (browser, `Walker`). Both receive two words: which
+scenario, which scene. A shared source list alone covered the drift for ten rounds: it proves that both
+*compile*, not that both *show* the same thing — `verify-clients` does that.
 
-Gebaut wird nur über Make-Targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Tore:
-`verify-layers` | `verify-clients` | `verify-trees` | `verify-types`. **Der wasm-Client baut in JEDER
-Runde mit.**
-Warnings = Errors (`-Wall -Wextra -Wpedantic`) · Frame-Beweis oder Messung · vendor read-only.
-**Jede Stufe misst sich selbst, laufend, und das Ergebnis geht in die Telemetrie** — Kachelabruf,
-Dekodierung, Upload, Residenz, jeder Pass, der Frame. Es gibt keinen Messmodus: eine Bank ist ein
-deklarierter Lauf, kein anderer Codepfad. Ausgewertet wird über die Zeitreihe; eine Kachelankunft im
-Frame ist ein **Feld**, kein Grund, den Lauf zu verwerfen. **Leistung ist eine Verteilung über eine
-bewegte Kamera** — p50/p95/p99, nie Mittelwert, nie Minimum. Jede Zeile trägt Mod, Szene, wasm-Hash und
-Browserversion.
+Building happens only through make targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Gates:
+`verify-layers` | `verify-clients` | `verify-types`. **The wasm client builds in EVERY round.** Warnings
+are errors (`-Wall -Wextra -Wpedantic`) · a frame proof or a measurement · vendor read-only.
 
-**Erstladung und Nachströmen sind zwei Dinge.** Die Erstladung hält die Welt zurück und zeigt
-Fortschritt — dafür ist der Ladebildschirm da; Outshine wärmt nicht auf. **Was während des Spielens
-nachströmt, hält die Pipeline NIE an**: Holen und Dekodieren laufen neben dem Renderfaden, das Hochladen
-je Frame ist ein Budget, und eine Kachel wird sichtbar, wenn sie fertig ist — nie halb. **Ein Ruckler
-beim Nachladen ist ein Fehler**, kein Naturgesetz, und genau die Sorte, die ein Standbild nicht zeigt.
+**Every stage measures itself, continuously, and the result goes into the telemetry** — tile fetch,
+decode, upload, residency, every pass, the frame. There is no measurement mode: a bench is a declared run,
+not a different code path. Analysis happens over the time series; a tile arrival inside a frame is a
+**field**, not a reason to discard the run. **Performance is a distribution over a moving camera** —
+p50/p95/p99, never a mean, never a minimum. Every line carries scenario, scene, wasm hash and browser
+version. **A run-wide average is not a baseline** when the quantity drifts across the run.
 
-**Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Was gegen ein Foto abgestimmt wird,
-muss **in Bewegung schnell UND makellos** sein — und die teuersten Fehler sind genau die, die ein
-Einzelbild nicht zeigen kann: Popping am LOD-Wechsel, eine Streuung, die an einem Radius endet, Ghosting
-und Schlieren im Zeitfilter, ein Ruckler beim Nachladen, eine Schattierung, die beim Netzwechsel
-springt. **Ein Beleg aus einem Standbild belegt sie nicht** — bewegte Aufnahme oder es gilt als ungeprüft.
+**Initial load and streaming are two different things.** The initial load holds the world back and shows
+progress — that is what the loading screen is for; Outshine does not warm up. **What streams in during
+play NEVER stalls the pipeline**: fetch and decode run beside the render thread, upload per frame is a
+budget, and a tile becomes visible when it is complete — never half. **A hitch on stream-in is a defect**,
+not a law of nature, and exactly the kind a still frame does not show.
 
-## Harte Regeln im Code
+**The still is the comparison resolution, not the acceptance.** What is tuned against a photograph must be
+fast **and** flawless in motion — and the most expensive defects are exactly the ones a single frame
+cannot show: popping at an LOD change, a scatter that ends at a radius, ghosting and smear in the temporal
+filter, a hitch on stream-in, shading that jumps at a mesh change. **A still frame does not prove them** —
+a moving capture, or it counts as unverified.
 
-- **Keine verstreuten Ausgaben.** `Log` für Ereignisse, `TelemetryBus` für Zustand. Core ist I/O-frei.
-- **Jede Zahl trägt ihre Herkunft** — hergeleitet, gemessen oder `[SET]`.
-- **Was ersetzt wird, wird in derselben Runde gelöscht** — ein toter Pfad, der noch feuern kann, ist
-  schlimmer als eine Zeile zu viel. Rückfalltüren sind tote Pfade, Diagnosen nicht.
-- **Es gibt eine Fassung.** Keine Qualitätsstufen während der Grundentwicklung.
-- **Entwicklung läuft strikt seriell** — ein Agent im Baum. Dateitrennung schützt vor Überschreiben,
-  nicht vor Störung: Baum und Compiler sind gemeinsam.
-- **Nach JEDEM abgenommenen Schritt wird committed** — „Git holt es zurück" gilt nur, wenn es drin ist.
-- `core/` zeigt nie nach oben. Peers rufen sich nie gegenseitig.
-- **Die C++ Core Guidelines gelten** (`## Referenzen`); das Folgende sind nur die Hausabweichungen.
-- C++17, **kein Präfix**, PascalCase, **`namespace outshine`**, Klasse pro Datei. Ausnahmen:
-  `world/terrain/` (C-ABI-Bibliothek, `tiles/` ruft denselben DEM-Dekoder) und `FBWX` (Formatname).
+## Hard rules in the code
 
-## Referenzen
+- **No scattered output.** `Log` for events, `TelemetryBus` for state. Core is I/O-free.
+- **Every number carries its origin** — derived, measured or `[SET]`. Unit and frame of reference are part
+  of that origin.
+- **What is replaced is deleted in the same round** — a dead path that can still fire is worse than one
+  line too many. Fallbacks are dead paths; diagnostics are not.
+- **Every statement has exactly one place.** An argument standing in both a header and `doc/` will drift.
+- **There is one version.** No quality levels during basic development.
+- **Development is strictly serial** — one agent in the tree. Separating files protects against
+  overwriting, not against interference: tree and compiler are shared.
+- **After EVERY accepted step there is a commit** — "git will bring it back" holds only once it is in.
+- `core/` never points up. Peers never call each other.
+- **The C++ Core Guidelines apply** (`## References`); what follows are only the house deviations.
+- C++17, **no prefix**, PascalCase, **`namespace outshine`**, one class per file. Exceptions:
+  `world/terrain/` (C-ABI library, `tiles/` calls the same DEM decoder) and `FBWX` (a format name).
 
-**Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — VERBINDLICH.**
-Sie entscheiden Besitz, Lebensdauer, Schnittstelle und Stil; eine Abweichung ist ein Fehler, bis sie mit
-Grund danebensteht, und gegen eine Hausmeinung gewinnen sie. Der Rest ist Kanon, kein Gesetz —
-Ausgangspunkt statt Eigenerfindung.
+## References
 
-| Feld | Titel |
+**Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING.** They
+decide ownership, lifetime, interface and style; a deviation is a defect until its reason stands next to
+it, and against a house opinion they win. The rest is canon, not law — a starting point rather than an
+invention.
+
+| Field | Titles |
 |---|---|
 | **Engine** | Gregory, *Game Engine Architecture* 3e · Lengyel, *Foundations of Game Engine Development* I–III |
-| **Rendering** | Akenine-Möller u.a., *Real-Time Rendering* 4e · Pharr u.a., *Physically Based Rendering* 4e · Lagarde/de Rousiers, *Moving Frostbite to PBR* |
-| **Prozedural** | Ebert/Musgrave/Perlin/Worley, *Texturing & Modeling* — der Kanon für „Aussehen ist eine Funktion", samt seiner Grenzen |
+| **Rendering** | Akenine-Möller et al., *Real-Time Rendering* 4e · Pharr et al., *Physically Based Rendering* 4e · Lagarde/de Rousiers, *Moving Frostbite to PBR* |
+| **Procedural** | Ebert/Musgrave/Perlin/Worley, *Texturing & Modeling* — the canon for "appearance is a function", including its limits |
 | **C++** | Meyers, *Effective Modern C++* · Pikus, *The Art of Writing Efficient Programs* |
-| **Physik** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation for Computer Graphics* |
-| **Implementierungen** | AAA-Titel · SpeedTree · OSM-Viewer (OSM2World, F4map) · Microsoft Flight Simulator |
+| **Physics** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation for Computer Graphics* |
+| **Implementations** | AAA titles · SpeedTree · OSM viewers (OSM2World, F4map) · Microsoft Flight Simulator |
 
 ## Host
 
-emsdk in `~/Git/emsdk`, `nproc`-Shim in `~/.local/bin`. Container: `podman machine start`, dann
-`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native Builds: `sim/vendor/.compat-headers`; **macOS hat
-kein `timeout(1)`**. Baumvorlage: `~/Git/wasm-tree` (16 Arten als JSON).
+emsdk in `~/Git/emsdk`, `nproc` shim in `~/.local/bin`. Containers: `podman machine start`, then
+`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native builds: `sim/vendor/.compat-headers`; **macOS has no
+`timeout(1)`**. Tree template: `~/Git/wasm-tree` (16 species as JSON).
