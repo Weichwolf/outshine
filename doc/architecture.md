@@ -24,11 +24,25 @@ space and no bounds checks; WebGPU gives one feature set with no vendor extensio
 machine from the start: no allocation in the hot path, flat arrays in linear memory, few crossings of the
 JS boundary. **WebGPU computes, wasm administers.**
 
-**The heap grows, and the cost of growing is removed at the root rather than suppressed.** Shared memory
-cannot be detached, so growth does not invalidate another thread's view — it costs a buffer-identity
-check per access in generated glue, and there is a build setting that removes that check entirely. A
-fixed heap would need a number, and there is no heap telemetry to derive one from; a fixed number without
-provenance is worse than a ceiling.
+**A virtual console has two budgets: linear memory and device memory.** Both are declared, both are
+accounted, and neither may be emergent. Today the device side is the tighter one — resident tile geometry
+alone is measured in hundreds of megabytes, and on a console browser the whole process gets about a
+gigabyte.
+
+**The heap is fixed.** Not because growth is unsafe — shared memory cannot be detached, and the generated
+glue guards every access — but because **a growing heap is not a declared budget, and without a budget no
+consumer has a reason to limit itself.** Fixing it also deletes that per-access guard, including one
+instance per copied byte on our own path.
+
+**A fixed heap is a ledger.** Every pool reports its bytes, or it is a leak with a name. A cache capped in
+*entries* does not know its own footprint when an entry ranges over three orders of magnitude.
+
+**A failed allocation is a decision, not a footnote.** On an elastic path — caches, work in flight,
+generator output, resident geometry — it means evict, retry once, then refuse that piece of world the way
+a missing tile is already refused. Everywhere else it is a loud abort naming the item and the bytes,
+because a null dereference there would hide a budget error. The default toolchain behaviour is the
+opposite of this and must be turned off, or every null check in the tree is dead code that looks like
+handling.
 
 **memory64 is not the way.** wasm32 on a 64-bit host reserves its whole address space and thereby
 eliminates bounds checks; memory64 cannot and pays for every access. Only worth it above 4 GiB, and the
