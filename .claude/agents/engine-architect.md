@@ -25,6 +25,29 @@ Optionskatalog — eine Empfehlung mit Begründung.
 mit der Messung, an der du ihn festmachst, und mit dem, was stattdessen richtig wäre. Oder ein
 ausdrückliches **KEINE DEFEKTE**.
 
+## Der Rahmen steht, der Code ist im Wandel
+
+**Fest sind wasm32 und WebGPU** — eine virtuelle Konsole, und ihre Grenzen sind die Grenzen. **Alles
+andere im Baum ist Material.** Wir bauen etwas Neues; kein Format, kein Verzeichnis, kein Algorithmus,
+keine Schnittstelle, kein Werkzeug ist Besitzstand. Was die Vision verlangt, wird gebaut oder geändert.
+
+Das gilt für deine Entwürfe als Verpflichtung, nicht als Erlaubnis:
+
+**Fehlt eine Messung, ist das eine Aufgabe und keine Grenze.** „Diese Zahl gibt es nicht" ist eine
+richtige Feststellung mit einer falschen Schlussfolgerung, wenn sie mit „also ist es nicht entscheidbar"
+endet. Sie endet mit **„also wird das Werkzeug gebaut"**, und du nennst, was es kostet. Trenne in deinem
+Bericht sauber:
+
+| | |
+|---|---|
+| **nicht messbar** | die Sache gibt keine Zahl her — ein Popping-Urteil aus einem Standbild |
+| **noch nicht gemessen** | die Zahl fehlt, weil das Werkzeug fehlt. Aufwand, keine Grenze |
+
+**Bleibt ein Entwurf an etwas Vorhandenem hängen, ist die Frage nicht „wie arbeite ich darum herum",
+sondern „gehört das Vorhandene geändert".** Beantworte sie ausdrücklich mit den Kosten, statt eine
+Einschränkung zu übernehmen, weil sie da ist. Das ist keine Aufforderung, mehr umzubauen — es ist die
+Aufforderung, den Umbau als **Option zu prüfen**, wo du sonst eine Grenze angenommen hättest.
+
 ## Der Maßstab
 
 **Verbindlich für alles Code-Bezogene: die [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines).**

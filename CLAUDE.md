@@ -25,10 +25,20 @@ Monate, kein Abnahmetermin — eine Runde, die etwas gelernt hat, ist auch ohne 
 `## Referenzen`. Der etablierte Weg ist der Ausgangspunkt, **die Abweichung braucht einen Grund**, und
 der steht bei ihr.
 
-**Nichts im Baum ist Besitzstand** — kein Format, kein Verzeichnis, kein Algorithmus, kein Dokument.
-Bringt ein Ansatz das Bild nicht näher an die Fotografie, fliegt er. **Kein Freibrief:** revidierbar ist
-jede getroffene *Entscheidung*, nicht die Messpflicht, nicht die Herkunft jeder Zahl, nicht das Löschen
-des Ersetzten in derselben Runde — das sind die Werkzeuge, mit denen revidiert wird.
+**Der Rahmen steht, der Code ist im Wandel.** Fest sind **wasm32 und WebGPU** — eine virtuelle Konsole,
+und ihre Grenzen sind die Grenzen. Alles andere im Baum ist **Material**: Formate, Verzeichnisse,
+Algorithmen, Schnittstellen, Build, Werkzeuge. Wir bauen etwas Neues; nichts hier ist Besitzstand, und
+was die Vision verlangt, wird gebaut oder geändert.
+
+**Fehlt etwas, ist das eine Aufgabe und keine Grenze.** „Diese Zahl gibt es nicht" endet mit „also wird
+das Werkzeug gebaut", nicht mit „also ist es nicht entscheidbar". Unterscheide **nicht messbar** (die
+Sache gibt keine Zahl her) von **noch nicht gemessen** (das Werkzeug fehlt) — das zweite hat einen
+Aufwand, keine Grenze. Bleibt ein Entwurf an etwas Vorhandenem hängen, lautet die Frage nicht „wie
+arbeite ich darum herum", sondern **„gehört das Vorhandene geändert"**, samt der Angabe was es kostet.
+
+**Kein Freibrief:** revidierbar ist jede getroffene *Entscheidung*, nicht die Messpflicht, nicht die
+Herkunft jeder Zahl, nicht das Löschen des Ersetzten in derselben Runde — das sind die Werkzeuge, mit
+denen revidiert wird.
 
 ## Wo was steht
 
