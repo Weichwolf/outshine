@@ -55,13 +55,15 @@ per-purpose stack sizes are set from the measurement rather than from the toolch
 
 ## 1.6 — The scenario declares the internal render resolution
 
-Today the picture is produced at whatever size the output medium happens to be, so every performance
-number is measured at a slightly different subject and no two machines compare. A console renders at a
-declared size and scales.
+**720p60 is the target and 1280×720 is the subject of the budget** — that has been the number all along.
+What is missing is that anything actually says so: today the picture comes out at whatever size the output
+medium happens to be, so no two machines measure the same thing and the resolution appears in no
+telemetry line.
 
-The scenario names the internal resolution; the canvas upscales bilinearly to its own size and keeps the
-aspect ratio, with bars rather than distortion. The bench stops overriding it by flag — a size is part of
-the declaration, not of the observation.
+The scenario carries it, the canvas upscales bilinearly to its own size and keeps the aspect ratio with
+bars rather than distortion, and the bench stops overriding it by flag — a size is part of the
+declaration, not of the observation. A scenario that renders at another size, like a comparison against a
+photograph, states a different subject and says why.
 
 Done when: no code path takes a render size from a window, two runs at different canvas sizes produce the
 same frame distribution, and the declared size stands in every telemetry line beside the scenario.

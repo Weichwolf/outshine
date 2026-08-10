@@ -19,10 +19,11 @@ Nothing is preloaded. Every tile on demand. **Every point on Earth is a valid st
 
 ## The machine
 
-**The internal render resolution is declared by the scenario, and the canvas only scales it.** A frame
-budget without a stated resolution has no subject, and a window size is not a declaration. The picture is
-produced at the declared size, upscaled bilinearly to whatever the canvas happens to be, with the aspect
-ratio preserved — bars rather than distortion. Two runs on two machines then measure the same thing.
+**The internal render resolution is 1280×720, it is declared, and the canvas only scales it.** That
+number is the subject of the frame budget, not a free parameter: a window size is not a declaration, and a
+budget without a stated resolution has none either. The picture is produced at the declared size, upscaled
+bilinearly to whatever the canvas happens to be, aspect ratio preserved — bars rather than distortion. A
+scenario that renders at another size is stating a different subject and says why.
 
 **wasm32 plus WebGPU is a virtual console, and that is the limit.** wasm32 gives a hard 4 GiB address
 space and no bounds checks; WebGPU gives one feature set with no vendor extensions. Optimise against that
