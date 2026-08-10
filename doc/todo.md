@@ -28,23 +28,43 @@ version is published; it is the hook when a reader becomes asynchronous (step 5)
 coarse one. Over the declared scene it does not, but that scene tests staleness and not drift — a run
 past the coarse slack decides the drift case.
 
-## 1.5 — Heap and stack telemetry
+## 1.5 — The fixed heap, now that the measurement exists
 
-There is none, and its absence has already been used as a reason not to decide something. A missing
-measurement is a task, not a constraint.
+The telemetry is built and the two numbers it was blocking are measured, so what remains is the setting
+itself: **the browser link still grows its memory and still carries the per-access guard.**
 
-Heap size and its high-water mark into the telemetry; per-thread stack high-water. **Every pool reports
-its bytes, or it is a leak with a name** — one structure already does, the caches and the grids do not,
-and the largest resident item on the device side has no budget at all.
+The heap high-water over the declared crossing is **97.8–109.8 MiB** over 20 runs against an initial
+memory of 256 MiB, so the module **never grows at all** — the guard is paid for a growth that does not
+happen, and the ceiling the growing link declares is 2 GiB, which is not a budget. Every thread's stack
+is 4096 KiB and the deepest either has been is **11.1 KiB** (frame) and **4.2 KiB** (class), the second
+at the probe's own 4 KiB floor. Device residency is **234.3 MiB**, of which 208.9 is tile geometry; a
+device *ceiling* is deliberately not declared, because which budget a device allocation is charged
+against is the open question `architecture.md` names and a number without a derivation is worse than
+none.
 
-The fixed heap `architecture.md` requires is blocked on exactly this, and one number that has been used
-to argue its urgency is **in doubt**: the threading change was priced at a frame-time cost paid every
-frame, but the shipped build carrying every guard site is indistinguishable from the state before it, and
-the expensive band that did exist went away without the guard going away. Measure what that band was, or
-strike the claim.
+**The frame-time argument for urgency is struck.** It priced the threading change at p50 18.05 → 19.67
+ms. Over 34 runs of 11 pinned builds the whole band is `gpuMs`, the wall-clock wait on the device after
+submit, which no guard in the glue can touch: `frameMs` p50 against `gpuMs` p50 is r = 0.98, and once
+that term is taken out the band's residual is +0.08 ms against −0.07 ms for every other run. Measured
+directly since, two builds of one source differing in nothing but the guard's 395 call sites, eight
+counterbalanced blocks: **+0.50 ms, p = 0.19** — not resolved, and the claimed 1.62 ms lies outside its
+interval. The band was a host state that lasted half an hour.
 
-Done when: a full moving-camera run publishes heap high-water against a declared ceiling, and every
-thread publishes how much stack it used.
+Done when: the browser link no longer grows, a failed allocation aborts naming the item, and the
+per-purpose stack sizes are set from the measurement rather than from the toolchain default.
+
+## 1.6 — The scenario declares the internal render resolution
+
+Today the picture is produced at whatever size the output medium happens to be, so every performance
+number is measured at a slightly different subject and no two machines compare. A console renders at a
+declared size and scales.
+
+The scenario names the internal resolution; the canvas upscales bilinearly to its own size and keeps the
+aspect ratio, with bars rather than distortion. The bench stops overriding it by flag — a size is part of
+the declaration, not of the observation.
+
+Done when: no code path takes a render size from a window, two runs at different canvas sizes produce the
+same frame distribution, and the declared size stands in every telemetry line beside the scenario.
 
 ## 2 — The height oracle evaluates the drawn surface
 
