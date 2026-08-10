@@ -1,5 +1,6 @@
 #include "ClassField.h"
 
+#include "Capacity.h"
 #include "Geodesy.h"
 #include "Log.h"
 #include "VegetationTemplates.h"
@@ -44,38 +45,49 @@ void ClassField::FromEnu(double e, double n, double *lat, double *lon) const {
   *lon = Lon0_ + e / (kMPerDeg * std::cos(Lat0_ * 3.14159265358979 / 180.0));
 }
 
-void ClassField::Ingest(Grain &g) {
-  /* The builder has this grain's arrays. Deferring costs a pass; OsmField keeps what arrived and
+size_t ClassField::Tier::HeapBytes() const {
+  return (Field ? Field->HeapBytes() : 0) + CapacityBytes(Pts) + CapacityBytes(Rings) +
+         CapacityBytes(Feats);
+}
+
+size_t ClassField::HeapBytes() const {
+  std::lock_guard<std::mutex> lk(Mu_);
+  return Fine_.HeapBytes() + Coarse_.HeapBytes() + Builder_.HeapBytes() +
+         (Published_ ? Published_->Bytes() : 0);
+}
+
+void ClassField::Ingest(Tier &t) {
+  /* The builder has this tier's arrays. Deferring costs a pass; OsmField keeps what arrived and
    * PtsDone/FeatsDone make the catch-up exact. */
-  if (g.Lent) return;
-  const std::vector<double> &pts = g.Field->Points();
+  if (t.ArraysLent) return;
+  const std::vector<double> &pts = t.Field->Points();
   const size_t havePts = pts.size() / 2;
-  if (havePts > g.PtsDone) {
-    g.Pts.resize(havePts * 2);
-    for (size_t i = g.PtsDone; i < havePts; i++) {
+  if (havePts > t.PtsDone) {
+    t.Pts.resize(havePts * 2);
+    for (size_t i = t.PtsDone; i < havePts; i++) {
       double e = 0, n = 0;
       Project(pts[i * 2], pts[i * 2 + 1], &e, &n);
-      g.Pts[i * 2] = (float)e;
-      g.Pts[i * 2 + 1] = (float)n;
+      t.Pts[i * 2] = (float)e;
+      t.Pts[i * 2 + 1] = (float)n;
     }
-    g.PtsDone = havePts;
+    t.PtsDone = havePts;
   }
 
-  const std::vector<OsmField::Ring> &rings = g.Field->Rings();
-  if (rings.size() > g.RingsDone) {
-    g.Rings.resize(rings.size());
-    for (size_t i = g.RingsDone; i < rings.size(); i++)
-      g.Rings[i] = ClassBuilder::Ring{rings[i].First, rings[i].Count};
-    g.RingsDone = rings.size();
+  const std::vector<OsmField::Ring> &rings = t.Field->Rings();
+  if (rings.size() > t.RingsDone) {
+    t.Rings.resize(rings.size());
+    for (size_t i = t.RingsDone; i < rings.size(); i++)
+      t.Rings[i] = ClassBuilder::Ring{rings[i].First, rings[i].Count};
+    t.RingsDone = rings.size();
   }
 
-  const std::vector<OsmField::Feature> &feats = g.Field->Features();
-  if (feats.size() <= g.FeatsDone) return;
+  const std::vector<OsmField::Feature> &feats = t.Field->Features();
+  if (feats.size() <= t.FeatsDone) return;
 
-  for (size_t i = g.FeatsDone; i < feats.size(); i++) {
+  for (size_t i = t.FeatsDone; i < feats.size(); i++) {
     const OsmField::Feature &f = feats[i];
-    const std::string_view layer = g.Field->LayerName((int)f.Layer);
-    const std::string_view kind = g.Field->Str(f, "kind");
+    const std::string_view layer = t.Field->LayerName((int)f.Layer);
+    const std::string_view kind = t.Field->Str(f, "kind");
     const VegetationTemplates::Rule *rule = Veg_->Find(layer, kind);
     if (!rule) {
       std::string key(layer);
@@ -89,7 +101,7 @@ void ClassField::Ingest(Grain &g) {
     /* A culvert or a tunnel carries nothing at the surface. shortbread hands us `tunnel` on every
      * layer that can have one and every OSM renderer acts on it; the bake does not, which is why its
      * water looks fuller than the ground actually is. */
-    if (g.Field->Num(f, "tunnel", 0.0) > 0.5) continue;
+    if (t.Field->Num(f, "tunnel", 0.0) > 0.5) continue;
     if (f.Type != 2 && f.Type != 3) continue;
     if (f.Type == 2 && rule->WidthM <= 0.0f) {   /* the source's line code */
       std::string key(layer);
@@ -111,10 +123,10 @@ void ClassField::Ingest(Grain &g) {
     rec.MinE = rec.MinN = 1e30f;
     rec.MaxE = rec.MaxN = -1e30f;
     for (uint32_t r = 0; r < f.RingCount; r++) {
-      const ClassBuilder::Ring &ring = g.Rings[f.FirstRing + r];
+      const ClassBuilder::Ring &ring = t.Rings[f.FirstRing + r];
       for (uint32_t k = 0; k < ring.Count; k++) {
-        const float e = g.Pts[((size_t)ring.First + k) * 2];
-        const float n = g.Pts[((size_t)ring.First + k) * 2 + 1];
+        const float e = t.Pts[((size_t)ring.First + k) * 2];
+        const float n = t.Pts[((size_t)ring.First + k) * 2 + 1];
         rec.MinE = std::min(rec.MinE, e); rec.MaxE = std::max(rec.MaxE, e);
         rec.MinN = std::min(rec.MinN, n); rec.MaxN = std::max(rec.MaxN, n);
       }
@@ -122,52 +134,50 @@ void ClassField::Ingest(Grain &g) {
     if (rec.MaxE < rec.MinE) continue;
     const float pad = rec.WidthM * 0.5f;
     rec.MinE -= pad; rec.MinN -= pad; rec.MaxE += pad; rec.MaxN += pad;
-    g.Feats.push_back(rec);
+    t.Feats.push_back(rec);
   }
-  g.FeatsDone = feats.size();
-  std::stable_sort(g.Feats.begin(), g.Feats.end(),
+  t.FeatsDone = feats.size();
+  std::stable_sort(t.Feats.begin(), t.Feats.end(),
                    [](const ClassBuilder::Feature &a, const ClassBuilder::Feature &b) {
                      return a.Rank < b.Rank;
                    });
-  g.Stale = true;
+  t.Stale = true;
 }
 
 /* LENT, NOT COPIED. The three arrays move into the job and come back with the result, so nothing is
  * duplicated and nothing is allocated: the tier simply does not have them while the grid is laid
  * down, which is why no rule is needed against reading them. */
-ClassBuilder::Job ClassField::LendTo(Grain &g, ClassBuilder::Resolution res, double camE,
-                                    double camN) {
-  assert(!g.Lent);
+ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, double camN) {
+  assert(!t.ArraysLent);
   ClassBuilder::Job job;
-  job.Grain = res;
+  job.Grain = grain;
   job.CamE = camE;
   job.CamN = camN;
-  job.CellM = g.CellM;
-  job.HalfCells = g.HalfCells;
+  job.CellM = t.CellM;
+  job.HalfCells = t.HalfCells;
   job.DefaultTemplate = Veg_->DefaultTemplate();
-  job.Pts = std::move(g.Pts);
-  job.Rings = std::move(g.Rings);
-  job.Feats = std::move(g.Feats);
-  g.Lent = true;
+  job.Pts = std::move(t.Pts);
+  job.Rings = std::move(t.Rings);
+  job.Feats = std::move(t.Feats);
+  t.ArraysLent = true;
   return job;
 }
 
 bool ClassField::SubmitDue(double camE, double camN) {
-  const ClassBuilder::Resolution order[2] = {ClassBuilder::Resolution::Fine,
-                                             ClassBuilder::Resolution::Coarse};
-  for (ClassBuilder::Resolution res : order) {
-    Grain &g = GrainOf(res);
-    const double cx = g.OrgE + g.HalfCells * g.CellM, cy = g.OrgN + g.HalfCells * g.CellM;
-    const bool drifted = g.Have && (std::fabs(camE - cx) > g.SlackM || std::fabs(camN - cy) > g.SlackM);
-    if (g.Have && !g.Stale && !drifted) continue;
-    Builder_.Submit(LendTo(g, res, camE, camN));
-    Submitted_ = res;
-    Submits_[res == ClassBuilder::Resolution::Fine ? 0 : 1]++;
+  const ClassGrain order[2] = {ClassGrain::Fine, ClassGrain::Coarse};
+  for (ClassGrain grain : order) {
+    Tier &t = TierOf(grain);
+    const double cx = t.OrgE + t.HalfCells * t.CellM, cy = t.OrgN + t.HalfCells * t.CellM;
+    const bool drifted = t.Have && (std::fabs(camE - cx) > t.SlackM || std::fabs(camN - cy) > t.SlackM);
+    if (t.Have && !t.Stale && !drifted) continue;
+    Builder_.Submit(LendTo(t, grain, camE, camN));
+    Submitted_ = grain;
+    Submits_[grain == ClassGrain::Fine ? 0 : 1]++;
     /* The anchor is settled here rather than when the grid lands, so the drift test cannot ask for
      * the same grid again while the one it already asked for is still being laid down. */
-    g.OrgE = std::floor(camE / g.CellM - g.HalfCells) * g.CellM;
-    g.OrgN = std::floor(camN / g.CellM - g.HalfCells) * g.CellM;
-    g.Stale = false;
+    t.OrgE = std::floor(camE / t.CellM - t.HalfCells) * t.CellM;
+    t.OrgN = std::floor(camN / t.CellM - t.HalfCells) * t.CellM;
+    t.Stale = false;
     return true;
   }
   return false;
@@ -181,8 +191,8 @@ void ClassField::Update(double camLat, double camLon) {
     Coarse_.Field = std::make_unique<OsmField>(Coarse_.Zoom, Veg_->AreaLayers());
   }
   const double t0 = Clock();
-  Fine_.Field->Build(camLat, camLon, Fine_.Ring);
-  Coarse_.Field->Build(camLat, camLon, Coarse_.Ring);
+  Fine_.Field->Build(camLat, camLon, Fine_.TileRadius);
+  Coarse_.Field->Build(camLat, camLon, Coarse_.TileRadius);
   const double t1 = Clock();
   Ingest(Fine_);
   Ingest(Coarse_);
@@ -196,21 +206,20 @@ void ClassField::Update(double camLat, double camLon) {
   Cam_[1] = camN;
 
   if (std::optional<ClassBuilder::Handback> done = Builder_.Collect()) {
-    Grain &g = GrainOf(done->Done.Grain);
-    g.Pts = std::move(done->Done.Pts);
-    g.Rings = std::move(done->Done.Rings);
-    g.Feats = std::move(done->Done.Feats);
-    g.Lent = false;
-    g.Have = true;
+    Tier &t = TierOf(done->Returned.Grain);
+    t.Pts = std::move(done->Returned.Pts);
+    t.Rings = std::move(done->Returned.Rings);
+    t.Feats = std::move(done->Returned.Feats);
+    t.ArraysLent = false;
+    t.Have = true;
     Submitted_.reset();
     const double buildMs = done->Structure->Measured().BuildMs;
     if (buildMs > BuildMsMax_) BuildMsMax_ = buildMs;
     Log::Debug("world", "class_built", {{"version", (double)done->Structure->Version()},
         {"buildMs", buildMs}, {"packMs", done->Structure->Measured().PackMs},
         {"bufferKB", done->Structure->Bytes() / 1024.0},
-        {"lentKB", (double)(g.Pts.capacity() * sizeof(float) +
-                            g.Rings.capacity() * sizeof(ClassBuilder::Ring) +
-                            g.Feats.capacity() * sizeof(ClassBuilder::Feature)) / 1024.0}});
+        {"lentKB", (double)(CapacityBytes(t.Pts) + CapacityBytes(t.Rings) +
+                            CapacityBytes(t.Feats)) / 1024.0}});
     std::lock_guard<std::mutex> lk(Mu_);
     Published_ = std::move(done->Structure);
   }

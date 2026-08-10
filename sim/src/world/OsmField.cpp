@@ -1,5 +1,6 @@
 #include "OsmField.h"
 
+#include "Capacity.h"
 #include "Log.h"
 #include "OsmVector.h"
 #include "TerrainLoader.h"
@@ -133,6 +134,20 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
                                    {"rings", (int)mvt.Rings().size()}});
   }
   return true;
+}
+
+size_t OsmField::HeapBytes() const {
+  size_t strings = 0;
+  for (const std::string &s : Keys_) strings += s.capacity();
+  for (const std::string &s : Strings_) strings += s.capacity();
+  for (const std::string &s : Layers_) strings += s.capacity();
+  /* The two intern maps are counted by node, which is what an unordered_map costs beyond its keys. */
+  const size_t nodes = (KeyIndex_.size() + StringIndex_.size()) *
+                       (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
+  return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
+         CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
+         CapacityBytes(Done_) + CapacityBytes(Scratch_) + CapacityBytes(Keys_) +
+         CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes;
 }
 
 int OsmField::Layer(const char *name) const {

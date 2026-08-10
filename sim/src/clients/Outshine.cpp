@@ -7,7 +7,9 @@
 #include "ElevationProvider.h"
 #include "Ephemeris.h"
 #include "Geodesy.h"
+#include "HeapProbe.h"
 #include "Log.h"
+#include "StackProbe.h"
 #include "TerrainLoader.h"
 
 #ifdef __EMSCRIPTEN__
@@ -54,6 +56,9 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
       WindDeg_(Scene_.WindDeg()),
       WindMs_(Scene_.WindMs()),
       Clk_((double)Scene_.UtcS()) {
+  /* The thread that builds this object is the one that will draw on it, and this is the earliest
+   * moment at which the engine can say so. */
+  StackProbe::Enter(StackProbe::Purpose::Frame);
   ViewM_ = Scene_.ViewM();
   OrthoM_ = Scene_.OrthoM();
   Stand_.SetEyeAglM(Scene_.EyeM());
@@ -138,6 +143,7 @@ bool Outshine::Prepare(const Gpu &gpu) {
   if (Identity_) Bus_.Register(Identity_);
   Bus_.Register(&Frames_);
   Bus_.Register(&Stream_);
+  Bus_.Register(&Memory_);
   Bus_.Start();
   ClockOriginMs_ = NowMs();
   Frames_.Open(ClockOriginMs_);
@@ -215,6 +221,7 @@ double Outshine::OpenFrame() {
 }
 
 void Outshine::CloseFrame(double startedMs) {
+  HeapProbe::Sample();
   double stage[Render::GpuTimer::kPassCount];
   if (R_.TakeGpuTimes(stage)) Frames_.AddStages(stage);
   if (!Frames_.Due(startedMs)) return;

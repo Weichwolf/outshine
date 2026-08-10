@@ -80,12 +80,16 @@ public:
   long FineSubmits() const { return Submits_[0]; }
   long CoarseSubmits() const { return Submits_[1]; }
 
+  /* Everything the class holds on the heap: both vector streams, both tiers' projected outlines, the
+   * builder's grids and scratch, and the structure a reader may still be holding. */
+  size_t HeapBytes() const;
+
 private:
-  /* One grain of the class: the vector stream it reads, the grid it feeds, and the outlines in
-   * between. The two differ only in resolution and reach. */
-  struct Grain {
+  /* One grain of the class as this side holds it: the vector stream it reads, the outlines it has
+   * projected, and where they stand. The two tiers differ only in resolution and reach. */
+  struct Tier {
     std::unique_ptr<OsmField> Field;
-    int Ring;
+    int TileRadius;    /* tiles around the camera the vector stream fetches */
     double CellM;
     int HalfCells;
     double SlackM;     /* how far the camera may leave the grid centre before a re-anchor */
@@ -99,28 +103,27 @@ private:
     double OrgE = 0, OrgN = 0;
     bool Have = false;
     bool Stale = true;
-    bool Lent = false;
-    Grain(int zoom, int ring, double cellM, int halfCells, double slackM)
-        : Ring(ring), CellM(cellM), HalfCells(halfCells), SlackM(slackM), Zoom(zoom) {}
+    bool ArraysLent = false;
+    Tier(int zoom, int tileRadius, double cellM, int halfCells, double slackM)
+        : TileRadius(tileRadius), CellM(cellM), HalfCells(halfCells), SlackM(slackM), Zoom(zoom) {}
+    size_t HeapBytes() const;
   };
 
-  void Ingest(Grain &g);
+  void Ingest(Tier &t);
   bool SubmitDue(double camE, double camN);
-  ClassBuilder::Job LendTo(Grain &g, ClassBuilder::Resolution res, double camE, double camN);
-  Grain &GrainOf(ClassBuilder::Resolution res) {
-    return res == ClassBuilder::Resolution::Fine ? Fine_ : Coarse_;
-  }
+  ClassBuilder::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
+  Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 
   const VegetationTemplates *Veg_ = nullptr;
   /* The split is a property of the VECTOR FETCH and of nothing else: a 3x3 z14 block guarantees
    * 1502.33 m and a 3x3 z11 block 12018.6 m; beyond that there is no datum and the declared default is
    * the honest answer. The coarse grain takes the area layers alone, because at a kilometre a 7.5 m
    * road is under a pixel and the street lines are two thirds of the z11 edge count. */
-  Grain Fine_{14, 1, 16.0, 64, 448.0};
-  Grain Coarse_{11, 1, 64.0, 128, 3800.0};
+  Tier Fine_{14, 1, 16.0, 64, 448.0};
+  Tier Coarse_{11, 1, 64.0, 128, 3800.0};
 
   ClassBuilder Builder_;
-  std::optional<ClassBuilder::Resolution> Submitted_;
+  std::optional<ClassGrain> Submitted_;
   /* Every reader is on the render thread today, so this lock is never contended. It is here because
    * the handle it guards is what a reader off the thread will take, and a lock added later is a lock
    * that was missing in between. */

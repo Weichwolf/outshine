@@ -66,6 +66,10 @@ public:
   const std::vector<double> &Points() const { return Points_; }
   const std::vector<Tile> &Tiles() const { return Tiles_; }
 
+  /* Everything the decoded geometry and its string pools hold. It only grows: a tile decoded once is
+   * kept, which is what makes a seam-crossing feature one geometry rather than two parses. */
+  size_t HeapBytes() const;
+
   /* -1 when the layer was never asked for. Resolve once, then compare Feature::Layer. */
   int Layer(const char *name) const;
   const std::string &LayerName(int i) const { return Layers_[(size_t)i]; }

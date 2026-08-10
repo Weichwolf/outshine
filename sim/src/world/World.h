@@ -117,6 +117,19 @@ public:
   double BuildingMs() const { return BuildingMs_; }
   double BuildingDecodeMs() const { return BuildingDecodeMs_; }
 
+  /* WHAT THE WORLD HOLDS ON THE HEAP, split by pool so a rise has an owner: the resident tile nodes
+   * with their meshes, DAGs, albedo and lamps, the decoded OSM vectors, what is extruded and
+   * tessellated from them, and the class. */
+  struct Pools {
+    size_t TileNodes = 0, Vectors = 0, Buildings = 0, Water = 0, Class = 0;
+    size_t Sum() const { return TileNodes + Vectors + Buildings + Water + Class; }
+  };
+  Pools HeapPools() const;
+  /* The tile byte caches THIS module can see. Natively that is all of them. In the browser it is only
+   * the main thread's own fetch caches — the pool's decoded bytes sit in the tile workers' separate
+   * wasm modules, which no call from here can reach. */
+  size_t ByteCacheBytes() const;
+
   /* Off = no fetch, no upload. The client gates this on the day/night fade. */
   void SetNightLights(bool on) { NightLights = on; }
 

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "TreeField.h"
+#include "Capacity.h"
 #include "TreeMesh.h"
 #include "stages/TreeStage.h"
 
@@ -35,6 +36,12 @@ public:
   const TreeField::Crown &Crown() const { return Crown_; }
   long StandCount() const { return (long)(Stands_.size() / (size_t)TreeField::kStandFloats); }
   const TreeField &Field() const { return Field_; }
+
+  /* The grown prototype and the stands scattered from it. Grown once at bring-up and never again, so
+   * a rise here after the first frame is a defect and not a load. */
+  size_t HeapBytes() const {
+    return Mesh_.Bytes() + CapacityBytes(Stands_) + CapacityBytes(Dist_);
+  }
 
   static bool LoadSpecies(const char *path, TreeSpecies *out);
   /* A declared colour is sRGB and a reflectance is linear; the leaf tint multiplies the table's own

@@ -17,6 +17,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Capacity.h"
+
 namespace outshine::World {
 
 class WaterField {
@@ -47,6 +49,10 @@ public:
 
   /* pos3 + nrm3 per vertex, ECEF relative to Anchor(). A pure function of the surfaces. */
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
+
+  size_t HeapBytes() const {
+    return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_);
+  }
 
   long NoGroundCount() const { return NoGround_; }
   long OutlierCount() const { return Outliers_; }

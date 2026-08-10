@@ -3,6 +3,7 @@
 #ifndef CLASSBUILDER_H
 #define CLASSBUILDER_H
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <memory>
@@ -15,10 +16,12 @@
 
 namespace outshine::World {
 
+/* Which of the two class grids a job lays down. At namespace scope so a job can carry it under the
+ * name the project uses for it without the member hiding the type. */
+enum class ClassGrain { Fine, Coarse };
+
 class ClassBuilder {
 public:
-  enum class Resolution { Fine, Coarse };
-
   struct Ring {
     uint32_t First = 0, Count = 0;   /* into Job::Pts as ENU metre pairs, ring not closed */
   };
@@ -37,7 +40,7 @@ public:
   /* Nothing here points outside the job: the arrays arrive by move and leave by move, so no address
    * into them survives on the calling side. */
   struct Job {
-    Resolution Grain = Resolution::Fine;
+    ClassGrain Grain = ClassGrain::Fine;
     double CamE = 0, CamN = 0;
     double CellM = 1;
     int HalfCells = 0;
@@ -48,7 +51,7 @@ public:
   };
   struct Handback {
     std::shared_ptr<const ClassStructure> Structure;
-    Job Done;
+    Job Returned;
   };
 
   ClassBuilder();
@@ -60,6 +63,10 @@ public:
    * bookkeeping, which is why it is asserted here and not queried (`I.6`). */
   void Submit(Job job);
   std::optional<Handback> Collect();
+
+  /* The two grids and the scratch that lays them down. The worker owns all three, so the number is
+   * written there and read through an atomic rather than by walking another thread's vectors. */
+  size_t HeapBytes() const { return HeapBytes_.load(std::memory_order_relaxed); }
 
 private:
   struct Hit { double X; int Dir; };
@@ -78,6 +85,7 @@ private:
 
   void Run();
   void LayDown(const Job &job, ClassStructure::Grid &out, int &overflow);
+  size_t ScratchBytes() const;
 
   /* Three states, not a boolean over three: `Pending_` empty means either "nothing asked" or "the
    * worker has taken it", and those are not the same thing (`ES.9`). */
@@ -94,6 +102,7 @@ private:
   std::shared_ptr<const ClassStructure::Grid> Fine_, Coarse_;
   Workspace Workspace_;
   uint64_t Version_ = 0;
+  std::atomic<size_t> HeapBytes_{0};
 
   std::thread Thread_;
 };

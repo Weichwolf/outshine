@@ -2,6 +2,7 @@
 #include "Renderer.h"
 #include "TerrainLoader.h"
 #include "Camera.h"
+#include "Capacity.h"
 #include "Geodesy.h"
 #include "Log.h"
 #include "Store.h"
@@ -60,6 +61,24 @@ World::World()
     NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
 
 World::~World() { if (Opened) fb_stream_close(); }
+
+World::Pools World::HeapPools() const {
+  Pools p;
+  for (const Node &n : Nodes)
+    p.TileNodes += CapacityBytes(n.verts) + CapacityBytes(n.idx) + CapacityBytes(n.clusters) +
+                   CapacityBytes(n.albedo) + CapacityBytes(n.lightInst);
+  p.TileNodes += CapacityBytes(Nodes) + CapacityBytes(DrawSlots) + CapacityBytes(WorkList) +
+                 CapacityBytes(DrawnLeaves) + CapacityBytes(LightBuf) + CapacityBytes(LightBytes);
+  p.Vectors = Vectors.HeapBytes();
+  p.Buildings = Buildings.HeapBytes() + CapacityBytes(BuildingDagVerts) +
+                CapacityBytes(BuildingDagIdx) + CapacityBytes(BuildingClusters) +
+                CapacityBytes(BuildingSoup);
+  p.Water = Water.HeapBytes() + CapacityBytes(WaterVerts);
+  p.Class = Cls_.HeapBytes();
+  return p;
+}
+
+size_t World::ByteCacheBytes() const { return (size_t)fb_stream_cache_bytes(); }
 
 /* Cosmetic LUT: the shader gets colour * (intensity/255) * brightness, additive. */
 static const float kLightColor[8][3] = {

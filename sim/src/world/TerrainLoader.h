@@ -34,6 +34,11 @@ int  fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **
 
 void fb_stream_close(void);
 
+/* Bytes the tile byte caches hold that are reachable from this module. Natively that is both caches.
+ * In the browser it is the main thread's fetch caches alone, held as JavaScript typed arrays outside
+ * the linear memory; the pool's own caches live in the worker modules and are not counted here. */
+double fb_stream_cache_bytes(void);
+
 /* The SAME DEM the mesh and HUD use, so JSBSim's ground-reaction floor matches the rendered terrain.
  * <= -1e8 until a real sample has landed. */
 double fb_stream_ground(double lat, double lon);

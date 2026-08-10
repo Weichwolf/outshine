@@ -10,6 +10,7 @@
 #include "FrameTelemetry.h"
 #include "Forest.h"
 #include "GroundMaterials.h"
+#include "MemoryTelemetry.h"
 #include "Renderer.h"
 #include "Scene.h"
 #include "SceneWeather.h"
@@ -171,6 +172,7 @@ private:
   State State_;
   FrameTelemetry Frames_;
   StreamTelemetry Stream_;
+  MemoryTelemetry Memory_{W_, R_, Forest_};
   TelemetrySource *Identity_ = nullptr;
   TelemetryBus Bus_;
   double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;

@@ -6,9 +6,17 @@
 #include <cmath>
 #include <cstring>
 
+#include "Capacity.h"
+#include "StackProbe.h"
+
 namespace outshine::World {
 
 namespace {
+
+size_t GridBytes(const ClassStructure::Grid &g) {
+  return CapacityBytes(g.Cells) + CapacityBytes(g.Seeds) + CapacityBytes(g.Refs) +
+         CapacityBytes(g.Edges);
+}
 
 double Clock() {
   using namespace std::chrono;
@@ -119,7 +127,18 @@ std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
   return out;
 }
 
+size_t ClassBuilder::ScratchBytes() const {
+  const Workspace &w = Workspace_;
+  return CapacityBytes(w.Base) + CapacityBytes(w.BaseRank) + CapacityBytes(w.SeedHead) +
+         CapacityBytes(w.SeedNext) + CapacityBytes(w.SeedCount) + CapacityBytes(w.Edges) +
+         CapacityBytes(w.Curve) + CapacityBytes(w.ByY) + CapacityBytes(w.Act) +
+         CapacityBytes(w.CellHead) + CapacityBytes(w.CellNext) + CapacityBytes(w.CellStamp) +
+         CapacityBytes(w.CellEdge) + CapacityBytes(w.CellCount) + CapacityBytes(w.Hits) +
+         CapacityBytes(w.Seeds);
+}
+
 void ClassBuilder::Run() {
+  StackProbe::Enter(StackProbe::Purpose::Class);
   for (;;) {
     Job job;
     {
@@ -136,12 +155,16 @@ void ClassBuilder::Run() {
     const double buildMs = Clock() - t0;
     /* The grid a rebuild did not touch is handed on by pointer, so the one that stood costs nothing
      * and the two cannot drift into being one truth each. */
-    if (job.Grain == Resolution::Fine) Fine_ = std::move(grid); else Coarse_ = std::move(grid);
+    if (job.Grain == ClassGrain::Fine) Fine_ = std::move(grid); else Coarse_ = std::move(grid);
     Version_++;
     Handback y;
     y.Structure = std::make_shared<const ClassStructure>(Fine_, Coarse_, Version_,
                                                          job.DefaultTemplate, buildMs, overflow);
-    y.Done = std::move(job);
+    y.Returned = std::move(job);
+    HeapBytes_.store(GridBytes(*Fine_) + GridBytes(*Coarse_) + ScratchBytes(),
+                     std::memory_order_relaxed);
+    /* Back at the shallow end of this thread, so the stack it just went to is a settled fact. */
+    StackProbe::Mark();
     {
       std::lock_guard<std::mutex> lk(Mu_);
       Result_ = std::move(y);

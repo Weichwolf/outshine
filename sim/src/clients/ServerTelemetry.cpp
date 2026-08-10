@@ -5,11 +5,26 @@
 namespace outshine::Clients {
 namespace {
 
+/* RFC 4180. A browser's own version string carries a comma, and an unquoted one shifts every column
+ * to its right by one for the whole run — the row is then unreadable by name. */
+void Append(std::string &out, const std::string &field) {
+  if (field.find_first_of(",\"\n") == std::string::npos) {
+    out += field;
+    return;
+  }
+  out += '"';
+  for (char c : field) {
+    if (c == '"') out += '"';
+    out += c;
+  }
+  out += '"';
+}
+
 std::string Join(const std::vector<std::string> &v) {
   std::string out;
   for (size_t i = 0; i < v.size(); i++) {
     if (i) out += ',';
-    out += v[i];
+    Append(out, v[i]);
   }
   out += '\n';
   return out;

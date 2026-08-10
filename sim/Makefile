@@ -85,10 +85,12 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
   src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
   src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp src/clients/StreamTelemetry.cpp \
+  src/clients/MemoryTelemetry.cpp \
   src/clients/ServerArtifacts.cpp
 
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
+  src/core/HeapProbe.cpp src/core/StackProbe.cpp \
   src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassStructure.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 

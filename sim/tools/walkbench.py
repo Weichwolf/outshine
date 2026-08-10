@@ -24,6 +24,7 @@ Exit 0 = every stage stayed under the declared ceilings, 1 = at least one did no
 too wide for the verdict to mean anything.
 """
 
+import csv
 import argparse
 import hashlib
 import os
@@ -39,15 +40,10 @@ FRAME_MS = 1000.0 / HZ
 
 
 def read_csv(path):
-    with open(path) as f:
-        head = f.readline().strip().split(",")
-        rows = []
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            rows.append(dict(zip(head, line.split(","))))
-    return rows
+    """The writer emits RFC 4180 and a browser agent string carries a comma; splitting on commas
+    shifted every column right of it and still parsed into plausible wrong numbers."""
+    with open(path, newline="") as f:
+        return list(csv.DictReader(f))
 
 
 def pct(v, q):

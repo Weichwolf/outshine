@@ -11,6 +11,7 @@
 #include "terrain.h"
 #include "tilemath.h"   /* fb-tiles' OWN tile maths: /elev and this oracle must not drift apart */
 #include "Log.h"
+#include "StackProbe.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -342,6 +343,17 @@ int fb_stream_vector(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
 
 void fb_stream_close(void) {}
 
+EM_JS(double, fbw_cache_bytes, (), {
+  var total = 0;
+  ['__fbD', '__fbL', '__fbV'].forEach(function (name) {
+    var C = Module[name];
+    if (!C || !C.done) return;
+    C.done.forEach(function (b) { if (b) total += b.byteLength; });
+  });
+  return total;
+})
+double fb_stream_cache_bytes(void) { return fbw_cache_bytes(); }
+
 #else /* native: a worker-thread pool with the same contract the browser pool has */
 
 static char fb_base[160] = "";
@@ -625,6 +637,7 @@ void FbpRunDag(const FbpJob &j, FbpResult *r) {
 }
 
 void FbpWorker(void) {
+  StackProbe::Enter(StackProbe::Purpose::Tile);
   osmmesh_config cfg = {};
   FbpStats st;
   cfg.origin_lat = fbp_lat;
@@ -653,6 +666,7 @@ void FbpWorker(void) {
     FbpResult res;
     if (job.Kind == 1) { if (ctx) FbpRunMesh(ctx, job, &res, &st); }
     else if (job.Kind == 3) FbpRunDag(job, &res);
+    StackProbe::Mark();
     {
       std::lock_guard<std::mutex> lk(fbp_mu);
       fbp_done[job.Key] = std::move(res);
@@ -812,6 +826,14 @@ void fb_stream_close(void) {
   for (std::thread &t : fbp_threads) t.join();
   fbp_threads.clear();
   fbtp_report();
+}
+
+double fb_stream_cache_bytes(void) {
+  double total = 0;
+  for (int i = 0; i < fbs_cache_n; i++) total += fbs_cache[i].len;
+  std::lock_guard<std::mutex> lk(fbp_cache_mu);
+  for (const FbpEnt &e : fbp_cache) total += (double)e.Data.capacity();
+  return total;
 }
 
 #endif /* __EMSCRIPTEN__ */

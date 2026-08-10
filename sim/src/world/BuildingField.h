@@ -20,6 +20,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Capacity.h"
+
 namespace outshine::World {
 
 class BuildingField {
@@ -58,6 +60,7 @@ public:
   double RoofAslAt(const OsmField &field, double lat, double lon) const;
   int OsmHeights() const { return OsmHeights_; }
   int DefaultHeights() const { return DefaultHeights_; }
+  size_t HeapBytes() const { return CapacityBytes(Prints_) + CapacityBytes(Verts_); }
 
 private:
   void Extrude(const OsmField &field, const Footprint &f);
