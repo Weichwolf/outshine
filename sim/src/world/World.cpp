@@ -877,7 +877,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
    * p95 17.9 -> 25.8 ms with the same maximum, because the work is not divisible below one tile. */
   std::sort(WorkList.begin(), WorkList.end(), [](const Work &a, const Work &b) { return a.prio > b.prio; });
   int build = 2, upload = 6;
-  MeshMs_ = AlbedoMs_ = UploadMs_ = BuildingMs_ = 0.0;
+  MeshMs_ = AlbedoMs_ = UploadMs_ = BuildingMs_ = BuildingDecodeMs_ = 0.0;
   for (const Work &w : WorkList) {
     if (build == 0 && upload == 0) break;
     Node &nd = Nodes[w.idx];
@@ -941,13 +941,26 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
 
   PublishUnits();
 
-  /* THE GROUND CLASS. It is a property of the PLACE, so it is built here once and read by the
-   * fragment and by every CPU consumer from the same bytes (world/ClassField.h). */
+  /* THE GROUND CLASS. It is a property of the PLACE, so the fragment and every CPU consumer read it
+   * from the same bytes (world/ClassField.h). What happens here is streaming and bookkeeping — the
+   * grid itself is laid down on ClassBuilder's thread and arrives whole. */
+  const double tCls = Clock();
   Cls_.Update(camLat, camLon);
   if (R) {
     R->SetClassFrame(Cls_.EastEcef(), Cls_.NorthEcef(), Cls_.Cam());
-    if (Cls_.Dirty()) { R->WriteClassBuffer(Cls_.Buffer(), Cls_.BufferBytes()); Cls_.ClearDirty(); }
+    /* THE VERSION IS THE UPLOAD'S TRIGGER, not a dirty flag: what is on the device is named by the
+     * structure it came from, so a missed or a doubled upload is a mismatch and not a guess. */
+    const std::shared_ptr<const ClassStructure> cls = Cls_.Read();
+    if (cls && cls->Version() != UploadedClassVersion_) {
+      const double tu = Clock();
+      R->WriteClassBuffer(cls->Words(), cls->Bytes());
+      UploadedClassVersion_ = cls->Version();
+      Log::Debug("world", "class_uploaded", {{"version", (double)cls->Version()},
+          {"uploadMs", Clock() - tu}, {"streamMs", Cls_.LastStreamMs()},
+          {"ingestMs", Cls_.LastIngestMs()}, {"bufferKB", cls->Bytes() / 1024.0}});
+    }
   }
+  ClassMs_ = Clock() - tCls;
 
   /* WHERE THE STAND STANDS. The ground fragment IS the stand (render/Sward.h) and reads it off the
    * world graticule, so all the renderer needs is the place and the local basis. */

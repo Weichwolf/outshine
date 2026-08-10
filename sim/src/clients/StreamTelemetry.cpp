@@ -9,6 +9,7 @@ void StreamTelemetry::AddPass(const Pass &p) {
   Upload_.Add(p.UploadMs);
   Building_.Add(p.BuildingMs);
   Decode_.Add(p.BuildingDecodeMs);
+  Class_.Add(p.ClassMs);
   WindowBuilt_ += p.Built - PrevBuilt_;
   WindowEvicted_ += p.Evicted - PrevEvicted_;
   PrevBuilt_ = p.Built;
@@ -24,7 +25,7 @@ void StreamTelemetry::MarkResident(double nowMs) {
 
 void StreamTelemetry::Reset() {
   World_.Reset(); Mesh_.Reset(); Albedo_.Reset(); Upload_.Reset();
-  Building_.Reset(); Decode_.Reset();
+  Building_.Reset(); Decode_.Reset(); Class_.Reset();
   WindowBuilt_ = WindowEvicted_ = 0;
   WindowPasses_ = 0;
 }
@@ -42,6 +43,8 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("buildingMeanMs", "ms");
   schema.Add("buildingMaxMs", "ms");
   schema.Add("decodeMaxMs", "ms");
+  schema.Add("classMeanMs", "ms");
+  schema.Add("classMaxMs", "ms");
   schema.Add("tilesTotal");
   schema.Add("tilesReady");
   schema.Add("tilesInView");
@@ -60,6 +63,7 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(Upload_.Mean());  row.Push(Upload_.Max);
   row.Push(Building_.Mean()); row.Push(Building_.Max);
   row.Push(Decode_.Max);
+  row.Push(Class_.Mean()); row.Push(Class_.Max);
   row.Push(Last_.TilesTotal);
   row.Push(Last_.TilesReady);
   row.Push(Last_.TilesInView);

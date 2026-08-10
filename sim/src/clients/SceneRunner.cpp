@@ -162,7 +162,7 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
   std::string csv;
   if (profile)
     csv = "frame,timeS,distM,frameMs,worldMs,meshMs,albedoMs,uploadMs,buildingMs,bDecodeMs,"
-          "renderMs,gpuMs,nodes,drawnLeaves,terrainTiles,draws,terrainTris,"
+          "classMs,renderMs,gpuMs,nodes,drawnLeaves,terrainTiles,draws,terrainTris,"
           "buildingVerts,built,evicted,classVramMB,temporalVramMB\n";
   else if (m.Frames > 1 && !Out_.MakeDir(m.Path))
     return 1;
@@ -195,11 +195,11 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     const double n = m.Move.Drives(Target::CameraNorthM) ? m.Move.At(Target::CameraNorthM, f) : 0.0;
     char row[512];
     snprintf(row, sizeof row,
-             "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+             "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
              "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f\n",
              f, (double)f / m.Fps, std::sqrt(e * e + n * n), MsBetween(t0, t3), W.UpdateMs(),
              W.MeshMs(), W.AlbedoMs(), W.UploadMs(), W.BuildingMs(), W.BuildingDecodeMs(),
-             MsBetween(t1, t2), MsBetween(t2, t3), W.NodeCount(), W.DrawnLeafCount(),
+             W.ClassMs(), MsBetween(t1, t2), MsBetween(t2, t3), W.NodeCount(), W.DrawnLeafCount(),
              R.TerrainVisibleTiles(), R.DrawCount(), R.TerrainTriangleCount(),
              R.BuildingVertexCount(), W.BuiltCount(), W.EvictedCount(),
              (double)R.ClassVramBytes() / (1024.0 * 1024.0),
@@ -294,18 +294,23 @@ void SceneRunner::ReportCounters() const {
       {"tileMeshMB", (double)R.TileMeshBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
       {"buildingVerts", (int)R.BuildingVertexCount()}});
-  Log::Info("run", "class", {{"edges", (int)W.Classes().EdgeCount()},
-      {"seeds", (int)W.Classes().SeedCount()}, {"bufferKB", W.Classes().BufferBytes() / 1024.0},
-      {"noDataFrac", W.Classes().NoDataFraction()},
-      {"unknownKinds", (int)W.Classes().UnknownKinds()},
-      {"unknownFeatures", (int)W.Classes().UnknownFeatures()},
-      {"seedOverflow", W.Classes().SeedOverflow()}, {"buildMs", W.Classes().BuildMs()}});
+  if (const std::shared_ptr<const World::ClassStructure> cls = W.Classes().Read())
+    Log::Info("run", "class", {{"version", (double)cls->Version()},
+        {"edges", (int)cls->Measured().Edges}, {"seeds", (int)cls->Measured().Seeds},
+        {"bufferKB", cls->Bytes() / 1024.0}, {"noDataFrac", cls->NoDataFraction()},
+        {"unknownKinds", (int)W.Classes().UnknownKinds()},
+        {"unknownFeatures", (int)W.Classes().UnknownFeatures()},
+        {"seedOverflow", cls->Measured().Overflow}, {"buildMs", W.Classes().MaxBuildMs()},
+        {"fineSubmits", (int)W.Classes().FineSubmits()},
+        {"coarseSubmits", (int)W.Classes().CoarseSubmits()}});
 }
 
 /* THE CLASS AS THE SIMULATION SEES IT: the CPU evaluator over a declared world square, in the class
  * structure's own metric frame. No GPU is involved — this is the answer a headless actor gets, and
  * the picture is judged against it. */
 int SceneRunner::DumpClasses(const Scene::Run::ClassDumpRun &d) const {
+  const std::shared_ptr<const World::ClassStructure> cls = App_.Scenery().Classes().Read();
+  if (!cls) { Log::Error("run", "class_dump_without_structure"); return 1; }
   double ce = 0, cn = 0;
   App_.Scenery().Classes().ToEnu(App_.Lat(), App_.Lon(), &ce, &cn);
   const int n = (int)(d.SpanM / d.StepM);
@@ -320,9 +325,8 @@ int SceneRunner::DumpClasses(const Scene::Run::ClassDumpRun &d) const {
   for (int i = 0; i < hl; i++) blob[(size_t)i] = (uint8_t)hdr[i];
   for (int j = 0; j < n; j++)
     for (int i = 0; i < n; i++) {
-      const int c = App_.Scenery().Classes().ClassAtEnu(e0 + ((double)i + 0.5) * d.StepM,
-                                                        n0 + ((double)j + 0.5) * d.StepM,
-                                                        nullptr, nullptr);
+      const int c = cls->Evaluate(e0 + ((double)i + 0.5) * d.StepM,
+                                  n0 + ((double)j + 0.5) * d.StepM, nullptr, nullptr);
       blob[(size_t)hl + (size_t)j * (size_t)n + (size_t)i] = (uint8_t)(c < 0 ? 255 : c);
     }
   if (!Out_.Bytes(d.Path, blob.data(), blob.size())) return 1;
@@ -345,8 +349,10 @@ int SceneRunner::CompareClasses() const {
   }
   const double tanH = std::tan(0.5 * Scene_.FovDeg() * kDeg2Rad);
   const double aspect = (double)width / (double)height;
-  const World::ClassField &cls = App_.Scenery().Classes();
-  const double *O = cls.OriginEcef(), *Ea = cls.EastEcef(), *No = cls.NorthEcef();
+  const World::ClassField &field = App_.Scenery().Classes();
+  const std::shared_ptr<const World::ClassStructure> cls = field.Read();
+  if (!cls) { Log::Error("run", "class_cmp_without_structure"); return 1; }
+  const double *O = field.OriginEcef(), *Ea = field.EastEcef(), *No = field.NorthEcef();
   const double *eye = App_.Eye(), *fwd = App_.Fwd(), *right = App_.Right(), *up = App_.Up();
   std::map<uint32_t, std::map<int, long>> hist;
   long ground = 0, edgeNear = 0;
@@ -368,7 +374,7 @@ int SceneRunner::CompareClasses() const {
       const double pe = p[0] * Ea[0] + p[1] * Ea[1] + p[2] * Ea[2];
       const double pn = p[0] * No[0] + p[1] * No[1] + p[2] * No[2];
       double dist = 0.0;
-      const int c = cls.ClassAtEnu(pe, pn, &dist, nullptr);
+      const int c = cls->Evaluate(pe, pn, &dist, nullptr);
       if (c < 0) continue;
       ground++;
       /* Within one fray width of an outline the two are ALLOWED to differ: the fragment blends and

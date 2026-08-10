@@ -120,7 +120,7 @@ bool Forest::Grow(Render::Renderer &r, const char *speciesPath) {
         {"growHeight", (double)g.GrowHeight()}});
     if (rank == 0) {
       r.SetTreeLook(LookOf(sp));
-      /* bpar.z ist die Baumhoehe und kommt aus SetTreeStand; ohne sie skaliert jede Instanz auf
+      /* bpar.z is the tree height and comes from SetTreeStand; without it every instance scales to
        * null. */
       r.SetTreeStand(0.0, 0.0, 0.0, h);
       Crown_.HalfWidth = std::fmax(std::fmax(-Mesh_.BoxMin.X, Mesh_.BoxMax.X),
@@ -144,9 +144,13 @@ void Forest::Scatter(Render::Renderer &r, const ClassField &cls, const Vegetatio
   GroundCtx gc{&cls};
   const double gcam = fb_stream_ground(camLat, camLon);
   if (!ElevationResolved(gcam)) return;
-  /* Der AUGPUNKT, nicht der Boden unter ihm: der Shader legt den Fuss direkt auf die Aufhaengung am
-   * Auge, also muss die Augenhoehe hier schon abgezogen sein. */
-  Field_.Scatter(cls, veg, kScatterRadiusM, east, north, gcam + eyeAglM, camLat, HeightSigma_,
+  /* THE EYE POINT, not the ground under it: the shader hangs the foot straight off the suspension at
+   * the eye, so eye height has to be subtracted here already. */
+  /* ONE HANDLE FOR THE WHOLE SCATTER: taken here, held to the last sample. The builder may publish a
+   * newer structure meanwhile and this one stays exactly as it was read. */
+  const std::shared_ptr<const ClassStructure> structure = cls.Read();
+  if (!structure) return;
+  Field_.Scatter(*structure, veg, kScatterRadiusM, east, north, gcam + eyeAglM, camLat, HeightSigma_,
                  Crown_, GroundAtEnu, &gc, Stands_, Dist_);
   r.SetTreeStands(Stands_.data(), (uint32_t)StandCount(), Dist_.data());
   Scattered_ = true;

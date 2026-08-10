@@ -4,7 +4,7 @@
  * THE CORRECTED walk.h SEMANTICS, because getting it wrong opens holes in the world: view distance may
  * only PREVENT a split — a child past the view radius makes the parent stay a drawn LEAF (detail
  * dropped, coverage NEVER), and children's viability is tested side-effect-free BEFORE the parent is
- * replaced. Refinement, Budgets und Konstanten: doc/world/terrain.md, Abschnitt 2. */
+ * replaced. Refinement, budgets and constants: doc/world/terrain.md, section 2. */
 #ifndef WORLD_H
 #define WORLD_H
 
@@ -99,8 +99,8 @@ public:
            BuildingDagId == 0 && Cls_.Complete();
   }
   int BuildingPendingTiles() const { return Vectors.PendingTiles(); }
-  /* Das Dach ueber einem Ort, ASL, oder -1e30 wo kein Grundriss steht. Ein Auge in einer Wand ist
-   * kein Standpunkt, und nur diese beiden Felder zusammen koennen das sagen. */
+  /* The roof over a place, ASL, or -1e30 where no footprint stands. An eye inside a wall is not a
+   * standpoint, and only these two fields together can say so. */
   double RoofAslAt(double lat, double lon) const { return Buildings.RoofAslAt(Vectors, lat, lon); }
 
   /* THE RESIDENCY COUNTERS, for a moving measurement: a per-frame series that does not settle is the
@@ -110,6 +110,7 @@ public:
   long BuiltCount() const { return Built; }
   long EvictedCount() const { return Evicted; }
   double UpdateMs() const { return UpdateMs_; }
+  double ClassMs() const { return ClassMs_; }
   double MeshMs() const { return MeshMs_; }
   double AlbedoMs() const { return AlbedoMs_; }
   double UploadMs() const { return UploadMs_; }
@@ -267,6 +268,8 @@ private:
   int BuildingDagId = 0, BuildingDagSeq = 0;
   bool Opened = false;
   double UpdateMs_ = 0.0;
+  double ClassMs_ = 0.0;
+  uint64_t UploadedClassVersion_ = 0;
   double MeshMs_ = 0.0, AlbedoMs_ = 0.0, UploadMs_ = 0.0, BuildingMs_ = 0.0, BuildingDecodeMs_ = 0.0;
 };
 

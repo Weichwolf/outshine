@@ -37,6 +37,11 @@
  * and 16 MB refused it with a 413 that nothing noticed. Doubled once so the next declared span does
  * not have to come back here. */
 #define MAX_BODY (128u * 1024u * 1024u)
+/* Cross-origin isolation, which is what a SharedArrayBuffer costs: without both headers the wasm
+ * module's shared memory cannot be allocated and the client does not start at all. fb-tiles answers
+ * with `Access-Control-Allow-Origin: *`, so its tiles stay reachable as CORS responses. */
+#define ISOLATE "Cross-Origin-Opener-Policy: same-origin\r\n" \
+                "Cross-Origin-Embedder-Policy: require-corp\r\n"
 
 typedef struct {
     int fd;
@@ -216,8 +221,8 @@ static int http_handle(client_t*c){
             "window.FB_MOD=window.FB_MOD||'%s';window.FB_SCENE=window.FB_SCENE||'%s';window.FB_BUILD='%016llx';\n",
             la&&*la?la:"52.045", lo&&*lo?lo:"9.385", su&&*su?su:"0", tu&&*tu?tu:"", clr,
             md&&*md?md:"demo", sc&&*sc?sc:"walk", wasm_build_id());
-        char hdr[192]; int hn=snprintf(hdr,sizeof hdr,
-            "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\nContent-Length: %d\r\nConnection: close\r\n\r\n",bn);
+        char hdr[320]; int hn=snprintf(hdr,sizeof hdr,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/javascript\r\n" ISOLATE "Content-Length: %d\r\nConnection: close\r\n\r\n",bn);
         send(c->fd,hdr,hn,MSG_NOSIGNAL); send(c->fd,body,bn,MSG_NOSIGNAL); c->rxn=0; return 1;
     }
 
@@ -232,7 +237,7 @@ static int http_handle(client_t*c){
     FILE*f=fopen(file,"rb");
     if(!f){ const char*e="HTTP/1.1 404 Not Found\r\nContent-Length: 3\r\n\r\n404"; send(c->fd,e,strlen(e),MSG_NOSIGNAL); c->rxn=0; return 1; }
     fseek(f,0,SEEK_END); long sz=ftell(f); fseek(f,0,SEEK_SET);
-    char hdr[256]; int hn=snprintf(hdr,sizeof hdr,"HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %ld\r\nConnection: close\r\n\r\n",mime,sz);
+    char hdr[256]; int hn=snprintf(hdr,sizeof hdr,"HTTP/1.1 200 OK\r\nContent-Type: %s\r\n" ISOLATE "Content-Length: %ld\r\nConnection: close\r\n\r\n",mime,sz);
     send_all(c->fd,hdr,hn);
     char b[65536]; size_t r; while((r=fread(b,1,sizeof b,f))>0){ if(send_all(c->fd,b,r)<0) break; }
     fclose(f); c->rxn=0; return 1;

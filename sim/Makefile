@@ -36,6 +36,11 @@ CXXSTD    := -std=c++17
 # substitution, not backticks: inside backticks the shell eats one level of backslash even in single
 # quotes, which mangles the sed script that strips the .d file's line continuations.)
 DEPFLAGS := -MMD -MP
+
+# One worker for the class grid, and shared memory so the built structure is readable where it was
+# built. -Wno-pthreads-mem-growth and why -sGROWABLE_ARRAYBUFFERS is not the way out: doc/todo.md 1.5.
+WASM_THREADS := -pthread
+WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=1 -Wno-pthreads-mem-growth
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
 DAWN_OUT     := vendor/dawn/out
@@ -84,7 +89,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
 
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
-  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
+  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassStructure.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 
 # Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
@@ -105,8 +110,8 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	  $(FB_UPTODATE) \
 	  mkdir -p build/obj-wasm; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  emcc src/world/TerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
+	  emcc src/world/TerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(WASM_THREADS) $(INC_MODULES) -Isrc/world/terrain $(INC_TILES) \
 	    -c -o build/obj-wasm/TerrainLoader.o; \
 	  emcc $(WASM_TERRAIN_OBJS) \
 	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
@@ -114,7 +119,7 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
-	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
+	    $(WASM_THREADS_LINK) -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \

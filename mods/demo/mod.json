@@ -144,6 +144,43 @@
       ]
     },
     {
+      "id": "crossing",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "capture": { "width": 1280, "height": 720 },
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 900,
+          "fps": 60,
+          "world": "streaming",
+          "give": "profile",
+          "path": "crossing.csv",
+          "animation": {
+            "samplers": [
+              { "input": [0, 900], "output": [280, 580], "interpolation": "LINEAR" },
+              { "input": [0, 900], "output": [0, 2250], "interpolation": "LINEAR" },
+              { "input": [0, 900], "output": [0, 15], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "camera.yawDeg" },
+              { "sampler": 1, "target": "camera.eastM" },
+              { "sampler": 2, "target": "wind.clockS" }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "classes",
       "kind": "run",
       "lat": 52.10602,

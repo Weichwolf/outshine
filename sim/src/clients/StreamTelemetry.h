@@ -20,7 +20,7 @@ public:
    * positional arguments is the flag list I.23 exists to forbid. */
   struct Pass {
     double WorldMs = 0.0, MeshMs = 0.0, AlbedoMs = 0.0, UploadMs = 0.0;
-    double BuildingMs = 0.0, BuildingDecodeMs = 0.0;
+    double BuildingMs = 0.0, BuildingDecodeMs = 0.0, ClassMs = 0.0;
     int TilesTotal = 0, TilesReady = 0, TilesInView = 0, VectorTilesPending = 0;
     long Built = 0, Evicted = 0;
     bool Resident = false;
@@ -49,7 +49,7 @@ private:
     void Reset() { Sum = 0.0; Max = 0.0; N = 0; }
   };
 
-  Stat World_, Mesh_, Albedo_, Upload_, Building_, Decode_;
+  Stat World_, Mesh_, Albedo_, Upload_, Building_, Decode_, Class_;
   Pass Last_;
   long Passes_ = 0, WindowBuilt_ = 0, WindowEvicted_ = 0, PrevBuilt_ = 0, PrevEvicted_ = 0;
   int WindowPasses_ = 0;

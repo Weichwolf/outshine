@@ -294,6 +294,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.UploadMs = W_.UploadMs();
   p.BuildingMs = W_.BuildingMs();
   p.BuildingDecodeMs = W_.BuildingDecodeMs();
+  p.ClassMs = W_.ClassMs();
   p.TilesTotal = W_.TargetTotal();
   p.TilesReady = W_.TargetReadyN();
   p.TilesInView = W_.TargetInViewN();

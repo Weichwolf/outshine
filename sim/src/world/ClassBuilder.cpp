@@ -1,0 +1,345 @@
+#include "ClassBuilder.h"
+
+#include <algorithm>
+#include <cassert>
+#include <chrono>
+#include <cmath>
+#include <cstring>
+
+namespace outshine::World {
+
+namespace {
+
+double Clock() {
+  using namespace std::chrono;
+  return (double)duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count() * 1e-3;
+}
+
+constexpr int kSeedCap = 32;    /* per cell; measured worst 14 over the reference block */
+constexpr int kRefCap = 255;    /* per seed; measured worst 45 edges in one whole cell */
+
+/* An OSM way is a SAMPLE of a curve, not a description of a polygon: a surveyor sets a node where the
+ * bend needs one, and the chord between two nodes is the sampling artefact, not the road. So the
+ * chords are replaced by the centripetal Catmull-Rom through the same nodes — it passes through every
+ * one of them, so no declared position moves, and it only adds where the curve leaves the chord. */
+constexpr float kCurveTolM = 0.60f;   /* [SET] */
+constexpr int kCurveMaxSplit = 8;
+
+/* Barry-Goldman, knots spaced by sqrt of chord length: the CENTRIPETAL parameterisation, which is the
+ * one that cannot cusp or loop between two nodes however uneven the survey's spacing. */
+void CatmullPoint(const float *p0, const float *p1, const float *p2, const float *p3,
+                  float u, float *out) {
+  auto knot = [](float t, const float *a, const float *b) {
+    const float dx = b[0] - a[0], dy = b[1] - a[1];
+    return t + std::sqrt(std::sqrt(dx * dx + dy * dy) + 1.0e-6f);
+  };
+  const float t0 = 0.0f, t1 = knot(t0, p0, p1), t2 = knot(t1, p1, p2), t3 = knot(t2, p2, p3);
+  const float t = t1 + u * (t2 - t1);
+  float a1[2], a2[2], a3[2], b1[2], b2[2];
+  for (int a = 0; a < 2; a++) {
+    a1[a] = ((t1 - t) * p0[a] + (t - t0) * p1[a]) / (t1 - t0);
+    a2[a] = ((t2 - t) * p1[a] + (t - t1) * p2[a]) / (t2 - t1);
+    a3[a] = ((t3 - t) * p2[a] + (t - t2) * p3[a]) / (t3 - t2);
+  }
+  for (int a = 0; a < 2; a++) {
+    b1[a] = ((t2 - t) * a1[a] + (t - t0) * a2[a]) / (t2 - t0);
+    b2[a] = ((t3 - t) * a2[a] + (t - t1) * a3[a]) / (t3 - t1);
+  }
+  for (int a = 0; a < 2; a++) out[a] = ((t2 - t) * b1[a] + (t - t1) * b2[a]) / (t2 - t1);
+}
+
+/* Ring points in, curve points out. `closed` wraps the neighbour lookup; an open way reflects its end
+ * tangents so the first and last spans bend like their neighbours instead of going straight. */
+void CurveRing(const float *pts, uint32_t first, uint32_t count, bool closed,
+               std::vector<float> &out) {
+  out.clear();
+  if (count < 2) return;
+  auto P = [&](int i) -> const float * {
+    int n = (int)count;
+    if (closed) { i = ((i % n) + n) % n; }
+    else { i = i < 0 ? 0 : (i >= n ? n - 1 : i); }
+    return pts + ((size_t)first + (size_t)i) * 2;
+  };
+  const int spans = closed ? (int)count : (int)count - 1;
+  for (int s = 0; s < spans; s++) {
+    const float *p0 = P(s - 1), *p1 = P(s), *p2 = P(s + 1), *p3 = P(s + 2);
+    float mid[2];
+    CatmullPoint(p0, p1, p2, p3, 0.5f, mid);
+    const float cx = 0.5f * (p1[0] + p2[0]), cy = 0.5f * (p1[1] + p2[1]);
+    const float dev = std::sqrt((mid[0] - cx) * (mid[0] - cx) + (mid[1] - cy) * (mid[1] - cy));
+    int n = 1;
+    if (dev > kCurveTolM) {
+      n = (int)std::ceil(std::sqrt(dev / kCurveTolM));
+      if (n > kCurveMaxSplit) n = kCurveMaxSplit;
+    }
+    for (int k = 0; k < n; k++) {
+      float q[2];
+      CatmullPoint(p0, p1, p2, p3, (float)k / (float)n, q);
+      out.push_back(q[0]); out.push_back(q[1]);
+    }
+  }
+  if (!closed) {
+    const float *last = pts + ((size_t)first + count - 1) * 2;
+    out.push_back(last[0]); out.push_back(last[1]);
+  }
+}
+
+}  // namespace
+
+ClassBuilder::ClassBuilder()
+    : Fine_(std::make_shared<const ClassStructure::Grid>()),
+      Coarse_(std::make_shared<const ClassStructure::Grid>()),
+      Thread_([this] { Run(); }) {}
+
+ClassBuilder::~ClassBuilder() {
+  {
+    std::lock_guard<std::mutex> lk(Mu_);
+    Stop_ = true;
+  }
+  Cv_.notify_all();
+  Thread_.join();
+}
+
+void ClassBuilder::Submit(Job job) {
+  {
+    std::lock_guard<std::mutex> lk(Mu_);
+    assert(Stage_ == Stage::Idle);
+    Pending_ = std::move(job);
+    Stage_ = Stage::Building;
+  }
+  Cv_.notify_one();
+}
+
+std::optional<ClassBuilder::Handback> ClassBuilder::Collect() {
+  std::lock_guard<std::mutex> lk(Mu_);
+  if (Stage_ != Stage::Done) return {};
+  std::optional<Handback> out = std::move(Result_);
+  Result_.reset();
+  Stage_ = Stage::Idle;
+  return out;
+}
+
+void ClassBuilder::Run() {
+  for (;;) {
+    Job job;
+    {
+      std::unique_lock<std::mutex> lk(Mu_);
+      Cv_.wait(lk, [this] { return Stop_ || Pending_.has_value(); });
+      if (Stop_) return;
+      job = std::move(*Pending_);
+      Pending_.reset();
+    }
+    auto grid = std::make_shared<ClassStructure::Grid>();
+    int overflow = 0;
+    const double t0 = Clock();
+    LayDown(job, *grid, overflow);
+    const double buildMs = Clock() - t0;
+    /* The grid a rebuild did not touch is handed on by pointer, so the one that stood costs nothing
+     * and the two cannot drift into being one truth each. */
+    if (job.Grain == Resolution::Fine) Fine_ = std::move(grid); else Coarse_ = std::move(grid);
+    Version_++;
+    Handback y;
+    y.Structure = std::make_shared<const ClassStructure>(Fine_, Coarse_, Version_,
+                                                         job.DefaultTemplate, buildMs, overflow);
+    y.Done = std::move(job);
+    {
+      std::lock_guard<std::mutex> lk(Mu_);
+      Result_ = std::move(y);
+      Stage_ = Stage::Done;
+    }
+  }
+}
+
+/* One whole grid, laid down feature by feature in ascending rank. The row sweep carries
+ * an ACTIVE EDGE LIST, so a feature costs its own edges once per row it actually spans and not its
+ * whole outline per row of its bounding box — without that, a coarse-tier forest spanning twelve
+ * kilometres would be tens of milliseconds on its own. */
+void ClassBuilder::LayDown(const Job &job, ClassStructure::Grid &B, int &overflow) {
+  Workspace &work = Workspace_;
+  const int W = job.HalfCells * 2, H = job.HalfCells * 2;
+  const double cell = job.CellM;
+  B.W = W; B.H = H; B.CellM = cell;
+  B.OrgE = std::floor(job.CamE / cell - job.HalfCells) * cell;
+  B.OrgN = std::floor(job.CamN / cell - job.HalfCells) * cell;
+
+  std::vector<uint8_t> &base = work.Base, &baseRank = work.BaseRank;
+  base.assign((size_t)W * H, 0xFF);
+  baseRank.assign((size_t)W * H, 0);
+  /* Per-cell seed lists as an intrusive linked list over two flat arrays: a vector of vectors here
+   * allocates once per cell and that alone was two thirds of the rebuild. */
+  std::vector<int32_t> &seedHead = work.SeedHead, &seedNext = work.SeedNext;
+  std::vector<uint32_t> &seedCount = work.SeedCount;
+  seedHead.assign((size_t)W * H, -1);
+  seedNext.clear();
+  seedCount.assign((size_t)W * H, 0);
+
+  std::vector<float> &ex = work.Edges;      /* this feature's edges: x0,y0,x1,y1 */
+  std::vector<float> &curve = work.Curve;   /* the way resampled along its Catmull-Rom, per feature */
+  std::vector<uint32_t> &byY = work.ByY;    /* edge order by ymin */
+  std::vector<uint32_t> &act = work.Act;
+  /* The same for one feature's edges over the cells of its bounding box, with a VERSION STAMP so the
+   * head array is never cleared between features. The stamp restarts with the grid, so the arrays
+   * carried over from the previous build have to be invalidated once here. */
+  std::vector<int32_t> &ceHead = work.CellHead, &ceNext = work.CellNext;
+  std::vector<uint32_t> &ceStamp = work.CellStamp, &ceEdge = work.CellEdge, &ceCount = work.CellCount;
+  std::fill(ceStamp.begin(), ceStamp.end(), 0u);
+  uint32_t stamp = 0;
+  std::vector<Hit> &hits = work.Hits;
+
+  for (const Feature &f : job.Feats) {
+    if (f.MaxE < B.OrgE || f.MinE > B.OrgE + W * cell) continue;
+    if (f.MaxN < B.OrgN || f.MinN > B.OrgN + H * cell) continue;
+
+    ex.clear();
+    if (f.Form == Shape::Polygon) {
+      for (uint32_t k = 0; k < f.RingCount; k++) {
+        const Ring &ring = job.Rings[f.FirstRing + k];
+        CurveRing(job.Pts.data(), ring.First, ring.Count, true, curve);
+        const size_t nc = curve.size() / 2;
+        for (size_t s = 0; s < nc; s++) {
+          const size_t a = s, b = (s + 1) % nc;
+          ex.push_back(curve[a * 2]); ex.push_back(curve[a * 2 + 1]);
+          ex.push_back(curve[b * 2]); ex.push_back(curve[b * 2 + 1]);
+        }
+      }
+    } else {
+      /* A line is its CENTRELINE. Extruding it to a polygon makes the answer binary, and a way
+       * narrower than a pixel is then hit whole or missed whole. Half the width lives in the seed. */
+      for (uint32_t k = 0; k < f.RingCount; k++) {
+        const Ring &ring = job.Rings[f.FirstRing + k];
+        CurveRing(job.Pts.data(), ring.First, ring.Count, false, curve);
+        const size_t nc = curve.size() / 2;
+        for (size_t i = 0; i + 1 < nc; i++) {
+          ex.push_back(curve[i * 2]);       ex.push_back(curve[i * 2 + 1]);
+          ex.push_back(curve[(i + 1) * 2]); ex.push_back(curve[(i + 1) * 2 + 1]);
+        }
+      }
+    }
+    const size_t ne = ex.size() / 4;
+    if (ne == 0) continue;
+
+    const int i0 = std::max(0, (int)std::floor((f.MinE - B.OrgE) / cell));
+    const int i1 = std::min(W - 1, (int)std::floor((f.MaxE - B.OrgE) / cell));
+    const int j0 = std::max(0, (int)std::floor((f.MinN - B.OrgN) / cell));
+    const int j1 = std::min(H - 1, (int)std::floor((f.MaxN - B.OrgN) / cell));
+    if (i0 > i1 || j0 > j1) continue;
+    const int bw = i1 - i0 + 1, bh = j1 - j0 + 1;
+
+    stamp++;
+    if (ceHead.size() < (size_t)bw * bh) {
+      ceHead.resize((size_t)bw * bh, -1);
+      ceStamp.resize((size_t)bw * bh, 0);
+      ceCount.resize((size_t)bw * bh, 0);
+    }
+    ceNext.clear();
+    ceEdge.clear();
+    /* A centreline reaches half its width sideways, so the cells it must appear in reach that far too;
+     * without the pad the fragment beside the axis never sees the edge it is measured against. */
+    const float epad = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
+    for (size_t e = 0; e < ne; e++) {
+      const float *p = &ex[e * 4];
+      const int ei0 = std::max(i0, (int)std::floor((std::min(p[0], p[2]) - epad - B.OrgE) / cell));
+      const int ei1 = std::min(i1, (int)std::floor((std::max(p[0], p[2]) + epad - B.OrgE) / cell));
+      const int ej0 = std::max(j0, (int)std::floor((std::min(p[1], p[3]) - epad - B.OrgN) / cell));
+      const int ej1 = std::min(j1, (int)std::floor((std::max(p[1], p[3]) + epad - B.OrgN) / cell));
+      for (int j = ej0; j <= ej1; j++)
+        for (int i = ei0; i <= ei1; i++) {
+          const size_t c = (size_t)(j - j0) * bw + (size_t)(i - i0);
+          if (ceStamp[c] != stamp) { ceStamp[c] = stamp; ceHead[c] = -1; ceCount[c] = 0; }
+          ceNext.push_back(ceHead[c]);
+          ceEdge.push_back((uint32_t)e);
+          ceHead[c] = (int32_t)(ceNext.size() - 1);
+          ceCount[c]++;
+        }
+    }
+
+    byY.resize(ne);
+    for (uint32_t e = 0; e < (uint32_t)ne; e++) byY[e] = e;
+    std::sort(byY.begin(), byY.end(), [&ex](uint32_t a, uint32_t b) {
+      return std::min(ex[(size_t)a * 4 + 1], ex[(size_t)a * 4 + 3]) <
+             std::min(ex[(size_t)b * 4 + 1], ex[(size_t)b * 4 + 3]);
+    });
+    act.clear();
+    size_t nextE = 0;
+
+    for (int j = j0; j <= j1; j++) {
+      const double cy = B.OrgN + (double)j * cell;
+      while (nextE < ne) {
+        const float *p = &ex[(size_t)byY[nextE] * 4];
+        if ((double)std::min(p[1], p[3]) > cy) break;
+        act.push_back(byY[nextE]);
+        nextE++;
+      }
+      size_t keep = 0;
+      for (size_t k = 0; k < act.size(); k++) {
+        const float *p = &ex[(size_t)act[k] * 4];
+        if ((double)std::max(p[1], p[3]) > cy) act[keep++] = act[k];
+      }
+      act.resize(keep);
+
+      hits.clear();
+      for (uint32_t e : act) {
+        const float *p = &ex[(size_t)e * 4];
+        if ((p[1] <= cy) == (p[3] <= cy)) continue;
+        const double xi = (double)p[0] + (cy - (double)p[1]) * ((double)p[2] - (double)p[0]) /
+                                             ((double)p[3] - (double)p[1]);
+        hits.push_back(Hit{xi, p[3] > p[1] ? 1 : -1});
+      }
+      std::sort(hits.begin(), hits.end(), [](const Hit &a, const Hit &b) { return a.X < b.X; });
+
+      int wind = 0;
+      size_t hi = 0;
+      for (int i = i0; i <= i1; i++) {
+        const double cx = B.OrgE + (double)i * cell;
+        while (hi < hits.size() && hits[hi].X < cx) { wind += hits[hi].Dir; hi++; }
+        const size_t bc = (size_t)(j - j0) * bw + (size_t)(i - i0);
+        const uint32_t nce = ceStamp[bc] == stamp ? ceCount[bc] : 0u;
+        const size_t ci = (size_t)j * W + (size_t)i;
+        if (nce == 0 || seedCount[ci] >= (uint32_t)kSeedCap || nce > (uint32_t)kRefCap) {
+          if (nce != 0) overflow++;
+          /* An OPEN centreline has no inside, so its winding is not a coverage test — and the running
+           * counter would carry it along the scanline. A line covers a cell only through its seed,
+           * where the distance decides; without a seed it covers nothing. */
+          if (f.Form == Shape::Polygon && wind != 0) { base[ci] = (uint8_t)f.Tpl; baseRank[ci] = (uint8_t)f.Rank; }
+          continue;
+        }
+        const uint32_t refFirst = (uint32_t)B.Refs.size();
+        for (int32_t k = ceHead[bc]; k >= 0; k = ceNext[(size_t)k])
+          B.Refs.push_back((uint32_t)(B.Edges.size() / 4) + ceEdge[(size_t)k]);
+        seedNext.push_back(seedHead[ci]);
+        seedHead[ci] = (int32_t)(B.Seeds.size() / 3);
+        seedCount[ci]++;
+        B.Seeds.push_back((uint32_t)f.Tpl | ((uint32_t)f.Rank << 8) | ((uint32_t)nce << 16) |
+                          ((uint32_t)(uint8_t)(std::max(-128, std::min(127, wind)) + 128) << 24));
+        B.Seeds.push_back(refFirst);
+        {
+          const float hw = (f.Form == Shape::Polygon) ? 0.0f : f.WidthM * 0.5f;
+          uint32_t bits; std::memcpy(&bits, &hw, sizeof bits);
+          B.Seeds.push_back(bits);
+        }
+      }
+    }
+    B.Edges.insert(B.Edges.end(), ex.begin(), ex.end());
+  }
+
+  /* The seeds of one cell must be contiguous, so they are re-emitted in cell order once every feature
+   * has been laid down. */
+  std::vector<uint32_t> &seeds = work.Seeds;
+  seeds.clear();
+  seeds.reserve(B.Seeds.size());
+  B.Cells.assign((size_t)W * H * 2, 0);
+  for (size_t ci = 0; ci < (size_t)W * H; ci++) {
+    const uint32_t first = (uint32_t)(seeds.size() / 3);
+    for (int32_t s = seedHead[ci]; s >= 0; s = seedNext[(size_t)s]) {
+      seeds.push_back(B.Seeds[(size_t)s * 3]);
+      seeds.push_back(B.Seeds[(size_t)s * 3 + 1]);
+      seeds.push_back(B.Seeds[(size_t)s * 3 + 2]);
+    }
+    B.Cells[ci * 2] = (uint32_t)base[ci] | ((uint32_t)baseRank[ci] << 8) |
+                      ((uint32_t)seedCount[ci] << 16);
+    B.Cells[ci * 2 + 1] = first;
+  }
+  B.Seeds.swap(seeds);   /* the scratch keeps the block's old storage and reuses it next build */
+}
+
+} // namespace outshine::World

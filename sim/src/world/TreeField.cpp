@@ -1,6 +1,6 @@
 #include "TreeField.h"
 
-#include "ClassField.h"
+#include "ClassStructure.h"
 #include "VegetationTemplates.h"
 
 #include <algorithm>
@@ -11,11 +11,11 @@ namespace outshine::World {
 
 namespace {
 
-/* Eine Zelle, ein Wurf — damit ist die Streuung eine Funktion der Zelle und nicht einer Reihenfolge.
- * Die Kante muss DEUTLICH unter dem mittleren Standabstand liegen: bei 11.09 m2 nimmt die dichteste
- * deklarierte Klasse (Nadelwald, 0.033/m2) 36.6 % der Zellen an, zwei von drei bleiben leer, und
- * genau das verhindert, dass das Gitter als Reihe liest. Bei einer Kante um den Standabstand herum
- * waere die Annahmewahrscheinlichkeit 1 und der Wald ein Raster. */
+/* One cell, one draw — which makes the scatter a function of the cell and not of an order. The edge
+ * must be WELL below the mean stand spacing: at 11.09 m2 the densest declared class (conifer forest,
+ * 0.033/m2) accepts 36.6 % of cells, two in three stay empty, and that is exactly what stops the grid
+ * from reading as rows. With an edge around the stand spacing the acceptance probability would be 1
+ * and the forest a raster. */
 constexpr double kCellM = 3.33;
 
 inline uint32_t Hash(int32_t i, int32_t j, uint32_t salt) {
@@ -26,16 +26,16 @@ inline uint32_t Hash(int32_t i, int32_t j, uint32_t salt) {
 inline float U(uint32_t h) { return (float)(h & 0xFFFFFFu) / 16777216.0f; }
 inline float U16(uint32_t h) { return (float)(h & 0xFFFFu) / 65536.0f; }
 
-/* Dreieckig statt normal, weil die Verteilung bei mu +- 2.449 sigma HART endet: ueber 166 000 Staende
- * liefert eine normale Ziehung sicher einen 4-sigma-Baum, und der ist im Bild ein Fehler, keine
- * Streuung. 2.4494897 = 1/sqrt(2/12), die Standardabweichung der Summe zweier Gleichverteilter. */
+/* Triangular rather than normal, because the distribution ends HARD at mu +- 2.449 sigma: over 166 000
+ * stands a normal draw will certainly produce a 4-sigma tree, and in the picture that is a defect, not
+ * spread. 2.4494897 = 1/sqrt(2/12), the standard deviation of the sum of two uniforms. */
 inline float SizeFactor(uint32_t h, float sigma) {
   return 1.0f + sigma * (U16(h) + U16(h >> 16) - 1.0f) * 2.4494897f;
 }
 
 }  // namespace
 
-void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, double radiusM,
+void TreeField::Scatter(const ClassStructure &cls, const VegetationTemplates &veg, double radiusM,
                         double eyeE, double eyeN, double eyeAsl, double camLatDeg, float sizeSigma,
                         const Crown &crown, double (*ground)(void *, double, double), void *user,
                         std::vector<float> &out, std::vector<float> &dist) const {
@@ -66,14 +66,14 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       const double de = e - eyeE, dn = n - eyeN;
       if (de * de + dn * dn > radiusM * radiusM) continue;
 
-      const int tpl = cls.ClassAtEnu(e, n, nullptr, nullptr);
+      const int tpl = cls.Evaluate(e, n, nullptr, nullptr);
       if (tpl < 0 || tpl >= nrows) continue;
       const float perM2 = rows[tpl].Edge[2];
       if (perM2 <= 0.0f) continue;
-      /* EIGENER WURF mit vollen 24 Bit. `U(h >> 16)` liess nur 16 Bit uebrig und lieferte damit
-       * hoechstens 0.0039: die Annahmeschwelle lag ueber JEDER deklarierten Dichte, also wurde jede
-       * Zelle mit perM2 > 0 angenommen. Die 219 240 Staende in 900 m waren nicht 0.09/m2, sie waren
-       * "alles, was kein Acker, Wasser oder Siegel ist". */
+      /* ITS OWN DRAW, with the full 24 bits. `U(h >> 16)` left only 16 and so delivered at most
+       * 0.0039: the acceptance threshold sat above EVERY declared density, so every cell with
+       * perM2 > 0 was accepted. The 219 240 stands within 900 m were not 0.09/m2, they were
+       * "everything that is not field, water or sealed surface". */
       if (U(Hash(i, j, 0xd3adu)) > (float)(perM2 * kCellM * kCellM)) continue;
 
       const double gz = ground ? ground(user, e, n) : eyeAsl;
@@ -94,8 +94,8 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
       if (woody <= 0.0) { AboveLine_++; continue; }
       if (steep >= 1.0) { TooSteep_++; continue; }
       if ((double)U(Hash(i, j, 0xa17eu)) >= woody * (1.0 - steep)) continue;
-      /* Eigener Wurf, nicht ein weiterer Schnitt aus `h`: Ort, Gierung und Dichte teilen sich dort
-       * schon Bits, und eine Groesse, die mit der Gierung korreliert, streift den Wald in Baendern. */
+      /* Its own draw, not another slice of `h`: place, yaw and density already share bits there, and
+       * a size correlated with yaw stripes the forest into bands. */
       const float size = SizeFactor(Hash(i, j, 0x9e37u), sizeSigma);
       if (crown.HeightM > 0.0f && crown.HalfWidth > 0.0f) {
         const double hm = (double)crown.HeightM * (double)size;
@@ -106,9 +106,9 @@ void TreeField::Scatter(const ClassField &cls, const VegetationTemplates &veg, d
           continue;
         }
       }
-      /* RELATIV ZUR KAMERA, weil der Stand im Shader auf die ECEF-Achsen am Augpunkt gelegt wird: ein
-       * absoluter ENU-Wert waere dort ein Versatz von Kilometern. Die Suche laeuft dagegen absolut,
-       * denn Klasse und Gelaende sind Eigenschaften des Ortes und nicht des Betrachters. */
+      /* RELATIVE TO THE CAMERA, because the shader places the stand on the ECEF axes at the eye: an
+       * absolute ENU value would be a kilometre-sized offset there. The search itself runs absolute —
+       * class and terrain are properties of the place, not of the viewer. */
       if (gz > HighestAsl_) HighestAsl_ = gz;
       out.push_back((float)(e - eyeE)); out.push_back((float)(n - eyeN));
       out.push_back((float)(gz - eyeAsl));
