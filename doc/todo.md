@@ -17,6 +17,29 @@ graded against the references: the answer is known and the round is spent. Then,
 | **1** | one scenario, scenes at places the owner knows well. Render, look, pull generators and shaders after it, loop until the quality stands. Ortho­graphic diversity matters here and nowhere earlier — a structural step only has to prove it did not move the picture, and one meadow shows that |
 | **2** | the webcam scenario, several cameras, times of day and night, weather. Against those the whole lighting and weather model is fitted. It renders at the declared size and downscales **both** sides to the comparison rung; camera poses are resected against buildings, and `git log` holds six already fitted |
 
+## Where it stands
+
+| | Step | State |
+|---|---|---|
+| 1 | classification off the render thread | **done** · `262e5fc` |
+| 1.5 | heap and stack telemetry, with the instrument's own range | **done** · `9379f6f` |
+| 1.6 | the scenario declares the internal render resolution | **done** · `023c407` |
+| 3 | move what is misfiled, delete what is dead | **done** · `81b828c` |
+| **2** | **the height oracle evaluates the drawn surface** | **in the tree** — built, rejected on one clause of three, being fixed |
+| 1.7 | the fixed heap, over all of the client's memories | open |
+| 4 | the server target, and the checker falls | open — **the gate**; 5 onwards is enforceable only after it |
+| 4.5 | fold the tile worker into the client | open |
+| 4.6 | the GPU readback stops blocking the frame thread | open |
+| 5 | `generators/` | open — **designed**: headers, enforcement and acceptance stand |
+| 6 | the forest becomes a generator | open |
+| 7 | one geometry stage | open |
+| 8 | regionalise | open |
+| 9 | buildings, water surface, infrastructure | open |
+| — | the scenario interface and its JSON loader | open — **designed**: headers, schema and acceptance stand |
+
+A step that is **done** has left this file: it is in the code and its measurements are in `git log`. What
+survives below a finished step is only what a later step needs to know.
+
 ## The acceptance instruments
 
 **Four steps below accept on a distribution and two instruments are refuted.** These are not limits;
@@ -48,75 +71,42 @@ pass as a **mean** against `CLAUDE.md`'s "never a mean", and compares it to a fr
 720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order
 regardless; the trigger governs work that is *not* on this list.
 
-## Carried from step 1
+## Carried, for the steps that need it
 
-**A crossing still costs about +3 ms and lands near p95** — not invisible, and the residual is the 8 MB
-class upload, one per publish. Streaming and ingest contribute nothing measurable, so pulling them off
-the thread would buy nothing. It shrinks when the structure becomes per-region instead of one
-camera-anchored grid, which is step 8.
-
-**Why that structure cannot simply be appended to:** the grid is anchored on the camera and dense, so a
-re-anchor changes what every index means; features are laid down in ascending rank, so a later one
+**Step 8 — the class structure cannot be appended to.** The grid is anchored on the camera and dense, so
+a re-anchor changes what every index means; features are laid down in ascending rank, so a later one
 rewrites cells an earlier one won; and a cell's seeds must be contiguous because the fragment reads them
 as a range. Append-only needs an absolute region grid, non-contiguous seed lists in the fragment and rank
-resolution at evaluation time — step 8's structure, not a variant of this one.
+resolution at evaluation time — step 8's structure, not a variant of this one. A crossing's cost is the
+8 MB class upload, one per publish; streaming and ingest contribute nothing measurable.
 
-**The discard path is deliberately absent.** Every reader today runs on the render thread inside the
-frame that asked, so there is no stale result to discard, and a path with no consumer is a dead path. The
-version is published; it is the hook when a reader becomes asynchronous (step 5).
+**Step 5 — the discard path is deliberately absent.** Every reader runs on the render thread inside the
+frame that asked, so there is no stale result to discard. The version is published; it is the hook when
+a reader becomes asynchronous.
 
-**Measured on the way past:** the scheduler always offers the fine grain first and could starve the
-coarse one. Over the declared scene it does not, but that scene tests staleness and not drift — a run
-past the coarse slack decides the drift case.
+**Step 1.7 — the client has N + 1 linear memories and the ledger measures one.** Beside the main module
+the tile pool runs `N = clamp(hardwareConcurrency − 2, 1, 6)` further wasm modules, growth-enabled.
+Reserved is 256 + N × 64 MiB; main's in-use is **97.8–108.6 MiB measured**, the workers unmeasured. **The
+144 MiB between main's reserved and used is the step's first move.** Stack high-water, browser, KiB
+(peak · floor · limit · capacity): frame **18.6** · 4.2 · 516 · 4096; class **4.2** = its own floor, so it
+reads "≤ 4.2, unresolved below". The probe publishes the break and the ceiling but not the linear memory's
+current size — one call, one column. The per-access guard costs **≈ 0.15 ms of CPU**, measured per stage
+because `frameMs` cannot resolve it.
 
-## Carried from step 1.5
+**Step 4.5 — the byte budget is unserved where it is needed.** The tile byte caches read 1.3 MiB in the
+browser against 33.8 MiB natively: the browser's decoded tile bytes sit in the worker modules, so the
+platform with the eviction problem is the one with no number. **And there are two byte caches natively
+holding the same keys** — `fbp_cache` in the pool, `fbs_cache` on the main thread, identical key space,
+zero sharing.
 
-**The client has N + 1 linear memories, and the ledger measures one of them.** Beside the main module
-the tile pool runs `N = clamp(hardwareConcurrency − 2, 1, 6)` further wasm modules, growth-enabled;
-N = 4 on the measuring host, 6 on an eight-core one. Reserved and in use are different quantities and a
-`WebAssembly.Memory` never shrinks, so both belong in the account:
+**No device ceiling is declared.** The device holds 234.3 MiB, 208.9 of it tile geometry; which budget a
+device allocation is charged against is the open question `architecture.md` names.
 
-| | measuring host, N = 4 | eight-core, N = 6 |
-|---|---|---|
-| **reserved** — what the tab costs from instantiation | 256 + 256 = **512 MiB** | 256 + 384 = **640 MiB** |
-| **in use** | main **97.8–108.6** measured · workers **unmeasured** | — |
-
-**The gap between main's 256 reserved and its 108.6 used is 144 MiB, and it is the step's first move** —
-the largest single item here, and the only one already fully measured. A fixed size taken from the main
-module alone would be wrong by more than the size itself; a fixed size taken from what is reserved today
-would be wrong by that gap.
-
-The instrument cannot yet say it: the probe publishes the break, its peak and the toolchain ceiling, but
-not the linear memory's current size. One call, one column.
-
-**The byte budget is unserved where it is needed.** The tile byte caches read 1.3 MiB in the browser
-against 33.8 MiB natively: both correct for what they can reach, but the browser's decoded tile bytes
-sit in the worker modules, so the platform with the eviction problem is the one with no number.
-
-**Stack, with the probe's range beside every figure** (peak · floor · limit · capacity, KiB). Browser:
-frame **18.6** · 4.2 · 516 · 4096; class **4.2** · 4.2 · 516 · 4096 — the class figure *is* its floor, so
-it reads "≤ 4.2, unresolved below". Native: frame **205.0** · 15.4 · 527 · 8176; tile **12.7** · 4.9 ·
-517 · 524; class **4.5** = its floor. **The four browser tile-worker threads are not measured at all.**
-
-**The device holds 234.3 MiB**, 208.9 of it tile geometry. No device *ceiling* is declared: which budget
-a device allocation is charged against is the open question `architecture.md` names, and a number with no
-derivation is worse than none.
-
-**The per-access guard costs ≈ 0.15 ms of CPU.** Two builds of one source differing in nothing but its
-395 call sites, eight blocks, per stage where the guard runs: `renderMs` **+0.104 ms** (sd 0.155,
-p = 0.10), `worldMs` **+0.045** (p = 0.19). `frameMs` p50 cannot resolve it — its sd of 1.00 is `gpuMs`
-noise, power ≈ 0.35 at that population, so the figure comes from the stage and not from the frame.
-
-## Carried from step 1.6
-
-**A canvas costs frame time that no pass explains, and nothing yet says why.** `demo/crossing`, 900 frames, 14 runs, p50 of per-second p50s
-**18.297 ms at 640×360 against 19.606 at 1280×720** (Δ +1.309, se 0.284, Welch t = 4.61, p ≈ 0.002),
-monotone in canvas pixels — but the excess sits in **every** pass including ones that cannot see the
-canvas (`computeMs` +3.7 %, `shadowMs` +6.2 %, `sceneMs` +3.6 %), while the present pass carries 0.33 ms of
-the 1.98. The renderer's work is provably identical across all 14 runs (`1280×720`, `meshStands` 96,
-`impostorStands` 15 899, `treeTris` 533 856). So the canvas moves device or compositor state, not render
-work. **What is checkable and is met: the declared size reaches the render target and the renderer's work
-is invariant.** The frame-time part is not the step's to hold.
+**A canvas costs frame time that no pass explains.** `demo/crossing`, 900 frames, 14 runs: p50 of
+per-second p50s **18.297 ms at 640×360 against 19.606 at 1280×720** (Δ +1.309, se 0.284, t = 4.61,
+p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pass including ones that cannot
+see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
+identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
 ## 1.7 — The fixed heap, over all of the client's memories
 
@@ -132,41 +122,24 @@ total as `main + Σ workers` in both reserved and in-use terms, **each module's 
 from its own high-water with the margin stated**, and the per-purpose stack sizes are set from that
 measurement instead of from the toolchain default.
 
-## 2 — The height oracle evaluates the drawn surface
+## 2 — The height oracle evaluates the drawn surface · IN THE TREE
 
-The oracle interpolates the DEM a second time instead of evaluating the surface that is drawn. Measured
-at Badwater Basin (36.2333 N, −116.7667) with a plumb depth scene: the eye sits **+0.076 m** above the
-drawn mesh where it should sit at zero. Anything placed on that height stands wrong, and no generator can
-repair it.
+The oracle interpolated the DEM a second time instead of evaluating the surface that is drawn. Anything
+placed on that height stands wrong, and no generator can repair it.
 
-Done when: oracle and drawn mesh agree to a stated bound, same posting indices, same triangle split.
+Done when: oracle and drawn mesh agree to a **stated bound**, same posting indices, **same triangle split**
+— and "the drawn surface" means **the finest tile of the ladder**, not the tile currently drawn: a
+placement that followed the LOD would move as the camera walks, which principle 7 forbids.
 
-## 3 — Move what is misfiled, delete what is dead
+Measured, three declared plumb scenes at 6.7° / 25.0° / 69.9° of slope: **+0.076 · −0.098 · +8.99 m**
+before. The nine metres at the fjord wall are why a salt pan cannot test this. The residual was a
+near-cancellation of three terms each about twice its size — source zoom +0.143, chunk decimation −0.140,
+interpolant +0.098 — and the diagonal contributed nothing.
 
-The value and algorithm headers with no renderer dependency belong in `core/`. The entity and effect path
-in `world/` draws nothing and goes, and `units/` goes with it.
-
-**The residue is a cone with two roots, not a web.** `units/Unit.h`, included only by `world/World.cpp`,
-carries `core/Store.h` (713 lines of stores stations), `Countermeasure.h`, `NetReport.h`,
-`WeaponUplink.h`, `VisualContact.h`, `Emitter.h`, `Flight.h`, `AvionicsBlocks.h`, `Mode.h`, `State.h`,
-`UnitRegistry.h`. `render/Renderer.h` and `world/World.h` carry `UnitsStage`, `SpritesStage`,
-`OverlayStage`, `UnitDraw`, `UnitModel` and with them `Glb.{h,cpp}`, the glTF loader nothing else uses.
-**3252 lines**, and cutting two edges frees all of it.
-
-**`verify-types` goes with the cone, not green.** It counts how much the engine knows about named
-aircraft; once the cone is gone there is nothing to count, and a counter that always reads zero is
-ceremony. Deleting it is the step's proof, not a shortcut around it.
-
-**150 lines in `sim/src/` cite 27 `doc/` files that do not exist** — `doc/world/terrain.md`,
-`doc/clients/clients.md`, `doc/core.md`, `doc/render/*`. A citation to a deleted document is a claim
-nothing can check. They go with this step.
-
-**The 16 species files are named in German** (`birke.json`, `saeulenpappel.json`). One language in the
-repository, and it is English.
-
-Mechanical, low risk, precondition for 4.
-
-Done when: `world/` names `render/` only through the calls that drive it, and that count is published.
+Open against the clause: the evaluator does not read the winding array its header says it reads, so the
+diagonal is still stated twice; the bound is a three-point maximum and not a budget; the two-pixel tree
+line is unattributed while the counters that would attribute it are already emitted; and the oracle's own
+byte cache duplicates the pool's, which costs a **4.35 → 18.84 ms** hitch at the forest rebuild.
 
 ## 4 — The server target, and the checker falls
 
@@ -174,6 +147,10 @@ Split the object that owns world and renderer into a simulation half and a pictu
 that builds everything except `render/`. Invert the remaining renderer-driving calls in `world/` until it
 links. **Delete the layer checker in the same commit** — two truths about the structure side by side is
 the state that ruined the first one.
+
+**`/t/elev` is a second truth about ground and this step inherits it.** It answers its own z13 bilinear
+— 100.6 m where the engine draws 100.883 — and step 4's target answers "what stands at a place". Either
+it is deleted or it becomes a thin caller of the same oracle. Name it in the step's "done when".
 
 **The tile loader's C interface stops being one in the same step.** A dozen free functions over global
 state with hand-written lifetime cannot express "one pool, two products", which is exactly the split this
@@ -278,12 +255,23 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   right-angle corners, not a crown with a bite out of it. An octahedral-impostor cell seam, in both
   clients. It is by a distance the most damaging thing in the frame at one second of looking. Recorded,
   not worked: the vegetation goes through the generator cut at 6 and 7 anyway.
-- **`World::WantSplit` applies a perspective pixel focal length to an orthographic scene.** For
-  `demo/ortho` the true on-screen tile edge is `SpanM × Height/orthoM = SpanM × 0.419 px/m`; the ladder
-  computes `SpanM × 443.4/2500 = SpanM × 0.177`, so it stops splitting at ≈2.4 × `kEdgeTau`. The picture
-  is byte-identical today, so nothing is due — but the ladder measures a quantity the projection does not
-  have, and under `orthoM > 0` the honest metric is distance-free.
 - `GpuTimer::Pass::Cloud` is the enumeration's dead slot.
+- **"Pending" and "hole" are the same `double`, and the two clients resolve it oppositely.**
+  `kFBElevationUnresolved = -1e9` with `ElevationResolved(m) { return m > -1e8; }` — and **six** bare
+  literals test it by hand (`WaterField.cpp:57,94`, `BuildingField.cpp:54`, `TreeField.cpp:81,89`).
+  Natively the oracle blocks, so pending never occurs; in the browser a pending stand is **silently
+  dropped and never retried**, indistinguishable from "nothing grows here". The shape that fixes it is a
+  return type: `GroundSample { enum class State { Resolved, Pending, Hole }; double AslM; }` — then a
+  caller cannot place on a sentinel, deferral must be written deliberately, and the six literals cannot
+  be spelled.
+- **`World::Center` puts every tile centre at `alt = 0`**, so `WantSplit`'s distance at a standpoint of
+  altitude *A* is at least *A*: a pedestrian at 2688 m gets a coarser tile under his feet than one at
+  −75 m. `AddWork` already prefers the node's real ECEF origin when a mesh exists — the quantity is not
+  missing, it is used in one of three places. Same function, same class of error as the next line, and
+  they are one fix: **`WantSplit`'s distance is measured to a point that is not on the terrain, and its
+  focal length is not the projection's** — for `demo/ortho` the true on-screen tile edge is
+  `SpanM × Height/orthoM`, the ladder computes `SpanM × 443.4/2500`, so it stops splitting at ≈2.4 ×
+  `kEdgeTau`. Under `orthoM > 0` the honest metric is distance-free.
 - **`core/ClusterDag.h:75` reads `FB_TAU` from the environment into a function-local static.** The
   picture depends on an undocumented environment variable, and the value carries no origin at the call
   site. Principle 7 — if the environment decides the result, the coupling is a bug.
