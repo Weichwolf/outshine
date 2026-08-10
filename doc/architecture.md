@@ -25,10 +25,10 @@ machine from the start: no allocation in the hot path, flat arrays in linear mem
 JS boundary. **WebGPU computes, wasm administers.**
 
 **Device memory has no declared ceiling.** The graphics API caps single buffers, not totals, and a
-discrete card is effectively unbounded at our scale. Whether device allocations count against an app's
-memory allowance on a constrained target is **unverified** — physical shared memory does not imply shared
-accounting, since the two allocation paths are separate interfaces. Answering it needs a probe on the
-device, and until then no number here is more than a guess.
+discrete card is effectively unbounded at our scale. On the ceiling machine processor and device share
+one physical memory, but that does not imply shared accounting — the two allocation paths are separate
+interfaces, and which one a budget is charged against is **unverified**. Answering it needs a probe on the
+device.
 
 **Accounted anyway, and for a reason that does not depend on that answer:** the largest resident item in
 the picture is geometry, it is measured in hundreds of megabytes, and today it has a visibility rule and
@@ -73,10 +73,12 @@ that meshes holds megabytes. The default applies one size to both.
 own footprint when an entry ranges from a few hundred bytes to a few hundred kilobytes, and then a failed
 allocation is a crash where it should have been an eviction.
 
-**The binding constraint is the weakest target, and it binds on cores as well as memory.** A console
-browser is an *app*, not a title, and app budgets there are a fraction of the machine — measured in a
-gigabyte for the whole process tree, with a handful of shared cores. A thread budget derived from a
-developer machine's core count does not survive it.
+**The resource ceiling is A18-Pro class** — its compute, its device memory, its core count. That is a
+budget, not a delivery platform: what ships is wasm on Chromium and Edge, because that is what makes
+distribution trivial. A console browser is not a target; its graphics API is not there, tested.
+
+A thread budget derived from a developer machine's core count does not survive the ceiling either. Take
+the count from what the runtime reports, not from what the machine under the desk has.
 
 ## Threads
 

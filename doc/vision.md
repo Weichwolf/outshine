@@ -5,7 +5,7 @@ other file in this collection is measured against it. **The owner's own comments
 
 ## The one sentence
 
-> **A game engine that runs at 720p60 within a PS4- and A18-Pro-class budget, with the technology of Days
+> **A game engine that runs at 720p60 within an A18-Pro-class resource budget, with the technology of Days
 > Gone and Horizon Forbidden West, in which games like Witcher 3, Fallout 4 and GTA 5 can be reproduced
 > — optically, in content and functionally — purely through declarative `scenarios/`. The basis of the fully
 > procedural world is OSM, elevation, weather and star data from the tile server. Through LLM
