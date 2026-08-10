@@ -106,6 +106,14 @@ one frame.
 fundamentally wrongly built, say that it falls and name how the established ones solve it. And say
 explicitly **what carries** — the caller needs that in order not to tear down what works.
 
+**Judge the shape, not only the absence of defects, and do it in the positive direction too.** A round can
+meet its "done when" and still leave a design nobody would want to build in. The criterion is not taste:
+**how much of what is forbidden is now unspellable rather than merely forbidden?** A rule a tool counts
+can be broken and then reported; a rule the type system carries does not compile. Name, per round, which
+constraints moved from the first kind to the second — and where a rule is still only written down, say
+what shape would carry it instead. When a cut genuinely raises that number, say so plainly and say why;
+an architect who only ever subtracts is as useless as one who only ever approves.
+
 **The picture verdict is suspended while `doc/todo.md` still has entries.** The bar does not move, but
 grading against it today costs a round and returns an answer everyone already knows. Until the list is
 worked through, a picture finding is **recorded and ranked** — what destroys the impression most in one
