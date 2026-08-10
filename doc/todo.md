@@ -27,8 +27,9 @@ graded against the references: the answer is known and the round is spent. Then,
 | 3 | move what is misfiled, delete what is dead | **done** · `81b828c` |
 
 | 2 | the height oracle evaluates the drawn surface | **done** · three slopes, 0 violations in 48 standpoints |
-| **1.7** | **the fixed heap, over all of the client's memories** | **in the tree** |
-| 4 | the server target, and the checker falls | open — **the gate**; 5 onwards is enforceable only after it |
+| 1.7 | the fixed heap, over all of the client's memories | **done** · client reserved 512 → 200 + N×56 MiB |
+| **4** | **the server target, and the checker falls** | **in the tree** — the gate; 5 onwards is enforceable only after it |
+
 | 4.5 | fold the tile worker into the client | open |
 | 4.6 | the GPU readback stops blocking the frame thread | open |
 | 5 | `generators/` | open — **designed**: headers, enforcement and acceptance stand |
@@ -133,7 +134,15 @@ resolution at evaluation time — step 8's structure, not a variant of this one.
 frame that asked, so there is no stale result to discard. The version is published; it is the hook when
 a reader becomes asynchronous.
 
-**Step 1.7 — the client has N + 1 linear memories and the ledger measures one.** Beside the main module
+**The memory ledger, after 1.7.** Reserved is **`200 + N×56` MiB**, `N = clamp(hardwareConcurrency − 2, 1, 6)` — one host's 424 is not the client's number, and the **ceiling case is 536**, above the 512 the fixed heap was meant to beat. The A18-Pro-class check belongs at N = 6, not N = 4.
+
+**Main is 200 MiB because of a run product.** `demo/classes` holds one `spanM 400 / stepM 0.05` raster — 8000² + header = 61.04 MiB of a 159.13 high-water — and the sizing rule was applied to it literally. Sized off the largest *play* scene it would be **120 MiB**, and the client 344. The fix is not a rule change: write the dump in row bands through a chunked artifact sink. `HttpPost` takes one buffer today, so the sink is the real work — ~70 lines for **80 MiB**.
+
+**Two instruments are three lines each and are worth more than the next measurement.** `workerHeapPeakMaxKB` — the row publishes `Σ` over worker modules and throws the **max** away, so one module peaking at 50 while another sits at 37 reads as 43.5 and nothing in the archive can tell you. And a **`verify-memory` gate** that parses both binaries' memory sections and fails when `initial ≠ maximum`, or when a declared cap disagrees with the newest telemetry peak by less than the stated margin — ~30 lines, and it turns the whole step from a claim into a gate.
+
+**The ≈0.15 ms guard cost stands unrefuted.** A frame-level p50 at n = 4 per arm is underpowered by about 25× — detecting 0.15 ms at that spread needs ~97 runs per arm — so it says nothing either way. "Four runs cannot resolve it", not "this host cannot".
+
+Beside the main module
 the tile pool runs `N = clamp(hardwareConcurrency − 2, 1, 6)` further wasm modules, growth-enabled.
 Reserved is 256 + N × 64 MiB; main's in-use is **97.8–108.6 MiB measured**, the workers unmeasured. **The
 144 MiB between main's reserved and used is the step's first move.** Stack high-water, browser, KiB
@@ -164,20 +173,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 1.7 — The fixed heap, over all of the client's memories
-
-The main module still grows and still carries the per-access guard for a growth that never happens.
-Fixing it alone would settle the smaller of two heaps and leave the growing one untouched, so the tile
-worker is part of this step and not of a later one — twenty lines of `sbrk(0)` and one stack purpose over
-the `postMessage` channel it already has. Step 4.5 folds that module away for good; until it does, the
-client's largest growing heap is the one nothing measures.
-
-Done when: no wasm module in the client grows, a failed allocation aborts naming the item and its bytes,
-every module and every thread publishes its own **heap and stack** high-water, the row states the client
-total as `main + Σ workers` in both reserved and in-use terms, **each module's initial memory is derived
-from its own high-water with the margin stated**, and the per-purpose stack sizes are set from that
-measurement instead of from the toolchain default.
-
 ## 4 — The server target, and the checker falls
 
 Split the object that owns world and renderer into a simulation half and a picture half. Add the target
@@ -195,7 +190,8 @@ step makes. An object owning the pool, with a simulation view and a picture view
 
 Done when: the server target builds and answers, without a device, what stands at a place, how big it is,
 how deep the water is and where the sun is. A test `#include` of the renderer inside `generators/` is a
-compile error.
+compile error. And `/t/elev` is either deleted or becomes a thin caller of the same oracle — two ground
+truths must not ship.
 
 ## 4.5 — Fold the tile worker into the client
 
@@ -210,7 +206,9 @@ and a retry ceiling that turns a slow server into **permanently missing terrain*
 
 It is the execution environment the generators need, and the prerequisite audio needs anyway.
 
-Done when: no scheduler in an embedded-JavaScript block remains, the terrain sources compile once, there
+Done when: **a tile gap can no longer mean "out of memory"** — `OSMMESH_ERR_OOM` reaching the client ends
+the run named, which the fixed heap made possible to get wrong; no scheduler in an embedded-JavaScript
+block remains, the terrain sources compile once, there
 is exactly one in-flight cap, every thread is created at bring-up, and the moving-camera distribution is
 no worse.
 
