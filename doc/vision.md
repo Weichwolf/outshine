@@ -155,11 +155,17 @@ Concretely, and each half is checkable rather than promised:
 The payoff is not fairness, it is **readability**: an actor that acts on the information its kind
 actually has makes mistakes a player can read as mistakes.
 
-**Nothing enforces this today.** The one boundary standing is the layer gate's `RESTRICTED` table over
-`units/UnitRegistry.h`. Whatever spawns and steps a body has to
-earn the enforcing shapes — private with exactly one friend, a type with no syntax for the wrong thing,
-a gate that prints a number — **before the first brain is
-connected, not after.**
+**A unit never touches the world.** It is driven by its brain or by the player, both of which reach only
+its own systems; the systems reach only force sources; and the world changes only through physics. There
+is no shorter path, and the same chain carries a wolf, a car and a player — which is why the physics is
+one system.
+
+**C++ guarantees this, not a checker.** A rule a tool counts is a rule that can be broken and then
+reported; a rule the language enforces is one that does not compile. The shapes are the ordinary ones —
+a brain that is handed a sensor view and has no name for the world, a system whose only mutating verb
+takes a force, a contact type with no field to put an identity in, ownership that makes the wrong call
+unspellable rather than merely wrong. **These stand before the first brain is connected, not after**, and
+whatever spawns and steps a body has to earn them.
 
 ## Epoch and decay — discrete, and a selection
 

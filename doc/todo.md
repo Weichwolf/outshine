@@ -15,7 +15,7 @@ graded against the references: the answer is known and the round is spent. Then,
 | | |
 |---|---|
 | **1** | one scenario, scenes at places the owner knows well. Render, look, pull generators and shaders after it, loop until the quality stands. Ortho­graphic diversity matters here and nowhere earlier — a structural step only has to prove it did not move the picture, and one meadow shows that |
-| **2** | the webcam scenario, several cameras, times of day and night, weather. Against those the whole lighting and weather model is fitted. **The rig deleted in 1.6 was wrong** — it rendered 320×180 and downscaled only the photograph; `architecture.md` asks for the declared size with **both** sides downscaled. It is in `git log` with its six fitted camera poses and gets rebuilt, not restored |
+| **2** | the webcam scenario, several cameras, times of day and night, weather. Against those the whole lighting and weather model is fitted. It renders at the declared size and downscales **both** sides to the comparison rung; camera poses are resected against buildings, and `git log` holds six already fitted |
 
 ## The acceptance instruments
 
@@ -102,21 +102,14 @@ it reads "≤ 4.2, unresolved below". Native: frame **205.0** · 15.4 · 527 · 
 a device allocation is charged against is the open question `architecture.md` names, and a number with no
 derivation is worse than none.
 
-**The frame-time argument for the fixed heap is struck.** It priced the threading change at p50
-18.05 → 19.67 ms. Over 34 runs of 11 pinned builds that band is `gpuMs` — `frameMs` p50 against `gpuMs`
-p50 is r = 0.98, and with that term out the band's residual is +0.08 ms against −0.07 ms for every other
-run. Measured directly since, two builds of one source differing in nothing but the guard's 395 call
-sites, eight counterbalanced blocks, per stage where the guard actually runs: `renderMs` **+0.104 ms**
-(sd 0.155, p = 0.10), `worldMs` **+0.045** (p = 0.19) — **≈ 0.15 ms of CPU, an order of magnitude below
-the struck figure.** `frameMs` p50 gives +0.50 at p = 0.19 and cannot resolve it: its sd of 1.00 is
-`gpuMs` noise, worth power ≈ 0.35 at that population. The band was a host state that lasted half an hour.
+**The per-access guard costs ≈ 0.15 ms of CPU.** Two builds of one source differing in nothing but its
+395 call sites, eight blocks, per stage where the guard runs: `renderMs` **+0.104 ms** (sd 0.155,
+p = 0.10), `worldMs` **+0.045** (p = 0.19). `frameMs` p50 cannot resolve it — its sd of 1.00 is `gpuMs`
+noise, power ≈ 0.35 at that population, so the figure comes from the stage and not from the frame.
 
 ## Carried from step 1.6
 
-**A canvas costs frame time that no pass explains.** The step's third clause — two canvas sizes produce
-the same frame distribution — was **wrongly specified and is struck**, twice over. By construction: the
-present pass writes the swapchain, so its cost scales with the canvas and a correct implementation must
-fail the clause. By measurement, worse: `demo/crossing`, 900 frames, 14 runs, p50 of per-second p50s
+**A canvas costs frame time that no pass explains, and nothing yet says why.** `demo/crossing`, 900 frames, 14 runs, p50 of per-second p50s
 **18.297 ms at 640×360 against 19.606 at 1280×720** (Δ +1.309, se 0.284, Welch t = 4.61, p ≈ 0.002),
 monotone in canvas pixels — but the excess sits in **every** pass including ones that cannot see the
 canvas (`computeMs` +3.7 %, `shadowMs` +6.2 %, `sceneMs` +3.6 %), while the present pass carries 0.33 ms of
@@ -287,7 +280,7 @@ infrastructure.
   have, and under `orthoM > 0` the honest metric is distance-free.
 - `GpuTimer::Pass::Cloud` is the enumeration's dead slot; `Tonemap` was filled this round.
 - The near-field ground is a shader and nothing else — no ground cover is built at all, so "no blades" is
-  an absence, not a defect. It belongs with undergrowth after 9, and it is not evidence about any filter.
+  an absence, not a defect. It belongs with undergrowth after 9.
 - German comments from earlier rounds. The history stays; what is touched gets translated as it is
   touched.
 - **Naming needs a pass of its own.** A name that needs a comment is the wrong name. Borrowed jargon and
