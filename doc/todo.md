@@ -163,6 +163,10 @@ infrastructure.
   and its field meanings are pinned against the shader.
 - `scenarios/` is the decided name; the tree still says `mods/`.
 - Comment density in the tree is far above the rule, and the worst file is more than half prose.
+- **Naming needs a pass of its own.** A name that needs a comment to be understood is the wrong name —
+  the comment is the evidence, not the fix. Borrowed jargon that says nothing about the thing, and magic
+  sentinel values where the type system has an answer, are the two patterns to look for. A new identifier
+  is held to this the moment it is written; the existing ones are a separate sweep.
 
 ## Open, owner's decision
 
