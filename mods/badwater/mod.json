@@ -1,0 +1,46 @@
+{
+  "schema": "outshine/mod/1",
+  "name": "badwater",
+  "subject": "The below-sea-level reference point: Badwater Basin, Death Valley, whose ground is negative ASL. Every other declared place stands above the geoid, so a ground query that saturates at zero looks correct everywhere else and only shows itself here.",
+  "scenes": [
+    {
+      "id": "plumb",
+      "kind": "run",
+      "lat": 36.2333,
+      "lon": -116.7667,
+      "eyeM": 1.7,
+      "yawDeg": 0,
+      "pitchDeg": -90,
+      "fovDeg": 60,
+      "utc": "2026-08-06T19:00:00Z",
+      "windDeg": 250,
+      "windMs": 3.0,
+      "cloudCover": 0.1,
+      "render": {
+        "width": 256,
+        "height": 256,
+        "why": "the measurement is the centre pixel of the depth channel and nothing else; a larger frame costs stream-in without adding a sample"
+      },
+      "runs": [
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "plumb.png", "depth": "plumb.f32" }
+      ]
+    },
+    {
+      "id": "stand",
+      "kind": "run",
+      "lat": 36.2333,
+      "lon": -116.7667,
+      "eyeM": 1.7,
+      "yawDeg": 90,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T19:00:00Z",
+      "windDeg": 250,
+      "windMs": 3.0,
+      "cloudCover": 0.1,
+      "runs": [
+        { "kind": "motion", "frames": 1, "give": "stills", "path": "stand.png" }
+      ]
+    }
+  ]
+}

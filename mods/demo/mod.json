@@ -268,7 +268,7 @@
       ]
     },
     {
-      "id": "subject-wiese",
+      "id": "subject-meadow",
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
@@ -281,7 +281,7 @@
       "windMs": 6.0,
       "cloudCover": 0.0,
       "runs": [
-        { "kind": "subject", "template": "wiese", "dir": "bench-wiese", "turnSteps": 8 }
+        { "kind": "subject", "template": "meadow", "dir": "bench-meadow", "turnSteps": 8 }
       ]
     }
   ]

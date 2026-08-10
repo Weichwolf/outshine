@@ -126,15 +126,19 @@ layer and below. An upward include is a compile error; a breach shows as a targe
 
 | Directory | Holds | May include |
 |---|---|---|
-| `core/` | value types, log, telemetry, geodesy, keyframes, ephemeris, calendar | itself |
+| `core/io/` | log, telemetry, the heap and stack probes — everything that touches the outside | `core` |
+| `core/` | value types, geodesy, keyframes, ephemeris, calendar, the JSON reader, the cluster DAG, the vertex layout, the LOD ladder's constants | itself |
 | `world/` | tile streaming, terrain, classification, water level | `core` |
-| `generators/` | content from core data | `core`, `world` |
+| `generators/` | content from core data | `core` |
 | `render/`, `render/stages/` | the WebGPU renderer, one class per shader | `core` |
 | `clients/` | entry point, app lifecycle, sinks | all |
 | `tiles/` | fb-tiles, C, its own Makefile | — |
 | `scenarios/` | declared worlds | — |
 
-`generators/` never includes `render/`. `core/` never points up.
+`generators/` never includes `render/` **or `world/`** — a generator translation unit compiles with
+`-Isrc/core -Isrc/generators` and nothing else, so camera, frustum, frame index, clock, device, renderer
+and streamer have no spelling at all. The forbidden list needs no enforcement clause because it is not
+reachable. `core/` never points up, and `core/` is I/O-free **by directory**.
 
 ## One program, one entry point
 
@@ -193,7 +197,7 @@ design time.
 
 | | |
 |---|---|
-| Vertex layout | one, core-defined: `pos3 + nrm3 + uv2` |
+| Vertex layout | core-defined: `pos3 @0 · uv2 @12 · nrm3 @20`, 32 B, `static_assert`ed, for every mesh that carries a uv. The water surface is a **declared second layout** (`pos3 · nrm3`, 24 B) because no uv exists there |
 | `uv` | **metres**, never 0..1 |
 | Positions | ECEF offsets from a declared anchor |
 | Unit | prototype + instances, never geometry per instance |

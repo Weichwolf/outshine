@@ -134,8 +134,9 @@ measurement instead of from the toolchain default.
 
 ## 2 — The height oracle evaluates the drawn surface
 
-The oracle interpolates the DEM a second time instead of evaluating the surface that is drawn, and
-disagrees with it by up to metres. Anything placed on that height stands wrong, and no generator can
+The oracle interpolates the DEM a second time instead of evaluating the surface that is drawn. Measured
+at Badwater Basin (36.2333 N, −116.7667) with a plumb depth scene: the eye sits **+0.076 m** above the
+drawn mesh where it should sit at zero. Anything placed on that height stands wrong, and no generator can
 repair it.
 
 Done when: oracle and drawn mesh agree to a stated bound, same posting indices, same triangle split.
@@ -246,6 +247,10 @@ repeats, and popping is judged from a moving capture.
 Footprints and the water surface become generators; the water *level* stays in the core. Then
 infrastructure.
 
+**Night city lighting is owed and exists nowhere.** `/t/lights` and its 587-line producer are gone
+with the client half that never had a caller; OSM street lamps are genuine vector data and the picture
+target has a night. It comes back here, placed by a generator, and the endpoint is rebuilt with it.
+
 ## Later
 
 - GPU emitter for scattering, with the C++ generator as its oracle. **Not before 8** — without the
@@ -278,7 +283,21 @@ infrastructure.
   computes `SpanM × 443.4/2500 = SpanM × 0.177`, so it stops splitting at ≈2.4 × `kEdgeTau`. The picture
   is byte-identical today, so nothing is due — but the ladder measures a quantity the projection does not
   have, and under `orthoM > 0` the honest metric is distance-free.
-- `GpuTimer::Pass::Cloud` is the enumeration's dead slot; `Tonemap` was filled this round.
+- `GpuTimer::Pass::Cloud` is the enumeration's dead slot.
+- **`core/ClusterDag.h:75` reads `FB_TAU` from the environment into a function-local static.** The
+  picture depends on an undocumented environment variable, and the value carries no origin at the call
+  site. Principle 7 — if the environment decides the result, the coupling is a bug.
+- **The transmittance LUT cannot answer how much blue the atmosphere removes on the path to a lit
+  surface.** Tapped for that purpose it returns a 4.7 % blue lift where the same model's own extinction
+  gives 19.6 % — the wrong instrument for the question rather than a mis-tuned one. March instead, when
+  the deck base gets a source.
+- **`osmDefault` is one global `"meadow"`.** Unmapped land anywhere on Earth grows 700 blades/m²: Death
+  Valley's floor is a sward, and there is no arid template among the thirteen. The fix is a per-place
+  default and it belongs to the vegetation generator.
+- White limestone and rock patches read as snow at 36 N in August.
+- `WaterField.cpp:57,92` and `BuildingField.cpp:54` test the unresolved-elevation sentinel with a bare
+  `<= -1e7` while `core/ElevationProvider.h` declares `ElevationResolved()` as `> -1e8` — one predicate,
+  three literals, two thresholds.
 - The near-field ground is a shader and nothing else — no ground cover is built at all, so "no blades" is
   an absence, not a defect. It belongs with undergrowth after 9.
 - German comments from earlier rounds. The history stays; what is touched gets translated as it is
