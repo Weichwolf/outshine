@@ -49,6 +49,11 @@ double fb_stream_cache_bytes(void);
  * every byte that triangle needs has landed. */
 double fb_stream_ground(double lat, double lon);
 
+/* The node spacing of that surface at a latitude, in metres: what a caller must step to land on the
+ * next posting instead of re-reading its own triangle. Derived from the surface handed to
+ * fb_stream_open, which is where the zoom and the grid are stated. */
+double fb_stream_ground_post_m(double latDeg);
+
 /* Raw Terrarium bytes, ONE tile. The payload is owned by the byte cache — do NOT free. 1 ready,
  * 0 PENDING (retry; never treat as a hole), -1 a real hole. */
 int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len);

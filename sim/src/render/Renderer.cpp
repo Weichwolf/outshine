@@ -692,27 +692,11 @@ void Renderer::RenderFrame(void) {
 
   /* THE SAMPLE POSITION MOVES BEFORE THE MATRIX IS BUILT, and both halves of the pair read the same
    * two numbers afterwards — the projection and the atmosphere's ray reconstruction. */
-  /* FB_JITTER="x,y" PINS the sample offset in pixels instead of walking the sequence. It is the only
-   * way to ask the question "did the jitter move anything that is at a place?" as a single-frame
-   * measurement: two frames at two pinned phases must differ by a RIGID translation of exactly the
-   * phase difference, the same in every distance band. A parallax would be the defect. */
-  static const bool jitterPinned = []() {
-    const char *e = getenv("FB_JITTER");
-    return e != nullptr && std::strchr(e, ',') != nullptr;
-  }();
   /* FB_TAA=0 RETIRES THE PAIR AT RUNTIME: no sub-pixel offset and no history, so the resolve copies
    * this frame through unchanged. It is the measurement instrument the deletion question needs — the
    * picture is exactly the one a tree without TaaStage produces, off the same binary. */
-  if (!TaaOn) {
-    Jitter.Disarm();
-  } else if (jitterPinned) {
-    static float px = 0.0f, py = 0.0f;
-    static bool once = [&]() { std::sscanf(getenv("FB_JITTER"), "%f,%f", &px, &py); return true; }();
-    (void)once;
-    Jitter.Pin(px, py);
-  } else {
-    Jitter.Advance();
-  }
+  if (!TaaOn) Jitter.Disarm();
+  else Jitter.Advance();
   const float jitNdcX = 2.0f * Jitter.PixelX() / (float)Width;
   const float jitNdcY = 2.0f * Jitter.PixelY() / (float)Height;
 

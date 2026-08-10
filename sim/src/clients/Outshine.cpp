@@ -65,6 +65,7 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
   OrthoM_ = Scene_.OrthoM();
   Stand_.SetEyeAglM(Scene_.EyeM());
   if (Scene_.HasLensAslM()) Stand_.SetLensAslM(Scene_.LensAslM());
+  if (Scene_.HasJitterPin()) R_.PinJitter((float)Scene_.JitterPinX(), (float)Scene_.JitterPinY());
 }
 
 void Outshine::Pump() { PumpMs(0); }

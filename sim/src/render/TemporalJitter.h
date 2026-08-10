@@ -26,6 +26,7 @@ public:
    * the settled picture a function of how many frames ran before it: the same eight positions are
    * visited in a rotated order and the resolve's feedback weights them unequally. */
   void Reset(void) {
+    if (Pinned) return;
     Phase = 0;
     CurX = Halton(1, 2) - 0.5f;
     CurY = Halton(1, 3) - 0.5f;
@@ -34,6 +35,7 @@ public:
   }
 
   void Advance(void) {
+    if (Pinned) return;
     PrevX = CurX;
     PrevY = CurY;
     Phase = (Phase + 1) % kPhases;
@@ -43,8 +45,13 @@ public:
 
   void Disarm(void) { CurX = CurY = PrevX = PrevY = 0.0f; }
 
-  /* A FROZEN phase, for the measurement that asks whether the offset moved anything world-fixed. */
-  void Pin(float x, float y) { PrevX = CurX = x; PrevY = CurY = y; }
+  /* A FROZEN phase, for the measurement that asks whether the offset moved anything world-fixed. It
+   * LATCHES: a pin the caller has to re-apply every frame is a pin the next caller forgets. */
+  void Pin(float x, float y) {
+    Pinned = true;
+    PrevX = CurX = x;
+    PrevY = CurY = y;
+  }
 
   float PixelX(void) const { return CurX; }
   float PixelY(void) const { return CurY; }
@@ -63,6 +70,7 @@ private:
   }
 
   int Phase = 0;
+  bool Pinned = false;
   float CurX = 0.0f, CurY = 0.0f, PrevX = 0.0f, PrevY = 0.0f;
 };
 

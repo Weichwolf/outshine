@@ -111,6 +111,13 @@ public:
   double CloudCover() const { return CloudCover_; }
   double WindClockS() const { return WindClockS_; }
 
+  /* THE SUB-PIXEL SAMPLE OFFSET, FROZEN, in pixels. Declared, because a pinned stochastic sequence
+   * is part of what the scene is, and two scenes at two pinned phases are the only way to ask
+   * whether the offset moved anything world-fixed. Absent leaves the Halton cycle running. */
+  bool HasJitterPin() const { return HasJitterPin_; }
+  double JitterPinX() const { return JitterPin_[0]; }
+  double JitterPinY() const { return JitterPin_[1]; }
+
   double ViewM() const { return ViewKm_ * 1000.0; }
   double OrthoM() const { return OrthoM_; }
   const std::string &Snapshot() const { return Snapshot_; }
@@ -135,7 +142,8 @@ private:
   int64_t UtcS_ = 0;
   double WindDeg_ = 0.0, WindMs_ = 0.0, CloudCover_ = 0.0, WindClockS_ = 0.0;
   double ViewKm_ = 60.0, OrthoM_ = 0.0;
-  bool HasLensAslM_ = false;
+  double JitterPin_[2] = {0.0, 0.0};
+  bool HasLensAslM_ = false, HasJitterPin_ = false;
   int SettleFrames_ = -1;
   Render::ExposureParams Exposure_;
   Resolution Resolution_;

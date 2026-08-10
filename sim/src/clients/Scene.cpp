@@ -84,6 +84,30 @@ bool Scene::Read(const Ref &node, std::string &err) {
   if (!Optional(node, "orthoM", 0.0, 1.0e6, OrthoM_, err)) return false;
   if (node["snapshot"].GetKind() == JKind::String) Snapshot_ = node["snapshot"].Str();
 
+  /* A MISTYPED PIN MUST NOT MEASURE THE HALTON PHASE. The pin exists so a depth channel carries the
+   * surface and not the sample position; a spelling the loader ignores hands the measurement a
+   * sub-pixel offset it will read as a residual. */
+  const Ref jitter = node["jitter"];
+  HasJitterPin_ = jitter.GetKind() == JKind::Array;
+  if (jitter.GetKind() != JKind::Invalid && !HasJitterPin_) {
+    err = "jitter is not an array of two numbers, in pixels";
+    return false;
+  }
+  if (HasJitterPin_) {
+    if (jitter.Size() != 2 || jitter[(size_t)0].GetKind() != JKind::Number ||
+        jitter[(size_t)1].GetKind() != JKind::Number) {
+      err = "jitter is not two numbers, in pixels";
+      return false;
+    }
+    JitterPin_[0] = jitter[(size_t)0].Num();
+    JitterPin_[1] = jitter[(size_t)1].Num();
+    if (JitterPin_[0] < -0.5 || JitterPin_[0] > 0.5 || JitterPin_[1] < -0.5 ||
+        JitterPin_[1] > 0.5) {
+      err = "jitter out of range [-0.5,0.5] px";
+      return false;
+    }
+  }
+
   if (!ReadExposure(node, err) || !ReadResolution(node, err)) return false;
   if (!OptionalInt(node, "settleFrames", -1.0, 4096.0, SettleFrames_, err)) return false;
   if (Kind_ != Kind::Run) return true;

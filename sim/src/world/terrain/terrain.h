@@ -29,10 +29,7 @@ void osmmesh_terrain_grid_free(osmmesh_terrain_grid *grid);   /* safe on zeroed 
 
 /* stride must divide (rows-1) and (cols-1) exactly. */
 typedef struct {
-    uint32_t stride;           /* 1 = every pixel is a vertex */
-    int      compute_normals;  /* 0 = skip, leave normals NULL */
-    int      add_skirt;        /* reserved, must be 0 */
-    float    skirt_depth_m;    /* reserved */
+    uint32_t stride;           /* 1 = every pixel is a node */
 } osmmesh_terrain_build_opts;
 
 /* Postings per tile edge for a given source edge and stride; the stride must divide (edge - 1). */

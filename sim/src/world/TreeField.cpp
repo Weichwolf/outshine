@@ -35,16 +35,20 @@ inline float SizeFactor(uint32_t h, float sigma) {
 
 }  // namespace
 
+const char *TreeField::RefusalName(Refusal r) {
+  static const char *const kNames[(int)Refusal::Count] = {
+      "placed", "outsideRadius", "noTemplate", "zeroDensity", "densityDraw", "noGround",
+      "aboveTreeline", "tooSteep", "woodyDraw", "inCrown"};
+  return kNames[(int)r];
+}
+
 void TreeField::Scatter(const ClassStructure &cls, const VegetationTemplates &veg, double radiusM,
                         double eyeE, double eyeN, double eyeAsl, double camLatDeg, float sizeSigma,
-                        const Crown &crown, double (*ground)(void *, double, double), void *user,
+                        const Crown &crown, const GroundOracle &ground,
                         std::vector<float> &out, std::vector<float> &dist) const {
   out.clear();
   dist.clear();
-  Count_ = 0;
-  Cleared_ = 0;
-  AboveLine_ = 0;
-  TooSteep_ = 0;
+  for (long &c : Counts_) c = 0;
   HighestAsl_ = -1.0e30;
   const VegetationTemplates::Row *rows = veg.Rows();
   if (!rows) return;
@@ -52,71 +56,79 @@ void TreeField::Scatter(const ClassStructure &cls, const VegetationTemplates &ve
   const int r = (int)std::ceil(radiusM / kCellM);
   const int ci = (int)std::floor(eyeE / kCellM), cj = (int)std::floor(eyeN / kCellM);
   const AlpineLimit &limit = veg.Limit();
-  /* THE DEM'S OWN POST SPACING, so the stencil neither smooths the wall nor interpolates its own
-   * bilinear filter: fb_stream_ground reads z13, whose post is 40075017*cos(lat)/(2^13*256) m —
-   * 12.93 m at 47.4 deg. Measured over the Mandlwand and the Zugspitze north face, z13 carries the
-   * slope: from z13 to z15 the p90 moves at most 1.9 deg (vegetation.json alpineLimit.slopeSource). */
-  const double postM = 40075017.0 * std::cos(camLatDeg * 3.14159265358979 / 180.0) / (8192.0 * 256.0);
+
+  struct Stand { double E, N, GroundAsl, DistSq; float Yaw, Size; };
+
+  /* ONE CELL, ONE ANSWER. Every way out of this is a Refusal, so the counts partition the disc by
+   * construction and a stand that is missing has a name. */
+  const auto consider = [&](int i, int j, Stand &st) -> Refusal {
+    const uint32_t h = Hash(i, j, 0x5eedu);
+    st.E = ((double)i + 0.25 + 0.5 * U(h)) * kCellM;
+    st.N = ((double)j + 0.25 + 0.5 * U(h >> 8)) * kCellM;
+    const double de = st.E - eyeE, dn = st.N - eyeN;
+    st.DistSq = de * de + dn * dn;
+    st.Yaw = U(h >> 20) * 6.2831853f;
+    if (st.DistSq > radiusM * radiusM) return Refusal::OutsideRadius;
+
+    const int tpl = cls.Evaluate(st.E, st.N, nullptr, nullptr);
+    if (tpl < 0 || tpl >= nrows) return Refusal::NoTemplate;
+    const float perM2 = rows[tpl].Edge[2];
+    if (perM2 <= 0.0f) return Refusal::ZeroDensity;
+    /* ITS OWN DRAW, with the full 24 bits. `U(h >> 16)` left only 16 and so delivered at most
+     * 0.0039: the acceptance threshold sat above EVERY declared density, so every cell with
+     * perM2 > 0 was accepted. The 219 240 stands within 900 m were not 0.09/m2, they were
+     * "everything that is not field, water or sealed surface". */
+    if (U(Hash(i, j, 0xd3adu)) > (float)(perM2 * kCellM * kCellM)) return Refusal::DensityDraw;
+
+    st.GroundAsl = ground.At ? ground.At(ground.User, st.E, st.N) : eyeAsl;
+    if (st.GroundAsl <= -1.0e7) return Refusal::NoGround;
+    /* THE DEM DECIDES WHERE NOTHING STANDS, and it decides it in one draw against one fraction —
+     * two draws would let a stand survive the treeline only to be counted again against the wall. */
+    const double woody = limit.WoodyFraction(camLatDeg, st.GroundAsl, st.E, st.N);
+    double steep = 0.0;
+    if (woody > 0.0 && ground.At) {
+      const double p = ground.PostM;
+      const double ze = ground.At(ground.User, st.E + p, st.N), zw = ground.At(ground.User, st.E - p, st.N);
+      const double zn = ground.At(ground.User, st.E, st.N + p), zs = ground.At(ground.User, st.E, st.N - p);
+      if (ze > -1.0e7 && zw > -1.0e7 && zn > -1.0e7 && zs > -1.0e7) {
+        const double dzde = (ze - zw) / (2.0 * p), dzdn = (zn - zs) / (2.0 * p);
+        steep = limit.BareBySlope(std::atan(std::sqrt(dzde * dzde + dzdn * dzdn)) * 57.29577951308232,
+                                  (double)rows[tpl].Edge[3]);
+      }
+    }
+    if (woody <= 0.0) return Refusal::AboveTreeline;
+    if (steep >= 1.0) return Refusal::TooSteep;
+    if ((double)U(Hash(i, j, 0xa17eu)) >= woody * (1.0 - steep)) return Refusal::WoodyDraw;
+    /* Its own draw, not another slice of `h`: place, yaw and density already share bits there, and
+     * a size correlated with yaw stripes the forest into bands. */
+    st.Size = SizeFactor(Hash(i, j, 0x9e37u), sizeSigma);
+    if (crown.HeightM > 0.0f && crown.HalfWidth > 0.0f) {
+      const double hm = (double)crown.HeightM * (double)st.Size;
+      const double half = hm * (double)crown.HalfWidth;
+      if (eyeAsl > st.GroundAsl + hm * (double)crown.Bottom &&
+          eyeAsl < st.GroundAsl + hm * (double)crown.Top && st.DistSq < half * half)
+        return Refusal::InCrown;
+    }
+    return Refusal::Placed;
+  };
 
   for (int j = cj - r; j <= cj + r; j++) {
     for (int i = ci - r; i <= ci + r; i++) {
-      const uint32_t h = Hash(i, j, 0x5eedu);
-      const double e = ((double)i + 0.25 + 0.5 * U(h)) * kCellM;
-      const double n = ((double)j + 0.25 + 0.5 * U(h >> 8)) * kCellM;
-      const double de = e - eyeE, dn = n - eyeN;
-      if (de * de + dn * dn > radiusM * radiusM) continue;
-
-      const int tpl = cls.Evaluate(e, n, nullptr, nullptr);
-      if (tpl < 0 || tpl >= nrows) continue;
-      const float perM2 = rows[tpl].Edge[2];
-      if (perM2 <= 0.0f) continue;
-      /* ITS OWN DRAW, with the full 24 bits. `U(h >> 16)` left only 16 and so delivered at most
-       * 0.0039: the acceptance threshold sat above EVERY declared density, so every cell with
-       * perM2 > 0 was accepted. The 219 240 stands within 900 m were not 0.09/m2, they were
-       * "everything that is not field, water or sealed surface". */
-      if (U(Hash(i, j, 0xd3adu)) > (float)(perM2 * kCellM * kCellM)) continue;
-
-      const double gz = ground ? ground(user, e, n) : eyeAsl;
-      if (gz <= -1.0e7) continue;
-      /* THE DEM DECIDES WHERE NOTHING STANDS, and it decides it in one draw against one fraction —
-       * two draws would let a stand survive the treeline only to be counted again against the wall. */
-      const double woody = limit.WoodyFraction(camLatDeg, gz, e, n);
-      double steep = 0.0;
-      if (woody > 0.0 && ground) {
-        const double ze = ground(user, e + postM, n), zw = ground(user, e - postM, n);
-        const double zn = ground(user, e, n + postM), zs = ground(user, e, n - postM);
-        if (ze > -1.0e7 && zw > -1.0e7 && zn > -1.0e7 && zs > -1.0e7) {
-          const double dzde = (ze - zw) / (2.0 * postM), dzdn = (zn - zs) / (2.0 * postM);
-          steep = limit.BareBySlope(std::atan(std::sqrt(dzde * dzde + dzdn * dzdn)) * 57.29577951308232,
-                                    (double)rows[tpl].Edge[3]);
-        }
-      }
-      if (woody <= 0.0) { AboveLine_++; continue; }
-      if (steep >= 1.0) { TooSteep_++; continue; }
-      if ((double)U(Hash(i, j, 0xa17eu)) >= woody * (1.0 - steep)) continue;
-      /* Its own draw, not another slice of `h`: place, yaw and density already share bits there, and
-       * a size correlated with yaw stripes the forest into bands. */
-      const float size = SizeFactor(Hash(i, j, 0x9e37u), sizeSigma);
-      if (crown.HeightM > 0.0f && crown.HalfWidth > 0.0f) {
-        const double hm = (double)crown.HeightM * (double)size;
-        const double half = hm * (double)crown.HalfWidth;
-        if (eyeAsl > gz + hm * (double)crown.Bottom && eyeAsl < gz + hm * (double)crown.Top &&
-            de * de + dn * dn < half * half) {
-          Cleared_++;
-          continue;
-        }
-      }
+      Stand st{};
+      const Refusal why = consider(i, j, st);
+      Counts_[(int)why]++;
+      if (why != Refusal::Placed) continue;
       /* RELATIVE TO THE CAMERA, because the shader places the stand on the ECEF axes at the eye: an
        * absolute ENU value would be a kilometre-sized offset there. The search itself runs absolute —
        * class and terrain are properties of the place, not of the viewer. */
-      if (gz > HighestAsl_) HighestAsl_ = gz;
-      out.push_back((float)(e - eyeE)); out.push_back((float)(n - eyeN));
-      out.push_back((float)(gz - eyeAsl));
-      out.push_back(U(h >> 20) * 6.2831853f);
-      out.push_back(size);
-      const double dz = gz - eyeAsl;
-      dist.push_back((float)std::sqrt(de * de + dn * dn + dz * dz));
-      Count_++;
+      if (st.GroundAsl > HighestAsl_) HighestAsl_ = st.GroundAsl;
+      const double dz = st.GroundAsl - eyeAsl;
+      out.push_back((float)(st.E - eyeE));
+      out.push_back((float)(st.N - eyeN));
+      out.push_back((float)dz);
+      out.push_back(st.Yaw);
+      out.push_back(st.Size);
+      dist.push_back((float)std::sqrt(st.DistSq + dz * dz));
     }
   }
 

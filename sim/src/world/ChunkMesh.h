@@ -130,13 +130,12 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
       int r0 = W3_RI(j), r1 = W3_RI(j + 1), c0 = W3_CI(i), c1 = W3_CI(i + 1);
-      float h00 = nh[(size_t)j * gc + i], h10 = nh[(size_t)j * gc + i + 1];
-      float h11 = nh[(size_t)(j + 1) * gc + i + 1], h01 = nh[(size_t)(j + 1) * gc + i];
       if (r1 <= r0 || c1 <= c0) continue;
+      const ChunkCell cell{nh, gc, j, i};
       for (int r = r0; r <= r1; r++)
         for (int c = c0; c <= c1; c++) {
           float sv = (float)(r - r0) / (float)(r1 - r0), su = (float)(c - c0) / (float)(c1 - c0);
-          float d = fabsf(ChunkTriangleHeight(h00, h10, h11, h01, su, sv) - W3_MH(r, c));
+          float d = fabsf(ChunkCellHeight(cell, su, sv) - W3_MH(r, c));
           if (d > err) err = d;
         }
     }
@@ -153,11 +152,10 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
     free(nv);
     return 0;
   }
-  const ChunkQuadCorner *w = ChunkQuadWinding();
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
-      for (int k = 0; k < 6; k++) {
-        const int qj = j + w[k].Row, qi = i + w[k].Col;
+      for (const ChunkQuadCorner &corner : ChunkQuadWinding()) {
+        const int qj = j + corner.Row, qi = i + corner.Col;
         const double *P = pe + ((size_t)qj * gc + qi) * 3;
         const float *N = nv + ((size_t)qj * gc + qi) * 3;
         ChunkVtx *d = &v[o++];

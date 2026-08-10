@@ -211,9 +211,6 @@ static int build_terrain_mesh_from_grid(osmmesh_ctx *ctx,
 
     osmmesh_terrain_build_opts opts;
     opts.stride          = 1;
-    opts.compute_normals = 1;
-    opts.add_skirt       = 0;
-    opts.skirt_depth_m   = 0.0f;
     if (ctx->has_terrain_opts) opts = ctx->terrain_opts;
     if (opts.stride == 0) opts.stride = 1;
 

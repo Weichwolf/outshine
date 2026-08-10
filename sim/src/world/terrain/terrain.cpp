@@ -1,10 +1,8 @@
-/* Terrarium-RGB PNG -> float heightfield -> triangulated mesh; API contract in terrain.h.
- * Der WINDING-BEWEIS ist algebraisch, nicht ergruent: bei einem Testfehler erst die Mathematik
- * pruefen. */
+/* Terrarium-RGB PNG -> float heightfield -> node grid; API contract in terrain.h. */
 
 #include "terrain.h"
 #include "mesh.h"
-#include "tilemath.h"   /* fb-tiles' OWN tile maths: the mesh's postings and /elev must not drift apart */
+#include "tilemath.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -47,11 +45,7 @@ void osmmesh_mesh_free(osmmesh_mesh *m)
 {
     if (!m) return;
     free(m->positions); m->positions = NULL;
-    free(m->normals);   m->normals   = NULL;
-    free(m->uvs);       m->uvs       = NULL;
-    free(m->indices);   m->indices   = NULL;
     m->n_vertices  = 0;
-    m->n_triangles = 0;
 }
 
 /* kept in sync with tiles/osmmesh/terrain.c */
@@ -120,7 +114,6 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
     if (!grid->heights) return OSMMESH_TERRAIN_ERR_ARG;
     if (grid->rows < 2 || grid->cols < 2) return OSMMESH_TERRAIN_ERR_ARG;
     if (opts->stride == 0) return OSMMESH_TERRAIN_ERR_ARG;
-    if (opts->add_skirt) return OSMMESH_TERRAIN_ERR_ARG;  /* not implemented */
     if (map->extent == 0) return OSMMESH_TERRAIN_ERR_ARG;
 
     memset(mesh, 0, sizeof(*mesh));
@@ -135,27 +128,13 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
     uint32_t cols_out = osmmesh_terrain_postings(cols, S);
 
     uint64_t n_vertices64  = (uint64_t)rows_out * (uint64_t)cols_out;
-    uint64_t n_triangles64 = (uint64_t)(rows_out - 1) * (uint64_t)(cols_out - 1) * 2ull;
-    if (n_vertices64 > UINT32_MAX || n_triangles64 > UINT32_MAX) {
+    if (n_vertices64 > UINT32_MAX) {
         return OSMMESH_TERRAIN_ERR_ARG;
     }
     uint32_t NV = (uint32_t)n_vertices64;
-    uint32_t NT = (uint32_t)n_triangles64;
 
-    float    *positions = (float    *)malloc((size_t)NV * 3 * sizeof(float));
-    uint32_t *indices   = (uint32_t *)malloc((size_t)NT * 3 * sizeof(uint32_t));
-    float    *normals   = NULL;
-    float    *uvs       = NULL;
-    if (opts->compute_normals) {
-        normals = (float *)calloc((size_t)NV * 3, sizeof(float));
-    }
-    uvs = (float *)malloc((size_t)NV * 2 * sizeof(float));
-
-    if (!positions || !indices || !uvs ||
-        (opts->compute_normals && !normals)) {
-        free(positions); free(indices); free(normals); free(uvs);
-        return OSMMESH_TERRAIN_ERR_OOM;
-    }
+    float *positions = (float *)malloc((size_t)NV * 3 * sizeof(float));
+    if (!positions) return OSMMESH_TERRAIN_ERR_OOM;
 
     double tile_w_e = map->scale_e * (double)map->extent;   /* meters */
     double tile_h_n = map->scale_n * (double)map->extent;   /* meters, NEG */
@@ -176,64 +155,10 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
             positions[3*vi + 0] = (float)e;
             positions[3*vi + 1] = (float)n;
             positions[3*vi + 2] = u;
-
-            /* UV origin bottom-left (GL): v grows northward, so v = 1 - fr. */
-            uvs[2*vi + 0] = (float)fc;
-            uvs[2*vi + 1] = (float)(1.0 - fr);
-        }
-    }
-
-    uint32_t *w = indices;
-    for (uint32_t r = 0; r < rows_out - 1; r++) {
-        for (uint32_t c = 0; c < cols_out - 1; c++) {
-            uint32_t v00 = r       * cols_out + c;
-            uint32_t v10 = (r + 1) * cols_out + c;
-            uint32_t v11 = (r + 1) * cols_out + (c + 1);
-            uint32_t v01 = r       * cols_out + (c + 1);
-            *w++ = v00; *w++ = v10; *w++ = v11;
-            *w++ = v00; *w++ = v11; *w++ = v01;
-        }
-    }
-
-    if (opts->compute_normals) {
-        for (uint32_t t = 0; t < NT; t++) {
-            uint32_t i0 = indices[3*t + 0];
-            uint32_t i1 = indices[3*t + 1];
-            uint32_t i2 = indices[3*t + 2];
-            const float *p0 = &positions[3*i0];
-            const float *p1 = &positions[3*i1];
-            const float *p2 = &positions[3*i2];
-            float ax = p1[0] - p0[0];
-            float ay = p1[1] - p0[1];
-            float az = p1[2] - p0[2];
-            float bx = p2[0] - p0[0];
-            float by = p2[1] - p0[1];
-            float bz = p2[2] - p0[2];
-            float nx = ay*bz - az*by;
-            float ny = az*bx - ax*bz;
-            float nz = ax*by - ay*bx;
-            normals[3*i0+0] += nx; normals[3*i0+1] += ny; normals[3*i0+2] += nz;
-            normals[3*i1+0] += nx; normals[3*i1+1] += ny; normals[3*i1+2] += nz;
-            normals[3*i2+0] += nx; normals[3*i2+1] += ny; normals[3*i2+2] += nz;
-        }
-        for (uint32_t v = 0; v < NV; v++) {
-            float *n = &normals[3*v];
-            float m2 = n[0]*n[0] + n[1]*n[1] + n[2]*n[2];
-            if (m2 > 0.0f) {
-                float inv = 1.0f / sqrtf(m2);
-                n[0] *= inv; n[1] *= inv; n[2] *= inv;
-            } else {
-                /* Degenerate: default to up. */
-                n[0] = 0.0f; n[1] = 0.0f; n[2] = 1.0f;
-            }
         }
     }
 
     mesh->positions   = positions;
-    mesh->normals     = normals;
-    mesh->uvs         = uvs;
-    mesh->indices     = indices;
     mesh->n_vertices  = NV;
-    mesh->n_triangles = NT;
     return OSMMESH_TERRAIN_OK;
 }

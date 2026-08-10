@@ -10,12 +10,14 @@
 #include "geo.h"
 #include "osmmesh.h"
 #include "terrain.h"
-#include "tilemath.h"   /* fb-tiles' OWN tile maths: /elev and this oracle must not drift apart */
+#include "tilemath.h"   /* fb-tiles' OWN tile maths, so a tile index means the same on both sides */
 #include "Log.h"
 #include "StackProbe.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <chrono>
+#include <cmath>
 #include <vector>
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -24,6 +26,7 @@
 #include <unistd.h>
 #include <condition_variable>
 #include <map>
+#include <atomic>
 #include <mutex>
 #include <set>
 #include <string>
@@ -89,6 +92,11 @@ static int fb_get(const char *url, uint8_t **out, size_t *len) {
  * Same retry contract as the WASM path above. */
 struct fb_buf { uint8_t *data; size_t len, cap; };
 
+/* THE ROUND TRIPS THEMSELVES. Every byte that enters natively passes here, from the pool's workers
+ * and from the height oracle alike, so this is the one place that can say how often the run went to
+ * the server — the question every cache above it exists to answer. */
+static std::atomic<long> fb_http_gets{0};
+
 static size_t fb_curl_write(void *ptr, size_t sz, size_t nmemb, void *userdata) {
   struct fb_buf *b = (struct fb_buf *)userdata;
   size_t n = sz * nmemb;
@@ -107,6 +115,7 @@ static size_t fb_curl_write(void *ptr, size_t sz, size_t nmemb, void *userdata) 
 
 static int fb_get(const char *url, uint8_t **out, size_t *len) {
   for (int attempt = 0; attempt < 60; attempt++) {
+    fb_http_gets.fetch_add(1, std::memory_order_relaxed);
     CURL *c = curl_easy_init();
     if (!c) return 0;
     struct fb_buf buf = {0, 0, 0};
@@ -343,93 +352,8 @@ double fb_stream_cache_bytes(void) { return fbw_cache_bytes(); }
 
 static char fb_base[160] = "";
 
-struct fbs_ent { char path[192]; uint8_t *data; int len; };   /* len 0 = hole; data 0 iff len 0 */
-static struct fbs_ent fbs_cache[2048];
-static int fbs_cache_n = 0, fbs_cache_head = 0;
-
-/* [tileperf] (FB_TILEPERF=1): per-stage cold-boot timings of the SHARED pipeline the browser worker
- * wraps. Zero cost when off — one cached env check. */
-#include <time.h>
-static int fbtp_on_ = -1;
-static inline int fbtp(void) {
-  if (fbtp_on_ < 0) { const char *e = getenv("FB_TILEPERF"); fbtp_on_ = (e && atoi(e)) ? 1 : 0; }
-  return fbtp_on_;
-}
-static inline double fbtp_ms(void) {
-  struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (double)ts.tv_sec * 1e3 + (double)ts.tv_nsec * 1e-6;
-}
-static double fbtp_t0_ = 0;
-static struct { double demfetch, mesh, provfetch; long nmesh, holes, provcalls, provkind[3]; } fbtp_;
-static void fbtp_report(void) {
-  if (!fbtp()) return;
-  double wall = fbtp_ms() - fbtp_t0_;
-  long m = fbtp_.nmesh ? fbtp_.nmesh : 1;
-  double demInternal = fbtp_.demfetch - fbtp_.provfetch;   /* osmmesh work minus the HTTP it triggered */
-  outshine::Log::Debug("world", "tileperf",
-      {{"wallMs", wall}, {"meshTiles", (int)fbtp_.nmesh}, {"holes", (int)fbtp_.holes},
-       {"demFetchMs", fbtp_.demfetch}, {"demFetchMsPerTile", fbtp_.demfetch / m},
-       {"provHttpMs", fbtp_.provfetch}, {"provHttpMsPerTile", fbtp_.provfetch / m}, {"provCalls", (int)fbtp_.provcalls},
-       {"provVec", (int)fbtp_.provkind[0]}, {"provTer", (int)fbtp_.provkind[1]}, {"provImg", (int)fbtp_.provkind[2]},
-       {"osmInternalMs", demInternal}, {"osmInternalMsPerTile", demInternal / m},
-       {"meshMs", fbtp_.mesh}, {"meshMsPerTile", fbtp_.mesh / m},       {"cpuSumMs", fbtp_.demfetch + fbtp_.mesh}});
-}
-
-static void fbs_init(const char *base) {
-  snprintf(fb_base, sizeof fb_base, "%s", base ? base : "");
-  for (int i = 0; i < fbs_cache_n; i++) { free(fbs_cache[i].data); fbs_cache[i].data = 0; }
-  fbs_cache_n = 0;
-  fbs_cache_head = 0;
-  if (fbtp()) { fbtp_t0_ = fbtp_ms(); memset(&fbtp_, 0, sizeof fbtp_); }
-}
-
-static struct fbs_ent *fbs_find(const char *path) {
-  for (int i = 0; i < fbs_cache_n; i++)
-    if (strcmp(fbs_cache[i].path, path) == 0) return &fbs_cache[i];
-  return 0;
-}
-
-static int fbs_size(const char *path) {
-  struct fbs_ent *e = fbs_find(path);
-  if (e) return e->len;
-  char url[256];
-  snprintf(url, sizeof url, "%s%s", fb_base, path);
-  uint8_t *buf = 0;
-  size_t n = 0;
-  int ok = fb_get(url, &buf, &n);
-  const int cap = (int)(sizeof fbs_cache / sizeof *fbs_cache);
-  if (fbs_cache_n < cap) {
-    e = &fbs_cache[fbs_cache_n++];
-  } else {
-    e = &fbs_cache[fbs_cache_head];
-    fbs_cache_head = (fbs_cache_head + 1) % cap;
-    free(e->data);
-  }
-  snprintf(e->path, sizeof e->path, "%s", path);
-  e->data = ok ? buf : 0;
-  e->len = (ok && n > 0) ? (int)n : 0;
-  if (!ok) free(buf);
-  return e->len;
-}
-
-static void fbs_copy(const char *path, uint8_t *dst) {
-  struct fbs_ent *e = fbs_find(path);
-  if (e && e->data && e->len > 0) memcpy(dst, e->data, (size_t)e->len);
-}
-
-/* ---- the tile worker pool ------------------------------------------------------------------------
- *
- * The SAME SHAPE the browser has and for the same measured reason: one
- * tile is 10.7 ms of work — DEM fetch 2.00, Terrarium decode + stitch 2.79, mesh 0.11, cluster DAG
- * 3.68 (FB_TILEPERF=1 over 128 tiles) — and a frame that pays it has
- * already lost. `fb_stream_build` posts and polls; nothing here blocks the caller.
- *
- * EACH WORKER OWNS ITS OWN osmmesh_ctx. The context carries a DEM LRU and is written by the tile it
- * is building, so sharing one would need a lock around the whole build and the pool would be a
- * queue. The byte cache below IS shared — it only ever hands out COPIES, so a reader cannot be
- * holding a pointer when an eviction frees it. */
-static const char *const fbp_kind_name[3] = {"vector", "terrain", "imagery"};
-
+/* THE ONE PLACE BYTES ENTER NATIVELY. Every /t/... path -- the pool's tiles and the height
+ * oracle's DEM alike -- is fetched and remembered here, so the same key is never pulled twice. */
 namespace {
 
 struct FbpEnt { std::string Path; std::vector<uint8_t> Data; bool Hole = false; };
@@ -476,6 +400,91 @@ int FbpFetch(const char *path, uint8_t **out, size_t *len) {
   *len = n;
   return 1;
 }
+
+}  // namespace
+
+
+/* THE ADDRESS THAT SURVIVES THE CALL, and nothing more: FbpFetch above already remembers every path,
+ * so a second table would be a second copy of the same bytes. Both readers below ask for a size and
+ * read that same path in the next line, on the render thread — the pool never enters here — so one
+ * slot is all that can be observed. Empty path = nothing held; empty bytes with a path = a hole. */
+static std::string fbs_hold_path;
+static std::vector<uint8_t> fbs_hold;
+
+/* [tileperf] (FB_TILEPERF=1): per-stage cold-boot timings of the SHARED pipeline the browser worker
+ * wraps. Zero cost when off — one cached env check. */
+#include <time.h>
+static int fbtp_on_ = -1;
+static inline int fbtp(void) {
+  if (fbtp_on_ < 0) { const char *e = getenv("FB_TILEPERF"); fbtp_on_ = (e && atoi(e)) ? 1 : 0; }
+  return fbtp_on_;
+}
+static inline double fbtp_ms(void) {
+  struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (double)ts.tv_sec * 1e3 + (double)ts.tv_nsec * 1e-6;
+}
+static double fbtp_t0_ = 0;
+/* Distinct members, distinct memory locations: the pool writes the first group, the render thread
+ * the oracle's, so neither needs the other's lock. */
+static struct { double demfetch, mesh, provfetch, oraclefetch;
+                long nmesh, holes, provcalls, provkind[3], oraclecalls; } fbtp_;
+static void fbtp_report(void) {
+  if (!fbtp()) return;
+  double wall = fbtp_ms() - fbtp_t0_;
+  long m = fbtp_.nmesh ? fbtp_.nmesh : 1;
+  double demInternal = fbtp_.demfetch - fbtp_.provfetch;   /* osmmesh work minus the HTTP it triggered */
+  outshine::Log::Debug("world", "tileperf",
+      {{"wallMs", wall}, {"meshTiles", (int)fbtp_.nmesh}, {"holes", (int)fbtp_.holes},
+       {"demFetchMs", fbtp_.demfetch}, {"demFetchMsPerTile", fbtp_.demfetch / m},
+       {"provHttpMs", fbtp_.provfetch}, {"provHttpMsPerTile", fbtp_.provfetch / m}, {"provCalls", (int)fbtp_.provcalls},
+       {"provVec", (int)fbtp_.provkind[0]}, {"provTer", (int)fbtp_.provkind[1]}, {"provImg", (int)fbtp_.provkind[2]},
+       {"osmInternalMs", demInternal}, {"osmInternalMsPerTile", demInternal / m},
+       {"meshMs", fbtp_.mesh}, {"meshMsPerTile", fbtp_.mesh / m},
+       {"oracleFetchMs", fbtp_.oraclefetch}, {"oracleFetches", (int)fbtp_.oraclecalls},
+       {"httpGets", (int)fb_http_gets.load(std::memory_order_relaxed)},
+       {"cpuSumMs", fbtp_.demfetch + fbtp_.mesh}});
+}
+
+static void fbs_init(const char *base) {
+  snprintf(fb_base, sizeof fb_base, "%s", base ? base : "");
+  fbs_hold_path.clear();
+  fbs_hold.clear();
+  if (fbtp()) { fbtp_t0_ = fbtp_ms(); memset(&fbtp_, 0, sizeof fbtp_); }
+}
+
+static int fbs_size(const char *path) {
+  if (fbs_hold_path == path) return (int)fbs_hold.size();
+  uint8_t *buf = 0;
+  size_t n = 0;
+  const double t0 = fbtp() ? fbtp_ms() : 0;
+  const int ok = FbpFetch(path, &buf, &n);
+  if (fbtp()) { fbtp_.oraclefetch += fbtp_ms() - t0; fbtp_.oraclecalls++; }
+  fbs_hold_path = path;
+  fbs_hold.clear();
+  if (ok && n > 0) fbs_hold.assign(buf, buf + n);
+  free(buf);
+  return (int)fbs_hold.size();
+}
+
+static void fbs_copy(const char *path, uint8_t *dst) {
+  if (fbs_hold_path == path && !fbs_hold.empty())
+    memcpy(dst, fbs_hold.data(), fbs_hold.size());
+}
+
+/* ---- the tile worker pool ------------------------------------------------------------------------
+ *
+ * The SAME SHAPE the browser has and for the same measured reason: one
+ * tile is 10.7 ms of work — DEM fetch 2.00, Terrarium decode + stitch 2.79, mesh 0.11, cluster DAG
+ * 3.68 (FB_TILEPERF=1 over 128 tiles) — and a frame that pays it has
+ * already lost. `fb_stream_build` posts and polls; nothing here blocks the caller.
+ *
+ * EACH WORKER OWNS ITS OWN osmmesh_ctx. The context carries a DEM LRU and is written by the tile it
+ * is building, so sharing one would need a lock around the whole build and the pool would be a
+ * queue. The byte cache at the top of the file IS shared — it only ever hands out COPIES, so a
+ * reader cannot be holding a pointer when an eviction frees it. */
+static const char *const fbp_kind_name[3] = {"vector", "terrain", "imagery"};
+
+namespace {
 
 struct FbpStats { double DemFetch = 0, Mesh = 0, ProvFetch = 0;
                   long ProvCalls = 0, ProvKind[3] = {0, 0, 0}; };
@@ -775,10 +784,10 @@ int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **v
 int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   char path[96];
   snprintf(path, sizeof path, "/t/terrain/%d/%d/%d", z, x, y);
-  int n = fbs_size(path);   /* synchronous: never pending -> bytes or a real hole */
-  struct fbs_ent *e = n > 0 ? fbs_find(path) : 0;
-  if (!e || !e->data) { *bytes = 0; *len = 0; return -1; }
-  *bytes = e->data; *len = e->len;
+  const int n = fbs_size(path);   /* synchronous: never pending -> bytes or a real hole */
+  if (n <= 0) { *bytes = 0; *len = 0; return -1; }
+  *bytes = fbs_hold.data();
+  *len = n;
   return 1;
 }
 
@@ -805,8 +814,7 @@ void fb_stream_close(void) {
 }
 
 double fb_stream_cache_bytes(void) {
-  double total = 0;
-  for (int i = 0; i < fbs_cache_n; i++) total += fbs_cache[i].len;
+  double total = (double)fbs_hold.capacity();
   std::lock_guard<std::mutex> lk(fbp_cache_mu);
   for (const FbpEnt &e : fbp_cache) total += (double)e.Data.capacity();
   return total;
@@ -835,9 +843,13 @@ double fb_stream_cache_bytes(void) {
 namespace {
 
 constexpr int kGroundSlots = 12;   /* a cast plus its stores sits in a handful of tiles at once */
-/* Self plus the four stitch neighbours, and one over: the decode of a neighbour is what the next
- * tile along asks for again. */
-constexpr int kGroundGridCache = 6;
+/* WHAT ONE STITCH TOUCHES, and nothing beyond it: a tile is stitched with its four EDGE neighbours,
+ * so a build needs five decoded grids at once. Every entry beyond the fifth buys sharing BETWEEN
+ * builds, and it buys it with permanent memory — one z14 grid is 256*256 float32 = 256 KiB, so the
+ * decodesPerBuild the teardown reports is the price of that trade, measured, per scenario. */
+constexpr int kGroundStitchGrids = 5;
+constexpr int kGroundGridCache = kGroundStitchGrids;
+constexpr double kGroundGridBytes = 256.0 * 256.0 * 4.0;
 
 /* One tile of the drawn surface, reduced to what a query needs: the chunk's node heights. Built once
  * per tile, because the stitch behind them costs five PNG decodes. */
@@ -854,6 +866,9 @@ struct FbGroundTile {
 FbGroundSurface fb_ground_surface{14, 128};
 FbGroundTile fb_ground[kGroundSlots];
 uint64_t fb_ground_clock = 0;
+long fb_ground_builds = 0;    /* tiles turned into node heights */
+long fb_ground_decodes = 0;   /* PNGs the stitch decoded for them -- 5 per build without the cache */
+double fb_ground_stitch_ms = 0.0;   /* the wall the builds spent inside osmmesh, decode included */
 osmmesh_ctx *fb_ground_ctx = nullptr;
 bool fb_ground_pending = false;   /* set by the provider: a miss that is a wait, not a hole */
 
@@ -864,6 +879,7 @@ int FbGroundProvider(void *, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uin
   if (kind != OSMMESH_TILE_TERRAIN) return 0;
   const uint8_t *bytes = nullptr;
   int n = 0;
+  fb_ground_decodes++;   /* a provider call IS a DEM LRU miss: osmmesh decodes what it is handed */
   const int rc = fb_stream_dem((int)z, (int)x, (int)y, &bytes, &n);
   if (rc == 0) fb_ground_pending = true;
   if (rc != 1 || !bytes || n <= 0) return 0;
@@ -889,13 +905,17 @@ const FbGroundTile *FbGroundTileAt(long x, long y) {
   if (!fb_ground_ctx) return nullptr;
   fb_ground_pending = false;
   uint32_t rowPostings = 0, colPostings = 0;
+  const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
   const osmmesh_terrain_grid *grid = osmmesh_tile_grid(
       fb_ground_ctx, (uint8_t)fb_ground_surface.Z, (uint32_t)x, (uint32_t)y,
       &rowPostings, &colPostings);
+  fb_ground_stitch_ms +=
+      std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   const int gr = grid ? outshine::World::ChunkNodes(rowPostings, fb_ground_surface.Grid) : 0;
   const int gc = grid ? outshine::World::ChunkNodes(colPostings, fb_ground_surface.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   if (fb_ground_pending) return nullptr;   /* NOT cached, or the wait would become permanent */
+  fb_ground_builds++;
   victim->X = x;
   victim->Y = y;
   victim->Used = ++fb_ground_clock;
@@ -932,6 +952,17 @@ void FbGroundOpen(FbGroundSurface surface) {
 }
 
 void FbGroundClose() {
+  if (fb_ground_ctx)
+    outshine::Log::Debug("world", "ground_oracle",
+        {{"tileBuilds", (int)fb_ground_builds}, {"demDecodes", (int)fb_ground_decodes},
+         {"decodesPerBuild", fb_ground_builds ? (double)fb_ground_decodes / (double)fb_ground_builds : 0.0},
+         {"stitchMs", fb_ground_stitch_ms},
+         {"stitchMsPerBuild", fb_ground_builds ? fb_ground_stitch_ms / (double)fb_ground_builds : 0.0},
+         {"gridCache", kGroundGridCache},
+         {"gridCacheMB", kGroundGridCache * kGroundGridBytes / 1048576.0}});
+  fb_ground_builds = 0;
+  fb_ground_stitch_ms = 0.0;
+  fb_ground_decodes = 0;
   if (fb_ground_ctx) osmmesh_destroy(fb_ground_ctx);
   fb_ground_ctx = nullptr;
   for (FbGroundTile &t : fb_ground) t = FbGroundTile{};
@@ -939,6 +970,11 @@ void FbGroundClose() {
 }
 
 } // namespace
+
+double fb_stream_ground_post_m(double latDeg) {
+  return 40075016.686 * std::cos(latDeg * 3.14159265358979 / 180.0) /
+         (double)((long)1 << fb_ground_surface.Z) / (double)fb_ground_surface.Grid;
+}
 
 double fb_stream_ground(double lat, double lon) {
   while (lon > 180.0) lon -= 360.0;   /* normalize lon before the tile maths (dateline) */
@@ -960,11 +996,8 @@ double fb_stream_ground(double lat, double lon) {
   const uint32_t r1 = outshine::World::ChunkNodePosting(j + 1, t->Postings, t->Nodes);
   const float su = (float)((px - (double)c0) / (double)(c1 - c0));
   const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
-  const float *h = t->H.data();
-  const size_t n = (size_t)t->Nodes;
-  return (double)outshine::World::ChunkTriangleHeight(
-      h[(size_t)j * n + (size_t)i], h[(size_t)j * n + (size_t)i + 1],
-      h[((size_t)j + 1) * n + (size_t)i + 1], h[((size_t)j + 1) * n + (size_t)i], su, sv);
+  const outshine::World::ChunkCell cell{t->H.data(), t->Nodes, j, i};
+  return (double)outshine::World::ChunkCellHeight(cell, su, sv);
 }
 
 /* The one raster left in this file: the moon, which is a MEASURED image of a real body and not

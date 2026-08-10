@@ -54,6 +54,11 @@ public:
   static void Info(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Info, tag, event, fields);
   }
+  /* A field list the caller BUILT: a line whose fields are a partition over an enumeration cannot be
+   * written down as a literal without restating the enumeration. */
+  static void Info(const char *tag, const char *event, const std::vector<LogField> &fields) {
+    Emit(LogLevel::Info, tag, event, fields);
+  }
   static void Warn(const char *tag, const char *event, std::initializer_list<LogField> fields = {}) {
     Emit(LogLevel::Warn, tag, event, fields);
   }
@@ -64,6 +69,8 @@ public:
 private:
   static void Emit(LogLevel level, const char *tag, const char *event,
                    std::initializer_list<LogField> fields);
+  static void Emit(LogLevel level, const char *tag, const char *event,
+                   const std::vector<LogField> &fields);
 
   static LogSink *Sink_;         /* boot configuration — process-wide on purpose */
   static LogLevel Level_;

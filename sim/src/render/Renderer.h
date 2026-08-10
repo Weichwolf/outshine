@@ -98,6 +98,7 @@ public:
   /* THE ENVIRONMENT the frame is lit and hazed by — sun, moon, cloud deck, altitude. Nothing to do
    * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
   void SetSceneState(const State &s) { SceneState = s; }
+  void PinJitter(float x, float y) { Jitter.Pin(x, y); }
 
   /* A SECOND THING TO DRAW, not a second state to be in. The renderer holds no notion of loading:
    * the caller says which frame it wants this tick, exactly as it says where the camera is. Two

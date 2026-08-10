@@ -28,11 +28,16 @@ void Log::SetUnit(const char *label) {
 
 void Log::Emit(LogLevel level, const char *tag, const char *event,
                  std::initializer_list<LogField> fields) {
+  Emit(level, tag, event, std::vector<LogField>(fields));
+}
+
+void Log::Emit(LogLevel level, const char *tag, const char *event,
+                 const std::vector<LogField> &fields) {
   if (!Sink_ || level < Level_) return;
   /* A capture buffer is a redirect of an already-accepted line, not a second switch. */
   LogSink *out = ThreadSink_ ? ThreadSink_ : Sink_;
   if (!Unit_[0]) {
-    out->Write(TimeS_, level, tag, event, std::vector<LogField>(fields));
+    out->Write(TimeS_, level, tag, event, fields);
     return;
   }
   /* Attribution FIRST: a script splits on the first field, a human sees whose line it is at once. */

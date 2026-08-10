@@ -151,8 +151,9 @@ void Forest::Scatter(Render::Renderer &r, const ClassField &cls, const Vegetatio
    * newer structure meanwhile and this one stays exactly as it was read. */
   const std::shared_ptr<const ClassStructure> structure = cls.Read();
   if (!structure) return;
+  const TreeField::GroundOracle oracle{GroundAtEnu, &gc, fb_stream_ground_post_m(camLat)};
   Field_.Scatter(*structure, veg, kScatterRadiusM, east, north, gcam + eyeAglM, camLat, HeightSigma_,
-                 Crown_, GroundAtEnu, &gc, Stands_, Dist_);
+                 Crown_, oracle, Stands_, Dist_);
   r.SetTreeStands(Stands_.data(), (uint32_t)StandCount(), Dist_.data());
   Scattered_ = true;
 
@@ -167,15 +168,21 @@ void Forest::Scatter(Render::Renderer &r, const ClassField &cls, const Vegetatio
       if (c == 4) sum += v;
     }
   const long n = StandCount();
-  if (Field_.Cleared() > 0)
-    Log::Info("forest", "stand_cleared", {{"trees", (double)Field_.Cleared()},
+  if (Field_.Cells(TreeField::Refusal::InCrown) > 0)
+    Log::Info("forest", "stand_cleared",
+        {{"trees", (double)Field_.Cells(TreeField::Refusal::InCrown)},
         {"crownHalfM", (double)(Crown_.HalfWidth * Crown_.HeightM)},
         {"crownBottomM", (double)(Crown_.Bottom * Crown_.HeightM)},
         {"crownTopM", (double)(Crown_.Top * Crown_.HeightM)}});
-  Log::Info("forest", "treeline", {{"speciesLimitAslM", veg.Limit().SpeciesLimitM(camLat)},
-      {"highestStandAslM", Field_.HighestStandAslM()},
-      {"refusedAboveLine", (double)Field_.AboveTreeline()},
-      {"refusedTooSteep", (double)Field_.TooSteep()}});
+  /* THE WHOLE PARTITION IN ONE LINE: every cell of the disc appears under exactly one name, so a
+   * count that does not sum to the disc is a case nobody wrote — and a tree-line finding can be
+   * attributed instead of guessed. */
+  std::vector<LogField> cells{{"speciesLimitAslM", veg.Limit().SpeciesLimitM(camLat)},
+      {"highestStandAslM", Field_.HighestStandAslM()}};
+  for (int k = 0; k < (int)TreeField::Refusal::Count; k++)
+    cells.push_back({TreeField::RefusalName((TreeField::Refusal)k),
+                     (double)Field_.Cells((TreeField::Refusal)k)});
+  Log::Info("forest", "treeline", cells);
   Log::Debug("forest", "trees", {{"stands", (int)n},
       {"eastM", lo[0]}, {"eastMax", hi[0]}, {"northM", lo[1]}, {"northMax", hi[1]},
       {"footM", lo[2]}, {"footMax", hi[2]},

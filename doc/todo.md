@@ -25,8 +25,9 @@ graded against the references: the answer is known and the round is spent. Then,
 | 1.5 | heap and stack telemetry, with the instrument's own range | **done** · `9379f6f` |
 | 1.6 | the scenario declares the internal render resolution | **done** · `023c407` |
 | 3 | move what is misfiled, delete what is dead | **done** · `81b828c` |
-| **2** | **the height oracle evaluates the drawn surface** | **in the tree** — built, rejected on one clause of three, being fixed |
-| 1.7 | the fixed heap, over all of the client's memories | open |
+
+| 2 | the height oracle evaluates the drawn surface | **done** · three slopes, 0 violations in 48 standpoints |
+| **1.7** | **the fixed heap, over all of the client's memories** | **in the tree** |
 | 4 | the server target, and the checker falls | open — **the gate**; 5 onwards is enforceable only after it |
 | 4.5 | fold the tile worker into the client | open |
 | 4.6 | the GPU readback stops blocking the frame thread | open |
@@ -141,6 +142,13 @@ reads "≤ 4.2, unresolved below". The probe publishes the break and the ceiling
 current size — one call, one column. The per-access guard costs **≈ 0.15 ms of CPU**, measured per stage
 because `frameMs` cannot resolve it.
 
+**Step 4.5 / 4.6 — the oracle builds a tile on the frame thread.** `Outshine::Look` calls
+`fb_stream_ground` on **every camera update**, so a z14 crossing during play means five synchronous PNG
+decodes (≈8.6 ms at 1.71 ms each) with a possibly synchronous fetch behind `fbs_size`. Not created by
+step 2 — the cache was 6 and is now 5, so the in-play stall moves by about one decode — but the
+"it runs once inside the loading phase" justification is false for this caller and must not travel
+forward.
+
 **Step 4.5 — the byte budget is unserved where it is needed.** The tile byte caches read 1.3 MiB in the
 browser against 33.8 MiB natively: the browser's decoded tile bytes sit in the worker modules, so the
 platform with the eviction problem is the one with no number. **And there are two byte caches natively
@@ -169,29 +177,6 @@ every module and every thread publishes its own **heap and stack** high-water, t
 total as `main + Σ workers` in both reserved and in-use terms, **each module's initial memory is derived
 from its own high-water with the margin stated**, and the per-purpose stack sizes are set from that
 measurement instead of from the toolchain default.
-
-## 2 — The height oracle evaluates the drawn surface · IN THE TREE
-
-The oracle interpolated the DEM a second time instead of evaluating the surface that is drawn. Anything
-placed on that height stands wrong, and no generator can repair it.
-
-Done when: oracle and drawn mesh agree to a **stated bound**, same posting indices, **same triangle split**
-— and "the drawn surface" means **the finest tile of the ladder**, not the tile currently drawn: a
-placement that followed the LOD would move as the camera walks, which principle 7 forbids.
-
-Measured, three declared plumb scenes at 6.7° / 25.0° / 69.9° of slope: **+0.076 · −0.098 · +8.99 m**
-before. The nine metres at the fjord wall are why a salt pan cannot test this. The residual was a
-near-cancellation of three terms each about twice its size — source zoom +0.143, chunk decimation −0.140,
-interpolant +0.098 — and the diagonal contributed nothing.
-
-Open against the clause: the evaluator does not read the winding array its header says it reads, so the
-diagonal is still stated twice; the bound is a three-point maximum and not a budget; the two-pixel tree
-line is unattributed while the counters that would attribute it are already emitted.
-
-The **4.35 → 18.84 ms** at the forest rebuild is **not** a stream-in hitch and the framing is struck:
-`Forest::Scatter` latches on `Scattered_` and fires once, inside the loading phase, where a hold is what
-the loading screen is for. The finding that survives is the cost itself and the duplicate byte cache
-behind it, and both belong to the loader split.
 
 ## 4 — The server target, and the checker falls
 
@@ -302,6 +287,19 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   the result is coupled to tile arrival order. **Likeliest cause, and cheap to test:** a temporal pass
   whose history length depends on pace. Shoot once with that pass off; if byte-identity returns, the
   coupling is the history.
+- **The mid-distance crowns read as hourglass / bow-ties, and this is the one to fix first.** Silhouette
+  is the only currency at the comparison rung and a bow-tie is not a shape a tree has — the impression
+  dies in well under a second. Signature: a two-quad cross seen near edge-on, or a card whose alpha cut
+  leaves the waist. What is right: the cross never survives to the range where its own geometry is
+  legible; SpeedTree practice and Guerrilla's *Horizon* hand that band to a camera-facing or octahedral
+  impostor first. Step 6.
+- **The near crown reads as scattered dark flakes rather than one mass.** A beech stand carries LAI
+  4.5–5.1 m²/m²; at any value in the measured 1.7–7.5 range a crown occludes essentially all sky through
+  its own depth and must read as one mass with a lit top and a shadowed underside. Separated dark
+  elements mean card coverage an order of magnitude under the species' own leaf area — density and
+  self-shadowing, not detail.
+- The foreground sward is a tonal field inside 10 m, and at the comparison rung that is legitimate:
+  blade structure does not speak there. Recorded, not owed.
 - **The mid-distance impostor trees are not tree-shaped.** Looked at directly in `demo/walk` at 1280×720:
   five to six of them carry a large angular zigzag of foliage — folded-ribbon or bowtie silhouettes with
   right-angle corners, not a crown with a bite out of it. An octahedral-impostor cell seam, in both
@@ -324,6 +322,17 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   focal length is not the projection's** — for `demo/ortho` the true on-screen tile edge is
   `SpanM × Height/orthoM`, the ladder computes `SpanM × 443.4/2500`, so it stops splitting at ≈2.4 ×
   `kEdgeTau`. Under `orthoM > 0` the honest metric is distance-free.
+- **The height bound is stated in two places with no bridge.** `ChunkSurface.h`'s
+  `kSurfaceAgreementM = 9.17e-4` and `tools/surface_budget.py`'s `sum(envelope())` are one statement;
+  nothing compares them, so step 7 moving `kGrid` or the ladder makes the header lie silently. Three
+  lines of Python: regex the constant out of the header, compare, non-zero exit.
+- **`TerrainLoader.h:49` still says the DEM pointer is "owned by the byte cache — do NOT free".** It is
+  now `fbs_hold.data()`, valid only until the next `fbs_size`. One caller today and it copies
+  immediately; 4.5 adds callers to this island.
+- **The first external check of the drawn surface has never been made.** Everything measured so far is
+  two parts of this tree agreeing. Query the oracle at Preikestolen's plateau against the published
+  604 m and at Badwater against the surveyed −85.5 m — it does not validate the float32 budget, it
+  validates that the whole chain lands on the right surface, which no internal agreement can.
 - **`core/ClusterDag.h:75` reads `FB_TAU` from the environment into a function-local static.** The
   picture depends on an undocumented environment variable, and the value carries no origin at the call
   site. Principle 7 — if the environment decides the result, the coupling is a bug.
