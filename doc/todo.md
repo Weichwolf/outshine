@@ -99,6 +99,21 @@ It belongs to the generator contract: the yield declares `Closed`, and the check
 produced — which is where it is cheapest and where a violation names its author. Until then it can run on
 what exists: the terrain mesh, the building footprints, the bark.
 
+**The drawing steps have hard instruments and none of them is taste.** What decides whether many trees
+and houses draw fast is measurable, and most of it is not measured here yet:
+
+| | What it answers | Today |
+|---|---|---|
+| **screen-space error, measured** | the ladder declares τ pixels; nobody has measured the actual pixel deviation between the chosen cut and the finest. Render both, difference the silhouette. It decides whether the ladder is too tight (triangles wasted) or too loose (popping) — and popping is then a *predicted* defect rather than a discovered one | not measured; the tool is two renders and a difference |
+| **triangle size distribution** | the number for foliage. A triangle smaller than a 2×2 quad wastes three quarters of the shading, so a scatter that looks cheap in triangles can be ruinous in fragments. p50/p95 of projected triangle area in pixels | not measured |
+| **overdraw** | fragments shaded per output pixel. Alpha-tested cards shade many times what they keep, and this is where a forest actually costs | not measured |
+| **culling yield** | primitives submitted against primitives that produced a visible fragment, per stage — frustum, backface, small-triangle, occlusion. A stage submitting what it cannot see is doing arithmetic for nothing | not measured |
+| **early rejection** | fragments killed before the shader runs. Its counterpart is the depth order the passes are submitted in | not measured |
+
+Each is a number a GPU or a readback answers, none needs a reference outside the tree, and none is a
+matter of opinion. **Appearance is the exception and it is judged from the screenshot, at the image** —
+not from a metric standing next to it.
+
 **When performance work happens is a trigger, not a schedule.** At 720p60 nothing is optimised. When
 720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back up to
 720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order
