@@ -25,8 +25,11 @@ There is none, and its absence has already been used as a reason not to decide s
 wrong way round: a missing measurement is a task, not a constraint.
 
 Heap size and its high-water mark per second into the telemetry; per-thread stack high-water from the
-stack base against the current pointer. Cheap, and it unblocks two decisions that are otherwise guesses —
-the memory budget and the per-purpose stack sizes.
+stack base against the current pointer. Roughly twenty-five lines together, and they unblock two numbers
+that are otherwise set rather than measured — the memory budget and the per-purpose stack sizes.
+
+**Every pool reports its bytes, or it is a leak with a name.** One structure already does; the caches and
+the class blocks do not, and the largest resident item on the device side has no budget at all.
 
 Done when: a full moving-camera run publishes heap high-water against the declared ceiling, and every
 thread publishes how much stack it actually used.
@@ -56,6 +59,11 @@ that builds everything except `render/`. Invert the remaining renderer-driving c
 links. **Delete the layer checker in the same commit** — two truths about the structure side by side is
 the state that ruined the first one.
 
+**The tile loader's C interface stops being one in the same step.** It is a dozen free functions over
+global state with hand-written lifetime, in a place that is not the language island the rules allow — and
+a free function list cannot express "one pool, two products", which is exactly the split this step makes.
+An object owning the pool, with a simulation view and a picture view, can.
+
 Done when: the server target builds and answers, without a device, what stands at a place, how big it is,
 how deep the water is and where the sun is. A test `#include` of the renderer inside `generators/` is a
 compile error.
@@ -81,6 +89,21 @@ is no worse than before.
 
 **Not in the same round:** the unwinding mechanism. It hangs on GPU readbacks on the main thread, not on
 the network, so folding does not remove it — and two changes in one round cannot be attributed.
+
+## 4.6 — The GPU readback stops blocking the frame thread
+
+An unbounded wait on a GPU completion, on the thread that presents the picture, is the stall this project
+forbids everywhere else. It does not hurt today only because it runs when a product is written — that is
+luck in call frequency, not structure.
+
+Callback-driven readbacks with a state machine around them. The prize is larger than the fix: it is the
+only remaining reason for the stack-unwinding build mode, which instruments two thirds of all functions.
+With it gone, that mode goes.
+
+Own step, own binary — never folded into a concurrency change, or a regression cannot be attributed.
+
+Done when: no unbounded wait remains on the frame thread, the unwinding mode is off, every declared run
+still produces its product, and the moving-camera distribution is no worse.
 
 ## 5 — `generators/`
 
