@@ -3,8 +3,7 @@
  * the terrain and belongs to the tile side. fov/aspect/near/far are PARAMETERS, not the renderer's
  * constants, so this is testable against something other than the renderer's own configuration.
  *
- * Render space is ENU: E=+X, up=+Y, N=-Z; angles in degrees.
- * Herleitung: doc/render/renderer.md, Abschnitt 8.1. */
+ * Render space is ENU: E=+X, up=+Y, N=-Z; angles in degrees. */
 #ifndef CAMERA_H
 #define CAMERA_H
 

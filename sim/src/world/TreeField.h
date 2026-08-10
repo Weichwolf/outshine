@@ -19,7 +19,7 @@ public:
    * camera's eye height — on a slope that means inside the rock or up in the air. */
   /* `dist` comes out beside `out` and `out` comes out SORTED BY IT, near to far: a level of detail is
    * then a contiguous range of instances and choosing it is a binary search instead of a per-frame
-   * pass over the field (doc/render/lod.md). */
+   * pass over the field. */
   /* NO LENS SITS INSIDE A CROWN. `crown` is the species' crown in tree heights — half width, bottom,
    * top — and every stand whose crown contains the eye is dropped. A pedestrian at 1.7 m is below any
    * crown base and loses nothing; a webcam on a 14 m mast stands in the middle of one, and in reality

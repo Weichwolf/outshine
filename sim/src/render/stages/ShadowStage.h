@@ -3,7 +3,7 @@
  *
  * Casters are the building prisms AND the terrain. Terrain rides the same pipeline because both
  * vertex strides are 32 bytes with position at 0; the per-tile origin is a dynamic uniform offset,
- * which is why the bind group layout is explicit. Cost and effect: doc/render/renderer.md. */
+ * which is why the bind group layout is explicit. */
 #ifndef SHADOWSTAGE_H
 #define SHADOWSTAGE_H
 

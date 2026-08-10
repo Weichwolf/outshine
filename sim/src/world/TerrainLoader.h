@@ -1,4 +1,4 @@
-/* The tile-streaming C ABI; full contract table: doc/world/terrain.md, Abschnitt 3. */
+/* The tile-streaming C ABI. */
 #ifndef TERRAINLOADER_H
 #define TERRAINLOADER_H
 #include <stdint.h>
@@ -15,7 +15,7 @@ int  fb_stream_open(const char *base, double lat, double lon, int z);
 void fb_stream_campos(double lat, double lon);   /* live camera track for the worker's nearest-first pump */
 /* THE TILE AS THE RENDERER DRAWS IT: the cluster DAG, not the vertex soup. Both are built where the
  * bytes land — the browser's tile worker, a native worker thread — because the DAG is 3.68 ms of a
- * measured 10.7 ms per tile and a frame thread that pays it drops the frame (doc/world/terrain.md).
+ * measured 10.7 ms per tile and a frame thread that pays it drops the frame.
  * `verts`, `idx` and `clusters` are malloc'd; the caller frees all three. A cluster's First/Count is
  * an INDEX range. 0 = not resident yet, poll again. */
 int  fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,

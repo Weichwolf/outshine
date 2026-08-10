@@ -95,7 +95,7 @@ scenario, which scene. A shared source list alone covered the drift for ten roun
 *compile*, not that both *show* the same thing — `verify-clients` does that.
 
 Building happens only through make targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Gates:
-`verify-layers` | `verify-clients` | `verify-types`. **The wasm client builds in EVERY round.** Warnings
+`verify-layers` | `verify-clients`. **The wasm client builds in EVERY round.** Warnings
 are errors (`-Wall -Wextra -Wpedantic`) · a frame proof or a measurement · vendor read-only.
 
 **Every stage measures itself, continuously, and the result goes into the telemetry** — tile fetch,

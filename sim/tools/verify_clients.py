@@ -56,7 +56,7 @@ BUILD_CALLS = re.compile(
 BUILDERS = ("clients/Outshine.cpp",)
 BUILDER_DIRS = ("world",)
 # THE SUBJECT BENCH reaches past the system on purpose: it replaces the world and the light with
-# declared ones and judges a single plant (doc/goal.md §3). Its length is printed, exactly like
+# declared ones and judges a single plant. Its length is printed, exactly like
 # verify-layers prints its registry-reader count -- a second one moves the number.
 BENCH_BUILDERS = ("clients/SceneRunner.cpp", "clients/SubjectBench.cpp")
 

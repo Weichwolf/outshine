@@ -4,7 +4,7 @@
  * and the aggregate radiance. TilesStage splices it and does not own it.
  *
  * WHAT IS NOT HERE: a blade's own geometry. There is no blade — a stand below the size of a tree is
- * never geometry (doc/goal.md), so the declaration has one scale and no hand-off to match up. */
+ * never geometry, so the declaration has one scale and no hand-off to match up. */
 #ifndef SWARD_H
 #define SWARD_H
 
@@ -76,8 +76,7 @@ inline std::string SwardConstsWGSL(void) {
    * steps — so a later reading of them is a shader VARIANT and not a blend, which is why they are
    * baked consts here and not uniforms. NOTHING READS THEM THIS ROUND. That is deliberate: a field
    * that arrives and is ignored is honest, one that is missing is a second visit to this file.
-   * DEFAULT 0/0 = the present, no decay; declared, not guessed (doc/render/classification.md's
-   * SiteContext). */
+   * DEFAULT 0/0 = the present, no decay; declared, not guessed. */
   s += "const kEpoch : i32 = 0;\n";
   s += "const kDecay : i32 = 0;\n";
   /* THE MARCHED SLANT PATH, and it is the only term in which the canopy-top field reaches the

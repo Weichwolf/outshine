@@ -13,7 +13,7 @@ namespace outshine::Clients {
 
 /* ONE DECLARED SCENE, whole: where the eye stands, where it looks, when, what the air is doing —
  * and, if nobody is watching, what is to be recorded there. The world half has NO defaults, because
- * a default there would be content nobody wrote (doc/goal.md §1); the recording half does, because a
+ * a default there would be content nobody wrote; the recording half does, because a
  * warm ceiling is a guard against a hung server and not a picture.
  *
  * The two kinds are DECLARED and not switched: an interactive scene is stood in, a run scene is

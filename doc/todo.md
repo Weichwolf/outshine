@@ -286,8 +286,8 @@ infrastructure.
   is byte-identical today, so nothing is due — but the ladder measures a quantity the projection does not
   have, and under `orthoM > 0` the honest metric is distance-free.
 - `GpuTimer::Pass::Cloud` is the enumeration's dead slot; `Tonemap` was filled this round.
-- The near-field sward is a smeared wash with horizontal banding — no blades, no change of structure with
-  distance. Second most damaging, same reason for waiting.
+- The near-field ground is a shader and nothing else — no ground cover is built at all, so "no blades" is
+  an absence, not a defect. It belongs with undergrowth after 9, and it is not evidence about any filter.
 - German comments from earlier rounds. The history stays; what is touched gets translated as it is
   touched.
 - **Naming needs a pass of its own.** A name that needs a comment is the wrong name. Borrowed jargon and

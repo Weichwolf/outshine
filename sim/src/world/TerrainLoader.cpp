@@ -1,6 +1,5 @@
 /* The tile-streaming C ABI: fb-tiles bytes -> osmmesh -> camera-relative ECEF meshes + albedo mip
- * meshes, polled per pass by World. Vertrag, Plattform-Split und Worker-Pool:
- * doc/world/terrain.md, Abschnitt 3. */
+ * meshes, polled per pass by World. */
 #include "TerrainLoader.h"
 #include "Mips.h"
 #include "style_ver.h"
@@ -121,13 +120,12 @@ static int fb_get(const char *url, uint8_t **out, size_t *len) {
 #endif
 
 /* The streaming layer. fb_stream_* is COMMON to both platforms; only the three byte primitives
- * fbs_init/fbs_size/fbs_copy differ — WASM a non-blocking JS async cache, native blocking libcurl.
- * doc/world/terrain.md §3.1. */
+ * fbs_init/fbs_size/fbs_copy differ — WASM a non-blocking JS async cache, native blocking
+ * libcurl. */
 #ifdef __EMSCRIPTEN__
 /* WASM: every blocking step runs in a worker pool; the render thread only posts requests and polls
  * finished results (whole vertex arrays, zero-copy across postMessage). The ASYNCIFY
- * "one build in flight" rule holds PER worker instance, so N parallel builds are safe.
- * Pool-Struktur + Prioritaetsschluessel: doc/world/terrain.md §3.2. */
+ * "one build in flight" rule holds PER worker instance, so N parallel builds are safe. */
 EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
   var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), 6));
   var T = { workers: [], readyCount: 0, q: [], done: new Map(),
@@ -363,7 +361,7 @@ static struct fbs_ent fbs_cache[2048];
 static int fbs_cache_n = 0, fbs_cache_head = 0;
 
 /* [tileperf] (FB_TILEPERF=1): per-stage cold-boot timings of the SHARED pipeline the browser worker
- * wraps. Zero cost when off — one cached env check. doc/world/terrain.md §3.4. */
+ * wraps. Zero cost when off — one cached env check. */
 #include <time.h>
 static int fbtp_on_ = -1;
 static inline int fbtp(void) {
@@ -434,7 +432,7 @@ static void fbs_copy(const char *path, uint8_t *dst) {
 
 /* ---- the tile worker pool ------------------------------------------------------------------------
  *
- * The SAME SHAPE the browser has (doc/world/terrain.md §3.2) and for the same measured reason: one
+ * The SAME SHAPE the browser has and for the same measured reason: one
  * tile is 10.7 ms of work — DEM fetch 2.00, Terrarium decode + stitch 2.79, mesh 0.11, cluster DAG
  * 3.68 (FB_TILEPERF=1 over 128 tiles) — and a frame that pays it has
  * already lost. `fb_stream_build` posts and polls; nothing here blocks the caller.
@@ -853,7 +851,7 @@ double fb_stream_cache_bytes(void) {
  * the stores then hit their carrier's spawn elevation, 350 m above the ground. ONE TILE IS 4.8 km of
  * ground at this zoom, twenty seconds of flight: the transport now happens two hundred times more
  * rarely than the question, which is what makes a streamed ground truth usable at all.
- * doc/world/terrain.md §3.3. */
+ * */
 namespace {
 
 constexpr int kFbDemZ = 13;        /* fb-tiles' FB_DEM_Z — the zoom /elev samples (tiles/src/elev.c) */

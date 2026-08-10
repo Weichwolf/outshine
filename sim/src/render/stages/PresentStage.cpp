@@ -1,9 +1,9 @@
-#include "UpscaleStage.h"
+#include "PresentStage.h"
 
 namespace outshine::Render {
 
 /* A triangle covering the viewport, sampling FrameTex linearly. */
-static const char *kUpscaleWGSL = R"(
+static const char *kPresentWGSL = R"(
 @group(0) @binding(0) var samp : sampler;
 @group(0) @binding(1) var frame : texture_2d<f32>;
 struct VO { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
@@ -20,7 +20,7 @@ struct VO { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
 }
 )";
 
-void UpscaleStage::Configure(const Gpu &gpu, wgpu::TextureView frameView) {
+void PresentStage::Configure(const Gpu &gpu, wgpu::TextureView frameView) {
   wgpu::SamplerDescriptor sd{};
   sd.addressModeU = wgpu::AddressMode::ClampToEdge;
   sd.addressModeV = wgpu::AddressMode::ClampToEdge;
@@ -29,7 +29,7 @@ void UpscaleStage::Configure(const Gpu &gpu, wgpu::TextureView frameView) {
   Samp = gpu.Device.CreateSampler(&sd);
 
   wgpu::ShaderSourceWGSL wgsl{};
-  wgsl.code = kUpscaleWGSL;
+  wgsl.code = kPresentWGSL;
   wgpu::ShaderModuleDescriptor smd{};
   smd.nextInChain = &wgsl;
   wgpu::ShaderModule sm = gpu.Device.CreateShaderModule(&smd);
@@ -54,7 +54,7 @@ void UpscaleStage::Configure(const Gpu &gpu, wgpu::TextureView frameView) {
   Bind = gpu.Device.CreateBindGroup(&bgd);
 }
 
-void UpscaleStage::Encode(const FrameContext &, wgpu::RenderPassEncoder &pass) {
+void PresentStage::Encode(const FrameContext &, wgpu::RenderPassEncoder &pass) {
   pass.SetPipeline(Pipe);
   pass.SetBindGroup(0, Bind);
   pass.Draw(3);

@@ -32,10 +32,10 @@ const char *kModRoot = "/mods";
 const char *kCanvas = "#gpu";
 /* THE SPECIES DIRECTORY IS MOUNTED WHOLE, at the SAME relative path the native oracle reads off
  * disk: a subject run names a species and the two translations have to resolve that name to one
- * file. A single preloaded `/species.json` could only ever serve one species, and `subject-buche`
+ * file. A single preloaded `/species.json` could only ever serve one species, and `subject-beech`
  * died on `subject_species_unreadable` because of it. */
 const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.json",
-                                        "assets/world/species/buche.json", "/moon.jpg"};
+                                        "assets/world/species/beech.json", "/moon.jpg"};
 
 /* One and a half 60 Hz periods: past this the compositor has skipped at least one vsync. */
 constexpr double kLateMs = 25.0;
@@ -100,7 +100,7 @@ bool OnLockChange(int, const EmscriptenPointerlockChangeEvent *e, void *) {
   return true;
 }
 
-/* THE STANDPOINT LOG (doc/clients/clients.md): one press of L, one line in fb-sim's `shots.jsonl`
+/* THE STANDPOINT LOG: one press of L, one line in fb-sim's `shots.jsonl`
  * and the picture beside it. The channel runs in ONE direction — the client posts what it saw and
  * nothing the server holds ever reaches a frame, so no world state hangs off the network.
  *
@@ -254,7 +254,7 @@ bool Boot(void) {
   /* The canvas is the target either way — the offscreen path is native Dawn's and there is no second
    * one here — and it contributes nothing but its own size to scale to. Only PREPARE here: the
    * subject bench stops between the two phases (Outshine.h), and it is the run that decides. */
-  return gApp->Prepare({kCanvas, res.Width, res.Height});
+  return gApp->Prepare({kCanvas});
 }
 
 /* THE DECLARED RUN, IN THE BROWSER. Same SceneRunner, same order, same numbers to compare against —

@@ -1,7 +1,7 @@
 /* The tree generator's measuring bench: grows all sixteen species, prints counts, box, timings and
  * memory as CSV, and can dump the raw buffers so the numbers can be diffed against the reference
  * implementation vertex by vertex. It draws nothing — the first rendered tree is gpu_walk --rig, one
- * layer on (doc/render/vegetation.md). */
+ * layer on. */
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -20,9 +20,9 @@ using namespace outshine::World;
 
 namespace {
 
-const char *const kSpecies[] = {"ahorn",     "birke",     "buche",  "eberesche", "eibe",  "eiche",
-                                "esche",     "fichte",    "hainbuche", "kastanie", "kiefer", "linde",
-                                "saeulenpappel", "tanne", "trauerweide", "ulme"};
+const char *const kSpecies[] = {"ash",   "beech",    "birch", "chestnut", "elm",      "fir",
+                                "hornbeam", "lime",  "oak",   "pine",     "poplar",   "rowan",
+                                "spruce",   "sycamore", "willow", "yew"};
 constexpr int kSpeciesCount = 16;
 
 bool ReadFile(const std::string &path, std::string &out) {

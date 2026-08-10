@@ -1,8 +1,7 @@
 /* Calendar <-> Unix seconds, computed rather than looked up: mktime/timegm read the HOST time zone and
  * the host's leap-second view, so the same mission file would mean a different sky in Zurich and in a
  * container. Howard Hinnant, "chrono-Compatible Low-Level Date Algorithms" (public domain,
- * https://howardhinnant.github.io/date_algorithms.html), proleptic Gregorian, no leap seconds.
- * doc/missions/syntax.md, "The mission clock". */
+ * https://howardhinnant.github.io/date_algorithms.html), proleptic Gregorian, no leap seconds. */
 #ifndef CIVILTIME_H
 #define CIVILTIME_H
 

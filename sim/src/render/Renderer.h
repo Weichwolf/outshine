@@ -1,7 +1,7 @@
 /* The WebGPU rendering system, one source and two link targets (emdawnwebgpu / native Dawn).
  * ORCHESTRATOR: it owns device/surface/targets and EVERY Begin/EndRenderPass boundary plus the encode
  * order; drawing lives in DrawStage-derived classes that record into the encoder it already opened.
- * A stage never begins or ends a pass. Pass-Topologie als Vertrag: doc/render/renderer.md §2. */
+ * A stage never begins or ends a pass. */
 #ifndef RENDERER_H
 #define RENDERER_H
 
@@ -14,12 +14,9 @@
 #include "Gpu.h"
 #include "FrameContext.h"
 #include "GpuTimer.h"
-#include "OverlayStage.h"
 #include "stages/StarsStage.h"
 #include "stages/TileLightsStage.h"
-#include "stages/UnitsStage.h"
-#include "stages/SpritesStage.h"
-#include "stages/UpscaleStage.h"
+#include "stages/PresentStage.h"
 #include "stages/ProgressStage.h"
 #include "stages/TransmittanceStage.h"
 #include "stages/MultiScatterStage.h"
@@ -103,11 +100,6 @@ public:
    * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
   void SetSceneState(const State &s) { SceneState = s; }
 
-  /* THE VEHICLE'S AVIONICS, borrowed and owned by whoever has the capability. nullptr (a pedestrian)
-   * means no overlay pass and no avionics translation unit in the link at all. May be registered
-   * before or after the device exists; Init() is driven from here either way. */
-  void SetOverlay(OverlayStage *o);
-
   /* A SECOND THING TO DRAW, not a second state to be in. The renderer holds no notion of loading:
    * the caller says which frame it wants this tick, exactly as it says where the camera is. Two
    * passes instead of eight, so the bar keeps full rate while the streams land. §2.2 */
@@ -126,8 +118,8 @@ public:
                      const double up[3]) {
     Tiles->SetSward(lat, lon, east, north, up);
   }
-  /* THE SUBJECT BENCH'S FLOOR AND ITS NEUTRAL CARD (doc/clients/clients.md, `gpu_walk --rig`) —
-   * studio furniture, and off unless a bench declares it. `radiusM` <= 0 retires the floor and a card
+  /* THE SUBJECT BENCH'S FLOOR AND ITS NEUTRAL CARD — studio furniture, and off unless a bench
+   * declares it. `radiusM` <= 0 retires the floor and a card
    * of zero width retires the card, which is the state every other client is in for the whole of its
    * life. */
   void SetBenchGround(double eyeAglM, double radiusM, double gridM) {
@@ -171,7 +163,7 @@ public:
   long TreeRankStands(int k) const { return Trees->RankStands(k); }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). Nothing
-   * below the size of a tree answers to it (doc/goal.md), so it is held for the consumers that owe a
+   * below the size of a tree answers to it, so it is held for the consumers that owe a
    * published anchor — a branch and a rotor — and read by no stage today. */
   void SetWind(double fromDeg, double speedMs) { WindFromDeg = fromDeg; WindMs = speedMs; }
   /* The WIND clock, deliberately not the sky clock: a wave measurement wants the sun to stand still
@@ -220,7 +212,7 @@ public:
     return Taa->HistoryBytes() + (long)Width * (long)Height * 4L;
   }
 
-  /* THE BUDGET INSTRUMENT (doc/goal.md §5): triangles the last frame submitted, over every geometry
+  /* THE BUDGET INSTRUMENT: triangles the last frame submitted, over every geometry
    * stage there is. */
   long TriangleCount(void) const {
     return Tiles->TriangleCount() + (long)Buildings->VertexCount() / 3 + Trees->TriangleCount();
@@ -241,26 +233,6 @@ public:
   /* Drives sidereal star placement. */
   void SetSkyClock(double unixSec) { SkyClock = unixSec; }
 
-  /* ---- Units ----
-   * The MESH of an airframe is renderer data — vertices, materials, a baked texture and the sidecar's
-   * part table — so unlike the terrain (a network service the client owns) it is read here, from a
-   * directory the client names. Call before Init; the GPU upload happens with the pipeline.
-   * `typeName` is the module registry key a unit publishes (`f16`). */
-  bool AddUnitModel(const char *typeName, const char *dir) { return Units->AddModel(typeName, dir); }
-
-  /* THE CAST FOR THIS FRAME, borrowed: World rebuilds it from the published poses every Update(),
-   * and passing an empty list is what makes an empty world cost nothing. */
-  void SetUnitDraws(const UnitDraw *draws, int count) { Units->SetDraws(draws, count); }
-
-  /* THE EFFECTS FOR THIS FRAME, borrowed on the same terms as the cast above and built from the same
-   * published data — flame, plume, flare, chaff. An empty list costs nothing. */
-  void SetSpriteDraws(const SpriteDraw *s, int count) { Sprites->SetSprites(s, count); }
-
-  /* The exhaust plane of a loaded type, model space, off the mesh — see UnitsStage::Nozzle. */
-  bool UnitNozzle(const char *type, float off[3], float &radiusM) const {
-    return Units->Nozzle(type, off, radiusM);
-  }
-
   /* count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb]. The pass subtracts
    * (eye - anchor) per frame, so it stays camera-relative without a re-upload. */
   void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
@@ -280,14 +252,8 @@ public:
   void SetOrthoM(double m) { OrthoM = (float)m; }
   float GetFovDeg(void) const { return FovDeg; }
 
-  /* THE 3x3 GRID. The windscreen is the top two rows; the bottom row is an equipped body's MFD bank.
-   * Without an overlay the scene keeps the whole frame. doc/render/renderer.md §2.4. */
   int SceneW(void) const { return Width; }
   int SceneH(void) const { return Height; }
-  int ViewH(void) const { return Overlay ? Overlay->SceneViewH(Height) : Height; }
-  /* The boresight's NDC offset: the scene covers the whole frame (so the bank has a world to be
-   * translucent over) while its centre sits at the WINDSCREEN's centre. 0 without a cockpit. */
-  float ViewShiftNdc(void) const { return 1.0f - (float)ViewH() / (float)Height; }
 
   const wgpu::Device &GetDevice(void) const { return Device; }
   wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }
@@ -366,7 +332,7 @@ private:
 
   /* The whole frame lands in a FrameTex of the DECLARED size; only the present follows the display. */
   wgpu::Texture FrameTex;
-  std::unique_ptr<UpscaleStage> Upscale = std::make_unique<UpscaleStage>();
+  std::unique_ptr<PresentStage> Present = std::make_unique<PresentStage>();
   std::unique_ptr<ProgressStage> Progress = std::make_unique<ProgressStage>();
   int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
@@ -401,12 +367,7 @@ private:
   /* Streamed and placed by World; drawn after the terrain, depth-tested for occlusion. */
   std::unique_ptr<TileLightsStage> TileLights = std::make_unique<TileLightsStage>();
 
-  /* Units right after terrain, Sprites right before the HUD — the effects last, because they are
-   * additive/translucent and belong over everything solid in the scene. */
-  std::unique_ptr<UnitsStage> Units = std::make_unique<UnitsStage>();
-  std::unique_ptr<SpritesStage> Sprites = std::make_unique<SpritesStage>();
-
-  /* THE cloud chain: one stage, one pass, straight into HdrTex. doc/render/clouds.md. */
+  /* THE cloud chain: one stage, one pass, straight into HdrTex. */
 
   /* THE ONE cloud field, as a buffer: the march reads it and so does every lit surface, because a
    * shadow computed from a second field would not lie under its cloud. Renderer-owned for the same
@@ -419,9 +380,6 @@ private:
   double CloudAnchor[3] = {0, 0, 0};
   double CloudAxisE[3] = {1, 0, 0}, CloudAxisN[3] = {0, 1, 0};
 
-  /* BORROWED, never owned: the vehicle that has the capability owns it, and a body without one leaves
-   * the whole avionics layer out of the build rather than out of the frame. */
-  OverlayStage *Overlay = nullptr;
   /* Value-initialised at the DECLARATION, not just in the one constructor: RenderFrame reads the
    * weather fields whether or not SetSceneState was ever called, and a second constructor would
    * silently drop that guarantee. The zeros are a DEFINED state — "no weather report", for which the

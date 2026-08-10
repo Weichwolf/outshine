@@ -1,7 +1,7 @@
 {
   "bark_r":0.84,"bark_g":0.82,"bark_b":0.78,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.674/0.638/0.570. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
   "bark_dark":0.82,"bark_freq":3.2,"bark_ridge":0.10,"bark_style":1,
-  "name": "birke",
+  "name": "birch",
   "botanical": "Betula pendula",
   "common": "Haengebirke / Silver birch",
   "habit": "schlanker Stamm, lockere lichte Krone, feine ueberhaengende Zweige (pendula)",

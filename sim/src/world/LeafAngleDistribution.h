@@ -3,7 +3,7 @@
  * `render/Sward.h` carries kG0/kG1/kGp as a Monte-Carlo over a DECLARED tilt distribution — a grass
  * blade's angle is an assumption there. A tree declares no leaf angle at all: its leaf angles fall out
  * of the growth, and TreeMesh::LeafPoints is the population. So near and far read one measured
- * distribution instead of two assumptions (doc/render/vegetation.md).
+ * distribution instead of two assumptions.
  *
  * THE ONE MODEL ASSUMPTION, stated: the lamina rolls freely about its stalk. With `u` the measured
  * stalk direction the normal is then uniform on the great circle perpendicular to `u`, and

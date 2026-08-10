@@ -1,7 +1,7 @@
 /* ElevationProvider's sibling: the ONE seam every core consumer of ATMOSPHERE goes through, so "what
  * is the air doing here" is an INJECTED dependency and not a hard fb-tiles wire. Same shape as the
- * elevation hook — small interface, data-local default, blob-backed and (browser) live implementations.
- * doc/world/weather.md §9. */
+ * elevation hook — small interface, data-local default, blob-backed and (browser) live
+ * implementations. */
 #ifndef WEATHERPROVIDER_H
 #define WEATHERPROVIDER_H
 

@@ -18,7 +18,7 @@ public:
   static constexpr int kLeafFloats = 8;  /* pos(3) nrm(3) uv(2) */
 
   /* Where a leaf sits on the shoot and where its stalk points. Not geometry — the population the leaf
-   * angle distribution is measured over (doc/render/vegetation.md). */
+   * angle distribution is measured over. */
   struct LeafPoint {
     TreeVec3 Pos, Dir;
   };

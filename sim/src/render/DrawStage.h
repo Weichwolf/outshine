@@ -3,8 +3,7 @@
  * Renderer's, and a stage split must not add a single render or compute pass.
  * A stage SELF-GATES its own draw ("nothing visible" -> Encode records nothing) rather than the caller
  * deciding, because Renderer calls every stage in its slot unconditionally. Override whichever
- * Encode() form matches the shader kind; the other stays the inert default.
- * Vertrag + vollstaendige Encode-Reihenfolge: doc/render/renderer.md, Abschnitt 2. */
+ * Encode() form matches the shader kind; the other stays the inert default. */
 #ifndef DRAWSTAGE_H
 #define DRAWSTAGE_H
 

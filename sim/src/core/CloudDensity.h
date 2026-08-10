@@ -2,7 +2,7 @@
  * (render/stages/CloudDensityWGSL.h) is a literal transliteration whose CONSTANTS are emitted from the
  * ones below, so a number can never drift between the picture and a measurement. "How much cloud is at
  * this point" is the same question a future IR/radar sensor asks, which is why the model lives in core/
- * and not in the renderer. Spec: doc/render/clouds.md.
+ * and not in the renderer.
  *
  * Separable per deck: a 2-D wind-advected coverage FBM (optionally stretched and sheared along the wind
  * = cirrus fibres) x an analytic vertical profile, minus a procedural 3-D erosion term. No textures, no
@@ -90,7 +90,7 @@ struct CloudSky {
    * nail the field to the aircraft (it could never fly out from under a hole), and anchoring each
    * observer at its own position would let two aircraft disagree about one sky. So the anchor travels
    * WITH the sample, and whoever resolves the weather for a whole cast gives them all the same one.
-   * doc/render/clouds.md. The renderer pins its own ECEF anchor at the first frame and ignores this
+   * The renderer pins its own ECEF anchor at the first frame and ignores this
    * pair — a stated phase offset between picture and sensor, not a second field. */
   double AnchorLatDeg = 0.0, AnchorLonDeg = 0.0;
   bool Any(void) const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }

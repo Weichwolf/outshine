@@ -229,7 +229,7 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeig
 
   /* The rule arrives in tree HEIGHTS and the grower works in its own units, so the first pass runs on
    * an ESTIMATE of the height and the second on the one it measured. `trunk_steps * step_len` alone
-   * will not do — the crown reaches well past the leader's own run (buche 6,80 against 4,16, eiche
+   * will not do — the crown reaches well past the leader's own run (beech 6.80 against 4.16, oak
    * 4,54 against 2,24, both measured) — so the estimate carries that factor and the refinement
    * removes it. */
   PixelGrow_ = pixelHeightFrac > 0.0f ? pixelHeightFrac * 1.6f * (float)g.TrunkSteps * g.StepLen : 0.0f;
@@ -451,7 +451,7 @@ void TreeGrower::Export(TreeMesh &out) const {
 }
 
 /* THE ORIGIN IS THE TRUNK FOOT, and the crown's bounding box has no say in it. Centring x/z on the box
- * put the stem up to 5.65 m (kiefer, measured) off the point the scatter placed the tree at, and yaw
+ * put the stem up to 5.65 m (pine, measured) off the point the scatter placed the tree at, and yaw
  * then swung the whole tree around that point on that radius. The trunk grows from (0, ·, 0), so the
  * only thing to do is not to move it. */
 void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {

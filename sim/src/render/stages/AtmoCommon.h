@@ -25,16 +25,16 @@ struct Atmo {
   camRight : vec4f, camUp : vec4f, camFwd : vec4f, params : vec4f,
   moonDir : vec4f,   /* xyz = ECEF dir to moon, w = illuminated phase fraction */
   skyExtra : vec4f,  /* x = daylight factor (0 night..1 day), y/z = spare, w = moon radius */
-  view : vec4f,      /* x = the boresight's NDC shift (Renderer::ViewShiftNdc), y = lowest deck base
-                        ASL, zw = this frame's sub-pixel jitter in NDC (render/TemporalJitter.h) */
+  view : vec4f,      /* x = spare, y = lowest deck base ASL, zw = this frame's sub-pixel jitter in
+                        NDC (render/TemporalJitter.h) */
 };
-/* THE camera ray, identical in every atmosphere shader: the full-frame tangents plus the same
- * off-centre shift MvpCamRel applies, so sky, sun, moon and cloud sit exactly where the terrain does.
- * The jitter is subtracted for the same reason it is added to the projection — the ray belonging to
- * a pixel is the one the jittered frustum sends through it. */
+/* THE camera ray, identical in every atmosphere shader: the same tangents MvpCamRel applies, so sky,
+ * sun, moon and cloud sit exactly where the terrain does. The jitter is subtracted for the same
+ * reason it is added to the projection — the ray belonging to a pixel is the one the jittered frustum
+ * sends through it. */
 fn camRay(A : Atmo, ndc : vec2f) -> vec3f {
   return normalize(A.camFwd.xyz + (ndc.x - A.view.z) * A.params.x * A.params.y * A.camRight.xyz
-                                + (ndc.y - A.view.x - A.view.w) * A.params.x * A.camUp.xyz);
+                                + (ndc.y - A.view.w) * A.params.x * A.camUp.xyz);
 }
 /* THE camera position IN THE SCATTERING MODEL. The model stands on a 6360 km sphere; the camera
  * arrives in real ECEF, where the radius runs 6357-6378 km. Feeding the raw ECEF radius to a march

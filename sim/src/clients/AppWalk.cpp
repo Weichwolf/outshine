@@ -21,7 +21,7 @@ namespace {
  * preloaded virtual FS in the browser, the working directory natively. Nothing here is content. */
 const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
                                         "assets/world/ground-materials.json",
-                                        "assets/world/species/buche.json", "web/moon.jpg"};
+                                        "assets/world/species/beech.json", "web/moon.jpg"};
 
 /* A STANDPOINT SOMEONE ELSE STOOD AT (Snapshot.h): lat/lon/yaw/pitch out of one line of fb-sim's
  * shots.jsonl, refused if the scene it names is not this one. It REPLACES the declared standpoint
@@ -52,8 +52,7 @@ int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
   app.SetTelemetrySink(&telemetry);
   app.SetTilesBase(Clients::Env("OUTSHINE_TILES", "http://localhost:8081"));
   if (!Stand(scene, app)) return 1;
-  if (!app.Prepare({nullptr, scene.RenderResolution().Width, scene.RenderResolution().Height}))
-    return 1;
+  if (!app.Prepare({nullptr})) return 1;
 
   Clients::FileArtifacts out(Clients::Env("OUTSHINE_OUT", "."));
   Clients::SceneRunner runner(app, scene, out);

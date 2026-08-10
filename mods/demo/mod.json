@@ -1,7 +1,7 @@
 {
   "schema": "outshine/mod/1",
   "name": "demo",
-  "subject": "Der Weserbergland-Bezugspunkt (doc/goal.md §1): eine interaktive Szene, in der gelaufen wird, und die Laeufe, die dieselbe Stelle aufzeichnen. Bewegung ist die Normalform - ein Standbild ist der Lauf mit einem Frame und ohne Kanal.",
+  "subject": "The Weserbergland reference point: one interactive scene that is walked, and the runs that record the same place. Motion is the normal form -- a still is the run with one frame and no channel.",
   "scenes": [
     {
       "id": "walk",
@@ -15,8 +15,7 @@
       "utc": "2026-08-06T17:40:00Z",
       "windDeg": 250,
       "windMs": 6.0,
-      "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 }
+      "cloudCover": 0.55
     },
     {
       "id": "frame",
@@ -31,7 +30,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "walk.png" }
       ]
@@ -49,7 +47,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "depth.png",
           "depth": "depth.f32" }
@@ -70,7 +67,7 @@
       "windMs": 6.0,
       "cloudCover": 0.55,
       "render": { "width": 512, "height": 512,
-        "why": "square: the run draws one map tile straight down, so the picture's aspect is the tile's" },
+        "why": "one map tile straight down: orthoM is a z15 Web-Mercator tile edge (40075016.686/2^15 = 1222.9925 m) and 512 is that tile's albedo raster (clients/Outshine.cpp kAlbedoTileSize), so the picture is square because the tile is and one pixel is one texel" },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "ortho.png" }
       ]
@@ -88,7 +85,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -121,7 +117,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -158,7 +153,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -195,7 +189,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "classDump", "path": "classes.bin", "spanM": 400, "stepM": 0.05 },
         { "kind": "motion", "frames": 1, "give": "stills", "path": "classes.png" },
@@ -257,7 +250,7 @@
       ]
     },
     {
-      "id": "subject-buche",
+      "id": "subject-beech",
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
@@ -269,9 +262,8 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.0,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
-        { "kind": "subject", "species": "buche", "dir": "bench", "turnSteps": 8, "leafMult": 1,
+        { "kind": "subject", "species": "beech", "dir": "bench", "turnSteps": 8, "leafMult": 1,
           "foliage": "leaves" }
       ]
     },
@@ -288,7 +280,6 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.0,
-      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "subject", "template": "wiese", "dir": "bench-wiese", "turnSteps": 8 }
       ]

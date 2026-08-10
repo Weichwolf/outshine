@@ -200,7 +200,7 @@ visual scripting, asset marketplaces and the speed of a human's eyes and hands. 
 | | Human-facing engine | Outshine |
 |---|---|---|
 | **Authoring** | GUI editors, DCC round-trip | **everything declarative and textual** — a body, a scene, a goal is a file that can be written, diffed and **generated**. The language is JSON |
-| **Correctness** | playtesting, an art director's eye | **machine-checkable gates** — `verify-layers`, `verify-trees`, `verify-types` — plus a rendered frame or a number for every claim |
+| **Correctness** | playtesting, an art director's eye | **the build itself** — a target that omits `render/` is the layering check, and a checker beside it would be a second truth — plus a rendered frame or a number for every claim |
 | **Numbers** | a designer's feel, tuned in an inspector | **provenance on every number** — derived (with the formula), measured (with the measurement), or `[SET]`. A machine cannot „just know" a dimension; it must be able to re-derive it |
 | **Quality** | taste | **critics with declared bands** — `botanist`, `architect`, `art-director`, `sim-critic`, each judging a subject rendered alone before it enters the scene |
 | **Iteration** | hot reload for a human | **determinism**, so a change's effect is attributable at all |

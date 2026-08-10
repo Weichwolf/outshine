@@ -30,11 +30,10 @@ public:
   struct Assets {
     std::string Vegetation, GroundMaterials, Species, Moon;
   };
-  /* The size is the SCENE's (clients/Scene.h) and has no default here: a default would be a second
-   * place stating the budget's resolution, and the two would drift the moment one was measured. */
+  /* WHERE THE PICTURE LANDS, and nothing else: the size is the scene's (clients/Scene.h), read
+   * where the device is created, so no caller can hand in a frame the ladder does not measure. */
   struct Gpu {
     const char *Canvas = nullptr;   /* null = offscreen */
-    int Width, Height;
   };
   struct Stance {
     double Lat = 0.0, Lon = 0.0, YawDeg = 0.0, PitchDeg = 0.0;
@@ -77,7 +76,7 @@ public:
 
   /* WHAT AN ANIMATION CHANNEL MAY MOVE PER FRAME (Animation.h). Each one ends in a renderer setter
    * that is safe to call inside a run; the quantities that are NOT here are the ones a mid-run
-   * change would have to re-bake, and they are named in doc/clients/clients.md's Gaps. */
+   * change would have to re-bake. */
   void SetFovDeg(double deg);
   void SetExposureCompEv(double ev);
   void SetSkyOffsetS(double s);
@@ -98,7 +97,6 @@ public:
    * plant with no world and no network at all, so it prepares and never opens. */
   bool Prepare(const Gpu &gpu);
   bool Open();
-  bool Configure(const Gpu &gpu) { return Prepare(gpu) && Open(); }
   Phase Stage() const { return Phase_; }
 
   /* The wind clock is not the sky clock: the sun stands where the scene declared it while the flow
@@ -125,7 +123,7 @@ public:
 
   /* THE TWO PEERS, borrowed. A bench reads back pixels, depth and counters and the browser reads
    * none of them, so narrowing this to the union of both callers would be forty forwarders that say
-   * nothing — see doc/clients/clients.md's Gaps for the guideline this deviates from. */
+   * nothing. */
   Render::Renderer &Renderer() { return R_; }
   World::World &Scenery() { return W_; }
 

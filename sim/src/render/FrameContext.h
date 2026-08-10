@@ -12,7 +12,7 @@ struct FrameContext {
   /* WHAT A MOTION VECTOR NEEDS, and it is three things and not one. The previous frame's matrix is
    * camera-relative to the PREVIOUS eye, so a point held at this frame's eye has to be carried over
    * by EyeDeltaM first; the jitters are what the resolve subtracts to get the true motion out of two
-   * jittered projections. doc/render/renderer.md §2.6. */
+   * jittered projections. */
   float PrevMvp16[16];
   float EyeDeltaM[3];      /* eyeCur - eyePrev, ECEF metres */
   float JitterNdc[2], PrevJitterNdc[2];
@@ -29,13 +29,9 @@ struct FrameContext {
   unsigned FrameNo;
   int Width, Height;        /* fixed scene resolution (FrameTex) */
   /* THE SCENE'S vertical field of view over the FULL frame height, as the scene file declared it.
-   * A per-frame fact and not a constant: an overlay that has to stay conformal reads the number the
+   * A per-frame fact and not a constant: it is an animation channel, so a stage reads the number the
    * projection was actually built with instead of keeping a second copy. */
   float FovDeg;
-  /* THE 3x3 GRID (doc/render/renderer.md §2.4): the out-the-window viewport is the top two rows and
-   * ViewH is its lower edge; the bottom row is the MFD bank. Equal to Height when the cockpit is off
-   * (the cloud lab), which is what keeps those frames unchanged. */
-  int ViewH;
 };
 
 } // namespace outshine::Render

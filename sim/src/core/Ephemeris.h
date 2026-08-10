@@ -2,8 +2,7 @@
  * (< ~0.5 deg) and Paul Schlyter's lunar approximation (public domain,
  * http://www.stjarnhimlen.se/comp/ppcomp.html) deliberately WITHOUT his perturbation-term table —
  * good to about a degree, enough for a disc and a phase, not for navigation.
- * In core/ and not in render/ because a SENSOR needs the sun (doc/sensors.md, visual acquisition) and
- * neither core/ nor sensors/ may include render/. doc/render/renderer.md, Abschnitt 4. */
+ * In core/ and not in render/ because core/ may not include render/. */
 #ifndef _EPHEMERIS_H
 #define _EPHEMERIS_H
 #include <cmath>
@@ -11,8 +10,8 @@
 
 namespace outshine {
 
-/* [SET] doc/missions/syntax.md: outside this span the linear-in-days terms of both approximations are
- * no longer stated to hold, and a mission clock outside it would carry a sky nobody can defend. */
+/* [SET] Outside this span the linear-in-days terms of both approximations are no longer stated to
+ * hold, and a scene clock outside it would carry a sky nobody can defend. */
 constexpr int kEphemerisMinYear = 1901, kEphemerisMaxYear = 2099;
 
 /* Solar elevation/azimuth in degrees at (lat,lon) for a UTC instant in Unix seconds. */
@@ -94,7 +93,7 @@ inline void SolarToEnv(const Solar &s, State &st) {
 }
 
 /* ONE daylight factor from sun elevation: full day above ~+3 deg, dark by nautical twilight (~-9 deg).
- * It was the renderer's private static until an EYE needed it (doc/sensors.md §9.6a); it is one number
+ * It was the renderer's private static until an EYE needed it; it is one number
  * for sky, ground, star fade and now for visual contrast, and a second twilight definition beside it
  * would be a tree with two dusks. */
 inline double DaylightFactor(double sunElDeg) {

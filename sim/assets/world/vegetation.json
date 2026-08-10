@@ -67,13 +67,13 @@
       "trees": {
         "perM2": 0.028,
         "species": {
-          "buche": 0.42,
-          "eiche": 0.18,
-          "hainbuche": 0.14,
-          "esche": 0.1,
-          "ahorn": 0.07,
-          "birke": 0.05,
-          "ulme": 0.04
+          "beech": 0.42,
+          "oak": 0.18,
+          "hornbeam": 0.14,
+          "ash": 0.1,
+          "sycamore": 0.07,
+          "birch": 0.05,
+          "elm": 0.04
         },
         "status": "declared"
       },
@@ -136,10 +136,10 @@
       "trees": {
         "perM2": 0.033,
         "species": {
-          "fichte": 0.62,
-          "kiefer": 0.24,
-          "tanne": 0.1,
-          "eibe": 0.04
+          "spruce": 0.62,
+          "pine": 0.24,
+          "fir": 0.1,
+          "yew": 0.04
         },
         "status": "declared"
       },
@@ -148,7 +148,7 @@
       },
       "origins": {
         "keySrgb": "EMPTY ON PURPOSE — the OSM raster paints wood and forest with ONE colour (70,105,60), so albedo alone cannot separate needle- from broadleaf. Reachable only once the OSM leaf_type overlay lands; until then laubmischwald wins the bucket.",
-        "trees.perM2": "hergeleitet ueber Reineke, dieselbe Zeile wie beim Laubmischwald. d_g = sqrt(0.62·41² + 0.24·40² + 0.10·53² + 0.04·25²) = 41.6 cm. SDI_max fuer Fichte 1250 [SET, Literaturband 1200...1400], bewirtschaftet 60 % davon = 750. N = 750 · (25/41.6)^1.605 = 331/ha = 0.0331/m^2, gerundet 0.033. Die alte 0.09 (900/ha) beschreibt eine Stangenholzdichte bei ~22 m Hoehe, nicht den 35-m-Bestand, den fichte.json deklariert.",
+        "trees.perM2": "hergeleitet ueber Reineke, dieselbe Zeile wie beim Laubmischwald. d_g = sqrt(0.62·41² + 0.24·40² + 0.10·53² + 0.04·25²) = 41.6 cm. SDI_max fuer Fichte 1250 [SET, Literaturband 1200...1400], bewirtschaftet 60 % davon = 750. N = 750 · (25/41.6)^1.605 = 331/ha = 0.0331/m^2, gerundet 0.033. Die alte 0.09 (900/ha) beschreibt eine Stangenholzdichte bei ~22 m Hoehe, nicht den 35-m-Bestand, den spruce.json deklariert.",
         "grass.perM2": "[SET] needle litter suppresses the herb layer; a third of the beech figure",
         "ground.edgeReachM": "[SET] 0.6 m, see edgeModel"
       },
@@ -191,9 +191,9 @@
       "trees": {
         "perM2": 0.0008,
         "species": {
-          "eiche": 0.4,
-          "linde": 0.3,
-          "esche": 0.3
+          "oak": 0.4,
+          "lime": 0.3,
+          "ash": 0.3
         },
         "status": "declared"
       },
@@ -494,8 +494,8 @@
       "trees": {
         "perM2": 0.004,
         "species": {
-          "birke": 0.6,
-          "kiefer": 0.4
+          "birch": 0.6,
+          "pine": 0.4
         },
         "status": "declared"
       },
@@ -752,11 +752,11 @@
       "trees": {
         "perM2": 0.006,
         "species": {
-          "linde": 0.34,
-          "kastanie": 0.24,
-          "ahorn": 0.22,
-          "birke": 0.12,
-          "eberesche": 0.08
+          "lime": 0.34,
+          "chestnut": 0.24,
+          "sycamore": 0.22,
+          "birch": 0.12,
+          "rowan": 0.08
         },
         "status": "declared"
       },
@@ -1229,9 +1229,9 @@
       "trees": {
         "perM2": 0.02,
         "species": {
-          "trauerweide": 0.5,
-          "esche": 0.3,
-          "saeulenpappel": 0.2
+          "willow": 0.5,
+          "ash": 0.3,
+          "poplar": 0.2
         },
         "status": "declared"
       },

@@ -243,7 +243,7 @@ void SceneRunner::ReportSettled() const {
         {"rank2", (double)R.TreeRankStands(2)}, {"rank3", (double)R.TreeRankStands(3)},
         {"impostors", (double)R.TreeImpostorStands()}, {"tris", (double)R.TreeTriangleCount()}});
 
-  /* THE FIELD ITSELF. Nothing below the size of a tree answers to it (doc/goal.md), so no stage
+  /* THE FIELD ITSELF. Nothing below the size of a tree answers to it, so no stage
    * reads it today; it is published because a branch and a rotor owe the anchor. */
   Render::WindField wf;
   wf.SetDeclared(App_.WindDeg(), App_.WindMs());
@@ -401,7 +401,7 @@ int SceneRunner::CompareClasses() const {
   return 0;
 }
 
-/* THE STATE CHANNEL (doc/goal.md §4): the declared field read on a world line along the wind at the
+/* THE STATE CHANNEL: the declared field read on a world line along the wind at the
  * declared times — no picture, no GPU. */
 int SceneRunner::ProbeWind(const Scene::Run::WindProbeRun &w) const {
   Render::WindField wf;
@@ -451,8 +451,7 @@ bool SceneRunner::WriteDepth(const std::string &name) const {
   return true;
 }
 
-/* THE SUBJECT BENCH takes the binary over completely: no World, no tile stream, no scene light.
- * doc/goal.md §3 — a plant is judged alone before it is allowed into the picture. */
+/* THE SUBJECT BENCH takes the binary over completely: no World, no tile stream, no scene light. */
 int SceneRunner::RunSubject() {
   const Scene::Run::SubjectRun &s = Scene_.Runs().front().Subject;
   SubjectBench bench(App_.Renderer(), App_.Vegetation(), Out_);

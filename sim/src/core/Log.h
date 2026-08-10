@@ -3,7 +3,7 @@
  * touch the whole call graph for no gain. I/O-free: nothing is emitted without an INJECTED LogSink,
  * and the concrete sinks live in app/.
  * THREADING: the CONFIGURATION (sink, level) is process-wide, the CONTEXT (time, unit, capture buffer)
- * is thread_local. doc/core.md, Abschnitt 3.1. */
+ * is thread_local. */
 #ifndef LOG_H
 #define LOG_H
 #include <initializer_list>

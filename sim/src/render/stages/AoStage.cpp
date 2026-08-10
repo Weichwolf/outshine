@@ -50,7 +50,7 @@ fn aoProject(p : vec3f, dims : vec2i) -> vec2i {
   let z = dot(p, A.camFwd.xyz);
   if (z <= kZNear) { return vec2i(-1, -1); }
   let x = dot(p, A.camRight.xyz) / (z * A.params.x * A.params.y) + A.view.z;
-  let y = dot(p, A.camUp.xyz) / (z * A.params.x) + A.view.x + A.view.w;
+  let y = dot(p, A.camUp.xyz) / (z * A.params.x) + A.view.w;
   let uv = vec2f(x * 0.5 + 0.5, 0.5 - y * 0.5);
   return vec2i(uv * vec2f(dims));
 }

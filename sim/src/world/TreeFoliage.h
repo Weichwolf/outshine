@@ -22,7 +22,7 @@ class TreeFoliage {
 public:
   static constexpr int kFloats = 8; /* pos(3) roll(1) dir(3) pad(1) */
   /* [SET] one crown's instance buffer: 1e6 * kFloats * 4 B = 32 MB, well inside the 256 MB
-   * maxBufferSize the target survey reports (doc/webgl-webgpu-report.txt). */
+   * maxBufferSize the target survey reports. */
   static constexpr int kMaxInstances = 1000000;
 
   /* AREA IS BOUGHT IN COUNT. The species declares its leaf's own length (`leaf_card_h`) and the leaf

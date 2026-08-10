@@ -4,8 +4,7 @@
  * A WORKER AND NOT A PTHREAD: the byte cache is a main-thread JS Map, so a pthread would proxy every
  * fetch back into the very thread being emptied.
  * ONE build in flight at a time (the JS shim gates it): fbtw_build SUSPENDS on the synchronous fetch
- * under ASYNCIFY, and a re-entrant second build corrupts the shared result state.
- * doc/world/terrain.md, Abschnitt 6. */
+ * under ASYNCIFY, and a re-entrant second build corrupts the shared result state. */
 #include <emscripten.h>
 #include <emscripten/fetch.h>
 #include <stdio.h>

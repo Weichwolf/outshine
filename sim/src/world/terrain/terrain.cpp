@@ -1,6 +1,6 @@
 /* Terrarium-RGB PNG -> float heightfield -> triangulated mesh; API contract in terrain.h.
- * Der WINDING-BEWEIS (algebraisch, nicht ergruent — bei einem Testfehler erst die Mathematik
- * pruefen) und die Flaechengewichtung der Normalen: doc/world/terrain.md, Abschnitt 5.1. */
+ * Der WINDING-BEWEIS ist algebraisch, nicht ergruent: bei einem Testfehler erst die Mathematik
+ * pruefen. */
 
 #include "terrain.h"
 #include "mesh.h"

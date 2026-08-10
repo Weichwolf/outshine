@@ -1,6 +1,6 @@
 /* The ONE seam every core consumer of ground height goes through, so "where is the ground" is an
  * INJECTED dependency and not a hard fb-tiles wire. Synchronous from the caller's POV: an async client
- * polls until the sentinel stops coming back. doc/core.md, Abschnitt 9. */
+ * polls until the sentinel stops coming back. */
 #ifndef ELEVATIONPROVIDER_H
 #define ELEVATIONPROVIDER_H
 

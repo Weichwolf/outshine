@@ -9,7 +9,7 @@
 namespace outshine::Clients {
 
 /* A MOD IS A SET OF DECLARED SCENES and nothing else — `<root>/<name>/mod.json`. It brings no code
- * and no world (doc/mods.md); what it brings is every standpoint, every clock and every recording
+ * and no world; what it brings is every standpoint, every clock and every recording
  * this engine will ever be asked for, in the one language that is schema-checkable, diffable and
  * generable. The entry point chooses a mod and a scene, and that is the whole command line. */
 class Mod {

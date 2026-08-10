@@ -90,7 +90,6 @@ void Outshine::SetSkyOffsetS(double s) {
   State_.Env.SunElDeg = SunEl_;
   State_.Env.SunAzDeg = SunAz_;
   R_.SetSkyClock(t);
-  W_.SetSunElevationDeg(SunEl_);
   R_.SetSceneState(State_);
 }
 
@@ -115,9 +114,10 @@ bool Outshine::Prepare(const Gpu &gpu) {
       {"cloudCover", Scene_.CloudCover()}, {"sunElDeg", (double)SunEl_},
       {"sunAzDeg", (double)SunAz_}});
   /* Only a DEVIATION is an event: at the budget size there is nothing to justify. */
-  if (!Scene_.RenderResolution().Why.empty())
-    Log::Info("outshine", "render_size", {{"width", gpu.Width}, {"height", gpu.Height},
-        {"why", Scene_.RenderResolution().Why}});
+  const Scene::Resolution &res = Scene_.RenderResolution();
+  if (!res.Why.empty())
+    Log::Info("outshine", "render_size", {{"width", res.Width}, {"height", res.Height},
+        {"why", res.Why}});
 
   if (!Mats_.Load(Assets_.GroundMaterials.c_str())) {
     Log::Error("outshine", "ground_materials_failed",
@@ -138,8 +138,8 @@ bool Outshine::Prepare(const Gpu &gpu) {
   R_.SetWind(WindDeg_, WindMs_);
   R_.SetExposure(Exposure_);
 
-  if (gpu.Canvas) R_.Init(gpu.Canvas, gpu.Width, gpu.Height);
-  else R_.InitOffscreen(gpu.Width, gpu.Height);
+  if (gpu.Canvas) R_.Init(gpu.Canvas, res.Width, res.Height);
+  else R_.InitOffscreen(res.Width, res.Height);
   /* THE DEVICE HAS TO BE THERE BEFORE ANYTHING UPLOADS: a stage's Upload returns nothing without one
    * and drops its geometry in silence. Native Dawn is already up; the browser's request is a
    * promise. */
@@ -193,7 +193,6 @@ bool Outshine::Open() {
   }
   Stand_.SetGroundAslM(ground);
 
-  State_.Platform.Mode = Mode::Manual;
   State_.Env.SunElDeg = SunEl_;
   State_.Env.SunAzDeg = SunAz_;
   MoonPos(Stance_.Lat, Stance_.Lon, Clk_, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
@@ -204,7 +203,6 @@ bool Outshine::Open() {
   if (!Assets_.Species.empty() && !Forest_.Grow(R_, Assets_.Species.c_str())) return false;
 
   W_.SetVegetation(&Veg_);
-  W_.SetSunElevationDeg(SunEl_);
   W_.SetWeather(&Wind_);
   const WindNed w = Wind_.WindNedMs(Stance_.Lat, Stance_.Lon, Stand_.AltAslM());
   Log::Info("outshine", "stand", {{"groundM", Stand_.GroundAslM()}, {"eyeM", Stand_.EyeAglM()},

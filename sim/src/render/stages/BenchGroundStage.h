@@ -1,5 +1,5 @@
-/* THE FLOOR AND THE REFERENCE the subject bench stands a plant on (doc/clients/clients.md,
- * `gpu_walk --rig`). Two surfaces, and the split is the whole point of the stage: the PLANE wears the
+/* THE FLOOR AND THE REFERENCE the subject bench stands a plant on. Two surfaces, and the split is
+ * the whole point of the stage: the PLANE wears the
  * subject's own declared substrate, because the contrast question the bench exists for is soil against
  * blade and a neutral floor answers it with a photometer; the CARD is 18 % neutral and stands upright
  * at the frame's edge, because a reference that lies BEHIND the subject is a background and not a

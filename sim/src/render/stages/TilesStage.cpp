@@ -22,8 +22,7 @@
 
 namespace outshine::Render {
 
-/* The terrain draw. Per-draw data, RenderBundle signature and the
- * invariant counters: doc/render/renderer.md, Abschnitt 6. */
+/* The terrain draw. */
 static const char *kTerrainWGSL = R"(
 /* haze:  x = sigma0 (1/m, Koschmieder of the reported visibility), y = camera altitude ASL (m),
  *        z = the WGS84 ground radius under the camera (Mm), w = one pixel as an angle (rad).
@@ -31,7 +30,7 @@ static const char *kTerrainWGSL = R"(
 struct U { mvp : mat4x4f, sun : vec4f, haze : vec4f,
            /* THE STAND, so that the ground fragment can be it: the frame's ENU basis at the camera,
             * the graticule cell in metres and the eye's own cell. Nothing here depends on time —
-            * nothing below the size of a tree moves (doc/goal.md). */
+            * nothing below the size of a tree moves. */
            sax : vec4f,   // ECEF east  axis, w = the graticule cell east (m)
            say : vec4f,   // ECEF north axis, w = the graticule cell north (m)
            saz : vec4f,   // ECEF up at the camera, w = sin(sun elevation)
@@ -84,8 +83,7 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f,
   let upR = normalize(A.camPosMm.xyz);
   let distM = length(in.wpos);
   // THE RASTER COLOUR IS AN INDEX. What is drawn is the MATERIAL the index selects: linear
-  // reflectance, roughness and a procedural surface, all of them world-fixed
-  // (doc/render/stages/ground-cover.md 4.1, doc/render/classification.md 0).
+  // reflectance, roughness and a procedural surface, all of them world-fixed.
   let footM = distM * u.haze.w;                 // one pixel on the ground, metres
   let m = groundMat(in.wpos, in.gpos, nrmN, footM);
   // FB_GROUND_CLASS_VIZ=1: the RESOLVED class index as a colour, before light, haze and AO, so that
@@ -272,7 +270,7 @@ fn envBrdf(nvv : f32, rough : f32) -> f32 {
  * ten rungs. A WGSL loop needs a static bound; this one is never the thing that stops it. */
 static constexpr int kReliefOctaves = 12;
 
-/* THE GROUND IS A MATERIAL (doc/render/stages/ground-cover.md §4.1). The raster texel is a CLASS
+/* THE GROUND IS A MATERIAL. The raster texel is a CLASS
  * INDEX and nothing else; what is drawn is the class's linear reflectance, its roughness, and a
  * surface generated from its grain size and height amplitude over a ladder of octaves. The four texels around
  * the sample are blended as PARAMETERS, not as pixels — that is what leaves no seam where two
@@ -505,8 +503,8 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
   let kDef = clsBuf[2];
   let win = select(kDef, hit.best, hit.have);
   let los = select(kDef, hit.second, hit.have && hit.second != win);
-  /* THE TRANSITION BELONGS TO THE PAIR, and a BUILT edge and a GROWN edge are not the same thing
-   * (doc/goal.md). A built edge is a COMPONENT: tarmac ends where it was laid, and a diffuse
+  /* THE TRANSITION BELONGS TO THE PAIR, and a BUILT edge and a GROWN edge are not the same thing.
+   * A built edge is a COMPONENT: tarmac ends where it was laid, and a diffuse
    * neighbour cannot widen a seam — so if either class is built, the pair takes the smallest built
    * reach. Two grown edges are two overlapping GRADIENTS, so the zone is their union and the pair
    * takes the larger. That is why road-against-meadow is 0.05 m and wood-against-meadow 0.90 m out
@@ -637,7 +635,7 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
                             + "const kClsFray : f32 = 0.05;\n"
                             + "const kOctN : i32 = " + std::to_string(kReliefOctaves) + ";\n"
                             + "const kSpecOn : f32 = 1.0;\n"
-                            /* THE ONE DIAGNOSTIC LEFT IN THIS SHADER (doc/goal.md): the RESOLVED class
+                            /* THE ONE DIAGNOSTIC LEFT IN THIS SHADER: the RESOLVED class
                              * index as a colour, before light, haze and AO. It answers a question no
                              * picture can — which class a fragment decided it was. */
                             + "const kClsViz : f32 = " + std::string(getenv("FB_GROUND_CLASS_VIZ") &&
@@ -823,7 +821,7 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
   Ranges.clear();
   CutClusters = 0;
   /* THE CUT, per cluster and not per tile: one tile can answer at several levels at once, which is
-   * the whole point of the DAG (doc/render/lod.md). f_px carries resolution AND zoom, so no distance
+   * the whole point of the DAG. f_px carries resolution AND zoom, so no distance
    * is written down anywhere. */
   const float fPx = 0.5f * (float)ctx.Height / std::tan(0.5f * (float)ctx.FovDeg * 3.14159265358979f / 180.0f);
   Frustum fr;

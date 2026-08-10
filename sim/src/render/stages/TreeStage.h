@@ -4,7 +4,7 @@
  * stages because they are one subject: they share the uniform, the stand array, the shading
  * declaration and the pass slot, and splitting them would put the same tree in two places.
  *
- * WHICH RANK A STAND GETS IS SCREEN-SPACE ERROR and nothing else (doc/render/lod.md): the stands
+ * WHICH RANK A STAND GETS IS SCREEN-SPACE ERROR and nothing else: the stands
  * arrive sorted by distance, so a rank is a contiguous RANGE and the split is a binary search.
  *
  * The mesh arrives as RAW ARRAYS, never as world/TreeMesh: render/ draws what it is handed and does
@@ -55,8 +55,8 @@ public:
   static constexpr int kRanks = 4;
   /* THE IMPOSTOR'S TEXEL IS THE MODEL-SPACE ERROR every mesh rank is measured against: a tree of
    * height H baked into a cell of this many pixels carries an error of H/kCellPx metres, and that
-   * projects to one pixel at d = H * f_px / kCellPx. That inequality — doc/render/lod.md's, with
-   * lambda = H/kCellPx — is the ONLY thing that decides where the mesh stops. */
+   * projects to one pixel at d = H * f_px / kCellPx. That inequality, with lambda = H/kCellPx, is
+   * the ONLY thing that decides where the mesh stops. */
   static constexpr float kCellPx = 256.0f;
   /* One pixel at rank k's NEAREST stand, as a fraction of the tree's height — the grower's whole
    * detail input. The impostor's cell is the anchor and every rank below it halves. */

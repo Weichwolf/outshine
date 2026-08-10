@@ -79,8 +79,8 @@ fn litRadiance(I : Irr, alb : vec3f, kdDir : f32, n : vec3f, upv : vec3f, sunDir
    * subtends, which for a uniform dome is exactly (1 + n.up)/2. */
   let skyH = I.sky.xyz + I.sunDeck.xyz * (sunUp * (1.0 - thruMean) * kDeckDiffuse) + vec3f(night);
   let ndu = dot(n, upv);
-  /* E_bounce, the fourth term of doc/render/lighting.md §2 and the only one that was missing — in TWO
-   * half-spaces, because "what returns light to this point" is two different things at two scales.
+  /* E_bounce, the one term that was missing — in TWO half-spaces, because "what returns light to
+   * this point" is two different things at two scales.
    *
    * FAR, below the normal's horizon: the neighbourhood, grey and statistically lit — a wall does not
    * know what colour the street is, and the deck over that street is averaged, not local.

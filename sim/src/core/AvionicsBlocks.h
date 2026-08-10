@@ -1,11 +1,10 @@
 /* The OUTPUT blocks: the typed payload of core/State, one block per SOURCE system.
  * THE ONE RULE: every block has exactly ONE writer — named in its comment below — and any number of
- * readers. doc/core.md, Abschnitt 1. */
+ * readers. */
 #ifndef AVIONICSBLOCKS_H
 #define AVIONICSBLOCKS_H
 
 #include "BlockStatus.h"
-#include "Mode.h"
 #include <cstdint>
 
 namespace outshine {
@@ -19,7 +18,6 @@ struct PlatformBlock {
   float EastM = 0.0f, NorthM = 0.0f; /* ENU offset from the sim origin (home) */
   float GsMs = 0.0f, TasMs = 0.0f, VsMs = 0.0f;
   float HomeDistM = 0.0f, HomeBearingDeg = 0.0f;   /* bearing relative to the nose, -180..180 */
-  Mode Mode = Mode::Manual;      /* the REAL, confirmed guidance mode (MIL-STD-1787) */
 };
 
 /* ---- Environment: sky/weather for lighting and haze. WRITER: the client (ephemeris + live weather),

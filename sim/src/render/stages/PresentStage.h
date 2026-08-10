@@ -1,13 +1,14 @@
-/* Samples the declared-size FrameTex over the present viewport. Bilinear; TODO bicubic/sharpen.
- * Used by BOTH present paths — it does not care what filled FrameTex. */
-#ifndef UPSCALESTAGE_H
-#define UPSCALESTAGE_H
+/* Samples the declared-size FrameTex over the present viewport, which is usually SMALLER than it.
+ * Bilinear; TODO bicubic/sharpen. Used by BOTH present paths — it does not care what filled
+ * FrameTex. */
+#ifndef PRESENTSTAGE_H
+#define PRESENTSTAGE_H
 
 #include "DrawStage.h"
 
 namespace outshine::Render {
 
-class UpscaleStage : public DrawStage {
+class PresentStage : public DrawStage {
 public:
   /* Named Configure and not Init, so it does not hide DrawStage's virtual Init(gpu)
    * (-Woverloaded-virtual). */

@@ -74,7 +74,7 @@ bool GroundMaterials::Load(const char *path) {
     for (size_t e = 0; e < excl.Size(); e++)
       if (excl[e].StrEquals(m.Name.c_str())) wetExempt = true;
     /* The dial is applied ONCE, here, so no consumer can apply it twice: the class list is static
-     * today and weather has no producer (doc/render/stages/ground-cover.md ## Gaps). */
+     * today and weather has no producer. */
     const float wet = wetExempt ? 1.0f : (1.0f - kWet * m.Moisture);
     /* The triple is locked to the SHORTWAVE albedo (0.3-2.5 um) and the renderer is visible-band, so
      * the band correction is a per-class SCALE: the chromaticity is a separate source and must not

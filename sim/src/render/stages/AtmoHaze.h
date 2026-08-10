@@ -8,7 +8,7 @@
  * (Koschmieder). Only the part of it that today's weather CANNOT change — clean air's own molecular
  * scattering — is a table value, and it is kAtmoCommon's, the sky's. The C++ half is
  * here too because the terrain needs the deck's sun transmittance as a number, and because
- * `gpu_native --cloudcheck` measures the two halves against each other. Spec: doc/render/clouds.md. */
+ * `gpu_native --cloudcheck` measures the two halves against each other. */
 #ifndef ATMOHAZE_H
 #define ATMOHAZE_H
 
@@ -35,7 +35,7 @@ constexpr float kKoschmieder = 3.912f;
  *
  * One constant did NOT survive: a single 8 km scale height for the whole reported extinction. It is
  * the density scale height, so it thins the AEROSOL — 93 % of a 24 km visibility — at the molecular
- * rate, and the measured cost of that was a white-out (doc/render/clouds.md, Gap 5.7). */
+ * rate, and the measured cost of that was a white-out. */
 constexpr float kHazeScaleRM = 8000.0f;
 constexpr float kHazeScaleAM = 1200.0f;
 
@@ -96,8 +96,8 @@ inline void HazeTransmittance(float sigma0, float zEffM, float distM, float rgb[
  * the erosion at its mean — literally CloudDensity's fully band-limited branch (ErodeFlat = 1), i.e.
  * this deck without its detail, which is what belongs in a quantity that is an average over the whole
  * sky anyway. The column is evaluated at strength c = Cover; the answer barely depends on that choice,
- * because an opaque deck has sigma*thickness ~ 20 and its exponential is zero for any plausible column
- * (MEASURED: doc/render/clouds.md). */
+ * because an opaque deck has sigma*thickness ~ 20 and its exponential is zero for any plausible
+ * column (MEASURED). */
 inline float DeckSunOpticalDepth(const CloudDeckParams &d, float sunUp) {
   if (d.Cover <= 0.0f) return 0.0f;
   constexpr int kNodes = 16;   /* midpoint rule over the column; the profile is smooth and analytic */

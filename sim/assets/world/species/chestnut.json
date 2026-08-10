@@ -1,7 +1,7 @@
 {
   "bark_r":0.35,"bark_g":0.30,"bark_b":0.24,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.100/0.073/0.047. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
   "bark_dark":0.50,"bark_freq":4.5,"bark_ridge":0.52,
-  "name": "kastanie", "botanical": "Aesculus hippocastanum", "common": "Gemeine Rosskastanie / Horse chestnut",
+  "name": "chestnut", "botanical": "Aesculus hippocastanum", "common": "Gemeine Rosskastanie / Horse chestnut",
   "habit": "dicker Stamm, breite rundliche ausladende Krone, schwere Aeste, handfoermig gefingerte Blaetter",
   "height_m": 25, "spread_m": 20,
   "bhd_cm": 50, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.50. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Rosskastanie, Parkbaum mit sehr dickem kurzem Schaft. 25 / 0.50 = 50.0 cm, gerundet 50.",

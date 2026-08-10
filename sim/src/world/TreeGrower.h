@@ -25,7 +25,7 @@ public:
    * things by the same inequality the impostor's cell size decides its distance by: how many sides a
    * tube gets (silhouette sagitta under half a pixel) and whether a shoot gets a tube at all (a shoot
    * thinner than one pixel is a line, and a line drawn as an eight-sided pipe is 81 % of this mesh —
-   * measured, buche: 21 392 of 26 462 triangles have their shortest edge under 2,5 cm). A shoot
+   * measured, beech: 21 392 of 26 462 triangles have their shortest edge under 2,5 cm). A shoot
    * without a tube still grows and still carries its leaf points, so the crown keeps its shape.
    *
    * 0 grows the mesh the species declares. */

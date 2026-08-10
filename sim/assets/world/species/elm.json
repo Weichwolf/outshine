@@ -1,7 +1,7 @@
 {
   "bark_r":0.37,"bark_g":0.33,"bark_b":0.27,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.113/0.089/0.059. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
   "bark_dark":0.52,"bark_freq":5.0,"bark_ridge":0.52,
-  "name": "ulme", "botanical": "Ulmus minor", "common": "Feldulme / Field elm",
+  "name": "elm", "botanical": "Ulmus minor", "common": "Feldulme / Field elm",
   "habit": "vasen-/trichterfoermige Krone, Aeste steil aufstrebend und nach aussen geschwungen",
   "height_m": 28, "spread_m": 16,
   "bhd_cm": 45, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.62. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Bergulme, zwischen Buche und Ahorn. 28 / 0.62 = 45.2 cm, gerundet 45.",

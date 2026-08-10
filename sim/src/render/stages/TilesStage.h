@@ -1,7 +1,6 @@
 /* The terrain draw — the ONE stage with real per-frame CPU state: the growable albedo array, the
  * RenderBundle, the 2-phase-commit tile table and the mode-strictness invariant counters.
- * Its Configure() must run AFTER Renderer::CreateAtmosphere, whose LUT views it is handed.
- * doc/render/renderer.md, Abschnitt 6. */
+ * Its Configure() must run AFTER Renderer::CreateAtmosphere, whose LUT views it is handed. */
 #ifndef TILESSTAGE_H
 #define TILESSTAGE_H
 
@@ -48,7 +47,7 @@ public:
   /* World drives a mutable per-tile table. Call before Configure(). */
 
   /* A table slot id, or -1 if the class array is full. The caller has checked DeviceUsable().
-   * `clusters` is the tile's DAG (doc/render/lod.md): every level lives in the one vertex buffer and
+   * `clusters` is the tile's DAG: every level lives in the one vertex buffer and
    * the per-frame cut picks the ranges. `anchor` is the ECEF point the procedural surface is measured
    * from; `origin - anchor` must stay small enough for float. */
   int UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
@@ -68,8 +67,8 @@ public:
   int DrawCallCount(void) const { return (int)Ranges.size(); }
   /* Tiles the frustum kept, out of DrawCount(). */
   int VisibleTileCount(void) const { return VisibleTiles; }
-  /* Triangles the LAST Encode actually submitted, not the ones resident — the budget curve
-   * (doc/goal.md §5) is about what the frame paid for. Triangle-list, hence /3. */
+  /* Triangles the LAST Encode actually submitted, not the ones resident: the budget curve is about
+   * what the frame paid for. Triangle-list, hence /3. */
   long TriangleCount(void) const { return DrawnVerts / 3; }
   /* WHICH RUNG the cut stands on, per level, in triangles — the only evidence that a tolerance change
    * moved anything at all. */

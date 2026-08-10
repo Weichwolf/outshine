@@ -1,4 +1,4 @@
-/* THE SUBJECT BENCH (doc/goal.md §3, doc/clients/clients.md `gpu_walk --rig`): one plant, alone, on
+/* THE SUBJECT BENCH: one plant, alone, on
  * its own declared substrate beside a neutral card, in declared light. It is a MODE of the frame
  * oracle and not a client — same binary, same Renderer, same stages. What it replaces is the WORLD
  * (no tiles, no OSM, no DEM) and the LIGHT (declared, never inherited); what it may never replace is

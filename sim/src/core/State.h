@@ -1,6 +1,5 @@
 /* The ONE shared per-frame state: a set of typed OUTPUT BLOCKS (AvionicsBlocks.h), one per source
- * system, each with a validity head. One writer per block, any number of readers.
- * doc/core.md, Abschnitt 1. */
+ * system, each with a validity head. One writer per block, any number of readers. */
 #ifndef _FBSTATE_H
 #define _FBSTATE_H
 #include "AvionicsBlocks.h"

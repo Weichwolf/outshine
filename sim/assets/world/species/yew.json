@@ -1,7 +1,7 @@
 {
   "bark_r":0.30,"bark_g":0.22,"bark_b":0.18,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.073/0.040/0.027. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
   "bark_dark":0.55,"bark_freq":4.5,"bark_ridge":0.42,
-  "name": "eibe", "botanical": "Taxus baccata", "common": "Eibe / Yew",
+  "name": "yew", "botanical": "Taxus baccata", "common": "Eibe / Yew",
   "habit": "dichte breit-kegelfoermige bis rundliche Krone, kurzer Stamm, dicht verzweigt",
   "height_m": 14, "spread_m": 10,
   "bhd_cm": 25, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.55. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Eibe, gedrungen, oft mehrstaemmig. 14 / 0.55 = 25.5 cm, gerundet 25.",

@@ -2,7 +2,7 @@
  *
  * Water was a ground class painted onto the terrain mesh, which makes a lake follow the hillside under
  * it and a 3 m brook a sampling problem on a 16 m grid — measured 17 % coverage over 731 m of the
- * Hannover canal (doc/render/classification.md). A surface cannot be level because a shader says so;
+ * Hannover canal. A surface cannot be level because a shader says so;
  * it is level because its mesh is.
  *
  * Same shape as BuildingField, and deliberately: a lake is a footprint whose height comes from the

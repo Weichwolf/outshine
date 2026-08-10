@@ -7,8 +7,8 @@ namespace {
 
 using Pass = Render::GpuTimer;
 
-const char *kPassName[Pass::kPassCount] = {"computeMs", "shadowMs", "sceneMs",   "cloudMs",
-                                           "aoMs",      "taaMs",    "presentMs", "overlayMs"};
+const char *kPassName[Pass::kPassCount] = {"computeMs", "shadowMs", "sceneMs", "cloudMs",
+                                           "aoMs",      "taaMs",    "presentMs"};
 
 double Percentile(const std::vector<double> &sorted, double p) {
   if (sorted.empty()) return 0.0;

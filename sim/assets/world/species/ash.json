@@ -1,7 +1,7 @@
 {
   "bark_r":0.45,"bark_g":0.43,"bark_b":0.38,"bark_origin":"sRGB, wie jeder Farbwert; die Engine rechnet linear und wandelt in clients/AppWalk.cpp um. Linear ergibt das 0.171/0.155/0.119. Gemessene Rindenreflexion im Sichtbaren liegt fuer heimische Arten bei 0,05...0,25, fuer Betula bei 0,45...0,60 \u2014 ungewandelt waere jede dieser sechzehn Zahlen zwei- bis vierfach zu hell.",
   "bark_dark":0.58,"bark_freq":5.0,"bark_ridge":0.45,
-  "name": "esche", "botanical": "Fraxinus excelsior", "common": "Gemeine Esche / European ash",
+  "name": "ash", "botanical": "Fraxinus excelsior", "common": "Gemeine Esche / European ash",
   "habit": "lockere rundliche Krone, kraeftige aufsteigende Aeste, derbe Zweige",
   "height_m": 30, "spread_m": 14,
   "bhd_cm": 43, "bhd_cm_origin": "hergeleitet: BHD = height_m / (H/D) mit H/D = 0.70. H/D ist der forstliche Schlankheitsgrad, Hoehe in m durch BHD in cm; Esche, Kronen- und Schaftform wie Buche. 30 / 0.70 = 42.9 cm, gerundet 43.",

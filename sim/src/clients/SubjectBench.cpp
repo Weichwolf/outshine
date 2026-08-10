@@ -225,7 +225,6 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   hs.Platform.AltM = (float)camAsl;
   hs.Platform.YawDeg = (float)camAzDeg;
   hs.Platform.PitchDeg = (float)pitch;
-  hs.Platform.Mode = Mode::Manual;
   hs.Env.SunElDeg = (float)sunElDeg;
   hs.Env.SunAzDeg = (float)sunAzDeg;
   hs.Env.CloudCover = (float)cloudCover;
@@ -446,7 +445,7 @@ bool SubjectBench::Run() {
     if (!Shoot(v, "skylight", az, az + 180.0, kSunElDeg, 1.0, false, 0.0)) return false;
     written += 3;
     /* THE WIND ROW, and it was refused until this round because three identical files would have
-     * been a lie (doc/clients/clients.md gap 14). Same geometry, same light, same exposure; the only
+     * been a lie. Same geometry, same light, same exposure; the only
      * thing that differs is the declared met wind, so a difference between two of these files can be
      * nothing else. */
     if (v.Wind) {
@@ -466,7 +465,7 @@ bool SubjectBench::Run() {
        * turntable measures. It is therefore indexed by the same quantity the named lights are — the
        * sun's bearing RELATIVE to the camera, logged as `sunRelDeg` — and turn000 is frontlit to the
        * bit. turn180 is the backlit BEARING seen from the other face of the stand, which is not the
-       * backlit PICTURE; doc/clients/clients.md carries the measurement of how far the two sit apart. */
+       * backlit PICTURE. */
       if (!Shoot(v, name, a, az + 180.0, kSunElDeg, 0.0, false, 0.0)) return false;
       written++;
     }

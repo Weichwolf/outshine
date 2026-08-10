@@ -2,8 +2,7 @@
  * CONVENTION: the reference point comes FIRST and owns the cosine — EnuOffsetM(ref, p) is p's offset
  * FROM ref, longitude scaled at the REFERENCE latitude, so a bearing and a distance computed by two
  * subsystems agree. Longitude WRAPPING is part of the primitive, not something a caller must remember.
- * SCOPE: deliberately planar/small-angle — tens of nautical miles, not intercontinental.
- * doc/core.md, Abschnitt 10.1. */
+ * SCOPE: deliberately planar/small-angle — tens of nautical miles, not intercontinental. */
 #ifndef GEODESY_H
 #define GEODESY_H
 

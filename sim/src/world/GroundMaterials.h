@@ -1,4 +1,4 @@
-/* The ground-material table (doc/render/stages/ground-cover.md §4.1): sixteen classes, each a LINEAR
+/* The ground-material table: sixteen classes, each a LINEAR
  * reflectance plus the procedural surface that makes two classes of equal reflectance look different.
  * A vegetation template REFERENCES a class by name; it never declares a colour. */
 #ifndef GROUNDMATERIALS_H

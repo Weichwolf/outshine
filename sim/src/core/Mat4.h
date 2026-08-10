@@ -1,6 +1,6 @@
 /* 4x4 matrix / 3-vector maths, column-major (element m[c*4+r] is column c, row r; m*v takes a column
  * vector) — the one part of the renderer that needs no GL context and can therefore be asserted
- * directly instead of judged by looking at pixels. doc/core.md, Abschnitt 10.4. */
+ * directly instead of judged by looking at pixels. */
 #ifndef MAT4_H
 #define MAT4_H
 #include <math.h>

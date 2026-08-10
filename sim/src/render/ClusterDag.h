@@ -1,5 +1,5 @@
 /* Nanite half 1: a cluster DAG over a triangle soup plus the monotone screen-space-error cut that
- * reads it (doc/render/lod.md, "Nanite as ONE ladder"). Half 2 — the compute software rasteriser —
+ * reads it. Half 2 — the compute software rasteriser —
  * is not here and cannot be: WGSL has no 64-bit atomic.
  *
  * HEADER-ONLY for the reason ChunkMesh.h is: the tile worker's link line compiles the world/terrain
@@ -68,7 +68,7 @@ inline void BoundingSphere(const float *verts, uint32_t nverts, int stride, floa
 
 /* [SET] 1.0. THE UNIT IS ABSOLUTE PIXELS, not a fraction of the viewport — Hoppe 1997 states his
  * tolerance as 0.075…0.33 % of window size, and this file takes the modern convention instead,
- * which is what makes "at 1440p every element survives twice as far" true (doc/render/lod.md).
+ * which is what makes "at 1440p every element survives twice as far" true.
  * The VALUE is the literature's centre of mass: Hoppe 1998 "near 1 pixel", Ponchio 2008 1 px,
  * Karis 2021 "< 1 pixel". Below ~1 px no transition mechanism is needed at all, which is why there
  * is no dither and no crossfade anywhere in this file. */
@@ -133,7 +133,7 @@ inline float DagCrossFactor(const float ctr[3], float rad, const double eye[3], 
 }
 
 /* sse_px = err_m * f_px / d, d measured CONSERVATIVELY to the nearest point of the bounding sphere
- * (Ponchio 2008 §3.6.1). doc/render/lod.md. `up` zero = no vertical, hence no anisotropy. */
+ * (Ponchio 2008 §3.6.1). `up` zero = no vertical, hence no anisotropy. */
 inline float DagSse(const float ctr[3], float rad, float err, const double eye[3], float fPx,
                     const float up[3]) {
   if (!(err > 0.0f)) return 0.0f;
@@ -348,7 +348,7 @@ struct Absorb {
 };
 
 /* THE MEASURED BOUND. Garland-Heckbert's residual is an RMS distance to accumulated planes and it
- * understates the real deviation by up to 2.8x (measured, doc/render/lod.md) — so it is kept as the
+ * understates the real deviation by up to 2.8x — so it is kept as the
  * collapse ORDER, which is all it was ever derived for, and the error that is STORED is measured
  * here: every level-0 position the group stands for, against the group's simplified triangles.
  *

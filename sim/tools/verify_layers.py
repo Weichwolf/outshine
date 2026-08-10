@@ -10,7 +10,6 @@ The layers, bottom to top (RANK below). The order is the measured include graph,
               (FlightMonitor/MissionMonitor/SystemHealth/DamageModel), the camera/matrix
               maths. Includes NOTHING above itself — that is what makes it the anti-cheat anchor.
   fdm         the JSBSim adapter (one Fdm per airframe).
-  units       world-entity identity + the registry of who exists.
   sensors     the slots that may READ that registry: datalink, radar, RWR, IRST, visual,
               countermeasures.
   weapons     the stores + gun slots.
@@ -25,12 +24,14 @@ The layers, bottom to top (RANK below). The order is the measured include graph,
   test        sim/test, mirroring sim/src path for path (make verify-trees) and ranked above every
               layer it judges. A harness may reach anything; nothing may reach a harness.
 
-Four rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
-  * units/UnitRegistry.h reaches ONLY the sensor slots (datalink, radar, RWR, IRST, visual) and
-    the missile's uplink RECEIVER.
+Three rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
   * pilot/ includes neither units/ nor sensors/ — a pilot sees the world only through State.
   * fdm/FdmBoot.h (the only door to a JSBSim IC) is named only by missions/ and clients/.
   * core/ includes nothing above itself.
+
+THE EDGE THE NEXT STEP HAS TO INVERT is counted rather than described: every call `world/` makes on a
+Render::Renderer is printed with its name, so the number that decides whether the server target can
+link is read off the tree instead of guessed (doc/todo.md 4).
 
 The namespace half (NAMESPACE below) says the same thing to a reader that the include half says to
 the build: core/ IS the root `namespace outshine` — its value types are everywhere, and nesting them
@@ -49,7 +50,6 @@ RANK = {
     "world/terrain": 0,   # leaf: pure geometry/mesh, includes nothing of ours
     "core": 1,
     "fdm": 2,
-    "units": 3,
     "sensors": 4,
     "weapons": 5,
     "systems": 6,
@@ -82,11 +82,6 @@ RANK = {
 # Files whose LAYER is not their directory's. Each is a real statement about the graph, not a waiver:
 # the file genuinely sits at this rank and is held to it.
 FILE_RANK = {
-    # SimUnit OWNS the Module it flies, so it sits above modules/ — while Unit.h/
-    # UnitRegistry.h (the identity + "who exists" that the sensor slots read) sit below them.
-    # One directory, two layers; splitting the directory would separate a unit from its own registry.
-    "units/SimUnit.h": 8.5,
-    "units/SimUnit.cpp": 8.5,
     # The I/O edge of core's two channels. Deliberately NOT in core (CLAUDE.md: core stays I/O-free),
     # but attached by the mission orchestrator as well as by every client, so they cannot BE the
     # client layer. They include core and nothing else, and this rank pins that.
@@ -103,58 +98,11 @@ EXCEPTIONS = ()
 # The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
 # its own directory (inside it, the header is the seam's own implementation detail — Fdm.cpp is
 # FdmBoot's friend by declaration, so hiding the header from it would be theatre).
-# THE PERCEPTION BOUNDARY, as a LIST and not as a sentence: the files that may read who exists in the
-# world. Every one of them is a simulated SENSOR (or a weapon's RECEIVER), and each pays a stated price
-# for the privilege — doc/sensors.md 1.2/9.2. Its LENGTH is the number the whole anti-cheat promise
-# hangs on, so it is printed at the end of a run: a reader added anywhere in the tree moves it, and a
-# human reading the gate's output sees that it moved.
-PERCEPTION_READERS = (
-    "sensors/DatalinkSystem.cpp",
-    "sensors/RadarSystem.cpp",
-    "sensors/RwrSystem.cpp",
-    "sensors/IrstSystem.cpp",
-    "sensors/VisualSystem.cpp",
-    "modules/missile/MissileUplink.cpp",  # a RECEIVER listening to a published emission
-)
-
-# The OWNER side of the same header, which is a different thing and is deliberately counted separately:
-# the client that OWNS the simulation builds the registry and hands it out. It perceives nothing.
-REGISTRY_OWNERS = (
-    # THE SIMULATION LOOP. It builds nothing and reads nothing out of the registry: it hands the borrowed
-    # list DOWN to the modules' sensor slots on the step it owns, which is the owner's role and not a
-    # perceiver's.
-    "missions/MissionSim.h",
-    "missions/MissionSim.cpp",
-    "missions/MissionRunner.h",
-    "missions/MissionRunner.cpp",
-    "missions/MissionBoot.h",
-    # The owner's ordnance book: a released store BECOMES a unit, so the thing that creates it is the
-    # thing that must enter it in the registry. It reads nothing out of it -- Register() is the only
-    # member it names -- which is exactly what separates this list from PERCEPTION_READERS above.
-    "missions/Ordnance.cpp",
-    "clients/AppWasm.cpp",
-)
-
-# THE THIRD CATEGORY, and it is neither a perceiver nor an owner: the DRAWING side. World turns the
-# registry's PUBLISHED poses into render/UnitDraw records once a frame so the picture can show the
-# cast the simulation already has. It is counted separately because the price it pays is different:
-# it reads everything a unit publishes, degrades none of it, and cannot feed anything back — an
-# UnitDraw carries no simulation type, and render/ sits ABOVE modules/ and pilot/ in the rank order,
-# so no module and no pilot can reach it. A reader added here does NOT widen what an AI may know; one
-# added to PERCEPTION_READERS does, which is why the two counts stay apart.
-DRAW_VIEWERS = (
-    "world/World.cpp",
-)
-
-# The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
-# its own directory (inside it, the header is the seam's own implementation detail — Fdm.cpp is
-# FdmBoot's friend by declaration, so hiding the header from it would be theatre).
 RESTRICTED = {
-    "units/UnitRegistry.h": PERCEPTION_READERS + REGISTRY_OWNERS + DRAW_VIEWERS,
     # A DECLARED BELT is judge data. core/ reaches it inside its own directory (MissionFile parses it,
     # MissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
     # not a sensor. This entry is a NARROWING: a pilot able to read a declared zone would know where the
-    # SAMs are without a sensor. doc/air-defence-network.md 7.
+    # SAMs are without a sensor.
     "core/Zone.h": (),
     "fdm/FdmBoot.h": (
         # The only door to a JSBSim initial condition: mission boot and the test harnesses.
@@ -172,7 +120,7 @@ RESTRICTED = {
 
 # WHERE AN ANTENNA MAY BE POINTED FROM, and it is one file. An antenna command is BODY-referenced;
 # three rounds in a row wrote a WORLD angle into one (a controller's true bearing, a range-angle
-# elevation, a spawn-tick pose that was still the identity — doc/pilot.md 2.15, doc/sensors.md). Every
+# elevation, a spawn-tick pose that was still the identity). Every
 # one of them compiled, because both frames are `double` and both are degrees.
 #
 # So the frame became a TYPE (core/BodyAngle.h, obtainable only through a named conversion) and the
@@ -209,7 +157,6 @@ LAYER_NS = {
     "world/terrain": None,   # C island, see C_ISLAND
     "core": "outshine",
     "fdm": "outshine::Fdm",
-    "units": "outshine::Units",
     "sensors": "outshine::Sensors",
     "weapons": "outshine::Weapons",
     "systems": "outshine::Systems",
@@ -293,6 +240,34 @@ def ns_openers(src):
     return opens, fwd
 
 SRC_EXT = (".h", ".cpp")
+
+# THE ONE EDGE THAT STILL POINTS FROM world/ INTO render/. A receiver is an identifier declared
+# `Render::Renderer *x` or `&x` ANYWHERE in world/ (World's member is declared in the header and used
+# in the .cpp), and a driving call is a call on such a receiver whose name Renderer.h actually
+# declares — a name-only match would count world/'s own Ready() as an edge.
+RE_RENDERER_API = re.compile(r"^\s{2}(?:[A-Za-z_][\w:<>,*& ]*?[\s*&])([A-Z][A-Za-z0-9_]*)\s*\(", re.M)
+RE_RENDERER_RECV = re.compile(r"Render::Renderer\s*([*&])\s*([A-Za-z_]\w*)")
+
+
+def render_drivers(files, text):
+    """(call sites, sorted distinct member names) for world/ -> Render::Renderer."""
+    api = set()
+    for p in files:
+        if os.path.basename(p) == "Renderer.h":
+            api = set(RE_RENDERER_API.findall(text[p]))
+    world = [p for p in files if os.path.dirname(p) == "world"]
+    receivers = set()
+    for p in world:
+        receivers |= set(RE_RENDERER_RECV.findall(text[p]))
+    calls, names = 0, set()
+    for p in world:
+        for star, recv in receivers:
+            op = r"->" if star == "*" else r"\."
+            for m in re.finditer(r"\b" + re.escape(recv) + op + r"([A-Z]\w*)\s*\(", text[p]):
+                if m.group(1) in api:
+                    calls += 1
+                    names.add(m.group(1))
+    return calls, sorted(names)
 
 
 def scan(root, prefix=""):
@@ -410,6 +385,7 @@ def main():
                 errors.append(f"FORBIDDEN layer: {p} -> {t} ({os.path.dirname(p)}/ may not see "
                               f"{os.path.dirname(t).split('/')[0]}/)")
 
+    n_drive, drivers = render_drivers(files, text)
     ns_errors, n_ns = check_namespaces(files, text)
     errors += ns_errors
 
@@ -428,11 +404,11 @@ def main():
     print(f"verify-layers: {len(files)} files, {n_edges} internal include(s), "
           f"{len(set(RANK.values()))} layers — no upward include, "
           f"{len(RESTRICTED)} restricted header(s) respected, "
-          f"{len(PERCEPTION_READERS)} registry reader(s) inside the perception boundary, "
-          f"{len(DRAW_VIEWERS)} drawing-side viewer(s), "
+          f"{n_drive} world/ -> Renderer call(s) over {len(drivers)} member(s), "
           f"{len(SLEW_POSTERS)} antenna-cue poster(s), "
           f"{len(TICK_DRIVERS)} simulation-loop driver(s), "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")
+    print(f"verify-layers: world/ drives render/ through: {', '.join(drivers)}")
     return 0
 
 

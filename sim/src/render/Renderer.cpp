@@ -40,13 +40,6 @@ Renderer::Renderer()
     Fwd{0, 0, 0}, Right{0, 0, 0}, Up{0, 0, 0}, Width(0), Height(0), DeviceReady(false),
     DeviceLost(false), Mode(Target::Surface), Blocking(false), Selector(nullptr), FrameNo(0) {}
 
-void Renderer::SetOverlay(OverlayStage *o) {
-  Overlay = o;
-  if (Overlay && DeviceReady)
-    Overlay->Init(Gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance}, Samp,
-                  HdrTex.CreateView());
-}
-
 void Renderer::SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow,
                                   float slopeBandDeg) {
   VegRows.assign((const uint8_t *)rows, (const uint8_t *)rows + rowBytes);
@@ -135,13 +128,13 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
                                       {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
   /* rgba16float and not rg11b10ufloat: the cloud pass blends premultiplied alpha over the HDR target,
-   * and rg11b10 has no alpha channel. Herleitung: doc/render/renderer.md §1.4. */
+   * and rg11b10 has no alpha channel. */
   bool rg11 = false;
   HdrFormat = wgpu::TextureFormat::RGBA16Float;
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
   if (rg11) feats.push_back(wgpu::FeatureName::RG11B10UfloatRenderable);
-  /* The per-pass clock is TELEMETRY and not a mode (doc/core.md), so it is asked for whenever the
+  /* The per-pass clock is TELEMETRY and not a mode, so it is asked for whenever the
    * adapter has it. An adapter without it is not refused a device it could have had — the row then
    * says the stage times are absent. In Chrome the feature needs
    * --enable-dawn-features=allow_unsafe_apis; without it HasFeature is false and this is the branch
@@ -196,14 +189,12 @@ void Renderer::OnDevice(wgpu::Device d) {
   TileLights->Init(gpu);
   Buildings->Configure(gpu, Light());
   Water->Configure(gpu, Light());
-  /* Units and Sprites are Configure()d with the terrain instead: both need the atmosphere LUT views. */
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   BenchGround->Configure(gpu, Light());
   Trees->Configure(gpu, Light());
   CreateClouds();
   CreateResolvePipeline();
-  CreatePresent();          /* also Init()s Upscale (needs FrameTex, created here) */
-  if (Overlay) Overlay->Init(gpu, Samp, HdrTex.CreateView());
+  CreatePresent();          /* also Init()s Present (needs FrameTex, created here) */
   GpuTime.Configure(Device, GpuTimeGranted);
   DeviceReady = true;
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
@@ -255,9 +246,6 @@ void Renderer::CreateTerrainPipeline(void) {
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Tiles->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
                    Light());
-  /* Same air, same LUT, same scene targets: a unit fades into exactly what the terrain fades into. */
-  Units->Configure(gpu, Samp, LutSamp, SkyLUT.CreateView(), AtmoBuf);
-  Sprites->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf);
 }
 
 void Renderer::CreateTileTexture(void) {
@@ -292,13 +280,13 @@ void Renderer::CreateResolvePipeline(void) {
 void Renderer::CreatePresent(void) {
   wgpu::TextureDescriptor td{};   /* the declared size; scene + tonemap + HUD all land here */
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
-  td.format = SurfaceFormat;      /* sRGB: the round-trip through the upscale is identity */
+  td.format = SurfaceFormat;      /* sRGB: the round-trip through the present pass is identity */
   td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
              wgpu::TextureUsage::CopySrc;
   FrameTex = Device.CreateTexture(&td);
 
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
-  Upscale->Configure(gpu, FrameTex.CreateView());
+  Present->Configure(gpu, FrameTex.CreateView());
   Progress->Init(gpu);
 }
 
@@ -361,8 +349,8 @@ void Renderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, double
 }
 
 /* No bakes, no history, no textures: one pipeline over the atmosphere LUTs and the scene depth. Must
- * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group pins).
- * doc/render/clouds.md. */
+ * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group
+ * pins). */
 void Renderer::CreateClouds(void) {
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
 }
@@ -390,9 +378,8 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[3] = (float)((std::sqrt(eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2])
                   - (double)SceneState.Platform.AltM) / 1.0e6);
   put(5, right); put(6, camUp); put(7, fwd);
-  /* The same projection MvpCamRel builds, in the form the sky/cloud ray reconstruction uses: the
-   * pre-grid full-frame tangents plus the SHIFT that moves the boresight up to the windscreen centre
-   * (a[44]). Sky and terrain must agree on the ray or the horizon parts company with the ground. */
+  /* The same projection MvpCamRel builds, in the form the sky/cloud ray reconstruction uses. Sky and
+   * terrain must agree on the ray or the horizon parts company with the ground. */
   const float halfFov = FovDeg * 3.14159265f / 180.0f / 2.0f;
   a[32] = std::tan(halfFov);
   a[33] = (float)Width / (float)Height;
@@ -406,8 +393,8 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[41] = 0.0f;
   a[42] = 0.0f;
   a[43] = 0.0045f * (float)MoonScale;               /* real angular radius x FB_MOON_SCALE (default 1) */
-  a[44] = ViewShiftNdc();
-  a[45] = 0.0f;   /* was the lowest deck base; there are no decks */
+  a[44] = 0.0f;   /* the vec4 stride's spare: nothing rides here */
+  a[45] = 0.0f;   /* the lowest deck base ASL; no source is connected to it */
   /* view.zw — the frame's sub-pixel sample offset in NDC. camRay() subtracts it, because the ray
    * that belongs to a pixel is the one the JITTERED projection would have put there; without it the
    * sun disc's own edge and the sky behind a terrain silhouette would sample half a pixel apart. */
@@ -417,31 +404,23 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
 }
 
 /* Camera-relative: vertices arrive pre-translated by (origin-cam), so the eye is at the ORIGIN and the
- * view is pure rotation — no absolute ECEF coordinate ever reaches float.
- * Herleitung: doc/render/renderer.md §1.2. */
-/* The projection is the PRE-GRID full-frame one — 60 deg over hFull, aspect w/hFull, so pixels per
- * radian is bit for bit what it was before the cockpit existed — plus ONE off-centre term: the
- * boresight is lifted from the frame's centre to the windscreen's (`shift` in NDC). The world is
- * therefore drawn over the WHOLE frame and simply continues behind the MFD bank, which is what lets
- * the bays be translucent; it is a CROP with a shifted principal point, never a squeeze.
- * `shift` = 1 - hVp/hFull, and with hVp == hFull it is 0 and every term is the pre-grid number. */
-/* The SUB-PIXEL SAMPLE POSITION rides on exactly the same term as `shift`: a constant NDC offset on
- * the z column, i.e. a shear of the frustum and not a translation of the world. That is what makes it
- * a camera property — every world-fixed thing keeps its place, and only the grid the rasteriser asks
- * its coverage question on moves (render/TemporalJitter.h). */
+ * view is pure rotation — no absolute ECEF coordinate ever reaches float. */
+/* The SUB-PIXEL SAMPLE POSITION is a constant NDC offset on the z column, i.e. a shear of the frustum
+ * and not a translation of the world. That is what makes it a camera property — every world-fixed
+ * thing keeps its place, and only the grid the rasteriser asks its coverage question on moves
+ * (render/TemporalJitter.h). */
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w,
-                      int hVp, int hFull, float fovDeg, float jitNdcX, float jitNdcY, float orthoM) {
-  const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)hFull;
+                      int h, float fovDeg, float jitNdcX, float jitNdcY, float orthoM) {
+  const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
   const float zn = 0.05f;
   const float f = 1.0f / std::tan(fov / 2.0f);
-  const float shift = 1.0f - (float)hVp / (float)hFull;
   float v[16] = {(float)R[0],  (float)Uc[0],  -(float)F[0],  0,
                  (float)R[1],  (float)Uc[1],  -(float)F[1],  0,
                  (float)R[2],  (float)Uc[2],  -(float)F[2],  0,
                  0,            0,             0,             1};
   /* infinite reversed-Z projection ([0,1]): z_clip = zn, w = -z_eye -> depth = zn / -z_eye.
-   * y_clip = f*y_eye + shift*w, i.e. the z column carries -shift on the y row. */
-  float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, -jitNdcX, -(shift + jitNdcY), 0, -1, 0, 0, zn, 0};
+   * The z column carries the jitter on the x and y rows. */
+  float p[16] = {f / asp, 0, 0, 0, 0, f, 0, 0, -jitNdcX, -jitNdcY, 0, -1, 0, 0, zn, 0};
   if (orthoM > 0.0f) {
     /* A comparison against a map is a comparison against a PARALLEL projection; under perspective the
      * same field is two different shapes at the centre and at the corner. */
@@ -450,7 +429,7 @@ static void MvpCamRel(float *m, const double R[3], const double Uc[3], const dou
     const float q[16] = {1.0f / hw, 0, 0, 0,
                          0, 1.0f / hh, 0, 0,
                          0, 0, rz, 0,
-                         -jitNdcX, -(shift + jitNdcY), zf * rz, 1};
+                         -jitNdcX, -jitNdcY, zf * rz, 1};
     for (int i = 0; i < 16; i++) p[i] = q[i];
   }
   for (int c = 0; c < 4; c++)
@@ -637,19 +616,19 @@ void Renderer::EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView 
   const float scale = std::min((float)SwapW / (float)Width, (float)SwapH / (float)Height);
   const float w = (float)Width * scale, h = (float)Height * scale;
   pass.SetViewport(0.5f * ((float)SwapW - w), 0.5f * ((float)SwapH - h), w, h, 0.0f, 1.0f);
-  Upscale->Encode(ctx, pass);
+  Present->Encode(ctx, pass);
   pass.End();
 }
 
 /* TWO PASSES INSTEAD OF EIGHT, into the same FrameTex the scene uses, so a readback and the display
- * see this frame exactly as they see a scene frame. doc/render/renderer.md §2.2. */
+ * see this frame exactly as they see a scene frame. */
 void Renderer::RenderProgress(float fraction) {
   wgpu::TextureView finalView;
   if (!AcquireTarget(finalView)) return;
   Progress->SetFraction(Queue, fraction);
   FrameNo++;
   FrameContext ctx{};   /* neither stage reads it here; kept for interface uniformity */
-  ctx.Width = Width; ctx.Height = Height; ctx.ViewH = Height; ctx.FovDeg = FovDeg;
+  ctx.Width = Width; ctx.Height = Height; ctx.FovDeg = FovDeg;
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
   {
     wgpu::RenderPassColorAttachment ca{};
@@ -739,7 +718,7 @@ void Renderer::RenderFrame(void) {
   const float jitNdcY = 2.0f * Jitter.PixelY() / (float)Height;
 
   float u[20];
-  MvpCamRel(u, right, camUp, fwd, Width, ViewH(), Height, FovDeg, jitNdcX, jitNdcY, OrthoM);
+  MvpCamRel(u, right, camUp, fwd, Width, Height, FovDeg, jitNdcX, jitNdcY, OrthoM);
   /* ONE sun for terrain diffuse and atmosphere, so sky and ground agree, and it is the ephemeris
    * sun of the scene's declared instant — there is no second, time-independent one to choose. */
   const double elDeg = SceneState.Env.SunElDeg, azDeg = SceneState.Env.SunAzDeg;
@@ -775,7 +754,7 @@ void Renderer::RenderFrame(void) {
   ctx.CloudCover = SceneState.Env.CloudCover;
   ctx.CloudLow = SceneState.Env.CloudLow; ctx.CloudMid = SceneState.Env.CloudMid; ctx.CloudHigh = SceneState.Env.CloudHigh;
   ctx.CloudBaseAGL = SceneState.Env.CloudBaseAglM; ctx.AltM = SceneState.Platform.AltM;
-  ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height; ctx.ViewH = ViewH();
+  ctx.FrameNo = FrameNo; ctx.Width = Width; ctx.Height = Height;
   ctx.FovDeg = FovDeg;
   /* THE PREVIOUS FRAME, as the three things a motion vector needs. On the first frame the previous
    * matrix IS this one and the history is declared invalid, so nothing is blended against a buffer
@@ -791,15 +770,12 @@ void Renderer::RenderFrame(void) {
    * how fast the bench happens to run (CLAUDE.md, Prinzip 5). */
   ctx.Dt = 1.0f / 60.0f;
 
-  if (Overlay) Overlay->Update(ctx);
-
   GpuTime.BeginFrame();
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
 
   /* PASS TOPOLOGY IS A CONTRACT: only this function opens and closes passes — a stage draws into the
    * borrowed encoder — and a stage split must never change this count. Hence the tally + the periodic
-   * log below, so a before/after diff is readable straight from the telemetry.
-   * Vollständige Encode-Reihenfolge: doc/render/renderer.md §2. */
+   * log below, so a before/after diff is readable straight from the telemetry. */
   int passCount = 0;
 
   /* Once per frame — TODO cache while the sun is static. */
@@ -920,13 +896,7 @@ void Renderer::RenderFrame(void) {
   Trees->SetSun(ctx.SunDir, NightAmbient(ctx));
   Trees->Encode(ctx, scene);   /* the subject bench's plant, same pass, same light; self-gates off */
 
-  /* Units belong right after the terrain, effect billboards right before the HUD — that placement is
-   * the contract. SpritesStage is still NoOp; both self-gate, so an empty world records nothing. */
-  Units->Encode(ctx, scene);
-
   TileLights->Encode(ctx, scene);   /* night lights, depth-tested so hills occlude far ones; self-gates */
-
-  Sprites->Encode(ctx, scene);
   scene.End();
 
 
@@ -976,36 +946,15 @@ void Renderer::RenderFrame(void) {
     taa.End();
   }
 
-  /* THE VEHICLE'S OVERLAY. Same target, loadOp Load to preserve the tonemapped scene. The `if` sits
-   * OUTSIDE the pass on purpose: an empty pass would still be a pass, and the pass count is the
-   * invariant. Everything an equipped body draws here — symbology, map sheet, sensor video — is ONE
-   * pass however many stages the overlay owns. */
-  const bool overlayPass = Overlay && Overlay->Active();
-  if (overlayPass) {
-    wgpu::RenderPassColorAttachment hca{};
-    hca.view = frameView;
-    hca.loadOp = wgpu::LoadOp::Load;
-    hca.storeOp = wgpu::StoreOp::Store;
-    wgpu::RenderPassDescriptor hp{};
-    hp.colorAttachmentCount = 1;
-    hp.colorAttachments = &hca;
-    hp.timestampWrites = GpuTime.Writes(GpuTimer::Overlay);
-    wgpu::RenderPassEncoder ov = enc.BeginRenderPass(&hp);
-    passCount++;
-    Overlay->Encode(ctx, ov);
-    ov.End();
-  }
-
   EncodePresent(enc, finalView, ctx, GpuTime.Writes(GpuTimer::Present));   /* bilinear (TODO bicubic/sharpen) */
   passCount++;
 
   /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
-   * native-oracle run must still capture it), then every 300. Expected: 7 bare, 8 with an overlay,
-   * +1 with a cloud deck. */
+   * native-oracle run must still capture it), then every 300. Expected: 7, +1 with a cloud deck. */
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
-    Log::Debug("render", "passcount", {{"passes", passCount}, {"overlay", overlayPass}});
+    Log::Debug("render", "passcount", {{"passes", passCount}});
   }
 
   GpuTime.Resolve(enc);

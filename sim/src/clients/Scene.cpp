@@ -230,7 +230,7 @@ bool Scene::ReadRuns(const Ref &node, std::string &err) {
     }
     Runs_.push_back(out);
   }
-  /* THE SUBJECT BENCH REPLACES THE WORLD (doc/goal.md §3) — no tiles, no OSM, no DEM — so it cannot
+  /* THE SUBJECT BENCH REPLACES THE WORLD — no tiles, no OSM, no DEM — so it cannot
    * share a scene with a run that needs one. */
   for (const Run &r : Runs_)
     if (r.What == Run::Kind::Subject && Runs_.size() != 1) {

@@ -11,7 +11,6 @@
 #                 machine-checked matrix
 #   make verify-clients  both main()s are entry points and nothing else, and the scene is built in
 #                 exactly one place -- what one client shows, the other cannot fail to show
-#   make verify-types  what src/ still knows about concrete aircraft types (rc=1 while > 0)
 #   make image    build the deployable fb-sim web container (podman)
 #   make up       run the web host container (serves the WASM app on :8080)
 #   make clean    remove build artifacts
@@ -49,11 +48,10 @@ CURL_COMPAT  := vendor/.compat-headers
 
 # Shared include roots (flat -I per module dir; #include stays bare-filename — which is why moving a
 # file between these directories touches no source line). The directories ARE the layers `make
-# verify-layers` enforces: core = shared value types and services (State/Mode/Camera/Mat4/Geodesy/
-# telemetry/elevation); units = the world-entity identity/pose the renderer draws; render = Renderer +
-# the WebGPU stages; world = World/tile streaming, with world/terrain the lean terrain API under it;
-# clients = the entry points.
-INC_MODULES := -Isrc/core -Isrc/render -Isrc/world -Isrc/units
+# verify-layers` enforces: core = shared value types and services (State/Camera/Mat4/Geodesy/
+# telemetry/elevation); render = Renderer + the WebGPU stages; world = World/tile streaming, with
+# world/terrain the lean terrain API under it; clients = the entry points.
+INC_MODULES := -Isrc/core -Isrc/render -Isrc/world
 INC_CLIENT := -Isrc/clients
 INC_WASM   := $(INC_MODULES) -Isrc/world/terrain
 INC_NATIVE := $(INC_MODULES) -Isrc/world/terrain
@@ -71,7 +69,7 @@ RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
 # THE PEDESTRIAN, ONE LIST FOR BOTH CLIENTS: render/ + world/ + exactly the core/ implementations
 # those two reference. gpu_walk and the browser link the SAME engine, which is what makes a PNG from
 # one a statement about the other.
-# THE TREE GENERATOR: one mesh out of one species declaration (doc/render/vegetation.md). Linked into
+# THE TREE GENERATOR: one mesh out of one species declaration. Linked into
 # both clients so that the layer under construction is held to the same -Werror on both toolchains; the
 # consumer is the next layer, and `treebench` is what measures it today.
 TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLeaf.cpp \
@@ -102,7 +100,7 @@ WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm worker walk treebench verify-layers verify-types verify-clients image up down restart clean
+.PHONY: help wasm worker walk treebench verify-layers verify-clients image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -188,12 +186,6 @@ verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_
 # one translation unit.
 verify-clients:  ## check that both entry points are entry points and share one scene builder
 	@cd $(SELF_DIR) && python3 tools/verify_clients.py
-
-# The Prinzip-3 METER, and unlike its siblings it is RED on purpose: it counts what the engine still
-# knows about named aircraft types, broken down by how expensive each mention is to remove. Not part
-# of the green gate until the count reaches 0 -- tools/verify_types.py says why.
-verify-types:    ## count what src/ still knows about concrete aircraft types (rc=1 while > 0)
-	@cd $(SELF_DIR) && python3 tools/verify_types.py $(ARGS)
 
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .
