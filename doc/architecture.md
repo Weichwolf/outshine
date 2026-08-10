@@ -34,6 +34,15 @@ device, and until then no number here is more than a guess.
 the picture is geometry, it is measured in hundreds of megabytes, and today it has a visibility rule and
 no budget. A pool that cannot say what it holds cannot be asked to give any back.
 
+**Picture data lives on the device and is cached there. The processor keeps a handle and a
+time-to-live — never a second copy.** Bytes that have been decoded and uploaded are not kept; eviction is
+a decision about handles, and the residency rule is what decides it.
+
+**The exception is named, and it is the whole of the simulation.** Height, class, footprint, water level
+and occupancy live on the processor, because the server target has no device at all. That is the same
+line the generator contract draws — *draw* belongs to the device, *occupancy* to the processor — and
+moving a simulation answer onto the device would silently delete the server.
+
 **The heap is fixed.** Not because growth is unsafe — shared memory cannot be detached, and the generated
 glue guards every access — but because **a growing heap is not a declared budget, and without a budget no
 consumer has a reason to limit itself.** Fixing it also deletes that per-access guard, including one
