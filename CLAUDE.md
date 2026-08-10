@@ -108,6 +108,16 @@ not a different code path. Analysis happens over the time series; a tile arrival
 p50/p95/p99, never a mean, never a minimum. Every line carries scenario, scene, wasm hash and browser
 version. **A run-wide average is not a baseline** when the quantity drifts across the run.
 
+**There is no verified correct yet, and a measurement here mostly says the tree agrees with itself.**
+Two evaluators that call one function agree by construction; if that function is wrong they are wrong
+together and nothing in the tree can see it. So name which kind a number is — **consistency** (two parts
+of this tree agree), **plausibility** (it has the right order and sign for the physics), or
+**correctness** (it was checked against something outside: measured data, a published dimension, a
+photograph, a survey point). Only the third is evidence about the world, and most of what gets measured
+here is the first. Spend accordingly: another digit of internal agreement is worth less than the first
+external check of the same quantity, and an argument about the last digit of a quantity nothing outside
+has ever confirmed is an argument about nothing.
+
 **Initial load and streaming are two different things.** The initial load holds the world back and shows
 progress — that is what the loading screen is for; Outshine does not warm up. **What streams in during
 play NEVER stalls the pipeline**: fetch and decode run beside the render thread, upload per frame is a
