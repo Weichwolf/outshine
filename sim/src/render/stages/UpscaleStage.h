@@ -1,5 +1,5 @@
-/* Samples the fixed-720p FrameTex onto the target at display resolution. Bilinear; TODO
- * bicubic/sharpen. Used by BOTH present paths — it does not care what filled FrameTex. */
+/* Samples the declared-size FrameTex over the present viewport. Bilinear; TODO bicubic/sharpen.
+ * Used by BOTH present paths — it does not care what filled FrameTex. */
 #ifndef UPSCALESTAGE_H
 #define UPSCALESTAGE_H
 

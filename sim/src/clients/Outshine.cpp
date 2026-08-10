@@ -9,6 +9,7 @@
 #include "Geodesy.h"
 #include "HeapProbe.h"
 #include "Log.h"
+#include "PixelFocalLength.h"
 #include "StackProbe.h"
 #include "TerrainLoader.h"
 
@@ -55,7 +56,8 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
       Stance_{Scene_.Lat(), Scene_.Lon(), Scene_.YawDeg(), Scene_.PitchDeg()},
       WindDeg_(Scene_.WindDeg()),
       WindMs_(Scene_.WindMs()),
-      Clk_((double)Scene_.UtcS()) {
+      Clk_((double)Scene_.UtcS()),
+      W_(PixelFocalLength(Scene_.RenderResolution().Height, Scene_.FovDeg())) {
   /* The thread that builds this object is the one that will draw on it, and this is the earliest
    * moment at which the engine can say so. */
   StackProbe::Enter(StackProbe::Purpose::Frame);
@@ -67,7 +69,10 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
 
 void Outshine::Pump() { PumpMs(0); }
 
-void Outshine::SetFovDeg(double deg) { R_.SetFovDeg(deg); }
+void Outshine::SetFovDeg(double deg) {
+  R_.SetFovDeg(deg);
+  W_.SetPixelFocalLength(PixelFocalLength(Scene_.RenderResolution().Height, deg));
+}
 
 void Outshine::SetExposureCompEv(double ev) {
   Exposure_.CompEv = (float)ev;
@@ -109,6 +114,10 @@ bool Outshine::Prepare(const Gpu &gpu) {
       {"utcS", Clk_}, {"windDeg", WindDeg_}, {"windMs", WindMs_},
       {"cloudCover", Scene_.CloudCover()}, {"sunElDeg", (double)SunEl_},
       {"sunAzDeg", (double)SunAz_}});
+  /* Only a DEVIATION is an event: at the budget size there is nothing to justify. */
+  if (!Scene_.RenderResolution().Why.empty())
+    Log::Info("outshine", "render_size", {{"width", gpu.Width}, {"height", gpu.Height},
+        {"why", Scene_.RenderResolution().Why}});
 
   if (!Mats_.Load(Assets_.GroundMaterials.c_str())) {
     Log::Error("outshine", "ground_materials_failed",
@@ -124,7 +133,7 @@ bool Outshine::Prepare(const Gpu &gpu) {
   R_.SetVegetationTable(Veg_.Rows(), Veg_.RowBytes(), Veg_.BareRockTemplate(),
                         Veg_.Limit().SlopeBandDeg());
   R_.SetSkyClock(Clk_);
-  R_.SetFovDeg(Scene_.FovDeg());
+  SetFovDeg(Scene_.FovDeg());
   R_.SetOrthoM(OrthoM_);
   R_.SetWind(WindDeg_, WindMs_);
   R_.SetExposure(Exposure_);

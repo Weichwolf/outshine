@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """verify-types: HOW MUCH THE ENGINE KNOWS ABOUT NAMED AIRCRAFT TYPES, as a number.
 
-CLAUDE.md Prinzip 3 draws the boundary epistemically: Outshine knows the WORLD, a mod knows only what
-it knows -- and "what an F-16 is" is a mod's knowledge. Today the engine holds a great deal of it. An
+CLAUDE.md principle 4 draws the boundary epistemically: Outshine knows the WORLD, a scenario knows only
+what it knows -- and "what an F-16 is" is a scenario's knowledge. Today the engine holds some of it. An
 intention without a number stays an intention, so this gate counts it the way verify-layers counts
 registry readers: the number shrinks every round, and a round that RAISES it has to say so.
 
@@ -326,7 +326,7 @@ def main():
     sys.stdout.flush()
     if hits:
         print(f"verify-types: FAILED — the engine names {len(by_key)} aircraft type(s) in "
-              f"{len(by_file)} file(s); Prinzip 3 wants none (doc/mods.md)", file=sys.stderr)
+              f"{len(by_file)} file(s); CLAUDE.md principle 4 wants none", file=sys.stderr)
         return 1
     return 0
 

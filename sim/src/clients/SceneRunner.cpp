@@ -116,7 +116,6 @@ int SceneRunner::Dispatch(const Scene::Run &run) {
 int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
   Render::Renderer &R = App_.Renderer();
   World::World &W = App_.Scenery();
-  const Scene::Capture &cap = Scene_.Recording();
   /* The origin is where the run STARTS, not what the file says: a snapshot may have moved the eye
    * before any run began, and a channel in metres is measured from the standpoint it moves. */
   const Outshine::Stance base{App_.Lat(), App_.Lon(), App_.YawDeg(), App_.PitchDeg()};
@@ -144,7 +143,7 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
                                                         : Scene_.WindClockS());
   };
 
-  Settled_ = cap.SettleFrames >= 0 ? cap.SettleFrames : R.TemporalSettleFrames();
+  Settled_ = Scene_.SettleFrames() >= 0 ? Scene_.SettleFrames() : R.TemporalSettleFrames();
   apply(0.0);
   R.ResetTemporal();
   for (int f = 1; f < Settled_; f++) {
@@ -224,11 +223,11 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
         {"meshStands", (double)R.TreeMeshStands()},
         {"impostorStands", (double)R.TreeImpostorStands()},
         {"treeTris", (double)R.TreeTriangleCount()},
-        {"width", (double)Scene_.Recording().Width},
-        {"height", (double)Scene_.Recording().Height}});
+        {"width", (double)Scene_.RenderResolution().Width},
+        {"height", (double)Scene_.RenderResolution().Height}});
   } else {
     Log::Info("run", "stills", {{"path", m.Path}, {"frames", (double)m.Frames},
-        {"w", Scene_.Recording().Width}, {"h", Scene_.Recording().Height}});
+        {"w", Scene_.RenderResolution().Width}, {"h", Scene_.RenderResolution().Height}});
   }
   apply(0.0);
   if (!moves) App_.Look(base);
@@ -340,7 +339,7 @@ int SceneRunner::DumpClasses(const Scene::Run::ClassDumpRun &d) const {
  * the CPU answer. A bijection is 0 % disagreement; the bound is the fray, because the fragment
  * refines the boundary and the CPU does not. */
 int SceneRunner::CompareClasses() const {
-  const int width = Scene_.Recording().Width, height = Scene_.Recording().Height;
+  const int width = Scene_.RenderResolution().Width, height = Scene_.RenderResolution().Height;
   std::vector<uint8_t> viz;
   std::vector<float> depth;
   if (!App_.Renderer().ReadPixels(viz) || !App_.Renderer().ReadDepth(depth)) {
@@ -437,7 +436,7 @@ bool SceneRunner::WritePng(const std::string &name) {
     Log::Error("run", "readback_failed");
     return false;
   }
-  return Out_.Png(name, Rgba_.data(), Scene_.Recording().Width, Scene_.Recording().Height);
+  return Out_.Png(name, Rgba_.data(), Scene_.RenderResolution().Width, Scene_.RenderResolution().Height);
 }
 
 bool SceneRunner::WriteDepth(const std::string &name) const {

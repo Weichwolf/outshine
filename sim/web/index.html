@@ -2,19 +2,19 @@
 <html>
 <head><meta charset="utf-8"><title>Outshine</title>
 <link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#000000">
-<!-- The pedestrian bench: one declared scene (mods/demo/scene.json, preloaded into gpu.data) and
-     nothing to choose. Canvas backbuffer is fixed 1280x720; CSS fits it to the viewport, object-fit
-     contain keeps 16:9 (letterbox, no stretch). -->
+<!-- The pedestrian bench: one declared scene (mods/demo/mod.json, preloaded into gpu.data) and
+     nothing to choose. The canvas fills the viewport and says nothing about the picture's size: the
+     scenario declares that, and the engine letterboxes into whatever this element turns out to be. -->
 <style>
 html,body{margin:0;height:100%;background:#000;color:#c8d2c8;font:14px/1.45 ui-monospace,Menlo,Consolas,monospace}
-canvas{display:block;width:100vw;height:100vh;object-fit:contain}
+canvas{display:block;width:100vw;height:100vh}
 </style>
 </head>
 <body>
-<canvas id="gpu" width="1280" height="720"></canvas>
+<canvas id="gpu"></canvas>
 <script src="config.js"></script>
 <script>
-  // F = fullscreen. The canvas backbuffer stays 1280x720; the browser scales it to the screen.
+  // F = fullscreen.
   window.addEventListener('keydown', function(e){
     if(e.ctrlKey||e.metaKey||e.altKey||e.repeat) return;
     if(e.key==='f'||e.key==='F'){

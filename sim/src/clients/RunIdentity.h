@@ -14,9 +14,11 @@ namespace outshine::Clients {
 class RunIdentity : public TelemetrySource {
 public:
   /* `Build` is the wasm hash in the browser and the binary's hash natively; `Agent` is the browser's
-   * own version string and empty natively, where there is no browser to pin. */
+   * own version string and empty natively, where there is no browser to pin. `RenderW`/`RenderH` are
+   * the scene's declared render size in pixels — the canvas the picture ends up on is not it. */
   struct Fields {
     std::string Mod, Scene, Client, Build, Agent;
+    int RenderW = 0, RenderH = 0;
   };
 
   explicit RunIdentity(const Fields &f) : F_(f) {}
@@ -25,6 +27,8 @@ public:
   void DeclareTelemetry(TelemetrySchema &schema) const override {
     schema.Add("mod");
     schema.Add("scene");
+    schema.Add("renderW", "px");
+    schema.Add("renderH", "px");
     schema.Add("client");
     schema.Add("build");
     schema.Add("agent");
@@ -32,6 +36,8 @@ public:
   void SampleTelemetry(TelemetryRow &row) const override {
     row.Push(F_.Mod);
     row.Push(F_.Scene);
+    row.Push(F_.RenderW);
+    row.Push(F_.RenderH);
     row.Push(F_.Client);
     row.Push(F_.Build);
     row.Push(F_.Agent);

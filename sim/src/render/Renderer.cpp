@@ -68,8 +68,8 @@ void Renderer::Init(const char *canvasSelector, int width, int height) {
   Mode = Target::Surface;
   Blocking = false;
   Selector = canvasSelector;
-  Width = width;
-  Height = height;
+  Width = SwapW = width;
+  Height = SwapH = height;
   Instance = MakeInstance();
   StartAdapterRequest();
 }
@@ -91,8 +91,8 @@ void Renderer::InitOffscreen(int width, int height) {
   Mode = Target::Offscreen;
   Blocking = true;
   Selector = nullptr;
-  Width = width;
-  Height = height;
+  Width = SwapW = width;
+  Height = SwapH = height;
   /* Native Dawn drives Request{Adapter,Device} synchronously: there is no browser event loop here to
    * pump AllowSpontaneous callbacks. */
   Instance = MakeInstance();
@@ -290,7 +290,7 @@ void Renderer::CreateResolvePipeline(void) {
 }
 
 void Renderer::CreatePresent(void) {
-  wgpu::TextureDescriptor td{};   /* fixed 720p; scene + tonemap + HUD all land here */
+  wgpu::TextureDescriptor td{};   /* the declared size; scene + tonemap + HUD all land here */
   td.size = {(uint32_t)Width, (uint32_t)Height, 1};
   td.format = SurfaceFormat;      /* sRGB: the round-trip through the upscale is identity */
   td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
@@ -493,8 +493,6 @@ void Renderer::ConfigureSurface(void) {
   SurfaceFormat = SrgbView(SwapFormat);
   Log::Debug("render", "surface_format", {{"swap", (int)SwapFormat}, {"view", (int)SurfaceFormat},
                                             {"offered", (int)caps.formatCount}});
-  SwapW = Width;
-  SwapH = Height;
   ConfigureSwapchain();
 }
 
@@ -515,21 +513,27 @@ void Renderer::ConfigureSwapchain(void) {
 }
 
 #ifdef __EMSCRIPTEN__
-/* Live canvas backing store = clientSize x devicePixelRatio, packed (w<<16 | h); 0 if it is gone. */
+/* Live canvas backing store = clientSize x devicePixelRatio, packed (w<<16 | h); 0 if it is gone.
+ * The ceiling scales BOTH axes by one factor: clamping them apart would give the backing store a
+ * different aspect from the CSS box, and the browser would stretch the letterboxed picture the
+ * present pass just took care to keep undistorted. */
 EM_JS(int, fb_canvas_px, (const char *sel), {
   var c = document.querySelector(UTF8ToString(sel));
   if (!c) return 0;
   var dpr = window.devicePixelRatio || 1;
   var w = Math.max(1, Math.round(c.clientWidth * dpr)) | 0;
   var h = Math.max(1, Math.round(c.clientHeight * dpr)) | 0;
-  if (w > 4096) w = 4096;
-  if (h > 4096) h = 4096;
+  var over = Math.max(w, h) / 4096;
+  if (over > 1) {
+    w = Math.max(1, Math.floor(w / over)) | 0;
+    h = Math.max(1, Math.floor(h / over)) | 0;
+  }
   return (w << 16) | h;
 })
 #endif
 
-/* Scene + HUD stay fixed 720p; only the swapchain and upscale viewport follow the canvas. The 8 px
- * hysteresis keeps sub-pixel jitter from thrashing the reconfigure. */
+/* Scene + HUD stay at the declared size; only the swapchain and the present viewport follow the
+ * canvas. The 8 px hysteresis keeps sub-pixel jitter from thrashing the reconfigure. */
 void Renderer::SyncSwapSize(void) {
 #ifdef __EMSCRIPTEN__
   if (Mode != Target::Surface || !Selector) return;
@@ -615,6 +619,28 @@ bool Renderer::AcquireTarget(wgpu::TextureView &finalView) {
   return true;
 }
 
+/* THE ONE PLACE THE DECLARED PICTURE MEETS THE DISPLAY. The picture keeps its aspect ratio and is
+ * centred; the target is cleared first, so what the fit does not cover stays black bars. Stretching
+ * to the target instead would make the canvas a second, undeclared statement about the picture. */
+void Renderer::EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
+                             const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps) {
+  wgpu::RenderPassColorAttachment ca{};
+  ca.view = finalView;
+  ca.loadOp = wgpu::LoadOp::Clear;
+  ca.storeOp = wgpu::StoreOp::Store;
+  ca.clearValue = {0, 0, 0, 1};
+  wgpu::RenderPassDescriptor rp{};
+  rp.colorAttachmentCount = 1;
+  rp.colorAttachments = &ca;
+  rp.timestampWrites = timestamps;
+  wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
+  const float scale = std::min((float)SwapW / (float)Width, (float)SwapH / (float)Height);
+  const float w = (float)Width * scale, h = (float)Height * scale;
+  pass.SetViewport(0.5f * ((float)SwapW - w), 0.5f * ((float)SwapH - h), w, h, 0.0f, 1.0f);
+  Upscale->Encode(ctx, pass);
+  pass.End();
+}
+
 /* TWO PASSES INSTEAD OF EIGHT, into the same FrameTex the scene uses, so a readback and the display
  * see this frame exactly as they see a scene frame. doc/render/renderer.md §2.2. */
 void Renderer::RenderProgress(float fraction) {
@@ -634,15 +660,9 @@ void Renderer::RenderProgress(float fraction) {
     Progress->Encode(ctx, pass);
     pass.End();
   }
-  {
-    wgpu::RenderPassColorAttachment uca{};
-    uca.view = finalView; uca.loadOp = wgpu::LoadOp::Clear; uca.storeOp = wgpu::StoreOp::Store;
-    uca.clearValue = {0, 0, 0, 1};
-    wgpu::RenderPassDescriptor upd{}; upd.colorAttachmentCount = 1; upd.colorAttachments = &uca;
-    wgpu::RenderPassEncoder up = enc.BeginRenderPass(&upd);
-    Upscale->Encode(ctx, up);
-    up.End();
-  }
+  /* NO TIMESTAMP: this path neither opens nor resolves a GpuTimer frame, and a query written into a
+   * frame nobody resolves would put a progress bar's present into the scene's per-pass row. */
+  EncodePresent(enc, finalView, ctx, nullptr);
   wgpu::CommandBuffer cmd = enc.Finish();
   Queue.Submit(1, &cmd);
 }
@@ -653,7 +673,7 @@ void Renderer::RenderFrame(void) {
 #endif
   wgpu::TextureView finalView;
   if (!AcquireTarget(finalView)) return;
-  /* Scene + tonemap + HUD all land in the fixed-720p FrameTex; only the upscale pass touches finalView. */
+  /* Scene + tonemap + HUD land in the declared-size FrameTex; only the present writes finalView. */
   wgpu::TextureView frameView = FrameTex.CreateView();
 #ifdef FB_GPU_BISECT
   FrameNo++;
@@ -976,19 +996,8 @@ void Renderer::RenderFrame(void) {
     ov.End();
   }
 
-  /* Present: 720p FrameTex -> finalView, bilinear (TODO bicubic/sharpen). */
-  wgpu::RenderPassColorAttachment uca{};
-  uca.view = finalView;
-  uca.loadOp = wgpu::LoadOp::Clear;
-  uca.storeOp = wgpu::StoreOp::Store;
-  uca.clearValue = {0, 0, 0, 1};
-  wgpu::RenderPassDescriptor upd{};
-  upd.colorAttachmentCount = 1;
-  upd.colorAttachments = &uca;
-  wgpu::RenderPassEncoder upscale = enc.BeginRenderPass(&upd);
+  EncodePresent(enc, finalView, ctx, GpuTime.Writes(GpuTimer::Present));   /* bilinear (TODO bicubic/sharpen) */
   passCount++;
-  Upscale->Encode(ctx, upscale);
-  upscale.End();
 
   /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
    * native-oracle run must still capture it), then every 300. Expected: 7 bare, 8 with an overlay,
@@ -1034,9 +1043,9 @@ void Renderer::SyncGpu(void) {
  * THE SOURCE IS FrameTex AND NOT THE TARGET. Only the offscreen path had a copyable target — on a
  * canvas the swapchain texture is the browser's and carries no CopySrc — so a browser run threw
  * `Failed to read the 'texture' property` on its first readback and the run died there, which is
- * every product the browser never delivered. FrameTex exists in BOTH translations, is the same fixed
- * 720p the upscale reads, and carries CopySrc; reading it makes the two clients read the same
- * texture instead of two different ones. */
+ * every product the browser never delivered. FrameTex exists in BOTH translations, is the same
+ * declared-size picture the present pass reads, and carries CopySrc; reading it makes the two
+ * clients read the same texture instead of two different ones. */
 bool Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!DeviceUsable() || !FrameTex) return false;
   const uint32_t bpp = 4;

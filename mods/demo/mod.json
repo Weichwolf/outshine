@@ -15,7 +15,8 @@
       "utc": "2026-08-06T17:40:00Z",
       "windDeg": 250,
       "windMs": 6.0,
-      "cloudCover": 0.55
+      "cloudCover": 0.55,
+      "render": { "width": 1280, "height": 720 }
     },
     {
       "id": "frame",
@@ -30,7 +31,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "walk.png" }
       ]
@@ -48,7 +49,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "depth.png",
           "depth": "depth.f32" }
@@ -68,7 +69,8 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 512, "height": 512 },
+      "render": { "width": 512, "height": 512,
+        "why": "square: the run draws one map tile straight down, so the picture's aspect is the tile's" },
       "runs": [
         { "kind": "motion", "frames": 1, "give": "stills", "path": "ortho.png" }
       ]
@@ -86,7 +88,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -119,7 +121,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -156,7 +158,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         {
           "kind": "motion",
@@ -193,7 +195,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "classDump", "path": "classes.bin", "spanM": 400, "stepM": 0.05 },
         { "kind": "motion", "frames": 1, "give": "stills", "path": "classes.png" },
@@ -213,7 +215,8 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 320, "height": 180 },
+      "render": { "width": 320, "height": 180,
+        "why": "the product is a wind CSV and no picture is delivered; the frame only has to exist" },
       "runs": [
         { "kind": "windProbe", "path": "wind.csv", "samples": 512, "frames": 240,
           "dxM": 0.03, "dtS": 0.0333333333 }
@@ -232,7 +235,8 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "capture": { "width": 640, "height": 360 },
+      "render": { "width": 640, "height": 360,
+        "why": "24 stills of one sky over three hours, judged for colour and not for detail" },
       "runs": [
         {
           "kind": "motion",
@@ -265,7 +269,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.0,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "subject", "species": "buche", "dir": "bench", "turnSteps": 8, "leafMult": 1,
           "foliage": "leaves" }
@@ -284,7 +288,7 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.0,
-      "capture": { "width": 1280, "height": 720 },
+      "render": { "width": 1280, "height": 720 },
       "runs": [
         { "kind": "subject", "template": "wiese", "dir": "bench-wiese", "turnSteps": 8 }
       ]

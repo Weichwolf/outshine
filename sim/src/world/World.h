@@ -35,7 +35,10 @@ struct TrailStyle {
 
 class World {
 public:
-  World();
+  /* `pixelFocalLength` is core/PixelFocalLength.h's, in pixels of the DECLARED frame — the terrain
+   * ladder and the vegetation ladder measure their screen-space error against the same number, and a
+   * default here would be a second place saying how large the picture is. */
+  explicit World(double pixelFocalLength);
   /* Closes the tile stream, which on both platforms means retiring whatever is still fetching or
    * meshing off this thread. A pool outliving its process is a crash at static destruction. */
   ~World();
@@ -138,6 +141,9 @@ public:
    * existence depends on the light around it — a jet does not switch on its position lights because the
    * renderer feels like it, and one picture may not have two nights in it. */
   void SetSunElevationDeg(float deg) { SunElDeg = deg; }
+
+  /* The field of view is an animation channel, so the ladder has to be able to follow it mid-run. */
+  void SetPixelFocalLength(double px) { PixelFocal_ = px; }
 
 private:
   struct Node {
@@ -245,6 +251,7 @@ private:
   const WeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
   const VegetationTemplates *Veg_ = nullptr;  /* borrowed, see SetVegetation's banner */
 
+  double PixelFocal_;
   Render::Renderer *R;
   int TS;
   double ViewM, Lat0, Lon0;

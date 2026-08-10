@@ -297,9 +297,11 @@ private:
 
   void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + Tiles->Configure() */
   void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
-  void CreatePresent(void);           /* fixed-720p frame target + the display upscale pass */
+  void CreatePresent(void);           /* declared-size frame target + the present pass over it */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
   bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
+  void EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
+                     const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps);
   static wgpu::Instance MakeInstance(void);           /* the one instance descriptor both paths use */
   void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
   void CreateAtmosphere(void);        /* Hillaire LUT/uniform/moon resources + Configure()s the atmosphere stages */
@@ -362,7 +364,7 @@ private:
   std::unique_ptr<WaterStage> Water = std::make_unique<WaterStage>();
   std::unique_ptr<TreeStage> Trees = std::make_unique<TreeStage>();
 
-  /* The whole frame lands in a FIXED 720p FrameTex; only the upscale pass follows the display size. */
+  /* The whole frame lands in a FrameTex of the DECLARED size; only the present follows the display. */
   wgpu::Texture FrameTex;
   std::unique_ptr<UpscaleStage> Upscale = std::make_unique<UpscaleStage>();
   std::unique_ptr<ProgressStage> Progress = std::make_unique<ProgressStage>();

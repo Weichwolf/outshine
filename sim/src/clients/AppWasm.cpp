@@ -240,9 +240,10 @@ bool Boot(void) {
   Log::SetSink(&both);
 
   /* THE BROWSER VERSION IS PART OF EVERY MEASUREMENT (CLAUDE.md), and only the page can say it. */
+  const Clients::Scene::Resolution &res = gScene->RenderResolution();
   gIdentity = std::make_unique<Clients::RunIdentity>(Clients::RunIdentity::Fields{
       modName, sceneId, "wasm", PageValue("(window.FB_BUILD||'').toString()", ""),
-      PageValue("navigator.userAgent", "")});
+      PageValue("navigator.userAgent", ""), res.Width, res.Height});
   gTelemetry = std::make_unique<Clients::ServerTelemetry>(gSimUrl, gLog->RunId());
   gArtifacts = std::make_unique<Clients::ServerArtifacts>(gSimUrl, gLog->RunId());
   gApp = std::make_unique<Clients::Outshine>(*gScene, kAssets);
@@ -250,13 +251,10 @@ bool Boot(void) {
   gApp->SetTelemetrySink(gTelemetry.get());
   gApp->SetTilesBase(PageValue("(window.FB_TILES_URL||'http://localhost:8081').toString()",
                                "http://localhost:8081"));
-  const Clients::Scene::Capture &cap = gScene->Recording();
-  const bool record = gScene->What() == Clients::Scene::Kind::Run;
-  /* A RUN SCENE IS THE SAME RUN IN THIS TRANSLATION. The canvas is the target either way — the
-   * offscreen path is native Dawn's and there is no second one here — so a recording simply asks
-   * for the declared frame size and reads its own picture back. Only PREPARE here: the subject
-   * bench stops between the two phases (Outshine.h), and it is the run that decides. */
-  return gApp->Prepare({kCanvas, record ? cap.Width : 1280, record ? cap.Height : 720});
+  /* The canvas is the target either way — the offscreen path is native Dawn's and there is no second
+   * one here — and it contributes nothing but its own size to scale to. Only PREPARE here: the
+   * subject bench stops between the two phases (Outshine.h), and it is the run that decides. */
+  return gApp->Prepare({kCanvas, res.Width, res.Height});
 }
 
 /* THE DECLARED RUN, IN THE BROWSER. Same SceneRunner, same order, same numbers to compare against —

@@ -1,5 +1,6 @@
 #include "TreeStage.h"
 
+#include "PixelFocalLength.h"
 #include "SceneTargets.h"
 #include "SceneScale.h"
 /* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
@@ -753,10 +754,10 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   north[1] = up[2] * east[0] - up[0] * east[2];
   north[2] = up[0] * east[1] - up[1] * east[0];
 
-  /* THE ONLY DISTANCE IN THIS FILE, and it is derived rather than declared: f_px is the focal length
-   * in pixels, the impostor's texel is the model-space error, and the mesh rank ends where that error
-   * reaches one pixel. Resolution and FOV therefore move the rank on their own. */
-  const double fPx = 0.5 * (double)ctx.Height / std::tan(0.5 * (double)ctx.FovDeg * 0.017453292519943295);
+  /* THE ONLY DISTANCE IN THIS FILE, and it is derived rather than declared: the impostor's texel is
+   * the model-space error, and the mesh rank ends where that error reaches one pixel. Resolution and
+   * FOV therefore move the rank on their own. */
+  const double fPx = PixelFocalLength(ctx.Height, (double)ctx.FovDeg);
   MeshRadius = HeightM * fPx / (double)kCellPx;
   /* Rank k ends where rank k+1's own error first stays under a pixel; the last one ends at the
    * impostor. The stands arrive sorted, so every rank is a contiguous range. */

@@ -84,9 +84,10 @@ bool Scene::Read(const Ref &node, std::string &err) {
   if (!Optional(node, "orthoM", 0.0, 1.0e6, OrthoM_, err)) return false;
   if (node["snapshot"].GetKind() == JKind::String) Snapshot_ = node["snapshot"].Str();
 
-  if (!ReadExposure(node, err)) return false;
+  if (!ReadExposure(node, err) || !ReadResolution(node, err)) return false;
+  if (!OptionalInt(node, "settleFrames", -1.0, 4096.0, SettleFrames_, err)) return false;
   if (Kind_ != Kind::Run) return true;
-  return ReadCapture(node, err) && ReadRuns(node, err);
+  return ReadRuns(node, err);
 }
 
 /* "exposure": { "mode": "auto"|"manual", "keyEv"|"compEv": <stops> }
@@ -118,18 +119,30 @@ bool Scene::ReadExposure(const Ref &node, std::string &err) {
   return true;
 }
 
-bool Scene::ReadCapture(const Ref &node, std::string &err) {
-  const Ref c = node["capture"];
-  if (c.GetKind() != JKind::Object) {
-    err = "scene " + Id_ + ": a run scene needs a capture object";
+/* "render": { "width": <px>, "height": <px>, "why": "<reason>" }
+ * Absent -> the budget's 1280x720. The reason is REQUIRED for any other size and refused when
+ * missing: a size nobody justified is how the budget's subject drifts without anyone noticing. */
+bool Scene::ReadResolution(const Ref &node, std::string &err) {
+  const Ref r = node["render"];
+  if (r.GetKind() == JKind::Invalid) return true;
+  if (r.GetKind() != JKind::Object) {
+    err = "scene " + Id_ + ": render is not an object";
     return false;
   }
   double w = 0.0, h = 0.0;
-  if (!Need(c, "width", 16.0, 8192.0, w, err)) return false;
-  if (!Need(c, "height", 16.0, 8192.0, h, err)) return false;
-  Capture_.Width = (int)w;
-  Capture_.Height = (int)h;
-  if (!OptionalInt(c, "settleFrames", -1.0, 4096.0, Capture_.SettleFrames, err)) return false;
+  if (!Need(r, "width", 16.0, 8192.0, w, err)) return false;
+  if (!Need(r, "height", 16.0, 8192.0, h, err)) return false;
+  Resolution_.Width = (int)w;
+  Resolution_.Height = (int)h;
+  const bool budget = Resolution_.Width == kBudgetWidth && Resolution_.Height == kBudgetHeight;
+  if (r["why"].GetKind() == JKind::String) Resolution_.Why = r["why"].Str();
+  if (!budget && Resolution_.Why.empty()) {
+    err = "scene " + Id_ + ": render " + std::to_string(Resolution_.Width) + "x" +
+          std::to_string(Resolution_.Height) + " is not the budget's " +
+          std::to_string(kBudgetWidth) + "x" + std::to_string(kBudgetHeight) +
+          " and states no why";
+    return false;
+  }
   return true;
 }
 

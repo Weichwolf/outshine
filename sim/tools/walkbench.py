@@ -57,15 +57,15 @@ def summarise(rows, key):
 
 def stage(binary, args, speed_ms, out_csv):
     """One stage: `frames` frames at `speed_ms` east plus a constant yaw rate, as ONE declared
-    motion run -- two keyframes per channel, LINEAR, and the frame count is the run's own."""
-    w, h = args.size.split("x")
+    motion run -- two keyframes per channel, LINEAR, and the frame count is the run's own. The
+    render size is the scene's own declaration and not this bench's: an observation that sets the
+    subject's size is measuring something it chose."""
     fps = 1.0 / args.dt
     scene = {
         "id": "bench", "kind": "run",
         "lat": 52.10602, "lon": 9.43453, "eyeM": 1.70,
         "yawDeg": 280, "pitchDeg": 0, "fovDeg": 60,
         "utc": "2026-08-06T17:40:00Z", "windDeg": 250, "windMs": 6.0, "cloudCover": 0.55,
-        "capture": {"width": int(w), "height": int(h)},
         "runs": [{
             "kind": "motion", "frames": args.frames, "fps": fps,
             "world": "streaming", "give": "profile", "path": os.path.basename(out_csv),
@@ -118,7 +118,6 @@ def main():
     ap.add_argument("--bin", default="build/gpu_walk")
     ap.add_argument("--frames", type=int, default=600)
     ap.add_argument("--dt", type=float, default=1.0 / HZ)
-    ap.add_argument("--size", default="1280x720")
     ap.add_argument("--base", default="")
     ap.add_argument("--speeds", default="1.4,4.2,15,150",
                     help="m/s: walk, jog, vehicle, and one far past anything a body does")
@@ -135,8 +134,7 @@ def main():
     os.makedirs(work, exist_ok=True)
     binhash = hashlib.md5(open(args.bin, "rb").read()).hexdigest()
     print("binary %s  md5 %s" % (args.bin, binhash))
-    print("frames %d  dt %.5f s  yaw %.1f deg/s  size %s"
-          % (args.frames, args.dt, args.yaw_rate, args.size))
+    print("frames %d  dt %.5f s  yaw %.1f deg/s" % (args.frames, args.dt, args.yaw_rate))
     print()
 
     bad = []

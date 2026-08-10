@@ -18,7 +18,7 @@ namespace outshine::Render {
 class GpuTimer {
 public:
   /* Order is the query order and the log's column order. Add one, add its Writes() call. */
-  enum Pass { Compute, Shadow, Scene, Cloud, Ao, Taa, Tonemap, Overlay, kPassCount };
+  enum Pass { Compute, Shadow, Scene, Cloud, Ao, Taa, Present, Overlay, kPassCount };
 
   /* NO ENVIRONMENT GATE. An environment variable is not an interface in a browser, and the frame
    * spectrum is telemetry rather than a bench mode (doc/core.md): it runs whenever the device grants

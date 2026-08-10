@@ -30,9 +30,11 @@ public:
   struct Assets {
     std::string Vegetation, GroundMaterials, Species, Moon;
   };
+  /* The size is the SCENE's (clients/Scene.h) and has no default here: a default would be a second
+   * place stating the budget's resolution, and the two would drift the moment one was measured. */
   struct Gpu {
     const char *Canvas = nullptr;   /* null = offscreen */
-    int Width = 1280, Height = 720;
+    int Width, Height;
   };
   struct Stance {
     double Lat = 0.0, Lon = 0.0, YawDeg = 0.0, PitchDeg = 0.0;

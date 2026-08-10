@@ -27,12 +27,13 @@ class Scene {
 public:
   enum class Kind { Interactive, Run };
 
-  /* The frame, and how much temporal history every delivered frame carries. `SettleFrames` < 0 asks
-   * the renderer for its own settle length, which is the only honest default for a number the
-   * renderer owns. There is no warm-up to bracket: the load runs until the world is there. */
-  struct Capture {
-    int Width = 1280, Height = 720;
-    int SettleFrames = -1;
+  /* THE SIZE THE PICTURE IS PRODUCED AT, in pixels, declared by the scene and by nothing else — no
+   * window, no canvas, no display. 1280x720 is the frame budget's subject [SET, doc/architecture.md];
+   * a scene wanting another size has to say why, and the parser refuses one that does not. */
+  static constexpr int kBudgetWidth = 1280, kBudgetHeight = 720;
+  struct Resolution {
+    int Width = kBudgetWidth, Height = kBudgetHeight;
+    std::string Why;
   };
 
   /* ONE PRODUCT OF A RUN SCENE. Each kind reads its own parameter object rather than a shared flag
@@ -115,12 +116,15 @@ public:
   const std::string &Snapshot() const { return Snapshot_; }
 
   const Render::ExposureParams &Exposure() const { return Exposure_; }
-  const Capture &Recording() const { return Capture_; }
+  const Resolution &RenderResolution() const { return Resolution_; }
+  /* How much temporal history every delivered frame carries; < 0 asks the renderer for its own
+   * settle length, which is the only honest default for a number the renderer owns. */
+  int SettleFrames() const { return SettleFrames_; }
   const std::vector<Run> &Runs() const { return Runs_; }
 
 private:
   bool ReadExposure(const Render::Json::Ref &node, std::string &err);
-  bool ReadCapture(const Render::Json::Ref &node, std::string &err);
+  bool ReadResolution(const Render::Json::Ref &node, std::string &err);
   bool ReadRuns(const Render::Json::Ref &node, std::string &err);
   bool ReadMotion(const Render::Json::Ref &node, Run &run, std::string &err);
 
@@ -132,8 +136,9 @@ private:
   double WindDeg_ = 0.0, WindMs_ = 0.0, CloudCover_ = 0.0, WindClockS_ = 0.0;
   double ViewKm_ = 60.0, OrthoM_ = 0.0;
   bool HasLensAslM_ = false;
+  int SettleFrames_ = -1;
   Render::ExposureParams Exposure_;
-  Capture Capture_;
+  Resolution Resolution_;
   std::vector<Run> Runs_;
 };
 

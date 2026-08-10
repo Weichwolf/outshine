@@ -93,8 +93,8 @@ public:
   }
 
   /* The tip angle away from the blade's own rest tangent, radians. The closed form of the
-   * boundary-value problem, solved and fitted in sim/tools/elastica.py: max |error| 0.2702 deg and
-   * 0.65 % relative against the solved family over Cy 0.02..44.4. Both ENDS are derived and cannot be
+   * boundary-value problem, fitted against its numerical solution: max |error| 0.2702 deg and
+   * 0.65 % relative over Cy 0.02..44.4. Both ENDS are derived and cannot be
    * moved by the three coefficients — slope Cy/6 at zero load is the linear cantilever, and pi/2 at
    * infinite load is a blade lying in the flow. */
   static double TipAngleRad(double cauchy) {

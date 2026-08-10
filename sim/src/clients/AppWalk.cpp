@@ -46,12 +46,14 @@ int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
   Clients::Outshine app(scene, kAssets);
   Clients::ServerTelemetry telemetry(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), runId);
   /* Natively there is no browser to pin, and an invented agent string would be worse than none. */
-  Clients::RunIdentity identity({id.Mod, id.Scene, id.Client, id.Build, ""});
+  Clients::RunIdentity identity({id.Mod, id.Scene, id.Client, id.Build, "",
+                                 scene.RenderResolution().Width, scene.RenderResolution().Height});
   app.SetTelemetryIdentity(&identity);
   app.SetTelemetrySink(&telemetry);
   app.SetTilesBase(Clients::Env("OUTSHINE_TILES", "http://localhost:8081"));
   if (!Stand(scene, app)) return 1;
-  if (!app.Prepare({nullptr, scene.Recording().Width, scene.Recording().Height})) return 1;
+  if (!app.Prepare({nullptr, scene.RenderResolution().Width, scene.RenderResolution().Height}))
+    return 1;
 
   Clients::FileArtifacts out(Clients::Env("OUTSHINE_OUT", "."));
   Clients::SceneRunner runner(app, scene, out);

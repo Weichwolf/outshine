@@ -36,10 +36,7 @@ static const int kAnchorZ = 10;
 static const int kGrace = 180;                 /* passes unasked before eviction (lru.h hysteresis) */
 static const double kEarthCirc = 40075016.686;
 /* LOD is PURELY distance-based: height variance is deliberately NOT in the decision, so a flat near
- * tile refines as far as a rugged one at the same distance (equal albedo resolution by distance).
- * kSseK = H / (2 tan(fov/2)) is the pixel focal length.
- * Herleitung + Konstantentabelle: doc/world/terrain.md, Abschnitt 2.2. */
-static const double kSseK = 720.0 / (2.0 * 0.57735026919);   /* H / (2 tan(fov/2)) */
+ * tile refines as far as a rugged one at the same distance (equal albedo resolution by distance). */
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
 /* Quads per tile edge, and it is the ZERO POINT of the whole LOD chain: the cluster DAG's level 0 IS
  * this mesh, so no tolerance below its own decimation error can ever be honoured. kEdgeTau/kGrid is
@@ -55,8 +52,9 @@ static inline uint64_t Key(int z, long x, long y) {
 }
 static std::unordered_map<uint64_t, int> gIndex;
 
-World::World()
-  : R(nullptr), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
+World::World(double pixelFocalLength)
+  : PixelFocal_(pixelFocalLength),
+    R(nullptr), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0), MeshVram(0),
     NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
 
@@ -226,7 +224,7 @@ bool World::WantSplit(int z, long x, long y, const double eye[3]) const {
   if (z >= kMaxZ || (int)Nodes.size() >= kNodeCeil) return false;
   double c[3]; Center(z, x, y, c);
   double dist = Dist(c, eye); if (dist < 1.0) dist = 1.0;
-  return SpanM(z) * kSseK / dist > kEdgeTau;
+  return SpanM(z) * PixelFocal_ / dist > kEdgeTau;
 }
 
 int World::Find(int z, long x, long y) const {
@@ -449,8 +447,8 @@ void World::AddUnitEffects(const Units::Unit &u, const Units::UnitSignature &sig
   if (SpriteDraws_.size() >= kMaxSpriteDraws) return;
 
   /* 1 — THE NOZZLE. The bit is `Afterburner`, published off the ENGINE (units/SimUnit), and it is
-   * the whole visible difference: an F-16 at military power shows no flame at all, in augmentation it
-   * shows several metres of one. Nothing finer is published, so nothing finer is drawn. Never for the
+   * the whole visible difference: a turbofan at military power shows no flame at all, in augmentation
+   * it shows metres of one. Nothing finer is published, so nothing finer is drawn. Never for the
    * eye unit: its own nozzle is six metres behind the camera. */
   float nzOff[3], nzRad = 0.0f;
   if (!isEye && sig.Afterburner && sig.Visual.TypeName[0] && R &&

@@ -2,7 +2,7 @@
 
 namespace outshine::Render {
 
-/* A fullscreen triangle sampling FrameTex linearly onto the target at display resolution. */
+/* A triangle covering the viewport, sampling FrameTex linearly. */
 static const char *kUpscaleWGSL = R"(
 @group(0) @binding(0) var samp : sampler;
 @group(0) @binding(1) var frame : texture_2d<f32>;
