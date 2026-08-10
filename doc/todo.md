@@ -114,6 +114,11 @@ infrastructure.
   size, or callback-driven readbacks that remove the need entirely. The second is the end state. Measure
   one against the other with pinned builds — never in the same round as a concurrency change.
 - **Heap telemetry.** There is none. Until it exists, no statement about the memory budget has provenance.
+- **The wasm link's optimisation level is an artefact, not a decision.** Everything else in the tree
+  builds at the higher level; the browser link and one translation unit inside it do not, and no comment
+  or measurement says why — it rode in with a pivot commit. Measure the levels against build time, module
+  size and the moving-camera distribution, then set it deliberately. A development build may differ from
+  what ships, but then it says so.
 
 ## Small things that become traps if they wait
 
