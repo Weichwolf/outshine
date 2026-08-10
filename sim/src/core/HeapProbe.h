@@ -20,10 +20,10 @@ public:
   static size_t PeakBytes();
   static void Sample();
 
-  /* The wall, read off the link rather than declared a second time here: once the heap is fixed this
-   * IS the linear memory, and a growing one reports the maximum it may reach. 0 where the platform
-   * has no such wall, which is every native host. */
-  static size_t CeilingBytes();
+  /* The linear memory itself — what the module reserved at instantiation and, the heap being fixed,
+   * for as long as it runs. Read off the module rather than declared a second time here. 0 where
+   * there is no such thing, which is every native host. */
+  static size_t ReservedBytes();
 };
 
 } // namespace outshine

@@ -22,6 +22,10 @@ constexpr size_t kLiveMargin = 4096;
  * KiB it leaves a factor of two and a half, and a thread that outruns it says so — Peak reaches
  * Limit rather than passing it. */
 constexpr size_t kPaintSpan = 512u * 1024u;
+/* The toolchain writes its own stack-overflow cookie at the deepest address of the stack and aborts
+ * when it no longer reads back — so the paint stops short of it and the two instruments coexist:
+ * this one says how deep the thread went, that one says when it went past the end. */
+constexpr size_t kToolchainCookie = 16;
 
 struct Slot {
   std::atomic<size_t> Peak{0};
@@ -72,9 +76,13 @@ void Raise(std::atomic<size_t> &target, size_t value) {
 void StackProbe::Enter(Purpose purpose) {
   uintptr_t base = 0, end = 0, current = 0;
   ThisStack(&base, &end, &current);
-  if (base == 0 || current < end + kLiveMargin + sizeof(uint64_t)) return;
+  const uintptr_t deepest = end + kToolchainCookie;
+  if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) return;
   const uintptr_t top = (current - kLiveMargin) & ~(uintptr_t)7;
-  const uintptr_t bottom = top - kPaintSpan > end ? top - kPaintSpan : end;
+  /* Added, never subtracted: a stack that sits in the first kPaintSpan bytes of the address space —
+   * which is where emscripten puts it — makes top - kPaintSpan wrap, and a wrapped bottom is above
+   * top, so nothing is painted and every later Mark reports the floor as the peak. */
+  const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
   for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) *(uint64_t *)a = kPaint;
   tBase = base;
   tPaintBottom = bottom;

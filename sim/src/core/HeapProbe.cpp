@@ -41,9 +41,9 @@ void HeapProbe::Sample() {
 
 size_t HeapProbe::PeakBytes() { return gPeak.load(std::memory_order_relaxed); }
 
-size_t HeapProbe::CeilingBytes() {
+size_t HeapProbe::ReservedBytes() {
 #ifdef __EMSCRIPTEN__
-  return emscripten_get_heap_max();
+  return emscripten_get_heap_size();
 #else
   return 0;
 #endif

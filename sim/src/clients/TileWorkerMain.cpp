@@ -19,6 +19,8 @@
 #include "Mips.h"
 #include "Log.h"
 #include "LogSinks.h"
+#include "Heap.h"
+#include "ModuleMemory.h"
 
 /* extern "C" exports pin this TU to the global namespace; the types it borrows are namespaced. */
 using namespace outshine;
@@ -40,6 +42,9 @@ int      fbtw_dag(const float *soup, int nverts, int seamAttr);
 float    fbtw_err(void);
 double  *fbtw_origin(void);
 void     fbtw_release(void);
+double  *fbtw_memory(void);
+int      fbtw_memorywords(void);
+void    *fbtw_take_soup(int bytes);
 }
 
 static osmmesh_ctx *tw_osm = 0;
@@ -69,8 +74,7 @@ static int tw_get(const char *url, uint8_t **out, size_t *len) {
     if (!f) return 0;
     unsigned short st = f->status;
     if (st == 200 && f->numBytes > 0) {
-      uint8_t *b = (uint8_t *)malloc((size_t)f->numBytes);
-      if (!b) { emscripten_fetch_close(f); return 0; }
+      uint8_t *b = (uint8_t *)Heap::Take("tile bytes", (size_t)f->numBytes);
       memcpy(b, f->data, (size_t)f->numBytes);
       *out = b;
       *len = (size_t)f->numBytes;
@@ -94,8 +98,26 @@ static int tw_provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t 
   return tw_get(url, out, len);
 }
 
+/* THIS MODULE'S OWN MEMORY, read by the shim after every reply. It is a separate address space from
+ * the client's main module, so nothing over there can measure it and the ledger's client total is
+ * short by exactly this until it arrives. */
+static ModuleMemory tw_memory;
+
+EMSCRIPTEN_KEEPALIVE double *fbtw_memory(void) {
+  tw_memory = ModuleMemory::Of(StackProbe::Purpose::Tile);
+  return &tw_memory.HeapBytes;
+}
+EMSCRIPTEN_KEEPALIVE int fbtw_memorywords(void) { return ModuleMemory::kWordCount; }
+
+/* The soup the shim copies in, taken by name: this module's heap is fixed too, and a refusal has to
+ * say what it refused. */
+EMSCRIPTEN_KEEPALIVE void *fbtw_take_soup(int bytes) {
+  return Heap::Take("dag soup", (size_t)bytes);
+}
+
 EMSCRIPTEN_KEEPALIVE
 int fbtw_open(const char *base, double lat, double lon) {
+  StackProbe::Enter(StackProbe::Purpose::Tile);
   static outshine::Clients::StdoutLogSink twLogSink;
   outshine::Log::SetSink(&twLogSink);
   outshine::Log::SetLevel(outshine::LogLevel::Debug);   /* the worker console used to print unconditionally */
@@ -169,6 +191,7 @@ int fbtw_dag(const float *soup, int nverts, int seamAttr) {
     BoundingSphere(soup, (uint32_t)nverts, 8, c.SelfCenter, &c.SelfRadius);
     tw_clusters.push_back(c);
   }
+  StackProbe::Mark();
   return 1;
 }
 
@@ -203,5 +226,6 @@ int fbtw_build(int z, int x, int y, int grid) {
     osmmesh_free_tile(&t);
   }
 
+  StackProbe::Mark();
   return result;
 }

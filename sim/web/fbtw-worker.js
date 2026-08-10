@@ -10,19 +10,28 @@ importScripts('fbtileworker.js');
 
 self.onmessage = function (e) { if (!ready) { queue.push(e.data); return; } handle(e.data); };
 
+/* This module's linear memory, read out of core/ModuleMemory.h's own words: the client's ledger runs
+   in another address space and can measure nothing in here. Every reply carries it, so the ledger is
+   never older than this worker's last piece of work. NOT named `memory`: importScripts shares this
+   global scope and the emscripten glue assigns that name its WebAssembly.Memory. */
+function moduleMemory() {
+  var p = Module._fbtw_memory(), n = Module._fbtw_memorywords();
+  return Array.prototype.slice.call(Module.HEAPF64.subarray(p >> 3, (p >> 3) + n));
+}
+
 function handle(d) {
   if (d.cmd === 'open') {
     Module.ccall('fbtw_open', 'number', ['string', 'number', 'number'], [d.base, d.lat, d.lon]);
-    self.postMessage({ cmd: 'opened' });
+    self.postMessage({ cmd: 'opened', mem: moduleMemory() });
     return;
   }
   if (d.cmd === 'dag') {
     /* No fetch, so no ASYNCIFY: the soup goes in, the ladder comes straight back out. */
-    var sb = new Uint8Array(d.soup), sp = Module._malloc(sb.length);
+    var sb = new Uint8Array(d.soup), sp = Module._fbtw_take_soup(sb.length);
     Module.HEAPU8.set(sb, sp);
     var ok = Module._fbtw_dag(sp, d.nverts, d.seam);
     Module._free(sp);
-    var out = { cmd: 'dagged', id: d.id, res: ok };
+    var out = { cmd: 'dagged', id: d.id, res: ok, mem: moduleMemory() };
     var tr = [];
     if (ok) {
       var vp = Module._fbtw_verts(), nv = Module._fbtw_nverts();
@@ -43,7 +52,7 @@ function handle(d) {
     Module.ccall('fbtw_build', 'number',
       ['number', 'number', 'number', 'number'],
       [d.z, d.x, d.y, d.grid], { async: true }).then(function (res) {
-        var msg = { cmd: 'built', z: d.z, x: d.x, y: d.y, res: res };
+        var msg = { cmd: 'built', z: d.z, x: d.x, y: d.y, res: res, mem: moduleMemory() };
         var transfer = [];
         if (res & 1) {   /* mesh: the DAG's own verts + clusters, copied out (the heap is reused) */
           var nv = Module._fbtw_nverts(), vp = Module._fbtw_verts();

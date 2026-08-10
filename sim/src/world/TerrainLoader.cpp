@@ -12,6 +12,8 @@
 #include "terrain.h"
 #include "tilemath.h"   /* fb-tiles' OWN tile maths, so a tile index means the same on both sides */
 #include "Log.h"
+#include "Heap.h"
+#include "ModuleMemory.h"
 #include "StackProbe.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,6 +53,17 @@ void FbGroundClose();
 }
 
 #ifdef __EMSCRIPTEN__
+/* WHAT JAVASCRIPT TAKES OUT OF THIS MODULE'S FIXED LINEAR MEMORY, one entry point per item: a fixed
+ * heap turns a refusal into the run's last event, and the event has to say what was being taken.
+ * The item is the entry point's name because a code passed across the boundary would be the same
+ * enumeration written down twice. */
+extern "C" EMSCRIPTEN_KEEPALIVE void *fb_take_http_body(int bytes) {
+  return Heap::Take("http body", (size_t)bytes);
+}
+extern "C" EMSCRIPTEN_KEEPALIVE void *fb_take_tile_mesh(int bytes) {
+  return Heap::Take("tile mesh", (size_t)bytes);
+}
+
 /* emscripten_fetch's SYNCHRONOUS mode is Web-Worker-only (NULL on a page's main thread), so the
  * main-thread primitive is a blocking XHR; binary arrives via the x-user-defined charset trick. */
 EM_JS(int, fb_xhr_get, (const char *url, uint8_t **out_ptr, uint32_t *out_len), {
@@ -62,7 +75,7 @@ EM_JS(int, fb_xhr_get, (const char *url, uint8_t **out_ptr, uint32_t *out_len), 
     xhr.send(null);
     if (xhr.status !== 200) return xhr.status | 0;
     var s = xhr.responseText, n = s.length;
-    var p = _malloc(n);
+    var p = _fb_take_http_body(n);
     for (var i = 0; i < n; i++) HEAPU8[p + i] = s.charCodeAt(i) & 0xff;
     HEAPU32[out_ptr >> 2] = p;
     HEAPU32[out_len >> 2] = n;
@@ -147,8 +160,8 @@ static int fb_get(const char *url, uint8_t **out, size_t *len) {
 /* WASM: every blocking step runs in a worker pool; the render thread only posts requests and polls
  * finished results (whole vertex arrays, zero-copy across postMessage). The ASYNCIFY
  * "one build in flight" rule holds PER worker instance, so N parallel builds are safe. */
-EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
-  var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), 6));
+EM_JS(void, fbw_init, (const char *base, double lat, double lon, int maxWorkers), {
+  var N = Math.max(1, Math.min(((navigator.hardwareConcurrency || 4) - 2), maxWorkers));
   var T = { workers: [], readyCount: 0, q: [], done: new Map(),
             req: new Set(), camLat: lat, camLon: lon };
   Module.__fbw = T;
@@ -182,6 +195,7 @@ EM_JS(void, fbw_init, (const char *base, double lat, double lon), {
     (function (W) {
       W.w.onmessage = function (e) {
         var d = e.data;
+        if (d.mem) W.mem = d.mem;
         if (d.cmd === 'opened') { W.ready = true; T.readyCount++; if (T.readyCount === 1) console.log('[tilepool] ' + N + ' workers'); T.pump(); return; }
         if (d.cmd === 'built') { W.busy = false; T.builtCount = (T.builtCount | 0) + 1; T.done.set(T.key(d.z, d.x, d.y, 1), d); T.pump(); return; }
         if (d.cmd === 'dagged') { W.busy = false; T.done.set('dag/' + d.id, d); T.pump(); }
@@ -208,11 +222,11 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
                                      worker spin; the tile stays a gap (skirts cover it) like osmmesh */
     T.req.delete(k);
     var vb = new Uint8Array(d.verts);
-    var p = _malloc(vb.length); HEAPU8.set(vb, p);
+    var p = _fb_take_tile_mesh(vb.length); HEAPU8.set(vb, p);
     var ib = new Uint8Array(d.idx);
-    var r = _malloc(ib.length); HEAPU8.set(ib, r);
+    var r = _fb_take_tile_mesh(ib.length); HEAPU8.set(ib, r);
     var cb = new Uint8Array(d.clusters);
-    var q = _malloc(cb.length); HEAPU8.set(cb, q);
+    var q = _fb_take_tile_mesh(cb.length); HEAPU8.set(cb, q);
     HEAPU32[vptr >> 2] = p; HEAP32[nv >> 2] = d.nverts;
     HEAPU32[iptr >> 2] = r; HEAP32[ni >> 2] = d.nidx;
     HEAPU32[cptr >> 2] = q; HEAP32[nc >> 2] = d.nclusters;
@@ -225,7 +239,7 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
 })
 
 int fb_stream_open(const char *base, double lat, double lon, FbGroundSurface surface) {
-  fbw_init(base, lat, lon);
+  fbw_init(base, lat, lon, kMaxTileWorkers);
   FbGroundOpen(surface);
   return 1;
 }
@@ -253,11 +267,11 @@ EM_JS(int, fbw_dag_poll, (int id, const float *soup, int nverts, int seamAttr,
     T.done.delete(k); T.req.delete(k);
     if (!d.res) return 0;
     var vb = new Uint8Array(d.verts);
-    var p = _malloc(vb.length); HEAPU8.set(vb, p);
+    var p = _fb_take_tile_mesh(vb.length); HEAPU8.set(vb, p);
     var ib = new Uint8Array(d.idx);
-    var r = _malloc(ib.length); HEAPU8.set(ib, r);
+    var r = _fb_take_tile_mesh(ib.length); HEAPU8.set(ib, r);
     var cb = new Uint8Array(d.clusters);
-    var q = _malloc(cb.length); HEAPU8.set(cb, q);
+    var q = _fb_take_tile_mesh(cb.length); HEAPU8.set(cb, q);
     HEAPU32[vptr >> 2] = p; HEAP32[nv >> 2] = d.nverts;
     HEAPU32[iptr >> 2] = r; HEAP32[ni >> 2] = d.nidx;
     HEAPU32[cptr >> 2] = q; HEAP32[nc >> 2] = d.nclusters;
@@ -347,6 +361,25 @@ EM_JS(double, fbw_cache_bytes, (), {
   return total;
 })
 double fb_stream_cache_bytes(void) { return fbw_cache_bytes(); }
+
+/* Each worker's own row, as last reported. A worker that has not answered yet is left out rather
+ * than counted as zero — the count comes back with the rows and says how many the sum covers. */
+EM_JS(int, fbw_worker_memory, (double *dst, int words, int cap), {
+  var T = Module.__fbw; if (!T) return 0;
+  var n = 0;
+  for (var i = 0; i < T.workers.length; i++) {
+    var m = T.workers[i].mem;
+    if (!m || m.length !== words || (n + 1) * words > cap) continue;
+    for (var j = 0; j < words; j++) HEAPF64[(dst >> 3) + n * words + j] = m[j];
+    n++;
+  }
+  return n;
+})
+
+int fb_stream_worker_memory(outshine::ModuleMemory *out, int cap) {
+  return fbw_worker_memory(&out->HeapBytes, ModuleMemory::kWordCount,
+                           cap * ModuleMemory::kWordCount);
+}
 
 #else /* native: a worker-thread pool with the same contract the browser pool has */
 
@@ -819,6 +852,10 @@ double fb_stream_cache_bytes(void) {
   for (const FbpEnt &e : fbp_cache) total += (double)e.Data.capacity();
   return total;
 }
+
+/* Natively the pool is threads in THIS module: its bytes are already in the heap column and its
+ * stacks under the tile purpose, so there is no second memory to report. */
+int fb_stream_worker_memory(outshine::ModuleMemory *, int) { return 0; }
 
 #endif /* __EMSCRIPTEN__ */
 

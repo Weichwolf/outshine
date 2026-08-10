@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "ClusterDag.h"
+#include "ModuleMemory.h"
 
 /* A C ABI in name only: the tile mesh crosses it as the DAG the renderer draws, so the cluster type
  * is part of the contract. Every caller is C++ (see the C-ISLAND note in tools/verify_layers.py). */
@@ -43,6 +44,16 @@ void fb_stream_close(void);
  * In the browser it is the main thread's fetch caches alone, held as JavaScript typed arrays outside
  * the linear memory; the pool's own caches live in the worker modules and are not counted here. */
 double fb_stream_cache_bytes(void);
+
+/* [SET] The pool's ceiling, in modules. The pool takes one per core beyond the two the client's own
+ * threads occupy and stops here; the number is stated once because the reader of the rows below has
+ * to size its buffer from it. */
+constexpr int kMaxTileWorkers = 6;
+
+/* The pool's modules, each with a linear memory of its own that no call from the client's module can
+ * measure. Writes up to `cap` rows and returns how many it wrote — 0 where the pool is threads in
+ * this same module, which is every native host. */
+int fb_stream_worker_memory(outshine::ModuleMemory *out, int cap);
 
 /* THE DRAWN SURFACE, in metres on the DEM's own datum: the triangle the finest tile of the ladder
  * carries at this position, on that tile's posting indices and along its diagonal. <= -1e8 until

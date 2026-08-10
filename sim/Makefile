@@ -37,10 +37,24 @@ CXXSTD    := -std=c++17
 DEPFLAGS := -MMD -MP
 
 # One worker for the class grid, and shared memory so the built structure is readable where it was
-# built. -Wno-pthreads-mem-growth and why -sGROWABLE_ARRAYBUFFERS is not the way out: doc/todo.md 1.5.
+# built.
 WASM_THREADS := -pthread
-WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=1 -Wno-pthreads-mem-growth
+WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=1
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
+
+# THE LINEAR MEMORY OF EACH MODULE, FIXED. WebGPU refuses a resizable ArrayBuffer as an argument
+# source (setBindGroup and writeBuffer are not [AllowResizable]), so growth costs a per-access guard
+# for a growth the graphics API would not survive anyway. Every size below is that module's own
+# measured high-water plus 25 %, rounded up to the next 8 MiB; the measurements and the runs they
+# came from are in git log, never here, because a number in a Makefile decays silently.
+# ABORTING_MALLOC=0: malloc hands back the null, and core/Heap.cpp is what ends the run — naming the
+# item and its bytes, which the toolchain's own abort cannot do.
+# STACK_OVERFLOW_CHECK=1 is the same statement for the stack: the sizes below are set from a
+# measured peak, and a shadow stack that runs past its end corrupts the heap silently without it.
+WASM_MAIN_MEMORY := -sINITIAL_MEMORY=200MB -sSTACK_SIZE=256KB -sDEFAULT_PTHREAD_STACK_SIZE=256KB \
+  -sABORTING_MALLOC=0 -sSTACK_OVERFLOW_CHECK=1
+WASM_WORKER_MEMORY := -sINITIAL_MEMORY=56MB -sSTACK_SIZE=128KB \
+  -sABORTING_MALLOC=0 -sSTACK_OVERFLOW_CHECK=1
 
 DAWN_OUT     := vendor/dawn/out
 DAWN_LIBDIR  := $(DAWN_OUT)/src/dawn/native
@@ -88,7 +102,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
 
 PEDESTRIAN_SRCS := \
   src/core/Log.cpp src/core/Telemetry.cpp src/core/Json.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
-  src/core/HeapProbe.cpp src/core/StackProbe.cpp \
+  src/core/Heap.cpp src/core/HeapProbe.cpp src/core/StackProbe.cpp \
   src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassStructure.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 
@@ -119,8 +133,8 @@ wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
-	    $(WASM_THREADS_LINK) -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=256MB -sSTACK_SIZE=4MB -sEXIT_RUNTIME=0 \
-	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free \
+	    $(WASM_THREADS_LINK) -sASYNCIFY $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
+	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body,_fb_take_tile_mesh \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
@@ -135,11 +149,13 @@ worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) ->
 	  	  mkdir -p build/obj-worker; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  emcc src/core/Log.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/Log.o; \
+	  for f in src/core/Log.cpp src/core/Heap.cpp src/core/HeapProbe.cpp src/core/StackProbe.cpp; do \
+	    o=build/obj-worker/$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/core -c -o "$$o"; done; \
 	  emcc build/obj-worker/*.o src/clients/TileWorkerMain.cpp src/clients/LogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
 	    -Isrc/world -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
-	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 -sFETCH \
-	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_dag,_fbtw_verts,_fbtw_nverts,_fbtw_idx,_fbtw_nidx,_fbtw_clusters,_fbtw_nclusters,_fbtw_clusterbytes,_fbtw_err,_fbtw_origin,_fbtw_release \
+	    -sASYNCIFY $(WASM_WORKER_MEMORY) -sEXIT_RUNTIME=0 -sFETCH \
+	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_dag,_fbtw_verts,_fbtw_nverts,_fbtw_idx,_fbtw_nidx,_fbtw_clusters,_fbtw_nclusters,_fbtw_clusterbytes,_fbtw_err,_fbtw_origin,_fbtw_release,_fbtw_memory,_fbtw_memorywords,_fbtw_take_soup \
 	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
 	    -o web/fbtileworker.js; \
 	  echo "WASM worker -> web/fbtileworker.js"

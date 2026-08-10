@@ -14,6 +14,7 @@
 #include "WaterField.h"
 #include "ClassField.h"
 #include "ClusterDag.h"
+#include "ModuleMemory.h"
 
 namespace outshine::Render { class Renderer; }
 namespace outshine { class WeatherProvider; }
@@ -106,6 +107,9 @@ public:
    * the main thread's own fetch caches — the pool's decoded bytes sit in the tile workers' separate
    * wasm modules, which no call from here can reach. */
   size_t ByteCacheBytes() const;
+  /* THE OTHER LINEAR MEMORIES the client runs on: one row per tile-worker module, each measured
+   * inside the module it belongs to. Empty where the pool is threads of this module. */
+  std::vector<ModuleMemory> WorkerMemory() const;
 
   /* The field of view is an animation channel, so the ladder has to be able to follow it mid-run. */
   void SetPixelFocalLength(double px) { PixelFocal_ = px; }

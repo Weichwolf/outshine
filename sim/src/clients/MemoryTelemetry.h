@@ -3,10 +3,11 @@
  * ever held, and which pool holds it — so a rise has an owner instead of a suspicion.
  *
  * WHAT THIS ROW DOES NOT COVER, because a ledger that hides its edges is worse than none. The heap
- * here is THIS module's linear memory and no other. In the browser the tile pool runs N further wasm
- * modules, each with a linear memory of its own that grows, and the client's footprint is the sum —
- * the pool announces N when it opens. The device's memory is a separate allocation path and is
- * reported beside the heap, never added to it. */
+ * here is THIS module's linear memory. In the browser the tile pool runs N further wasm modules,
+ * each with a linear memory of its own; every one of them measures itself and the rows travel back
+ * over the channel the pool already has, so the client total stands here as main + the workers, in
+ * reserved and in use. The device's memory is a separate allocation path and is reported beside the
+ * heap, never added to it. */
 #ifndef MEMORYTELEMETRY_H
 #define MEMORYTELEMETRY_H
 

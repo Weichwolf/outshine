@@ -75,6 +75,12 @@ World::Pools World::HeapPools() const {
 
 size_t World::ByteCacheBytes() const { return (size_t)fb_stream_cache_bytes(); }
 
+std::vector<ModuleMemory> World::WorkerMemory() const {
+  std::vector<ModuleMemory> rows(kMaxTileWorkers);
+  rows.resize((size_t)fb_stream_worker_memory(rows.data(), (int)rows.size()));
+  return rows;
+}
+
 bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon,
                    double viewMeters, int albedoTS) {
   R = renderer;

@@ -17,12 +17,31 @@ std::string StackColumn(StackProbe::Purpose p, const char *suffix) {
   return std::string("stack") + StackProbe::Name(p) + suffix;
 }
 
+void PushStack(TelemetryRow &row, const ModuleMemory &m) {
+  /* A purpose no thread anywhere has entered leaves its four fields EMPTY: an absent measurement is
+   * not a measurement of zero, and the probe's own range is what makes the peak falsifiable. */
+  if (m.StackCapacityBytes == 0) {
+    for (int i = 0; i < 4; i++) row.Push(std::string());
+    return;
+  }
+  row.Push(m.StackPeakBytes / kKb);
+  row.Push(m.StackFloorBytes / kKb);
+  row.Push(m.StackLimitBytes / kKb);
+  row.Push(m.StackCapacityBytes / kKb);
+}
+
 }  // namespace
 
 void MemoryTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("heapKB", "KiB");
   schema.Add("heapPeakKB", "KiB");
-  schema.Add("heapCeilingKB", "KiB");
+  schema.Add("heapReservedKB", "KiB");
+  schema.Add("workerModules", "count");
+  schema.Add("workerHeapKB", "KiB");
+  schema.Add("workerHeapPeakKB", "KiB");
+  schema.Add("workerReservedKB", "KiB");
+  schema.Add("clientHeapKB", "KiB");
+  schema.Add("clientReservedKB", "KiB");
   schema.Add("poolTilesKB", "KiB");
   schema.Add("poolVectorsKB", "KiB");
   schema.Add("poolBuildingsKB", "KiB");
@@ -49,10 +68,29 @@ void MemoryTelemetry::SampleTelemetry(TelemetryRow &row) const {
   HeapProbe::Sample();
 
   const World::World::Pools pools = World_.HeapPools();
-  row.Push((double)HeapProbe::Bytes() / kKb);
+  const std::vector<ModuleMemory> workers = World_.WorkerMemory();
+  double workerHeap = 0, workerHeapPeak = 0, workerReserved = 0;
+  for (const ModuleMemory &w : workers) {
+    workerHeap += w.HeapBytes;
+    workerHeapPeak += w.HeapPeakBytes;
+    workerReserved += w.ReservedBytes;
+  }
+  ModuleMemory deepestWorker;
+  for (const ModuleMemory &w : workers)
+    if (w.StackPeakBytes > deepestWorker.StackPeakBytes) deepestWorker = w;
+  const double mainHeap = (double)HeapProbe::Bytes();
+  const double mainReserved = (double)HeapProbe::ReservedBytes();
+  row.Push(mainHeap / kKb);
   row.Push((double)HeapProbe::PeakBytes() / kKb);
-  const size_t ceiling = HeapProbe::CeilingBytes();
-  if (ceiling) row.Push((double)ceiling / kKb); else row.Push(std::string());
+  /* A module that cannot say how much memory it reserved leaves the reserved side of the ledger
+   * EMPTY, and the client total with it: a sum missing one term is not a total. */
+  if (mainReserved > 0) row.Push(mainReserved / kKb); else row.Push(std::string());
+  row.Push((double)workers.size());
+  row.Push(workerHeap / kKb);
+  row.Push(workerHeapPeak / kKb);
+  row.Push(workerReserved / kKb);
+  row.Push((mainHeap + workerHeap) / kKb);
+  if (mainReserved > 0) row.Push((mainReserved + workerReserved) / kKb); else row.Push(std::string());
   row.Push((double)pools.TileNodes / kKb);
   row.Push((double)pools.Vectors / kKb);
   row.Push((double)pools.Buildings / kKb);
@@ -67,18 +105,15 @@ void MemoryTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push((double)(Renderer_.TileMeshBytes() + Renderer_.ClassVramBytes() +
                     Renderer_.TemporalVramBytes()) / kMb);
   for (StackProbe::Purpose p : kStacks) {
-    /* A purpose with no thread in this module leaves its fields EMPTY: the browser's tile pool runs
-     * in wasm modules of its own, which this probe cannot reach, and an absent measurement is not a
-     * measurement of zero. */
-    const size_t capacity = StackProbe::CapacityBytes(p);
-    if (capacity == 0) {
-      for (int i = 0; i < 4; i++) row.Push(std::string());
-      continue;
-    }
-    row.Push((double)StackProbe::PeakBytes(p) / kKb);
-    row.Push((double)StackProbe::FloorBytes(p) / kKb);
-    row.Push((double)StackProbe::LimitBytes(p) / kKb);
-    row.Push((double)capacity / kKb);
+    ModuleMemory local;
+    local.StackPeakBytes = (double)StackProbe::PeakBytes(p);
+    local.StackFloorBytes = (double)StackProbe::FloorBytes(p);
+    local.StackLimitBytes = (double)StackProbe::LimitBytes(p);
+    local.StackCapacityBytes = (double)StackProbe::CapacityBytes(p);
+    /* The tile stack sits where the tile work does — threads of this module natively, worker modules
+     * in the browser — and what a size gets set from is the deepest of them either way. */
+    PushStack(row, p == StackProbe::Purpose::Tile && local.StackCapacityBytes == 0 ? deepestWorker
+                                                                                  : local);
   }
 }
 
