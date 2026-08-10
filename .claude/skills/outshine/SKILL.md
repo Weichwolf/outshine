@@ -1,85 +1,94 @@
 ---
 name: outshine
-description: Wie an Outshine gearbeitet wird — der OSM-basierten Open-World-Engine (C++17, WebGPU/WASM auf Chromium/Edge, weltweiter Kachelserver in C). Wo was liegt, wie eine Runde läuft, wer entwirft und wer baut, und die Fallen, in die dieses Projekt nachweislich tappt. Laden, wenn an Outshines Code, Architektur, Szenarien, Generatoren, dem Renderer oder der Welt gearbeitet wird, oder wenn zu beurteilen ist, ob eine Änderung passt.
+description: How work is done on Outshine — the OSM-based open-world engine (C++17, WebGPU/WASM on Chromium/Edge, worldwide tile server in C). Where things live, how a round runs, who designs and who builds, and the traps this project demonstrably falls into. Load when working on Outshine's code, architecture, scenarios, generators, renderer or world, or when judging whether a change fits.
 ---
 
 # Outshine
 
-> **Eine weltweite Sandbox auf GTA-5-Niveau: man läuft überall hin, und alles strömt, entsteht und wird
-> platziert, während man geht. Einzige Eingabe ist, was der Kachelserver liefert.**
+> **A worldwide sandbox at GTA 5 level: you walk anywhere, and everything streams, comes into being and is
+> placed while you go. The only input is what the tile server delivers.**
 
-## Was bindend ist
+**Everything in the repository is English** — code, comments, documents, commit messages.
 
-| Ort | Inhalt |
+## What binds
+
+| Place | Content |
 |---|---|
-| **`CLAUDE.md`** | die Regeln. Bindend, und ein Verstoß ist falsch, auch wenn er funktioniert. **Lies es zuerst.** |
-| `doc/vision.md` | wofür, und wo die Latte hängt |
-| `doc/architecture.md` | warum der Schnitt so ist |
+| **`CLAUDE.md`** | the rules. Binding, and a violation is wrong even when it works. **Read it first.** |
+| `doc/vision.md` | what for, and where the bar sits |
+| `doc/architecture.md` | how Outshine is to be built — decisions, not prose |
+| `doc/todo.md` | the next steps, in order |
 
-**`doc/` hat zwei Dateien und bekommt keine dritte.** Kein Spec, kein State, kein Gaps, kein Journal —
-ein Dokument, das beschreibt, was der Code tut, ist dasselbe in zwei Sprachen, und die zweite kann lügen.
-Was war, steht in `git log`. Was ist, steht im Code. **Nur Korrektes wird committed**, also gibt es
-keinen zweiten Ort, an dem Korrektheit behauptet wird.
+**`doc/` holds three files and gets no fourth.** No spec, no state, no gaps, no journal — a document
+describing what the code *does* is the same thing in two languages, and the second one can lie. What was,
+is in `git log`. What is, is in the code. **Only correct work is committed**, so there is no second place
+where correctness is claimed.
 
-## Der Baum
+## The tree
 
 ```
-sim/src/  clients · core · generators · render · units · world
-tiles/    fb-tiles, der C-Kachelserver
-scenarios/  die deklarierten Welten
+sim/src/    clients · core · generators · render · units · world
+tiles/      fb-tiles, the C tile server
+scenarios/  the declared worlds
 ```
 
-**Kern** ist die nackte Welt — Gelände, Klassifizierung, Atmosphäre, Wolken, Gestirne, Renderer, und
-*wo* Wasser steht. **Generatoren** machen daraus Inhalt — Vegetation, Bauwerke, Infrastruktur, das
-*Aussehen* von Wasser — und sind austauschbar, weil sie dieselbe Eingabe lesen. Ein Generator ist eine
-reine Funktion `(Region, Ground) → Yield`: er zeichnet nicht, kennt keine Kamera, keinen Frame, kein
-Gerät. Der Scheduler weiß, wo das Auge ist, der Generator nie.
+**Core** is the naked world — terrain, classification, atmosphere, clouds, celestial bodies, renderer, and
+*where* water is. **Generators** turn that into content — vegetation, structures, infrastructure, the
+*appearance* of water — and are exchangeable because they read the same input. A generator is a pure
+function of region and ground: it does not draw, knows no camera, no frame, no device. The scheduler knows
+where the eye is; the generator never does.
 
-**Ein Programm, ein Eintrittspunkt.** `clients/Outshine` besitzt Welt und Renderer und ist das Einzige,
-was eine Szene baut; ein Client ist `main()` plus Ausgabemedium. Gebaut wird nur über Make-Targets;
-`verify-layers` und `verify-clients` sind die Tore.
+**One program, one entry point.** One object owns world and renderer and is the only thing that builds a
+scene; a client is `main()` plus an output medium. Layering is enforced by the build — a target that omits
+the renderer is the persistent server, and a breach shows up as a target that stops building.
 
-## Wie eine Runde läuft
+**wasm32 plus WebGPU is a virtual console.** Fixed heap, declared budgets, and everything else in the tree
+is material.
 
-| Wer | Was |
+## How a round runs
+
+| Who | What |
 |---|---|
-| **`engine-architect`** | entwirft, bevor gebaut wird, und urteilt danach. Nur lesend. Für eine gegnerische Prüfung **frisch** aufrufen, ohne den Planungslauf |
-| **`engine-developer`** | baut und misst. Genau einer im Baum — Entwicklung läuft strikt seriell |
+| **`engine-architect`** | designs before anything is built, and judges afterwards. Read-only. For an adversarial check, call it **fresh**, without the planning run |
+| **`engine-developer`** | builds and measures. Exactly one in the tree — development is strictly serial |
 
-Ein Auftrag nennt **Ziel, Zwang und Abnahmezahl**. Einen Mechanismus nennt er nur, wenn der belegt ist —
-sonst heißt es „finde heraus, wie X es löst, und schlage vor". Ein konkreter falscher Mechanismus im
-Auftrag schlägt jede richtige Parole daneben.
+A brief names **goal, constraint and acceptance number**. It names a mechanism only when that mechanism is
+established — otherwise it says "find out how X solves this, and propose". **A concrete wrong mechanism in
+a brief beats any correct slogan standing next to it.**
 
-## Die Fallen, in die dieses Projekt tappt
+## The traps this project falls into
 
-Alle gemessen, keine erfunden:
+All measured, none invented:
 
-- **Flüssigkeit ist verdächtig.** Ein plausibler Satz über einen Streamer entsteht schneller, als die
-  Prüfung dauert, ob er stimmt. Vor dem Bauen das Problem im **Vokabular der Sache** benennen — „Level
-  Load", „Streaming", „LOD-Übergang", „Resektion". Findet sich kein solcher Name, kennst du das Feld
-  nicht, und dann wird recherchiert statt improvisiert.
-- **Messung vor Griff.** Fünf Vermutungen kosteten hier mehr als die eine Messung, mit der man hätte
-  anfangen sollen. Eine Messung, die deine Vermutung widerlegt, ist das Ergebnis der Runde.
-- **Die teuren Fehler sind Bedeutungsfehler, keine C++-Fehler.** Ein absoluter Wert in einem
-  kamerarelativen Puffer, 16 von 24 Hashbits, ein Weißpunkt aus dem sRGB-Container, ein Trieb mit 3 cm
-  Mindestradius — jede dieser Zeilen hätte jedes Review bestanden. **Einheit und Bezugssystem gehören
-  zur Herkunft einer Zahl.**
-- **Ein Kommentar ist eine Behauptung ohne Test.** Sechs davon logen in einer einzigen Sitzung. Nur das
-  lokale, nicht offensichtliche *Warum*, eine Zeile; nie, was der Code tut; nie eine Messung — die
-  verfällt, der Kommentar bleibt.
-- **Ein grünes Tor beweist nur, was es prüft.** Zehn Runden lang bewies `make wasm`, dass der Browser
-  *übersetzt* — nicht, dass er dasselbe *zeigt*. Ein Tor, das Struktur misst, hätte es sofort gefunden.
-- **Ein konfundierter Befund kostet eine Runde.** „Kein Richtungslicht" war eine Szene bei Sonnenstand
-  −3,6°. Vor jedem Defekt aktiv die harmlose Erklärung suchen und sagen, warum sie ausscheidet.
-- **Das Standbild ist die Vergleichsauflösung, nicht die Abnahme.** Popping, Ghosting, ein Ruckler beim
-  Nachladen, eine Streuung mit Radius — ein Einzelbild zeigt keins davon.
+- **Fluency is suspicious.** A plausible sentence about a streamer forms faster than the check that it is
+  true. Before building, name the problem in **the vocabulary of the field** — "level load", "streaming",
+  "LOD transition", "resection". If no such name presents itself, you do not know the field, and then it
+  is research rather than improvisation.
+- **Measure before you reach.** Five guesses cost more here than the one measurement anyone should have
+  started with. A measurement that refutes your guess is the round's result.
+- **The expensive defects are meaning defects, not C++ defects.** An absolute value in a camera-relative
+  buffer, 16 of 24 hash bits, a white point taken from the sRGB container, a shoot with a 3 cm minimum
+  radius — every one of those lines would pass any review. **Unit and frame of reference are part of a
+  number's origin.**
+- **Watch the baseline.** A run-wide average is not a zero point when the quantity drifts over the run; an
+  event's cost measured against it absorbs the trend and comes out two to three times too large.
+- **A comment is a claim without a test.** Six of them lied in a single session. Only the local,
+  non-obvious *why*, one line; never what the code does; never a measurement — that decays, the comment
+  stays. **A name that needs a comment is the wrong name.**
+- **A green gate proves only what it checks.** For ten rounds a passing build proved the browser
+  *compiles*, not that it *shows* the same thing. A gate that measures structure would have caught it
+  immediately.
+- **A confounded finding costs a round.** "No directional light" was a scene at −3.6° sun elevation. Before
+  every defect, actively seek the harmless explanation and say why it is ruled out.
+- **The still is the comparison resolution, not the acceptance.** Popping, ghosting, a hitch on stream-in,
+  a scatter that ends at a radius — a single frame shows none of them.
 
-## Wenn du nicht weiterkommst
+## When you get stuck
 
-Mach es wie die Etablierten. Der Kanon steht in `CLAUDE.md ## Referenzen`, die **C++ Core Guidelines
-sind verbindlich**. Suche die Quelle, nenn sie in einer Zeile am Entscheidungspunkt, und weiche nur mit
-einem Grund ab, der bei der Abweichung steht.
+Do it the way the established ones do. The canon is in `CLAUDE.md`, and the **C++ Core Guidelines are
+binding**. Find the source, name it in one line at the decision point, and deviate only with a reason that
+stands next to the deviation.
 
-Und prüfe die Quelle, statt sie zu zitieren: Microsoft Flight Simulator trägt **nicht** als Beleg für
-Laufzeiterzeugung — dort ist alles vorab in der Cloud erzeugt worden. Für eine Welt, die entsteht,
-während man läuft, ist Guerrillas *Horizon Zero Dawn* der Beleg.
+And check the source rather than citing it: Microsoft Flight Simulator does **not** support a claim about
+runtime generation — everything there was generated ahead of time in the cloud. For a world that comes
+into being while you walk, Guerrilla's *Horizon Zero Dawn* is the evidence.
