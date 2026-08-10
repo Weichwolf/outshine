@@ -43,10 +43,13 @@ and occupancy live on the processor, because the server target has no device at 
 line the generator contract draws — *draw* belongs to the device, *occupancy* to the processor — and
 moving a simulation answer onto the device would silently delete the server.
 
-**The heap is fixed.** Not because growth is unsafe — shared memory cannot be detached, and the generated
-glue guards every access — but because **a growing heap is not a declared budget, and without a budget no
-consumer has a reason to limit itself.** Fixing it also deletes that per-access guard, including one
-instance per copied byte on our own path.
+**The heap is fixed, and it is forced.** The graphics API refuses a resizable buffer as an argument
+source — binding groups and buffer writes both — so the toolchain setting that would make growth cheap
+kills the first render pass instead. There is no second route.
+
+It is also right on its own terms: **a growing heap is not a declared budget, and without a budget no
+consumer has a reason to limit itself.** Fixing it additionally deletes the per-access guard the growth
+mode injects, including one instance per copied byte on our own path.
 
 **A fixed heap is a ledger.** Every pool reports its bytes, or it is a leak with a name. A cache capped in
 *entries* does not know its own footprint when an entry ranges over three orders of magnitude.
