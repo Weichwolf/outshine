@@ -48,6 +48,28 @@ Done when: the server target builds and answers, without a device, what stands a
 how deep the water is and where the sun is. A test `#include` of the renderer inside `generators/` is a
 compile error.
 
+## 4.5 — Fold the tile worker into the client
+
+**Decided by the architect, and the reason is not the one this list first gave.** The saving is not a
+module and not a copy across a heap boundary — it is that **the tile scheduler exists twice, in two
+languages**: as JavaScript embedded in a C++ file for the browser, and as C++ for the native path, with
+the same priority key written out by hand in both. The comment justifying the separate module states a
+constraint that stopped being true when the worker began fetching for itself.
+
+Folding also erases three defects that live only in the browser half: byte caches that are **never
+evicted**, four independent in-flight caps that know nothing of each other against one connection limit,
+and a retry ceiling that turns a slow server into **permanently missing terrain** — which already
+violates the rule that the load has no timeout.
+
+It is the execution environment the generators need, and the prerequisite audio needs anyway.
+
+Done when: no scheduler in an embedded-JavaScript block remains, the terrain sources compile once, there
+is exactly one in-flight cap, every thread is created at bring-up, and a moving-camera frame distribution
+is no worse than before.
+
+**Not in the same round:** the unwinding mechanism. It hangs on GPU readbacks on the main thread, not on
+the network, so folding does not remove it — and two changes in one round cannot be attributed.
+
 ## 5 — `generators/`
 
 Region, ground view, occupancy, draw, material row, schedule, generator, set, pool. Built inside the
@@ -87,11 +109,11 @@ infrastructure.
   per-region number every move is guessed.
 - Split the tile loader: the cache and height half is server-side, the mesh and DAG half is picture-side.
   Fat, not a blocker.
-- **Fold the tile worker into the client's own threads.** It is a second module with a second heap, built
-  from a second compilation of the same terrain sources, and every tile crosses that boundary as a copy.
-  It exists because blocking network I/O is only legal off the main thread — and the client now has
-  threads of its own. Candidate, not decided: how the client's unwinding interacts with threads is
-  unmeasured, and that measurement decides it.
+- **Replace the unwinding mechanism.** It is instrumented into two thirds of all functions, and it exists
+  only for GPU readbacks waiting on the main thread. Either a newer browser primitive with the same code
+  size, or callback-driven readbacks that remove the need entirely. The second is the end state. Measure
+  one against the other with pinned builds — never in the same round as a concurrency change.
+- **Heap telemetry.** There is none. Until it exists, no statement about the memory budget has provenance.
 
 ## Small things that become traps if they wait
 

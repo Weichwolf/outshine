@@ -19,17 +19,53 @@ Nothing is preloaded. Every tile on demand. **Every point on Earth is a valid st
 
 ## The machine
 
-**wasm32 plus WebGPU is a virtual console, and that is the limit.** wasm32 gives a hard 4 GB address
-space; WebGPU gives one feature set with no vendor extensions; and the heap is **fixed, not growing** —
-a declared budget rather than whatever the machine happens to have.
+**wasm32 plus WebGPU is a virtual console, and that is the limit.** wasm32 gives a hard 4 GiB address
+space and no bounds checks; WebGPU gives one feature set with no vendor extensions. Optimise against that
+machine from the start: no allocation in the hot path, flat arrays in linear memory, few crossings of the
+JS boundary. **WebGPU computes, wasm administers.**
 
-Fixed is affordable because almost everything is procedural and the rest is streamed: what a fixed heap
-must hold is the resident working set, never the world. Fixed is also *necessary* once threads are
-plural — growing shared memory can invalidate another thread's view, which is the same class of rare,
-unreproducible defect the rest of this document is built to avoid.
+**The heap grows, and the cost of growing is removed at the root rather than suppressed.** Shared memory
+cannot be detached, so growth does not invalidate another thread's view — it costs a buffer-identity
+check per access in generated glue, and there is a build setting that removes that check entirely. A
+fixed heap would need a number, and there is no heap telemetry to derive one from; a fixed number without
+provenance is worse than a ceiling.
 
-Every per-thread stack comes out of that same budget. A thread count and a memory budget are one
-decision, not two.
+**memory64 is not the way.** wasm32 on a 64-bit host reserves its whole address space and thereby
+eliminates bounds checks; memory64 cannot and pays for every access. Only worth it above 4 GiB, and the
+tightest target is far below.
+
+**Every per-thread stack comes out of the same heap, so a thread count and a memory budget are one
+decision.** Stacks are set per purpose: a thread that blocks on the network holds kilobytes, a thread
+that meshes holds megabytes. The default applies one size to both.
+
+**The streamer needs a byte budget and evicts against it.** A cache capped in *entries* does not know its
+own footprint when an entry ranges from a few hundred bytes to a few hundred kilobytes, and then a failed
+allocation is a crash where it should have been an eviction.
+
+**The binding constraint is the weakest target, and it binds on cores as well as memory.** A console
+browser is an *app*, not a title, and app budgets there are a fraction of the machine — measured in a
+gigabyte for the whole process tree, with a handful of shared cores. A thread budget derived from a
+developer machine's core count does not survive it.
+
+## Threads
+
+| Behaviour | Form | Count from |
+|---|---|---|
+| blocks, no CPU (network, audio) | **dedicated** | the protocol's connection limit per origin, not preference |
+| computes (decode, mesh, generation) | **pool** | hardware concurrency, less the threads that must stay free |
+| one job in flight by construction | dedicated, one | the structure itself |
+
+**Every long-lived thread is created at bring-up, from the main thread, before the frame loop.** The pool
+size is exactly that number, and creating a thread at runtime is a hard failure rather than a silent
+one — thread creation proxies synchronously to the main thread, which is where a deadlock would come
+from. Blocking I/O never causes one.
+
+**Audio is not one of these threads.** The audio worklet belongs to the browser, gets its stack handed to
+it, and may neither block nor allocate in its callback.
+
+**Two levels of timeout, and they do not contradict each other.** A *request* has a limit, because it
+bounds how long a thread stays occupied. The *load* has none — a server that stops answering is a fact
+about the server, and a client that gives up turns a slow server into permanently missing world.
 
 **Layering is enforced by the build, never by a checker.** A module compiles with the include set of its
 layer and below. An upward include is a compile error; a breach shows as a target that stops building.
