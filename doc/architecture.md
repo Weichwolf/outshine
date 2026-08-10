@@ -24,10 +24,16 @@ space and no bounds checks; WebGPU gives one feature set with no vendor extensio
 machine from the start: no allocation in the hot path, flat arrays in linear memory, few crossings of the
 JS boundary. **WebGPU computes, wasm administers.**
 
-**A virtual console has two budgets: linear memory and device memory.** Both are declared, both are
-accounted, and neither may be emergent. Today the device side is the tighter one — resident tile geometry
-alone is measured in hundreds of megabytes, and on a console browser the whole process gets about a
-gigabyte.
+**Device memory has no declared ceiling of its own, and on the targets that bind there is no separate
+pool at all.** A discrete card is effectively unbounded at our scale, and the graphics API caps single
+buffers rather than totals. But the machines the performance budget names — mobile silicon, consoles —
+share one physical memory between processor and device. There it is **one budget with two consumers**,
+not two budgets: resident geometry measured in hundreds of megabytes comes out of the same allowance as
+the heap, and a console browser gets about a gigabyte for the whole process.
+
+**So the device side is accounted like the heap: every resident pool reports its bytes and evicts against
+a declared figure.** Not because an API forces it, but because on the binding target it is the same
+memory — and the largest resident item today has a visibility rule and no budget.
 
 **The heap is fixed.** Not because growth is unsafe — shared memory cannot be detached, and the generated
 glue guards every access — but because **a growing heap is not a declared budget, and without a budget no
