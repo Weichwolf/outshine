@@ -87,6 +87,11 @@ infrastructure.
   per-region number every move is guessed.
 - Split the tile loader: the cache and height half is server-side, the mesh and DAG half is picture-side.
   Fat, not a blocker.
+- **Fold the tile worker into the client's own threads.** It is a second module with a second heap, built
+  from a second compilation of the same terrain sources, and every tile crosses that boundary as a copy.
+  It exists because blocking network I/O is only legal off the main thread — and the client now has
+  threads of its own. Candidate, not decided: how the client's unwinding interacts with threads is
+  unmeasured, and that measurement decides it.
 
 ## Small things that become traps if they wait
 
