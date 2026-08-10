@@ -92,7 +92,10 @@ structures, infrastructure, water) and are exchangeable because they read the sa
 only thing that builds a scene; a client is `main()` plus an output medium over it — **`gpu_walk`**
 (native, frame oracle, bench `WalkBench`) and **wasm** (browser, `Walker`). Both receive two words: which
 scenario, which scene. A shared source list alone covered the drift for ten rounds: it proves that both
-*compile*, not that both *show* the same thing — `verify-clients` does that.
+*compile*. `verify-clients` proves both are entry points over one scene builder — **it does not prove
+they show the same thing, and measurably they do not**: the browser punches triangular sky wedges through
+a distant tree line the native oracle draws closed. **Only a picture compared across both clients decides
+that**, and nothing does it yet.
 
 Building happens only through make targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Gates:
 `verify-layers` | `verify-clients`. **The wasm client builds in EVERY round.** Warnings
