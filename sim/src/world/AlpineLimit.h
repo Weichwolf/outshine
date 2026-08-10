@@ -24,7 +24,7 @@ namespace outshine::World {
 
 class AlpineLimit {
 public:
-  bool Load(const Render::Json::Ref &root);
+  bool Load(const Json::Ref &root);
 
   bool Ready() const { return Ready_; }
   const std::string &RockTemplateName() const { return RockTemplate_; }

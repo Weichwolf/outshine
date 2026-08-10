@@ -24,7 +24,7 @@ struct FrameContext {
   float CloudLow, CloudMid, CloudHigh, CloudBaseAGL;  /* the weather deck mix as the client sampled it */
   float AltM;               /* HudState.alt (m ASL) — the cloud shell radii are absolute, referenced off it */
   double SkyClock;          /* sim UTC (unix seconds) driving sidereal placement */
-  float DayFade;            /* StarDayFade: (float)DayFactor, the night-only-draw gate stars/lights share */
+  float DayFade;            /* StarDayFade: (float)DayFactor, the stars' night-only-draw gate */
   float Dt;
   unsigned FrameNo;
   int Width, Height;        /* fixed scene resolution (FrameTex) */

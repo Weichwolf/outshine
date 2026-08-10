@@ -93,7 +93,7 @@ public:
   float HeightSigma() const { return HeightSigma_; }
   /* Breast-height diameter at 1.3 m, in METRES. The only metric a stem carries, and the grower solves
    * its radius cascade against it. 0 leaves the declared `base_radius` alone. */
-  float BhdM() const { return BhdM_; }
+  float DbhM() const { return DbhM_; }
   /* One-sided leaf area per m^2 of crown projection. The number that sizes a cluster card. */
   float Lai() const { return Lai_; }
 
@@ -104,10 +104,10 @@ private:
   Shading Shading_;
   float HeightM_ = 20.0f;
   float SpreadM_ = 10.0f;
-  /* 0 heisst "eine Art ohne gemessene Bestandesstreuung", nicht "kein Baum streut": wer eine Art in
-   * ein Feld stellt, ohne sie zu deklarieren, bekommt sichtbar identische Hoehen. */
+  /* 0 means "a species with no measured stand spread", not "no tree varies": scatter a species that
+   * never declared one and every stand comes out visibly the same height. */
   float HeightSigma_ = 0.0f;
-  float BhdM_ = 0.0f;
+  float DbhM_ = 0.0f;
   float Lai_ = 0.0f;
 };
 

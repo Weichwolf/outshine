@@ -130,7 +130,7 @@ bool Outshine::Prepare(const Gpu &gpu) {
     return false;
   }
 
-  R_.SetVegetationTable(Veg_.Rows(), Veg_.RowBytes(), Veg_.BareRockTemplate(),
+  R_.SetVegetationTable(Veg_.Rows(), Veg_.RowBytes(), Veg_.RockTemplate(),
                         Veg_.Limit().SlopeBandDeg());
   R_.SetSkyClock(Clk_);
   SetFovDeg(Scene_.FovDeg());

@@ -1,5 +1,6 @@
-/* The terrain vertex LAYOUT: the one contract between the writer (the tile worker's mesh build) and
- * the reader (the draw call). Alone in its own header because the main thread needs only the layout,
+/* The vertex LAYOUT of everything that goes through the cluster DAG — terrain and buildings: the one
+ * contract between the writer (the mesh build) and the reader (the draw call).
+ * Alone in its own header because the main thread needs only the layout,
  * and including the build functions where nothing calls them is -Wunused-function under -Werror.
  *
  * Stride and offsets are DERIVED from the struct and pinned by static_assert: they used to be literals
@@ -7,15 +8,20 @@
 #ifndef CHUNKVTX_H
 #define CHUNKVTX_H
 #include <stddef.h>
+#include <stdint.h>
 #include <stdlib.h>
 
-namespace outshine::Render {
+namespace outshine {
 
 struct ChunkVtx {
   float pos[3];
   float uv[2];
   float norm[3];
 };
+
+/* THE STRIDE OF THIS LAYOUT, in bytes. It sits with the struct so a pipeline descriptor cannot
+ * spell a number the writer disagrees with. */
+constexpr uint64_t kVertexStrideB = 8 * sizeof(float);
 
 /* Here with the layout because BOTH builders (ENU and ECEF) produce it, and neither should have to
  * include the other just for the struct. */
@@ -37,11 +43,11 @@ inline void ChunkFree(Chunk *c) {
   c->gridverts = 0;
   c->err = 0.f;
 }
-static_assert(sizeof(ChunkVtx) == 8 * sizeof(float),
-              "terrain vertex must be tightly packed (no padding)");
+static_assert(sizeof(ChunkVtx) == kVertexStrideB,
+              "vertex must be tightly packed (no padding)");
 static_assert(offsetof(ChunkVtx, pos) == 0, "aPos offset");
 static_assert(offsetof(ChunkVtx, uv) == 12, "aUV offset");
 static_assert(offsetof(ChunkVtx, norm) == 20, "aNorm offset");
 
-} // namespace outshine::Render
+} // namespace outshine
 #endif /* CHUNKVTX_H */

@@ -52,8 +52,8 @@ static std::unordered_map<uint64_t, int> gIndex;
 World::World(double pixelFocalLength)
   : PixelFocal_(pixelFocalLength),
     R(nullptr), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
-    Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0), MeshVram(0),
-    NightLights(false), Anchor{0, 0, 0}, LightsResident(0) {}
+    Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0),
+    MeshVram(0) {}
 
 World::~World() { if (Opened) fb_stream_close(); }
 
@@ -61,9 +61,9 @@ World::Pools World::HeapPools() const {
   Pools p;
   for (const Node &n : Nodes)
     p.TileNodes += CapacityBytes(n.verts) + CapacityBytes(n.idx) + CapacityBytes(n.clusters) +
-                   CapacityBytes(n.albedo) + CapacityBytes(n.lightInst);
+                   CapacityBytes(n.albedo);
   p.TileNodes += CapacityBytes(Nodes) + CapacityBytes(DrawSlots) + CapacityBytes(WorkList) +
-                 CapacityBytes(DrawnLeaves) + CapacityBytes(LightBuf) + CapacityBytes(LightBytes);
+                 CapacityBytes(DrawnLeaves);
   p.Vectors = Vectors.HeapBytes();
   p.Buildings = Buildings.HeapBytes() + CapacityBytes(BuildingDagVerts) +
                 CapacityBytes(BuildingDagIdx) + CapacityBytes(BuildingClusters) +
@@ -75,23 +75,6 @@ World::Pools World::HeapPools() const {
 
 size_t World::ByteCacheBytes() const { return (size_t)fb_stream_cache_bytes(); }
 
-/* Cosmetic LUT: the shader gets colour * (intensity/255) * brightness, additive. */
-static const float kLightColor[8][3] = {
-  {1.00f, 0.55f, 0.22f},   /* 0 residential  — sodium orange */
-  {1.00f, 0.68f, 0.36f},   /* 1 primary      — amber */
-  {0.75f, 0.85f, 1.00f},   /* 2 motorway     — cool white */
-  {1.00f, 0.78f, 0.48f},   /* 3 building     — warm window */
-  {0.70f, 0.85f, 1.00f},   /* 4 commercial   — cool */
-  {0.90f, 0.95f, 1.00f},   /* 5 aerodrome    — white */
-  {1.00f, 0.16f, 0.10f},   /* 6 tower        — obstruction red */
-  {1.00f, 0.66f, 0.38f},   /* 7 city glow    — amber aggregate */
-};
-static const float kLightRadiusM[8] = {7.f, 9.f, 9.f, 6.f, 7.f, 12.f, 10.f, 40.f};
-static const float kLightBright[8]  = {1.0f, 1.2f, 1.3f, 0.9f, 1.0f, 1.5f, 1.2f, 0.8f};
-static const int kLightBudget = 65536;   /* max sprites resident (team-lead cap) */
-static const double kLightLiftM = 6.0;   /* sit lights just above the DEM so terrain occludes cleanly */
-static const float kLightGain = 3.0f;    /* additive HDR gain so cores pop (ACES compresses highlights) */
-
 bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon,
                    double viewMeters, int albedoTS) {
   R = renderer;
@@ -100,14 +83,9 @@ bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, 
   Lat0 = lat;
   Lon0 = lon;
   gIndex.clear();
-  if (fb_stream_open(tilesBase, lat, lon, kRootZ) == 0) return false;
+  if (fb_stream_open(tilesBase, lat, lon, {kMaxZ, kGrid}) == 0) return false;
   Cls_.Open(lat, lon);
   Opened = true;
-  /* Sprite positions are stored relative to this anchor, so the renderer holds float offsets. */
-  osmmesh_geo g0{}; g0.lat = lat; g0.lon = lon; g0.alt = 0.0;
-  osmmesh_ecef a0 = osmmesh_geo_to_ecef(g0);
-  Anchor[0] = a0.x; Anchor[1] = a0.y; Anchor[2] = a0.z;
-  if (R) R->SetLightAnchor(Anchor);
   return true;
 }
 
@@ -170,49 +148,10 @@ void World::Emit(int idx) {
     DrawnReady++;
     MeshVram += (long)n.nverts * 32 + (long)n.nidx * 4;
     DrawSlots.push_back(n.slot);
-    /* The drawn LOD cut, unconditionally: it hosts the night lights AND it is the only list that says
-     * which mesh the near-field ground field may rasterise. Gating it on NightLights made the ground
-     * field silently empty in daylight. */
     DrawnLeaves.push_back(idx);
   } else {
     Pending++;
   }
-}
-
-/* lightState 1 = decoded (the buffer may be empty for a dark tile), -1 = pending. */
-void World::BuildLights(int idx) {
-  Node &n = Nodes[idx];
-  if (!n.haveMesh) { n.lightState = -1; return; }   /* need origin height first; retry a later pass */
-  if ((int)LightBytes.size() < 65540) LightBytes.resize(65540);
-  int nb = fb_stream_lights(n.z, (uint32_t)n.x, (uint32_t)n.y, LightBytes.data(), (int)LightBytes.size());
-  if (nb < 4) { n.lightState = -1; return; }         /* pending (0) or too big — retry next pass */
-  const uint8_t *p = LightBytes.data();
-  int count = (int)p[0] | ((int)p[1] << 8);
-  n.lightInst.clear();
-  /* One height per tile is plenty for point lights seen from altitude (a z14 tile is < 2 km). */
-  osmmesh_ecef oe{n.origin[0], n.origin[1], n.origin[2]};
-  double groundAsl = osmmesh_ecef_to_geo(oe).alt;
-  int have = nb - 4 < count * 6 ? (nb - 4) / 6 : count;
-  n.lightInst.reserve((size_t)have * 7);
-  for (int i = 0; i < have; i++) {
-    const uint8_t *r = p + 4 + i * 6;
-    double fx = ((int)r[0] | ((int)r[1] << 8)) / 65535.0;
-    double fy = ((int)r[2] | ((int)r[3] << 8)) / 65535.0;
-    int cls = r[4] & 7;
-    float inten = (float)r[5] / 255.0f;
-    osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)n.z, (uint32_t)n.x, (uint32_t)n.y, fx, fy);
-    g.alt = groundAsl + kLightLiftM;
-    osmmesh_ecef e = osmmesh_geo_to_ecef(g);
-    float w = inten * kLightBright[cls] * kLightGain;
-    n.lightInst.push_back((float)(e.x - Anchor[0]));
-    n.lightInst.push_back((float)(e.y - Anchor[1]));
-    n.lightInst.push_back((float)(e.z - Anchor[2]));
-    n.lightInst.push_back(kLightRadiusM[cls]);
-    n.lightInst.push_back(kLightColor[cls][0] * w);
-    n.lightInst.push_back(kLightColor[cls][1] * w);
-    n.lightInst.push_back(kLightColor[cls][2] * w);
-  }
-  n.lightState = 1;
 }
 
 /* A pure function of camera and tile geometry, needing NO tile data — which is what lets the
@@ -388,7 +327,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     if (!nd.haveMesh && build > 0) {
       float *v = nullptr;
       uint32_t *ix = nullptr;
-      Render::DagCluster *cl = nullptr;
+      DagCluster *cl = nullptr;
       int nv = 0, ni = 0, ncl = 0;
       double o[3];
       float err = 0.f;
@@ -402,7 +341,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
         if (getenv("FB_DAGLOG")) {
           long per[16] = {0};
           int lv = 0;
-          for (const Render::DagCluster &c : nd.clusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
+          for (const DagCluster &c : nd.clusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
           std::string t;
           for (int i = 0; i <= lv; i++) t += "L" + std::to_string(i) + "=" + std::to_string(per[i]) + " ";
           Log::Debug("world", "dag", {{"z", nd.z}, {"dagVerts", nv},
@@ -429,7 +368,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       if (nd.slot >= 0) {
         std::vector<float>().swap(nd.verts);
         std::vector<uint32_t>().swap(nd.idx);
-        std::vector<Render::DagCluster>().swap(nd.clusters);
+        std::vector<DagCluster>().swap(nd.clusters);
         nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the upload is submitted */
         upload--;
         Built++;   /* build completion (thrash: builds/min ~0 in a converged loiter, climbs if evict-rebuild) */
@@ -508,12 +447,12 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   if (R && BuildingDagId != 0) {
     float *dv = nullptr;
     uint32_t *di = nullptr;
-    Render::DagCluster *dc = nullptr;
+    DagCluster *dc = nullptr;
     int ndv = 0, ndi = 0, ndc = 0;
-    /* Float 6 is uv.x, and a negative one tags the roof cap: an ATTRIBUTE seam, so the cap and its
+    /* Float 3 is uv.x, and a negative one tags the roof cap: an ATTRIBUTE seam, so the cap and its
      * wall keep two vertices but collapse as one point — otherwise the ring would read as a mesh
      * boundary and nothing would move. */
-    if (fb_stream_dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 6,
+    if (fb_stream_dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3,
                       &dv, &ndv, &di, &ndi, &dc, &ndc)) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
       const uint32_t ibase = (uint32_t)BuildingDagIdx.size();
@@ -531,10 +470,10 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       if (getenv("FB_DAGLOG")) {
         long per[16] = {0};
         int lv = 0;
-        for (const Render::DagCluster &c : BuildingClusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
+        for (const DagCluster &c : BuildingClusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
         float emin[16], emax[16];
         for (int i = 0; i < 16; i++) { emin[i] = 1e30f; emax[i] = 0.0f; }
-        for (const Render::DagCluster &c : BuildingClusters) {
+        for (const DagCluster &c : BuildingClusters) {
           if (c.SelfErr < emin[c.Level]) emin[c.Level] = c.SelfErr;
           if (c.SelfErr > emax[c.Level]) emax[c.Level] = c.SelfErr;
         }
@@ -552,27 +491,6 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     }
   }
   BuildingMs_ = Clock() - tBld;
-
-  /* LOWEST priority, after mesh/albedo/overlay. Nearest-first: DrawnLeaves is in descent order. */
-  if (NightLights && R) {
-    int fetch = 3;   /* per-pass decode budget */
-    for (int idx : DrawnLeaves) {
-      if (fetch == 0) break;
-      if (Nodes[idx].lightState == 0) { BuildLights(idx); fetch--; }
-    }
-    LightBuf.clear();
-    for (int idx : DrawnLeaves) {
-      const Node &nd = Nodes[idx];
-      if (nd.lightState != 1 || nd.lightInst.empty()) continue;
-      if ((int)(LightBuf.size() / 7) + (int)(nd.lightInst.size() / 7) > kLightBudget) break;
-      LightBuf.insert(LightBuf.end(), nd.lightInst.begin(), nd.lightInst.end());
-    }
-    LightsResident = (int)(LightBuf.size() / 7);
-    R->SetLights(LightBuf.data(), LightsResident);
-  } else if (R && LightsResident > 0) {
-    LightsResident = 0;
-    R->SetLights(nullptr, 0);   /* left night / disabled -> drop the field */
-  }
 
   /* Grace-period eviction; swap-pop, so gIndex must stay in sync. */
   for (size_t i = 0; i < Nodes.size();) {
@@ -601,7 +519,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
     PrevBuilt = Built; PrevEvicted = Evicted;
     Log::Debug("world", "fbworld", {{"leaves", Leaves}, {"drawn", DrawnReady}, {"pending", Pending},
                                       {"evicted", (int)Evicted}, {"vramMB", vramMB}, {"nodes", (int)Nodes.size()},
-                                      {"lights", LightsResident}, {"buildsPerMin", buildsMin},
+                                      {"buildsPerMin", buildsMin},
                                       {"evictPerMin", evictMin}, {"built", (int)Built}});
   }
   UpdateMs_ = Clock() - tUpdate;

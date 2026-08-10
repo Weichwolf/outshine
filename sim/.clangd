@@ -1,6 +1,6 @@
 # clangd config for fb-sim. There is no compile_commands.json (the build is a handful of Makefile
 # recipes, not a generator-based build system) and the individual recipes even mix -std=c++17 object
-# files with a -std=c++20 GPU/webgpu translation unit (render/, render/stages/, world/FBWorld.cpp,
+# files with a -std=c++20 GPU/webgpu translation unit (render/, render/stages/, world/World.cpp,
 # clients/) inside the SAME native/wasm target -- see sim/Makefile. C++20 is a safe superset of the C++17
 # subset used here (no `concept`/`requires`/`co_*`/`char8_t` identifiers in the c++17-only TUs, checked
 # via grep), so one shared std/include profile below is accurate for every file and far less fragile
@@ -9,19 +9,18 @@
 #
 # Paths are ABSOLUTE, not sim-relative: with no compilation database, clangd's synthetic fallback
 # compile command resolves each file's OWN directory as the base for relative -I/-isystem flags (proven
-# by `clangd --check` -- e.g. src/systems/FBDisplaySystem.h got `-Isrc/core` resolved against
-# .../sim/src/systems, not sim/), so sim-relative flags silently miss for anything outside sim/'s own
-# top level. Absolute paths sidestep that without needing a generated compile_commands.json (more
+# by `clangd --check` -- e.g. src/render/stages/TilesStage.cpp got `-Isrc/core` resolved against
+# .../sim/src/render/stages, not sim/), so sim-relative flags silently miss for anything outside sim/'s
+# own top level. Absolute paths sidestep that without needing a generated compile_commands.json (more
 # moving parts -- a generation script to keep in sync with the Makefile's per-TU std/-I mix -- for the
 # same maintenance burden of updating roots when the Makefile's -I list changes).
 #
-# Include roots mirror sim/Makefile's INC_MODULES/INC_NATIVE/INC_CLIENT + INC_TILES (../tiles/src, style_ver.h --
-# FBTerrainLoader.cpp's one cross-project reference) + the native recipe's vendor isystem set (Dawn
-# generated + vendored webgpu_cpp.h, the curl compat shim, the built JSBSim host tree) plus the
-# WASM-only vendor/jsbsim/src (fdm/jsbsim_adapter.cpp's WASM include root) -- update alongside the
+# Include roots mirror sim/Makefile's INC_MODULES/INC_NATIVE/INC_CLIENT + INC_TILES (../tiles/src,
+# style_ver.h -- world/TerrainLoader.cpp's one cross-project reference) + the native recipe's vendor
+# isystem set (Dawn generated + vendored webgpu_cpp.h, the curl compat shim) -- update alongside the
 # Makefile if either changes.
 #
-# Out of scope: src/clients/FBAppWasm.cpp and FBTileWorkerMain.cpp #include <emscripten.h>. Pointing
+# Out of scope: src/clients/AppWasm.cpp and TileWorkerMain.cpp #include <emscripten.h>. Pointing
 # clangd at emsdk's own sysroot fights its libc++-vs-libc header ordering when driven by plain clang
 # instead of em++ (tried; made things worse) -- reproducing that needs em++ itself as the compile
 # driver (an emcc-generated compile_commands.json), a bigger lift outside this file's reported bug.
@@ -35,20 +34,7 @@ CompileFlags:
     - -I/Users/cosmo/Git/flightbox/sim/src/core
     - -I/Users/cosmo/Git/flightbox/sim/src/render
     - -I/Users/cosmo/Git/flightbox/sim/src/world
-    - -I/Users/cosmo/Git/flightbox/sim/src/systems
-    - -I/Users/cosmo/Git/flightbox/sim/src/sensors
-    - -I/Users/cosmo/Git/flightbox/sim/src/weapons
-    - -I/Users/cosmo/Git/flightbox/sim/src/pilot
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules/f16
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules/f16/displays
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules/stores
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules/missile
-    - -I/Users/cosmo/Git/flightbox/sim/src/modules/ground
-    - -I/Users/cosmo/Git/flightbox/sim/src/units
-    - -I/Users/cosmo/Git/flightbox/sim/src/fdm
     - -I/Users/cosmo/Git/flightbox/sim/src/world/terrain
-    - -I/Users/cosmo/Git/flightbox/sim/src/missions
     - -I/Users/cosmo/Git/flightbox/sim/src/clients
     - -I/Users/cosmo/Git/flightbox/tiles/src
     - -isystem
@@ -59,7 +45,3 @@ CompileFlags:
     - /Users/cosmo/Git/flightbox/sim/vendor
     - -isystem
     - /Users/cosmo/Git/flightbox/sim/vendor/.compat-headers
-    - -isystem
-    - /Users/cosmo/Git/flightbox/sim/build/jsbsim-host/include/JSBSim
-    - -isystem
-    - /Users/cosmo/Git/flightbox/sim/vendor/jsbsim/src

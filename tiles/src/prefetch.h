@@ -5,7 +5,6 @@
 
 #define FB_PF_BAKE_OSM   10
 #define FB_PF_BAKE_PHOTO 11
-#define FB_PF_LIGHTS     12
 
 typedef struct { int kind; int z; long x, y; int tex; } fb_pf_job;
 

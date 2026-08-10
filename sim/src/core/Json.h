@@ -12,7 +12,7 @@
 #include <string>
 #include <vector>
 
-namespace outshine::Render {
+namespace outshine {
 
 class Json {
 public:
@@ -71,5 +71,5 @@ private:
   bool Ok_ = false;
 };
 
-} // namespace outshine::Render
+} // namespace outshine
 #endif

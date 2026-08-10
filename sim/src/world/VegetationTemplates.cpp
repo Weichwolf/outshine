@@ -29,10 +29,10 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   fclose(f);
   if (got != text.size()) { Error_ = "short read"; return false; }
 
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text.c_str(), text.size())) { Error_ = "parse failed"; return false; }
-  const Render::Json::Ref tpls = doc.Root()["templates"];
-  if (tpls.GetKind() != Render::Json::Kind::Array || tpls.Size() == 0) {
+  const Json::Ref tpls = doc.Root()["templates"];
+  if (tpls.GetKind() != Json::Kind::Array || tpls.Size() == 0) {
     Error_ = "no templates array";
     return false;
   }
@@ -40,10 +40,10 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
 
   if (!mats.Ready()) { Error_ = "ground-material table not loaded"; return false; }
 
-  const Render::Json::Ref blades = doc.Root()["bladeClasses"];
+  const Json::Ref blades = doc.Root()["bladeClasses"];
   std::unordered_map<std::string, Blade> bladeByName;
   for (size_t i = 0; i < blades.Size(); i++) {
-    const Render::Json::Ref b = blades[i];
+    const Json::Ref b = blades[i];
     Blade bl{};
     for (int c = 0; c < 3; c++) {
       bl.Green[c] = (float)b["greenLinear"][(size_t)c].Num(-1.0);
@@ -70,17 +70,17 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   };
 
   for (size_t i = 0; i < tpls.Size(); i++) {
-    const Render::Json::Ref t = tpls[i];
+    const Json::Ref t = tpls[i];
     Names_.push_back(t["name"].Str("?"));
 
-    const Render::Json::Ref g = t["ground"], gr = t["grass"];
+    const Json::Ref g = t["ground"], gr = t["grass"];
     const std::string gname = g["class"].Str("");
     const int gi = mats.Find(gname);
     if (gi < 0) { Error_ = "unknown ground class: " + gname; return false; }
     const GroundMaterials::Material &gm = mats.At((size_t)gi);
 
     /* The template may override the litter the material declares — beech litter under spruce is the
-     * defect the botanist calls, and waldboden alone cannot tell the two stands apart. */
+     * defect the botanist calls, and forest_floor alone cannot tell the two stands apart. */
     const std::string lname = g["litterClass"].Str("");
     int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
     if (!lname.empty() && li < 0) { Error_ = "unknown litter class: " + lname; return false; }
@@ -135,9 +135,9 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
 
   /* The osm rows come SECOND, so every row can name a template by index without a forward pass. */
   for (size_t i = 0; i < tpls.Size(); i++) {
-    const Render::Json::Ref rows = tpls[i]["osm"];
+    const Json::Ref rows = tpls[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
-      const Render::Json::Ref r = rows[k];
+      const Json::Ref r = rows[k];
       const std::string layer = r["layer"].Str("");
       const std::string kind = r["kind"].Str("");
       if (layer.empty() || kind.empty()) {
@@ -157,7 +157,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
 
   std::unordered_map<std::string, bool> hasLine;
   for (size_t i = 0; i < tpls.Size(); i++) {
-    const Render::Json::Ref rows = tpls[i]["osm"];
+    const Json::Ref rows = tpls[i]["osm"];
     for (size_t k = 0; k < rows.Size(); k++) {
       const std::string layer = rows[k]["layer"].Str("");
       auto it = hasLine.find(layer);
@@ -179,14 +179,14 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   for (size_t i = 0; i < Names_.size(); i++)
     if (Names_[i] == Limit_.RockTemplateName()) RockTpl_ = (int)i;
   if (RockTpl_ < 0) {
-    Error_ = "alpineLimit.bareRockTemplate names no template: " + Limit_.RockTemplateName();
+    Error_ = "alpineLimit.rockTemplate names no template: " + Limit_.RockTemplateName();
     return false;
   }
 
   Log::Info("veg", "table", {{"path", path}, {"templates", (int)Table_.size()},
                              {"osmRules", (int)Rules_.size()}, {"layers", (int)Layers_.size()},
                              {"areaLayers", (int)AreaLayers_.size()}, {"default", def},
-                             {"bareRock", Limit_.RockTemplateName()},
+                             {"rockTemplate", Limit_.RockTemplateName()},
                              {"slopeBandDeg", (double)Limit_.SlopeBandDeg()}});
   return true;
 }

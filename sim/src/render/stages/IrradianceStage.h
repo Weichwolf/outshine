@@ -19,11 +19,9 @@ public:
   void EncodeCompute(const FrameContext &ctx, wgpu::ComputePassEncoder &pass) override;
 
   /* sunIrr : vec4f (direct normal, w spare) + skyIrr : vec4f (diffuse on horizontal, w = the
-   * luminance of E on a horizontal surface — sun and sky together, ExposureStage's only input)
-   * + sunDeckIrr : vec4f (the direct beam AT THE DECK BASE, brought down the vertical column; w = the
-   * deck-base altitude the taps used, 0 when no deck stands) */
-  static constexpr uint64_t kBufferBytes = 3 * 4 * sizeof(float);
-  static constexpr int kFloats = 3 * 4;
+   * luminance of E on a horizontal surface — sun and sky together, ExposureStage's only input) */
+  static constexpr uint64_t kBufferBytes = 2 * 4 * sizeof(float);
+  static constexpr int kFloats = 2 * 4;
 
 private:
   wgpu::ComputePipeline Pipe;

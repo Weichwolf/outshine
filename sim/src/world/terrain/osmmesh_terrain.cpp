@@ -21,7 +21,10 @@ struct osmmesh_ctx {
     int                        enable_terrain;
 
     om_dem_ent dem_lru[OM_DEM_LRU_CAP];
+    int        dem_cap;
     uint64_t   dem_seq;
+
+    osmmesh_terrain_grid borrowed;   /* what osmmesh_tile_grid last handed out */
 };
 
 /* Absent or not-yet-fetched both give 0. */
@@ -36,7 +39,7 @@ static int om_tile_bytes(osmmesh_ctx *ctx, osmmesh_tile_kind kind,
 static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                           osmmesh_terrain_grid *out)
 {
-    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+    for (int i = 0; i < ctx->dem_cap; i++) {
         om_dem_ent *e = &ctx->dem_lru[i];
         if (!e->used || e->z != z || e->x != x || e->y != y) continue;
         e->seq = ++ctx->dem_seq;                         /* touch */
@@ -54,9 +57,9 @@ static int om_dem_lru_get(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
 static void om_dem_lru_put(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                            const osmmesh_terrain_grid *grid)
 {
-    if (!grid->heights || grid->rows < 1 || grid->cols < 1) return;
+    if (!grid->heights || grid->rows < 1 || grid->cols < 1 || ctx->dem_cap <= 0) return;
     int vict = -1; uint64_t oldest = UINT64_MAX;
-    for (int i = 0; i < OM_DEM_LRU_CAP; i++) {
+    for (int i = 0; i < ctx->dem_cap; i++) {
         if (!ctx->dem_lru[i].used) { vict = i; break; }
         if (ctx->dem_lru[i].seq < oldest) { oldest = ctx->dem_lru[i].seq; vict = i; }
     }
@@ -249,6 +252,9 @@ int osmmesh_create(const osmmesh_config *cfg, osmmesh_ctx **out)
     ctx->tile_provider_user        = cfg->tile_provider_user;
     ctx->provider_terrain_max_zoom = cfg->provider_terrain_max_zoom;
     ctx->enable_terrain            = cfg->enable_terrain ? 1 : 0;
+    ctx->dem_cap                   = cfg->dem_cache_tiles > 0 &&
+                                     cfg->dem_cache_tiles < OM_DEM_LRU_CAP
+                                         ? cfg->dem_cache_tiles : OM_DEM_LRU_CAP;
 
     *out = ctx;
     return OSMMESH_OK;
@@ -259,6 +265,7 @@ void osmmesh_destroy(osmmesh_ctx *ctx)
     if (!ctx) return;
     for (int i = 0; i < OM_DEM_LRU_CAP; i++)
         if (ctx->dem_lru[i].used) osmmesh_terrain_grid_free(&ctx->dem_lru[i].g);
+    osmmesh_terrain_grid_free(&ctx->borrowed);
     free(ctx);
 }
 
@@ -287,6 +294,24 @@ int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
 
     osmmesh_terrain_grid_free(&grid);
     return OSMMESH_OK;
+}
+
+const osmmesh_terrain_grid *osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                                              uint32_t *row_postings, uint32_t *col_postings)
+{
+    if (!ctx) return NULL;
+    osmmesh_terrain_grid_free(&ctx->borrowed);
+    if (fetch_terrain_grid(ctx, z, x, y, &ctx->borrowed) != OSMMESH_OK ||
+        !ctx->borrowed.heights || ctx->borrowed.rows < 2 || ctx->borrowed.cols < 2) {
+        osmmesh_terrain_grid_free(&ctx->borrowed);
+        return NULL;
+    }
+    /* The builder's own stride, read off the context rather than assumed, so the posting lattice the
+     * caller lands on is the one the mesh will carry. */
+    uint32_t stride = ctx->has_terrain_opts && ctx->terrain_opts.stride ? ctx->terrain_opts.stride : 1;
+    if (row_postings) *row_postings = osmmesh_terrain_postings(ctx->borrowed.rows, stride);
+    if (col_postings) *col_postings = osmmesh_terrain_postings(ctx->borrowed.cols, stride);
+    return &ctx->borrowed;
 }
 
 void osmmesh_free_tile(osmmesh_tile *tile)

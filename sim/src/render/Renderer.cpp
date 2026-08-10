@@ -186,7 +186,6 @@ void Renderer::OnDevice(wgpu::Device d) {
   }
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
   Stars->Init(gpu);
-  TileLights->Init(gpu);
   Buildings->Configure(gpu, Light());
   Water->Configure(gpu, Light());
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
@@ -393,8 +392,8 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
   a[41] = 0.0f;
   a[42] = 0.0f;
   a[43] = 0.0045f * (float)MoonScale;               /* real angular radius x FB_MOON_SCALE (default 1) */
-  a[44] = 0.0f;   /* the vec4 stride's spare: nothing rides here */
-  a[45] = 0.0f;   /* the lowest deck base ASL; no source is connected to it */
+  a[44] = 0.0f;   /* view.xy — the vec4 stride's spare: nothing rides here */
+  a[45] = 0.0f;
   /* view.zw — the frame's sub-pixel sample offset in NDC. camRay() subtracts it, because the ray
    * that belongs to a pixel is the one the JITTERED projection would have put there; without it the
    * sun disc's own edge and the sky behind a terrain silhouette would sample half a pixel apart. */
@@ -412,7 +411,7 @@ void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], con
 static void MvpCamRel(float *m, const double R[3], const double Uc[3], const double F[3], int w,
                       int h, float fovDeg, float jitNdcX, float jitNdcY, float orthoM) {
   const float fov = fovDeg * 3.14159265f / 180.0f, asp = (float)w / (float)h;
-  const float zn = 0.05f;
+  const float zn = Renderer::kNearM;
   const float f = 1.0f / std::tan(fov / 2.0f);
   float v[16] = {(float)R[0],  (float)Uc[0],  -(float)F[0],  0,
                  (float)R[1],  (float)Uc[1],  -(float)F[1],  0,
@@ -895,8 +894,6 @@ void Renderer::RenderFrame(void) {
   Water->Encode(ctx, scene);   /* opaque, depth-written, same pass — no Begin*Pass is added */
   Trees->SetSun(ctx.SunDir, NightAmbient(ctx));
   Trees->Encode(ctx, scene);   /* the subject bench's plant, same pass, same light; self-gates off */
-
-  TileLights->Encode(ctx, scene);   /* night lights, depth-tested so hills occlude far ones; self-gates */
   scene.End();
 
 

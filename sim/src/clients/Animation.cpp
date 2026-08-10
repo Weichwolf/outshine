@@ -5,8 +5,8 @@
 namespace outshine::Clients {
 namespace {
 
-using Ref = Render::Json::Ref;
-using JKind = Render::Json::Kind;
+using Ref = Json::Ref;
+using JKind = Json::Kind;
 
 struct TargetName {
   const char *Text;

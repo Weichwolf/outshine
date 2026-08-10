@@ -3,6 +3,7 @@
  * geodetic->ECEF — so there is no tangent-plane error and no dependence on a fixed home origin. */
 #ifndef CHUNKMESH_H
 #define CHUNKMESH_H
+#include "ChunkSurface.h" /* the node lattice and the split, shared with the height oracle */
 #include "ChunkVtx.h" /* ChunkVtx, Chunk, ChunkFree -- no dependency on the ENU builder */
 #include <math.h>
 #include "geo.h"
@@ -12,7 +13,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-namespace outshine::Render {
+namespace outshine::World {
 
 inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, int grid,
                            Chunk *out, double origin_out[3]) {
@@ -36,11 +37,10 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   if (!(C >= 2 && R >= 2 && m->n_vertices % C == 0))
     return 0; /* terrain is always a grid; refuse soup */
 
-  int G = grid < 2 ? 2 : grid;
-  int gc = (int)C < G + 1 ? (int)C : G + 1, gr = (int)R < G + 1 ? (int)R : G + 1;
+  int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
 #define W3_MH(r, c) (m->positions[((size_t)(r) * C + (size_t)(c)) * 3 + 2]) /* source height */
-#define W3_RI(j) ((int)((long)(j) * (R - 1) / (gr - 1)))
-#define W3_CI(i) ((int)((long)(i) * (C - 1) / (gc - 1)))
+#define W3_RI(j) ((int)ChunkNodePosting((j), R, gr))
+#define W3_CI(i) ((int)ChunkNodePosting((i), C, gc))
 
   int NN = gr * gc;
   double *pe =
@@ -136,9 +136,7 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
       for (int r = r0; r <= r1; r++)
         for (int c = c0; c <= c1; c++) {
           float sv = (float)(r - r0) / (float)(r1 - r0), su = (float)(c - c0) / (float)(c1 - c0);
-          float h = (su >= sv) ? h00 + (h10 - h00) * su + (h11 - h10) * sv
-                               : h00 + (h11 - h01) * su + (h01 - h00) * sv;
-          float d = fabsf(h - W3_MH(r, c));
+          float d = fabsf(ChunkTriangleHeight(h00, h10, h11, h01, su, sv) - W3_MH(r, c));
           if (d > err) err = d;
         }
     }
@@ -155,20 +153,19 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
     free(nv);
     return 0;
   }
-#define W3_UV(j, i)                                                                                \
-  (float)(((double)W3_CI(i)) / (double)(C - 1)), (float)(((double)W3_RI(j)) / (double)(R - 1))
+  const ChunkQuadCorner *w = ChunkQuadWinding();
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
-      int qj[6] = {j, j, j + 1, j, j + 1, j + 1}, qi[6] = {i, i + 1, i + 1, i, i + 1, i};
       for (int k = 0; k < 6; k++) {
-        const double *P = pe + ((size_t)qj[k] * gc + qi[k]) * 3;
-        const float *N = nv + ((size_t)qj[k] * gc + qi[k]) * 3;
+        const int qj = j + w[k].Row, qi = i + w[k].Col;
+        const double *P = pe + ((size_t)qj * gc + qi) * 3;
+        const float *N = nv + ((size_t)qj * gc + qi) * 3;
         ChunkVtx *d = &v[o++];
         d->pos[0] = (float)P[0];
         d->pos[1] = (float)P[1];
         d->pos[2] = (float)P[2];
-        d->uv[0] = (float)((double)W3_CI(qi[k]) / (double)(C - 1));
-        d->uv[1] = (float)((double)W3_RI(qj[k]) / (double)(R - 1));
+        d->uv[0] = (float)((double)W3_CI(qi) / (double)(C - 1));
+        d->uv[1] = (float)((double)W3_RI(qj) / (double)(R - 1));
         d->norm[0] = N[0];
         d->norm[1] = N[1];
         d->norm[2] = N[2];
@@ -218,7 +215,6 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
     W3_SKIRT_EDGE(j + 1, gc - 1, j, gc - 1);
   } /* east  */
 #undef W3_SKIRT_EDGE
-#undef W3_UV
 #undef W3_MH
 #undef W3_RI
 #undef W3_CI
@@ -231,5 +227,5 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   return 1;
 }
 
-} // namespace outshine::Render
+} // namespace outshine::World
 #endif /* CHUNKMESH_H */

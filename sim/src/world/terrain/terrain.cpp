@@ -131,8 +131,8 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
     if (((rows - 1) % S) != 0 || ((cols - 1) % S) != 0) {
         return OSMMESH_TERRAIN_ERR_ARG;
     }
-    uint32_t rows_out = (rows - 1) / S + 1;
-    uint32_t cols_out = (cols - 1) / S + 1;
+    uint32_t rows_out = osmmesh_terrain_postings(rows, S);
+    uint32_t cols_out = osmmesh_terrain_postings(cols, S);
 
     uint64_t n_vertices64  = (uint64_t)rows_out * (uint64_t)cols_out;
     uint64_t n_triangles64 = (uint64_t)(rows_out - 1) * (uint64_t)(cols_out - 1) * 2ull;
@@ -157,26 +157,21 @@ int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
         return OSMMESH_TERRAIN_ERR_OOM;
     }
 
-    /* double accumulation against step drift over the 256-pixel span; float only at store. */
-    double inv_cm1 = 1.0 / (double)(cols_out - 1);
-    double inv_rm1 = 1.0 / (double)(rows_out - 1);
     double tile_w_e = map->scale_e * (double)map->extent;   /* meters */
     double tile_h_n = map->scale_n * (double)map->extent;   /* meters, NEG */
 
     for (uint32_t r = 0; r < rows_out; r++) {
-        double fr = (double)r * inv_rm1;           /* [0..1], north->south */
-        double gy = fb_texel_index(fr, rows);
+        double fr = osmmesh_terrain_posting_frac(r, rows_out);   /* [0..1], north->south */
         for (uint32_t c = 0; c < cols_out; c++) {
-            double fc = (double)c * inv_cm1;        /* [0..1], west->east */
+            double fc = osmmesh_terrain_posting_frac(c, cols_out);   /* [0..1], west->east */
             uint32_t vi = r * cols_out + c;
 
             double e = map->origin_e + fc * tile_w_e;
             double n = map->origin_n + fr * tile_h_n;  /* tile_h_n is <0 */
-            /* A posting sits on the tile fraction, a texel sample half a texel inside it, so the
-             * height is interpolated and not indexed. The clamp at fr/fc = 0 and 1 is exact rather
-             * than approximate: the stitch has already replaced the edge row/column with the mean of
-             * the two texels straddling the border, which IS the field's value on the border. */
-            float  u = fb_bilinear(grid->heights, cols, rows, fb_texel_index(fc, cols), gy);
+            /* The clamp at fr/fc = 0 and 1 is exact rather than approximate: the stitch has already
+             * replaced the edge row/column with the mean of the two texels straddling the border,
+             * which IS the field's value on the border. */
+            float  u = osmmesh_terrain_posting_height(grid, fc, fr);
 
             positions[3*vi + 0] = (float)e;
             positions[3*vi + 1] = (float)n;

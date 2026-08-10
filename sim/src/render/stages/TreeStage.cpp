@@ -487,7 +487,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   CardBakePipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
-  bd.size = (kRanks + 1) * kUniFloats * sizeof(float);   /* one slot per mesh rank plus the impostor */
+  bd.size = (TreeRank::kCount + 1) * kUniFloats * sizeof(float);   /* one slot per mesh rank plus the impostor */
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
@@ -594,7 +594,7 @@ wgpu::Buffer TreeStage::Upload(const void *data, size_t bytes, wgpu::BufferUsage
 
 void TreeStage::SetBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx,
                         uint32_t nidx) {
-  if (rank < 0 || rank >= kRanks) return;
+  if (rank < 0 || rank >= TreeRank::kCount) return;
   BarkCount[rank] = 0;
   if (!Device || !verts || nverts == 0 || nidx == 0) return;
   BarkVtx[rank] =
@@ -619,7 +619,7 @@ void TreeStage::SetLeaf(const float *verts, uint32_t nverts, const uint32_t *idx
 /* All ranks live in ONE storage buffer with a per-rank base, because the bind group is built once and
  * a second card buffer would mean a second group for a draw that differs in a single integer. */
 void TreeStage::SetCards(int rank, const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
-  if (rank < 0 || rank >= kRanks) return;
+  if (rank < 0 || rank >= TreeRank::kCount) return;
   CardStage[rank].assign(inst && n ? inst : nullptr,
                          inst && n ? inst + (size_t)n * kInstFloats : nullptr);
   CardLeafM[rank] = leafLenM;
@@ -627,7 +627,7 @@ void TreeStage::SetCards(int rank, const float *inst, uint32_t n, float leafLenM
   if (!Device) return;
   std::vector<float> all;
   uint32_t base = 0;
-  for (int k = 0; k < kRanks; k++) {
+  for (int k = 0; k < TreeRank::kCount; k++) {
     CardBase[k] = base;
     CardCount[k] = (uint32_t)(CardStage[k].size() / kInstFloats);
     all.insert(all.end(), CardStage[k].begin(), CardStage[k].end());
@@ -740,7 +740,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   Drawn = 0;
   MeshN = 0;
   MeshRadius = 0.0;
-  for (int k = 0; k < kRanks; k++) RankN[k] = 0;
+  for (int k = 0; k < TreeRank::kCount; k++) RankN[k] = 0;
   /* Ein Stand aus SetStand ODER ein Feld aus SetStands; ohne beides zeichnet die Stage nichts. */
   if (!BarkPipe || BarkCount[0] == 0 || (HeightM <= 0.0 && StandCount == 0)) return;
 
@@ -758,15 +758,15 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
    * the model-space error, and the mesh rank ends where that error reaches one pixel. Resolution and
    * FOV therefore move the rank on their own. */
   const double fPx = PixelFocalLength(ctx.Height, (double)ctx.FovDeg);
-  MeshRadius = HeightM * fPx / (double)kCellPx;
+  MeshRadius = HeightM * fPx / (double)TreeRank::kCellPx;
   /* Rank k ends where rank k+1's own error first stays under a pixel; the last one ends at the
    * impostor. The stands arrive sorted, so every rank is a contiguous range. */
-  uint32_t first[kRanks] = {}, cnt[kRanks] = {};
+  uint32_t first[TreeRank::kCount] = {}, cnt[TreeRank::kCount] = {};
   uint32_t nMesh = StandCount;
   if (StandCount > 0) {
     uint32_t lo = 0;
-    for (int k = 0; k < kRanks; k++) {
-      const double edge = HeightM * fPx * (double)RankPixel(k + 1);
+    for (int k = 0; k < TreeRank::kCount; k++) {
+      const double edge = HeightM * fPx * (double)TreeRank::Pixel(k + 1);
       const auto e = std::upper_bound(StandDist.begin(), StandDist.end(), (float)edge);
       const uint32_t hi = (uint32_t)(e - StandDist.begin());
       first[k] = lo;
@@ -778,7 +778,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
     cnt[0] = 1;
   }
   MeshN = (long)nMesh;
-  for (int k = 0; k < kRanks; k++) RankN[k] = (long)cnt[k];
+  for (int k = 0; k < TreeRank::kCount; k++) RankN[k] = (long)cnt[k];
 
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
@@ -805,8 +805,8 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
    * against the draw it was recorded next to, so writing one slot twice would reach every draw in the
    * pass. A rank differs from its neighbours in four fields: its first stand, its card range and the
    * leaf its cards draw. */
-  uint32_t off[kRanks + 1] = {};
-  for (int k = 0; k < kRanks; k++) {
+  uint32_t off[TreeRank::kCount + 1] = {};
+  for (int k = 0; k < TreeRank::kCount; k++) {
     off[k] = (uint32_t)(k * kUniFloats * sizeof(float));
     u[43] = (float)first[k];
     u[52] = CardLeafM[k];
@@ -814,11 +814,11 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
     u[59] = (float)CardBase[k];
     Queue.WriteBuffer(Uni, off[k], u, sizeof u);
   }
-  off[kRanks] = (uint32_t)(kRanks * kUniFloats * sizeof(float));
+  off[TreeRank::kCount] = (uint32_t)(TreeRank::kCount * kUniFloats * sizeof(float));
   u[43] = (float)nMesh;
-  Queue.WriteBuffer(Uni, off[kRanks], u, sizeof u);
+  Queue.WriteBuffer(Uni, off[TreeRank::kCount], u, sizeof u);
 
-  for (int k = 0; k < kRanks; k++) {
+  for (int k = 0; k < TreeRank::kCount; k++) {
     if (BarkCount[k] == 0 || cnt[k] == 0) continue;
     pass.SetPipeline(BarkPipe);
     pass.SetBindGroup(0, Bind, 1, &off[k]);
@@ -830,7 +830,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
 
   if (!LeavesOn) return;
   if (StandCount > 0) {
-    for (int k = 0; k < kRanks; k++) {
+    for (int k = 0; k < TreeRank::kCount; k++) {
       if (CardCount[k] == 0 || cnt[k] == 0) continue;
       pass.SetPipeline(CardPipe);
       pass.SetBindGroup(0, Bind, 1, &off[k]);
@@ -840,7 +840,7 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
     ImpN = (long)(StandCount - nMesh);
     if (ImpPipe && ImpAlbedo && ImpN > 0) {
       pass.SetPipeline(ImpPipe);
-      pass.SetBindGroup(0, Bind, 1, &off[kRanks]);
+      pass.SetBindGroup(0, Bind, 1, &off[TreeRank::kCount]);
       pass.Draw(6, (uint32_t)ImpN);
       Drawn += 2 * ImpN;
     }

@@ -42,6 +42,10 @@ typedef struct {
     /* NULL = generator defaults. */
     const osmmesh_terrain_build_opts *terrain_opts;
 
+    /* Decoded source grids held against the next stitch, 0 = the built-in ceiling. A context that
+     * only asks about single tiles pays 256 KiB per slot for a cache it cannot use. */
+    int  dem_cache_tiles;
+
     int  enable_terrain;
 } osmmesh_config;
 
@@ -70,6 +74,14 @@ int  osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
 
 /* Safe on a zero-init struct and safe twice. */
 void osmmesh_free_tile(osmmesh_tile *tile);
+
+/* THE HEIGHT FIELD THE TILE'S MESH IS BUILT FROM: cropped from the parent past the provider's max
+ * zoom, then edge-averaged against its four neighbours. Borrowed — it lives until the next call on
+ * this context — and NULL while a byte it needs is still missing. `postings` is the posting count
+ * per edge under this context's stride, so a caller cannot land on a lattice the builder does not
+ * use. */
+const osmmesh_terrain_grid *osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                                              uint32_t *row_postings, uint32_t *col_postings);
 
 #ifdef __cplusplus
 }

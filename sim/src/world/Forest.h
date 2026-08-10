@@ -9,8 +9,8 @@
 
 #include "TreeField.h"
 #include "Capacity.h"
+#include "TreeLook.h"
 #include "TreeMesh.h"
-#include "stages/TreeStage.h"
 
 namespace outshine::Render { class Renderer; }
 
@@ -46,7 +46,7 @@ public:
   static bool LoadSpecies(const char *path, TreeSpecies *out);
   /* A declared colour is sRGB and a reflectance is linear; the leaf tint multiplies the table's own
    * fresh-blade green. Both conversions are world knowledge, so render/ never sees a declaration. */
-  static Render::TreeLook LookOf(const TreeSpecies &sp);
+  static TreeLook LookOf(const TreeSpecies &sp);
 
   /* [SET] The fan a shoot's leaves stand in about their stalk, full angle. A card is one shoot tip,
    * and a rosette of four laminae over less than a right angle stacks into a line from every

@@ -88,7 +88,7 @@ public:
     SubjectRun Subject;
   };
 
-  bool Read(const Render::Json::Ref &node, std::string &err);
+  bool Read(const Json::Ref &node, std::string &err);
 
   const std::string &Id() const { return Id_; }
   Kind What() const { return Kind_; }
@@ -123,10 +123,10 @@ public:
   const std::vector<Run> &Runs() const { return Runs_; }
 
 private:
-  bool ReadExposure(const Render::Json::Ref &node, std::string &err);
-  bool ReadResolution(const Render::Json::Ref &node, std::string &err);
-  bool ReadRuns(const Render::Json::Ref &node, std::string &err);
-  bool ReadMotion(const Render::Json::Ref &node, Run &run, std::string &err);
+  bool ReadExposure(const Json::Ref &node, std::string &err);
+  bool ReadResolution(const Json::Ref &node, std::string &err);
+  bool ReadRuns(const Json::Ref &node, std::string &err);
+  bool ReadMotion(const Json::Ref &node, Run &run, std::string &err);
 
   std::string Id_, Utc_, Snapshot_;
   Kind Kind_ = Kind::Interactive;

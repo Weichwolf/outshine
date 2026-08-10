@@ -15,7 +15,6 @@
 #include "FrameContext.h"
 #include "GpuTimer.h"
 #include "stages/StarsStage.h"
-#include "stages/TileLightsStage.h"
 #include "stages/PresentStage.h"
 #include "stages/ProgressStage.h"
 #include "stages/TransmittanceStage.h"
@@ -233,11 +232,6 @@ public:
   /* Drives sidereal star placement. */
   void SetSkyClock(double unixSec) { SkyClock = unixSec; }
 
-  /* count * 7 floats [posRelAnchor.xyz, worldRadiusM, colorPremul.rgb]. The pass subtracts
-   * (eye - anchor) per frame, so it stays camera-relative without a re-upload. */
-  void SetLightAnchor(const double anchor[3]) { TileLights->SetAnchor(anchor); }
-  void SetLights(const float *inst, int count) { TileLights->SetLights(inst, count); }
-
   /* Up is derived radial: no roll. */
   void SetCamera(const double eye[3], const double target[3]);
 
@@ -363,9 +357,6 @@ private:
   double SkyClock;
   double WindFromDeg = 0.0, WindMs = 0.0, WindClock = 0.0;
   std::unique_ptr<StarsStage> Stars = std::make_unique<StarsStage>();
-
-  /* Streamed and placed by World; drawn after the terrain, depth-tested for occlusion. */
-  std::unique_ptr<TileLightsStage> TileLights = std::make_unique<TileLightsStage>();
 
   /* THE cloud chain: one stage, one pass, straight into HdrTex. */
 

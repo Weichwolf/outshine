@@ -18,7 +18,7 @@ class BuildingsStage : public DrawStage {
 public:
   void Configure(const Gpu &gpu, const SceneLight &light);
 
-  /* pos3 + norm3 + uv2 per vertex, positions as ECEF offsets from `anchor`. `clusters` is the DAG;
+  /* core/ChunkVtx.h's layout, positions as ECEF offsets from `anchor`. `clusters` is the DAG;
    * level 0 leads the buffer, which is what lets the shadow cast keep using the finest geometry
    * while the camera pass takes the cut. */
   void SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,

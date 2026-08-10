@@ -28,7 +28,7 @@ inline std::string SwardConstsWGSL(void) {
   s += "const kStandCells : i32 = 10;\n";
   s += "const kPatchAmp : f32 = 0.18;\n";
   s += "const kStandAmp : f32 = 0.12;\n";
-  /* DERIVED from the tussock population itself: wiese places 800 blades/m^2 in crowns of kPerTuft = 8,
+  /* DERIVED from the tussock population itself: meadow places 800 blades/m^2 in crowns of kPerTuft = 8,
    * i.e. 100 crowns/m^2 and a spacing of 0.10 m, so the envelope's lattice is ten subdivisions of the
    * 1 m graticule cell. */
   s += "const kTuftCells : f32 = 10.0;\n";
@@ -282,7 +282,7 @@ fn swardAggregate(I : Irr, colIn : vec3f, laiDens : f32, hTopM : f32, jit : f32,
   let tTot = max(swMeanT(kDiff, kView, lai), tBeam);
   let yw = vec3f(0.2126, 0.7152, 0.0722);
   let sunUpF = max(dot(sunN, upv), 0.0);
-  let skyE = dot(I.sky.xyz + I.sunDeck.xyz * (sunUpF * (1.0 - thruMean) * kDeckDiffuse), yw) + night;
+  let skyE = dot(I.sky.xyz + I.sun.xyz * (sunUpF * (1.0 - thruMean) * kDeckDiffuse), yw) + night;
   let sunE = dot(I.sun.xyz, yw) * sunUpF * thruDir;
   let occ = clamp((tTot * (skyE + sunE) - sunE * tBeam) / max(skyE, 1.0e-6), tBeam, 1.0);
   let vis = clamp(sunVis * tBeam / max(occ, 1.0e-3), 0.0, 1.0);

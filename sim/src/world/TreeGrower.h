@@ -31,9 +31,9 @@ public:
    * 0 grows the mesh the species declares. */
   void Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeightFrac);
 
-  /* How many grow passes the last Grow spent solving the declared BHD, and what it missed by. */
+  /* How many grow passes the last Grow spent solving the declared DBH, and what it missed by. */
   int Passes() const { return Passes_; }
-  float BhdErrorRel() const { return BhdErrorRel_; }
+  float DbhErrorRel() const { return DbhErrorRel_; }
   /* The height the last mesh had BEFORE normalisation, in grower units — what `pixelHeightFrac` was
    * converted with. Reported so the estimate below can be checked against it. */
   float GrowHeight() const { return GrowHeight_; }
@@ -85,7 +85,7 @@ private:
   mutable std::vector<TreeVec3> Normals_;
   TreeRandom Rng_{1};
   int Passes_ = 0;
-  float BhdErrorRel_ = 0.0f;
+  float DbhErrorRel_ = 0.0f;
   float PixelGrow_ = 0.0f;
   float GrowHeight_ = 0.0f;
 };

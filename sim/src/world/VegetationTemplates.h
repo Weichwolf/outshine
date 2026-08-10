@@ -77,7 +77,7 @@ public:
   int DefaultTemplate() const { return Default_; }
   /* The DEM's own answer where OSM has none (AlpineLimit.h), and the row it names. */
   const AlpineLimit &Limit() const { return Limit_; }
-  int BareRockTemplate() const { return RockTpl_; }
+  int RockTemplate() const { return RockTpl_; }
   size_t RuleCount() const { return Rules_.size(); }
 
   /* WHICH OSM LAYERS THIS CLASS MODEL READS, derived from the rows and never written down twice: the

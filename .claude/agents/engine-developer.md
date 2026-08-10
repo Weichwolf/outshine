@@ -99,6 +99,11 @@ When the host cannot resolve the difference, **that** is the honest report.
   mean spatially constant — a procedural function of place is allowed and is usually the answer. Its
   amplitude comes from the physics of the thing, not from wanting structure; when that is not enough, the
   missing structure is **geometry**, and you say so.
+**Every artefact you produce goes to the system temp directory, never into the tree.** Stills, depth
+dumps, CSVs, downloaded tiles, scratch scripts — a repository is what is declared and what is built from
+it, and a file nobody committed on purpose is a file the next round has to decide about. Report absolute
+paths under temp; the reader can open them.
+
 - **Warnings are errors.** All targets green, all gates green. Pre-existing red gates you neither worsen
   nor repair unasked — you name them.
 - **Half-built is worse than not built.** If you cannot solve the task completely, say "I cannot solve this

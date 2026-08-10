@@ -118,7 +118,7 @@ int fbtw_open(const char *base, double lat, double lon) {
  * more in the browser, and the render thread may not pay it. */
 static std::vector<float> tw_dagverts;
 static std::vector<uint32_t> tw_dagidx;
-static std::vector<Render::DagCluster> tw_clusters;
+static std::vector<DagCluster> tw_clusters;
 static float tw_err = 0.0f;
 static double tw_origin[3] = {0, 0, 0};
 
@@ -129,7 +129,7 @@ EMSCRIPTEN_KEEPALIVE int     fbtw_nidx(void)     { return (int)tw_dagidx.size();
 EMSCRIPTEN_KEEPALIVE uint8_t *fbtw_clusters(void){ return (uint8_t *)tw_clusters.data(); }
 EMSCRIPTEN_KEEPALIVE int     fbtw_nclusters(void){ return (int)tw_clusters.size(); }
 /* The JS shim copies the cluster array out as raw bytes and must not carry a sizeof of its own. */
-EMSCRIPTEN_KEEPALIVE int     fbtw_clusterbytes(void){ return (int)(tw_clusters.size() * sizeof(Render::DagCluster)); }
+EMSCRIPTEN_KEEPALIVE int     fbtw_clusterbytes(void){ return (int)(tw_clusters.size() * sizeof(DagCluster)); }
 EMSCRIPTEN_KEEPALIVE float   fbtw_err(void)      { return tw_err; }
 EMSCRIPTEN_KEEPALIVE double *fbtw_origin(void)   { return tw_origin; }
 
@@ -137,12 +137,12 @@ EMSCRIPTEN_KEEPALIVE
 void fbtw_release(void) {
   std::vector<float>().swap(tw_dagverts);
   std::vector<uint32_t>().swap(tw_dagidx);
-  std::vector<Render::DagCluster>().swap(tw_clusters);
+  std::vector<DagCluster>().swap(tw_clusters);
   tw_err = 0.0f;
 }
 
-/* THE DAG OF A GIVEN SOUP (pos3+norm3+uv2). Same worker, same exports, no fetch — the caller sends
- * the vertices and reads the ladder back. `seamAttr` >= 0 names the float whose sign marks an
+/* THE DAG OF A GIVEN SOUP in core/ChunkVtx.h's layout. Same worker, same exports, no fetch — the
+ * caller sends the vertices and reads the ladder back. `seamAttr` >= 0 names the float whose sign marks an
  * attribute seam. 1 = built, 0 = nothing to build. */
 template <int A> static int tw_seam_at(const float *v) { return v[A] < 0.0f ? 1 : 0; }
 static int (*const tw_seam[8])(const float *) = {tw_seam_at<0>, tw_seam_at<1>, tw_seam_at<2>, tw_seam_at<3>,
@@ -152,10 +152,10 @@ EMSCRIPTEN_KEEPALIVE
 int fbtw_dag(const float *soup, int nverts, int seamAttr) {
   fbtw_release();
   if (!soup || nverts < 3) return 0;
-  Render::ClusterDag dag;
-  Render::ClusterDagOpts opts;
+  ClusterDag dag;
+  ClusterDagOpts opts;
   if (seamAttr >= 0 && seamAttr < 8) opts.ClassOf = tw_seam[seamAttr];
-  if (Render::ClusterDagBuild(soup, (uint32_t)nverts, 8, opts, &dag)) {
+  if (ClusterDagBuild(soup, (uint32_t)nverts, 8, opts, &dag)) {
     tw_dagverts = std::move(dag.Verts);
     tw_dagidx = std::move(dag.Idx);
     tw_clusters = std::move(dag.Clusters);
@@ -163,10 +163,10 @@ int fbtw_dag(const float *soup, int nverts, int seamAttr) {
     tw_dagverts.assign(soup, soup + (size_t)nverts * 8);
     tw_dagidx.resize((size_t)nverts);
     for (int i = 0; i < nverts; i++) tw_dagidx[(size_t)i] = (uint32_t)i;
-    Render::DagCluster c{};
+    DagCluster c{};
     c.Count = (uint32_t)nverts;
-    c.ParentErr = Render::kDagRootErr;
-    Render::BoundingSphere(soup, (uint32_t)nverts, 8, c.SelfCenter, &c.SelfRadius);
+    c.ParentErr = kDagRootErr;
+    BoundingSphere(soup, (uint32_t)nverts, 8, c.SelfCenter, &c.SelfRadius);
     tw_clusters.push_back(c);
   }
   return 1;
@@ -186,16 +186,16 @@ int fbtw_build(int z, int x, int y, int grid) {
     twp_osmfetch += emscripten_get_now() - tof;
     if (fetched) {
       double tm = emscripten_get_now();
-      Render::Chunk chunk = {};
-      int meshed = (Render::ChunkBuildEcef(t.terrain, z, (uint32_t)x, (uint32_t)y, grid, &chunk, tw_origin) &&
+      Chunk chunk = {};
+      int meshed = (World::ChunkBuildEcef(t.terrain, z, (uint32_t)x, (uint32_t)y, grid, &chunk, tw_origin) &&
                     chunk.nverts > 0);
       if (meshed) {
         tw_err = chunk.err;
-        Render::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, tw_origin,
+        TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, tw_origin,
                              tw_dagverts, tw_dagidx, tw_clusters);
         meshed = !tw_dagverts.empty() && !tw_dagidx.empty() && !tw_clusters.empty();
       }
-      Render::ChunkFree(&chunk);
+      ChunkFree(&chunk);
       twp_mesh += emscripten_get_now() - tm;
       if (++twp_nmesh % 32 == 0) twp_report();
       if (meshed) result |= 1;

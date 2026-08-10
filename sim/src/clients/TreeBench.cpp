@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
   TreeMesh mesh;
   printf("species,bark_v,bark_i,leaf_v,leaf_i,leaf_pts,bbmin_x,bbmin_y,bbmin_z,bbmax_x,bbmax_y,"
          "bbmax_z,grow_ms,leaf_ms,bark_kb,leaf_kb,pts_kb,g_nadir,g0,g1,gp,g_resid,stalk_el_deg,"
-         "angle_ms,foot_d_cm,bhd_cm,bhd_want_cm,hd,passes,laminae,leaf_m2,crown_m2,lai,lai_want,per_pt\n");
+         "angle_ms,foot_d_cm,dbh_cm,dbh_want_cm,hd,passes,laminae,leaf_m2,crown_m2,lai,lai_want,per_pt\n");
   for (int i = 0; i < kSpeciesCount; ++i) {
     std::string text;
     const std::string path = assets + "/" + kSpecies[i] + ".json";
@@ -113,7 +113,7 @@ int main(int argc, char **argv) {
     foliage.Build(mesh, sp, 1);
     const double crownM2 = foliage.CrownProjM2();
 
-    const double bhdCm = 2.0 * (double)mesh.BhdRadius * (double)sp.HeightM() * 100.0;
+    const double dbhCm = 2.0 * (double)mesh.DbhRadius * (double)sp.HeightM() * 100.0;
     printf("%s,%zu,%zu,%zu,%zu,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.4f,%.4f,%.1f,%.1f,%.1f,"
            "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%d,%zu,%.1f,%.1f,%.3f,%.3f,%.3f\n",
            kSpecies[i], mesh.BarkVertexCount(), mesh.BarkIdx.size(), mesh.LeafVertexCount(),
@@ -125,8 +125,8 @@ int main(int argc, char **argv) {
            (double)(mesh.LeafPoints.size() * sizeof(TreeMesh::LeafPoint)) / 1024.0,
            (double)lad.Sampled(90), (double)lad.G0(), (double)lad.G1(), (double)lad.Gp(),
            (double)lad.MaxResidual(), (double)lad.MeanStalkElevationDeg(), Millis(a0, a1),
-           2.0 * (double)mesh.FootRadius * (double)sp.HeightM() * 100.0, bhdCm,
-           (double)sp.BhdM() * 100.0, bhdCm > 0.0 ? (double)sp.HeightM() / bhdCm : -1.0,
+           2.0 * (double)mesh.FootRadius * (double)sp.HeightM() * 100.0, dbhCm,
+           (double)sp.DbhM() * 100.0, dbhCm > 0.0 ? (double)sp.HeightM() / dbhCm : -1.0,
            grower.Passes(), foliage.Count(), foliage.LeafAreaM2(), crownM2,
            crownM2 > 0.0 ? foliage.LeafAreaM2() / crownM2 : -1.0, (double)sp.Lai(),
            foliage.PerPoint());

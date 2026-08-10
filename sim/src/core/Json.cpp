@@ -3,7 +3,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace outshine::Render {
+namespace outshine {
 
 /* Kids_ is filled depth-first while a container is still open, so a child's slot cannot be reserved
  * before its subtree exists. Each container therefore collects its member ids on a local vector and
@@ -196,4 +196,4 @@ bool Json::Ref::StrEquals(const char *s) const {
   return n.StrLen == l && !std::memcmp(Doc->Text_.c_str() + n.Str, s, l);
 }
 
-} // namespace outshine::Render
+} // namespace outshine

@@ -21,53 +21,17 @@
 #include <vector>
 
 #include "DrawStage.h"
+#include "TreeLook.h"
+#include "TreeRanks.h"
 
 namespace outshine::Render {
 
-/* The species' shading declaration, as render/ needs it. `BarkFreq` is furrow cycles per RADIAN of
- * circumference and `LeafRgb` is already tint x base — the multiplication is world knowledge. The
- * `Leaf*` block is world/TreeLeaf's `ProfileWidth` verbatim, so the card's silhouette is the declared
- * lamina and no atlas has to carry a leaf shape. */
-struct TreeLook {
-  float BarkRgb[3] = {0.40f, 0.31f, 0.23f};
-  float BarkDark = 0.62f;
-  float BarkFreq = 4.0f;
-  float BarkRidge = 0.2f;
-  float LeafRgb[3] = {0.068f, 0.107f, 0.027f};
-  float LeafWidth = 0.34f;
-  float LeafWidest = 0.45f;
-  float LeafTip = 0.5f;
-  float LeafBaseFill = 0.0f;
-  float LeafLobes = 0.0f;
-  float LeafLobeDepth = 0.0f;
-  float LeafSerration = 0.0f;
-  float LeafFold = 0.10f;
-  float NeedleWidth = 0.0f;   /* > 0 selects the needle profile */
-};
-
 class TreeStage : public DrawStage {
 public:
-  static constexpr int kLeavesPerCard = 16;   /* the WGSL `kCardLeaves` — change one, change both */
-  /* THE MESH RANKS, and their number is the only thing about them that is chosen. Everything else
-   * follows from `kCellPx`: rank k's mesh may be as coarse as one pixel at its NEAREST stand, its
-   * near edge is where the rank below hands over, and the last one hands over to the impostor at
-   * `kCellPx`. `RankPixel(k)` and `RankEdge(k)` are that ladder. */
-  static constexpr int kRanks = 4;
-  /* THE IMPOSTOR'S TEXEL IS THE MODEL-SPACE ERROR every mesh rank is measured against: a tree of
-   * height H baked into a cell of this many pixels carries an error of H/kCellPx metres, and that
-   * projects to one pixel at d = H * f_px / kCellPx. That inequality, with lambda = H/kCellPx, is
-   * the ONLY thing that decides where the mesh stops. */
-  static constexpr float kCellPx = 256.0f;
-  /* One pixel at rank k's NEAREST stand, as a fraction of the tree's height — the grower's whole
-   * detail input. The impostor's cell is the anchor and every rank below it halves. */
-  static constexpr float RankPixel(int k) {
-    return 1.0f / (kCellPx * (float)(1u << (unsigned)(kRanks - k)));
-  }
-
   void Configure(const Gpu &gpu, const SceneLight &light);
 
   /* pos3 + nrm3 + uv2 + tan3 per vertex, in NORMALISED tree space (foot at y = 0, height 1).
-   * One mesh per rank, grown at `RankPixel(rank)`. */
+   * One mesh per rank, grown at `TreeRank::Pixel(rank)`. */
   void SetBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx);
   /* The single lamina (pos3 + nrm3 + uv2, leaf-local units) plus its instances (pos3 + roll + dir3 +
    * pad). `scaleM` is metres per leaf-local unit. THE SUBJECT BENCH'S leaf: one stand, true geometry. */
@@ -134,7 +98,7 @@ private:
   wgpu::BindGroupLayout Bgl;
   wgpu::BindGroup Bind, BakeBind;
   wgpu::Buffer Uni, BakeUni, LeafVtx, LeafIdx, LeafInst, CardInst, StandBuf;
-  wgpu::Buffer BarkVtx[kRanks], BarkIdx[kRanks];
+  wgpu::Buffer BarkVtx[TreeRank::kCount], BarkIdx[TreeRank::kCount];
   wgpu::Texture ImpAlbedo, ImpNormal, ImpDepth;
   wgpu::TextureView ImpAlbedoView, ImpNormalView, ImpDepthView;
   wgpu::Sampler ImpSamp;
@@ -142,19 +106,19 @@ private:
 
   TreeLook Look;
   std::vector<float> StandDist;
-  std::vector<float> CardStage[kRanks];
+  std::vector<float> CardStage[TreeRank::kCount];
   double SunDir[3] = {0, 0, 1};
   double EastM = 0.0, NorthM = 0.0, EyeAglM = 0.0, HeightM = 0.0;
   float LeafScaleM = 0.1f;
-  float CardLeafM[kRanks] = {0.2f, 0.2f, 0.2f};
+  float CardLeafM[TreeRank::kCount] = {0.2f, 0.2f, 0.2f};
   float CardSpreadDeg = 110.0f;
   float NightAmbient = 0.0f;
-  uint32_t BarkCount[kRanks] = {}, CardCount[kRanks] = {}, CardBase[kRanks] = {};
+  uint32_t BarkCount[TreeRank::kCount] = {}, CardCount[TreeRank::kCount] = {}, CardBase[TreeRank::kCount] = {};
   uint32_t LeafCount = 0, InstCount = 0, StandCount = 0;
   float CrownHalf = 0.35f, CrownTop = 1.0f, CrownBot = 0.0f;
   bool LeavesOn = true;
   long Drawn = 0, MeshN = 0, ImpN = 0;
-  long RankN[kRanks] = {};
+  long RankN[TreeRank::kCount] = {};
   double MeshRadius = 0.0;
 };
 

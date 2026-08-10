@@ -1,6 +1,7 @@
 #include "BuildingsStage.h"
 #include "SceneTargets.h"
 #include <cmath>
+#include "ChunkVtx.h"
 #include "Frustum.h"
 #include "SceneScale.h"
 /* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
@@ -33,7 +34,7 @@ const kFloorM : f32 = 2.9;   /* [SET] German residential floor-to-floor; the ban
 struct BOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f, @location(1) uvb : vec2f,
               @location(2) rel : vec3f };
 
-@vertex fn vs(@location(0) p : vec3f, @location(1) nb : vec3f, @location(2) uvw : vec2f) -> BOut {
+@vertex fn vs(@location(0) p : vec3f, @location(1) uvw : vec2f, @location(2) nb : vec3f) -> BOut {
   var o : BOut;
   let rel = p + b.anc.xyz;
   o.pos = b.mvp * vec4f(rel, 1.0);
@@ -88,10 +89,10 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
 
   wgpu::VertexAttribute attr[3] = {};
   attr[0].format = wgpu::VertexFormat::Float32x3; attr[0].offset = 0;  attr[0].shaderLocation = 0;
-  attr[1].format = wgpu::VertexFormat::Float32x3; attr[1].offset = 12; attr[1].shaderLocation = 1;
-  attr[2].format = wgpu::VertexFormat::Float32x2; attr[2].offset = 24; attr[2].shaderLocation = 2;
+  attr[1].format = wgpu::VertexFormat::Float32x2; attr[1].offset = 12; attr[1].shaderLocation = 1;
+  attr[2].format = wgpu::VertexFormat::Float32x3; attr[2].offset = 20; attr[2].shaderLocation = 2;
   wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 8 * sizeof(float);
+  vbl.arrayStride = kVertexStrideB;
   vbl.attributeCount = 3;
   vbl.attributes = attr;
 

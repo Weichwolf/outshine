@@ -8,6 +8,7 @@
 
 #include "mesh.h"
 #include "geo.h"
+#include "tilemath.h"   /* fb-tiles' OWN registration: the postings below and /elev share one line */
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,21 +35,31 @@ typedef struct {
     float    skirt_depth_m;    /* reserved */
 } osmmesh_terrain_build_opts;
 
+/* Postings per tile edge for a given source edge and stride; the stride must divide (edge - 1). */
+static inline uint32_t osmmesh_terrain_postings(uint32_t src_edge, uint32_t stride)
+{ return (src_edge - 1u) / stride + 1u; }
+
+/* THE POSTING LATTICE. Posting k of n sits on this tile fraction, and the mesh's vertex, its uv and
+ * the height oracle all take it from here — an lattice restated anywhere else drifts in the last bit
+ * and the oracle stops standing on the drawn triangle. */
+static inline double osmmesh_terrain_posting_frac(uint32_t k, uint32_t n)
+{ return (double)k * (1.0 / (double)(n - 1u)); }
+
+/* A texel is an AREA, not a lattice point (tilemath.h), so a posting is INTERPOLATED and never
+ * indexed. Height in metres, on the source grid's own datum. */
+static inline float osmmesh_terrain_posting_height(const osmmesh_terrain_grid *grid,
+                                                    double frac_col, double frac_row)
+{
+    return fb_bilinear(grid->heights, grid->cols, grid->rows,
+                       fb_texel_index(frac_col, grid->cols),
+                       fb_texel_index(frac_row, grid->rows));
+}
+
 /* Positions in ENU meters via `map`; fills *mesh with caller-owned buffers (osmmesh_mesh_free). */
 int osmmesh_terrain_build_mesh(const osmmesh_terrain_grid *grid,
                                 const osmmesh_tile_enu_map *map,
                                 const osmmesh_terrain_build_opts *opts,
                                 osmmesh_mesh *mesh);
-
-/* The ECEF variant beside the ENU one: same heightfield/options/winding, but positions are per-vertex
- * float OFFSETS from `origin_ecef_out` (the tile centre, kept double) so a mesh can sit anywhere on
- * the planet. Normals are unit ECEF-axis, not world-up; no yoff lift — an ECEF vertex is absolute, so
- * the camera's own ECEF already carries its altitude. */
-int osmmesh_terrain_build_mesh_ecef(const osmmesh_terrain_grid *grid,
-                                     uint8_t z, uint32_t x, uint32_t y,
-                                     const osmmesh_terrain_build_opts *opts,
-                                     osmmesh_mesh *mesh,
-                                     double origin_ecef_out[3]);
 
 #define OSMMESH_TERRAIN_OK            0
 #define OSMMESH_TERRAIN_ERR_DECODE   -1   /* PNG broken / wrong channels */

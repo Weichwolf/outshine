@@ -87,7 +87,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/ServerArtifacts.cpp
 
 PEDESTRIAN_SRCS := \
-  src/core/Log.cpp src/core/Telemetry.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
+  src/core/Log.cpp src/core/Telemetry.cpp src/core/Json.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
   src/core/HeapProbe.cpp src/core/StackProbe.cpp \
   src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassStructure.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
@@ -137,7 +137,7 @@ worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) ->
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
 	  emcc src/core/Log.cpp $(CXXSTD) -O2 $(EMCC_WARN) -Isrc/core -c -o build/obj-worker/Log.o; \
 	  emcc build/obj-worker/*.o src/clients/TileWorkerMain.cpp src/clients/LogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
-	    -Isrc/render -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
+	    -Isrc/world -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
 	    -sASYNCIFY -sALLOW_MEMORY_GROWTH -sINITIAL_MEMORY=64MB -sEXIT_RUNTIME=0 -sFETCH \
 	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_dag,_fbtw_verts,_fbtw_nverts,_fbtw_idx,_fbtw_nidx,_fbtw_clusters,_fbtw_nclusters,_fbtw_clusterbytes,_fbtw_err,_fbtw_origin,_fbtw_release \
 	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
@@ -173,12 +173,12 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 treebench:       ## grow all sixteen species and measure them -> build/treebench (CSV on stdout)
 	@cd $(SELF_DIR); set -e; \
 	  mkdir -p build; \
-	  c++ src/clients/TreeBench.cpp $(TREE_SRCS) src/render/Json.cpp \
-	    $(CXXSTD) -O2 $(CXX_WARN) -Isrc/world -Isrc/render -Isrc/core \
+	  c++ src/clients/TreeBench.cpp $(TREE_SRCS) src/core/Json.cpp \
+	    $(CXXSTD) -O2 $(CXX_WARN) -Isrc/world -Isrc/core \
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
 
-verify-layers:   ## check src/ + test/ against the layer matrix in tools/verify_layers.py
+verify-layers:   ## check src/ against the layer matrix in tools/verify_layers.py
 	@cd $(SELF_DIR) && python3 tools/verify_layers.py
 
 # ONE PROGRAM, TWO TRANSLATIONS. The gate that would have caught the forest living in one main() for

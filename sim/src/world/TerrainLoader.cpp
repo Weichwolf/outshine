@@ -1,10 +1,12 @@
 /* The tile-streaming C ABI: fb-tiles bytes -> osmmesh -> camera-relative ECEF meshes + albedo mip
  * meshes, polled per pass by World. */
 #include "TerrainLoader.h"
+#include "ChunkSurface.h"
 #include "Mips.h"
 #include "style_ver.h"
 #include "ChunkMesh.h"
 #include "ClusterDag.h"
+#include "ElevationProvider.h"
 #include "geo.h"
 #include "osmmesh.h"
 #include "terrain.h"
@@ -34,6 +36,16 @@ using namespace outshine;
 
 /* stb_image's implementation lives in terrain.cpp — declared here, never re-implemented: two
  * implementations in one link would collide. */
+
+/* fb-tiles' terrarium source stops here (tiles/src/tilesrc.c); above it osmmesh crops the parent. */
+constexpr int kFbProviderTerrainMaxZ = 15;
+
+/* The height oracle sits after the platform split because a ground truth that differs between two
+ * clients is not one; its bring-up and teardown are called from both halves. */
+namespace {
+void FbGroundOpen(FbGroundSurface surface);
+void FbGroundClose();
+}
 
 #ifdef __EMSCRIPTEN__
 /* emscripten_fetch's SYNCHRONOUS mode is Web-Worker-only (NULL on a page's main thread), so the
@@ -203,16 +215,16 @@ EM_JS(int, fbw_mesh_poll, (int z, int x, int y, int grid, uint8_t **vptr, int *n
   return 0;
 })
 
-int fb_stream_open(const char *base, double lat, double lon, int z) {
-  (void)z;
+int fb_stream_open(const char *base, double lat, double lon, FbGroundSurface surface) {
   fbw_init(base, lat, lon);
+  FbGroundOpen(surface);
   return 1;
 }
 void fb_stream_campos(double lat, double lon) { fbw_campos(lat, lon); }
 
 int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
                     uint32_t **idx, int *nidx,
-                    outshine::Render::DagCluster **clusters, int *nclusters,
+                    outshine::DagCluster **clusters, int *nclusters,
                     double origin[3], float *err) {
   float e = 0.f;
   int ok = fbw_mesh_poll(z, (int)x, (int)y, grid, (uint8_t **)verts, nverts,
@@ -253,7 +265,7 @@ EM_JS(int, fbw_dag_poll, (int id, const float *soup, int nverts, int seamAttr,
 
 int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
                   uint32_t **idx, int *nidx,
-                  outshine::Render::DagCluster **clusters, int *nclusters) {
+                  outshine::DagCluster **clusters, int *nclusters) {
   return fbw_dag_poll(id, soup, nverts, seamAttr, (uint8_t **)verts, nverts_out,
                       (uint8_t **)idx, nidx, (uint8_t **)clusters, nclusters);
 }
@@ -288,31 +300,6 @@ int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   return 1;
 }
 
-/* Lowest priority and in-flight-capped, so it never floods the connection or stalls the render loop. */
-EM_JS(int, fbw_lights_poll, (int z, int x, int y, uint8_t *dst, int cap), {
-  var L = Module.__fbL || (Module.__fbL = { done: new Map(), req: new Set(), inflight: 0 });
-  var k = z + '/' + x + '/' + y;
-  if (L.done.has(k)) {
-    var b = L.done.get(k);
-    if (b === null || b.length > cap) return -1;   /* fetched: none/error, or too big to fit */
-    HEAPU8.set(b, dst);
-    return b.length;
-  }
-  if (!L.req.has(k) && L.inflight < 3) {
-    var base = window.FB_TILES_URL;
-    if (!base) { return 0; }
-    L.req.add(k); L.inflight++;
-    fetch(base + '/t/lights/' + z + '/' + x + '/' + y)
-      .then(function (r) { return r.ok ? r.arrayBuffer() : null; })
-      .then(function (ab) { L.done.set(k, ab ? new Uint8Array(ab) : null); L.inflight--; })
-      .catch(function () { L.done.set(k, null); L.inflight--; });
-  }
-  return 0;
-})
-int fb_stream_lights(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
-  return fbw_lights_poll(z, (int)x, (int)y, dst, cap);
-}
-
 /* The tile-provider cache already fetches /t/vector for the terrain path, so the vector tile rides
  * the SAME async cache the mesh does instead of opening a second one. */
 EM_JS(int, fbw_vector_poll, (int z, int x, int y, uint8_t *dst, int cap), {
@@ -339,7 +326,7 @@ int fb_stream_vector(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
   return fbw_vector_poll(z, (int)x, (int)y, dst, cap);
 }
 
-void fb_stream_close(void) {}
+void fb_stream_close(void) { FbGroundClose(); }
 
 EM_JS(double, fbw_cache_bytes, (), {
   var total = 0;
@@ -508,7 +495,7 @@ struct FbpResult {
   int NVerts = 0;
   uint32_t *Idx = nullptr;
   int NIdx = 0;
-  outshine::Render::DagCluster *Clusters = nullptr;
+  outshine::DagCluster *Clusters = nullptr;
   int NClusters = 0;
   double Origin[3] = {0, 0, 0};
   float Err = 0.0f;
@@ -554,10 +541,10 @@ int FbpProvider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint
 /* Three malloc'd arrays or none: a partial result is a cluster list that describes a buffer the
  * caller does not have. */
 bool FbpPublish(FbpResult *r, const std::vector<float> &dv, const std::vector<uint32_t> &di,
-                const std::vector<outshine::Render::DagCluster> &dc) {
+                const std::vector<outshine::DagCluster> &dc) {
   r->Verts = (float *)malloc(dv.size() * sizeof(float));
   r->Idx = (uint32_t *)malloc(di.size() * sizeof(uint32_t));
-  r->Clusters = (outshine::Render::DagCluster *)malloc(dc.size() * sizeof(outshine::Render::DagCluster));
+  r->Clusters = (outshine::DagCluster *)malloc(dc.size() * sizeof(outshine::DagCluster));
   if (!r->Verts || !r->Idx || !r->Clusters) {
     free(r->Verts); free(r->Idx); free(r->Clusters);
     r->Verts = 0; r->Idx = 0; r->Clusters = 0;
@@ -565,7 +552,7 @@ bool FbpPublish(FbpResult *r, const std::vector<float> &dv, const std::vector<ui
   }
   memcpy(r->Verts, dv.data(), dv.size() * sizeof(float));
   memcpy(r->Idx, di.data(), di.size() * sizeof(uint32_t));
-  memcpy(r->Clusters, dc.data(), dc.size() * sizeof(outshine::Render::DagCluster));
+  memcpy(r->Clusters, dc.data(), dc.size() * sizeof(outshine::DagCluster));
   r->NVerts = (int)(dv.size() / 8);
   r->NIdx = (int)di.size();
   r->NClusters = (int)dc.size();
@@ -578,20 +565,20 @@ void FbpRunMesh(osmmesh_ctx *ctx, const FbpJob &j, FbpResult *r, FbpStats *st) {
   const int fetched = osmmesh_fetch_tile(ctx, (uint8_t)j.Z, j.X, j.Y, &t);
   if (fbtp()) st->DemFetch += fbtp_ms() - t0;
   if (fetched != OSMMESH_OK || !t.terrain) { osmmesh_free_tile(&t); return; }
-  outshine::Render::Chunk chunk = {};
+  outshine::Chunk chunk = {};
   double o[3];
   const double t1 = fbtp() ? fbtp_ms() : 0;
-  const int ok = outshine::Render::ChunkBuildEcef(t.terrain, j.Z, j.X, j.Y, j.Grid, &chunk, o);
+  const int ok = outshine::World::ChunkBuildEcef(t.terrain, j.Z, j.X, j.Y, j.Grid, &chunk, o);
   if (fbtp()) st->Mesh += fbtp_ms() - t1;
   osmmesh_free_tile(&t);
-  if (!ok || chunk.nverts <= 0) { outshine::Render::ChunkFree(&chunk); return; }
+  if (!ok || chunk.nverts <= 0) { outshine::ChunkFree(&chunk); return; }
 
   std::vector<float> dv;
   std::vector<uint32_t> di;
-  std::vector<outshine::Render::DagCluster> dc;
-  outshine::Render::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, o, dv, di, dc);
+  std::vector<outshine::DagCluster> dc;
+  outshine::TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, o, dv, di, dc);
   r->Err = chunk.err;
-  outshine::Render::ChunkFree(&chunk);
+  outshine::ChunkFree(&chunk);
   if (dv.empty() || di.empty() || dc.empty()) return;
   if (!FbpPublish(r, dv, di, dc)) return;
   for (int a = 0; a < 3; a++) r->Origin[a] = o[a];
@@ -608,13 +595,13 @@ void FbpRunDag(const FbpJob &j, FbpResult *r) {
   const int nv = (int)(j.Soup.size() / 8);
   if (nv < 3) return;
   const float *soup = j.Soup.data();
-  outshine::Render::ClusterDag dag;
-  outshine::Render::ClusterDagOpts opts;
+  outshine::ClusterDag dag;
+  outshine::ClusterDagOpts opts;
   if (j.SeamAttr >= 0 && j.SeamAttr < 8) opts.ClassOf = kFbpSeam[j.SeamAttr];
   std::vector<float> dv;
   std::vector<uint32_t> di;
-  std::vector<outshine::Render::DagCluster> dc;
-  if (outshine::Render::ClusterDagBuild(soup, (uint32_t)nv, 8, opts, &dag)) {
+  std::vector<outshine::DagCluster> dc;
+  if (outshine::ClusterDagBuild(soup, (uint32_t)nv, 8, opts, &dag)) {
     dv = std::move(dag.Verts);
     di = std::move(dag.Idx);
     dc = std::move(dag.Clusters);
@@ -624,10 +611,10 @@ void FbpRunDag(const FbpJob &j, FbpResult *r) {
     dv.assign(soup, soup + j.Soup.size());
     di.resize((size_t)nv);
     for (int i = 0; i < nv; i++) di[(size_t)i] = (uint32_t)i;
-    outshine::Render::DagCluster c{};
+    outshine::DagCluster c{};
     c.Count = (uint32_t)nv;
-    c.ParentErr = outshine::Render::kDagRootErr;
-    outshine::Render::BoundingSphere(soup, (uint32_t)nv, 8, c.SelfCenter, &c.SelfRadius);
+    c.ParentErr = outshine::kDagRootErr;
+    outshine::BoundingSphere(soup, (uint32_t)nv, 8, c.SelfCenter, &c.SelfRadius);
     dc.push_back(c);
   }
   if (!FbpPublish(r, dv, di, dc)) return;
@@ -642,7 +629,7 @@ void FbpWorker(void) {
   cfg.origin_lon = fbp_lon;
   cfg.tile_provider = FbpProvider;
   cfg.tile_provider_user = &st;
-  cfg.provider_terrain_max_zoom = 15;
+  cfg.provider_terrain_max_zoom = kFbProviderTerrainMaxZ;
   cfg.enable_terrain = 1;
   osmmesh_ctx *ctx = 0;
   if (osmmesh_create(&cfg, &ctx) != OSMMESH_OK) ctx = 0;
@@ -701,11 +688,11 @@ bool FbpPoll(const FbpJob &j, FbpResult *out) {
 
 }  // namespace
 
-int fb_stream_open(const char *base, double lat, double lon, int z) {
-  (void)z;
+int fb_stream_open(const char *base, double lat, double lon, FbGroundSurface surface) {
   fbs_init(base);
+  FbGroundOpen(surface);
   curl_global_init(CURL_GLOBAL_DEFAULT);   /* curl_easy_init's lazy global init is not thread-safe */
-  outshine::Render::fb_srgb_lut_();        /* same reason: a lazy table built by two workers at once */
+  outshine::World::fb_srgb_lut_();        /* same reason: a lazy table built by two workers at once */
   fbp_lat = lat;
   fbp_lon = lon;
   fbp_cam_lat = lat;
@@ -731,7 +718,7 @@ void fb_stream_campos(double lat, double lon) {
 
 int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
                     uint32_t **idx, int *nidx,
-                    outshine::Render::DagCluster **clusters, int *nclusters,
+                    outshine::DagCluster **clusters, int *nclusters,
                     double origin[3], float *err) {
   FbpJob j;
   j.Kind = 1; j.Z = z; j.X = x; j.Y = y; j.Grid = grid;
@@ -754,7 +741,7 @@ int fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int 
 
 int fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
                   uint32_t **idx, int *nidx,
-                  outshine::Render::DagCluster **clusters, int *nclusters) {
+                  outshine::DagCluster **clusters, int *nclusters) {
   const uint64_t key = ((uint64_t)3 << 62) | (uint64_t)(uint32_t)id;
   std::unique_lock<std::mutex> lk(fbp_mu);
   auto it = fbp_done.find(key);
@@ -795,16 +782,6 @@ int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len) {
   return 1;
 }
 
-/* Returns >= 4 bytes (the count header even when empty), 0 on miss/too big. */
-int fb_stream_lights(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
-  char path[96];
-  snprintf(path, sizeof path, "/t/lights/%d/%u/%u", z, x, y);
-  int n = fbs_size(path);
-  if (n <= 0 || n > cap) return 0;
-  fbs_copy(path, dst);
-  return n;
-}
-
 int fb_stream_vector(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap) {
   char path[96];
   snprintf(path, sizeof path, "/t/vector/%d/%u/%u", z, x, y);
@@ -823,6 +800,7 @@ void fb_stream_close(void) {
   fbp_cv.notify_all();
   for (std::thread &t : fbp_threads) t.join();
   fbp_threads.clear();
+  FbGroundClose();
   fbtp_report();
 }
 
@@ -837,9 +815,11 @@ double fb_stream_cache_bytes(void) {
 #endif /* __EMSCRIPTEN__ */
 
 /* THE HEIGHT ORACLE, and it is deliberately OUTSIDE the platform split: a ground truth that differs
- * between two clients is not a ground truth. It reproduces fb-tiles' /elev exactly — same DEM zoom,
- * same tile, same bilinear (tiles/src/elev.c, fb_elev_at) — out of the tile bytes the client already
- * streams, so on both sides of the wire the answer is a PURE FUNCTION OF POSITION.
+ * between two clients is not a ground truth. It answers with the surface the renderer DRAWS — the
+ * finest tile of the ladder, its stitched source grid, its posting lattice, its triangle, its split
+ * (ChunkSurface.h) — so what is placed on the ground stands on the ground. The finest tile and not
+ * the drawn one: a coarser tile is the renderer's approximation of this surface within a declared
+ * screen-space error, and a placement that followed the LOD would move as the camera walks.
  *
  * WHY THE TILE AND NOT THE POINT. /elev is one round trip per position, and in the browser that trip
  * lands AFTER the tick that asked: a per-point cache can therefore never answer the question the
@@ -854,56 +834,108 @@ double fb_stream_cache_bytes(void) {
  * */
 namespace {
 
-constexpr int kFbDemZ = 13;        /* fb-tiles' FB_DEM_Z — the zoom /elev samples (tiles/src/elev.c) */
-constexpr int kFbDemN = 256;       /* Terrarium texels per tile edge, as fb-tiles' FB_DEM_N */
-constexpr int kFbDemSlots = 12;    /* a cast plus its stores sits in a handful of tiles at once */
+constexpr int kGroundSlots = 12;   /* a cast plus its stores sits in a handful of tiles at once */
+/* Self plus the four stitch neighbours, and one over: the decode of a neighbour is what the next
+ * tile along asks for again. */
+constexpr int kGroundGridCache = 6;
 
-struct FbDemTile {
-  int Z = -1;
+/* One tile of the drawn surface, reduced to what a query needs: the chunk's node heights. Built once
+ * per tile, because the stitch behind them costs five PNG decodes. */
+struct FbGroundTile {
   long X = 0, Y = 0;
-  uint32_t Cols = 0, Rows = 0;
+  int Nodes = 0;                 /* per edge; the chunk is square because the source grid is */
+  uint32_t Postings = 0;
   std::vector<float> H;
+  bool Resident = false;
   bool Hole = false;
   uint64_t Used = 0;
 };
 
-FbDemTile fb_dem[kFbDemSlots];
-uint64_t fb_dem_clock = 0;
+FbGroundSurface fb_ground_surface{14, 128};
+FbGroundTile fb_ground[kGroundSlots];
+uint64_t fb_ground_clock = 0;
+osmmesh_ctx *fb_ground_ctx = nullptr;
+bool fb_ground_pending = false;   /* set by the provider: a miss that is a wait, not a hole */
 
-/* Null = not usable yet: PENDING in the browser (retry next tick) or a real hole. Both leave the
- * caller with its last good value, which is the one behaviour a client may have for missing ground. */
-const FbDemTile *fb_dem_tile(int z, long x, long y) {
-  FbDemTile *victim = &fb_dem[0];
-  for (FbDemTile &t : fb_dem) {
-    if (t.Z == z && t.X == x && t.Y == y) { t.Used = ++fb_dem_clock; return t.Hole ? nullptr : &t; }
+int FbGroundProvider(void *, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_t y,
+                     uint8_t **out, size_t *len) {
+  *out = nullptr;
+  *len = 0;
+  if (kind != OSMMESH_TILE_TERRAIN) return 0;
+  const uint8_t *bytes = nullptr;
+  int n = 0;
+  const int rc = fb_stream_dem((int)z, (int)x, (int)y, &bytes, &n);
+  if (rc == 0) fb_ground_pending = true;
+  if (rc != 1 || !bytes || n <= 0) return 0;
+  uint8_t *copy = (uint8_t *)malloc((size_t)n);   /* osmmesh frees what a provider hands over */
+  if (!copy) return 0;
+  memcpy(copy, bytes, (size_t)n);
+  *out = copy;
+  *len = (size_t)n;
+  return 1;
+}
+
+/* Null = not usable yet: PENDING (retry next tick) or a real hole. Both leave the caller with the
+ * unresolved sentinel, which is the one behaviour a client may have for missing ground. */
+const FbGroundTile *FbGroundTileAt(long x, long y) {
+  FbGroundTile *victim = &fb_ground[0];
+  for (FbGroundTile &t : fb_ground) {
+    if (t.Resident && t.X == x && t.Y == y) {
+      t.Used = ++fb_ground_clock;
+      return t.Hole ? nullptr : &t;
+    }
     if (t.Used < victim->Used) victim = &t;
   }
-  const uint8_t *bytes = 0;
-  int len = 0;
-  const int rc = fb_stream_dem(z, (int)x, (int)y, &bytes, &len);
-  if (rc == 0) return nullptr;   /* pending — NOT cached, or the hole would be permanent */
-  victim->Z = z; victim->X = x; victim->Y = y;
-  victim->Used = ++fb_dem_clock;
-  victim->Hole = true;
-  victim->Cols = victim->Rows = 0;
-  if (rc != 1 || !bytes || len <= 0) return nullptr;
-  osmmesh_terrain_grid grid{};
-  if (osmmesh_terrain_decode_png(bytes, (size_t)len, &grid) != OSMMESH_TERRAIN_OK || !grid.heights)
+  if (!fb_ground_ctx) return nullptr;
+  fb_ground_pending = false;
+  uint32_t rowPostings = 0, colPostings = 0;
+  const osmmesh_terrain_grid *grid = osmmesh_tile_grid(
+      fb_ground_ctx, (uint8_t)fb_ground_surface.Z, (uint32_t)x, (uint32_t)y,
+      &rowPostings, &colPostings);
+  const int gr = grid ? outshine::World::ChunkNodes(rowPostings, fb_ground_surface.Grid) : 0;
+  const int gc = grid ? outshine::World::ChunkNodes(colPostings, fb_ground_surface.Grid) : 0;
+  const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
+  if (fb_ground_pending) return nullptr;   /* NOT cached, or the wait would become permanent */
+  victim->X = x;
+  victim->Y = y;
+  victim->Used = ++fb_ground_clock;
+  victim->Resident = true;
+  victim->Hole = !square;
+  victim->Nodes = square ? gr : 0;
+  victim->Postings = square ? colPostings : 0;
+  if (!square) {
+    victim->H.clear();
     return nullptr;
-  victim->Cols = grid.cols;
-  victim->Rows = grid.rows;
-  victim->H.assign(grid.heights, grid.heights + (size_t)grid.cols * grid.rows);
-  osmmesh_terrain_grid_free(&grid);
-  victim->Hole = false;
+  }
+  victim->H.resize((size_t)gr * (size_t)gc);
+  for (int j = 0; j < gr; j++) {
+    const double fr = osmmesh_terrain_posting_frac(
+        outshine::World::ChunkNodePosting(j, rowPostings, gr), rowPostings);
+    for (int i = 0; i < gc; i++) {
+      const double fc = osmmesh_terrain_posting_frac(
+          outshine::World::ChunkNodePosting(i, colPostings, gc), colPostings);
+      victim->H[(size_t)j * (size_t)gc + (size_t)i] = osmmesh_terrain_posting_height(grid, fc, fr);
+    }
+  }
   return victim;
 }
 
-int fb_dem_texel(void *user, long x, long y, uint32_t col, uint32_t row, float *out) {
-  const int z = *(const int *)user;
-  const FbDemTile *t = fb_dem_tile(z, x, y);
-  if (!t || t->Cols != kFbDemN || t->Rows != kFbDemN) return 0;
-  *out = t->H[(size_t)row * kFbDemN + col];
-  return 1;
+void FbGroundOpen(FbGroundSurface surface) {
+  FbGroundClose();
+  fb_ground_surface = surface;
+  osmmesh_config cfg{};
+  cfg.tile_provider = FbGroundProvider;
+  cfg.provider_terrain_max_zoom = kFbProviderTerrainMaxZ;
+  cfg.dem_cache_tiles = kGroundGridCache;
+  cfg.enable_terrain = 1;
+  if (osmmesh_create(&cfg, &fb_ground_ctx) != OSMMESH_OK) fb_ground_ctx = nullptr;
+}
+
+void FbGroundClose() {
+  if (fb_ground_ctx) osmmesh_destroy(fb_ground_ctx);
+  fb_ground_ctx = nullptr;
+  for (FbGroundTile &t : fb_ground) t = FbGroundTile{};
+  fb_ground_clock = 0;
 }
 
 } // namespace
@@ -912,11 +944,27 @@ double fb_stream_ground(double lat, double lon) {
   while (lon > 180.0) lon -= 360.0;   /* normalize lon before the tile maths (dateline) */
   while (lon < -180.0) lon += 360.0;
   double tx = 0.0, ty = 0.0;
-  fb_geo_to_tile(lat, lon, kFbDemZ, &tx, &ty);
-  int z = kFbDemZ;
-  double v = 0.0;
-  if (!fb_dem_bilinear(kFbDemZ, tx, ty, kFbDemN, fb_dem_texel, &z, &v)) return -1e9;
-  return v < 0.0 ? 0.0 : v;   /* the sea-level clamp; the -1e9 "not yet" sentinel never reaches here */
+  fb_geo_to_tile(lat, lon, fb_ground_surface.Z, &tx, &ty);
+  long hx = (long)tx, hy = (long)ty;
+  if (!fb_tile_wrap(fb_ground_surface.Z, &hx, &hy)) return outshine::kFBElevationUnresolved;
+  const FbGroundTile *t = FbGroundTileAt(hx, hy);
+  if (!t) return outshine::kFBElevationUnresolved;
+
+  const double px = (tx - (double)(long)tx) * (double)(t->Postings - 1);
+  const double py = (ty - (double)(long)ty) * (double)(t->Postings - 1);
+  const int i = outshine::World::ChunkNodeCell(px, t->Postings, t->Nodes);
+  const int j = outshine::World::ChunkNodeCell(py, t->Postings, t->Nodes);
+  const uint32_t c0 = outshine::World::ChunkNodePosting(i, t->Postings, t->Nodes);
+  const uint32_t c1 = outshine::World::ChunkNodePosting(i + 1, t->Postings, t->Nodes);
+  const uint32_t r0 = outshine::World::ChunkNodePosting(j, t->Postings, t->Nodes);
+  const uint32_t r1 = outshine::World::ChunkNodePosting(j + 1, t->Postings, t->Nodes);
+  const float su = (float)((px - (double)c0) / (double)(c1 - c0));
+  const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
+  const float *h = t->H.data();
+  const size_t n = (size_t)t->Nodes;
+  return (double)outshine::World::ChunkTriangleHeight(
+      h[(size_t)j * n + (size_t)i], h[(size_t)j * n + (size_t)i + 1],
+      h[((size_t)j + 1) * n + (size_t)i + 1], h[((size_t)j + 1) * n + (size_t)i], su, sv);
 }
 
 /* The one raster left in this file: the moon, which is a MEASURED image of a real body and not

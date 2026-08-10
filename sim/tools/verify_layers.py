@@ -1,42 +1,27 @@
 #!/usr/bin/env python3
-"""verify-layers: sim/src (plus sim/test above it) is a STACK, every #include points DOWN it, and
-every file declares the NAMESPACE of the layer it lies in. The gate that keeps the directory tree honest — a layer that
+"""verify-layers: sim/src is a STACK, every #include points DOWN it, and every file declares the
+NAMESPACE of the layer it lies in. The gate that keeps the directory tree honest — a layer that
 quietly grows an upward dependency stops compiling only much later, if ever, so the structure is
 asserted here instead of hoped for.
 
 The layers, bottom to top (RANK below). The order is the measured include graph, not a wish:
 
-  core        value types, the two channels (Log/Telemetry), the incorruptible judges
-              (FlightMonitor/MissionMonitor/SystemHealth/DamageModel), the camera/matrix
-              maths. Includes NOTHING above itself — that is what makes it the anti-cheat anchor.
-  fdm         the JSBSim adapter (one Fdm per airframe).
-  sensors     the slots that may READ that registry: datalink, radar, RWR, IRST, visual,
-              countermeasures.
-  weapons     the stores + gun slots.
-  systems     the airframe-agnostic flight/avionics slots + the CPU-side HUD geometry/font.
-              ABOVE sensors because SystemSlots.h aggregates the sensor slots for Module.
-  pilot       the mission layer above guidance: Pilot, BfmTrack, Engagement, PilotTuning.
-  modules     the airframes composing all of the above.
-  missions    the GPU-free mission orchestrator.
-  clients     the entry points.
-  render      the WebGPU renderer, driven by clients, borrowing systems/ and core/.
-  world       World + tile streaming, on world/terrain (a LEAF: it includes nothing of ours).
-  test        sim/test, mirroring sim/src path for path (make verify-trees) and ranked above every
-              layer it judges. A harness may reach anything; nothing may reach a harness.
-
-Three rules from CLAUDE.md's "Kein Cheaten" become directory rules here, each enforced by name:
-  * pilot/ includes neither units/ nor sensors/ — a pilot sees the world only through State.
-  * fdm/FdmBoot.h (the only door to a JSBSim IC) is named only by missions/ and clients/.
-  * core/ includes nothing above itself.
+  world/terrain  the lean terrain API (a LEAF: it includes nothing of ours).
+  core           value types, the two channels (Log/Telemetry), the camera/matrix maths, the JSON
+                 reader and the cluster DAG. Includes NOTHING above itself.
+  render         the WebGPU renderer, driven by clients.
+  world          World + tile streaming.
+  clients        the entry points.
 
 THE EDGE THE NEXT STEP HAS TO INVERT is counted rather than described: every call `world/` makes on a
-Render::Renderer is printed with its name, so the number that decides whether the server target can
-link is read off the tree instead of guessed (doc/todo.md 4).
+Render::Renderer is printed with its name, and beside it the census of every OTHER way world/ reaches
+into render/ — headers included and Render:: names used off a Renderer. Both numbers are read off the
+tree instead of guessed (doc/todo.md 4), and this file dies with step 4.
 
-The namespace half (NAMESPACE below) says the same thing to a reader that the include half says to
-the build: core/ IS the root `namespace outshine` — its value types are everywhere, and nesting them
-would be noise — while every layer ABOVE it nests one level, so a cross-layer name carries its layer
-at the point of use (`Fdm::Fdm`, `Systems::Autopilot`, `Units::UnitRegistry`).
+The namespace half (LAYER_NS below) says the same thing to a reader that the include half says to the
+build: core/ IS the root `namespace outshine` — its value types are everywhere, and nesting them would
+be noise — while every layer ABOVE it nests one level, so a cross-layer name carries its layer at the
+point of use (`Render::Renderer`, `World::TileLoader`).
 
 Stdlib only, no build dependency. Exit 0 = clean, 1 = at least one illegal include or namespace.
 """
@@ -49,147 +34,39 @@ import sys
 RANK = {
     "world/terrain": 0,   # leaf: pure geometry/mesh, includes nothing of ours
     "core": 1,
-    "fdm": 2,
-    "sensors": 4,
-    "weapons": 5,
-    "systems": 6,
-    "pilot": 7,
-    "modules": 8,
-    "modules/f16": 8,
-    "modules/f16/displays": 8,
-    "modules/mig29": 8,
-    "modules/stores": 8,
-    "modules/missile": 8,
-    "modules/ground": 8,
-    "modules/air": 8,
-    "missions": 9,
     "render": 10,
     "render/stages": 10,
     "world": 10,
     "clients": 11,
-    # test/ mirrors src/ (make verify-trees) and sits ABOVE every layer it judges: a harness may reach
-    # anything, and nothing may reach a harness. The path carries the SUBJECT — test/modules/f16 judges
-    # src/modules/f16 — so an include that points up the stack is still caught inside the test tree.
-    "test/core": 12,
-    "test/fdm": 12,
-    "test/weapons": 12,
-    "test/modules/f16": 12,
-    "test/modules/mig29": 12,
-    "test/modules/air": 12,
-    "test/modules/missile": 12,
 }
 
 # Files whose LAYER is not their directory's. Each is a real statement about the graph, not a waiver:
 # the file genuinely sits at this rank and is held to it.
 FILE_RANK = {
     # The I/O edge of core's two channels. Deliberately NOT in core (CLAUDE.md: core stays I/O-free),
-    # but attached by the mission orchestrator as well as by every client, so they cannot BE the
-    # client layer. They include core and nothing else, and this rank pins that.
+    # but attached by every client, so they cannot BE the client layer. They include core and nothing
+    # else, and this rank pins that.
     "clients/LogSinks.h": 1.5,
     "clients/LogSinks.cpp": 1.5,
-    "clients/TelemetrySinks.h": 1.5,
-    "clients/TelemetrySinks.cpp": 1.5,
 }
 
 # Named exceptions: (includer-pattern, included-file) pairs allowed against the rank order.
 # EMPTY on purpose — every placement was resolved by moving the file, not by waiving the rule.
 EXCEPTIONS = ()
 
-# The include is legal by rank AND the target is restricted to an explicit list of includers OUTSIDE
-# its own directory (inside it, the header is the seam's own implementation detail — Fdm.cpp is
-# FdmBoot's friend by declaration, so hiding the header from it would be theatre).
-RESTRICTED = {
-    # A DECLARED BELT is judge data. core/ reaches it inside its own directory (MissionFile parses it,
-    # MissionMonitor judges it); OUTSIDE core/ nobody may name it at all -- not a module, not a pilot,
-    # not a sensor. This entry is a NARROWING: a pilot able to read a declared zone would know where the
-    # SAMs are without a sensor.
-    "core/Zone.h": (),
-    "fdm/FdmBoot.h": (
-        # The only door to a JSBSim initial condition: mission boot and the test harnesses.
-        "missions/MissionBoot.h",
-        "clients/AppWasm.cpp",
-        "test/core/TestHardLanding.cpp",
-        "test/core/TestLocDeparture.cpp",
-        "test/fdm/TestTwoFdm.cpp",
-        "test/modules/f16/TestCornerSpeed.cpp",
-        "test/modules/mig29/TestMig29Envelope.cpp",
-        "test/modules/air/TestAirEnvelope.cpp",
-        "test/modules/missile/TestMissileAirframe.cpp",
-    ),
-}
-
-# WHERE AN ANTENNA MAY BE POINTED FROM, and it is one file. An antenna command is BODY-referenced;
-# three rounds in a row wrote a WORLD angle into one (a controller's true bearing, a range-angle
-# elevation, a spawn-tick pose that was still the identity). Every
-# one of them compiled, because both frames are `double` and both are degrees.
-#
-# So the frame became a TYPE (core/BodyAngle.h, obtainable only through a named conversion) and the
-# posting became a single door (CommandBus::PostAntennaAz/El). This list is the door's own guard: the
-# tokens RadarSlewAz/RadarSlewEl may appear in a POST expression in exactly these files. A fourth cue
-# source cannot reach the antenna without either going through the conversion or moving this number —
-# and the number is printed at the end of a run, exactly like the registry-reader count above it.
-SLEW_POSTERS = ("core/CommandBus.h",)
-RE_SLEW_POST = re.compile(r"Post\w*\(\s*CommandTarget::RadarSlew(?:Az|El)")
-
-# WHO DRIVES A SIMULATION TICK, and it is ONE file. A client that steps units itself is a client that
-# writes its own loop, and a second loop is a second set of rules: the browser had one, forgot the end
-# rule in it, and flew a CFIT'd F-16 on while the frame loop kept integrating. Since then the tick
-# surface of units/SimUnit is private with a single friend (missions/MissionSim), so a second driver
-# does not COMPILE — this list is that guarantee's readable half, and its LENGTH is printed at the end
-# of a run exactly like the perception-reader count above: a driver added anywhere moves the number.
-# units/SimUnit.* are the definition site and name these members without calling them on an object.
-TICK_DRIVERS = ("missions/MissionSim.cpp",)
-RE_TICK_CALL = re.compile(r"(?:->|\.)\s*(?:PublishPose|PrimeState|RunMonitors|FinalizeMission|"
-                          r"CheckEnvelope|UpdateGroundAsl|UpdateWind|UpdateSky|UpdateSolar)\s*\(")
-TICK_DEFINITION = ("units/SimUnit.h", "units/SimUnit.cpp")
-
-# Layers that may not appear ANYWHERE in a directory's include closure, regardless of rank.
-FORBIDDEN_DIRS = {
-    # A pilot sees other units only through State, written by the sensor slots.
-    "pilot": ("units", "sensors"),
-}
-
 # The namespace a directory's files declare. core/ IS the root: its value types (State, Log,
-# Geodesy, the judges) appear in every layer's signatures, and nesting them would add a qualifier
-# to every line without adding information. Everything ABOVE core nests exactly one level, so a
-# cross-layer name carries its layer where it is USED, not where it is declared.
+# Geodesy, Json, the cluster DAG) appear in every layer's signatures, and nesting them would add a
+# qualifier to every line without adding information. Everything ABOVE core nests exactly one level,
+# so a cross-layer name carries its layer where it is USED, not where it is declared.
 LAYER_NS = {
     "world/terrain": None,   # C island, see C_ISLAND
     "core": "outshine",
-    "fdm": "outshine::Fdm",
-    "sensors": "outshine::Sensors",
-    "weapons": "outshine::Weapons",
-    "systems": "outshine::Systems",
-    "pilot": "outshine::Pilot",
-    "modules": "outshine::Modules",
-    "modules/f16": "outshine::Modules",
-    "modules/f16/displays": "outshine::Modules",
-    "modules/mig29": "outshine::Modules",
-    "modules/stores": "outshine::Modules",
-    "modules/missile": "outshine::Modules",
-    "modules/ground": "outshine::Modules",
-    "modules/air": "outshine::Modules",
-    "missions": "outshine::Missions",
     "render": "outshine::Render",
     "render/stages": "outshine::Render",
     "world": "outshine::World",
     "clients": "outshine::Clients",
-    # One namespace for the whole test tree: a harness is a `main` (exempt by law, see RE_MAIN) and the
-    # few headers beside them are declaration tables, not a layer anyone links against.
-    "test/core": "outshine::Test",
-    "test/fdm": "outshine::Test",
-    "test/weapons": "outshine::Test",
-    "test/modules/f16": "outshine::Test",
-    "test/modules/mig29": "outshine::Test",
-    "test/modules/air": "outshine::Test",
-    "test/modules/missile": "outshine::Test",
 }
 KNOWN_NS = {v for v in LAYER_NS.values() if v}
-
-# modules/ deliberately does NOT get a second level per airframe. outshine::Modules::F16 would be
-# the only member with more than a handful of files, the FB-prefixed class names already carry the
-# airframe (FBF16Fcr, StoreModule, GroundModule), and nothing outside modules/ names any of them:
-# the whole layer is reached through Module* and the registry's string key.
 
 # The C ISLAND: files that are not C++ outshine code but a C-shaped seam, and whose namelessness is
 # therefore the point, not an omission. A namespace here would either break the contract or lie about
@@ -203,9 +80,6 @@ C_ISLAND = {
     # The tile worker is its OWN wasm module; every _fbtw_* in the Makefile's EXPORTED_FUNCTIONS is
     # an extern "C" definition in this TU, and a mangled name would silently fail to export.
     "clients/TileWorkerMain.cpp",
-    # Force-included (emcc -include) into the PINNED JSBSim sources so the submodule stays vanilla:
-    # it must be valid in whatever translation unit it lands in, including C ones.
-    "fdm/em_compat.h",
     # A standalone static-file host: its own binary, no outshine type in it, C throughout.
     "clients/SimHost.cpp",
 }
@@ -215,7 +89,7 @@ C_ISLAND = {
 # file-scope `using namespace` and keeps its own helpers in an anonymous namespace.
 RE_MAIN = re.compile(r"^\s*(?:int|auto)\s+main\s*\(", re.M)
 # `namespace [X] {` opening a block at column 0. A one-liner that also CLOSES on its line is a forward
-# declaration (`namespace outshine::Units { class Unit; }`) and is judged separately. The tree's
+# declaration (`namespace outshine::Render { class Renderer; }`) and is judged separately. The tree's
 # own `} // namespace ...` marker is what closes one here (every file that opens one carries it), so
 # nesting is tracked without parsing C++: only a DEPTH-0 opener names the file's layer.
 RE_NS_OPEN = re.compile(r"^namespace\s*([A-Za-z_][A-Za-z0-9_:]*)?\s*\{(.*)$")
@@ -247,6 +121,10 @@ SRC_EXT = (".h", ".cpp")
 # declares — a name-only match would count world/'s own Ready() as an edge.
 RE_RENDERER_API = re.compile(r"^\s{2}(?:[A-Za-z_][\w:<>,*& ]*?[\s*&])([A-Z][A-Za-z0-9_]*)\s*\(", re.M)
 RE_RENDERER_RECV = re.compile(r"Render::Renderer\s*([*&])\s*([A-Za-z_]\w*)")
+# EVERY OTHER WAY world/ REACHES render/. The call count above sees only members of a Renderer
+# receiver; a value type, a free function or a constant borrowed out of render/ is the same edge and
+# breaks the same link, so it is counted here rather than left invisible.
+RE_RENDER_NAME = re.compile(r"\bRender::([A-Za-z_]\w*)")
 
 
 def render_drivers(files, text):
@@ -270,16 +148,32 @@ def render_drivers(files, text):
     return calls, sorted(names)
 
 
-def scan(root, prefix=""):
-    """path -> (quoted include names, full text). Paths are root-relative, '/'-separated; the test
-    tree carries a `test/` prefix so one path space covers both roots."""
+def render_reach(files, text):
+    """(render/ headers included by world/, Render:: names in world/ that are not Renderer, how
+    often `Render::Renderer` itself is written). The last one is the surface step 4 has to invert:
+    every occurrence is a receiver world/ declares, and the step is done when it reads 0."""
+    render_files = {os.path.basename(p) for p in files
+                    if os.path.dirname(p) in ("render", "render/stages")}
+    world = [p for p in files if os.path.dirname(p) == "world"]
+    headers, names, receivers = set(), set(), 0
+    for p in world:
+        headers |= {os.path.basename(i) for i in files[p]
+                    if os.path.basename(i) in render_files}
+        found = RE_RENDER_NAME.findall(text[p])
+        names |= {n for n in found if n != "Renderer"}
+        receivers += sum(1 for n in found if n == "Renderer")
+    return sorted(headers), sorted(names), receivers
+
+
+def scan(root):
+    """path -> (quoted include names, full text). Paths are root-relative, '/'-separated."""
     files, text = {}, {}
     for dp, dns, fns in os.walk(root):
         dns[:] = [d for d in dns if not d.startswith(".")]
         for fn in fns:
             if not fn.endswith(SRC_EXT):
                 continue
-            p = prefix + os.path.relpath(os.path.join(dp, fn), root).replace(os.sep, "/")
+            p = os.path.relpath(os.path.join(dp, fn), root).replace(os.sep, "/")
             with open(os.path.join(dp, fn), encoding="utf-8", errors="replace") as f:
                 src = f.read()
             files[p] = re.findall(r'^\s*#\s*include\s+"([^"]+)"', src, re.M)
@@ -330,13 +224,9 @@ def check_namespaces(files, text):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=os.path.join(os.path.dirname(__file__), "..", "src"))
-    ap.add_argument("--test-root", default=os.path.join(os.path.dirname(__file__), "..", "test"))
     a = ap.parse_args()
     root = os.path.normpath(a.root)
     files, text = scan(root)
-    test_files, test_text = scan(os.path.normpath(a.test_root), "test/")
-    files.update(test_files)
-    text.update(test_text)
 
     # The build uses flat -I roots and bare filenames, so an include resolves by BASENAME.
     by_base = {}
@@ -376,39 +266,23 @@ def main():
             tr = rank_of(t)
             if tr > pr and (p, t) not in EXCEPTIONS:
                 errors.append(f"UPWARD include: {p} -> {t} (rank {pr} -> {tr})")
-            allowed = RESTRICTED.get(t)
-            same_dir = os.path.dirname(p) == os.path.dirname(t)
-            if allowed is not None and not same_dir and p not in allowed:
-                errors.append(f"RESTRICTED header: {p} -> {t} is not on that header's includer list")
-            banned = FORBIDDEN_DIRS.get(os.path.dirname(p), ())
-            if os.path.dirname(t).split("/")[0] in banned:
-                errors.append(f"FORBIDDEN layer: {p} -> {t} ({os.path.dirname(p)}/ may not see "
-                              f"{os.path.dirname(t).split('/')[0]}/)")
 
     n_drive, drivers = render_drivers(files, text)
+    reach_headers, reach_names, n_recv = render_reach(files, text)
     ns_errors, n_ns = check_namespaces(files, text)
     errors += ns_errors
-
-    for p in sorted(text):
-        if RE_TICK_CALL.search(text[p]) and p not in TICK_DRIVERS and p not in TICK_DEFINITION:
-            errors.append(f"SECOND SIM LOOP: {p} steps units itself — one tick body and one end rule "
-                          f"live in missions/MissionSim; a client ASKS it to advance (see that "
-                          f"header)")
-        if RE_SLEW_POST.search(text[p]) and p not in SLEW_POSTERS:
-            errors.append(f"ANTENNA FRAME: {p} posts a RadarSlew target directly — an antenna command "
-                          f"is body-referenced, so it goes through CommandBus::PostAntennaAz/El with "
-                          f"a core/BodyAngle (see that header)")
 
     if errors:
         return report(errors)
     print(f"verify-layers: {len(files)} files, {n_edges} internal include(s), "
           f"{len(set(RANK.values()))} layers — no upward include, "
-          f"{len(RESTRICTED)} restricted header(s) respected, "
           f"{n_drive} world/ -> Renderer call(s) over {len(drivers)} member(s), "
-          f"{len(SLEW_POSTERS)} antenna-cue poster(s), "
-          f"{len(TICK_DRIVERS)} simulation-loop driver(s), "
           f"{n_ns} file(s) in their layer's namespace ({len(C_ISLAND)} C-island file(s) exempt)")
     print(f"verify-layers: world/ drives render/ through: {', '.join(drivers)}")
+    print(f"verify-layers: world/ also names {len(reach_headers)} render/ header(s) "
+          f"[{', '.join(reach_headers)}] and {len(reach_names)} Render:: name(s) off a Renderer "
+          f"[{', '.join(reach_names)}]")
+    print(f"verify-layers: world/ writes `Render::Renderer` {n_recv} time(s)")
     return 0
 
 

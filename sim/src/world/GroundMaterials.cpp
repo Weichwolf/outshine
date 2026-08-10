@@ -28,24 +28,24 @@ bool GroundMaterials::Load(const char *path) {
   fclose(f);
   if (got != text.size()) { Error_ = "short read"; return false; }
 
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text.c_str(), text.size())) { Error_ = "parse failed"; return false; }
 
-  const Render::Json::Ref mm = doc.Root()["moistureModel"];
+  const Json::Ref mm = doc.Root()["moistureModel"];
   const float kWet = (float)mm["kWet"].Num(0.0);
-  const Render::Json::Ref excl = mm["exclusions"];
+  const Json::Ref excl = mm["exclusions"];
   const float wetLo = (float)doc.Root()["specularModel"]["edges"][(size_t)0].Num(0.05);
   const float wetHi = (float)doc.Root()["specularModel"]["edges"][(size_t)1].Num(0.85);
 
-  const Render::Json::Ref cls = doc.Root()["classes"];
-  if (cls.GetKind() != Render::Json::Kind::Array || cls.Size() == 0) {
+  const Json::Ref cls = doc.Root()["classes"];
+  if (cls.GetKind() != Json::Kind::Array || cls.Size() == 0) {
     Error_ = "no classes array";
     return false;
   }
 
   std::vector<std::string> litterName(cls.Size());
   for (size_t i = 0; i < cls.Size(); i++) {
-    const Render::Json::Ref c = cls[i];
+    const Json::Ref c = cls[i];
     Material m{};
     m.Name = c["name"].Str("?");
     m.Roughness = (float)c["roughness"].Num(0.9);
@@ -55,7 +55,7 @@ bool GroundMaterials::Load(const char *path) {
     m.DetailCoarseM = (float)c["detailScaleM"][(size_t)0].Num(2.0);
     m.DetailFineM = (float)c["detailScaleM"][(size_t)1].Num(0.3);
     m.LitterCoverage = (float)c["litter"]["coverage"].Num(0.0);
-    const Render::Json::Ref pd = c["slope"]["plausibleDeg"];
+    const Json::Ref pd = c["slope"]["plausibleDeg"];
     if (pd.Size() != 2) { Error_ = "class " + m.Name + ": slope.plausibleDeg must be a pair"; return false; }
     m.SlopeMaxDeg = (float)pd[(size_t)1].Num(90.0);
     litterName[i] = c["litter"]["class"].Str("");
@@ -63,7 +63,7 @@ bool GroundMaterials::Load(const char *path) {
     /* Cook-Torrance wants a continuous dielectric interface; a heap of grains has none, so its
      * specular is a scale and not a lobe shape (specularModel). Unknown spelling is an error and not
      * a default, because either default draws a wrong material everywhere the class wins. */
-    const Render::Json::Ref surf = c["surface"];
+    const Json::Ref surf = c["surface"];
     if (surf.StrEquals("coherent")) m.SpecularScale = 1.0f;
     else if (surf.StrEquals("particulate")) {
       const float t = std::min(std::max((m.Moisture - wetLo) / (wetHi - wetLo), 0.0f), 1.0f);

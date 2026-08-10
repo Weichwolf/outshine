@@ -6,7 +6,6 @@
 #include "bake.h"
 #include "bakepool.h"
 #include "stars.h"
-#include "lights.h"
 #include "tilemap_api.h"
 #include "wx.h"
 #include "peaks.h"
@@ -146,29 +145,6 @@ static void handle(int fd, char *req) {
         return;
     }
 
-    if (!strncmp(path, "/t/lights/", 10)) {
-        int z; long x, y;
-        if (sscanf(path + 10, "%d/%ld/%ld", &z, &x, &y) != 3) {
-            fb_reply(fd, "400 Bad Request", "text/plain", "want /t/lights/<z>/<x>/<y>\n"); return; }
-        if (z < 0) { fb_reply(fd, "400 Bad Request", "text/plain", "bad z\n"); return; }
-        long wn = (long)ldexp(1.0, z);
-        if (y < 0 || y >= wn) { fb_reply(fd, "400 Bad Request", "text/plain", "bad y\n"); return; }
-        x = ((x % wn) + wn) % wn;
-
-        /* Blocks THIS worker until generated -- same as /bake: no deadline, no 202. fb_lights_get
-         * checks disk first internally, dedups concurrent cold requests for the same tile (own
-         * inflight table, lights.c), and recurses through the z<12 aggregate pyramid, each level
-         * deduped the same way. */
-        uint8_t *body = 0; size_t n = 0;
-        if (!fb_lights_get(z, x, y, &body, &n)) {
-            reply_204(fd);   /* underlying vector data absent entirely -- same absent/empty split as /t/vector */
-            return;
-        }
-        fb_reply_bin(fd, "application/octet-stream", body, n);
-        free(body);
-        return;
-    }
-
     if (!strncmp(path, "/t/stars/", 9)) {
         /* z = magnitude band, x=y=0 (whole sky). Baked, in-memory, never 404 -> plain 200/404. */
         int band; long sx = 0, sy = 0;
@@ -204,7 +180,7 @@ static void handle(int fd, char *req) {
     }
     if (!strcmp(path, "/health")) {
         long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
-        long tq, tmh, tmm, tl, td, bnative, bsuper, lbaked, lserved, bpserved;
+        long tq, tmh, tmm, tl, td, bnative, bsuper, bpserved;
         long wxs, wxb, wxd, wxff, wxdf, wxst, wxfb;
         long pks, pkc, pkf, pkx;
         int pth, cthreads; long cbusy, cqueued;
@@ -213,7 +189,6 @@ static void handle(int fd, char *req) {
         fb_bake_stats2(&bnative, &bsuper);
         fb_pf_pool(&pth, &pif, &pab);
         fb_tm_stats(&tq, &tmh, &tmm, &tl, &td);
-        fb_lights_stats(&lbaked, &lserved);
         fb_bakepool_stats(&bpserved);
         fb_wx_stats(&wxs, &wxb, &wxd, &wxff, &wxdf, &wxst, &wxfb);
         fb_peaks_stats(&pks, &pkc, &pkf, &pkx);
@@ -230,14 +205,13 @@ static void handle(int fd, char *req) {
                  "native_bakes=%ld super_bakes=%ld bake_block_served=%ld | "
 
                  "tilemap_queries=%ld hits=%ld misses=%ld learned=%ld dropped=%ld | "
-                 "lights_baked=%ld lights_served=%ld | "
                  "wx_served=%ld wx_built=%ld wx_disk_hits=%ld wx_fetch_fail=%ld wx_decode_fail=%ld "
                  "wx_stale_served=%ld wx_run_fallback=%ld | "
                  "peaks_served=%ld peak_cells_cached=%ld peak_cells_fetched=%ld peak_fail=%ld\n",
                  cthreads, cbusy, cqueued,
                  h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows(), fb_style_unknown_count(), bnative, bsuper, bpserved,
-                 tq, tmh, tmm, tl, td, lbaked, lserved,
+                 tq, tmh, tmm, tl, td,
                  wxs, wxb, wxd, wxff, wxdf, wxst, wxfb, pks, pkc, pkf, pkx);
         fb_reply(fd, "200 OK", "text/plain", body);
         return;
@@ -264,7 +238,6 @@ int main(void) {
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
     fb_elev_init(cache);
     fb_bake_init(cache);
-    fb_lights_init(cache);
     fb_wx_init(cache);
     fb_peaks_init(cache);
     fb_stars_init(getenv("STARS_DIR") ? getenv("STARS_DIR") : "/usr/local/share/fb-stars");
@@ -298,7 +271,7 @@ int main(void) {
     if (bind(lfd, (struct sockaddr *)&a, sizeof a) < 0) { perror("bind"); return 1; }
     listen(lfd, 256);
     fprintf(stderr, "[fb-tiles] %s:%d  cache=%s  pool=%d threads  "
-                    "(/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , /t/lights/z/x/y , "
+                    "(/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , "
                     "/t/stars/{band}/0/0 , /wx , /peaks?lat=&lon=&r= , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
                     port, cache, g_cthreads);
 

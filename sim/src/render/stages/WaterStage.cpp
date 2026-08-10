@@ -12,7 +12,7 @@ struct W { mvp : mat4x4f, anc : vec4f, sun : vec4f, up : vec4f };
 @group(0) @binding(1) var<storage, read> I : Irr;
 
 /* [SET] REFLECTANCE of the body, not of the surface: 0.05 is the diffuse return of a few metres of
- * water column (ground-materials.json `wasser`). What makes water read as water is the SPECULAR half,
+ * water column (ground-materials.json `water`). What makes water read as water is the SPECULAR half,
  * and that is stage 2 — until then this is an honest dark Lambertian sheet and looks like one. */
 const kWater : vec3f = vec3f(0.035, 0.045, 0.050);
 

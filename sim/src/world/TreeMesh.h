@@ -33,7 +33,7 @@ public:
    * grown mesh's own answer to the one number forestry measures, and what the calibration in
    * TreeGrower drives. */
   float FootRadius = 0.0f;
-  float BhdRadius = 0.0f;
+  float DbhRadius = 0.0f;
 
   size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
   size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
@@ -53,7 +53,7 @@ public:
     BoxMin = TreeVec3{};
     BoxMax = TreeVec3{};
     FootRadius = 0.0f;
-    BhdRadius = 0.0f;
+    DbhRadius = 0.0f;
   }
 };
 

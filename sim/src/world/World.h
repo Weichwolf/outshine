@@ -107,9 +107,6 @@ public:
    * wasm modules, which no call from here can reach. */
   size_t ByteCacheBytes() const;
 
-  /* Off = no fetch, no upload. The client gates this on the day/night fade. */
-  void SetNightLights(bool on) { NightLights = on; }
-
   /* The field of view is an animation channel, so the ladder has to be able to follow it mid-run. */
   void SetPixelFocalLength(double px) { PixelFocal_ = px; }
 
@@ -125,13 +122,11 @@ private:
     unsigned emitPass;     /* last pass this tile was drawn — lets a mode switch keep it (old mode) vs re-coarsen */
     std::vector<float> verts;              /* ONE vertex per posting; every level indexes into it */
     std::vector<uint32_t> idx;             /* every level's clusters, level 0 first */
-    std::vector<Render::DagCluster> clusters;
+    std::vector<DagCluster> clusters;
     int nverts, nidx;
     double origin[3];      /* tile-centre ECEF (from the mesh, once built) */
     float err;             /* geometric error (m), valid once haveMesh */
     std::vector<uint8_t> albedo;
-    int lightState;        /* night lights: 0 unfetched, 1 decoded (lightInst valid), -1 pending/none */
-    std::vector<float> lightInst;   /* decoded sprites: count * 7 floats [posRelAnchor.xyz, radM, col.rgb] */
   };
   struct Work { int idx; double prio; };
 
@@ -152,8 +147,6 @@ private:
   void AddWork(int idx, int z, long x, long y, const double eye[3], const double fwd[3]);
   void Center(int z, long x, long y, double out[3]) const;
   double SpanM(int z) const;
-  void BuildLights(int idx);   /* fetch + decode /t/lights for node idx into its lightInst (rel Anchor) */
-
   void SurfaceAnchor(int z, long x, long y, double out[3]) const;
 
   const WeatherProvider *Weather_ = nullptr;   /* borrowed, see SetWeather's banner */
@@ -176,12 +169,8 @@ private:
   int TargetView = 0;                /* of those, the share inside the camera cone — published only */
   long MeshVram;
 
-  bool NightLights;                  /* stream + emit night lights this run */
-  double Anchor[3];                  /* light-position ECEF anchor (field origin); set in Open */
-  std::vector<int> DrawnLeaves;      /* node indices emitted as drawn leaves this pass (light hosts) */
-  std::vector<float> LightBuf;       /* concatenated visible sprite instances handed to the renderer */
-  std::vector<uint8_t> LightBytes;   /* scratch for one tile's /t/lights payload */
-  int LightsResident;                /* count emitted last pass (log) */
+  std::vector<int> DrawnLeaves;      /* node indices emitted as drawn leaves this pass; the only list
+                                        that says which mesh the near-field ground field may rasterise */
 
   OsmField Vectors{14, {"buildings", "water_polygons", "water_lines"}};
   ClassField Cls_;
@@ -191,7 +180,7 @@ private:
   uint32_t BuildingVerts = 0;
   std::vector<float> BuildingDagVerts;
   std::vector<uint32_t> BuildingDagIdx;
-  std::vector<Render::DagCluster> BuildingClusters;
+  std::vector<DagCluster> BuildingClusters;
   std::vector<float> BuildingSoup;   /* the one tile whose DAG is in flight; empty otherwise */
   int BuildingDagId = 0, BuildingDagSeq = 0;
   bool Opened = false;

@@ -133,8 +133,8 @@ void BuildingField::Extrude(const OsmField &field, const Footprint &f) {
 
   auto push = [&](const double p[3], const double nrm[3], double u, double v) {
     Verts_.push_back((float)p[0]); Verts_.push_back((float)p[1]); Verts_.push_back((float)p[2]);
-    Verts_.push_back((float)nrm[0]); Verts_.push_back((float)nrm[1]); Verts_.push_back((float)nrm[2]);
     Verts_.push_back((float)u); Verts_.push_back((float)v);
+    Verts_.push_back((float)nrm[0]); Verts_.push_back((float)nrm[1]); Verts_.push_back((float)nrm[2]);
   };
 
   double run = 0.0;

@@ -5,8 +5,8 @@
 namespace outshine::Clients {
 namespace {
 
-using Ref = Render::Json::Ref;
-using JKind = Render::Json::Kind;
+using Ref = Json::Ref;
+using JKind = Json::Kind;
 
 bool Need(const Ref &node, const char *key, double lo, double hi, double &out, std::string &err) {
   const Ref v = node[key];

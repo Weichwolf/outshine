@@ -219,13 +219,13 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
 
 /* THE STEM IS SOLVED, NOT DECLARED. `base_radius` lives in grower units and the mesh is normalised by
  * a height the branches decide, so the same 0.08 came out as 70 cm on a beech and 80 cm on an elm —
- * measured. The species declares the number forestry measures (`bhd_cm`) and the whole radius cascade
+ * measured. The species declares the number forestry measures (`dbh_cm`) and the whole radius cascade
  * is scaled to hit it; scaling base, twig and min together keeps every branch's termination and every
  * leaf point exactly where they were, so only the thickness moves. */
 void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeightFrac) {
   TreeSpecies::Growth g = species.GrowthParams();
   const float h = species.HeightM();
-  const float targetR = species.BhdM() * 0.5f;
+  const float targetR = species.DbhM() * 0.5f;
 
   /* The rule arrives in tree HEIGHTS and the grower works in its own units, so the first pass runs on
    * an ESTIMATE of the height and the second on the one it measured. `trunk_steps * step_len` alone
@@ -250,13 +250,13 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeig
     GrowOnce(g, h, out);
     Passes_++;
   }
-  BhdErrorRel_ = 0.0f;
+  DbhErrorRel_ = 0.0f;
   if (targetR <= 0.0f || h <= 0.0f) { return; }
 
   for (int i = 0; i < 4; ++i) {
-    const float haveR = out.BhdRadius * h;
-    BhdErrorRel_ = haveR > 0.0f ? (haveR - targetR) / targetR : 0.0f;
-    if (haveR <= 0.0f || std::fabs(BhdErrorRel_) < 0.005f) { break; }
+    const float haveR = out.DbhRadius * h;
+    DbhErrorRel_ = haveR > 0.0f ? (haveR - targetR) / targetR : 0.0f;
+    if (haveR <= 0.0f || std::fabs(DbhErrorRel_) < 0.005f) { break; }
     const float f = targetR / haveR;
     g.BaseRadius *= f;
     g.MinRadius *= f;
@@ -492,7 +492,7 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
 
   if (TrunkProfile_.empty()) { return; }
   out.FootRadius = TrunkProfile_[0].Y * s;
-  out.BhdRadius = out.FootRadius;
+  out.DbhRadius = out.FootRadius;
   if (heightM <= 0.0f) { return; }
   const float yb = 1.3f / heightM;   /* breast height, in the mesh's own unit-height metric */
   for (size_t i = 1; i < TrunkProfile_.size(); ++i) {
@@ -500,10 +500,10 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
     if (yb > yc) { continue; }
     float u = yc > ya ? (yb - ya) / (yc - ya) : 0.0f;
     if (u < 0.0f) { u = 0.0f; }
-    out.BhdRadius = (TrunkProfile_[i - 1].Y + (TrunkProfile_[i].Y - TrunkProfile_[i - 1].Y) * u) * s;
+    out.DbhRadius = (TrunkProfile_[i - 1].Y + (TrunkProfile_[i].Y - TrunkProfile_[i - 1].Y) * u) * s;
     return;
   }
-  out.BhdRadius = TrunkProfile_.back().Y * s;
+  out.DbhRadius = TrunkProfile_.back().Y * s;
 }
 
 } // namespace outshine::World

@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "subject": "Ground materials. A ground material is an independent layer that a vegetation template REFERENCES; foliage and clutter sit on top of it and never replace it. Spec: doc/render/visual-target.md section 4.1.",
-  "albedoSpace": "LINEAR reflectance, never sRGB. Each triple is locked so that its Rec.709 luminance Y = 0.2126*R + 0.7152*G + 0.0722*B equals albedoBroadband EXACTLY; the worst of the 17 deviations is 4.8e-06, i.e. 0.0000 at the four decimals printed. albedoBroadband sets the BRIGHTNESS and the RGB RATIO sets the CHROMATICITY, and the two are sourced SEPARATELY - see chromaticityModel. 14 of the 17 chromaticities now carry a source; moos, torf and wasser do not, and each says so in its own origins.albedo.chroma.",
+  "subject": "Ground materials. A ground material is an independent layer that a vegetation template REFERENCES; foliage and clutter sit on top of it and never replace it.",
+  "albedoSpace": "LINEAR reflectance, never sRGB. Each triple is locked so that its Rec.709 luminance Y = 0.2126*R + 0.7152*G + 0.0722*B equals albedoBroadband EXACTLY; the worst of the 17 deviations is 4.8e-06, i.e. 0.0000 at the four decimals printed. albedoBroadband sets the BRIGHTNESS and the RGB RATIO sets the CHROMATICITY, and the two are sourced SEPARATELY - see chromaticityModel. 14 of the 17 chromaticities now carry a source; moss, peat and water do not, and each says so in its own origins.albedo.chroma.",
   "chromaticityModel": {
     "subject": "Where the RGB RATIO of an albedo triple comes from. The ratio carries no brightness - it is renormalised so the Rec.709 luminance equals albedoBroadband - so a chromaticity source only has to get the COLOUR right, never the level. That is why a laboratory spectrum of a prepared sample is admissible here and would not be admissible for albedoBroadband.",
     "whitePoint": "D65, CIE 1931 2 degree observer. The render primaries are sRGB/Rec.709 (IEC 61966-2-1), whose white IS D65, so this is the only white point at which a linear triple in this file means what the shader reads.",
@@ -9,7 +9,7 @@
     "pathB": "MEASURED SPECTRUM -> linear sRGB. Directional-hemispherical reflectance R(l) from the ECOSTRESS Spectral Library v1.0 (https://speclib.jpl.nasa.gov; Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009, Remote Sens. Environ. 113, 711-715) -> XYZ = k * Integral R(l) S_D65(l) [xbar,ybar,zbar](l) dl, with S_D65 and the CIE 1931 2 degree colour-matching functions at 1 nm from RIT MCSL all_1nm_data.xls (https://www.rit-mcsl.org/UsefulData/all_1nm_data.xls) -> linear sRGB -> renormalised to albedoBroadband.",
     "pathsAgree": "MEASURED, and it is the one end-to-end check this file has. The ECOSTRESS soil 88P2535, whose JHU record names it 'Dark yellowish brown micaceous loam', converts by path B to the ratio 1.000:0.473:0.059. The Munsell chip 10YR 4/6, whose USDA soil colour NAME is exactly 'dark yellowish brown', converts by path A to 1.000:0.466:0.070. Two independent data sets, two independent conversion paths, agreement within 0.011 per channel.",
     "pipelineCheck": "Path B returns the exact D65 chromaticity (0.31273, 0.32902) for a flat unit reflector, and a flat reflector's visible/shortwave ratio comes out 1.000. Path A reproduces RIT's own published sRGB values for the renotation (real_sRGB.xls) to a maximum of 0.0038 over the 1446 chips that are in gamut and off the clipping bounds, which is that file's own rounding.",
-    "hueUnits": "Where an origin quotes a hue in degrees it is the HSV hue of the triple, and it is quoted TWICE because the two differ: 'linear' is the hue of the linear triple stored here, 'sRGB' is the hue after IEC 61966-2-1 encoding, which is what a measurement taken off a screenshot sees. The encoded hue runs 0.6 to 6.2 degrees ABOVE the linear one across the 14 warm classes here, least on the near-neutral asphalt (+0.6) and most on waldboden (+6.2). Quoting one without saying which is how a hue argument goes wrong."
+    "hueUnits": "Where an origin quotes a hue in degrees it is the HSV hue of the triple, and it is quoted TWICE because the two differ: 'linear' is the hue of the linear triple stored here, 'sRGB' is the hue after IEC 61966-2-1 encoding, which is what a measurement taken off a screenshot sees. The encoded hue runs 0.6 to 6.2 degrees ABOVE the linear one across the 14 warm classes here, least on the near-neutral asphalt (+0.6) and most on forest_floor (+6.2). Quoting one without saying which is how a hue argument goes wrong."
   },
   "visibleBandModel": {
     "field": "visibleBroadbandRatio",
@@ -17,7 +17,7 @@
     "formula": "visibleBroadbandRatio = [ Int_400^700 R(l) G(l) dl / Int_400^700 G(l) dl ] / [ Int_300^2500 R(l) G(l) dl / Int_300^2500 G(l) dl ]",
     "solarSpectrum": "G(l) = ASTM G173-03 global tilt (AM1.5G), the reference spectrum derived from SMARTS 2.9.2. Taken from the verbatim copy distributed with pvlib-python as pvlib/data/ASTMG173.csv, because nrel.gov did not answer from the machine this was computed on; the file's own header line is 'ASTM G173-03 Reference Spectra Derived from SMARTS v. 2.9.2'.",
     "reflectance": "R(l) = the SAME ECOSTRESS spectra that give each class its chromaticity, so colour and band ratio can never disagree about which material was measured. Below the first measured wavelength (400 nm for the JHU samples, 350 nm for the UCSB ones) R is held at its first value; 300-400 nm carries 4.64 percent of the AM1.5G energy over 300-2500 nm (computed from the same G173 file; the visible 400-700 nm band carries 43.30 percent), and that extrapolation is the dominant approximation in these numbers.",
-    "whyNotOneNumber": "MEASURED, and the spread refuses a global factor outright: 0.257 for green grass against 0.953 for asphalt is a factor of 3.7, and the eleven sourced classes here span 0.502 to 0.986. A single gain tuned to vegetation makes mineral surfaces four times too dark, which is precisely the reflectanceGain 0.50 failure recorded in doc/render/stages/ground-cover.md.",
+    "whyNotOneNumber": "MEASURED, and the spread refuses a global factor outright: 0.257 for green grass against 0.953 for asphalt is a factor of 3.7, and the eleven sourced classes here span 0.502 to 0.986. A single gain tuned to vegetation makes mineral surfaces four times too dark, which is precisely the reflectanceGain 0.50 failure (git log).",
     "scope": "This ratio corrects the BAND. It does not correct for the difference between a laboratory directional-hemispherical measurement and a field albedo, and it does not carry a sun-angle dependence. Both are outside it and neither is in this file."
   },
   "moistureModel": {
@@ -25,9 +25,9 @@
     "kWet": 0.39,
     "kWetOrigin": "derived from measurement - Levinson & Akbari 2002 (LBNL-48334) measure a mean albedo decrease of 0.23 on wetting concretes of mean albedo 0.59, i.e. a ratio 0.36/0.59 = 0.61 at full wetness, so kWet = 1 - 0.61 = 0.39. WEAKNESS, NAMED: this ratio is measured on a mineral BUILDING material, not on soil. The plausibility anchor for soil is that wetting roughly halves the albedo, which would give kWet = 0.50; 0.39 is the number that has a measurement behind it, 0.50 is the one that has a rule of thumb.",
     "exclusions": [
-      "wasser"
+      "water"
     ],
-    "note": "This is why erde_trocken, erde_feucht and schlamm all declare albedo 0.17 and differ only in the dial and in roughness - section 4.1: 'Wet earth is not a second class, it is erde with the dial up'."
+    "note": "This is why earth_dry, earth_moist and mud all declare albedo 0.17 and differ only in the dial and in roughness - section 4.1: 'Wet earth is not a second class, it is erde with the dial up'."
   },
   "specularModel": {
     "subject": "How much COHERENT specular a class has. Cook-Torrance assumes a continuous dielectric interface with a distribution of microfacet normals. A loose particulate medium has no such interface: the 'surface' is a heap of separate grains, light is multiply scattered between them, and the facets that could mirror the sun lie at every orientation except the shaded one. That is why planetary photometry built Hapke for regolith instead of using a microfacet BRDF - and why this file answers with a SCALE on the specular rather than with a second BRDF model.",
@@ -36,9 +36,9 @@
       0.05,
       0.85
     ],
-    "edgesOrigin": "derived from this table's own design, no free parameter: erde_trocken, erde_feucht and schlamm exist to differ in moisture ALONE (0.05 / 0.85 / 1.00, moistureModel.note), so the dry end of the dial is 0.05 and the wet end is 0.85. Those two are the smoothstep edges, which makes erde_trocken exactly 0 and erde_feucht exactly 1 by construction. Delivered scales: sand 0.000, erde_trocken 0.000, schotter 0.011, kies 0.043, nadelstreu 0.043, laubstreu 0.092, grasfilz 0.232, waldboden 0.316, moos 0.768, torf 0.957, erde_feucht 1.000, schlamm 1.000.",
+    "edgesOrigin": "derived from this table's own design, no free parameter: earth_dry, earth_moist and mud exist to differ in moisture ALONE (0.05 / 0.85 / 1.00, moistureModel.note), so the dry end of the dial is 0.05 and the wet end is 0.85. Those two are the smoothstep edges, which makes earth_dry exactly 0 and earth_moist exactly 1 by construction. Delivered scales: sand 0.000, earth_dry 0.000, crushed_stone 0.011, gravel 0.043, needle_litter 0.043, leaf_litter 0.092, grass_thatch 0.232, forest_floor 0.316, moss 0.768, peat 0.957, earth_moist 1.000, mud 1.000.",
     "shapeOrigin": "[SET] cubic smoothstep. A water film only reflects coherently once it SPANS grains; below field capacity the water sits as pendular rings at grain contacts and covers no continuous area, and above it the film saturates. The S-shape has that flat start and flat end; its exact curvature has no measurement behind it. Linear was the alternative and is rejected because it gives a nominally dry soil (0.05) a fifth of the gloss of a mud flat.",
-    "whyMoistureAndNotRoughness": "roughness already varies with wetness in this table (erde_trocken 0.92 vs erde_feucht 0.72) and that alone cannot do it: at a 11.2 deg sun and a near-horizontal view the half-vector stands ~83 deg off the normal, where even alpha = 0.95 puts 0.455 sr^-1 into the lobe against 0.031 diffuse. Narrowing a lobe that is already grazing-dominated does not remove it; only a scale does.",
+    "whyMoistureAndNotRoughness": "roughness already varies with wetness in this table (earth_dry 0.92 vs earth_moist 0.72) and that alone cannot do it: at a 11.2 deg sun and a near-horizontal view the half-vector stands ~83 deg off the normal, where even alpha = 0.95 puts 0.455 sr^-1 into the lobe against 0.031 diffuse. Narrowing a lobe that is already grazing-dominated does not remove it; only a scale does.",
     "coherentAndWet": "a coherent surface keeps scale 1 whatever its moisture: what wetting does to asphalt is fill its microrelief, i.e. lower its ROUGHNESS, and that is the field this table would move. It is not moved today - dry and wet asphalt are one entry (## Gaps).",
     "energyPair": "the scale is the fraction of the surface that presents an interface, so it enters BOTH sides: specular gets F * specularScale, diffuse gets 1 - F * specularScale. At specularScale 0 nothing is taken from the diffuse, which is what makes dry soil fully Lambertian rather than merely dark."
   },
@@ -68,10 +68,10 @@
       "koeterberg": 495.8
     },
     "anchorOrigin": "measured/surveyed - Hameln town elevation 68 m ue. NN and the Kluet 258 m ue. NN (de.wikipedia.org/wiki/Hameln); Koeterberg 495.8 m ue. NHN, the highest point of the middle Weserbergland (de.wikipedia.org/wiki/Koeterberg). Those two are the real floor and ceiling of the target terrain, so the soil-to-scree ramp is anchored to the landscape rather than to a round number.",
-    "note": "This is 4.1's 'scree above, soil below' as a number: schotter and fels use favourHigh over the same 68-496 m span that the soil and litter classes use with favourLow."
+    "note": "This is 4.1's 'scree above, soil below' as a number: crushed_stone and rock use favourHigh over the same 68-496 m span that the soil and litter classes use with favourLow."
   },
   "litterModel": "litter is an OVERLAY that references another class in this file by name, with a coverage fraction. It belongs to the ground, not to the tree, but its CLASS must be set by the vegetation template above it - the defaults here are what a class carries when no template speaks. slope.litterShedAboveDeg removes it on a face steeper than the named angle.",
-  "provenanceSummary": "20 classes. albedoBroadband: 7 carry a measured or published value with a named source (sand, erde_trocken, erde_feucht, schlamm, moos, asphalt, wasser - five distinct values, because erde_trocken/erde_feucht/schlamm share one substance by design); 4 are derived from measurements with the arithmetic written out (schotter, waldboden, pflaster, beton); 6 are [SET] and each names the measured bracket that constrains it (kies, fels, laubstreu, nadelstreu, torf, grasfilz). 7+4+6=17. albedo RGB RATIO (the chromaticity, chromaticityModel): 2 are published Munsell notations converted by path A (erde_trocken 10YR 5/3, erde_feucht 10YR 3/3), 1 more reuses the wet one for the same substance (schlamm); 7 are measured spectra of the material itself converted by path B (sand, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, beton); 4 are measured mixtures whose components are named and whose MIXING WEIGHTS are [SET] (kies, schotter, fels, pflaster); 3 are [SET] with a named measured bracket and no source of their own (moos, torf, wasser). 2+1+7+4+3=17. visibleBroadbandRatio (visibleBandModel): 12 derived from the same measured spectra as the chromaticity (sand, kies, schotter, fels, waldboden, laubstreu, nadelstreu, grasfilz, asphalt, pflaster, beton, erde_trocken); 2 are [SET] carry-overs of erde_trocken with the direction of the error named (erde_feucht, schlamm); 3 are [SET] (moos and torf at the midpoint of a named measured bracket, wasser a stated 1.000 no-op). 12+2+3=17. Every roughness is [SET]. Every moisture is [SET] or a stated 0/1. grainSizeM: 3 derived from measurement (sand, kies, grasfilz), 1 a stated 0 (wasser), 13 [SET]. Every heightAmplitudeM is derived from grainSizeM by heightAmplitudeModel, whose three packing factors are [SET]. Every detailScaleM coarse octave is [SET], every fine octave is derived from it. Every slope and heightResponse number is [SET] except the three surveyed elevation anchors. surface (specularModel) is 5 coherent (fels, asphalt, pflaster, beton, wasser) and 12 particulate; all 17 are [SET] and each carries its one-line reason in origins.surface. 5+12=17. NOTHING IN THIS FILE IS A GUESS PRESENTED AS A MEASUREMENT. ADDED 2026-08-08, the alpine rock/ice group: kalk, kalkschutt and firn. kalk and kalkschutt take albedoBroadband from Munsell neutral chips (N6, N7) through the ASTM D1535 quintic - a THIRD path beside A and B, and the only one that gives a chromaticity for free, because the neutral page has none. Their visibleBroadbandRatio is a stated 1.000 no-op with the sign named. firn's albedoBroadband is measured (Cuffey & Paterson) with a [SET] 50/50 area mix, its chromaticity is [SET] inside a derived bracket, and its band ratio is a three-band integral with [SET] band reflectances. 20 = 17 + 3.",
+  "provenanceSummary": "20 classes. albedoBroadband: 7 carry a measured or published value with a named source (sand, earth_dry, earth_moist, mud, moss, asphalt, water - five distinct values, because earth_dry/earth_moist/mud share one substance by design); 4 are derived from measurements with the arithmetic written out (crushed_stone, forest_floor, paving, concrete); 6 are [SET] and each names the measured bracket that constrains it (gravel, rock, leaf_litter, needle_litter, peat, grass_thatch). 7+4+6=17. albedo RGB RATIO (the chromaticity, chromaticityModel): 2 are published Munsell notations converted by path A (earth_dry 10YR 5/3, earth_moist 10YR 3/3), 1 more reuses the wet one for the same substance (mud); 7 are measured spectra of the material itself converted by path B (sand, forest_floor, leaf_litter, needle_litter, grass_thatch, asphalt, concrete); 4 are measured mixtures whose components are named and whose MIXING WEIGHTS are [SET] (gravel, crushed_stone, rock, paving); 3 are [SET] with a named measured bracket and no source of their own (moss, peat, water). 2+1+7+4+3=17. visibleBroadbandRatio (visibleBandModel): 12 derived from the same measured spectra as the chromaticity (sand, gravel, crushed_stone, rock, forest_floor, leaf_litter, needle_litter, grass_thatch, asphalt, paving, concrete, earth_dry); 2 are [SET] carry-overs of earth_dry with the direction of the error named (earth_moist, mud); 3 are [SET] (moss and peat at the midpoint of a named measured bracket, water a stated 1.000 no-op). 12+2+3=17. Every roughness is [SET]. Every moisture is [SET] or a stated 0/1. grainSizeM: 3 derived from measurement (sand, gravel, grass_thatch), 1 a stated 0 (water), 13 [SET]. Every heightAmplitudeM is derived from grainSizeM by heightAmplitudeModel, whose three packing factors are [SET]. Every detailScaleM coarse octave is [SET], every fine octave is derived from it. Every slope and heightResponse number is [SET] except the three surveyed elevation anchors. surface (specularModel) is 5 coherent (rock, asphalt, paving, concrete, water) and 12 particulate; all 17 are [SET] and each carries its one-line reason in origins.surface. 5+12=17. NOTHING IN THIS FILE IS A GUESS PRESENTED AS A MEASUREMENT. ADDED 2026-08-08, the alpine rock/ice group: limestone, limestone_scree and firn. limestone and limestone_scree take albedoBroadband from Munsell neutral chips (N6, N7) through the ASTM D1535 quintic - a THIRD path beside A and B, and the only one that gives a chromaticity for free, because the neutral page has none. Their visibleBroadbandRatio is a stated 1.000 no-op with the sign named. firn's albedoBroadband is measured (Cuffey & Paterson) with a [SET] 50/50 area mix, its chromaticity is [SET] inside a derived bracket, and its band ratio is a three-band integral with [SET] band reflectances. 20 = 17 + 3.",
   "classes": [
     {
       "name": "sand",
@@ -118,7 +118,7 @@
       }
     },
     {
-      "name": "erde_trocken",
+      "name": "earth_dry",
       "albedo": [
         0.2352,
         0.1587,
@@ -154,7 +154,7 @@
       },
       "origins": {
         "albedo": "published - 'bare soil' 0.17, Markvart & Castaner, Practical Handbook of Photovoltaics (Elsevier 2003), via the sample-albedo table at en.wikipedia.org/wiki/Albedo. Corroborating band: de.wikipedia.org/wiki/Albedo gives 'Felder (unbestellt)' 0.26, so 0.17 is the darker, humus-richer end of arable soil - which is what a Weserbergland loess Braunerde is.",
-        "albedo.chroma": "published Munsell - 10YR 5/3, chromaticity path A, giving the ratio 1.000:0.675:0.382. Source: Idso, Jackson, Reginato, Kimball & Nakayama 1975, J. Appl. Meteorol. 14(1), 109-113, Fig. 1 caption, read in the original: 'Munsell color notation supplied for this soil by the Soil Conservation Service is 10YR 5/3 when dry and 10YR 3/3 when wet'. Same hue page dry and wet, value alone moves - which is why erde_trocken and erde_feucht differ in chroma here and not in hue family. Hue of the delivered triple: 28.5 deg linear, 32.6 deg sRGB-encoded, saturation 0.62 / 0.37. WEAKNESS, NAMED: Idso's soil is an Avondale loam at Phoenix, Arizona, not a Weserbergland loess Braunerde; see the entry in doc/render/stages/ground-cover.md ## Gaps for the search that failed to find a Central European equivalent, and for the chroma disagreement with the measured spectrum.",
+        "albedo.chroma": "published Munsell - 10YR 5/3, chromaticity path A, giving the ratio 1.000:0.675:0.382. Source: Idso, Jackson, Reginato, Kimball & Nakayama 1975, J. Appl. Meteorol. 14(1), 109-113, Fig. 1 caption, read in the original: 'Munsell color notation supplied for this soil by the Soil Conservation Service is 10YR 5/3 when dry and 10YR 3/3 when wet'. Same hue page dry and wet, value alone moves - which is why earth_dry and earth_moist differ in chroma here and not in hue family. Hue of the delivered triple: 28.5 deg linear, 32.6 deg sRGB-encoded, saturation 0.62 / 0.37. WEAKNESS, NAMED: Idso's soil is an Avondale loam at Phoenix, Arizona, not a Weserbergland loess Braunerde; the search for a Central European equivalent found none, and the chroma disagrees with the measured spectrum.",
         "visibleBroadbandRatio": "derived from measurement - 0.566 by visibleBandModel.formula from ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum soil.inceptisol.dystrochrept.none.all.88p2535.jhu.becknic ('Dark yellowish brown micaceous loam', Howard Co., Md.), a humid-temperate brown loam - the US taxonomic equivalent of a Braunerde. Visible band 0.159, shortwave 0.281. This is the SPECTRUM SHAPE only; the level stays with albedoBroadband, which comes from a different source entirely.",
         "roughness": "[SET] a tilled crumb surface has no coherent facets at all.",
         "moisture": "[SET] 0.05, not 0.0: the published 0.17 is a FIELD albedo of real near-dry soil, so the dial must barely act at the declared state or the number would be double-counted.",
@@ -164,7 +164,7 @@
       }
     },
     {
-      "name": "erde_feucht",
+      "name": "earth_moist",
       "albedo": [
         0.264,
         0.1524,
@@ -199,18 +199,18 @@
         "coverage": 0.0
       },
       "origins": {
-        "albedo": "SAME SUBSTANCE as erde_trocken, and that is the point of doc/render/visual-target.md 4.1: 'Wet earth is not a second class, it is erde with the dial up'. The declared 0.17 is the dry-substance value; the rendered albedo is 0.17 * (1 - 0.39*0.85) = 0.114 by the moistureModel below.",
-        "albedo.chroma": "published Munsell - 10YR 3/3, chromaticity path A, giving the ratio 1.000:0.577:0.256. The WET half of the same Idso 1975 Fig. 1 caption that gives erde_trocken its 10YR 5/3. Hue 25.9 deg linear, 31.6 deg sRGB-encoded, saturation 0.74 / 0.48. Wetting holds the hue page and drops the value; the chromaticity difference to erde_trocken is what that costs, and it is the structure the class pair exists to carry.",
-        "visibleBroadbandRatio": "[SET] 0.566, carried over from erde_trocken unchanged: it is the same substance and no spectrum of a WET soil was found. The direction of the error is known and stated rather than guessed at - liquid water absorbs hard at 1.45 and 1.95 um, so wetting cuts the shortwave denominator more than the visible numerator and the true ratio is ABOVE 0.566, not below.",
-        "roughness": "[SET] a water film bridges the crumb texture and makes the surface partly specular - this, not the albedo, is where the visible difference to erde_trocken lives.",
-        "moisture": "[SET] 0.85, not 1.0: field capacity, not saturation; saturation is the schlamm class.",
-        "surface": "[SET] the same substance as erde_trocken; what makes it glisten is the water film it declares at moisture 0.85, and the formula reads exactly that.",
-        "grainSizeM": "[SET] 2x erde_trocken - wet crumbs coalesce.",
+        "albedo": "SAME SUBSTANCE as earth_dry, and that is the point: wet earth is not a second class, it is erde with the dial up. The declared 0.17 is the dry-substance value; the rendered albedo is 0.17 * (1 - 0.39*0.85) = 0.114 by the moistureModel below.",
+        "albedo.chroma": "published Munsell - 10YR 3/3, chromaticity path A, giving the ratio 1.000:0.577:0.256. The WET half of the same Idso 1975 Fig. 1 caption that gives earth_dry its 10YR 5/3. Hue 25.9 deg linear, 31.6 deg sRGB-encoded, saturation 0.74 / 0.48. Wetting holds the hue page and drops the value; the chromaticity difference to earth_dry is what that costs, and it is the structure the class pair exists to carry.",
+        "visibleBroadbandRatio": "[SET] 0.566, carried over from earth_dry unchanged: it is the same substance and no spectrum of a WET soil was found. The direction of the error is known and stated rather than guessed at - liquid water absorbs hard at 1.45 and 1.95 um, so wetting cuts the shortwave denominator more than the visible numerator and the true ratio is ABOVE 0.566, not below.",
+        "roughness": "[SET] a water film bridges the crumb texture and makes the surface partly specular - this, not the albedo, is where the visible difference to earth_dry lives.",
+        "moisture": "[SET] 0.85, not 1.0: field capacity, not saturation; saturation is the mud class.",
+        "surface": "[SET] the same substance as earth_dry; what makes it glisten is the water film it declares at moisture 0.85, and the formula reads exactly that.",
+        "grainSizeM": "[SET] 2x earth_dry - wet crumbs coalesce.",
         "slope.plausibleDeg": "[SET] saturated soil fails at a lower angle than dry soil."
       }
     },
     {
-      "name": "kies",
+      "name": "gravel",
       "albedo": [
         0.2924,
         0.2053,
@@ -246,7 +246,7 @@
         "albedo": "[SET] 0.22, bracketed but NOT measured. The four coarse-aggregate rocks measured by Levinson & Akbari 2002 span 0.17 (basalt), 0.19 (granite), 0.49 (plagioclase), 0.55 (chert); Weser river gravel is quartz/quartzite/sandstone/limestone, brighter than the two dark igneous samples and nowhere near the two feldspar/chert extremes. No broadband measurement of rounded river gravel was found. THIS IS THE WEAKEST ALBEDO IN THIS FILE.",
         "albedo.chroma": "derived from measurement - ratio 1.000:0.702:0.521, chromaticity path B, equal thirds of three measured lithologies, ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum rock.metamorphic.quartzite.coarse (5 samples), rock.sedimentary.limestone.coarse (7 samples) and rock.sedimentary.sandstone.coarse (the two red ones, 3 and 7). Those are the three rocks the Weser actually carries: quartzite, Muschelkalk limestone, Buntsandstein sandstone. Hue 22.7 deg linear, 25.4 deg encoded, saturation 0.48 / 0.26. THE EQUAL THIRDS ARE [SET] - no clast count of Weser gravel was found - and the samples are crushed particulate, not water-rounded pebbles.",
         "visibleBroadbandRatio": "derived from measurement - 0.744, same equal-thirds quartzite/limestone/sandstone mix as the chromaticity. Visible band 0.268, shortwave 0.360.",
-        "roughness": "[SET] rounded, water-polished pebbles keep a weak specular lobe that angular schotter does not have.",
+        "roughness": "[SET] rounded, water-polished pebbles keep a weak specular lobe that angular crushed_stone does not have.",
         "moisture": "[SET] free-draining but holds a film in the interstices longer than sand.",
         "surface": "[SET] each pebble IS a coherent solid, but a heap of pebbles is not: their faces lie at random orientations that the shaded macro-normal does not carry.",
         "grainSizeM": "derived - midpoint of the 14-18 mm coarse-aggregate d50 range measured by Levinson & Akbari 2002 -> 0.016 m.",
@@ -254,7 +254,7 @@
       }
     },
     {
-      "name": "schotter",
+      "name": "crushed_stone",
       "albedo": [
         0.1999,
         0.177,
@@ -292,15 +292,15 @@
         "albedo": "derived - mean of the two measured igneous ballast rocks in Levinson & Akbari 2002: (0.17 basalt + 0.19 granite)/2 = 0.18. Central European track and road ballast is basalt, diabase or granite, which is exactly that pair.",
         "albedo.chroma": "derived from measurement - ratio 1.000:0.886:0.756, chromaticity path B, equal weight on ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum rock.igneous.mafic.solid (basalt, 5 samples) and rock.igneous.felsic.solid (granite, 4 samples). SAME PAIR AND SAME WEIGHTING as the albedo above, so brightness and colour of this class come from one decision and cannot drift apart. Hue 31.9 deg linear, 33.1 deg encoded, saturation 0.24 / 0.12 - near-neutral, and at that saturation the hue is not load-bearing.",
         "visibleBroadbandRatio": "derived from measurement - 0.986, same basalt/granite pair as the albedo and the chromaticity. Visible 0.156, shortwave 0.158. Dark igneous rock is nearly FLAT across the shortwave, so this class needs almost no correction - which is the whole argument against a global gain in one line.",
-        "roughness": "[SET] fracture faces are matt but carry mineral glints; slightly rougher than the polished kies.",
-        "moisture": "[SET] drains faster than kies because the voids are larger.",
-        "surface": "[SET] crushed ballast, the kies argument with sharper edges.",
+        "roughness": "[SET] fracture faces are matt but carry mineral glints; slightly rougher than the polished gravel.",
+        "moisture": "[SET] drains faster than gravel because the voids are larger.",
+        "surface": "[SET] crushed ballast, the gravel argument with sharper edges.",
         "grainSizeM": "[SET] 0.032 m, taken as 2x the measured 14-18 mm concrete coarse aggregate (Levinson & Akbari 2002). The German grading for track ballast is coarser than concrete aggregate; the factor 2 is a judgement, not a measurement.",
         "slope.plausibleDeg": "[SET] scree: it EXISTS above 25 deg, which is where soil classes stop - this is the 'scree above, soil below' rule of 4.1 written as a number."
       }
     },
     {
-      "name": "fels",
+      "name": "rock",
       "albedo": [
         0.4202,
         0.2753,
@@ -346,7 +346,7 @@
       }
     },
     {
-      "name": "kalk",
+      "name": "limestone",
       "albedo": [
         0.2857,
         0.2857,
@@ -379,21 +379,21 @@
         "coverage": 0.0
       },
       "origins": {
-        "albedo": "derived - Munsell N6 ('medium light grey'), the GSA Rock-Color Chart notation for a weathered Wetterstein-/Dachsteinkalk face, through the ASTM D1535 value-to-luminance quintic Y = 1.1914V - 0.22533V^2 + 0.23352V^3 - 0.020484V^4 + 0.00081939V^5: Y(6) = 29.30 % of magnesium oxide, times Ymgo = 0.975 = 0.2857. A rock-colour chart is read ON THE OUTCROP, so the lichen-and-soot discount that fels applies by hand is already inside the chip and must not be applied twice. The CHIP is [SET] inside the chart's own limestone range N5...N8 (0.188...0.562); N6 is the field-standard reading for the light grey, lichen-spotted Hochkoenig and Zugspitze walls. CROSS-CHECK: fels, bracketed independently off Levinson & Akbari 2002, lands at 0.30, i.e. 0.014 away. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the wiese row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. N6 gives 0.2857, i.e. 0.02 EV from it: two independent routes, a Munsell chip and a photometric ratio, agreeing inside a twentieth of a stop.",
-        "albedo.chroma": "derived - 1.000:1.000:1.000, and it is a MINERALOGICAL derivation, not a mix: Munsell N is the NEUTRAL page, so the chip has no hue and no chroma and its chromaticity IS the illuminant's. That the page is the right one for this rock is physics - calcite has no electronic transition in 380...780 nm (its shortwave features are the CO3(2-) overtones at 1.9, 2.16 and 2.35 um), so a high-purity carbonate is colourless in the visible and everything that tints a limestone is an impurity. Wettersteinkalk and Dachsteinkalk are >97 % CaCO3. This is why the alpine rock is NOT fels: fels is a [SET] 50/50 of limestone with Buntsandstein and carries the red sandstone's hue, which is right for the Weserbergland and wrong here.",
-        "visibleBroadbandRatio": "[SET] 1.000, a STATED NO-OP whose sign is known and whose size is not, the same posture wasser takes. Calcite's only shortwave absorptions are the three CO3 overtones beyond 1.8 um, so the true ratio is slightly ABOVE 1.000 - the visible band is the brighter one. No 0.3...2.5 um spectrum of an alpine limestone face was found: ECOSTRESS carries rock.sedimentary.limestone.coarse as crushed particulate only, and it is already spent inside fels' mix.",
-        "roughness": "[SET] a cleaved bedding plane carries a real specular lobe, marginally rougher than fels' 0.70 because karren solution pitting roughens a carbonate face that a sandstone face does not get.",
-        "moisture": "[SET] a wall sheds water in minutes; drier than fels' 0.05 because it is above the treeline and out of the ground-water zone.",
-        "grainSizeM": "[SET] 0.4 m is JOINT AND BEDDING SPACING, not grain. Wetterstein- and Dachsteinkalk are massive to thick-bedded (bank thickness decimetres to metres), coarser than fels' 0.25 m, which is a thin-bedded Muschelkalk.",
-        "detailScaleM": "[SET] 7.0 m coarse, fine = coarse/6.7 = 1.045 (detailScaleModel). Above fels' 6.0 m for the same reason the grain is above it: the relief of a massive limestone wall is buttress-and-gully at the decametre, not slab-and-ledge at the metre.",
-        "heightAmplitudeM": "derived - grain x the table's own sealed packing factor 0.1 (fels 0.25 -> 0.025), so 0.4 -> 0.04.",
-        "slope.plausibleDeg": "[SET] identical to fels and for the identical reason: rock is the only class that survives a vertical face, and below 30 deg it is buried under its own weathering mantle. THIS NUMBER IS NOW READ: it is the slope above which no template's instances stand and above which the ground turns to this class (vegetation.json alpineLimit).",
-        "slope.litterShedAboveDeg": "[SET] 25 deg, fels' number - nothing about the shedding changes with the lithology.",
+        "albedo": "derived - Munsell N6 ('medium light grey'), the GSA Rock-Color Chart notation for a weathered Wetterstein-/Dachsteinkalk face, through the ASTM D1535 value-to-luminance quintic Y = 1.1914V - 0.22533V^2 + 0.23352V^3 - 0.020484V^4 + 0.00081939V^5: Y(6) = 29.30 % of magnesium oxide, times Ymgo = 0.975 = 0.2857. A rock-colour chart is read ON THE OUTCROP, so the lichen-and-soot discount that rock applies by hand is already inside the chip and must not be applied twice. The CHIP is [SET] inside the chart's own limestone range N5...N8 (0.188...0.562); N6 is the field-standard reading for the light grey, lichen-spotted Hochkoenig and Zugspitze walls. CROSS-CHECK: rock, bracketed independently off Levinson & Akbari 2002, lands at 0.30, i.e. 0.014 away. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the meadow row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. N6 gives 0.2857, i.e. 0.02 EV from it: two independent routes, a Munsell chip and a photometric ratio, agreeing inside a twentieth of a stop.",
+        "albedo.chroma": "derived - 1.000:1.000:1.000, and it is a MINERALOGICAL derivation, not a mix: Munsell N is the NEUTRAL page, so the chip has no hue and no chroma and its chromaticity IS the illuminant's. That the page is the right one for this rock is physics - calcite has no electronic transition in 380...780 nm (its shortwave features are the CO3(2-) overtones at 1.9, 2.16 and 2.35 um), so a high-purity carbonate is colourless in the visible and everything that tints a limestone is an impurity. Wettersteinkalk and Dachsteinkalk are >97 % CaCO3. This is why the alpine rock is NOT rock: rock is a [SET] 50/50 of limestone with Buntsandstein and carries the red sandstone's hue, which is right for the Weserbergland and wrong here.",
+        "visibleBroadbandRatio": "[SET] 1.000, a STATED NO-OP whose sign is known and whose size is not, the same posture water takes. Calcite's only shortwave absorptions are the three CO3 overtones beyond 1.8 um, so the true ratio is slightly ABOVE 1.000 - the visible band is the brighter one. No 0.3...2.5 um spectrum of an alpine limestone face was found: ECOSTRESS carries rock.sedimentary.limestone.coarse as crushed particulate only, and it is already spent inside rock' mix.",
+        "roughness": "[SET] a cleaved bedding plane carries a real specular lobe, marginally rougher than rock' 0.70 because karren solution pitting roughens a carbonate face that a sandstone face does not get.",
+        "moisture": "[SET] a wall sheds water in minutes; drier than rock' 0.05 because it is above the treeline and out of the ground-water zone.",
+        "grainSizeM": "[SET] 0.4 m is JOINT AND BEDDING SPACING, not grain. Wetterstein- and Dachsteinkalk are massive to thick-bedded (bank thickness decimetres to metres), coarser than rock' 0.25 m, which is a thin-bedded Muschelkalk.",
+        "detailScaleM": "[SET] 7.0 m coarse, fine = coarse/6.7 = 1.045 (detailScaleModel). Above rock' 6.0 m for the same reason the grain is above it: the relief of a massive limestone wall is buttress-and-gully at the decametre, not slab-and-ledge at the metre.",
+        "heightAmplitudeM": "derived - grain x the table's own sealed packing factor 0.1 (rock 0.25 -> 0.025), so 0.4 -> 0.04.",
+        "slope.plausibleDeg": "[SET] identical to rock and for the identical reason: rock is the only class that survives a vertical face, and below 30 deg it is buried under its own weathering mantle. THIS NUMBER IS NOW READ: it is the slope above which no template's instances stand and above which the ground turns to this class (vegetation.json alpineLimit).",
+        "slope.litterShedAboveDeg": "[SET] 25 deg, rock' number - nothing about the shedding changes with the lithology.",
         "surface": "[SET] an outcrop is ONE solid body; the shaded normal is the normal of an interface."
       }
     },
     {
-      "name": "kalkschutt",
+      "name": "limestone_scree",
       "albedo": [
         0.2857,
         0.2857,
@@ -426,15 +426,15 @@
         "coverage": 0.0
       },
       "origins": {
-        "albedo": "derived - the SAME value as kalk, 0.2857, because it is the same lithology and the one measurement available cannot tell the two apart. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the wiese row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. That plateau IS a wall-and-talus mosaic, so 0.290 is the mixture's number and neither member's. This row first carried Munsell N7 against kalk's N6, 0.4094 against 0.2857, on the ARGUMENT that a talus cone is renewed by rockfall faster than lichen colonises it and therefore shows fresher rock. The argument still stands; the 0.50 EV step it was worth does not, because no measurement sees it. An assertion a measurement cannot see is not kept. What separates the two classes is what the file says separates classes of equal reflectance: grain 0.064 m against 0.4 m, loose against sealed packing, particulate against coherent.",
-        "albedo.chroma": "derived - 1.000:1.000:1.000, kalk's mineralogical argument verbatim: the clasts ARE the wall.",
-        "visibleBroadbandRatio": "[SET] 1.000, kalk's stated no-op verbatim.",
-        "roughness": "[SET] 0.88, schotter's number: angular fracture faces, matt with mineral glints.",
+        "albedo": "derived - the SAME value as limestone, 0.2857, because it is the same lithology and the one measurement available cannot tell the two apart. MEASURED CROSS-CHECK, and it is a RATIO inside one photograph, so it carries neither an exposure nor a tone curve: on the nebelhorn reference photo of 2026-07-28 the sunlit karst plateau (4169 pixels at 320x180 selected by saturation < 0.12 and R >= G) has linear-sRGB luminance 0.3151 and the sunlit alpine sward in the same frame (1150 pixels, G > R + 0.02, saturation > 0.10) has 0.1318, ratio 2.39. Times the engine's OWN declared sward reflectance - the meadow row after swardClosure 1.0, Y = 0.1213 - that is a limestone visible reflectance of 0.290. That plateau IS a wall-and-talus mosaic, so 0.290 is the mixture's number and neither member's. This row first carried Munsell N7 against limestone's N6, 0.4094 against 0.2857, on the ARGUMENT that a talus cone is renewed by rockfall faster than lichen colonises it and therefore shows fresher rock. The argument still stands; the 0.50 EV step it was worth does not, because no measurement sees it. An assertion a measurement cannot see is not kept. What separates the two classes is what the file says separates classes of equal reflectance: grain 0.064 m against 0.4 m, loose against sealed packing, particulate against coherent.",
+        "albedo.chroma": "derived - 1.000:1.000:1.000, limestone's mineralogical argument verbatim: the clasts ARE the wall.",
+        "visibleBroadbandRatio": "[SET] 1.000, limestone's stated no-op verbatim.",
+        "roughness": "[SET] 0.88, crushed_stone's number: angular fracture faces, matt with mineral glints.",
         "moisture": "[SET] a talus cone is the fastest-draining ground there is.",
         "grainSizeM": "derived - alpine limestone talus is cobble grade; 0.064 m is the Wentworth cobble/pebble boundary and is taken as d50. The plates a Kalkschutt cone is made of run 2...20 cm, so the boundary sits inside the range rather than at its edge.",
-        "heightAmplitudeM": "derived - grain x the table's own LOOSE packing factor 0.4 (kies 0.016 -> 0.0064, schotter 0.032 -> 0.0128), so 0.064 -> 0.0256.",
-        "detailScaleM": "derived - log-interpolated on grain between the table's own two mineral anchors, schotter (0.032 m grain, 2.2 m coarse) and fels (0.25 m grain, 6.0 m coarse): ln(0.064/0.032)/ln(0.25/0.032) = 0.337, so 2.2 + 0.337 x 3.8 = 3.48, taken as 3.5. Fine = 3.5/6.7 = 0.522.",
-        "slope.plausibleDeg": "derived - the lower bound 25 deg is schotter's declared 'scree exists above where soil stops'. The upper bound is the ANGLE OF REPOSE of angular coarse debris, 33...38 deg; 38 deg is its top, because a cone that stands steeper than its repose angle is not a cone any more, it is the wall above it.",
+        "heightAmplitudeM": "derived - grain x the table's own LOOSE packing factor 0.4 (gravel 0.016 -> 0.0064, crushed_stone 0.032 -> 0.0128), so 0.064 -> 0.0256.",
+        "detailScaleM": "derived - log-interpolated on grain between the table's own two mineral anchors, crushed_stone (0.032 m grain, 2.2 m coarse) and rock (0.25 m grain, 6.0 m coarse): ln(0.064/0.032)/ln(0.25/0.032) = 0.337, so 2.2 + 0.337 x 3.8 = 3.48, taken as 3.5. Fine = 3.5/6.7 = 0.522.",
+        "slope.plausibleDeg": "derived - the lower bound 25 deg is crushed_stone's declared 'scree exists above where soil stops'. The upper bound is the ANGLE OF REPOSE of angular coarse debris, 33...38 deg; 38 deg is its top, because a cone that stands steeper than its repose angle is not a cone any more, it is the wall above it.",
         "slope.litterShedAboveDeg": "[SET] 35 deg - a moving talus surface holds nothing anyway.",
         "surface": "[SET] a heap of clasts: each plate is coherent, the heap is not."
       }
@@ -486,7 +486,7 @@
       }
     },
     {
-      "name": "waldboden",
+      "name": "forest_floor",
       "albedo": [
         0.224,
         0.1354,
@@ -517,7 +517,7 @@
         "zeroAboveM": 496
       },
       "litter": {
-        "class": "laubstreu",
+        "class": "leaf_litter",
         "coverage": 0.7
       },
       "origins": {
@@ -528,11 +528,11 @@
         "moisture": "[SET] a closed canopy keeps the floor damp for days after rain.",
         "surface": "[SET] humus and loose litter over it; nothing in the profile is continuous.",
         "grainSizeM": "[SET] the 'grain' is a fragment of decayed litter, about 1 cm.",
-        "litter": "0.70 laubstreu is the DEFAULT only; the vegetation template must override it - 4.1: 'Beech litter under spruce is a defect the botanist will call'."
+        "litter": "0.70 leaf_litter is the DEFAULT only; the vegetation template must override it - 4.1: 'Beech litter under spruce is a defect the botanist will call'."
       }
     },
     {
-      "name": "laubstreu",
+      "name": "leaf_litter",
       "albedo": [
         0.2638,
         0.1898,
@@ -570,7 +570,7 @@
         "albedo": "[SET] 0.20, bracketed but NOT measured. No broadband albedo of broadleaf litter was found. The bracket is Kuusinen 2014 Table 2: the birch stand understorey measures 0.185 and the brightest pine understorey 0.174, and dry senescent foliage is brighter than the moss-and-dwarf-shrub floors that dominate that sample. 0.20 sits just above the measured maximum for that reason and no other.",
         "albedo.chroma": "derived from measurement - ratio 1.000:0.720:0.429, chromaticity path B, mean of the three ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum nonphotosyntheticvegetation.leaves.quercus.species.vswir.vh318/vh319/vh320, JHU/UCSB name 'Quercus sp. litter'. OAK LITTER, measured as litter - the class subject exactly. Hue 30.6 deg linear, 34.2 deg encoded, saturation 0.57 / 0.33. The retired [SET] ratio was 1.00:0.70:0.44, which the measurement now confirms to within 0.02 per channel; it is replaced anyway, because a lucky guess is still a guess.",
         "visibleBroadbandRatio": "derived from measurement - 0.654, mean of the same three Quercus litter spectra. Visible 0.253, shortwave 0.387.",
-        "roughness": "[SET] the leaf cuticle survives senescence; leaf litter has a REAL specular sheen, which is why this is far below the waldboden value.",
+        "roughness": "[SET] the leaf cuticle survives senescence; leaf litter has a REAL specular sheen, which is why this is far below the forest_floor value.",
         "moisture": "[SET] a loose litter layer sheds water to the humus below it.",
         "surface": "[SET] a leaf CUTICLE is a coherent interface and a leaf LITTER is not - the leaves lie at every angle but the shaded one.",
         "grainSizeM": "[SET] the grain is ONE LEAF, 4-8 cm for beech and oak.",
@@ -578,7 +578,7 @@
       }
     },
     {
-      "name": "nadelstreu",
+      "name": "needle_litter",
       "albedo": [
         0.2086,
         0.1264,
@@ -613,17 +613,17 @@
         "coverage": 0.0
       },
       "origins": {
-        "albedo": "[SET] 0.14, bracketed but NOT measured. Bracket from Kuusinen 2014 Table 2: the darkest pine understorey (P3, dry sandy soil with lichen, moss, bare soil, litter and heather) measures 0.103 and the spruce floors 0.160-0.162; a pure needle mat carries no moss and sits between them. Darker than laubstreu because needles pack denser and self-shadow.",
-        "albedo.chroma": "derived from measurement - ratio 1.000:0.606:0.348, chromaticity path B, mean of six ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum spectra: nonphotosyntheticvegetation.needles.pinus.ponderosa.vswir.vh322/323/324 ('Pinus ponderosa dry needles') and needles.abies.concolor.vswir.vh325/326/327 ('Abies concolor dry needles'). Hue 23.7 deg linear, 28.2 deg encoded, saturation 0.65 / 0.40 - redder and more saturated than laubstreu, which inverts the retired [SET] claim that needle litter is 'less saturated than beech litter'. WEAKNESS, NAMED: ponderosa pine and white fir, not Picea abies and Pinus sylvestris.",
+        "albedo": "[SET] 0.14, bracketed but NOT measured. Bracket from Kuusinen 2014 Table 2: the darkest pine understorey (P3, dry sandy soil with lichen, moss, bare soil, litter and heather) measures 0.103 and the spruce floors 0.160-0.162; a pure needle mat carries no moss and sits between them. Darker than leaf_litter because needles pack denser and self-shadow.",
+        "albedo.chroma": "derived from measurement - ratio 1.000:0.606:0.348, chromaticity path B, mean of six ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum spectra: nonphotosyntheticvegetation.needles.pinus.ponderosa.vswir.vh322/323/324 ('Pinus ponderosa dry needles') and needles.abies.concolor.vswir.vh325/326/327 ('Abies concolor dry needles'). Hue 23.7 deg linear, 28.2 deg encoded, saturation 0.65 / 0.40 - redder and more saturated than leaf_litter, which inverts the retired [SET] claim that needle litter is 'less saturated than beech litter'. WEAKNESS, NAMED: ponderosa pine and white fir, not Picea abies and Pinus sylvestris.",
         "visibleBroadbandRatio": "derived from measurement - 0.514, mean of the same six needle spectra. Visible 0.166, shortwave 0.324.",
-        "roughness": "[SET] needle cuticle sheen, but the needles interlock at every angle so the lobe is broader than laubstreu.",
+        "roughness": "[SET] needle cuticle sheen, but the needles interlock at every angle so the lobe is broader than leaf_litter.",
         "grainSizeM": "[SET] the grain is ONE NEEDLE, 1-2 cm for spruce and pine.",
-        "slope.litterShedAboveDeg": "[SET] 32 deg, higher than laubstreu: interlocked needles form a mat that holds on a steeper face than flat leaves.",
-        "surface": "[SET] a mat of loose needles, the laubstreu argument at a smaller grain."
+        "slope.litterShedAboveDeg": "[SET] 32 deg, higher than leaf_litter: interlocked needles form a mat that holds on a steeper face than flat leaves.",
+        "surface": "[SET] a mat of loose needles, the leaf_litter argument at a smaller grain."
       }
     },
     {
-      "name": "grasfilz",
+      "name": "grass_thatch",
       "albedo": [
         0.2797,
         0.1886,
@@ -654,28 +654,28 @@
         "zeroAboveM": 496
       },
       "litter": {
-        "class": "moos",
+        "class": "moss",
         "coverage": 0.15
       },
       "origins": {
-        "subject": "The felt under a sward - dead grass leaf, cut stubble and the moss in the base. doc/render/vegetation.md ## Spec, 'The sward': under working grassland the open-soil fraction at eye height is 0 percent, so a grassland template that references a SOIL class draws a surface that does not occur. laubstreu is leaf, nadelstreu is needle, moos is one component; this is the class that was missing.",
-        "albedo": "[SET] 0.20, bracketed by TWO measured ratios that disagree by 17 percent, and the disagreement is this table's own. Method: take an already-declared class as the level anchor and scale it by the shortwave ratio of the two materials' measured spectra (visibleBandModel.formula denominator, AM1.5G-weighted 0.3-2.5 um), because the laboratory-versus-field systematic largely cancels in a ratio. Anchor A, laubstreu 0.20: SW(Avena fatua litter) / SW(Quercus litter) = 0.3855 / 0.3870 = 0.996 -> 0.199. Anchor B, erde_trocken 0.17: SW(Avena fatua litter) / SW(88p2535 loam) = 0.3855 / 0.2806 = 1.374 -> 0.234. A is chosen: both of its spectra are litter, both were measured at UCSB on the same ASD, so the instrument and the sample preparation cancel; B crosses instruments and material kinds. THE SPREAD IS THE HONEST UNCERTAINTY - 0.199 to 0.234 - and it exists because laubstreu 0.20 is itself [SET] and sits 15 percent below what anchor B would give it (0.234). Direction of the residual error, named: a felt under a living sward is compacted, part-humified and moss-invaded, all of which darken it, so the true value is at or below 0.199 rather than above it. Cross-check that FAILED and is kept: the same ratio method applied to this table's own litter pair gives SW(needles)/SW(Quercus) = 0.836, i.e. nadelstreu should be 0.167 where the table declares 0.14 - the method captures the material and not the PACKING.",
-        "albedo.chroma": "derived from measurement - ratio 1.000:0.674:0.280, chromaticity path B, mean of the two ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009) spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, UCSB name 'Avena fatua litter' - GRASS litter, measured as litter, which is the class subject exactly. Own visible luminance factor 0.2521. Hue 32.9 deg linear, 37.9 deg sRGB-encoded, saturation 0.72 linear / 0.43 encoded. The per-sample spread is 1.000:0.668:0.287 against 1.000:0.681:0.272, so the mean is not carrying two disagreeing samples. THE RESULT THAT MATTERS AND IT IS NOT THE ONE THE BRIEF EXPECTED: R:G is 0.674 here against 0.675 for erde_trocken, i.e. grass litter is as red-brown as loess to within 0.001, and only the BLUE differs (0.280 against 0.382). Swapping soil for felt under a meadow therefore fixes the substance and moves R-G by almost nothing; the cover fade edge is closed by vegetation.json's swardClosure and not by this class. WEAKNESS, NAMED: Avena fatua is a Californian annual wild oat (34.41 N, collected 2015-03-18), not the Arrhenatherum/Dactylis/Lolium felt of a Weserbergland hay meadow, and the samples are described as 'alive; but dying and were yellow' - senescing standing leaf, not a compacted felt.",
-        "visibleBroadbandRatio": "derived from measurement - 0.579 by visibleBandModel.formula from the same two Avena fatua litter spectra. Visible band 0.2231, shortwave 0.3855. Below laubstreu's 0.654 and above nadelstreu's 0.514: dead grass keeps climbing into the NIR harder than a flat dead leaf does. This is where the class earns its VISIBLE brightness - 0.20 * 0.579 = 0.116 against laubstreu's 0.131.",
-        "roughness": "[SET] 0.65, the nadelstreu value and for the nadelstreu reason: a dead grass blade keeps its cuticle exactly as a dead leaf does, but a felt interlocks at every angle, so the lobe is as broad as a needle mat's rather than as narrow as laubstreu's 0.60.",
-        "moisture": "[SET] 0.30, bracketed by two declared classes of this table. Above laubstreu's 0.20, because a leaf litter sheds water to the humus below it and a grass felt HOLDS it - that water retention is the agronomic definition of thatch. Below waldboden's 0.35, because a 0.3 m sward lets direct sun onto its own floor at midday and a closed tree canopy does not.",
+        "subject": "The felt under a sward - dead grass leaf, cut stubble and the moss in the base. Under working grassland the open-soil fraction at eye height is 0 percent, so a grassland template that references a SOIL class draws a surface that does not occur. leaf_litter is leaf, needle_litter is needle, moss is one component; this is the class that was missing.",
+        "albedo": "[SET] 0.20, bracketed by TWO measured ratios that disagree by 17 percent, and the disagreement is this table's own. Method: take an already-declared class as the level anchor and scale it by the shortwave ratio of the two materials' measured spectra (visibleBandModel.formula denominator, AM1.5G-weighted 0.3-2.5 um), because the laboratory-versus-field systematic largely cancels in a ratio. Anchor A, leaf_litter 0.20: SW(Avena fatua litter) / SW(Quercus litter) = 0.3855 / 0.3870 = 0.996 -> 0.199. Anchor B, earth_dry 0.17: SW(Avena fatua litter) / SW(88p2535 loam) = 0.3855 / 0.2806 = 1.374 -> 0.234. A is chosen: both of its spectra are litter, both were measured at UCSB on the same ASD, so the instrument and the sample preparation cancel; B crosses instruments and material kinds. THE SPREAD IS THE HONEST UNCERTAINTY - 0.199 to 0.234 - and it exists because leaf_litter 0.20 is itself [SET] and sits 15 percent below what anchor B would give it (0.234). Direction of the residual error, named: a felt under a living sward is compacted, part-humified and moss-invaded, all of which darken it, so the true value is at or below 0.199 rather than above it. Cross-check that FAILED and is kept: the same ratio method applied to this table's own litter pair gives SW(needles)/SW(Quercus) = 0.836, i.e. needle_litter should be 0.167 where the table declares 0.14 - the method captures the material and not the PACKING.",
+        "albedo.chroma": "derived from measurement - ratio 1.000:0.674:0.280, chromaticity path B, mean of the two ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009) spectra nonphotosyntheticvegetation.leaves.avena.fatua.vswir.vh354/vh355.ucsb.asd, UCSB name 'Avena fatua litter' - GRASS litter, measured as litter, which is the class subject exactly. Own visible luminance factor 0.2521. Hue 32.9 deg linear, 37.9 deg sRGB-encoded, saturation 0.72 linear / 0.43 encoded. The per-sample spread is 1.000:0.668:0.287 against 1.000:0.681:0.272, so the mean is not carrying two disagreeing samples. THE RESULT THAT MATTERS AND IT IS NOT THE ONE THE BRIEF EXPECTED: R:G is 0.674 here against 0.675 for earth_dry, i.e. grass litter is as red-brown as loess to within 0.001, and only the BLUE differs (0.280 against 0.382). Swapping soil for felt under a meadow therefore fixes the substance and moves R-G by almost nothing; the cover fade edge is closed by vegetation.json's swardClosure and not by this class. WEAKNESS, NAMED: Avena fatua is a Californian annual wild oat (34.41 N, collected 2015-03-18), not the Arrhenatherum/Dactylis/Lolium felt of a Weserbergland hay meadow, and the samples are described as 'alive; but dying and were yellow' - senescing standing leaf, not a compacted felt.",
+        "visibleBroadbandRatio": "derived from measurement - 0.579 by visibleBandModel.formula from the same two Avena fatua litter spectra. Visible band 0.2231, shortwave 0.3855. Below leaf_litter's 0.654 and above needle_litter's 0.514: dead grass keeps climbing into the NIR harder than a flat dead leaf does. This is where the class earns its VISIBLE brightness - 0.20 * 0.579 = 0.116 against leaf_litter's 0.131.",
+        "roughness": "[SET] 0.65, the needle_litter value and for the needle_litter reason: a dead grass blade keeps its cuticle exactly as a dead leaf does, but a felt interlocks at every angle, so the lobe is as broad as a needle mat's rather than as narrow as leaf_litter's 0.60.",
+        "moisture": "[SET] 0.30, bracketed by two declared classes of this table. Above leaf_litter's 0.20, because a leaf litter sheds water to the humus below it and a grass felt HOLDS it - that water retention is the agronomic definition of thatch. Below forest_floor's 0.35, because a 0.3 m sward lets direct sun onto its own floor at midday and a closed tree canopy does not.",
         "surface": "[SET] a mat of loose dead blades over a living tiller base; nothing in the profile is a continuous interface.",
-        "grainSizeM": "derived - 0.0075 m is the MIDPOINT OF THE MEASURED BLADE WIDTH, 5-10 mm for Arrhenatherum and 4-10 mm for Dactylis (doc/render/vegetation.md ## Spec, sourced there to Rothmaler and Burgenland-Flora). Width and not length, because the blades of a felt lie FLAT: what the normal map sees across the surface is one blade beside the next, not one blade end to end.",
+        "grainSizeM": "derived - 0.0075 m is the MIDPOINT OF THE MEASURED BLADE WIDTH, 5-10 mm for Arrhenatherum and 4-10 mm for Dactylis (Rothmaler and Burgenland-Flora). Width and not length, because the blades of a felt lie FLAT: what the normal map sees across the surface is one blade beside the next, not one blade end to end.",
         "heightAmplitudeM": "derived - heightAmplitudeModel with heightPacking 'packed': 0.25 * 0.0075 = 0.001875.",
         "heightPacking": "[SET] packed, not loose - the sward above it and the mower's wheels press a felt flat, which is what separates it from the two forest litters (both loose).",
-        "detailScaleM": "[SET] coarse octave 1.0 m, fine derived as 1.0 / 6.7 = 0.149 (detailScaleModel). Finer than laubstreu's 1.4 m because a leaf litter drifts into metre-scale patches while a grass felt is laid down by the tussock spacing and the mower's swath, both decimetric; coarser than moos's 0.9 m.",
-        "slope.plausibleDeg": "[SET] 0-40 deg. The felt is held by the living tillers rooted through it, so grassland survives a slope that strips a soil class (erde_trocken stops at 30) - Weserbergland pasture runs up the full flank of the Kluet.",
+        "detailScaleM": "[SET] coarse octave 1.0 m, fine derived as 1.0 / 6.7 = 0.149 (detailScaleModel). Finer than leaf_litter's 1.4 m because a leaf litter drifts into metre-scale patches while a grass felt is laid down by the tussock spacing and the mower's swath, both decimetric; coarser than moss's 0.9 m.",
+        "slope.plausibleDeg": "[SET] 0-40 deg. The felt is held by the living tillers rooted through it, so grassland survives a slope that strips a soil class (earth_dry stops at 30) - Weserbergland pasture runs up the full flank of the Kluet.",
         "slope.litterShedAboveDeg": "[SET] 40 deg, the highest of the litter classes: rooted-through felt does not slide, where flat leaves go at 25 and needles at 32.",
-        "litter": "[SET] 0.15 moos, and NOT sourced: no relevé of the bryophyte layer of a fertilised Arrhenatheretum was found in this run. The bracket is this table's own torf, which declares 0.50 moos because a living Sphagnum layer IS the surface of a raised bog; in a fertilised hay meadow the moss layer is present in the sward base and subordinate to it, so the value sits well below that and above zero. The botanist named moss as a component of the felt and this is where it enters."
+        "litter": "[SET] 0.15 moss, and NOT sourced: no relevé of the bryophyte layer of a fertilised Arrhenatheretum was found in this run. The bracket is this table's own peat, which declares 0.50 moss because a living Sphagnum layer IS the surface of a raised bog; in a fertilised hay meadow the moss layer is present in the sward base and subordinate to it, so the value sits well below that and above zero. The botanist named moss as a component of the felt and this is where it enters."
       }
     },
     {
-      "name": "moos",
+      "name": "moss",
       "albedo": [
         0.1258,
         0.1797,
@@ -706,7 +706,7 @@
         "zeroAboveM": 496
       },
       "litter": {
-        "class": "nadelstreu",
+        "class": "needle_litter",
         "coverage": 0.3
       },
       "origins": {
@@ -721,7 +721,7 @@
       }
     },
     {
-      "name": "torf",
+      "name": "peat",
       "albedo": [
         0.114,
         0.0979,
@@ -752,22 +752,22 @@
         "zeroAboveM": 496
       },
       "litter": {
-        "class": "moos",
+        "class": "moss",
         "coverage": 0.5
       },
       "origins": {
         "albedo": "[SET] 0.10, bracketed but NOT measured. No broadband albedo of bare peat was found in this run. The bracket: bare peat is darker than any soil in the sources here (bare soil 0.17, Markvart & Castaner 2003) and lighter than fresh asphalt (0.04, Pon 1999, LBNL Heat Island Group), and it is a WET substance by definition, which halves mineral values. THIRD-WEAKEST ALBEDO IN THIS FILE.",
         "albedo.chroma": "[SET] ratio 1.00:0.86:0.70, NOT sourced: no peat spectrum in the ECOSTRESS library and no published Munsell notation for bare peat was found. The bracket is the darkest measured organic soil in the library, ECOSTRESS Spectral Library v1.0 (Meerdink, Hook, Roberts & Abbott 2019, Remote Sens. Environ. 230, 111196; Baldridge, Hook, Grove & Rivera 2009), spectrum soil.mollisol.cryoboroll.none.all.85p4663, JHU name 'Black loam', which converts by path B to 1.000:0.584:0.244 at hue 27.0 deg linear. The [SET] value is far LESS chromatic than that bracket, deliberately: peat at Munsell value 2 has almost no chroma left, and the black loam is a mineral soil with iron oxides that peat does not have. SECOND-WEAKEST CHROMATICITY IN THIS FILE.",
-        "visibleBroadbandRatio": "[SET] 0.44, the midpoint of a named measured bracket: the 'Black loam' Mollisol measures 0.375 and waldboden 0.502. No peat spectrum exists in the library.",
+        "visibleBroadbandRatio": "[SET] 0.44, the midpoint of a named measured bracket: the 'Black loam' Mollisol measures 0.375 and forest_floor 0.502. No peat spectrum exists in the library.",
         "moisture": "[SET] peat forms only under permanent waterlogging; a peat that dries out stops being peat.",
         "surface": "[SET] fibrous peat; a bog shines because it declares moisture 0.75, not because peat is smooth.",
         "grainSizeM": "[SET] amorphous humified organic matter, finer than a soil crumb.",
         "slope.plausibleDeg": "[SET] 8 deg: peat needs standing water, and standing water needs a flat.",
-        "litter": "[SET] 0.50 moos - a living Sphagnum layer over the peat is the normal state of a raised bog."
+        "litter": "[SET] 0.50 moss - a living Sphagnum layer over the peat is the normal state of a raised bog."
       }
     },
     {
-      "name": "schlamm",
+      "name": "mud",
       "albedo": [
         0.264,
         0.1524,
@@ -802,9 +802,9 @@
         "coverage": 0.0
       },
       "origins": {
-        "albedo": "SAME SUBSTANCE as erde_trocken - 0.17 dry-substance (Markvart & Castaner 2003 'bare soil'), with the dial at 1.0. Rendered: 0.17 * (1 - 0.39*1.00) = 0.104. No second number is invented; the entire difference to erde_feucht lives in roughness and grain, which is also where it lives physically.",
-        "albedo.chroma": "published Munsell - 10YR 3/3, chromaticity path A, ratio 1.000:0.577:0.256, IDENTICAL to erde_feucht because it is the same substance at the wet end and Idso 1975 measured exactly one wet state. Hue 25.9 deg linear, 31.6 deg encoded. The retired [SET] claim that 'suspended silt washes the chroma out' had no measurement behind it and is gone; the entire difference to erde_feucht lives in roughness, grain and the moisture dial, which is also where it lives physically.",
-        "visibleBroadbandRatio": "[SET] 0.566, carried over from erde_trocken for the same reason and with the same named direction of error as erde_feucht - and more strongly here, because schlamm is saturated.",
+        "albedo": "SAME SUBSTANCE as earth_dry - 0.17 dry-substance (Markvart & Castaner 2003 'bare soil'), with the dial at 1.0. Rendered: 0.17 * (1 - 0.39*1.00) = 0.104. No second number is invented; the entire difference to earth_moist lives in roughness and grain, which is also where it lives physically.",
+        "albedo.chroma": "published Munsell - 10YR 3/3, chromaticity path A, ratio 1.000:0.577:0.256, IDENTICAL to earth_moist because it is the same substance at the wet end and Idso 1975 measured exactly one wet state. Hue 25.9 deg linear, 31.6 deg encoded. The retired [SET] claim that 'suspended silt washes the chroma out' had no measurement behind it and is gone; the entire difference to earth_moist lives in roughness, grain and the moisture dial, which is also where it lives physically.",
+        "visibleBroadbandRatio": "[SET] 0.566, carried over from earth_dry for the same reason and with the same named direction of error as earth_moist - and more strongly here, because mud is saturated.",
         "roughness": "[SET] 0.35 is the lowest of any porous class: a standing water film makes mud GLOSSY, and that sheen is the whole read of the class.",
         "moisture": "1.00 is a STATEMENT, not a missing value - saturation is the definition of the class.",
         "surface": "[SET] a suspension of the same soil - the mirror is the standing water at moisture 1.00, which the formula gives it in full.",
@@ -842,7 +842,7 @@
         "mode": "flat"
       },
       "litter": {
-        "class": "laubstreu",
+        "class": "leaf_litter",
         "coverage": 0.05
       },
       "origins": {
@@ -854,11 +854,11 @@
         "surface": "[SET] bitumen binds the aggregate into one sealed skin; that is what 'sealed' in heightPacking already says.",
         "grainSizeM": "[SET] the exposed chippings that Pon's aging mechanism reveals, about 8 mm.",
         "slope.plausibleDeg": "[SET] 10 deg is about 18 percent gradient - steeper than any public road in the target area.",
-        "litter": "[SET] 0.05 laubstreu - gutter leaves. Non-zero for the same reason vegetation.json keeps 8 joint weeds per m2 on versiegelt: a perfectly bare surface reads as a rendering hole."
+        "litter": "[SET] 0.05 leaf_litter - gutter leaves. Non-zero for the same reason vegetation.json keeps 8 joint weeds per m2 on sealed: a perfectly bare surface reads as a rendering hole."
       }
     },
     {
-      "name": "pflaster",
+      "name": "paving",
       "albedo": [
         0.1967,
         0.1622,
@@ -887,7 +887,7 @@
         "mode": "flat"
       },
       "litter": {
-        "class": "laubstreu",
+        "class": "leaf_litter",
         "coverage": 0.05
       },
       "origins": {
@@ -901,7 +901,7 @@
       }
     },
     {
-      "name": "beton",
+      "name": "concrete",
       "albedo": [
         0.29,
         0.2323,
@@ -930,7 +930,7 @@
         "mode": "flat"
       },
       "litter": {
-        "class": "laubstreu",
+        "class": "leaf_litter",
         "coverage": 0.05
       },
       "origins": {
@@ -945,7 +945,7 @@
       }
     },
     {
-      "name": "wasser",
+      "name": "water",
       "albedo": [
         0.0324,
         0.0661,
@@ -982,7 +982,7 @@
         "albedo.chroma": "[SET] ratio 0.40:0.82:1.00, NOT sourced: no liquid-water reflectance spectrum in the ECOSTRESS library, which carries snow, frost and ice only. The value asserts a sediment-loaded lowland river, blue-green rather than blue, at hue 198 deg linear. Nothing here measures that. Note that a water surface takes most of its colour from the SKY it mirrors, which the shader owns and this row does not - see the Fresnel derivation under origins.albedo above.",
         "visibleBroadbandRatio": "[SET] 1.000, and it is a STATEMENT that no correction is applied, not a measurement. No liquid-water spectrum was available. The sign is known: water absorbs almost the whole NIR, so its visible reflectance EXCEEDS its shortwave albedo and the true ratio is above 1. Leaving it at 1 makes water the one class this field under-corrects, and says so.",
         "roughness": "[SET] flat water. Wave roughness belongs to a water shader, not to a ground material - this entry exists so the ground layer has something to draw where a water surface has not been built yet.",
-        "moisture": "1.00 is a STATEMENT. wasser is the ONE class excluded from moistureModel - see moistureModel.exclusions.",
+        "moisture": "1.00 is a STATEMENT. water is the ONE class excluded from moistureModel - see moistureModel.exclusions.",
         "surface": "[SET] the definition of the case.",
         "grainSizeM": "0.0 is a STATEMENT: water has no grain, and therefore no procedural normal from this file.",
         "slope.plausibleDeg": "[SET] 2 deg - a water surface that is not level is a waterfall."

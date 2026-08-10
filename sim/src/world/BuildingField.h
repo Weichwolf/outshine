@@ -49,8 +49,8 @@ public:
   uint32_t AddedFirst() const { return AddedFirst_; }
   uint32_t AddedCount() const { return AddedCount_; }
 
-  /* pos3 + norm3 + uv2, uv = (metres along the wall, metres above the base). Camera-relative is the
-   * caller's business: positions are ECEF offsets from Anchor(). */
+  /* core/ChunkVtx.h's layout, uv = (metres along the wall, metres above the base). Camera-relative
+   * is the caller's business: positions are ECEF offsets from Anchor(). */
   const std::vector<float> &Verts() const { return Verts_; }
   const double *Anchor() const { return Anchor_; }
   const std::vector<Footprint> &Footprints() const { return Prints_; }

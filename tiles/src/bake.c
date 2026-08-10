@@ -77,7 +77,7 @@ static int fb_force_supersample(void){
  *     (fastest) on top of filter=0 measured a further ~20-25% encode speedup for ~4% more bytes.
  * Combined: ~5x faster encode for ~4.5% larger PNGs on the measured tiles -- comfortably inside "not
  * >2x bytes for <20% speed" and then some. Both are plain global ints in stb_image_write.h, set
- * ONCE here before any worker thread exists (matches fb_elev_init/fb_lights_init/fb_stars_init's
+ * ONCE here before any worker thread exists (matches fb_elev_init/fb_stars_init's
  * same single-threaded-startup pattern) -- read-only from every bake call afterward, so no lock
  * needed and no race: this is a fixed, measured constant, not a per-request or operator-tunable
  * knob (no TILES_* env var for it, unlike the pool sizes elsewhere in this server). */
@@ -141,7 +141,7 @@ static int encode_and_store(fb_albedo_kind k, int z, long x, long y, int TS,
     if(!m.n){ free(m.b); return 0; }
 
     char path[400]; bake_path(k, z, x, y, TS, path, sizeof path);
-    /* pthread_self()-suffixed, like cache.c/lights.c: two threads racing the same tile (the rare
+    /* pthread_self()-suffixed, like cache.c: two threads racing the same tile (the rare
      * duplicate-owner window under heavy concurrency, see bakepool.c) must not share one tmp path. */
     char tmp[460]; snprintf(tmp, sizeof tmp, "%s.%lu.tmp", path, (unsigned long)pthread_self());
     FILE *f = fopen(tmp, "wb");

@@ -16,10 +16,7 @@
 namespace outshine::Render {
 
 static const char *kSurfaceLightWGSL = R"(
-/* sunDeck: the SAME direct beam as `sun`, but measured at the deck base and brought down the vertical
- * column instead of down the sun's slant path (IrradianceStage). What a deck re-emits downward may not
- * carry the reddening of the last kilometre of air the deck stands ABOVE. */
-struct Irr { sun : vec4f, sky : vec4f, sunDeck : vec4f };
+struct Irr { sun : vec4f, sky : vec4f };
 
 /* No auto-exposure exists yet, so a radiometrically correct night clips to black. This floor is a
  * DISPLAY CRUTCH, not radiometry: it reproduces the ground level the previous model showed at night
@@ -52,11 +49,10 @@ const kSelfShelter : f32 = 0.35;
 fn deckHazeFactor(I : Irr, sunUp : f32, thruMean : f32) -> f32 {
   let yw = vec3f(0.2126, 0.7152, 0.0722);
   let sunY = dot(I.sun.xyz, yw) * max(sunUp, 0.0);
-  let deckY = dot(I.sunDeck.xyz, yw) * max(sunUp, 0.0);
   let skyY = dot(I.sky.xyz, yw);
   let clear = sunY + skyY;
   if (clear <= 1.0e-9) { return 1.0; }
-  return (sunY * thruMean + deckY * (1.0 - thruMean) * kDeckDiffuse + skyY) / clear;
+  return (sunY * thruMean + sunY * (1.0 - thruMean) * kDeckDiffuse + skyY) / clear;
 }
 
 /* alb      linear reflectance (0..1), NOT a display colour
@@ -77,7 +73,7 @@ fn litRadiance(I : Irr, alb : vec3f, kdDir : f32, n : vec3f, upv : vec3f, sunDir
   let sunUp = max(dot(sunDir, upv), 0.0);
   /* Diffuse on a HORIZONTAL surface; a tilted one sees the fraction of the sky dome its normal
    * subtends, which for a uniform dome is exactly (1 + n.up)/2. */
-  let skyH = I.sky.xyz + I.sunDeck.xyz * (sunUp * (1.0 - thruMean) * kDeckDiffuse) + vec3f(night);
+  let skyH = I.sky.xyz + I.sun.xyz * (sunUp * (1.0 - thruMean) * kDeckDiffuse) + vec3f(night);
   let ndu = dot(n, upv);
   /* E_bounce, the one term that was missing — in TWO half-spaces, because "what returns light to
    * this point" is two different things at two scales.

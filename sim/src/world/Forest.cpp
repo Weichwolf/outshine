@@ -11,6 +11,7 @@
 #include "TreeFoliage.h"
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
+#include "TreeRanks.h"
 #include "TreeSpecies.h"
 #include "VegetationTemplates.h"
 
@@ -18,7 +19,7 @@ namespace outshine::World {
 namespace {
 
 /* THE LAMINA'S BASE REFLECTANCE, and it is not a new number: it is the vegetation table's own
- * `laubmischwald` fresh blade, sRGB (74, 92, 46) linearised — the green the ground shader already
+ * `mixed_broadleaf` fresh blade, sRGB (74, 92, 46) linearised — the green the ground shader already
  * draws a broadleaf stand in. A species' declared `leaf_r/g/b` multiplies it, which is what makes
  * that triple a TINT (spruce 0.40/0.74/0.55 is darker and bluer than beech, not a colour of its own). */
 const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
@@ -47,8 +48,8 @@ bool Forest::LoadSpecies(const char *path, TreeSpecies *out) {
   return !text.empty() && out->Parse(text.c_str(), text.size());
 }
 
-Render::TreeLook Forest::LookOf(const TreeSpecies &sp) {
-  Render::TreeLook look;
+TreeLook Forest::LookOf(const TreeSpecies &sp) {
+  TreeLook look;
   const TreeSpecies::Shading &sh = sp.ShadingParams();
   const TreeSpecies::Leaf &lf = sp.LeafParams();
   for (int c = 0; c < 3; c++) {
@@ -86,11 +87,11 @@ bool Forest::Grow(Render::Renderer &r, const char *speciesPath) {
    * laminae, each drawing the species' own leaf. Only the ranks above it thin, by four per step so a
    * card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the declared index
    * survives the thinning. */
-  for (int rank = 0; rank < Render::TreeStage::kRanks; ++rank) {
-    g.Grow(sp, Mesh_, Render::TreeStage::RankPixel(rank));
+  for (int rank = 0; rank < TreeRank::kCount; ++rank) {
+    g.Grow(sp, Mesh_, TreeRank::Pixel(rank));
     TreeLeaf::Build(sp.LeafParams(), Mesh_);
     foliage.Build(Mesh_, sp, 1);
-    const uint32_t stride = (uint32_t)Render::TreeStage::kLeavesPerCard << (2u * (unsigned)rank);
+    const uint32_t stride = (uint32_t)kLeavesPerCard << (2u * (unsigned)rank);
     rankCards.clear();
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
@@ -101,18 +102,18 @@ bool Forest::Grow(Render::Renderer &r, const char *speciesPath) {
      * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
      * shrink the canopy exactly where it is already thinnest. */
     if (rank == 0) crownProjM2 = foliage.CrownProjM2();
-    const float cardLeafM = foliage.CardLeafM(Render::TreeStage::kLeavesPerCard, nCards,
-                                              (double)sp.Lai(), crownProjM2);
+    const float cardLeafM = foliage.CardLeafM(kLeavesPerCard, nCards, (double)sp.Lai(),
+                                              crownProjM2);
     r.SetTreeBark(rank, Mesh_.BarkVerts.data(), (uint32_t)Mesh_.BarkVertexCount(),
                   Mesh_.BarkIdx.data(), (uint32_t)Mesh_.BarkIdx.size());
     r.SetTreeCards(rank, rankCards.data(), nCards, cardLeafM, kCardFanDeg);
     Log::Info("forest", "trees_grown", {{"rank", (double)rank},
-        {"pixelHeightFrac", (double)Render::TreeStage::RankPixel(rank)},
+        {"pixelHeightFrac", (double)TreeRank::Pixel(rank)},
         {"barkVerts", (int)Mesh_.BarkVertexCount()},
         {"barkTris", (double)(Mesh_.BarkIdx.size() / 3)},
-        {"heightM", h}, {"bhdCm", 200.0 * (double)Mesh_.BhdRadius * h},
+        {"heightM", h}, {"dbhCm", 200.0 * (double)Mesh_.DbhRadius * h},
         {"cards", (double)nCards},
-        {"leavesPerCard", (double)Render::TreeStage::kLeavesPerCard},
+        {"leavesPerCard", (double)kLeavesPerCard},
         {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
         {"crownProjM2", crownProjM2}, {"lai", (double)sp.Lai()},
         {"leafPoints", (double)Mesh_.LeafPoints.size()},

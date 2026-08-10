@@ -15,10 +15,10 @@
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
+#include "TreeRanks.h"
 #include "TreeSpecies.h"
 #include "Units.h"
 #include "WindField.h"
-#include "stages/TreeStage.h"
 
 namespace outshine::Clients {
 namespace {
@@ -43,7 +43,7 @@ double Percentile(const std::vector<double> &sorted, double p) {
 
 /* THE BENCH'S FLOOR IS THE TEMPLATE'S DECLARED SUBSTRATE, and it has to be read from the class table
  * rather than from the resolved vegetation row: `swardClosure` overwrites a row's ground reflectance
- * with the stand's own aggregate colour — for `wiese` completely. On the bench that would be the
+ * with the stand's own aggregate colour — for `meadow` completely. On the bench that would be the
  * subject's colour standing in for the ground it is judged against. */
 bool SubjectSubstrate(const World::GroundMaterials &mats, const std::string &vegPath,
                       const std::string &tpl, std::string *name, float rgb[3]) {
@@ -54,9 +54,9 @@ bool SubjectSubstrate(const World::GroundMaterials &mats, const std::string &veg
   for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;) text.append(buf, n);
   fclose(f);
 
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text.c_str(), text.size())) return false;
-  const Render::Json::Ref ts = doc.Root()["templates"];
+  const Json::Ref ts = doc.Root()["templates"];
   for (size_t i = 0; i < ts.Size(); i++) {
     if (ts[i]["name"].Str() != tpl) continue;
     const std::string cls = ts[i]["ground"]["class"].Str();
@@ -265,9 +265,7 @@ void SceneRunner::ReportSettled() const {
     Log::Info("run", "irradiance", {{"sunDirectNormalY", sunY}, {"skyDiffuseHorizY", skyY},
         {"sunElDeg", (double)App_.SunElDeg()}, {"totalHorizY", sunY * sunUp + skyY},
         {"sunRGB", std::to_string(irr[0]) + "," + std::to_string(irr[1]) + "," + std::to_string(irr[2])},
-        {"skyRGB", std::to_string(irr[4]) + "," + std::to_string(irr[5]) + "," + std::to_string(irr[6])},
-        {"sunDeckRGB", std::to_string(irr[8]) + "," + std::to_string(irr[9]) + "," + std::to_string(irr[10])},
-        {"deckBaseM", (double)irr[11]}});
+        {"skyRGB", std::to_string(irr[4]) + "," + std::to_string(irr[5]) + "," + std::to_string(irr[6])}});
   }
 }
 
@@ -470,7 +468,7 @@ int SceneRunner::RunSubject() {
     const auto t0 = std::chrono::steady_clock::now();
     /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every 3 mm
      * twig — a mesh nobody draws and one that truncated the crown. */
-    grower.Grow(sp, mesh, Render::TreeStage::RankPixel(0));
+    grower.Grow(sp, mesh, TreeRank::Pixel(0));
     const auto t1 = std::chrono::steady_clock::now();
     World::TreeLeaf::Build(sp.LeafParams(), mesh);
     const auto t2 = std::chrono::steady_clock::now();

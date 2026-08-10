@@ -32,9 +32,9 @@ std::string Quote(const std::string &in) {
   return out;
 }
 
-bool Num(const Render::Json::Ref &r, const char *key, double &out, std::string &err) {
-  const Render::Json::Ref v = r[key];
-  if (v.GetKind() != Render::Json::Kind::Number) {
+bool Num(const Json::Ref &r, const char *key, double &out, std::string &err) {
+  const Json::Ref v = r[key];
+  if (v.GetKind() != Json::Kind::Number) {
     err = std::string("missing or non-numeric field: ") + key;
     return false;
   }
@@ -112,13 +112,13 @@ bool Snapshot::Load(const char *path) {
 }
 
 bool Snapshot::LoadText(const char *text, size_t len) {
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text, len)) {
     Error_ = "not valid JSON";
     return false;
   }
-  const Render::Json::Ref root = doc.Root();
-  if (root.GetKind() != Render::Json::Kind::Object) {
+  const Json::Ref root = doc.Root();
+  if (root.GetKind() != Json::Kind::Object) {
     Error_ = "root is not an object";
     return false;
   }
@@ -130,8 +130,8 @@ bool Snapshot::LoadText(const char *text, size_t len) {
   Client_ = root["client"].Str();
   ClockMs_ = root["clockMs"].Num();
 
-  const Render::Json::Ref cam = root["camera"];
-  if (cam.GetKind() != Render::Json::Kind::Object) {
+  const Json::Ref cam = root["camera"];
+  if (cam.GetKind() != Json::Kind::Object) {
     Error_ = "missing camera object";
     return false;
   }
@@ -140,8 +140,8 @@ bool Snapshot::LoadText(const char *text, size_t len) {
   if (!Num(cam, "yawDeg", YawDeg_, Error_)) return false;
   if (!Num(cam, "pitchDeg", PitchDeg_, Error_)) return false;
 
-  const Render::Json::Ref sc = root["scene"];
-  if (sc.GetKind() != Render::Json::Kind::Object) {
+  const Json::Ref sc = root["scene"];
+  if (sc.GetKind() != Json::Kind::Object) {
     Error_ = "missing scene object";
     return false;
   }
@@ -154,7 +154,7 @@ bool Snapshot::LoadText(const char *text, size_t len) {
   if (!Num(sc, "fovDeg", SceneFovDeg_, Error_)) return false;
   SceneUtcS_ = (int64_t)sc["utcS"].Num();
 
-  const Render::Json::Ref d = root["derived"];
+  const Json::Ref d = root["derived"];
   GroundM_ = d["groundM"].Num();
   AltAslM_ = d["altAslM"].Num();
   SunElDeg_ = d["sunElDeg"].Num();

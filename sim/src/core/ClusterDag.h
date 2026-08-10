@@ -21,7 +21,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace outshine::Render {
+namespace outshine {
 
 /* Two spheres and two errors, not one: `Self*` is the group this cluster was SIMPLIFIED FROM and
  * `Parent*` the group that REPLACES it. Sharing the group sphere is what makes siblings switch
@@ -1047,5 +1047,5 @@ inline void TileDagBuild(const float *soup, int nverts, int gridverts, const dou
   outClusters.push_back(sc);
 }
 
-}  // namespace outshine::Render
+}  // namespace outshine
 #endif

@@ -16,11 +16,11 @@ double U(uint32_t h) { return (double)(h & 0xFFFFFFu) / 16777216.0; }
 
 }  // namespace
 
-bool AlpineLimit::Load(const Render::Json::Ref &root) {
+bool AlpineLimit::Load(const Json::Ref &root) {
   Ready_ = false;
   Error_.clear();
-  const Render::Json::Ref a = root["alpineLimit"];
-  if (a.GetKind() != Render::Json::Kind::Object) { Error_ = "no alpineLimit object"; return false; }
+  const Json::Ref a = root["alpineLimit"];
+  if (a.GetKind() != Json::Kind::Object) { Error_ = "no alpineLimit object"; return false; }
   BaseLatDeg_ = a["treelineBaseLatDeg"].Num(47.4);
   BaseM_ = a["treelineBaseM"].Num(1900.0);
   PerDegM_ = a["treelinePerDegM"].Num(-58.8);
@@ -28,8 +28,8 @@ bool AlpineLimit::Load(const Render::Json::Ref &root) {
   JitterM_ = a["treelineJitterM"].Num(150.0);
   JitterScaleM_ = a["treelineJitterScaleM"].Num(700.0);
   SlopeBandDeg_ = (float)a["slopeBandDeg"].Num(4.0);
-  RockTemplate_ = a["bareRockTemplate"].Str("");
-  if (RockTemplate_.empty()) { Error_ = "alpineLimit.bareRockTemplate is empty"; return false; }
+  RockTemplate_ = a["rockTemplate"].Str("");
+  if (RockTemplate_.empty()) { Error_ = "alpineLimit.rockTemplate is empty"; return false; }
   if (BandM_ <= 0.0 || JitterScaleM_ <= 0.0 || SlopeBandDeg_ <= 0.0f) {
     Error_ = "alpineLimit: band, jitter scale and slope band must be positive";
     return false;

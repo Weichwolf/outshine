@@ -5,7 +5,7 @@
 namespace outshine::Render {
 
 static const char *kIrradianceCS = R"(
-struct Irr { sun : vec4f, sky : vec4f, sunDeck : vec4f };
+struct Irr { sun : vec4f, sky : vec4f };
 @group(0) @binding(0) var<storage, read_write> irr : Irr;
 @group(0) @binding(1) var svLUT : texture_2d<f32>;
 @group(0) @binding(2) var tLUT : texture_2d<f32>;
@@ -21,20 +21,6 @@ fn skyRadiance(altR : f32, azR : f32) -> vec3f {
   let coord = sign(altR) * sqrt(abs(altR) / (PI * 0.5));
   let uv = vec2f(azR / (2.0 * PI), (coord + 1.0) * 0.5);
   return textureSampleLevel(svLUT, lsamp, uv, 0.0).rgb;
-}
-
-const kTauSteps : i32 = 16;
-
-/* Optical depth of the segment p0 -> p1, in the units getScatteringValues works in (1/Mm against a
- * position in Mm), so the result is dimensionless. */
-fn columnTau(p0 : vec3f, p1 : vec3f) -> vec3f {
-  let d = p1 - p0;
-  let seg = length(d) / f32(kTauSteps);
-  var tau = vec3f(0.0);
-  for (var i = 0; i < kTauSteps; i = i + 1) {
-    tau = tau + getScatteringValues(p0 + d * ((f32(i) + 0.5) / f32(kTauSteps))).extinction * seg;
-  }
-  return tau;
 }
 
 @compute @workgroup_size(1, 1, 1)
@@ -56,28 +42,6 @@ fn cs() {
   let camP = atmoPos(A);
   let tr = textureSampleLevel(tLUT, lsamp, tLUTuv(camP, A.sunDir.xyz), 0.0).rgb;
   irr.sun = vec4f(tr, 0.0);
-  /* WHAT THE DECK IS LIT BY, which is not what the ground is lit by. The deck's downward re-emission
-   * used the beam measured HERE — reddened by the 6 km of slant path through dense air that the deck
-   * stands above — and that reddening reached the ground a second time. So: take the slant leg back
-   * off and put the VERTICAL leg on, because what comes down off a deck is a hemisphere flux and not
-   * an 11-degree beam.
-   *
-   * MARCHED, not tapped: the transmittance LUT has 64 rows over 100 km, so its first two texel
-   * CENTRES are 781 m and 2344 m and a 1 200 m deck base falls inside one of them. Tapping it gave a
-   * blue lift of 4.7 % where the model's own extinction gives 19.6 % — the LUT cannot resolve this
-   * question. The march uses getScatteringValues, i.e. the SAME model the LUT is baked from, and it
-   * runs once per frame in a one-thread dispatch. */
-  let upA = normalize(camP);
-  let camAltM = (length(camP) - groundRadiusMM) * 1.0e6;
-  let deckR = groundRadiusMM + max(A.view.y, camAltM) * 1.0e-6;
-  let tSlant = rayIntersectSphere(camP, A.sunDir.xyz, deckR);
-  var below = tr;
-  if (A.view.y > camAltM + 1.0 && tSlant > 0.0) {
-    let tauSlant = columnTau(camP, camP + A.sunDir.xyz * tSlant);
-    let tauVert = columnTau(camP, upA * deckR);
-    below = tr * exp(tauSlant - tauVert);
-  }
-  irr.sunDeck = vec4f(below, A.view.y);
   /* THE EXPOSURE ANCHOR'S ONE INPUT, published here and not recomputed downstream: E on a horizontal
    * surface, as luminance. It is a property of sun elevation and air, so it is the same number
    * whichever way the camera looks — which is the whole reason ExposureStage reads it. */

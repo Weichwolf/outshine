@@ -1,4 +1,5 @@
 #include "ShadowStage.h"
+#include "ChunkVtx.h"
 #include "Frustum.h"
 #include "GeometryIsolation.h"
 #include <cmath>
@@ -58,7 +59,7 @@ void ShadowStage::Init(const Gpu &gpu) {
   attr.offset = 0;
   attr.shaderLocation = 0;
   wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 8 * sizeof(float);
+  vbl.arrayStride = kVertexStrideB;
   vbl.attributeCount = 1;
   vbl.attributes = &attr;
 

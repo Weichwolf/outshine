@@ -2,6 +2,7 @@
 #include "SceneTargets.h"
 #include "Frustum.h"
 #include "AtmoCommon.h"
+#include "ChunkVtx.h"
 #include "AtmoSample.h"
 #include "AtmoHaze.h"
 #include "SceneScale.h"
@@ -653,7 +654,7 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
   attrs[1].format = wgpu::VertexFormat::Float32x2; attrs[1].offset = 12; attrs[1].shaderLocation = 1;
   attrs[2].format = wgpu::VertexFormat::Float32x3; attrs[2].offset = 20; attrs[2].shaderLocation = 2;
   wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 32;
+  vbl.arrayStride = kVertexStrideB;
   vbl.attributeCount = 3;
   vbl.attributes = attrs;
 

@@ -8,11 +8,11 @@ namespace outshine::World {
 
 namespace {
 
-float NumF(const Render::Json::Ref &r, const char *key, float def) {
+float NumF(const Json::Ref &r, const char *key, float def) {
   return (float)r[key].Num((double)def);
 }
-int NumI(const Render::Json::Ref &r, const char *key, int def) { return r[key].Int(def); }
-bool NumB(const Render::Json::Ref &r, const char *key, bool def) { return r[key].Int(def ? 1 : 0) != 0; }
+int NumI(const Json::Ref &r, const char *key, int def) { return r[key].Int(def); }
+bool NumB(const Json::Ref &r, const char *key, bool def) { return r[key].Int(def ? 1 : 0) != 0; }
 
 TreeSpecies::LeafKind KindOf(const std::string &s) {
   if (s == "needle") { return TreeSpecies::LeafKind::Needle; }
@@ -25,13 +25,13 @@ TreeSpecies::LeafKind KindOf(const std::string &s) {
 } // namespace
 
 bool TreeSpecies::Parse(const char *text, size_t len) {
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text, len)) {
     Error_ = "parse failed";
     return false;
   }
-  const Render::Json::Ref r = doc.Root();
-  if (r.GetKind() != Render::Json::Kind::Object) {
+  const Json::Ref r = doc.Root();
+  if (r.GetKind() != Json::Kind::Object) {
     Error_ = "root is not an object";
     return false;
   }
@@ -44,7 +44,7 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   HeightM_ = NumF(r, "height_m", HeightM_);
   SpreadM_ = NumF(r, "spread_m", SpreadM_);
   HeightSigma_ = NumF(r, "height_sigma", HeightSigma_);
-  BhdM_ = NumF(r, "bhd_cm", 0.0f) * 0.01f;
+  DbhM_ = NumF(r, "dbh_cm", 0.0f) * 0.01f;
   Lai_ = NumF(r, "lai", 0.0f);
 
   Growth &g = Growth_;

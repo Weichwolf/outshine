@@ -17,14 +17,14 @@ bool Mod::Load(const std::string &root, const std::string &name) {
   buf << f.rdbuf();
   const std::string text = buf.str();
 
-  Render::Json doc;
+  Json doc;
   if (!doc.Parse(text.c_str(), text.size())) {
     Error_ = Path_ + ": not valid JSON";
     return false;
   }
-  const Render::Json::Ref root_ = doc.Root();
-  const Render::Json::Ref scenes = root_["scenes"];
-  if (scenes.GetKind() != Render::Json::Kind::Array || scenes.Size() == 0) {
+  const Json::Ref root_ = doc.Root();
+  const Json::Ref scenes = root_["scenes"];
+  if (scenes.GetKind() != Json::Kind::Array || scenes.Size() == 0) {
     Error_ = Path_ + ": needs a non-empty scenes array";
     return false;
   }

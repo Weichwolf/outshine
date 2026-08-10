@@ -6,8 +6,8 @@
 
 namespace outshine {
 
-/* Matches fb_stream_ground's convention, so TilesElevation is a pure pass-through. The two
- * data-local providers never return it. */
+/* Far below any ground the DEM can carry, so it cannot collide with a real depression: the Dead Sea
+ * shore, the deepest dry land, is -430 m. */
 constexpr double kFBElevationUnresolved = -1e9;
 
 /* The one "is this sample usable" test — a named predicate instead of `> -1e8` in three call sites. */

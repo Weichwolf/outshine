@@ -156,3 +156,8 @@ For an orchestrator who does **not** see your transcript:
   right instead. Plus explicitly **what got better and what got worse**, and the yes/no.
 
 No step-by-step logs. You repair nothing.
+
+**Every artefact you produce goes to the system temp directory, never into the tree.** Stills, depth
+dumps, CSVs, downloaded tiles, scratch scripts — a repository is what is declared and what is built from
+it, and a file nobody committed on purpose is a file the next round has to decide about. Report absolute
+paths under temp; the reader can open them.
