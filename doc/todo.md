@@ -14,7 +14,7 @@ graded against the references: the answer is known and the round is spent. Then,
 
 | | |
 |---|---|
-| **1** | one scenario, scenes at places the owner knows well. Render, look, pull generators and shaders after it, loop until the quality stands. Ortho­graphic diversity matters here and nowhere earlier — a structural step only has to prove it did not move the picture, and one meadow shows that |
+| **1** | one scenario, scenes at places the owner knows well. Render, look, pull generators and shaders after it, loop until the quality stands. **Judged by eye, not by metric** — a number decides whether the frame floor holds, never whether it looks right. Ortho­graphic diversity matters here and nowhere earlier: a structural step only has to prove it did not move the picture, and one meadow shows that |
 | **2** | the webcam scenario, several cameras, times of day and night, weather. Against those the whole lighting and weather model is fitted. It renders at the declared size and downscales **both** sides to the comparison rung; camera poses are resected against buildings, and `git log` holds six already fitted |
 
 ## Where it stands
@@ -39,6 +39,10 @@ graded against the references: the answer is known and the round is spent. Then,
 
 A step that is **done** has left this file: it is in the code and its measurements are in `git log`. What
 survives below a finished step is only what a later step needs to know.
+
+**What the list is for, named by what one sees at the end of it:** a working plumb (2) · trees placed,
+randomised and instanced properly (5, 6) · many trees **and houses** drawn fast (7, 9) · **correct in
+motion** (8, and the impostor silhouette) · and only then appearance, tuned by eye.
 
 ## The acceptance instruments
 
