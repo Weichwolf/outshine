@@ -121,9 +121,9 @@ void PostShot(void) {
   Clients::Snapshot snap;
   snap.SetName(name);
   snap.SetScene(*gScene);
-  snap.SetCamera(gApp->Lat(), gApp->Lon(), gApp->YawDeg(), gApp->PitchDeg());
+  snap.SetCamera(gApp->Simulation().Lat(), gApp->Simulation().Lon(), gApp->Simulation().YawDeg(), gApp->Simulation().PitchDeg());
   const Clients::Outshine::Counters c = gApp->Measured();
-  snap.SetDerived(c.GroundAslM, c.AltAslM, gApp->SunElDeg(), gApp->SunAzDeg());
+  snap.SetDerived(c.GroundAslM, c.AltAslM, gApp->Simulation().SunElDeg(), gApp->Simulation().SunAzDeg());
   snap.SetClient("wasm", emscripten_get_now());
   const std::string line = snap.Text();
 
@@ -149,8 +149,8 @@ void PostShot(void) {
   }, name, line.c_str());
 #pragma clang diagnostic pop
 
-  Log::Info("walk", "shot", {{"name", std::string(name)}, {"lat", gApp->Lat()},
-      {"lon", gApp->Lon()}, {"yawDeg", gApp->YawDeg()}, {"pitchDeg", gApp->PitchDeg()},
+  Log::Info("walk", "shot", {{"name", std::string(name)}, {"lat", gApp->Simulation().Lat()},
+      {"lon", gApp->Simulation().Lon()}, {"yawDeg", gApp->Simulation().YawDeg()}, {"pitchDeg", gApp->Simulation().PitchDeg()},
       {"groundM", c.GroundAslM}});
 }
 
@@ -173,7 +173,7 @@ void Frame(void) {
   const Clients::Outshine::Counters c = gApp->Measured();
   if (dtMs > kLateMs)
     Log::Debug("walk", "late", {{"deltaMs", dtMs}, {"cpuMs", gLastCpuMs},
-        {"worldMs", c.WorldMs}, {"meshMs", c.MeshMs}, {"albedoMs", c.AlbedoMs},
+        {"worldMs", c.WorldMs}, {"meshMs", c.MeshMs},
         {"uploadMs", c.UploadMs}, {"buildingMs", c.BuildingMs},
         {"bDecodeMs", c.BuildingDecodeMs}, {"encodeMs", gLastEncodeMs},
         {"built", (double)c.Built}, {"draws", c.Draws}});
@@ -190,8 +190,8 @@ void Frame(void) {
         {"buildingVerts", (int)c.BuildingVerts}, {"treeTris", (double)c.TreeTriangles},
         {"treeStands", (double)c.TreeStands},
         {"progress", (double)p.Fraction}, {"resident", p.Resident},
-        {"lat", gApp->Lat()}, {"lon", gApp->Lon()}, {"yawDeg", gApp->YawDeg()},
-        {"pitchDeg", gApp->PitchDeg()}, {"groundM", c.GroundAslM}, {"locked", gLocked}});
+        {"lat", gApp->Simulation().Lat()}, {"lon", gApp->Simulation().Lon()}, {"yawDeg", gApp->Simulation().YawDeg()},
+        {"pitchDeg", gApp->Simulation().PitchDeg()}, {"groundM", c.GroundAslM}, {"locked", gLocked}});
   }
 }
 

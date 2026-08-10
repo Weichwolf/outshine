@@ -62,7 +62,7 @@ static inline float fb_bilinear(const float *g, uint32_t cols, uint32_t rows, do
 }
 
 /* ONE texel of tile (x,y); 0 = not resident. Per texel and not per grid, because a grid pointer
- * handed back to the caller dangles the instant another thread evicts that slot (tiles/src/elev.c). */
+ * handed back to the caller dangles the instant another thread evicts that slot. */
 typedef int (*fb_texel_fn)(void *user, long x, long y, uint32_t col, uint32_t row, float *out);
 
 /* The point query at texel-centre registration. Half a texel from a tile border the four corners lie

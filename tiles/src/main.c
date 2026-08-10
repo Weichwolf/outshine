@@ -1,5 +1,4 @@
 #define _GNU_SOURCE
-#include "elev.h"
 #include "cache.h"
 #include "route.h"
 #include "prefetch_api.h"
@@ -33,7 +32,7 @@ static void reply_204(int fd) {
 
 /* ---- general connection worker pool -------------------------------------------------------------
  * fb-tiles targets a centrally-hosted, thousands-of-clients deployment: the accept loop does the
- * absolute minimum (accept + hand the fd to the pool) and every route -- /bake, /elev, tiles,
+ * absolute minimum (accept + hand the fd to the pool) and every route -- /bake, tiles,
  * /health -- runs concurrently on a worker. No keep-alive/HTTP2/TLS ambitions in this C server:
  * that's a reverse proxy's job in front of it; Connection: close per request is fine, the proxy
  * buffers it. Sizing is for BAKE PARALLELISM (dozens of concurrent cold bakes), not C10K socket
@@ -85,24 +84,6 @@ static void handle(int fd, char *req) {
     char *qs = strchr(path, '?');
     if (qs) *qs++ = 0;
 
-    if (!strcmp(path, "/elev")) {
-        double lat, lon;
-        if (!fb_query_double(qs, "lat", &lat) || !fb_query_double(qs, "lon", &lon)) {
-            fb_reply(fd, "400 Bad Request", "text/plain", "need lat & lon\n"); return;
-        }
-        /* ?block=1: wait for the one DEM tile (startup seeds need the real ground on the first
-         * call, else they spawn at the wrong elevation). Bare /elev stays instant-503 on a cold
-         * tile for the aircraft's AGL poller, which must get an answer fast every 250ms. */
-        double bk = 0; int block = fb_query_double(qs, "block", &bk) && bk != 0.0;
-        double m;
-        int ok = block ? fb_elev_at_blocking(lat, lon, &m, 3000) : fb_elev_at(lat, lon, &m);
-        if (!ok) {
-            fb_reply(fd, "503 Service Unavailable", "text/plain", "no dem\n"); return;
-        }
-        char body[64]; snprintf(body, sizeof body, "%.2f\n", m);
-        fb_reply(fd, "200 OK", "text/plain", body);
-        return;
-    }
 
     if (!strcmp(path, "/peaks")) {
         double lat, lon, r = 50000.0;
@@ -179,12 +160,12 @@ static void handle(int fd, char *req) {
         }
     }
     if (!strcmp(path, "/health")) {
-        long h, m, f, ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
+        long ch, cf, cx, pq, pd, pdr, pf, bh, bb, bf, pif, pab;
         long tq, tmh, tmm, tl, td, bnative, bsuper, bpserved;
         long wxs, wxb, wxd, wxff, wxdf, wxst, wxfb;
         long pks, pkc, pkf, pkx;
         int pth, cthreads; long cbusy, cqueued;
-        fb_elev_stats(&h, &m, &f); fb_cache_stats(&ch, &cf, &cx);
+        fb_cache_stats(&ch, &cf, &cx);
         fb_pf_stats(&pq, &pd, &pdr, &pf); fb_bake_stats(&bh, &bb, &bf);
         fb_bake_stats2(&bnative, &bsuper);
         fb_pf_pool(&pth, &pif, &pab);
@@ -196,8 +177,6 @@ static void handle(int fd, char *req) {
         char body[1800];
         snprintf(body, sizeof body,
                  "ok pool_threads=%d pool_busy=%ld pool_queued=%ld | "
-                 "dem_resident_hits=%ld dem_decoded=%ld dem_fail=%ld | "
-
                  "cache_hits=%ld upstream_fetches=%ld fetch_fail=%ld absent=%ld | "
 
                  "prefetch_threads=%d queued=%ld done=%ld dropped=%ld failed=%ld absent=%ld inflight_dedup=%ld | "
@@ -209,7 +188,7 @@ static void handle(int fd, char *req) {
                  "wx_stale_served=%ld wx_run_fallback=%ld | "
                  "peaks_served=%ld peak_cells_cached=%ld peak_cells_fetched=%ld peak_fail=%ld\n",
                  cthreads, cbusy, cqueued,
-                 h, m, f, ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
+                 ch, cf, cx, fb_cache_absent(), pth, pq, pd, pdr, pf, pab, pif, bh, bb, bf,
                  fb_raster_scanline_overflows(), fb_style_unknown_count(), bnative, bsuper, bpserved,
                  tq, tmh, tmm, tl, td,
                  wxs, wxb, wxd, wxff, wxdf, wxst, wxfb, pks, pkc, pkf, pkx);
@@ -236,7 +215,6 @@ static void *conn_worker(void *arg) {
 int main(void) {
     int port = getenv("TILES_PORT") ? atoi(getenv("TILES_PORT")) : 8081;
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
-    fb_elev_init(cache);
     fb_bake_init(cache);
     fb_wx_init(cache);
     fb_peaks_init(cache);
@@ -271,7 +249,7 @@ int main(void) {
     if (bind(lfd, (struct sockaddr *)&a, sizeof a) < 0) { perror("bind"); return 1; }
     listen(lfd, 256);
     fprintf(stderr, "[fb-tiles] %s:%d  cache=%s  pool=%d threads  "
-                    "(/elev?lat=&lon= , /t/{terrain|vector|imagery}/z/x/y , "
+                    "(/t/{terrain|vector|imagery}/z/x/y , "
                     "/t/stars/{band}/0/0 , /wx , /peaks?lat=&lon=&r= , /health)\n", bindaddr && *bindaddr ? bindaddr : "0.0.0.0",
                     port, cache, g_cthreads);
 

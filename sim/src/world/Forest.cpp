@@ -6,11 +6,11 @@
 #include "ClassField.h"
 #include "ElevationProvider.h"
 #include "Log.h"
-#include "Renderer.h"
 #include "TerrainLoader.h"
 #include "TreeFoliage.h"
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
+#include "TreeMesh.h"
 #include "TreeRanks.h"
 #include "TreeSpecies.h"
 #include "VegetationTemplates.h"
@@ -71,16 +71,20 @@ TreeLook Forest::LookOf(const TreeSpecies &sp) {
   return look;
 }
 
-bool Forest::Grow(Render::Renderer &r, const char *speciesPath) {
+std::optional<Forest::Prototype> Forest::Grow(const char *speciesPath) {
   TreeSpecies sp;
   if (!LoadSpecies(speciesPath, &sp)) {
     Log::Error("forest", "species_unreadable", {{"path", std::string(speciesPath)}});
-    return false;
+    return std::nullopt;
   }
   const double h = (double)sp.HeightM();
+  TreeMesh mesh;
   TreeGrower g;
   TreeFoliage foliage;
-  std::vector<float> rankCards;
+  Prototype proto;
+  proto.HeightM = h;
+  proto.Look = LookOf(sp);
+  proto.Ranks.resize((size_t)TreeRank::kCount);
   double crownProjM2 = 0.0;
   /* ONE MESH PER RANK, and the ladder is the stage's own: rank k may be one pixel coarse at its
    * nearest stand. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kLeavesPerCard grown
@@ -88,57 +92,53 @@ bool Forest::Grow(Render::Renderer &r, const char *speciesPath) {
    * card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the declared index
    * survives the thinning. */
   for (int rank = 0; rank < TreeRank::kCount; ++rank) {
-    g.Grow(sp, Mesh_, TreeRank::Pixel(rank));
-    TreeLeaf::Build(sp.LeafParams(), Mesh_);
-    foliage.Build(Mesh_, sp, 1);
+    Prototype::Rank &out = proto.Ranks[(size_t)rank];
+    g.Grow(sp, mesh, TreeRank::Pixel(rank));
+    TreeLeaf::Build(sp.LeafParams(), mesh);
+    foliage.Build(mesh, sp, 1);
     const uint32_t stride = (uint32_t)kLeavesPerCard << (2u * (unsigned)rank);
-    rankCards.clear();
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
-      rankCards.insert(rankCards.end(), c, c + TreeFoliage::kFloats);
+      out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
     }
-    const uint32_t nCards = (uint32_t)(rankCards.size() / TreeFoliage::kFloats);
+    const uint32_t nCards = (uint32_t)(out.Cards.size() / TreeFoliage::kFloats);
     /* THE CROWN'S PROJECTION IS THE SPECIES', not the rank's. A coarse rank drops the thin shoots
      * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
      * shrink the canopy exactly where it is already thinnest. */
     if (rank == 0) crownProjM2 = foliage.CrownProjM2();
-    const float cardLeafM = foliage.CardLeafM(kLeavesPerCard, nCards, (double)sp.Lai(),
-                                              crownProjM2);
-    r.SetTreeBark(rank, Mesh_.BarkVerts.data(), (uint32_t)Mesh_.BarkVertexCount(),
-                  Mesh_.BarkIdx.data(), (uint32_t)Mesh_.BarkIdx.size());
-    r.SetTreeCards(rank, rankCards.data(), nCards, cardLeafM, kCardFanDeg);
+    out.CardCount = nCards;
+    out.CardLeafM = foliage.CardLeafM(kLeavesPerCard, nCards, (double)sp.Lai(), crownProjM2);
+    out.BarkVerts = mesh.BarkVerts;
+    out.BarkVertCount = (uint32_t)mesh.BarkVertexCount();
+    out.BarkIdx = mesh.BarkIdx;
     Log::Info("forest", "trees_grown", {{"rank", (double)rank},
         {"pixelHeightFrac", (double)TreeRank::Pixel(rank)},
-        {"barkVerts", (int)Mesh_.BarkVertexCount()},
-        {"barkTris", (double)(Mesh_.BarkIdx.size() / 3)},
-        {"heightM", h}, {"dbhCm", 200.0 * (double)Mesh_.DbhRadius * h},
+        {"barkVerts", (int)mesh.BarkVertexCount()},
+        {"barkTris", (double)(mesh.BarkIdx.size() / 3)},
+        {"heightM", h}, {"dbhCm", 200.0 * (double)mesh.DbhRadius * h},
         {"cards", (double)nCards},
         {"leavesPerCard", (double)kLeavesPerCard},
-        {"cardLeafM", (double)cardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
+        {"cardLeafM", (double)out.CardLeafM}, {"declaredLeafM", (double)foliage.ScaleM()},
         {"crownProjM2", crownProjM2}, {"lai", (double)sp.Lai()},
-        {"leafPoints", (double)Mesh_.LeafPoints.size()},
+        {"leafPoints", (double)mesh.LeafPoints.size()},
         {"laminae", (double)foliage.Count()}, {"perPoint", foliage.PerPoint()},
         {"growHeight", (double)g.GrowHeight()}});
     if (rank == 0) {
-      r.SetTreeLook(LookOf(sp));
-      /* bpar.z is the tree height and comes from SetTreeStand; without it every instance scales to
-       * null. */
-      r.SetTreeStand(0.0, 0.0, 0.0, h);
-      Crown_.HalfWidth = std::fmax(std::fmax(-Mesh_.BoxMin.X, Mesh_.BoxMax.X),
-                                   std::fmax(-Mesh_.BoxMin.Z, Mesh_.BoxMax.Z));
-      Crown_.Bottom = Mesh_.BoxMin.Y;
-      Crown_.Top = Mesh_.BoxMax.Y;
+      Crown_.HalfWidth = std::fmax(std::fmax(-mesh.BoxMin.X, mesh.BoxMax.X),
+                                   std::fmax(-mesh.BoxMin.Z, mesh.BoxMax.Z));
+      Crown_.Bottom = mesh.BoxMin.Y;
+      Crown_.Top = mesh.BoxMax.Y;
       Crown_.HeightM = (float)h;
-      r.SetTreeCrown(Crown_.HalfWidth, Crown_.Top, Crown_.Bottom);
     }
   }
-  r.BakeTreeImpostor();
+  proto.Crown = Crown_;
   HeightSigma_ = sp.HeightSigma();
-  return true;
+  Grown_ = true;
+  return proto;
 }
 
-void Forest::Scatter(Render::Renderer &r, const ClassField &cls, const VegetationTemplates &veg,
-                     double camLat, double camLon, double eyeAglM) {
+void Forest::Scatter(const ClassField &cls, const VegetationTemplates &veg, double camLat,
+                     double camLon, double eyeAglM) {
   if (!Grown() || Scattered_) return;
   double east = 0.0, north = 0.0;
   cls.Project(camLat, camLon, &east, &north);
@@ -154,7 +154,6 @@ void Forest::Scatter(Render::Renderer &r, const ClassField &cls, const Vegetatio
   const TreeField::GroundOracle oracle{GroundAtEnu, &gc, fb_stream_ground_post_m(camLat)};
   Field_.Scatter(*structure, veg, kScatterRadiusM, east, north, gcam + eyeAglM, camLat, HeightSigma_,
                  Crown_, oracle, Stands_, Dist_);
-  r.SetTreeStands(Stands_.data(), (uint32_t)StandCount(), Dist_.data());
   Scattered_ = true;
 
   constexpr int kSF = TreeField::kStandFloats;

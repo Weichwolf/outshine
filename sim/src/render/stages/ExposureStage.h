@@ -10,7 +10,7 @@
 #ifndef EXPOSURESTAGE_H
 #define EXPOSURESTAGE_H
 
-#include "../ExposureParams.h"
+#include "ExposureParams.h"
 #include "DrawStage.h"
 
 namespace outshine::Render {

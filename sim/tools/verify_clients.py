@@ -52,12 +52,13 @@ BUILD_CALLS = re.compile(
     r"\.(SetVegetationTable|SetSkyClock|SetWind|SetWindClock|SetExposure|SetFovDeg|SetOrthoM|"
     r"SetTreeBark|SetTreeCards|SetTreeStands|SetTreeStand|SetTreeCrown|SetTreeLook|"
     r"BakeTreeImpostor|SetMoonTexture|SetStars|SetCameraBasis|SetSceneState)\s*\(")
-# The ONE place a scene is built, plus the layer it is built FROM.
+# The ONE place a scene is built. `world/` was on this list while it still drove the renderer; the
+# server target is what removed that, so a scene-building call under world/ is now a stray.
 BUILDERS = ("clients/Outshine.cpp",)
-BUILDER_DIRS = ("world",)
+BUILDER_DIRS = ()
 # THE SUBJECT BENCH reaches past the system on purpose: it replaces the world and the light with
-# declared ones and judges a single plant. Its length is printed, exactly like
-# verify-layers prints its registry-reader count -- a second one moves the number.
+# declared ones and judges a single plant. Its length is printed so that a
+# second one moves a number in a diff.
 BENCH_BUILDERS = ("clients/SceneRunner.cpp", "clients/SubjectBench.cpp")
 
 RE_INCLUDE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.M)
@@ -140,7 +141,7 @@ def main():
         return report(errors)
     shape_txt = ", ".join(f"{os.path.basename(p)} main()={n}" for p, n in shape)
     print(f"verify-clients: {len(entries)} entry point(s) ({shape_txt}), "
-          f"{builders} scene-building call(s) in the one builder + world/, "
+          f"{builders} scene-building call(s) in the one builder, "
           f"{benches} in {len(BENCH_BUILDERS)} declared subject-bench file(s), 0 elsewhere")
     return 0
 

@@ -28,9 +28,10 @@ graded against the references: the answer is known and the round is spent. Then,
 
 | 2 | the height oracle evaluates the drawn surface | **done** · three slopes, 0 violations in 48 standpoints |
 | 1.7 | the fixed heap, over all of the client's memories | **done** · client reserved 512 → 200 + N×56 MiB |
-| **4** | **the server target, and the checker falls** | **in the tree** — the gate; 5 onwards is enforceable only after it |
+| 4 | the server target, and the checker falls | **done** · `World` no longer holds a renderer pointer |
+| **4.5** | **fold the tile worker into the client** | **in the tree** |
 
-| 4.5 | fold the tile worker into the client | open |
+
 | 4.6 | the GPU readback stops blocking the frame thread | open |
 | 5 | `generators/` | open — **designed**: headers, enforcement and acceptance stand |
 | 6 | the forest becomes a generator | open |
@@ -151,6 +152,18 @@ reads "≤ 4.2, unresolved below". The probe publishes the break and the ceiling
 current size — one call, one column. The per-access guard costs **≈ 0.15 ms of CPU**, measured per stage
 because `frameMs` cannot resolve it.
 
+**Step 5 — the include set must bound real generator sources, not three named files.** `verify-generators`
+compiles exactly three paths and `INC_GENERATORS` is used nowhere else; real sources would land in
+`SIM_SRCS`, which the `world` target compiles with `-Isrc/world` on the line, so `generators/Forest.cpp`
+could include `World.h` and every target would build. The gate must compile the wildcard minus its two
+negatives, and `generators/` needs its own compile group in the real targets — otherwise step 5's
+"impossible rather than prohibited" is prohibited by a three-file list.
+
+**Enforcement lives in one of three targets.** `walk` and `wasm` compile the same `world/` sources with
+`-Isrc/render` present, so an upward include fails in `make world` only. The shape that closes it pays
+for itself: compile `SIM_SRCS` once with the simulation include set and link those objects into all
+three, which also removes two full recompiles of ~25 translation units per round.
+
 **Step 4.5 / 4.6 — the oracle builds a tile on the frame thread.** `Outshine::Look` calls
 `fb_stream_ground` on **every camera update**, so a z14 crossing during play means five synchronous PNG
 decodes (≈8.6 ms at 1.71 ms each) with a possibly synchronous fetch behind `fbs_size`. Not created by
@@ -173,26 +186,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 4 — The server target, and the checker falls
-
-Split the object that owns world and renderer into a simulation half and a picture half. Add the target
-that builds everything except `render/`. Invert the remaining renderer-driving calls in `world/` until it
-links. **Delete the layer checker in the same commit** — two truths about the structure side by side is
-the state that ruined the first one.
-
-**`/t/elev` is a second truth about ground and this step inherits it.** It answers its own z13 bilinear
-— 100.6 m where the engine draws 100.883 — and step 4's target answers "what stands at a place". Either
-it is deleted or it becomes a thin caller of the same oracle. Name it in the step's "done when".
-
-**The tile loader's C interface stops being one in the same step.** A dozen free functions over global
-state with hand-written lifetime cannot express "one pool, two products", which is exactly the split this
-step makes. An object owning the pool, with a simulation view and a picture view, can.
-
-Done when: the server target builds and answers, without a device, what stands at a place, how big it is,
-how deep the water is and where the sun is. A test `#include` of the renderer inside `generators/` is a
-compile error. And `/t/elev` is either deleted or becomes a thin caller of the same oracle — two ground
-truths must not ship.
-
 ## 4.5 — Fold the tile worker into the client
 
 The saving is not a module and not a copy across a heap boundary — it is that **the tile scheduler exists
@@ -205,6 +198,12 @@ evicted**, four independent in-flight caps that know nothing of each other again
 and a retry ceiling that turns a slow server into **permanently missing terrain**.
 
 It is the execution environment the generators need, and the prerequisite audio needs anyway.
+
+**The C interface could not stop being one in step 4, and this is why.** The browser half of the pool's
+state is a JavaScript object `Module.__fbw` inside an `EM_JS` block, reached through **nine context-free
+`EM_JS`/`EM_ASM` shims** and two `EMSCRIPTEN_KEEPALIVE` callbacks; natively it is 27 file-scope mutable
+statics. An object owning the pool could own the native half only — which is the two-truths state step 4
+exists to end. It becomes possible exactly when `Module.__fbw` is gone.
 
 Done when: **a tile gap can no longer mean "out of memory"** — `OSMMESH_ERR_OOM` reaching the client ends
 the run named, which the fixed heap made possible to get wrong; no scheduler in an embedded-JavaScript
@@ -327,10 +326,26 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
 - **`TerrainLoader.h:49` still says the DEM pointer is "owned by the byte cache — do NOT free".** It is
   now `fbs_hold.data()`, valid only until the next `fbs_size`. One caller today and it copies
   immediately; 4.5 adds callers to this island.
-- **The first external check of the drawn surface has never been made.** Everything measured so far is
-  two parts of this tree agreeing. Query the oracle at Preikestolen's plateau against the published
-  604 m and at Badwater against the surveyed −85.5 m — it does not validate the float32 budget, it
-  validates that the whole chain lands on the right surface, which no internal agreement can.
+- **The chain is faithful to its source; the error is in the tile data.** `fb_world` against the z14
+  terrarium texel at the same point: demo +0.09 m · Ardèche +0.70 · Preikestolen +1.96 · Badwater −0.03.
+  So the gap to the published 604 m and the surveyed −85.5 m is the **source's** vertical accuracy, not
+  the engine's — and Badwater is the sharp one, because a salt pan has no smoothing alibi: **10.9 m on
+  flat ground**. Two confounds first: whether the declared scene coordinate is the landmark, and what
+  the server's native maximum zoom is at each place (`/t/terrain/15/…` returned non-PNG at both, so z14
+  may be the finest served).
+- **Water depth can be negative and the type permits it.** `LevelM` is the 5th percentile of the ring's
+  own **shore** samples, so inside a gorge the DEM sits above it and Ardèche answers −4.371 m. Depth
+  should be non-negative by construction, with "the level model and the DEM disagree here" a state the
+  return type carries rather than a negative number a caller must remember to check. Step 9.
+- **`Sim &Simulation()` is non-const and makes a new mistake spellable.** `App.Simulation().Look(s)`
+  compiles and moves the eye without the camera basis and scene state that `Outshine::Look` sets. All 20
+  call sites are reads; drop the non-const overload.
+- **Three names for one sentinel** — `World::kNoSurfaceAslM`, `Standpoint::kNoRoof`, and bare `-1.0e30`
+  in `WaterField`, `BuildingField` and `TreeField`. The producers cannot name the constant because it
+  sits in `World.h` and peers do not include peers; it belongs in `core/`, or it dies the way its
+  elevation twin does — as a state in the return type.
+- **The negative gate does not assert why it fails.** Any compile error passes `verify-generators`; one
+  clause fixes the class: `2>&1 | grep -q "file not found"`.
 - **`core/ClusterDag.h:75` reads `FB_TAU` from the environment into a function-local static.** The
   picture depends on an undocumented environment variable, and the value carries no origin at the call
   site. Principle 7 — if the environment decides the result, the coupling is a bug.

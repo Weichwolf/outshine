@@ -1,7 +1,7 @@
 #ifndef EXPOSUREPARAMS_H
 #define EXPOSUREPARAMS_H
 
-namespace outshine::Render {
+namespace outshine {
 
 enum class ExposureMode { Auto, Manual };
 
@@ -19,5 +19,5 @@ struct ExposureParams {
   float CompEv = 0.0f;   /* Auto: stops on top of the irradiance-derived placement */
 };
 
-} // namespace outshine::Render
+} // namespace outshine
 #endif

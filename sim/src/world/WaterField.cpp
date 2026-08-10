@@ -115,6 +115,22 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
   return (uint32_t)Surfaces_.size();
 }
 
+double WaterField::LevelAslAt(const OsmField &field, double lat, double lon) const {
+  const std::vector<double> &pts = field.Points();
+  double best = -1.0e30;
+  for (const Surface &s : Surfaces_) {
+    if (s.PointCount < 3 || (double)s.LevelM <= best) continue;
+    bool in = false;
+    for (uint32_t i = 0, j = s.PointCount - 1; i < s.PointCount; j = i++) {
+      const double ai = pts[(size_t)(s.FirstPoint + i) * 2], oi = pts[(size_t)(s.FirstPoint + i) * 2 + 1];
+      const double aj = pts[(size_t)(s.FirstPoint + j) * 2], oj = pts[(size_t)(s.FirstPoint + j) * 2 + 1];
+      if ((ai > lat) != (aj > lat) && lon < (oj - oi) * (lat - ai) / (aj - ai) + oi) in = !in;
+    }
+    if (in) best = (double)s.LevelM;
+  }
+  return best;
+}
+
 void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) const {
   out.clear();
   if (!HaveAnchor_) return;

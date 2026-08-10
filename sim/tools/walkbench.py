@@ -98,7 +98,7 @@ def report(name, rows):
           % (statistics.median(ms), pct(ms, .90), pct(ms, .95), pct(ms, .99), max(ms)))
     print("  late      >1.5 frame %5.2f %%   >2.5 frame %5.2f %%"
           % (100.0 * late1 / n, 100.0 * late2 / n))
-    for key in ("worldMs", "meshMs", "albedoMs", "buildingMs", "fieldMs", "renderMs", "gpuMs"):
+    for key in ("worldMs", "meshMs", "uploadMs", "buildingMs", "fieldMs", "renderMs", "gpuMs"):
         if key not in rows[0]:
             continue
         v = summarise(rows, key)

@@ -97,8 +97,9 @@ they show the same thing, and measurably they do not**: the browser punches tria
 a distant tree line the native oracle draws closed. **Only a picture compared across both clients decides
 that**, and nothing does it yet.
 
-Building happens only through make targets. `sim/`: `walk` | `wasm` | `worker` | `image` | `up`. Gates:
-`verify-layers` | `verify-clients`. **The wasm client builds in EVERY round.** Warnings
+Building happens only through make targets. `sim/`: `walk` | `wasm` | `worker` | `world` | `image` | `up`.
+Gates: `verify-clients` | `verify-generators` — the layer itself is carried by `world`, which compiles
+without `render/` on its include path, so a breach is a build failure and not a matrix a script keeps. **The wasm client builds in EVERY round.** Warnings
 are errors (`-Wall -Wextra -Wpedantic`) · a frame proof or a measurement · vendor read-only.
 
 **Every stage measures itself, continuously, and the result goes into the telemetry** — tile fetch,

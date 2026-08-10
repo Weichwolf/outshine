@@ -122,7 +122,7 @@ public:
   double OrthoM() const { return OrthoM_; }
   const std::string &Snapshot() const { return Snapshot_; }
 
-  const Render::ExposureParams &Exposure() const { return Exposure_; }
+  const ExposureParams &Exposure() const { return Exposure_; }
   const Resolution &RenderResolution() const { return Resolution_; }
   /* How much temporal history every delivered frame carries; < 0 asks the renderer for its own
    * settle length, which is the only honest default for a number the renderer owns. */
@@ -145,7 +145,7 @@ private:
   double JitterPin_[2] = {0.0, 0.0};
   bool HasLensAslM_ = false, HasJitterPin_ = false;
   int SettleFrames_ = -1;
-  Render::ExposureParams Exposure_;
+  ExposureParams Exposure_;
   Resolution Resolution_;
   std::vector<Run> Runs_;
 };

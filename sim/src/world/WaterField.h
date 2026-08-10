@@ -50,6 +50,12 @@ public:
   /* pos3 + nrm3 per vertex, ECEF relative to Anchor(). A pure function of the surfaces. */
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
 
+  /* THE WATER SURFACE OVER A POINT, ASL, or -1e30 where none stands. The counterpart of
+   * BuildingField::RoofAslAt and the same test: the ring lives in `field` and a surface is level by
+   * construction, so this is the level of the ring the point falls in. Watercourses are not in it —
+   * a ribbon's level belongs to its rung and a point query would have to interpolate along it. */
+  double LevelAslAt(const OsmField &field, double lat, double lon) const;
+
   size_t HeapBytes() const {
     return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_);
   }

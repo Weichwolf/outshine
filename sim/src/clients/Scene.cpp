@@ -134,7 +134,7 @@ bool Scene::ReadExposure(const Ref &node, std::string &err) {
     err = "exposure.mode is neither auto nor manual: " + mode.Str();
     return false;
   }
-  Exposure_.Mode = manual ? Render::ExposureMode::Manual : Render::ExposureMode::Auto;
+  Exposure_.Mode = manual ? ExposureMode::Manual : ExposureMode::Auto;
 
   double stops = 0.0;
   if (!Need(e, manual ? "keyEv" : "compEv", -20.0, 20.0, stops, err)) return false;

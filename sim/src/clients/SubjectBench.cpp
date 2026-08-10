@@ -268,11 +268,11 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   }
   R_.SetBenchCard(card);
 
-  Render::ExposureParams ep;
+  ExposureParams ep;
   if (metering) {
-    ep.Mode = Render::ExposureMode::Auto;
+    ep.Mode = ExposureMode::Auto;
   } else {
-    ep.Mode = Render::ExposureMode::Manual;
+    ep.Mode = ExposureMode::Manual;
     ep.KeyEv = KeyEv_;   /* ONE placement for every light, or the three are not comparable */
   }
   R_.SetExposure(ep);

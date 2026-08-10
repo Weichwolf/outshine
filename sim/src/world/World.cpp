@@ -1,5 +1,4 @@
 #include "World.h"
-#include "Renderer.h"
 #include "TerrainLoader.h"
 #include "Camera.h"
 #include "Capacity.h"
@@ -37,7 +36,7 @@ static const double kEarthCirc = 40075016.686;
 static const double kEdgeTau = 384.0;   /* target max on-screen tile edge (px); lower = finer = more tiles */
 /* Quads per tile edge, and it is the ZERO POINT of the whole LOD chain: the cluster DAG's level 0 IS
  * this mesh, so no tolerance below its own decimation error can ever be honoured. kEdgeTau/kGrid is
- * that error in pixels -- 3 px against the DAG's declared 1 px (render/ClusterDag.h). 128 is where
+ * that error in pixels -- 3 px against the DAG's declared 1 px (core/ClusterDag.h). 128 is where
  * the price stops: 192 measured p95 21.4 ms against the 16.67 ms frame. */
 static const int kGrid = 128;
 static const double kCosView = 0.5;            /* frustum weight: <60deg off-axis -> full priority */
@@ -47,11 +46,9 @@ static const int kNodeCeil = 6000;             /* safety backstop on the working
 static inline uint64_t Key(int z, long x, long y) {
   return ((uint64_t)(z & 0xF) << 60) | ((uint64_t)(x & 0x3FFFFFFF) << 30) | (uint64_t)(y & 0x3FFFFFFF);
 }
-static std::unordered_map<uint64_t, int> gIndex;
-
 World::World(double pixelFocalLength)
   : PixelFocal_(pixelFocalLength),
-    R(nullptr), TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
+    TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0),
     MeshVram(0) {}
 
@@ -62,13 +59,13 @@ World::Pools World::HeapPools() const {
   for (const Node &n : Nodes)
     p.TileNodes += CapacityBytes(n.verts) + CapacityBytes(n.idx) + CapacityBytes(n.clusters) +
                    CapacityBytes(n.albedo);
-  p.TileNodes += CapacityBytes(Nodes) + CapacityBytes(DrawSlots) + CapacityBytes(WorkList) +
-                 CapacityBytes(DrawnLeaves);
-  p.Vectors = Vectors.HeapBytes();
-  p.Buildings = Buildings.HeapBytes() + CapacityBytes(BuildingDagVerts) +
+  p.TileNodes += CapacityBytes(Nodes) + CapacityBytes(DrawnHandles_) + CapacityBytes(WorkList) +
+                 CapacityBytes(DrawnLeaves) + CapacityBytes(Uncollected_) + CapacityBytes(Retired_);
+  p.Vectors = Vectors_.HeapBytes();
+  p.Buildings = Buildings_.HeapBytes() + CapacityBytes(BuildingDagVerts) +
                 CapacityBytes(BuildingDagIdx) + CapacityBytes(BuildingClusters) +
-                CapacityBytes(BuildingSoup);
-  p.Water = Water.HeapBytes() + CapacityBytes(WaterVerts);
+                CapacityBytes(BuildingSoup) + CapacityBytes(FootprintTileEnds_);
+  p.Water = Water_.HeapBytes() + CapacityBytes(WaterVerts);
   p.Class = Cls_.HeapBytes();
   return p;
 }
@@ -81,14 +78,12 @@ std::vector<ModuleMemory> World::WorkerMemory() const {
   return rows;
 }
 
-bool World::Open(Render::Renderer *renderer, const char *tilesBase, double lat, double lon,
-                   double viewMeters, int albedoTS) {
-  R = renderer;
+bool World::Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS) {
   TS = albedoTS;
   ViewM = viewMeters;
   Lat0 = lat;
   Lon0 = lon;
-  gIndex.clear();
+  Index_.clear();
   if (fb_stream_open(tilesBase, lat, lon, {kMaxZ, kGrid}) == 0) return false;
   Cls_.Open(lat, lon);
   Opened = true;
@@ -113,14 +108,57 @@ static double Dist(const double a[3], const double b[3]) {
 
 int World::Ensure(int z, long x, long y) {
   uint64_t k = Key(z, x, y);
-  auto it = gIndex.find(k);
-  if (it != gIndex.end()) return it->second;
+  auto it = Index_.find(k);
+  if (it != Index_.end()) return it->second;
   Node nd{};
-  nd.z = z; nd.x = x; nd.y = y; nd.slot = -1;
+  nd.z = z; nd.x = x; nd.y = y; nd.handle = -1;
   int idx = (int)Nodes.size();
   Nodes.push_back(std::move(nd));
-  gIndex[k] = idx;
+  Index_[k] = idx;
   return idx;
+}
+
+void World::Collect(uint64_t id, int handle) {
+  auto it = Index_.find(id);
+  if (it == Index_.end() || handle < 0) return;
+  Node &nd = Nodes[it->second];
+  if (!nd.haveMesh || nd.handle >= 0) return;
+  nd.handle = handle;
+  std::vector<float>().swap(nd.verts);
+  std::vector<uint32_t>().swap(nd.idx);
+  std::vector<DagCluster>().swap(nd.clusters);
+  nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the collector's upload is submitted */
+  Built++;   /* build completion (thrash: builds/min -> ~0 in a converged loiter, climbs if evict-rebuild) */
+}
+
+std::vector<int> World::TakeRetired() {
+  std::vector<int> out;
+  out.swap(Retired_);
+  return out;
+}
+
+World::WaterSurface World::Water() const {
+  WaterSurface s;
+  if (WaterVerts.empty()) return s;
+  s.Verts = WaterVerts.data();
+  s.VertCount = (uint32_t)(WaterVerts.size() / 6);
+  s.AnchorEcef = Water_.Anchor();
+  s.Seq = WaterSeq_;
+  return s;
+}
+
+World::BuildingSurface World::Buildings() const {
+  BuildingSurface s;
+  if (BuildingDagVerts.empty()) return s;
+  s.Verts = BuildingDagVerts.data();
+  s.VertCount = (uint32_t)(BuildingDagVerts.size() / 8);
+  s.Idx = BuildingDagIdx.data();
+  s.IdxCount = (uint32_t)BuildingDagIdx.size();
+  s.Clusters = BuildingClusters.data();
+  s.ClusterCount = (int)BuildingClusters.size();
+  s.AnchorEcef = Buildings_.Anchor();
+  s.Seq = BuildingSeq_;
+  return s;
 }
 
 /* A child that fails only PREVENTS the parent's split; it never voids coverage. No side effects. */
@@ -149,11 +187,11 @@ void World::AddWork(int idx, int z, long x, long y, const double eye[3], const d
 void World::Emit(int idx) {
   Leaves++;
   Node &n = Nodes[idx];
-  if (Ready(n)) {   /* committed on the GPU (uploaded + one pass elapsed) — safe to draw */
+  if (Ready(n)) {   /* collected and one pass elapsed — safe to draw */
     n.emitPass = Pass;   /* drawn this pass -> a mode switch may keep showing it (old mode) until the overlay lands */
     DrawnReady++;
     MeshVram += (long)n.nverts * 32 + (long)n.nidx * 4;
-    DrawSlots.push_back(n.slot);
+    DrawnHandles_.push_back(n.handle);
     DrawnLeaves.push_back(idx);
   } else {
     Pending++;
@@ -170,8 +208,8 @@ bool World::WantSplit(int z, long x, long y, const double eye[3]) const {
 }
 
 int World::Find(int z, long x, long y) const {
-  auto it = gIndex.find(Key(z, x, y));
-  return it == gIndex.end() ? -1 : it->second;
+  auto it = Index_.find(Key(z, x, y));
+  return it == Index_.end() ? -1 : it->second;
 }
 
 /* Can this subtree cover its area with tiles READY this pass? */
@@ -204,7 +242,7 @@ void World::RequestSubtree(int z, long x, long y, const double eye[3], const dou
     }
     if (anyV) return;   /* intermediate — the children carry the request */
   }
-  if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);   /* TARGET leaf */
+  if (!Taken(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);   /* TARGET leaf */
 }
 
 /* The draw traversal; 1 = this node's area is fully covered by emitted tiles. No intermediate LOD
@@ -246,7 +284,7 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
   }
   /* A base-resident but overlay-pending leaf still EMITS (never a hole) but reports not mode-covered,
    * so an ancestor keeps holding. */
-  if (!Uploaded(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
+  if (!Taken(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
   Emit(idx);
   return Ready(Nodes[idx]) ? 1 : 0;
 }
@@ -290,22 +328,59 @@ void World::SurfaceAnchor(int z, long x, long y, double out[3]) const {
   Center(za, x >> sh, y >> sh, out);
 }
 
-void World::Update(double camLat, double camLon, const double eyeEcef[3], const double fwdEcef[3],
-                     double nowMs) {
+/* THE SIMULATION PASS. Every statement here is about a place: which vectors have landed, what the
+ * class grid says, where water stands and which footprint sits on the ground. No camera, no device,
+ * and nothing that only a picture needs. */
+void World::Update(double camLat, double camLon) {
   const double tUpdate = Clock();
-  Pass++;
-  DrawSlots.clear();
-  DrawnLeaves.clear();
-  WorkList.clear();
-  Leaves = DrawnReady = Pending = 0;
-  MeshVram = 0;
   while (camLon > 180.0) camLon -= 360.0;   /* normalize lon before tile queries (dateline) */
   while (camLon < -180.0) camLon += 360.0;
   fb_stream_campos(camLat, camLon);   /* worker pump prioritises nearest tiles */
 
+  /* THE GROUND CLASS. It is a property of the PLACE, so the fragment and every CPU consumer read it
+   * from the same bytes (world/ClassField.h). What happens here is streaming and bookkeeping — the
+   * grid itself is laid down on ClassBuilder's thread and arrives whole. */
+  const double tCls = Clock();
+  Cls_.Update(camLat, camLon);
+  ClassMs_ = Clock() - tCls;
+
+  /* OSM buildings: the 3x3 z14 block around the camera, one tile per pass, built once and kept. The
+   * vector tile is the SAME source the albedo raster is baked from, so a footprint and its grey patch
+   * cannot disagree about where a house is. */
+  const double tBld = Clock();
+  BuildingDecodeMs_ = 0.0;
+  Vectors_.Build(camLat, camLon, 1);
+  const size_t hadWater = Water_.Surfaces().size() + Water_.Courses().size();
+  if (Veg_) Water_.Ingest(Vectors_, *Veg_);
+  if (Water_.Surfaces().size() + Water_.Courses().size() != hadWater) WaterDirty_ = true;
+  if (Buildings_.Build(Vectors_) > 0 && Buildings_.AddedCount() > 0) {
+    BuildingVerts = (uint32_t)(Buildings_.Verts().size() / 8);
+    BuildingDecodeMs_ = Clock() - tBld;
+    FootprintTileEnds_.push_back((uint32_t)Buildings_.Verts().size());
+  }
+  BuildingMs_ = Clock() - tBld;
+  UpdateMs_ = Clock() - tUpdate;
+}
+
+/* THE PICTURE PASS. The LOD cut against one eye, the meshes it needs, and the two surfaces that are
+ * geometry rather than place. Nothing is pushed anywhere: what comes out is Uncollected(), Drawn(),
+ * TakeRetired(), Water() and Buildings(). */
+void World::Refine(const Eye &eye, double nowMs) {
+  const double tRefine = Clock();
+  Pass++;
+  DrawnHandles_.clear();
+  DrawnLeaves.clear();
+  WorkList.clear();
+  Uncollected_.clear();
+  Leaves = DrawnReady = Pending = 0;
+  MeshVram = 0;
+  double camLon = eye.LonDeg;
+  while (camLon > 180.0) camLon -= 360.0;
+  while (camLon < -180.0) camLon += 360.0;
+
   /* Root ring: zROOT tiles whose centre is within the view radius. */
   uint32_t rx = 0, ry = 0;
-  osmmesh_geo_to_tile(camLon, camLat, (uint8_t)kRootZ, &rx, &ry);
+  osmmesh_geo_to_tile(camLon, eye.LatDeg, (uint8_t)kRootZ, &rx, &ry);
   double span = SpanM(kRootZ);
   long Rt = (long)std::ceil(ViewM / span) + 1;
   long n = 1L << kRootZ;
@@ -313,9 +388,9 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
   for (long ty = (long)ry - Rt; ty <= (long)ry + Rt; ty++)
     for (long tx = (long)rx - Rt; tx <= (long)rx + Rt; tx++) {
       if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
-      if (Viable(kRootZ, tx, ty, eyeEcef)) {
-        Descend(kRootZ, tx, ty, eyeEcef, fwdEcef);
-        CountTargets(kRootZ, tx, ty, eyeEcef, fwdEcef, TargetTot, TargetRdy, TargetView);
+      if (Viable(kRootZ, tx, ty, eye.PosEcef)) {
+        Descend(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef);
+        CountTargets(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef, TargetTot, TargetRdy, TargetView);
       }
     }
 
@@ -324,13 +399,12 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
    * A wall-clock slice was measured HERE and rejected — it moved the cost rather than removing it,
    * p95 17.9 -> 25.8 ms with the same maximum, because the work is not divisible below one tile. */
   std::sort(WorkList.begin(), WorkList.end(), [](const Work &a, const Work &b) { return a.prio > b.prio; });
-  int build = 2, upload = 6;
-  MeshMs_ = AlbedoMs_ = UploadMs_ = BuildingMs_ = BuildingDecodeMs_ = 0.0;
+  int build = 2;
+  MeshMs_ = 0.0;
   for (const Work &w : WorkList) {
-    if (build == 0 && upload == 0) break;
     Node &nd = Nodes[w.idx];
-    const double tMesh = Clock();
     if (!nd.haveMesh && build > 0) {
+      const double tMesh = Clock();
       float *v = nullptr;
       uint32_t *ix = nullptr;
       DagCluster *cl = nullptr;
@@ -360,97 +434,54 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
         nd.nidx = ni;
         nd.err = err;
         nd.origin[0] = o[0]; nd.origin[1] = o[1]; nd.origin[2] = o[2];
+        SurfaceAnchor(nd.z, nd.x, nd.y, nd.anchor);
         nd.haveMesh = 1;
         build--;
       }
+      MeshMs_ += Clock() - tMesh;
     }
-    MeshMs_ += Clock() - tMesh;
-    const double tUp = Clock();
-    if (nd.haveMesh && nd.slot < 0 && upload > 0 && R && R->DeviceUsable()) {
-      double anchor[3];
-      SurfaceAnchor(nd.z, nd.x, nd.y, anchor);
-      nd.slot = R->UploadTile(nd.verts.data(), (uint32_t)nd.nverts, nd.idx.data(), (uint32_t)nd.nidx,
-                              nd.clusters.data(), (int)nd.clusters.size(), nd.origin, anchor);
-      if (nd.slot >= 0) {
-        std::vector<float>().swap(nd.verts);
-        std::vector<uint32_t>().swap(nd.idx);
-        std::vector<DagCluster>().swap(nd.clusters);
-        nd.readyPass = Pass;   /* 2-phase: drawable next pass, once the upload is submitted */
-        upload--;
-        Built++;   /* build completion (thrash: builds/min ~0 in a converged loiter, climbs if evict-rebuild) */
-      }
-    }
-    UploadMs_ += Clock() - tUp;
-  }
-
-  /* No re-emit: Descend already built DrawSlots from tiles ready THIS pass, and newly uploaded ones
-   * enter next pass — one frame of latency, invisible. */
-  if (R) R->SetDrawList(DrawSlots.data(), (int)DrawSlots.size());
-
-  /* THE GROUND CLASS. It is a property of the PLACE, so the fragment and every CPU consumer read it
-   * from the same bytes (world/ClassField.h). What happens here is streaming and bookkeeping — the
-   * grid itself is laid down on ClassBuilder's thread and arrives whole. */
-  const double tCls = Clock();
-  Cls_.Update(camLat, camLon);
-  if (R) {
-    R->SetClassFrame(Cls_.EastEcef(), Cls_.NorthEcef(), Cls_.Cam());
-    /* THE VERSION IS THE UPLOAD'S TRIGGER, not a dirty flag: what is on the device is named by the
-     * structure it came from, so a missed or a doubled upload is a mismatch and not a guess. */
-    const std::shared_ptr<const ClassStructure> cls = Cls_.Read();
-    if (cls && cls->Version() != UploadedClassVersion_) {
-      const double tu = Clock();
-      R->WriteClassBuffer(cls->Words(), cls->Bytes());
-      UploadedClassVersion_ = cls->Version();
-      Log::Debug("world", "class_uploaded", {{"version", (double)cls->Version()},
-          {"uploadMs", Clock() - tu}, {"streamMs", Cls_.LastStreamMs()},
-          {"ingestMs", Cls_.LastIngestMs()}, {"bufferKB", cls->Bytes() / 1024.0}});
+    if (nd.haveMesh && nd.handle < 0) {
+      TileMesh m;
+      m.Id = Key(nd.z, nd.x, nd.y);
+      m.Verts = nd.verts.data();
+      m.VertCount = (uint32_t)nd.nverts;
+      m.Idx = nd.idx.data();
+      m.IdxCount = (uint32_t)nd.nidx;
+      m.Clusters = nd.clusters.data();
+      m.ClusterCount = (int)nd.clusters.size();
+      for (int c = 0; c < 3; c++) { m.OriginEcef[c] = nd.origin[c]; m.AnchorEcef[c] = nd.anchor[c]; }
+      Uncollected_.push_back(m);
     }
   }
-  ClassMs_ = Clock() - tCls;
 
-  /* WHERE THE STAND STANDS. The ground fragment IS the stand (render/Sward.h) and reads it off the
-   * world graticule, so all the renderer needs is the place and the local basis. */
-  {
-    double E[3], Nn[3], U[3];
-    EnuAxesEcef(camLat, camLon, E, Nn, U);
-    R->SetSwardBasis(camLat, camLon, E, Nn, U);
+  /* The water surface is a mesh and its level is not: the level came from the shore while the vectors
+   * were ingested, and this is only the ribbon over it. */
+  if (WaterDirty_) {
+    WaterDirty_ = false;
+    Water_.Tessellate(Vectors_, WaterVerts);
+    WaterSeq_++;
+    Log::Debug("world", "water", {{"surfaces", (int)Water_.Surfaces().size()},
+                                  {"courses", (int)Water_.Courses().size()},
+                                  {"tris", (int)(WaterVerts.size() / 18)},
+                                  {"noGround", (int)Water_.NoGroundCount()},
+                                  {"outliers", (int)Water_.OutlierCount()}});
   }
 
-  /* OSM buildings: the 3x3 z14 block around the camera, one tile per pass, built once and kept. The
-   * vector tile is the SAME source the albedo raster is baked from, so a footprint and its grey patch
-   * cannot disagree about where a house is.
-   *
-   * THE DAG IS BUILT OVER THE NEW TILE ALONE, in the tile pool, and appended when it lands. Over the
+  /* THE DAG IS BUILT OVER THE NEW TILE ALONE, in the tile pool, and appended when it lands. Over the
    * whole block it is superlinear — 265 ms at 51 456 verts, 480 ms at 58 368, measured — and even one
    * dense tile is 33.0 ms of a 50.9 ms frame natively (walkbench 150 m/s). Nothing is lost by
    * splitting it: the DAG's crack-free guarantee is about SHARED EDGES, and two buildings in two
    * tiles share none. */
-  const double tBld = Clock();
-  if (R && BuildingDagId == 0) {
-    Vectors.Build(camLat, camLon, 1);
-    /* [SET] 1.5 m half width for a watercourse: the narrow end of what OSM maps as a line — a ditch
-     * or a stream. The right number is per kind and lives in vegetation.json's widthM; this stands
-     * until WaterField reads it. */
-    if (Veg_) Water.Ingest(Vectors, *Veg_);
-    if (!Water.Surfaces().empty() || !Water.Courses().empty()) {
-      Water.Tessellate(Vectors, WaterVerts);
-      if (R && !WaterVerts.empty())
-        R->SetWaterMesh(WaterVerts.data(), (uint32_t)(WaterVerts.size() / 6), Water.Anchor());
-      Log::Debug("world", "water", {{"surfaces", (int)Water.Surfaces().size()},
-                                    {"courses", (int)Water.Courses().size()},
-                                    {"tris", (int)(WaterVerts.size() / 18)},
-                                    {"noGround", (int)Water.NoGroundCount()},
-                                    {"outliers", (int)Water.OutlierCount()}});
-    }
-    if (Buildings.Build(Vectors) > 0 && Buildings.AddedCount() > 0) {
-      BuildingVerts = (uint32_t)(Buildings.Verts().size() / 8);
-      BuildingDecodeMs_ = Clock() - tBld;
-      const float *newVerts = Buildings.Verts().data() + Buildings.AddedFirst();
-      BuildingSoup.assign(newVerts, newVerts + Buildings.AddedCount());
-      BuildingDagId = ++BuildingDagSeq;
-    }
+  const double tDag = Clock();
+  BuildingDagMs_ = 0.0;
+  if (BuildingDagId == 0 && DagDone_ < FootprintTileEnds_.size()) {
+    const uint32_t first = DagDone_ ? FootprintTileEnds_[DagDone_ - 1] : 0;
+    const uint32_t end = FootprintTileEnds_[DagDone_];
+    const std::vector<float> &soup = Buildings_.Verts();
+    BuildingSoup.assign(soup.begin() + first, soup.begin() + end);
+    BuildingDagId = ++BuildingDagSeq;
   }
-  if (R && BuildingDagId != 0) {
+  if (BuildingDagId != 0) {
     float *dv = nullptr;
     uint32_t *di = nullptr;
     DagCluster *dc = nullptr;
@@ -472,6 +503,8 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
       free(di);
       free(dc);
       BuildingDagId = 0;
+      DagDone_++;
+      BuildingSeq_++;
       std::vector<float>().swap(BuildingSoup);
       if (getenv("FB_DAGLOG")) {
         long per[16] = {0};
@@ -491,24 +524,21 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
             {"dagVerts", (int)BuildingDagVerts.size() / 8}, {"clusters", (int)BuildingClusters.size()},
             {"levels", t}});
       }
-      R->SetBuildingMesh(BuildingDagVerts.data(), (uint32_t)(BuildingDagVerts.size() / 8),
-                         BuildingDagIdx.data(), (uint32_t)BuildingDagIdx.size(),
-                         BuildingClusters.data(), (int)BuildingClusters.size(), Buildings.Anchor());
     }
+    BuildingDagMs_ = Clock() - tDag;
   }
-  BuildingMs_ = Clock() - tBld;
 
-  /* Grace-period eviction; swap-pop, so gIndex must stay in sync. */
+  /* Grace-period eviction; swap-pop, so Index_ must stay in sync. */
   for (size_t i = 0; i < Nodes.size();) {
     Node &nd = Nodes[i];
     if (nd.touch == Pass) { nd.stale = 0; i++; continue; }
     if (++nd.stale <= kGrace) { i++; continue; }
-    if (nd.slot >= 0 && R) R->ReleaseTile(nd.slot);
-    gIndex.erase(Key(nd.z, nd.x, nd.y));
+    if (nd.handle >= 0) Retired_.push_back(nd.handle);
+    Index_.erase(Key(nd.z, nd.x, nd.y));
     size_t last = Nodes.size() - 1;
     if (i != last) {
       Nodes[i] = std::move(Nodes[last]);
-      gIndex[Key(Nodes[i].z, Nodes[i].x, Nodes[i].y)] = (int)i;
+      Index_[Key(Nodes[i].z, Nodes[i].x, Nodes[i].y)] = (int)i;
     }
     Nodes.pop_back();
     Evicted++;
@@ -528,7 +558,7 @@ void World::Update(double camLat, double camLon, const double eyeEcef[3], const 
                                       {"buildsPerMin", buildsMin},
                                       {"evictPerMin", evictMin}, {"built", (int)Built}});
   }
-  UpdateMs_ = Clock() - tUpdate;
+  RefineMs_ = Clock() - tRefine;
 }
 
 } // namespace outshine::World

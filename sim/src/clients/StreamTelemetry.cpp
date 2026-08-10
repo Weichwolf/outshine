@@ -5,7 +5,6 @@ namespace outshine::Clients {
 void StreamTelemetry::AddPass(const Pass &p) {
   World_.Add(p.WorldMs);
   Mesh_.Add(p.MeshMs);
-  Albedo_.Add(p.AlbedoMs);
   Upload_.Add(p.UploadMs);
   Building_.Add(p.BuildingMs);
   Decode_.Add(p.BuildingDecodeMs);
@@ -24,7 +23,7 @@ void StreamTelemetry::MarkResident(double nowMs) {
 }
 
 void StreamTelemetry::Reset() {
-  World_.Reset(); Mesh_.Reset(); Albedo_.Reset(); Upload_.Reset();
+  World_.Reset(); Mesh_.Reset(); Upload_.Reset();
   Building_.Reset(); Decode_.Reset(); Class_.Reset();
   WindowBuilt_ = WindowEvicted_ = 0;
   WindowPasses_ = 0;
@@ -36,8 +35,6 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("worldMaxMs", "ms");
   schema.Add("meshMeanMs", "ms");
   schema.Add("meshMaxMs", "ms");
-  schema.Add("albedoMeanMs", "ms");
-  schema.Add("albedoMaxMs", "ms");
   schema.Add("uploadMeanMs", "ms");
   schema.Add("uploadMaxMs", "ms");
   schema.Add("buildingMeanMs", "ms");
@@ -59,7 +56,6 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(WindowPasses_);
   row.Push(World_.Mean());   row.Push(World_.Max);
   row.Push(Mesh_.Mean());    row.Push(Mesh_.Max);
-  row.Push(Albedo_.Mean());  row.Push(Albedo_.Max);
   row.Push(Upload_.Mean());  row.Push(Upload_.Max);
   row.Push(Building_.Mean()); row.Push(Building_.Max);
   row.Push(Decode_.Max);

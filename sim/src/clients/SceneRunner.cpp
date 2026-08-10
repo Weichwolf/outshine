@@ -115,10 +115,10 @@ int SceneRunner::Dispatch(const Scene::Run &run) {
  * bit-identical. */
 int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
   Render::Renderer &R = App_.Renderer();
-  World::World &W = App_.Scenery();
+  World::World &W = App_.Simulation().Scenery();
   /* The origin is where the run STARTS, not what the file says: a snapshot may have moved the eye
    * before any run began, and a channel in metres is measured from the standpoint it moves. */
-  const Outshine::Stance base{App_.Lat(), App_.Lon(), App_.YawDeg(), App_.PitchDeg()};
+  const Outshine::Stance base{App_.Simulation().Lat(), App_.Simulation().Lon(), App_.Simulation().YawDeg(), App_.Simulation().PitchDeg()};
   const double lonPerM = 1.0 / (kMPerDeg * std::cos(base.Lat * kDeg2Rad));
   const bool moves = m.Move.Drives(Target::CameraEastM) || m.Move.Drives(Target::CameraNorthM) ||
                      m.Move.Drives(Target::CameraYawDeg) || m.Move.Drives(Target::CameraPitchDeg);
@@ -160,7 +160,7 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
   const bool profile = m.Give == Scene::Run::Product::Profile;
   std::string csv;
   if (profile)
-    csv = "frame,timeS,distM,frameMs,worldMs,meshMs,albedoMs,uploadMs,buildingMs,bDecodeMs,"
+    csv = "frame,timeS,distM,frameMs,worldMs,meshMs,uploadMs,buildingMs,bDecodeMs,"
           "classMs,renderMs,gpuMs,nodes,drawnLeaves,terrainTiles,draws,terrainTris,"
           "buildingVerts,built,evicted,classVramMB,temporalVramMB\n";
   else if (m.Frames > 1 && !Out_.MakeDir(m.Path))
@@ -174,7 +174,7 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     if (m.World == Scene::Run::Stream::Streaming)
       /* The virtual clock is the streaming PASS index at 60 Hz — monotonic across the load and the
        * run, which is what the world's 1 Hz counters are read against. */
-      App_.Stream((double)App_.Loading().PassCount() * 1000.0 / 60.0);
+      App_.Stream((double)App_.Simulation().Streaming().PassCount() * 1000.0 / 60.0);
     const auto t1 = std::chrono::steady_clock::now();
     App_.Frame();
     const auto t2 = std::chrono::steady_clock::now();
@@ -194,10 +194,10 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
     const double n = m.Move.Drives(Target::CameraNorthM) ? m.Move.At(Target::CameraNorthM, f) : 0.0;
     char row[512];
     snprintf(row, sizeof row,
-             "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
+             "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
              "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f\n",
-             f, (double)f / m.Fps, std::sqrt(e * e + n * n), MsBetween(t0, t3), W.UpdateMs(),
-             W.MeshMs(), W.AlbedoMs(), W.UploadMs(), W.BuildingMs(), W.BuildingDecodeMs(),
+             f, (double)f / m.Fps, std::sqrt(e * e + n * n), MsBetween(t0, t3), W.PassMs(),
+             W.MeshMs(), App_.Measured().UploadMs, W.BuildingMs(), W.BuildingDecodeMs(),
              W.ClassMs(), MsBetween(t1, t2), MsBetween(t2, t3), W.NodeCount(), W.DrawnLeafCount(),
              R.TerrainVisibleTiles(), R.DrawCount(), R.TerrainTriangleCount(),
              R.BuildingVertexCount(), W.BuiltCount(), W.EvictedCount(),
@@ -236,8 +236,8 @@ int SceneRunner::Motion(const Scene::Run::MotionRun &m) {
 
 void SceneRunner::ReportSettled() const {
   Render::Renderer &R = App_.Renderer();
-  if (App_.Forest().StandCount() > 0)
-    Log::Info("run", "trees_lod", {{"stands", (double)App_.Forest().StandCount()},
+  if (App_.Simulation().Forest().StandCount() > 0)
+    Log::Info("run", "trees_lod", {{"stands", (double)App_.Simulation().Forest().StandCount()},
         {"meshStands", (double)R.TreeMeshStands()}, {"meshRadiusM", R.TreeMeshRadiusM()},
         {"rank0", (double)R.TreeRankStands(0)}, {"rank1", (double)R.TreeRankStands(1)},
         {"rank2", (double)R.TreeRankStands(2)}, {"rank3", (double)R.TreeRankStands(3)},
@@ -246,10 +246,10 @@ void SceneRunner::ReportSettled() const {
   /* THE FIELD ITSELF. Nothing below the size of a tree answers to it, so no stage
    * reads it today; it is published because a branch and a rotor owe the anchor. */
   Render::WindField wf;
-  wf.SetDeclared(App_.WindDeg(), App_.WindMs());
-  Log::Info("run", "wind", {{"declaredFromDeg", App_.WindDeg()}, {"declaredMs", App_.WindMs()},
+  wf.SetDeclared(App_.Simulation().WindDeg(), App_.Simulation().WindMs());
+  Log::Info("run", "wind", {{"declaredFromDeg", App_.Simulation().WindDeg()}, {"declaredMs", App_.Simulation().WindMs()},
       {"canopyMs", wf.CanopyMs()},
-      {"profileRatio", App_.WindMs() > 0.0 ? wf.CanopyMs() / App_.WindMs() : 0.0},
+      {"profileRatio", App_.Simulation().WindMs() > 0.0 ? wf.CanopyMs() / App_.Simulation().WindMs() : 0.0},
       {"eigenHz", wf.EigenHz()}, {"waveLenM", wf.WaveLengthM()},
       {"phaseSpeedMs", wf.PhaseSpeedMs()}, {"gustAmp", wf.GustAmplitude()},
       {"dirE", wf.DirEast()}, {"dirN", wf.DirNorth()},
@@ -261,9 +261,9 @@ void SceneRunner::ReportSettled() const {
   if (R.ReadIrradiance(irr)) {
     const double sunY = 0.2126 * irr[0] + 0.7152 * irr[1] + 0.0722 * irr[2];
     const double skyY = 0.2126 * irr[4] + 0.7152 * irr[5] + 0.0722 * irr[6];
-    const double sunUp = std::sin((double)App_.SunElDeg() * kPi / 180.0);
+    const double sunUp = std::sin((double)App_.Simulation().SunElDeg() * kPi / 180.0);
     Log::Info("run", "irradiance", {{"sunDirectNormalY", sunY}, {"skyDiffuseHorizY", skyY},
-        {"sunElDeg", (double)App_.SunElDeg()}, {"totalHorizY", sunY * sunUp + skyY},
+        {"sunElDeg", (double)App_.Simulation().SunElDeg()}, {"totalHorizY", sunY * sunUp + skyY},
         {"sunRGB", std::to_string(irr[0]) + "," + std::to_string(irr[1]) + "," + std::to_string(irr[2])},
         {"skyRGB", std::to_string(irr[4]) + "," + std::to_string(irr[5]) + "," + std::to_string(irr[6])}});
   }
@@ -271,7 +271,7 @@ void SceneRunner::ReportSettled() const {
 
 void SceneRunner::ReportCounters() const {
   Render::Renderer &R = App_.Renderer();
-  World::World &W = App_.Scenery();
+  World::World &W = App_.Simulation().Scenery();
   float met[Render::ExposureStage::kMeterFloats] = {};
   if (R.ReadExposure(met))
     Log::Info("run", "exposure", {{"expScale", (double)met[0]}, {"keyLog2", (double)met[1]},
@@ -306,10 +306,10 @@ void SceneRunner::ReportCounters() const {
  * structure's own metric frame. No GPU is involved — this is the answer a headless actor gets, and
  * the picture is judged against it. */
 int SceneRunner::DumpClasses(const Scene::Run::ClassDumpRun &d) const {
-  const std::shared_ptr<const World::ClassStructure> cls = App_.Scenery().Classes().Read();
+  const std::shared_ptr<const World::ClassStructure> cls = App_.Simulation().Scenery().Classes().Read();
   if (!cls) { Log::Error("run", "class_dump_without_structure"); return 1; }
   double ce = 0, cn = 0;
-  App_.Scenery().Classes().ToEnu(App_.Lat(), App_.Lon(), &ce, &cn);
+  App_.Simulation().Scenery().Classes().ToEnu(App_.Simulation().Lat(), App_.Simulation().Lon(), &ce, &cn);
   const int n = (int)(d.SpanM / d.StepM);
   /* SNAPPED TO THE WORLD, not to the camera: two runs from different standpoints must sample the
    * same points, or a sub-sample offset would show up as a disagreement that is not one. */
@@ -346,11 +346,11 @@ int SceneRunner::CompareClasses() const {
   }
   const double tanH = std::tan(0.5 * Scene_.FovDeg() * kDeg2Rad);
   const double aspect = (double)width / (double)height;
-  const World::ClassField &field = App_.Scenery().Classes();
+  const World::ClassField &field = App_.Simulation().Scenery().Classes();
   const std::shared_ptr<const World::ClassStructure> cls = field.Read();
   if (!cls) { Log::Error("run", "class_cmp_without_structure"); return 1; }
   const double *O = field.OriginEcef(), *Ea = field.EastEcef(), *No = field.NorthEcef();
-  const double *eye = App_.Eye(), *fwd = App_.Fwd(), *right = App_.Right(), *up = App_.Up();
+  const double *eye = App_.Simulation().Eye(), *fwd = App_.Simulation().Fwd(), *right = App_.Simulation().Right(), *up = App_.Simulation().Up();
   std::map<uint32_t, std::map<int, long>> hist;
   long ground = 0, edgeNear = 0;
   for (int py = 0; py < height; py++)
@@ -403,7 +403,7 @@ int SceneRunner::CompareClasses() const {
  * declared times — no picture, no GPU. */
 int SceneRunner::ProbeWind(const Scene::Run::WindProbeRun &w) const {
   Render::WindField wf;
-  wf.SetDeclared(App_.WindDeg(), App_.WindMs());
+  wf.SetDeclared(App_.Simulation().WindDeg(), App_.Simulation().WindMs());
   std::string csv;
   char line[256];
   snprintf(line, sizeof line,
@@ -452,7 +452,7 @@ bool SceneRunner::WriteDepth(const std::string &name) const {
 /* THE SUBJECT BENCH takes the binary over completely: no World, no tile stream, no scene light. */
 int SceneRunner::RunSubject() {
   const Scene::Run::SubjectRun &s = Scene_.Runs().front().Subject;
-  SubjectBench bench(App_.Renderer(), App_.Vegetation(), Out_);
+  SubjectBench bench(App_.Renderer(), App_.Simulation().Vegetation(), Out_);
   /* Held for the whole bench run: the arrays are uploaded once and the numbers below are logged off
    * the same objects the picture was drawn from. */
   World::TreeMesh mesh;
@@ -521,7 +521,7 @@ int SceneRunner::RunSubject() {
   if (!s.Template.empty()) {
     std::string subName;
     float subRgb[3] = {0, 0, 0};
-    if (!SubjectSubstrate(App_.Materials(), App_.Files().Vegetation, s.Template, &subName, subRgb)) {
+    if (!SubjectSubstrate(App_.Simulation().Materials(), App_.Simulation().Files().Vegetation, s.Template, &subName, subRgb)) {
       Log::Error("run", "subject_substrate_unresolved", {{"template", s.Template}});
       return 1;
     }

@@ -54,9 +54,9 @@ public:
   const std::vector<float> &Verts() const { return Verts_; }
   const double *Anchor() const { return Anchor_; }
   const std::vector<Footprint> &Footprints() const { return Prints_; }
-  /* THE ROOF OVER A POINT, ASL, or -1e30 where no footprint stands. An eye inside a wall is not a
-   * standpoint, and this is the only thing that can say so: the extrusion is a prism over a ring and
-   * the ring lives in `field`. */
+  /* THE ROOF OVER A POINT, ASL, or World::kNoSurfaceAslM where no footprint stands. An eye inside a
+   * wall is not a standpoint, and this is the only thing that can say so: the extrusion is a prism
+   * over a ring and the ring lives in `field`. */
   double RoofAslAt(const OsmField &field, double lat, double lon) const;
   int OsmHeights() const { return OsmHeights_; }
   int DefaultHeights() const { return DefaultHeights_; }

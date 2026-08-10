@@ -3,14 +3,11 @@
 #include <chrono>
 #include <cstdlib>
 
-#include "Camera.h"
-#include "ElevationProvider.h"
-#include "Ephemeris.h"
+#include "ClassStructure.h"
 #include "Geodesy.h"
 #include "HeapProbe.h"
 #include "Log.h"
 #include "PixelFocalLength.h"
-#include "StackProbe.h"
 #include "TerrainLoader.h"
 
 #ifdef __EMSCRIPTEN__
@@ -20,9 +17,6 @@
 namespace outshine::Clients {
 namespace {
 
-/* A DEM answer arrives synchronously off a native fetch and asynchronously in the browser, and the
- * boot needs one before it can place the eye. Waiting it out is the only honest option: an invented
- * plateau would move the whole picture, and this is the only picture there is. */
 void PumpMs(int ms) {
 #ifdef __EMSCRIPTEN__
   emscripten_sleep((unsigned)ms);
@@ -35,10 +29,10 @@ void PumpMs(int ms) {
  * host (a cold z14 vector bake, ~3 s) never trips it, short enough to name a hung server. */
 constexpr double kStallSayMs = 10000.0;
 
-constexpr int kGroundTries = 200;
 constexpr int kDeviceTries = 2000;
-constexpr int kAlbedoTileSize = 512;
 constexpr int kStarBytes = 262144;
+/* [SET] Tile meshes handed to the device per frame. Upload is a budget, never a queue drain. */
+constexpr int kUploadsPerFrame = 6;
 
 double NowMs() {
   return std::chrono::duration<double, std::milli>(
@@ -49,30 +43,16 @@ double NowMs() {
 }  // namespace
 
 Outshine::Outshine(const Scene &scene, const Assets &assets)
-    : Scene_(scene),
-      Assets_(assets),
-      Wind_(Scene_),
-      Exposure_(Scene_.Exposure()),
-      Stance_{Scene_.Lat(), Scene_.Lon(), Scene_.YawDeg(), Scene_.PitchDeg()},
-      WindDeg_(Scene_.WindDeg()),
-      WindMs_(Scene_.WindMs()),
-      Clk_((double)Scene_.UtcS()),
-      W_(PixelFocalLength(Scene_.RenderResolution().Height, Scene_.FovDeg())) {
-  /* The thread that builds this object is the one that will draw on it, and this is the earliest
-   * moment at which the engine can say so. */
-  StackProbe::Enter(StackProbe::Purpose::Frame);
-  ViewM_ = Scene_.ViewM();
-  OrthoM_ = Scene_.OrthoM();
-  Stand_.SetEyeAglM(Scene_.EyeM());
-  if (Scene_.HasLensAslM()) Stand_.SetLensAslM(Scene_.LensAslM());
-  if (Scene_.HasJitterPin()) R_.PinJitter((float)Scene_.JitterPinX(), (float)Scene_.JitterPinY());
+    : Sim_(scene, assets), Exposure_(scene.Exposure()) {
+  if (scene.HasJitterPin())
+    R_.PinJitter((float)scene.JitterPinX(), (float)scene.JitterPinY());
 }
 
 void Outshine::Pump() { PumpMs(0); }
 
 void Outshine::SetFovDeg(double deg) {
   R_.SetFovDeg(deg);
-  W_.SetPixelFocalLength(PixelFocalLength(Scene_.RenderResolution().Height, deg));
+  Sim_.SetPixelFocalLength(PixelFocalLength(Sim_.Declared().RenderResolution().Height, deg));
 }
 
 void Outshine::SetExposureCompEv(double ev) {
@@ -80,63 +60,36 @@ void Outshine::SetExposureCompEv(double ev) {
   R_.SetExposure(Exposure_);
 }
 
-/* THE SKY CLOCK MOVES, the wind clock is a different one (SetWindClock). Everything the sun and the
- * moon reach from here is a setter; nothing below re-bakes a tile, which is why this is the only
- * clock a run may drive today. */
 void Outshine::SetSkyOffsetS(double s) {
-  const double t = Clk_ + s;
-  SunPos(Stance_.Lat, Stance_.Lon, t, &SunEl_, &SunAz_);
-  MoonPos(Stance_.Lat, Stance_.Lon, t, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
-          &State_.Env.MoonPhase);
-  State_.Env.SunElDeg = SunEl_;
-  State_.Env.SunAzDeg = SunAz_;
-  R_.SetSkyClock(t);
-  R_.SetSceneState(State_);
+  Sim_.SetSkyOffsetS(s);
+  R_.SetSkyClock(Sim_.SkyClockS() + s);
+  R_.SetSceneState(Sim_.SceneState());
 }
 
-bool Outshine::ResolveGround(double lat, double lon, double *out) const {
-  double g = kFBElevationUnresolved;
-  for (int t = 0; t < kGroundTries && !ElevationResolved(g); t++) {
-    g = fb_stream_ground(lat, lon);
-    if (!ElevationResolved(g)) PumpMs(50);
-  }
-  if (!ElevationResolved(g)) return false;
-  *out = g;
-  return true;
-}
+void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
 bool Outshine::Prepare(const Gpu &gpu) {
   if (Phase_ != Phase::Declared) return false;
-  SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
-  Log::Info("outshine", "scene", {{"scene", Scene_.Id()}, {"lat", Stance_.Lat},
-      {"lon", Stance_.Lon}, {"eyeM", Stand_.EyeAglM()}, {"yawDeg", Stance_.YawDeg},
-      {"pitchDeg", Stance_.PitchDeg}, {"fovDeg", Scene_.FovDeg()}, {"utc", Scene_.Utc()},
-      {"utcS", Clk_}, {"windDeg", WindDeg_}, {"windMs", WindMs_},
-      {"cloudCover", Scene_.CloudCover()}, {"sunElDeg", (double)SunEl_},
-      {"sunAzDeg", (double)SunAz_}});
+  const Scene &scene = Sim_.Declared();
+  if (!Sim_.LoadTables()) return false;
+  Log::Info("outshine", "scene", {{"scene", scene.Id()}, {"lat", Sim_.Lat()},
+      {"lon", Sim_.Lon()}, {"eyeM", Sim_.Standpoint().EyeAglM()}, {"yawDeg", Sim_.YawDeg()},
+      {"pitchDeg", Sim_.PitchDeg()}, {"fovDeg", scene.FovDeg()}, {"utc", scene.Utc()},
+      {"utcS", Sim_.SkyClockS()}, {"windDeg", Sim_.WindDeg()}, {"windMs", Sim_.WindMs()},
+      {"cloudCover", scene.CloudCover()}, {"sunElDeg", (double)Sim_.SunElDeg()},
+      {"sunAzDeg", (double)Sim_.SunAzDeg()}});
   /* Only a DEVIATION is an event: at the budget size there is nothing to justify. */
-  const Scene::Resolution &res = Scene_.RenderResolution();
+  const Scene::Resolution &res = scene.RenderResolution();
   if (!res.Why.empty())
     Log::Info("outshine", "render_size", {{"width", res.Width}, {"height", res.Height},
         {"why", res.Why}});
 
-  if (!Mats_.Load(Assets_.GroundMaterials.c_str())) {
-    Log::Error("outshine", "ground_materials_failed",
-               {{"path", Assets_.GroundMaterials}, {"why", Mats_.Error()}});
-    return false;
-  }
-  if (!Veg_.Load(Assets_.Vegetation.c_str(), Mats_)) {
-    Log::Error("outshine", "vegetation_table_failed",
-               {{"path", Assets_.Vegetation}, {"why", Veg_.Error()}});
-    return false;
-  }
-
-  R_.SetVegetationTable(Veg_.Rows(), Veg_.RowBytes(), Veg_.RockTemplate(),
-                        Veg_.Limit().SlopeBandDeg());
-  R_.SetSkyClock(Clk_);
-  SetFovDeg(Scene_.FovDeg());
-  R_.SetOrthoM(OrthoM_);
-  R_.SetWind(WindDeg_, WindMs_);
+  const World::VegetationTemplates &veg = Sim_.Vegetation();
+  R_.SetVegetationTable(veg.Rows(), veg.RowBytes(), veg.RockTemplate(), veg.Limit().SlopeBandDeg());
+  R_.SetSkyClock(Sim_.SkyClockS());
+  SetFovDeg(scene.FovDeg());
+  R_.SetOrthoM(Sim_.OrthoM());
+  R_.SetWind(Sim_.WindDeg(), Sim_.WindMs());
   R_.SetExposure(Exposure_);
 
   if (gpu.Canvas) R_.Init(gpu.Canvas, res.Width, res.Height);
@@ -150,72 +103,60 @@ bool Outshine::Prepare(const Gpu &gpu) {
     return false;
   }
   Frames_.SetGpuAvailable(R_.GpuTimingAvailable());
-  if (Identity_) Bus_.Register(Identity_);
-  Bus_.Register(&Frames_);
-  Bus_.Register(&Stream_);
-  Bus_.Register(&Memory_);
-  Bus_.Start();
+  Sim_.StartTelemetry();
+  Sim_.Bus().Register(&Frames_);
+  Sim_.Bus().Register(&Memory_);
+  Sim_.Bus().Start();
   ClockOriginMs_ = NowMs();
   Frames_.Open(ClockOriginMs_);
-  Stream_.Open(ClockOriginMs_);
+  Sim_.Streaming().Open(ClockOriginMs_);
   Phase_ = Phase::Prepared;
   return true;
 }
 
 bool Outshine::Open() {
   if (Phase_ != Phase::Prepared) return false;
-  if (!Assets_.Moon.empty()) {
+  const Assets &files = Sim_.Files();
+  if (!files.Moon.empty()) {
     uint8_t *rgba = nullptr;
     int w = 0, h = 0;
-    if (fb_load_image_file(Assets_.Moon.c_str(), &rgba, &w, &h)) {
+    if (fb_load_image_file(files.Moon.c_str(), &rgba, &w, &h)) {
       R_.SetMoonTexture(rgba, w, h);
       free(rgba);
     } else {
-      Log::Warn("outshine", "moon_texture_missing", {{"path", Assets_.Moon}});
+      Log::Warn("outshine", "moon_texture_missing", {{"path", files.Moon}});
     }
   }
   {
     static uint8_t stars[kStarBytes];
-    const int n = fb_fetch_stars(Base_.c_str(), stars, kStarBytes);
-    if (n > 0) R_.SetStars(stars, n, Stance_.Lat, Stance_.Lon);
-    else Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Base_}});
+    const int n = fb_fetch_stars(Sim_.TilesBase().c_str(), stars, kStarBytes);
+    if (n > 0) R_.SetStars(stars, n, Sim_.Lat(), Sim_.Lon());
+    else Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()}});
   }
 
-  if (!W_.Open(&R_, Base_.c_str(), Stance_.Lat, Stance_.Lon, ViewM_, kAlbedoTileSize)) {
-    Log::Error("outshine", "world_open_failed", {{"base", Base_}});
-    return false;
+  if (!Sim_.Open()) return false;
+  R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());
+  R_.SetSceneState(Sim_.SceneState());
+
+  if (!Sim_.Files().Species.empty()) {
+    const std::optional<World::Forest::Prototype> tree = Sim_.GrowTrees();
+    if (!tree) return false;
+    for (size_t rank = 0; rank < tree->Ranks.size(); rank++) {
+      const World::Forest::Prototype::Rank &r = tree->Ranks[rank];
+      R_.SetTreeBark((int)rank, r.BarkVerts.data(), r.BarkVertCount, r.BarkIdx.data(),
+                     (uint32_t)r.BarkIdx.size());
+      R_.SetTreeCards((int)rank, r.Cards.data(), r.CardCount, r.CardLeafM, tree->CardFanDeg);
+    }
+    R_.SetTreeLook(tree->Look);
+    /* bpar.z is the tree height and comes from SetTreeStand; without it every instance scales to
+     * null. */
+    R_.SetTreeStand(0.0, 0.0, 0.0, tree->HeightM);
+    R_.SetTreeCrown(tree->Crown.HalfWidth, tree->Crown.Top, tree->Crown.Bottom);
+    R_.BakeTreeImpostor();
   }
-
-  double ground = 0.0;
-  if (!ResolveGround(Stance_.Lat, Stance_.Lon, &ground)) {
-    Log::Error("outshine", "ground_unresolved",
-               {{"lat", Stance_.Lat}, {"lon", Stance_.Lon}, {"base", Base_}});
-    return false;
-  }
-  Stand_.SetGroundAslM(ground);
-
-  State_.Env.SunElDeg = SunEl_;
-  State_.Env.SunAzDeg = SunAz_;
-  MoonPos(Stance_.Lat, Stance_.Lon, Clk_, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
-          &State_.Env.MoonPhase);
-  State_.Env.CloudCover = (float)Scene_.CloudCover();
-  Look(Stance_);
-
-  if (!Assets_.Species.empty() && !Forest_.Grow(R_, Assets_.Species.c_str())) return false;
-
-  W_.SetVegetation(&Veg_);
-  W_.SetWeather(&Wind_);
-  const WindNed w = Wind_.WindNedMs(Stance_.Lat, Stance_.Lon, Stand_.AltAslM());
-  Log::Info("outshine", "stand", {{"groundM", Stand_.GroundAslM()}, {"eyeM", Stand_.EyeAglM()},
-      {"pitchDeg", Stance_.PitchDeg}, {"aslM", Stand_.AltAslM()}, {"liftM", Stand_.LiftM()},
-      {"sunElDeg", (double)SunEl_}, {"sunAzDeg", (double)SunAz_},
-      {"moonElDeg", (double)State_.Env.MoonElDeg}, {"cloudCover", (double)State_.Env.CloudCover},
-      {"windN", w.N}, {"windE", w.E}, {"windD", w.D}});
   Phase_ = Phase::Loading;
   return true;
 }
-
-void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
 /* The interval between two frames, not the encode: what a viewer feels is the period, and everything
  * the client did in between — streaming, a readback, a PNG — is part of it. A progress frame is
@@ -233,9 +174,9 @@ void Outshine::CloseFrame(double startedMs) {
   double stage[Render::GpuTimer::kPassCount];
   if (R_.TakeGpuTimes(stage)) Frames_.AddStages(stage);
   if (!Frames_.Due(startedMs)) return;
-  Bus_.Tick((startedMs - ClockOriginMs_) * 0.001);
+  Sim_.Bus().Tick((startedMs - ClockOriginMs_) * 0.001);
   Frames_.Reset(startedMs);
-  Stream_.Reset();
+  Sim_.Streaming().Reset();
 }
 
 void Outshine::Frame() {
@@ -245,80 +186,123 @@ void Outshine::Frame() {
 }
 
 Outshine::Counters Outshine::Measured() const {
+  const World::World &w = Sim_.Scenery();
   Counters c;
   c.Draws = R_.DrawCount();
   c.Triangles = (long)R_.TriangleCount();
   c.TreeTriangles = R_.TreeTriangleCount();
-  c.TreeStands = Forest_.StandCount();
+  c.TreeStands = Sim_.Forest().StandCount();
   c.BuildingVerts = R_.BuildingVertexCount();
-  c.Built = W_.BuiltCount();
-  c.WorldMs = W_.UpdateMs();
-  c.MeshMs = W_.MeshMs();
-  c.AlbedoMs = W_.AlbedoMs();
-  c.UploadMs = W_.UploadMs();
-  c.BuildingMs = W_.BuildingMs();
-  c.BuildingDecodeMs = W_.BuildingDecodeMs();
-  c.GroundAslM = Stand_.GroundAslM();
-  c.AltAslM = Stand_.AltAslM();
-  c.Fraction = W_.LoadProgress();
-  c.Resident = W_.Resident();
+  c.Built = w.BuiltCount();
+  c.WorldMs = w.PassMs();
+  c.MeshMs = w.MeshMs();
+  c.UploadMs = UploadMs_;
+  c.BuildingMs = w.BuildingMs();
+  c.BuildingDecodeMs = w.BuildingDecodeMs();
+  c.GroundAslM = Sim_.Standpoint().GroundAslM();
+  c.AltAslM = Sim_.Standpoint().AltAslM();
+  c.Fraction = w.LoadProgress();
+  c.Resident = w.Resident();
   return c;
 }
 
 void Outshine::Look(const Stance &s) {
-  Stance_ = s;
-  const double g = fb_stream_ground(s.Lat, s.Lon);
-  if (ElevationResolved(g)) Stand_.SetGroundAslM(g);
-  const double asl = Stand_.AltAslM();
-  GeoToEcef(s.Lat, s.Lon, asl, Eye_);
-  CameraBasisEcef(s.YawDeg, s.PitchDeg, 0.0, s.Lat, s.Lon, Fwd_, Right_, Up_);
-  R_.SetCameraBasis(Eye_, Fwd_, Right_, Up_);
-  State_.Platform.AltM = (float)asl;
-  State_.Platform.YawDeg = (float)s.YawDeg;
-  State_.Platform.PitchDeg = (float)s.PitchDeg;
-  R_.SetSceneState(State_);
+  Sim_.Look(s);
+  R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());
+  R_.SetSceneState(Sim_.SceneState());
 }
 
-/* THE STANDPOINT IS CHECKED AGAINST WHAT IS DATA AND WHAT IS DRAWN. Terrain and buildings come from
- * DEM and OSM, so the eye is LIFTED above them; a tree is a draw from a landcover density, so a
- * stand whose crown holds the eye is REFUSED (TreeField::Crown). Buildings only exist once the
- * vector tiles have landed, which is why this waits for residency. */
-void Outshine::CheckRoof() {
-  RoofChecked_ = true;
-  const double roof = W_.RoofAslAt(Stance_.Lat, Stance_.Lon);
-  const double before = Stand_.AltAslM();
-  Stand_.SetRoofAslM(roof);
-  if (Stand_.AltAslM() == before) return;
-  Log::Info("outshine", "standpoint_roof", {{"roofAslM", roof},
-      {"liftM", Stand_.AltAslM() - before}, {"eyeM", Stand_.EyeAglM()},
-      {"totalLiftM", Stand_.LiftM()}});
-  Look(Stance_);
+/* THE TILE PRODUCT. What the world offers, in its own priority order; what comes back is the slot
+ * the renderer holds it in, and the world hands that same number back in its draw list. */
+void Outshine::CollectTiles() {
+  World::World &w = Sim_.Scenery();
+  const double tUp = NowMs();
+  if (R_.DeviceUsable()) {
+    int budget = kUploadsPerFrame;
+    for (const World::World::TileMesh &m : w.Uncollected()) {
+      if (budget == 0) break;
+      const int slot = R_.UploadTile(m.Verts, m.VertCount, m.Idx, m.IdxCount, m.Clusters,
+                                     m.ClusterCount, m.OriginEcef, m.AnchorEcef);
+      if (slot < 0) continue;
+      w.Collect(m.Id, slot);
+      budget--;
+    }
+  }
+  UploadMs_ = NowMs() - tUp;
+  for (int slot : w.TakeRetired()) R_.ReleaseTile(slot);
+  const std::vector<int> &drawn = w.Drawn();
+  R_.SetDrawList(drawn.data(), (int)drawn.size());
+}
+
+/* THE VERSION IS THE UPLOAD'S TRIGGER, not a dirty flag: what is on the device is named by the
+ * structure it came from, so a missed or a doubled upload is a mismatch and not a guess. */
+void Outshine::CollectClass() {
+  const World::ClassField &cls = Sim_.Scenery().Classes();
+  R_.SetClassFrame(cls.EastEcef(), cls.NorthEcef(), cls.Cam());
+  const std::shared_ptr<const World::ClassStructure> structure = cls.Read();
+  if (!structure || structure->Version() == ClassVersion_) return;
+  const double t0 = NowMs();
+  R_.WriteClassBuffer(structure->Words(), structure->Bytes());
+  ClassVersion_ = structure->Version();
+  Log::Debug("outshine", "class_uploaded", {{"version", (double)structure->Version()},
+      {"uploadMs", NowMs() - t0}, {"streamMs", cls.LastStreamMs()},
+      {"ingestMs", cls.LastIngestMs()}, {"bufferKB", structure->Bytes() / 1024.0}});
+}
+
+void Outshine::Collect() {
+  World::World &w = Sim_.Scenery();
+  CollectTiles();
+  CollectClass();
+
+  /* WHERE THE STAND STANDS. The ground fragment IS the stand (render/Sward.h) and reads it off the
+   * world graticule, so all the renderer needs is the place and the local basis. */
+  double east[3], north[3], up[3];
+  EnuAxesEcef(Sim_.Lat(), Sim_.Lon(), east, north, up);
+  R_.SetSwardBasis(Sim_.Lat(), Sim_.Lon(), east, north, up);
+
+  const World::World::WaterSurface water = w.Water();
+  if (water.Seq != WaterSeq_ && water.VertCount > 0) {
+    WaterSeq_ = water.Seq;
+    R_.SetWaterMesh(water.Verts, water.VertCount, water.AnchorEcef);
+  }
+  const World::World::BuildingSurface bld = w.Buildings();
+  if (bld.Seq != BuildingSeq_ && bld.VertCount > 0) {
+    BuildingSeq_ = bld.Seq;
+    R_.SetBuildingMesh(bld.Verts, bld.VertCount, bld.Idx, bld.IdxCount, bld.Clusters,
+                       bld.ClusterCount, bld.AnchorEcef);
+  }
+  const World::Forest &forest = Sim_.Forest();
+  if (forest.Scattered() && !TreesStanding_) {
+    TreesStanding_ = true;
+    R_.SetTreeStands(forest.Stands().data(), (uint32_t)forest.StandCount(),
+                     forest.StandDistM().data());
+  }
 }
 
 Outshine::Progress Outshine::Stream(double nowMs) {
   if (Phase_ < Phase::Loading) return {};
-  W_.Update(Stance_.Lat, Stance_.Lon, Eye_, Fwd_, nowMs);
-  if (W_.Resident()) {
-    if (!RoofChecked_ && Stand_.LensDeclared()) CheckRoof();
-    Forest_.Scatter(R_, W_.Classes(), Veg_, Stance_.Lat, Stance_.Lon, Stand_.EyeAglM());
-  }
+  World::World &w = Sim_.Scenery();
+  Sim_.Advance();
+  w.Refine(Sim_.Sight(), nowMs);
+  if (w.Resident()) Sim_.Settle();
+  Collect();
+
   StreamTelemetry::Pass p;
-  p.WorldMs = W_.UpdateMs();
-  p.MeshMs = W_.MeshMs();
-  p.AlbedoMs = W_.AlbedoMs();
-  p.UploadMs = W_.UploadMs();
-  p.BuildingMs = W_.BuildingMs();
-  p.BuildingDecodeMs = W_.BuildingDecodeMs();
-  p.ClassMs = W_.ClassMs();
-  p.TilesTotal = W_.TargetTotal();
-  p.TilesReady = W_.TargetReadyN();
-  p.TilesInView = W_.TargetInViewN();
-  p.VectorTilesPending = W_.BuildingPendingTiles();
-  p.Built = W_.BuiltCount();
-  p.Evicted = W_.EvictedCount();
-  p.Resident = W_.Resident();
-  Stream_.AddPass(p);
-  return {W_.LoadProgress(), W_.Resident()};
+  p.WorldMs = w.PassMs();
+  p.MeshMs = w.MeshMs();
+  p.UploadMs = UploadMs_;
+  p.BuildingMs = w.BuildingMs();
+  p.BuildingDecodeMs = w.BuildingDecodeMs();
+  p.ClassMs = w.ClassMs();
+  p.TilesTotal = w.TargetTotal();
+  p.TilesReady = w.TargetReadyN();
+  p.TilesInView = w.TargetInViewN();
+  p.VectorTilesPending = w.BuildingPendingTiles();
+  p.Built = w.BuiltCount();
+  p.Evicted = w.EvictedCount();
+  p.Resident = w.Resident();
+  Sim_.Streaming().AddPass(p);
+  return {w.LoadProgress(), w.Resident()};
 }
 
 /* THE PROGRESS FRAME IS A FRAME LIKE ANY OTHER, and that is the whole point: the renderer never
@@ -328,6 +312,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
  * meaning they have inside a run. */
 bool Outshine::Load() {
   if (Phase_ != Phase::Loading) return false;
+  const World::World &w = Sim_.Scenery();
   Progress p;
   long passes = 0;
   const double t0 = NowMs();
@@ -343,19 +328,19 @@ bool Outshine::Load() {
     /* A STALL IS SAID, NOT CAPPED. There is no ceiling to hit — a server that stops answering is a
      * fact about the server — but a load that spins in silence is a fact nobody can read. */
     const double now = NowMs();
-    if (W_.TargetReadyN() != wasReady) { wasReady = W_.TargetReadyN(); movedMs = now; }
+    if (w.TargetReadyN() != wasReady) { wasReady = w.TargetReadyN(); movedMs = now; }
     if (now - movedMs > kStallSayMs && now - saidMs > kStallSayMs) {
       saidMs = now;
       Log::Warn("outshine", "load_stalled", {{"stalledS", (now - movedMs) * 0.001},
           {"passes", (double)passes}, {"targetReady", wasReady},
-          {"targetTotal", W_.TargetTotal()}, {"vectorPending", W_.BuildingPendingTiles()},
+          {"targetTotal", w.TargetTotal()}, {"vectorPending", w.BuildingPendingTiles()},
           {"progress", (double)p.Fraction}});
     }
   }
-  Stream_.MarkResident(NowMs());
+  Sim_.Streaming().MarkResident(NowMs());
   Phase_ = Phase::Playing;
   Log::Info("outshine", "loaded", {{"passes", (double)passes}, {"loadMs", NowMs() - t0},
-      {"targetTotal", W_.TargetTotal()}, {"targetInView", W_.TargetInViewN()},
+      {"targetTotal", w.TargetTotal()}, {"targetInView", w.TargetInViewN()},
       {"progress", (double)p.Fraction}});
   return true;
 }
