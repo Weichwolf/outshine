@@ -17,6 +17,20 @@ Nothing is preloaded. Every tile on demand. **Every point on Earth is a valid st
 | `world` | everything except `render/` | the persistent server, and the enforcement of the layering |
 | `walk` | everything | native oracle — falls once `wasm` carries every declared run |
 
+## The machine
+
+**wasm32 plus WebGPU is a virtual console, and that is the limit.** wasm32 gives a hard 4 GB address
+space; WebGPU gives one feature set with no vendor extensions; and the heap is **fixed, not growing** —
+a declared budget rather than whatever the machine happens to have.
+
+Fixed is affordable because almost everything is procedural and the rest is streamed: what a fixed heap
+must hold is the resident working set, never the world. Fixed is also *necessary* once threads are
+plural — growing shared memory can invalidate another thread's view, which is the same class of rare,
+unreproducible defect the rest of this document is built to avoid.
+
+Every per-thread stack comes out of that same budget. A thread count and a memory budget are one
+decision, not two.
+
 **Layering is enforced by the build, never by a checker.** A module compiles with the include set of its
 layer and below. An upward include is a compile error; a breach shows as a target that stops building.
 
