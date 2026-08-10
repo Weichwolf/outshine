@@ -24,7 +24,7 @@ It is not a claim. It is **four build decisions**, and each one closes a questio
 clock, a weather, what runs. It brings no `.cpp`. A **generator** is engine code that turns what the core
 knows into content: vegetation, buildings, infrastructure, water. Generators are exchangeable by
 construction, because they all read the same naked world. The target is **wasm on Chromium and Edge**;
-PS4 and A18 Pro are the performance budget, not a delivery target.
+A18-Pro-class hardware is the resource budget, not a delivery target.
 
 ## The bar: a world sandbox at Unreal level, out of tile data alone
 
@@ -58,7 +58,7 @@ its measurement, and what happens next is a decision by the owner, not by the ro
 
 ## The hardware IS the goal, not a constraint
 
-**PS4-class and A18 Pro, 720p60 — 16.67 ms at 1280×720.** Every design decision hangs off that line.
+**A18-Pro class, 720p60 — 16.67 ms at 1280×720.** Every design decision hangs off that line.
 Whatever holds 60 holds 30 with headroom, and the headroom is the point.
 
 The phone is the *budget*, not a fallback: A18 Pro has **~60 GB/s** of memory bandwidth against PS4's
