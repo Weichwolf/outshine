@@ -83,6 +83,22 @@ wedge of thousands from TAA edge noise of hundreds by an order of magnitude. And
 seam that appears and vanishes as the camera walks is a cell-seam pop, one welded to a stand is a card
 defect, and one frame cannot tell them apart.
 
+**Geometry has invariants, and they are decidable without any reference at all.** Not consistency, not
+plausibility, not taste — true or false, and cheap. Nothing checks them today, and a wrong normal makes
+the shading wrong everywhere without ever looking like a shading defect. What a mesh check answers, per
+mesh, on the generator's own output:
+
+| | |
+|---|---|
+| **normals** | unit length within tolerance · agreeing in sign with the triangle winding · agreeing with the geometric normal within a stated angle. A vertex normal that disagrees with every face it belongs to is a defect regardless of how it looks |
+| **welding** | no two vertices at one position carrying the same attributes — a split vertex is legitimate **only** where a seam is declared (uv, material, hard crease), so the check is against the declaration, not against the count |
+| **closure** | every edge shared by exactly two triangles where the body **declares itself closed**. A building is closed; a terrain patch, a leaf card and a water surface are not. So closure is a **declared property of the yield**, and the check enforces what was declared rather than one rule for everything |
+| **degeneracy** | zero-area triangles, NaN or infinite coordinates, indices past the end, a winding that flips within one surface |
+
+It belongs to the generator contract: the yield declares `Closed`, and the check runs on what a generator
+produced — which is where it is cheapest and where a violation names its author. Until then it can run on
+what exists: the terrain mesh, the building footprints, the bark.
+
 **When performance work happens is a trigger, not a schedule.** At 720p60 nothing is optimised. When
 720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back up to
 720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order

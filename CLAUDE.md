@@ -108,6 +108,11 @@ not a different code path. Analysis happens over the time series; a tile arrival
 p50/p95/p99, never a mean, never a minimum. Every line carries scenario, scene, wasm hash and browser
 version. **A run-wide average is not a baseline** when the quantity drifts across the run.
 
+**Above all three sits what is decidable.** Geometry has invariants — a normal is unit length or it is
+not, an edge of a closed body belongs to exactly two triangles or it does not — and they are true or
+false without any reference and without taste. They are the cheapest evidence in the tree and the only
+kind that needs no argument. Check them first.
+
 **There is no verified correct yet, and a measurement here mostly says the tree agrees with itself.**
 Two evaluators that call one function agree by construction; if that function is wrong they are wrong
 together and nothing in the tree can see it. So name which kind a number is — **consistency** (two parts
