@@ -152,13 +152,23 @@ Done when: oracle and drawn mesh agree to a stated bound, same posting indices, 
 The value and algorithm headers with no renderer dependency belong in `core/`. The entity and effect path
 in `world/` draws nothing and goes, and `units/` goes with it.
 
-**`verify-types` is red and the gate is right, the tree is wrong.** Its three remaining hits are all
-`core/Countermeasure.h` — a named dispenser's schema in the core, against principle 4, left from the
-combat layer. Green is reached by deleting it here, never by editing the gate.
+**The residue is a cone with two roots, not a web.** `units/Unit.h`, included only by `world/World.cpp`,
+carries `core/Store.h` (713 lines of stores stations), `Countermeasure.h`, `NetReport.h`,
+`WeaponUplink.h`, `VisualContact.h`, `Emitter.h`, `Flight.h`, `AvionicsBlocks.h`, `Mode.h`, `State.h`,
+`UnitRegistry.h`. `render/Renderer.h` and `world/World.h` carry `UnitsStage`, `SpritesStage`,
+`OverlayStage`, `UnitDraw`, `UnitModel` and with them `Glb.{h,cpp}`, the glTF loader nothing else uses.
+**3252 lines**, and cutting two edges frees all of it.
+
+**`verify-types` goes with the cone, not green.** It counts how much the engine knows about named
+aircraft; once the cone is gone there is nothing to count, and a counter that always reads zero is
+ceremony. Deleting it is the step's proof, not a shortcut around it.
 
 **150 lines in `sim/src/` cite 27 `doc/` files that do not exist** — `doc/world/terrain.md`,
 `doc/clients/clients.md`, `doc/core.md`, `doc/render/*`. A citation to a deleted document is a claim
 nothing can check. They go with this step.
+
+**The 16 species files are named in German** (`birke.json`, `saeulenpappel.json`). One language in the
+repository, and it is English.
 
 Mechanical, low risk, precondition for 4.
 
@@ -270,6 +280,12 @@ infrastructure.
   right-angle corners, not a crown with a bite out of it. An octahedral-impostor cell seam, in both
   clients. It is by a distance the most damaging thing in the frame at one second of looking. Recorded,
   not worked: the vegetation goes through the generator cut at 6 and 7 anyway.
+- **`World::WantSplit` applies a perspective pixel focal length to an orthographic scene.** For
+  `demo/ortho` the true on-screen tile edge is `SpanM × Height/orthoM = SpanM × 0.419 px/m`; the ladder
+  computes `SpanM × 443.4/2500 = SpanM × 0.177`, so it stops splitting at ≈2.4 × `kEdgeTau`. The picture
+  is byte-identical today, so nothing is due — but the ladder measures a quantity the projection does not
+  have, and under `orthoM > 0` the honest metric is distance-free.
+- `GpuTimer::Pass::Cloud` is the enumeration's dead slot; `Tonemap` was filled this round.
 - The near-field sward is a smeared wash with horizontal banding — no blades, no change of structure with
   distance. Second most damaging, same reason for waiting.
 - German comments from earlier rounds. The history stays; what is touched gets translated as it is
