@@ -66,6 +66,19 @@ evaluated with it.** The missing tool is one column: a single pair spanning the 
 attribution is forbidden. Two query slots, no new code path. Also `FrameTelemetry.cpp:66-72` publishes each
 pass as a **mean** against `CLAUDE.md`'s "never a mean", and compares it to a frame percentile.
 
+**Nothing compares the picture across the two clients.** `verify-clients` proves both are entry points
+over one scene builder and no more; measurably they differ, and byte-identity is dead as an instrument
+here as everywhere. The tool, and it is cost rather than a limit: **the wasm client must execute a `runs`
+block and return the still and the depth**, the product `SceneRunner` already writes natively — `fb-sim`
+collects log and telemetry over HTTP, so the sink exists and the missing piece is a readback and a POST.
+Both sides pinned: declared size, `jitter` pinned, `settleFrames` declared, same instant, same scene.
+**Publish the self-noise floor first** — native against native and browser against browser — because a
+tolerance without a zero point decides nothing. The statistic is **coverage, not colour**: the fraction of
+pixels whose sky/not-sky classification differs against a mask frozen on one side, which separates a
+wedge of thousands from TAA edge noise of hundreds by an order of magnitude. And it runs in **motion**: a
+seam that appears and vanishes as the camera walks is a cell-seam pop, one welded to a stand is a card
+defect, and one frame cannot tell them apart.
+
 **When performance work happens is a trigger, not a schedule.** At 720p60 nothing is optimised. When
 720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back up to
 720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order
@@ -138,8 +151,12 @@ interpolant +0.098 — and the diagonal contributed nothing.
 
 Open against the clause: the evaluator does not read the winding array its header says it reads, so the
 diagonal is still stated twice; the bound is a three-point maximum and not a budget; the two-pixel tree
-line is unattributed while the counters that would attribute it are already emitted; and the oracle's own
-byte cache duplicates the pool's, which costs a **4.35 → 18.84 ms** hitch at the forest rebuild.
+line is unattributed while the counters that would attribute it are already emitted.
+
+The **4.35 → 18.84 ms** at the forest rebuild is **not** a stream-in hitch and the framing is struck:
+`Forest::Scatter` latches on `Scattered_` and fires once, inside the loading phase, where a hold is what
+the loading screen is for. The finding that survives is the cost itself and the duplicate byte cache
+behind it, and both belong to the loader split.
 
 ## 4 — The server target, and the checker falls
 
