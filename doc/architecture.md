@@ -32,6 +32,12 @@ render never gets that averaging. Comparing the two measures the scaler as much 
 "our silhouettes are too smooth" and "our surfaces have no antialiasing" are exactly the findings that
 error produces.
 
+**The comparison resolution climbs in steps, and a step is not left until it holds.** At the lowest rung
+only light, colour and silhouette can speak, so only those can be judged and only those get fixed; the
+next rung lets material and structure speak; the top one lets detail speak. Judging at the top while the
+bottom is still wrong is how a round ends up chasing detail to repair a tonal error — which is what
+happened. The render stays at the declared size throughout; it is the *judgement* that climbs.
+
 **wasm32 plus WebGPU is a virtual console, and that is the limit.** wasm32 gives a hard 4 GiB address
 space and no bounds checks; WebGPU gives one feature set with no vendor extensions. Optimise against that
 machine from the start: no allocation in the hot path, flat arrays in linear memory, few crossings of the
