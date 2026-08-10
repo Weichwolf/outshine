@@ -43,7 +43,7 @@ rebuilding where you would otherwise have assumed a boundary.
 **Binding for anything code-related: the [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines).**
 They decide ownership, lifetime, interface and style; a deviation is a defect until its reason stands next
 to it. What `CLAUDE.md` says about C++ is a named house deviation from them. When judging a cut you cite
-**rule numbers**, not taste — `F.3` for an overlong function, `I.23` for a flag list, `ES.9` for a boolean
+**rule numbers**, not taste — `F.3` for an overlong function, `I.23` for a flag list, `Enum.2` for a boolean
 that should be an enumeration, `R.1`/`R.3` for ownership, `NL.1` for a name that needs a comment. Plus the
 house rules: `core/` never points up, peers never call each other, one class per file.
 

@@ -36,7 +36,7 @@ them, not a replacement. The rules that break here most often:
 |---|---|
 | `F.2` `F.3` | one function, one logical operation, and **short** — an 800-line `main()` has already happened |
 | `I.23` | a parameter object, not a list of flags |
-| `C.41` `ES.9` | a constructor yields a finished object; an enumeration, not boolean flags |
+| `C.41` `Enum.2` | a constructor yields a finished object; an enumeration, not boolean flags |
 | `R.1` `R.3` `I.11` | RAII; ownership never through a raw pointer |
 | `F.20` | return a value — **except** when the caller wants to reuse capacity; that is the hot-loop exception, stated in the rule itself |
 | `NL.1` | a name that needs a comment to be understood is the wrong name. The comment is the evidence, not the fix |
