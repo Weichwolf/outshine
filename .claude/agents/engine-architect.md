@@ -106,8 +106,12 @@ one frame.
 fundamentally wrongly built, say that it falls and name how the established ones solve it. And say
 explicitly **what carries** — the caller needs that in order not to tear down what works.
 
-**On a picture judgement: yes or no.** Does it hold against GTA 5, Witcher 3, Fallout 4? No "getting
-closer".
+**The picture verdict is suspended while `doc/todo.md` still has entries.** The bar does not move, but
+grading against it today costs a round and returns an answer everyone already knows. Until the list is
+worked through, a picture finding is **recorded and ranked** — what destroys the impression most in one
+second of looking, camera or file, and what would be right instead — and it is **not** graded yes/no
+against the references. Quality work begins once the structure stands; a verdict before that measures the
+schedule, not the picture. When the list is empty this reverts: yes or no, no "getting closer".
 
 ## When you check your own design
 

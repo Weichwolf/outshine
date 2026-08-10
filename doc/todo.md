@@ -7,6 +7,47 @@ What survives a finished step is only what a later step needs to know.
 Order is not preference: 1 and 2 are preconditions for anything that places anything, and 4 is the gate
 that makes 5 onwards enforceable rather than intended.
 
+**Quality work does not start until this file is empty.** The skeleton is best practice first; after that
+everything further is generators and shaders, and step 4 is what makes that true — a generator that
+includes the renderer is then a compile error. Until then a picture finding is recorded and ranked, never
+graded against the references: the answer is known and the round is spent. Then, in two stages:
+
+| | |
+|---|---|
+| **1** | one scenario, scenes at places the owner knows well. Render, look, pull generators and shaders after it, loop until the quality stands. Ortho­graphic diversity matters here and nowhere earlier — a structural step only has to prove it did not move the picture, and one meadow shows that |
+| **2** | the webcam scenario, several cameras, times of day and night, weather. Against those the whole lighting and weather model is fitted. **The rig deleted in 1.6 was wrong** — it rendered 320×180 and downscaled only the photograph; `architecture.md` asks for the declared size with **both** sides downscaled. It is in `git log` with its six fitted camera poses and gets rebuilt, not restored |
+
+## The acceptance instruments
+
+**Four steps below accept on a distribution and two instruments are refuted.** These are not limits;
+they are missing tools with a cost, and each blocks a specific "done when".
+
+**The counterbalanced block design is not an instrument.** ABBA's arm contrast is `(+1, −1, −1, +1)` —
+exactly the quadratic orthogonal-polynomial contrast over four ordered positions. It removes linear drift
+and aliases *curved* drift into the treatment effect at unity gain, so **more blocks make a false positive
+more significant**. Measured: two identical arms, 12 blocks, p99 difference −1.86 ms at p = 0.043, and the
+p99 means by position (34.10 / 36.36 / 35.71 / 34.26) *are* the effect. Fix, one line: randomise order
+within the block — 20 randomised blocks put all three quantiles at |t| < 0.8. Two things go with it:
+publish the resolvable floor beside every result (≈1.0 ms p50, ≈2.1 ms p99 at 20 blocks), and **stop using
+a run's p50 as the statistic** — inside one 240-frame run `frameMs` climbs from ~11 to ~25 ms as the world
+streams in, so it mostly measures how far streaming got. Frame-index-matched on a declared path halves the
+noise for nothing.
+
+**The per-pass GPU timer does not partition the frame, natively as well as in the browser.** Native:
+compute 0.43 + shadow 3.11 + scene 7.61 + ao 5.72 + taa 6.43 = 23.3 ms against p50 9.38. A begin/end
+timestamp pair measures a span on the GPU timeline; pipelined passes overlap and must not be summed. It
+licenses exactly one statement — *did pass P's span move between two builds of the same declared scene* —
+and never "pass P costs N ms". **Step 7 accepts on "the scene pass stays flat within noise" and cannot be
+evaluated with it.** The missing tool is one column: a single pair spanning the whole encoder,
+`gpuFrameMs`. Then `Σpass / gpuFrameMs` says which regime holds — above 1 means overlapping spans and
+attribution is forbidden. Two query slots, no new code path. Also `FrameTelemetry.cpp:66-72` publishes each
+pass as a **mean** against `CLAUDE.md`'s "never a mean", and compares it to a frame percentile.
+
+**When performance work happens is a trigger, not a schedule.** At 720p60 nothing is optimised. When
+720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back up to
+720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order
+regardless; the trigger governs work that is *not* on this list.
+
 ## Carried from step 1
 
 **A crossing still costs about +3 ms and lands near p95** — not invisible, and the residual is the 8 MB
@@ -70,22 +111,19 @@ sites, eight counterbalanced blocks, per stage where the guard actually runs: `r
 the struck figure.** `frameMs` p50 gives +0.50 at p = 0.19 and cannot resolve it: its sd of 1.00 is
 `gpuMs` noise, worth power ≈ 0.35 at that population. The band was a host state that lasted half an hour.
 
-## 1.6 — The scenario declares the internal render resolution
+## Carried from step 1.6
 
-**720p60 is the target and 1280×720 is the subject of the budget** — that has been the number all along.
-What is missing is that anything actually says so: today the picture comes out at whatever size the output
-medium happens to be, so no two machines measure the same thing and the resolution appears in no
-telemetry line.
-
-The scenario carries it, the canvas upscales bilinearly to its own size and keeps the aspect ratio with
-bars rather than distortion, and the bench stops overriding it by flag — a size is part of the
-declaration, not of the observation. A scenario that renders at another size, like a comparison against a
-photograph, states a different subject and says why.
-
-Done when: no code path takes a render size from a window, two runs at different canvas sizes produce the
-same frame distribution **measured paired and counterbalanced** — the host drifts by more than a
-millisecond between sessions, so an unpaired A/B decides on execution order — and the declared size
-stands in every telemetry line beside the scenario.
+**A canvas costs frame time that no pass explains.** The step's third clause — two canvas sizes produce
+the same frame distribution — was **wrongly specified and is struck**, twice over. By construction: the
+present pass writes the swapchain, so its cost scales with the canvas and a correct implementation must
+fail the clause. By measurement, worse: `demo/crossing`, 900 frames, 14 runs, p50 of per-second p50s
+**18.297 ms at 640×360 against 19.606 at 1280×720** (Δ +1.309, se 0.284, Welch t = 4.61, p ≈ 0.002),
+monotone in canvas pixels — but the excess sits in **every** pass including ones that cannot see the
+canvas (`computeMs` +3.7 %, `shadowMs` +6.2 %, `sceneMs` +3.6 %), while the present pass carries 0.33 ms of
+the 1.98. The renderer's work is provably identical across all 14 runs (`1280×720`, `meshStands` 96,
+`impostorStands` 15 899, `treeTris` 533 856). So the canvas moves device or compositor state, not render
+work. **What is checkable and is met: the declared size reaches the render target and the renderer's work
+is invariant.** The frame-time part is not the step's to hold.
 
 ## 1.7 — The fixed heap, over all of the client's memories
 
@@ -113,6 +151,14 @@ Done when: oracle and drawn mesh agree to a stated bound, same posting indices, 
 
 The value and algorithm headers with no renderer dependency belong in `core/`. The entity and effect path
 in `world/` draws nothing and goes, and `units/` goes with it.
+
+**`verify-types` is red and the gate is right, the tree is wrong.** Its three remaining hits are all
+`core/Countermeasure.h` — a named dispenser's schema in the core, against principle 4, left from the
+combat layer. Green is reached by deleting it here, never by editing the gate.
+
+**150 lines in `sim/src/` cite 27 `doc/` files that do not exist** — `doc/world/terrain.md`,
+`doc/clients/clients.md`, `doc/core.md`, `doc/render/*`. A citation to a deleted document is a claim
+nothing can check. They go with this step.
 
 Mechanical, low risk, precondition for 4.
 
@@ -219,16 +265,18 @@ infrastructure.
   the result is coupled to tile arrival order. **Likeliest cause, and cheap to test:** a temporal pass
   whose history length depends on pace. Shoot once with that pass off; if byte-identity returns, the
   coupling is the history.
+- **The mid-distance impostor trees are not tree-shaped.** Looked at directly in `demo/walk` at 1280×720:
+  five to six of them carry a large angular zigzag of foliage — folded-ribbon or bowtie silhouettes with
+  right-angle corners, not a crown with a bite out of it. An octahedral-impostor cell seam, in both
+  clients. It is by a distance the most damaging thing in the frame at one second of looking. Recorded,
+  not worked: the vegetation goes through the generator cut at 6 and 7 anyway.
+- The near-field sward is a smeared wash with horizontal banding — no blades, no change of structure with
+  distance. Second most damaging, same reason for waiting.
 - German comments from earlier rounds. The history stays; what is touched gets translated as it is
   touched.
 - **Naming needs a pass of its own.** A name that needs a comment is the wrong name. Borrowed jargon and
   magic sentinels where the type system has an answer are the two patterns. New identifiers are held to
   this as they are written; the existing ones are a separate sweep.
-- **A still is not reproducible run to run**, so byte-identity is not an acceptance instrument: over 14
-  runs of `demo/frame` on three pinned builds, three md5 states, two of them the same picture to within
-  one code and the third differing in **2 pixels above 2 codes, max 34, on 4 scanlines at one silhouette
-  edge**. Small, bounded, and still pace deciding a result — principle 7. Compare within a tolerance
-  until it is found; `tools/determinism.py` already computes the bound.
 
 ## Open, owner's decision
 
