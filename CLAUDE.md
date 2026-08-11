@@ -113,6 +113,13 @@ instrument's own floor beside the result.
 **When performance work happens is a trigger, not a schedule.** At 720p60 nothing is optimised. When
 720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back.
 
+**The engine is dynamic, and A18 Pro at 720p60 with KCD's picture is its calibration point** — the
+setting where the dial stands at full, chosen because it is known to be reachable. Elsewhere the engine
+delivers **the best picture the machine affords**: resolution, LOD bias, density and view distance are
+driven by a control loop that measures the frame, not by a menu. That is still **one version** — the
+knob is a measurement, never a build configuration and never a user's choice. What stays forbidden is a
+hand-written ladder of presets, because each rung is a version somebody has to keep true.
+
 **The still is the comparison resolution, not the acceptance.** Popping, ghosting, a hitch on stream-in
 and a scatter that ends at a radius are only decidable in motion. **Appearance is judged by eye from the
 image**; a number decides whether the frame floor holds, never whether it looks right.
