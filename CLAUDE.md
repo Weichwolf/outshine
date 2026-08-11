@@ -86,14 +86,6 @@ switch a pipeline state**; the core derives discard, two-sidedness, transmission
 from what is declared. **A further pass must beat its base price**, and the price is **0.35–0.5 ms** —
 a 1280×720 RGBA16F ping-pong moves 14.75 MB, which is 1.5–3 % of the frame before one instruction.
 
-**A generator declares what it can deliver, and the renderer decides.** The draw product names its
-rungs — how many, what each costs, whether an impostor exists and from which rung it takes over — and
-the renderer picks against **screen-space error alone**. One criterion for terrain, trunks, façades and
-crowns; a generator never chooses its own rung and never carries a distance. **Only what contributes to
-the image is drawn**, and "contributes" is that same error against the same threshold, so a thing too
-small to change a pixel is not culled by a special case but simply never selected. The cluster DAG
-already works this way; nothing else may work differently.
-
 **One geometry stage over one cluster cut, one LOD ladder** — never one per kind of content. Vertex
 layout `pos3 @0 · uv2 @12 · nrm3 @20`, 32 B, with `pos3 · nrm3` 24 B as a declared second where no uv
 exists. `uv` in metres, except a façade, which encodes style and storeys (`core/FacadeUv.h`).

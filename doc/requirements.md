@@ -59,12 +59,11 @@ because a 180° turn must not stall. The defect is that nothing bounds those byt
 **Every number in this band is a value at the calibration point** — A18 Pro, 720p60, KCD's picture — and
 is an output of the control loop, never a platform constant. A line that hard-codes one is a defect.
 
-**What may scale with the machine, and the test.** A lever may change how fast the world converges; it
-may never change what a stationary observer converges to. That admits prefetch radius, decode
-concurrency, admission bytes and pool sizes. It forbids a residency radius smaller than the view
-radius, because that is not slower convergence, it is a hole that never closes. **The render resolution
-is not a lever** — a picture-changing dial that moves under load hides a regression as fewer pixels and
-makes two runs incomparable, so it is pinned for the length of a declared run (`CLAUDE.md`).
+**What may move, and the test.** A lever may change how fast the world converges. It may never change
+what a stationary observer converges to. That admits prefetch radius, decode concurrency, admission
+bytes, pool sizes and worker count. It forbids a residency radius below the view radius — that is not
+slower convergence, it is a hole that never closes — and it forbids every dial that changes the
+picture, which is pinned for the length of a declared run.
 
 ### 0.1 The ledger closes
 
@@ -80,6 +79,7 @@ makes two runs incomparable, so it is pinned for the length of a declared run (`
 - [ ] A pool registry every pool enters at construction, so the ledger is a walk over it — today the list is hand-written in `MemoryTelemetry.cpp` and drifts in silence
 - [ ] Device memory under the same discipline: declared budget, per-consumer counters, residual — `devSumMB` reached 227.8 MiB with neither budget nor ceiling (`render/Renderer.h:101`)
 - [ ] Every budget line names which memory it constrains, linear or device — separate pools, separate exhaustion, and only one of them has a probe that can fall
+- [ ] Pools borrow from one another in a declared grain against one fixed total, instead of each holding a private reservation that idles — Guerrilla's asset and render pools share physical memory in 64 MiB grants, which is what makes a fixed budget elastic without making it larger. `poolRegionsKB` sits at 38 157 KiB, 16 % of the used heap, from t=1 s to t=77 s whether or not anything generates
 - [ ] What fixed `WebAssembly.Memory` each engine actually grants with `SharedArrayBuffer` in play — TOOL, one page that allocates and reports. Not yet measured; not a limit
 
 ### 0.2 The request and its priority
@@ -111,7 +111,7 @@ makes two runs incomparable, so it is pinned for the length of a declared run (`
 - [ ] The LRU victim found in O(1) rather than by linear scan under a held lock (`world/TilePool.cpp:236-240`, n ≈ 600 at 64 MiB of z14 tiles) — an intrusive list or a clock hand, per Gregory §6.2.2 on pool allocators, and the choice named on the line
 - [x] An evicted tile node releases the collector's device slot, and the slot is recycled rather than freed (`world/World.cpp:534-547`, `clients/Outshine.cpp:309`, `render/stages/TerrainDraw.cpp:810`)
 - [ ] Eviction for building prints and verts, water surfaces, courses and levels — the fields grow monotonically and their unit of removal does not exist (`world/BuildingField.h`, `world/WaterField.h`, `world/StreetField.h`); at 70.9 MiB it is the largest single consumer in the tree
-- [ ] Every streamed pool a slab of uniform blocks or a ring, which is the argument that no defragmentation pass is needed. The reference defragments its device buffers under a 64-moves-per-frame cap with pin and unpin (`IDefragAllocator::DefragmentTick`, `r_buffer_pool_defrag_max_moves`) because its blocks vary in size; under wasm dlmalloc the break cannot be returned, so fragmentation is permanent and a slab is the only answer that holds
+- [ ] Every streamed pool a slab of uniform blocks or a ring, which is the argument that no defragmentation pass is needed — and the argument is owed, because both references defragment instead: CryEngine at 64 moves a frame with pin and unpin (`IDefragAllocator::DefragmentTick`, `r_buffer_pool_defrag_max_moves`), Guerrilla at the start of every frame with a 16 MiB copy cap, a three-phase move and a one-frame linger because a block may still be in use, concluding "expensive and complex, but almost no waste". Both defragment because their block sizes come from artists; ours come from us. Under wasm the break cannot be returned, so a slab is the only form in which fragmentation cannot accumulate at all
 - [ ] A residency handle minted only by a pool that accepted its byte charge, so "allocated but in no budget" and "resident but not evictable" are unspellable rather than forbidden
 
 ### 0.4 Arrival without a stall
@@ -137,13 +137,14 @@ makes two runs incomparable, so it is pinned for the length of a declared run (`
 - [ ] Residency age per tile as a distribution: how long resident, how long since last in the target cut — the input the eviction policy is judged on
 - [ ] A declared walk gate: 500 m of travel raises `tilesTotal` and `poolHttpGets`, `tilesEvicted` rises once the budget binds, and p99 holds under 33 ms across the traverse — DECIDABLE, and it fails in CI rather than in a browser
 
-### 0.7 The control loop's streaming lever
+### 0.7 Headroom and pressure, without a picture dial
 
-- [ ] The frame budget's control loop owns one streaming lever — bytes admitted to build and upload this frame. Over budget it shrinks, under budget it grows. A measurement, never a preset
-- [ ] The lever damped the way the documented practice damps: a history window, a deadband below which nothing moves, a minimum period between changes, and an asymmetric response — fall after N consecutive over-budget frames, rise slowly (`r.DynamicRes.HistorySize`, `ChangePercentageThreshold`, `MinResolutionChangePeriod`, `MaxConsecutiveOverbudgetGPUFrameCount`; `TargetedGPUHeadRoom` 10 %)
-- [ ] The streaming lever is the only lever the loop owns — no picture-changing dial moves under load, so a frame time stays comparable between two runs and a regression cannot hide as fewer pixels
-- [ ] The loop's own state published per row: which lever moved, by how much, and the measurement it moved on — a controller whose input is not in the record is not falsifiable
-- [ ] Residency and prefetch pool sizes derived from the granted heap and `hardware_concurrency` at bring-up, never from a constant in a source file
+- [ ] Streaming classified as non-frame work and scheduled in the idle time of frame work, so headroom is spent and yielded with no lever reading `frameMs` — Guerrilla's split of frame jobs (must complete this frame) from non-frame jobs, three priorities in each, is the whole mechanism; the scheduler is the control loop and no dial exists
+- [ ] Pressure paid in detail rungs and never in coverage: the coarse ancestor is resident and stays drawn while the fine rung streams. Horizon holds four resolutions of the same ground at once — 9 high, 9 medium with the physics mesh, 9 low baked, 12 very low never unloaded — and gives up mips and LODs when memory is demanded, so coverage is structurally unable to fail
+- [ ] An ancestor rung built and held for the travel case, not only for the cold start — `world/World.cpp:243-253` requests the target leaves directly and builds no intermediate level, so today there is nothing to fall back to and the loading screen is the only absorber
+- [ ] The pressure inequality published per frame: arrival latency against prefetch distance ÷ camera speed. Throttling is legitimate exactly while it holds with margin, and the margin is a number rather than a hope — DECIDABLE
+- [ ] Convergence as its own acceptance quantity: after motion stops, `TargetRdy == TargetTot` within a declared T. A comparison compares converged frames; transit is measured as time-to-converge and never mixed into `frameMs`
+- [ ] Camera speed may raise the prefetch horizon and reorder the queue, and may never lower a mip or an LOD target — REFUSED: CryEngine's speed-driven mip bias ships disabled (`e_StreamAutoMipFactorSpeedThreshold` = 0.0, with a `MaxDVD` variant naming it a transport workaround), and any dial that changes the picture is pinned for the length of a declared run
 
 ## Band I — Engine
 
@@ -263,6 +264,10 @@ makes two runs incomparable, so it is pinned for the length of a declared run (`
 - [x] The engine knows only physics: a trunk is a cylinder; no content taxonomy exists in it
 - [x] A generator runs continuously per region, not once at load
 - [ ] Actor spawner sharing the region key and handing seed to an entity store — actors are not generators
+- [ ] The draw product declares the generator's **capability**: how many rungs it can deliver, the model-space error of each, whether an impostor exists and from which rung it takes over — the renderer optimises against that declaration, and the header that declares it carries this rule as its own comment rather than a document elsewhere
+- [ ] Selection on screen-space error alone, one criterion for terrain, trunk, façade and crown — a generator never chooses its own rung and never carries a distance
+- [ ] Only what contributes to the image is drawn, and "contributes" is that same error against the same threshold, so a thing too small to change a pixel is never selected rather than culled by a special case
+- [ ] Every kind of content on the one cluster DAG the terrain already uses — a second selection path for a second kind of content is the defect this line exists to prevent
 - [ ] `DrawSink` truncation reported rather than silent (`ForestDraw.cpp:18`)
 - [ ] `RegionPool::Extent::Reached` read by the thing whose budget it claims to bound
 
