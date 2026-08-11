@@ -131,12 +131,9 @@ constraints moved from the first kind to the second — and where a rule is stil
 what shape would carry it instead. When a cut genuinely raises that number, say so plainly and say why;
 an architect who only ever subtracts is as useless as one who only ever approves.
 
-**The picture verdict is suspended while `doc/todo.md` still has entries.** The bar does not move, but
-grading against it today costs a round and returns an answer everyone already knows. Until the list is
-worked through, a picture finding is **recorded and ranked** — what destroys the impression most in one
-second of looking, camera or file, and what would be right instead — and it is **not** graded yes/no
-against the references. Quality work begins once the structure stands; a verdict before that measures the
-schedule, not the picture. When the list is empty this reverts: yes or no, no "getting closer".
+**On a picture judgement: yes or no.** Does it hold against GTA 5, Witcher 3, Fallout 4? No "getting
+closer". The nine structural steps are done and the suspension is lifted — the verdict now measures the
+picture rather than the schedule.
 
 ## When you check your own design
 

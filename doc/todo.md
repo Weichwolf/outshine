@@ -19,39 +19,141 @@ graded against the references: the answer is known and the round is spent. Then,
 
 ## Where it stands
 
-| | Step | State |
-|---|---|---|
-| 1 | classification off the render thread | **done** · `262e5fc` |
-| 1.5 | heap and stack telemetry, with the instrument's own range | **done** · `9379f6f` |
-| 1.6 | the scenario declares the internal render resolution | **done** · `023c407` |
-| 3 | move what is misfiled, delete what is dead | **done** · `81b828c` |
+**The nine structural steps are done.** Classification off the render thread · the height oracle on the
+drawn surface · the misfiled moved and the dead deleted · the server target and the fall of the checker ·
+`generators/` · the forest as a generator · one geometry stage · regionalisation · buildings and water.
+What each one measured is in `git log`; what it built is in the code.
 
-| 2 | the height oracle evaluates the drawn surface | **done** · three slopes, 0 violations in 48 standpoints |
-| 1.7 | the fixed heap, over all of the client's memories | **done** · client reserved 512 → 200 + N×56 MiB |
-| 4 | the server target, and the checker falls | **done** · `World` no longer holds a renderer pointer |
-| 4.5 | fold the tile worker into the client | **done** · one module, one cap, one priority key |
-| 4.6 | the GPU readback stops blocking the frame thread | **done** · unwinding off, render p99 6.1 → 2.1 ms |
-| 5 | `generators/` | **done** · the include set is the enforcement, both ways |
-| 6 | the forest becomes a generator | **done** · the forest stopped following the camera |
-| 7 | one geometry stage | **done** · 91 plant fields in the renderer → 0, one cut, 7 passes |
-| 8 | regionalise | **done** · ms and bytes per region exist; the crossing clause stays open, see below |
-| **9** | **buildings, water surface, infrastructure** | **in the tree** — the last one |
+**The list below is what is left, and it is a different kind of list.** The steps were structure and
+their acceptance was a number. These are defects and absences, ranked by what destroys the impression
+fastest or costs the most to leave — and the picture verdict is no longer suspended, because the
+structure stands.
 
+## 1 — The water level puts most bodies under the ground
 
+Measured twice, by two instruments: over sixteen regions **all nine** outlines report the level below the
+ground at their own centroid, worst **6.5 m**; over 43 rings around the demo, **34 of 42** with a centroid
+inside, median +0.32 m. The mechanism is visible and has two parts. `floor(0.05·(n−1)) = 0` for any ring
+under **22 points**, so for a farm pond the "fifth percentile" **is the minimum** — 28 of 43 rings here —
+and the minimum of *n* samples of a DEM with σ ≈ 2–4 m in this relief is biased low by ≈1.5σ at n = 9. And
+the ring is the **bank**, not the shore of a level body: worst-case spread across one ring is 11.65 m.
 
+The model is exact where it was calibrated — the four Weser polygons at 152…187 points answer 0.00 — and
+wrong everywhere small.
 
+`Tessellate` emits the surface at `level + 0.15 m`, so for those bodies the water plane lies **under the
+drawn terrain**: a fringe at the median, fully buried at the tail. Water is the strongest tonal element in
+a landscape at the comparison rung; a specular sheet reads at any range.
 
+The published name for the answer is **hydro-flattening** (USGS *Lidar Base Specification*): a lake
+polygon is flattened to a constant elevation at or just below the surrounding terrain, and a **river**
+polygon carries a monotone downstream gradient rather than a constant. The engine already enforces
+monotone-downhill for water *lines* twelve lines above the polygon branch in the same file. Two moves:
+carve the region's ground patch to the level under the outline so the two models cannot disagree —
+deterministic, per region, no storage — and give a polygon a gradient where its ring's spread exceeds the
+DEM's vertical noise. `core/WaterDepth.h` stays right, and `LevelBelowGround` becomes what it should be:
+rare and diagnostic.
 
+## 2 — The mid-distance crowns are not tree-shaped
 
+The one-second killer, recorded through four steps and never worked. Five to six crowns carry a large
+angular **zigzag / bow-tie** silhouette with right-angle corners — a two-quad cross seen near edge-on, or
+a card whose alpha cut leaves the waist. Step 6 gave it a falsifiable prediction: until then every yaw lay
+in [0, 0.088°], so the forest was one unrotated clone; with uniform yaw a cross presents its edge-on
+aspect in a **coherent bearing band**. If the band survives, the cause is the impostor cell seam and not
+the cross. **One moving capture answers it**, and `demo/ring-pop` already writes every frame.
 
-| — | the scenario interface and its JSON loader | open — **designed**: headers, schema and acceptance stand |
+Beside it, the same subject: **seen from directly above all 15 995 stands vanish** — camera-facing cards
+seen edge-on, and a world sandbox has a bird's eye. And a **bright untextured kite behind a near crown**,
+reading as a hole in the sky: does it rotate with the camera (an impostor card sampling an empty atlas
+cell) or stay welded to the stand (one stand submitted at mesh rank *and* impostor rank in one frame)?
+The two separate on a capture that exists. Right in either case: a stand appears in exactly one rank per
+frame, and an impostor cell that has no bake is never sampled.
 
-A step that is **done** has left this file: it is in the code and its measurements are in `git log`. What
-survives below a finished step is only what a later step needs to know.
+What the references do: the cross never survives to the range where its own geometry is legible —
+SpeedTree practice, and Guerrilla's *Horizon* vegetation hands that band to an impostor first.
 
-**What the list is for, named by what one sees at the end of it:** a working plumb (2) · trees placed,
-randomised and instanced properly (5, 6) · many trees **and houses** drawn fast (7, 9) · **correct in
-motion** (8, and the impostor silhouette) · and only then appearance, tuned by eye.
+## 3 — The near crown is not one mass
+
+A beech stand carries LAI 4.5–5.1 m²/m², and litter collection over eleven temperate deciduous stands
+spans 1.7–7.5. At any value in that range a crown occludes essentially all sky through its own depth and
+must read as **one mass with a lit top and a shadowed underside**. Ours reads as separated dark flakes on
+bare twigs, which means card coverage an order of magnitude under the species' own leaf area. Density and
+self-shadowing, not detail.
+
+`subject-meadow` writes 57 frames of bare substrate — `SubjectBench::Select` sets `Bucket_` and
+`Kind_ = Herb`, and `Bucket_` is never read again. There is no herb geometry path in the bench.
+`subject-beech` fills 17.2 %, so the rig is sound and the subject is missing.
+
+## 4 — `Sim::Features()` scans everything decoded so far, per region, on the render thread
+
+Measured from the tile server: the demo's 25-tile neighbourhood holds 4 918 footprints and 24 174 ring
+points; **one** z14 tile over Berlin Mitte holds 1 115 and 10 527. The whole demo accumulation is 2.3× one
+central-Berlin tile, `Prints_`/`Surfaces_` are never pruned, and the scan is already the same order as the
+16 641-read lattice that step 9 just made 21× faster — and unlike it, unbounded.
+
+Refuted by that step's own insight: **one region is one tile**, `OsmField::Feature::Tile` already groups
+features contiguously and they are appended in tile order, so a `tile → [from, to)` range exists by
+construction and a region's features are a **slice, not a scan**. Roughly the same ten lines. Do it before
+infrastructure, because streets, sites and street polygons go through the same scan and multiply it.
+
+## 5 — Nothing evicts, against a heap fixed at 296 MiB
+
+`BuildingField`'s prints and verts, `WaterField`'s surfaces, courses and levels, and `OsmField` grow
+monotonically for the length of a walk, and no eviction path exists. `architecture.md` is explicit — the
+streamer needs a byte budget and evicts against it, and every pool reports its bytes or it is a leak with
+a name. They report; nobody acts. **A fixed heap plus monotone growth is a maximum walk length**, and a
+world sandbox has none. The number is one long `demo/ring` run with a column that already exists.
+
+## 6 — Infrastructure, and the night
+
+`/t/lights` and its 587-line producer are gone with a client half that had no caller. There is no light
+list, no emissive path in the pass enumeration, no placement generator. OSM street lamps are genuine
+vector data under principle 6 and all three references have a night. Owed twice now, and the largest
+missing capability in the tree.
+
+`osmDefault` is one global `"meadow"`, so unmapped land anywhere on Earth grows 700 blades/m² — Death
+Valley's floor is a sward and there is no arid template among the thirteen. A per-place default belongs to
+the vegetation generator, which does not exist yet: the forest is the only one.
+
+## 7 — The crossing's remaining 2.4 ms is unexamined, not unattributed
+
+A crossing costs +6.51 ms at p50 over its own neighbourhood; `collectMs` is flat and `populateMs` is 0.055
+there. The profile carries seven more columns that were never checked, and **`buildingMs` is the obvious
+candidate**: `World.cpp` puts the vector build, the water ingest, the building build **and** the building
+DAG in that one span, with the DAG recorded at 33.0 ms of a 50.9 ms frame for one dense tile. Redo the
+neighbourhood excess over **every** column — one run, no code — and publish `frameMs − Σ(spans)` as its
+own column so "unattributed" is a measured quantity instead of a subtraction done by hand.
+
+**And the pool's byte step is still a localisation, not a diagnosis** after two rounds of paying for it:
+p50 +1.09, p99 +7.54 ms between 23.2 and 28.0 MiB, one binary, capacity the only variable. Not cache, not
+extra work. What remains is an allocator size class or heap pressure changing tile eviction, and the
+`evicted` column already exists.
+
+## 8 — Interfaces that write down what they claim to carry
+
+`RegionPool::Extent::Reached` is **never read** — the header says the body budget follows it while the
+count is computed by the caller, so it is an argument the constructor ignores · `FbGroundBlock::Nodes_`
+is a raw pointer into an LRU slot valid until the next call into the oracle, enforced by a comment; a
+generation counter on the slot makes it a refusal instead of a corruption · the oracle's
+single-threadedness is now on the header and is still a sentence, not a type · `Buildings::Over` discards
+a `[[nodiscard]]` in three places because `Passes()` already guarantees the top, so the invariant is split
+across two functions and bridged by a cast · the OSM layer names are spelled in three files ·
+`DrawSink::Add` returns a `bool` with `Full()` beside it and `ForestDraw.cpp:18` truncates a region
+silently, though the collection's refusal is loud · **the winding is hard-coded at seven sites** and now
+gates the first generator draw product: cull mode is pipeline state fixed at `Configure`, so the shape is
+a declaration at registration beside the rank, and `Configure` runs after the units are known.
+
+## 9 — Two bases for one building, and a budget that escapes itself
+
+`FeatureTop = BaseM + HeightM` takes `BaseM` from the ring's lowest corner while `Buildings::At` derives
+its base from the patch at the bbox centre, so on a slope the queried prism floats relative to the drawn
+one and the reported height is short by the ground difference across the footprint — ≈1.5 m at 10 % over a
+15 m house. `BaseM` is already computed; carry it. · `Sim::Settle` sets `RoofChecked_` inside the resolved
+branch, so before the ground lands every pass pays a full `GroundAt` — outside `populateMs` and outside
+the one-per-turn budget. · `verify-types`' negative gate passes on **any** compile error; one `grep -q`
+clause fixes the class for all three gates. · Comment density on the newest files is 25–50 % prose against
+a rule that says one line of local why.
 
 ## The acceptance instruments
 
@@ -127,182 +229,6 @@ not from a metric standing next to it.
 720p30 can no longer be **held** — the floor, p99 under 33 ms, not the mean — it is optimised back up to
 720p60. The steps below that carry millisecond acceptance numbers are architecture and run in order
 regardless; the trigger governs work that is *not* on this list.
-
-## Carried, for the steps that need it
-
-**The browser's tile pool does not scale, and that is the whole load regression.** Measured on one
-binary by varying the thread count, `demo/frame`, ms per tile:
-
-| pool threads | wasm | native | wasm tiles/s | native tiles/s |
-|---|---|---|---|---|
-| 1 | 316.1 | 153.2 | 3.04 | 6.29 |
-| 3 | 537.6 | 214.2 | **5.29** | 13.44 |
-| 4 | 724.7 | 232.9 | **5.24** | **16.41** |
-
-**Wasm saturates at three threads — the fourth costs a core and returns nothing** — while native reaches
-16.4 tiles/s, which *is* the 16–18 of the 8.3 s era. Single-threaded wasm is only **2.06×** native; all
-the rest is scaling loss. The load is 95 % mesher: 130 × 0.726 / 4 = 23.6 s against 24.8 measured.
-
-Refuted on the way: the link level (`-O1` → `-O2` buys 3.0 %, kept anyway — faster, 17 % smaller, and it
-removes an asymmetry with the pre-fold worker) and the unwinding mode (3.6 %). What remains is that the
-pre-fold mesher compiled **without `-pthread`** into its own heap and now compiles with it into a shared
-one. **The discriminator, not built: pace the loading loop to 60 Hz and re-measure at four threads.** If
-ms/tile falls toward 316 it is scheduling; if it does not, it is the allocator.
-
-**The loading loop renders ~2 200 unpaced frames per second.** The old 4 ms nested-timeout clamp paced it
-to 174 by accident. A progress bar needs 60, and on the declared ceiling that is a core taken from the
-mesher during the phase this is trying to shorten — which makes it the first half of the discriminator
-above. It also emits 2 000-fps telemetry rows, so any later step pooling frame samples must filter on
-`resident`.
-
-**The log sink is written from pool threads with no lock.** `Log::Sink_` is process-wide, nothing calls
-`SetThreadSink`, `TilePool` logs from workers, and `ServerLog::Write` appends to a bare `std::string`
-that `Flush()` slices on the main thread. `CP.2` — and it is the instrument every remaining step accepts
-on.
-
-**Everything that waits became a stepper, and the pattern was not named.** Five enumerations for one
-three-state answer — `ReadState`, `Bring`, `Delivery`, and two `Progress`. One `Turn { Waiting, Done,
-Failed }` in `core/` deletes four, before step 5 needs it for region jobs. `SceneRunner`'s flat 16-state
-`Stage` is three nested sequences pretending to be one, with `CompareClasses()` reading `Stage_` inside
-itself to decide which half of itself to run.
-
-**Step 8 — the pool ceiling truncates instead of refusing.** `kBodiesPerRegion = 49 152` is 1.39× one
-measured region of `demo/frame`, while the cell array is derived from the equatorial region the schedule
-can hand out. The declared `conifer_forest` at 0.033/m² over a z14 region at 51.96 N (1507.3 m per side,
-2.272e6 m²) expects **74 984 stands — 1.53× the ceiling** — and `Occupy` scans row-major and returns on
-`Full`, so a fully forested region loses everything north of one lattice row: **a straight east–west
-forest edge**, in a log field and in the picture. `architecture.md` already prescribes the shape — evict,
-retry once, then **refuse that piece of world**. Derived the right way it costs ≈36.7 MiB against 25.15.
-
-**Step 8 — a not-yet-ready region rebuilds its whole posting grid every frame.** `Sim::Snapshot` fills
-129² = 16 641 postings and only then learns from `GroundPatch::Complete` that one was pending; the next
-pass does it again, for every unready region in the ring. A **sustained** frame cost while a DEM streams,
-which is worse than a hitch because it hides — and it will make step 8's own ms-per-region bimodal for a
-reason nobody wrote down. One line: break on the first unresolved posting. The patch's ~530 KB of heap
-traffic per region belongs in the pool for the same reason the bodies do.
-
-**Step 8 — one watermark couples every tile.** `BuildingField`'s `Consumed_` is a single watermark and
-`Build` refuses to pass a deferred tile, so one permanently-Pending tile stalls **every later tile's**
-buildings where before it lost that tile and moved on. Defensible while there is no timeout on the load;
-it needs per-tile deferral once regions arrive. `WaterField.cpp:54,90` still folds Pending and Hole into
-one counter with the watermark advancing — the same defect, now visible in the type.
-
-**Step 8 — the class structure cannot be appended to.** The grid is anchored on the camera and dense, so
-a re-anchor changes what every index means; features are laid down in ascending rank, so a later one
-rewrites cells an earlier one won; and a cell's seeds must be contiguous because the fragment reads them
-as a range. Append-only needs an absolute region grid, non-contiguous seed lists in the fragment and rank
-resolution at evaluation time — step 8's structure, not a variant of this one. A crossing's cost is the
-8 MB class upload, one per publish; streaming and ingest contribute nothing measurable.
-
-**Step 5 — the discard path is deliberately absent.** Every reader runs on the render thread inside the
-frame that asked, so there is no stale result to discard. The version is published; it is the hook when
-a reader becomes asynchronous.
-
-**The memory ledger, after 1.7.** Reserved is **`200 + N×56` MiB**, `N = clamp(hardwareConcurrency − 2, 1, 6)` — one host's 424 is not the client's number, and the **ceiling case is 536**, above the 512 the fixed heap was meant to beat. The A18-Pro-class check belongs at N = 6, not N = 4.
-
-**Main is 200 MiB because of a run product.** `demo/classes` holds one `spanM 400 / stepM 0.05` raster — 8000² + header = 61.04 MiB of a 159.13 high-water — and the sizing rule was applied to it literally. Sized off the largest *play* scene it would be **120 MiB**, and the client 344. The fix is not a rule change: write the dump in row bands through a chunked artifact sink. `HttpPost` takes one buffer today, so the sink is the real work — ~70 lines for **80 MiB**.
-
-**Two instruments are three lines each and are worth more than the next measurement.** `workerHeapPeakMaxKB` — the row publishes `Σ` over worker modules and throws the **max** away, so one module peaking at 50 while another sits at 37 reads as 43.5 and nothing in the archive can tell you. And a **`verify-memory` gate** that parses both binaries' memory sections and fails when `initial ≠ maximum`, or when a declared cap disagrees with the newest telemetry peak by less than the stated margin — ~30 lines, and it turns the whole step from a claim into a gate.
-
-**The ≈0.15 ms guard cost stands unrefuted.** A frame-level p50 at n = 4 per arm is underpowered by about 25× — detecting 0.15 ms at that spread needs ~97 runs per arm — so it says nothing either way. "Four runs cannot resolve it", not "this host cannot".
-
-Beside the main module
-the tile pool runs `N = clamp(hardwareConcurrency − 2, 1, 6)` further wasm modules, growth-enabled.
-Reserved is 256 + N × 64 MiB; main's in-use is **97.8–108.6 MiB measured**, the workers unmeasured. **The
-144 MiB between main's reserved and used is the step's first move.** Stack high-water, browser, KiB
-(peak · floor · limit · capacity): frame **18.6** · 4.2 · 516 · 4096; class **4.2** = its own floor, so it
-reads "≤ 4.2, unresolved below". The probe publishes the break and the ceiling but not the linear memory's
-current size — one call, one column. The per-access guard costs **≈ 0.15 ms of CPU**, measured per stage
-because `frameMs` cannot resolve it.
-
-**Step 5 — the include set must bound real generator sources, not three named files.** `verify-generators`
-compiles exactly three paths and `INC_GENERATORS` is used nowhere else; real sources would land in
-`SIM_SRCS`, which the `world` target compiles with `-Isrc/world` on the line, so `generators/Forest.cpp`
-could include `World.h` and every target would build. The gate must compile the wildcard minus its two
-negatives, and `generators/` needs its own compile group in the real targets — otherwise step 5's
-"impossible rather than prohibited" is prohibited by a three-file list.
-
-**Enforcement lives in one of three targets.** `walk` and `wasm` compile the same `world/` sources with
-`-Isrc/render` present, so an upward include fails in `make world` only. The shape that closes it pays
-for itself: compile `SIM_SRCS` once with the simulation include set and link those objects into all
-three, which also removes two full recompiles of ~25 translation units per round.
-
-**Step 4.5 / 4.6 — the oracle builds a tile on the frame thread.** `Outshine::Look` calls
-`fb_stream_ground` on **every camera update**, so a z14 crossing during play means five synchronous PNG
-decodes (≈8.6 ms at 1.71 ms each) with a possibly synchronous fetch behind `fbs_size`. Not created by
-step 2 — the cache was 6 and is now 5, so the in-play stall moves by about one decode — but the
-"it runs once inside the loading phase" justification is false for this caller and must not travel
-forward.
-
-**Step 4.5 — the byte budget is unserved where it is needed.** The tile byte caches read 1.3 MiB in the
-browser against 33.8 MiB natively: the browser's decoded tile bytes sit in the worker modules, so the
-platform with the eviction problem is the one with no number. **And there are two byte caches natively
-holding the same keys** — `fbp_cache` in the pool, `fbs_cache` on the main thread, identical key space,
-zero sharing.
-
-**No device ceiling is declared.** The device holds 234.3 MiB, 208.9 of it tile geometry; which budget a
-device allocation is charged against is the open question `architecture.md` names.
-
-**A canvas costs frame time that no pass explains.** `demo/crossing`, 900 frames, 14 runs: p50 of
-per-second p50s **18.297 ms at 640×360 against 19.606 at 1280×720** (Δ +1.309, se 0.284, t = 4.61,
-p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pass including ones that cannot
-see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
-identical across all 14 runs. So the canvas moves device or compositor state, not render work.
-
-## 9 — Buildings, water surface, infrastructure
-
-Footprints and the water surface become generators; the water *level* stays in the core. Then
-infrastructure.
-
-**Do this before anything is placed: one region is exactly one DEM tile at the same zoom.** `Sim::Snapshot`
-performs **16 641 geodetic round-trips plus a cache probe plus a barycentric evaluation, at 340 ns each**,
-to recover the posting block the tile pool already holds verbatim — 5.65 ms p50 on the render thread, and
-it is the reason that work is stuck there. Handing the block out of the pool is an index computation and
-is trivially thread-safe, because a complete tile's bytes are immutable. Both new generators will want the
-same `Ground` and the same 5.65 ms.
-
-**The crossing clause is open, and it is five lines from being measurable.** A crossing costs **+1.77 ms**
-at p50 against its own neighbourhood; the terrain streamer carries 0.65 and the ring's collection 0.09.
-The remaining 1.03 ± 0.45 **is the ring** — 3 new regions × 5.65 ms / a 16-frame window = 1.06 — and it
-appeared unattributed only because `Sim::Populate` runs after `World::Refine` inside one function, so it
-lands in `frameMs` and in no column. `Sim::PopulateMs()` as a CSV column makes the ring's frame cost
-visible in the profile the ring itself made identifiable.
-
-**`fb_stream_ground` is not thread-safe and its header does not say so** — its LRU clock is a bare
-`uint64_t` mutated without a lock. The rule lives in a comment in `Sim.cpp` while `BuildingField` and
-`WaterField` already call the oracle, and this step moves both onto a generator thread. The statement
-belongs on `TerrainLoader.h` in the round that relies on it, or the oracle becomes re-entrant.
-
-**Re-measure the heap before placing, not after.** `INITIAL_MEMORY=248MB` is "measured high-water plus
-25 %", and step 8 added **+12.1 MiB** of permanent pool residency and a 256 KB stack without re-deriving
-it. This step adds building geometry, a water surface and infrastructure into what is left.
-
-**"A step, not a slope" is a localisation, not a diagnosis.** The pool's resident bytes cost **p50 +1.09,
-p95 +4.39, p99 +7.54 ms**, and the sweep is clean — one binary, capacity the only variable, the step
-between 23.2 and 28.0 MiB. But the *mechanism* is unnamed: not cache (23 MiB is far past any level that
-would step) and not extra work (`Placed()` returns `Sub(0, Count())`, so capacity lengthens no walk).
-What remains is an allocator size-class or arena boundary, or heap pressure changing tile eviction —
-testable in one run by watching `evicted` across the same sweep. **This step adds resident bytes by
-design.** The trade was right once; taken twice without a mechanism it is a slope nobody can predict.
-
-**Introduced by 8 and cheap to buy back:** the occupancy **cell** array lost its by-construction ceiling.
-It now sizes on the ring's widest region at bring-up rather than the zoom's equatorial one, guarded by an
-assert — about **5.1 km of southward travel** from the demo latitude reaches it, and the comment beside it
-claims a refusal that covers the body budget, not the cells. Size cells on the equatorial region and keep
-the body capacity derived from the widest: **+2.0 MiB over nine slots, 0.8 % of the heap**, and the 2.66×
-saving the comment defends is untouched because it lives entirely in the body array.
-
-**`Ask()` has no per-frame budget** — up to nine snapshot attempts in one frame at 5.65 ms p50, on the
-thread that draws, and a region complete but for its last posting pays the full grid every frame until it
-lands. The old "one region per pass" budget did not travel with the work when `Occupy` moved off-thread.
-
-**The winding decision was assigned to 8 and was not made** — four hard-coded `Winding::Trusted` call
-sites. Buildings and water arrive at runtime here, so a hard-coded value becomes a guess about data: the
-winding travels in the draw product, beside the cluster list.
-
-**Night city lighting is owed and exists nowhere.** `/t/lights` and its 587-line producer are gone
-with the client half that never had a caller; OSM street lamps are genuine vector data and the picture
-target has a night. It comes back here, placed by a generator, and the endpoint is rebuilt with it.
 
 ## Later
 
