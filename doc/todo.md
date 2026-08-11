@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Working on** | Hardening — the code made pristine before more defects are chased. `AdmitMesh`'s `Absent` arm is in flight and lands first |
-| **Scope** | `doc/requirements.md`: **1382 features, 218 ticked, 1164 open** · `doc/bugs.md`: **53 defects** |
-| **Last accepted** | The telemetry carries the eye — `eyeTravelM` 0 → 501.392 m, both counting identities structural (`da48351`) |
+| **Working on** | Hardening, item 1: `make gates` — one target whose green is the precondition of a commit |
+| **Scope** | `doc/requirements.md`: **1418 features, 227 ticked, 1191 open** · `doc/bugs.md`: **68 defects** |
+| **Last accepted** | `Absent` terminal, only a declared refusal mints it; counters 64-bit on wasm (`1424214`) |
 
 **Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
 `doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
@@ -36,41 +36,35 @@ silent corruption in a build loop is what "the client freezes" looks like.
 
 Hardening comes before further defect hunting. Bugs already recorded stay recorded.
 
-## Now, in order
+## Now, in order — the hardening queue, from § I.17
 
-1. **`AdmitMesh`'s `Absent` arm is a terminal state that never terminates.** `TilePool::Poll` erases
-   from `Done_` unconditionally and leaves the key in `Posted_`, so every later ask returns `Pending`
-   — and `World::AdmitMesh`'s `Absent` arm increments a counter and returns, leaving `nd.haveMesh` at
-   0, so the leaf never leaves `TargetTot`'s unready set. **Fixing the pool alone does not lift the
-   loading screen.** A DEM hole is an infinite load. **Done when** a scenario over a known hole reaches
-   `Resident()` and the loading screen clears, with the hole drawn as whatever the coarse ancestor has.
-2. **The counters that diagnose a stuck load break during a stuck load.** `core/io/Telemetry.h` has no
-   `Push(long long)`, so seven counters are cast to `int` at every site. `meshWanted` reaches 2 029 402
-   in 11 s of load and `poolRepeats` 2 069 319 — `INT_MAX` is **3.2 hours** away, and 3.2 hours of
-   loading is exactly what item 1 produces. Both published identities break with them. **Done when** a
-   run past 2^31 keeps both identities.
-3. **`eyeTravelM` counts a teleport as walking.** `Moved` has one input and cannot tell a step from a
-   jump; `Walker::Reset` on `R` adds the whole distance back. Walk 500 m, press `R`, and the record
-   reads 1000 m travelled and 0 m displaced — the same row a 500 m circle writes, which is the one case
-   the column exists to separate. **Done when** a discontinuity is spelled at the call site that causes
-   it (`Restood(Stance)` beside `Moved(Stance)`) and the teleport case is distinguishable in the CSV.
-4. **`SceneRunner` converts a declared metre wrongly**, confirmed to 5×10⁻⁵ m: it treats
-   `camera.eastM` on `kMPerDeg` where the ellipsoid gives `N cos φ · π/180`, so `demo/ring` runs
-   **18.8 m long over 9 km** and every declared motion is off by ~0.2 %. **Done when** a declared
-   distance and its `eyeTravelM` agree to the frame-sampling residual alone.
-5. **The latency nobody measures.** Eye travel between a tile entering the target cut and its mesh
-   becoming drawable. This is what `todo`'s old walk gate should have been testing, and no column
-   carries it. The pool is CPU-bound in the mesh build — `meshCpuMsPerTile` 237.29 over four threads is
-   16.9 tiles/s against `httpMsPerGet` 4.45 — so latency, not throughput, is the quantity. **Done when**
-   the arrival inequality of `requirements.md` §0.7 can be evaluated from a run.
-6. **Eviction.** Fields grow monotonically and their unit of removal does not exist. **Done when**
-   `tilesEvicted` rises under a bound and a 2 km walk holds its budget.
-7. **The silent-success class**, all three sites (`bugs.md`, first section). **Done when** the trim of
-   an absent roof covering does not compile.
-
-**Struck, 2026-08-11:** *"Nothing streams during play"* — retracted. A rung's ring radius is
-`span(z)·f/kEdgeTau`, giving 0.0184 tiles/s at walking pace; the 46 s that founded the defect covered
-64 m and predicted 0.85 tiles. Two longer runs agree with the derivation. The streamer was working.
+1. **`make gates`.** One target running the five `verify-*` plus the declared sanitised runs plus the
+   runtime refusals, one line per gate, non-zero on any failure. **Its green becomes a clause in every
+   later "done when"** — a gate nobody runs is not a defence, and `verify-counters` earned that point
+   today by failing against the type it was written for. **Done when** it exists and one deliberately
+   broken gate turns it red.
+2. **The declared sanitised runs.** `make walk-asan` (`address,undefined`), `make wasm-asan`
+   (`address`). Measured: wasm ASan 2.84×, native ASan 3.83×, native UBSan 9.84× — and native ASan
+   lands the oracle's CPU on the browser's unsanitised speed, so it concedes nothing new. `SAFE_HEAP`
+   is `REFUSED` at 6.20× having failed to catch what ASan caught at half the price. **Done when** both
+   run `demo/walk-500` clean and the native one is inside `make gates`.
+3. **`[[nodiscard]]` sweep and `default:` removal.** 38 → 134, `world/` 5 → 29, `render/` 0 → 12;
+   `default:` over house enumerations 5 → 0. **Done when** those counts hold **and the `(void)` count
+   is published beside them**, because that is how this sweep gets faked.
+4. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
+   `grep malloc` outside `core/io/` is 0 and a run with the heap cut until it fails ends naming the
+   item and the bytes.
+5. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
+   `Span::Unchecked` sites ≤ 12 and all at a C ABI, the 40 raw pointer+count parameter pairs are 0
+   outside `world/terrain`, and **`poolMeshCpuMs / poolMeshTiles` moves under 5 %** against 398 ms
+   (wasm) / 190.5 ms (native).
+6. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
+   `world/terrain` non-zero, static ≥ 30, and `ClusterCut`'s silent level clamp is gone.
+7. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
+   refusal, `BindInput`'s refusal. **Done when** the two roof gates hold for their own reasons and
+   `ClusterCut`'s `assert(Closed_)` is **deleted because unreachable**.
+8. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
+   diff rather than an opinion.
 
 ## Then, from `requirements.md`
 
