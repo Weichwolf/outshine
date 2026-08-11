@@ -595,9 +595,11 @@ is cheap once its form exists and impossible before it, so forms stand first and
 below names the form it rides. Where a species needs a form nothing else uses, the line says so — that
 is the expensive kind.
 
-**Measured state, and it is smaller than a species count suggests:** sixteen species files exist and
-**all sixteen are the same growth form**, a single-stemmed forest tree. The generator cannot currently
-produce a different *shape*, only a different tree of one shape.
+**Measured state:** 31 species files exist across seven growth forms — single-stem tree, multi-stem
+shrub, bush, hedge, snag, stump and fallen log — and the grower takes the form as an input
+(`generators/GrowthForm.h`). What no form yet has is a **cut response**, a severed shoot answering with
+several, which is why the hedge reads as a row of saplings and why coppice stool, pollard and
+stump-with-resprouts are all still blocked on one mechanism.
 
 ### III.1 Placement machinery
 
@@ -631,7 +633,7 @@ produce a different *shape*, only a different tree of one shape.
 *One line per form. `[x]` means the grower can produce that shape today, not that a species using it is
 declared.*
 
-- [x] Single-stem tree — one leader, a clear bole, a crown above it. Sixteen species ride this and it is the only form that exists
+- [x] Single-stem tree — one leader, a clear bole, a crown above it
 - [ ] `habit` in a species file is a **prose sentence for a human** and nothing reads it — the grower works from numbers, so a form written there cannot reach the geometry. Either it becomes parameters or it goes
 - [ ] Crown shape as a declared envelope — conical, columnar, ovoid, domed, vase, weeping, umbrella, flat-topped. The prose already distinguishes eight and the numbers distinguish none
 - [ ] Multi-stem tree — several leaders from one base, common in ash, lime and maple on an edge
@@ -673,7 +675,7 @@ declared.*
 
 ### III.3 Representation and level of detail
 
-- [x] Procedural growth: trunk, taper, minimum radius, twig radius, branch chance, branch angle and its variance, order length and radius, wander, leader bias, branch up-bias, conical bias, whorl count and spacing, terminal fork, bare steps, crown base, shade prune
+- [x] Procedural growth: trunk, taper, minimum radius, twig radius, branch chance, branch angle and its variance, order length and radius, wander, leader bias, branch up-bias, whorl count and spacing, terminal fork, shade prune — `conical bias`, `bare steps` and `crown base` were three declarations of one thing and are replaced by the crown envelope
 - [x] Trunk sides as a declared polygon count
 - [x] Bark colour, darkening, frequency, ridge and style
 - [x] Leaf kinds: broad, needle, palmate, pinnate, palmate compound
@@ -684,7 +686,7 @@ declared.*
 - [x] Four mesh LOD levels plus an impostor rung, one ladder, model-space error as a fraction of height
 - [x] Instanced sheets standing for sixteen quad elements each
 - [x] Octahedral impostor atlas baked at runtime from our own grown prototype — the cache of a computable function, principle 2 admissible
-- [x] Sixteen species measured by a bench (`make treebench`)
+- [x] Every declared species measured by a bench (`make treebench`, `clients/TreeBench.cpp` enumerates the directory rather than listing names, so a form nobody grew cannot look green)
 - [ ] A grower that takes a **form** as an input rather than assuming one
 - [ ] Impostor cells that are never sampled without a bake — counted, not assumed
 - [ ] A far rank that is one plane per stand, merged per fixed spatial cell into a single draw, corners expanded in the vertex shader so each element faces the camera individually — the reference's UBERLOD, minus its offline bake and minus its single view, because we have a bird's eye
@@ -714,8 +716,8 @@ declared.*
 
 ### III.5 Species on the single-stem tree form — broadleaf
 
-*The only form that exists, so every line here is cheap. The twelve declared botanical names are what
-the files actually say, and three of them are not what a reader would assume.*
+*The form the grower started with. The declared botanical names are what the files actually say, and
+three of them are not what a reader would assume.*
 
 - [x] Fagus sylvatica — common beech
 - [x] Quercus robur — pedunculate oak
@@ -778,7 +780,7 @@ the files actually say, and three of them are not what a reader would assume.*
 
 ### III.7 Species needing the multi-stem shrub, bush and thicket forms
 
-*None of these three forms exists, so every line here is blocked on III.2.*
+*The forms exist; what these lines wait on is the **cut response** — a severed shoot answering with several — which no form has yet.*
 
 - [ ] Corylus avellana — hazel, multi-stem
 - [ ] Crataegus monogyna — hawthorn
