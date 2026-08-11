@@ -34,7 +34,8 @@ graded against the references: the answer is known and the round is spent. Then,
 | 5 | `generators/` | **done** · the include set is the enforcement, both ways |
 | 6 | the forest becomes a generator | **done** · the forest stopped following the camera |
 | 7 | one geometry stage | **done** · 91 plant fields in the renderer → 0, one cut, 7 passes |
-| **8** | **regionalise** | **in the tree** |
+| 8 | regionalise | **done** · ms and bytes per region exist; the crossing clause stays open, see below |
+| **9** | **buildings, water surface, infrastructure** | **in the tree** — the last one |
 
 
 
@@ -42,7 +43,7 @@ graded against the references: the answer is known and the round is spent. Then,
 
 
 
-| 9 | buildings, water surface, infrastructure | open |
+
 | — | the scenario interface and its JSON loader | open — **designed**: headers, schema and acceptance stand |
 
 A step that is **done** has left this file: it is in the code and its measurements are in `git log`. What
@@ -248,48 +249,56 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 8 — Regionalise
-
-Ring of regions around the viewer, request / collect / release / cancel, generation off the render
-thread. **Measure milliseconds and bytes per region** — that number does not exist today.
-
-Done when: a region crossing is invisible in the frame distribution at the highest declared speed, over
-repeats, and popping is judged from a moving capture.
-
-**Entry condition, and it is nearly free.** Step 7 moved the model ladder from `sqrt(d²) > H·f·P` to
-`d² > (H·P·f/τ)²` — equal in exact arithmetic, **not** in float, and one stand within an ulp of a boundary
-flips one mesh level. At that distance two levels differ by design by ~1 px along a silhouette whose
-perimeter is O(100 px), so **tens of changed pixels is the signature of exactly one stand flipping** — and
-32–51 is what the round measured. The step's own localisation ("shader-compiler numerics in the sheet
-cut-out") does not survive: `subject-beech` never runs the sheet path (`DrawSheets` branches on
-`PlaceCount > 0`) and `ortho`'s stands are near-all impostors sampling a baked atlas. **The test is
-already telemetry:** compare `run/trees_lod`'s `rank0..rank3`, `impostors`, `meshStands` between the two
-builds. One difference → the ladder, and the fix is to keep the comparison in one association. All
-identical → the ladder is exonerated. Settle it before popping becomes the judged quantity, or "region
-crossing or ladder?" is undecidable.
-
-**`ClusterCut` is the ring's chokepoint and is not shaped for N regions.** One `Ranges_`, reset per unit,
-and the merge-into-one-draw rule collapses only **contiguous** arrivals — regions fed in ring order will
-fragment draws, and the draw-call count will move for a reason that has nothing to do with regions. Fix
-the `Take` ordering before the ring.
-
-**Two instruments survive and one does not exist.** The per-region millisecond **cannot** come from a
-pass span — `Σpass / gpuFrameMs = 2.58` forbids it. What survives: the frame distribution, whose floor is
-already stated (±0.39 ms p50, ±1.02 frame-matched, 10 randomised blocks — reuse it, do not re-derive it),
-and CPU wall time around the generator call once generation is off the render thread. **Bytes per region
-has no instrument at all**: only terrain reports through `TileMeshBytes()`; `LevelVtx`, `PlaceBuf`,
-`DetailVtx` and the impostor atlas report nothing, against `architecture.md`'s "every pool reports its
-bytes, or it is a leak with a name". One accessor per pool, one column.
-
-**Decide here, land at 9: winding travels with the geometry.** `Facing(kSolidState, Winding::Trusted)` is
-a claim no compiler can check — nothing ties `Trusted` to a mesh that earned it. It costs nothing while
-the meshes are compile-time known; at 9 buildings and water arrive at runtime and a hard-coded `Unknown`
-becomes a guess about data. The winding belongs in the draw product beside the cluster list.
-
 ## 9 — Buildings, water surface, infrastructure
 
 Footprints and the water surface become generators; the water *level* stays in the core. Then
 infrastructure.
+
+**Do this before anything is placed: one region is exactly one DEM tile at the same zoom.** `Sim::Snapshot`
+performs **16 641 geodetic round-trips plus a cache probe plus a barycentric evaluation, at 340 ns each**,
+to recover the posting block the tile pool already holds verbatim — 5.65 ms p50 on the render thread, and
+it is the reason that work is stuck there. Handing the block out of the pool is an index computation and
+is trivially thread-safe, because a complete tile's bytes are immutable. Both new generators will want the
+same `Ground` and the same 5.65 ms.
+
+**The crossing clause is open, and it is five lines from being measurable.** A crossing costs **+1.77 ms**
+at p50 against its own neighbourhood; the terrain streamer carries 0.65 and the ring's collection 0.09.
+The remaining 1.03 ± 0.45 **is the ring** — 3 new regions × 5.65 ms / a 16-frame window = 1.06 — and it
+appeared unattributed only because `Sim::Populate` runs after `World::Refine` inside one function, so it
+lands in `frameMs` and in no column. `Sim::PopulateMs()` as a CSV column makes the ring's frame cost
+visible in the profile the ring itself made identifiable.
+
+**`fb_stream_ground` is not thread-safe and its header does not say so** — its LRU clock is a bare
+`uint64_t` mutated without a lock. The rule lives in a comment in `Sim.cpp` while `BuildingField` and
+`WaterField` already call the oracle, and this step moves both onto a generator thread. The statement
+belongs on `TerrainLoader.h` in the round that relies on it, or the oracle becomes re-entrant.
+
+**Re-measure the heap before placing, not after.** `INITIAL_MEMORY=248MB` is "measured high-water plus
+25 %", and step 8 added **+12.1 MiB** of permanent pool residency and a 256 KB stack without re-deriving
+it. This step adds building geometry, a water surface and infrastructure into what is left.
+
+**"A step, not a slope" is a localisation, not a diagnosis.** The pool's resident bytes cost **p50 +1.09,
+p95 +4.39, p99 +7.54 ms**, and the sweep is clean — one binary, capacity the only variable, the step
+between 23.2 and 28.0 MiB. But the *mechanism* is unnamed: not cache (23 MiB is far past any level that
+would step) and not extra work (`Placed()` returns `Sub(0, Count())`, so capacity lengthens no walk).
+What remains is an allocator size-class or arena boundary, or heap pressure changing tile eviction —
+testable in one run by watching `evicted` across the same sweep. **This step adds resident bytes by
+design.** The trade was right once; taken twice without a mechanism it is a slope nobody can predict.
+
+**Introduced by 8 and cheap to buy back:** the occupancy **cell** array lost its by-construction ceiling.
+It now sizes on the ring's widest region at bring-up rather than the zoom's equatorial one, guarded by an
+assert — about **5.1 km of southward travel** from the demo latitude reaches it, and the comment beside it
+claims a refusal that covers the body budget, not the cells. Size cells on the equatorial region and keep
+the body capacity derived from the widest: **+2.0 MiB over nine slots, 0.8 % of the heap**, and the 2.66×
+saving the comment defends is untouched because it lives entirely in the body array.
+
+**`Ask()` has no per-frame budget** — up to nine snapshot attempts in one frame at 5.65 ms p50, on the
+thread that draws, and a region complete but for its last posting pays the full grid every frame until it
+lands. The old "one region per pass" budget did not travel with the work when `Occupy` moved off-thread.
+
+**The winding decision was assigned to 8 and was not made** — four hard-coded `Winding::Trusted` call
+sites. Buildings and water arrive at runtime here, so a hard-coded value becomes a guess about data: the
+winding travels in the draw product, beside the cluster list.
 
 **Night city lighting is owed and exists nowhere.** `/t/lights` and its 587-line producer are gone
 with the client half that never had a caller; OSM street lamps are genuine vector data and the picture
@@ -317,6 +326,12 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   the result is coupled to tile arrival order. **Likeliest cause, and cheap to test:** a temporal pass
   whose history length depends on pace. Shoot once with that pass off; if byte-identity returns, the
   coupling is the history.
+- **A bright untextured kite behind a near crown**, reading as a hole in the sky. Two adjacent frames
+  cannot say whether it is standing or temporal, and the two hypotheses separate on a capture that
+  already exists: does it **rotate with the camera** — an impostor card sampling an empty atlas cell — or
+  stay **welded to the stand** — the same stand submitted at mesh rank *and* impostor rank in one frame?
+  Right in either case: a stand appears in exactly one rank per frame, and an impostor cell that has no
+  bake is never sampled.
 - **Seen from directly above, all 15 995 stands vanish.** `demo/ortho` shows sparse dark dots where a
   forest stands — camera-facing cards seen edge-on. The same representation that gives the bow-tie from
   the side gives nothing from above, and a world sandbox has a bird's eye. Step 6.
