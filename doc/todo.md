@@ -29,75 +29,142 @@ their acceptance was a number. These are defects and absences, ranked by what de
 fastest or costs the most to leave — and the picture verdict is no longer suspended, because the
 structure stands.
 
-## 1 — The water level puts most bodies under the ground
+## 1 — One vegetation stratum against the reference's three. This is what "lush" means.
 
-Measured twice, by two instruments: over sixteen regions **all nine** outlines report the level below the
-ground at their own centroid, worst **6.5 m**; over 43 rings around the demo, **34 of 42** with a centroid
-inside, median +0.32 m. The mechanism is visible and has two parts. `floor(0.05·(n−1)) = 0` for any ring
-under **22 points**, so for a farm pond the "fifth percentile" **is the minimum** — 28 of 43 rings here —
-and the minimum of *n* samples of a DEM with σ ≈ 2–4 m in this relief is biased low by ≈1.5σ at n = 9. And
-the ring is the **bank**, not the shore of a level body: worst-case spread across one ring is 11.65 m.
+KCD's forest area is **canopy + undergrowth + grass, superposed from one declared preset**, plus
+mushrooms and herbs — one Area Filler, three layers. Ours is one `Stem` and a stands-per-m² per class.
 
-The model is exact where it was calibrated — the four Weser polygons at 152…187 points answer 0.00 — and
-wrong everywhere small.
+**Our density is right and the picture is still empty.** The densest declared class is 0.033/m² =
+**330 stems/ha**, and a near-natural beech stand at Serrahn measures **263 stems/ha ≥ 7 cm dbh**, basal
+area 33 m²/ha. The number is correct *for the canopy* — and everything below 7 cm dbh is neither in that
+count nor in our world. The near crown reading as flakes, the ground being a shader and nothing else, and
+`osmDefault` growing 700 blades/m² on Death Valley's floor are **one gap, not three**.
+
+**No authored dependency.** The Area Filler preset is a declaration and the distribution is random; this
+transfers as JSON, not as a substitute.
+
+The shape matters as much as the content: the stratum table is **required per class with no global
+default**, so `osmDefault = "meadow"` becomes *unspellable* rather than a written-down defect — an
+unclassified place then grows nothing, which is correct. And strata are a declared list, not three named
+members: a closed enumeration here is the "adding a creature means editing seven files" failure
+`vision.md` names.
+
+Done when: `subject-meadow` writes a non-zero `fillPct` — today all 57 frames are bare substrate and the
+bench has no herb geometry path at all · a forest-floor subject fills within the band its class declares ·
+and **overdraw p95 is published**, because three strata is exactly where a forest stops being free.
+**Passes: 0.**
+
+## 2 — A stand appears in exactly one rank per frame, and the far rank is one card
+
+The recorded one-second killer: a zigzag/bow-tie with right-angle corners at five to six crowns, and
+15 995 stands that vanish seen from directly above.
+
+**The reference cannot produce either failure.** KCD's UBERLOD — Warhorse's own, not CryEngine's — bakes a
+tree's last LOD to **one plane with alpha forbidden**, merges every plane in a **64 m cell into a single
+draw**, and expands each element's corners from **UV channel 2** in the vertex shader so they face the
+camera *individually*. There is never a second quad, so there is no cross to see edge-on. Switching
+carries **16 m of hysteresis**, a **16 m minimum observer movement before anything updates at all**, and a
+**per-frame update budget**.
+
+Deviation with its reason, and it is the camera envelope rather than taste: **hemi-octahedral, not
+single-view, because Outshine has a bird's eye and KCD does not.** The top cell is the one that must
+exist. What transfers whole is the *discipline* — hysteresis, an update budget, a merge per fixed spatial
+cell.
+
+**No authored dependency.** Their bake is an offline tool over an authored mesh; ours bakes at load from
+our own grown prototype — the cache of a computable function, principle 2, admissible.
+
+Done when: a counter proves **no stand is submitted at two ranks in one frame**, exactly, not
+statistically · a counter proves **no sampled impostor cell lacks a bake** · `demo/ortho`'s non-substrate
+coverage is within a stated fraction of the oblique view's, where today every stand vanishes · and **a
+moving capture** decides the bearing-band prediction: with uniform yaw a cross presents its edge-on aspect
+in a coherent band, so if the band survives, the cause is the cell seam and not the cross. A still cannot.
+**Passes: 0 in frame.**
+
+## 3 — The water level puts most bodies under the ground
+
+Measured twice by two instruments: over sixteen regions **all nine** outlines report the level below the
+ground at their own centroid, worst **6.5 m**; over 43 rings around the demo, **34 of 42**. The mechanism
+has two parts. `floor(0.05·(n−1)) = 0` for any ring under **22 points**, so for a farm pond the "fifth
+percentile" **is the minimum** — 28 of 43 rings — and the minimum of *n* DEM samples with σ ≈ 2–4 m is
+biased low by ≈1.5σ at n = 9. And the ring is the **bank**, not the shore: worst-case spread across one
+ring is 11.65 m. The model is exact where it was calibrated — the four Weser polygons at 152…187 points
+answer 0.00 — and wrong everywhere small.
 
 `Tessellate` emits the surface at `level + 0.15 m`, so for those bodies the water plane lies **under the
 drawn terrain**: a fringe at the median, fully buried at the tail. Water is the strongest tonal element in
-a landscape at the comparison rung; a specular sheet reads at any range.
+a landscape at the comparison rung.
 
-The published name for the answer is **hydro-flattening** (USGS *Lidar Base Specification*): a lake
-polygon is flattened to a constant elevation at or just below the surrounding terrain, and a **river**
-polygon carries a monotone downstream gradient rather than a constant. The engine already enforces
-monotone-downhill for water *lines* twelve lines above the polygon branch in the same file. Two moves:
-carve the region's ground patch to the level under the outline so the two models cannot disagree —
-deterministic, per region, no storage — and give a polygon a gradient where its ring's spread exceeds the
-DEM's vertical noise. `core/WaterDepth.h` stays right, and `LevelBelowGround` becomes what it should be:
-rare and diagnostic.
+The published answer is **hydro-flattening** (USGS *Lidar Base Specification*): a lake polygon is
+flattened to a constant elevation at or just below the surrounding terrain, and a **river** polygon
+carries a monotone downstream gradient rather than a constant — which the engine already enforces for
+water *lines* twelve lines above the polygon branch in the same file. Two moves: carve the region's ground
+patch to the level under the outline so the two models cannot disagree, and give a polygon a gradient
+where its ring's spread exceeds the DEM's vertical noise.
 
-## 2 — The mid-distance crowns are not tree-shaped
+## 4 — Nothing in the frame occludes between 1 m and 20 m, which is the whole of a tree
 
-The one-second killer, recorded through four steps and never worked. Five to six crowns carry a large
-angular **zigzag / bow-tie** silhouette with right-angle corners — a two-quad cross seen near edge-on, or
-a card whose alpha cut leaves the waist. Step 6 gave it a falsifiable prediction: until then every yaw lay
-in [0, 0.088°], so the forest was one unrotated clone; with uniform yaw a cross presents its edge-on
-aspect in a **coherent bearing band**. If the band survives, the cause is the impostor cell seam and not
-the cross. **One moving capture answers it**, and `demo/ring-pop` already writes every frame.
+| | radius it can serve |
+|---|---|
+| `AoStage`, `kAoRadiusM = 0.9`, half-res | ≤ ~1 m — contact shading |
+| shadow cascade 3, 4 × 1024 over 600 m | ≈ **1.2 m per texel** — cannot self-shadow a crown |
+| **the gap** | **1 m … 20 m** |
+| the reference's cone max length | **8 m** |
 
-Beside it, the same subject: **seen from directly above all 15 995 stands vanish** — camera-facing cards
-seen edge-on, and a world sandbox has a bird's eye. And a **bright untextured kite behind a near crown**,
-reading as a hole in the sky: does it rotate with the camera (an impostor card sampling an empty atlas
-cell) or stay welded to the stand (one stand submitted at mesh rank *and* impostor rank in one frame)?
-The two separate on a capture that exists. Right in either case: a stand appears in exactly one rank per
-frame, and an impostor cell that has no bake is never sampled.
+A crown at LAI 4.5–5.1 must read as **one mass with a lit top and a shadowed underside**. Density is half
+of that and item 1 owns it; the other half is that **no term in our frame can darken a crown's interior or
+the ground under a canopy**, and the reference's answer to exactly that is an 8 m cone — not a shadow map
+and not SSAO. Crytek ship `e_svoTI_SSAOAmount` to scale SSAO *down* when the cones are on: they are a
+declared scale pair, cones own the metres and SSAO owns the centimetres.
 
-What the references do: the cross never survives to the range where its own geometry is legible —
-SpeedTree practice, and Guerrilla's *Horizon* vegetation hands that band to an impostor first.
+Build the cheap candidate first: **coarse world-space sky visibility over the cluster DAG's own bounds**,
+per vertex — zero new passes, zero new full-screen targets, bounded work, reusing geometry the frame
+already has. Voxel cone tracing **in the AO pass's existing slot** only if that demonstrably cannot produce
+the term; costed at ≈1.6 ms scaled from Crytek's published 2.5–5 ms on Xbox One, plus CPU voxelisation,
+which is the class of cost item 7 is already fighting.
 
-## 3 — The near crown is not one mass
+Done when: sky visibility at 1.5 m under a closed canopy falls into the band an LAI of 4.5–5.1 implies ·
+and the AO span does not grow — which needs `gpuFrameMs` first, so **this is blocked on an instrument, and
+that is a cost rather than a limit**. **Passes: 0 net.**
 
-A beech stand carries LAI 4.5–5.1 m²/m², and litter collection over eleven temperate deciduous stands
-spans 1.7–7.5. At any value in that range a crown occludes essentially all sky through its own depth and
-must read as **one mass with a lit top and a shadowed underside**. Ours reads as separated dark flakes on
-bare twigs, which means card coverage an order of magnitude under the species' own leaf area. Density and
-self-shadowing, not detail.
+## 5 — Vegetation does not take the terrain's colour with distance
 
-`subject-meadow` writes 57 frames of bare substrate — `SubjectBench::Select` sets `Bucket_` and
-`Kind_ = Herb`, and `Bucket_` is never read again. There is no herb geometry path in the bench.
-`subject-beech` fills 17.2 %, so the rig is sound and the subject is missing.
+A per-instance tint toward the ground class colour, ramped over range. The reference ships it as
+`e_vegetationUseTerrainColorDistance`, 50…80 m. **It is the single mechanism that makes a distant foliage
+field read as one mass rather than speckle**, and it is a vertex-stage multiply — the cheapest item on
+this list and it removes a symptom items 1 and 2 both describe.
 
-## 4 — `Sim::Features()` scans everything decoded so far, per region, on the render thread
+Done when: at 200 m the canopy's chroma variance against its own class colour drops by a stated factor,
+measured on a mask **frozen on one frame** and applied to both sides. **Passes: 0.**
+
+## 6 — The ground has one colour per class and no high-frequency term
+
+The reference's rule, stated as a rule rather than a habit: *high frequency into the detail material, low
+frequency into the base*, with the detail explicitly **greyscale** and cut at a declared range (theirs
+300 m), and the layer-to-layer blend **height-driven** rather than a linear fade, so pebbles poke through
+dirt at a boundary instead of cross-dissolving.
+
+It maps onto our constraint almost too neatly: low frequency is class + place, which we have; high
+frequency is a **noise function**, which is the only legal form a detail map can take here and is
+Ebert/Musgrave/Perlin/Worley's entire subject; and the height-driven blend is buildable from what
+`Ground` already delivers — **class, edge distance and runner-up class, which nothing consumes for this**.
+
+Done when: the class boundary's mixing width in pixels at the comparison rung meets a stated target
+instead of being a line · and luminance standard deviation in a 10 m near-ground patch rises off the
+floor. **Passes: 0.**
+
+## 7 — `Sim::Features()` scans everything decoded so far, per region, on the render thread
 
 Measured from the tile server: the demo's 25-tile neighbourhood holds 4 918 footprints and 24 174 ring
-points; **one** z14 tile over Berlin Mitte holds 1 115 and 10 527. The whole demo accumulation is 2.3× one
-central-Berlin tile, `Prints_`/`Surfaces_` are never pruned, and the scan is already the same order as the
-16 641-read lattice that step 9 just made 21× faster — and unlike it, unbounded.
+points; **one** z14 tile over Berlin Mitte holds 1 115 and 10 527. `Prints_`/`Surfaces_` are never pruned,
+so the scan is already the same order as the 16 641-read lattice that step 9 made 21× faster — and unlike
+it, unbounded. Streets, sites and street polygons go through the same scan.
 
 Refuted by that step's own insight: **one region is one tile**, `OsmField::Feature::Tile` already groups
 features contiguously and they are appended in tile order, so a `tile → [from, to)` range exists by
-construction and a region's features are a **slice, not a scan**. Roughly the same ten lines. Do it before
-infrastructure, because streets, sites and street polygons go through the same scan and multiply it.
+construction and a region's features are a **slice, not a scan**. Roughly ten lines.
 
-## 5 — Nothing evicts, against a heap fixed at 296 MiB
+## 8 — Nothing evicts, against a heap fixed at 296 MiB
 
 `BuildingField`'s prints and verts, `WaterField`'s surfaces, courses and levels, and `OsmField` grow
 monotonically for the length of a walk, and no eviction path exists. `architecture.md` is explicit — the
@@ -105,55 +172,107 @@ streamer needs a byte budget and evicts against it, and every pool reports its b
 a name. They report; nobody acts. **A fixed heap plus monotone growth is a maximum walk length**, and a
 world sandbox has none. The number is one long `demo/ring` run with a column that already exists.
 
-## 6 — Infrastructure, and the night
+## 9 — Infrastructure, and the night
 
 `/t/lights` and its 587-line producer are gone with a client half that had no caller. There is no light
 list, no emissive path in the pass enumeration, no placement generator. OSM street lamps are genuine
-vector data under principle 6 and all three references have a night. Owed twice now, and the largest
-missing capability in the tree.
+vector data under principle 6, and the setting is **modern infrastructure** — which is GTA 5's half of the
+reference and has no KCD answer at all.
 
-`osmDefault` is one global `"meadow"`, so unmapped land anywhere on Earth grows 700 blades/m² — Death
-Valley's floor is a sward and there is no arid template among the thirteen. A per-place default belongs to
-the vegetation generator, which does not exist yet: the forest is the only one.
+## 10 — A declared environment track over the day, and a weather state that blends
 
-## 7 — The crossing's remaining 2.4 ms is unexamined, not unattributed
+Ours: Bruneton, ACES-Narkowicz with **no free parameter**, auto exposure from irradiance. Theirs: a
+physical sky whose parameters are **hand-keyed hour by hour**, a film curve whose toe, midtone and
+shoulder are keyed per time of day, and a weather **preset picked every four hours and blended into over a
+declared interval**.
+
+**This is the one place where copying the reference would make us less physical**, so the entry is narrow
+on purpose: key only what has **no** physical answer — the tone curve's shoulder, the fog's radial lobe,
+the weather transition length — and **never the sky's radiance**. `core/Keyframes.h` is already the
+evaluator and knows none of its consumers; a track is a scenario declaration, which is principle 1 working
+as designed.
+
+Done when: one scene at 06:00/12:00/18:00/22:00 gives four pictures whose sky-to-ground ratio agrees with
+the model's own prediction · and a declared weather change takes its declared duration rather than one
+frame, reproducibly. **Passes: 0.**
+
+## 11 — Material rows with no origin, against a published first-party table
+
+Warhorse published a measured specular/gloss table for exactly our biome's surfaces — grass 50 sRGB /
+gloss 38, dry soil 48 / 20, dry leaves 45 / 32, rough stone 50 / 42, thatch 56 / 77, rough wood 48 / 28.
+Non-metal specular is 45–65 and never above 80. **The ordering and the ratios transfer directly**; the
+mapping from their 0–255 glossiness to our GGX perceptual roughness is documented nowhere and must be
+**derived, with the derivation beside the number**.
+
+Worth taking with it: their gloss map lowers gloss where normal variance is high, **to kill specular
+shimmer** — an antialiasing technique, not a look choice.
+
+Done when: the count of material rows whose values carry no derivation, measurement or `[SET]` is zero.
+
+## 12 — Fog shadows
+
+`e_VolumetricFog` with `r_FogShadows`, plus keyed volumetric shadow darkening and range. Shafts through a
+canopy in mist is the most recognisable forest image the reference has. Our Koschmieder-derived haze is
+better founded than their keyed fog and **nothing shadows it**.
+
+It goes **inside a stage that already reads the HDR target** — `TaaStage` does — rather than becoming pass
+eight, and their own guidance is that samples per view ray do not grow with range; the range shrinks.
+**If it cannot be made to fit inside an existing stage it does not get built**, because 0.246 ms of pure
+traffic is its floor before it shades anything.
+
+## 13 — The crossing's remaining 2.4 ms is unexamined, not unattributed
 
 A crossing costs +6.51 ms at p50 over its own neighbourhood; `collectMs` is flat and `populateMs` is 0.055
 there. The profile carries seven more columns that were never checked, and **`buildingMs` is the obvious
 candidate**: `World.cpp` puts the vector build, the water ingest, the building build **and** the building
-DAG in that one span, with the DAG recorded at 33.0 ms of a 50.9 ms frame for one dense tile. Redo the
+DAG in one span, with the DAG recorded at 33.0 ms of a 50.9 ms frame for one dense tile. Redo the
 neighbourhood excess over **every** column — one run, no code — and publish `frameMs − Σ(spans)` as its
-own column so "unattributed" is a measured quantity instead of a subtraction done by hand.
+own column so "unattributed" is measured rather than subtracted by hand.
 
 **And the pool's byte step is still a localisation, not a diagnosis** after two rounds of paying for it:
 p50 +1.09, p99 +7.54 ms between 23.2 and 28.0 MiB, one binary, capacity the only variable. Not cache, not
 extra work. What remains is an allocator size class or heap pressure changing tile eviction, and the
 `evicted` column already exists.
 
-## 8 — Interfaces that write down what they claim to carry
+## 14 — Interfaces that write down what they claim to carry
 
 `RegionPool::Extent::Reached` is **never read** — the header says the body budget follows it while the
-count is computed by the caller, so it is an argument the constructor ignores · `FbGroundBlock::Nodes_`
-is a raw pointer into an LRU slot valid until the next call into the oracle, enforced by a comment; a
-generation counter on the slot makes it a refusal instead of a corruption · the oracle's
-single-threadedness is now on the header and is still a sentence, not a type · `Buildings::Over` discards
-a `[[nodiscard]]` in three places because `Passes()` already guarantees the top, so the invariant is split
-across two functions and bridged by a cast · the OSM layer names are spelled in three files ·
-`DrawSink::Add` returns a `bool` with `Full()` beside it and `ForestDraw.cpp:18` truncates a region
-silently, though the collection's refusal is loud · **the winding is hard-coded at seven sites** and now
-gates the first generator draw product: cull mode is pipeline state fixed at `Configure`, so the shape is
-a declaration at registration beside the rank, and `Configure` runs after the units are known.
+count is computed by the caller · `FbGroundBlock::Nodes_` is a raw pointer into an LRU slot valid until
+the next call into the oracle, enforced by a comment; a generation counter makes it a refusal instead of a
+corruption · the oracle's single-threadedness is on the header and is still a sentence, not a type ·
+`Buildings::Over` discards a `[[nodiscard]]` in three places, so an invariant is split across two
+functions and bridged by a cast · the OSM layer names are spelled in three files · `DrawSink::Add` returns
+a `bool` with `Full()` beside it and `ForestDraw.cpp:18` truncates a region silently · **the winding is
+hard-coded at seven sites** and gates the first generator draw product: cull mode is pipeline state fixed
+at `Configure`, so the shape is a declaration at registration beside the rank.
 
-## 9 — Two bases for one building, and a budget that escapes itself
+Two bases for one building: `FeatureTop` takes `BaseM` from the ring's lowest corner while `Buildings::At`
+derives its base from the patch at the bbox centre, so on a slope the queried prism floats relative to the
+drawn one — ≈1.5 m at 10 % over a 15 m house. `BaseM` is already computed; carry it. · `Sim::Settle` sets
+`RoofChecked_` inside the resolved branch, so before the ground lands every pass pays a full `GroundAt`,
+outside both `populateMs` and the one-per-turn budget. · `verify-types`' negative gate passes on **any**
+compile error; one `grep -q` fixes the class for all three gates.
 
-`FeatureTop = BaseM + HeightM` takes `BaseM` from the ring's lowest corner while `Buildings::At` derives
-its base from the patch at the bbox centre, so on a slope the queried prism floats relative to the drawn
-one and the reported height is short by the ground difference across the footprint — ≈1.5 m at 10 % over a
-15 m house. `BaseM` is already computed; carry it. · `Sim::Settle` sets `RoofChecked_` inside the resolved
-branch, so before the ground lands every pass pays a full `GroundAt` — outside `populateMs` and outside
-the one-per-turn budget. · `verify-types`' negative gate passes on **any** compile error; one `grep -q`
-clause fixes the class for all three gates. · Comment density on the newest files is 25–50 % prose against
-a rule that says one line of local why.
+## Not on the list, and named so it is not mistaken for an oversight
+
+**Ambient specular in enclosed places has no procedural substitute.** Under a closed canopy, in a gorge,
+indoors: the reference hand-places a baked probe — measured appearance of an authored scene, which
+principle 2 forbids. In the open the sky LUT *is* the correct substitute and is better founded than a
+baked probe. Whatever solves item 4 is the only thing in our frame that will know an enclosure exists.
+
+**Their leaf albedo is an authored alpha and colour.** Ours is geometry plus a colour, and at 320×180 that
+is not a gap — it becomes one at the top rung where venation and translucency variation speak, and it is
+**unsolved**.
+
+**Three of their techniques must not be copied**: CPU coverage-buffer occlusion with authored occluder
+meshes (authored *and* CPU-bound, the wrong direction on wasm32); baked environment probes (principle 2);
+and the authored detail atlas. The *idea* of a cheap single-material shadow proxy is right and free,
+because our LOD ladder already produces one.
+
+**And one place where the house shape is ahead of the reference:** their `TexGenType = World` exists so an
+object's material can be made to agree with the terrain's mapping. Our vertex layout declares **uv in
+metres, never 0..1**, which makes that agreement structural rather than a per-material opt-in. Do not
+trade it away.
 
 ## The acceptance instruments
 
