@@ -193,6 +193,9 @@ picture, which is pinned for the length of a declared run.
 - [ ] A gate that fails the build on `getenv` outside `clients/` — six live variables change the picture or disarm a pass, and the layering targets cannot see them
 - [ ] `scenarios/` as the decided directory name — the tree still says `mods/`
 - [ ] Declared body format: segments, joints, contacts, force sources, medium, model, materials, brain
+- [ ] **Scenario: an RC aeroplane circling one position.** The repository's own first flying thing (`539aebd`, `sim/aircraft/xp_bridge.c`): a level 15° bank held about a home point, altitude constant, reverting to return-to-home beyond a declared radius. The smallest complete airborne scenario there is — one body, one propulsion, one control law, no destination — and therefore the cheapest test of flight that is not a camera on rails
+- [ ] **Scenario: a take-off and a landing in Switzerland.** Payerne (LSMP) RWY23, threshold 46.84335 / 6.91523 at 441 m, from `payerne-full.fbm`: a ground start with brakes set on runway heading, a climbing turn over the Broye valley and the Jura foothills, a descending leg onto the extended final, then approach, flare and rollout to a full stop. It exercises ground contact, propulsion, a control law, terrain over a real valley and a runway that exists — and its verdict is decidable, because the aircraft either stops on the runway or does not
+- [ ] Declared entity catalogue a generator can fill without editing a closed enum
 - [ ] Declared entity catalogue a generator can fill without editing a closed enum
 - [ ] Declared capability surface an LLM calls into
 - [ ] Declared strata list per ground class, with no global default, so an unclassified place grows nothing
@@ -319,6 +322,8 @@ picture, which is pinned for the length of a declared run.
 - [ ] A contact representation with its own rungs, selected by distance to the observer rather than by the draw's screen-space error — a body far enough to be one impostor cell still needs a correct standing surface, and the two criteria are not the same
 - [ ] Collision geometry evicted with the tile that owns it, and its bytes in the ledger under their own name
 - [x] Occupancy claimed through a sink, so a proposal and a placement are one type
+- [ ] **A segment or joint fails under load.** Not aerodynamic fidelity — the bar is that the engine can tell whether a leg breaks. A declared body's joints and segments carry a load limit, the solver reports the load, and exceeding it is a **state change on the body**, not a log line: the same declaration that carries a walking human's knee carries an undercarriage leg and a branch. This is what makes a hard landing, a fall and a collision have consequences without a second system to model them
+- [ ] The failure threshold is declared per material and per section, so it is derived from what the body is made of rather than set per body
 - [ ] Rigid-body state: position, orientation, linear and angular velocity, inertia tensor
 - [ ] Integrator with a fixed timestep and an interpolated render pose
 - [ ] Broad phase over the one spatial index, never a second index
@@ -359,6 +364,7 @@ picture, which is pinned for the length of a declared run.
 - [x] Free camera with a declared stance, eye riding the DEM (`Sim::Look`)
 - [x] Orthographic camera for a bird's eye (`demo/ortho`)
 - [ ] `Sim &Simulation()`'s non-const overload dropped — it makes moving the eye without the camera basis spellable
+- [ ] **Scenario selection in the browser client**: the declared scenarios offered as a choice, the chosen one named in the URL so it survives a reload and can be shared, and the client loaded with it directly. A scenario settable in three places and declared in none is what cost three rounds on 2026-08-11
 - [ ] Walk, with the character controller under it
 - [ ] Run, crouch, jump, climb, vault
 - [ ] Swim, with the medium under it
