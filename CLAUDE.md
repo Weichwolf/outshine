@@ -64,10 +64,14 @@ line. Never what the code does. **A name that needs a comment is the wrong name.
 1. **Purely declarative, and the language is JSON.** A title brings **no `.cpp` and no world**. JSON is
    schema-checkable, diffable and **generatable**; a bespoke format would be a parser nobody ordered.
    Shaders for a title's own appearance are allowed — appearance is not knowledge.
-2. **The engine is texture-free.** Admissible are only the **cache of a computable function** (sky and
-   transmittance LUTs) and **measured data that is a raster by nature** (DEM, imagery, stars) — **never
-   authored appearance**; there are no artists. Side benefit: mip dependence, zoom pops, sampling grids
-   and filter artefacts **cannot occur in a function**.
+2. **The engine is texture-free, and that is about the SOURCE, not about rasters.** Forbidden is
+   **authored appearance** — a file someone painted. Admissible, and normal rather than exceptional:
+   **the cache of a computable function** and **measured data that is a raster by nature** (DEM, imagery,
+   stars). **Cache freely from our own generators** — an impostor atlas baked from a grown tree, a leaf
+   sheet, a merged grass patch, a façade element — because the function is in the tree and the cache can
+   be thrown away and recomputed. That is exactly what the reference does with GrowFX: generate, then
+   bake. The test is one question: *can this be recomputed from something we own?* Side benefit: mip
+   dependence, zoom pops, sampling grids and filter artefacts **cannot occur in a function**.
 3. **The physics is our own and declarative.** Five parts — segments, joints, contacts, force sources,
    medium — plus model, materials, brain; the same format carries furniture, human, wolf, tank, aircraft.
    **It must suffice for the depiction, no more.**
