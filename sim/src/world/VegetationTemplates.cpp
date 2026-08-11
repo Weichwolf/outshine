@@ -17,7 +17,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   Layers_.clear();
   AreaLayers_.clear();
   Error_.clear();
-  Default_ = 0;
+  Unmapped_ = 0;
 
   FILE *f = fopen(path, "rb");
   if (!f) { Error_ = std::string("open failed: ") + path; return false; }
@@ -60,7 +60,7 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
   if (bladeByName.empty()) { Error_ = "no bladeClasses declared"; return false; }
 
-  Table_.reserve(tpls.Size());
+  Table_.reserve(tpls.Size() + 1);
 
   const auto fillSurf = [](float *dst, const GroundMaterials::Material &m) {
     dst[0] = m.GrainSizeM;
@@ -69,52 +69,61 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     dst[3] = m.DetailFineM;
   };
 
+  /* THE SUBSTRATE HALF OF A ROW, which a template and the unmapped declaration have in common and
+   * which is the ONLY half the unmapped one has: material, litter, relief and the two edge numbers.
+   * Everything a plant needs is written by the caller, so a declaration that is only a substrate has
+   * nowhere to say how much grows on it. */
+  const auto substrate = [&](const Json::Ref &g, Row *row) -> bool {
+    const std::string gname = g["class"].Str("");
+    const int gi = mats.Find(gname);
+    if (gi < 0) { Error_ = "unknown ground class: " + gname; return false; }
+    const GroundMaterials::Material &gm = mats.At((size_t)gi);
+    /* The declaration may override the litter the material declares — beech litter under spruce is
+     * the defect the botanist calls, and forest_floor alone cannot tell the two stands apart. */
+    const std::string lname = g["litterClass"].Str("");
+    const int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
+    if (!lname.empty() && li < 0) { Error_ = "unknown litter class: " + lname; return false; }
+    const GroundMaterials::Material &lm = mats.At((size_t)(li >= 0 ? li : gi));
+    for (int c = 0; c < 3; c++) {
+      row->Ground[c] = gm.Albedo[c];
+      row->Litter[c] = lm.Albedo[c];
+    }
+    row->Ground[3] = gm.Roughness;
+    row->Litter[3] = lm.Roughness;
+    fillSurf(row->GroundSurf, gm);
+    fillSurf(row->LitterSurf, lm);
+    row->Mix[0] = li >= 0 ? (float)g["litterCoverage"].Num(gm.LitterCoverage) : 0.0f;
+    row->Mix[1] = (float)g["contrast"].Num(0.5);
+    row->Mix[2] = gm.SpecularScale;
+    row->Mix[3] = lm.SpecularScale;
+    row->Edge[0] = (float)g["edgeReachM"].Num(0.05);
+    row->Edge[1] = (float)g["edgeConstructed"].Num(0.0);
+    row->Edge[3] = gm.SlopeMaxDeg;
+    return true;
+  };
+
   for (size_t i = 0; i < tpls.Size(); i++) {
     const Json::Ref t = tpls[i];
     Names_.push_back(t["name"].Str("?"));
 
     const Json::Ref g = t["ground"], gr = t["grass"];
-    const std::string gname = g["class"].Str("");
-    const int gi = mats.Find(gname);
-    if (gi < 0) { Error_ = "unknown ground class: " + gname; return false; }
-    const GroundMaterials::Material &gm = mats.At((size_t)gi);
-
-    /* The template may override the litter the material declares — beech litter under spruce is the
-     * defect the botanist calls, and forest_floor alone cannot tell the two stands apart. */
-    const std::string lname = g["litterClass"].Str("");
-    int li = lname.empty() ? gm.LitterClass : mats.Find(lname);
-    if (!lname.empty() && li < 0) { Error_ = "unknown litter class: " + lname; return false; }
-    const GroundMaterials::Material &lm = mats.At((size_t)(li >= 0 ? li : gi));
-
     const std::string bname = gr["class"].Str("");
     auto bit = bladeByName.find(bname);
     if (bit == bladeByName.end()) { Error_ = "unknown blade class: " + bname; return false; }
 
     Row row{};
+    if (!substrate(g, &row)) return false;
     for (int c = 0; c < 3; c++) {
-      row.Ground[c] = gm.Albedo[c];
-      row.Litter[c] = lm.Albedo[c];
       row.Grass[c]  = bit->second.Green[c];
       row.Dry[c]    = bit->second.Dry[c];
     }
-    row.Ground[3] = gm.Roughness;
-    row.Litter[3] = lm.Roughness;
-    fillSurf(row.GroundSurf, gm);
-    fillSurf(row.LitterSurf, lm);
-    row.Mix[0]    = li >= 0 ? (float)g["litterCoverage"].Num(gm.LitterCoverage) : 0.0f;
-    row.Mix[1]    = (float)g["contrast"].Num(0.5);
-    row.Mix[2]    = gm.SpecularScale;
-    row.Mix[3]    = lm.SpecularScale;
     row.Grass[3]  = (float)gr["perM2"].Num(0.0);
     row.Dry[3]    = (float)gr["heightM"].Num(0.0);
     row.Param[0]  = (float)gr["heightJitter"].Num(0.5);
     row.Param[1]  = (float)gr["widthM"].Num(0.01);
     row.Param[2]  = (float)t["clutter"]["perM2"].Num(0.0);
     row.Param[3]  = (float)gr["dryFraction"].Num(0.35);
-    row.Edge[0]   = (float)g["edgeReachM"].Num(0.05);
-    row.Edge[1]   = (float)g["edgeConstructed"].Num(0.0);
     row.Edge[2]   = (float)t["trees"]["perM2"].Num(0.0);
-    row.Edge[3]   = gm.SlopeMaxDeg;
 
     /* Beyond the cover stage's fade radius no blade is drawn and the terrain layer is the only thing
      * left showing the meadow, so its albedo has to be the SWARD's and not the floor's. The aggregate
@@ -130,7 +139,19 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
       }
     }
     Table_.push_back(row);
+  }
 
+  /* LAST, so that its index is stable and every template keeps the index its osm rows were resolved
+   * against. It is drawn where OSM has no datum; the classifier answers "no row" there, so no
+   * scatter ever reaches it. */
+  {
+    const Json::Ref u = doc.Root()["unmapped"];
+    if (u.GetKind() != Json::Kind::Object) { Error_ = "no unmapped substrate declared"; return false; }
+    Row row{};
+    if (!substrate(u, &row)) return false;
+    Unmapped_ = (int)Table_.size();
+    Names_.push_back("unmapped");
+    Table_.push_back(row);
   }
 
   /* The osm rows come SECOND, so every row can name a template by index without a forward pass. */
@@ -168,12 +189,6 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
   }
   for (const std::string &l : Layers_) if (!hasLine[l]) AreaLayers_.push_back(l);
 
-  const std::string def = doc.Root()["osmDefault"].Str("");
-  Default_ = -1;
-  for (size_t i = 0; i < Names_.size(); i++)
-    if (Names_[i] == def) Default_ = (int)i;
-  if (Default_ < 0) { Error_ = "osmDefault names no template: " + def; return false; }
-
   if (!Limit_.Load(doc.Root())) { Error_ = Limit_.Error(); return false; }
   RockTpl_ = -1;
   for (size_t i = 0; i < Names_.size(); i++)
@@ -183,9 +198,10 @@ bool VegetationTemplates::Load(const char *path, const GroundMaterials &mats) {
     return false;
   }
 
-  Log::Info("veg", "table", {{"path", path}, {"templates", (int)Table_.size()},
+  Log::Info("veg", "table", {{"path", path}, {"classRows", (int)Table_.size()},
                              {"osmRules", (int)Rules_.size()}, {"layers", (int)Layers_.size()},
-                             {"areaLayers", (int)AreaLayers_.size()}, {"default", def},
+                             {"areaLayers", (int)AreaLayers_.size()},
+                             {"unmappedRow", (double)Unmapped_},
                              {"rockTemplate", Limit_.RockTemplateName()},
                              {"slopeBandDeg", (double)Limit_.SlopeBandDeg()}});
   return true;

@@ -1,5 +1,6 @@
 /* THE CLASS MODEL: one template per ground class, keyed by the OSM (layer, kind) pairs that select it
- * and by nothing else. A template declares a species mix, densities, ground cover and clutter — never
+ * and by nothing else, plus ONE row that no key selects — the substrate of ground OSM says nothing
+ * about, appended last. A template declares a species mix, densities, ground cover and clutter — never
  * a texture. Loaded from JSON, so a template gains a field, a tag or a whole OSM layer without a
  * rebuild.
  *
@@ -73,8 +74,11 @@ public:
    * declare a `*` kind, which is the statement that the kind does not change the class. */
   const Rule *Find(std::string_view layer, std::string_view kind) const;
 
-  /* The class of a place OSM says nothing about. Declared, never guessed at the call site. */
-  int DefaultTemplate() const { return Default_; }
+  /* THE SUBSTRATE ROW FOR GROUND OSM SAYS NOTHING ABOUT, and it is not a template: it is the last
+   * row of the table, no rule can select it, and its declaration has no place to write a density.
+   * The classifier answers "no row" at such a place, which is what makes nothing grow there; this
+   * is only what gets DRAWN. */
+  int UnmappedRow() const { return Unmapped_; }
   /* The DEM's own answer where OSM has none (AlpineLimit.h), and the row it names. */
   const AlpineLimit &Limit() const { return Limit_; }
   int RockTemplate() const { return RockTpl_; }
@@ -95,7 +99,7 @@ private:
   std::vector<std::string> Layers_, AreaLayers_;
   AlpineLimit Limit_;
   std::string Error_;
-  int Default_ = 0, RockTpl_ = 0;
+  int Unmapped_ = 0, RockTpl_ = 0;
 };
 
 } // namespace outshine::World

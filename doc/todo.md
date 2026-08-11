@@ -29,30 +29,77 @@ their acceptance was a number. These are defects and absences, ranked by what de
 fastest or costs the most to leave — and the picture verdict is no longer suspended, because the
 structure stands.
 
-## 1 — One vegetation stratum against the reference's three. This is what "lush" means.
+## 1 — Overdraw, before the strata and not after
 
-KCD's forest area is **canopy + undergrowth + grass, superposed from one declared preset**, plus
-mushrooms and herbs — one Area Filler, three layers. Ours is one `Stem` and a stands-per-m² per class.
+It is the number the strata will be judged with, and it does not exist. **Build it first.**
 
-**Our density is right and the picture is still empty.** The densest declared class is 0.033/m² =
-**330 stems/ha**, and a near-natural beech stand at Serrahn measures **263 stems/ha ≥ 7 cm dbh**, basal
-area 33 m²/ha. The number is correct *for the canopy* — and everything below 7 cm dbh is neither in that
-count nor in our world. The near crown reading as flakes, the ground being a shader and nothing else, and
-`osmDefault` growing 700 blades/m² on Death Valley's floor are **one gap, not three**.
+Costed and not built: a bucketed `atomicAdd` into a 4096-entry storage buffer indexed by
+`(x>>4) + (y>>4)*80`, one binding on the four geometry-stage fragment shaders, a **16 KB readback per
+frame**, mean overdraw as the scalar and p95 over the run. **No new pass**, ≈150 lines.
 
-**No authored dependency.** The Area Filler preset is a declaration and the distribution is random; this
-transfers as JSON, not as a substitute.
+Everything KCD has in vegetation is exactly the direction in which a forest stops being free, and without
+this the answer to "does it fit 720p60" is an opinion.
 
-The shape matters as much as the content: the stratum table is **required per class with no global
-default**, so `osmDefault = "meadow"` becomes *unspellable* rather than a written-down defect — an
-unclassified place then grows nothing, which is correct. And strata are a declared list, not three named
-members: a closed enumeration here is the "adding a creature means editing seven files" failure
-`vision.md` names.
+## 2 — Strata need a view extent, and that is the shape item 1 got wrong
 
-Done when: `subject-meadow` writes a non-zero `fillPct` — today all 57 frames are bare substrate and the
-bench has no herb geometry path at all · a forest-floor subject fills within the band its class declares ·
-and **overdraw p95 is published**, because three strata is exactly where a forest stops being free.
-**Passes: 0.**
+**Reported back with its measurement rather than worked around.** A z14 region at 52.106 N spans 1501.5 m
+= 2.2545e6 m², `sizeof(Body)` is 48, the ring is 9 slots:
+
+| stratum, at its densest declared row | bodies/region | per slot | over the ring |
+|---|---|---|---|
+| canopy 0.033/m² (conifer) | 76 287 *(measured)* | 4.14 MB | 37.26 MiB *(measured)* |
+| shrub 0.12/m² (riverbank) | 270 540 | 12.98 MB | **116.9 MB** |
+| herb 12/m² (alpine grassland) | **2.705e7** | **1.30 GB** | **11.7 GB** |
+
+Linear memory is **296 MiB, whole**. The herb layer as region-extent bodies is **40× the entire address
+space**, and no encoding fixes it: what does not fit is the **count**, not the bytes. So a second and
+third stratum are swept over the **disc the picture reaches**, claiming nothing — and that is affordable,
+because the lattice costs **80 ns per cell** (derived from 203 401 cells partitioned exactly against
+`occupyMs` 13.6…20.7 ms): a 14 m herb disc at 12/m² is 20 164 cells = **1.6 ms per collection**, a 120 m
+shrub disc 23 176 cells = 1.9 ms.
+
+**What blocks it is a type, and the type is right.** `DrawSink::Add` takes a `BodyId` and a `BodyId`
+exists only where an `OccupancySink` claimed space — deliberately, so that a thing drawn where nothing
+stands is unspellable. A view-extent stratum claims nothing, so minting an id for it would be the picture
+asserting an occupancy that does not exist. Two honest resolutions: **drop the id from the draw sink** and
+restate the invariant as "a source's only sources are its yield and its own generator's sweep", or **give
+the sweep a disc-sized sink**, which needs `OccupancySink::Storage` to carry an origin.
+
+The declaration that was written and reverted: `strata: [{name, model, extent, reachM}]` at top level plus
+`strataPerM2: {…}` per template, **required for every declared name in every class row** — a missing pair
+is a load error naming it, and so is a surplus name. A fourth stratum is then one JSON row plus a species
+file. Untested, because nothing consumed it.
+
+**Done: `osmDefault` is deleted.** `vegetation.json` carries an `unmapped` **substrate declaration, not a
+template** — no `grass`, no `trees`, no `shrubs`, no `forbs`, so a density for unmapped ground has nowhere
+to be written, and no `osm` rule can select it. The classifier still answers *no row* there, so every
+scatter refuses it as `noTemplate` and **nothing grows**. Badwater's floor is bare mineral ground instead
+of a mown green sward. **Regression it caused and the owner decides the price:** the demo's road band went
+grey-taupe to brown, because the ground fragment uses the default row as the **runner-up** class where the
+structure has no second hit, and beside that road OSM maps nothing — so the road now blends toward bare
+earth and reads as a dirt track. Correct under the new declaration, worse in the picture; the per-place
+default is what settles it.
+
+## 3 — The blade prototype is not in history, and the mechanism that drew it is
+
+**There is no commit that removed a blade path.** The blade work lived entirely inside the unversioned
+window `412e970` reports — *"nothing of it was versioned; every deletion round justified with 'git will
+bring it back' rested on a false assumption, and 466 measured lines are irrecoverably lost"*. Only
+`sim/bench/wiese-*.png` survives, untracked.
+
+**But the vehicle is live.** `Render::DetailMesh` — one sheet mesh instanced over declared placements — is
+in the tree and feeds the **tree** subject today, where `TreeLeaf::Build` makes one lamina and
+`TreeFoliage` places it. A grass stratum is those two objects with a different declaration: a blade mesh
+and a placement set. **The blade path is lost as a content declaration, not as a mechanism**, and that is
+why `subject-meadow` is empty — `SubjectBench::Select` sets `Kind_ = Herb` and nothing ever calls
+`SetPrototypeDetail` on that branch.
+
+And the two colours in that image are **not two species**: `bladeClasses.graminoid` already declares
+`greenLinear` *and* `dryLinear` from one measured campaign, with a `dryFraction` per template. That mix is
+one blade class and a fraction, and the current table still carries it verbatim.
+
+Whether geometry complements or replaces `render/Sward.h`'s analytic stand radiance is **open and
+unmeasured**, and a hand-off range asserted without a measurement is not an answer.
 
 ## 2 — A stand appears in exactly one rank per frame, and the far rank is one card
 

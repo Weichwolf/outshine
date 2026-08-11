@@ -136,7 +136,7 @@ ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, dou
   job.CamN = camN;
   job.CellM = t.CellM;
   job.HalfCells = t.HalfCells;
-  job.DefaultTemplate = Veg_->DefaultTemplate();
+  job.UnmappedRow = Veg_->UnmappedRow();
   job.Pts = std::move(t.Pts);
   job.Rings = std::move(t.Rings);
   job.Feats = std::move(t.Feats);

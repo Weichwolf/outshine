@@ -48,7 +48,7 @@ public:
     double CamE = 0, CamN = 0;
     double CellM = 1;
     int HalfCells = 0;
-    int DefaultTemplate = 0;
+    int UnmappedRow = 0;
     std::vector<float> Pts;
     std::vector<Ring> Rings;
     std::vector<Feature> Feats;      /* ascending rank; the order the grid is laid down in */

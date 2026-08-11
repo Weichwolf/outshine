@@ -159,7 +159,7 @@ void ClassBuilder::Run() {
     Version_++;
     Handback y;
     y.Structure = std::make_shared<const ClassStructure>(job.Frame, Fine_, Coarse_, Version_,
-                                                        job.DefaultTemplate, buildMs, overflow);
+                                                        job.UnmappedRow, buildMs, overflow);
     y.Returned = std::move(job);
     HeapBytes_.store(GridBytes(*Fine_) + GridBytes(*Coarse_) + ScratchBytes(),
                      std::memory_order_relaxed);

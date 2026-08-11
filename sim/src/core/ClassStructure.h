@@ -36,7 +36,7 @@ public:
   };
 
   ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
-                 std::shared_ptr<const Grid> coarse, uint64_t version, int defaultTemplate,
+                 std::shared_ptr<const Grid> coarse, uint64_t version, int unmappedRow,
                  double buildMs, int overflow);
 
   /* The plane the words' metres are measured in, so a caller holding the structure needs nothing
@@ -60,7 +60,7 @@ public:
   int Evaluate(double e, double n, double *distM, int *runnerUp) const;
 
 private:
-  void Pack(int defaultTemplate);
+  void Pack(int unmappedRow);
   void Probe();
 
   TangentFrame Frame_;

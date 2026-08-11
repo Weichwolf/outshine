@@ -45,10 +45,10 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
 
 ClassStructure::ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
                                std::shared_ptr<const Grid> coarse, uint64_t version,
-                               int defaultTemplate, double buildMs, int overflow)
+                               int unmappedRow, double buildMs, int overflow)
     : Frame_(frame), Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(version) {
   const double t0 = Clock();
-  Pack(defaultTemplate);
+  Pack(unmappedRow);
   Measures_.PackMs = Clock() - t0;
   Measures_.BuildMs = buildMs;
   Measures_.Overflow = overflow;
@@ -57,11 +57,11 @@ ClassStructure::ClassStructure(const TangentFrame &frame, std::shared_ptr<const 
   Probe();
 }
 
-void ClassStructure::Pack(int defaultTemplate) {
+void ClassStructure::Pack(int unmappedRow) {
   constexpr uint32_t kHead = 4;
   constexpr uint32_t kHdrWords = 12;
   Words_.assign(kHead + 2u * kHdrWords, 0u);
-  Words_[2] = (uint32_t)defaultTemplate;
+  Words_[2] = (uint32_t)unmappedRow;
   const Grid *grids[2] = {Fine_.get(), Coarse_.get()};
   for (uint32_t b = 0; b < 2; b++) {
     const Grid &B = *grids[b];
