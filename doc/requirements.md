@@ -163,6 +163,7 @@ picture, which is pinned for the length of a declared run.
 - [ ] Aspect-preserving letterboxing on a canvas of another shape — declared in `architecture.md`, not found in `PresentStage`
 - [x] Bring-up phases as an enumeration rather than booleans
 - [ ] Fallible asynchronous bring-up completed outside a constructor, everywhere (`C.41`) — partially held, not audited
+- [ ] A gate that fails the build on an unreferenced non-static symbol — `core/Mat4.h` sat entirely dead behind a comment asserting it was not, and no target noticed
 - [ ] Frame loop that survives a device loss and re-creates the swap chain
 - [ ] Pause / resume without the world losing residency
 
@@ -189,6 +190,7 @@ picture, which is pinned for the length of a declared run.
 - [x] JSON reader in `core` (`core/Json.h`)
 - [x] A scenario is a declared world: place, clock, weather, what runs (`mods/*/mod.json`, four of them)
 - [ ] JSON schema check of a scenario before it is used, with the failing path named
+- [ ] A gate that fails the build on `getenv` outside `clients/` — six live variables change the picture or disarm a pass, and the layering targets cannot see them
 - [ ] `scenarios/` as the decided directory name — the tree still says `mods/`
 - [ ] Declared body format: segments, joints, contacts, force sources, medium, model, materials, brain
 - [ ] Declared entity catalogue a generator can fill without editing a closed enum
@@ -301,6 +303,7 @@ picture, which is pinned for the length of a declared run.
 - [ ] Culling yield per stage: submitted against visible — TOOL
 - [ ] Early rejection count — TOOL
 - [x] Run identity on every line
+- [ ] Every dial that changes the picture published as its own telemetry column, so two runs of one wasm hash are comparable — TOOL
 - [x] Readback of colour and depth, PNG writer, artefacts posted to `fb-sim`
 - [x] `SceneRunner` executing a declared `runs` block natively and writing still and depth
 - [ ] The same `runs` block executed by the wasm client, returning still and depth over HTTP — TOOL, a readback and a POST; the sink already exists
