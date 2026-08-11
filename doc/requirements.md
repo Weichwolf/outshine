@@ -69,13 +69,13 @@ picture, which is pinned for the length of a declared run.
 
 - [x] Heap, per-pool and device bytes on one telemetry row once a second (`clients/MemoryTelemetry.cpp`)
 - [x] Stream ledger: fetch, decode, mesh, DAG, residency and evictions, cumulative and never behind a switch (`clients/StreamTelemetry.cpp`, `world/TilePool.h::Ledger`)
-- [ ] `heapKB` as live allocated bytes — `HeapProbe::Bytes()` returns `sbrk(0)` under emscripten (`core/io/HeapProbe.cpp:24`), a break that never falls, so eviction can never appear in this column and "flat" is not evidence of quiet
-- [ ] The wasm break published beside live bytes as its own column, since the two answer different questions
-- [ ] A residual column `heapKB − Σpools − byteCacheKB`, published rather than subtracted by the reader — 71 216 KiB at t=31 s, and non-monotone (88 438 KiB at t=11 s), so it is not static data — DECIDABLE
+- [x] `heapKB` as live allocated bytes (`core/io/HeapProbe.cpp` — dlmalloc `mallinfo().uordblks`, guarded at static init by the identity `uordblks + fordblks == arena + hblkhd`; the column is EMPTY, never zero, if that fails). 14 336 000 B allocated reports 14 337 120 B, the excess being 140 chunk headers × 8 B; in a live run `heapKB` falls 35 times in 138 rows where the break falls never
+- [x] The wasm break published beside live bytes as its own column, since the two answer different questions (`clients/MemoryTelemetry.cpp`, `heapBreakKB`)
+- [x] A residual column, published rather than subtracted by the reader (`clients/MemoryTelemetry.cpp`, `heapResidualKB` = `heapKB − poolSumKB` from one heap walk per row) — 51 972 / 66 252 / 22 956 KiB at t=1/11/31 s, peak 90 607, non-monotone in the record — DECIDABLE
 - [ ] The residual under a declared ceiling, with every allocation above 1 MiB inside a named pool — DECIDABLE
-- [ ] The byte cache inside `poolSumKB`, or both sums published — it is measured (28 943 KiB) and silently outside the sum, which is 29 % of the apparent gap
-- [ ] The per-thread decoded DEM cache counted as a pool — 16 grids × 6 threads (`world/TerrainLoader.cpp:41-45`), ~24 MiB by its own comment, in no column
-- [ ] The scheduler's queue, posted set and completed-result map counted as a pool (`world/TilePool.h:145-158`)
+- [x] The byte cache inside `poolSumKB` (`world/World.h`, `Pools::Sum` covers every field, so a measured pool outside the sum cannot exist — `C.41`)
+- [x] The per-thread decoded DEM cache counted as a pool (`world/TilePool.cpp`, `poolDemCacheKB`) — measured 16 404 KiB at the six-thread ceiling, so its own comment's ~24 MiB was wrong too
+- [x] The scheduler's queue, posted set and completed-result map counted as a pool (`world/TilePool.h`, `poolSchedulerKB` — peak 282 KiB on a walk, 5 873 KiB on a loaded run)
 - [ ] A pool registry every pool enters at construction, so the ledger is a walk over it — today the list is hand-written in `MemoryTelemetry.cpp` and drifts in silence
 - [ ] Device memory under the same discipline: declared budget, per-consumer counters, residual — `devSumMB` reached 227.8 MiB with neither budget nor ceiling (`render/Renderer.h:101`)
 - [ ] Every budget line names which memory it constrains, linear or device — separate pools, separate exhaustion, and only one of them has a probe that can fall

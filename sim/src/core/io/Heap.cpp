@@ -13,10 +13,12 @@ namespace {
 [[noreturn]] void End(const char *item, const char *bytes) {
   /* Log and Telemetry both allocate, and what just failed is the allocator they would allocate from:
    * this one line goes out on the rawest sink the platform has. */
-  char line[224];
+  char line[256];
   std::snprintf(line, sizeof line,
-                "outshine heap exhausted: item=%s bytes=%s inUseBytes=%zu reservedBytes=%zu\n",
-                item, bytes, HeapProbe::Bytes(), HeapProbe::ReservedBytes());
+                "outshine heap exhausted: item=%s bytes=%s liveBytes=%zu breakBytes=%zu "
+                "reservedBytes=%zu\n",
+                item, bytes, HeapProbe::LiveBytes(), HeapProbe::BreakBytes(),
+                HeapProbe::ReservedBytes());
   std::fputs(line, stderr);
   std::fflush(stderr);
   std::abort();

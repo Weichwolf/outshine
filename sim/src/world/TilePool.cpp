@@ -7,6 +7,7 @@
 #include <cstring>
 #include <unistd.h>
 
+#include "Capacity.h"
 #include "ChunkMesh.h"
 #include "Heap.h"
 #include "Log.h"
@@ -157,8 +158,9 @@ TilePool::TilePool(const Config &config)
   curl_global_init(CURL_GLOBAL_DEFAULT);   /* curl_easy_init's lazy global init is not thread-safe */
 #endif
   const int n = config.Threads > 0 ? config.Threads : 1;
+  ContextBytes_ = std::vector<std::atomic<size_t>>((size_t)n);
   Threads_.reserve((size_t)n);
-  for (int i = 0; i < n; i++) Threads_.emplace_back([this] { Work(); });
+  for (int i = 0; i < n; i++) Threads_.emplace_back([this, i] { Work(i); });
   Log::Info("world", "tilepool",
             {{"threads", n}, {"inFlightCap", n}, {"byteBudgetMB", (double)ByteBudget_ / 1048576.0},
              {"demCacheTilesPerThread", DemCacheTiles_}});
@@ -209,7 +211,27 @@ TilePool::Ledger TilePool::Counters() const {
 
 size_t TilePool::ByteCacheBytes() const {
   std::lock_guard<std::mutex> lock(CacheMutex_);
-  return CacheBytes_;
+  size_t bytes = CapacityBytes(Cache_);
+  for (const CacheEntry &e : Cache_) bytes += e.Path.capacity() + CapacityBytes(e.Data);
+  return bytes;
+}
+
+size_t TilePool::DemCacheBytes() const {
+  size_t bytes = CapacityBytes(ContextBytes_);
+  for (const std::atomic<size_t> &slot : ContextBytes_) bytes += slot.load(std::memory_order_relaxed);
+  return bytes;
+}
+
+size_t TilePool::SchedulerBytes() const {
+  std::lock_guard<std::mutex> lock(QueueMutex_);
+  size_t bytes = CapacityBytes(Queue_);
+  for (const Job &j : Queue_) bytes += j.Path.capacity() + CapacityBytes(j.Soup);
+  bytes += TreeNodeBytes<uint64_t>(Posted_.size());
+  bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
+  for (const std::pair<const uint64_t, Result> &d : Done_)
+    bytes += CapacityBytes(d.second.Build.Verts) + CapacityBytes(d.second.Build.Idx) +
+             CapacityBytes(d.second.Build.Clusters);
+  return bytes;
 }
 
 TilePool::Reply TilePool::Lookup(const char *path, std::vector<uint8_t> *out) {
@@ -416,7 +438,7 @@ void TilePool::RunDag(const Job &job, Result *out) {
 /* EACH THREAD OWNS ITS OWN osmmesh_ctx: the context carries a decoded-DEM cache that the tile being
  * built writes, so sharing one would need a lock around the whole build and the pool would be a
  * queue. The byte cache below it IS shared and hands out copies only. */
-void TilePool::Work() {
+void TilePool::Work(int slot) {
   StackProbe::Enter(StackProbe::Purpose::Tile);
   osmmesh_config cfg = {};
   cfg.origin_lat = OriginLatDeg_;
@@ -435,6 +457,8 @@ void TilePool::Work() {
     Log::Error("world", "tilepool_context_unopenable", {{"rc", created}});
     std::abort();
   }
+
+  ContextBytes_[(size_t)slot].store(osmmesh_ctx_heap_bytes(ctx), std::memory_order_relaxed);
 
   std::vector<uint8_t> scratch;
   for (;;) {
@@ -483,6 +507,7 @@ void TilePool::Work() {
       }
     }
     StackProbe::Mark();
+    ContextBytes_[(size_t)slot].store(osmmesh_ctx_heap_bytes(ctx), std::memory_order_relaxed);
     {
       std::lock_guard<std::mutex> lock(QueueMutex_);
       /* A job that could not be finished this time leaves no result and no posting, so the next ask
@@ -492,6 +517,7 @@ void TilePool::Work() {
     }
   }
   osmmesh_destroy(ctx);
+  ContextBytes_[(size_t)slot].store(0, std::memory_order_relaxed);
 }
 
 TilePool::Reply TilePool::Poll(Job &&job, Result *out) {

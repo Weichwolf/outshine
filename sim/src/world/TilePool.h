@@ -13,6 +13,7 @@
 #ifndef TILEPOOL_H
 #define TILEPOOL_H
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <map>
@@ -91,7 +92,15 @@ public:
    * caller may block: the pool's own threads, and natively the frame thread. */
   Reply BytesBlocking(const char *path, std::vector<uint8_t> *out);
 
+  /* The whole table, not just the budgeted payload: the paths and the row vector are held for as
+   * long as the bytes are. */
   size_t ByteCacheBytes() const;
+  /* Decoded DEM grids the pool's threads hold. Each thread publishes its own after every job —
+   * reading another thread's context directly would race the build that is writing it. */
+  size_t DemCacheBytes() const;
+  /* The queue, the posted set and the finished results waiting to be collected. A completed mesh
+   * sits here holding its vertices until the frame thread comes for it. */
+  size_t SchedulerBytes() const;
   int ThreadCount() const { return (int)Threads_.size(); }
   /* HTTP requests that can be outstanding at once. It is the thread count because every request is
    * made by a thread that is waiting on it. */
@@ -125,7 +134,7 @@ private:
     uint64_t Used = 0;
   };
 
-  void Work();
+  void Work(int slot);
   void RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out);
   void RunDag(const Job &job, Result *out);
   Reply Poll(Job &&job, Result *out);
@@ -150,7 +159,10 @@ private:
   mutable std::mutex LedgerMutex_;
   Ledger Ledger_;
 
-  std::mutex QueueMutex_;
+  /* One slot per thread, written only by that thread. */
+  std::vector<std::atomic<size_t>> ContextBytes_;
+
+  mutable std::mutex QueueMutex_;
   std::condition_variable Wake_;
   std::vector<Job> Queue_;
   std::map<uint64_t, Result> Done_;

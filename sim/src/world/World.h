@@ -168,13 +168,17 @@ public:
   /* WHAT THE WORLD HOLDS ON THE HEAP, split by pool so a rise has an owner: the resident tile nodes
    * with their meshes, DAGs, albedo and lamps, the decoded OSM vectors, what is extruded and
    * tessellated from them, and the class. */
+  /* THE POOLS THE WORLD HOLDS, and the sum is over every field: a measured pool outside the sum is
+   * a gap the reader has to know to close, which is the same defect as not measuring it. */
   struct Pools {
     size_t TileNodes = 0, Vectors = 0, Buildings = 0, Water = 0, Streets = 0, Class = 0;
-    size_t Sum() const { return TileNodes + Vectors + Buildings + Water + Streets + Class; }
+    size_t ByteCache = 0, DemCache = 0, Scheduler = 0;
+    size_t Sum() const {
+      return TileNodes + Vectors + Buildings + Water + Streets + Class + ByteCache + DemCache +
+             Scheduler;
+    }
   };
   Pools HeapPools() const;
-  /* The tile byte cache, whole: one pool, one table, one number on both translations. */
-  size_t ByteCacheBytes() const;
 
   /* The field of view is an animation channel, so the ladder has to be able to follow it mid-run. */
   void SetPixelFocalLength(double px) { PixelFocal_ = px; }

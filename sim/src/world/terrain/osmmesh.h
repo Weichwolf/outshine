@@ -87,6 +87,11 @@ int osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                       const osmmesh_terrain_grid **out_grid,
                       uint32_t *row_postings, uint32_t *col_postings);
 
+/* Everything this context holds: the context itself, its cached decoded grids, and the grid it last
+ * handed out. One context per thread, so a pool's whole DEM cache is this summed over its threads —
+ * and until it is summed it is a pool the ledger cannot see. */
+size_t osmmesh_ctx_heap_bytes(const osmmesh_ctx *ctx);
+
 #ifdef __cplusplus
 }
 #endif

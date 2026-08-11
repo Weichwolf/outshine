@@ -2,12 +2,10 @@
  * and a budget nobody measures against is a wish: this publishes what the client holds, what it has
  * ever held, and which pool holds it — so a rise has an owner instead of a suspicion.
  *
- * WHAT THIS ROW DOES NOT COVER, because a ledger that hides its edges is worse than none. The heap
- * here is THIS module's linear memory. In the browser the tile pool runs N further wasm modules,
- * each with a linear memory of its own; every one of them measures itself and the rows travel back
- * over the channel the pool already has, so the client total stands here as main + the workers, in
- * reserved and in use. The device's memory is a separate allocation path and is reported beside the
- * heap, never added to it. */
+ * THE ROW CLOSES BY CONSTRUCTION: live bytes minus every pool column is published as the residual,
+ * so what the ledger cannot attribute is a measurement of its own blind spot rather than a
+ * subtraction the reader has to know to perform. The device's memory is a separate allocation path
+ * and is reported beside the heap, never added to it. */
 #ifndef MEMORYTELEMETRY_H
 #define MEMORYTELEMETRY_H
 
@@ -30,6 +28,10 @@ public:
   void SampleTelemetry(TelemetryRow &row) const override;
 
 private:
+  void PushHeap(TelemetryRow &row, size_t live) const;
+  void PushPools(TelemetryRow &row, const World::World::Pools &pools, size_t generator) const;
+  void PushDevice(TelemetryRow &row) const;
+
   const World::World &World_;
   const Render::Renderer &Renderer_;
   const Sim &Sim_;

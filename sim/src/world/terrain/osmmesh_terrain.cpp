@@ -276,6 +276,21 @@ void osmmesh_destroy(osmmesh_ctx *ctx)
     free(ctx);
 }
 
+static size_t om_grid_bytes(const osmmesh_terrain_grid *g)
+{
+    if (!g->heights || g->rows < 1 || g->cols < 1) return 0;
+    return (size_t)g->rows * (size_t)g->cols * sizeof(float);
+}
+
+size_t osmmesh_ctx_heap_bytes(const osmmesh_ctx *ctx)
+{
+    if (!ctx) return 0;
+    size_t bytes = sizeof(*ctx) + om_grid_bytes(&ctx->borrowed);
+    for (int i = 0; i < OM_DEM_LRU_CAP; i++)
+        if (ctx->dem_lru[i].used) bytes += om_grid_bytes(&ctx->dem_lru[i].g);
+    return bytes;
+}
+
 int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
                        osmmesh_tile *out)
 {

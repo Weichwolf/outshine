@@ -6,7 +6,6 @@
 #include "ClassStructure.h"
 #include "ClusterDag.h"
 #include "Geodesy.h"
-#include "HeapProbe.h"
 #include "Log.h"
 #include "PixelFocalLength.h"
 #include "TerrainLoader.h"
@@ -247,7 +246,6 @@ double Outshine::OpenFrame() {
 }
 
 void Outshine::CloseFrame(double startedMs) {
-  HeapProbe::Sample();
   Render::GpuTimer::Sample gpu;
   if (R_.TakeGpuTimes(gpu)) Frames_.AddGpu(gpu);
   if (!Frames_.Due(startedMs)) return;

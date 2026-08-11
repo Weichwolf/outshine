@@ -68,12 +68,12 @@ World::Pools World::HeapPools() const {
   p.Water = Water_.HeapBytes() + CapacityBytes(WaterVerts);
   p.Streets = Streets_.HeapBytes();
   p.Class = Cls_.HeapBytes();
+  if (const TilePool *pool = fb_tile_pool()) {
+    p.ByteCache = pool->ByteCacheBytes();
+    p.DemCache = pool->DemCacheBytes();
+    p.Scheduler = pool->SchedulerBytes();
+  }
   return p;
-}
-
-size_t World::ByteCacheBytes() const {
-  const TilePool *pool = fb_tile_pool();
-  return pool ? pool->ByteCacheBytes() : 0;
 }
 
 bool World::Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS) {
