@@ -993,7 +993,7 @@ a contract change, not a species.*
 - [ ] Christmas tree plantation
 - [ ] Short-rotation poplar or willow coppice
 - [ ] Allotment garden: plot grid, sheds, fruit trees, vegetable beds, hedges
-- [ ] Domestic garden: lawn, border, ornamental shrub, hedge, terrace, tree
+- [x] Dome — `sim/src/generators/draw/RoofSurface.cpp`stic garden: lawn, border, ornamental shrub, hedge, terrace, tree
 - [ ] Park: mown lawn, specimen tree, avenue, shrub block, bedding
 - [ ] Cemetery: clipped hedges, grave plantings, yew and thuja, mown grass
 - [ ] Green roof and façade planting — the setting is post-scarcity, so this is not decoration
@@ -1043,48 +1043,48 @@ because the street network is what buildings, vehicles and lighting all hang off
 ### IV.2 Mass and footprint
 
 - [x] Footprint extruded to a prism
-- [x] Wall vertices carrying run-along-the-wall and height-above-base in metres, so floor lines and window grids are functions of two numbers
+- [x] Wall vertices carrying a façade coordinate — `uv.x` = `256·style + bay`, `uv.y` = storeys, so one façade function serves the whole town with no per-building constant to pass — `sim/src/core/FacadeUv.h`
 - [ ] Multi-part mass: a main block plus a lower wing, rather than one prism per ring
 - [ ] Courtyard buildings as several rings resolved as one structure
 - [ ] Terrace: a row of prisms sharing walls, recognised as a row
 - [ ] Setback on an upper storey
 - [ ] Overhang and cantilever
 - [ ] Building on a slope: a stepped base rather than a floating or buried plinth
-- [ ] Plinth and base course as a distinct band
+- [x] Plinth and base course as a distinct band — `sim/src/render/stages/BuildingDraw.cpp` — a shading band, not geometry
 - [ ] Party wall exposed above a lower neighbour
 - [ ] Attached garage, porch, conservatory, extension
 - [ ] Building contact body for physics — deliberately none today, and a wrong body would be worse than none
 
 ### IV.3 Roofs
 
-- [ ] Flat roof with a parapet
-- [ ] Monopitch / shed roof
-- [ ] Gable roof — the default for the region, and the one that must exist first
-- [ ] Hip roof
+- [x] Flat roof with a parapet — `sim/src/generators/draw/RoofSurface.cpp` + `sim/src/generators/draw/BuildingMesh.cpp`
+- [x] Monopitch / shed roof — `sim/src/generators/draw/RoofSurface.cpp`
+- [x] Gable roof — the default for the region, and the one that must exist first — `sim/src/generators/draw/RoofSurface.cpp`
+- [x] Hip roof — `sim/src/generators/draw/RoofSurface.cpp`
 - [ ] Half-hip (Krüppelwalm)
-- [ ] Mansard roof
+- [x] Mansard roof — `sim/src/generators/draw/RoofSurface.cpp`
 - [ ] Gambrel roof
-- [ ] Pyramidal roof
+- [x] Pyramidal roof — `sim/src/generators/draw/RoofSurface.cpp` — emergent from Hip on a square box, not declared
 - [ ] Conical roof on a round tower
 - [ ] Dome
 - [ ] Barrel vault
-- [ ] Sawtooth / north-light roof, the industrial hall
+- [x] Sawtooth / north-light roof, the industrial hall — `sim/src/generators/draw/RoofSurface.cpp`
 - [ ] Butterfly roof
 - [ ] Folded-plate and shell roofs
 - [ ] Roof pitch as a function of the footprint's proportions and the declared epoch
-- [ ] Ridge running along the long axis by default, with the exceptions declared
+- [x] Ridge running along the long axis by default, with the exceptions declared — `sim/src/generators/draw/BuildingShape.cpp`
 - [ ] Roof over an L-shaped or T-shaped footprint, with valleys resolved
-- [ ] Eaves overhang, fascia, soffit
+- [x] Eaves overhang, fascia, soffit — `sim/src/generators/draw/BuildingMesh.cpp`
 - [ ] Verge and bargeboard
 - [ ] Gutter, hopper, downpipe, and a downpipe that reaches the ground
 - [ ] Ridge tiles and hip rolls
-- [ ] Chimney stack, with pots or a metal flue
+- [x] Chimney stack, with pots or a metal flue — `sim/src/generators/draw/BuildingMesh.cpp` — stack only, a pot is sub-pixel at every rung
 - [ ] Roof vent, extract cowl
 - [ ] Dormer: gable, hip, shed, eyebrow
 - [ ] Roof window flush in the plane
 - [ ] Roof lantern and skylight strip
 - [ ] Roof terrace with a railing
-- [ ] Plant room, lift overrun, stair head
+- [x] Plant room, lift overrun, stair head — `sim/src/generators/draw/BuildingMesh.cpp`
 - [ ] Rooftop HVAC units and ducting — the flat-roofed commercial building's whole silhouette
 - [ ] Rooftop water tank
 - [ ] Photovoltaic array, and in a post-scarcity setting it is the default rather than the exception
@@ -1099,19 +1099,19 @@ because the street network is what buildings, vehicles and lighting all hang off
 
 ### IV.4 Façade and openings
 
-- [ ] Storey division derived from height, so a window grid has a rhythm
-- [ ] Window rhythm: bay spacing, alignment between storeys, a wider or narrower ground floor
-- [ ] Window as an opening with a reveal depth, not a decal
+- [x] Storey division derived from height, so a window grid has a rhythm — `sim/src/generators/draw/BuildingShape.cpp`
+- [x] Window rhythm: bay spacing, alignment between storeys, a wider or narrower ground floor — `sim/src/render/stages/BuildingDraw.cpp`
+- [x] Window as an opening with a reveal depth, not a decal — `sim/src/render/stages/BuildingDraw.cpp` — a marched box recess
 - [ ] Window frame, mullion, transom, glazing bars
 - [ ] Sill and lintel
 - [ ] Casement, sliding, fixed, tilt-and-turn
 - [ ] French window and door to a balcony
 - [ ] Bay window and oriel
 - [ ] Arched, round and porthole openings
-- [ ] Shop window at ground floor, full height
+- [x] Shop window at ground floor, full height — `sim/src/render/stages/BuildingDraw.cpp`
 - [ ] Roller shutter, louvre shutter, folding shutter
-- [ ] Blind or curtain visible behind the glass
-- [ ] Glass: reflectance and a dark interior at the comparison rung; a lit room only at night
+- [x] Blind or curtain visible behind the glass — `sim/src/render/stages/BuildingDraw.cpp`
+- [x] Glass: reflectance and a dark interior at the comparison rung; a lit room only at night — `sim/src/render/stages/BuildingDraw.cpp` — Schlick; the lit room is not built
 - [ ] Entrance door, double door, revolving door
 - [ ] Garage door: up-and-over, sectional, roller
 - [ ] Loading dock door and a dock leveller

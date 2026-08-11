@@ -63,6 +63,12 @@ refutes your guess, the refutation is the round's result and goes into your repo
 reference are part of that origin: *"camera-relative, in metres"*, not *"float"*. The expensive defects in
 this tree were meaning defects, not C++ defects.
 
+**The browser is Playwright's Chromium, always.** Never launch Safari — not for a still, not for a
+boot check, not "because this host has it". A measurement taken in a different engine than every other
+measurement in the archive is not comparable to any of them, and a boot verified there proves nothing
+about the client that ships. If Playwright is not available, say so and report the round as unverified
+in the browser rather than substituting.
+
 **Every measurement pins its subject.** The wasm hash **and** the browser version appear in the
 measurement line. One binary before, one binary after, all runs of the same build, no selection.
 
