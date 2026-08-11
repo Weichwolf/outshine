@@ -64,14 +64,17 @@ line. Never what the code does. **A name that needs a comment is the wrong name.
 1. **Purely declarative, and the language is JSON.** A title brings **no `.cpp` and no world**. JSON is
    schema-checkable, diffable and **generatable**; a bespoke format would be a parser nobody ordered.
    Shaders for a title's own appearance are allowed — appearance is not knowledge.
-2. **The engine is texture-free, and that is about the SOURCE, not about rasters.** Forbidden is
-   **authored appearance** — a file someone painted. Admissible, and normal rather than exceptional:
-   **the cache of a computable function** and **measured data that is a raster by nature** (DEM, imagery,
-   stars). **Cache freely from our own generators** — an impostor atlas baked from a grown tree, a leaf
-   sheet, a merged grass patch, a façade element — because the function is in the tree and the cache can
-   be thrown away and recomputed. That is exactly what the reference does with GrowFX: generate, then
-   bake. The test is one question: *can this be recomputed from something we own?* Side benefit: mip
-   dependence, zoom pops, sampling grids and filter artefacts **cannot occur in a function**.
+2. **Appearance is generated, never authored — and textures are normal.** The engine uses textures like
+   any other: bark, leaf, façade, ground detail. They are **produced by a generator in this tree**,
+   cached, and sampled. What is forbidden is a **file somebody painted**, because there is no pipeline
+   behind it and nothing can recompute it. Measured data that is a raster by nature — DEM, imagery,
+   stars — is admissible for the same reason in reverse: it is measured, not invented. **The test is one
+   question: can this be recomputed from something we own?** That is exactly what the reference does with
+   GrowFX — generate, then bake — and it is why a leaf's venation or a bark's furrow is a generator we
+   have not written rather than a gap with no answer. What a generated texture does *not* buy is
+   immunity: once a function is baked into a raster it gets mip levels, filtering and zoom behaviour like
+   any other, and those must be handled. Immunity belongs only to what stays a function at evaluation
+   time.
 3. **The physics is our own and declarative.** Five parts — segments, joints, contacts, force sources,
    medium — plus model, materials, brain; the same format carries furniture, human, wolf, tank, aircraft.
    **It must suffice for the depiction, no more.**

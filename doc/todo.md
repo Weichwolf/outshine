@@ -311,9 +311,10 @@ hand-places a baked probe. In the open the sky LUT is the better answer already;
 item 4 is the thing that will know the enclosure exists, because a probe and a coarse occlusion field
 answer the same question.
 
-**Leaf venation and translucency variation at the top rung.** Their leaf is an authored alpha and colour;
-ours is geometry and a colour. At the comparison rung this is not a gap. Closer in it is, and the answer
-is a leaf generator — the same shape as the tree generator, one level down.
+**Leaf venation and translucency variation at the top rung.** Their leaf is a painted alpha and colour;
+ours is geometry and one colour. The answer is a **leaf texture generator** — venation is a branching
+rule and translucency a thickness field, both of which a function produces — cached into a sheet and
+sampled. Not a gap; a generator nobody has written.
 
 **Three of their techniques must not be copied**: CPU coverage-buffer occlusion with authored occluder
 meshes (authored *and* CPU-bound, the wrong direction on wasm32); baked environment probes (principle 2);

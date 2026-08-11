@@ -76,11 +76,12 @@ kind of data situation we are; and it is above all a **vegetation and terrain** 
 are building. Comparison happens at **320×180**, because there light, colour and silhouette decide and
 detail no longer speaks. **The answer to a bad comparison is therefore never more detail.**
 
-**Who makes an asset is not the engine's business.** KCD's trees are generated too — GrowFX, then baked.
-Ours are grown at bring-up and baked into an impostor atlas, which is the same trade. So do not treat "an
-artist made it" as a wall: the question is only whether a look is **computable**, and the answer is
-usually yes. Where a technique of theirs stores an authored raster, name what computes it instead. Where
-it genuinely cannot be computed, say so — but that is rare and it is a finding, not a category.
+**Who makes an asset is not the engine's business, and textures are allowed.** The engine samples bark,
+leaf, façade and ground textures like any other — they are simply **generated here** rather than painted
+elsewhere, then cached. KCD's trees are generated too: GrowFX, then baked. So never answer "their
+technique needs an authored asset" as though it ended the matter; name **the generator that would produce
+it**, and say what it must produce. A look that cannot be computed at all is rare, and it is a finding
+rather than a category.
 
 ## Look it up, do not recall it — your most important rule
 
