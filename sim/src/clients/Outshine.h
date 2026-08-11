@@ -168,7 +168,7 @@ private:
   double PhaseFromMs_ = 0.0;
   double LoadFromMs_ = 0.0, LoadMovedMs_ = 0.0, LoadSaidMs_ = 0.0;
   long LoadPasses_ = 0;
-  int LoadReadyWas_ = -1;
+  int LoadSettledWas_ = -1;
   Phase Phase_ = Phase::Declared;
 };
 

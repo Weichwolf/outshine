@@ -250,12 +250,16 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
  *
  * The postings sit on the DEM's own node spacing; how far the patch's own interpolation stands from
  * the drawn surface between them is unmeasured. */
-bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
-                   SnapshotCost *cost) const {
+Sim::Snapped Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
+                           SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
-  const auto done = [&](bool ok) { cost->TotalMs = MonotonicMs() - t0; return ok; };
+  const auto done = [&](Snapped how) { cost->TotalMs = MonotonicMs() - t0; return how; };
   const FbGroundBlock block = fb_stream_ground_block(region.Zoom(), region.X(), region.Y());
-  if (block.Where() != FbGroundBlock::State::Resolved) return done(false);
+  switch (block.Where()) {
+    case FbGroundBlock::State::Pending: return done(Snapped::Waiting);
+    case FbGroundBlock::State::Missing: return done(Snapped::NoGround);
+    case FbGroundBlock::State::Resolved: break;
+  }
 
   const int side = (int)(region.SpanNm() / fb_stream_ground_post_m(region.AnchorLat()) + 0.5) + 1;
   std::vector<Generators::GroundPatch::Posting> postings((size_t)side * (size_t)side);
@@ -280,7 +284,7 @@ bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapsho
   out->Features = Features(region);
   cost->FeatureMs = MonotonicMs() - tFeat;
   out->Table = Table_;
-  return done(out->Patch && out->Classes && out->Features);
+  return done(out->Patch && out->Classes && out->Features ? Snapped::Taken : Snapped::Waiting);
 }
 
 bool Sim::Reached(const Generators::Region &region) const {
@@ -364,7 +368,16 @@ void Sim::Ask() {
 
     Asked_ = k + 1;
     Generators::Ground::Snapshot snapshot;
-    if (!Snapshot(*region, &snapshot, &SnapshotCost_)) return;
+    const Snapped snapped = Snapshot(*region, &snapshot, &SnapshotCost_);
+    if (snapped == Snapped::Waiting) return;
+    /* NOTHING GROWS ON GROUND THAT DOES NOT EXIST, and the answer is final (world/TerrainLoader.h):
+     * a ring member left unanswered holds the loading screen open for the whole scene. */
+    if (snapped == Snapped::NoGround) {
+      Log::Warn("sim", "region_without_ground", {{"zoom", (double)region->Zoom()},
+          {"x", (double)region->X()}, {"y", (double)region->Y()}});
+      Refused_.push_back(*region);
+      return;
+    }
     const std::optional<Generators::Ground> ground = Generators::Ground::Of(*region, snapshot);
     if (!ground) return;
     std::optional<Generators::RegionPool::Lease> lease = Pool_->TryAcquire(*ground);
@@ -544,7 +557,7 @@ std::optional<Generators::Ground> Sim::GroundAt(double lat, double lon) const {
   const Generators::Region region = Generators::Region::Of(Ring_.Zoom(), lat, lon);
   Generators::Ground::Snapshot snapshot;
   SnapshotCost cost;
-  if (!Snapshot(region, &snapshot, &cost)) return std::nullopt;
+  if (Snapshot(region, &snapshot, &cost) != Snapped::Taken) return std::nullopt;
   return Generators::Ground::Of(region, snapshot);
 }
 

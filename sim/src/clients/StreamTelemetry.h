@@ -26,8 +26,8 @@ public:
     /* The ring's own frame cost. Separate from WorldMs because the ring runs beside World::Refine
      * and not inside it, and a crossing is where the two are told apart. */
     double PopulateMs = 0.0;
-    int TilesTotal = 0, TilesReady = 0, TilesInView = 0, VectorTilesPending = 0;
-    long Built = 0, Evicted = 0;
+    int TilesTotal = 0, TilesSettled = 0, TilesInView = 0, VectorTilesPending = 0;
+    long long Built = 0, Evicted = 0;
     bool Resident = false;
     /* The pool's own cumulative ledger, read once per pass: where the wait actually was. */
     World::TilePool::Ledger Pool;
@@ -41,7 +41,7 @@ public:
    * distribution read without knowing whether the load was finished is unreadable. */
   void MarkResident(double nowMs);
   double LoadMs() const { return LoadMs_; }
-  long PassCount() const { return Passes_; }
+  long long PassCount() const { return Passes_; }
   /* The window closes where FrameTelemetry's does — one Tick, one second, both sources. */
   void Reset();
 
@@ -60,7 +60,7 @@ private:
 
   Stat World_, Mesh_, Upload_, Building_, Decode_, Class_, Populate_;
   Pass Last_;
-  long Passes_ = 0, WindowBuilt_ = 0, WindowEvicted_ = 0, PrevBuilt_ = 0, PrevEvicted_ = 0;
+  long long Passes_ = 0, WindowBuilt_ = 0, WindowEvicted_ = 0, PrevBuilt_ = 0, PrevEvicted_ = 0;
   int WindowPasses_ = 0;
   double OpenedMs_ = 0.0, LoadMs_ = 0.0;
 };

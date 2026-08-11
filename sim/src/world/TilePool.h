@@ -49,13 +49,19 @@ public:
    * not a different code path, so this rides the ordinary telemetry row and the per-second delta is
    * the reader's subtraction. */
   struct Ledger {
-    long MeshTiles = 0, MeshAbsent = 0, Dags = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
-    long Evictions = 0;
+    /* 64 bits, never `long`: the frame is wasm32, where a `long` counter wraps at 2^31 — and the
+     * ask counters below reach that inside a day of streaming. */
+    long long MeshTiles = 0, MeshAbsent = 0, Dags = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
+    long long Evictions = 0;
+    /* THE TWO REFUSAL COUNTS, kept apart from the absences beside them because that is the whole
+     * distinction: an absence is the world, a refusal is this tree or the wire. A run whose terrain
+     * is coarse and whose MeshRefused is zero has a different cause from one where it is not. */
+    long long FetchRefused = 0, MeshRefused = 0;
     /* WHAT THE ASKS DID TO THE QUEUE. Posts is a job that started; Repeats is an ask that found its
      * job already under way, which is the caller waiting on the threads rather than on nothing.
      * QueueDepth is the one GAUGE here — a queue length has no cumulative form, and it is what
      * tells a queue stacked behind the in-flight cap (InFlightCap()) from one thread being slow. */
-    long Posts = 0, Repeats = 0, QueueDepth = 0;
+    long long Posts = 0, Repeats = 0, QueueDepth = 0;
     /* FetchMs is the wall inside HttpGet; FetchBlockedMs is the whole span inside a fetch, so the
      * difference is what the flat 202 retry cost. MeshCpuMs has that span taken out of it: a build
      * does not do the transport it waits on, and a column that can silently carry one is a column
@@ -89,6 +95,12 @@ public:
    * `seamAttr` >= 0 names a float whose SIGN marks an attribute seam — two vertices at one position
    * that disagree in it weld as one point and stay two for drawing. -1 = no seam. */
   Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
+  /* THE CALLER LETTING GO. Poll hands a finished build over exactly once and to whoever asks, so a
+   * mesh whose asker stopped asking — a retracted split takes a sibling out mid-build, an eviction
+   * takes a leaf out of the cut — is held for the life of the pool with nothing left that could
+   * collect it. Also cancels the in-flight job's product: the completion writes nothing once the key
+   * is no longer posted. */
+  void ForgetMesh(int z, uint32_t x, uint32_t y);
 
   /* A path under the tile server's root, e.g. "/t/terrain/14/8620/5403". Non-blocking: a miss posts
    * a fetch and answers Pending. `out` keeps its capacity across calls. */
@@ -172,7 +184,9 @@ private:
   std::vector<Job> Queue_;
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
-  long Posts_ = 0, Repeats_ = 0;   /* written only under QueueMutex_, beside the set they count */
+  /* 64 bits for the same reason the Ledger's are, and these are the ones that reach it: Repeats_
+   * rises on every ask that finds its job already under way, measured at ~190 kHz. */
+  long long Posts_ = 0, Repeats_ = 0;   /* written only under QueueMutex_, beside the set they count */
   double CameraLatDeg_ = 0.0, CameraLonDeg_ = 0.0;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;

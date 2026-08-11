@@ -230,7 +230,7 @@ void Outshine::AwaitStars() {
   }
   LoadFromMs_ = LoadMovedMs_ = LoadSaidMs_ = NowMs();
   LoadPasses_ = 0;
-  LoadReadyWas_ = -1;
+  LoadSettledWas_ = -1;
   Phase_ = Phase::Loading;
 }
 
@@ -422,7 +422,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.ClassMs = w.ClassMs();
   p.PopulateMs = Sim_.PopulateMs();
   p.TilesTotal = w.TargetTotal();
-  p.TilesReady = w.TargetReadyN();
+  p.TilesSettled = w.TargetSettledN();
   p.TilesInView = w.TargetInViewN();
   p.VectorTilesPending = w.BuildingPendingTiles();
   p.Built = w.BuiltCount();
@@ -460,13 +460,13 @@ void Outshine::LoadPass() {
   }
   /* A STALL IS SAID, NOT CAPPED. There is no ceiling to hit — a server that stops answering is a
    * fact about the server — but a load that spins in silence is a fact nobody can read. */
-  if (w.TargetReadyN() != LoadReadyWas_) { LoadReadyWas_ = w.TargetReadyN(); LoadMovedMs_ = now; }
+  if (w.TargetSettledN() != LoadSettledWas_) { LoadSettledWas_ = w.TargetSettledN(); LoadMovedMs_ = now; }
   if (now - LoadMovedMs_ > kStallSayMs && now - LoadSaidMs_ > kStallSayMs) {
     LoadSaidMs_ = now;
     Log::Warn("outshine", "load_stalled", {{"stalledS", (now - LoadMovedMs_) * 0.001},
-        {"passes", (double)LoadPasses_}, {"targetReady", LoadReadyWas_},
+        {"passes", (double)LoadPasses_}, {"targetSettled", LoadSettledWas_},
         {"targetTotal", w.TargetTotal()}, {"vectorPending", w.BuildingPendingTiles()},
-        {"progress", (double)p.Fraction}});
+        {"waitingFor", World::AwaitName(w.Waiting())}, {"progress", (double)p.Fraction}});
   }
 }
 

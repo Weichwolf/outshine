@@ -5,6 +5,7 @@
 #define CHUNKMESH_H
 #include "ChunkSurface.h" /* the node lattice and the split, shared with the height oracle */
 #include "ChunkVtx.h" /* ChunkVtx, Chunk, ChunkFree -- no dependency on the ENU builder */
+#include "Heap.h"
 #include <math.h>
 #include "geo.h"
 #include "mesh.h"
@@ -43,14 +44,11 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
 #define W3_CI(i) ((int)ChunkNodePosting((i), C, gc))
 
   int NN = gr * gc;
-  double *pe =
-      (double *)malloc((size_t)NN * 3 * sizeof(double)); /* node ECEF offset (double, for the normal cross) */
-  float *nh = (float *)malloc((size_t)NN * sizeof(float)); /* node source height (for the err walk) */
-  if (!pe || !nh) {
-    free(pe);
-    free(nh);
-    return 0;
-  }
+  /* THE ONLY ANSWER THIS FUNCTION HAS IS "no mesh", and its caller reads that as a hole in the world
+   * (world/TilePool.cpp RunMesh). An exhausted heap is not a hole, so it ends the run here where the
+   * item and the byte count are still known, instead of arriving as a quadrant that never comes. */
+  double *pe = (double *)Heap::Take("terrain node offsets", (size_t)NN * 3 * sizeof(double));
+  float *nh = (float *)Heap::Take("terrain node heights", (size_t)NN * sizeof(float));
 
   /* The tile CENTRE on the ellipsoid, so every offset stays <= half a diagonal plus local relief. */
   {
@@ -88,12 +86,7 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   /* Central differences over the DECIMATED neighbours, so the light matches the drawn silhouette.
    * Cross products are translation-invariant, so the small float offsets give the TRUE geometric
    * normal — the tile's curvature comes along for free. */
-  float *nv = (float *)malloc((size_t)NN * 3 * sizeof(float));
-  if (!nv) {
-    free(pe);
-    free(nh);
-    return 0;
-  }
+  float *nv = (float *)Heap::Take("terrain node normals", (size_t)NN * 3 * sizeof(float));
   for (int j = 0; j < gr; j++)
     for (int i = 0; i < gc; i++) {
       int i0 = i > 0 ? i - 1 : i, i1 = i < gc - 1 ? i + 1 : i, j0 = j > 0 ? j - 1 : j,
@@ -144,14 +137,9 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   if (skirt < 5.f) skirt = 5.f;
 
   int nquad = (gr - 1) * (gc - 1), nedge = 2 * ((gr - 1) + (gc - 1));
-  ChunkVtx *v = (ChunkVtx *)malloc(((size_t)nquad + nedge) * 6 * sizeof(ChunkVtx));
+  ChunkVtx *v =
+      (ChunkVtx *)Heap::Take("terrain tile vertices", ((size_t)nquad + nedge) * 6 * sizeof(ChunkVtx));
   size_t o = 0;
-  if (!v) {
-    free(pe);
-    free(nh);
-    free(nv);
-    return 0;
-  }
   for (int j = 0; j < gr - 1; j++)
     for (int i = 0; i < gc - 1; i++) {
       for (const ChunkQuadCorner &corner : ChunkQuadWinding()) {

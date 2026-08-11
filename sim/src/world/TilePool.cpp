@@ -43,14 +43,19 @@ constexpr int kRetryMs = 50;
  * it unchanged changes nothing — 408 and 429 (§15.5.9, §15.5.30) are the two that name a retry. A 5xx
  * (§15.6) and a transport failure are the server or the wire, and those do heal. fb-tiles 404s an
  * unknown route, so without this split one mistyped path is every thread issuing a GET every 50 ms
- * against a world that can never arrive. */
-enum class Status { Bytes, Absent, Again };
+ * against a world that can never arrive.
+ *
+ * REFUSED IS NOT ABSENT, and that is the whole reason for the fourth answer: 204 is the server
+ * making a statement about the WORLD, while a 403 from something between here and it is a statement
+ * about the request. Cached as absent, one proxy error during a deploy leaves that quadrant coarse
+ * for the life of the process with nothing in the record to trace it to. */
+enum class Status { Bytes, Hole, Refused, Again };
 
 Status Classify(int httpStatus, size_t len) {
   if (httpStatus == 200) return len > 0 ? Status::Bytes : Status::Again;
-  if (httpStatus == 204) return Status::Absent;
+  if (httpStatus == 204) return Status::Hole;
   if (httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429)
-    return Status::Absent;
+    return Status::Refused;
   return Status::Again;
 }
 
@@ -58,6 +63,22 @@ Status Classify(int httpStatus, size_t len) {
  * retry sleeps above, which is the span the HttpGet clock cannot see. A mesh job subtracts its own
  * share of it, because a build that waited on a 202 did not spend that time building. */
 thread_local double tFetchBlockedMs = 0.0;
+
+/* WHY A MESH WAS NOT BUILT, and only ONE of these is a statement about the world: a Hole is the tile
+ * server's own 204 for this tile's terrain. A Refused is this tree, the request or the wire being
+ * wrong — a 4xx that is not the 204 contract, a PNG that will not decode, a source that is not the
+ * grid the stitch promises, a partition with no cluster in it. A Wait is a promise not yet kept.
+ *
+ * The C island answers all four with no bytes by contract (terrain/osmmesh.h), so the reason travels
+ * beside the return code on a thread-local: the provider callback has no channel back. It matters
+ * because Absent is TERMINAL at the node (world/World.h MeshState::Vacant) — a rung retracted for a
+ * proxy error or a slow server deletes ground for good.
+ *
+ * WORST WINS, and Refused outranks Wait on purpose: a refusal is minted inside a fetch that then
+ * reports Pending to the provider, so the other order would erase every name this exists to keep. */
+enum class Miss { None, Hole, Wait, Refused };
+thread_local Miss tMiss = Miss::None;
+Miss Worse(Miss a, Miss b) { return a > b ? a : b; }
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)
@@ -177,16 +198,18 @@ TilePool::~TilePool() {
   const double meshes = l.MeshTiles > 0 ? (double)l.MeshTiles : 1.0;
   const double fetches = l.Fetches > 0 ? (double)l.Fetches : 1.0;
   Log::Debug("world", "tilepool_closed",
-             {{"meshTiles", (int)l.MeshTiles}, {"meshAbsent", (int)l.MeshAbsent},
+             {{"meshTiles", l.MeshTiles}, {"meshAbsent", l.MeshAbsent},
+              {"meshRefused", l.MeshRefused},
               {"meshCpuMs", l.MeshCpuMs}, {"meshCpuMsPerTile", l.MeshCpuMs / meshes},
-              {"dags", (int)l.Dags}, {"dagMs", l.DagMs},
-              {"httpGets", (int)l.Fetches}, {"httpAbsent", (int)l.FetchAbsent},
-              {"httpGaveUp", (int)l.FetchGaveUp}, {"httpMs", l.FetchMs},
+              {"dags", l.Dags}, {"dagMs", l.DagMs},
+              {"httpGets", l.Fetches}, {"httpAbsent", l.FetchAbsent},
+              {"httpRefused", l.FetchRefused},
+              {"httpGaveUp", l.FetchGaveUp}, {"httpMs", l.FetchMs},
               {"httpMsPerGet", l.FetchMs / fetches},
               {"fetchBlockedMs", l.FetchBlockedMs},
               {"retryWaitMs", l.FetchBlockedMs - l.FetchMs}, {"fetchedMB", l.FetchedMB},
               {"byteCacheMB", (double)ByteCacheBytes() / 1048576.0},
-              {"byteCacheEntries", (int)Cache_.size()}, {"evictions", (int)l.Evictions}});
+              {"byteCacheEntries", (int)Cache_.size()}, {"evictions", l.Evictions}});
 }
 
 void TilePool::Camera(double latDeg, double lonDeg) {
@@ -215,7 +238,7 @@ TilePool::Ledger TilePool::Counters() const {
   std::lock_guard<std::mutex> queue(QueueMutex_);
   out.Posts = Posts_;
   out.Repeats = Repeats_;
-  out.QueueDepth = (long)Queue_.size();
+  out.QueueDepth = (long long)Queue_.size();
   return out;
 }
 
@@ -298,10 +321,11 @@ TilePool::Reply TilePool::FetchInto(const char *path, std::vector<uint8_t> *out)
   std::string url = Base_;
   url += path;
   Reply reply = Reply::Pending;
+  bool refused = false;
   double httpMs = 0.0;
   long gets = 0;
   const auto entered = std::chrono::steady_clock::now();
-  for (int attempt = 0; attempt < kFetchAttempts && reply == Reply::Pending; attempt++) {
+  for (int attempt = 0; attempt < kFetchAttempts && reply == Reply::Pending && !refused; attempt++) {
     out->clear();
     const auto t0 = std::chrono::steady_clock::now();
     const int status = HttpGet(url.c_str(), out);
@@ -312,19 +336,23 @@ TilePool::Reply TilePool::FetchInto(const char *path, std::vector<uint8_t> *out)
         Remember(path, out->data(), out->size(), false);
         reply = Reply::Ready;
         break;
-      case Status::Absent:
-        /* 204 is the server saying "no tile here"; anything else that lands as Absent is the request
-         * itself being wrong, and a wrong path is a defect that has to be readable. */
-        if (status != 204) Log::Error("world", "tile_refused",
-                                      {{"path", std::string(path)}, {"status", status}});
+      case Status::Hole:
         Remember(path, nullptr, 0, true);
         reply = Reply::Absent;
+        break;
+      case Status::Refused:
+        /* NOT remembered and NOT Absent. Repeating the request unchanged cannot help, so the loop
+         * ends — but the answer the caller gets is Pending, because the one thing that must not be
+         * cached under a wrong request is a decision about the world. */
+        Log::Error("world", "tile_refused", {{"path", std::string(path)}, {"status", status}});
+        refused = true;
         break;
       case Status::Again:
         usleep((useconds_t)kRetryMs * 1000);
         break;
     }
   }
+  if (refused) tMiss = Worse(tMiss, Miss::Refused);
   const double blockedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - entered).count();
   tFetchBlockedMs += blockedMs;
@@ -335,7 +363,8 @@ TilePool::Reply TilePool::FetchInto(const char *path, std::vector<uint8_t> *out)
     Ledger_.FetchBlockedMs += blockedMs;
     if (reply == Reply::Ready) Ledger_.FetchedMB += (double)out->size() / 1048576.0;
     if (reply == Reply::Absent) Ledger_.FetchAbsent++;
-    if (reply == Reply::Pending) Ledger_.FetchGaveUp++;
+    if (refused) Ledger_.FetchRefused++;
+    else if (reply == Reply::Pending) Ledger_.FetchGaveUp++;
   }
   if (reply == Reply::Pending) out->clear();   /* NOT remembered: the next ask starts the clock again */
   return reply;
@@ -370,8 +399,9 @@ int Provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_
   char path[128];
   std::snprintf(path, sizeof path, "/t/%s/%u/%u/%u", kKindPath[(int)kind], z, x, y);
   std::vector<uint8_t> bytes;
-  if (((TilePool *)user)->BytesBlocking(path, &bytes) != TilePool::Reply::Ready || bytes.empty())
-    return 0;
+  const TilePool::Reply reply = ((TilePool *)user)->BytesBlocking(path, &bytes);
+  if (reply == TilePool::Reply::Pending) tMiss = Worse(tMiss, Miss::Wait);
+  if (reply != TilePool::Reply::Ready || bytes.empty()) return 0;
   /* osmmesh frees what a provider hands over, so this crosses into the C island as a plain block. */
   uint8_t *block = (uint8_t *)Heap::Take("tile bytes", bytes.size());
   std::memcpy(block, bytes.data(), bytes.size());
@@ -384,36 +414,55 @@ int Provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_
 
 void TilePool::RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out) {
   osmmesh_tile tile = {};
+  tMiss = Miss::None;
   const int fetched = osmmesh_fetch_tile(ctx, (uint8_t)job.Z, job.X, job.Y, &tile);
   /* A REFUSED ALLOCATION IS NOT A GAP. The C island answers both with a negative int, and under a
    * fixed linear memory that is the difference between "this tile has no DEM" and "the run is
    * over" — so it is separated here and nowhere else. */
   if (fetched == OSMMESH_ERR_OOM) Heap::Exhausted("tile dem grid");
-  if (fetched != OSMMESH_OK || !tile.terrain) {
-    osmmesh_free_tile(&tile);
-    out->State = Reply::Absent;
-    return;
-  }
   Chunk chunk = {};
-  double origin[3];
-  const bool built = ChunkBuildEcef(tile.terrain, job.Z, job.X, job.Y, job.Grid, &chunk, origin) &&
-                     chunk.nverts > 0;
+  double origin[3] = {0.0, 0.0, 0.0};
+  const char *stage = "fetch";
+  Miss miss = Miss::None;
+  if (fetched != OSMMESH_OK) miss = Miss::Refused;
+  else if (!tile.terrain) miss = Miss::Hole;
+  else if (!ChunkBuildEcef(tile.terrain, job.Z, job.X, job.Y, job.Grid, &chunk, origin) ||
+           chunk.nverts <= 0) {
+    miss = Miss::Refused;
+    stage = "grid";
+  }
   osmmesh_free_tile(&tile);
-  if (!built) {
-    ChunkFree(&chunk);
-    out->State = Reply::Absent;
-    return;
+  if (miss == Miss::None) {
+    TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, origin,
+                 out->Build.Verts, out->Build.Idx, out->Build.Clusters);
+    out->Build.ErrM = chunk.err;
+    if (out->Build.Verts.empty() || out->Build.Idx.empty() || out->Build.Clusters.empty()) {
+      miss = Miss::Refused;
+      stage = "partition";
+    } else {
+      for (int a = 0; a < 3; a++) out->Build.OriginEcef[a] = origin[a];
+    }
   }
-  TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, origin,
-               out->Build.Verts, out->Build.Idx, out->Build.Clusters);
-  out->Build.ErrM = chunk.err;
   ChunkFree(&chunk);
-  if (out->Build.Verts.empty() || out->Build.Idx.empty() || out->Build.Clusters.empty()) {
-    out->State = Reply::Absent;
+  /* THE STITCH READS FOUR NEIGHBOURS, so this tile's own answer is not the only one that decides:
+   * a mesh built while any of them was still coming is a seam frozen into a node that is never asked
+   * again, and a neighbour the wire refused is not a statement about this tile's ground either. */
+  if (tMiss > miss) {
+    miss = tMiss;
+    stage = "provider";
+  }
+  if (miss == Miss::None) {
+    out->State = Reply::Ready;
     return;
   }
-  for (int a = 0; a < 3; a++) out->Build.OriginEcef[a] = origin[a];
-  out->State = Reply::Ready;
+  if (miss == Miss::Refused) {
+    Log::Warn("world", "tile_mesh_refused", {{"z", job.Z}, {"x", (int)job.X}, {"y", (int)job.Y},
+                                             {"stage", stage}, {"rc", fetched}});
+    std::lock_guard<std::mutex> ledger(LedgerMutex_);
+    Ledger_.MeshRefused++;
+  }
+  /* ONE DOOR TO A TERMINAL ANSWER, and only a Hole goes through it. */
+  out->State = miss == Miss::Hole ? Reply::Absent : Reply::Pending;
 }
 
 void TilePool::RunDag(const Job &job, Result *out) {
@@ -523,7 +572,14 @@ void TilePool::Work(int slot) {
       /* A job that could not be finished this time leaves no result and no posting, so the next ask
        * queues it again — the difference between a slow server and a missing tile. */
       if (result.State == Reply::Pending) Posted_.erase(job.Key);
-      else Done_[job.Key] = std::move(result);
+      /* A key that is no longer posted is a caller that let go (ForgetMesh): storing its product
+       * would put an entry in Done_ that nothing can ever take out again. */
+      else if (Posted_.find(job.Key) != Posted_.end()) {
+        /* An Absent outlives the pool's queue (Poll keeps it), so it must not keep a partial build
+         * alive with it. */
+        if (result.State == Reply::Absent) result.Build = TileBuild{};
+        Done_[job.Key] = std::move(result);
+      }
     }
   }
   osmmesh_destroy(ctx);
@@ -534,10 +590,16 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   std::unique_lock<std::mutex> lock(QueueMutex_);
   const auto done = Done_.find(job.Key);
   if (done != Done_.end()) {
+    /* An Absent is KEPT, posted and done: the answer is final, so every later ask gets the same one
+     * instead of a thread spun on a tile that does not exist. A build is handed over once — the
+     * caller owns it after that, and the key leaves both tables with it. */
+    if (done->second.State == Reply::Absent) {
+      out->State = Reply::Absent;
+      return Reply::Absent;
+    }
     *out = std::move(done->second);
     Done_.erase(done);
-    /* An Absent stays posted: the answer is final and a second ask would spin a thread on it. */
-    if (out->State != Reply::Absent) Posted_.erase(job.Key);
+    Posted_.erase(job.Key);
     return out->State;
   }
   if (Posted_.insert(job.Key).second) {
@@ -564,6 +626,13 @@ TilePool::Reply TilePool::Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuil
   const Reply state = Poll(std::move(job), &result);
   if (state == Reply::Ready) *out = std::move(result.Build);
   return state;
+}
+
+void TilePool::ForgetMesh(int z, uint32_t x, uint32_t y) {
+  const uint64_t key = MeshKey(z, x, y);
+  std::lock_guard<std::mutex> lock(QueueMutex_);
+  Posted_.erase(key);
+  Done_.erase(key);
 }
 
 bool TilePool::Known(uint64_t key) {

@@ -27,6 +27,10 @@ class TelemetryRow {
 public:
   void Push(double v);
   void Push(int v);
+  /* A CUMULATIVE COUNTER IS 64 BITS, and the frame is wasm32 where `long` is 32: a run that streams
+   * for hours reaches 2^31 in the pool's ask counters, and a column that wraps there takes the two
+   * published counting identities with it. */
+  void Push(long long v);
   void Push(bool v);
   void Push(const std::string &v);
   const std::vector<std::string> &Fields() const { return Fields_; }

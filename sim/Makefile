@@ -148,6 +148,11 @@ OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
   $(patsubst src/world/%.cpp,$(1)/world-%.o,$(WORLD_SRCS)) \
   $(patsubst src/world/terrain/%.cpp,$(1)/world-%.o,$(TERRAIN_SRCS)) \
   $(patsubst src/clients/%.cpp,$(1)/sim-%.o,$(SIM_SRCS))
+# What a TilePool needs and nothing above it: the gate links the same objects `make wasm` built.
+GATE_WASM_OBJS = $(patsubst src/core/%.cpp,build/obj-wasm/core-%.o,$(CORE_TOP_SRCS)) \
+  $(patsubst src/core/io/%.cpp,build/obj-wasm/core-%.o,$(CORE_IO_SRCS)) \
+  $(patsubst src/world/%.cpp,build/obj-wasm/world-%.o,$(WORLD_SRCS)) \
+  $(patsubst src/world/terrain/%.cpp,build/obj-wasm/world-%.o,$(TERRAIN_SRCS))
 PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS)) \
   $(patsubst src/render/%.cpp,$(1)/render-%.o,$(RENDER_TOP_SRCS)) \
   $(patsubst src/render/stages/%.cpp,$(1)/render-%.o,$(RENDER_STAGE_SRCS)) \
@@ -157,7 +162,7 @@ PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm walk world treebench verify-generators verify-world verify-clients image up down restart clean
+.PHONY: help wasm walk world treebench verify-generators verify-world verify-clients verify-counters image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -317,6 +322,20 @@ verify-world:    ## a world/ TU compiles against core and CANNOT name a generato
 	    echo "verify-world: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
 	  fi; \
 	  echo "verify-world: generators/ and render/ have no spelling in world/"
+
+# THE ONE COUNTER TEST THAT CANNOT BE TAKEN ON THE ORACLE. `long` is 64 bits natively and 32 on
+# wasm32, so a cumulative counter declared `long` wraps only where the code ships -- and every
+# acceptance CSV in the archive is written by the native oracle. This drives the pool's fastest
+# accumulator past 2^31 IN THE BROWSER and reads it back through the telemetry's own push.
+verify-counters: ## a cumulative counter carries past 2^31 on wasm32, in the browser
+	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
+	  emcc src/world/gate/CountersDoNotWrap.cpp $(GATE_WASM_OBJS) \
+	    $(CXXSTD) -O2 $(EMCC_WARN) $(WASM_THREADS) $(INC_WORLD) $(INC_TILES) \
+	    $(WASM_THREADS) -sPTHREAD_POOL_SIZE=2 -sINITIAL_MEMORY=128MB -sSTACK_SIZE=256KB \
+	    -sDEFAULT_PTHREAD_STACK_SIZE=256KB -sABORTING_MALLOC=0 -sEXIT_RUNTIME=1 \
+	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body \
+	    -o web/counters.html; \
+	  node tools/browser_gate.cjs /counters.html
 
 verify-types:    ## a value whose misuse must not compile -- and does not
 	@cd $(SELF_DIR); set -e; \

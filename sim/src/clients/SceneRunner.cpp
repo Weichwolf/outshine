@@ -243,7 +243,7 @@ void SceneRunner::Counters() {
     if (R.TerrainTrianglesByLevel()[i] > 0)
       lvl += "L" + std::to_string(i) + "=" + std::to_string(R.TerrainTrianglesByLevel()[i]) + " ";
   Log::Info("run", "terrain", {{"cutLevels", lvl}, {"targetTotal", W.TargetTotal()},
-      {"targetReady", W.TargetReadyN()}, {"progress", (double)W.LoadProgress()},
+      {"targetSettled", W.TargetSettledN()}, {"progress", (double)W.LoadProgress()},
       {"draws", R.DrawCount()}, {"terrainTiles", R.TerrainVisibleTiles()},
       {"terrainDraws", R.TerrainDrawCalls()}, {"terrainTris", (double)R.TerrainTriangleCount()},
       {"buildingTris", (double)(R.BuildingVertexCount() / 3)},
@@ -394,7 +394,7 @@ void SceneRunner::MotionRow() {
   char row[640];
   snprintf(row, sizeof row,
            "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
-           "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f,%.4f,%d,%d,%llu,%zu,%d\n",
+           "%d,%d,%d,%d,%ld,%u,%lld,%lld,%.3f,%.3f,%.4f,%d,%d,%llu,%zu,%d\n",
            FrameAt_, (double)FrameAt_ / m.Fps, std::sqrt(e * e + n * n), MsBetween(T0_, t3),
            W.PassMs(), W.MeshMs(), App_.Measured().UploadMs, W.BuildingMs(), W.BuildingDecodeMs(),
            W.ClassMs(), App_.Simulation().PopulateMs(), MsBetween(T1_, T2_), MsBetween(T2_, t3),

@@ -125,6 +125,7 @@ picture, which is pinned for the length of a declared run.
 ### 0.4 Arrival without a stall
 
 - [x] Drawable only one pass after collection, so an upload is submitted before anything references it (`world/World.h`, `World::Ready`)
+- [x] A rung the stream refuses retracts the split, so the coarser rung carries the area and the load stops waiting for a tile that will never come (`world/World.h` `MeshState::Vacant` and `World::Splits`, `world/TilePool.cpp` `Poll`). The refusal is held on the parent and not read off the children, because a vacant child carries no mesh and is evicted for being untouched — which re-opens the split; measured at 26 328 evictions against 3 789 builds in 5 min before the refusal moved up. The climb is one rung per pass and terminates at the root ring by construction. Coverage is kept, detail is dropped over the parent's whole quadrant: 11.7 → 23.5 m posting, invisible at 320×180 against a same-binary control whose own floor is 0.002 mean |ΔRGB|
 - [ ] A tile becomes visible when its whole residency set is complete — mesh, class, vectors, footprints, water — never one layer at a time. Verified for terrain, unverified for building and water fields
 - [ ] Upload per frame as a declared **byte** budget — `World::kMeshBuildsPerPass` (`world/World.h`) admits two items of unbounded size
 - [ ] Arrival batched into few large writes: every WebGPU call is validated, so N small buffer writes cost N validations; the batched form is one staging write per frame feeding one indirect draw list
@@ -132,6 +133,7 @@ picture, which is pinned for the length of a declared run.
 
 ### 0.5 Exhaustion, and how it is said
 
+- [ ] Only a **declared** refusal is terminal: a 204 from the tile server, and nothing else. A timeout, a give-up, a transport failure, a 4xx that is not 404-by-contract, a decode failure and a failed allocation are all delays or defects, and none of them may retract a rung — the miss carries its reason to the caller instead of arriving as one absent-shaped answer (`world/TilePool.cpp` `RunMesh`, `Classify`, `Provider`). Ordered after the retraction above because it is what makes the retraction safe, and the reason a permanently coarse quadrant is the quietest failure this streamer can produce
 - [ ] A refusal path: a piece of world that does not fit the budget is refused **by name**, counted, and the run continues — the reference logs the object and its size and skips it (`ObjManStreaming.cpp:752-759`)
 - [ ] A failed allocation on an elastic path evicts, retries once, then refuses that piece of world
 - [ ] A failed allocation anywhere else aborts loudly, naming the item and the bytes (`core/io/Heap.h` exists; `world/TilePool.cpp:359` is its only caller)
@@ -142,6 +144,8 @@ picture, which is pinned for the length of a declared run.
 
 - [x] The eye in every telemetry row — position and look direction (`clients/EyeTelemetry.cpp`, fed only from `Sim::Look`, registered ahead of the stream in `Sim::StartTelemetry`). Geodetic pair, ellipsoidal height, tangent-plane east/north from the standpoint the run began at, path length, yaw and pitch. `Sim::Open` calls `Look` before any run, so no row of an opened scene is blank
 - [x] Per-pass admission counters: candidates considered, admitted, rejected and by which cap (`world/World.h`, `World::Admission`, sampled in `clients/StreamTelemetry.cpp`). Two identities hold **by construction**, not by sample — `Wanted == Asked + Capped` from one early return, `Asked == Admitted + Waiting + Absent` from a `switch` over the whole of `TilePool::Reply` — and hold in all 328 rows written so far
+- [x] A cumulative counter that cannot be published at 32 bits: `TelemetryRow::Push` and `LogField` carry `double`, `int`, `long long`, `bool` and `std::string` and no `long`, so on both targets a `long` argument is ambiguous and the narrowing is a compile error rather than a wrapped column (`core/io/Telemetry.h`, `core/io/Log.h`). The guarantee is at the **push site only** and an explicit `(int)` walks past it: eight `long` accumulators in `world/StreetField.h`, `world/WaterField.h`, `world/OsmField.h` and `world/ClassField.h` are still published that way (`world/World.cpp:518-519`, `clients/SceneRunner.cpp:261,263`)
+- [x] The load says what it is still waiting for, named rather than inferred from a false conjunction (`world/World.h` `World::Await`, `AwaitName`, emitted on `outshine load_stalled`) — six terms, so a stall has one candidate cause instead of six. Not yet a telemetry column, which is what the line below asks for
 - [ ] What is holding a candidate back, not merely that it is held: `meshWaiting` conflates "queued" with "in flight", and only the pool's own `poolQueued` against `InFlightCap()` separates them from outside. A column per waiting cause, so the reader needs no second file
 - [ ] Arrival latency in the record: the eye's travel between a tile entering the target cut and its mesh becoming drawable, as a distribution — DECIDABLE, and the one thing about streaming the current columns still cannot answer
 - [ ] Residency age per tile as a distribution: how long resident, how long since last in the target cut — the input the eviction policy is judged on
@@ -435,17 +439,18 @@ line was measured free against the 0.35 ms a pass must beat.*
 - [x] A range type whose subscript asserts its extent (`core/Span.h`)
 - [x] An answer whose payload is unreachable without its state, `[[nodiscard]]` on the only door (`core/GroundSample.h`, `core/WaterDepth.h`)
 - [x] Negative compile gates that must fail **for the stated reason** (`sim/Makefile`: `verify-types`, `verify-generators`, `verify-world`)
+- [x] A property that is only true on the shipping target is decided **on the shipping target**: a gate that builds with emcc, runs in the same Chromium every measurement here is taken in, and passes on a printed verdict rather than on exit alone (`sim/Makefile` `verify-counters`, `sim/src/world/gate/CountersDoNotWrap.cpp`, `sim/tools/browser_gate.cjs`). Checked adversarially — with `TilePool.h`'s accumulator put back to `long` the gate answers `GATE FAIL negative after 2147 blocks: repeats=-2146967677` and exits 1 in 34 s, against `GATE PASS poolRepeats=2147999613` in 37 s unmodified
 - [ ] `Span` constructible from `std::vector` and `std::array`, so an extent is taken and never typed
 - [ ] `Span::Unchecked(ptr, count)` as the only spelling of a pointer and a count that were never one object, and its site count published — target: C-ABI boundaries only
 - [ ] `Span::Sub`'s bound stated without a `size_t` sum that can wrap (`core/Span.h:33`)
 - [ ] A rectangular field carrying two extents, so a transposed index is caught instead of legal (`core/Grid.h`) — `world/ChunkMesh.h` keeps rows and columns apart with two macros and a comment today
 - [ ] An owned raw block that carries its own extent and frees by scope, taken from the one allocator (`core/io/HeapArray.h`)
-- [ ] No `malloc` outside `core/io/` — nine sites today, in `world/ChunkMesh.h`, `world/terrain/` and `clients/SimHost.cpp`
+- [ ] No `malloc` outside `core/io/` — **seven** sites today, in `world/terrain/osmmesh_terrain.cpp` (3), `world/terrain/terrain.cpp` (2), `clients/SimHost.cpp` and `generators/gate/SameRegionSamePlacement.cpp`. `world/ChunkMesh.h`'s four are gone, taken by `Heap::Take`
 - [ ] An exhausted heap distinguishable from malformed input at every allocation site
 
 **What the type system must refuse.**
 
-- [ ] `[[nodiscard]]` on every function returning `bool` or a status enumeration — 33 in the tree against 134 such functions, and `world/` holds 29 of them with none
+- [ ] `[[nodiscard]]` on every function returning `bool` or a status enumeration — **38** in the tree today (`generators/` 23, `clients/` 7, `world/` 5, `core/` 3, `render/` 0, `core/io/` 0, `world/terrain/` 0) against 134 such functions. `world/`'s five all arrived on 2026-08-11 with `Splits`, `Settled`, `Wants`, `SimWaiting` and `Waiting`; the directory where every streaming defect in `doc/bugs.md` was found still has 29 uncovered
 - [ ] A house wrapper carrying `[[nodiscard]]` for every third-party call that returns a status — the attribute cannot be added to emscripten's, Dawn's or curl's declarations
 - [ ] A status that is read and only logged counts as discarded — a failed input binding refuses the run rather than reporting it, because a scene with no keyboard is not a scene
 - [ ] No `default:` in a `switch` over a house enumeration, so a new state is a compile error under `-Wswitch -Werror` — five live sites

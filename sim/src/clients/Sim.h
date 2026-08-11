@@ -205,10 +205,12 @@ private:
   [[nodiscard]] bool Names(const Generators::Region &region) const;
   [[nodiscard]] bool Standing(const Generators::Region &region) const;
   [[nodiscard]] bool Reached(const Generators::Region &region) const;
-  /* False while one posting of the region is still in flight — the next turn asks again — and false
-   * for good where the DEM has a hole. */
-  [[nodiscard]] bool Snapshot(const Generators::Region &region,
-                              Generators::Ground::Snapshot *out, SnapshotCost *cost) const;
+  /* WHAT A REGION'S GROUND CAME TO. Three answers because the DEM has three (world/TerrainLoader.h
+   * FbGroundBlock::State), and a caller that cannot tell "not yet" from "never" waits for one of
+   * them for ever. */
+  enum class Snapped { Taken, Waiting, NoGround };
+  [[nodiscard]] Snapped Snapshot(const Generators::Region &region,
+                                 Generators::Ground::Snapshot *out, SnapshotCost *cost) const;
   /* Null while this region's vector tile is still out. */
   std::shared_ptr<const Generators::FeatureField> Features(const Generators::Region &region) const;
   /* The region containing a place, snapshotted for one question and dropped again. */

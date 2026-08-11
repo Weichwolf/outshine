@@ -30,11 +30,11 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   correctly — "the picture comes up with no input and no reason" — and then the picture still comes
   up. `[[nodiscard]]` cannot catch this shape: assignment satisfies it. Right: a keyboard that did not
   bind is a **refusal to run**, not a log line, because every verb the client has goes through it.
-- **`[[nodiscard]]` is absent from the two directories that most need it.** 33 in the tree against
+- **`[[nodiscard]]` is absent from the two directories that most need it.** 38 in the tree against
   **134** functions returning `bool` or a status enumeration, and the distribution is the finding, not
-  the ratio: `generators/` 21, `clients/` 7, `core/` 3 — and **`world/` 0 against 29 such functions**
-  (34 since `Splits`, `Settled`, `Wants`, `SimWaiting` and `Waiting` were added on 2026-08-11 without it),
-  **`render/` 0 against 12**, `world/terrain/` 0, `core/io/` 0. `world/` is where `Pending`, `Absent`
+  the ratio: `generators/` 21, `clients/` 7, `core/` 3 — and **`world/` 5 against 34 such functions**
+  (the five are `Splits`, `Settled`, `Wants`, `SimWaiting` and `Waiting`, carried in on 2026-08-11 and
+  attributed the same day), **`render/` 0 against 12**, `world/terrain/` 0, `core/io/` 0. `world/` is where `Pending`, `Absent`
   and `Ready` live, i.e. where every streaming defect in this file was found. The attribute is free,
   costs no frame time and is a compile error under `-Werror`.
 
@@ -100,6 +100,73 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **A wrong reason defends a right number.** `BuildingMesh.cpp` states "38–45 is the German pantile range (below 22 a pantile does not seal)". The ZVDH Regeldachneigung for a Hohlpfanne is H1 ≥ 35°, H2 ≥ 40°, and the absolute minimum for Ziegel is 10° with additional measures. 22° is neither. `kPitchOutbuildingDeg = 22` may be right; its stated reason is not. Likewise `MinAreaBox`'s comment "on L, T, U and notched bars every hull edge is a ring edge" is false — an L's hull has a chord.
 
 ## World and streaming
+
+- **A refusal is logged once per pass, and a stalled load spins at kHz.** `world/TilePool.cpp`
+  `RunMesh` emits `tile_mesh_refused` on every attempt and `FetchInto` emits `tile_refused` on every
+  GET, both of which repeat for as long as the leaf is in the target cut. Measured against a
+  synthesised decode failure on one z14 target leaf (`demo/frame`, native oracle, one tile truncated
+  to half its bytes by a proxy): **340 359 `tile_mesh_refused` lines in 60.8 s** (≈5.6 kHz, one per
+  pass) and, for a synthesised 403 on the same leaf, **48 802 `tile_refused` lines plus 16 365 GETs**
+  against the tile server. The refusal itself is correct and must stay loud — an absence and a
+  refusal are different facts, and the quiet version of this is the defect the round removed — but
+  the record it writes is unbounded and the GET rate is a load the server did not ask for. Right: the
+  count carries the repetition (`Ledger::MeshRefused`, `Ledger::FetchRefused` already do) and the
+  line is written when the reason for a given tile CHANGES, not when it recurs.
+
+- **A remembered absence has no expiry on the client, and no weight in the cache that holds it.**
+  `tiles/src/cache.c` gives a negative entry a lifetime (`FB_ABSENT_TTL_S`, 30 d) because an upstream
+  404 can be transient. `TilePool::Remember(path, nullptr, 0, true)` (`world/TilePool.cpp`) drops
+  that: the entry carries no timestamp, so `Lookup` answers `Reply::Absent` from it for the life of
+  the process. Worse, it is stored with `len == 0`, so it adds nothing to `CacheBytes_` and the LRU
+  loop — `while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_)` — is never entered on its
+  account. Over ground that is all 204 (open water, imagery gaps) `Cache_` grows in entry count while
+  `CacheBytes_` stays at 0, and every byte request pays a linear scan of it under `CacheMutex_`.
+  Decidable from the code, not measured. Right: the entry count is a budget of its own, and an
+  absence carries the age at which it is re-asked.
+
+- **`Reply::Absent` has a second door, and the comment on the first says there is only one.**
+  `world/TilePool.cpp:465` reads `out->State = miss == Miss::Hole ? Reply::Absent : Reply::Pending;`
+  under `/* ONE DOOR TO A TERMINAL ANSWER, and only a Hole goes through it. */`. Six lines below,
+  `RunDag` mints `Reply::Absent` for `nverts < 3`. The behaviour is defensible — a soup too small to
+  partition is a deterministic statement about content the caller supplied, not about the heap or the
+  wire, and `World::Refine` now handles it explicitly — but the invariant the comment asserts is
+  false in its own file, which is the one thing a comment here is allowed to do and the one thing it
+  must not get wrong. Right: the sentence names the mesh path, or `RunDag`'s answer stops being
+  spelled `Absent`.
+
+- **`TilePool` can be told to forget a mesh and cannot be told to forget a DAG.** `Poll` now keeps an
+  `Absent` in both `Posted_` and `Done_` on purpose, and `ForgetMesh` is the only eraser — it keys
+  `MeshKey`, so a `DagKey` entry has no release. `World::Refine` sets `BuildingDagId = 0` after a
+  refused block and never asks that id again (`BuildingDagId = ++BuildingDagSeq` is monotonic, so it
+  cannot be re-derived either): the entry is unreachable and immortal. One map node plus one set node
+  per refused building block, monotonic over a run. `R.1` — an owner with no matching release. Right:
+  one `Forget(uint64_t key)` with `ForgetMesh` as its caller, and `World` calling it beside the
+  `building_block_refused` line.
+
+- **The 64-bit push guarantee stops at an `(int)` cast.** After this round `TelemetryRow::Push` and
+  `LogField` carry no `long` overload, so an implicit `long` is ambiguous on both targets — verified.
+  Six `long` accumulators survive behind explicit casts: `StreetField::Unwidthed_`, `Tunnels_`,
+  `WaterField::NoGround_`, `Outliers_`, `OsmField::Missing_`, `Bad_`, `ClassField::UnknownFeats_`,
+  `Submits_`, published as `(int)` at `world/World.cpp:518-519` and `clients/SceneRunner.cpp:261,263`.
+  All are error counts at low rates, so no wrap is expected — the finding is that the new guard does
+  not reach them and the cast is what makes them spellable. `World::MeshVram` is `long` too but is
+  zeroed every `Refine`, so it is a gauge and not exposed.
+
+- **The east stitch stops at the antimeridian instead of wrapping.** The new guard in
+  `world/terrain/osmmesh_terrain.cpp` (`if (x + 1 < n)`) correctly stops a request the tile server
+  cannot route, but longitude wraps and latitude does not: at `x == 2^z - 1` the true east neighbour
+  is `x == 0`, so the fix leaves a one-column height seam at ±180° — the same seam the pre-existing
+  `x > 0` guard leaves on the west side. The N/S guards are right as written. Cost of the correct
+  form: a modulo instead of a bound, on two of four sides.
+
+- **`stitch_edge` asked for tiles that cannot exist.** `world/terrain/osmmesh_terrain.cpp`
+  `fetch_terrain_grid` guarded the west and north neighbours against `x == 0` and `y == 0` and had no
+  guard at the other end, so a tile on the map's east or south edge issued a GET for `x = 2^z` or
+  `y = 2^z` — a coordinate `tiles/src/route.c` cannot route (`xx >= n || yy >= n` fails the parse) and
+  answers `404 no such route`. It was invisible because it only fires at the edge of the world and
+  the answer was read as "this neighbour has no data". Fixed in the same round it was found, because
+  the caller now reads a 404 as a defect rather than as a hole; recorded here because the class —
+  a guard written on one side of a symmetric pair — is not searched for anywhere.
 
 - **RETRACTED — "nothing streams during play" was tile-size confounding, not a defect.** The founding
   reading (t=31…77 s of `sim/logs/demo-walk-wasm-20260811T150518Z.csv`: `poolHttpGets` 310 flat,

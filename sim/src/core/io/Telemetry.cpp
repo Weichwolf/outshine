@@ -9,6 +9,7 @@ void TelemetryRow::Push(double v) {
   Fields_.emplace_back(b);
 }
 void TelemetryRow::Push(int v) { Fields_.push_back(std::to_string(v)); }
+void TelemetryRow::Push(long long v) { Fields_.push_back(std::to_string(v)); }
 void TelemetryRow::Push(bool v) { Fields_.emplace_back(v ? "1" : "0"); }
 void TelemetryRow::Push(const std::string &v) { Fields_.push_back(v); }
 

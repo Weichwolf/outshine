@@ -21,6 +21,9 @@ struct LogField {
   std::string Value;
   LogField(const char *key, double v);
   LogField(const char *key, int v);
+  /* Same reason as TelemetryRow::Push(long long): a cumulative counter is 64 bits, and wasm32's
+   * `long` is not. */
+  LogField(const char *key, long long v);
   LogField(const char *key, bool v);
   LogField(const char *key, const char *v);
   LogField(const char *key, const std::string &v);

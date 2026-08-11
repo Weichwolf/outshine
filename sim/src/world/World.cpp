@@ -120,7 +120,7 @@ void World::Collect(uint64_t id, int handle) {
   auto it = Index_.find(id);
   if (it == Index_.end() || handle < 0) return;
   Node &nd = Nodes[it->second];
-  if (!nd.haveMesh || nd.handle >= 0) return;
+  if (nd.Mesh != MeshState::Held || nd.handle >= 0) return;
   nd.handle = handle;
   std::vector<float>().swap(nd.verts);
   std::vector<uint32_t>().swap(nd.idx);
@@ -172,7 +172,7 @@ bool World::Viable(int z, long x, long y, const double eye[3]) const {
 
 void World::AddWork(int idx, int z, long x, long y, const double eye[3], const double fwd[3]) {
   double c[3];
-  if (Nodes[idx].haveMesh) { c[0] = Nodes[idx].origin[0]; c[1] = Nodes[idx].origin[1]; c[2] = Nodes[idx].origin[2]; }
+  if (Nodes[idx].Mesh == MeshState::Held) { c[0] = Nodes[idx].origin[0]; c[1] = Nodes[idx].origin[1]; c[2] = Nodes[idx].origin[2]; }
   else Center(z, x, y, c);
   double dist = Dist(c, eye);
   if (dist < 1.0) dist = 1.0;
@@ -210,9 +210,19 @@ int World::Find(int z, long x, long y) const {
   return it == Index_.end() ? -1 : it->second;
 }
 
+/* THE REFINE TEST THE TRAVERSAL USES. A child the stream answered Absent for retracts the split:
+ * one parent tile spans all four children, so dropping a rung is the only move that keeps the area
+ * covered — view distance may only prevent a split, detail dropped, coverage never (World.h). The
+ * retraction climbs one rung per pass and stops at the root ring, which has nothing above it. */
+bool World::Splits(int z, long x, long y, const double eye[3]) const {
+  if (!WantSplit(z, x, y, eye)) return false;
+  const int idx = Find(z, x, y);
+  return idx < 0 || !Nodes[idx].SplitRefused;
+}
+
 /* Can this subtree cover its area with tiles READY this pass? */
 bool World::CanCover(int z, long x, long y, const double eye[3]) const {
-  if (WantSplit(z, x, y, eye)) {
+  if (Splits(z, x, y, eye)) {
     bool anyV = false, allC = true;
     for (int q = 0; q < 4; q++) {
       long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
@@ -230,7 +240,7 @@ bool World::CanCover(int z, long x, long y, const double eye[3]) const {
 void World::RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]) {
   int idx = Ensure(z, x, y);
   Nodes[idx].touch = Pass;
-  if (WantSplit(z, x, y, eye)) {
+  if (Splits(z, x, y, eye)) {
     bool anyV = false;
     for (int q = 0; q < 4; q++) {
       long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
@@ -240,7 +250,14 @@ void World::RequestSubtree(int z, long x, long y, const double eye[3], const dou
     }
     if (anyV) return;   /* intermediate — the children carry the request */
   }
-  if (!Taken(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);   /* TARGET leaf */
+  if (Wants(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);   /* TARGET leaf */
+}
+
+void World::DrawChildren(int z, long x, long y, const double eye[3], const double fwd[3]) {
+  for (int q = 0; q < 4; q++) {
+    long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
+    if (Viable(z + 1, cx, cy, eye)) Descend(z + 1, cx, cy, eye, fwd);
+  }
 }
 
 /* The draw traversal; 1 = this node's area is fully covered by emitted tiles. No intermediate LOD
@@ -248,7 +265,22 @@ void World::RequestSubtree(int z, long x, long y, const double eye[3], const dou
 int World::Descend(int z, long x, long y, const double eye[3], const double fwd[3]) {
   int idx = Ensure(z, x, y);
   Nodes[idx].touch = Pass;
-  if (WantSplit(z, x, y, eye)) {
+  /* THE RETRACTED SPLIT, and the order matters: this node is the rung that will carry the area, so
+   * it is asked for HERE — the request walk only ever asks for target leaves — and until its mesh
+   * arrives the children that DO have one keep drawing. Dropping them at the moment the fourth is
+   * answered Absent would open a quadrant-sized hole to cover for a tile that was never there. */
+  if (WantSplit(z, x, y, eye) && !Splits(z, x, y, eye)) {
+    bool anyV = false;
+    for (int q = 0; q < 4 && !anyV; q++)
+      anyV = Viable(z + 1, x * 2 + (q & 1), y * 2 + (q >> 1), eye);
+    if (anyV) {
+      if (Wants(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
+      if (Ready(Nodes[idx])) { Emit(idx); return 1; }
+      DrawChildren(z, x, y, eye, fwd);
+      return 0;
+    }
+  }
+  if (Splits(z, x, y, eye)) {
     bool anyV = false, allC = true;
     for (int q = 0; q < 4; q++) {
       long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
@@ -258,10 +290,7 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
     }
     if (anyV) {
       if (allC) {   /* the refined level is fully ready -> draw the children */
-        for (int q = 0; q < 4; q++) {
-          long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
-          if (Viable(z + 1, cx, cy, eye)) Descend(z + 1, cx, cy, eye, fwd);
-        }
+        DrawChildren(z, x, y, eye, fwd);
         return 1;
       }
       if (Ready(Nodes[idx])) {   /* resident coarse tile holds the whole area while targets stream */
@@ -273,16 +302,16 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
         return 1;
       }
       /* self not resident: emit ready descendants, the rest is a hole the loading screen covers */
-      for (int q = 0; q < 4; q++) {
-        long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
-        if (Viable(z + 1, cx, cy, eye)) Descend(z + 1, cx, cy, eye, fwd);
-      }
+      DrawChildren(z, x, y, eye, fwd);
       return 0;
     }
   }
+  /* Vacant at the root ring: nothing above it can carry the area and nothing below it can arrive, so
+   * this is the one place where the world has a hole and nobody waits for it. */
+  if (Nodes[idx].Mesh == MeshState::Vacant) return 0;
   /* A base-resident but overlay-pending leaf still EMITS (never a hole) but reports not mode-covered,
    * so an ancestor keeps holding. */
-  if (!Taken(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
+  if (Wants(Nodes[idx])) AddWork(idx, z, x, y, eye, fwd);
   Emit(idx);
   return Ready(Nodes[idx]) ? 1 : 0;
 }
@@ -290,7 +319,7 @@ int World::Descend(int z, long x, long y, const double eye[3], const double fwd[
 /* Side-effect-free walk of the target cut: the LoadProgress that gates the loading screen. */
 void World::CountTargets(int z, long x, long y, const double eye[3], const double fwd[3],
                          int &total, int &ready, int &inView) const {
-  if (WantSplit(z, x, y, eye)) {
+  if (Splits(z, x, y, eye)) {
     bool anyV = false;
     for (int q = 0; q < 4; q++) {
       long cx = x * 2 + (q & 1), cy = y * 2 + (q >> 1);
@@ -302,7 +331,7 @@ void World::CountTargets(int z, long x, long y, const double eye[3], const doubl
   }
   total++;
   int idx = Find(z, x, y);
-  if (idx >= 0 && Ready(Nodes[idx])) ready++;
+  if (idx >= 0 && Settled(Nodes[idx])) ready++;
   /* PUBLISHED, NOT ACTED ON. The target cut is the view RADIUS; how much of it the camera can
    * actually see is a different, smaller number, and the two are only comparable if both are
    * counted. The cone is `kCosView`, the same one AddWork prioritises by — wider than the real
@@ -404,16 +433,20 @@ void World::AdmitMesh(Node &nd, int &budget) {
       nd.err = tile.ErrM;
       for (int c = 0; c < 3; c++) nd.origin[c] = tile.OriginEcef[c];
       SurfaceAnchor(nd.z, nd.x, nd.y, nd.anchor);
-      nd.haveMesh = 1;
+      nd.Mesh = MeshState::Held;
       budget--;
       Adm_.Admitted++;
       break;
     case TilePool::Reply::Pending:
       Adm_.Waiting++;
       break;
-    case TilePool::Reply::Absent:
+    case TilePool::Reply::Absent: {
+      nd.Mesh = MeshState::Vacant;
+      const int up = nd.z > kRootZ ? Find(nd.z - 1, nd.x >> 1, nd.y >> 1) : -1;
+      if (up >= 0) Nodes[up].SplitRefused = true;
       Adm_.Absent++;
       break;
+    }
   }
   MeshMs_ += Clock() - tMesh;
 }
@@ -458,8 +491,8 @@ void World::Refine(const Eye &eye, double nowMs) {
   MeshMs_ = 0.0;
   for (const Work &w : WorkList) {
     Node &nd = Nodes[w.idx];
-    if (!nd.haveMesh) AdmitMesh(nd, build);
-    if (nd.haveMesh && nd.handle < 0) {
+    if (nd.Mesh == MeshState::Wanted) AdmitMesh(nd, build);
+    if (nd.Mesh == MeshState::Held && nd.handle < 0) {
       TileMesh m;
       m.Id = Key(nd.z, nd.x, nd.y);
       m.Verts = nd.verts.data();
@@ -505,8 +538,9 @@ void World::Refine(const Eye &eye, double nowMs) {
     /* Float 3 is uv.x, and a negative one tags the roof cap: an ATTRIBUTE seam, so the cap and its
      * wall keep two vertices but collapse as one point — otherwise the ring would read as a mesh
      * boundary and nothing would move. */
-    if (fb_tile_pool()->Dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3,
-                            &ladder) == TilePool::Reply::Ready) {
+    const TilePool::Reply built = fb_tile_pool()->Dag(
+        BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3, &ladder);
+    if (built == TilePool::Reply::Ready) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
       const uint32_t ibase = (uint32_t)BuildingDagIdx.size();
       BuildingDagVerts.insert(BuildingDagVerts.end(), ladder.Verts.begin(), ladder.Verts.end());
@@ -515,10 +549,7 @@ void World::Refine(const Eye &eye, double nowMs) {
         c.First += ibase;
         BuildingClusters.push_back(c);
       }
-      BuildingDagId = 0;
-      DagDone_++;
       BuildingSeq_++;
-      std::vector<float>().swap(BuildingSoup);
       if (getenv("FB_DAGLOG")) {
         long per[16] = {0};
         int lv = 0;
@@ -538,6 +569,17 @@ void World::Refine(const Eye &eye, double nowMs) {
             {"levels", t}});
       }
     }
+    /* A block the partitioner refuses has no ladder and never will (world/TilePool.h Reply). It is
+     * finished with nothing drawn — anything else leaves Resident() waiting for a pass that cannot
+     * come. */
+    if (built == TilePool::Reply::Absent)
+      Log::Warn("world", "building_block_refused", {{"block", (int)DagDone_},
+          {"soupVerts", (int)(BuildingSoup.size() / 8)}});
+    if (built != TilePool::Reply::Pending) {
+      BuildingDagId = 0;
+      DagDone_++;
+      std::vector<float>().swap(BuildingSoup);
+    }
     BuildingDagMs_ = Clock() - tDag;
   }
 
@@ -547,6 +589,10 @@ void World::Refine(const Eye &eye, double nowMs) {
     if (nd.touch == Pass) { nd.stale = 0; i++; continue; }
     if (++nd.stale <= kGrace) { i++; continue; }
     if (nd.handle >= 0) Retired_.push_back(nd.handle);
+    /* A node that never took its mesh may still have one finished in the pool, and the pool hands a
+     * build over only to a caller that asks again — which this one, gone from the cut, never will. */
+    if (nd.Mesh != MeshState::Held)
+      if (TilePool *pool = fb_tile_pool()) pool->ForgetMesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y);
     Index_.erase(Key(nd.z, nd.x, nd.y));
     size_t last = Nodes.size() - 1;
     if (i != last) {
@@ -567,11 +613,36 @@ void World::Refine(const Eye &eye, double nowMs) {
     double evictMin = dtMin > 0 ? (Evicted - PrevEvicted) / dtMin : 0.0;
     PrevBuilt = Built; PrevEvicted = Evicted;
     Log::Debug("world", "fbworld", {{"leaves", Leaves}, {"drawn", DrawnReady}, {"pending", Pending},
-                                      {"evicted", (int)Evicted}, {"vramMB", vramMB}, {"nodes", (int)Nodes.size()},
+                                      {"evicted", Evicted}, {"vramMB", vramMB}, {"nodes", (int)Nodes.size()},
                                       {"buildsPerMin", buildsMin},
-                                      {"evictPerMin", evictMin}, {"built", (int)Built}});
+                                      {"evictPerMin", evictMin}, {"built", Built}});
   }
   RefineMs_ = Clock() - tRefine;
+}
+
+World::Await World::SimWaiting() const {
+  if (Vectors_.PendingTiles() != 0) return Await::Vectors;
+  if (!Cls_.Complete()) return Await::Class;
+  return Await::Nothing;
+}
+
+World::Await World::Waiting() const {
+  if (TargetTot <= 0 || TargetRdy != TargetTot) return Await::TargetCut;
+  if (BuildingDagId != 0) return Await::BuildingDag;
+  if (DagDone_ != FootprintTileEnds_.size()) return Await::BuildingBlocks;
+  return SimWaiting();
+}
+
+const char *AwaitName(World::Await await) {
+  switch (await) {
+    case World::Await::Nothing: return "nothing";
+    case World::Await::TargetCut: return "targetCut";
+    case World::Await::BuildingDag: return "buildingDag";
+    case World::Await::BuildingBlocks: return "buildingBlocks";
+    case World::Await::Vectors: return "vectors";
+    case World::Await::Class: return "class";
+  }
+  return "nothing";
 }
 
 } // namespace outshine::World

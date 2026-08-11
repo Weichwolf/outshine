@@ -46,7 +46,7 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("populateMeanMs", "ms");
   schema.Add("populateMaxMs", "ms");
   schema.Add("tilesTotal");
-  schema.Add("tilesReady");
+  schema.Add("tilesSettled");
   schema.Add("tilesInView");
   schema.Add("vectorPending");
   schema.Add("tilesBuilt");
@@ -57,6 +57,11 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("poolHttpMs", "ms");
   schema.Add("poolFetchBlockedMs", "ms");
   schema.Add("poolHttpGaveUp", "count");
+  /* THE REFUSALS, beside the give-ups and never merged with them: a give-up is a server that is slow
+   * and a refusal is a request this tree may not repeat unchanged. A coarse quadrant with no refusal
+   * in the row has a different cause from one with them. */
+  schema.Add("poolHttpRefused", "count");
+  schema.Add("poolMeshRefused", "count");
   schema.Add("poolFetchedMB", "MiB");
   schema.Add("poolMeshTiles", "count");
   schema.Add("poolMeshCpuMs", "ms");
@@ -83,31 +88,33 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(Class_.Mean()); row.Push(Class_.Max);
   row.Push(Populate_.Mean()); row.Push(Populate_.Max);
   row.Push(Last_.TilesTotal);
-  row.Push(Last_.TilesReady);
+  row.Push(Last_.TilesSettled);
   row.Push(Last_.TilesInView);
   row.Push(Last_.VectorTilesPending);
-  row.Push((int)WindowBuilt_);
-  row.Push((int)WindowEvicted_);
+  row.Push(WindowBuilt_);
+  row.Push(WindowEvicted_);
   row.Push(Last_.Resident);
   row.Push(LoadMs_);
-  row.Push((int)Last_.Pool.Fetches);
+  row.Push(Last_.Pool.Fetches);
   row.Push(Last_.Pool.FetchMs);
   row.Push(Last_.Pool.FetchBlockedMs);
-  row.Push((int)Last_.Pool.FetchGaveUp);
+  row.Push(Last_.Pool.FetchGaveUp);
+  row.Push(Last_.Pool.FetchRefused);
+  row.Push(Last_.Pool.MeshRefused);
   row.Push(Last_.Pool.FetchedMB);
-  row.Push((int)Last_.Pool.MeshTiles);
+  row.Push(Last_.Pool.MeshTiles);
   row.Push(Last_.Pool.MeshCpuMs);
   row.Push(Last_.Pool.DagMs);
-  row.Push((int)Last_.Pool.Evictions);
-  row.Push((int)Last_.Pool.Posts);
-  row.Push((int)Last_.Pool.Repeats);
-  row.Push((int)Last_.Pool.QueueDepth);
-  row.Push((int)Last_.Admission.Wanted);
-  row.Push((int)Last_.Admission.Asked);
-  row.Push((int)Last_.Admission.Admitted);
-  row.Push((int)Last_.Admission.Waiting);
-  row.Push((int)Last_.Admission.Absent);
-  row.Push((int)Last_.Admission.Capped);
+  row.Push(Last_.Pool.Evictions);
+  row.Push(Last_.Pool.Posts);
+  row.Push(Last_.Pool.Repeats);
+  row.Push(Last_.Pool.QueueDepth);
+  row.Push(Last_.Admission.Wanted);
+  row.Push(Last_.Admission.Asked);
+  row.Push(Last_.Admission.Admitted);
+  row.Push(Last_.Admission.Waiting);
+  row.Push(Last_.Admission.Absent);
+  row.Push(Last_.Admission.Capped);
 }
 
 } // namespace outshine::Clients

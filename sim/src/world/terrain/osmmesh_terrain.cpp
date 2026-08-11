@@ -196,17 +196,24 @@ static int fetch_terrain_grid(osmmesh_ctx *ctx,
     int rc = fetch_terrain_grid_raw(ctx, z, x, y, out_grid);
     if (rc != OSMMESH_OK || !out_grid->heights) return rc;
 
+    /* The map's own width at this rung. Past it there is no tile to average with, and the request
+     * would be one a tile server can only answer with an error (tiles/src/route.c bounds x and y) --
+     * which the caller must be free to read as a defect. */
+    const uint32_t n = 1u << z;
     if (x > 0) {
         rc = stitch_edge(ctx, out_grid, z, x - 1, y, 0);   /* W */
         if (rc != OSMMESH_OK) return rc;
     }
-    rc = stitch_edge(ctx, out_grid, z, x + 1, y, 1);       /* E */
-    if (rc != OSMMESH_OK) return rc;
+    if (x + 1 < n) {
+        rc = stitch_edge(ctx, out_grid, z, x + 1, y, 1);   /* E */
+        if (rc != OSMMESH_OK) return rc;
+    }
     if (y > 0) {
         rc = stitch_edge(ctx, out_grid, z, x, y - 1, 2);   /* N */
         if (rc != OSMMESH_OK) return rc;
     }
-    return stitch_edge(ctx, out_grid, z, x, y + 1, 3);     /* S */
+    if (y + 1 < n) return stitch_edge(ctx, out_grid, z, x, y + 1, 3);   /* S */
+    return OSMMESH_OK;
 }
 
 /* ENU metres, from an already-decoded grid. */

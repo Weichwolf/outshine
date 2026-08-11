@@ -120,26 +120,29 @@ public:
    * OVERLAY: fetched only while viewed, for on-screen tiles, then cached. */
   /* The EAGER base albedo source, uploaded with every tile. */
 
-  /* Fraction of the geometry target cut that is GPU-ready. The client holds the loading screen (and
-   * JSBSim) until this crosses its threshold. */
+  /* Fraction of the geometry target cut that is SETTLED: on the GPU, or answered Absent by a stream
+   * that will not answer again. The client holds the loading screen (and JSBSim) until this crosses
+   * its threshold, so a leaf counted here must be one nothing is still waiting for. */
   float LoadProgress() const { return TargetTot > 0 ? (float)TargetRdy / (float)TargetTot : 0.0f; }
   int TargetTotal() const { return TargetTot; }
-  int TargetReadyN() const { return TargetRdy; }
+  int TargetSettledN() const { return TargetRdy; }
   /* WHAT THE CAMERA CAN SEE of the target cut. Residency is still the whole radius; this is the
    * number that says what a frustum-scoped one would have cost. */
   int TargetInViewN() const { return TargetView; }
 
+  /* WHAT A LOAD IS STILL WAITING FOR, named. Residency is a conjunction, and a conjunction that
+   * publishes only its value leaves every stall with as many candidate causes as it has terms. */
+  enum class Await { Nothing, TargetCut, BuildingDag, BuildingBlocks, Vectors, Class };
   /* WHAT THE SIMULATION WAS WAITING FOR: the OSM block around the standpoint and the class grid.
    * Nothing about a device or a mesh is in it, so this is what the server target waits on. */
-  bool VectorsResident() const { return Vectors_.PendingTiles() == 0 && Cls_.Complete(); }
+  [[nodiscard]] Await SimWaiting() const;
+  bool VectorsResident() const { return SimWaiting() == Await::Nothing; }
   /* NOTHING IS STILL ON ITS WAY. Streaming is asynchronous, so a fixed number of passes says nothing
    * about what has arrived; an oracle that wants a picture of the whole scene waits on this instead.
    * That is the geometry target cut and the cluster DAG of the tile the block last decoded, on top
    * of what the simulation waits for. */
-  bool Resident() const {
-    return TargetTot > 0 && TargetRdy == TargetTot && BuildingDagId == 0 &&
-           DagDone_ == FootprintTileEnds_.size() && VectorsResident();
-  }
+  [[nodiscard]] Await Waiting() const;
+  bool Resident() const { return Waiting() == Await::Nothing; }
   int BuildingPendingTiles() const { return Vectors_.PendingTiles(); }
   /* THE OUTLINES AND WHAT THE CORE RESOLVED ON THEM: the decoded vectors, the footprints with the
    * ground under each of them, and the water bodies with their levels. This is where a generator's
@@ -156,8 +159,8 @@ public:
    * defect, and none of these is visible in a picture. */
   int NodeCount() const { return (int)Nodes.size(); }
   int DrawnLeafCount() const { return (int)DrawnLeaves.size(); }
-  long BuiltCount() const { return Built; }
-  long EvictedCount() const { return Evicted; }
+  long long BuiltCount() const { return Built; }
+  long long EvictedCount() const { return Evicted; }
 
   /* WHAT THE PICTURE PASS ASKED THE STREAM FOR AND WHAT BECAME OF IT. Cumulative, like Built, and
    * for the same reason: a bench is a declared run and the per-window delta is the reader's
@@ -167,12 +170,14 @@ public:
    * Wanted == Asked + Capped and Asked == Admitted + Waiting + Absent, both decidable from the CSV
    * alone: a pair that stops adding up is a counter that stopped being taken. */
   struct Admission {
-    long Wanted = 0;     /* target leaves with no mesh yet */
-    long Asked = 0;      /* of those, the ones the pass had budget to ask about */
-    long Admitted = 0;   /* the pool had it: the mesh moved into the node */
-    long Waiting = 0;    /* the pool is still getting it */
-    long Absent = 0;     /* there is no such tile, and the answer is final */
-    long Capped = 0;     /* never asked: kMeshBuildsPerPass was spent */
+    /* 64 bits, never `long`: the frame is wasm32, where a `long` counter wraps at 2^31 — and Wanted
+     * rises once per unfinished leaf per pass, which is 2^31 inside a day of streaming. */
+    long long Wanted = 0;     /* target leaves with no mesh yet */
+    long long Asked = 0;      /* of those, the ones the pass had budget to ask about */
+    long long Admitted = 0;   /* the pool had it: the mesh moved into the node */
+    long long Waiting = 0;    /* the pool is still getting it */
+    long long Absent = 0;     /* there is no ground at this rung, and the answer is final */
+    long long Capped = 0;     /* never asked: kMeshBuildsPerPass was spent */
   };
   const Admission &Admissions() const { return Adm_; }
   /* Meshes one pass may install. The cap is in ITEMS because an item costs a memcpy — fetch, mesh
@@ -204,13 +209,24 @@ public:
   void SetPixelFocalLength(double px) { PixelFocal_ = px; }
 
 private:
+  /* WHAT A TILE'S GEOMETRY IS, and Vacant is the third answer the stream can give (world/TilePool.h
+   * Reply::Absent): there is no ground at this rung and there never will be. It is TERMINAL — the
+   * split above it is retracted (Splits) and the coarser rung carries the area, so a leaf that will
+   * never arrive stops being something the load waits for. */
+  enum class MeshState { Wanted, Held, Vacant };
+
   struct Node {
     int z;
     long x, y;
     unsigned touch;
     int stale;
     int handle;            /* the collector's name for this tile, -1 until collected */
-    int haveMesh;
+    MeshState Mesh = MeshState::Wanted;
+    /* A CHILD ANSWERED Absent: this node is the finest rung that can cover its own area, and the
+     * split below it stays retracted while it is in the cut. The refusal is held HERE and not read
+     * off the children, because a child carries no mesh once it is Vacant and is evicted for being
+     * untouched — which would re-open the split, re-ask, and leave the ladder flickering. */
+    bool SplitRefused = false;
     unsigned readyPass;    /* pass the mesh was collected; drawable only in a LATER pass (2-phase) */
     unsigned emitPass;     /* last pass this tile was drawn — lets a mode switch keep it (old mode) vs re-coarsen */
     std::vector<float> verts;              /* ONE vertex per posting; every level indexes into it */
@@ -218,23 +234,30 @@ private:
     std::vector<DagCluster> clusters;
     int nverts, nidx;
     double origin[3];      /* tile-centre ECEF (from the mesh, once built) */
-    double anchor[3];      /* the z10 ancestor's centre, valid once haveMesh */
-    float err;             /* geometric error (m), valid once haveMesh */
+    double anchor[3];      /* the z10 ancestor's centre, valid once Held */
+    float err;             /* geometric error (m), valid once Held */
     std::vector<uint8_t> albedo;
   };
   struct Work { int idx; double prio; };
 
   int Ensure(int z, long x, long y);                              /* node index (creates on miss) */
-  bool Taken(const Node &n) const { return n.haveMesh && n.handle >= 0; }
+  bool Taken(const Node &n) const { return n.Mesh == MeshState::Held && n.handle >= 0; }
   /* Two-phase commit: drawable only ONE pass after the mesh was handed over, so a collector's upload
    * is submitted and visible before any draw references it. */
   bool Ready(const Node &n) const { return Taken(n) && Pass > n.readyPass; }
+  /* NOTHING MORE WILL HAPPEN TO THIS NODE — drawable, or ground that does not exist. The load waits
+   * on the unsettled ones; the picture draws only the ready ones. */
+  [[nodiscard]] bool Settled(const Node &n) const { return Ready(n) || n.Mesh == MeshState::Vacant; }
+  [[nodiscard]] bool Wants(const Node &n) const { return n.Mesh != MeshState::Vacant && !Taken(n); }
   bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
   bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */
+  /* The refine test the TRAVERSAL uses: geometry, minus any child that is Vacant. */
+  [[nodiscard]] bool Splits(int z, long x, long y, const double eye[3]) const;
   int  Find(int z, long x, long y) const;                            /* node idx or -1 (no create) */
   bool CanCover(int z, long x, long y, const double eye[3]) const;    /* subtree fully ready? (pure) */
   void RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]);  /* cascade request to targets */
   int  Descend(int z, long x, long y, const double eye[3], const double fwd[3]);  /* draw traversal; 1 = covered */
+  void DrawChildren(int z, long x, long y, const double eye[3], const double fwd[3]);
   void CountTargets(int z, long x, long y, const double eye[3], const double fwd[3], int &total,
                     int &ready, int &inView) const;   /* target-cut progress + the share the camera sees */
   void Emit(int idx);
@@ -259,13 +282,13 @@ private:
   std::vector<int> Retired_;
   std::vector<Work> WorkList;
   unsigned Pass;
-  long Evicted;
-  long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */
+  long long Evicted;
+  long long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */
   Admission Adm_;
-  long PrevBuilt = 0, PrevEvicted = 0;   /* deltas for the builds/min + evictions/min rate on [fbworld] */
+  long long PrevBuilt = 0, PrevEvicted = 0;   /* deltas for the builds/min + evictions/min rate on [fbworld] */
   double LastLog;
   int Leaves, DrawnReady, Pending;   /* per-pass counters */
-  int TargetTot, TargetRdy;          /* geometry target-cut: total leaves / GPU-ready (LoadProgress) */
+  int TargetTot, TargetRdy;          /* geometry target-cut: total leaves / settled (LoadProgress) */
   int TargetView = 0;                /* of those, the share inside the camera cone — published only */
   long MeshVram;
 
@@ -305,6 +328,8 @@ private:
   double ClassMs_ = 0.0;
   double MeshMs_ = 0.0, BuildingMs_ = 0.0, BuildingDagMs_ = 0.0, BuildingDecodeMs_ = 0.0;
 };
+
+const char *AwaitName(World::Await await);
 
 } // namespace outshine::World
 #endif
