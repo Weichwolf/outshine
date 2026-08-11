@@ -53,14 +53,3 @@
 9. **Occlusion between 1 m and 20 m.** Contact AO reaches 0.9 m, the third shadow cascade resolves 1.2 m
    per texel, and a tree is the whole span between.
 10. **The night.** Nothing emits, sky irradiance is zero, the ground is lit by a constant crutch.
-
-## Open defects
-
-- The demo road reads as a dirt track since the unmapped substrate landed: the ground fragment uses the
-  default row as the **runner-up** class where the structure has no second hit.
-- `Sim::Features` gained a slice, but a feature inside the tile's 23.3 m buffer still yields twice.
-- Nothing evicts against a heap fixed at 296 MiB. Monotone growth is a maximum walk length.
-- `ClusterDag.h:75` reads `FB_TAU` from the environment — the picture depends on an undeclared variable.
-- The winding is hard-coded at seven sites; it belongs in the draw product beside the cluster list.
-- A crossing costs +1.77 ms at p50 against its neighbourhood, 1.03 of it the ring's own snapshot — in no
-  column, because `Populate` runs after `Refine` inside one function.

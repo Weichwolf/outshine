@@ -19,7 +19,8 @@ walking, driving, flying and swimming. An **epoch and decay dial** dresses the s
 | **`git log`** | what was. No journal |
 | [`doc/requirements.md`](doc/requirements.md) | **the scope** — one line per feature with a box, and a ticked line **names the file that implements it**. It must be fully implemented, and it is extended or shortened **only on the owner's request** |
 | [`doc/todo.md`](doc/todo.md) | **the current work item**, with a status header. Short |
-| `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs and judges, read-only |
+| [`doc/bugs.md`](doc/bugs.md) | **what exists and is wrong** — file and site, what decides it, what right looks like. A fixed bug is deleted, not struck through |
+| `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs, judges and owns `doc/bugs.md` and `doc/requirements.md` |
 | this file | purpose, shape and the rules. At most **200 lines** |
 
 ## Stance
