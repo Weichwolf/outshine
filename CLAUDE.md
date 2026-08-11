@@ -1,7 +1,7 @@
 # Outshine
 
 > **A game engine that runs at 720p60 within an A18-Pro-class resource budget, with the technology of Days
-> Gone and Horizon Forbidden West, in which games like Witcher 3, Fallout 4 and GTA 5 can be reproduced —
+> Gone and Horizon Forbidden West, at the picture quality of Kingdom Come: Deliverance — reproducible —
 > optically, in content and functionally — purely through declarative `scenarios/`. The basis of the
 > procedural world is OSM, elevation, weather and star data from the tile server. Through LLM integration
 > every entity is intelligent and the game world is dynamic.**
@@ -167,7 +167,7 @@ invention.
 | **Procedural** | Ebert/Musgrave/Perlin/Worley, *Texturing & Modeling* — the canon for "appearance is a function", including its limits |
 | **C++** | Meyers, *Effective Modern C++* · Pikus, *The Art of Writing Efficient Programs* |
 | **Physics** | Ericson, *Real-Time Collision Detection* · Bridson, *Fluid Simulation for Computer Graphics* |
-| **Implementations** | AAA titles · SpeedTree · OSM viewers (OSM2World, F4map) · Microsoft Flight Simulator |
+| **Implementations** | **Kingdom Come: Deliverance — the picture target, and demonstrated on a PS4** · Days Gone, Horizon Forbidden West for technique · SpeedTree · OSM viewers (OSM2World, F4map) · Microsoft Flight Simulator |
 
 ## Host
 

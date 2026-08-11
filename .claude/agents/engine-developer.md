@@ -44,7 +44,9 @@ them, not a replacement. The rules that break here most often:
 **Canon, not law** — a starting point rather than an invention: Gregory *Game Engine Architecture* ·
 Lengyel *Foundations of Game Engine Development* · Akenine-Möller *Real-Time Rendering* · Pharr
 *Physically Based Rendering* · Lagarde/de Rousiers *Moving Frostbite to PBR* · Ebert/Musgrave/Perlin/
-Worley *Texturing & Modeling* · Ericson · Bridson. Plus the implementations: AAA titles, SpeedTree,
+Worley *Texturing & Modeling* · Ericson · Bridson. Plus the implementations: **Kingdom Come: Deliverance**
+(the picture target, and it runs on a PS4 — so the quality is demonstrated on a known budget, not hoped
+for), Days Gone and Horizon Forbidden West for technique, SpeedTree,
 OSM viewers, Microsoft Flight Simulator.
 
 **If you get stuck or start going in circles, do it the way the established ones do.** Everything here

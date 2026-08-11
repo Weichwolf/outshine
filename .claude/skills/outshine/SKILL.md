@@ -5,7 +5,7 @@ description: How work is done on Outshine — the OSM-based open-world engine (C
 
 # Outshine
 
-> **A worldwide sandbox at GTA 5 level: you walk anywhere, and everything streams, comes into being and is
+> **A worldwide sandbox at Kingdom Come: Deliverance's picture quality: you walk anywhere, and everything streams, comes into being and is
 > placed while you go. The only input is what the tile server delivers.**
 
 **Everything in the repository is English** — code, comments, documents, commit messages.
@@ -80,6 +80,7 @@ All measured, none invented:
   immediately.
 - **A confounded finding costs a round.** "No directional light" was a scene at −3.6° sun elevation. Before
   every defect, actively seek the harmless explanation and say why it is ruled out.
+- **The reference is Kingdom Come: Deliverance**, and it is demonstrated rather than aspirational — 1080p30 on a PS4, a landscape modelled on real Bohemian regions, and a picture that is above all vegetation and terrain. What it reaches with an art team and a texture budget, we must reach with a function; where a technique of theirs depends on an authored asset, the substitute is named or the gap is stated.
 - **The still is the comparison resolution, not the acceptance.** Popping, ghosting, a hitch on stream-in,
   a scatter that ends at a radius — a single frame shows none of them.
 

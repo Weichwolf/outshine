@@ -6,7 +6,7 @@ other file in this collection is measured against it. **The owner's own comments
 ## The one sentence
 
 > **A game engine that runs at 720p60 within an A18-Pro-class resource budget, with the technology of Days
-> Gone and Horizon Forbidden West, in which games like Witcher 3, Fallout 4 and GTA 5 can be reproduced
+> Gone and Horizon Forbidden West, at the picture quality of Kingdom Come: Deliverance — reproducible
 > — optically, in content and functionally — purely through declarative `scenarios/`. The basis of the fully
 > procedural world is OSM, elevation, weather and star data from the tile server. Through LLM
 > integration every entity is intelligent and the game world is dynamic.**
@@ -70,7 +70,8 @@ at delivery.
 | Reference | Answers | What is taken from it |
 |---|---|---|
 | **Days Gone, Horizon Forbidden West** | *what can this hardware carry?* | **the technique** — full field of view, **GPU-driven placement**, **lighting decoupled from geometry**. Not their look. They are the existence proof that the budget above is reachable, and Outshine does it from tile data alone |
-| **Witcher 3, Fallout 4, GTA 5** | *what should it look like and play like?* | **the optics and the content.** They reach their impact with **less** detail than a photograph, carried by light and silhouette. GTA 5 additionally names the physics *construction*: a vehicle is a hull on wheels with suspension, tyre grip and a torque curve; a human is a capsule whose locomotion the animation leads |
+| **Kingdom Come: Deliverance** | *what should it look like?* | **the picture target, and it is demonstrated rather than aspirational** — it runs at 1080p30 on a PS4's 1.84 TFLOP GPU, so A18-Pro-class at 720p60 is the same order of budget. Its landscape is **modelled on real Bohemian regions**, so it is built against the same kind of data situation we are rather than against invention, and it is above all a **vegetation and terrain** picture, which is what we are building. Comparison is cheap and repeatable: there are thousands of screenshots |
+| **GTA 5** | *what should it play like?* | the physics **construction**: a vehicle is a hull on wheels with suspension, tyre grip and a torque curve; a human is a capsule whose locomotion the animation leads |
 
 The technique ceiling is 2015-hardware-class rendering — what shipped in those titles, integrated
 rather than researched.
@@ -186,9 +187,9 @@ mod had its own location, every difference could be blamed on the location inste
 
 | Mod | Epoch | The real anchor, all on the same river |
 |---|---|---|
-| 1 | pre-industrial (Witcher 3) | Hameln's Weser-Renaissance old town on its medieval street plan |
-| 2 | present (GTA 5) | the same town, OSM raw, no filter |
-| 3 | decay (Fallout 4) | **Grohnde nuclear power station**, 8 km upstream, real and shut down |
+| 1 | pre-industrial (KCD's own epoch) | Hameln's Weser-Renaissance old town on its medieval street plan |
+| 2 | present | the same town, OSM raw, no filter |
+| 3 | decay | **Grohnde nuclear power station**, 8 km upstream, real and shut down |
 
 **Measured 2026-08-06 against the running `fb-tiles`:** terrain **65.26 … 234.70 m** ASL across ~15 km
 (Weser floodplain up to the Süntel) — real relief, not a flat field. The Hameln z14 vector tile is
