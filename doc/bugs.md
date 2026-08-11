@@ -52,7 +52,7 @@ The most expensive class in this tree, three instances found in one day, all wit
 
 ## Declaration and build
 
-- **`ClusterDag.h:75` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable.
+- **`core/ClusterDag.h:72` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable.
 - **The winding is hard-coded at seven sites**; it belongs in the draw product beside the cluster list.
 - **21 of 29 telemetry columns are constant across a whole run** (`worldMs`, `meshMs`, `uploadMs`, `buildingMs`, `classMs`, `populateMs`, `nodes`, `drawnLeaves`, `draws`, `built`, `evicted` …). A stage that reports the same number every frame is reporting that it is not being measured.
 - **The log's timestamp is dead** — every `walk key` line carries `t=0.0` — and key repeat events are logged individually, so a held key floods the buffer.
