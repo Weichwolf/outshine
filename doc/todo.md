@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Working on** | Buildings, round two — mass articulation, kerb and pavement, doors that face the street, per-building identity |
-| **Scope** | `doc/requirements.md`: **1342 features, 210 ticked, 1132 open** |
+| **Scope** | `doc/requirements.md`: **1354 features, 210 ticked, 1144 open** |
 | **Last accepted** | Buildings round one — roofs, façades, marched-recess openings (`d0b114d`) |
 
 ## Next, in order

@@ -107,6 +107,8 @@ picture, which is pinned for the length of a declared run.
 - [ ] Residency at the full radius rather than the frustum, with the reason on the line — the reference prioritises by visibility and never evicts by it, because a turn must not stall
 - [ ] A measured re-fetch rate per tile with a published ceiling, so thrash is detected rather than assumed away — the reference measures it over a 5 s window (`r_TexturesStreamingResidencyTimeTestLimit`)
 - [ ] The resident representation per tile declared and bounded — measured 1.56 MiB of device geometry per tile (202.5 MiB over 130) and 70.9 MiB of building heap over one block. Far Cry's answer to 64 MiB of video memory was a smaller resident form, not a cleverer cache
+- [ ] The generated-texture cache under the same discipline as every other pool: a declared budget, an eviction unit of one mip of one texture, and a re-generation cost measured rather than assumed. Principle 2 makes a bake normal, which makes the cache load-bearing, and today it appears in no line and no column
+- [ ] Shadow map memory declared and counted — four cascades exist with their bytes in no budget (`render/`), and they are device memory, which has no budget at all
 - [x] A byte cache with a declared budget, exact LRU and counted evictions (`world/TilePool.cpp:230-254`; 64 MiB, `world/TerrainLoader.cpp:40`)
 - [ ] The LRU victim found in O(1) rather than by linear scan under a held lock (`world/TilePool.cpp:236-240`, n ≈ 600 at 64 MiB of z14 tiles) — an intrusive list or a clock hand, per Gregory §6.2.2 on pool allocators, and the choice named on the line
 - [x] An evicted tile node releases the collector's device slot, and the slot is recycled rather than freed (`world/World.cpp:534-547`, `clients/Outshine.cpp:309`, `render/stages/TerrainDraw.cpp:810`)
@@ -237,6 +239,9 @@ picture, which is pinned for the length of a declared run.
 - [x] Impostor rung above the mesh levels, its error anchored on the atlas cell texel
 - [ ] Measured screen-space error: render the chosen cut against the finest and difference the silhouette — TOOL, two renders and a difference
 - [ ] A stand appears in exactly one rank per frame, counted exactly rather than statistically
+- [ ] More than one prototype and more than one impostor atlas resident at a time — `render/ModelDraw` holds a single `SetPrototype` slot and a single atlas (32 784 KB), so a shrub cannot be drawn beside a tree at all; this is the line that blocks every second model kind
+- [ ] The impostor atlas under a declared byte budget with an eviction unit of one cell, and a bake that is scheduled as non-frame work rather than run on arrival
+- [ ] A prototype's rungs evictable independently of the prototype, so a species seen once at distance costs its impostor and not its four meshes
 - [ ] Hysteresis on a rank switch, a minimum observer movement before anything updates, and a per-frame update budget
 
 ### I.8 Geometry contract
@@ -308,6 +313,8 @@ picture, which is pinned for the length of a declared run.
 ### I.12 Physics — one system for walking, driving, flying, swimming
 
 - [x] Substitute contact body as a cylinder with radius, height, mass, contact material (`generators/Body.h`)
+- [ ] A contact representation with its own rungs, selected by distance to the observer rather than by the draw's screen-space error — a body far enough to be one impostor cell still needs a correct standing surface, and the two criteria are not the same
+- [ ] Collision geometry evicted with the tile that owns it, and its bytes in the ledger under their own name
 - [x] Occupancy claimed through a sink, so a proposal and a placement are one type
 - [ ] Rigid-body state: position, orientation, linear and angular velocity, inertia tensor
 - [ ] Integrator with a fixed timestep and an interpolated render pose
@@ -330,6 +337,7 @@ picture, which is pinned for the length of a declared run.
 ### I.13 Actors, brains, sensors
 
 - [ ] Entity store with a stable identity, spawned from a region seed
+- [ ] A brain's resident cost declared per actor — context, history and sensor view — with a ceiling and an eviction order, so a populated scene has a computable memory price rather than a discovered one
 - [ ] A brain that is handed a sensor view and has no name for the world — a type, not a rule
 - [ ] Sensor channels: visual contact carrying a TYPE only once angular size gives it away, never a distance or an identity
 - [ ] Acoustic sensor
@@ -1140,6 +1148,10 @@ because the street network is what buildings, vehicles and lighting all hang off
 ### IV.2 Mass and footprint
 
 - [x] Footprint extruded to a prism
+- [ ] A building's LOD ladder on the one cluster DAG, with the same model-space error the vegetation ladder uses — Band IV declares 342 features and not one rung, while buildings are the largest single memory consumer measured (70 894 KiB of heap over one block, 545 KiB per tile)
+- [ ] A far rung that drops openings, trim and roof furniture and keeps mass and roof plane, because at 320×180 those are what a silhouette is made of
+- [ ] A block of buildings merged into one draw at the far rungs, the way the reference merges vegetation per cell — the count of draws, not the count of triangles, is what a street costs
+- [ ] An impostor rung for a distant block, its error anchored on the atlas cell texel like every other impostor
 - [x] Wall vertices carrying a façade coordinate — `uv.x` = `256·style + bay`, `uv.y` = storeys, so one façade function serves the whole town with no per-building constant to pass — `sim/src/core/FacadeUv.h`
 - [ ] Multi-part mass: a main block plus a lower wing, rather than one prism per ring
 - [ ] Courtyard buildings as several rings resolved as one structure
