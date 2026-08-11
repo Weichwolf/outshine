@@ -33,6 +33,10 @@ constexpr double kWoodDensityKgPerM3 = 700.0;
  * physics and no generator names a material of its own yet. */
 constexpr Generators::ContactMaterial kTrunkContact{1};
 
+/* [SET] the contact row a wall carries. Its own row rather than the trunk's, because the two answer
+ * a collision differently and the table is where that difference is declared. */
+constexpr Generators::ContactMaterial kWallContact{2};
+
 double MonotonicMs() {
   return std::chrono::duration<double, std::milli>(
              std::chrono::steady_clock::now().time_since_epoch())
@@ -99,9 +103,27 @@ bool Sim::LoadTables() {
   }
   Table_ = Generators::GroundTable::Of(
       Span<const Generators::GroundTable::Row>(table.data(), table.size()));
-  NoFeatures_ = Generators::FeatureField::Of(Span<const Generators::FeatureField::Feature>(),
-                                             Span<const Generators::FeatureField::Ring>(),
-                                             Span<const Generators::FeatureField::Vertex>());
+  /* ONE REGION IS ONE TILE, and this is where that stops being a convention: the ring's regions and
+   * the vector field's tiles are addressed by the same key, so a region's outlines are one tile's
+   * outlines and neither side may be re-zoomed alone. */
+  if (W_.Vectors().Zoom() != Ring_.Zoom()) {
+    Log::Error("sim", "region_zoom_is_not_the_vector_zoom",
+               {{"ring", (double)Ring_.Zoom()}, {"vectors", (double)W_.Vectors().Zoom()}});
+    return false;
+  }
+  const World::VegetationTemplates::Rule *built = Veg_.Find("buildings", "*");
+  const World::VegetationTemplates::Rule *wet = Veg_.Find("water_polygons", "water");
+  if (!built || !wet) {
+    Log::Error("sim", "outline_class_undeclared",
+               {{"buildings", built != nullptr}, {"water_polygons", wet != nullptr}});
+    return false;
+  }
+  BuiltRow_ = built->Tpl;
+  WetRow_ = wet->Tpl;
+  Structures_.emplace(BuiltRow_, kWallContact);
+  Lakes_.emplace(WetRow_);
+  if (!Gens_.Add(kBuiltRank, *Structures_)) return false;
+  if (!Gens_.Add(kWaterRank, *Lakes_)) return false;
   if (!Assets_.Species.empty()) {
     if (!ReadSpecies(Assets_.Species.c_str(), &Species_)) {
       Log::Error("sim", "species_unreadable",
@@ -110,9 +132,9 @@ bool Sim::LoadTables() {
     }
     Trees_.emplace(StemOf(Species_),
                    Span<const float>(StandsPerM2_.data(), StandsPerM2_.size()), Veg_.Limit());
-    if (!Gens_.Add(Generators::Rank{0}, *Trees_)) return false;
+    if (!Gens_.Add(kTreeRank, *Trees_)) return false;
   }
-  if (Gens_.Count() > 0 && !OpenPool()) return false;
+  if (!OpenPool()) return false;
   SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
   return true;
 }
@@ -129,49 +151,119 @@ bool Sim::OpenPool() {
   uint64_t bodies = 0;
   for (size_t g = 0; g < Gens_.Count(); g++)
     bodies += Gens_.At(g).Proposes(widest->SpanEm() * widest->SpanNm());
-  Pool_.emplace(*widest, Generators::RegionPool::Shape{(int)Ring_.Count(), (uint32_t)bodies, 8.0});
+  const Generators::Region broadest = Ring_.Broadest();
+  Pool_.emplace(Generators::RegionPool::Extent{*widest, broadest},
+                Generators::RegionPool::Shape{(int)Ring_.Count(), (uint32_t)bodies, 8.0});
   Forge_.emplace(Gens_);
   Log::Info("sim", "region_pool", {{"zoom", (double)widest->Zoom()},
       {"widestSpanEm", widest->SpanEm()}, {"widestSpanNm", widest->SpanNm()},
+      {"broadestSpanEm", broadest.SpanEm()}, {"broadestSpanNm", broadest.SpanNm()},
       {"slots", (double)Ring_.Count()}, {"bodiesPerSlot", (double)bodies},
       {"slotKB", (double)Pool_->SlotBytes() / 1024.0},
       {"poolKB", (double)Pool_->HeapBytes() / 1024.0}});
   return true;
 }
 
-/* THE GROUND OF ONE REGION, taken whole or not at all: a region with one posting still in flight is
- * left for the next turn, which is what stops a stand from being dropped for a tile that had not
- * landed. It STOPS AT THAT POSTING — filling all 16 641 and then learning from the patch that one
- * was missing cost the same grid again every turn, for every unready region in the ring, for as
- * long as a DEM was in flight. The postings sit on the DEM's own node spacing; how far the patch's
- * own interpolation stands from the drawn surface between them is unmeasured. */
+/* THE REGION'S OWN OUTLINES, cut out of the world's decoded vectors and put into the frame a
+ * generator works in — metres east and north of the region anchor. The core resolved what each of
+ * them carries: a footprint's roof off its own ground and an OSM tag, a water body's level off its
+ * shore. Neither number is derived here, which is the split doc/architecture.md draws.
+ *
+ * NULL WHILE THIS REGION'S VECTOR TILE IS STILL OUT. One region is one tile on both sources, so the
+ * rule the DEM block already follows holds here too: taken whole or not at all. A region built from
+ * half its outlines would stand for good with a street of houses missing.
+ *
+ * A ring clipped at a tile seam arrives twice, once per tile, and both copies are kept: their union
+ * is the outline, which is all a point query and a bounding box need. */
+std::shared_ptr<const Generators::FeatureField> Sim::Features(
+    const Generators::Region &region) const {
+  if (!W_.Vectors().Decoded(region.X(), region.Y())) return nullptr;
+  const std::vector<double> &points = W_.Vectors().Points();
+
+  double latLo = 0.0, lonLo = 0.0, latHi = 0.0, lonHi = 0.0;
+  region.Geo(0.0, 0.0, &latLo, &lonLo);
+  region.Geo(region.SpanEm(), region.SpanNm(), &latHi, &lonHi);
+
+  std::vector<Generators::FeatureField::Feature> features;
+  std::vector<Generators::FeatureField::Ring> rings;
+  std::vector<Generators::FeatureField::Vertex> vertices;
+  const auto take = [&](uint32_t firstPoint, uint32_t count, int coverRow,
+                        Generators::FeatureTop top) {
+    if (count < 3) return;
+    double minLat = 1.0e9, maxLat = -1.0e9, minLon = 1.0e9, maxLon = -1.0e9;
+    for (uint32_t k = 0; k < count; k++) {
+      const double lat = points[((size_t)firstPoint + k) * 2];
+      const double lon = points[((size_t)firstPoint + k) * 2 + 1];
+      minLat = lat < minLat ? lat : minLat;
+      maxLat = lat > maxLat ? lat : maxLat;
+      minLon = lon < minLon ? lon : minLon;
+      maxLon = lon > maxLon ? lon : maxLon;
+    }
+    if (maxLat < latLo || minLat > latHi || maxLon < lonLo || minLon > lonHi) return;
+    Generators::FeatureField::Feature f{};
+    f.FirstRing = (uint32_t)rings.size();
+    f.RingCount = 1;
+    f.CoverRow = coverRow;
+    f.Top = top;
+    rings.push_back({(uint32_t)vertices.size(), count});
+    for (uint32_t k = 0; k < count; k++) {
+      double eastM = 0.0, northM = 0.0;
+      region.Enu(points[((size_t)firstPoint + k) * 2], points[((size_t)firstPoint + k) * 2 + 1],
+                 &eastM, &northM);
+      vertices.push_back({(float)eastM, (float)northM});
+    }
+    features.push_back(f);
+  };
+
+  for (const World::BuildingField::Footprint &fp : W_.Footprints().Footprints())
+    take(fp.FirstPoint, fp.PointCount, BuiltRow_,
+         Generators::FeatureTop::At(fp.BaseM + fp.HeightM));
+  for (const World::WaterField::Surface &s : W_.WaterBodies().Surfaces())
+    take(s.FirstPoint, s.PointCount, WetRow_, Generators::FeatureTop::At(s.LevelM));
+
+  return Generators::FeatureField::Of(
+      Span<const Generators::FeatureField::Feature>(features.data(), features.size()),
+      Span<const Generators::FeatureField::Ring>(rings.data(), rings.size()),
+      Span<const Generators::FeatureField::Vertex>(vertices.data(), vertices.size()));
+}
+
+/* THE GROUND OF ONE REGION, TAKEN OUT OF THE POOL WHOLE. One region is one DEM tile at one zoom, so
+ * the posting block the patch wants is the block the tile already holds: the region is found once
+ * and every posting after that is arithmetic. Recovering the same block by asking the point oracle
+ * per posting cost 16 641 geodetic round trips and 16 641 slot scans to rebuild bytes that were
+ * already there, on the thread that draws.
+ *
+ * The postings sit on the DEM's own node spacing; how far the patch's own interpolation stands from
+ * the drawn surface between them is unmeasured. */
 bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
                    double *ms) const {
   const double t0 = MonotonicMs();
+  const auto done = [&](bool ok) { *ms = MonotonicMs() - t0; return ok; };
+  const FbGroundBlock block = fb_stream_ground_block(region.Zoom(), region.X(), region.Y());
+  if (block.Where() != FbGroundBlock::State::Resolved) return done(false);
+
   const int side = (int)(region.SpanNm() / fb_stream_ground_post_m(region.AnchorLat()) + 0.5) + 1;
   std::vector<Generators::GroundPatch::Posting> postings((size_t)side * (size_t)side);
+  std::vector<double> row((size_t)side);
   const double stepE = region.SpanEm() / (double)(side - 1);
   const double stepN = region.SpanNm() / (double)(side - 1);
   for (int j = 0; j < side; j++) {
-    for (int i = 0; i < side; i++) {
-      double lat = 0.0, lon = 0.0;
-      region.Geo((double)i * stepE, (double)j * stepN, &lat, &lon);
-      const GroundSample h = fb_stream_ground(lat, lon);
-      if (h.Where() != GroundSample::State::Resolved) {
-        *ms = MonotonicMs() - t0;
-        return false;
-      }
-      postings[(size_t)j * (size_t)side + (size_t)i].Height = h;
-    }
+    /* The region's own frame scales longitude by the latitude of the row, so one row is equally
+     * spaced in longitude and the next one is not — which is exactly the shape the block reads. */
+    double lat = 0.0, lonFrom = 0.0, latAgain = 0.0, lonNext = 0.0;
+    region.Geo(0.0, (double)j * stepN, &lat, &lonFrom);
+    region.Geo(stepE, (double)j * stepN, &latAgain, &lonNext);
+    block.AslMRow(lat, lonFrom, lonNext - lonFrom, side, row.data());
+    for (int i = 0; i < side; i++)
+      postings[(size_t)j * (size_t)side + (size_t)i].Height = GroundSample::At(row[(size_t)i]);
   }
   out->Patch = Generators::GroundPatch::Complete(
       region, side,
       Span<const Generators::GroundPatch::Posting>(postings.data(), postings.size()));
   out->Classes = W_.Classes().Read();
-  out->Features = NoFeatures_;
+  out->Features = Features(region);
   out->Table = Table_;
-  *ms = MonotonicMs() - t0;
-  return out->Patch && out->Classes;
+  return done(out->Patch && out->Classes && out->Features);
 }
 
 bool Sim::Reached(const Generators::Region &region) const {
@@ -238,18 +330,26 @@ void Sim::Gather() {
 }
 
 /* ONE REQUEST AT A TIME, because one region is in flight by construction. The snapshot is taken on
- * this thread — the DEM oracle it reads has one cache and one thread may hold it — and the
- * generators run on the forge's. */
+ * this thread — the DEM oracle it reads is not re-entrant (world/TerrainLoader.h) — and the
+ * generators run on the forge's.
+ *
+ * ONE SNAPSHOT ATTEMPT PER TURN, ROUND ROBIN. A ring of nine unready regions used to try all nine
+ * in the frame that asked and try them all again in the next, so a DEM in flight was a SUSTAINED
+ * frame cost for as long as it was in flight. The cursor is what keeps that budget from coupling the
+ * ring to its slowest member: a region whose DEM never lands is stepped over next turn instead of
+ * standing in front of the eight behind it. */
 void Sim::Ask() {
   if (!Forge_->Idle()) return;
-  for (size_t k = 0; k < Ring_.Count(); k++) {
+  for (size_t n = 0; n < Ring_.Count(); n++) {
+    const size_t k = (Asked_ + n) % Ring_.Count();
     const std::optional<Generators::Region> region = Ring_.At(k, Stance_.Lat, Stance_.Lon);
     if (!region || !Reached(*region) || Standing(*region)) continue;
 
+    Asked_ = k + 1;
     Generators::Ground::Snapshot snapshot;
-    if (!Snapshot(*region, &snapshot, &SnapshotMs_)) continue;
+    if (!Snapshot(*region, &snapshot, &SnapshotMs_)) return;
     const std::optional<Generators::Ground> ground = Generators::Ground::Of(*region, snapshot);
-    if (!ground) continue;
+    if (!ground) return;
     std::optional<Generators::RegionPool::Lease> lease = Pool_->TryAcquire(*ground);
     if (!lease) {
       Log::Warn("sim", "region_pool_empty",
@@ -264,9 +364,11 @@ void Sim::Ask() {
 
 void Sim::Populate() {
   if (!Forge_) return;
+  const double t0 = MonotonicMs();
   Release();
   Gather();
   Ask();
+  PopulateMs_ = MonotonicMs() - t0;
 }
 
 /* THE WHOLE PARTITION IN ONE LINE: every candidate of the region leaves through exactly one name, so
@@ -278,6 +380,7 @@ void Sim::Say(const Populated &grown, double snapshotMs) const {
       {"y", (double)region.Y()}, {"occupyMs", grown.OccupyMs}, {"snapshotMs", snapshotMs},
       {"slotKB", (double)Pool_->SlotBytes() / 1024.0},
       {"patchKB", (double)grown.Where.PatchHeapBytes() / 1024.0},
+      {"featureKB", (double)grown.Where.FeatureHeapBytes() / 1024.0},
       {"speciesLimitAslM", Veg_.Limit().SpeciesLimitM(region.AnchorLat())}};
   for (const Generators::Yield &yield : grown.Yields) {
     fields.push_back({"placed", (double)yield.Claims(Generators::Claim::Outcome::Placed)});
@@ -379,26 +482,49 @@ void Sim::Look(const Stance &s) {
   State_.Platform.PitchDeg = (float)s.PitchDeg;
 }
 
-void Sim::Advance() { W_.Update(Stance_.Lat, Stance_.Lon); }
+/* One pass begins here, which is also where the ring's cost for it is zero again: a pass that never
+ * reaches Populate spent nothing on it and must not publish the last one that did. */
+void Sim::Advance() {
+  PopulateMs_ = 0.0;
+  W_.Update(Stance_.Lat, Stance_.Lon);
+}
 
 /* THE STANDPOINT IS CHECKED AGAINST WHAT IS DATA. Terrain and buildings come from DEM and OSM, so
  * the eye is LIFTED above them; a tree is a draw from a landcover density and the eye is not moved
  * for one — the stand that would hold it is dropped where the picture is collected instead.
- * Buildings only exist once the vector tiles have landed, which is why this waits for residency. */
+ * The roof comes out of the same generator every other caller asks, so it waits for the region the
+ * eye stands in and not merely for a vector tile. */
 void Sim::Settle() {
   if (!RoofChecked_ && Stand_.LensDeclared()) {
-    RoofChecked_ = true;
-    const double roof = W_.RoofAslAt(Stance_.Lat, Stance_.Lon);
-    const double before = Stand_.AltAslM();
-    Stand_.SetRoofAslM(roof);
-    if (Stand_.AltAslM() != before) {
-      Log::Info("sim", "standpoint_roof", {{"roofAslM", roof},
-          {"liftM", Stand_.AltAslM() - before}, {"eyeM", Stand_.EyeAglM()},
-          {"totalLiftM", Stand_.LiftM()}});
-      Look(Stance_);
+    const std::optional<Generators::Ground> ground = GroundAt(Stance_.Lat, Stance_.Lon);
+    Generators::Body roof;
+    if (ground && Structures_) {
+      RoofChecked_ = true;
+      double eastM = 0.0, northM = 0.0;
+      ground->Where().Enu(Stance_.Lat, Stance_.Lon, &eastM, &northM);
+      if (Structures_->At(*ground, eastM, northM, &roof)) {
+        const double before = Stand_.AltAslM();
+        Stand_.SetRoofAslM(roof.BaseAslM + (double)roof.HeightM);
+        if (Stand_.AltAslM() != before)
+          Log::Info("sim", "standpoint_roof", {{"roofAslM", roof.BaseAslM + (double)roof.HeightM},
+              {"liftM", Stand_.AltAslM() - before}, {"eyeM", Stand_.EyeAglM()},
+              {"totalLiftM", Stand_.LiftM()}});
+        Look(Stance_);
+      }
     }
   }
   Populate();
+}
+
+/* ONE REGION, BUILT WHERE IT IS ASKED FOR. A point query has no ring behind it and no forge: the
+ * region containing the place is snapshotted on this thread and thrown away again, which is what
+ * lets the server target answer a place it never walked to. */
+std::optional<Generators::Ground> Sim::GroundAt(double lat, double lon) const {
+  const Generators::Region region = Generators::Region::Of(Ring_.Zoom(), lat, lon);
+  Generators::Ground::Snapshot snapshot;
+  double ms = 0.0;
+  if (!Snapshot(region, &snapshot, &ms)) return std::nullopt;
+  return Generators::Ground::Of(region, snapshot);
 }
 
 Sim::Place Sim::At(double lat, double lon) const {
@@ -413,10 +539,15 @@ Sim::Place Sim::At(double lat, double lon) const {
     p.Class = cls->Evaluate(e, n, &p.ClassEdgeM, &runnerUp);
   }
 
-  const double roof = W_.RoofAslAt(lat, lon);
-  if (p.GroundResolved && World::World::SurfaceStands(roof)) p.StructureHeightM = roof - p.GroundAslM;
-  const double level = W_.WaterAslAt(lat, lon);
-  if (p.GroundResolved && World::World::SurfaceStands(level)) p.WaterDepthM = level - p.GroundAslM;
+  const std::optional<Generators::Ground> ground = GroundAt(lat, lon);
+  if (!ground) return p;
+  p.OutlinesResolved = true;
+  double eastM = 0.0, northM = 0.0;
+  ground->Where().Enu(lat, lon, &eastM, &northM);
+  Generators::Body structure;
+  if (Structures_ && Structures_->At(*ground, eastM, northM, &structure))
+    p.StructureHeightM = (double)structure.HeightM;
+  if (Lakes_) p.Water = Lakes_->DepthAt(*ground, eastM, northM);
   return p;
 }
 

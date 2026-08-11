@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "Buildings.h"
 #include "Forest.h"
 #include "GeneratorSet.h"
 #include "Ground.h"
@@ -19,6 +20,8 @@
 #include "SceneWeather.h"
 #include "Schedule.h"
 #include "Standpoint.h"
+#include "Water.h"
+#include "WaterDepth.h"
 #include "State.h"
 #include "StreamTelemetry.h"
 #include "Telemetry.h"
@@ -45,9 +48,20 @@ public:
     double GroundAslM = 0.0;
     int Class = -1;                            /* vegetation table row; -1 = OSM has no datum here */
     double ClassEdgeM = 0.0;                   /* distance to that class's nearest edge */
-    std::optional<double> StructureHeightM;    /* roof less ground */
-    std::optional<double> WaterDepthM;         /* water level less ground */
+    /* False while this place's outlines are still streaming. Without it "no house here" and "the
+     * vector tile has not landed" are the same empty answer, which is the defect the ground's own
+     * states exist to prevent. */
+    bool OutlinesResolved = false;
+    std::optional<double> StructureHeightM;    /* what stands here, from the ground up */
+    WaterDepth Water = WaterDepth::Dry();
   };
+
+  /* THE ORDER CONTENT CLAIMS SPACE IN, declared once and in one place: the picture's own draw
+   * sources are matched to the generators by it, so a second literal somewhere else is a silent
+   * mismatch between what stands and what is drawn. */
+  static constexpr Generators::Rank kBuiltRank{0};
+  static constexpr Generators::Rank kWaterRank{1};
+  static constexpr Generators::Rank kTreeRank{2};
 
   Sim(const Scene &scene, const Assets &assets);
 
@@ -121,6 +135,9 @@ public:
   /* What one region costs while it stands: its slot in the pool plus its own ground patch. */
   size_t RegionSlotBytes() const { return Pool_ ? Pool_->SlotBytes() : 0; }
   long StandCount() const;
+  /* WHAT THE RING COST THE CALLING THREAD in the pass just run. Separate from the world's own pass
+   * because it runs beside it and not inside it, and a crossing is where the two are told apart. */
+  double PopulateMs() const { return PopulateMs_; }
   /* [SET] metres. How far from the eye the world is populated, and the same number the picture cuts
    * its instances at. It is a COLLECTION BUDGET and not a pixel threshold: at the declared 720p and
    * 60 deg the pixel focal length is 623.5, so a 30 m stand at this range is still 20.8 px tall and
@@ -178,6 +195,10 @@ private:
    * for good where the DEM has a hole. `ms` is the wall clock this cost the calling thread. */
   [[nodiscard]] bool Snapshot(const Generators::Region &region,
                               Generators::Ground::Snapshot *out, double *ms) const;
+  /* Null while this region's vector tile is still out. */
+  std::shared_ptr<const Generators::FeatureField> Features(const Generators::Region &region) const;
+  /* The region containing a place, snapshotted for one question and dropped again. */
+  std::optional<Generators::Ground> GroundAt(double lat, double lon) const;
 
   Scene Scene_;
   Assets Assets_;
@@ -193,10 +214,14 @@ private:
   Generators::TreeSpecies Species_;
   std::vector<float> StandsPerM2_;                     /* by ground class row */
   std::shared_ptr<const Generators::GroundTable> Table_;
-  std::shared_ptr<const Generators::FeatureField> NoFeatures_;
   Generators::Schedule Ring_;
   Generators::GeneratorSet Gens_;
   std::optional<Generators::Forest> Trees_;
+  std::optional<Generators::Buildings> Structures_;
+  std::optional<Generators::Water> Lakes_;
+  /* Which row of the declared table an outline of each kind classifies as, resolved once: the class
+   * model is the only place that says which OSM layer a generator's features come from. */
+  int BuiltRow_ = -1, WetRow_ = -1;
   /* Both are finished only once the declared tables are read: the pool is sized on what the
    * generators say they can claim, and the forge runs them (`C.41` — the constructor cannot). */
   std::optional<Generators::RegionPool> Pool_;
@@ -205,7 +230,10 @@ private:
   /* Regions whose content does not fit the budget. Kept by key so the ring does not ask again every
    * turn; dropped when the ring stops naming them, so walking back is a fresh attempt. */
   std::vector<Generators::Region> Refused_;
-  double SnapshotMs_ = 0.0;
+  double SnapshotMs_ = 0.0, PopulateMs_ = 0.0;
+  /* Where the next turn's one snapshot attempt starts. Round robin, so a region whose DEM never
+   * lands cannot stand in front of the rest of the ring. */
+  size_t Asked_ = 0;
   uint64_t Version_ = 0;
 
   State State_;

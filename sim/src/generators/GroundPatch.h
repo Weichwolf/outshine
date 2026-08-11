@@ -15,8 +15,6 @@ class GroundPatch {
 public:
   struct Posting {
     GroundSample Height = GroundSample::Waiting();
-    float WaterLevelAslM = 0.0f;
-    bool HasWater = false;
   };
 
   /* Null when ANY posting is unresolved: a region with a hole in its ground is never offered, so
@@ -33,19 +31,15 @@ public:
   /* The drawn surface's gradient, metres per metre, in the region frame. */
   void GradientAt(double eastM, double northM, double *dhde, double *dhdn) const noexcept;
   double SlopeDeg(double eastM, double northM) const noexcept;
-  [[nodiscard]] bool TryWaterLevelAslM(double eastM, double northM, double *out) const noexcept;
 
   size_t HeapBytes() const;
 
 private:
   GroundPatch(int side, double spacingEm, double spacingNm, Span<const Posting> postings);
-  size_t Nearest(double eastM, double northM) const noexcept;
 
   int Side_;
   double SpacingEm_, SpacingNm_;
   std::vector<double> AslM_;
-  std::vector<float> WaterAslM_;
-  std::vector<uint8_t> HasWater_;
 };
 
 } // namespace outshine::Generators

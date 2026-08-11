@@ -56,6 +56,10 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
   return added;
 }
 
+bool OsmField::Decoded(int x, int y) const {
+  return std::find(Done_.begin(), Done_.end(), TileKey(x, y)) != Done_.end();
+}
+
 bool OsmField::AddTile(int tx, int ty, int &added) {
   char path[96];
   std::snprintf(path, sizeof path, "/t/vector/%d/%d/%d", Zoom_, tx, ty);

@@ -41,15 +41,14 @@ public:
    * one quantity here that comes from vectors, and a raster fine enough not to notch a wood line
    * below a scatter's own step does not fit in the region budget. */
   Cover CoverAt(double eastM, double northM) const noexcept;
-  [[nodiscard]] bool TryWaterLevelAslM(double eastM, double northM, double *out) const noexcept {
-    return Patch_->TryWaterLevelAslM(eastM, northM, out);
-  }
   const FeatureField &Features() const noexcept { return *Features_; }
   const GroundTable &Table() const noexcept { return *Table_; }
   /* The declared anchor every ECEF offset of this region is measured from, at sea level. */
   const double *AnchorEcef() const noexcept { return AnchorEcef_; }
-  /* What this region's own ground costs while it stands — one column of a region's byte line. */
+  /* What this region's own ground costs while it stands — two columns of a region's byte line: the
+   * posting block, and the outlines cut out of the vector source for this region alone. */
   size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
+  size_t FeatureHeapBytes() const noexcept { return Features_->HeapBytes(); }
 
 private:
   Ground(const Region &region, const Snapshot &snapshot);

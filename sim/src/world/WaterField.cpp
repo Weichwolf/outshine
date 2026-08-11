@@ -30,18 +30,50 @@ constexpr double kLiftM = 0.15;
 
 }  // namespace
 
+/* Every ring point of every water feature of one tile, asked for a height and nothing else: a
+ * feature whose DEM has not landed defers the whole tile rather than being dropped. */
+bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly,
+                                    int line) const {
+  const std::vector<double> &pts = field.Points();
+  const std::vector<OsmField::Feature> &feats = field.Features();
+  for (size_t i = from; i < to; i++) {
+    const OsmField::Feature &f = feats[i];
+    if (field.Num(f, "tunnel", 0.0) > 0.5) continue;
+    const bool isLine = f.Type == 2 && (int)f.Layer == line;
+    const bool isPoly = f.Type == 3 && (int)f.Layer == poly;
+    if (!isLine && !isPoly) continue;
+    for (uint32_t r = 0; r < f.RingCount; r++) {
+      const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
+      if (isPoly && (!ring.Exterior || ring.Count < 3 || ring.Count > 512)) continue;
+      if (isLine && (ring.Count < 2 || ring.Count > 512)) continue;
+      for (uint32_t k = 0; k < ring.Count; k++)
+        if (fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+                             pts[((size_t)ring.First + k) * 2 + 1])
+                .Where() == GroundSample::State::Pending)
+          return false;
+    }
+  }
+  return true;
+}
+
 uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
   const std::vector<OsmField::Feature> &feats = field.Features();
-  if (Consumed_ >= feats.size()) return (uint32_t)Surfaces_.size();
+  if (Mark_.Done(feats)) return (uint32_t)Surfaces_.size();
 
   const int poly = field.Layer("water_polygons");
   const int line = field.Layer("water_lines");
-  const uint32_t tile = feats[Consumed_].Tile;
+  const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
+    return TileGroundResolved(field, from, to, poly, line);
+  });
+  if (!next.Found) return (uint32_t)Surfaces_.size();
+  Mark_.Take(next.Tile);
+  Mark_.Advance(feats);
+
   const std::vector<double> &pts = field.Points();
   std::vector<double> hs;
 
-  for (; Consumed_ < feats.size() && feats[Consumed_].Tile == tile; Consumed_++) {
-    const OsmField::Feature &f = feats[Consumed_];
+  for (size_t c = next.From; c < next.To; c++) {
+    const OsmField::Feature &f = feats[c];
     /* A culvert carries no water at the surface. The bake draws one anyway (tiles/src/raster.c has
      * no tunnel test), so chasing its coverage would be rebuilding its artefact. */
     if (field.Num(f, "tunnel", 0.0) > 0.5) continue;
@@ -119,22 +151,6 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
     }
   }
   return (uint32_t)Surfaces_.size();
-}
-
-double WaterField::LevelAslAt(const OsmField &field, double lat, double lon) const {
-  const std::vector<double> &pts = field.Points();
-  double best = -1.0e30;
-  for (const Surface &s : Surfaces_) {
-    if (s.PointCount < 3 || (double)s.LevelM <= best) continue;
-    bool in = false;
-    for (uint32_t i = 0, j = s.PointCount - 1; i < s.PointCount; j = i++) {
-      const double ai = pts[(size_t)(s.FirstPoint + i) * 2], oi = pts[(size_t)(s.FirstPoint + i) * 2 + 1];
-      const double aj = pts[(size_t)(s.FirstPoint + j) * 2], oj = pts[(size_t)(s.FirstPoint + j) * 2 + 1];
-      if ((ai > lat) != (aj > lat) && lon < (oj - oi) * (lat - ai) / (aj - ai) + oi) in = !in;
-    }
-    if (in) best = (double)s.LevelM;
-  }
-  return best;
 }
 
 void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) const {

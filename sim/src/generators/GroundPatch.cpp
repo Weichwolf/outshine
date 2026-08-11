@@ -26,14 +26,10 @@ GroundPatch::GroundPatch(int side, double spacingEm, double spacingNm,
                          Span<const Posting> postings)
     : Side_(side), SpacingEm_(spacingEm), SpacingNm_(spacingNm) {
   AslM_.reserve(postings.Size());
-  WaterAslM_.reserve(postings.Size());
-  HasWater_.reserve(postings.Size());
   for (const Posting &p : postings) {
     double aslM = 0.0;
     (void)p.Height.TryAslM(&aslM);
     AslM_.push_back(aslM);
-    WaterAslM_.push_back(p.WaterLevelAslM);
-    HasWater_.push_back(p.HasWater ? 1u : 0u);
   }
 }
 
@@ -64,22 +60,8 @@ double GroundPatch::SlopeDeg(double eastM, double northM) const noexcept {
   return std::atan(std::sqrt(de * de + dn * dn)) * kRad2Deg;
 }
 
-size_t GroundPatch::Nearest(double eastM, double northM) const noexcept {
-  const double u = Clamped(eastM / SpacingEm_ + 0.5, 0.0, (double)(Side_ - 1));
-  const double v = Clamped(northM / SpacingNm_ + 0.5, 0.0, (double)(Side_ - 1));
-  return (size_t)(int)v * (size_t)Side_ + (size_t)(int)u;
-}
-
-bool GroundPatch::TryWaterLevelAslM(double eastM, double northM, double *out) const noexcept {
-  const size_t i = Nearest(eastM, northM);
-  if (!HasWater_[i]) return false;
-  *out = (double)WaterAslM_[i];
-  return true;
-}
-
 size_t GroundPatch::HeapBytes() const {
-  return AslM_.capacity() * sizeof(double) + WaterAslM_.capacity() * sizeof(float) +
-         HasWater_.capacity();
+  return AslM_.capacity() * sizeof(double);
 }
 
 } // namespace outshine::Generators

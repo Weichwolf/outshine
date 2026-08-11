@@ -34,6 +34,12 @@ FeatureField::FeatureField(Span<const Feature> features, Span<const Ring> rings,
   }
 }
 
+bool FeatureField::Passes(const Feature &f, const Sieve &sieve) const noexcept {
+  if (f.CoverRow != sieve.CoverRow) return false;
+  float aslM = 0.0f;
+  return f.Top.TryAslM(&aslM) == sieve.Topped;
+}
+
 Span<const FeatureField::Ring> FeatureField::Rings(const Feature &f) const {
   return Span<const Ring>(Rings_.data() + f.FirstRing, f.RingCount);
 }

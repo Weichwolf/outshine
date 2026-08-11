@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "FeatureTop.h"
 #include "Span.h"
 
 namespace outshine::Generators {
@@ -23,8 +24,18 @@ public:
   struct Feature {
     uint32_t FirstRing, RingCount;
     int32_t CoverRow;
+    FeatureTop Top;
     float MinEm, MinNm, MaxEm, MaxNm;
   };
+
+  /* Which features a generator reads: its own row of the declared table, and whether the thing has
+   * an upper surface at all. Row alone does not separate a house from the street beside it — both
+   * classify as sealed ground — and a top alone does not separate a house from a lake. */
+  struct Sieve {
+    int32_t CoverRow = -1;
+    bool Topped = true;
+  };
+  bool Passes(const Feature &f, const Sieve &sieve) const noexcept;
 
   static std::shared_ptr<const FeatureField> Of(Span<const Feature> features,
                                                 Span<const Ring> rings,

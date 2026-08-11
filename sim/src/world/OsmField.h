@@ -60,6 +60,10 @@ public:
   long BadTiles() const { return Bad_; }
   /* Tiles of the block the last Build() left undecoded. 0 = complete, -1 = never asked. */
   int PendingTiles() const { return Pending_; }
+  /* Whether this one tile's vectors have been decoded and kept. A consumer that works a tile at a
+   * time asks about ITS tile: the block's pending count is about the camera's neighbourhood and says
+   * nothing about a tile out at the edge of a ring. */
+  bool Decoded(int x, int y) const;
 
   const std::vector<Feature> &Features() const { return Features_; }
   const std::vector<Ring> &Rings() const { return Rings_; }

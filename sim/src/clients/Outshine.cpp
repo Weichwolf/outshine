@@ -215,7 +215,7 @@ void Outshine::AwaitStars() {
                                               Tree_->Reach().Bottom});
     R_.BakePrototypeImpostor();
     TreeDraw_.emplace(Generators::ClusterId{0}, Tree_->HeightM());
-    if (!Draws_.Add(Generators::Rank{0}, *TreeDraw_)) { Phase_ = Phase::Failed; return; }
+    if (!Draws_.Add(Sim::kTreeRank, *TreeDraw_)) { Phase_ = Phase::Failed; return; }
     /* THE COLLECTION'S CEILING, and it is the same declaration the occupancy pool was sized on:
      * every generator asked what it can claim over the disc the picture reaches across. Taken once,
      * here, because a vector that grows during play is a budget nobody declared. */
@@ -420,6 +420,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.BuildingMs = w.BuildingMs();
   p.BuildingDecodeMs = w.BuildingDecodeMs();
   p.ClassMs = w.ClassMs();
+  p.PopulateMs = Sim_.PopulateMs();
   p.TilesTotal = w.TargetTotal();
   p.TilesReady = w.TargetReadyN();
   p.TilesInView = w.TargetInViewN();

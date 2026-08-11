@@ -23,6 +23,7 @@
 
 #include "Capacity.h"
 #include "GroundSample.h"
+#include "TileWatermark.h"
 
 namespace outshine::World {
 
@@ -45,10 +46,7 @@ public:
    * frame doing nine tiles' worth of it, and that frame is gone. The stop is on the FEATURE'S TILE,
    * not on the field's schedule, so a field that later runs ahead cannot undo it.
    *
-   * DEFERRAL IS PER TILE. One watermark made a tile whose DEM never arrives stall every LATER tile's
-   * buildings, so one hole in the elevation emptied the whole street behind it — and a ring that
-   * travels turns that into a hole that grows. A deferred tile is stepped over and asked again; the
-   * watermark still follows the contiguous prefix, so the scan stays short. */
+   * DEFERRAL IS PER TILE (world/TileWatermark.h). */
   int Build(const OsmField &field);
 
   /* The vertex range `Verts_` grew by in the last Build that consumed something, as float indices.
@@ -61,14 +59,12 @@ public:
   const std::vector<float> &Verts() const { return Verts_; }
   const double *Anchor() const { return Anchor_; }
   const std::vector<Footprint> &Footprints() const { return Prints_; }
-  /* THE ROOF OVER A POINT, ASL, or World::kNoSurfaceAslM where no footprint stands. An eye inside a
-   * wall is not a standpoint, and this is the only thing that can say so: the extrusion is a prism
-   * over a ring and the ring lives in `field`. */
-  double RoofAslAt(const OsmField &field, double lat, double lon) const;
   int OsmHeights() const { return OsmHeights_; }
   int DefaultHeights() const { return DefaultHeights_; }
-  int Deferrals() const { return Deferrals_; }
-  size_t HeapBytes() const { return CapacityBytes(Prints_) + CapacityBytes(Verts_); }
+  int Deferrals() const { return Mark_.Deferrals(); }
+  size_t HeapBytes() const {
+    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes();
+  }
 
 private:
   /* A ring's lowest corner, carrying WHY when there is none — the ground's own answer, not a copy of
@@ -76,20 +72,14 @@ private:
   static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring);
   bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
   void Extrude(const OsmField &field, const Footprint &f);
-  bool Taken(uint32_t tile) const;
-  void Take(uint32_t tile);
 
   std::vector<Footprint> Prints_;
   std::vector<float> Verts_;
-  uint32_t Consumed_ = 0;          /* into OsmField::Features() — the watermark, never rewound */
-  /* Tiles built AHEAD of the watermark, sorted. Bounded by how many deferred tiles stand between
-   * the watermark and the newest arrival, and emptied as the watermark passes them. */
-  std::vector<uint32_t> Ahead_;
+  TileWatermark Mark_;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0;
-  int Deferrals_ = 0;   /* tiles stepped over because their DEM had not landed */
 };
 
 } // namespace outshine::World

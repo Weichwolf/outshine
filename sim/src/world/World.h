@@ -140,17 +140,13 @@ public:
            DagDone_ == FootprintTileEnds_.size() && VectorsResident();
   }
   int BuildingPendingTiles() const { return Vectors_.PendingTiles(); }
-  /* "NOTHING STANDS HERE" IS A STATE AND GETS A PREDICATE, not a literal at every call site: an
-   * absent roof and an absent water surface answer with this, and a caller that subtracts it from a
-   * ground height without asking gets a kilometre of nonsense. */
-  static constexpr double kNoSurfaceAslM = -1.0e30;
-  static bool SurfaceStands(double aslM) { return aslM > kNoSurfaceAslM * 0.5; }
-  /* The roof over a place, ASL. An eye inside a wall is not a standpoint, and only this and the
-   * ground together can say so. */
-  double RoofAslAt(double lat, double lon) const { return Buildings_.RoofAslAt(Vectors_, lat, lon); }
-  /* The water surface over a place, ASL. Depth is that less the ground, and both sides of that
-   * subtraction are the core's (doc/architecture.md, "Water is not a transparency case"). */
-  double WaterAslAt(double lat, double lon) const { return Water_.LevelAslAt(Vectors_, lat, lon); }
+  /* THE OUTLINES AND WHAT THE CORE RESOLVED ON THEM: the decoded vectors, the footprints with the
+   * ground under each of them, and the water bodies with their levels. This is where a generator's
+   * region is cut from, and the reason it is handed out rather than answered here is that the
+   * outline a generator reads and the outline the picture draws must be one line. */
+  const OsmField &Vectors() const { return Vectors_; }
+  const BuildingField &Footprints() const { return Buildings_; }
+  const WaterField &WaterBodies() const { return Water_; }
 
   /* THE RESIDENCY COUNTERS, for a moving measurement: a per-frame series that does not settle is the
    * defect, and none of these is visible in a picture. */

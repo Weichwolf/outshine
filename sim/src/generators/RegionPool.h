@@ -30,11 +30,23 @@ public:
     double CellM = 8.0;
   };
 
-  /* THE WIDEST REGION THE RING WILL NAME, not the widest the zoom can name: an equatorial z14
-   * region is 2.66 times the area of one at 52 deg N, and sizing every slot for a place the scene
-   * does not stand at is 2.66 times the budget spent on nothing. A scenario that travels far enough
-   * equatorward outgrows it, and the answer to that is the refusal below, not a wider slot. */
-  RegionPool(const Region &widest, const Shape &shape);
+  /* THE TWO REGIONS A SLOT IS SIZED ON, and they are deliberately not the same one.
+   *
+   * The BODY budget follows `Reached`, the widest region the ring will name at the standpoint: an
+   * equatorial z14 region is 2.66 times the area of one at 52 deg N, and sizing every slot for a
+   * place the scene does not stand at is 2.66 times the budget spent on nothing. A scenario that
+   * travels far enough equatorward outgrows it, and the answer to that is a refused region, not a
+   * wider slot — the count travels out in the yield and nothing is truncated.
+   *
+   * The CELL array follows `Anywhere`, the widest region the ZOOM can name. A lattice index past the
+   * end of that array is a write into the next slot, and no refusal can catch it because the index
+   * is computed before anything is claimed. Two thirds of the 2.66x saving lives in the body array
+   * and is untouched; what this costs is the cells alone. */
+  struct Extent {
+    Region Reached;
+    Region Anywhere;
+  };
+  RegionPool(const Extent &extent, const Shape &shape);
 
   class Lease {
   public:

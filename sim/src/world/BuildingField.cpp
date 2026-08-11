@@ -42,14 +42,6 @@ GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring
   return GroundSample::At(lowest);
 }
 
-bool BuildingField::Taken(uint32_t tile) const {
-  return std::binary_search(Ahead_.begin(), Ahead_.end(), tile);
-}
-
-void BuildingField::Take(uint32_t tile) {
-  Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile);
-}
-
 bool BuildingField::TileGroundResolved(const OsmField &field, size_t from, size_t to,
                                        int layer) const {
   const std::vector<OsmField::Feature> &feats = field.Features();
@@ -70,7 +62,7 @@ int BuildingField::Build(const OsmField &field) {
   AddedCount_ = 0;
 
   const std::vector<OsmField::Feature> &feats = field.Features();
-  if (Consumed_ >= feats.size()) return (int)Prints_.size();
+  if (Mark_.Done(feats)) return (int)Prints_.size();
 
   const int layer = field.Layer("buildings");
   const std::vector<double> &pts = field.Points();
@@ -79,20 +71,13 @@ int BuildingField::Build(const OsmField &field) {
   /* A FOOTPRINT IS CONSUMED ONCE. Whichever ring is asked first, a tile is either buildable now or
    * asked again next pass — dropping a stand because its DEM had not landed yet is indistinguishable
    * from "nothing stands here" and is never revisited. */
-  size_t at = Consumed_, end = Consumed_;
-  bool found = false;
-  while (at < feats.size()) {
-    const uint32_t tile = feats[at].Tile;
-    end = at;
-    while (end < feats.size() && feats[end].Tile == tile) end++;
-    if (!Taken(tile) && TileGroundResolved(field, at, end, layer)) { found = true; break; }
-    if (!Taken(tile)) Deferrals_++;
-    at = end;
-  }
-  if (!found) return (int)Prints_.size();
-  Take(feats[at].Tile);
+  const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
+    return TileGroundResolved(field, from, to, layer);
+  });
+  if (!next.Found) return (int)Prints_.size();
+  Mark_.Take(next.Tile);
 
-  for (size_t c = at; c < end; c++) {
+  for (size_t c = next.From; c < next.To; c++) {
     const OsmField::Feature &f = feats[c];
     if (f.Type != 3 || (int)f.Layer != layer) continue;
     const double h = field.Num(f, "height", 0.0);
@@ -127,13 +112,7 @@ int BuildingField::Build(const OsmField &field) {
     }
   }
 
-  /* The watermark follows the contiguous prefix that is built, and the out-of-order set is emptied
-   * behind it: what is left in it is exactly the tiles still deferred. */
-  while (Consumed_ < feats.size() && Taken(feats[Consumed_].Tile)) {
-    const uint32_t tile = feats[Consumed_].Tile;
-    while (Consumed_ < feats.size() && feats[Consumed_].Tile == tile) Consumed_++;
-    Ahead_.erase(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile));
-  }
+  Mark_.Advance(feats);
 
   AddedCount_ = (uint32_t)Verts_.size() - AddedFirst_;
   if (added == 0) return (int)Prints_.size();
@@ -141,27 +120,9 @@ int BuildingField::Build(const OsmField &field) {
   Log::Info("world", "buildings", {{"added", added}, {"total", (int)Prints_.size()},
                                      {"osmHeight", OsmHeights_}, {"defaultHeight", DefaultHeights_},
                                      {"vertsMB", (double)Verts_.size() * 4.0 / 1.0e6},
-                                     {"noGround", NoGround_}, {"deferrals", Deferrals_},
-                                     {"builtAhead", (int)Ahead_.size()}});
+                                     {"noGround", NoGround_}, {"deferrals", Mark_.Deferrals()},
+                                     {"builtAhead", (int)Mark_.AheadCount()}});
   return (int)Prints_.size();
-}
-
-double BuildingField::RoofAslAt(const OsmField &field, double lat, double lon) const {
-  const std::vector<double> &pts = field.Points();
-  double best = -1.0e30;
-  for (const Footprint &f : Prints_) {
-    if (f.PointCount < 3) { continue; }
-    const double top = (double)f.BaseM + (double)f.HeightM;
-    if (top <= best) { continue; }
-    bool in = false;
-    for (uint32_t i = 0, j = f.PointCount - 1; i < f.PointCount; j = i++) {
-      const double ai = pts[(size_t)(f.FirstPoint + i) * 2], oi = pts[(size_t)(f.FirstPoint + i) * 2 + 1];
-      const double aj = pts[(size_t)(f.FirstPoint + j) * 2], oj = pts[(size_t)(f.FirstPoint + j) * 2 + 1];
-      if ((ai > lat) != (aj > lat) && lon < (oj - oi) * (lat - ai) / (aj - ai) + oi) { in = !in; }
-    }
-    if (in) { best = top; }
-  }
-  return best;
 }
 
 void BuildingField::Extrude(const OsmField &field, const Footprint &f) {

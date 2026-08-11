@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "Capacity.h"
+#include "TileWatermark.h"
 
 namespace outshine::World {
 
@@ -36,9 +37,13 @@ public:
     float HalfWidthM = 0.0f;
   };
 
-  /* Consumes whatever `field` has decoded and this has not seen yet; returns the surfaces standing. */
-  /* The width of a watercourse is DECLARED per kind (vegetation.json, water_lines: drain 1.0 m to
-   * river 12.0 m); one number for all of them drew a river as a ditch. */
+  /* Consumes ONE tile of whatever `field` has decoded and this has not seen yet; returns the
+   * surfaces standing. The width of a watercourse is DECLARED per kind (vegetation.json,
+   * water_lines: drain 1.0 m to river 12.0 m); one number for all of them drew a river as a ditch.
+   *
+   * DEFERRAL IS PER TILE (world/TileWatermark.h). A single watermark folded "the DEM has not landed"
+   * into "there is no water here" and advanced past it, so a lake whose elevation arrived one pass
+   * late was dropped for the whole run. */
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
   const std::vector<Surface> &Surfaces() const { return Surfaces_; }
@@ -50,26 +55,25 @@ public:
   /* pos3 + nrm3 per vertex, ECEF relative to Anchor(). A pure function of the surfaces. */
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
 
-  /* THE WATER SURFACE OVER A POINT, ASL, or -1e30 where none stands. The counterpart of
-   * BuildingField::RoofAslAt and the same test: the ring lives in `field` and a surface is level by
-   * construction, so this is the level of the ring the point falls in. Watercourses are not in it —
-   * a ribbon's level belongs to its rung and a point query would have to interpolate along it. */
-  double LevelAslAt(const OsmField &field, double lat, double lon) const;
-
   size_t HeapBytes() const {
-    return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_);
+    return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_) +
+           Mark_.HeapBytes();
   }
 
   long NoGroundCount() const { return NoGround_; }
   long OutlierCount() const { return Outliers_; }
+  int Deferrals() const { return Mark_.Deferrals(); }
 
 private:
+  /* Every ring point of every water feature of this tile has a height, so the tile can be taken
+   * whole. Read twice per tile — the second read is a hit in the oracle's own tile cache. */
+  bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly, int line) const;
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
-  uint32_t Consumed_ = 0;
+  TileWatermark Mark_;
   long NoGround_ = 0, Outliers_ = 0;
 };
 

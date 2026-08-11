@@ -26,6 +26,8 @@ std::optional<Region> Schedule::At(size_t i, double lat, double lon) const {
   return Region(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
 }
 
+Region Schedule::Broadest() const { return Region(Zoom_, 0, 1 << (Zoom_ - 1)); }
+
 std::optional<Region> Schedule::Widest(double lat, double lon) const {
   std::optional<Region> widest;
   for (size_t i = 0; i < Offsets_.size(); i++) {

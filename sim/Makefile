@@ -54,7 +54,7 @@ FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o"
 # item and its bytes, which the toolchain's own abort cannot do.
 # STACK_OVERFLOW_CHECK=1 is the same statement for the stack: the sizes below are set from a
 # measured peak, and a shadow stack that runs past its end corrupts the heap silently without it.
-WASM_MAIN_MEMORY := -sINITIAL_MEMORY=248MB -sSTACK_SIZE=256KB -sDEFAULT_PTHREAD_STACK_SIZE=256KB \
+WASM_MAIN_MEMORY := -sINITIAL_MEMORY=296MB -sSTACK_SIZE=256KB -sDEFAULT_PTHREAD_STACK_SIZE=256KB \
   -sABORTING_MALLOC=0 -sSTACK_OVERFLOW_CHECK=1
 
 DAWN_OUT     := vendor/dawn/out
@@ -315,12 +315,14 @@ verify-world:    ## a world/ TU compiles against core and CANNOT name a generato
 
 verify-types:    ## a value whose misuse must not compile -- and does not
 	@cd $(SELF_DIR); set -e; \
-	  c++ src/core/gate/GroundSampleIsUsable.cpp $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only; \
-	  for f in src/core/gate/HeightIsNotReachableWithoutItsState.cpp src/core/gate/AnswerIsNotIgnorable.cpp; do \
+	  for f in src/core/gate/GroundSampleIsUsable.cpp src/core/gate/WaterDepthIsUsable.cpp; do \
+	    c++ "$$f" $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only; done; \
+	  for f in src/core/gate/HeightIsNotReachableWithoutItsState.cpp src/core/gate/AnswerIsNotIgnorable.cpp \
+	           src/core/gate/DepthIsNeverNegative.cpp; do \
 	    if c++ "$$f" $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only 2>/dev/null; then \
-	      echo "verify-types: $$f COMPILED -- the ground's height is readable without its state" >&2; exit 1; \
+	      echo "verify-types: $$f COMPILED -- a number is readable without the state that gives it meaning" >&2; exit 1; \
 	    fi; done; \
-	  echo "verify-types: GroundSample usable, its height unreachable without the state"
+	  echo "verify-types: GroundSample and WaterDepth usable, their metres unreachable without the state"
 
 # ONE PROGRAM, TWO TRANSLATIONS. The gate that would have caught the forest living in one main() for
 # ten rounds: an entry point may not build anything, and the scene-building calls exist in exactly

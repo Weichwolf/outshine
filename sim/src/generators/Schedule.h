@@ -34,6 +34,11 @@ public:
    * A Mercator row shrinks with cos(latitude), so it is the equator-most, never the centre. */
   std::optional<Region> Widest(double lat, double lon) const;
 
+  /* The widest region this zoom can name ANYWHERE, which is the Mercator row touching the equator.
+   * A buffer whose index is computed before anything is claimed has to be sized on it: no refusal
+   * can catch an index that is already out of range. */
+  Region Broadest() const;
+
 private:
   struct Offset {
     int X, Y;

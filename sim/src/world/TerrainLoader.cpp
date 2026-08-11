@@ -46,6 +46,14 @@ constexpr int kPoolDemCacheTiles = 16;
 
 std::unique_ptr<TilePool> gPool;
 
+double Clamped01(double v) { return v < 0.0 ? 0.0 : (v > 1.0 ? 1.0 : v); }
+
+double Wrapped180(double lonDeg) {
+  while (lonDeg > 180.0) lonDeg -= 360.0;
+  while (lonDeg < -180.0) lonDeg += 360.0;
+  return lonDeg;
+}
+
 int PoolThreads() {
   unsigned hw = std::thread::hardware_concurrency();
   int n = hw > 3u ? (int)hw - 2 : 1;
@@ -195,6 +203,24 @@ const GroundTile *GroundTileAt(long x, long y) {
   return victim;
 }
 
+/* THE ONE EVALUATION OF THE DRAWN SURFACE INSIDE A TILE, by fraction of the tile: fx east from the
+ * west edge, fy south from the north edge. Both readers below go through it, so "a block and a point
+ * answer the same number" is a property of the code. */
+double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx, double fy) {
+  const double px = Clamped01(fx) * (double)(postings - 1);
+  const double py = Clamped01(fy) * (double)(postings - 1);
+  const int i = World::ChunkNodeCell(px, postings, side);
+  const int j = World::ChunkNodeCell(py, postings, side);
+  const uint32_t c0 = World::ChunkNodePosting(i, postings, side);
+  const uint32_t c1 = World::ChunkNodePosting(i + 1, postings, side);
+  const uint32_t r0 = World::ChunkNodePosting(j, postings, side);
+  const uint32_t r1 = World::ChunkNodePosting(j + 1, postings, side);
+  const float su = (float)((px - (double)c0) / (double)(c1 - c0));
+  const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
+  const World::ChunkCell cell{nodes, side, j, i};
+  return (double)World::ChunkCellHeight(cell, su, sv);
+}
+
 void GroundOpen(FbGroundSurface surface) {
   gSurface = surface;
   osmmesh_config cfg{};
@@ -258,8 +284,7 @@ double fb_stream_ground_post_m(double latDeg) {
 }
 
 GroundSample fb_stream_ground(double lat, double lon) {
-  while (lon > 180.0) lon -= 360.0;   /* normalize lon before the tile maths (dateline) */
-  while (lon < -180.0) lon += 360.0;
+  lon = Wrapped180(lon);
   double tx = 0.0, ty = 0.0;
   fb_geo_to_tile(lat, lon, gSurface.Z, &tx, &ty);
   long hx = (long)tx, hy = (long)ty;
@@ -267,19 +292,44 @@ GroundSample fb_stream_ground(double lat, double lon) {
   gGroundPending = false;
   const GroundTile *t = GroundTileAt(hx, hy);
   if (!t) return gGroundPending ? GroundSample::Waiting() : GroundSample::Missing();
+  return GroundSample::At(
+      TileHeightAslM(t->H.data(), t->Nodes, t->Postings, tx - (double)hx, ty - (double)hy));
+}
 
-  const double px = (tx - (double)(long)tx) * (double)(t->Postings - 1);
-  const double py = (ty - (double)(long)ty) * (double)(t->Postings - 1);
-  const int i = World::ChunkNodeCell(px, t->Postings, t->Nodes);
-  const int j = World::ChunkNodeCell(py, t->Postings, t->Nodes);
-  const uint32_t c0 = World::ChunkNodePosting(i, t->Postings, t->Nodes);
-  const uint32_t c1 = World::ChunkNodePosting(i + 1, t->Postings, t->Nodes);
-  const uint32_t r0 = World::ChunkNodePosting(j, t->Postings, t->Nodes);
-  const uint32_t r1 = World::ChunkNodePosting(j + 1, t->Postings, t->Nodes);
-  const float su = (float)((px - (double)c0) / (double)(c1 - c0));
-  const float sv = (float)((py - (double)r0) / (double)(r1 - r0));
-  const World::ChunkCell cell{t->H.data(), t->Nodes, j, i};
-  return GroundSample::At((double)World::ChunkCellHeight(cell, su, sv));
+FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
+  FbGroundBlock block;
+  if (z != gSurface.Z) return block;   /* Missing: no other zoom of this surface exists */
+  long hx = x, hy = y;
+  if (!fb_tile_wrap(z, &hx, &hy)) return block;
+  gGroundPending = false;
+  const GroundTile *t = GroundTileAt(hx, hy);
+  if (!t) {
+    block.Where_ = gGroundPending ? FbGroundBlock::State::Pending : FbGroundBlock::State::Missing;
+    return block;
+  }
+  block.Nodes_ = t->H.data();
+  block.X_ = hx;
+  block.Y_ = hy;
+  block.Zoom_ = z;
+  block.Side_ = t->Nodes;
+  block.Postings_ = t->Postings;
+  block.Where_ = FbGroundBlock::State::Resolved;
+  return block;
+}
+
+void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
+                            double *out) const noexcept {
+  double tx0 = 0.0, ty = 0.0, tx1 = 0.0, tyEnd = 0.0;
+  fb_geo_to_tile(latDeg, Wrapped180(lonFromDeg), Zoom_, &tx0, &ty);
+  fb_geo_to_tile(latDeg, Wrapped180(lonFromDeg + lonStepDeg), Zoom_, &tx1, &tyEnd);
+  /* A row starting west of the dateline and stepping over it comes back as a tile index of nearly
+   * zero, which would run the whole row backwards across the world. */
+  const double width = (double)((long)1 << Zoom_);
+  if ((tx1 - tx0) * lonStepDeg < 0.0) tx1 += lonStepDeg > 0.0 ? width : -width;
+  const double fy = ty - (double)Y_;
+  const double fx0 = tx0 - (double)X_, fxStep = tx1 - tx0;
+  for (int i = 0; i < count; i++)
+    out[i] = TileHeightAslM(Nodes_, Side_, Postings_, fx0 + (double)i * fxStep, fy);
 }
 
 /* The one raster left in this file: the moon, which is a MEASURED image of a real body and not

@@ -13,6 +13,7 @@
 #include "LogSinks.h"
 #include "Mod.h"
 #include "Sim.h"
+#include "WaterDepth.h"
 
 using namespace outshine;
 
@@ -40,18 +41,33 @@ void Survey(Clients::Sim &sim) {
   Log::Info("world", "surveyed", {{"passes", (double)passes}});
 }
 
+/* The water reads as three fields and not as one metre, because the answer has three states and one
+ * of them is "the level model and the DEM disagree here" (core/WaterDepth.h). */
+const char *Wetness(const WaterDepth &d) {
+  switch (d.Where()) {
+    case WaterDepth::State::Standing: return "standing";
+    case WaterDepth::State::LevelBelowGround: return "levelBelowGround";
+    case WaterDepth::State::Dry: break;
+  }
+  return "dry";
+}
+
 void Answer(const Clients::Sim &sim, double lat, double lon) {
   const Clients::Sim::Place p = sim.At(lat, lon);
   const std::string cls = p.Class >= 0 && (size_t)p.Class < sim.Vegetation().TemplateCount()
                               ? sim.Vegetation().Name((size_t)p.Class)
                               : std::string("none");
+  double depthM = 0.0, disagreementM = 0.0;
+  (void)p.Water.TryDepthM(&depthM);
+  (void)p.Water.TryDisagreementM(&disagreementM);
   Log::Info("world", "place", {{"lat", lat}, {"lon", lon},
       {"groundResolved", p.GroundResolved}, {"groundAslM", p.GroundAslM},
       {"stands", cls}, {"classEdgeM", p.ClassEdgeM},
+      {"outlinesResolved", p.OutlinesResolved},
       {"structureHeightM", p.StructureHeightM ? *p.StructureHeightM : 0.0},
       {"structure", (bool)p.StructureHeightM},
-      {"waterDepthM", p.WaterDepthM ? *p.WaterDepthM : 0.0},
-      {"water", (bool)p.WaterDepthM},
+      {"water", std::string(Wetness(p.Water))}, {"waterDepthM", depthM},
+      {"levelBelowGroundM", disagreementM},
       {"sunElDeg", (double)sim.SunElDeg()}, {"sunAzDeg", (double)sim.SunAzDeg()}});
 }
 

@@ -18,6 +18,8 @@
 #include <vector>
 
 #include "ClassStructure.h"
+#include "Buildings.h"
+#include "FeatureTop.h"
 #include "Forest.h"
 #include "Generator.h"
 #include "GeneratorSet.h"
@@ -29,6 +31,8 @@
 #include "RegionPool.h"
 #include "Schedule.h"
 #include "SurfaceState.h"
+#include "Water.h"
+#include "WaterDepth.h"
 #include "Yield.h"
 
 using namespace outshine;
@@ -117,6 +121,28 @@ std::shared_ptr<const ClassStructure> SyntheticClasses(const TangentFrame &frame
   return std::make_shared<const ClassStructure>(frame, fine, coarse, 1, kMeadowRow, 0.0, 0);
 }
 
+/* TWO OUTLINES IN THE REGION'S OWN METRES: a square that is roofed and a square that is wet. The
+ * wet one sits where the synthetic ground runs from 400 to 520 m and its level is 430, so part of it
+ * is under the ground and part over — which is the case core/WaterDepth.h exists for. */
+constexpr int32_t kBuiltRow = 1, kWetRow = 2;
+constexpr float kRoofAslM = 560.0f, kLevelAslM = 430.0f;
+
+std::shared_ptr<const FeatureField> SyntheticFeatures(const Region &region) {
+  const float spanE = (float)region.SpanEm(), spanN = (float)region.SpanNm();
+  const FeatureField::Feature features[2] = {
+      {0, 1, kBuiltRow, FeatureTop::At(kRoofAslM), 0, 0, 0, 0},
+      {1, 1, kWetRow, FeatureTop::At(kLevelAslM), 0, 0, 0, 0}};
+  const FeatureField::Ring rings[2] = {{0, 4}, {4, 4}};
+  const FeatureField::Vertex vertices[8] = {
+      {0.10f * spanE, 0.10f * spanN}, {0.20f * spanE, 0.10f * spanN},
+      {0.20f * spanE, 0.20f * spanN}, {0.10f * spanE, 0.20f * spanN},
+      {0.40f * spanE, 0.40f * spanN}, {0.90f * spanE, 0.40f * spanN},
+      {0.90f * spanE, 0.60f * spanN}, {0.40f * spanE, 0.60f * spanN}};
+  return FeatureField::Of(Span<const FeatureField::Feature>(features, 2),
+                          Span<const FeatureField::Ring>(rings, 2),
+                          Span<const FeatureField::Vertex>(vertices, 8));
+}
+
 Ground::Snapshot SyntheticSnapshot(const Region &region) {
   std::vector<GroundPatch::Posting> postings((size_t)kSide * kSide);
   for (int j = 0; j < kSide; j++) {
@@ -124,8 +150,6 @@ Ground::Snapshot SyntheticSnapshot(const Region &region) {
       GroundPatch::Posting &p = postings[(size_t)j * kSide + (size_t)i];
       const double e = (double)i / (kSide - 1), n = (double)j / (kSide - 1);
       p.Height = GroundSample::At(400.0 + 120.0 * e + 40.0 * std::sin(12.0 * n));
-      p.HasWater = e > 0.85;
-      p.WaterLevelAslM = 505.0f;
     }
   }
   std::vector<GroundTable::Row> rows(3);
@@ -137,9 +161,7 @@ Ground::Snapshot SyntheticSnapshot(const Region &region) {
   s.Patch = GroundPatch::Complete(region, kSide, Span<const GroundPatch::Posting>(
                                                      postings.data(), postings.size()));
   s.Classes = SyntheticClasses(TangentFrame::At(region.AnchorLat(), region.AnchorLon()));
-  s.Features = FeatureField::Of(Span<const FeatureField::Feature>(),
-                                Span<const FeatureField::Ring>(),
-                                Span<const FeatureField::Vertex>());
+  s.Features = SyntheticFeatures(region);
   s.Table = GroundTable::Of(Span<const GroundTable::Row>(rows.data(), rows.size()));
   return s;
 }
@@ -208,8 +230,6 @@ public:
     if (!cover.TryRow(&row)) return false;
     if (ground.SlopeDeg(eastM, northM) > (double)ground.Table().At((size_t)row).SlopeMaxDeg)
       return false;
-    double level = 0.0;
-    if (ground.TryWaterLevelAslM(eastM, northM, &level)) return false;
     const uint64_t seed = Mix((uint64_t)(eastM * 64.0) ^ (Mix((uint64_t)(northM * 64.0)) << 1));
     out->Em = eastM;
     out->Nm = northM;
@@ -378,7 +398,7 @@ int main() {
   const FeatureField::Vertex verts[4] = {{10.0f, 20.0f}, {40.0f, 20.0f}, {40.0f, 60.0f},
                                          {10.0f, 60.0f}};
   const FeatureField::Ring rings[1] = {{0, 4}};
-  FeatureField::Feature feats[1] = {{0, 1, 7, 0.0f, 0.0f, 0.0f, 0.0f}};
+  FeatureField::Feature feats[1] = {{0, 1, 7, FeatureTop::None(), 0.0f, 0.0f, 0.0f, 0.0f}};
   const std::shared_ptr<const FeatureField> field =
       FeatureField::Of(Span<const FeatureField::Feature>(feats, 1),
                        Span<const FeatureField::Ring>(rings, 1),
@@ -414,7 +434,8 @@ int main() {
     Check(!member || member->SpanEm() * member->SpanNm() <= widest->SpanEm() * widest->SpanNm(),
           "a ring member is wider than the one the schedule calls widest");
   }
-  RegionPool pool(a, RegionPool::Shape{2, kBodies, kCellM});
+  RegionPool pool(RegionPool::Extent{a, schedule.Broadest()},
+                  RegionPool::Shape{2, kBodies, kCellM});
   /* Every generator states what it can claim over a stated area, and that declaration is what the
    * pool is sized on: a ceiling that is not derived from it truncates a region instead of refusing
    * it, silently, at whatever lattice row the scan reached. */
@@ -483,7 +504,8 @@ int main() {
     const Forest forest(Forest::Stem{}, Span<const float>(perM2, 3), AlpineLimit());
     const double em = a.SpanEm() / (double)(int)(a.SpanEm() / Forest::kCellM + 0.5);
     const double nm = a.SpanNm() / (double)(int)(a.SpanNm() / Forest::kCellM + 0.5);
-    RegionPool wide(a, RegionPool::Shape{2, 262144, kCellM});
+    RegionPool wide(RegionPool::Extent{a, schedule.Broadest()},
+                    RegionPool::Shape{2, 262144, kCellM});
     std::vector<Yield::Note> seamNotes(Forest::kNotes), seamNotesB(Forest::kNotes);
     const std::vector<Body> west =
         Grown(wide, *groundA, forest, Span<Yield::Note>(seamNotes.data(), seamNotes.size()));
@@ -549,7 +571,7 @@ int main() {
   }
 
   /* THE FOURTH OUTCOME, which a sink sized for a region never reaches. */
-  RegionPool tiny(a, RegionPool::Shape{1, 4, kCellM});
+  RegionPool tiny(RegionPool::Extent{a, schedule.Broadest()}, RegionPool::Shape{1, 4, kCellM});
   std::vector<Yield::Note> tinyNotes(noteCount);
   const Run cramped = Filled(tiny, *groundA, set, tinyNotes);
   Check(cramped.Bodies.size() == 4 && cramped.Full == 2,
@@ -567,6 +589,53 @@ int main() {
   static_assert(StateOf(glass).Kind() == SurfaceKind::Refractive, "glass");
   static_assert(StateOf(glass).Blends() && !StateOf(glass).WritesDepth(), "glass state");
   static_assert(StateOf(bark).Kind() == SurfaceKind::Opaque, "bark");
+
+  /* THE TWO OUTLINE GENERATORS, on the two synthetic outlines. What they answer is a point query,
+   * so what has to hold is that the answer is a function of the place — and that no depth can come
+   * back negative where the level model and the ground disagree, which is the whole reason the
+   * answer is a state and not a double. */
+  {
+    const Buildings built(kBuiltRow, ContactMaterial{2});
+    const Water wet(kWetRow);
+    Body roof;
+    Check(built.At(*groundA, 0.15 * a.SpanEm(), 0.15 * a.SpanNm(), &roof),
+          "nothing stands under the roofed outline");
+    Check(std::fabs(roof.BaseAslM + (double)roof.HeightM - (double)kRoofAslM) < 0.01,
+          "the roof the query answers is not the roof the outline carries");
+    Check(!built.At(*groundA, 0.50 * a.SpanEm(), 0.15 * a.SpanNm(), &roof),
+          "a roof stands outside its own outline");
+    Check(built.Proposes(a.SpanEm() * a.SpanNm()) == 0 && wet.Proposes(1.0e9) == 0,
+          "an outline generator proposed occupancy it does not claim");
+
+    long dry = 0, standing = 0, disagreeing = 0;
+    double deepest = 0.0, worst = 0.0;
+    for (int j = 0; j <= 64; j++)
+      for (int i = 0; i <= 64; i++) {
+        const double em = a.SpanEm() * (double)i / 64.0, nm = a.SpanNm() * (double)j / 64.0;
+        const WaterDepth d = wet.DepthAt(*groundA, em, nm);
+        Check(wet.DepthAt(*groundA, em, nm).Where() == d.Where(), "the depth is not a function");
+        double m = 0.0;
+        switch (d.Where()) {
+          case WaterDepth::State::Dry: dry++; break;
+          case WaterDepth::State::Standing:
+            standing++;
+            Check(d.TryDepthM(&m) && m >= 0.0, "a standing depth was not a non-negative metre");
+            deepest = m > deepest ? m : deepest;
+            break;
+          case WaterDepth::State::LevelBelowGround:
+            disagreeing++;
+            Check(d.TryDisagreementM(&m) && m >= 0.0, "a disagreement was not a non-negative metre");
+            Check(!d.TryDepthM(&m), "a disagreement answered with a depth");
+            worst = m > worst ? m : worst;
+            break;
+        }
+      }
+    Check(standing > 0 && disagreeing > 0,
+          "the water probe reached neither a standing depth nor a disagreement");
+    std::printf("waterProbes=%ld dry=%ld standing=%ld levelBelowGround=%ld deepestM=%.3f "
+                "worstDisagreementM=%.3f\n",
+                (long)(65 * 65), dry, standing, disagreeing, deepest, worst);
+  }
 
   Check(gAllocations == 0, "Occupy allocated");
   std::printf("sizeof(Body)=%zu trivially_copyable=%d placed=%zu occupied=%u bytes=%zu "
