@@ -10,6 +10,16 @@ constexpr float kTau = 6.2831853f;
 constexpr float kGolden = 2.39996323f; /* the divergence angle, in radians — phyllotaxis along a shoot */
 constexpr float kDeg = 0.01745f;
 
+/* [SET] How far past the silhouette a shoot may drift before it is ended rather than bent. A hard
+ * stop AT the surface would end every shoot the wander pushes one step too far and leave the crown
+ * edge ragged; 10 % is under one step of the coarsest declared step length. */
+constexpr float kEscapeStop = 1.10f;
+/* [SET] How hard a shoot outside the silhouette is steered back. A full turn onto the inward normal
+ * makes the crown edge read as a moulded surface; this is a lean, not a wall. */
+constexpr float kBendBack = 0.55f;
+/* A shoot with fewer steps than this is not a branch — it is a stub the collar alone would show. */
+constexpr int kMinBranchSteps = 3;
+
 } // namespace
 
 int TreeGrower::AddVert(TreeVec3 p) {
@@ -135,16 +145,141 @@ TreeGrower::Tip TreeGrower::BranchFromFace(int fi, TreeVec3 dir, float radius, f
   return out;
 }
 
-void TreeGrower::CapRing(const Tip &t, bool forward) {
+void TreeGrower::CapRing(const Tip &t, RingCap cap) {
   if (t.K == 0) { return; }
-  const TreeVec3 c = t.Pos + t.Dir * (t.Radius * (forward ? 2.4f : -0.6f));
-  const int ci = AddVert(c);
+  float apex = 0.0f;
+  switch (cap) {
+    case RingCap::Base: apex = -0.6f; break;
+    case RingCap::Point: apex = 2.4f; break;
+    case RingCap::Cut: apex = 0.0f; break;
+    /* A wind break is splinters, not a plane: the apex stands proud of a ring whose own vertices
+     * are pulled forward at random, so the fracture is jagged from every side. */
+    case RingCap::Broken: apex = 1.1f; break;
+  }
+  const int ci = AddVert(t.Pos + t.Dir * (t.Radius * apex));
   for (int k = 0; k < t.K; ++k) {
-    if (forward) {
-      AddFace(ci, t.Ring[k], t.Ring[(k + 1) % t.K], -1);
-    } else {
-      AddFace(ci, t.Ring[(k + 1) % t.K], t.Ring[k], -1);
+    if (cap == RingCap::Broken) {
+      Verts_[(size_t)t.Ring[k]] =
+          Verts_[(size_t)t.Ring[k]] + t.Dir * (t.Radius * Rng_.Unit() * 1.4f);
     }
+    if (cap == RingCap::Base) {
+      AddFace(ci, t.Ring[(k + 1) % t.K], t.Ring[k], -1);
+    } else {
+      AddFace(ci, t.Ring[k], t.Ring[(k + 1) % t.K], -1);
+    }
+  }
+}
+
+TreeVec3 TreeGrower::Inward(TreeVec3 p) const {
+  if (Form_.Envelope == CrownEnvelope::Cut) {
+    const float w = CrownHalfWidth_ > 0.0f ? std::fabs(p.Z) / CrownHalfWidth_ : 0.0f;
+    const float l = HalfRunX_ > 0.0f ? std::fabs(p.X) / HalfRunX_ : 0.0f;
+    const float h = CrownTopY_ > 0.0f ? p.Y / CrownTopY_ : 0.0f;
+    if (h >= w && h >= l) { return Vec3(0, -1, 0); }
+    if (w >= l) { return Vec3(0, 0, p.Z > 0.0f ? -1.0f : 1.0f); }
+    return Vec3(p.X > 0.0f ? -1.0f : 1.0f, 0, 0);
+  }
+  const float r = std::sqrt(p.X * p.X + p.Z * p.Z);
+  if (r < 1e-5f) { return Vec3(0, 0, 0); }
+  return Vec3(-p.X / r, 0, -p.Z / r);
+}
+
+float TreeGrower::Escape(TreeVec3 p) const {
+  if (Form_.Envelope == CrownEnvelope::Free || CrownHalfWidth_ <= 0.0f) { return 0.0f; }
+  if (Form_.Envelope == CrownEnvelope::Cut) {
+    const float w = std::fabs(p.Z) / CrownHalfWidth_;
+    const float l = HalfRunX_ > 0.0f ? std::fabs(p.X) / HalfRunX_ : 0.0f;
+    const float h = CrownTopY_ > 0.0f ? p.Y / CrownTopY_ : 0.0f;
+    return std::fmax(std::fmax(w, l), h);
+  }
+  const float span = CrownTopY_ - CrownBaseY_;
+  if (span <= 1e-5f) { return 0.0f; }
+  const float allow =
+      CrownHalfWidth_ * GrowthForm::Reach(Form_.Envelope, (p.Y - CrownBaseY_) / span);
+  const float r = std::sqrt(p.X * p.X + p.Z * p.Z);
+  if (allow <= 1e-5f) { return r > 1e-5f ? 1e3f : 0.0f; }
+  return r / allow;
+}
+
+float TreeGrower::RoomInside(TreeVec3 from, TreeVec3 dir, float want) const {
+  if (Form_.Envelope == CrownEnvelope::Free) { return want; }
+  constexpr int kProbes = 8;
+  for (int i = 1; i <= kProbes; ++i) {
+    const float d = want * (float)i / (float)kProbes;
+    if (Escape(from + dir * d) > 1.0f) { return want * (float)(i - 1) / (float)kProbes; }
+  }
+  return want;
+}
+
+TreeGrower::RingCap TreeGrower::LeaderEnd() const {
+  switch (Form_.Arch) {
+    case Architecture::Snag:
+    case Architecture::FallenLog: return RingCap::Broken;
+    case Architecture::Stump: return RingCap::Cut;
+    default: return RingCap::Point;
+  }
+}
+
+void TreeGrower::SetCrown(const TreeSpecies &species, float growHeight) {
+  const float h = species.HeightM();
+  CrownTopY_ = growHeight;
+  CrownBaseY_ = Form_.BoleFrac * growHeight;
+  /* THE DECLARED SPREAD IS THE ENVELOPE'S SCALE. `spread_m` was a number nothing read; it is now
+   * the one that decides how wide the grown thing may get, in the same ratio to the height the
+   * mesh is normalised by. */
+  CrownHalfWidth_ = h > 0.0f ? 0.5f * species.SpreadM() / h * growHeight : 0.0f;
+  HalfRunX_ = h > 0.0f ? 0.5f * Form_.RunM / h * growHeight : 0.0f;
+}
+
+/* THE BASE PLAN. One axis or many, and where they leave the ground: a stool's stems emerge within a
+ * disc and lean out, a hedge's stand in a row along its own run, a tree's is the origin. The pipe
+ * model (da Vinci's rule) divides the declared stem section among them, so a five-stemmed hazel is
+ * one hazel and not five. */
+void TreeGrower::SeedLeaders(const TreeSpecies::Growth &g, int bareSteps) {
+  const int n = Form_.Leaders < 1 ? 1 : Form_.Leaders;
+  const float radius = g.BaseRadius / std::sqrt((float)n);
+  const float splay = Form_.LeaderSplayDeg * kDeg;
+  const float stool = n > 1 && Form_.Arch != Architecture::Hedge ? 0.18f * CrownHalfWidth_ : 0.0f;
+  int steps = g.TrunkSteps;
+  if (Form_.BreakFrac > 0.0f) { steps = (int)(Form_.BreakFrac * (float)g.TrunkSteps + 0.5f); }
+  if (steps < 1) { steps = 1; }
+
+  for (int i = 0; i < n; ++i) {
+    const float roll = kGolden * (float)i + Rng_.Signed() * 0.35f;
+    const float lean = splay * (0.55f + 0.45f * Rng_.Unit());
+    Tip t;
+    t.Dir = Form_.Lying(Form_.Arch)
+                ? Normalize(Vec3(std::cos(lean), std::sin(lean) * 0.35f, 0))
+                : Normalize(Vec3(std::sin(lean) * std::cos(roll), std::cos(lean),
+                                 std::sin(lean) * std::sin(roll)));
+    t.Up = Vec3(0, 0, 1);
+    if (Form_.Arch == Architecture::Hedge) {
+      /* Planted at a spacing and grown at none: an even row reads as a plantation from every angle
+       * a hedge is seen from. */
+      const float u = ((float)i + 0.5f + 0.34f * Rng_.Signed()) / (float)n;
+      t.Pos = Vec3(HalfRunX_ * (2.0f * u - 1.0f) * 0.94f,
+                   0.0f, CrownHalfWidth_ * 0.5f * Rng_.Signed());
+    } else {
+      t.Pos = Vec3(stool * std::cos(roll), 0.0f, stool * std::sin(roll));
+    }
+    t.Radius = radius;
+    t.Step = g.StepLen;
+    t.Order = 0;
+    t.Steps = steps;
+    t.Bare = bareSteps;
+    t.Leader = i;
+    t.Roll = roll;
+    t.Foliate = Form_.Foliate;
+    t.K = SidesFor(radius, g.TrunkSides);
+    TreeVec3 nf, bf;
+    FrameFrom(t.Dir, t.Up, nf, bf);
+    for (int k = 0; k < t.K; ++k) {
+      const float ang = kTau * (float)k / (float)t.K;
+      t.Ring[k] = AddVert(t.Pos + (nf * std::cos(ang) + bf * std::sin(ang)) * t.Radius);
+    }
+    if (i == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
+    CapRing(t, RingCap::Base);
+    Queue_.push_back(t);
   }
 }
 
@@ -168,7 +303,7 @@ void TreeGrower::EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeV
  * sub-tree and with it its leaf points. The side face is only where a branch is ANCHORED — without
  * one the tip's own frame gives the same direction. */
 void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int first, float roll,
-                              int step) {
+                              int parentStep) {
   int fi = -1;
   TreeVec3 fn;
   if (t.K > 0 && first >= 0) {
@@ -195,25 +330,40 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
       if (dOut < -0.05f && Rng_.Unit() < g.ShadePrune) { return; }
     }
   }
+  const bool foliate =
+      t.Foliate && (t.Order != 0 || parentStep >= (int)(Form_.BoleFrac * (float)t.Steps));
+  SpawnShoot(t, Shoot{fi, dir, fn, br, foliate}, g);
+}
+
+/* PRUNED AT SPAWN, not after: a shoot is given the run that stays inside the declared silhouette,
+ * and one with no run at all is not grown. Cutting a finished crown back would leave the severed
+ * stubs; this never grows them. */
+void TreeGrower::SpawnShoot(const Tip &parent, const Shoot &shoot, const TreeSpecies::Growth &g) {
+  const TreeVec3 from = shoot.Face >= 0 ? FaceCentroid(shoot.Face) : parent.Pos;
+  int steps = (int)((float)parent.Steps * g.OrderLen);
+  if (steps < kMinBranchSteps) { steps = kMinBranchSteps; }
+  const float len = RoomInside(from, shoot.Dir, (float)steps * parent.Step);
+  /* A shoot shorter than its own diameter is a collar and not a branch. */
+  if (len < 2.0f * shoot.Radius) { return; }
+  const float step = len / (float)steps;
+
   Tip b;
-  if (fi < 0 || 2.0f * br <= PixelGrow_) {
+  if (shoot.Face < 0 || 2.0f * shoot.Radius <= PixelGrow_) {
     b.K = 0;
-    b.Dir = dir;
-    b.Up = fn;
-    b.Pos = fi >= 0 ? FaceCentroid(fi) : t.Pos;
-    b.Radius = br;
+    b.Dir = shoot.Dir;
+    b.Up = shoot.Up;
+    b.Pos = from;
+    b.Radius = shoot.Radius;
   } else {
-    b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
+    b = BranchFromFace(shoot.Face, shoot.Dir, shoot.Radius, step,
+                       SidesFor(shoot.Radius, kBranchSides));
   }
-  b.Order = t.Order + 1;
-  float cLen = g.OrderLen;
-  if (t.Order == 0 && g.Conical > 0.0f) {
-    cLen *= (1.0f - g.Conical * ((float)step / (float)t.Steps));
-  }
-  b.Steps = (int)((float)t.Steps * cLen);
-  if (b.Steps < 3) { b.Steps = 3; }
+  b.Order = parent.Order + 1;
+  b.Steps = steps;
+  b.Step = step;
   b.Bare = 1;
-  b.Foliate = t.Foliate && (t.Order != 0 || step >= (int)(g.CrownBase * (float)t.Steps));
+  b.Leader = parent.Leader;
+  b.Foliate = shoot.Foliate;
   Queue_.push_back(b);
 }
 
@@ -224,6 +374,7 @@ void TreeGrower::SpawnLateral(const Tip &t, const TreeSpecies::Growth &g, int fi
  * leaf point exactly where they were, so only the thickness moves. */
 void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeightFrac) {
   TreeSpecies::Growth g = species.GrowthParams();
+  Form_ = species.Form();
   const float h = species.HeightM();
   const float targetR = species.DbhM() * 0.5f;
 
@@ -232,14 +383,18 @@ void TreeGrower::Grow(const TreeSpecies &species, TreeMesh &out, float pixelHeig
    * will not do — the crown reaches well past the leader's own run (beech 6.80 against 4.16, oak
    * 4,54 against 2,24, both measured) — so the estimate carries that factor and the refinement
    * removes it. */
-  PixelGrow_ = pixelHeightFrac > 0.0f ? pixelHeightFrac * 1.6f * (float)g.TrunkSteps * g.StepLen : 0.0f;
+  const float estimate = 1.6f * (float)g.TrunkSteps * g.StepLen;
+  PixelGrow_ = pixelHeightFrac > 0.0f ? pixelHeightFrac * estimate : 0.0f;
+  SetCrown(species, estimate);
   Passes_ = 1;
   GrowOnce(g, h, out);
-  if (pixelHeightFrac > 0.0f) {
-    PixelGrow_ = pixelHeightFrac * GrowHeight_;
-    GrowOnce(g, h, out);
-    Passes_++;
-  }
+  /* THE SECOND PASS IS NOT OPTIONAL ANY MORE: the envelope is scaled by the height the mesh comes
+   * out at, so the first pass shapes a crown against an estimate and only the second against the
+   * measurement. */
+  PixelGrow_ = pixelHeightFrac > 0.0f ? pixelHeightFrac * GrowHeight_ : 0.0f;
+  SetCrown(species, GrowHeight_);
+  GrowOnce(g, h, out);
+  Passes_++;
   /* THE VERTEX COUNT IS A BUDGET AND IT IS SOLVED, NOT CUT. Truncating the queue at a ceiling drops
    * whichever tips the breadth-first order reached last — the outermost shoots, the ones the crown
    * is made of. Coarsening the pixel drops TUBES instead, and a shoot without a tube still grows,
@@ -276,32 +431,8 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
   Rng_ = TreeRandom(g.Seed);
 
   const float leafThreshold = g.TwigRadius * g.FoliageFactor;
-
-  const int k = SidesFor(g.BaseRadius, g.TrunkSides);
-  Tip trunk;
-  trunk.K = k;
-  trunk.Dir = Vec3(0, 1, 0);
-  trunk.Up = Vec3(0, 0, 1);
-  trunk.Pos = Vec3(0, 0, 0);
-  trunk.Radius = g.BaseRadius;
-  trunk.Order = 0;
-  trunk.Steps = g.TrunkSteps;
-  trunk.Bare = g.BareSteps;
-  trunk.Roll = 0.0f;
-  trunk.Foliate = true;
-  {
-    TreeVec3 n, b;
-    FrameFrom(trunk.Dir, trunk.Up, n, b);
-    for (int i = 0; i < k; ++i) {
-      const float ang = kTau * (float)i / (float)k;
-      const TreeVec3 d = n * std::cos(ang) + b * std::sin(ang);
-      trunk.Ring[i] = AddVert(trunk.Pos + d * trunk.Radius);
-    }
-  }
-  TrunkProfile_.push_back(Vec3(trunk.Pos.Y, trunk.Radius, 0.0f));
-  CapRing(trunk, false);
-
-  Queue_.push_back(trunk);
+  const int bareSteps = (int)(Form_.BoleFrac * (float)g.TrunkSteps + 0.5f);
+  SeedLeaders(g, bareSteps);
 
   for (size_t head = 0; head < Queue_.size(); ++head) {
     Tip t = Queue_[head];
@@ -328,22 +459,32 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
        * over its run would otherwise carry its spawn ring to its tip. It is capped where it crosses
        * and goes on as a point tip, so its leaves stay where they grew. */
       if (t.K > 0 && 2.0f * nr <= PixelGrow_) {
-        CapRing(t, true);
+        CapRing(t, RingCap::Point);
         t.K = 0;
         lastFirst = -1;
       }
       int first = -1;
       if (t.K > 0) {
-        first = ExtrudeCap(t, oldDir, g.StepLen, nr, newRing);
+        first = ExtrudeCap(t, oldDir, t.Step, nr, newRing);
         lastFirst = first;
         for (int i = 0; i < t.K; ++i) { t.Ring[i] = newRing[i]; }
       } else {
-        t.Pos = t.Pos + t.Dir * g.StepLen;
+        t.Pos = t.Pos + t.Dir * t.Step;
         t.Radius = nr;
       }
-      if (t.Order == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
+      if (t.Order == 0 && t.Leader == 0) { TrunkProfile_.push_back(Vec3(t.Pos.Y, t.Radius, 0.0f)); }
 
-      const bool leaderOk = (t.Order != 0) || (s >= (int)(g.CrownBase * (float)t.Steps));
+      /* THE SILHOUETTE IS A WALL FOR A BRANCH AND A LEAN FOR A LEADER. A leader that could be cut
+       * short would shorten the very height the envelope is scaled by, and the next pass would take
+       * the shorter one — the plant would walk itself into the ground over two passes. */
+      const float escaped = Escape(t.Pos);
+      if (escaped > 1.0f) {
+        const float pull = std::fmin(1.0f, (escaped - 1.0f) * 4.0f) * kBendBack;
+        t.Dir = Normalize(t.Dir + Inward(t.Pos) * pull);
+        if (t.Order > 0 && escaped > kEscapeStop) { break; }
+      }
+
+      const bool leaderOk = (t.Order != 0) || (s >= (int)(Form_.BoleFrac * (float)t.Steps));
       const bool foliated = t.Foliate && leaderOk &&
                             ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold));
       if (foliated && t.Radius < leafThreshold) {
@@ -355,7 +496,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
         t.Bare--;
       } else if (t.Order < g.MaxOrder && (int)Verts_.size() < kSpawnCeiling) {
         if (g.WhorlCount > 0 && t.Order == 0) {
-          if (((s - g.BareSteps) % g.WhorlSpacing) == 0) {
+          if (((s - bareSteps) % g.WhorlSpacing) == 0) {
             for (int wb = 0; wb < g.WhorlCount; ++wb) {
               SpawnLateral(t, g, first, (float)wb * kTau / (float)g.WhorlCount + Rng_.Signed() * 0.25f,
                            s);
@@ -379,26 +520,10 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
         if (fi >= 0 && Dead_[(size_t)fi]) { continue; }
         const TreeVec3 fn = fi >= 0 ? FaceNormal(fi) : (j == 0 ? fnA : fnA * -1.0f);
         const TreeVec3 dir = Normalize(t.Dir + fn * 0.55f);
-        const float br = t.Radius * 0.74f;
-        Tip b;
-        if (fi < 0 || 2.0f * br <= PixelGrow_) {
-          b.K = 0;
-          b.Dir = dir;
-          b.Up = fn;
-          b.Pos = fi >= 0 ? FaceCentroid(fi) : t.Pos;
-          b.Radius = br;
-        } else {
-          b = BranchFromFace(fi, dir, br, g.StepLen, SidesFor(br, kBranchSides));
-        }
-        b.Order = t.Order + 1;
-        b.Steps = (int)((float)t.Steps * g.OrderLen);
-        if (b.Steps < 3) { b.Steps = 3; }
-        b.Bare = 1;
-        b.Foliate = t.Foliate;
-        Queue_.push_back(b);
+        SpawnShoot(t, Shoot{fi, dir, fn, t.Radius * 0.74f, t.Foliate}, g);
       }
     }
-    CapRing(t, true);
+    CapRing(t, t.Order == 0 ? LeaderEnd() : RingCap::Point);
     if (t.Foliate && ((t.Order >= 1) || (g.FoliageOnLeader && t.Radius < leafThreshold * 1.7f)) &&
         t.Radius < leafThreshold * 1.7f) {
       EmitLeafPoints(out, t.Pos, t.Dir, t.Up, t.Radius, 4, leafRoll + 1.1f);
@@ -471,8 +596,14 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
    * what a stand height is. Taking the mesh minimum put a Trauerweide's foot 6,87 m and a Fichte's
    * 3,67 m above the ground (measured), because both hang branches below their own base. A branch
    * below zero belongs below the terrain; that is where it grows. */
-  const float y0 = TrunkProfile_.empty() ? mn.Y : TrunkProfile_[0].X - 0.6f * TrunkProfile_[0].Y;
-  float h = mx.Y - y0;
+  /* A LYING BODY IS MEASURED ALONG ITS OWN AXIS. `height_m` is the standing extent of a standing
+   * plant and the LENGTH of a fallen one; normalising a log by its vertical extent would make the
+   * instance scale its DIAMETER to the declared metres. */
+  const bool lying = GrowthForm::Lying(Form_.Arch);
+  const float y0 = lying ? mn.Y
+                         : (TrunkProfile_.empty() ? mn.Y
+                                                  : TrunkProfile_[0].X - 0.6f * TrunkProfile_[0].Y);
+  float h = lying ? std::fmax(mx.X - mn.X, mx.Z - mn.Z) : mx.Y - y0;
   if (h < 1e-6f) { h = 1.0f; }
   GrowHeight_ = h;
   const float s = 1.0f / h;

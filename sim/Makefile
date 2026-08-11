@@ -107,6 +107,10 @@ CORE_SRCS := $(CORE_TOP_SRCS) $(CORE_IO_SRCS)
 # verify-generators` compiles too.
 GEN_SRCS := $(wildcard src/generators/*.cpp)
 GEN_DRAW_SRCS := $(wildcard src/generators/draw/*.cpp)
+# WHAT A PLANT DECLARATION IS, named once: the form and the species that rides it. The tree bench
+# links the drawing half against these two alone and against no other generator, so it needs the
+# pair spelled out where the wildcards above are too wide.
+PLANT_DECL_SRCS := src/generators/TreeSpecies.cpp src/generators/GrowthForm.cpp
 # ...and the same statement one level up, for Renderer and its neighbours: hand-listing them meant a
 # new render/ file linked in one target and not the other.
 RENDER_TOP_SRCS := $(wildcard src/render/*.cpp)
@@ -254,10 +258,10 @@ world:           ## build the server target -- everything except render/, no dev
 	    -o build/fb_world; \
 	  echo "world -> build/fb_world"
 
-treebench:       ## grow all sixteen species and measure them -> build/treebench (CSV on stdout)
+treebench:       ## grow every declared plant and measure it -> build/treebench (CSV on stdout)
 	@cd $(SELF_DIR); set -e; \
 	  mkdir -p build; \
-	  c++ src/clients/TreeBench.cpp $(GEN_DRAW_SRCS) src/generators/TreeSpecies.cpp src/core/Json.cpp \
+	  c++ src/clients/TreeBench.cpp $(GEN_DRAW_SRCS) $(PLANT_DECL_SRCS) src/core/Json.cpp \
 	    $(CXXSTD) -O2 $(CXX_WARN) $(INC_DRAW) \
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"

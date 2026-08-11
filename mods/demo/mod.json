@@ -549,6 +549,206 @@
       ]
     },
     {
+      "id": "subject-hazel",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "hazel",
+          "dir": "bench-hazel",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "multi-stem shrub: no bole, eight stems from the stool, crown to the ground"
+    },
+    {
+      "id": "subject-elder",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "elder",
+          "dir": "bench-elder",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "multi-stem shrub under a flat-topped envelope"
+    },
+    {
+      "id": "subject-box",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "box",
+          "dir": "bench-box",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "bush: a multi-stem under 2 m, whose whole habit is its outer shell"
+    },
+    {
+      "id": "subject-dog-rose",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "dog_rose",
+          "dir": "bench-dog-rose",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "bush with a weeping envelope and a hanging tropism -- the arching cane"
+    },
+    {
+      "id": "subject-hedge-hornbeam",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "hedge_hornbeam",
+          "dir": "bench-hedge-hornbeam",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "hedge: a managed linear section with a cut box for a crown"
+    },
+    {
+      "id": "subject-snag-spruce",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "snag_spruce",
+          "dir": "bench-snag-spruce",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "standing deadwood with a broken top and no foliage"
+    },
+    {
+      "id": "subject-log-beech",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "log_beech",
+          "dir": "bench-log-beech",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "a fallen log, measured along its own axis"
+    },
+    {
+      "id": "subject-stump-beech",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 30,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "runs": [
+        {
+          "kind": "subject",
+          "species": "stump_beech",
+          "dir": "bench-stump-beech",
+          "turnSteps": 4,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
+      ],
+      "why": "a cut stump, closed flat"
+    },
+    {
       "id": "night",
       "kind": "run",
       "lat": 52.10602,

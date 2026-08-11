@@ -1,6 +1,7 @@
 #include "TreeSpecies.h"
 
 #include <cstring>
+#include <optional>
 
 #include "Json.h"
 
@@ -47,13 +48,34 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   DbhM_ = NumF(r, "dbh_cm", 0.0f) * 0.01f;
   Lai_ = NumF(r, "lai", 0.0f);
 
+  GrowthForm &f = Form_;
+  const std::string arch = r["form"].Str("single_stem_tree");
+  const std::string crown = r["crown"].Str("free");
+  const std::optional<Architecture> archOf = GrowthForm::ArchitectureOf(arch.c_str());
+  const std::optional<CrownEnvelope> crownOf = GrowthForm::EnvelopeOf(crown.c_str());
+  if (!archOf) {
+    Error_ = "form: unknown value '" + arch + "'";
+    return false;
+  }
+  if (!crownOf) {
+    Error_ = "crown: unknown value '" + crown + "'";
+    return false;
+  }
+  f.Arch = *archOf;
+  f.Envelope = *crownOf;
+  f.Leaders = NumI(r, "leaders", f.Leaders);
+  f.LeaderSplayDeg = NumF(r, "leader_splay", f.LeaderSplayDeg);
+  f.BoleFrac = NumF(r, "bole_frac", f.BoleFrac);
+  f.BreakFrac = NumF(r, "break_frac", f.BreakFrac);
+  f.RunM = NumF(r, "run_m", f.RunM);
+  f.Foliate = NumB(r, "foliate", f.Foliate);
+
   Growth &g = Growth_;
   g.Seed = (uint32_t)NumI(r, "seed", (int)g.Seed);
   g.TrunkSides = NumI(r, "trunk_sides", g.TrunkSides);
   g.BaseRadius = NumF(r, "base_radius", g.BaseRadius);
   g.StepLen = NumF(r, "step_len", g.StepLen);
   g.TrunkSteps = NumI(r, "trunk_steps", g.TrunkSteps);
-  g.BareSteps = NumI(r, "bare_steps", g.BareSteps);
   g.Taper = NumF(r, "taper", g.Taper);
   g.MinRadius = NumF(r, "min_radius", g.MinRadius);
   g.TwigRadius = NumF(r, "twig_radius", g.TwigRadius);
@@ -67,12 +89,10 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   g.Wander = NumF(r, "wander", g.Wander);
   g.LeaderBias = NumF(r, "leader_bias", g.LeaderBias);
   g.BranchUpBias = NumF(r, "branch_up_bias", g.BranchUpBias);
-  g.Conical = NumF(r, "conical", g.Conical);
   g.WhorlCount = NumI(r, "whorl_count", g.WhorlCount);
   g.WhorlSpacing = NumI(r, "whorl_spacing", g.WhorlSpacing);
   g.FoliageFactor = NumF(r, "foliage_factor", g.FoliageFactor);
   g.FoliageOnLeader = NumB(r, "foliage_on_leader", g.FoliageOnLeader);
-  g.CrownBase = NumF(r, "crown_base", g.CrownBase);
   g.ShadePrune = NumF(r, "shade_prune", g.ShadePrune);
 
   Leaf &l = Leaf_;

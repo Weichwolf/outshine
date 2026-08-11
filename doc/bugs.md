@@ -16,6 +16,7 @@ shows it, and what right would look like. A bug without a way to tell it is fixe
 The most expensive class in this tree, three instances found in one day, all with the same shape.
 
 - **`RoofSurface::Cover` returns `void`, and `EarClip` bails silently** (`generators/draw/RoofSurface.cpp:32`, called at 209). When triangulation fails, `Covering` loops over an empty vector and draws nothing, then `BuildingMesh.cpp:383-387` draws `Gables`, `Eaves` and `Chimney` unconditionally — **a roof drawn as its own trim, floating in the sky with no covering**, visible in the shipped frame at (930,240)–(1190,370) of `after/street.png`. Right: `[[nodiscard]] bool Cover(...)`, and eaves, gable and chimney unspellable without a closed covering.
+- **`treebench` measures nothing and reports success.** `clients/TreeBench.cpp:98` — `PlantsIn(assets)` on a missing or empty directory returns an empty list, the header prints, no row follows and the exit code is 0. Verified: `treebench --assets /private/tmp/nope-does-not-exist` exits 0. The round that made the bench enumerate its directory did so precisely because "a form nobody grew would otherwise have looked green"; zero forms still looks green. Right: an empty species set is a refusal that names the directory it looked in.
 - **`emscripten_run_script_string` can return null and is not checked** (`clients/AppWasm.cpp:271`).
 - **`emscripten_exit_pointerlock()` discards its result** (`clients/AppWasm.cpp:92`).
 

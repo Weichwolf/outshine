@@ -1,7 +1,10 @@
-/* The tree generator's measuring bench: grows all sixteen species, prints counts, box, timings and
- * memory as CSV, and can dump the raw buffers so the numbers can be diffed against the reference
- * implementation vertex by vertex. It draws nothing — the first rendered tree is gpu_walk --rig, one
- * layer on. */
+/* The plant generator's measuring bench: grows every declaration under the species directory, prints
+ * counts, box, timings and memory as CSV, and can dump the raw buffers so the numbers can be diffed
+ * against the reference implementation vertex by vertex. It draws nothing — the first rendered tree
+ * is gpu_walk --rig, one layer on. */
+#include <dirent.h>
+
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
@@ -20,10 +23,22 @@ using namespace outshine::Generators;
 
 namespace {
 
-const char *const kSpecies[] = {"ash",   "beech",    "birch", "chestnut", "elm",      "fir",
-                                "hornbeam", "lime",  "oak",   "pine",     "poplar",   "rowan",
-                                "spruce",   "sycamore", "willow", "yew"};
-constexpr int kSpeciesCount = 16;
+/* THE DECLARATIONS ARE WHAT IS ON DISK. A hand-written list here measured sixteen of them and
+ * silently skipped every plant added since — which is how a form nobody grew would look green. */
+std::vector<std::string> PlantsIn(const std::string &dir) {
+  std::vector<std::string> out;
+  DIR *d = opendir(dir.c_str());
+  if (!d) { return out; }
+  for (const dirent *e; (e = readdir(d)) != nullptr;) {
+    const std::string name = e->d_name;
+    if (name.size() > 5 && name.compare(name.size() - 5, 5, ".json") == 0) {
+      out.push_back(name.substr(0, name.size() - 5));
+    }
+  }
+  closedir(d);
+  std::sort(out.begin(), out.end());
+  return out;
+}
 
 bool ReadFile(const std::string &path, std::string &out) {
   FILE *f = fopen(path.c_str(), "rb");
@@ -80,7 +95,8 @@ int main(int argc, char **argv) {
   printf("species,bark_v,bark_i,leaf_v,leaf_i,leaf_pts,bbmin_x,bbmin_y,bbmin_z,bbmax_x,bbmax_y,"
          "bbmax_z,grow_ms,leaf_ms,bark_kb,leaf_kb,pts_kb,g_nadir,g0,g1,gp,g_resid,stalk_el_deg,"
          "angle_ms,foot_d_cm,dbh_cm,dbh_want_cm,hd,passes,laminae,leaf_m2,crown_m2,lai,lai_want,per_pt\n");
-  for (int i = 0; i < kSpeciesCount; ++i) {
+  const std::vector<std::string> kSpecies = PlantsIn(assets);
+  for (size_t i = 0; i < kSpecies.size(); ++i) {
     std::string text;
     const std::string path = assets + "/" + kSpecies[i] + ".json";
     if (!ReadFile(path, text)) {
@@ -116,7 +132,7 @@ int main(int argc, char **argv) {
     const double dbhCm = 2.0 * (double)mesh.DbhRadius * (double)sp.HeightM() * 100.0;
     printf("%s,%zu,%zu,%zu,%zu,%zu,%.9g,%.9g,%.9g,%.9g,%.9g,%.9g,%.4f,%.4f,%.1f,%.1f,%.1f,"
            "%.4f,%.4f,%.4f,%.4f,%.5f,%.2f,%.2f,%.2f,%.2f,%.2f,%.3f,%d,%zu,%.1f,%.1f,%.3f,%.3f,%.3f\n",
-           kSpecies[i], mesh.BarkVertexCount(), mesh.BarkIdx.size(), mesh.LeafVertexCount(),
+           kSpecies[i].c_str(), mesh.BarkVertexCount(), mesh.BarkIdx.size(), mesh.LeafVertexCount(),
            mesh.LeafIdx.size(), mesh.LeafPoints.size(), (double)mesh.BoxMin.X, (double)mesh.BoxMin.Y,
            (double)mesh.BoxMin.Z, (double)mesh.BoxMax.X, (double)mesh.BoxMax.Y, (double)mesh.BoxMax.Z,
            growMs, leafMs,
@@ -132,16 +148,16 @@ int main(int argc, char **argv) {
            foliage.PerPoint());
 
     if (angles) {
-      fprintf(stderr, "# %s G(el) per degree\n", kSpecies[i]);
-      for (int d = 0; d <= 90; ++d) { fprintf(stderr, "G %s %d %.6f\n", kSpecies[i], d, (double)lad.Sampled(d)); }
+      fprintf(stderr, "# %s G(el) per degree\n", kSpecies[i].c_str());
+      for (int d = 0; d <= 90; ++d) { fprintf(stderr, "G %s %d %.6f\n", kSpecies[i].c_str(), d, (double)lad.Sampled(d)); }
       const auto &h = lad.StalkHistogram();
       for (size_t b = 0; b < h.size(); ++b) {
-        fprintf(stderr, "H %s %d %d %.6f\n", kSpecies[i], (int)b * 5, (int)b * 5 + 5, (double)h[b]);
+        fprintf(stderr, "H %s %d %d %.6f\n", kSpecies[i].c_str(), (int)b * 5, (int)b * 5 + 5, (double)h[b]);
       }
     }
 
     if (!dumpDir.empty()) {
-      const std::string base = dumpDir + "/" + kSpecies[i];
+      const std::string base = dumpDir + "/" + kSpecies[i].c_str();
       Dump(base + ".barkv.bin", mesh.BarkVerts.data(), mesh.BarkVerts.size() * 4);
       Dump(base + ".barki.bin", mesh.BarkIdx.data(), mesh.BarkIdx.size() * 4);
       Dump(base + ".leafv.bin", mesh.LeafVerts.data(), mesh.LeafVerts.size() * 4);
