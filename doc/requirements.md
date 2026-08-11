@@ -164,6 +164,13 @@ picture, which is pinned for the length of a declared run.
 - [x] Bring-up phases as an enumeration rather than booleans
 - [ ] Fallible asynchronous bring-up completed outside a constructor, everywhere (`C.41`) — partially held, not audited
 - [ ] A gate that fails the build on an unreferenced non-static symbol — `core/Mat4.h` sat entirely dead behind a comment asserting it was not, and no target noticed
+- [ ] **A gym: the simulation with no renderer attached, running as fast as the machine allows.** Minutes of world time in a second, so a scenario can be soaked rather than watched. `make world` already links no `render/`, which is half of it; what is missing is a client that steps a declared scenario to a verdict instead of serving tiles
+- [ ] The gym holds **no graphics device at all** — DECIDABLE, and the old spec's own check is the right one: no device symbol in the binary, verified with `nm`
+- [ ] **Wall-clock speed does not change the result.** Run the same scenario throttled and unthrottled and the fingerprints match — this is principle 7 ("if pace decides the result, the coupling is a bug") made checkable, and it is the reason a gym is worth having beyond speed
+- [ ] **Thread count does not change the result** — identical fingerprint over 1…N threads across repetitions. The old gym parallelised exactly one phase and left the rest sequential, which is what made that testable
+- [ ] A run's fingerprint as one comparable value, so "the same" and "different" are a string compare rather than a reading
+- [ ] The gym runs with no network, from what is on disk
+- [ ] **Stability soak as a declared run**: the circling aeroplane and the Payerne circuit flown for hours of world time in minutes of wall time, with drift, growth and blow-up as the verdict. This is what those two scenarios are *for* — a body that flies for ten seconds proves nothing about one that flies for ten hours
 - [ ] Frame loop that survives a device loss and re-creates the swap chain
 - [ ] Pause / resume without the world losing residency
 
