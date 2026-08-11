@@ -8,13 +8,25 @@
 
 ## Next, in order
 
-1. **The scenario is named in the URL.** `GET /<mod>/<scene>` serves the client already loaded with
-   that scenario; the mod declares its own default (`mods/demo/mod.json`), so a bare `/` resolves in
-   the tree rather than in a process's environment. `OUTSHINE_MOD` and `OUTSHINE_SCENE` are deleted
-   with the same commit (`clients/SimHost.cpp`, `sim/up.sh`), and `tools/browser_run.cjs` navigates
-   instead of injecting `window.FB_SCENE`. **Cost of not having this, measured:** a still-frame round
-   left `OUTSHINE_SCENE=frame` in the running container at 12:59, every session after it silently got
-   a non-interactive scene, and three rounds were spent on a browser that was never at fault.
+1. **`scenarios/` replaces `mods/`, and the URL names the scenario.** The documents have said
+   `scenarios/` since `035a657`; the code still says `mods/`, `clients/Mod.{h,cpp}` and `Scene`, and
+   there is no `Scenario` type anywhere in the tree. The accepted interface is the shape: one
+   `Scenario` whose axis is **camera × clock** rather than a hierarchy (slideshow = several `Fixed` +
+   rate 0 · film = one `Keyframed` + timeline · interactive = `Driven` + rate 1), `ScenarioSource` as
+   a pull seam that assumes no document, `JsonScenarioSource` as the one implementation, `Link()` as
+   a second pass after which a dangling reference is unspellable, and a decided error table with no
+   partial scenario and no fallback.
+
+   **In this round:** the rename, the `Scenario` type, the two loader files, `GET /<scenario>` serving
+   a client already loaded, and the deletion of `OUTSHINE_MOD`/`OUTSHINE_SCENE` (`clients/SimHost.cpp`,
+   `sim/up.sh`) plus the `window.FB_SCENE` injection in `tools/browser_run.cjs` — a tool navigates.
+   **Not in this round:** `Director`, `Voice`, `Perception`/`Intent`/`System`, characters and
+   relationships. They are the same design and a later step.
+
+   **Cost of not having this, measured:** a still-frame round left `OUTSHINE_SCENE=frame` in the
+   running container at 12:59; every session after it silently got a non-interactive scene, where the
+   input path is never registered, and three rounds went to a browser that was never at fault. The
+   scene was settable in three places and declared in none.
 2. **The telemetry carries the camera.** Eye position and look direction per row. A run whose subject
    is motion cannot answer "did anything move" from its own record — that is what made the above take
    three rounds instead of one grep.
