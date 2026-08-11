@@ -19,7 +19,7 @@ no fourth". The override is recorded, not assumed.
 | `TOOL` | the number is missing because the instrument is missing. Effort, not a limit |
 | `UNSURE` | I could not confirm the reference has it, and say so rather than assert |
 
-**Order is the argument.** Five bands — engine, world, vegetation, buildings, vehicles — and inside a
+**Order is the argument.** Six bands — residency, engine, world, vegetation, buildings, vehicles — and inside a
 band a line stands after the line it depends on. Nothing is sorted by importance; importance is
 `todo.md`'s job.
 
@@ -40,6 +40,110 @@ vehicle classes · Destatis field-crop acreages for which crops a German field a
 Galio odorati-Fagetum and Arrhenatheretum elatioris species lists for the herb and grass layers.
 
 ---
+
+## Band 0 — Residency
+
+*Added at the owner's request, 2026-08-11, ahead of the engine band: the session
+`sim/logs/demo-walk-wasm-20260811T150518Z.csv` walked a few hundred metres and the world did not
+follow. This band is what a streaming engine owes, measured against CryEngine's own mechanisms.*
+
+**Hygiene, not budget.** Far Cry shipped against 256 MB of system memory and a 64 MB card and drew an
+island. CryEngine 3.8 holds its render meshes in **24 MB** (`e_StreamCgfPoolSize`) and its textures in
+80 MB on a PS3. We hold 231 MiB of linear memory and 228 MiB of device memory for 130 tiles, of which
+46 are in view. No line here asks for more memory; every line asks where the bytes went.
+
+**Two thirds of resident tiles being out of view is correct.** The reference prioritises by visibility
+and never evicts by it — `e_StreamCgfVisObjPriority`'s own help text names 1.0 as the thrash setting —
+because a 180° turn must not stall. The defect is that nothing bounds those bytes.
+
+**Every number in this band is a value at the calibration point** — A18 Pro, 720p60, KCD's picture — and
+is an output of the control loop, never a platform constant. A line that hard-codes one is a defect.
+
+**What may scale with the machine, and the test.** A lever may change how fast the world converges; it
+may never change what a stationary observer converges to. That admits prefetch radius, decode
+concurrency, admission bytes and pool sizes. It forbids a residency radius smaller than the view
+radius, because that is not slower convergence, it is a hole that never closes. **The render resolution
+is not a lever** — a picture-changing dial that moves under load hides a regression as fewer pixels and
+makes two runs incomparable, so it is pinned for the length of a declared run (`CLAUDE.md`).
+
+### 0.1 The ledger closes
+
+- [x] Heap, per-pool and device bytes on one telemetry row once a second (`clients/MemoryTelemetry.cpp`)
+- [x] Stream ledger: fetch, decode, mesh, DAG, residency and evictions, cumulative and never behind a switch (`clients/StreamTelemetry.cpp`, `world/TilePool.h::Ledger`)
+- [ ] `heapKB` as live allocated bytes — `HeapProbe::Bytes()` returns `sbrk(0)` under emscripten (`core/io/HeapProbe.cpp:24`), a break that never falls, so eviction can never appear in this column and "flat" is not evidence of quiet
+- [ ] The wasm break published beside live bytes as its own column, since the two answer different questions
+- [ ] A residual column `heapKB − Σpools − byteCacheKB`, published rather than subtracted by the reader — 71 216 KiB at t=31 s, and non-monotone (88 438 KiB at t=11 s), so it is not static data — DECIDABLE
+- [ ] The residual under a declared ceiling, with every allocation above 1 MiB inside a named pool — DECIDABLE
+- [ ] The byte cache inside `poolSumKB`, or both sums published — it is measured (28 943 KiB) and silently outside the sum, which is 29 % of the apparent gap
+- [ ] The per-thread decoded DEM cache counted as a pool — 16 grids × 6 threads (`world/TerrainLoader.cpp:41-45`), ~24 MiB by its own comment, in no column
+- [ ] The scheduler's queue, posted set and completed-result map counted as a pool (`world/TilePool.h:145-158`)
+- [ ] A pool registry every pool enters at construction, so the ledger is a walk over it — today the list is hand-written in `MemoryTelemetry.cpp` and drifts in silence
+- [ ] Device memory under the same discipline: declared budget, per-consumer counters, residual — `devSumMB` reached 227.8 MiB with neither budget nor ceiling (`render/Renderer.h:101`)
+- [ ] Every budget line names which memory it constrains, linear or device — separate pools, separate exhaustion, and only one of them has a probe that can fall
+- [ ] What fixed `WebAssembly.Memory` each engine actually grants with `SharedArrayBuffer` in play — TOOL, one page that allocates and reports. Not yet measured; not a limit
+
+### 0.2 The request and its priority
+
+- [x] One scheduler, one queue, one cache, one in-flight cap for fetch, decode, mesh and DAG (`world/TilePool.h`)
+- [x] A declared class order over the queue ahead of distance (`world/TilePool.h:118`, DAG < fetch < mesh)
+- [x] Distance measured from a camera the scheduler is told rather than one it reads (`world/TilePool.cpp:196`, `TilePool::Camera`)
+- [x] In-flight cap equal to the transport's own concurrency (`TilePool::InFlightCap`, = thread count = 6 against six connections per origin)
+- [x] The picture's work list ranked by distance and view direction (`world/World.cpp:172-183`)
+- [ ] Two admission caps, not one: how many may be in progress and how many may **start** per update — CryEngine holds 32 and 4 (`e_StreamCgfMaxTasksInProgress`, `e_StreamCgfMaxNewTasksPerUpdate`); we have one cap and a literal `build = 2` (`world/World.cpp:426`)
+- [ ] The in-cone boost additive and bounded, so a turn cannot invert the whole order — the reference adds a capped 0.5 to a 10-point importance and documents 1.0 as producing thrash; ours multiplies by 20 (`world/World.cpp:180`, 1.0 against 0.05)
+- [ ] Priority recomputed on a declared time slice, not every frame — the reference caps the whole update at 0.4 ms (`e_StreamPredictionUpdateTimeSlice`) and re-sorts at most every 100 ms
+- [ ] Priority recomputed only after the camera has moved more than a declared distance (`e_StreamCgfGridUpdateDistance`), so a stationary observer costs nothing
+- [ ] Prefetch from camera motion: priority evaluated at the camera advanced by its own velocity over a declared horizon — the reference's is 0.5 s (`e_StreamPredictionAhead`) plus a near/far distance pair. Nothing in `world/` or `clients/Sim.cpp` reads a velocity today
+- [ ] The prefetch horizon scales with measured headroom and the residency radius does not — converge sooner on a bigger machine, converge to the same frame
+- [ ] A request cancellable: a tile that left the target cut before its bytes returned is dropped rather than decoded and meshed
+- [ ] Why the browser pool saturates at three useful threads while native reaches 16.4 tiles/s — TOOL. A property of this design, not of the platform, and unmeasured
+
+### 0.3 Budget, eviction and hysteresis
+
+- [ ] A byte budget per pool declared in one place with its derivation beside it, and eviction against bytes — `kNodeCeil = 6000` (`world/World.cpp:42`) is a count of entries and stops splitting in silence
+- [ ] The eviction policy is the reference's and it is neither LRU nor TTL: sort the streamables by importance descending, accumulate their content bytes, unload everything past the point where the sum crosses the budget (`ObjManStreaming.cpp:672-691`). It removes exactly the least important bytes, needs no per-entry timestamp, and costs one sort — which is why the sort is throttled to 10 Hz
+- [ ] The eviction unit is one LOD rung, not a whole tile: what is far loses its fine rungs and keeps its coarse one, so evicting costs silhouette rather than coverage. The reference streams mips and mesh LODs and never whole assets
+- [ ] A minimum residency in seconds and in metres of camera travel, never in frames — the reference holds a texture 10 s (`r_TexturesStreamingResidencyTime`) and a mesh record 8 priority rounds. `kGrace = 180` passes (`world/World.cpp:33`) is 3.0 s at 60 fps and 6.0 s at 30, so the machine's pace decides what the world holds
+- [ ] Residency at the full radius rather than the frustum, with the reason on the line — the reference prioritises by visibility and never evicts by it, because a turn must not stall
+- [ ] A measured re-fetch rate per tile with a published ceiling, so thrash is detected rather than assumed away — the reference measures it over a 5 s window (`r_TexturesStreamingResidencyTimeTestLimit`)
+- [ ] The resident representation per tile declared and bounded — measured 1.56 MiB of device geometry per tile (202.5 MiB over 130) and 70.9 MiB of building heap over one block. Far Cry's answer to 64 MiB of video memory was a smaller resident form, not a cleverer cache
+- [x] A byte cache with a declared budget, exact LRU and counted evictions (`world/TilePool.cpp:230-254`; 64 MiB, `world/TerrainLoader.cpp:40`)
+- [ ] The LRU victim found in O(1) rather than by linear scan under a held lock (`world/TilePool.cpp:236-240`, n ≈ 600 at 64 MiB of z14 tiles) — an intrusive list or a clock hand, per Gregory §6.2.2 on pool allocators, and the choice named on the line
+- [x] An evicted tile node releases the collector's device slot, and the slot is recycled rather than freed (`world/World.cpp:534-547`, `clients/Outshine.cpp:309`, `render/stages/TerrainDraw.cpp:810`)
+- [ ] Eviction for building prints and verts, water surfaces, courses and levels — the fields grow monotonically and their unit of removal does not exist (`world/BuildingField.h`, `world/WaterField.h`, `world/StreetField.h`); at 70.9 MiB it is the largest single consumer in the tree
+- [ ] Every streamed pool a slab of uniform blocks or a ring, which is the argument that no defragmentation pass is needed. The reference defragments its device buffers under a 64-moves-per-frame cap with pin and unpin (`IDefragAllocator::DefragmentTick`, `r_buffer_pool_defrag_max_moves`) because its blocks vary in size; under wasm dlmalloc the break cannot be returned, so fragmentation is permanent and a slab is the only answer that holds
+- [ ] A residency handle minted only by a pool that accepted its byte charge, so "allocated but in no budget" and "resident but not evictable" are unspellable rather than forbidden
+
+### 0.4 Arrival without a stall
+
+- [x] Drawable only one pass after collection, so an upload is submitted before anything references it (`world/World.h`, `World::Ready`)
+- [ ] A tile becomes visible when its whole residency set is complete — mesh, class, vectors, footprints, water — never one layer at a time. Verified for terrain, unverified for building and water fields
+- [ ] Upload per frame as a declared **byte** budget — `world/World.cpp:426` admits two items of unbounded size
+- [ ] Arrival batched into few large writes: every WebGPU call is validated, so N small buffer writes cost N validations; the batched form is one staging write per frame feeding one indirect draw list
+- [ ] No hitch on stream-in, proven on a moving capture: p99 across a 500 m walk against the neighbourhood before each arrival, never against the run mean
+
+### 0.5 Exhaustion, and how it is said
+
+- [ ] A refusal path: a piece of world that does not fit the budget is refused **by name**, counted, and the run continues — the reference logs the object and its size and skips it (`ObjManStreaming.cpp:752-759`)
+- [ ] A failed allocation on an elastic path evicts, retries once, then refuses that piece of world
+- [ ] A failed allocation anywhere else aborts loudly, naming the item and the bytes (`core/io/Heap.h` exists; `world/TilePool.cpp:359` is its only caller)
+- [ ] Refusals and exhaustion published as columns, so they appear in the record and not only in a log line
+- [ ] The toolchain's silent-null allocation behaviour turned off, so a null check is handling rather than dead code that looks like it
+
+### 0.6 What makes all of the above decidable
+
+- [ ] The eye in every telemetry row — position and look direction. A run whose subject is motion cannot answer "did the camera move" from its own record
+- [ ] Per-pass admission counters: candidates considered, admitted, rejected and by which cap. "Nothing was requested" and "everything requested was already resident" are different worlds and today produce the same row
+- [ ] Residency age per tile as a distribution: how long resident, how long since last in the target cut — the input the eviction policy is judged on
+- [ ] A declared walk gate: 500 m of travel raises `tilesTotal` and `poolHttpGets`, `tilesEvicted` rises once the budget binds, and p99 holds under 33 ms across the traverse — DECIDABLE, and it fails in CI rather than in a browser
+
+### 0.7 The control loop's streaming lever
+
+- [ ] The frame budget's control loop owns one streaming lever — bytes admitted to build and upload this frame. Over budget it shrinks, under budget it grows. A measurement, never a preset
+- [ ] The lever damped the way the documented practice damps: a history window, a deadband below which nothing moves, a minimum period between changes, and an asymmetric response — fall after N consecutive over-budget frames, rise slowly (`r.DynamicRes.HistorySize`, `ChangePercentageThreshold`, `MinResolutionChangePeriod`, `MaxConsecutiveOverbudgetGPUFrameCount`; `TargetedGPUHeadRoom` 10 %)
+- [ ] The streaming lever is the only lever the loop owns — no picture-changing dial moves under load, so a frame time stays comparable between two runs and a regression cannot hide as fewer pixels
+- [ ] The loop's own state published per row: which lever moved, by how much, and the measurement it moved on — a controller whose input is not in the record is not falsifiable
+- [ ] Residency and prefetch pool sizes derived from the granted heap and `hardware_concurrency` at bring-up, never from a constant in a source file
 
 ## Band I — Engine
 
@@ -64,14 +168,7 @@ Galio odorati-Fagetum and Arrhenatheretum elatioris species lists for the herb a
 - [x] Fixed heap, forced by the graphics API refusing a resizable buffer as an argument source
 - [x] Heap probe reporting bytes (`core/io/HeapProbe`)
 - [x] Stack probe per thread (`core/io/StackProbe`)
-- [ ] Every pool reports its bytes — partial: `BuildingField`, `WaterField`, `OsmField` report and nothing acts
-- [ ] Byte budget on the streamer, with eviction against it rather than entry counts
-- [ ] Eviction path for building prints and verts, water surfaces, courses and levels — monotone growth today is a maximum walk length
-- [ ] A failed allocation on an elastic path evicts, retries once, then refuses that piece of world
-- [ ] A failed allocation anywhere else aborts loudly, naming the item and the bytes
-- [ ] Toolchain's silent-null allocation behaviour turned off, so null checks are not dead code that looks like handling
 - [x] Device-resident picture data with a handle and a time-to-live on the processor, never a second copy
-- [ ] Device memory accounting probe — whether processor and device allocations charge one budget is unverified on the ceiling machine
 - [ ] Per-thread stack sizes set per purpose rather than one default for a network thread and a mesher
 
 ### I.3 Threads and work
@@ -126,9 +223,6 @@ Galio odorati-Fagetum and Arrhenatheretum elatioris species lists for the herb a
 - [x] Nothing preloaded; every tile on demand; every point on Earth a valid start
 - [x] Loading as an application phase with a progress fraction, never a renderer state (`ProgressStage`)
 - [x] The renderer runs at full rate during loading
-- [ ] Upload per frame as a declared byte budget
-- [ ] A tile becomes visible only when complete — verified for terrain, unverified for building and water fields
-- [ ] No hitch on stream-in, proven on a moving capture rather than asserted
 - [x] No ceiling and no timeout on the initial load
 
 ### I.7 Spatial index and level of detail
@@ -196,8 +290,6 @@ Galio odorati-Fagetum and Arrhenatheretum elatioris species lists for the herb a
 - [ ] Triangle size distribution in projected pixels, p50/p95 — TOOL
 - [ ] Culling yield per stage: submitted against visible — TOOL
 - [ ] Early rejection count — TOOL
-- [x] Memory telemetry per pool
-- [x] Stream telemetry: fetch, decode, upload, residency, evictions
 - [x] Run identity on every line
 - [x] Readback of colour and depth, PNG writer, artefacts posted to `fb-sim`
 - [x] `SceneRunner` executing a declared `runs` block natively and writing still and depth

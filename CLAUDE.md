@@ -86,6 +86,14 @@ switch a pipeline state**; the core derives discard, two-sidedness, transmission
 from what is declared. **A further pass must beat its base price**, and the price is **0.35–0.5 ms** —
 a 1280×720 RGBA16F ping-pong moves 14.75 MB, which is 1.5–3 % of the frame before one instruction.
 
+**A generator declares what it can deliver, and the renderer decides.** The draw product names its
+rungs — how many, what each costs, whether an impostor exists and from which rung it takes over — and
+the renderer picks against **screen-space error alone**. One criterion for terrain, trunks, façades and
+crowns; a generator never chooses its own rung and never carries a distance. **Only what contributes to
+the image is drawn**, and "contributes" is that same error against the same threshold, so a thing too
+small to change a pixel is not culled by a special case but simply never selected. The cluster DAG
+already works this way; nothing else may work differently.
+
 **One geometry stage over one cluster cut, one LOD ladder** — never one per kind of content. Vertex
 layout `pos3 @0 · uv2 @12 · nrm3 @20`, 32 B, with `pos3 · nrm3` 24 B as a declared second where no uv
 exists. `uv` in metres, except a façade, which encodes style and storeys (`core/FacadeUv.h`).
@@ -115,10 +123,16 @@ instrument's own floor beside the result.
 
 **The engine is dynamic, and A18 Pro at 720p60 with KCD's picture is its calibration point** — the
 setting where the dial stands at full, chosen because it is known to be reachable. Elsewhere the engine
-delivers **the best picture the machine affords**: resolution, LOD bias, density and view distance are
-driven by a control loop that measures the frame, not by a menu. That is still **one version** — the
-knob is a measurement, never a build configuration and never a user's choice. What stays forbidden is a
-hand-written ladder of presets, because each rung is a version somebody has to keep true.
+delivers **the best picture the machine affords**, and that is still **one version**: the knob is a
+measurement, never a build configuration and never a user's choice. A hand-written ladder of presets is
+forbidden, because each rung is a version somebody has to keep true.
+
+**The render resolution is not one of the knobs.** A resolution that moves under load hides a
+regression as slightly fewer pixels instead of a missed frame, makes two runs' `frameMs` incomparable,
+and empties "720p60" of content by making the 720 the free variable. **Any dial that changes the
+picture is pinned for the length of a declared run** — otherwise the telemetry has no subject. What may
+move freely is what does not change the picture: residency radius, prefetch distance, pool sizes,
+worker count, how far ahead decoding runs.
 
 **The still is the comparison resolution, not the acceptance.** Popping, ghosting, a hitch on stream-in
 and a scatter that ends at a radius are only decidable in motion. **Appearance is judged by eye from the
