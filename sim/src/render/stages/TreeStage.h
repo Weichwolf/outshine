@@ -20,7 +20,9 @@
 #include <cstdint>
 #include <vector>
 
+#include "ChunkVtx.h"
 #include "DrawStage.h"
+#include "TangentFrame.h"
 #include "TreeLook.h"
 #include "TreeRanks.h"
 
@@ -30,8 +32,8 @@ class TreeStage : public DrawStage {
 public:
   void Configure(const Gpu &gpu, const SceneLight &light);
 
-  /* pos3 + nrm3 + uv2 + tan3 per vertex, in NORMALISED tree space (foot at y = 0, height 1).
-   * One mesh per rank, grown at `TreeRank::Pixel(rank)`. */
+  /* core/ChunkVtx.h's PlainVtx, in NORMALISED tree space (foot at y = 0, height 1). One mesh per
+   * rank, grown at `TreeRank::Pixel(rank)`. */
   void SetBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx);
   /* The single lamina (pos3 + nrm3 + uv2, leaf-local units) plus its instances (pos3 + roll + dir3 +
    * pad). `scaleM` is metres per leaf-local unit. THE SUBJECT BENCH'S leaf: one stand, true geometry. */
@@ -47,11 +49,11 @@ public:
   /* Where the tree stands, in ground metres east/north of the CAMERA. `heightM` <= 0 retires the
    * whole stage. */
   void SetStand(double eastM, double northM, double eyeAglM, double heightM);
-  /* THE STAND, MANY TIMES OVER, SORTED NEAR TO FAR. Five floats per tree: east, north, the foot over
-   * the eye in metres, the yaw its own hash gave it and the factor on the species' height. `distM`
-   * is the same array's distance from the eye and lives on the CPU only — it is what turns a rank
-   * into a range. */
-  void SetStands(const float *inst, uint32_t n, const float *distM);
+  /* THE STAND, MANY TIMES OVER, IN NO ORDER. Five floats per tree: east and north metres in
+   * `frame`, the foot's height over that frame's anchor, the yaw the stand was given and the factor
+   * on the species' height. The frame is a PLACE — a field measured from the eye would travel with
+   * it — and which rank an instance draws at is this stage's own answer, per frame. */
+  void SetStands(const float *inst, uint32_t n, const TangentFrame &frame);
   /* The grown mesh's box in normalised tree units: what an orthographic bake has to frame and what a
    * billboard has to be the size of. */
   void SetCrown(float halfWidth, float top, float bottom);
@@ -84,7 +86,7 @@ public:
 
 private:
   static constexpr int kUniFloats = 64;
-  static constexpr int kBarkFloats = 11;
+  static constexpr int kBarkFloats = (int)(kPlainVertexStrideB / sizeof(float));
   static constexpr int kLeafFloats = 8;
   static constexpr int kInstFloats = 8;
   static constexpr int kStandFloats = 5;
@@ -97,7 +99,7 @@ private:
   wgpu::RenderPipeline BarkPipe, LeafPipe, CardPipe, ImpPipe, BarkBakePipe, CardBakePipe;
   wgpu::BindGroupLayout Bgl;
   wgpu::BindGroup Bind, BakeBind;
-  wgpu::Buffer Uni, BakeUni, LeafVtx, LeafIdx, LeafInst, CardInst, StandBuf;
+  wgpu::Buffer Uni, BakeUni, LeafVtx, LeafIdx, LeafInst, CardInst, StandBuf, OrderBuf;
   wgpu::Buffer BarkVtx[TreeRank::kCount], BarkIdx[TreeRank::kCount];
   wgpu::Texture ImpAlbedo, ImpNormal, ImpDepth;
   wgpu::TextureView ImpAlbedoView, ImpNormalView, ImpDepthView;
@@ -105,7 +107,10 @@ private:
   SceneLight Light;
 
   TreeLook Look;
-  std::vector<float> StandDist;
+  TangentFrame Frame;
+  std::vector<float> Stands;
+  std::vector<uint32_t> Order;
+  std::vector<uint8_t> Bucket;
   std::vector<float> CardStage[TreeRank::kCount];
   double SunDir[3] = {0, 0, 1};
   double EastM = 0.0, NorthM = 0.0, EyeAglM = 0.0, HeightM = 0.0;

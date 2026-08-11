@@ -32,13 +32,14 @@ graded against the references: the answer is known and the round is spent. Then,
 | 4.5 | fold the tile worker into the client | **done** · one module, one cap, one priority key |
 | 4.6 | the GPU readback stops blocking the frame thread | **done** · unwinding off, render p99 6.1 → 2.1 ms |
 | 5 | `generators/` | **done** · the include set is the enforcement, both ways |
-| **6** | **the forest becomes a generator** | **in the tree** |
+| 6 | the forest becomes a generator | **done** · the forest stopped following the camera |
+| **7** | **one geometry stage** | **in the tree** |
 
 
 
 
 
-| 7 | one geometry stage | open |
+
 | 8 | regionalise | open |
 | 9 | buildings, water surface, infrastructure | open |
 | — | the scenario interface and its JSON loader | open — **designed**: headers, schema and acceptance stand |
@@ -163,6 +164,21 @@ Failed }` in `core/` deletes four, before step 5 needs it for region jobs. `Scen
 `Stage` is three nested sequences pretending to be one, with `CompareClasses()` reading `Stage_` inside
 itself to decide which half of itself to run.
 
+**Step 8 — the pool ceiling truncates instead of refusing.** `kBodiesPerRegion = 49 152` is 1.39× one
+measured region of `demo/frame`, while the cell array is derived from the equatorial region the schedule
+can hand out. The declared `conifer_forest` at 0.033/m² over a z14 region at 51.96 N (1507.3 m per side,
+2.272e6 m²) expects **74 984 stands — 1.53× the ceiling** — and `Occupy` scans row-major and returns on
+`Full`, so a fully forested region loses everything north of one lattice row: **a straight east–west
+forest edge**, in a log field and in the picture. `architecture.md` already prescribes the shape — evict,
+retry once, then **refuse that piece of world**. Derived the right way it costs ≈36.7 MiB against 25.15.
+
+**Step 8 — a not-yet-ready region rebuilds its whole posting grid every frame.** `Sim::Snapshot` fills
+129² = 16 641 postings and only then learns from `GroundPatch::Complete` that one was pending; the next
+pass does it again, for every unready region in the ring. A **sustained** frame cost while a DEM streams,
+which is worse than a hitch because it hides — and it will make step 8's own ms-per-region bimodal for a
+reason nobody wrote down. One line: break on the first unresolved posting. The patch's ~530 KB of heap
+traffic per region belongs in the pool for the same reason the bodies do.
+
 **Step 8 — one watermark couples every tile.** `BuildingField`'s `Consumed_` is a single watermark and
 `Build` refuses to pass a deferred tile, so one permanently-Pending tile stalls **every later tile's**
 buildings where before it lost that tile and moved on. Defensible while there is no timeout on the load;
@@ -231,28 +247,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 6 — The forest becomes a generator
-
-Renderer reference out, camera knowledge out, callback and `void*` become the ground view, mutable
-counters move into the yield. **Growing a prototype is not a generator call** — it happens once per run at
-bring-up. This is the cut most easily got wrong.
-
-Behaviour-neutral: same picture, different call chain.
-
-**The budget number, and it did not exist before step 5.** A class probe costs ≈70 ns — a 12.4 ns
-geodetic hop plus the evaluator — so the forest's **204 304 candidates per z14 region are 14.3 ms**.
-That is the design number for this step and for 8, measured native at `-O2`.
-
-**The Makefile risk that is not fail-loud, and this step walks into it.** `walk` and `wasm` compile
-clients, world and render in one command with one include set, so giving the client `-Isrc/generators`
-grants it to every `world/` file in the same breath and peer isolation goes silently. Compile
-`SIM_SRCS` once with the simulation include set and link the objects into all three — the pattern step 5
-invented for `core/` and `generators/`, applied where it is next needed.
-
-**`DrawSink::Add` returns a `bool` with `Full()` beside it** — the exact shape step 5 removed from
-`OccupancySink`. Nothing writes into it yet and its causes are step 7's to name, so it is named here
-rather than guessed at.
-
 ## 7 — One geometry stage
 
 Tiles, trees, buildings and water merge into one stage over one cluster cut. The renderer loses every
@@ -306,6 +300,11 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   grid and grey card, `fillPct=0` in both clients. `SubjectBench::Select` sets `Bucket_` and `Kind_ =
   Herb` and `Bucket_` is never read again: there is no herb geometry path in the bench. `subject-beech`
   fills 17.2 %, so the rig is sound and the subject is missing.
+- **The bow-tie now has a falsifiable prediction.** Until step 6 every yaw in the forest lay in
+  **[0, 0.088°]** — `h >> 20` on a 32-bit hash yields 0…4095 — so 16 000 stands were one unrotated clone.
+  With uniform yaw a cross-quad presents its edge-on aspect in a **coherent bearing band**, not
+  sporadically. If the zigzag band survives the new yaw unchanged, the cause is the impostor cell seam
+  and not the cross. One moving capture answers it.
 - **The mid-distance crowns read as hourglass / bow-ties, and this is the one to fix first.** Silhouette
   is the only currency at the comparison rung and a bow-tie is not a shape a tree has — the impression
   dies in well under a second. Signature: a two-quad cross seen near edge-on, or a card whose alpha cut

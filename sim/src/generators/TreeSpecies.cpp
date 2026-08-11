@@ -4,7 +4,7 @@
 
 #include "Json.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 namespace {
 
@@ -119,4 +119,4 @@ bool TreeSpecies::Parse(const char *text, size_t len) {
   return true;
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators

@@ -9,11 +9,17 @@
 #include <cstdint>
 #include <string>
 
+#include <optional>
+
+#include "DrawSet.h"
 #include "ExposureParams.h"
+#include "ForestDraw.h"
 #include "FrameTelemetry.h"
 #include "MemoryTelemetry.h"
 #include "Renderer.h"
 #include "Sim.h"
+#include "StandField.h"
+#include "TreePrototype.h"
 
 namespace outshine::Clients {
 
@@ -119,6 +125,8 @@ private:
   void Collect();
   void CollectTiles();
   void CollectClass();
+  /* Every instance the generators produced for the regions that stand, gathered into one frame. */
+  void CollectStands();
   /* The frame clock, around whichever picture the renderer just drew. */
   double OpenFrame();
   void CloseFrame(double startedMs);
@@ -127,12 +135,17 @@ private:
   ExposureParams Exposure_;
   Render::Renderer R_;
   FrameTelemetry Frames_;
-  MemoryTelemetry Memory_{Sim_.Scenery(), R_, Sim_.Forest()};
+  MemoryTelemetry Memory_{Sim_.Scenery(), R_, Sim_};
+
+  std::optional<Generators::TreePrototype> Tree_;
+  std::optional<Generators::ForestDraw> TreeDraw_;
+  Generators::DrawSet Draws_;
+  StandField Stands_;
 
   /* NO TILE TABLE HERE, and that is the point: the renderer's slot goes back to the world as the
    * tile's handle, and the world hands it out again in its draw list — so a frame costs no lookup. */
   uint64_t ClassVersion_ = 0, WaterSeq_ = 0, BuildingSeq_ = 0;
-  bool TreesStanding_ = false;
+  uint64_t StandingRegions_ = 0;
   double UploadMs_ = 0.0;
   double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;
   /* When the phase that is running now started asking, so a wait that will never end is named

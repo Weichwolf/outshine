@@ -24,9 +24,9 @@ const kCardLeaves : i32 = 16;
 const kCardShoot : f32 = 0.82;
 struct T {
   mvp  : mat4x4f,
-  ax   : vec4f,   // ECEF east axis,  w = the single stand's east offset from the camera (m)
-  ay   : vec4f,   // ECEF north axis, w = the single stand's north offset (m)
-  az   : vec4f,   // ECEF up axis,    w = the eye's height over the single stand's foot (m)
+  ax   : vec4f,   // ECEF east axis  of the stand frame, w = x of the frame's origin from the eye (m)
+  ay   : vec4f,   // ECEF north axis of the stand frame, w = y
+  az   : vec4f,   // ECEF up axis    of the stand frame, w = z
   sun  : vec4f,   // ECEF sun direction, w = this frame's ambient night floor
   bark : vec4f,   // rgb bark reflectance, w = the furrow's share of it
   bpar : vec4f,   // x = furrow cycles per radian, y = furrow depth, z = tree height (m), w = leaf scale (m)
@@ -47,11 +47,12 @@ struct T {
 @group(0) @binding(7) var impSamp : sampler;
 @group(0) @binding(8) var impAlb : texture_2d<f32>;
 @group(0) @binding(9) var impNrm : texture_2d<f32>;
+@group(0) @binding(10) var<storage, read> Or : array<u32>;
 
 /* Tree space is y-up and metric once multiplied by the declared height; the stand maps it onto the
  * ECEF triad the whole frame is built in. One place, every net. */
 fn standOrigin() -> vec3f {
-  return b.ax.xyz * b.ax.w + b.ay.xyz * b.ay.w - b.az.xyz * b.az.w;
+  return vec3f(b.ax.w, b.ay.w, b.az.w);
 }
 /* TREE Z POINTS SOUTH, and that is not a taste: (east, up, north) is LEFT-handed (east x up = -north),
  * so mapping a right-handed y-up model onto it MIRRORS the tree and inverts every triangle's winding.
@@ -67,12 +68,12 @@ fn yawRot(v : vec3f, cy : f32, sy : f32) -> vec3f {
 struct TOut { @builtin(position) pos : vec4f, @location(0) rel : vec3f, @location(1) nrm : vec3f,
               @location(2) loc : vec3f };
 
-/* Ein Stand: xy Ost/Nord in Metern vom Kamerastandpunkt, z der Fuss ueber der Augenhoehe, w die
- * Gierung. b.bpar.z ist die Hoehe der Art, `sf` die des einzelnen Standes darin. */
+/* One stand: xy east/north in metres in the stand frame, z the foot's height over that frame's
+ * anchor, w the yaw. b.bpar.z is the species' height and `sf` this stand's own factor on it. */
 @vertex fn vsBark(@location(0) p : vec3f, @location(1) n : vec3f,
                   @builtin(instance_index) ii : u32) -> TOut {
   var o : TOut;
-  let si = (ii + u32(b.leaf.w)) * 5u;
+  let si = Or[ii + u32(b.leaf.w)] * 5u;
   let st = vec4f(St[si], St[si + 1u], St[si + 2u], St[si + 3u]);
   let sf = St[si + 4u];
   let cy = cos(st.w); let sy = sin(st.w);
@@ -134,7 +135,7 @@ fn quadCorner(vi : u32) -> vec2f {
   var o : COut;
   let nc = u32(b.cpar.w);
   let ci = (u32(b.lpro.w) + ii % nc) * 8u;
-  let si = (ii / nc + u32(b.leaf.w)) * 5u;
+  let si = Or[ii / nc + u32(b.leaf.w)] * 5u;
   let st = vec4f(St[si], St[si + 1u], St[si + 2u], St[si + 3u]);
   let sf = St[si + 4u];
 
@@ -290,7 +291,7 @@ struct IOut { @builtin(position) pos : vec4f, @location(0) rel : vec3f, @locatio
 
 @vertex fn vsImp(@builtin(vertex_index) vi : u32, @builtin(instance_index) ii : u32) -> IOut {
   var o : IOut;
-  let si = (ii + u32(b.leaf.w)) * 5u;
+  let si = Or[ii + u32(b.leaf.w)] * 5u;
   let st = vec4f(St[si], St[si + 1u], St[si + 2u], St[si + 3u]);
   let sf = St[si + 4u];
   let h = b.bpar.z * sf;
@@ -355,7 +356,7 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
 
   /* EXPLICIT, because three pipelines share one bind group: a default layout belongs to the pipeline
    * that produced it, and a group built from the bark's would be rejected by the card's. */
-  wgpu::BindGroupLayoutEntry ble[10] = {};
+  wgpu::BindGroupLayoutEntry ble[11] = {};
   ble[0].binding = 0;
   ble[0].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
   ble[0].buffer.type = wgpu::BufferBindingType::Uniform;
@@ -394,8 +395,11 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   ble[9].visibility = wgpu::ShaderStage::Fragment;
   ble[9].texture.sampleType = wgpu::TextureSampleType::Float;
   ble[9].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  ble[10].binding = 10;
+  ble[10].visibility = wgpu::ShaderStage::Vertex;
+  ble[10].buffer.type = wgpu::BufferBindingType::ReadOnlyStorage;
   wgpu::BindGroupLayoutDescriptor bgld{};
-  bgld.entryCount = 10;
+  bgld.entryCount = 11;
   bgld.entries = ble;
   Bgl = Device.CreateBindGroupLayout(&bgld);
   wgpu::PipelineLayoutDescriptor pld{};
@@ -512,12 +516,14 @@ void TreeStage::Configure(const Gpu &gpu, const SceneLight &light) {
   const float oneStand[8] = {0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f};
   StandBuf = Upload(oneStand, sizeof oneStand, wgpu::BufferUsage::Storage);
   CardInst = Upload(oneStand, sizeof oneStand, wgpu::BufferUsage::Storage);
+  const uint32_t firstStand[1] = {0u};
+  OrderBuf = Upload(firstStand, sizeof firstStand, wgpu::BufferUsage::Storage);
   Rebind();
 }
 
 void TreeStage::Rebind() {
   if (!Bgl) return;
-  wgpu::BindGroupEntry be[10] = {};
+  wgpu::BindGroupEntry be[11] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = Light.Irradiance; be[1].size = wgpu::kWholeSize;
   be[2].binding = 2; be[2].buffer = Light.Cascades;   be[2].size = kShadowUniFloats * sizeof(float);
@@ -528,9 +534,10 @@ void TreeStage::Rebind() {
   be[7].binding = 7; be[7].sampler = ImpSamp;
   be[8].binding = 8; be[8].textureView = ImpAlbedoView;
   be[9].binding = 9; be[9].textureView = ImpNormalView;
+  be[10].binding = 10; be[10].buffer = OrderBuf; be[10].size = wgpu::kWholeSize;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = Bgl;
-  bg.entryCount = 10;
+  bg.entryCount = 11;
   bg.entries = be;
   Bind = Device.CreateBindGroup(&bg);
   if (BakeUni) {
@@ -645,12 +652,16 @@ void TreeStage::SetStand(double eastM, double northM, double eyeAglM, double hei
   HeightM = heightM;
 }
 
-void TreeStage::SetStands(const float *inst, uint32_t n, const float *distM) {
+void TreeStage::SetStands(const float *inst, uint32_t n, const TangentFrame &frame) {
   StandCount = 0;
-  StandDist.clear();
-  if (n == 0 || !Device || !inst || !distM) return;
+  Stands.clear();
+  Order.clear();
+  if (n == 0 || !Device || !inst) return;
+  Stands.assign(inst, inst + (size_t)n * kStandFloats);
+  Order.resize(n);
   StandBuf = Upload(inst, (size_t)n * kStandFloats * sizeof(float), wgpu::BufferUsage::Storage);
-  StandDist.assign(distM, distM + n);
+  OrderBuf = Upload(Order.data(), Order.size() * sizeof(uint32_t), wgpu::BufferUsage::Storage);
+  Frame = frame;
   StandCount = n;
   Rebind();
 }
@@ -741,18 +752,33 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   MeshN = 0;
   MeshRadius = 0.0;
   for (int k = 0; k < TreeRank::kCount; k++) RankN[k] = 0;
-  /* Ein Stand aus SetStand ODER ein Feld aus SetStands; ohne beides zeichnet die Stage nichts. */
+  /* One stand from SetStand OR a field from SetStands; without either this stage draws nothing. */
   if (!BarkPipe || BarkCount[0] == 0 || (HeightM <= 0.0 && StandCount == 0)) return;
 
-  double east[3], north[3];
-  const double up[3] = {ctx.Up[0], ctx.Up[1], ctx.Up[2]};
-  east[0] = -up[1]; east[1] = up[0]; east[2] = 0.0;   /* z_ecef x up, before normalising */
-  double el = std::sqrt(east[0] * east[0] + east[1] * east[1]);
-  if (el < 1.0e-12) { east[0] = 1.0; east[1] = 0.0; el = 1.0; }
-  for (int a = 0; a < 3; a++) east[a] /= el;
-  north[0] = up[1] * east[2] - up[2] * east[1];
-  north[1] = up[2] * east[0] - up[0] * east[2];
-  north[2] = up[0] * east[1] - up[1] * east[0];
+  /* THE FRAME THE STANDS ARE MEASURED IN, and it is a place and not the eye: a field anchored on the
+   * camera would travel with it. The single stand has no frame of its own and keeps the eye's. */
+  double east[3], north[3], up[3], origin[3] = {0.0, 0.0, 0.0};
+  if (StandCount > 0) {
+    for (int a = 0; a < 3; a++) {
+      east[a] = Frame.EastEcef()[a];
+      north[a] = Frame.NorthEcef()[a];
+      origin[a] = Frame.OriginEcef()[a] - ctx.Eye[a];
+    }
+    up[0] = east[1] * north[2] - east[2] * north[1];
+    up[1] = east[2] * north[0] - east[0] * north[2];
+    up[2] = east[0] * north[1] - east[1] * north[0];
+  } else {
+    for (int a = 0; a < 3; a++) up[a] = ctx.Up[a];
+    east[0] = -up[1]; east[1] = up[0]; east[2] = 0.0;   /* z_ecef x up, before normalising */
+    double el = std::sqrt(east[0] * east[0] + east[1] * east[1]);
+    if (el < 1.0e-12) { east[0] = 1.0; east[1] = 0.0; el = 1.0; }
+    for (int a = 0; a < 3; a++) east[a] /= el;
+    north[0] = up[1] * east[2] - up[2] * east[1];
+    north[1] = up[2] * east[0] - up[0] * east[2];
+    north[2] = up[0] * east[1] - up[1] * east[0];
+    for (int a = 0; a < 3; a++)
+      origin[a] = east[a] * EastM + north[a] * NorthM - up[a] * EyeAglM;
+  }
 
   /* THE ONLY DISTANCE IN THIS FILE, and it is derived rather than declared: the impostor's texel is
    * the model-space error, and the mesh rank ends where that error reaches one pixel. Resolution and
@@ -760,20 +786,37 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
   const double fPx = PixelFocalLength(ctx.Height, (double)ctx.FovDeg);
   MeshRadius = HeightM * fPx / (double)TreeRank::kCellPx;
   /* Rank k ends where rank k+1's own error first stays under a pixel; the last one ends at the
-   * impostor. The stands arrive sorted, so every rank is a contiguous range. */
+   * impostor. Which instance lands in which rank is decided HERE, every frame, out of this frame's
+   * eye — the order the instances arrived in states nothing about distance and must not. */
   uint32_t first[TreeRank::kCount] = {}, cnt[TreeRank::kCount] = {};
   uint32_t nMesh = StandCount;
   if (StandCount > 0) {
-    uint32_t lo = 0;
-    for (int k = 0; k < TreeRank::kCount; k++) {
-      const double edge = HeightM * fPx * (double)TreeRank::Pixel(k + 1);
-      const auto e = std::upper_bound(StandDist.begin(), StandDist.end(), (float)edge);
-      const uint32_t hi = (uint32_t)(e - StandDist.begin());
-      first[k] = lo;
-      cnt[k] = hi > lo ? hi - lo : 0u;
-      lo = hi > lo ? hi : lo;
+    double edge[TreeRank::kCount];
+    for (int k = 0; k < TreeRank::kCount; k++)
+      edge[k] = HeightM * fPx * (double)TreeRank::Pixel(k + 1);
+    uint32_t into[TreeRank::kCount + 1] = {};
+    Bucket.resize(StandCount);
+    for (uint32_t s = 0; s < StandCount; s++) {
+      const float *st = &Stands[(size_t)s * kStandFloats];
+      double d[3];
+      for (int a = 0; a < 3; a++)
+        d[a] = origin[a] + east[a] * (double)st[0] + north[a] * (double)st[1] + up[a] * (double)st[2];
+      const double dist = std::sqrt(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]);
+      int k = 0;
+      while (k < TreeRank::kCount && dist > edge[k]) k++;
+      Bucket[s] = (uint8_t)k;
+      into[k]++;
     }
-    nMesh = lo;
+    uint32_t at = 0;
+    for (int k = 0; k <= TreeRank::kCount; k++) {
+      const uint32_t n = into[k];
+      into[k] = at;
+      at += n;
+      if (k < TreeRank::kCount) { first[k] = into[k]; cnt[k] = n; }
+    }
+    nMesh = into[TreeRank::kCount];
+    for (uint32_t s = 0; s < StandCount; s++) Order[into[Bucket[s]]++] = s;
+    Queue.WriteBuffer(OrderBuf, 0, Order.data(), Order.size() * sizeof(uint32_t));
   } else {
     cnt[0] = 1;
   }
@@ -782,9 +825,9 @@ void TreeStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
 
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
-  u[16] = (float)east[0];  u[17] = (float)east[1];  u[18] = (float)east[2];  u[19] = (float)EastM;
-  u[20] = (float)north[0]; u[21] = (float)north[1]; u[22] = (float)north[2]; u[23] = (float)NorthM;
-  u[24] = (float)up[0];    u[25] = (float)up[1];    u[26] = (float)up[2];    u[27] = (float)EyeAglM;
+  u[16] = (float)east[0];  u[17] = (float)east[1];  u[18] = (float)east[2];  u[19] = (float)origin[0];
+  u[20] = (float)north[0]; u[21] = (float)north[1]; u[22] = (float)north[2]; u[23] = (float)origin[1];
+  u[24] = (float)up[0];    u[25] = (float)up[1];    u[26] = (float)up[2];    u[27] = (float)origin[2];
   u[28] = (float)SunDir[0]; u[29] = (float)SunDir[1]; u[30] = (float)SunDir[2]; u[31] = NightAmbient;
   u[32] = Look.BarkRgb[0]; u[33] = Look.BarkRgb[1]; u[34] = Look.BarkRgb[2]; u[35] = Look.BarkDark;
   u[36] = Look.BarkFreq; u[37] = Look.BarkRidge; u[38] = (float)HeightM; u[39] = LeafScaleM;

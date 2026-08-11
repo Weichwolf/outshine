@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 namespace {
 
@@ -409,7 +409,7 @@ void TreeGrower::GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh 
   NormalizeToUnitHeight(out, heightM);
 }
 
-void TreeGrower::Export(TreeMesh &out) const {
+void TreeGrower::Export(TreeMesh &out) {
   Normals_.assign(Verts_.size(), TreeVec3{});
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
     if (Dead_[fi]) { continue; }
@@ -432,8 +432,6 @@ void TreeGrower::Export(TreeMesh &out) const {
     float *o = &out.BarkVerts[i * TreeMesh::kBarkFloats];
     o[0] = p.X; o[1] = p.Y; o[2] = p.Z;
     o[3] = n.X; o[4] = n.Y; o[5] = n.Z;
-    o[6] = 0.0f; o[7] = p.Y;
-    o[8] = 0.0f; o[9] = 1.0f; o[10] = 0.0f;
   }
   out.BarkIdx.clear();
   for (size_t fi = 0; fi < Faces_.size(); ++fi) {
@@ -506,4 +504,4 @@ void TreeGrower::NormalizeToUnitHeight(TreeMesh &out, float heightM) {
   out.DbhRadius = TrunkProfile_.back().Y * s;
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators

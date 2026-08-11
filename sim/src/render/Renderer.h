@@ -149,8 +149,8 @@ public:
     Trees->SetCards(rank, inst, n, leafLenM, spreadDeg);
   }
   void SetTreeLook(const TreeLook &look) { Trees->SetLook(look); }
-  void SetTreeStands(const float *inst, uint32_t n, const float *distM) {
-    Trees->SetStands(inst, n, distM);
+  void SetTreeStands(const float *inst, uint32_t n, const TangentFrame &frame) {
+    Trees->SetStands(inst, n, frame);
   }
   long TreeMeshStands() const { return Trees->MeshStands(); }
   double TreeMeshRadiusM() const { return Trees->MeshRadiusM(); }

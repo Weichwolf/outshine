@@ -14,7 +14,7 @@
 #include "TreeSpecies.h"
 #include "TreeVec3.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeGrower {
 public:
@@ -74,7 +74,7 @@ private:
   void EmitLeafPoints(TreeMesh &out, TreeVec3 pos, TreeVec3 dir, TreeVec3 up, float radius, int count,
                       float roll);
   void GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh &out);
-  void Export(TreeMesh &out) const;
+  void Export(TreeMesh &out);
   void NormalizeToUnitHeight(TreeMesh &out, float heightM);
 
   std::vector<TreeVec3> Verts_;
@@ -82,7 +82,7 @@ private:
   std::vector<uint8_t> Dead_;
   std::vector<Tip> Queue_;
   std::vector<TreeVec3> TrunkProfile_; /* X = height above the seed ring, Y = radius, both grower units */
-  mutable std::vector<TreeVec3> Normals_;
+  std::vector<TreeVec3> Normals_;
   TreeRandom Rng_{1};
   int Passes_ = 0;
   float DbhErrorRel_ = 0.0f;
@@ -90,5 +90,5 @@ private:
   float GrowHeight_ = 0.0f;
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

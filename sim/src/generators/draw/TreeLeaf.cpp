@@ -5,7 +5,7 @@
 
 #include "TreeRandom.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 namespace {
 
@@ -260,4 +260,4 @@ void TreeLeaf::Build(const TreeSpecies::Leaf &leaf, TreeMesh &out) {
   }
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators

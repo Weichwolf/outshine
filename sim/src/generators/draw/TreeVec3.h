@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 struct TreeVec3 {
   float X = 0.0f, Y = 0.0f, Z = 0.0f;
@@ -52,5 +52,5 @@ inline TreeVec3 RmfDouble(TreeVec3 p0, TreeVec3 p1, TreeVec3 t0, TreeVec3 t1, Tr
   return Normalize(rL - v2 * (2.0f / c2 * Dot(v2, rL)));
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

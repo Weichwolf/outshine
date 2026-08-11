@@ -1,0 +1,95 @@
+#include "TreePrototype.h"
+
+#include <cmath>
+
+#include "TreeFoliage.h"
+#include "TreeGrower.h"
+#include "TreeLeaf.h"
+#include "TreeMesh.h"
+#include "TreeRanks.h"
+
+namespace outshine::Generators {
+namespace {
+
+/* THE LAMINA'S BASE REFLECTANCE, and it is not a new number: it is the vegetation table's own
+ * `mixed_broadleaf` fresh blade, sRGB (74, 92, 46) linearised — the green the ground shader already
+ * draws a broadleaf stand in. A species' declared `leaf_r/g/b` multiplies it, which is what makes
+ * that triple a TINT (spruce 0.40/0.74/0.55 is darker and bluer than beech, not a colour of its own). */
+const float kLeafBaseLinear[3] = {0.0684f, 0.1072f, 0.0273f};
+
+float SrgbToLinear(float v) {
+  return v <= 0.04045f ? v / 12.92f : std::pow((v + 0.055f) / 1.055f, 2.4f);
+}
+
+}  // namespace
+
+TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
+  TreeLook look;
+  const TreeSpecies::Shading &sh = sp.ShadingParams();
+  const TreeSpecies::Leaf &lf = sp.LeafParams();
+  for (int c = 0; c < 3; c++) {
+    look.BarkRgb[c] = SrgbToLinear(sh.BarkColor[c]);
+    look.LeafRgb[c] = kLeafBaseLinear[c] * sh.LeafTint[c];
+  }
+  look.BarkDark = sh.BarkDark;
+  look.BarkFreq = sh.BarkFreq;
+  look.BarkRidge = sh.BarkRidge;
+  look.LeafWidth = lf.Width;
+  look.LeafWidest = lf.Widest;
+  look.LeafTip = lf.Tip;
+  look.LeafBaseFill = lf.BaseFill;
+  look.LeafLobes = (float)lf.Lobes;
+  look.LeafLobeDepth = lf.LobeDepth;
+  look.LeafSerration = lf.Serration;
+  look.LeafFold = lf.Fold;
+  look.NeedleWidth = lf.Kind == TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f;
+  return look;
+}
+
+std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
+  TreeMesh mesh;
+  TreeGrower grower;
+  TreeFoliage foliage;
+  TreePrototype proto;
+  proto.HeightM_ = (double)sp.HeightM();
+  proto.Look_ = LookOf(sp);
+  proto.Ranks_.resize((size_t)TreeRank::kCount);
+  double crownProjM2 = 0.0;
+  /* ONE MESH PER RANK, and the ladder is the drawn error's own: rank k may be one pixel coarse at
+   * its nearest instance. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kLeavesPerCard
+   * grown laminae, each drawing the species' own leaf. Only the ranks above it thin, by four per
+   * step so a card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the
+   * declared index survives the thinning. */
+  for (int rank = 0; rank < TreeRank::kCount; ++rank) {
+    Rank &out = proto.Ranks_[(size_t)rank];
+    grower.Grow(sp, mesh, TreeRank::Pixel(rank));
+    TreeLeaf::Build(sp.LeafParams(), mesh);
+    foliage.Build(mesh, sp, 1);
+    const uint32_t stride = (uint32_t)kLeavesPerCard << (2u * (unsigned)rank);
+    for (size_t i = 0; i < foliage.Count(); i += stride) {
+      const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
+      out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
+    }
+    const uint32_t nCards = (uint32_t)(out.Cards.size() / TreeFoliage::kFloats);
+    /* THE CROWN'S PROJECTION IS THE SPECIES', not the rank's. A coarse rank drops the thin shoots
+     * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
+     * shrink the canopy exactly where it is already thinnest. */
+    if (rank == 0) crownProjM2 = foliage.CrownProjM2();
+    out.CardCount = nCards;
+    out.CardLeafM = foliage.CardLeafM(kLeavesPerCard, nCards, (double)sp.Lai(), crownProjM2);
+    out.BarkVerts = mesh.BarkVerts;
+    out.BarkVertCount = (uint32_t)mesh.BarkVertexCount();
+    out.BarkIdx = mesh.BarkIdx;
+    if (rank == 0) {
+      proto.Crown_.HalfWidth = std::fmax(std::fmax(-mesh.BoxMin.X, mesh.BoxMax.X),
+                                         std::fmax(-mesh.BoxMin.Z, mesh.BoxMax.Z));
+      proto.Crown_.Bottom = mesh.BoxMin.Y;
+      proto.Crown_.Top = mesh.BoxMax.Y;
+      proto.Crown_.HeightM = (float)proto.HeightM_;
+    }
+  }
+  if (proto.Ranks_[0].BarkVertCount == 0) return std::nullopt;
+  return proto;
+}
+
+} // namespace outshine::Generators

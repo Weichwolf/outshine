@@ -4,7 +4,7 @@
 
 #include "TreeRandom.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 namespace {
 
@@ -78,4 +78,4 @@ float TreeFoliage::CardLeafM(int leavesPerCard, size_t cards, double lai,
   return (float)std::sqrt(lai * crownProjM2 / per);
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators

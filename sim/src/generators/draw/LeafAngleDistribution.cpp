@@ -3,7 +3,7 @@
 #include <cmath>
 #include <vector>
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 namespace {
 
@@ -98,4 +98,4 @@ float LeafAngleDistribution::Fit(float sinEl) const {
   return G0_ + G1_ * std::pow(s, Gp_);
 }
 
-} // namespace outshine::World
+} // namespace outshine::Generators

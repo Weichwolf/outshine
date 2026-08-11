@@ -11,8 +11,8 @@
 #ifndef MEMORYTELEMETRY_H
 #define MEMORYTELEMETRY_H
 
-#include "Forest.h"
 #include "Renderer.h"
+#include "Sim.h"
 #include "Telemetry.h"
 #include "World.h"
 
@@ -20,11 +20,10 @@ namespace outshine::Clients {
 
 class MemoryTelemetry : public TelemetrySource {
 public:
-  /* The three that hold something: the world's streams, the renderer's device pools, and the forest
-   * grown once at bring-up. Borrowed — the ledger owns nothing it counts. */
-  MemoryTelemetry(const World::World &world, const Render::Renderer &renderer,
-                  const World::Forest &forest)
-      : World_(world), Renderer_(renderer), Forest_(forest) {}
+  /* The three that hold something: the world's streams, the renderer's device pools, and the
+   * buffers the regions are generated into. Borrowed — the ledger owns nothing it counts. */
+  MemoryTelemetry(const World::World &world, const Render::Renderer &renderer, const Sim &sim)
+      : World_(world), Renderer_(renderer), Sim_(sim) {}
 
   const char *TelemetryName() const override { return "memory"; }
   void DeclareTelemetry(TelemetrySchema &schema) const override;
@@ -33,7 +32,7 @@ public:
 private:
   const World::World &World_;
   const Render::Renderer &Renderer_;
-  const World::Forest &Forest_;
+  const Sim &Sim_;
 };
 
 } // namespace outshine::Clients

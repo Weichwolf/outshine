@@ -16,7 +16,7 @@
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeFoliage {
 public:
@@ -67,5 +67,5 @@ private:
   double CrownProjM2_ = 0.0;
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

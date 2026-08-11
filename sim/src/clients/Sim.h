@@ -6,15 +6,22 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "Forest.h"
+#include "GeneratorSet.h"
+#include "Ground.h"
 #include "GroundMaterials.h"
+#include "GroundTable.h"
+#include "RegionPool.h"
 #include "Scene.h"
 #include "SceneWeather.h"
+#include "Schedule.h"
 #include "Standpoint.h"
 #include "State.h"
 #include "StreamTelemetry.h"
 #include "Telemetry.h"
+#include "TreeSpecies.h"
 #include "VegetationTemplates.h"
 #include "World.h"
 
@@ -63,9 +70,15 @@ public:
   Bring Open();
   bool Opened() const { return Opened_; }
 
-  /* Grows the declared species. The yield is the picture's; the world keeps the crown and the
-   * height spread it scatters with. Empty where no species is declared or it will not read. */
-  std::optional<World::Forest::Prototype> GrowTrees();
+  /* WHAT GREW IN ONE REGION: the ground it grew on, the space it claimed and what it wanted counted
+   * beside the claim. The lease is held with it because the bodies live in the pool's buffers, and
+   * the yields name the stretch of them each generator claimed. */
+  struct Populated {
+    Generators::Ground Where;
+    Generators::RegionPool::Lease Space;
+    std::vector<Generators::Yield::Note> Notes;
+    std::vector<Generators::Yield> Yields;
+  };
 
   /* Move the eye. The ground rides the DEM, so the height above sea level follows from wherever the
    * stance now is and a cold tile leaves the last resolved answer standing. */
@@ -92,7 +105,23 @@ public:
 
   World::World &Scenery() { return W_; }
   const World::World &Scenery() const { return W_; }
-  const World::Forest &Forest() const { return Forest_; }
+  /* The regions that carry occupancy right now, in the order they were generated. */
+  Span<const Populated> Regions() const { return Span<const Populated>(Grown_.data(), Grown_.size()); }
+  const Generators::GeneratorSet &Content() const { return Gens_; }
+  /* Moves whenever a region is generated or released, which is what a collector re-reads on. */
+  uint64_t RegionVersion() const { return Version_; }
+  /* Every region the ring reaches stands. The loading phase holds the world back until it does:
+   * one region is generated per pass, so a run that opened its shutter on residency alone would
+   * photograph a forest with three quarters of itself missing. */
+  bool RingStands() const;
+  const Generators::TreeSpecies &Species() const { return Species_; }
+  size_t GeneratorHeapBytes() const { return Pool_.HeapBytes(); }
+  long StandCount() const;
+  /* [SET] metres. How far from the eye the world is populated, and the same number the picture cuts
+   * its instances at: beyond it a 25 m tree is under two pixels wide at 720p and belongs to the
+   * distance the ground material carries. */
+  static constexpr double kReachM = 900.0;
+
   const World::Standpoint &Standpoint() const { return Stand_; }
   const World::VegetationTemplates &Vegetation() const { return Veg_; }
   const World::GroundMaterials &Materials() const { return Mats_; }
@@ -127,6 +156,12 @@ public:
 
 private:
   Bring ResolveGround(double lat, double lon, double *out) const;
+  /* Every region the ring names that reaches the eye, generated once. A region whose ground is not
+   * complete yet is skipped, not refused: the next turn asks again. */
+  void Populate();
+  [[nodiscard]] bool Reached(const Generators::Region &region) const;
+  [[nodiscard]] bool Snapshot(const Generators::Region &region,
+                              Generators::Ground::Snapshot *out) const;
 
   Scene Scene_;
   Assets Assets_;
@@ -137,8 +172,19 @@ private:
   World::GroundMaterials Mats_;
   World::VegetationTemplates Veg_;
   World::World W_;
-  World::Forest Forest_;
   World::Standpoint Stand_;
+
+  Generators::TreeSpecies Species_;
+  std::vector<float> StandsPerM2_;                     /* by ground class row */
+  std::shared_ptr<const Generators::GroundTable> Table_;
+  std::shared_ptr<const Generators::FeatureField> NoFeatures_;
+  Generators::Schedule Ring_;
+  Generators::RegionPool Pool_;
+  Generators::GeneratorSet Gens_;
+  std::optional<Generators::Forest> Trees_;
+  std::vector<Populated> Grown_;
+  uint64_t Version_ = 0;
+
   State State_;
   StreamTelemetry Stream_;
   TelemetrySource *Identity_ = nullptr;

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <string>
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeSpecies {
 public:
@@ -111,5 +111,5 @@ private:
   float Lai_ = 0.0f;
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

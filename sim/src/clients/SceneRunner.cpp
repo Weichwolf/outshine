@@ -6,7 +6,6 @@
 #include <cstdio>
 #include <map>
 
-#include "Forest.h"
 #include "Geodesy.h"
 #include "Json.h"
 #include "Log.h"
@@ -15,6 +14,8 @@
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
 #include "TreeRanks.h"
+#include "Species.h"
+#include "TreePrototype.h"
 #include "TreeSpecies.h"
 #include "Units.h"
 #include "WindField.h"
@@ -187,8 +188,9 @@ void SceneRunner::Dispatch() {
     return;
   }
   Render::Renderer &R = App_.Renderer();
-  if (App_.Simulation().Forest().StandCount() > 0)
-    Log::Info("run", "trees_lod", {{"stands", (double)App_.Simulation().Forest().StandCount()},
+  const long stands = App_.Measured().TreeStands;
+  if (stands > 0)
+    Log::Info("run", "trees_lod", {{"stands", (double)stands},
         {"meshStands", (double)R.TreeMeshStands()}, {"meshRadiusM", R.TreeMeshRadiusM()},
         {"rank0", (double)R.TreeRankStands(0)}, {"rank1", (double)R.TreeRankStands(1)},
         {"rank2", (double)R.TreeRankStands(2)}, {"rank3", (double)R.TreeRankStands(3)},
@@ -583,22 +585,22 @@ bool SceneRunner::BenchBegin() {
   const Scene::Run::SubjectRun &s = Scene_.Runs().front().Subject;
   Bench_ = std::make_unique<SubjectBench>(App_.Renderer(), App_.Simulation().Vegetation(), Out_);
   SubjectBench &bench = *Bench_;
-  World::TreeMesh &mesh = BenchMesh_;
-  World::TreeFoliage &foliage = BenchFoliage_;
+  Generators::TreeMesh &mesh = BenchMesh_;
+  Generators::TreeFoliage &foliage = BenchFoliage_;
   if (!s.Species.empty()) {
     const std::string path = std::string(kSpeciesDir) + "/" + s.Species + ".json";
-    World::TreeSpecies sp;
-    if (!World::Forest::LoadSpecies(path.c_str(), &sp)) {
+    Generators::TreeSpecies sp;
+    if (!ReadSpecies(path.c_str(), &sp)) {
       Log::Error("run", "subject_species_unreadable", {{"path", path}, {"why", sp.Error()}});
       return false;
     }
-    World::TreeGrower grower;
+    Generators::TreeGrower grower;
     const auto t0 = std::chrono::steady_clock::now();
     /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every 3 mm
      * twig — a mesh nobody draws and one that truncated the crown. */
     grower.Grow(sp, mesh, TreeRank::Pixel(0));
     const auto t1 = std::chrono::steady_clock::now();
-    World::TreeLeaf::Build(sp.LeafParams(), mesh);
+    Generators::TreeLeaf::Build(sp.LeafParams(), mesh);
     const auto t2 = std::chrono::steady_clock::now();
     foliage.Build(mesh, sp, s.LeafMult);
     const auto t3 = std::chrono::steady_clock::now();
@@ -610,7 +612,7 @@ bool SceneRunner::BenchBegin() {
     const bool leaves = s.Leaf == Scene::Run::Foliage::Leaves;
 
     Render::Renderer &r = App_.Renderer();
-    r.SetTreeLook(World::Forest::LookOf(sp));
+    r.SetTreeLook(Generators::TreePrototype::LookOf(sp));
     r.SetTreeBark(0, mesh.BarkVerts.data(), (uint32_t)mesh.BarkVertexCount(), mesh.BarkIdx.data(),
                   (uint32_t)mesh.BarkIdx.size());
     r.SetTreeLeaf(mesh.LeafVerts.data(), (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),

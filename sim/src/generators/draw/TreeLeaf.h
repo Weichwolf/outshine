@@ -8,7 +8,7 @@
 #include "TreeSpecies.h"
 #include "TreeVec3.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeLeaf {
 public:
@@ -16,5 +16,5 @@ public:
   static void Build(const TreeSpecies::Leaf &leaf, TreeMesh &out);
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

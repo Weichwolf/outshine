@@ -6,7 +6,7 @@
 
 #include <cstdint>
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeRandom {
 public:
@@ -27,5 +27,5 @@ private:
   uint32_t State_;
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

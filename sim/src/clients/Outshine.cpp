@@ -9,6 +9,7 @@
 #include "Log.h"
 #include "PixelFocalLength.h"
 #include "TerrainLoader.h"
+#include "TreeRanks.h"
 
 namespace outshine::Clients {
 namespace {
@@ -184,21 +185,32 @@ void Outshine::AwaitStars() {
   R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());
   R_.SetSceneState(Sim_.SceneState());
 
+  /* THE CLUSTER, GROWN ONCE. Not a generator call: it happens before any region exists, and every
+   * stand in the world is an instance of what comes out of it. */
   if (!Sim_.Files().Species.empty()) {
-    const std::optional<World::Forest::Prototype> tree = Sim_.GrowTrees();
-    if (!tree) { Phase_ = Phase::Failed; return; }
-    for (size_t rank = 0; rank < tree->Ranks.size(); rank++) {
-      const World::Forest::Prototype::Rank &r = tree->Ranks[rank];
+    Tree_ = Generators::TreePrototype::Grow(Sim_.Species());
+    if (!Tree_) { Phase_ = Phase::Failed; return; }
+    const std::vector<Generators::TreePrototype::Rank> &ranks = Tree_->Ranks();
+    for (size_t rank = 0; rank < ranks.size(); rank++) {
+      const Generators::TreePrototype::Rank &r = ranks[rank];
       R_.SetTreeBark((int)rank, r.BarkVerts.data(), r.BarkVertCount, r.BarkIdx.data(),
                      (uint32_t)r.BarkIdx.size());
-      R_.SetTreeCards((int)rank, r.Cards.data(), r.CardCount, r.CardLeafM, tree->CardFanDeg);
+      R_.SetTreeCards((int)rank, r.Cards.data(), r.CardCount, r.CardLeafM,
+                      Generators::TreePrototype::kCardFanDeg);
+      Log::Info("outshine", "tree_grown", {{"rank", (double)rank},
+          {"pixelHeightFrac", (double)TreeRank::Pixel((int)rank)},
+          {"barkVerts", (double)r.BarkVertCount}, {"barkTris", (double)(r.BarkIdx.size() / 3)},
+          {"cards", (double)r.CardCount}, {"cardLeafM", (double)r.CardLeafM},
+          {"heightM", Tree_->HeightM()}});
     }
-    R_.SetTreeLook(tree->Look);
+    R_.SetTreeLook(Tree_->Look());
     /* bpar.z is the tree height and comes from SetTreeStand; without it every instance scales to
      * null. */
-    R_.SetTreeStand(0.0, 0.0, 0.0, tree->HeightM);
-    R_.SetTreeCrown(tree->Crown.HalfWidth, tree->Crown.Top, tree->Crown.Bottom);
+    R_.SetTreeStand(0.0, 0.0, 0.0, Tree_->HeightM());
+    R_.SetTreeCrown(Tree_->Reach().HalfWidth, Tree_->Reach().Top, Tree_->Reach().Bottom);
     R_.BakeTreeImpostor();
+    TreeDraw_.emplace(Generators::ClusterId{0}, Tree_->HeightM());
+    if (!Draws_.Add(Generators::Rank{0}, *TreeDraw_)) { Phase_ = Phase::Failed; return; }
   }
   LoadFromMs_ = LoadMovedMs_ = LoadSaidMs_ = NowMs();
   LoadPasses_ = 0;
@@ -239,7 +251,7 @@ Outshine::Counters Outshine::Measured() const {
   c.Draws = R_.DrawCount();
   c.Triangles = (long)R_.TriangleCount();
   c.TreeTriangles = R_.TreeTriangleCount();
-  c.TreeStands = Sim_.Forest().StandCount();
+  c.TreeStands = (long)Stands_.Count();
   c.BuildingVerts = R_.BuildingVertexCount();
   c.Built = w.BuiltCount();
   c.WorldMs = w.PassMs();
@@ -319,12 +331,33 @@ void Outshine::Collect() {
     R_.SetBuildingMesh(bld.Verts, bld.VertCount, bld.Idx, bld.IdxCount, bld.Clusters,
                        bld.ClusterCount, bld.AnchorEcef);
   }
-  const World::Forest &forest = Sim_.Forest();
-  if (forest.Scattered() && !TreesStanding_) {
-    TreesStanding_ = true;
-    R_.SetTreeStands(forest.Stands().data(), (uint32_t)forest.StandCount(),
-                     forest.StandDistM().data());
+  CollectStands();
+}
+
+/* THE COLLECTION, and it is where every view-dependent rule lives: how far the picture reaches and
+ * which stand holds the lens. A region that has just been generated makes the whole answer again,
+ * because a collection is one answer over the regions that stand and not an append to an older
+ * one. */
+void Outshine::CollectStands() {
+  const Span<const Sim::Populated> regions = Sim_.Regions();
+  if (!Tree_ || Sim_.RegionVersion() == StandingRegions_) return;
+  StandingRegions_ = Sim_.RegionVersion();
+  const double t0 = NowMs();
+  StandField::Lens lens{TangentFrame::At(Sim_.Lat(), Sim_.Lon()), Sim_.Standpoint().AltAslM(),
+                        Sim::kReachM};
+  Stands_.Aim(lens, Tree_->Reach());
+  for (const Sim::Populated &region : regions) {
+    Stands_.From(region.Where.Where());
+    Draws_.Draw(region.Where, Sim_.Content(),
+                Span<const Generators::Yield>(region.Yields.data(), region.Yields.size()),
+                region.Space.Sink().Placed(), Stands_);
   }
+  R_.SetTreeStands(Stands_.Stands().data(), Stands_.Count(), Stands_.Frame());
+  Log::Info("outshine", "stands_collected", {{"regions", (double)regions.Size()},
+      {"placed", (double)Sim_.StandCount()}, {"stands", (double)Stands_.Count()},
+      {"beyondReachM", Sim::kReachM}, {"beyondReach", (double)Stands_.BeyondReach()},
+      {"nearestM", Stands_.NearestM()}, {"farthestM", Stands_.FarthestM()},
+      {"inCrown", (double)Stands_.InCrown()}, {"collectMs", NowMs() - t0}});
 }
 
 Outshine::Progress Outshine::Stream(double nowMs) {
@@ -351,7 +384,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.Resident = w.Resident();
   p.Pool = fb_tile_pool()->Counters();
   Sim_.Streaming().AddPass(p);
-  return {w.LoadProgress(), w.Resident()};
+  return {w.LoadProgress(), w.Resident() && Sim_.RingStands()};
 }
 
 /* THE PROGRESS FRAME IS A FRAME LIKE ANY OTHER, and that is the whole point: the renderer never

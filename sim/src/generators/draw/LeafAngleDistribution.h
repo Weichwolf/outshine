@@ -18,7 +18,7 @@
 
 #include "TreeMesh.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class LeafAngleDistribution {
 public:
@@ -51,5 +51,5 @@ private:
   float MeanElevationDeg_ = 0.0f;
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

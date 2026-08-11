@@ -16,7 +16,7 @@
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
 
-using namespace outshine::World;
+using namespace outshine::Generators;
 
 namespace {
 

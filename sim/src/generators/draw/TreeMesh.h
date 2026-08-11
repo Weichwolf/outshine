@@ -8,13 +8,14 @@
 #include <cstdint>
 #include <vector>
 
+#include "ChunkVtx.h"
 #include "TreeVec3.h"
 
-namespace outshine::World {
+namespace outshine::Generators {
 
 class TreeMesh {
 public:
-  static constexpr int kBarkFloats = 11; /* pos(3) nrm(3) uv(2) tan(3) */
+  static constexpr int kBarkFloats = (int)(kPlainVertexStrideB / sizeof(float));
   static constexpr int kLeafFloats = 8;  /* pos(3) nrm(3) uv(2) */
 
   /* Where a leaf sits on the shoot and where its stalk points. Not geometry — the population the leaf
@@ -57,5 +58,5 @@ public:
   }
 };
 
-} // namespace outshine::World
+} // namespace outshine::Generators
 #endif

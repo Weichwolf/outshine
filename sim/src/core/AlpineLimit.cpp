@@ -3,7 +3,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace outshine::World {
+namespace outshine {
 
 namespace {
 
@@ -49,4 +49,4 @@ double AlpineLimit::Noise(double e, double n) const {
   return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
 }
 
-} // namespace outshine::World
+} // namespace outshine

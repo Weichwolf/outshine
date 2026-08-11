@@ -93,8 +93,8 @@ private:
    * Its mesh and foliage are held for the whole bench run, because the arrays are uploaded once and
    * the numbers it logs come off the same objects the picture was drawn from. */
   std::unique_ptr<SubjectBench> Bench_;
-  World::TreeMesh BenchMesh_;
-  World::TreeFoliage BenchFoliage_;
+  Generators::TreeMesh BenchMesh_;
+  Generators::TreeFoliage BenchFoliage_;
 };
 
 } // namespace outshine::Clients

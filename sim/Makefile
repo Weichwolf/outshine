@@ -66,10 +66,12 @@ CURL_COMPAT  := vendor/.compat-headers
 # stages; world = World/tile streaming, with world/terrain the lean terrain API under it; clients =
 # the entry points. `make world` links without -Isrc/render at all, so an upward include from world/
 # is a build failure rather than a rule.
+# ONE COMPILE GROUP PER LAYER, and the group is what the layering IS: every source is compiled with
+# the include set of its own directory, so an upward include has no spelling rather than a rule. The
+# three targets link the same objects -- a set that is wider in one target than in another is a
+# breach that builds.
 INC_CORE    := -Isrc/core -Isrc/core/io
-INC_SIM     := $(INC_CORE) -Isrc/world
-INC_MODULES := $(INC_SIM) -Isrc/render
-# A GENERATOR'S WHOLE WORLD. Not a subset of the above by accident: `make verify-generators`
+# A GENERATOR'S WHOLE WORLD. Not a subset of the others by accident: `make verify-generators`
 # compiles against exactly this and asserts that Renderer, World and the log have no spelling in it.
 # src/core/io is ABSENT on purpose -- Log and TelemetryBus live there, and a generator that cannot
 # name them cannot do I/O.
@@ -77,9 +79,13 @@ INC_GENERATORS := -Isrc/core -Isrc/generators
 # ...and the picture half of the same layer, which the server target never compiles: DrawSource and
 # its sink hand clusters and instances to a renderer, and the server has no renderer to hand them to.
 INC_DRAW := $(INC_GENERATORS) -Isrc/generators/draw
-INC_CLIENT := -Isrc/clients
-INC_WASM   := $(INC_MODULES) -Isrc/world/terrain
-INC_NATIVE := $(INC_MODULES) -Isrc/world/terrain
+INC_WORLD  := $(INC_CORE) -Isrc/world -Isrc/world/terrain
+INC_RENDER := $(INC_CORE) -Isrc/render -Isrc/render/stages
+# THE SIMULATION HALF OF THE CLIENTS, and it is the ONLY place that may name world and generators in
+# one translation unit: -Isrc/render is absent, so the server target's half cannot reach a renderer.
+INC_SIMHALF := $(INC_CORE) -Isrc/world -Isrc/world/terrain -Isrc/generators -Isrc/clients
+# ...and the picture half over it, the one set that holds everything.
+INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw $(INC_RENDER)
 INC_TILES := -I../tiles/src
 
 # EVERY WebGPU render stage, one class per shader (CLAUDE.md render/stages). A wildcard, not a hand list:
@@ -90,7 +96,9 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 # CORE IS A COMPILE GROUP: core may name nothing above itself, and the one command that compiles
 # clients, world and render together would hand it the world's include set instead. A wildcard, so a
 # new core file is bound by $(INC_CORE) in all three targets without a list to remember.
-CORE_SRCS := $(wildcard src/core/*.cpp) $(wildcard src/core/io/*.cpp)
+CORE_TOP_SRCS := $(wildcard src/core/*.cpp)
+CORE_IO_SRCS := $(wildcard src/core/io/*.cpp)
+CORE_SRCS := $(CORE_TOP_SRCS) $(CORE_IO_SRCS)
 # THE GENERATORS, and they are their own COMPILE GROUP for the same reason: everything else in a
 # target is compiled with that target's include set, and a generator compiled with -Isrc/world could
 # name the streamer in a build that stays green. A wildcard, so a new generator is bound by the
@@ -100,45 +108,50 @@ GEN_SRCS := $(wildcard src/generators/*.cpp)
 GEN_DRAW_SRCS := $(wildcard src/generators/draw/*.cpp)
 # ...and the same statement one level up, for Renderer and its neighbours: hand-listing them meant a
 # new render/ file linked in one target and not the other.
-RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
+RENDER_TOP_SRCS := $(wildcard src/render/*.cpp)
+RENDER_SRCS := $(RENDER_TOP_SRCS) $(RENDER_STAGE_SRCS)
 
-# THE TREE GENERATOR: one mesh out of one species declaration. Linked into
-# both clients so that the layer under construction is held to the same -Werror on both toolchains; the
-# consumer is the next layer, and `treebench` is what measures it today.
-TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLeaf.cpp \
-  src/world/TreeFoliage.cpp src/world/LeafAngleDistribution.cpp
+# WORLD, whole, and a wildcard for the same reason core is: a new file in the directory is bound by
+# the directory's include set in all three targets without a list to remember. TerrainLoader and
+# TilePool additionally see the tile server's public header.
+WORLD_SRCS := $(wildcard src/world/*.cpp)
+TERRAIN_SRCS := $(wildcard src/world/terrain/*.cpp)
 
-# THE SIMULATION HALF, and it is a LINK statement: nothing in this list may name render/, which is
-# what `make world` proves by building it with $(INC_SIM) and no renderer object at all.
+# THE SIMULATION HALF OF THE CLIENTS. Nothing in this list may name render/, which `make world`
+# proves by building it with $(INC_SIMHALF) and no renderer object at all.
 SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
-  src/world/World.cpp \
-  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
-  $(TREE_SRCS)
+  src/clients/Species.cpp
 
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds
 # a scene; a client adds an entry point and an output medium over it. Both clients link this list,
 # which is what `make verify-clients` holds them to.
-APP_SRCS := $(SIM_SRCS) src/clients/Outshine.cpp src/clients/Snapshot.cpp \
+APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
+  src/clients/StandField.cpp \
   src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
   src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp \
   src/clients/MemoryTelemetry.cpp \
   src/clients/ServerArtifacts.cpp
 
-# Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
-WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o build/obj-wasm/TilePool.o \
-  $(patsubst src/world/terrain/%.cpp,build/obj-wasm/%.o,$(wildcard src/world/terrain/*.cpp))
-WASM_GEN_OBJS := $(patsubst src/generators/%.cpp,build/obj-wasm/gen-%.o,$(GEN_SRCS)) \
-  $(patsubst src/generators/draw/%.cpp,build/obj-wasm/gen-%.o,$(GEN_DRAW_SRCS))
-WASM_CORE_OBJS := $(patsubst src/core/%.cpp,build/obj-wasm/core-%.o,$(wildcard src/core/*.cpp)) \
-  $(patsubst src/core/io/%.cpp,build/obj-wasm/core-%.o,$(wildcard src/core/io/*.cpp))
+# Named, not `build/obj-<target>/*.o`: the glob would link whatever a PREVIOUS target had left in
+# there. One function of the object directory, so the three targets name the same six groups.
+OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
+  $(patsubst src/core/io/%.cpp,$(1)/core-%.o,$(CORE_IO_SRCS)) \
+  $(patsubst src/generators/%.cpp,$(1)/gen-%.o,$(GEN_SRCS)) \
+  $(patsubst src/world/%.cpp,$(1)/world-%.o,$(WORLD_SRCS)) \
+  $(patsubst src/world/terrain/%.cpp,$(1)/world-%.o,$(TERRAIN_SRCS)) \
+  $(patsubst src/clients/%.cpp,$(1)/sim-%.o,$(SIM_SRCS))
+PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS)) \
+  $(patsubst src/render/%.cpp,$(1)/render-%.o,$(RENDER_TOP_SRCS)) \
+  $(patsubst src/render/stages/%.cpp,$(1)/render-%.o,$(RENDER_STAGE_SRCS)) \
+  $(patsubst src/clients/%.cpp,$(1)/app-%.o,$(APP_SRCS))
 
 # THE MODS, whole. A mod is a set of declared scenes and nothing else; the browser gets the same
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm walk world treebench verify-generators verify-clients image up down restart clean
+.PHONY: help wasm walk world treebench verify-generators verify-world verify-clients image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
@@ -147,29 +160,35 @@ wasm:            ## build the WASM client -> web/gpu.{js,wasm}
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
 	  mkdir -p build/obj-wasm; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
-	    emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(WASM_THREADS) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	      -c -o build/obj-wasm/$$(basename $$f .cpp).o; done; \
+	  EM="emcc $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS)"; \
+	  EMPP="emcc -std=c++20 -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) -fexceptions --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -isystem vendor"; \
+	  for f in $(TERRAIN_SRCS); do o=build/obj-wasm/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_WORLD) -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
+	  for f in $(WORLD_SRCS); do o=build/obj-wasm/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_WORLD) $(INC_TILES) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=build/obj-wasm/core-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_CORE) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_GENERATORS) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(GEN_DRAW_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_DRAW) -c -o "$$o"; done; \
-	  emcc $(WASM_TERRAIN_OBJS) $(WASM_GEN_OBJS) $(WASM_CORE_OBJS) \
-	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
-	    $(RENDER_SRCS) \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_DRAW) -c -o "$$o"; done; \
+	  for f in $(SIM_SRCS); do o=build/obj-wasm/sim-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_SIMHALF) $(INC_TILES) -c -o "$$o"; done; \
+	  for f in $(RENDER_SRCS); do o=build/obj-wasm/render-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$EMPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
+	  for f in $(APP_SRCS); do o=build/obj-wasm/app-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$EMPP "$$f" $(INC_CLIENTS) $(INC_TILES) -c -o "$$o"; done; \
+	  emcc $(call OBJS,build/obj-wasm) $(call PICTURE_OBJS,build/obj-wasm) \
+	    src/clients/AppWasm.cpp src/clients/Walker.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O2 $(EMCC_WARN) -fexceptions \
-	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
+	    $(INC_CLIENTS) -isystem vendor \
 	    $(WASM_THREADS_LINK) $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
 	    --preload-file assets/world/species@/assets/world/species \
-    --preload-file assets/world/ground-materials.json@/ground-materials.json \
+	    --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
 	  echo "WASM -> web/gpu.js (mods: $(MODS_DIR))"
 
@@ -183,22 +202,28 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-walk; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-walk/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
-	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
-	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	      -isystem $(CURL_COMPAT) -c -o build/obj-walk/$$(basename $$f .cpp).o; done; \
+	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
+	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
+	  for f in $(TERRAIN_SRCS); do o=build/obj-walk/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
+	  for f in $(WORLD_SRCS); do o=build/obj-walk/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=build/obj-walk/core-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_CORE) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_GENERATORS) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(GEN_DRAW_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_DRAW) -c -o "$$o"; done; \
-	  c++ src/clients/AppWalk.cpp $(APP_SRCS) \
-	    $(RENDER_SRCS) \
-	    build/obj-walk/*.o \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DRAW) -c -o "$$o"; done; \
+	  for f in $(SIM_SRCS); do o=build/obj-walk/sim-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	  for f in $(RENDER_SRCS); do o=build/obj-walk/render-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
+	  for f in $(APP_SRCS); do o=build/obj-walk/app-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	  c++ src/clients/AppWalk.cpp \
+	    $(call OBJS,build/obj-walk) $(call PICTURE_OBJS,build/obj-walk) \
 	    -std=c++20 -O2 $(CXX_WARN) \
-	    $(INC_NATIVE) $(INC_CLIENT) \
+	    $(INC_CLIENTS) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
@@ -210,17 +235,19 @@ world:           ## build the server target -- everything except render/, no dev
 	  $(FB_UPTODATE) \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-world; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-world/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
-	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
-	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	      -isystem $(CURL_COMPAT) -c -o build/obj-world/$$(basename $$f .cpp).o; done; \
+	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
+	  for f in $(TERRAIN_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
+	  for f in $(WORLD_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=build/obj-world/core-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_CORE) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_GENERATORS) -c -o "$$o"; done; \
-	  c++ src/clients/WorldMain.cpp $(SIM_SRCS) build/obj-world/*.o \
-	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_CLIENT) \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
+	  for f in $(SIM_SRCS); do o=build/obj-world/sim-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	  c++ src/clients/WorldMain.cpp $(call OBJS,build/obj-world) \
+	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) $(INC_TILES) \
 	    -isystem vendor -isystem $(CURL_COMPAT) \
 	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
 	    -o build/fb_world; \
@@ -229,8 +256,8 @@ world:           ## build the server target -- everything except render/, no dev
 treebench:       ## grow all sixteen species and measure them -> build/treebench (CSV on stdout)
 	@cd $(SELF_DIR); set -e; \
 	  mkdir -p build; \
-	  c++ src/clients/TreeBench.cpp $(TREE_SRCS) src/core/Json.cpp \
-	    $(CXXSTD) -O2 $(CXX_WARN) -Isrc/world -Isrc/core \
+	  c++ src/clients/TreeBench.cpp $(GEN_DRAW_SRCS) src/generators/TreeSpecies.cpp src/core/Json.cpp \
+	    $(CXXSTD) -O2 $(CXX_WARN) $(INC_DRAW) \
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
 
@@ -249,7 +276,12 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 	    if [ "$$up" != "0" ]; then echo "verify-generators: $$f includes $$up file(s) of render/ or world/" >&2; exit 1; fi; \
 	    echo "verify-generators: $$f closure=$$n render+world=$$up"; done; \
 	  c++ src/generators/gate/DrawIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
-	  for f in $(GEN_DRAW_SRCS); do c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; done; \
+	  for f in $(GEN_DRAW_SRCS); do \
+	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
+	    n=$$(c++ "$$f" $(CXXSTD) $(INC_DRAW) -MM | tr ' \\' '\n\n' | grep -c '^src/'); \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_DRAW) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|clients\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-generators: $$f includes $$up file(s) of render/ or world/" >&2; exit 1; fi; \
+	    echo "verify-generators: $$f closure=$$n render+world=$$up"; done; \
 	  for g in $(GEN_NEGATIVES); do f=src/generators/gate/$$g.cpp; \
 	    if c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -fsyntax-only 2>/dev/null; then \
 	      echo "verify-generators: $$f COMPILED -- the include set no longer bounds generators/" >&2; exit 1; \
@@ -258,6 +290,7 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 	      echo "verify-generators: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
 	    fi; done; \
 	  c++ src/generators/gate/SameRegionSamePlacement.cpp $(GEN_SRCS) src/core/ClassStructure.cpp \
+	    src/core/Json.cpp src/core/AlpineLimit.cpp \
 	    $(CXXSTD) -O2 $(CXX_WARN) $(INC_GENERATORS) -o build/gen_gate; \
 	  ./build/gen_gate; \
 	  echo "verify-generators: core reachable, render/ world/ log and draw have no spelling in generators/"
@@ -265,6 +298,20 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 # WHAT THE TYPE SYSTEM MUST REFUSE. A rule that only a reviewer enforces is a rule that comes back:
 # both of these were live defects before they were compile errors. The negative halves are built with
 # the house warning set because -Werror is what turns [[nodiscard]] into a refusal.
+verify-world:    ## a world/ TU compiles against core and CANNOT name a generator or the renderer
+	@cd $(SELF_DIR); set -e; \
+	  for f in $(WORLD_SRCS); do \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(INC_TILES) -isystem vendor -isystem $(CURL_COMPAT) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-world: $$f includes $$up file(s) above world/" >&2; exit 1; fi; done; \
+	  f=src/world/gate/GeneratorIsNotReachable.cpp; \
+	  if c++ "$$f" $(CXXSTD) $(INC_WORLD) -fsyntax-only 2>/dev/null; then \
+	    echo "verify-world: $$f COMPILED -- world/ can name a generator" >&2; exit 1; \
+	  fi; \
+	  if ! c++ "$$f" $(CXXSTD) $(INC_WORLD) -fsyntax-only 2>&1 | grep -q "file not found"; then \
+	    echo "verify-world: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
+	  fi; \
+	  echo "verify-world: generators/ and render/ have no spelling in world/"
+
 verify-types:    ## a value whose misuse must not compile -- and does not
 	@cd $(SELF_DIR); set -e; \
 	  c++ src/core/gate/GroundSampleIsUsable.cpp $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only; \

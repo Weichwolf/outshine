@@ -20,7 +20,7 @@
 
 #include "Json.h"
 
-namespace outshine::World {
+namespace outshine {
 
 class AlpineLimit {
 public:
@@ -68,5 +68,5 @@ private:
   bool Ready_ = false;
 };
 
-} // namespace outshine::World
+} // namespace outshine
 #endif

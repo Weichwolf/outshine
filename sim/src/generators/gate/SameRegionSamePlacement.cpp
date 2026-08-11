@@ -12,11 +12,13 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <map>
 #include <memory>
 #include <optional>
 #include <vector>
 
 #include "ClassStructure.h"
+#include "Forest.h"
 #include "Generator.h"
 #include "GeneratorSet.h"
 #include "Ground.h"
@@ -140,6 +142,24 @@ Ground::Snapshot SyntheticSnapshot(const Region &region) {
                                 Span<const FeatureField::Vertex>());
   s.Table = GroundTable::Of(Span<const GroundTable::Row>(rows.data(), rows.size()));
   return s;
+}
+
+/* THE BORDER, and it is the one thing a second region can be asked. The lattice is the region's own
+ * subdivision, so a cell belongs to one region and a point of the plane lies in one region's cell:
+ * the two lattices must meet with neither a gap nor a doubled stand. Measured on the real forest at
+ * a density that accepts every cell, so the placed stands ARE the lattice. */
+struct Seam {
+  double MinStepM = 1.0e30, MaxStepM = 0.0, CrossMinM = 1.0e30, CrossMaxM = 0.0;
+  long Rows = 0, Stands = 0;
+};
+
+std::vector<Body> Grown(RegionPool &pool, const Ground &ground, const Generator &gen,
+                        Span<Yield::Note> notes) {
+  std::optional<RegionPool::Lease> lease = pool.TryAcquire(ground);
+  Yield yield(lease->Sink(), gen.NoteNames(), notes);
+  gen.Occupy(ground, yield);
+  const Span<const Body> placed = lease->Sink().Placed();
+  return std::vector<Body>(placed.begin(), placed.end());
 }
 
 /* A stand-in for the generators step 6 onwards moves in: a jittered lattice, the ground's own rules,
@@ -433,6 +453,60 @@ int main() {
         "the yields do not partition the sink's refusals");
   Check(std::strcmp(notes[Scatter::InWater].Name, "inWater") == 0,
         "a note lost the name its generator declared");
+
+  {
+    /* Every cell placed: the acceptance threshold is above one, so nothing is drawn away and the
+     * bodies are the lattice itself. */
+    const float perM2[3] = {0.2f, 0.2f, 0.2f};
+    const Forest forest(Forest::Stem{}, Span<const float>(perM2, 3), AlpineLimit());
+    const double em = a.SpanEm() / (double)(int)(a.SpanEm() / Forest::kCellM + 0.5);
+    const double nm = a.SpanNm() / (double)(int)(a.SpanNm() / Forest::kCellM + 0.5);
+    RegionPool wide(schedule, RegionPool::Shape{2, 262144, kCellM});
+    std::vector<Yield::Note> seamNotes(Forest::kNotes), seamNotesB(Forest::kNotes);
+    const std::vector<Body> west =
+        Grown(wide, *groundA, forest, Span<Yield::Note>(seamNotes.data(), seamNotes.size()));
+    const std::vector<Body> east =
+        Grown(wide, *groundB, forest, Span<Yield::Note>(seamNotesB.data(), seamNotesB.size()));
+    Check(a.SpanEm() == b.SpanEm(), "two regions of one Mercator row disagree on their width");
+    /* THE BAND AROUND THE BORDER and nothing else: away from it the synthetic ground's own rules
+     * refuse stands (the scrub band is steeper than it declares), and a refusal is not a gap in a
+     * lattice. Inside the band every cell places, so a missing one is the lattice's own. */
+    constexpr double kBandM = 100.0;
+    std::map<long, std::vector<double>> byRow;
+    for (const Body &body : west)
+      if (body.Em > a.SpanEm() - kBandM) byRow[(long)(body.Nm / nm)].push_back(body.Em);
+    for (const Body &body : east)
+      if (body.Em < kBandM) byRow[(long)(body.Nm / nm)].push_back(a.SpanEm() + body.Em);
+    Seam seam;
+    for (auto &row : byRow) {
+      std::sort(row.second.begin(), row.second.end());
+      seam.Rows++;
+      seam.Stands += (long)row.second.size();
+      for (size_t i = 1; i < row.second.size(); i++) {
+        const double step = row.second[i] - row.second[i - 1];
+        const bool crosses = row.second[i - 1] < a.SpanEm() && row.second[i] >= a.SpanEm();
+        seam.MinStepM = std::min(seam.MinStepM, step);
+        seam.MaxStepM = std::max(seam.MaxStepM, step);
+        if (crosses) {
+          seam.CrossMinM = std::min(seam.CrossMinM, step);
+          seam.CrossMaxM = std::max(seam.CrossMaxM, step);
+        }
+      }
+    }
+    Check(seam.Stands > 10000 && !west.empty() && !east.empty(),
+          "the two regions placed nothing to compare");
+    /* One cell, one stand, jittered over the middle half of it: two neighbours therefore stand
+     * between half a cell and one and a half cells apart, and that must hold ACROSS the border
+     * exactly as it holds inside a region. */
+    Check(seam.MinStepM >= 0.5 * em - 1.0e-6 && seam.MaxStepM <= 1.5 * em + 1.0e-6,
+          "the lattice has a gap or a doubled stand somewhere");
+    Check(seam.CrossMinM >= 0.5 * em - 1.0e-6 && seam.CrossMaxM <= 1.5 * em + 1.0e-6,
+          "the two regions do not meet: the border pair is closer or wider than one lattice step");
+    std::printf("seamRows=%ld seamStands=%ld cellEm=%.4f stepMinM=%.4f stepMaxM=%.4f "
+                "crossMinM=%.4f crossMaxM=%.4f\n",
+                seam.Rows, seam.Stands, em, seam.MinStepM, seam.MaxStepM, seam.CrossMinM,
+                seam.CrossMaxM);
+  }
 
   const std::optional<BodyId> id = run1.Bodies[0].Id();
   Check(id && id->Index() == 0, "a placed body carries no id");

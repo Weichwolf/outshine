@@ -23,6 +23,19 @@ struct ChunkVtx {
  * spell a number the writer disagrees with. */
 constexpr uint64_t kVertexStrideB = 8 * sizeof(float);
 
+/* THE DECLARED SECOND LAYOUT, for a surface that carries no uv at all. Not a saving: a uv is metres
+ * on a surface, and where the fragment is a function of position and normal alone there are no such
+ * metres to write down — a zero in that field would be a number meaning nothing, and a tangent
+ * derived from it would be worse. The bark is one: its furrow reads a circumferential angle and a
+ * height off the position. */
+struct PlainVtx {
+  float pos[3];
+  float norm[3];
+};
+constexpr uint64_t kPlainVertexStrideB = 6 * sizeof(float);
+static_assert(sizeof(PlainVtx) == kPlainVertexStrideB, "vertex must be tightly packed (no padding)");
+static_assert(offsetof(PlainVtx, norm) == 12, "aNorm offset");
+
 /* Here with the layout because BOTH builders (ENU and ECEF) produce it, and neither should have to
  * include the other just for the struct. */
 struct Chunk {
