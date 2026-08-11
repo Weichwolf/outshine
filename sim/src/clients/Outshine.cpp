@@ -127,14 +127,16 @@ bool Outshine::Open() {
       Log::Warn("outshine", "moon_texture_missing", {{"path", files.Moon}});
     }
   }
+
+  if (!Sim_.Open()) return false;
+  /* After the world, because the catalogue comes down the same pool the tiles do — one transport,
+   * one cache, and the only blocking HTTP left in the client is the pool's own threads. */
   {
     static uint8_t stars[kStarBytes];
-    const int n = fb_fetch_stars(Sim_.TilesBase().c_str(), stars, kStarBytes);
+    const int n = fb_fetch_stars(stars, kStarBytes);
     if (n > 0) R_.SetStars(stars, n, Sim_.Lat(), Sim_.Lon());
     else Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()}});
   }
-
-  if (!Sim_.Open()) return false;
   R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());
   R_.SetSceneState(Sim_.SceneState());
 
@@ -301,6 +303,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.Built = w.BuiltCount();
   p.Evicted = w.EvictedCount();
   p.Resident = w.Resident();
+  p.Pool = fb_tile_pool()->Counters();
   Sim_.Streaming().AddPass(p);
   return {w.LoadProgress(), w.Resident()};
 }

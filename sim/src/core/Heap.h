@@ -16,6 +16,11 @@ public:
   /* Never null. `item` is what the caller wanted the bytes for and stands beside the count in the
    * abort line, so it is a literal at the call site rather than a formatted string. */
   static void *Take(const char *item, size_t bytes);
+
+  /* A refusal that happened where the count is not ours to see — a C module that answers "out of
+   * memory" with an error code. Without this the code arrives as a gap in the world and the run
+   * carries on with a hole nobody can trace back to the allocator. */
+  [[noreturn]] static void Exhausted(const char *item);
 };
 
 } // namespace outshine

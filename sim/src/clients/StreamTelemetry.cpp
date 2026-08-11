@@ -50,6 +50,15 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("tilesEvicted");
   schema.Add("resident");
   schema.Add("loadMs", "ms");
+  schema.Add("poolHttpGets", "count");
+  schema.Add("poolHttpMs", "ms");
+  schema.Add("poolFetchBlockedMs", "ms");
+  schema.Add("poolHttpGaveUp", "count");
+  schema.Add("poolFetchedMB", "MiB");
+  schema.Add("poolMeshTiles", "count");
+  schema.Add("poolMeshCpuMs", "ms");
+  schema.Add("poolDagMs", "ms");
+  schema.Add("poolEvictions", "count");
 }
 
 void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
@@ -68,6 +77,15 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push((int)WindowEvicted_);
   row.Push(Last_.Resident);
   row.Push(LoadMs_);
+  row.Push((int)Last_.Pool.Fetches);
+  row.Push(Last_.Pool.FetchMs);
+  row.Push(Last_.Pool.FetchBlockedMs);
+  row.Push((int)Last_.Pool.FetchGaveUp);
+  row.Push(Last_.Pool.FetchedMB);
+  row.Push((int)Last_.Pool.MeshTiles);
+  row.Push(Last_.Pool.MeshCpuMs);
+  row.Push(Last_.Pool.DagMs);
+  row.Push((int)Last_.Pool.Evictions);
 }
 
 } // namespace outshine::Clients

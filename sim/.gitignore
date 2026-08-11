@@ -1,9 +1,7 @@
-# --- build outputs (make wasm / worker / native) ---
+# --- build outputs (make wasm / walk / world) ---
 build/
 web/gpu.js
 web/gpu.wasm
-web/fbtileworker.js
-web/fbtileworker.wasm
 web/*.data
 
 # --- vendored / generated, recreated by vendor/*.sh ---

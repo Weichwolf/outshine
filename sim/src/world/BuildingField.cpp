@@ -25,6 +25,37 @@ constexpr double kDefaultHeightM = 9.0;
 
 }  // namespace
 
+/* The lowest corner of a ring, or why there is none. Read TWICE per tile — once to decide whether the
+ * tile can be consumed at all, once to build — because the second read is a hit in the oracle's own
+ * tile cache while the first is what keeps a footprint from being thrown away for arriving early. */
+GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring &ring) {
+  const std::vector<double> &pts = field.Points();
+  if (ring.Count == 0) return GroundSample::Missing();
+  double lowest = 1.0e9;
+  for (uint32_t k = 0; k < ring.Count; k++) {
+    const GroundSample g = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+                                            pts[((size_t)ring.First + k) * 2 + 1]);
+    double aslM = 0.0;
+    if (!g.TryAslM(&aslM)) return g;   /* the corner's own reason travels out, unre-encoded */
+    lowest = std::min(lowest, aslM);
+  }
+  return GroundSample::At(lowest);
+}
+
+bool BuildingField::TileGroundResolved(const OsmField &field, uint32_t tile, int layer) const {
+  const std::vector<OsmField::Feature> &feats = field.Features();
+  for (size_t i = Consumed_; i < feats.size() && feats[i].Tile == tile; i++) {
+    const OsmField::Feature &f = feats[i];
+    if (f.Type != 3 || (int)f.Layer != layer) continue;
+    for (uint32_t r = 0; r < f.RingCount; r++) {
+      const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
+      if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) continue;
+      if (RingBase(field, ring).Where() == GroundSample::State::Pending) return false;
+    }
+  }
+  return true;
+}
+
 int BuildingField::Build(const OsmField &field) {
   AddedFirst_ = (uint32_t)Verts_.size();
   AddedCount_ = 0;
@@ -37,6 +68,11 @@ int BuildingField::Build(const OsmField &field) {
   const std::vector<double> &pts = field.Points();
   int added = 0;
 
+  /* A FOOTPRINT IS CONSUMED ONCE. Whichever ring is asked first, a tile is either buildable now or
+   * asked again next pass — dropping a stand because its DEM had not landed yet is indistinguishable
+   * from "nothing stands here" and is never revisited. */
+  if (!TileGroundResolved(field, tile, layer)) { Deferrals_++; return (int)Prints_.size(); }
+
   for (; Consumed_ < feats.size() && feats[Consumed_].Tile == tile; Consumed_++) {
     const OsmField::Feature &f = feats[Consumed_];
     if (f.Type != 3 || (int)f.Layer != layer) continue;
@@ -46,15 +82,8 @@ int BuildingField::Build(const OsmField &field) {
       const OsmField::Ring &ring = field.Rings()[f.FirstRing + r];
       if (!ring.Exterior || ring.Count < 3 || ring.Count > 512) continue;
 
-      double base = 1e9;
-      bool ground = true;
-      for (uint32_t k = 0; k < ring.Count; k++) {
-        const double e = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
-                                          pts[((size_t)ring.First + k) * 2 + 1]);
-        if (e <= -1e7) { ground = false; break; }
-        base = std::min(base, e);
-      }
-      if (!ground) { NoGround_++; continue; }
+      double base = 0.0;
+      if (!RingBase(field, ring).TryAslM(&base)) { NoGround_++; continue; }
 
       Footprint fp{};
       fp.FirstPoint = ring.First;
@@ -84,7 +113,8 @@ int BuildingField::Build(const OsmField &field) {
 
   Log::Info("world", "buildings", {{"added", added}, {"total", (int)Prints_.size()},
                                      {"osmHeight", OsmHeights_}, {"defaultHeight", DefaultHeights_},
-                                     {"vertsMB", (double)Verts_.size() * 4.0 / 1.0e6}, {"noGround", NoGround_}});
+                                     {"vertsMB", (double)Verts_.size() * 4.0 / 1.0e6},
+                                     {"noGround", NoGround_}, {"deferrals", Deferrals_}});
   return (int)Prints_.size();
 }
 

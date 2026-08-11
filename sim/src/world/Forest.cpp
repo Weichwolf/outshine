@@ -4,7 +4,7 @@
 #include <cstdio>
 
 #include "ClassField.h"
-#include "ElevationProvider.h"
+#include "GroundSample.h"
 #include "Log.h"
 #include "TerrainLoader.h"
 #include "TreeFoliage.h"
@@ -30,7 +30,7 @@ float SrgbToLinear(float v) {
 
 struct GroundCtx { const ClassField *Cls; };
 
-double GroundAtEnu(void *user, double e, double n) {
+GroundSample GroundAtEnu(void *user, double e, double n) {
   double lat = 0.0, lon = 0.0;
   ((GroundCtx *)user)->Cls->FromEnu(e, n, &lat, &lon);
   return fb_stream_ground(lat, lon);
@@ -143,8 +143,8 @@ void Forest::Scatter(const ClassField &cls, const VegetationTemplates &veg, doub
   double east = 0.0, north = 0.0;
   cls.Project(camLat, camLon, &east, &north);
   GroundCtx gc{&cls};
-  const double gcam = fb_stream_ground(camLat, camLon);
-  if (!ElevationResolved(gcam)) return;
+  double gcam = 0.0;
+  if (!fb_stream_ground(camLat, camLon).TryAslM(&gcam)) return;
   /* THE EYE POINT, not the ground under it: the shader hangs the foot straight off the suspension at
    * the eye, so eye height has to be subtracted here already. */
   /* ONE HANDLE FOR THE WHOLE SCATTER: taken here, held to the last sample. The builder may publish a

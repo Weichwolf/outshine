@@ -37,8 +37,8 @@ inline float SizeFactor(uint32_t h, float sigma) {
 
 const char *TreeField::RefusalName(Refusal r) {
   static const char *const kNames[(int)Refusal::Count] = {
-      "placed", "outsideRadius", "noTemplate", "zeroDensity", "densityDraw", "noGround",
-      "aboveTreeline", "tooSteep", "woodyDraw", "inCrown"};
+      "placed", "outsideRadius", "noTemplate", "zeroDensity", "densityDraw", "groundPending",
+      "noGround", "aboveTreeline", "tooSteep", "woodyDraw", "inCrown"};
   return kNames[(int)r];
 }
 
@@ -80,17 +80,24 @@ void TreeField::Scatter(const ClassStructure &cls, const VegetationTemplates &ve
      * "everything that is not field, water or sealed surface". */
     if (U(Hash(i, j, 0xd3adu)) > (float)(perM2 * kCellM * kCellM)) return Refusal::DensityDraw;
 
-    st.GroundAsl = ground.At ? ground.At(ground.User, st.E, st.N) : eyeAsl;
-    if (st.GroundAsl <= -1.0e7) return Refusal::NoGround;
+    if (!ground.At) {
+      st.GroundAsl = eyeAsl;
+    } else {
+      const GroundSample g = ground.At(ground.User, st.E, st.N);
+      if (!g.TryAslM(&st.GroundAsl))
+        return g.Where() == GroundSample::State::Pending ? Refusal::GroundPending : Refusal::NoGround;
+    }
     /* THE DEM DECIDES WHERE NOTHING STANDS, and it decides it in one draw against one fraction —
      * two draws would let a stand survive the treeline only to be counted again against the wall. */
     const double woody = limit.WoodyFraction(camLatDeg, st.GroundAsl, st.E, st.N);
     double steep = 0.0;
     if (woody > 0.0 && ground.At) {
       const double p = ground.PostM;
-      const double ze = ground.At(ground.User, st.E + p, st.N), zw = ground.At(ground.User, st.E - p, st.N);
-      const double zn = ground.At(ground.User, st.E, st.N + p), zs = ground.At(ground.User, st.E, st.N - p);
-      if (ze > -1.0e7 && zw > -1.0e7 && zn > -1.0e7 && zs > -1.0e7) {
+      double ze = 0.0, zw = 0.0, zn = 0.0, zs = 0.0;
+      if (ground.At(ground.User, st.E + p, st.N).TryAslM(&ze) &&
+          ground.At(ground.User, st.E - p, st.N).TryAslM(&zw) &&
+          ground.At(ground.User, st.E, st.N + p).TryAslM(&zn) &&
+          ground.At(ground.User, st.E, st.N - p).TryAslM(&zs)) {
         const double dzde = (ze - zw) / (2.0 * p), dzdn = (zn - zs) / (2.0 * p);
         steep = limit.BareBySlope(std::atan(std::sqrt(dzde * dzde + dzdn * dzdn)) * 57.29577951308232,
                                   (double)rows[tpl].Edge[3]);

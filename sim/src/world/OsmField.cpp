@@ -7,12 +7,11 @@
 #include "geo.h"
 
 #include <algorithm>
+#include <cstdio>
 
 namespace outshine::World {
 
 namespace {
-
-constexpr int kMaxTileBytes = 4 << 20;
 
 uint64_t TileKey(int x, int y) { return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y; }
 
@@ -34,7 +33,6 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 int OsmField::Build(double lat, double lon, int ringTiles) {
   uint32_t cx = 0, cy = 0;
   osmmesh_geo_to_tile(lon, lat, (uint8_t)Zoom_, &cx, &cy);
-  if (Scratch_.empty()) Scratch_.resize((size_t)kMaxTileBytes);
 
   const long n = 1L << Zoom_;
   int added = 0;
@@ -59,8 +57,14 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
 }
 
 bool OsmField::AddTile(int tx, int ty, int &added) {
-  const int got = fb_stream_vector(Zoom_, (uint32_t)tx, (uint32_t)ty, Scratch_.data(), kMaxTileBytes);
-  if (got == 0) return false;   /* pending — retry next pass, do NOT mark done */
+  char path[96];
+  std::snprintf(path, sizeof path, "/t/vector/%d/%d/%d", Zoom_, tx, ty);
+  const TilePool::Reply reply = fb_tile_pool()->Bytes(path, &Scratch_);
+  if (reply == TilePool::Reply::Pending) return false;   /* retry next pass, do NOT mark done */
+  /* Absent is an ANSWER about the place: fb-tiles says there is no vector tile here, so the block is
+   * complete without one and asking again would spin a thread on a settled question. */
+  if (reply == TilePool::Reply::Absent) return true;
+  const int got = (int)Scratch_.size();
 
   const uint32_t tile = (uint32_t)Tiles_.size();
   Tiles_.push_back(Tile{Zoom_, tx, ty});
@@ -68,8 +72,8 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
     bool present = false;
-    if (got < 0 || !mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str(), &present)) {
-      if (present || got < 0) {
+    if (!mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str(), &present)) {
+      if (present) {
         Bad_++;
         Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
                                                    {"bytes", got}, {"layer", Layers_[li]}});

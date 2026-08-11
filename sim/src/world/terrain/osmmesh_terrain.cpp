@@ -151,14 +151,17 @@ static int fetch_terrain_grid_raw(osmmesh_ctx *ctx,
 /* SYMMETRIC averaging: both sides land on the same midpoint, so the heights line up exactly at the
  * seam. Sides 0=W, 1=E, 2=N, 3=S. Dimension mismatches (parent-edge cropping shaves a row) are
  * tolerated — only the overlapping range is averaged. */
-static void stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
-                        uint8_t z, uint32_t nx, uint32_t ny, int side)
+static int stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
+                       uint8_t z, uint32_t nx, uint32_t ny, int side)
 {
     osmmesh_terrain_grid n = {};
-    if (fetch_terrain_grid_raw(ctx, z, nx, ny, &n) != OSMMESH_OK ||
-        !n.heights || n.rows < 2 || n.cols < 2) {
+    int rc = fetch_terrain_grid_raw(ctx, z, nx, ny, &n);
+    if (rc != OSMMESH_OK || !n.heights || n.rows < 2 || n.cols < 2) {
         osmmesh_terrain_grid_free(&n);
-        return;
+        /* A neighbour that is absent or will not decode costs this edge its averaging and nothing
+         * more — that tile reports its own decode failure when it is built. A REFUSED ALLOCATION is
+         * not the neighbour's problem: it is this whole context's, and it travels. */
+        return rc == OSMMESH_ERR_OOM ? rc : OSMMESH_OK;
     }
 
     if (side == 0 || side == 1) { /* W or E: column average over rows */
@@ -182,6 +185,7 @@ static void stitch_edge(osmmesh_ctx *ctx, osmmesh_terrain_grid *self,
     }
 
     osmmesh_terrain_grid_free(&n);
+    return OSMMESH_OK;
 }
 
 /* The raw fetch plus neighbour-edge averaging on four independent sides. */
@@ -192,11 +196,17 @@ static int fetch_terrain_grid(osmmesh_ctx *ctx,
     int rc = fetch_terrain_grid_raw(ctx, z, x, y, out_grid);
     if (rc != OSMMESH_OK || !out_grid->heights) return rc;
 
-    if (x > 0) stitch_edge(ctx, out_grid, z, x - 1, y, 0); /* W */
-    stitch_edge(ctx, out_grid, z, x + 1, y, 1);            /* E (absent neighbour drops silently) */
-    if (y > 0) stitch_edge(ctx, out_grid, z, x, y - 1, 2); /* N */
-    stitch_edge(ctx, out_grid, z, x, y + 1, 3);            /* S */
-    return OSMMESH_OK;
+    if (x > 0) {
+        rc = stitch_edge(ctx, out_grid, z, x - 1, y, 0);   /* W */
+        if (rc != OSMMESH_OK) return rc;
+    }
+    rc = stitch_edge(ctx, out_grid, z, x + 1, y, 1);       /* E */
+    if (rc != OSMMESH_OK) return rc;
+    if (y > 0) {
+        rc = stitch_edge(ctx, out_grid, z, x, y - 1, 2);   /* N */
+        if (rc != OSMMESH_OK) return rc;
+    }
+    return stitch_edge(ctx, out_grid, z, x, y + 1, 3);     /* S */
 }
 
 /* ENU metres, from an already-decoded grid. */
@@ -277,7 +287,10 @@ int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
 
     osmmesh_terrain_grid grid = {};
     int trc = fetch_terrain_grid(ctx, z, x, y, &grid);
-    if (trc != OSMMESH_OK) return trc;
+    if (trc != OSMMESH_OK) {
+        osmmesh_terrain_grid_free(&grid);   /* a stitch can fail with the tile's own grid already up */
+        return trc;
+    }
 
     if (grid.heights && grid.rows >= 2 && grid.cols >= 2) {
         osmmesh_tile_enu_map map;
@@ -293,22 +306,29 @@ int osmmesh_fetch_tile(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
     return OSMMESH_OK;
 }
 
-const osmmesh_terrain_grid *osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
-                                              uint32_t *row_postings, uint32_t *col_postings)
+int osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                      const osmmesh_terrain_grid **out_grid,
+                      uint32_t *row_postings, uint32_t *col_postings)
 {
-    if (!ctx) return NULL;
+    if (!ctx || !out_grid) return OSMMESH_ERR_ARG;
+    *out_grid = NULL;
     osmmesh_terrain_grid_free(&ctx->borrowed);
-    if (fetch_terrain_grid(ctx, z, x, y, &ctx->borrowed) != OSMMESH_OK ||
-        !ctx->borrowed.heights || ctx->borrowed.rows < 2 || ctx->borrowed.cols < 2) {
+    int rc = fetch_terrain_grid(ctx, z, x, y, &ctx->borrowed);
+    if (rc != OSMMESH_OK) {
         osmmesh_terrain_grid_free(&ctx->borrowed);
-        return NULL;
+        return rc;
+    }
+    if (!ctx->borrowed.heights || ctx->borrowed.rows < 2 || ctx->borrowed.cols < 2) {
+        osmmesh_terrain_grid_free(&ctx->borrowed);
+        return OSMMESH_OK;
     }
     /* The builder's own stride, read off the context rather than assumed, so the posting lattice the
      * caller lands on is the one the mesh will carry. */
     uint32_t stride = ctx->has_terrain_opts && ctx->terrain_opts.stride ? ctx->terrain_opts.stride : 1;
     if (row_postings) *row_postings = osmmesh_terrain_postings(ctx->borrowed.rows, stride);
     if (col_postings) *col_postings = osmmesh_terrain_postings(ctx->borrowed.cols, stride);
-    return &ctx->borrowed;
+    *out_grid = &ctx->borrowed;
+    return OSMMESH_OK;
 }
 
 void osmmesh_free_tile(osmmesh_tile *tile)

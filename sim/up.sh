@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bring up the lean fb-sim web host: the HTTP server for the browser Command Center + runtime env
-# config. web/ is a live MOUNT (sim/web), so `make wasm`/`make worker` rebuilds show up on refresh —
+# config. web/ is a live MOUNT (sim/web), so a `make wasm` rebuild shows up on refresh —
 # no image rebuild. Needs fb-tiles running (terrain/imagery).
 set -euo pipefail
 cd "$(dirname "$0")"

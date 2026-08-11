@@ -70,12 +70,9 @@ World::Pools World::HeapPools() const {
   return p;
 }
 
-size_t World::ByteCacheBytes() const { return (size_t)fb_stream_cache_bytes(); }
-
-std::vector<ModuleMemory> World::WorkerMemory() const {
-  std::vector<ModuleMemory> rows(kMaxTileWorkers);
-  rows.resize((size_t)fb_stream_worker_memory(rows.data(), (int)rows.size()));
-  return rows;
+size_t World::ByteCacheBytes() const {
+  const TilePool *pool = fb_tile_pool();
+  return pool ? pool->ByteCacheBytes() : 0;
 }
 
 bool World::Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS) {
@@ -335,7 +332,7 @@ void World::Update(double camLat, double camLon) {
   const double tUpdate = Clock();
   while (camLon > 180.0) camLon -= 360.0;   /* normalize lon before tile queries (dateline) */
   while (camLon < -180.0) camLon += 360.0;
-  fb_stream_campos(camLat, camLon);   /* worker pump prioritises nearest tiles */
+  fb_tile_pool()->Camera(camLat, camLon);   /* the queue drains nearest-first from here */
 
   /* THE GROUND CLASS. It is a property of the PLACE, so the fragment and every CPU consumer read it
    * from the same bytes (world/ClassField.h). What happens here is streaming and bookkeeping — the
@@ -405,35 +402,18 @@ void World::Refine(const Eye &eye, double nowMs) {
     Node &nd = Nodes[w.idx];
     if (!nd.haveMesh && build > 0) {
       const double tMesh = Clock();
-      float *v = nullptr;
-      uint32_t *ix = nullptr;
-      DagCluster *cl = nullptr;
-      int nv = 0, ni = 0, ncl = 0;
-      double o[3];
-      float err = 0.f;
-      /* The DAG arrived built (world/TerrainLoader.h): what this frame pays is the copy into the
-       * node, not the simplifier. */
-      if (fb_stream_build(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &v, &nv, &ix, &ni, &cl, &ncl,
-                          o, &err)) {
-        nd.verts.assign(v, v + (size_t)nv * 8);
-        nd.idx.assign(ix, ix + ni);
-        nd.clusters.assign(cl, cl + ncl);
-        if (getenv("FB_DAGLOG")) {
-          long per[16] = {0};
-          int lv = 0;
-          for (const DagCluster &c : nd.clusters) { per[c.Level] += c.Count / 3; if (c.Level > lv) lv = c.Level; }
-          std::string t;
-          for (int i = 0; i <= lv; i++) t += "L" + std::to_string(i) + "=" + std::to_string(per[i]) + " ";
-          Log::Debug("world", "dag", {{"z", nd.z}, {"dagVerts", nv},
-              {"clusters", ncl}, {"levels", t}});
-        }
-        free(v);
-        free(ix);
-        free(cl);
-        nd.nverts = nv;
-        nd.nidx = ni;
-        nd.err = err;
-        nd.origin[0] = o[0]; nd.origin[1] = o[1]; nd.origin[2] = o[2];
+      TileBuild tile;
+      /* The DAG arrived built (world/TilePool.h): what this frame pays is the move into the node,
+       * not the simplifier. */
+      if (fb_tile_pool()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile) ==
+          TilePool::Reply::Ready) {
+        nd.verts = std::move(tile.Verts);
+        nd.idx = std::move(tile.Idx);
+        nd.clusters = std::move(tile.Clusters);
+        nd.nverts = (int)(nd.verts.size() / 8);
+        nd.nidx = (int)nd.idx.size();
+        nd.err = tile.ErrM;
+        for (int c = 0; c < 3; c++) nd.origin[c] = tile.OriginEcef[c];
         SurfaceAnchor(nd.z, nd.x, nd.y, nd.anchor);
         nd.haveMesh = 1;
         build--;
@@ -482,26 +462,20 @@ void World::Refine(const Eye &eye, double nowMs) {
     BuildingDagId = ++BuildingDagSeq;
   }
   if (BuildingDagId != 0) {
-    float *dv = nullptr;
-    uint32_t *di = nullptr;
-    DagCluster *dc = nullptr;
-    int ndv = 0, ndi = 0, ndc = 0;
+    TileBuild ladder;
     /* Float 3 is uv.x, and a negative one tags the roof cap: an ATTRIBUTE seam, so the cap and its
      * wall keep two vertices but collapse as one point — otherwise the ring would read as a mesh
      * boundary and nothing would move. */
-    if (fb_stream_dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3,
-                      &dv, &ndv, &di, &ndi, &dc, &ndc)) {
+    if (fb_tile_pool()->Dag(BuildingDagId, BuildingSoup.data(), (int)(BuildingSoup.size() / 8), 3,
+                            &ladder) == TilePool::Reply::Ready) {
       const uint32_t vbase = (uint32_t)(BuildingDagVerts.size() / 8);
       const uint32_t ibase = (uint32_t)BuildingDagIdx.size();
-      BuildingDagVerts.insert(BuildingDagVerts.end(), dv, dv + (size_t)ndv * 8);
-      for (int i = 0; i < ndi; i++) BuildingDagIdx.push_back(di[i] + vbase);
-      for (int i = 0; i < ndc; i++) {
-        dc[i].First += ibase;
-        BuildingClusters.push_back(dc[i]);
+      BuildingDagVerts.insert(BuildingDagVerts.end(), ladder.Verts.begin(), ladder.Verts.end());
+      for (uint32_t i : ladder.Idx) BuildingDagIdx.push_back(i + vbase);
+      for (DagCluster c : ladder.Clusters) {
+        c.First += ibase;
+        BuildingClusters.push_back(c);
       }
-      free(dv);
-      free(di);
-      free(dc);
       BuildingDagId = 0;
       DagDone_++;
       BuildingSeq_++;

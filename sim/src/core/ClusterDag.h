@@ -2,10 +2,6 @@
  * reads it. Half 2 — the compute software rasteriser —
  * is not here and cannot be: WGSL has no 64-bit atomic.
  *
- * HEADER-ONLY for the reason ChunkMesh.h is: the tile worker's link line compiles the world/terrain
- * sources and its own TU and nothing else out of render/, so a .cpp here would build for walk and
- * wasm and not for the worker that produces the meshes.
- *
  * The crack-free guarantee is structural, not a fudge: a GROUP of clusters is the unit of
  * simplification, its outer edges are LOCKED while its interior is collapsed, and every cluster born
  * from one group carries that group's error AND that group's bounding sphere — so all of them switch

@@ -29,10 +29,11 @@ graded against the references: the answer is known and the round is spent. Then,
 | 2 | the height oracle evaluates the drawn surface | **done** · three slopes, 0 violations in 48 standpoints |
 | 1.7 | the fixed heap, over all of the client's memories | **done** · client reserved 512 → 200 + N×56 MiB |
 | 4 | the server target, and the checker falls | **done** · `World` no longer holds a renderer pointer |
-| **4.5** | **fold the tile worker into the client** | **in the tree** |
+| 4.5 | fold the tile worker into the client | **done** · one module, one cap, one priority key |
+| **4.6** | **the GPU readback stops blocking the frame thread** | **in the tree** |
 
 
-| 4.6 | the GPU readback stops blocking the frame thread | open |
+
 | 5 | `generators/` | open — **designed**: headers, enforcement and acceptance stand |
 | 6 | the forest becomes a generator | open |
 | 7 | one geometry stage | open |
@@ -124,6 +125,12 @@ regardless; the trigger governs work that is *not* on this list.
 
 ## Carried, for the steps that need it
 
+**Step 8 — one watermark couples every tile.** `BuildingField`'s `Consumed_` is a single watermark and
+`Build` refuses to pass a deferred tile, so one permanently-Pending tile stalls **every later tile's**
+buildings where before it lost that tile and moved on. Defensible while there is no timeout on the load;
+it needs per-tile deferral once regions arrive. `WaterField.cpp:54,90` still folds Pending and Hole into
+one counter with the watermark advancing — the same defect, now visible in the type.
+
 **Step 8 — the class structure cannot be appended to.** The grid is anchored on the camera and dense, so
 a re-anchor changes what every index means; features are laid down in ascending rank, so a later one
 rewrites cells an earlier one won; and a cell's seeds must be contiguous because the fragment reads them
@@ -186,39 +193,26 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 4.5 — Fold the tile worker into the client
-
-The saving is not a module and not a copy across a heap boundary — it is that **the tile scheduler exists
-twice, in two languages**, with the same priority key written out by hand in both. The comment justifying
-the separate module states a constraint that stopped being true when the worker began fetching for
-itself.
-
-Folding also erases three defects that live only in the browser half: byte caches that are **never
-evicted**, four independent in-flight caps that know nothing of each other against one connection limit,
-and a retry ceiling that turns a slow server into **permanently missing terrain**.
-
-It is the execution environment the generators need, and the prerequisite audio needs anyway.
-
-**The C interface could not stop being one in step 4, and this is why.** The browser half of the pool's
-state is a JavaScript object `Module.__fbw` inside an `EM_JS` block, reached through **nine context-free
-`EM_JS`/`EM_ASM` shims** and two `EMSCRIPTEN_KEEPALIVE` callbacks; natively it is 27 file-scope mutable
-statics. An object owning the pool could own the native half only — which is the two-truths state step 4
-exists to end. It becomes possible exactly when `Module.__fbw` is gone.
-
-Done when: **a tile gap can no longer mean "out of memory"** — `OSMMESH_ERR_OOM` reaching the client ends
-the run named, which the fixed heap made possible to get wrong; no scheduler in an embedded-JavaScript
-block remains, the terrain sources compile once, there
-is exactly one in-flight cap, every thread is created at bring-up, and the moving-camera distribution is
-no worse.
-
 ## 4.6 — The GPU readback stops blocking the frame thread
 
 An unbounded wait on a GPU completion, on the thread that presents the picture, is the stall this project
 forbids everywhere else. It does not hurt today only because it runs when a product is written — luck in
 call frequency, not structure.
 
-Callback-driven readbacks with a state machine around them. The prize is larger than the fix: it is the
-only remaining reason for the stack-unwinding build mode, which instruments two thirds of all functions.
+Callback-driven readbacks with a state machine around them. **The stated prize is false as written and
+this is the step's real scope**: the readback is not the only remaining unwinding consumer. Also in the
+client — `Outshine.cpp:20,51,100` (`Pump()`, the device-ready wait), `Sim.cpp:23,78` (`PumpMs` in
+`ResolveGround`), `TerrainLoader.cpp:57` (`SleepMs`, used by `fb_fetch_stars` on the main thread) and
+`HttpPost.cpp:15`. `-sASYNCIFY` cannot be dropped until **every** one of those goes, and discovering that
+inside the round costs the round.
+
+**The number it has to beat.** Folding the worker put the whole program under `-pthread`, and under
+`-pthread` a contended mutex on the main browser thread must unwind, so `malloc`/`free` are instrumented
+and therefore every allocating function is — the DAG builder included. The old worker module was linked
+without `-pthread`. Browser load went **8.3 → 29.4 s**, and warm mesh cost per tile is **≈890 ms in the
+browser against ≈220 native**. With the unwinding off, `poolMeshCpuMs / poolMeshTiles` must return to the
+native order and load to ≈8.3 s. **If it lands and the number does not come back, the attribution was
+wrong** and the fold owes a second explanation.
 
 Own step, own binary — never folded into a concurrency change.
 

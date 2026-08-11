@@ -2,7 +2,7 @@
 
 #include "Camera.h"
 #include "ClassStructure.h"
-#include "ElevationProvider.h"
+#include "GroundSample.h"
 #include "Ephemeris.h"
 #include "Geodesy.h"
 #include "Log.h"
@@ -72,14 +72,13 @@ void Sim::StartTelemetry() {
 }
 
 bool Sim::ResolveGround(double lat, double lon, double *out) const {
-  double g = kFBElevationUnresolved;
-  for (int t = 0; t < kGroundTries && !ElevationResolved(g); t++) {
-    g = fb_stream_ground(lat, lon);
-    if (!ElevationResolved(g)) PumpMs(50);
+  for (int t = 0; t < kGroundTries; t++) {
+    const GroundSample g = fb_stream_ground(lat, lon);
+    if (g.TryAslM(out)) return true;
+    if (g.Where() != GroundSample::State::Pending) return false;   /* a hole never becomes a height */
+    PumpMs(50);
   }
-  if (!ElevationResolved(g)) return false;
-  *out = g;
-  return true;
+  return false;
 }
 
 bool Sim::Open() {
@@ -131,8 +130,8 @@ void Sim::SetSkyOffsetS(double s) {
 
 void Sim::Look(const Stance &s) {
   Stance_ = s;
-  const double g = fb_stream_ground(s.Lat, s.Lon);
-  if (ElevationResolved(g)) Stand_.SetGroundAslM(g);
+  double groundAslM = 0.0;
+  if (fb_stream_ground(s.Lat, s.Lon).TryAslM(&groundAslM)) Stand_.SetGroundAslM(groundAslM);
   const double asl = Stand_.AltAslM();
   GeoToEcef(s.Lat, s.Lon, asl, Eye_);
   CameraBasisEcef(s.YawDeg, s.PitchDeg, 0.0, s.Lat, s.Lon, Fwd_, Right_, Up_);
@@ -165,9 +164,7 @@ void Sim::Settle() {
 
 Sim::Place Sim::At(double lat, double lon) const {
   Place p;
-  const double g = fb_stream_ground(lat, lon);
-  p.GroundResolved = ElevationResolved(g);
-  if (p.GroundResolved) p.GroundAslM = g;
+  p.GroundResolved = fb_stream_ground(lat, lon).TryAslM(&p.GroundAslM);
 
   const std::shared_ptr<const World::ClassStructure> cls = W_.Classes().Read();
   if (cls) {
@@ -178,9 +175,9 @@ Sim::Place Sim::At(double lat, double lon) const {
   }
 
   const double roof = W_.RoofAslAt(lat, lon);
-  if (p.GroundResolved && World::World::SurfaceStands(roof)) p.StructureHeightM = roof - g;
+  if (p.GroundResolved && World::World::SurfaceStands(roof)) p.StructureHeightM = roof - p.GroundAslM;
   const double level = W_.WaterAslAt(lat, lon);
-  if (p.GroundResolved && World::World::SurfaceStands(level)) p.WaterDepthM = level - g;
+  if (p.GroundResolved && World::World::SurfaceStands(level)) p.WaterDepthM = level - p.GroundAslM;
   return p;
 }
 

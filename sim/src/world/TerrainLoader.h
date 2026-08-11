@@ -1,85 +1,41 @@
-/* The tile-streaming C ABI. */
+/* THE HEIGHT ORACLE AND THE POOL IT READS THROUGH. What the renderer draws, answered as a number,
+ * plus the two bring-up fetches a client needs before there is a world at all.
+ *
+ * NOT a C ABI any more: every caller is C++, the pool it hands back is an object (world/TilePool.h)
+ * and the ground answers with a state. Free functions because the oracle is a service — a footprint,
+ * a tree and the eye all ask it, and none of them can reach a World. */
 #ifndef TERRAINLOADER_H
 #define TERRAINLOADER_H
 #include <stdint.h>
 
-#include "ClusterDag.h"
-#include "ModuleMemory.h"
-
-/* A C ABI in name only: the tile mesh crosses it as the DAG the renderer draws, so the cluster type
- * is part of the contract. Every caller is C++ (see the C-ISLAND note in tools/verify_layers.py). */
-extern "C" {
+#include "GroundSample.h"
+#include "TilePool.h"
 
 /* The finest tile of the caller's LOD ladder and its quads per edge — the surface the renderer draws
  * at the near tier, and therefore the one fb_stream_ground evaluates. The ladder is the world's, so
  * it is handed over once instead of being restated here. */
 struct FbGroundSurface { int Z; int Grid; };
 
-/* Open once, then poll each frame: a poll kicks the fetch on a miss and returns 0 until the bytes
- * are resident. Nothing here ever blocks the browser's render loop. */
+/* Opens the pool and the oracle over it. The pool's threads are running when this returns. */
 int  fb_stream_open(const char *base, double lat, double lon, FbGroundSurface surface);
-void fb_stream_campos(double lat, double lon);   /* live camera track for the worker's nearest-first pump */
-/* THE TILE AS THE RENDERER DRAWS IT: the cluster DAG, not the vertex soup. Both are built where the
- * bytes land — the browser's tile worker, a native worker thread — because the DAG is 3.68 ms of a
- * measured 10.7 ms per tile and a frame thread that pays it drops the frame.
- * `verts`, `idx` and `clusters` are malloc'd; the caller frees all three. A cluster's First/Count is
- * an INDEX range. 0 = not resident yet, poll again. */
-int  fb_stream_build(int z, uint32_t x, uint32_t y, int grid, float **verts, int *nverts,
-                     uint32_t **idx, int *nidx,
-                     outshine::DagCluster **clusters, int *nclusters,
-                     double origin[3], float *err);   /* err = geometric error (m), drives the SSE LOD */
-/* THE CLUSTER DAG OF A VERTEX SOUP in core/ChunkVtx.h's layout, off the frame thread — the same
- * pool the tile mesh runs in. `id` names the job and is repeated until it is collected; the soup is
- * copied on the first call. `seamAttr` >= 0 names a float whose SIGN marks an attribute seam: two vertices at
- * one position that disagree in it weld as one point and stay two for drawing, which is how a roof
- * cap keeps its crease without reading as a mesh boundary. -1 = no seam.
- * 1 + all three arrays (malloc'd, caller frees), or 0 = not ready. */
-int  fb_stream_dag(int id, const float *soup, int nverts, int seamAttr, float **verts, int *nverts_out,
-                   uint32_t **idx, int *nidx,
-                   outshine::DagCluster **clusters, int *nclusters);
-
 void fb_stream_close(void);
-
-/* Bytes the tile byte caches hold that are reachable from this module. Natively that is both caches.
- * In the browser it is the main thread's fetch caches alone, held as JavaScript typed arrays outside
- * the linear memory; the pool's own caches live in the worker modules and are not counted here. */
-double fb_stream_cache_bytes(void);
-
-/* [SET] The pool's ceiling, in modules. The pool takes one per core beyond the two the client's own
- * threads occupy and stops here; the number is stated once because the reader of the rows below has
- * to size its buffer from it. */
-constexpr int kMaxTileWorkers = 6;
-
-/* The pool's modules, each with a linear memory of its own that no call from the client's module can
- * measure. Writes up to `cap` rows and returns how many it wrote — 0 where the pool is threads in
- * this same module, which is every native host. */
-int fb_stream_worker_memory(outshine::ModuleMemory *out, int cap);
+/* The pool the world streams through, null before fb_stream_open. Borrowed, never owned. */
+outshine::World::TilePool *fb_tile_pool(void);
 
 /* THE DRAWN SURFACE, in metres on the DEM's own datum: the triangle the finest tile of the ladder
- * carries at this position, on that tile's posting indices and along its diagonal. <= -1e8 until
- * every byte that triangle needs has landed. */
-double fb_stream_ground(double lat, double lon);
+ * carries at this position, on that tile's posting indices and along its diagonal. Pending until
+ * every byte that triangle needs has landed; Hole where the source carries none. */
+outshine::GroundSample fb_stream_ground(double lat, double lon);
 
 /* The node spacing of that surface at a latitude, in metres: what a caller must step to land on the
  * next posting instead of re-reading its own triangle. Derived from the surface handed to
  * fb_stream_open, which is where the zoom and the grid are stated. */
 double fb_stream_ground_post_m(double latDeg);
 
-/* Raw Terrarium bytes, ONE tile. The payload is owned by the byte cache — do NOT free. 1 ready,
- * 0 PENDING (retry; never treat as a hole), -1 a real hole. */
-int fb_stream_dem(int z, int x, int y, const uint8_t **bytes, int *len);
-
-/* The OSM vector tile behind /t/vector, raw MVT bytes. >0 = length, 0 pending, -1 unavailable or
- * larger than cap. It must never block. */
-int fb_stream_vector(int z, uint32_t x, uint32_t y, uint8_t *dst, int cap);
-
 /* WASM: an embedded MEMFS path; native: a disk path. RGBA8 out is malloc'd — the caller frees. */
 int  fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h);
-/* Blocking startup fetch of the concatenated HYG star bands. */
-int  fb_fetch_stars(const char *base, uint8_t *dst, int cap);
-/* Blocking text GET, url absolute or origin-relative (the WASM boot mission comes off fb-sim's OWN
- * web/ mount, not fb-tiles). dst is NUL-terminated within cap. */
-int  fb_fetch_text(const char *url, char *dst, int cap);
+/* The concatenated HYG star bands, through the pool. Blocks the caller until they land, which is
+ * what a loading screen is for; there is no world without them either. */
+int  fb_fetch_stars(uint8_t *dst, int cap);
 
-}
 #endif

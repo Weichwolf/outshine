@@ -11,6 +11,7 @@
 #define STREAMTELEMETRY_H
 
 #include "Telemetry.h"
+#include "TilePool.h"
 
 namespace outshine::Clients {
 
@@ -24,6 +25,8 @@ public:
     int TilesTotal = 0, TilesReady = 0, TilesInView = 0, VectorTilesPending = 0;
     long Built = 0, Evicted = 0;
     bool Resident = false;
+    /* The pool's own cumulative ledger, read once per pass: where the wait actually was. */
+    World::TilePool::Ledger Pool;
   };
 
   void Open(double nowMs) { OpenedMs_ = nowMs; }

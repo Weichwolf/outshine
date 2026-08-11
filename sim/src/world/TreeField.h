@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "GroundSample.h"
+
 namespace outshine::World {
 
 class ClassStructure;
@@ -33,16 +35,21 @@ public:
    * travel together because a spacing that belongs to a different surface than `At` is a wrong
    * number that still compiles. */
   struct GroundOracle {
-    double (*At)(void *user, double eastM, double northM) = nullptr;
+    GroundSample (*At)(void *user, double eastM, double northM) = nullptr;
     void *User = nullptr;
     double PostM = 0.0;
   };
 
   /* EVERY CELL THE SCATTER LOOKS AT LEAVES THROUGH EXACTLY ONE OF THESE. A refusal that is not one of
-   * them cannot be written: the decision is one function and its return type is this. */
+   * them cannot be written: the decision is one function and its return type is this.
+   *
+   * GroundPending and NoGround are two names because they are two defects: a hole in the DEM is a
+   * property of the place and stays true, a stand lost to a tile that had not landed is a stand the
+   * once-only scatter will never look at again. Counting them together is what hid the same fault in
+   * the buildings for a round. */
   enum class Refusal {
-    Placed, OutsideRadius, NoTemplate, ZeroDensity, DensityDraw, NoGround, AboveTreeline, TooSteep,
-    WoodyDraw, InCrown, Count
+    Placed, OutsideRadius, NoTemplate, ZeroDensity, DensityDraw, GroundPending, NoGround,
+    AboveTreeline, TooSteep, WoodyDraw, InCrown, Count
   };
   static const char *RefusalName(Refusal r);
 

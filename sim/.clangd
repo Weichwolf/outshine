@@ -20,7 +20,8 @@
 # isystem set (Dawn generated + vendored webgpu_cpp.h, the curl compat shim) -- update alongside the
 # Makefile if either changes.
 #
-# Out of scope: src/clients/AppWasm.cpp and TileWorkerMain.cpp #include <emscripten.h>. Pointing
+# Out of scope: src/clients/AppWasm.cpp, world/TerrainLoader.cpp and world/TilePool.cpp
+# #include <emscripten.h>. Pointing
 # clangd at emsdk's own sysroot fights its libc++-vs-libc header ordering when driven by plain clang
 # instead of em++ (tried; made things worse) -- reproducing that needs em++ itself as the compile
 # driver (an emcc-generated compile_commands.json), a bigger lift outside this file's reported bug.

@@ -77,11 +77,15 @@ void osmmesh_free_tile(osmmesh_tile *tile);
 
 /* THE HEIGHT FIELD THE TILE'S MESH IS BUILT FROM: cropped from the parent past the provider's max
  * zoom, then edge-averaged against its four neighbours. Borrowed — it lives until the next call on
- * this context — and NULL while a byte it needs is still missing. `postings` is the posting count
- * per edge under this context's stride, so a caller cannot land on a lattice the builder does not
- * use. */
-const osmmesh_terrain_grid *osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
-                                              uint32_t *row_postings, uint32_t *col_postings);
+ * this context. `postings` is the posting count per edge under this context's stride, so a caller
+ * cannot land on a lattice the builder does not use.
+ *
+ * The STATUS is the return value, exactly as osmmesh_fetch_tile: OK with *out_grid == NULL means the
+ * bytes are not here (absent, or not fetched yet), and an OOM says so instead of arriving at the
+ * caller as a tile without a DEM. */
+int osmmesh_tile_grid(osmmesh_ctx *ctx, uint8_t z, uint32_t x, uint32_t y,
+                      const osmmesh_terrain_grid **out_grid,
+                      uint32_t *row_postings, uint32_t *col_postings);
 
 #ifdef __cplusplus
 }

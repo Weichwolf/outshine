@@ -3,9 +3,7 @@
 # live under this one directory. The only cross-directory reference is fb-tiles' public bake-version
 # header (../tiles/src/style_ver.h).
 #
-#   make wasm     build the WASM pedestrian bench + tile worker (depends on worker, so a browser boot
-#                 never hangs on a missing worker) -> web/gpu.js + web/fbtileworker.js
-#   make worker   build the off-thread tile worker (fetch/decode/mesh/mips) alone -> web/fbtileworker.js
+#   make wasm     build the WASM client -> web/gpu.js + web/gpu.wasm
 #   make walk     build the native pedestrian frame oracle (Dawn + fb-tiles terrain) -> build/gpu_walk
 #   make world    build the server target: everything EXCEPT render/, no device -> build/fb_world
 #   make verify-generators  a generators/ translation unit can name core and NOTHING above it --
@@ -37,24 +35,25 @@ CXXSTD    := -std=c++17
 # quotes, which mangles the sed script that strips the .d file's line continuations.)
 DEPFLAGS := -MMD -MP
 
-# One worker for the class grid, and shared memory so the built structure is readable where it was
-# built.
+# EVERY THREAD THE CLIENT RUNS, ALLOCATED AT BRING-UP: one for the class grid and the tile pool's
+# ceiling (world/TerrainLoader.cpp kMaxTileThreads). A pthread_create beyond the pool has to go back
+# to the main thread's event loop to get its Worker, which is a stall on the thread that draws --
+# and the pool is created exactly once, while the loading screen is up.
 WASM_THREADS := -pthread
-WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=1
+WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=7
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
-# THE LINEAR MEMORY OF EACH MODULE, FIXED. WebGPU refuses a resizable ArrayBuffer as an argument
-# source (setBindGroup and writeBuffer are not [AllowResizable]), so growth costs a per-access guard
-# for a growth the graphics API would not survive anyway. Every size below is that module's own
-# measured high-water plus 25 %, rounded up to the next 8 MiB; the measurements and the runs they
-# came from are in git log, never here, because a number in a Makefile decays silently.
+# THE CLIENT'S LINEAR MEMORY, FIXED, and there is now exactly one of it. WebGPU refuses a resizable
+# ArrayBuffer as an argument source (setBindGroup and writeBuffer are not [AllowResizable]), so growth
+# costs a per-access guard for a growth the graphics API would not survive anyway. The size is the
+# module's own measured high-water plus 25 %, rounded up to the next 8 MiB, taken at the tile pool's
+# SIX-thread ceiling rather than at whatever this host happens to offer; the measurements and the runs
+# they came from are in git log, never here, because a number in a Makefile decays silently.
 # ABORTING_MALLOC=0: malloc hands back the null, and core/Heap.cpp is what ends the run — naming the
 # item and its bytes, which the toolchain's own abort cannot do.
 # STACK_OVERFLOW_CHECK=1 is the same statement for the stack: the sizes below are set from a
 # measured peak, and a shadow stack that runs past its end corrupts the heap silently without it.
-WASM_MAIN_MEMORY := -sINITIAL_MEMORY=200MB -sSTACK_SIZE=256KB -sDEFAULT_PTHREAD_STACK_SIZE=256KB \
-  -sABORTING_MALLOC=0 -sSTACK_OVERFLOW_CHECK=1
-WASM_WORKER_MEMORY := -sINITIAL_MEMORY=56MB -sSTACK_SIZE=128KB \
+WASM_MAIN_MEMORY := -sINITIAL_MEMORY=248MB -sSTACK_SIZE=256KB -sDEFAULT_PTHREAD_STACK_SIZE=256KB \
   -sABORTING_MALLOC=0 -sSTACK_OVERFLOW_CHECK=1
 
 DAWN_OUT     := vendor/dawn/out
@@ -113,57 +112,41 @@ APP_SRCS := $(SIM_SRCS) src/clients/Outshine.cpp src/clients/Snapshot.cpp \
   src/clients/ServerArtifacts.cpp
 
 # Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
-WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o \
+WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o build/obj-wasm/TilePool.o \
   $(patsubst src/world/terrain/%.cpp,build/obj-wasm/%.o,$(wildcard src/world/terrain/*.cpp))
 
 # THE MODS, whole. A mod is a set of declared scenes and nothing else; the browser gets the same
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm worker walk world treebench verify-generators verify-clients image up down restart clean
+.PHONY: help wasm walk world treebench verify-generators verify-clients image up down restart clean
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
 
-wasm: worker     ## build the WASM pedestrian bench + tile worker -> web/gpu.{js,wasm} + web/fbtileworker.{js,wasm}
+wasm:            ## build the WASM client -> web/gpu.{js,wasm}
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
 	  mkdir -p build/obj-wasm; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-wasm/$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  emcc src/world/TerrainLoader.cpp $(CXXSTD) -O1 $(EMCC_WARN) $(WASM_THREADS) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	    -c -o build/obj-wasm/TerrainLoader.o; \
+	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
+	    emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(WASM_THREADS) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
+	      -c -o build/obj-wasm/$$(basename $$f .cpp).o; done; \
 	  emcc $(WASM_TERRAIN_OBJS) \
 	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
 	    $(WASM_THREADS_LINK) -sASYNCIFY $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
-	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body,_fb_take_tile_mesh \
+	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
 	    --preload-file assets/world/species@/assets/world/species \
     --preload-file assets/world/ground-materials.json@/ground-materials.json \
 	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js + web/fbtileworker.js (mods: $(MODS_DIR))"
-
-worker:          ## build the off-thread tile worker (fetch/decode/mesh/mips) -> web/fbtileworker.js
-	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
-	  $(FB_UPTODATE) \
-	  	  mkdir -p build/obj-worker; \
-	  for f in src/world/terrain/*.cpp; do o=build/obj-worker/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  for f in src/core/Log.cpp src/core/Heap.cpp src/core/HeapProbe.cpp src/core/StackProbe.cpp; do \
-	    o=build/obj-worker/$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) -Isrc/core -c -o "$$o"; done; \
-	  emcc build/obj-worker/*.o src/clients/TileWorkerMain.cpp src/clients/LogSinks.cpp $(CXXSTD) -O2 $(EMCC_WARN) \
-	    -Isrc/world -Isrc/world/terrain -Isrc/core -Isrc/clients $(INC_TILES) \
-	    -sASYNCIFY $(WASM_WORKER_MEMORY) -sEXIT_RUNTIME=0 -sFETCH \
-	    -sEXPORTED_FUNCTIONS=_malloc,_free,_fbtw_open,_fbtw_build,_fbtw_dag,_fbtw_verts,_fbtw_nverts,_fbtw_idx,_fbtw_nidx,_fbtw_clusters,_fbtw_nclusters,_fbtw_clusterbytes,_fbtw_err,_fbtw_origin,_fbtw_release,_fbtw_memory,_fbtw_memorywords,_fbtw_take_soup \
-	    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,HEAPF32,HEAPF64 \
-	    -o web/fbtileworker.js; \
-	  echo "WASM worker -> web/fbtileworker.js"
+	  echo "WASM -> web/gpu.js (mods: $(MODS_DIR))"
 
 walk:            ## build the pedestrian frame oracle (render+world) -> build/gpu_walk
 	@cd $(SELF_DIR); set -e; \
@@ -177,8 +160,9 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	  mkdir -p build/obj-walk; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-walk/$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
-	  c++ src/world/TerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	    -isystem $(CURL_COMPAT) -c -o build/obj-walk/TerrainLoader.o; \
+	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
+	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
+	      -isystem $(CURL_COMPAT) -c -o build/obj-walk/$$(basename $$f .cpp).o; done; \
 	  c++ src/clients/AppWalk.cpp $(APP_SRCS) \
 	    $(RENDER_SRCS) \
 	    build/obj-walk/*.o \
@@ -197,8 +181,9 @@ world:           ## build the server target -- everything except render/, no dev
 	  mkdir -p build/obj-world; \
 	  for f in src/world/terrain/*.cpp; do o=build/obj-world/$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) -Isrc/world/terrain -Isrc/core $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
-	  c++ src/world/TerrainLoader.cpp $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
-	    -isystem $(CURL_COMPAT) -c -o build/obj-world/TerrainLoader.o; \
+	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
+	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
+	      -isystem $(CURL_COMPAT) -c -o build/obj-world/$$(basename $$f .cpp).o; done; \
 	  c++ src/clients/WorldMain.cpp $(SIM_SRCS) build/obj-world/*.o \
 	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_CLIENT) \
 	    -isystem vendor -isystem $(CURL_COMPAT) \
@@ -223,6 +208,18 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 	    fi; done; \
 	  echo "verify-generators: core reachable, render/ and world/ have no spelling in generators/"
 
+# WHAT THE TYPE SYSTEM MUST REFUSE. A rule that only a reviewer enforces is a rule that comes back:
+# both of these were live defects before they were compile errors. The negative halves are built with
+# the house warning set because -Werror is what turns [[nodiscard]] into a refusal.
+verify-types:    ## a value whose misuse must not compile -- and does not
+	@cd $(SELF_DIR); set -e; \
+	  c++ src/core/gate/GroundSampleIsUsable.cpp $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only; \
+	  for f in src/core/gate/HeightIsNotReachableWithoutItsState.cpp src/core/gate/AnswerIsNotIgnorable.cpp; do \
+	    if c++ "$$f" $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only 2>/dev/null; then \
+	      echo "verify-types: $$f COMPILED -- the ground's height is readable without its state" >&2; exit 1; \
+	    fi; done; \
+	  echo "verify-types: GroundSample usable, its height unreachable without the state"
+
 # ONE PROGRAM, TWO TRANSLATIONS. The gate that would have caught the forest living in one main() for
 # ten rounds: an entry point may not build anything, and the scene-building calls exist in exactly
 # one translation unit.
@@ -240,7 +237,7 @@ down:            ## stop the web host
 
 restart: down up ## stop and start the web host
 
-clean:           ## remove build artifacts (WASM + worker + walk)
-	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-worker build/obj-walk build/obj-world \
+clean:           ## remove build artifacts (WASM + walk + world)
+	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-walk build/obj-world \
 	  build/gpu_walk build/fb_world \
-	  web/gpu.js web/gpu.wasm web/gpu.data web/fbtileworker.js web/fbtileworker.wasm
+	  web/gpu.js web/gpu.wasm web/gpu.data

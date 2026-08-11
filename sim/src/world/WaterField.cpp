@@ -52,10 +52,13 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
         hs.clear();
         bool ok = true;
         for (uint32_t k = 0; k < ring.Count; k++) {
-          const double e = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
-                                            pts[((size_t)ring.First + k) * 2 + 1]);
-          if (e <= -1e7) { ok = false; break; }
-          hs.push_back(e);
+          double aslM = 0.0;
+          if (!fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+                                pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
+            ok = false;
+            break;
+          }
+          hs.push_back(aslM);
         }
         if (!ok) { NoGround_++; continue; }
         /* Water runs downhill, so the sequence along the way is monotone — which end is downstream is
@@ -89,10 +92,13 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
       hs.clear();
       bool ground = true;
       for (uint32_t k = 0; k < ring.Count; k++) {
-        const double e = fb_stream_ground(pts[((size_t)ring.First + k) * 2],
-                                          pts[((size_t)ring.First + k) * 2 + 1]);
-        if (e <= -1e7) { ground = false; break; }
-        hs.push_back(e);
+        double aslM = 0.0;
+        if (!fb_stream_ground(pts[((size_t)ring.First + k) * 2],
+                              pts[((size_t)ring.First + k) * 2 + 1]).TryAslM(&aslM)) {
+          ground = false;
+          break;
+        }
+        hs.push_back(aslM);
       }
       if (!ground) { NoGround_++; continue; }
 

@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "Capacity.h"
+#include "GroundSample.h"
 
 namespace outshine::World {
 
@@ -60,9 +61,14 @@ public:
   double RoofAslAt(const OsmField &field, double lat, double lon) const;
   int OsmHeights() const { return OsmHeights_; }
   int DefaultHeights() const { return DefaultHeights_; }
+  int Deferrals() const { return Deferrals_; }
   size_t HeapBytes() const { return CapacityBytes(Prints_) + CapacityBytes(Verts_); }
 
 private:
+  /* A ring's lowest corner, carrying WHY when there is none — the ground's own answer, not a copy of
+   * its shape: two records with the same three fields drift apart the moment one of them is read. */
+  static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring);
+  bool TileGroundResolved(const OsmField &field, uint32_t tile, int layer) const;
   void Extrude(const OsmField &field, const Footprint &f);
 
   std::vector<Footprint> Prints_;
@@ -72,6 +78,7 @@ private:
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0;
+  int Deferrals_ = 0;   /* passes a tile waited for its DEM instead of losing its footprints */
 };
 
 } // namespace outshine::World

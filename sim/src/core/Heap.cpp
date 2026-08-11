@@ -10,23 +10,29 @@ namespace outshine {
 
 namespace {
 
-[[noreturn]] void Exhausted(const char *item, size_t bytes) {
+[[noreturn]] void End(const char *item, const char *bytes) {
   /* Log and Telemetry both allocate, and what just failed is the allocator they would allocate from:
    * this one line goes out on the rawest sink the platform has. */
   char line[224];
   std::snprintf(line, sizeof line,
-                "outshine heap exhausted: item=%s bytes=%zu inUseBytes=%zu reservedBytes=%zu\n",
+                "outshine heap exhausted: item=%s bytes=%s inUseBytes=%zu reservedBytes=%zu\n",
                 item, bytes, HeapProbe::Bytes(), HeapProbe::ReservedBytes());
   std::fputs(line, stderr);
   std::fflush(stderr);
   std::abort();
 }
 
+[[noreturn]] void EndWithCount(const char *item, size_t bytes) {
+  char count[24];
+  std::snprintf(count, sizeof count, "%zu", bytes);
+  End(item, count);
+}
+
 void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
   void *block = nullptr;
   if (posix_memalign(&block, alignment < sizeof(void *) ? sizeof(void *) : alignment,
                      bytes ? bytes : 1) != 0)
-    Exhausted(item, bytes);
+    EndWithCount(item, bytes);
   return block;
 }
 
@@ -34,9 +40,11 @@ void *TakeAligned(const char *item, size_t bytes, size_t alignment) {
 
 void *Heap::Take(const char *item, size_t bytes) {
   void *block = std::malloc(bytes ? bytes : 1);
-  if (!block) Exhausted(item, bytes);
+  if (!block) EndWithCount(item, bytes);
   return block;
 }
+
+void Heap::Exhausted(const char *item) { End(item, "unstated"); }
 
 } // namespace outshine
 
