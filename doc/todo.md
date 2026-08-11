@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Working on** | The eye in every telemetry row, plus per-pass admission counters |
-| **Scope** | `doc/requirements.md`: **1373 features, 216 ticked, 1157 open** · `doc/bugs.md`: **39 defects** |
+| **Scope** | `doc/requirements.md`: **1379 features, 216 ticked, 1163 open** · `doc/bugs.md`: **47 defects** |
 | **Last accepted** | The ledger stops lying — `heapKB` falls 35 times in 138 rows where the break never falls |
 
 **Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
