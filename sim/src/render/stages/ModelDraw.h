@@ -118,6 +118,13 @@ public:
   long ImpostorInstances() const { return ImpN; }
   long LevelInstances(int level) const { return LevelN[level]; }
 
+  /* THE THREE DEVICE POOLS THIS UNIT HOLDS, one accessor each: a fixed heap is a ledger and a pool
+   * that cannot say what it holds cannot be asked to give any back. The prototype is grown once and
+   * never moves; the instances are rewritten whenever the ring publishes; the atlas is baked once. */
+  size_t PrototypeBytes() const;
+  size_t InstanceBytes() const { return InstanceBytes_; }
+  size_t ImpostorBytes() const { return ImpostorBytes_; }
+
 private:
   static constexpr int kUniFloats = 64;
   static constexpr int kLevels = ModelLadder::kLevels;
@@ -179,6 +186,8 @@ private:
   float SheetFanDeg = 110.0f;
   float NightAmbient = 0.0f;
   uint32_t LevelIdxCount[kLevels] = {}, SheetCount[kLevels] = {}, SheetBase[kLevels] = {};
+  size_t LevelBytes_[kLevels] = {};
+  size_t DetailBytes_ = 0, SheetBytes_ = 0, InstanceBytes_ = 0, ImpostorBytes_ = 0;
   uint32_t DetailIdxCount = 0, DetailInstCount = 0, PlaceCount = 0;
   bool SheetsOn = true;
   long Drawn = 0, MeshN = 0, ImpN = 0;

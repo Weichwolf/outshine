@@ -25,11 +25,6 @@ constexpr int kAlbedoTileSize = 512;
  * three regions on either axis and no fewer will do. */
 constexpr Generators::Schedule::Ring kRing{14, 1};
 
-/* [SET] bodies per region, and it is a ceiling on what may STAND, not on what is tried: the
- * densest region of demo/frame's own ring places 35 309, and this is 1.39 times it. Reaching it is
- * not silent: the claim comes back Full and the count stands in the region's line. */
-constexpr uint32_t kBodiesPerRegion = 49152;
-
 /* [SET] kg/m3, air-dry broadleaf timber (Wagenfuehr, Holzatlas: beech 680...720). A stem's mass is
  * its own cone against it, which is the only mass a stand has to carry. */
 constexpr double kWoodDensityKgPerM3 = 700.0;
@@ -68,8 +63,7 @@ Sim::Sim(const Scene &scene, const Assets &assets)
       WindMs_(Scene_.WindMs()),
       Clk_((double)Scene_.UtcS()),
       W_(PixelFocalLength(Scene_.RenderResolution().Height, Scene_.FovDeg())),
-      Ring_(kRing),
-      Pool_(Ring_, Generators::RegionPool::Shape{(int)Ring_.Count(), kBodiesPerRegion, 8.0}) {
+      Ring_(kRing) {
   /* The thread that builds this object is the one that will draw on it, and this is the earliest
    * moment at which the engine can say so. */
   StackProbe::Enter(StackProbe::Purpose::Frame);
@@ -118,15 +112,42 @@ bool Sim::LoadTables() {
                    Span<const float>(StandsPerM2_.data(), StandsPerM2_.size()), Veg_.Limit());
     if (!Gens_.Add(Generators::Rank{0}, *Trees_)) return false;
   }
+  if (Gens_.Count() > 0 && !OpenPool()) return false;
   SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
+  return true;
+}
+
+/* THE BUDGET IS THE GENERATORS' OWN DECLARATION, summed: every one of them claims out of the same
+ * sink, so the slot has to hold all of them at once. A table edited denser moves this number without
+ * anybody remembering to, which is the whole reason it is not written down as a constant. */
+bool Sim::OpenPool() {
+  const std::optional<Generators::Region> widest = Ring_.Widest(Stance_.Lat, Stance_.Lon);
+  if (!widest) {
+    Log::Error("sim", "ring_has_no_region", {{"lat", Stance_.Lat}, {"lon", Stance_.Lon}});
+    return false;
+  }
+  uint64_t bodies = 0;
+  for (size_t g = 0; g < Gens_.Count(); g++)
+    bodies += Gens_.At(g).Proposes(widest->SpanEm() * widest->SpanNm());
+  Pool_.emplace(*widest, Generators::RegionPool::Shape{(int)Ring_.Count(), (uint32_t)bodies, 8.0});
+  Forge_.emplace(Gens_);
+  Log::Info("sim", "region_pool", {{"zoom", (double)widest->Zoom()},
+      {"widestSpanEm", widest->SpanEm()}, {"widestSpanNm", widest->SpanNm()},
+      {"slots", (double)Ring_.Count()}, {"bodiesPerSlot", (double)bodies},
+      {"slotKB", (double)Pool_->SlotBytes() / 1024.0},
+      {"poolKB", (double)Pool_->HeapBytes() / 1024.0}});
   return true;
 }
 
 /* THE GROUND OF ONE REGION, taken whole or not at all: a region with one posting still in flight is
  * left for the next turn, which is what stops a stand from being dropped for a tile that had not
- * landed. The postings sit on the DEM's own node spacing; how far the patch's own interpolation
- * stands from the drawn surface between them is unmeasured. */
-bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out) const {
+ * landed. It STOPS AT THAT POSTING — filling all 16 641 and then learning from the patch that one
+ * was missing cost the same grid again every turn, for every unready region in the ring, for as
+ * long as a DEM was in flight. The postings sit on the DEM's own node spacing; how far the patch's
+ * own interpolation stands from the drawn surface between them is unmeasured. */
+bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
+                   double *ms) const {
+  const double t0 = MonotonicMs();
   const int side = (int)(region.SpanNm() / fb_stream_ground_post_m(region.AnchorLat()) + 0.5) + 1;
   std::vector<Generators::GroundPatch::Posting> postings((size_t)side * (size_t)side);
   const double stepE = region.SpanEm() / (double)(side - 1);
@@ -135,7 +156,12 @@ bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapsho
     for (int i = 0; i < side; i++) {
       double lat = 0.0, lon = 0.0;
       region.Geo((double)i * stepE, (double)j * stepN, &lat, &lon);
-      postings[(size_t)j * (size_t)side + (size_t)i].Height = fb_stream_ground(lat, lon);
+      const GroundSample h = fb_stream_ground(lat, lon);
+      if (h.Where() != GroundSample::State::Resolved) {
+        *ms = MonotonicMs() - t0;
+        return false;
+      }
+      postings[(size_t)j * (size_t)side + (size_t)i].Height = h;
     }
   }
   out->Patch = Generators::GroundPatch::Complete(
@@ -144,6 +170,7 @@ bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapsho
   out->Classes = W_.Classes().Read();
   out->Features = NoFeatures_;
   out->Table = Table_;
+  *ms = MonotonicMs() - t0;
   return out->Patch && out->Classes;
 }
 
@@ -155,86 +182,121 @@ bool Sim::Reached(const Generators::Region &region) const {
   return de * de + dn * dn < kReachM * kReachM;
 }
 
-void Sim::Populate() {
-  if (Gens_.Count() == 0) return;
-  /* WHAT THE RING NO LONGER NAMES GOES BACK. The ring is a function of the eye's own region, so it
-   * changes at a region crossing and not at a step: a region held against the reach alone would be
-   * generated again every time the eye wandered over one threshold. */
+bool Sim::Names(const Generators::Region &region) const {
+  for (size_t k = 0; k < Ring_.Count(); k++) {
+    const std::optional<Generators::Region> named = Ring_.At(k, Stance_.Lat, Stance_.Lon);
+    if (named && named->Is(region)) return true;
+  }
+  return false;
+}
+
+bool Sim::Standing(const Generators::Region &region) const {
+  for (const Populated &p : Grown_)
+    if (p.Where.Where().Is(region)) return true;
+  for (const Generators::Region &refused : Refused_)
+    if (refused.Is(region)) return true;
+  return false;
+}
+
+/* WHAT THE RING NO LONGER NAMES GOES BACK, and what is under way for such a region is dropped. The
+ * ring is a function of the eye's own region, so it changes at a crossing and not at a step: a
+ * region held against the reach alone would be generated again every time the eye wandered over one
+ * threshold. */
+void Sim::Release() {
   for (size_t i = Grown_.size(); i-- > 0;) {
-    bool named = false;
-    for (size_t k = 0; k < Ring_.Count() && !named; k++) {
-      const std::optional<Generators::Region> region = Ring_.At(k, Stance_.Lat, Stance_.Lon);
-      named = region && Grown_[i].Where.Where().Is(*region);
-    }
-    if (named) continue;
+    if (Names(Grown_[i].Where.Where())) continue;
     Grown_.erase(Grown_.begin() + (long)i);
     Version_++;
   }
+  for (size_t i = Refused_.size(); i-- > 0;)
+    if (!Names(Refused_[i])) Refused_.erase(Refused_.begin() + (long)i);
+  const std::optional<Generators::Region> under = Forge_->UnderWay();
+  if (under && !Names(*under)) Forge_->Cancel();
+}
+
+void Sim::Gather() {
+  std::optional<Populated> grown = Forge_->Collect();
+  if (!grown) return;
+  const Generators::Region where = grown->Where.Where();
+  /* A REGION THAT DOES NOT FIT IS REFUSED WHOLE. Half of one is a straight lattice-row edge in the
+   * picture and a count nobody can attribute; the budget is the pool's, and what exceeds it is a
+   * declaration this client cannot hold. */
+  uint32_t full = 0;
+  for (const Generators::Yield &yield : grown->Yields)
+    full += yield.Claims(Generators::Claim::Outcome::Full);
+  if (full > 0) {
+    Log::Error("sim", "region_refused", {{"zoom", (double)where.Zoom()}, {"x", (double)where.X()},
+        {"y", (double)where.Y()}, {"why", std::string("body budget")},
+        {"bodyCapacity", (double)grown->Space.Sink().Capacity()},
+        {"refusedClaims", (double)full}});
+    Refused_.push_back(where);
+    return;
+  }
+  Say(*grown, SnapshotMs_);
+  Grown_.push_back(std::move(*grown));
+  Version_++;
+}
+
+/* ONE REQUEST AT A TIME, because one region is in flight by construction. The snapshot is taken on
+ * this thread — the DEM oracle it reads has one cache and one thread may hold it — and the
+ * generators run on the forge's. */
+void Sim::Ask() {
+  if (!Forge_->Idle()) return;
   for (size_t k = 0; k < Ring_.Count(); k++) {
     const std::optional<Generators::Region> region = Ring_.At(k, Stance_.Lat, Stance_.Lon);
-    if (!region || !Reached(*region)) continue;
-    bool standing = false;
-    for (const Populated &p : Grown_) standing = standing || p.Where.Where().Is(*region);
-    if (standing) continue;
+    if (!region || !Reached(*region) || Standing(*region)) continue;
 
     Generators::Ground::Snapshot snapshot;
-    if (!Snapshot(*region, &snapshot)) continue;
+    if (!Snapshot(*region, &snapshot, &SnapshotMs_)) continue;
     const std::optional<Generators::Ground> ground = Generators::Ground::Of(*region, snapshot);
     if (!ground) continue;
-    std::optional<Generators::RegionPool::Lease> lease = Pool_.TryAcquire(*ground);
+    std::optional<Generators::RegionPool::Lease> lease = Pool_->TryAcquire(*ground);
     if (!lease) {
       Log::Warn("sim", "region_pool_empty",
                 {{"zoom", (double)region->Zoom()}, {"x", (double)region->X()},
                  {"y", (double)region->Y()}, {"regions", (double)Grown_.size()}});
       return;
     }
-
-    Populated grown{*ground, std::move(*lease), {}, {}};
-    size_t notes = 0;
-    for (size_t g = 0; g < Gens_.Count(); g++) notes += Gens_.At(g).NoteNames().Size();
-    grown.Notes.resize(notes);
-    grown.Yields.reserve(Gens_.Count());
-    for (size_t g = 0, at = 0; g < Gens_.Count(); g++) {
-      const Span<const char *const> names = Gens_.At(g).NoteNames();
-      grown.Yields.emplace_back(grown.Space.Sink(), names,
-                                Span<Generators::Yield::Note>(grown.Notes.data() + at, names.Size()));
-      at += names.Size();
-    }
-    const double t0 = MonotonicMs();
-    Gens_.Occupy(grown.Where, Span<Generators::Yield>(grown.Yields.data(), grown.Yields.size()));
-    const double occupyMs = MonotonicMs() - t0;
-
-    /* THE WHOLE PARTITION IN ONE LINE: every candidate of the region leaves through exactly one
-     * name, so a count that does not sum to the lattice is a case nobody wrote. */
-    std::vector<LogField> fields{{"zoom", (double)region->Zoom()}, {"x", (double)region->X()},
-        {"y", (double)region->Y()}, {"occupyMs", occupyMs},
-        {"speciesLimitAslM", Veg_.Limit().SpeciesLimitM(region->AnchorLat())}};
-    for (const Generators::Yield &yield : grown.Yields) {
-      fields.push_back({"placed", (double)yield.Claims(Generators::Claim::Outcome::Placed)});
-      fields.push_back({"occupied", (double)yield.Claims(Generators::Claim::Outcome::Occupied)});
-      fields.push_back({"outside", (double)yield.Claims(Generators::Claim::Outcome::Outside)});
-      fields.push_back({"full", (double)yield.Claims(Generators::Claim::Outcome::Full)});
-      for (const Generators::Yield::Note &note : yield.Notes())
-        fields.push_back({note.Name, note.Raised ? note.Peak : (double)note.Times});
-    }
-    Log::Info("sim", "region_grown", fields);
-    Grown_.push_back(std::move(grown));
-    Version_++;
-    /* ONE REGION PER PASS, because generation still runs on the thread that draws: a pass that took
-     * the whole ring at once cost 44 ms of frame at demo/crossing's first border, measured, against a
-     * 10.7 ms neighbourhood. A budget bounds the hitch; only moving the work off this thread removes
-     * it. */
+    Forge_->Request(*ground, std::move(*lease));
     return;
   }
 }
 
+void Sim::Populate() {
+  if (!Forge_) return;
+  Release();
+  Gather();
+  Ask();
+}
+
+/* THE WHOLE PARTITION IN ONE LINE: every candidate of the region leaves through exactly one name, so
+ * a count that does not sum to the lattice is a case nobody wrote. The two millisecond fields are
+ * the two threads it cost — the snapshot on the caller's, the generators on the forge's. */
+void Sim::Say(const Populated &grown, double snapshotMs) const {
+  const Generators::Region &region = grown.Where.Where();
+  std::vector<LogField> fields{{"zoom", (double)region.Zoom()}, {"x", (double)region.X()},
+      {"y", (double)region.Y()}, {"occupyMs", grown.OccupyMs}, {"snapshotMs", snapshotMs},
+      {"slotKB", (double)Pool_->SlotBytes() / 1024.0},
+      {"patchKB", (double)grown.Where.PatchHeapBytes() / 1024.0},
+      {"speciesLimitAslM", Veg_.Limit().SpeciesLimitM(region.AnchorLat())}};
+  for (const Generators::Yield &yield : grown.Yields) {
+    fields.push_back({"placed", (double)yield.Claims(Generators::Claim::Outcome::Placed)});
+    fields.push_back({"occupied", (double)yield.Claims(Generators::Claim::Outcome::Occupied)});
+    fields.push_back({"outside", (double)yield.Claims(Generators::Claim::Outcome::Outside)});
+    fields.push_back({"full", (double)yield.Claims(Generators::Claim::Outcome::Full)});
+    for (const Generators::Yield::Note &note : yield.Notes())
+      fields.push_back({note.Name, note.Raised ? note.Peak : (double)note.Times});
+  }
+  Log::Info("sim", "region_grown", fields);
+}
+
 bool Sim::RingStands() const {
+  if (!Forge_) return true;
+  if (!Forge_->Idle()) return false;
   for (size_t k = 0; k < Ring_.Count(); k++) {
     const std::optional<Generators::Region> region = Ring_.At(k, Stance_.Lat, Stance_.Lon);
     if (!region || !Reached(*region)) continue;
-    bool standing = false;
-    for (const Populated &p : Grown_) standing = standing || p.Where.Where().Is(*region);
-    if (!standing) return false;
+    if (!Standing(*region)) return false;
   }
   return true;
 }

@@ -48,6 +48,8 @@ public:
   const GroundTable &Table() const noexcept { return *Table_; }
   /* The declared anchor every ECEF offset of this region is measured from, at sea level. */
   const double *AnchorEcef() const noexcept { return AnchorEcef_; }
+  /* What this region's own ground costs while it stands — one column of a region's byte line. */
+  size_t PatchHeapBytes() const noexcept { return Patch_->HeapBytes(); }
 
 private:
   Ground(const Region &region, const Snapshot &snapshot);

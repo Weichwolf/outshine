@@ -128,6 +128,7 @@ const char *StackProbe::Name(Purpose purpose) {
     case Purpose::Frame: return "frame";
     case Purpose::Class: return "class";
     case Purpose::Tile: return "tile";
+    case Purpose::Region: return "region";
   }
   return "";
 }

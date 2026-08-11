@@ -17,8 +17,8 @@ public:
   /* A stack per purpose, not per thread: the compute pool has as many threads as the host has cores,
    * and a schema whose column count follows the host is not a schema. Threads sharing a purpose
    * publish the deepest of them. */
-  enum class Purpose { Frame, Class, Tile };
-  static constexpr int kPurposeCount = 3;
+  enum class Purpose { Frame, Class, Tile, Region };
+  static constexpr int kPurposeCount = 4;
 
   /* Paints part of this thread's free stack and binds it to `purpose`. Called once, as early in the
    * thread as the caller can manage: whatever is already on the stack is invisible to the probe and

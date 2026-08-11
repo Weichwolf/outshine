@@ -297,7 +297,8 @@ void SceneRunner::MotionBegin(const Scene::Run::MotionRun &m) {
   if (Profile_)
     Csv_ = "frame,timeS,distM,frameMs,worldMs,meshMs,uploadMs,buildingMs,bDecodeMs,"
            "classMs,renderMs,gpuMs,nodes,drawnLeaves,terrainTiles,draws,terrainTris,"
-           "buildingVerts,built,evicted,classVramMB,temporalVramMB\n";
+           "buildingVerts,built,evicted,classVramMB,temporalVramMB,"
+           "collectMs,regionX,regionY,regionVersion,regionsStanding,regionBusy\n";
   else if (m.Frames > 1 && !Out_.MakeDir(m.Path)) { Rc_ = 1; Stage_ = Stage::Dispatch; return; }
   SettleAt_ = 1;
   Stage_ = Stage::Settle;
@@ -389,17 +390,20 @@ void SceneRunner::MotionRow() {
   const Scene::Run::MotionRun &m = *Move_;
   const double e = m.Move.Drives(Target::CameraEastM) ? m.Move.At(Target::CameraEastM, FrameAt_) : 0.0;
   const double n = m.Move.Drives(Target::CameraNorthM) ? m.Move.At(Target::CameraNorthM, FrameAt_) : 0.0;
-  char row[512];
+  const Generators::Region here = App_.Simulation().Here();
+  char row[640];
   snprintf(row, sizeof row,
            "%d,%.6f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,"
-           "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f\n",
+           "%d,%d,%d,%d,%ld,%u,%ld,%ld,%.3f,%.3f,%.4f,%d,%d,%llu,%zu,%d\n",
            FrameAt_, (double)FrameAt_ / m.Fps, std::sqrt(e * e + n * n), MsBetween(T0_, t3),
            W.PassMs(), W.MeshMs(), App_.Measured().UploadMs, W.BuildingMs(), W.BuildingDecodeMs(),
            W.ClassMs(), MsBetween(T1_, T2_), MsBetween(T2_, t3), W.NodeCount(), W.DrawnLeafCount(),
            R.TerrainVisibleTiles(), R.DrawCount(), R.TerrainTriangleCount(),
            R.BuildingVertexCount(), W.BuiltCount(), W.EvictedCount(),
            (double)R.ClassVramBytes() / (1024.0 * 1024.0),
-           (double)R.TemporalVramBytes() / (1024.0 * 1024.0));
+           (double)R.TemporalVramBytes() / (1024.0 * 1024.0),
+           App_.CollectMs(), here.X(), here.Y(), (unsigned long long)App_.Simulation().RegionVersion(),
+           App_.Simulation().RegionsStanding(), App_.Simulation().RegionBusy() ? 1 : 0);
   Csv_ += row;
   MotionNextFrame();
 }

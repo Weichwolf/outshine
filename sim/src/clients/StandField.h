@@ -26,6 +26,10 @@ public:
     double ReachM = 0.0;
   };
 
+  /* THE CEILING, taken once at bring-up and never grown: the collection is the one buffer on this
+   * path that a fixed heap has to be told the size of, and a `Full()` that can never be true makes
+   * `Add`'s refusal a dead branch that looks like handling. */
+  void Reserve(uint32_t stands);
   /* Clears what was collected: a collection is a whole answer, never an append to an older one. */
   void Aim(const Lens &lens, const Generators::TreePrototype::Crown &crown);
   /* The region the instances that follow are measured in. */
@@ -33,7 +37,7 @@ public:
 
   [[nodiscard]] bool Add(Generators::BodyId body, Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override;
-  bool Full() const noexcept override { return false; }
+  bool Full() const noexcept override { return Stands_.size() >= (size_t)Cap_ * kFloats; }
 
   /* Render::ModelDraw's instance layout: east, north, foot over the frame's anchor, yaw, and
    * the factor on the model's own height. */
@@ -41,6 +45,11 @@ public:
   uint32_t Count() const { return (uint32_t)(Stands_.size() / kFloats); }
   uint32_t BeyondReach() const { return Beyond_; }
   uint32_t InCrown() const { return InCrown_; }
+  /* Instances the ceiling refused, this collection. Non-zero means the picture is missing stands
+   * that the world placed, which is a budget statement and belongs in a line. */
+  uint32_t Refused() const { return Refused_; }
+  uint32_t Capacity() const { return Cap_; }
+  size_t HeapBytes() const { return Stands_.capacity() * sizeof(float); }
   /* The field's own extent in the frame it was collected in: nearest and farthest stand, metres. */
   double NearestM() const { return Nearest_; }
   double FarthestM() const { return Farthest_; }
@@ -53,7 +62,8 @@ private:
   Generators::TreePrototype::Crown Crown_;
   Generators::Region Region_{14, 0, 0};
   std::vector<float> Stands_;
-  uint32_t Beyond_ = 0, InCrown_ = 0;
+  uint32_t Cap_ = 0;
+  uint32_t Beyond_ = 0, InCrown_ = 0, Refused_ = 0;
   double Nearest_ = 0.0, Farthest_ = 0.0;
 };
 

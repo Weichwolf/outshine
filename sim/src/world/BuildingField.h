@@ -17,6 +17,7 @@
 
 #include "OsmField.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <vector>
 
@@ -42,7 +43,12 @@ public:
    * AT MOST ONE TILE PER CALL, because everything downstream of a decoded tile — extrusion and the
    * cluster DAG — is main-thread work in the frame that asked. A ring of nine landing together is one
    * frame doing nine tiles' worth of it, and that frame is gone. The stop is on the FEATURE'S TILE,
-   * not on the field's schedule, so a field that later runs ahead cannot undo it. */
+   * not on the field's schedule, so a field that later runs ahead cannot undo it.
+   *
+   * DEFERRAL IS PER TILE. One watermark made a tile whose DEM never arrives stall every LATER tile's
+   * buildings, so one hole in the elevation emptied the whole street behind it — and a ring that
+   * travels turns that into a hole that grows. A deferred tile is stepped over and asked again; the
+   * watermark still follows the contiguous prefix, so the scan stays short. */
   int Build(const OsmField &field);
 
   /* The vertex range `Verts_` grew by in the last Build that consumed something, as float indices.
@@ -68,17 +74,22 @@ private:
   /* A ring's lowest corner, carrying WHY when there is none — the ground's own answer, not a copy of
    * its shape: two records with the same three fields drift apart the moment one of them is read. */
   static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring);
-  bool TileGroundResolved(const OsmField &field, uint32_t tile, int layer) const;
+  bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
   void Extrude(const OsmField &field, const Footprint &f);
+  bool Taken(uint32_t tile) const;
+  void Take(uint32_t tile);
 
   std::vector<Footprint> Prints_;
   std::vector<float> Verts_;
   uint32_t Consumed_ = 0;          /* into OsmField::Features() — the watermark, never rewound */
+  /* Tiles built AHEAD of the watermark, sorted. Bounded by how many deferred tiles stand between
+   * the watermark and the newest arrival, and emptied as the watermark passes them. */
+  std::vector<uint32_t> Ahead_;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0;
-  int Deferrals_ = 0;   /* passes a tile waited for its DEM instead of losing its footprints */
+  int Deferrals_ = 0;   /* tiles stepped over because their DEM had not landed */
 };
 
 } // namespace outshine::World

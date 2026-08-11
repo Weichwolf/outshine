@@ -2,10 +2,7 @@
 
 namespace outshine::Generators {
 
-RegionPool::RegionPool(const Schedule &schedule, const Shape &shape) {
-  /* The equatorial region of the schedule's zoom is the widest and the tallest one it can name:
-   * east shrinks with cos(latitude) and the Mercator row shrinks with it. */
-  const Region widest = Region::Of(schedule.Zoom(), 0.0, 0.0);
+RegionPool::RegionPool(const Region &widest, const Shape &shape) {
   const size_t cells = (size_t)OccupancySink::Cells(widest.SpanEm(), shape.CellM) *
                        (size_t)OccupancySink::Cells(widest.SpanNm(), shape.CellM);
   const int sinks = shape.Sinks < 1 ? 1 : shape.Sinks;

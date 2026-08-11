@@ -177,6 +177,74 @@
       ]
     },
     {
+      "id": "ring",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 90,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "why": "six region crossings in one run, at the same 150 m/s demo/crossing declares: 9000 m east over 3600 frames at 60 fps against a 1503 m region at 52.106 N. The yaw is held and the bearing IS the direction of travel, so the picture streams into world it has not seen and a frame distribution has one moving quantity in it instead of two.",
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 3600,
+          "fps": 60,
+          "world": "streaming",
+          "give": "profile",
+          "path": "ring.csv",
+          "animation": {
+            "samplers": [
+              { "input": [0, 3600], "output": [0, 9000], "interpolation": "LINEAR" },
+              { "input": [0, 3600], "output": [0, 60], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "camera.eastM" },
+              { "sampler": 1, "target": "wind.clockS" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "ring-pop",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 90,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "why": "the moving capture a still cannot stand in for. It walks demo/ring's own path from its own start -- an eastM that begins anywhere else would teleport the eye past the loading phase's standpoint and photograph the ring catching up instead of a crossing -- at the same 150 m/s, far enough to pass the first region boundary at 940 m and the arrival of the leading regions behind it. Every frame is written, so a stand that appears between two of them is visible as one.",
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 340,
+          "fps": 30,
+          "world": "streaming",
+          "give": "stills",
+          "path": "ring-pop",
+          "animation": {
+            "samplers": [
+              { "input": [0, 340], "output": [0, 1700], "interpolation": "LINEAR" }
+            ],
+            "channels": [
+              { "sampler": 0, "target": "camera.eastM" }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "classes",
       "kind": "run",
       "lat": 52.10602,

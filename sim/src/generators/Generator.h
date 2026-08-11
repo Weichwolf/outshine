@@ -18,6 +18,13 @@ public:
   Generator &operator=(const Generator &) = delete;
 
   virtual void Occupy(const Ground &ground, Yield &yield) const noexcept = 0;
+  /* THE BODIES THIS GENERATOR CAN CLAIM OVER THIS MUCH GROUND, from its own lattice against the
+   * densest row it was declared with. Square metres and not a region, because the two callers ask
+   * about different shapes: the occupancy pool about one region, the picture's collection about the
+   * disc it reaches over — and the lattice is the only thing that can turn either into a count.
+   * A region that runs past what the pool was sized on is a declaration the budget cannot hold, and
+   * is refused whole rather than truncated at whatever lattice row the scan happened to reach. */
+  [[nodiscard]] virtual uint32_t Proposes(double areaM2) const noexcept = 0;
   /* What stands at one place, with no buffer existing. The answer is a proposal and not a
    * placement: nothing claimed the space. */
   [[nodiscard]] virtual bool At(const Ground &ground, double eastM, double northM,

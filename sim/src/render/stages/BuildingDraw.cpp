@@ -194,6 +194,7 @@ void BuildingDraw::Encode(const FrameContext &ctx, ClusterCut &cut,
   static const float kNoUp[3] = {0.0f, 0.0f, 0.0f};
   cut.Begin();
   cut.Take(0, Clusters.data(), (int)Clusters.size(), eyeLocal, rel, kNoUp);
+  cut.Close();
   DrawnVerts = (uint32_t)cut.Indices();
   if (cut.Ranges().empty()) return;
   float u[kUniFloats] = {};

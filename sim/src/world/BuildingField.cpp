@@ -42,9 +42,18 @@ GroundSample BuildingField::RingBase(const OsmField &field, const OsmField::Ring
   return GroundSample::At(lowest);
 }
 
-bool BuildingField::TileGroundResolved(const OsmField &field, uint32_t tile, int layer) const {
+bool BuildingField::Taken(uint32_t tile) const {
+  return std::binary_search(Ahead_.begin(), Ahead_.end(), tile);
+}
+
+void BuildingField::Take(uint32_t tile) {
+  Ahead_.insert(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile), tile);
+}
+
+bool BuildingField::TileGroundResolved(const OsmField &field, size_t from, size_t to,
+                                       int layer) const {
   const std::vector<OsmField::Feature> &feats = field.Features();
-  for (size_t i = Consumed_; i < feats.size() && feats[i].Tile == tile; i++) {
+  for (size_t i = from; i < to; i++) {
     const OsmField::Feature &f = feats[i];
     if (f.Type != 3 || (int)f.Layer != layer) continue;
     for (uint32_t r = 0; r < f.RingCount; r++) {
@@ -64,17 +73,27 @@ int BuildingField::Build(const OsmField &field) {
   if (Consumed_ >= feats.size()) return (int)Prints_.size();
 
   const int layer = field.Layer("buildings");
-  const uint32_t tile = feats[Consumed_].Tile;
   const std::vector<double> &pts = field.Points();
   int added = 0;
 
   /* A FOOTPRINT IS CONSUMED ONCE. Whichever ring is asked first, a tile is either buildable now or
    * asked again next pass — dropping a stand because its DEM had not landed yet is indistinguishable
    * from "nothing stands here" and is never revisited. */
-  if (!TileGroundResolved(field, tile, layer)) { Deferrals_++; return (int)Prints_.size(); }
+  size_t at = Consumed_, end = Consumed_;
+  bool found = false;
+  while (at < feats.size()) {
+    const uint32_t tile = feats[at].Tile;
+    end = at;
+    while (end < feats.size() && feats[end].Tile == tile) end++;
+    if (!Taken(tile) && TileGroundResolved(field, at, end, layer)) { found = true; break; }
+    if (!Taken(tile)) Deferrals_++;
+    at = end;
+  }
+  if (!found) return (int)Prints_.size();
+  Take(feats[at].Tile);
 
-  for (; Consumed_ < feats.size() && feats[Consumed_].Tile == tile; Consumed_++) {
-    const OsmField::Feature &f = feats[Consumed_];
+  for (size_t c = at; c < end; c++) {
+    const OsmField::Feature &f = feats[c];
     if (f.Type != 3 || (int)f.Layer != layer) continue;
     const double h = field.Num(f, "height", 0.0);
 
@@ -108,13 +127,22 @@ int BuildingField::Build(const OsmField &field) {
     }
   }
 
+  /* The watermark follows the contiguous prefix that is built, and the out-of-order set is emptied
+   * behind it: what is left in it is exactly the tiles still deferred. */
+  while (Consumed_ < feats.size() && Taken(feats[Consumed_].Tile)) {
+    const uint32_t tile = feats[Consumed_].Tile;
+    while (Consumed_ < feats.size() && feats[Consumed_].Tile == tile) Consumed_++;
+    Ahead_.erase(std::lower_bound(Ahead_.begin(), Ahead_.end(), tile));
+  }
+
   AddedCount_ = (uint32_t)Verts_.size() - AddedFirst_;
   if (added == 0) return (int)Prints_.size();
 
   Log::Info("world", "buildings", {{"added", added}, {"total", (int)Prints_.size()},
                                      {"osmHeight", OsmHeights_}, {"defaultHeight", DefaultHeights_},
                                      {"vertsMB", (double)Verts_.size() * 4.0 / 1.0e6},
-                                     {"noGround", NoGround_}, {"deferrals", Deferrals_}});
+                                     {"noGround", NoGround_}, {"deferrals", Deferrals_},
+                                     {"builtAhead", (int)Ahead_.size()}});
   return (int)Prints_.size();
 }
 

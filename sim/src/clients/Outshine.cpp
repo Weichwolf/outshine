@@ -4,12 +4,14 @@
 #include <cstdlib>
 
 #include "ClassStructure.h"
+#include "ClusterDag.h"
 #include "Geodesy.h"
 #include "HeapProbe.h"
 #include "Log.h"
 #include "PixelFocalLength.h"
 #include "TerrainLoader.h"
 #include "ModelLadder.h"
+#include "Units.h"
 
 namespace outshine::Clients {
 namespace {
@@ -214,6 +216,16 @@ void Outshine::AwaitStars() {
     R_.BakePrototypeImpostor();
     TreeDraw_.emplace(Generators::ClusterId{0}, Tree_->HeightM());
     if (!Draws_.Add(Generators::Rank{0}, *TreeDraw_)) { Phase_ = Phase::Failed; return; }
+    /* THE COLLECTION'S CEILING, and it is the same declaration the occupancy pool was sized on:
+     * every generator asked what it can claim over the disc the picture reaches across. Taken once,
+     * here, because a vector that grows during play is a budget nobody declared. */
+    uint32_t reserve = 0;
+    const Generators::GeneratorSet &gens = Sim_.Content();
+    const double discM2 = kPi * Sim::kReachM * Sim::kReachM;
+    for (size_t g = 0; g < gens.Count(); g++) reserve += gens.At(g).Proposes(discM2);
+    Stands_.Reserve(reserve);
+    Log::Info("outshine", "stand_budget", {{"reachM", Sim::kReachM}, {"discM2", discM2},
+        {"stands", (double)reserve}, {"KB", (double)Stands_.HeapBytes() / 1024.0}});
   }
   LoadFromMs_ = LoadMovedMs_ = LoadSaidMs_ = NowMs();
   LoadPasses_ = 0;
@@ -341,13 +353,34 @@ void Outshine::Collect() {
  * which stand holds the lens. A region that has just been generated makes the whole answer again,
  * because a collection is one answer over the regions that stand and not an append to an older
  * one. */
+/* THE REACH IS A CUT AROUND THE EYE, so a collection made only when the REGION SET changes stands
+ * still between two of them: at 150 m/s the ring publishes every ~600 m, and 600 m worth of stands
+ * then enter in a single frame — a wall of forest arriving at 300 m instead of one stand at a time
+ * at 900. This is how far the eye may walk before the cut is made again, and it is what keeps the
+ * size a stand ENTERS at inside the ladder's own tolerance: entering at R - d instead of R makes it
+ * H*f/(R-d) - H*f/R pixels taller, and this d is where that difference reaches tau. */
+double Outshine::RecollectStepM() const {
+  const double hf = Tree_->HeightM() *
+                    PixelFocalLength(Sim_.Declared().RenderResolution().Height, (double)R_.GetFovDeg());
+  const double tau = (double)SseTauPx();
+  return Sim::kReachM * Sim::kReachM * tau / (Sim::kReachM * tau + hf);
+}
+
 void Outshine::CollectStands() {
   const Span<const Sim::Populated> regions = Sim_.Regions();
-  if (!Tree_ || Sim_.RegionVersion() == StandingRegions_) return;
+  CollectMs_ = 0.0;
+  if (!Tree_) return;
+  double walkedE = 0.0, walkedN = 0.0;
+  if (Collected_) CollectedFrom_.Project(Sim_.Lat(), Sim_.Lon(), &walkedE, &walkedN);
+  const double step = RecollectStepM();
+  const bool walked = !Collected_ || walkedE * walkedE + walkedN * walkedN > step * step;
+  if (Sim_.RegionVersion() == StandingRegions_ && !walked) return;
   StandingRegions_ = Sim_.RegionVersion();
   const double t0 = NowMs();
   StandField::Lens lens{TangentFrame::At(Sim_.Lat(), Sim_.Lon()), Sim_.Standpoint().AltAslM(),
                         Sim::kReachM};
+  CollectedFrom_ = lens.Frame;
+  Collected_ = true;
   Stands_.Aim(lens, Tree_->Reach());
   for (const Sim::Populated &region : regions) {
     Stands_.From(region.Where.Where());
@@ -356,11 +389,20 @@ void Outshine::CollectStands() {
                 region.Space.Sink().Placed(), Stands_);
   }
   R_.SetPrototypeInstances(Stands_.Stands().data(), Stands_.Count(), Stands_.Frame());
+  CollectMs_ = NowMs() - t0;
+  if (Stands_.Refused() > 0)
+    Log::Error("outshine", "stands_truncated", {{"capacity", (double)Stands_.Capacity()},
+        {"refusals", (double)Stands_.Refused()}, {"regions", (double)regions.Size()}});
   Log::Info("outshine", "stands_collected", {{"regions", (double)regions.Size()},
       {"placed", (double)Sim_.StandCount()}, {"stands", (double)Stands_.Count()},
       {"beyondReachM", Sim::kReachM}, {"beyondReach", (double)Stands_.BeyondReach()},
       {"nearestM", Stands_.NearestM()}, {"farthestM", Stands_.FarthestM()},
-      {"inCrown", (double)Stands_.InCrown()}, {"collectMs", NowMs() - t0}});
+      {"inCrown", (double)Stands_.InCrown()}, {"collectMs", CollectMs_},
+      {"standsKB", (double)Stands_.HeapBytes() / 1024.0},
+      {"regionSlotKB", (double)Sim_.RegionSlotBytes() / 1024.0},
+      {"instanceKB", (double)R_.ModelInstanceBytes() / 1024.0},
+      {"prototypeKB", (double)R_.ModelPrototypeBytes() / 1024.0},
+      {"impostorKB", (double)R_.ModelImpostorBytes() / 1024.0}});
 }
 
 Outshine::Progress Outshine::Stream(double nowMs) {

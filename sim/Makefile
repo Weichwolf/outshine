@@ -35,12 +35,13 @@ CXXSTD    := -std=c++17
 # quotes, which mangles the sed script that strips the .d file's line continuations.)
 DEPFLAGS := -MMD -MP
 
-# EVERY THREAD THE CLIENT RUNS, ALLOCATED AT BRING-UP: one for the class grid and the tile pool's
-# ceiling (world/TerrainLoader.cpp kMaxTileThreads). A pthread_create beyond the pool has to go back
+# EVERY THREAD THE CLIENT RUNS, ALLOCATED AT BRING-UP: one for the class grid, one for the region
+# forge, and the tile pool's ceiling (world/TerrainLoader.cpp kMaxTileThreads). A pthread_create
+# beyond the pool has to go back
 # to the main thread's event loop to get its Worker, which is a stall on the thread that draws --
 # and the pool is created exactly once, while the loading screen is up.
 WASM_THREADS := -pthread
-WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=7
+WASM_THREADS_LINK := $(WASM_THREADS) -sPTHREAD_POOL_SIZE=8
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
 # THE CLIENT'S LINEAR MEMORY, FIXED, and there is now exactly one of it. WebGPU refuses a resizable
@@ -121,7 +122,7 @@ TERRAIN_SRCS := $(wildcard src/world/terrain/*.cpp)
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
 SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
-  src/clients/Species.cpp
+  src/clients/Species.cpp src/clients/RegionForge.cpp
 
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds
 # a scene; a client adds an entry point and an output medium over it. Both clients link this list,

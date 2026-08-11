@@ -30,6 +30,10 @@ public:
   /* The i-th nearest region to a place, nearest first. None where the ring reaches past a pole. */
   std::optional<Region> At(size_t i, double lat, double lon) const;
 
+  /* The ring member with the most ground in it — the one every buffer set has to be able to hold.
+   * A Mercator row shrinks with cos(latitude), so it is the equator-most, never the centre. */
+  std::optional<Region> Widest(double lat, double lon) const;
+
 private:
   struct Offset {
     int X, Y;

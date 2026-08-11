@@ -858,6 +858,7 @@ void TerrainDraw::Encode(const FrameContext &ctx, ClusterCut &cut,
       e[10] = d.Anchor[2];
     }
   }
+  cut.Close();
   DrawnVerts = cut.Indices();
   DrawCalls = (int)cut.Ranges().size();
   for (int i = 0; i < kLevelBins; i++) DrawnByLevel[i] = cut.IndicesByLevel()[i];

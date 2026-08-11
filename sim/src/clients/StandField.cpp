@@ -4,18 +4,28 @@
 
 namespace outshine::Clients {
 
+void StandField::Reserve(uint32_t stands) {
+  Cap_ = stands;
+  Stands_.reserve((size_t)stands * kFloats);
+}
+
 void StandField::Aim(const Lens &lens, const Generators::TreePrototype::Crown &crown) {
   Lens_ = lens;
   Crown_ = crown;
   Stands_.clear();
   Beyond_ = 0;
   InCrown_ = 0;
+  Refused_ = 0;
   Nearest_ = Lens_.ReachM;
   Farthest_ = 0.0;
 }
 
 bool StandField::Add(Generators::BodyId, Generators::ClusterId,
                      const Generators::Instance &instance) noexcept {
+  if (Full()) {
+    Refused_++;
+    return false;
+  }
   /* Through geodetic coordinates, the same way the class was asked: the region's metres and the
    * lens's metres are anchored differently, and the two agree only where both are written out. */
   double lat = 0.0, lon = 0.0;

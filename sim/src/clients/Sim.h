@@ -13,6 +13,7 @@
 #include "Ground.h"
 #include "GroundMaterials.h"
 #include "GroundTable.h"
+#include "RegionForge.h"
 #include "RegionPool.h"
 #include "Scene.h"
 #include "SceneWeather.h"
@@ -70,15 +71,9 @@ public:
   Bring Open();
   bool Opened() const { return Opened_; }
 
-  /* WHAT GREW IN ONE REGION: the ground it grew on, the space it claimed and what it wanted counted
-   * beside the claim. The lease is held with it because the bodies live in the pool's buffers, and
-   * the yields name the stretch of them each generator claimed. */
-  struct Populated {
-    Generators::Ground Where;
-    Generators::RegionPool::Lease Space;
-    std::vector<Generators::Yield::Note> Notes;
-    std::vector<Generators::Yield> Yields;
-  };
+  /* What one region became. It is the forge's product under this object's name because a region
+   * that stands and a region that has just been generated are the same thing. */
+  using Populated = RegionForge::Grown;
 
   /* Move the eye. The ground rides the DEM, so the height above sea level follows from wherever the
    * stance now is and a cold tile leaves the last resolved answer standing. */
@@ -110,16 +105,28 @@ public:
   const Generators::GeneratorSet &Content() const { return Gens_; }
   /* Moves whenever a region is generated or released, which is what a collector re-reads on. */
   uint64_t RegionVersion() const { return Version_; }
+  /* THE REGION THE EYE STANDS IN. The ring is anchored on it, so a change of this key IS a region
+   * crossing — which is what makes the crossing frames of a run identifiable in its own profile
+   * rather than reconstructed from a distance afterwards. */
+  Generators::Region Here() const { return Generators::Region::Of(Ring_.Zoom(), Stance_.Lat, Stance_.Lon); }
+  size_t RegionsStanding() const { return Grown_.size(); }
+  /* A region is being grown right now, off this thread. */
+  bool RegionBusy() const { return Forge_ && !Forge_->Idle(); }
   /* Every region the ring reaches stands. The loading phase holds the world back until it does:
    * one region is generated per pass, so a run that opened its shutter on residency alone would
    * photograph a forest with three quarters of itself missing. */
   bool RingStands() const;
   const Generators::TreeSpecies &Species() const { return Species_; }
-  size_t GeneratorHeapBytes() const { return Pool_.HeapBytes(); }
+  size_t GeneratorHeapBytes() const { return Pool_ ? Pool_->HeapBytes() : 0; }
+  /* What one region costs while it stands: its slot in the pool plus its own ground patch. */
+  size_t RegionSlotBytes() const { return Pool_ ? Pool_->SlotBytes() : 0; }
   long StandCount() const;
   /* [SET] metres. How far from the eye the world is populated, and the same number the picture cuts
-   * its instances at: beyond it a 25 m tree is under two pixels wide at 720p and belongs to the
-   * distance the ground material carries. */
+   * its instances at. It is a COLLECTION BUDGET and not a pixel threshold: at the declared 720p and
+   * 60 deg the pixel focal length is 623.5, so a 30 m stand at this range is still 20.8 px tall and
+   * nothing about it has stopped being legible. What ends here is what the client is willing to
+   * carry — pi * 900^2 * 0.033/m2 is 84 000 instances at the densest declared class, which is what
+   * `Outshine`'s collection reserves. */
   static constexpr double kReachM = 900.0;
 
   const World::Standpoint &Standpoint() const { return Stand_; }
@@ -156,12 +163,21 @@ public:
 
 private:
   Bring ResolveGround(double lat, double lon, double *out) const;
-  /* Every region the ring names that reaches the eye, generated once. A region whose ground is not
-   * complete yet is skipped, not refused: the next turn asks again. */
+  [[nodiscard]] bool OpenPool();
+  /* ONE PASS OF THE RING: release what it no longer names, cancel what is under way and unnamed,
+   * collect what the forge finished, and request the next region that is missing. */
   void Populate();
+  void Release();
+  void Gather();
+  void Ask();
+  void Say(const Populated &grown, double snapshotMs) const;
+  [[nodiscard]] bool Names(const Generators::Region &region) const;
+  [[nodiscard]] bool Standing(const Generators::Region &region) const;
   [[nodiscard]] bool Reached(const Generators::Region &region) const;
+  /* False while one posting of the region is still in flight — the next turn asks again — and false
+   * for good where the DEM has a hole. `ms` is the wall clock this cost the calling thread. */
   [[nodiscard]] bool Snapshot(const Generators::Region &region,
-                              Generators::Ground::Snapshot *out) const;
+                              Generators::Ground::Snapshot *out, double *ms) const;
 
   Scene Scene_;
   Assets Assets_;
@@ -179,10 +195,17 @@ private:
   std::shared_ptr<const Generators::GroundTable> Table_;
   std::shared_ptr<const Generators::FeatureField> NoFeatures_;
   Generators::Schedule Ring_;
-  Generators::RegionPool Pool_;
   Generators::GeneratorSet Gens_;
   std::optional<Generators::Forest> Trees_;
+  /* Both are finished only once the declared tables are read: the pool is sized on what the
+   * generators say they can claim, and the forge runs them (`C.41` — the constructor cannot). */
+  std::optional<Generators::RegionPool> Pool_;
+  std::optional<RegionForge> Forge_;
   std::vector<Populated> Grown_;
+  /* Regions whose content does not fit the budget. Kept by key so the ring does not ask again every
+   * turn; dropped when the ring stops naming them, so walking back is a fresh attempt. */
+  std::vector<Generators::Region> Refused_;
+  double SnapshotMs_ = 0.0;
   uint64_t Version_ = 0;
 
   State State_;

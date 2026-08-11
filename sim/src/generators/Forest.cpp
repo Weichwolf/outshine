@@ -110,10 +110,30 @@ void Forest::Occupy(const Ground &ground, Yield &yield) const noexcept {
         case Outcome::Placed: break;
       }
       const Claim claim = yield.Place(body);
+      /* The scan is row major, so carrying on past a full sink would end the forest on one lattice
+       * row — a straight east-west edge in the picture. The count travels out in the yield and the
+       * engine refuses the whole region on it. */
       if (claim.Why() == Claim::Outcome::Full) return;
       if (claim.Why() == Claim::Outcome::Placed) yield.Raise(HighestStandAslM, body.BaseAslM);
     }
   }
+}
+
+/* Every cell of the region draws once against the densest declared row, so what stands is a sum of
+ * Bernoulli trials and its spread is that sum's own. Eight standard deviations over the mean is a
+ * margin no draw reaches at a hundred thousand cells; what passes it is a table declaring more than
+ * the budget holds, and that is a refusal rather than a number to widen. */
+uint32_t Forest::Proposes(double areaM2) const noexcept {
+  double densest = 0.0;
+  for (size_t i = 0; i < PerM2_.Size(); i++)
+    if ((double)PerM2_[i] > densest) densest = (double)PerM2_[i];
+  const double cellM2 = kCellM * kCellM;
+  double p = densest * cellM2;
+  if (p > 1.0) p = 1.0;
+  const double n = areaM2 / cellM2;
+  const double mean = n * p;
+  const double sd = std::sqrt(n * p * (1.0 - p));
+  return (uint32_t)(mean + 8.0 * sd + 1.0);
 }
 
 bool Forest::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {

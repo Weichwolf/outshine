@@ -165,6 +165,9 @@ public:
   long ModelImpostorInstances(void) const { return Geometry->Models().ImpostorInstances(); }
   long ModelLevelInstances(int level) const { return Geometry->Models().LevelInstances(level); }
   long ModelTriangleCount(void) const { return Geometry->Models().TriangleCount(); }
+  size_t ModelPrototypeBytes() const { return Geometry->Models().PrototypeBytes(); }
+  size_t ModelInstanceBytes() const { return Geometry->Models().InstanceBytes(); }
+  size_t ModelImpostorBytes() const { return Geometry->Models().ImpostorBytes(); }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
    * for the consumers that owe a published anchor and read by no stage today. */

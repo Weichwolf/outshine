@@ -627,15 +627,24 @@ wgpu::Buffer ModelDraw::Upload(const void *data, size_t bytes, wgpu::BufferUsage
   return b;
 }
 
+size_t ModelDraw::PrototypeBytes() const {
+  size_t b = DetailBytes_ + SheetBytes_;
+  for (int k = 0; k < kLevels; k++) b += LevelBytes_[k];
+  return b;
+}
+
 void ModelDraw::SetLevel(int level, const LevelMesh &mesh) {
   if (level < 0 || level >= kLevels) return;
   LevelIdxCount[level] = 0;
+  LevelBytes_[level] = 0;
   if (!Device || !mesh.Verts || mesh.VertCount == 0 || mesh.IdxCount == 0) return;
   LevelVtx[level] = Upload(mesh.Verts, (size_t)mesh.VertCount * kSolidFloats * sizeof(float),
                            wgpu::BufferUsage::Vertex);
   LevelIdx[level] = Upload(mesh.Idx, (size_t)mesh.IdxCount * sizeof(uint32_t),
                            wgpu::BufferUsage::Index);
   LevelIdxCount[level] = mesh.IdxCount;
+  LevelBytes_[level] = (size_t)mesh.VertCount * kSolidFloats * sizeof(float) +
+                       (size_t)mesh.IdxCount * sizeof(uint32_t);
 }
 
 void ModelDraw::SetDetail(const DetailMesh &detail) {
@@ -653,6 +662,9 @@ void ModelDraw::SetDetail(const DetailMesh &detail) {
   DetailIdxCount = detail.IdxCount;
   DetailInstCount = detail.InstanceCount;
   DetailScaleM = detail.ScaleM;
+  DetailBytes_ = (size_t)detail.VertCount * kDetailFloats * sizeof(float) +
+                 (size_t)detail.IdxCount * sizeof(uint32_t) +
+                 (size_t)detail.InstanceCount * kInstFloats * sizeof(float);
 }
 
 /* All levels live in ONE storage buffer with a per-level base, because the bind group is built once
@@ -675,6 +687,7 @@ void ModelDraw::SetSheets(int level, const SheetSet &sheets) {
   }
   if (all.empty()) return;
   SheetBuf = Upload(all.data(), all.size() * sizeof(float), wgpu::BufferUsage::Storage);
+  SheetBytes_ = all.size() * sizeof(float);
   Rebind();
 }
 
@@ -692,6 +705,7 @@ void ModelDraw::SetSubject(double eastM, double northM, double eyeAglM) {
 
 void ModelDraw::SetInstances(const float *instances, uint32_t n, const TangentFrame &frame) {
   PlaceCount = 0;
+  InstanceBytes_ = 0;
   Places.clear();
   Order.clear();
   if (n == 0 || !Device || !instances) return;
@@ -701,6 +715,7 @@ void ModelDraw::SetInstances(const float *instances, uint32_t n, const TangentFr
   OrderBuf = Upload(Order.data(), Order.size() * sizeof(uint32_t), wgpu::BufferUsage::Storage);
   Frame = frame;
   PlaceCount = n;
+  InstanceBytes_ = (size_t)n * kPlaceFloats * sizeof(float) + Order.size() * sizeof(uint32_t);
   Rebind();
 }
 
@@ -722,6 +737,8 @@ void ModelDraw::CreateImpostor() {
   bd.size = (size_t)(kCells * kCells) * kUniFloats * sizeof(float);
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   BakeUni = Device.CreateBuffer(&bd);
+  /* Two RGBA8 atlases and, until the bake is finished, a depth target of the same extent. */
+  ImpostorBytes_ = (size_t)side * (size_t)side * (4u + 4u + 4u) + (size_t)bd.size;
   Rebind();
 }
 
@@ -767,6 +784,8 @@ void ModelDraw::EncodeBake(wgpu::RenderPassEncoder &pass) {
 }
 
 void ModelDraw::FinishBake() {
+  const size_t side = (size_t)(kCells * kCellSize);
+  ImpostorBytes_ -= side * side * 4u;
   ImpDepth = nullptr;
   ImpDepthView = nullptr;
   ImpAlbedoView = ImpAlbedo.CreateView();

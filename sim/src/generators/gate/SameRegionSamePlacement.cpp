@@ -196,6 +196,12 @@ public:
     }
   }
 
+  /* Every lattice cell of the ground it is asked about, because this one refuses on the ground and
+   * never on a draw: the ceiling it declares is the lattice itself. */
+  uint32_t Proposes(double areaM2) const noexcept override {
+    return (uint32_t)(areaM2 / (StepM_ * StepM_) + 1.0);
+  }
+
   bool At(const Ground &ground, double eastM, double northM, Body *out) const noexcept override {
     int row = 0;
     const Cover cover = ground.CoverAt(eastM, northM);
@@ -399,7 +405,23 @@ int main() {
       notes3(noteCount);
 
   const Schedule schedule(Schedule::Ring{14, 2});
-  RegionPool pool(schedule, RegionPool::Shape{2, kBodies, kCellM});
+  /* The pool is sized on the widest region it will ever be handed, and the schedule is what names
+   * that one: a slot narrower than the ground opened on it has no room for the ground's own cells. */
+  const std::optional<Region> widest = schedule.Widest(51.96, 9.55);
+  Check(widest.has_value(), "the ring named no region to size the pool on");
+  for (size_t i = 0; i < schedule.Count(); i++) {
+    const std::optional<Region> member = schedule.At(i, 51.96, 9.55);
+    Check(!member || member->SpanEm() * member->SpanNm() <= widest->SpanEm() * widest->SpanNm(),
+          "a ring member is wider than the one the schedule calls widest");
+  }
+  RegionPool pool(a, RegionPool::Shape{2, kBodies, kCellM});
+  /* Every generator states what it can claim over a stated area, and that declaration is what the
+   * pool is sized on: a ceiling that is not derived from it truncates a region instead of refusing
+   * it, silently, at whatever lattice row the scan reached. */
+  Check(sparse.Proposes(a.SpanEm() * a.SpanNm()) > 0,
+        "a registered generator proposes nothing over a whole region");
+  Check(sparse.Proposes(4.0 * a.SpanEm() * a.SpanNm()) > sparse.Proposes(a.SpanEm() * a.SpanNm()),
+        "a generator's proposal does not grow with the ground it is asked about");
   {
     std::optional<RegionPool::Lease> first = pool.TryAcquire(*groundA);
     std::optional<RegionPool::Lease> second = pool.TryAcquire(*groundA);
@@ -461,7 +483,7 @@ int main() {
     const Forest forest(Forest::Stem{}, Span<const float>(perM2, 3), AlpineLimit());
     const double em = a.SpanEm() / (double)(int)(a.SpanEm() / Forest::kCellM + 0.5);
     const double nm = a.SpanNm() / (double)(int)(a.SpanNm() / Forest::kCellM + 0.5);
-    RegionPool wide(schedule, RegionPool::Shape{2, 262144, kCellM});
+    RegionPool wide(a, RegionPool::Shape{2, 262144, kCellM});
     std::vector<Yield::Note> seamNotes(Forest::kNotes), seamNotesB(Forest::kNotes);
     const std::vector<Body> west =
         Grown(wide, *groundA, forest, Span<Yield::Note>(seamNotes.data(), seamNotes.size()));
@@ -527,7 +549,7 @@ int main() {
   }
 
   /* THE FOURTH OUTCOME, which a sink sized for a region never reaches. */
-  RegionPool tiny(schedule, RegionPool::Shape{1, 4, kCellM});
+  RegionPool tiny(a, RegionPool::Shape{1, 4, kCellM});
   std::vector<Yield::Note> tinyNotes(noteCount);
   const Run cramped = Filled(tiny, *groundA, set, tinyNotes);
   Check(cramped.Bodies.size() == 4 && cramped.Full == 2,

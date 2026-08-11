@@ -26,4 +26,14 @@ std::optional<Region> Schedule::At(size_t i, double lat, double lon) const {
   return Region(Zoom_, ((centre.X() + Offsets_[i].X) % side + side) % side, y);
 }
 
+std::optional<Region> Schedule::Widest(double lat, double lon) const {
+  std::optional<Region> widest;
+  for (size_t i = 0; i < Offsets_.size(); i++) {
+    const std::optional<Region> r = At(i, lat, lon);
+    if (!r) continue;
+    if (!widest || r->SpanEm() * r->SpanNm() > widest->SpanEm() * widest->SpanNm()) widest = r;
+  }
+  return widest;
+}
+
 } // namespace outshine::Generators

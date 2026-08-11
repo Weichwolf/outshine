@@ -11,7 +11,8 @@ constexpr double kKb = 1024.0;
 constexpr double kMb = 1024.0 * 1024.0;
 
 const StackProbe::Purpose kStacks[StackProbe::kPurposeCount] = {
-    StackProbe::Purpose::Frame, StackProbe::Purpose::Class, StackProbe::Purpose::Tile};
+    StackProbe::Purpose::Frame, StackProbe::Purpose::Class, StackProbe::Purpose::Tile,
+    StackProbe::Purpose::Region};
 
 std::string StackColumn(StackProbe::Purpose p, const char *suffix) {
   return std::string("stack") + StackProbe::Name(p) + suffix;

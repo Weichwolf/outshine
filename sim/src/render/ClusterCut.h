@@ -8,6 +8,8 @@
 #ifndef CLUSTERCUT_H
 #define CLUSTERCUT_H
 
+#include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdint>
 #include <vector>
@@ -46,6 +48,7 @@ public:
   void Begin() {
     Ranges_.clear();
     Indices_ = 0;
+    Closed_ = false;
     for (int i = 0; i < kLevelBins; i++) ByLevel_[i] = 0;
   }
 
@@ -61,17 +64,35 @@ public:
       if (!View_.Visible(rel, c.SelfCenter, c.SelfRadius)) continue;
       Indices_ += (long)c.Count;
       ByLevel_[c.Level < kLevelBins ? c.Level : kLevelBins - 1] += (long)c.Count / 3;
-      /* Clusters are laid down level by level in Morton order, so a run of neighbours at one level
-       * is contiguous and collapses into ONE draw. */
-      if (!Ranges_.empty() && Ranges_.back().Item == item &&
-          Ranges_.back().First + Ranges_.back().Count == c.First)
-        Ranges_.back().Count += c.Count;
-      else
-        Ranges_.push_back(Range{item, c.First, c.Count});
+      Ranges_.push_back(Range{item, c.First, c.Count});
     }
   }
 
-  const std::vector<Range> &Ranges() const { return Ranges_; }
+  /* THE MERGE HAPPENS HERE AND NOT IN `Take`, because a merge that only looks at the tail is a rule
+   * about the ORDER THE CALLER HAPPENED TO USE. Regions arrive nearest-first and a region is not one
+   * item, so the same clusters interleaved would have become as many draws as there are
+   * interleavings — a draw count that moves for a reason that is not the picture. Sorted by item
+   * first, which is also the order the caller rebinds in. */
+  void Close() {
+    std::sort(Ranges_.begin(), Ranges_.end(), [](const Range &a, const Range &b) {
+      return a.Item != b.Item ? a.Item < b.Item : a.First < b.First;
+    });
+    size_t kept = 0;
+    for (size_t i = 0; i < Ranges_.size(); i++) {
+      if (kept > 0 && Ranges_[kept - 1].Item == Ranges_[i].Item &&
+          Ranges_[kept - 1].First + Ranges_[kept - 1].Count == Ranges_[i].First)
+        Ranges_[kept - 1].Count += Ranges_[i].Count;
+      else
+        Ranges_[kept++] = Ranges_[i];
+    }
+    Ranges_.resize(kept);
+    Closed_ = true;
+  }
+
+  const std::vector<Range> &Ranges() const {
+    assert(Closed_);
+    return Ranges_;
+  }
   long Indices() const { return Indices_; }
   const long *IndicesByLevel() const { return ByLevel_; }
 
@@ -81,6 +102,7 @@ private:
   long Indices_ = 0;
   long ByLevel_[kLevelBins] = {};
   float FPx_ = 1.0f;
+  bool Closed_ = false;
 };
 
 } // namespace outshine::Render

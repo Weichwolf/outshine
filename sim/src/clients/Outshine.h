@@ -101,6 +101,10 @@ public:
   Progress Stream(double nowMs);
   void Frame();
   Counters Measured() const;
+  /* What the last frame spent collecting instances, milliseconds of the thread that draws. Zero on
+   * a frame that reused the standing collection, which is most of them — so it is a per-frame
+   * column and never a mean. */
+  double CollectMs() const { return CollectMs_; }
 
   Render::Renderer &Renderer() { return R_; }
   Sim &Simulation() { return Sim_; }
@@ -127,6 +131,8 @@ private:
   void CollectClass();
   /* Every instance the generators produced for the regions that stand, gathered into one frame. */
   void CollectStands();
+  /* How far the eye may walk before the collection is made again, metres. */
+  double RecollectStepM() const;
   /* The frame clock, around whichever picture the renderer just drew. */
   double OpenFrame();
   void CloseFrame(double startedMs);
@@ -146,6 +152,11 @@ private:
    * tile's handle, and the world hands it out again in its draw list — so a frame costs no lookup. */
   uint64_t ClassVersion_ = 0, WaterSeq_ = 0, BuildingSeq_ = 0;
   uint64_t StandingRegions_ = 0;
+  /* Where the standing collection was made, in its own frame's metres — the eye's distance from it
+   * is what says the cut has gone stale. */
+  TangentFrame CollectedFrom_;
+  bool Collected_ = false;
+  double CollectMs_ = 0.0;
   double UploadMs_ = 0.0;
   double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;
   /* When the phase that is running now started asking, so a wait that will never end is named

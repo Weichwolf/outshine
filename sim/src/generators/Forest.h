@@ -40,6 +40,7 @@ public:
   void Occupy(const Ground &ground, Yield &yield) const noexcept override;
   [[nodiscard]] bool At(const Ground &ground, double eastM, double northM,
                         Body *out) const noexcept override;
+  [[nodiscard]] uint32_t Proposes(double areaM2) const noexcept override;
 
   /* [SET] metres. WELL below the mean stand spacing: at 11.09 m2 the densest declared class
    * (conifer forest, 0.033/m2) accepts 36.6 % of cells, two in three stay empty, and that is what

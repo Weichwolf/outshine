@@ -9,7 +9,7 @@
 #include "Body.h"
 #include "Ground.h"
 #include "OccupancySink.h"
-#include "Schedule.h"
+#include "Region.h"
 
 namespace outshine::Generators {
 
@@ -21,17 +21,20 @@ public:
    * lease takes it from the ground it is opened on. */
   struct Shape {
     int Sinks = 1;
-    /* [SET] bodies per region. At the forest's 3.33 m scatter step a z14 region proposes 204 304
-     * candidates, so this is a ceiling on what may STAND, not on what is tried; the number that
-     * replaces it is the placed count step 6 measures over the reference ring. */
+    /* Bodies per region, and it is a ceiling on what may STAND and not on what is tried. Derived
+     * from the generators' own declarations (`Generator::Proposes`) over the region below, so a
+     * table edited denser moves it without anybody remembering to. */
     uint32_t BodyCapacity = 4096;
     /* [SET] metres per occupancy cell. Above the widest contact cylinder a generator declares, so
      * a conflict query reads a 3x3 neighbourhood; below it the query grows and the scan with it. */
     double CellM = 8.0;
   };
 
-  /* Sized for the largest region the schedule can ever hand out, so no lease can be too small. */
-  RegionPool(const Schedule &schedule, const Shape &shape);
+  /* THE WIDEST REGION THE RING WILL NAME, not the widest the zoom can name: an equatorial z14
+   * region is 2.66 times the area of one at 52 deg N, and sizing every slot for a place the scene
+   * does not stand at is 2.66 times the budget spent on nothing. A scenario that travels far enough
+   * equatorward outgrows it, and the answer to that is the refusal below, not a wider slot. */
+  RegionPool(const Region &widest, const Shape &shape);
 
   class Lease {
   public:
@@ -57,6 +60,8 @@ public:
   std::optional<Lease> TryAcquire(const Ground &ground);
   size_t Free() const;
   size_t HeapBytes() const { return Bytes_; }
+  /* What one lease costs, which is the byte half of a region's own line. */
+  size_t SlotBytes() const { return Slots_.empty() ? 0 : Bytes_ / Slots_.size(); }
 
 private:
   void Release(size_t slot);
