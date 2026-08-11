@@ -13,12 +13,81 @@ shows it, and what right would look like. A bug without a way to tell it is fixe
 
 ## Silent success — a call that answers and nobody reads
 
-The most expensive class in this tree, three instances found in one day, all with the same shape.
+The most expensive class in this tree, all with one shape. **The rule that closes the class:** a
+function whose failure changes what the caller may do next returns that failure as a value the caller
+cannot spend without deciding, and the value that says "no" carries no usable payload — which is
+`core/GroundSample.h` and `core/WaterDepth.h`, written out by hand twice already. `std::optional` is
+**not** that shape: `*opt` and `opt.value()` read the payload without anyone having looked at the
+state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T *out)` is.
 
 - **`RoofSurface::Cover` returns `void`, and `EarClip` bails silently** (`generators/draw/RoofSurface.cpp:32`, called at 209). When triangulation fails, `Covering` loops over an empty vector and draws nothing, then `BuildingMesh.cpp:383-387` draws `Gables`, `Eaves` and `Chimney` unconditionally — **a roof drawn as its own trim, floating in the sky with no covering**, visible in the shipped frame at (930,240)–(1190,370) of `after/street.png`. Right: `[[nodiscard]] bool Cover(...)`, and eaves, gable and chimney unspellable without a closed covering.
 - **`treebench` measures nothing and reports success.** `clients/TreeBench.cpp:98` — `PlantsIn(assets)` on a missing or empty directory returns an empty list, the header prints, no row follows and the exit code is 0. Verified: `treebench --assets /private/tmp/nope-does-not-exist` exits 0. The round that made the bench enumerate its directory did so precisely because "a form nobody grew would otherwise have looked green"; zero forms still looks green. Right: an empty species set is a refusal that names the directory it looked in.
-- **`emscripten_run_script_string` can return null and is not checked** (`clients/AppWasm.cpp:271`).
 - **`emscripten_exit_pointerlock()` discards its result** (`clients/AppWasm.cpp:92`).
+- **A status that is read into a variable and only logged is still discarded.** `BindInput`
+  (`clients/AppWasm.cpp:236-266`) now routes all six registrations through `Bound`, which logs
+  `input_unbound` on failure and **returns anyway**; the six results become six fields of one
+  `input_bound` line and nothing branches on them. The comment above `Bound` states the class
+  correctly — "the picture comes up with no input and no reason" — and then the picture still comes
+  up. `[[nodiscard]]` cannot catch this shape: assignment satisfies it. Right: a keyboard that did not
+  bind is a **refusal to run**, not a log line, because every verb the client has goes through it.
+- **`[[nodiscard]]` is absent from the two directories that most need it.** 33 in the tree against
+  **134** functions returning `bool` or a status enumeration, and the distribution is the finding, not
+  the ratio: `generators/` 21, `clients/` 7, `core/` 3 — and **`world/` 0 against 29 such functions**,
+  **`render/` 0 against 12**, `world/terrain/` 0, `core/io/` 0. `world/` is where `Pending`, `Absent`
+  and `Ready` live, i.e. where every streaming defect in this file was found. The attribute is free,
+  costs no frame time and is a compile error under `-Werror`.
+
+## Bounds, allocation, and what the platform hides
+
+*Measured 2026-08-11 in `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad`,
+emsdk 6.0.3 / node 26.7.0 / clang, all at `-O2`: an index 400 kB past a live `std::vector` writes real
+bytes and exits 0 **in the browser and on the native oracle alike** — the address is inside a mapped
+heap in both cases. The premise "it segfaults natively" holds only for a write that leaves the mapping,
+which a heap overrun almost never does. So the oracle is not louder than the browser for this class,
+and the conclusion is stronger rather than weaker: there is no safety net on either target today.*
+
+- **An exhausted heap is reported as malformed terrain.** `world/ChunkMesh.h:47,48,91,147` allocate
+  `NN·3·8 + NN·4 + NN·12` bytes plus the vertex block per tile (1.59 + 0.26 + 0.79 MB at a 257×257 z14
+  grid, ×4 workers), check the result, and answer failure with `return 0` — **the same value written
+  three lines above for `return 0; /* terrain is always a grid; refuse soup */`.** The caller cannot
+  tell "this DEM is not a grid" from "the 296 MB heap is full", so a tile that failed to allocate is
+  dropped as bad data, silently, at exactly the moment the heap is fullest. `core/io/Heap.h` exists for
+  this: `Heap::Exhausted("chunk postings")` ends the run naming the item. **This is a candidate root
+  cause for "the client freezes after a few hundred metres", and it is a hypothesis, not a finding** —
+  what makes it plausible is that nothing evicts (see below) while `heapPeakKB` already reads 207 460 of
+  296 MB at rest (`sim/logs/demo-walk-wasm-20260811T181012Z.csv`); what would decide it is the same walk
+  with the four sites routed through `Heap`, where the run then ends with a line instead of stopping.
+  The same defect, without the confusion, at `world/terrain/terrain.cpp:85,136`,
+  `world/terrain/osmmesh_terrain.cpp:49,67,130,227,245` and `clients/SimHost.cpp:186` — nine `malloc`
+  sites in a tree whose global `operator new` has ended the run properly since `core/io/Heap.cpp`
+  landed.
+- **The one bounds check the whole tree leans on can be defeated by arithmetic.** `core/Span.h:33`,
+  `Span::Sub`, asserts `first + count <= Size_` in `size_t`. The sum wraps, so `Sub(4, SIZE_MAX - 2)`
+  passes the assert and returns a span of `SIZE_MAX - 2` elements over `Data_ + 4`; every subscript of
+  that span then also passes `assert(i < Size_)`. Reachable through `generators/draw/DrawSet.cpp:21`,
+  `placed.Sub(range.First, range.Count)`, where both arguments are computed. Right:
+  `assert(first <= Size_ && count <= Size_ - first)` — one line, no runtime cost, and it is the
+  difference between a checked type and a type that looks checked. `ES.103` (no overflow) and
+  `Bounds.4`-style reasoning: the check that guards the range must not itself be unguarded.
+- **A bounds situation resolved by clamping, and the clamp is published as a measurement.**
+  `render/ClusterCut.h:66` writes `ByLevel_[c.Level < kLevelBins ? c.Level : kLevelBins - 1]` with
+  `kLevelBins = 8`. `DagCluster::Level` is a `uint8_t` filled by `core/ClusterDag.h:857` from a loop that
+  stops only when a level has ≤ 1 cluster or ≤ 8 triangles, so a z14 chunk of ~130 k triangles halving
+  per rung reaches roughly **14 levels** — bins 8…13 are all folded into bin 7, silently. That
+  histogram is the LOD ladder's own diagnostic and is logged as `cutLevels` at
+  `clients/SceneRunner.cpp:242-245`; its top bin is a sum over an unbounded number of rungs, so "L7" has
+  never meant level 7. Right: `assert(c.Level < kLevelBins)` and no clamp — a DAG level past the bin
+  count is a DAG defect, not a display case — or `kLevelBins` derived from `DagBuild`'s own ceiling.
+  Note what is *right* here and must not be broken while fixing it: the extent travels with the
+  pointer as `TerrainDraw::kLevelBins = ClusterCut::kLevelBins`, so the far end of
+  `const long *TrianglesByLevel()` cannot loop past it.
+- **The two directories that do the most unchecked pointer arithmetic hold no assertion at all.**
+  Runtime `assert` sites, measured over 285 files and 33 777 lines: core 2 · core/io 0 · world 2 ·
+  **world/terrain 0** · generators 5 · generators/draw 1 · render 1 · **render/stages 0** · clients 1 =
+  **12**, one per 2 815 lines. `world/terrain/` is the only C-ABI code in the tree and indexes raw
+  `float*` grids throughout; `render/stages/` is 19 files that compute every GPU buffer offset and
+  extent by hand. (The figure "28 asserts" in circulation is `grep -c 'assert('` and counts the 16
+  `static_assert`s; the runtime half is less than half of it.)
 
 ## Buildings
 
@@ -130,9 +199,12 @@ The most expensive class in this tree, three instances found in one day, all wit
   when `LiveBytesKnown()` is false. The CSV was taught that an unmeasured quantity is empty; the abort
   message, which is the one place a reader has nothing else to go on, still prints a zero that reads as
   measured. The root is the interface: `LiveBytes()` returns `size_t` and answers 0 for "unknown", so
-  every caller has to remember `LiveBytesKnown()` and one already does not. Right: `std::optional<size_t>
-  LiveBytes()` — C++17, one line, and the zero becomes unspellable rather than forbidden (`I.13`-style
-  reasoning: make the interface carry the invariant, not the comment).
+  every caller has to remember `LiveBytesKnown()` and one already does not. Right: `[[nodiscard]] bool
+  TryLiveBytes(size_t *out)`, the shape `core/GroundSample.h` and `core/WaterDepth.h` already carry —
+  and **not** `std::optional<size_t>`, which was this line's earlier recommendation and is wrong for
+  the same reason the defect exists: `*opt` reads the payload without anyone having consulted the
+  state, so the zero would stay spellable. With `Try` the number is unreachable except through the
+  answer (`I.13`-style reasoning: make the interface carry the invariant, not the comment).
 - **The probe's published cost is the frame thread's wait, not the work it imposes.** `mallinfo()` walks
   every chunk under dlmalloc's global lock, `TilePool::SchedulerBytes()` walks `Queue_` and `Done_` under
   `QueueMutex_`, and `TilePool::ByteCacheBytes()` walks the whole table under `CacheMutex_` — all three

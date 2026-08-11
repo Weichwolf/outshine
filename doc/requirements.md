@@ -418,6 +418,59 @@ picture, which is pinned for the length of a declared run.
 - [ ] `boundaries` layer fetched
 - [ ] Zoom above 14 for terrain — `/t/terrain/15/…` returns non-PNG, so z14 may be the finest served; unresolved
 
+### I.17 Hardening — a failure is loud, or it is not a failure
+
+*Added 2026-08-11 on the owner's standing order, and on one measurement rather than on a principle: in
+the shipping wasm build an index 400 kB past a live `std::vector` writes real bytes and the program
+exits 0 — **and so does the native oracle**, because the address is still inside a mapped heap.
+Neither target is a safety net for the other, and the instrument that gives one is
+AddressSanitizer, which was measured to work on both. Every line here exists to turn a silent write
+into a line that names a file. Cost is stated where a line costs frame time; where none is stated the
+line was measured free against the 0.35 ms a pass must beat.*
+
+**The mechanism.**
+
+- [x] `NDEBUG` defined by no target, so `assert` ships — measured under emsdk 6.0.3 at `-O2`: the message carries expression, file, line and function, and no `-sASSERTIONS` is needed for it (`sim/Makefile`)
+- [x] One allocator behind the global `operator new`/`new[]`, plain and aligned, ending the run with the item and its byte count (`core/io/Heap.cpp`) — so every `std::vector` growth, `std::string`, `make_unique` and tree node is covered without naming it, and `-sABORTING_MALLOC=0` is enforced rather than merely set
+- [x] A range type whose subscript asserts its extent (`core/Span.h`)
+- [x] An answer whose payload is unreachable without its state, `[[nodiscard]]` on the only door (`core/GroundSample.h`, `core/WaterDepth.h`)
+- [x] Negative compile gates that must fail **for the stated reason** (`sim/Makefile`: `verify-types`, `verify-generators`, `verify-world`)
+- [ ] `Span` constructible from `std::vector` and `std::array`, so an extent is taken and never typed
+- [ ] `Span::Unchecked(ptr, count)` as the only spelling of a pointer and a count that were never one object, and its site count published — target: C-ABI boundaries only
+- [ ] `Span::Sub`'s bound stated without a `size_t` sum that can wrap (`core/Span.h:33`)
+- [ ] A rectangular field carrying two extents, so a transposed index is caught instead of legal (`core/Grid.h`) — `world/ChunkMesh.h` keeps rows and columns apart with two macros and a comment today
+- [ ] An owned raw block that carries its own extent and frees by scope, taken from the one allocator (`core/io/HeapArray.h`)
+- [ ] No `malloc` outside `core/io/` — nine sites today, in `world/ChunkMesh.h`, `world/terrain/` and `clients/SimHost.cpp`
+- [ ] An exhausted heap distinguishable from malformed input at every allocation site
+
+**What the type system must refuse.**
+
+- [ ] `[[nodiscard]]` on every function returning `bool` or a status enumeration — 33 in the tree against 134 such functions, and `world/` holds 29 of them with none
+- [ ] A house wrapper carrying `[[nodiscard]]` for every third-party call that returns a status — the attribute cannot be added to emscripten's, Dawn's or curl's declarations
+- [ ] A status that is read and only logged counts as discarded — a failed input binding refuses the run rather than reporting it, because a scene with no keyboard is not a scene
+- [ ] No `default:` in a `switch` over a house enumeration, so a new state is a compile error under `-Wswitch -Werror` — five live sites
+- [ ] A producer returns its product, and its consumer takes the product as an argument and cannot be called without one — the trim of an absent roof covering must not compile
+- [ ] A multi-state answer whose states carry different data, so two arms cannot be written identically by accident
+- [ ] A bench that wrote no rows exits non-zero and names where it looked
+- [ ] A two-phase object either asserts its phase on every accessor or returns a second type from its close, and the second is preferred where a thread does not forbid it (`render/ClusterCut.h` is reshapeable, `world/ClassBuilder` is not)
+
+**Where an assertion earns its place.**
+
+- [ ] `static_assert` on every enumeration-sized table, every `kCount` beside an enumeration, and on the declared 32 B vertex layout — 16 static assertions in the tree, none in `core/FacadeUv.h`, none on the layout `CLAUDE.md` states
+- [ ] A runtime assertion in every `render/stages/` file stating the extent its buffer writes assume — 19 files, zero assertions
+- [ ] A runtime assertion in `world/terrain/` stating the grid invariant its pointer arithmetic assumes — zero today, and it is the only C-ABI code in the tree
+- [ ] A bounds situation resolved by stating the invariant, never by clamping an index into range
+
+**The declared runs, and the target that runs them.**
+
+- [ ] `make gates`: one target running every negative gate and every declared sanitised run, one line per gate, and its green the precondition of a commit — the four `verify-*` targets exist and nothing obliges a round to invoke them
+- [ ] A declared native run under `-fsanitize=address,undefined` — measured 3.8× and 9.8× on an index-dense loop against a CPU frame of 0.144 ms, so it holds 30 fps with room
+- [ ] A declared wasm run under `-fsanitize=address` on the shipping flags — measured to link and to catch a one-past-the-end write at fixed `-sINITIAL_MEMORY=296MB` with `-pthread`, at 2.84×
+- [ ] `-sSAFE_HEAP` — REFUSED: measured 6.2×, the most expensive instrument of the set, and it tests only a null and a write past the break; it did not catch the write into a neighbouring allocation that AddressSanitizer caught at half the price
+- [ ] `.at()` as the bounds mechanism — REFUSED: measured, its out-of-range prints `Aborted(undefined)` with no file, line or index in the six wasm compile groups built without exceptions, and escapes `emscripten_set_main_loop` with the run's telemetry unflushed in the other two
+- [ ] Exceptions as a failure channel — REFUSED: six of the eight wasm compile groups build without them (`sim/Makefile`, `EM` against `EMPP`), and the tree contains one `catch`
+- [ ] The hardening ledger as published counts — unchecked subscripts, `Span::Unchecked` sites, `malloc` sites, bool-returns without `[[nodiscard]]`, `default:` labels, assertions per directory — TOOL, one script, so that "pristine" is a number instead of an opinion
+
 ---
 
 ## Band II — World
