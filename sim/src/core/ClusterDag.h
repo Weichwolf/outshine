@@ -140,6 +140,14 @@ inline float DagSse(const float ctr[3], float rad, float err, const double eye[3
   return (float)((double)err * (double)DagCrossFactor(ctr, rad, eye, up) * (double)fPx / d);
 }
 
+/* THE SAME CUT FOR A POINT INSTANCE. A radius of zero and no vertical reduce DagSse to err*f/d, so
+ * `sse <= tau` is `d^2 <= (err*f/tau)^2` — the identical inequality with the root removed, which is
+ * what lets a ladder over thousands of instances be squared distances against squared edges. */
+inline double DagEdgeSq(double errM, float fPx, float tau) {
+  const double edge = errM * (double)fPx / (double)tau;
+  return edge * edge;
+}
+
 /* THE CUT. Monotone error along every root-to-leaf path makes this a single crossing, so exactly one
  * cluster per region of the surface answers true — no gap, no overlap, no traversal. */
 inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau,

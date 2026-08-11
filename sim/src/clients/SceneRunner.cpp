@@ -13,7 +13,7 @@
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
-#include "TreeRanks.h"
+#include "ModelLadder.h"
 #include "Species.h"
 #include "TreePrototype.h"
 #include "TreeSpecies.h"
@@ -191,10 +191,11 @@ void SceneRunner::Dispatch() {
   const long stands = App_.Measured().TreeStands;
   if (stands > 0)
     Log::Info("run", "trees_lod", {{"stands", (double)stands},
-        {"meshStands", (double)R.TreeMeshStands()}, {"meshRadiusM", R.TreeMeshRadiusM()},
-        {"rank0", (double)R.TreeRankStands(0)}, {"rank1", (double)R.TreeRankStands(1)},
-        {"rank2", (double)R.TreeRankStands(2)}, {"rank3", (double)R.TreeRankStands(3)},
-        {"impostors", (double)R.TreeImpostorStands()}, {"tris", (double)R.TreeTriangleCount()}});
+        {"meshStands", (double)R.ModelMeshInstances()}, {"meshRadiusM", R.ModelMeshRadiusM()},
+        {"rank0", (double)R.ModelLevelInstances(0)}, {"rank1", (double)R.ModelLevelInstances(1)},
+        {"rank2", (double)R.ModelLevelInstances(2)}, {"rank3", (double)R.ModelLevelInstances(3)},
+        {"impostors", (double)R.ModelImpostorInstances()},
+        {"tris", (double)R.ModelTriangleCount()}});
 
   /* THE FIELD ITSELF. Nothing below the size of a tree answers to it, so no stage
    * reads it today; it is published because a branch and a rotor owe the anchor. */
@@ -238,7 +239,7 @@ void SceneRunner::Counters() {
     Log::Info("run", "exposure", {{"expScale", (double)met[0]}, {"keyLog2", (double)met[1]},
         {"horizE", (double)met[2]}});
   std::string lvl;
-  for (int i = 0; i < Render::TilesStage::kLevelBins; i++)
+  for (int i = 0; i < Render::TerrainDraw::kLevelBins; i++)
     if (R.TerrainTrianglesByLevel()[i] > 0)
       lvl += "L" + std::to_string(i) + "=" + std::to_string(R.TerrainTrianglesByLevel()[i]) + " ";
   Log::Info("run", "terrain", {{"cutLevels", lvl}, {"targetTotal", W.TargetTotal()},
@@ -420,9 +421,9 @@ void SceneRunner::MotionClose() {
         {"p99Ms", Percentile(sorted, 0.99)},
         {"minMs", sorted.empty() ? 0.0 : sorted.front()},
         {"maxMs", sorted.empty() ? 0.0 : sorted.back()},
-        {"meshStands", (double)R.TreeMeshStands()},
-        {"impostorStands", (double)R.TreeImpostorStands()},
-        {"treeTris", (double)R.TreeTriangleCount()},
+        {"meshStands", (double)R.ModelMeshInstances()},
+        {"impostorStands", (double)R.ModelImpostorInstances()},
+        {"treeTris", (double)R.ModelTriangleCount()},
         {"width", (double)Scene_.RenderResolution().Width},
         {"height", (double)Scene_.RenderResolution().Height}});
   } else {
@@ -598,7 +599,7 @@ bool SceneRunner::BenchBegin() {
     const auto t0 = std::chrono::steady_clock::now();
     /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every 3 mm
      * twig — a mesh nobody draws and one that truncated the crown. */
-    grower.Grow(sp, mesh, TreeRank::Pixel(0));
+    grower.Grow(sp, mesh, ModelLadder::Error(0));
     const auto t1 = std::chrono::steady_clock::now();
     Generators::TreeLeaf::Build(sp.LeafParams(), mesh);
     const auto t2 = std::chrono::steady_clock::now();
@@ -612,13 +613,19 @@ bool SceneRunner::BenchBegin() {
     const bool leaves = s.Leaf == Scene::Run::Foliage::Leaves;
 
     Render::Renderer &r = App_.Renderer();
-    r.SetTreeLook(Generators::TreePrototype::LookOf(sp));
-    r.SetTreeBark(0, mesh.BarkVerts.data(), (uint32_t)mesh.BarkVertexCount(), mesh.BarkIdx.data(),
-                  (uint32_t)mesh.BarkIdx.size());
-    r.SetTreeLeaf(mesh.LeafVerts.data(), (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
-                  (uint32_t)mesh.LeafIdx.size(), foliage.Instances().data(),
-                  (uint32_t)foliage.Count(), foliage.ScaleM());
-    r.SetTreeLeavesVisible(leaves);
+    float row[kMaterialRowFloats];
+    Generators::TreePrototype::MaterialRow(Generators::TreePrototype::LookOf(sp), row);
+    r.SetPrototypeMaterial(row);
+    r.SetPrototypeLevel(0, Render::LevelMesh{mesh.BarkVerts.data(),
+                                             (uint32_t)mesh.BarkVertexCount(),
+                                             mesh.BarkIdx.data(),
+                                             (uint32_t)mesh.BarkIdx.size()});
+    r.SetPrototypeDetail(Render::DetailMesh{mesh.LeafVerts.data(),
+                                            (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
+                                            (uint32_t)mesh.LeafIdx.size(),
+                                            foliage.Instances().data(), (uint32_t)foliage.Count(),
+                                            foliage.ScaleM()});
+    r.SetSheetsVisible(leaves);
     Log::Info("run", "subject_tree", {{"species", s.Species}, {"heightM", h},
         {"declaredSpreadM", (double)sp.SpreadM()}, {"grownCrownXM", crownX},
         {"grownCrownZM", crownZ},

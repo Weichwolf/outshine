@@ -7,6 +7,11 @@ namespace outshine {
 
 enum class SurfaceKind { Opaque, Masked, ThinTransmissive, Refractive };
 
+/* WHETHER A MESH'S TRIANGLE ORDER CAN BE TRUSTED — the half of "facing" a material cannot state.
+ * An OSM ring arrives wound either way, so a prism extruded from one has no reliable outward side;
+ * a mesh a generator grew does. Culling needs both answers and neither substitutes for the other. */
+enum class Winding { Trusted, Unknown };
+
 class SurfaceState;
 constexpr SurfaceState StateOf(const Material &material);
 
@@ -51,6 +56,10 @@ constexpr SurfaceState StateOf(const Material &material) {
   }
   if (material.Coverage < 1.0f) s.Kind_ = SurfaceKind::Masked;
   return s;
+}
+
+constexpr bool CullsBackFaces(const SurfaceState &state, Winding winding) {
+  return state.CullsBack() && winding == Winding::Trusted;
 }
 
 } // namespace outshine

@@ -1,5 +1,6 @@
-#include "WaterStage.h"
+#include "WaterDraw.h"
 #include "SceneTargets.h"
+#include "SurfaceState.h"
 #include "SceneScale.h"
 #include "SurfaceLight.h"
 #include <string>
@@ -38,7 +39,7 @@ struct WFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
 }
 )";
 
-void WaterStage::Configure(const Gpu &gpu, const SceneLight &light) {
+void WaterDraw::Configure(const Gpu &gpu, const SceneLight &light) {
   Device = gpu.Device;
   Queue = gpu.Queue;
   Light = light;
@@ -62,7 +63,6 @@ void WaterStage::Configure(const Gpu &gpu, const SceneLight &light) {
   ct.format = gpu.HdrFormat;
   wgpu::DepthStencilState ds{};
   ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = true;
   ds.depthCompare = wgpu::CompareFunction::Greater;
 
   wgpu::RenderPipelineDescriptor rp{};
@@ -76,8 +76,13 @@ void WaterStage::Configure(const Gpu &gpu, const SceneLight &light) {
   fs.targets = cts;
   rp.fragment = &fs;
   rp.depthStencil = &ds;
-  /* An OSM ring's winding is not reliable and a fan may face either way. */
-  rp.primitive.cullMode = wgpu::CullMode::None;
+  /* THE STATE COMES OFF THE DERIVATION TABLE, never off an opinion here: a body of water is opaque
+   * and writes depth, and its back faces stay only because an OSM ring's winding is not reliable. */
+  static constexpr Material kBody{};
+  static constexpr SurfaceState kState = StateOf(kBody);
+  ds.depthWriteEnabled = kState.WritesDepth();
+  rp.primitive.cullMode = CullsBackFaces(kState, Winding::Unknown) ? wgpu::CullMode::Back
+                                                                   : wgpu::CullMode::None;
   Pipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
@@ -95,7 +100,7 @@ void WaterStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void WaterStage::SetMesh(const float *verts, uint32_t nverts, const double anchor[3]) {
+void WaterDraw::SetMesh(const float *verts, uint32_t nverts, const double anchor[3]) {
   NVerts = nverts;
   for (int i = 0; i < 3; i++) Anchor[i] = anchor[i];
   if (nverts == 0 || !Device) return;
@@ -106,12 +111,12 @@ void WaterStage::SetMesh(const float *verts, uint32_t nverts, const double ancho
   Queue.WriteBuffer(Vtx, 0, verts, (size_t)nverts * 6 * sizeof(float));
 }
 
-void WaterStage::SetSun(const double sunEcef[3], const double up[3], float nightAmbient) {
+void WaterDraw::SetSun(const double sunEcef[3], const double up[3], float nightAmbient) {
   for (int i = 0; i < 3; i++) { SunDir[i] = sunEcef[i]; Up[i] = up[i]; }
   NightAmbient = nightAmbient;
 }
 
-void WaterStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
+void WaterDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPassEncoder &pass) {
   if (NVerts == 0 || !Vtx) return;
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];

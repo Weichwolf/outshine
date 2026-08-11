@@ -13,7 +13,7 @@ struct Instance {
   float Em = 0.0f, Nm = 0.0f; /* metres east and north of the region anchor */
   float AslM = 0.0f;
   float YawRad = 0.0f;
-  float ScaleM = 1.0f; /* the prototype is drawn at model scale times this */
+  float Scale = 1.0f;  /* a RATIO, not a length: the prototype is drawn at its own scale times this */
 };
 
 } // namespace outshine::Generators

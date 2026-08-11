@@ -69,10 +69,17 @@ void GpuTimer::Poll(void) {
           if (t) {
             /* A pass that did not run leaves its pair unwritten; -1 says absent, which is a different
              * fact from 0.0 ms and must not be averaged with it. */
-            for (int i = 0; i < kPassCount; i++)
-              Last_[i] = (!Used_[i] || t[i * 2 + 1] <= t[i * 2])
-                             ? -1.0
-                             : (double)(t[i * 2 + 1] - t[i * 2]) * 1.0e-6;   /* ticks are ns */
+            uint64_t first = 0, last = 0;
+            for (int i = 0; i < kPassCount; i++) {
+              const bool wrote = Used_[i] && t[i * 2 + 1] > t[i * 2];
+              Last_.PassMs[i] = wrote ? (double)(t[i * 2 + 1] - t[i * 2]) * 1.0e-6 : -1.0;
+              if (!wrote) continue;
+              if (!first || t[i * 2] < first) first = t[i * 2];
+              if (t[i * 2 + 1] > last) last = t[i * 2 + 1];
+            }
+            /* The WHOLE encoder as one span, out of the pairs that are already there: the oldest
+             * begin to the newest end. */
+            Last_.FrameMs = last > first ? (double)(last - first) * 1.0e-6 : -1.0;
             Fresh_ = true;
           }
           Read_[slot].Unmap();
@@ -81,9 +88,9 @@ void GpuTimer::Poll(void) {
       });
 }
 
-bool GpuTimer::Take(double ms[kPassCount]) {
+bool GpuTimer::Take(Sample &out) {
   if (!Fresh_) return false;
-  for (int i = 0; i < kPassCount; i++) ms[i] = Last_[i];
+  out = Last_;
   Fresh_ = false;
   return true;
 }

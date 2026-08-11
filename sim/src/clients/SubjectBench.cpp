@@ -247,9 +247,11 @@ void SubjectBench::Place(const Order &o) {
   R_.SetBenchSubstrate(SubstrateRgb_);
   /* The subject stands where the camera aims, on the floor: the same `ahead` the card is placed by,
    * so plant, card and ruled plane cannot drift apart. */
-  if (Kind_ == Subject::Tree)
-    R_.SetTreeStand(sinA * dist * std::cos(pitch * kDeg2Rad), cosA * dist * std::cos(pitch * kDeg2Rad),
-                    eyeAgl, HeightM_);
+  if (Kind_ == Subject::Tree) {
+    R_.SetPrototypeSubject(sinA * dist * std::cos(pitch * kDeg2Rad),
+                           cosA * dist * std::cos(pitch * kDeg2Rad), eyeAgl);
+    R_.SetPrototypeHeightM(HeightM_);
+  }
 
   /* WHERE THE NEUTRAL CARD STANDS. At the frame's LEFT EDGE and upright at the target plane, because
    * the only place a reference can be without becoming the subject's background is the edge, and the

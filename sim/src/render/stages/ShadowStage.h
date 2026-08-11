@@ -19,7 +19,7 @@ class ShadowStage : public DrawStage {
 public:
   void Init(const Gpu &gpu) override;
 
-  /* Borrowed from BuildingsStage: the same vertex buffer the scene pass draws, never a second copy,
+  /* Borrowed from BuildingDraw: the same vertex buffer the scene pass draws, never a second copy,
    * and its DAG so each cascade can take its own cut. */
   void SetCasters(wgpu::Buffer vtx, wgpu::Buffer idx, uint32_t nverts, const DagCluster *clusters,
                   int nclusters, const double anchor[3]);

@@ -6,7 +6,7 @@
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
-#include "TreeRanks.h"
+#include "ModelLadder.h"
 
 namespace outshine::Generators {
 namespace {
@@ -41,9 +41,34 @@ TreeLook TreePrototype::LookOf(const TreeSpecies &sp) {
   look.LeafLobes = (float)lf.Lobes;
   look.LeafLobeDepth = lf.LobeDepth;
   look.LeafSerration = lf.Serration;
-  look.LeafFold = lf.Fold;
   look.NeedleWidth = lf.Kind == TreeSpecies::LeafKind::Needle ? lf.NeedleWidth : 0.0f;
   return look;
+}
+
+/* The profile's two exponents place the widest point of the outline where the species declares it
+ * and taper the tip by as much as it declares; the third number normalises the curve's peak to one
+ * so `Width` stays the half width it says it is. */
+void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]) {
+  const float a = look.LeafWidest * 1.5f + 0.80f;
+  float b = (1.0f - look.LeafWidest) * 1.5f + 0.95f - look.LeafTip * 1.25f;
+  if (b < 0.55f) b = 0.55f;
+  const float peak = std::pow(look.LeafWidest, a) * std::pow(1.0f - look.LeafWidest, b);
+  for (int c = 0; c < 3; c++) out[c] = look.BarkRgb[c];
+  out[3] = look.BarkDark;
+  out[4] = look.BarkFreq;
+  out[5] = look.BarkRidge;
+  out[6] = look.NeedleWidth;
+  out[7] = a;
+  for (int c = 0; c < 3; c++) out[8 + c] = look.LeafRgb[c];
+  out[11] = b;
+  out[12] = look.LeafWidth;
+  out[13] = look.LeafBaseFill;
+  out[14] = look.LeafLobes;
+  out[15] = look.LeafLobeDepth;
+  out[16] = look.LeafSerration;
+  out[17] = peak > 1.0e-6f ? 1.0f / peak : 0.0f;
+  out[18] = 0.0f;
+  out[19] = 0.0f;
 }
 
 std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
@@ -53,19 +78,19 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   TreePrototype proto;
   proto.HeightM_ = (double)sp.HeightM();
   proto.Look_ = LookOf(sp);
-  proto.Ranks_.resize((size_t)TreeRank::kCount);
+  proto.Ranks_.resize((size_t)ModelLadder::kLevels);
   double crownProjM2 = 0.0;
   /* ONE MESH PER RANK, and the ladder is the drawn error's own: rank k may be one pixel coarse at
-   * its nearest instance. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kLeavesPerCard
+   * its nearest instance. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kElementsPerSheet
    * grown laminae, each drawing the species' own leaf. Only the ranks above it thin, by four per
    * step so a card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the
    * declared index survives the thinning. */
-  for (int rank = 0; rank < TreeRank::kCount; ++rank) {
+  for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
     Rank &out = proto.Ranks_[(size_t)rank];
-    grower.Grow(sp, mesh, TreeRank::Pixel(rank));
+    grower.Grow(sp, mesh, ModelLadder::Error(rank));
     TreeLeaf::Build(sp.LeafParams(), mesh);
     foliage.Build(mesh, sp, 1);
-    const uint32_t stride = (uint32_t)kLeavesPerCard << (2u * (unsigned)rank);
+    const uint32_t stride = (uint32_t)kElementsPerSheet << (2u * (unsigned)rank);
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
@@ -76,7 +101,7 @@ std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
      * shrink the canopy exactly where it is already thinnest. */
     if (rank == 0) crownProjM2 = foliage.CrownProjM2();
     out.CardCount = nCards;
-    out.CardLeafM = foliage.CardLeafM(kLeavesPerCard, nCards, (double)sp.Lai(), crownProjM2);
+    out.CardLeafM = foliage.CardLeafM(kElementsPerSheet, nCards, (double)sp.Lai(), crownProjM2);
     out.BarkVerts = mesh.BarkVerts;
     out.BarkVertCount = (uint32_t)mesh.BarkVertexCount();
     out.BarkIdx = mesh.BarkIdx;

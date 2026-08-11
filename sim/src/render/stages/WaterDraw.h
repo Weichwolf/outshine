@@ -1,14 +1,17 @@
-/* OSM water surfaces, drawn as their own geometry. Self-gates on "no mesh", so a client that never
- * calls SetMesh pays nothing. */
-#ifndef WATERSTAGE_H
-#define WATERSTAGE_H
+/* OSM water surfaces, drawn as their own geometry over the declared SECOND vertex layout
+ * (`pos3 + nrm3`, 24 B) — no uv exists on a surface whose material is one number. Self-gates on "no
+ * mesh", so a client that never calls SetMesh pays nothing. */
+#ifndef WATERDRAW_H
+#define WATERDRAW_H
 
 #include <cstdint>
-#include "DrawStage.h"
+
+#include "GeometryUnit.h"
+#include "Gpu.h"
 
 namespace outshine::Render {
 
-class WaterStage : public DrawStage {
+class WaterDraw : public GeometryUnit {
 public:
   void Configure(const Gpu &gpu, const SceneLight &light);
 
@@ -16,7 +19,7 @@ public:
   void SetMesh(const float *verts, uint32_t nverts, const double anchor[3]);
   void SetSun(const double sunEcef[3], const double up[3], float nightAmbient);
 
-  void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
+  void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
   uint32_t VertexCount() const { return NVerts; }
 

@@ -1,18 +1,19 @@
-/* The terrain draw — the ONE stage with real per-frame CPU state: the growable albedo array, the
+/* The terrain draw — the ONE unit with real per-frame CPU state: the growable albedo array, the
  * RenderBundle, the 2-phase-commit tile table and the mode-strictness invariant counters.
  * Its Configure() must run AFTER Renderer::CreateAtmosphere, whose LUT views it is handed. */
-#ifndef TILESSTAGE_H
-#define TILESSTAGE_H
+#ifndef TERRAINDRAW_H
+#define TERRAINDRAW_H
 
 #include <cstdint>
 #include <vector>
-#include "DrawStage.h"
 #include "CloudDensity.h"
 #include "ClusterDag.h"
+#include "GeometryUnit.h"
+#include "Gpu.h"
 
 namespace outshine::Render {
 
-class TilesStage : public DrawStage {
+class TerrainDraw : public GeometryUnit {
 public:
   /* `vegTable` may be null: the ground-cover branch is then a baked-const OFF and the shader keeps its
    * raw albedo, which is exactly the picture before the template table existed. */
@@ -64,7 +65,7 @@ public:
   int DrawCount(void) const { return (int)DrawList.size(); }
   /* Draw CALLS the last Encode recorded, which is not the tile count once the cut merges runs and the
    * frustum drops tiles — the two numbers used to be equal and the budget needs the one that is paid. */
-  int DrawCallCount(void) const { return (int)Ranges.size(); }
+  int DrawCallCount(void) const { return DrawCalls; }
   /* Tiles the frustum kept, out of DrawCount(). */
   int VisibleTileCount(void) const { return VisibleTiles; }
   /* Triangles the LAST Encode actually submitted, not the ones resident: the budget curve is about
@@ -73,10 +74,10 @@ public:
   /* WHICH RUNG the cut stands on, per level, in triangles — the only evidence that a tolerance change
    * moved anything at all. */
   const long *TrianglesByLevel(void) const { return DrawnByLevel; }
-  static constexpr int kLevelBins = 8;
+  static constexpr int kLevelBins = ClusterCut::kLevelBins;
 
   /* Self-contained: there is always terrain to draw once configured. */
-  void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
+  void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
   /* Invariant telemetry, read by Renderer's periodic [present] log. */
   /* The resident tiles as CASTERS: the same buffers the scene pass draws, never a second copy. A
@@ -98,7 +99,6 @@ private:
   struct DynTile { wgpu::Buffer Vtx, Idx; uint32_t NVerts, NIdx; double Origin[3]; float Anchor[3];
                    bool Used; std::vector<DagCluster> Clusters;
                    float BoundCtr[3]; float BoundRad; };
-  struct DrawRange { uint32_t Slot, First, Count; };
 
   static constexpr int kUniFloats = 52;   /* mat4 + sun + haze + stand + class frame; WGSL `U` verbatim */
   static constexpr int kTileFloats = 12;  /* the WGSL `Tile`: three vec4 */
@@ -134,8 +134,7 @@ private:
   std::vector<DynTile> DynTiles;
   float LoggedSigma0 = -1.0f, LoggedSunThru = -1.0f;
   std::vector<int> DrawList;
-  std::vector<DrawRange> Ranges;   /* the cut, rebuilt every frame; reused, so no per-frame heap */
-  long CutClusters = 0;
+  int DrawCalls = 0;
 
   long NotReadyDraws = 0, WrongModeDraws = 0, BlackDraws = 0;
   long DrawnVerts = 0;

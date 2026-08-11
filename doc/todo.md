@@ -33,14 +33,15 @@ graded against the references: the answer is known and the round is spent. Then,
 | 4.6 | the GPU readback stops blocking the frame thread | **done** · unwinding off, render p99 6.1 → 2.1 ms |
 | 5 | `generators/` | **done** · the include set is the enforcement, both ways |
 | 6 | the forest becomes a generator | **done** · the forest stopped following the camera |
-| **7** | **one geometry stage** | **in the tree** |
+| 7 | one geometry stage | **done** · 91 plant fields in the renderer → 0, one cut, 7 passes |
+| **8** | **regionalise** | **in the tree** |
 
 
 
 
 
 
-| 8 | regionalise | open |
+
 | 9 | buildings, water surface, infrastructure | open |
 | — | the scenario interface and its JSON loader | open — **designed**: headers, schema and acceptance stand |
 
@@ -247,13 +248,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 7 — One geometry stage
-
-Tiles, trees, buildings and water merge into one stage over one cluster cut. The renderer loses every
-field naming a part of a plant.
-
-Done when: the pass count is unchanged and the scene pass stays flat within noise.
-
 ## 8 — Regionalise
 
 Ring of regions around the viewer, request / collect / release / cancel, generation off the render
@@ -261,6 +255,36 @@ thread. **Measure milliseconds and bytes per region** — that number does not e
 
 Done when: a region crossing is invisible in the frame distribution at the highest declared speed, over
 repeats, and popping is judged from a moving capture.
+
+**Entry condition, and it is nearly free.** Step 7 moved the model ladder from `sqrt(d²) > H·f·P` to
+`d² > (H·P·f/τ)²` — equal in exact arithmetic, **not** in float, and one stand within an ulp of a boundary
+flips one mesh level. At that distance two levels differ by design by ~1 px along a silhouette whose
+perimeter is O(100 px), so **tens of changed pixels is the signature of exactly one stand flipping** — and
+32–51 is what the round measured. The step's own localisation ("shader-compiler numerics in the sheet
+cut-out") does not survive: `subject-beech` never runs the sheet path (`DrawSheets` branches on
+`PlaceCount > 0`) and `ortho`'s stands are near-all impostors sampling a baked atlas. **The test is
+already telemetry:** compare `run/trees_lod`'s `rank0..rank3`, `impostors`, `meshStands` between the two
+builds. One difference → the ladder, and the fix is to keep the comparison in one association. All
+identical → the ladder is exonerated. Settle it before popping becomes the judged quantity, or "region
+crossing or ladder?" is undecidable.
+
+**`ClusterCut` is the ring's chokepoint and is not shaped for N regions.** One `Ranges_`, reset per unit,
+and the merge-into-one-draw rule collapses only **contiguous** arrivals — regions fed in ring order will
+fragment draws, and the draw-call count will move for a reason that has nothing to do with regions. Fix
+the `Take` ordering before the ring.
+
+**Two instruments survive and one does not exist.** The per-region millisecond **cannot** come from a
+pass span — `Σpass / gpuFrameMs = 2.58` forbids it. What survives: the frame distribution, whose floor is
+already stated (±0.39 ms p50, ±1.02 frame-matched, 10 randomised blocks — reuse it, do not re-derive it),
+and CPU wall time around the generator call once generation is off the render thread. **Bytes per region
+has no instrument at all**: only terrain reports through `TileMeshBytes()`; `LevelVtx`, `PlaceBuf`,
+`DetailVtx` and the impostor atlas report nothing, against `architecture.md`'s "every pool reports its
+bytes, or it is a leak with a name". One accessor per pool, one column.
+
+**Decide here, land at 9: winding travels with the geometry.** `Facing(kSolidState, Winding::Trusted)` is
+a claim no compiler can check — nothing ties `Trusted` to a mesh that earned it. It costs nothing while
+the meshes are compile-time known; at 9 buildings and water arrive at runtime and a hard-coded `Unknown`
+becomes a guess about data. The winding belongs in the draw product beside the cluster list.
 
 ## 9 — Buildings, water surface, infrastructure
 

@@ -1,9 +1,9 @@
-#include "BuildingsStage.h"
+#include "BuildingDraw.h"
 #include "SceneTargets.h"
 #include <cmath>
 #include "ChunkVtx.h"
-#include "Frustum.h"
 #include "SceneScale.h"
+#include "SurfaceState.h"
 /* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
  * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
  * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
@@ -74,7 +74,7 @@ struct BFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
 }
 )";
 
-void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
+void BuildingDraw::Configure(const Gpu &gpu, const SceneLight &light) {
   Device = gpu.Device;
   Queue = gpu.Queue;
   Light = light;
@@ -101,7 +101,6 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
 
   wgpu::DepthStencilState ds{};
   ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = true;
   ds.depthCompare = wgpu::CompareFunction::Greater;
 
   wgpu::RenderPipelineDescriptor rp{};
@@ -115,9 +114,14 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
   fs.targets = cts;
   rp.fragment = &fs;
   rp.depthStencil = &ds;
-  /* An extruded ring has no reliable winding — an OSM footprint may be given either way round — and a
-   * prism is closed, so back faces cost nothing but a depth test. */
-  rp.primitive.cullMode = wgpu::CullMode::None;
+  /* THE STATE COMES OFF THE DERIVATION TABLE. A prism is opaque and writes depth; its back faces
+   * stay only because an extruded OSM ring has no reliable outward side, and the prism is closed so
+   * they cost a depth test and nothing else. */
+  static constexpr Material kMasonry{};
+  static constexpr SurfaceState kState = StateOf(kMasonry);
+  ds.depthWriteEnabled = kState.WritesDepth();
+  rp.primitive.cullMode = CullsBackFaces(kState, Winding::Unknown) ? wgpu::CullMode::Back
+                                                                   : wgpu::CullMode::None;
   Pipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
@@ -138,7 +142,7 @@ void BuildingsStage::Configure(const Gpu &gpu, const SceneLight &light) {
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void BuildingsStage::SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+void BuildingDraw::SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                              const DagCluster *clusters, int nclusters, const double anchor[3]) {
   NVerts = nverts;
   NIdx = nidx;
@@ -173,34 +177,25 @@ void BuildingsStage::SetMesh(const float *verts, uint32_t nverts, const uint32_t
   Queue.WriteBuffer(Idx, 0, idx, (size_t)nidx * sizeof(uint32_t));
 }
 
-void BuildingsStage::SetSun(const double sunEcef[3], const double up[3], float nightAmbient) {
+void BuildingDraw::SetSun(const double sunEcef[3], const double up[3], float nightAmbient) {
   for (int i = 0; i < 3; i++) { SunDir[i] = sunEcef[i]; Up[i] = up[i]; }
   NightAmbient = nightAmbient;
 }
 
-void BuildingsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
+void BuildingDraw::Encode(const FrameContext &ctx, ClusterCut &cut,
+                          wgpu::RenderPassEncoder &pass) {
   DrawnVerts = 0;
   if (NVerts == 0 || !Vtx) return;
 
-  const float fPx = 0.5f * (float)ctx.Height / std::tan(0.5f * (float)ctx.FovDeg * 3.14159265358979f / 180.0f);
   const double eyeLocal[3] = {ctx.Eye[0] - Anchor[0], ctx.Eye[1] - Anchor[1], ctx.Eye[2] - Anchor[2]};
   const double rel[3] = {-eyeLocal[0], -eyeLocal[1], -eyeLocal[2]};
-  Frustum fr;
-  fr.Set(ctx.Mvp20);
-  Ranges.clear();
-  for (const DagCluster &c : Clusters) {
-    /* A prism has no up: the DAG measured its error as a nearest-point distance, which is already
-     * the length in every direction. */
-    static const float kNoUp[3] = {0.0f, 0.0f, 0.0f};
-    if (!DagSelect(c, eyeLocal, fPx, SseTauPx(), kNoUp)) continue;
-    if (!fr.Visible(rel, c.SelfCenter, c.SelfRadius)) continue;
-    DrawnVerts += c.Count;
-    if (!Ranges.empty() && Ranges.back().First + Ranges.back().Count == c.First)
-      Ranges.back().Count += c.Count;
-    else
-      Ranges.push_back(DrawRange{c.First, c.Count});
-  }
-  if (Ranges.empty()) return;
+  /* A prism has no up: the DAG measured its error as a nearest-point distance, which is already the
+   * length in every direction. */
+  static const float kNoUp[3] = {0.0f, 0.0f, 0.0f};
+  cut.Begin();
+  cut.Take(0, Clusters.data(), (int)Clusters.size(), eyeLocal, rel, kNoUp);
+  DrawnVerts = (uint32_t)cut.Indices();
+  if (cut.Ranges().empty()) return;
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
   u[16] = (float)(Anchor[0] - ctx.Eye[0]);
@@ -215,7 +210,7 @@ void BuildingsStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pa
   pass.SetBindGroup(0, Bind);
   pass.SetVertexBuffer(0, Vtx);
   pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
-  for (const DrawRange &r : Ranges) pass.DrawIndexed(r.Count, 1, r.First, 0, 0);
+  for (const ClusterCut::Range &r : cut.Ranges()) pass.DrawIndexed(r.Count, 1, r.First, 0, 0);
 }
 
 } // namespace outshine::Render

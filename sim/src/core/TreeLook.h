@@ -20,7 +20,6 @@ struct TreeLook {
   float LeafLobes = 0.0f;
   float LeafLobeDepth = 0.0f;
   float LeafSerration = 0.0f;
-  float LeafFold = 0.10f;
   float NeedleWidth = 0.0f;   /* > 0 selects the needle profile */
 };
 

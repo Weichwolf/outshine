@@ -8,6 +8,7 @@
 #include <optional>
 #include <vector>
 
+#include "Material.h"
 #include "TreeLook.h"
 #include "TreeSpecies.h"
 
@@ -34,6 +35,10 @@ public:
   /* A declared colour is sRGB and a reflectance is linear; the leaf tint multiplies the table's own
    * fresh-blade green. Both conversions belong to the species, so render/ never sees a declaration. */
   static TreeLook LookOf(const TreeSpecies &species);
+  /* THE MATERIAL ROW the picture takes, filled in the order the shader that reads it declares. The
+   * outline profile's exponents are derived HERE and not there: the shape of a lamina is species
+   * knowledge, and a renderer that computed it would be holding one. */
+  static void MaterialRow(const TreeLook &look, float out[kMaterialRowFloats]);
 
   const std::vector<Rank> &Ranks() const { return Ranks_; }
   const TreeLook &Look() const { return Look_; }

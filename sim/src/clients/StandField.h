@@ -35,7 +35,8 @@ public:
                          const Generators::Instance &instance) noexcept override;
   bool Full() const noexcept override { return false; }
 
-  /* Render::TreeStage's layout: east, north, foot over the frame's anchor, yaw, size factor. */
+  /* Render::ModelDraw's instance layout: east, north, foot over the frame's anchor, yaw, and
+   * the factor on the model's own height. */
   const std::vector<float> &Stands() const { return Stands_; }
   uint32_t Count() const { return (uint32_t)(Stands_.size() / kFloats); }
   uint32_t BeyondReach() const { return Beyond_; }

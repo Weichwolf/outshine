@@ -43,7 +43,7 @@ Renderer::Renderer()
 void Renderer::SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow,
                                   float slopeBandDeg) {
   VegRows.assign((const uint8_t *)rows, (const uint8_t *)rows + rowBytes);
-  Tiles->SetBareRock(bareRockRow, slopeBandDeg);
+  Geometry->Terrain().SetBareRock(bareRockRow, slopeBandDeg);
 }
 
 void Renderer::SetCamera(const double eye[3], const double target[3]) {
@@ -191,11 +191,11 @@ void Renderer::OnDevice(wgpu::Device d) {
   }
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Stars->Init(gpu);
-  Buildings->Configure(gpu, Light());
-  Water->Configure(gpu, Light());
+  Geometry->Buildings().Configure(gpu, Light());
+  Geometry->Water().Configure(gpu, Light());
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   BenchGround->Configure(gpu, Light());
-  Trees->Configure(gpu, Light());
+  Geometry->Models().Configure(gpu, Light());
   CreateClouds();
   CreateResolvePipeline();
   CreatePresent();          /* also Init()s Present (needs FrameTex, created here) */
@@ -207,7 +207,7 @@ void Renderer::OnDevice(wgpu::Device d) {
                                                      ? "rg11b10ufloat" : "rgba16float"}});
 }
 
-/* Creates the SCENE's shared targets and injects TilesStage's dependencies. Must run AFTER
+/* Creates the SCENE's shared targets and injects TerrainDraw's dependencies. Must run AFTER
  * CreateAtmosphere: Tiles' bind group pins the LUT views that method created. */
 /* ONE weather sample, two consumers: the deck the cloud pass marches and the air the terrain fades
  * into are the same atmosphere, so they are set from the same call rather than sampled twice. */
@@ -248,7 +248,7 @@ void Renderer::CreateTerrainPipeline(void) {
   VelTex = Device.CreateTexture(&td);
 
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Tiles->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
+  Geometry->Terrain().Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
                    Light());
 }
 
@@ -267,7 +267,7 @@ int Renderer::UploadTile(const float *verts, uint32_t nverts, const uint32_t *id
                            const DagCluster *clusters, int nclusters, const double origin[3],
                            const double anchor[3]) {
   if (!DeviceUsable()) return -1;
-  return Tiles->UploadTile(verts, nverts, idx, nidx, clusters, nclusters, origin, anchor);
+  return Geometry->Terrain().UploadTile(verts, nverts, idx, nidx, clusters, nclusters, origin, anchor);
 }
 
 
@@ -543,21 +543,21 @@ void Renderer::CreateOffscreenTarget(void) {
   OffscreenTex = Device.CreateTexture(&td);
 }
 
-void Renderer::BakeTreeImpostor(void) {
-  if (!Device || !Trees->WantsBake()) return;
-  Trees->CreateImpostor();
-  if (!Trees->ImpostorDepthTarget()) return;
+void Renderer::BakePrototypeImpostor(void) {
+  if (!Device || !Geometry->Models().WantsBake()) return;
+  Geometry->Models().CreateImpostor();
+  if (!Geometry->Models().ImpostorDepthTarget()) return;
 
   wgpu::RenderPassColorAttachment ca[2] = {};
-  ca[0].view = Trees->ImpostorAlbedoTarget();
+  ca[0].view = Geometry->Models().ImpostorAlbedoTarget();
   ca[0].loadOp = wgpu::LoadOp::Clear;
   ca[0].storeOp = wgpu::StoreOp::Store;
   ca[0].clearValue = {0.0, 0.0, 0.0, 0.0};
   ca[1] = ca[0];
-  ca[1].view = Trees->ImpostorNormalTarget();
+  ca[1].view = Geometry->Models().ImpostorNormalTarget();
   ca[1].clearValue = {0.5, 0.5, 0.5, 0.0};
   wgpu::RenderPassDepthStencilAttachment da{};
-  da.view = Trees->ImpostorDepthTarget();
+  da.view = Geometry->Models().ImpostorDepthTarget();
   da.depthLoadOp = wgpu::LoadOp::Clear;
   da.depthStoreOp = wgpu::StoreOp::Discard;
   da.depthClearValue = 0.0f;   /* reversed-Z, as every scene surface */
@@ -568,16 +568,16 @@ void Renderer::BakeTreeImpostor(void) {
 
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
   wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
-  Trees->EncodeBake(pass);
+  Geometry->Models().EncodeBake(pass);
   pass.End();
   wgpu::CommandBuffer cb = enc.Finish();
   Queue.Submit(1, &cb);
-  Trees->FinishBake();
-  Log::Info("render", "tree_impostor_baked",
-            {{"cells", (double)(TreeStage::kCells * TreeStage::kCells)},
-             {"cellPx", (double)TreeStage::kCellSize},
-             {"atlasMb", 2.0 * (double)(TreeStage::kCells * TreeStage::kCellSize) *
-                             (double)(TreeStage::kCells * TreeStage::kCellSize) * 4.0 / 1048576.0}});
+  Geometry->Models().FinishBake();
+  Log::Info("render", "impostor_baked",
+            {{"cells", (double)(ModelDraw::kCells * ModelDraw::kCells)},
+             {"cellPx", (double)ModelDraw::kCellSize},
+             {"atlasMb", 2.0 * (double)(ModelDraw::kCells * ModelDraw::kCellSize) *
+                             (double)(ModelDraw::kCells * ModelDraw::kCellSize) * 4.0 / 1048576.0}});
 }
 
 /* THE ONE PLACE A PRESENTABLE TARGET IS ACQUIRED. Both frame kinds go through it, so neither can
@@ -772,7 +772,7 @@ void Renderer::RenderFrame(void) {
    * written a dispatch earlier without costing a pass. */
   {
     wgpu::ComputePassDescriptor cpd{};
-    cpd.timestampWrites = GpuTime.Writes(GpuTimer::Compute);
+    cpd.timestampWrites = GpuTime.Writes(GpuTimer::Atmosphere);
     wgpu::ComputePassEncoder cp = enc.BeginComputePass(&cpd);
     passCount++;
     Transmittance->EncodeCompute(ctx, cp);
@@ -782,7 +782,9 @@ void Renderer::RenderFrame(void) {
   /* Likewise: the hemisphere integral reads the sky-view LUT the dispatch before it wrote. That
    * integral IS the ground's ambient, which is what puts sky and ground on one scale. */
   {
-    wgpu::ComputePassEncoder cp = enc.BeginComputePass();
+    wgpu::ComputePassDescriptor lpd{};
+    lpd.timestampWrites = GpuTime.Writes(GpuTimer::Light);
+    wgpu::ComputePassEncoder cp = enc.BeginComputePass(&lpd);
     passCount++;
     SkyView->EncodeCompute(ctx, cp);
     Irradiance->EncodeCompute(ctx, cp);
@@ -796,14 +798,14 @@ void Renderer::RenderFrame(void) {
   /* SUN SHADOWS. A NEW pass boundary, and it is Renderer's like every other: the four cascades are
    * four viewports into one depth atlas, so the count rises by exactly one however many cascades
    * there are. The cascade matrices are built here because every receiver reads the same uniform. */
-  Shadow->SetCasters(Buildings->CasterBuffer(), Buildings->CasterIndexBuffer(),
-                     Buildings->CasterVertexCount(),
-                     Buildings->CasterClusters(), Buildings->CasterClusterCount(),
-                     Buildings->CasterAnchor());
+  Shadow->SetCasters(Geometry->Buildings().CasterBuffer(), Geometry->Buildings().CasterIndexBuffer(),
+                     Geometry->Buildings().CasterVertexCount(),
+                     Geometry->Buildings().CasterClusters(), Geometry->Buildings().CasterClusterCount(),
+                     Geometry->Buildings().CasterAnchor());
   /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
    * a ridge shadows a whole valley while a building shadows a street. Measured affordable before it
    * was built (stages/ShadowStage.h). */
-  Tiles->CollectCasters(TerrainCasters);
+  Geometry->Terrain().CollectCasters(TerrainCasters);
   ShadowTerrain.resize(TerrainCasters.size());
   for (size_t i = 0; i < TerrainCasters.size(); i++) {
     ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
@@ -875,14 +877,8 @@ void Renderer::RenderFrame(void) {
 
   BenchGround->SetSun(ctx.SunDir, NightAmbient(ctx));
   BenchGround->Encode(ctx, scene);   /* the subject bench's card, in the terrain's slot; self-gates off */
-  Tiles->Encode(ctx, scene);   /* terrain: RenderBundle (streaming) or direct per-tile draws (static) */
-  Buildings->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
-  Buildings->Encode(ctx, scene);
-  /* After the terrain and the prisms: a water surface is opaque here and depth sorts it. */
-  Water->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
-  Water->Encode(ctx, scene);   /* opaque, depth-written, same pass — no Begin*Pass is added */
-  Trees->SetSun(ctx.SunDir, NightAmbient(ctx));
-  Trees->Encode(ctx, scene);   /* the subject bench's plant, same pass, same light; self-gates off */
+  Geometry->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
+  Geometry->Encode(ctx, scene);   /* terrain, prisms, water and models — one stage, one cut, no pass */
   scene.End();
 
 
@@ -936,11 +932,15 @@ void Renderer::RenderFrame(void) {
   passCount++;
 
   /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
-   * native-oracle run must still capture it), then every 300. Expected: 7, +1 with a cloud deck. */
+   * native-oracle run must still capture it), then every 300. */
   static bool loggedFirstPassCount = false;
   if (!loggedFirstPassCount || FrameNo % 300 == 0) {
     loggedFirstPassCount = true;
-    Log::Debug("render", "passcount", {{"passes", passCount}});
+    /* THE ENUMERATION IS THE PASS COUNT. A timer slot with no pass behind it is where a new pass
+     * hides without this number moving, so the two are compared instead of merely both existing. */
+    Log::Debug("render", "passcount", {{"passes", passCount},
+                                       {"slots", (int)GpuTimer::kPassCount},
+                                       {"violation", passCount != (int)GpuTimer::kPassCount}});
   }
 
   GpuTime.Resolve(enc);
@@ -957,11 +957,11 @@ void Renderer::RenderFrame(void) {
 
   /* 2-phase-commit assertion (once/sec): no frame should ever have drawn an uncommitted layer. */
   if (FrameNo % 60 == 0) {
-    long notReady = Tiles->GetNotReadyDraws(), wrongMode = Tiles->GetWrongModeDraws(), black = Tiles->GetBlackDraws();
+    long notReady = Geometry->Terrain().GetNotReadyDraws(), wrongMode = Geometry->Terrain().GetWrongModeDraws(), black = Geometry->Terrain().GetBlackDraws();
     bool violation = notReady || wrongMode || black;
     Log::Debug("render", "present", {{"notReadyDraws", (int)notReady}, {"wrongModeDraws", (int)wrongMode},
                                        {"blackDraws", (int)black}, {"violation", violation},
-                                       {"bundleRecords", (int)Tiles->GetBundleRecords()}});
+                                       {"bundleRecords", (int)Geometry->Terrain().GetBundleRecords()}});
   }
 }
 

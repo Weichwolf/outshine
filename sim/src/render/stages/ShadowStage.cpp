@@ -53,7 +53,7 @@ void ShadowStage::Init(const Gpu &gpu) {
   smd.nextInChain = &wsl;
   wgpu::ShaderModule m = Device.CreateShaderModule(&smd);
 
-  /* The caster mesh is BuildingsStage's, so the stride is its stride; only position is read. */
+  /* The caster mesh is BuildingDraw's, so the stride is its stride; only position is read. */
   wgpu::VertexAttribute attr{};
   attr.format = wgpu::VertexFormat::Float32x3;
   attr.offset = 0;

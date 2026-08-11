@@ -28,7 +28,7 @@ bool StandField::Add(Generators::BodyId, Generators::ClusterId,
     return true;
   }
   if (Crown_.HeightM > 0.0f && Crown_.HalfWidth > 0.0f) {
-    const double heightM = (double)Crown_.HeightM * (double)instance.ScaleM;
+    const double heightM = (double)Crown_.HeightM * (double)instance.Scale;
     const double half = heightM * (double)Crown_.HalfWidth;
     if (Lens_.AslM > (double)instance.AslM + heightM * (double)Crown_.Bottom &&
         Lens_.AslM < (double)instance.AslM + heightM * (double)Crown_.Top && distSq < half * half) {
@@ -43,7 +43,7 @@ bool StandField::Add(Generators::BodyId, Generators::ClusterId,
   Stands_.push_back((float)northM);
   Stands_.push_back(instance.AslM);
   Stands_.push_back(instance.YawRad);
-  Stands_.push_back(instance.ScaleM);
+  Stands_.push_back(instance.Scale);
   return true;
 }
 

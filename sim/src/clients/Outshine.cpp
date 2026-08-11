@@ -9,7 +9,7 @@
 #include "Log.h"
 #include "PixelFocalLength.h"
 #include "TerrainLoader.h"
-#include "TreeRanks.h"
+#include "ModelLadder.h"
 
 namespace outshine::Clients {
 namespace {
@@ -193,22 +193,25 @@ void Outshine::AwaitStars() {
     const std::vector<Generators::TreePrototype::Rank> &ranks = Tree_->Ranks();
     for (size_t rank = 0; rank < ranks.size(); rank++) {
       const Generators::TreePrototype::Rank &r = ranks[rank];
-      R_.SetTreeBark((int)rank, r.BarkVerts.data(), r.BarkVertCount, r.BarkIdx.data(),
-                     (uint32_t)r.BarkIdx.size());
-      R_.SetTreeCards((int)rank, r.Cards.data(), r.CardCount, r.CardLeafM,
-                      Generators::TreePrototype::kCardFanDeg);
+      R_.SetPrototypeLevel((int)rank, Render::LevelMesh{r.BarkVerts.data(), r.BarkVertCount,
+                                                        r.BarkIdx.data(),
+                                                        (uint32_t)r.BarkIdx.size()});
+      R_.SetPrototypeSheets((int)rank, Render::SheetSet{r.Cards.data(), r.CardCount, r.CardLeafM,
+                                                        Generators::TreePrototype::kCardFanDeg});
       Log::Info("outshine", "tree_grown", {{"rank", (double)rank},
-          {"pixelHeightFrac", (double)TreeRank::Pixel((int)rank)},
+          {"pixelHeightFrac", (double)ModelLadder::Error((int)rank)},
           {"barkVerts", (double)r.BarkVertCount}, {"barkTris", (double)(r.BarkIdx.size() / 3)},
           {"cards", (double)r.CardCount}, {"cardLeafM", (double)r.CardLeafM},
           {"heightM", Tree_->HeightM()}});
     }
-    R_.SetTreeLook(Tree_->Look());
-    /* bpar.z is the tree height and comes from SetTreeStand; without it every instance scales to
-     * null. */
-    R_.SetTreeStand(0.0, 0.0, 0.0, Tree_->HeightM());
-    R_.SetTreeCrown(Tree_->Reach().HalfWidth, Tree_->Reach().Top, Tree_->Reach().Bottom);
-    R_.BakeTreeImpostor();
+    float row[kMaterialRowFloats];
+    Generators::TreePrototype::MaterialRow(Tree_->Look(), row);
+    R_.SetPrototypeMaterial(row);
+    /* The model height scales every instance; without it they all scale to null. */
+    R_.SetPrototypeHeightM(Tree_->HeightM());
+    R_.SetPrototypeBounds(Render::ModelBounds{Tree_->Reach().HalfWidth, Tree_->Reach().Top,
+                                              Tree_->Reach().Bottom});
+    R_.BakePrototypeImpostor();
     TreeDraw_.emplace(Generators::ClusterId{0}, Tree_->HeightM());
     if (!Draws_.Add(Generators::Rank{0}, *TreeDraw_)) { Phase_ = Phase::Failed; return; }
   }
@@ -231,8 +234,8 @@ double Outshine::OpenFrame() {
 
 void Outshine::CloseFrame(double startedMs) {
   HeapProbe::Sample();
-  double stage[Render::GpuTimer::kPassCount];
-  if (R_.TakeGpuTimes(stage)) Frames_.AddStages(stage);
+  Render::GpuTimer::Sample gpu;
+  if (R_.TakeGpuTimes(gpu)) Frames_.AddGpu(gpu);
   if (!Frames_.Due(startedMs)) return;
   Sim_.Bus().Tick((startedMs - ClockOriginMs_) * 0.001);
   Frames_.Reset(startedMs);
@@ -250,7 +253,7 @@ Outshine::Counters Outshine::Measured() const {
   Counters c;
   c.Draws = R_.DrawCount();
   c.Triangles = (long)R_.TriangleCount();
-  c.TreeTriangles = R_.TreeTriangleCount();
+  c.TreeTriangles = R_.ModelTriangleCount();
   c.TreeStands = (long)Stands_.Count();
   c.BuildingVerts = R_.BuildingVertexCount();
   c.Built = w.BuiltCount();
@@ -352,7 +355,7 @@ void Outshine::CollectStands() {
                 Span<const Generators::Yield>(region.Yields.data(), region.Yields.size()),
                 region.Space.Sink().Placed(), Stands_);
   }
-  R_.SetTreeStands(Stands_.Stands().data(), Stands_.Count(), Stands_.Frame());
+  R_.SetPrototypeInstances(Stands_.Stands().data(), Stands_.Count(), Stands_.Frame());
   Log::Info("outshine", "stands_collected", {{"regions", (double)regions.Size()},
       {"placed", (double)Sim_.StandCount()}, {"stands", (double)Stands_.Count()},
       {"beyondReachM", Sim::kReachM}, {"beyondReach", (double)Stands_.BeyondReach()},

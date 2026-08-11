@@ -25,12 +25,9 @@
 #include "stages/SkyStage.h"
 #include "stages/SunStage.h"
 #include "stages/MoonStage.h"
-#include "stages/TilesStage.h"
+#include "GeometryStage.h"
 #include "stages/BenchGroundStage.h"
 #include "stages/ShadowStage.h"
-#include "stages/BuildingsStage.h"
-#include "stages/WaterStage.h"
-#include "stages/TreeStage.h"
 #include "stages/AoStage.h"
 #include "stages/ExposureStage.h"
 #include "stages/TaaStage.h"
@@ -93,13 +90,15 @@ public:
                  const double origin[3], const double anchor[3]);
   /* THE CLASS STRUCTURE, borrowed for the length of the call (world/ClassField.h). */
   void SetClassFrame(const double east[3], const double north[3], const double camOffset[2]) {
-    Tiles->SetClassFrame(east, north, camOffset);
+    Geometry->Terrain().SetClassFrame(east, north, camOffset);
   }
-  void WriteClassBuffer(const uint32_t *words, size_t bytes) { Tiles->WriteClassBuffer(words, bytes); }
-  void ReleaseTile(int slot) { Tiles->ReleaseTile(slot); }         /* free the buffer, recycle both layers */
-  void SetDrawList(const int *slots, int n) { Tiles->SetDrawList(slots, n); }  /* the tiles to draw this frame (World's leaves) */
-  long ClassVramBytes(void) const { return Tiles->ClassVramBytes(); }    /* the classification input */
-  long TileMeshBytes(void) const { return Tiles->TileMeshBytes(); }      /* the resident tile geometry */
+  void WriteClassBuffer(const uint32_t *words, size_t bytes) {
+    Geometry->Terrain().WriteClassBuffer(words, bytes);
+  }
+  void ReleaseTile(int slot) { Geometry->Terrain().ReleaseTile(slot); }   /* free the buffer, recycle both layers */
+  void SetDrawList(const int *slots, int n) { Geometry->Terrain().SetDrawList(slots, n); }  /* the tiles to draw this frame (World's leaves) */
+  long ClassVramBytes(void) const { return Geometry->Terrain().ClassVramBytes(); }   /* the classification input */
+  long TileMeshBytes(void) const { return Geometry->Terrain().TileMeshBytes(); }     /* the resident tile geometry */
 
   /* THE ENVIRONMENT the frame is lit and hazed by — sun, moon, cloud deck, altitude. Nothing to do
    * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
@@ -117,12 +116,12 @@ public:
    * back to on a wall can never name a table that is not loaded. */
   void SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow, float slopeBandDeg);
 
-  /* WHERE THE STAND IS READ. The ground fragment IS the stand (render/Sward.h), so it needs the
-   * place and the local basis and nothing else — the geodetic position picks the graticule cell the
-   * canopy field is hashed on. */
+  /* WHERE THE GROUND COVER IS READ. The ground fragment IS the cover (render/Sward.h), so it needs
+   * the place and the local basis and nothing else — the geodetic position picks the graticule cell
+   * the field is hashed on. */
   void SetSwardBasis(double lat, double lon, const double east[3], const double north[3],
                      const double up[3]) {
-    Tiles->SetSward(lat, lon, east, north, up);
+    Geometry->Terrain().SetSward(lat, lon, east, north, up);
   }
   /* THE SUBJECT BENCH'S FLOOR AND ITS NEUTRAL CARD — studio furniture, and off unless a bench
    * declares it. `radiusM` <= 0 retires the floor and a card
@@ -134,43 +133,41 @@ public:
   void SetBenchSubstrate(const float linearRgb[3]) { BenchGround->SetSubstrate(linearRgb); }
   void SetBenchCard(const BenchCard &card) { BenchGround->SetCard(card); }
 
-  /* THE SUBJECT BENCH'S PLANT, in the same camera-relative ground frame the bench's floor and card
-   * use. The mesh arrives as raw arrays because render/ draws a tree it is handed and does not know
-   * how a species grows; `heightM` <= 0 is the state every other client stays in. */
-  void SetTreeBark(int rank, const float *verts, uint32_t nverts, const uint32_t *idx,
-                   uint32_t nidx) {
-    Trees->SetBark(rank, verts, nverts, idx, nidx);
+  /* AN INSTANCED PROTOTYPE, in the same camera-relative ground frame the bench's floor and card use.
+   * The mesh arrives as raw arrays and the material as a ROW OF NUMBERS whose meanings are pinned in
+   * the shader that reads it: render/ draws what it is handed and knows nothing about what the model
+   * is of. `SetPrototypeHeightM` <= 0 with no instance field is the state every client stays in
+   * until one is uploaded. */
+  void SetPrototypeLevel(int level, const LevelMesh &mesh) {
+    Geometry->Models().SetLevel(level, mesh);
   }
-  void SetTreeLeaf(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                   const float *inst, uint32_t ninst, float scaleM) {
-    Trees->SetLeaf(verts, nverts, idx, nidx, inst, ninst, scaleM);
+  void SetPrototypeDetail(const DetailMesh &detail) { Geometry->Models().SetDetail(detail); }
+  void SetPrototypeSheets(int level, const SheetSet &sheets) {
+    Geometry->Models().SetSheets(level, sheets);
   }
-  void SetTreeCards(int rank, const float *inst, uint32_t n, float leafLenM, float spreadDeg) {
-    Trees->SetCards(rank, inst, n, leafLenM, spreadDeg);
+  void SetPrototypeMaterial(const float row[kMaterialRowFloats]) {
+    Geometry->Models().SetMaterial(row);
   }
-  void SetTreeLook(const TreeLook &look) { Trees->SetLook(look); }
-  void SetTreeStands(const float *inst, uint32_t n, const TangentFrame &frame) {
-    Trees->SetStands(inst, n, frame);
+  void SetPrototypeHeightM(double heightM) { Geometry->Models().SetHeightM(heightM); }
+  void SetPrototypeBounds(const ModelBounds &bounds) { Geometry->Models().SetBounds(bounds); }
+  void SetPrototypeSubject(double eastM, double northM, double eyeAglM) {
+    Geometry->Models().SetSubject(eastM, northM, eyeAglM);
   }
-  long TreeMeshStands() const { return Trees->MeshStands(); }
-  double TreeMeshRadiusM() const { return Trees->MeshRadiusM(); }
-  void SetTreeStand(double eastM, double northM, double eyeAglM, double heightM) {
-    Trees->SetStand(eastM, northM, eyeAglM, heightM);
+  void SetPrototypeInstances(const float *instances, uint32_t n, const TangentFrame &frame) {
+    Geometry->Models().SetInstances(instances, n, frame);
   }
-  void SetTreeCrown(float halfWidth, float top, float bottom) {
-    Trees->SetCrown(halfWidth, top, bottom);
-  }
+  void SetSheetsVisible(bool on) { Geometry->Models().SetSheetsVisible(on); }
   /* THE ONE PASS THAT IS NOT PER FRAME. Renderer opens every render pass, and the impostor atlas is
    * baked ONCE at load into its own command buffer — the per-frame pass count is untouched. */
-  void BakeTreeImpostor(void);
-  void SetTreeLeavesVisible(bool on) { Trees->SetLeavesVisible(on); }
-  long TreeTriangleCount(void) const { return Trees->TriangleCount(); }
-  long TreeImpostorStands(void) const { return Trees->ImpostorStands(); }
-  long TreeRankStands(int k) const { return Trees->RankStands(k); }
+  void BakePrototypeImpostor(void);
+  long ModelMeshInstances() const { return Geometry->Models().MeshInstances(); }
+  double ModelMeshRadiusM() const { return Geometry->Models().MeshRadiusM(); }
+  long ModelImpostorInstances(void) const { return Geometry->Models().ImpostorInstances(); }
+  long ModelLevelInstances(int level) const { return Geometry->Models().LevelInstances(level); }
+  long ModelTriangleCount(void) const { return Geometry->Models().TriangleCount(); }
 
-  /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). Nothing
-   * below the size of a tree answers to it, so it is held for the consumers that owe a
-   * published anchor — a branch and a rotor — and read by no stage today. */
+  /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
+   * for the consumers that owe a published anchor and read by no stage today. */
   void SetWind(double fromDeg, double speedMs) { WindFromDeg = fromDeg; WindMs = speedMs; }
   /* The WIND clock, deliberately not the sky clock: a wave measurement wants the sun to stand still
    * while the field runs. Advanced by the client, never by the renderer. */
@@ -194,35 +191,34 @@ public:
   /* THE PER-PASS CLOCK, for whoever aggregates it. False means the device refused the feature, and
    * that is a different statement from eight zeroes. */
   bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
-  bool TakeGpuTimes(double ms[GpuTimer::kPassCount]) { return GpuTime.Take(ms); }
+  bool TakeGpuTimes(GpuTimer::Sample &out) { return GpuTime.Take(out); }
 
   /* The extruded OSM footprints World decoded; positions are ECEF offsets from `anchor`. */
   void SetBuildingMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                        const DagCluster *clusters, int nclusters,
                        const double anchor[3]) {
-    Buildings->SetMesh(verts, nverts, idx, nidx, clusters, nclusters, anchor);
+    Geometry->Buildings().SetMesh(verts, nverts, idx, nidx, clusters, nclusters, anchor);
   }
-  uint32_t BuildingVertexCount(void) const { return Buildings->VertexCount(); }
-  void SetWaterMesh(const float *v, uint32_t n, const double anchor[3]) { Water->SetMesh(v, n, anchor); }
-  uint32_t WaterVertexCount(void) const { return Water->VertexCount(); }
+  uint32_t BuildingVertexCount(void) const { return Geometry->Buildings().VertexCount(); }
+  void SetWaterMesh(const float *v, uint32_t n, const double anchor[3]) {
+    Geometry->Water().SetMesh(v, n, anchor);
+  }
+  uint32_t WaterVertexCount(void) const { return Geometry->Water().VertexCount(); }
 
-  int  DrawCount(void) const { return Tiles->DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
-  int  TerrainDrawCalls(void) const { return Tiles->DrawCallCount(); }
-  const long *TerrainTrianglesByLevel(void) const { return Tiles->TrianglesByLevel(); }
+  int  DrawCount(void) const { return Geometry->Terrain().DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
+  int  TerrainDrawCalls(void) const { return Geometry->Terrain().DrawCallCount(); }
+  const long *TerrainTrianglesByLevel(void) const { return Geometry->Terrain().TrianglesByLevel(); }
   long ShadowTriangleCount(void) const { return Shadow->TriangleCount(); }
   int  ShadowDrawCalls(void) const { return Shadow->DrawCallCount(); }
-  int  TerrainVisibleTiles(void) const { return Tiles->VisibleTileCount(); }
-  long TerrainTriangleCount(void) const { return Tiles->TriangleCount(); }
+  int  TerrainVisibleTiles(void) const { return Geometry->Terrain().VisibleTileCount(); }
+  long TerrainTriangleCount(void) const { return Geometry->Terrain().TriangleCount(); }
   /* The two accumulation buffers plus the motion attachment — the whole price of TAA in memory. */
   long TemporalVramBytes(void) const {
     return Taa->HistoryBytes() + (long)Width * (long)Height * 4L;
   }
 
-  /* THE BUDGET INSTRUMENT: triangles the last frame submitted, over every geometry
-   * stage there is. */
-  long TriangleCount(void) const {
-    return Tiles->TriangleCount() + (long)Buildings->VertexCount() / 3 + Trees->TriangleCount();
-  }
+  /* THE BUDGET INSTRUMENT: triangles the last frame submitted, over every geometry unit there is. */
+  long TriangleCount(void) const { return Geometry->TriangleCount(); }
 
   /* Call before Init; without it the moon disc falls back to flat grey. */
   void SetMoonTexture(const uint8_t *rgba, int w, int h);
@@ -262,7 +258,7 @@ public:
 private:
   enum class Target { Surface, Offscreen };
 
-  void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + Tiles->Configure() */
+  void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + the terrain unit */
   void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
   void CreatePresent(void);           /* declared-size frame target + the present pass over it */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
@@ -305,7 +301,7 @@ private:
   std::unique_ptr<AoStage> Ao = std::make_unique<AoStage>();
   std::unique_ptr<ExposureStage> Exposure = std::make_unique<ExposureStage>();
   wgpu::Sampler Samp;              /* shared linear sampler: unit textures, TAA history, tonemap's HdrTex read */
-  wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: TilesStage/SkyStage draw into them, clouds sample DepthTex */
+  wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: the geometry stage and SkyStage draw into them */
   /* THE SECOND SCENE ATTACHMENT (stages/SceneTargets.h): screen-space motion of whatever owns the
    * depth. Cleared to the "world-fixed" sentinel every frame, written only by geometry that moved
    * for a reason other than the camera. */
@@ -320,16 +316,14 @@ private:
   bool HaveHistory = false;
   float PrevMvp[16] = {};
   double PrevEye[3] = {0, 0, 0};
-  std::unique_ptr<TilesStage> Tiles = std::make_unique<TilesStage>();
+  /* ONE GEOMETRY STAGE. Terrain, prisms, water and instanced models, over one cluster cut. */
+  std::unique_ptr<GeometryStage> Geometry = std::make_unique<GeometryStage>();
   /* The 256 vegetation-template rows: the terrain shades its ground cover out of them. */
   wgpu::Buffer VegBuf;
   std::vector<uint8_t> VegRows;
   std::unique_ptr<BenchGroundStage> BenchGround = std::make_unique<BenchGroundStage>();
   std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();
-  std::unique_ptr<BuildingsStage> Buildings = std::make_unique<BuildingsStage>();
   wgpu::Buffer CsmBuf;
-  std::unique_ptr<WaterStage> Water = std::make_unique<WaterStage>();
-  std::unique_ptr<TreeStage> Trees = std::make_unique<TreeStage>();
 
   /* The whole frame lands in a FrameTex of the DECLARED size; only the present follows the display. */
   wgpu::Texture FrameTex;
@@ -341,7 +335,7 @@ private:
    * hold only the pipeline/bind group built from views injected at Configure(). §4 */
   wgpu::Texture TransLUT, MsLUT, SkyLUT;          /* 256x64, 32x32, 192x108 rgba16float (storage + sampled) */
   wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
-  std::vector<TilesStage::Caster> TerrainCasters;
+  std::vector<TerrainDraw::Caster> TerrainCasters;
   std::vector<ShadowStage::TerrainCaster> ShadowTerrain;        /* reused, so a steady scene allocates nothing */
   GpuTimer GpuTime;                               /* per-pass GPU time, telemetry */
   bool GpuTimeGranted = false;
@@ -385,7 +379,7 @@ private:
   State SceneState{};
 
   double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */
-  int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to Tiles->Configure() */
+  int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to the terrain unit */
   bool HaveCamera;                      /* SetCamera used (scripted path) vs the default orbit */
   bool CameraFull;                      /* SetCameraBasis used (full rolled basis) — wins over both */
   double Eye[3], LookTarget[3];

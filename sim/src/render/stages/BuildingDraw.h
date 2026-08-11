@@ -4,17 +4,18 @@
  * The vertex uv is (metres along the wall, metres above the base) rather than 0..1, so the storey
  * lines this shader draws today and the window grid a later one draws are the same two numbers at two
  * levels of detail; neither needs the geometry rebuilt. */
-#ifndef BUILDINGSSTAGE_H
-#define BUILDINGSSTAGE_H
+#ifndef BUILDINGDRAW_H
+#define BUILDINGDRAW_H
 
 #include <cstdint>
 #include <vector>
-#include "DrawStage.h"
 #include "ClusterDag.h"
+#include "GeometryUnit.h"
+#include "Gpu.h"
 
 namespace outshine::Render {
 
-class BuildingsStage : public DrawStage {
+class BuildingDraw : public GeometryUnit {
 public:
   void Configure(const Gpu &gpu, const SceneLight &light);
 
@@ -25,7 +26,7 @@ public:
                const DagCluster *clusters, int nclusters, const double anchor[3]);
   void SetSun(const double sunEcef[3], const double up[3], float nightAmbient);
 
-  void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
+  void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
   uint32_t VertexCount() const { return DrawnVerts; }
   /* The caster mesh, kept for the day shadows return: never a second copy, and the DAG comes
@@ -54,8 +55,6 @@ private:
   float NightAmbient = 0.0f;
   uint32_t NVerts = 0, NIdx = 0, Cap = 0, IdxCap = 0, BaseVerts = 0, DrawnVerts = 0;
   std::vector<DagCluster> Clusters;
-  struct DrawRange { uint32_t First, Count; };
-  std::vector<DrawRange> Ranges;
 };
 
 } // namespace outshine::Render

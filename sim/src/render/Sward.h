@@ -1,7 +1,7 @@
 /* THE STAND, as ONE declaration: what a population of blades does to the light ON AVERAGE, which is
  * the ground fragment's own colour. Everything it needs is here and nowhere else — the canopy-top
  * field, the leaf-angle population G, the tip-height distribution, the beam's path through the stand
- * and the aggregate radiance. TilesStage splices it and does not own it.
+ * and the aggregate radiance. TerrainDraw splices it and does not own it.
  *
  * WHAT IS NOT HERE: a blade's own geometry. There is no blade — a stand below the size of a tree is
  * never geometry, so the declaration has one scale and no hand-off to match up. */

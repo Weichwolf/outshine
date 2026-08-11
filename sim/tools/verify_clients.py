@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """verify-clients: ONE PROGRAM, TWO TRANSLATIONS.
 
-The defect this gate exists for, measured 2026-08-08 on 3827f7e: `AppWalk.cpp` named `Tree` 72 times
+The defect this gate exists for, measured 2026-08-08 on 3827f7e: `AppWalk.cpp` named the tree 72 times
 and `AppWasm.cpp` named it 0 times. The browser had never drawn a tree. `make wasm` was green the
 whole time, because a green build proves that a client COMPILES, not that it SHOWS the same thing.
 
@@ -50,8 +50,9 @@ ENTRY_FORBIDDEN = ("Renderer", "World::World", "VegetationTemplates", "GroundMat
 # them to one main().
 BUILD_CALLS = re.compile(
     r"\.(SetVegetationTable|SetSkyClock|SetWind|SetWindClock|SetExposure|SetFovDeg|SetOrthoM|"
-    r"SetTreeBark|SetTreeCards|SetTreeStands|SetTreeStand|SetTreeCrown|SetTreeLook|"
-    r"BakeTreeImpostor|SetMoonTexture|SetStars|SetCameraBasis|SetSceneState)\s*\(")
+    r"SetPrototypeLevel|SetPrototypeSheets|SetPrototypeDetail|SetPrototypeMaterial|"
+    r"SetPrototypeHeightM|SetPrototypeBounds|SetPrototypeSubject|SetPrototypeInstances|"
+    r"BakePrototypeImpostor|SetMoonTexture|SetStars|SetCameraBasis|SetSceneState)\s*\(")
 # The ONE place a scene is built. `world/` was on this list while it still drove the renderer; the
 # server target is what removed that, so a scene-building call under world/ is now a stray.
 BUILDERS = ("clients/Outshine.cpp",)

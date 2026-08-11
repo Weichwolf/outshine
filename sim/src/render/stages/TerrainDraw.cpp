@@ -1,11 +1,11 @@
-#include "TilesStage.h"
+#include "TerrainDraw.h"
 #include "SceneTargets.h"
-#include "Frustum.h"
 #include "AtmoCommon.h"
 #include "ChunkVtx.h"
 #include "AtmoSample.h"
 #include "AtmoHaze.h"
 #include "SceneScale.h"
+#include "SurfaceState.h"
 /* NO CLOUD INFLUENCE ON LIT SURFACES. Owner, 2026-08-07: the deck neither shadows nor dims the
  * ground for now, so both transmittances are 1 and the whole CloudShadow/CloudDensity splice is
  * gone from this stage. The cloud pass still DRAWS the deck; it just does not light through it. */
@@ -594,7 +594,7 @@ fn groundMat(wposIn : vec3f, gposIn : vec3f, nrmIn : vec3f, footM : f32) -> Grou
 /* The storage-buffer and draw-loop bound; a multi-LOD cut to 240 km stays well under it. */
 static const int kMaxDraws = 4096;
 
-void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
+void TerrainDraw::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
                              wgpu::TextureView skyLutView, wgpu::Buffer atmoBuf, int maxLayers,
                              wgpu::Buffer vegTable, const SceneLight &light) {
   VegBuf = vegTable;
@@ -660,7 +660,6 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
 
   wgpu::DepthStencilState ds{};
   ds.format = wgpu::TextureFormat::Depth32Float;
-  ds.depthWriteEnabled = true;
   ds.depthCompare = wgpu::CompareFunction::Greater;  /* [0,1] reversed-Z: nearer = larger */
 
   wgpu::ColorTargetState ct{};
@@ -680,13 +679,20 @@ void TilesStage::Configure(const Gpu &gpu, wgpu::Sampler lutSamp,
   fs.targets = cts;
   rp.fragment = &fs;
   rp.depthStencil = &ds;
-  rp.primitive.cullMode = wgpu::CullMode::None;  /* TODO: cull once the ECEF soup winding is pinned */
+  /* THE STATE COMES OFF THE DERIVATION TABLE. Ground is opaque and writes depth; its back faces
+   * stay because the ECEF soup's winding is not pinned, which is a fact about the mesh and not
+   * about the material. */
+  static constexpr Material kGround{};
+  static constexpr SurfaceState kState = StateOf(kGround);
+  ds.depthWriteEnabled = kState.WritesDepth();
+  rp.primitive.cullMode = CullsBackFaces(kState, Winding::Unknown) ? wgpu::CullMode::Back
+                                                                   : wgpu::CullMode::None;
   Pipe = Device.CreateRenderPipeline(&rp);
 
   RebuildBind();
 }
 
-void TilesStage::CollectCasters(std::vector<Caster> &out) const {
+void TerrainDraw::CollectCasters(std::vector<Caster> &out) const {
   out.clear();
   for (const DynTile &d : DynTiles) {
     if (!d.Used || !d.Vtx || d.NVerts == 0) continue;
@@ -703,7 +709,7 @@ void TilesStage::CollectCasters(std::vector<Caster> &out) const {
   }
 }
 
-void TilesStage::SetSward(double lat, double lon, const double east[3], const double north[3],
+void TerrainDraw::SetSward(double lat, double lon, const double east[3], const double north[3],
                           const double up[3]) {
   const Graticule cg = Graticule::At(lat, lon);
   SwCellE = cg.CellE;
@@ -716,7 +722,7 @@ void TilesStage::SetSward(double lat, double lon, const double east[3], const do
   SwHave = true;
 }
 
-void TilesStage::SetClassFrame(const double east[3], const double north[3],
+void TerrainDraw::SetClassFrame(const double east[3], const double north[3],
                                const double camOffset[2]) {
   for (int i = 0; i < 3; i++) { ClsEast[i] = east[i]; ClsNorth[i] = north[i]; }
   ClsCam[0] = camOffset[0];
@@ -725,7 +731,7 @@ void TilesStage::SetClassFrame(const double east[3], const double north[3],
 
 /* One buffer, rewritten whole when the structure changes. It is rebuilt only when the camera leaves
  * its grid or a vector tile lands, so this is not a per-frame cost. */
-void TilesStage::WriteClassBuffer(const uint32_t *words, size_t bytes) {
+void TerrainDraw::WriteClassBuffer(const uint32_t *words, size_t bytes) {
   if (!Device || bytes == 0) return;
   const uint64_t need = ((uint64_t)bytes + 255u) & ~(uint64_t)255u;
   if (!ClassBuf || ClassBuf.GetSize() < need) {
@@ -740,7 +746,7 @@ void TilesStage::WriteClassBuffer(const uint32_t *words, size_t bytes) {
 }
 
 /* Recreate at double the cap and copy the resident layers over. Rare. */
-void TilesStage::RebuildBind(void) {
+void TerrainDraw::RebuildBind(void) {
   wgpu::BindGroupEntry be[15] = {};
   be[0].binding = 0; be[0].buffer = Uni; be[0].size = kUniFloats * sizeof(float);
   be[1].binding = 1; be[1].buffer = TileBuf; be[1].size = TileBuf.GetSize();
@@ -763,7 +769,7 @@ void TilesStage::RebuildBind(void) {
 
 /* No mip building here — that already ran off-thread or synchronously. */
 /* EMA-smoothed, so the far field does not flicker as tiles stream and evict. */
-int TilesStage::UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+int TerrainDraw::UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
                              const DagCluster *clusters, int nclusters,
                              const double origin[3], const double anchor[3]) {
   int slot = -1;
@@ -801,7 +807,7 @@ int TilesStage::UploadTile(const float *verts, uint32_t nverts, const uint32_t *
   return slot;
 }
 
-void TilesStage::ReleaseTile(int slot) {
+void TerrainDraw::ReleaseTile(int slot) {
   if (slot < 0 || slot >= (int)DynTiles.size() || !DynTiles[slot].Used) return;
   DynTile &d = DynTiles[slot];
   MeshBytes -= (long)d.NVerts * 8 * (long)sizeof(float) + (long)d.NIdx * (long)sizeof(uint32_t);
@@ -813,21 +819,15 @@ void TilesStage::ReleaseTile(int slot) {
   d.Used = false;
 }
 
-void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
+void TerrainDraw::Encode(const FrameContext &ctx, ClusterCut &cut,
+                        wgpu::RenderPassEncoder &pass) {
 
   static std::vector<float> off;
   int nDraw;
-  DrawnVerts = 0;
-  for (int i = 0; i < kLevelBins; i++) DrawnByLevel[i] = 0;
-  Ranges.clear();
-  CutClusters = 0;
-  /* THE CUT, per cluster and not per tile: one tile can answer at several levels at once, which is
-   * the whole point of the DAG. f_px carries resolution AND zoom, so no distance
-   * is written down anywhere. */
-  const float fPx = 0.5f * (float)ctx.Height / std::tan(0.5f * (float)ctx.FovDeg * 3.14159265358979f / 180.0f);
-  Frustum fr;
-  fr.Set(ctx.Mvp20);
   VisibleTiles = 0;
+  /* THE CUT, per cluster and not per tile: one tile can answer at several levels at once, which is
+   * the whole point of the DAG. */
+  cut.Begin();
   {
     nDraw = (int)DrawList.size();
     if (nDraw > kMaxDraws) nDraw = kMaxDraws;
@@ -839,27 +839,14 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       const double eyeLocal[3] = {-rel[0], -rel[1], -rel[2]};
       /* The tile first, then its clusters: a whole tile leaves on one test, and only the tiles the
        * frustum actually straddles pay the per-cluster one. */
-      const bool tileIn = fr.Visible(rel, d.BoundCtr, d.BoundRad);
-      if (tileIn) VisibleTiles++;
-      /* Geocentric up at the tile centre — the direction the DAG measured its error along. */
-      const double oLen = std::sqrt(d.Origin[0] * d.Origin[0] + d.Origin[1] * d.Origin[1] +
-                                    d.Origin[2] * d.Origin[2]);
-      const float up[3] = {(float)(d.Origin[0] / oLen), (float)(d.Origin[1] / oLen),
-                           (float)(d.Origin[2] / oLen)};
-      for (const DagCluster &c : d.Clusters) {
-        if (!tileIn) break;
-        if (!DagSelect(c, eyeLocal, fPx, SseTauPx(), up)) continue;
-        if (!fr.Visible(rel, c.SelfCenter, c.SelfRadius)) continue;
-        CutClusters++;
-        DrawnVerts += (long)c.Count;
-        DrawnByLevel[c.Level < kLevelBins ? c.Level : kLevelBins - 1] += (long)c.Count / 3;
-        /* Clusters are laid down level by level in Morton order, so a run of neighbours at one level
-         * is contiguous and collapses into ONE draw. */
-        if (!Ranges.empty() && Ranges.back().Slot == (uint32_t)i &&
-            Ranges.back().First + Ranges.back().Count == c.First)
-          Ranges.back().Count += c.Count;
-        else
-          Ranges.push_back(DrawRange{(uint32_t)i, c.First, c.Count});
+      if (cut.Sees(rel, d.BoundCtr, d.BoundRad)) {
+        VisibleTiles++;
+        /* Geocentric up at the tile centre — the direction the DAG measured its error along. */
+        const double oLen = std::sqrt(d.Origin[0] * d.Origin[0] + d.Origin[1] * d.Origin[1] +
+                                      d.Origin[2] * d.Origin[2]);
+        const float up[3] = {(float)(d.Origin[0] / oLen), (float)(d.Origin[1] / oLen),
+                             (float)(d.Origin[2] / oLen)};
+        cut.Take((uint32_t)i, d.Clusters.data(), (int)d.Clusters.size(), eyeLocal, rel, up);
       }
       float *e = &off[(size_t)i * kTileFloats];
       e[0] = (float)(d.Origin[0] - ctx.Eye[0]);
@@ -871,6 +858,9 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       e[10] = d.Anchor[2];
     }
   }
+  DrawnVerts = cut.Indices();
+  DrawCalls = (int)cut.Ranges().size();
+  for (int i = 0; i < kLevelBins; i++) DrawnByLevel[i] = cut.IndicesByLevel()[i];
   if (nDraw > 0) Queue.WriteBuffer(TileBuf, 0, off.data(), off.size() * sizeof(float));
 
   /* The camera-relative MVP + sun (0..19, as the frame context carries them) plus the ATMOSPHERE the
@@ -926,13 +916,13 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
 
   /* Signature = the draw STRUCTURE only. TileBuf/uniform CONTENTS change every frame, but the bundle
    * references those buffers by HANDLE — so only a structural change forces a re-record. */
-  if (!Ranges.empty()) {
+  if (!cut.Ranges().empty()) {
     uint64_t sig = 1469598103934665603ULL;
     auto mix = [&sig](uint64_t v) { sig ^= v; sig *= 1099511628211ULL; };
     mix((uint64_t)nDraw);
     mix((uint64_t)(uintptr_t)Bind.Get());
     for (int i = 0; i < nDraw; i++) mix((uint64_t)(uintptr_t)DynTiles[DrawList[i]].Vtx.Get());
-    for (const DrawRange &r : Ranges) { mix(r.Slot); mix(r.First); mix(r.Count); }
+    for (const ClusterCut::Range &r : cut.Ranges()) { mix(r.Item); mix(r.First); mix(r.Count); }
     if (sig != BundleSig || !Bundle) {
       /* A bundle's attachment formats must be the PASS's, both of them — the terrain writes only
        * the first, but a bundle recorded against one format cannot be replayed into a two-attachment
@@ -946,14 +936,14 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
       rbe.SetPipeline(Pipe);
       rbe.SetBindGroup(0, Bind);
       uint32_t bound = 0xffffffffu;
-      for (const DrawRange &r : Ranges) {
-        if (r.Slot != bound) {
-          const DynTile &t = DynTiles[DrawList[r.Slot]];
+      for (const ClusterCut::Range &r : cut.Ranges()) {
+        if (r.Item != bound) {
+          const DynTile &t = DynTiles[DrawList[r.Item]];
           rbe.SetVertexBuffer(0, t.Vtx);
           rbe.SetIndexBuffer(t.Idx, wgpu::IndexFormat::Uint32);
-          bound = r.Slot;
+          bound = r.Item;
         }
-        rbe.DrawIndexed(r.Count, 1, r.First, 0, r.Slot);
+        rbe.DrawIndexed(r.Count, 1, r.First, 0, r.Item);
       }
       Bundle = rbe.Finish();
       BundleSig = sig;
@@ -962,7 +952,7 @@ void TilesStage::Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) 
   }
 
   /* per-tile buffers baked into Bundle; firstInstance = draw index -> storage entry */
-  if (Bundle && !Ranges.empty()) pass.ExecuteBundles(1, &Bundle);
+  if (Bundle && !cut.Ranges().empty()) pass.ExecuteBundles(1, &Bundle);
 }
 
 } // namespace outshine::Render
