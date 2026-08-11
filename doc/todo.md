@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Working on** | The eye in every telemetry row, plus per-pass admission counters |
-| **Scope** | `doc/requirements.md`: **1379 features, 216 ticked, 1163 open** · `doc/bugs.md`: **47 defects** |
-| **Last accepted** | The ledger stops lying — `heapKB` falls 35 times in 138 rows where the break never falls |
+| **Working on** | `AdmitMesh`'s `Absent` arm — a tile answered once is `Pending` for ever, so a DEM hole is an infinite loading screen |
+| **Scope** | `doc/requirements.md`: **1382 features, 218 ticked, 1164 open** · `doc/bugs.md`: **53 defects** |
+| **Last accepted** | The telemetry carries the eye — `eyeTravelM` 0 → 501.392 m, both counting identities structural (`da48351`) |
 
 **Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
 `doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
@@ -12,21 +12,39 @@ in the same round. Nothing is ticked while the thing it names is broken.
 
 ## Now, in order
 
-1. **The eye in every telemetry row**, plus per-pass admission counters. A run whose subject is motion
-   cannot answer "did the camera move" from its own record — that is what turned one grep into three
-   rounds. "Nothing was requested" and "everything requested was already resident" must stop producing
-   the same row. **Done when** a 500 m walk is decidable from its CSV alone.
-2. **The 500 m walk gate.** 500 m of travel raises `tilesTotal` and `poolHttpGets`; it fails in CI, not
-   in a browser. **Done when** it is a declared run that goes red on today's binary.
-3. **Nothing streams during play** — the defect the gate above catches. From t=31 s to t=77 s of the
-   owner's session, `poolHttpGets` 310 flat and `tilesBuilt` 0. **Done when** the gate goes green.
-4. **Eviction, before more streaming.** Fields grow monotonically and their unit of removal does not
-   exist; real headroom is ~29 MiB against 545 KiB of building heap per tile, so roughly fifty tiles.
-   A working streamer without a working evictor turns a world that stops into a world that crashes.
-   **Done when** `tilesEvicted` rises under a bound and a 2 km walk holds its budget.
-5. **The silent-success class**, all three sites at once (`bugs.md`, first section). `RoofSurface::Cover`
-   is drawn in a shipped frame as a roof with no covering. **Done when** the trim of an absent covering
-   does not compile.
+1. **`AdmitMesh`'s `Absent` arm is a terminal state that never terminates.** `TilePool::Poll` erases
+   from `Done_` unconditionally and leaves the key in `Posted_`, so every later ask returns `Pending`
+   — and `World::AdmitMesh`'s `Absent` arm increments a counter and returns, leaving `nd.haveMesh` at
+   0, so the leaf never leaves `TargetTot`'s unready set. **Fixing the pool alone does not lift the
+   loading screen.** A DEM hole is an infinite load. **Done when** a scenario over a known hole reaches
+   `Resident()` and the loading screen clears, with the hole drawn as whatever the coarse ancestor has.
+2. **The counters that diagnose a stuck load break during a stuck load.** `core/io/Telemetry.h` has no
+   `Push(long long)`, so seven counters are cast to `int` at every site. `meshWanted` reaches 2 029 402
+   in 11 s of load and `poolRepeats` 2 069 319 — `INT_MAX` is **3.2 hours** away, and 3.2 hours of
+   loading is exactly what item 1 produces. Both published identities break with them. **Done when** a
+   run past 2^31 keeps both identities.
+3. **`eyeTravelM` counts a teleport as walking.** `Moved` has one input and cannot tell a step from a
+   jump; `Walker::Reset` on `R` adds the whole distance back. Walk 500 m, press `R`, and the record
+   reads 1000 m travelled and 0 m displaced — the same row a 500 m circle writes, which is the one case
+   the column exists to separate. **Done when** a discontinuity is spelled at the call site that causes
+   it (`Restood(Stance)` beside `Moved(Stance)`) and the teleport case is distinguishable in the CSV.
+4. **`SceneRunner` converts a declared metre wrongly**, confirmed to 5×10⁻⁵ m: it treats
+   `camera.eastM` on `kMPerDeg` where the ellipsoid gives `N cos φ · π/180`, so `demo/ring` runs
+   **18.8 m long over 9 km** and every declared motion is off by ~0.2 %. **Done when** a declared
+   distance and its `eyeTravelM` agree to the frame-sampling residual alone.
+5. **The latency nobody measures.** Eye travel between a tile entering the target cut and its mesh
+   becoming drawable. This is what `todo`'s old walk gate should have been testing, and no column
+   carries it. The pool is CPU-bound in the mesh build — `meshCpuMsPerTile` 237.29 over four threads is
+   16.9 tiles/s against `httpMsPerGet` 4.45 — so latency, not throughput, is the quantity. **Done when**
+   the arrival inequality of `requirements.md` §0.7 can be evaluated from a run.
+6. **Eviction.** Fields grow monotonically and their unit of removal does not exist. **Done when**
+   `tilesEvicted` rises under a bound and a 2 km walk holds its budget.
+7. **The silent-success class**, all three sites (`bugs.md`, first section). **Done when** the trim of
+   an absent roof covering does not compile.
+
+**Struck, 2026-08-11:** *"Nothing streams during play"* — retracted. A rung's ring radius is
+`span(z)·f/kEdgeTau`, giving 0.0184 tiles/s at walking pace; the 46 s that founded the defect covered
+64 m and predicted 0.85 tiles. Two longer runs agree with the derivation. The streamer was working.
 
 ## Then, from `requirements.md`
 
