@@ -10,6 +10,14 @@
 `doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
 in the same round. Nothing is ticked while the thing it names is broken.
 
+## The phase order, from the owner
+
+**1 · Hardening → 2 · Telemetry and logs → 3 · Bug hunting.** Each phase makes the next one cheap:
+hardening makes a failure **loud** instead of silent corruption; telemetry makes a loud failure
+**visible** in the record rather than in someone's session; and only then is hunting an act of reading
+rather than of guessing. Reversed, every hunt pays to rediscover what the instrument should have said —
+which is what three rounds cost today on a streamer that was never broken.
+
 ## The standing order, from the owner: pristine first
 
 Measured 2026-08-11 over 33 335 lines: ownership and lifetime are **strong** — zero raw `new`/`delete`
