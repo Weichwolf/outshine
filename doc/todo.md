@@ -40,45 +40,45 @@ frame**, mean overdraw as the scalar and p95 over the run. **No new pass**, ≈1
 Everything KCD has in vegetation is exactly the direction in which a forest stops being free, and without
 this the answer to "does it fit 720p60" is an opinion.
 
-## 2 — Strata need a view extent, and that is the shape item 1 got wrong
+## 2 — A blade is not a body, and that is what the first brief got wrong
 
-**Reported back with its measurement rather than worked around.** A z14 region at 52.106 N spans 1501.5 m
-= 2.2545e6 m², `sizeof(Body)` is 48, the ring is 9 slots:
+**A `Body` is a thing with identity: bounds, a contact shape, a mass and an id that claims occupancy.**
+For a tree that is right. For a blade of grass it is nonsense, and asking for one per herb produced the
+arithmetic that stopped the round — 2.7e7 bodies over a z14 region, 1.30 GB per slot. The number is
+correct and the question was wrong. (And the ceiling quoted with it was wrong too: **wasm32 addresses
+4 GiB**; 296 MiB is our declared initial memory, which is a choice.)
 
-| stratum, at its densest declared row | bodies/region | per slot | over the ring |
-|---|---|---|---|
-| canopy 0.033/m² (conifer) | 76 287 *(measured)* | 4.14 MB | 37.26 MiB *(measured)* |
-| shrub 0.12/m² (riverbank) | 270 540 | 12.98 MB | **116.9 MB** |
-| herb 12/m² (alpine grassland) | **2.705e7** | **1.30 GB** | **11.7 GB** |
+**The reference does not do it either.** CryEngine merges blades into **one mesh per sector** — one draw
+— and its procedural vegetation is generated from a density rather than from a list, which is why its own
+documentation records that *procedural and merged vegetation casts no occlusion and no secondary shadows*.
+It is not an object. It is a field.
 
-Linear memory is **296 MiB, whole**. The herb layer as region-extent bodies is **40× the entire address
-space**, and no encoding fixes it: what does not fit is the **count**, not the bytes. So a second and
-third stratum are swept over the **disc the picture reaches**, claiming nothing — and that is affordable,
-because the lattice costs **80 ns per cell** (derived from 203 401 cells partitioned exactly against
-`occupyMs` 13.6…20.7 ms): a 14 m herb disc at 12/m² is 20 164 cells = **1.6 ms per collection**, a 120 m
-shrub disc 23 176 cells = 1.9 ms.
+So the strata split by **what the thing is**, not by height:
 
-**What blocks it is a type, and the type is right.** `DrawSink::Add` takes a `BodyId` and a `BodyId`
-exists only where an `OccupancySink` claimed space — deliberately, so that a thing drawn where nothing
-stands is unspellable. A view-extent stratum claims nothing, so minting an id for it would be the picture
-asserting an occupancy that does not exist. Two honest resolutions: **drop the id from the draw sink** and
-restate the invariant as "a source's only sources are its yield and its own generator's sweep", or **give
-the sweep a disc-sized sink**, which needs `OccupancySink::Storage` to carry an origin.
+| | representation | why |
+|---|---|---|
+| **canopy** | `Body` per stem, as today | it collides, it occludes, a query must answer it. 76 287 per region measured, 37.26 MiB over the ring — affordable |
+| **shrub** | `Body` per plant | you can walk into a bush, so it claims. 270 540 per region at the densest declared row = 12.98 MB per slot |
+| **herb, grass, ground cover** | **no body at all** | evaluated from the same hashed cell the scatter already uses, at draw time, over the view disc — no record is ever created, so there is nothing to size, nothing to claim and nothing to evict |
 
-The declaration that was written and reverted: `strata: [{name, model, extent, reachM}]` at top level plus
-`strataPerM2: {…}` per template, **required for every declared name in every class row** — a missing pair
-is a load error naming it, and so is a surplus name. A fourth stratum is then one JSON row plus a species
-file. Untested, because nothing consumed it.
+**That also dissolves the `BodyId` blocker rather than working around it.** Grass never passes through
+`DrawSink::Add` because it is not a placement; the type that refuses to draw where nothing stands stays
+exactly as it is, and it is right. What the herb layer needs instead is a **per-cell merged mesh or a
+GPU-side emission from the density**, and the canon is where the technique is — Ebert/Musgrave/Perlin/
+Worley for appearance as a function rather than as storage, Gregory for the instancing.
+
+`render/Sward.h`'s analytic stand radiance is the **far** end of that same field and is already built.
+What is missing is the near end — and whether the two meet at a range or one replaces the other is
+unmeasured, so it is a question and not a plan.
 
 **Done: `osmDefault` is deleted.** `vegetation.json` carries an `unmapped` **substrate declaration, not a
 template** — no `grass`, no `trees`, no `shrubs`, no `forbs`, so a density for unmapped ground has nowhere
-to be written, and no `osm` rule can select it. The classifier still answers *no row* there, so every
-scatter refuses it as `noTemplate` and **nothing grows**. Badwater's floor is bare mineral ground instead
-of a mown green sward. **Regression it caused and the owner decides the price:** the demo's road band went
-grey-taupe to brown, because the ground fragment uses the default row as the **runner-up** class where the
-structure has no second hit, and beside that road OSM maps nothing — so the road now blends toward bare
-earth and reads as a dirt track. Correct under the new declaration, worse in the picture; the per-place
-default is what settles it.
+to be written, and no `osm` rule can select it. The classifier answers *no row* there, every scatter
+refuses it as `noTemplate`, and **nothing grows**: Badwater's floor is bare mineral ground where it was a
+mown green sward. **Regression it caused, owner's call:** the demo's road band went grey-taupe to brown,
+because the ground fragment uses the default row as the **runner-up** class where the structure has no
+second hit, and beside that road OSM maps nothing — so the road blends toward bare earth and reads as a
+dirt track. The per-place default settles it.
 
 ## 3 — The blade prototype is not in history, and the mechanism that drew it is
 
