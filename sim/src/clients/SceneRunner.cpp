@@ -250,7 +250,7 @@ void SceneRunner::Counters() {
       {"tileMeshMB", (double)R.TileMeshBytes() / (1024.0 * 1024.0)},
       {"temporalVramMB", (double)R.TemporalVramBytes() / (1024.0 * 1024.0)},
       {"buildingVerts", (int)R.BuildingVertexCount()}});
-  if (const std::shared_ptr<const World::ClassStructure> cls = W.Classes().Read())
+  if (const std::shared_ptr<const ClassStructure> cls = W.Classes().Read())
     Log::Info("run", "class", {{"version", (double)cls->Version()},
         {"edges", (int)cls->Measured().Edges}, {"seeds", (int)cls->Measured().Seeds},
         {"bufferKB", cls->Bytes() / 1024.0}, {"noDataFrac", cls->NoDataFraction()},
@@ -435,7 +435,7 @@ void SceneRunner::MotionClose() {
  * structure's own metric frame. No GPU is involved — this is the answer a headless actor gets, and
  * the picture is judged against it. */
 int SceneRunner::DumpClasses(const Scene::Run::ClassDumpRun &d) const {
-  const std::shared_ptr<const World::ClassStructure> cls = App_.Simulation().Scenery().Classes().Read();
+  const std::shared_ptr<const ClassStructure> cls = App_.Simulation().Scenery().Classes().Read();
   if (!cls) { Log::Error("run", "class_dump_without_structure"); return 1; }
   double ce = 0, cn = 0;
   App_.Simulation().Scenery().Classes().ToEnu(App_.Simulation().Lat(), App_.Simulation().Lon(), &ce, &cn);
@@ -496,7 +496,7 @@ void SceneRunner::CompareClasses() {
   const double tanH = std::tan(0.5 * Scene_.FovDeg() * kDeg2Rad);
   const double aspect = (double)width / (double)height;
   const World::ClassField &field = App_.Simulation().Scenery().Classes();
-  const std::shared_ptr<const World::ClassStructure> cls = field.Read();
+  const std::shared_ptr<const ClassStructure> cls = field.Read();
   if (!cls) { Log::Error("run", "class_cmp_without_structure"); Rc_ = 1; return; }
   const double *O = field.OriginEcef(), *Ea = field.EastEcef(), *No = field.NorthEcef();
   const double *eye = App_.Simulation().Eye(), *fwd = App_.Simulation().Fwd(), *right = App_.Simulation().Right(), *up = App_.Simulation().Up();

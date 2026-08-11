@@ -1,7 +1,6 @@
 #include "ClassField.h"
 
 #include "Capacity.h"
-#include "Geodesy.h"
 #include "Log.h"
 #include "VegetationTemplates.h"
 
@@ -22,27 +21,8 @@ double Clock() {
 }  // namespace
 
 void ClassField::Open(double lat, double lon) {
-  Lat0_ = lat; Lon0_ = lon;
-  GeoToEcef(lat, lon, 0.0, O_);
-  double up[3];
-  EnuAxesEcef(lat, lon, East_, North_, up);
+  Frame_ = TangentFrame::At(lat, lon);
   Opened_ = true;
-}
-
-void ClassField::Project(double lat, double lon, double *e, double *n) const {
-  double p[3];
-  GeoToEcef(lat, lon, 0.0, p);
-  const double d[3] = {p[0] - O_[0], p[1] - O_[1], p[2] - O_[2]};
-  *e = d[0] * East_[0] + d[1] * East_[1] + d[2] * East_[2];
-  *n = d[0] * North_[0] + d[1] * North_[1] + d[2] * North_[2];
-}
-
-void ClassField::FromEnu(double e, double n, double *lat, double *lon) const {
-  /* The local tangent plane: over the 900 m a scatter reaches, its error stays under a metre, and the
-   * height it asks for has a 47 m posting of its own. */
-  constexpr double kMPerDeg = 111320.0;
-  *lat = Lat0_ + n / kMPerDeg;
-  *lon = Lon0_ + e / (kMPerDeg * std::cos(Lat0_ * 3.14159265358979 / 180.0));
 }
 
 size_t ClassField::Tier::HeapBytes() const {
@@ -151,6 +131,7 @@ ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, dou
   assert(!t.ArraysLent);
   ClassBuilder::Job job;
   job.Grain = grain;
+  job.Frame = Frame_;
   job.CamE = camE;
   job.CamN = camN;
   job.CellM = t.CellM;

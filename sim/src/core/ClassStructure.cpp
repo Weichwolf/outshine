@@ -4,7 +4,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace outshine::World {
+namespace outshine {
 
 namespace {
 
@@ -43,9 +43,10 @@ double SegDist(double px, double py, float x0, float y0, float x1, float y1) {
 
 }  // namespace
 
-ClassStructure::ClassStructure(std::shared_ptr<const Grid> fine, std::shared_ptr<const Grid> coarse,
-                               uint64_t version, int defaultTemplate, double buildMs, int overflow)
-    : Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(version) {
+ClassStructure::ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
+                               std::shared_ptr<const Grid> coarse, uint64_t version,
+                               int defaultTemplate, double buildMs, int overflow)
+    : Frame_(frame), Fine_(std::move(fine)), Coarse_(std::move(coarse)), Version_(version) {
   const double t0 = Clock();
   Pack(defaultTemplate);
   Measures_.PackMs = Clock() - t0;
@@ -103,7 +104,7 @@ void ClassStructure::Probe() {
  * highest declared rank wins. */
 int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) const {
   int best = -1, bestRank = -1, second = -1, secondRank = -1;
-  double bestDist = 1.0e30;
+  double bestDist = kNoEdgeM;
   const Grid *grids[2] = {Fine_.get(), Coarse_.get()};
   for (int b = 0; b < 2; b++) {
     const Grid &B = *grids[b];
@@ -125,7 +126,7 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
       const int rank = (int)((w0 >> 8) & 0xFF);
       const uint32_t nref = (w0 >> 16) & 0xFF;
       int wind = (int)((w0 >> 24) & 0xFF) - 128;
-      double d = 1.0e30;
+      double d = kNoEdgeM;
       for (uint32_t r = 0; r < nref; r++) {
         const float *p = &B.Edges[(size_t)B.Refs[refFirst + r] * 4];
         if (halfW <= 0.0f) {
@@ -148,4 +149,4 @@ int ClassStructure::Evaluate(double e, double n, double *distM, int *runnerUp) c
   return best;
 }
 
-} // namespace outshine::World
+} // namespace outshine

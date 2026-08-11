@@ -152,7 +152,7 @@ Sim::Place Sim::At(double lat, double lon) const {
   Place p;
   p.GroundResolved = fb_stream_ground(lat, lon).TryAslM(&p.GroundAslM);
 
-  const std::shared_ptr<const World::ClassStructure> cls = W_.Classes().Read();
+  const std::shared_ptr<const ClassStructure> cls = W_.Classes().Read();
   if (cls) {
     double e = 0.0, n = 0.0;
     W_.Classes().Project(lat, lon, &e, &n);

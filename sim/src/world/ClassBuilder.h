@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "ClassStructure.h"
+#include "TangentFrame.h"
 
 namespace outshine::World {
 
@@ -41,6 +42,9 @@ public:
    * into them survives on the calling side. */
   struct Job {
     ClassGrain Grain = ClassGrain::Fine;
+    /* The plane Pts are projected in, carried with them: the structure that comes back states the
+     * frame its own words mean, and a re-anchor between submit and handback cannot relabel it. */
+    TangentFrame Frame;
     double CamE = 0, CamN = 0;
     double CellM = 1;
     int HalfCells = 0;

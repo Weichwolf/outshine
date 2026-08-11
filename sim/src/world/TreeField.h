@@ -8,9 +8,12 @@
 
 #include "GroundSample.h"
 
+namespace outshine {
+class ClassStructure;
+}
+
 namespace outshine::World {
 
-class ClassStructure;
 class VegetationTemplates;
 
 class TreeField {

@@ -158,8 +158,8 @@ void ClassBuilder::Run() {
     if (job.Grain == ClassGrain::Fine) Fine_ = std::move(grid); else Coarse_ = std::move(grid);
     Version_++;
     Handback y;
-    y.Structure = std::make_shared<const ClassStructure>(Fine_, Coarse_, Version_,
-                                                         job.DefaultTemplate, buildMs, overflow);
+    y.Structure = std::make_shared<const ClassStructure>(job.Frame, Fine_, Coarse_, Version_,
+                                                        job.DefaultTemplate, buildMs, overflow);
     y.Returned = std::move(job);
     HeapBytes_.store(GridBytes(*Fine_) + GridBytes(*Coarse_) + ScratchBytes(),
                      std::memory_order_relaxed);

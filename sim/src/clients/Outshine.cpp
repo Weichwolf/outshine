@@ -287,7 +287,7 @@ void Outshine::CollectTiles() {
 void Outshine::CollectClass() {
   const World::ClassField &cls = Sim_.Scenery().Classes();
   R_.SetClassFrame(cls.EastEcef(), cls.NorthEcef(), cls.Cam());
-  const std::shared_ptr<const World::ClassStructure> structure = cls.Read();
+  const std::shared_ptr<const ClassStructure> structure = cls.Read();
   if (!structure || structure->Version() == ClassVersion_) return;
   const double t0 = NowMs();
   R_.WriteClassBuffer(structure->Words(), structure->Bytes());

@@ -8,7 +8,9 @@
 #include <memory>
 #include <vector>
 
-namespace outshine::World {
+#include "TangentFrame.h"
+
+namespace outshine {
 
 class ClassStructure {
 public:
@@ -33,9 +35,13 @@ public:
     double BuildMs = 0.0, PackMs = 0.0;
   };
 
-  ClassStructure(std::shared_ptr<const Grid> fine, std::shared_ptr<const Grid> coarse,
-                 uint64_t version, int defaultTemplate, double buildMs, int overflow);
+  ClassStructure(const TangentFrame &frame, std::shared_ptr<const Grid> fine,
+                 std::shared_ptr<const Grid> coarse, uint64_t version, int defaultTemplate,
+                 double buildMs, int overflow);
 
+  /* The plane the words' metres are measured in, so a caller holding the structure needs nothing
+   * else to ask about a geodetic place. */
+  const TangentFrame &Frame() const { return Frame_; }
   const uint32_t *Words() const { return Words_.data(); }
   size_t Bytes() const { return Words_.size() * sizeof(uint32_t); }
   uint64_t Version() const { return Version_; }
@@ -43,6 +49,11 @@ public:
   double NoDataFraction() const {
     return Measures_.Probes ? (double)Measures_.NoData / (double)Measures_.Probes : 0.0;
   }
+
+  /* No boundary of the winning class lies in the acceleration cell the sample fell in, so the
+   * structure knows only that the nearest one is farther than that cell — a state, and every reader
+   * of `distM` has to say what it does with it. */
+  static constexpr double kNoEdgeM = 1.0e30;
 
   /* THE ONE EVALUATOR, in C++ — the WGSL one reads the same rule off the same words. -1 = no datum at
    * this place, which is a state and not a default: the caller decides what to do with it. */
@@ -52,11 +63,12 @@ private:
   void Pack(int defaultTemplate);
   void Probe();
 
+  TangentFrame Frame_;
   std::shared_ptr<const Grid> Fine_, Coarse_;
   std::vector<uint32_t> Words_;
   Measures Measures_;
   uint64_t Version_;
 };
 
-} // namespace outshine::World
+} // namespace outshine
 #endif

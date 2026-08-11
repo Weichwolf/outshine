@@ -49,7 +49,7 @@ FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o"
 # module's own measured high-water plus 25 %, rounded up to the next 8 MiB, taken at the tile pool's
 # SIX-thread ceiling rather than at whatever this host happens to offer; the measurements and the runs
 # they came from are in git log, never here, because a number in a Makefile decays silently.
-# ABORTING_MALLOC=0: malloc hands back the null, and core/Heap.cpp is what ends the run — naming the
+# ABORTING_MALLOC=0: malloc hands back the null, and core/io/Heap.cpp is what ends the run — naming the
 # item and its bytes, which the toolchain's own abort cannot do.
 # STACK_OVERFLOW_CHECK=1 is the same statement for the stack: the sizes below are set from a
 # measured peak, and a shadow stack that runs past its end corrupts the heap silently without it.
@@ -66,11 +66,17 @@ CURL_COMPAT  := vendor/.compat-headers
 # stages; world = World/tile streaming, with world/terrain the lean terrain API under it; clients =
 # the entry points. `make world` links without -Isrc/render at all, so an upward include from world/
 # is a build failure rather than a rule.
-INC_SIM     := -Isrc/core -Isrc/world
+INC_CORE    := -Isrc/core -Isrc/core/io
+INC_SIM     := $(INC_CORE) -Isrc/world
 INC_MODULES := $(INC_SIM) -Isrc/render
 # A GENERATOR'S WHOLE WORLD. Not a subset of the above by accident: `make verify-generators`
-# compiles against exactly this and asserts that Renderer and World have no spelling in it.
+# compiles against exactly this and asserts that Renderer, World and the log have no spelling in it.
+# src/core/io is ABSENT on purpose -- Log and TelemetryBus live there, and a generator that cannot
+# name them cannot do I/O.
 INC_GENERATORS := -Isrc/core -Isrc/generators
+# ...and the picture half of the same layer, which the server target never compiles: DrawSource and
+# its sink hand clusters and instances to a renderer, and the server has no renderer to hand them to.
+INC_DRAW := $(INC_GENERATORS) -Isrc/generators/draw
 INC_CLIENT := -Isrc/clients
 INC_WASM   := $(INC_MODULES) -Isrc/world/terrain
 INC_NATIVE := $(INC_MODULES) -Isrc/world/terrain
@@ -81,6 +87,17 @@ INC_TILES := -I../tiles/src
 # remembering both and a browser-only link error was the failure mode. Now a new file in the directory is
 # a new stage in BOTH targets, by construction.
 RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
+# CORE IS A COMPILE GROUP: core may name nothing above itself, and the one command that compiles
+# clients, world and render together would hand it the world's include set instead. A wildcard, so a
+# new core file is bound by $(INC_CORE) in all three targets without a list to remember.
+CORE_SRCS := $(wildcard src/core/*.cpp) $(wildcard src/core/io/*.cpp)
+# THE GENERATORS, and they are their own COMPILE GROUP for the same reason: everything else in a
+# target is compiled with that target's include set, and a generator compiled with -Isrc/world could
+# name the streamer in a build that stays green. A wildcard, so a new generator is bound by the
+# include set in all three targets without a list to remember -- which is what `make
+# verify-generators` compiles too.
+GEN_SRCS := $(wildcard src/generators/*.cpp)
+GEN_DRAW_SRCS := $(wildcard src/generators/draw/*.cpp)
 # ...and the same statement one level up, for Renderer and its neighbours: hand-listing them meant a
 # new render/ file linked in one target and not the other.
 RENDER_SRCS := $(wildcard src/render/*.cpp) $(RENDER_STAGE_SRCS)
@@ -95,10 +112,8 @@ TREE_SRCS := src/world/TreeSpecies.cpp src/world/TreeGrower.cpp src/world/TreeLe
 # what `make world` proves by building it with $(INC_SIM) and no renderer object at all.
 SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
-  src/core/Log.cpp src/core/Telemetry.cpp src/core/Json.cpp src/core/Keyframes.cpp src/core/CatmullRom.cpp \
-  src/core/Heap.cpp src/core/HeapProbe.cpp src/core/StackProbe.cpp \
   src/world/World.cpp \
-  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassStructure.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
+  src/world/VegetationTemplates.cpp src/world/GroundMaterials.cpp src/world/AlpineLimit.cpp src/world/OsmVector.cpp src/world/OsmField.cpp src/world/ClassField.cpp src/world/ClassBuilder.cpp src/world/BuildingField.cpp src/world/WaterField.cpp src/world/TreeField.cpp src/world/Forest.cpp \
   $(TREE_SRCS)
 
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds
@@ -114,6 +129,10 @@ APP_SRCS := $(SIM_SRCS) src/clients/Outshine.cpp src/clients/Snapshot.cpp \
 # Named, not `build/obj-wasm/*.o`: the glob would link whatever a PREVIOUS target had left in there.
 WASM_TERRAIN_OBJS := build/obj-wasm/TerrainLoader.o build/obj-wasm/TilePool.o \
   $(patsubst src/world/terrain/%.cpp,build/obj-wasm/%.o,$(wildcard src/world/terrain/*.cpp))
+WASM_GEN_OBJS := $(patsubst src/generators/%.cpp,build/obj-wasm/gen-%.o,$(GEN_SRCS)) \
+  $(patsubst src/generators/draw/%.cpp,build/obj-wasm/gen-%.o,$(GEN_DRAW_SRCS))
+WASM_CORE_OBJS := $(patsubst src/core/%.cpp,build/obj-wasm/core-%.o,$(wildcard src/core/*.cpp)) \
+  $(patsubst src/core/io/%.cpp,build/obj-wasm/core-%.o,$(wildcard src/core/io/*.cpp))
 
 # THE MODS, whole. A mod is a set of declared scenes and nothing else; the browser gets the same
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
@@ -133,7 +152,13 @@ wasm:            ## build the WASM client -> web/gpu.{js,wasm}
 	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
 	    emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(WASM_THREADS) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
 	      -c -o build/obj-wasm/$$(basename $$f .cpp).o; done; \
-	  emcc $(WASM_TERRAIN_OBJS) \
+	  for f in $(CORE_SRCS); do o=build/obj-wasm/core-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_CORE) -c -o "$$o"; done; \
+	  for f in $(GEN_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_GENERATORS) -c -o "$$o"; done; \
+	  for f in $(GEN_DRAW_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || emcc "$$f" $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(INC_DRAW) -c -o "$$o"; done; \
+	  emcc $(WASM_TERRAIN_OBJS) $(WASM_GEN_OBJS) $(WASM_CORE_OBJS) \
 	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
 	    $(RENDER_SRCS) \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O2 $(EMCC_WARN) -fexceptions \
@@ -163,6 +188,12 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
 	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
 	      -isystem $(CURL_COMPAT) -c -o build/obj-walk/$$(basename $$f .cpp).o; done; \
+	  for f in $(CORE_SRCS); do o=build/obj-walk/core-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_CORE) -c -o "$$o"; done; \
+	  for f in $(GEN_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_GENERATORS) -c -o "$$o"; done; \
+	  for f in $(GEN_DRAW_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_DRAW) -c -o "$$o"; done; \
 	  c++ src/clients/AppWalk.cpp $(APP_SRCS) \
 	    $(RENDER_SRCS) \
 	    build/obj-walk/*.o \
@@ -184,6 +215,10 @@ world:           ## build the server target -- everything except render/, no dev
 	  for f in src/world/TerrainLoader.cpp src/world/TilePool.cpp; do \
 	    c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_TILES) \
 	      -isystem $(CURL_COMPAT) -c -o build/obj-world/$$(basename $$f .cpp).o; done; \
+	  for f in $(CORE_SRCS); do o=build/obj-world/core-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_CORE) -c -o "$$o"; done; \
+	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || c++ "$$f" $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(INC_GENERATORS) -c -o "$$o"; done; \
 	  c++ src/clients/WorldMain.cpp $(SIM_SRCS) build/obj-world/*.o \
 	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIM) -Isrc/world/terrain $(INC_CLIENT) \
 	    -isystem vendor -isystem $(CURL_COMPAT) \
@@ -199,14 +234,33 @@ treebench:       ## grow all sixteen species and measure them -> build/treebench
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
 
-verify-generators: ## a generators/ TU compiles against core and CANNOT name Renderer or World
+# WHAT MUST NOT BE REACHABLE FROM A GENERATOR. Each negative is compiled and has to fail FOR THE
+# STATED REASON: any compile error would pass a bare exit-code test, including a typo in the gate.
+GEN_NEGATIVES := RendererIsNotReachable WorldIsNotReachable LogIsNotReachable DrawIsNotReachable
+
+verify-generators: ## a generators/ TU compiles against core and CANNOT name Renderer, World or Log
 	@cd $(SELF_DIR); set -e; \
+	  mkdir -p build; \
 	  c++ src/generators/gate/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_GENERATORS) -fsyntax-only; \
-	  for f in src/generators/gate/RendererIsNotReachable.cpp src/generators/gate/WorldIsNotReachable.cpp; do \
+	  for f in $(GEN_SRCS); do \
+	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_GENERATORS) -fsyntax-only; \
+	    n=$$(c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -MM | tr ' \\' '\n\n' | grep -c '^src/'); \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-generators: $$f includes $$up file(s) of render/ or world/" >&2; exit 1; fi; \
+	    echo "verify-generators: $$f closure=$$n render+world=$$up"; done; \
+	  c++ src/generators/gate/DrawIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
+	  for f in $(GEN_DRAW_SRCS); do c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; done; \
+	  for g in $(GEN_NEGATIVES); do f=src/generators/gate/$$g.cpp; \
 	    if c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -fsyntax-only 2>/dev/null; then \
 	      echo "verify-generators: $$f COMPILED -- the include set no longer bounds generators/" >&2; exit 1; \
+	    fi; \
+	    if ! c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -fsyntax-only 2>&1 | grep -q "file not found"; then \
+	      echo "verify-generators: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
 	    fi; done; \
-	  echo "verify-generators: core reachable, render/ and world/ have no spelling in generators/"
+	  c++ src/generators/gate/SameRegionSamePlacement.cpp $(GEN_SRCS) src/core/ClassStructure.cpp \
+	    $(CXXSTD) -O2 $(CXX_WARN) $(INC_GENERATORS) -o build/gen_gate; \
+	  ./build/gen_gate; \
+	  echo "verify-generators: core reachable, render/ world/ log and draw have no spelling in generators/"
 
 # WHAT THE TYPE SYSTEM MUST REFUSE. A rule that only a reviewer enforces is a rule that comes back:
 # both of these were live defects before they were compile errors. The negative halves are built with
@@ -239,5 +293,5 @@ restart: down up ## stop and start the web host
 
 clean:           ## remove build artifacts (WASM + walk + world)
 	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-walk build/obj-world \
-	  build/gpu_walk build/fb_world \
+	  build/gpu_walk build/fb_world build/gen_gate \
 	  web/gpu.js web/gpu.wasm web/gpu.data

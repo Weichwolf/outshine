@@ -31,12 +31,13 @@ graded against the references: the answer is known and the round is spent. Then,
 | 4 | the server target, and the checker falls | **done** · `World` no longer holds a renderer pointer |
 | 4.5 | fold the tile worker into the client | **done** · one module, one cap, one priority key |
 | 4.6 | the GPU readback stops blocking the frame thread | **done** · unwinding off, render p99 6.1 → 2.1 ms |
-| **5** | **`generators/`** | **in the tree** — designed: headers, enforcement and acceptance stand |
+| 5 | `generators/` | **done** · the include set is the enforcement, both ways |
+| **6** | **the forest becomes a generator** | **in the tree** |
 
 
 
 
-| 6 | the forest becomes a generator | open |
+
 | 7 | one geometry stage | open |
 | 8 | regionalise | open |
 | 9 | buildings, water surface, infrastructure | open |
@@ -230,11 +231,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 5 — `generators/`
-
-Region, ground view, occupancy, draw, material row, schedule, generator, set, pool. Built inside the
-server target, so the forbidden edge is impossible rather than prohibited.
-
 ## 6 — The forest becomes a generator
 
 Renderer reference out, camera knowledge out, callback and `void*` become the ground view, mutable
@@ -242,6 +238,20 @@ counters move into the yield. **Growing a prototype is not a generator call** �
 bring-up. This is the cut most easily got wrong.
 
 Behaviour-neutral: same picture, different call chain.
+
+**The budget number, and it did not exist before step 5.** A class probe costs ≈70 ns — a 12.4 ns
+geodetic hop plus the evaluator — so the forest's **204 304 candidates per z14 region are 14.3 ms**.
+That is the design number for this step and for 8, measured native at `-O2`.
+
+**The Makefile risk that is not fail-loud, and this step walks into it.** `walk` and `wasm` compile
+clients, world and render in one command with one include set, so giving the client `-Isrc/generators`
+grants it to every `world/` file in the same breath and peer isolation goes silently. Compile
+`SIM_SRCS` once with the simulation include set and link the objects into all three — the pattern step 5
+invented for `core/` and `generators/`, applied where it is next needed.
+
+**`DrawSink::Add` returns a `bool` with `Full()` beside it** — the exact shape step 5 removed from
+`OccupancySink`. Nothing writes into it yet and its causes are step 7's to name, so it is named here
+rather than guessed at.
 
 ## 7 — One geometry stage
 

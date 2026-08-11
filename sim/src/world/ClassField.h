@@ -25,6 +25,7 @@
 
 #include "ClassBuilder.h"
 #include "OsmField.h"
+#include "TangentFrame.h"
 
 namespace outshine::World {
 
@@ -44,17 +45,16 @@ public:
     return Published_;
   }
 
-  /* The ECEF frame the structure's metres are measured in. Fixed at Open(), which is why it is not
-   * part of the published structure: the fragment projects its own camera-relative offset on these
-   * very axes, so CPU and GPU place a world point identically by construction. */
-  const double *OriginEcef() const { return O_; }
+  /* The plane the structure's metres are measured in. Fixed at Open() and handed to every structure
+   * published from here, so a reader that holds the words holds the plane they mean. */
+  const double *OriginEcef() const { return Frame_.OriginEcef(); }
   /* The camera's own place in this frame, the offset a fragment adds to its camera-relative one. */
   const double *Cam() const { return Cam_; }
-  const double *EastEcef() const { return East_; }
-  const double *NorthEcef() const { return North_; }
-  void Project(double lat, double lon, double *e, double *n) const;
+  const double *EastEcef() const { return Frame_.EastEcef(); }
+  const double *NorthEcef() const { return Frame_.NorthEcef(); }
+  void Project(double lat, double lon, double *e, double *n) const { Frame_.Project(lat, lon, e, n); }
   /* The inverse: a scatterer works in ENU and needs degrees to ask for the height. */
-  void FromEnu(double e, double n, double *lat, double *lon) const;
+  void FromEnu(double e, double n, double *lat, double *lon) const { Frame_.Geo(e, n, lat, lon); }
   void ToEnu(double lat, double lon, double *e, double *n) const { Project(lat, lon, e, n); }
 
   bool Complete() const;
@@ -130,8 +130,7 @@ private:
   mutable std::mutex Mu_;
   std::shared_ptr<const ClassStructure> Published_;
 
-  double O_[3] = {0, 0, 0}, East_[3] = {1, 0, 0}, North_[3] = {0, 1, 0};
-  double Lat0_ = 0.0, Lon0_ = 0.0;
+  TangentFrame Frame_;
   double Cam_[2] = {0, 0};
   bool Opened_ = false;
 

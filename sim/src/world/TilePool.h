@@ -41,7 +41,7 @@ class TilePool {
 public:
   /* THE THREE ANSWERS A STREAM CAN GIVE, and they are three because a fixed heap made two of them
    * indistinguishable: Absent is a decision the caller may cache, Pending is a promise, and running
-   * out of memory is neither — it ends the run through core/Heap.h before it can reach here. */
+   * out of memory is neither — it ends the run through core/io/Heap.h before it can reach here. */
   enum class Reply { Ready, Pending, Absent };
 
   /* WHAT THE POOL HAS DONE SO FAR, cumulative and never behind a switch: a bench is a declared run,

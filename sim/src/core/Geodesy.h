@@ -2,6 +2,9 @@
  * CONVENTION: the reference point comes FIRST and owns the cosine — EnuOffsetM(ref, p) is p's offset
  * FROM ref, longitude scaled at the REFERENCE latitude, so a bearing and a distance computed by two
  * subsystems agree. Longitude WRAPPING is part of the primitive, not something a caller must remember.
+ * THE ONE DECLARED DEVIATION: Generators::Region scales at the SAMPLE's latitude instead, because two
+ * regions meeting at a parallel must place a point on that parallel identically and the reference
+ * cosine of two different anchors cannot. It is a frame of its own and says so; nothing else deviates.
  * SCOPE: deliberately planar/small-angle — tens of nautical miles, not intercontinental. */
 #ifndef GEODESY_H
 #define GEODESY_H
