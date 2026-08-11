@@ -153,18 +153,7 @@ Done when: the class boundary's mixing width in pixels at the comparison rung me
 instead of being a line · and luminance standard deviation in a 10 m near-ground patch rises off the
 floor. **Passes: 0.**
 
-## 7 — `Sim::Features()` scans everything decoded so far, per region, on the render thread
-
-Measured from the tile server: the demo's 25-tile neighbourhood holds 4 918 footprints and 24 174 ring
-points; **one** z14 tile over Berlin Mitte holds 1 115 and 10 527. `Prints_`/`Surfaces_` are never pruned,
-so the scan is already the same order as the 16 641-read lattice that step 9 made 21× faster — and unlike
-it, unbounded. Streets, sites and street polygons go through the same scan.
-
-Refuted by that step's own insight: **one region is one tile**, `OsmField::Feature::Tile` already groups
-features contiguously and they are appended in tile order, so a `tile → [from, to)` range exists by
-construction and a region's features are a **slice, not a scan**. Roughly ten lines.
-
-## 8 — Nothing evicts, against a heap fixed at 296 MiB
+## 7 — Nothing evicts, against a heap fixed at 296 MiB
 
 `BuildingField`'s prints and verts, `WaterField`'s surfaces, courses and levels, and `OsmField` grow
 monotonically for the length of a walk, and no eviction path exists. `architecture.md` is explicit — the
@@ -172,7 +161,7 @@ streamer needs a byte budget and evicts against it, and every pool reports its b
 a name. They report; nobody acts. **A fixed heap plus monotone growth is a maximum walk length**, and a
 world sandbox has none. The number is one long `demo/ring` run with a column that already exists.
 
-## 9 — The night
+## 8 — The night
 
 **A lamp is placed, not fetched, and the endpoint was never the shape of it.** Two independent
 refutations: the served vector schema carries **no street lamps** — the `pois` layer of central Berlin's
@@ -194,7 +183,7 @@ pass** and go in the geometry stage that exists — and a **night radiometry tha
 where the moon is a light source with a phase and the sky has a mesopic response. The bow-tie crowns are
 at their most legible here, as black wedges against the star field.
 
-## 10 — A declared environment track over the day, and a weather state that blends
+## 9 — A declared environment track over the day, and a weather state that blends
 
 Ours: Bruneton, ACES-Narkowicz with **no free parameter**, auto exposure from irradiance. Theirs: a
 physical sky whose parameters are **hand-keyed hour by hour**, a film curve whose toe, midtone and
@@ -211,7 +200,7 @@ Done when: one scene at 06:00/12:00/18:00/22:00 gives four pictures whose sky-to
 the model's own prediction · and a declared weather change takes its declared duration rather than one
 frame, reproducibly. **Passes: 0.**
 
-## 11 — Material rows with no origin, against a published first-party table
+## 10 — Material rows with no origin, against a published first-party table
 
 Warhorse published a measured specular/gloss table for exactly our biome's surfaces — grass 50 sRGB /
 gloss 38, dry soil 48 / 20, dry leaves 45 / 32, rough stone 50 / 42, thatch 56 / 77, rough wood 48 / 28.
@@ -224,7 +213,7 @@ shimmer** — an antialiasing technique, not a look choice.
 
 Done when: the count of material rows whose values carry no derivation, measurement or `[SET]` is zero.
 
-## 12 — Fog shadows
+## 11 — Fog shadows
 
 `e_VolumetricFog` with `r_FogShadows`, plus keyed volumetric shadow darkening and range. Shafts through a
 canopy in mist is the most recognisable forest image the reference has. Our Koschmieder-derived haze is
@@ -235,7 +224,7 @@ eight, and their own guidance is that samples per view ray do not grow with rang
 **If it cannot be made to fit inside an existing stage it does not get built**, because 0.246 ms of pure
 traffic is its floor before it shades anything.
 
-## 13 — The crossing's remaining 2.4 ms is unexamined, not unattributed
+## 12 — The crossing's remaining 2.4 ms is unexamined, not unattributed
 
 A crossing costs +6.51 ms at p50 over its own neighbourhood; `collectMs` is flat and `populateMs` is 0.055
 there. The profile carries seven more columns that were never checked, and **`buildingMs` is the obvious
@@ -249,7 +238,7 @@ p50 +1.09, p99 +7.54 ms between 23.2 and 28.0 MiB, one binary, capacity the only
 extra work. What remains is an allocator size class or heap pressure changing tile eviction, and the
 `evicted` column already exists.
 
-## 14 — Interfaces that write down what they claim to carry
+## 13 — Interfaces that write down what they claim to carry
 
 `RegionPool::Extent::Reached` is **never read** — the header says the body budget follows it while the
 count is computed by the caller · `FbGroundBlock::Nodes_` is a raw pointer into an LRU slot valid until
