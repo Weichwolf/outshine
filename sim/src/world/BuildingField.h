@@ -23,6 +23,8 @@
 
 #include "Capacity.h"
 #include "GroundSample.h"
+#include "Span.h"
+#include "TileRanges.h"
 #include "TileWatermark.h"
 
 namespace outshine::World {
@@ -59,11 +61,18 @@ public:
   const std::vector<float> &Verts() const { return Verts_; }
   const double *Anchor() const { return Anchor_; }
   const std::vector<Footprint> &Footprints() const { return Prints_; }
+  /* One tile's footprints, by OsmField tile index. Good until the next Build(). */
+  Span<const Footprint> OfTile(int tile) const {
+    if (tile < 0) return Span<const Footprint>();
+    const TileRanges::Range r = ByTile_.At((uint32_t)tile);
+    return Span<const Footprint>(Prints_.data() + r.First, r.Count);
+  }
   int OsmHeights() const { return OsmHeights_; }
   int DefaultHeights() const { return DefaultHeights_; }
   int Deferrals() const { return Mark_.Deferrals(); }
   size_t HeapBytes() const {
-    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes();
+    return CapacityBytes(Prints_) + CapacityBytes(Verts_) + Mark_.HeapBytes() +
+           ByTile_.HeapBytes();
   }
 
 private:
@@ -75,6 +84,7 @@ private:
 
   std::vector<Footprint> Prints_;
   std::vector<float> Verts_;
+  TileRanges ByTile_;
   TileWatermark Mark_;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
   double Anchor_[3] = {0, 0, 0};

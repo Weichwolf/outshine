@@ -64,8 +64,9 @@ int BuildingField::Build(const OsmField &field) {
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Mark_.Done(feats)) return (int)Prints_.size();
 
-  const int layer = field.Layer("buildings");
+  const int layer = field.Layer(OsmLayer::Buildings);
   const std::vector<double> &pts = field.Points();
+  const uint32_t firstPrint = (uint32_t)Prints_.size();
   int added = 0;
 
   /* A FOOTPRINT IS CONSUMED ONCE. Whichever ring is asked first, a tile is either buildable now or
@@ -112,6 +113,7 @@ int BuildingField::Build(const OsmField &field) {
     }
   }
 
+  ByTile_.Set(next.Tile, firstPrint, (uint32_t)Prints_.size());
   Mark_.Advance(feats);
 
   AddedCount_ = (uint32_t)Verts_.size() - AddedFirst_;

@@ -52,20 +52,27 @@ const char *Wetness(const WaterDepth &d) {
   return "dry";
 }
 
+std::string RowName(const Clients::Sim &sim, int row) {
+  return row >= 0 && (size_t)row < sim.Vegetation().TemplateCount()
+             ? sim.Vegetation().Name((size_t)row)
+             : std::string("none");
+}
+
 void Answer(const Clients::Sim &sim, double lat, double lon) {
   const Clients::Sim::Place p = sim.At(lat, lon);
-  const std::string cls = p.Class >= 0 && (size_t)p.Class < sim.Vegetation().TemplateCount()
-                              ? sim.Vegetation().Name((size_t)p.Class)
-                              : std::string("none");
   double depthM = 0.0, disagreementM = 0.0;
   (void)p.Water.TryDepthM(&depthM);
   (void)p.Water.TryDisagreementM(&disagreementM);
   Log::Info("world", "place", {{"lat", lat}, {"lon", lon},
       {"groundResolved", p.GroundResolved}, {"groundAslM", p.GroundAslM},
-      {"stands", cls}, {"classEdgeM", p.ClassEdgeM},
+      {"stands", RowName(sim, p.Class)}, {"classEdgeM", p.ClassEdgeM},
       {"outlinesResolved", p.OutlinesResolved},
       {"structureHeightM", p.StructureHeightM ? *p.StructureHeightM : 0.0},
       {"structure", (bool)p.StructureHeightM},
+      {"made", (bool)p.Made},
+      {"madeOf", p.Made ? RowName(sim, p.Made->CoverRow) : std::string("none")},
+      {"wayWidthM", p.Made ? (double)p.Made->WidthM : 0.0},
+      {"madeSurfaceAslM", p.Made ? p.Made->SurfaceAslM : 0.0},
       {"water", std::string(Wetness(p.Water))}, {"waterDepthM", depthM},
       {"levelBelowGroundM", disagreementM},
       {"sunElDeg", (double)sim.SunElDeg()}, {"sunAzDeg", (double)sim.SunAzDeg()}});
@@ -75,7 +82,7 @@ void Answer(const Clients::Sim &sim, double lat, double lon) {
 
 int main(int argc, char **argv) {
   if (argc < 3) {
-    std::fprintf(stderr, "usage: %s <mod> <scene> [lat lon]\n", argv[0]);
+    std::fprintf(stderr, "usage: %s <mod> <scene> [lat lon]...\n", argv[0]);
     return 2;
   }
   Clients::FileLogSink sink(stdout);
@@ -101,7 +108,12 @@ int main(int argc, char **argv) {
   while ((open = sim.Open()) == Clients::Sim::Bring::Waiting) {}
   if (open != Clients::Sim::Bring::Open) return 1;
   Survey(sim);
-  Answer(sim, argc >= 5 ? std::atof(argv[3]) : sim.Lat(),
-         argc >= 5 ? std::atof(argv[4]) : sim.Lon());
+  /* MANY PLACES PER RUN, because the world behind one answer costs seconds to stream and a
+   * distribution over the neighbourhood is what a question about the place actually needs. */
+  if (argc < 5) {
+    Answer(sim, sim.Lat(), sim.Lon());
+    return 0;
+  }
+  for (int i = 3; i + 1 < argc; i += 2) Answer(sim, std::atof(argv[i]), std::atof(argv[i + 1]));
   return 0;
 }

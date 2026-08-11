@@ -14,6 +14,7 @@
 #include "Ground.h"
 #include "GroundMaterials.h"
 #include "GroundTable.h"
+#include "Infrastructure.h"
 #include "RegionForge.h"
 #include "RegionPool.h"
 #include "Scene.h"
@@ -53,6 +54,7 @@ public:
      * states exist to prevent. */
     bool OutlinesResolved = false;
     std::optional<double> StructureHeightM;    /* what stands here, from the ground up */
+    std::optional<Generators::Infrastructure::Made> Made;   /* the made surface under the foot */
     WaterDepth Water = WaterDepth::Dry();
   };
 
@@ -61,7 +63,8 @@ public:
    * mismatch between what stands and what is drawn. */
   static constexpr Generators::Rank kBuiltRank{0};
   static constexpr Generators::Rank kWaterRank{1};
-  static constexpr Generators::Rank kTreeRank{2};
+  static constexpr Generators::Rank kWayRank{2};
+  static constexpr Generators::Rank kTreeRank{3};
 
   Sim(const Scene &scene, const Assets &assets);
 
@@ -179,6 +182,12 @@ public:
   void SetPixelFocalLength(double px) { W_.SetPixelFocalLength(px); }
 
 private:
+  /* WHAT ONE SNAPSHOT COST THE CALLING THREAD, and the outline cut inside it: the two halves have
+   * different shapes — the ground block is a fixed lattice, the outlines are what the place holds —
+   * and one number for both cannot say which of them moved. */
+  struct SnapshotCost {
+    double TotalMs = 0.0, FeatureMs = 0.0;
+  };
   Bring ResolveGround(double lat, double lon, double *out) const;
   [[nodiscard]] bool OpenPool();
   /* ONE PASS OF THE RING: release what it no longer names, cancel what is under way and unnamed,
@@ -187,14 +196,15 @@ private:
   void Release();
   void Gather();
   void Ask();
-  void Say(const Populated &grown, double snapshotMs) const;
+  void Say(const Populated &grown, const SnapshotCost &cost) const;
+
   [[nodiscard]] bool Names(const Generators::Region &region) const;
   [[nodiscard]] bool Standing(const Generators::Region &region) const;
   [[nodiscard]] bool Reached(const Generators::Region &region) const;
   /* False while one posting of the region is still in flight — the next turn asks again — and false
-   * for good where the DEM has a hole. `ms` is the wall clock this cost the calling thread. */
+   * for good where the DEM has a hole. */
   [[nodiscard]] bool Snapshot(const Generators::Region &region,
-                              Generators::Ground::Snapshot *out, double *ms) const;
+                              Generators::Ground::Snapshot *out, SnapshotCost *cost) const;
   /* Null while this region's vector tile is still out. */
   std::shared_ptr<const Generators::FeatureField> Features(const Generators::Region &region) const;
   /* The region containing a place, snapshotted for one question and dropped again. */
@@ -219,8 +229,11 @@ private:
   std::optional<Generators::Forest> Trees_;
   std::optional<Generators::Buildings> Structures_;
   std::optional<Generators::Water> Lakes_;
-  /* Which row of the declared table an outline of each kind classifies as, resolved once: the class
-   * model is the only place that says which OSM layer a generator's features come from. */
+  std::optional<Generators::Infrastructure> Ways_;
+  /* Which row of the declared table a building and a water outline classify as, resolved once: the
+   * class model is the only place that says which OSM layer a generator's features come from. A
+   * way's row is per feature and travels with it (world/StreetField.h), because one layer maps to
+   * three templates — asphalt, track and trodden path are not one surface. */
   int BuiltRow_ = -1, WetRow_ = -1;
   /* Both are finished only once the declared tables are read: the pool is sized on what the
    * generators say they can claim, and the forge runs them (`C.41` — the constructor cannot). */
@@ -230,7 +243,8 @@ private:
   /* Regions whose content does not fit the budget. Kept by key so the ring does not ask again every
    * turn; dropped when the ring stops naming them, so walking back is a fresh attempt. */
   std::vector<Generators::Region> Refused_;
-  double SnapshotMs_ = 0.0, PopulateMs_ = 0.0;
+  SnapshotCost SnapshotCost_;
+  double PopulateMs_ = 0.0;
   /* Where the next turn's one snapshot attempt starts. Round robin, so a region whose DEM never
    * lands cannot stand in front of the rest of the ring. */
   size_t Asked_ = 0;

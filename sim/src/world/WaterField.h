@@ -18,6 +18,8 @@
 #include <vector>
 
 #include "Capacity.h"
+#include "Span.h"
+#include "TileRanges.h"
 #include "TileWatermark.h"
 
 namespace outshine::World {
@@ -47,6 +49,12 @@ public:
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
   const std::vector<Surface> &Surfaces() const { return Surfaces_; }
+  /* One tile's surfaces, by OsmField tile index. Good until the next Ingest(). */
+  Span<const Surface> OfTile(int tile) const {
+    if (tile < 0) return Span<const Surface>();
+    const TileRanges::Range r = ByTile_.At((uint32_t)tile);
+    return Span<const Surface>(Surfaces_.data() + r.First, r.Count);
+  }
   const std::vector<Course> &Courses() const { return Courses_; }
   const std::vector<float> &Levels() const { return Levels_; }
   const double *Anchor() const { return Anchor_; }
@@ -57,7 +65,7 @@ public:
 
   size_t HeapBytes() const {
     return CapacityBytes(Surfaces_) + CapacityBytes(Courses_) + CapacityBytes(Levels_) +
-           Mark_.HeapBytes();
+           Mark_.HeapBytes() + ByTile_.HeapBytes();
   }
 
   long NoGroundCount() const { return NoGround_; }
@@ -71,6 +79,7 @@ private:
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;
+  TileRanges ByTile_;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
   TileWatermark Mark_;

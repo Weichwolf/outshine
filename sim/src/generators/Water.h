@@ -23,10 +23,6 @@ namespace outshine::Generators {
 
 class Water : public Generator {
 public:
-  /* `coverRow` is the row of the declared table a water outline classifies as; which OSM layer that
-   * is belongs to the class model and is never named here. */
-  explicit Water(int coverRow);
-
   /* THE ANSWER, and it cannot be negative (core/WaterDepth.h). */
   [[nodiscard]] WaterDepth DepthAt(const Ground &ground, double eastM,
                                    double northM) const noexcept;
@@ -38,9 +34,6 @@ public:
   [[nodiscard]] bool At(const Ground &ground, double eastM, double northM,
                         Body *out) const noexcept override;
   [[nodiscard]] uint32_t Proposes(double areaM2) const noexcept override;
-
-private:
-  FeatureField::Sieve Sieve_;
 };
 
 } // namespace outshine::Generators

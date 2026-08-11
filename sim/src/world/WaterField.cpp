@@ -60,8 +60,8 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Mark_.Done(feats)) return (uint32_t)Surfaces_.size();
 
-  const int poly = field.Layer("water_polygons");
-  const int line = field.Layer("water_lines");
+  const int poly = field.Layer(OsmLayer::WaterPolygons);
+  const int line = field.Layer(OsmLayer::WaterLines);
   const TileWatermark::Next next = Mark_.Ask(feats, [&](size_t from, size_t to) {
     return TileGroundResolved(field, from, to, poly, line);
   });
@@ -70,6 +70,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
   Mark_.Advance(feats);
 
   const std::vector<double> &pts = field.Points();
+  const uint32_t firstSurface = (uint32_t)Surfaces_.size();
   std::vector<double> hs;
 
   for (size_t c = next.From; c < next.To; c++) {
@@ -150,6 +151,7 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
       Surfaces_.push_back(s);
     }
   }
+  ByTile_.Set(next.Tile, firstSurface, (uint32_t)Surfaces_.size());
   return (uint32_t)Surfaces_.size();
 }
 

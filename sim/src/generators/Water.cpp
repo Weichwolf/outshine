@@ -2,8 +2,6 @@
 
 namespace outshine::Generators {
 
-Water::Water(int coverRow) : Sieve_{(int32_t)coverRow, true} {}
-
 Span<const char *const> Water::NoteNames() const noexcept {
   static const char *const kNames[kNotes] = {"waterSurfaces", "waterUntested", "levelBelowGround",
                                              "deepestM"};
@@ -17,7 +15,7 @@ WaterDepth Water::DepthAt(const Ground &ground, double eastM, double northM) con
   float levelAslM = 0.0f;
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (!features.Passes(f, Sieve_) || !FeatureField::Boxed(f, eastM, northM)) continue;
+    if (f.Kind != FeatureKind::Water || !FeatureField::Boxed(f, eastM, northM)) continue;
     float atAslM = 0.0f;
     (void)f.Top.TryAslM(&atAslM);
     if (wet && atAslM <= levelAslM) continue;
@@ -38,7 +36,7 @@ void Water::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (!features.Passes(f, Sieve_)) continue;
+    if (f.Kind != FeatureKind::Water) continue;
     yield.Count(Surfaces);
     double e = 0.0, n = 0.0, count = 0.0;
     for (const FeatureField::Ring &r : features.Rings(f))

@@ -41,6 +41,7 @@ void MemoryTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("poolVectorsKB", "KiB");
   schema.Add("poolBuildingsKB", "KiB");
   schema.Add("poolWaterKB", "KiB");
+  schema.Add("poolStreetsKB", "KiB");
   schema.Add("poolClassKB", "KiB");
   schema.Add("poolRegionsKB", "KiB");
   schema.Add("poolSumKB", "KiB");
@@ -76,6 +77,7 @@ void MemoryTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push((double)pools.Vectors / kKb);
   row.Push((double)pools.Buildings / kKb);
   row.Push((double)pools.Water / kKb);
+  row.Push((double)pools.Streets / kKb);
   row.Push((double)pools.Class / kKb);
   row.Push((double)Sim_.GeneratorHeapBytes() / kKb);
   row.Push((double)(pools.Sum() + Sim_.GeneratorHeapBytes()) / kKb);

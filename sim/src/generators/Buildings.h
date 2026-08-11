@@ -19,9 +19,7 @@ namespace outshine::Generators {
 
 class Buildings : public Generator {
 public:
-  /* `coverRow` is the row of the declared table an outline of this kind classifies as. The class
-   * model is what says which OSM layer that is, so this generator never names one. */
-  Buildings(int coverRow, ContactMaterial contact);
+  explicit Buildings(ContactMaterial contact);
 
   enum Note { Footprints, Roofless, HighestRoofAglM, kNotes };
   Span<const char *const> NoteNames() const noexcept override;
@@ -37,7 +35,6 @@ private:
   const FeatureField::Feature *Over(const Ground &ground, double eastM,
                                     double northM) const noexcept;
 
-  FeatureField::Sieve Sieve_;
   ContactMaterial Contact_;
 };
 

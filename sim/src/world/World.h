@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <vector>
 #include "BuildingField.h"
+#include "StreetField.h"
 #include "WaterField.h"
 #include "ClassField.h"
 #include "ClusterDag.h"
@@ -147,6 +148,7 @@ public:
   const OsmField &Vectors() const { return Vectors_; }
   const BuildingField &Footprints() const { return Buildings_; }
   const WaterField &WaterBodies() const { return Water_; }
+  const StreetField &Ways() const { return Streets_; }
 
   /* THE RESIDENCY COUNTERS, for a moving measurement: a per-frame series that does not settle is the
    * defect, and none of these is visible in a picture. */
@@ -165,8 +167,8 @@ public:
    * with their meshes, DAGs, albedo and lamps, the decoded OSM vectors, what is extruded and
    * tessellated from them, and the class. */
   struct Pools {
-    size_t TileNodes = 0, Vectors = 0, Buildings = 0, Water = 0, Class = 0;
-    size_t Sum() const { return TileNodes + Vectors + Buildings + Water + Class; }
+    size_t TileNodes = 0, Vectors = 0, Buildings = 0, Water = 0, Streets = 0, Class = 0;
+    size_t Sum() const { return TileNodes + Vectors + Buildings + Water + Streets + Class; }
   };
   Pools HeapPools() const;
   /* The tile byte cache, whole: one pool, one table, one number on both translations. */
@@ -240,10 +242,13 @@ private:
   std::vector<int> DrawnLeaves;      /* node indices emitted as drawn leaves this pass; the only list
                                         that says which mesh the near-field ground field may rasterise */
 
-  OsmField Vectors_{14, {"buildings", "water_polygons", "water_lines"}};
+  OsmField Vectors_{14, OsmLayerNames({OsmLayer::Buildings, OsmLayer::WaterPolygons,
+                                       OsmLayer::WaterLines, OsmLayer::Streets,
+                                       OsmLayer::StreetPolygons})};
   ClassField Cls_;
   BuildingField Buildings_;
   WaterField Water_;
+  StreetField Streets_;
   std::vector<float> WaterVerts;
   uint64_t WaterSeq_ = 0;
   bool WaterDirty_ = false;

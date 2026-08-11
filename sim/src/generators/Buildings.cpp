@@ -14,8 +14,7 @@ constexpr double kBuiltDensityKgPerM3 = 300.0;
 
 } // namespace
 
-Buildings::Buildings(int coverRow, ContactMaterial contact)
-    : Sieve_{(int32_t)coverRow, true}, Contact_(contact) {}
+Buildings::Buildings(ContactMaterial contact) : Contact_(contact) {}
 
 Span<const char *const> Buildings::NoteNames() const noexcept {
   static const char *const kNames[kNotes] = {"footprints", "roofless", "highestRoofAglM"};
@@ -28,7 +27,7 @@ void Buildings::Occupy(const Ground &ground, Yield &yield) const noexcept {
   const FeatureField &features = ground.Features();
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (f.CoverRow != Sieve_.CoverRow) continue;
+    if (f.Kind != FeatureKind::Structure) continue;
     float topAslM = 0.0f;
     if (!f.Top.TryAslM(&topAslM)) {
       yield.Count(Roofless);
@@ -50,7 +49,7 @@ const FeatureField::Feature *Buildings::Over(const Ground &ground, double eastM,
   float highestAslM = 0.0f;
   for (size_t i = 0; i < features.Count(); i++) {
     const FeatureField::Feature &f = features.At(i);
-    if (!features.Passes(f, Sieve_) || !FeatureField::Boxed(f, eastM, northM)) continue;
+    if (f.Kind != FeatureKind::Structure || !FeatureField::Boxed(f, eastM, northM)) continue;
     float topAslM = 0.0f;
     (void)f.Top.TryAslM(&topAslM);
     if (highest && topAslM <= highestAslM) continue;
@@ -63,16 +62,20 @@ const FeatureField::Feature *Buildings::Over(const Ground &ground, double eastM,
 
 /* The prism the point stands under, as the body it would be. Its cylinder is INSCRIBED in the
  * outline's own box: a substitute larger than the thing it substitutes claims ground the building
- * does not stand on, and a terrace is where that shows. */
+ * does not stand on, and a terrace is where that shows.
+ *
+ * THE BASE IS THE FEATURE'S OWN, not the ground under the box centre. The drawn prism stands on the
+ * ring's lowest corner, so a base taken from the terrain at the centre floats against it by the
+ * ground's fall across the footprint and the height reported here would be short by exactly that. */
 bool Buildings::At(const Ground &ground, double eastM, double northM, Body *out) const noexcept {
   const FeatureField::Feature *f = Over(ground, eastM, northM);
   if (!f) return false;
-  float topAslM = 0.0f;
-  if (!f->Top.TryAslM(&topAslM)) return false;
+  float topAslM = 0.0f, baseM = 0.0f;
+  if (!f->Top.TryAslM(&topAslM) || !f->Base.TryAslM(&baseM)) return false;
 
   const double e = 0.5 * ((double)f->MinEm + (double)f->MaxEm);
   const double n = 0.5 * ((double)f->MinNm + (double)f->MaxNm);
-  const double baseAslM = ground.HeightAslM(e, n);
+  const double baseAslM = (double)baseM;
   const double halfE = 0.5 * ((double)f->MaxEm - (double)f->MinEm);
   const double halfN = 0.5 * ((double)f->MaxNm - (double)f->MinNm);
   const double radiusM = halfE < halfN ? halfE : halfN;

@@ -111,19 +111,24 @@ bool Sim::LoadTables() {
                {{"ring", (double)Ring_.Zoom()}, {"vectors", (double)W_.Vectors().Zoom()}});
     return false;
   }
-  const World::VegetationTemplates::Rule *built = Veg_.Find("buildings", "*");
-  const World::VegetationTemplates::Rule *wet = Veg_.Find("water_polygons", "water");
+  const World::VegetationTemplates::Rule *built =
+      Veg_.Find(World::OsmLayerName(World::OsmLayer::Buildings), "*");
+  const World::VegetationTemplates::Rule *wet =
+      Veg_.Find(World::OsmLayerName(World::OsmLayer::WaterPolygons), "water");
   if (!built || !wet) {
     Log::Error("sim", "outline_class_undeclared",
-               {{"buildings", built != nullptr}, {"water_polygons", wet != nullptr}});
+               {{"layer", std::string(built ? World::OsmLayerName(World::OsmLayer::WaterPolygons)
+                                            : World::OsmLayerName(World::OsmLayer::Buildings))}});
     return false;
   }
   BuiltRow_ = built->Tpl;
   WetRow_ = wet->Tpl;
-  Structures_.emplace(BuiltRow_, kWallContact);
-  Lakes_.emplace(WetRow_);
+  Structures_.emplace(kWallContact);
+  Lakes_.emplace();
+  Ways_.emplace();
   if (!Gens_.Add(kBuiltRank, *Structures_)) return false;
   if (!Gens_.Add(kWaterRank, *Lakes_)) return false;
+  if (!Gens_.Add(kWayRank, *Ways_)) return false;
   if (!Assets_.Species.empty()) {
     if (!ReadSpecies(Assets_.Species.c_str(), &Species_)) {
       Log::Error("sim", "species_unreadable",
@@ -166,45 +171,34 @@ bool Sim::OpenPool() {
 
 /* THE REGION'S OWN OUTLINES, cut out of the world's decoded vectors and put into the frame a
  * generator works in — metres east and north of the region anchor. The core resolved what each of
- * them carries: a footprint's roof off its own ground and an OSM tag, a water body's level off its
- * shore. Neither number is derived here, which is the split doc/architecture.md draws.
+ * them carries: a footprint's roof and base off its own ground and an OSM tag, a water body's level
+ * off its shore, a way's width off the class table. None of those numbers is derived here, which is
+ * the split doc/architecture.md draws.
  *
  * NULL WHILE THIS REGION'S VECTOR TILE IS STILL OUT. One region is one tile on both sources, so the
  * rule the DEM block already follows holds here too: taken whole or not at all. A region built from
  * half its outlines would stand for good with a street of houses missing.
  *
- * A ring clipped at a tile seam arrives twice, once per tile, and both copies are kept: their union
- * is the outline, which is all a point query and a bounding box need. */
+ * A SLICE AND NOT A SCAN, which is the same insight the ground block runs on: one region is one
+ * tile, the producers append a tile's produce contiguously, so the range exists by construction. It
+ * also ends a duplicate — the source clips a feature at the tile border, so a house on a seam is in
+ * both tiles, and a scan bounded by the region's box took both copies into the same region. */
 std::shared_ptr<const Generators::FeatureField> Sim::Features(
     const Generators::Region &region) const {
   if (!W_.Vectors().Decoded(region.X(), region.Y())) return nullptr;
+  const int tile = W_.Vectors().TileIndex(region.X(), region.Y());
   const std::vector<double> &points = W_.Vectors().Points();
-
-  double latLo = 0.0, lonLo = 0.0, latHi = 0.0, lonHi = 0.0;
-  region.Geo(0.0, 0.0, &latLo, &lonLo);
-  region.Geo(region.SpanEm(), region.SpanNm(), &latHi, &lonHi);
 
   std::vector<Generators::FeatureField::Feature> features;
   std::vector<Generators::FeatureField::Ring> rings;
   std::vector<Generators::FeatureField::Vertex> vertices;
-  const auto take = [&](uint32_t firstPoint, uint32_t count, int coverRow,
-                        Generators::FeatureTop top) {
-    if (count < 3) return;
-    double minLat = 1.0e9, maxLat = -1.0e9, minLon = 1.0e9, maxLon = -1.0e9;
-    for (uint32_t k = 0; k < count; k++) {
-      const double lat = points[((size_t)firstPoint + k) * 2];
-      const double lon = points[((size_t)firstPoint + k) * 2 + 1];
-      minLat = lat < minLat ? lat : minLat;
-      maxLat = lat > maxLat ? lat : maxLat;
-      minLon = lon < minLon ? lon : minLon;
-      maxLon = lon > maxLon ? lon : maxLon;
-    }
-    if (maxLat < latLo || minLat > latHi || maxLon < lonLo || minLon > lonHi) return;
-    Generators::FeatureField::Feature f{};
+  const auto take = [&](const Generators::FeatureField::Feature &proto, uint32_t firstPoint,
+                        uint32_t count) {
+    const uint32_t least = proto.Form == Generators::FeatureForm::Ribbon ? 2u : 3u;
+    if (count < least) return;
+    Generators::FeatureField::Feature f = proto;
     f.FirstRing = (uint32_t)rings.size();
     f.RingCount = 1;
-    f.CoverRow = coverRow;
-    f.Top = top;
     rings.push_back({(uint32_t)vertices.size(), count});
     for (uint32_t k = 0; k < count; k++) {
       double eastM = 0.0, northM = 0.0;
@@ -215,11 +209,32 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
     features.push_back(f);
   };
 
-  for (const World::BuildingField::Footprint &fp : W_.Footprints().Footprints())
-    take(fp.FirstPoint, fp.PointCount, BuiltRow_,
-         Generators::FeatureTop::At(fp.BaseM + fp.HeightM));
-  for (const World::WaterField::Surface &s : W_.WaterBodies().Surfaces())
-    take(s.FirstPoint, s.PointCount, WetRow_, Generators::FeatureTop::At(s.LevelM));
+  for (const World::BuildingField::Footprint &fp : W_.Footprints().OfTile(tile)) {
+    Generators::FeatureField::Feature f{};
+    f.CoverRow = BuiltRow_;
+    f.Kind = Generators::FeatureKind::Structure;
+    f.Form = Generators::FeatureForm::Area;
+    f.Base = Generators::FeatureLevel::At(fp.BaseM);
+    f.Top = Generators::FeatureLevel::At(fp.BaseM + fp.HeightM);
+    take(f, fp.FirstPoint, fp.PointCount);
+  }
+  for (const World::WaterField::Surface &s : W_.WaterBodies().OfTile(tile)) {
+    Generators::FeatureField::Feature f{};
+    f.CoverRow = WetRow_;
+    f.Kind = Generators::FeatureKind::Water;
+    f.Form = Generators::FeatureForm::Area;
+    f.Top = Generators::FeatureLevel::At(s.LevelM);
+    take(f, s.FirstPoint, s.PointCount);
+  }
+  for (const World::StreetField::Way &w : W_.Ways().OfTile(tile)) {
+    Generators::FeatureField::Feature f{};
+    f.CoverRow = w.CoverRow;
+    f.Kind = Generators::FeatureKind::Way;
+    f.Form = w.Form == World::StreetField::Shape::Ribbon ? Generators::FeatureForm::Ribbon
+                                                         : Generators::FeatureForm::Area;
+    f.HalfWidthM = w.HalfWidthM;
+    take(f, w.FirstPoint, w.PointCount);
+  }
 
   return Generators::FeatureField::Of(
       Span<const Generators::FeatureField::Feature>(features.data(), features.size()),
@@ -236,9 +251,9 @@ std::shared_ptr<const Generators::FeatureField> Sim::Features(
  * The postings sit on the DEM's own node spacing; how far the patch's own interpolation stands from
  * the drawn surface between them is unmeasured. */
 bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapshot *out,
-                   double *ms) const {
+                   SnapshotCost *cost) const {
   const double t0 = MonotonicMs();
-  const auto done = [&](bool ok) { *ms = MonotonicMs() - t0; return ok; };
+  const auto done = [&](bool ok) { cost->TotalMs = MonotonicMs() - t0; return ok; };
   const FbGroundBlock block = fb_stream_ground_block(region.Zoom(), region.X(), region.Y());
   if (block.Where() != FbGroundBlock::State::Resolved) return done(false);
 
@@ -261,7 +276,9 @@ bool Sim::Snapshot(const Generators::Region &region, Generators::Ground::Snapsho
       region, side,
       Span<const Generators::GroundPatch::Posting>(postings.data(), postings.size()));
   out->Classes = W_.Classes().Read();
+  const double tFeat = MonotonicMs();
   out->Features = Features(region);
+  cost->FeatureMs = MonotonicMs() - tFeat;
   out->Table = Table_;
   return done(out->Patch && out->Classes && out->Features);
 }
@@ -324,7 +341,7 @@ void Sim::Gather() {
     Refused_.push_back(where);
     return;
   }
-  Say(*grown, SnapshotMs_);
+  Say(*grown, SnapshotCost_);
   Grown_.push_back(std::move(*grown));
   Version_++;
 }
@@ -347,7 +364,7 @@ void Sim::Ask() {
 
     Asked_ = k + 1;
     Generators::Ground::Snapshot snapshot;
-    if (!Snapshot(*region, &snapshot, &SnapshotMs_)) return;
+    if (!Snapshot(*region, &snapshot, &SnapshotCost_)) return;
     const std::optional<Generators::Ground> ground = Generators::Ground::Of(*region, snapshot);
     if (!ground) return;
     std::optional<Generators::RegionPool::Lease> lease = Pool_->TryAcquire(*ground);
@@ -374,10 +391,11 @@ void Sim::Populate() {
 /* THE WHOLE PARTITION IN ONE LINE: every candidate of the region leaves through exactly one name, so
  * a count that does not sum to the lattice is a case nobody wrote. The two millisecond fields are
  * the two threads it cost — the snapshot on the caller's, the generators on the forge's. */
-void Sim::Say(const Populated &grown, double snapshotMs) const {
+void Sim::Say(const Populated &grown, const SnapshotCost &cost) const {
   const Generators::Region &region = grown.Where.Where();
   std::vector<LogField> fields{{"zoom", (double)region.Zoom()}, {"x", (double)region.X()},
-      {"y", (double)region.Y()}, {"occupyMs", grown.OccupyMs}, {"snapshotMs", snapshotMs},
+      {"y", (double)region.Y()}, {"occupyMs", grown.OccupyMs},
+      {"snapshotMs", cost.TotalMs}, {"featureMs", cost.FeatureMs},
       {"slotKB", (double)Pool_->SlotBytes() / 1024.0},
       {"patchKB", (double)grown.Where.PatchHeapBytes() / 1024.0},
       {"featureKB", (double)grown.Where.FeatureHeapBytes() / 1024.0},
@@ -522,8 +540,8 @@ void Sim::Settle() {
 std::optional<Generators::Ground> Sim::GroundAt(double lat, double lon) const {
   const Generators::Region region = Generators::Region::Of(Ring_.Zoom(), lat, lon);
   Generators::Ground::Snapshot snapshot;
-  double ms = 0.0;
-  if (!Snapshot(region, &snapshot, &ms)) return std::nullopt;
+  SnapshotCost cost;
+  if (!Snapshot(region, &snapshot, &cost)) return std::nullopt;
   return Generators::Ground::Of(region, snapshot);
 }
 
@@ -548,6 +566,7 @@ Sim::Place Sim::At(double lat, double lon) const {
   if (Structures_ && Structures_->At(*ground, eastM, northM, &structure))
     p.StructureHeightM = (double)structure.HeightM;
   if (Lakes_) p.Water = Lakes_->DepthAt(*ground, eastM, northM);
+  if (Ways_) p.Made = Ways_->MadeAt(*ground, eastM, northM);
   return p;
 }
 

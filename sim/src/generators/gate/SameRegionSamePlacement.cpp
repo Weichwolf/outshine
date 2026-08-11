@@ -19,7 +19,8 @@
 
 #include "ClassStructure.h"
 #include "Buildings.h"
-#include "FeatureTop.h"
+#include "Infrastructure.h"
+#include "FeatureLevel.h"
 #include "Forest.h"
 #include "Generator.h"
 #include "GeneratorSet.h"
@@ -124,23 +125,31 @@ std::shared_ptr<const ClassStructure> SyntheticClasses(const TangentFrame &frame
 /* TWO OUTLINES IN THE REGION'S OWN METRES: a square that is roofed and a square that is wet. The
  * wet one sits where the synthetic ground runs from 400 to 520 m and its level is 430, so part of it
  * is under the ground and part over — which is the case core/WaterDepth.h exists for. */
-constexpr int32_t kBuiltRow = 1, kWetRow = 2;
-constexpr float kRoofAslM = 560.0f, kLevelAslM = 430.0f;
+constexpr int32_t kBuiltRow = 1, kWetRow = 2, kWayRow = 0;
+constexpr float kRoofAslM = 560.0f, kLevelAslM = 430.0f, kBaseAslM = 470.0f;
+/* A ribbon straight across the region at 80 % north, 6 m wide: what a query has to get right is the
+ * half-width, and a way is the one feature whose extent is not in its own vertices. */
+constexpr float kHalfWayM = 3.0f;
 
 std::shared_ptr<const FeatureField> SyntheticFeatures(const Region &region) {
   const float spanE = (float)region.SpanEm(), spanN = (float)region.SpanNm();
-  const FeatureField::Feature features[2] = {
-      {0, 1, kBuiltRow, FeatureTop::At(kRoofAslM), 0, 0, 0, 0},
-      {1, 1, kWetRow, FeatureTop::At(kLevelAslM), 0, 0, 0, 0}};
-  const FeatureField::Ring rings[2] = {{0, 4}, {4, 4}};
-  const FeatureField::Vertex vertices[8] = {
+  const FeatureField::Feature features[3] = {
+      {0, 1, kBuiltRow, FeatureKind::Structure, FeatureForm::Area, 0.0f,
+       FeatureLevel::At(kBaseAslM), FeatureLevel::At(kRoofAslM), 0, 0, 0, 0},
+      {1, 1, kWetRow, FeatureKind::Water, FeatureForm::Area, 0.0f, FeatureLevel::None(),
+       FeatureLevel::At(kLevelAslM), 0, 0, 0, 0},
+      {2, 1, kWayRow, FeatureKind::Way, FeatureForm::Ribbon, kHalfWayM, FeatureLevel::None(),
+       FeatureLevel::None(), 0, 0, 0, 0}};
+  const FeatureField::Ring rings[3] = {{0, 4}, {4, 4}, {8, 2}};
+  const FeatureField::Vertex vertices[10] = {
       {0.10f * spanE, 0.10f * spanN}, {0.20f * spanE, 0.10f * spanN},
       {0.20f * spanE, 0.20f * spanN}, {0.10f * spanE, 0.20f * spanN},
       {0.40f * spanE, 0.40f * spanN}, {0.90f * spanE, 0.40f * spanN},
-      {0.90f * spanE, 0.60f * spanN}, {0.40f * spanE, 0.60f * spanN}};
-  return FeatureField::Of(Span<const FeatureField::Feature>(features, 2),
-                          Span<const FeatureField::Ring>(rings, 2),
-                          Span<const FeatureField::Vertex>(vertices, 8));
+      {0.90f * spanE, 0.60f * spanN}, {0.40f * spanE, 0.60f * spanN},
+      {0.10f * spanE, 0.80f * spanN}, {0.90f * spanE, 0.80f * spanN}};
+  return FeatureField::Of(Span<const FeatureField::Feature>(features, 3),
+                          Span<const FeatureField::Ring>(rings, 3),
+                          Span<const FeatureField::Vertex>(vertices, 10));
 }
 
 Ground::Snapshot SyntheticSnapshot(const Region &region) {
@@ -398,7 +407,9 @@ int main() {
   const FeatureField::Vertex verts[4] = {{10.0f, 20.0f}, {40.0f, 20.0f}, {40.0f, 60.0f},
                                          {10.0f, 60.0f}};
   const FeatureField::Ring rings[1] = {{0, 4}};
-  FeatureField::Feature feats[1] = {{0, 1, 7, FeatureTop::None(), 0.0f, 0.0f, 0.0f, 0.0f}};
+  FeatureField::Feature feats[1] = {{0, 1, 7, FeatureKind::Structure, FeatureForm::Area, 0.0f,
+                                    FeatureLevel::None(), FeatureLevel::None(), 0.0f, 0.0f, 0.0f,
+                                    0.0f}};
   const std::shared_ptr<const FeatureField> field =
       FeatureField::Of(Span<const FeatureField::Feature>(feats, 1),
                        Span<const FeatureField::Ring>(rings, 1),
@@ -595,13 +606,17 @@ int main() {
    * back negative where the level model and the ground disagree, which is the whole reason the
    * answer is a state and not a double. */
   {
-    const Buildings built(kBuiltRow, ContactMaterial{2});
-    const Water wet(kWetRow);
+    const Buildings built(ContactMaterial{2});
+    const Water wet;
     Body roof;
     Check(built.At(*groundA, 0.15 * a.SpanEm(), 0.15 * a.SpanNm(), &roof),
           "nothing stands under the roofed outline");
     Check(std::fabs(roof.BaseAslM + (double)roof.HeightM - (double)kRoofAslM) < 0.01,
           "the roof the query answers is not the roof the outline carries");
+    /* THE PRISM QUERIED IS THE PRISM DRAWN: its base is the outline's own, so the height that comes
+     * back is the height the outline carries and not that minus the ground's fall across it. */
+    Check(std::fabs(roof.BaseAslM - (double)kBaseAslM) < 0.01,
+          "the queried prism does not stand on the outline's own base");
     Check(!built.At(*groundA, 0.50 * a.SpanEm(), 0.15 * a.SpanNm(), &roof),
           "a roof stands outside its own outline");
     Check(built.Proposes(a.SpanEm() * a.SpanNm()) == 0 && wet.Proposes(1.0e9) == 0,
@@ -635,6 +650,25 @@ int main() {
     std::printf("waterProbes=%ld dry=%ld standing=%ld levelBelowGround=%ld deepestM=%.3f "
                 "worstDisagreementM=%.3f\n",
                 (long)(65 * 65), dry, standing, disagreeing, deepest, worst);
+
+    /* THE WAY REACHES EXACTLY ITS DECLARED HALF-WIDTH, which is the one claim a ribbon makes that a
+     * ring cannot: its extent is not in its own vertices. Probed straight across the centreline. */
+    const Infrastructure ways;
+    const double on = 0.80 * a.SpanNm(), mid = 0.50 * a.SpanEm();
+    Check(ways.MadeAt(*groundA, mid, on).has_value(), "nothing is made on the way's own centreline");
+    Check(ways.MadeAt(*groundA, mid, on)->WidthM == 2.0f * kHalfWayM,
+          "the way answers a width that is not the one it was declared with");
+    Check(std::fabs(ways.MadeAt(*groundA, mid, on)->SurfaceAslM -
+                    groundA->HeightAslM(mid, on)) < 1.0e-9,
+          "a way's surface is not the ground it is graded onto");
+    Check(ways.MadeAt(*groundA, mid, on + (double)kHalfWayM - 0.01).has_value(),
+          "the way stops short of its own half-width");
+    Check(!ways.MadeAt(*groundA, mid, on + (double)kHalfWayM + 0.01).has_value(),
+          "the way reaches past its own half-width");
+    Check(!ways.MadeAt(*groundA, mid, 0.5 * a.SpanNm()).has_value(),
+          "a way was made where none runs");
+    Check(ways.Proposes(a.SpanEm() * a.SpanNm()) == 0,
+          "an outline generator proposed occupancy it does not claim");
   }
 
   Check(gAllocations == 0, "Occupy allocated");

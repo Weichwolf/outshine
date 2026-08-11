@@ -351,6 +351,32 @@
       "runs": [
         { "kind": "subject", "template": "meadow", "dir": "bench-meadow", "turnSteps": 8 }
       ]
+    },
+    {
+      "id": "night",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.70,
+      "yawDeg": 280,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "utc": "2026-08-06T23:00:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.0,
+      "why": "the night of the place demo/walk stands in, put at the sun's own depth rather than at a wall-clock hour: 23:00 UTC on 6 August puts the sun 21.14 deg under this horizon with the moon 11.36 deg over it (measured, `outshine scene sunElDeg` and `sim stand moonElDeg`), so it is past astronomical twilight and what is left in the frame is moonlight and whatever the world itself emits. cloudCover is 0 because a deck is the one thing that would hide that answer. The camera turns a full 360 deg over 120 frames and every frame is written: a light that switches on, a lamp that pops in at a range and a surface that only glows from one bearing are three different defects and a still shows none of them.",
+      "runs": [
+        { "kind": "motion", "frames": 120, "fps": 30, "world": "streaming", "give": "stills",
+          "path": "night",
+          "animation": {
+            "samplers": [
+              { "input": [0, 120], "output": [280, 640], "interpolation": "LINEAR" }
+            ],
+            "channels": [ { "sampler": 0, "target": "camera.yawDeg" } ]
+          }
+        }
+      ]
     }
   ]
 }

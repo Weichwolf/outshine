@@ -31,13 +31,14 @@ FeatureField::FeatureField(Span<const Feature> features, Span<const Ring> rings,
         f.MinNm = v.Nm < f.MinNm ? v.Nm : f.MinNm;
         f.MaxNm = v.Nm > f.MaxNm ? v.Nm : f.MaxNm;
       }
+    /* A ribbon reaches half its width past its own centreline, so its box has to as well or the
+     * cheap rejection would drop exactly the kerb the query is about. */
+    if (first || f.Form != FeatureForm::Ribbon) continue;
+    f.MinEm -= f.HalfWidthM;
+    f.MaxEm += f.HalfWidthM;
+    f.MinNm -= f.HalfWidthM;
+    f.MaxNm += f.HalfWidthM;
   }
-}
-
-bool FeatureField::Passes(const Feature &f, const Sieve &sieve) const noexcept {
-  if (f.CoverRow != sieve.CoverRow) return false;
-  float aslM = 0.0f;
-  return f.Top.TryAslM(&aslM) == sieve.Topped;
 }
 
 Span<const FeatureField::Ring> FeatureField::Rings(const Feature &f) const {
@@ -48,8 +49,36 @@ Span<const FeatureField::Vertex> FeatureField::Vertices(const Ring &r) const {
   return Span<const Vertex>(Vertices_.data() + r.First, r.Count);
 }
 
+/* The nearest point of a segment, as the squared distance to it — squared because nothing here
+ * compares a distance to anything but another distance and a root would be paid per segment. */
+namespace {
+
+double SegmentGapM2(double em, double nm, double e0, double n0, double e1, double n1) {
+  const double de = e1 - e0, dn = n1 - n0;
+  const double len2 = de * de + dn * dn;
+  double t = 0.0;
+  if (len2 > 0.0) {
+    t = ((em - e0) * de + (nm - n0) * dn) / len2;
+    t = t < 0.0 ? 0.0 : (t > 1.0 ? 1.0 : t);
+  }
+  const double ge = em - (e0 + t * de), gn = nm - (n0 + t * dn);
+  return ge * ge + gn * gn;
+}
+
+}  // namespace
+
 bool FeatureField::Contains(const Feature &f, double eastM, double northM) const noexcept {
   if (!Boxed(f, eastM, northM)) return false;
+  if (f.Form == FeatureForm::Ribbon) {
+    const double reach2 = (double)f.HalfWidthM * (double)f.HalfWidthM;
+    for (const Ring &r : Rings(f)) {
+      const Span<const Vertex> v = Vertices(r);
+      for (size_t i = 0; i + 1 < v.Size(); i++)
+        if (SegmentGapM2(eastM, northM, v[i].Em, v[i].Nm, v[i + 1].Em, v[i + 1].Nm) <= reach2)
+          return true;
+    }
+    return false;
+  }
   int crossings = 0;
   for (const Ring &r : Rings(f)) {
     const Span<const Vertex> v = Vertices(r);

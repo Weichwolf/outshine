@@ -60,6 +60,18 @@ bool OsmField::Decoded(int x, int y) const {
   return std::find(Done_.begin(), Done_.end(), TileKey(x, y)) != Done_.end();
 }
 
+int OsmField::TileIndex(int x, int y) const {
+  for (size_t i = 0; i < Tiles_.size(); i++)
+    if (Tiles_[i].X == x && Tiles_[i].Y == y) return (int)i;
+  return -1;
+}
+
+Span<const OsmField::Feature> OsmField::OfTile(int index) const {
+  if (index < 0 || (size_t)index >= Tiles_.size()) return Span<const Feature>();
+  const Tile &t = Tiles_[(size_t)index];
+  return Span<const Feature>(Features_.data() + t.FirstFeature, t.FeatureCount);
+}
+
 bool OsmField::AddTile(int tx, int ty, int &added) {
   char path[96];
   std::snprintf(path, sizeof path, "/t/vector/%d/%d/%d", Zoom_, tx, ty);
@@ -71,7 +83,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
   const int got = (int)Scratch_.size();
 
   const uint32_t tile = (uint32_t)Tiles_.size();
-  Tiles_.push_back(Tile{Zoom_, tx, ty});
+  Tiles_.push_back(Tile{Zoom_, tx, ty, (uint32_t)Features_.size(), 0});
 
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
@@ -141,6 +153,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
                                    {"feats", (int)mvt.Features().size()},
                                    {"rings", (int)mvt.Rings().size()}});
   }
+  Tiles_[tile].FeatureCount = (uint32_t)Features_.size() - Tiles_[tile].FirstFeature;
   return true;
 }
 

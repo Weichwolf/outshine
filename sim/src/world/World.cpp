@@ -66,6 +66,7 @@ World::Pools World::HeapPools() const {
                 CapacityBytes(BuildingDagIdx) + CapacityBytes(BuildingClusters) +
                 CapacityBytes(BuildingSoup) + CapacityBytes(FootprintTileEnds_);
   p.Water = Water_.HeapBytes() + CapacityBytes(WaterVerts);
+  p.Streets = Streets_.HeapBytes();
   p.Class = Cls_.HeapBytes();
   return p;
 }
@@ -349,6 +350,7 @@ void World::Update(double camLat, double camLon) {
   Vectors_.Build(camLat, camLon, 1);
   const size_t hadWater = Water_.Surfaces().size() + Water_.Courses().size();
   if (Veg_) Water_.Ingest(Vectors_, *Veg_);
+  if (Veg_) Streets_.Ingest(Vectors_, *Veg_);
   if (Water_.Surfaces().size() + Water_.Courses().size() != hadWater) WaterDirty_ = true;
   if (Buildings_.Build(Vectors_) > 0 && Buildings_.AddedCount() > 0) {
     BuildingVerts = (uint32_t)(Buildings_.Verts().size() / 8);

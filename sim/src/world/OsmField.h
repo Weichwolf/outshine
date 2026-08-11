@@ -23,6 +23,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "OsmLayer.h"
+#include "Span.h"
+
 namespace outshine::World {
 
 class OsmField {
@@ -41,6 +44,7 @@ public:
   };
   struct Tile {
     int Z = 0, X = 0, Y = 0;
+    uint32_t FirstFeature = 0, FeatureCount = 0;
   };
 
   /* `zoom` is the VECTOR SOURCE's own maxzoom for this field, and it belongs here rather than to
@@ -64,6 +68,14 @@ public:
    * time asks about ITS tile: the block's pending count is about the camera's neighbourhood and says
    * nothing about a tile out at the edge of a ring. */
   bool Decoded(int x, int y) const;
+  /* WHICH TILE THIS IS, or none. A tile the provider answered "absent" for is decoded and carries no
+   * geometry, so "no index" and "not decoded" are two different answers and Decoded() is the one that
+   * separates them. */
+  int TileIndex(int x, int y) const;
+  /* ONE TILE'S FEATURES, AS A SLICE. They are appended in tile order and never reordered, so the
+   * range exists by construction and a consumer working one tile at a time never scans the field.
+   * The span is good until the next Build(). */
+  Span<const Feature> OfTile(int index) const;
 
   const std::vector<Feature> &Features() const { return Features_; }
   const std::vector<Ring> &Rings() const { return Rings_; }
@@ -76,6 +88,7 @@ public:
 
   /* -1 when the layer was never asked for. Resolve once, then compare Feature::Layer. */
   int Layer(const char *name) const;
+  int Layer(OsmLayer layer) const { return Layer(OsmLayerName(layer)); }
   const std::string &LayerName(int i) const { return Layers_[(size_t)i]; }
 
   double Num(const Feature &f, const char *key, double def) const;
