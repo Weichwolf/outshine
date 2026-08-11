@@ -352,13 +352,38 @@ void World::Update(double camLat, double camLon) {
   if (Veg_) Water_.Ingest(Vectors_, *Veg_);
   if (Veg_) Streets_.Ingest(Vectors_, *Veg_);
   if (Water_.Surfaces().size() + Water_.Courses().size() != hadWater) WaterDirty_ = true;
-  if (Buildings_.Build(Vectors_) > 0 && Buildings_.AddedCount() > 0) {
+  CutKerbs();
+  if (Buildings_.Build(Vectors_, Span<const WayLine>(Kerbs_.data(), Kerbs_.size())) > 0 &&
+      Buildings_.AddedCount() > 0) {
     BuildingVerts = (uint32_t)(Buildings_.Verts().size() / 8);
     BuildingDecodeMs_ = Clock() - tBld;
     FootprintTileEnds_.push_back((uint32_t)Buildings_.Verts().size());
   }
   BuildingMs_ = Clock() - tBld;
   UpdateMs_ = Clock() - tUpdate;
+}
+
+/* The centrelines the streets were ingested as, with the box each of them lives in. Derived here and
+ * never stored on the way: a box and the line it bounds cannot then disagree. */
+void World::CutKerbs() {
+  const std::vector<double> &pts = Vectors_.Points();
+  Kerbs_.clear();
+  Kerbs_.reserve(Streets_.Ways().size());
+  for (const StreetField::Way &w : Streets_.Ways()) {
+    if (w.Form != StreetField::Shape::Ribbon || w.HalfWidthM <= 0.0f || w.PointCount < 2) continue;
+    WayLine l;
+    l.LatLon = Span<const double>(pts.data() + (size_t)w.FirstPoint * 2, (size_t)w.PointCount * 2);
+    l.HalfWidthM = w.HalfWidthM;
+    l.MinLat = l.MaxLat = l.LatLon[0];
+    l.MinLon = l.MaxLon = l.LatLon[1];
+    for (size_t k = 2; k + 1 < l.LatLon.Size(); k += 2) {
+      l.MinLat = std::min(l.MinLat, l.LatLon[k]);
+      l.MaxLat = std::max(l.MaxLat, l.LatLon[k]);
+      l.MinLon = std::min(l.MinLon, l.LatLon[k + 1]);
+      l.MaxLon = std::max(l.MaxLon, l.LatLon[k + 1]);
+    }
+    Kerbs_.push_back(l);
+  }
 }
 
 /* THE PICTURE PASS. The LOD cut against one eye, the meshes it needs, and the two surfaces that are

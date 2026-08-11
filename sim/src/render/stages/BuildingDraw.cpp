@@ -36,6 +36,10 @@ struct B { mvp : mat4x4f, anc : vec4f, sun : vec4f, up : vec4f };
  *            Fresnel term below, which is what actually makes a window read as glass */
 const kRender : vec3f = vec3f(0.46, 0.43, 0.385);
 const kPantile : vec3f = vec3f(0.145, 0.072, 0.050);
+/* [SET] the two other roofs a German town carries: a Rheinland slate at 0.055 neutral-blue, and a
+ * grey concrete interlocking tile at 0.11. Which one a roof is, is the building's own draw. */
+const kSlate : vec3f = vec3f(0.055, 0.058, 0.066);
+const kConcreteTile : vec3f = vec3f(0.115, 0.112, 0.108);
 const kDeck : vec3f = vec3f(0.095, 0.092, 0.088);
 const kStone : vec3f = vec3f(0.34, 0.325, 0.295);
 const kBrick : vec3f = vec3f(0.135, 0.078, 0.062);
@@ -46,6 +50,13 @@ const kGlass : vec3f = vec3f(0.030, 0.033, 0.036);
 const kFrame : vec3f = vec3f(0.70, 0.69, 0.665);
 const kBlind : vec3f = vec3f(0.33, 0.325, 0.31);
 const kDoor : vec3f = vec3f(0.105, 0.070, 0.048);
+/* [SET] the made ground. A worn concrete flag is 0.30-0.35, a kerb stone is cast and lighter until
+ * it weathers, asphalt off a carriageway is 0.07-0.10. */
+const kFlag : vec3f = vec3f(0.30, 0.295, 0.285);
+const kKerbStone : vec3f = vec3f(0.335, 0.330, 0.318);
+/* [SET] what a double-glazed unit passes at normal incidence. The German norm since 1995 is a
+ * sealed unit at 0.78-0.82, and it is what stands between the slot and the room behind it. */
+const kPaneThru : f32 = 0.82;
 
 /* [SET] A WINDOW IS A HOLE 0.14 m DEEP. That is the reveal of a rendered masonry wall with the frame
  * set back behind the outer leaf; it is the number the parallax marches against, and the reveal it
@@ -76,9 +87,13 @@ fn vnoise(p : vec3f) -> f32 {
   return mix(mix(a, bb, w.y), mix(c, d, w.y), w.z);
 }
 
-/* The tile colour of one roof: a lattice ten times coarser than a house, so a roof is one clay and
- * the street is several. */
-fn grain2(loc : vec3f) -> f32 { return vnoise(loc * 0.09 + vec3f(3.1, 8.2, 1.4)); }
+/* THE BUILDING'S OWN DRAW. Colour, roof material and weathering used to be smooth functions of
+ * PLACE, so two neighbours a wall apart came out the same building twice; the identity rides in the
+ * vertex (core/FacadeUv.h) and is hashed from the footprint's own corner, so it is a fact about
+ * there that reproduces and is discontinuous exactly where the buildings are. */
+fn identOf(ident : i32, stream : f32) -> f32 {
+  return hash13(vec3f(f32(ident) * 0.6180339 + 0.117, stream, 3.71));
+}
 
 struct BOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f, @location(1) uvb : vec2f,
               @location(2) loc : vec3f };
@@ -95,9 +110,12 @@ struct BOut { @builtin(position) pos : vec4f, @location(0) nrm : vec3f, @locatio
   return o;
 }
 
-/* WHAT THE FRAGMENT TURNED OUT TO BE. The facade decides all four, because a window's glass, its
- * reveal and the wall around it are one function of one uv and differ in every one of them. */
-struct Skin { alb : vec3f, nrm : vec3f, mirror : f32, ao : f32 };
+/* WHAT THE FRAGMENT TURNED OUT TO BE. The facade decides all five, because a window's glass, its
+ * reveal and the wall around it are one function of one uv and differ in every one of them. `sun` is
+ * how much of the sun the opening's OWN geometry lets through — a head and a jamb occlude a pane
+ * exactly as a wall occludes a street, and it multiplies the cascade's visibility rather than the
+ * albedo, because that is what it is. */
+struct Skin { alb : vec3f, nrm : vec3f, mirror : f32, ao : f32, sun : f32 };
 
 /* THE OPENING, marched rather than drawn. The view ray is followed into a rectangular box sunk into
  * the wall: if it reaches the back it is the pane and its frame, and if it meets a side first it is
@@ -106,8 +124,23 @@ struct Skin { alb : vec3f, nrm : vec3f, mirror : f32, ao : f32 };
  * cut into, and the sill shadow moves when the sun does. */
 struct Hole { x0 : f32, x1 : f32, y0 : f32, y1 : f32, door : f32, blind : f32 };
 
-fn opening(cell : vec2f, h : Hole, sx : f32, sy : f32, tan : vec3f, bit : vec3f, nrm : vec3f,
-           skin : ptr<function, Skin>) -> bool {
+/* THE OPENING SHADOWS ITSELF, and until now it did not: the march ran along the VIEW only, so at
+ * near-normal incidence no side was ever hit, every fragment was the pane, and a window was a flat
+ * rectangle of one value. Marching the same box along the LIGHT is the self-shadowing extension of
+ * relief mapping (Policarpo & Oliveira, I3D 2005; RTR4 6.8.4-6.8.5) — and on a BOX it needs no march
+ * at all: the ray from a point at depth `depth` reaches the wall plane after travelling exactly that
+ * far, so one test of where it lands says whether the head, the jamb or the sill cut it. */
+fn openingSun(at : vec2f, depth : f32, h : Hole, lx : f32, ly : f32) -> f32 {
+  let q = vec2f(at.x + lx * depth, at.y + ly * depth);
+  /* One centimetre of a bay is the softening: narrower is aliasing, wider is a painted gradient. */
+  let e = 0.004;
+  let sx = smoothstep(h.x0 - e, h.x0 + e, q.x) * (1.0 - smoothstep(h.x1 - e, h.x1 + e, q.x));
+  let sy = smoothstep(h.y0 - e, h.y0 + e, q.y) * (1.0 - smoothstep(h.y1 - e, h.y1 + e, q.y));
+  return sx * sy;
+}
+
+fn opening(cell : vec2f, h : Hole, sx : f32, sy : f32, lx : f32, ly : f32, tan : vec3f,
+           bit : vec3f, nrm : vec3f, skin : ptr<function, Skin>) -> bool {
   if (cell.x < h.x0 || cell.x > h.x1 || cell.y < h.y0 || cell.y > h.y1) { return false; }
   var t = kRecessM;
   var side = 0;
@@ -118,6 +151,8 @@ fn opening(cell : vec2f, h : Hole, sx : f32, sy : f32, tan : vec3f, bit : vec3f,
   /* How much sky a point that far down a slot still sees: an opening 1.2 m across with a 0.14 m
    * reveal loses roughly that fraction of its hemisphere by the time it reaches the back. */
   let shut = 1.0 - 0.62 * clamp(1.0 - t / kRecessM, 0.0, 1.0);
+  let at = vec2f(cell.x + sx * t, cell.y + sy * t);
+  (*skin).sun = openingSun(at, t, h, lx, ly);
   if (side != 0) {
     (*skin).alb = kRender * 1.06;   /* a reveal is the same render, newer, out of the weather */
     (*skin).mirror = 0.0;
@@ -128,10 +163,10 @@ fn opening(cell : vec2f, h : Hole, sx : f32, sy : f32, tan : vec3f, bit : vec3f,
     else { (*skin).nrm = bit; }
     return true;
   }
-  let f = vec2f((cell.x + sx * t - h.x0) / (h.x1 - h.x0), (cell.y + sy * t - h.y0) / (h.y1 - h.y0));
+  let f = vec2f((at.x - h.x0) / (h.x1 - h.x0), (at.y - h.y0) / (h.y1 - h.y0));
   let frame = f.x < 0.08 || f.x > 0.92 || f.y < 0.06 || f.y > 0.94 || abs(f.x - 0.5) < 0.028;
   (*skin).nrm = nrm;
-  (*skin).ao = 0.42;
+  (*skin).ao = shut;
   if (frame) {
     (*skin).alb = kFrame;
     (*skin).mirror = 0.0;
@@ -144,40 +179,49 @@ fn opening(cell : vec2f, h : Hole, sx : f32, sy : f32, tan : vec3f, bit : vec3f,
   }
   /* WHAT IS BEHIND THE PANE, and it is not one thing: an unlit room returns almost nothing, a pale
    * blind returns a third of what falls on it. That difference along a facade is what stops a row of
-   * windows reading as a row of identical black rectangles. */
+   * windows reading as a row of identical black rectangles. A blind sits BEHIND the glass, so it is
+   * the deepest thing in the slot and sees the least sky — it used to be given MORE than the reveal
+   * above it and read as a pale panel stuck on the wall. */
   (*skin).alb = mix(kGlass, kBlind, h.blind);
   (*skin).mirror = 1.0 - 0.45 * h.blind;
-  (*skin).ao = mix(0.42, 0.75, h.blind);
+  (*skin).ao = shut * kPaneThru;
   return true;
 }
 
-/* THE WALL. uv.x carries the style and the bay coordinate, uv.y the storey (core/FacadeUv.h), so the
- * rhythm below is one function for the whole town and every building's own storey height and bay
- * width are already in the geometry. */
-fn facade(uv : vec2f, nrm : vec3f, upv : vec3f, view : vec3f, loc : vec3f) -> Skin {
-  let style = i32(floor(uv.x / kUseStride));
-  let bayx = uv.x - kUseStride * f32(style);
+/* THE WALL. uv.x carries the style and the bay coordinate, uv.y the identity and the storey
+ * (core/FacadeUv.h), so the rhythm below is one function for the whole town and every building's own
+ * storey height, bay width and colour are already in the geometry it was written from. */
+fn facade(uv : vec2f, nrm : vec3f, upv : vec3f, view : vec3f, sun : vec3f, loc : vec3f) -> Skin {
+  let code = i32(floor(uv.x / kBayCeil));
+  let bayx = uv.x - kBayCeil * f32(code);
+  let style = code % kStyleCount;
+  let stand = code / kStyleCount;
+  let ident = i32(floor(uv.y / kStoreyCeil));
+  let storey = uv.y - kStoreyCeil * f32(ident) - 1.0;
 
   var s : Skin;
   s.nrm = nrm;
   s.mirror = 0.0;
   s.ao = 1.0;
+  s.sun = 1.0;
 
   let bit = normalize(upv - nrm * dot(nrm, upv));
   let tan = normalize(cross(bit, nrm));
   let vn = max(dot(view, nrm), 1.0e-3);
   let sx = -(dot(view, tan) / vn) / kBayNominalM;
   let sy = -(dot(view, bit) / vn) / kFloorNominalM;
-  let cell = vec2f(fract(bayx), fract(uv.y));
+  let sn = max(dot(sun, nrm), 1.0e-3);
+  let lx = -(dot(sun, tan) / sn) / kBayNominalM;
+  let ly = -(dot(sun, bit) / sn) / kFloorNominalM;
+  let cell = vec2f(fract(bayx), fract(storey));
 
   /* WHICH OPENING THIS ONE IS. dot(nrm, loc) is the plane of this face, exactly constant over the
    * whole of it, so two buildings with the same rhythm still get different windows and no boundary
    * can ever run THROUGH one — which a grid on the fragment's own position does. */
   let plane = round(dot(nrm, loc) * 0.5) + round(dot(nrm, vec3f(31.7, 17.3, 7.1)) * 4.0);
-  let id = vec3f(floor(bayx), floor(uv.y), plane);
-  let r = hash13(id);
+  let id = vec3f(floor(bayx), floor(storey), plane + f32(ident) * 0.37);
   let r2 = hash13(id + vec3f(7.7, 3.1, 5.3));
-  let ground = uv.y < 1.0 && uv.y >= 0.0;
+  let ground = storey < 1.0 && storey >= 0.0;
 
   var h : Hole;
   h.blind = smoothstep(0.55, 0.95, r2);
@@ -193,31 +237,35 @@ fn facade(uv : vec2f, nrm : vec3f, upv : vec3f, view : vec3f, loc : vec3f) -> Sk
   }
   if (style == kOutbuilding) { h.x0 = 0.38; h.x1 = 0.62; h.y0 = 0.42; h.y1 = 0.70; }
   if (ground) {
-    if (style == kBlock || style == kTerrace || style == kTower) {
-      /* A town-centre ground floor is a shopfront: it opens wider and comes nearly to the pavement,
-       * and one bay in five is the entrance instead. */
+    /* A SHOPFRONT IS A FRONT. It used to be given to every wall of a class, so the back of a block
+     * opened onto its yard as widely as its street elevation did; the standing comes off the wall
+     * that was measured against the nearest carriageway. */
+    if (stand >= kFront && (style == kBlock || style == kTerrace || style == kTower)) {
       h.x0 = 0.14; h.x1 = 0.86; h.y0 = 0.14; h.y1 = 0.78;
       h.blind = h.blind * 0.4;
     } else if (style != kHall && style != kSpire) {
       h.y0 = 0.30; h.y1 = 0.76;
     }
-    if (r > 0.78 && style != kSpire) {
+    /* THE DOOR IS THE ENTRANCE BAY, and it is one bay wide because the mesher cut it out of the
+     * face. A hash over the rhythm put it on whichever wall the numbers fell on, including the one
+     * facing the back garden. */
+    if (stand == kEntrance) {
       h.x0 = 0.36; h.x1 = 0.64; h.y0 = 0.02; h.y1 = 0.70; h.door = 1.0;
     }
   }
   /* The opening is tested before the render is mixed: a pane, a frame and a reveal use none of the
    * wall's noise, and a facade is about a third openings. */
-  if (opening(cell, h, sx, sy, tan, bit, nrm, &s)) { return s; }
+  if (opening(cell, h, sx, sy, lx, ly, tan, bit, nrm, &s)) { return s; }
 
-  /* Render is mixed on site out of local sand, so a street is one family of colours and not one
-   * colour: value spreads about a third either way, and the hue runs with it because the pigment
-   * that darkens it is the same iron that makes it ochre. */
+  /* Render is mixed on site out of local sand, and WHICH mix a house got is the house's own choice:
+   * value spreads about a third either way, and the hue runs with it because the pigment that
+   * darkens it is the same iron that makes it ochre. */
   let grain = vnoise(loc * 14.0);
-  let tint = vnoise(loc * 0.048 + vec3f(11.3, 4.1, 7.7));
+  let weather = vnoise(loc * 0.9 + vec3f(2.7, 5.1, 1.3));
+  let tint = identOf(ident, 1.0);
   let hue = tint * tint;
   /* A block or a tower is panel and concrete, greyer and flatter than a rendered house; an
-   * outbuilding is unrendered masonry. The style is the only per-building fact the wall has, and
-   * without it a street of six classes comes out one colour. */
+   * outbuilding is unrendered masonry. */
   var base = kRender;
   if (style == kBlock || style == kTower) { base = kRender * vec3f(0.86, 0.88, 0.92); }
   if (style == kHall) { base = kRender * vec3f(0.78, 0.80, 0.83); }
@@ -225,12 +273,7 @@ fn facade(uv : vec2f, nrm : vec3f, upv : vec3f, view : vec3f, loc : vec3f) -> Sk
   var wall = base * (0.58 + 0.80 * tint);
   wall = vec3f(wall.r * (0.90 + 0.26 * hue), wall.g * (0.97 + 0.04 * hue),
                wall.b * (1.10 - 0.32 * hue));
-  s.alb = wall * (0.93 + 0.14 * grain);
-
-  /* The base course: stone against the splash off the pavement, and darker because it is wet more
-   * often than the wall over it. */
-  let plinth = 1.0 - smoothstep(0.16, 0.21, uv.y);
-  s.alb = mix(s.alb, kStone * (0.62 + 0.20 * grain), plinth);
+  s.alb = wall * (0.93 + 0.14 * grain) * (0.94 + 0.12 * weather);
 
   /* The sill under the opening, as relief and not as a line: it is stone, it stands proud of the
    * wall, and what makes it visible is that its top faces the sky and the wall does not. */
@@ -243,12 +286,14 @@ fn facade(uv : vec2f, nrm : vec3f, upv : vec3f, view : vec3f, loc : vec3f) -> Sk
   return s;
 }
 
-fn roofSkin(kind : i32, nrm : vec3f, upv : vec3f, loc : vec3f) -> Skin {
+fn roofSkin(kind : i32, ident : i32, nrm : vec3f, upv : vec3f, loc : vec3f) -> Skin {
   var s : Skin;
   s.nrm = nrm;
   s.mirror = 0.0;
   s.ao = 1.0;
+  s.sun = 1.0;
   let grain = vnoise(loc * 9.0);
+  let batch = identOf(ident, 5.0);   /* one roof is one firing, and the firing is the building's */
   if (kind == kRoofPitch) {
     /* Pantile coursing, 0.33 m to the course, read up the slope of the very plane being shaded — so
      * a hip and a gable course in their own directions with no second parameter. */
@@ -258,7 +303,13 @@ fn roofSkin(kind : i32, nrm : vec3f, upv : vec3f, loc : vec3f) -> Skin {
     let course = abs(fract(up / 0.33) - 0.5) * 2.0;
     let roll = abs(fract(across / 0.24) - 0.5) * 2.0;
     let relief = 0.86 + 0.20 * course * course + 0.10 * roll;
-    s.alb = kPantile * (0.72 + 0.56 * grain2(loc)) * relief * (0.93 + 0.14 * grain);
+    /* WHICH ROOF THIS IS, and it is the building's draw and not the place's: a clay pantile street
+     * with one slate roof in it is a German town, a street of one clay is a rendering of one. */
+    let draw = identOf(ident, 7.0);
+    var cover = kPantile;
+    if (draw > 0.78) { cover = kSlate; }
+    else if (draw > 0.58) { cover = kConcreteTile; }
+    s.alb = cover * (0.72 + 0.56 * batch) * relief * (0.93 + 0.14 * grain);
     /* The lap between two courses is a step, so the normal tips over it rather than being shaded. */
     s.nrm = normalize(nrm + slope * (0.22 * (fract(up / 0.33) - 0.5)));
   } else if (kind == kRoofFlat) {
@@ -269,8 +320,29 @@ fn roofSkin(kind : i32, nrm : vec3f, upv : vec3f, loc : vec3f) -> Skin {
   } else if (kind == kLedge) {
     s.alb = kStone * (0.92 + 0.16 * grain);
   } else if (kind == kParapet) {
-    let tint = vnoise(loc * 0.048 + vec3f(11.3, 4.1, 7.7));
-    s.alb = kRender * (0.58 + 0.80 * tint) * (0.93 + 0.14 * grain);
+    s.alb = kRender * (0.58 + 0.80 * identOf(ident, 1.0)) * (0.93 + 0.14 * grain);
+  } else if (kind == kPlinth) {
+    /* THE BASE COURSE, and it is stone rather than render because splash off the pavement destroys
+     * lime. Darker than the wall over it because it is wet more often, and coursed, so the relief
+     * the geometry gives it is read by a joint the shading agrees with. */
+    let joint = abs(fract(dot(loc, upv) / 0.28) - 0.5) * 2.0;
+    s.alb = kStone * (0.52 + 0.22 * identOf(ident, 1.0)) * (0.88 + 0.20 * grain) *
+            (0.86 + 0.20 * joint);
+  } else if (kind == kKerb) {
+    /* A kerb stone is 1 m long and its joints are what say so at a distance where the upstand has
+     * already collapsed to a line. */
+    let joint = abs(fract(dot(loc, normalize(cross(upv, nrm))) / 1.0) - 0.5) * 2.0;
+    s.alb = kKerbStone * (0.90 + 0.16 * grain) * (0.90 + 0.16 * joint);
+  } else if (kind == kPavement) {
+    /* Concrete flags, 0.30 m square, laid across the footway. The band is bounded by the building
+     * line and the kerb, so its width is where the house stands and not a number. */
+    let e = dot(loc, normalize(cross(upv, vec3f(0.577, 0.577, 0.577))));
+    let n = dot(loc, normalize(cross(upv, normalize(cross(upv, vec3f(0.577, 0.577, 0.577))))));
+    let jx = abs(fract(e / 0.30) - 0.5) * 2.0;
+    let jy = abs(fract(n / 0.30) - 0.5) * 2.0;
+    let joint = max(jx, jy);
+    s.alb = kFlag * (0.88 + 0.22 * vnoise(loc * 2.7)) * (0.90 + 0.16 * joint) *
+            (0.94 + 0.12 * grain);
   } else if (kind == kTrim) {
     let course = abs(fract(dot(loc, upv) / 0.075) - 0.5) * 2.0;
     s.alb = kBrick * (0.82 + 0.28 * grain) * (0.90 + 0.18 * course);
@@ -287,13 +359,14 @@ struct BFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
   let nrmB = normalize(in.nrm);
   let upB = normalize(b.up.xyz);
   let view = normalize(-rel);
-  let kind = select(0, i32(round(-in.uvb.x)), in.uvb.x < 0.0);
-  var s : Skin;
-  if (kind == 0) { s = facade(in.uvb, nrmB, upB, view, in.loc); }
-  else { s = roofSkin(kind, nrmB, upB, in.loc); }
-
   let sunB = normalize(b.sun.xyz);
-  let sunVis = csmSunVis(shMap, shSamp, C, rel, nrmB, sunB);
+  let face = i32(round(-in.uvb.x));
+  let kind = select(0, face % kFacadeStride, in.uvb.x < 0.0);
+  var s : Skin;
+  if (in.uvb.x >= 0.0) { s = facade(in.uvb, nrmB, upB, view, sunB, in.loc); }
+  else { s = roofSkin(kind, face / kFacadeStride, nrmB, upB, in.loc); }
+
+  let sunVis = csmSunVis(shMap, shSamp, C, rel, nrmB, sunB) * s.sun;
   var o : BFrag;
   var col = litRadiance(I, s.alb * s.ao, 1.0, s.nrm, upB, sunB, sunVis, 1.0, 1.0, b.up.w);
   /* GLASS IS A MIRROR BEFORE IT IS A SURFACE. Schlick against the pane's own normal: at normal

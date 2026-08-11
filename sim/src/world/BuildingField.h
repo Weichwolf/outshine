@@ -38,6 +38,7 @@ public:
     float HeightM = 0.0f;
     float BaseM = 0.0f;                        /* lowest terrain under the ring, ASL */
     HeightSource Source = HeightSource::Default;
+    Frontage Street;                           /* the nearest carriageway, or none */
   };
 
   /* WHO TURNS AN OUTLINE INTO TRIANGLES. Installed once, before anything streams; without one this
@@ -45,7 +46,9 @@ public:
    * renderer wants. */
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
-  /* Raises whatever `field` has decoded and this has not seen yet. Returns the number of footprints
+  /* Raises whatever `field` has decoded and this has not seen yet. `ways` are the made surfaces of
+   * the neighbourhood, as values: a footprint's frontage is the nearest of them, and a wall that
+   * carries a door has to know which one it is. Returns the number of footprints
    * standing; 0 while the tiles are still streaming.
    *
    * AT MOST ONE TILE PER CALL, because everything downstream of a decoded tile — extrusion and the
@@ -54,7 +57,7 @@ public:
    * not on the field's schedule, so a field that later runs ahead cannot undo it.
    *
    * DEFERRAL IS PER TILE (world/TileWatermark.h). */
-  int Build(const OsmField &field);
+  int Build(const OsmField &field, Span<const WayLine> ways);
 
   /* The vertex range `Verts_` grew by in the last Build that consumed something, as float indices.
    * Count 0 = nothing new, and the caller's derived data is still current. */
@@ -83,7 +86,8 @@ public:
 private:
   /* A ring's lowest corner, carrying WHY when there is none — the ground's own answer, not a copy of
    * its shape: two records with the same three fields drift apart the moment one of them is read. */
-  static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring);
+  static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring,
+                               std::vector<double> *corners);
   bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);
 
@@ -93,9 +97,11 @@ private:
   TileRanges ByTile_;
   TileWatermark Mark_;
   uint32_t AddedFirst_ = 0, AddedCount_ = 0;
+  /* Reused across footprints, so a town does not allocate per ring (`F.20`, hot loop). */
+  std::vector<double> Corners_;
   double Anchor_[3] = {0, 0, 0};
   bool HaveAnchor_ = false;
-  int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0;
+  int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
 };
 
 } // namespace outshine::World

@@ -250,7 +250,12 @@ private:
   ClassField Cls_;
   BuildingField Buildings_;
   WaterField Water_;
+  void CutKerbs();
+
   StreetField Streets_;
+  /* THE MADE SURFACES AS VALUES, rebuilt each pass out of Streets_ so the field that raises a
+   * footprint can find the street in front of it without naming the peer that ingested it. */
+  std::vector<WayLine> Kerbs_;
   std::vector<float> WaterVerts;
   uint64_t WaterSeq_ = 0;
   bool WaterDirty_ = false;

@@ -41,6 +41,9 @@ const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.j
 /* One and a half 60 Hz periods: past this the compositor has skipped at least one vsync. */
 constexpr double kLateMs = 25.0;
 constexpr double kLogEveryMs = 2000.0;
+/* The cadence an interactive session's log leaves the client on. Five seconds is a fifth of a
+ * request per frame at 60 Hz and it bounds how much evidence one closed tab can take with it. */
+constexpr double kSinkEveryMs = 5000.0;
 /* [SET] What the collector may still owe when a run has nothing left to do. The same bound the
  * products get (SceneRunner.cpp), because they travel the same wire. */
 constexpr double kDrainWaitMs = 20000.0;
@@ -59,7 +62,7 @@ std::unique_ptr<Clients::SceneRunner> gRunner;
 int gRc = -1;
 double gDrainFromMs = 0.0;
 
-double gPrevMs = 0.0, gLastLogMs = 0.0, gLastCpuMs = 0.0, gLastEncodeMs = 0.0;
+double gPrevMs = 0.0, gLastLogMs = 0.0, gLastSinkMs = 0.0, gLastCpuMs = 0.0, gLastEncodeMs = 0.0;
 bool gLocked = false;          /* pointer lock; without it the mouse does not turn the head */
 /* L is deferred to the END of the frame it was pressed in, because the picture the canvas holds is
  * the one this frame just drew and the browser hands it back only while that task is still running. */
@@ -71,6 +74,8 @@ Clients::Outshine::Stance DeclaredStance(void) {
 }
 
 bool OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
+  Log::Debug("walk", "key", {{"code", std::string(e->code)}, {"key", std::string(e->key)},
+      {"down", type == EMSCRIPTEN_EVENT_KEYDOWN}, {"repeat", (bool)e->repeat}});
   if (e->ctrlKey || e->metaKey || e->altKey) return false;   /* Ctrl+R is the browser's, not the walker's */
   const bool down = (type == EMSCRIPTEN_EVENT_KEYDOWN);
   gWalker.SetFast(e->shiftKey);
@@ -95,8 +100,23 @@ bool OnMouseMove(int, const EmscriptenMouseEvent *e, void *) {
   return true;
 }
 
+/* THE REQUEST HAS AN ANSWER AND IT IS NOT ALWAYS YES: deferred, unsupported, refused outside a user
+ * gesture, unknown target. Dropping it left "the mouse does not turn the head" with no reason
+ * anywhere, which is the same silence a registration nobody checks leaves behind. */
 bool OnClick(int, const EmscriptenMouseEvent *, void *) {
-  if (!gLocked) emscripten_request_pointerlock(kCanvas, true);
+  if (gLocked) return true;
+  const EMSCRIPTEN_RESULT r = emscripten_request_pointerlock(kCanvas, true);
+  if (r != EMSCRIPTEN_RESULT_SUCCESS)
+    Log::Error("walk", "pointerlock_refused", {{"result", (int)r}, {"target", std::string(kCanvas)}});
+  return true;
+}
+
+/* THE REFUSAL ARRIVES AFTER THE REQUEST SUCCEEDED. `emscripten_request_pointerlock` answers whether
+ * the CALL was well formed; whether the engine grants the lock is a separate DOM event, and without
+ * this one a browser that declines leaves "the mouse does not turn the head" with no reason on
+ * record anywhere. */
+bool OnLockError(int, const void *, void *) {
+  Log::Error("walk", "pointerlock_denied", {{"target", std::string(kCanvas)}});
   return true;
 }
 
@@ -192,6 +212,14 @@ void Frame(void) {
     gShotPending = false;
     PostShot();
   }
+  /* AN INTERACTIVE SESSION HAS NO END, so a batch that only goes out at a byte threshold or at the
+   * end of a run never goes out at all: 28 browser walks left telemetry on the host and not one log
+   * line, which is why nothing about them could be diagnosed. The post is asynchronous, so the frame
+   * pays for the copy and not for the wire. */
+  if (now - gLastSinkMs > kSinkEveryMs) {
+    gLastSinkMs = now;
+    gLog->Flush();
+  }
   if (now - gLastLogMs > kLogEveryMs) {
     gLastLogMs = now;
     Log::Info("walk", "frame", {{"draws", c.Draws}, {"triangles", (double)c.Triangles},
@@ -203,15 +231,38 @@ void Frame(void) {
   }
 }
 
+/* A REGISTRATION THAT CANNOT FAIL LOUDLY is the defect class this tree keeps paying for: the call
+ * hands back a code, nobody reads it, and the picture comes up with no input and no reason. */
+EMSCRIPTEN_RESULT Bound(const char *event, EMSCRIPTEN_RESULT r) {
+  if (r != EMSCRIPTEN_RESULT_SUCCESS)
+    Log::Error("walk", "input_unbound", {{"event", std::string(event)}, {"result", (int)r}});
+  return r;
+}
+
 void BindInput(void) {
   /* Keys on the WINDOW, pointer on the CANVAS: WASD must work before the first click, while a turn
    * may only follow a pointer the canvas actually owns. */
-  emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, OnKey);
-  emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true, OnKey);
-  emscripten_set_click_callback(kCanvas, nullptr, false, OnClick);
-  emscripten_set_mousemove_callback(kCanvas, nullptr, false, OnMouseMove);
-  emscripten_set_pointerlockchange_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr, false,
-                                            OnLockChange);
+  const EMSCRIPTEN_RESULT down =
+      Bound("keydown", emscripten_set_keydown_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr,
+                                                       true, OnKey));
+  const EMSCRIPTEN_RESULT up =
+      Bound("keyup", emscripten_set_keyup_callback(EMSCRIPTEN_EVENT_TARGET_WINDOW, nullptr, true,
+                                                   OnKey));
+  const EMSCRIPTEN_RESULT click =
+      Bound("click", emscripten_set_click_callback(kCanvas, nullptr, false, OnClick));
+  const EMSCRIPTEN_RESULT move =
+      Bound("mousemove", emscripten_set_mousemove_callback(kCanvas, nullptr, false, OnMouseMove));
+  const EMSCRIPTEN_RESULT lock =
+      Bound("pointerlockchange",
+            emscripten_set_pointerlockchange_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr,
+                                                      false, OnLockChange));
+  const EMSCRIPTEN_RESULT denied =
+      Bound("pointerlockerror",
+            emscripten_set_pointerlockerror_callback(EMSCRIPTEN_EVENT_TARGET_DOCUMENT, nullptr,
+                                                     false, OnLockError));
+  Log::Info("walk", "input_bound", {{"canvas", std::string(kCanvas)}, {"keydown", (int)down},
+      {"keyup", (int)up}, {"click", (int)click}, {"mousemove", (int)move}, {"lock", (int)lock},
+      {"lockError", (int)denied}});
 }
 
 /* THE PAGE IS THE ENVIRONMENT here, exactly as getenv is natively (Env.h): which mod, which scene,

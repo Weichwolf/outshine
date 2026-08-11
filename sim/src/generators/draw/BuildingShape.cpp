@@ -2,8 +2,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <optional>
 
+#include "FacadeUv.h"
 #include "Geodesy.h"
+#include "RoofSurface.h"
 
 namespace outshine::Generators {
 
@@ -12,6 +15,9 @@ namespace {
 /* Two corners closer than this are the same corner: the source quantises to a tile grid, and a
  * zero-length edge would give the wall an undefined normal and the box an undefined axis. */
 constexpr double kSameCornerM = 0.20;
+/* A cut runs through vertices, so a vertex within this of the line counts as ON it rather than as a
+ * crossing — otherwise the reflex corner a cut is taken from crosses its own line twice. */
+constexpr double kOnCutM = 0.02;
 
 /* [SET] German small-town floor-to-floor by class, metres. Residential lands on 2.75-3.00 measured
  * over storey heights in the Fachwerk quarters; an office block sits higher because of its services,
@@ -27,6 +33,24 @@ constexpr double kPitchHouseDeg = 42.0;
 constexpr double kPitchOutbuildingDeg = 22.0;
 constexpr double kPitchHallDeg = 6.0;
 constexpr double kPitchSpireDeg = 62.0;
+
+/* [SET] the width of a burgher's plot in a German Altstadt, metres. Hameln's Osterstrasse is set out
+ * on 6-11 m frontages because that is what a plot paid tax on; a single OSM outline spanning a whole
+ * side of a street is a row of them that nobody drew separately. */
+constexpr double kPlotM = 8.5;
+constexpr int kMaxParts = 9;
+/* A piece smaller than this is a bay window, not a building, and cutting one off costs a party wall
+ * for nothing. */
+constexpr double kLeastPieceM2 = 16.0;
+constexpr double kLeastPieceFrac = 0.16;
+/* [SET] the upper storey stands back this far where the plan is deep enough to carry a terrace. */
+constexpr double kSetbackM = 2.4;
+/* [SET] a flat roof's parapet: 0.90 m is the German fall-protection minimum for a roof that is
+ * walked on. It is the structure's TOP and is therefore taken OUT of the resolved height rather than
+ * added on top of it — the drawn silhouette used to stand 0.90 m above the number the point query
+ * answers for the same building. A plan too narrow to walk on gets none. */
+constexpr double kParapetM = 0.90;
+constexpr double kParapetLeastHalfVm = 2.2;
 
 uint32_t Mix(uint32_t x) {
   x ^= x >> 16;
@@ -76,9 +100,119 @@ double SignedArea(const std::vector<Plan2> &ring) {
   return 0.5 * a;
 }
 
-/* Rotating calipers over the edges: a minimum-area rectangle has a side flush with an edge of the
- * convex hull, and at these vertex counts testing every edge of the ring itself costs less than
- * building the hull first and never returns a larger box than the hull test would. */
+/* One piece of a footprint on its way to becoming a mass: the ring, and which of its edges it does
+ * not own alone. */
+struct Piece {
+  std::vector<Plan2> P;
+  std::vector<uint8_t> Party;
+};
+
+Piece WholeOf(const std::vector<Plan2> &ring) {
+  Piece p;
+  p.P = ring;
+  p.Party.assign(ring.size(), 0u);
+  return p;
+}
+
+double SideOf(const Plan2 &at, const Plan2 &normal, const Plan2 &p) {
+  return (p.E - at.E) * normal.E + (p.N - at.N) * normal.N;
+}
+
+/* A CUT ALONG A BOUNDARY EDGE LEAVES A SPUR: the edge lies ON the line, so both halves keep it and
+ * the half it does not belong to closes over a run of zero width. The area is right and everything
+ * measured off the RING is not — an L cut at its own notch came back with fill 0.48 and took a flat
+ * roof for it. A vertex whose two edges double back on each other is that spur and nothing else. */
+void DropSpurs(Piece *p) {
+  bool again = true;
+  while (again && p->P.size() > 3) {
+    again = false;
+    for (size_t i = 0; i < p->P.size(); i++) {
+      const size_t n = p->P.size();
+      const Plan2 &a = p->P[(i + n - 1) % n], &b = p->P[i], &c = p->P[(i + 1) % n];
+      const double e1 = b.E - a.E, n1 = b.N - a.N, e2 = c.E - b.E, n2 = c.N - b.N;
+      const double area2 = std::fabs(e1 * n2 - e2 * n1);
+      if (area2 > kOnCutM * std::max(1.0, std::hypot(e1, n1) + std::hypot(e2, n2))) continue;
+      if (e1 * e2 + n1 * n2 >= 0.0) continue;   /* straight through is a corner, not a spur */
+      p->P.erase(p->P.begin() + (long)i);
+      p->Party.erase(p->Party.begin() + (long)i);
+      again = true;
+      break;
+    }
+  }
+}
+
+/* CUT A RING BY A LINE, but only where the line crosses it EXACTLY TWICE. A third crossing means the
+ * line leaves the plan and comes back — a U-shape cut across its arms — and each half would then be
+ * several pieces joined by a channel of no width, which raises walls that enclose nothing. Two
+ * crossings is decidable from the sign sequence alone, which is why it is the condition and not a
+ * tolerance on the result. */
+bool CutPiece(const Piece &in, const Plan2 &at, const Plan2 &normal, Piece *back, Piece *front,
+              double *cutLenM) {
+  const size_t n = in.P.size();
+  if (n < 3) return false;
+  std::vector<double> s(n);
+  std::vector<int> sg(n);
+  for (size_t i = 0; i < n; i++) {
+    s[i] = SideOf(at, normal, in.P[i]);
+    sg[i] = s[i] > kOnCutM ? 1 : (s[i] < -kOnCutM ? -1 : 0);
+  }
+  int last = 0;
+  for (size_t i = 0; i < n; i++)
+    if (sg[i] != 0) last = sg[i];
+  if (last == 0) return false;
+  int crossings = 0, cur = last;
+  for (size_t i = 0; i < n; i++) {
+    if (sg[i] == 0) continue;
+    if (sg[i] != cur) crossings++;
+    cur = sg[i];
+  }
+  if (crossings != 2) return false;
+
+  const auto build = [&](Piece *out, int side) {
+    out->P.clear();
+    out->Party.clear();
+    for (size_t i = 0; i < n; i++) {
+      const size_t j = (i + 1) % n;
+      const int si = sg[i] * side, sj = sg[j] * side;
+      if (si >= 0) {
+        out->P.push_back(in.P[i]);
+        out->Party.push_back(si == 0 && sj < 0 ? 1u : in.Party[i]);
+      }
+      if (si * sj >= 0) continue;
+      const double f = s[i] / (s[i] - s[j]);
+      out->P.push_back({in.P[i].E + (in.P[j].E - in.P[i].E) * f,
+                        in.P[i].N + (in.P[j].N - in.P[i].N) * f});
+      out->Party.push_back(si > 0 ? 1u : in.Party[i]);
+    }
+  };
+  build(front, 1);
+  build(back, -1);
+  DropSpurs(front);
+  DropSpurs(back);
+  if (front->P.size() < 3 || back->P.size() < 3) return false;
+
+  double t0 = 1.0e30, t1 = -1.0e30;
+  for (const Plan2 &p : front->P) {
+    if (std::fabs(SideOf(at, normal, p)) > kOnCutM) continue;
+    const double t = (p.E - at.E) * -normal.N + (p.N - at.N) * normal.E;
+    t0 = std::min(t0, t);
+    t1 = std::max(t1, t);
+  }
+  *cutLenM = t1 > t0 ? t1 - t0 : 0.0;
+  return true;
+}
+
+bool BothWorthIt(const Piece &a, const Piece &b, double wholeM2) {
+  const double least = std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2);
+  return std::fabs(SignedArea(a.P)) >= least && std::fabs(SignedArea(b.P)) >= least;
+}
+
+/* Rotating calipers over the edges. A minimum-area rectangle is flush with an edge of the CONVEX
+ * HULL (Freeman & Shapira 1975), and a hull edge of a concave ring need not be a ring edge — so
+ * searching the ring's own edges can return a larger box, and over random concave polygons it often
+ * does. It does not on THIS data: a building plan is rectilinear, and on L, T, U and notched bars at
+ * arbitrary bearings every hull edge is a ring edge. The hull is skipped because it buys nothing
+ * here, not because the search is equivalent in general. */
 void MinAreaBox(const std::vector<Plan2> &ring, BuildingShape *out) {
   double best = 1.0e30;
   for (size_t i = 0, n = ring.size(); i < n; i++) {
@@ -127,7 +261,7 @@ bool ReadsAsRound(const BuildingShape &s) {
 
 /* THE OUTLINE DECIDES, and where it cannot the box does. A pitched roof is trimmed to the outline,
  * so a low fill costs no overhang — what it costs is a ridge running across a plan that has two
- * wings, and that is what the threshold refuses. */
+ * wings, which is why a plan that low was cut into wings before it got here. */
 RoofKind RoofOf(const BuildingShape &s, double aspect) {
   if (ReadsAsRound(s)) return RoofKind::Dome;
   const bool pitchable = s.Fill >= 0.74;
@@ -204,7 +338,7 @@ void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
                               : s->HalfUm;
   double rise = 0.0;
   switch (s->Roof) {
-    case RoofKind::Flat:     rise = 0.0; break;
+    case RoofKind::Flat:     rise = s->HalfVm > kParapetLeastHalfVm ? kParapetM : 0.0; break;
     case RoofKind::Shed:     rise = 2.0 * s->HalfVm * std::tan(pitchDeg * kDeg2Rad); break;
     case RoofKind::Sawtooth: rise = 0.30 * s->PeriodM; break;
     case RoofKind::Dome:     rise = 0.85 * s->HalfVm; break;
@@ -216,7 +350,8 @@ void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
    * a deep plan puts a 5 m roof on a 3 m wall, which is a barn and not a town house; the wall keeps
    * the majority and the pitch gives way. A spire is the exception it is named for. */
   const double roofShare = s->Use == BuildingUse::Spire ? 0.72 : 0.45;
-  s->RiseM = std::min({rise, roofShare * topM, 11.0});
+  s->RiseM = s->Roof == RoofKind::Flat ? std::min(rise, 0.30 * topM)
+                                       : std::min({rise, roofShare * topM, 11.0});
   s->EavesM = std::max(topM - s->RiseM, 2.40);
   s->RiseM = std::max(topM - s->EavesM, 0.0);
 
@@ -231,6 +366,152 @@ void SplitHeight(BuildingShape *s, double topM, double pitchDeg) {
   s->BreakRiseM = s->Roof == RoofKind::Mansard ? 0.78 * s->RiseM : 0.0;
 }
 
+/* Everything one piece has to be told that its own ring cannot say. */
+struct PartOrder {
+  double FootM = 0.0;
+  double TopOverFootM = 0.0;
+  uint32_t Seed = 0;
+  bool HeightMeasured = false;
+  std::optional<BuildingUse> Use;   /* empty: the piece's own plan decides */
+};
+
+BuildingShape Finish(Piece piece, const PartOrder &order) {
+  BuildingShape s;
+  if (piece.P.size() < 3) return s;
+  s.Ring = std::move(piece.P);
+  s.Party = std::move(piece.Party);
+  const double signed2 = SignedArea(s.Ring);
+  if (signed2 < 0.0) {
+    std::reverse(s.Ring.begin(), s.Ring.end());
+    /* Edge i of a reversed ring is edge n-1-i of the original: the flag belongs to the segment, not
+     * to the corner it starts at. */
+    std::reverse(s.Party.begin(), s.Party.end());
+    std::rotate(s.Party.begin(), s.Party.begin() + 1, s.Party.end());
+  }
+  s.AreaM2 = std::fabs(signed2);
+  MinAreaBox(s.Ring, &s);
+  if (s.HalfUm < 0.5 || s.HalfVm < 0.5) { s.Ring.clear(); return s; }
+  s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
+  s.Seed = order.Seed;
+  s.Ident = (int)(Mix(order.Seed ^ 0x5bd1e995u) % (uint32_t)kIdentCount);
+  s.FootM = order.FootM;
+
+  const double top = std::max(order.TopOverFootM, 2.6);
+  const double aspect = s.HalfUm / s.HalfVm;
+  s.Use = order.Use ? *order.Use : UseOf(s.AreaM2, aspect, top);
+  s.PeriodM = std::max(6.0, 2.0 * s.HalfUm / std::max(2.0, std::round(s.HalfUm / 6.0)));
+  s.Storeys = std::max(1, (int)std::lround(top / FloorPreferenceM(s.Use)));
+  s.Roof = RoofOf(s, aspect);
+  SplitHeight(&s, top, PitchDegOf(s.Use, s.Seed, order.HeightMeasured));
+
+  const double bay = BayPreferenceM(s.Use);
+  s.BayM = bay * (0.92 + 0.16 * UnitOf(s.Seed, 7));
+  /* An eaves overhang only exists where a roof falls; a parapet has none, and 0.4 m of nothing over
+   * a flat roof would read as a lip that is not there. */
+  const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
+  s.OverhangM = verged ? (s.Use == BuildingUse::Hall ? 0.25 : 0.42) : 0.0;
+  return s;
+}
+
+bool IsReflex(const std::vector<Plan2> &ring, size_t i) {
+  const size_t n = ring.size();
+  const Plan2 &a = ring[(i + n - 1) % n], &b = ring[i], &c = ring[(i + 1) % n];
+  return (b.E - a.E) * (c.N - b.N) - (c.E - b.E) * (b.N - a.N) < 0.0;
+}
+
+Plan2 UnitFrom(const Plan2 &a, const Plan2 &b) {
+  const double e = b.E - a.E, n = b.N - a.N, l = std::hypot(e, n);
+  return l < 1.0e-6 ? Plan2{1.0, 0.0} : Plan2{e / l, n / l};
+}
+
+/* THE STEP AT A RE-ENTRANT CORNER. An L is two rectangles and the line that separates them runs
+ * along one of the two edges that meet at the notch; taking the SHORTEST such cut is what picks the
+ * short arm of the L instead of slicing the long one in half. */
+bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
+  const std::vector<Plan2> &ring = whole.P;
+  const double wholeM2 = std::fabs(SignedArea(ring));
+  double bestLen = 1.0e30;
+  bool found = false;
+  Piece a, b;
+  for (size_t i = 0; i < ring.size(); i++) {
+    if (!IsReflex(ring, i)) continue;
+    const Plan2 dirs[2] = {UnitFrom(ring[(i + ring.size() - 1) % ring.size()], ring[i]),
+                           UnitFrom(ring[i], ring[(i + 1) % ring.size()])};
+    for (const Plan2 &dir : dirs) {
+      Piece lo, hi;
+      double len = 0.0;
+      if (!CutPiece(whole, ring[i], {dir.N, -dir.E}, &lo, &hi, &len)) continue;
+      if (len < 1.0 || len >= bestLen) continue;
+      if (!BothWorthIt(lo, hi, wholeM2)) continue;
+      a = lo;
+      b = hi;
+      bestLen = len;
+      found = true;
+    }
+  }
+  if (!found) return false;
+  const bool aIsMain = std::fabs(SignedArea(a.P)) >= std::fabs(SignedArea(b.P));
+  *main = aIsMain ? a : b;
+  *wing = aIsMain ? b : a;
+  return true;
+}
+
+/* A ROW: a bar long enough to be several plots is cut across its long axis at plot width, and each
+ * plot keeps the walls it shares. */
+int RowCut(const Piece &whole, const BuildingShape &box, Piece *out, int room) {
+  const double lengthM = 2.0 * box.HalfUm;
+  /* WHAT MAKES A BAR A ROW and not a building: it has to be long, straight-sided and several plots
+   * wide. Without all three, cutting turns a 26 m block into two 13 m ones that share a wall for no
+   * reason the outline gives. */
+  if (lengthM < 2.2 * kPlotM || box.HalfUm < 2.4 * box.HalfVm || box.Fill < 0.80) return 0;
+  const int want = std::min(room, (int)std::lround(lengthM / kPlotM));
+  if (want < 2) return 0;
+  const double step = lengthM / (double)want;
+  const double wholeM2 = std::fabs(SignedArea(whole.P));
+  Piece rest = whole;
+  int made = 0;
+  for (int k = 1; k < want; k++) {
+    const Plan2 at = box.FromBox(-box.HalfUm + step * (double)k, 0.0);
+    Piece plot, beyond;
+    double len = 0.0;
+    if (!CutPiece(rest, at, box.AxisU, &plot, &beyond, &len)) break;
+    if (std::fabs(SignedArea(plot.P)) < std::max(kLeastPieceM2, 0.4 * kPlotM * kPlotM)) break;
+    if (std::fabs(SignedArea(beyond.P)) < std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2 * 0.4))
+      break;
+    out[made++] = plot;
+    rest = beyond;
+  }
+  if (made == 0) return 0;
+  out[made++] = rest;
+  return made;
+}
+
+double DistanceToKerb(const Frontage &street, const Plan2 &p) {
+  return (p.E - street.KerbEm) * street.ToStreetE + (p.N - street.KerbNm) * street.ToStreetN;
+}
+
+/* WHICH WALL LOOKS AT THE STREET. The face has to point at the carriageway and stand back from the
+ * kerb by a pavement's worth and no more — a wall 40 m behind the one on the frontage is a back
+ * wall no matter which way it points. */
+void FaceTheStreet(BuildingShape *s, const Frontage &street) {
+  if (!street.Known || !s->OnGround()) return;
+  const size_t n = s->Ring.size();
+  double best = 0.35;
+  for (size_t i = 0; i < n; i++) {
+    if (s->Party[i]) continue;
+    const Plan2 &p = s->Ring[i], &q = s->Ring[(i + 1) % n];
+    const double e = q.E - p.E, nn = q.N - p.N, len = std::hypot(e, nn);
+    if (len < 2.2) continue;
+    const double outE = nn / len, outN = -e / len;
+    const double look = outE * street.ToStreetE + outN * street.ToStreetN;
+    if (look <= best) continue;
+    const double standBack = DistanceToKerb(street, {0.5 * (p.E + q.E), 0.5 * (p.N + q.N)});
+    if (standBack > -0.4 || standBack < -12.0) continue;
+    best = look;
+    s->FrontEdge = (int)i;
+  }
+}
+
 }  // namespace
 
 void BuildingShape::ToBox(const Plan2 &p, double *u, double *v) const {
@@ -243,33 +524,84 @@ Plan2 BuildingShape::FromBox(double u, double v) const {
   return {Centre.E + u * AxisU.E - v * AxisU.N, Centre.N + u * AxisU.N + v * AxisU.E};
 }
 
-BuildingShape Analyse(Span<const double> ringLatLon, double heightM, bool heightMeasured) {
-  BuildingShape s;
-  s.Ring = RingInMetres(ringLatLon);
-  if (s.Ring.size() < 3) return s;
+Massing MassOf(Span<const double> ringLatLon, double heightM, bool heightMeasured,
+               const Frontage &street) {
+  Massing out;
+  out.Outline = RingInMetres(ringLatLon);
+  if (out.Outline.size() < 3) { out.Outline.clear(); return out; }
+  if (SignedArea(out.Outline) < 0.0) std::reverse(out.Outline.begin(), out.Outline.end());
 
-  const double signed2 = SignedArea(s.Ring);
-  if (signed2 < 0.0) std::reverse(s.Ring.begin(), s.Ring.end());
-  s.AreaM2 = std::fabs(signed2);
-  MinAreaBox(s.Ring, &s);
-  if (s.HalfUm < 0.5 || s.HalfVm < 0.5) { s.Ring.clear(); return s; }
-  s.Fill = s.AreaM2 / (4.0 * s.HalfUm * s.HalfVm);
-  s.Seed = SeedOfPlace(ringLatLon[0], ringLatLon[1]);
+  const uint32_t seed = SeedOfPlace(ringLatLon[0], ringLatLon[1]);
+  const double topM = std::max(heightM, 2.6);
+  PartOrder whole;
+  whole.TopOverFootM = topM;
+  whole.Seed = seed;
+  whole.HeightMeasured = heightMeasured;
+  const BuildingShape one = Finish(WholeOf(out.Outline), whole);
+  if (!one.Valid()) { out.Outline.clear(); return out; }
 
-  const double aspect = s.HalfUm / s.HalfVm;
-  s.Use = UseOf(s.AreaM2, aspect, heightM);
-  s.PeriodM = std::max(6.0, 2.0 * s.HalfUm / std::max(2.0, std::round(s.HalfUm / 6.0)));
-  s.Storeys = std::max(1, (int)std::lround(heightM / FloorPreferenceM(s.Use)));
-  s.Roof = RoofOf(s, aspect);
-  SplitHeight(&s, std::max(heightM, 2.6), PitchDegOf(s.Use, s.Seed, heightMeasured));
+  Piece row[kMaxParts];
+  const int plots = RowCut(WholeOf(out.Outline), one, row, kMaxParts);
+  Piece main, wing;
+  const bool winged = plots == 0 && one.Fill < 0.94 && WingCut(WholeOf(out.Outline), &main, &wing);
 
-  const double bay = BayPreferenceM(s.Use);
-  s.BayM = bay * (0.92 + 0.16 * UnitOf(s.Seed, 7));
-  /* An eaves overhang only exists where a roof falls; a parapet has none, and 0.4 m of nothing over
-   * a flat roof would read as a lip that is not there. */
-  const bool verged = s.Roof != RoofKind::Flat && s.Roof != RoofKind::Dome;
-  s.OverhangM = verged ? (s.Use == BuildingUse::Hall ? 0.25 : 0.42) : 0.0;
-  return s;
+  if (plots > 1) {
+    for (int k = 0; k < plots; k++) {
+      PartOrder o = whole;
+      o.Seed = Mix(seed + 0x9e3779b9u * (uint32_t)(k + 1));
+      /* A row is a row of DIFFERENT houses: neighbours that share a wall and a street line but not
+       * an eaves line. The spread is one storey either way, which is what a German terrace does. */
+      o.TopOverFootM = topM * (0.84 + 0.32 * UnitOf(o.Seed, 11));
+      o.Use = one.Use == BuildingUse::Terrace || one.Use == BuildingUse::House
+                  ? std::optional<BuildingUse>(BuildingUse::Terrace)
+                  : std::optional<BuildingUse>();
+      BuildingShape part = Finish(row[k], o);
+      if (part.Valid()) out.Parts.push_back(std::move(part));
+    }
+  } else if (winged) {
+    PartOrder m = whole;
+    m.Seed = Mix(seed + 0x27220a95u);
+    BuildingShape mainPart = Finish(main, m);
+    PartOrder w = whole;
+    w.Seed = Mix(seed + 0x165667b1u);
+    /* The wing is the ancillary half — a rear extension, a workshop, a garage wing — and it is what
+     * turns a stepped plan into two masses instead of one prism with a notch in it. */
+    w.TopOverFootM = std::max(topM * (0.56 + 0.16 * UnitOf(w.Seed, 5)), 3.0);
+    BuildingShape wingPart = Finish(wing, w);
+    if (mainPart.Valid()) out.Parts.push_back(std::move(mainPart));
+    if (wingPart.Valid()) out.Parts.push_back(std::move(wingPart));
+  }
+
+  if (out.Parts.empty()) out.Parts.push_back(one);
+
+  /* THE SETBACK, and it is the same statement as the wing made vertically: where a plan is deep and
+   * tall, the top storey stands back and the roof of the storey below it becomes a terrace. */
+  std::vector<BuildingShape> stacked;
+  for (BuildingShape &s : out.Parts) {
+    const bool deep = std::min(s.HalfUm, s.HalfVm) >= 8.0 && s.Storeys >= 5 &&
+                      s.Roof == RoofKind::Flat;
+    std::vector<Plan2> inner = deep ? RoofSurface::Widened(s.Ring, -kSetbackM) : std::vector<Plan2>();
+    if (inner.size() < 3) { stacked.push_back(std::move(s)); continue; }
+    const double lower = s.EavesM - s.FloorM;
+    Piece cap;
+    cap.P = std::move(inner);
+    cap.Party.assign(cap.P.size(), 0u);
+    PartOrder o;
+    o.FootM = s.FootM + lower;
+    o.TopOverFootM = s.EavesM + s.RiseM - lower;
+    o.Seed = Mix(s.Seed + 0x3243f6a9u);
+    o.HeightMeasured = heightMeasured;
+    o.Use = s.Use;
+    BuildingShape top = Finish(std::move(cap), o);
+    BuildingShape base = s;
+    SplitHeight(&base, lower, 0.0);
+    stacked.push_back(std::move(base));
+    if (top.Valid()) stacked.push_back(std::move(top));
+  }
+  out.Parts.swap(stacked);
+
+  for (BuildingShape &s : out.Parts) FaceTheStreet(&s, street);
+  return out;
 }
 
 }  // namespace outshine::Generators
