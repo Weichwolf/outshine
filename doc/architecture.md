@@ -210,6 +210,12 @@ design time.
 its base price before doing anything: cost follows the pass, not the pixels. A further pass must beat
 that price before it exists.
 
+**And the base price is a number, derived.** A 1280×720 RGBA16F target is 7.37 MB; a pass that reads one
+full-screen result and writes another moves **14.75 MB**, which against ~60 GB/s is **0.246 ms of pure
+DRAM traffic at 100 % of theoretical bandwidth** — realistically **0.35–0.5 ms** at 50–70 % efficiency.
+Against a 16.67 ms frame that is **1.5–3 % of it for the privilege of existing**, before one ALU
+instruction. Derived, not measured on the device; the device probe is the missing tool.
+
 **Enforced by construction, not guarded:** a generator's material is a row of numbers with **no field
 that can switch a pipeline state** — no blend mode, no cull mode, no shader body, no attribute layout.
 A generator supplies no shader source, so a region crossing compiles nothing.

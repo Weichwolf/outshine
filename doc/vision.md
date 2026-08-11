@@ -65,12 +65,20 @@ The phone is the *budget*, not a fallback: A18 Pro has **~60 GB/s** of memory ba
 **176 GB/s**, so bandwidth — not compute — is the weak axis, and there is no pleasant surprise waiting
 at delivery.
 
+**Against the picture reference the trade is exact.** KCD asks 1600×900 at 30 = 43.2 Mpix/s; we ask
+1280×720 at 60 = **55.3 Mpix/s, 1.28×**. Compute per pixel comes out at **0.98 — parity**; bandwidth per
+pixel at **0.27**. We are asking for their per-pixel arithmetic on **roughly a quarter of their per-pixel
+bytes**, which is the same direction the texture-free rule already points: **analytic work is cheap for
+us, traffic is not.** The 0.27 is an upper bound on the deficit rather than a measurement — an A18 Pro is
+a tile-based deferred renderer with tile memory and a large system cache built to hide exactly that, and
+PS4's 176 GB/s is shared with its CPU.
+
 ## Two references, and they answer different questions
 
 | Reference | Answers | What is taken from it |
 |---|---|---|
 | **Days Gone, Horizon Forbidden West** | *what can this hardware carry?* | **the technique** — full field of view, **GPU-driven placement**, **lighting decoupled from geometry**. Not their look. They are the existence proof that the budget above is reachable, and Outshine does it from tile data alone |
-| **Kingdom Come: Deliverance** | *what should the **nature** look like?* | **the picture target for terrain, vegetation and light, and it is demonstrated rather than aspirational** — 1080p30 on a PS4's 1.84 TFLOP GPU, so A18-Pro-class at 720p60 is the same order of budget. Its landscape is **modelled on real Bohemian regions** in the same temperate central-European biome our acceptance places sit in, so it was built against the same kind of data situation we are. Its *built* world does not transfer: a Bohemian village is not modern infrastructure |
+| **Kingdom Come: Deliverance** | *what should the **nature** look like?* | **the picture target for terrain, vegetation and light.** Two corrections to why, both found by checking: it is **900p at a missed 30** on a base PS4, not 1080p30 — and its landscape is **not** data-derived but a hand-composed cut-and-paste of three real areas around Sázava, terrain painted in Sandbox, vegetation painted per sector. **The placement is authored; only the representation is copyable.** What survives, and it is enough: its vegetation is the same **temperate central-European** stack as our acceptance places, and its representation is procedural-friendly all the way down — trees generated in GrowFX and baked, grass as merged instances, distance as one runtime-merged billboard, terrain colour split by frequency with the high half explicitly greyscale. Its *built* world does not transfer: a Bohemian village is not modern infrastructure |
 | **GTA 5** | *what should the **built world** be, and what can one **do** in it?* | infrastructure and buildings — and the verbs: **walk, drive, fly**. With them the physics **construction**: a vehicle is a hull on wheels with suspension, tyre grip and a torque curve; a human is a capsule whose locomotion the animation leads |
 
 The technique ceiling is 2015-hardware-class rendering — what shipped in those titles, integrated
