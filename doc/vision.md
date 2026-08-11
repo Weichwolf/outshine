@@ -70,8 +70,8 @@ at delivery.
 | Reference | Answers | What is taken from it |
 |---|---|---|
 | **Days Gone, Horizon Forbidden West** | *what can this hardware carry?* | **the technique** — full field of view, **GPU-driven placement**, **lighting decoupled from geometry**. Not their look. They are the existence proof that the budget above is reachable, and Outshine does it from tile data alone |
-| **Kingdom Come: Deliverance** | *what should it look like?* | **the picture target, and it is demonstrated rather than aspirational** — it runs at 1080p30 on a PS4's 1.84 TFLOP GPU, so A18-Pro-class at 720p60 is the same order of budget. Its landscape is **modelled on real Bohemian regions**, so it is built against the same kind of data situation we are rather than against invention, and it is above all a **vegetation and terrain** picture, which is what we are building. Comparison is cheap and repeatable: there are thousands of screenshots |
-| **GTA 5** | *what should it play like?* | the physics **construction**: a vehicle is a hull on wheels with suspension, tyre grip and a torque curve; a human is a capsule whose locomotion the animation leads |
+| **Kingdom Come: Deliverance** | *what should the **nature** look like?* | **the picture target for terrain, vegetation and light, and it is demonstrated rather than aspirational** — 1080p30 on a PS4's 1.84 TFLOP GPU, so A18-Pro-class at 720p60 is the same order of budget. Its landscape is **modelled on real Bohemian regions** in the same temperate central-European biome our acceptance places sit in, so it was built against the same kind of data situation we are. Its *built* world does not transfer: a Bohemian village is not modern infrastructure |
+| **GTA 5** | *what should the **built world** be, and what can one **do** in it?* | infrastructure and buildings — and the verbs: **walk, drive, fly**. With them the physics **construction**: a vehicle is a hull on wheels with suspension, tyre grip and a torque curve; a human is a capsule whose locomotion the animation leads |
 
 The technique ceiling is 2015-hardware-class rendering — what shipped in those titles, integrated
 rather than researched.
@@ -168,6 +168,18 @@ takes a force, a contact type with no field to put an identity in, ownership tha
 unspellable rather than merely wrong. **These stand before the first brain is connected, not after**, and
 whatever spawns and steps a body has to earn them.
 
+## The setting: post-scarcity, and it is why both references are needed
+
+**A future after scarcity — modern infrastructure and lush nature**, and neither reference carries both.
+KCD has the nature and a medieval village; GTA 5 has the infrastructure and a thin, ornamental green. The
+setting takes one half from each, which is the whole reason there are two.
+
+**"Lush" is load-bearing, not atmosphere.** It sets the vegetation density, the layering and the ground
+cover as the target rather than a sparse plausible scatter — and it is exactly where the open list sits:
+crowns that are not tree-shaped, a near crown that reads as flakes rather than one mass, and no
+undergrowth at all. A post-scarcity world is one where nature was *let back in*, so the green is the
+subject and not the backdrop.
+
 ## Epoch and decay — discrete, and a selection
 
 **Three epochs × three decay steps. A selection, not a blend.** That retires the interpolation question
@@ -187,7 +199,7 @@ mod had its own location, every difference could be blamed on the location inste
 
 | Mod | Epoch | The real anchor, all on the same river |
 |---|---|---|
-| 1 | pre-industrial (KCD's own epoch) | Hameln's Weser-Renaissance old town on its medieval street plan |
+| 1 | pre-industrial | Hameln's Weser-Renaissance old town on its medieval street plan |
 | 2 | present | the same town, OSM raw, no filter |
 | 3 | decay | **Grohnde nuclear power station**, 8 km upstream, real and shut down |
 
