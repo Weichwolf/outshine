@@ -2,13 +2,31 @@
 
 | | |
 |---|---|
-| **Working on** | `AdmitMesh`'s `Absent` arm — a tile answered once is `Pending` for ever, so a DEM hole is an infinite loading screen |
+| **Working on** | Hardening — the code made pristine before more defects are chased. `AdmitMesh`'s `Absent` arm is in flight and lands first |
 | **Scope** | `doc/requirements.md`: **1382 features, 218 ticked, 1164 open** · `doc/bugs.md`: **53 defects** |
 | **Last accepted** | The telemetry carries the eye — `eyeTravelM` 0 → 501.392 m, both counting identities structural (`da48351`) |
 
 **Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
 `doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
 in the same round. Nothing is ticked while the thing it names is broken.
+
+## The standing order, from the owner: pristine first
+
+Measured 2026-08-11 over 33 335 lines: ownership and lifetime are **strong** — zero raw `new`/`delete`
+in C++, zero `reinterpret_cast`, 48 `unique_ptr` sites, `-Wall -Wextra -Wpedantic -Werror` on both
+toolchains, `STACK_OVERFLOW_CHECK=1`, `NDEBUG` never defined so asserts survive.
+
+Bounds and failure handling are **weak, and weak in exactly the place wasm punishes**: 982
+`operator[]` against **0** `.at()`, 28 asserts (one per 1 190 lines), `-sABORTING_MALLOC=0` with a
+single caller of `core/io/Heap.h` in the whole tree, and `SAFE_HEAP`/`ASSERTIONS` unused.
+
+**Why this is not a style question.** Natively an out-of-bounds index or a null dereference usually
+segfaults — loud and immediate. In wasm32 address 0 is ordinary linear memory and an index inside the
+296 MB heap is a legal access, so **the same defect that crashes the native oracle corrupts silently in
+the browser.** The platform we ship on removes the safety net the code is implicitly leaning on, and
+silent corruption in a build loop is what "the client freezes" looks like.
+
+Hardening comes before further defect hunting. Bugs already recorded stay recorded.
 
 ## Now, in order
 
