@@ -62,6 +62,15 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("poolMeshCpuMs", "ms");
   schema.Add("poolDagMs", "ms");
   schema.Add("poolEvictions", "count");
+  schema.Add("poolPosts", "count");
+  schema.Add("poolRepeats", "count");
+  schema.Add("poolQueued", "count");
+  schema.Add("meshWanted", "count");
+  schema.Add("meshAsked", "count");
+  schema.Add("meshAdmitted", "count");
+  schema.Add("meshWaiting", "count");
+  schema.Add("meshAbsent", "count");
+  schema.Add("meshCapped", "count");
 }
 
 void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
@@ -90,6 +99,15 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(Last_.Pool.MeshCpuMs);
   row.Push(Last_.Pool.DagMs);
   row.Push((int)Last_.Pool.Evictions);
+  row.Push((int)Last_.Pool.Posts);
+  row.Push((int)Last_.Pool.Repeats);
+  row.Push((int)Last_.Pool.QueueDepth);
+  row.Push((int)Last_.Admission.Wanted);
+  row.Push((int)Last_.Admission.Asked);
+  row.Push((int)Last_.Admission.Admitted);
+  row.Push((int)Last_.Admission.Waiting);
+  row.Push((int)Last_.Admission.Absent);
+  row.Push((int)Last_.Admission.Capped);
 }
 
 } // namespace outshine::Clients

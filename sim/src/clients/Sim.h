@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "Buildings.h"
+#include "EyeTelemetry.h"
 #include "Forest.h"
 #include "GeneratorSet.h"
 #include "Ground.h"
@@ -114,6 +115,9 @@ public:
   void StartTelemetry();
   StreamTelemetry &Streaming() { return Stream_; }
   const StreamTelemetry &Streaming() const { return Stream_; }
+  /* WHERE THE EYE HAS BEEN, fed by Look and by nothing else. Travel is the path the eye walked, so
+   * a run's own record answers "did the camera move" without a second instrument. */
+  const EyeTelemetry &Where() const { return Where_; }
 
   World::World &Scenery() { return W_; }
   const World::World &Scenery() const { return W_; }
@@ -251,6 +255,7 @@ private:
   uint64_t Version_ = 0;
 
   State State_;
+  EyeTelemetry Where_;
   StreamTelemetry Stream_;
   TelemetrySource *Identity_ = nullptr;
   TelemetryBus Bus_;

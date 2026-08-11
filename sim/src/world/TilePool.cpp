@@ -204,9 +204,19 @@ double TilePool::TileDistance(int z, uint32_t x, uint32_t y) const {
   return dx * dx + dy * dy;
 }
 
+/* Two locks, one after the other and never nested: the admission counters live beside the queue
+ * they describe, and taking that mutex under the ledger's would be the only nesting in this file. */
 TilePool::Ledger TilePool::Counters() const {
-  std::lock_guard<std::mutex> lock(LedgerMutex_);
-  return Ledger_;
+  Ledger out;
+  {
+    std::lock_guard<std::mutex> lock(LedgerMutex_);
+    out = Ledger_;
+  }
+  std::lock_guard<std::mutex> queue(QueueMutex_);
+  out.Posts = Posts_;
+  out.Repeats = Repeats_;
+  out.QueueDepth = (long)Queue_.size();
+  return out;
 }
 
 size_t TilePool::ByteCacheBytes() const {
@@ -531,10 +541,13 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
     return out->State;
   }
   if (Posted_.insert(job.Key).second) {
+    Posts_++;
     if (job.Kind == Rank::Mesh) job.TileDist = TileDistance(job.Z, job.X, job.Y);
     Queue_.push_back(std::move(job));
     lock.unlock();
     Wake_.notify_one();
+  } else {
+    Repeats_++;
   }
   return Reply::Pending;
 }

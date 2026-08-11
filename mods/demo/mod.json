@@ -286,6 +286,52 @@
       ]
     },
     {
+      "id": "walk-500",
+      "kind": "run",
+      "lat": 52.10602,
+      "lon": 9.43453,
+      "eyeM": 1.7,
+      "yawDeg": 0,
+      "pitchDeg": 0,
+      "fovDeg": 60,
+      "why": "504 m of walking, north, at 1.4 m/s [SET, the mean preferred walking speed] over 10800 frames at 30 fps. It is the run every reading of the streamer is taken against: the eye leaves the block it loaded in, the yaw is held at the bearing so the picture streams into world it has not seen, and both records say where it went -- the profile's distM is what the channel COMMANDED and the telemetry's eyeTravelM is where the eye ARRIVED, so a stance that never reaches the eye is a disagreement between two files and not an unanswerable question.",
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.55,
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 10800,
+          "fps": 30,
+          "world": "streaming",
+          "give": "profile",
+          "path": "walk-500.csv",
+          "animation": {
+            "samplers": [
+              {
+                "input": [
+                  0,
+                  10800
+                ],
+                "output": [
+                  0,
+                  504
+                ],
+                "interpolation": "LINEAR"
+              }
+            ],
+            "channels": [
+              {
+                "sampler": 0,
+                "target": "camera.northM"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
       "id": "ring",
       "kind": "run",
       "lat": 52.10602,

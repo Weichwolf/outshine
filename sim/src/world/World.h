@@ -158,6 +158,26 @@ public:
   int DrawnLeafCount() const { return (int)DrawnLeaves.size(); }
   long BuiltCount() const { return Built; }
   long EvictedCount() const { return Evicted; }
+
+  /* WHAT THE PICTURE PASS ASKED THE STREAM FOR AND WHAT BECAME OF IT. Cumulative, like Built, and
+   * for the same reason: a bench is a declared run and the per-window delta is the reader's
+   * subtraction. Without it a pass that wanted nothing and a pass whose every want was refused
+   * write the same row, and those are a settled world and a broken streamer.
+   *
+   * Wanted == Asked + Capped and Asked == Admitted + Waiting + Absent, both decidable from the CSV
+   * alone: a pair that stops adding up is a counter that stopped being taken. */
+  struct Admission {
+    long Wanted = 0;     /* target leaves with no mesh yet */
+    long Asked = 0;      /* of those, the ones the pass had budget to ask about */
+    long Admitted = 0;   /* the pool had it: the mesh moved into the node */
+    long Waiting = 0;    /* the pool is still getting it */
+    long Absent = 0;     /* there is no such tile, and the answer is final */
+    long Capped = 0;     /* never asked: kMeshBuildsPerPass was spent */
+  };
+  const Admission &Admissions() const { return Adm_; }
+  /* Meshes one pass may install. The cap is in ITEMS because an item costs a memcpy — fetch, mesh
+   * and DAG all happen off this thread (world/TilePool.h). */
+  static constexpr int kMeshBuildsPerPass = 2;
   /* What the world cost this frame, both halves of it. */
   double PassMs() const { return UpdateMs_ + RefineMs_; }
   double ClassMs() const { return ClassMs_; }
@@ -218,6 +238,9 @@ private:
   void CountTargets(int z, long x, long y, const double eye[3], const double fwd[3], int &total,
                     int &ready, int &inView) const;   /* target-cut progress + the share the camera sees */
   void Emit(int idx);
+  /* One tile's mesh out of the stream, if this pass still has budget for it. `budget` falls only on
+   * an arrival: a pass that asked twice and got nothing has spent nothing. */
+  void AdmitMesh(Node &nd, int &budget);
   void AddWork(int idx, int z, long x, long y, const double eye[3], const double fwd[3]);
   void Center(int z, long x, long y, double out[3]) const;
   double SpanM(int z) const;
@@ -238,6 +261,7 @@ private:
   unsigned Pass;
   long Evicted;
   long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */
+  Admission Adm_;
   long PrevBuilt = 0, PrevEvicted = 0;   /* deltas for the builds/min + evictions/min rate on [fbworld] */
   double LastLog;
   int Leaves, DrawnReady, Pending;   /* per-pass counters */

@@ -126,6 +126,7 @@ TERRAIN_SRCS := $(wildcard src/world/terrain/*.cpp)
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
 SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
+  src/clients/EyeTelemetry.cpp \
   src/clients/Species.cpp src/clients/RegionForge.cpp
 
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds

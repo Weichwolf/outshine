@@ -431,6 +431,8 @@ long Sim::StandCount() const {
 
 void Sim::StartTelemetry() {
   if (Identity_) Bus_.Register(Identity_);
+  /* Straight after the identity: every other column is read against where the eye was. */
+  Bus_.Register(&Where_);
   Bus_.Register(&Stream_);
 }
 
@@ -498,6 +500,7 @@ void Sim::Look(const Stance &s) {
   State_.Platform.AltM = (float)asl;
   State_.Platform.YawDeg = (float)s.YawDeg;
   State_.Platform.PitchDeg = (float)s.PitchDeg;
+  Where_.Moved({s.Lat, s.Lon, asl, s.YawDeg, s.PitchDeg});
 }
 
 /* One pass begins here, which is also where the ring's cost for it is zero again: a pass that never

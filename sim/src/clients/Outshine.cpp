@@ -429,6 +429,7 @@ Outshine::Progress Outshine::Stream(double nowMs) {
   p.Evicted = w.EvictedCount();
   p.Resident = w.Resident();
   p.Pool = fb_tile_pool()->Counters();
+  p.Admission = w.Admissions();
   Sim_.Streaming().AddPass(p);
   return {w.LoadProgress(), w.Resident() && Sim_.RingStands()};
 }

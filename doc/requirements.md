@@ -93,9 +93,9 @@ picture, which is pinned for the length of a declared run.
 - [x] One scheduler, one queue, one cache, one in-flight cap for fetch, decode, mesh and DAG (`world/TilePool.h`)
 - [x] A declared class order over the queue ahead of distance (`world/TilePool.h:118`, DAG < fetch < mesh)
 - [x] Distance measured from a camera the scheduler is told rather than one it reads (`world/TilePool.cpp:196`, `TilePool::Camera`)
-- [x] In-flight cap equal to the transport's own concurrency (`TilePool::InFlightCap`, = thread count = 6 against six connections per origin)
+- [x] In-flight cap equal to the transport's own concurrency (`world/TilePool.h:112`, `InFlightCap() == Threads_.size()`). The **count is 4, not 6** — `world tilepool threads=4 inFlightCap=4` in 399 of the 420 run logs of 2026-08-11, the rest 1–3 — so the cap is below the six connections per origin the browser allows, and the pool is CPU-bound in the mesh build (`meshCpuMsPerTile` 237.29, 16.9 tiles/s over 4 threads) rather than transport-bound (`httpMsPerGet` 4.45). The invariant is met; the number chosen for it is not the one this line claimed
 - [x] The picture's work list ranked by distance and view direction (`world/World.cpp:172-183`)
-- [ ] Two admission caps, not one: how many may be in progress and how many may **start** per update — CryEngine holds 32 and 4 (`e_StreamCgfMaxTasksInProgress`, `e_StreamCgfMaxNewTasksPerUpdate`); we have one cap and a literal `build = 2` (`world/World.cpp:426`)
+- [ ] Two admission caps, not one: how many may be in progress and how many may **start** per update — CryEngine holds 32 and 4 (`e_StreamCgfMaxTasksInProgress`, `e_StreamCgfMaxNewTasksPerUpdate`); we have one cap, `World::kMeshBuildsPerPass = 2` (`world/World.h`), and it bounds *installs* rather than *starts*: `World::AdmitMesh` spends it only in the `Ready` arm, so a pass the pool cannot answer asks every candidate (`meshCapped` 217 against `meshWanted` 2 029 402 over `demo/crossing`, 0.011 %)
 - [ ] The in-cone boost additive and bounded, so a turn cannot invert the whole order — the reference adds a capped 0.5 to a 10-point importance and documents 1.0 as producing thrash; ours multiplies by 20 (`world/World.cpp:180`, 1.0 against 0.05)
 - [ ] Priority recomputed on a declared time slice, not every frame — the reference caps the whole update at 0.4 ms (`e_StreamPredictionUpdateTimeSlice`) and re-sorts at most every 100 ms
 - [ ] Priority recomputed only after the camera has moved more than a declared distance (`e_StreamCgfGridUpdateDistance`), so a stationary observer costs nothing
@@ -126,7 +126,7 @@ picture, which is pinned for the length of a declared run.
 
 - [x] Drawable only one pass after collection, so an upload is submitted before anything references it (`world/World.h`, `World::Ready`)
 - [ ] A tile becomes visible when its whole residency set is complete — mesh, class, vectors, footprints, water — never one layer at a time. Verified for terrain, unverified for building and water fields
-- [ ] Upload per frame as a declared **byte** budget — `world/World.cpp:426` admits two items of unbounded size
+- [ ] Upload per frame as a declared **byte** budget — `World::kMeshBuildsPerPass` (`world/World.h`) admits two items of unbounded size
 - [ ] Arrival batched into few large writes: every WebGPU call is validated, so N small buffer writes cost N validations; the batched form is one staging write per frame feeding one indirect draw list
 - [ ] No hitch on stream-in, proven on a moving capture: p99 across a 500 m walk against the neighbourhood before each arrival, never against the run mean
 
@@ -140,10 +140,13 @@ picture, which is pinned for the length of a declared run.
 
 ### 0.6 What makes all of the above decidable
 
-- [ ] The eye in every telemetry row — position and look direction. A run whose subject is motion cannot answer "did the camera move" from its own record
-- [ ] Per-pass admission counters: candidates considered, admitted, rejected and by which cap. "Nothing was requested" and "everything requested was already resident" are different worlds and today produce the same row
+- [x] The eye in every telemetry row — position and look direction (`clients/EyeTelemetry.cpp`, fed only from `Sim::Look`, registered ahead of the stream in `Sim::StartTelemetry`). Geodetic pair, ellipsoidal height, tangent-plane east/north from the standpoint the run began at, path length, yaw and pitch. `Sim::Open` calls `Look` before any run, so no row of an opened scene is blank
+- [x] Per-pass admission counters: candidates considered, admitted, rejected and by which cap (`world/World.h`, `World::Admission`, sampled in `clients/StreamTelemetry.cpp`). Two identities hold **by construction**, not by sample — `Wanted == Asked + Capped` from one early return, `Asked == Admitted + Waiting + Absent` from a `switch` over the whole of `TilePool::Reply` — and hold in all 328 rows written so far
+- [ ] What is holding a candidate back, not merely that it is held: `meshWaiting` conflates "queued" with "in flight", and only the pool's own `poolQueued` against `InFlightCap()` separates them from outside. A column per waiting cause, so the reader needs no second file
+- [ ] Arrival latency in the record: the eye's travel between a tile entering the target cut and its mesh becoming drawable, as a distribution — DECIDABLE, and the one thing about streaming the current columns still cannot answer
 - [ ] Residency age per tile as a distribution: how long resident, how long since last in the target cut — the input the eviction policy is judged on
-- [ ] A declared walk gate: 500 m of travel raises `tilesTotal` and `poolHttpGets`, `tilesEvicted` rises once the budget binds, and p99 holds under 33 ms across the traverse — DECIDABLE, and it fails in CI rather than in a browser
+- [ ] A declared walk gate: 500 m of travel raises `tilesTotal` and `poolHttpGets`, `tilesEvicted` rises once the budget binds, and p99 holds under 33 ms across the traverse — DECIDABLE, and it fails in CI rather than in a browser. The thresholds are **derived, never assumed**: a rung's ring radius is `span(z) · f / kEdgeTau`, so at f = 623.5 px and `kEdgeTau` = 384 px the z14 ring reaches 2 439 m and `Σ 2πR(z)·v / span(z)²` over the rungs is 0.0184 tiles/s at 1.4 m/s — **500 m buys 6.6 tiles**, and a gate demanding more is a gate that fails on correct behaviour (`demo/walk-500` measured +11 posts, +5 admitted)
+- [ ] A gate over command against arrival: the profile's `distM` and the telemetry's `eyeTravelM` agree to a declared tolerance for every declared run — DECIDABLE, catches both a stance that never reaches the eye and a geodesy that scales it (`clients/SceneRunner.cpp:318` is 1.002086× east at 52 °N today), and needs the row's frame index rather than its wall-clock second to compare at all
 
 ### 0.7 Headroom and pressure, without a picture dial
 

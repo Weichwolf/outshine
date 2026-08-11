@@ -51,6 +51,11 @@ public:
   struct Ledger {
     long MeshTiles = 0, MeshAbsent = 0, Dags = 0, Fetches = 0, FetchAbsent = 0, FetchGaveUp = 0;
     long Evictions = 0;
+    /* WHAT THE ASKS DID TO THE QUEUE. Posts is a job that started; Repeats is an ask that found its
+     * job already under way, which is the caller waiting on the threads rather than on nothing.
+     * QueueDepth is the one GAUGE here — a queue length has no cumulative form, and it is what
+     * tells a queue stacked behind the in-flight cap (InFlightCap()) from one thread being slow. */
+    long Posts = 0, Repeats = 0, QueueDepth = 0;
     /* FetchMs is the wall inside HttpGet; FetchBlockedMs is the whole span inside a fetch, so the
      * difference is what the flat 202 retry cost. MeshCpuMs has that span taken out of it: a build
      * does not do the transport it waits on, and a column that can silently carry one is a column
@@ -167,6 +172,7 @@ private:
   std::vector<Job> Queue_;
   std::map<uint64_t, Result> Done_;
   std::set<uint64_t> Posted_;
+  long Posts_ = 0, Repeats_ = 0;   /* written only under QueueMutex_, beside the set they count */
   double CameraLatDeg_ = 0.0, CameraLonDeg_ = 0.0;
   bool Stopping_ = false;
   std::vector<std::thread> Threads_;

@@ -386,6 +386,38 @@ void World::CutKerbs() {
   }
 }
 
+void World::AdmitMesh(Node &nd, int &budget) {
+  Adm_.Wanted++;
+  if (budget <= 0) { Adm_.Capped++; return; }
+  Adm_.Asked++;
+  const double tMesh = Clock();
+  TileBuild tile;
+  /* The DAG arrived built (world/TilePool.h): what this frame pays is the move into the node, not
+   * the simplifier. */
+  switch (fb_tile_pool()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile)) {
+    case TilePool::Reply::Ready:
+      nd.verts = std::move(tile.Verts);
+      nd.idx = std::move(tile.Idx);
+      nd.clusters = std::move(tile.Clusters);
+      nd.nverts = (int)(nd.verts.size() / 8);
+      nd.nidx = (int)nd.idx.size();
+      nd.err = tile.ErrM;
+      for (int c = 0; c < 3; c++) nd.origin[c] = tile.OriginEcef[c];
+      SurfaceAnchor(nd.z, nd.x, nd.y, nd.anchor);
+      nd.haveMesh = 1;
+      budget--;
+      Adm_.Admitted++;
+      break;
+    case TilePool::Reply::Pending:
+      Adm_.Waiting++;
+      break;
+    case TilePool::Reply::Absent:
+      Adm_.Absent++;
+      break;
+  }
+  MeshMs_ += Clock() - tMesh;
+}
+
 /* THE PICTURE PASS. The LOD cut against one eye, the meshes it needs, and the two surfaces that are
  * geometry rather than place. Nothing is pushed anywhere: what comes out is Uncollected(), Drawn(),
  * TakeRetired(), Water() and Buildings(). */
@@ -418,35 +450,15 @@ void World::Refine(const Eye &eye, double nowMs) {
       }
     }
 
-  /* Budgeted, worst-first (nearest + in-frustum). The cap is in ITEMS and that is now enough, because
-   * an item costs a memcpy: fetch, mesh and DAG all happen off this thread (world/TerrainLoader.h).
-   * A wall-clock slice was measured HERE and rejected — it moved the cost rather than removing it,
-   * p95 17.9 -> 25.8 ms with the same maximum, because the work is not divisible below one tile. */
+  /* Budgeted, worst-first (nearest + in-frustum). A wall-clock slice was measured HERE and rejected
+   * — it moved the cost rather than removing it, p95 17.9 -> 25.8 ms with the same maximum, because
+   * the work is not divisible below one tile. */
   std::sort(WorkList.begin(), WorkList.end(), [](const Work &a, const Work &b) { return a.prio > b.prio; });
-  int build = 2;
+  int build = kMeshBuildsPerPass;
   MeshMs_ = 0.0;
   for (const Work &w : WorkList) {
     Node &nd = Nodes[w.idx];
-    if (!nd.haveMesh && build > 0) {
-      const double tMesh = Clock();
-      TileBuild tile;
-      /* The DAG arrived built (world/TilePool.h): what this frame pays is the move into the node,
-       * not the simplifier. */
-      if (fb_tile_pool()->Mesh(nd.z, (uint32_t)nd.x, (uint32_t)nd.y, kGrid, &tile) ==
-          TilePool::Reply::Ready) {
-        nd.verts = std::move(tile.Verts);
-        nd.idx = std::move(tile.Idx);
-        nd.clusters = std::move(tile.Clusters);
-        nd.nverts = (int)(nd.verts.size() / 8);
-        nd.nidx = (int)nd.idx.size();
-        nd.err = tile.ErrM;
-        for (int c = 0; c < 3; c++) nd.origin[c] = tile.OriginEcef[c];
-        SurfaceAnchor(nd.z, nd.x, nd.y, nd.anchor);
-        nd.haveMesh = 1;
-        build--;
-      }
-      MeshMs_ += Clock() - tMesh;
-    }
+    if (!nd.haveMesh) AdmitMesh(nd, build);
     if (nd.haveMesh && nd.handle < 0) {
       TileMesh m;
       m.Id = Key(nd.z, nd.x, nd.y);

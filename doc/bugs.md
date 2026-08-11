@@ -31,7 +31,25 @@ The most expensive class in this tree, three instances found in one day, all wit
 
 ## World and streaming
 
-- **Nothing streams during play.** From t=31 s to t=77 s of `sim/logs/demo-walk-wasm-20260811T150518Z.csv`: `poolHttpGets` 310 flat, `poolFetchedMB` 28.36 flat, `tilesTotal` 130 flat, `tilesBuilt` 0, `tilesEvicted` and `poolEvictions` 0. `TargetTot` is recomputed from the eye every pass (`world/World.cpp:411-419`) and did not move by ±1 in 46 s, while the direction-sensitive `tilesInView` did move 45→47 — so orientation reached `Refine` and position did not. **The record cannot decide it**, because the telemetry carries no camera.
+- **RETRACTED — "nothing streams during play" was tile-size confounding, not a defect.** The founding
+  reading (t=31…77 s of `sim/logs/demo-walk-wasm-20260811T150518Z.csv`: `poolHttpGets` 310 flat,
+  `tilesBuilt` 0 over 46 s) covers 46 s × 1.4 m/s = **64 m of walking, 4.3 % of a z14 tile edge**
+  (`kMaxZ = 14`, `world/World.cpp:27`; pitch `40 075 016.686 · cos 52.106° / 2^14` = 1502 m).
+  `doc/requirements.md` line 154 already carried the method; the derivation for *this* cut, per rung,
+  is what decides it. A rung's ring radius is where `WantSplit` stops — `R(z) = span(z) · f / kEdgeTau`
+  with `f = 0.5 · 720 / tan 30°` = 623.5 px and `kEdgeTau` = 384 px — so the z14 ring reaches only
+  **2 439 m**, not the scene's 60 km view. New tiles per second is `2πR(z)·v / span(z)²`, which
+  halves per rung: 0.0095 + 0.0048 + 0.0024 + 0.0012 + 0.0006 = **0.0184 tiles/s at 1.4 m/s**. That is
+  **0.85 tiles expected in those 46 s** and **6.6 per 500 m**. Flat is the correct answer, and
+  `tilesInView` 45→47 with `tilesTotal` flat is a disc translating by 4 % of a tile — not
+  "orientation reached `Refine` and position did not".
+  Confirmed by the eye columns on two declared runs: `demo/walk-500` walks 501.4 m and gets
+  `poolPosts` 161→172 (+11) and `meshAdmitted` 130→135 (+5) against 6.6 predicted;
+  `demo/crossing` covers 2 252 m and gets `poolPosts` 217→238 (+21) and `meshAdmitted` 130→159 (+29)
+  against 29.7 predicted. Same order both times, and the second is on the number. **Delete this bullet once `doc/todo.md` items 2 and 3
+  are restated** — it is kept only so that the walk gate is not built to catch a defect that is not
+  there. What is genuinely unmeasured is *latency*: how far the eye travels between a tile entering
+  the target cut and its mesh being drawable. No column carries it.
 - **22 950 KiB of the heap has no owner at rest.** `heapResidualKB` is now measured, not inferred: 52 650–73 564 KiB at t=1, up to 94 132 KiB mid-load, settling at 22 950 KiB in three of five runs of `dfdd8e3a82efeefc` (`sim/logs/demo-walk-wasm-20260811T16*.csv`). The eight pthread stacks account for ~2 MiB of it. `prototypeKB` 6 527 and `standsKB` 1 676, logged at `outshine stands_collected`, are CPU-side and in no ledger column — the first place to look, and a decidable one: give them a column and the residual must fall by their sum or the overlap is somewhere else.
 - **Nothing evicts.** `BuildingField`, `WaterField` and `StreetField` grow monotonically and their unit of removal does not exist. At 545 KiB of building heap per tile and ~29 MiB of real headroom, that is on the order of fifty tiles before exhaustion.
 - **The in-cone priority boost is multiplicative at 20×** (`world/World.cpp:181`, 1.0 against 0.05). The reference adds a capped 0.5 to a 10-point scale and documents 1.0 as the setting that produces thrash.
@@ -40,6 +58,12 @@ The most expensive class in this tree, three instances found in one day, all wit
 - **`World::Refine` builds no intermediate level** (`world/World.cpp:241`, and the traversal's own comment at 246) — correct for a cold start, wrong for travel, because there is then no ancestor rung to hold coverage while a fine rung streams.
 - **`Sim::Features` gained a slice, but a feature inside the tile's 23.3 m buffer still yields twice.**
 - **A crossing costs +1.77 ms at p50** against its neighbourhood, 1.03 of it the ring's own snapshot — in no column, because `Populate` runs after `Refine` inside one function.
+- **An `Absent` tile is answered once and reads as `Pending` for ever after** (`world/TilePool.cpp:534-540`, `Poll`). The result is erased from `Done_` unconditionally while the key deliberately stays in `Posted_`, so every later ask finds no result, fails to post, and returns `Pending`. Decidable from the code: `meshAbsent` can rise at most once per tile while `meshWaiting` keeps rising for it for ever. Right: the verdict belongs in the cache's own absent state, which `Lookup` already consults, not in the queue's posting set.
+- **`World::AdmitMesh` names `Absent` and does nothing with it** (`world/World.cpp:409-411`) — the second half of the bullet above and the load-bearing one. The `switch` arm increments a counter and returns; `nd.haveMesh` stays 0, so the leaf stays in `TargetTot`'s unready set whether or not the pool ever answers again, and `Resident()` can never become true. **A hole in the DEM holds the loading screen for ever, and fixing `TilePool::Poll` alone does not fix it.** This is the silent-success shape at the top of this file with a `case` label instead of a `void` return: the three-state reply is now spelled out and two of the three states behave identically. Right: an absent leaf is a terminal node state (`nd.absent = 1`), excluded from `CountTargets`' unready set and from `AddWork`, so a tile that does not exist stops being asked for.
+- **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, `sim/logs/demo-crossing-gpu_walk-20260811T172219Z.csv`): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
+- **The load loop polls the pool ~190 000 times a second** (`poolRepeats` 2 069 319 against `poolPosts` 196, same run). Attribution matters and the earlier phrasing had it wrong: **99.99 % of the repeats happen before residency, not during play.** In `demo/walk-500` `poolRepeats` is 1 953 923 at t=10 s (residency) and 1 954 287 at t=183 s — 364 repeats in 173 s of walking against 1.95 M in 10 s of loading. The load spins `Refine` at ~1 800 passes/s × ~119 unready leaves; every one of those takes `QueueMutex_` and attempts a `std::set<uint64_t>` insert on the thread that draws, against the four workers that need the same mutex to pop (`world tilepool threads=4 inFlightCap=4`). The host was loaded during the measurement, which makes 190 kHz a **lower** bound. Right: a pending ask answerable without the queue's lock — a per-node "already posted" flag in the node, or an atomic set — and a load loop that is not a spin.
+- **The counters that diagnose a stuck load overflow during a stuck load.** `clients/StreamTelemetry.cpp:102-112` narrows six `long` admission counters and `poolPosts`/`poolRepeats` to `int` because `core/io/Telemetry.h:29` has no wider `Push`. `meshWanted` reaches 2 029 402 in 11 s of load and `poolRepeats` 2 069 319 in the same 11 s; at that rate `INT_MAX` is 3.2 hours away, and 3.2 hours of loading is exactly the run the Absent defect above produces. The column then goes negative and both published identities break, which reads as "a counter stopped being taken". Right: `void TelemetryRow::Push(long long)`, and no cast at any call site — `ES.46`, and the cast is the only reason the narrowing is not a warning.
+- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so `Walker::Reset` on the `R` key (`clients/AppWasm.cpp:87`, and again at 372) adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reached by any run in `mods/demo` today (no scene has two motion runs at different standpoints), reached by the shipped browser client on one keystroke. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
 
@@ -186,7 +210,20 @@ The most expensive class in this tree, three instances found in one day, all wit
   is displaced the same way. The east term is wrong because the exact longitude scale is
   `N cos φ · π/180` = 71 700 m/deg at 50 °N against `kMPerDeg · cos φ` = 71 555, a ratio of 1.00203; the
   north term is wrong because the meridian scale is 111 229 m/deg there against 111 320. `Geo` feeds
-  `clients/StandField.cpp:32`, whose result is immediately handed back to `Project`. Right: either make
+  `clients/StandField.cpp:32`, whose result is immediately handed back to `Project`. **The same
+  spherical conversion is written a second time in `clients/SceneRunner.cpp:287,318`**, where it turns
+  `camera.eastM` and `camera.northM` into a stance — so a declared metre of channel is 1.002086 m of
+  world eastward and 0.999546 m northward at 52.106 °N. **Confirmed to 5·10⁻⁵ m** now that the eye is
+  in the row, and the comparison must be made frame-by-frame or it proves nothing: the last row of
+  `sim/logs/demo-crossing-wasm-20260811T172832Z.csv` (wasm `9b110bb85af592ce`, Chromium 151.0.7922.34)
+  is at frame 899 of 900, where the channel commands 2250 · 899/900 = **2247.500 m** and `eyeEastM`
+  reads **2252.189145** against 2252.18914 predicted from `N cos φ · π/180 / (kMPerDeg · cos φ)`.
+  Northward the sign flips: `demo/walk-500`'s last row commands 504 · 10749/10800 = 501.620 m and
+  `eyeTravelM` reads 501.392034 against 501.39200 predicted — so the run reaches **503.771 m of the
+  declared 504**, and the remaining 2.4 m of the apparent shortfall is only the 1 Hz row landing 51
+  frames before the end. `demo/ring` would be 18.8 m long over its 9 km. **`eyeTravelM` itself is not
+  contaminated** — it is the exact measurement of a wrongly commanded motion, and it is what makes the
+  error decidable. Right: either make
   `Geo` the exact inverse (one Newton step on the ellipsoid, or invert through ECEF), or scale it with
   the frame's own `M` and `N cos φ` computed once in the constructor — and in either case correct the
   stated bound. Decides it: `Project(Geo(e, n)) == (e, n)` to a declared tolerance, a pure unit test with

@@ -12,6 +12,7 @@
 
 #include "Telemetry.h"
 #include "TilePool.h"
+#include "World.h"
 
 namespace outshine::Clients {
 
@@ -30,6 +31,8 @@ public:
     bool Resident = false;
     /* The pool's own cumulative ledger, read once per pass: where the wait actually was. */
     World::TilePool::Ledger Pool;
+    /* WHAT THE PICTURE PASS ASKED FOR, cumulative like the pool's ledger and for the same reason. */
+    World::World::Admission Admission;
   };
 
   void Open(double nowMs) { OpenedMs_ = nowMs; }
