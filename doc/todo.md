@@ -306,14 +306,14 @@ compile error; one `grep -q` fixes the class for all three gates.
 
 ## Not on the list, and named so it is not mistaken for an oversight
 
-**Ambient specular in enclosed places has no procedural substitute.** Under a closed canopy, in a gorge,
-indoors: the reference hand-places a baked probe — measured appearance of an authored scene, which
-principle 2 forbids. In the open the sky LUT *is* the correct substitute and is better founded than a
-baked probe. Whatever solves item 4 is the only thing in our frame that will know an enclosure exists.
+**Ambient specular in an enclosed place** — under a closed canopy, in a gorge, indoors. The reference
+hand-places a baked probe. In the open the sky LUT is the better answer already; enclosed, whatever solves
+item 4 is the thing that will know the enclosure exists, because a probe and a coarse occlusion field
+answer the same question.
 
-**Their leaf albedo is an authored alpha and colour.** Ours is geometry plus a colour, and at 320×180 that
-is not a gap — it becomes one at the top rung where venation and translucency variation speak, and it is
-**unsolved**.
+**Leaf venation and translucency variation at the top rung.** Their leaf is an authored alpha and colour;
+ours is geometry and a colour. At the comparison rung this is not a gap. Closer in it is, and the answer
+is a leaf generator — the same shape as the tree generator, one level down.
 
 **Three of their techniques must not be copied**: CPU coverage-buffer occlusion with authored occluder
 meshes (authored *and* CPU-bound, the wrong direction on wasm32); baked environment probes (principle 2);

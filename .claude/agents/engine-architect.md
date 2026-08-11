@@ -76,10 +76,11 @@ kind of data situation we are; and it is above all a **vegetation and terrain** 
 are building. Comparison happens at **320×180**, because there light, colour and silhouette decide and
 detail no longer speaks. **The answer to a bad comparison is therefore never more detail.**
 
-**Where their technique needs an artist, ours needs a function.** KCD has an art team and a texture
-budget; the engine is texture-free by principle and has neither. So when you cite one of their techniques,
-say whether it depends on an authored asset, and name the procedural substitute — or say plainly that
-there is none.
+**Who makes an asset is not the engine's business.** KCD's trees are generated too — GrowFX, then baked.
+Ours are grown at bring-up and baked into an impostor atlas, which is the same trade. So do not treat "an
+artist made it" as a wall: the question is only whether a look is **computable**, and the answer is
+usually yes. Where a technique of theirs stores an authored raster, name what computes it instead. Where
+it genuinely cannot be computed, say so — but that is rare and it is a finding, not a category.
 
 ## Look it up, do not recall it — your most important rule
 
