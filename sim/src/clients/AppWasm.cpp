@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <emscripten.h>
+#include <emscripten/eventloop.h>
 #include <emscripten/html5.h>
 
 #include "Env.h"
@@ -40,6 +41,9 @@ const Clients::Outshine::Assets kAssets{"/vegetation.json", "/ground-materials.j
 /* One and a half 60 Hz periods: past this the compositor has skipped at least one vsync. */
 constexpr double kLateMs = 25.0;
 constexpr double kLogEveryMs = 2000.0;
+/* [SET] What the collector may still owe when a run has nothing left to do. The same bound the
+ * products get (SceneRunner.cpp), because they travel the same wire. */
+constexpr double kDrainWaitMs = 20000.0;
 
 Clients::Mod gMod;
 const Clients::Scene *gScene = nullptr;
@@ -50,6 +54,10 @@ std::unique_ptr<Clients::ServerArtifacts> gArtifacts;
 std::unique_ptr<Clients::RunIdentity> gIdentity;
 std::string gSimUrl;
 Clients::Walker gWalker;
+std::unique_ptr<Clients::SceneRunner> gRunner;
+/* Negative while the run is still going; the run's exit code once it is not. */
+int gRc = -1;
+double gDrainFromMs = 0.0;
 
 double gPrevMs = 0.0, gLastLogMs = 0.0, gLastCpuMs = 0.0, gLastEncodeMs = 0.0;
 bool gLocked = false;          /* pointer lock; without it the mouse does not turn the head */
@@ -257,21 +265,62 @@ bool Boot(void) {
   return gApp->Prepare({kCanvas});
 }
 
+/* A TURN IS A TASK HERE, and a task is what lets a fetch and a GPU map complete: the browser's one
+ * thread runs the run's next turn and then hands the thread back.
+ *
+ * `set_immediate` AND NOT A TIMEOUT, and this is measured: a nested setTimeout(0) is clamped to
+ * about 4 ms, and a profiled frame that has to poll the queue twice paid that clamp twice —
+ * `demo/crossing` read p50 33.2 ms against 19.8 for the same drawn frames. The immediate posts a
+ * message instead, so the cost of handing the thread back is the host's own and not a declared
+ * minimum. The display's clock is the wrong one here for the opposite reason: it would put a whole
+ * frame period between two streaming passes. */
+void Turn(void *);
+
+void NextTurn(void) { emscripten_set_immediate(Turn, nullptr); }
+
 /* THE DECLARED RUN, IN THE BROWSER. Same SceneRunner, same order, same numbers to compare against —
  * only the destination of the products differs, and that is the whole point of Artifacts.h. */
-void Record(void) {
-  Clients::SceneRunner runner(*gApp, *gScene, *gArtifacts);
-  const int rc = runner.IsSubjectBench() ? runner.RunSubject()
-                 : gApp->Open()          ? runner.Run()
-                                         : 1;
+void Finished(int rc) {
   Log::Info("run", "finished", {{"rc", rc}, {"runId", gLog->RunId()}});
-  gTelemetry->Flush();
-  gLog->Flush();
-/* `$0` is EM_ASM's only way to reach an argument and -Wpedantic sees a C identifier. */
+  gRc = rc;
+  gDrainFromMs = emscripten_get_now();
+}
+
+/* THE RUN IS NOT OVER UNTIL ITS EVIDENCE HAS LANDED. Log and telemetry go out over the same fetch
+ * the products do, so the page may only declare a result once the collector has taken all three —
+ * a harness that closed the tab on FB_RUN_DONE would otherwise throw the last batch away. */
+void Drain(void) {
+  const bool sunk = gTelemetry->Flush() && gLog->Flush();
+  if (!sunk && emscripten_get_now() - gDrainFromMs < kDrainWaitMs) {
+    NextTurn();
+    return;
+  }
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdollar-in-identifier-extension"
-  EM_ASM({ window.FB_RUN_DONE = $0; }, rc);
+  EM_ASM({ window.FB_RUN_DONE = $0; }, gRc);
 #pragma clang diagnostic pop
+}
+
+void Turn(void *) {
+  if (gRc >= 0) { Drain(); return; }
+  if (gRunner) {
+    if (gRunner->Step() == Clients::SceneRunner::Progress::Running) { NextTurn(); return; }
+    Finished(gRunner->Result());
+    gRunner.reset();
+    NextTurn();
+    return;
+  }
+  if (gApp->Busy()) { gApp->Step(); NextTurn(); return; }
+  switch (gApp->Stage()) {
+    case Clients::Outshine::Phase::Prepared: gApp->Open(); NextTurn(); return;
+    case Clients::Outshine::Phase::Playing: break;
+    default: Finished(1); NextTurn(); return;
+  }
+  /* THE INTERACTIVE SCENE, brought up. The display's clock takes the frame over from here; what
+   * streams in afterwards arrives beside it. */
+  gWalker.Reset(DeclaredStance());
+  BindInput();
+  emscripten_set_main_loop(Frame, 0, 0);
 }
 
 }  // namespace
@@ -281,15 +330,10 @@ int main(void) {
   Log::SetSink(&boot);
   Log::SetLevel(LogLevel::Debug);
   if (!Boot()) return 1;
-  if (gScene->What() == Clients::Scene::Kind::Run) {
-    Record();
-    return 0;
-  }
-  /* SZENE LADEN, DANN SPIELEN. The loop below starts when the world is there and then runs
-   * through; what streams in afterwards arrives beside it. */
-  if (!gApp->Open() || !gApp->Load()) return 1;
-  gWalker.Reset(DeclaredStance());
-  BindInput();
-  emscripten_set_main_loop(Frame, 0, 1);
+  /* SCENE FIRST, THEN PLAY. A run scene is a SceneRunner's whole business; an interactive one is
+   * brought up by the same turns and then hands the frame to the display. */
+  if (gScene->What() == Clients::Scene::Kind::Run)
+    gRunner = std::make_unique<Clients::SceneRunner>(*gApp, *gScene, *gArtifacts);
+  NextTurn();
   return 0;
 }

@@ -13,12 +13,19 @@ namespace outshine::Clients {
  * sink resolves them and refuses anything it will not store. */
 class Artifacts {
 public:
+  /* ACCEPTANCE IS NOT DELIVERY where the sink is a network: the three writers below say only that
+   * the product was taken, and Settle() is where a run finds out whether it landed. A directory
+   * answers Complete on the same line it writes. */
+  enum class Delivery { InFlight, Complete, Refused };
+
   virtual ~Artifacts() = default;
 
+  /* A directory is a precondition, not a product: both sinks can answer it on the line that asks. */
   virtual bool MakeDir(const std::string &name) = 0;
-  virtual bool Png(const std::string &name, const uint8_t *rgba, int width, int height) = 0;
-  virtual bool Bytes(const std::string &name, const void *data, size_t bytes) = 0;
-  virtual bool Text(const std::string &name, const std::string &text) = 0;
+  virtual Delivery Png(const std::string &name, const uint8_t *rgba, int width, int height) = 0;
+  virtual Delivery Bytes(const std::string &name, const void *data, size_t bytes) = 0;
+  virtual Delivery Text(const std::string &name, const std::string &text) = 0;
+  virtual Delivery Settle() = 0;
 };
 
 } // namespace outshine::Clients

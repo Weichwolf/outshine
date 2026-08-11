@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "HttpPost.h"
 #include "Log.h"
 
 namespace outshine::Clients {
@@ -18,7 +19,7 @@ namespace outshine::Clients {
  *
  * A DEAD COLLECTOR IS NOT A DEAD RUN. A refused POST drops its batch, counts the loss and returns;
  * the count is posted with the next batch that gets through, so a gap is visible rather than
- * silent. */
+ * silent. The verdict arrives after the call that sent it, so it is folded in on the next Flush. */
 class ServerLog : public LogSink {
 public:
   /* WHAT MAKES A RUN IDENTIFIABLE. `Build` is the wasm hash in the browser and the binary's hash
@@ -35,7 +36,9 @@ public:
 
   void Write(double simTimeS, LogLevel level, const char *tag, const char *event,
              const std::vector<LogField> &fields) override;
-  void Flush();
+  /* Pushes what it can and says whether anything is still owed — one batch is on the wire at a time,
+   * because a second would race the first into the collector's file. */
+  bool Flush();
 
   const std::string &RunId() const { return RunId_; }
 
@@ -43,6 +46,7 @@ private:
   static constexpr size_t kFlushBytes = 1u << 20;
 
   std::string Url_, RunId_, Pending_;
+  HttpPost Post_;
   size_t Dropped_ = 0, Sent_ = 0;
 };
 

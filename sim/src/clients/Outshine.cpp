@@ -10,26 +10,20 @@
 #include "PixelFocalLength.h"
 #include "TerrainLoader.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 namespace outshine::Clients {
 namespace {
-
-void PumpMs(int ms) {
-#ifdef __EMSCRIPTEN__
-  emscripten_sleep((unsigned)ms);
-#else
-  (void)ms;
-#endif
-}
 
 /* [SET] 10 s without one more ready tile. Long enough that the slowest single tile measured on this
  * host (a cold z14 vector bake, ~3 s) never trips it, short enough to name a hung server. */
 constexpr double kStallSayMs = 10000.0;
 
-constexpr int kDeviceTries = 2000;
+/* [SET] What a bring-up phase may keep asking for before it is called dead, in milliseconds of wall
+ * clock. Both carry over the bounds the counted retries they replace had: 2000 turns of 10 ms for
+ * the device, 200 of 50 ms for the ground and the star catalogue. A wall clock and not a turn count,
+ * because how long a turn lasts is the host's business and not this object's. */
+constexpr double kDeviceWaitMs = 20000.0;
+constexpr double kStreamWaitMs = 10000.0;
+
 constexpr int kStarBytes = 262144;
 /* [SET] Tile meshes handed to the device per frame. Upload is a budget, never a queue drain. */
 constexpr int kUploadsPerFrame = 6;
@@ -47,8 +41,6 @@ Outshine::Outshine(const Scene &scene, const Assets &assets)
   if (scene.HasJitterPin())
     R_.PinJitter((float)scene.JitterPinX(), (float)scene.JitterPinY());
 }
-
-void Outshine::Pump() { PumpMs(0); }
 
 void Outshine::SetFovDeg(double deg) {
   R_.SetFovDeg(deg);
@@ -94,28 +86,15 @@ bool Outshine::Prepare(const Gpu &gpu) {
 
   if (gpu.Canvas) R_.Init(gpu.Canvas, res.Width, res.Height);
   else R_.InitOffscreen(res.Width, res.Height);
-  /* THE DEVICE HAS TO BE THERE BEFORE ANYTHING UPLOADS: a stage's Upload returns nothing without one
-   * and drops its geometry in silence. Native Dawn is already up; the browser's request is a
-   * promise. */
-  for (int t = 0; t < kDeviceTries && !R_.Ready(); t++) PumpMs(10);
-  if (!R_.Ready()) {
-    Log::Error("outshine", "device_init_failed");
-    return false;
-  }
-  Frames_.SetGpuAvailable(R_.GpuTimingAvailable());
-  Sim_.StartTelemetry();
-  Sim_.Bus().Register(&Frames_);
-  Sim_.Bus().Register(&Memory_);
-  Sim_.Bus().Start();
-  ClockOriginMs_ = NowMs();
-  Frames_.Open(ClockOriginMs_);
-  Sim_.Streaming().Open(ClockOriginMs_);
-  Phase_ = Phase::Prepared;
+  PhaseFromMs_ = NowMs();
+  Phase_ = Phase::Device;
   return true;
 }
 
-bool Outshine::Open() {
-  if (Phase_ != Phase::Prepared) return false;
+void Outshine::Open() {
+  if (Phase_ != Phase::Prepared) return;
+  /* The moon's albedo is a declared file and not a stream, so it is read here, once, and not in a
+   * turn that may run a thousand times. */
   const Assets &files = Sim_.Files();
   if (!files.Moon.empty()) {
     uint8_t *rgba = nullptr;
@@ -127,22 +106,87 @@ bool Outshine::Open() {
       Log::Warn("outshine", "moon_texture_missing", {{"path", files.Moon}});
     }
   }
+  PhaseFromMs_ = NowMs();
+  Phase_ = Phase::Ground;
+}
 
-  if (!Sim_.Open()) return false;
-  /* After the world, because the catalogue comes down the same pool the tiles do — one transport,
-   * one cache, and the only blocking HTTP left in the client is the pool's own threads. */
-  {
-    static uint8_t stars[kStarBytes];
-    const int n = fb_fetch_stars(stars, kStarBytes);
-    if (n > 0) R_.SetStars(stars, n, Sim_.Lat(), Sim_.Lon());
-    else Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()}});
+bool Outshine::Busy() const {
+  return Phase_ == Phase::Device || Phase_ == Phase::Ground || Phase_ == Phase::Stars ||
+         Phase_ == Phase::Loading;
+}
+
+Outshine::Phase Outshine::Step() {
+  switch (Phase_) {
+    case Phase::Device: AwaitDevice(); break;
+    case Phase::Ground: AwaitGround(); break;
+    case Phase::Stars: AwaitStars(); break;
+    case Phase::Loading: LoadPass(); break;
+    case Phase::Declared:
+    case Phase::Prepared:
+    case Phase::Playing:
+    case Phase::Failed: break;
   }
+  return Phase_;
+}
+
+/* THE DEVICE HAS TO BE THERE BEFORE ANYTHING UPLOADS: a stage's Upload returns nothing without one
+ * and drops its geometry in silence. Native Dawn is already up when Init returns; the browser's
+ * request is a promise that resolves on the turn after this one. */
+void Outshine::AwaitDevice() {
+  if (!R_.Ready()) {
+    if (NowMs() - PhaseFromMs_ > kDeviceWaitMs) {
+      Log::Error("outshine", "device_init_failed", {{"waitedMs", NowMs() - PhaseFromMs_}});
+      Phase_ = Phase::Failed;
+    }
+    return;
+  }
+  Frames_.SetGpuAvailable(R_.GpuTimingAvailable());
+  Sim_.StartTelemetry();
+  Sim_.Bus().Register(&Frames_);
+  Sim_.Bus().Register(&Memory_);
+  Sim_.Bus().Start();
+  ClockOriginMs_ = NowMs();
+  Frames_.Open(ClockOriginMs_);
+  Sim_.Streaming().Open(ClockOriginMs_);
+  Phase_ = Phase::Prepared;
+}
+
+void Outshine::AwaitGround() {
+  switch (Sim_.Open()) {
+    case Sim::Bring::Waiting:
+      if (NowMs() - PhaseFromMs_ > kStreamWaitMs) {
+        Log::Error("outshine", "ground_wait_gave_up", {{"waitedMs", NowMs() - PhaseFromMs_}});
+        Phase_ = Phase::Failed;
+      }
+      return;
+    case Sim::Bring::Failed: Phase_ = Phase::Failed; return;
+    case Sim::Bring::Open: break;
+  }
+  PhaseFromMs_ = NowMs();
+  Phase_ = Phase::Stars;
+}
+
+/* After the world, because the catalogue comes down the same pool the tiles do — one transport, one
+ * cache, and the only blocking HTTP left in the client is the pool's own threads. */
+void Outshine::AwaitStars() {
+  static uint8_t stars[kStarBytes];
+  const FbStarBands bands = fb_fetch_stars(stars, kStarBytes);
+  if (bands.Where == FbStarBands::State::Pending) {
+    if (NowMs() - PhaseFromMs_ <= kStreamWaitMs) return;
+    Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()},
+        {"waitedMs", NowMs() - PhaseFromMs_}});
+  } else if (bands.Bytes > 0) {
+    R_.SetStars(stars, bands.Bytes, Sim_.Lat(), Sim_.Lon());
+  } else {
+    Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()}});
+  }
+
   R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());
   R_.SetSceneState(Sim_.SceneState());
 
   if (!Sim_.Files().Species.empty()) {
     const std::optional<World::Forest::Prototype> tree = Sim_.GrowTrees();
-    if (!tree) return false;
+    if (!tree) { Phase_ = Phase::Failed; return; }
     for (size_t rank = 0; rank < tree->Ranks.size(); rank++) {
       const World::Forest::Prototype::Rank &r = tree->Ranks[rank];
       R_.SetTreeBark((int)rank, r.BarkVerts.data(), r.BarkVertCount, r.BarkIdx.data(),
@@ -156,8 +200,10 @@ bool Outshine::Open() {
     R_.SetTreeCrown(tree->Crown.HalfWidth, tree->Crown.Top, tree->Crown.Bottom);
     R_.BakeTreeImpostor();
   }
+  LoadFromMs_ = LoadMovedMs_ = LoadSaidMs_ = NowMs();
+  LoadPasses_ = 0;
+  LoadReadyWas_ = -1;
   Phase_ = Phase::Loading;
-  return true;
 }
 
 /* The interval between two frames, not the encode: what a viewer feels is the period, and everything
@@ -282,7 +328,7 @@ void Outshine::Collect() {
 }
 
 Outshine::Progress Outshine::Stream(double nowMs) {
-  if (Phase_ < Phase::Loading) return {};
+  if (Phase_ != Phase::Loading && Phase_ != Phase::Playing) return {};
   World::World &w = Sim_.Scenery();
   Sim_.Advance();
   w.Refine(Sim_.Sight(), nowMs);
@@ -313,39 +359,35 @@ Outshine::Progress Outshine::Stream(double nowMs) {
  * What the loop does NOT do is draw the world — a half-arrived scene is not a picture of anything.
  * The virtual clock is the pass index at 60 Hz, so the world's own 1 Hz counters keep the same
  * meaning they have inside a run. */
-bool Outshine::Load() {
-  if (Phase_ != Phase::Loading) return false;
+void Outshine::LoadPass() {
   const World::World &w = Sim_.Scenery();
-  Progress p;
-  long passes = 0;
-  const double t0 = NowMs();
-  double movedMs = t0, saidMs = t0;
-  int wasReady = -1;
-  while (!p.Resident) {
-    p = Stream((double)passes * 1000.0 / 60.0);
-    const double frameMs = OpenFrame();
-    R_.RenderProgress(p.Fraction);
-    CloseFrame(frameMs);
-    Pump();
-    passes++;
-    /* A STALL IS SAID, NOT CAPPED. There is no ceiling to hit — a server that stops answering is a
-     * fact about the server — but a load that spins in silence is a fact nobody can read. */
-    const double now = NowMs();
-    if (w.TargetReadyN() != wasReady) { wasReady = w.TargetReadyN(); movedMs = now; }
-    if (now - movedMs > kStallSayMs && now - saidMs > kStallSayMs) {
-      saidMs = now;
-      Log::Warn("outshine", "load_stalled", {{"stalledS", (now - movedMs) * 0.001},
-          {"passes", (double)passes}, {"targetReady", wasReady},
-          {"targetTotal", w.TargetTotal()}, {"vectorPending", w.BuildingPendingTiles()},
-          {"progress", (double)p.Fraction}});
-    }
+  /* The virtual clock is the streaming PASS index at 60 Hz, so the world's own 1 Hz counters keep
+   * the same meaning they have inside a run. */
+  const Progress p = Stream((double)LoadPasses_ * 1000.0 / 60.0);
+  const double frameMs = OpenFrame();
+  R_.RenderProgress(p.Fraction);
+  CloseFrame(frameMs);
+  LoadPasses_++;
+
+  const double now = NowMs();
+  if (p.Resident) {
+    Sim_.Streaming().MarkResident(now);
+    Phase_ = Phase::Playing;
+    Log::Info("outshine", "loaded", {{"passes", (double)LoadPasses_}, {"loadMs", now - LoadFromMs_},
+        {"targetTotal", w.TargetTotal()}, {"targetInView", w.TargetInViewN()},
+        {"progress", (double)p.Fraction}});
+    return;
   }
-  Sim_.Streaming().MarkResident(NowMs());
-  Phase_ = Phase::Playing;
-  Log::Info("outshine", "loaded", {{"passes", (double)passes}, {"loadMs", NowMs() - t0},
-      {"targetTotal", w.TargetTotal()}, {"targetInView", w.TargetInViewN()},
-      {"progress", (double)p.Fraction}});
-  return true;
+  /* A STALL IS SAID, NOT CAPPED. There is no ceiling to hit — a server that stops answering is a
+   * fact about the server — but a load that spins in silence is a fact nobody can read. */
+  if (w.TargetReadyN() != LoadReadyWas_) { LoadReadyWas_ = w.TargetReadyN(); LoadMovedMs_ = now; }
+  if (now - LoadMovedMs_ > kStallSayMs && now - LoadSaidMs_ > kStallSayMs) {
+    LoadSaidMs_ = now;
+    Log::Warn("outshine", "load_stalled", {{"stalledS", (now - LoadMovedMs_) * 0.001},
+        {"passes", (double)LoadPasses_}, {"targetReady", LoadReadyWas_},
+        {"targetTotal", w.TargetTotal()}, {"vectorPending", w.BuildingPendingTiles()},
+        {"progress", (double)p.Fraction}});
+  }
 }
 
 } // namespace outshine::Clients

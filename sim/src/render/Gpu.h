@@ -13,7 +13,6 @@ struct Gpu {
   wgpu::TextureFormat HdrFormat;       /* offscreen HDR scene target format (stages that draw into it) */
   wgpu::TextureFormat SurfaceFormat;   /* swapchain/present format (stages that draw into FrameTex/final) */
   int Width, Height;                  /* fixed scene resolution (FrameTex), not the live swapchain size */
-  wgpu::Instance Instance;             /* only for the rare stage that blocks on MapAsync (Instance::WaitAny) */
 };
 
 /* What a SUN-LIT surface binds, as one bundle: IrradianceStage's two irradiances and

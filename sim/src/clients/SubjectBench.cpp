@@ -162,8 +162,12 @@ bool SubjectBench::SelectTree(const char *speciesName, double heightM) {
   return true;
 }
 
-bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, double sunAzDeg,
-                         double sunElDeg, double cloudCover, bool metering, double windMs) {
+/* THE CAMERA PLACED AND THE STUDIO SET, in one turn: everything here is derived arithmetic and
+ * renderer state, and the only thing that takes time is the temporal settle the burst at the end
+ * pays for. */
+void SubjectBench::Place(const Order &o) {
+  const View &v = *o.Frame;
+  const double camAzDeg = o.CamAzDeg;
   const int w = R_.SceneW(), h = R_.SceneH();
   const double aspect = (double)w / (double)h;
   double fov = kFovDeg;
@@ -215,19 +219,19 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
 
   /* THE WIND BLOWS ACROSS THE FRAME, left to right, so a bend is a bend and not a foreshortening.
    * It comes FROM camAz + 270 and therefore blows TOWARD camAz + 90, which is the camera's right. */
-  R_.SetWind(camAzDeg + 270.0, windMs);
+  R_.SetWind(camAzDeg + 270.0, o.WindMs);
   R_.SetWindClock(0.0);
 
-  OvercastWeather wx(cloudCover * 100.0);
+  OvercastWeather wx(o.CloudCover * 100.0);
   R_.SetFovDeg(fov);
 
   State hs{};
   hs.Platform.AltM = (float)camAsl;
   hs.Platform.YawDeg = (float)camAzDeg;
   hs.Platform.PitchDeg = (float)pitch;
-  hs.Env.SunElDeg = (float)sunElDeg;
-  hs.Env.SunAzDeg = (float)sunAzDeg;
-  hs.Env.CloudCover = (float)cloudCover;
+  hs.Env.SunElDeg = (float)o.SunElDeg;
+  hs.Env.SunAzDeg = (float)o.SunAzDeg;
+  hs.Env.CloudCover = (float)o.CloudCover;
   R_.SetSceneState(hs);
 
   double eye[3], fwd[3], right[3], up[3];
@@ -269,7 +273,7 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   R_.SetBenchCard(card);
 
   ExposureParams ep;
-  if (metering) {
+  if (o.Metering) {
     ep.Mode = ExposureMode::Auto;
   } else {
     ep.Mode = ExposureMode::Manual;
@@ -282,121 +286,35 @@ bool SubjectBench::Shoot(const View &v, const char *lightName, double camAzDeg, 
   R_.ResetTemporal();
   for (int f = 0; f < 3 + R_.TemporalSettleFrames(); f++) R_.RenderFrame();
 
-  float met[Render::ExposureStage::kMeterFloats] = {};
-  if (!R_.ReadExposure(met)) return false;
-  if (metering) {
-    KeyEv_ = met[1];
-    Metered_ = true;
-    float irr[Render::IrradianceStage::kFloats] = {};
-    R_.ReadIrradiance(irr);
-    Log::Info("rig", "meter", {{"keyEv", (double)KeyEv_}, {"light", lightName},
-        {"horizE", (double)met[2]}, {"sunY", 0.2126 * irr[0] + 0.7152 * irr[1] + 0.0722 * irr[2]},
-        {"skyY", 0.2126 * irr[4] + 0.7152 * irr[5] + 0.0722 * irr[6]}});
-    return true;
-  }
-
-  if (!R_.ReadPixels(Rgba_)) return false;
-
-  int outW = w, outH = h, ox = 0, oy = 0;
-  if (v.Square) { outW = outH = h; ox = (w - h) / 2; }
-  std::vector<uint8_t> img((size_t)outW * (size_t)outH * 4);
-  for (int y = 0; y < outH; y++)
-    std::memcpy(&img[(size_t)y * (size_t)outW * 4],
-                &Rgba_[((size_t)(y + oy) * (size_t)w + (size_t)ox) * 4], (size_t)outW * 4);
-
-  const Fill fill = MeasureFill(card, eyeAgl, floorR, gridM, ox, oy, outW, outH);
-  if (fill.Pct < 0.0) return false;
-
-  const double mPerPx = frameW / (double)w;
-  const double barM = DrawScaleBar(img.data(), outW, outH, mPerPx);
-
-  char path[512];
-  std::snprintf(path, sizeof path, "%s/%s-%s-%s.png", OutDir_.c_str(), Template_.c_str(), v.Name,
-                lightName);
-  if (!Out_.Png(path, img.data(), outW, outH)) {
-    Log::Error("rig", "png_write_failed", {{"path", path}});
-    return false;
-  }
-
-  /* A NADIR FILL IS THE BOTANICAL COVERAGE and at no other pointing is it one, so the name only
-   * appears where the geometry earns it. */
-  const bool nadir = v.Square && pitch <= -89.9;
-  const double fPx = 0.5 * (double)h / std::tan(halfV);
-  Log::Info("rig", "shot", {{"path", path}, {"view", v.Name}, {"light", lightName},
-      {"w", outW}, {"h", outH},
-      {"frameWidthM", v.Square ? frameW / aspect : frameW}, {"frameHeightM", frameH},
-      {"distM", dist}, {"eyeAglM", eyeAgl}, {"targetM", targetH}, {"pitchDeg", pitch},
-      {"camAzDeg", camAzDeg}, {"sunAzDeg", sunAzDeg}, {"sunElDeg", sunElDeg},
-      {"sunRelDeg", std::fmod(sunAzDeg - camAzDeg + 720.0, 360.0)},
-      {"cloudCover", cloudCover}, {"fovDeg", fov}, {"focalPx", fPx},
-      {"focal35mm", 12.0 / std::tan(halfV)},
-      {"mmPerPx", mPerPx * 1000.0}, {"scaleBarM", barM}, {"gridM", gridM},
-      {"substrate", Substrate_}, {"cardWidthM", 2.0 * card.HalfWidthM}, {"cardHeightM", card.HeightM},
-      {"cardPct", fill.CardPct}, {"cardMedian", fill.CardMedian},
-      {"fillPct", fill.Pct}, {"subjectMedian", fill.Median},
-      {"coverPct", nadir ? fill.Pct : -1.0}});
-
-  /* [SET] a tenth of the frame filled and a median at the 8-bit floor. A picture in that state carries
-   * no judgement, and it is the state both critics mistook for an EMPTY view — so the bench says it
-   * out loud instead of leaving a reader to infer it from a field. */
-  if (fill.Pct >= 10.0 && fill.Median >= 0 && fill.Median <= 1)
-    Log::Warn("rig", "subject_below_floor", {{"path", path}, {"fillPct", fill.Pct},
-        {"subjectMedian", fill.Median}, {"keyEv", (double)KeyEv_},
-        {"why", "geometry stands in the frame and renders at code 0 — a shading defect, not an empty view"}});
-  return true;
+  Shot_.Aspect = aspect;
+  Shot_.Fov = fov;
+  Shot_.HalfV = halfV;
+  Shot_.FrameW = frameW;
+  Shot_.FrameH = frameH;
+  Shot_.Dist = dist;
+  Shot_.Pitch = pitch;
+  Shot_.EyeAgl = eyeAgl;
+  Shot_.TargetH = targetH;
+  Shot_.FloorR = floorR;
+  Shot_.GridM = gridM;
+  Shot_.MPerPx = frameW / (double)w;
+  Shot_.OutW = v.Square ? h : w;
+  Shot_.OutH = h;
+  Shot_.Ox = v.Square ? (w - h) / 2 : 0;
+  Shot_.Oy = 0;
+  Shot_.Card = card;
 }
 
-/* THE STUDIO IS TAKEN AWAY, NOT THE SUBJECT, and that is what makes this work for anything that will
- * ever stand on the bench: retiring the floor leaves subject + card, retiring the card as well leaves
- * the subject alone against the sky, and a reversed-Z depth of 0 is "nothing here". No render below
- * touches whatever draws the subject. */
-SubjectBench::Fill SubjectBench::MeasureFill(const Render::BenchCard &card, double eyeAglM,
-                                             double floorRadiusM, double gridM, int ox, int oy,
-                                             int outW, int outH) {
-  Fill f;
-  const int w = R_.SceneW();
-  if (!R_.ReadDepth(DepthAll_)) return f;              /* subject + card + floor: the written frame */
-  R_.SetBenchCard(Render::BenchCard{});
-  for (int i = 0; i < 3; i++) R_.RenderFrame();
-  if (!R_.ReadDepth(DepthNoCard_)) return f;           /* subject + floor */
-  R_.SetBenchGround(eyeAglM, 0.0, gridM);              /* the floor retires the card with it */
-  for (int i = 0; i < 3; i++) R_.RenderFrame();
-  if (!R_.ReadDepth(DepthSubject_)) return f;          /* subject alone, sky behind */
-  R_.SetBenchGround(eyeAglM, floorRadiusM, gridM);
-  R_.SetBenchCard(card);
-
-  long subjHist[256] = {}, cardHist[256] = {}, subj = 0, cardSeen = 0, open = 0;
-  for (int y = 0; y < outH; y++)
-    for (int x = 0; x < outW; x++) {
-      const size_t i = (size_t)(y + oy) * (size_t)w + (size_t)(x + ox);
-      /* Reversed Z: 0 is "nothing here", and nearer is larger. */
-      const bool hasCard = DepthAll_[i] > DepthNoCard_[i] * 1.001f;
-      const bool hasSubj = !hasCard && DepthSubject_[i] > 0.0f;
-      const uint8_t *p = &Rgba_[i * 4];
-      const int y8 = (int)(0.2126 * (double)p[0] + 0.7152 * (double)p[1] + 0.0722 * (double)p[2]);
-      const int lum = y8 < 0 ? 0 : (y8 > 255 ? 255 : y8);
-      if (hasCard) { cardHist[lum]++; cardSeen++; }
-      else { if (hasSubj) { subjHist[lum]++; subj++; } open++; }
-    }
-  const auto median = [](const long *h, long n) {
-    long acc = 0;
-    for (int i = 0; i < 256; i++) { acc += h[i]; if (n > 0 && acc * 2 >= n) return i; }
-    return -1;
-  };
-  f.Pct = open ? 100.0 * (double)subj / (double)open : 0.0;
-  f.CardPct = 100.0 * (double)cardSeen / ((double)outW * (double)outH);
-  f.Median = median(subjHist, subj);
-  f.CardMedian = median(cardHist, cardSeen);
-  return f;
-}
-
-bool SubjectBench::Run() {
+/* THE MATRIX, LAID OUT. Every view under every light, no exceptions — the framings are the
+ * botanist's axis, the lights are the art-director's, and a hole in it is a question neither can
+ * answer. It is built once so that the run through it is an index and not four nested loops with a
+ * readback in the middle of them.
+ *
+ * THE REFERENCE LIGHT METERS FIRST and every other picture is held at its placement. Auto-exposing
+ * each light would normalise all three and make "transmission against reflection" unmeasurable. */
+bool SubjectBench::Begin() {
   if (Kind_ == Subject::None) return false;
 
-  /* EVERY VIEW UNDER EVERY LIGHT. The matrix used to be ragged — `sward`, the view the coverage
-   * headline is measured on, carried `skylight` alone, and a critic could not tell the subject from
-   * its own shadow on it. A ragged matrix is a hole nobody declared, so there is no per-view light mask
-   * left to get wrong; a view either exists or it does not. */
   static const View kHerbViews[] = {
     /* name          frameH/H  width/H   widthM  dist/H   pitch    eye   target   az     sq    turn   wind */
     {"portrait",     1.0,      0.0,      0.0,    0.0,      0.0,    -1.0, -1.0,     0.0, false, true,  true},
@@ -432,30 +350,22 @@ bool SubjectBench::Run() {
   const View *views = Kind_ == Subject::Tree ? kTreeViews : kHerbViews;
   const size_t viewCount = Kind_ == Subject::Tree ? std::size(kTreeViews) : std::size(kHerbViews);
 
-  /* THE REFERENCE LIGHT meters once and every other picture is held at its placement. Auto-exposing
-   * each light would normalise all three and make "transmission against reflection" unmeasurable. */
-  if (!Shoot(views[0], "frontlit", 0.0, 180.0, kSunElDeg, 0.0, true, 0.0)) return false;
-
-  int written = 0;
+  Orders_.push_back({&views[0], "frontlit", 0.0, 180.0, kSunElDeg, 0.0, 0.0, true});
   for (size_t vi = 0; vi < viewCount; vi++) {
     const View &v = views[vi];
     const double az = v.AzOffDeg;
-    if (!Shoot(v, "frontlit", az, az + 180.0, kSunElDeg, 0.0, false, 0.0)) return false;
-    if (!Shoot(v, "backlit",  az, az,         kSunElDeg, 0.0, false, 0.0)) return false;
-    if (!Shoot(v, "skylight", az, az + 180.0, kSunElDeg, 1.0, false, 0.0)) return false;
-    written += 3;
+    Orders_.push_back({&v, "frontlit", az, az + 180.0, kSunElDeg, 0.0, 0.0, false});
+    Orders_.push_back({&v, "backlit",  az, az,         kSunElDeg, 0.0, 0.0, false});
+    Orders_.push_back({&v, "skylight", az, az + 180.0, kSunElDeg, 1.0, 0.0, false});
     /* THE WIND ROW, and it was refused until this round because three identical files would have
-     * been a lie. Same geometry, same light, same exposure; the only
-     * thing that differs is the declared met wind, so a difference between two of these files can be
-     * nothing else. */
-    if (v.Wind) {
+     * been a lie. Same geometry, same light, same exposure; the only thing that differs is the
+     * declared met wind, so a difference between two of these files can be nothing else. */
+    if (v.Wind)
       for (double ms : {0.0, 6.0, 12.0}) {
-        char wname[24];
-        std::snprintf(wname, sizeof wname, "wind%02d", (int)std::lround(ms));
-        if (!Shoot(v, wname, az, az + 180.0, kSunElDeg, 0.0, false, ms)) return false;
-        written++;
+        char name[24];
+        std::snprintf(name, sizeof name, "wind%02d", (int)std::lround(ms));
+        Orders_.push_back({&v, name, az, az + 180.0, kSunElDeg, 0.0, ms, false});
       }
-    }
     if (!v.Turntable) continue;
     for (int k = 0; k < TurnSteps_; k++) {
       const double a = az + 360.0 * (double)k / (double)TurnSteps_;
@@ -466,19 +376,186 @@ bool SubjectBench::Run() {
        * sun's bearing RELATIVE to the camera, logged as `sunRelDeg` — and turn000 is frontlit to the
        * bit. turn180 is the backlit BEARING seen from the other face of the stand, which is not the
        * backlit PICTURE. */
-      if (!Shoot(v, name, a, az + 180.0, kSunElDeg, 0.0, false, 0.0)) return false;
-      written++;
+      Orders_.push_back({&v, name, a, az + 180.0, kSunElDeg, 0.0, 0.0, false});
     }
   }
-
-  Log::Info("rig", "done", {{"template", Template_}, {"heightM", HeightM_}, {"images", written},
-      {"dir", OutDir_}, {"keyEv", (double)KeyEv_}, {"fovDeg", kFovDeg},
-      {"substrate", Substrate_},
-      {"substrateRgb", std::to_string(SubstrateRgb_[0]) + "," + std::to_string(SubstrateRgb_[1]) + ","
-                     + std::to_string(SubstrateRgb_[2])},
-      {"cardAlbedo", (double)Render::BenchGroundStage::kCardAlbedo},
-      {"gaps", "leaf|season"}});
   return true;
+}
+
+SubjectBench::Progress SubjectBench::Step() {
+  if (!Begun_) {
+    Begun_ = true;
+    if (!Begin()) return Progress::Failed;
+  }
+  if (OrderIx_ >= Orders_.size()) {
+    Log::Info("rig", "done", {{"template", Template_}, {"heightM", HeightM_}, {"images", Written_},
+        {"dir", OutDir_}, {"keyEv", (double)KeyEv_}, {"fovDeg", kFovDeg},
+        {"substrate", Substrate_},
+        {"substrateRgb", std::to_string(SubstrateRgb_[0]) + "," + std::to_string(SubstrateRgb_[1])
+                       + "," + std::to_string(SubstrateRgb_[2])},
+        {"cardAlbedo", (double)Render::BenchGroundStage::kCardAlbedo},
+        {"gaps", "leaf|season"}});
+    return Progress::Done;
+  }
+
+  const Order &o = Orders_[OrderIx_];
+  switch (Take_) {
+    case Take::Place:
+      Place(o);
+      Take_ = Take::Meter;
+      return Progress::Running;
+    case Take::Meter:
+    case Take::MeterIrradiance:
+      return Meter(o);
+    case Take::Pixels: {
+      const Render::ReadState st = R_.ReadPixels(Rgba_);
+      if (st == Render::ReadState::Pending) return Progress::Running;
+      if (st == Render::ReadState::Failed) return Progress::Failed;
+      Img_.assign((size_t)Shot_.OutW * (size_t)Shot_.OutH * 4, 0);
+      for (int y = 0; y < Shot_.OutH; y++)
+        std::memcpy(&Img_[(size_t)y * (size_t)Shot_.OutW * 4],
+                    &Rgba_[((size_t)(y + Shot_.Oy) * (size_t)R_.SceneW() + (size_t)Shot_.Ox) * 4],
+                    (size_t)Shot_.OutW * 4);
+      Take_ = Take::DepthAll;
+      return Progress::Running;
+    }
+    /* THE STUDIO IS TAKEN AWAY, NOT THE SUBJECT, and that is what makes this work for anything that
+     * will ever stand on the bench: retiring the floor leaves subject + card, retiring the card as
+     * well leaves the subject alone against the sky, and a reversed-Z depth of 0 is "nothing here".
+     * No render below touches whatever draws the subject. */
+    case Take::DepthAll: {
+      const Render::ReadState st = R_.ReadDepth(DepthAll_);   /* subject + card + floor */
+      if (st == Render::ReadState::Pending) return Progress::Running;
+      if (st == Render::ReadState::Failed) return Progress::Failed;
+      R_.SetBenchCard(Render::BenchCard{});
+      for (int i = 0; i < 3; i++) R_.RenderFrame();
+      Take_ = Take::DepthNoCard;
+      return Progress::Running;
+    }
+    case Take::DepthNoCard: {
+      const Render::ReadState st = R_.ReadDepth(DepthNoCard_);   /* subject + floor */
+      if (st == Render::ReadState::Pending) return Progress::Running;
+      if (st == Render::ReadState::Failed) return Progress::Failed;
+      R_.SetBenchGround(Shot_.EyeAgl, 0.0, Shot_.GridM);   /* the floor retires the card with it */
+      for (int i = 0; i < 3; i++) R_.RenderFrame();
+      Take_ = Take::DepthSubject;
+      return Progress::Running;
+    }
+    case Take::DepthSubject: {
+      const Render::ReadState st = R_.ReadDepth(DepthSubject_);   /* subject alone, sky behind */
+      if (st == Render::ReadState::Pending) return Progress::Running;
+      if (st == Render::ReadState::Failed) return Progress::Failed;
+      R_.SetBenchGround(Shot_.EyeAgl, Shot_.FloorR, Shot_.GridM);
+      R_.SetBenchCard(Shot_.Card);
+      Take_ = Take::Write;
+      return Progress::Running;
+    }
+    case Take::Write:
+      return Write(o);
+  }
+  return Progress::Failed;
+}
+
+SubjectBench::Progress SubjectBench::Meter(const Order &o) {
+  if (Take_ == Take::Meter) {
+    const Render::ReadState st = R_.ReadExposure(Meter_);
+    if (st == Render::ReadState::Pending) return Progress::Running;
+    if (st == Render::ReadState::Failed) return Progress::Failed;
+    if (!o.Metering) {
+      Take_ = Take::Pixels;
+      return Progress::Running;
+    }
+    KeyEv_ = Meter_[1];
+    Metered_ = true;
+    Take_ = Take::MeterIrradiance;
+    return Progress::Running;
+  }
+  float irr[Render::IrradianceStage::kFloats] = {};
+  const Render::ReadState st = R_.ReadIrradiance(irr);
+  if (st == Render::ReadState::Pending) return Progress::Running;
+  Log::Info("rig", "meter", {{"keyEv", (double)KeyEv_}, {"light", o.Light},
+      {"horizE", (double)Meter_[2]}, {"sunY", 0.2126 * irr[0] + 0.7152 * irr[1] + 0.0722 * irr[2]},
+      {"skyY", 0.2126 * irr[4] + 0.7152 * irr[5] + 0.0722 * irr[6]}});
+  OrderIx_++;
+  Take_ = Take::Place;
+  return Progress::Running;
+}
+
+SubjectBench::Progress SubjectBench::Write(const Order &o) {
+  const View &v = *o.Frame;
+  const Fill fill = MeasureFill();
+  if (fill.Pct < 0.0) return Progress::Failed;
+
+  const double barM = DrawScaleBar(Img_.data(), Shot_.OutW, Shot_.OutH, Shot_.MPerPx);
+
+  char path[512];
+  std::snprintf(path, sizeof path, "%s/%s-%s-%s.png", OutDir_.c_str(), Template_.c_str(), v.Name,
+                o.Light.c_str());
+  if (Out_.Png(path, Img_.data(), Shot_.OutW, Shot_.OutH) == Artifacts::Delivery::Refused) {
+    Log::Error("rig", "png_write_failed", {{"path", std::string(path)}});
+    return Progress::Failed;
+  }
+
+  /* A NADIR FILL IS THE BOTANICAL COVERAGE and at no other pointing is it one, so the name only
+   * appears where the geometry earns it. */
+  const bool nadir = v.Square && Shot_.Pitch <= -89.9;
+  const double fPx = 0.5 * (double)R_.SceneH() / std::tan(Shot_.HalfV);
+  Log::Info("rig", "shot", {{"path", std::string(path)}, {"view", v.Name}, {"light", o.Light},
+      {"w", Shot_.OutW}, {"h", Shot_.OutH},
+      {"frameWidthM", v.Square ? Shot_.FrameW / Shot_.Aspect : Shot_.FrameW},
+      {"frameHeightM", Shot_.FrameH},
+      {"distM", Shot_.Dist}, {"eyeAglM", Shot_.EyeAgl}, {"targetM", Shot_.TargetH},
+      {"pitchDeg", Shot_.Pitch}, {"camAzDeg", o.CamAzDeg}, {"sunAzDeg", o.SunAzDeg},
+      {"sunElDeg", o.SunElDeg},
+      {"sunRelDeg", std::fmod(o.SunAzDeg - o.CamAzDeg + 720.0, 360.0)},
+      {"cloudCover", o.CloudCover}, {"fovDeg", Shot_.Fov}, {"focalPx", fPx},
+      {"focal35mm", 12.0 / std::tan(Shot_.HalfV)},
+      {"mmPerPx", Shot_.MPerPx * 1000.0}, {"scaleBarM", barM}, {"gridM", Shot_.GridM},
+      {"substrate", Substrate_}, {"cardWidthM", 2.0 * Shot_.Card.HalfWidthM},
+      {"cardHeightM", Shot_.Card.HeightM},
+      {"cardPct", fill.CardPct}, {"cardMedian", fill.CardMedian},
+      {"fillPct", fill.Pct}, {"subjectMedian", fill.Median},
+      {"coverPct", nadir ? fill.Pct : -1.0}});
+
+  /* [SET] a tenth of the frame filled and a median at the 8-bit floor. A picture in that state carries
+   * no judgement, and it is the state both critics mistook for an EMPTY view — so the bench says it
+   * out loud instead of leaving a reader to infer it from a field. */
+  if (fill.Pct >= 10.0 && fill.Median >= 0 && fill.Median <= 1)
+    Log::Warn("rig", "subject_below_floor", {{"path", std::string(path)}, {"fillPct", fill.Pct},
+        {"subjectMedian", fill.Median}, {"keyEv", (double)KeyEv_},
+        {"why", "geometry stands in the frame and renders at code 0 — a shading defect, not an empty view"}});
+  Written_++;
+  OrderIx_++;
+  Take_ = Take::Place;
+  return Progress::Running;
+}
+
+SubjectBench::Fill SubjectBench::MeasureFill() {
+  Fill f;
+  const int w = R_.SceneW();
+  long subjHist[256] = {}, cardHist[256] = {}, subj = 0, cardSeen = 0, open = 0;
+  for (int y = 0; y < Shot_.OutH; y++)
+    for (int x = 0; x < Shot_.OutW; x++) {
+      const size_t i = (size_t)(y + Shot_.Oy) * (size_t)w + (size_t)(x + Shot_.Ox);
+      /* Reversed Z: 0 is "nothing here", and nearer is larger. */
+      const bool hasCard = DepthAll_[i] > DepthNoCard_[i] * 1.001f;
+      const bool hasSubj = !hasCard && DepthSubject_[i] > 0.0f;
+      const uint8_t *p = &Rgba_[i * 4];
+      const int y8 = (int)(0.2126 * (double)p[0] + 0.7152 * (double)p[1] + 0.0722 * (double)p[2]);
+      const int lum = y8 < 0 ? 0 : (y8 > 255 ? 255 : y8);
+      if (hasCard) { cardHist[lum]++; cardSeen++; }
+      else { if (hasSubj) { subjHist[lum]++; subj++; } open++; }
+    }
+  const auto median = [](const long *h, long n) {
+    long acc = 0;
+    for (int i = 0; i < 256; i++) { acc += h[i]; if (n > 0 && acc * 2 >= n) return i; }
+    return -1;
+  };
+  f.Pct = open ? 100.0 * (double)subj / (double)open : 0.0;
+  f.CardPct = 100.0 * (double)cardSeen / ((double)Shot_.OutW * (double)Shot_.OutH);
+  f.Median = median(subjHist, subj);
+  f.CardMedian = median(cardHist, cardSeen);
+  return f;
 }
 
 } // namespace outshine::Clients

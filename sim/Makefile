@@ -136,9 +136,9 @@ wasm:            ## build the WASM client -> web/gpu.{js,wasm}
 	  emcc $(WASM_TERRAIN_OBJS) \
 	    src/clients/AppWasm.cpp src/clients/Walker.cpp $(APP_SRCS) \
 	    $(RENDER_SRCS) \
-	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O1 $(EMCC_WARN) -fexceptions \
+	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O2 $(EMCC_WARN) -fexceptions \
 	    $(INC_WASM) $(INC_CLIENT) -isystem vendor \
-	    $(WASM_THREADS_LINK) -sASYNCIFY $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
+	    $(WASM_THREADS_LINK) $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body \
 	    --preload-file web/moon.jpg@/moon.jpg \
 	    --preload-file $(MODS_DIR)@/mods \

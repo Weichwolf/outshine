@@ -78,7 +78,12 @@ int main(int argc, char **argv) {
                             Clients::Env("OUTSHINE_MATERIALS", "assets/world/ground-materials.json"),
                             "", ""});
   sim.SetTilesBase(Clients::Env("FB_TILES", "http://localhost:8081"));
-  if (!sim.LoadTables() || !sim.Open()) return 1;
+  if (!sim.LoadTables()) return 1;
+  /* The ground is a poll (clients/Sim.h). Natively the tile fetch behind it blocks, so this turns
+   * once; the loop is what makes that a property of the transport rather than of this caller. */
+  Clients::Sim::Bring open = Clients::Sim::Bring::Waiting;
+  while ((open = sim.Open()) == Clients::Sim::Bring::Waiting) {}
+  if (open != Clients::Sim::Bring::Open) return 1;
   Survey(sim);
   Answer(sim, argc >= 5 ? std::atof(argv[3]) : sim.Lat(),
          argc >= 5 ? std::atof(argv[4]) : sim.Lon());

@@ -56,8 +56,11 @@ int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
 
   Clients::FileArtifacts out(Clients::Env("OUTSHINE_OUT", "."));
   Clients::SceneRunner runner(app, scene, out);
-  if (runner.IsSubjectBench()) return runner.RunSubject();
-  return app.Open() ? runner.Run() : 1;
+  /* THE HOST'S TURN IS THE WHOLE DIFFERENCE between the two clients. Here the process owns the
+   * thread and a turn follows a turn; in the browser a turn is a task, and the run's sequence is
+   * the same object either way. */
+  while (runner.Step() == Clients::SceneRunner::Progress::Running) {}
+  return runner.Result();
 }
 
 }  // namespace

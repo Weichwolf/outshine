@@ -14,6 +14,7 @@
 #include "Gpu.h"
 #include "FrameContext.h"
 #include "GpuTimer.h"
+#include "Readback.h"
 #include "stages/StarsStage.h"
 #include "stages/PresentStage.h"
 #include "stages/ProgressStage.h"
@@ -52,30 +53,35 @@ public:
   /* Acquire the target, run the passes, submit. */
   void RenderFrame(void);
 
-  /* Offscreen only: tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for stb_image_write. */
-  bool ReadPixels(std::vector<uint8_t> &rgba);
+  /* EVERY READER BELOW IS A POLL, and the first call is what issues the transfer: ask each turn,
+   * take the answer on the turn it stops being Pending. There is no waiting variant, because the
+   * browser's frame thread has no legal way to stand still and a run that stood still there would
+   * hold the very event loop its tiles arrive on. */
 
-  /* Blocks until everything submitted so far has retired. A per-frame wall clock without this reads
-   * the encoder, not the frame. */
-  void SyncGpu(void);
+  /* Tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for a PNG writer. */
+  ReadState ReadPixels(std::vector<uint8_t> &rgba);
+
+  /* Ready once everything submitted so far has retired. A per-frame wall clock without it reads the
+   * encoder, not the frame. */
+  ReadState GpuIdle(void);
 
   /* Reversed-Z scene depth, W*H floats, row-major. Range along the view ray follows as
    * kNearM / depth / cos(angle off boresight); a critic's "at 1-2 km" is otherwise a guess about a
-   * hillside's row. Blocking, offscreen only. */
-  bool ReadDepth(std::vector<float> &depth);
+   * hillside's row. */
+  ReadState ReadDepth(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn — the numerator of that division */
 
   /* [sunIrr.rgb, _, skyIrr.rgb, _] in top-of-atmosphere-solar = 1 units: the scale everything lit is
-   * multiplied by, measurable instead of asserted. Blocking. */
-  bool ReadIrradiance(float out[IrradianceStage::kFloats]);
+   * multiplied by, measurable instead of asserted. */
+  ReadState ReadIrradiance(float out[IrradianceStage::kFloats]);
 
   /* WHAT THE SCENE MAY DECLARE about its own brightness; Auto with no compensation is the default
    * and needs no declaration. Takes effect on the next frame. */
   void SetExposure(const ExposureParams &p) { Exposure->SetParams(p); }
 
   /* [expScale, keyLog2, horizE, _]: the scalar the resolve multiplies scene radiance by, the log2 of
-   * the radiance it places at middle grey, and the horizontal irradiance it came from. Blocking. */
-  bool ReadExposure(float out[ExposureStage::kMeterFloats]);
+   * the radiance it places at middle grey, and the horizontal irradiance it came from. */
+  ReadState ReadExposure(float out[ExposureStage::kMeterFloats]);
 
   /* Enable before Init: the terrain source is per-tile buffers plus a growable CLASS array driven
    * by World. */
@@ -263,7 +269,7 @@ private:
   bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
   void EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
                      const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps);
-  static wgpu::Instance MakeInstance(void);           /* the one instance descriptor both paths use */
+  wgpu::Instance MakeInstance(void) const;   /* the descriptor, and the native path asks for one more */
   void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
   void CreateAtmosphere(void);        /* Hillaire LUT/uniform/moon resources + Configure()s the atmosphere stages */
   void CreateSceneLight(void);        /* shadow atlas + cascade uniform + irradiance buffer, before any lit stage */
@@ -386,6 +392,9 @@ private:
   double Fwd[3], Right[3], Up[3];       /* explicit ECEF camera basis (SetCameraBasis) */
   float FovDeg = 60.0f;                 /* [SET] until a scene declares one; SetFovDeg is the only writer */
   float OrthoM = 0.0f;                  /* > 0: parallel projection covering this many metres */
+
+  Readback PixelRead, DepthRead, IrrRead, MeterRead;
+  bool WorkWatched = false, WorkRetired = false;
 
   int Width, Height;
   bool DeviceReady, DeviceLost;

@@ -65,20 +65,22 @@ void ServerLog::Write(double simTimeS, LogLevel level, const char *tag, const ch
   if (Pending_.size() >= kFlushBytes) Flush();
 }
 
-void ServerLog::Flush() {
-  if (Pending_.empty()) return;
+bool ServerLog::Flush() {
+  switch (Post_.Take()) {
+    case HttpPost::State::Delivered: Sent_++; Dropped_ = 0; break;
+    case HttpPost::State::Refused: Dropped_++; break;
+    case HttpPost::State::InFlight: return false;
+    case HttpPost::State::Idle: break;
+  }
+  if (Pending_.empty()) return true;
   if (Dropped_) {
     char note[96];
     snprintf(note, sizeof note, "t=0.0 WARN run log_batches_lost batches=%zu\n", Dropped_);
     Pending_ += note;
   }
-  if (HttpPost(Url_, Pending_.data(), Pending_.size(), "text/plain")) {
-    Sent_++;
-    Dropped_ = 0;
-  } else {
-    Dropped_++;
-  }
+  Post_.Begin(Url_, Pending_.data(), Pending_.size(), "text/plain");
   Pending_.clear();
+  return false;
 }
 
 }  // namespace outshine::Clients

@@ -3,6 +3,7 @@
 
 #include <string>
 
+#include "HttpPost.h"
 #include "Telemetry.h"
 
 namespace outshine::Clients {
@@ -20,12 +21,14 @@ public:
 
   void Header(const std::vector<std::string> &columns) override;
   void Row(const std::vector<std::string> &fields) override;
-  void Flush();
+  /* Pushes what it can and says whether anything is still owed (ServerLog.h). */
+  bool Flush();
 
 private:
   static constexpr size_t kFlushBytes = 16u * 1024u;
 
   std::string Url_, Pending_;
+  HttpPost Post_;
   size_t Dropped_ = 0;
 };
 

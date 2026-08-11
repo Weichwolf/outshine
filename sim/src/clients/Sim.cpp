@@ -10,25 +10,9 @@
 #include "StackProbe.h"
 #include "TerrainLoader.h"
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
-
 namespace outshine::Clients {
 namespace {
 
-/* A DEM answer arrives synchronously off a native fetch and asynchronously in the browser, and the
- * boot needs one before it can place the eye. Waiting it out is the only honest option: an invented
- * plateau would move the whole picture, and this is the only picture there is. */
-void PumpMs(int ms) {
-#ifdef __EMSCRIPTEN__
-  emscripten_sleep((unsigned)ms);
-#else
-  (void)ms;
-#endif
-}
-
-constexpr int kGroundTries = 200;
 constexpr int kAlbedoTileSize = 512;
 
 }  // namespace
@@ -71,27 +55,29 @@ void Sim::StartTelemetry() {
   Bus_.Register(&Stream_);
 }
 
-bool Sim::ResolveGround(double lat, double lon, double *out) const {
-  for (int t = 0; t < kGroundTries; t++) {
-    const GroundSample g = fb_stream_ground(lat, lon);
-    if (g.TryAslM(out)) return true;
-    if (g.Where() != GroundSample::State::Pending) return false;   /* a hole never becomes a height */
-    PumpMs(50);
-  }
-  return false;
+Sim::Bring Sim::ResolveGround(double lat, double lon, double *out) const {
+  const GroundSample g = fb_stream_ground(lat, lon);
+  if (g.TryAslM(out)) return Bring::Open;
+  /* A hole never becomes a height. */
+  return g.Where() == GroundSample::State::Pending ? Bring::Waiting : Bring::Failed;
 }
 
-bool Sim::Open() {
-  if (Opened_) return false;
-  if (!W_.Open(Base_.c_str(), Stance_.Lat, Stance_.Lon, ViewM_, kAlbedoTileSize)) {
-    Log::Error("sim", "world_open_failed", {{"base", Base_}});
-    return false;
+Sim::Bring Sim::Open() {
+  if (Opened_) return Bring::Failed;
+  if (!Streaming_) {
+    if (!W_.Open(Base_.c_str(), Stance_.Lat, Stance_.Lon, ViewM_, kAlbedoTileSize)) {
+      Log::Error("sim", "world_open_failed", {{"base", Base_}});
+      return Bring::Failed;
+    }
+    Streaming_ = true;
   }
   double ground = 0.0;
-  if (!ResolveGround(Stance_.Lat, Stance_.Lon, &ground)) {
+  const Bring got = ResolveGround(Stance_.Lat, Stance_.Lon, &ground);
+  if (got == Bring::Waiting) return got;
+  if (got == Bring::Failed) {
     Log::Error("sim", "ground_unresolved",
                {{"lat", Stance_.Lat}, {"lon", Stance_.Lon}, {"base", Base_}});
-    return false;
+    return got;
   }
   Stand_.SetGroundAslM(ground);
 
@@ -111,7 +97,7 @@ bool Sim::Open() {
       {"moonElDeg", (double)State_.Env.MoonElDeg}, {"cloudCover", (double)State_.Env.CloudCover},
       {"windN", w.N}, {"windE", w.E}, {"windD", w.D}});
   Opened_ = true;
-  return true;
+  return Bring::Open;
 }
 
 std::optional<World::Forest::Prototype> Sim::GrowTrees() {

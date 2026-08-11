@@ -52,9 +52,15 @@ public:
 
   /* The declared tables, before anything asks the world a question. */
   bool LoadTables();
+
   /* Opens the tile stream, resolves the ground under the standpoint and places sun and moon. Ends
-   * with the eye standing where the scene declared it. */
-  bool Open();
+   * with the eye standing where the scene declared it.
+   *
+   * A DEM ANSWER IS A NETWORK ANSWER, so this is a poll and not a call: the first turn opens the
+   * stream, every turn after asks the ground again, and the caller keeps its own turn until the
+   * answer stops being Waiting. Inventing a plateau instead would move the whole picture. */
+  enum class Bring { Waiting, Open, Failed };
+  Bring Open();
   bool Opened() const { return Opened_; }
 
   /* Grows the declared species. The yield is the picture's; the world keeps the crown and the
@@ -120,7 +126,7 @@ public:
   void SetPixelFocalLength(double px) { W_.SetPixelFocalLength(px); }
 
 private:
-  bool ResolveGround(double lat, double lon, double *out) const;
+  Bring ResolveGround(double lat, double lon, double *out) const;
 
   Scene Scene_;
   Assets Assets_;
@@ -143,6 +149,7 @@ private:
   float SunEl_ = 0.0f, SunAz_ = 0.0f;
   double Eye_[3] = {}, Fwd_[3] = {}, Right_[3] = {}, Up_[3] = {};
   bool Opened_ = false;
+  bool Streaming_ = false;   /* the tile stream is up; the ground under the standpoint is not in yet */
   bool RoofChecked_ = false;
 };
 

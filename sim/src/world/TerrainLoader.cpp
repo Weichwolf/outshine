@@ -18,12 +18,6 @@
 #include "terrain.h"
 #include "tilemath.h"   /* fb-tiles' OWN tile maths, so a tile index means the same on both sides */
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten/emscripten.h>
-#else
-#include <unistd.h>
-#endif
-
 /* A C ABI cannot live in a namespace, but the types it borrows do. */
 using namespace outshine;
 using outshine::World::TilePool;
@@ -51,14 +45,6 @@ constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 constexpr int kPoolDemCacheTiles = 16;
 
 std::unique_ptr<TilePool> gPool;
-
-void SleepMs(int ms) {
-#ifdef __EMSCRIPTEN__
-  emscripten_sleep((unsigned)ms);   /* ASYNCIFY: the frame thread yields, it does not spin */
-#else
-  usleep((useconds_t)ms * 1000);
-#endif
-}
 
 int PoolThreads() {
   unsigned hw = std::thread::hardware_concurrency();
@@ -327,22 +313,21 @@ int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
   return 1;
 }
 
-int fb_fetch_stars(uint8_t *dst, int cap) {
-  if (!gPool) return 0;
+FbStarBands fb_fetch_stars(uint8_t *dst, int cap) {
+  if (!gPool) return {FbStarBands::State::Complete, 0};
   int off = 0;
   std::vector<uint8_t> band;
   for (int b = 0; b < 4; b++) {   /* fb-tiles serves 4 HYG mag bands (0..3); no 5th to 404 on */
     char path[64];
     std::snprintf(path, sizeof path, "/t/stars/%d/0/0", b);
-    TilePool::Reply reply = TilePool::Reply::Pending;
-    for (int t = 0; t < 200 && reply == TilePool::Reply::Pending; t++) {
-      reply = gPool->Bytes(path, &band);
-      if (reply == TilePool::Reply::Pending) SleepMs(50);
-    }
+    const TilePool::Reply reply = gPool->Bytes(path, &band);
+    /* The pool caches what has landed, so the bands already copied are re-copied for free on the
+     * next turn and no progress has to be carried across the poll. */
+    if (reply == TilePool::Reply::Pending) return {FbStarBands::State::Pending, 0};
     if (reply != TilePool::Reply::Ready || band.empty()) break;
     if (off + (int)band.size() > cap) break;
     memcpy(dst + off, band.data(), band.size());
     off += (int)band.size();
   }
-  return off;
+  return {FbStarBands::State::Complete, off};
 }

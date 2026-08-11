@@ -34,8 +34,14 @@ double fb_stream_ground_post_m(double latDeg);
 
 /* WASM: an embedded MEMFS path; native: a disk path. RGBA8 out is malloc'd — the caller frees. */
 int  fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h);
-/* The concatenated HYG star bands, through the pool. Blocks the caller until they land, which is
- * what a loading screen is for; there is no world without them either. */
-int  fb_fetch_stars(uint8_t *dst, int cap);
+/* The concatenated HYG star bands, through the pool. A POLL, because the only thread that could wait
+ * for them is the one their fetches complete on. `Bytes` is meaningless while it is Pending, which
+ * is why it is not a count with a sentinel in it. */
+struct FbStarBands {
+  enum class State { Pending, Complete };
+  State Where;
+  int Bytes;
+};
+FbStarBands fb_fetch_stars(uint8_t *dst, int cap);
 
 #endif

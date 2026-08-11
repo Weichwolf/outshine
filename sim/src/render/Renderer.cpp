@@ -67,17 +67,22 @@ void Renderer::Init(const char *canvasSelector, int width, int height) {
   StartAdapterRequest();
 }
 
-/* ONE INSTANCE DESCRIPTOR FOR BOTH TRANSLATIONS. `TimedWaitAny` is what makes a blocking wait legal
- * at all — without it `WaitAny` returns Error before it looks at the future, so every readback in
- * the build returns false and every product is silently missing. Only the offscreen path used to ask
- * for it, which is why the browser delivered no PNG, no depth, no irradiance and no exposure. Under
- * emdawnwebgpu the wait runs through ASYNCIFY, which this build has. */
-wgpu::Instance Renderer::MakeInstance(void) {
-  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
+/* `TimedWaitAny` is what makes the NATIVE bring-up's `WaitAny(UINT64_MAX)` legal — without it it
+ * returns Error before it looks at the future. It is asked for on that path ALONE, because
+ * emdawnwebgpu grants it only to a build that can unwind the stack and REFUSES THE WHOLE INSTANCE
+ * otherwise: asking for it in the browser yields a null instance that every later call reaches
+ * through, and the device still comes up because a null instance's events land under the event
+ * manager's null-instance slot. */
+wgpu::Instance Renderer::MakeInstance(void) const {
   wgpu::InstanceDescriptor id{};
-  id.requiredFeatureCount = 1;
-  id.requiredFeatures = &kTimedWaitAny;
-  return wgpu::CreateInstance(&id);
+  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
+  if (Blocking) {
+    id.requiredFeatureCount = 1;
+    id.requiredFeatures = &kTimedWaitAny;
+  }
+  wgpu::Instance made = wgpu::CreateInstance(&id);
+  if (!made) Log::Error("render", "no_instance", {{"timedWaitAny", Blocking}});
+  return made;
 }
 
 void Renderer::InitOffscreen(int width, int height) {
@@ -184,7 +189,7 @@ void Renderer::OnDevice(wgpu::Device d) {
     VegBuf = Device.CreateBuffer(&vbd);
     Queue.WriteBuffer(VegBuf, 0, VegRows.data(), VegRows.size());
   }
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Stars->Init(gpu);
   Buildings->Configure(gpu, Light());
   Water->Configure(gpu, Light());
@@ -209,7 +214,7 @@ void Renderer::OnDevice(wgpu::Device d) {
 /* The irradiance buffer exists BEFORE any lit stage, for the same reason CreateAtmosphere does: a
  * WebGPU bind group pins its views and buffers at creation. */
 void Renderer::CreateSceneLight(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Shadow->Init(gpu);
   wgpu::BufferDescriptor bd{};
   bd.size = kShadowUniFloats * sizeof(float);
@@ -242,7 +247,7 @@ void Renderer::CreateTerrainPipeline(void) {
   td.format = kVelocityFormat;
   VelTex = Device.CreateTexture(&td);
 
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Tiles->Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
                    Light());
 }
@@ -269,7 +274,7 @@ int Renderer::UploadTile(const float *verts, uint32_t nverts, const uint32_t *id
 /* Lighting stays linear upstream; the resolve is the only place display encoding happens, and it does
  * it in the same fragment that resolves — one pass, two attachments. */
 void Renderer::CreateResolvePipeline(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Ao->Configure(gpu, DepthTex.CreateView(), AtmoBuf, Width, Height);
   Exposure->Configure(gpu, MeterBuf, IrrBuf);
   Taa->Configure(gpu, Samp, HdrTex.CreateView(), VelTex.CreateView(), DepthTex.CreateView(),
@@ -284,7 +289,7 @@ void Renderer::CreatePresent(void) {
              wgpu::TextureUsage::CopySrc;
   FrameTex = Device.CreateTexture(&td);
 
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   Present->Configure(gpu, FrameTex.CreateView());
   Progress->Init(gpu);
 }
@@ -317,7 +322,7 @@ void Renderer::CreateAtmosphere(void) {
   /* Init-order CONTRACT: THIS order, because each later stage's bind group is built from an earlier
    * one's already-created texture view — a WebGPU bind group pins a view at creation, there is no
    * "rebind later". Same reason CreateAtmosphere runs before CreateTerrainPipeline. */
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
   wgpu::BufferDescriptor ibd{};
   ibd.size = IrradianceStage::kBufferBytes;
   ibd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
@@ -351,7 +356,7 @@ void Renderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, double
  * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group
  * pins). */
 void Renderer::CreateClouds(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, Instance};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
 }
 
 
@@ -960,159 +965,100 @@ void Renderer::RenderFrame(void) {
   }
 }
 
-void Renderer::SyncGpu(void) {
-  if (!DeviceUsable()) return;
-  Instance.WaitAny(Queue.OnSubmittedWorkDone(wgpu::CallbackMode::WaitAnyOnly,
-                       [](wgpu::QueueWorkDoneStatus, wgpu::StringView) {}),
-                   UINT64_MAX);
+/* Ready when the queue has retired everything submitted so far. Watched once and polled after, so
+ * the encoder is never re-entered from inside the answer. */
+ReadState Renderer::GpuIdle(void) {
+  if (!DeviceUsable()) return ReadState::Failed;
+  if (!WorkWatched) {
+    WorkWatched = true;
+    WorkRetired = false;
+    Queue.OnSubmittedWorkDone(wgpu::CallbackMode::AllowProcessEvents,
+        [this](wgpu::QueueWorkDoneStatus, wgpu::StringView) { WorkRetired = true; });
+  }
+  Instance.ProcessEvents();
+  if (!WorkRetired) return ReadState::Pending;
+  WorkWatched = false;
+  return ReadState::Ready;
 }
 
-/* CopyTextureToBuffer into a MapRead staging buffer (256-byte row pitch, the WebGPU rule), then
- * MapAsync blocking via Instance::WaitAny. Strips the row padding on the way out.
- *
- * THE SOURCE IS FrameTex AND NOT THE TARGET. Only the offscreen path had a copyable target — on a
+/* THE SOURCE IS FrameTex AND NOT THE TARGET. Only the offscreen path had a copyable target — on a
  * canvas the swapchain texture is the browser's and carries no CopySrc — so a browser run threw
  * `Failed to read the 'texture' property` on its first readback and the run died there, which is
  * every product the browser never delivered. FrameTex exists in BOTH translations, is the same
  * declared-size picture the present pass reads, and carries CopySrc; reading it makes the two
  * clients read the same texture instead of two different ones. */
-bool Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
-  if (!DeviceUsable() || !FrameTex) return false;
-  const uint32_t bpp = 4;
-  const uint32_t unpaddedRow = (uint32_t)Width * bpp;
-  const uint32_t paddedRow = (unpaddedRow + 255u) & ~255u;
-  const uint64_t bufSize = (uint64_t)paddedRow * (uint32_t)Height;
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = bufSize;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  wgpu::Buffer staging = Device.CreateBuffer(&bd);
-
-  wgpu::TexelCopyTextureInfo src{};
-  src.texture = FrameTex;
-  wgpu::TexelCopyBufferInfo dst{};
-  dst.buffer = staging;
-  dst.layout.bytesPerRow = paddedRow;
-  dst.layout.rowsPerImage = (uint32_t)Height;
-  wgpu::Extent3D ext{(uint32_t)Width, (uint32_t)Height, 1};
-
-  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-  enc.CopyTextureToBuffer(&src, &dst, &ext);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  Queue.Submit(1, &cmd);
-
-  bool ok = false;
-  Instance.WaitAny(
-      staging.MapAsync(wgpu::MapMode::Read, 0, bufSize, wgpu::CallbackMode::WaitAnyOnly,
-          [&ok](wgpu::MapAsyncStatus st, wgpu::StringView msg) {
-            ok = (st == wgpu::MapAsyncStatus::Success);
-            if (!ok) Log::Error("render", "buffer_map_failed", {{"msg", SvToStr(msg)}});
-          }),
-      UINT64_MAX);
-  if (!ok) return false;
-
-  const uint8_t *mapped = static_cast<const uint8_t *>(staging.GetConstMappedRange(0, bufSize));
-  rgba.resize((size_t)unpaddedRow * Height);
+ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
+  if (!DeviceUsable() || !FrameTex) return ReadState::Failed;
+  if (PixelRead.Idle())
+    PixelRead.FromTexture(Device, Queue, FrameTex, wgpu::TextureAspect::All, (uint32_t)Width,
+                          (uint32_t)Height, 4u);
+  const ReadState st = PixelRead.Poll(Instance);
+  if (st == ReadState::Pending) return st;
+  if (st == ReadState::Failed) {
+    PixelRead.Release();
+    return st;
+  }
+  const uint32_t unpaddedRow = (uint32_t)Width * 4u;
+  const uint32_t paddedRow = PixelRead.RowBytes();
+  const uint8_t *mapped = PixelRead.Rows();
+  rgba.resize((size_t)unpaddedRow * (size_t)Height);
   for (int y = 0; y < Height; y++)
     memcpy(&rgba[(size_t)y * unpaddedRow], mapped + (size_t)y * paddedRow, unpaddedRow);
-  staging.Unmap();
+  PixelRead.Release();
   /* Chrome's canvas offers only BGRA (measured, `swap=27`); native Dawn takes RGBA. A PNG writer
    * takes one order, so the swap happens once, here, rather than in every consumer. */
   if (SurfaceFormat == wgpu::TextureFormat::BGRA8Unorm ||
       SurfaceFormat == wgpu::TextureFormat::BGRA8UnormSrgb)
     for (size_t i = 0; i + 2 < rgba.size(); i += 4) std::swap(rgba[i], rgba[i + 2]);
-  return true;
+  return ReadState::Ready;
 }
 
-bool Renderer::ReadDepth(std::vector<float> &depth) {
-  if (!DeviceUsable() || !DepthTex) return false;
+ReadState Renderer::ReadDepth(std::vector<float> &depth) {
+  if (!DeviceUsable() || !DepthTex) return ReadState::Failed;
+  if (DepthRead.Idle())
+    DepthRead.FromTexture(Device, Queue, DepthTex, wgpu::TextureAspect::DepthOnly, (uint32_t)Width,
+                          (uint32_t)Height, 4u);
+  const ReadState st = DepthRead.Poll(Instance);
+  if (st == ReadState::Pending) return st;
+  if (st == ReadState::Failed) {
+    DepthRead.Release();
+    return st;
+  }
   const uint32_t unpaddedRow = (uint32_t)Width * 4u;
-  const uint32_t paddedRow = (unpaddedRow + 255u) & ~255u;
-  const uint64_t bufSize = (uint64_t)paddedRow * (uint32_t)Height;
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = bufSize;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  wgpu::Buffer staging = Device.CreateBuffer(&bd);
-
-  wgpu::TexelCopyTextureInfo src{};
-  src.texture = DepthTex;
-  src.aspect = wgpu::TextureAspect::DepthOnly;
-  wgpu::TexelCopyBufferInfo dst{};
-  dst.buffer = staging;
-  dst.layout.bytesPerRow = paddedRow;
-  dst.layout.rowsPerImage = (uint32_t)Height;
-  wgpu::Extent3D ext{(uint32_t)Width, (uint32_t)Height, 1};
-
-  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-  enc.CopyTextureToBuffer(&src, &dst, &ext);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  Queue.Submit(1, &cmd);
-
-  bool ok = false;
-  Instance.WaitAny(
-      staging.MapAsync(wgpu::MapMode::Read, 0, bufSize, wgpu::CallbackMode::WaitAnyOnly,
-          [&ok](wgpu::MapAsyncStatus st, wgpu::StringView msg) {
-            ok = (st == wgpu::MapAsyncStatus::Success);
-            if (!ok) Log::Error("render", "depth_map_failed", {{"msg", SvToStr(msg)}});
-          }),
-      UINT64_MAX);
-  if (!ok) return false;
-
-  const uint8_t *mapped = static_cast<const uint8_t *>(staging.GetConstMappedRange(0, bufSize));
-  depth.resize((size_t)Width * Height);
+  const uint32_t paddedRow = DepthRead.RowBytes();
+  const uint8_t *mapped = DepthRead.Rows();
+  depth.resize((size_t)Width * (size_t)Height);
   for (int y = 0; y < Height; y++)
     memcpy(&depth[(size_t)y * Width], mapped + (size_t)y * paddedRow, unpaddedRow);
-  staging.Unmap();
-  return true;
+  DepthRead.Release();
+  return ReadState::Ready;
 }
 
-/* THE two numbers every lit surface is scaled by, read back off the GPU so kSceneExposure has a
- * measurement under it rather than a preference. Blocking, so a client calls it once per run. */
-bool Renderer::ReadIrradiance(float out[IrradianceStage::kFloats]) {
-  if (!DeviceUsable() || !IrrBuf) return false;
-  const uint64_t n = IrradianceStage::kBufferBytes;
-  wgpu::BufferDescriptor bd{};
-  bd.size = n;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  wgpu::Buffer staging = Device.CreateBuffer(&bd);
-  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-  enc.CopyBufferToBuffer(IrrBuf, 0, staging, 0, n);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  Queue.Submit(1, &cmd);
-  bool ok = false;
-  Instance.WaitAny(staging.MapAsync(wgpu::MapMode::Read, 0, n, wgpu::CallbackMode::WaitAnyOnly,
-                                    [&ok](wgpu::MapAsyncStatus st, wgpu::StringView) {
-                                      ok = (st == wgpu::MapAsyncStatus::Success);
-                                    }),
-                   UINT64_MAX);
-  if (!ok) return false;
-  memcpy(out, staging.GetConstMappedRange(0, n), (size_t)n);
-  staging.Unmap();
-  return true;
+namespace {
+
+/* The two meter buffers differ only in which buffer and how many bytes, and both answer into a
+ * plain float array — so the poll is written once. */
+ReadState TakeFloats(Readback &read, const wgpu::Instance &instance, const wgpu::Device &device,
+                     const wgpu::Queue &queue, const wgpu::Buffer &src, uint64_t bytes,
+                     float *out) {
+  if (read.Idle()) read.FromBuffer(device, queue, src, bytes);
+  const ReadState st = read.Poll(instance);
+  if (st == ReadState::Pending) return st;
+  if (st == ReadState::Ready) memcpy(out, read.Rows(), (size_t)bytes);
+  read.Release();
+  return st;
 }
 
-bool Renderer::ReadExposure(float out[ExposureStage::kMeterFloats]) {
-  if (!DeviceUsable() || !MeterBuf) return false;
-  const uint64_t n = ExposureStage::kMeterBytes;
-  wgpu::BufferDescriptor bd{};
-  bd.size = n;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  wgpu::Buffer staging = Device.CreateBuffer(&bd);
-  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-  enc.CopyBufferToBuffer(MeterBuf, 0, staging, 0, n);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  Queue.Submit(1, &cmd);
-  bool ok = false;
-  Instance.WaitAny(staging.MapAsync(wgpu::MapMode::Read, 0, n, wgpu::CallbackMode::WaitAnyOnly,
-                                    [&ok](wgpu::MapAsyncStatus st, wgpu::StringView) {
-                                      ok = (st == wgpu::MapAsyncStatus::Success);
-                                    }),
-                   UINT64_MAX);
-  if (!ok) return false;
-  memcpy(out, staging.GetConstMappedRange(0, n), (size_t)n);
-  staging.Unmap();
-  return true;
+}  // namespace
+
+ReadState Renderer::ReadIrradiance(float out[IrradianceStage::kFloats]) {
+  if (!DeviceUsable() || !IrrBuf) return ReadState::Failed;
+  return TakeFloats(IrrRead, Instance, Device, Queue, IrrBuf, IrradianceStage::kBufferBytes, out);
+}
+
+ReadState Renderer::ReadExposure(float out[ExposureStage::kMeterFloats]) {
+  if (!DeviceUsable() || !MeterBuf) return ReadState::Failed;
+  return TakeFloats(MeterRead, Instance, Device, Queue, MeterBuf, ExposureStage::kMeterBytes, out);
 }
 
 } // namespace outshine::Render

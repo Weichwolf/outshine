@@ -30,11 +30,12 @@ graded against the references: the answer is known and the round is spent. Then,
 | 1.7 | the fixed heap, over all of the client's memories | **done** · client reserved 512 → 200 + N×56 MiB |
 | 4 | the server target, and the checker falls | **done** · `World` no longer holds a renderer pointer |
 | 4.5 | fold the tile worker into the client | **done** · one module, one cap, one priority key |
-| **4.6** | **the GPU readback stops blocking the frame thread** | **in the tree** |
+| 4.6 | the GPU readback stops blocking the frame thread | **done** · unwinding off, render p99 6.1 → 2.1 ms |
+| **5** | **`generators/`** | **in the tree** — designed: headers, enforcement and acceptance stand |
 
 
 
-| 5 | `generators/` | open — **designed**: headers, enforcement and acceptance stand |
+
 | 6 | the forest becomes a generator | open |
 | 7 | one geometry stage | open |
 | 8 | regionalise | open |
@@ -125,6 +126,42 @@ regardless; the trigger governs work that is *not* on this list.
 
 ## Carried, for the steps that need it
 
+**The browser's tile pool does not scale, and that is the whole load regression.** Measured on one
+binary by varying the thread count, `demo/frame`, ms per tile:
+
+| pool threads | wasm | native | wasm tiles/s | native tiles/s |
+|---|---|---|---|---|
+| 1 | 316.1 | 153.2 | 3.04 | 6.29 |
+| 3 | 537.6 | 214.2 | **5.29** | 13.44 |
+| 4 | 724.7 | 232.9 | **5.24** | **16.41** |
+
+**Wasm saturates at three threads — the fourth costs a core and returns nothing** — while native reaches
+16.4 tiles/s, which *is* the 16–18 of the 8.3 s era. Single-threaded wasm is only **2.06×** native; all
+the rest is scaling loss. The load is 95 % mesher: 130 × 0.726 / 4 = 23.6 s against 24.8 measured.
+
+Refuted on the way: the link level (`-O1` → `-O2` buys 3.0 %, kept anyway — faster, 17 % smaller, and it
+removes an asymmetry with the pre-fold worker) and the unwinding mode (3.6 %). What remains is that the
+pre-fold mesher compiled **without `-pthread`** into its own heap and now compiles with it into a shared
+one. **The discriminator, not built: pace the loading loop to 60 Hz and re-measure at four threads.** If
+ms/tile falls toward 316 it is scheduling; if it does not, it is the allocator.
+
+**The loading loop renders ~2 200 unpaced frames per second.** The old 4 ms nested-timeout clamp paced it
+to 174 by accident. A progress bar needs 60, and on the declared ceiling that is a core taken from the
+mesher during the phase this is trying to shorten — which makes it the first half of the discriminator
+above. It also emits 2 000-fps telemetry rows, so any later step pooling frame samples must filter on
+`resident`.
+
+**The log sink is written from pool threads with no lock.** `Log::Sink_` is process-wide, nothing calls
+`SetThreadSink`, `TilePool` logs from workers, and `ServerLog::Write` appends to a bare `std::string`
+that `Flush()` slices on the main thread. `CP.2` — and it is the instrument every remaining step accepts
+on.
+
+**Everything that waits became a stepper, and the pattern was not named.** Five enumerations for one
+three-state answer — `ReadState`, `Bring`, `Delivery`, and two `Progress`. One `Turn { Waiting, Done,
+Failed }` in `core/` deletes four, before step 5 needs it for region jobs. `SceneRunner`'s flat 16-state
+`Stage` is three nested sequences pretending to be one, with `CompareClasses()` reading `Stage_` inside
+itself to decide which half of itself to run.
+
 **Step 8 — one watermark couples every tile.** `BuildingField`'s `Consumed_` is a single watermark and
 `Build` refuses to pass a deferred tile, so one permanently-Pending tile stalls **every later tile's**
 buildings where before it lost that tile and moved on. Defensible while there is no timeout on the load;
@@ -193,32 +230,6 @@ p ≈ 0.002), monotone in canvas pixels — but the excess sits in **every** pas
 see the canvas, while the present pass carries 0.33 of the 1.98, and the renderer's work is provably
 identical across all 14 runs. So the canvas moves device or compositor state, not render work.
 
-## 4.6 — The GPU readback stops blocking the frame thread
-
-An unbounded wait on a GPU completion, on the thread that presents the picture, is the stall this project
-forbids everywhere else. It does not hurt today only because it runs when a product is written — luck in
-call frequency, not structure.
-
-Callback-driven readbacks with a state machine around them. **The stated prize is false as written and
-this is the step's real scope**: the readback is not the only remaining unwinding consumer. Also in the
-client — `Outshine.cpp:20,51,100` (`Pump()`, the device-ready wait), `Sim.cpp:23,78` (`PumpMs` in
-`ResolveGround`), `TerrainLoader.cpp:57` (`SleepMs`, used by `fb_fetch_stars` on the main thread) and
-`HttpPost.cpp:15`. `-sASYNCIFY` cannot be dropped until **every** one of those goes, and discovering that
-inside the round costs the round.
-
-**The number it has to beat.** Folding the worker put the whole program under `-pthread`, and under
-`-pthread` a contended mutex on the main browser thread must unwind, so `malloc`/`free` are instrumented
-and therefore every allocating function is — the DAG builder included. The old worker module was linked
-without `-pthread`. Browser load went **8.3 → 29.4 s**, and warm mesh cost per tile is **≈890 ms in the
-browser against ≈220 native**. With the unwinding off, `poolMeshCpuMs / poolMeshTiles` must return to the
-native order and load to ≈8.3 s. **If it lands and the number does not come back, the attribution was
-wrong** and the fold owes a second explanation.
-
-Own step, own binary — never folded into a concurrency change.
-
-Done when: no unbounded wait remains on the frame thread, the unwinding mode is off, every declared run
-still produces its product, and the distribution is no worse.
-
 ## 5 — `generators/`
 
 Region, ground view, occupancy, draw, material row, schedule, generator, set, pool. Built inside the
@@ -278,6 +289,13 @@ target has a night. It comes back here, placed by a generator, and the endpoint 
   the result is coupled to tile arrival order. **Likeliest cause, and cheap to test:** a temporal pass
   whose history length depends on pace. Shoot once with that pass off; if byte-identity returns, the
   coupling is the history.
+- **Seen from directly above, all 15 995 stands vanish.** `demo/ortho` shows sparse dark dots where a
+  forest stands — camera-facing cards seen edge-on. The same representation that gives the bow-tie from
+  the side gives nothing from above, and a world sandbox has a bird's eye. Step 6.
+- **`subject-meadow` writes its product and the product is empty.** All 57 frames are bare substrate,
+  grid and grey card, `fillPct=0` in both clients. `SubjectBench::Select` sets `Bucket_` and `Kind_ =
+  Herb` and `Bucket_` is never read again: there is no herb geometry path in the bench. `subject-beech`
+  fills 17.2 %, so the rig is sound and the subject is missing.
 - **The mid-distance crowns read as hourglass / bow-ties, and this is the one to fix first.** Silhouette
   is the only currency at the comparison rung and a bow-tie is not a shape a tree has — the impression
   dies in well under a second. Signature: a two-quad cross seen near edge-on, or a card whose alpha cut

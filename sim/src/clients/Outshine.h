@@ -45,14 +45,17 @@ public:
     bool Resident = false;
   };
   /* A DEVICE IS A PROMISE AND A TILE SERVER IS A NETWORK, so bring-up cannot finish in a
-   * constructor. It is a state machine and not a pile of booleans: every call below states the
-   * phase it needs, and one consumer — the subject bench — deliberately stops at `Prepared`.
+   * constructor — and it may not stand still either, because the thread it would stand still on is
+   * the one those promises complete on. It is a state machine and not a pile of booleans: every
+   * call below states the phase it needs, and one consumer — the subject bench — deliberately stops
+   * at `Prepared`.
    *
+   * `Prepared` and `Playing` are the two RESTING states; the four between them are turns of Step().
    * `Loading` and `Playing` are the APPLICATION's two working states and neither is the renderer's
    * business: what is loading and when that ends is Outshine's, the renderer is only told which
    * frame to draw. Loading holds the world back; Playing never holds anything back — what arrives
    * after it enters the picture beside the loop, never instead of it. */
-  enum class Phase { Declared, Prepared, Loading, Playing };
+  enum class Phase { Declared, Device, Prepared, Ground, Stars, Loading, Playing, Failed };
 
   Outshine(const Scene &scene, const Assets &assets);
 
@@ -66,21 +69,19 @@ public:
   void SetExposureCompEv(double ev);
   void SetSkyOffsetS(double s);
 
-  /* GIVE THE HOST ITS TURN. Natively nothing: the run owns the process. In the browser a headless
-   * run holds the one thread the tile fetches complete on, so a run that never yielded would wait
-   * for a world that can never arrive. */
-  static void Pump();
-
   /* THE FPS SPECTRUM AND THE STREAMING STAGES RIDE ALONG (FrameTelemetry.h, StreamTelemetry.h).
    * Frame() and Stream() feed them and one row per second goes out, so a client that only draws is
    * observable without declaring a measurement. A null sink makes the whole path a clock read. */
   void SetTelemetrySink(TelemetrySink *sink) { Sim_.SetTelemetrySink(sink); }
   void SetTelemetryIdentity(TelemetrySource *id) { Sim_.SetTelemetryIdentity(id); }
 
-  /* TWO PHASES, because one consumer stops between them: the subject bench judges a plant with no
-   * world and no network at all, so it prepares and never opens. */
+  /* TWO ASKS, because one consumer stops between them: the subject bench judges a plant with no
+   * world and no network at all, so it prepares and never opens. Both only STATE the wish; Step()
+   * is what carries it out, one turn at a time, and Busy() says whether another turn is owed. */
   bool Prepare(const Gpu &gpu);
-  bool Open();
+  void Open();
+  Phase Step();
+  bool Busy() const;
   Phase Stage() const { return Phase_; }
 
   /* The wind clock is not the sky clock: the sun stands where the scene declared it while the flow
@@ -88,14 +89,6 @@ public:
   void SetWindClock(double s);
 
   void Look(const Stance &s);
-
-  /* THE FIRST LOAD, AND IT IS NOT A WARM-UP. Outshine does not converge on residency as a
-   * side-effect of drawn world frames — it declares the standpoint, asks the streamer what is
-   * missing, takes it, and renders a progress bar at full rate meanwhile. The world is held back
-   * until every stream is in; nothing half-arrived is ever presented. There is no ceiling: a tile
-   * server that never answers is a tile server that never answers, and a picture of a half-loaded
-   * scene would be the worse report. Ends in `Playing`, which nothing returns from. */
-  bool Load();
 
   /* One streaming pass and the collection that follows it. It decides nothing about images: the
    * caller renders, or does not. */
@@ -108,6 +101,19 @@ public:
   const Sim &Simulation() const { return Sim_; }
 
 private:
+  /* ONE TURN OF EACH BRING-UP PHASE. Each ends by moving Phase_ on, by leaving it where it is
+   * because the answer has not arrived, or by failing it. */
+  void AwaitDevice();
+  void AwaitGround();
+  void AwaitStars();
+  /* THE FIRST LOAD, AND IT IS NOT A WARM-UP. Outshine does not converge on residency as a
+   * side-effect of drawn world frames — it declares the standpoint, asks the streamer what is
+   * missing, takes it, and renders a progress bar at full rate meanwhile. The world is held back
+   * until every stream is in; nothing half-arrived is ever presented. There is no ceiling: a tile
+   * server that never answers is a tile server that never answers, and a picture of a half-loaded
+   * scene would be the worse report. Ends in `Playing`, which nothing returns from. */
+  void LoadPass();
+
   /* THE PRODUCTS, TAKEN. Every renderer call that puts a piece of the world into the picture starts
    * here; the world knows none of them. */
   void Collect();
@@ -129,6 +135,12 @@ private:
   bool TreesStanding_ = false;
   double UploadMs_ = 0.0;
   double LastFrameMs_ = 0.0, ClockOriginMs_ = 0.0;
+  /* When the phase that is running now started asking, so a wait that will never end is named
+   * rather than counted in turns whose length nobody declared. */
+  double PhaseFromMs_ = 0.0;
+  double LoadFromMs_ = 0.0, LoadMovedMs_ = 0.0, LoadSaidMs_ = 0.0;
+  long LoadPasses_ = 0;
+  int LoadReadyWas_ = -1;
   Phase Phase_ = Phase::Declared;
 };
 
