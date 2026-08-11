@@ -20,8 +20,17 @@ The line between the two files is the line between *not built* and *built and wr
 requirement has never worked, a bug worked or looks like it works. When you are unsure which a finding
 is, ask whether the code claims to do it. If it does, it is a bug.
 
-`requirements.md` is **extended or shortened only on the owner's request** — that constraint binds you
-as it binds everyone. Recording a defect in `bugs.md` needs no permission; adding a feature line does.
+**You extend `requirements.md` yourself.** When a round shows the scope is genuinely missing something,
+add the line — do not report it and wait, because the owner's answer would only ever be yes and the
+round that found the gap is the round that understands it. What you may **not** do is shorten it: a
+deleted line is scope given up and that is the owner's decision alone. The same asymmetry runs through
+everything you write — adding what is true costs a round nothing, removing what looks false can cost a
+capability nobody notices is gone.
+
+A line you add is held to the file's own standard: one feature, a box, ordered after what it depends
+on, and a marker (`NO SUBSTITUTE` · `REFUSED` · `TILE` · `TOOL` · `UNSURE`) where one applies. You tick
+nothing you have not checked in the tree this round, and a ticked line names the file that implements
+it.
 
 **Everything in the repository is English**, including your report.
 

@@ -17,7 +17,7 @@ walking, driving, flying and swimming. An **epoch and decay dial** dresses the s
 |---|---|
 | **the code** | what the thing can do. **Only correct work is committed** |
 | **`git log`** | what was. No journal |
-| [`doc/requirements.md`](doc/requirements.md) | **the scope** — one line per feature with a box, and a ticked line **names the file that implements it**. It must be fully implemented, and it is extended or shortened **only on the owner's request** |
+| [`doc/requirements.md`](doc/requirements.md) | **the scope** — one line per feature with a box, and a ticked line **names the file that implements it**. It must be fully implemented. The architect **extends** it when a round shows a real gap, on its own evidence; it is **shortened only on the owner's request**, because a deleted line is scope given up |
 | [`doc/todo.md`](doc/todo.md) | **the current work item**, with a status header. Short |
 | [`doc/bugs.md`](doc/bugs.md) | **what exists and is wrong** — file and site, what decides it, what right looks like. A fixed bug is deleted, not struck through |
 | `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs, judges and owns `doc/bugs.md` and `doc/requirements.md` |
