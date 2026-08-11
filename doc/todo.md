@@ -172,12 +172,27 @@ streamer needs a byte budget and evicts against it, and every pool reports its b
 a name. They report; nobody acts. **A fixed heap plus monotone growth is a maximum walk length**, and a
 world sandbox has none. The number is one long `demo/ring` run with a column that already exists.
 
-## 9 — Infrastructure, and the night
+## 9 — The night
 
-`/t/lights` and its 587-line producer are gone with a client half that had no caller. There is no light
-list, no emissive path in the pass enumeration, no placement generator. OSM street lamps are genuine
-vector data under principle 6, and the setting is **modern infrastructure** — which is GTA 5's half of the
-reference and has no KCD answer at all.
+**A lamp is placed, not fetched, and the endpoint was never the shape of it.** Two independent
+refutations: the served vector schema carries **no street lamps** — the `pois` layer of central Berlin's
+z14 tile has 32 keys and `highway` is not among them (versatiles Shortbread, which `tiles/src/tilesrc.c`
+fetches) — and a tile-server endpoint producing a *derived* light list would be `fb-tiles` delivering
+something principle 6 does not list. Lamps come off the **street centrelines**, which infrastructure has
+now made available.
+
+Captured and looked at, `demo/night`, 120 frames, a full turn, sun −21.14° and moon +11.36°: **it is not
+a night.** The ground is a flat, chroma-full green meadow with no direction and no moon shadow; trunks
+read bright grey; the road is a clean legible band. The sky is pure black with white star dots that clip
+(`maxY ≈ 1.0` every frame) — no moon glow, no horizon lift. **Nothing emits anywhere.** Frame mean display
+luminance 0.233…0.312 over the whole turn, largest frame-to-frame step 0.0047, and `run irradiance` reads
+`skyRGB = 0,0,0`: the only thing lighting the ground is a **constant display crutch** in `SurfaceLight.h`.
+
+So the night is two things and neither is an endpoint: **emission on placed lamp geometry** — `Material`
+already has the field and `SurfaceState::Emits()` already derives from it, so the emitters need **no new
+pass** and go in the geometry stage that exists — and a **night radiometry that is currently a constant**,
+where the moon is a light source with a phase and the sky has a mesopic response. The bow-tie crowns are
+at their most legible here, as black wedges against the star field.
 
 ## 10 — A declared environment track over the day, and a weather state that blends
 
