@@ -11,6 +11,7 @@
 
 #include <optional>
 
+#include "BuildingMesh.h"
 #include "DrawSet.h"
 #include "ExposureParams.h"
 #include "ForestDraw.h"
@@ -143,6 +144,9 @@ private:
   FrameTelemetry Frames_;
   MemoryTelemetry Memory_{Sim_.Scenery(), R_, Sim_};
 
+  /* WHAT A FOOTPRINT BECOMES. It lives here because this is the one translation unit that may
+   * name both a generator and the world the outlines arrive in. */
+  Generators::BuildingMesh Structures_;
   std::optional<Generators::TreePrototype> Tree_;
   std::optional<Generators::ForestDraw> TreeDraw_;
   Generators::DrawSet Draws_;

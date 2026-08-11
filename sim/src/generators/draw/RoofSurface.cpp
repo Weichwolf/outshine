@@ -1,0 +1,244 @@
+#include "RoofSurface.h"
+
+#include <algorithm>
+#include <cmath>
+
+namespace outshine::Generators {
+
+namespace {
+
+struct Line {
+  double A = 0.0, B = 0.0, C = 0.0;   /* A u + B v = C, in the box frame */
+};
+
+constexpr double kOnLineM = 1.0e-4;
+constexpr double kSliverM2 = 1.0e-4;
+constexpr int kMaxCreases = 14;
+
+double TriArea(const Plan2 &a, const Plan2 &b, const Plan2 &c) {
+  return 0.5 * std::fabs((b.E - a.E) * (c.N - a.N) - (c.E - a.E) * (b.N - a.N));
+}
+
+void PushTri(std::vector<Plan2> &out, const Plan2 &a, const Plan2 &b, const Plan2 &c) {
+  if (TriArea(a, b, c) < kSliverM2) return;
+  out.push_back(a);
+  out.push_back(b);
+  out.push_back(c);
+}
+
+/* Ear clipping, because a fan off one corner fills the convex hull and a town's plans are L- and
+ * U-shaped. The guard bounds a self-intersecting ring: what was clipped stands, the rest is not
+ * roofed, which is visible and finite where an endless loop is neither. */
+void EarClip(const std::vector<Plan2> &ring, std::vector<Plan2> &tris) {
+  const size_t n = ring.size();
+  if (n < 3) return;
+  std::vector<uint32_t> poly(n);
+  for (size_t i = 0; i < n; i++) poly[i] = (uint32_t)i;
+  const auto cross = [&](uint32_t a, uint32_t b, uint32_t c) {
+    return (ring[b].E - ring[a].E) * (ring[c].N - ring[a].N) -
+           (ring[c].E - ring[a].E) * (ring[b].N - ring[a].N);
+  };
+  int guard = (int)(n * n) + 8;
+  while (poly.size() > 2 && guard-- > 0) {
+    bool cut = false;
+    for (size_t i = 0; i < poly.size(); i++) {
+      const uint32_t a = poly[(i + poly.size() - 1) % poly.size()], b = poly[i],
+                     c = poly[(i + 1) % poly.size()];
+      if (cross(a, b, c) <= 0.0) continue;
+      bool clean = true;
+      for (uint32_t o : poly) {
+        if (o == a || o == b || o == c) continue;
+        if (cross(a, b, o) >= 0.0 && cross(b, c, o) >= 0.0 && cross(c, a, o) >= 0.0) {
+          clean = false;
+          break;
+        }
+      }
+      if (!clean) continue;
+      PushTri(tris, ring[a], ring[b], ring[c]);
+      poly.erase(poly.begin() + (long)i);
+      cut = true;
+      break;
+    }
+    if (!cut) return;
+  }
+}
+
+/* One side of a half-plane, as a convex polygon of at most four corners, fanned. Both sides are
+ * taken in turn, which is what makes the split lossless: every point of the triangle lands in
+ * exactly one output triangle. */
+void HalfPlane(const Plan2 *t, const double *d, double sign, std::vector<Plan2> &out) {
+  Plan2 poly[4];
+  int n = 0;
+  for (int i = 0; i < 3; i++) {
+    const int j = (i + 1) % 3;
+    const double di = d[i] * sign, dj = d[j] * sign;
+    if (di >= -kOnLineM) poly[n++] = t[i];
+    if ((di > kOnLineM && dj < -kOnLineM) || (di < -kOnLineM && dj > kOnLineM)) {
+      const double f = di / (di - dj);
+      poly[n++] = {t[i].E + (t[j].E - t[i].E) * f, t[i].N + (t[j].N - t[i].N) * f};
+    }
+    if (n >= 4) break;
+  }
+  for (int i = 2; i < n; i++) PushTri(out, poly[0], poly[i - 1], poly[i]);
+}
+
+void SplitByLine(const BuildingShape &shape, const Line &line, std::vector<Plan2> &tris) {
+  std::vector<Plan2> out;
+  out.reserve(tris.size() * 2);
+  for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+    const Plan2 *t = &tris[i];
+    double d[3];
+    int pos = 0, neg = 0;
+    for (int k = 0; k < 3; k++) {
+      double u = 0.0, v = 0.0;
+      shape.ToBox(t[k], &u, &v);
+      d[k] = line.A * u + line.B * v - line.C;
+      if (d[k] > kOnLineM) pos++;
+      if (d[k] < -kOnLineM) neg++;
+    }
+    if (pos == 0 || neg == 0) {
+      PushTri(out, t[0], t[1], t[2]);
+      continue;
+    }
+    HalfPlane(t, d, 1.0, out);
+    HalfPlane(t, d, -1.0, out);
+  }
+  tris.swap(out);
+}
+
+int CreasesOf(const BuildingShape &s, Line *lines) {
+  const double d = s.HalfUm - s.HalfVm;
+  switch (s.Roof) {
+    case RoofKind::Flat:
+    case RoofKind::Shed:
+    case RoofKind::Dome:
+      return 0;
+    case RoofKind::Gable:
+      lines[0] = {0.0, 1.0, 0.0};
+      return 1;
+    case RoofKind::Hip:
+      lines[0] = {0.0, 1.0, 0.0};
+      lines[1] = {1.0, -1.0, d};
+      lines[2] = {1.0, 1.0, d};
+      lines[3] = {1.0, 1.0, -d};
+      lines[4] = {1.0, -1.0, -d};
+      return 5;
+    case RoofKind::Mansard:
+      lines[0] = {0.0, 1.0, 0.0};
+      lines[1] = {0.0, 1.0, s.BreakFracV * s.HalfVm};
+      lines[2] = {0.0, 1.0, -s.BreakFracV * s.HalfVm};
+      return 3;
+    case RoofKind::Sawtooth: {
+      int n = 0;
+      for (double u = -s.HalfUm; u < s.HalfUm && n + 1 < kMaxCreases; u += s.PeriodM) {
+        lines[n++] = {1.0, 0.0, u};
+        lines[n++] = {1.0, 0.0, u + 0.85 * s.PeriodM};
+      }
+      return n;
+    }
+  }
+  return 0;
+}
+
+/* A dome is the one shape here that is not piecewise flat, so it is the one that is refined instead
+ * of split: four passes take a plan of a few triangles to a cap whose facets are under a metre. */
+void Refine(std::vector<Plan2> &tris, int passes) {
+  for (int p = 0; p < passes; p++) {
+    std::vector<Plan2> out;
+    out.reserve(tris.size() * 4);
+    for (size_t i = 0; i + 2 < tris.size(); i += 3) {
+      const Plan2 a = tris[i], b = tris[i + 1], c = tris[i + 2];
+      const Plan2 ab{0.5 * (a.E + b.E), 0.5 * (a.N + b.N)};
+      const Plan2 bc{0.5 * (b.E + c.E), 0.5 * (b.N + c.N)};
+      const Plan2 ca{0.5 * (c.E + a.E), 0.5 * (c.N + a.N)};
+      PushTri(out, a, ab, ca);
+      PushTri(out, ab, b, bc);
+      PushTri(out, ca, bc, c);
+      PushTri(out, ab, bc, ca);
+    }
+    tris.swap(out);
+  }
+}
+
+}  // namespace
+
+RoofSurface::RoofSurface(const BuildingShape &shape) : Shape_(shape) {}
+
+double RoofSurface::HeightAt(const Plan2 &enu) const noexcept {
+  double u = 0.0, v = 0.0;
+  Shape_.ToBox(enu, &u, &v);
+  const double hu = Shape_.HalfUm, hv = Shape_.HalfVm, rise = Shape_.RiseM;
+  double f = 0.0;
+  switch (Shape_.Roof) {
+    case RoofKind::Flat:
+      return 0.0;
+    case RoofKind::Gable:
+      f = 1.0 - std::fabs(v) / hv;
+      break;
+    case RoofKind::Hip:
+      f = std::min(hv - std::fabs(v), hu - std::fabs(u)) / hv;
+      break;
+    case RoofKind::Shed:
+      f = 0.5 * (v / hv) + 0.5;
+      break;
+    case RoofKind::Mansard: {
+      const double b = Shape_.BreakFracV * hv, a = std::fabs(v), br = Shape_.BreakRiseM;
+      return a >= b ? br * (hv - a) / std::max(hv - b, 1.0e-3)
+                    : br + (rise - br) * (b - a) / std::max(b, 1.0e-3);
+    }
+    case RoofKind::Sawtooth: {
+      const double p = std::max(Shape_.PeriodM, 1.0);
+      double x = std::fmod(u + hu, p);
+      if (x < 0.0) x += p;
+      f = std::min(x / (0.85 * p), (p - x) / (0.15 * p));
+      break;
+    }
+    case RoofKind::Dome: {
+      const double r = std::hypot(u / hu, v / hv);
+      f = r >= 1.0 ? 0.0 : std::sqrt(1.0 - r * r);   /* a cap has no verge; Analyse gives it no overhang */
+      break;
+    }
+  }
+  /* NOT clamped at the eaves: the overhang lies OUTSIDE the plan, and a roof plane that stops falling
+   * where the wall ends turns its own verge into a horizontal lip. */
+  return f * rise;
+}
+
+void RoofSurface::Cover(const std::vector<Plan2> &plan, std::vector<Plan2> &tris) const {
+  const size_t first = tris.size();
+  EarClip(plan, tris);
+  if (tris.size() == first) return;
+  std::vector<Plan2> mine(tris.begin() + (long)first, tris.end());
+  tris.resize(first);
+
+  Line lines[kMaxCreases];
+  const int n = CreasesOf(Shape_, lines);
+  for (int i = 0; i < n; i++) SplitByLine(Shape_, lines[i], mine);
+  if (Shape_.Roof == RoofKind::Dome) Refine(mine, 4);
+  tris.insert(tris.end(), mine.begin(), mine.end());
+}
+
+std::vector<Plan2> RoofSurface::Widened(const std::vector<Plan2> &ring, double byM) {
+  const size_t n = ring.size();
+  if (n < 3 || std::fabs(byM) < 1.0e-3) return {};
+  std::vector<Plan2> out;
+  out.reserve(n);
+  for (size_t i = 0; i < n; i++) {
+    const Plan2 &p = ring[i];
+    const Plan2 &a = ring[(i + n - 1) % n];
+    const Plan2 &b = ring[(i + 1) % n];
+    const double e0 = p.E - a.E, n0 = p.N - a.N, l0 = std::hypot(e0, n0);
+    const double e1 = b.E - p.E, n1 = b.N - p.N, l1 = std::hypot(e1, n1);
+    if (l0 < 1.0e-6 || l1 < 1.0e-6) return {};
+    /* Outward is the right-hand normal of a counter-clockwise ring. */
+    const double ox = (n0 / l0 + n1 / l1), oy = -(e0 / l0 + e1 / l1);
+    const double len = std::hypot(ox, oy);
+    if (len < 0.35) return {};   /* a spike: the two edges nearly double back, and the miter blows up */
+    const double miter = byM / (0.5 * len * len);
+    if (std::fabs(miter) > 4.0 * std::fabs(byM)) return {};
+    out.push_back({p.E + ox * miter, p.N + oy * miter});
+  }
+  return out;
+}
+
+}  // namespace outshine::Generators

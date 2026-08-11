@@ -8,7 +8,7 @@
       "kind": "interactive",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -22,7 +22,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -31,7 +31,12 @@
       "windMs": 6.0,
       "cloudCover": 0.55,
       "runs": [
-        { "kind": "motion", "frames": 1, "give": "stills", "path": "walk.png" }
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "walk.png"
+        }
       ]
     },
     {
@@ -39,7 +44,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -48,8 +53,13 @@
       "windMs": 6.0,
       "cloudCover": 0.55,
       "runs": [
-        { "kind": "motion", "frames": 1, "give": "stills", "path": "depth.png",
-          "depth": "depth.f32" }
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "depth.png",
+          "depth": "depth.f32"
+        }
       ]
     },
     {
@@ -66,10 +76,18 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 512, "height": 512,
-        "why": "one map tile straight down: orthoM is a z15 Web-Mercator tile edge (40075016.686/2^15 = 1222.9925 m) and 512 is that tile's albedo raster (clients/Outshine.cpp kAlbedoTileSize), so the picture is square because the tile is and one pixel is one texel" },
+      "render": {
+        "width": 512,
+        "height": 512,
+        "why": "one map tile straight down: orthoM is a z15 Web-Mercator tile edge (40075016.686/2^15 = 1222.9925 m) and 512 is that tile's albedo raster (clients/Outshine.cpp kAlbedoTileSize), so the picture is square because the tile is and one pixel is one texel"
+      },
       "runs": [
-        { "kind": "motion", "frames": 1, "give": "stills", "path": "ortho.png" }
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "ortho.png"
+        }
       ]
     },
     {
@@ -77,7 +95,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -95,10 +113,23 @@
           "path": "spin.csv",
           "animation": {
             "samplers": [
-              { "input": [0, 240], "output": [280, 640], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  240
+                ],
+                "output": [
+                  280,
+                  640
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "camera.yawDeg" }
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              }
             ]
           }
         }
@@ -109,7 +140,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -127,14 +158,53 @@
           "path": "sequence.csv",
           "animation": {
             "samplers": [
-              { "input": [0, 600], "output": [280, 320], "interpolation": "LINEAR" },
-              { "input": [0, 600], "output": [0, 28], "interpolation": "LINEAR" },
-              { "input": [0, 600], "output": [0, 20], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  600
+                ],
+                "output": [
+                  280,
+                  320
+                ],
+                "interpolation": "LINEAR"
+              },
+              {
+                "input": [
+                  0,
+                  600
+                ],
+                "output": [
+                  0,
+                  28
+                ],
+                "interpolation": "LINEAR"
+              },
+              {
+                "input": [
+                  0,
+                  600
+                ],
+                "output": [
+                  0,
+                  20
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "camera.yawDeg" },
-              { "sampler": 1, "target": "camera.eastM" },
-              { "sampler": 2, "target": "wind.clockS" }
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              },
+              {
+                "sampler": 1,
+                "target": "camera.eastM"
+              },
+              {
+                "sampler": 2,
+                "target": "wind.clockS"
+              }
             ]
           }
         }
@@ -145,7 +215,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -163,14 +233,53 @@
           "path": "crossing.csv",
           "animation": {
             "samplers": [
-              { "input": [0, 900], "output": [280, 580], "interpolation": "LINEAR" },
-              { "input": [0, 900], "output": [0, 2250], "interpolation": "LINEAR" },
-              { "input": [0, 900], "output": [0, 15], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  900
+                ],
+                "output": [
+                  280,
+                  580
+                ],
+                "interpolation": "LINEAR"
+              },
+              {
+                "input": [
+                  0,
+                  900
+                ],
+                "output": [
+                  0,
+                  2250
+                ],
+                "interpolation": "LINEAR"
+              },
+              {
+                "input": [
+                  0,
+                  900
+                ],
+                "output": [
+                  0,
+                  15
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "camera.yawDeg" },
-              { "sampler": 1, "target": "camera.eastM" },
-              { "sampler": 2, "target": "wind.clockS" }
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              },
+              {
+                "sampler": 1,
+                "target": "camera.eastM"
+              },
+              {
+                "sampler": 2,
+                "target": "wind.clockS"
+              }
             ]
           }
         }
@@ -181,7 +290,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 90,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -200,12 +309,38 @@
           "path": "ring.csv",
           "animation": {
             "samplers": [
-              { "input": [0, 3600], "output": [0, 9000], "interpolation": "LINEAR" },
-              { "input": [0, 3600], "output": [0, 60], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  3600
+                ],
+                "output": [
+                  0,
+                  9000
+                ],
+                "interpolation": "LINEAR"
+              },
+              {
+                "input": [
+                  0,
+                  3600
+                ],
+                "output": [
+                  0,
+                  60
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "camera.eastM" },
-              { "sampler": 1, "target": "wind.clockS" }
+              {
+                "sampler": 0,
+                "target": "camera.eastM"
+              },
+              {
+                "sampler": 1,
+                "target": "wind.clockS"
+              }
             ]
           }
         }
@@ -216,7 +351,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 90,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -235,10 +370,23 @@
           "path": "ring-pop",
           "animation": {
             "samplers": [
-              { "input": [0, 340], "output": [0, 1700], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  340
+                ],
+                "output": [
+                  0,
+                  1700
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "camera.eastM" }
+              {
+                "sampler": 0,
+                "target": "camera.eastM"
+              }
             ]
           }
         }
@@ -249,7 +397,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -258,9 +406,21 @@
       "windMs": 6.0,
       "cloudCover": 0.55,
       "runs": [
-        { "kind": "classDump", "path": "classes.bin", "spanM": 400, "stepM": 0.05 },
-        { "kind": "motion", "frames": 1, "give": "stills", "path": "classes.png" },
-        { "kind": "classCompare" }
+        {
+          "kind": "classDump",
+          "path": "classes.bin",
+          "spanM": 400,
+          "stepM": 0.05
+        },
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "classes.png"
+        },
+        {
+          "kind": "classCompare"
+        }
       ]
     },
     {
@@ -268,7 +428,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -276,11 +436,20 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 320, "height": 180,
-        "why": "the product is a wind CSV and no picture is delivered; the frame only has to exist" },
+      "render": {
+        "width": 320,
+        "height": 180,
+        "why": "the product is a wind CSV and no picture is delivered; the frame only has to exist"
+      },
       "runs": [
-        { "kind": "windProbe", "path": "wind.csv", "samples": 512, "frames": 240,
-          "dxM": 0.03, "dtS": 0.0333333333 }
+        {
+          "kind": "windProbe",
+          "path": "wind.csv",
+          "samples": 512,
+          "frames": 240,
+          "dxM": 0.03,
+          "dtS": 0.0333333333
+        }
       ]
     },
     {
@@ -288,7 +457,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 100,
       "pitchDeg": 4,
       "fovDeg": 60,
@@ -296,8 +465,11 @@
       "windDeg": 250,
       "windMs": 6.0,
       "cloudCover": 0.55,
-      "render": { "width": 640, "height": 360,
-        "why": "24 stills of one sky over three hours, judged for colour and not for detail" },
+      "render": {
+        "width": 640,
+        "height": 360,
+        "why": "24 stills of one sky over three hours, judged for colour and not for detail"
+      },
       "runs": [
         {
           "kind": "motion",
@@ -308,10 +480,23 @@
           "path": "sunrise",
           "animation": {
             "samplers": [
-              { "input": [0, 23], "output": [0, 10800], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  23
+                ],
+                "output": [
+                  0,
+                  10800
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
             "channels": [
-              { "sampler": 0, "target": "sky.clockS" }
+              {
+                "sampler": 0,
+                "target": "sky.clockS"
+              }
             ]
           }
         }
@@ -322,7 +507,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 30,
@@ -331,8 +516,14 @@
       "windMs": 6.0,
       "cloudCover": 0.0,
       "runs": [
-        { "kind": "subject", "species": "beech", "dir": "bench", "turnSteps": 8, "leafMult": 1,
-          "foliage": "leaves" }
+        {
+          "kind": "subject",
+          "species": "beech",
+          "dir": "bench",
+          "turnSteps": 8,
+          "leafMult": 1,
+          "foliage": "leaves"
+        }
       ]
     },
     {
@@ -340,7 +531,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 30,
@@ -349,7 +540,12 @@
       "windMs": 6.0,
       "cloudCover": 0.0,
       "runs": [
-        { "kind": "subject", "template": "meadow", "dir": "bench-meadow", "turnSteps": 8 }
+        {
+          "kind": "subject",
+          "template": "meadow",
+          "dir": "bench-meadow",
+          "turnSteps": 8
+        }
       ]
     },
     {
@@ -357,7 +553,7 @@
       "kind": "run",
       "lat": 52.10602,
       "lon": 9.43453,
-      "eyeM": 1.70,
+      "eyeM": 1.7,
       "yawDeg": 280,
       "pitchDeg": 0,
       "fovDeg": 60,
@@ -367,16 +563,216 @@
       "cloudCover": 0.0,
       "why": "the night of the place demo/walk stands in, put at the sun's own depth rather than at a wall-clock hour: 23:00 UTC on 6 August puts the sun 21.14 deg under this horizon with the moon 11.36 deg over it (measured, `outshine scene sunElDeg` and `sim stand moonElDeg`), so it is past astronomical twilight and what is left in the frame is moonlight and whatever the world itself emits. cloudCover is 0 because a deck is the one thing that would hide that answer. The camera turns a full 360 deg over 120 frames and every frame is written: a light that switches on, a lamp that pops in at a range and a surface that only glows from one bearing are three different defects and a still shows none of them.",
       "runs": [
-        { "kind": "motion", "frames": 120, "fps": 30, "world": "streaming", "give": "stills",
+        {
+          "kind": "motion",
+          "frames": 120,
+          "fps": 30,
+          "world": "streaming",
+          "give": "stills",
           "path": "night",
           "animation": {
             "samplers": [
-              { "input": [0, 120], "output": [280, 640], "interpolation": "LINEAR" }
+              {
+                "input": [
+                  0,
+                  120
+                ],
+                "output": [
+                  280,
+                  640
+                ],
+                "interpolation": "LINEAR"
+              }
             ],
-            "channels": [ { "sampler": 0, "target": "camera.yawDeg" } ]
+            "channels": [
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              }
+            ]
           }
         }
       ]
+    },
+    {
+      "id": "town",
+      "kind": "interactive",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 1.7,
+      "yawDeg": 275,
+      "pitchDeg": 4,
+      "fovDeg": 60,
+      "why": "Hameln Altstadt, standing in Osterstrasse: the one place in reach where OSM carries a dense closed block of footprints, which is what a building generator has to be judged on.",
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25
+    },
+    {
+      "id": "town-frame",
+      "kind": "run",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 1.7,
+      "yawDeg": 275,
+      "pitchDeg": 4,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25,
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "town.png"
+        }
+      ]
+    },
+    {
+      "id": "town-air",
+      "kind": "run",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 90.0,
+      "yawDeg": 120,
+      "pitchDeg": -22,
+      "fovDeg": 55,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25,
+      "why": "the same block from above the eaves: roof shape and massing are what an oblique shows and a street view cannot.",
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "town-air.png"
+        }
+      ]
+    },
+    {
+      "id": "town-ortho",
+      "kind": "run",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 600.0,
+      "yawDeg": 0,
+      "pitchDeg": -90,
+      "fovDeg": 60,
+      "orthoM": 305.748,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25,
+      "render": {
+        "width": 512,
+        "height": 512,
+        "why": "a quarter of a z15 tile edge (1222.9925/4) over one block, so a roof ridge is several pixels wide"
+      },
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 1,
+          "give": "stills",
+          "path": "town-ortho.png"
+        }
+      ]
+    },
+    {
+      "id": "town-pan",
+      "kind": "run",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 1.7,
+      "yawDeg": 0,
+      "pitchDeg": 2,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25,
+      "why": "a full turn on the spot at eye height: massing that pops at an LOD change, a roof that flips its ridge and a facade rhythm that swims are all motion defects, and a still shows none of them.",
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 120,
+          "fps": 30,
+          "world": "streaming",
+          "give": "stills",
+          "path": "town-pan",
+          "animation": {
+            "samplers": [
+              {
+                "input": [
+                  0,
+                  120
+                ],
+                "output": [
+                  0,
+                  360
+                ],
+                "interpolation": "LINEAR"
+              }
+            ],
+            "channels": [
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "town-spin",
+      "kind": "run",
+      "lat": 52.10105,
+      "lon": 9.348839,
+      "eyeM": 1.7,
+      "yawDeg": 275,
+      "pitchDeg": 4,
+      "fovDeg": 60,
+      "utc": "2026-08-06T17:40:00Z",
+      "windDeg": 250,
+      "windMs": 6.0,
+      "cloudCover": 0.25,
+      "runs": [
+        {
+          "kind": "motion",
+          "frames": 240,
+          "fps": 60,
+          "world": "frozen",
+          "give": "profile",
+          "path": "town-spin.csv",
+          "animation": {
+            "samplers": [
+              {
+                "input": [
+                  0,
+                  240
+                ],
+                "output": [
+                  275,
+                  635
+                ],
+                "interpolation": "LINEAR"
+              }
+            ],
+            "channels": [
+              {
+                "sampler": 0,
+                "target": "camera.yawDeg"
+              }
+            ]
+          }
+        }
+      ],
+      "why": "the frame cost of a town, over a moving camera and a frozen world: the eye turns a full circle on the spot so every bearing's worth of facade is drawn, and the world is held still so a tile arriving mid-run cannot be read as a cost of drawing."
     }
   ]
 }

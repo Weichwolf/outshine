@@ -79,6 +79,8 @@ bool Outshine::Prepare(const Gpu &gpu) {
     Log::Info("outshine", "render_size", {{"width", res.Width}, {"height", res.Height},
         {"why", res.Why}});
 
+  Sim_.Scenery().StructureShapes(&Structures_);
+
   const World::VegetationTemplates &veg = Sim_.Vegetation();
   R_.SetVegetationTable(veg.Rows(), veg.RowBytes(), veg.RockTemplate(), veg.Limit().SlopeBandDeg());
   R_.SetSkyClock(Sim_.SkyClockS());

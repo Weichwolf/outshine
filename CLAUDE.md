@@ -52,7 +52,8 @@ deleting what is superseded in the same round are not. Those are the tools revis
 | `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs and judges, read-only |
 | this file | the rules. At most **200 lines** |
 
-`doc/` holds **three** files — purpose, shape, order — and gets no fourth. A document describing what the
+`doc/` holds **four** — purpose, shape, order, and **scope** (`requirements.md`, one line per feature
+with a box, by the owner's decision). It gets no fifth. A document describing what the
 code **does** is the same thing in two languages, and the second one can lie. A rejected attempt is not
 preserved: the starting position keeps moving, and a conserved measurement misleads a later round.
 

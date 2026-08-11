@@ -198,7 +198,7 @@ design time.
 | | |
 |---|---|
 | Vertex layout | core-defined: `pos3 @0 · uv2 @12 · nrm3 @20`, 32 B, `static_assert`ed, for every mesh that carries a uv. The water surface is a **declared second layout** (`pos3 · nrm3`, 24 B) because no uv exists there |
-| `uv` | **metres**, never 0..1 |
+| `uv` | **metres** for terrain, vegetation and water. A façade encodes `(style·stride + bay, storeys)` instead, because one façade function serves the whole town with no per-building constant to pass and the storey height varies by class — `core/FacadeUv.h` |
 | Positions | ECEF offsets from a declared anchor |
 | Unit | prototype + instances, never geometry per instance |
 | LOD | **one** ladder: `Sse(c) ≤ τ ∧ Sse(parent) > τ`. Never one per kind of content |

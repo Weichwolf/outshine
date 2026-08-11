@@ -1,11 +1,10 @@
-/* OSM building footprints, extruded to prisms.
+/* OSM building footprints, and the ground and height resolved on each of them.
  *
- * WHY THE FOOTPRINT SURVIVES THE MESH. A Footprint keeps its ring, its height, its base and where the
- * height came from, and Tessellate() is a pure function of it — so a roof generator, a facade
- * parameterisation or a per-material split is another READER of the same record, added beside the
- * extrusion instead of replacing it. That is also why every wall vertex carries (run along the wall,
- * height above base) in metres rather than a 0..1 uv: floor lines, window grids and storey counts are
- * all functions of those two numbers, and nothing about them has to be decided today.
+ * WHAT THIS DOES NOT DECIDE: the shape. A Footprint keeps its ring, its height, its base and where
+ * the height came from; what stands on it is a StructureMesher's answer, installed from above
+ * (core/StructureMesher.h). That is what lets the mass, the roof and the facade be a generator while
+ * the streaming, the watermark and the ground sampling stay here — and it is why a target with no
+ * renderer installs no mesher and builds no geometry at all.
  *
  * The ring is NOT stored here — it is OsmField's, and a Footprint is an index into it. The ground
  * class under this house and the kerb in front of it have to come off the same geometry, and a second
@@ -23,6 +22,7 @@
 
 #include "Capacity.h"
 #include "GroundSample.h"
+#include "StructureMesher.h"
 #include "Span.h"
 #include "TileRanges.h"
 #include "TileWatermark.h"
@@ -40,7 +40,12 @@ public:
     HeightSource Source = HeightSource::Default;
   };
 
-  /* Extrudes whatever `field` has decoded and this has not seen yet. Returns the number of footprints
+  /* WHO TURNS AN OUTLINE INTO TRIANGLES. Installed once, before anything streams; without one this
+   * field resolves footprints and builds no geometry at all, which is exactly what a target with no
+   * renderer wants. */
+  void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
+
+  /* Raises whatever `field` has decoded and this has not seen yet. Returns the number of footprints
    * standing; 0 while the tiles are still streaming.
    *
    * AT MOST ONE TILE PER CALL, because everything downstream of a decoded tile — extrusion and the
@@ -80,8 +85,9 @@ private:
    * its shape: two records with the same three fields drift apart the moment one of them is read. */
   static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring);
   bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
-  void Extrude(const OsmField &field, const Footprint &f);
+  void Raise(const OsmField &field, const Footprint &f);
 
+  const StructureMesher *Mesher_ = nullptr;
   std::vector<Footprint> Prints_;
   std::vector<float> Verts_;
   TileRanges ByTile_;

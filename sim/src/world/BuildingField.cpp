@@ -18,10 +18,45 @@ namespace {
  * the whole of Hameln under a caravan roof. */
 constexpr double kFillHeightM = 5.0;
 
-/* [SET] two full storeys plus a roof: 2 x 2.9 m floor-to-floor = 5.8 m to the eaves, plus a 3.2 m
- * pitched roof on a ~9 m span at 35 deg. The right fix is upstream — fb-tiles must carry OSM's
- * building:levels — and this number exists to be deleted when it does. */
-constexpr double kDefaultHeightM = 9.0;
+/* [SET] the storey and the roof the default is built out of: 2.9 m floor-to-floor is the German
+ * residential measure, 3.2 m is a 35 deg pitched roof on a ~9 m span. The right fix is upstream —
+ * fb-tiles must carry OSM's building:levels — and these exist to be deleted when it does. */
+constexpr double kStoreyM = 2.9;
+constexpr double kRoofAllowanceM = 3.2;
+
+/* HOW MANY STOREYS A PLAN OF THIS SIZE CARRIES, where nobody said. A single number over a whole town
+ * is what puts a terrace, a garage and a department store under one eaves line, and the plan area is
+ * the one piece of evidence the source does supply. The steps are the German small-town census
+ * pattern: an outbuilding is one storey, a house two, a town-centre plot three, a plot over 600 m2
+ * four. A DETERMINISTIC step of one either way comes off the corner's own position, because a row of
+ * identical eaves is a statement about the data that is not true either. */
+int DefaultStoreys(double areaM2, double latDeg, double lonDeg) {
+  int storeys = areaM2 < 30.0 ? 1 : areaM2 < 150.0 ? 2 : areaM2 < 600.0 ? 3 : 4;
+  uint32_t h = (uint32_t)(int32_t)std::llround(latDeg * 1.0e6) * 2654435761u;
+  h ^= (uint32_t)(int32_t)std::llround(lonDeg * 1.0e6) * 2246822519u;
+  h ^= h >> 13;
+  h *= 3266489917u;
+  h ^= h >> 16;
+  if (storeys > 1) storeys += (int)(h % 4u) - 1;   /* -1, 0, 0, +1 */
+  return std::max(1, storeys);
+}
+
+/* The plan area of the ring, in metres, off the same corners the wall will stand on. */
+double RingAreaM2(const OsmField &field, const OsmField::Ring &ring) {
+  const std::vector<double> &pts = field.Points();
+  const double refLat = pts[(size_t)ring.First * 2], refLon = pts[(size_t)ring.First * 2 + 1];
+  double a = 0.0;
+  for (uint32_t k = 0; k < ring.Count; k++) {
+    const uint32_t j = (k + 1) % ring.Count;
+    double ek = 0.0, nk = 0.0, ej = 0.0, nj = 0.0;
+    EnuOffsetM(refLat, refLon, pts[((size_t)ring.First + k) * 2],
+               pts[((size_t)ring.First + k) * 2 + 1], ek, nk);
+    EnuOffsetM(refLat, refLon, pts[((size_t)ring.First + j) * 2],
+               pts[((size_t)ring.First + j) * 2 + 1], ej, nj);
+    a += ek * nj - ej * nk;
+  }
+  return std::fabs(0.5 * a);
+}
 
 }  // namespace
 
@@ -98,7 +133,9 @@ int BuildingField::Build(const OsmField &field) {
         fp.Source = HeightSource::Osm;
         OsmHeights_++;
       } else {
-        fp.HeightM = (float)kDefaultHeightM;
+        const int storeys = DefaultStoreys(RingAreaM2(field, ring), pts[(size_t)ring.First * 2],
+                                           pts[(size_t)ring.First * 2 + 1]);
+        fp.HeightM = (float)((double)storeys * kStoreyM + kRoofAllowanceM);
         fp.Source = HeightSource::Default;
         DefaultHeights_++;
       }
@@ -108,7 +145,7 @@ int BuildingField::Build(const OsmField &field) {
         HaveAnchor_ = true;
       }
       Prints_.push_back(fp);
-      Extrude(field, fp);
+      Raise(field, fp);
       added++;
     }
   }
@@ -127,99 +164,19 @@ int BuildingField::Build(const OsmField &field) {
   return (int)Prints_.size();
 }
 
-void BuildingField::Extrude(const OsmField &field, const Footprint &f) {
-  const std::vector<double> &ring = field.Points();
-  const uint32_t n = f.PointCount;
-  std::vector<double> lo((size_t)n * 3), hi((size_t)n * 3), en((size_t)n * 2);
-  const double refLat = ring[(size_t)f.FirstPoint * 2], refLon = ring[(size_t)f.FirstPoint * 2 + 1];
-
-  /* Buildings sink 0.30 m so a prism standing on a 47 m terrain facet cannot show daylight under a
-   * wall where the facet dips away from the sampled corner. */
-  const double sink = 0.30;
-  for (uint32_t k = 0; k < n; k++) {
-    const double la = ring[((size_t)f.FirstPoint + k) * 2], ln = ring[((size_t)f.FirstPoint + k) * 2 + 1];
-    double p[3];
-    GeoToEcef(la, ln, f.BaseM - sink, p);
-    for (int c = 0; c < 3; c++) lo[(size_t)k * 3 + c] = p[c] - Anchor_[c];
-    GeoToEcef(la, ln, f.BaseM + f.HeightM, p);
-    for (int c = 0; c < 3; c++) hi[(size_t)k * 3 + c] = p[c] - Anchor_[c];
-    EnuOffsetM(refLat, refLon, la, ln, en[(size_t)k * 2], en[(size_t)k * 2 + 1]);
-  }
-
-  double up[3];
-  {
-    double e[3], nn[3];
-    EnuAxesEcef(refLat, refLon, e, nn, up);
-  }
-
-  auto push = [&](const double p[3], const double nrm[3], double u, double v) {
-    Verts_.push_back((float)p[0]); Verts_.push_back((float)p[1]); Verts_.push_back((float)p[2]);
-    Verts_.push_back((float)u); Verts_.push_back((float)v);
-    Verts_.push_back((float)nrm[0]); Verts_.push_back((float)nrm[1]); Verts_.push_back((float)nrm[2]);
-  };
-
-  double run = 0.0;
-  for (uint32_t k = 0; k < n; k++) {
-    const uint32_t j = (k + 1) % n;
-    const double dx = en[(size_t)j * 2] - en[(size_t)k * 2];
-    const double dy = en[(size_t)j * 2 + 1] - en[(size_t)k * 2 + 1];
-    const double seg = std::sqrt(dx * dx + dy * dy);
-    if (seg < 0.05) continue;
-
-    double t[3];
-    for (int c = 0; c < 3; c++) t[c] = (lo[(size_t)j * 3 + c] - lo[(size_t)k * 3 + c]) / seg;
-    double nrm[3] = {t[1] * up[2] - t[2] * up[1], t[2] * up[0] - t[0] * up[2], t[0] * up[1] - t[1] * up[0]};
-    const double nl = std::sqrt(nrm[0] * nrm[0] + nrm[1] * nrm[1] + nrm[2] * nrm[2]);
-    if (nl < 1e-6) continue;
-    for (int c = 0; c < 3; c++) nrm[c] /= nl;
-
-    const double h = (double)f.HeightM + sink;
-    const double *a = &lo[(size_t)k * 3], *b = &lo[(size_t)j * 3];
-    const double *c2 = &hi[(size_t)j * 3], *d = &hi[(size_t)k * 3];
-    push(a, nrm, run, 0.0);        push(b, nrm, run + seg, 0.0);  push(c2, nrm, run + seg, h);
-    push(a, nrm, run, 0.0);        push(c2, nrm, run + seg, h);   push(d, nrm, run, h);
-    run += seg;
-  }
-
-  /* A FLAT cap by ear clipping, because a fan off vertex 0 fills the convex hull and Hameln's plans
-   * are L- and U-shaped. The pitched roof this town actually has is the next generator over the same
-   * Footprint — it needs the ring and the eaves height, which is exactly what is kept. */
-  std::vector<uint32_t> poly((size_t)n);
-  double area = 0.0;
-  for (uint32_t k = 0; k < n; k++) {
-    const uint32_t j = (k + 1) % n;
-    area += en[(size_t)k * 2] * en[(size_t)j * 2 + 1] - en[(size_t)j * 2] * en[(size_t)k * 2 + 1];
-  }
-  for (uint32_t k = 0; k < n; k++) poly[k] = area >= 0.0 ? k : n - 1 - k;
-
-  auto cross2 = [&](uint32_t a, uint32_t b, uint32_t c) {
-    return (en[(size_t)b * 2] - en[(size_t)a * 2]) * (en[(size_t)c * 2 + 1] - en[(size_t)a * 2 + 1]) -
-           (en[(size_t)c * 2] - en[(size_t)a * 2]) * (en[(size_t)b * 2 + 1] - en[(size_t)a * 2 + 1]);
-  };
-  int guard = (int)n * (int)n + 8;
-  while (poly.size() > 2 && guard-- > 0) {
-    bool cut = false;
-    for (size_t i = 0; i < poly.size(); i++) {
-      const uint32_t a = poly[(i + poly.size() - 1) % poly.size()], b = poly[i],
-                     c = poly[(i + 1) % poly.size()];
-      if (cross2(a, b, c) <= 0.0) continue;
-      bool clean = true;
-      for (uint32_t o : poly) {
-        if (o == a || o == b || o == c) continue;
-        if (cross2(a, b, o) >= 0.0 && cross2(b, c, o) >= 0.0 && cross2(c, a, o) >= 0.0) { clean = false; break; }
-      }
-      if (!clean) continue;
-      /* uv.x = -1 TAGS the cap; the walls' own run is >= 0 by construction, so one float carries the
-       * material split without a second attribute and without the shader guessing from a normal. */
-      push(&hi[(size_t)a * 3], up, -1.0, (double)f.HeightM);
-      push(&hi[(size_t)b * 3], up, -1.0, (double)f.HeightM);
-      push(&hi[(size_t)c * 3], up, -1.0, (double)f.HeightM);
-      poly.erase(poly.begin() + (long)i);
-      cut = true;
-      break;
-    }
-    if (!cut) break;   /* self-intersecting ring: what was clipped stands, the rest is dropped */
-  }
+/* WHAT STANDS ON THE OUTLINE is not decided here. This resolves the ring, the ground under it and a
+ * height; the shape of the thing is a generator's, installed from above, and the server target
+ * installs none — which is why a machine with no device no longer extrudes a town it cannot draw. */
+void BuildingField::Raise(const OsmField &field, const Footprint &f) {
+  if (!Mesher_) return;
+  const std::vector<double> &pts = field.Points();
+  StructurePlan plan;
+  plan.RingLatLon = Span<const double>(pts.data() + (size_t)f.FirstPoint * 2, (size_t)f.PointCount * 2);
+  plan.BaseAslM = f.BaseM;
+  plan.HeightM = f.HeightM;
+  plan.HeightMeasured = f.Source == HeightSource::Osm;
+  plan.AnchorEcef = Anchor_;
+  Mesher_->Mesh(plan, Verts_);
 }
 
 } // namespace outshine::World

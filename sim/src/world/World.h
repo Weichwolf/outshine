@@ -147,6 +147,8 @@ public:
    * outline a generator reads and the outline the picture draws must be one line. */
   const OsmField &Vectors() const { return Vectors_; }
   const BuildingField &Footprints() const { return Buildings_; }
+  /* WHAT A FOOTPRINT BECOMES, installed at bring-up. The server target installs nothing. */
+  void StructureShapes(const StructureMesher *mesher) { Buildings_.Shapes(mesher); }
   const WaterField &WaterBodies() const { return Water_; }
   const StreetField &Ways() const { return Streets_; }
 
