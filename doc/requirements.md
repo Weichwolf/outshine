@@ -774,6 +774,20 @@ asks for tiles that do not exist → library. Render width 640 → the run measu
 - [ ] The library tier's location is `assets/` and it ships with the library; the client tier's is the scenario. A test that declares neither gets a refusal naming both
 - [ ] **A value lives in exactly one tier**, and a key present in both is refused at load with its path — the ruling's *everything else is set by the client or the test* is only enforceable if the two sets are provably disjoint, and disjointness is a check over two schemas rather than a habit
 
+**A scenario carries its own data.** *Owner's ruling, 2026-08-12: a scenario must be able to provide
+its own glTF assets, and to give a provider — elevation above all — data from a file inside the
+scenario, so a run has correct terrain, depends on no network, and goes at the machine's full speed.
+This was done once for the FlightBox gym.* **It needs no new mechanism, which is the evidence the
+registry is the right shape:** a scenario-declared source is a `Data::Source` like any other — it
+declares what it covers, it is registered at a rank, and everything else follows.
+
+- [ ] A scenario declares sources of its own, registered above the network ones, so a covered request never reaches a wire
+- [ ] A scenario declares whether the network may be reached at all; with it refused, the provider list is exactly what the scenario carries and exhaustion is the terminal absence — the same rule, not a second one
+- [ ] A file-backed elevation source: the scenario names a file, the source declares the box and the zoom range it holds, `Covers` answers from the declaration without touching disk
+- [ ] A scenario carries its own glTF assets, addressed relative to the scenario, so a subject is declared where the scene is declared
+- [ ] A run with no network and no store reaches its verdict at the machine's speed, and **the same scenario with the network available produces the same answer** — that identity is the test, and it is the same shape as *cache on and cache off differ only in timing*
+- [ ] A scenario whose declared file is missing, unreadable or does not cover what the scene asks for is refused **by name and by path**, never silently filled from the wire — a fallback here would make a deterministic run quietly non-deterministic
+
 ### I.25 Scenario axes, and the scenario with no world
 
 *Added 2026-08-12 on the owner's ruling: **it must be possible to declare a scenario with no world at
