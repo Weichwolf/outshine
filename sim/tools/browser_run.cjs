@@ -23,6 +23,9 @@ const MOD = process.argv[2] || 'demo';
 const SCENE = process.argv[3] || 'frame';
 const TIMEOUT_S = Number(process.argv[4] || 900);
 const HOST = process.env.OUTSHINE_SIM || 'http://localhost:8080';
+// The sanitised client is a second page over the same host, and it must never be the default: what
+// is measured for the archive is the module the host serves at /.
+const PAGE = process.env.OUTSHINE_PAGE || '/';
 const [CW, CH] = (process.argv[5] || '1280x720').split('x').map(Number);
 
 (async () => {
@@ -37,10 +40,10 @@ const [CW, CH] = (process.argv[5] || '1280x720').split('x').map(Number);
     window.FB_MOD = mod;
     window.FB_SCENE = scene;
   }, { mod: MOD, scene: SCENE });
-  await page.goto(HOST + '/', { waitUntil: 'load' });
+  await page.goto(HOST + PAGE, { waitUntil: 'load' });
 
   const build = await page.evaluate(() => window.FB_BUILD || 'unset');
-  console.log(`# mod=${MOD} scene=${SCENE} canvas=${CW}x${CH} wasm=${build} chromium=${browser.version()}`);
+  console.log(`# mod=${MOD} scene=${SCENE} page=${PAGE} canvas=${CW}x${CH} wasm=${build} chromium=${browser.version()}`);
 
   const t0 = Date.now();
   let rc = null;

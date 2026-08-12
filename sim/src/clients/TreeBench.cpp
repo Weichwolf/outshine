@@ -90,12 +90,17 @@ int main(int argc, char **argv) {
   }
   if (reps < 1) { reps = 1; }
 
+  const std::vector<std::string> kSpecies = PlantsIn(assets);
+  if (kSpecies.empty()) {
+    fprintf(stderr, "treebench: no plant declaration under %s\n", assets.c_str());
+    return 1;
+  }
+
   TreeGrower grower;
   TreeMesh mesh;
   printf("species,bark_v,bark_i,leaf_v,leaf_i,leaf_pts,bbmin_x,bbmin_y,bbmin_z,bbmax_x,bbmax_y,"
          "bbmax_z,grow_ms,leaf_ms,bark_kb,leaf_kb,pts_kb,g_nadir,g0,g1,gp,g_resid,stalk_el_deg,"
          "angle_ms,foot_d_cm,dbh_cm,dbh_want_cm,hd,passes,laminae,leaf_m2,crown_m2,lai,lai_want,per_pt\n");
-  const std::vector<std::string> kSpecies = PlantsIn(assets);
   for (size_t i = 0; i < kSpecies.size(); ++i) {
     std::string text;
     const std::string path = assets + "/" + kSpecies[i] + ".json";

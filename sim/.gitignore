@@ -3,6 +3,12 @@ build/
 web/gpu.js
 web/gpu.wasm
 web/*.data
+web/counters.html
+web/counters.js
+web/counters.wasm
+web/asan.html
+web/gpu-asan.js
+web/gpu-asan.wasm
 
 # --- vendored / generated, recreated by vendor/*.sh ---
 vendor/dawn/

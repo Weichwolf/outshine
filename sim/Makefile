@@ -6,6 +6,11 @@
 #   make wasm     build the WASM client -> web/gpu.js + web/gpu.wasm
 #   make walk     build the native pedestrian frame oracle (Dawn + fb-tiles terrain) -> build/gpu_walk
 #   make world    build the server target: everything EXCEPT render/, no device -> build/fb_world
+#   make gates    run every gate a round must not break, one line each, non-zero on any failure --
+#                 its green is what a "done when" means, and nothing else obliges a round to type
+#                 the negatives one at a time
+#   make gates-build  the subset a compiler and a refusing program decide, with no browser and no
+#                 traversal -- what an edit can afford between commits
 #   make verify-generators  a generators/ translation unit can name core and NOTHING above it --
 #                 the include set is the layering, and a breach is a compile error
 #   make verify-clients  both main()s are entry points and nothing else, and the scene is built in
@@ -24,6 +29,14 @@ EMSDK_DIR ?= $(HOME)/Git/emsdk
 EMCC_WARN := -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter
 CXX_WARN  := -Wall -Wextra -Wpedantic -Werror -Wno-unused-parameter
 CXXSTD    := -std=c++17
+
+# THE INSTRUMENTS OF THE DECLARED SANITISED RUNS, and they are never in a shipping target: `walk` and
+# `wasm` do not name them, so the frame cost of this line is zero by construction.
+# -fno-sanitize-recover is what makes UndefinedBehaviorSanitizer a gate rather than a log: without it
+# a signed overflow prints and the run exits 0. -g1 buys the line tables a report is worthless
+# without; -O2 stays because a sanitised run at another optimisation level measures another program.
+SAN_NATIVE := -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1
+SAN_WASM   := -fsanitize=address -fno-omit-frame-pointer -g1
 
 # Incremental compiles WITH header dependencies. The object-building recipes below are shell loops, not
 # make pattern rules, so make's own prerequisite graph never sees a header: a plain `[ obj -nt src ]`
@@ -162,37 +175,47 @@ PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS
 # directory the native oracle reads off disk, so `<mod> <scene>` means the same two words in both.
 MODS_DIR := ../mods
 
-.PHONY: help wasm walk world treebench verify-generators verify-world verify-clients verify-counters image up down restart clean
+.PHONY: help wasm wasm-asan walk walk-asan world treebench gates gates-build verify-generators \
+  verify-world verify-clients verify-counters verify-types verify-refusals verify-walk verify-wasm \
+  verify-walk-asan verify-wasm-asan image up down restart clean
+
+# WHERE A GATE'S OUTPUT GOES. Outside the tree on purpose: a log nobody committed on purpose is a
+# file the next round has to make a decision about.
+GATE_DIR := $(shell echo $${TMPDIR:-/tmp})/outshine-gates
 
 help:            ## list targets
 	@grep -hE '^[a-zA-Z_-]+:.*##' $(MAKEFILE_LIST) | sed -E 's/:[^#]*##/\t/' | sort | column -t -s $$'\t'
 
-wasm:            ## build the WASM client -> web/gpu.{js,wasm}
+# ONE WASM BUILD, TWO CONFIGURATIONS -- the same statement the native define makes, for the target
+# that ships. The sanitised client is a SECOND page: it must never overwrite web/gpu.js, because the
+# host serves that file to whoever is measuring.
+#   $(1) object directory   $(2) extra compile and link flags   $(3) output js   $(4) client name
+define WASM_BUILD
 	@cd $(SELF_DIR); source "$(EMSDK_DIR)/emsdk_env.sh" >/dev/null 2>&1; set -e; \
 	  $(FB_UPTODATE) \
-	  mkdir -p build/obj-wasm; \
-	  EM="emcc $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS)"; \
-	  EMPP="emcc -std=c++20 -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) -fexceptions --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -isystem vendor"; \
-	  for f in $(TERRAIN_SRCS); do o=build/obj-wasm/world-$$(basename $$f .cpp).o; \
+	  mkdir -p $(1); \
+	  EM="emcc $(CXXSTD) -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(2)"; \
+	  EMPP="emcc -std=c++20 -O2 $(EMCC_WARN) $(DEPFLAGS) $(WASM_THREADS) $(2) -fexceptions --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -isystem vendor"; \
+	  for f in $(TERRAIN_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_WORLD) -Isrc/core $(INC_TILES) -Ivendor -c -o "$$o"; done; \
-	  for f in $(WORLD_SRCS); do o=build/obj-wasm/world-$$(basename $$f .cpp).o; \
+	  for f in $(WORLD_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_WORLD) $(INC_TILES) -c -o "$$o"; done; \
-	  for f in $(CORE_SRCS); do o=build/obj-wasm/core-$$(basename $$f .cpp).o; \
+	  for f in $(CORE_SRCS); do o=$(1)/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_CORE) -c -o "$$o"; done; \
-	  for f in $(GEN_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
+	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
-	  for f in $(GEN_DRAW_SRCS); do o=build/obj-wasm/gen-$$(basename $$f .cpp).o; \
+	  for f in $(GEN_DRAW_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_DRAW) -c -o "$$o"; done; \
-	  for f in $(SIM_SRCS); do o=build/obj-wasm/sim-$$(basename $$f .cpp).o; \
+	  for f in $(SIM_SRCS); do o=$(1)/sim-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EM "$$f" $(INC_SIMHALF) $(INC_TILES) -c -o "$$o"; done; \
-	  for f in $(RENDER_SRCS); do o=build/obj-wasm/render-$$(basename $$f .cpp).o; \
+	  for f in $(RENDER_SRCS); do o=$(1)/render-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EMPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
-	  for f in $(APP_SRCS); do o=build/obj-wasm/app-$$(basename $$f .cpp).o; \
+	  for f in $(APP_SRCS); do o=$(1)/app-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$EMPP "$$f" $(INC_CLIENTS) $(INC_TILES) -c -o "$$o"; done; \
-	  emcc $(call OBJS,build/obj-wasm) $(call PICTURE_OBJS,build/obj-wasm) \
+	  emcc $(call OBJS,$(1)) $(call PICTURE_OBJS,$(1)) \
 	    src/clients/AppWasm.cpp src/clients/Walker.cpp \
 	    --use-port=vendor/emdawnwebgpu_pkg/emdawnwebgpu.port.py -std=c++20 -O2 $(EMCC_WARN) -fexceptions \
-	    $(INC_CLIENTS) -isystem vendor \
+	    $(INC_CLIENTS) -isystem vendor $(2) -DOUTSHINE_CLIENT="\"$(4)\"" \
 	    $(WASM_THREADS_LINK) $(WASM_MAIN_MEMORY) -sEXIT_RUNTIME=0 \
 	    -sEXPORTED_FUNCTIONS=_main,_malloc,_free,_fb_take_http_body \
 	    --preload-file web/moon.jpg@/moon.jpg \
@@ -200,10 +223,37 @@ wasm:            ## build the WASM client -> web/gpu.{js,wasm}
 	    --preload-file assets/world/vegetation.json@/vegetation.json \
 	    --preload-file assets/world/species@/assets/world/species \
 	    --preload-file assets/world/ground-materials.json@/ground-materials.json \
-	    -o web/gpu.js; \
-	  echo "WASM -> web/gpu.js (mods: $(MODS_DIR))"
+	    -o $(3); \
+	  echo "-> $(3) (mods: $(MODS_DIR))"
+endef
 
-walk:            ## build the pedestrian frame oracle (render+world) -> build/gpu_walk
+wasm:            ## build the WASM client -> web/gpu.{js,wasm}
+	$(call WASM_BUILD,build/obj-wasm,,web/gpu.js,wasm)
+
+# FB_BUILD is blanked because it would otherwise be WRONG: the host's wasm_build_id hashes
+# web/gpu.wasm whatever page asked for it (clients/SimHost.cpp:151), so a second page inherits the
+# shipping module's identity. A blank field says "this run is not pinned"; a hash would say something
+# untrue. doc/bugs.md carries what the fix is.
+wasm-asan:       ## build the same client under address -> web/gpu-asan.{js,wasm} + web/asan.html
+	$(call WASM_BUILD,build/obj-wasm-asan,$(SAN_WASM),web/gpu-asan.js,wasm)
+	@cd $(SELF_DIR); set -e; \
+	  sed -e 's|src="gpu.js"|src="gpu-asan.js"|' \
+	    -e 's|<script src="config.js"></script>|<script src="config.js"></script><script>window.FB_BUILD="";</script>|' \
+	    web/index.html > web/asan.html; \
+	  if ! grep -q 'src="gpu-asan.js"' web/asan.html; then \
+	    echo "wasm-asan: the rewrite matched nothing -- web/index.html spells its module tag differently, and sed says nothing when it matches nothing" >&2; exit 1; fi; \
+	  if grep -q 'src="gpu.js"' web/asan.html; then \
+	    echo "wasm-asan: asan.html still loads the SHIPPING module -- the sanitiser would be reported silent over a module that carries none" >&2; exit 1; fi; \
+	  if ! grep -q 'window.FB_BUILD=""' web/asan.html; then \
+	    echo "wasm-asan: asan.html would inherit web/gpu.wasm's hash as its own identity" >&2; exit 1; fi; \
+	  echo "-> web/asan.html (module gpu-asan.js, identity blanked)"
+
+# ONE NATIVE BUILD, TWO CONFIGURATIONS: the shipping oracle and the sanitised run differ by a flag
+# set and an object directory and by NOTHING else. A second copy of this recipe is how the two drift,
+# and a sanitised build that has drifted measures a program which does not ship. The object
+# directories are separate so an instrumented object can never be linked into the shipping binary.
+#   $(1) object directory   $(2) extra compile and link flags   $(3) output binary   $(4) client name
+define NATIVE_BUILD
 	@cd $(SELF_DIR); set -e; \
 	  $(FB_UPTODATE) \
 	  PLATFORM_LIBS=""; \
@@ -212,34 +262,44 @@ walk:            ## build the pedestrian frame oracle (render+world) -> build/gp
 	  fi; \
 	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
-	  mkdir -p build/obj-walk; \
-	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
-	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
-	  for f in $(TERRAIN_SRCS); do o=build/obj-walk/world-$$(basename $$f .cpp).o; \
+	  mkdir -p $(1); \
+	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(2)"; \
+	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) $(2) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
+	  for f in $(TERRAIN_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
-	  for f in $(WORLD_SRCS); do o=build/obj-walk/world-$$(basename $$f .cpp).o; \
+	  for f in $(WORLD_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
-	  for f in $(CORE_SRCS); do o=build/obj-walk/core-$$(basename $$f .cpp).o; \
+	  for f in $(CORE_SRCS); do o=$(1)/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
-	  for f in $(GEN_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
+	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
-	  for f in $(GEN_DRAW_SRCS); do o=build/obj-walk/gen-$$(basename $$f .cpp).o; \
+	  for f in $(GEN_DRAW_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DRAW) -c -o "$$o"; done; \
-	  for f in $(SIM_SRCS); do o=build/obj-walk/sim-$$(basename $$f .cpp).o; \
+	  for f in $(SIM_SRCS); do o=$(1)/sim-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
-	  for f in $(RENDER_SRCS); do o=build/obj-walk/render-$$(basename $$f .cpp).o; \
+	  for f in $(RENDER_SRCS); do o=$(1)/render-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
-	  for f in $(APP_SRCS); do o=build/obj-walk/app-$$(basename $$f .cpp).o; \
+	  for f in $(APP_SRCS); do o=$(1)/app-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  c++ src/clients/AppWalk.cpp \
-	    $(call OBJS,build/obj-walk) $(call PICTURE_OBJS,build/obj-walk) \
-	    -std=c++20 -O2 $(CXX_WARN) \
+	    $(call OBJS,$(1)) $(call PICTURE_OBJS,$(1)) \
+	    -std=c++20 -O2 $(CXX_WARN) $(2) -DOUTSHINE_CLIENT="\"$(4)\"" \
 	    $(INC_CLIENTS) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
-	    -o build/gpu_walk; \
-	  echo "walk -> build/gpu_walk"
+	    -o $(3); \
+	  echo "-> $(3)"
+endef
+
+walk:            ## build the pedestrian frame oracle (render+world) -> build/gpu_walk
+	$(call NATIVE_BUILD,build/obj-walk,,build/gpu_walk,gpu_walk)
+
+# THE SAME CLIENT, NOT A SECOND ONE, so it carries the same client name: what separates its rows from
+# the shipping oracle's is the instrument field, which src/clients/Sanitisers.h takes from the
+# compiler and no build can state wrongly.
+walk-asan:       ## build the same oracle under address+undefined -> build/gpu_walk_asan
+	$(call NATIVE_BUILD,build/obj-walk-asan,$(SAN_NATIVE),build/gpu_walk_asan,gpu_walk)
 
 world:           ## build the server target -- everything except render/, no device -> build/fb_world
 	@cd $(SELF_DIR); set -e; \
@@ -354,6 +414,112 @@ verify-types:    ## a value whose misuse must not compile -- and does not
 verify-clients:  ## check that both entry points are entry points and share one scene builder
 	@cd $(SELF_DIR) && python3 tools/verify_clients.py
 
+# WHAT A PROGRAM MUST REFUSE ONCE IT IS RUNNING. A compile gate cannot reach either of these: a bench
+# with nothing to measure printed a header and exited 0 until 2026-08-11, which is a run that reports
+# success over an empty directory, and an unknown growth form must not be a plant that grows anyway.
+verify-refusals: treebench ## a bench with nothing to measure refuses, and so does an unknown growth form
+	@cd $(SELF_DIR); set -e; \
+	  d=$(GATE_DIR)/refusals; rm -rf "$$d"; mkdir -p "$$d/empty" "$$d/badform"; \
+	  if ./build/treebench --assets "$$d/empty" >/dev/null 2>"$$d/empty.err"; then \
+	    echo "verify-refusals: treebench measured an empty directory and exited 0" >&2; exit 1; fi; \
+	  grep -q "$$d/empty" "$$d/empty.err" || { \
+	    echo "verify-refusals: the bench refused without naming where it looked" >&2; exit 1; }; \
+	  sed 's|"form": "[a-z_]*"|"form": "no_such_form"|' assets/world/species/ash.json > "$$d/badform/ash.json"; \
+	  grep -q '"no_such_form"' "$$d/badform/ash.json" || { \
+	    echo "verify-refusals: the fixture carries no form field -- the gate would pass on nothing" >&2; exit 1; }; \
+	  if ./build/treebench --assets "$$d/badform" >/dev/null 2>"$$d/badform.err"; then \
+	    echo "verify-refusals: a declaration with an unknown form grew anyway" >&2; exit 1; fi; \
+	  grep -q "no_such_form" "$$d/badform.err" || { \
+	    echo "verify-refusals: the refusal does not name the value it refused" >&2; exit 1; }; \
+	  echo "verify-refusals: an empty bench and an unknown form both refuse, and both name why"
+
+# THE TWO SHIPPING TRANSLATIONS. Neither is covered by any gate above: the sanitised walk compiles
+# every source natively but under another flag set, and verify-counters compiles world+core alone
+# under emcc. What actually ships is the C++20 / -fexceptions / emdawnwebgpu translation of render/
+# and clients/, and it was the one translation no gate ever performed.
+verify-wasm: wasm ## the module that ships links -- render/ and clients/ through emcc
+	@cd $(SELF_DIR); set -e; \
+	  if [ ! -s web/gpu.wasm ] || [ ! -s web/gpu.js ]; then \
+	    echo "verify-wasm: the emcc link produced no module" >&2; exit 1; fi; \
+	  echo "verify-wasm: web/gpu.wasm $$(shasum -a 256 web/gpu.wasm | cut -c1-16) $$(wc -c < web/gpu.wasm | tr -d ' ') B"
+
+verify-walk: walk ## the oracle that measures links -- the same sources against native Dawn
+	@cd $(SELF_DIR); set -e; \
+	  if [ ! -x build/gpu_walk ]; then echo "verify-walk: the link produced no oracle" >&2; exit 1; fi; \
+	  echo "verify-walk: build/gpu_walk $$(shasum -a 256 build/gpu_walk | cut -c1-16)"
+
+# WHAT demo/walk-500 DRAWS, taken from the unsanitised oracle on this build. A binary that exits 0
+# having drawn nothing satisfies an exit code and nothing else, and so does a run that walked some
+# other world. Asserting these is what makes "the sanitiser was silent over 10 800 frames" a
+# statement about THIS traversal.
+WALK500_FRAMES := 10800
+WALK500_DRAWN  := impostorStands=9565 treeTris=19130
+
+# THE DECLARED SANITISED RUNS, and what they decide is whether the sanitiser speaks -- never whether
+# the frame holds, because an instrumented frame is not the shipping frame. The shipping targets name
+# neither $(SAN_NATIVE) nor $(SAN_WASM) and the objects live in their own directories, so no
+# instrumented object can reach a binary anyone measures.
+verify-walk-asan: walk-asan ## demo/walk-500 over its whole traversal under address+undefined, natively
+	@cd $(SELF_DIR); mkdir -p $(GATE_DIR)/walk-asan; o=$(GATE_DIR)/walk-asan.out; \
+	  if ! OUTSHINE_OUT=$(GATE_DIR)/walk-asan ./build/gpu_walk_asan demo walk-500 >"$$o" 2>&1; then \
+	    tail -40 "$$o" >&2; echo "verify-walk-asan: the sanitised run did not finish ($$o)" >&2; exit 1; fi; \
+	  if grep -qE "AddressSanitizer|runtime error:" "$$o"; then \
+	    grep -nE "AddressSanitizer|runtime error:" "$$o" >&2; \
+	    echo "verify-walk-asan: the run finished but the sanitiser spoke ($$o)" >&2; exit 1; fi; \
+	  v=$$(grep -F "INFO run motion path=walk-500.csv" "$$o" | tail -1); \
+	  if [ -z "$$v" ]; then \
+	    echo "verify-walk-asan: the run exited 0 and wrote no motion verdict ($$o)" >&2; exit 1; fi; \
+	  case "$$v" in *" frames=$(WALK500_FRAMES) "*) ;; *) \
+	    echo "$$v" >&2; \
+	    echo "verify-walk-asan: the traversal was not $(WALK500_FRAMES) frames" >&2; exit 1;; esac; \
+	  case "$$v" in *"$(WALK500_DRAWN)"*) ;; *) \
+	    echo "$$v" >&2; \
+	    echo "verify-walk-asan: the sanitised run drew a DIFFERENT world -- expected $(WALK500_DRAWN)" >&2; exit 1;; esac; \
+	  echo "verify-walk-asan: $(WALK500_FRAMES) frames drew $(WALK500_DRAWN), address+undefined silent"
+
+# Not in $(GATES), and the reason is measured rather than budgetary: it does not reach the end of a
+# ONE-frame scene on this host. doc/bugs.md carries the numbers.
+verify-wasm-asan: wasm-asan ## run demo/walk-500 under address in the browser
+	@cd $(SELF_DIR) && OUTSHINE_PAGE=/asan.html node tools/browser_run.cjs demo walk-500 3600
+
+# EVERY GATE A ROUND MUST NOT BREAK, IN ONE COMMAND. The negatives were .PHONY and nothing obliged a
+# round to type them -- the failure mode of a debug configuration nobody builds. Every gate runs even
+# after one has fallen, because the second failure is information the first one would have hidden.
+#
+# THE SPLIT IS WHAT A GATE DECIDES, NOT WHEN IT IS RUN. $(GATES_BUILD) is everything a compiler and a
+# refusing program can settle: the layering, what the type system must refuse, what a running program
+# must refuse, and both shipping links. $(GATES_RUN) is what only a client that RUNS can settle -- a
+# counter that wraps on wasm32 and nowhere else, and a sanitiser that speaks only over a traversal.
+# The second set needs a browser and a 10 800-frame walk and costs two orders of magnitude more, so
+# the first one exists to be affordable in an edit: a gate that is skipped is not a defence.
+GATES_BUILD := verify-generators verify-clients verify-types verify-world verify-refusals \
+  verify-wasm verify-walk
+GATES_RUN := verify-counters verify-walk-asan
+GATES := $(GATES_BUILD) $(GATES_RUN)
+
+# make marks a recipe line as recursive by finding the LITERAL text `$(MAKE)` in it before expanding
+# it, and a line so marked is executed even under -n. Naming the same variable something else means
+# the line is printed and not run under -n, and runs normally without it.
+SUB := $(MAKE)
+
+#   $(1) the gate list   $(2) what to call the set in the verdict
+define RUN_GATES
+	@cd $(SELF_DIR); mkdir -p $(GATE_DIR); red=0; \
+	  for g in $(1); do \
+	    t0=$$(date +%s); \
+	    if $(SUB) --no-print-directory "$$g" >"$(GATE_DIR)/$$g.log" 2>&1; then v=PASS; else v=FAIL; red=1; fi; \
+	    printf '%-4s %-18s %5ds  %s\n' "$$v" "$$g" "$$(( $$(date +%s) - t0 ))" "$(GATE_DIR)/$$g.log"; \
+	  done; \
+	  if [ "$$red" != 0 ]; then echo "$(2): RED"; exit 1; fi; \
+	  echo "$(2): green"
+endef
+
+gates:           ## run every gate a round must not break -- one line each, non-zero on any failure
+	$(call RUN_GATES,$(GATES),gates)
+
+gates-build:     ## the gates a compiler and a refusal decide -- no browser, no traversal
+	$(call RUN_GATES,$(GATES_BUILD),gates-build)
+
 image:          ## build the deployable fb-sim web container (context = sim/, trimmed by .containerignore)
 	cd $(SELF_DIR) && podman build -f Dockerfile -t fb-sim .
 
@@ -365,7 +531,9 @@ down:            ## stop the web host
 
 restart: down up ## stop and start the web host
 
-clean:           ## remove build artifacts (WASM + walk + world)
+clean:           ## remove build artifacts (WASM + walk + world + the sanitised runs)
 	cd $(SELF_DIR) && rm -rf build/obj-wasm build/obj-walk build/obj-world \
+	  build/obj-wasm-asan build/obj-walk-asan build/gpu_walk_asan \
 	  build/gpu_walk build/fb_world build/gen_gate \
-	  web/gpu.js web/gpu.wasm web/gpu.data
+	  web/gpu.js web/gpu.wasm web/gpu.data \
+	  web/gpu-asan.js web/gpu-asan.wasm web/gpu-asan.data web/asan.html

@@ -432,13 +432,20 @@ AddressSanitizer, which was measured to work on both. Every line here exists to 
 into a line that names a file. Cost is stated where a line costs frame time; where none is stated the
 line was measured free against the 0.35 ms a pass must beat.*
 
+*Corrected 2026-08-12 against whole-program measurement. The costs first written into the run lines
+below — 3.8×, 9.8×, 2.84×, 6.2× — were taken on a **bare translation unit over an index-dense loop**,
+which is a sanitiser's best case: dense sequential access, hot shadow lines, no locking. The client's
+load phase is the opposite case, and one of the three numbers is wrong by a factor of 25 there. A cost
+measured on a microbenchmark does not transfer to a program; where both exist, the whole-program figure
+is the one that decides, and it stands beside the old one rather than replacing it silently.*
+
 **The mechanism.**
 
 - [x] `NDEBUG` defined by no target, so `assert` ships — measured under emsdk 6.0.3 at `-O2`: the message carries expression, file, line and function, and no `-sASSERTIONS` is needed for it (`sim/Makefile`)
 - [x] One allocator behind the global `operator new`/`new[]`, plain and aligned, ending the run with the item and its byte count (`core/io/Heap.cpp`) — so every `std::vector` growth, `std::string`, `make_unique` and tree node is covered without naming it, and `-sABORTING_MALLOC=0` is enforced rather than merely set
 - [x] A range type whose subscript asserts its extent (`core/Span.h`)
 - [x] An answer whose payload is unreachable without its state, `[[nodiscard]]` on the only door (`core/GroundSample.h`, `core/WaterDepth.h`)
-- [x] Negative compile gates that must fail **for the stated reason** (`sim/Makefile`: `verify-types`, `verify-generators`, `verify-world`)
+- [x] Negative compile gates that must fail **for the stated reason** — `verify-generators` and `verify-world` both require `file not found` in the compiler's answer and refuse any other failure (`sim/Makefile`). `verify-types` is the third gate and does **not** do this; its line is under *Instruments*, unticked, and it is not covered here
 - [x] A property that is only true on the shipping target is decided **on the shipping target**: a gate that builds with emcc, runs in the same Chromium every measurement here is taken in, and passes on a printed verdict rather than on exit alone (`sim/Makefile` `verify-counters`, `sim/src/world/gate/CountersDoNotWrap.cpp`, `sim/tools/browser_gate.cjs`). Checked adversarially — with `TilePool.h`'s accumulator put back to `long` the gate answers `GATE FAIL negative after 2147 blocks: repeats=-2146967677` and exits 1 in 34 s, against `GATE PASS poolRepeats=2147999613` in 37 s unmodified
 - [ ] `Span` constructible from `std::vector` and `std::array`, so an extent is taken and never typed
 - [ ] `Span::Unchecked(ptr, count)` as the only spelling of a pointer and a count that were never one object, and its site count published — target: C-ABI boundaries only
@@ -447,6 +454,7 @@ line was measured free against the 0.35 ms a pass must beat.*
 - [ ] An owned raw block that carries its own extent and frees by scope, taken from the one allocator (`core/io/HeapArray.h`)
 - [ ] No `malloc` outside `core/io/` — **seven** sites today, in `world/terrain/osmmesh_terrain.cpp` (3), `world/terrain/terrain.cpp` (2), `clients/SimHost.cpp` and `generators/gate/SameRegionSamePlacement.cpp`. `world/ChunkMesh.h`'s four are gone, taken by `Heap::Take`
 - [ ] An exhausted heap distinguishable from malformed input at every allocation site
+- [ ] A declared heap ceiling honoured inside `core/io/Heap`, so an exhaustion is reproducible on a target that has no fixed linear memory — the shell cannot do it on this host: `ulimit -v` is rejected, `ulimit -d` answers `Invalid argument`, `RLIMIT_AS` reads `9223372036854775807`, and a process allocates and touches 4 GB unrefused
 
 **What the type system must refuse.**
 
@@ -456,7 +464,7 @@ line was measured free against the 0.35 ms a pass must beat.*
 - [ ] No `default:` in a `switch` over a house enumeration, so a new state is a compile error under `-Wswitch -Werror` — five live sites
 - [ ] A producer returns its product, and its consumer takes the product as an argument and cannot be called without one — the trim of an absent roof covering must not compile
 - [ ] A multi-state answer whose states carry different data, so two arms cannot be written identically by accident
-- [ ] A bench that wrote no rows exits non-zero and names where it looked
+- [x] A bench that wrote no rows exits non-zero and names where it looked — `treebench` refuses an empty or missing species directory with `treebench: no plant declaration under <dir>` (`clients/TreeBench.cpp:94-97`), and the refusal is held by a run-time gate that also holds the unknown growth form (`sim/Makefile` `verify-refusals`, 4 s)
 - [ ] A two-phase object either asserts its phase on every accessor or returns a second type from its close, and the second is preferred where a thread does not forbid it (`render/ClusterCut.h` is reshapeable, `world/ClassBuilder` is not)
 
 **Where an assertion earns its place.**
@@ -468,9 +476,13 @@ line was measured free against the 0.35 ms a pass must beat.*
 
 **The declared runs, and the target that runs them.**
 
-- [ ] `make gates`: one target running every negative gate and every declared sanitised run, one line per gate, and its green the precondition of a commit — the four `verify-*` targets exist and nothing obliges a round to invoke them
-- [ ] A declared native run under `-fsanitize=address,undefined` — measured 3.8× and 9.8× on an index-dense loop against a CPU frame of 0.144 ms, so it holds 30 fps with room
-- [ ] A declared wasm run under `-fsanitize=address` on the shipping flags — measured to link and to catch a one-past-the-end write at fixed `-sINITIAL_MEMORY=296MB` with `-pthread`, at 2.84×
+- [x] `make gates`: one target running every negative gate and every declared sanitised run, one line per gate, every gate run even after one has fallen, non-zero on any failure (`sim/Makefile`, `GATES`). Seven gates, 6 m 13 s: `verify-generators` 14 s · `verify-clients` 0 s · `verify-types` 0 s · `verify-world` 1 s · `verify-counters` 41 s · `verify-refusals` 4 s · `verify-walk-asan` 313 s. Checked adversarially — the treebench refusal reverted gives `FAIL verify-refusals`, `gates: RED`, exit 2, and the other six still run
+- [ ] The gate set split by what it decides, so the edit loop has one it will actually run: the five that need neither a browser nor a 10 800-frame walk — `verify-generators` 14 s, `verify-refusals` 4 s, `verify-world` 1 s, `verify-clients` and `verify-types` 0 s — cost **19 s** together against the full set's 6 m 13 s, and a gate that is skipped is not a defence
+- [ ] A gate that builds the **shipping wasm module** — the emcc translation of `render/` and `clients/` is covered by no gate today, and it is the only build that ships; the sanitised native gate covers the native compile of the same sources and nothing covers this one. Priced: 4.8 s with warm objects, and the link is reproducible (`web/gpu.wasm` sha256 `b56aac97b2b47638…` on two consecutive links)
+- [ ] Every declared run states its **instrument** in its own identity field, so a sanitised row cannot enter the archive as a shipping row — `client=gpu_walk` is a string literal today (`clients/AppWalk.cpp:74`) and `doc/bugs.md` carries what it has already written into `sim/logs/`
+- [ ] The frame count of a declared sanitised run derived from where its coverage stops growing rather than from habit — TOOL, one `-fcoverage-mapping` build and three run lengths; 10 800 frames is an assumption nobody has measured
+- [x] A declared native run under `-fsanitize=address,undefined` — `demo/walk-500`, 10 800 frames, `-fno-sanitize-recover=undefined`, three runs, zero reports (`sim/Makefile`: `walk-asan`, `verify-walk-asan`). Whole-program cost, superseding the 3.8×/9.8× microbenchmark: wall 300.2 s against 184.7 s (1.63×), tile-mesh CPU 639.2 ms/tile against 161.1 (3.97×, the microbenchmark's 3.83× transferring here), and the frame distribution p50 26.6 / p95 27.7 / **p99 42.6** ms against 16.4 / 19.2 / 20.6 — **the sanitised oracle does not hold the 33 ms floor and is not asked to**, because what this gate decides is whether the sanitiser speaks. What makes the run comparable at all is that it walks the same world: `impostorStands=9565 treeTris=19130`, identical to the unsanitised run, and the path is a declared 30 fps replay rather than wall-clock motion. Checked adversarially — a one-word write past `TreePrototype::Ranks()` gives `heap-buffer-overflow … WRITE of size 4` naming `Outshine.cpp:197` and the allocation at `Heap.cpp:56`
+- [ ] A declared wasm run under `-fsanitize=address` on the shipping flags — it **links** (`sim/Makefile` `wasm-asan`; ASan × emdawnwebgpu × `-pthread` was the named risk and it did not materialise), boots in the same Chromium, and then does not finish `demo/frame`, **one frame**, in 480 s at ~4 cores saturated against 28.3 s unsanitised: a floor of **72×**, not the bare-translation-unit 2.84×. `user 1911 s / real 481 s` says CPU-bound rather than paged, so it is the load loop's ~190 kHz spin with every `std::set` operation and every mutex acquisition instrumented — a property of a defect this tree already carries, not of the host and not of the instrument. **Blocked on the load loop that waits instead of spinning, not refused.** Note it can decide nothing about the shipping heap in any case: emcc raises `-sINITIAL_MEMORY=296MB` to 474 611 712 B in the ASan module, 53 % more linear memory than the client that ships
 - [ ] `-sSAFE_HEAP` — REFUSED: measured 6.2×, the most expensive instrument of the set, and it tests only a null and a write past the break; it did not catch the write into a neighbouring allocation that AddressSanitizer caught at half the price
 - [ ] `.at()` as the bounds mechanism — REFUSED: measured, its out-of-range prints `Aborted(undefined)` with no file, line or index in the six wasm compile groups built without exceptions, and escapes `emscripten_set_main_loop` with the run's telemetry unflushed in the other two
 - [ ] Exceptions as a failure channel — REFUSED: six of the eight wasm compile groups build without them (`sim/Makefile`, `EM` against `EMPP`), and the tree contains one `catch`

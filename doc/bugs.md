@@ -21,10 +21,9 @@ cannot spend without deciding, and the value that says "no" carries no usable pa
 state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T *out)` is.
 
 - **`RoofSurface::Cover` returns `void`, and `EarClip` bails silently** (`generators/draw/RoofSurface.cpp:32`, called at 209). When triangulation fails, `Covering` loops over an empty vector and draws nothing, then `BuildingMesh.cpp:383-387` draws `Gables`, `Eaves` and `Chimney` unconditionally — **a roof drawn as its own trim, floating in the sky with no covering**, visible in the shipped frame at (930,240)–(1190,370) of `after/street.png`. Right: `[[nodiscard]] bool Cover(...)`, and eaves, gable and chimney unspellable without a closed covering.
-- **`treebench` measures nothing and reports success.** `clients/TreeBench.cpp:98` — `PlantsIn(assets)` on a missing or empty directory returns an empty list, the header prints, no row follows and the exit code is 0. Verified: `treebench --assets /private/tmp/nope-does-not-exist` exits 0. The round that made the bench enumerate its directory did so precisely because "a form nobody grew would otherwise have looked green"; zero forms still looks green. Right: an empty species set is a refusal that names the directory it looked in.
-- **`emscripten_exit_pointerlock()` discards its result** (`clients/AppWasm.cpp:92`).
+- **`emscripten_exit_pointerlock()` discards its result** (`clients/AppWasm.cpp:98`).
 - **A status that is read into a variable and only logged is still discarded.** `BindInput`
-  (`clients/AppWasm.cpp:236-266`) now routes all six registrations through `Bound`, which logs
+  (`clients/AppWasm.cpp:242-272`) now routes all six registrations through `Bound`, which logs
   `input_unbound` on failure and **returns anyway**; the six results become six fields of one
   `input_bound` line and nothing branches on them. The comment above `Bound` states the class
   correctly — "the picture comes up with no input and no reason" — and then the picture still comes
@@ -47,21 +46,54 @@ heap in both cases. The premise "it segfaults natively" holds only for a write t
 which a heap overrun almost never does. So the oracle is not louder than the browser for this class,
 and the conclusion is stronger rather than weaker: there is no safety net on either target today.*
 
-- **An exhausted heap is reported as malformed terrain.** `world/ChunkMesh.h:47,48,91,147` allocate
-  `NN·3·8 + NN·4 + NN·12` bytes plus the vertex block per tile (1.59 + 0.26 + 0.79 MB at a 257×257 z14
-  grid, ×4 workers), check the result, and answer failure with `return 0` — **the same value written
-  three lines above for `return 0; /* terrain is always a grid; refuse soup */`.** The caller cannot
-  tell "this DEM is not a grid" from "the 296 MB heap is full", so a tile that failed to allocate is
-  dropped as bad data, silently, at exactly the moment the heap is fullest. `core/io/Heap.h` exists for
-  this: `Heap::Exhausted("chunk postings")` ends the run naming the item. **This is a candidate root
-  cause for "the client freezes after a few hundred metres", and it is a hypothesis, not a finding** —
-  what makes it plausible is that nothing evicts (see below) while `heapPeakKB` already reads 207 460 of
-  296 MB at rest (`sim/logs/demo-walk-wasm-20260811T181012Z.csv`); what would decide it is the same walk
-  with the four sites routed through `Heap`, where the run then ends with a line instead of stopping.
-  The same defect, without the confusion, at `world/terrain/terrain.cpp:85,136`,
-  `world/terrain/osmmesh_terrain.cpp:49,67,130,227,245` and `clients/SimHost.cpp:186` — nine `malloc`
-  sites in a tree whose global `operator new` has ended the run properly since `core/io/Heap.cpp`
-  landed.
+- **The sanitised wasm client does not finish a declared run, and the instrument is therefore native
+  only.** `make wasm-asan` links — ASan × emdawnwebgpu × `-pthread` was the named risk and it did not
+  materialise — boots in Chromium 151.0.7922.34, reaches `impostor_baked` and `stands_collected`, and
+  then does not reach `run finished` on `demo/frame`, **one frame**, in 480 s of wall clock at ~4 cores
+  saturated (`user 1911 s / real 481 s`); a second run of the same scene was stopped, still running,
+  at **2 040 s**. The same scene, same browser (Chromium 151.0.7922.34), same host, unsanitised:
+  **28.3 s, `rc=0`**. That is a floor of **72×** on a phase the architect's
+  bare-translation-unit measurement put at 2.84×, and the factor is not the instrument's published
+  cost — it is the load phase's own spin (see *The load loop polls the pool ~190 000 times a second*)
+  with every `std::set` operation and every mutex acquisition instrumented. Two consequences, both
+  load-bearing: `make gates` runs the **native** sanitised run and nothing else, and the wasm
+  sanitiser cannot decide any question about the shipping heap, because emscripten silently raises
+  `-sINITIAL_MEMORY=296MB` to **474 611 712 B = 452.6 MiB** in the ASan module (read out of
+  `web/gpu-asan.js`) to make room for its shadow. A sanitised walk therefore has 53 % more linear
+  memory than the client that ships and **cannot reproduce an exhaustion that depends on the 296 MB
+  ceiling** — the `world/ChunkMesh.h` hypothesis below stays open, and the instrument that would close
+  it is the native run under a cut heap, not this one.
+- **The wasm hash in a measurement line names the file the host serves at `/gpu.wasm`, not the module
+  the page loaded.** `clients/SimHost.cpp:151` — `wasm_build_id()` opens `WEB_ROOT "/gpu.wasm"`
+  unconditionally and `/config.js` hands the result to every page, so any second page reports the
+  shipping module's identity for a module it never ran. Harmless while one page existed; live the
+  moment `web/asan.html` did, and it presented `wasm=b26dd4e50694430c` — the shipping module's hash —
+  for a run of `gpu-asan.wasm`. `make wasm-asan` blanks `FB_BUILD` on its page rather than publish
+  the wrong number, which pins that run to nothing. Right: `/config.js?module=<name>.wasm` hashes the
+  module named, rejecting a name with a separator in it, and every page states the module it loads.
+- **An exhausted heap is reported as malformed terrain — at eight sites, and no longer at the four that
+  mattered most.** `world/ChunkMesh.h:50,51,89,141` now take their `NN·3·8 + NN·4 + NN·12` bytes and the
+  vertex block through `Heap::Take` (since `1424214`), which ends the run naming the item and the count,
+  so the "no mesh"/"no memory" confusion is gone there and the earlier description of those four as
+  `malloc`+`return 0` was stale. It is live at `world/terrain/terrain.cpp:85,136`,
+  `world/terrain/osmmesh_terrain.cpp:49,67,130` plus two `calloc` at `227,245`, and
+  `clients/SimHost.cpp:186`: seven `malloc` and two `calloc` in a tree whose global `operator new` has
+  ended the run properly since `core/io/Heap.cpp` landed. Right: `Heap::Take` at each, and for the
+  C-ABI files a C-linkage door in `core/io/` so `tiles/` can satisfy the same symbol — those five are
+  the only sites where the cost is more than an edit.
+  **The freeze hypothesis stands and its instrument has changed.** "The client freezes after a few
+  hundred metres" is still consistent with exhaustion: nothing evicts (below), `heapPeakKB` reads
+  207 460 of 296 MB at rest (`sim/logs/demo-walk-wasm-20260811T181012Z.csv`) and the native gate run of
+  the same scene reports `tileMeshMB=202.902` with `evictions=0`. But the deciding run named here — "the
+  same walk with the four sites routed through `Heap`" — **is now simply a wasm walk on the shipping
+  module**: if the freeze is those four allocations, the run already ends with
+  `outshine heap exhausted: item=terrain node offsets …` instead of stopping. It needs no sanitiser and
+  no second build. Two instruments that were proposed for it do not exist: the wasm ASan module raises
+  its linear memory by 53 % (above), and **macOS cannot cut a native heap with `ulimit`** — measured on
+  this host, `ulimit -v` is rejected outright and `ulimit -d 262144` fails with `Invalid argument`,
+  `RLIMIT_AS` reads `9223372036854775807`, and a process then allocates *and touches* 4 GB without a
+  refusal. A cut heap on this host means a ceiling inside `core/io/Heap`, which is the single door, not
+  a limit from the shell.
 - **The one bounds check the whole tree leans on can be defeated by arithmetic.** `core/Span.h:33`,
   `Span::Sub`, asserts `first + count <= Size_` in `size_t`. The sum wraps, so `Sub(4, SIZE_MAX - 2)`
   passes the assert and returns a span of `SIZE_MAX - 2` elements over `Data_ + 4`; every subscript of
@@ -374,6 +406,18 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## Picture
 
+- **The canopy changes colour with distance further than the air can explain.** Seen in
+  `demo/walk` from the shipping wasm module `70993b0f2d7a5327` in Chromium 151.0.7922.34, 1280x720,
+  sun at 11.2 deg elevation: the crowns in front of roughly 100 m are a saturated yellow-green, and
+  every crown behind that is a pale, low-contrast near-white that reads as a row of identical
+  lollipops along the whole treeline. Aerial perspective over 100-400 m of clear air at that sun
+  angle moves a canopy by a few percent, not from mid-green to near-white, so the step is the tree
+  representation and not the medium. **The mechanism is not isolated and the still cannot isolate
+  it** — a single frame cannot separate "the impostor bakes a different albedo" from "the impostor
+  bakes a different light" from an LOD cut placed where the eye can see it. What decides it: the same
+  standpoint with the impostor distance moved outward, two frames, one difference; and the same walk
+  in motion, because if the two representations disagree in colour then every stand that crosses the
+  cut pops, which a still cannot show at all.
 - **The demo road reads as a dirt track** since the unmapped substrate landed: the ground fragment uses the default row as the **runner-up** class where the structure has no second hit.
 - **Crowns are too transparent at 30–80 m.** A stand reads as a wall of white trunks with a green fringe; no canopy closure. Opacity, not form.
 - **The bow-tie crown persists**, reduced but not eliminated — two crowns in `horizon-after.png` still show a straight diagonal seam.
@@ -394,6 +438,18 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   rather than excusing the slenderness, so the reason currently written there argues the wrong way.
 
 ## Declaration and build
+
+- **No gate reads the log levels of the run it just declared green.** `verify-walk-asan` now asserts
+  the run's own motion verdict — `frames=10800 impostorStands=9565 treeTris=19130` — but a line at
+  `ERROR` in the same 10 800-frame run still passes it, and the run emits exactly one:
+  `render device_lost reason=2 msg="Device was destroyed."` (`sim/Makefile` `verify-walk-asan`,
+  `render/Renderer.cpp:163`). Two defects, and the second is the reason the first cannot simply be
+  closed. `2` is `wgpu::DeviceLostReason::Destroyed` (`vendor/dawn/out/gen/include/dawn/webgpu_cpp.h:276`)
+  — the device the client destroyed on purpose at teardown, reported at the level reserved for a run
+  that failed, and reported as an integer rather than as the enumerator (`Enum.3`). So an `ERROR`
+  assertion added today would go red on a healthy run. Right, in this order: the callback answers
+  `Destroyed` at `Info` and every other reason at `Error`; then the gate asserts that the run it
+  declares silent logged nothing at `ERROR`.
 
 - **`core/ClusterDag.h:72` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable. **And it is one of six.** Also live: `FB_TAA` (`render/Renderer.h:318`, default on) switches temporal antialiasing, which changes both the pixels and `frameMs`; `FB_GEOM` (`render/GeometryIsolation.h:15`) disarms the shadow receivers; `FB_MOON_SCALE` (`Renderer.h:230,360`, applied at `Renderer.cpp:399`) scales the moon off its real 0.0045 rad; `FB_GROUND_CLASS_VIZ` (`TerrainDraw.cpp:642`) and `FB_TONE_PROBE` (`TaaStage.cpp:226`) replace the fragment outright. **None of the six appears in any telemetry column**, so two runs of one wasm hash are not comparable and no CSV can say which picture it measured — which is the same defect as a resolution that moves under load, wearing a different hat. Right: the four that change the picture leave the environment entirely; the two diagnostics stay and ride a published column.
 - **`core/Mat4.h` is entirely dead, and the comment defending it names a test that does not exist.** `Mat4Identity`, `Mat4Mul`, `Mat4Perspective`, `Mat4LookAt`, `Vec3Normalize` and `Vec3Cross` have no caller outside `core/Camera.h`; inside `Camera.h`, `CameraBasisFrom`, `CameraAxes`, `HorizonDipRad`, `MvpTranslate`, `Frustum`, `FrustumFrom` and `AabbVisible` have none either. `CameraBasisEcef` is the only live function in the pair (`clients/Sim.cpp:497`, `clients/SubjectBench.cpp:239`) — verified repo-wide, not only under `sim/src`. `Camera.h:76` asserts "CameraBasisFrom above is NOT dead: sky dome and star field are an infinity pass in LOCAL render-ENU"; `SkyStage` and `StarsStage` call nothing in the file. Two comments say "Pinned in `test_camera.c`"; no such file exists anywhere in the tree. Three consequences, worst first: the dead `Mat4Perspective` builds a **GL-style [-1,1] reversed-Z** projection, so anyone reviving it under WebGPU's [0,1] clip volume silently loses everything past the mid-range; `outshine::Frustum` (`Camera.h:132`) and `outshine::Render::Frustum` (`render/Frustum.h`) are two spellings of one statement against "every statement has exactly one place"; and a false comment is worse than no comment. Right: delete `core/Mat4.h` and everything in `core/Camera.h` but `CameraBasisEcef`.

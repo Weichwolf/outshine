@@ -23,6 +23,12 @@
 #include "Snapshot.h"
 #include "Walker.h"
 
+/* WHICH MODULE THIS IS, from the build that names the module (AppWalk.cpp carries the same line and
+ * the same reason). */
+#ifndef OUTSHINE_CLIENT
+#error "the build names the client: -DOUTSHINE_CLIENT=\"...\""
+#endif
+
 using namespace outshine;
 
 namespace {
@@ -152,7 +158,7 @@ void PostShot(void) {
   snap.SetCamera(gApp->Simulation().Lat(), gApp->Simulation().Lon(), gApp->Simulation().YawDeg(), gApp->Simulation().PitchDeg());
   const Clients::Outshine::Counters c = gApp->Measured();
   snap.SetDerived(c.GroundAslM, c.AltAslM, gApp->Simulation().SunElDeg(), gApp->Simulation().SunAzDeg());
-  snap.SetClient("wasm", emscripten_get_now());
+  snap.SetClient(OUTSHINE_CLIENT, emscripten_get_now());
   const std::string line = snap.Text();
 
   /* toDataURL is SYNCHRONOUS and stays in this task on purpose: a WebGPU canvas hands its pixels
@@ -289,7 +295,7 @@ bool Boot(void) {
   gSimUrl = PageValue("(window.FB_SIM_URL||'').toString()", "");
   gLog = std::make_unique<Clients::ServerLog>(
       gSimUrl,
-      Clients::ServerLog::Identity{modName, sceneId, "wasm",
+      Clients::ServerLog::Identity{modName, sceneId, OUTSHINE_CLIENT,
                                    PageValue("(window.FB_BUILD||'').toString()", ""),
                                    PageValue("location.host", "")});
   static Clients::CompositeLogSink both;
@@ -301,7 +307,7 @@ bool Boot(void) {
   /* THE BROWSER VERSION IS PART OF EVERY MEASUREMENT (CLAUDE.md), and only the page can say it. */
   const Clients::Scene::Resolution &res = gScene->RenderResolution();
   gIdentity = std::make_unique<Clients::RunIdentity>(Clients::RunIdentity::Fields{
-      modName, sceneId, "wasm", PageValue("(window.FB_BUILD||'').toString()", ""),
+      modName, sceneId, OUTSHINE_CLIENT, PageValue("(window.FB_BUILD||'').toString()", ""),
       PageValue("navigator.userAgent", ""), res.Width, res.Height});
   gTelemetry = std::make_unique<Clients::ServerTelemetry>(gSimUrl, gLog->RunId());
   gArtifacts = std::make_unique<Clients::ServerArtifacts>(gSimUrl, gLog->RunId());

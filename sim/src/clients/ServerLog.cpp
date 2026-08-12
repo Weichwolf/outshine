@@ -4,6 +4,7 @@
 #include <ctime>
 
 #include "HttpPost.h"
+#include "Sanitisers.h"
 
 namespace outshine::Clients {
 namespace {
@@ -38,12 +39,18 @@ ServerLog::ServerLog(const std::string &base, const Identity &id) {
   gmtime_r(&t, &g);
   snprintf(stamp, sizeof stamp, "%04d%02d%02dT%02d%02d%02dZ", g.tm_year + 1900, g.tm_mon + 1,
            g.tm_mday, g.tm_hour, g.tm_min, g.tm_sec);
-  RunId_ = Sanitise(id.Mod) + "-" + Sanitise(id.Scene) + "-" + Sanitise(id.Client) + "-" + stamp;
+  const std::string san(kSanitisers);
+  /* The instrument rides in the name as well as in the field, and only when there is one: a
+   * shipping run keeps the name the archive already carries, and an instrumented one cannot be
+   * mistaken for it in a directory listing either. */
+  RunId_ = Sanitise(id.Mod) + "-" + Sanitise(id.Scene) + "-" + Sanitise(id.Client) +
+           (san.empty() ? std::string() : "-" + Sanitise(san)) + "-" + stamp;
   Url_ = base + "/log/" + RunId_;
 
   /* THE FIRST LINE NAMES THE RUN, so a log cut out of the directory still says what it is. */
   Pending_ = "t=0.0 INFO run identity mod=" + id.Mod + " scene=" + id.Scene +
-             " client=" + id.Client + " build=" + (id.Build.empty() ? "unset" : id.Build) +
+             " client=" + id.Client + " san=" + san +
+             " build=" + (id.Build.empty() ? "unset" : id.Build) +
              " host=" + id.Host + " runId=" + RunId_ + "\n";
 }
 

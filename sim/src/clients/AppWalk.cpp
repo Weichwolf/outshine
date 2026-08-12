@@ -13,6 +13,12 @@
 #include "ServerTelemetry.h"
 #include "Snapshot.h"
 
+/* WHICH BINARY THIS IS, from the build that names the binary. A literal here was wrong for every
+ * build but one, and it wrote `gpu_walk` into the archive out of `build/gpu_walk_asan`. */
+#ifndef OUTSHINE_CLIENT
+#error "the build names the client: -DOUTSHINE_CLIENT=\"...\""
+#endif
+
 using namespace outshine;
 
 namespace {
@@ -71,7 +77,7 @@ int main(int argc, char **argv) {
     return 2;
   }
   Clients::StdoutLogSink console;
-  const Clients::ServerLog::Identity id{argv[1], argv[2], "gpu_walk",
+  const Clients::ServerLog::Identity id{argv[1], argv[2], OUTSHINE_CLIENT,
                                         Clients::Env("OUTSHINE_BUILD", ""),
                                         Clients::Env("HOSTNAME", "")};
   Clients::ServerLog server(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), id);
