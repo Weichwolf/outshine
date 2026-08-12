@@ -67,6 +67,9 @@ public:
 
   /* 3 doubles per vertex, in the default scene's root coordinates, node transforms applied. */
   const std::vector<double> &PositionsM() const { return Positions_; }
+  /* Triangles, three indices each, wound counter-clockwise about the front face -- glTF's own rule,
+   * with a mirroring node's order already restated, so the run is uniform however the file spelt it
+   * and a consumer may cull back faces on it. */
   const std::vector<uint32_t> &Indices() const { return Indices_; }
   size_t VertexCount() const { return Positions_.size() / 3; }
   size_t TriangleCount() const { return Indices_.size() / 3; }

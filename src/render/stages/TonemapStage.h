@@ -18,9 +18,10 @@ namespace outshine::Render {
 class TonemapStage : public DrawStage {
 public:
   /* `aoView` and `meterBuf` are bound only where `options` says they exist -- a plan without them
-   * generates a shader that does not name them, so there is no neutral texture to stand in. */
-  void Configure(const Gpu &gpu, wgpu::TextureView linearView, wgpu::TextureView aoView,
-                 wgpu::Buffer meterBuf, const DisplayOptions &options);
+   * generates a shader that does not name them, so there is no neutral texture to stand in.
+   * `depthView` is bound always: the frame's alpha is coverage and coverage is what depth says. */
+  void Configure(const Gpu &gpu, wgpu::TextureView linearView, wgpu::TextureView depthView,
+                 wgpu::TextureView aoView, wgpu::Buffer meterBuf, const DisplayOptions &options);
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
 private:

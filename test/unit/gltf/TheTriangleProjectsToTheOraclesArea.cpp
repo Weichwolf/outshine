@@ -7,11 +7,18 @@
  * WHY THE AREA IS EXACT HERE AND NOT AN APPROXIMATION: the subject is a plane perpendicular to the
  * optical axis, so its perspective image is a similarity and the shoelace area is closed form.
  *
- * THE EDGE ANGLES ARE THE HANDEDNESS CHECK AND THE AREA IS NOT. Area survives a mirrored x axis, a
- * flipped raster row order and a roll of the wrong sign; 157.5, 22.5 and 67.5 degrees survive none of
- * them. The three values are the manifest's own, stated there in prose as the reason the camera
- * admits no axis-aligned edge, and made checkable here -- and all three sit 22.5 degrees off the
- * nearest raster axis, which is the MAXIMUM of that minimum over every roll.
+ * THE EDGES ARE THE HANDEDNESS CHECK AND THE AREA IS NOT. Area survives a mirrored x axis, a flipped
+ * raster row order and a roll of the wrong sign; the three edge normals below survive none of them.
+ *
+ * AND THE QUANTITY THEY ARE CHECKED ON IS THE ONE THE COMPARISON TURNS ON. What stood here was the
+ * angle each edge makes with the nearest raster axis, maximised at 22.5 degrees -- a proxy, and the
+ * wrong one: a rasteriser and a path tracer disagree about a pixel when its CENTRE is close to an
+ * EDGE, which is a distance and not an angle. At an irrational slope those distances equidistribute
+ * and the smallest of them falls as about 0.5/L over L boundary pixels, so a bigger subject is a
+ * worse one. At a slope p/q in lowest terms the distance from every pixel centre in the plane to
+ * p*X - q*Y = c is |c - round(c)| / sqrt(p^2 + q^2), which depends on neither L nor position, and at
+ * c on a half lattice step it is the largest it can be. This test pins exactly that: the three
+ * normals, and half a lattice step on each.
  *
  * THE SUBJECT CARRIES NO NORMAL AND THAT IS NOT REPAIRED (doc/requirements.md I.26): the reader is
  * asked for one below and must name what is missing. */
@@ -39,13 +46,6 @@ const char *const kCase = "test/render/coverage/fetched-triangle/";
 std::string Slurp(const std::string &path) {
   std::ifstream file(path, std::ios::binary);
   return std::string((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
-}
-
-double AngleDeg(const double from[2], const double to[2]) {
-  double degrees = std::atan2(to[1] - from[1], to[0] - from[0]) * 180.0 / 3.14159265358979323846;
-  while (degrees < 0.0) { degrees += 180.0; }
-  while (degrees >= 180.0) { degrees -= 180.0; }
-  return degrees;
 }
 
 } // namespace
@@ -149,19 +149,28 @@ int main() {
   Note("projected frame fraction", fraction, "dimensionless");
   Note("projected area", areaPx, "px^2");
 
-  /* 157.5, 22.5 and 67.5 degrees: the manifest's own statement of what the -22.5-degree roll does to
-   * the subject's three edges in raster space, and every one of them is 22.5 degrees off the nearest
-   * raster axis. */
-  const double expectedAngles[3] = {157.5, 22.5, 67.5};
+  /* The three edges of the sample under the declared roll of -arctan(1/2), each as the primitive
+   * integer normal of the line it lies on in raster pixels. Coprime, so `p*i - q*j` over integer
+   * pixel centres runs over every integer and the nearest one to `c` is at distance
+   * `|c - round(c)|`. */
+  const double normals[3][2] = {{1, 2}, {1, -3}, {2, -1}};
   for (int edge = 0; edge < 3; ++edge) {
-    const double got = AngleDeg(raster[edge], raster[(edge + 1) % 3]);
-    CHECK_NEAR(got, expectedAngles[edge], 1e-6, "deg",
-               "each edge sits where the declared roll, the aspect and the raster row order put it "
-               "-- which no mirrored axis and no roll of the wrong sign survives");
-    const double intoQuadrant = std::fmod(got, 90.0);
-    CHECK_NEAR(std::fmin(intoQuadrant, 90.0 - intoQuadrant), 22.5, 1e-6, "deg",
-               "no edge is axis-aligned, and the closest one is as far from an axis as any roll can "
-               "put it");
+    const double *from = raster[edge];
+    const double *to = raster[(edge + 1) % 3];
+    const double along[2] = {to[0] - from[0], to[1] - from[1]};
+    const double length = std::sqrt(along[0] * along[0] + along[1] * along[1]);
+    const double scale = std::sqrt(normals[edge][0] * normals[edge][0] +
+                                   normals[edge][1] * normals[edge][1]);
+    CHECK_NEAR((normals[edge][0] * along[0] + normals[edge][1] * along[1]) / (length * scale), 0.0,
+               1e-12, "cosine",
+               "the edge lies on the line of its declared integer normal, which no mirrored axis, no "
+               "flipped raster row order and no roll of the wrong sign survives");
+    const double constant = normals[edge][0] * from[0] + normals[edge][1] * from[1];
+    const double offLattice = std::fabs(constant - std::floor(constant + 0.5));
+    CHECK_NEAR(offLattice, 0.5, 1e-9, "lattice steps",
+               "the edge sits half a lattice step from every pixel centre, which is where the "
+               "distance to the nearest one is as large as a rational slope allows");
+    Note("edge margin from every pixel centre", offLattice / scale, "px");
   }
 
   Covers("I.26 the reader: buffers, bufferViews, accessors, meshes, nodes and the camera, checked "

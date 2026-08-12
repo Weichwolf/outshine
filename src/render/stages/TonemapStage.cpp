@@ -19,19 +19,21 @@ struct VOut { @builtin(position) pos : vec4f };
   return o;
 }
 @fragment fn fs(in : VOut) -> @location(0) vec4f {
-  return displayed(textureLoad(scene, vec2i(in.pos.xy), 0), in.pos.xy);
+  let px = vec2i(in.pos.xy);
+  return displayed(textureLoad(scene, px, 0), in.pos.xy, textureLoad(sceneDepth, px, 0));
 }
 )";
 
 } // namespace
 
 void TonemapStage::Configure(const Gpu &gpu, wgpu::TextureView linearView,
-                             wgpu::TextureView aoView, wgpu::Buffer meterBuf,
-                             const DisplayOptions &options) {
+                             wgpu::TextureView depthView, wgpu::TextureView aoView,
+                             wgpu::Buffer meterBuf, const DisplayOptions &options) {
   /* NO SAMPLER. The transfer reads one texel per fragment at the fragment's own coordinate, so it is
    * a load and not a sample -- and a sampler bound but unused is a binding the pipeline's derived
    * layout does not contain. */
-  std::string bindings = "@group(0) @binding(1) var scene : texture_2d<f32>;\n";
+  std::string bindings = "@group(0) @binding(1) var scene : texture_2d<f32>;\n"
+                         "@group(0) @binding(4) var sceneDepth : texture_depth_2d;\n";
   if (options.HasOcclusion) { bindings += "@group(0) @binding(2) var aoTex : texture_2d<f32>;\n"; }
   if (options.HasMeter) {
     bindings += "struct Meter { expScale : f32, keyLog : f32, horizE : f32, pad0 : f32 };\n"
@@ -61,6 +63,10 @@ void TonemapStage::Configure(const Gpu &gpu, wgpu::TextureView linearView,
   wgpu::BindGroupEntry entry{};
   entry.binding = 1;
   entry.textureView = linearView;
+  entries.push_back(entry);
+  entry = wgpu::BindGroupEntry{};
+  entry.binding = 4;
+  entry.textureView = depthView;
   entries.push_back(entry);
   if (options.HasOcclusion) {
     entry = wgpu::BindGroupEntry{};

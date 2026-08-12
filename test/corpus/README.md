@@ -11,7 +11,7 @@ It does three things, each independently invocable and each idempotent:
 |---|---|
 | **fetch** | a subject by pinned identity, verified against a sha256 the manifest records |
 | **convert** | a `.blend` to glTF through Blender, when the subject is a `.blend` |
-| **render** | the oracle: Cycles, EXR f32 for the score, PNG for the eye, raw f32 for the C++ runner |
+| **render** | the oracle: Cycles, EXR f32 for the score, raw f32 for the C++ runner. **No picture** — both pictures are the runner's, encoded from the two buffers it scores, so an image and the number taken from it cannot come from different sources |
 
 It does **not** compare, score or decide anything. That is C++, in the test, where the harness's
 printed trailer is the single verdict.
@@ -38,24 +38,26 @@ this repository keeps finding. Stdlib only on our side; `numpy` is used inside B
 test/render/<feature>/<case>/
     manifest.json           tracked -- the only tracked file
     scene.gltf              fetched, or scene.glb produced by the conversion
-    0-oracle.png            ours, for the eye, always written
-    1-outshine.png          the runner's, later
-    2-diff.png              the runner's, later
+    0-reference.png         the runner's, RGBA, encoded from oracle.raw
+    1-outshine.png          the runner's, RGBA, what we produce now
     oracle.exr              ours, f32, what the score is computed on
     oracle.raw              ours, flat f32, what the C++ runner reads
     provenance.json         ours, what actually ran
 ```
 
-A recipe other than `default` names its products `oracle.<recipe>.exr`, `0-oracle.<recipe>.png` and
-`oracle.<recipe>.raw`, so the eye's files still sort to the top. `1-outshine.png`, `2-diff.png`,
-`outshine.exr`, `outshine.raw` and `provenance.json` are a reserved set the preparer refuses to
-name, so a collision has no spelling here rather than a rule against it.
+A recipe other than `default` names its products `oracle.<recipe>.exr` and `oracle.<recipe>.raw`.
+`0-reference.png`, `1-outshine.png`, `outshine.exr`, `outshine.raw` and `provenance.json` are a
+reserved set the preparer refuses to name, so a collision has no spelling here rather than a rule
+against it.
 
-Everything but `manifest.json` is derived and untracked. The preparer writes a `.gitignore` in the
-directory naming exactly what it produced, including itself — *untracked* means not in git, not
-absent: the images stay in the folder and regenerate in place, so an incremental run never leaves a
-directory image-less. A single tracked `test/render/.gitignore` with four patterns would do the same
-job with less churn and is the architect's call, not the preparer's.
+**One alpha convention, on both sides: RGBA, straight, alpha is coverage.** Cycles writes it into the
+EXR's fourth channel for camera rays that missed, and the runner carries it into both PNGs and into
+the comparison. Without it a black subject and no subject are the same three channels — measured on
+this corpus at 46 101 pixels of one case.
+
+Everything but `manifest.json` is derived and untracked, under the single tracked
+`test/render/.gitignore`. *Untracked* means not in git, not absent: the products stay in the folder
+and regenerate in place, so an incremental run never leaves a directory image-less.
 
 ## The content store
 
@@ -75,7 +77,7 @@ newline-separated, with a derivation version inside. What the key covers:
 | every subject's file digests, and the converted glTF's digest | |
 | the whole declared scene — camera, light, world, material | |
 | the whole render recipe | |
-| the product — `exr`, `png`, `raw` — separately | |
+| the product — `exr`, `raw` — separately | |
 
 Both Blender versions are in the key and neither alone is enough. This is not about reproducing
 pixels; we do not aim to be bit-identical with Cycles. It stops one real defect: the pin is bumped,

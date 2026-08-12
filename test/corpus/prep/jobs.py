@@ -14,7 +14,7 @@ RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
 CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 
 PROVENANCE_NAME = "provenance.json"
-PRODUCTS = ("exr", "png", "raw")
+PRODUCTS = ("exr", "raw")
 
 
 def plan(manifest, store):
@@ -242,7 +242,7 @@ def _run_render(manifest, blender, gltf_paths, recipe, keys, store):
         with open(job_path, "w") as f:
             json.dump(
                 {"gltfPaths": gltf_paths, "scene": manifest.scene.as_job(), "recipe": recipe,
-                 "exrPath": paths["exr"], "pngPath": paths["png"], "rawPath": paths["raw"],
+                 "exrPath": paths["exr"], "rawPath": paths["raw"],
                  "provenanceOpen": blender_module.PROVENANCE_OPEN,
                  "provenanceClose": blender_module.PROVENANCE_CLOSE},
                 f,

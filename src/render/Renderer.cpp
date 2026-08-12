@@ -367,8 +367,8 @@ void Renderer::Configure(Stage stage) {
     case Stage::Tonemap:
       /* R2 put the display transfer in the resolve's own fragment; there is no second pipeline. */
       if (Plan_->Fused(Stage::Tonemap)) return;
-      Tonemap->Configure(gpu, Bound(Resource::SceneLinear), View(Resource::AoBuffer), MeterBuf,
-                         Display());
+      Tonemap->Configure(gpu, Bound(Resource::SceneLinear), View(Resource::SceneDepth),
+                         View(Resource::AoBuffer), MeterBuf, Display());
       return;
     case Stage::Present: Present->Configure(gpu, View(Resource::FrameTex)); return;
     case Stage::kCount: return;

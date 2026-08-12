@@ -121,7 +121,7 @@ struct FOut { @location(0) history : vec4f, @location(1) surface : vec4f };
 fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
   var o : FOut;
   o.history = scene;
-  o.surface = displayed(scene, fragXY);
+  o.surface = displayed(scene, fragXY, textureLoad(depthTex, vec2i(fragXY), 0));
   return o;
 }
 @vertex fn vs(@builtin(vertex_index) i : u32) -> VOut {

@@ -25,6 +25,12 @@ struct Transform {
   void Point(const double point[3], double out[3]) const;
   void Direction(const double direction[3], double out[3]) const;
 
+  /* The determinant of the linear part, which is the quantity the format's winding rule is stated
+   * over: glTF 2.0 Specification.adoc:1734 reverses a triangle's winding where a node's GLOBAL
+   * transform has a negative one. The translation row cannot enter it, so this is the 3x3 and not
+   * the 4x4 -- for an affine transform the two agree, and for a projective one they do not. */
+  [[nodiscard]] double LinearDeterminant() const;
+
   /* A transform with no inverse is a degenerate node -- a zero scale is the usual cause -- and that
    * is a refusal for the caller to name, never a silently substituted identity. */
   [[nodiscard]] bool Inverse(Transform &out) const;

@@ -234,7 +234,7 @@ RAW_CHANNELS = ("R", "G", "B", "A")
 RAW_TOP_ROW_FIRST = 0
 
 
-def save_products(scene, recipe, exr_path, png_path, raw_path):
+def save_products(scene, recipe, exr_path, raw_path):
     image = bpy.data.images["Render Result"]
     settings = scene.render.image_settings
     settings.file_format = "OPEN_EXR"
@@ -242,10 +242,6 @@ def save_products(scene, recipe, exr_path, png_path, raw_path):
     settings.color_depth = "32"
     settings.exr_codec = recipe["exrCodec"]
     image.save_render(filepath=exr_path, scene=scene)
-    settings.file_format = "PNG"
-    settings.color_mode = "RGBA"
-    settings.color_depth = "8"
-    image.save_render(filepath=png_path, scene=scene)
     return write_raw(exr_path, raw_path)
 
 
@@ -307,7 +303,7 @@ def main():
     seconds = time.time() - started
     if "FINISHED" not in result:
         fail("render returned " + repr(result))
-    raw = save_products(scene, job["recipe"], job["exrPath"], job["pngPath"], job["rawPath"])
+    raw = save_products(scene, job["recipe"], job["exrPath"], job["rawPath"])
 
     provenance = {
         "raw": raw,

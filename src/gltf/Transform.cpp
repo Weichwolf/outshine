@@ -54,6 +54,11 @@ void Transform::Point(const double point[3], double out[3]) const {
   }
 }
 
+double Transform::LinearDeterminant() const {
+  return M[0] * (M[5] * M[10] - M[9] * M[6]) - M[4] * (M[1] * M[10] - M[9] * M[2]) +
+         M[8] * (M[1] * M[6] - M[5] * M[2]);
+}
+
 void Transform::Direction(const double direction[3], double out[3]) const {
   for (int row = 0; row < 3; ++row) {
     out[row] = M[row] * direction[0] + M[4 + row] * direction[1] + M[8 + row] * direction[2];

@@ -11,9 +11,14 @@ SCHEMA = "outshine/render-oracle-manifest"
 SCHEMA_VERSION = 1
 
 # The runner writes these. The preparer refuses to name them, so a collision has no spelling here.
-# Exactly two pictures live in a case directory and the test writes one of them, so a manifest that
-# named either has no spelling. A third image of any kind is what this set exists to prevent.
-RESERVED_OUTPUT_NAMES = frozenset(["1-outshine.png", "outshine.exr", "outshine.raw", "provenance.json"])
+# Exactly two pictures live in a case directory and the test writes BOTH of them, out of the two
+# buffers it computes the score on -- so this preparer produces no image at all. It used to write
+# the reference through Blender's own PNG path, which was a second encoding of an image the float
+# dump already carried, with a second set of colour-management settings to keep honest and nobody
+# checking that the picture and the number agreed. A third image of any kind is what this set exists
+# to prevent.
+RESERVED_OUTPUT_NAMES = frozenset(["0-reference.png", "1-outshine.png", "outshine.exr",
+                                   "outshine.raw", "provenance.json"])
 
 DEFAULT_RECIPE_NAME = "default"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
@@ -179,19 +184,11 @@ class Manifest:
                 for s in self.subjects]
 
 
-REFERENCE_PICTURE = "0-reference.png"
-
-
 def output_names_for(recipe_name):
-    """TWO PICTURES IN A CASE DIRECTORY AND NO THIRD: how it should look, and what we produce now.
-    A second recipe therefore contributes its float pair and no image at all -- the pixels it exists
-    for are read out of the .raw, and a `0-reference.coverage.png` beside `0-reference.png` is a
-    third picture wearing a suffix."""
+    """The float pair a recipe leaves behind: the EXR the score was defined on and the flat f32 dump
+    a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's."""
     suffix = "" if recipe_name == DEFAULT_RECIPE_NAME else "." + recipe_name
-    names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
-    if recipe_name == DEFAULT_RECIPE_NAME:
-        names["png"] = REFERENCE_PICTURE
-    return names
+    return {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
 
 
 def _subjects(value):

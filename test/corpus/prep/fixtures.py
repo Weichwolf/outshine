@@ -127,13 +127,19 @@ def _uv_sphere(where, parameters, mode):
         for segment in range(segments):
             here = ring * (segments + 1) + segment
             below = here + segments + 1
+            # Counter-clockwise seen from OUTSIDE, which is glTF's front face and the direction the
+            # NORMAL attribute already points. Wound the other way round the shape is unchanged and
+            # every visible face is a back face: Cycles then rejects each sampled direction against
+            # the inward geometric normal and the whole sphere renders black -- measured, 46 101 of
+            # 46 151 covered pixels at exactly 0.0, which is what this order costs when it is wrong.
+            #
             # The pole rows would give a triangle of zero area on one side of every quad, and a
             # degenerate triangle is a face the oracle's importer and our rasteriser may disagree
             # about for a reason that has nothing to do with the silhouette.
             if ring != 0:
-                run.extend([here, below, here + 1])
+                run.extend([here, here + 1, below])
             if ring != rings - 1:
-                run.extend([here + 1, below, below + 1])
+                run.extend([here + 1, below + 1, below])
     return [_Part(positions, normals, run)]
 
 

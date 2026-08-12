@@ -44,8 +44,8 @@ struct Pull {
   /* THE REFUSAL NAMES THE REPAIR AND NOT ONLY THE DEFECT: the resource that was missing, the stage
    * that wanted it, and the stage the catalogue says would have supplied it. */
   void Missing(Resource r, const char *why) {
-    if (!Error.empty()) { return; }
-    Error = std::string("render.outputs: ") + Row(r).Name + " " + why;
+    Error += Error.empty() ? "render.outputs: " : "; also ";
+    Error += std::string(Row(r).Name) + " " + why;
     for (size_t s = 0; s < kStageCount; ++s) {
       const Stage id = static_cast<Stage>(s);
       if (Produces(id, r) && Row(id).From == Provenance::Content) {
@@ -99,12 +99,13 @@ struct Pull {
     return false;
   }
 
+  /* THE WHOLE WALK, NOT THE FIRST STUMBLE. Stopping at the first unsupplied resource made the
+   * sentence depend on the order the queue happened to reach two equally missing attachments in, so
+   * adding one read edge to one stage rewrote a refusal that had not changed meaning. */
   [[nodiscard]] bool Run() {
     for (Resource r : Spec.Outputs) { Want(r); }
-    for (size_t at = 0; at < Wanted.size(); ++at) {
-      if (!Resolve(Wanted[at])) { return false; }
-    }
-    return true;
+    for (size_t at = 0; at < Wanted.size(); ++at) { (void)Resolve(Wanted[at]); }
+    return Error.empty();
   }
 };
 

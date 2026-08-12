@@ -1,5 +1,6 @@
 #include "Subject.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -53,29 +54,38 @@ bool RunIsWhole(PrimitiveMode mode, size_t indices) {
   return (mode == PrimitiveMode::Triangles) ? (indices > 0 && indices % 3 == 0) : (indices >= 3);
 }
 
+/* WHAT A NODE'S TRANSFORM DOES TO THE ORDER OF ITS TRIANGLES. A mirroring transform turns a
+ * front face into a back one, so the format restates the winding rather than the geometry
+ * (Specification.adoc:1734). It is an argument of the triangulation and not a step after it, so a
+ * path that produces triangles without deciding this has no spelling (`Enum.2`). */
+enum class Handedness { Preserved, Reversed };
+
 /* THE ODD TRIANGLE OF A STRIP IS (i+1, i, i+2), NOT A SLIDING WINDOW: without the swap every second
  * triangle of the run would face the other way, which is the format's rule and not a convention this
  * file chooses. A fan is (0, i, i+1) throughout and needs no such swap. Assumes `RunIsWhole`. */
-void Triangulate(PrimitiveMode mode, const std::vector<uint32_t> &run,
+void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<uint32_t> &run,
                  std::vector<uint32_t> &out) {
   out.clear();
   if (mode == PrimitiveMode::Triangles) {
     out = run;
-    return;
-  }
-  if (mode == PrimitiveMode::TriangleStrip) {
+  } else if (mode == PrimitiveMode::TriangleStrip) {
     for (size_t at = 0; at + 2 < run.size(); ++at) {
       const size_t flipped = (at % 2 == 0) ? 0u : 1u;
       out.push_back(run[at + flipped]);
       out.push_back(run[at + 1u - flipped]);
       out.push_back(run[at + 2u]);
     }
-    return;
+  } else {
+    for (size_t at = 1; at + 1 < run.size(); ++at) {
+      out.push_back(run[0]);
+      out.push_back(run[at]);
+      out.push_back(run[at + 1]);
+    }
   }
-  for (size_t at = 1; at + 1 < run.size(); ++at) {
-    out.push_back(run[0]);
-    out.push_back(run[at]);
-    out.push_back(run[at + 1]);
+  if (handedness == Handedness::Reversed) {
+    for (size_t triangle = 0; triangle * 3 + 2 < out.size(); ++triangle) {
+      std::swap(out[triangle * 3 + 1], out[triangle * 3 + 2]);
+    }
   }
 }
 
@@ -219,7 +229,9 @@ bool Subject::Build(const Document &document) {
         return Refuse(document.Path() + ": " + std::to_string(run.size()) +
                       " indices do not make a whole run of " + ModeName(primitive.Mode));
       }
-      Triangulate(primitive.Mode, run, indices);
+      Triangulate(primitive.Mode,
+                  world.LinearDeterminant() < 0 ? Handedness::Reversed : Handedness::Preserved, run,
+                  indices);
       for (uint32_t index : indices) {
         if (index >= vertices) {
           return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +

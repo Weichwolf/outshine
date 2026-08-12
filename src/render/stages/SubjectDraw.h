@@ -9,9 +9,11 @@
  * has no use for one. A rung that compares RADIANCE needs a mesh that carries what radiance reads,
  * and that is a different unit and a different round.
  *
- * NO BACK-FACE CULLING. A path tracer's camera ray hits a single-sided triangle from either side, so
- * culling here would compare two different predicates; winding is rung 3's subject and is decided
- * where a material exists to decide it. */
+ * BACK FACES ARE CULLED AND THE WINDING IS TRUSTED, because the format defines one. A path tracer
+ * hits a single-sided triangle from either side and still shades it, so the two renderers disagree
+ * about a REVERSED subject and agree about a correct one -- which is the point: with culling off,
+ * reversing every triangle of a subject moved no pixel of either mask, and three claims about
+ * winding stood on an instrument that could not see it. */
 #ifndef SUBJECTDRAW_H
 #define SUBJECTDRAW_H
 

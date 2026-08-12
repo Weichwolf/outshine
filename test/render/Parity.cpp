@@ -18,7 +18,19 @@
  * and each refused, because every one of them was read as one of the two and the reader needed a
  * legend to tell which. THE MASK IS AN INSTRUMENT FOR ONE NARROW QUESTION AND THE PICTURE IS THE
  * PRODUCT: substituting the scored mask for the colour frame would have made every folder look
- * correct while the renderer drew no visible subject at all. */
+ * correct while the renderer drew no visible subject at all.
+ *
+ * BOTH PICTURES ARE WRITTEN HERE, FROM THE TWO BUFFERS THE SCORE IS COMPUTED ON. The reference used
+ * to be Blender's own PNG beside the float dump the number came from -- two encodings of one image,
+ * with nobody checking they agreed, and a second set of colour-management settings to keep honest.
+ *
+ * ONE ALPHA CONVENTION ON BOTH SIDES: RGBA, STRAIGHT (NON-PREMULTIPLIED), ALPHA IS COVERAGE, AND THE
+ * COMPARISON READS ALL FOUR CHANNELS. Without alpha a black subject and no subject are the same
+ * pixels -- MEASURED, the oracle's sphere carries 46 101 of its 46 151 covered pixels at exactly 0.0
+ * RGB -- so a three-channel comparison cannot tell "we drew black" from "we drew nothing", which is
+ * the empty-image hole living inside the image. At one sample per pixel under a 0.01 px box filter
+ * the oracle's alpha is exactly 0 or 1, so straight and premultiplied coincide here and the choice
+ * only starts to matter when a filter widens; it is stated now so that it is not chosen then. */
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -74,8 +86,19 @@ struct Case {
  * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
  * on all three channels and strength 1.0, sampled as a light (doc/requirements.md I.26.12): under a
  * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
- * Cycles has no integration left to perform and a flat facet of albedo rho returns exactly rho*L.
- * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708. */
+ * Cycles has no integration left to perform and a facet of albedo rho returns exactly rho*L.
+ * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708.
+ *
+ * INDEPENDENT OF THE FACET'S NORMAL, and that is the environment's doing rather than an omission
+ * here: a uniform environment delivers the same radiance from every direction, so the irradiance on
+ * a Lambertian surface is pi*L whichever way it faces and the outgoing radiance is rho*L. THERE IS
+ * NO N.L TERM TO MATCH IN THIS SCENE -- a cube's three visible faces come back at one value, and a
+ * renderer that shaded N.L here would disagree with the oracle on two of them. What the oracle does
+ * carry beyond rho*L is VISIBILITY: at one sample the single cosine-weighted direction either
+ * escapes to the world and the pixel is rho*L, or it meets geometry and the pixel is 0. That is
+ * ambient occlusion at one sample, it is a noise field rather than a value, and no rasteriser
+ * reproduces it -- which is why a case whose subject occludes itself or its neighbours cannot reach
+ * an exact image and says so in its own class rather than in a tolerance. */
 constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 
 std::string Slurp(const std::string &path) {
@@ -227,9 +250,7 @@ std::string MissingInputs(const Case &subject) {
     const std::string entry = subjects[which]["entry"].Str("");
     if (!entry.empty() && !Present(subject.Directory + entry)) { owed.push_back(entry); }
   }
-  for (const char *product : {"oracle.raw", "0-reference.png"}) {
-    if (!Present(subject.Directory + product)) { owed.push_back(product); }
-  }
+  if (!Present(subject.Directory + "oracle.raw")) { owed.push_back("oracle.raw"); }
   std::string missing;
   for (const std::string &name : owed) {
     if (missing.find(name) != std::string::npos) { continue; }
@@ -352,35 +373,51 @@ uint8_t Srgb8(double linear) {
   return (uint8_t)(level > 255.0 ? 255.0 : level);
 }
 
-/* WHAT A RENDER CASE IS FOR: the rendered image against the oracle's, channel by channel. Alpha is
- * not compared -- the oracle's film is transparent by recipe and ours is opaque, so its alpha is the
- * coverage channel and not a colour. */
+/* THE ORACLE'S FRAME IN OUR OUTPUT'S FORM: RGB through the sRGB transfer, alpha carried straight
+ * across as the coverage it already is. The three colour channels get a curve and the fourth does
+ * not, because alpha is not a colour and encoding it would bend a coverage into a display code. */
+std::vector<uint8_t> Encoded(const OracleRaw &oracle) {
+  std::vector<uint8_t> rgba((size_t)oracle.Width() * (size_t)oracle.Height() * 4u);
+  for (int y = 0; y < oracle.Height(); ++y) {
+    for (int x = 0; x < oracle.Width(); ++x) {
+      const size_t at = ((size_t)y * (size_t)oracle.Width() + (size_t)x) * 4u;
+      for (int channel = 0; channel < 3; ++channel) {
+        rgba[at + (size_t)channel] = Srgb8(oracle.At(x, y, channel));
+      }
+      const double coverage = oracle.At(x, y, oracle.Channels() - 1);
+      rgba[at + 3u] = (uint8_t)(coverage <= 0.0 ? 0.0 : (coverage >= 1.0 ? 255.0 : coverage * 255.0 + 0.5));
+    }
+  }
+  return rgba;
+}
+
+/* WHAT A RENDER CASE IS FOR: the rendered image against the oracle's, channel by channel, ALPHA
+ * INCLUDED. Both sides are RGBA with straight alpha and alpha is coverage, so a pixel where one side
+ * drew a black subject and the other drew nothing differs here -- which under a three-channel
+ * comparison it did not. */
 struct ImageDelta {
   size_t Differing = 0;
   int MaxChannel = 0;
   double MeanAbs = 0;
 };
 
-ImageDelta CompareImages(const std::vector<uint8_t> &ours, const OracleRaw &oracle) {
+ImageDelta CompareImages(const std::vector<uint8_t> &ours, const std::vector<uint8_t> &theirs) {
   ImageDelta delta;
   double total = 0;
-  const size_t pixels = (size_t)oracle.Width() * (size_t)oracle.Height();
-  for (int y = 0; y < oracle.Height(); ++y) {
-    for (int x = 0; x < oracle.Width(); ++x) {
-      const size_t at = ((size_t)y * (size_t)oracle.Width() + (size_t)x) * 4u;
-      bool differs = false;
-      for (int channel = 0; channel < 3; ++channel) {
-        const int want = Srgb8(oracle.At(x, y, channel));
-        const int got = ours[at + (size_t)channel];
-        const int apart = got > want ? got - want : want - got;
-        if (apart > delta.MaxChannel) { delta.MaxChannel = apart; }
-        total += apart;
-        differs = differs || apart != 0;
-      }
-      delta.Differing += differs ? 1u : 0u;
+  const size_t pixels = theirs.size() / 4u;
+  for (size_t pixel = 0; pixel < pixels; ++pixel) {
+    bool differs = false;
+    for (size_t channel = 0; channel < 4; ++channel) {
+      const int want = theirs[pixel * 4u + channel];
+      const int got = ours[pixel * 4u + channel];
+      const int apart = got > want ? got - want : want - got;
+      if (apart > delta.MaxChannel) { delta.MaxChannel = apart; }
+      total += apart;
+      differs = differs || apart != 0;
     }
+    delta.Differing += differs ? 1u : 0u;
   }
-  delta.MeanAbs = pixels > 0 ? total / (3.0 * (double)pixels) : 0.0;
+  delta.MeanAbs = pixels > 0 ? total / (4.0 * (double)pixels) : 0.0;
   return delta;
 }
 
@@ -513,8 +550,11 @@ int main(int argc, char **argv) {
   const Mask ours = FromDepth(picture.Depth, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   const Mask theirs = FromOracle(oracle);
 
-  /* THE PICTURE GOES DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the frame
-   * a person opens to see why -- especially then. */
+  /* THE PICTURES GO DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the two
+   * frames a person opens to see why -- especially then. */
+  const std::vector<uint8_t> reference = Encoded(oracle);
+  CHECK(WritePng(subject.Directory + "0-reference.png", reference, theirs.Width, theirs.Height),
+        "0-reference.png is written from the same floats the score is computed on");
   CHECK(WritePng(subject.Directory + "1-outshine.png", picture.Rgba, ours.Width, ours.Height),
         "1-outshine.png is written beside the reference, pass or fail");
 
@@ -587,7 +627,7 @@ int main(int argc, char **argv) {
    * DIAGNOSTIC and none of it is sufficient for a pass: a case scoring the coverage mask exactly
    * while drawing no visible subject was green here for a whole round, which is the vacuous-gate
    * failure in its purest form. */
-  const ImageDelta image = CompareImages(picture.Rgba, oracle);
+  const ImageDelta image = CompareImages(picture.Rgba, reference);
   metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
                      Direction::AtMost});
   metrics.push_back({"image_max_channel_delta", (double)image.MaxChannel, 0.0, "sRGB8",

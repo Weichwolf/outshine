@@ -3,8 +3,28 @@
 #include <string>
 
 #include "SceneTargets.h"
+#include "SurfaceState.h"
 
 namespace outshine::Render {
+
+namespace {
+
+/* THE SAME DERIVATION TABLE EVERY OTHER DRAW USES. A glTF subject is opaque, and its winding is
+ * TRUSTED because the format defines one: the front face is counter-clockwise and
+ * `Gltf::Subject::Indices` has already restated a mirroring node's order, so a face that turns away
+ * is a back face and not an accident of how the file was authored. This is the opposite case from an
+ * OSM ring, which arrives wound either way and is `Winding::Unknown` for it. */
+constexpr SurfaceState kSubjectState = StateOf(Material{});
+static_assert(kSubjectState.CullsBack(), "an opaque subject culls its back faces");
+
+/* WHICH SCREEN-SPACE ORIENTATION glTF's FRONT FACE ARRIVES IN. MEASURED, not derived: the chain is
+ * two flips and not one -- clip-space +Y is up while the framebuffer's runs down, and the eye basis
+ * puts the view along -Z so the projection's own w is -z_eye -- and they cancel, leaving glTF's
+ * counter-clockwise front face counter-clockwise on the target. The derivation that counted one flip
+ * was written here first and culled every pixel of `render/coverage/quad`. */
+constexpr wgpu::FrontFace kGltfFrontFace = wgpu::FrontFace::CCW;
+
+} // namespace
 
 static const char *kSubjectWGSL = R"(
 struct S { mvp : mat4x4f, anc : vec4f, emitted : vec4f };
@@ -67,7 +87,9 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   fs.targets = cts;
   rp.fragment = &fs;
   rp.depthStencil = &ds;
-  rp.primitive.cullMode = wgpu::CullMode::None;
+  rp.primitive.frontFace = kGltfFrontFace;
+  rp.primitive.cullMode =
+      CullsBackFaces(kSubjectState, Winding::Trusted) ? wgpu::CullMode::Back : wgpu::CullMode::None;
   Pipe = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
