@@ -6,30 +6,38 @@
     {
       "id": "walk",
       "kind": "interactive",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      }
     },
     {
       "id": "frame",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -42,16 +50,20 @@
     {
       "id": "depth",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -65,17 +77,21 @@
     {
       "id": "ortho",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 2500,
-      "yawDeg": 280,
-      "pitchDeg": -90,
       "fovDeg": 60,
-      "orthoM": 1222.99,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 2500,
+          "yawDeg": 280,
+          "pitchDeg": -90,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55,
+          "orthoM": 1222.99
+        }
+      },
       "render": {
         "width": 512,
         "height": 512,
@@ -93,16 +109,20 @@
     {
       "id": "spin",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -138,16 +158,20 @@
     {
       "id": "sequence",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -213,16 +237,20 @@
     {
       "id": "crossing",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -288,17 +316,21 @@
     {
       "id": "walk-500",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 0,
-      "pitchDeg": 0,
-      "fovDeg": 60,
       "why": "504 m of walking, north, at 1.4 m/s [SET, the mean preferred walking speed] over 10800 frames at 30 fps. It is the run every reading of the streamer is taken against: the eye leaves the block it loaded in, the yaw is held at the bearing so the picture streams into world it has not seen, and both records say where it went -- the profile's distM is what the channel COMMANDED and the telemetry's eyeTravelM is where the eye ARRIVED, so a stance that never reaches the eye is a disagreement between two files and not an unanswerable question.",
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 0,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -334,17 +366,21 @@
     {
       "id": "ring",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 90,
-      "pitchDeg": 0,
-      "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
       "why": "six region crossings in one run, at the same 150 m/s demo/crossing declares: 9000 m east over 3600 frames at 60 fps against a 1503 m region at 52.106 N. The yaw is held and the bearing IS the direction of travel, so the picture streams into world it has not seen and a frame distribution has one moving quantity in it instead of two.",
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 90,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -395,17 +431,21 @@
     {
       "id": "ring-pop",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 90,
-      "pitchDeg": 0,
-      "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
       "why": "the moving capture a still cannot stand in for. It walks demo/ring's own path from its own start -- an eastM that begins anywhere else would teleport the eye past the loading phase's standpoint and photograph the ring catching up instead of a crossing -- at the same 150 m/s, far enough to pass the first region boundary at 940 m and the arrival of the leading regions behind it. Every frame is written, so a stand that appears between two of them is visible as one.",
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 90,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -441,16 +481,20 @@
     {
       "id": "classes",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "runs": [
         {
           "kind": "classDump",
@@ -472,16 +516,20 @@
     {
       "id": "wind",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "render": {
         "width": 320,
         "height": 180,
@@ -501,16 +549,20 @@
     {
       "id": "sunrise",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 100,
-      "pitchDeg": 4,
       "fovDeg": 60,
-      "utc": "2026-08-06T03:00:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.55,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 100,
+          "pitchDeg": 4,
+          "utc": "2026-08-06T03:00:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.55
+        }
+      },
       "render": {
         "width": 640,
         "height": 360,
@@ -551,263 +603,288 @@
     {
       "id": "subject-beech",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "beech"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "beech",
-          "dir": "bench",
-          "turnSteps": 8,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "kind": "bench",
+          "dir": "bench"
         }
       ]
     },
     {
       "id": "subject-meadow",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "class": "grass_thatch",
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "sward",
+            "template": "meadow"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "template": "meadow",
-          "dir": "bench-meadow",
-          "turnSteps": 8
+          "kind": "bench",
+          "dir": "bench-meadow"
         }
       ]
     },
     {
       "id": "subject-hazel",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "multi-stem shrub: no bole, eight stems from the stool, crown to the ground",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "hazel"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "hazel",
+          "kind": "bench",
           "dir": "bench-hazel",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "multi-stem shrub: no bole, eight stems from the stool, crown to the ground"
+      ]
     },
     {
       "id": "subject-elder",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "multi-stem shrub under a flat-topped envelope",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "elder"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "elder",
+          "kind": "bench",
           "dir": "bench-elder",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "multi-stem shrub under a flat-topped envelope"
+      ]
     },
     {
       "id": "subject-box",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "bush: a multi-stem under 2 m, whose whole habit is its outer shell",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "box"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "box",
+          "kind": "bench",
           "dir": "bench-box",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "bush: a multi-stem under 2 m, whose whole habit is its outer shell"
+      ]
     },
     {
       "id": "subject-dog-rose",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "bush with a weeping envelope and a hanging tropism -- the arching cane",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "dog_rose"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "dog_rose",
+          "kind": "bench",
           "dir": "bench-dog-rose",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "bush with a weeping envelope and a hanging tropism -- the arching cane"
+      ]
     },
     {
       "id": "subject-hedge-hornbeam",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "hedge: a managed linear section with a cut box for a crown",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "hedge_hornbeam"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "hedge_hornbeam",
+          "kind": "bench",
           "dir": "bench-hedge-hornbeam",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "hedge: a managed linear section with a cut box for a crown"
+      ]
     },
     {
       "id": "subject-snag-spruce",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "standing deadwood with a broken top and no foliage",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "snag_spruce"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "snag_spruce",
+          "kind": "bench",
           "dir": "bench-snag-spruce",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "standing deadwood with a broken top and no foliage"
+      ]
     },
     {
       "id": "subject-log-beech",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "a fallen log, measured along its own axis",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "log_beech"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "log_beech",
+          "kind": "bench",
           "dir": "bench-log-beech",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "a fallen log, measured along its own axis"
+      ]
     },
     {
       "id": "subject-stump-beech",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
+      "why": "a cut stump, closed flat",
       "fovDeg": 30,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
+      "stage": {
+        "studio": {
+          "substrate": {
+            "groundAslM": 100.6
+          },
+          "keyLight": {
+            "elevationDeg": 11.0
+          },
+          "subject": {
+            "generator": "tree",
+            "species": "stump_beech"
+          }
+        }
+      },
       "runs": [
         {
-          "kind": "subject",
-          "species": "stump_beech",
+          "kind": "bench",
           "dir": "bench-stump-beech",
-          "turnSteps": 4,
-          "leafMult": 1,
-          "foliage": "leaves"
+          "turnSteps": 4
         }
-      ],
-      "why": "a cut stump, closed flat"
+      ]
     },
     {
       "id": "night",
       "kind": "run",
-      "lat": 52.10602,
-      "lon": 9.43453,
-      "eyeM": 1.7,
-      "yawDeg": 280,
-      "pitchDeg": 0,
-      "fovDeg": 60,
-      "utc": "2026-08-06T23:00:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.0,
       "why": "the night of the place demo/walk stands in, put at the sun's own depth rather than at a wall-clock hour: 23:00 UTC on 6 August puts the sun 21.14 deg under this horizon with the moon 11.36 deg over it (measured, `outshine scene sunElDeg` and `sim stand moonElDeg`), so it is past astronomical twilight and what is left in the frame is moonlight and whatever the world itself emits. cloudCover is 0 because a deck is the one thing that would hide that answer. The camera turns a full 360 deg over 120 frames and every frame is written: a light that switches on, a lamp that pops in at a range and a surface that only glows from one bearing are three different defects and a still shows none of them.",
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10602,
+          "lon": 9.43453,
+          "eyeM": 1.7,
+          "yawDeg": 280,
+          "pitchDeg": 0,
+          "utc": "2026-08-06T23:00:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.0
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -843,31 +920,39 @@
     {
       "id": "town",
       "kind": "interactive",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 1.7,
-      "yawDeg": 275,
-      "pitchDeg": 4,
-      "fovDeg": 60,
       "why": "Hameln Altstadt, standing in Osterstrasse: the one place in reach where OSM carries a dense closed block of footprints, which is what a building generator has to be judged on.",
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 1.7,
+          "yawDeg": 275,
+          "pitchDeg": 4,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25
+        }
+      }
     },
     {
       "id": "town-frame",
       "kind": "run",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 1.7,
-      "yawDeg": 275,
-      "pitchDeg": 4,
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 1.7,
+          "yawDeg": 275,
+          "pitchDeg": 4,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -880,17 +965,21 @@
     {
       "id": "town-air",
       "kind": "run",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 90.0,
-      "yawDeg": 120,
-      "pitchDeg": -22,
-      "fovDeg": 55,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25,
       "why": "the same block from above the eaves: roof shape and massing are what an oblique shows and a street view cannot.",
+      "fovDeg": 55,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 90.0,
+          "yawDeg": 120,
+          "pitchDeg": -22,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -903,17 +992,21 @@
     {
       "id": "town-ortho",
       "kind": "run",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 600.0,
-      "yawDeg": 0,
-      "pitchDeg": -90,
       "fovDeg": 60,
-      "orthoM": 305.748,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 600.0,
+          "yawDeg": 0,
+          "pitchDeg": -90,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25,
+          "orthoM": 305.748
+        }
+      },
       "render": {
         "width": 512,
         "height": 512,
@@ -931,17 +1024,21 @@
     {
       "id": "town-pan",
       "kind": "run",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 1.7,
-      "yawDeg": 0,
-      "pitchDeg": 2,
-      "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25,
       "why": "a full turn on the spot at eye height: massing that pops at an LOD change, a roof that flips its ridge and a facade rhythm that swims are all motion defects, and a still shows none of them.",
+      "fovDeg": 60,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 1.7,
+          "yawDeg": 0,
+          "pitchDeg": 2,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -977,16 +1074,21 @@
     {
       "id": "town-spin",
       "kind": "run",
-      "lat": 52.10105,
-      "lon": 9.348839,
-      "eyeM": 1.7,
-      "yawDeg": 275,
-      "pitchDeg": 4,
+      "why": "the frame cost of a town, over a moving camera and a frozen world: the eye turns a full circle on the spot so every bearing's worth of facade is drawn, and the world is held still so a tile arriving mid-run cannot be read as a cost of drawing.",
       "fovDeg": 60,
-      "utc": "2026-08-06T17:40:00Z",
-      "windDeg": 250,
-      "windMs": 6.0,
-      "cloudCover": 0.25,
+      "stage": {
+        "world": {
+          "lat": 52.10105,
+          "lon": 9.348839,
+          "eyeM": 1.7,
+          "yawDeg": 275,
+          "pitchDeg": 4,
+          "utc": "2026-08-06T17:40:00Z",
+          "windDeg": 250,
+          "windMs": 6.0,
+          "cloudCover": 0.25
+        }
+      },
       "runs": [
         {
           "kind": "motion",
@@ -1017,8 +1119,7 @@
             ]
           }
         }
-      ],
-      "why": "the frame cost of a town, over a moving camera and a frozen world: the eye turns a full circle on the spot so every bearing's worth of facade is drawn, and the world is held still so a tile arriving mid-run cannot be read as a cost of drawing."
+      ]
     }
   ]
 }

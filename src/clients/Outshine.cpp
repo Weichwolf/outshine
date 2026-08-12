@@ -38,7 +38,7 @@ double NowMs() {
 
 }  // namespace
 
-Outshine::Outshine(const Scene &scene, const Assets &assets)
+Outshine::Outshine(const Scenario::Scene &scene, const Assets &assets)
     : Sim_(scene, assets), Exposure_(scene.Exposure()) {
   if (scene.HasJitterPin())
     R_.PinJitter((float)scene.JitterPinX(), (float)scene.JitterPinY());
@@ -64,16 +64,29 @@ void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
 bool Outshine::Prepare() {
   if (Phase_ != Phase::Declared) return false;
-  const Scene &scene = Sim_.Declared();
+  const Scenario::Scene &scene = Sim_.Declared();
   if (!Sim_.LoadTables()) return false;
-  Log::Info("outshine", "scene", {{"scene", scene.Id()}, {"lat", Sim_.Lat()},
-      {"lon", Sim_.Lon()}, {"eyeM", Sim_.Standpoint().EyeAglM()}, {"yawDeg", Sim_.YawDeg()},
-      {"pitchDeg", Sim_.PitchDeg()}, {"fovDeg", scene.FovDeg()}, {"utc", scene.Utc()},
-      {"utcS", Sim_.SkyClockS()}, {"windDeg", Sim_.WindDeg()}, {"windMs", Sim_.WindMs()},
-      {"cloudCover", scene.CloudCover()}, {"sunElDeg", (double)Sim_.SunElDeg()},
-      {"sunAzDeg", (double)Sim_.SunAzDeg()}});
+  /* THE STAGE SAYS WHAT THERE IS TO SAY. A studio has no place, no civil time and no met wind, so
+   * its line carries what it does declare instead of eight fields at zero. */
+  if (const Scenario::WorldStage *w = Sim_.WorldStage())
+    Log::Info("outshine", "scene", {{"scene", scene.Id()}, {"stage", "world"},
+        {"lat", Sim_.Lat()}, {"lon", Sim_.Lon()}, {"eyeM", Sim_.EyeColumn().EyeAglM()},
+        {"yawDeg", Sim_.YawDeg()}, {"pitchDeg", Sim_.PitchDeg()}, {"fovDeg", scene.FovDeg()},
+        {"utc", w->Utc}, {"utcS", Sim_.SkyClockS()}, {"windDeg", Sim_.WindDeg()},
+        {"windMs", Sim_.WindMs()}, {"cloudCover", w->CloudCover},
+        {"sunElDeg", (double)Sim_.SunElDeg()}, {"sunAzDeg", (double)Sim_.SunAzDeg()}});
+  else
+    Log::Info("outshine", "scene", {{"scene", scene.Id()}, {"stage", "studio"},
+        {"fovDeg", scene.FovDeg()},
+        {"groundAslM", Sim_.StudioStage()->Ground.GroundAslM},
+        {"substrate", Sim_.StudioStage()->Ground.MaterialClass},
+        {"keyElDeg", Sim_.StudioStage()->Key.ElevationDeg}});
+  /* A SCENE THAT SAYS WHY IT EXISTS SAYS IT IN THE LOG THE RUN PRODUCED, so the reason travels with
+   * the pictures instead of rotting unread in the declaration. Silence where none is declared. */
+  if (!scene.Why().empty())
+    Log::Info("outshine", "scene_why", {{"scene", scene.Id()}, {"why", scene.Why()}});
   /* Only a DEVIATION is an event: at the budget size there is nothing to justify. */
-  const Scene::Resolution &res = scene.RenderResolution();
+  const Scenario::Scene::Resolution &res = scene.RenderResolution();
   if (!res.Why.empty())
     Log::Info("outshine", "render_size", {{"width", res.Width}, {"height", res.Height},
         {"why", res.Why}});
@@ -272,8 +285,8 @@ Outshine::Counters Outshine::Measured() const {
   c.UploadMs = UploadMs_;
   c.BuildingMs = w.BuildingMs();
   c.BuildingDecodeMs = w.BuildingDecodeMs();
-  c.GroundAslM = Sim_.Standpoint().GroundAslM();
-  c.AltAslM = Sim_.Standpoint().AltAslM();
+  c.GroundAslM = Sim_.EyeColumn().GroundAslM();
+  c.AltAslM = Sim_.EyeColumn().AltAslM();
   c.Fraction = w.LoadProgress();
   c.Resident = w.Resident();
   return c;
@@ -375,7 +388,7 @@ void Outshine::CollectStands() {
   if (Sim_.RegionVersion() == StandingRegions_ && !walked) return;
   StandingRegions_ = Sim_.RegionVersion();
   const double t0 = NowMs();
-  StandField::Lens lens{TangentFrame::At(Sim_.Lat(), Sim_.Lon()), Sim_.Standpoint().AltAslM(),
+  StandField::Lens lens{TangentFrame::At(Sim_.Lat(), Sim_.Lon()), Sim_.EyeColumn().AltAslM(),
                         Sim::kReachM};
   CollectedFrom_ = lens.Frame;
   Collected_ = true;

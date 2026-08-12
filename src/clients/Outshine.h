@@ -59,7 +59,7 @@ public:
    * after it enters the picture beside the loop, never instead of it. */
   enum class Phase { Declared, Device, Prepared, Ground, Stars, Loading, Playing, Failed };
 
-  Outshine(const Scene &scene, const Assets &assets);
+  Outshine(const Scenario::Scene &scene, const Assets &assets);
 
   void SetTransport(Data::Transport &transport) {
     if (Phase_ == Phase::Declared) Sim_.SetTransport(transport);

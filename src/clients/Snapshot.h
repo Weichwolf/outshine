@@ -1,4 +1,5 @@
-/* A STANDPOINT, written by the client that was steered and re-rendered by the one that measures.
+/* A STANDPOINT ON A WORLD STAGE, written by the client that was steered and re-rendered by the one
+ * that measures. There is no studio arm here and there cannot be: a studio has no place to snapshot.
  *
  * It is a bench artefact and NOT a second scene declaration: the scene is REFERENCED, and the
  * `scene` block is an identity that Matches() checks rather than content anyone may apply. Only
@@ -12,16 +13,16 @@
 #include <cstdint>
 #include <string>
 
-namespace outshine::Clients {
+#include "Stage.h"
 
-class Scene;
+namespace outshine::Clients {
 
 class Snapshot {
 public:
   /* The basename the frame was filed under; the line names its own PNG so a line cut out of the log
    * still points at the picture it describes. */
   void SetName(const char *name);
-  void SetScene(const Scene &s);
+  void SetScene(const std::string &id, const Scenario::WorldStage &world, double fovDeg);
   void SetCamera(double lat, double lon, double yawDeg, double pitchDeg);
   /* Answers the reproducing client already has of its own, kept so the two can be SUBTRACTED: a DEM
    * or an ephemeris that disagreed is the one difference no pixel comparison would attribute. */
@@ -32,7 +33,7 @@ public:
 
   [[nodiscard]] bool Load(const char *path);
   [[nodiscard]] bool LoadText(const char *text, size_t len);
-  [[nodiscard]] bool Matches(const Scene &s);
+  [[nodiscard]] bool Matches(const Scenario::WorldStage &world, double fovDeg);
 
   const std::string &Error() const { return Error_; }
   const std::string &Name() const { return Name_; }

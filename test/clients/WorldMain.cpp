@@ -89,12 +89,12 @@ int main(int argc, char **argv) {
   const TextTarget logTo(TextStream::Stdout);
   Clients::TextLogSink sink(logTo);
   Log::SetSink(&sink);
-  Clients::Mod mod;
+  Scenario::Mod mod;
   if (!mod.Load(Clients::Env("OUTSHINE_MODS", "test/mods"), argv[1])) {
     Log::Error("world", "mod_unreadable", {{"mod", std::string(argv[1])}, {"why", mod.Error()}});
     return 2;
   }
-  const Clients::Scene *scene = mod.Find(argv[2]);
+  const Scenario::Scene *scene = mod.Find(argv[2]);
   if (!scene) {
     Log::Error("world", "scene_unknown", {{"scene", std::string(argv[2])}, {"have", mod.Ids()}});
     return 2;

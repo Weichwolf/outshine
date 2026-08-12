@@ -28,6 +28,8 @@ namespace outshine::Clients {
 
 class SceneRunner {
 public:
+  using Scene = Scenario::Scene;
+
   SceneRunner(Outshine &app, const Scene &scene, Artifacts &out)
       : App_(app), Scene_(scene), Out_(out) {}
 
@@ -63,7 +65,12 @@ private:
 
   int DumpClasses(const Scene::Run::ClassDumpRun &d) const;
   int ProbeWind(const Scene::Run::WindProbeRun &w) const;
+  /* THE STUDIO, MADE READY. Each arm of the declared subject resolves its own two numbers — the
+   * height the framings are derived from, and the name the files carry — and nothing else. */
   [[nodiscard]] bool BenchBegin();
+  [[nodiscard]] bool GrowSubject(const Scenario::TreeSubject &declared, SubjectBench::Setup &setup);
+  [[nodiscard]] bool StandSubject(const Scenario::SwardSubject &declared,
+                                  SubjectBench::Setup &setup);
 
   std::string FrameName(const std::string &path, int frame, const char *ext) const;
 
@@ -89,9 +96,9 @@ private:
   std::vector<uint8_t> Rgba_;
   std::vector<float> Depth_;
 
-  /* THE SUBJECT BENCH takes the binary over completely: no World, no tile stream, no scene light.
-   * Its mesh and foliage are held for the whole bench run, because the arrays are uploaded once and
-   * the numbers it logs come off the same objects the picture was drawn from. */
+  /* A STUDIO STAGE TAKES THE BINARY OVER COMPLETELY: no world, no tile stream, no wire, no
+   * ephemeris. The grown mesh and its foliage are held for the whole bench run, because the arrays
+   * are uploaded once and the numbers logged come off the same objects the picture was drawn from. */
   std::unique_ptr<SubjectBench> Bench_;
   Generators::TreeMesh BenchMesh_;
   Generators::TreeFoliage BenchFoliage_;

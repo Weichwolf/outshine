@@ -1,11 +1,12 @@
-/* WHERE THE EYE STANDS, out of what is data. The ground comes from the DEM and the roof from OSM, and
- * either of them can bury a lens — an eye inside the ground is not a standpoint. */
-#ifndef STANDPOINT_H
-#define STANDPOINT_H
+/* HOW HIGH THE EYE IS, out of what is data — the vertical column under one standpoint and nothing
+ * about where that standpoint is. The ground comes from the DEM and the roof from OSM, and either of
+ * them can bury a lens; an eye inside the ground is not a place anyone stands. */
+#ifndef EYECOLUMN_H
+#define EYECOLUMN_H
 
 namespace outshine::World {
 
-class Standpoint {
+class EyeColumn {
 public:
   /* [SET] the least clearance at which an eye is outside a body. Two metres is a standing person's
    * eye and it is under the DEM's own sample error, so it corrects the lens as little as it can. */

@@ -21,9 +21,10 @@
 #include "RegionForge.h"
 #include "RegionPool.h"
 #include "Scene.h"
+#include "Stage.h"
 #include "SceneWeather.h"
 #include "Schedule.h"
-#include "Standpoint.h"
+#include "EyeColumn.h"
 #include "Water.h"
 #include "WaterDepth.h"
 #include "State.h"
@@ -70,7 +71,7 @@ public:
   static constexpr Generators::Rank kWayRank{2};
   static constexpr Generators::Rank kTreeRank{3};
 
-  Sim(const Scene &scene, const Assets &assets);
+  Sim(const Scenario::Scene &scene, const Assets &assets);
 
   /* THE ONLY THREE THINGS A CLIENT STILL SAYS. The transport is how this machine reaches an
    * upstream and is no property of the world; whether the content store is used is the run's
@@ -158,10 +159,15 @@ public:
    * `Outshine`'s collection reserves. */
   static constexpr double kReachM = 900.0;
 
-  const World::Standpoint &Standpoint() const { return Stand_; }
+  const World::EyeColumn &EyeColumn() const { return Stand_; }
   const World::VegetationTemplates &Vegetation() const { return Veg_; }
   const World::GroundMaterials &Materials() const { return Mats_; }
-  const Scene &Declared() const { return Scene_; }
+  const Scenario::Scene &Declared() const { return Scene_; }
+  /* WHICH STAGE THIS SIMULATION IS ON, and null is the other arm (`F.60`). Everything that only
+   * exists because there is an Earth under the scene is reached through the first; a studio has no
+   * place, no civil time and no met wind, and therefore no member here to hold them. */
+  const Scenario::WorldStage *WorldStage() const { return Scene_.Staged().AsWorld(); }
+  const Scenario::StudioStage *StudioStage() const { return Scene_.Staged().AsStudio(); }
   const Assets &Files() const { return Assets_; }
   const SceneWeather &Weather() const { return Wind_; }
   const State &SceneState() const { return State_; }
@@ -181,6 +187,8 @@ public:
   float SunAzDeg() const { return SunAz_; }
   double SkyClockS() const { return Clk_; }
   double WindDeg() const { return WindDeg_; }
+  /* Where the flow clock starts, seconds. Not the sky clock: the sun stands still while wind runs. */
+  double WindClockS() const { return WindClockS_; }
   double WindMs() const { return WindMs_; }
   double ViewM() const { return ViewM_; }
   double OrthoM() const { return OrthoM_; }
@@ -220,11 +228,11 @@ private:
   /* The region containing a place, snapshotted for one question and dropped again. */
   std::optional<Generators::Ground> GroundAt(double lat, double lon) const;
 
-  Scene Scene_;
+  Scenario::Scene Scene_;
   Assets Assets_;
   SceneWeather Wind_;
   Stance Stance_;
-  double WindDeg_, WindMs_, Clk_;
+  double WindDeg_ = 0.0, WindMs_ = 0.0, WindClockS_ = 0.0, Clk_ = 0.0;
 
   /* Borrowed from the client, which owns the host's wire; the registry and the store beneath it are
    * this object's, because a world that streams is what needs them. DECLARED BEFORE THE WORLD
@@ -238,7 +246,7 @@ private:
   World::GroundMaterials Mats_;
   World::VegetationTemplates Veg_;
   World::World W_;
-  World::Standpoint Stand_;
+  World::EyeColumn Stand_;
 
   Generators::TreeSpecies Species_;
   std::vector<float> StandsPerM2_;                     /* by ground class row */

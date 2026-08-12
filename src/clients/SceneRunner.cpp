@@ -23,13 +23,8 @@
 namespace outshine::Clients {
 namespace {
 
-using Target = Animation::Target;
+using Target = Scenario::Animation::Target;
 
-/* THE BENCH'S CARD IS A DATUM, not a DEM sample: the subject bench has to run with no network at
- * all, and a plant's verdict may not depend on a tile server answering. 100.6 m is the reference
- * scene's own measured ground (`/elev?lat=52.10602&lon=9.43453&block=1`), so the air column over the
- * bench is the air column over the scene. */
-const double kSubjectGroundAslM = 100.6;
 const char *kSpeciesDir = "src/assets/world/species";
 
 double MsBetween(std::chrono::steady_clock::time_point a, std::chrono::steady_clock::time_point b) {
@@ -50,34 +45,6 @@ constexpr double kDeliverWaitMs = 20000.0;
 double Percentile(const std::vector<double> &sorted, double p) {
   if (sorted.empty()) return 0.0;
   return sorted[(size_t)(p * (double)(sorted.size() - 1) + 0.5)];
-}
-
-/* THE BENCH'S FLOOR IS THE TEMPLATE'S DECLARED SUBSTRATE, and it has to be read from the class table
- * rather than from the resolved vegetation row: `swardClosure` overwrites a row's ground reflectance
- * with the stand's own aggregate colour — for `meadow` completely. On the bench that would be the
- * subject's colour standing in for the ground it is judged against. */
-[[nodiscard]] bool SubjectSubstrate(const World::GroundMaterials &mats, const std::string &vegPath,
-                      const std::string &tpl, std::string *name, float rgb[3]) {
-  FILE *f = fopen(vegPath.c_str(), "rb");
-  if (!f) return false;
-  std::string text;
-  char buf[8192];
-  for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;) text.append(buf, n);
-  fclose(f);
-
-  Json doc;
-  if (!doc.Parse(text.c_str(), text.size())) return false;
-  const Json::Ref ts = doc.Root()["templates"];
-  for (size_t i = 0; i < ts.Size(); i++) {
-    if (ts[i]["name"].Str() != tpl) continue;
-    const std::string cls = ts[i]["ground"]["class"].Str();
-    const int mi = mats.Find(cls);
-    if (mi < 0) return false;
-    *name = cls;
-    for (int c = 0; c < 3; c++) rgb[c] = mats.At((size_t)mi).Albedo[c];
-    return true;
-  }
-  return false;
 }
 
 }  // namespace
@@ -148,7 +115,7 @@ void SceneRunner::Finish(int rc) {
 }
 
 /* THE BRING-UP IS THE RUN'S FIRST STAGE and not the client's preamble: whether a scene needs a world
- * at all is the scene's own statement, and the subject bench is the one that does not. */
+ * at all is the STAGE's own statement, and a studio is the stage that does not. */
 void SceneRunner::BringUp() {
   if (App_.Busy()) {
     App_.Step();
@@ -156,7 +123,7 @@ void SceneRunner::BringUp() {
   }
   switch (App_.Stage()) {
     case Outshine::Phase::Prepared:
-      if (!Scene_.Runs().empty() && Scene_.Runs().front().What == Scene::Run::Kind::Subject) {
+      if (Scene_.Staged().AsStudio()) {
         if (!BenchBegin()) { Finish(1); return; }
         Stage_ = Stage::Bench;
         return;
@@ -184,7 +151,7 @@ void SceneRunner::Dispatch() {
       case Scene::Run::Kind::ClassDump: Rc_ = DumpClasses(run.ClassDump); return;
       case Scene::Run::Kind::ClassCompare: Stage_ = Stage::CompareViz; return;
       case Scene::Run::Kind::WindProbe: Rc_ = ProbeWind(run.WindProbe); return;
-      case Scene::Run::Kind::Subject:
+      case Scene::Run::Kind::Bench:
         if (!BenchBegin()) { Finish(1); return; }
         Stage_ = Stage::Bench;
         return;
@@ -327,7 +294,7 @@ void SceneRunner::MotionApply(double f) {
   if (m.Move.Drives(Target::ExposureCompEv))
     App_.SetExposureCompEv(m.Move.At(Target::ExposureCompEv, f));
   App_.SetWindClock(m.Move.Drives(Target::WindClockS) ? m.Move.At(Target::WindClockS, f)
-                                                      : Scene_.WindClockS());
+                                                      : App_.Simulation().WindClockS());
 }
 
 void SceneRunner::MotionFrame() {
@@ -572,7 +539,7 @@ int SceneRunner::ProbeWind(const Scene::Run::WindProbeRun &w) const {
            wf.EigenHz(), wf.WaveLengthM(), wf.PhaseSpeedMs());
   csv = line;
   for (int t = 0; t < w.Frames; t++) {
-    const double tt = Scene_.WindClockS() + w.DtS * (double)t;
+    const double tt = App_.Simulation().WindClockS() + w.DtS * (double)t;
     for (int k = 0; k < w.Samples; k++) {
       /* The line runs ALONG the wind through the scene's own point, in absolute world metres. */
       const double xi = (double)k * w.DxM;
@@ -589,98 +556,129 @@ int SceneRunner::ProbeWind(const Scene::Run::WindProbeRun &w) const {
   return 0;
 }
 
-/* THE SUBJECT BENCH takes the binary over completely: no World, no tile stream, no scene light. The
- * grown mesh and its foliage are held by this object for the whole bench run, because the arrays are
- * uploaded once and the numbers logged below come off the same objects the picture was drawn from. */
+/* A STUDIO STAGE TAKES THE BINARY OVER COMPLETELY: no world, no tile stream, no wire, no ephemeris.
+ * The grown mesh and its foliage are held by this object for the whole bench run, because the arrays
+ * are uploaded once and the numbers logged below come off the same objects the picture was drawn
+ * from. */
 bool SceneRunner::BenchBegin() {
-  const Scene::Run::SubjectRun &s = Scene_.Runs().front().Subject;
-  Bench_ = std::make_unique<SubjectBench>(App_.Renderer(), App_.Simulation().Vegetation(), Out_);
-  SubjectBench &bench = *Bench_;
+  const Scenario::StudioStage &studio = *Scene_.Staged().AsStudio();
+  const Scene::Run::BenchRun &recording = Scene_.Runs().front().Bench;
+  SubjectBench::Setup setup;
+  setup.GroundAslM = studio.Ground.GroundAslM;
+  setup.KeyElDeg = studio.Key.ElevationDeg;
+  setup.FovDeg = Scene_.FovDeg();
+  setup.Behind = studio.Behind;
+  setup.Dir = recording.Dir;
+  setup.TurnSteps = recording.TurnSteps;
+
+  /* THE FLOOR IS THE STUDIO'S OWN DECLARATION, read out of the ground-material class table: a class
+   * the table does not carry is refused by name rather than quietly left at the neutral. */
+  if (!studio.Ground.MaterialClass.empty()) {
+    const World::GroundMaterials &mats = App_.Simulation().Materials();
+    const int row = mats.Find(studio.Ground.MaterialClass);
+    if (row < 0) {
+      Log::Error("run", "studio_substrate_undeclared", {{"class", studio.Ground.MaterialClass}});
+      return false;
+    }
+    setup.SubstrateName = studio.Ground.MaterialClass;
+    for (int c = 0; c < 3; c++) setup.SubstrateRgb[c] = mats.At((size_t)row).Albedo[c];
+  }
+
+  if (const Scenario::TreeSubject *tree = std::get_if<Scenario::TreeSubject>(&studio.Stands.What)) {
+    if (!GrowSubject(*tree, setup)) return false;
+  } else if (!StandSubject(std::get<Scenario::SwardSubject>(studio.Stands.What), setup)) {
+    return false;
+  }
+  if (!(setup.HeightM > 0.0)) {
+    Log::Error("run", "studio_subject_has_no_height", {{"subject", setup.Name}});
+    return false;
+  }
+  if (!Out_.MakeDir(setup.Dir)) {
+    Log::Error("run", "studio_dir_unmakeable", {{"dir", setup.Dir}});
+    return false;
+  }
+  Bench_ = std::make_unique<SubjectBench>(App_.Renderer(), Out_, std::move(setup));
+  return true;
+}
+
+/* THE HERB SUBJECT: a declared vegetation template, whose own row carries the plant height. Nothing
+ * is grown — the sward is a field the ground stage evaluates, so the bench only has to frame it. */
+bool SceneRunner::StandSubject(const Scenario::SwardSubject &declared, SubjectBench::Setup &setup) {
+  const World::VegetationTemplates &veg = App_.Simulation().Vegetation();
+  for (size_t i = 0; i < veg.TemplateCount(); i++) {
+    if (veg.Name(i) != declared.Template) continue;
+    setup.Frames = SubjectBench::Setup::Habit::Herb;
+    setup.Name = declared.Template;
+    setup.HeightM = declared.HeightM > 0.0 ? declared.HeightM : (double)veg.Rows()[i].Dry[3];
+    return true;
+  }
+  Log::Error("run", "studio_template_undeclared", {{"template", declared.Template}});
+  return false;
+}
+
+bool SceneRunner::GrowSubject(const Scenario::TreeSubject &declared, SubjectBench::Setup &setup) {
+  const std::string path = std::string(kSpeciesDir) + "/" + declared.Species + ".json";
+  Generators::TreeSpecies sp;
+  if (!ReadSpecies(path.c_str(), &sp)) {
+    Log::Error("run", "studio_species_unreadable", {{"path", path}, {"why", sp.Error()}});
+    return false;
+  }
   Generators::TreeMesh &mesh = BenchMesh_;
   Generators::TreeFoliage &foliage = BenchFoliage_;
-  if (!s.Species.empty()) {
-    const std::string path = std::string(kSpeciesDir) + "/" + s.Species + ".json";
-    Generators::TreeSpecies sp;
-    if (!ReadSpecies(path.c_str(), &sp)) {
-      Log::Error("run", "subject_species_unreadable", {{"path", path}, {"why", sp.Error()}});
-      return false;
-    }
-    Generators::TreeGrower grower;
-    const auto t0 = std::chrono::steady_clock::now();
-    /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every 3 mm
-     * twig — a mesh nobody draws and one that truncated the crown. */
-    grower.Grow(sp, mesh, ModelLadder::Error(0));
-    const auto t1 = std::chrono::steady_clock::now();
-    Generators::TreeLeaf::Build(sp.LeafParams(), mesh);
-    const auto t2 = std::chrono::steady_clock::now();
-    foliage.Build(mesh, sp, s.LeafMult);
-    const auto t3 = std::chrono::steady_clock::now();
+  Generators::TreeGrower grower;
+  const auto t0 = std::chrono::steady_clock::now();
+  /* THE SAME MESH THE NEAREST FIELD RANK GETS. Asking for pixel 0 asked for a tube on every 3 mm
+   * twig — a mesh nobody draws and one that truncated the crown. */
+  grower.Grow(sp, mesh, ModelLadder::Error(0));
+  const auto t1 = std::chrono::steady_clock::now();
+  Generators::TreeLeaf::Build(sp.LeafParams(), mesh);
+  const auto t2 = std::chrono::steady_clock::now();
+  foliage.Build(mesh, sp, declared.LeafMult);
+  const auto t3 = std::chrono::steady_clock::now();
 
-    const double h = s.HeightM > 0.0 ? s.HeightM : (double)sp.HeightM();
-    const double crownX = (double)(mesh.BoxMax.X - mesh.BoxMin.X) * h;
-    const double crownZ = (double)(mesh.BoxMax.Z - mesh.BoxMin.Z) * h;
-    const double proj = 0.25 * kPi * crownX * crownZ;
-    const bool leaves = s.Leaf == Scene::Run::Foliage::Leaves;
+  const double h = declared.HeightM > 0.0 ? declared.HeightM : (double)sp.HeightM();
+  const double crownX = (double)(mesh.BoxMax.X - mesh.BoxMin.X) * h;
+  const double crownZ = (double)(mesh.BoxMax.Z - mesh.BoxMin.Z) * h;
+  const double proj = 0.25 * kPi * crownX * crownZ;
+  const bool leaves = declared.Leaf == Scenario::Foliage::Leaves;
 
-    Render::Renderer &r = App_.Renderer();
-    float row[kMaterialRowFloats];
-    Generators::TreePrototype::MaterialRow(Generators::TreePrototype::LookOf(sp), row);
-    r.SetPrototypeMaterial(row);
-    r.SetPrototypeLevel(0, Render::LevelMesh{mesh.BarkVerts.data(),
-                                             (uint32_t)mesh.BarkVertexCount(),
-                                             mesh.BarkIdx.data(),
-                                             (uint32_t)mesh.BarkIdx.size()});
-    r.SetPrototypeDetail(Render::DetailMesh{mesh.LeafVerts.data(),
-                                            (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
-                                            (uint32_t)mesh.LeafIdx.size(),
-                                            foliage.Instances().data(), (uint32_t)foliage.Count(),
-                                            foliage.ScaleM()});
-    r.SetSheetsVisible(leaves);
-    Log::Info("run", "subject_tree", {{"species", s.Species}, {"heightM", h},
-        {"declaredSpreadM", (double)sp.SpreadM()}, {"grownCrownXM", crownX},
-        {"grownCrownZM", crownZ},
-        {"spreadRatio", sp.SpreadM() > 0.0f ? 0.5 * (crownX + crownZ) / (double)sp.SpreadM() : -1.0},
-        {"barkTris", (double)(mesh.BarkIdx.size() / 3)},
-        {"leafTrisEach", (double)(mesh.LeafIdx.size() / 3)},
-        {"leafPoints", (double)mesh.LeafPoints.size()},
-        {"leafInstances", (double)foliage.Count()},
-        {"leafTrisTotal", (double)(mesh.LeafIdx.size() / 3 * foliage.Count())},
-        {"leafLenM", (double)foliage.ScaleM() * (double)sp.LeafParams().Length},
-        {"oneLeafAreaM2", foliage.OneLeafAreaM2()},
-        {"leafAreaM2", foliage.LeafAreaM2()}, {"crownProjM2", proj},
-        {"lai", proj > 0.0 ? foliage.LeafAreaM2() / proj : -1.0},
-        {"laiDeclared", (double)sp.Lai()}, {"laminaePerPoint", foliage.PerPoint()},
-        {"meshKb", (double)mesh.Bytes() / 1024.0},
-        {"instKb", (double)(foliage.Instances().size() * sizeof(float)) / 1024.0},
-        {"growMs", MsBetween(t0, t1)}, {"leafMs", MsBetween(t1, t2)},
-        {"foliageMs", MsBetween(t2, t3)},
-        {"leafMult", (double)s.LeafMult}, {"leavesDrawn", leaves ? 1.0 : 0.0}});
-    if (!bench.SelectTree(s.Species.c_str(), h)) {
-      Log::Error("run", "subject_species_height_invalid", {{"name", s.Species}});
-      return false;
-    }
-  } else if (!bench.Select(s.Template.c_str(), s.HeightM)) {
-    Log::Error("run", "subject_unknown", {{"name", s.Template}});
-    return false;
-  }
-  /* A TREE DECLARES NO SUBSTRATE. Without a template naming a ground class the floor stays at the
-   * bench's 18 % neutral, which is what a subject without a declared substrate deserves. */
-  if (!s.Template.empty()) {
-    std::string subName;
-    float subRgb[3] = {0, 0, 0};
-    if (!SubjectSubstrate(App_.Simulation().Materials(), App_.Simulation().Files().Vegetation, s.Template, &subName, subRgb)) {
-      Log::Error("run", "subject_substrate_unresolved", {{"template", s.Template}});
-      return false;
-    }
-    bench.SetSubstrate(subName, subRgb);
-  }
-  if (!Out_.MakeDir(s.Dir)) {
-    Log::Error("run", "subject_dir_unmakeable", {{"dir", s.Dir}});
-    return false;
-  }
-  bench.Stand(Scene_.Lat(), Scene_.Lon(), kSubjectGroundAslM);
-  bench.SetOutDir(s.Dir);
-  bench.SetTurntableSteps(s.TurnSteps);
+  Render::Renderer &r = App_.Renderer();
+  float row[kMaterialRowFloats];
+  Generators::TreePrototype::MaterialRow(Generators::TreePrototype::LookOf(sp), row);
+  r.SetPrototypeMaterial(row);
+  r.SetPrototypeLevel(0, Render::LevelMesh{mesh.BarkVerts.data(),
+                                           (uint32_t)mesh.BarkVertexCount(),
+                                           mesh.BarkIdx.data(),
+                                           (uint32_t)mesh.BarkIdx.size()});
+  r.SetPrototypeDetail(Render::DetailMesh{mesh.LeafVerts.data(),
+                                          (uint32_t)mesh.LeafVertexCount(), mesh.LeafIdx.data(),
+                                          (uint32_t)mesh.LeafIdx.size(),
+                                          foliage.Instances().data(), (uint32_t)foliage.Count(),
+                                          foliage.ScaleM()});
+  r.SetSheetsVisible(leaves);
+  Log::Info("run", "studio_tree", {{"species", declared.Species}, {"heightM", h},
+      {"declaredSpreadM", (double)sp.SpreadM()}, {"grownCrownXM", crownX},
+      {"grownCrownZM", crownZ},
+      {"spreadRatio", sp.SpreadM() > 0.0f ? 0.5 * (crownX + crownZ) / (double)sp.SpreadM() : -1.0},
+      {"barkTris", (double)(mesh.BarkIdx.size() / 3)},
+      {"leafTrisEach", (double)(mesh.LeafIdx.size() / 3)},
+      {"leafPoints", (double)mesh.LeafPoints.size()},
+      {"leafInstances", (double)foliage.Count()},
+      {"leafTrisTotal", (double)(mesh.LeafIdx.size() / 3 * foliage.Count())},
+      {"leafLenM", (double)foliage.ScaleM() * (double)sp.LeafParams().Length},
+      {"oneLeafAreaM2", foliage.OneLeafAreaM2()},
+      {"leafAreaM2", foliage.LeafAreaM2()}, {"crownProjM2", proj},
+      {"lai", proj > 0.0 ? foliage.LeafAreaM2() / proj : -1.0},
+      {"laiDeclared", (double)sp.Lai()}, {"laminaePerPoint", foliage.PerPoint()},
+      {"meshKb", (double)mesh.Bytes() / 1024.0},
+      {"instKb", (double)(foliage.Instances().size() * sizeof(float)) / 1024.0},
+      {"growMs", MsBetween(t0, t1)}, {"leafMs", MsBetween(t1, t2)},
+      {"foliageMs", MsBetween(t2, t3)},
+      {"leafMult", (double)declared.LeafMult}, {"leavesDrawn", leaves ? 1.0 : 0.0}});
+
+  setup.Frames = SubjectBench::Setup::Habit::Tree;
+  setup.Name = declared.Species;
+  setup.HeightM = h;
   return true;
 }
 

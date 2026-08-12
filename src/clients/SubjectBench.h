@@ -1,8 +1,8 @@
-/* THE SUBJECT BENCH: one plant, alone, on
- * its own declared substrate beside a neutral card, in declared light. It is a MODE of the frame
- * oracle and not a client — same binary, same Renderer, same stages. What it replaces is the WORLD
- * (no tiles, no OSM, no DEM) and the LIGHT (declared, never inherited); what it may never replace is
- * anything that draws the subject.
+/* THE STUDIO STAGE, RECORDED: the one subject a scenario declares, alone on its declared substrate
+ * beside a neutral card, in the declared key light (scenario/Studio.h). It is a layer OVER the same
+ * binary, the same Renderer and the same stages — never a mode inside one of them. What the studio
+ * replaces is the WORLD (no tiles, no OSM, no DEM, no wire) and the LIGHT (declared, never computed
+ * from an ephemeris); what it may never replace is anything that draws the subject.
  *
  * The image list is a FULL VIEW x LIGHT matrix — every view under every light, no exceptions — because
  * the two critics that asked for it asked along two orthogonal axes: the framings are the botanist's,
@@ -25,44 +25,50 @@
 
 #include "Artifacts.h"
 #include "Renderer.h"
-#include "VegetationTemplates.h"
+#include "Stage.h"
 
 namespace outshine::Clients {
 
 class SubjectBench {
 public:
+  /* WHAT THE STAGE AND THE RUN SETTLED, in one parameter object rather than seven setters (`I.23`):
+   * a bench that could be half-configured had a state in which it would photograph a subject of
+   * height zero. Everything here is resolved — the studio's own declarations plus the two numbers
+   * the runner had to look up, the subject's height and its substrate's reflectance.
+   *
+   * PRECONDITION (`I.5`): `HeightM > 0`. A subject whose declaration names no height is refused by
+   * the runner that resolved it, where the name that failed is still known. */
+  struct Setup {
+    /* WHICH FAMILY OF FRAMINGS. It follows from the subject and is not a taste: the herb views are a
+     * square metre of sward and a 0.4 m tuft, and neither has a meaning at 30 m. */
+    enum class Habit { Herb, Tree };
+
+    Habit Frames = Habit::Tree;
+    double HeightM = 0.0;
+    /* The air column over the floor, metres above sea level, so the atmosphere over the bench is the
+     * atmosphere the studio declared and not one nobody chose. */
+    double GroundAslM = 0.0;
+    /* The key light's elevation, degrees. A low raking light is where a silhouette and a
+     * transmission term are decided; its BEARING is an axis of the matrix below, not a declaration. */
+    double KeyElDeg = 0.0;
+    /* The declared lens, degrees vertical. 30 is a 45 mm normal lens on 35 mm format
+     * (f = 12/tan 15 deg): anything wider puts perspective distortion into a judgement about form. */
+    double FovDeg = 30.0;
+    Scenario::Backdrop Behind = Scenario::Backdrop::Card;
+    /* What the files are named after, and the ground-material class the floor takes its linear
+     * reflectance from. An undeclared substrate leaves the floor at the 18 % neutral. */
+    std::string Name, SubstrateName = "neutral", Dir = "bench";
+    float SubstrateRgb[3] = {Render::BenchGroundStage::kCardAlbedo,
+                             Render::BenchGroundStage::kCardAlbedo,
+                             Render::BenchGroundStage::kCardAlbedo};
+    int TurnSteps = 8;
+  };
+
   /* THE SINK IS THE RUN'S, not the process's working directory (Artifacts.h): a bench that wrote
    * with a bare file write delivered nothing in the browser at all and failed natively for every
    * declared directory that did not already exist in the tree. */
-  SubjectBench(Render::Renderer &renderer, const World::VegetationTemplates &veg, Artifacts &out)
-      : R_(renderer), Out_(out), Veg_(veg) {}
-
-  /* `heightOverrideM` <= 0 takes the template's own declared plant height, which is what makes this a
-   * VEGETATION bench: nothing below names a species or a layer. */
-  [[nodiscard]] bool Select(const char *templateName, double heightOverrideM);
-  /* A TREE SUBJECT. It is a second Select and not a flag on the first because it changes what the
-   * bench frames: the herb views are a square metre of sward and a 0.4 m tuft, and neither has a
-   * meaning at 30 m. `heightM` is the species' own declared height. */
-  [[nodiscard]] bool SelectTree(const char *speciesName, double heightM);
-  void Stand(double latDeg, double lonDeg, double groundAslM) {
-    Lat_ = latDeg; Lon_ = lonDeg; AslM_ = groundAslM;
-  }
-  void SetOutDir(const std::string &dir) { OutDir_ = dir; }
-  void SetTurntableSteps(int n) { TurnSteps_ = n > 0 ? n : 1; }
-  /* THE SUBSTRATE IS THE TEMPLATE'S OWN, not the bench's taste: `name` and the linear reflectance come
-   * from the ground-material class the vegetation template references. Undeclared leaves the floor at
-   * the 18 % neutral, which is what a subject without a declared substrate deserves. */
-  void SetSubstrate(const std::string &name, const float linearRgb[3]) {
-    Substrate_ = name;
-    for (int i = 0; i < 3; i++) SubstrateRgb_[i] = linearRgb[i];
-  }
-
-  /* THE declared lens. 30 deg vertical is a 45 mm normal lens on 35 mm format (f = 12/tan 15 deg):
-   * anything wider puts perspective distortion into a judgement about form. */
-  static constexpr double kFovDeg = 30.0;
-  /* THE declared sun elevation, both critics' — a low raking light is where a silhouette and a
-   * transmission term are decided. */
-  static constexpr double kSunElDeg = 11.0;
+  SubjectBench(Render::Renderer &renderer, Artifacts &out, Setup setup)
+      : R_(renderer), Out_(out), Setup_(std::move(setup)) {}
 
   enum class Progress { Running, Done, Failed };
   [[nodiscard]] Progress Step();
@@ -124,24 +130,14 @@ private:
   [[nodiscard]] Progress Write(const Order &o);
   Fill MeasureFill();
 
-  enum class Subject { None, Herb, Tree };
   /* THE TURNS ONE PICTURE TAKES. Each name is the answer being waited for. */
   enum class Take { Place, Meter, MeterIrradiance, Pixels, DepthAll, DepthNoCard, DepthSubject,
                     Write };
 
   Render::Renderer &R_;
   Artifacts &Out_;
-  const World::VegetationTemplates &Veg_;
+  const Setup Setup_;
 
-  Subject Kind_ = Subject::None;
-  int Bucket_ = -1;
-  double HeightM_ = 0.0;
-  std::string Template_, OutDir_ = "bench", Substrate_ = "neutral";
-  float SubstrateRgb_[3] = {Render::BenchGroundStage::kCardAlbedo,
-                            Render::BenchGroundStage::kCardAlbedo,
-                            Render::BenchGroundStage::kCardAlbedo};
-  double Lat_ = 0.0, Lon_ = 0.0, AslM_ = 0.0;
-  int TurnSteps_ = 8;
   float KeyEv_ = 0.0f;
   bool Metered_ = false;
 

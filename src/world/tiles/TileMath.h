@@ -1,9 +1,10 @@
 /* THE SLIPPY-TILE LATTICE AND ITS REGISTRATION. Every DEM sample in this tree goes through the two
  * lines at the bottom of this file, so a texel means one thing here.
  *
- * WHERE THE SCHEME ENDS is stated ONCE. What clamps (GeoToTileClamped) and what refuses by name
- * (TileIndex, TileGeodesy.h) have to do it at the same latitude, and until this round they did not:
- * the band was spelled 85.0511287798 on one side of a process boundary and 85.05112877980659 on the
+ * WHERE THE SCHEME ENDS is stated ONCE, in core/Mercator.h. What clamps (GeoToTileClamped), what
+ * refuses by name (TileIndex, TileGeodesy.h) and what refuses a DECLARATION before anything streams
+ * (scenario/Standpoint.h) have to do it at the same latitude, and until this round they did not: the
+ * band was spelled 85.0511287798 on one side of a process boundary and 85.05112877980659 on the
  * other, which is the eleventh digit and a defect either way. */
 #ifndef TILEMATH_H
 #define TILEMATH_H
@@ -12,11 +13,9 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace outshine::World {
+#include "Mercator.h"
 
-/* atan(sinh(pi)) in degrees — the WMTS / OGC simple-tile-scheme bound. Beyond it there is no tile at
- * any zoom, and no caller may invent one. */
-constexpr double kMercatorLatMaxDeg = 85.05112877980659;
+namespace outshine::World {
 
 constexpr double kPi = 3.14159265358979323846;
 

@@ -140,28 +140,6 @@ constexpr double kCardFrameFrac = 0.125;
 
 }  // namespace
 
-bool SubjectBench::Select(const char *templateName, double heightOverrideM) {
-  for (size_t i = 0; i < Veg_.TemplateCount(); i++) {
-    if (Veg_.Name(i) != templateName) continue;
-    Bucket_ = (int)i;
-    Kind_ = Subject::Herb;
-    Template_ = templateName;
-    /* The template's own declared plant height is the default, so no number here names a layer. */
-    HeightM_ = heightOverrideM > 0.0 ? heightOverrideM : (double)Veg_.Rows()[i].Dry[3];
-    return HeightM_ > 0.0;
-  }
-  return false;
-}
-
-bool SubjectBench::SelectTree(const char *speciesName, double heightM) {
-  if (!(heightM > 0.0)) return false;
-  Kind_ = Subject::Tree;
-  Bucket_ = -1;
-  Template_ = speciesName;
-  HeightM_ = heightM;
-  return true;
-}
-
 /* THE CAMERA PLACED AND THE STUDIO SET, in one turn: everything here is derived arithmetic and
  * renderer state, and the only thing that takes time is the temporal settle the burst at the end
  * pays for. */
@@ -170,20 +148,20 @@ void SubjectBench::Place(const Order &o) {
   const double camAzDeg = o.CamAzDeg;
   const int w = R_.SceneW(), h = R_.SceneH();
   const double aspect = (double)w / (double)h;
-  double fov = kFovDeg;
+  double fov = Setup_.FovDeg;
   double halfV = 0.5 * fov * kDeg2Rad;
   double halfH = std::atan(std::tan(halfV) * aspect);
 
-  double frameW = std::max(v.WidthM, v.WidthPerH * HeightM_);
-  if (v.FrameHPerH > 0.0) frameW = std::max(frameW, v.FrameHPerH * HeightM_ * aspect);
+  double frameW = std::max(v.WidthM, v.WidthPerH * Setup_.HeightM);
+  if (v.FrameHPerH > 0.0) frameW = std::max(frameW, v.FrameHPerH * Setup_.HeightM * aspect);
   if (v.Square) frameW *= aspect;   /* the DECLARED width is the square crop's, not the frame's */
 
-  double dist = v.DistPerH > 0.0 ? v.DistPerH * HeightM_ : 0.5 * frameW / std::tan(halfH);
+  double dist = v.DistPerH > 0.0 ? v.DistPerH * Setup_.HeightM : 0.5 * frameW / std::tan(halfH);
   /* A MACRO SHOT IS A LONGER LENS, NOT A CLOSER CAMERA. Two floors on the working distance, and both
    * are derived: ten times the near cut, so the subject's own lean (up to 0.30 of its height, see
    * a stand's own lean) cannot fall through the near plane, and twice the subject's height, so the
    * picture is a SHAPE and not a perspective. The normal 45 mm holds wherever neither binds. */
-  const double minWork = std::max(10.0 * (double)Render::Renderer::kNearM, 2.0 * HeightM_);
+  const double minWork = std::max(10.0 * (double)Render::Renderer::kNearM, 2.0 * Setup_.HeightM);
   if (dist < minWork) dist = minWork;
   if (v.DistPerH > 0.0) frameW = 2.0 * dist * std::tan(halfH);
   else if (0.5 * frameW / std::tan(halfH) < minWork) {
@@ -200,12 +178,12 @@ void SubjectBench::Place(const Order &o) {
     /* A declared human eye is a herb-layer anchor. Once the subject's top would leave the frame it
      * stops being one, and the camera aims at mid-height instead — that is what lets a 25 m subject
      * through this same view without a line of code moving. */
-    if (targetH + 0.5 * frameH < HeightM_) {
-      pitch = std::atan2(0.5 * HeightM_ - eyeAgl, dist) / kDeg2Rad;
+    if (targetH + 0.5 * frameH < Setup_.HeightM) {
+      pitch = std::atan2(0.5 * Setup_.HeightM - eyeAgl, dist) / kDeg2Rad;
       targetH = eyeAgl + dist * std::sin(pitch * kDeg2Rad);
     }
   } else {
-    targetH = v.TargetPerH < 0.0 ? 0.5 * frameH : v.TargetPerH * HeightM_;
+    targetH = v.TargetPerH < 0.0 ? 0.5 * frameH : v.TargetPerH * Setup_.HeightM;
     eyeAgl = targetH - dist * std::sin(pitch * kDeg2Rad);
   }
 
@@ -213,9 +191,10 @@ void SubjectBench::Place(const Order &o) {
   const double sinA = std::sin(azR), cosA = std::cos(azR);
   const double outward = dist * std::cos(pitch * kDeg2Rad);
   const double camE = -outward * sinA, camN = -outward * cosA;
-  const double camLat = Lat_ + camN / kMPerDeg;
-  const double camLon = Lon_ + camE / (kMPerDeg * std::cos(Lat_ * kDeg2Rad));
-  const double camAsl = AslM_ + eyeAgl;
+  const double camLat = Scenario::kAnchorLatDeg + camN / kMPerDeg;
+  const double camLon =
+      Scenario::kAnchorLonDeg + camE / (kMPerDeg * std::cos(Scenario::kAnchorLatDeg * kDeg2Rad));
+  const double camAsl = Setup_.GroundAslM + eyeAgl;
 
   /* THE WIND BLOWS ACROSS THE FRAME, left to right, so a bend is a bend and not a foreshortening.
    * It comes FROM camAz + 270 and therefore blows TOWARD camAz + 90, which is the camera's right. */
@@ -244,13 +223,13 @@ void SubjectBench::Place(const Order &o) {
   const double floorR = std::sqrt(2.0 * 6371000.0 * std::max(eyeAgl, 0.001));
   const double gridM = NiceStep(frameW / 8.0);
   R_.SetBenchGround(eyeAgl, floorR, gridM);
-  R_.SetBenchSubstrate(SubstrateRgb_);
+  R_.SetBenchSubstrate(Setup_.SubstrateRgb);
   /* The subject stands where the camera aims, on the floor: the same `ahead` the card is placed by,
    * so plant, card and ruled plane cannot drift apart. */
-  if (Kind_ == Subject::Tree) {
+  if (Setup_.Frames == Setup::Habit::Tree) {
     R_.SetPrototypeSubject(sinA * dist * std::cos(pitch * kDeg2Rad),
                            cosA * dist * std::cos(pitch * kDeg2Rad), eyeAgl);
-    R_.SetPrototypeHeightM(HeightM_);
+    R_.SetPrototypeHeightM(Setup_.HeightM);
   }
 
   /* WHERE THE NEUTRAL CARD STANDS. At the frame's LEFT EDGE and upright at the target plane, because
@@ -260,7 +239,7 @@ void SubjectBench::Place(const Order &o) {
    * A nadir view gets none: its picture IS the measured square metre and a card inside it would be
    * area subtracted from the coverage. */
   Render::BenchCard card;
-  if (!v.Square) {
+  if (!v.Square && Setup_.Behind == Scenario::Backdrop::Card) {
     const double latE = cosA, latN = -sinA;   /* the camera's right, in the ground plane */
     const double ahead = dist * std::cos(pitch * kDeg2Rad);
     const double half = 0.5 * kCardFrameFrac * frameW;
@@ -270,7 +249,7 @@ void SubjectBench::Place(const Order &o) {
     card.LatE = latE;
     card.LatN = latN;
     card.HalfWidthM = half;
-    card.HeightM = std::max(frameH, 1.5 * HeightM_);
+    card.HeightM = std::max(frameH, 1.5 * Setup_.HeightM);
   }
   R_.SetBenchCard(card);
 
@@ -315,7 +294,7 @@ void SubjectBench::Place(const Order &o) {
  * THE REFERENCE LIGHT METERS FIRST and every other picture is held at its placement. Auto-exposing
  * each light would normalise all three and make "transmission against reflection" unmeasurable. */
 bool SubjectBench::Begin() {
-  if (Kind_ == Subject::None) return false;
+  if (!(Setup_.HeightM > 0.0)) return false;
 
   static const View kHerbViews[] = {
     /* name          frameH/H  width/H   widthM  dist/H   pitch    eye   target   az     sq    turn   wind */
@@ -349,16 +328,17 @@ bool SubjectBench::Begin() {
     {"eye",          0.0,      2.0,      4.0,    0.0,     -3.0,     1.70, 0.0,     0.0, false, true,  false},
   };
 
-  const View *views = Kind_ == Subject::Tree ? kTreeViews : kHerbViews;
-  const size_t viewCount = Kind_ == Subject::Tree ? std::size(kTreeViews) : std::size(kHerbViews);
+  const bool tree = Setup_.Frames == Setup::Habit::Tree;
+  const View *views = tree ? kTreeViews : kHerbViews;
+  const size_t viewCount = tree ? std::size(kTreeViews) : std::size(kHerbViews);
 
-  Orders_.push_back({&views[0], "frontlit", 0.0, 180.0, kSunElDeg, 0.0, 0.0, true});
+  Orders_.push_back({&views[0], "frontlit", 0.0, 180.0, Setup_.KeyElDeg, 0.0, 0.0, true});
   for (size_t vi = 0; vi < viewCount; vi++) {
     const View &v = views[vi];
     const double az = v.AzOffDeg;
-    Orders_.push_back({&v, "frontlit", az, az + 180.0, kSunElDeg, 0.0, 0.0, false});
-    Orders_.push_back({&v, "backlit",  az, az,         kSunElDeg, 0.0, 0.0, false});
-    Orders_.push_back({&v, "skylight", az, az + 180.0, kSunElDeg, 1.0, 0.0, false});
+    Orders_.push_back({&v, "frontlit", az, az + 180.0, Setup_.KeyElDeg, 0.0, 0.0, false});
+    Orders_.push_back({&v, "backlit",  az, az,         Setup_.KeyElDeg, 0.0, 0.0, false});
+    Orders_.push_back({&v, "skylight", az, az + 180.0, Setup_.KeyElDeg, 1.0, 0.0, false});
     /* THE WIND ROW, and it was refused until this round because three identical files would have
      * been a lie. Same geometry, same light, same exposure; the only thing that differs is the
      * declared met wind, so a difference between two of these files can be nothing else. */
@@ -366,11 +346,11 @@ bool SubjectBench::Begin() {
       for (double ms : {0.0, 6.0, 12.0}) {
         char name[24];
         std::snprintf(name, sizeof name, "wind%02d", (int)std::lround(ms));
-        Orders_.push_back({&v, name, az, az + 180.0, kSunElDeg, 0.0, ms, false});
+        Orders_.push_back({&v, name, az, az + 180.0, Setup_.KeyElDeg, 0.0, ms, false});
       }
     if (!v.Turntable) continue;
-    for (int k = 0; k < TurnSteps_; k++) {
-      const double a = az + 360.0 * (double)k / (double)TurnSteps_;
+    for (int k = 0; k < Setup_.TurnSteps; k++) {
+      const double a = az + 360.0 * (double)k / (double)Setup_.TurnSteps;
       char name[24];
       std::snprintf(name, sizeof name, "turn%03d", (int)std::lround(a - az) % 360);
       /* THE SUN STAYS WHERE THE VIEW'S OWN FRONTLIT PUT IT and the camera walks around: that is what a
@@ -378,7 +358,7 @@ bool SubjectBench::Begin() {
        * sun's bearing RELATIVE to the camera, logged as `sunRelDeg` — and turn000 is frontlit to the
        * bit. turn180 is the backlit BEARING seen from the other face of the stand, which is not the
        * backlit PICTURE. */
-      Orders_.push_back({&v, name, a, az + 180.0, kSunElDeg, 0.0, 0.0, false});
+      Orders_.push_back({&v, name, a, az + 180.0, Setup_.KeyElDeg, 0.0, 0.0, false});
     }
   }
   return true;
@@ -390,11 +370,11 @@ SubjectBench::Progress SubjectBench::Step() {
     if (!Begin()) return Progress::Failed;
   }
   if (OrderIx_ >= Orders_.size()) {
-    Log::Info("rig", "done", {{"template", Template_}, {"heightM", HeightM_}, {"images", Written_},
-        {"dir", OutDir_}, {"keyEv", (double)KeyEv_}, {"fovDeg", kFovDeg},
-        {"substrate", Substrate_},
-        {"substrateRgb", std::to_string(SubstrateRgb_[0]) + "," + std::to_string(SubstrateRgb_[1])
-                       + "," + std::to_string(SubstrateRgb_[2])},
+    Log::Info("rig", "done", {{"subject", Setup_.Name}, {"heightM", Setup_.HeightM}, {"images", Written_},
+        {"dir", Setup_.Dir}, {"keyEv", (double)KeyEv_}, {"fovDeg", Setup_.FovDeg},
+        {"substrate", Setup_.SubstrateName},
+        {"substrateRgb", std::to_string(Setup_.SubstrateRgb[0]) + "," + std::to_string(Setup_.SubstrateRgb[1])
+                       + "," + std::to_string(Setup_.SubstrateRgb[2])},
         {"cardAlbedo", (double)Render::BenchGroundStage::kCardAlbedo},
         {"gaps", "leaf|season"}});
     return Progress::Done;
@@ -491,7 +471,7 @@ SubjectBench::Progress SubjectBench::Write(const Order &o) {
   const double barM = DrawScaleBar(Img_.data(), Shot_.OutW, Shot_.OutH, Shot_.MPerPx);
 
   char path[512];
-  std::snprintf(path, sizeof path, "%s/%s-%s-%s.png", OutDir_.c_str(), Template_.c_str(), v.Name,
+  std::snprintf(path, sizeof path, "%s/%s-%s-%s.png", Setup_.Dir.c_str(), Setup_.Name.c_str(), v.Name,
                 o.Light.c_str());
   if (Out_.Png(path, Img_.data(), Shot_.OutW, Shot_.OutH) == Artifacts::Delivery::Refused) {
     Log::Error("rig", "png_write_failed", {{"path", std::string(path)}});
@@ -513,7 +493,7 @@ SubjectBench::Progress SubjectBench::Write(const Order &o) {
       {"cloudCover", o.CloudCover}, {"fovDeg", Shot_.Fov}, {"focalPx", fPx},
       {"focal35mm", 12.0 / std::tan(Shot_.HalfV)},
       {"mmPerPx", Shot_.MPerPx * 1000.0}, {"scaleBarM", barM}, {"gridM", Shot_.GridM},
-      {"substrate", Substrate_}, {"cardWidthM", 2.0 * Shot_.Card.HalfWidthM},
+      {"substrate", Setup_.SubstrateName}, {"cardWidthM", 2.0 * Shot_.Card.HalfWidthM},
       {"cardHeightM", Shot_.Card.HeightM},
       {"cardPct", fill.CardPct}, {"cardMedian", fill.CardMedian},
       {"fillPct", fill.Pct}, {"subjectMedian", fill.Median},

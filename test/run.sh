@@ -94,6 +94,7 @@ LayerIncludes() {
   case "$1" in
     core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     harness) printf '%s' "" ;;
     *) return 1 ;;
@@ -106,6 +107,7 @@ LayerGroups() {
   case "$1" in
     core) printf '%s' "src/core src/core/io" ;;
     data) printf '%s' "src/core src/core/io src/data" ;;
+    scenario) printf '%s' "src/core src/scenario" ;;
     generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     harness) printf '%s' "" ;;
     *) return 1 ;;
@@ -132,6 +134,7 @@ GroupIncludes() {
   case "$1" in
     src/core | src/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     *) return 1 ;;

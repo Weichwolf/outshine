@@ -7,7 +7,6 @@
 #include <sstream>
 
 #include "Json.h"
-#include "Scene.h"
 
 namespace outshine::Clients {
 namespace {
@@ -48,15 +47,15 @@ std::string Quote(const std::string &in) {
 
 void Snapshot::SetName(const char *name) { Name_ = name ? name : ""; }
 
-void Snapshot::SetScene(const Scene &s) {
-  ScenePath_ = s.Id();
-  SceneLat_ = s.Lat();
-  SceneLon_ = s.Lon();
-  SceneEyeM_ = s.EyeM();
-  SceneYawDeg_ = s.YawDeg();
-  ScenePitchDeg_ = s.PitchDeg();
-  SceneFovDeg_ = s.FovDeg();
-  SceneUtcS_ = s.UtcS();
+void Snapshot::SetScene(const std::string &id, const Scenario::WorldStage &world, double fovDeg) {
+  ScenePath_ = id;
+  SceneLat_ = world.Where.LatDeg();
+  SceneLon_ = world.Where.LonDeg();
+  SceneEyeM_ = world.EyeAglM;
+  SceneYawDeg_ = world.YawDeg;
+  ScenePitchDeg_ = world.PitchDeg;
+  SceneFovDeg_ = fovDeg;
+  SceneUtcS_ = world.UtcS;
 }
 
 void Snapshot::SetCamera(double lat, double lon, double yawDeg, double pitchDeg) {
@@ -166,13 +165,13 @@ bool Snapshot::LoadText(const char *text, size_t len) {
  * taken in, and re-rendering it against a different one is refused rather than approximated. The
  * tolerances are the JSON round-trip's last digit, not a similarity measure — any real divergence is
  * orders of magnitude larger than these. */
-bool Snapshot::Matches(const Scene &s) {
+bool Snapshot::Matches(const Scenario::WorldStage &world, double fovDeg) {
   const char *bad = nullptr;
-  if (!Near(SceneLat_, s.Lat(), 1e-7)) bad = "lat";
-  else if (!Near(SceneLon_, s.Lon(), 1e-7)) bad = "lon";
-  else if (!Near(SceneEyeM_, s.EyeM(), 1e-3)) bad = "eyeM";
-  else if (!Near(SceneFovDeg_, s.FovDeg(), 1e-4)) bad = "fovDeg";
-  else if (SceneUtcS_ != s.UtcS()) bad = "utcS";
+  if (!Near(SceneLat_, world.Where.LatDeg(), 1e-7)) bad = "lat";
+  else if (!Near(SceneLon_, world.Where.LonDeg(), 1e-7)) bad = "lon";
+  else if (!Near(SceneEyeM_, world.EyeAglM, 1e-3)) bad = "eyeM";
+  else if (!Near(SceneFovDeg_, fovDeg, 1e-4)) bad = "fovDeg";
+  else if (SceneUtcS_ != world.UtcS) bad = "utcS";
   if (!bad) return true;
   Error_ = std::string("snapshot was taken in a different scene: ") + bad;
   return false;

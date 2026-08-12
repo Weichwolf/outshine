@@ -15,6 +15,7 @@
 #include "Sanitisers.h"
 #include "SceneRunner.h"
 #include "Snapshot.h"
+#include "Stage.h"
 #include "TextTarget.h"
 
 /* WHICH BINARY THIS IS, from the build that names the binary. A literal here was wrong for every
@@ -62,11 +63,12 @@ const Clients::Outshine::Assets kAssets{"src/assets/world/vegetation.json",
  * shots.jsonl, refused if the scene it names is not this one. It REPLACES the declared standpoint
  * rather than combining with it — two statements of where the eye is, applied at once, describe a
  * picture neither of them means. */
-[[nodiscard]] bool Stand(const Clients::Scene &scene, Clients::Outshine &app) {
-  if (scene.Snapshot().empty()) return true;
+[[nodiscard]] bool Stand(const Scenario::Scene &scene, Clients::Outshine &app) {
+  const Scenario::WorldStage *world = scene.Staged().AsWorld();
+  if (!world || world->SnapshotPath.empty()) return true;
   Clients::Snapshot snap;
-  if (!snap.Load(scene.Snapshot().c_str()) || !snap.Matches(scene)) {
-    Log::Error("run", "snapshot_refused", {{"path", scene.Snapshot()}, {"why", snap.Error()}});
+  if (!snap.Load(world->SnapshotPath.c_str()) || !snap.Matches(*world, scene.FovDeg())) {
+    Log::Error("run", "snapshot_refused", {{"path", world->SnapshotPath}, {"why", snap.Error()}});
     return false;
   }
   app.SetStance({snap.Lat(), snap.Lon(), snap.YawDeg(), snap.PitchDeg()});
@@ -91,7 +93,7 @@ const Clients::Outshine::Assets kAssets{"src/assets/world/vegetation.json",
   return false;
 }
 
-int Record(const Clients::Scene &scene, Clients::RunIdentity::Fields fields,
+int Record(const Scenario::Scene &scene, Clients::RunIdentity::Fields fields,
            const TextTarget &telemetryTo) {
   /* BEFORE THE APP (`C.13`): the world's tile pool borrows this wire and joins its threads in the
    * app's destructor, so the wire has to outlive the app rather than the other way round. */
@@ -104,8 +106,12 @@ int Record(const Clients::Scene &scene, Clients::RunIdentity::Fields fields,
   Clients::RunIdentity identity(fields);
   app.SetTelemetryIdentity(&identity);
   app.SetTelemetrySink(&telemetry);
-  app.SetTransport(ordered);
-  app.SetContentStore(DeclaredStore());
+  /* A STUDIO REACHES NO UPSTREAM AND KEEPS NO CACHE, and it is the stage that says so: a wire handed
+   * to a scene with no place is a wire that can only be used by mistake. */
+  if (scene.Staged().AsWorld()) {
+    app.SetTransport(ordered);
+    app.SetContentStore(DeclaredStore());
+  }
   if (!Stand(scene, app)) return 1;
   if (!app.Prepare()) return 1;
 
@@ -145,18 +151,18 @@ int main(int argc, char **argv) {
                                             Clients::Env("OUTSHINE_BUILD", ""), "", 0, 0};
   Announce(fields, logTo, telemetryTo);
 
-  Clients::Mod mod;
+  Scenario::Mod mod;
   if (!mod.Load(Clients::Env("OUTSHINE_MODS", "test/mods"), argv[1])) {
     Log::Error("run", "mod_load_failed", {{"why", mod.Error()}});
     return 1;
   }
-  const Clients::Scene *scene = mod.Find(argv[2]);
+  const Scenario::Scene *scene = mod.Find(argv[2]);
   if (!scene) {
     Log::Error("run", "unknown_scene", {{"mod", mod.Name()}, {"asked", std::string(argv[2])},
         {"has", mod.Ids()}});
     return 1;
   }
-  if (scene->What() != Clients::Scene::Kind::Run) {
+  if (scene->What() != Scenario::Scene::Kind::Run) {
     Log::Error("run", "scene_is_interactive", {{"scene", scene->Id()}});
     return 1;
   }

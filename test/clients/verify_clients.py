@@ -33,7 +33,7 @@ TREES = ("src", "test")
 ENTRY_POINTS = ("AppWalk.cpp",)
 # An entry point's whole world. Everything else it might want is Outshine's or the bench's.
 ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "Walker.h", "Scene.h", "Snapshot.h",
-                  "Mod.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
+                  "Mod.h", "Stage.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
                   # WHERE THE RUN'S TEXT GOES. A path, stdout or stderr, named by the consumer and
                   # by nothing else -- the log and the state channel are the entry point's to place.
                   "TextTarget.h", "LogSinks.h", "CsvTelemetry.h", "Sanitisers.h",

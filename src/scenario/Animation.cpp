@@ -2,7 +2,7 @@
 
 #include "CatmullRom.h"
 
-namespace outshine::Clients {
+namespace outshine::Scenario {
 namespace {
 
 using Ref = Json::Ref;
@@ -149,4 +149,4 @@ double Animation::At(Target t, double frame) const {
   return Keyframes(c.How, c.Frames.data(), c.Frames.size(), c.Values.data(), 1).AtScalar(frame);
 }
 
-}  // namespace outshine::Clients
+}  // namespace outshine::Scenario

@@ -7,7 +7,7 @@
 #include "Json.h"
 #include "Keyframes.h"
 
-namespace outshine::Clients {
+namespace outshine::Scenario {
 
 /* MOVEMENT IN A SCENE, in glTF's shape: a channel points a sampler at a property, a sampler is
  * keyframes plus values plus an interpolation. Khronos already solved "how does a human author a
@@ -59,5 +59,5 @@ private:
   int Driver_[(size_t)Target::kCount] = {-1, -1, -1, -1, -1, -1, -1, -1};
 };
 
-} // namespace outshine::Clients
+} // namespace outshine::Scenario
 #endif

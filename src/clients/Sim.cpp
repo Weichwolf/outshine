@@ -56,25 +56,39 @@ Generators::Forest::Stem StemOf(const Generators::TreeSpecies &sp) {
   return stem;
 }
 
+/* THE STANCE A STUDIO STARTS FROM. There is no place to declare, so it is the studio's anchor and
+ * the eye looks down the prime meridian: nothing in a studio picture is measured from either. */
+Sim::Stance StanceOf(const Scenario::WorldStage *world) {
+  if (!world) return {Scenario::kAnchorLatDeg, Scenario::kAnchorLonDeg, 0.0, 0.0};
+  return {world->Where.LatDeg(), world->Where.LonDeg(), world->YawDeg, world->PitchDeg};
+}
+
 }  // namespace
 
-Sim::Sim(const Scene &scene, const Assets &assets)
+Sim::Sim(const Scenario::Scene &scene, const Assets &assets)
     : Scene_(scene),
       Assets_(assets),
-      Wind_(Scene_),
-      Stance_{Scene_.Lat(), Scene_.Lon(), Scene_.YawDeg(), Scene_.PitchDeg()},
-      WindDeg_(Scene_.WindDeg()),
-      WindMs_(Scene_.WindMs()),
-      Clk_((double)Scene_.UtcS()),
+      /* A STUDIO DECLARES ITS OWN LIGHT AND ITS OWN WIND per shot, so the four numbers below have no
+       * world to come from and are zero rather than borrowed from a place that does not exist. */
+      Wind_(Scene_.Staged().AsWorld()),
+      Stance_(StanceOf(Scene_.Staged().AsWorld())),
       W_(PixelFocalLength(Scene_.RenderResolution().Height, Scene_.FovDeg())),
       Ring_(kRing) {
   /* The thread that builds this object is the one that will draw on it, and this is the earliest
    * moment at which the engine can say so. */
   StackProbe::Enter(StackProbe::Purpose::Frame);
-  ViewM_ = Scene_.ViewM();
-  OrthoM_ = Scene_.OrthoM();
-  Stand_.SetEyeAglM(Scene_.EyeM());
-  if (Scene_.HasLensAslM()) Stand_.SetLensAslM(Scene_.LensAslM());
+  if (const Scenario::WorldStage *w = WorldStage()) {
+    ViewM_ = w->ViewM;
+    OrthoM_ = w->OrthoM;
+    WindDeg_ = w->WindFromDeg;
+    WindMs_ = w->WindMs;
+    WindClockS_ = w->WindClockS;
+    Clk_ = (double)w->UtcS;
+    Stand_.SetEyeAglM(w->EyeAglM);
+    if (w->HasLensAslM) Stand_.SetLensAslM(w->LensAslM);
+  } else {
+    Stand_.SetGroundAslM(Scene_.Staged().AsStudio()->Ground.GroundAslM);
+  }
 }
 
 bool Sim::LoadTables() {
@@ -139,6 +153,9 @@ bool Sim::LoadTables() {
                    Span<const float>(StandsPerM2_.data(), StandsPerM2_.size()), Veg_.Limit());
     if (!Gens_.Add(kTreeRank, *Trees_)) return false;
   }
+  /* THE RING AND THE EPHEMERIS ARE THE WORLD'S. A studio has no ring to fill and its key light is
+   * declared, so neither the region pool nor a sun position is allocated or computed for one. */
+  if (!WorldStage()) return true;
   if (!OpenPool()) return false;
   SunPos(Stance_.Lat, Stance_.Lon, Clk_, &SunEl_, &SunAz_);
   return true;
@@ -505,7 +522,7 @@ Sim::Bring Sim::Open() {
   State_.Env.SunAzDeg = SunAz_;
   MoonPos(Stance_.Lat, Stance_.Lon, Clk_, &State_.Env.MoonElDeg, &State_.Env.MoonAzDeg,
           &State_.Env.MoonPhase);
-  State_.Env.CloudCover = (float)Scene_.CloudCover();
+  State_.Env.CloudCover = (float)(WorldStage() ? WorldStage()->CloudCover : 0.0);
   Look(Stance_);
 
   W_.SetVegetation(&Veg_);

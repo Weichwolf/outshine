@@ -62,6 +62,10 @@ INC_CORE    := -Isrc/core -Isrc/core/io
 # own directory, nothing above. Renderer, World, the streamer and the log have no spelling in it, and
 # `make verify-data` is what holds it to that.
 INC_DATA    := -Isrc/core -Isrc/data
+# A DECLARATION'S WHOLE WORLD: core and its own directory. A scenario says what is to be shown and
+# knows nothing that shows it, so Renderer, World, the streamer, the generators and the log all have
+# no spelling in it -- which is what lets the whole declaration be tested with no device and no wire.
+INC_SCENARIO := -Isrc/core -Isrc/scenario
 # A GENERATOR'S WHOLE WORLD. Not a subset of the others by accident: `make verify-generators`
 # compiles against exactly this and asserts that Renderer, World and the log have no spelling in it.
 # src/core/io is ABSENT on purpose -- Log and TelemetryBus live there, and a generator that cannot
@@ -74,7 +78,7 @@ INC_WORLD  := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles
 INC_RENDER := $(INC_CORE) -Isrc/render -Isrc/render/stages
 # THE SIMULATION HALF OF THE CLIENTS, and it is the ONLY place that may name world and generators in
 # one translation unit: -Isrc/render is absent, so the headless target's half cannot reach a renderer.
-INC_SIMHALF := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
+INC_SIMHALF := $(INC_CORE) -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 # ...and the picture half over it, the one set that holds everything.
 INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw $(INC_RENDER)
 # THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names. An entry point
@@ -98,6 +102,9 @@ CORE_SRCS := $(CORE_TOP_SRCS) $(CORE_IO_SRCS)
 # reason the generators are: a provider compiled with -Isrc/world could name the streamer in a build
 # that stays green. A wildcard, so a new upstream is bound by the include set without a list.
 DATA_SRCS := $(wildcard src/data/*.cpp)
+# THE DECLARATION, its own compile group for the same reason the generators are: compiled with a
+# wider include set it could name the thing it declares, in a build that stays green.
+SCENARIO_SRCS := $(wildcard src/scenario/*.cpp)
 # The host's own implementations of what the library declared it needs. Never in a src/ group.
 HOST_SRCS := $(wildcard test/host/*.cpp)
 # THE GENERATORS, and they are their own COMPILE GROUP for the same reason: everything else in a
@@ -123,8 +130,8 @@ DECODER_SRCS := $(wildcard src/world/tiles/*.cpp)
 
 # THE SIMULATION HALF OF THE CLIENTS. Nothing in this list may name render/, which `make world`
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
-SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
-  src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
+SIM_SRCS := src/clients/Sim.cpp \
+  src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
   src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp \
   src/clients/Species.cpp src/clients/RegionForge.cpp
 
@@ -142,6 +149,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
 OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
   $(patsubst src/core/io/%.cpp,$(1)/core-%.o,$(CORE_IO_SRCS)) \
   $(patsubst src/data/%.cpp,$(1)/data-%.o,$(DATA_SRCS)) \
+  $(patsubst src/scenario/%.cpp,$(1)/scn-%.o,$(SCENARIO_SRCS)) \
   $(patsubst test/host/%.cpp,$(1)/host-%.o,$(HOST_SRCS)) \
   $(patsubst src/generators/%.cpp,$(1)/gen-%.o,$(GEN_SRCS)) \
   $(patsubst src/world/%.cpp,$(1)/world-%.o,$(WORLD_SRCS)) \
@@ -153,8 +161,8 @@ PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS
   $(patsubst src/clients/%.cpp,$(1)/app-%.o,$(APP_SRCS))
 
 .PHONY: help walk walk-asan world treebench gates gates-build verify-generators \
-  verify-world verify-data verify-clients verify-types verify-refusals verify-walk \
-  verify-still verify-walk-asan clean
+  verify-scenario verify-world verify-data verify-clients verify-types verify-refusals \
+  verify-walk verify-still verify-walk-asan clean
 
 # WHERE A GATE'S OUTPUT GOES. Outside the tree on purpose: a log nobody committed on purpose is a
 # file the next round has to make a decision about.
@@ -188,6 +196,8 @@ define NATIVE_BUILD
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(DATA_SRCS); do o=$(1)/data-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DATA) -c -o "$$o"; done; \
+	  for f in $(SCENARIO_SRCS); do o=$(1)/scn-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SCENARIO) -c -o "$$o"; done; \
 	  for f in $(HOST_SRCS); do o=$(1)/host-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
@@ -233,6 +243,8 @@ world:           ## build the headless target -- everything except render/, no d
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(DATA_SRCS); do o=build/obj-world/data-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DATA) -c -o "$$o"; done; \
+	  for f in $(SCENARIO_SRCS); do o=build/obj-world/scn-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SCENARIO) -c -o "$$o"; done; \
 	  for f in $(HOST_SRCS); do o=build/obj-world/host-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
@@ -253,6 +265,27 @@ treebench:       ## grow every declared plant and measure it -> build/treebench 
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
 
+# WHAT MUST NOT BE REACHABLE FROM A DECLARATION. A scenario says what is to be shown; every one of
+# these is a thing that shows it, and the include set is what makes each of them unspellable rather
+# than discouraged. It is the same set of negatives the providers and the generators carry.
+SCENARIO_NEGATIVES := RendererIsNotReachable WorldIsNotReachable LogIsNotReachable GeneratorIsNotReachable
+
+verify-scenario: ## a scenario/ TU compiles against core and CANNOT name World, Renderer, Log or a generator
+	@cd $(SELF_DIR); set -e; \
+	  c++ test/compile/scenario/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_SCENARIO) -fsyntax-only; \
+	  for f in $(SCENARIO_SRCS); do \
+	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_SCENARIO) -fsyntax-only; \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_SCENARIO) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|generators\|clients\|data\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-scenario: $$f includes $$up file(s) above scenario/" >&2; exit 1; fi; done; \
+	  for n in $(SCENARIO_NEGATIVES); do f=test/compile/scenario/$$n.cpp; \
+	    if c++ "$$f" $(CXXSTD) $(INC_SCENARIO) -fsyntax-only 2>/dev/null; then \
+	      echo "verify-scenario: $$f COMPILED -- the declaration can name what shows it" >&2; exit 1; \
+	    fi; \
+	    if ! c++ "$$f" $(CXXSTD) $(INC_SCENARIO) -fsyntax-only 2>&1 | grep -q "file not found"; then \
+	      echo "verify-scenario: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
+	    fi; done; \
+	  echo "verify-scenario: $$(echo $(SCENARIO_SRCS) | wc -w | tr -d ' ') declaration TU(s) see core only, $(words $(SCENARIO_NEGATIVES)) negatives refused"
+
 # WHAT MUST NOT BE REACHABLE FROM A DATA PROVIDER. The same negatives the generators have, because
 # the two contracts are the same shape turned in opposite directions: neither may name the engine.
 # THE TRANSPORT IS THE HOST'S, WHOLE: the gate reads every object the client LINKS except `host-*`,
@@ -266,8 +299,8 @@ verify-data: walk ## a data/ TU compiles against core and CANNOT name World, Ren
 	  c++ test/compile/data/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DATA) -fsyntax-only; \
 	  for f in $(DATA_SRCS); do \
 	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DATA) -fsyntax-only; \
-	    up=$$(c++ "$$f" $(CXXSTD) $(INC_DATA) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|generators\|clients\)/' || true); \
-	    if [ "$$up" != "0" ]; then echo "verify-data: $$f includes $$up file(s) above data/" >&2; exit 1; fi; done; \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_DATA) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|generators\|clients\|scenario\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-data: $$f includes $$up file(s) above or beside data/" >&2; exit 1; fi; done; \
 	  for g in $(DATA_NEGATIVES); do f=test/compile/data/$$g.cpp; \
 	    if c++ "$$f" $(CXXSTD) $(INC_DATA) -fsyntax-only 2>/dev/null; then \
 	      echo "verify-data: $$f COMPILED -- the include set no longer bounds data/" >&2; exit 1; \
@@ -475,8 +508,8 @@ verify-still: walk ## the declared still is one picture over imposed tile arriva
 # second set needs a 10 800-frame walk and $(words $(STILL_SEEDS)) whole scenes and costs two orders
 # of magnitude more, so the first one exists to be affordable in an edit: a gate that is skipped is
 # not a defence.
-GATES_BUILD := verify-generators verify-clients verify-types verify-world verify-data \
-  verify-refusals verify-walk
+GATES_BUILD := verify-generators verify-scenario verify-clients verify-types verify-world \
+  verify-data verify-refusals verify-walk
 GATES_RUN := verify-still verify-walk-asan
 GATES := $(GATES_BUILD) $(GATES_RUN)
 

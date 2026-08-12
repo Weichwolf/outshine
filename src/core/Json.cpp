@@ -152,6 +152,14 @@ Json::Ref Json::Ref::operator[](size_t i) const {
   return Ref(Doc, Doc->Kids_[n.First + i]);
 }
 
+std::string Json::Ref::Key(size_t i) const {
+  if (!Valid()) return std::string();
+  const Json::Node &n = Doc->Nodes_[(size_t)Node];
+  if (n.K != Kind::Object || i >= n.Count) return std::string();
+  const Json::Node &c = Doc->Nodes_[(size_t)Doc->Kids_[n.First + i]];
+  return Doc->Decode(c.Key, c.KeyLen, c.KeyEscaped);
+}
+
 Json::Ref Json::Ref::operator[](const char *key) const {
   if (!Valid() || !key) return Ref();
   const Json::Node &n = Doc->Nodes_[(size_t)Node];

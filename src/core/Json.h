@@ -30,6 +30,9 @@ public:
 
     Ref operator[](size_t i) const;
     Ref operator[](const char *key) const;
+    /* THE KEYS AN OBJECT ACTUALLY CARRIES, so a reader can refuse one it does not know. Without it a
+     * misspelt property is silently the default, which is how eighty fields nobody read survived. */
+    std::string Key(size_t i) const;
 
     double Num(double def = 0.0) const;
     int Int(int def = 0) const { return (int)Num((double)def); }
@@ -45,6 +48,9 @@ public:
   /* `text` is copied; the DOM's strings point into the copy, so the caller's buffer may go. */
   [[nodiscard]] bool Parse(const char *text, size_t len);
   [[nodiscard]] bool Ok() const { return Ok_; }
+  /* Where the parse stopped, bytes from the start of the text. Meaningful only after a refused
+   * Parse; a reader that says "not valid JSON" without it sends its reader to search a whole file. */
+  size_t StoppedAt() const { return P_; }
   Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
 
 private:
