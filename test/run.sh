@@ -19,7 +19,7 @@
 # run and must produce a trailer, or in a directory declared as the Makefile's; a directory in
 # neither is a hard error before anything is built.
 #
-# THE INCLUDE SET COMES FROM THE TEST'S DIRECTORY, mirroring src/. A default include set is the quiet
+# THE INCLUDE SET COMES FROM THE TEST'S DIRECTORY. A default include set is the quiet
 # failure this whole design is built to avoid: a mistyped directory would get a wider set, and a test
 # that passes because it compiled against more than its own layer proves nothing about the layer.
 #
@@ -90,26 +90,45 @@ while [ $# -gt 0 ]; do
 done
 
 # WHAT A TEST OF THIS LAYER MAY NAME. One line per declared directory; there is no default arm.
+#
+# THREE SUITES, SPLIT BY INSTRUMENT (doc/requirements.md I.26.9). test/unit/ mirrors src/ exactly and
+# is the only tree that carries the layering proof; test/render/ and test/scenario/ are declarative
+# and organised by feature and by declared run. A render case links the library ENTIRE by
+# construction -- it needs the reader, the renderer and the readback at once -- so `render` gets the
+# union of the layer sets and must never look like a mirror of one directory.
 LayerIncludes() {
   case "$1" in
-    core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
-    data) printf '%s' "-Isrc/core -Isrc/data" ;;
-    scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
-    generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
+    unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    unit/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    unit/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
+    unit/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
+    unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
+    unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
+    unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     harness) printf '%s' "" ;;
+    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/scenario -Isrc/generators -Isrc/generators/draw" ;;
     *) return 1 ;;
   esac
 }
 
 # WHAT A TEST OF THIS LAYER LINKS. Layer archives are a later step; until then the harness compiles
 # the same source groups the Makefile does, each with its own directory's include set.
+#
+# `unit/world` LINKS NOTHING and that is a limit, not a choice: src/world/tiles decodes terrarium PNG
+# and imagery JPEG through SDL3_image, whose flags come from pkg-config -- and this harness's whole
+# dependency set is the shell, the compiler and the clock. A test that needs to RUN world code is
+# what pays to widen that.
 LayerGroups() {
   case "$1" in
-    core) printf '%s' "src/core src/core/io" ;;
-    data) printf '%s' "src/core src/core/io src/data" ;;
-    scenario) printf '%s' "src/core src/scenario" ;;
-    generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
+    unit/core) printf '%s' "src/core src/core/io" ;;
+    unit/data) printf '%s' "src/core src/core/io src/data" ;;
+    unit/gltf) printf '%s' "src/core src/gltf" ;;
+    unit/scenario) printf '%s' "src/core src/scenario" ;;
+    unit/generators) printf '%s' "src/core src/generators" ;;
+    unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
+    unit/world) printf '%s' "" ;;
     harness) printf '%s' "" ;;
+    render) printf '%s' "src/core src/core/io src/data src/gltf src/scenario src/generators src/generators/draw" ;;
     *) return 1 ;;
   esac
 }
@@ -120,10 +139,9 @@ LayerGroups() {
 NotTheHarnesses() {
   case "$1" in
     .) printf '%s' "the harness's own clock" ;;
-    clients) printf '%s' "entry points, built by the Makefile" ;;
+    unit/clients) printf '%s' "entry points, built by the Makefile" ;;
     host) printf '%s' "host implementations of what the library declares, built by the Makefile" ;;
-    generators) printf '%s' "a gate program the Makefile builds and runs" ;;
-    compile | compile/*) printf '%s' "judged by whether it compiles, by the Makefile, never run" ;;
+    unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     *) return 1 ;;
   esac
 }
@@ -134,6 +152,7 @@ GroupIncludes() {
   case "$1" in
     src/core | src/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
+    src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
@@ -302,9 +321,15 @@ for testSource in $TESTS; do
   for group in $groups; do
     BuildGroup "$group" >>"$log" 2>&1 || built=no
   done
+  # THE COMPILE COMMAND A LAYER'S REFUSAL TEST INVOKES, handed to it rather than written down twice.
+  # A test that proves `Renderer.h` has no spelling in src/scenario must compile a subject with the
+  # scenario layer's include set -- and if that set were stated a second time inside the test, the
+  # day the two disagree is the day the proof stops being about the build. It is the SAME string this
+  # test itself is compiled with, so a layer that widened cannot widen for its subjects only.
+  compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
-    $CXX "$testSource" $OBJECTS $CXXSTD $OPT $WARN -Itest $includes -o "$binary" >>"$log" 2>&1 || built=no
+    $CXX "$testSource" $OBJECTS $CXXSTD $OPT $WARN -Itest $includes "$compileDefine" -o "$binary" >>"$log" 2>&1 || built=no
   fi
 
   # A BUILD FAILURE, A TIMEOUT AND A SIGNAL ARE JUDGED BEFORE THE TRAILER, because none of the three
