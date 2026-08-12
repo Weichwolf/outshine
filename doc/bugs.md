@@ -1558,42 +1558,160 @@ whose subject is a prepared artefact. Until it exists, the test's own first clai
 present*, distinct from *the subject reads*. A `--allow-skip` entry is the wrong answer — it makes the
 test green forever, which is the defect class this harness was built to close.
 
-## The renderer's build order and its pass count are held by comments and a hand tally
+## A merged raster pass builds one attachment entry per stage instead of one per target, so the scene pass of any real picture is invalid and, at ten stages, writes past its array
 
-`src/render/Renderer.cpp`. Not the absence of a stage plan — that is scope and sits in
-`doc/requirements.md` § I.27 — but the enforcement of what is already there, which is written down
-where nothing can read it.
+`src/render/Renderer.cpp:631-668`, `EncodePass`. The pass builder loops over the stages of a merged
+pass and appends every target of every stage, guarded only by
 
-- **`OnDevice:149-179` performs twelve construction calls in a load-bearing order whose two hard
-  constraints exist only as comments** — *"before the terrain pipeline: terrain AP samples the
-  transmittance LUT"* (`:154`) and *"before ANY lit stage: their bind groups pin the atlas view"*
-  (`:155`), restated at `:181-186`. WebGPU pins a view into a bind group at creation, so a wrong order
-  here is not a wrong picture, it is a wrong *binding* — and the only thing standing between the two is
-  a reader's attention. The rule is real; the mechanism is a sentence. `P.5`, `P.6`: what can be checked
-  at compile time should be, and a construction order derived from declared reads and writes is exactly
-  that check.
-- **`RenderFrame:529-838` is 310 lines and does eleven things** — camera basis, jitter, sun and moon
-  ephemeris, atmosphere update, frame-context assembly, seven pass encodings, caster collection, a
-  telemetry tally and the history swap. `F.3` and `F.2`, and every one of the eleven is separately
-  nameable, which is the test `F.1` applies.
-- **The pass count is written down twice and reconciled by a run-time log.** `GpuTimer.h:27`'s
-  enumeration ends in `kPassCount = 7`; `Renderer.cpp:643` counts `passCount++` by hand and
-  `:815-819` logs `violation: passCount != kPassCount` every 300 frames. The comment calls the topology
-  *a contract* in capitals. A contract two places state and a third compares at run time is `P.5`
-  inverted — and the log is `Debug` level, so the violation can be true in a run nobody is reading.
-  Right: the number is an output of the thing that decides it, so there is nothing to compare.
-- **`Renderer.h:300-358` constructs sixteen stage objects at member-declaration with
-  `= std::make_unique<T>()`.** Every one exists in every renderer, including one that renders a depth
-  buffer for a coverage mask. `R.5` — prefer scoped objects, do not heap-allocate unnecessarily — and
-  `C.41`: a fully-initialised `Renderer` is currently one that has decided, at compile time, to be able
-  to draw everything.
-- `Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};` is written **seven times verbatim**
-  in `Renderer.cpp` (`:163, 188, 221, 248, 263, 296, 330`). `ES.3`. It is a member's worth of state
-  reassembled per call site, and each one is a place a future sixth field is forgotten.
+```cpp
+for (uint32_t c = 0; c < colourCount; ++c)
+  if (colours[c].view.Get() == View(target).Get()) already = true;
+```
 
-**Fixed when** the construction order is derived from declared reads and writes rather than from the
-sequence of statements, and the pass count has one source. **Decides it:** deleting the
-`passCount != kPassCount` log costs no information.
+`Renderer::View` (`:288-312`) answers with `HdrTex.CreateView()` — **a freshly created view object on
+every call**. Two calls for one texture return two different objects, so `.Get()` never compares equal
+and the duplicate check never fires. The array it fills is `wgpu::RenderPassColorAttachment
+colours[kMaxEdges * 2]`, sixteen entries, and `colourCount` is bounded by nothing.
+
+**Measured, not argued.** Compiling two declarations against `src/render/plan/RenderPlan.cpp` at
+`235a7ff` (probe under the system temp directory; the plan layer builds with `-Isrc/core
+-Isrc/render/plan` alone, so no device is involved):
+
+| declaration | merged scene pass | colour entries built | required | outcome |
+|---|---|---|---|---|
+| coverage — `Subjects` only | 1 stage | 2 | 2 | correct, and this is what the unit test and `test/render/Parity.cpp` exercise |
+| sky·sun·moon·stars·terrain·buildings·water·models | 8 stages | **16** | 2 | `colorAttachmentCount = 16` against WebGPU's `maxColorAttachments = 8` — the pass is refused by the device |
+| the same plus `benchGround` and `subjects` | 10 stages | **20** | 2 | four `wgpu::RenderPassColorAttachment` **written past the end of a 16-element stack array**, every frame |
+
+The whole scene group — `Sky` through `Subjects`, ten catalogue rows — declares the identical
+`Contributes` set `{SceneHdr, SceneVelocity, SceneDepth}`, which is exactly why `Compile` merges them
+into one pass, correctly. The pass descriptor must therefore carry the **union** of the target sets,
+which is two colour attachments and one depth attachment however many stages draw into them. It
+carries the concatenation instead. `Bounds.1`, `Bounds.2`, `SL.con.3`, `ES.103`.
+
+**The harmless explanations, sought and ruled out.** *Dawn might cache texture views so the pointers
+compare equal* — `wgpu::Texture::CreateView` constructs a new refcounted view object per call; nothing
+in the tree holds a cached view to hand back, and `View()` is written as `X ? X.CreateView() :
+wgpu::TextureView()` at eleven sites. *Duplicate attachments might be legal* — they are not; a texture
+view used as more than one attachment of one pass is a WebGPU validation error, and sixteen exceeds the
+limit besides. *It might not be reachable* — it is unreachable **only** because nothing in the tree
+renders a scene yet: the sole `Renderer::Init` caller is `test/render/Parity.cpp:516`, which declares
+one content stage. It fires on the first declaration with two scene stages in it.
+
+**Two more defects live in the same twelve lines.**
+
+- **Every attachment is `LoadOp::Clear`, unconditionally** (`:645-658`), and no field of the catalogue
+  can say otherwise. The comment above `ClearOf` (`:598-601`) calls each clear *"a statement rather
+  than a habit"*, and `EncodePass`'s own comment says *"every field of it comes from the plan"* — the
+  load op does not. Correctness today rests on an accident: the ten scene contributors are contiguous
+  in the enumeration, so `Order_` compaction always puts them in one pass. The first stage that
+  contributes `SceneHdr` after `Occlusion` — blended transparency, particles, a debug overlay, an
+  ordered water pass — opens a second pass over a live attachment and **clears the opaque frame to
+  black**, and nothing refuses it. Right: a load/store op per target on the stage row, `Load` refused
+  where the catalogue has no earlier producer, and a compile-time refusal for a target that is entered
+  by two non-adjacent passes.
+- **`View()` allocates on the hot path.** Every colour attachment, every depth attachment and every
+  duplicate probe creates a texture view; the eight-stage pass would create 24 of them per frame if the
+  dedup worked, plus one per `Bound()` call. `Per.14`, `Per.15`. Right: create each view once, at the
+  point the plan says the resource exists, and let `View()` return a handle.
+
+**Fixed when** a merged pass's descriptor is derived from the union of its stages' target sets — one
+entry per distinct `Resource`, in the catalogue's own order — the array is indexed by `Resource` or
+bounded by an assertion that cannot be exceeded, and a declaration holding two scene stages encodes and
+presents. **Decides it:** the ten-stage declaration above, run against a device.
+
+## The plan digest does not cover everything that can move a pixel, and three things move one behind its back
+
+`src/render/plan/RenderPlan.cpp:239-254`. The digest's material is the stage set, the derived order, the
+passes, the merges, the aliases, the held resources with their formats, the display transfer and the
+exposure. § I.27 requires it to cover *everything whose change can move a pixel*, because a baseline is
+keyed by it and the alternative is a one-token hash edit that looks like maintenance.
+
+- **The frame extent is not in it.** `Renderer::Init(int width, int height, plan)`
+  (`src/render/Renderer.cpp:68`) takes the resolution beside the plan, so the plan never learns it.
+  A run at 1280 × 720 and a run at 320 × 180 produce **the same digest**, and 320 × 180 is the rung the
+  picture is compared at. This is the same missing field as the residency ledger's: the catalogue has no
+  extent, so `Renderer::Create` carries `256, 64` and `192, 108` as literals (`:242-246`), the AO buffer
+  is silently half-resolution (`stages/AoStage.h:6`, `:24-25`) and the shadow atlas is 4 × 1024²
+  (`stages/ShadowSample.h:16-17`) — four resolution classes, none of them expressible.
+- **A picture-changing branch sits at a creation site, which is the one thing § I.27 forbids by name.**
+  `Renderer::Create` for `Resource::VegetationTable` reads `if (VegRows.empty()) return;`
+  (`src/render/Renderer.cpp:238`), so `Plan_->Holds(Resource::VegetationTable)` is **true while the
+  buffer does not exist**. `TerrainDraw::Configure` then selects a different fragment shader —
+  `VegBuf ? kVegOnWGSL : kVegOffWGSL` (`stages/TerrainDraw.cpp:645`) and drops two bindings (`:760-762`).
+  Two visibly different terrains, one digest. Right: the vegetation table is a declared input of the
+  plan or the plan does not hold it; the branch belongs in the declaration, not in `Create`.
+- **`FB_TAA=0` retires a declared stage from an environment variable.**
+  `src/render/Renderer.h:327` — `const bool TaaOn = [] { const char *e = getenv("FB_TAA"); ... }();` —
+  and `Renderer.cpp:723,777` disarm the jitter and the history from it. `TemporalResolve` is now a stage
+  a consumer declares; this is a second, undeclared way to turn the same thing off, it changes the
+  picture, and it changes neither the digest nor `SettleFrames()`. The tree already states the rule
+  against itself: `src/render/GpuTimer.h:36-39`, *"NO ENVIRONMENT GATE. An environment variable is not
+  an interface"*. `I.2`, `I.3`.
+
+**Fixed when** two declarations that produce different pixels produce different digests, demonstrated by
+the three cases above, and `getenv` appears nowhere under `src/render/`.
+
+## The catalogue is not the whole truth about what a stage touches, so the assertions prove less than they read as proving
+
+`src/render/plan/RenderCatalogue.h`, `src/render/plan/RenderPlan.cpp:36-42`,
+`src/render/Renderer.cpp:324-376`. The six `static_assert`s are the strongest thing in this design and
+two holes let an edge past them.
+
+- **`Pull::Hold` pulls a stage's `Reads` and its `Contributes` and never its `Writes`**
+  (`RenderPlan.cpp:40-41`). A held stage's `Derived` output is therefore marked held only if some other
+  held stage happens to read it, and `Renderer::OnDevice` creates only what `Holds()` reports. Every
+  stage in today's catalogue writes at most one resource and that resource is always read, so nothing is
+  wrong on the screen — **and nothing enforces either half of that**. A stage with two outputs, or one
+  whose output only leaves through a readback, silently gets an uncreated resource and a null binding.
+  Right: `Hold` wants what the stage writes, which also makes the resource appear in the digest.
+- **`Configure(Stage::TemporalResolve)` binds two resources the row does not declare** —
+  `View(Resource::AoBuffer)` and `MeterBuf` (`Renderer.cpp:362-366`), while the row's `Reads` are
+  `{SceneHdr, SceneVelocity, SceneDepth, LinearSampler, AtmosphereUniform}`
+  (`RenderCatalogue.h:219-222`). It is correct today because R2 fuses the resolve with the tonemap and
+  the tonemap declares both, and because the bindings are guarded by `display.HasOcclusion`
+  (`stages/TaaStage.cpp:287`). But `TopologicalOrderHolds` only constrains what a row **declares**: the
+  ordering that keeps `Occlusion` before the resolve is carried by `Tonemap`'s row, and if the fusion is
+  ever unwound or re-aimed the compile-time proof quietly stops covering the real read set. Right: the
+  fused pair's read set is a union the compiler computes, and `Configure` receives the pass's resources
+  rather than a hand-picked list per stage.
+
+**Fixed when** a stage cannot be handed a resource its row does not name — the shape, not a review rule:
+`Configure` takes the plan's resolved bindings for that stage, so an undeclared one has no spelling.
+
+## `GpuTimer` says its slot names come from the plan, takes none, and no caller has ever taken a sample
+
+`src/render/GpuTimer.h:11-15` states *"THE SLOT COUNT AND THE SLOT NAMES COME FROM THE COMPILED PLAN"*.
+`Configure(const wgpu::Device &, bool featureGranted, int passCount)` (`:40`) takes the count and no
+names, and `Sample` (`:30-34`) is `double PassMs[kMaxPasses]` indexed by an integer — a reader of a
+telemetry row cannot tell which pass a number belongs to. The names exist and are two lines away:
+`RenderPlan::Pass::Name` (`plan/RenderPlan.h:59`), already used to build the digest.
+
+Second half: `Renderer::TakeGpuTimes` (`Renderer.h:210`) has **no caller in `src/` or `test/`**. The
+queries are written, resolved and polled every frame (`Renderer.cpp:816-826`) and the result is dropped.
+§ I.11's *every dial that changes the picture published as its own telemetry column* is not delivered by
+producing the number; it is delivered by a row carrying it under its name.
+
+**Fixed when** `Configure` takes the compiled plan and the sample carries `{name, ms}` per pass, and one
+declared run writes a telemetry row with a named per-pass column. **Decides it:** the row.
+
+## `Renderer` still constructs sixteen stage objects unconditionally, and `RenderFrame` is 170 lines
+
+`src/render/Renderer.h` — sixteen members of the form `std::unique_ptr<T> X = std::make_unique<T>();`.
+The plan now decides what is *created on the device* and what is *configured*, which was the expensive
+half; the object graph still does not follow the plan, so a renderer that draws a depth buffer for a
+coverage mask holds a `TaaStage`, a `StarsStage` and a `MoonStage`. `R.5`, `C.41`. The consequence is not
+bytes: it is that `View(Resource::SceneLinear)` → `Taa->Output(FrameNo)` and `Light()` →
+`Shadow->AtlasView()` (`Renderer.cpp:298,446`) are **callable on stages the plan does not hold**, and
+answer with a null view instead of failing to compile. The catalogue's read edges are what makes every
+such call correct today; nothing in the type system does.
+
+`RenderFrame` (`Renderer.cpp:676-846`) is 170 lines, down from 310 — camera basis, jitter, ephemeris,
+atmosphere update, frame-context assembly, caster collection, the pass loop and the history swap.
+`F.3`, `F.2`.
+
+**Fixed when** a stage object exists because the plan holds its stage, so a call into an unheld stage
+does not compile.
 
 ## Every coverage case draws with culling off, so three claims about winding stand on an instrument that cannot see it
 
