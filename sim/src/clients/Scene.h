@@ -91,7 +91,7 @@ public:
   [[nodiscard]] bool Read(const Json::Ref &node, std::string &err);
 
   const std::string &Id() const { return Id_; }
-  Kind What() const { return Kind_; }
+  [[nodiscard]] Kind What() const { return Kind_; }
 
   double Lat() const { return Lat_; }
   double Lon() const { return Lon_; }

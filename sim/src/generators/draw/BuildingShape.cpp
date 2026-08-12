@@ -243,7 +243,7 @@ void MinAreaBox(const std::vector<Plan2> &ring, BuildingShape *out) {
   }
 }
 
-BuildingUse UseOf(double areaM2, double aspect, double heightM) {
+[[nodiscard]] BuildingUse UseOf(double areaM2, double aspect, double heightM) {
   if (areaM2 < 26.0) return BuildingUse::Outbuilding;
   if (heightM > 21.0 && areaM2 < 260.0) return BuildingUse::Spire;
   if (heightM > 19.0) return BuildingUse::Tower;
@@ -262,7 +262,7 @@ BuildingUse UseOf(double areaM2, double aspect, double heightM) {
 /* THE OUTLINE DECIDES, and where it cannot the box does. A pitched roof is trimmed to the outline,
  * so a low fill costs no overhang — what it costs is a ridge running across a plan that has two
  * wings, which is why a plan that low was cut into wings before it got here. */
-RoofKind RoofOf(const BuildingShape &s, double aspect) {
+[[nodiscard]] RoofKind RoofOf(const BuildingShape &s, double aspect) {
   if (ReadsAsRound(s)) return RoofKind::Dome;
   const bool pitchable = s.Fill >= 0.74;
   switch (s.Use) {

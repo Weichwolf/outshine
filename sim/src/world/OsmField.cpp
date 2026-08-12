@@ -32,12 +32,14 @@ uint32_t OsmField::Intern(std::vector<std::string> &pool,
 
 int OsmField::Build(double lat, double lon, int ringTiles) {
   uint32_t cx = 0, cy = 0;
-  osmmesh_geo_to_tile(lon, lat, (uint8_t)Zoom_, &cx, &cy);
+  Pending_ = 0;
+  /* No tile addresses this place, so there are no vectors to ask for. Silent by design: the owner
+   * projects the same camera in the same pass and the crossing is written there, once. */
+  if (osmmesh_geo_to_tile(lon, lat, (uint8_t)Zoom_, &cx, &cy) != OSMMESH_GEO_OK) return 0;
 
   const long n = 1L << Zoom_;
   int added = 0;
   bool decoded = false;
-  Pending_ = 0;
 
   for (int dy = -ringTiles; dy <= ringTiles; dy++)
     for (int dx = -ringTiles; dx <= ringTiles; dx++) {

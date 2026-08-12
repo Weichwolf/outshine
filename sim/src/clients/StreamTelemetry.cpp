@@ -52,6 +52,7 @@ void StreamTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("tilesBuilt");
   schema.Add("tilesEvicted");
   schema.Add("resident");
+  schema.Add("eyeInBand");
   schema.Add("loadMs", "ms");
   schema.Add("poolHttpGets", "count");
   schema.Add("poolHttpMs", "ms");
@@ -94,6 +95,7 @@ void StreamTelemetry::SampleTelemetry(TelemetryRow &row) const {
   row.Push(WindowBuilt_);
   row.Push(WindowEvicted_);
   row.Push(Last_.Resident);
+  row.Push(Last_.EyeInBand);
   row.Push(LoadMs_);
   row.Push(Last_.Pool.Fetches);
   row.Push(Last_.Pool.FetchMs);

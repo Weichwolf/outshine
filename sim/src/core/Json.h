@@ -25,7 +25,7 @@ public:
     Ref(const Json *doc, int32_t node) : Doc(doc), Node(node) {}
 
     [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
-    Kind GetKind() const { return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid; }
+    [[nodiscard]] Kind GetKind() const { return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid; }
     size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
 
     Ref operator[](size_t i) const;

@@ -1,6 +1,7 @@
 #include "Scene.h"
 
 #include "CivilTime.h"
+#include "geo.h"
 
 namespace outshine::Clients {
 namespace {
@@ -62,7 +63,12 @@ bool Scene::Read(const Ref &node, std::string &err) {
     return false;
   }
 
-  if (!Need(node, "lat", -90.0, 90.0, Lat_, err)) return false;
+  /* WEB MERCATOR ENDS AT ±85.0511° BY CONSTRUCTION, so a pole is a place this world cannot be
+   * entered from, and the admissible range IS the band -- ±90 would be a range the code declares and
+   * does not honour. The alternative is a tile index nobody computed: the projector writes neither
+   * output and the standpoint becomes tile (0,0). */
+  if (!Need(node, "lat", -osmmesh_mercator_lat_max_deg, osmmesh_mercator_lat_max_deg, Lat_, err))
+    return false;
   if (!Need(node, "lon", -180.0, 180.0, Lon_, err)) return false;
   if (!Need(node, "eyeM", 0.0, 10000.0, EyeM_, err)) return false;
   if (!Need(node, "yawDeg", -360.0, 360.0, YawDeg_, err)) return false;

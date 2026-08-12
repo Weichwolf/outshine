@@ -15,7 +15,7 @@ float NumF(const Json::Ref &r, const char *key, float def) {
 int NumI(const Json::Ref &r, const char *key, int def) { return r[key].Int(def); }
 [[nodiscard]] bool NumB(const Json::Ref &r, const char *key, bool def) { return r[key].Int(def ? 1 : 0) != 0; }
 
-TreeSpecies::LeafKind KindOf(const std::string &s) {
+[[nodiscard]] TreeSpecies::LeafKind KindOf(const std::string &s) {
   if (s == "needle") { return TreeSpecies::LeafKind::Needle; }
   if (s == "palmate") { return TreeSpecies::LeafKind::Palmate; }
   if (s == "pinnate") { return TreeSpecies::LeafKind::Pinnate; }

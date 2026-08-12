@@ -46,7 +46,7 @@ public:
   [[nodiscard]] bool Valid() const { return Frames_ && Values_ && Count_ > 0 && Components_ > 0; }
   size_t Count() const { return Count_; }
   size_t Components() const { return Components_; }
-  Interpolation How() const { return How_; }
+  [[nodiscard]] Interpolation How() const { return How_; }
 
   /* Writes Components() numbers. Outside the keyframe range the first / last value stands, as in
    * glTF. */

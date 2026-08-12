@@ -17,7 +17,7 @@ constexpr SurfaceState StateOf(const Material &material);
 
 class SurfaceState {
 public:
-  constexpr SurfaceKind Kind() const { return Kind_; }
+  [[nodiscard]] constexpr SurfaceKind Kind() const { return Kind_; }
   [[nodiscard]] constexpr bool WritesDepth() const { return WritesDepth_; }
   [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
   [[nodiscard]] constexpr bool Blends() const { return Blends_; }

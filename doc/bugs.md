@@ -174,6 +174,55 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## World and streaming
 
+- **The DEM path answers for a place the caller did not ask about, because `fb_geo_to_tile` clamps.**
+  `tiles/src/tilemath.h:16-18` clamps the latitude into the Mercator band and then projects, so a
+  standpoint outside the band gets the ground of the nearest point inside it with no refusal and no
+  note. Measured on `fb_world` at 85.052 N / 15 E before the band was refused at the declaration: the
+  terrain requests were `/t/terrain/14/8874/0` — x correct for 15 E, y clamped to row 0, whose
+  southern edge is 85.0466 N — and the run reported `groundAslM=-3448.27` for a standpoint **97.3 m**
+  north of anything the scheme can address, exit 0. The same file holds a **second spelling of the
+  band**, `FB_MERC_LAT_MAX 85.0511287798`, which differs from `world/terrain/geo.h`'s
+  `osmmesh_mercator_lat_max_deg = 85.05112877980659` from the 11th digit on. One statement, two
+  places, two values — and a third is still *printed*: `Scene::Read` hands the constant to `Need`,
+  whose message runs it through `std::to_string`, so a refused declaration reads `lat out of range
+  [-85.051129,85.051129]` while `lat: 85.051129` is itself refused (measured on `fb_world`: 85.05112877
+  exits 0, 85.05112878 and 85.051129 exit 2). The message names an admissible value that is not one,
+  by 1.3 cm. Right: `fb_geo_to_tile` refuses like
+  `osmmesh_geo_to_tile` does — it is the same projection — and the bound is declared once. **Priced:
+  `fb_geo_to_tile` has no caller in `tiles/` at all** (`grep -rn fb_geo_to_tile tiles/src` is empty),
+  so making it refuse costs three call sites in `world/TerrainLoader.cpp:289,323,324` and nothing on
+  the tile server.
+- **The point query is refused by nobody, and it is the `world` target's whole purpose.**
+  `clients/WorldMain.cpp:117` reads `argv` pairs through `std::atof` straight into
+  `Sim::At(double, double)`, which reaches `Region::Of` and `fb_stream_ground` with no band check
+  anywhere on the path. Measured **after** the round that added the declaration-time refusal, against
+  `localhost:8081`, scene declared at 78.2 N: `fb_world pctrl probe 86.0 15.0 89.9 15.0 78.2 15.0`
+  exits 0 and answers `lat=86 groundResolved=1 groundAslM=-3448.27` and
+  `lat=89.9 groundResolved=1 groundAslM=-3448.27` — **bit-identical for two places 424 km apart**,
+  which is the clamp and not the bathymetry; the control at 78.2 N gives `-173.103`. `groundResolved=1`
+  is the lie: the ground was resolved for 85.0511 N, not for the pole. Right: the same refusal the
+  declaration gets, and it is not a third `if` — a standpoint type that cannot be constructed outside
+  the band (`doc/requirements.md` § I.17), so `At` cannot be called with two loose doubles.
+- **A standpoint that replaces the declared one is checked by nobody.** `clients/AppWalk.cpp:35-46`
+  lets `shots.jsonl` replace lat/lon through `Sim::SetStance`, which is `clients/Sim.h:77`
+  `void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }` — a setter that silently does
+  nothing once the world is open and validates nothing when it does act. The band check therefore
+  lives at the declaration (`clients/Scene.cpp`) and this path goes around it: a hand-written
+  snapshot at 86 N reaches `Sim::LoadTables`, where the failure surfaces as
+  `sim ring_has_no_region lat=86 lon=15` — true, and it names the symptom (no region in the ring)
+  rather than the cause (the standpoint is outside the projection). Right: one place validates a
+  standpoint whichever declaration it came from, and a setter that cannot honour its argument
+  refuses instead of returning.
+- **The fabrication window was reported 21 % too wide, and the upper bound is wrong.** `doc/todo.md`
+  and the round's report give `85.05113 < lat ≤ 85.0534 — about 250 m`. Measured against the tree's
+  own code (`Schedule(Ring{14,1}).Widest(lat, 15)` and `osmmesh_geo_to_tile`, bisected to 1e-12 deg):
+  the window is **85.051128779807 < lat ≤ 85.053023927135**, width 0.0018951 deg = **211.7 m**
+  (WGS84 meridional 111 694 m/deg at 85 N; 211.0 m spherical). The upper end is where
+  `Region::Of(14, lat, ·).Y()` drops from −1 to −2 and the ring's whole `y+1` row leaves the grid —
+  at the reported 85.0534 the Y is already −2 and the run refuses. Right: the bound is a property of
+  `Schedule::Widest` at `RadiusRegions = 1` and moves with the radius, so the number is derived from
+  the ring rather than quoted.
+
 - **A caster "vertex count" is neither a vertex count nor the caster's.**
   `render/stages/BuildingDraw.cpp:471-473` derives `BaseVerts` as `max(First + Count)` over the
   level-0 clusters and publishes it as `CasterVertexCount()` (`BuildingDraw.h:35`), which
@@ -523,6 +572,25 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## Declaration and build
 
+- **Six ticked or priced lines in `doc/requirements.md` name a tool that no longer exists.** The
+  hardening ledger (`sim/tools/hardening_ledger.py`, its baseline and the `verify-hardening` gate) was
+  deleted on 2026-08-12 by the owner's ruling that validators are C++ under `sim/test/` and not Python.
+  `doc/requirements.md:501` is still `[x]` and names the script, the baseline and the gate as what
+  implements it; `:464` (`[[nodiscard]]` on every `bool`/house-enumeration return, **214 of 214**) and
+  `:471` (no `default:` over a house enumeration) are `[x]` and say the gate is what holds them; `:458`,
+  `:465`, `:467`, `:469`, `:480` and `:481` quote its counts as their current measurement. **What is
+  actually unheld is `:464`**: the attribute is a per-declaration fact, `-Wall -Werror` does not carry
+  it, and no other gate reads it — a new `bool Foo()` written after this date re-opens the count with
+  nothing failing. `:471` is unaffected, because `-Wswitch -Werror` is what holds it and the ledger only
+  reported it. Right: the C++ suite carries the `[[nodiscard]]` sweep, and until it does, `:464` and
+  `:501` are ticks with no instrument behind them.
+- **The language standard has two values.** `CLAUDE.md` says C++17; `sim/Makefile:31` sets
+  `CXXSTD := -std=c++17` and uses it for the compile gates; every shipping compile line
+  (`Makefile:206,225,275,294,329`) hard-codes `-std=c++20`. The program is C++20 — forced by
+  `vendor/dawn`, whose `webgpu_cpp.h` needs `std::type_identity` and `std::span` — while the gates
+  judge a dialect the program is not built in, so a C++20 construct in `render/` or `clients/` is
+  covered by no gate. Right: one variable, one value, and the reason (Dawn) beside it.
+
 - **No gate reads the log levels of the run it just declared green.** `verify-walk-asan` now asserts
   the run's own motion verdict — `frames=10800 impostorStands=9565 treeTris=19130` — but a line at
   `ERROR` in the same 10 800-frame run still passes it, and the run emits exactly one:
@@ -544,3 +612,42 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **The log's timestamp is dead** — every `walk key` line carries `t=0.0` — and key repeat events are logged individually, so a held key floods the buffer.
 - **`FacadeUv.h` has no `static_assert` anywhere**: 11 enumerators against a stride of 16, `kStyleCount 8` against 7 enumerators. A 17th `Facade` silently aliases identity 1.
 - **`TreeGrower::GrowOnce` is ~130 lines** (`F.2`/`F.3`), and `TreeSpecies::Parse` is a 90-line flat key list (`F.3`).
+
+- **A wire decoder reads multi-byte values in the host's byte order.** `world/OsmVector.cpp:111-112`
+  takes protobuf `fixed32` and `fixed64` with `std::memcpy(&f, v.P, 4)` and `std::memcpy(&d, v.P, 8)`
+  straight off the wire buffer. Protocol Buffers fixes those two wire types as **little-endian**
+  (encoding spec, `fixed32`/`fixed64`), so this is correct on every target we build for today —
+  wasm32 is little-endian by specification and both native hosts are — and it is wrong on any
+  big-endian one. Filed as a bug rather than as a requirement because the code claims to decode
+  protobuf and decodes host order instead; the caveat was checked and it is the only reason it has
+  never shown: **the tree has zero `reinterpret_cast` and the rest of its decoding is byte-wise**
+  (`world/OsmVector.cpp:18-19` assembles varints with `<<` and `0x7f`, `world/terrain/terrain.cpp:94-98`
+  assembles Terrarium height from `p[0]`, `p[1]`, `p[2]` as bytes), so this is a single site, not a
+  habit. The neighbouring `std::memcpy`s of floats into word arrays (`core/ClassStructure.cpp:74-76,124`,
+  `world/ClassBuilder.cpp:340`) are **not** this defect — they are an in-memory layout that is never
+  serialised, and host order is the right order for them. Right: two byte-wise assemblers beside the
+  varint reader, `LittleEndianF32` and `LittleEndianF64`, and no `memcpy` from a wire buffer anywhere.
+
+- **The declared negatives pass on any compile failure of the right shape.** `sim/Makefile`
+  `verify-generators` and `verify-world` accept a fixture as refused if the compiler exits non-zero
+  **and** its output contains the substring `file not found` — so a fixture that misspells its own
+  forbidden header (`#include "Rendererr.h"`) is a green gate that proves nothing, and so is one whose
+  body stops compiling for an unrelated reason while the include still resolves. Four fixtures ride
+  this: `RendererIsNotReachable`, `WorldIsNotReachable`, `LogIsNotReachable`, `DrawIsNotReachable`,
+  plus `world/gate/GeneratorIsNotReachable`. The three `-Werror` negatives under `src/core/gate/` are
+  weaker still — `verify-types` checks only the exit status and matches no diagnostic at all, so any
+  error in `HeightIsNotReachableWithoutItsState.cpp`, `AnswerIsNotIgnorable.cpp` or
+  `DepthIsNeverNegative.cpp` passes it. Right, and it costs nothing: demand the **exact** expected
+  diagnostic text (`fatal error: 'Renderer.h' file not found`, `error: ignoring return value of
+  function declared with 'nodiscard' attribute`) **and** that it is the *only* error the compiler
+  emitted, which is what makes a typo elsewhere in the fixture fail the gate instead of satisfying it.
+
+- **`generators/gate/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
+  the order of thirty distinct claims — determinism of placement, the class lattice, water depth,
+  way half-widths, `sizeof(Body)`, an allocation count — in one process. Three consequences: the
+  first hard failure (it dereferences `std::optional` results directly, e.g. `ways.MadeAt(...)->WidthM`)
+  hides every claim after it; the run reports `verify-generators: N failed` without a machine-readable
+  name per claim; and no claim in it can be run alone. It also holds the tree's only `malloc` outside
+  `world/terrain` and `clients/SimHost.cpp` (`:315`). Right: one translation unit per claim under
+  `sim/test/generators/`, each with its own `main`, which is what the suite this file's requirements
+  now describe is for.

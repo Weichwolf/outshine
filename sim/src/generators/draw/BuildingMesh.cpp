@@ -49,7 +49,7 @@ struct Vtx {
   float U = 0.0f, V = 0.0f;
 };
 
-FacadeStyle StyleOf(BuildingUse use) {
+[[nodiscard]] FacadeStyle StyleOf(BuildingUse use) {
   switch (use) {
     case BuildingUse::Outbuilding: return FacadeStyle::Outbuilding;
     case BuildingUse::Terrace:     return FacadeStyle::Terrace;

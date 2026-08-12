@@ -29,6 +29,9 @@ public:
     int TilesTotal = 0, TilesSettled = 0, TilesInView = 0, VectorTilesPending = 0;
     long long Built = 0, Evicted = 0;
     bool Resident = false;
+    /* Whether the eye had a root tile at all. A row of zeroed stage costs reads as a settled world
+     * and as a standpoint the projection cannot address; this column is what tells them apart. */
+    bool EyeInBand = true;
     /* The pool's own cumulative ledger, read once per pass: where the wait actually was. */
     World::TilePool::Ledger Pool;
     /* WHAT THE PICTURE PASS ASKED FOR, cumulative like the pool's ledger and for the same reason. */

@@ -113,7 +113,7 @@ private:
   TreeVec3 Inward(TreeVec3 p) const;
   /* How much of `want`, along `dir` from `from`, stays inside the silhouette. */
   float RoomInside(TreeVec3 from, TreeVec3 dir, float want) const;
-  RingCap LeaderEnd() const;
+  [[nodiscard]] RingCap LeaderEnd() const;
   void GrowOnce(const TreeSpecies::Growth &g, float heightM, TreeMesh &out);
   void Export(TreeMesh &out);
   void NormalizeToUnitHeight(TreeMesh &out, float heightM);

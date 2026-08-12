@@ -38,6 +38,11 @@ typedef struct {
 /* WGS84 equatorial semi-major axis; extern so tests cross-check without re-hardcoding it. */
 extern const double osmmesh_earth_radius_m;
 
+/* Where the tile scheme ENDS: atan(sinh(pi)) in degrees, the WMTS / OGC simple-tile-scheme bound.
+ * Beyond it there is no tile, at any zoom, and no caller may invent one -- extern for the same
+ * reason as the radius, so a refusal names the same number the projection uses. */
+extern const double osmmesh_mercator_lat_max_deg;
+
 /* Error codes. 0 = success, negative = error. */
 #define OSMMESH_GEO_OK            0
 #define OSMMESH_GEO_ERR_ARG      -1

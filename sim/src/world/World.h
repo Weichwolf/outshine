@@ -155,6 +155,11 @@ public:
   const WaterField &WaterBodies() const { return Water_; }
   const StreetField &Ways() const { return Streets_; }
 
+  /* WHERE THE EYE STANDS RELATIVE TO THE PROJECTION. Outside the Web Mercator band there is no root
+   * tile and the picture pass draws nothing, which is a STATE the eye holds for as long as it stands
+   * there — so it rides a telemetry column and only the crossing reaches the log. */
+  [[nodiscard]] bool EyeInMercatorBand() const { return EyeInBand_; }
+
   /* THE RESIDENCY COUNTERS, for a moving measurement: a per-frame series that does not settle is the
    * defect, and none of these is visible in a picture. */
   int NodeCount() const { return (int)Nodes.size(); }
@@ -256,6 +261,8 @@ private:
   int  Find(int z, long x, long y) const;                            /* node idx or -1 (no create) */
   [[nodiscard]] bool CanCover(int z, long x, long y, const double eye[3]) const;    /* subtree fully ready? (pure) */
   void RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]);  /* cascade request to targets */
+  void RootRing(const Eye &eye, uint32_t rx, uint32_t ry);           /* the pass's top-level tiles */
+  void NoteBand(bool inBand, double latDeg, double lonDeg);          /* the crossing, once per crossing */
   int  Descend(int z, long x, long y, const double eye[3], const double fwd[3]);  /* draw traversal; 1 = covered */
   void DrawChildren(int z, long x, long y, const double eye[3], const double fwd[3]);
   void CountTargets(int z, long x, long y, const double eye[3], const double fwd[3], int &total,
@@ -285,6 +292,7 @@ private:
   long long Evicted;
   long long Built = 0;                    /* cumulative tile uploads (build completions) — thrash diagnosis */
   Admission Adm_;
+  bool EyeInBand_ = true;                 /* a declaration is refused outside it, so a world opens inside */
   long long PrevBuilt = 0, PrevEvicted = 0;   /* deltas for the builds/min + evictions/min rate on [fbworld] */
   double LastLog;
   int Leaves, DrawnReady, Pending;   /* per-pass counters */

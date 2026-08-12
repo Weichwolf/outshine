@@ -1,6 +1,5 @@
-/* Coordinate library implementation; API in geo.h. Das ENU-Modell, seine Fehlerschranken und der
- * BEKANNTE ~0,3-m-Restfehler des tile_enu_map-Fast-Path (eine Eigenschaft, kein Bug — nicht durch
- * Trigonometrie in der heissen Schleife "reparieren"). */
+/* Coordinate library implementation; API in geo.h. The tile_enu_map fast path keeps a KNOWN residual
+ * of ~0.3 m — a property, not a defect, and not to be "repaired" with trigonometry in the hot loop. */
 
 #include "geo.h"
 
@@ -8,8 +7,7 @@
 
 const double osmmesh_earth_radius_m = 6378137.0;
 
-/* atan(sinh(pi)) * 180/pi — the WMTS / OGC simple-tile-scheme bound. */
-#define OSMMESH_MERCATOR_LAT_MAX  85.05112877980659
+const double osmmesh_mercator_lat_max_deg = 85.05112877980659;   /* atan(sinh(pi)) * 180/pi */
 
 /* M_PI is not in C99 without extensions. */
 static const double OSMMESH_PI = 3.14159265358979323846;
@@ -20,8 +18,8 @@ int osmmesh_geo_to_tile(double lon_deg, double lat_deg, uint8_t z,
                          uint32_t *out_x, uint32_t *out_y)
 {
     if (!out_x || !out_y) return OSMMESH_GEO_ERR_ARG;
-    if (lat_deg < -OSMMESH_MERCATOR_LAT_MAX ||
-        lat_deg >  OSMMESH_MERCATOR_LAT_MAX) {
+    if (lat_deg < -osmmesh_mercator_lat_max_deg ||
+        lat_deg >  osmmesh_mercator_lat_max_deg) {
         return OSMMESH_GEO_ERR_RANGE;
     }
 

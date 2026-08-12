@@ -459,6 +459,33 @@ void World::AdmitMesh(Node &nd, int &budget) {
   MeshMs_ += Clock() - tMesh;
 }
 
+/* AN EYE PAST THE BAND HAS NO ROOT TILE, and (0,0) is a place 8000 km away: nothing is drawn. Only
+ * the CROSSING is written here — the picture pass runs 60 times a second, and in the browser client
+ * every line is a console.log plus an HttpPost. Where the eye stands is EyeInMercatorBand(). */
+void World::NoteBand(bool inBand, double latDeg, double lonDeg) {
+  if (inBand == EyeInBand_) return;
+  EyeInBand_ = inBand;
+  if (inBand)
+    Log::Info("world", "eye_entered_mercator_band", {{"latDeg", latDeg}, {"lonDeg", lonDeg}});
+  else
+    Log::Error("world", "eye_left_mercator_band",
+               {{"latDeg", latDeg}, {"lonDeg", lonDeg},
+                {"limitDeg", osmmesh_mercator_lat_max_deg}});
+}
+
+/* The zROOT tiles whose centre is within the view radius, and the LOD traversal under each. */
+void World::RootRing(const Eye &eye, uint32_t rx, uint32_t ry) {
+  const long Rt = (long)std::ceil(ViewM / SpanM(kRootZ)) + 1;
+  const long n = 1L << kRootZ;
+  for (long ty = (long)ry - Rt; ty <= (long)ry + Rt; ty++)
+    for (long tx = (long)rx - Rt; tx <= (long)rx + Rt; tx++) {
+      if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
+      if (!Viable(kRootZ, tx, ty, eye.PosEcef)) continue;
+      Descend(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef);
+      CountTargets(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef, TargetTot, TargetRdy, TargetView);
+    }
+}
+
 /* THE PICTURE PASS. The LOD cut against one eye, the meshes it needs, and the two surfaces that are
  * geometry rather than place. Nothing is pushed anywhere: what comes out is Uncollected(), Drawn(),
  * TakeRetired(), Water() and Buildings(). */
@@ -475,21 +502,12 @@ void World::Refine(const Eye &eye, double nowMs) {
   while (camLon > 180.0) camLon -= 360.0;
   while (camLon < -180.0) camLon += 360.0;
 
-  /* Root ring: zROOT tiles whose centre is within the view radius. */
-  uint32_t rx = 0, ry = 0;
-  osmmesh_geo_to_tile(camLon, eye.LatDeg, (uint8_t)kRootZ, &rx, &ry);
-  double span = SpanM(kRootZ);
-  long Rt = (long)std::ceil(ViewM / span) + 1;
-  long n = 1L << kRootZ;
   TargetTot = TargetRdy = TargetView = 0;
-  for (long ty = (long)ry - Rt; ty <= (long)ry + Rt; ty++)
-    for (long tx = (long)rx - Rt; tx <= (long)rx + Rt; tx++) {
-      if (tx < 0 || ty < 0 || tx >= n || ty >= n) continue;
-      if (Viable(kRootZ, tx, ty, eye.PosEcef)) {
-        Descend(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef);
-        CountTargets(kRootZ, tx, ty, eye.PosEcef, eye.FwdEcef, TargetTot, TargetRdy, TargetView);
-      }
-    }
+  uint32_t rx = 0, ry = 0;
+  const bool inBand =
+      osmmesh_geo_to_tile(camLon, eye.LatDeg, (uint8_t)kRootZ, &rx, &ry) == OSMMESH_GEO_OK;
+  NoteBand(inBand, eye.LatDeg, camLon);
+  if (inBand) RootRing(eye, rx, ry);
 
   /* Budgeted, worst-first (nearest + in-frustum). A wall-clock slice was measured HERE and rejected
    * — it moved the cost rather than removing it, p95 17.9 -> 25.8 ms with the same maximum, because
