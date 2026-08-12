@@ -43,7 +43,7 @@ interactive client — works until a scenario can be declared and loaded.
 
 ### Two make targets
 
-**`make` builds the engine. `make test` runs the tests — all of them, or one.** Nothing else.
+**`make` builds the engine. `make test` runs the tests — all of them, or one. `make clean`.** Nothing else.
 Today: **450 lines, 16 targets** — `help walk walk-asan world treebench` and eight `verify-*` plus
 `gates gates-build clean`. Every one of the eight is a test wearing a Makefile recipe, and the
 harness now exists to run them:
@@ -57,7 +57,7 @@ harness now exists to run them:
 | `verify-still` | **waits for the providers.** It needs an imposed tile arrival order, which is a Python proxy today and is ours for free once the fetch is in-process |
 | `gates` · `gates-build` | the harness *is* the runner; `--tier` already expresses the fast/full split |
 | `help` | a target that prints a list of targets, when there are two |
-| `clean` | `rm -rf build`. Worth one line or worth deleting — say which, do not let it be the third target by default |
+| `clean` | **stays.** `rm -rf build`, one line |
 
 **The blocker is `verify-still`**, and it resolves itself: in one process the arrival order is ours,
 so the last Makefile-only gate dies with the last Python file.
