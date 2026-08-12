@@ -3,7 +3,8 @@
 
 namespace outshine::Render {
 
-void GpuTimer::Configure(const wgpu::Device &dev, bool featureGranted) {
+void GpuTimer::Configure(const wgpu::Device &dev, bool featureGranted, int passCount) {
+  Passes_ = passCount < kMaxPasses ? passCount : kMaxPasses;
   if (!featureGranted) {
     Log::Warn("render", "gputime_unavailable");
     return;
@@ -26,22 +27,22 @@ void GpuTimer::Configure(const wgpu::Device &dev, bool featureGranted) {
   mb.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
   for (int i = 0; i < kRing; i++) Read_[i] = Dev_.CreateBuffer(&mb);
 
-  Log::Info("render", "gputime_on", {{"passes", (int)kPassCount}});
+  Log::Info("render", "gputime_on", {{"passes", Passes_}});
 }
 
 void GpuTimer::BeginFrame(void) {
   if (!Active()) return;
-  for (int i = 0; i < kPassCount; i++) Used_[i] = false;
+  for (int i = 0; i < kMaxPasses; i++) Used_[i] = false;
 }
 
-wgpu::PassTimestampWrites *GpuTimer::Writes(Pass p) {
-  if (!Active() || p < 0 || p >= kPassCount) return nullptr;
-  Writes_[p] = wgpu::PassTimestampWrites{};
-  Writes_[p].querySet = Set_;
-  Writes_[p].beginningOfPassWriteIndex = (uint32_t)(p * 2);
-  Writes_[p].endOfPassWriteIndex = (uint32_t)(p * 2 + 1);
-  Used_[p] = true;
-  return &Writes_[p];
+wgpu::PassTimestampWrites *GpuTimer::Writes(int pass) {
+  if (!Active() || pass < 0 || pass >= Passes_) return nullptr;
+  Writes_[pass] = wgpu::PassTimestampWrites{};
+  Writes_[pass].querySet = Set_;
+  Writes_[pass].beginningOfPassWriteIndex = (uint32_t)(pass * 2);
+  Writes_[pass].endOfPassWriteIndex = (uint32_t)(pass * 2 + 1);
+  Used_[pass] = true;
+  return &Writes_[pass];
 }
 
 void GpuTimer::Resolve(wgpu::CommandEncoder &enc) {
@@ -70,7 +71,8 @@ void GpuTimer::Poll(void) {
             /* A pass that did not run leaves its pair unwritten; -1 says absent, which is a different
              * fact from 0.0 ms and must not be averaged with it. */
             uint64_t first = 0, last = 0;
-            for (int i = 0; i < kPassCount; i++) {
+            Last_.PassCount = Passes_;
+            for (int i = 0; i < kMaxPasses; i++) {
               const bool wrote = Used_[i] && t[i * 2 + 1] > t[i * 2];
               Last_.PassMs[i] = wrote ? (double)(t[i * 2 + 1] - t[i * 2]) * 1.0e-6 : -1.0;
               if (!wrote) continue;

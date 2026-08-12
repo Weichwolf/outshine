@@ -13,6 +13,7 @@
 #define TAASTAGE_H
 
 #include "DrawStage.h"
+#include "Resolve.h"
 
 namespace outshine::Render {
 
@@ -23,14 +24,21 @@ public:
    * `atmoBuf` the camera basis that reconstruction needs (the SAME camRay() the sky uses). */
   void Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
                  wgpu::TextureView velView, wgpu::TextureView depthView, wgpu::Buffer atmoBuf,
-                 wgpu::TextureView aoView, wgpu::Buffer meterBuf, int width, int height);
+                 wgpu::TextureView aoView, wgpu::Buffer meterBuf, const DisplayOptions &display,
+                 int width, int height);
 
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
   /* The LINEAR attachment Renderer opens the resolve pass on; the display-coded one is the swapchain
    * view it passes beside this. */
-  wgpu::TextureView Output(unsigned frameNo) const { return Hist[frameNo & 1u].CreateView(); }
-  wgpu::TextureView History(int i) const { return Hist[i & 1].CreateView(); }
+  wgpu::TextureView Output(unsigned frameNo) const {
+    return Hist[frameNo & 1u] ? Hist[frameNo & 1u].CreateView() : wgpu::TextureView();
+  }
+  /* The texture behind that view, for the linear readback: a view cannot be a copy source. */
+  wgpu::Texture OutputTexture(unsigned frameNo) const { return Hist[frameNo & 1u]; }
+  wgpu::TextureView History(int i) const {
+    return Hist[i & 1] ? Hist[i & 1].CreateView() : wgpu::TextureView();
+  }
   long HistoryBytes(void) const { return Bytes; }
 
 private:

@@ -8,40 +8,42 @@
  * end are already written, so the whole encoder's span is the newest end minus the oldest begin.
  * Sum-over-span above 1 means the spans overlap and attribution is forbidden.
  *
- * The pass set is fixed at compile time, so a sample is a fixed row and not a string map, AND the
- * enumeration is the encoder's pass count — a slot with no pass is where a new pass hides without
- * the count moving. Resolve and readback ride a ring deep enough that no frame waits on its own
- * result; WHAT COMES BACK IS ONE TO THREE FRAMES OLD, so a sample belongs to a frame that has
- * already been presented. */
+ * THE SLOT COUNT AND THE SLOT NAMES COME FROM THE COMPILED PLAN, so there is no tally to keep and no
+ * dead slot for a pass to hide in: the number is written down once, by the compiler that derived it.
+ * The array is bounded by the catalogue, because a plan can never hold more passes than it has
+ * stages. Resolve and readback ride a ring deep enough that no frame waits on its own result; WHAT
+ * COMES BACK IS ONE TO THREE FRAMES OLD, so a sample belongs to a frame already presented. */
 #ifndef GPUTIMER_H
 #define GPUTIMER_H
 
 #include <webgpu/webgpu_cpp.h>
 
+#include "RenderCatalogue.h"
+
 namespace outshine::Render {
 
 class GpuTimer {
 public:
-  /* Order is the ENCODE order, the query order and the log's column order, and the count is the
-   * number of passes the encoder opens. Add one, add its Writes() call. */
-  enum Pass { Atmosphere, Light, Shadow, Scene, Ao, Taa, Present, kPassCount };
+  /* A plan holds at most one pass per stage it holds, so the catalogue bounds the row. */
+  static constexpr int kMaxPasses = (int)kStageCount;
 
   struct Sample {
-    double PassMs[kPassCount];   /* -1 = the pass did not run; never averaged with a 0.0 */
+    double PassMs[kMaxPasses];   /* -1 = the pass did not run; never averaged with a 0.0 */
     double FrameMs;              /* the whole encoder's span, or -1 */
+    int PassCount;               /* what the compiled plan derived */
   };
 
   /* NO ENVIRONMENT GATE. An environment variable is not an interface in a browser, and the frame
    * spectrum is telemetry rather than a bench mode: it runs whenever the device grants
    * the feature. A device that does not is reported as such — an absent measurement is not a
    * measurement of zero. */
-  void Configure(const wgpu::Device &dev, bool featureGranted);
+  void Configure(const wgpu::Device &dev, bool featureGranted, int passCount);
   [[nodiscard]] bool Active(void) const { return Set_ != nullptr; }
 
   void BeginFrame(void);
   /* The struct to splice into a pass descriptor's `timestampWrites`, or null when inactive. It lives
    * until the next BeginFrame. */
-  wgpu::PassTimestampWrites *Writes(Pass p);
+  wgpu::PassTimestampWrites *Writes(int pass);
 
   void Resolve(wgpu::CommandEncoder &enc);   /* after the last pass, before Finish() */
   void Poll(void);                           /* once per frame: maps whatever is ready */
@@ -50,7 +52,7 @@ public:
 
 private:
   static constexpr int kRing = 3;   /* deep enough that a map never blocks the frame that issued it */
-  static constexpr int kQueries = kPassCount * 2;
+  static constexpr int kQueries = kMaxPasses * 2;
 
   wgpu::Device Dev_;
   wgpu::QuerySet Set_;
@@ -58,8 +60,9 @@ private:
   wgpu::Buffer Read_[kRing];
   bool Busy_[kRing] = {};
   int Slot_ = 0;
-  wgpu::PassTimestampWrites Writes_[kPassCount];
-  bool Used_[kPassCount] = {};
+  wgpu::PassTimestampWrites Writes_[kMaxPasses];
+  bool Used_[kMaxPasses] = {};
+  int Passes_ = 0;
   Sample Last_ = {};
   bool Fresh_ = false;
 };

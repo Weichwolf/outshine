@@ -31,7 +31,7 @@ struct WorldStage {
   int64_t UtcS = 0;
   double WindFromDeg = 0.0, WindMs = 0.0, CloudCover = 0.0, WindClockS = 0.0;
   double ViewM = 60000.0, OrthoM = 0.0;
-  /* A standpoint another client wrote and this one stands at instead (clients/Snapshot.h). */
+  /* A standpoint another run wrote and this one stands at instead. */
   std::string SnapshotPath;
 };
 

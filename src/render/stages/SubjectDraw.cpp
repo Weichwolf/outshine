@@ -7,7 +7,7 @@
 namespace outshine::Render {
 
 static const char *kSubjectWGSL = R"(
-struct S { mvp : mat4x4f, anc : vec4f };
+struct S { mvp : mat4x4f, anc : vec4f, emitted : vec4f };
 @group(0) @binding(0) var<uniform> s : S;
 
 struct SOut { @builtin(position) pos : vec4f };
@@ -19,12 +19,11 @@ struct SOut { @builtin(position) pos : vec4f };
 }
 
 struct SFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
-/* A FLAT VALUE AND NOT A SHADE. The coverage and depth rungs read the depth attachment; this colour
- * exists so the case directory holds a picture a person can look at, and a lit one would invite the
- * eye to judge a lighting model this unit does not have. */
+/* rho*L, DECLARED and not shaded. alpha is the direct fraction a display transfer weights its
+ * occlusion by, and for a facet under a uniform environment every bit of it is direct. */
 @fragment fn fs(in : SOut) -> SFrag {
   var o : SFrag;
-  o.col = vec4f(0.8, 0.8, 0.8, 1.0);
+  o.col = vec4f(s.emitted.rgb, 1.0);
   o.vel = vec2f(kVelStatic);
   return o;
 }
@@ -115,6 +114,7 @@ void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPass
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
   for (int i = 0; i < 3; i++) u[16 + i] = (float)(Anchor[i] - ctx.Eye[i]);
+  for (int i = 0; i < 3; i++) u[20 + i] = Surface.AlbedoLinear[i] * Surface.EnvironmentRadiance;
   Queue.WriteBuffer(Uni, 0, u, sizeof u);
   pass.SetPipeline(Pipe);
   pass.SetBindGroup(0, Bind);

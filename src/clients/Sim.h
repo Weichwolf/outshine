@@ -1,6 +1,6 @@
 /* THE SIMULATION HALF. One declared scene in, a world that answers questions out — and it never
  * draws: no device, no renderer, no camera basis leaves this object as anything but numbers. Both
- * targets link it; only the picture target puts a renderer over it (clients/Outshine.h). */
+ * targets link it; a renderer over it is the picture half's and is not named here. */
 #ifndef SIM_H
 #define SIM_H
 
@@ -76,7 +76,7 @@ public:
   /* THE ONLY THREE THINGS A CLIENT STILL SAYS. The transport is how this machine reaches an
    * upstream and is no property of the world; whether the content store is used is the run's
    * decision and changes timing and nothing else; the stance is overridden only by a snapshot
-   * another client wrote (Snapshot.h). All three are read by LoadTables/Open, so they are refused
+   * another run wrote. All three are read by LoadTables/Open, so they are refused
    * afterwards rather than silently ignored. */
   void SetTransport(Data::Transport &transport) { if (!Opened_) Wire_ = &transport; }
   void SetContentStore(const Data::ContentStore::Config &config) { if (!Opened_) Store_ = config; }

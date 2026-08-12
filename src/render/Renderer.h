@@ -1,7 +1,12 @@
-/* The WebGPU rendering system, one source and two link targets (emdawnwebgpu / native Dawn).
- * ORCHESTRATOR: it owns device/surface/targets and EVERY Begin/EndRenderPass boundary plus the encode
- * order; drawing lives in DrawStage-derived classes that record into the encoder it already opened.
- * A stage never begins or ends a pass. */
+/* THE DEVICE HALF OF A COMPILED PLAN. Renderer owns the device, the resources the plan holds and
+ * every Begin/EndRenderPass boundary; drawing lives in DrawStage-derived classes that record into the
+ * encoder it opened. A stage never begins or ends a pass.
+ *
+ * NOTHING HERE DECIDES WHAT IS RENDERED. The plan says which resources exist, which stages are
+ * configured, in what order and in how many passes; this file executes that and holds no composition
+ * of its own. There is no pass tally to keep against a fixed enumeration, because the pass count is
+ * an output of the compiler -- and the two init-order constraints that used to live only in comments
+ * are now the catalogue's `TopologicalOrderHolds` static assertion. */
 #ifndef RENDERER_H
 #define RENDERER_H
 
@@ -10,6 +15,7 @@
 #include <memory>
 #include <vector>
 #include <webgpu/webgpu_cpp.h>
+#include "RenderPlan.h"
 #include "State.h"
 #include "Gpu.h"
 #include "FrameContext.h"
@@ -17,7 +23,6 @@
 #include "Readback.h"
 #include "stages/StarsStage.h"
 #include "stages/PresentStage.h"
-#include "stages/ProgressStage.h"
 #include "stages/TransmittanceStage.h"
 #include "stages/MultiScatterStage.h"
 #include "stages/IrradianceStage.h"
@@ -31,6 +36,7 @@
 #include "stages/AoStage.h"
 #include "stages/ExposureStage.h"
 #include "stages/TaaStage.h"
+#include "stages/TonemapStage.h"
 #include "TemporalJitter.h"
 
 namespace outshine::Render {
@@ -39,8 +45,11 @@ class Renderer {
 public:
   Renderer();
 
-  /* Bring-up into the render target, blocking: there is no event loop to pump callbacks on. */
-  void Init(int width, int height);
+  /* Bring-up into the render target, blocking: there is no event loop to pump callbacks on. The
+   * plan is the whole of what will be created and encoded, and it cannot be unvalidated -- it has no
+   * public constructor and only RenderPlan::Compile makes one. */
+  void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
+  [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
 
   [[nodiscard]] bool Ready(void) const { return DeviceReady; }
 
@@ -64,6 +73,11 @@ public:
    * hillside's row. */
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn — the numerator of that division */
+
+  /* THE SCENE-REFERRED LINEAR TAP: W*H RGBA half-floats, row-major, exactly the bits `SceneLinear`
+   * holds -- resolved linear radiance BEFORE the occlusion composite and BEFORE the exposure. It is
+   * the zero point a radiance comparison needs, and a plan that holds no such resource refuses. */
+  [[nodiscard]] ReadState ReadSceneLinear(std::vector<uint16_t> &halfRgba);
 
   /* [sunIrr.rgb, _, skyIrr.rgb, _] in top-of-atmosphere-solar = 1 units: the scale everything lit is
    * multiplied by, measurable instead of asserted. */
@@ -101,11 +115,6 @@ public:
    * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
   void SetSceneState(const State &s) { SceneState = s; }
   void PinJitter(float x, float y) { Jitter.Pin(x, y); }
-
-  /* A SECOND THING TO DRAW, not a second state to be in. The renderer holds no notion of loading:
-   * the caller says which frame it wants this tick, exactly as it says where the camera is. Two
-   * passes instead of eight, so the bar keeps full rate while the streams land. §2.2 */
-  void RenderProgress(float fraction);
 
   /* THE VEGETATION TABLE, before Init: 256 resolved rows (world/VegetationTemplates::Row). Without it
    * the terrain keeps its raw albedo — the pre-template picture, on purpose. `bareRockRow` and
@@ -173,6 +182,9 @@ public:
     Geometry->Subjects().SetMesh(verts, nverts, idx, nidx, anchor);
   }
   long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
+  /* THE TWO NUMBERS A STUDIO DECLARES about its subject's appearance: linear albedo, and the radiance
+   * of the uniform environment it stands in. The renderer holds them and shades nothing. */
+  void SetSubjectSurface(const SubjectSurface &surface) { Geometry->Subjects().SetSurface(surface); }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
    * for the consumers that owe a published anchor and read by no stage today. */
@@ -182,20 +194,16 @@ public:
   void SetWindClock(double seconds) { WindClock = seconds; }
   double GetWindClock(void) const { return WindClock; }
 
+  /* HOW MANY FRAMES BEFORE THE PICTURE IS THE PICTURE -- a property the compiled plan states, so no
+   * caller carries a settle constant of its own. */
+  int SettleFrames(void) const { return Plan_ ? Plan_->SettleFrames() : 1; }
+
   /* THE ACCUMULATION HAS NO CONTINUITY ACROSS A TELEPORT. A motion vector describes a step, not a
    * jump: after the camera is placed somewhere else outright, every reprojection points at a pixel
    * that shows something unrelated, and the neighbourhood clip is the only thing between that and a
    * ghost of the previous standpoint. A caller that MOVES the camera rather than walking it says so
    * here, and then renders TemporalSettleFrames() before it reads the picture. */
   void ResetTemporal(void) { HaveHistory = false; Jitter.Reset(); }
-  /* MEASURED, not derived: the settled 1280x720 reference frame against the same frame after 512
-   * settle frames, over the whole ladder (`--settle N`, 2026-08-07). Pixels differing by more than
-   * two codes: 3924 at 0, 22 at 48, 7 at 128, and 7 at 192 / 256 / 384. 128 is where the curve
-   * reaches its floor; below it the accumulator is still visibly filling, above it nothing moves.
-   * The residual 7 px is the f16 history's last bit and does not go to zero at any length. */
-  static constexpr int kTemporalSettleFrames = 128;
-  int TemporalSettleFrames(void) const { return kTemporalSettleFrames; }
-
   /* THE PER-PASS CLOCK, for whoever aggregates it. False means the device refused the feature, and
    * that is a different statement from eight zeroes. */
   [[nodiscard]] bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
@@ -267,27 +275,32 @@ public:
   wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }
 
 private:
-  void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + the terrain unit */
-  void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
-  void CreatePresent(void);           /* declared-size frame target + the present pass over it */
-  [[nodiscard]] bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
-  void EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
-                     const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps);
+  /* THE THREE EXHAUSTIVE SWITCHES OVER THE CATALOGUE, and there are no others: what a resource IS,
+   * what configures a stage, and what a stage draws. Each has no `default:`, so a new catalogue row
+   * is a compile error until all three answer for it -- which is the shape that replaced twelve
+   * hand-ordered creation calls with two comment-only ordering constraints. */
+  void Create(Resource resource);
+  void Configure(Stage stage);
+  void EncodeStage(Stage stage, const FrameContext &ctx, wgpu::RenderPassEncoder &pass);
+  void EncodeStage(Stage stage, const FrameContext &ctx, wgpu::ComputePassEncoder &pass);
+  /* The view a reader of `resource` binds, after the plan's aliases. */
+  [[nodiscard]] wgpu::TextureView View(Resource resource) const;
+  [[nodiscard]] wgpu::TextureView Bound(Resource resource) const { return View(Plan_->Bound(resource)); }
+  [[nodiscard]] DisplayOptions Display(void) const;
+  void EncodePass(wgpu::CommandEncoder &enc, size_t pass, const FrameContext &ctx);
+
   wgpu::Instance MakeInstance(void) const;   /* the descriptor, and the native path asks for one more */
-  void CreateTileTexture(void);       /* the shared linear sampler (terrain albedo + tonemap's HdrTex read) */
-  void CreateAtmosphere(void);        /* Hillaire LUT/uniform/moon resources + Configure()s the atmosphere stages */
-  void CreateSceneLight(void);        /* shadow atlas + cascade uniform + irradiance buffer, before any lit stage */
   SceneLight Light(void) const;       /* the four handles a lit surface binds */
   void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                         const double camUp[3], const double fwd[3], const double moonDir[3],
                         double dayF, double moonPh);    /* per-frame atmosphere uniform */
-  void CreateClouds(void);            /* Configure()s the one cloud stage (needs the LUTs + DepthTex) */
 
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
   void OnDevice(wgpu::Device d);
   void CreateOffscreenTarget(void);
 
+  std::shared_ptr<const RenderPlan> Plan_;
   wgpu::Instance Instance;
   wgpu::Adapter Adapter;
   wgpu::Device Device;
@@ -327,7 +340,6 @@ private:
   /* The whole frame lands in a FrameTex of the DECLARED size, and the present pass copies it on. */
   wgpu::Texture FrameTex;
   std::unique_ptr<PresentStage> Present = std::make_unique<PresentStage>();
-  std::unique_ptr<ProgressStage> Progress = std::make_unique<ProgressStage>();
 
   /* Hillaire 2020. These resources stay Renderer-owned because 3+ consumers read them; the stages
    * hold only the pipeline/bind group built from views injected at Configure(). §4 */
@@ -385,7 +397,9 @@ private:
   float FovDeg = 60.0f;                 /* [SET] until a scene declares one; SetFovDeg is the only writer */
   float OrthoM = 0.0f;                  /* > 0: parallel projection covering this many metres */
 
-  Readback PixelRead, DepthRead, IrrRead, MeterRead;
+  std::unique_ptr<TonemapStage> Tonemap = std::make_unique<TonemapStage>();
+
+  Readback PixelRead, DepthRead, LinearRead, IrrRead, MeterRead;
   bool WorkWatched = false, WorkRetired = false;
 
   int Width, Height;

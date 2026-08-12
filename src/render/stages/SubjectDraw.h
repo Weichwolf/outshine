@@ -22,9 +22,21 @@
 
 namespace outshine::Render {
 
+/* WHAT A STUDIO SUBJECT EMITS, and both numbers belong to the DECLARATION rather than to this file.
+ * A Lambertian facet of linear albedo rho under a uniform environment of radiance L returns rho*L,
+ * flat across the surface and with no integration left to perform -- which is exactly the closed form
+ * a path tracer reduces to under a coverage recipe (doc/requirements.md I.26.13). Emitting it here is
+ * one multiply and not a lighting model: there is no direction, no normal and no second light. */
+struct SubjectSurface {
+  float AlbedoLinear[3] = {0, 0, 0};
+  float EnvironmentRadiance = 0;   /* a subject nobody described is black, and visibly so */
+};
+
 class SubjectDraw : public GeometryUnit {
 public:
   void Configure(const Gpu &gpu);
+
+  void SetSurface(const SubjectSurface &surface) { Surface = surface; }
 
   /* `verts` is 3 floats per vertex, ECEF offsets from `anchor` in metres; `idx` indexes them.
    * A zero count retires the unit, which is the state every client that never declares a subject
@@ -38,7 +50,7 @@ public:
   long TriangleCount() const { return (long)NIdx / 3; }
 
 private:
-  static constexpr int kUniFloats = 20; /* mat4 + anc -- the WGSL struct `S` verbatim */
+  static constexpr int kUniFloats = 24; /* mat4 + anc + emitted -- the WGSL struct `S` verbatim */
 
   wgpu::Device Device;
   wgpu::Queue Queue;
@@ -47,6 +59,7 @@ private:
   wgpu::Buffer Uni, Vtx, Idx;
   uint32_t NVerts = 0, NIdx = 0;
   double Anchor[3] = {0, 0, 0};
+  SubjectSurface Surface;
 };
 
 } // namespace outshine::Render

@@ -65,7 +65,8 @@ wgpu::Instance Renderer::MakeInstance(void) const {
   return made;
 }
 
-void Renderer::Init(int width, int height) {
+void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> plan) {
+  Plan_ = std::move(plan);
   Width = width;
   Height = height;
   /* Dawn drives Request{Adapter,Device} synchronously here: there is no event loop to pump
@@ -149,48 +150,293 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
 void Renderer::OnDevice(wgpu::Device d) {
   Device = d;
   Queue = Device.GetQueue();
-  CreateOffscreenTarget();
-  CreateTileTexture();
-  CreateAtmosphere();      /* before the terrain pipeline: terrain AP samples the transmittance LUT */
-  CreateSceneLight();      /* and before ANY lit stage: their bind groups pin the atlas view */
-  if (!VegRows.empty()) {
-    wgpu::BufferDescriptor vbd{};
-    vbd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst;
-    vbd.size = (uint64_t)VegRows.size();
-    VegBuf = Device.CreateBuffer(&vbd);
-    Queue.WriteBuffer(VegBuf, 0, VegRows.data(), VegRows.size());
+  /* The format the plan names for `frameTex` and `surface`: sRGB, so the GPU encodes on store and the
+   * presented bytes need no CPU encode step. */
+  SurfaceFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
+
+  /* WHAT THE PLAN HOLDS AND NOTHING ELSE. Resources first, then stages in the plan's derived order --
+   * which is a topological order of the read/write graph, so a stage's bind group can never pin a
+   * view of something that has not been created. That used to be two comments. */
+  for (size_t r = 0; r < kResourceCount; ++r) {
+    const Resource id = static_cast<Resource>(r);
+    if (Plan_->Holds(id)) Create(id);
   }
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Stars->Init(gpu);
-  Geometry->Buildings().Configure(gpu, Light());
-  Geometry->Water().Configure(gpu, Light());
-  CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
-  BenchGround->Configure(gpu, Light());
-  Geometry->Models().Configure(gpu, Light());
-  Geometry->Subjects().Configure(gpu);
-  CreateClouds();
-  CreateResolvePipeline();
-  CreatePresent();          /* also Init()s Present (needs FrameTex, created here) */
-  GpuTime.Configure(Device, GpuTimeGranted);
+  for (Stage stage : Plan_->Order()) Configure(stage);
+
+  GpuTime.Configure(Device, GpuTimeGranted, Plan_->PassCount());
   DeviceReady = true;
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
-                                         {"hdr", HdrFormat == wgpu::TextureFormat::RG11B10Ufloat
-                                                     ? "rg11b10ufloat" : "rgba16float"}});
+                                       {"plan", Plan_->Digest()},
+                                       {"passes", Plan_->PassCount()},
+                                       {"stages", (int)Plan_->Order().size()}});
+  for (const std::string &merge : Plan_->Merges())
+    Log::Info("render", "plan_merge", {{"merge", merge}});
+  for (const std::string &alias : Plan_->Aliases())
+    Log::Info("render", "plan_alias", {{"alias", alias}});
 }
 
-/* Creates the SCENE's shared targets and injects TerrainDraw's dependencies. Must run AFTER
- * CreateAtmosphere: Tiles' bind group pins the LUT views that method created. */
-/* ONE weather sample, two consumers: the deck the cloud pass marches and the air the terrain fades
- * into are the same atmosphere, so they are set from the same call rather than sampled twice. */
-/* The irradiance buffer exists BEFORE any lit stage, for the same reason CreateAtmosphere does: a
- * WebGPU bind group pins its views and buffers at creation. */
-void Renderer::CreateSceneLight(void) {
+/* WHAT A RESOURCE IS ON THIS DEVICE. Exhaustive over the catalogue and with no `default:`, so a new
+ * row does not compile until this answers for it. The three resources a stage owns -- the shadow
+ * atlas, the occlusion buffer and the linear resolve's history pair -- are created by that stage's
+ * Configure, and the plan's order is what guarantees they exist before a reader binds them. */
+void Renderer::Create(Resource resource) {
+  auto lut = [&](uint32_t w, uint32_t h) {
+    wgpu::TextureDescriptor td{};
+    td.size = {w, h, 1};
+    td.format = wgpu::TextureFormat::RGBA16Float;
+    td.usage = wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding;
+    return Device.CreateTexture(&td);
+  };
+  auto buffer = [&](uint64_t bytes, wgpu::BufferUsage usage) {
+    wgpu::BufferDescriptor bd{};
+    bd.size = bytes;
+    bd.usage = usage;
+    return Device.CreateBuffer(&bd);
+  };
+  auto target = [&](wgpu::TextureFormat format, wgpu::TextureUsage usage) {
+    wgpu::TextureDescriptor td{};
+    td.size = {(uint32_t)Width, (uint32_t)Height, 1};
+    td.format = format;
+    td.usage = usage;
+    return Device.CreateTexture(&td);
+  };
+  const wgpu::TextureUsage kAttachment =
+      wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
+
+  switch (resource) {
+    case Resource::LinearSampler: {
+      wgpu::SamplerDescriptor sd{};
+      sd.addressModeU = wgpu::AddressMode::ClampToEdge;
+      sd.addressModeV = wgpu::AddressMode::ClampToEdge;
+      sd.magFilter = wgpu::FilterMode::Linear;
+      sd.minFilter = wgpu::FilterMode::Linear;
+      sd.mipmapFilter = wgpu::MipmapFilterMode::Linear;   /* trilinear across the mip chain */
+      sd.maxAnisotropy = 16;   /* the grazing-mip bias in the terrain fs handles the >16:1 tail */
+      Samp = Device.CreateSampler(&sd);
+      return;
+    }
+    case Resource::LutSampler: {
+      wgpu::SamplerDescriptor ss{};
+      ss.addressModeU = wgpu::AddressMode::Repeat;        /* sky-view azimuth wraps */
+      ss.addressModeV = wgpu::AddressMode::ClampToEdge;
+      ss.addressModeW = wgpu::AddressMode::ClampToEdge;
+      ss.magFilter = wgpu::FilterMode::Linear;
+      ss.minFilter = wgpu::FilterMode::Linear;
+      LutSamp = Device.CreateSampler(&ss);
+      return;
+    }
+    case Resource::AtmosphereUniform:
+      /* 12 vec4: camera and sun basis, moon direction, sky extra, view. */
+      AtmoBuf = buffer(12 * 4 * sizeof(float),
+                       wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst);
+      return;
+    case Resource::CascadeUniform:
+      CsmBuf = buffer(kShadowUniFloats * sizeof(float),
+                      wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst);
+      return;
+    case Resource::VegetationTable:
+      if (VegRows.empty()) return;
+      VegBuf = buffer(VegRows.size(), wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst);
+      Queue.WriteBuffer(VegBuf, 0, VegRows.data(), VegRows.size());
+      return;
+    case Resource::TransmittanceLut: TransLUT = lut(256, 64); return;
+    case Resource::MultiScatterLut:
+      MsLUT = lut((uint32_t)MultiScatterStage::kSide, (uint32_t)MultiScatterStage::kSide);
+      return;
+    case Resource::SkyViewLut: SkyLUT = lut(192, 108); return;
+    case Resource::IrradianceBuffer:
+      IrrBuf = buffer(IrradianceStage::kBufferBytes, wgpu::BufferUsage::Storage |
+                                                        wgpu::BufferUsage::CopyDst |
+                                                        wgpu::BufferUsage::CopySrc);
+      return;
+    case Resource::Meter:
+      MeterBuf = buffer(ExposureStage::kMeterBytes, wgpu::BufferUsage::Storage |
+                                                       wgpu::BufferUsage::CopyDst |
+                                                       wgpu::BufferUsage::CopySrc);
+      return;
+    case Resource::SceneHdr:
+      /* CopySrc because the scene-referred linear tap reads it wherever the plan's alias put
+       * the resolve's place here. */
+      HdrTex = target(HdrFormat, kAttachment | wgpu::TextureUsage::CopySrc);
+      return;
+    case Resource::SceneVelocity: VelTex = target(kVelocityFormat, kAttachment); return;
+    case Resource::SceneDepth:
+      DepthTex = target(wgpu::TextureFormat::Depth32Float, kAttachment | wgpu::TextureUsage::CopySrc);
+      return;
+    case Resource::FrameTex:
+      FrameTex = target(SurfaceFormat, kAttachment | wgpu::TextureUsage::CopySrc);
+      return;
+    case Resource::Surface: {
+      wgpu::TextureDescriptor td{};
+      td.size = {(uint32_t)Width, (uint32_t)Height, 1};
+      td.format = SurfaceFormat;
+      td.usage = wgpu::TextureUsage::RenderAttachment;
+      OffscreenTex = Device.CreateTexture(&td);
+      return;
+    }
+    /* Owned by the stage that writes them, and reachable through View(). */
+    case Resource::ShadowAtlas:
+    case Resource::AoBuffer:
+    case Resource::SceneLinear:
+    case Resource::kCount:
+      return;
+  }
+}
+
+/* WHERE A READER BINDS. Buffers are named directly by the Configure that needs them; this answers
+ * only for the texture views, including the three a stage owns. */
+wgpu::TextureView Renderer::View(Resource resource) const {
+  switch (resource) {
+    case Resource::TransmittanceLut: return TransLUT ? TransLUT.CreateView() : wgpu::TextureView();
+    case Resource::MultiScatterLut: return MsLUT ? MsLUT.CreateView() : wgpu::TextureView();
+    case Resource::SkyViewLut: return SkyLUT ? SkyLUT.CreateView() : wgpu::TextureView();
+    case Resource::ShadowAtlas: return Shadow->AtlasView();
+    case Resource::SceneHdr: return HdrTex ? HdrTex.CreateView() : wgpu::TextureView();
+    case Resource::SceneVelocity: return VelTex ? VelTex.CreateView() : wgpu::TextureView();
+    case Resource::SceneDepth: return DepthTex ? DepthTex.CreateView() : wgpu::TextureView();
+    case Resource::AoBuffer: return Ao->OutputView();
+    case Resource::SceneLinear: return Taa->Output(FrameNo);
+    case Resource::FrameTex: return FrameTex ? FrameTex.CreateView() : wgpu::TextureView();
+    case Resource::Surface: return OffscreenTex ? OffscreenTex.CreateView() : wgpu::TextureView();
+    case Resource::LinearSampler:
+    case Resource::LutSampler:
+    case Resource::AtmosphereUniform:
+    case Resource::CascadeUniform:
+    case Resource::VegetationTable:
+    case Resource::IrradianceBuffer:
+    case Resource::Meter:
+    case Resource::kCount:
+      return wgpu::TextureView();
+  }
+  return wgpu::TextureView();
+}
+
+/* THE DISPLAY TRANSFER THE PLAN DECLARED, as the two stages that emit it read it. */
+DisplayOptions Renderer::Display(void) const {
+  DisplayOptions options;
+  options.HasOcclusion = Plan_->Holds(Resource::AoBuffer);
+  options.HasMeter = Plan_->Holds(Resource::Meter);
+  options.Exposure = Plan_->Exposure();
+  options.Curve = Plan_->Display();
+  return options;
+}
+
+void Renderer::Configure(Stage stage) {
   Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Shadow->Init(gpu);
-  wgpu::BufferDescriptor bd{};
-  bd.size = kShadowUniFloats * sizeof(float);
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  CsmBuf = Device.CreateBuffer(&bd);
+  switch (stage) {
+    case Stage::Transmittance: Transmittance->Configure(gpu, View(Resource::TransmittanceLut)); return;
+    case Stage::MultiScatter:
+      MultiScatter->Configure(gpu, View(Resource::MultiScatterLut),
+                              View(Resource::TransmittanceLut), LutSamp);
+      return;
+    case Stage::SkyView:
+      SkyView->Configure(gpu, View(Resource::SkyViewLut), View(Resource::TransmittanceLut), LutSamp,
+                         AtmoBuf, View(Resource::MultiScatterLut));
+      return;
+    case Stage::Irradiance:
+      Irradiance->Configure(gpu, IrrBuf, View(Resource::SkyViewLut),
+                            View(Resource::TransmittanceLut), LutSamp, AtmoBuf);
+      return;
+    case Stage::AutoExposure: Exposure->Configure(gpu, MeterBuf, IrrBuf); return;
+    case Stage::ShadowMap: Shadow->Init(gpu); return;
+    case Stage::Sky: Sky->Configure(gpu, View(Resource::SkyViewLut), LutSamp, AtmoBuf); return;
+    case Stage::Sun:
+      Sun->Configure(gpu, AtmoBuf, LutSamp, View(Resource::TransmittanceLut));
+      return;
+    case Stage::Moon:
+      Moon->Configure(gpu, AtmoBuf, LutSamp, MoonData.data(), MoonData.size(), MoonW, MoonH);
+      return;
+    case Stage::Stars: Stars->Init(gpu); return;
+    case Stage::BenchGround: BenchGround->Configure(gpu, Light()); return;
+    case Stage::Terrain:
+      Geometry->Terrain().Configure(gpu, LutSamp, View(Resource::SkyViewLut), AtmoBuf, MaxLayers,
+                                    VegBuf, Light());
+      return;
+    case Stage::Buildings: Geometry->Buildings().Configure(gpu, Light()); return;
+    case Stage::Water: Geometry->Water().Configure(gpu, Light()); return;
+    case Stage::Models: Geometry->Models().Configure(gpu, Light()); return;
+    case Stage::Subjects: Geometry->Subjects().Configure(gpu); return;
+    case Stage::Occlusion:
+      Ao->Configure(gpu, View(Resource::SceneDepth), AtmoBuf, Width, Height);
+      return;
+    case Stage::TemporalResolve:
+      Taa->Configure(gpu, Samp, View(Resource::SceneHdr), View(Resource::SceneVelocity),
+                     View(Resource::SceneDepth), AtmoBuf, View(Resource::AoBuffer), MeterBuf,
+                     Display(), Width, Height);
+      return;
+    case Stage::Tonemap:
+      /* R2 put the display transfer in the resolve's own fragment; there is no second pipeline. */
+      if (Plan_->Fused(Stage::Tonemap)) return;
+      Tonemap->Configure(gpu, Bound(Resource::SceneLinear), View(Resource::AoBuffer), MeterBuf,
+                         Display());
+      return;
+    case Stage::Present: Present->Configure(gpu, View(Resource::FrameTex)); return;
+    case Stage::kCount: return;
+  }
+}
+
+void Renderer::EncodeStage(Stage stage, const FrameContext &ctx, wgpu::ComputePassEncoder &pass) {
+  switch (stage) {
+    case Stage::Transmittance: Transmittance->EncodeCompute(ctx, pass); return;
+    case Stage::MultiScatter: MultiScatter->EncodeCompute(ctx, pass); return;
+    case Stage::SkyView: SkyView->EncodeCompute(ctx, pass); return;
+    case Stage::Irradiance: Irradiance->EncodeCompute(ctx, pass); return;
+    case Stage::AutoExposure: Exposure->EncodeCompute(ctx, pass); return;
+    /* Every raster stage of the catalogue: the compiler never puts one in a compute pass, and
+     * listing them is what makes a new stage a compile error here rather than a silent no-op. */
+    case Stage::ShadowMap:
+    case Stage::Sky:
+    case Stage::Sun:
+    case Stage::Moon:
+    case Stage::Stars:
+    case Stage::BenchGround:
+    case Stage::Terrain:
+    case Stage::Buildings:
+    case Stage::Water:
+    case Stage::Models:
+    case Stage::Subjects:
+    case Stage::Occlusion:
+    case Stage::TemporalResolve:
+    case Stage::Tonemap:
+    case Stage::Present:
+    case Stage::kCount:
+      return;
+  }
+}
+
+void Renderer::EncodeStage(Stage stage, const FrameContext &ctx, wgpu::RenderPassEncoder &pass) {
+  switch (stage) {
+    case Stage::ShadowMap: Shadow->Encode(ctx, pass); return;
+    case Stage::Sky: Sky->Encode(ctx, pass); return;
+    case Stage::Sun: Sun->Encode(ctx, pass); return;
+    case Stage::Moon: Moon->Encode(ctx, pass); return;
+    case Stage::Stars: Stars->Encode(ctx, pass); return;
+    case Stage::BenchGround:
+      BenchGround->SetSun(ctx.SunDir, NightAmbient(ctx));
+      BenchGround->Encode(ctx, pass);
+      return;
+    case Stage::Terrain:
+    case Stage::Buildings:
+    case Stage::Water:
+    case Stage::Models:
+    case Stage::Subjects:
+      Geometry->EncodeUnit(stage, ctx, pass);
+      return;
+    case Stage::Occlusion: Ao->Encode(ctx, pass); return;
+    case Stage::TemporalResolve: Taa->Encode(ctx, pass); return;
+    case Stage::Tonemap:
+      if (Plan_->Fused(Stage::Tonemap)) return;   /* the resolve's fragment already wrote it */
+      Tonemap->Encode(ctx, pass);
+      return;
+    case Stage::Present: Present->Encode(ctx, pass); return;
+    case Stage::Transmittance:
+    case Stage::MultiScatter:
+    case Stage::SkyView:
+    case Stage::Irradiance:
+    case Stage::AutoExposure:
+    case Stage::kCount:
+      return;
+  }
 }
 
 SceneLight Renderer::Light(void) const {
@@ -200,117 +446,6 @@ SceneLight Renderer::Light(void) const {
   l.ShadowAtlas = Shadow->AtlasView();
   l.ShadowCompare = Shadow->CompareSampler();
   return l;
-}
-
-/* The whole cloud field as one upload, once a frame. Two things live here rather than in the stage:
- * the WORLD anchor (a place, so four yaws and two standpoints see one sky) and the sun geometry the
- * shadow offset needs, which the march and the ground would otherwise each derive for themselves. */
-void Renderer::CreateTerrainPipeline(void) {
-  wgpu::TextureDescriptor td{};
-  td.size = {(uint32_t)Width, (uint32_t)Height, 1};
-  td.format = wgpu::TextureFormat::Depth32Float;
-  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding
-           | wgpu::TextureUsage::CopySrc;   /* cloud pass reads it; ReadDepth copies it */
-  DepthTex = Device.CreateTexture(&td);
-  td.format = HdrFormat;
-  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
-  HdrTex = Device.CreateTexture(&td);
-  td.format = kVelocityFormat;
-  VelTex = Device.CreateTexture(&td);
-
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Geometry->Terrain().Configure(gpu, LutSamp, SkyLUT.CreateView(), AtmoBuf, MaxLayers, VegBuf,
-                   Light());
-}
-
-void Renderer::CreateTileTexture(void) {
-  wgpu::SamplerDescriptor sd{};
-  sd.addressModeU = wgpu::AddressMode::ClampToEdge;
-  sd.addressModeV = wgpu::AddressMode::ClampToEdge;
-  sd.magFilter = wgpu::FilterMode::Linear;
-  sd.minFilter = wgpu::FilterMode::Linear;
-  sd.mipmapFilter = wgpu::MipmapFilterMode::Linear;   /* trilinear across the new mip chain */
-  sd.maxAnisotropy = 16;   /* target GPU allows it; the grazing-mip bias in the terrain fs handles the >16:1 tail */
-  Samp = Device.CreateSampler(&sd);
-}
-
-int Renderer::UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                           const DagCluster *clusters, int nclusters, const double origin[3],
-                           const double anchor[3]) {
-  if (!DeviceUsable()) return -1;
-  return Geometry->Terrain().UploadTile(verts, nverts, idx, nidx, clusters, nclusters, origin, anchor);
-}
-
-
-/* Lighting stays linear upstream; the resolve is the only place display encoding happens, and it does
- * it in the same fragment that resolves — one pass, two attachments. */
-void Renderer::CreateResolvePipeline(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Ao->Configure(gpu, DepthTex.CreateView(), AtmoBuf, Width, Height);
-  Exposure->Configure(gpu, MeterBuf, IrrBuf);
-  Taa->Configure(gpu, Samp, HdrTex.CreateView(), VelTex.CreateView(), DepthTex.CreateView(),
-                 AtmoBuf, Ao->OutputView(), MeterBuf, Width, Height);
-}
-
-void Renderer::CreatePresent(void) {
-  wgpu::TextureDescriptor td{};   /* the declared size; scene + tonemap + HUD all land here */
-  td.size = {(uint32_t)Width, (uint32_t)Height, 1};
-  td.format = SurfaceFormat;      /* sRGB: the round-trip through the present pass is identity */
-  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
-             wgpu::TextureUsage::CopySrc;
-  FrameTex = Device.CreateTexture(&td);
-
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  Present->Configure(gpu, FrameTex.CreateView());
-  Progress->Init(gpu);
-}
-
-void Renderer::CreateAtmosphere(void) {
-  wgpu::SamplerDescriptor ss{};
-  ss.addressModeU = wgpu::AddressMode::Repeat;        /* sky-view azimuth wraps */
-  ss.addressModeV = wgpu::AddressMode::ClampToEdge;
-  ss.addressModeW = wgpu::AddressMode::ClampToEdge;
-  ss.magFilter = wgpu::FilterMode::Linear;
-  ss.minFilter = wgpu::FilterMode::Linear;
-  LutSamp = Device.CreateSampler(&ss);
-
-  auto mklut = [&](uint32_t w, uint32_t h) {
-    wgpu::TextureDescriptor td{};
-    td.size = {w, h, 1};
-    td.format = wgpu::TextureFormat::RGBA16Float;
-    td.usage = wgpu::TextureUsage::StorageBinding | wgpu::TextureUsage::TextureBinding;
-    return Device.CreateTexture(&td);
-  };
-  TransLUT = mklut(256, 64);
-  MsLUT = mklut((uint32_t)MultiScatterStage::kSide, (uint32_t)MultiScatterStage::kSide);
-  SkyLUT = mklut(192, 108);
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = 12 * 4 * sizeof(float);   /* 12 vec4 (camera/sun basis + moonDir + skyExtra + view) */
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  AtmoBuf = Device.CreateBuffer(&bd);
-
-  /* Init-order CONTRACT: THIS order, because each later stage's bind group is built from an earlier
-   * one's already-created texture view — a WebGPU bind group pins a view at creation, there is no
-   * "rebind later". Same reason CreateAtmosphere runs before CreateTerrainPipeline. */
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-  wgpu::BufferDescriptor ibd{};
-  ibd.size = IrradianceStage::kBufferBytes;
-  ibd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
-  IrrBuf = Device.CreateBuffer(&ibd);
-  wgpu::BufferDescriptor mbd{};
-  mbd.size = ExposureStage::kMeterBytes;
-  mbd.usage = wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::CopySrc;
-  MeterBuf = Device.CreateBuffer(&mbd);
-
-  Transmittance->Configure(gpu, TransLUT.CreateView());
-  MultiScatter->Configure(gpu, MsLUT.CreateView(), TransLUT.CreateView(), LutSamp);
-  SkyView->Configure(gpu, SkyLUT.CreateView(), TransLUT.CreateView(), LutSamp, AtmoBuf,
-                     MsLUT.CreateView());
-  Irradiance->Configure(gpu, IrrBuf, SkyLUT.CreateView(), TransLUT.CreateView(), LutSamp, AtmoBuf);
-  Sky->Configure(gpu, SkyLUT.CreateView(), LutSamp, AtmoBuf);
-  Sun->Configure(gpu, AtmoBuf, LutSamp, TransLUT.CreateView());
-  Moon->Configure(gpu, AtmoBuf, LutSamp, MoonData.data(), MoonData.size(), MoonW, MoonH);
 }
 
 void Renderer::SetMoonTexture(const uint8_t *rgba, int w, int h) {
@@ -326,11 +461,6 @@ void Renderer::SetStars(const uint8_t *hyg, int nbytes, double originLat, double
 /* No bakes, no history, no textures: one pipeline over the atmosphere LUTs and the scene depth. Must
  * run after CreateTerrainPipeline (DepthTex) and CreateAtmosphere (the LUT views its bind group
  * pins). */
-void Renderer::CreateClouds(void) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
-}
-
-
 void Renderer::UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
                                   const double camUp[3], const double fwd[3], const double moonDir[3],
                                   double dayF, double moonPh) {
@@ -428,15 +558,6 @@ static void Norm3(double v[3]) {
 /* RGBA8UnormSrgb so the GPU sRGB-encodes on store, exactly as the surface's sRGB view does — and so
  * the presented bytes need no CPU encode step. It is a present target only; the readback takes
  * FrameTex, which both translations have. */
-void Renderer::CreateOffscreenTarget(void) {
-  SurfaceFormat = wgpu::TextureFormat::RGBA8UnormSrgb;
-  wgpu::TextureDescriptor td{};
-  td.size = {(uint32_t)Width, (uint32_t)Height, 1};
-  td.format = SurfaceFormat;
-  td.usage = wgpu::TextureUsage::RenderAttachment;
-  OffscreenTex = Device.CreateTexture(&td);
-}
-
 void Renderer::BakePrototypeImpostor(void) {
   if (!Device || !Geometry->Models().WantsBake()) return;
   Geometry->Models().CreateImpostor();
@@ -474,66 +595,89 @@ void Renderer::BakePrototypeImpostor(void) {
                              (double)(ModelDraw::kCells * ModelDraw::kCellSize) * 4.0 / 1048576.0}});
 }
 
-/* THE ONE PLACE A PRESENTABLE TARGET IS ACQUIRED. Both frame kinds go through it, so neither can
- * end up presenting to something the other configured. */
-bool Renderer::AcquireTarget(wgpu::TextureView &finalView) {
-  if (!DeviceReady || DeviceLost) return false;
-  finalView = OffscreenTex.CreateView();
-  return true;
-}
+/* WHAT AN ATTACHMENT IS CLEARED TO, and each of these is a statement rather than a habit: the scene
+ * target's clear is what a pixel nothing drew carries, the velocity sentinel says "nothing dynamic
+ * wrote this", the occlusion clear says "unoccluded" and the reversed-Z depth clears to the far
+ * plane. */
+namespace {
 
-/* THE ONE PLACE THE DECLARED PICTURE IS HANDED ON. The target is the declared size, so the picture
- * fills it and there is no fit to state twice. */
-void Renderer::EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
-                             const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps) {
-  wgpu::RenderPassColorAttachment ca{};
-  ca.view = finalView;
-  ca.loadOp = wgpu::LoadOp::Clear;
-  ca.storeOp = wgpu::StoreOp::Store;
-  ca.clearValue = {0, 0, 0, 1};
-  wgpu::RenderPassDescriptor rp{};
-  rp.colorAttachmentCount = 1;
-  rp.colorAttachments = &ca;
-  rp.timestampWrites = timestamps;
-  wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
-  Present->Encode(ctx, pass);
-  pass.End();
-}
-
-/* TWO PASSES INSTEAD OF EIGHT, into the same FrameTex the scene uses, so a readback and the display
- * see this frame exactly as they see a scene frame. */
-void Renderer::RenderProgress(float fraction) {
-  wgpu::TextureView finalView;
-  if (!AcquireTarget(finalView)) return;
-  Progress->SetFraction(Queue, fraction);
-  FrameNo++;
-  FrameContext ctx{};   /* neither stage reads it here; kept for interface uniformity */
-  ctx.Width = Width; ctx.Height = Height; ctx.FovDeg = FovDeg;
-  wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
-  {
-    wgpu::RenderPassColorAttachment ca{};
-    ca.view = FrameTex.CreateView(); ca.loadOp = wgpu::LoadOp::Clear; ca.storeOp = wgpu::StoreOp::Store;
-    ca.clearValue = {0, 0, 0, 1};
-    wgpu::RenderPassDescriptor rp{}; rp.colorAttachmentCount = 1; rp.colorAttachments = &ca;
-    wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
-    Progress->Encode(ctx, pass);
-    pass.End();
+wgpu::Color ClearOf(Resource resource) {
+  switch (resource) {
+    case Resource::SceneVelocity: return {kVelocityStatic, kVelocityStatic, 0, 0};
+    case Resource::AoBuffer: return {1, 1, 1, 1};
+    default: return {0, 0, 0, 1};
   }
-  /* NO TIMESTAMP: this path neither opens nor resolves a GpuTimer frame, and a query written into a
-   * frame nobody resolves would put a progress bar's present into the scene's per-pass row. */
-  EncodePresent(enc, finalView, ctx, nullptr);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  Queue.Submit(1, &cmd);
+}
+
+bool IsDepth(Resource resource) { return Row(resource).Format == TexelFormat::Depth32Float; }
+
+} // namespace
+
+/* THE ONE PLACE A PASS DESCRIPTOR IS BUILT, and every field of it comes from the plan: the target
+ * set is the union of what the pass's stages write and contribute, in the catalogue's own order, so
+ * a pipeline's attachment order and a pass's attachment order cannot disagree. */
+void Renderer::EncodePass(wgpu::CommandEncoder &enc, size_t pass, const FrameContext &ctx) {
+  const RenderPlan::Pass &declared = Plan_->Passes()[pass];
+  if (declared.Kind == PassKind::Compute) {
+    wgpu::ComputePassDescriptor cpd{};
+    cpd.timestampWrites = GpuTime.Writes((int)pass);
+    wgpu::ComputePassEncoder cp = enc.BeginComputePass(&cpd);
+    for (size_t at = 0; at < declared.Count; ++at)
+      EncodeStage(Plan_->Order()[declared.First + at], ctx, cp);
+    cp.End();
+    return;
+  }
+
+  wgpu::RenderPassColorAttachment colours[kMaxEdges * 2] = {};
+  uint32_t colourCount = 0;
+  wgpu::RenderPassDepthStencilAttachment depth{};
+  bool haveDepth = false;
+  for (size_t at = 0; at < declared.Count; ++at) {
+    const StageRow &row = Row(Plan_->Order()[declared.First + at]);
+    const Resource *edges[2] = {row.Writes, row.Contributes};
+    for (const Resource *edge : edges) {
+      for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
+        const Resource target = edge[e];
+        if (IsDepth(target)) {
+          if (haveDepth) continue;
+          haveDepth = true;
+          depth.view = View(target);
+          depth.depthLoadOp = wgpu::LoadOp::Clear;
+          depth.depthStoreOp = wgpu::StoreOp::Store;
+          /* The scene is reversed-Z and clears to the far plane at 0; the shadow atlas is a plain
+           * [0,1] ortho depth and clears to 1. */
+          depth.depthClearValue = target == Resource::ShadowAtlas ? 1.0f : 0.0f;
+          continue;
+        }
+        bool already = false;
+        for (uint32_t c = 0; c < colourCount; ++c)
+          if (colours[c].view.Get() == View(target).Get()) already = true;
+        if (already) continue;
+        colours[colourCount].view = View(target);
+        colours[colourCount].loadOp = wgpu::LoadOp::Clear;
+        colours[colourCount].storeOp = wgpu::StoreOp::Store;
+        colours[colourCount].clearValue = ClearOf(target);
+        colourCount++;
+      }
+    }
+  }
+
+  wgpu::RenderPassDescriptor rp{};
+  rp.colorAttachmentCount = colourCount;
+  rp.colorAttachments = colourCount ? colours : nullptr;
+  rp.depthStencilAttachment = haveDepth ? &depth : nullptr;
+  rp.timestampWrites = GpuTime.Writes((int)pass);
+  wgpu::RenderPassEncoder encoder = enc.BeginRenderPass(&rp);
+  for (size_t at = 0; at < declared.Count; ++at)
+    EncodeStage(Plan_->Order()[declared.First + at], ctx, encoder);
+  encoder.End();
 }
 
 void Renderer::RenderFrame(void) {
 #ifdef FB_GPU_NOOP
   return;   /* bisect stage 2: totally inert frames — init-side death vs frame-side */
 #endif
-  wgpu::TextureView finalView;
-  if (!AcquireTarget(finalView)) return;
-  /* Scene + tonemap + HUD land in the declared-size FrameTex; only the present writes finalView. */
-  wgpu::TextureView frameView = FrameTex.CreateView();
+  if (!DeviceReady || DeviceLost) return;
 #ifdef FB_GPU_BISECT
   FrameNo++;
   return;   /* bisect: acquire only — does the device still die? */
@@ -604,8 +748,9 @@ void Renderer::RenderFrame(void) {
   }
   /* There is ONE cloud field and CloudLayerStage draws it — as a march or as a sheet, both out of
 */
-  UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, SceneState.Env.MoonPhase);
-  Stars->Update(SkyClock);
+  if (Plan_->Holds(Resource::AtmosphereUniform))
+    UpdateAtmosphere(eye, sun, right, camUp, fwd, moon, dayF, SceneState.Env.MoonPhase);
+  if (Plan_->Holds(Stage::Stars)) Stars->Update(SkyClock);
 
   /* The shared per-frame state every stage's Encode() reads; built before the cloud update so
    * CloudLayerStage::Update() can read it too. */
@@ -634,190 +779,46 @@ void Renderer::RenderFrame(void) {
    * how fast the bench happens to run (CLAUDE.md, Prinzip 5). */
   ctx.Dt = 1.0f / 60.0f;
 
+  /* THE CASCADE MATRICES, built once a frame because every receiver reads the same uniform. The
+   * atlas is four viewports into one depth target, so the plan carries one pass however many
+   * cascades there are. */
+  if (Plan_->Holds(Stage::ShadowMap)) {
+    Shadow->SetCasters(Geometry->Buildings().CasterBuffer(),
+                       Geometry->Buildings().CasterIndexBuffer(),
+                       Geometry->Buildings().CasterVertexCount(),
+                       Geometry->Buildings().CasterClusters(),
+                       Geometry->Buildings().CasterClusterCount(),
+                       Geometry->Buildings().CasterAnchor());
+    /* The terrain casts too, and at a low sun that is the larger half of the shadow: a ridge shadows
+     * a whole valley while a building shadows a street. */
+    Geometry->Terrain().CollectCasters(TerrainCasters);
+    ShadowTerrain.resize(TerrainCasters.size());
+    for (size_t i = 0; i < TerrainCasters.size(); i++) {
+      ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
+      ShadowTerrain[i].Idx = TerrainCasters[i].Idx;
+      ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
+      ShadowTerrain[i].NIdx = TerrainCasters[i].NIdx;
+      ShadowTerrain[i].Clusters = TerrainCasters[i].Clusters;
+      ShadowTerrain[i].NClusters = TerrainCasters[i].NClusters;
+      for (int axis = 0; axis < 3; axis++) {
+        ShadowTerrain[i].Origin[axis] = TerrainCasters[i].Origin[axis];
+        ShadowTerrain[i].BoundCtr[axis] = TerrainCasters[i].BoundCtr[axis];
+      }
+      ShadowTerrain[i].BoundRad = TerrainCasters[i].BoundRad;
+    }
+    Shadow->SetTerrainCasters(ShadowTerrain);
+    Shadow->Update(ctx);
+    Queue.WriteBuffer(CsmBuf, 0, Shadow->CsmUniform(), kShadowUniFloats * sizeof(float));
+  }
+  Geometry->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
+  Geometry->OpenCut(ctx);
+
   GpuTime.BeginFrame();
   wgpu::CommandEncoder enc = Device.CreateCommandEncoder();
 
-  /* PASS TOPOLOGY IS A CONTRACT: only this function opens and closes passes — a stage draws into the
-   * borrowed encoder — and a stage split must never change this count. Hence the tally + the periodic
-   * log below, so a before/after diff is readable straight from the telemetry. */
-  int passCount = 0;
-
-  /* Once per frame — TODO cache while the sun is static. */
-  /* Two dispatches, ONE pass: WebGPU orders dispatches within a compute pass and makes the first
-   * one's writes visible to the second, so the multiple-scattering bake reads the transmittance LUT
-   * written a dispatch earlier without costing a pass. */
-  {
-    wgpu::ComputePassDescriptor cpd{};
-    cpd.timestampWrites = GpuTime.Writes(GpuTimer::Atmosphere);
-    wgpu::ComputePassEncoder cp = enc.BeginComputePass(&cpd);
-    passCount++;
-    Transmittance->EncodeCompute(ctx, cp);
-    MultiScatter->EncodeCompute(ctx, cp);
-    cp.End();
-  }
-  /* Likewise: the hemisphere integral reads the sky-view LUT the dispatch before it wrote. That
-   * integral IS the ground's ambient, which is what puts sky and ground on one scale. */
-  {
-    wgpu::ComputePassDescriptor lpd{};
-    lpd.timestampWrites = GpuTime.Writes(GpuTimer::Light);
-    wgpu::ComputePassEncoder cp = enc.BeginComputePass(&lpd);
-    passCount++;
-    SkyView->EncodeCompute(ctx, cp);
-    Irradiance->EncodeCompute(ctx, cp);
-    /* And the display curve reads that integral one dispatch later, in the same pass: the exposure
-     * is placed from THIS frame's light, before a single pixel of it has been drawn. */
-    Exposure->EncodeCompute(ctx, cp);
-    cp.End();
-  }
-
-
-  /* SUN SHADOWS. A NEW pass boundary, and it is Renderer's like every other: the four cascades are
-   * four viewports into one depth atlas, so the count rises by exactly one however many cascades
-   * there are. The cascade matrices are built here because every receiver reads the same uniform. */
-  Shadow->SetCasters(Geometry->Buildings().CasterBuffer(), Geometry->Buildings().CasterIndexBuffer(),
-                     Geometry->Buildings().CasterVertexCount(),
-                     Geometry->Buildings().CasterClusters(), Geometry->Buildings().CasterClusterCount(),
-                     Geometry->Buildings().CasterAnchor());
-  /* The terrain casts too, and at the declared 11.2 deg sun that is the larger half of the shadow:
-   * a ridge shadows a whole valley while a building shadows a street. Measured affordable before it
-   * was built (stages/ShadowStage.h). */
-  Geometry->Terrain().CollectCasters(TerrainCasters);
-  ShadowTerrain.resize(TerrainCasters.size());
-  for (size_t i = 0; i < TerrainCasters.size(); i++) {
-    ShadowTerrain[i].Vtx = TerrainCasters[i].Vtx;
-    ShadowTerrain[i].Idx = TerrainCasters[i].Idx;
-    ShadowTerrain[i].NVerts = TerrainCasters[i].NVerts;
-    ShadowTerrain[i].NIdx = TerrainCasters[i].NIdx;
-    ShadowTerrain[i].Clusters = TerrainCasters[i].Clusters;
-    ShadowTerrain[i].NClusters = TerrainCasters[i].NClusters;
-    for (int a2 = 0; a2 < 3; a2++) {
-      ShadowTerrain[i].Origin[a2] = TerrainCasters[i].Origin[a2];
-      ShadowTerrain[i].BoundCtr[a2] = TerrainCasters[i].BoundCtr[a2];
-    }
-    ShadowTerrain[i].BoundRad = TerrainCasters[i].BoundRad;
-  }
-  Shadow->SetTerrainCasters(ShadowTerrain);
-  Shadow->Update(ctx);
-  Queue.WriteBuffer(CsmBuf, 0, Shadow->CsmUniform(), kShadowUniFloats * sizeof(float));
-  {
-    wgpu::RenderPassDepthStencilAttachment sda{};
-    sda.view = Shadow->AtlasView();
-    sda.depthLoadOp = wgpu::LoadOp::Clear;
-    sda.depthStoreOp = wgpu::StoreOp::Store;
-    sda.depthClearValue = 1.0f;   /* plain [0,1] ortho depth, not the scene's reversed-Z */
-    wgpu::RenderPassDescriptor shp{};
-    shp.colorAttachmentCount = 0;
-    shp.depthStencilAttachment = &sda;
-    shp.timestampWrites = GpuTime.Writes(GpuTimer::Shadow);
-    wgpu::RenderPassEncoder sh = enc.BeginRenderPass(&shp);
-    passCount++;
-    Shadow->Encode(ctx, sh);
-    sh.End();
-  }
-
-  /* Scene pass -> HDR offscreen: linear radiance, [0,1] reversed-Z depth. Sky fills the background
-   * first (depth Always / no write); terrain draws over it. */
-  wgpu::RenderPassColorAttachment ca[2] = {};
-  ca[0].view = HdrTex.CreateView();
-  ca[0].loadOp = wgpu::LoadOp::Clear;
-  ca[0].storeOp = wgpu::StoreOp::Store;
-  ca[0].clearValue = {0, 0, 0, 1};            /* irrelevant — the sky pass covers every pixel */
-  /* THE MOTION ATTACHMENT. Cleared to "world-fixed": the resolve then reconstructs those pixels from
-   * their own depth, which is exact and costs no write. Only geometry that moved for a reason other
-   * than the camera overwrites it (stages/SceneTargets.h). */
-  ca[1].view = VelTex.CreateView();
-  ca[1].loadOp = wgpu::LoadOp::Clear;
-  ca[1].storeOp = wgpu::StoreOp::Store;
-  ca[1].clearValue = {kVelocityStatic, kVelocityStatic, 0, 0};
-  wgpu::RenderPassDepthStencilAttachment da{};
-  da.view = DepthTex.CreateView();
-  da.depthLoadOp = wgpu::LoadOp::Clear;
-  da.depthStoreOp = wgpu::StoreOp::Store;
-  da.depthClearValue = 0.0f;               /* reversed-Z far */
-  wgpu::RenderPassDescriptor sp{};
-  sp.colorAttachmentCount = 2;
-  sp.colorAttachments = ca;
-  sp.depthStencilAttachment = &da;
-  sp.timestampWrites = GpuTime.Writes(GpuTimer::Scene);
-  wgpu::RenderPassEncoder scene = enc.BeginRenderPass(&sp);
-  passCount++;
-  /* NO viewport: the world covers the WHOLE frame and continues behind the MFD bank, which is what the
-   * translucent bays show. The windscreen is still the grid's top two rows — it is the PROJECTION that
-   * puts the boresight there (MvpCamRel's `shift`), not a scissor. */
-  Sky->Encode(ctx, scene);                 /* physically-based sky background, first in the pass */
-
-  Sun->Encode(ctx, scene);     /* additive (One/One), right after Sky */
-  Moon->Encode(ctx, scene);
-
-  Stars->Encode(ctx, scene);   /* additive, over the sky and under the terrain; self-gates */
-
-  BenchGround->SetSun(ctx.SunDir, NightAmbient(ctx));
-  BenchGround->Encode(ctx, scene);   /* the subject bench's card, in the terrain's slot; self-gates off */
-  Geometry->SetSun(ctx.SunDir, ctx.Up, NightAmbient(ctx));
-  Geometry->Encode(ctx, scene);   /* terrain, prisms, water and models — one stage, one cut, no pass */
-  scene.End();
-
-
-  /* AMBIENT OCCLUSION. Its own pass because it SAMPLES the depth texture that was an attachment a
-   * moment ago — the same argument the cloud pass makes. The composite is not a pass: the tonemap
-   * already reads every scene pixel and now reads this buffer alongside. */
-  {
-    wgpu::RenderPassColorAttachment aca{};
-    aca.view = Ao->OutputView();
-    aca.loadOp = wgpu::LoadOp::Clear;
-    aca.storeOp = wgpu::StoreOp::Store;
-    aca.clearValue = {1, 1, 1, 1};
-    wgpu::RenderPassDescriptor ap{};
-    ap.colorAttachmentCount = 1;
-    ap.colorAttachments = &aca;
-    ap.timestampWrites = GpuTime.Writes(GpuTimer::Ao);
-    wgpu::RenderPassEncoder aoPass = enc.BeginRenderPass(&ap);
-    passCount++;
-    Ao->Encode(ctx, aoPass);
-    aoPass.End();
-  }
-
-  /* THE TEMPORAL RESOLVE AND THE DISPLAY CURVE, ONE PASS. Its own pass for the same reason the cloud
-   * and occlusion passes are: it SAMPLES the depth and the colour that were attachments a moment ago.
-   * What accumulates in attachment 0 is LINEAR radiance — a history kept in display codes would
-   * quantise the accumulation at 8 bits and could not carry the direct fraction the curve weights its
-   * occlusion by — while attachment 1 takes the display codes. They were two passes until the per-pass
-   * timing showed what that costs on a tile renderer: 4.98 + 5.05 ms against 3.80 ms for everything the
-   * engine draws (doc/architecture.md). Merging removes one whole store-and-load of the frame. */
-  {
-    wgpu::RenderPassColorAttachment tca2[2] = {};
-    tca2[0].view = Taa->Output(FrameNo);
-    tca2[0].loadOp = wgpu::LoadOp::Clear;
-    tca2[0].storeOp = wgpu::StoreOp::Store;
-    tca2[0].clearValue = {0, 0, 0, 1};   /* every pixel is written; the clear only defines the untouched */
-    tca2[1].view = frameView;
-    tca2[1].loadOp = wgpu::LoadOp::Clear;
-    tca2[1].storeOp = wgpu::StoreOp::Store;
-    tca2[1].clearValue = {0, 0, 0, 1};
-    wgpu::RenderPassDescriptor tp2{};
-    tp2.colorAttachmentCount = 2;
-    tp2.colorAttachments = tca2;
-    tp2.timestampWrites = GpuTime.Writes(GpuTimer::Taa);
-    wgpu::RenderPassEncoder taa = enc.BeginRenderPass(&tp2);
-    passCount++;
-    Taa->Encode(ctx, taa);
-    taa.End();
-  }
-
-  EncodePresent(enc, finalView, ctx, GpuTime.Writes(GpuTimer::Present));   /* bilinear (TODO bicubic/sharpen) */
-  passCount++;
-
-  /* Logged on the first SCENE frame (FrameNo==1 is usually the loading screen, and a short
-   * native-oracle run must still capture it), then every 300. */
-  static bool loggedFirstPassCount = false;
-  if (!loggedFirstPassCount || FrameNo % 300 == 0) {
-    loggedFirstPassCount = true;
-    /* THE ENUMERATION IS THE PASS COUNT. A timer slot with no pass behind it is where a new pass
-     * hides without this number moving, so the two are compared instead of merely both existing. */
-    Log::Debug("render", "passcount", {{"passes", passCount},
-                                       {"slots", (int)GpuTimer::kPassCount},
-                                       {"violation", passCount != (int)GpuTimer::kPassCount}});
-  }
+  /* THE PASSES ARE THE COMPILER'S. There is no tally here and no fixed enumeration to keep one
+   * against: the count, the order and the attachment set of every pass are what Compile derived. */
+  for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) EncodePass(enc, pass, ctx);
 
   GpuTime.Resolve(enc);
   wgpu::CommandBuffer cmd = enc.Finish();
@@ -907,6 +908,35 @@ ReadState Renderer::ReadDepth(std::vector<float> &depth) {
   for (int y = 0; y < Height; y++)
     memcpy(&depth[(size_t)y * Width], mapped + (size_t)y * paddedRow, unpaddedRow);
   DepthRead.Release();
+  return ReadState::Ready;
+}
+
+/* THE SCENE-REFERRED LINEAR TAP. Same shape as ReadDepth and the same cost model: it copies a
+ * texture that already exists, on the frames a caller asks for and never on a frame nobody asks.
+ * `SceneLinear` may be the resolve's own attachment or, through the plan's alias, the scene target
+ * it falls back to -- and the plan publishes which, so a comparison knows which image it got. */
+ReadState Renderer::ReadSceneLinear(std::vector<uint16_t> &halfRgba) {
+  const wgpu::Texture &source =
+      Plan_->Bound(Resource::SceneLinear) == Resource::SceneLinear ? Taa->OutputTexture(FrameNo)
+                                                                    : HdrTex;
+  if (!DeviceUsable() || !source) return ReadState::Failed;
+  if (LinearRead.Idle())
+    LinearRead.FromTexture(Device, Queue, source, wgpu::TextureAspect::All, (uint32_t)Width,
+                           (uint32_t)Height, 8u);
+  const ReadState st = LinearRead.Poll(Instance);
+  if (st == ReadState::Pending) return st;
+  if (st == ReadState::Failed) {
+    LinearRead.Release();
+    return st;
+  }
+  const uint32_t unpaddedRow = (uint32_t)Width * 8u;
+  const uint32_t paddedRow = LinearRead.RowBytes();
+  const uint8_t *mapped = LinearRead.Rows();
+  halfRgba.resize((size_t)Width * (size_t)Height * 4u);
+  for (int y = 0; y < Height; y++)
+    memcpy((uint8_t *)halfRgba.data() + (size_t)y * unpaddedRow, mapped + (size_t)y * paddedRow,
+           unpaddedRow);
+  LinearRead.Release();
   return ReadState::Ready;
 }
 

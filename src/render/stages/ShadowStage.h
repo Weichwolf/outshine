@@ -38,7 +38,9 @@ public:
 
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
-  wgpu::TextureView AtlasView(void) const { return Atlas.CreateView(); }
+  wgpu::TextureView AtlasView(void) const {
+    return Atlas ? Atlas.CreateView() : wgpu::TextureView();
+  }
   wgpu::Sampler CompareSampler(void) const { return Cmp; }
   /* kShadowUniFloats of cascade matrices + far radii + params, as ShadowSample.h's `Csm`. */
   const float *CsmUniform(void) const { return Csm; }

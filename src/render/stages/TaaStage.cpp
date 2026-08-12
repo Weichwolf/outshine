@@ -1,7 +1,6 @@
 #include "TaaStage.h"
 #include "ExposureStage.h"
-#include "Filmic.h"
-#include "GeometryIsolation.h"
+#include "Resolve.h"
 #include <cstdio>
 #include <cstdlib>
 #include "AtmoCommon.h"
@@ -28,7 +27,7 @@ static constexpr float kTaaGamma = 1.5f;
 static constexpr float kTaaVelRamp = 0.015f;
 static constexpr float kTaaFeedMax = 0.85f;
 
-static const char *kTaaWGSL = R"(
+static const char *kTaaBindingsWGSL = R"(
 struct T {
   prevMvp : mat4x4f,
   eyeDelta: vec4f,   // xyz = eyeCur - eyePrev, ECEF metres; w unused
@@ -42,9 +41,13 @@ struct T {
 @group(0) @binding(4) var depthTex : texture_depth_2d;
 @group(0) @binding(5) var<uniform> A : Atmo;
 @group(0) @binding(6) var<uniform> t : T;
-@group(0) @binding(7) var aoTex : texture_2d<f32>;
-@group(0) @binding(8) var<storage, read> meter : Meter;
+)";
+static const char *kTaaAoWGSL = "@group(0) @binding(7) var aoTex : texture_2d<f32>;\n";
+static const char *kTaaMeterWGSL =
+    "struct Meter { expScale : f32, keyLog : f32, horizE : f32, pad0 : f32 };\n"
+    "@group(0) @binding(8) var<storage, read> meter : Meter;\n";
 
+static const char *kTaaWGSL = R"(
 /* MvpCamRel's near plane; depth = zn / (-z_eye) is the whole of the reversed-Z projection. */
 const kZNear : f32 = 0.05;
 /* Beyond this the reprojection is a rotation and the eye's own translation is below a thousandth of
@@ -111,29 +114,14 @@ struct VOut { @builtin(position) pos : vec4f, @location(0) ndc : vec2f };
  * the resolved radiance, so it rides out of the same fragment on a second attachment — the history
  * stays linear HDR, the swapchain gets display codes, and nothing about either is changed. */
 struct FOut { @location(0) history : vec4f, @location(1) surface : vec4f };
-struct Meter { expScale : f32, keyLog : f32, horizE : f32, pad0 : f32 };
-/* ONE MULTIPLY AND ONE CURVE. The multiply is metered from this frame's illumination
- * (stages/ExposureStage.h), the curve is fixed (stages/Filmic.h); this shader owns no constant of the
- * display chain at all.
- *
- * FB_TONE_PROBE turns the same fragment into a RULER: display luminance becomes (log2 L - black) /
- * (white - black) with the ratio carried through, so a PNG read back through the sRGB decode IS the
- * frame's HDR histogram, per channel. It is a diagnosis and not a second look — the constants below
- * are baked, so exactly one of the two branches survives compilation. */
+/* THE LINEAR HALF AND THE DISPLAY HALF OUT OF ONE FRAGMENT. Attachment 0 is `SceneLinear` -- resolved
+ * linear radiance BEFORE the occlusion composite and BEFORE the exposure -- and attachment 1 is the
+ * display frame the plan's transfer produced. This shader owns no constant of the display chain:
+ * stages/Resolve.h emits `displayed` from the compiled plan. */
 fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
   var o : FOut;
   o.history = scene;
-  /* alpha = the DIRECT fraction of this pixel's radiance; occlusion darkens only the rest. The AO
-   * target is half resolution and read at the matching texel. */
-  let ao = textureLoad(aoTex, vec2i(fragXY * 0.5), 0).r;
-  let lit = scene.rgb * mix(ao, 1.0, clamp(scene.a, 0.0, 1.0));
-  if (kProbe > 0.5) {
-    let plum = max(dot(lit, vec3f(0.2126, 0.7152, 0.0722)), 1.0e-7);
-    let pt = clamp((log2(plum) - kProbeBlack) / (kProbeWhite - kProbeBlack), 0.0, 1.0);
-    o.surface = vec4f(clamp(lit * (pt / plum), vec3f(0.0), vec3f(1.0)), 1.0);
-    return o;
-  }
-  o.surface = vec4f(filmic(lit * mix(meter.expScale, kFrozenExp, kFreeze)), 1.0);
+  o.surface = displayed(scene, fragXY);
   return o;
 }
 @vertex fn vs(@builtin(vertex_index) i : u32) -> VOut {
@@ -215,28 +203,10 @@ fn resolved(scene : vec4f, fragXY : vec2f) -> FOut {
 }
 )";
 
-/* FB_GEOM freezes the exposure at what the demo scene meters, so a geometry change cannot move it and
- * then be read back off the PNG as a geometry difference. DERIVED from that scene's own irradiance
- * (walk/irradiance 17:40Z: horizE 0.164203, so keyL = 0.12 * 0.164203 / PI * 11 = 0.0689900):
- * kFilmicMid / keyL = 0.13017527 / 0.0689900 = 1.886873.
- * FB_TONE_PROBE=black,white swaps the curve for a linear log2 ruler (see resolved()). */
-static std::string CurveConstsWGSL(void) {
-  double pb = 0.0, pw = 0.0;
-  bool probe = false;
-  if (const char *e = getenv("FB_TONE_PROBE"))
-    probe = std::sscanf(e, "%lf,%lf", &pb, &pw) == 2 && pw > pb;
-  return std::string(GeometryIsolation() ? "const kFreeze : f32 = 1.0;\n"
-                                         : "const kFreeze : f32 = 0.0;\n")
-       + "const kFrozenExp : f32 = 1.886873;\n"
-       + (probe ? "const kProbe : f32 = 1.0;\n" : "const kProbe : f32 = 0.0;\n")
-       + "const kProbeBlack : f32 = " + std::to_string(pb) + ";\n"
-         "const kProbeWhite : f32 = " + std::to_string(pw > pb ? pw : pb + 1.0) + ";\n";
-}
-
 void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView hdrView,
                          wgpu::TextureView velView, wgpu::TextureView depthView,
                          wgpu::Buffer atmoBuf, wgpu::TextureView aoView, wgpu::Buffer meterBuf,
-                         int width, int height) {
+                         const DisplayOptions &display, int width, int height) {
   Queue = gpu.Queue;
   Width = width;
   Height = height;
@@ -244,7 +214,8 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
   wgpu::TextureDescriptor td{};
   td.size = {(uint32_t)width, (uint32_t)height, 1};
   td.format = gpu.HdrFormat;
-  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding;
+  td.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::TextureBinding |
+             wgpu::TextureUsage::CopySrc;   /* the scene-referred linear tap copies it */
   Hist[0] = gpu.Device.CreateTexture(&td);
   Hist[1] = gpu.Device.CreateTexture(&td);
   Bytes = 2L * (long)width * (long)height * 8L;   /* rgba16float */
@@ -273,8 +244,11 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
       /* [SET] 0.85. A pixel moving fast enough to reach the cap has nothing usable in the history
        * anyway; leaving 0.15 keeps the edges of slow objects inside a fast pan from re-aliasing. */
       + "const kFeedMax : f32 = " + std::to_string(kTaaFeedMax) + ";\n"
-      + CurveConstsWGSL()
       + kFilmicWGSL
+      + kTaaBindingsWGSL
+      + (display.HasOcclusion ? kTaaAoWGSL : "")
+      + (display.HasMeter ? kTaaMeterWGSL : "")
+      + DisplayWGSL(display)
       + kTaaWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
@@ -302,18 +276,21 @@ void TaaStage::Configure(const Gpu &gpu, wgpu::Sampler samp, wgpu::TextureView h
 
   for (int i = 0; i < 2; i++) {
     wgpu::BindGroupEntry be[9] = {};
-    be[0].binding = 0; be[0].sampler = samp;
-    be[1].binding = 1; be[1].textureView = hdrView;
-    be[2].binding = 2; be[2].textureView = Hist[1 - i].CreateView();
-    be[3].binding = 3; be[3].textureView = velView;
-    be[4].binding = 4; be[4].textureView = depthView;
-    be[5].binding = 5; be[5].buffer = atmoBuf; be[5].size = kAtmoUniformBytes;
-    be[6].binding = 6; be[6].buffer = Uni; be[6].size = kUniFloats * sizeof(float);
-    be[7].binding = 7; be[7].textureView = aoView;
-    be[8].binding = 8; be[8].buffer = meterBuf; be[8].size = ExposureStage::kMeterBytes;
+    uint32_t n = 0;
+    be[n].binding = 0; be[n++].sampler = samp;
+    be[n].binding = 1; be[n++].textureView = hdrView;
+    be[n].binding = 2; be[n++].textureView = Hist[1 - i].CreateView();
+    be[n].binding = 3; be[n++].textureView = velView;
+    be[n].binding = 4; be[n++].textureView = depthView;
+    be[n].binding = 5; be[n].buffer = atmoBuf; be[n++].size = kAtmoUniformBytes;
+    be[n].binding = 6; be[n].buffer = Uni; be[n++].size = kUniFloats * sizeof(float);
+    if (display.HasOcclusion) { be[n].binding = 7; be[n++].textureView = aoView; }
+    if (display.HasMeter) {
+      be[n].binding = 8; be[n].buffer = meterBuf; be[n++].size = ExposureStage::kMeterBytes;
+    }
     wgpu::BindGroupDescriptor bg{};
     bg.layout = Pipe.GetBindGroupLayout(0);
-    bg.entryCount = 9;
+    bg.entryCount = n;
     bg.entries = be;
     Bind[i] = gpu.Device.CreateBindGroup(&bg);
   }

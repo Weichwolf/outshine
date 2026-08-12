@@ -105,8 +105,9 @@ LayerIncludes() {
     unit/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
+    unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     *) return 1 ;;
   esac
 }
@@ -128,6 +129,20 @@ LayerToolchain() {
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
+# THE SANITISERS ARE AN INSTRUMENT AND A LAYER DECLARES WHETHER IT WANTS ONE. `render` does, and it
+# is the only layer that talks to a GPU API with hand-managed buffers, staging copies and mapped
+# ranges -- the exact places a use-after-free lives. -fno-sanitize-recover is what makes
+# UndefinedBehaviorSanitizer a verdict rather than a log: without it a signed overflow prints and the
+# run exits 0. THE INSTRUMENTED OBJECTS LIVE IN THEIR OWN DIRECTORY, so an instrumented object can
+# never be linked into the binary the comparison is taken from, and the instrument appears in the
+# test's own id so a sanitised run can never be read as a shipping one.
+LayerSanitiser() {
+  case "$1" in
+    render) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    *) printf '%s' "" ;;
+  esac
+}
+
 LayerLink() {
   case "$1" in
     render)
@@ -157,8 +172,9 @@ LayerGroups() {
     unit/generators) printf '%s' "src/core src/generators" ;;
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/world) printf '%s' "" ;;
+    unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "src/core src/core/io src/gltf src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Png.cpp" ;;
+    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Png.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -181,8 +197,7 @@ LayerCases() {
 NotTheHarnesses() {
   case "$1" in
     .) printf '%s' "the harness's own clock" ;;
-    unit/clients) printf '%s' "entry points, built by the Makefile" ;;
-    host) printf '%s' "host implementations of what the library declares, built by the Makefile" ;;
+    host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     *) return 1 ;;
   esac
@@ -198,8 +213,9 @@ GroupIncludes() {
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
-    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
-    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
+    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render -Isrc/render/stages" ;;
+    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     src/clients/Png.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
@@ -234,6 +250,8 @@ UpToDate() {
 # A GROUP IS A DIRECTORY, OR ONE NAMED FILE. The second form exists because a render case needs the
 # PNG encoder and nothing else out of src/clients, and pulling the whole directory in would link the
 # world simulation into a test whose subject is one triangle.
+OBJDIR=$BUILD/obj
+
 BuildGroup() {
   group=$1
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
@@ -244,10 +262,10 @@ BuildGroup() {
   esac
   for unit in $groupUnits; do
     [ -e "$unit" ] || continue
-    unitObject=$BUILD/obj/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).o
+    unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).o
     if ! UpToDate "$unitObject" "$unit"; then
       # shellcheck disable=SC2086
-      $CXX "$unit" $groupStd $OPT $WARN -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
+      $CXX "$unit" $groupStd $OPT $WARN $SAN -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
@@ -342,7 +360,8 @@ SkipAllowed() {
   return 1
 }
 
-mkdir -p "$BUILD/obj" "$BUILD/log" || Die "cannot write under $BUILD"
+mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/log" || Die "cannot write under $BUILD"
+SAN=""
 $CXX test/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
@@ -512,6 +531,47 @@ for testSource in $TESTS; do
   for caseDirectory in $cases; do
     Judge "${caseDirectory#test/}" "$binary" "$caseDirectory"
   done
+
+  sanitiser=$(LayerSanitiser "$layer")
+  [ -n "$sanitiser" ] || continue
+  before=$(Now)
+  OBJDIR=$BUILD/obj-sanitised
+  SAN=$sanitiser
+  OBJECTS=""
+  built=yes
+  sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
+  : >"$sanitisedLog"
+  for group in $groups; do
+    BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
+  done
+  sanitisedBinary=$binary.sanitised
+  if [ "$built" = yes ]; then
+    # shellcheck disable=SC2086
+    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $SAN -Itest $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
+  fi
+  OBJDIR=$BUILD/obj
+  SAN=""
+  if [ "$built" = no ]; then
+    failures=0
+    skips=0
+    verdict=BUILD
+    Record "$id~sanitised" "$(( $(Now) - before ))"
+    continue
+  fi
+  # DETECT_STACK_USE_AFTER_RETURN IS PART OF THE INSTRUMENT: a build that carries the
+  # instrumentation still reports nothing about it without this line.
+  ASAN_OPTIONS=detect_stack_use_after_return=1
+  UBSAN_OPTIONS=print_stacktrace=1
+  export ASAN_OPTIONS UBSAN_OPTIONS
+  for caseDirectory in $cases; do
+    Judge "${caseDirectory#test/}~sanitised" "$sanitisedBinary" "$caseDirectory"
+    if grep -qE "AddressSanitizer|runtime error:" "$log"; then
+      printf 'run.sh: %s -- the run finished and the sanitiser spoke, %s\n' \
+        "${caseDirectory#test/}~sanitised" "$log" >&2
+      failed=$((failed + 1))
+    fi
+  done
+  unset ASAN_OPTIONS UBSAN_OPTIONS
 done
 
 total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))

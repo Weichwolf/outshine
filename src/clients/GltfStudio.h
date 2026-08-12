@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "Subject.h"
+#include "SubjectDraw.h"
 
 namespace outshine::Render {
 class Renderer;
@@ -39,13 +40,22 @@ constexpr double kStudioAnchorEcefM[3] = {6378137.0, 0.0, 0.0}; /* WGS84 semi-ma
 
 void EcefFromGltf(const double gltf[3], double out[3]);
 
+/* WHAT A STUDIO IS, as one parameter object rather than five arguments (`I.23`): the geometry, where
+ * it is seen from, and the two numbers that decide what its surface emits. The appearance half is
+ * the DECLARATION's -- a Lambertian facet of linear albedo rho under a uniform environment of
+ * radiance L emits rho*L -- and nothing in `src/render/` invents either number. */
+struct Studio {
+  const Gltf::Subject *Geometry = nullptr;
+  Gltf::Placement Eye;
+  Render::SubjectSurface Surface;
+};
+
 /* Places the subject and the eye, and hands the renderer the mesh. `scratch` is the caller's so a
  * loop over many cases reuses one buffer -- the hot-loop exception `F.20` states for itself.
  * Refuses a subject with no triangle and a placement whose eye is inside the engine's near plane,
  * naming both numbers. */
-[[nodiscard]] bool Show(Render::Renderer &renderer, const Gltf::Subject &subject,
-                        const Gltf::Placement &eye, std::vector<float> &scratch,
-                        std::string &error);
+[[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio,
+                        std::vector<float> &scratch, std::string &error);
 
 } // namespace outshine::Clients
 #endif

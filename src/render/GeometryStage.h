@@ -14,6 +14,7 @@
 #include "BuildingDraw.h"
 #include "ClusterCut.h"
 #include "DrawStage.h"
+#include "RenderCatalogue.h"
 #include "ModelDraw.h"
 #include "SubjectDraw.h"
 #include "TerrainDraw.h"
@@ -38,7 +39,10 @@ public:
    * because a second lighting model inside one stage is exactly what this stage exists to prevent. */
   void SetSun(const double sunEcef[3], const double up[3], float nightAmbient);
 
-  void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
+  /* ONE CUT, MADE ONCE A FRAME, and five draws over it that the plan declares one at a time -- a
+   * coverage case wants the subject alone and must not pay for four empty units. */
+  void OpenCut(const FrameContext &ctx) { Cut_.Open(ctx); }
+  void EncodeUnit(Stage unit, const FrameContext &ctx, wgpu::RenderPassEncoder &pass);
 
   /* Triangles the LAST Encode submitted, over every unit: the budget instrument. */
   long TriangleCount() const;

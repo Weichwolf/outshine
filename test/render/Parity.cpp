@@ -19,11 +19,13 @@
  * legend to tell which. THE MASK IS AN INSTRUMENT FOR ONE NARROW QUESTION AND THE PICTURE IS THE
  * PRODUCT: substituting the scored mask for the colour frame would have made every folder look
  * correct while the renderer drew no visible subject at all. */
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "Check.h"
@@ -37,7 +39,9 @@
 #include "Document.h"
 #include "GltfStudio.h"
 #include "Json.h"
+#include "Log.h"
 #include "Png.h"
+#include "RenderPlan.h"
 #include "Renderer.h"
 #include "Subject.h"
 
@@ -63,7 +67,16 @@ struct Case {
   Viewport Frame;
   Acceptance Accepted;
   std::string CameraSource;
+  outshine::Render::SubjectSurface Surface;
 };
+
+/* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
+ * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
+ * on all three channels and strength 1.0, sampled as a light (doc/requirements.md I.26.12): under a
+ * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
+ * Cycles has no integration left to perform and a flat facet of albedo rho returns exactly rho*L.
+ * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708. */
+constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 
 std::string Slurp(const std::string &path) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -87,6 +100,22 @@ std::string Slurp(const std::string &path) {
 }
 
 void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str()); }
+
+/* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
+ * sink, and a test whose subject IS the renderer was reading a device that could not speak: a
+ * validation error, a lost device and a failed buffer map were all the same silence. */
+class RunnerLog : public outshine::LogSink {
+public:
+  void Write(double, outshine::LogLevel level, const char *tag, const char *event,
+             const std::vector<outshine::LogField> &fields) override {
+    if (level < outshine::LogLevel::Info) { return; }
+    std::printf("LOG %s %s", tag, event);
+    for (const outshine::LogField &field : fields) {
+      std::printf(" %s=%s", field.Key, field.Value.c_str());
+    }
+    std::printf("\n");
+  }
+};
 
 /* THE CAMERA COMES FROM THE MANIFEST WHERE IT DECLARES ONE, then from the glTF, then from the
  * framing rule -- and never from anywhere else, so no viewpoint can be tuned into a pass. */
@@ -146,6 +175,21 @@ void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str());
   subject.Accepted.BoundaryP95MaxPx = DefaultBoundaryP95Px(subject.Accepted.Subject);
   subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
+
+  /* WHAT THE SUBJECT EMITS, taken from the case's own declaration and never from a constant here: a
+   * material the manifest does not describe leaves the subject black, which is visible. */
+  const Json::Ref material = root["scene"]["material"];
+  for (size_t channel = 0; channel < 3; ++channel) {
+    subject.Surface.AlbedoLinear[channel] = (float)material["colourLinear"][channel].Num(0.0);
+  }
+  const Json::Ref world = root["scene"]["world"];
+  if (world["kind"].StrEquals("factory")) {
+    subject.Surface.EnvironmentRadiance = (float)kFactoryWorldRadiance;
+  } else if (!world["kind"].Str("").empty()) {
+    error = "scene.world.kind is '" + world["kind"].Str("") +
+            "', and this runner knows the radiance of Blender's factory world and of no other";
+    return false;
+  }
 
   const Json::Ref recipe = root["renders"]["default"];
   subject.Frame.WidthPx = recipe["resolutionX"].Num(0.0);
@@ -209,19 +253,28 @@ std::string MissingInputs(const Case &subject) {
   return ResolveCamera(subject, error);
 }
 
-/* A POLL, TURNED INTO AN ANSWER. The renderer's readers are polls because a browser frame thread has
- * no legal way to stand still; a runner does, so it spends frames until the transfer lands and
- * refuses rather than looping forever. */
-constexpr int kSettleFrames = 4;   /* [SET] enough for the device to have a submitted frame to copy */
-constexpr int kPollFrames = 240;   /* [SET] a bound, so a failed transfer ends the run instead of it */
+/* A POLL, TURNED INTO AN ANSWER, AND IT RENDERS NOTHING. The renderer's readers are polls because a
+ * browser frame thread has no legal way to stand still; a runner does, so it spends turns until the
+ * transfer lands and refuses rather than looping forever.
+ *
+ * IT USED TO RENDER A FRAME PER TURN, and that is how pace got into the picture: the number of turns
+ * a transfer takes is the host's business, so the number of frames the accumulator had seen when the
+ * colour was copied was too. The transfer is submitted by the first poll and needs no further frame.
+ * How many frames a picture needs before it is the picture is the PLAN's statement, below. */
+constexpr int kPollTurns = 4000;      /* [SET] a bound, so a failed transfer ends the run instead of it */
+constexpr int kPollWaitMs = 1;        /* [SET] the bound is therefore four seconds of wall clock */
 
 template <typename Read>
-[[nodiscard]] bool Drain(outshine::Render::Renderer &renderer, Read read) {
-  for (int frame = 0; frame < kPollFrames; ++frame) {
+[[nodiscard]] bool Drain(Read read) {
+  for (int turn = 0; turn < kPollTurns; ++turn) {
     const outshine::Render::ReadState state = read();
     if (state == outshine::Render::ReadState::Ready) { return true; }
     if (state == outshine::Render::ReadState::Failed) { return false; }
-    renderer.RenderFrame();
+    /* A RUNNER MAY STAND STILL, which is the whole difference from the frame thread the poll shape
+     * exists for. The wait is what makes the bound a wall clock instead of a spin that gives up
+     * before the copy has retired -- and no frame is drawn while it waits, so no pace reaches the
+     * picture. */
+    std::this_thread::sleep_for(std::chrono::milliseconds(kPollWaitMs));
   }
   return false;
 }
@@ -229,30 +282,32 @@ template <typename Read>
 struct Picture {
   std::vector<float> Depth;
   std::vector<uint8_t> Rgba;
-  /* [expScale, keyLog2, horizE, _] -- what the auto meter did to the colour frame. It decides
-   * nothing here and is read because the shaded picture is otherwise unattributable. */
-  float Meter[outshine::Render::ExposureStage::kMeterFloats] = {0, 0, 0, 0};
+  /* THE SCENE-REFERRED LINEAR TAP, RGBA binary16: what the plan's `sceneLinear` holds, before any
+   * display transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation
+   * would hide a difference the float buffer carries. */
+  std::vector<uint16_t> Linear;
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
  * `Clients::Show`, which is the same call a scenario loader that declared a glTF subject would make.
  * Nothing about the placement or the frame mapping is decided here. */
-[[nodiscard]] bool Capture(outshine::Render::Renderer &renderer, const Subject &geometry,
-                           const Placement &eye, Picture &out, std::string &error) {
+[[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
+                           const outshine::Clients::Studio &studio, Picture &out,
+                           std::string &error) {
   std::vector<float> scratch;
-  if (!outshine::Clients::Show(renderer, geometry, eye, scratch, error)) { return false; }
+  if (!outshine::Clients::Show(renderer, studio, scratch, error)) { return false; }
 
-  for (int frame = 0; frame < kSettleFrames; ++frame) { renderer.RenderFrame(); }
-  if (!Drain(renderer, [&] { return renderer.ReadDepth(out.Depth); })) {
+  for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
+  if (!Drain([&] { return renderer.ReadDepth(out.Depth); })) {
     error = "the depth readback never completed";
     return false;
   }
-  if (!Drain(renderer, [&] { return renderer.ReadPixels(out.Rgba); })) {
-    error = "the colour readback never completed";
+  if (!Drain([&] { return renderer.ReadSceneLinear(out.Linear); })) {
+    error = "the scene-referred linear readback never completed";
     return false;
   }
-  if (!Drain(renderer, [&] { return renderer.ReadExposure(out.Meter); })) {
-    error = "the exposure meter never reported";
+  if (!Drain([&] { return renderer.ReadPixels(out.Rgba); })) {
+    error = "the colour readback never completed";
     return false;
   }
   return true;
@@ -348,6 +403,9 @@ std::string Argument(int argc, char **argv) {
 int main(int argc, char **argv) {
   using namespace outshine::Test;
 
+  RunnerLog logging;
+  outshine::Log::SetSink(&logging);
+
   Case subject;
   subject.Directory = Argument(argc, argv);
   CHECK(!subject.Directory.empty(),
@@ -402,8 +460,34 @@ int main(int argc, char **argv) {
     return Report();
   }
 
+  /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
+   * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
+   * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
+   * present -- none of them is switched off here, none of them is in the plan at all.
+   *
+   * `Transfer::Linear` because the oracle's own view transform is `Standard`, which is the sRGB
+   * transfer function over scene-referred linear values and nothing else, and the frame target is
+   * sRGB-encoding: a curve here would be measuring the curve (doc/requirements.md I.26.13). */
+  outshine::Render::PlanSpec declaration;
+  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
+                         outshine::Render::Resource::FrameTex};
+  declaration.Content = {outshine::Render::Stage::Subjects};
+  declaration.Display =
+      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
+  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
+  std::shared_ptr<const outshine::Render::RenderPlan> plan;
+  const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
+  CHECK(compiled, "the case's render declaration compiles");
+  if (!compiled) {
+    Refused(why);
+    std::printf("VERDICT NOTHING-TO-COMPARE\n");
+    return Report();
+  }
+  std::printf("PLAN %s %d passes, %d stages\n", plan->Digest().c_str(), plan->PassCount(),
+              (int)plan->Order().size());
+
   outshine::Render::Renderer renderer;
-  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx, plan);
   const bool usable = renderer.DeviceUsable();
   CHECK(usable, "the device came up, so the case can be rendered at all");
   if (!usable) {
@@ -412,8 +496,13 @@ int main(int argc, char **argv) {
     return Report();
   }
 
+  outshine::Clients::Studio studio;
+  studio.Geometry = &subject.Geometry;
+  studio.Eye = subject.Eye;
+  studio.Surface = subject.Surface;
+
   Picture picture;
-  const bool rendered = Capture(renderer, subject.Geometry, subject.Eye, picture, why);
+  const bool rendered = Capture(renderer, studio, picture, why);
   CHECK(rendered, "outshine rendered the subject and both readbacks landed");
   if (!rendered) {
     Refused(why);
@@ -466,7 +555,9 @@ int main(int argc, char **argv) {
     } else if (!(built = spelling.Build(alternate))) {
       trouble = spelling.Error();
     } else {
-      built = Capture(renderer, spelling, subject.Eye, again, trouble);
+      outshine::Clients::Studio other = studio;
+      other.Geometry = &spelling;
+      built = Capture(renderer, other, again, trouble);
     }
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
     if (!built) {
@@ -503,6 +594,45 @@ int main(int argc, char **argv) {
                      Direction::Reported});
   metrics.push_back({"image_mean_abs_delta", image.MeanAbs, 0.0, "sRGB8", Direction::Reported});
 
+  /* THE SAME DECLARATION TWICE IN ONE PROCESS. What this isolates is frame-to-frame state: a second
+   * process would also change the allocator, the device and the shader cache, and a difference there
+   * would not say which. It is judged on the linear tap and never on the PNG, because an 8-bit
+   * quantisation hides a difference the float buffer carries. `CLAUDE.md`: the mathematics is
+   * deterministic, and if pace decides the result the coupling is a bug. */
+  {
+    Picture again;
+    std::string trouble;
+    const bool twice = Capture(renderer, studio, again, trouble);
+    CHECK(twice, "the same declaration renders a second time in the same process");
+    size_t apart = 0, worst = 0;
+    size_t firstAt = again.Linear.size();
+    if (twice && again.Linear.size() == picture.Linear.size()) {
+      for (size_t at = 0; at < again.Linear.size(); ++at) {
+        if (again.Linear[at] == picture.Linear[at]) { continue; }
+        const size_t off = again.Linear[at] > picture.Linear[at]
+                               ? (size_t)(again.Linear[at] - picture.Linear[at])
+                               : (size_t)(picture.Linear[at] - again.Linear[at]);
+        if (off > worst) { worst = off; }
+        if (apart == 0) { firstAt = at; }
+        ++apart;
+      }
+    }
+    metrics.push_back({"linear_halves_differing_between_renders", (double)apart, 0.0, "halves",
+                       Direction::AtMost});
+    if (apart > 0) {
+      Note("first differing half-float, at channel index", (double)firstAt, "index");
+      Note("widest disagreement between two renders", (double)worst, "half-float codes");
+      Picture third;
+      if (Capture(renderer, studio, third, trouble) && third.Linear.size() == picture.Linear.size()) {
+        size_t stable = 0;
+        for (size_t at = 0; at < third.Linear.size(); ++at) {
+          if (third.Linear[at] != picture.Linear[at]) { ++stable; }
+        }
+        Note("a third render differs from the first in", (double)stable, "halves");
+      }
+    }
+  }
+
   const Distribution boundary = BoundaryDisplacement(ours, theirs);
   metrics.push_back({"boundary_p95_px", boundary.P95, subject.Accepted.BoundaryP95MaxPx, "px",
                      Direction::Reported});
@@ -521,11 +651,10 @@ int main(int argc, char **argv) {
    * and never subtracted from it. */
   Note("oracle instrument floor",
        0.5 * subject.Manifest.Root()["renders"]["default"]["pixelFilter"]["widthPx"].Num(0.0), "px");
-  /* The shaded picture is not a compared quantity and this is why it looks the way it does: an auto
-   * meter on a studio frame that is almost entirely background. */
-  Note("metered exposure scale", picture.Meter[0], "dimensionless");
-  Note("metered key", picture.Meter[1], "log2 radiance");
-  Note("metered horizontal irradiance", picture.Meter[2], "top-of-atmosphere-solar");
+  metrics.push_back({"plan_passes", (double)plan->PassCount(), 2.0, "passes", Direction::AtMost});
+  Note("declared subject radiance",
+       (double)subject.Surface.AlbedoLinear[0] * (double)subject.Surface.EnvironmentRadiance,
+       "linear, scene-referred");
 
   /* THE FRAME FRACTION IS A DECLARED, RECOMPUTED, REFUSED-ON-MISMATCH PROPERTY of the case: it is
    * what the boundary bound is being applied under, so a camera that quietly frames the subject

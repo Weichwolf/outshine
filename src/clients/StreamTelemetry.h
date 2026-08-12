@@ -45,7 +45,7 @@ public:
   void MarkResident(double nowMs);
   double LoadMs() const { return LoadMs_; }
   long long PassCount() const { return Passes_; }
-  /* The window closes where FrameTelemetry's does — one Tick, one second, both sources. */
+  /* One Tick, one second: the window is the client's and every source in it closes together. */
   void Reset();
 
   const char *TelemetryName() const override { return "stream"; }

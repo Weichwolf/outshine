@@ -19,7 +19,9 @@ public:
                  int height);
   void Encode(const FrameContext &ctx, wgpu::RenderPassEncoder &pass) override;
 
-  wgpu::TextureView OutputView(void) const { return Out.CreateView(); }
+  /* Empty until the plan holds this stage: a view of a texture that was never created is not a
+   * null handle, it is a dereference. */
+  wgpu::TextureView OutputView(void) const { return Out ? Out.CreateView() : wgpu::TextureView(); }
   int OutWidth(void) const { return W; }
   int OutHeight(void) const { return H; }
 

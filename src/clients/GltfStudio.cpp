@@ -76,8 +76,14 @@ constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
 
 } // namespace
 
-bool Show(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
-          std::vector<float> &scratch, std::string &error) {
+bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &scratch,
+          std::string &error) {
+  if (!studio.Geometry) {
+    error = "the studio declares no subject";
+    return false;
+  }
+  const Gltf::Subject &subject = *studio.Geometry;
+  const Gltf::Placement &eye = studio.Eye;
   if (subject.TriangleCount() == 0) {
     error = "the subject carries no triangle, so there is nothing to stand in the studio";
     return false;
@@ -95,6 +101,7 @@ bool Show(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::
   renderer.SetSubjectMesh(scratch.data(), (uint32_t)subject.VertexCount(),
                           subject.Indices().data(), (uint32_t)subject.Indices().size(),
                           kStudioAnchorEcefM);
+  renderer.SetSubjectSurface(studio.Surface);
 
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);
