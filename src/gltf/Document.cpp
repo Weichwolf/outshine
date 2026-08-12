@@ -106,7 +106,70 @@ std::string DirectoryOf(const std::string &path) {
 
 std::string Number(size_t value) { return std::to_string(value); }
 
+/* A URI IS PERCENT-DECODED BEFORE IT REACHES THE FILESYSTEM. glTF requires the writer to
+ * percent-encode reserved characters (`Specification.adoc:550`), which makes decoding them a
+ * reader's obligation and not a convenience: `Box With Spaces` names its images `Box%20With%20Spaces
+ * .png` and its buffer with literal spaces, so a reader that concatenates opens the buffer and
+ * fails at the first texture. An incomplete or non-hex escape at the end is left verbatim -- the
+ * alternative is reading past the string. */
+int HexDigit(char c) {
+  if (c >= '0' && c <= '9') { return c - '0'; }
+  if (c >= 'a' && c <= 'f') { return c - 'a' + 10; }
+  if (c >= 'A' && c <= 'F') { return c - 'A' + 10; }
+  return -1;
+}
+
+std::string PercentDecoded(const std::string &uri) {
+  std::string out;
+  out.reserve(uri.size());
+  for (size_t i = 0; i < uri.size(); ++i) {
+    const int high = (uri[i] == '%' && i + 2 < uri.size()) ? HexDigit(uri[i + 1]) : -1;
+    const int low = (high >= 0) ? HexDigit(uri[i + 2]) : -1;
+    if (low < 0) {
+      out.push_back(uri[i]);
+      continue;
+    }
+    out.push_back(static_cast<char>(high * 16 + low));
+    i += 2;
+  }
+  return out;
+}
+
+bool KnownWrap(int raw, Wrap &out) {
+  switch (raw) {
+  case 33071: out = Wrap::ClampToEdge; return true;
+  case 33648: out = Wrap::MirroredRepeat; return true;
+  case 10497: out = Wrap::Repeat; return true;
+  default: return false;
+  }
+}
+
+/* glTF's filter numbers carry a mip mode our sampler decides for itself; what is read here is the
+ * base filter, which is the half `TextureSettingsTest` and `TextureLinearInterpolationTest` state a
+ * criterion about. 9728 is NEAREST and everything else in the format's set is a LINEAR base. */
+Filter FilterOf(int raw) { return raw == 9728 ? Filter::Nearest : Filter::Linear; }
+
+/* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. Empty is the honest state and it is what makes
+ * the door above useful: an extension is added here in the round its behaviour is built, so
+ * `extensionsRequired` naming anything at all is a refusal until then. A list seeded with names
+ * nobody implemented would be the silent-acceptance defect wearing a table. */
+constexpr const char *const kHonouredExtensions[] = {nullptr};
+
+bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
+  if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
+  if (raw == "MASK") { out = AlphaMode::Masked; return true; }
+  if (raw == "BLEND") { out = AlphaMode::Blended; return true; }
+  return false;
+}
+
 } // namespace
+
+bool Document::Honours(const std::string &extension) {
+  for (const char *const known : kHonouredExtensions) {
+    if (known != nullptr && extension == known) { return true; }
+  }
+  return false;
+}
 
 bool Document::Refuse(const std::string &why) {
   Error_ = Path_.empty() ? why : Path_ + ": " + why;
@@ -179,7 +242,7 @@ bool Document::ResolveBuffers(const Json &json, const uint8_t *binaryChunk, size
   for (size_t i = 0; i < buffers.Size(); ++i) {
     const Json::Ref buffer = buffers[i];
     const size_t declared = static_cast<size_t>(buffer["byteLength"].Num(0.0));
-    const std::string uri = buffer["uri"].Str("");
+    const std::string uri = PercentDecoded(buffer["uri"].Str(""));
     std::vector<uint8_t> bytes;
     if (uri.empty()) {
       if (binaryChunk == nullptr) {
@@ -217,6 +280,26 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   Version_ = root["asset"]["version"].Str("");
   if (Version_.rfind("2.", 0) != 0) {
     return Refuse("declares asset.version '" + Version_ + "', and this reader is glTF 2.0");
+  }
+
+  /* THE TWO DOORS A FILE STATES ITS OWN UNREADABILITY THROUGH, and both were open. `minVersion` is
+   * the writer saying "below this the file cannot be read at all", and `extensionsRequired` the
+   * same statement per extension -- a quantized or Draco-compressed file whose extension is ignored
+   * reads as plausible numbers in the wrong units rather than as a refusal. Neither is a warning:
+   * the format says a client that cannot honour them must not load the asset. */
+  MinVersion_ = root["asset"]["minVersion"].Str("");
+  if (!MinVersion_.empty() && MinVersion_.rfind("2.0", 0) != 0) {
+    return Refuse("declares asset.minVersion '" + MinVersion_ +
+                  "', which is above the glTF 2.0 this reader is");
+  }
+  const Json::Ref required = root["extensionsRequired"];
+  for (size_t i = 0; i < required.Size(); ++i) {
+    Required_.push_back(required[i].Str(""));
+  }
+  for (const std::string &extension : Required_) {
+    if (!Honours(extension)) {
+      return Refuse("requires extension '" + extension + "', which this reader does not implement");
+    }
   }
 
   if (!ResolveBuffers(json, binaryChunk, binaryLength)) { return false; }
@@ -295,6 +378,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     Accessors_.push_back(std::move(accessor));
   }
 
+  if (!ReadAppearance(json)) { return false; }
+
   const Json::Ref meshes = root["meshes"];
   for (size_t i = 0; i < meshes.Size(); ++i) {
     const Json::Ref declaration = meshes[i];
@@ -323,6 +408,11 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       if (primitive.Indices >= 0 && static_cast<size_t>(primitive.Indices) >= Accessors_.size()) {
         return Refuse("mesh " + Number(i) + " primitive " + Number(p) +
                       " names an index accessor the file does not carry");
+      }
+      if (primitive.Material >= 0 && static_cast<size_t>(primitive.Material) >= Materials_.size()) {
+        return Refuse("mesh " + Number(i) + " primitive " + Number(p) + " names material " +
+                      Number(static_cast<size_t>(primitive.Material)) + " of " +
+                      Number(Materials_.size()));
       }
       mesh.Primitives.push_back(std::move(primitive));
     }
@@ -432,6 +522,155 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                   Number(Scenes_.size()));
   }
   return true;
+}
+
+/* THE APPEARANCE TABLES, in the order their references run: an image is bytes, a texture names an
+ * image and a sampler, a material names textures. Read as one operation because each of the three
+ * checks its references against the one before it, and splitting them would put the same index
+ * bound in three places. */
+bool Document::ReadAppearance(const Json &json) {
+  const Json::Ref root = json.Root();
+
+  const Json::Ref samplers = root["samplers"];
+  for (size_t i = 0; i < samplers.Size(); ++i) {
+    const Json::Ref declaration = samplers[i];
+    Sampler sampler;
+    for (const char *axis : {"wrapS", "wrapT"}) {
+      const Json::Ref declared = declaration[axis];
+      if (!declared.Valid()) { continue; }
+      Wrap wrap = Wrap::Repeat;
+      if (!KnownWrap(declared.Int(0), wrap)) {
+        return Refuse("sampler " + Number(i) + " has a " + axis + " glTF 2.0 does not define");
+      }
+      (axis[4] == 'S' ? sampler.WrapS : sampler.WrapT) = wrap;
+    }
+    sampler.Mag = FilterOf(declaration["magFilter"].Int(9729));
+    sampler.Min = FilterOf(declaration["minFilter"].Int(9729));
+    Samplers_.push_back(sampler);
+  }
+
+  const Json::Ref images = root["images"];
+  for (size_t i = 0; i < images.Size(); ++i) {
+    const Json::Ref declaration = images[i];
+    Image image;
+    image.Name = declaration["name"].Str("");
+    image.Uri = PercentDecoded(declaration["uri"].Str(""));
+    image.MimeType = declaration["mimeType"].Str("");
+    image.View = declaration["bufferView"].Valid() ? declaration["bufferView"].Int(-1) : -1;
+    if (image.Uri.empty() && image.View < 0) {
+      return Refuse("image " + Number(i) + " has neither a uri nor a bufferView");
+    }
+    if (image.View >= 0 && static_cast<size_t>(image.View) >= Views_.size()) {
+      return Refuse("image " + Number(i) + " names bufferView " +
+                    Number(static_cast<size_t>(image.View)) + " of " + Number(Views_.size()));
+    }
+    if (image.Uri.rfind("data:", 0) == 0) {
+      return Refuse("image " + Number(i) + " is a data: URI, which this reader does not decode");
+    }
+    Images_.push_back(std::move(image));
+  }
+
+  const Json::Ref textures = root["textures"];
+  for (size_t i = 0; i < textures.Size(); ++i) {
+    const Json::Ref declaration = textures[i];
+    Texture texture;
+    texture.Name = declaration["name"].Str("");
+    texture.Source = declaration["source"].Valid() ? declaration["source"].Int(-1) : -1;
+    texture.Sampler = declaration["sampler"].Valid() ? declaration["sampler"].Int(-1) : -1;
+    if (texture.Source >= 0 && static_cast<size_t>(texture.Source) >= Images_.size()) {
+      return Refuse("texture " + Number(i) + " names image " +
+                    Number(static_cast<size_t>(texture.Source)) + " of " + Number(Images_.size()));
+    }
+    if (texture.Sampler >= 0 && static_cast<size_t>(texture.Sampler) >= Samplers_.size()) {
+      return Refuse("texture " + Number(i) + " names sampler " +
+                    Number(static_cast<size_t>(texture.Sampler)) + " of " +
+                    Number(Samplers_.size()));
+    }
+    Textures_.push_back(std::move(texture));
+  }
+
+  const Json::Ref materials = root["materials"];
+  for (size_t i = 0; i < materials.Size(); ++i) {
+    if (!ReadMaterial(materials[i], i)) { return false; }
+  }
+  return true;
+}
+
+bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
+  MaterialRef material;
+  material.Name = declaration["name"].Str("");
+  material.DoubleSided = declaration["doubleSided"].Bool(false);
+
+  const Json::Ref pbr = declaration["pbrMetallicRoughness"];
+  const Json::Ref baseColour = pbr["baseColorFactor"];
+  for (size_t k = 0; k < 4 && k < baseColour.Size(); ++k) {
+    material.Surface.BaseColour[k] = static_cast<float>(baseColour[k].Num(1.0));
+  }
+  if (!baseColour.Valid()) {
+    /* glTF's own default is white, and the engine's default `Material` is a mid grey, so a file that
+     * declares no factor must overwrite it rather than inherit ours. */
+    for (float &channel : material.Surface.BaseColour) { channel = 1.0f; }
+  }
+  material.Surface.Metalness = static_cast<float>(pbr["metallicFactor"].Num(1.0));
+  material.Surface.Roughness = static_cast<float>(pbr["roughnessFactor"].Num(1.0));
+
+  const Json::Ref emissive = declaration["emissiveFactor"];
+  for (size_t k = 0; k < 3 && k < emissive.Size(); ++k) {
+    material.Surface.Emission[k] = static_cast<float>(emissive[k].Num(0.0));
+  }
+
+  const std::string mode = declaration["alphaMode"].Str("");
+  if (!KnownAlphaMode(mode, material.Surface.Alpha)) {
+    return Refuse("material " + Number(index) + " has alphaMode '" + mode + "', and glTF 2.0 has "
+                  "OPAQUE, MASK and BLEND");
+  }
+  material.Surface.CoverageCut = static_cast<float>(declaration["alphaCutoff"].Num(0.5));
+
+  const struct {
+    bool UnderPbr;
+    const char *Slot;
+    TextureRef *Into;
+  } slots[] = {
+      {true, "baseColorTexture", &material.BaseColour},
+      {true, "metallicRoughnessTexture", &material.MetallicRoughness},
+      {false, "normalTexture", &material.Normal},
+      {false, "occlusionTexture", &material.Occlusion},
+      {false, "emissiveTexture", &material.Emissive},
+  };
+  for (const auto &slot : slots) {
+    const Json::Ref declared = slot.UnderPbr ? pbr[slot.Slot] : declaration[slot.Slot];
+    if (!declared.Valid()) { continue; }
+    slot.Into->Texture = declared["index"].Int(-1);
+    slot.Into->TexCoord = declared["texCoord"].Int(0);
+    if (slot.Into->Texture < 0 || static_cast<size_t>(slot.Into->Texture) >= Textures_.size()) {
+      return Refuse("material " + Number(index) + " " + slot.Slot + " names texture " +
+                    Number(static_cast<size_t>(slot.Into->Texture)) + " of " +
+                    Number(Textures_.size()));
+    }
+    if (slot.Into->TexCoord < 0) {
+      return Refuse("material " + Number(index) + " " + slot.Slot + " names a negative UV set");
+    }
+  }
+  material.NormalScale = declaration["normalTexture"]["scale"].Num(1.0);
+  material.OcclusionStrength = declaration["occlusionTexture"]["strength"].Num(1.0);
+  Materials_.push_back(std::move(material));
+  return true;
+}
+
+bool Document::ImageBytes(int index, std::vector<uint8_t> &out) const {
+  out.clear();
+  if (index < 0 || static_cast<size_t>(index) >= Images_.size()) { return false; }
+  const Image &image = Images_[static_cast<size_t>(index)];
+  if (image.View >= 0) {
+    Span<const uint8_t> span;
+    if (!ViewSpan(image.View, span)) { return false; }
+    out.assign(span.Data(), span.Data() + span.Size());
+    return true;
+  }
+  std::ifstream file(DirectoryOf(Path_) + image.Uri, std::ios::binary);
+  if (!file) { return false; }
+  out.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+  return !out.empty();
 }
 
 bool Document::ViewSpan(int view, Span<const uint8_t> &out) const {

@@ -158,7 +158,8 @@ Ground::Snapshot SyntheticSnapshot(const Region &region) {
   rows[0].SlopeMaxDeg = 35.0f;
   rows[1].SlopeMaxDeg = 60.0f;
   rows[2].SlopeMaxDeg = 5.0f;
-  rows[1].Surface.Coverage = 0.4f;
+  rows[1].Surface.BaseColour[3] = 0.4f;
+  rows[1].Surface.Alpha = outshine::AlphaMode::Masked;
   Ground::Snapshot s;
   s.Patch = GroundPatch::Complete(region, kSide, Span<const GroundPatch::Posting>(
                                                      postings.data(), postings.size()));

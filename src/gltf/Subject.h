@@ -67,6 +67,17 @@ public:
 
   /* 3 doubles per vertex, in the default scene's root coordinates, node transforms applied. */
   const std::vector<double> &PositionsM() const { return Positions_; }
+  /* 2 doubles per vertex, `TEXCOORD_0` verbatim -- glTF's own convention, origin at the image's
+   * UPPER left, which is the same origin our raster uses, so no flip happens here or anywhere.
+   * Empty when no primitive of the subject carried one; a subject where SOME primitives carry one
+   * is refused rather than half-filled, because a zero uv is a number meaning nothing. */
+  const std::vector<double> &Uv() const { return Uv_; }
+  bool HasUv() const { return !Uv_.empty(); }
+  /* The one material every drawn primitive of the subject names, or -1 where none does. A subject
+   * whose primitives name two different materials is refused: this draw carries one surface, and
+   * silently drawing the second primitive with the first's texture is the defect a multi-material
+   * asset exists to expose. */
+  int Material() const { return Material_; }
   /* Triangles, three indices each, wound counter-clockwise about the front face -- glTF's own rule,
    * with a mirroring node's order already restated, so the run is uniform however the file spelt it
    * and a consumer may cull back faces on it. */
@@ -101,7 +112,9 @@ private:
 
   std::string Error_;
   std::vector<double> Positions_;
+  std::vector<double> Uv_;
   std::vector<uint32_t> Indices_;
+  int Material_ = -1;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 

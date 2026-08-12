@@ -88,6 +88,11 @@ enum class TexelFormat { Handle, Rgba16Float, Rg16Float, R8Unorm, Rgba8UnormSrgb
 
 inline constexpr size_t kMaxEdges = 8;
 
+/* HOW MANY COLOUR TARGETS ONE PASS MAY CARRY. WebGPU guarantees `maxColorAttachments = 8` and Metal
+ * on this device reports the same, so eight is the floor a plan may assume rather than a number
+ * chosen here. A pass whose target union exceeds it is refused where the plan is compiled. */
+inline constexpr size_t kMaxColourAttachments = 8;
+
 struct ResourceRow {
   Resource Id;
   ResourceKind Kind;
@@ -115,6 +120,35 @@ struct StageRow {
 
 inline constexpr Resource kNoEdge = Resource::kCount;
 inline constexpr Stage kNoFusion = Stage::kCount;
+
+/* THE COLOUR TARGET SET OF ONE PASS: the union of its stages' targets, one entry per distinct
+ * `Resource`, in first-seen order. The union is the type's job and not the caller's, because the
+ * caller's version of it was the defect -- it compared two freshly created texture views, which are
+ * different objects for the same resource, so the duplicate guard never fired and a pass of n stages
+ * wrote 2n entries into an array sized for one attachment per edge.
+ *
+ * `Add` is the only way in, it absorbs a repeat, and it refuses rather than growing: a set that
+ * cannot hold what it was handed is a plan the device would reject, and the refusal belongs where
+ * the plan is compiled. Nothing can index past `Size()`, so the encoder's array cannot be overrun. */
+class AttachmentSet {
+public:
+  [[nodiscard]] constexpr bool Add(Resource resource) {
+    for (size_t i = 0; i < Count_; ++i) {
+      if (Items_[i] == resource) { return true; }
+    }
+    if (Count_ == kMaxColourAttachments) { return false; }
+    Items_[Count_++] = resource;
+    return true;
+  }
+  [[nodiscard]] constexpr size_t Size() const { return Count_; }
+  [[nodiscard]] constexpr bool Empty() const { return Count_ == 0; }
+  [[nodiscard]] constexpr const Resource *begin() const { return Items_; }
+  [[nodiscard]] constexpr const Resource *end() const { return Items_ + Count_; }
+
+private:
+  Resource Items_[kMaxColourAttachments] = {};
+  size_t Count_ = 0;
+};
 
 inline constexpr ResourceRow kResources[] = {
     {Resource::LinearSampler, ResourceKind::Given, FallbackKind::None, kNoEdge, TexelFormat::Handle,

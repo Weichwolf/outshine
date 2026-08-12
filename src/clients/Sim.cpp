@@ -110,7 +110,7 @@ bool Sim::LoadTables() {
   std::vector<Generators::GroundTable::Row> table(nrows);
   StandsPerM2_.resize(nrows);
   for (size_t i = 0; i < nrows; i++) {
-    for (int c = 0; c < 3; c++) table[i].Surface.Albedo[c] = rows[i].Ground[c];
+    for (int c = 0; c < 3; c++) table[i].Surface.BaseColour[c] = rows[i].Ground[c];
     table[i].Surface.Roughness = rows[i].Ground[3];
     table[i].SlopeMaxDeg = rows[i].Edge[3];
     StandsPerM2_[i] = rows[i].Edge[2];

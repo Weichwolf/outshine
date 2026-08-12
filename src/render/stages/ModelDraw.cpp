@@ -359,7 +359,8 @@ namespace {
  * mesh whose winding a generator grew and can be trusted; a sheet declares transmission, which is
  * exactly what says it has no back to cull. */
 constexpr Material kSolidMaterial{};
-constexpr Material kSheetMaterial{{0.5f, 0.5f, 0.5f}, 1.0f, 1.0f, 0.5f, 1.0f, {0.0f, 0.0f, 0.0f}};
+constexpr Material kSheetMaterial{
+    .BaseColour = {0.5f, 0.5f, 0.5f, 1.0f}, .Transmission = 0.5f, .Ior = 1.0f};
 constexpr SurfaceState kSolidState = StateOf(kSolidMaterial);
 constexpr SurfaceState kSheetState = StateOf(kSheetMaterial);
 static_assert(kSolidState.CullsBack(), "a solid model culls its back faces");

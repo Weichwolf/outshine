@@ -70,7 +70,7 @@ SIM_SRCS       := src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/Strea
   src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp \
   src/clients/RegionForge.cpp
 # THE SETUP CALLS A CONSUMER MAKES over the renderer, and the picture medium a test writes with.
-APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Png.cpp
+APP_SRCS       := src/clients/GltfStudio.cpp src/clients/Image.cpp
 HOST_SRCS      := $(wildcard test/host/*.cpp)
 
 OBJ := build/obj

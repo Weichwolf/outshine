@@ -5,7 +5,7 @@
 
 namespace outshine {
 
-enum class SurfaceKind { Opaque, Masked, ThinTransmissive, Refractive };
+enum class SurfaceKind { Opaque, Masked, Blended, ThinTransmissive, Refractive };
 
 /* WHETHER A MESH'S TRIANGLE ORDER CAN BE TRUSTED — the half of "facing" a material cannot state.
  * An OSM ring arrives wound either way, so a prism extruded from one has no reliable outward side;
@@ -22,9 +22,9 @@ public:
   [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
   [[nodiscard]] constexpr bool Blends() const { return Blends_; }
   [[nodiscard]] constexpr bool Emits() const { return Emits_; }
-  /* Below this coverage the fragment is discarded; above it the surface is opaque. [SET] half:
-   * with one cut and no dithering it is the value that neither thins nor fattens a leaf edge, and
-   * what replaces it is a measured coverage-to-area curve per material. */
+  /* Below this alpha a `Masked` fragment is discarded. The number is the MATERIAL's -- the format
+   * carries one per material and `AlphaBlendModeTest` renders three different ones in one file --
+   * so this only carries it through and states no value of its own. */
   constexpr float CoverageCut() const { return CoverageCut_; }
 
 private:
@@ -41,6 +41,7 @@ private:
 
 constexpr SurfaceState StateOf(const Material &material) {
   SurfaceState s;
+  s.CoverageCut_ = material.CoverageCut;
   s.Emits_ = material.Emission[0] > 0.0f || material.Emission[1] > 0.0f ||
              material.Emission[2] > 0.0f;
   if (material.Transmission > 0.0f && material.Ior > 1.0f) {
@@ -54,7 +55,17 @@ constexpr SurfaceState StateOf(const Material &material) {
     s.CullsBack_ = false;
     return s;
   }
-  if (material.Coverage < 1.0f) s.Kind_ = SurfaceKind::Masked;
+  switch (material.Alpha) {
+    case AlphaMode::Opaque: break;
+    case AlphaMode::Masked: s.Kind_ = SurfaceKind::Masked; break;
+    /* A blended surface is composited in the order it is drawn, so it cannot also write the depth
+     * that would hide what is behind it -- the same pair the refractive arm above states. */
+    case AlphaMode::Blended:
+      s.Kind_ = SurfaceKind::Blended;
+      s.WritesDepth_ = false;
+      s.Blends_ = true;
+      break;
+  }
   return s;
 }
 

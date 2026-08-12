@@ -26,15 +26,28 @@ constexpr wgpu::FrontFace kGltfFrontFace = wgpu::FrontFace::CCW;
 
 } // namespace
 
+/* TWO SHADERS AND ONE UNIFORM. The textured one multiplies the sampled base colour into the same
+ * `rho*L` the plain one emits, which is what the metal-rough model reduces to for a dielectric at
+ * metalness 0 under a uniform environment: `baseColour(u,v) * factor * L`, flat, no direction. THE
+ * TAP IS ALREADY LINEAR -- the texture is bound through an sRGB VIEW, so the hardware sampler undoes
+ * the transfer per texel BEFORE it filters, and nothing here decodes anything. */
 static const char *kSubjectWGSL = R"(
 struct S { mvp : mat4x4f, anc : vec4f, emitted : vec4f };
 @group(0) @binding(0) var<uniform> s : S;
 
-struct SOut { @builtin(position) pos : vec4f };
+struct SOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
 
 @vertex fn vs(@location(0) p : vec3f) -> SOut {
   var o : SOut;
   o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
+  o.uv = vec2f(0.0);
+  return o;
+}
+
+@vertex fn vsTextured(@location(0) p : vec3f, @location(1) uv : vec2f) -> SOut {
+  var o : SOut;
+  o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
+  o.uv = uv;
   return o;
 }
 
@@ -49,25 +62,64 @@ struct SFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
 }
 )";
 
+static const char *kSubjectTexturedWGSL = R"(
+@group(0) @binding(1) var baseColour : texture_2d<f32>;
+@group(0) @binding(2) var baseSampler : sampler;
+
+@fragment fn fsTextured(in : SOut) -> SFrag {
+  var o : SFrag;
+  o.col = vec4f(s.emitted.rgb * textureSample(baseColour, baseSampler, in.uv).rgb, 1.0);
+  o.vel = vec2f(kVelStatic);
+  return o;
+}
+)";
+
+namespace {
+
+wgpu::AddressMode AddressOf(SubjectWrap wrap) {
+  switch (wrap) {
+    case SubjectWrap::ClampToEdge: return wgpu::AddressMode::ClampToEdge;
+    case SubjectWrap::MirroredRepeat: return wgpu::AddressMode::MirrorRepeat;
+    case SubjectWrap::Repeat: return wgpu::AddressMode::Repeat;
+  }
+  return wgpu::AddressMode::Repeat;
+}
+
+wgpu::FilterMode FilterOf(SubjectFilter filter) {
+  return filter == SubjectFilter::Nearest ? wgpu::FilterMode::Nearest : wgpu::FilterMode::Linear;
+}
+
+} // namespace
+
 void SubjectDraw::Configure(const Gpu &gpu) {
   Device = gpu.Device;
   Queue = gpu.Queue;
 
-  const std::string src = std::string(kVelocityWGSL) + kSubjectWGSL;
+  const std::string src =
+      std::string(kVelocityWGSL) + kSubjectWGSL + kSubjectTexturedWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
   wgpu::ShaderModuleDescriptor smd{};
   smd.nextInChain = &wsl;
   wgpu::ShaderModule m = Device.CreateShaderModule(&smd);
 
-  wgpu::VertexAttribute attr{};
-  attr.format = wgpu::VertexFormat::Float32x3;
-  attr.offset = 0;
-  attr.shaderLocation = 0;
-  wgpu::VertexBufferLayout vbl{};
-  vbl.arrayStride = 3 * sizeof(float);
-  vbl.attributeCount = 1;
-  vbl.attributes = &attr;
+  wgpu::VertexAttribute position{};
+  position.format = wgpu::VertexFormat::Float32x3;
+  position.offset = 0;
+  position.shaderLocation = 0;
+  wgpu::VertexAttribute coordinate{};
+  coordinate.format = wgpu::VertexFormat::Float32x2;
+  coordinate.offset = 0;
+  coordinate.shaderLocation = 1;
+  /* TWO BUFFERS AND NOT ONE INTERLEAVED STRIDE, because the subject's positions and its uvs come
+   * out of the reader as two runs and interleaving them here would be a copy nobody asked for. */
+  wgpu::VertexBufferLayout layouts[2] = {};
+  layouts[0].arrayStride = 3 * sizeof(float);
+  layouts[0].attributeCount = 1;
+  layouts[0].attributes = &position;
+  layouts[1].arrayStride = 2 * sizeof(float);
+  layouts[1].attributeCount = 1;
+  layouts[1].attributes = &coordinate;
 
   wgpu::ColorTargetState ct{};
   ct.format = gpu.HdrFormat;
@@ -75,14 +127,41 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   ds.format = wgpu::TextureFormat::Depth32Float;
   ds.depthCompare = wgpu::CompareFunction::Greater;
   ds.depthWriteEnabled = true;
+  wgpu::ColorTargetState cts[2] = {ct, VelocityTarget(true)};
+
+  /* THE BIND GROUP LAYOUT IS WRITTEN DOWN AND NOT DERIVED, because the two pipelines must share
+   * ONE: an auto-derived layout reflects the entry point's own uses, so the untextured shader would
+   * get a one-entry layout and the bind group built for the other would be rejected against it. */
+  wgpu::BindGroupLayoutEntry bindings[3] = {};
+  bindings[0].binding = 0;
+  bindings[0].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+  bindings[0].buffer.type = wgpu::BufferBindingType::Uniform;
+  bindings[0].buffer.minBindingSize = kUniFloats * sizeof(float);
+  bindings[1].binding = 1;
+  bindings[1].visibility = wgpu::ShaderStage::Fragment;
+  bindings[1].texture.sampleType = wgpu::TextureSampleType::Float;
+  bindings[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
+  bindings[2].binding = 2;
+  bindings[2].visibility = wgpu::ShaderStage::Fragment;
+  bindings[2].sampler.type = wgpu::SamplerBindingType::Filtering;
+  wgpu::BindGroupLayoutDescriptor bgl{};
+  bgl.entryCount = 3;
+  bgl.entries = bindings;
+  Layout = Device.CreateBindGroupLayout(&bgl);
+  wgpu::PipelineLayoutDescriptor pld{};
+  pld.bindGroupLayoutCount = 1;
+  pld.bindGroupLayouts = &Layout;
+  const wgpu::PipelineLayout pipeline = Device.CreatePipelineLayout(&pld);
 
   wgpu::RenderPipelineDescriptor rp{};
+  rp.layout = pipeline;
   rp.vertex.module = m;
+  rp.vertex.entryPoint = "vs";
   rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = &vbl;
+  rp.vertex.buffers = layouts;
   wgpu::FragmentState fs{};
   fs.module = m;
-  wgpu::ColorTargetState cts[2] = {ct, VelocityTarget(true)};
+  fs.entryPoint = "fs";
   fs.targetCount = 2;
   fs.targets = cts;
   rp.fragment = &fs;
@@ -90,28 +169,85 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   rp.primitive.frontFace = kGltfFrontFace;
   rp.primitive.cullMode =
       CullsBackFaces(kSubjectState, Winding::Trusted) ? wgpu::CullMode::Back : wgpu::CullMode::None;
-  Pipe = Device.CreateRenderPipeline(&rp);
+  Plain = Device.CreateRenderPipeline(&rp);
+
+  rp.vertex.entryPoint = "vsTextured";
+  rp.vertex.bufferCount = 2;
+  fs.entryPoint = "fsTextured";
+  Textured = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
   bd.size = kUniFloats * sizeof(float);
   bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
   Uni = Device.CreateBuffer(&bd);
 
-  wgpu::BindGroupEntry be{};
-  be.binding = 0;
-  be.buffer = Uni;
-  be.size = kUniFloats * sizeof(float);
+  /* ONE TEXEL OF WHITE, so the textured pipeline's bind group is complete before any case declares
+   * an image. It is never a stand-in for a missing texture: the PLAIN pipeline is what draws an
+   * untextured subject, and this is only ever bound under the textured one. */
+  static const uint8_t white[4] = {255, 255, 255, 255};
+  SubjectTexture blank{};
+  blank.Rgba = white;
+  blank.Width = 1;
+  blank.Height = 1;
+  SetTexture(blank);
+}
+
+void SubjectDraw::SetTexture(const SubjectTexture &texture) {
+  if (!Device) return;
+  const uint32_t width = texture.Width > 0 ? texture.Width : 1;
+  const uint32_t height = texture.Height > 0 ? texture.Height : 1;
+
+  wgpu::TextureDescriptor td{};
+  td.size = {width, height, 1};
+  /* THE STORAGE IS UNORM AND THE VIEW IS sRGB. The decode is therefore the sampler's, which puts it
+   * before the filter -- `TextureLinearInterpolationTest`'s whole criterion -- and a shader-side
+   * decode after the tap has no spelling in this unit. */
+  td.format = wgpu::TextureFormat::RGBA8UnormSrgb;
+  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+  BaseColour = Device.CreateTexture(&td);
+  BaseColourView = BaseColour.CreateView();
+
+  static const uint8_t white[4] = {255, 255, 255, 255};
+  const uint8_t *texels = texture.Rgba ? texture.Rgba : white;
+  wgpu::TexelCopyTextureInfo destination{};
+  destination.texture = BaseColour;
+  wgpu::TexelCopyBufferLayout layout{};
+  layout.bytesPerRow = width * 4;
+  layout.rowsPerImage = height;
+  wgpu::Extent3D extent{width, height, 1};
+  Queue.WriteTexture(&destination, texels, (size_t)width * height * 4, &layout, &extent);
+
+  wgpu::SamplerDescriptor sd{};
+  sd.addressModeU = AddressOf(texture.WrapU);
+  sd.addressModeV = AddressOf(texture.WrapV);
+  sd.magFilter = FilterOf(texture.Magnify);
+  sd.minFilter = FilterOf(texture.Magnify);
+  Samp = Device.CreateSampler(&sd);
+  Rebind();
+}
+
+void SubjectDraw::Rebind() {
+  if (!Layout || !Uni || !BaseColourView || !Samp) return;
+  wgpu::BindGroupEntry entries[3] = {};
+  entries[0].binding = 0;
+  entries[0].buffer = Uni;
+  entries[0].size = kUniFloats * sizeof(float);
+  entries[1].binding = 1;
+  entries[1].textureView = BaseColourView;
+  entries[2].binding = 2;
+  entries[2].sampler = Samp;
   wgpu::BindGroupDescriptor bg{};
-  bg.layout = Pipe.GetBindGroupLayout(0);
-  bg.entryCount = 1;
-  bg.entries = &be;
+  bg.layout = Layout;
+  bg.entryCount = 3;
+  bg.entries = entries;
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void SubjectDraw::SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                          const double anchor[3]) {
+void SubjectDraw::SetMesh(const float *verts, const float *uv, uint32_t nverts,
+                          const uint32_t *idx, uint32_t nidx, const double anchor[3]) {
   NVerts = nverts;
   NIdx = nidx;
+  HasUv = uv != nullptr;
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = anchor[axis]; }
   if (nverts == 0 || nidx == 0 || !Device) return;
 
@@ -120,6 +256,16 @@ void SubjectDraw::SetMesh(const float *verts, uint32_t nverts, const uint32_t *i
   vd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
   Vtx = Device.CreateBuffer(&vd);
   Queue.WriteBuffer(Vtx, 0, verts, (size_t)nverts * 3 * sizeof(float));
+
+  if (HasUv) {
+    wgpu::BufferDescriptor ud{};
+    ud.size = (uint64_t)nverts * 2 * sizeof(float);
+    ud.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
+    Uv = Device.CreateBuffer(&ud);
+    Queue.WriteBuffer(Uv, 0, uv, (size_t)nverts * 2 * sizeof(float));
+  } else {
+    Uv = wgpu::Buffer();
+  }
 
   /* WriteBuffer copies in 4-byte units, so an odd index count is padded to keep the queue's own
    * alignment rule -- the draw still submits exactly `nidx`. */
@@ -138,9 +284,10 @@ void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPass
   for (int i = 0; i < 3; i++) u[16 + i] = (float)(Anchor[i] - ctx.Eye[i]);
   for (int i = 0; i < 3; i++) u[20 + i] = Surface.AlbedoLinear[i] * Surface.EnvironmentRadiance;
   Queue.WriteBuffer(Uni, 0, u, sizeof u);
-  pass.SetPipeline(Pipe);
+  pass.SetPipeline(HasUv && Uv ? Textured : Plain);
   pass.SetBindGroup(0, Bind);
   pass.SetVertexBuffer(0, Vtx);
+  if (HasUv && Uv) { pass.SetVertexBuffer(1, Uv); }
   pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
   pass.DrawIndexed(NIdx);
 }

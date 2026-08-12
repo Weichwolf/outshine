@@ -1,0 +1,177 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/texture/simple-texture",
+  "title": "Khronos SimpleTexture -- one base-colour texture, at exactly one texel per pixel so no filter is integrating anything",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "khronos:SimpleTexture"
+  ],
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "simple-texture",
+      "kind": "gltf",
+      "name": "SimpleTexture",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "TEXCOORD_0"
+      ],
+      "notes": "A unit quad in the XY plane at z = 0, front face towards +Z, with TEXCOORD_0 putting the image upright when the quad is seen from +Z with +Y up: the vertex at (0,0,0) carries uv (0,1) and the one at (0,1,0) carries uv (0,0), which is glTF's origin at the image's UPPER left. No NORMAL, and none is needed: a Lambertian facet under a uniform environment returns rho*L whichever way it faces.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SimpleTexture",
+        "pinnedOn": "2026-08-12",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/glTF/SimpleTexture.gltf",
+          "sha256": "eb3b2eed47c1f487f7256e96fd21c7978b2a7b8f448cea03cb16c13c2ec4a41d",
+          "bytes": 1566,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/glTF/SimpleTexture.bin",
+          "sha256": "39cc33186c54859aa80bbbbea25c774b2e3df99763d3d7cb1c5b7c3f83e4b6b2",
+          "bytes": 108,
+          "as": "SimpleTexture.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/glTF/testTexture.png",
+          "sha256": "f5ba45490d9a62c2d9112143ba49bff49e25567a51a3523d1c8f7b0ad63cf6f4",
+          "bytes": 3229,
+          "as": "testTexture.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json",
+          "sha256": "17b33212ca9961d885382b317565147db13dac07ea524299cd9580dc3d4c5c0c",
+          "bytes": 752,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.5,
+        0.5,
+        5.859375
+      ],
+      "lookAtM": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "ONE TEXEL PER PIXEL, WHICH IS WHAT REMOVES THE FILTER FROM THE COMPARISON. yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, so tan(yfov/2) = 0.24 exactly. At distance d the frame's half-height at the subject's plane is 0.24*d metres, so the vertical scale is 720/(0.48*d) px per metre; the image is 256 texels across the quad's 1 m, so d = 720/(0.48*256) = 5.859375 m gives exactly 256 px per metre and one pixel per texel. THE EDGES THEN LAND ON PIXEL BOUNDARIES: the optical axis maps to raster (639.5, 359.5) -- the integer raster coordinate is the pixel centre -- and the quad's half-extent is 128 px, so its silhouette runs 511.5..767.5 and 231.5..487.5, every edge at half a lattice step from every pixel centre. That is the margin floor's best case, 0.5 px, at slopes 0/1 and 1/0. AND EVERY PIXEL CENTRE LANDS ON A TEXEL CENTRE: the covered pixel at raster x = 512 sits 0.5 px inside the left edge, i.e. u = 0.5/256, which is texel 0's centre exactly -- so bilinear interpolation has weight 1 on one texel and both renderers read the texel rather than a blend of four. The roll is zero and stated: a rolled axis-aligned quad would put the texel grid at an angle to the pixel grid and put the filter back into the comparison, which is the one thing this camera exists to take out.",
+      "note": "The glTF carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world. A uniform environment is what makes a Lambertian facet return rho*L with no integration left, and rho here is the file's own texel."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (doc/requirements.md I.26.13). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left and no closed form to be judged against. This arm keeps exactly what the asset is for -- its own base-colour image, its uv set and its sampler -- and rewires that image into a Diffuse BSDF at roughness 0, whose Cycles closure is max(dot(N,w),0)/pi. Under the factory world that is rho(u,v)*L per texel. The image datablock is untouched, so its sRGB decode still happens at the texel and before the interpolation, which is the convention TextureLinearInterpolationTest decides and the one our sRGB texture VIEW puts in the sampler."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    }
+  },
+  "notes": "Khronos states this asset tests 'a simple glTF asset with a texture'. Our acceptance is the section's own: coverage, and radiance at one texel per pixel. The camera is what makes the second half decidable -- see its derivation.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.07111111111111111,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the quad is a plane perpendicular to the optical axis, so its perspective image is a similarity: 1 m at 256 px per metre is 256 px on a side, and 256*256/(1280*720) = 65536/921600. Recomputed by the runner from the fetched vertices and refused on a mismatch.",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

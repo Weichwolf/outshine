@@ -150,7 +150,11 @@ bool Subject::Refuse(const std::string &why) {
 bool Subject::Build(const Document &document) {
   Error_.clear();
   Positions_.clear();
+  Uv_.clear();
   Indices_.clear();
+  Material_ = -1;
+  bool anyMaterial = false;
+  bool carriesUv = false;
 
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
@@ -214,6 +218,42 @@ bool Subject::Build(const Document &document) {
         double global[3];
         world.Point(local, global);
         for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
+      }
+
+      /* THE FIRST UV SET, AND ALL OR NOTHING ACROSS THE SUBJECT. A run half filled with real uvs and
+       * half with zeros samples the image's corner over the primitives that carried none, which
+       * looks like a texture bug and is a flattening bug. */
+      const int uv = primitive.Find("TEXCOORD_0");
+      if (primitives == 1) {
+        carriesUv = uv >= 0;
+      } else if ((uv >= 0) != carriesUv) {
+        return Refuse(document.Path() + ": mesh " + std::to_string(node.Mesh) +
+                      " mixes primitives that carry TEXCOORD_0 with primitives that do not, and "
+                      "nothing here invents one");
+      }
+      if (uv >= 0) {
+        std::vector<double> coordinates;
+        if (!document.ReadElements(uv, coordinates)) {
+          return Refuse(document.Path() + ": TEXCOORD_0 does not decode: " + document.Error());
+        }
+        if (coordinates.size() != vertices * 2) {
+          return Refuse(document.Path() + ": TEXCOORD_0 decodes to " +
+                        std::to_string(coordinates.size() / 2) + " pairs over " +
+                        std::to_string(vertices) + " vertices");
+        }
+        Uv_.insert(Uv_.end(), coordinates.begin(), coordinates.end());
+      }
+
+      /* ONE SURFACE PER SUBJECT. Two materials would need two draws and two bindings, and drawing
+       * the second with the first's texture is exactly the silent wrong picture. */
+      if (!anyMaterial) {
+        Material_ = primitive.Material;
+        anyMaterial = true;
+      } else if (Material_ != primitive.Material) {
+        return Refuse(document.Path() + ": the default scene draws material " +
+                      std::to_string(Material_) + " and material " +
+                      std::to_string(primitive.Material) +
+                      ", and this subject carries one surface");
       }
 
       if (primitive.Indices >= 0) {

@@ -59,6 +59,11 @@ public:
     std::string Name;
     size_t First;   /* into Order() */
     size_t Count;
+    /* WHAT THE PASS ATTACHES, derived once here rather than rebuilt per frame by whoever encodes it.
+     * `Colours` is the union of the pass's stages' targets and `Depth` the one depth target among
+     * them; a second, different depth target in one pass is a refusal, not a silent drop. */
+    AttachmentSet Colours;
+    Resource Depth = kNoEdge;
   };
 
   [[nodiscard]] static bool Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan> *out,

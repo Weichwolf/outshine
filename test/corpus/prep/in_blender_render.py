@@ -151,9 +151,55 @@ def build_light(scene, declared):
             "locationBlender": list(obj.location)}
 
 
+def lower_to_base_colour(imported):
+    """Keeps the file's own base-colour image and its uv set; drops the closure around it.
+
+    The importer builds a Principled BSDF whose specular lobe survives metallic 0 at IOR 1.5, so the
+    render has an integral left and no closed form. Rewiring the same Image Texture node into a
+    Diffuse BSDF at roughness 0 removes it and leaves rho(u,v)*L per texel. The image datablock is
+    untouched, so its sRGB decode still happens where Blender does it -- at the texel, before the
+    interpolation -- which is the convention under test.
+    """
+    rewired = []
+    for material in bpy.data.materials:
+        if material.node_tree is None:
+            continue
+        image_node = None
+        for node in material.node_tree.nodes:
+            if node.type == "TEX_IMAGE" and node.image is not None:
+                image_node = node
+                break
+        if image_node is None:
+            continue
+        tree = material.node_tree
+        # Removing a node invalidates every other Python handle into the collection, so the node is
+        # named before the removal and looked up again after it.
+        kept = image_node.name
+        for node in list(tree.nodes):
+            if node.name != kept and node.type not in ("UVMAP", "MAPPING", "TEX_COORD"):
+                tree.nodes.remove(node)
+        image_node = tree.nodes[kept]
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
+        shader.inputs["Roughness"].default_value = 0.0
+        tree.links.new(image_node.outputs["Color"], shader.inputs["Color"])
+        tree.links.new(shader.outputs[0], output.inputs["Surface"])
+        rewired.append({"material": material.name, "image": image_node.image.name,
+                        "colourspace": image_node.image.colorspace_settings.name,
+                        "interpolation": image_node.interpolation,
+                        "extension": image_node.extension,
+                        "size": list(image_node.image.size)})
+    if not rewired:
+        fail("material.source is gltf-base-colour and no imported material carries an image texture")
+    meshes = sum(1 for obj in imported if obj.type == "MESH")
+    return {"source": "gltf-base-colour", "meshes": meshes, "rewired": rewired}
+
+
 def apply_material(imported, declared):
     if declared["source"] == "gltf":
         return {"source": "gltf"}
+    if declared["source"] == "gltf-base-colour":
+        return lower_to_base_colour(imported)
     material = bpy.data.materials.new("OracleMaterial")
     material.use_nodes = True
     tree = material.node_tree

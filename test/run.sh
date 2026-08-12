@@ -106,6 +106,7 @@ LayerIncludes() {
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
+    unit/clients) printf '%s' "-Isrc/clients" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     *) return 1 ;;
@@ -116,16 +117,17 @@ LayerIncludes() {
 # unit layer wants nothing: the shell, the compiler and the clock are the whole dependency set, which
 # is what lets this harness report "the build is broken" without needing the build.
 #
-# `render` IS THE ONE EXCEPTION AND IT IS NOT A CHOICE. A render case's verdict is "our pixels agree
+# `render` IS THE WIDEST EXCEPTION AND IT IS NOT A CHOICE. A render case's verdict is "our pixels agree
 # with Cycles", so its subject is the renderer -- the device, the pass topology, the raster
 # convention. Anything that stood in for them would be a second rasteriser scoring itself. So this
-# layer takes the renderer's own toolchain: C++20, native Dawn, SDL3_image for the PNG encode, and
-# the platform frameworks Metal needs.
+# layer takes the renderer's own toolchain: C++20, native Dawn, SDL3_image for the image boundary,
+# and the platform frameworks Metal needs.
 DAWN_OUT=vendor/dawn/out
 DAWN_LIBDIR=$DAWN_OUT/src/dawn/native
 LayerToolchain() {
   case "$1" in
     render) printf '%s' "-std=c++20 -isystem $DAWN_OUT/gen/include -isystem vendor/dawn/include -isystem vendor" ;;
+    unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -152,6 +154,7 @@ LayerLink() {
       fi
       printf '%s' "-L$DAWN_LIBDIR -lwebgpu_dawn $(pkg-config --libs sdl3-image) -lpthread -ldl -lm $platform"
       ;;
+    unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -163,6 +166,12 @@ LayerLink() {
 # and imagery JPEG through SDL3_image, whose flags come from pkg-config -- and this harness's whole
 # dependency set is the shell, the compiler and the clock. A test that needs to RUN world code is
 # what pays to widen that.
+#
+# `unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
+# a glTF base-colour texture arrives through and the encode a render case's pictures leave through --
+# so a test of it that stood in for the library would be testing the stand-in. The widening is one
+# layer and one source and it changes nothing for the others: every remaining unit layer still links
+# nothing at all.
 LayerGroups() {
   case "$1" in
     unit/core) printf '%s' "src/core src/core/io" ;;
@@ -173,8 +182,9 @@ LayerGroups() {
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/world) printf '%s' "" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
+    unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Png.cpp" ;;
+    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -216,7 +226,7 @@ GroupIncludes() {
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render -Isrc/render/stages" ;;
     src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
-    src/clients/Png.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
+    src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
 }

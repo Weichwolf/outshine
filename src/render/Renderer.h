@@ -175,16 +175,22 @@ public:
   size_t ModelInstanceBytes() const { return Geometry->Models().InstanceBytes(); }
   size_t ModelImpostorBytes() const { return Geometry->Models().ImpostorBytes(); }
 
-  /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed position-only mesh, in
-   * ECEF offsets from `anchor`. A client that never declares one draws nothing extra. */
-  void SetSubjectMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                      const double anchor[3]) {
-    Geometry->Subjects().SetMesh(verts, nverts, idx, nidx, anchor);
+  /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh of positions and,
+   * where the file carries one, first uvs, in ECEF offsets from `anchor`. A client that never
+   * declares one draws nothing extra. */
+  void SetSubjectMesh(const float *verts, const float *uv, uint32_t nverts, const uint32_t *idx,
+                      uint32_t nidx, const double anchor[3]) {
+    Geometry->Subjects().SetMesh(verts, uv, nverts, idx, nidx, anchor);
   }
   long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
   /* THE TWO NUMBERS A STUDIO DECLARES about its subject's appearance: linear albedo, and the radiance
    * of the uniform environment it stands in. The renderer holds them and shades nothing. */
   void SetSubjectSurface(const SubjectSurface &surface) { Geometry->Subjects().SetSurface(surface); }
+  /* THE BASE-COLOUR TEXTURE the declaration hands across, already decoded to RGBA8: the file says
+   * which image and how it is addressed, the consumer decodes it, and this holds it. */
+  void SetSubjectTexture(const SubjectTexture &texture) {
+    Geometry->Subjects().SetTexture(texture);
+  }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
    * for the consumers that owe a published anchor and read by no stage today. */

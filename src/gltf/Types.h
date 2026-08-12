@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "Material.h"
+
 namespace outshine::Gltf {
 
 enum class ComponentType : uint16_t {
@@ -121,6 +123,65 @@ struct Node {
 struct Scene {
   std::string Name;
   std::vector<int> Roots;
+};
+
+/* WHAT A SAMPLER DOES AT THE EDGE OF THE IMAGE. glTF's own numbers, so the file's integers become
+ * this enumeration once and never travel as integers (`Enum.2`). `TextureSettingsTest` renders one
+ * cell per mode and a viewer that collapses two of them shows the wrong picture in exactly two of
+ * its cells. */
+enum class Wrap : uint16_t { ClampToEdge = 33071, MirroredRepeat = 33648, Repeat = 10497 };
+
+/* Nearest or linear at magnification. `TextureLinearInterpolationTest` is about WHERE the sRGB
+ * decode happens relative to this filter, not about which filter it is. */
+enum class Filter : uint8_t { Nearest, Linear };
+
+struct Sampler {
+  Wrap WrapS = Wrap::Repeat;   /* the format's default when the field is absent */
+  Wrap WrapT = Wrap::Repeat;
+  Filter Mag = Filter::Linear;
+  Filter Min = Filter::Linear;
+};
+
+/* AN IMAGE IS BYTES AND A DECLARED TYPE, never a decoded raster: this layer has no decoder and
+ * naming one here would put an SDL dependency inside the format reader. `Uri` is already
+ * PERCENT-DECODED -- the format requires reserved characters to be encoded on the way out
+ * (`Specification.adoc:550`), so decoding them is this reader's obligation on the way in. */
+struct Image {
+  std::string Name;
+  std::string Uri;        /* empty when the image lives in a bufferView */
+  std::string MimeType;
+  int View = -1;
+};
+
+struct Texture {
+  std::string Name;
+  int Source = -1;    /* into Images */
+  int Sampler = -1;   /* -1 is the format's "use repeat and auto filtering" */
+};
+
+/* WHICH TEXTURE FEEDS WHICH SLOT, and which UV SET it reads. `TexCoord` is the number after
+ * TEXCOORD_, so `MultiUVTest`'s logo declaring `texCoord: 1` is carried rather than collapsed. */
+struct TextureRef {
+  int Texture = -1;
+  int TexCoord = 0;
+  [[nodiscard]] bool Declared() const { return Texture >= 0; }
+};
+
+/* THE FILE'S MATERIAL. The shading half is `outshine::Material`, which is the engine's one
+ * vocabulary for a surface and is glTF's own metal-rough parameterisation; what is added here is
+ * only what is about the FILE -- which texture, which UV set, and whether the file says the surface
+ * has two sides. */
+struct MaterialRef {
+  std::string Name;
+  outshine::Material Surface;
+  TextureRef BaseColour;
+  TextureRef MetallicRoughness;
+  TextureRef Normal;
+  TextureRef Occlusion;
+  TextureRef Emissive;
+  double NormalScale = 1.0;
+  double OcclusionStrength = 1.0;
+  bool DoubleSided = false;
 };
 
 /* WHAT A SUBJECT DOES NOT CARRY, NAMED. The empty string means it carries all of them; anything else

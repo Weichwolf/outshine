@@ -1,13 +1,15 @@
-/* THE DECLARED SUBJECT OF A STUDIO: one indexed triangle mesh, drawn where the declaration puts it
- * and shaded by nothing at all.
+/* THE DECLARED SUBJECT OF A STUDIO: one indexed triangle mesh, drawn where the declaration puts it,
+ * emitting what the declaration says it emits.
  *
- * POSITION-ONLY, AND THAT IS THE WHOLE POINT OF THE UNIT. What it answers is *which pixels the
- * geometry covers and how far away it is* -- the two questions the coverage and depth rungs ask
- * (doc/requirements.md I.26), neither of which reads a normal, a uv or a material. Admitting a
- * normal here would mean either inventing one for a subject whose file carries none, which I.26
- * forbids, or refusing every such subject; the third answer is that a depth-and-coverage pipeline
- * has no use for one. A rung that compares RADIANCE needs a mesh that carries what radiance reads,
- * and that is a different unit and a different round.
+ * POSITION AND, WHERE THE FILE CARRIES ONE, THE FIRST UV. NO NORMAL, and that is still the unit's
+ * own limit rather than an omission: this draw emits `rho*L` under a uniform environment, which a
+ * Lambertian facet returns whichever way it faces, so a normal would be a number nothing here reads.
+ * Inventing one for a subject whose file carries none is what I.26 forbids; a punctual light is
+ * where `N.L` becomes correct, and that is a different unit and a different round.
+ *
+ * A UV IS NOT INVENTED EITHER. A subject with no `TEXCOORD_0` is drawn by a different pipeline, not
+ * by this one with a zero coordinate: a zero uv samples the image's corner and looks like a texture
+ * that was authored flat.
  *
  * BACK FACES ARE CULLED AND THE WINDING IS TRUSTED, because the format defines one. A path tracer
  * hits a single-sided triangle from either side and still shades it, so the two renderers disagree
@@ -34,17 +36,43 @@ struct SubjectSurface {
   float EnvironmentRadiance = 0;   /* a subject nobody described is black, and visibly so */
 };
 
+/* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
+ * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
+ * engine that collapses two of them shows the wrong picture in exactly two cells -- so they cross
+ * here rather than being decided in this unit. */
+enum class SubjectWrap { ClampToEdge, MirroredRepeat, Repeat };
+enum class SubjectFilter { Nearest, Linear };
+
+/* THE DECODED BASE COLOUR, RGBA8, straight alpha, top row first -- the one convention the image
+ * boundary states. Uploaded into an sRGB-VIEWED texture, so the transfer is undone by the SAMPLER
+ * before it filters, which is what `TextureLinearInterpolationTest` decides: filtering must run on
+ * linear values, and a shader that decoded after the tap fails by construction. */
+struct SubjectTexture {
+  const uint8_t *Rgba = nullptr;
+  uint32_t Width = 0;
+  uint32_t Height = 0;
+  SubjectWrap WrapU = SubjectWrap::Repeat;
+  SubjectWrap WrapV = SubjectWrap::Repeat;
+  SubjectFilter Magnify = SubjectFilter::Linear;
+};
+
 class SubjectDraw : public GeometryUnit {
 public:
   void Configure(const Gpu &gpu);
 
   void SetSurface(const SubjectSurface &surface) { Surface = surface; }
 
+  /* Replaces the base-colour texture. A texture with no texels retires the one that was there, so
+   * "the case before this one had a texture" is not a state a case can inherit. */
+  void SetTexture(const SubjectTexture &texture);
+
   /* `verts` is 3 floats per vertex, ECEF offsets from `anchor` in metres; `idx` indexes them.
+   * `uv` is 2 floats per vertex or null, and null is what selects the untextured pipeline -- the
+   * two are different shaders and neither stands in for the other with a substituted constant.
    * A zero count retires the unit, which is the state every client that never declares a subject
    * stays in for the whole of its life. */
-  void SetMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-               const double anchor[3]);
+  void SetMesh(const float *verts, const float *uv, uint32_t nverts, const uint32_t *idx,
+               uint32_t nidx, const double anchor[3]);
 
   void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
@@ -54,12 +82,22 @@ public:
 private:
   static constexpr int kUniFloats = 24; /* mat4 + anc + emitted -- the WGSL struct `S` verbatim */
 
+  void Rebind();
+
   wgpu::Device Device;
   wgpu::Queue Queue;
-  wgpu::RenderPipeline Pipe;
+  /* TWO PIPELINES, ONE PER VERTEX LAYOUT, both built at configure time. A single pipeline with a
+   * white one-texel stand-in would make "no texture declared" and "a white texture declared" the
+   * same picture, and the first is a subject this engine must be able to draw. */
+  wgpu::RenderPipeline Plain, Textured;
+  wgpu::BindGroupLayout Layout;
   wgpu::BindGroup Bind;
-  wgpu::Buffer Uni, Vtx, Idx;
+  wgpu::Buffer Uni, Vtx, Uv, Idx;
+  wgpu::Texture BaseColour;
+  wgpu::TextureView BaseColourView;
+  wgpu::Sampler Samp;
   uint32_t NVerts = 0, NIdx = 0;
+  bool HasUv = false;
   double Anchor[3] = {0, 0, 0};
   SubjectSurface Surface;
 };

@@ -48,6 +48,9 @@ struct Studio {
   const Gltf::Subject *Geometry = nullptr;
   Gltf::Placement Eye;
   Render::SubjectSurface Surface;
+  /* The decoded base colour, when the declaration names one. A texture with no texels is a subject
+   * that declares none, which is a different pipeline and not a white stand-in. */
+  Render::SubjectTexture BaseColour;
 };
 
 /* Places the subject and the eye, and hands the renderer the mesh. `scratch` is the caller's so a

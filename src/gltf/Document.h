@@ -23,9 +23,7 @@
 #include "Transform.h"
 #include "Types.h"
 
-namespace outshine {
-class Json;
-}
+#include "Json.h"
 
 namespace outshine::Gltf {
 
@@ -40,6 +38,12 @@ public:
   const std::string &Error() const { return Error_; }
   const std::string &Path() const { return Path_; }
   const std::string &Version() const { return Version_; }
+  /* Empty unless the file states one. A file that states a minVersion above 2.0 does not read at
+   * all, so anything this returns is a version this reader accepted. */
+  const std::string &MinVersion() const { return MinVersion_; }
+  const std::vector<std::string> &ExtensionsRequired() const { return Required_; }
+  /* Whether this reader implements an extension well enough to load a file that requires it. */
+  [[nodiscard]] static bool Honours(const std::string &extension);
 
   const std::vector<Accessor> &Accessors() const { return Accessors_; }
   const std::vector<BufferView> &BufferViews() const { return Views_; }
@@ -47,7 +51,15 @@ public:
   const std::vector<Node> &Nodes() const { return Nodes_; }
   const std::vector<Camera> &Cameras() const { return Cameras_; }
   const std::vector<Scene> &Scenes() const { return Scenes_; }
+  const std::vector<MaterialRef> &Materials() const { return Materials_; }
+  const std::vector<Texture> &Textures() const { return Textures_; }
+  const std::vector<Image> &Images() const { return Images_; }
+  const std::vector<Sampler> &Samplers() const { return Samplers_; }
   int DefaultScene() const { return DefaultScene_; }
+
+  /* THE ENCODED BYTES OF ONE IMAGE, from its file or from its bufferView -- never decoded, because
+   * a decoder is an SDL dependency and this layer has none. The caller decodes. */
+  [[nodiscard]] bool ImageBytes(int image, std::vector<uint8_t> &out) const;
 
   /* THE DECODED ELEMENTS OF ONE ACCESSOR, `Count * components` doubles in element order, with the
    * byte stride, the normalisation and the sparse overrides already applied. `out` is the caller's
@@ -70,11 +82,14 @@ private:
                               size_t binaryLength);
   [[nodiscard]] bool ResolveBuffers(const Json &json, const uint8_t *binaryChunk,
                                     size_t binaryLength);
+  [[nodiscard]] bool ReadAppearance(const Json &json);
+  [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;
   [[nodiscard]] bool ViewSpan(int view, Span<const uint8_t> &out) const;
   [[nodiscard]] bool ApplySparse(const Accessor &accessor, std::vector<double> &out) const;
 
-  std::string Path_, Error_, Version_;
+  std::string Path_, Error_, Version_, MinVersion_;
+  std::vector<std::string> Required_;
   std::vector<std::vector<uint8_t>> Buffers_;
   std::vector<BufferView> Views_;
   std::vector<Accessor> Accessors_;
@@ -82,6 +97,10 @@ private:
   std::vector<Node> Nodes_;
   std::vector<Camera> Cameras_;
   std::vector<Scene> Scenes_;
+  std::vector<MaterialRef> Materials_;
+  std::vector<Texture> Textures_;
+  std::vector<Image> Images_;
+  std::vector<Sampler> Samplers_;
   std::vector<int> Parent_;
   int DefaultScene_ = -1;
 };

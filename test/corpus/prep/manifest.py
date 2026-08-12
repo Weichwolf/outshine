@@ -27,7 +27,14 @@ SUBJECT_KINDS = ("gltf", "blend", "generated")
 SOURCE_KINDS = ("khronos-sample-assets", "blender-download", "blender-studio", "outshine-generated")
 FILE_ROLES = ("gltf", "buffer", "image", "metadata", "blend", "archive-member")
 CAMERA_SOURCES = ("manifest", "gltf")
-MATERIAL_SOURCES = ("manifest", "gltf")
+# "gltf-base-colour" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (doc/requirements.md I.26.13). The
+# imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a
+# textured asset rendered with it has an integral left to perform and no closed form to be judged
+# against. This arm keeps what is under test -- the file's own base-colour image, its uv set and its
+# sampler -- and replaces the closure with the Diffuse BSDF at roughness 0, whose Cycles form is
+# exactly max(dot(N,w),0)/pi. Under a uniform environment that is rho(u,v)*L, per texel, with nothing
+# stochastic left.
+MATERIAL_SOURCES = ("manifest", "gltf", "gltf-base-colour")
 MATERIAL_KINDS = ("diffuse", "emission")
 LIGHT_KINDS = ("none", "sun", "point")
 WORLD_KINDS = ("factory", "uniform")
@@ -390,7 +397,7 @@ def _world(value):
 
 def _material(value):
     source = _one_of("manifest.scene.material.source", value.get("source"), MATERIAL_SOURCES)
-    if source == "gltf":
+    if source in ("gltf", "gltf-base-colour"):
         return _fields("manifest.scene.material", value, ("source",), ("note",))
     field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinear"), ("note",))
     _one_of("manifest.scene.material.kind", field["kind"], MATERIAL_KINDS)

@@ -103,6 +103,38 @@ int main() {
          R"({"asset":{"version":"2.0"},"buffers":[{"byteLength":4,"uri":"nowhere.bin"}]})",
          {}, false});
 
+  /* THE TWO DOORS A FILE STATES ITS OWN UNREADABILITY THROUGH, and both stood open until this round.
+   * A quantized or Draco-compressed file whose required extension is ignored does not fail to read:
+   * it reads as plausible numbers in the wrong units, which is the worst answer available. */
+  Holds({"an asset.minVersion above 2.0 is refused", "asset.minVersion '2.1'",
+         R"({"asset":{"version":"2.0","minVersion":"2.1"}})"});
+  Holds({"a required extension this reader does not implement is refused",
+         "requires extension 'KHR_draco_mesh_compression'",
+         R"({"asset":{"version":"2.0"},
+             "extensionsRequired":["KHR_draco_mesh_compression"]})"});
+  Holds({"and so is a required extension named beside one that is merely used",
+         "requires extension 'KHR_mesh_quantization'",
+         R"({"asset":{"version":"2.0"},
+             "extensionsUsed":["KHR_texture_transform","KHR_mesh_quantization"],
+             "extensionsRequired":["KHR_mesh_quantization"]})"});
+
+  /* THE APPEARANCE TABLES REFUSE BY NAME TOO, on the same rule: a dangling index that read as -1
+   * would draw an untextured surface and look like a material somebody authored that way. */
+  Holds({"a texture naming an image the file does not carry is refused", "names image 3 of 0",
+         R"({"asset":{"version":"2.0"},"textures":[{"source":3}]})"});
+  Holds({"a material naming a texture the file does not carry is refused",
+         "baseColorTexture names texture 2 of 0",
+         R"({"asset":{"version":"2.0"},
+             "materials":[{"pbrMetallicRoughness":{"baseColorTexture":{"index":2}}}]})"});
+  Holds({"an alphaMode the format does not define is refused", "alphaMode 'DITHER'",
+         R"({"asset":{"version":"2.0"},"materials":[{"alphaMode":"DITHER"}]})"});
+  Holds({"an image that is neither a uri nor a bufferView is refused",
+         "has neither a uri nor a bufferView",
+         R"({"asset":{"version":"2.0"},"images":[{"name":"nowhere"}]})"});
+  Holds({"a primitive naming a material the file does not carry is refused", "names material 1 of 0",
+         R"({"asset":{"version":"2.0"},
+             "meshes":[{"primitives":[{"attributes":{},"material":1}]}]})"});
+
   /* A GLB carrying a binary chunk and no JSON chunk at all, assembled by hand because the fixture
    * always writes one. */
   std::vector<uint8_t> noJson;

@@ -228,7 +228,36 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
       }
       if (merged) { plan->Passes_.back().Count++; }
     }
-    if (!merged) { plan->Passes_.push_back({row.Kind, row.Name, at, 1}); }
+    if (!merged) { plan->Passes_.push_back({row.Kind, row.Name, at, 1, AttachmentSet{}, kNoEdge}); }
+  }
+
+  for (Pass &pass : plan->Passes_) {
+    if (pass.Kind == PassKind::Compute) { continue; }
+    for (size_t at = 0; at < pass.Count; ++at) {
+      const StageRow &row = Row(plan->Order_[pass.First + at]);
+      const Resource *const edges[2] = {row.Writes, row.Contributes};
+      for (const Resource *edge : edges) {
+        for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
+          const Resource target = edge[e];
+          if (Row(target).Format == TexelFormat::Depth32Float) {
+            if (pass.Depth != kNoEdge && pass.Depth != target) {
+              error = std::string("render pass ") + pass.Name + ": stage " + row.Name +
+                      " attaches depth " + Row(target).Name + " to a pass already attaching " +
+                      Row(pass.Depth).Name;
+              return false;
+            }
+            pass.Depth = target;
+            continue;
+          }
+          if (!pass.Colours.Add(target)) {
+            error = std::string("render pass ") + pass.Name + ": more than " +
+                    std::to_string(kMaxColourAttachments) +
+                    " distinct colour targets, which is the device floor";
+            return false;
+          }
+        }
+      }
+    }
   }
 
   /* A plan with no temporal history needs no settle frames; one frame is what the device needs to

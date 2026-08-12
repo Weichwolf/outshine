@@ -609,8 +609,6 @@ wgpu::Color ClearOf(Resource resource) {
   }
 }
 
-bool IsDepth(Resource resource) { return Row(resource).Format == TexelFormat::Depth32Float; }
-
 } // namespace
 
 /* THE ONE PLACE A PASS DESCRIPTOR IS BUILT, and every field of it comes from the plan: the target
@@ -628,44 +626,29 @@ void Renderer::EncodePass(wgpu::CommandEncoder &enc, size_t pass, const FrameCon
     return;
   }
 
-  wgpu::RenderPassColorAttachment colours[kMaxEdges * 2] = {};
+  wgpu::RenderPassColorAttachment colours[kMaxColourAttachments] = {};
   uint32_t colourCount = 0;
+  for (const Resource target : declared.Colours) {
+    colours[colourCount].view = View(target);
+    colours[colourCount].loadOp = wgpu::LoadOp::Clear;
+    colours[colourCount].storeOp = wgpu::StoreOp::Store;
+    colours[colourCount].clearValue = ClearOf(target);
+    colourCount++;
+  }
   wgpu::RenderPassDepthStencilAttachment depth{};
-  bool haveDepth = false;
-  for (size_t at = 0; at < declared.Count; ++at) {
-    const StageRow &row = Row(Plan_->Order()[declared.First + at]);
-    const Resource *edges[2] = {row.Writes, row.Contributes};
-    for (const Resource *edge : edges) {
-      for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
-        const Resource target = edge[e];
-        if (IsDepth(target)) {
-          if (haveDepth) continue;
-          haveDepth = true;
-          depth.view = View(target);
-          depth.depthLoadOp = wgpu::LoadOp::Clear;
-          depth.depthStoreOp = wgpu::StoreOp::Store;
-          /* The scene is reversed-Z and clears to the far plane at 0; the shadow atlas is a plain
-           * [0,1] ortho depth and clears to 1. */
-          depth.depthClearValue = target == Resource::ShadowAtlas ? 1.0f : 0.0f;
-          continue;
-        }
-        bool already = false;
-        for (uint32_t c = 0; c < colourCount; ++c)
-          if (colours[c].view.Get() == View(target).Get()) already = true;
-        if (already) continue;
-        colours[colourCount].view = View(target);
-        colours[colourCount].loadOp = wgpu::LoadOp::Clear;
-        colours[colourCount].storeOp = wgpu::StoreOp::Store;
-        colours[colourCount].clearValue = ClearOf(target);
-        colourCount++;
-      }
-    }
+  if (declared.Depth != kNoEdge) {
+    depth.view = View(declared.Depth);
+    depth.depthLoadOp = wgpu::LoadOp::Clear;
+    depth.depthStoreOp = wgpu::StoreOp::Store;
+    /* The scene is reversed-Z and clears to the far plane at 0; the shadow atlas is a plain [0,1]
+     * ortho depth and clears to 1. */
+    depth.depthClearValue = declared.Depth == Resource::ShadowAtlas ? 1.0f : 0.0f;
   }
 
   wgpu::RenderPassDescriptor rp{};
   rp.colorAttachmentCount = colourCount;
   rp.colorAttachments = colourCount ? colours : nullptr;
-  rp.depthStencilAttachment = haveDepth ? &depth : nullptr;
+  rp.depthStencilAttachment = declared.Depth != kNoEdge ? &depth : nullptr;
   rp.timestampWrites = GpuTime.Writes((int)pass);
   wgpu::RenderPassEncoder encoder = enc.BeginRenderPass(&rp);
   for (size_t at = 0; at < declared.Count; ++at)

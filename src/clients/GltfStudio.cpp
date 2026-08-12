@@ -91,17 +91,23 @@ bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!ClearsNearPlane(subject, eye, error)) { return false; }
 
+  /* ONE BUFFER, TWO RUNS: the positions first and the uvs after them, so a caller reusing capacity
+   * across a loop of cases pays one allocation and the two vertex buffers are two pointers into it.
+   * The uv run is written even when it is empty, so `HasUv` decides the pipeline and not a length. */
   scratch.clear();
-  scratch.reserve(subject.PositionsM().size());
+  scratch.reserve(subject.PositionsM().size() + subject.Uv().size());
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
     for (int axis = 0; axis < 3; ++axis) { scratch.push_back((float)ecef[axis]); }
   }
-  renderer.SetSubjectMesh(scratch.data(), (uint32_t)subject.VertexCount(),
-                          subject.Indices().data(), (uint32_t)subject.Indices().size(),
-                          kStudioAnchorEcefM);
+  const size_t uvAt = scratch.size();
+  for (const double coordinate : subject.Uv()) { scratch.push_back((float)coordinate); }
+  renderer.SetSubjectMesh(scratch.data(), subject.HasUv() ? scratch.data() + uvAt : nullptr,
+                          (uint32_t)subject.VertexCount(), subject.Indices().data(),
+                          (uint32_t)subject.Indices().size(), kStudioAnchorEcefM);
   renderer.SetSubjectSurface(studio.Surface);
+  renderer.SetSubjectTexture(studio.BaseColour);
 
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);

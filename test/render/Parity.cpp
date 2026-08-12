@@ -46,13 +46,14 @@
 #include "Mask.h"
 #include "Metric.h"
 #include "OracleRaw.h"
+#include "Radiance.h"
 #include "Ties.h"
 
 #include "Document.h"
 #include "GltfStudio.h"
 #include "Json.h"
 #include "Log.h"
-#include "Png.h"
+#include "Image.h"
 #include "RenderPlan.h"
 #include "Renderer.h"
 #include "Subject.h"
@@ -80,6 +81,11 @@ struct Case {
   Acceptance Accepted;
   std::string CameraSource;
   outshine::Render::SubjectSurface Surface;
+  /* True where the manifest hands the surface to the file. The decoded image is held here because
+   * the renderer copies it and the studio only points at it. */
+  bool MaterialFromFile = false;
+  outshine::Render::SubjectTexture BaseColour;
+  outshine::Clients::Raster Decoded;
 };
 
 /* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
@@ -200,10 +206,17 @@ public:
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
 
   /* WHAT THE SUBJECT EMITS, taken from the case's own declaration and never from a constant here: a
-   * material the manifest does not describe leaves the subject black, which is visible. */
+   * material the manifest does not describe leaves the subject black, which is visible.
+   *
+   * `gltf-base-colour` IS THE ARM WHERE THE FILE OWNS THE SURFACE, so nothing is read here and the
+   * factor and the image both come out of the document once the subject has been built. Declaring
+   * either of them beside a Khronos asset would be measuring our re-declaration and not the asset. */
   const Json::Ref material = root["scene"]["material"];
-  for (size_t channel = 0; channel < 3; ++channel) {
-    subject.Surface.AlbedoLinear[channel] = (float)material["colourLinear"][channel].Num(0.0);
+  subject.MaterialFromFile = material["source"].StrEquals("gltf-base-colour");
+  if (!subject.MaterialFromFile) {
+    for (size_t channel = 0; channel < 3; ++channel) {
+      subject.Surface.AlbedoLinear[channel] = (float)material["colourLinear"][channel].Num(0.0);
+    }
   }
   const Json::Ref world = root["scene"]["world"];
   if (world["kind"].StrEquals("factory")) {
@@ -260,6 +273,72 @@ std::string MissingInputs(const Case &subject) {
   return missing;
 }
 
+outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
+  switch (wrap) {
+    case outshine::Gltf::Wrap::ClampToEdge: return outshine::Render::SubjectWrap::ClampToEdge;
+    case outshine::Gltf::Wrap::MirroredRepeat: return outshine::Render::SubjectWrap::MirroredRepeat;
+    case outshine::Gltf::Wrap::Repeat: return outshine::Render::SubjectWrap::Repeat;
+  }
+  return outshine::Render::SubjectWrap::Repeat;
+}
+
+/* THE SURFACE THE FILE OWNS: its base-colour factor, its base-colour image and the sampler that
+ * addresses it. Every refusal here names what the asset declared and what was missing, because a
+ * texture that quietly failed to load draws the factor alone -- a flat colour that looks exactly
+ * like a material somebody authored that way. */
+[[nodiscard]] bool ResolveFileSurface(Case &subject, std::string &error) {
+  const int index = subject.Geometry.Material();
+  if (index < 0 || (size_t)index >= subject.File.Materials().size()) {
+    error = "the manifest hands the surface to the file and no drawn primitive names a material";
+    return false;
+  }
+  const outshine::Gltf::MaterialRef &material = subject.File.Materials()[(size_t)index];
+  for (size_t channel = 0; channel < 3; ++channel) {
+    subject.Surface.AlbedoLinear[channel] = material.Surface.BaseColour[channel];
+  }
+  if (!subject.Geometry.HasUv()) {
+    error = "the file's material is the surface and the subject carries no TEXCOORD_0 to sample it "
+            "with";
+    return false;
+  }
+  if (!material.BaseColour.Declared()) {
+    error = "the file's material declares no baseColorTexture";
+    return false;
+  }
+  if (material.BaseColour.TexCoord != 0) {
+    error = "the file's baseColorTexture reads TEXCOORD_" +
+            std::to_string(material.BaseColour.TexCoord) +
+            ", and this subject carries the first uv set only";
+    return false;
+  }
+  const outshine::Gltf::Texture &texture =
+      subject.File.Textures()[(size_t)material.BaseColour.Texture];
+  std::vector<uint8_t> encoded;
+  if (!subject.File.ImageBytes(texture.Source, encoded)) {
+    error = "the file's baseColorTexture names image " + std::to_string(texture.Source) +
+            ", whose bytes could not be read";
+    return false;
+  }
+  if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), subject.Decoded) ||
+      !subject.Decoded.Holds()) {
+    error = "the file's base-colour image is " + std::to_string(encoded.size()) +
+            " bytes that this decoder does not read";
+    return false;
+  }
+  subject.BaseColour.Rgba = subject.Decoded.Rgba.data();
+  subject.BaseColour.Width = (uint32_t)subject.Decoded.Width;
+  subject.BaseColour.Height = (uint32_t)subject.Decoded.Height;
+  if (texture.Sampler >= 0) {
+    const outshine::Gltf::Sampler &sampler = subject.File.Samplers()[(size_t)texture.Sampler];
+    subject.BaseColour.WrapU = WrapOf(sampler.WrapS);
+    subject.BaseColour.WrapV = WrapOf(sampler.WrapT);
+    subject.BaseColour.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
+                                     ? outshine::Render::SubjectFilter::Nearest
+                                     : outshine::Render::SubjectFilter::Linear;
+  }
+  return true;
+}
+
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
   const std::string entry =
       subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
@@ -271,6 +350,7 @@ std::string MissingInputs(const Case &subject) {
     error = subject.Geometry.Error();
     return false;
   }
+  if (subject.MaterialFromFile && !ResolveFileSurface(subject, error)) { return false; }
   return ResolveCamera(subject, error);
 }
 
@@ -537,6 +617,11 @@ int main(int argc, char **argv) {
   studio.Geometry = &subject.Geometry;
   studio.Eye = subject.Eye;
   studio.Surface = subject.Surface;
+  studio.BaseColour = subject.BaseColour;
+  if (subject.MaterialFromFile) {
+    Note("base colour texels across", (double)subject.BaseColour.Width, "texels");
+    Note("base colour texels down", (double)subject.BaseColour.Height, "texels");
+  }
 
   Picture picture;
   const bool rendered = Capture(renderer, studio, picture, why);
@@ -670,6 +755,40 @@ int main(int argc, char **argv) {
         }
         Note("a third render differs from the first in", (double)stable, "halves");
       }
+    }
+  }
+
+  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Zero is the bar
+   * and there is nothing in it to nudge: our stored half either is the nearest binary16 to the
+   * oracle's f32 or it is not.
+   *
+   * MEASURED ON EVERY CASE AND ENFORCED ON THE ONES THAT ARE ABOUT IT, and the split is the case's
+   * own declaration rather than a choice here. A coverage case declares a flat colour in its
+   * manifest and says in the same breath that nothing in the comparison reads it -- it is there so
+   * the picture a person opens is not black -- so making that colour's last bit a verdict would be
+   * enforcing something the case states it is not for. A case whose surface is the FILE's is about
+   * the value, and there the number is the verdict. Both print it, so the residual is visible in
+   * every log whether or not it decides that log's colour. */
+  {
+    const RadianceResidual radiance = Radiance(picture.Linear, oracle);
+    metrics.push_back({"linear_channels_beyond_nearest_half", (double)radiance.BeyondNearest, 0.0,
+                       "channels",
+                       subject.MaterialFromFile ? Direction::AtMost : Direction::Reported});
+    metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
+                       Direction::Reported});
+    metrics.push_back({"linear_channels_beyond_one_ulp", (double)radiance.BeyondOneUlp, 0.0,
+                       "channels", Direction::Reported});
+    metrics.push_back({"linear_channels_below_the_oracle", (double)radiance.BelowOracle, 0.0,
+                       "channels", Direction::Reported});
+    metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "binary16 ulps",
+                       Direction::Reported});
+    if (radiance.BeyondNearest > 0) {
+      Note("worst radiance disagreement, ours", radiance.WorstOurs, "linear, scene-referred");
+      Note("worst radiance disagreement, oracle", radiance.WorstTheirs, "linear, scene-referred");
+      Note("worst radiance disagreement, relative", radiance.WorstRelative, "dimensionless");
+      Note("worst radiance disagreement, at x", (double)radiance.WorstX, "px");
+      Note("worst radiance disagreement, at y", (double)radiance.WorstY, "px");
+      Note("worst radiance disagreement, channel", (double)radiance.WorstChannel, "index");
     }
   }
 
