@@ -56,7 +56,7 @@ holds, never whether it looks right.
 
 | | |
 |---|---|
-| `src/` | the library. **Pure C++ and nothing else** — no entry point, no build file, no asset |
+| `src/` | the library **entire** — its C++ and, in `src/assets/`, the declared data the engine is made of. No entry point, no build file, no host implementation, no test fixture |
 | `test/` | **mirrors `src/` exactly**, plus the harness, the fixtures and the assets a test needs. The interactive client is a test; so is the frame oracle |
 | `test/run.sh` | the harness. One process per test, a real verdict per test, non-zero on any failure or undeclared skip |
 | `doc/requirements.md` | **the scope** — one line per feature with a box and a stable id; a ticked line **names the file that implements it and the test that holds it**. The architect extends it on its own evidence; only the owner shortens it |

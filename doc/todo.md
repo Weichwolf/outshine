@@ -51,7 +51,7 @@ interactive client — works until a scenario can be declared and loaded.
 | `vendor/` | 4 | `stb_image*` already deleted; `build_dawn_native.sh` goes with Dawn, `fetch_curl_compat.sh` with the wasm toolchain |
 | `tools/` | 4 | four Python instruments — deleted, and whatever is worth keeping becomes a test |
 | `mods/` | 4 | declared scenarios — they are test inputs now, so they belong under `test/` with the fixtures |
-| `assets/` | 34 | species, ground materials, sky. **The open question:** `src/` is pure C++, so a library default table is either generated into C++ — which is principle 2 applied to our own data — or it is a `test/` fixture and the library carries no default at all. Decide it, do not let it sit |
+| `assets/` | 34 | **decided: `src/assets/`.** Species, ground materials and sky are part of the core engine, not fixtures a consumer supplies — so they move into the library rather than out of it. `src/` is the library entire: its C++ and its declared data |
 | `build/` | 0 | untracked output; stays out of the tree |
 
 
