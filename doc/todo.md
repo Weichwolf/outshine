@@ -31,7 +31,7 @@ the wasm, Python and container surface is deleted and the data providers are in 
 | **No process boundary to our own data** | no `TILES_BASE`, no `:8081`, no container. `nm -u` over the library shows no `curl_` symbol |
 | **Emscripten gone** | 20 conditionals and 6 includes across six files that **no compiler has read** since the wasm target left |
 | **The library owns its log** | a consumer names a path, stdout or stderr. Today, with the collector absent, a run exits 0 and **not one of its 674 log lines mentions a refused post** |
-| **No Python** | `tile_delay.py` dies with the HTTP hop; `verify_clients.py` is a closed allowlist of twenty method names that a new call from a second TU passes in silence |
+| **No Python in the engine or the tests** | `tile_delay.py` is **gone** — the arrival order is ours in one process. `verify_clients.py` remains: a closed allowlist of twenty method names that a new call from a second TU passes in silence. **`build_stars.py` stays** — offline data preparation is allowed, and its output goes to `src/assets/` |
 | **No container** | `tiles/` itself goes with the providers |
 
 **Deleting `/bake` belongs here too** — 963 lines and **3.1 GB of a 7 GB cache serving nothing**, whose

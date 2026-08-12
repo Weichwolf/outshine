@@ -15,9 +15,13 @@ post-scarcity — modern infrastructure, lush nature.
 
 ## The constraints, and there are no others
 
-**SDL3** · **SDL_GPU** · **modern C++, and only C++** · **this device at 720p60** — an Apple A18 Pro, 2 performance and
+**SDL3** · **SDL_GPU** · **modern C++, and only C++ in the engine** · **this device at 720p60** — an Apple A18 Pro, 2 performance and
 4 efficiency cores, 5 GPU cores, 8 GB, Metal 4. It is the development platform *and* the budget, so no
 machine stands between the work and the target.
+
+*Only C++ in the engine* leaves one door open and no other: a script may **prepare data offline**,
+committed beside what it produces so the thing can be recomputed from something we own. Never a test,
+a validator, a gate, a build step, or anything in the runtime path.
 
 Everything else in this file is a stance or a setup. **The scope is [`doc/requirements.md`](doc/requirements.md)** and it is the
 authority on what the engine must do.
