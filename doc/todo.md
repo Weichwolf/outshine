@@ -64,12 +64,12 @@ so the last Makefile-only gate dies with the last Python file.
 
 ### The tree ends with three directories
 
-**`doc/`, `src/`, `test/`. Nothing else.** Six stand today and each has an answer:
+**`doc/`, `src/`, `test/` — plus `vendor/` until the SDL_GPU port, and `build/` which is untracked.** Each of the rest has an answer:
 
 | | tracked | where it goes |
 |---|---|---|
 | `tiles/` | 58 | into `src/` as providers; the server, the container and the `/bake` path deleted |
-| `vendor/` | 4 | `stb_image*` already deleted; `build_dawn_native.sh` goes with Dawn, `fetch_curl_compat.sh` with the wasm toolchain |
+| `vendor/` | 4 | **stays until the SDL_GPU port** — it holds Dawn, which the renderer needs until `render/` moves, and that port is inside the goal. Accepting it avoids a circularity where the precondition and the goal each wait on the other. Scoped, not open-ended: the port deletes it |
 | `tools/` | 4 | four Python instruments — deleted, and whatever is worth keeping becomes a test |
 | `mods/` | 4 | declared scenarios — they are test inputs now, so they belong under `test/` with the fixtures |
 | `assets/` | 34 | **decided: `src/assets/`.** Species, ground materials and sky are part of the core engine, not fixtures a consumer supplies — so they move into the library rather than out of it. `src/` is the library entire: its C++ and its declared data |
