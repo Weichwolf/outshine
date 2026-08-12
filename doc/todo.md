@@ -2,85 +2,43 @@
 
 | | |
 |---|---|
-| **Working on** | Hardening item 2: a standpoint the tile scheme cannot carry is refused by name |
-| **Scope** | `doc/requirements.md`: **1431 features, 233 ticked, 1198 open** · `doc/bugs.md`: **75 defects** |
-| **Last accepted** | The declared still is one picture — one sha256 over 4 imposed ingest orders (`7c9f664`) |
+| **Working on** | The restructure — `sim/src` → `src/`, `test/` mirroring it, the wasm and container surface deleted |
+| **Scope** | `doc/requirements.md` is the authority. `doc/bugs.md` is being cut to what survives the refactor |
+| **Last accepted** | The Mercator refusal, the log latch, and the library design (`f44eb96`) |
 
-**Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
-`doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
-in the same round. Nothing is ticked while the thing it names is broken.
+**The queue below replaces everything that came before it.** The hardening queue, the Band 0 streaming
+queue and the wasm items are gone — not because they were wrong but because SDL3, SDL_GPU, the tile
+source joining the engine and `src/`→`test/` moved the ground under them. What survived is here.
 
-## The phase order, from the owner
+Every step's acceptance carries **the harness green** as a clause, and three numbers that must not move
+until step 11 changes the graphics API:
 
-**1 · Hardening → 2 · Telemetry and logs → 3 · Bug hunting.** Each phase makes the next one cheap:
-hardening makes a failure **loud** instead of silent corruption; telemetry makes a loud failure
-**visible** in the record rather than in someone's session; and only then is hunting an act of reading
-rather than of guessing. Reversed, every hunt pays to rediscover what the instrument should have said —
-which is what three rounds cost today on a streamer that was never broken.
+- the declared still is **one** picture — `852bd4246ee34f65` at `buildingTris=134990`
+- `impostorStands=9565 treeTris=19130 terrainTris=331260`
+- the telemetry schema unchanged in column names and units, because the archive's comparability is what
+  makes any measurement here usable
 
-## The standing order, from the owner: pristine first
+## The sequence
 
-Measured 2026-08-11 over 33 335 lines: ownership and lifetime are **strong** — zero raw `new`/`delete`
-in C++, zero `reinterpret_cast`, 48 `unique_ptr` sites, `-Wall -Wextra -Wpedantic -Werror` on both
-toolchains, `STACK_OVERFLOW_CHECK=1`, `NDEBUG` never defined so asserts survive.
+| # | Step | Done when |
+|---|---|---|
+| 1 | **The restructure** *(in flight)* | `src/` is pure C++, `test/` mirrors it, no wasm or container artefact remains, the three numbers above unchanged |
+| 2 | **`Check.h`, `run.sh`, three tests** | the harness prints 3 PASS, one demonstrated red, and an `ExpectFail` test the harness inverts |
+| 3 | **Layer archives** from the existing per-group compile lines | all targets link, the three numbers unchanged, object count unchanged |
+| 4 | **Stable requirement ids**, harness reads `COVERS` | unknown-id count 0, a per-band coverage tally prints |
+| 5 | **The negatives move to `test/negative/`** | each demonstrated red *for its own reason*, asserting exactly one error with the exact diagnostic — today they pass on any compile failure, so a typo in a fixture proves nothing |
+| 6 | **Geometric invariants** — the decidable class, of which we have almost none | every species and every roof kind: closed, wound, unit normals, positive signed volume, no degenerate triangle |
+| 7 | **`src/api/`** — the entry point's whole include set | a test client compiles against `-Isrc/api` alone; `Renderer` and `World` have no spelling there |
+| 8 | **`src/host/`** — the porting seam, which `core/io` already almost is | `nm -u` over the archives equals a declared freestanding floor; **a host with zero workers is legal** |
+| 9 | **The tile source joins the engine**, providers as plugins behind one registry | no HTTP hop to our own data; a provider declares its coverage; "no data here" and "no provider here" are different answers |
+| 10 | **Exact-width integers**, one const header, the two settings tiers | zero platform-width integer declarations outside a C ABI; every number carries its origin |
+| 11 | **`render/` → SDL_GPU** — 36 files, 2 739 lines of shader | 720p60 on this device, p99 ≤ 33 ms over a moving camera. The still becomes a *new* single sha — a pixel identity cannot survive an API change and must not be pretended — while the three geometry counters must survive **unchanged**, because geometry does not know which API drew it |
+| 12 | **Scenarios with no world** — one tree, one building, one car | a scenario declares a subject, a stage and a light, and renders with no terrain and no streaming |
+| 13 | **glTF in, Blender as the oracle** | the first *external* check this project has ever had: a scene rendered both ways, with what is comparable pinned and what is not named |
 
-Bounds and failure handling are **weak, and weak in exactly the place wasm punishes**: 982
-`operator[]` against **0** `.at()`, 28 asserts (one per 1 190 lines), `-sABORTING_MALLOC=0` with a
-single caller of `core/io/Heap.h` in the whole tree, and `SAFE_HEAP`/`ASSERTIONS` unused.
+## Standing
 
-**Why this is not a style question.** Natively an out-of-bounds index or a null dereference usually
-segfaults — loud and immediate. In wasm32 address 0 is ordinary linear memory and an index inside the
-296 MB heap is a legal access, so **the same defect that crashes the native oracle corrupts silently in
-the browser.** The platform we ship on removes the safety net the code is implicitly leaning on, and
-silent corruption in a build loop is what "the client freezes" looks like.
-
-Hardening comes before further defect hunting. Bugs already recorded stay recorded.
-
-## Now, in order — the hardening queue, from § I.17
-
-**Items 1 and 2 are done** (`4168e68`): `make gates` runs nine gates in 6m11s and `gates-build`
-seven in 26 s; each was demonstrated red for its own reason. Native ASan over the whole client
-found nothing over 10 800 frames, three runs. wasm ASan is **blocked, not refused** — it links and
-cannot finish one frame in 2 040 s, and it raises `INITIAL_MEMORY` by 53 %, so it could not decide
-the freeze even if it ran.
-
-**Every "done when" below now carries `make gates` green as a clause.**
-
-1. **A standpoint the tile scheme cannot carry is refused by name.** `osmmesh_geo_to_tile` returns
-   `OSMMESH_GEO_ERR_RANGE` above |lat| 85.0511° and writes neither output; both callers read their own
-   zero-initialised locals, so the world silently loads tile (0,0). Reachable from a declared
-   scenario — `Scene.cpp:65` accepts lat ∈ [−90, 90] and `World::Open` has no guard. Web Mercator ends
-   there by construction, so *"every point on Earth is a valid start"* is a claim the tile scheme does
-   not hold; a named refusal is the honest half and a polar scheme is the owner's call. **Done when** a
-   declared scenario at 86° N refuses by name instead of drawing Null Island.
-2. **The hardening ledger as a script in the tree.** The `[[nodiscard]]` line is ticked and **nothing
-   holds it** — one new `bool Foo()` re-opens it silently, and the round's own scanner lives in a temp
-   directory. **Done when** the eight counts are a committed script inside `make gates`.
-3. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
-   `grep malloc` outside `core/io/` is 0 and a run with the heap cut until it fails ends naming the
-   item and the bytes.
-4. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
-   `Span::Unchecked` sites ≤ 12 and all at a C ABI, the 40 raw pointer+count parameter pairs are 0
-   outside `world/terrain`, and **`poolMeshCpuMs / poolMeshTiles` moves under 5 %** against 398 ms
-   (wasm) / 190.5 ms (native).
-5. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
-   `world/terrain` non-zero, static ≥ 30, and `ClusterCut`'s silent level clamp is gone.
-6. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
-   refusal, `BindInput`'s refusal. **Done when** the two roof gates hold for their own reasons and
-   `ClusterCut`'s `assert(Closed_)` is **deleted because unreachable**.
-7. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
-   diff rather than an opinion.
-
-## Then, from `requirements.md`
-
-Band 0 in order (0.1 ledger · 0.2 request and priority · 0.3 budget and eviction · 0.4 arrival ·
-0.5 exhaustion · 0.6 instruments · 0.7 headroom), then the picture work: **more than one prototype
-resident** — one `SetPrototype` slot is what stopped fifteen finished shrub species from being drawn —
-the grass stratum as a field, overdraw, the water level, one rank per stand, occlusion between 1 m and
-20 m, the night.
-
-## Standing debt
-
-**147 of 210 ticked lines name no file**, against the rule that a ticked line names what implements it.
-Band III is worst at 43 of 45, Band II at 43 of 49. Not a round of its own: each is filled in as its
-band is touched, and a line that cannot be given a file was never true.
+- **Coverage has no baseline** because there is no coverage instrument. That is *not yet measured*.
+- **`[[nodiscard]]` at 214/214 is held by nothing** since the Python ledger was reverted; step 2 re-homes it.
+- **`verify-still` is the only thing that imposes tile arrival order.** It is Node, so it dies in step 1;
+  step 9 makes it cheap again, because in one process the order is ours.
