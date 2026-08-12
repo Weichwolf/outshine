@@ -62,8 +62,8 @@ struct Studio {
    * material field, so the consumer decides how many distinct surfaces there are -- two parts of one
    * material share a slot and are then batchable. */
   std::vector<uint32_t> PartSurface;
-  /* The surfaces themselves, indexed by slot. A surface whose base colour has no texels declares no
-   * texture, which is a different pipeline and not a white stand-in. */
+  /* The surfaces themselves, indexed by slot. A surface whose colour image has no texels declares
+   * no texture, which is a different pipeline and not a white stand-in. */
   std::vector<Render::SubjectMaterial> Surfaces;
 };
 

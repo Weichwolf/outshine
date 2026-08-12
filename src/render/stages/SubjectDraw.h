@@ -26,10 +26,23 @@
  * MATERIAL'S: glTF states `doubleSided` per material and an asset uses it to hide one polygon
  * behind another. With culling off entirely, reversing every triangle of a subject moved no pixel of
  * either mask and three claims about winding stood on an instrument that could not see it; with one
- * cull mode for the whole subject, a double-sided surface vanished. */
+ * cull mode for the whole subject, a double-sided surface vanished.
+ *
+ * ALPHA IS THREE ANSWERS AND THEY ARE THREE PIPELINES. `OPAQUE` ignores the number entirely, `MASK`
+ * discards below the material's own cutoff and writes depth like any solid surface, `BLEND`
+ * composites in the order the list decided and writes no depth at all. One arm dressed as three --
+ * folding alpha into the colour, or cutting where the file said composite -- is exactly the set of
+ * failures `AlphaBlendModeTest` was built to show, so the three have no shared spelling here.
+ *
+ * THE ORDER BLENDED SURFACES ARE DRAWN IN IS THE LIST'S, NOT THIS FILE'S. `DrawKey`'s translucency
+ * field already sorts opaque before masked before blended and already complements the depth for a
+ * blending surface, so back-to-front falls out of the one ascending sort the list performs and this
+ * unit encodes the batches in the order it was handed. A second ordering pass here would be a second
+ * opinion about the same question. */
 #ifndef SUBJECTDRAW_H
 #define SUBJECTDRAW_H
 
+#include <array>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -47,12 +60,15 @@ namespace outshine::Render {
 enum class SubjectWrap { ClampToEdge, MirroredRepeat, Repeat };
 enum class SubjectFilter { Nearest, Linear };
 
-/* THE DECODED BASE COLOUR, RGBA8 sRGB-ENCODED, straight alpha, top row first -- the one convention
+/* THE DECODED COLOUR IMAGE, RGBA8 sRGB-ENCODED, straight alpha, top row first -- the one convention
  * the image boundary states. It is decoded to linear f32 HERE, on the CPU, and uploaded as floats,
  * so the sampler filters exact linear values: hardware sRGB sampling carries about twelve bits of
  * the transfer where the formula carries twenty-four, and that residual was 12 833 differing pixels
  * of `simple-texture`. Decoding after the tap is not the repair -- `TextureLinearInterpolationTest`
- * requires the filter to run on linear values. */
+ * requires the filter to run on linear values.
+ *
+ * ITS ALPHA IS NOT sRGB-ENCODED and crosses unchanged, which is glTF's own rule: only the three
+ * colour channels carry the transfer. */
 struct SubjectTexture {
   const uint8_t *Rgba = nullptr;
   uint32_t Width = 0;
@@ -64,10 +80,23 @@ struct SubjectTexture {
 
 /* ONE SURFACE OF THE SUBJECT: what a draw binds when its key names this slot. The surface state is
  * the material's own (`core/SurfaceState.h`) and decides the pipeline; a texture with no texels is a
- * surface that declares none, which is a different pipeline and not a white stand-in. */
+ * surface that declares none, which is a different pipeline and not a white stand-in.
+ *
+ * `Colour` IS WHATEVER IMAGE THE DECLARED RADIANCE IS A FUNCTION OF, and it is deliberately not
+ * named for one glTF slot: this unit multiplies a sampled colour into a radiance the declaration
+ * derived, and whether that image was the file's `baseColorTexture` or its `emissiveTexture` is the
+ * declaration's business. `TextureLinearInterpolationTest` carries its colour in the emissive slot
+ * and `[0,0,0,1]` in the base one, so a unit that could only sample base colour would draw it black.
+ *
+ * `Coverage` IS THE DECLARED CONSTANT HALF OF ALPHA -- glTF's `baseColorFactor.a` -- and the
+ * image's own alpha is the other half, multiplied in the shader. It is a separate number from the
+ * radiance because `OPAQUE` ignores it entirely (`Specification.adoc:2178`) while `MASK` cuts on it
+ * and `BLEND` composites with it: folding it into the colour is the premultiplication
+ * `AlphaBlendModeTest` fails an engine for. */
 struct SubjectMaterial {
   SurfaceState Surface = StateOf(Material{});
-  SubjectTexture BaseColour;
+  SubjectTexture Colour;
+  float Coverage = 1.0f;
 };
 
 /* THE WHOLE OF WHAT IS DRAWN, as one parameter object rather than seven arguments (`I.23`). The
@@ -99,8 +128,9 @@ public:
 
   /* Replaces the surface table. A slot's index is what a draw key's material field names, so the
    * table and the list are written together or not at all. Refuses a surface kind this unit has no
-   * pipeline for, naming it -- an unbuilt blend is a sentence here rather than a silently opaque
-   * picture there. */
+   * pipeline for, naming it -- an unbuilt closure is a sentence here rather than a silently opaque
+   * picture there. `OPAQUE`, `MASK` and `BLEND` are built; a transmissive sheet and a refracting
+   * volume are not, and both need a scene the surface can see through rather than a blend factor. */
   [[nodiscard]] bool SetMaterials(const std::vector<SubjectMaterial> &materials,
                                   std::string &error);
 
@@ -120,30 +150,51 @@ public:
   uint32_t DrawCount() const;
 
 private:
-  /* One slot's texture, sampler and bind group, appended to the table. */
-  void BindSurface(const SubjectMaterial &material);
+  /* EVERYTHING ONE SURFACE SLOT OWNS ON THE DEVICE, in one object rather than in five vectors that
+   * have to be pushed in step (`C.1`). The five parallel runs were `Binds`, `Images`, `Views`,
+   * `Samplers` and a `std::vector<bool>` of cull modes: a slot appended to four of them was a
+   * mismatch nothing could catch until an encoder read past the end of the short one, and the
+   * bool proxy specialisation (`SL.con.2`) meant the cull run alone had no address to take. */
+  struct SurfaceSlot {
+    wgpu::Texture Image;
+    wgpu::TextureView View;
+    wgpu::Sampler Sample;
+    /* The two per-slot numbers the fragment reads: the declared coverage factor and, under `MASK`,
+     * the alpha below which a fragment is discarded. Per SLOT because glTF states both per
+     * material, and `AlphaBlendModeTest` renders three cutoffs in one file. */
+    wgpu::Buffer Alpha;
+    wgpu::BindGroup Bind;
+    SurfaceKind Kind = SurfaceKind::Opaque;
+    bool CullsBack = true;
+  };
 
-  static constexpr int kUniFloats = 20; /* mat4 + anc -- the WGSL struct `S` verbatim */
+  /* One slot's texture, sampler, alpha uniform and bind group, appended to the table. */
+  void BindSurface(const SubjectMaterial &material);
+  /* Which of the built pipelines a draw of this layout, kind and facing takes. */
+  [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
+
+  static constexpr int kUniFloats = 20;   /* mat4 + anc -- the WGSL struct `S` verbatim */
+  static constexpr int kAlphaFloats = 4;  /* factor, cut, and the pad a uniform binding wants */
+  /* TWO VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
+   * built at configure time. A single pipeline with a white one-texel stand-in would make "no
+   * texture declared" and "a white texture declared" the same picture; a single cull mode would make
+   * `doubleSided` a property the reader carries and the picture ignores; and one alpha arm for all
+   * three kinds is the failure `AlphaBlendModeTest` is built to show -- `OPAQUE` must ignore alpha
+   * where `MASK` cuts on it and `BLEND` composites with it.
+   *
+   * THE KIND INDEXES THE WHOLE `SurfaceKind` ENUMERATION and only three of its five are built.
+   * `SetMaterials` refuses the other two by name, so a slot naming one never reaches the table and
+   * an unbuilt entry has no draw that can select it -- the refusal is the guard, not a check here. */
+  static constexpr size_t kSurfaceKinds = 5;
+  static constexpr size_t kPipelines = 2 * 2 * kSurfaceKinds;
 
   wgpu::Device Device;
   wgpu::Queue Queue;
-  /* FOUR PIPELINES -- two vertex layouts times the two answers `doubleSided` can give -- all built
-   * at configure time. A single pipeline with a white one-texel stand-in would make "no texture
-   * declared" and "a white texture declared" the same picture, and the first is a subject this
-   * engine must be able to draw; a single cull mode would make `doubleSided` a property the reader
-   * carries and the picture ignores. */
-  wgpu::RenderPipeline Plain, Textured, PlainTwoSided, TexturedTwoSided;
-  /* Whether each surface slot culls its back faces, in the table's own order. It is the SLOT's
-   * because glTF states it per material, and it is here rather than in the draw list because a cull
-   * mode is a device state and the list has no device type in it. */
-  std::vector<bool> CullsBack;
+  std::array<wgpu::RenderPipeline, kPipelines> Pipelines;
   wgpu::BindGroupLayout Layout;
-  /* ONE BIND GROUP PER SURFACE SLOT: the shared uniform plus that surface's own texture and
-   * sampler. The encoder rebinds only where the batch's slot changes. */
-  std::vector<wgpu::BindGroup> Binds;
-  std::vector<wgpu::Texture> Images;
-  std::vector<wgpu::TextureView> Views;
-  std::vector<wgpu::Sampler> Samplers;
+  /* ONE BIND GROUP PER SURFACE SLOT: the shared uniform plus that surface's own texture, sampler
+   * and alpha. The encoder rebinds only where the batch's slot changes. */
+  std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
   wgpu::Buffer Uni, Vtx, Uv, Emit, Idx;
   uint32_t NVerts = 0, NIdx = 0;

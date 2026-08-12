@@ -34,7 +34,11 @@ CAMERA_SOURCES = ("manifest", "gltf")
 # sampler -- and replaces the closure with the Diffuse BSDF at roughness 0, whose Cycles form is
 # exactly max(dot(N,w),0)/pi. Under a uniform environment that is rho(u,v)*L, per texel, with nothing
 # stochastic left.
-MATERIAL_SOURCES = ("manifest", "gltf", "gltf-base-colour")
+# "gltf-emissive" IS THE SAME ARM OVER THE OTHER SOCKET. `TextureLinearInterpolationTest` states
+# its whole picture in `emissiveFactor`/`emissiveTexture` and carries `[0,0,0,1]` in base colour, so
+# the base-colour arm renders its two spheres black and measures nothing. Which socket the asset
+# states its picture in is a fact about the asset, so it is declared per case and never guessed.
+MATERIAL_SOURCES = ("manifest", "gltf", "gltf-base-colour", "gltf-emissive")
 MATERIAL_KINDS = ("diffuse", "emission", "emission-per-material")
 LIGHT_KINDS = ("none", "sun", "point")
 WORLD_KINDS = ("factory", "uniform")
@@ -423,14 +427,19 @@ def _material(value):
     source = _one_of("manifest.scene.material.source", value.get("source"), MATERIAL_SOURCES)
     if source == "gltf":
         return _fields("manifest.scene.material", value, ("source",), ("note",))
-    if source == "gltf-base-colour":
+    if source in ("gltf-base-colour", "gltf-emissive"):
         # THE CLOSURE IS OURS AND THE COLOUR IS THE FILE'S, and which closure is a declaration
         # because it decides how many integrals are left: `diffuse` is rho*L and holds only where no
         # surface can see another; `emission` removes the world as a light, the sun's disk, a light's
         # radius and visibility at once, and is what a subject that occludes itself must use
-        # (doc/requirements.md I.26.13). The base colour it emits is still the file's own.
+        # (doc/requirements.md I.26.13). The colour it emits is still the file's own.
+        #
+        # AN EMISSIVE COLOUR HAS ONLY THE ONE CLOSURE. glTF's emission is a radiance the surface
+        # leaves, not a reflectance an environment is multiplied into, so putting it through a
+        # Diffuse BSDF would multiply it by a world radiance the format never asked for.
         field = _fields("manifest.scene.material", value, ("source", "kind"), ("note",))
-        _one_of("manifest.scene.material.kind", field["kind"], ("diffuse", "emission"))
+        closures = ("emission",) if source == "gltf-emissive" else ("diffuse", "emission")
+        _one_of("manifest.scene.material.kind", field["kind"], closures)
         return field
     kind = _one_of("manifest.scene.material.kind", value.get("kind"), MATERIAL_KINDS)
     if kind == "diffuse":

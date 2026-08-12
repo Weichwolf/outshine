@@ -13,7 +13,7 @@ STORE_LEAF = "outshine-content"
 
 # Bumped when this file's derivation changes shape, so a recipe that means something new cannot be
 # served an artefact that meant the old thing. It sits in the key next to the Blender version.
-DERIVATION_VERSION = 3
+DERIVATION_VERSION = 6
 
 DERIVATION_ID = "outshine.corpus.prep"
 

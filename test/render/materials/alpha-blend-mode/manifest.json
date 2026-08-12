@@ -1,0 +1,261 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/alpha-blend-mode",
+  "title": "Khronos AlphaBlendModeTest -- OPAQUE ignoring alpha entirely, BLEND compositing it, and MASK cutting at 0.25, the default and 0.75",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "khronos:AlphaBlendModeTest"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "says": "The box on the far left uses the default alphaMode, OPAQUE. Although the texturemap supplies an alpha channel, the alpha values are intentionally ignored here. ... At the bottom there are green check marks and hidden red X's, that will show check marks only when the requested mode is correctly applied. ... The alpha value must be completely ignored, not premultiplied into the color channels. If this rule is not followed, a black box appears next to the word Opaque, and the test fails. ... Because the alpha values in the box are a smooth linear ramp, we can expect the contents to be cut off at the corresponding values, as indicated by the green triangles. Note that alpha blending should not be applied here: Each texel is either fully opaque or discarded. Depth buffering with writes enabled may be used in MASK mode.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "alpha-blend-mode",
+      "kind": "gltf",
+      "name": "AlphaBlendModeTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "Nine nodes over six materials, and the five that matter are one quad each at z = 0 reading one image: TestOpaque (OPAQUE), TestBlend (BLEND), TestCutoff25 (MASK at 0.25), TestCutoffDefault (MASK at the format's default) and TestCutoff75 (MASK at 0.75). Behind all of them stands the OPAQUE Bed, a box spanning x [-4.3,4.3], y [-0.1,2.3], z [-0.75,0.55] -- MEASURED from the node transforms -- so every blended pixel of this subject has an opaque surface behind it. That is what makes this asset scoreable under a coverage predicate that reads depth, and it is a property of THIS subject rather than of the engine: a blended surface writes no depth, so a translucent body over nothing would be absent from our coverage mask and present in Cycles' alpha. The primitives carry TANGENT and the reader does not read it; nothing in this case's picture depends on one, because no surface here is shaded.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "AlphaBlendModeTest",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.gltf",
+          "sha256": "49e06672900df95593040d35bbc7a2ee5921ae8d46edc44b64ccf2df65e64849",
+          "bytes": 31620,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/AlphaBlendModeTest.bin",
+          "sha256": "bb89ab8d9ac0cfbc168e5d552e3ec2fe1285fd01bacb65c863d838b3db025c85",
+          "bytes": 6776,
+          "as": "AlphaBlendModeTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/AlphaBlendLabels.png",
+          "sha256": "19c705f7e207384ca1ab01e0665601c051ca33c5848c03ce4fffad625b416b53",
+          "bytes": 58424,
+          "as": "AlphaBlendLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/MatBed_baseColor.jpg",
+          "sha256": "71571cce0d86c7c5ed4ac73d852ec34e72e7234a2f905f2758e118519c950bcf",
+          "bytes": 688158,
+          "as": "MatBed_baseColor.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/MatBed_normal.jpg",
+          "sha256": "d8891a9c08e375507ac8f1fb260577bda5e90506e79db92ebbfb5caa9216be49",
+          "bytes": 1202979,
+          "as": "MatBed_normal.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/glTF/MatBed_occlusionRoughnessMetallic.jpg",
+          "sha256": "e1472454ad6be574c3a418985f06a8ba36877108a94f61590f01e118804379b4",
+          "bytes": 1010296,
+          "as": "MatBed_occlusionRoughnessMetallic.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+          "sha256": "5aa49332926988088d84254d0b0488e26c765668288f28e685146ca742a6635d",
+          "bytes": 735,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Analytical Graphics, Inc.",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.0,
+        1.1,
+        11.0
+      ],
+      "lookAtM": [
+        0.0,
+        1.1,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "HEAD ON, DOWN THE SUBJECT'S OWN AXIS, because five columns have to be legible side by side and any off-axis angle foreshortens the outer two against the inner three. yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, so tan(yfov/2) = 0.24 exactly -- the same lens every other case in this tree is framed with. The subject spans x [-4.3,4.3] and y [-0.1,2.3], so its centre is (0,1.1) and the eye sits on the +Z axis through it. At 11 m the frame's half-height at the test quads' plane is 0.24*11 = 2.64 m against the subject's 1.2 and its half-width is 2.64*16/9 = 4.6933 m against 4.3, so nothing is cropped and the tighter of the two margins is the horizontal one. The roll is zero and stated: the five columns and the label strip are axis-aligned and a rolled frame would buy nothing.",
+      "note": "The glTF carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "Every surface of this subject emits its own base colour, so there is nothing for a light to do."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json. Nothing in this scene reads it: an emitter gathers nothing."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "kind": "emission",
+      "note": "THE SUBJECT OCCLUDES ITSELF -- five quads and two decals stand in front of a bed -- so the diffuse arm's closed form rho*L is unavailable: Cycles at one sample would be taking a single cosine-weighted direction per pixel and returning a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (doc/requirements.md I.26.13). A ShaderNodeEmission at strength 1 gathers nothing at all, and the two-seed check is what holds that claim. THE FILE'S OWN alphaMode CROSSES WITH THE COLOUR: the importer puts glTF's coverage on the Principled BSDF's Alpha socket -- a constant 1.0 under OPAQUE, the base-colour alpha under BLEND, and 1 - (alpha < alphaCutoff) under MASK -- and that socket is moved onto a Transparent mix rather than dropped, because Cycles expresses coverage there. Dropping it renders all five columns identically opaque, which is the picture this asset exists to distinguish from four others."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 9
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. transparentMax is 9 and not the 0 every opaque case in this tree carries: a BLEND surface, a discarded MASK texel and a back face under the culling rule are all Transparent closures, and at zero transparent bounces the ray stops at the first of them and returns background instead of what stands behind. Nine is one per node and the subject has nine, which is an upper bound on the stack a view ray can meet without measuring the arrangement."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 9
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. It carries more weight here than anywhere else in the tree: this is the first subject whose rays pass THROUGH a surface, and a Cycles that resolved a Transparent mix by choosing a branch at random rather than by weighting closures would show it as two seeds that disagree."
+    }
+  },
+  "notes": "Khronos states this asset tests the three alphaMode settings and the alphaCutoff that modifies MASK, and states the failure pictures too: a red X beside OPAQUE where alpha was used without being asked for, a red X beside BLEND where blending was not applied, and a black box beside Opaque where alpha was premultiplied into the colour. Our acceptance is Khronos's, read from the picture. The geometry stays a threshold: every blended pixel of this subject has the opaque bed behind it, so the coverage predicate that reads depth is well defined here -- see the subject's note for why that is a property of the asset and not of the engine.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 1.0217288,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices and refused on a mismatch. Every triangle is counted by the magnitude of its signed area, so the bed's far side counts too and this is an AREA, not a coverage.",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/texture/texture-linear-interpolation",
+  "title": "Khronos TextureLinearInterpolationTest -- the sRGB decode happens at the texel and the filter runs on linear values, with the whole picture stated in emissive",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "khronos:TextureLinearInterpolationTest"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "The test passes when two spheres are rendered with nearly the same color. The first (leftmost) sphere uses only JSON-stored emissive factor of 0.5 green. The second sphere samples its color as an interpolated value from a 2x1 texture. When interpolation happens after sRGB decoding, the final emissive value should also be about 0.5 green.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/README.md"
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "texture-linear-interpolation",
+      "kind": "gltf",
+      "name": "TextureLinearInterpolationTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "Three nodes. Two unit spheres at (-1.5,-1,0) and (1.5,-1,0): the left one emits the JSON factor [0,0.5,0] with no texture, the right one emits factor [1,1,1] times a 2x1 image whose texels are sRGB 0 and sRGB 255 green. A 6x3 label plate at (-3,0,0) carries alphaMode MASK at the format's default cutoff and reads TestLabels.png in BOTH its emissiveTexture and its baseColorTexture, so its colour and its coverage are one image -- which is what lets this subject be drawn with one image binding per surface. Every material carries baseColorFactor [0,0,0,1], so the base-colour arm renders the two spheres black and measures nothing; this is the asset that makes the emissive arm necessary.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TextureLinearInterpolationTest",
+        "pinnedOn": "2026-08-12",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/glTF/TextureLinearInterpolationTest.gltf",
+          "sha256": "017a093c27d291948c8fd59069c2162b434dffd57eb2d4d09d4bf779095b1fb5",
+          "bytes": 5633,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/glTF/Sphere.bin",
+          "sha256": "facd4236ec7c5f3b17fa9afe610ce02afabc6d40fb58d07895c20aa550b22d02",
+          "bytes": 8480,
+          "as": "Sphere.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/glTF/Plane.bin",
+          "sha256": "68eb0aaba58264604648e828ba7536b3c52333659445200f56d90b23b05a2f36",
+          "bytes": 92,
+          "as": "Plane.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/glTF/0_0_0-0_255_0.png",
+          "sha256": "b187aa937b175ec5149c05d01bd0ab4707d604d7487d4fa736eb5bef180db065",
+          "bytes": 72,
+          "as": "0_0_0-0_255_0.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/glTF/TestLabels.png",
+          "sha256": "a8b570e2bfbe93d4bb8850942a3d0204aa8bc4b6ea3d1c9c2d2fbccfd70bb7a9",
+          "bytes": 2717,
+          "as": "TestLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+          "sha256": "b2ef83f26c345bb38bdf4ad9b95248644589064f193b47f0fcb298aaa6d1beb7",
+          "bytes": 801,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureLinearInterpolationTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.0,
+        0.5,
+        12.0
+      ],
+      "lookAtM": [
+        0.0,
+        0.5,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "HEAD ON, DOWN THE SUBJECT'S OWN AXIS, because the quantity under test is a colour and every degree off-axis puts a foreshortening between the two spheres that the comparison would then have to carry. yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, so tan(yfov/2) = 0.24 exactly -- the same lens every other case in this tree is framed with. The subject spans x in [-3,3] and y in [-2,3], so its centre is (0,0.5,0) and the eye sits on the +Z axis through it. At distance 12 m the frame's half-height at the plate's plane is 0.24*12 = 2.88 m against the subject's 2.5 and its half-width is 2.88*16/9 = 5.12 m against 3, so the whole subject stands inside the frame with margin on both axes and nothing is cropped. The roll is zero and stated: a rolled frame would put the 2x1 image's one interpolation axis at an angle to the pixel grid for no gain, and the axis is what this asset is about.",
+      "note": "The glTF carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "Every surface of this subject emits its own declared colour, so there is nothing for a light to do. The factory world stays where it is and reaches no surface, because an emitter gathers nothing."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses. Nothing in this scene reads it."
+    },
+    "material": {
+      "source": "gltf-emissive",
+      "kind": "emission",
+      "note": "THE ASSET STATES ITS WHOLE PICTURE IN EMISSIVE AND [0,0,0,1] IN BASE COLOUR, so the base-colour arm would render its two spheres black and score that as agreement. This arm keeps exactly what is under test -- the emissive factor, the emissive image, its uv set and its sampler -- and rewires that socket into a ShaderNodeEmission at strength 1, which is the closure glTF's emission already is: a radiance the surface leaves, gathering nothing. A Diffuse BSDF over it would multiply the asset's own number by a world radiance the format never mentioned. The image datablock is untouched, so its sRGB decode still happens where Blender does it -- at the texel, before the interpolation -- which is the convention this asset exists to decide, and the same one our CPU-side decode to linear f32 puts in the sampler. The label plate's alphaMode MASK crosses too: the importer expresses it as 1 - (alpha < cutoff) on the Principled's Alpha socket, and that socket is moved onto a Transparent mix rather than dropped, because a dropped one renders the plate as a solid 6x3 rectangle."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 1
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. transparentMax is 1 and not 0: a MASK texel below the cutoff is a Transparent closure, and at zero transparent bounces the ray is terminated there rather than continuing to the background -- which is the same picture here, where nothing stands behind the plate, and is not the same picture the moment something does. One bounce states the intent instead of relying on the arrangement."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 1
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived. It is also what holds the claim that the masked plate's Transparent mix is deterministic: Cycles mixes closure WEIGHTS rather than choosing a branch at random, and the mask's own Fac is exactly 0 or 1."
+    }
+  },
+  "notes": "Khronos states this asset tests that linear texture interpolation is performed on linear values, i.e. after sRGB decoding, and that the test passes when the two spheres render nearly the same colour. Our engine decodes the sRGB transfer to linear f32 on the CPU and uploads floats, so the sampler filters exact linear values and the decode cannot happen after the tap. This is also the first case in the tree whose subject carries a non-OPAQUE material: the label plate is MASK, and its cutoff is the format's default 0.5.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.51904417,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices and refused on a mismatch. Every triangle is counted by the magnitude of its signed area, so each closed sphere counts its far side too and this is an AREA, not a coverage.",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

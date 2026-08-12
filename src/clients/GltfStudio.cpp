@@ -152,7 +152,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * a surface with no image would otherwise take the textured pipeline and sample the one white
      * texel that only exists to make the bind group complete -- a stand-in wearing a texture's
      * name. */
-    item.Layout = where.HasUv && studio.Surfaces[slot].BaseColour.Rgba
+    item.Layout = where.HasUv && studio.Surfaces[slot].Colour.Rgba
                       ? Render::VertexLayout::PositionUv
                       : Render::VertexLayout::Position;
     if (!list.Add(item, error)) { return false; }

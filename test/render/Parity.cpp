@@ -82,6 +82,14 @@ struct SurfaceTable {
   std::vector<outshine::Clients::Raster> Decoded;
 };
 
+/* WHICH OF THE FILE'S OWN CHANNELS THE DECLARED RADIANCE IS TAKEN FROM, and it is a three-valued
+ * question that no boolean can carry (`Enum.2`). `Declared` is the arm where the manifest states the
+ * colours itself and the file's materials are not read for appearance at all. The other two name a
+ * glTF socket, and which one is a property of the ASSET: `TextureLinearInterpolationTest` states its
+ * whole picture in `emissiveFactor`/`emissiveTexture` over a base colour of `[0,0,0,1]`, so a runner
+ * that could only read base colour would render its two spheres black and score that. */
+enum class FileColour { Declared, BaseColour, Emissive };
+
 /* WHAT THE RUNNER READ AND NOTHING ELSE: the declaration, its resolved camera and its resolved
  * thresholds. Held as one object so the render step takes a subject rather than eleven arguments
  * (`I.23`). */
@@ -99,9 +107,11 @@ struct Case {
    * declaration and from nothing else. */
   std::vector<std::array<float, 3>> Emitted;
   std::string MaterialKind;
-  /* True where the manifest hands the surface to the file. The decoded images are held here because
-   * the renderer copies them and the studio only points at them. */
-  bool MaterialFromFile = false;
+  /* Which channel of the file's own materials the appearance comes from, or `Declared` where the
+   * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
+   * and the studio only points at them. */
+  FileColour Colour = FileColour::Declared;
+  bool MaterialFromFile() const { return Colour != FileColour::Declared; }
   SurfaceTable Surfaces;
 };
 
@@ -146,11 +156,34 @@ bool Emits(const std::string &kind) {
   return kind == "emission" || kind == "emission-per-material";
 }
 
-/* THE SURFACE ARM A `gltf-base-colour` CASE MAY NOT DECLARE SILENTLY: the manifest states the
- * closure beside the source, so a case that changed from `rho*L` to a bare emitter has to say so in
- * its own file. Anything else is neither. */
-bool KnownFileClosure(const std::string &kind) {
+/* THE SURFACE ARM A FILE-COLOURED CASE MAY NOT DECLARE SILENTLY: the manifest states the closure
+ * beside the source, so a case that changed from `rho*L` to a bare emitter has to say so in its own
+ * file. AN EMISSIVE COLOUR HAS ONLY ONE CLOSURE -- glTF's emission is a radiance the surface leaves
+ * and not a reflectance a world is multiplied into, so a Lambertian arm over it would scale the
+ * asset's own number by a world radiance the format never mentioned. */
+bool KnownFileClosure(FileColour colour, const std::string &kind) {
+  if (colour == FileColour::Emissive) { return kind == "emission"; }
   return kind == "diffuse" || kind == "emission";
+}
+
+/* Which glTF socket a manifest's `scene.material.source` names, or `Declared` for the arm where the
+ * manifest states the colours itself. */
+[[nodiscard]] bool ReadFileColour(const Json::Ref &declared, FileColour &out, std::string &error) {
+  if (declared.StrEquals("gltf-base-colour")) {
+    out = FileColour::BaseColour;
+    return true;
+  }
+  if (declared.StrEquals("gltf-emissive")) {
+    out = FileColour::Emissive;
+    return true;
+  }
+  if (declared.StrEquals("manifest") || !declared.Valid()) {
+    out = FileColour::Declared;
+    return true;
+  }
+  error = "scene.material.source is '" + declared.Str("") +
+          "', and this runner reads 'manifest', 'gltf-base-colour' and 'gltf-emissive'";
+  return false;
 }
 
 /* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
@@ -244,11 +277,11 @@ public:
    * factor and the image both come out of the document once the subject has been built. Declaring
    * either of them beside a Khronos asset would be measuring our re-declaration and not the asset. */
   const Json::Ref material = root["scene"]["material"];
-  subject.MaterialFromFile = material["source"].StrEquals("gltf-base-colour");
+  if (!ReadFileColour(material["source"], subject.Colour, error)) { return false; }
   subject.MaterialKind = material["kind"].Str("");
-  if (subject.MaterialFromFile && !KnownFileClosure(subject.MaterialKind)) {
-    error = "scene.material.source is 'gltf-base-colour' and its kind is '" + subject.MaterialKind +
-            "', and the closure the file's colour is put through is 'diffuse' or 'emission'";
+  if (subject.MaterialFromFile() && !KnownFileClosure(subject.Colour, subject.MaterialKind)) {
+    error = "scene.material.source is '" + material["source"].Str("") + "' and its kind is '" +
+            subject.MaterialKind + "', which is not a closure that source has";
     return false;
   }
   const Json::Ref world = root["scene"]["world"];
@@ -341,6 +374,11 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
       outshine::Render::SubjectMaterial surface;
       if (material >= 0 && (size_t)material < file.Materials().size()) {
         surface.Surface = outshine::StateOf(file.Materials()[(size_t)material].Surface);
+        /* THE COVERAGE FACTOR IS `baseColorFactor.a` WHATEVER THE COLOUR CHANNEL IS, which is
+         * glTF's own rule: alpha comes from the base colour and from nowhere else, even where the
+         * picture is stated in emissive. Reading it off the emissive factor -- which has three
+         * components and no alpha at all -- is the shape this line exists to make impossible. */
+        surface.Coverage = file.Materials()[(size_t)material].Surface.BaseColour[3];
       }
       out.Material.push_back(material);
       out.Slots.push_back(surface);
@@ -349,26 +387,46 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   }
 }
 
-/* THE SURFACES THE FILE OWNS: each slot's base-colour image and the sampler that addresses it. Every
+/* THE SURFACES THE FILE OWNS: each slot's colour image and the sampler that addresses it. Every
  * refusal here names what the asset declared and what was missing, because a texture that quietly
  * failed to load draws the factor alone -- a flat colour that looks exactly like a material somebody
- * authored that way. */
+ * authored that way.
+ *
+ * THE COLOUR IMAGE AND THE COVERAGE IMAGE ARE ONE BINDING, AND WHERE THAT IS A LIE THE CASE IS
+ * REFUSED. glTF takes the picture's colour from whichever socket the case names and its coverage
+ * always from `baseColorTexture`; the subject draw samples ONE image and reads its rgb as colour and
+ * its alpha as coverage. Under the base-colour arm those are the same image by construction. Under
+ * the emissive arm they are the same image only where the asset happens to name one texture for
+ * both -- `TextureLinearInterpolationTest`'s label plate does -- so anything else stops here by
+ * name. The missing capability is a second image binding, and this refusal is what states it.
+ */
 [[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
-                                      SurfaceTable &table, std::string &error) {
+                                      FileColour channel, SurfaceTable &table, std::string &error) {
   table.Decoded.assign(table.Slots.size(), outshine::Clients::Raster{});
+  const char *socket = channel == FileColour::Emissive ? "emissiveTexture" : "baseColorTexture";
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
     if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
     const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
-    if (!material.BaseColour.Declared()) { continue; }
-    if (material.BaseColour.TexCoord != 0) {
-      error = "material '" + material.Name + "' reads its base colour from TEXCOORD_" +
-              std::to_string(material.BaseColour.TexCoord) +
-              ", and this subject carries the first uv set only";
+    const outshine::Gltf::TextureRef &declared =
+        channel == FileColour::Emissive ? material.Emissive : material.BaseColour;
+    if (table.Slots[slot].Surface.Kind() != outshine::SurfaceKind::Opaque &&
+        material.BaseColour.Texture != declared.Texture) {
+      error = std::string("material '") + material.Name + "' is not OPAQUE, takes its colour from " +
+              socket + " " + std::to_string(declared.Texture) + " and its coverage from " +
+              "baseColorTexture " + std::to_string(material.BaseColour.Texture) +
+              ", and this subject binds one image per surface -- the second binding is the missing "
+              "capability, not a texture to substitute";
       return false;
     }
-    const outshine::Gltf::Texture &texture = file.Textures()[(size_t)material.BaseColour.Texture];
+    if (!declared.Declared()) { continue; }
+    if (declared.TexCoord != 0) {
+      error = std::string("material '") + material.Name + "' reads its " + socket + " from TEXCOORD_" +
+              std::to_string(declared.TexCoord) + ", and this subject carries the first uv set only";
+      return false;
+    }
+    const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
     std::vector<uint8_t> encoded;
     if (!file.ImageBytes(texture.Source, encoded)) {
       error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
@@ -377,11 +435,11 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     }
     if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot]) ||
         !table.Decoded[slot].Holds()) {
-      error = "the base-colour image of material '" + material.Name + "' is " +
+      error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
               std::to_string(encoded.size()) + " bytes that this decoder does not read";
       return false;
     }
-    outshine::Render::SubjectTexture &base = table.Slots[slot].BaseColour;
+    outshine::Render::SubjectTexture &base = table.Slots[slot].Colour;
     base.Rgba = table.Decoded[slot].Rgba.data();
     base.Width = (uint32_t)table.Decoded[slot].Width;
     base.Height = (uint32_t)table.Decoded[slot].Height;
@@ -396,8 +454,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     ++textured;
   }
   if (textured == 0) {
-    error = "the manifest hands the surface to the file and no material of it declares a "
-            "baseColorTexture";
+    error = std::string("the manifest hands the surface to the file and no material of it declares "
+                        "a ") + socket;
     return false;
   }
   if (!geometry.HasUv()) {
@@ -432,12 +490,12 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   const size_t parts = geometry.Parts().size();
   out.assign(parts, {0.0f, 0.0f, 0.0f});
 
-  if (subject.MaterialFromFile) {
+  if (subject.MaterialFromFile()) {
     /* THE FILE OWNS THE COLOUR AND THE CASE OWNS THE CLOSURE, and the closure is one factor.
      * `diffuse`: the metal-rough model at metalness 0 under a uniform environment reduces to
-     * `baseColour(u,v) * factor * L`. `emission`: the surface's radiance IS its base colour, so the
-     * environment leaves the arithmetic entirely -- which is what a subject whose surfaces see one
-     * another has to declare, because there Cycles at one sample is measuring visibility
+     * `baseColour(u,v) * factor * L`. `emission`: the surface's radiance IS the declared colour, so
+     * the environment leaves the arithmetic entirely -- which is what a subject whose surfaces see
+     * one another has to declare, because there Cycles at one sample is measuring visibility
      * (doc/requirements.md I.26.13). The texel is the shader's either way; this is the factor. */
     const double closure = subject.MaterialKind == "emission" ? 1.0 : kFactoryWorldRadiance;
     for (size_t part = 0; part < parts; ++part) {
@@ -446,7 +504,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
                                              ? file.Materials()[(size_t)index].Surface
                                              : outshine::Material{};
       for (size_t channel = 0; channel < 3; ++channel) {
-        out[part][channel] = (float)((double)surface.BaseColour[channel] * closure);
+        const double factor = subject.Colour == FileColour::Emissive
+                                  ? (double)surface.Emission[channel]
+                                  : (double)surface.BaseColour[channel];
+        out[part][channel] = (float)(factor * closure);
       }
     }
     return true;
@@ -550,8 +611,9 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     return false;
   }
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.Surfaces);
-  if (subject.MaterialFromFile &&
-      !ResolveFileSurface(subject.File, subject.Geometry, subject.Surfaces, error)) {
+  if (subject.MaterialFromFile() &&
+      !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Surfaces,
+                          error)) {
     return false;
   }
   if (!ResolveEmission(subject, subject.File, subject.Geometry, subject.Emitted, error)) {
@@ -866,12 +928,14 @@ int main(int argc, char **argv) {
              .c_str(),
          (double)subject.Emitted[part][0], "linear, scene-referred");
   }
-  if (subject.MaterialFromFile) {
+  if (subject.MaterialFromFile()) {
     for (size_t slot = 0; slot < subject.Surfaces.Slots.size(); ++slot) {
-      Note(("base colour texels across, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].BaseColour.Width, "texels");
-      Note(("base colour texels down, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].BaseColour.Height, "texels");
+      Note(("colour image texels across, surface slot " + std::to_string(slot)).c_str(),
+           (double)subject.Surfaces.Slots[slot].Colour.Width, "texels");
+      Note(("colour image texels down, surface slot " + std::to_string(slot)).c_str(),
+           (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
+      Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
+           (double)subject.Surfaces.Slots[slot].Coverage, "dimensionless");
     }
   }
 
@@ -956,8 +1020,8 @@ int main(int argc, char **argv) {
        * copying by position would colour the wrong body while the count still matched. */
       SurfaceTable surfaces;
       ResolveSurfaceTable(alternate, spelling, surfaces);
-      built = (!subject.MaterialFromFile ||
-               ResolveFileSurface(alternate, spelling, surfaces, trouble)) &&
+      built = (!subject.MaterialFromFile() ||
+               ResolveFileSurface(alternate, spelling, subject.Colour, surfaces, trouble)) &&
               ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
       other.PartSurface = surfaces.PartSlot;
       other.Surfaces = surfaces.Slots;
@@ -1051,7 +1115,7 @@ int main(int argc, char **argv) {
   {
     const RadianceResidual radiance = Radiance(picture.Linear, oracle);
     metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
-                       subject.MaterialFromFile && subject.Criterion == CriterionKind::Numeric
+                       subject.MaterialFromFile() && subject.Criterion == CriterionKind::Numeric
                            ? Direction::AtMost
                            : Direction::Reported});
     metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
