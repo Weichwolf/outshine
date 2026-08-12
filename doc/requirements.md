@@ -858,6 +858,30 @@ bench that had to learn what a building is.
 - [ ] A `World` stage and a `Studio` stage produce the same telemetry schema, so a bench row and a walk row are comparable — a bench is a layer over the system and never a mode inside it (§ I.11)
 - [ ] More than one subject kind demonstrated before the section is ticked: one tree, one building, one vehicle, from three different generators, through one declaration
 
+### I.25.1 Two rules of method, earned by two wrong findings in one round
+
+*Moved here from `doc/bugs.md` 2026-08-12. It records a method failure and the rule the failure earned;
+a rule is scope and belongs in this file, and `doc/bugs.md` holds what exists and is wrong. Kept in full
+because the shape is what makes the rules readable, and both were **mine**.*
+
+**What happened.** I checked `download.blender.org` at `/peach/`, `/durian/`, `/mango/`, `/institute/`
+and `/demo/movies/`, found three redirect stubs and one directory of rendered video, and wrote into this
+file that the Blender open movies are **not fetchable**. Walking `/demo/` properly refutes it:
+`/demo/sprite_fright_030_0020_A.zip` is 254 374 945 B — a complete Sprite Fright shot, 47 `.blend`;
+`/demo/bbb/blender.zip` is 830 709 844 B — Big Buck Bunny's entire production tree, 591 `.blend`;
+`/demo/eevee/*/README.txt` carries **per-file licences the web page does not state**, and
+`studio.blender.org/terms-and-conditions` says *"all digital content … is available under the Creative
+Commons Attribution 4.0"*. The licence was never the constraint; access is, and only for part of it.
+
+**It is the vacuous-gate shape inside a research method**: the check ran, the check was sound, and the
+population it ran over was not the population the conclusion names. Five paths were examined and the
+sentence written was about a host. Every individual observation was correct, which is why it needs a
+rule rather than more care.
+
+- [ ] **A negative existence claim names the enumeration it is drawn from, and the enumeration is exhaustive over the container** — *X is not available*, *no such asset exists*, *the tree contains none*. Otherwise the claim is written as **"not found at these paths"** and says which. For a file host: recurse the index. For a repository: list the tree at the pinned SHA — which the same round *did* do for Khronos, where the enumeration was whole and every licence finding from it stands. **Two halves of one round used two methods and only one was sound**
+- [ ] **A magnitude word standing next to a measurement this tree already holds is arithmetic, and it gets done.** § I.26.11 justified the oracle cache with *"200 Cycles renders at 720p is hours"* while § I.26.4, four sections earlier in the same file, carried the measured **2.087 s/frame** that makes it **7.0 minutes**. Both numbers were mine, written the same day. Where the arithmetic contradicts the word, the word goes; where no measurement exists the claim is labelled a **projection** and says what would settle it
+- [ ] **The correction is published, not silently applied**, because of what it revealed: the cache survived with **better** reasons than it had — the 200.9 s cold-start cliff, the film's frame count, and the fact that a cached oracle cannot change underneath a comparison. **An inflated justification was hiding a correctness argument stronger than the performance one it displaced.** That is the second cost of this defect class and the one nobody notices
+
 ### I.26 glTF, and the first check against something outside this tree
 
 *Added 2026-08-12 on the owner's ruling. This file's own measurement rule ranks* correctness — checked

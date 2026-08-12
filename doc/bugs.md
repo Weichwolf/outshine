@@ -9,6 +9,77 @@ shows it, and what right would look like. A bug without a way to tell it is fixe
 
 **A fixed bug is deleted, not struck through.** `git log` is the record.
 
+**An entry naming a file that no longer exists is not a defect.** It is the same failure as a
+requirement line naming a deleted document, and it has cost this project twice. A round that deletes a
+file audits this document in the same round.
+
+## The repair policy, and it is not a cadence
+
+*Stated 2026-08-12 because it had been unstated and was being improvised. The argument for it is below;
+if it is wrong, the alternative is a repair round on a fixed cadence and the owner decides.*
+
+- **A defect is repaired by the round that needs it**, not by a round scheduled to repair defects. A
+  repair round has no acceptance of its own: it cannot tell a fix from a change, because the thing that
+  would have told it — the work that meets the defect — is what was deferred.
+- **A fixed defect is deleted in the round that fixes it.** Later is never: this audit found **21** dead
+  entries, and the file overstated the debt by 14 %.
+- **Cheap defects are batched**, because eleven one-line repairs in one round cost one review and eleven
+  rounds cost eleven. Band 2 below is that batch.
+- **The exception, and it is the only one: a defect that blocks the next round is not deferred to it.**
+  Band 1 is repaired before the work that would meet it starts, because meeting it inside that work
+  makes the work's own acceptance unreadable.
+
+## The three bands, and every surviving entry is in one
+
+**Band 1 — blocks the Khronos work.** Repaired before the draw-list round, because the assets it must
+load are what would hit them.
+
+| entry | where |
+|---|---|
+| `core/ChunkVtx.h` carries one UV and no `COLOR_0`, while `gltf/Types.h:163` already carries `TEXCOORD_1` for `MultiUVTest` | *Constants, names and units* |
+| The glTF reader resolves a URI with no scheme, authority or traversal check | *Declaration and build* |
+| `Artifacts` is an interface with **zero** implementations since `FileArtifacts` was deleted | *Declaration and build* |
+| The winding is hard-coded at seven sites | *Declaration and build* |
+| Three node-transform cases measure an ambient-occlusion estimator at one sample | its own section |
+
+*Checked and **not** in this band, against the coordinator's reading:* **`SurfaceState` carries
+`SurfaceKind::Blended` and `Blends()` at `core/SurfaceState.h:8,23`, and `CoverageCut_` is per-material
+at `:44` (`s.CoverageCut_ = material.CoverageCut`) with `AlphaBlendModeTest` named in the comment above
+it.** Nothing there blocks that asset. **`extensionsRequired` is read and refused** at
+`gltf/Document.cpp:156,295-299`, `kHonouredExtensions = {nullptr}`, so anything named is a refusal —
+that entry is deleted below.
+
+**Band 2 — cheap and just undone.** No excuse, no dependency; one round, batched.
+
+| entry | measure |
+|---|---|
+| Stale pointers naming two deleted documents | **7** sites, not nine |
+| German in an English-only repository | 5 sites, all live |
+| Two headers guarded by reserved identifiers (`_EPHEMERIS_H`, `_FBSTATE_H`) | [lex.name]/3, undefined behaviour |
+| `GpuTimer` takes no slot names and `TakeGpuTimes` has no caller | 2 sites |
+| The browser is gone from the code and still in the prose | **30** hits, not 38 |
+| `core/Mat4.h` is dead and its defending comment names a test that never existed | 2 files |
+| `FacadeUv.h` has **0** `static_assert`s against 11 enumerators and a stride of 16 | 1 file |
+| The language standard has two values — `-std=c++17` at `Makefile:24` and `test/run.sh:44`, `-std=c++20` on every shipping line | 4 sites |
+| Five WGSL constants in `render/Sward.h:59-63` carry no origin | 1 file |
+| The unit-height check accepts 168 ulps where it measures 1 | `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
+| The harness's build cache is keyed by path and not by root | `test/run.sh:41-42` |
+| Six environment variables change the picture and ride no column | `FB_TAU` · `FB_TAA` · `FB_GEOM` · `FB_TILEWORKERS` · `FB_GROUND_CLASS_VIZ` · `FB_DAGLOG` — `FB_MOON_SCALE` and `FB_TONE_PROBE` are gone |
+
+**Band 3 — waits for the round that needs it, and the round is named.** *"Later" is a named event here
+or it is a hope.*
+
+| entry | waits for |
+|---|---|
+| `Node`'s *matrix XOR TRS* invariant enforced 250 lines from its type | **the round that adds a second node consumer** — one consumer cannot show the leak |
+| `Document::ReadJson` is 228 lines | **the round that adds the next extension**, which is when the length becomes a cost rather than a shape |
+| `Renderer`'s sixteen unconditional stage objects | **the SDL_GPU port**, which rewrites every one of them |
+| `View()` creates a texture view per attachment per frame | **the SDL_GPU port**, same reason |
+| Everything under *World and streaming* | **the round that restores a world consumer** — the walk client is deleted and nothing drives that path today |
+| Everything under *Buildings*, *Vegetation*, *Light and shadow*, *Picture* | **the round that renders a scene against KCD** — all are picture judgements with no picture to judge |
+| The data ledgers have no reader | **the round that restores a telemetry consumer** |
+| The trailer is authenticated by shape, and a hard error stops the run | **the round that adds a test the harness cannot already judge** |
+
 ---
 
 ## Silent success — a call that answers and nobody reads
@@ -34,15 +105,14 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   by something much weaker — a single-producer invariant in **another directory**. Every `Structure`
   and `Water` feature that reaches a generator is minted at `clients/Sim.cpp:218` and `:226`, and both
   set `f.Top`. Nothing in `generators/` can see that rule, no type carries it, and
-  `test/generators/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
+  `test/unit/generators/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
   `FeatureLevel::None()` — so the rule is one ingest site away from being false. If it ever is: a
   top-less feature enters the `highest`/`deepest` comparison at 0.0 m ASL, beating every declared top
   below sea level and losing to every one above, and at `Water.cpp:53` becoming a water level whose
   `WaterDepth::Between(0.0, ground)` reports `LevelBelowGround` for every dry-land outline — a missing
   datum counted as a disagreement between two models.
-  `test/clients/WorldMain.cpp:64-65` writes `waterDepthM=0` for a dry place, but the same row already
-  carries `water=dry` from `Wetness(p.Water)`, so nothing is lost; it is the row that reads badly, and
-  the row beside it (`structureHeightM` + `structure`) shows the deliberate form.
+  *The fourth site, `test/clients/WorldMain.cpp:64-65`, went with the client on 2026-08-12; the three
+  under `generators/` are what remains and they are the ones the factory closes.*
   Right, and **not** by swapping `Try(T *out)` for `std::optional` — this file's own opening argument
   rules that out and it still stands: `*opt` reads the payload with nobody having looked at the state.
   The answer is one rung up, at `C.41`/`C.42`: a `FeatureField::Feature` whose `Kind` is `Structure`
@@ -52,157 +122,71 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   `Buildings.cpp:54`, `Water.cpp:20` and `Water.cpp:53` outright — no branch, no cast, no zero —
   and costs nothing at runtime. `GroundPatch` already has exactly this shape and that is why it is
   the one of the six with nothing to fix.
-- **Past the Mercator limit the world loads tile (0,0) and says nothing.** `osmmesh_geo_to_tile`
-  (`world/terrain/geo.cpp:19`) returns `OSMMESH_GEO_ERR_RANGE` and writes neither output for
-  |lat| > 85.05112877980659°. Both callers discard the `int` and read the outputs they initialised to
-  zero — `world/OsmField.cpp:35` (`uint32_t cx = 0, cy = 0`) and `world/World.cpp:472`
-  (`rx = 0, ry = 0`) — so a standpoint in the high Arctic streams the north-west corner tile of the
-  map as its own neighbourhood. **No longer reachable from a declared scenario** (2026-08-12): a world
-  stage carries a `Scenario::Standpoint`, a type only the refusing factory `Standpoint::At` mints
-  (`scenario/Standpoint.h`), so an out-of-band place is not a value a declaration can produce. It is
-  still reachable from every other direction — `World::Open` (`world/World.cpp:79`) has no latitude
-  guard at all, and `Sim::SetStance` takes two bare doubles (see the snapshot entry below).
-  It is **one function at two sites, not a habit** — checked: of the seven `int`-returning C-ABI
-  functions in `world/terrain/`, the other six are checked at every call site
-  (`osmmesh_create` ×2, `osmmesh_fetch_tile`, `osmmesh_tile_grid`, `osmmesh_enu_init`,
-  `osmmesh_terrain_decode_png`, `osmmesh_terrain_build_mesh`). What *is* systemic is that no mechanism
-  reaches any of them: `int` is neither `bool` nor an enumeration, so the `[[nodiscard]]` sweep and
-  every gate pass over the whole directory.
-  Right: the range refusal reaches `World::Open` and is named. And note what it costs to say
-  otherwise — Web Mercator ends at ±85.0511° by construction, so *every point on Earth is a valid
-  start* is a claim the tile scheme does not hold and a refusal is the honest half of it.
 
 ## The test harness and its instruments
 
-- **`verify-data`'s strongest claim passes vacuously, and the claim itself is narrower than the
-  tree.** The gate ends with
-  `n=$(nm -u build/obj-walk/data-*.o build/obj-walk/core-*.o build/obj-walk/world-*.o 2>/dev/null | grep -c curl_ || true)`
-  and has **no prerequisite on `walk`**, while `GATES_BUILD` lists `verify-data` *before*
-  `verify-walk`, which is the target that builds those objects. With the directory absent the
-  pipeline yields `n=0` and the gate prints *"no transport symbol in the library"* — verified
-  2026-08-12 against a path that does not exist. Second half of the same defect: the three groups it
-  reads are not the library. **`build/obj-walk/app-HttpPost.o` carries 7 `curl_` symbols**, measured
-  by `nm -u` per group (core 0 · data 0 · gen 0 · world 0 · sim 0 · render 0 · **app 7** · host 8) —
-  `src/clients/HttpPost.cpp` is library source under `src/`, includes `<curl/curl.h>` directly and
-  carries an `EM_JS` arm beside it, and `ServerLog`/`ServerTelemetry` are its consumers. So the round
-  declared a host seam for the ingress wire and left the egress wire hard-wired, and the gate looks
-  past it. Right: `verify-data: walk`, a refusal when the object directory is empty, and every
-  `src/`-derived group in the `nm` set — then `HttpPost` has to move behind a declared seam
-  (`doc/requirements.md` § I.22) rather than being invisible.
-- **The registry's and the store's counters have no reader.** `Data::SourceSet::Ledger` publishes
-  nine (`Asked`, `Delivered`, `HandedOver`, `Vacant`, `Undeclared`, `Refused`, `Retried`,
-  `FromStore`, `DeliveredBytes`) and `Data::ContentStore::Ledger` six (`Hits`, `Misses`, `Writes`,
-  `WriteFailures`, `Swept`, `SweptBytes`); `grep` for any of them outside `src/data/` and the two
-  unit tests returns nothing, so no telemetry row and no close-out line carries one. The consequence
-  is measured: `demo frame` reports `fetches=309 fetchedMB=28.265 fetchMs=202.5` at
-  `tilepool_closed`, i.e. 131 MB/s, which is a warm store and not a network — and **the record does
-  not say so**, it has to be divided out. The store's hit rate is the one number that decides whether
-  the store is doing anything. `Per.6`, and § I.23's zero-consumer rule applies to a counter as much
-  as to a constant. Right: both ledgers ride `tilepool_closed` and the ordinary row.
-- **Two tests hold each other's claim.** `test/data/OutsideIsNeverAsked.cpp` never puts an
-  `Outside` source beside an `Inside` one and shows the first was not begun; its four blocks check
-  that an *uncovered request* answers `Undeclared`. The claim its name makes is held one file over,
-  in `test/data/AbsenceHandsOver.cpp:177-195` (`outside->Asked == 0`). Both claims are held by the
-  pair and neither file holds the one it is named for, so a reader looking for the coverage rule
-  opens the wrong file — `NL.1`'s reason applied to a filename. The same file's
-  `CountingTransport` comment reads *"a transport that would fail the test if it were ever used"*
-  and it is used, twice, answering 200. Right: the names follow the strongest claim in each file, or
-  the block moves.
-- **`verify-walk-asan` cannot see a stack lifetime error.** `Makefile:384-400` runs
-  `build/gpu_walk_asan` with no `ASAN_OPTIONS`, and `detect_stack_use_after_return` is **off by
-  default** — so the one class the tree just created three instances of (see *The tile pool's worker
-  threads outlive the registry*) is outside the sanitised run's reach. Verified by running the same
-  two scenes with the option on: both silent, but only because both drain their queue. Right:
-  the gate sets it, and says which options it set in its own line.
-- **An interrupted instrument leaves something bound, and the next run goes red for a reason that has
-  nothing to do with the code.** The named instance is gone (2026-08-12): `verify-still` no longer
-  starts `test/world/tile_delay.py` on `:8171` with `&` inside a recipe and kills it by pid — the
-  arrival order is imposed in process by `test/host/DelayedTransport`, and the file is deleted. **The
-  class is not**: a make recipe has no job control, so anything a recipe backgrounds is not a process
-  group of its own and survives any exit between the `&` and the `kill`. Reported by the architect
-  when the proxy existed: a `make gates` run went red because a previous interrupted `verify-still`
-  still held the port. The same shape waits in `verify-refusals` and in every future instrument that
-  binds or sleeps. Right, and `test/run.sh` now carries it end to end: `set -m`, so every child is a process
-  group; one trap on `INT`/`TERM`/`HUP`/`EXIT` that kills the groups it started; and every kill a
-  group kill, so a watchdog's `sleep` and whatever the subject itself left running die with it.
-  Measured on the harness: 1 test process, 1 watchdog `sleep`, 1 leaked grandchild alive mid-run, all
-  three gone one second after `SIGINT`, and the run exits 130. **Confirmed independently 2026-08-12**
-  with `ps -o pid,ppid,pgid`, which shows why it works and where it stops: the test is pgid = its own
-  pid, the watchdog is a second group, and the leaked grandchild is already `ppid 1` yet still carries
-  the **test's pgid** — reachable only by the group kill. A grandchild that calls `setsid()` escapes
-  it, and no instrument in this tree does. The eleven `verify-*` recipes still carry the defect. **Do
-  not copy this shape into eleven recipes** — it is eleven copies of one statement (`ES.3`) in the
-  language that made the first copy wrong. Either one recipe-level helper both `verify-still` and
-  `verify-refusals` call, or — the direction § I.20 already names — the instrument moves inside the
-  harness with `make gates`, and then there is one lifecycle instead of eleven.
+*Six entries deleted 2026-08-12 as fixed or as naming deleted sites: `verify-data` (the target, `src/clients/HttpPost.cpp` and every `curl_` symbol are gone — `grep -rl curl src/` is empty); `verify-walk-asan` cannot see a stack lifetime error (`test/run.sh:573` sets `detect_stack_use_after_return=1`); an interrupted instrument leaves something bound (`test/run.sh` carries the group kill and the eleven `verify-*` recipes are gone — the Makefile has three targets); two tests hold each other's claim (`OutsideIsNeverAsked.cpp` is now `test/unit/data/UncoveredIsUndeclared.cpp` and the false `CountingTransport` comment is gone); a directory declared as the Makefile's is trusted (the Makefile owns no test source now, and a compile subject is driven by `-DOUTSHINE_COMPILE` at `test/run.sh:517` rather than being unrun).*
 
-- **A trailer the reporter did not write is accepted, so a file that never includes `Check.h` can
-  print a green verdict over its own failure.** `test/run.sh:216-229` authenticates the trailer by
-  shape alone — one line matching `^CHECKS `, six fields, three numbers. Demonstrated 2026-08-12
-  against the repaired harness: a `test/harness/ForgedTrailer.cpp` containing no `#include "Check.h"`
-  at all, printing `FAIL something/actually.cpp:1 …` and then `CHECKS 1 FAILURES 0 SKIPPED 0`, and
-  returning 0, was reported **`PASS`** and the run exited 0. This is the same defect the round closed,
-  one layer in: the channel is now the right one and nothing checks that the reporter is what spoke.
-  Right, and it costs two lines and no change to `Check.h`: every increment of `Failures` prints
-  exactly one line beginning `FAIL ` (`Check.h:49`, `:61`, `:89`) and every `Skips` exactly one
-  beginning `SKIP ` (`:80`), so `grep -c '^FAIL '` **must** equal `FAILURES` and `grep -c '^SKIP '`
-  must equal `SKIPPED`. That is a second witness on an independent path — per-failure `printf` against
-  a counter — and it also catches a counter zeroed by any spelling `Tally` does not forbid (placement
-  new, `memcpy`). Verified against all twelve logs the harness has produced here, planted probes
-  included: the identity holds exactly in every one. `CHECKS` has no printed witness and stays
-  single-sourced.
+- **The registry's and the store's counters have no reader.** `Data::SourceSet::Ledger`
+  (`data/SourceSet.h:76`) publishes nine — `Asked`, `Delivered`, `HandedOver`, `Vacant`, `Undeclared`,
+  `Refused`, `Retried`, `FromStore`, `DeliveredBytes` — and `Data::ContentStore::Ledger`
+  (`data/ContentStore.h:52`) six. **Verified at `9f4ba9e`**: `Counters()` is called from
+  `test/unit/data/AbsenceHandsOver.cpp:136`, `TheStoreNamesBytesByTheirKey.cpp:78,113` and **nowhere
+  else in the tree** — no telemetry row, no close-out line. The store's hit rate is the one number
+  that decides whether the store is doing anything, and nothing prints it. `Per.6`, and § I.23's
+  zero-consumer rule applies to a counter as much as to a constant. **Band 3** — waits for the round
+  that restores a telemetry consumer, because there is no row to ride today. Right: both ledgers ride
+  the ordinary row and the close-out line.
+
+- **The trailer is authenticated by shape alone, so a file that never includes `Check.h` can print a
+  green verdict.** `test/run.sh:343` accepts one line of eight fields with `CHECKS`, `FAILURES`,
+  `SKIPPED` in the right places; `:435` cross-checks it against the process exit status, which a
+  forger satisfies by returning 0. *The demonstration is gone with `test/harness/ForgedTrailer.cpp`;
+  the shape is not, and it is re-demonstrable in one file.* Right, two lines and no change to
+  `Check.h`: every increment of `Failures` prints exactly one line beginning `FAIL ` and every `Skips`
+  one beginning `SKIP `, so `grep -c '^FAIL '` **must** equal `FAILURES`. That is a second witness on
+  an independent path — per-failure `printf` against a counter — and it also catches a counter zeroed
+  by any spelling `Tally` does not forbid. `CHECKS` has no printed witness and stays single-sourced.
+  **Band 3** — waits for a test the harness cannot already judge.
 
 - **A hard error stops the run, so one malformed test hides the verdict of every test after it.**
-  `test/run.sh:218`, `:222`, `:224`, `:324` all `Die`, which exits 2 mid-loop. Demonstrated: with a
-  planted `(void)Report()` test present, the run printed two passes, died on the disagreement and
-  never built the two tests that followed. `Makefile:409` states the opposite rule for gates in its own
-  words — *"Every gate runs even after one has fallen, because the second failure is information the
-  first one would have hidden"* — and the harness is the instrument that rule matters most in. Right:
-  a missing, doubled, malformed or disagreeing trailer is a per-test verdict of its own that is red and
-  counted, the loop continues, and the run exits non-zero. Only the pre-flight directory scan
-  (`:256-268`) refuses before anything is built, which is correct there because nothing has run yet.
+  `test/run.sh:435` `Die`s mid-loop when the trailer and the exit status disagree, and fifteen `Die`
+  sites remain. The rule the deleted Makefile stated in its own words — *"every gate runs even after
+  one has fallen, because the second failure is information the first one would have hidden"* — is
+  now stated nowhere, and the harness is the instrument it matters most in. Right: a missing, doubled,
+  malformed or disagreeing trailer is a per-test verdict of its own that is red and counted, the loop
+  continues, and the run exits non-zero. Only the pre-flight directory scan may refuse before anything
+  is built, which is correct there because nothing has run yet. **Band 3**, with the entry above.
 
 - **The harness's build cache is keyed by path relative to the root, so two checkouts of this tree
-  share objects, logs and binaries.** `test/run.sh:41-42` fixes `BUILD=$TMPDIR/outshine-tests` and
-  `:159` names an object `$BUILD/obj/src-core-Foo.o` with no component identifying the root; `:287-288`
-  do the same for the log and the binary. `UpToDate` then compares mtimes of prerequisites resolved
-  against the *current* root, so a second checkout whose sources are older than the first's objects
-  links the **first checkout's** binaries and every number read from them belongs to the other tree. A
-  git worktree and a `git bisect` clone are ordinary, and the effect is silent. Observed here: a probe
-  root at a different path linked this tree's objects and ran in 1.2 s instead of a cold build. Right,
-  one line: fold the root's real path into the build directory, e.g.
-  `BUILD=${TMPDIR}/outshine-tests/$(printf %s "$ROOT" | cksum | cut -d' ' -f1)`.
+  share objects, logs and binaries.** `test/run.sh:41-42` — `BUILD=${TMPDIR:-/tmp}` then
+  `BUILD=${BUILD%/}/outshine-tests`, with **no component identifying the root**, verified at
+  `9f4ba9e`. `UpToDate` compares mtimes of prerequisites resolved against the *current* root, so a
+  second checkout whose sources are older than the first's objects links the **first checkout's**
+  binaries, and every number read from them belongs to the other tree. A git worktree and a
+  `git bisect` clone are ordinary, and the effect is silent. Right, one line: fold the root's real
+  path into the build directory, e.g.
+  `BUILD=${TMPDIR}/outshine-tests/$(printf %s "$ROOT" | cksum | cut -d' ' -f1)`. **Band 2.**
 
-- **A directory declared as the Makefile's is trusted, and a test placed in one is silently not run.**
-  `test/run.sh` `NotTheHarnesses` names `.`, `clients`, `generators` and `compile/*` as directories the
-  harness does not build; a `.cpp` there that includes the reporter and checks claims is run by
-  nothing, which is the silent non-test one level up from the one just closed. It is bounded — a
-  directory that is in neither list is a hard error before anything is built — but it is not closed.
-  **Demonstrated 2026-08-12**: `test/compile/core/ARealTestInAMakefileDirectory.cpp`, one failing
-  `CHECK` and `return Report()`, is named by no line of the run's output and the run exits 0.
-  The deeper shape is not the four strings, it is that **the same fact is stated twice** — which files
-  the Makefile builds is the Makefile's, and `NotTheHarnesses` restates it with nothing failing when
-  the two disagree, exactly the defect § I.20 already files against the duplicated `INC_*` sets. Right,
-  and it lands without moving a file: derive the second list instead of writing it. Every `.cpp` under
-  a non-layer directory must be named in the `Makefile` — by path, or by the stem the Makefile composes
-  (`GEN_NEGATIVES`) — and every `test/…cpp` the Makefile names must lie in a non-layer directory. Run
-  by hand over the tree at this commit: **12 Makefile-owned sources, all 12 named, no stray** — so the
-  cross-check is green today and its cost is about six lines of shell. The direction beyond that is
-  `doc/todo.md`'s: nothing under `test/` that is not a declared run, at which point `NotTheHarnesses`
-  has nothing left to name and goes.
+- **A real test placed in a non-harness directory is run by nothing.** `test/run.sh:207-214`
+  `NotTheHarnesses` names `.`, `host` and `unit/compile*`; a `.cpp` there that includes the reporter
+  and checks claims is named by no line of the output. Bounded — `:390` is a hard error for a
+  directory in neither list, and two of the three are structurally not tests — so this is the narrow
+  residue of a larger entry deleted above, not that entry. **Band 2**, and it is about six lines:
+  refuse a source under those directories that includes `Check.h`.
 
 - **The unit-height check accepts 168× the worst deviation it measures, and it bypasses the reporter's
-  own rule about tolerances.** `test/generators/draw/GrownBarkIsAClosedMesh.cpp:227` judges with a raw
-  `std::fabs(v.DeclaredExtent - 1.0) > 1e-5` rather than `CHECK_NEAR`, so the number that decides an
-  acceptance carries no origin and no frame of reference — the thing `Check.h:52-54` was written to
-  forbid. Measured over all 31 declarations: the worst deviation is **5.96046448e-08 in `dog_rose`**,
-  which is `2^-24` exactly, the float spacing immediately below 1.0 — one ulp, and the other 30 land on
-  1.0 bit-for-bit. `1e-5` is 168 ulps, so a normalisation that drifted to 0.99999 passes. Right:
-  `CHECK_NEAR(extent, 1.0, 2.4e-7 /* 4 ulp at 1.0 */, "of height", …)`, with the ulp derivation beside
-  it. Note also what the lying branch proves: `DeclaredExtent` (`:101-107`) re-decides `GrowthForm::
-  Lying` the same way `TreeGrower::NormalizeToUnitHeight` (`TreeGrower.cpp:607`) does, so for a lying
-  form the check is *consistency* between two copies of one predicate and not the decidable class —
-  only the standing case is decidable.
+  own rule about tolerances.** `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` judges with
+  a raw `std::fabs(v.DeclaredExtent - 1.0) > 1e-5` rather than `CHECK_NEAR`, so the number that
+  decides an acceptance carries no origin and no frame of reference — the thing `Check.h:52-54` was
+  written to forbid. Measured over all 31 declarations: the worst deviation is **5.96046448e-08 in
+  `dog_rose`**, which is `2^-24` exactly, the float spacing immediately below 1.0 — one ulp, and the
+  other 30 land on 1.0 bit-for-bit. `1e-5` is 168 ulps, so a normalisation that drifted to 0.99999
+  passes. Right: `CHECK_NEAR(extent, 1.0, 2.4e-7 /* 4 ulp at 1.0 */, …)`, with the ulp derivation
+  beside it. Note also what the lying branch proves: `DeclaredExtent` re-decides `GrowthForm::Lying`
+  the same way `TreeGrower::NormalizeToUnitHeight` does, so for a lying form the check is
+  *consistency* between two copies of one predicate and not the decidable class — only the standing
+  case is decidable. **Band 2.**
 
 ## Bounds, allocation, and what the platform hides
 
@@ -213,29 +197,6 @@ heap in both cases. The premise "it segfaults natively" holds only for a write t
 which a heap overrun almost never does. So the oracle is not louder than the browser for this class,
 and the conclusion is stronger rather than weaker: there is no safety net on either target today.*
 
-- **An exhausted heap is reported as malformed terrain — at eight sites, and no longer at the four that
-  mattered most.** `world/ChunkMesh.h:50,51,89,141` now take their `NN·3·8 + NN·4 + NN·12` bytes and the
-  vertex block through `Heap::Take` (since `1424214`), which ends the run naming the item and the count,
-  so the "no mesh"/"no memory" confusion is gone there and the earlier description of those four as
-  `malloc`+`return 0` was stale. It is live at `world/terrain/terrain.cpp:85,136`,
-  `world/terrain/osmmesh_terrain.cpp:49,67,130` plus two `calloc` at `227,245`, and
-  and one more in `clients/SimHost.cpp:186` until `b83285f` deleted it: **seven** `malloc` and two `calloc` when this was counted, **six and two** now, in a tree whose global `operator new` has
-  ended the run properly since `core/io/Heap.cpp` landed. Right: `Heap::Take` at each, and for the
-  C-ABI files a C-linkage door in `core/io/` so `tiles/` can satisfy the same symbol — those five are
-  the only sites where the cost is more than an edit.
-  **The freeze hypothesis stands and its instrument has changed.** "The client freezes after a few
-  hundred metres" is still consistent with exhaustion: nothing evicts (below), `heapPeakKB` reads
-  207 460 of 296 MB at rest (`sim/logs/demo-walk-wasm-20260811T181012Z.csv`) and the native gate run of
-  the same scene reports `tileMeshMB=202.902` with `evictions=0`. But the deciding run named here — "the
-  same walk with the four sites routed through `Heap`" — **is now simply a wasm walk on the shipping
-  module**: if the freeze is those four allocations, the run already ends with
-  `outshine heap exhausted: item=terrain node offsets …` instead of stopping. It needs no sanitiser and
-  no second build. Two instruments that were proposed for it do not exist: the wasm ASan module raises
-  its linear memory by 53 % (above), and **macOS cannot cut a native heap with `ulimit`** — measured on
-  this host, `ulimit -v` is rejected outright and `ulimit -d 262144` fails with `Invalid argument`,
-  `RLIMIT_AS` reads `9223372036854775807`, and a process then allocates *and touches* 4 GB without a
-  refusal. A cut heap on this host means a ceiling inside `core/io/Heap`, which is the single door, not
-  a limit from the shell.
 - **The one bounds check the whole tree leans on can be defeated by arithmetic.** `core/Span.h:33`,
   `Span::Sub`, asserts `first + count <= Size_` in `size_t`. The sum wraps, so `Sub(4, SIZE_MAX - 2)`
   passes the assert and returns a span of `SIZE_MAX - 2` elements over `Data_ + 4`; every subscript of
@@ -249,9 +210,10 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `kLevelBins = 8`. `DagCluster::Level` is a `uint8_t` filled by `core/ClusterDag.h:857` from a loop that
   stops only when a level has ≤ 1 cluster or ≤ 8 triangles, so a z14 chunk of ~130 k triangles halving
   per rung reaches roughly **14 levels** — bins 8…13 are all folded into bin 7, silently. That
-  histogram is the LOD ladder's own diagnostic and is logged as `cutLevels` at
-  `clients/SceneRunner.cpp:242-245`; its top bin is a sum over an unbounded number of rungs, so "L7" has
-  never meant level 7. Right: `assert(c.Level < kLevelBins)` and no clamp — a DAG level past the bin
+  histogram is the LOD ladder's own diagnostic — `render/ClusterCut.h:32,66`, `kLevelBins = 8` with the
+  clamp `c.Level < kLevelBins ? c.Level : kLevelBins - 1` — and its top bin is a sum over an unbounded
+  number of rungs, so "L7" has never meant level 7. *The client that logged it as `cutLevels` is
+  deleted; the clamp is not.* Right: `assert(c.Level < kLevelBins)` and no clamp — a DAG level past the bin
   count is a DAG defect, not a display case — or `kLevelBins` derived from `DagBuild`'s own ceiling.
   Note what is *right* here and must not be broken while fixing it: the extent travels with the
   pointer as `TerrainDraw::kLevelBins = ClusterCut::kLevelBins`, so the far end of
@@ -282,12 +244,12 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   22.5 %**, are under that plane. Six further declarations do the same, less far: dog_rose −0.542,
   blackthorn −0.229, hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064.
   Measured 2026-08-12 over all 31 declarations under `assets/world/species/`, native, at full detail;
-  the figures above are bark only and are what `test/generators/draw/GrownBarkIsAClosedMesh.cpp`
+  the figures above are bark only and are what `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp`
   prints. *The leaf-point figures and the six "above the plane by 3.6e-5…1.2e-4" figures this entry
   carried before came from a probe that is not in the tree — that test measures neither — and are
   withdrawn until something measures them.* Nothing downstream lifts the mesh:
   `TreePrototype.cpp:111` copies `BoxMin.Y` into `Crown_.Bottom`, which only bounds the in-crown query
-  (`clients/StandField.cpp:43`) and the impostor box (`render/stages/ModelDraw.cpp:749`), and the
+  (the deleted stand field) and the impostor box (`render/stages/ModelDraw.cpp:749`), and the
   instance transform puts y = 0 on the terrain. Two consequences, and they are of different kinds. The
   **cost** is measured: on flat ground a fifth of every willow's bark is transformed every frame for
   geometry that cannot be seen — vertex work only, since terrain depth kills most of those fragments
@@ -337,12 +299,8 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `~Sim` destroys the `SourceSet` and the `ContentStore` first and reaches `~W_` — which is the only
   thing that calls `fb_stream_close()` → `~TilePool` → `join()` on the workers — forty declarations
   later. Every worker inside `TilePool::FetchInto` holds `Data::SourceSet &Sources_` and
-  `Data::Transport &Wire_`, and `SourceSet::Collect` reads `Store_` on the way in. The same inversion
-  is written twice more at the entry points: `test/clients/AppWalk.cpp:75` constructs
-  `Clients::Outshine app` before `:83-84` construct `Host::CurlTransport wire` and
-  `Host::DelayedTransport ordered`, and `test/clients/WorldMain.cpp:100` constructs `sim` before
-  `:104` constructs `wire` — so `~CurlTransport` joins its own threads and calls
-  `curl_global_cleanup()` while the pool's are still running. `C.13` names exactly this
+  `Data::Transport &Wire_`, and `SourceSet::Collect` reads `Store_` on the way in. *The two entry points that wrote the same inversion went with the clients on 2026-08-12; the
+  member-order defect inside `Sim` is untouched by that and is what this entry is.* `C.13` names exactly this
   (*"if data member `B` uses another data member `A`, declare `A` before `B`"*), `R.3`/`R.4` say the
   reference is non-owning, and `Lifetime.1` is the failure. **Latent, not live, and the harmless
   explanation was looked for and holds for the runs that exist**: `demo frame` and `demo walk-500`
@@ -395,7 +353,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   nothing. `ContentStore.h:37` says so in its own words. A long session grows the directory without
   bound — the same failure as the 7 GB store this replaces, moved from *no cap* to *a cap checked
   before anything is in it*; and the test that says *"the store is capped"*
-  (`test/data/TheStoreNamesBytesByTheirKey.cpp:94-115`) only ever reopens a full directory, so it
+  (`test/unit/data/TheStoreNamesBytesByTheirKey.cpp:94-115`) only ever reopens a full directory, so it
   cannot see the difference. Right: a running byte total, and the sweep amortised over `Keep`.
 - **The DEM path answers for a place the caller did not ask about, because the projection clamps.**
   `world/tiles/TileMath.h` `GeoToTileClamped` clamps the latitude into the Mercator band and then projects, so a
@@ -412,28 +370,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   by 1.3 cm. Right: the clamping form refuses like `TileIndex::TryXy` does — it is the same
   projection — and the bound is declared once, which it now is. Priced at three call sites in
   `world/TerrainLoader.cpp`.
-- **The point query is refused by nobody, and it is the `world` target's whole purpose.**
-  `test/clients/WorldMain.cpp:117` reads `argv` pairs through `std::atof` straight into
-  `Sim::At(double, double)`, which reaches `Region::Of` and `fb_stream_ground` with no band check
-  anywhere on the path. Measured **after** the round that added the declaration-time refusal, against
-  `localhost:8081`, scene declared at 78.2 N: `fb_world pctrl probe 86.0 15.0 89.9 15.0 78.2 15.0`
-  exits 0 and answers `lat=86 groundResolved=1 groundAslM=-3448.27` and
-  `lat=89.9 groundResolved=1 groundAslM=-3448.27` — **bit-identical for two places 424 km apart**,
-  which is the clamp and not the bathymetry; the control at 78.2 N gives `-173.103`. `groundResolved=1`
-  is the lie: the ground was resolved for 85.0511 N, not for the pole. Right: the same refusal the
-  declaration gets, and it is not a third `if` — a standpoint type that cannot be constructed outside
-  the band (`doc/requirements.md` § I.17), so `At` cannot be called with two loose doubles.
-- **A standpoint that replaces the declared one is checked by nobody.** `test/clients/AppWalk.cpp:35-46`
-  lets `shots.jsonl` replace lat/lon through `Sim::SetStance`, which is `clients/Sim.h:77`
-  `void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }` — a setter that silently does
-  nothing once the world is open and validates nothing when it does act. The band check therefore
-  lives at the declaration (`scenario/Standpoint.h`, a type only a refusing factory mints) and this
-  path goes around it by handing `Sim::Stance` two bare doubles: a hand-written
-  snapshot at 86 N reaches `Sim::LoadTables`, where the failure surfaces as
-  `sim ring_has_no_region lat=86 lon=15` — true, and it names the symptom (no region in the ring)
-  rather than the cause (the standpoint is outside the projection). Right: one place validates a
-  standpoint whichever declaration it came from, and a setter that cannot honour its argument
-  refuses instead of returning.
 - **The fabrication window was reported 21 % too wide, and the upper bound is wrong.** `doc/todo.md`
   and the round's report give `85.05113 < lat ≤ 85.0534 — about 250 m`. Measured against the tree's
   own code (`Schedule(Ring{14,1}).Widest(lat, 15)` and `osmmesh_geo_to_tile`, bisected to 1e-12 deg):
@@ -476,17 +412,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   tile on the z10 ancestor (`World::SurfaceAnchor`), which is ≤ 24 km at this latitude and bounded by
   the block rather than by the traversal. Right: one anchor per DAG block, which bounds `|p|` by the
   block and `|anc − eye|` by the view radius, because only near blocks are drawn.
-- **`make gates` writes four inflated `demo/frame` rows into the archive every time it runs.**
-  `Makefile` `verify-still` runs the shipping client through `test/world/tile_delay.py`, which holds
-  every tile response back by 0–400 ms, and sets `OUTSHINE_TILES` but not `OUTSHINE_SIM` — so each of
-  the four seeded runs posts to fb-sim under the same identity as a declared measurement run
-  (`test/clients/AppWalk.cpp:53-58`: `client=gpu_walk`, `mod=demo`, `scene=frame`). Measured on this host,
-  same binary, warm cache: final `loadMs` **6544 / 6620 ms** over two plain runs against **21 161 /
-  21 580 / 20 947 ms** over three seeded ones — the load time an archive row reports is inflated
-  **3.2×** and nothing in the row says a proxy was in the path. Same class as the sanitised-row defect
-  `doc/requirements.md` § I.17 names, one instrument further: the gate is an experiment on the network
-  and its rows are not observations of the product. Right: the instrument is a field of the identity,
-  and until it is, a gate run posts nowhere.
 - **A refusal is logged once per pass, and a stalled load spins at kHz.** `world/TilePool.cpp`
   `RunMesh` emits `tile_mesh_refused` on every attempt and `FetchInto` emits `tile_refused` on every
   GET, both of which repeat for as long as the leaf is in the target cut. Measured against a
@@ -513,7 +438,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 - **`Delivery::At` is exercised only by a test, never by a run.** A request above a source's last
   native zoom is answered from the ancestor and says so (`data/WebTileSource.cpp` `Serves`,
-  `test/data/TheAnswerNamesItsAddress.cpp`), and the whole path is carried through the byte cache
+  `test/unit/data/TheAnswerNamesItsAddress.cpp`), and the whole path is carried through the byte cache
   (`world/TilePool.h` `Landing`) because a crop computed from the requested address over an ancestor's
   pixels is a wrong picture drawn silently. **No run reaches it**: `world/World.cpp` `kMaxZ = 14`, the
   stitch asks at the same zoom, and the only elevation upstream declares `MaxZoom = 15`, so the
@@ -551,7 +476,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   zeroed every `Refine`, so it is a gauge and not exposed.
 
 - **The east stitch stops at the antimeridian instead of wrapping.** The new guard in
-  `world/terrain/osmmesh_terrain.cpp` (`if (x + 1 < n)`) correctly stops a request the tile server
+  the deleted stitcher (`if (x + 1 < n)`) correctly stopped a request the tile server
   cannot route, but longitude wraps and latitude does not: at `x == 2^z - 1` the true east neighbour
   is `x == 0`, so the fix leaves a one-column height seam at ±180° — the same seam the pre-existing
   `x > 0` guard leaves on the west side. The N/S guards are right as written. Cost of the correct
@@ -621,7 +546,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   silently wherever the posting spacing drops under 0.5 m — at z14 the spacing is ~4.8 m, so this is a
   latent bound on stride and zoom rather than a live wrong picture. Right: `TerrainMesh` carries `Rows()`
   and `Cols()` beside `VertexCount()` (`F.21`), and `ChunkBuildEcef` takes them.
-- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `test/mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
 
@@ -668,7 +592,8 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   instantaneous walk.
 - **One measured pool already sits outside `Pools`, and forgetting the next one still compiles.**
   `poolRegionsKB` is `Sim_.GeneratorHeapBytes()`; it is a published column and is folded into
-  `poolSumKB` by hand at `clients/MemoryTelemetry.cpp` (`pools.Sum() + generator`), not by `Pools::Sum`.
+  `poolSumKB` by hand at the telemetry site (`pools.Sum() + generator`), not by `Pools::Sum` — the file
+  that did it went with the browser-era clients, and the shape returns with its replacement.
   So the claim that "a measured pool outside the sum no longer compiles" is false in both directions: a
   tenth field added to `World::Pools` and omitted from `Sum()` compiles silently, and one pool is outside
   the struct today. `C.41` is about constructors leaving an object fully initialised and does not bear on
@@ -837,10 +762,9 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   noise, so it grows linearly — 5.9 m at 3 km east — and it is systematically eastward, so a whole stand
   is displaced the same way. The east term is wrong because the exact longitude scale is
   `N cos φ · π/180` = 71 700 m/deg at 50 °N against `kMPerDeg · cos φ` = 71 555, a ratio of 1.00203; the
-  north term is wrong because the meridian scale is 111 229 m/deg there against 111 320. `Geo` feeds
-  `clients/StandField.cpp:32`, whose result is immediately handed back to `Project`. **The same
-  spherical conversion is written a second time in `clients/SceneRunner.cpp:287,318`**, where it turns
-  `camera.eastM` and `camera.northM` into a stance — so a declared metre of channel is 1.002086 m of
+  north term is wrong because the meridian scale is 111 229 m/deg there against 111 320. *Both consumers named when this was filed — `clients/StandField.cpp:32` and
+  `clients/SceneRunner.cpp:287,318` — went with the clients on 2026-08-12. The header and its wrong
+  bound are unchanged, and the next consumer inherits both* — so a declared metre of channel is 1.002086 m of
   world eastward and 0.999546 m northward at 52.106 °N. **Confirmed to 5·10⁻⁵ m** now that the eye is
   in the row, and the comparison must be made frame-by-frame or it proves nothing: the last row of
   `sim/logs/demo-crossing-wasm-20260811T172832Z.csv` (wasm `9b110bb85af592ce`, Chromium 151.0.7922.34)
@@ -903,7 +827,7 @@ the tree more than once, or under a name that says the wrong unit.*
   64 bits is 2³² ≈ 4 × 10⁹, three orders below the stated load. The conclusion the number supports is
   unaffected and the derivation beneath it is false, which is the one thing `CLAUDE.md`'s *every
   number carries its origin* forbids. Right: the number, or the sentence goes. The six digests
-  themselves are correct — all six vectors in `test/core/Sha256MatchesTheStandard.cpp` reproduce
+  themselves are correct — all six vectors in `test/unit/core/Sha256MatchesTheStandard.cpp` reproduce
   against an independent SHA-256 (checked 2026-08-12).
 - **`TilePool` holds a worker thread for up to 30 s where it held one for 3 s, asleep in a 1 ms
   loop.** `world/TilePool.cpp` `kPollMs = 1`, `kPollAttempts = 30000`. The previous shape blocked the
@@ -937,8 +861,9 @@ the tree more than once, or under a name that says the wrong unit.*
   `ExposureStage` or is shown to be 1.0 with the difference in the irradiances. Decides it: the linear
   readback of one facet of declared albedo under one declared irradiance against `ρ·E·cos θ/π`.
 - **The suffix `Ms` names two different units in the same tree.** `core/Units.h:22`
-  `kMsToKt` is metres per second to knots; `clients/Walker.h:17` `kWalkSpeedMs = 1.4` is metres per
-  second; `clients/FrameTelemetry.h:33` `kWindowMs = 1000.0` is milliseconds. Reading any one of them
+  `kMsToKt` is metres per second to knots. *Two of the three sites named here, `clients/Walker.h` and
+  `clients/FrameTelemetry.h`, went with the browser-era clients on 2026-08-12; the rule they
+  illustrated is unchanged.* Reading any one of them
   correctly requires reading its comment, against `CLAUDE.md`'s *a name that needs a comment is the
   wrong name*. `core/Units.h:15` `kMPerDeg` shows the unambiguous spelling already exists in the same
   file. Right: one declared suffix table, `MPerS` for velocity and `Ms` for milliseconds, applied
@@ -966,11 +891,10 @@ the tree more than once, or under a name that says the wrong unit.*
   origin*. Right: a test under `test/world/` that reconstructs the seven terms and asserts the
   constant bounds them, which is the same arithmetic in the language the tree is written in.
 
-- **The browser is gone from the code and still in the prose, 38 times.** `grep -rniE
-  'browser|wasm|canvas|emscripten|console\.log|Chrome'` over `src/**.{h,cpp,wgsl}` returns **38 hits in
-  27 files** with the last `#ifdef __EMSCRIPTEN__` deleted (2026-08-12) — `clients/Walker.h:1,22,35`,
-  `clients/SceneRunner.h:7`, `clients/Png.h:10`, `clients/Artifacts.h:11`, `clients/Sim.h:42`,
-  `core/io/Log.cpp:18`, `core/GroundSample.h:2`, `core/Camera.h:82` among them. A comment that
+- **The browser is gone from the code and still in the prose, 30 times — Band 2.** The same grep over
+  `src/**.{h,cpp,wgsl}` returns **30 hits** at `9f4ba9e` (down from 38 as the browser-era clients were
+  deleted) — `clients/Artifacts.h:11`, `clients/Sim.h:42`, `core/io/Log.cpp:18`,
+  `core/GroundSample.h:2`, `core/Camera.h:82` among them. A comment that
   explains a decision by a platform no target compiles for is a reason the reader cannot check, which
   is `NL.2` failing in the direction that costs most. One of them is not a comment: `clients/RunIdentity.h:22`
   carries an `Agent` field that is *"the browser's own version string and empty natively"* and is
@@ -978,51 +902,25 @@ the tree more than once, or under a name that says the wrong unit.*
   that still holds or goes, and the `agent` column goes with the browser that filled it.
 
 - **`Artifacts` is an interface over one implementation, and two of its states cannot occur.**
-  `clients/Artifacts.h` exists because *"a directory natively, an HTTP endpoint in the browser"*; the
-  browser endpoint is gone and `clients/FileArtifacts.h` is the only implementation, whose `Settle()`
-  returns `Complete` on the line that asks. So `Delivery::InFlight` is unreachable, and the arm that
-  handles it — `clients/SceneRunner.cpp:129-131` with `kDeliverWaitMs = 20000.0` at line 48, a
-  20-second wait derived from *"the collector's own POST timeout"* — is dead code guarding against a
-  collector that no longer exists. `C.121`/`I.25`: an abstract interface with one implementation and
-  three unreachable branches. Right: the runner writes to a directory, `Delivery` is `Complete` or
+  `clients/Artifacts.h` exists because *"a directory natively, an HTTP endpoint in the browser"*. **At
+  `9f4ba9e` it has zero implementations** — `git grep -l ': Artifacts'` over `src/` and `test/` is
+  empty; `FileArtifacts` and `SceneRunner` were deleted with the clients, and nothing replaced them.
+  It still declares `enum class Delivery { InFlight, Complete, Refused }` (`:19`), two of whose three
+  states no code can now produce. `C.121`/`I.25`: an abstract interface over nothing is not an
+  abstraction, it is a shape waiting to be re-derived wrongly. **Band 1** — the Khronos runner is the
+  next thing that writes artefacts, and it will either implement this or replace it, so the decision
+  is due before it, not during it. Right: the runner writes to a directory, `Delivery` is `Complete` or
   `Refused`, and the wait has no subject to wait for.
 
-- **A studio picture is not independent of the geodetic anchor it is drawn at.** A studio stage
-  declares no place (`doc/requirements.md` § I.25), so `scenario/Studio.h:22 kAnchorLatDeg/LonDeg`
-  is the arbitrary point the camera basis is built at. **Measured 2026-08-12** over
-  `demo subject-beech`, two binaries differing only in that constant — the shipped 0/0 against
-  52.10602/9.43453 — **all 48 pictures differ**: mean |Δ| over the 48 is 12.5 codes of 255, worst
-  frame `beech-leaf_hd-frontlit` mean 44.9 with 98.3 % of pixels moved, worst single pixel 247.
-  Three components are visible in the difference image
-  (`beech-portrait-frontlit`, sky band mean 19.4, floor band 16.3, card band 0.8): the ruled floor's
-  grid phase, which is drawn in world metres and follows the anchor **by design**; a ~1 px shift of
-  the horizon line; and the whole crown's leaf scatter, salt-and-pepper across every leaf. The last
-  two are not explained. Nothing in the bench hands the renderer an absolute position except the
-  camera's ECEF eye and basis — `clients/SubjectBench.cpp:216-240` — and the atmosphere rebases onto
-  its own sphere from the local ground radius (`render/stages/AtmoCommon.h:43 atmoPos`), so a
-  latitude-dependent crown is a read of world position by something that should not have one. Right:
-  the anchor can be moved and only the world-metre ruler moves with it; until then no comparison of
-  two bench runs may cross an anchor change.
 
-- **The sward bench photographs nothing and reports success, 57 times.** `demo subject-meadow` writes
-  57 PNGs into `bench-meadow` and exits 0, and **every one of them logs `fillPct=0`** — an empty
-  ruled floor beside the neutral card, no grass anywhere in frame. The cause is one line: the herb
-  subject's template index was stored and never read — `clients/SubjectBench.h:137 int Bucket_` at
-  `757e335`, written at `SubjectBench.cpp:146` and read nowhere — so the renderer is never told which
-  vegetation template to draw. It predates this round (the field is write-only at `757e335` too) and
-  survived the move to a declared studio, where the index is now not even carried. It is the
-  `verify-refusals` shape one layer up: *a bench with nothing to measure must refuse*, and this one
-  measures 0.0 % cover 57 times without a word. Right: the sward is drawn, or the bench refuses a
-  subject it cannot draw — `SubjectBench::Write` already computes the number that decides it.
 
-- **The language standard has two values.** `Makefile:26` sets
-  `CXXSTD := -std=c++17` and uses it for every compile gate (`verify-generators`, `verify-world`,
-  `verify-types`, the `gen_gate` link, the `world` target's C++ half); every shipping compile line
-  (`Makefile:165,184,219`) hard-codes `-std=c++20`. `CLAUDE.md` no longer names a dialect at all —
+- **The language standard has two values — Band 2.** `Makefile:24` and `test/run.sh:44` both set
+  `-std=c++17`; `Makefile:87` and `test/run.sh:129` hard-code `-std=c++20` for anything touching
+  Dawn. `CLAUDE.md` no longer names a dialect at all —
   it says *modern C++* — and `doc/requirements.md` § I.19 declares C++20 as the one value, unticked. The program is C++20 — forced by
-  `vendor/dawn`, whose `webgpu_cpp.h` needs `std::type_identity` and `std::span` — while the gates
-  judge a dialect the program is not built in, so a C++20 construct in `render/` or `clients/` is
-  covered by no gate. Right: one variable, one value, and the reason (Dawn) beside it.
+  `vendor/dawn`, whose `webgpu_cpp.h` needs `std::type_identity` and `std::span` — while the C++17 arm
+  judges a dialect the program is not built in, so a C++20 construct outside the render layer is
+  compiled by nothing that would catch it. Right: one variable, one value, and the reason (Dawn) beside it.
 
 - **No gate reads the log levels of the run it just declared green.** `verify-walk-asan` now asserts
   the run's own motion verdict — `frames=10800 impostorStands=9565 treeTris=19130` — but a line at
@@ -1036,12 +934,11 @@ the tree more than once, or under a name that says the wrong unit.*
   `Destroyed` at `Info` and every other reason at `Error`; then the gate asserts that the run it
   declares silent logged nothing at `ERROR`.
 
-- **`core/ClusterDag.h:72` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable. **And it is one of six.** Also live: `FB_TAA` (`render/Renderer.h:318`, default on) switches temporal antialiasing, which changes both the pixels and `frameMs`; `FB_GEOM` (`render/GeometryIsolation.h:15`) disarms the shadow receivers; `FB_MOON_SCALE` (`Renderer.h:230,360`, applied at `Renderer.cpp:399`) scales the moon off its real 0.0045 rad; `FB_GROUND_CLASS_VIZ` (`TerrainDraw.cpp:642`) and `FB_TONE_PROBE` (`TaaStage.cpp:226`) replace the fragment outright. **None of the six appears in any telemetry column**, so two runs of one wasm hash are not comparable and no CSV can say which picture it measured — which is the same defect as a resolution that moves under load, wearing a different hat. Right: the four that change the picture leave the environment entirely; the two diagnostics stay and ride a published column.
-- **`core/Mat4.h` is entirely dead, and the comment defending it names a test that does not exist.** `Mat4Identity`, `Mat4Mul`, `Mat4Perspective`, `Mat4LookAt`, `Vec3Normalize` and `Vec3Cross` have no caller outside `core/Camera.h`; inside `Camera.h`, `CameraBasisFrom`, `CameraAxes`, `HorizonDipRad`, `MvpTranslate`, `Frustum`, `FrustumFrom` and `AabbVisible` have none either. `CameraBasisEcef` is the only live function in the pair (`clients/Sim.cpp:497`, `clients/SubjectBench.cpp:239`) — verified repo-wide, not only under `sim/src`. `Camera.h:76` asserts "CameraBasisFrom above is NOT dead: sky dome and star field are an infinity pass in LOCAL render-ENU"; `SkyStage` and `StarsStage` call nothing in the file. Two comments say "Pinned in `test_camera.c`"; no such file exists anywhere in the tree. Three consequences, worst first: the dead `Mat4Perspective` builds a **GL-style [-1,1] reversed-Z** projection, so anyone reviving it under WebGPU's [0,1] clip volume silently loses everything past the mid-range; `outshine::Frustum` (`Camera.h:132`) and `outshine::Render::Frustum` (`render/Frustum.h`) are two spellings of one statement against "every statement has exactly one place"; and a false comment is worse than no comment. Right: delete `core/Mat4.h` and everything in `core/Camera.h` but `CameraBasisEcef`.
+- **`core/ClusterDag.h:72` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable. **And it is one of six, re-enumerated at `9f4ba9e`**: `FB_TAA` (`render/Renderer.h:339`, default on) switches temporal antialiasing, which changes both the pixels and `frameMs` and is now a **second, undeclared way to retire a stage the plan declares** (§ I.27); `FB_GEOM` (`render/GeometryIsolation.h:15`) disarms the shadow receivers; `FB_GROUND_CLASS_VIZ` (`stages/TerrainDraw.cpp:642`) replaces the fragment outright; `FB_TILEWORKERS` (`world/TerrainLoader.cpp:62`) changes the thread count and therefore the arrival order; `FB_DAGLOG` (`world/World.cpp:587`) is diagnostic only. *`FB_MOON_SCALE` and `FB_TONE_PROBE` are gone.* **None of the six appears in any telemetry column**, so two runs of one build are not comparable and no CSV can say which picture it measured. The tree states the rule against itself at `render/GpuTimer.h:36` — *"NO ENVIRONMENT GATE. An environment variable is not an interface."* Right: the four that change the picture leave the environment entirely; the two diagnostics stay and ride a published column. **Band 2.**
+- **`core/Mat4.h` is entirely dead, and the comment defending it names a test that does not exist.** `Mat4Identity`, `Mat4Mul`, `Mat4Perspective`, `Mat4LookAt`, `Vec3Normalize` and `Vec3Cross` have no caller outside `core/Camera.h`; inside `Camera.h`, `CameraBasisFrom`, `CameraAxes`, `HorizonDipRad`, `MvpTranslate`, `Frustum`, `FrustumFrom` and `AabbVisible` have none either. `CameraBasisEcef` is the only live function in the pair — **re-verified at `9f4ba9e`: one caller, `clients/Sim.cpp:555`**, the bench that was the second having been deleted. `Mat4Perspective` is reached only from `core/Camera.h:71`, itself dead. `Camera.h:76` asserts "CameraBasisFrom above is NOT dead: sky dome and star field are an infinity pass in LOCAL render-ENU"; `SkyStage` and `StarsStage` call nothing in the file. Two comments say "Pinned in `test_camera.c`"; no such file exists anywhere in the tree. Three consequences, worst first: the dead `Mat4Perspective` builds a **GL-style [-1,1] reversed-Z** projection, so anyone reviving it under WebGPU's [0,1] clip volume silently loses everything past the mid-range; `outshine::Frustum` (`Camera.h:132`) and `outshine::Render::Frustum` (`render/Frustum.h`) are two spellings of one statement against "every statement has exactly one place"; and a false comment is worse than no comment. Right: delete `core/Mat4.h` and everything in `core/Camera.h` but `CameraBasisEcef`.
 - **Five WGSL constants that decide the canopy carry no origin.** `render/Sward.h:59-63` declares `kMinSinEl 0.05`, `kLeafTrans 0.85`, `kTransIso 0.35`, `kTransFwd 2.6` and `kTransP 4.0` with no `[SET]`, no derivation and no unit — alone among the twenty constants in that function, and against the rule that every number carries its origin. Two are load-bearing. `kLeafTrans` multiplies the leaf colour on the transmitted path and its **name is the trap**: a green leaf at 550 nm has R ≈ 0.10 and T ≈ 0.085, so a literal "leaf transmittance" is 0.08 and someone will one day write it there and lose the whole back-lit canopy; what makes 0.85 right is that it is the *ratio* T/R, consistent with `kScatCut = sqrt(1 - ω)` and `ω = R + T = 0.185` on the line above. And `kTransIso + kTransFwd·cos^kTransP` is divided by the same `kInvPi` a Lambertian gets, with no statement anywhere that its hemispherical integral is 1 — so the transmitted path is not shown to conserve what the reflected path gives up. Right: one origin line per constant; rename `kLeafTrans` to what it is; and either normalise the lobe or state the deviation beside it.
 - **Two headers guard themselves with reserved identifiers.** `core/Ephemeris.h:6` `#ifndef _EPHEMERIS_H` and `core/State.h:3` `#ifndef _FBSTATE_H`. A leading underscore followed by a capital is reserved to the implementation **in every scope** ([lex.name]/3) — undefined behaviour, not a style preference, and the rest of the tree already spells it `GEODESY_H`.
 - **The winding is hard-coded at seven sites**; it belongs in the draw product beside the cluster list.
-- **A stage that reports the same number every frame is reporting that it is not being measured.** In `after/town-spin.csv` (a rotation about a fixed point) `worldMs`, `meshMs`, `uploadMs`, `buildingMs`, `classMs`, `populateMs`, `nodes`, `drawnLeaves`, `draws`, `built` and `evicted` are all constant across 240 rows, and `distM` is 0.000 in every one — that run is not motion acceptance and was reported as if it were. Note the general form of the claim is false: of 89 columns in a live walk, 35 are constant and most legitimately so (identity, declared limits, stack ceilings). What is suspect is a *cost* column that does not move.
 - **The log's timestamp is dead** — every `walk key` line carries `t=0.0` — and key repeat events are logged individually, so a held key floods the buffer.
 - **`FacadeUv.h` has no `static_assert` anywhere**: 11 enumerators against a stride of 16, `kStyleCount 8` against 7 enumerators. A 17th `Facade` silently aliases identity 1.
 - **`TreeGrower::GrowOnce` is ~130 lines** (`F.2`/`F.3`), and `TreeSpecies::Parse` is a 90-line flat key list (`F.3`).
@@ -1054,8 +951,8 @@ the tree more than once, or under a name that says the wrong unit.*
   big-endian one. Filed as a bug rather than as a requirement because the code claims to decode
   protobuf and decodes host order instead; the caveat was checked and it is the only reason it has
   never shown: **the tree has zero `reinterpret_cast` and the rest of its decoding is byte-wise**
-  (`world/OsmVector.cpp:18-19` assembles varints with `<<` and `0x7f`, `world/terrain/terrain.cpp:94-98`
-  assembles Terrarium height from `p[0]`, `p[1]`, `p[2]` as bytes), so this is a single site, not a
+  (`world/OsmVector.cpp:18-19` assembles varints with `<<` and `0x7f`, `data/TerrariumDem.cpp`
+  assembles Terrarium height from bytes), so this is a single site, not a
   habit. The neighbouring `std::memcpy`s of floats into word arrays (`core/ClassStructure.cpp:74-76,124`,
   `world/ClassBuilder.cpp:340`) are **not** this defect — they are an in-memory layout that is never
   serialised, and host order is the right order for them. Right: two byte-wise assemblers beside the
@@ -1076,7 +973,7 @@ the tree more than once, or under a name that says the wrong unit.*
   function declared with 'nodiscard' attribute`) **and** that it is the *only* error the compiler
   emitted, which is what makes a typo elsewhere in the fixture fail the gate instead of satisfying it.
 
-- **`test/generators/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
+- **`test/unit/generators/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
   the order of thirty distinct claims — determinism of placement, the class lattice, water depth,
   way half-widths, `sizeof(Body)`, an allocation count — in one process. Three consequences: the
   first hard failure (it dereferences `std::optional` results directly, e.g. `ways.MadeAt(...)->WidthM`)
@@ -1086,18 +983,6 @@ the tree more than once, or under a name that says the wrong unit.*
   `test/generators/`, each with its own `main`, which is what the suite this file's requirements
   now describe is for.
 
-- **The state channel has no collector.** `clients/ServerLog.cpp`, `clients/ServerTelemetry.cpp` and
-  `clients/HttpPost.cpp` post the log and every telemetry row to `OUTSHINE_SIM`
-  (default `http://localhost:8080`); the only implementation of that endpoint in this tree was
-  `clients/SimHost.cpp`, deleted with the container on 2026-08-12. Measured with nothing on :8080:
-  `demo/frame` exits 0, draws the same picture (`852bd4246ee34f65`) and writes its `give` products
-  through `FileArtifacts` — and **not one of its 674 log lines mentions a refused post or a dropped
-  batch**. `ServerLog`'s own comment promises "a gap is visible rather than silent", and the count
-  that would make it visible rides the next batch that gets through, which never comes. So the
-  archive the whole comparability argument rests on stops growing without a word, and the two sinks
-  fire once per second into a closed socket. Right: a file sink beside `FileArtifacts` for both
-  channels — the run already knows a directory, `OUTSHINE_OUT` — and `Server*` gone or re-homed with
-  the collector it needs.
 
 - **Fifteen preprocessor conditionals in the library compile for a target no build produces.**
   `core/io/HeapProbe.cpp` (6), `clients/HttpPost.cpp` (4), `render/Renderer.cpp` (3) and
@@ -1117,18 +1002,6 @@ the tree more than once, or under a name that says the wrong unit.*
   a property of the declarations, not of a platform — a static assertion over the ledger's field
   widths costs nothing and needs no 32-bit host.
 
-- **`clients/Walker.h`/`Walker.cpp` has no caller.** The browser shell that steered it is deleted and
-  `test/clients/AppWalk.cpp:101` refuses an interactive scene, so the walking verb is compiled (it is
-  in `APP_SRCS`, so it cannot rot) and constructed nowhere. **The larger half is that it is not one
-  dead class but a dead arm of a declared enumeration, and the arm is already declared in a shipped
-  mod**: `test/mods/demo/mod.json` has scene `walk` with `"kind": "interactive"`, and
-  `./build/gpu_walk demo walk` answers `ERROR run scene_is_interactive scene=walk`, **exit 1**. Worse,
-  The half of this that was about an omitted `kind` is gone (2026-08-12): `kind` is a required string
-  and a scene without one is refused by path (`scenario/Scene.cpp`), so an unvalidated `runs` block is
-  no longer reachable. The dead arm itself stands. `Walker` is only the machinery that arm would have used. A gate that counted unlinked *files* would stay flat through both, which is
-  why `doc/requirements.md` § I.21 now asks for unreached symbols instead. Right: the client with an
-  input medium is its caller (§ I.14), or the enumerator and the class go together in the round that
-  decides there will not be one.
 
 - **`HttpPost.cpp`'s abandoned-status vector is dead, and the comment that justifies it cites a
   build file that no longer exists.** With the browser path gone, `Begin` is the curl arm
@@ -1142,11 +1015,6 @@ the tree more than once, or under a name that says the wrong unit.*
   true, and nothing compiles it wrong. Right: the vector, `kInFlight`, the two-state cell and the
   destructor go together, and `Status_` becomes an answer that exists or does not.
 
-- **`make walk`'s own help text says it builds the interactive client.** `Makefile:193` —
-  *"build the interactive client / frame oracle"* — and `test/clients/AppWalk.cpp:101` refuses a scene
-  whose kind is interactive. One binary, one of the two roles. A reader's first contact with this tree
-  is `make help`, and it states a capability the tree does not have. Right: the text names the frame
-  oracle only, until the client that takes input exists (`doc/requirements.md` § I.14).
 
 - **`src/data` does file I/O with `<cstdio>` and there is no `Host::Storage` to do it through.**
   `data/ContentStore.cpp` opens, writes, renames and sweeps with `<cstdio>` and `<filesystem>`, and
@@ -1160,9 +1028,8 @@ the tree more than once, or under a name that says the wrong unit.*
 - **A source's refusal cannot name what it looked for.** `data/StarBands::Collect` answers
   `Meaning::Refused` when a band file will not read, and the path it tried is not in the answer — the
   provider layer may not name `Log` (that is the layering, and it is right), and `Fetched` carries a
-  meaning and bytes and nothing else. The caller knows the directory and logs it
-  (`clients/Outshine.cpp` `star_catalogue_unreachable`), so the run is not silent, but the *file* that
-  failed is not in the record. § I.22's *a test that must not reach the network declares zero sources
+  meaning and bytes and nothing else. The caller that knew the directory and logged it went with the clients on 2026-08-12, so today the
+  file that failed is in no record at all. § I.22's *a test that must not reach the network declares zero sources
   and gets a refusal by name* wants the name to travel with the refusal. Right: `Fetched` carries a
   short reason string on the refusing arms only, minted by the source and printed by the caller.
 
@@ -1183,62 +1050,15 @@ the tree more than once, or under a name that says the wrong unit.*
   bakes the bands and checks them against the committed ones, in C++ — at which point advancing the
   epoch is a run of the test suite rather than a script somebody remembers.
 
-- **Weather and peaks left the tree with the server, and nothing replaced them.** `tiles/src/wx.cpp`
-  (531 lines), `grib2.cpp` (330), `peaks.cpp` (157) and their headers — a NOAA GFS GRIB2 decoder and an
-  Overpass bounding-box query — were deleted with `tiles/` on 2026-08-12 because **no consumer in
-  `src/` or `test/` ever reached them**: measured by grep for `/wx`, `/peaks`, `FBWX`, `wxb`, `grib`
-  over the whole tree, zero hits outside `tiles/` itself. `core/WeatherProvider.h` is the seam they
-  would have fed and its only implementation is `clients/SceneWeather.h`, which widens two declared
-  JSON numbers. `doc/requirements.md` § I.22 carries *weather is a source under the same contract, with
-  a validity epoch* and *peaks are a source whose scheme is a query* as open lines; they are now open
-  with **no implementation anywhere**, where before they were open with an implementation nothing
-  called. Right: they come back as sources when a consumer reaches for them, and the GRIB2 decoder is
-  rewritten rather than recovered — its former home compiled under two compilers and failed one.
 
-- **`verify-clients` cannot see a scene-building call it was not told about.** `BUILD_CALLS`
-  (`test/clients/verify_clients.py:50-55`) is a closed alternation of twenty method names, and
-  `ENTRY_INCLUDES`/`ENTRY_FORBIDDEN` are closed lists too. A new `Renderer::SetX` used from a second
-  translation unit passes the gate in silence — the exact failure mode the gate exists for (one client
-  drew a tree and the other did not for ten rounds), one level up. The gate is not wrong, it is the
-  wrong *kind*: an allowlist reports what it enumerates, where `doc/requirements.md` § I.20 step 7's
-  `src/api/` makes the whole class unspellable, because a translation unit that cannot name `Renderer`
-  cannot call any method on it, named or not. **The include set cannot do it today**: `clients/Outshine.h:20`
-  includes `Renderer.h`, so an entry point reaches the type through the one object it is supposed to
-  construct and the Makefile has to hand it `-Isrc/render` (`INC_CLIENTS`) — which is why this file is
-  the last Python in the tree. Right: the include set replaces the regex, and rule 2
-  (`main()` under 40 lines, `F.3`) is the only clause that still needs a counter afterwards.
 
-- **Eight `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
-  `fb_stream_open`, `fb_stream_close`, `fb_stream_ground`, `fb_stream_ground_block`,
-  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`
-  — across `world/TerrainLoader.{h,cpp}`, `world/World.cpp`,
-  `world/OsmField.cpp`, `world/BuildingField.cpp`, `world/WaterField.cpp`,
-  `clients/Sim.cpp`, `clients/Outshine.cpp`, `render/Renderer.cpp`.
-  `fb_take_http_body` left with the browser transport (2026-08-12) and `world/TilePool.cpp` is off
-  this list; `fb_post` left with `clients/HttpPost.cpp` and `fb_canvas_px` with the canvas surface
-  target (both 2026-08-12).
-  `CLAUDE.md`'s naming rule exempted `world/terrain/` and `FBWX` and nothing else, so these were already
-  outside the exception; with `world/terrain/` gone there is no C-ABI code left in the tree at all and
-  the prefix has no remaining justification anywhere. Zero `osmmesh_` names survive, which is the half
-  of this that did land.
-- **The declared still's identity is taken over the encoded file, so an encoder change reads as a
-  picture change.** `Makefile:395` hashes `walk.png` with `shasum`, and the pin in `doc/todo.md:12` is
-  that file's sha. Swapping `stbi_write_png_to_func` for `IMG_SavePNG_IO` in `src/clients/Png.cpp` moved
-  it `852bd4246ee34f65` → `bec69fea0a4e6837` with **not one pixel changed** — decidable rather than
-  argued: decoding each of the four seeds' new `walk.png` and re-encoding it with the deleted stb
-  encoder, at the settings `Png.cpp` used at `859f702`, reproduces `852bd4246ee34f65` exactly, four
-  times out of four. The gate itself is unaffected (`verify-still` compares runs to each other and pins
-  nothing), but the value a human compares against is the wrong subject and will move again at § I.17's
-  wasm gate and at phase 3.4. Right: the sha is over the decoded RGBA buffer, hashed before the encoder
-  is called — it costs one call, survives every encoder and container change, and moves only when the
-  picture does.
 
-## Stale pointers held with confidence — nine sites naming two deleted documents
+## Stale pointers held with confidence — seven sites naming a deleted document — **Band 2**
 
-`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Nine comments in
-`src/` still cite `doc/architecture.md` as the authority for a rule they state** (re-counted
-2026-08-12: eight was one short, and two of the line numbers had drifted), and one requirement
-line cites it too. A reader who follows the pointer finds nothing; a reader who does not follow it takes
+`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Seven comments in
+`src/` still cite `doc/architecture.md` as the authority for a rule they state** — re-counted at
+`9f4ba9e`, down from nine because `clients/SceneRunner.cpp` was deleted with the client and one
+`Renderer.cpp` site went with the pass rewrite. A reader who follows the pointer finds nothing; a reader who does not follow it takes
 the rule on the comment's word, which is exactly the failure mode a citation exists to prevent. This is
 the same defect class as a miscited rule number — a confident reference to something that is not there —
 and it costs a round the first time somebody tries to check one of these rules against its source.
@@ -1246,10 +1066,9 @@ and it costs a round the first time somebody tries to check one of these rules a
 - `src/core/Material.h:19` — *"nothing in it can switch a pipeline state (doc/architecture.md)"*. The
   rule is live and correct; it is in `CLAUDE.md` under *the core dictates the pipeline*.
 - `src/render/GeometryStage.h:3` · `src/clients/Sim.cpp:193` · `src/clients/Sim.h:51` ·
-  `src/clients/RegionForge.h:2` · `src/clients/SceneRunner.cpp:445` · `src/generators/Water.h:2` —
-  the same, one each.
-- **`src/render/Renderer.cpp:786` and `src/render/stages/TaaStage.cpp:110` are the expensive two**,
-  because what they cite is not a rule but a **measurement**: *taa 4.98 ms and tonemap 5.05 ms while
+  `src/clients/RegionForge.h:2` · `src/generators/Water.h:2` — the same, one each.
+- **`src/render/stages/TaaStage.cpp:113` is the expensive one**,
+  because what it cites is not a rule but a **measurement**: *taa 4.98 ms and tonemap 5.05 ms while
   everything the engine draws came to 3.80 ms*, the sole justification for fusing the temporal resolve
   with the display curve into one fragment. The number cannot be checked against anything, and it is
   the number a stage plan has to weigh when it decides whether that fusion survives
@@ -1261,7 +1080,7 @@ and it costs a round the first time somebody tries to check one of these rules a
 Right: each site names `CLAUDE.md` and the sentence there, or states the rule without a citation if the
 rule is local. A grep for `architecture.md` returning zero in `src/` is the check.
 
-## German in an English-only repository, and it cites a numbering that is gone
+## German in an English-only repository, and it cites a numbering that is gone — **Band 2**
 
 `CLAUDE.md`'s first rule is that the repository speaks one language. Two comments are in German, and
 both compound the error by citing a numbered principle list that the current `CLAUDE.md` does not have —
@@ -1269,7 +1088,7 @@ it carries *the constraints*, *stance* and *setup*, with no numbered principles 
 
 - `src/scenario/Animation.h:15` — *"a bespoke format here would be the parser nobody ordered (Prinzip 1)"*.
 - `src/core/Keyframes.h:22` — *"(Prinzip 7: a run must …)"*.
-- `src/render/Renderer.cpp:633` — *"(CLAUDE.md, Prinzip 5)"* — half-translated, and the cited number
+- `src/render/Renderer.cpp:770` — *"(CLAUDE.md, Prinzip 5)"* — half-translated, and the cited number
   does not exist in the file it names.
 
 `src/render/stages/TerrainDraw.cpp:81` and `src/world/TerrainLoader.cpp:329` cite *"CLAUDE.md principle
@@ -1300,58 +1119,6 @@ have `compute_device_type` set *and* `get_devices()` called *and* the device's `
 falls back to CPU silently and the run is 5.6× slower with no message. A harness that does not assert
 the device it got has measured something it did not choose.
 
-## A conclusion about a host drawn from four paths — the vacuous-gate shape, in a research method
-
-**Mine, this round, and it produced a wrong finding inside a design that was otherwise careful.** I
-checked `download.blender.org` at `/peach/`, `/durian/`, `/mango/`, `/institute/` and `/demo/movies/`,
-found three redirect stubs and one directory of rendered video, and wrote into `doc/requirements.md`
-that the Blender open movies are **not fetchable** and that the film rung therefore had to be built from
-something else. Walking `/demo/` properly refutes it:
-
-| Path | What is actually there |
-|---|---|
-| `/demo/sprite_fright_030_0020_A.zip` | 254 374 945 B — a **complete Sprite Fright shot**, 47 `.blend`, three animation takes, character, spider, mushroom grove, village, plants, fungi |
-| `/demo/bbb/blender.zip` | 830 709 844 B — **Big Buck Bunny's entire production tree**, 591 `.blend` |
-| `/demo/cycles/` | four large Cycles demo scenes, one of them the best-known on the host |
-| `/demo/eevee/*/README.txt` | **per-file licences the web page does not state** — the strongest evidence available, and the first pass never looked |
-| `studio.blender.org/terms-and-conditions` | *"all digital content … is available under the Creative Commons Attribution 4.0"* — the licence was never the constraint; **access** is, and only for part of it |
-
-**The shape, and why it belongs in this file rather than in a round's report.** It is the same defect as
-a gate that certifies over an empty object set: *the check ran, the check was sound, the population it
-ran over was not the population the conclusion names.* Five paths were examined and the sentence written
-was about a host. The failure is invisible from inside the method — every individual observation was
-correct and correctly reported — which is exactly why it needs a rule rather than more care.
-
-**The rule this earns:** a negative existence claim — *X is not available*, *no such asset exists*, *the
-tree contains none* — names the enumeration it is drawn from, and the enumeration is **exhaustive over
-the container** or the claim is written as *not found at these paths*. A directory index is cheap to
-walk to the bottom; the first pass did not walk it at all. `doc/requirements.md`'s own measurement rule
-already ranks *correctness — checked against something outside* above *consistency*, and a negative
-claim is the one kind that cannot be checked by more internal agreement.
-
-**Right, and it is one line of method:** for a claim about a file host, recurse the index; for a claim
-about a repository, list the tree at the pinned SHA — which this round *did* do for Khronos, where the
-tree was enumerated whole and the licence findings from it stand. The two halves of the same round used
-two methods and only one of them was sound.
-
-**A second shape from the same round, and it is worth separating from the first.** The availability
-error was a conclusion drawn over a population nobody enumerated. This one is narrower and cheaper to
-catch: **a claim contradicted by a measurement the same round had already taken.** § I.26.11 justified
-the oracle cache with *"200 Cycles renders at 720p is hours"* while § I.26.4, four sections earlier in
-the same file, carried the measured **2.087 s/frame** that makes it **7.0 minutes**. Both numbers were
-mine, written the same day.
-
-The rule: **a magnitude word — hours, huge, negligible, orders — that stands next to a measurement this
-tree already holds is arithmetic, and it gets done.** Where the arithmetic contradicts the word, the
-word goes. Where no measurement exists the claim is labelled a **projection** and says what would settle
-it; the corrected passage now labels every one of its seven numbers *measured*, *derived* or
-*projection*, which is what `CLAUDE.md` asks of a number and what an unqualified "hours" evades.
-
-The cache survived the correction with better reasons than it had — the 200.9 s cold-start cliff, the
-film's frame count, and the fact that a cached oracle cannot change underneath a comparison. **An
-inflated justification was hiding a correctness argument stronger than the performance one it displaced**,
-which is the second cost of this defect class and the one nobody notices.
-
 ## The fetch allow-list refuses two assets the requirements already name
 
 `test/corpus/prep/fetch.py:19-25` lists four subdirectories of `download.blender.org/demo/` —
@@ -1376,85 +1143,6 @@ nothing, because the bytes are pinned by per-file SHA-256 either way.
 
 **Right:** `https://download.blender.org/demo/` as one prefix. Fixed when the pavilion and the Sprite
 Fright archive fetch under an unmodified `fetch.py`, and when `licence.py` still refuses `mr_elephant`.
-
-## The preparer writes a `.gitignore` that states a consequence instead of the rule
-
-`test/corpus/prep/jobs.py`, `write_ignore`, producing e.g.
-`test/render/coverage/triangle/.gitignore` — fifteen lines naming exactly what that run wrote,
-including itself.
-
-**The harmless reading is most of the way true and is why this is a shape finding rather than a
-failure:** the file ignores itself, so it churns nothing in git, it materialises no repository noise,
-and every name in it is correct. What is wrong is that it is a **derived restatement of a rule that has
-one line**: `manifest.json` is the only tracked file (§ I.26.10). A per-directory list must be rewritten
-to stay true, is wrong for any case the preparer has not run yet, and cannot be lifted to one shared
-file by enumeration — a fetched file's landing name comes from the manifest's own `as` field and is
-arbitrary per case, which is how `Triangle.bin` got into that list.
-
-**Right:** delete `write_ignore`, and track one `test/render/.gitignore` of four lines —
-
-```
-*
-!*/
-!.gitignore
-!manifest.json
-```
-
-— verified against git to track exactly the manifests at any depth and nothing else. `!*/` is
-load-bearing: without it git does not descend into a case directory and never sees the manifest. The
-inverted form makes a new product ignored by construction and a new **tracked** file a deliberate act,
-which is the review moment the enumeration gives away.
-
-## The glTF reader ignores `extensionsRequired`, so a Draco file reads green as a mesh at the origin
-
-`src/gltf/Document.cpp:208-435` (`ReadJson`). Neither `extensionsUsed` nor `extensionsRequired` is read;
-the string `extension` appears twice in `src/gltf/` and both are comments about **file name** extensions.
-
-**Measured, not inferred.** A minimal document declaring `"extensionsRequired":
-["KHR_draco_mesh_compression"]`, one `POSITION` accessor of 3 × VEC3 with no `bufferView`, and the Draco
-payload where the extension puts it:
-
-```
-read=1  error=''
-ReadElements=1  count=9  error=''
-  0 0 0 0 0 0 0 0 0
-```
-
-A triangle at the origin, reported as a successful read.
-
-**Why this is a bug and not a missing feature.** `src/gltf/Document.h:5` states the contract — *"EVERY
-FAILURE IS A REFUSAL THAT NAMES WHAT WAS MISSING"* — `doc/requirements.md` § I.26 requires *"every
-exclusion refused by name rather than approximated"*, `KHR_draco_mesh_compression` is one of § I.26.6's
-eleven **REFUSED** rows, and `test/unit/gltf/AFileThatCannotMeanAnythingIsRefusedByName` asserts that
-property over 13 subjects. The reader therefore *looks like* it refuses what it cannot do.
-
-**The harmless explanations, sought and ruled out.** *No Draco file is in the suite* — the corpus table
-counts one, and `doc/bugs.md` above is already widening the fetch allow-list toward the rest. *The zeros
-are the file's fault* — no: the glTF 2.0 spec makes an accessor with no `bufferView` read as zeros, so
-each half is individually correct and it is the absent `extensionsRequired` check that makes the pair
-silent. *This is the all-zero run `e658b21` already closed* — no: that fix leaves `out` empty on a
-**refused** read, and here nothing is refused. The same door is open for `KHR_mesh_quantization`, which
-is worse in kind: the component types cross, so the geometry is not zeros but plausible numbers in the
-wrong units, and the picture is wrong rather than empty.
-
-**The same door, one line away: `asset.minVersion` is unread too.** `Document.cpp:217-219` reads
-`asset.version` and refuses anything that is not `2.0`; the member list of that function contains no
-`minVersion`. The spec's rule is *"the minimum version specified by the `minVersion` property **MUST** be
-less than or equal to the version specified by the `version` property … clients should first check
-whether a `minVersion` property is specified"* (`Specification.adoc:643,648`), so a document declaring
-`"version": "2.0", "minVersion": "2.1"` is a document we must refuse and today read happily. It is the
-same defect class as the extension check, it is fixed at the same site, and it is recorded here rather
-than as its own section because splitting it would make two entries out of one repair.
-
-**Right:** immediately after the `asset.version` check, refuse by name every entry of `extensionsRequired`
-that is not in a declared supported set — today the empty set, so the sentence is `requires extension
-KHR_draco_mesh_compression, which this reader does not implement`. The set is a declaration the reader
-owns, so adding an extension is adding a name to it and nothing else can silently widen.
-Sources: glTF 2.0 specification, *"All glTF extensions required to load and/or render an asset **MUST** be
-listed in the top-level `extensionsRequired` array"*; Khronos extension registry README, *"An extension is
-considered required if a typical glTF loader would fail to load the asset in the absence of support for
-that extension."* **Fixed when** the fixture above is refused with that sentence, and a
-`KHR_mesh_quantization` document is refused with it too.
 
 ## `Node`'s *matrix XOR TRS* invariant is enforced by the reader, 250 lines from the type it protects
 
@@ -1558,68 +1246,6 @@ whose subject is a prepared artefact. Until it exists, the test's own first clai
 present*, distinct from *the subject reads*. A `--allow-skip` entry is the wrong answer — it makes the
 test green forever, which is the defect class this harness was built to close.
 
-## A merged raster pass builds one attachment entry per stage instead of one per target, so the scene pass of any real picture is invalid and, at ten stages, writes past its array
-
-`src/render/Renderer.cpp:631-668`, `EncodePass`. The pass builder loops over the stages of a merged
-pass and appends every target of every stage, guarded only by
-
-```cpp
-for (uint32_t c = 0; c < colourCount; ++c)
-  if (colours[c].view.Get() == View(target).Get()) already = true;
-```
-
-`Renderer::View` (`:288-312`) answers with `HdrTex.CreateView()` — **a freshly created view object on
-every call**. Two calls for one texture return two different objects, so `.Get()` never compares equal
-and the duplicate check never fires. The array it fills is `wgpu::RenderPassColorAttachment
-colours[kMaxEdges * 2]`, sixteen entries, and `colourCount` is bounded by nothing.
-
-**Measured, not argued.** Compiling two declarations against `src/render/plan/RenderPlan.cpp` at
-`235a7ff` (probe under the system temp directory; the plan layer builds with `-Isrc/core
--Isrc/render/plan` alone, so no device is involved):
-
-| declaration | merged scene pass | colour entries built | required | outcome |
-|---|---|---|---|---|
-| coverage — `Subjects` only | 1 stage | 2 | 2 | correct, and this is what the unit test and `test/render/Parity.cpp` exercise |
-| sky·sun·moon·stars·terrain·buildings·water·models | 8 stages | **16** | 2 | `colorAttachmentCount = 16` against WebGPU's `maxColorAttachments = 8` — the pass is refused by the device |
-| the same plus `benchGround` and `subjects` | 10 stages | **20** | 2 | four `wgpu::RenderPassColorAttachment` **written past the end of a 16-element stack array**, every frame |
-
-The whole scene group — `Sky` through `Subjects`, ten catalogue rows — declares the identical
-`Contributes` set `{SceneHdr, SceneVelocity, SceneDepth}`, which is exactly why `Compile` merges them
-into one pass, correctly. The pass descriptor must therefore carry the **union** of the target sets,
-which is two colour attachments and one depth attachment however many stages draw into them. It
-carries the concatenation instead. `Bounds.1`, `Bounds.2`, `SL.con.3`, `ES.103`.
-
-**The harmless explanations, sought and ruled out.** *Dawn might cache texture views so the pointers
-compare equal* — `wgpu::Texture::CreateView` constructs a new refcounted view object per call; nothing
-in the tree holds a cached view to hand back, and `View()` is written as `X ? X.CreateView() :
-wgpu::TextureView()` at eleven sites. *Duplicate attachments might be legal* — they are not; a texture
-view used as more than one attachment of one pass is a WebGPU validation error, and sixteen exceeds the
-limit besides. *It might not be reachable* — it is unreachable **only** because nothing in the tree
-renders a scene yet: the sole `Renderer::Init` caller is `test/render/Parity.cpp:516`, which declares
-one content stage. It fires on the first declaration with two scene stages in it.
-
-**Two more defects live in the same twelve lines.**
-
-- **Every attachment is `LoadOp::Clear`, unconditionally** (`:645-658`), and no field of the catalogue
-  can say otherwise. The comment above `ClearOf` (`:598-601`) calls each clear *"a statement rather
-  than a habit"*, and `EncodePass`'s own comment says *"every field of it comes from the plan"* — the
-  load op does not. Correctness today rests on an accident: the ten scene contributors are contiguous
-  in the enumeration, so `Order_` compaction always puts them in one pass. The first stage that
-  contributes `SceneHdr` after `Occlusion` — blended transparency, particles, a debug overlay, an
-  ordered water pass — opens a second pass over a live attachment and **clears the opaque frame to
-  black**, and nothing refuses it. Right: a load/store op per target on the stage row, `Load` refused
-  where the catalogue has no earlier producer, and a compile-time refusal for a target that is entered
-  by two non-adjacent passes.
-- **`View()` allocates on the hot path.** Every colour attachment, every depth attachment and every
-  duplicate probe creates a texture view; the eight-stage pass would create 24 of them per frame if the
-  dedup worked, plus one per `Bound()` call. `Per.14`, `Per.15`. Right: create each view once, at the
-  point the plan says the resource exists, and let `View()` return a handle.
-
-**Fixed when** a merged pass's descriptor is derived from the union of its stages' target sets — one
-entry per distinct `Resource`, in the catalogue's own order — the array is indexed by `Resource` or
-bounded by an assertion that cannot be exceeded, and a declaration holding two scene stages encodes and
-presents. **Decides it:** the ten-stage declaration above, run against a device.
-
 ## The plan digest does not cover everything that can move a pixel, and three things move one behind its back
 
 `src/render/plan/RenderPlan.cpp:239-254`. The digest's material is the stage set, the derived order, the
@@ -1706,12 +1332,19 @@ bytes: it is that `View(Resource::SceneLinear)` → `Taa->Output(FrameNo)` and `
 answer with a null view instead of failing to compile. The catalogue's read edges are what makes every
 such call correct today; nothing in the type system does.
 
-`RenderFrame` (`Renderer.cpp:676-846`) is 170 lines, down from 310 — camera basis, jitter, ephemeris,
-atmosphere update, frame-context assembly, caster collection, the pass loop and the history swap.
-`F.3`, `F.2`.
+`RenderFrame` is 170 lines, down from 310 — camera basis, jitter, ephemeris, atmosphere update,
+frame-context assembly, caster collection, the pass loop and the history swap. `F.3`, `F.2`.
 
-**Fixed when** a stage object exists because the plan holds its stage, so a call into an unheld stage
-does not compile.
+**And `View()` still creates a texture view per call**, at eleven sites (`Renderer.cpp:290-300`), so
+every colour and depth attachment of every pass allocates one per frame — `Per.14`, `Per.15`. The count
+fell sharply when `AttachmentSet` replaced the per-stage loop (the walk-like scene pass went from 24
+views a frame to 3), which is why this is now a shape finding and not a cost: **no measurement of it
+exists and `Per.6` forbids claiming one.** Right: create each view once, where the plan says the
+resource exists, and let `View()` return a handle.
+
+**Band 3 — waits for the SDL_GPU port**, which rewrites every one of these sites; repairing them first
+would be repairing code about to be deleted. **Fixed when** a stage object exists because the plan holds
+its stage, so a call into an unheld stage does not compile.
 
 ## Three node-transform cases measure an ambient-occlusion estimator at one sample and report the answer as a placement
 
@@ -1744,75 +1377,3 @@ case has more than one, geometry untouched. **Not** separating the cubes — tha
 changing the subject, and it cannot repair `sphere` at all. **Fixed when** two renders at two seeds are
 bit-identical for these three cases, which is a stronger statement than the pixel count falling.
 
-## Every coverage case draws with culling off, so three claims about winding stand on an instrument that cannot see it
-
-`src/render/stages/SubjectDraw.cpp:71` — `rp.primitive.cullMode = wgpu::CullMode::None;`. Every render
-case in `test/render/coverage/` therefore rasterises both facings, and Cycles integrates both too, so
-**reversing the winding of every triangle in a subject changes no pixel of either mask**. The instrument
-is blind on both sides of the comparison, which means the agreement is real and decides nothing about
-facing.
-
-**Three claims are standing on it.**
-
-- `doc/requirements.md` § I.26's scene table and § I.26.5's spine both say rung 3 adds *"indices,
-  winding, back-face culling"*. `test/render/coverage/cube` is green. Two of those three are unmeasured.
-- `test/render/coverage/primitive-modes/manifest.json` declares `"identicalCoverage": ["fan.glb",
-  "triangles.glb"]` and its own note reads *"the strip's own flip rule makes its two triangles the two
-  the list names"*. A strip triangulated **without** the flip yields the same three vertices per
-  triangle in a different order — the same triangle, the same coverage — so the case passes identically
-  whether the rule is applied or not.
-- `src/gltf/Subject.cpp:56-58` states that rule in capitals as the format's and not this file's:
-  *"THE ODD TRIANGLE OF A STRIP IS (i+1, i, i+2), NOT A SLIDING WINDOW."* It is implemented correctly.
-  **No test in the tree reaches it** — `Triangulate` appears nowhere under `test/unit/`, and the only
-  other occurrence of `TRIANGLE_STRIP` in `test/` is that manifest.
-
-**The harmless explanations, sought and ruled out.** *A coverage rung deliberately needs no facing* —
-true of rungs 1, 2 and 4, and the defect is that rung 3 **claims** the two properties culling would
-decide; a rung that names a property its instrument cannot reach is the vacuous gate this repository
-keeps finding. *Culling off is right for the subject path* — it is right for OSM rings, whose winding is
-`Winding::Unknown` by `src/core/SurfaceState.h:13`, and a glTF subject is the opposite case: the format
-**defines** its winding, and `Specification.adoc:1734` makes the determinant of the node's global
-transform decide it. *The oracle would not see it either* — correct, and that is the finding rather than
-an excuse.
-
-**Right:** a subject drawn from a glTF is drawn `Winding::Trusted` with back-face culling on, so a face
-that turns away disappears; the double-sided arm becomes a declared property of the case (`doubleSided`
-is a glTF material field, not a global). Khronos's `NegativeScaleTest` is the asset built for exactly
-this and cannot mean anything until then.
-
-**Fixed when** a `TRIANGLE_STRIP` triangulated without the odd-triangle swap fails
-`render/coverage/primitive-modes`, and a globally reversed cube fails `render/coverage/cube`.
-**Decides it, and the two halves need different instruments — the first version of this line got the
-cube wrong.** An **open** primitive loses its away-facing triangles under culling, so a strip without
-the flip draws **half the quad** and `pixels_disagreeing` moves off 0. A **closed convex** body does
-not: with every triangle reversed the back faces occupy the same outline, so the cube's **silhouette is
-identical** and coverage stays at 0 — what moves is **depth**, to the far surface. Reading a global flip
-as a coverage failure on the cube would be a test that cannot fail for the reason it claims, which is
-the defect this entry is about (`doc/requirements.md` § I.26.14).
-
-## The glTF reader hands a URI to the filesystem undecoded, and the spec makes percent-encoding mandatory
-
-`src/gltf/Document.cpp:194` — `std::ifstream file(directory + uri, std::ios::binary);`. The `uri` is
-taken verbatim from the JSON (`:182`) and concatenated onto the directory. It is the only URI resolution
-in the tree, and it performs no percent-decoding, no reserved-character handling and no rejection of a
-path that leaves the case directory.
-
-glTF 2.0, `specification/2.0/Specification.adoc:550`: *"Relative paths … **MUST** be percent-encoded"* for
-reserved characters. Khronos ships **`Box With Spaces`** (CC0-1.0, tagged `testing`) as the asset that
-exposes the failure, and at the pinned SHA its three image URIs are `Normal%20Map.png`,
-`glTF%20Logo%20With%20Spaces.png` and `Roughness%20Metallic.png` while its buffer URI carries literal
-spaces — so a reader that concatenates opens the buffer and then cannot find one texture of three.
-
-**The harmless explanations, sought.** *No file in the corpus needs it today* — half true and it does not
-clear the line: no **buffer** URI in the corpus is percent-encoded, but the image URIs of the asset built
-for this are, and the same concatenation is what an image path will use. *A refusal would still be
-correct* — no: the sentence would be `names Normal%20Map.png, which cannot be opened`, which names the
-symptom and hides the cause, and `src/gltf/Document.h:5` promises a refusal that **names what was
-missing**. *It is a missing feature, not a bug* — the code reads the `uri` member and resolves it; it
-claims to do the thing and does it wrongly for a documented input class.
-
-**Right:** one decode step between the JSON string and the path — percent-decode, refuse a URI with a
-scheme or an authority (§ the spec's `path-noscheme`), refuse a resolved path that escapes the document's
-directory — applied at the single site both buffers and images will use. **Fixed when** a document naming
-`Box%20With%20Spaces.bin` opens the file `Box With Spaces.bin`, and one naming `../secret` is refused by
-name.
