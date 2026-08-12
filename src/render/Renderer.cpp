@@ -167,6 +167,7 @@ void Renderer::OnDevice(wgpu::Device d) {
   CreateTerrainPipeline();   /* creates DepthTex, which the cloud pass samples */
   BenchGround->Configure(gpu, Light());
   Geometry->Models().Configure(gpu, Light());
+  Geometry->Subjects().Configure(gpu);
   CreateClouds();
   CreateResolvePipeline();
   CreatePresent();          /* also Init()s Present (needs FrameTex, created here) */

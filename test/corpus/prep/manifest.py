@@ -108,8 +108,9 @@ class Manifest:
         self.document = _fields(
             "manifest",
             document,
-            ("schema", "schemaVersion", "id", "title", "covers", "subjects", "blender", "scene", "renders", "acceptance"),
-            ("notes",),
+            ("schema", "schemaVersion", "id", "title", "covers", "subjectClass", "subjects", "blender",
+             "scene", "renders"),
+            ("notes", "expected", "acceptance"),
         )
         if self.document["schema"] != SCHEMA:
             raise Refusal("manifest.schema", expected=SCHEMA, observed=self.document["schema"])
@@ -124,7 +125,15 @@ class Manifest:
         self.blender_version = _blender(self.document["blender"])
         self.scene = _Scene(self.document["scene"])
         self.renders = _renders(self.document["renders"])
-        self.acceptance = _acceptance(self.document["acceptance"])
+        self.subject_class = _one_of("manifest.subjectClass", self.document["subjectClass"],
+                                     ("opaque-min-1px", "sub-pixel-present"))
+        # THE THRESHOLDS ARE THE RUNNER'S, NOT THIS FILE'S. A manifest's `acceptance` block carries
+        # only what it OVERRIDES over the suite's declared defaults, so it is optional and may be
+        # absent entirely -- which is what a case that earns no override looks like. What is checked
+        # here is the SHAPE every declared number must have; which keys may be overridden, and that an
+        # override equal to the default is a refusal, belongs to the one program that reads them.
+        self.expected = _quantities("manifest.expected", self.document.get("expected"))
+        self.acceptance = _quantities("manifest.acceptance", self.document.get("acceptance"))
 
         for name in self.output_names():
             if name in RESERVED_OUTPUT_NAMES:
@@ -456,19 +465,13 @@ def _colour_management(where, value):
     return field
 
 
-def _acceptance(value):
-    """Stated before the run and read from here, so a number cannot be edited to match a result."""
-    if not isinstance(value, dict) or not value:
-        raise Refusal("manifest.acceptance", expected="a non-empty object", observed=repr(value))
-    out = {}
-    for group in sorted(value):
-        entries = value[group]
-        if not isinstance(entries, dict) or not entries:
-            raise Refusal("manifest.acceptance." + group, expected="a non-empty object", observed=repr(entries))
-        out[group] = {}
-        for name in sorted(entries):
-            out[group][name] = _quantity("manifest.acceptance.%s.%s" % (group, name), entries[name])
-    return out
+def _quantities(where, value):
+    """Stated before the run and read from there, so a number cannot be edited to match a result."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise Refusal(where, expected="an object of declared numbers", observed=repr(value))
+    return {name: _quantity(where + "." + name, value[name]) for name in sorted(value)}
 
 
 class _Conversion:

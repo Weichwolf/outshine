@@ -8,9 +8,10 @@
  * optical axis, so its perspective image is a similarity and the shoelace area is closed form.
  *
  * THE EDGE ANGLES ARE THE HANDEDNESS CHECK AND THE AREA IS NOT. Area survives a mirrored x axis, a
- * flipped raster row order and a roll of the wrong sign; 12, 57 and 102 degrees survive none of them.
- * The three values are the manifest's own, stated there in prose as the reason the camera admits no
- * axis-aligned edge, and made checkable here.
+ * flipped raster row order and a roll of the wrong sign; 157.5, 22.5 and 67.5 degrees survive none of
+ * them. The three values are the manifest's own, stated there in prose as the reason the camera
+ * admits no axis-aligned edge, and made checkable here -- and all three sit 22.5 degrees off the
+ * nearest raster axis, which is the MAXIMUM of that minimum over every roll.
  *
  * THE SUBJECT CARRIES NO NORMAL AND THAT IS NOT REPAIRED (doc/requirements.md I.26): the reader is
  * asked for one below and must name what is missing. */
@@ -23,47 +24,17 @@
 
 #include "Document.h"
 #include "Json.h"
+#include "Subject.h"
 
 using outshine::Json;
 using outshine::Gltf::Document;
+using outshine::Gltf::Placement;
 using outshine::Gltf::Transform;
 using outshine::Gltf::Viewport;
 
 namespace {
 
 const char *const kCase = "test/render/coverage/triangle/";
-
-/* The manifest declares the camera as a position, an aim and a roll -- Blender's placement, not
- * glTF's, because this subject's file carries no camera at all. Building it needs one convention
- * this side has to state: POSITIVE ROLL TURNS THE CAMERA'S RIGHT VECTOR TOWARDS ITS UP VECTOR. It is
- * pinned by the oracle's own camera matrix, whose right vector is (cos 12, sin 12, 0) in glTF axes. */
-Transform CameraWorld(const double eye[3], const double aim[3], double rollRad) {
-  double forward[3] = {aim[0] - eye[0], aim[1] - eye[1], aim[2] - eye[2]};
-  const double reach =
-      std::sqrt(forward[0] * forward[0] + forward[1] * forward[1] + forward[2] * forward[2]);
-  for (double &component : forward) { component /= reach; }
-  const double worldUp[3] = {0.0, 1.0, 0.0};
-  double right[3] = {forward[1] * worldUp[2] - forward[2] * worldUp[1],
-                     forward[2] * worldUp[0] - forward[0] * worldUp[2],
-                     forward[0] * worldUp[1] - forward[1] * worldUp[0]};
-  const double span = std::sqrt(right[0] * right[0] + right[1] * right[1] + right[2] * right[2]);
-  for (double &component : right) { component /= span; }
-  const double up[3] = {right[1] * forward[2] - right[2] * forward[1],
-                        right[2] * forward[0] - right[0] * forward[2],
-                        right[0] * forward[1] - right[1] * forward[0]};
-  const double turn = std::cos(rollRad);
-  const double lean = std::sin(rollRad);
-  Transform world;
-  for (int axis = 0; axis < 3; ++axis) {
-    world.M[axis] = right[axis] * turn + up[axis] * lean;
-    world.M[4 + axis] = up[axis] * turn - right[axis] * lean;
-    world.M[8 + axis] = -forward[axis];
-    world.M[12 + axis] = eye[axis];
-  }
-  world.M[3] = world.M[7] = world.M[11] = 0.0;
-  world.M[15] = 1.0;
-  return world;
-}
 
 std::string Slurp(const std::string &path) {
   std::ifstream file(path, std::ios::binary);
@@ -100,8 +71,18 @@ int main() {
   CHECK(viewport.WidthPx == 1280.0 && viewport.HeightPx == 720.0,
         "the manifest's render recipe is the 1280x720 frame the oracle was rendered at");
 
+  /* THE SUBJECT IS FETCHED, NOT TRACKED (doc/requirements.md I.26.10: a case directory's only
+   * tracked file is its manifest), so on a fresh clone it is absent and that is a statement about
+   * the tree rather than about the reader. It is RED and it is not a skip -- a tier that skipped
+   * here could not be told from one that passed having read nothing. */
+  const std::string subjectPath = std::string(kCase) + "scene.gltf";
+  if (Slurp(subjectPath).empty()) {
+    Unprepared(subjectPath.c_str());
+    return Report();
+  }
+
   Document document;
-  const bool read = document.ReadFile(std::string(kCase) + "scene.gltf");
+  const bool read = document.ReadFile(subjectPath);
   CHECK(read, "the Khronos Triangle reads as a .gltf with its buffer beside it");
   if (!read) {
     std::printf("       %s\n", document.Error().c_str());
@@ -124,17 +105,18 @@ int main() {
         "three vertices and three indices, which is what the file declares");
   if (positions.size() != 9 || indices.size() != 3) { return Report(); }
 
-  outshine::Gltf::Camera lens;
-  lens.YfovRad = declared["yfovRad"].Num(0.0);
-  lens.ZNearM = declared["clipStartM"].Num(0.0);
-  lens.ZFarM = declared["clipEndM"].Num(0.0);
-
-  Transform projection;
-  CHECK(lens.Projection(viewport.Aspect(), projection), "the declared lens yields a projection");
-  Transform view;
-  CHECK(CameraWorld(eye, aim, declared["rollRad"].Num(0.0)).Inverse(view),
-        "the declared camera placement inverts to a view transform");
-  const Transform clip = projection * view;
+  /* The placement convention -- POSITIVE ROLL TURNS THE CAMERA'S RIGHT VECTOR TOWARDS ITS UP VECTOR,
+   * so the image of the world rotates by the opposite sign -- is stated once, in src/gltf, and this
+   * test reads it from there rather than restating it. A second copy is how the two come to disagree
+   * on the day one of them is corrected. */
+  Placement place;
+  CHECK(Placement::LookAt(eye, aim, declared["rollRad"].Num(0.0), place),
+        "the declared camera placement resolves to a camera basis");
+  place.YfovRad = declared["yfovRad"].Num(0.0);
+  place.ZNearM = declared["clipStartM"].Num(0.0);
+  place.ZFarM = declared["clipEndM"].Num(0.0);
+  Transform clip;
+  CHECK(place.Clip(viewport.Aspect(), clip), "the declared lens and placement yield a projection");
 
   double raster[3][2] = {{0, 0}, {0, 0}, {0, 0}};
   double closestEdgePx = 1e30;
@@ -156,26 +138,30 @@ int main() {
                                   (raster[2][0] - raster[0][0]) * (raster[1][1] - raster[0][1])) /
                         2.0;
   const double fraction = areaPx / (viewport.WidthPx * viewport.HeightPx);
-  const Json::Ref accepted =
-      manifest.Root()["acceptance"]["coverage"]["subjectFrameFraction"];
+  const Json::Ref accepted = manifest.Root()["expected"]["subjectFrameFraction"];
   const double expected = accepted["value"].Num(0.0);
   CHECK(expected > 0.0, "the manifest states the projected frame fraction it derived");
-  /* The manifest carries six decimals, which is the tolerance available from it; the ninth digit is
-   * in the note below, where the next round can read it without re-deriving anything. */
+  /* The manifest carries nine decimals, which is what the runner recomputes against; the tolerance
+   * is far above float noise and far below the 1.65x framing error this number exists to pin. */
   CHECK_NEAR(fraction, expected, 5e-7, "dimensionless",
              "the reader's projection of the fetched vertices reproduces the oracle's analytic "
              "projected area fraction");
   Note("projected frame fraction", fraction, "dimensionless");
   Note("projected area", areaPx, "px^2");
 
-  /* 12, 57 and 102 degrees: the manifest's own statement of what the 12-degree roll does to the
-   * subject's three edges in raster space. */
-  const double expectedAngles[3] = {12.0, 57.0, 102.0};
+  /* 157.5, 22.5 and 67.5 degrees: the manifest's own statement of what the -22.5-degree roll does to
+   * the subject's three edges in raster space, and every one of them is 22.5 degrees off the nearest
+   * raster axis. */
+  const double expectedAngles[3] = {157.5, 22.5, 67.5};
   for (int edge = 0; edge < 3; ++edge) {
     const double got = AngleDeg(raster[edge], raster[(edge + 1) % 3]);
     CHECK_NEAR(got, expectedAngles[edge], 1e-6, "deg",
                "each edge sits where the declared roll, the aspect and the raster row order put it "
                "-- which no mirrored axis and no roll of the wrong sign survives");
+    const double intoQuadrant = std::fmod(got, 90.0);
+    CHECK_NEAR(std::fmin(intoQuadrant, 90.0 - intoQuadrant), 22.5, 1e-6, "deg",
+               "no edge is axis-aligned, and the closest one is as far from an axis as any roll can "
+               "put it");
   }
 
   Covers("I.26 the reader: buffers, bufferViews, accessors, meshes, nodes and the camera, checked "

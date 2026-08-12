@@ -40,6 +40,7 @@ private:
 inline Tally Checks;
 inline Tally Failures;
 inline Tally Skips;
+inline Tally Unprepareds;
 
 inline void Checked(bool held, const char *expression, const char *claim, const char *file,
                     int line) {
@@ -73,6 +74,18 @@ inline void Note(const char *what) { std::printf("NOTE %s\n", what); }
  * comment naming a requirement is covered by nothing. */
 inline void Covers(const char *requirement) { std::printf("COVERS %s\n", requirement); }
 
+/* WHAT THE TREE DOES NOT CARRY YET, AND THAT IS NOT THE SAME AS A SKIP. The corpus is untracked by
+ * design (doc/requirements.md I.26.10: a case directory's only tracked file is its manifest), so a
+ * fresh clone has the declarations and none of the fetched, converted or rendered inputs. A test that
+ * SKIPPED there would be indistinguishable from a test that passed having compared nothing -- the
+ * same vacuous shape as two empty images, one level up. So this is its own word, it is RED, and the
+ * harness counts it in the trailer, which is what makes a run over an empty corpus unable to read as
+ * a clean run. */
+inline void Unprepared(const char *what) {
+  ++Unprepareds;
+  std::printf("UNPREPARED %s -- run test/corpus/prepare.py\n", what);
+}
+
 /* A SKIP IS SPELLED HERE OR NOWHERE. It used to be an exit status the harness recognised, which made
  * it indistinguishable from that many failed claims; it is a declared word in the trailer now. */
 inline void Skip(const char *why) {
@@ -84,14 +97,14 @@ inline void Skip(const char *why) {
  * body was compiled away, and both are silence wearing a green hat. The return value is one bit
  * because the trailer already carries the count — a status that tried to carry it lied at 256. */
 [[nodiscard]] inline int Report() {
-  if (Checks.Value() == 0 && Skips.Value() == 0) {
+  if (Checks.Value() == 0 && Skips.Value() == 0 && Unprepareds.Value() == 0) {
     ++Failures;
     std::printf("FAIL no claim was checked\n");
   }
-  std::printf("CHECKS %d FAILURES %d SKIPPED %d\n", Checks.Value(), Failures.Value(),
-              Skips.Value());
+  std::printf("CHECKS %d FAILURES %d SKIPPED %d UNPREPARED %d\n", Checks.Value(),
+              Failures.Value(), Skips.Value(), Unprepareds.Value());
   std::fflush(stdout);
-  return Failures.Value() == 0 ? 0 : 1;
+  return (Failures.Value() == 0 && Unprepareds.Value() == 0) ? 0 : 1;
 }
 
 } // namespace outshine::Test

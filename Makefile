@@ -77,7 +77,7 @@ INC_RENDER := $(INC_CORE) -Isrc/render -Isrc/render/stages
 # one translation unit: -Isrc/render is absent, so the headless target's half cannot reach a renderer.
 INC_SIMHALF := $(INC_CORE) -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 # ...and the picture half over it, the one set that holds everything.
-INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw $(INC_RENDER)
+INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
 # THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names. An entry point
 # is the only thing that may see this directory: it constructs the wire and hands it over.
 INC_HOST := -Isrc/core -Isrc/data -Itest/host
@@ -114,6 +114,13 @@ GEN_DRAW_SRCS := $(wildcard src/generators/draw/*.cpp)
 # links the drawing half against these two alone and against no other generator, so it needs the
 # pair spelled out where the wildcards above are too wide.
 PLANT_DECL_SRCS := src/generators/TreeSpecies.cpp src/generators/GrowthForm.cpp
+# THE glTF BOUNDARY, its own COMPILE GROUP: it may name core and its own directory and nothing else,
+# so a reader that reached for the renderer or the world would not build. It is in the client target
+# because src/clients/GltfStudio.cpp -- the setup call that puts a declared glTF subject in front of
+# a declared camera -- is part of the library's public surface, and a surface nothing compiles rots.
+GLTF_SRCS := $(wildcard src/gltf/*.cpp)
+INC_GLTF := -Isrc/core -Isrc/gltf
+
 # ...and the same statement one level up, for Renderer and its neighbours.
 RENDER_TOP_SRCS := $(wildcard src/render/*.cpp)
 RENDER_SRCS := $(RENDER_TOP_SRCS) $(RENDER_STAGE_SRCS)
@@ -134,7 +141,7 @@ SIM_SRCS := src/clients/Sim.cpp \
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds
 # a scene; a test adds an entry point and an output medium over it. That is what `make
 # verify-clients` holds them to.
-APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
+APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp src/clients/GltfStudio.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
   src/clients/StandField.cpp src/clients/FileArtifacts.cpp \
   src/clients/FrameTelemetry.cpp \
@@ -143,6 +150,7 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
 # Named, not `build/obj-<target>/*.o`: the glob would link whatever a PREVIOUS target had left in
 # there. One function of the object directory, so the targets name the same six groups.
 OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
+  $(patsubst src/gltf/%.cpp,$(1)/gltf-%.o,$(GLTF_SRCS)) \
   $(patsubst src/core/io/%.cpp,$(1)/core-%.o,$(CORE_IO_SRCS)) \
   $(patsubst src/data/%.cpp,$(1)/data-%.o,$(DATA_SRCS)) \
   $(patsubst src/scenario/%.cpp,$(1)/scn-%.o,$(SCENARIO_SRCS)) \
@@ -196,6 +204,8 @@ define NATIVE_BUILD
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SCENARIO) -c -o "$$o"; done; \
 	  for f in $(HOST_SRCS); do o=$(1)/host-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	  for f in $(GLTF_SRCS); do o=$(1)/gltf-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GLTF) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(GEN_DRAW_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
@@ -243,6 +253,8 @@ world:           ## build the headless target -- everything except render/, no d
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SCENARIO) -c -o "$$o"; done; \
 	  for f in $(HOST_SRCS); do o=build/obj-world/host-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	  for f in $(GLTF_SRCS); do o=build/obj-world/gltf-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GLTF) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(SIM_SRCS); do o=build/obj-world/sim-$$(basename $$f .cpp).o; \

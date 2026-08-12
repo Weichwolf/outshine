@@ -106,8 +106,38 @@ LayerIncludes() {
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/data -Isrc/gltf -Isrc/scenario -Isrc/generators -Isrc/generators/draw" ;;
+    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     *) return 1 ;;
+  esac
+}
+
+# WHAT A LAYER COMPILES AND LINKS WITH BEYOND ITS INCLUDES, and there are exactly two answers. Every
+# unit layer wants nothing: the shell, the compiler and the clock are the whole dependency set, which
+# is what lets this harness report "the build is broken" without needing the build.
+#
+# `render` IS THE ONE EXCEPTION AND IT IS NOT A CHOICE. A render case's verdict is "our pixels agree
+# with Cycles", so its subject is the renderer -- the device, the pass topology, the raster
+# convention. Anything that stood in for them would be a second rasteriser scoring itself. So this
+# layer takes the renderer's own toolchain: C++20, native Dawn, SDL3_image for the PNG encode, and
+# the platform frameworks Metal needs.
+DAWN_OUT=vendor/dawn/out
+DAWN_LIBDIR=$DAWN_OUT/src/dawn/native
+LayerToolchain() {
+  case "$1" in
+    render) printf '%s' "-std=c++20 -isystem $DAWN_OUT/gen/include -isystem vendor/dawn/include -isystem vendor" ;;
+    *) printf '%s' "$CXXSTD" ;;
+  esac
+}
+LayerLink() {
+  case "$1" in
+    render)
+      platform=""
+      if [ "$(uname -s)" = Darwin ]; then
+        platform="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"
+      fi
+      printf '%s' "-L$DAWN_LIBDIR -lwebgpu_dawn $(pkg-config --libs sdl3-image) -lpthread -ldl -lm $platform"
+      ;;
+    *) printf '%s' "" ;;
   esac
 }
 
@@ -128,8 +158,20 @@ LayerGroups() {
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/world) printf '%s' "" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "src/core src/core/io src/data src/gltf src/scenario src/generators src/generators/draw" ;;
+    render) printf '%s' "src/core src/core/io src/gltf src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Png.cpp" ;;
     *) return 1 ;;
+  esac
+}
+
+# WHAT ONE TEST SOURCE IS RUN OVER. Every layer but `render` runs its binary once, with no argument.
+# A RENDER CASE IS A DIRECTORY (doc/requirements.md I.26.10): the runner is built once and invoked
+# once per case directory with the directory as its argument, so what is shared is the CODE and never
+# the process -- still one process and one real verdict per case, and a crash in case 137 fails case
+# 137 and nothing else.
+LayerCases() {
+  case "$1" in
+    render) find test/render -name manifest.json | sed -e 's|/manifest.json$||' | sort ;;
+    *) printf '%s' "" ;;
   esac
 }
 
@@ -156,7 +198,19 @@ GroupIncludes() {
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
+    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
+    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    src/clients/Png.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
+  esac
+}
+
+# A SOURCE THAT NEEDS MORE THAN THE HOUSE STANDARD SAYS SO ONCE. The renderer is C++20 and speaks to
+# Dawn; nothing else in the tree is either.
+GroupToolchain() {
+  case "$1" in
+    src/render | src/render/stages | src/clients/GltfStudio.cpp) LayerToolchain render ;;
+    *) printf '%s' "$CXXSTD" ;;
   esac
 }
 
@@ -177,15 +231,23 @@ UpToDate() {
   return 0
 }
 
+# A GROUP IS A DIRECTORY, OR ONE NAMED FILE. The second form exists because a render case needs the
+# PNG encoder and nothing else out of src/clients, and pulling the whole directory in would link the
+# world simulation into a test whose subject is one triangle.
 BuildGroup() {
   group=$1
   groupIncludes=$(GroupIncludes "$group") || Die "no include set declared for the source group $group"
-  for unit in "$group"/*.cpp; do
+  groupStd=$(GroupToolchain "$group")
+  case "$group" in
+    *.cpp) groupUnits=$group ;;
+    *) groupUnits=$(find "$group" -maxdepth 1 -name '*.cpp' | sort) ;;
+  esac
+  for unit in $groupUnits; do
     [ -e "$unit" ] || continue
-    unitObject=$BUILD/obj/$(printf '%s' "$group" | tr / -)-$(basename "$unit" .cpp).o
+    unitObject=$BUILD/obj/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).o
     if ! UpToDate "$unitObject" "$unit"; then
       # shellcheck disable=SC2086
-      $CXX "$unit" $CXXSTD $OPT $WARN -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
+      $CXX "$unit" $groupStd $OPT $WARN -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
@@ -201,8 +263,13 @@ RunWithTimeout() {
   binary=$1
   log=$2
   marker=$3
+  runArgument=$4
   rm -f "$marker"
-  "$binary" >"$log" 2>&1 &
+  if [ -n "$runArgument" ]; then
+    "$binary" "$runArgument" >"$log" 2>&1 &
+  else
+    "$binary" >"$log" 2>&1 &
+  fi
   child=$!
   RUNNING_GROUPS=$child
   (
@@ -230,6 +297,7 @@ RunWithTimeout() {
 TRAILER_CHECKS=0
 TRAILER_FAILURES=0
 TRAILER_SKIPS=0
+TRAILER_UNPREPARED=0
 Number() {
   case "$1" in
     '' | *[!0-9]*) return 1 ;;
@@ -244,13 +312,15 @@ ReadTrailer() {
     Die "$trailerId printed $trailerCount verdict lines and a verdict is exactly one: a test that emits none did not include the reporter, and one that emits two reported twice -- $trailerLog"
   # shellcheck disable=SC2046
   set -- $(grep '^CHECKS ' "$trailerLog")
-  [ $# -eq 6 ] && [ "$1" = CHECKS ] && [ "$3" = FAILURES ] && [ "$5" = SKIPPED ] ||
+  [ $# -eq 8 ] && [ "$1" = CHECKS ] && [ "$3" = FAILURES ] && [ "$5" = SKIPPED ] &&
+    [ "$7" = UNPREPARED ] ||
     Die "$trailerId printed a verdict line the reporter cannot have written -- $trailerLog"
-  Number "$2" && Number "$4" && Number "$6" ||
+  Number "$2" && Number "$4" && Number "$6" && Number "$8" ||
     Die "$trailerId printed a verdict line whose counts are not numbers -- $trailerLog"
   TRAILER_CHECKS=$2
   TRAILER_FAILURES=$4
   TRAILER_SKIPS=$6
+  TRAILER_UNPREPARED=$8
   return 0
 }
 
@@ -300,8 +370,96 @@ timedout=0
 signalled=0
 unbuilt=0
 skipped=0
+unprepared=0
 undeclaredSkips=0
 inverted=0
+
+# ONE INVOCATION, RUN AND JUDGED. It is a function because a render source is invoked once per case
+# directory and every other source once with no argument: the judgement must be the SAME judgement,
+# and a second copy of it inside the render arm is how the two would come to disagree.
+#   $1 the id printed and judged under   $2 the binary   $3 the argument, or empty
+Judge() {
+  judgeId=$1
+  judgeBinary=$2
+  judgeArgument=$3
+  log=$BUILD/log/$(printf '%s' "$judgeId" | tr / -).log
+  marker=$judgeBinary.timeout
+  before=$(Now)
+
+  failures=0
+  skips=0
+  unpreparedHere=0
+  RunWithTimeout "$judgeBinary" "$log" "$marker" "$judgeArgument"
+  status=$?
+  if [ -f "$marker" ]; then
+    verdict=TIMEOUT
+  elif [ "$status" -ge 128 ]; then
+    verdict=SIGNAL
+  else
+    ReadTrailer "$judgeId" "$log"
+    failures=$TRAILER_FAILURES
+    skips=$TRAILER_SKIPS
+    unpreparedHere=$TRAILER_UNPREPARED
+    expected=0
+    { [ "$failures" -eq 0 ] && [ "$unpreparedHere" -eq 0 ]; } || expected=1
+    [ "$status" -eq "$expected" ] ||
+      Die "$judgeId reported FAILURES $failures UNPREPARED $unpreparedHere and exited $status, which do not agree: the reporter's answer was discarded, altered, or never returned -- $log"
+    if [ "$failures" -gt 0 ]; then
+      verdict=FAIL
+    elif [ "$unpreparedHere" -gt 0 ]; then
+      verdict=UNPREP
+    elif [ "$skips" -gt 0 ]; then
+      verdict=SKIP
+    else
+      verdict=PASS
+    fi
+  fi
+  Record "$judgeId" "$(( $(Now) - before ))"
+}
+
+# WHAT A VERDICT DOES TO THE RUN. Separate from Judge so that a build failure -- which prints no
+# trailer and can therefore not be judged from one -- is recorded by exactly the same counter.
+Record() {
+  recordId=$1
+  recordMs=$2
+  if wanted=$(DeclaredFailures "$recordId"); then
+    if [ "$verdict" = FAIL ] && [ "$failures" -eq "$wanted" ]; then
+      verdict=PASS
+      inverted=$((inverted + 1))
+    else
+      printf 'run.sh: %s is declared to fail %s claim(s) and reported %s (%s failed)\n' \
+        "$recordId" "$wanted" "$verdict" "$failures" >&2
+      verdict=FAIL
+    fi
+  fi
+
+  case "$verdict" in
+    PASS) passed=$((passed + 1)) ;;
+    FAIL) failed=$((failed + 1)) ;;
+    TIMEOUT)
+      timedout=$((timedout + 1))
+      printf 'run.sh: %s was killed after %s s\n' "$recordId" "$TIMEOUT_S" >&2
+      ;;
+    SIGNAL)
+      signalled=$((signalled + 1))
+      printf 'run.sh: %s died on SIG%s\n' "$recordId" "$(kill -l $((status - 128)) 2>/dev/null)" >&2
+      ;;
+    BUILD) unbuilt=$((unbuilt + 1)) ;;
+    UNPREP)
+      unprepared=$((unprepared + 1))
+      printf 'run.sh: %s has no prepared input -- run test/corpus/prepare.py\n' "$recordId" >&2
+      ;;
+    SKIP)
+      skipped=$((skipped + 1))
+      if ! SkipAllowed "$recordId"; then
+        undeclaredSkips=$((undeclaredSkips + 1))
+        printf 'run.sh: %s skipped and no --allow-skip %s was given\n' "$recordId" "$recordId" >&2
+      fi
+      ;;
+  esac
+
+  printf '%-7s %-46s %6s ms  %s\n' "$verdict" "$recordId" "$recordMs" "$log"
+}
 
 for testSource in $TESTS; do
   layer=$(dirname "${testSource#test/}")
@@ -309,10 +467,11 @@ for testSource in $TESTS; do
   id="$layer/$name"
   includes=$(LayerIncludes "$layer") || Die "test/$layer stopped resolving between the check and the build"
   groups=$(LayerGroups "$layer") || Die "test/$layer stopped resolving between the check and the build"
+  toolchain=$(LayerToolchain "$layer")
+  linkage=$(LayerLink "$layer")
 
   log=$BUILD/log/$(printf '%s' "$id" | tr / -).log
   binary=$BUILD/$(printf '%s' "$id" | tr / -)
-  marker=$binary.timeout
 
   before=$(Now)
   OBJECTS=""
@@ -329,85 +488,43 @@ for testSource in $TESTS; do
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
-    $CXX "$testSource" $OBJECTS $CXXSTD $OPT $WARN -Itest $includes "$compileDefine" -o "$binary" >>"$log" 2>&1 || built=no
+    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN -Itest $includes "$compileDefine" $linkage -o "$binary" >>"$log" 2>&1 || built=no
   fi
 
-  # A BUILD FAILURE, A TIMEOUT AND A SIGNAL ARE JUDGED BEFORE THE TRAILER, because none of the three
-  # can be expected to have printed one -- and a test that crashed after printing one would otherwise
-  # be read out of its own corpse.
-  failures=0
-  skips=0
+  # A BUILD FAILURE IS JUDGED BEFORE ANY TRAILER, because a binary that does not exist cannot print
+  # one -- and a test that crashed after printing one would otherwise be read out of its own corpse.
   if [ "$built" = no ]; then
+    failures=0
+    skips=0
     verdict=BUILD
-  else
-    RunWithTimeout "$binary" "$log" "$marker"
-    status=$?
-    if [ -f "$marker" ]; then
-      verdict=TIMEOUT
-    elif [ "$status" -ge 128 ]; then
-      verdict=SIGNAL
-    else
-      ReadTrailer "$id" "$log"
-      failures=$TRAILER_FAILURES
-      skips=$TRAILER_SKIPS
-      expected=0
-      [ "$failures" -eq 0 ] || expected=1
-      [ "$status" -eq "$expected" ] ||
-        Die "$id reported FAILURES $failures and exited $status, which do not agree: the reporter's answer was discarded, altered, or never returned -- $log"
-      if [ "$failures" -gt 0 ]; then
-        verdict=FAIL
-      elif [ "$skips" -gt 0 ]; then
-        verdict=SKIP
-      else
-        verdict=PASS
-      fi
-    fi
+    Record "$id" "$(( $(Now) - before ))"
+    continue
   fi
 
-  if wanted=$(DeclaredFailures "$id"); then
-    if [ "$verdict" = FAIL ] && [ "$failures" -eq "$wanted" ]; then
-      verdict=PASS
-      inverted=$((inverted + 1))
-    else
-      printf 'run.sh: %s is declared to fail %s claim(s) and reported %s (%s failed)\n' \
-        "$id" "$wanted" "$verdict" "$failures" >&2
-      verdict=FAIL
-    fi
+  cases=$(LayerCases "$layer")
+  if [ -z "$cases" ]; then
+    Judge "$id" "$binary" ""
+    continue
   fi
-
-  elapsed=$(( $(Now) - before ))
-  case "$verdict" in
-    PASS) passed=$((passed + 1)) ;;
-    FAIL) failed=$((failed + 1)) ;;
-    TIMEOUT)
-      timedout=$((timedout + 1))
-      printf 'run.sh: %s was killed after %s s\n' "$id" "$TIMEOUT_S" >&2
-      ;;
-    SIGNAL)
-      signalled=$((signalled + 1))
-      printf 'run.sh: %s died on SIG%s\n' "$id" "$(kill -l $((status - 128)) 2>/dev/null)" >&2
-      ;;
-    BUILD) unbuilt=$((unbuilt + 1)) ;;
-    SKIP)
-      skipped=$((skipped + 1))
-      if ! SkipAllowed "$id"; then
-        undeclaredSkips=$((undeclaredSkips + 1))
-        printf 'run.sh: %s skipped and no --allow-skip %s was given\n' "$id" "$id" >&2
-      fi
-      ;;
-  esac
-
-  printf '%-7s %-46s %6s ms  %s\n' "$verdict" "$id" "$elapsed" "$log"
+  # A DECLARATIVE SUITE WITH NO DECLARATION IS THE VACUOUS GATE IN ITS PUREST FORM: a runner that
+  # runs over nothing and reports nothing, green. The enumeration is the tracked manifests, so this
+  # can only be empty if the suite itself is.
+  for caseDirectory in $cases; do
+    Judge "${caseDirectory#test/}" "$binary" "$caseDirectory"
+  done
 done
 
-total=$((passed + failed + timedout + signalled + unbuilt + skipped))
-printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  in %s ms\n' \
-  "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" \
+total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))
+printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
+  "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$(( $(Now) - started ))"
 [ "$inverted" -gt 0 ] && printf 'expect-fail inverted: %s\n' "$EXPECT_FAIL"
 
-# A SKIP IS RED UNLESS IT WAS DECLARED ON THE COMMAND LINE. A silent skip is the defect class this
-# repository keeps finding, wearing a harness's hat.
-red=$((failed + timedout + signalled + unbuilt + undeclaredSkips))
+# A SKIP IS RED UNLESS IT WAS DECLARED ON THE COMMAND LINE, AND AN UNPREPARED CASE IS RED WITH NO
+# WAY TO DECLARE IT AWAY. A silent skip is the defect class this repository keeps finding, wearing a
+# harness's hat; an unprepared corpus wearing a skip's hat would be the same defect one level up --
+# a tier that skips when its inputs are absent cannot be told from a tier that passed having tested
+# nothing.
+red=$((failed + timedout + signalled + unbuilt + undeclaredSkips + unprepared))
 [ "$red" -eq 0 ] || exit 1
 exit 0

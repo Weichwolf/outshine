@@ -58,14 +58,19 @@ BUILD_CALLS = re.compile(
     r"\.(SetVegetationTable|SetSkyClock|SetWind|SetWindClock|SetExposure|SetFovDeg|SetOrthoM|"
     r"SetPrototypeLevel|SetPrototypeSheets|SetPrototypeDetail|SetPrototypeMaterial|"
     r"SetPrototypeHeightM|SetPrototypeBounds|SetPrototypeSubject|SetPrototypeInstances|"
-    r"BakePrototypeImpostor|SetMoonTexture|SetStars|SetCameraBasis|SetSceneState)\s*\(")
+    r"BakePrototypeImpostor|SetMoonTexture|SetStars|SetCameraBasis|SetSceneState|SetSubjectMesh)\s*\(")
 # The ONE place a scene is built. `world/` was on this list while it still drove the renderer; the
 # headless target is what removed that, so a scene-building call under world/ is now a stray.
 BUILDERS = ("src/clients/Outshine.cpp",)
 # THE SUBJECT BENCH reaches past the system on purpose: it replaces the world and the light with
 # declared ones and judges a single plant. Its length is printed so that a second one moves a number
 # in a diff.
-BENCH_BUILDERS = ("src/clients/SceneRunner.cpp", "src/clients/SubjectBench.cpp")
+# `GltfStudio.cpp` is the third and it is the SETUP API rather than a bench: it is what a C++
+# consumer calls to put a declared glTF subject in front of a declared camera, and what a scenario
+# loader that declared one would call with what it read. Both front ends reach the engine through
+# this one translation unit, which is why a render test may not name a renderer call itself.
+BENCH_BUILDERS = ("src/clients/SceneRunner.cpp", "src/clients/SubjectBench.cpp",
+                  "src/clients/GltfStudio.cpp")
 
 RE_INCLUDE = re.compile(r'^\s*#\s*include\s+"([^"]+)"', re.M)
 RE_MAIN = re.compile(r"^(?:int|auto)\s+main\s*\(", re.M)

@@ -15,6 +15,7 @@
 #include "ClusterCut.h"
 #include "DrawStage.h"
 #include "ModelDraw.h"
+#include "SubjectDraw.h"
 #include "TerrainDraw.h"
 #include "WaterDraw.h"
 
@@ -30,6 +31,8 @@ public:
   const WaterDraw &Water() const { return *Water_; }
   ModelDraw &Models() { return *Models_; }
   const ModelDraw &Models() const { return *Models_; }
+  SubjectDraw &Subjects() { return *Subjects_; }
+  const SubjectDraw &Subjects() const { return *Subjects_; }
 
   /* The light every unit binds and the sun every unit shades by — handed to all of them at once,
    * because a second lighting model inside one stage is exactly what this stage exists to prevent. */
@@ -46,6 +49,7 @@ private:
   std::unique_ptr<BuildingDraw> Buildings_ = std::make_unique<BuildingDraw>();
   std::unique_ptr<WaterDraw> Water_ = std::make_unique<WaterDraw>();
   std::unique_ptr<ModelDraw> Models_ = std::make_unique<ModelDraw>();
+  std::unique_ptr<SubjectDraw> Subjects_ = std::make_unique<SubjectDraw>();
 };
 
 } // namespace outshine::Render

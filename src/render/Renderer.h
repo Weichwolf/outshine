@@ -166,6 +166,14 @@ public:
   size_t ModelInstanceBytes() const { return Geometry->Models().InstanceBytes(); }
   size_t ModelImpostorBytes() const { return Geometry->Models().ImpostorBytes(); }
 
+  /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed position-only mesh, in
+   * ECEF offsets from `anchor`. A client that never declares one draws nothing extra. */
+  void SetSubjectMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                      const double anchor[3]) {
+    Geometry->Subjects().SetMesh(verts, nverts, idx, nidx, anchor);
+  }
+  long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
+
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
    * for the consumers that owe a published anchor and read by no stage today. */
   void SetWind(double fromDeg, double speedMs) { WindFromDeg = fromDeg; WindMs = speedMs; }
