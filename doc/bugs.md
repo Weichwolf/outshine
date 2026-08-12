@@ -174,31 +174,49 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## World and streaming
 
-- **The declared still is not deterministic: the order two OSM tiles arrive decides the picture.**
-  `demo/frame`, native oracle, ten interleaved runs of each of two binaries (`3a28df8` and the
-  `[[nodiscard]]` sweep), twice over: **`buildingTris` ∈ {135 168, 134 783, 134 586}**, distributed
-  13/5/2 in the first campaign and 11/9/0 in the second, with no difference between the builds in
-  either. `buildingVerts` moves with it (405 504 / 404 349) and so does `shadowTris`; `terrainTris`
-  is 331 260 in every single run, so it is the building path alone.
-  **The picture moves with the count**, one sha256 per value: `23287811d36ef7fe…` at 135 168 and
-  `3fb4579054c8d455…` at 134 783, each produced by *both* binaries. So the sweep is proven to have
-  moved no pixel — and "the still is byte-identical" is not a property this scene has.
-  **The mechanism, measured rather than guessed.** Diffing the logs of the two outcomes: all four
-  `region_grown` lines are identical, field for field, in the same order, with the same footprint
-  counts (9 / 13 / 816 / 427) and the same stand counts; `buildings … total=440 osmHeight=1
-  defaultHeight=439 onStreet=431 noGround=0 deferrals=0` is identical at the end of both. The **only**
-  difference in the whole log is which vector tile lands first — `(8620,5403)` with 427 buildings, or
-  `(8621,5403)` with 13. So it is neither the region forge nor the field's content: the same 440
-  footprints, ingested in two orders, produce two different draw meshes. 405 504 − 404 349 = 1 155
-  verts = 3 × 385 tris exactly, i.e. one whole non-indexed triangle list appears or does not.
-  **It is visible.** The two pictures differ in **1 533 of 921 600 pixels (0.166 %), by up to 87/255
-  in a channel**, and they are not scattered: they lie in a 24-pixel band at y ∈ [355, 378] running
-  the full width — the horizon, where the distant town meets the sky. At the 320×180 comparison rung
-  that is a 6-px band across the frame, which is silhouette, and silhouette is the first thing that
-  decides a comparison. Every A/B still in this repository has been read against this noise floor.
-  Right, and there are two of them: the ingest is ordered (a field that answers the same for the same
-  set, whatever order it was filled in), and a gate says so — one binary, one scene, N runs, one
-  sha256. `CLAUDE.md`: *if pace decides the result, the coupling is a bug.*
+- **A caster "vertex count" is neither a vertex count nor the caster's.**
+  `render/stages/BuildingDraw.cpp:471-473` derives `BaseVerts` as `max(First + Count)` over the
+  level-0 clusters and publishes it as `CasterVertexCount()` (`BuildingDraw.h:35`), which
+  `Renderer.cpp:802` spends as `ShadowStage::NVerts`. Two things are wrong. A cluster's `First`/`Count`
+  are **index** ranges — `World.cpp:556` offsets them by `BuildingDagIdx.size()` and
+  `ShadowStage.cpp:151` hands them on as a `DrawRange` over the index buffer — so the number counts
+  indices under a name that says vertices. And the building ladder is a concatenation of one DAG per
+  ingested tile (`World.cpp:552-558`), so the maximum lands at the end of the **last** block's level 0
+  and the range it names covers every earlier block's simplified levels as well; which block is last
+  is the arrival order's. It decides nothing today: `ShadowStage` reads it only as a non-zero guard
+  (`ShadowStage.cpp:158,296`, `Active()` at `ShadowStage.h:45`), the cut itself being per cluster. It
+  is a number that is wrong under a name that claims otherwise, which is the state a defect is in
+  before it is read by something. Right: the caster extent is the sum over the blocks and it is called
+  an index count, or the field goes and `Active()` asks the buffer.
+- **The vector fields never re-anchor, and the shader pays for it in cancellation, not in
+  resolution.** `world/World.cpp:87-94` gives `BuildingField` and `WaterField` one ECEF origin — the
+  standpoint, at `Open` — and nothing moves it again, while both keep ingesting for as long as the
+  camera travels. The vertex shader computes `p + b.anc.xyz` in **f32**
+  (`render/stages/BuildingDraw.cpp:106`; `anc` is written at `516-518` as `(float)(Anchor - Eye)`), so
+  a near wall's camera-relative position is the difference of two quantities whose magnitude is the
+  distance travelled from the standpoint, and the subtraction cancels down to a few metres while both
+  terms keep the absolute error of that magnitude. The half of it that matters is **temporal**: `anc`
+  is rewritten every frame from a moving eye, so the near field steps by one ulp of the travelled
+  distance per frame — visible as jitter, where the static quantisation of `p` would not be.
+  Priced (derived, IEEE-754 binary32; 720p at 60° gives a pixel focal length of 623.5 px,
+  `core/PixelFocalLength.h`): the step reaches **1 px on a wall 5 m away at 65 km** from the
+  standpoint (ulp 7.8 mm) and 1 px at 20 m away at 262 km. By verb: 65 km on foot is 13 h and never
+  arrives; at 30 m/s it is 36 min; **at 250 m/s it is 4.3 min**, and flying is a declared verb. It is
+  also a deviation from this tree's own convention with no reason beside it — the terrain anchors per
+  tile on the z10 ancestor (`World::SurfaceAnchor`), which is ≤ 24 km at this latitude and bounded by
+  the block rather than by the traversal. Right: one anchor per DAG block, which bounds `|p|` by the
+  block and `|anc − eye|` by the view radius, because only near blocks are drawn.
+- **`make gates` writes four inflated `demo/frame` rows into the archive every time it runs.**
+  `sim/Makefile` `verify-still` runs the shipping client through `tools/tile_delay.cjs`, which holds
+  every tile response back by 0–400 ms, and sets `OUTSHINE_TILES` but not `OUTSHINE_SIM` — so each of
+  the four seeded runs posts to fb-sim under the same identity as a declared measurement run
+  (`clients/AppWalk.cpp:53-58`: `client=gpu_walk`, `mod=demo`, `scene=frame`). Measured on this host,
+  same binary, warm cache: final `loadMs` **6544 / 6620 ms** over two plain runs against **21 161 /
+  21 580 / 20 947 ms** over three seeded ones — the load time an archive row reports is inflated
+  **3.2×** and nothing in the row says a proxy was in the path. Same class as the sanitised-row defect
+  `doc/requirements.md` § I.17 names, one instrument further: the gate is an experiment on the network
+  and its rows are not observations of the product. Right: the instrument is a field of the identity,
+  and until it is, a gate run posts nowhere.
 - **A refusal is logged once per pass, and a stalled load spins at kHz.** `world/TilePool.cpp`
   `RunMesh` emits `tile_mesh_refused` on every attempt and `FetchInto` emits `tile_refused` on every
   GET, both of which repeat for as long as the leaf is in the target cut. Measured against a

@@ -84,6 +84,14 @@ bool World::Open(const char *tilesBase, double lat, double lon, double viewMeter
   Index_.clear();
   if (fb_stream_open(tilesBase, lat, lon, {kMaxZ, kGrid}) == 0) return false;
   Cls_.Open(lat, lon);
+  /* THE VECTOR FIELDS' FLOAT ORIGIN IS THE STANDPOINT, not the first thing that landed on it. An
+   * origin taken from the first footprint is chosen by whichever HTTP response returns first, and the
+   * same town then reaches the simplifier in two different float frames — which is a picture decided
+   * by pace. The eye stands here at t=0, so it is also the nearest origin the scene has. */
+  double origin[3];
+  GeoToEcef(lat, lon, 0.0, origin);
+  Buildings_.AnchorAt(origin);
+  Water_.AnchorAt(origin);
   Opened = true;
   return true;
 }

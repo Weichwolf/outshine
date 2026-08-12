@@ -5,6 +5,7 @@
 #include "TerrainLoader.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 #include <cstdlib>
 
@@ -201,7 +202,14 @@ bool BuildingField::TileGroundResolved(const OsmField &field, size_t from, size_
   return true;
 }
 
+void BuildingField::AnchorAt(const double ecef[3]) {
+  assert(Prints_.empty());
+  for (int c = 0; c < 3; c++) Anchor_[c] = ecef[c];
+  Anchored_ = true;
+}
+
 int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
+  assert(Anchored_);
   AddedFirst_ = (uint32_t)Verts_.size();
   AddedCount_ = 0;
 
@@ -256,10 +264,6 @@ int BuildingField::Build(const OsmField &field, Span<const WayLine> ways) {
         DefaultHeights_++;
       }
       fp.BaseM = (float)base;
-      if (!HaveAnchor_) {
-        GeoToEcef(pts[(size_t)fp.FirstPoint * 2], pts[(size_t)fp.FirstPoint * 2 + 1], base, Anchor_);
-        HaveAnchor_ = true;
-      }
       Prints_.push_back(fp);
       Raise(field, fp);
       added++;

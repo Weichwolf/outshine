@@ -4,6 +4,7 @@
 #include "TerrainLoader.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cmath>
 
 namespace outshine::World {
@@ -56,7 +57,14 @@ bool WaterField::TileGroundResolved(const OsmField &field, size_t from, size_t t
   return true;
 }
 
+void WaterField::AnchorAt(const double ecef[3]) {
+  assert(Surfaces_.empty() && Courses_.empty());
+  for (int c = 0; c < 3; c++) Anchor_[c] = ecef[c];
+  Anchored_ = true;
+}
+
 uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &veg) {
+  assert(Anchored_);
   const std::vector<OsmField::Feature> &feats = field.Features();
   if (Mark_.Done(feats)) return (uint32_t)Surfaces_.size();
 
@@ -108,10 +116,6 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
         const VegetationTemplates::Rule *rule = veg.Find(field.LayerName((int)f.Layer), field.Str(f, "kind"));
         c.HalfWidthM = rule && rule->WidthM > 0.0f ? rule->WidthM * 0.5f : 1.0f;
         for (double h : hs) Levels_.push_back((float)h);
-        if (!HaveAnchor_) {
-          GeoToEcef(pts[(size_t)c.FirstPoint * 2], pts[(size_t)c.FirstPoint * 2 + 1], hs[0], Anchor_);
-          HaveAnchor_ = true;
-        }
         Courses_.push_back(c);
       }
       continue;
@@ -144,10 +148,6 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
       s.FirstPoint = ring.First;
       s.PointCount = ring.Count;
       s.LevelM = (float)level;
-      if (!HaveAnchor_) {
-        GeoToEcef(pts[(size_t)s.FirstPoint * 2], pts[(size_t)s.FirstPoint * 2 + 1], level, Anchor_);
-        HaveAnchor_ = true;
-      }
       Surfaces_.push_back(s);
     }
   }
@@ -157,7 +157,6 @@ uint32_t WaterField::Ingest(const OsmField &field, const VegetationTemplates &ve
 
 void WaterField::Tessellate(const OsmField &field, std::vector<float> &out) const {
   out.clear();
-  if (!HaveAnchor_) return;
   const std::vector<double> &ring = field.Points();
   std::vector<double> p3;
 

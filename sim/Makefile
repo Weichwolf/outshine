@@ -177,7 +177,7 @@ MODS_DIR := ../mods
 
 .PHONY: help wasm wasm-asan walk walk-asan world treebench gates gates-build verify-generators \
   verify-world verify-clients verify-counters verify-types verify-refusals verify-walk verify-wasm \
-  verify-walk-asan verify-wasm-asan image up down restart clean
+  verify-still verify-walk-asan verify-wasm-asan image up down restart clean
 
 # WHERE A GATE'S OUTPUT GOES. Outside the tree on purpose: a log nobody committed on purpose is a
 # file the next round has to make a decision about.
@@ -477,6 +477,59 @@ verify-walk-asan: walk-asan ## demo/walk-500 over its whole traversal under addr
 	    echo "verify-walk-asan: the sanitised run drew a DIFFERENT world -- expected $(WALK500_DRAWN)" >&2; exit 1;; esac; \
 	  echo "verify-walk-asan: $(WALK500_FRAMES) frames drew $(WALK500_DRAWN), address+undefined silent"
 
+# THE DECLARED STILL IS ONE PICTURE, and every A/B comparison in this repository is read against its
+# repeat noise: a scene that answers twice makes every judgement taken on it undecidable, whatever the
+# judgement was about. What is repeated is the RUN and not the frame, because what varies between runs
+# is the order the tile server's answers come back in -- and no order may reach the picture.
+#
+# THE ORDER IS IMPOSED, NOT SAMPLED. Plain repeats are a coin toss: on a warm cache this host returned
+# the same completion order six runs out of six, and the gate would have been green over a scene that
+# still had two pictures in it. tools/tile_delay.cjs holds each response back by a delay derived from
+# the path and a seed, so one seed is one arrival order and the seeds are the experiment.
+#
+# NOTHING IS PINNED TO A RECORDED VALUE. The runs are compared to EACH OTHER, so the gate says
+# "deterministic" and never "unchanged": a golden sha would go red on another GPU and would have to be
+# rewritten by the round that legitimately moves a pixel, which is a gate that trains its reader to
+# overwrite it.
+STILL_SEEDS := 1 2 3 4
+STILL_SPREAD_MS := 400
+STILL_PORT ?= 8171
+TILES_BASE ?= http://localhost:8081
+
+verify-still: walk ## the declared still is one picture over imposed tile arrival orders
+	@cd $(SELF_DIR); r=$(GATE_DIR)/still; rm -rf "$$r"; mkdir -p "$$r"; \
+	  for s in $(STILL_SEEDS); do \
+	    d="$$r/$$s"; mkdir -p "$$d"; \
+	    node tools/tile_delay.cjs --port $(STILL_PORT) --upstream $(TILES_BASE) --seed "$$s" \
+	      --spread $(STILL_SPREAD_MS) >"$$d/proxy.log" 2>&1 & p=$$!; \
+	    for w in 1 2 3 4 5 6 7 8 9 10; do grep -q "tile_delay: :" "$$d/proxy.log" && break; sleep 0.5; done; \
+	    if ! grep -q "tile_delay: :$(STILL_PORT) " "$$d/proxy.log"; then \
+	      kill $$p 2>/dev/null; cat "$$d/proxy.log" >&2; \
+	      echo "verify-still: no delay proxy on :$(STILL_PORT) -- nothing was imposed" >&2; exit 1; fi; \
+	    OUTSHINE_TILES=http://localhost:$(STILL_PORT) OUTSHINE_OUT="$$d" \
+	      ./build/gpu_walk demo frame >"$$d/out.log" 2>&1; rc=$$?; \
+	    kill $$p 2>/dev/null; wait $$p 2>/dev/null; \
+	    if [ "$$rc" != 0 ]; then tail -40 "$$d/out.log" >&2; \
+	      echo "verify-still: the run under seed $$s did not finish ($$d/out.log)" >&2; exit 1; fi; \
+	    if [ ! -s "$$d/walk.png" ]; then \
+	      echo "verify-still: seed $$s finished and wrote no still ($$d/walk.png)" >&2; exit 1; fi; \
+	    c=$$(grep -F "INFO run terrain " "$$d/out.log" | tail -1 | sed 's/.*terrainTris/terrainTris/'); \
+	    if [ -z "$$c" ]; then \
+	      echo "verify-still: seed $$s wrote a still and no counters ($$d/out.log)" >&2; exit 1; fi; \
+	    printf '%s  %s\n' "$$(shasum -a 256 "$$d/walk.png" | cut -c1-16)" "$$c" >>"$$r/answers"; \
+	    grep -oE "INFO world buildings added=[0-9]+" "$$d/out.log" | tr '\n' ' ' >>"$$r/orders"; \
+	    echo >>"$$r/orders"; \
+	  done; \
+	  o=$$(sort -u "$$r/orders" | wc -l | tr -d ' '); \
+	  if [ "$$o" -lt 2 ]; then \
+	    echo "verify-still: the delays imposed ONE ingest order over $(words $(STILL_SEEDS)) seeds -- nothing was decided ($$r/orders)" >&2; \
+	    exit 1; fi; \
+	  n=$$(sort -u "$$r/answers" | wc -l | tr -d ' '); \
+	  if [ "$$n" != 1 ]; then \
+	    sort "$$r/answers" | uniq -c >&2; \
+	    echo "verify-still: $$o ingest orders drew $$n different pictures ($$r/answers)" >&2; exit 1; fi; \
+	  echo "verify-still: $$o imposed ingest orders, one picture $$(head -1 "$$r/answers")"
+
 # Not in $(GATES), and the reason is measured rather than budgetary: it does not reach the end of a
 # ONE-frame scene on this host. doc/bugs.md carries the numbers.
 verify-wasm-asan: wasm-asan ## run demo/walk-500 under address in the browser
@@ -489,12 +542,13 @@ verify-wasm-asan: wasm-asan ## run demo/walk-500 under address in the browser
 # THE SPLIT IS WHAT A GATE DECIDES, NOT WHEN IT IS RUN. $(GATES_BUILD) is everything a compiler and a
 # refusing program can settle: the layering, what the type system must refuse, what a running program
 # must refuse, and both shipping links. $(GATES_RUN) is what only a client that RUNS can settle -- a
-# counter that wraps on wasm32 and nowhere else, and a sanitiser that speaks only over a traversal.
-# The second set needs a browser and a 10 800-frame walk and costs two orders of magnitude more, so
-# the first one exists to be affordable in an edit: a gate that is skipped is not a defence.
+# counter that wraps on wasm32 and nowhere else, a sanitiser that speaks only over a traversal, and a
+# picture that is only one picture over repeated runs. The second set needs a browser, a 10 800-frame
+# walk and $(words $(STILL_SEEDS)) whole scenes and costs two orders of magnitude more, so the first one
+# exists to be affordable in an edit: a gate that is skipped is not a defence.
 GATES_BUILD := verify-generators verify-clients verify-types verify-world verify-refusals \
   verify-wasm verify-walk
-GATES_RUN := verify-counters verify-walk-asan
+GATES_RUN := verify-counters verify-still verify-walk-asan
 GATES := $(GATES_BUILD) $(GATES_RUN)
 
 # make marks a recipe line as recursive by finding the LITERAL text `$(MAKE)` in it before expanding

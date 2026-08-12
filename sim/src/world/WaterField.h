@@ -48,6 +48,9 @@ public:
    * late was dropped for the whole run. */
   uint32_t Ingest(const OsmField &field, const VegetationTemplates &veg);
 
+  /* THE ORIGIN EVERY VERTEX HERE IS AN OFFSET FROM, ECEF metres, given before anything streams. */
+  void AnchorAt(const double ecef[3]);
+
   const std::vector<Surface> &Surfaces() const { return Surfaces_; }
   /* One tile's surfaces, by OsmField tile index. Good until the next Ingest(). */
   Span<const Surface> OfTile(int tile) const {
@@ -58,7 +61,6 @@ public:
   const std::vector<Course> &Courses() const { return Courses_; }
   const std::vector<float> &Levels() const { return Levels_; }
   const double *Anchor() const { return Anchor_; }
-  [[nodiscard]] bool HaveAnchor() const { return HaveAnchor_; }
 
   /* pos3 + nrm3 per vertex, ECEF relative to Anchor(). A pure function of the surfaces. */
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
@@ -81,7 +83,7 @@ private:
   std::vector<float> Levels_;
   TileRanges ByTile_;
   double Anchor_[3] = {0, 0, 0};
-  bool HaveAnchor_ = false;
+  bool Anchored_ = false;
   TileWatermark Mark_;
   long NoGround_ = 0, Outliers_ = 0;
 };

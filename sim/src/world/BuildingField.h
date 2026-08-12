@@ -46,6 +46,9 @@ public:
    * renderer wants. */
   void Shapes(const StructureMesher *mesher) { Mesher_ = mesher; }
 
+  /* THE ORIGIN EVERY VERTEX HERE IS AN OFFSET FROM, ECEF metres, given before anything streams. */
+  void AnchorAt(const double ecef[3]);
+
   /* Raises whatever `field` has decoded and this has not seen yet. `ways` are the made surfaces of
    * the neighbourhood, as values: a footprint's frontage is the nearest of them, and a wall that
    * carries a door has to know which one it is. Returns the number of footprints
@@ -100,7 +103,7 @@ private:
   /* Reused across footprints, so a town does not allocate per ring (`F.20`, hot loop). */
   std::vector<double> Corners_;
   double Anchor_[3] = {0, 0, 0};
-  bool HaveAnchor_ = false;
+  bool Anchored_ = false;
   int OsmHeights_ = 0, DefaultHeights_ = 0, NoGround_ = 0, Fronted_ = 0;
 };
 
