@@ -1437,6 +1437,15 @@ silent. *This is the all-zero run `e658b21` already closed* — no: that fix lea
 is worse in kind: the component types cross, so the geometry is not zeros but plausible numbers in the
 wrong units, and the picture is wrong rather than empty.
 
+**The same door, one line away: `asset.minVersion` is unread too.** `Document.cpp:217-219` reads
+`asset.version` and refuses anything that is not `2.0`; the member list of that function contains no
+`minVersion`. The spec's rule is *"the minimum version specified by the `minVersion` property **MUST** be
+less than or equal to the version specified by the `version` property … clients should first check
+whether a `minVersion` property is specified"* (`Specification.adoc:643,648`), so a document declaring
+`"version": "2.0", "minVersion": "2.1"` is a document we must refuse and today read happily. It is the
+same defect class as the extension check, it is fixed at the same site, and it is recorded here rather
+than as its own section because splitting it would make two entries out of one repair.
+
 **Right:** immediately after the `asset.version` check, refuse by name every entry of `extensionsRequired`
 that is not in a declared supported set — today the empty set, so the sentence is `requires extension
 KHR_draco_mesh_compression, which this reader does not implement`. The set is a declaration the reader
@@ -1585,3 +1594,69 @@ where nothing can read it.
 **Fixed when** the construction order is derived from declared reads and writes rather than from the
 sequence of statements, and the pass count has one source. **Decides it:** deleting the
 `passCount != kPassCount` log costs no information.
+
+## Every coverage case draws with culling off, so three claims about winding stand on an instrument that cannot see it
+
+`src/render/stages/SubjectDraw.cpp:71` — `rp.primitive.cullMode = wgpu::CullMode::None;`. Every render
+case in `test/render/coverage/` therefore rasterises both facings, and Cycles integrates both too, so
+**reversing the winding of every triangle in a subject changes no pixel of either mask**. The instrument
+is blind on both sides of the comparison, which means the agreement is real and decides nothing about
+facing.
+
+**Three claims are standing on it.**
+
+- `doc/requirements.md` § I.26's scene table and § I.26.5's spine both say rung 3 adds *"indices,
+  winding, back-face culling"*. `test/render/coverage/cube` is green. Two of those three are unmeasured.
+- `test/render/coverage/primitive-modes/manifest.json` declares `"identicalCoverage": ["fan.glb",
+  "triangles.glb"]` and its own note reads *"the strip's own flip rule makes its two triangles the two
+  the list names"*. A strip triangulated **without** the flip yields the same three vertices per
+  triangle in a different order — the same triangle, the same coverage — so the case passes identically
+  whether the rule is applied or not.
+- `src/gltf/Subject.cpp:56-58` states that rule in capitals as the format's and not this file's:
+  *"THE ODD TRIANGLE OF A STRIP IS (i+1, i, i+2), NOT A SLIDING WINDOW."* It is implemented correctly.
+  **No test in the tree reaches it** — `Triangulate` appears nowhere under `test/unit/`, and the only
+  other occurrence of `TRIANGLE_STRIP` in `test/` is that manifest.
+
+**The harmless explanations, sought and ruled out.** *A coverage rung deliberately needs no facing* —
+true of rungs 1, 2 and 4, and the defect is that rung 3 **claims** the two properties culling would
+decide; a rung that names a property its instrument cannot reach is the vacuous gate this repository
+keeps finding. *Culling off is right for the subject path* — it is right for OSM rings, whose winding is
+`Winding::Unknown` by `src/core/SurfaceState.h:13`, and a glTF subject is the opposite case: the format
+**defines** its winding, and `Specification.adoc:1734` makes the determinant of the node's global
+transform decide it. *The oracle would not see it either* — correct, and that is the finding rather than
+an excuse.
+
+**Right:** a subject drawn from a glTF is drawn `Winding::Trusted` with back-face culling on, so a
+reversed triangle disappears and the mask moves; the double-sided arm becomes a declared property of the
+case (`doubleSided` is a glTF material field, not a global). Khronos's `NegativeScaleTest` is the asset
+built for exactly this and cannot mean anything until then. **Fixed when** a fixture whose triangles are
+wound backwards fails `render/coverage/cube`, and a `TRIANGLE_STRIP` triangulated without the odd-triangle
+swap fails `render/coverage/primitive-modes`. **Decides it:** flipping the index order of the generated
+cube must change `pixels_disagreeing` from 0.
+
+## The glTF reader hands a URI to the filesystem undecoded, and the spec makes percent-encoding mandatory
+
+`src/gltf/Document.cpp:194` — `std::ifstream file(directory + uri, std::ios::binary);`. The `uri` is
+taken verbatim from the JSON (`:182`) and concatenated onto the directory. It is the only URI resolution
+in the tree, and it performs no percent-decoding, no reserved-character handling and no rejection of a
+path that leaves the case directory.
+
+glTF 2.0, `specification/2.0/Specification.adoc:550`: *"Relative paths … **MUST** be percent-encoded"* for
+reserved characters. Khronos ships **`Box With Spaces`** (CC0-1.0, tagged `testing`) as the asset that
+exposes the failure, and at the pinned SHA its three image URIs are `Normal%20Map.png`,
+`glTF%20Logo%20With%20Spaces.png` and `Roughness%20Metallic.png` while its buffer URI carries literal
+spaces — so a reader that concatenates opens the buffer and then cannot find one texture of three.
+
+**The harmless explanations, sought.** *No file in the corpus needs it today* — half true and it does not
+clear the line: no **buffer** URI in the corpus is percent-encoded, but the image URIs of the asset built
+for this are, and the same concatenation is what an image path will use. *A refusal would still be
+correct* — no: the sentence would be `names Normal%20Map.png, which cannot be opened`, which names the
+symptom and hides the cause, and `src/gltf/Document.h:5` promises a refusal that **names what was
+missing**. *It is a missing feature, not a bug* — the code reads the `uri` member and resolves it; it
+claims to do the thing and does it wrongly for a documented input class.
+
+**Right:** one decode step between the JSON string and the path — percent-decode, refuse a URI with a
+scheme or an authority (§ the spec's `path-noscheme`), refuse a resolved path that escapes the document's
+directory — applied at the single site both buffers and images will use. **Fixed when** a document naming
+`Box%20With%20Spaces.bin` opens the file `Box With Spaces.bin`, and one naming `../secret` is refused by
+name.
