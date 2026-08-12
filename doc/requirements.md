@@ -911,7 +911,7 @@ is the exact kernel this binary runs; host-side paths are `intern/cycles/…` at
 | narrowest filter reachable | `pixel_filter_type='BOX'` with `filter_width` at its RNA minimum **0.01 px** → every sample within **±0.005 px** of the pixel centre | `cycles/properties.py:875-888` |
 | transparent film | applies only to a ray carrying `PATH_RAY_TRANSPARENT_BACKGROUND`, i.e. camera rays, and writes alpha — **an exact coverage channel that does not touch the lighting** | `kernel/integrator/shade_background.h:103-107` |
 
-- [ ] **Every factory value the harness did not deliberately set is re-queried and the run refused if it moved** — that is what makes *configured by not being configured* mechanical rather than a promise, and it is the clause that survives a Blender upgrade
+- [ ] **The factory values the harness does not set are declared once, not re-queried and gated.** *Relaxed 2026-08-12 on the owner's ruling — **we do not aim to be bit-identical with Blender, so the exact version does not matter much**, and a gate that refuses a run because a factory default moved defends an exactness we are not claiming. What the table above is, after the relaxation: **the derivation of the numbers we do set**, read in the source once so that nobody re-derives them from memory. It is documentation of a reading, not a contract with a binary.* The `blender --factory-startup` flag stays, because *configured by not being configured* still removes a whole class of accidental divergence — it just is not policed
 - [ ] The deviations from the factory startup are a **closed, reasoned list**, and there are six: **engine** `BLENDER_EEVEE → CYCLES` (unavoidable — the oracle is the path tracer) · **samples** fixed and `use_adaptive_sampling` off (4096 with an adaptive threshold is not a reproducible number) · **denoising off** (a denoiser is an estimator with no error bar) · **pixel filter** `BOX` at 0.01 px for the geometric rungs (§ below) · **output** OpenEXR float32, which ignores the view transform by Blender's own colour-management rule and thereby deletes AgX in one move · **resolution** 1280×720, this engine's budget. Nothing else is touched, and in particular **the world colour, the world strength, `film_exposure`, `scale_length` and the sensor stay at their factory values**
 - [ ] **The world stays Blender's factory world on every rung** — `0.05087608844041824` linear at strength 1.0, sampled as a light. It is the half of *default lighting* that costs nothing to match and it is the half most likely to be wrong here, because our ambient is a hemisphere over geodetic up and Blender's is a full sphere (§ II.8)
 - [ ] **The key light is Blender's `SUN` lamp for the light rungs, and this is a declared deviation from the literal factory default, with its reason.** Blender's factory key is a point light and `src/render/` has no punctual light of any kind — `Gpu.h:22 SceneLight` is one irradiance pair, one cascade buffer and one shadow atlas — so matching the default literally would put the first external check this repository has ever had behind three unbuilt features on our side. The sun costs **no conversion at all**: Strength is W/m² perpendicular to the beam by `scene/light.cpp:298,316`, which is the unit `IrradianceStage`'s `sunDirectNormal` already carries, leaving exactly one unknown in the comparison — which is the unknown rung 3 exists to settle
@@ -924,6 +924,62 @@ is the exact kernel this binary runs; host-side paths are `intern/cycles/…` at
 - [ ] **Indirect light stops being a confound and becomes a setting**: `diffuse_bounces = 0` makes Cycles' answer *exactly* the direct term, so rungs 5–8 are compared against closed form with no bounce to argue about, and rung 9's product is the 0-bounce against 4-bounce difference — the bias curve, which is the only actionable form
 - [ ] Scenes 1–8 contain **one convex subject and no second surface**, so interreflection is identically zero by geometry and not merely by a setting. The first scene with a second surface is 9, and that is the scene where indirect is the subject
 - [ ] Blender's own residual against the closed form is published beside ours on every radiance rung — the oracle states its error before it judges ours — and for the Diffuse BSDF that residual is expected to be Monte-Carlo noise alone, because `bsdf_diffuse.h:46` *is* the closed form
+
+**What decides a rung, and why a Blender point release cannot move it.** *Owner's ruling, 2026-08-12:
+**we are not aiming for bit-identity with Blender.** That relaxation is only safe if the tolerances are
+written down and are visibly far above point-release noise — otherwise "we do not need exactness" is a
+sentence that quietly absorbs a real regression. So the tolerances are stated here, in the document,
+with the distance to the noise floor beside each.*
+
+- [ ] **A release version pins the oracle, never a commit SHA.** `Blender 5.2 LTS` is the pin; the build hash is recorded for the record and is not a condition of the run. A build from a different point release is a valid oracle
+- [ ] **The version is recorded on every comparison row, and that survives the relaxation intact** — not as an exactness claim but as the **attribution** of a red: when parity fails, one line answers whether our renderer moved or the oracle did, and without it that question costs a bisection
+- [ ] **The version is part of the oracle cache key**, one string, and it prevents exactly one defect: the pin is bumped, scene and recipe unchanged, and the cache serves a render from the old Blender while the manifest claims the new one — **the manifest lying about its own output**. It is the same hash-is-the-filename discipline § I.22 already applies to a provider
+- [ ] **The tolerances, and each is at least an order above point-release noise.** Rung 1 coverage: boundary p95 ≤ 0.5 px against an instrument floor of 0.005 px — **a factor of 100**. Rung 2 depth: p99 ≤ 1e-4 relative, against a float32 mantissa floor near 6e-8 — **three orders**. Rung 3 radiance: median relative difference ≤ 1 % against the closed form, where Monte-Carlo noise at a declared sample count is the only Blender-side term and is itself published. **Nothing at that scale moves because a point release changed a sampler**, and if a point release *did* move a number by 1 % it would be a finding about Cycles worth having
+- [ ] **The 0.005 px instrument floor survives the relaxation untouched, because its justification is geometric and not empirical**: Cycles' box filter is the constant 1, the integer raster coordinate is the pixel centre, and `filter_width` floors at 0.01 px by its own RNA minimum. That argument does not mention a version
+- [ ] **`Diffuse BSDF` at roughness 0, never Principled — and the relaxation *reinforces* this rather than loosening it.** Principled was rewritten in Cycles 4.0; a design leaning on it would be genuinely version-sensitive in exactly the quantity rung 3 measures. The Diffuse BSDF is `max(dot(N,ω),0)·(1/π)` times the closure weight and has no roughness parameter at all, so it is the one lobe whose value is a closed form rather than a model choice
+- [ ] **Light and material never crossing the glTF boundary is kept and is not a version argument** — it is about importer semantics, and the lighting-mode factor that motivates it (`SPEC` versus `RAW`) is a mode, not a release
+- [ ] **No acceptance anywhere is framed as pixel identity.** Every rung's product is a distribution, a residual shape or a bias curve, and a rung whose acceptance could only be written as *the images are equal* is a rung that was designed wrong
+
+**IoU is reported and never enforced, because it is shape-driven.** *Owner's ruling, 2026-08-12, with
+the derivation re-run here and confirmed exact. For two masks whose boundary is displaced by a mean δ,
+the symmetric difference is a band of area ≈ P·δ, so `IoU ≈ 1 − P·δ/A` to first order — and `P/A` is a
+property of the **subject's shape and size**, not of the renderer.*
+
+*At 1280×720 with an equilateral triangle filling a quarter of the frame: `A = 230 400 px²`,
+`s = √(4A/√3) = 729.5 px`, `P = 3s = 2 188 px`, so `P/A = 0.009498 /px`.*
+
+| δ | IoU | what it is |
+|---|---|---|
+| 0.005 px | 0.99995 | the instrument floor |
+| 0.05 px | 0.99953 | nothing |
+| **0.105 px** | **0.999** | the old threshold, back-solved |
+| 0.5 px | 0.9953 | **a pixel-centre convention bug** |
+
+- [ ] **The two findings the arithmetic produces, and both are reasons not to gate on it.** A fixed `IoU ≥ 0.999` means `δ ≤ 0.105 px` on that triangle and `δ ≤ 0.053 px` on a subject a quarter the area — `P/A` doubles when linear size halves — so **one constant drifts 2× in strictness as the subject changes**, silently. And a **half-pixel convention error scores 0.9953**, which reads as near-perfect to anyone who has not done this arithmetic. A number that hides the defect it was chosen to catch is worse than no number
+- [ ] **Boundary displacement p95, in pixels, is the deciding instrument on every geometric rung.** It is shape-independent and it **names** the defect rather than scoring it: 0.05 px is nothing · **0.5 px is a pixel-centre or raster-convention error** · ~3 px is a projection error · a radial trend is focal length · a shear is handedness. IoU is published beside it for continuity with the literature and decides nothing
+- [ ] **Three subject classes, three instruments, and the class is a declared property of each rung rather than a global threshold:**
+
+| Subject class | Instrument | Number |
+|---|---|---|
+| **opaque, all geometry ≥ 1 px** | boundary p95 | **≤ 0.1 px** — 20× the 0.005 px floor: room for float32 and for a tessellation ordering, none at all for a convention error |
+| **opaque, sub-pixel geometry present** | boundary p95 | **≤ 0.5 px, reported and not enforced** — a rasteriser drops a triangle no sample centre hits and a 128-spp path tracer finds it. That is a **sampling-policy difference**, not an error, and gating on it would make the ladder punish us for being a rasteriser |
+
+- [ ] **Two classes decide a *parity* rung, and foliage is not a third class — it is a different question with a different ladder** (§ I.26.7). *A foliage row stood here as a weak-instrument exemption, was deleted on a foliage-exclusion rule, and the rule was then overruled. Both versions were wrong in the same way: they treated a forest as a **subject** of the parity comparison, badly measured. It is not. A forest is measured by **frame time and by eye in motion**, and it does not appear in this table because no coverage instrument applies to it at all — not because it is exempt from one*
+- [ ] **Which class each rung is, stated in its manifest, because it is the rung's own property**: rungs 1–4, 6–11, 13–15 and 17 are **opaque ≥ 1 px** and carry the 0.1 px number · rung 5 is opaque ≥ 1 px **at sponge level ≤ 2**, where the smallest feature is `729/9² ≈ 9 px`, and **level 3 is deliberately the sub-pixel arm** at `≈ 1 px` · rungs 16 (`Fox`'s limbs and tail at distance), 18 (`SciFiHelmet`'s greebles), 19, 20 and 21 are **sub-pixel present** and report rather than enforce · rung 12 is **format conformance** and carries neither number (§ I.26.5)
+- [ ] **Rung 20 is the one rung where a sub-pixel report is the product rather than a concession** — a Julia isosurface at rising subdivision *is* the sub-pixel regime, and the number worth having is where boundary p95 leaves the 0.1 px band as subdivision rises. That curve is a measurement of our rasterisation policy against a path tracer's, on a subject built to force it
+
+**Radiance: the oracle is configured DOWN to the physics the engine claims on that rung.** *Owner's
+ruling, 2026-08-12, and it is the clause that stops the ladder growing a permanent red.*
+
+| Oracle configured to | Realistic median relative difference |
+|---|---|
+| direct, Lambertian, no bounce | **≤ 1 %** — a closed form; both sides should hit it |
+| + an analytic sky | **2–3 %** |
+| full GI, against a renderer with none | **10 %+ in the open, 100 %+ in shadow** |
+
+- [ ] **`diffuse_bounces = 0` stays until this engine implements bounce, and the last row of that table is not a defect.** A number produced against physics we do not model measures **our ambition, not our correctness**, and it would sit in the tree for months looking like a failing gate — which is how a suite learns to be ignored. When bounce lands, the oracle's bounce count rises with it, in the same commit
+- [ ] Rung 4's shadow-and-indirect product keeps its existing shape and this makes it consistent rather than changing it: it is a **bias curve, never a pass/fail**, of the form *our screen-space occlusion removes 0.6× of what one Cycles bounce removes over this geometry* — which is exactly *configured down, difference reported* stated for the one rung where the difference is the subject
+- [ ] **Every tolerance above is published with the instrument floor beside it**, and none of them is within an order of magnitude of point-release noise — that is what makes the version relaxation safe rather than convenient
 
 **The ten scenes, one new thing per rung.** *Owner's ruling, 2026-08-12: about ten glTF scenes of
 ascending complexity, tests under `test/render/`, references rendered in Blender, our pipeline developed
@@ -964,7 +1020,7 @@ things has thrown that value away. Every `.glb` is emitted by a script in this t
 - [ ] Skinning, morph targets and `animations` out of scope — we carry our own animation shape already (`clients/Animation.h`, glTF's two-table form with two declared deviations)
 - [ ] **Rung 1, coverage**: both sides to a binary mask, compared by IoU **and** by the boundary-distance distribution (for each boundary pixel, distance to the nearest boundary pixel of the other mask; p50/p95/p99 in pixels). IoU alone cannot see a half-pixel camera offset on a large subject; the distribution can, and it localises it
 - [ ] Rung 1's failure signatures declared with the metric, which is what makes a difference **attributable**: a constant offset is the camera origin or principal point · a radial trend is the focal length or a projection convention · a uniform scale is the `yfov`/aspect interpretation · a shear is a row/column order or a handedness. Four distinguishable shapes, one metric
-- [ ] Rung 1 acceptance: boundary p95 ≤ 0.5 px at 1280×720, both sides at one sample per pixel with the narrowest reconstruction filter, and IoU ≥ 0.999 on a subject filling ~30 % of the frame
+- [ ] Rung 1 acceptance: **boundary p95 ≤ 0.1 px** at 1280×720, both sides at one sample per pixel with the narrowest reconstruction filter. *Tightened 2026-08-12 from the 0.5 px this line first carried — right instrument, 5× too loose for a subject with no sub-pixel geometry, where 0.5 px is the size of the convention error the rung exists to catch. IoU is reported beside it and enforces nothing (§ below).*
 - [ ] **Rung 1 becomes the acceptance criterion for the SDL_GPU port** (§ I.19), which today has none: the same glTF through the old backend and the new one must give the same mask. It is the cheapest port gate that exists and it is a picture claim rather than a counter claim
 - [ ] **Rung 2, depth**: linear view-space range both sides, compared inside the intersection mask, p99 ≤ 1e-4 relative. A bias attributes to the near plane or the reversed-Z convention; growth with distance is the float32 floor and is published as the instrument's own floor beside the result
 - [ ] **A scene-referred linear float readback ahead of `ExposureStage`** — the one thing rung 3 needs that does not exist. `render/Renderer.h:59` `ReadPixels` is *"already sRGB-encoded"* and there is no other colour tap, so the physics of this renderer is currently unreadable by anything, including us (`doc/bugs.md`)
@@ -1015,6 +1071,25 @@ opposite reading would forbid the only external check this repository has.*
 - [ ] **A manifest declares every asset and the script reads only the manifest** — `test/corpus/manifest.json`. Per entry: source kind, pin, licence with SPDX identifier, attribution where the licence requires one, the rung it serves, and the one thing it is first to exercise. An asset not in the manifest is not fetched, and an asset in the manifest with no licence field is a **refusal at parse**, not a warning
 - [ ] **Two source kinds and no third, because the strongest available pin differs.** `repo` — a git repository, pinned by **commit SHA**, fetched by sparse checkout of the declared paths at that SHA; git verifies its own object integrity, so there is no per-file hash to maintain or to drift. `file` — a plain URL with no repository behind it, pinned by **URL plus SHA-256 of the bytes**, which is the weaker form and the only one such a source offers
 - [ ] **Which kind each source is, stated in the manifest and not assumed.** `KhronosGroup/glTF-Sample-Assets` is `repo`. **`download.blender.org` is `file`** — it is a plain Apache directory index serving `.blend` and `.zip`, it publishes no checksums, and the open-movie production trees are *not* there: `/peach/`, `/durian/`, `/mango/` and `/institute/` all answer *"Please visit www.blender.org for finding links…"* and `/demo/movies/` holds rendered video only. *Checked rather than assumed, because claiming a reproducibility we do not have is the same defect class as a miscited rule number.*
+- [ ] **The Blender side's licences come from a `README.txt` beside the file where one exists, and from the publishing page otherwise — per file, never per host.** *This is where the first pass went wrong by generalising, and the per-file readings are worth more than the web cards: `/demo/eevee/*/README.txt` states a licence the demo page does not.* Verified, one fetch each:
+
+| Asset | Licence, at the source | Verdict |
+|---|---|---|
+| `demo/eevee/archiviz/` | `README.txt`: **CC0 1.0 Universal** — Marek Moravec, bed by Lech Sokolowsk | in |
+| `demo/eevee/ember_forest/forest.blend` (74.3 MB) | `README.txt`: **Creative Commons Attribution** — Mike Pan | **in — the forest rung** (§ I.26.7). *Struck from the ladder mid-round on a foliage-exclusion rule and restored when the owner overruled it: a forest is the hardest workload this renderer will meet, and excluding it protected nothing* |
+| `demo/eevee/race_spaceship/` | `README.txt`: **CC-BY** — Alessandro Chiffi / ONdata | in |
+| `demo/eevee/wasp_bot/` | `README.txt`: **CC 4.0 Attribution** — Emiliano Colantoni | in |
+| `demo/cycles/monster_under_the_bed_…blend` (78.1 MB) | page: **CC-BY** — Metin Seven, concept Blake Stevenson | in · **geometry only**, it is an SSS demo and subsurface has no glTF spelling |
+| `demo/test/pabellon_barcelona_v1.scene_.zip` (24.7 MB) | page: **CC-BY** — eMirage | in |
+| `demo/test/classroom.zip` (70.3 MB) | page: **CC0** — Christophe Seux | in |
+| `demo/cycles/flat-archiviz.blend` (368 MB) | page: **CC-BY** — Flavio Della Tommasa | in |
+| `demo/eevee/temple/`, `tiger/`, `wanderer/` | `README.txt`: **CC-BY-SA** | in · share-alike attaches to a published comparison image, so **CC-BY and CC0 are preferred where a choice exists** |
+| `demo/eevee/mr_elephant/` | `README.txt`: **CC-BY-ND**, *"only for sharing as a demo"* | **out** — no-derivatives, plus an added use restriction |
+| `demo/cycles/lone-monk_…blend` (36.7 MB) | page names the author and **no licence**; no `README.txt` beside it | **out** — same rule that removed the Junk Shop |
+| `demo/cycles/loft.blend` (561 MB) | on no page at all, no `README.txt` | **out** |
+| `demo/eevee/tree_creature/` | `README.txt` is **404**; the page names no licence | **out** |
+
+- [ ] **`lone-monk` is out and it is the most painful of the exclusions, which is why the rule holds.** It is the best-known Cycles demo on the host, it is exactly rung 18–19's shape, and the page that publishes it names Carlo Bergonzini / Monorender and stops there. *An asset whose licence we cannot state is out* — and the rule earns its keep precisely when it costs something. If a licence turns up in the file or from the author it comes straight back in
 - [ ] A fetch whose bytes do not match the pin is a **refusal naming the asset, the expected pin and the observed one** — never a warning, never a retry that takes what it got. Without this, "the corpus" is whatever the internet held that day and every acceptance number under `test/render/` is irreproducible, which is the arrival-order defect one level further out
 - [ ] **A pinned corpus does not silently improve either, and that is correct.** When Khronos fixes an asset we move the pin **deliberately, in its own commit**, and re-take every acceptance number that asset carries. The manifest records the pin's date and the reason it moved, so the first time a comparison shifts after a pin move nobody has to guess whether the renderer changed or the asset did
 - [ ] **The licence field is derived, never transcribed.** Each Khronos model carries `Models/<Name>/metadata.json` with a `legal` array of SPDX identifiers at the pinned SHA; the script reads it and **refuses any asset whose set of SPDX identifiers is not a subset of the declared allow-list**. That makes the audit mechanical and makes a licence change at the upstream a refusal rather than a surprise. Measured at SHA `2bac6f8c…`: 148 models, `CC0-1.0` ×92, `CC-BY-4.0` ×64, and thirteen other identifiers of which nine are restrictive
@@ -1067,9 +1142,15 @@ ends at a radius are only judgeable in motion, and that has meant judged **by ey
 no reference for a moving image. A film gives frame n a reference for every n, and a pop stops being an
 impression: it is a discontinuity in a difference curve that is otherwise smooth, on a **named frame**.*
 
-- [ ] **The premise fails on availability and the design absorbs it rather than waiting.** Checked at the source: every Blender open movie from 3.2 downwards — Sprite Fright, Spring, Agent 327, PartyTug, Tram Station, the Junk Shop — links to `cloud.blender.org` gallery pages, and the production trees are **not** on `download.blender.org`. They need an account, and *no authenticated URL is ever in the manifest*. The Junk Shop fails a second, independent test: its licence is stated as CC-BY in one place and CC-BY-SA in another, and **an asset whose licence we cannot state is out**
-- [ ] **So the film is ours and the content is theirs, which is strictly better as a test.** A declared camera path over a downloaded static scene, with a downloaded skinned character in it: the **motion is declared by us**, so *frame n* is unambiguous by construction and needs no agreement with a third party's timeline; the **geometry and materials are somebody else's**, which is the whole point of an external check. It exercises exactly what the summit must — `Keyframed` camera, a clock with a timeline, many objects, many materials, skinning — and drops only the two things that made a third-party film useless: the account and the Cycles-only shading
-- [ ] The film's scene is **Barcelona Pavilion** (§ I.26.5), its character is **`Fox`**, and its camera is a declared path in the scenario. Both sides read the same path: Blender's camera is keyed from it by script, never imported
+- [ ] **The availability finding this section first carried was wrong, and the corrected one is that the licence was never the constraint — access is, and only for some of it.** *Corrected 2026-08-12. The first reading checked `/peach/`, `/durian/`, `/mango/`, `/institute/` and `/demo/movies/`, found redirects and rendered video, and concluded about the whole host. Walking the tree properly: **`download.blender.org/demo/` carries production files in the open**, including a complete Sprite Fright shot and Big Buck Bunny's entire `.blend` tree — see the two lines below. The method failure is recorded in `doc/bugs.md`, because it generalises.*
+- [ ] **Blender Studio's licence is stated by the publisher and is not gated**: *"Unless notified otherwise, all digital content (webpages, video, artwork, 3D data) is available under the Creative Commons Attribution 4.0"* (`studio.blender.org/terms-and-conditions`), and *"Blender Studio content is generally released under Creative Commons Attribution License (CC-BY), with copyright © Blender Foundation"* (`studio.blender.org/remixing/`). What a membership buys is **access**, not permission — *"Members get access to all services … which includes previous Open Movies"*. So the gated production archives are **CC-BY 4.0 assets we cannot currently fetch**, which is a different fact from the one first recorded, and it is the owner's decision rather than a limit
+- [ ] **`sprite_fright_030_0020_A.zip` is a complete open-movie shot in the open, and it is the film rung** — `download.blender.org/demo/sprite_fright_030_0020_A.zip`, 254 374 945 B, no account. Listed over HTTP range on its ZIP central directory without downloading it: **100 entries, 47 `.blend`**, three animation takes (`030_0020_A.anim.{A,B,C}.blend`, 185–210 MB each), `030_0020_A.lighting.blend`, and a linked library tree — `lib/char/sprite/sprite.blend`, `lib/char/spider/spider.blend`, `lib/sets/mushroom_grove/`, `lib/sets/sprite_village/`, `lib/env/plants.blend`, `lib/env/fungi.blend`. **Recorded because the availability claim it refutes was mine and wrong** — not because the shot is wanted: it is a vegetation-and-hair shot, and § I.26.4 rules those out of this ladder on the owner's decision. What it proves is that the *host* publishes production files in the open, which is a fact the next round should not have to rediscover
+- [ ] **`bbb/blender.zip` is Big Buck Bunny's whole production tree** — 830 709 844 B, **598 entries, 591 `.blend`**, `blender/2d/` and `blender/3d/` with left/right stereo pairs, largest 55.9 MB. **And the intuition that old means cleaner is right in its premise and wrong in its conclusion**: it is a 2008 file, so it carries no Cycles node graphs at all — because it carries **Blender Internal** materials, a renderer removed in 2.8. Its appearance does not survive to Cycles *or* to glTF; what survives is geometry, armature animation and camera. It is therefore a **coverage, depth, skinning and motion** asset and explicitly **not** a shading or radiance one, and a reference render of it would be Cycles shading an auto-conversion nobody authored
+- [ ] **The two archives' own `readme.txt` files are unread and that is a task, not a finding** — `030_0020_A/readme.txt` and `blender/README.txt` are each one entry in a 254 MB and an 830 MB archive, reachable by one ranged read of their local header. The licence basis recorded above is the publisher's stated terms, which is a licence stated at the source; the readmes may narrow it and must be read before either asset is fetched for real
+- [ ] **The film rung is the declared path over Barcelona Pavilion with `Fox` in it, and it wins on the timing argument alone.** *Decided 2026-08-12 after the vegetation exclusion that first decided it was overruled — so the reason had to be re-earned and it is a narrow one. The Sprite Fright shot is **CC-BY 4.0, confirmed in the archive's own `readme.txt`** — "This collection of files is provided under the CC-BY license by the Blender Studio" — it is fetchable without an account, and its vegetation is now an argument for it. What still beats it: **`frame n` is unambiguous by construction** when the motion is ours. A third-party shot puts the film's timeline, Blender's frame numbering, the exporter's absolute-frame conversion (§ I.26.3) and our runner's frame index in one comparison, and a red anywhere in that chain reads as "frame 40 is wrong". At the summit — the one rung where everything is on at once — that is the one confound worth paying to remove*
+- [ ] **The Sprite Fright shot is not discarded; it is the forest rung's motion arm** (§ I.26.7), where its vegetation is the point and where **no per-frame parity number is computed**, so the timing chain that disqualifies it as a parity summit does not matter. `lib/scripts/rigged_particle_hair.blend` remains a named export risk there, not a disqualification
+- [ ] **Big Buck Bunny is out of the ladder, recorded so nobody re-proposes it**: 591 `.blend` of Blender Internal materials, a renderer removed in 2.8. Geometry, armature animation and camera survive; **appearance does not survive to Cycles or to glTF**, so the oracle would be shading an auto-conversion nobody authored. Its `blender/README.txt` returned empty on a ranged read and the publisher's CC-BY 4.0 terms are what stand for it
+- [ ] **The whole Blender Studio catalogue is in scope and is enumerated rather than sampled** — 22 films and projects are listed at `studio.blender.org/films/` and `/projects/`: Elephants Dream · Big Buck Bunny · Sintel · Tears of Steel · Cosmos Laundromat · Caminandes 2 and 3 · Glass Half · The Daily Dweebs · Hero · Agent 327 · Spring · Coffee Run · Sprite Fright · Gold · DOGWALK · Storm · Impulse Purchase · Charge · Wing It! · Singularity · Overgrown. **All CC-BY 4.0 by the publisher's terms; most are behind a membership and a few are not.** Which is which is a fetch check per film, and it is a task rather than a finding — the two already found in the open (`demo/sprite_fright_030_0020_A.zip`, `demo/bbb/blender.zip`) were found by walking `download.blender.org/demo/`, and that walk has not been repeated for the other twenty
 - [ ] **The reference is rendered once and stored, pinned like the corpus** — a directory of OpenEXR float32 frames with its own SHA-256 manifest, the Blender version and every Cycles setting on the row. Re-rendering per run would put a two-figure minute cost on every test invocation and would make the reference a moving target
 - [ ] **What that costs, measured on this host rather than estimated.** Cycles 5.2.0 LTS, factory startup cube, 1280×720, 128 spp, adaptive sampling off, denoising off, `diffuse_bounces = 0`, seed 0, OpenEXR float32: **2.087 s/frame** on the Metal device (Apple A18 Pro, 5 GPU cores) and **11.6 s/frame** on the CPU device, both warm. **The first Metal frame after a cold kernel cache costs 200.9 s** — Cycles compiles its Metal kernels once — so a per-frame timing that does not warm the cache attributes 200 s of compilation to the scene. That is the **instrument's floor**, not the film's cost: it is a six-quad scene. A 10-second segment at 24 fps is **240 frames**, so the floor is **8.4 minutes** and a furnished interior will be a multiple of it that is *not yet measured* — one timed frame of the pavilion is the tool, and it costs one run
 - [ ] **The segment is declared in frames, not in seconds**: `frames` and `fps` on the row, `frame_start = 0`, and the budget rule is `N · t_frame ≤ 2 h` with `t_frame` measured on the actual scene before the run is declared. A segment that does not fit is shortened, never sampled sparsely — a gap in the series destroys the discontinuity test, which is the half worth having
@@ -1078,7 +1159,37 @@ impression: it is a discontinuity in a difference curve that is otherwise smooth
 - [ ] **What must exist before it can run at all: every prerequisite of rungs 1–20 plus animation**, and that is the point of a summit rather than a defect in it. Named: the reader · the studio scenario · the linear tap · a punctual light list · shadow under a declared light · texture sampling · alpha `MASK` and `BLEND` · skinning · the time contract of § I.26.3 · a `Keyframed` camera over a timeline clock, which § I.25 already carries. **If it goes red before the rungs below are green it names nothing**, so the ladder's own rule — rung n waits for n−1 — is what gates it, not a schedule
 - [ ] **It is a declared run and not part of the suite's default tier**: `device`-tiered, named, and never triggered by an ordinary `make test`. A test nobody can afford to run gets skipped, and a skip is the defect class this repository keeps finding
 
-### I.26.5 The ladder, twenty-one rungs, easy to hard
+### I.26.5 Not a ladder but a matrix with a dependency order, and the integration scenes sit at the joins
+
+*Owner's ruling, 2026-08-12: **"21 rungs" is the wrong shape.** Once every feature KCD or GTA 5 uses
+gets its own basic isolated case (§ I.26.8), the structure is a **feature matrix with a dependency
+order**, not a line. The table below is the matrix's **spine** — the path a first implementation walks
+— and it is no longer the whole thing.*
+
+**The ladder grows wide before it grows tall.** Every basic case for a feature **precedes** the complex
+scene that combines it, and the complex scenes are **integration** rather than difficulty: the forest
+integrates instancing, alpha test, two-sided transmission, LOD and overdraw, each of which has its own
+isolated case first. So the order is:
+
+```
+  basic cases          integration scene        what a red means
+  ───────────────      ─────────────────        ────────────────
+  A: alpha modes   ┐
+  B: overdraw      ├──▶ forest (§ I.26.7)  ──▶  a combination, because every part is green
+  B: LOD, A: inst. ┘
+  A: metal-rough   ┐
+  A: transmission  ├──▶ built world        ──▶  a combination
+  B: cascades, SSR ┘
+  A: skinning      ┐
+  A: interpolation ├──▶ film (§ I.26.4)    ──▶  a combination
+  spine rungs 1–20 ┘
+```
+
+- [ ] **An integration scene is never run before every basic case it combines is green** — the ladder's own rule, restated for the matrix. Rung *n* waiting for *n−1* was the linear form of it; the general form is *a join waits for its inputs*, and it is what keeps a red naming one thing
+- [ ] **A basic case is owned by exactly one feature and a feature is owned by exactly one basic case.** Two cases for one feature means neither is the answer when they disagree; one case for two features is the bundling the one-new-thing rule exists to prevent — which is why `DamagedHelmet` was refused for carrying five
+- [ ] **The spine below is the walk order for a first implementation, not the matrix.** It is kept because somebody has to start somewhere and because rungs 1–4 genuinely must come first — the reader, the projection and the raster convention are prerequisites of every case in both kinds
+
+**The spine, twenty-one rungs, easy to hard**
 
 *Owner's ruling, 2026-08-12, in two steps: **implement from easy to hard, motion last** — then refined,
 **simple animations can be in between; difficulty decides the stages**. The ordering principle is
@@ -1102,7 +1213,7 @@ animated rung sits above the static rung it depends on. The synthetic floor is *
 | 9 | albedo + emissive spheres | **ours**, generated | channel linearity and the emissive path | + direct radiance | 7 |
 | 10 | **`SimpleTexture`** → `TextureCoordinateTest` | Khronos · CC0-1.0 | uv, sampling, base-colour sRGB decode, at 1 texel per pixel | coverage · direct radiance | 10 |
 | 11 | **`NormalTangentTest`** | Khronos · CC0-1.0 | tangent-space handedness | + direct radiance | — |
-| 12 | **`AlphaBlendModeTest`** | Khronos · CC-BY-4.0 | coverage that is not binary — `MASK` and `BLEND` | coverage · direct radiance | — |
+| 12 | **`AlphaBlendModeTest`** | Khronos · CC-BY-4.0 | **format conformance**: `OPAQUE`, `MASK` with `alphaCutoff`, `BLEND` and its ordering | conformance — **not** a coverage rung | — |
 | 13 | **`AnimatedMorphCube`** → `MorphStressTest` | Khronos · CC0-1.0 / CC-BY-4.0 | vertex-level animation over a rung already green | coverage · depth | — |
 | 14 | cube under the factory point light | **ours**, generated | inverse-square falloff — the literal default lighting | + direct radiance | 8 |
 | 15 | cube on a plane, sun at 30° | **ours**, generated | a cast shadow and the first non-zero interreflection | + shadow and indirect | 9 |
@@ -1171,7 +1282,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `KHR_materials_sheen` | `SheenCloth` — 10 | **CryEngine's Cloth shader has a fuzzy layer with its own gloss** — the effect, by another means | required |
 | `KHR_materials_anisotropy` | 7 | **CryEngine's Hair shader has had anisotropic highlights with directionality maps since 3.6**; brushed metal and rims in GTA 5 | required |
 | `KHR_materials_variants` | `MaterialsVariantsShoe` — 7 | GTA 5 vehicle liveries and modkits | required · cheap, a material-row swap |
-| diffuse transmission | `DiffuseTransmissionPlant` — 6 | **CryEngine's Vegetation shader's headline feature is translucency (light transmittance)** | required · **this is the vegetation term**, and `Material::Transmission` is half of it |
+| diffuse transmission | `DiffuseTransmissionTest` — 6 | **CryEngine's Vegetation shader's headline feature is translucency (light transmittance)** | required as a **material model**, and `Material::Transmission` is half of it. Proven by the extension's flat test asset as format conformance — **never by a foliage comparison**, which Band III owns |
 | `KHR_node_visibility` | `CubeVisibility` — 2 | both | required · trivial |
 | `KHR_texture_basisu` | 1 | both ship block-compressed textures; ASTC and BC are native on this device | required |
 | `KHR_animation_pointer` | `AnimatedColorsCube` — 5 | animated emissive and uv in GTA 5 | required · `clients/Animation.h` is the mechanism, the glTF spelling is later |
@@ -1197,6 +1308,249 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 - [ ] `Material` gains an **occlusion strength** entry with the same argument as metalness — it is a number, it switches nothing, and 46 of 146 corpus assets carry an occlusion texture. It is **not** the same quantity as `render/stages/AoStage`'s screen-space term and the two must not be summed silently
 - [ ] The § I.26 reader line's *"Skinning, morph targets and `animations` out of scope"* is **superseded by this section**: all three are required capabilities, pulled by rungs 6, 13 and 16 respectively. *The earlier line was right about the reader's first subset and wrong as a scope statement, and the difference is the ruling above*
 - [ ] Every required capability is **proven by a named corpus asset and only by that asset** — a capability with no asset behind it is untested scope, and an asset that proves nothing is bytes we fetch for no reason
+
+### I.26.7 The forest rung — a scenario test, not a render test, and that is what it means to measure cost
+
+*Owner's ruling, 2026-08-12: **our renderer must be good at drawing vegetation**, and a forest scene in
+glTF is how that is built and proven. It reverses a foliage exclusion I had applied one round earlier,
+and the correction is worth stating plainly: **excluding forests protected the parity ladder from a
+subject that was never on it, at the cost of the hardest workload the renderer will ever meet.***
+
+**This is the rung where the ladder changes what it is measuring, and the change is large enough that it
+changes which suite the rung lives in.** Rungs 1–21 ask *is the picture right* against an oracle. The
+forest rung asks *does it hold 60 Hz and does it look right while moving* — so by § I.26.9's placement
+rule it is a **scenario test**, declared as camera × clock over a studio stage (§ I.25), and it is the
+first **performance** acceptance anywhere in this section. No parity number, no IoU, no radiance. *It was
+first filed under the render suite, which was wrong in a way worth keeping visible: a case with no score
+inside a suite whose contract is a score is precisely the hollow case the empty-image guard exists to
+catch, and this one would have been the first.*
+
+**A forest is the only subject that exercises six things nothing else on the ladder touches.**
+
+| What only a forest exercises | Why nothing else covers it |
+|---|---|
+| **instancing at scale** — thousands of copies of a handful of meshes | every Khronos feature test is one object; `SimpleInstancing` is a proof of syntax, not of scale |
+| **alpha test and alpha-to-coverage on leaf cards** | `AlphaBlendModeTest` is flat quads at one depth |
+| **overdraw** — the fill-rate killer on 5 GPU cores | a closed opaque mesh generates none; depth complexity in a canopy is tens |
+| **two-sided thin-surface shading, leaves lit from behind** | needs `doubleSided` *and* diffuse transmission on the same primitive |
+| **LOD transition and popping** | a still rung structurally cannot see it |
+| **density culling at distance** | there is nothing to cull in a single-subject scene |
+
+- [ ] **The instrument, and it is not the parity ladder's**: **frame time p50/p95/p99 over a moving camera at 720p60**, never a mean — `CLAUDE.md`'s existing rule, and this is the first rung that can apply it to a real workload · **by eye and in motion** for popping, ghosting and LOD transition · **Blender's render of the same scene as a reference for the eye only** — canopy translucency and occlusion, what the light does under a crown — and **never as a coverage or radiance number**
+- [ ] **No IoU, no boundary p95, no radiance parity on this rung.** Our alpha-to-coverage against Cycles' stochastic transparency compares two sampling policies, and a per-pixel mask difference there measures the choice rather than the implementation
+- [ ] **Blender's render of the same scene is a reference for the eye and never a number** — canopy translucency, what the light does under a crown, whether the crown reads as a crown. It is opened beside ours by a person; nothing reads it
+- [ ] **It decouples the renderer from the generator, and that is a scheduling argument with teeth.** The vegetation **rendering path** — instanced leaf cards, alpha test, two-sided transmission, LOD, density culling — can be built and proven against a downloaded forest **before the tree generator exists**. Afterwards it is a **known-good target**: when the generator's first canopy looks wrong, the renderer is already exonerated and the defect is attributable in one step instead of two
+- [ ] **It is a class claim and therefore an acceptance gate, not an optional extra at the end.** Kingdom Come: Deliverance's identity *is* its forest. A renderer that cannot hold 720p60 in one has failed the CryEngine-class claim whatever its parity numbers say — so **the renderer stage is not done until the forest rung is green**, and it is a gate on that stage rather than a rung somebody gets to later
+- [ ] **Its dependency is rung 12 and nothing further**: it needs instancing and alpha test to exist and to have passed as isolated render cases, and it needs nothing else from the parity ladder — not radiance, not skinning, not the film. *Being in another suite does not free it from the dependency order; a join still waits for its inputs (§ I.26.5)*
+- [ ] **The subject is Poly Haven's `pine_forest` collection, and it is the cleanest licence in the corpus: CC0.** *"All assets on this site … are licensed as CC0"*, *"You can use our assets for any purpose, including commercial work"*, *"You do not need to give credit"*, *"You can redistribute them"* (`polyhaven.com/license`). Sixteen models tagged `collection: pine_forest`, **published natively as glTF at 1k/2k/4k** — so no `.blend` export step exists on this rung at all and § I.26.2's lossy-export risk does not apply
+- [ ] **Poly Haven's trees are scan-derived and enormous, and the selection follows from that rather than from taste**: measured through the API at glTF/1k, `pine_tree_01` is **958 MB** and `fir_tree_01` **487 MB** — the whole collection is **1 874 MB**. So the rung takes the **saplings, ferns, grass, moss, roots, stumps and rocks** (each under 26 MB, ≈ 82 MB together) and builds density by **instancing**, which is what the rung is measuring anyway. One hero tree is fetched separately and only if a large-mesh arm is wanted
+- [ ] **Poly Haven is a third source kind, `api`** — an asset id resolved through `api.polyhaven.com/files/<id>` to a URL and a declared byte size, then pinned by **URL plus SHA-256** like any `file`. The API is how the URL is *discovered*, never what is trusted: a manifest entry records the resolved URL and hash, so a rebuilt corpus does not depend on the API answering
+- [ ] `demo/eevee/ember_forest/forest.blend` (74.3 MB, CC-BY, Mike Pan) is the **second forest and the export arm** — a real authored forest scene that must survive § I.26.2's conversion, where the Poly Haven collection needs no conversion. Two forests from two pipelines is what separates *our vegetation path is slow* from *the exporter dropped the leaf cards*
+- [ ] The forest rung's **motion arm** is `sprite_fright_030_0020_A` (CC-BY 4.0, confirmed in its own `readme.txt`), because popping and LOD transition need a moving camera through a dressed set, and it needs no per-frame parity number to produce that judgement
+- [ ] **A declared density sweep, because one forest is one data point**: instance count per hectare swept over a declared range with the frame-time distribution at each step, so the product is *where 720p60 breaks* rather than *it was 47 ms once*. That curve is the rung's real output and it is what a later generator is tuned against
+
+### I.26.8 What KCD and GTA 5 do, mapped to a subject or named as a gap
+
+*Owner's ruling, 2026-08-12, restated because it had narrowed in transit: **the renderer must be good at
+everything KCD and GTA 5 do** — not at everything the glTF format exercises. `CLAUDE.md` already carries
+the rule; § I.26.6 applied it to a **feature list** and that list was bounded by what a file format can
+carry, which silently dropped every workload-shaped requirement. This section is the workload half.*
+
+**Every feature gets a basic, isolated, synthetic case before any complex scene exercises it.** *Owner's
+ruling, 2026-08-12: **a basic glTF test case for every GL feature KCD or GTA 5 uses**, and "basic" is
+the operative word. It is the one-new-thing rule extended across the whole feature surface instead of
+across the first ten rungs only — **a forest that fails tells you nothing if instancing, alpha test and
+shadow cascades were never isolated first**.*
+
+**Two kinds of case, and the second is the one with no assets to find.**
+
+| | |
+|---|---|
+| **A · format features** | glTF expresses them; a Khronos sample usually exists and is **fetched** |
+| **B · renderer techniques** | glTF cannot express them, so no sample can be found — the case is **authored in Blender and exported**, minimal by construction |
+
+- [ ] **For kind B the case is authored, and that closes the escape hatch this section first left open.** *"No clearable asset expresses this" is **no longer an admissible reason to skip a feature** — if no asset exists we author one. The only remaining admissible exclusion is **"neither KCD nor GTA 5 does this"**, stated per feature with its reason.*
+- [ ] **Authoring in Blender means the oracle comes free**, which is the whole reason kind B is tractable: the scene is built in the reference renderer, so the reference render already exists, and the exported glTF is the subject our side reads. A found asset would have to be *hoped* to isolate the right thing; an authored one **is** minimal because we made it so
+- [ ] The authoring scripts are **offline data preparation committed beside what they produce** — `CLAUDE.md`'s one open door, the same one the corpus fetcher goes through. A `.py` per case, its `.blend` and `.gltf` derived and untracked (§ I.26.10)
+- [ ] **The glTF file is the *subject*; the feature under test may be ours entirely.** A basic SSR case is still a basic glTF scene — the file carries a sphere and a plane, the reflection technique is 100 % ours, and Cycles renders what the reflection should look like. Nothing about kind B requires glTF to know what the technique is
+
+| Workload | Kind | Basic case | Integration scene |
+|---|---|---|---|
+| PBR metal-rough, normal · occlusion · emissive maps | A | `MetalRoughSpheres` · `NormalTangentTest` · `SciFiHelmet` | built world |
+| alpha `OPAQUE`/`MASK`/`BLEND` | A | `AlphaBlendModeTest` | forest |
+| instancing | A | `SimpleInstancing` — syntax; **authored count sweep** — scale | forest |
+| skinning · morph · interpolation modes | A | `RiggedSimple` · `AnimatedMorphCube` · `InterpolationTest` | film |
+| `KHR_lights_punctual` | A | `DirectionalLight` · `PointLightIntensityTest` | built world at night |
+| cameras and projection | A | `Cameras` (perspective **and** orthographic) | every rung |
+| `KHR_texture_transform` | A | `TextureTransformTest` | built world |
+| vertex colours · second uv set | A | `BoxVertexColors` · `MultiUVTest` | forest |
+| clearcoat = **car paint** | A | `ToyCar` · `ClearCoatCarPaint` (CC0) | vehicle |
+| transmission + volume + ior = **glass** | A | `TransmissionTest` · `CompareVolume` · `IORTestGrid` (CC0) | built world · vehicle |
+| sheen = **fabric** | A | `SheenCloth` (CC0) | character |
+| anisotropy = **brushed metal** | A | `AnisotropyDiscTest` (CC0) | vehicle |
+| `emissive_strength` | A | `EmissiveStrengthTest` | night |
+| `specular` | A | `SpecularTest` | built world |
+| **cascaded shadow maps and cascade transitions** | **B** | **authored**: one long ground plane, one occluder, sun low, camera dollying so a shadow crosses a cascade boundary | built world |
+| **SSR and reflection probes** | **B** | **authored**: reflective sphere over a plane with a second object off-screen — off-screen is what separates SSR from a probe | built world |
+| **water reflection and refraction** | **B** | **authored**: a flat surface with ior 1.33 over a textured floor, a partly submerged rod for the refraction break | river · sea |
+| **decals** | **B** | **authored**: one projected quad on a curved surface, to isolate depth bias and normal reorientation | built world |
+| **volumetric fog and god rays** | **B** | **authored**: a light through a slotted occluder into a fog volume | forest · built world |
+| **motion blur** | **B** | **authored**: a wheel at declared angular speed, one shutter interval | vehicle |
+| **depth of field** | **B** | **authored**: three subjects at declared distances, one declared focus and f-number | any |
+| **bloom and tonemapping** | **B** | **authored**: an emissive disc at declared luminance against black | night |
+| **TAA** | **B** | **authored**: a static subpixel-detail chart plus the same in motion — the only way ghosting is separable from softening | forest |
+| **wet surfaces** | **B** | **authored**: one plane, roughness and specular swept as a wetness parameter | weather |
+| **LOD transition** | **B** | **authored**: one subject, declared LOD ladder, camera dollying through each switch distance | forest |
+| **overdraw** | **B** | **authored**: N alpha-tested quads stacked at declared depth complexity | forest |
+| **hair and cloth** | **B** | **authored**: a card-based hair clump and a draped cloth — geometry we emit, since glTF carries no hair primitive | character |
+| **particles: fire, smoke, dust** | **B** | **authored**: a declared quad emitter, fixed seed, fixed times — the particle system is ours, the case pins its output | weather |
+| **large-scale terrain** | **B** | **authored**: a declared heightfield meshed at kilometre scale, since no clearable asset was found | world |
+| **crowds of skinned characters** | **B** | **authored**: `Fox` instanced at declared counts — a throughput claim one character cannot make | crowd |
+| **day/night, dynamic sun and moon · night sky** | — | **excluded, and the reason is the admissible one**: these are not features a subject can carry, they are our own scenario axes (§ I.25) — a time sweep is a run, not a file. The features *under* them (punctual lights, emissive strength, tonemapping) each have a case above |
+| `KHR_materials_iridescence` · `dispersion` · `unlit` | — | **excluded: neither KCD nor GTA 5 does this.** No thin-film, no spectral dispersion, and unlit is emissive-only which `Material::Emission` already spells |
+
+- [ ] **The count that matters: 14 kind-A cases fetched, 17 kind-B cases authored, 2 exclusions by scenario axis, 3 exclusions by neither-reference-does-it.** No entry is a gap any more, which is the change this ruling makes — a gap was a place the ladder quietly stopped, and an authored case is a task with a size
+- [ ] **Kind B is where the real cost sits and it should be stated rather than discovered**: 17 minimal `.blend` files, each with a script, an export and a reference render. They are small scenes — the Cycles floor measured in § I.26.4 is 2.087 s/frame on a six-quad scene — so the reference cost is minutes, and the cost is **authoring judgement**, not compute
+- [ ] Every kind-B case declares **what would make it fail**, because a minimal scene with no failure signature is a picture nobody can read: the cascade case fails as a visible seam at a declared distance · SSR fails by missing the off-screen object · decals fail by z-fighting or by a normal that did not reorient · TAA fails as ghosting behind the moving edge · LOD fails as a pop at a named distance
+- [ ] **Where the technique has no counterpart in Cycles at all — TAA, SSR as an approximation, LOD selection — the oracle renders the *ground truth* and the case reports the *approximation error***, which is § I.26's bias-curve shape applied to techniques instead of to bounces. A path tracer's reflection is the correct answer SSR is approximating, so the comparison is meaningful even though parity is impossible
+
+### I.26.9 Three suites, split by instrument — and only one of them mirrors `src/`
+
+*Owner's ruling, 2026-08-12: **separate the tests into declarative render tests, declarative scenario
+tests, and unit tests.** It governs the two sections below, and it supersedes their `<area>` mirroring
+for two of the three kinds. **The split is by instrument, not by shape** — that is what makes it hold,
+because two declarative suites look alike and are decided by entirely different questions.*
+
+| Kind | Declaration | What decides it | Mirrors `src/` |
+|---|---|---|---|
+| **render** | the `.gltf` | agreement with the oracle — boundary p95, radiance median | **no** — organised by feature |
+| **scenario** | the scenario: camera × clock × world-or-studio (§ I.25) | frame time p50/p95/p99 over motion · determinism · residency · streaming · memory | **no** — organised by declared run |
+| **unit** | the code | a stated invariant, nothing rendered | **yes, exactly** |
+
+- [ ] **The placement rule, so this does not drift: *what would fail this test?*** — *"our pixels disagree with Cycles"* is a **render** test · *"the frame floor broke, the run was not deterministic, or memory grew"* is a **scenario** test · *"the code computed the wrong thing"* is a **unit** test. **A case that seems to fit two is testing two things and is split**
+- [ ] **Only the unit tree mirrors `src/`, and it must, because its organising axis *is* source location.** It is the tree that carries `CLAUDE.md`'s property: each directory compiles with its own include set, so a name it must not reach has no spelling and a breach is a **compile error**. Every unit test is a continuous proof that its layer's include set is exactly what it claims
+- [ ] **The declarative suites carry none of that and restoring the mirror over them would destroy it.** A render case links the whole library by construction — it needs the reader, the renderer and the readback at once — so a `test/render/core/` directory would compile with a *wider* include set than `test/core/` and the mirror would stop meaning anything. *Written down because "restore the mirror everywhere" is a tidy-looking change that dilutes a proof into a convention, and the dilution is invisible afterwards*
+- [ ] The two declarative suites are organised by what they declare: **render by feature** — the § I.26.8 matrix is the directory structure — and **scenario by declared run**, so a run is found by the thing it runs rather than by the source file it happens to exercise
+- [ ] **`GrownBarkIsAClosedMesh` and its whole class are unit tests and keep the mirror**: closed, wound, unit-normal and in-range are decidable geometric invariants over a generated mesh, with no reference and nothing rendered. *They are the shape the unit tree is for, and they are already in the right place — this line exists so a later round does not re-file them as render tests because they concern geometry*
+- [ ] **§ I.26.3's time contract is a unit test**, not a render one: *for every `n`, the engine's animation time equals `n / fps` exactly, and equals the glTF sampler input at the corresponding keyframe*. Arithmetic, no oracle, no pixels — and it keeps the mirror at `test/clients/`
+
+**The re-filing this ruling forces, and the forest was not the only one.**
+
+- [ ] **The forest rung moves to the scenario suite** (§ I.26.7), and it was filed wrong: its instrument is **frame time over a moving camera plus judgement by eye**, and there is **no oracle comparison in it anywhere** — Blender's render is a reference *for the eye* and never a number. A case with no score, inside a suite whose entire contract is a score, is the hollow case the empty-image guard exists to catch, and it would have been the first one
+- [ ] **Re-checked across the whole matrix, seven more move**, by the same test — none of their acceptances is agreement with the oracle: **overdraw** (fill cost at declared depth complexity) · **LOD transition** (a pop at a named distance, only visible in motion) · **TAA** (ghosting against softening, and § I.26 already runs every parity rung with TAA off, so it has no oracle counterpart by construction) · **particle determinism** (a fixed seed pinning its own output) · **crowds of skinned characters** (a skinning-throughput claim) · **large-scale terrain** (LOD, cascade range and streaming together) · and the **forest density sweep** (where 720p60 breaks)
+- [ ] **The film rung splits in two rather than choosing**, because it genuinely tests two things: the **per-frame difference series against the stored oracle** is a *render* case, and the **discontinuity test plus the frame-time distribution over the same segment** is a *scenario* case. *They share a scene and a camera path and answer different questions, and merging them would produce a verdict nobody can attribute — which is the same objection as a single blended score, one level up*
+- [ ] What stays in the render suite is everything whose failure is *our pixels disagree with Cycles*: the spine's twenty-one rungs, every kind-A format case, and the kind-B technique cases with an oracle counterpart — cascades, SSR, water, decals, volumetrics, motion blur, depth of field, bloom and tonemapping, wet surfaces, hair and cloth as geometry
+- [ ] **Each suite states its own verdict shape once, and they are three different shapes**: render is *every named metric within its own threshold and direction* (§ I.26.10) · scenario is *the frame-time distribution within its declared floor, the run bit-identical across two invocations, residency and memory within declared ceilings* · unit is *the invariant held*. **A suite that borrowed another's verdict shape would be reporting a number that does not decide it**
+
+### I.26.10 A render test is a directory, and in the minimal case that directory is one `.gltf`
+
+*Owner's ruling, 2026-08-12: **the render tests are declarative. The glTF is the declaration. One runner
+renders oracle and outshine and scores them.** Taken to its strongest form: **the minimal test directory
+is one `.gltf` and nothing else.** It supersedes the earlier "one directory with its Blender script and
+its expected values" and it supersedes this section's own first draft, which required a `manifest.json`
+per case — that draft made adding a case a writing task, and at two hundred cases a writing task is
+where a suite stops growing. `<area>` still mirrors `src/` as always.*
+
+```
+test/render/<feature>/<case>/
+    scene.gltf        tracked or fetched   THE DECLARATION — often the only tracked file
+    case.json         tracked, OPTIONAL    only what this case overrides
+    0-oracle.png      always written       for the eye, in browsing order
+    1-outshine.png    always written       for the eye
+    2-diff.png        always written       for the eye
+    oracle.exr        always written       float32 — this is what the score reads
+    outshine.exr      always written       float32
+```
+
+- [ ] **A directory with one `.gltf` in it is a complete, valid, scoring test case** — camera, thresholds and render recipe all resolve from declared defaults, so adding a case is dropping a file. `case.json` exists only to override, and a case that overrides nothing does not have one
+- [ ] **The runner is one program over a directory** — read the glTF, resolve camera and recipe, render both sides, compute the named metrics, print a verdict. Still one process and one real verdict per case (§ I.20); what is shared is the code, never the process
+- [ ] **The camera comes from the glTF wherever the scene declares one**, which is what makes such a scene fully self-describing — glTF carries `cameras` and a node that references one. A declared camera is used verbatim and no framing rule runs
+- [ ] **Where the scene declares no camera, framing is derived by one rule stated here and never per test**, so two cases with the same subject get the same picture and nobody tunes a viewpoint into a pass
+
+**The framing rule, and it is deterministic by construction rather than by care.**
+
+| Step | Rule |
+|---|---|
+| bounds | world-space AABB over every rendered primitive, node transforms applied |
+| centre | `c = (min + max) / 2` — **from min/max only, never a vertex mean** |
+| radius | `r = ‖max − min‖ / 2`, the bounding sphere's radius, so the framing does not change with view direction |
+| direction | fixed unit vector in glTF's +Y-up frame: **azimuth 35°, elevation 20°**, `[SET]` — off every axis, so no face is edge-on and no silhouette is degenerate |
+| distance | `d = r / sin(yfov / 2) / fill`, with `yfov` **39.6°** and `fill` **0.6** `[SET]` — the subject's bounding sphere spans 60 % of the frame's vertical extent |
+| clip | `znear = max(d − r, r/1000)`, `zfar = d + r` |
+
+- [ ] **Load order cannot move that camera, and the reason is arithmetic rather than discipline**: `min` and `max` are exact in IEEE-754 and both commutative and associative, so the AABB is identical whatever order primitives arrive in. **A centroid would not be** — floating-point addition is not associative, so a vertex mean shifts in the last bits when the loader changes, and every boundary-displacement number in the suite would shift with it. That is why the centre is defined off the extremes and the rule says so
+- [ ] The framing rule's constants live in the const headers of § I.23 like every other number — one declaration, no per-test copy, and changing one moves every derived-camera case at once, which is the intended blast radius
+- [ ] **Degenerate bounds are a refusal, not a fallback**: an empty AABB (no rendered primitive) or `r = 0` (every vertex coincident) refuses by name. A fallback camera here would manufacture exactly the empty picture § I.26.11 exists to catch
+- [ ] **Thresholds default per instrument class** (§ I.26 — opaque ≥ 1 px, sub-pixel present) and a case overrides only where it earns it, with the reason in `case.json`
+- [ ] **The default is not weaker against tampering than 200 scattered numbers — it is much stronger, and this is worth stating because it looks like the opposite.** One declared default in one file, read by every case, is **visible when edited**: the diff is one line and it moves the whole suite at once, so nobody quietly relaxes case 137. Two hundred per-case numbers are two hundred places a threshold can be nudged to match a result and have it read as ordinary work. *`CLAUDE.md`'s "a number stated before and after that nobody moves" is served better by one number than by two hundred*
+- [ ] **The render recipe defaults the same way** — engine, device, samples, adaptive off, denoising off, seed, `diffuse_bounces`, pixel filter and width, resolution, output format — declared once in § I.26 and overridden per case only where the rung needs it, as rung 9 needs bounces on
+- [ ] **The Blender release is part of the oracle cache key and not of any case file** (§ I.26), so the version cannot drift per case and the cache cannot serve a render the recipe no longer describes
+- [ ] What `case.json` may carry when it exists: threshold overrides with their reason · a recipe override with its reason · an explicit camera where the glTF has none and the derived one is wrong for the question · the corpus id when the `.gltf` is fetched rather than tracked · the **requirement identifiers the case covers** (§ I.20) · and a **closed-form expected value** where one exists, because rung 3's `ρ·E·cos θ / π` is a value and a test that only checks a difference cannot tell a right answer from two wrong ones that agree
+- [ ] **The reference is derived, never committed** — 720p RGBA float32 is `1280·720·4·4 B = 14.75 MB` a frame, and a 240-frame film segment is **3.54 GB** on its own. What is tracked is the declaration; the pixels come from it and cache by hash
+**Both pictures always land in the case directory, and that is where a human goes to look.**
+*Owner's ruling, 2026-08-12: **the reference and outshine images are always placed in the test folder
+containing the glTF, so I can see the progress.** It supersedes this section's earlier "ours lands
+beside it", which left the writing optional and the naming unstated.*
+
+- [ ] **Both images are written on every run, pass and fail alike.** *A picture that only appears on a failure cannot show progress, which is the stated purpose — and a suite that shows nothing while it is green is a suite whose improvement nobody can see between two reds*
+- [ ] **PNG always, and the float pair always beside it**: the EXR float32 pair is what every metric reads and what settles a radiance question; the PNGs exist **purely so the directory can be opened and looked at**. Neither replaces the other and neither is optional
+- [ ] **The names sort for browsing and the order is part of the contract**, not alphabetical accident: `0-oracle.png` · `1-outshine.png` · `2-diff.png`, beside `scene.gltf` and the two `.exr`. The purpose is visual comparison in a file browser, so *oracle first, ours second, difference third* is what the numbering buys
+- [ ] **Untracked but permanent — and the distinction is the whole line.** ~200 cases at 720p is **≈ 100 MB churning per run**, so the images stay out of git; *untracked* means **not in git**, never **not there**. **A cache hit must still materialise the oracle into the directory**, and an incremental run must never leave a case image-less — a directory with a stale picture, or none, is worse than one with no pictures at all, because it is silently wrong about what it shows
+- [ ] **Motion cases get a numbered frame sequence plus one encoded file for the eye**, under the same rule: the sequence decides, the encode is for looking, and both are always written
+- [ ] **This is where the by-eye judgement lives, and saying so makes it a property of the layout instead of a habit.** `CLAUDE.md` holds that appearance is judged by eye and in motion and that a number never decides whether it looks right — but nothing until now said *where a person goes to do that*. **It is this directory.** A scenario case (§ I.26.9) whose verdict is a frame-time distribution writes its pictures the same way and for the same reason, because its acceptance is half by eye and that half needs a home too
+- [ ] A comparison whose halves live in different places is one somebody assembles by hand every time, and nobody does it twice
+- [ ] **EXR float32 decides and PNG is for looking**, and both are written: a PNG carries a transfer function and cannot settle a radiance question. `diff.png` is a viewing aid and no acceptance reads it
+- [ ] The corpus manifest (§ I.26.1) and a case are **two things with two jobs**: the corpus says *what may be fetched and under what licence*, the case says *what this comparison is*. A case names a corpus id; it never names a URL
+
+**The verdict is named metrics, never one blended score.**
+
+- [ ] **Each metric carries its own threshold and its own direction, and pass is every metric within its own** — `boundary_p95_px` passes **at most** 0.1, `iou` passes **at least** its floor, `radiance_median_rel` passes at most 0.01, `coverage_fraction` passes at least its minimum. *A single blended score would be declarative and still wrong: it hides which metric failed, and a red nobody can attribute is a red nobody acts on*
+- [ ] **Direction is an enumeration and never a boolean or a sign convention** (`Enum.2`) — `AtMost` · `AtLeast` — because *lower is better* encoded as a flag is the class of mistake that inverts a whole suite silently and passes every test while doing it
+- [ ] The runner prints **every metric with its value, its threshold and its direction**, not only the failing one, so a case that passes narrowly is visible before it starts failing
+
+### I.26.11 Two hundred cases, so the suite is generated rather than typed
+
+*Owner's calibration, 2026-08-12: **"I expect hundreds of tests."** That is a design ruling, not a
+length target. A suite of ~200 cases has failure modes a suite of ~30 does not, and all three of them
+are structural: boilerplate that stops anyone adding case 31, an oracle cost that makes the suite
+unrunnable, and empty cases that sit green. **This section is the answer to all three, and it is
+deliberately not a list of 200 lines** — a hand-typed enumeration would have holes and no way to prove
+it does not.*
+
+**The count, derived rather than asserted.** Core glTF behaviours ≈ 80 · extension cases ≈ 28, one per
+ratified extension we require plus its edge cases · technique cases ≈ 70, kind B of § I.26.8 at several
+cases each · integration scenes ≈ 20. **≈ 200 for the renderer stage alone**, before vegetation and
+buildings have their own.
+
+- [ ] **The axes are declared and the enumeration is mechanical from them**, which is what makes 200 provable instead of typed: **feature** (the § I.26.8 matrix) × **kind** (A fetched · B authored) × **instrument** (boundary p95 · depth · radiance · frame time · by eye) × **subject class** (opaque ≥ 1 px · sub-pixel present) × **motion** (still · moving). A case is a point in that space and a hole in the enumeration is a query, not an act of memory
+- [ ] **Adding a case is adding a directory, never writing a file.** Roughly 90 % of render cases ask one question — *load this glTF, place this camera, render, compare against the oracle at these thresholds* — so the C++ is **identical across all of them and only the manifest differs**. One parametrised parity test, instantiated by the harness once per test directory
+- [ ] **Still one process and one real verdict per case**, which is `test/run.sh`'s existing requirement and is not relaxed: the harness enumerates the directories and runs the parity binary once per directory with the directory as its argument. What is shared is the **code**, not the process, and a crash in case 137 fails case 137
+- [ ] What the render runner reads and nothing else: the `.gltf`, the resolved camera, the resolved recipe, the subject class and the resolved thresholds — from the declaration and the defaults (§ I.26.10). **It contains no scene-specific branch at all**; a case needing one is not a render case
+- [ ] **A case whose question is not "does it match the oracle" is not in this suite at all** (§ I.26.9). *This line first read "it writes its own `.cpp`" — an escape hatch inside the render suite, which is exactly how a scoreless case ends up in a suite whose contract is a score. The escape is a **different suite**, not a different file.* § I.26.3's time contract is arithmetic against `n/fps` and is a **unit** test; § I.26.7's forest is a frame-time distribution and is a **scenario** test
+**The oracle cache, justified against the numbers this round measured rather than against a feeling.**
+*The line here first read "200 Cycles renders at 720p is **hours**". **That is contradicted by this
+round's own measurement** — 200 × 2.087 s = **417 s ≈ 7.0 min** — and a claim a round measures and then
+contradicts is the precise failure `doc/bugs.md` records twice already. Corrected, with every number
+labelled.*
+
+| | value | measured or derived |
+|---|---|---|
+| warm frame, Metal, factory cube, 720p, 128 spp | **2.087 s** | **measured** (§ I.26.4) |
+| cold Metal kernel compilation, once per cache generation | **200.9 s** | **measured** |
+| 200 still cases, warm, cube-cost | **417 s ≈ 7.0 min** | **derived** from the two above |
+| first run of those 200 on a cold cache | **≈ 10.3 min** | **derived** |
+| one case alone, cold against warm | **203 s against 2.1 s ≈ 100×** | **derived** |
+| film segment, 240 frames, cube-cost | **8.4 min** | **derived** |
+| pavilion, forest, scan-derived subject | **unknown multiple of the cube** | **projection — not measured**, and one timed frame is the tool |
+
+- [ ] **The cache's honest justification is three things, and bulk stills are not among them**: the **cold-start cliff**, where one case costs 203 s instead of 2.1 s and every fresh checkout, every container and every Blender upgrade pays it · the **film**, whose frame count multiplies directly and whose cost scales with a sequence rather than a frame · and **scene cost**, which is a projection and is labelled as one — the 2.087 s subject is a six-quad cube, the cheapest that exists, and the pavilion and the forest are unmeasured
+- [ ] **For the two hundred stills the cache is a convenience and the design says so.** Seven minutes warm is affordable; it is not the reason the cache exists, and inflating it into one would make the next round distrust every number beside it
+- [ ] **The strongest reason is not performance at all: a cached oracle keyed by recipe and release cannot change underneath a comparison.** Without it, a reference re-rendered per run can move for a reason nobody chose — a driver, a sampler, a point release — and every difference becomes unattributable. *That is a correctness argument, and it would justify the cache at zero render cost*
+- [ ] Hash-keyed in the content store § I.22 already has, computed once, invalidated only when the recipe or the Blender release changes. **That is why the release is in the key** and not merely on the row
+- [ ] **The tier split, stated with what the fast tier actually costs rather than with an assertion that it cannot afford one.** With a warm cache the fast tier costs **2.087 s per oracle it would have to render, derived** — real but survivable, so *cannot afford it* was the wrong reason. The right one is that **the fast tier must not invoke Blender at all**: an external binary on the fast path is an unbounded dependency whose cost is a **100× cliff** the moment the kernel cache is cold, and a tier whose runtime depends on whether somebody upgraded Blender is not a fast tier. So a fast-tier cache miss is a **named refusal**, never a silent skip and never a render nobody asked for; the `device` tier renders and populates
+- [ ] **A cold cache is a declared, separately-invoked run** with its cost published — `N × t_frame` plus the **200.9 s measured** Metal kernel compilation once (`doc/bugs.md`). For 200 cube-cost stills that is **≈ 10.3 min derived**; for the film and the complex scenes it is a projection until one frame of each is timed, and the run prints which of its numbers are which
+- [ ] **What stops a generated suite going hollow is the empty-image guard and not a count of declared numbers** (§ I.26.10): under defaults, declaring nothing *is* a complete specification, so "a directory with no acceptance numbers is a refusal" would refuse every correct minimal case. The guard that actually holds is **zero coverage on either side is a failure, an absent or failed oracle is a failure, and the trailer distinguishes agreed from nothing-to-compare**
+- [ ] **The suite publishes its own coverage of the matrix as a count** — features with a case, features without, cases with each instrument — so *"every feature KCD or GTA 5 uses has a basic case"* is a number somebody can read rather than a claim somebody made. Without it, 200 directories are 200 opportunities for a feature to have quietly no case at all
 
 ---
 
@@ -2543,12 +2897,12 @@ needs excluding after all.*
 
 | | |
 |---|---|
-| Lines in this file | **2567** |
-| Feature lines — `^- [` at the top of a bullet | **1728** |
+| Lines in this file | **2937** |
+| Feature lines — `^- [` at the top of a bullet | **1825** |
 | `- [x]` built and checked | **244** |
-| `- [ ]` not built | **1484** |
+| `- [ ]` not built | **1581** |
 | Band 0 — residency | 78 |
-| Band I — engine (§§ I.1–I.17 plus the library sections §§ I.18–I.26) | 548 |
+| Band I — engine (§§ I.1–I.17 plus the library sections §§ I.18–I.26) | 645 |
 | Band II — world | 156 |
 | Band III — vegetation | 459 |
 | Band IV — buildings and infrastructure | 346 |
@@ -2559,12 +2913,19 @@ needs excluding after all.*
 | `TOOL` | 18 |
 | `UNSURE` | 3 |
 
-**Read the 227 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
+*The 1 796 are not the suite's size, and there is no longer one suite to size. § I.26.9 splits the tests
+into three by instrument — **render**, **scenario**, **unit** — and § I.26.11 designs the render matrix,
+whose enumeration is mechanical and whose expected instantiation is **≈ 200 render cases for the renderer
+stage alone**, deliberately not written out as 200 lines because a hand-typed list would have holes and
+no way to prove it does not. A count of requirement lines and a count of tests are different numbers and
+this file holds the first.*
+
+**Read the 244 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
 land templates — and every one of the sixteen rides the single growth form the generator can shape. The
 engine's own machinery accounts for most of the rest. Nothing in bands IV and V beyond the footprint
 prism, the way widths and their point queries is ticked, and Band V is entirely unticked.
 
-**Three of the 1632 have a test today**, and they are the whole of the suite's coverage: the closed,
+**Three of the 1 825 have a test today**, and they are the whole of the suite's coverage: the closed,
 wound, unit-normal and in-range bark invariants over every declared species
 (`test/generators/draw/GrownBarkIsAClosedMesh.cpp`), the planar geodesy's round trip and its priced
 approximation (`test/core/PlanarGeodesyHoldsToItsScope.cpp`), and the harness's own red

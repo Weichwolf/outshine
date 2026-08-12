@@ -57,9 +57,11 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   |lat| > 85.05112877980659°. Both callers discard the `int` and read the outputs they initialised to
   zero — `world/OsmField.cpp:35` (`uint32_t cx = 0, cy = 0`) and `world/World.cpp:472`
   (`rx = 0, ry = 0`) — so a standpoint in the high Arctic streams the north-west corner tile of the
-  map as its own neighbourhood. **Reachable from a declared scenario**: `clients/Scene.cpp:65` accepts
-  `lat` in `[-90, 90]` and `World::Open` (`world/World.cpp:79`) has no latitude guard at all, so the
-  only thing between a scenario and this is nobody having written one.
+  map as its own neighbourhood. **No longer reachable from a declared scenario** (2026-08-12): a world
+  stage carries a `Scenario::Standpoint`, a type only the refusing factory `Standpoint::At` mints
+  (`scenario/Standpoint.h`), so an out-of-band place is not a value a declaration can produce. It is
+  still reachable from every other direction — `World::Open` (`world/World.cpp:79`) has no latitude
+  guard at all, and `Sim::SetStance` takes two bare doubles (see the snapshot entry below).
   It is **one function at two sites, not a habit** — checked: of the seven `int`-returning C-ABI
   functions in `world/terrain/`, the other six are checked at every call site
   (`osmmesh_create` ×2, `osmmesh_fetch_tile`, `osmmesh_tile_grid`, `osmmesh_enu_init`,
@@ -425,7 +427,8 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   lets `shots.jsonl` replace lat/lon through `Sim::SetStance`, which is `clients/Sim.h:77`
   `void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }` — a setter that silently does
   nothing once the world is open and validates nothing when it does act. The band check therefore
-  lives at the declaration (`clients/Scene.cpp`) and this path goes around it: a hand-written
+  lives at the declaration (`scenario/Standpoint.h`, a type only a refusing factory mints) and this
+  path goes around it by handing `Sim::Stance` two bare doubles: a hand-written
   snapshot at 86 N reaches `Sim::LoadTables`, where the failure surfaces as
   `sim ring_has_no_region lat=86 lon=15` — true, and it names the symptom (no region in the ring)
   rather than the cause (the standpoint is outside the projection). Right: one place validates a
@@ -937,20 +940,34 @@ the tree more than once, or under a name that says the wrong unit.*
   three unreachable branches. Right: the runner writes to a directory, `Delivery` is `Complete` or
   `Refused`, and the wait has no subject to wait for.
 
-- **Ten declared scenes carry eighty world fields that nothing reads, and one of them is declared
-  twice with the C++ copy winning.** Every `subject` scene in `test/mods/demo/mod.json`
-  (`subject-beech`, `-meadow`, `-hazel`, `-elder`, `-box`, `-dog-rose`, `-hedge-hornbeam`,
-  `-snag-spruce`, `-log-beech`, `-stump-beech`) declares `lat 52.10602`, `lon 9.43453`, `eyeM 1.7`,
-  `yawDeg 280`, `pitchDeg 0`, `fovDeg 30`, `utc`, `windDeg 250`, `windMs 6.0` — and
-  `clients/SubjectBench.h:1-18` states the bench replaces the world and the light outright. The bench
-  places its own camera from its own `View` table, declares its own key at
-  `SubjectBench.h:65 kSunElDeg = 11.0`, and runs its own 0/6/12 m/s wind row; only `lat`/`lon` reach it
-  at all, through `Stand(Scene_.Lat(), Scene_.Lon(), kSubjectGroundAslM)` where
-  `SceneRunner.cpp:32 kSubjectGroundAslM = 100.6` is a third literal the declaration cannot see.
-  `fovDeg: 30` in the JSON and `SubjectBench.h:62 kFovDeg = 30.0` are one statement in two places and
-  the JSON one is inert — against `CLAUDE.md`'s *every statement has exactly one place*. Right: a
-  scenario whose stage is a studio has no latitude, no civil time and no met wind to declare, so the
-  eight dead fields have no spelling (`doc/requirements.md` § I.25).
+- **A studio picture is not independent of the geodetic anchor it is drawn at.** A studio stage
+  declares no place (`doc/requirements.md` § I.25), so `scenario/Studio.h:22 kAnchorLatDeg/LonDeg`
+  is the arbitrary point the camera basis is built at. **Measured 2026-08-12** over
+  `demo subject-beech`, two binaries differing only in that constant — the shipped 0/0 against
+  52.10602/9.43453 — **all 48 pictures differ**: mean |Δ| over the 48 is 12.5 codes of 255, worst
+  frame `beech-leaf_hd-frontlit` mean 44.9 with 98.3 % of pixels moved, worst single pixel 247.
+  Three components are visible in the difference image
+  (`beech-portrait-frontlit`, sky band mean 19.4, floor band 16.3, card band 0.8): the ruled floor's
+  grid phase, which is drawn in world metres and follows the anchor **by design**; a ~1 px shift of
+  the horizon line; and the whole crown's leaf scatter, salt-and-pepper across every leaf. The last
+  two are not explained. Nothing in the bench hands the renderer an absolute position except the
+  camera's ECEF eye and basis — `clients/SubjectBench.cpp:216-240` — and the atmosphere rebases onto
+  its own sphere from the local ground radius (`render/stages/AtmoCommon.h:43 atmoPos`), so a
+  latitude-dependent crown is a read of world position by something that should not have one. Right:
+  the anchor can be moved and only the world-metre ruler moves with it; until then no comparison of
+  two bench runs may cross an anchor change.
+
+- **The sward bench photographs nothing and reports success, 57 times.** `demo subject-meadow` writes
+  57 PNGs into `bench-meadow` and exits 0, and **every one of them logs `fillPct=0`** — an empty
+  ruled floor beside the neutral card, no grass anywhere in frame. The cause is one line: the herb
+  subject's template index was stored and never read — `clients/SubjectBench.h:137 int Bucket_` at
+  `757e335`, written at `SubjectBench.cpp:146` and read nowhere — so the renderer is never told which
+  vegetation template to draw. It predates this round (the field is write-only at `757e335` too) and
+  survived the move to a declared studio, where the index is now not even carried. It is the
+  `verify-refusals` shape one layer up: *a bench with nothing to measure must refuse*, and this one
+  measures 0.0 % cover 57 times without a word. Right: the sward is drawn, or the bench refuses a
+  subject it cannot draw — `SubjectBench::Write` already computes the number that decides it.
+
 - **The language standard has two values.** `Makefile:26` sets
   `CXXSTD := -std=c++17` and uses it for every compile gate (`verify-generators`, `verify-world`,
   `verify-types`, the `gen_gate` link, the `world` target's C++ half); every shipping compile line
@@ -1059,9 +1076,9 @@ the tree more than once, or under a name that says the wrong unit.*
   dead class but a dead arm of a declared enumeration, and the arm is already declared in a shipped
   mod**: `test/mods/demo/mod.json` has scene `walk` with `"kind": "interactive"`, and
   `./build/gpu_walk demo walk` answers `ERROR run scene_is_interactive scene=walk`, **exit 1**. Worse,
-  `Kind::Interactive` is the *default* (`clients/Scene.h:139`) and `clients/Scene.cpp:119` returns
-  early for it, so a scene that simply omits `kind` is parsed with its `runs` block unvalidated and is
-  then unrunnable. `Walker` is only the machinery that arm would have used. A gate that counted unlinked *files* would stay flat through both, which is
+  The half of this that was about an omitted `kind` is gone (2026-08-12): `kind` is a required string
+  and a scene without one is refused by path (`scenario/Scene.cpp`), so an unvalidated `runs` block is
+  no longer reachable. The dead arm itself stands. `Walker` is only the machinery that arm would have used. A gate that counted unlinked *files* would stay flat through both, which is
   why `doc/requirements.md` § I.21 now asks for unreached symbols instead. Right: the client with an
   input medium is its caller (§ I.14), or the enumerator and the class go together in the round that
   decides there will not be one.
@@ -1180,9 +1197,6 @@ and it costs a round the first time somebody tries to check one of these rules a
 
 - `src/core/Material.h:19` — *"nothing in it can switch a pipeline state (doc/architecture.md)"*. The
   rule is live and correct; it is in `CLAUDE.md` under *the core dictates the pipeline*.
-- `src/clients/Scene.h:31` — *"1280x720 is the frame budget's subject [SET, doc/architecture.md]"*. A
-  `[SET]` number whose frame of reference points at a deleted file has no origin, which is the one thing
-  `CLAUDE.md` requires of every number.
 - `src/render/GeometryStage.h:3` · `src/render/Renderer.cpp:785` · `src/render/stages/TaaStage.cpp:110`
   · `src/clients/Sim.cpp:176` · `src/clients/Sim.h:50` · `src/clients/RegionForge.h:2` ·
   `src/generators/Water.h:2` — the same, one each.
@@ -1198,7 +1212,7 @@ rule is local. A grep for `architecture.md` returning zero in `src/` is the chec
 both compound the error by citing a numbered principle list that the current `CLAUDE.md` does not have —
 it carries *the constraints*, *stance* and *setup*, with no numbered principles at all.
 
-- `src/clients/Animation.h:15` — *"a bespoke format here would be the parser nobody ordered (Prinzip 1)"*.
+- `src/scenario/Animation.h:15` — *"a bespoke format here would be the parser nobody ordered (Prinzip 1)"*.
 - `src/core/Keyframes.h:22` — *"(Prinzip 7: a run must …)"*.
 - `src/render/Renderer.cpp:633` — *"(CLAUDE.md, Prinzip 5)"* — half-translated, and the cited number
   does not exist in the file it names.
@@ -1230,3 +1244,55 @@ A second trap in the same measurement, and it is the one that produced the CPU c
 have `compute_device_type` set *and* `get_devices()` called *and* the device's `use` flag set, or Cycles
 falls back to CPU silently and the run is 5.6× slower with no message. A harness that does not assert
 the device it got has measured something it did not choose.
+
+## A conclusion about a host drawn from four paths — the vacuous-gate shape, in a research method
+
+**Mine, this round, and it produced a wrong finding inside a design that was otherwise careful.** I
+checked `download.blender.org` at `/peach/`, `/durian/`, `/mango/`, `/institute/` and `/demo/movies/`,
+found three redirect stubs and one directory of rendered video, and wrote into `doc/requirements.md`
+that the Blender open movies are **not fetchable** and that the film rung therefore had to be built from
+something else. Walking `/demo/` properly refutes it:
+
+| Path | What is actually there |
+|---|---|
+| `/demo/sprite_fright_030_0020_A.zip` | 254 374 945 B — a **complete Sprite Fright shot**, 47 `.blend`, three animation takes, character, spider, mushroom grove, village, plants, fungi |
+| `/demo/bbb/blender.zip` | 830 709 844 B — **Big Buck Bunny's entire production tree**, 591 `.blend` |
+| `/demo/cycles/` | four large Cycles demo scenes, one of them the best-known on the host |
+| `/demo/eevee/*/README.txt` | **per-file licences the web page does not state** — the strongest evidence available, and the first pass never looked |
+| `studio.blender.org/terms-and-conditions` | *"all digital content … is available under the Creative Commons Attribution 4.0"* — the licence was never the constraint; **access** is, and only for part of it |
+
+**The shape, and why it belongs in this file rather than in a round's report.** It is the same defect as
+a gate that certifies over an empty object set: *the check ran, the check was sound, the population it
+ran over was not the population the conclusion names.* Five paths were examined and the sentence written
+was about a host. The failure is invisible from inside the method — every individual observation was
+correct and correctly reported — which is exactly why it needs a rule rather than more care.
+
+**The rule this earns:** a negative existence claim — *X is not available*, *no such asset exists*, *the
+tree contains none* — names the enumeration it is drawn from, and the enumeration is **exhaustive over
+the container** or the claim is written as *not found at these paths*. A directory index is cheap to
+walk to the bottom; the first pass did not walk it at all. `doc/requirements.md`'s own measurement rule
+already ranks *correctness — checked against something outside* above *consistency*, and a negative
+claim is the one kind that cannot be checked by more internal agreement.
+
+**Right, and it is one line of method:** for a claim about a file host, recurse the index; for a claim
+about a repository, list the tree at the pinned SHA — which this round *did* do for Khronos, where the
+tree was enumerated whole and the licence findings from it stand. The two halves of the same round used
+two methods and only one of them was sound.
+
+**A second shape from the same round, and it is worth separating from the first.** The availability
+error was a conclusion drawn over a population nobody enumerated. This one is narrower and cheaper to
+catch: **a claim contradicted by a measurement the same round had already taken.** § I.26.11 justified
+the oracle cache with *"200 Cycles renders at 720p is hours"* while § I.26.4, four sections earlier in
+the same file, carried the measured **2.087 s/frame** that makes it **7.0 minutes**. Both numbers were
+mine, written the same day.
+
+The rule: **a magnitude word — hours, huge, negligible, orders — that stands next to a measurement this
+tree already holds is arithmetic, and it gets done.** Where the arithmetic contradicts the word, the
+word goes. Where no measurement exists the claim is labelled a **projection** and says what would settle
+it; the corrected passage now labels every one of its seven numbers *measured*, *derived* or
+*projection*, which is what `CLAUDE.md` asks of a number and what an unqualified "hours" evades.
+
+The cache survived the correction with better reasons than it had — the 200.9 s cold-start cliff, the
+film's frame count, and the fact that a cached oracle cannot change underneath a comparison. **An
+inflated justification was hiding a correctness argument stronger than the performance one it displaced**,
+which is the second cost of this defect class and the one nobody notices.
