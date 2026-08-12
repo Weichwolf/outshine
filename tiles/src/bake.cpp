@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "bake.h"
 #include "raster.h"
 #include <stdio.h>
@@ -7,10 +6,11 @@
 #include <sys/stat.h>
 #include <pthread.h>
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#define STBI_WRITE_NO_STDIO
-#include "../vendor/stb_image_write.h"
-#include "../vendor/stb_image.h"
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+
+typedef struct { uint8_t *b; size_t n; } membuf;
 
 static char g_dir[256] = "/var/cache/fbtiles";
 static long g_hits = 0, g_bakes = 0, g_fail = 0;
@@ -64,31 +64,19 @@ static int fb_force_supersample(void){
     return e && *e && *e != '0';
 }
 
-/* Stage-profiled a bake (v11 max-speed trim): PNG encode, not the rasteriser, was the dominant
- * cost -- at tex=4096, fill+lines together took ~0.13s while stb_image_write's DEFAULT settings
- * took 0.7-2.1s to encode the SAME pixels (measured on real Bern-area tiles, several samples). Two
- * separate stb_image_write knobs, measured independently:
- *   - stbi_write_force_png_filter: defaults to -1, meaning "try all 5 PNG filter types per scanline
- *     and keep whichever compresses smallest" -- that heuristic itself, not the zlib deflate it
- *     feeds, was most of the cost. Forcing filter 0 (None, no per-pixel prediction at all) measured
- *     ~4.2x faster for map-tile content (large flat-color regions don't benefit much from Sub/Up/
- *     Average/Paeth prediction anyway) at only ~1-2% larger files.
- *   - stbi_write_png_compression_level: defaults to 8 (near-max zlib effort). Dropping to 1
- *     (fastest) on top of filter=0 measured a further ~20-25% encode speedup for ~4% more bytes.
- * Combined: ~5x faster encode for ~4.5% larger PNGs on the measured tiles -- comfortably inside "not
- * >2x bytes for <20% speed" and then some. Both are plain global ints in stb_image_write.h, set
- * ONCE here before any worker thread exists (matches fb_stars_init's
- * same single-threaded-startup pattern) -- read-only from every bake call afterward, so no lock
- * needed and no race: this is a fixed, measured constant, not a per-request or operator-tunable
- * knob (no TILES_* env var for it, unlike the pool sizes elsewhere in this server). */
+/* WHAT THE ENCODER COSTS WAS THE WHOLE BAKE. Stage-profiled at tex=4096: fill+lines ~0.13 s while
+ * the PNG encode took 0.7-2.1 s on the same pixels, which is why stb_image_write's filter and
+ * compression knobs used to be forced here. SDL3_image exposes neither, and it does not need to --
+ * measured on a z14 Bern bake, IMG_SavePNG writes FEWER bytes than the tuned stb path in comparable
+ * time (the numbers are in the round's report, not in this comment, because they decay). The format
+ * itself is the open question: PNG was chosen so a bake could travel over HTTP to a browser, and
+ * that wire is being deleted. */
 int fb_bake_init(const char *dir){
     if(dir && *dir) snprintf(g_dir, sizeof g_dir, "%s", dir);
     mkdir(g_dir, 0755);
     char sub[320];
     snprintf(sub, sizeof sub, "%s/bake_osm",   g_dir); mkdir(sub, 0755);
     snprintf(sub, sizeof sub, "%s/bake_photo", g_dir); mkdir(sub, 0755);
-    stbi_write_force_png_filter = 0;
-    stbi_write_png_compression_level = 1;
     return 0;
 }
 
@@ -103,21 +91,9 @@ static uint8_t *read_file(const char *p, size_t *n){
     FILE *f = fopen(p, "rb"); if(!f) return 0;
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
     if(sz <= 0){ fclose(f); return 0; }
-    uint8_t *b = malloc((size_t)sz);
+    uint8_t * b = (uint8_t *)malloc((size_t)sz);
     if(!b || fread(b, 1, (size_t)sz, f) != (size_t)sz){ free(b); fclose(f); return 0; }
     fclose(f); *n = (size_t)sz; return b;
-}
-
-typedef struct { uint8_t *b; size_t n, cap; } membuf;
-static void mem_write(void *ctx, void *data, int size){
-    membuf *m = (membuf*)ctx;
-    if(m->n + (size_t)size > m->cap){
-        size_t cap = (m->cap ? m->cap*2 : 1<<16);
-        while(cap < m->n + (size_t)size) cap *= 2;
-        uint8_t *t = realloc(m->b, cap); if(!t) return;
-        m->b = t; m->cap = cap;
-    }
-    memcpy(m->b + m->n, data, (size_t)size); m->n += (size_t)size;
 }
 
 int fb_bake_ondisk(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
@@ -135,9 +111,22 @@ int fb_bake_ondisk(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **ou
  * bytes too so the caller doesn't have to re-read its own write. */
 static int encode_and_store(fb_albedo_kind k, int z, long x, long y, int TS,
                              const uint8_t *rgb, uint8_t **out, size_t *n){
-    membuf m = {0};
-    if(k == FB_ALBEDO_PHOTO) stbi_write_jpg_to_func(mem_write, &m, TS, TS, 3, (void*)rgb, 88);
-    else                     stbi_write_png_to_func(mem_write, &m, TS, TS, 3, (void*)rgb, TS*3);
+    SDL_Surface *surface = SDL_CreateSurfaceFrom(TS, TS, SDL_PIXELFORMAT_RGB24, (void*)rgb, TS*3);
+    SDL_IOStream *io = surface ? SDL_IOFromDynamicMem() : 0;
+    bool wrote = false;
+    if(io) wrote = (k == FB_ALBEDO_PHOTO) ? IMG_SaveJPG_IO(surface, io, false, 88)
+                                          : IMG_SavePNG_IO(surface, io, false);
+    if(surface) SDL_DestroySurface(surface);
+    membuf m = {};
+    if(wrote){
+        const Sint64 size = SDL_GetIOSize(io);
+        if(size > 0 && SDL_SeekIO(io, 0, SDL_IO_SEEK_SET) == 0){
+            m.b = (uint8_t *)malloc((size_t)size);
+            if(m.b && SDL_ReadIO(io, m.b, (size_t)size) == (size_t)size) m.n = (size_t)size;
+            else { free(m.b); m.b = 0; }
+        }
+    }
+    if(io) SDL_CloseIO(io);
     if(!m.n){ free(m.b); return 0; }
 
     char path[400]; bake_path(k, z, x, y, TS, path, sizeof path);
@@ -161,7 +150,7 @@ static int encode_and_store(fb_albedo_kind k, int z, long x, long y, int TS,
  * sub-1.5px² feature is genuinely negligible, not just "small for a downscale"). Smaller TS means
  * less raster area to fill, not a coarser blur: no box-downscale softens the interior. */
 static int bake_native(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
-    uint8_t *rgb = malloc((size_t)TS*TS*3);
+    uint8_t * rgb = (uint8_t *)malloc((size_t)TS*TS*3);
     if(!rgb){ __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0; }
     if(!fb_raster_bake(k, z, x, y, TS, TS, rgb)){
         free(rgb); __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
@@ -177,13 +166,13 @@ static int bake_native(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t 
  * path. Rasterises FRESH at native=2*TS and box-halves down to TS, no shared/cached intermediate. */
 static int bake_supersampled(fb_albedo_kind k, int z, long x, long y, int TS, uint8_t **out, size_t *n){
     int native = TS*2;
-    uint8_t *raw = malloc((size_t)native*native*3);
+    uint8_t * raw = (uint8_t *)malloc((size_t)native*native*3);
     if(!raw){ __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0; }
     if(!fb_raster_bake(k, z, x, y, native, TS, raw)){
         free(raw); __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0;
     }
 
-    uint8_t *rgb = malloc((size_t)TS*TS*3);
+    uint8_t * rgb = (uint8_t *)malloc((size_t)TS*TS*3);
     int ok = rgb && fb_raster_downscale(raw, native, rgb, TS);
     free(raw);
     if(!ok){ free(rgb); __atomic_fetch_add(&g_fail, 1, __ATOMIC_RELAXED); return 0; }

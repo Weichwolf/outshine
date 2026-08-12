@@ -16,7 +16,7 @@ void fb_stars_init(const char *dir)
         if (!f) { fprintf(stderr, "[fb-tiles] stars: no %s (band %d empty)\n", path, b); continue; }
         fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
         if (sz > 0) {
-            g_band[b].data = malloc((size_t)sz);
+            g_band[b].data = (uint8_t *)malloc((size_t)sz);
             if (g_band[b].data && fread(g_band[b].data, 1, (size_t)sz, f) == (size_t)sz)
                 g_band[b].n = (size_t)sz;
             else { free(g_band[b].data); g_band[b].data = NULL; }

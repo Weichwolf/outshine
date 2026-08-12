@@ -9,7 +9,7 @@
 #include <sys/socket.h>
 
 static inline int fb_send_all(int fd, const void *buf, size_t len) {
-    const char *p = buf;
+    const char *p = (const char *)buf;
     while (len) {
         ssize_t w = send(fd, p, len, MSG_NOSIGNAL);
         if (w > 0) { p += w; len -= (size_t)w; continue; }

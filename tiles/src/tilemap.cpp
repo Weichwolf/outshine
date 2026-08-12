@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "tilemap_api.h"
 #include "tilemap.h"
 #include "http.h"
@@ -58,7 +57,7 @@ int fb_tm_has(int z, long x, long y) {
     if (code != 200 || !body) { free(body); return -1; }
 
     fb_tm_rect r;
-    static _Thread_local unsigned char bits[FB_TM_BLOCK * FB_TM_BLOCK];
+    static thread_local unsigned char bits[FB_TM_BLOCK * FB_TM_BLOCK];
     int got = fb_tm_parse((const char *)body, n + 1, &r, bits, (int)sizeof bits);
     free(body);
 

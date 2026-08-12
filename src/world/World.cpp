@@ -5,7 +5,7 @@
 #include "Geodesy.h"
 #include "Log.h"
 #include "Units.h"
-#include "geo.h"
+#include "TileGeodesy.h"
 #include "VegetationTemplates.h"
 #include <algorithm>
 #include <chrono>
@@ -101,10 +101,10 @@ double World::SpanM(int z) const {
 }
 
 void World::Center(int z, long x, long y, double out[3]) const {
-  osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)z, (uint32_t)x, (uint32_t)y, 0.5, 0.5);
-  g.alt = 0.0;
-  osmmesh_ecef e = osmmesh_geo_to_ecef(g);
-  out[0] = e.x; out[1] = e.y; out[2] = e.z;
+  Geo g = TileFracToGeo(z, (uint32_t)x, (uint32_t)y, 0.5, 0.5);
+  g.AltM = 0.0;
+  Ecef e = GeoToEcefWgs84(g);
+  out[0] = e.X; out[1] = e.Y; out[2] = e.Z;
 }
 
 static double Dist(const double a[3], const double b[3]) {
@@ -470,7 +470,7 @@ void World::NoteBand(bool inBand, double latDeg, double lonDeg) {
   else
     Log::Error("world", "eye_left_mercator_band",
                {{"latDeg", latDeg}, {"lonDeg", lonDeg},
-                {"limitDeg", osmmesh_mercator_lat_max_deg}});
+                {"limitDeg", kMercatorLatMaxDeg}});
 }
 
 /* The zROOT tiles whose centre is within the view radius, and the LOD traversal under each. */
@@ -505,7 +505,7 @@ void World::Refine(const Eye &eye, double nowMs) {
   TargetTot = TargetRdy = TargetView = 0;
   uint32_t rx = 0, ry = 0;
   const bool inBand =
-      osmmesh_geo_to_tile(camLon, eye.LatDeg, (uint8_t)kRootZ, &rx, &ry) == OSMMESH_GEO_OK;
+      TileIndex::Of(Geo{camLon, eye.LatDeg, 0.0}, kRootZ).TryXy(&rx, &ry);
   NoteBand(inBand, eye.LatDeg, camLon);
   if (inBand) RootRing(eye, rx, ry);
 

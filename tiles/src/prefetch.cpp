@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "prefetch.h"
 #include "prefetch_api.h"
 #include "cache.h"

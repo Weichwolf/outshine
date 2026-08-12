@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "cache.h"
 #include "route.h"
 #include "prefetch_api.h"
@@ -215,6 +214,10 @@ static void *conn_worker(void *arg) {
 int main(void) {
     int port = getenv("TILES_PORT") ? atoi(getenv("TILES_PORT")) : 8081;
     const char *cache = getenv("TILES_CACHE") ? getenv("TILES_CACHE") : "/var/cache/fbtiles";
+    /* WITHOUT THIS THE TILE CACHE IS NOT WHERE THE OPERATOR PUT IT: every other init below took the
+     * declared directory and this one did not exist at all, so the upstream bodies went to the
+     * built-in default and a host without it counted every fetch as a failure. */
+    fb_cache_init(cache);
     fb_bake_init(cache);
     fb_wx_init(cache);
     fb_peaks_init(cache);
@@ -239,7 +242,7 @@ int main(void) {
     const char *bindaddr = getenv("TILES_BIND");
     int lfd = socket(AF_INET, SOCK_STREAM, 0);
     int one = 1; setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
-    struct sockaddr_in a = {0};
+    struct sockaddr_in a = {};
     a.sin_family = AF_INET; a.sin_port = htons(port);
     if (bindaddr && *bindaddr) {
         if (inet_pton(AF_INET, bindaddr, &a.sin_addr) != 1) { fprintf(stderr, "[fb-tiles] bad TILES_BIND\n"); return 1; }

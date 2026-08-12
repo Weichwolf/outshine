@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "cache.h"
 #include "tilesrc.h"
 #include <stdio.h>
@@ -59,7 +58,7 @@ static uint8_t *read_file(const char *p, size_t *n) {
     FILE *f = fopen(p, "rb"); if (!f) return 0;
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
     if (sz <= 0) { fclose(f); return 0; }
-    uint8_t *b = malloc((size_t)sz);
+    uint8_t * b = (uint8_t *)malloc((size_t)sz);
     if (!b || fread(b, 1, (size_t)sz, f) != (size_t)sz) { free(b); fclose(f); return 0; }
     fclose(f); *n = (size_t)sz; return b;
 }

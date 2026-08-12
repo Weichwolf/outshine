@@ -41,7 +41,7 @@ static inline size_t fb_http__sink(void *p, size_t sz, size_t nm, void *ud) {
     if (o->n + add + 1 > o->cap) {
         size_t cap = o->cap ? o->cap : 1 << 16;
         while (cap < o->n + add + 1) cap <<= 1;
-        uint8_t *t = realloc(o->b, cap);
+        uint8_t * t = (uint8_t *)realloc(o->b, cap);
         if (!t) return 0;
         o->b = t; o->cap = cap;
     }

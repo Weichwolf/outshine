@@ -8,7 +8,7 @@
  * without ever letting a malformed length drive a multiply. */
 #define FB_G2_MAX_POINTS 8000000u
 
-static _Thread_local const char *g_err;
+static thread_local const char *g_err;
 
 const char *fb_grib2_last_error(void) { return g_err ? g_err : "none"; }
 
@@ -82,10 +82,10 @@ typedef struct {
 
 static int scratch_reserve(fb_g2_scratch *s, uint32_t npoints) {
     if (npoints <= s->cap) return 1;
-    int32_t *iv = realloc(s->iv, (size_t)npoints * sizeof *iv);
+    int32_t * iv = (int32_t *)realloc(s->iv, (size_t)npoints * sizeof *iv);
     if (!iv) return 0;
     s->iv = iv;
-    float *fv = realloc(s->fv, (size_t)npoints * sizeof *fv);
+    float * fv = (float *)realloc(s->fv, (size_t)npoints * sizeof *fv);
     if (!fv) return 0;
     s->fv = fv;
     s->cap = npoints;
@@ -143,7 +143,7 @@ static int drt_complex(int tmpl, const uint8_t *s5, size_t n5, const uint8_t *s7
 
     /* Group descriptors: references, then widths, then lengths -- each array starts octet-aligned.
      * NG is bounded by ndpts above, so this multiply cannot wrap. */
-    uint32_t *grefs = malloc((size_t)NG * 3 * sizeof(uint32_t));
+    uint32_t * grefs = (uint32_t *)malloc((size_t)NG * 3 * sizeof(uint32_t));
     if (!grefs) return g2_fail("drt5.3 out of memory");
     uint32_t *gw = grefs + NG, *gl = grefs + 2 * (size_t)NG;
     for (uint32_t i = 0; i < NG; i++) grefs[i] = br_get(&r, nb);
@@ -271,7 +271,7 @@ int fb_grib2_walk(const uint8_t *buf, size_t n, fb_grib2_sink sink, void *ud) {
         uint64_t mlen = be64(buf + p + 8);
         if (mlen < 24 || mlen > n - p)       { rc = g2_fail("message length out of range"); goto done; }
 
-        fb_grib2_field f = {0};
+        fb_grib2_field f = {};
         f.discipline = buf[p + 6];
         const uint8_t *s3 = 0, *s5 = 0, *s7 = 0;
         size_t n3 = 0, n5 = 0, n7 = 0;

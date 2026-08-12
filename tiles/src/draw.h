@@ -1,6 +1,7 @@
 #ifndef FB_DRAW_H
 #define FB_DRAW_H
-#include <osmmesh/osmmesh.h>
+#include "OsmVector.h"
+
 #include <stdint.h>
 #include <math.h>
 
@@ -37,16 +38,19 @@ static void fb_draw_thick(uint8_t *im, int W, int H, float x0, float y0, float x
     for(int i=0;i<=n;i++){ float t=(float)i/n; fb_draw_disk(im,W,H,x0+dx*t,y0+dy*t,rad,r,g,b); }
 }
 
-static void fb_draw_fill(uint8_t *im, int W, int H, const osmmesh_mvt_feature *ft, float sc,
+static void fb_draw_fill(uint8_t *im, int W, int H, const outshine::World::OsmVector &mvt,
+                         const outshine::World::OsmVector::Feature &ft, float sc,
                          uint8_t r, uint8_t g, uint8_t b){
-    const osmmesh_mvt_coord *co = ft->coords;
-    size_t nco = ft->n_coords;
-    if(nco < 3 || !co) return;
+    const int32_t *co = mvt.Points().data();
+    const outshine::World::OsmVector::Ring *rings = mvt.Rings().data() + ft.FirstRing;
+    const uint32_t nr = ft.RingCount;
+    if(nr == 0) return;
     float ymin=1e9f, ymax=-1e9f;
-    for(size_t i=0;i<nco;i++){ float y=co[i].y*sc; if(y<ymin)ymin=y; if(y>ymax)ymax=y; }
+    for(uint32_t ring=0; ring<nr; ring++)
+        for(uint32_t k=0;k<rings[ring].Count;k++){
+            float y=(float)co[((size_t)rings[ring].First+k)*2+1]*sc; if(y<ymin)ymin=y; if(y>ymax)ymax=y; }
     int iy0=(int)floorf(ymin); if(iy0<0) iy0=0;
     int iy1=(int)ceilf(ymax);  if(iy1>=H) iy1=H-1;
-    size_t nr = ft->n_rings ? ft->n_rings : 1;
     /* NOT static: many worker threads bake concurrently (main.c's connection pool + prefetch.c),
      * each through this same function for a different tile's polygons -- a shared xs[] would let
      * one thread's crossings clobber another's mid-sort, corrupting the fill with a "large wrong-
@@ -57,13 +61,13 @@ static void fb_draw_fill(uint8_t *im, int W, int H, const osmmesh_mvt_feature *f
     for(int y=iy0;y<=iy1;y++){
         float yc = y + 0.5f;
         int nx = 0, overflow = 0;
-        for(size_t ring=0; ring<nr; ring++){
-            size_t a  = ft->n_rings ? ft->ring_offsets[ring]   : 0;
-            size_t bb = ft->n_rings ? ft->ring_offsets[ring+1] : nco;
+        for(uint32_t ring=0; ring<nr; ring++){
+            size_t a  = rings[ring].First;
+            size_t bb = a + rings[ring].Count;
             for(size_t k=a;k<bb;k++){
                 size_t k2 = (k+1<bb) ? k+1 : a;
-                float ya=co[k].y*sc,  yb=co[k2].y*sc;
-                float xa=co[k].x*sc,  xb=co[k2].x*sc;
+                float ya=(float)co[k*2+1]*sc,  yb=(float)co[k2*2+1]*sc;
+                float xa=(float)co[k*2]*sc,    xb=(float)co[k2*2]*sc;
 
                 if((ya<=yc && yb>yc) || (yb<=yc && ya>yc)){
                     float xi = xa + (yc-ya)/(yb-ya)*(xb-xa);
@@ -82,16 +86,17 @@ static void fb_draw_fill(uint8_t *im, int W, int H, const osmmesh_mvt_feature *f
     }
 }
 
-static void fb_draw_line(uint8_t *im, int W, int H, const osmmesh_mvt_feature *ft, float sc,
+static void fb_draw_line(uint8_t *im, int W, int H, const outshine::World::OsmVector &mvt,
+                         const outshine::World::OsmVector::Feature &ft, float sc,
                          float w, uint8_t r, uint8_t g, uint8_t b){
-    const osmmesh_mvt_coord *co = ft->coords;
-    if(!co || ft->n_coords < 2) return;
-    size_t nr = ft->n_rings ? ft->n_rings : 1;
-    for(size_t ring=0; ring<nr; ring++){
-        size_t a  = ft->n_rings ? ft->ring_offsets[ring]   : 0;
-        size_t bb = ft->n_rings ? ft->ring_offsets[ring+1] : ft->n_coords;
+    const int32_t *co = mvt.Points().data();
+    const outshine::World::OsmVector::Ring *rings = mvt.Rings().data() + ft.FirstRing;
+    for(uint32_t ring=0; ring<ft.RingCount; ring++){
+        size_t a  = rings[ring].First;
+        size_t bb = a + rings[ring].Count;
         for(size_t k=a+1;k<bb;k++)
-            fb_draw_thick(im,W,H, co[k-1].x*sc, co[k-1].y*sc, co[k].x*sc, co[k].y*sc, w, r,g,b);
+            fb_draw_thick(im,W,H, (float)co[(k-1)*2]*sc, (float)co[(k-1)*2+1]*sc,
+                          (float)co[k*2]*sc, (float)co[k*2+1]*sc, w, r,g,b);
     }
 }
 

@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "wx.h"
 #include "wxfmt.h"
 #include "grib2.h"
@@ -29,8 +28,8 @@
 #ifndef FB_WX_STEP
 #define FB_WX_STEP 2
 #endif
-_Static_assert(FB_WX_SRC_NX % FB_WX_STEP == 0, "FB_WX_STEP must divide the source grid width");
-_Static_assert((FB_WX_SRC_NY - 1) % FB_WX_STEP == 0, "FB_WX_STEP must divide the source grid height");
+static_assert(FB_WX_SRC_NX % FB_WX_STEP == 0, "FB_WX_STEP must divide the source grid width");
+static_assert((FB_WX_SRC_NY - 1) % FB_WX_STEP == 0, "FB_WX_STEP must divide the source grid height");
 #define FB_WX_NX (FB_WX_SRC_NX / FB_WX_STEP)
 #define FB_WX_NY ((FB_WX_SRC_NY - 1) / FB_WX_STEP + 1)
 
@@ -271,9 +270,9 @@ static fb_wx_fetch_rc build_run(int64_t cycle, uint8_t **out, size_t *out_n,
      * field is rejected outright, so this is belt and braces -- but it makes "no byte of a shipped
      * blob was ever uninitialised" a property of the allocation rather than of an argument. */
     size_t n = blob_bytes();
-    uint8_t *blob = calloc(1, n);
+    uint8_t * blob = (uint8_t *)calloc(1, n);
     if (!blob) return FB_WX_UNREACHABLE;
-    fb_wx_build b = {0};
+    fb_wx_build b = {};
     b.blob = blob;
 
     fb_wx_fetch_rc rc = FB_WX_OK;
@@ -330,7 +329,7 @@ static uint8_t *disk_load(int64_t cycle, size_t *n, int64_t *run, int64_t *valid
     if (stat(path, &st) != 0 || (size_t)st.st_size != want) return 0;
     FILE *f = fopen(path, "rb");
     if (!f) return 0;
-    uint8_t *b = malloc(want);
+    uint8_t * b = (uint8_t *)malloc(want);
     if (!b || fread(b, 1, want, f) != want) { free(b); fclose(f); return 0; }
     fclose(f);
     /* Trust nothing that came off disk either: a half-written or older-format file must look
@@ -390,7 +389,7 @@ static long expiry_for(int64_t run_epoch, long now) {
 }
 
 static fb_wx_blob *make_blob(uint8_t *buf, size_t n, int64_t run, int64_t valid, int stale, long now) {
-    fb_wx_blob *b = calloc(1, sizeof *b);
+    fb_wx_blob * b = (fb_wx_blob *)calloc(1, sizeof *b);
     if (!b) { free(buf); return 0; }
     b->buf = buf; b->n = n; b->run_epoch = run; b->valid_epoch = valid;
     b->stale = stale; b->expires = expiry_for(run, now);

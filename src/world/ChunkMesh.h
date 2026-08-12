@@ -1,5 +1,5 @@
 /* The terrain chain's END STAGE: pure geometry, no GL. It takes only the HEIGHT FIELD of the ENU
- * mesh osmmesh already stitched, and re-projects EVERY node through the exact Mercator inverse and
+ * mesh TerrainTiles already stitched, and re-projects EVERY node through the exact Mercator inverse and
  * geodetic->ECEF — so there is no tangent-plane error and no dependence on a fixed home origin. */
 #ifndef CHUNKMESH_H
 #define CHUNKMESH_H
@@ -7,8 +7,8 @@
 #include "ChunkVtx.h" /* ChunkVtx, Chunk, ChunkFree -- no dependency on the ENU builder */
 #include "Heap.h"
 #include <math.h>
-#include "geo.h"
-#include "mesh.h"
+#include "TerrainGrid.h"
+#include "TileGeodesy.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -16,7 +16,7 @@
 
 namespace outshine::World {
 
-inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, int grid,
+inline int ChunkBuildEcef(const TerrainMesh &mesh, int z, uint32_t x, uint32_t y, int grid,
                            Chunk *out, double origin_out[3]) {
   if (!out || !origin_out) return 0;
   out->verts = 0;
@@ -24,22 +24,25 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   out->gridverts = 0;
   out->err = 0.f;
   origin_out[0] = origin_out[1] = origin_out[2] = 0.0;
-  if (!m || !m->positions || m->n_vertices == 0) return 0;
+  const std::vector<float> *positions = mesh.TryPositionsEnuM();
+  if (!positions || positions->empty()) return 0;
+  const float *p = positions->data();
+  const uint32_t nVertices = mesh.VertexCount();
 
   /* Grid width C, row-major north->south; the same detector both builders use, so a tile that is a
    * regular grid in one is a regular grid in the other. */
   uint32_t C = 0;
-  for (uint32_t i = 1; i < m->n_vertices; i++)
-    if (m->positions[i * 3] < m->positions[(i - 1) * 3] - 0.5f) {
+  for (uint32_t i = 1; i < nVertices; i++)
+    if (p[i * 3] < p[(i - 1) * 3] - 0.5f) {
       C = i;
       break;
     }
-  uint32_t R = C ? m->n_vertices / C : 0;
-  if (!(C >= 2 && R >= 2 && m->n_vertices % C == 0))
+  uint32_t R = C ? nVertices / C : 0;
+  if (!(C >= 2 && R >= 2 && nVertices % C == 0))
     return 0; /* terrain is always a grid; refuse soup */
 
   int gc = ChunkNodes(C, grid), gr = ChunkNodes(R, grid);
-#define W3_MH(r, c) (m->positions[((size_t)(r) * C + (size_t)(c)) * 3 + 2]) /* source height */
+#define W3_MH(r, c) (p[((size_t)(r) * C + (size_t)(c)) * 3 + 2]) /* source height */
 #define W3_RI(j) ((int)ChunkNodePosting((j), R, gr))
 #define W3_CI(i) ((int)ChunkNodePosting((i), C, gc))
 
@@ -53,12 +56,12 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
   /* The tile CENTRE on the ellipsoid, so every offset stays <= half a diagonal plus local relief. */
   {
     int rc = W3_RI(gr / 2), cc = W3_CI(gc / 2);
-    osmmesh_geo gc0 = osmmesh_tile_frac_to_geo((uint8_t)z, x, y, 0.5, 0.5);
-    gc0.alt = W3_MH(rc, cc);
-    osmmesh_ecef o = osmmesh_geo_to_ecef(gc0);
-    origin_out[0] = o.x;
-    origin_out[1] = o.y;
-    origin_out[2] = o.z;
+    Geo gc0 = TileFracToGeo(z, x, y, 0.5, 0.5);
+    gc0.AltM = W3_MH(rc, cc);
+    Ecef o = GeoToEcefWgs84(gc0);
+    origin_out[0] = o.X;
+    origin_out[1] = o.Y;
+    origin_out[2] = o.Z;
   }
 
   for (int j = 0; j < gr; j++)
@@ -66,13 +69,13 @@ inline int ChunkBuildEcef(const osmmesh_mesh *m, int z, uint32_t x, uint32_t y, 
       int r = W3_RI(j), c = W3_CI(i);
       double fx = (double)c / (double)(C - 1), fy = (double)r / (double)(R - 1);
       float h = W3_MH(r, c);
-      osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)z, x, y, fx, fy);
-      g.alt = h;
-      osmmesh_ecef e = osmmesh_geo_to_ecef(g);
+      Geo g = TileFracToGeo(z, x, y, fx, fy);
+      g.AltM = h;
+      Ecef e = GeoToEcefWgs84(g);
       double *d = pe + ((size_t)j * gc + i) * 3;
-      d[0] = e.x - origin_out[0];
-      d[1] = e.y - origin_out[1];
-      d[2] = e.z - origin_out[2]; /* double subtract */
+      d[0] = e.X - origin_out[0];
+      d[1] = e.Y - origin_out[1];
+      d[2] = e.Z - origin_out[2]; /* double subtract */
       nh[(size_t)j * gc + i] = h;
     }
 

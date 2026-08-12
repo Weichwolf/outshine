@@ -1,0 +1,9 @@
+# The one image in this tree (tiles/Dockerfile) builds from the REPO ROOT, because the server links
+# the library under src/. Everything listed here is host output or history, never build input, and
+# without this line-up the whole native Dawn checkout and the whole git history are tarred and sent
+# to the engine before the first instruction of the build runs.
+.git/
+build/
+vendor/
+tiles/cache/
+tiles/testdata/

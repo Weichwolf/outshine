@@ -12,7 +12,7 @@
 #include "Heap.h"
 #include "Log.h"
 #include "StackProbe.h"
-#include "osmmesh.h"
+#include "TerrainTiles.h"
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/emscripten.h>
@@ -25,8 +25,7 @@ namespace outshine::World {
 
 namespace {
 
-constexpr int kProviderTerrainMaxZ = 15;   /* fb-tiles' terrarium source stops here (tiles/src/tilesrc.c) */
-const char *const kKindPath[3] = {"vector", "terrain", "imagery"};
+constexpr int kProviderTerrainMaxZ = 15;   /* fb-tiles' terrarium source stops here (tiles/src/tilesrc.cpp) */
 
 /* [SET] How long one thread keeps asking before it hands the tile back to the queue: 60 tries at
  * 50 ms = 3 s. Flat, not backed off, because 202 is fb-tiles saying "I am fetching this upstream
@@ -69,8 +68,8 @@ thread_local double tFetchBlockedMs = 0.0;
  * wrong — a 4xx that is not the 204 contract, a PNG that will not decode, a source that is not the
  * grid the stitch promises, a partition with no cluster in it. A Wait is a promise not yet kept.
  *
- * The C island answers all four with no bytes by contract (terrain/osmmesh.h), so the reason travels
- * beside the return code on a thread-local: the provider callback has no channel back. It matters
+ * A source answers all four with no bytes by contract (tiles/TerrainTiles.h), so the reason travels
+ * on a thread-local beside it: the source hands back a byte range and has no channel for a why. It matters
  * because Absent is TERMINAL at the node (world/World.h MeshState::Vacant) — a rung retracted for a
  * proxy error or a slow server deletes ground for good.
  *
@@ -96,9 +95,6 @@ uint64_t PathKey(const char *path) {   /* FNV-1a: the queue keys on a number, th
 template <int A> int SeamAt(const float *v) { return v[A] < 0.0f ? 1 : 0; }
 int (*const kSeam[8])(const float *) = {SeamAt<0>, SeamAt<1>, SeamAt<2>, SeamAt<3>,
                                         SeamAt<4>, SeamAt<5>, SeamAt<6>, SeamAt<7>};
-
-int Provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_t y,
-             uint8_t **out, size_t *len);
 
 #ifdef __EMSCRIPTEN__
 /* WHAT JAVASCRIPT TAKES OUT OF THIS MODULE'S FIXED LINEAR MEMORY, one entry point and one item: a
@@ -391,47 +387,52 @@ TilePool::Reply TilePool::BytesBlocking(const char *path, std::vector<uint8_t> *
 
 namespace {
 
-int Provider(void *user, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_t y,
-             uint8_t **out, size_t *len) {
-  *out = nullptr;
-  *len = 0;
-  if ((int)kind < 0 || (int)kind >= 3) return 0;
-  char path[128];
-  std::snprintf(path, sizeof path, "/t/%s/%u/%u/%u", kKindPath[(int)kind], z, x, y);
-  std::vector<uint8_t> bytes;
-  const TilePool::Reply reply = ((TilePool *)user)->BytesBlocking(path, &bytes);
-  if (reply == TilePool::Reply::Pending) tMiss = Worse(tMiss, Miss::Wait);
-  if (reply != TilePool::Reply::Ready || bytes.empty()) return 0;
-  /* osmmesh frees what a provider hands over, so this crosses into the C island as a plain block. */
-  uint8_t *block = (uint8_t *)Heap::Take("tile bytes", bytes.size());
-  std::memcpy(block, bytes.data(), bytes.size());
-  *out = block;
-  *len = bytes.size();
-  return 1;
-}
+/* THE POOL AS A TERRAIN SOURCE: one blocking ask into the shared byte cache, and the ownership of
+ * the bytes never leaves a std::vector. */
+class PoolTerrain : public TerrainSource {
+ public:
+  explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
+
+  std::vector<uint8_t> TakeTerrainPng(int z, uint32_t x, uint32_t y) override {
+    char path[96];
+    std::snprintf(path, sizeof path, "/t/terrain/%d/%u/%u", z, x, y);
+    std::vector<uint8_t> bytes;
+    const TilePool::Reply reply = Pool_.BytesBlocking(path, &bytes);
+    if (reply == TilePool::Reply::Pending) tMiss = Worse(tMiss, Miss::Wait);
+    if (reply != TilePool::Reply::Ready) return {};
+    return bytes;
+  }
+
+ private:
+  TilePool &Pool_;
+};
 
 }  // namespace
 
-void TilePool::RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out) {
-  osmmesh_tile tile = {};
+void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
   tMiss = Miss::None;
-  const int fetched = osmmesh_fetch_tile(ctx, (uint8_t)job.Z, job.X, job.Y, &tile);
-  /* A REFUSED ALLOCATION IS NOT A GAP. The C island answers both with a negative int, and under a
-   * fixed linear memory that is the difference between "this tile has no DEM" and "the run is
-   * over" — so it is separated here and nowhere else. */
-  if (fetched == OSMMESH_ERR_OOM) Heap::Exhausted("tile dem grid");
+  const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
   Chunk chunk = {};
   double origin[3] = {0.0, 0.0, 0.0};
   const char *stage = "fetch";
   Miss miss = Miss::None;
-  if (fetched != OSMMESH_OK) miss = Miss::Refused;
-  else if (!tile.terrain) miss = Miss::Hole;
-  else if (!ChunkBuildEcef(tile.terrain, job.Z, job.X, job.Y, job.Grid, &chunk, origin) ||
-           chunk.nverts <= 0) {
+  /* A PLACE WITH NO DEM IS NOT A DEFECT and a source that will not decode is not a hole: the first
+   * is cached as a final answer, the second is this run saying something is wrong with it. A
+   * terrarium tile is 256 by 256 or it is malformed, so a field too small is the source's defect
+   * and not a statement about the ground under it. */
+  switch (mesh.Where()) {
+    case TerrainMesh::State::Built: break;
+    case TerrainMesh::State::NoTile: miss = Miss::Hole; break;
+    case TerrainMesh::State::SourceUndecodable:
+    case TerrainMesh::State::FieldTooSmall:
+    case TerrainMesh::State::StrideDoesNotDivide:
+    case TerrainMesh::State::FrameUnusable: miss = Miss::Refused; break;
+  }
+  if (miss == Miss::None &&
+      (!ChunkBuildEcef(mesh, job.Z, job.X, job.Y, job.Grid, &chunk, origin) || chunk.nverts <= 0)) {
     miss = Miss::Refused;
     stage = "grid";
   }
-  osmmesh_free_tile(&tile);
   if (miss == Miss::None) {
     TileDagBuild((const float *)chunk.verts, chunk.nverts, chunk.gridverts, origin,
                  out->Build.Verts, out->Build.Idx, out->Build.Clusters);
@@ -457,7 +458,7 @@ void TilePool::RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out) {
   }
   if (miss == Miss::Refused) {
     Log::Warn("world", "tile_mesh_refused", {{"z", job.Z}, {"x", (int)job.X}, {"y", (int)job.Y},
-                                             {"stage", stage}, {"rc", fetched}});
+                                             {"stage", stage}, {"rc", (int)mesh.Where()}});
     std::lock_guard<std::mutex> ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }
@@ -494,30 +495,25 @@ void TilePool::RunDag(const Job &job, Result *out) {
   out->State = Reply::Ready;
 }
 
-/* EACH THREAD OWNS ITS OWN osmmesh_ctx: the context carries a decoded-DEM cache that the tile being
+/* EACH THREAD OWNS ITS OWN TerrainTiles: it carries a decoded-DEM cache that the tile being
  * built writes, so sharing one would need a lock around the whole build and the pool would be a
  * queue. The byte cache below it IS shared and hands out copies only. */
 void TilePool::Work(int slot) {
   StackProbe::Enter(StackProbe::Purpose::Tile);
-  osmmesh_config cfg = {};
-  cfg.origin_lat = OriginLatDeg_;
-  cfg.origin_lon = OriginLonDeg_;
-  cfg.tile_provider = Provider;
-  cfg.tile_provider_user = this;
-  cfg.provider_terrain_max_zoom = kProviderTerrainMaxZ;
-  cfg.dem_cache_tiles = DemCacheTiles_;
-  cfg.enable_terrain = 1;
-  osmmesh_ctx *ctx = nullptr;
-  const int created = osmmesh_create(&cfg, &ctx);
-  /* A THREAD WITHOUT A CONTEXT IS WORSE THAN NO THREAD: it still takes mesh jobs off the queue and
-   * leaves them Pending, so the caller re-posts for ever and the terrain never arrives at full CPU. */
-  if (created == OSMMESH_ERR_OOM) Heap::Exhausted("tile mesh context");
-  if (created != OSMMESH_OK) {
-    Log::Error("world", "tilepool_context_unopenable", {{"rc", created}});
+  const EnuFrame frame = EnuFrame::At(OriginLatDeg_, OriginLonDeg_);
+  /* A THREAD WHOSE FRAME IS NONSENSE IS WORSE THAN NO THREAD: it still takes mesh jobs off the queue
+   * and would place every one of them at the origin. */
+  if (frame.Where() != EnuFrame::State::Usable) {
+    Log::Error("world", "tilepool_origin_too_polar", {{"lat", OriginLatDeg_}});
     std::abort();
   }
+  PoolTerrain source(*this);
+  TerrainTiles::Config config;
+  config.SourceMaxZoom = kProviderTerrainMaxZ;
+  config.DemCacheTiles = DemCacheTiles_;
+  TerrainTiles tiles(source, frame, config);
 
-  ContextBytes_[(size_t)slot].store(osmmesh_ctx_heap_bytes(ctx), std::memory_order_relaxed);
+  ContextBytes_[(size_t)slot].store(tiles.HeapBytes(), std::memory_order_relaxed);
 
   std::vector<uint8_t> scratch;
   for (;;) {
@@ -539,7 +535,7 @@ void TilePool::Work(int slot) {
     const auto t0 = std::chrono::steady_clock::now();
     switch (job.Kind) {
       case Rank::Mesh:
-        RunMesh(ctx, job, &result);
+        RunMesh(tiles, job, &result);
         break;
       case Rank::Dag:
         RunDag(job, &result);
@@ -566,7 +562,7 @@ void TilePool::Work(int slot) {
       }
     }
     StackProbe::Mark();
-    ContextBytes_[(size_t)slot].store(osmmesh_ctx_heap_bytes(ctx), std::memory_order_relaxed);
+    ContextBytes_[(size_t)slot].store(tiles.HeapBytes(), std::memory_order_relaxed);
     {
       std::lock_guard<std::mutex> lock(QueueMutex_);
       /* A job that could not be finished this time leaves no result and no posting, so the next ask
@@ -582,7 +578,6 @@ void TilePool::Work(int slot) {
       }
     }
   }
-  osmmesh_destroy(ctx);
   ContextBytes_[(size_t)slot].store(0, std::memory_order_relaxed);
 }
 

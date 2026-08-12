@@ -1,8 +1,8 @@
 # fb-tiles: the world-data service. Dynamically fetches and prepares real-world data
 # (DEM now; vector/imagery next) and caches it, so neither the engine nor the renderer
-# ships a preloaded region. tiles/ is self-contained (Makefile, Dockerfile, source, vendored
-# osmmesh); build context = REPO ROOT (`podman build -f tiles/Dockerfile -t fb-tiles .`), so this
-# COPYs tiles/ as one tree -- osmmesh lives nested inside it, not a sibling fetched separately.
+# ships a preloaded region. Build context = REPO ROOT
+# (`podman build -f tiles/Dockerfile -t fb-tiles .`), because the decoders it links are the
+# library's and live under src/.
 #
 # Two stages: compile fb-tiles in a throwaway build image (gcc + -dev headers), then copy just the
 # binary into the final image, which adds nginx as a caching front door (tiles/nginx.conf) instead
@@ -14,15 +14,18 @@ FROM docker.io/library/debian:trixie-slim AS build
 # connection reuse; measured 2.34x slower than one kept connection (see cache.c for the A/B and why
 # the first version of it was worthless). So this is a link, not a new dependency: the library was
 # always installed, we were just starting it as a process.
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev libcurl4-openssl-dev \
+RUN apt-get update && apt-get install -y --no-install-recommends g++ make libc6-dev \
+        libcurl4-openssl-dev libsdl3-image-dev pkg-config \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY tiles/ tiles/
-# osmmesh/ is flat (mvt.h etc. sit directly in it) and already trimmed to exactly what this server
-# needs (see tiles/osmmesh/osmmesh.h) -- `-Itiles` resolves `<osmmesh/mvt.h>` as tiles/osmmesh/mvt.h.
-RUN gcc -O2 -Wall -Wextra -Wpedantic -Werror -Itiles \
-        tiles/src/main.c tiles/src/elev.c tiles/src/cache.c tiles/src/route.c tiles/src/tilesrc.c tiles/src/prefetch.c tiles/src/raster.c tiles/src/bake.c tiles/src/bakepool.c tiles/src/tilemap.c tiles/src/stars.c tiles/src/grib2.c tiles/src/wx.c tiles/src/peaks.c tiles/osmmesh/*.c \
-        -o /usr/local/bin/fb-tiles -lm -lpthread -lcurl
+# THE DECLARED SOURCES AND NOTHING ELSE: `COPY tiles/` also carries a host-built tiles/fb-tiles --
+# gitignored, so invisible -- and make then finds the target current and installs it unbuilt.
+# The library comes along because there is one decoder, not two: this server reads the same MVT
+# reader the client does (src/world/OsmVector).
+COPY tiles/Makefile tiles/Makefile
+COPY tiles/src/ tiles/src/
+COPY src/ src/
+RUN make -C tiles build && cp tiles/fb-tiles /usr/local/bin/fb-tiles
 
 FROM docker.io/library/debian:trixie-slim
 # nginx-light: proxy_cache is core nginx (ngx_http_proxy_module + the cache machinery), not an
@@ -30,7 +33,7 @@ FROM docker.io/library/debian:trixie-slim
 # links against (no -dev headers needed in this stage, nothing gets compiled here). curl the BINARY
 # stays for the same reason it always has: the only way to debug an upstream fetch from inside the
 # container, and this image is where "why did that tile not arrive" gets asked.
-RUN apt-get update && apt-get install -y --no-install-recommends nginx-light curl ca-certificates libcurl4 \
+RUN apt-get update && apt-get install -y --no-install-recommends nginx-light curl ca-certificates libcurl4 libsdl3-image0 \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/cache/fbtiles
 COPY --from=build /usr/local/bin/fb-tiles /usr/local/bin/fb-tiles

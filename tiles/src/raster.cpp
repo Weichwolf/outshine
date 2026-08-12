@@ -1,30 +1,29 @@
-#define _GNU_SOURCE
 #include "raster.h"
 #include "style.h"
 #include "draw.h"
 #include "cache.h"
 #include "tilemap_api.h"
-#include <osmmesh/osmmesh.h>
+#include "OsmVector.h"
+
+#include <SDL3/SDL_iostream.h>
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <pthread.h>
 
-#include "../vendor/stb_image.h"
+using outshine::World::OsmVector;
 
-static const osmmesh_mvt_layer *layer_named(osmmesh_mvt_tile *t, const char *name){
-    size_t nl = osmmesh_mvt_num_layers(t);
-    for(size_t i=0;i<nl;i++){
-        const osmmesh_mvt_layer *l = osmmesh_mvt_layer_at(t,i);
-        if(!strcmp(osmmesh_mvt_layer_name(l), name)) return l;
-    }
-    return 0;
-}
-static const char *kind_of(const osmmesh_mvt_layer *l, const osmmesh_mvt_feature *f){
-    osmmesh_mvt_value v;
-    if(osmmesh_mvt_feature_get_tag(l,f,"kind",&v)==0 && v.type==OSMMESH_MVT_VAL_STRING) return v.v.s;
-    return "";
+/* The style tables take a C string; the reader's view is not terminated, so the copy is where the
+ * two conventions meet and it is bounded by the longest kind any table names. */
+static void kind_of(const OsmVector &mvt, const OsmVector::Feature &f, char *out, size_t cap){
+    const std::string_view kind = mvt.Str(f, "kind");
+    const size_t n = kind.size() < cap - 1 ? kind.size() : cap - 1;
+    memcpy(out, kind.data(), n);
+    out[n] = 0;
 }
 
 /* ---- Feature-LOD: the actual speed lever -------------------------------------------------------
@@ -41,16 +40,20 @@ static const char *kind_of(const osmmesh_mvt_layer *l, const osmmesh_mvt_feature
  * the failure direction of that approximation is "occasionally keep a feature slightly too small to
  * matter", never "drop something that would have been visible". sc_lod converts raw MVT coords
  * directly to SERVED pixels (see call sites: sc_lod = sc * lod_ts/TS). */
-static float fb_feature_bbox_px(const osmmesh_mvt_feature *ft, float sc_lod){
-    if(!ft->coords || ft->n_coords == 0) return 1e9f;   /* nothing to measure: never skip blind */
+static float fb_feature_bbox_px(const OsmVector &mvt, const OsmVector::Feature &ft, float sc_lod){
+    if(ft.RingCount == 0) return 1e9f;   /* nothing to measure: never skip blind */
+    const int32_t *co = mvt.Points().data();
+    const OsmVector::Ring *rings = mvt.Rings().data() + ft.FirstRing;
     float x0=1e9f, x1=-1e9f, y0=1e9f, y1=-1e9f;
-    for(size_t i=0;i<ft->n_coords;i++){
-        float x=ft->coords[i].x, y=ft->coords[i].y;
-        if(x<x0) x0=x;
-        if(x>x1) x1=x;
-        if(y<y0) y0=y;
-        if(y>y1) y1=y;
-    }
+    for(uint32_t ring=0; ring<ft.RingCount; ring++)
+        for(uint32_t k=0;k<rings[ring].Count;k++){
+            float x=(float)co[((size_t)rings[ring].First+k)*2];
+            float y=(float)co[((size_t)rings[ring].First+k)*2+1];
+            if(x<x0) x0=x;
+            if(x>x1) x1=x;
+            if(y<y0) y0=y;
+            if(y>y1) y1=y;
+        }
     return (x1-x0)*sc_lod * (y1-y0)*sc_lod;
 }
 
@@ -81,19 +84,19 @@ static int bake_osm(int z, long x, long y, int TS, int lod_ts, uint8_t *im){
         free(p);
         return absent;
     }
-    osmmesh_mvt_tile *t = 0;
-    int rc = osmmesh_mvt_decode(d, n, &t);
-    free(d);
-    if(rc != OSMMESH_MVT_OK) return 0;
-
-    const osmmesh_mvt_layer *L; uint8_t r,g,b; int rail;
+    OsmVector mvt;
+    uint8_t r,g,b; int rail;
+    char kind[64];
+    bool parsed = false;
+    /* ONE LAYER PER PASS, and the reader walks the tile once for each: the layers are drawn in a
+     * fixed order anyway, so a whole-tile tree would buy nothing this loop does not already have. */
     #define EACH_POLY(name) \
-        if((L=layer_named(t,name))){ float sc=(float)TS/osmmesh_mvt_layer_extent(L); \
+        if(bool found_ = mvt.Parse(d, n, name)){ parsed |= found_; \
+          float sc=(float)TS/(float)mvt.Extent(); \
           float sc_lod = sc*((float)lod_ts/(float)TS); \
-          size_t nf=osmmesh_mvt_num_features(L); \
-          for(size_t f=0;f<nf;f++){ const osmmesh_mvt_feature*ft=osmmesh_mvt_feature_at(L,f); \
-            if(ft->geom_type!=OSMMESH_MVT_GEOM_POLYGON) continue; \
-            if(fb_feature_bbox_px(ft,sc_lod) < FB_LOD_MIN_AREA_PX) continue;
+          for(const OsmVector::Feature &ft : mvt.Features()){ \
+            if(ft.Type != 3) continue; \
+            if(fb_feature_bbox_px(mvt,ft,sc_lod) < FB_LOD_MIN_AREA_PX) continue;
 
     /* OCEAN FIRST, und es ist eine echte Ebene der Quelle, keine Heuristik. [MESS] die Vektorkachel
      * z7/49/48 (offener Atlantik) traegt genau eine Ebene, und sie heisst "ocean"; z7/66/45 (Schweiz)
@@ -101,37 +104,38 @@ static int bake_osm(int z, long x, long y, int TS, int lod_ts, uint8_t *im){
      * Seekachel als reines Vorfuell-Beige herauskam — gemessen 100 % (235,231,221) auf Atlantik UND
      * Nordsee. Dieselbe Blau-Konstante wie water_polygons: ein Gewaesser hat eine Farbe, nicht zwei.
      * Vor land gezeichnet, damit an der Kueste das Land obenauf liegt. */
-    EACH_POLY("ocean")           fb_draw_fill(im,TS,TS,ft,sc, 92,140,190); } }
-    EACH_POLY("land")            w3_landcolor(kind_of(L,ft),&r,&g,&b); fb_draw_fill(im,TS,TS,ft,sc,r,g,b); } }
-    EACH_POLY("water_polygons")  fb_draw_fill(im,TS,TS,ft,sc, 92,140,190); } }
-    EACH_POLY("sites")           fb_draw_fill(im,TS,TS,ft,sc,175,175,180); } }
-    EACH_POLY("street_polygons") fb_draw_fill(im,TS,TS,ft,sc,208,203,193); } }
-    EACH_POLY("buildings")       fb_draw_fill(im,TS,TS,ft,sc,128,114,102); } }
+    EACH_POLY("ocean")           fb_draw_fill(im,TS,TS,mvt,ft,sc, 92,140,190); } }
+    EACH_POLY("land")            kind_of(mvt,ft,kind,sizeof kind); w3_landcolor(kind,&r,&g,&b);
+                                 fb_draw_fill(im,TS,TS,mvt,ft,sc,r,g,b); } }
+    EACH_POLY("water_polygons")  fb_draw_fill(im,TS,TS,mvt,ft,sc, 92,140,190); } }
+    EACH_POLY("sites")           fb_draw_fill(im,TS,TS,mvt,ft,sc,175,175,180); } }
+    EACH_POLY("street_polygons") fb_draw_fill(im,TS,TS,mvt,ft,sc,208,203,193); } }
+    EACH_POLY("buildings")       fb_draw_fill(im,TS,TS,mvt,ft,sc,128,114,102); } }
     #undef EACH_POLY
 
-    if((L=layer_named(t,"streets"))){
-        float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(int pass=0;pass<2;pass++) for(size_t f=0;f<nf;f++){
-            const osmmesh_mvt_feature *ft = osmmesh_mvt_feature_at(L,f);
-            if(ft->geom_type != OSMMESH_MVT_GEOM_LINESTRING) continue;
-            const char *kind = kind_of(L,ft);
+    if(mvt.Parse(d, n, "streets")){
+        parsed = true;
+        float sc=(float)TS/(float)mvt.Extent();
+        for(int pass=0;pass<2;pass++) for(const OsmVector::Feature &ft : mvt.Features()){
+            if(ft.Type != 2) continue;
+            kind_of(mvt,ft,kind,sizeof kind);
             if(!fb_lod_line_ok(kind, lod_ts)) continue;
             float w = w3_roadstyle(kind, TS, &r,&g,&b, &rail);
             if(rail != pass) continue;
-            fb_draw_line(im,TS,TS,ft,sc,w,r,g,b);
+            fb_draw_line(im,TS,TS,mvt,ft,sc,w,r,g,b);
         }
     }
-    if((L=layer_named(t,"water_lines"))){
-        float sc=(float)TS/osmmesh_mvt_layer_extent(L); size_t nf=osmmesh_mvt_num_features(L);
-        for(size_t f=0;f<nf;f++){
-            const osmmesh_mvt_feature *ft = osmmesh_mvt_feature_at(L,f);
-            if(ft->geom_type == OSMMESH_MVT_GEOM_LINESTRING)
-
-                fb_draw_line(im,TS,TS,ft,sc, 3.0f*(float)TS/FB_STYLE_REF_TEX, 92,140,190);
-        }
+    if(mvt.Parse(d, n, "water_lines")){
+        parsed = true;
+        float sc=(float)TS/(float)mvt.Extent();
+        for(const OsmVector::Feature &ft : mvt.Features())
+            if(ft.Type == 2)
+                fb_draw_line(im,TS,TS,mvt,ft,sc, 3.0f*(float)TS/FB_STYLE_REF_TEX, 92,140,190);
     }
-    osmmesh_mvt_free(t);
-    return 1;
+    free(d);
+    /* NOT ONE LAYER READ is bytes that are not a vector tile, and a beige square is the wrong answer
+     * to that: the caller must be free to read it as a defect. */
+    return parsed ? 1 : 0;
 }
 
 static int photo_zoom(int z, long x, long y, int zi){
@@ -154,10 +158,15 @@ static int bake_photo(int z, long x, long y, int TS, uint8_t *im){
     for(int j=0;j<fs;j++) for(int i=0;i<fs;i++){
         uint8_t *b = 0; size_t n = 0;
         if(!fb_cache_get(FB_TILE_IMAGERY, zs, x*(long)fs + i, y*(long)fs + j, &b, &n)) continue;
-        int w=0,h=0,comp=0;
-        uint8_t *p = stbi_load_from_memory(b, (int)n, &w, &h, &comp, 3);
+        SDL_IOStream *io = SDL_IOFromConstMem(b, n);
+        SDL_Surface *decoded = io ? IMG_Load_IO(io, true) : 0;
         free(b);
-        if(!p) continue;
+        if(!decoded) continue;
+        SDL_Surface *rgb24 = SDL_ConvertSurface(decoded, SDL_PIXELFORMAT_RGB24);
+        SDL_DestroySurface(decoded);
+        if(!rgb24) continue;
+        const int w = rgb24->w, h = rgb24->h;
+        const uint8_t *p = (const uint8_t *)rgb24->pixels;
 
         for(int dy = 0; dy < span; dy++){
             int oy = j*span + dy; if(oy >= TS) break;
@@ -165,11 +174,12 @@ static int bake_photo(int z, long x, long y, int TS, uint8_t *im){
             for(int dx = 0; dx < span; dx++){
                 int ox = i*span + dx; if(ox >= TS) break;
                 int sx = dx * w / span;
-                uint8_t *dst = im + ((size_t)oy*TS + ox)*3, *src = p + ((size_t)sy*w + sx)*3;
+                uint8_t *dst = im + ((size_t)oy*TS + ox)*3;
+                const uint8_t *src = p + (size_t)sy*(size_t)rgb24->pitch + (size_t)sx*3;
                 dst[0]=src[0]; dst[1]=src[1]; dst[2]=src[2];
             }
         }
-        stbi_image_free(p);
+        SDL_DestroySurface(rgb24);
         got++;
     }
     return got > 0;
@@ -255,13 +265,13 @@ int fb_raster_downscale(const uint8_t *src, int srcTS, uint8_t *dst, int dstTS){
     if(ratio & (ratio-1)) return 0;   /* ratio must itself be a power of two */
     fb_srgb_lut_init();
 
-    uint8_t *cur = malloc((size_t)srcTS*srcTS*3);
+    uint8_t * cur = (uint8_t *)malloc((size_t)srcTS*srcTS*3);
     if(!cur) return 0;
     memcpy(cur, src, (size_t)srcTS*srcTS*3);
     int w = srcTS;
     while(w > dstTS){
         int nw = w/2;
-        uint8_t *nxt = (nw==dstTS) ? dst : malloc((size_t)nw*nw*3);
+        uint8_t *nxt = (nw==dstTS) ? dst : (uint8_t *)malloc((size_t)nw*nw*3);
         if(!nxt){ free(cur); return 0; }
         fb_downsample_step(cur, w, nxt);
         free(cur);

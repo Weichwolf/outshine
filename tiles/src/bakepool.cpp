@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "bakepool.h"
 #include "bake.h"
 #include "prefetch_api.h"

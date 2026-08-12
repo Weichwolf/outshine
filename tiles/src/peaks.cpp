@@ -1,4 +1,3 @@
-#define _GNU_SOURCE
 #include "peaks.h"
 #include "http.h"
 #include <math.h>
@@ -48,7 +47,7 @@ static char *read_file(const char *p, size_t *n) {
     FILE *f = fopen(p, "rb"); if (!f) return 0;
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
     if (sz < 0) { fclose(f); return 0; }
-    char *b = malloc((size_t)sz + 1);
+    char * b = (char *)malloc((size_t)sz + 1);
     if (!b || (sz > 0 && fread(b, 1, (size_t)sz, f) != (size_t)sz)) { free(b); fclose(f); return 0; }
     fclose(f); b[sz] = 0; *n = (size_t)sz; return b;
 }
@@ -101,7 +100,7 @@ static int buf_add(buf *o, const char *s, size_t n) {
     if (o->n + n + 1 > o->cap) {
         size_t cap = o->cap ? o->cap : 1 << 16;
         while (cap < o->n + n + 1) cap <<= 1;
-        char *t = realloc(o->b, cap);
+        char * t = (char *)realloc(o->b, cap);
         if (!t) return 0;
         o->b = t; o->cap = cap;
     }

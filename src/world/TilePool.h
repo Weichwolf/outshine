@@ -25,9 +25,9 @@
 
 #include "ClusterDag.h"
 
-struct osmmesh_ctx;   /* one per thread, opaque here: the C island is a build detail */
-
 namespace outshine::World {
+
+class TerrainTiles;
 
 /* A tile of geometry as the renderer draws it: the cluster DAG, never the raw soup. */
 struct TileBuild {
@@ -152,7 +152,7 @@ private:
   };
 
   void Work(int slot);
-  void RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out);
+  void RunMesh(TerrainTiles &tiles, const Job &job, Result *out);
   void RunDag(const Job &job, Result *out);
   [[nodiscard]] Reply Poll(Job &&job, Result *out);
   [[nodiscard]] bool Known(uint64_t key);

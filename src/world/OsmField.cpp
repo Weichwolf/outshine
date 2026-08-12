@@ -4,7 +4,7 @@
 #include "Log.h"
 #include "OsmVector.h"
 #include "TerrainLoader.h"
-#include "geo.h"
+#include "TileGeodesy.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -35,7 +35,10 @@ int OsmField::Build(double lat, double lon, int ringTiles) {
   Pending_ = 0;
   /* No tile addresses this place, so there are no vectors to ask for. Silent by design: the owner
    * projects the same camera in the same pass and the crossing is written there, once. */
-  if (osmmesh_geo_to_tile(lon, lat, (uint8_t)Zoom_, &cx, &cy) != OSMMESH_GEO_OK) return 0;
+  Geo centre;
+  centre.LonDeg = lon;
+  centre.LatDeg = lat;
+  if (!TileIndex::Of(centre, Zoom_).TryXy(&cx, &cy)) return 0;
 
   const long n = 1L << Zoom_;
   int added = 0;
@@ -122,14 +125,13 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
         for (uint32_t k = 0; k < sr.Count; k++) {
           const double px = (double)pts[((size_t)sr.First + k) * 2];
           const double py = (double)pts[((size_t)sr.First + k) * 2 + 1];
-          const osmmesh_geo g = osmmesh_tile_frac_to_geo((uint8_t)Zoom_, (uint32_t)tx, (uint32_t)ty,
-                                                         px / ext, py / ext);
-          Points_.push_back(g.lat);
-          Points_.push_back(g.lon);
-          f.MinLat = std::min(f.MinLat, g.lat);
-          f.MaxLat = std::max(f.MaxLat, g.lat);
-          f.MinLon = std::min(f.MinLon, g.lon);
-          f.MaxLon = std::max(f.MaxLon, g.lon);
+          const Geo g = TileFracToGeo(Zoom_, (uint32_t)tx, (uint32_t)ty, px / ext, py / ext);
+          Points_.push_back(g.LatDeg);
+          Points_.push_back(g.LonDeg);
+          f.MinLat = std::min(f.MinLat, g.LatDeg);
+          f.MaxLat = std::max(f.MaxLat, g.LatDeg);
+          f.MinLon = std::min(f.MinLon, g.LonDeg);
+          f.MaxLon = std::max(f.MaxLon, g.LonDeg);
         }
         Rings_.push_back(ring);
       }

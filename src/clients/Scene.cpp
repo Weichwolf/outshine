@@ -1,7 +1,7 @@
 #include "Scene.h"
 
 #include "CivilTime.h"
-#include "geo.h"
+#include "TileGeodesy.h"
 
 namespace outshine::Clients {
 namespace {
@@ -67,7 +67,7 @@ bool Scene::Read(const Ref &node, std::string &err) {
    * entered from, and the admissible range IS the band -- ±90 would be a range the code declares and
    * does not honour. The alternative is a tile index nobody computed: the projector writes neither
    * output and the standpoint becomes tile (0,0). */
-  if (!Need(node, "lat", -osmmesh_mercator_lat_max_deg, osmmesh_mercator_lat_max_deg, Lat_, err))
+  if (!Need(node, "lat", -World::kMercatorLatMaxDeg, World::kMercatorLatMaxDeg, Lat_, err))
     return false;
   if (!Need(node, "lon", -180.0, 180.0, Lon_, err)) return false;
   if (!Need(node, "eyeM", 0.0, 10000.0, EyeM_, err)) return false;

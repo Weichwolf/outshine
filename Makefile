@@ -1,7 +1,7 @@
 # Outshine — the library under src/, the tests under test/, the tile server under tiles/. This
-# Makefile, the vendored toolchain under vendor/ (Dawn, stb, build scripts) and the declarations
-# under assets/ and mods/ live beside them. The only cross-project reference is fb-tiles' public
-# bake-version header (tiles/src/style_ver.h).
+# Makefile, the vendored toolchain under vendor/ (Dawn, build scripts) and the declarations under
+# assets/ and mods/ live beside them. NOTHING under src/ includes a header from tiles/: the decoders
+# both sides need live in src/world/tiles and src/world/OsmVector, and tiles/ compiles against THOSE.
 #
 #   make walk     build the interactive client / frame oracle (test/clients/AppWalk.cpp) -> build/gpu_walk
 #   make world    build the headless target: everything EXCEPT render/, no device -> build/fb_world
@@ -50,7 +50,7 @@ CURL_COMPAT  := vendor/.compat-headers
 # Shared include roots (flat -I per module dir; #include stays bare-filename — which is why moving a
 # file between these directories touches no source line). THE INCLUDE SET IS THE LAYERING, and the
 # targets are what enforce it: core = shared value types and services; render = Renderer + the WebGPU
-# stages; world = World/tile streaming, with world/terrain the lean terrain API under it; clients =
+# stages; world = World/tile streaming, with world/tiles the tile decoders under it; clients =
 # what a scene is run through. `make world` links without -Isrc/render at all, so an upward include
 # from world/ is a build failure rather than a rule.
 # ONE COMPILE GROUP PER LAYER, and the group is what the layering IS: every source is compiled with
@@ -66,14 +66,17 @@ INC_GENERATORS := -Isrc/core -Isrc/generators
 # ...and the picture half of the same layer, which the headless target never compiles: DrawSource and
 # its sink hand clusters and instances to a renderer, and that target has no renderer to hand them to.
 INC_DRAW := $(INC_GENERATORS) -Isrc/generators/draw
-INC_WORLD  := $(INC_CORE) -Isrc/world -Isrc/world/terrain
+INC_WORLD  := $(INC_CORE) -Isrc/world -Isrc/world/tiles
 INC_RENDER := $(INC_CORE) -Isrc/render -Isrc/render/stages
 # THE SIMULATION HALF OF THE CLIENTS, and it is the ONLY place that may name world and generators in
 # one translation unit: -Isrc/render is absent, so the headless target's half cannot reach a renderer.
-INC_SIMHALF := $(INC_CORE) -Isrc/world -Isrc/world/terrain -Isrc/generators -Isrc/clients
+INC_SIMHALF := $(INC_CORE) -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 # ...and the picture half over it, the one set that holds everything.
 INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw $(INC_RENDER)
-INC_TILES := -Itiles/src
+# SDL3_image DECODES WHAT WE DID NOT CHOOSE THE FORMAT OF: terrarium DEM is PNG, imagery is JPEG,
+# both from upstreams that decide. pkg-config, so the Cellar version is never spelled in this file.
+SDL_IMAGE_CFLAGS := $(shell pkg-config --cflags sdl3-image)
+SDL_IMAGE_LIBS   := $(shell pkg-config --libs sdl3-image)
 
 # EVERY WebGPU render stage, one class per shader (CLAUDE.md render/stages). A wildcard, not a hand
 # list: a new file in the directory is a new stage in every target, by construction.
@@ -103,7 +106,7 @@ RENDER_SRCS := $(RENDER_TOP_SRCS) $(RENDER_STAGE_SRCS)
 # the directory's include set in every target without a list to remember. TerrainLoader and
 # TilePool additionally see the tile server's public header.
 WORLD_SRCS := $(wildcard src/world/*.cpp)
-TERRAIN_SRCS := $(wildcard src/world/terrain/*.cpp)
+TILES_SRCS := $(wildcard src/world/tiles/*.cpp)
 
 # THE SIMULATION HALF OF THE CLIENTS. Nothing in this list may name render/, which `make world`
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
@@ -128,7 +131,7 @@ OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
   $(patsubst src/core/io/%.cpp,$(1)/core-%.o,$(CORE_IO_SRCS)) \
   $(patsubst src/generators/%.cpp,$(1)/gen-%.o,$(GEN_SRCS)) \
   $(patsubst src/world/%.cpp,$(1)/world-%.o,$(WORLD_SRCS)) \
-  $(patsubst src/world/terrain/%.cpp,$(1)/world-%.o,$(TERRAIN_SRCS)) \
+  $(patsubst src/world/tiles/%.cpp,$(1)/world-%.o,$(TILES_SRCS)) \
   $(patsubst src/clients/%.cpp,$(1)/sim-%.o,$(SIM_SRCS))
 PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS)) \
   $(patsubst src/render/%.cpp,$(1)/render-%.o,$(RENDER_TOP_SRCS)) \
@@ -163,10 +166,10 @@ define NATIVE_BUILD
 	  mkdir -p $(1); \
 	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(2)"; \
 	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) $(2) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
-	  for f in $(TERRAIN_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
+	  for f in $(TILES_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(WORLD_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=$(1)/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
@@ -174,18 +177,18 @@ define NATIVE_BUILD
 	  for f in $(GEN_DRAW_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DRAW) -c -o "$$o"; done; \
 	  for f in $(SIM_SRCS); do o=$(1)/sim-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(RENDER_SRCS); do o=$(1)/render-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
 	  for f in $(APP_SRCS); do o=$(1)/app-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  c++ test/clients/AppWalk.cpp \
 	    $(call OBJS,$(1)) $(call PICTURE_OBJS,$(1)) \
 	    -std=c++20 -O2 $(CXX_WARN) $(2) -DOUTSHINE_CLIENT="\"$(4)\"" \
 	    $(INC_CLIENTS) \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) \
-	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm $$PLATFORM_LIBS \
+	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm $$PLATFORM_LIBS \
 	    -o $(3); \
 	  echo "-> $(3)"
 endef
@@ -205,20 +208,20 @@ world:           ## build the headless target -- everything except render/, no d
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-world; \
 	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
-	  for f in $(TERRAIN_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem vendor -c -o "$$o"; done; \
+	  for f in $(TILES_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(WORLD_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=build/obj-world/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(SIM_SRCS); do o=build/obj-world/sim-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) $(INC_TILES) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  c++ test/clients/WorldMain.cpp $(call OBJS,build/obj-world) \
-	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) $(INC_TILES) \
-	    -isystem vendor -isystem $(CURL_COMPAT) \
-	    -L$(CURL_COMPAT)/lib -lcurl -lpthread -ldl -lm \
+	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) \
+	    -isystem $(CURL_COMPAT) \
+	    -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm \
 	    -o build/fb_world; \
 	  echo "world -> build/fb_world"
 
@@ -270,7 +273,7 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 verify-world:    ## a world/ TU compiles against core and CANNOT name a generator or the renderer
 	@cd $(SELF_DIR); set -e; \
 	  for f in $(WORLD_SRCS); do \
-	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(INC_TILES) -isystem vendor -isystem $(CURL_COMPAT) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
 	    if [ "$$up" != "0" ]; then echo "verify-world: $$f includes $$up file(s) above world/" >&2; exit 1; fi; done; \
 	  f=test/world/GeneratorIsNotReachable.cpp; \
 	  if c++ "$$f" $(CXXSTD) $(INC_WORLD) -fsyntax-only 2>/dev/null; then \

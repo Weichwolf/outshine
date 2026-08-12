@@ -32,7 +32,7 @@ namespace outshine::Clients {
 class SubjectBench {
 public:
   /* THE SINK IS THE RUN'S, not the process's working directory (Artifacts.h): a bench that wrote
-   * with stbi_write_png delivered nothing in the browser at all and failed natively for every
+   * with a bare file write delivered nothing in the browser at all and failed natively for every
    * declared directory that did not already exist in the tree. */
   SubjectBench(Render::Renderer &renderer, const World::VegetationTemplates &veg, Artifacts &out)
       : R_(renderer), Out_(out), Veg_(veg) {}

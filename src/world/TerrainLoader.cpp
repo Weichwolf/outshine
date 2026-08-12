@@ -12,18 +12,17 @@
 #include "ChunkSurface.h"
 #include "GroundSample.h"
 #include "Heap.h"
+#include <SDL3/SDL_surface.h>
+#include <SDL3_image/SDL_image.h>
+
 #include "Log.h"
-#include "geo.h"
-#include "osmmesh.h"
-#include "terrain.h"
-#include "tilemath.h"   /* fb-tiles' OWN tile maths, so a tile index means the same on both sides */
+#include "TerrainTiles.h"
+#include "TileGeodesy.h"
 
 /* A C ABI cannot live in a namespace, but the types it borrows do. */
 using namespace outshine;
+using namespace outshine::World;
 using outshine::World::TilePool;
-
-/* stb_image's implementation lives in terrain.cpp — declared here, never re-implemented: two
- * implementations in one link would collide. */
 
 namespace {
 
@@ -104,9 +103,8 @@ GroundTile gGround[kGroundSlots];
 uint64_t gGroundClock = 0;
 long gGroundBuilds = 0;    /* tiles turned into node heights */
 long gGroundDecodes = 0;   /* PNGs the stitch decoded for them -- 5 per build without the cache */
-double gGroundStitchMs = 0.0;   /* the wall the builds spent inside osmmesh, decode included */
-osmmesh_ctx *gGroundCtx = nullptr;
-bool gGroundPending = false;   /* set by the provider: a miss that is a wait, not a hole */
+double gGroundStitchMs = 0.0;   /* the wall the builds spent inside the stitch, decode included */
+bool gGroundPending = false;   /* set by the source: a miss that is a wait, not a hole */
 
 /* THE ORACLE'S BYTES, and the platform split is exactly one statement: a browser's frame thread
  * cannot wait for a fetch, a native one may. Both read the pool's one cache, so the DEM the mesh
@@ -119,36 +117,32 @@ bool gGroundPending = false;   /* set by the provider: a miss that is a wait, no
 #endif
 }
 
-int GroundProvider(void *, osmmesh_tile_kind kind, uint32_t z, uint32_t x, uint32_t y,
-                   uint8_t **out, size_t *len) {
-  *out = nullptr;
-  *len = 0;
-  if (kind != OSMMESH_TILE_TERRAIN || !gPool) return 0;
-  char path[96];
-  std::snprintf(path, sizeof path, "/t/terrain/%u/%u/%u", z, x, y);
-  gGroundDecodes++;   /* a provider call IS a DEM LRU miss: osmmesh decodes what it is handed */
-  std::vector<uint8_t> bytes;
-  const TilePool::Reply reply = GroundBytes(path, &bytes);
-  if (reply == TilePool::Reply::Pending) gGroundPending = true;
-  if (reply != TilePool::Reply::Ready || bytes.empty()) return 0;
-  uint8_t *copy = (uint8_t *)Heap::Take("oracle dem", bytes.size());   /* osmmesh frees it */
-  std::memcpy(copy, bytes.data(), bytes.size());
-  *out = copy;
-  *len = bytes.size();
-  return 1;
-}
+class OracleTerrain : public TerrainSource {
+ public:
+  std::vector<uint8_t> TakeTerrainPng(int z, uint32_t x, uint32_t y) override {
+    if (!gPool) return {};
+    char path[96];
+    std::snprintf(path, sizeof path, "/t/terrain/%d/%u/%u", z, x, y);
+    gGroundDecodes++;   /* a source call IS a DEM cache miss: what it hands back gets decoded */
+    std::vector<uint8_t> bytes;
+    const TilePool::Reply reply = GroundBytes(path, &bytes);
+    if (reply == TilePool::Reply::Pending) gGroundPending = true;
+    if (reply != TilePool::Reply::Ready) return {};
+    return bytes;
+  }
+};
 
-void FillNodeHeights(const osmmesh_terrain_grid *grid, uint32_t rowPostings, uint32_t colPostings,
+OracleTerrain gGroundSource;
+std::unique_ptr<TerrainTiles> gGroundTiles;
+
+void FillNodeHeights(const TerrainField &field, uint32_t rowPostings, uint32_t colPostings,
                      GroundTile *out) {
   out->H.resize((size_t)out->Nodes * (size_t)out->Nodes);
   for (int j = 0; j < out->Nodes; j++) {
-    const double fr = osmmesh_terrain_posting_frac(
-        World::ChunkNodePosting(j, rowPostings, out->Nodes), rowPostings);
+    const double fr = PostingFrac(World::ChunkNodePosting(j, rowPostings, out->Nodes), rowPostings);
     for (int i = 0; i < out->Nodes; i++) {
-      const double fc = osmmesh_terrain_posting_frac(
-          World::ChunkNodePosting(i, colPostings, out->Nodes), colPostings);
-      out->H[(size_t)j * (size_t)out->Nodes + (size_t)i] =
-          osmmesh_terrain_posting_height(grid, fc, fr);
+      const double fc = PostingFrac(World::ChunkNodePosting(i, colPostings, out->Nodes), colPostings);
+      out->H[(size_t)j * (size_t)out->Nodes + (size_t)i] = field.InterpolatedM(fc, fr);
     }
   }
 }
@@ -164,27 +158,23 @@ const GroundTile *GroundTileAt(long x, long y) {
     }
     if (t.Used < victim->Used) victim = &t;
   }
-  if (!gGroundCtx) return nullptr;
+  if (!gGroundTiles) return nullptr;
   gGroundPending = false;
-  uint32_t rowPostings = 0, colPostings = 0;
-  const osmmesh_terrain_grid *grid = nullptr;
   const std::chrono::steady_clock::time_point t0 = std::chrono::steady_clock::now();
-  const int rc = osmmesh_tile_grid(gGroundCtx, (uint8_t)gSurface.Z, (uint32_t)x, (uint32_t)y, &grid,
-                                   &rowPostings, &colPostings);
+  const TerrainGrid grid = gGroundTiles->StitchedGrid(gSurface.Z, (uint32_t)x, (uint32_t)y);
   gGroundStitchMs +=
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-  /* A REFUSED ALLOCATION IS NOT A HOLE, and on this path the difference is the whole run: a hole is
-   * cached, answers Missing() for ever after, and the once-only scatters downstream take that as
-   * final. So the two negative codes are separated before anything is written. */
-  if (rc == OSMMESH_ERR_OOM) Heap::Exhausted("oracle dem grid");
-  if (rc != OSMMESH_OK) {
-    /* A source that will not decode is not a wait either — the bytes are cached and the next ask
-     * decodes the same failure — so it is a hole, and this line is what says whose. */
-    Log::Error("world", "ground_grid_failed",
-               {{"z", gSurface.Z}, {"x", (int)x}, {"y", (int)y}, {"rc", rc}});
+  const TerrainField *field = grid.TryField();
+  if (grid.Where() == TerrainGrid::State::Undecodable) {
+    /* A source that will not decode is not a wait — the bytes are cached and the next ask decodes
+     * the same failure — so it becomes a hole, and this line is what says whose. */
+    Log::Error("world", "ground_grid_failed", {{"z", gSurface.Z}, {"x", (int)x}, {"y", (int)y}});
   }
-  const int gr = grid ? World::ChunkNodes(rowPostings, gSurface.Grid) : 0;
-  const int gc = grid ? World::ChunkNodes(colPostings, gSurface.Grid) : 0;
+  const uint32_t stride = gGroundTiles->Stride();
+  const uint32_t rowPostings = field ? PostingsPerEdge(field->Rows(), stride) : 0;
+  const uint32_t colPostings = field ? PostingsPerEdge(field->Cols(), stride) : 0;
+  const int gr = field ? World::ChunkNodes(rowPostings, gSurface.Grid) : 0;
+  const int gc = field ? World::ChunkNodes(colPostings, gSurface.Grid) : 0;
   const bool square = gr >= 2 && gr == gc && rowPostings == colPostings;
   if (gGroundPending) return nullptr;   /* NOT cached, or the wait would become permanent */
   gGroundBuilds++;
@@ -199,7 +189,7 @@ const GroundTile *GroundTileAt(long x, long y) {
     victim->H.clear();
     return nullptr;
   }
-  FillNodeHeights(grid, rowPostings, colPostings, victim);
+  FillNodeHeights(*field, rowPostings, colPostings, victim);
   return victim;
 }
 
@@ -223,23 +213,16 @@ double TileHeightAslM(const float *nodes, int side, uint32_t postings, double fx
 
 void GroundOpen(FbGroundSurface surface) {
   gSurface = surface;
-  osmmesh_config cfg{};
-  cfg.tile_provider = GroundProvider;
-  cfg.provider_terrain_max_zoom = kProviderTerrainMaxZ;
-  cfg.dem_cache_tiles = kGroundStitchGrids;
-  cfg.enable_terrain = 1;
-  const int rc = osmmesh_create(&cfg, &gGroundCtx);
-  if (rc == OSMMESH_ERR_OOM) Heap::Exhausted("oracle context");
-  if (rc != OSMMESH_OK) {
-    /* Every other code is this call's own arguments being wrong, three lines up: an oracle that
-     * opens without a context answers "no ground" EVERYWHERE and does it silently. */
-    Log::Error("world", "ground_oracle_unopenable", {{"rc", rc}});
-    std::abort();
-  }
+  /* The oracle asks in tile fractions and never in ENU metres, so its frame's origin is the map's
+   * own and the answer does not depend on where the scene stands. */
+  TerrainTiles::Config config;
+  config.SourceMaxZoom = kProviderTerrainMaxZ;
+  config.DemCacheTiles = kGroundStitchGrids;
+  gGroundTiles = std::make_unique<TerrainTiles>(gGroundSource, EnuFrame::At(0.0, 0.0), config);
 }
 
 void GroundClose() {
-  if (gGroundCtx)
+  if (gGroundTiles)
     Log::Debug("world", "ground_oracle",
         {{"tileBuilds", (int)gGroundBuilds}, {"demDecodes", (int)gGroundDecodes},
          {"decodesPerBuild", gGroundBuilds ? (double)gGroundDecodes / (double)gGroundBuilds : 0.0},
@@ -250,8 +233,7 @@ void GroundClose() {
   gGroundBuilds = 0;
   gGroundStitchMs = 0.0;
   gGroundDecodes = 0;
-  if (gGroundCtx) osmmesh_destroy(gGroundCtx);
-  gGroundCtx = nullptr;
+  gGroundTiles.reset();
   for (GroundTile &t : gGround) t = GroundTile{};
   gGroundClock = 0;
 }
@@ -285,22 +267,24 @@ double fb_stream_ground_post_m(double latDeg) {
 
 GroundSample fb_stream_ground(double lat, double lon) {
   lon = Wrapped180(lon);
-  double tx = 0.0, ty = 0.0;
-  fb_geo_to_tile(lat, lon, gSurface.Z, &tx, &ty);
-  long hx = (long)tx, hy = (long)ty;
-  if (!fb_tile_wrap(gSurface.Z, &hx, &hy)) return GroundSample::Missing();
+  Geo place;
+  place.LatDeg = lat;
+  place.LonDeg = lon;
+  const TileFrac f = ToTileFracClamped(place, gSurface.Z);
+  long hx = (long)f.X, hy = (long)f.Y;
+  if (!WrapTile(gSurface.Z, &hx, &hy)) return GroundSample::Missing();
   gGroundPending = false;
   const GroundTile *t = GroundTileAt(hx, hy);
   if (!t) return gGroundPending ? GroundSample::Waiting() : GroundSample::Missing();
   return GroundSample::At(
-      TileHeightAslM(t->H.data(), t->Nodes, t->Postings, tx - (double)hx, ty - (double)hy));
+      TileHeightAslM(t->H.data(), t->Nodes, t->Postings, f.X - (double)hx, f.Y - (double)hy));
 }
 
 FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
   FbGroundBlock block;
   if (z != gSurface.Z) return block;   /* Missing: no other zoom of this surface exists */
   long hx = x, hy = y;
-  if (!fb_tile_wrap(z, &hx, &hy)) return block;
+  if (!WrapTile(z, &hx, &hy)) return block;
   gGroundPending = false;
   const GroundTile *t = GroundTileAt(hx, hy);
   if (!t) {
@@ -319,9 +303,15 @@ FbGroundBlock fb_stream_ground_block(int z, long x, long y) {
 
 void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg, int count,
                             double *out) const noexcept {
-  double tx0 = 0.0, ty = 0.0, tx1 = 0.0, tyEnd = 0.0;
-  fb_geo_to_tile(latDeg, Wrapped180(lonFromDeg), Zoom_, &tx0, &ty);
-  fb_geo_to_tile(latDeg, Wrapped180(lonFromDeg + lonStepDeg), Zoom_, &tx1, &tyEnd);
+  Geo from;
+  from.LatDeg = latDeg;
+  from.LonDeg = Wrapped180(lonFromDeg);
+  Geo to;
+  to.LatDeg = latDeg;
+  to.LonDeg = Wrapped180(lonFromDeg + lonStepDeg);
+  const TileFrac fromFrac = ToTileFracClamped(from, Zoom_);
+  const double tx0 = fromFrac.X, ty = fromFrac.Y;
+  double tx1 = ToTileFracClamped(to, Zoom_).X;
   /* A row starting west of the dateline and stepping over it comes back as a tile index of nearly
    * zero, which would run the whole row backwards across the world. */
   const double width = (double)((long)1 << Zoom_);
@@ -334,31 +324,25 @@ void FbGroundBlock::AslMRow(double latDeg, double lonFromDeg, double lonStepDeg,
 
 /* The one raster left in this file: the moon, which is a MEASURED image of a real body and not
  * authored appearance (CLAUDE.md principle 2). */
-extern "C" {
-unsigned char *stbi_load_from_memory(const unsigned char *buffer, int len, int *x, int *y,
-                                     int *channels_in_file, int desired_channels);
-void stbi_image_free(void *retval_from_stbi_load);
-}
-
 int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
-  FILE *f = fopen(path, "rb");
-  if (!f) return 0;
-  fseek(f, 0, SEEK_END);
-  long n = ftell(f);
-  fseek(f, 0, SEEK_SET);
-  if (n <= 0) { fclose(f); return 0; }
-  uint8_t *enc = (uint8_t *)Heap::Take("moon file", (size_t)n);
-  size_t rd = fread(enc, 1, (size_t)n, f);
-  fclose(f);
-  if ((long)rd != n) { free(enc); return 0; }
-  int comp = 0;
-  uint8_t *px = stbi_load_from_memory(enc, (int)n, w, h, &comp, 4);
-  free(enc);
-  if (!px) return 0;
-  size_t bytes = (size_t)(*w) * (*h) * 4;
+  SDL_Surface *decoded = IMG_Load(path);
+  if (!decoded) {
+    Log::Error("world", "image_file_undecodable",
+               {{"path", std::string(path ? path : "")}, {"why", std::string(SDL_GetError())}});
+    return 0;
+  }
+  SDL_Surface *rgba32 = SDL_ConvertSurface(decoded, SDL_PIXELFORMAT_RGBA32);
+  SDL_DestroySurface(decoded);
+  if (!rgba32) return 0;
+  *w = rgba32->w;
+  *h = rgba32->h;
+  const size_t bytes = (size_t)(*w) * (size_t)(*h) * 4;
   uint8_t *out = (uint8_t *)Heap::Take("moon rgba", bytes);   /* the caller free()s */
-  memcpy(out, px, bytes);
-  stbi_image_free(px);
+  for (int r = 0; r < rgba32->h; r++)
+    memcpy(out + (size_t)r * (size_t)(*w) * 4,
+           (const uint8_t *)rgba32->pixels + (size_t)r * (size_t)rgba32->pitch,
+           (size_t)(*w) * 4);
+  SDL_DestroySurface(rgba32);
   *rgba = out;
   return 1;
 }

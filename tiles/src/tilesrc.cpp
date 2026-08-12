@@ -8,15 +8,17 @@ static const struct {
     int maxz;
 } K[FB_TILE_KIND_COUNT] = {
 
-    [FB_TILE_TERRAIN] = { "terrain",
+    /* Positional, in fb_tile_kind order: C++ has no array designators, so the ENUM ORDER is what
+     * keeps a row with its kind (tilesrc.h). */
+    { "terrain",
         "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/%d/%ld/%ld.png",
         "image/png", "png", 15 },
 
-    [FB_TILE_VECTOR]  = { "vector",
+    { "vector",
         "https://tiles.versatiles.org/tiles/osm/%d/%ld/%ld",
         "application/vnd.mapbox-vector-tile", "pbf", 14 },
 
-    [FB_TILE_IMAGERY] = { "imagery",
+    { "imagery",
         "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/%d/%ld/%ld",
         "image/jpeg", "jpg", 19 },
 };

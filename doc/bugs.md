@@ -426,6 +426,69 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **An absent tile is remembered for the life of the pool and nothing removes it.** `world/TilePool.cpp` `Poll` keeps the `Absent` result in `Done_` and the key in `Posted_` — that is what makes the answer final and stops a thread being spun on it — but nothing evicts either table, so a flight over a large hole grows both without bound. Bounded today by the number of distinct absent tiles a run asks about, which is 1 in every measured run. Right: the same unit of removal eviction needs everywhere else (see *Nothing evicts*), not a second mechanism.
 - **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, `sim/logs/demo-crossing-gpu_walk-20260811T172219Z.csv`): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
 - **The load loop polls the pool ~190 000 times a second** (`poolRepeats` 2 069 319 against `poolPosts` 196, same run). Attribution matters and the earlier phrasing had it wrong: **99.99 % of the repeats happen before residency, not during play.** In `demo/walk-500` `poolRepeats` is 1 953 923 at t=10 s (residency) and 1 954 287 at t=183 s — 364 repeats in 173 s of walking against 1.95 M in 10 s of loading. The load spins `Refine` at ~1 800 passes/s × ~119 unready leaves; every one of those takes `QueueMutex_` and attempts a `std::set<uint64_t>` insert on the thread that draws, against the four workers that need the same mutex to pop (`world tilepool threads=4 inFlightCap=4`). The host was loaded during the measurement, which makes 190 kHz a **lower** bound. Right: a pending ask answerable without the queue's lock — a per-node "already posted" flag in the node, or an atomic set — and a load loop that is not a spin.
+- **The provider seam went from a C callback with a documented reason channel to a C++ interface with
+  none.** `world/tiles/TerrainTiles.h:20-24` declares `TerrainSource::TakeTerrainPng` returning a bare
+  `std::vector<uint8_t>`, and its own comment states the defect as the design: *"Empty means 'no tile'
+  — absent, or not fetched yet; which of the two it is belongs to the source, not here."* Four
+  different answers — **absent**, **still fetching**, **the transport refused** and **a 200 with an
+  empty body** — are one value, `{}`. The reason travels out of band on a thread-local written by the
+  implementer (`world/TilePool.cpp:401` sets `tMiss` on `Pending` and sets nothing on a refusal), so a
+  4xx that `TilePool::Classify` turned into `Absent` arrives here as `NoTile`, becomes `Miss::Hole` and
+  is **terminal** at the node. This is the same defect the C ABI had, minus its excuse: the old
+  `osmmesh_tile_provider` used a thread-local *because a C function pointer had no channel*, and the
+  replacement had one and did not take it. It matters beyond this file because `doc/requirements.md`
+  § I.22 names this seam the direct ancestor of `Data::Source` and its first ruling is that *no
+  provider here* and *no data here* must be **different types** — here they are not even different
+  enumerators. Right: `TakeTerrainPng` returns a state-carrying answer whose bytes are unreachable
+  from the negative states, the shape `core/GroundSample.h` and the four new types beside it already
+  use, and `tMiss` disappears with it.
+- **A decoded DEM smaller than 2×2 permanently deletes the ground under it.** `world/TilePool.cpp:423`
+  maps `TerrainMesh::State::FieldTooSmall` to `Miss::Hole` alongside `NoTile`, and a `Hole` is the one
+  answer that becomes `Reply::Absent` → `MeshState::Vacant` → a quadrant that is never asked again
+  (`world/World.h`). `FieldTooSmall` is raised at `world/tiles/TerrainGrid.cpp:54` only for a PNG that
+  **decoded** and is degenerate — a malformed source, not a statement about the Earth — which is
+  exactly the distinction the comment three lines above it draws. Terrarium tiles are 256×256; there is
+  no upstream that legitimately sends 1×1, so no harmless reading survives. Right: `FieldTooSmall`
+  belongs with `SourceUndecodable` in the `Refused` arm.
+- **`default:` is back in a `switch` over a house enumeration, and it hides three states.**
+  `world/TilePool.cpp:425` writes `default: miss = Miss::Refused;` over `TerrainMesh::State`, so
+  `SourceUndecodable`, `StrideDoesNotDivide` and `FrameUnusable` — a corrupt PNG, a configuration
+  error and a frame built at the pole — are one answer, and a state added tomorrow silently joins them
+  instead of failing to build. `doc/requirements.md` § I.17 carries *No `default:` in a `switch` over a
+  house enumeration* as a **ticked** line at **zero**; this round makes it one. The two survivors the
+  requirement names as correct (`core/Json.cpp:142` over a char escape, `world/OsmVector.cpp:49` over a
+  protobuf wire type) are unaffected. `ES.79`: `default` is for the common case, and these are the
+  three uncommon ones. Right: three arms, no `default`, and `-Wswitch -Werror` carries the rule.
+- **`TileEnuMap` answers with a plausible wrong place instead of refusing.** Every other type in
+  `world/tiles/TileGeodesy.h` hides its payload behind a state — `TileIndex::TryXy`, `EnuFrame::
+  TryFromGeo`, `TerrainGrid::TryField`, `TerrainMesh::TryPositionsEnuM`. `TileEnuMap` (`:153-175`) has
+  no state, a private all-zero default body, and `Apply` is a plain total function; its own comment
+  argues for it — *"A map over an unusable frame carries zero scale, so it places every vertex at the
+  origin rather than somewhere plausible."* Placing every vertex of a tile at the frame origin **is**
+  the plausible-looking wrong answer, and it is unreachable to a caller: nothing distinguishes a
+  degenerate map from a good one. The guarantee the other four types establish leaks at the one seam
+  that converts per-vertex positions. Right: `EnuFrame` exists only in its usable state — `At` returns
+  the state-carrying answer and the frame is obtained through it — after which `TileEnuMap::Over` is
+  total, `TryFromGeo`/`TryToGeo` lose their `bool`, and the degenerate map has no spelling (`C.41`,
+  `C.42`).
+- **The producer knows the grid's width and the consumer guesses it back with a 0.5 m threshold.**
+  `world/tiles/TerrainGrid.cpp:61-62` computes `rowsOut`/`colsOut` and `TerrainMesh` keeps neither;
+  `world/ChunkMesh.h:31-38` then recovers the column count by scanning for the first easting that
+  decreases by more than `0.5f` metres and refuses the tile as *soup* when it finds none. The constant
+  is a magic number (`ES.45`) standing in for an extent that was exact one call earlier, and it fails
+  silently wherever the posting spacing drops under 0.5 m — at z14 the spacing is ~4.8 m, so this is a
+  latent bound on stride and zoom rather than a live wrong picture. Right: `TerrainMesh` carries `Rows()`
+  and `Cols()` beside `VertexCount()` (`F.21`), and `ChunkBuildEcef` takes them.
+- **`vramMB` in every `fbworld` telemetry row counts albedo textures that are never allocated.**
+  `world/World.cpp:635` computes `albVram = DrawnReady * TS * TS * 4` with `TS = 512`
+  (`clients/Sim.cpp:21 kAlbedoTileSize`), i.e. **1.049 MB of claimed VRAM per drawn tile**, and adds it
+  to `MeshVram` before publishing. No albedo texture exists anywhere in the renderer — the field it
+  would live in, `World::Node::albedo`, is never written (entry below) — so the published figure is
+  mesh VRAM plus a constant times the drawn-leaf count. At the demo standpoint's several hundred drawn
+  leaves this is a few hundred megabytes of fiction in the one number the memory ledger publishes for
+  the device. Against `CLAUDE.md`'s *every number carries its origin*. Right: the term goes when the
+  path does, or the texture exists.
+
 - **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
@@ -887,3 +950,128 @@ the tree more than once, or under a name that says the wrong unit.*
   The checker the line credits with holding the contract — "sim's `build/fb-test-weather`" — has no
   target in any Makefile in this tree and no source behind it. The wire format's one written statement of who verifies it verifies nothing. Right: the path,
   and either a test that reads both headers or no claim that one exists.
+
+- **`fb_cache_init` is never called, so the tile cache ignores where the operator put it.**
+  `tiles/src/main.cpp:215-221` calls `fb_bake_init`, `fb_wx_init`, `fb_peaks_init` and
+  `fb_stars_init` with the declared cache directory and does not call `fb_cache_init` at all, so
+  `cache.cpp:15`'s `g_dir` keeps its built-in `/var/cache/fbtiles` and `curl_global_init` never runs.
+  In the container the default happens to be the mount, which is why this survived; on this host,
+  measured, every upstream body failed to store and `/health` reported `fetch_fail=8` after eight
+  requests while a plain `curl` to the same URL returned 200. Fixed in this round because the round
+  could not otherwise run the server it had just ported; kept here as the shape — **an init that is
+  optional at the call site and mandatory in the code** — and right is that the cache directory is a
+  constructor argument, not a global with a default.
+
+- **`tiles/src/tilesrc.cpp:9-24` is a table keyed by nothing.** The three source rows used to be C99
+  array designators (`[FB_TILE_VECTOR] = {...}`), which C++ does not have; they are positional now and
+  their order is the only thing that keeps `vector` from being fetched as terrarium PNG. A comment
+  says so. Right: the kind is a field IN the row and the lookup is a search, or the rows are a
+  `constexpr` table `static_assert`ed against the enum — a rule a comment states is a rule a reviewer
+  enforces.
+
+- **`tiles/osmmesh/terrain.c` had no caller at all.** Its own header (`tiles/osmmesh/terrain.h:4`)
+  said fb-tiles' `elev.c` decodes exactly this. There is no `elev.c` in the tree, and no other file in
+  `tiles/` named `osmmesh_terrain_*` — the 111 lines were dead, and the `Dockerfile` still listed
+  `tiles/src/elev.c` on its `gcc` line, so **`podman build -f tiles/Dockerfile` had been failing since
+  `elev.c` was deleted** and nobody noticed because `tiles/up.sh` was not run. Both are gone in this
+  round; the shape that remains is that **no gate builds the container**, so the one artefact three of
+  eight gates depend on has no build anybody checks.
+
+- **`World::Node::albedo` is a field nothing ever writes.** `world/World.h:244` declares
+  `std::vector<uint8_t> albedo` per node and `World.cpp:61` counts its capacity into the ledger; no
+  assignment to it exists anywhere in `src/`. The client asks for `/t/vector`, `/t/terrain` and
+  `/t/stars` and for no raster at all, which is also why `/health` on a server that has served a whole
+  walk reports `baked=0`: **the entire `/bake` path — `bake.cpp`, `bakepool.cpp`, `raster.cpp`,
+  `draw.h`, `style.h`, about 800 lines — has no consumer in this tree.** Right: either a client that
+  uses a baked albedo or the deletion of all of it; what must not stand is a cache format being tuned
+  for a path nobody reads.
+
+- **The Makefile's one stated cross-project reference was the wrong one.** `Makefile:4` said the only
+  reference from the library into `tiles/` was `tiles/src/style_ver.h`. Nothing in `src/` has ever
+  included `style_ver.h`; what it actually included was `tiles/src/tilemath.h`, from
+  `world/terrain/terrain.h` and `world/TerrainLoader.cpp` — the tile maths, not the bake version. The
+  header is `src/world/tiles/TileMath.h` now and `INC_TILES` is gone, so the statement is true by
+  construction rather than by comment.
+
+- **The container ships the host's macOS binary, and the Linux compile never runs.** `tiles/Dockerfile`
+  now does `COPY tiles/ tiles/` followed by `RUN make -C tiles build`. `tiles/fb-tiles` is a build
+  output that `.gitignore:3` excludes from the repository but **not** from the build context, so a
+  developer who ran `make -C tiles build` on this host — which this round did; the artefact is dated
+  with the round — gets it copied into the image with its mtime intact. `make` then finds the target
+  newer than every prerequisite, does nothing, and `cp tiles/fb-tiles /usr/local/bin/fb-tiles` installs
+  a Mach-O executable into a Debian image. Reproduced: the built image's `/usr/local/bin/fb-tiles` is
+  116 488 B, byte-for-byte the host artefact, and its first four bytes are `cf fa ed fe` — `MH_MAGIC_64`.
+  It fails at `exec` with *Exec format error*, which is the lucky outcome; on a Linux host the same
+  path installs a binary compiled with the wrong headers and flags and it runs. Right: a `.dockerignore`
+  that excludes build outputs, or a `COPY` of the declared sources only — a container built from the
+  working tree's untracked state is not built from the repository.
+- **The ported tile server does not compile on the only platform it ships on.** **Nine of the thirteen**
+  translation units open with `#define _GNU_SOURCE` (`tiles/src/main.cpp`, `cache.cpp`, `prefetch.cpp`,
+  `raster.cpp`, `bake.cpp`, `bakepool.cpp`, `tilemap.cpp`, `wx.cpp`, `peaks.cpp`), which was correct
+  while they were C. g++ predefines `_GNU_SOURCE` on the command line in C++ mode, so each one is now
+  `error: "_GNU_SOURCE" redefined [-Werror]` and the link never starts. Measured under
+  `debian:trixie-slim` + `g++ 14.2.0`, the image's own compiler, with `tiles/Makefile`'s own flags;
+  host clang does not predefine it, which is why the host build is green. With those nine `#define` lines
+  removed the whole server, `../src/world/OsmVector.cpp` included, compiles clean under
+  `-Wall -Wextra -Wpedantic -Werror` on Linux/arm64. Right: delete the lines — nothing in the tree
+  needs the macro spelled by hand in C++.
+- **`make` is not installed in the container's build stage.** `tiles/Dockerfile`'s build image installs
+  `g++ libc6-dev libcurl4-openssl-dev libsdl3-image-dev pkg-config`; `debian:trixie-slim` carries no
+  `make`, so `RUN make -C tiles build` answers `/bin/sh: 1: make: not found`, exit 127. The previous
+  Dockerfile invoked `gcc` directly and had no such dependency. One word on the `apt-get` line.
+- **The tile server's acceptance exercises none of the code the port rewrote.** `/t/terrain` and
+  `/t/vector` are pass-throughs — `tiles/src/main.cpp:143-160` routes them straight from the disk cache
+  to `fb_reply_bin` with no decode — so a byte-for-byte comparison on those two endpoints tests route,
+  cache and HTTP and says nothing about the MVT reader, the rasteriser or the encoder swap, which are
+  reachable only through `/bake`. The decoder merge **does** hold, measured here rather than asserted:
+  old server against new, `/bake/osm/…?tex=512` on `14/8617/5404` (dense urban, 2 213 polygons),
+  `14/8620/5403` and `7/49/48` (open Atlantic, the `ocean`-layer path), decoded and compared per
+  channel — **2 359 296 channels, 0 differing, worst delta 0** on all three. Right: this comparison is
+  the acceptance for a decoder port, and it belongs in the suite rather than in a report.
+- **The two spellings of the Mercator band survive the round that names them.**
+  `src/world/tiles/TileMath.h:19` declares `kMercatorLatMaxDeg = 85.05112877980659` and its own header
+  comment (`:6`) states the defect — *"the band was spelled 85.0511287798 on one side of a process
+  boundary and 85.05112877980659 on the other"* — while `tiles/src/tilemath.h:11` still carries
+  `#define FB_MERC_LAT_MAX 85.0511287798`. The difference is 2·10⁻¹¹ deg and decides nothing numerically;
+  the defect is that a constant has two declarations (`doc/requirements.md` § I.23) and that the comment
+  now describes a state of affairs it did not change. `tiles/` compiles with `-I../src/world` since this
+  round, so the fix is an include and a deletion.
+- **`lights_v1`: 177 MB and 31 767 cache files whose producer no longer exists in the tree.** Measured
+  in the running container's volume. No source file under `tiles/` or `src/` names `lights`; the cache
+  kind outlived the code that wrote it, and nothing prunes it. Beside it, the dead `/bake` path holds
+  `bake_osm` 556 MB / 18 305 files and `bake_photo` 1.3 GB / 17 004 files, and `imagery` 1.1 GB / 68 316
+  files exists only to feed that path (`tiles/src/raster.cpp:161` is the sole consumer of
+  `FB_TILE_IMAGERY`) — **3.1 GB of a 7 GB cache serving nothing**, against `baked=0` over 40 hours of
+  uptime. Right: a cache directory whose kinds are enumerated by the code that can write them, so an
+  orphan kind is a name nothing can produce.
+- **The photo bake is a lossy cache.** `tiles/src/bake.cpp:118` writes imagery mosaics with
+  `IMG_SaveJPG_IO(surface, io, false, 88)`, against `doc/todo.md`'s 1.2 clause that the disk product is
+  written *losslessly, so a warm start reproduces the bake exactly and there is no quality judgement to
+  make*. The upstream tiles are already JPEG, so this is a second generation of the same loss. Moot if
+  `/bake` is deleted; a contradiction while it stands.
+- **German comments survive in files this round rewrote.** `tiles/src/raster.cpp:98-103` carries a
+  six-line block in German (*"OCEAN FIRST, und es ist eine echte Ebene der Quelle…"*), and
+  `tiles/src/bake.cpp` carries four more lines of it, against `CLAUDE.md`'s *the repository speaks one
+  language: English*. Both files were renamed and edited in this round. The `[MESS]` tag in the same
+  block is a third spelling of `[MEAS]`.
+- **Eleven `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
+  `fb_stream_open`, `fb_stream_close`, `fb_stream_ground`, `fb_stream_ground_block`,
+  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`, `fb_take_http_body`,
+  `fb_canvas_px`, `fb_post` — across `world/TerrainLoader.{h,cpp}`, `world/World.cpp`,
+  `world/TilePool.cpp`, `world/OsmField.cpp`, `world/BuildingField.cpp`, `world/WaterField.cpp`,
+  `clients/Sim.cpp`, `clients/Outshine.cpp`, `clients/HttpPost.cpp`, `render/Renderer.cpp`.
+  `CLAUDE.md`'s naming rule exempted `world/terrain/` and `FBWX` and nothing else, so these were already
+  outside the exception; with `world/terrain/` gone there is no C-ABI code left in the tree at all and
+  the prefix has no remaining justification anywhere. Zero `osmmesh_` names survive, which is the half
+  of this that did land.
+- **The declared still's identity is taken over the encoded file, so an encoder change reads as a
+  picture change.** `Makefile:395` hashes `walk.png` with `shasum`, and the pin in `doc/todo.md:12` is
+  that file's sha. Swapping `stbi_write_png_to_func` for `IMG_SavePNG_IO` in `src/clients/Png.cpp` moved
+  it `852bd4246ee34f65` → `bec69fea0a4e6837` with **not one pixel changed** — decidable rather than
+  argued: decoding each of the four seeds' new `walk.png` and re-encoding it with the deleted stb
+  encoder, at the settings `Png.cpp` used at `859f702`, reproduces `852bd4246ee34f65` exactly, four
+  times out of four. The gate itself is unaffected (`verify-still` compares runs to each other and pins
+  nothing), but the value a human compares against is the wrong subject and will move again at § I.17's
+  wasm gate and at phase 3.4. Right: the sha is over the decoded RGBA buffer, hashed before the encoder
+  is called — it costs one call, survives every encoder and container change, and moves only when the
+  picture does.
