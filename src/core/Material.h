@@ -34,6 +34,12 @@ struct Material {
   float Ior = 1.5f;                     /* refractive index; glTF's dielectric default, F0 = 0.04 */
   float Emission[3] = {0.0f, 0.0f, 0.0f}; /* cd/m^2 */
   AlphaMode Alpha = AlphaMode::Opaque;
+  /* glTF's `doubleSided`, and it lives here rather than beside the reader because it is a statement
+   * about the SURFACE that only the pipeline can honour: a single-sided facet is culled from behind
+   * and a double-sided one is not. `TextureSettingsTest` puts a polygon facing the wrong way in
+   * front of a test polygon and lets the flag decide which of the two is seen, so an engine that
+   * carries the flag no further than its reader draws the wrong cell. glTF's own default is false. */
+  bool DoubleSided = false;
   /* Below this alpha a `Masked` fragment is discarded. 0.5 is the format's own default and not an
    * argument made here (`Specification.adoc`, `alphaCutoff`); `AlphaBlendModeTest` renders 0.25 and
    * 0.75 columns that fail an engine carrying one number for the whole scene. */

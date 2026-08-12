@@ -207,15 +207,21 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   rp.fragment = &fs;
   rp.depthStencil = &ds;
   rp.primitive.frontFace = kGltfFrontFace;
-  rp.primitive.cullMode = CullsBackFaces(StateOf(Material{}), kSubjectWinding)
-                              ? wgpu::CullMode::Back
-                              : wgpu::CullMode::None;
+  /* FOUR PIPELINES: two vertex layouts times the two answers `doubleSided` can give. The facing is
+   * the SLOT's, because glTF states it per material -- `TextureSettingsTest` hides a green
+   * checkmark behind a polygon facing the wrong way and lets the flag decide which of the two is
+   * seen, and one cull mode for the whole subject draws the wrong cell whichever way it is set. */
+  rp.primitive.cullMode = wgpu::CullMode::Back;
   Plain = Device.CreateRenderPipeline(&rp);
+  rp.primitive.cullMode = wgpu::CullMode::None;
+  PlainTwoSided = Device.CreateRenderPipeline(&rp);
 
   rp.vertex.entryPoint = "vsTextured";
   rp.vertex.bufferCount = 3;
   rp.vertex.buffers = texturedLayouts;
   fs.entryPoint = "fsTextured";
+  TexturedTwoSided = Device.CreateRenderPipeline(&rp);
+  rp.primitive.cullMode = wgpu::CullMode::Back;
   Textured = Device.CreateRenderPipeline(&rp);
 
   wgpu::BufferDescriptor bd{};
@@ -293,6 +299,7 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
   Images.clear();
   Views.clear();
   Samplers.clear();
+  CullsBack.clear();
   if (!Device) {
     error = "the subject unit has no device, so no surface can be bound";
     return false;
@@ -311,6 +318,7 @@ bool SubjectDraw::SetMaterials(const std::vector<SubjectMaterial> &materials, st
       Binds.clear();
       return false;
     }
+    CullsBack.push_back(CullsBackFaces(materials[slot].Surface, kSubjectWinding));
     BindSurface(materials[slot]);
   }
   return true;
@@ -393,14 +401,22 @@ void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPass
    * merged what shared a pipeline and a slot, and what is left is exactly the changes that had to
    * happen. */
   VertexLayout bound = VertexLayout::Position;
+  bool boundCulls = true;
   bool anyBound = false;
   size_t boundSlot = 0;
   bool slotBound = false;
   for (const DrawBatch &batch : Batches) {
     const bool textured = batch.Layout == VertexLayout::PositionUv && HasUv && Uv;
     const VertexLayout wanted = textured ? VertexLayout::PositionUv : VertexLayout::Position;
-    if (!anyBound || wanted != bound) {
-      pass.SetPipeline(textured ? Textured : Plain);
+    /* THE FACING FOLLOWS THE SLOT, AND THE SORT KEY DOES NOT CARRY IT: two batches of one layout
+     * that disagree about `doubleSided` cost a pipeline change here rather than being merged. That
+     * is a batching cost and not a correctness one, and it is the honest place to pay it -- putting
+     * the flag in the key would sort a subject's parts by a device state. */
+    const bool culls = batch.MaterialSlot < CullsBack.size() ? CullsBack[batch.MaterialSlot] : true;
+    if (!anyBound || wanted != bound || culls != boundCulls) {
+      pass.SetPipeline(textured ? (culls ? Textured : TexturedTwoSided)
+                                : (culls ? Plain : PlainTwoSided));
+      boundCulls = culls;
       /* The two layouts put the radiance in different slots, so every slot the incoming layout
        * declares is rebound: leaving the other one's buffer where it was is how a uv slot ends up
        * holding radiance. */

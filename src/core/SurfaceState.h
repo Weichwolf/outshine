@@ -42,6 +42,7 @@ private:
 constexpr SurfaceState StateOf(const Material &material) {
   SurfaceState s;
   s.CoverageCut_ = material.CoverageCut;
+  s.CullsBack_ = !material.DoubleSided;
   s.Emits_ = material.Emission[0] > 0.0f || material.Emission[1] > 0.0f ||
              material.Emission[2] > 0.0f;
   if (material.Transmission > 0.0f && material.Ior > 1.0f) {

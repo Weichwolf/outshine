@@ -181,7 +181,6 @@ struct MaterialRef {
   TextureRef Emissive;
   double NormalScale = 1.0;
   double OcclusionStrength = 1.0;
-  bool DoubleSided = false;
 };
 
 /* WHAT A SUBJECT DOES NOT CARRY, NAMED. The empty string means it carries all of them; anything else

@@ -1,0 +1,246 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/texture/texture-settings-test",
+  "title": "Khronos TextureSettingsTest -- doubleSided and the three wrap modes, on an asset that draws its own pass and fail marks",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "khronos:TextureSettingsTest"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "says": "This model tests the `doubleSided` flag for materials, and tests `REPEAT`, `CLAMP_TO_EDGE`, and `MIRRORED_REPEAT` modes for texture samplers. When an engine loads this glTF file correctly, all of the boxes in the \"Test\" column should look very similar to the corresponding box in the \"Sample pass\" column. In other words, they should all be green checkmarks, except the two \"clamp\" tests, which should be solid green boxes. ... All of the failure conditions are a different shape from the corresponding success condition, as well as being red in color.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/README.md",
+    "note": "SELF-DESCRIBING, AND THE ASSET ITSELF FORBIDS A HUE COUNT. Khronos states that every failure is a different SHAPE from its success as well as a different colour, so that a red/green colourblind reader can compare the two columns by shape -- which means a proxy that counted green against red would be exactly the instrument the asset was designed to defeat. The verdict is the picture: eight Test cells against their eight Sample pass cells, six green checkmarks and two solid green blocks, no red anywhere."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "texture-settings-test",
+      "kind": "gltf",
+      "name": "TextureSettingsTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "Ten primitives over ten materials: a label plate, a background plate, and eight test cells. Five samplers spell the three wrap modes across S and T independently, and two materials differ in `doubleSided` alone. THE WRAP MODE AND THE FACING ARE BOTH THE FILE'S -- the sampler crosses into SubjectTexture::WrapU/WrapV and the flag into Material::DoubleSided -- so this is the case that says whether either survived the boundary.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TextureSettingsTest",
+        "pinnedOn": "2026-08-12",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/glTF/TextureSettingsTest.gltf",
+          "sha256": "dd1f85b4638ffc72f1e09e19b101b7a05d94a0353facced8f59c16a2d9c09447",
+          "bytes": 26715,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/glTF/TextureSettingsTest0.bin",
+          "sha256": "1aa2e5e31ae08179eea355945b6fd5d84bd5ffd62a50b93a68c2368d9f345cbe",
+          "bytes": 4976,
+          "as": "TextureSettingsTest0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/glTF/CheckAndX_V.png",
+          "sha256": "4f8ea98d173360c29275e04cac8d1d05004b1605d818e6f143aca8f31e4f302d",
+          "bytes": 9878,
+          "as": "CheckAndX_V.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/glTF/CheckAndX.png",
+          "sha256": "19da9a7f987b9a64684500c1de49293c0922f1840f13ce5d38505b8b5fe1c001",
+          "bytes": 9775,
+          "as": "CheckAndX.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/glTF/TextureTestLabels.png",
+          "sha256": "14b29323950f10cacfbc4160ea8982aaac6bdea21cf4ec5e8c1589917266415a",
+          "bytes": 7376,
+          "as": "TextureTestLabels.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+          "sha256": "106a3756efb58d62963a7b49620c9cab016a6d5c59bd608f6a1bb8e366dee3f6",
+          "bytes": 759,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        39.64923919657929,
+        17.034662995623147,
+        27.73769611533547
+      ],
+      "lookAtM": [
+        0.0,
+        -0.5825095176696777,
+        -0.025000054389238358
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 44.29665875161693,
+      "clipEndM": 58.72167427397859,
+      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 7.2125077611808273 m about the centre (0, -0.58250951766967773, -0.025000054389238358), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world, and it is left where it is because configuring it would be a second thing to keep honest."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "kind": "emission",
+      "note": "The file's own images, uv sets and samplers, through an emitter instead of the importer's Principled BSDF. An emitter because the test cells stand in front of the background plate and in front of each other -- the single/double-sided test IS a polygon in front of a polygon -- so a Diffuse BSDF at one sample per pixel would make every occluded pixel a Bernoulli draw on the visible sky fraction (doc/requirements.md I.26.13)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "WHAT THE ORACLE CANNOT DECIDE HERE, and it has to be said before the picture is looked at: Cycles does not cull back faces. Blender's importer carries `doubleSided` into `Material.use_backface_culling`, which is a viewport and EEVEE setting, so the path tracer shades a single-sided triangle from behind exactly as it shades it from the front. The reference therefore shows BOTH the single-sided and the double-sided cell with their front polygon visible, and Khronos says one of the two should have been culled. That is a limit of the oracle and not of this engine, which is why the case's verdict is Khronos's own marks and not the reference's pixels -- and it is also why the coverage threshold survives: the wrongly-facing polygon sits IN FRONT of the cell it hides, so culling it changes which colour a pixel carries and not whether the pixel is covered.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.12432269641906393,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 72 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so. Every triangle is counted by the magnitude of its signed area, so a cell hidden behind another counts too and this is an AREA, not a coverage."
+    }
+  }
+}

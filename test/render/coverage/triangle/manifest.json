@@ -10,6 +10,11 @@
     "I.26.11",
     "I.26.1"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "our own generated fixture -- rung 1 of the ten scenes: one triangle at about 30 % of the frame under a declared camera",
+    "statedAt": "doc/requirements.md I.26.5"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

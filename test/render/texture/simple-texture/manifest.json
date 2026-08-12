@@ -10,6 +10,11 @@
     "I.26.13",
     "khronos:SimpleTexture"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "A simple glTF asset with a texture.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {
@@ -125,7 +130,8 @@
     },
     "material": {
       "source": "gltf-base-colour",
-      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (doc/requirements.md I.26.13). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left and no closed form to be judged against. This arm keeps exactly what the asset is for -- its own base-colour image, its uv set and its sampler -- and rewires that image into a Diffuse BSDF at roughness 0, whose Cycles closure is max(dot(N,w),0)/pi. Under the factory world that is rho(u,v)*L per texel. The image datablock is untouched, so its sRGB decode still happens at the texel and before the interpolation, which is the convention TextureLinearInterpolationTest decides and the one our sRGB texture VIEW puts in the sampler."
+      "kind": "diffuse",
+      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (doc/requirements.md I.26.13). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left and no closed form to be judged against. This arm keeps exactly what the asset is for -- its own base-colour image, its uv set and its sampler -- and rewires that image into a Diffuse BSDF at roughness 0, whose Cycles closure is max(dot(N,w),0)/pi. Under the factory world that is rho(u,v)*L per texel. The image datablock is untouched, so its sRGB decode still happens at the texel and before the interpolation, which is the convention TextureLinearInterpolationTest decides and the one our sRGB texture VIEW puts in the sampler. THE CLOSURE IS DECLARED: this subject is a single unoccluded facet, the one shape where the diffuse arm's closed form rho*L survives, so it takes that arm rather than the emitter a self-shading subject needs."
     }
   },
   "renders": {

@@ -9,6 +9,11 @@
     "I.26.10",
     "I.26.11"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "our own generated fixture -- a node chain whose translation, rotation and scale must compose in glTF's order",
+    "statedAt": "doc/requirements.md I.26.5"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

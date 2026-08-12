@@ -9,6 +9,11 @@
     "I.26.10",
     "I.26.11"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "our own generated fixture -- one surface under the three index component types, which must land in the same pixels",
+    "statedAt": "doc/requirements.md I.26.5"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

@@ -599,7 +599,7 @@ bool Document::ReadAppearance(const Json &json) {
 bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   MaterialRef material;
   material.Name = declaration["name"].Str("");
-  material.DoubleSided = declaration["doubleSided"].Bool(false);
+  material.Surface.DoubleSided = declaration["doubleSided"].Bool(false);
 
   const Json::Ref pbr = declaration["pbrMetallicRoughness"];
   const Json::Ref baseColour = pbr["baseColorFactor"];

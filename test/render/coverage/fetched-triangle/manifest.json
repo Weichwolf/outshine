@@ -9,6 +9,11 @@
     "I.26.5",
     "I.26.10"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This is the simplest model that can be represented in glTF.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/README.md"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

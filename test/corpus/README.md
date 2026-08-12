@@ -126,6 +126,7 @@ close. Every refusal names the subject, what was expected and what was observed.
 |---|---|
 | `schema`, `schemaVersion` | a manifest written against a different schema is refused rather than half-read |
 | `id`, `title`, `covers` | `covers` names the requirement identifiers, so a test can say what it holds |
+| `criterion` | **what correct IS, in the asset's own words, with the file those words came from.** `kind` is `numeric`, `self-describing` or `limits-probe` and the runner's instrument follows from it, so a case cannot move from a number to an eye without a quotation moving with it |
 | `subjects[]` | **a list, not one subject**: rung 21 is a scene plus a character plus our camera path, and a schema that assumes one subject would have to be rewritten to say so |
 | `subjects[].id` | distinct, and it labels every row of the report |
 | `subjects[].kind` | `gltf` or `blend` — the enumeration decides whether the conversion job runs |
@@ -139,7 +140,7 @@ close. Every refusal names the subject, what was expected and what was observed.
 | `scene.camera` | `source: manifest` declares position, look-at, roll, yfov, sensor height and clip range; `source: gltf` adopts the file's own camera and refuses if there is not exactly one |
 | `scene.light` | `none`, `sun` (irradiance in W/m² perpendicular to the beam, which is exactly Blender's Sun Strength) or `point` (watts and radius, the factory lamp) |
 | `scene.world` | `factory` leaves Blender's world exactly where it is and records what it observed; `uniform` states a colour and a strength |
-| `scene.material` | `source: manifest` replaces every imported material; `source: gltf` keeps them. `kind: diffuse` builds a Diffuse BSDF with Roughness pinned to 0 |
+| `scene.material` | `source: manifest` replaces every imported material; `source: gltf` keeps them; `source: gltf-base-colour` keeps what the importer wired into each Principled BSDF's **Base Color** — factor times texture — and replaces only the closure. `kind` names that closure: `diffuse` is a Diffuse BSDF at roughness 0 and holds the closed form `rho*L` only where no surface can see another; `emission` is an emitter at strength 1 and is what a subject that shades itself must declare. Where the glTF material is not `doubleSided`, a back-facing hit becomes a Transparent BSDF, because **Cycles has no back-face culling for camera rays** and the format's own rule has to be expressed inside the oracle rather than tolerated outside it |
 | `renders` | a **map** of recipe name to recipe, because rung 1 needs two renders of one scene: a binary mask and an alpha coverage. `default` must exist and is what the acceptance numbers are judged on |
 | `acceptance` | **stated before the run and read from here by the test**, so a number cannot be edited to match a result it failed |
 

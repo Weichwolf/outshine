@@ -22,11 +22,11 @@
  * not by this one with a zero coordinate: a zero uv samples the image's corner and looks like a
  * texture that was authored flat.
  *
- * BACK FACES ARE CULLED AND THE WINDING IS TRUSTED, because the format defines one. A path tracer
- * hits a single-sided triangle from either side and still shades it, so the two renderers disagree
- * about a REVERSED subject and agree about a correct one -- which is the point: with culling off,
- * reversing every triangle of a subject moved no pixel of either mask, and three claims about
- * winding stood on an instrument that could not see it. */
+ * THE WINDING IS TRUSTED, because the format defines one, and WHETHER BACK FACES ARE CULLED IS THE
+ * MATERIAL'S: glTF states `doubleSided` per material and an asset uses it to hide one polygon
+ * behind another. With culling off entirely, reversing every triangle of a subject moved no pixel of
+ * either mask and three claims about winding stood on an instrument that could not see it; with one
+ * cull mode for the whole subject, a double-sided surface vanished. */
 #ifndef SUBJECTDRAW_H
 #define SUBJECTDRAW_H
 
@@ -127,10 +127,16 @@ private:
 
   wgpu::Device Device;
   wgpu::Queue Queue;
-  /* TWO PIPELINES, ONE PER VERTEX LAYOUT, both built at configure time. A single pipeline with a
-   * white one-texel stand-in would make "no texture declared" and "a white texture declared" the
-   * same picture, and the first is a subject this engine must be able to draw. */
-  wgpu::RenderPipeline Plain, Textured;
+  /* FOUR PIPELINES -- two vertex layouts times the two answers `doubleSided` can give -- all built
+   * at configure time. A single pipeline with a white one-texel stand-in would make "no texture
+   * declared" and "a white texture declared" the same picture, and the first is a subject this
+   * engine must be able to draw; a single cull mode would make `doubleSided` a property the reader
+   * carries and the picture ignores. */
+  wgpu::RenderPipeline Plain, Textured, PlainTwoSided, TexturedTwoSided;
+  /* Whether each surface slot culls its back faces, in the table's own order. It is the SLOT's
+   * because glTF states it per material, and it is here rather than in the draw list because a cull
+   * mode is a device state and the list has no device type in it. */
+  std::vector<bool> CullsBack;
   wgpu::BindGroupLayout Layout;
   /* ONE BIND GROUP PER SURFACE SLOT: the shared uniform plus that surface's own texture and
    * sampler. The encoder rebinds only where the batch's slot changes. */

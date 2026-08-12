@@ -1,0 +1,261 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/scifi-helmet",
+  "title": "Khronos SciFiHelmet -- 23358 triangles of a real asset, its own base-colour image at 2048 texels square, and the four maps a PBR stack carries",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "khronos:SciFiHelmet"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "says": "Futuristic helmet",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+    "note": "Khronos states no criterion for this asset beyond what it is, and doc/requirements.md I.26.13 names it among the subjects whose oracle CANNOT be reduced -- a whole material stack is not a closed form. So this case does not pretend to a number for the material: what it holds is that a real asset's geometry, its uv set and its base-colour image cross intact, judged on the placement exactly and on the picture by eye. The three maps we do not consume -- normal, metallic-roughness and ambient occlusion -- are fetched and NOT used, and that is stated here rather than hidden: an engine with no normal-mapped shading has nothing to do with them yet. THE SUBJECT CLASS IS DERIVED AND NOT CHOSEN: the projected area is 0.13402805161996395 of 1280x720 = 123493 px^2 over 23358 triangles counted by the magnitude of their signed area, i.e. 5.29 px^2 per triangle over both sides of a closed body and about 2.6 px^2 on the side facing the camera. More than half of this subject's triangles are therefore smaller than a pixel, which is the definition of sub-pixel-present -- a rasteriser drops the ones no sample centre hits and a path tracer finds them. MEASURED at that class: 3 of 921600 pixels disagree and the IoU is 0.99993651."
+  },
+  "subjectClass": "sub-pixel-present",
+  "subjects": [
+    {
+      "id": "scifi-helmet",
+      "kind": "gltf",
+      "name": "SciFiHelmet",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "One mesh, one primitive, one material, 23358 triangles over 23358 vertices, and four 2048 square images of which one is the base colour. The asset the draw list was built for is SIZE and not variety here: it is the first subject in this corpus with more triangles than the frame has pixels along an edge, and its base-colour image is 64 times the area of SimpleTexture's.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "SciFiHelmet",
+        "pinnedOn": "2026-08-12",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet.gltf",
+          "sha256": "4b9e64c5337ddaba5b44821d76786bcad3b5b78f877cf034ec6163dc8baca35a",
+          "bytes": 4461,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet.bin",
+          "sha256": "6a7af42896359f8e0d9ba65260cbb7b1a1d36aa787439d3775a48aba1f9a25ba",
+          "bytes": 3643848,
+          "as": "SciFiHelmet.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet_BaseColor.png",
+          "sha256": "bda08dd029775ea0964d5721b779a639da091222eaa750233ba34e01e3eeace2",
+          "bytes": 7841138,
+          "as": "SciFiHelmet_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet_MetallicRoughness.png",
+          "sha256": "f38f025af3201697679e2a04ba4cf01b4506e68ce4e0e0f09c268a7dfb80b2c3",
+          "bytes": 9488811,
+          "as": "SciFiHelmet_MetallicRoughness.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet_Normal.png",
+          "sha256": "437c034b60900b503bb41be3328011ab3b7602c8454f8eebcab98929ea25fe99",
+          "bytes": 5389165,
+          "as": "SciFiHelmet_Normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/glTF/SciFiHelmet_AmbientOcclusion.png",
+          "sha256": "95823e77b0a6e45308b53be4fdf1b7a7b6ac085c190dc1c5ef47097d0e35eb2f",
+          "bytes": 3919556,
+          "as": "SciFiHelmet_AmbientOcclusion.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+          "sha256": "df0915df2f9938ec1847e39f24c90fcc8ed3546e700d74fb726f2b9a0a698b35",
+          "bytes": 1110,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Michael Pavlovic",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        12.314826746438989,
+        5.471793003415928,
+        8.622934042765975
+      ],
+      "lookAtM": [
+        0.0,
+        5.960464477539063e-08,
+        -4.76837158203125e-07
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 13.758288658899566,
+      "clipEndM": 18.23861591289396,
+      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 2.2401636269971963 m about the centre (0, 5.9604644775390625e-08, -4.76837158203125e-07), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world, and it is left where it is because configuring it would be a second thing to keep honest."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "kind": "emission",
+      "note": "The file's own base-colour image, its uv set and its sampler, through an emitter. AN EMITTER AND NOT A DIFFUSE BSDF because a helmet is a closed body that sees itself everywhere -- visor, fins, the inside of every recess -- so at one sample per pixel a Diffuse BSDF makes every such pixel a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator and not a material (doc/requirements.md I.26.13). WHICH IMAGE IS THE BASE COLOUR IS NOT GUESSED: the lowering follows the link into the Principled BSDF's Base Color input, so the normal, metallic-roughness and occlusion maps in the same material are left where they are and reach nothing."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "The asset the draw list was built for. It is one material, so the list merges its one primitive into one call and the batching numbers say so; what it adds over OrientationTest is SCALE -- 23358 triangles and a 2048-square image -- and a real asset's uv layout, which no fixture in this tree generates.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.13402805161996395,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 23358 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
+      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+    }
+  }
+}

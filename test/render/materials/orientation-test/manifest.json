@@ -10,6 +10,11 @@
     "I.27",
     "khronos:OrientationTest"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "This model tests the orientation supplied by nodes in the hierarchy. ... Thus, if each colored arrow points directly at a target of the same color, the test passes. If an arrow appears to have been rotated away from the target of the same color, it could indicate a misplaced matrix transpose or some other orientation problem.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/OrientationTest/README.md"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

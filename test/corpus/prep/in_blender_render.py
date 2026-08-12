@@ -60,11 +60,61 @@ def import_gltf(paths):
     except Exception:
         pass
     before = set(bpy.data.objects)
+    kept = []
     for path in paths:
+        collections = set(bpy.data.collections)
         result = bpy.ops.import_scene.gltf(filepath=path)
         if "FINISHED" not in result:
             fail("glTF import of " + path + " returned " + repr(result))
-    return [obj for obj in bpy.data.objects if obj not in before]
+        kept.append(keep_default_scene(path, set(bpy.data.collections) - collections))
+    return [obj for obj in bpy.data.objects if obj not in before], kept
+
+
+def keep_default_scene(path, new_collections):
+    """MEASURED, 5.2.0: the importer does not honour glTF's `scene` property -- it imports EVERY
+    scene's nodes into the active Blender scene, one child collection per glTF scene, in document
+    order. `MultipleScenes` then renders its triangle and its square at once, and the oracle would
+    be showing a picture Khronos says is wrong.
+
+    So the document's own statement is applied here, read out of the file rather than chosen: keep
+    the collection at index `scene` and delete the objects of the others. The structural assumption
+    -- one child collection per scene, in order -- is CHECKED against the document's scene count
+    rather than trusted, because a Blender that changed it would otherwise silently keep the wrong
+    geometry."""
+    with open(path, "rb") as f:
+        head = f.read(4)
+    if head == b"glTF":
+        # A GLB's JSON chunk starts at byte 20; every multi-scene subject in this corpus is a .gltf,
+        # so rather than parse one, a GLB is declared out of this rule's reach until one arrives.
+        return {"scenes": 1, "honoured": "not-applicable-to-glb"}
+    with open(path, "r") as f:
+        document = json.load(f)
+    scenes = document.get("scenes") or []
+    if len(scenes) <= 1:
+        return {"scenes": len(scenes), "honoured": "single-scene"}
+    default = document.get("scene", 0)
+    # The importer REUSES an existing empty collection as the file's root, so the root is not
+    # necessarily new; what is new is the per-scene collections under it.
+    roots = [c for c in [bpy.context.scene.collection] + list(bpy.data.collections)
+             if len(c.children) == len(scenes)
+             and all(child in new_collections for child in c.children)]
+    if len(roots) != 1:
+        fail("the file declares %d scenes and %d collections hold exactly that many freshly "
+             "imported children, so which collection is which scene cannot be decided"
+             % (len(scenes), len(roots)))
+    children = list(roots[0].children)
+    if not 0 <= default < len(children):
+        fail("the file's default scene is %r and the importer made %d scene collections"
+             % (default, len(children)))
+    dropped = []
+    for index, collection in enumerate(children):
+        if index == default:
+            continue
+        for obj in list(collection.all_objects):
+            dropped.append(obj.name)
+            bpy.data.objects.remove(obj, do_unlink=True)
+    return {"scenes": len(scenes), "honoured": "default-scene", "defaultScene": default,
+            "keptCollection": children[default].name, "droppedObjects": sorted(dropped)}
 
 
 def strip_crossings(imported, camera_source):
@@ -151,48 +201,138 @@ def build_light(scene, declared):
             "locationBlender": list(obj.location)}
 
 
-def lower_to_base_colour(imported):
-    """Keeps the file's own base-colour image and its uv set; drops the closure around it.
+def subject_materials(imported):
+    """The materials the SUBJECT wears, in slot order, and never `bpy.data.materials`: the factory
+    file ships its own ("Dots Stroke", "Material"), and rewriting those would be rewriting the
+    startup file."""
+    materials = []
+    for obj in imported:
+        if obj.type != "MESH":
+            continue
+        for slot in obj.material_slots:
+            if slot.material is not None and slot.material not in materials:
+                materials.append(slot.material)
+    return materials
 
-    The importer builds a Principled BSDF whose specular lobe survives metallic 0 at IOR 1.5, so the
-    render has an integral left and no closed form. Rewiring the same Image Texture node into a
-    Diffuse BSDF at roughness 0 removes it and leaves rho(u,v)*L per texel. The image datablock is
-    untouched, so its sRGB decode still happens where Blender does it -- at the texel, before the
-    interpolation -- which is the convention under test.
+
+def surface_shader(tree):
+    """The node the Material Output takes its Surface from, which is the closure to be replaced."""
+    for node in tree.nodes:
+        if node.type != "OUTPUT_MATERIAL":
+            continue
+        surface = node.inputs["Surface"]
+        if surface.is_linked:
+            return node, surface.links[0].from_node
+    return None, None
+
+
+def images_feeding(socket):
+    """Which image datablocks actually reach this socket. `SciFiHelmet` carries four in one material
+    and only one of them is its base colour, so a provenance line that listed every image node in
+    the tree would report three textures the render never sampled."""
+    found, seen, edge = [], set(), [socket]
+    while edge:
+        current = edge.pop()
+        if not current.is_linked:
+            continue
+        node = current.links[0].from_node
+        if node.name in seen:
+            continue
+        seen.add(node.name)
+        if node.type == "TEX_IMAGE" and node.image is not None:
+            found.append({"image": node.image.name,
+                          "colourspace": node.image.colorspace_settings.name,
+                          "interpolation": node.interpolation,
+                          "extension": node.extension,
+                          "size": list(node.image.size)})
+        edge.extend(node.inputs)
+    return found
+
+
+def cull_back_faces(tree, shader):
+    """THE ORACLE IS LOWERED, NOT THE TOLERANCE: Cycles has no back-face culling for camera rays.
+
+    MEASURED on `TextureSettingsTest` at 5.2.0: the importer carries glTF's `doubleSided` into
+    `Material.use_backface_culling`, which is a viewport and EEVEE setting, so the path tracer shades
+    a single-sided triangle from behind exactly as from the front. The reference then showed a red X
+    where Khronos's own criterion says a green checkmark belongs, and covered 482 pixels our render
+    does not -- the back plate of a two-quad panel, poking one to two pixels past the front one at a
+    grazing angle. Both are the same defect in the oracle and neither is a threshold to widen.
+
+    A Transparent BSDF selected by `Geometry.Backfacing` is what expresses the format's own rule
+    inside Cycles. It is deterministic and adds no integral: Cycles mixes closure WEIGHTS rather than
+    choosing a branch at random, and `Backfacing` is exactly 0 or 1, so one closure carries weight 1
+    and the other 0. The two-seed check is what holds that claim -- an emission case must come back
+    bit-identical at another seed, and a stochastic mix would not."""
+    geometry = tree.nodes.new("ShaderNodeNewGeometry")
+    transparent = tree.nodes.new("ShaderNodeBsdfTransparent")
+    mix = tree.nodes.new("ShaderNodeMixShader")
+    tree.links.new(geometry.outputs["Backfacing"], mix.inputs["Fac"])
+    tree.links.new(shader.outputs[0], mix.inputs[1])
+    tree.links.new(transparent.outputs[0], mix.inputs[2])
+    return mix
+
+
+def lower_to_base_colour(imported, kind):
+    """Replaces the CLOSURE and keeps whatever the importer wired into its base colour.
+
+    The Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a render
+    through it has an integral left and no closed form to be judged against. TWO CLOSURES ARE
+    OFFERED AND THE CASE DECLARES WHICH: a Diffuse BSDF at roughness 0 is exactly
+    max(dot(N,w),0)/pi in Cycles and returns rho*L under a uniform environment, but only where no
+    surface can see another -- where one can, the single cosine-weighted direction at 1 spp either
+    escapes or does not and the pixel is a Bernoulli draw on the visible sky fraction. An Emission
+    at strength 1 gathers nothing at all, so it removes the world as a light, the sun's disk, a
+    light's radius and visibility together, and a subject of several plates that shade one another
+    has no other honest arm (doc/requirements.md I.26.13).
+
+    WHAT FEEDS BASE COLOUR IS NOT REBUILT, IT IS MOVED. glTF's base colour is `baseColorFactor`
+    TIMES `baseColorTexture`, and the importer expresses that as a Mix(MULTIPLY) whose A is the
+    Image Texture and whose B is the factor -- so a lowering that reached past it to the image node
+    would drop the factor, and `TextureCoordinateTest` declares four different non-white ones. An
+    untextured material is the same operation with an unlinked socket, which is why it no longer
+    needs an arm of its own: its Base Color is the factor as a default value and it lowers to a flat
+    Diffuse of that colour instead of being left Principled.
+
+    The image datablock is untouched, so its sRGB decode still happens where Blender does it -- at
+    the texel, before the interpolation -- which is the convention `TextureLinearInterpolationTest`
+    decides.
     """
     rewired = []
-    for material in bpy.data.materials:
-        if material.node_tree is None:
-            continue
-        image_node = None
-        for node in material.node_tree.nodes:
-            if node.type == "TEX_IMAGE" and node.image is not None:
-                image_node = node
-                break
-        if image_node is None:
-            continue
+    for material in subject_materials(imported):
         tree = material.node_tree
-        # Removing a node invalidates every other Python handle into the collection, so the node is
-        # named before the removal and looked up again after it.
-        kept = image_node.name
-        for node in list(tree.nodes):
-            if node.name != kept and node.type not in ("UVMAP", "MAPPING", "TEX_COORD"):
-                tree.nodes.remove(node)
-        image_node = tree.nodes[kept]
-        output = tree.nodes.new("ShaderNodeOutputMaterial")
-        shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
-        shader.inputs["Roughness"].default_value = 0.0
-        tree.links.new(image_node.outputs["Color"], shader.inputs["Color"])
-        tree.links.new(shader.outputs[0], output.inputs["Surface"])
-        rewired.append({"material": material.name, "image": image_node.image.name,
-                        "colourspace": image_node.image.colorspace_settings.name,
-                        "interpolation": image_node.interpolation,
-                        "extension": image_node.extension,
-                        "size": list(image_node.image.size)})
+        if tree is None:
+            fail("material %r carries no node tree, so it has no base colour to lower"
+                 % material.name)
+        output, closure = surface_shader(tree)
+        if closure is None:
+            fail("material %r has no shader on its Material Output" % material.name)
+        if "Base Color" not in closure.inputs:
+            fail("material %r is shaded by a %s, which has no Base Color to keep"
+                 % (material.name, closure.type))
+        base = closure.inputs["Base Color"]
+        if kind == "emission":
+            shader = tree.nodes.new("ShaderNodeEmission")
+            shader.inputs["Strength"].default_value = 1.0
+        else:
+            shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
+            shader.inputs["Roughness"].default_value = 0.0
+        if base.is_linked:
+            tree.links.new(base.links[0].from_socket, shader.inputs["Color"])
+            kept = base.links[0].from_node.name + "." + base.links[0].from_socket.name
+        else:
+            shader.inputs["Color"].default_value = tuple(base.default_value)
+            kept = "unlinked default " + repr(list(base.default_value))
+        culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
+        tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
+        tree.nodes.remove(closure)
+        rewired.append({"material": material.name, "baseColourFrom": kept,
+                        "backFaceCulled": material.use_backface_culling,
+                        "images": images_feeding(shader.inputs["Color"])})
     if not rewired:
-        fail("material.source is gltf-base-colour and no imported material carries an image texture")
+        fail("material.source is gltf-base-colour and the subject wears no material at all")
     meshes = sum(1 for obj in imported if obj.type == "MESH")
-    return {"source": "gltf-base-colour", "meshes": meshes, "rewired": rewired}
+    return {"source": "gltf-base-colour", "kind": kind, "meshes": meshes, "rewired": rewired}
 
 
 def diffuse_material(name, colour):
@@ -275,7 +415,7 @@ def apply_material(imported, declared):
     if declared["source"] == "gltf":
         return {"source": "gltf"}
     if declared["source"] == "gltf-base-colour":
-        return lower_to_base_colour(imported)
+        return lower_to_base_colour(imported, declared["kind"])
     meshes = [obj for obj in imported if obj.type == "MESH"]
     if declared["kind"] == "diffuse":
         # ONE FACET, ONE COLOUR. The closed form rho*L is only available where nothing in the scene
@@ -418,8 +558,9 @@ def main():
     }
     clear_objects()
     apply_world(scene, job["scene"]["world"])
-    imported = import_gltf(job["gltfPaths"])
+    imported, defaultScenes = import_gltf(job["gltfPaths"])
     removed = strip_crossings(imported, job["scene"]["camera"]["source"])
+    imported = [obj for obj in imported if obj.name in bpy.data.objects]
     imported = [obj for obj in imported if obj.name in bpy.data.objects]
     if job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
@@ -444,6 +585,7 @@ def main():
         "worldAtRender": observed_world(scene),
         "importedObjects": sorted(obj.name for obj in imported),
         "removedAtBoundary": removed,
+        "defaultScenePerFile": defaultScenes,
         "camera": camera,
         "light": light,
         "material": material,

@@ -30,6 +30,24 @@ namespace outshine::Render::Parity {
  * stated in the manifest and never guessed from the picture (I.26). */
 enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
 
+/* WHAT KIND OF THING THE ASSET SAYS CORRECT IS, and therefore which instrument decides this case
+ * (doc/requirements.md I.26.12). It is the ASSET's property, declared in the manifest beside
+ * Khronos's own words and the file they came from, so it cannot be changed to fit a result without
+ * changing a quotation.
+ *
+ * `Numeric` -- the asset states a value or a relation, and the answer is the float. The image is
+ * the verdict and every channel must agree.
+ *
+ * `SelfDescribing` -- the asset draws checkmarks, arrows or markers whose correctness is readable
+ * FROM THE PICTURE. Then GEOMETRY is still exactly decidable and stays a threshold, while the last
+ * bit of a texture filter is not: a path tracer's image interpolation and a rasteriser's are two
+ * definitions of one word, and enforcing their agreement would be measuring the filter rather than
+ * the criterion. The residual is printed in full and the picture is what is judged.
+ *
+ * `LimitsProbe` -- the asset states it is not expected to render correctly everywhere, so it has no
+ * pass; what it produces is a measurement. */
+enum class CriterionKind { Numeric, SelfDescribing, LimitsProbe };
+
 /* 0.1 px is twenty times the 0.005 px instrument floor: room for float32 and for a tessellation
  * ordering, none at all for a raster-convention error, which is the half-pixel this rung exists to
  * catch. 0.5 px for a subject with sub-pixel geometry, where a rasteriser drops a triangle no sample
@@ -136,6 +154,25 @@ struct Acceptance {
     *slot = value;
   }
   return true;
+}
+
+[[nodiscard]] inline bool ReadCriterionKind(const std::string &spelling, CriterionKind &out,
+                                            std::string &error) {
+  if (spelling == "numeric") {
+    out = CriterionKind::Numeric;
+    return true;
+  }
+  if (spelling == "self-describing") {
+    out = CriterionKind::SelfDescribing;
+    return true;
+  }
+  if (spelling == "limits-probe") {
+    out = CriterionKind::LimitsProbe;
+    return true;
+  }
+  error = "criterion.kind '" + spelling +
+          "' is none of numeric, self-describing, limits-probe";
+  return false;
 }
 
 [[nodiscard]] inline bool ReadSubjectClass(const std::string &spelling, SubjectClass &out,

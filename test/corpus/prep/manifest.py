@@ -120,8 +120,8 @@ class Manifest:
         self.document = _fields(
             "manifest",
             document,
-            ("schema", "schemaVersion", "id", "title", "covers", "subjectClass", "subjects", "blender",
-             "scene", "renders"),
+            ("schema", "schemaVersion", "id", "title", "covers", "criterion", "subjectClass",
+             "subjects", "blender", "scene", "renders"),
             ("notes", "expected", "acceptance", "identicalCoverage"),
         )
         if self.document["schema"] != SCHEMA:
@@ -133,6 +133,7 @@ class Manifest:
         self.id = self.document["id"]
         self.title = self.document["title"]
         self.covers = self.document["covers"]
+        self.criterion = _criterion(self.document["criterion"])
         self.subjects = _subjects(self.document["subjects"])
         self.blender_version = _blender(self.document["blender"])
         self.scene = _Scene(self.document["scene"])
@@ -315,6 +316,28 @@ def _licence(where, value):
     return field
 
 
+# THREE KINDS OF CRITERION, AND THE KIND DECIDES THE INSTRUMENT (doc/requirements.md I.26.12).
+# `numeric` -- the asset states a value or a relation, and the acceptance is that number on the
+# linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness
+# is readable FROM THE PICTURE, so the verdict is by eye and the residual against a path tracer's
+# own filter is a diagnostic rather than a threshold. `limits-probe` -- the asset states it is not
+# expected to render correctly everywhere and has no pass at all.
+CRITERION_KINDS = ("numeric", "self-describing", "limits-probe")
+
+
+def _criterion(value):
+    """What correct IS, in the asset's own words, with the file those words came from.
+
+    Stated rather than inferred, because the instrument follows from it: a case that quietly moved
+    from a number to an eye would be a threshold moving without saying so."""
+    field = _fields("manifest.criterion", value, ("kind", "says", "statedAt"), ("note",))
+    _one_of("manifest.criterion.kind", field["kind"], CRITERION_KINDS)
+    for key in ("says", "statedAt"):
+        if not isinstance(field[key], str) or not field[key]:
+            raise Refusal("manifest.criterion." + key, expected="stated", observed=repr(field[key]))
+    return field
+
+
 def _blender(value):
     field = _fields("manifest.blender", value, ("version",), ("note",))
     if not re.match(r"^\d+\.\d+(\.\d+)?$", str(field["version"])):
@@ -398,8 +421,17 @@ def _world(value):
 
 def _material(value):
     source = _one_of("manifest.scene.material.source", value.get("source"), MATERIAL_SOURCES)
-    if source in ("gltf", "gltf-base-colour"):
+    if source == "gltf":
         return _fields("manifest.scene.material", value, ("source",), ("note",))
+    if source == "gltf-base-colour":
+        # THE CLOSURE IS OURS AND THE COLOUR IS THE FILE'S, and which closure is a declaration
+        # because it decides how many integrals are left: `diffuse` is rho*L and holds only where no
+        # surface can see another; `emission` removes the world as a light, the sun's disk, a light's
+        # radius and visibility at once, and is what a subject that occludes itself must use
+        # (doc/requirements.md I.26.13). The base colour it emits is still the file's own.
+        field = _fields("manifest.scene.material", value, ("source", "kind"), ("note",))
+        _one_of("manifest.scene.material.kind", field["kind"], ("diffuse", "emission"))
+        return field
     kind = _one_of("manifest.scene.material.kind", value.get("kind"), MATERIAL_KINDS)
     if kind == "diffuse":
         field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinear"), ("note",))

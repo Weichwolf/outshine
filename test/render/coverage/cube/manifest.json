@@ -9,6 +9,11 @@
     "I.26.10",
     "I.26.11"
   ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "our own generated fixture -- rung 3 of the ten scenes: the +/-1 m cube, 12 triangles, flat normals, testing indices, winding, back-face culling and a silhouette from six planes",
+    "statedAt": "doc/requirements.md I.26.5"
+  },
   "subjectClass": "opaque-min-1px",
   "subjects": [
     {

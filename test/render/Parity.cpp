@@ -93,6 +93,7 @@ struct Case {
   Placement Eye;
   Viewport Frame;
   Acceptance Accepted;
+  CriterionKind Criterion = CriterionKind::Numeric;
   std::string CameraSource;
   /* Scene-referred linear radiance per subject part, derived from the case's own material
    * declaration and from nothing else. */
@@ -143,6 +144,13 @@ void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str());
  * for bit and any difference names the integral that survived. */
 bool Emits(const std::string &kind) {
   return kind == "emission" || kind == "emission-per-material";
+}
+
+/* THE SURFACE ARM A `gltf-base-colour` CASE MAY NOT DECLARE SILENTLY: the manifest states the
+ * closure beside the source, so a case that changed from `rho*L` to a bare emitter has to say so in
+ * its own file. Anything else is neither. */
+bool KnownFileClosure(const std::string &kind) {
+  return kind == "diffuse" || kind == "emission";
 }
 
 /* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
@@ -216,6 +224,18 @@ public:
   if (!ReadSubjectClass(root["subjectClass"].Str(""), subject.Accepted.Subject, error)) {
     return false;
   }
+  /* THE ASSET SAYS WHAT CORRECT IS AND THE KIND OF ANSWER DECIDES THE INSTRUMENT (I.26.12). The
+   * quotation and the file it came from are required beside it, so the kind cannot move without a
+   * quotation moving with it. */
+  if (!ReadCriterionKind(root["criterion"]["kind"].Str(""), subject.Criterion, error)) {
+    return false;
+  }
+  if (root["criterion"]["says"].Str("").empty() ||
+      root["criterion"]["statedAt"].Str("").empty()) {
+    error = "criterion states no `says` or no `statedAt`, so the acceptance is ours and not the "
+            "asset's";
+    return false;
+  }
   subject.Accepted.BoundaryP95MaxPx = DefaultBoundaryP95Px(subject.Accepted.Subject);
   subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
@@ -226,6 +246,11 @@ public:
   const Json::Ref material = root["scene"]["material"];
   subject.MaterialFromFile = material["source"].StrEquals("gltf-base-colour");
   subject.MaterialKind = material["kind"].Str("");
+  if (subject.MaterialFromFile && !KnownFileClosure(subject.MaterialKind)) {
+    error = "scene.material.source is 'gltf-base-colour' and its kind is '" + subject.MaterialKind +
+            "', and the closure the file's colour is put through is 'diffuse' or 'emission'";
+    return false;
+  }
   const Json::Ref world = root["scene"]["world"];
   if (!world["kind"].StrEquals("factory") && !world["kind"].Str("").empty()) {
     error = "scene.world.kind is '" + world["kind"].Str("") +
@@ -408,17 +433,20 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   out.assign(parts, {0.0f, 0.0f, 0.0f});
 
   if (subject.MaterialFromFile) {
-    /* The metal-rough model at metalness 0 under a uniform environment reduces to
-     * `baseColour(u,v) * factor * L`; the texel is the shader's and the factor is the part's own
-     * material's. */
+    /* THE FILE OWNS THE COLOUR AND THE CASE OWNS THE CLOSURE, and the closure is one factor.
+     * `diffuse`: the metal-rough model at metalness 0 under a uniform environment reduces to
+     * `baseColour(u,v) * factor * L`. `emission`: the surface's radiance IS its base colour, so the
+     * environment leaves the arithmetic entirely -- which is what a subject whose surfaces see one
+     * another has to declare, because there Cycles at one sample is measuring visibility
+     * (doc/requirements.md I.26.13). The texel is the shader's either way; this is the factor. */
+    const double closure = subject.MaterialKind == "emission" ? 1.0 : kFactoryWorldRadiance;
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
       const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
                                              ? file.Materials()[(size_t)index].Surface
                                              : outshine::Material{};
       for (size_t channel = 0; channel < 3; ++channel) {
-        out[part][channel] =
-            (float)((double)surface.BaseColour[channel] * kFactoryWorldRadiance);
+        out[part][channel] = (float)((double)surface.BaseColour[channel] * closure);
       }
     }
     return true;
@@ -725,6 +753,10 @@ int main(int argc, char **argv) {
     return Report();
   }
   std::printf("CAMERA %s\n", subject.CameraSource.c_str());
+  std::printf("CRITERION %s -- %s [%s]\n",
+              subject.Manifest.Root()["criterion"]["kind"].Str("").c_str(),
+              subject.Manifest.Root()["criterion"]["says"].Str("").c_str(),
+              subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
 
   /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
    * and finding it out after a device bring-up would report a rendering failure for a missing file. */
@@ -961,7 +993,8 @@ int main(int argc, char **argv) {
    * failure in its purest form. */
   const ImageDelta image = CompareImages(picture.Rgba, reference);
   metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
-                     Direction::AtMost});
+                     subject.Criterion == CriterionKind::Numeric ? Direction::AtMost
+                                                                 : Direction::Reported});
   metrics.push_back({"image_max_channel_delta", (double)image.MaxChannel, 0.0, "sRGB8",
                      Direction::Reported});
   metrics.push_back({"image_mean_abs_delta", image.MeanAbs, 0.0, "sRGB8", Direction::Reported});
@@ -1018,7 +1051,9 @@ int main(int argc, char **argv) {
   {
     const RadianceResidual radiance = Radiance(picture.Linear, oracle);
     metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
-                       subject.MaterialFromFile ? Direction::AtMost : Direction::Reported});
+                       subject.MaterialFromFile && subject.Criterion == CriterionKind::Numeric
+                           ? Direction::AtMost
+                           : Direction::Reported});
     metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
                        Direction::Reported});
     metrics.push_back({"linear_channels_beyond_one_ulp", (double)radiance.BeyondOneUlp, 0.0,
@@ -1054,8 +1089,21 @@ int main(int argc, char **argv) {
    * square of this number and nothing else about the subject. */
   metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
+  /* WHERE THE PICTURE IS THE VERDICT, THE GEOMETRY IS STILL A NUMBER. A self-describing case does
+   * not enforce the image, so without this it would have no threshold on placement at all and a
+   * subject drawn in the wrong pixels would pass on somebody's eye. Under `numeric` the image
+   * comparison already subsumes it, and adding a second enforcement there would only turn one red
+   * into two.
+   *
+   * AND IT IS THE SUBJECT'S CLASS THAT SAYS WHETHER THE DEMAND IS FAIR, exactly as it already does
+   * for the boundary bound: where triangles fall below a pixel, a rasteriser drops the ones no
+   * sample centre hits and a path tracer finds them, and that is a sampling policy rather than a
+   * placement (I.26). A `sub-pixel-present` subject reports the count and no threshold is put on it. */
+  const bool exactCoverageIsFair =
+      subject.Criterion == CriterionKind::SelfDescribing &&
+      subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
-                     Direction::Reported});
+                     exactCoverageIsFair ? Direction::AtMost : Direction::Reported});
   /* The oracle's own sub-pixel resolution, from the recipe that produced it: half the box filter's
    * width bounds how far a Cycles sample can sit from the pixel centre. Published beside the result
    * and never subtracted from it. */

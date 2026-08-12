@@ -1,0 +1,188 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/scenes/multiple-scenes",
+  "title": "Khronos MultipleScenes -- two scenes, and the file names which one a viewer opens with",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "khronos:MultipleScenes"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "For the first scene, the mesh is a triangle. For the second scene, the mesh is a square. The default scene is set to `1` by the `scene` property, so viewers should initially show the scene containing the square.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/README.md",
+    "note": "Numeric because the drawn coverage decides it outright: the square and the triangle occupy the same corner of space, so a reader that opened scene 0 draws exactly half this frame fraction in the same box."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "multiple-scenes",
+      "kind": "gltf",
+      "name": "MultipleScenes",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "Two scenes of one node each, two meshes, two buffers, no material and no uv. Scene 0 is a triangle and scene 1 is a square, and the document's `scene` property is 1. Khronos: 'The default scene is set to `1` by the `scene` property, so viewers should initially show the scene containing the square.' The criterion is therefore about WHICH geometry is drawn and not about how it is shaded, so the subject carries nothing that would shade it.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "MultipleScenes",
+        "pinnedOn": "2026-08-12",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/glTF/MultipleScenes.gltf",
+          "sha256": "ae2aac8c01c8e9acd588d699fa6fceebb8ba1b5c2b5cc4a9c7ed64c60f356348",
+          "bytes": 1913,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/glTF/MultipleScenes_triangle.bin",
+          "sha256": "898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62",
+          "bytes": 44,
+          "as": "MultipleScenes_triangle.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/glTF/MultipleScenes_square.bin",
+          "sha256": "2d73fc484aab11784e8773862e69b28cb7e0d7d1aadac6032ceea7c490cfd15e",
+          "bytes": 60,
+          "as": "MultipleScenes_square.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/metadata.json",
+          "sha256": "8a77a43de0090fd3e4bda4a4bdb1a08aa068e18a01026e9b559140e21badd694",
+          "bytes": 766,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultipleScenes/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        4.387170292652635,
+        2.227169323342693,
+        2.7218259412202177
+      ],
+      "lookAtM": [
+        0.5,
+        0.5,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 4.34279848622952,
+      "clipEndM": 5.757012048602616,
+      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to THE DEFAULT SCENE's own bounds, which is the point of the case: the square spans (0,0,0)..(1,1,0), so r = |max-min|/2 = 0.70710678118654757 m and the centre is (0.5, 0.5, 0). Azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE TRIANGLE OF SCENE 0 SPANS THE SAME BOX, so this camera does not by itself decide which scene is drawn -- it frames either one -- and the verdict rests on the silhouette rather than on the framing. The roll is zero and stated: a rolled axis-aligned square would be a different draw of the same lottery rather than an exactness argument.",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world. A uniform environment is what makes a Lambertian facet return rho*L with no integration left."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "note": "The default scene is ONE unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346. The file declares no material at all, so declaring one here takes nothing away from the asset: what it tests is which geometry a viewer opens with, and a colour cannot answer that."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    }
+  },
+  "notes": "Khronos's criterion is the default scene and nothing else: 'viewers should initially show the scene containing the square'. The two scenes' meshes occupy the same corner of space, so the square and the triangle are told apart by their SILHOUETTE and not by their place -- a reader that opened scene 0 would draw half this coverage in the same box, which is why the frame fraction is declared and recomputed.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.05232689209727986,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the default scene's two triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices. Scene 0's single triangle would give half of it, so this number is itself a statement about which scene was read.",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}
