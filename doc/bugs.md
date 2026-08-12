@@ -1296,3 +1296,120 @@ The cache survived the correction with better reasons than it had — the 200.9 
 film's frame count, and the fact that a cached oracle cannot change underneath a comparison. **An
 inflated justification was hiding a correctness argument stronger than the performance one it displaced**,
 which is the second cost of this defect class and the one nobody notices.
+
+## The rung-1 camera rolls the wrong way and loses a third of the subject
+
+`test/render/coverage/triangle/manifest.json:79-86`. The declared camera puts the subject at **19.1 %**
+of the frame where **31.5 %** is available at the same roll magnitude and the same 8 px margin. Every
+other number in that derivation is right — the aim point, the sub-pixel dither, the metres-per-pixel —
+which is why the one wrong choice is worth naming rather than rewriting the block.
+
+**Checked for the harmless explanation first, and it does not hold.** The obvious innocent readings are
+(a) the triangle simply cannot be larger, which the manifest itself asserts, and (b) an arithmetic slip
+in the fit. Both are refuted by the same computation: the unit triangle `{(0,0),(1,0),(0,1)}` rotated
+`−12°` in a y-up raster has bounding box `0.97815 × 1.18606`, so the **height** binds at
+`k = 704/1.18606 = 593.562 px/unit` and the area is `0.5·k²/921 600 = 19.114 %` — reproducing the
+manifest's `subjectFrameFraction` of `0.191144` and its `1.684743e-3 m/px` to nine digits. At `+12°` the
+box is `1.18606 × 0.97815`, `k = 719.728`, **28.104 %**. Same magnitude, same three edge angles from the
+raster axes (12°, 33°, 12° either way), **1.47× the area**. At `+22.5°` — which also maximises the
+minimum edge-to-axis angle at 22.5° on all three edges, so it satisfies the rung's own no-tie rule
+*better* than 12° does — it is **31.502 %**, **1.65×**.
+
+| roll | bbox, units | binding axis | fits at | frame fraction |
+|---|---|---|---|---|
+| **−12° — what is declared** | 0.97815 × 1.18606 | height | 593.562 px/unit | **19.114 %** |
+| +12° | 1.18606 × 0.97815 | height | 719.728 px/unit | 28.104 % |
+| **+22.5° — right** | 1.30656 × 0.92388 | height | 762.004 px/unit | **31.502 %** |
+
+**Why it matters, and it is not the picture.** § I.26's `IoU ≈ 1 − P·δ/A` makes `P/A` a property of the
+subject's size, so the same IoU number is a **1.28× stricter** displacement bound at 19.1 % than at
+31.5 % (`P/A` scales as `1/√A`, and `√(31.502/19.114) = 1.284`). The stated bound was therefore being
+applied under a condition it was not stated under. § I.26's *≈ 30 pixels at risk and ≈ 15 expected to
+flip* is counted over the same area and is 22 % low for the same reason.
+
+**Right:** `rollRad = +0.39269908169872414` (22.5°), sign derived from *the wider bounding extent goes
+across the wider frame axis* and written into the `derivation` string; distance from the binding axis,
+`d = 0.46194 / (0.24 · 352/360) = 1.968493 m`, `1.312329e-3 m/px`, half-width then 497.8 px inside the
+632 available. Fixed when `subjectFrameFraction` reads `0.315017` and the runner recomputes it from the
+projected geometry and refuses a mismatch (§ I.26).
+
+## Three numbers in one manifest that quote the document and contradict it
+
+`test/render/coverage/triangle/manifest.json`, and all three are the shape this file already records at
+the end of *A conclusion about a host drawn from four paths* — **a claim contradicted by a measurement
+the same round already held**. Here the contradicted source is `doc/requirements.md` itself.
+
+- **`:166-169` — `boundaryP95MaxPx: 0.5`, `origin: SET`, noted *"doc/requirements.md I.26, rung 1
+  acceptance"*.** § I.26's rung-1 acceptance is **0.1 px**, tightened from 0.5 in that same file with
+  the reason written beside it — *"right instrument, 5× too loose for a subject with no sub-pixel
+  geometry, where 0.5 px is the size of the convention error the rung exists to catch"* — and § I.26's
+  subject-class table gives 0.1 px for `opaque ≥ 1 px`, which is what this rung is. The manifest quotes
+  a superseded number **and attributes it to the document that superseded it**, so the deciding
+  instrument on the first external check this repository has ever had is set 5× too loose by a citation
+  that reads as authority. Right: the manifest carries no threshold it does not override, and an entry
+  equal to the default is refused at parse rather than accepted as agreement.
+- **`:158-163` — `iouMin: 0.999` inside `acceptance`.** § I.26 rules that **IoU is reported and never
+  enforced**, twice and with the derivation — *"IoU is published beside it for continuity with the
+  literature and decides nothing"*, *"IoU is reported beside it and enforces nothing"* — because a fixed
+  IoU drifts 2× in strictness with subject size and scores a half-pixel convention error at 0.9953. An
+  `iouMin` in a block named `acceptance` **is** an enforcement, whatever the prose around it says.
+  Right: IoU moves to a `reported` block that the verdict does not read, or the schema has no `…Min`
+  spelling for it at all — the second is better, because then the ruling is carried by the shape.
+- **`:180-183` — `subjectFrameFraction`, `origin: derived`, whose `note` reasons from a ceiling that is
+  not one.** *"A right isoceles triangle inscribed in a 16:9 frame tops out at 28.1 %"* is true only at
+  zero roll, which is the orientation the rung forbids; the value is right and the argument attached to
+  it would have justified relaxing a document number. A `derived` origin makes the derivation part of
+  the number, so a wrong derivation under a right value is a defect at full weight.
+
+## The fetch allow-list refuses two assets the requirements already name
+
+`test/corpus/prep/fetch.py:19-25` lists four subdirectories of `download.blender.org/demo/` —
+`cycles/`, `eevee/`, `bbb/`, `asset-bundles/`. Two assets `doc/requirements.md` § I.26 already requires
+are outside all four and are therefore unfetchable today:
+
+| Asset | URL | What it is |
+|---|---|---|
+| Barcelona Pavilion | `demo/test/pabellon_barcelona_v1.scene_.zip` | **rungs 19 and 21** — scene scale, and the film summit |
+| Sprite Fright shot | `demo/sprite_fright_030_0020_A.zip` | **the forest rung's motion arm** (§ I.26.7) |
+
+`demo/test/classroom.zip` is in the same position. This is the enumeration-versus-invariant defect
+again: the list names *what happened to be needed the day it was written*, and it was already stale
+against the same document when it was committed.
+
+**The wrong fix is one more line.** The allow-list's job is *is this host a source at all* — an index
+that can be walked, a licence convention that can be read per file, no account — and that is true of
+`download.blender.org/demo/` entire. Nothing under it is refused **by path**: `lone-monk`,
+`mr_elephant`, `tree_creature` and `loft.blend` are refused by the named-subject table in `licence.py`,
+which is the mechanism that reads licences and the only one that can. Widening therefore weakens
+nothing, because the bytes are pinned by per-file SHA-256 either way.
+
+**Right:** `https://download.blender.org/demo/` as one prefix. Fixed when the pavilion and the Sprite
+Fright archive fetch under an unmodified `fetch.py`, and when `licence.py` still refuses `mr_elephant`.
+
+## The preparer writes a `.gitignore` that states a consequence instead of the rule
+
+`test/corpus/prep/jobs.py`, `write_ignore`, producing e.g.
+`test/render/coverage/triangle/.gitignore` — fifteen lines naming exactly what that run wrote,
+including itself.
+
+**The harmless reading is most of the way true and is why this is a shape finding rather than a
+failure:** the file ignores itself, so it churns nothing in git, it materialises no repository noise,
+and every name in it is correct. What is wrong is that it is a **derived restatement of a rule that has
+one line**: `manifest.json` is the only tracked file (§ I.26.10). A per-directory list must be rewritten
+to stay true, is wrong for any case the preparer has not run yet, and cannot be lifted to one shared
+file by enumeration — a fetched file's landing name comes from the manifest's own `as` field and is
+arbitrary per case, which is how `Triangle.bin` got into that list.
+
+**Right:** delete `write_ignore`, and track one `test/render/.gitignore` of four lines —
+
+```
+*
+!*/
+!.gitignore
+!manifest.json
+```
+
+— verified against git to track exactly the manifests at any depth and nothing else. `!*/` is
+load-bearing: without it git does not descend into a case directory and never sees the manifest. The
+inverted form makes a new product ignored by construction and a new **tracked** file a deliberate act,
+which is the review moment the enumeration gives away.
