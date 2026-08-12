@@ -766,6 +766,53 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `length(rel)` against `far[c] = R_c` while the box is centred 0.5 R ahead, which looks like a
   fall-through hole, but for a visible fragment the worst offset is `R·sqrt(1.25 − cos φ)` and stays
   inside the box for any off-axis angle up to 75.5°; the 60° fov's corner is 49.6°.
+- **The soil constants are an ambient *deficit*, and the sign in the standing description is
+  backwards.** `doc/todo.md:92` states the ambient model's deviation as *"+17.5 % over Lambert at albedo
+  0.5"*. It is **−17.5 %**, and the difference matters because the work item it justifies is *"a material
+  that can decline the soil constants"* — a developer sizing that against an excess will size it wrong.
+  Derivation from `render/stages/SurfaceLight.h:87-90` with the sun below the horizon (`sunUp = 0`,
+  `night = 0`) and sky irradiance-on-horizontal `E`, against the Lambert reference under a uniform dome
+  `E·(1+n·u)/2`: on a **horizontal** surface the ratio is `0.65 + 0.35·α` exactly — `1.000` at `α = 1`,
+  `0.825` at `α = 0.5`, so the deviation is `(α − 1)·kSelfShelter` and never positive. On a **vertical**
+  surface it is `0.77 + 0.35·α` — `0.945` at `α = 0.5`, `+12 %` only at `α = 1`. The worst case in the
+  tree is **water**: `render/stages/WaterDraw.cpp:18,36` passes `kWater = (0.035, 0.045, 0.050)` through
+  `litRadiance`, mean `α = 0.043`, so a horizontal water surface receives **0.665 × the sky ambient it
+  should**, −33.5 %, and `sunVis` is hard-wired to 1.0 there. That surface has no specular term yet by
+  its own admission, so sky ambient **is** its appearance. Right: the deviation stated with its sign and
+  its albedo dependence wherever it is quoted, and the exactness at `α = 1` named — the model is not a
+  fudge, it is a near-field bounce that is only self-consistent for a perfect reflector.
+  *Checked for the harmless explanation first:* the obvious innocent reading is that the `+` counts the
+  near-field bounce term alone (`+0.175` at `α = 0.5`) and not the shelter it pays for. That reading is
+  refuted by the same line — the term is introduced by `(1 - kSelfShelter)` on the sky weight, so the two
+  are one substitution and cannot be quoted apart. Eight `litRadiance` call sites, not seven:
+  `BenchGroundStage.cpp:89` · `Sward.h:308,309` · `ModelDraw.cpp:225,240` · `TerrainDraw.cpp:120` ·
+  `WaterDraw.cpp:36` · `BuildingDraw.cpp:371`.
+- **The linear attachment is called scene-referred and carries a display placement constant.**
+  `render/stages/TaaStage.cpp` writes `o.history = scene` — the resolve's attachment 0, the texture
+  `doc/todo.md:91` wants to read back as the scene-referred linear tap and the resource
+  `doc/requirements.md` § I.27 names `SceneLinear`. Every value in it has already been multiplied by
+  `kSceneExposure = 11.0` inside the surface shader (`render/stages/SurfaceLight.h:92`,
+  `stages/SceneScale.h:17`), so the buffer is **not** in the units its header claims — *"top-of-atmosphere
+  solar irradiance = 1"* — but in those units times 11.0, and 11.0 is a **display** number: its own
+  derivation ends *"placing that at ACES input 0.32 — the value whose sRGB output is 0.70"*. The metered
+  exposure (`stages/ExposureStage.h`) is then applied on top, so the chain carries two exposures in
+  series, one fixed and one metered, while `SurfaceLight.h:1-4` states *"there is no second,
+  independently fitted path"*. *Checked for the harmless explanation:* 11.0 could be a unit conversion,
+  which would be blameless. It is not — a unit conversion is derived from the units, and this one is
+  derived from an sRGB output value. Right: `kSceneExposure` folds into the tonemap's `expScale`, so the
+  linear resource is in TOA-relative radiance and a radiance-parity comparison needs one documented
+  constant (TOA solar irradiance) rather than an undocumented 11.0 nobody would think to divide out.
+  Decides it: a flat Lambertian facet under one declared directional light, read from `SceneLinear`,
+  must equal `ρ·E·cos θ / π` in the stated units with no residual factor of 11.
+- **A telemetry column with one reachable value, behind a branch no compiler can take.**
+  `render/Renderer.cpp:111-115` writes `bool rg11 = false;` and then `if (rg11) feats.push_back(...)`,
+  and line 177 logs `"hdr"` as `HdrFormat == RG11B10Ufloat ? "rg11b10ufloat" : "rgba16float"`. The
+  format is set unconditionally to `RGBA16Float` at line 112 and never assigned again, so the feature
+  request is dead and the log column is a constant string dressed as a measurement. The comment above
+  it gives the real reason — rg11b10 has no alpha and the HDR target's alpha carries the occlusion
+  fraction — which is a decision, not a run-time condition. Right: the format is a stated property of
+  the plan (`doc/requirements.md` § I.27) with the alpha requirement as its reason, and a row that
+  reports a format reports one the plan could actually have chosen.
 - **Two adjacent terrain tiles compute two different normals at the posting they share.**
   `world/ChunkMesh.h:100-108` clamps the central difference at the grid border (`i0 = i > 0 ? i - 1 : i`),
   so the east edge of tile (x,y) is a one-sided difference toward the tile's interior and the west edge
@@ -1186,10 +1233,11 @@ the tree more than once, or under a name that says the wrong unit.*
   is called — it costs one call, survives every encoder and container change, and moves only when the
   picture does.
 
-## Stale pointers held with confidence — eight sites naming two deleted documents
+## Stale pointers held with confidence — nine sites naming two deleted documents
 
-`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Eight comments in
-`src/` still cite `doc/architecture.md` as the authority for a rule they state**, and one requirement
+`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Nine comments in
+`src/` still cite `doc/architecture.md` as the authority for a rule they state** (re-counted
+2026-08-12: eight was one short, and two of the line numbers had drifted), and one requirement
 line cites it too. A reader who follows the pointer finds nothing; a reader who does not follow it takes
 the rule on the comment's word, which is exactly the failure mode a citation exists to prevent. This is
 the same defect class as a miscited rule number — a confident reference to something that is not there —
@@ -1197,9 +1245,16 @@ and it costs a round the first time somebody tries to check one of these rules a
 
 - `src/core/Material.h:19` — *"nothing in it can switch a pipeline state (doc/architecture.md)"*. The
   rule is live and correct; it is in `CLAUDE.md` under *the core dictates the pipeline*.
-- `src/render/GeometryStage.h:3` · `src/render/Renderer.cpp:785` · `src/render/stages/TaaStage.cpp:110`
-  · `src/clients/Sim.cpp:176` · `src/clients/Sim.h:50` · `src/clients/RegionForge.h:2` ·
-  `src/generators/Water.h:2` — the same, one each.
+- `src/render/GeometryStage.h:3` · `src/clients/Sim.cpp:193` · `src/clients/Sim.h:51` ·
+  `src/clients/RegionForge.h:2` · `src/clients/SceneRunner.cpp:445` · `src/generators/Water.h:2` —
+  the same, one each.
+- **`src/render/Renderer.cpp:786` and `src/render/stages/TaaStage.cpp:110` are the expensive two**,
+  because what they cite is not a rule but a **measurement**: *taa 4.98 ms and tonemap 5.05 ms while
+  everything the engine draws came to 3.80 ms*, the sole justification for fusing the temporal resolve
+  with the display curve into one fragment. The number cannot be checked against anything, and it is
+  the number a stage plan has to weigh when it decides whether that fusion survives
+  (`doc/requirements.md` § I.27). Right: re-measure with the per-pass timer that already exists and
+  put the result beside the code, or drop the claim.
 - `doc/requirements.md:193` — *"declared in `architecture.md`, not found in `PresentStage`"*: the line's
   own evidence is a document that no longer exists, so the line cannot be checked as written.
 
@@ -1296,70 +1351,6 @@ The cache survived the correction with better reasons than it had — the 200.9 
 film's frame count, and the fact that a cached oracle cannot change underneath a comparison. **An
 inflated justification was hiding a correctness argument stronger than the performance one it displaced**,
 which is the second cost of this defect class and the one nobody notices.
-
-## The rung-1 camera rolls the wrong way and loses a third of the subject
-
-`test/render/coverage/triangle/manifest.json:79-86`. The declared camera puts the subject at **19.1 %**
-of the frame where **31.5 %** is available at the same roll magnitude and the same 8 px margin. Every
-other number in that derivation is right — the aim point, the sub-pixel dither, the metres-per-pixel —
-which is why the one wrong choice is worth naming rather than rewriting the block.
-
-**Checked for the harmless explanation first, and it does not hold.** The obvious innocent readings are
-(a) the triangle simply cannot be larger, which the manifest itself asserts, and (b) an arithmetic slip
-in the fit. Both are refuted by the same computation: the unit triangle `{(0,0),(1,0),(0,1)}` rotated
-`−12°` in a y-up raster has bounding box `0.97815 × 1.18606`, so the **height** binds at
-`k = 704/1.18606 = 593.562 px/unit` and the area is `0.5·k²/921 600 = 19.114 %` — reproducing the
-manifest's `subjectFrameFraction` of `0.191144` and its `1.684743e-3 m/px` to nine digits. At `+12°` the
-box is `1.18606 × 0.97815`, `k = 719.728`, **28.104 %**. Same magnitude, same three edge angles from the
-raster axes (12°, 33°, 12° either way), **1.47× the area**. At `+22.5°` — which also maximises the
-minimum edge-to-axis angle at 22.5° on all three edges, so it satisfies the rung's own no-tie rule
-*better* than 12° does — it is **31.502 %**, **1.65×**.
-
-| roll | bbox, units | binding axis | fits at | frame fraction |
-|---|---|---|---|---|
-| **−12° — what is declared** | 0.97815 × 1.18606 | height | 593.562 px/unit | **19.114 %** |
-| +12° | 1.18606 × 0.97815 | height | 719.728 px/unit | 28.104 % |
-| **+22.5° — right** | 1.30656 × 0.92388 | height | 762.004 px/unit | **31.502 %** |
-
-**Why it matters, and it is not the picture.** § I.26's `IoU ≈ 1 − P·δ/A` makes `P/A` a property of the
-subject's size, so the same IoU number is a **1.28× stricter** displacement bound at 19.1 % than at
-31.5 % (`P/A` scales as `1/√A`, and `√(31.502/19.114) = 1.284`). The stated bound was therefore being
-applied under a condition it was not stated under. § I.26's *≈ 30 pixels at risk and ≈ 15 expected to
-flip* is counted over the same area and is 22 % low for the same reason.
-
-**Right:** `rollRad = +0.39269908169872414` (22.5°), sign derived from *the wider bounding extent goes
-across the wider frame axis* and written into the `derivation` string; distance from the binding axis,
-`d = 0.46194 / (0.24 · 352/360) = 1.968493 m`, `1.312329e-3 m/px`, half-width then 497.8 px inside the
-632 available. Fixed when `subjectFrameFraction` reads `0.315017` and the runner recomputes it from the
-projected geometry and refuses a mismatch (§ I.26).
-
-## Three numbers in one manifest that quote the document and contradict it
-
-`test/render/coverage/triangle/manifest.json`, and all three are the shape this file already records at
-the end of *A conclusion about a host drawn from four paths* — **a claim contradicted by a measurement
-the same round already held**. Here the contradicted source is `doc/requirements.md` itself.
-
-- **`:166-169` — `boundaryP95MaxPx: 0.5`, `origin: SET`, noted *"doc/requirements.md I.26, rung 1
-  acceptance"*.** § I.26's rung-1 acceptance is **0.1 px**, tightened from 0.5 in that same file with
-  the reason written beside it — *"right instrument, 5× too loose for a subject with no sub-pixel
-  geometry, where 0.5 px is the size of the convention error the rung exists to catch"* — and § I.26's
-  subject-class table gives 0.1 px for `opaque ≥ 1 px`, which is what this rung is. The manifest quotes
-  a superseded number **and attributes it to the document that superseded it**, so the deciding
-  instrument on the first external check this repository has ever had is set 5× too loose by a citation
-  that reads as authority. Right: the manifest carries no threshold it does not override, and an entry
-  equal to the default is refused at parse rather than accepted as agreement.
-- **`:158-163` — `iouMin: 0.999` inside `acceptance`.** § I.26 rules that **IoU is reported and never
-  enforced**, twice and with the derivation — *"IoU is published beside it for continuity with the
-  literature and decides nothing"*, *"IoU is reported beside it and enforces nothing"* — because a fixed
-  IoU drifts 2× in strictness with subject size and scores a half-pixel convention error at 0.9953. An
-  `iouMin` in a block named `acceptance` **is** an enforcement, whatever the prose around it says.
-  Right: IoU moves to a `reported` block that the verdict does not read, or the schema has no `…Min`
-  spelling for it at all — the second is better, because then the ruling is carried by the shape.
-- **`:180-183` — `subjectFrameFraction`, `origin: derived`, whose `note` reasons from a ceiling that is
-  not one.** *"A right isoceles triangle inscribed in a 16:9 frame tops out at 28.1 %"* is true only at
-  zero roll, which is the orientation the rung forbids; the value is right and the argument attached to
-  it would have justified relaxing a document number. A `derived` origin makes the derivation part of
-  the number, so a wrong derivation under a right value is a defect at full weight.
 
 ## The fetch allow-list refuses two assets the requirements already name
 
@@ -1557,3 +1548,40 @@ checks anything against an outside answer — and it is the test whose red will 
 whose subject is a prepared artefact. Until it exists, the test's own first claim is *the subject is
 present*, distinct from *the subject reads*. A `--allow-skip` entry is the wrong answer — it makes the
 test green forever, which is the defect class this harness was built to close.
+
+## The renderer's build order and its pass count are held by comments and a hand tally
+
+`src/render/Renderer.cpp`. Not the absence of a stage plan — that is scope and sits in
+`doc/requirements.md` § I.27 — but the enforcement of what is already there, which is written down
+where nothing can read it.
+
+- **`OnDevice:149-179` performs twelve construction calls in a load-bearing order whose two hard
+  constraints exist only as comments** — *"before the terrain pipeline: terrain AP samples the
+  transmittance LUT"* (`:154`) and *"before ANY lit stage: their bind groups pin the atlas view"*
+  (`:155`), restated at `:181-186`. WebGPU pins a view into a bind group at creation, so a wrong order
+  here is not a wrong picture, it is a wrong *binding* — and the only thing standing between the two is
+  a reader's attention. The rule is real; the mechanism is a sentence. `P.5`, `P.6`: what can be checked
+  at compile time should be, and a construction order derived from declared reads and writes is exactly
+  that check.
+- **`RenderFrame:529-838` is 310 lines and does eleven things** — camera basis, jitter, sun and moon
+  ephemeris, atmosphere update, frame-context assembly, seven pass encodings, caster collection, a
+  telemetry tally and the history swap. `F.3` and `F.2`, and every one of the eleven is separately
+  nameable, which is the test `F.1` applies.
+- **The pass count is written down twice and reconciled by a run-time log.** `GpuTimer.h:27`'s
+  enumeration ends in `kPassCount = 7`; `Renderer.cpp:643` counts `passCount++` by hand and
+  `:815-819` logs `violation: passCount != kPassCount` every 300 frames. The comment calls the topology
+  *a contract* in capitals. A contract two places state and a third compares at run time is `P.5`
+  inverted — and the log is `Debug` level, so the violation can be true in a run nobody is reading.
+  Right: the number is an output of the thing that decides it, so there is nothing to compare.
+- **`Renderer.h:300-358` constructs sixteen stage objects at member-declaration with
+  `= std::make_unique<T>()`.** Every one exists in every renderer, including one that renders a depth
+  buffer for a coverage mask. `R.5` — prefer scoped objects, do not heap-allocate unnecessarily — and
+  `C.41`: a fully-initialised `Renderer` is currently one that has decided, at compile time, to be able
+  to draw everything.
+- `Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};` is written **seven times verbatim**
+  in `Renderer.cpp` (`:163, 188, 221, 248, 263, 296, 330`). `ES.3`. It is a member's worth of state
+  reassembled per call site, and each one is a place a future sixth field is forgotten.
+
+**Fixed when** the construction order is derived from declared reads and writes rather than from the
+sequence of statements, and the pass count has one source. **Decides it:** deleting the
+`passCount != kPassCount` log costs no information.

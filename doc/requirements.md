@@ -1605,6 +1605,96 @@ labelled.*
 - [x] **What stops a generated suite going hollow is the empty-image guard and not a count of declared numbers** (§ I.26.10): under defaults, declaring nothing *is* a complete specification, so "a directory with no acceptance numbers is a refusal" would refuse every correct minimal case. The guard that actually holds is **zero coverage on either side is a failure, an absent or failed oracle is a failure, and the trailer distinguishes agreed from nothing-to-compare** *(`test/render/Parity.cpp`, `test/render/Acceptance.h` `kCoverageFractionMin`)*
 - [ ] **The suite publishes its own coverage of the matrix as a count** — features with a case, features without, cases with each instrument — so *"every feature KCD or GTA 5 uses has a basic case"* is a number somebody can read rather than a claim somebody made. Without it, 200 directories are 200 opportunities for a feature to have quietly no case at all
 
+### I.27 The declared render plan — nothing is fixed, and the consumer decides what to render
+
+*Added 2026-08-12 on the owner's ruling, given twice: **nothing must be fixed, the consumer decides what
+to render**, and **loading the library, a scenario sets everything up according to its needs, or a client
+sets up what is required in code**. Two front ends over one API; the scenario loader is an ordinary
+consumer of that API and holds no privileged reach into `render/`.*
+
+**What is in the tree today, measured this round, because the design is a change to this and not to a
+sketch.** `Renderer` holds **sixteen stage objects as members, every one of them `make_unique`'d at its
+declaration** (`render/Renderer.h:300-358`), so a plan that wants none of them still constructs all
+sixteen. `Renderer::OnDevice` (`render/Renderer.cpp:149-179`) performs **twelve construction calls in a
+hand-ordered sequence**, and two of its ordering constraints exist **only as comments** — *"before the
+terrain pipeline: terrain AP samples the transmittance LUT"* and *"before ANY lit stage: their bind
+groups pin the atlas view"*. `RenderFrame` (`render/Renderer.cpp:529-838`, **310 lines**, `F.3`, `F.2`)
+opens **seven passes** in fixed order — `Atmosphere · Light · Shadow · Scene · Ao · Taa · Present`,
+`render/GpuTimer.h:27` — calls the count *a contract* in capitals and guards it with a tally against
+`GpuTimer::kPassCount`. The cost of having no plan is measurable in one place: the coverage-parity case
+reads one depth buffer written by one draw and pays **all seven passes for at least four settle frames
+plus the poll frames** (`test/render/Parity.cpp:199,222-238`).
+
+**WebGPU pins a view or a buffer into a bind group at bind-group creation, and SDL_GPU is no looser.**
+So *"create only what is declared"* is a **dependency graph over resources**, evaluated before any
+device object exists. It is not a set of `if`s at the call sites, and an attempt to build it as one is
+the failure this section exists to prevent.
+
+#### The vocabulary — three kinds of thing, and the split between them is the design
+
+- [ ] A **resource** is a named, typed GPU artefact of the plan — a texture, a buffer, a sampler, a LUT — identified by a scoped enumeration (`Enum.2`, `Enum.3`) and **never by a string**: a string defers a typo to run time, and the whole point of the plan is that the refusal happens when the plan is declared
+- [ ] A **stage** declares, as `constexpr` data and not as code, what it **reads**, what it **writes**, what it **contributes** to, its pass kind (`Compute` · `Raster`) and its draw sort key — so the declaration is readable with **no `wgpu::Device` in scope**, which is precisely what makes a plan validatable before a bind group can exist (`Con.5`, `Per.11`, `P.5`)
+- [ ] **`Writes` and `Contributes` are different edges and the difference is load-bearing.** `Writes` means *the resource does not exist without this stage* (`Transmittance` → `TransmittanceLut`); `Contributes` means *the stage draws into a target somebody else declared* (`Sky` → `SceneHdr`). A missing `Writes` is a refusal; a missing `Contributes` is a picture choice
+- [ ] **Exactly one `Writes` producer per non-attachment resource**, checked over the catalogue — two producers of one LUT is the shape that put two independently fitted exposure scales in this tree once already (`render/stages/SceneScale.h:1-5`)
+- [ ] A **plan** is `{ requested outputs } + { declared content stages } + { options }` and **carries no stage order at all**. Order is *derived* — from the read/write graph, then the stage's declared sort key, then the stage enumeration's own order — because an order a consumer writes down is a second place for it to be wrong, and `Renderer::OnDevice` is that place today
+- [ ] The derived order is **total and deterministic**: no tie is resolved by hash order, container order or pointer value, so two runs of one build compile the same plan (`CLAUDE.md`, *the mathematics is deterministic*)
+
+#### Machinery is pulled, content is declared — and that is why no preset is needed
+
+- [ ] **The criterion is one question: does the stage's absence change the picture, or make the picture impossible?** Impossible → the stage is **machinery** and the compiler pulls it from the requested output. Different → the stage is **content** and the consumer declares it. Nothing else decides this, and the criterion is stated here so a new stage has an answer before it is written
+- [ ] The machinery chain already exists in the tree and is a straight line — `Transmittance → MultiScatter → SkyView → Irradiance → ExposureMeter → Tonemap` (`render/Renderer.cpp:154,268-...`, `stages/ExposureStage.h:1-9`) — so pulling it is the recognition of a dependency that is real, not the invention of one
+- [ ] **A plan is pulled backwards from its requested outputs**, so a consumer asking for a lit picture cannot omit the transmittance LUT: the LUT is not something the plan forgot, it is something the plan contains by construction. **The impossible plan is therefore largely unspellable rather than refused**, and that is the acceptance test for this whole section
+- [ ] **No named preset exists in the engine.** *Judged, not recorded:* a preset a scenario asks for is still the consumer choosing and would be admissible — but with machinery pulled it is unnecessary, and a name is a second place the composition lives, which is exactly how `Renderer` aged into sixteen unconditional members. Reuse belongs to the **data**: a scenario may include another scenario
+- [ ] A consumer that wants a variation of a shipped picture **edits a scenario, never an engine preset** — so the diff of a picture change is a diff of declared data and appears in `git log` as one
+
+#### Refusal — and most of it is not a run-time refusal at all
+
+- [ ] With a `constexpr` catalogue, **a stage reading a resource nothing produces, a cycle, a two-writer resource and an output with no producer are properties of the catalogue** and are held by `static_assert`, not by an error string: they are engine defects, and an engine defect that compiles is a defect the consumer gets blamed for
+- [ ] The run-time refusals are exactly the consumer's own four, each naming the **declaration path** in the established `Fields` style (`scenario/Fields.h:1-8`) — an unknown stage name · a content stage that can contribute to nothing the plan requests · an attachment with **zero** contributors · an option no stage in the compiled plan reads
+- [ ] **The zero-contributor rule is the anti-vacuous rule and it is named as such**: a plan that compiles, runs and renders black is *the vacuous gate wearing a pipeline*, and it is refused at declaration rather than discovered in a PNG
+- [ ] **The option check is `Fields::Closed()` for the render block** — an option nothing reads is refused with its path. This is the mechanism that already stopped eighty dead fields surviving across ten scenes (`doc/bugs.md`), applied before the render declaration can grow its own eighty
+- [ ] **The refusal names the repair, not only the defect**: the resource that was missing, the stage that reads it, and — when the catalogue holds one — the stage that would have supplied it. The catalogue is `constexpr`, so naming the supplier costs nothing at run time
+- [ ] **No `throw`, no `std::optional`, no bare `bool`**: `[[nodiscard]] bool Compile(const PlanSpec &, RenderPlan *out, std::string &err)`, and on `false` the out-parameter is untouched — the shape `doc/bugs.md` derived for this tree, where the value that says *no* carries no spendable payload
+- [ ] **`RenderPlan` has no public constructor**: it exists only as `Compile`'s output, so *a renderer holding an unvalidated plan* has no spelling. The model is already in the tree — `generators/GroundPatch.cpp:19-20`, private constructor, `Complete` refusing unless every posting resolved (`C.41`, `C.42`)
+
+#### Passes are compiled, not counted
+
+- [ ] **The pass count becomes an output of the compiler**, so `render/Renderer.cpp:640-643,815-819`'s hand tally against `GpuTimer::kPassCount` is deleted rather than maintained: the number is written down once instead of twice, and *"a dead slot is where a pass hides"* (§ I.10) stops being possible because there are no slots
+- [ ] `GpuTimer` takes its slot count **and its slot names** from the compiled plan, which also delivers § I.11's *every dial that changes the picture published as its own telemetry column* for the render half at no extra cost
+- [ ] **Two merge rules, stated once and applied by the compiler rather than welded into a shader.** **R1, compute chaining:** consecutive compute stages whose dependency is dispatch-order-visible share one compute pass — already two instances in the tree, five stages in two passes. **R2, raster fusion:** two full-screen raster stages where the second reads only the first's output, and that output is also wanted, become one pass with two attachments
+- [ ] **The compiled plan publishes which merges it applied**, so a merge is a measured line in the telemetry and not an invisible property of a fragment shader
+- [ ] **R2's justification must be re-measured before it is relied on.** Its only stated evidence — *taa 4.98 ms and tonemap 5.05 ms against 3.80 ms for everything the engine draws* — cites `doc/architecture.md` at both of its two sites (`render/Renderer.cpp:786`, `stages/TaaStage.cpp:110`) and that file is deleted, so the number cannot be checked. **Not measurable is not the finding; not yet measured is** — the instrument is the per-pass timer that already exists
+
+#### The scene-referred linear resolve, and the ruling on the fused pass
+
+*This is `doc/todo.md`'s long-unbuilt "scene-referred linear readback" under its real name, and it is the
+prerequisite the plan snags on: **a plan without `Taa` and `Exposure` has no path from `HdrTex` to
+`FrameTex` at all**, because the temporal resolve and the tonemap are one fused fragment and its second
+attachment is the only writer of `frameView` (`render/Renderer.cpp:780-805`, `stages/TaaStage.cpp:107-125`).*
+
+- [ ] **Ruling: the fusion survives as an implementation and dies as an interface.** Three declared stages — `TemporalResolve` (writes `SceneLinear`), `Tonemap` (reads `SceneLinear`, `AoTex`, `Meter`; writes `FrameTex`) and the existing `ExposureMeter` compute — and the compiler re-fuses the first two under **R2**. A stage plan that has to special-case its only path to the framebuffer is describing a defect; a compiler rule that fuses any qualifying pair is not a special case
+- [ ] **No new render work and no new texture.** `SceneLinear` **is** the resolve's attachment 0, the texture that exists today — 1280 × 720 × 8 B = **7.372 800 MB** at `RGBA16Float`, which is what `Renderer.cpp:111-112` unconditionally selects. What is new is a name in the catalogue, a readback shaped like `ReadDepth`, and the split of one fragment into two declared stages
+- [ ] **What `SceneLinear` contains is written down, because a parity comparison must know which image it got**: resolved linear radiance **before** the screen-space occlusion composite and **before** the metered exposure multiply — `stages/TaaStage.cpp` writes `o.history = scene` and applies both to `o.surface` only
+- [ ] **`SceneLinear` declares `FallsBackTo SceneHdr`**, one field in the `constexpr` catalogue, so a picture plan without `TemporalResolve` still reaches the tonemap without a full-screen blit that exists to copy. It earns its place for one named consumer: the TAA-off run that is the deletion question's measurement instrument (`render/Renderer.cpp:576-579`). **The compiled plan publishes every alias it applied** — that record is the difference between a declared identity and a default nobody sees
+- [ ] *The alternative was considered and is refused with its reason:* a `Role::SceneLinear` slot bound by *last writer wins* reintroduces order-dependence into an order the compiler derives from the graph, and would need a cycle check to be well-founded. One catalogue field plus a published list is cheaper and checkable
+- [ ] **Radiance parity gets its zero point from `SceneLinear` and not from a PNG** — § I.26's rung 3 needs a linear tap, and the tap is this resource
+
+#### The two declarations that must be written, and the second one is the point
+
+- [ ] **The coverage case declares one content stage and requests one output**: `Subject` contributing depth, and `CoverageMask` derived from `SceneDepth` — no light model, no atmosphere chain, no shadow, no occlusion, no resolve, no tonemap, no present. **Acceptance: the compiled plan reports at most two passes.** If it still reports seven, the plan did nothing and the section is not done
+- [ ] The coverage case's settle-frame count follows from the plan: **a plan with no temporal history needs no settle frames**, so `test/render/Parity.cpp:199`'s `kSettleFrames = 4` becomes a property the plan states rather than a `[SET]` constant a test carries
+- [ ] **The walk client's declaration is written out in full, and it is the first written statement of what this engine's full pipeline is.** Nobody has had to write it down, which is part of how three soil constants ended up inside every surface: `kGroundBounce = 0.12` and `kSelfShelter = 0.35` at **eight** `litRadiance` call sites, on water and glass alike (`doc/bugs.md`)
+- [ ] The walk declaration lists **content only** — sky, sun, moon, stars, shadow, occlusion, terrain, water, buildings, models, vegetation, temporal resolve, progress — and **no machinery**, so it is of the order of a dozen lines and not forty. That count is the evidence that the machinery/content split is real
+- [ ] `GeometryStage`'s five draws — terrain, buildings, water, models, subjects — are **five independently declarable content stages** over **one shared LOD cut**, because a coverage case wants subjects alone and today gets all five (`render/Renderer.cpp:757`, *"one stage, one cut, no pass"*). The cut stays one; the draws stop being a bundle
+- [ ] Every scenario in the tree carries a render declaration after this lands, and **a scenario with no render block is refused** rather than defaulted — a default here is the composition the engine applies unasked, which is the thing the owner's ruling forbids
+
+#### The migration hazard — and it is a requirement so that it cannot be read as a rebaseline
+
+- [ ] **`verify-still` holds `bec69fea0a4e6837` off today's everything-on path** (`Makefile:384-410`). When stages stop defaulting on, that client renders something different unless its declaration states what it previously got implicitly. **The declaration is written first and must reproduce the sha before any stage becomes optional** — that is the order of work, not a suggestion
+- [ ] **A changed still is a finding to bring the owner, never a number to update.** The evidence is a picture pair at **320 × 180**, ranked by what destroys the impression fastest — light, colour, silhouette — with the sha quoted beside it and never in place of it. This line exists because the cheapest possible edit at that moment is a one-token hash change that looks like maintenance
+- [ ] **The baseline is keyed by the plan's own digest**, so a plan change does not produce *"the sha changed"* — it produces *"this plan has no baseline"*, and a new baseline is a declared act with a name. That converts the tempting one-character edit into a statement somebody signed, and it is the shape that carries the rule instead of the sentence above carrying it
+- [ ] The plan digest covers the stage set, the derived order, the merges, the aliases and the resource formats — everything whose change can move a pixel — and is published on every telemetry row, so two runs are comparable or are provably not (§ I.11)
+
 ---
 
 ## Band II — World
