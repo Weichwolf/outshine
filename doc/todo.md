@@ -42,17 +42,20 @@ until step 11 changes the graphics API:
 
 ## The dependency rule
 
-**`src/` links SDL3\* and nothing else.** Installed: `sdl3` 3.4.14 · `sdl3_image` 3.4.4 · `sdl3_net`
-3.2.0 · `sdl3_ttf` 3.2.2. Today's line is `-lcurl -ldl -lm -lpthread -lwebgpu_dawn`; Dawn goes at
-step 11, `stb` at 9a.
+**SDL3\* wherever it can carry the job; whatever is required where it cannot** — and a dependency
+that is not SDL3\* carries its reason beside it, the way a Core Guidelines deviation does. Installed:
+`sdl3` 3.4.14 · `sdl3_image` 3.4.4 · `sdl3_net` 3.2.0 · `sdl3_ttf` 3.2.2.
 
-**curl is the one that cannot simply go**, and the resolution is the host seam rather than a
-compromise. All five upstreams are `https://`, and **the SDL3 family has no TLS** — `SDL_net` calls
-itself *"a relatively thin layer over system-level APIs like BSD Sockets"*, 35 declarations, sockets
-only. So the transport lives behind `Host::Fetch`: the **library** links SDL3\* and never names a
-transport; the **host implementation** links whatever its platform gives it — libcurl here,
-something else elsewhere. Both constraints stay whole, and this is the concrete reason the porting
-layer exists rather than a nicety.
+Today: `-lcurl -ldl -lm -lpthread -lwebgpu_dawn`. Dawn goes at step 11 (SDL_GPU), `stb` at 9a
+(SDL3_image). **curl stays, with its reason:** all five upstreams are `https://` and the SDL3 family
+has no TLS — `SDL_net` calls itself *"a relatively thin layer over system-level APIs like BSD
+sockets"*, 35 declarations. Writing TLS ourselves is not a dependency saved, it is a dependency
+written badly.
+
+**Where it lives is still the point.** The transport sits behind `Host::Fetch`: the library links
+SDL3\* and never names a transport, the host implementation links what its platform offers. So
+`nm -u` over the library archives shows **no `curl_` symbol** — which turns "platform agnostic" from
+a rule someone follows into a command that fails.
 
 ## Standing
 
