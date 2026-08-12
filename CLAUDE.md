@@ -19,9 +19,8 @@ post-scarcity — modern infrastructure, lush nature.
 4 efficiency cores, 5 GPU cores, 8 GB, Metal 4. It is the development platform *and* the budget, so no
 machine stands between the work and the target.
 
-*Only C++ in the engine* leaves one door open and no other: a script may **prepare data offline**,
-committed beside what it produces so the thing can be recomputed from something we own. Never a test,
-a validator, a gate, a build step, or anything in the runtime path.
+*Only C++ in the engine* leaves one door: a script may **prepare data offline**, committed beside what
+it produces. Never a test, a gate, a build step, or anything at runtime.
 
 Everything else in this file is a stance or a setup. **The scope is [`doc/requirements.md`](doc/requirements.md)** and it is the
 authority on what the engine must do.
