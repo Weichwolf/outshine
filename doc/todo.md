@@ -37,6 +37,23 @@ the wasm, Python and container surface is deleted and the data providers are in 
 **Deleting `/bake` belongs here too** — 963 lines and **3.1 GB of a 7 GB cache serving nothing**, whose
 format we spent an hour deciding how to tune before finding it has no reader.
 
+**The scenario interface is a precondition too**, not a later step: every runnable thing is a test now,
+and a test declares what it runs. Nothing under `test/` — a studio subject, a declared run, an
+interactive client — works until a scenario can be declared and loaded.
+
+### The tree ends with three directories
+
+**`doc/`, `src/`, `test/`. Nothing else.** Six stand today and each has an answer:
+
+| | tracked | where it goes |
+|---|---|---|
+| `tiles/` | 58 | into `src/` as providers; the server, the container and the `/bake` path deleted |
+| `vendor/` | 4 | `stb_image*` already deleted; `build_dawn_native.sh` goes with Dawn, `fetch_curl_compat.sh` with the wasm toolchain |
+| `tools/` | 4 | four Python instruments — deleted, and whatever is worth keeping becomes a test |
+| `mods/` | 4 | declared scenarios — they are test inputs now, so they belong under `test/` with the fixtures |
+| `assets/` | 34 | species, ground materials, sky. **The open question:** `src/` is pure C++, so a library default table is either generated into C++ — which is principle 2 applied to our own data — or it is a `test/` fixture and the library carries no default at all. Decide it, do not let it sit |
+| `build/` | 0 | untracked output; stays out of the tree |
+
 
 ## The renderer stage — what it reaches for
 
