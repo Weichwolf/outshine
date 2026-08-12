@@ -1626,13 +1626,20 @@ keeps finding. *Culling off is right for the subject path* — it is right for O
 transform decide it. *The oracle would not see it either* — correct, and that is the finding rather than
 an excuse.
 
-**Right:** a subject drawn from a glTF is drawn `Winding::Trusted` with back-face culling on, so a
-reversed triangle disappears and the mask moves; the double-sided arm becomes a declared property of the
-case (`doubleSided` is a glTF material field, not a global). Khronos's `NegativeScaleTest` is the asset
-built for exactly this and cannot mean anything until then. **Fixed when** a fixture whose triangles are
-wound backwards fails `render/coverage/cube`, and a `TRIANGLE_STRIP` triangulated without the odd-triangle
-swap fails `render/coverage/primitive-modes`. **Decides it:** flipping the index order of the generated
-cube must change `pixels_disagreeing` from 0.
+**Right:** a subject drawn from a glTF is drawn `Winding::Trusted` with back-face culling on, so a face
+that turns away disappears; the double-sided arm becomes a declared property of the case (`doubleSided`
+is a glTF material field, not a global). Khronos's `NegativeScaleTest` is the asset built for exactly
+this and cannot mean anything until then.
+
+**Fixed when** a `TRIANGLE_STRIP` triangulated without the odd-triangle swap fails
+`render/coverage/primitive-modes`, and a globally reversed cube fails `render/coverage/cube`.
+**Decides it, and the two halves need different instruments — the first version of this line got the
+cube wrong.** An **open** primitive loses its away-facing triangles under culling, so a strip without
+the flip draws **half the quad** and `pixels_disagreeing` moves off 0. A **closed convex** body does
+not: with every triangle reversed the back faces occupy the same outline, so the cube's **silhouette is
+identical** and coverage stays at 0 — what moves is **depth**, to the far surface. Reading a global flip
+as a coverage failure on the cube would be a test that cannot fail for the reason it claims, which is
+the defect this entry is about (`doc/requirements.md` § I.26.14).
 
 ## The glTF reader hands a URI to the filesystem undecoded, and the spec makes percent-encoding mandatory
 

@@ -1714,6 +1714,51 @@ reducible oracle has left over, never a budget for disagreement.***
 - [ ] **If a rung ever needs tighter than the half-ulp floor, the repair is the tap's format and not the threshold** — `RGBA32Float` for the readback doubles the copy to 14.75 MB on the frames a test asks for and costs nothing on a frame nobody asks (§ I.27's own argument). *Recorded so that the first time somebody meets the floor they change the instrument, which is the move this whole section is about*
 - [ ] **Depth is f32 on both sides and therefore has no storage floor of this kind**: `ReadDepth` returns reversed-Z float32, so rung 2's instrument floor is the f32 mantissa near **6e-8** against a declared `p99 ≤ 1e-4` relative — three orders, unchanged, and it is the one rung where the arithmetic term is the binding one
 
+### I.26.14 The exactness anchor: `pixels_disagreeing == 0` is a property of the subject, and the roll rule was aimed at the wrong target
+
+*Ruling, 2026-08-12, on the eleven-case measurement at `c5275c1`: `boundary_p95_px = 0` everywhere,
+`pixels_disagreeing` 0–3, every disagreeing pixel within **1.54e-3 px** of a projected edge against the
+oracle's **5.0e-3 px** filter half-width, and the three cases at zero are the three with the largest tie
+margins. **The developer's arithmetic is right and its conclusion is wrong**, and the reason is that the
+conclusion quantifies silently over subjects in **general position**.*
+
+- [ ] **The unreachability is a theorem about the subjects we chose, not about the comparison.** For a straight edge whose raster slope is **irrational**, the perpendicular offsets of the pixel centres it passes are equidistributed in `[−0.5, 0.5]` (Weyl), so over `L` boundary pixels the expected **minimum** margin is `≈ 0.5/L`: **7.4e-4 px at L = 679** and **2.1e-4 px at L = 2398**, which is the measured range `2e-5 … 1.8e-3` to within a random draw. **It falls as the subject grows**, so no amount of care recovers it — which is exactly why `0.99^L` looks like a law of nature from inside that family
+- [ ] **For a **rational** slope it is not a draw at all, and this is the whole ruling.** An edge `p·x − q·y = c` with `p/q` in lowest terms takes the value `p·i − q·j` at integer pixel centres, and that expression runs over **all** integers; so with `c` at half a lattice step the distance from **every** pixel centre in the plane is exactly
+
+```
+      margin = 0.5 / sqrt(p^2 + q^2)   px,  independent of L, of the subject's size, and of where it sits
+```
+
+*Verified by brute force over 401 × 401 integer centres at slope 2/5: 0.092848 px measured against
+0.092848 px predicted.* Axis-aligned is the corner case `0/1` at **0.5 px**; it is not the only one.
+
+| slope | angle | margin | against the oracle's 5.0e-3 px jitter |
+|---|---|---|---|
+| `0/1` | 0° | 0.5000 px | 100× |
+| `1/1` | 45° | 0.3536 px | 71× |
+| `1/2` | 26.565° | 0.2236 px | 45× |
+| `1/3` | 18.435° | 0.1581 px | 32× |
+| `3/4` | 36.870° | 0.1000 px | 20× |
+| `2/5` | 21.801° | 0.0928 px | 19× |
+| `3/7` | 23.199° | 0.0657 px | 13× |
+| `tan 22.5° = √2 − 1` | 22.5° | **≈ 0.5/L** | **0.04×** at L = 2398 |
+
+- [ ] **A margin floor of 0.05 px — 10× the oracle's own jitter — is the acceptance, and it admits every rational slope with `p² + q² ≤ 100`**, which is a large, off-axis family and not a corner. *Ten times, not two: the floor has to survive the projection's own last bits without anybody re-deriving it*
+- [ ] **The roll requirement is superseded and the reason is that it optimised a proxy.** `+22.5°` maximises the minimum edge-to-**axis** angle, and § I.26 justifies it in those terms — but the quantity that decides an exactness claim is the edge-to-**centre** distance, and `tan 22.5° = √2 − 1` is irrational, so that roll *guarantees* an uncontrolled margin of order `0.5/L`. **The rule that was written to prevent ties is what makes them certain**
+- [ ] **`roll = arctan(1/2) = 26.5651°` replaces `+22.5°` for rung 1, and it wins on every criterion the old number was chosen for except the proxy.** A rotation by an angle of **rational tangent `t` keeps all three edges of the right-isoceles triangle rational**, because `tan(45° + θ) = (1 + t)/(1 − t)` and `tan(90° + θ) = −1/t` are rational whenever `t` is: the edge slopes become **`1/2`, `3`, `−2`**, with margins **0.2236, 0.1581, 0.2236 px = 45×, 32×, 45×** the jitter. **Frame fraction 33.61 %** — above the section's 30 % and above the 31.5 % the old roll reached. What it loses is the proxy: minimum edge-to-axis angle **18.435°** against 22.5°, and no edge is axis-aligned, which is all that criterion was ever protecting
+- [ ] **The margin is a declared, recomputed, refused-on-mismatch property of every exactness case, not a construction anybody trusts.** `test/render/Ties.h` already measures it — *the smallest distance from a coverage-boundary pixel's centre to any projected edge* — so the manifest declares `tieMarginMinPx` with its derivation, the runner recomputes it from the projected geometry, and **a subject that does not clear the floor is refused as a badly chosen subject rather than accommodated by a wider tolerance.** *The construction rule above is how one is achieved; the measured margin is what is accepted, and the two are deliberately different things*
+- [ ] **Two case classes, and a case names its own, so a jitter-tolerant pass is never read as an exactness claim.** **`exact`** — a straight, rational-slope silhouette clearing the margin floor; acceptance **`pixels_disagreeing == 0`**, no tolerance declared anywhere. **`general-position`** — everything else; acceptance **`worst_disagreement_px ≤ 0.5 × pixelFilter.widthPx`**, which is the developer's proposal, accepted for this class, and it introduces no constant because the oracle's own filter width is already declared in the recipe
+- [ ] **At least one `exact` case per feature, and it is a second arm of the same case rather than a different subject.** Same geometry, same feature, two placements — otherwise the exactness claim and the general-position claim are about different things and the pair proves nothing about either. *An axis-aligned subject in isolation would also be blind to a transposed rotation, because an identity placement cannot show one; the rolled arm is what carries that*
+- [ ] **Where an exactness anchor is geometrically impossible, say so once rather than per case.** A **curved** silhouette has no rational slope anywhere: a circle of radius `R` px has `≈ 2πR` boundary pixels with equidistributed offsets, so the same `0.5/L` law applies and cannot be escaped. **Rung 4's UV sphere** (32 short silhouette edges, 32 simultaneous constraints against 3 degrees of freedom), **rung 20's Julia isosurface** and **every `sub-pixel present` subject** are `general-position` **permanently and by geometry**, not pending better work
+- [ ] **The tension this resolves, named because it is the third instance of the shape this week**: § I.26 required a roll to avoid ties and § I.26.13 required exactness, and the first made the second unreachable. **A document that contains a rule making its own strictest acceptance impossible will report that acceptance as the thing that is wrong** — here, twice, as *"0 is not generally reachable"* — and the repair is in the rule, not in the bar
+
+**The winding claim, stated here so a coverage case does not make it again — and the earlier form of this was too strong.**
+
+- [ ] **A coverage mask is winding-blind only while the draw is double-sided**, which it is today (`src/render/stages/SubjectDraw.cpp:71`, `cullMode = None`). *It is not true that no coverage case can ever decide a winding, and the difference decides whether this waits for shading or for a pipeline flag*
+- [ ] **With back-face culling on, the instrument that decides a winding depends on whether the body is closed, and both cheap answers exist before any light does.** An **open** primitive — case 10's `TRIANGLE_STRIP` — loses the faces that turn away, so a strip triangulated without the odd-triangle flip draws **half the quad** and **coverage sees it immediately**. A **closed convex** body — rung 3's cube — keeps its silhouette exactly under a global flip, because the back faces occupy the same outline; what moves is **depth**, to the far surface. **Neither needs a lit rung**
+- [ ] **What a lit rung adds is the third case**: a two-sided surface whose shading normal follows the winding, which is where `NegativeScaleTest`'s criterion lives (`Specification.adoc:1734` — the determinant of the node's global transform defines the winding). *That asset is the reason all three answers are owed and not just the cheapest one*
+- [ ] **Case 10 proves that `TRIANGLE_STRIP` and `TRIANGLE_FAN` decode to the same surface, and it proves nothing about the flip** — under a strip the triangle at step *i* has the vertex set `{i, i+1, i+2}` whichever order it is emitted in, so the flip changes winding alone. **The manifest's own note claims otherwise and is wrong** (`doc/bugs.md`)
+
 ### I.27 The declared render plan — nothing is fixed, and the consumer decides what to render
 
 *Added 2026-08-12 on the owner's ruling, given twice: **nothing must be fixed, the consumer decides what
