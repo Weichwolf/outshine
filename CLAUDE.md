@@ -1,11 +1,20 @@
 # Outshine
 
-> **A wasm app at 720p60 in an A18-Pro-class budget: an OSM-based open world, LLM-driven, built purely
-> from declarative `scenarios/`. CryEngine is the engine to match, Kingdom Come: Deliverance the world
-> and its vegetation, GTA 5 the built world and the verbs — walk, drive, fly.**
+> **A CryEngine-class game engine: an OSM-based global open world, LLM-driven intelligence and an RPG
+> above it, every piece of content from a generator behind one interface, and declarative `scenarios/`
+> that declare interactive or non-interactive worlds. Kingdom Come: Deliverance is the world and its
+> vegetation, GTA 5 the built world and the verbs — walk, drive, fly.**
+
+**The constraints are four, and there are no others.** **SDL3** for the platform · **SDL_GPU** for the
+graphics · **modern C++** · and **this device at 720p60** — an Apple A18 Pro, 2 performance and 4
+efficiency cores, 5 GPU cores, 8 GB, Metal 4. It is the development platform and it is the budget, so
+there is no machine between us and the target. Everything else in this file is a requirement or a
+consequence, and `doc/requirements.md` is the scope.
 
 The world is **loaded, not modelled**: terrain, land cover, buildings, vegetation, weather and the night
-sky come from `fb-tiles`, so every point on Earth is a valid start. **One physics system** carries
+sky come from `fb-tiles`. Every point the tile scheme can address is a valid start, which is not every
+point on Earth: Web Mercator ends at ±85.0511°, so the two polar caps — 0.373 % of the surface,
+1.90 M km² — are refused by name until a polar scheme stands beside it. **One physics system** carries
 walking, driving, flying and swimming. An **epoch and decay dial** dresses the same geometry. The actors
 **think**. The setting is post-scarcity — modern infrastructure, lush nature.
 
@@ -28,9 +37,14 @@ walking, driving, flying and swimming. An **epoch and decay dial** dresses the s
 **The owner's comments outrank everything.** The bar is CryEngine's level out of tile data alone, and
 **the way is the goal** — a round that learned something is a good round.
 
-**The frame is fixed, the code is in flux.** Fixed are **wasm32 and WebGPU** — a virtual console, and its
-limits are the limits. Everything else is material: formats, directories, algorithms, interfaces, build,
-tools. Nothing here is a possession.
+**Nothing is a possession.** Formats, directories, algorithms, interfaces, build, tools — all material.
+The four constraints above are the only fixed things, and they are fixed because the owner set them,
+not because the code grew around them.
+
+**The engine is a library and it is platform agnostic.** A kernel manages it, so this can: the library
+declares what it needs from a host and calls nothing else. Clients and tests link it; a client runs
+wherever its host is implemented. Development is native first — the instrument that finds memory
+defects is 3.8× native and unusable on a browser at 72×.
 
 **Something missing is a task, not a limit.** "That number does not exist" ends with "so the tool gets
 built". Distinguish **not measurable** from **not yet measured** — the second has a cost, not a boundary.
@@ -53,7 +67,7 @@ needs its reason beside it.
    participant could have?* Yes → engine, otherwise scenario. With LLM actors this is load-bearing: a
    brain sees only through sensors, acts only through simulated systems, and a contact carries no
    identity.
-5. **Everything runs IN the client.** One process, one address space, WASM like native.
+5. **Everything runs IN the client.** One process, one address space.
 6. **Two server containers only:** `fb-tiles` (`tiles/`, :8081) and `fb-sim` (`sim/`, :8080). The tile
    server delivers DEM, OSM, imagery, weather and stars — nothing else.
 7. **The mathematics is deterministic.** If pace decides the result, the coupling is a bug.
@@ -63,7 +77,7 @@ needs its reason beside it.
 **Six directories under `sim/src/`.** `core` is value types and the naked world's mathematics ·
 `core/io` is log, telemetry and the probes, so `core` is I/O-free **by directory** · `world` is
 streaming, terrain and classification · `generators` turn what the core knows into content · `render` is
-the WebGPU renderer, one class per shader · `clients` is the entry point.
+the renderer over SDL_GPU, one class per shader · `clients` is the entry point.
 
 **Layering is the build, never a checker.** `make world` links no `render/`; a generator translation unit
 compiles with `-Isrc/core -Isrc/generators` and nothing else, so `Renderer`, `World`, `Log` and the
@@ -144,7 +158,7 @@ image**; a number decides whether the frame floor holds, never whether it looks 
   line. **A name that needs a comment is the wrong name.**
 - `core/` never points up. Peers never call each other.
 - **The C++ Core Guidelines apply** (below); what follows are the house deviations.
-- C++17, **no prefix**, PascalCase, **`namespace outshine`**, one class per file. Exceptions:
+- **Modern C++**, **no prefix**, PascalCase, **`namespace outshine`**, one class per file. Exceptions:
   `world/terrain/` (C-ABI, shared with `tiles/`) and `FBWX` (a format name).
 
 ## References
