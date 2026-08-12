@@ -590,6 +590,36 @@ transfer: CryEngine assumed threads on every target it shipped on. § I.18 does 
 - [ ] **wasm is a port destination, not a constraint** — one host implementation among several, reached when SDL3 reaches it. What that ends: the emcc half of `Makefile` stops being load-bearing, `-sINITIAL_MEMORY`/`-sPTHREAD_POOL_SIZE`/`-sABORTING_MALLOC` stop being the engine's frame, and the six emcc-only translation units become one host's implementation rather than a second program. What it must not end: the exact-width discipline of § I.18, which was learned there and is right everywhere
 - [ ] The 720p60 floor stated as a distribution over a moving camera on **this** device — p50/p95/p99, never a mean — and it is the one number that decides whether a port or a stage lands
 
+**Shader source moves out of the C++ and into files, and the port is the only moment it is free.**
+*Owner's question, 2026-08-12: is embedding shaders in `.cpp` files really a good idea, given they are
+rewritten anyway. **Answered yes-it-must-change, and the decisive argument is not ergonomics — it is
+that the artefact's kind changes under SDL_GPU.** Under WebGPU a shader is **source the runtime
+compiles**, so a string literal is a perfectly honest representation of what it is: text handed to a
+compiler at run time. Under SDL_GPU it is a **precompiled binary artefact** — `SDL_shadercross` runs
+offline and emits MSL here, SPIR-V and DXIL elsewhere. A build artefact wants a build step, a build step
+wants an input file with a path and a timestamp, and a C++ string literal has neither. Keeping the
+current shape after the port would mean a build step whose input is extracted from a compiled
+translation unit, which is the tail wagging the dog.*
+
+*Measured, not recalled: **2 776 lines of raw-string shader text in 30 files**, the four largest being
+`stages/TerrainDraw.cpp` (546), `stages/BuildingDraw.cpp` (373), `stages/ModelDraw.cpp` (334) and
+`Sward.h` (220). And the shape is not "one literal per shader": a pipeline's source is **assembled at
+run time by `operator+`** — `BuildingDraw.cpp:396-397` concatenates seven fragments — which is an
+include system implemented as string concatenation. That is the second reason files win: `#include` is
+the same mechanism with a name, a search path, and a compiler that reports the line number of an error
+in the fragment rather than in the concatenation.*
+
+- [ ] **One shader file per pipeline under `src/render/shaders/`, in the port's own commits**, never a second migration afterwards. Cost of doing it now: **zero** — every one of the 2 776 lines is rewritten either way. Cost of doing it later: the same 2 776 lines moved a second time, by hand, after they have stopped being mechanically translatable from WGSL, plus every reviewer's diff of the port polluted by the move
+- [ ] **The composition seam survives as `#include`**, because that is what it already is: the fragments that are concatenated today — `kSceneScaleWGSL`, `kSurfaceLightWGSL`, `ShadowSampleWGSL()`, `kVelocityWGSL`, `kHazeWGSL` — become headers under `shaders/` included by the pipelines that use them. What this buys beyond tidiness: an error in `SurfaceLight` is reported once at its own line, instead of once per including pipeline at a line number that exists in no file
+- [ ] **The codegen seam is kept and is exactly as strong, and this is the load-bearing check on the whole answer.** `core/FacadeUv.h:67 FacadeUvWGSL()` emits shader constants from the one C++ enumeration, so *a shader constant that disagrees with the C++ enum cannot exist* — and it is not alone: `HazeConstsWGSL`, `SwardConstsWGSL`, `CurveConstsWGSL`, `CloudDensityConstsWGSL` and `SceneScaleWGSL` are the same seam, **six of them**. Under files the emitter writes a **generated header** into the build directory and the shader includes it; the C++ declaration is still the only place the number is written, so the invariant is unchanged. It is **not weaker**, and it is arguably stronger, because the generated header is a file a human can read and a build can diff, where today the emitted text exists only inside a `std::string` at run time
+- [ ] The generated headers are **build output and are never committed** — same rule as the corpus (§ I.26.1). A generated file in git is a second copy of a truth that already has one owner, and it drifts the first time somebody edits the wrong one
+- [ ] **The offline-compiled artefacts are build output too, and are not committed.** `SDL_shadercross` runs as a build step over `shaders/`, emits MSL for this device into the build directory, and the binary is loaded through `Host::Storage` like every other declared datum (§ I.18). Committing them would put a per-backend binary in the tree for a toolchain we run ourselves — the exact thing the corpus manifest exists to avoid one level out
+- [ ] **A shader edit stops costing a C++ recompile**, which is the ergonomic half and is worth stating as a number rather than a preference: today editing one line of `TerrainDraw.cpp`'s 546 shader lines recompiles a translation unit that also carries the pipeline construction, the bind-group layouts and the draw recording. After the move it runs shadercross over one file. *This is the smallest of the reasons and it is listed last on purpose*
+- [ ] **Editor and linter support is a real property and not a comfort**: a `.hlsl` file gets syntax checking, completion and a language server; a raw string literal inside a `.cpp` gets none, and a typo in it is found by the runtime compiler at first draw. That moves an error from **build time to run time**, which is the wrong direction by `P.5`
+- [ ] **`one class per file` survives intact and gains a sibling rule**: the stage class stays one class in one `.h`/`.cpp` pair and owns its pipeline; the shader is *its* file, named after it, beside it. What is deleted is not a class but a string. The house rule was never *one class and its shader in one file*
+- [ ] **A shader on disk is still generated in principle 2's sense, and this is stated explicitly because the opposite reading would be a real defect.** Principle 2's test is *can this be recomputed from something we own* — and a shader is **code in this tree, compiled by a tool in this tree**, which is the same status as every `.cpp`. A `.cpp` on disk is not "authored appearance" and neither is a `.hlsl`. § I.19's existing line already says shaders stay generated across the move; this line says the file form does not touch that
+- [ ] **What would make the answer wrong, so a later round can find it**: if SDL_shadercross turned out to be unusable offline and the engine had to compile HLSL at run time, the artefact would be source again and the argument's spine would go with it. Checked: shadercross is documented as an offline tool *and* a run-time library, and SDL_GPU's own model is precompiled-per-backend. If that changes, this decision is re-taken rather than patched
+
 ### I.20 The test suite in C++, and its harness
 
 - [ ] `test/` mirroring `src/` one directory for one directory — **the mirror is the layering**: a test under `test/generators/` compiles with `-Isrc/core -Isrc/generators` and links `Core`+`Generators`, so a test that reaches up does not compile. Every test is then a continuous positive-half proof for its own layer, which subsumes the hand-written `test/generators/CoreIsReachable.cpp`
@@ -954,6 +984,219 @@ things has thrown that value away. Every `.glb` is emitted by a script in this t
 - [ ] The reference `.glb` files are generated by a script in this tree, never authored — principle 2 applies to a test fixture exactly as it applies to a texture, and a hand-modelled cube is a file nothing can recompute
 - [ ] The first comparison to run is **rung 1**, because it is *decidable* in this file's own sense — no light model has to agree for it to mean something — and because every later rung is confounded by its failure. It costs the reader and one mask difference
 - [ ] The first comparison that **settles** something is rung 3, and what it settles is whether this engine's light transport is right at all: the first correctness-class number in the archive, against 100 % consistency-class ones today
+
+**The ten scenes above are ten fixtures, not the ladder.** *Superseded 2026-08-12 by the twenty-one-rung
+ladder below, on the owner's ruling that the ladder is built from concrete assets and ordered easy to
+hard. Nothing above is withdrawn: every one of the ten is still a fixture we generate, and every bullet
+above that says "scene N" means **fixture N**, which the ladder's own table maps to its rung. The four
+rungs of the comparison — coverage, depth, direct radiance, shadow and indirect — are unchanged and are
+what a rung is judged **on**; the ladder is what is judged, in order.*
+
+### I.26.1 The corpus, and why it is a feature inventory before it is a set of scenes
+
+*Owner's ruling, 2026-08-12, in four parts: **the corpus is built by a Python script from online
+sources** rather than committed · **pin the strongest thing each source offers** — a commit SHA where
+there is a repository, a content hash where there is only a file · **Outshine must implement almost
+everything the glTF samples provide to be a full-featured game-engine renderer** · and the decision rule
+per feature is **does Kingdom Come: Deliverance or GTA 5 use it**. The first three are mechanism. The
+fourth is what makes a percentage mean anything, because a score dragged down by
+`KHR_materials_dispersion` was never telling anyone anything.*
+
+**Principle 2 is not in tension with this, and the reading is now written down.** Principle 2 forbids
+**authored appearance in our content** — a file somebody painted that nothing can recompute. It does not
+forbid the engine from **sampling a texture a glTF supplies**. Implementing the feature is required;
+shipping painted assets in the world is not. The samples are how a feature is **proven**, never what the
+world is **made of**, and the two never meet: nothing under `test/corpus/` is reachable from a scenario
+that builds a world. *Stated because it was about to become a requirement either way, and because the
+opposite reading would forbid the only external check this repository has.*
+
+- [ ] The corpus is **fetched and built, never committed** — `test/corpus/build_corpus.py`, one script, the door `CLAUDE.md` leaves open for a script that prepares data offline. The recipe is in git, the bytes are not, and *can this be recomputed from something we own* is answered by the script
+- [ ] The built corpus lands in `test/corpus/` and that path is in `.gitignore` — these are **test inputs**, not engine data, so never `src/assets/` (§ I.24's tier rule: `assets/` ships with the library)
+- [ ] **A manifest declares every asset and the script reads only the manifest** — `test/corpus/manifest.json`. Per entry: source kind, pin, licence with SPDX identifier, attribution where the licence requires one, the rung it serves, and the one thing it is first to exercise. An asset not in the manifest is not fetched, and an asset in the manifest with no licence field is a **refusal at parse**, not a warning
+- [ ] **Two source kinds and no third, because the strongest available pin differs.** `repo` — a git repository, pinned by **commit SHA**, fetched by sparse checkout of the declared paths at that SHA; git verifies its own object integrity, so there is no per-file hash to maintain or to drift. `file` — a plain URL with no repository behind it, pinned by **URL plus SHA-256 of the bytes**, which is the weaker form and the only one such a source offers
+- [ ] **Which kind each source is, stated in the manifest and not assumed.** `KhronosGroup/glTF-Sample-Assets` is `repo`. **`download.blender.org` is `file`** — it is a plain Apache directory index serving `.blend` and `.zip`, it publishes no checksums, and the open-movie production trees are *not* there: `/peach/`, `/durian/`, `/mango/` and `/institute/` all answer *"Please visit www.blender.org for finding links…"* and `/demo/movies/` holds rendered video only. *Checked rather than assumed, because claiming a reproducibility we do not have is the same defect class as a miscited rule number.*
+- [ ] A fetch whose bytes do not match the pin is a **refusal naming the asset, the expected pin and the observed one** — never a warning, never a retry that takes what it got. Without this, "the corpus" is whatever the internet held that day and every acceptance number under `test/render/` is irreproducible, which is the arrival-order defect one level further out
+- [ ] **A pinned corpus does not silently improve either, and that is correct.** When Khronos fixes an asset we move the pin **deliberately, in its own commit**, and re-take every acceptance number that asset carries. The manifest records the pin's date and the reason it moved, so the first time a comparison shifts after a pin move nobody has to guess whether the renderer changed or the asset did
+- [ ] **The licence field is derived, never transcribed.** Each Khronos model carries `Models/<Name>/metadata.json` with a `legal` array of SPDX identifiers at the pinned SHA; the script reads it and **refuses any asset whose set of SPDX identifiers is not a subset of the declared allow-list**. That makes the audit mechanical and makes a licence change at the upstream a refusal rather than a surprise. Measured at SHA `2bac6f8c…`: 148 models, `CC0-1.0` ×92, `CC-BY-4.0` ×64, and thirteen other identifiers of which nine are restrictive
+- [ ] The allow-list is `CC0-1.0`, `CC-BY-4.0`, and the `LicenseRef-LegalMark-*` marks, which are Khronos's, Cesium's, UX3D's and DGG's statements that a **logo is non-copyrightable** and carry no obligation. Everything else is out by construction
+- [ ] **`NOTICE.md` is generated by the script from the manifest**, listing every CC-BY asset with its author and year, because attribution is a licence condition and a condition nobody can find is a condition nobody meets
+- [ ] **No authenticated URL is ever in the manifest** — if a source needs an account, it is not a source. This is what rules out the Blender open movies' production files (§ I.26.4)
+- [ ] **With no network the corpus is absent, and absence is a named refusal in the test that needs it** — never a silent skip, never a pass over nothing. The test declares the corpus assets it requires by manifest id; a missing one refuses with the id and the path it looked in, which reaches the harness's existing undeclared-skip machinery (§ I.20). *The mirror of § I.24's ruling that a scenario carrying its own data runs offline at full speed: once fetched, the corpus needs no network, and the same test gives the same answer with the wire cut*
+- [ ] **What the script costs cold, published in its own `--dry-run`** so nobody discovers it after starting: the Khronos sparse checkout of the ladder's assets is **≈ 145 MB** over 21 assets (`MetalRoughSpheres` 11.0 MB · `SciFiHelmet` 29.6 MB as `glTF/` + six PNGs, it has **no** `glTF-Binary/` · `ABeautifulGame` 42.0 MB as `.glb` · `NormalTangentTest` 1.8 MB · the rest under 600 KB each), against **1 397 MB for the whole repository**, which is why it is a sparse checkout and not a clone. The Blender side is **one 24 MB archive** for the pavilion. Blender conversion is one headless run per `.blend`
+
+### I.26.2 The .blend to glTF conversion, and the six settings that are load-bearing
+
+*The argument for exporting ourselves holds and is worth stating once: **Blender renders the reference
+from the original `.blend`**, so Cycles never reads a glTF, the import ambiguity exists on one side only,
+and every difference is ours. With a third-party `.glb` we would be comparing two importers as much as
+two renderers. **Where it breaks is exactly where the export is lossy**, and the exporter's own defaults
+say where.*
+
+- [ ] The conversion is part of the corpus build — `blender --background <file>.blend --python export_gltf.py` — with **every export setting written out explicitly**, never left at its default, because three of the defaults are wrong for us and one is exclusive with another
+- [ ] `export_yup=True` — glTF's convention, and it is the default (`io_scene_gltf2/__init__.py:673`). Our reader therefore reads +Y up and the axis swap happens once, in the exporter, where Khronos's own assets already carry it
+- [ ] **`export_apply=True`, declared with its cost.** The default is `False` and its own description reads *"Apply modifiers (excluding Armatures) to mesh objects — WARNING: prevents exporting shape keys"* (`:679`). Without it a Subdivision, Array or Solidify modifier does not reach the glTF and the exported mesh is not the mesh Cycles rendered — the comparison would then measure the modifier stack. **With it, shape keys are lost**, so a scene that is a morph-target test must be exported a second time with `export_apply=False`. The two are exclusive and the manifest says which arm each asset takes
+- [ ] `export_cameras=True` — the default is `False` (`:612`). For a *downloaded* scene the direction of § I.26's camera rule reverses: the `.blend` is authoritative, so the camera must cross the boundary and our side reads it. For a *fixture we generate* the existing rule stands — the camera is set on the Blender side from the glTF `yfov`, never by the importer
+- [ ] `export_lights=False` — the default, and § I.26's refusal of `KHR_lights_punctual` as the light channel stands for every rung it already covers. **The consequence is the placement ruling**: a downloaded scene's lighting lives in its world, its area lights and its shader emission, none of which crosses, so **a downloaded scene is judgeable on coverage and depth and not on radiance** until its light rig is re-declared beside it. That is a property of the boundary, not a caveat about the asset
+- [ ] `export_animation_mode='SCENE'` for the film rung — *"Export baked scene as a single animation"* (`:734`) — because with the default `'ACTIONS'` a scene becomes several animations and *the scene at time t* stops being one statement. `export_force_sampling=True` (the default, `:712`) and `export_frame_step=1` (`:704`), so every frame is a sample and nothing is inferred from a curve
+- [ ] **`export_optimize_animation_size=False`**, against its `True` default (`:797`): the default *"removes duplicate keyframes"*, which leaves a non-uniform time grid. Off, the glTF's own input accessor **is** the frame grid, so a comparison time is a keyframe rather than an interpolation, and the time contract (§ I.26.3) is checkable by reading the file
+- [ ] `export_image_format='AUTO'` and `export_texture_dir` set, so textures land beside the `.gltf` as PNG and no second image decoder is needed — the same restriction § I.26 already places on `baseColorTexture`
+- [ ] **What has no glTF equivalent at all, named so no round reports it as a defect**, and this is what decides which `.blend` files are usable: **procedural shader node graphs** — the exporter handles a restricted Principled BSDF graph with image textures, and a Noise, Voronoi or ColorRamp chain becomes a flat factor with no error · **hair and curves**, which have no glTF primitive · **volumes** — smoke, fire, atmospheric · **particle systems** · **compositing**, which is not in the scene graph · **light rigs**, refused above · **Geometry Nodes**, which need `export_gn_mesh` (`:436`, *Experimental*, default `False`) even with `export_apply` on
+- [ ] **A `.blend` that loses what makes it a test is out of the manifest, not exported and repaired.** Named refusals with their reason: the **Barbershop** benchmark (CC-BY, 280 MB) is a hair-and-particle scene and hair does not cross — exporting it produces a bald room · every **Geometry Nodes** demo, whose subject is the node graph · every **simulation** demo, whose subject is a cache. *An oracle comparison must contain no repair* — § I.26 already states this for normals, and it is the same rule
+
+### I.26.3 Rung 6, the time contract — the cheapest thing that would otherwise poison every rung above it
+
+*Owner's ruling, 2026-08-12: **motion enters as early as it honestly can, and rung 6's product is the
+time contract, not the animation.** On a short film a timing disagreement and a rendering disagreement
+are indistinguishable — both read as "frame 40 is wrong". On one cube with one TRS track they are not.*
+
+- [ ] **Sample times are declared, never derived from a frame rate either side assumes.** glTF's animation sampler input is **seconds**; Blender's exporter writes `seconds = frame / (fps · fps_base)` (`blender/exp/animation/keyframes.py:13`, and the same expression at four more sampler sites). The declared run's `fps` must equal Blender's `fps · fps_base` and the manifest records both numbers beside the asset
+- [ ] **Where time zero sits, stated — and Blender's default puts it in the wrong place.** The exporter divides the **absolute** Blender frame number by fps and subtracts no start frame, so a scene with the factory `frame_start = 1` writes its first keyframe at `t = 1/fps` — **0.0416667 s at 24 fps**, not 0. Our runner's first frame is `FrameAt_ = 0`, hence `t = 0`. The contract: **`frame_start = 0` is set on the Blender side before export**, or the offset is declared in the manifest and applied by the reader. An off-by-one here looks exactly like an animation that is slightly too fast, which is the hardest residual shape to attribute
+- [ ] `InterpolationTest` is a **check inside rung 6**, not a rung beside it: it carries `LINEAR`, `STEP` **and** `CUBICSPLINE` in one image (measured at the pinned SHA — it is the only asset in the corpus that carries all three), so a mode mismatch appears as a **shape** rather than as a drift, and it costs nothing extra once time exists
+- [ ] **The engine side of the contract already holds and this line records that it does, so nothing is rebuilt that works.** `clients/SceneRunner.cpp` advances an **integer** `FrameAt_` (`:347`), applies keyframes at `MotionApply((double)FrameAt_)` (`:335`) and derives seconds as `(double)FrameAt_ / m.Fps` (`:403`); `clients/Scene.h:58-59` states the rule — *"`Fps` only enters DERIVED seconds and the frame-budget verdict. It never enters the frame count, which is what keeps a run reproducible."* **Nothing accumulates `dt`**, so the drift that would surface only at the film's length does not exist today. What is missing is not the arithmetic, it is the **test that holds it**
+- [ ] **The contract's own acceptance, decidable with no oracle at all**: for every `n` in a declared run, the engine's reported animation time for frame `n` equals `n / fps` **exactly** in double precision, and equals the glTF sampler input at the corresponding keyframe **exactly**. This is its own test in `test/clients/`, not only a property of a comparison — because if it fails, rung 6's picture comparison fails too, and only the separate test says which of the two it was
+- [ ] `clients/Animation.h`'s declared deviation — *keyframes are frames, not seconds* — is the reason this contract needs writing down rather than the reason it is broken: the deviation is sound and it is exactly what removes the accumulation, but it means **the conversion to glTF's seconds happens in one place** and that place is named here
+- [ ] Every motion rung above 6 inherits the contract and none of them re-establishes it. A motion rung that disagrees on time is a **red on rung 6**, reported as such
+
+### I.26.4 Rung 21, the film — and the honest finding is that no open movie is fetchable
+
+*Owner's ruling, 2026-08-12: **an animated `.blend` short film is the ultimate scenario, engine and
+renderer test for non-interactive mode**, placed above the ten rungs rather than inside them. The shape
+of the test is right and the reason is right: it is the first thing that makes **motion decidable**
+against a reference. `CLAUDE.md` holds that popping, ghosting, a hitch on stream-in and a scatter that
+ends at a radius are only judgeable in motion, and that has meant judged **by eye**, because there was
+no reference for a moving image. A film gives frame n a reference for every n, and a pop stops being an
+impression: it is a discontinuity in a difference curve that is otherwise smooth, on a **named frame**.*
+
+- [ ] **The premise fails on availability and the design absorbs it rather than waiting.** Checked at the source: every Blender open movie from 3.2 downwards — Sprite Fright, Spring, Agent 327, PartyTug, Tram Station, the Junk Shop — links to `cloud.blender.org` gallery pages, and the production trees are **not** on `download.blender.org`. They need an account, and *no authenticated URL is ever in the manifest*. The Junk Shop fails a second, independent test: its licence is stated as CC-BY in one place and CC-BY-SA in another, and **an asset whose licence we cannot state is out**
+- [ ] **So the film is ours and the content is theirs, which is strictly better as a test.** A declared camera path over a downloaded static scene, with a downloaded skinned character in it: the **motion is declared by us**, so *frame n* is unambiguous by construction and needs no agreement with a third party's timeline; the **geometry and materials are somebody else's**, which is the whole point of an external check. It exercises exactly what the summit must — `Keyframed` camera, a clock with a timeline, many objects, many materials, skinning — and drops only the two things that made a third-party film useless: the account and the Cycles-only shading
+- [ ] The film's scene is **Barcelona Pavilion** (§ I.26.5), its character is **`Fox`**, and its camera is a declared path in the scenario. Both sides read the same path: Blender's camera is keyed from it by script, never imported
+- [ ] **The reference is rendered once and stored, pinned like the corpus** — a directory of OpenEXR float32 frames with its own SHA-256 manifest, the Blender version and every Cycles setting on the row. Re-rendering per run would put a two-figure minute cost on every test invocation and would make the reference a moving target
+- [ ] **What that costs, measured on this host rather than estimated.** Cycles 5.2.0 LTS, factory startup cube, 1280×720, 128 spp, adaptive sampling off, denoising off, `diffuse_bounces = 0`, seed 0, OpenEXR float32: **2.087 s/frame** on the Metal device (Apple A18 Pro, 5 GPU cores) and **11.6 s/frame** on the CPU device, both warm. **The first Metal frame after a cold kernel cache costs 200.9 s** — Cycles compiles its Metal kernels once — so a per-frame timing that does not warm the cache attributes 200 s of compilation to the scene. That is the **instrument's floor**, not the film's cost: it is a six-quad scene. A 10-second segment at 24 fps is **240 frames**, so the floor is **8.4 minutes** and a furnished interior will be a multiple of it that is *not yet measured* — one timed frame of the pavilion is the tool, and it costs one run
+- [ ] **The segment is declared in frames, not in seconds**: `frames` and `fps` on the row, `frame_start = 0`, and the budget rule is `N · t_frame ≤ 2 h` with `t_frame` measured on the actual scene before the run is declared. A segment that does not fit is shortened, never sampled sparsely — a gap in the series destroys the discontinuity test, which is the half worth having
+- [ ] **The acceptance is a per-frame difference series with a stated shape, and never "the frames match"** — they will not, and § I.26 already says a raster engine and a path tracer disagree by construction. Two products: a **bounded median** difference per frame inside the intersection mask, and — the valuable half — **no discontinuity in the series where the scene is continuous**. A pop is a jump in a curve whose neighbours are smooth, and the frame index localises it
+- [ ] The discontinuity test's own statistic declared with it, so *jump* is a number: the **second difference** of the per-frame median over a window, against the distribution of the same statistic over the frames either side. A LOD switch, an impostor swap, a shadow-cascade boundary crossing and a tile becoming visible all produce it, and each has a different signature in *which* pixels moved — which is why the series is kept per-frame and not reduced to one number
+- [ ] **What must exist before it can run at all: every prerequisite of rungs 1–20 plus animation**, and that is the point of a summit rather than a defect in it. Named: the reader · the studio scenario · the linear tap · a punctual light list · shadow under a declared light · texture sampling · alpha `MASK` and `BLEND` · skinning · the time contract of § I.26.3 · a `Keyframed` camera over a timeline clock, which § I.25 already carries. **If it goes red before the rungs below are green it names nothing**, so the ladder's own rule — rung n waits for n−1 — is what gates it, not a schedule
+- [ ] **It is a declared run and not part of the suite's default tier**: `device`-tiered, named, and never triggered by an ordinary `make test`. A test nobody can afford to run gets skipped, and a skip is the defect class this repository keeps finding
+
+### I.26.5 The ladder, twenty-one rungs, easy to hard
+
+*Owner's ruling, 2026-08-12, in two steps: **implement from easy to hard, motion last** — then refined,
+**simple animations can be in between; difficulty decides the stages**. The ordering principle is
+therefore **how many independent things can be wrong at once**, and each rung adds exactly one. Motion
+enters at rung 6, as early as it honestly can, because a moving cube whose static form does not match
+teaches nothing — and because motion adds a **time axis to every comparison**, so a residual under an
+unsettled static rung is unattributable between a geometry error and a sampling-time disagreement. Every
+animated rung sits above the static rung it depends on. The synthetic floor is **generated here**
+(principle 2); everything else is fetched under § I.26.1's manifest.*
+
+| # | Asset | Source · licence | The one thing it adds | Judgeable on | Fixture |
+|---|---|---|---|---|---|
+| 1 | triangle | **ours**, generated | the reader, the projection, the raster convention | coverage | 1 |
+| 2 | quad, off both axes | **ours**, generated | depth varying across the frame | coverage · depth | 2 |
+| 3 | ±1 m cube, 12 tris | **ours**, generated | indices, winding, back-face culling | coverage · depth | 3 |
+| 4 | UV sphere 32×16 | **ours**, generated | a curved silhouette — every boundary pixel its own sub-pixel offset | coverage · depth | 4 |
+| 5 | **Menger sponge, level 1–2** | **ours**, generated | genus and depth complexity at *known* topology | coverage · depth | — |
+| 6 | **`BoxAnimated`** + `InterpolationTest` | Khronos · CC-BY-4.0 / CC0-1.0 | **time, and nothing else** — one object, TRS, no light | coverage · depth | — |
+| 7 | cube lit by one `SUN` | **ours**, generated | the first radiance number | + direct radiance | 5 |
+| 8 | sphere lit by the same | **ours**, generated | the whole `cos θ` sweep in one image | + direct radiance | 6 |
+| 9 | albedo + emissive spheres | **ours**, generated | channel linearity and the emissive path | + direct radiance | 7 |
+| 10 | **`SimpleTexture`** → `TextureCoordinateTest` | Khronos · CC0-1.0 | uv, sampling, base-colour sRGB decode, at 1 texel per pixel | coverage · direct radiance | 10 |
+| 11 | **`NormalTangentTest`** | Khronos · CC0-1.0 | tangent-space handedness | + direct radiance | — |
+| 12 | **`AlphaBlendModeTest`** | Khronos · CC-BY-4.0 | coverage that is not binary — `MASK` and `BLEND` | coverage · direct radiance | — |
+| 13 | **`AnimatedMorphCube`** → `MorphStressTest` | Khronos · CC0-1.0 / CC-BY-4.0 | vertex-level animation over a rung already green | coverage · depth | — |
+| 14 | cube under the factory point light | **ours**, generated | inverse-square falloff — the literal default lighting | + direct radiance | 8 |
+| 15 | cube on a plane, sun at 30° | **ours**, generated | a cast shadow and the first non-zero interreflection | + shadow and indirect | 9 |
+| 16 | **`RiggedSimple` → `RiggedFigure` → `Fox`** | Khronos · CC-BY-4.0 (+CC0-1.0) | skinning, at rising joint counts | coverage · depth | — |
+| 17 | **`MetalRoughSpheres`** | Khronos · CC-BY-4.0 | the full roughness × metalness sweep | + direct radiance | — |
+| 18 | **`SciFiHelmet`** | Khronos · CC0-1.0 | one real asset's material stack | coverage · direct radiance | — |
+| 19 | **`ABeautifulGame`** → Barcelona Pavilion | Khronos · CC-BY-4.0 · eMirage · CC-BY | scene scale — draw counts, occlusion, many materials | coverage · depth | — |
+| 20 | **quaternion-Julia isosurface, high subdivision** | **ours**, generated | the stress rung: triangle count with *unbalanced* spatial distribution | coverage · depth | — |
+| 21 | **the film** (§ I.26.4) | Barcelona Pavilion + `Fox` + our camera path | everything at once, over time, with a per-frame reference | the difference series | — |
+
+- [ ] **`DamagedHelmet` is refused twice over and rung 18 is `SciFiHelmet` instead.** Its normal, occlusion, emissive, base-colour and metallic-roughness textures are **CC BY-NC 4.0** (theblueturtle_, 2016, in the model's own `metadata.json` at the pinned SHA) — non-commercial, which is not a free cultural work and which would put a use restriction on this repository's test suite. And it bundles **five** new things at once, which is exactly what the one-new-thing rule exists to prevent. `SciFiHelmet` is CC0-1.0 entire, carries `POSITION · NORMAL · TANGENT · TEXCOORD_0` with base-colour, metallic-roughness, normal and occlusion textures, and adds **occlusion** alone over rung 11 — one thing
+- [ ] **`Sponza` is refused on licence, and the refusal is not close.** The Khronos copy is *"© 2016, Crytek. Cryengine Limited License Agreement"* — a proprietary EULA, not a Creative Commons licence. Rung 19's scene-scale role is carried by `ABeautifulGame` (CC-BY-4.0, ASWF and Ed Mackey, 42.0 MB) and by **Barcelona Pavilion** (eMirage, CC-BY, 24.7 MB, `download.blender.org/demo/test/pabellon_barcelona_v1.scene_.zip`), which is the better of the two for us: it is **architecture**, which is what GTA 5 is the reference for, and it is hard-surface and image-textured, so it survives glTF export
+- [ ] **`BrainStem` is refused on licence** — *"© 2017, Smith Micro Software, Inc. Poser EULA"*. Its skinning role is carried by `RiggedSimple` → `RiggedFigure` → `Fox` at rung 16, which is a **rising joint count** and therefore a better ladder than one asset
+- [ ] **`BoxTextured` is refused and `SimpleTexture` takes rung 10.** `BoxTextured` is *"CC-BY 4.0 International with Trademark Limitations"* plus a Cesium trademark, and it is on Khronos's own `Models-issues.md` list of models with licence or ownership issues — together with `AntiqueCamera`, `BoxTexturedNonPowerOfTwo`, `CesiumMan`, `CesiumMilkTruck`, `PrimitiveModeNormalsTest` and `RecursiveSkeletons`, all seven of which are out by that list alone. `SimpleTexture` and `TextureCoordinateTest` are CC0-1.0 and carry the same uv path
+- [ ] **`Duck` is refused**: SCEA Shared Source License 1.0 (Sony, 2006) — not a Creative Commons licence and not on the allow-list
+- [ ] **The fractal is confirmed as the right stressor, and it is two generators rather than one — the instinct was right about *what* and wrong about *which*.** A subdivided sphere is the **best case for every spatial partition**: convex, genus 0, uniform vertex density, one component, near-spherical cluster bounds at any cut, depth complexity 2. It cannot fail a cluster build. What it cannot produce, and what our one cluster DAG is judged on (`core/ClusterDag.h`), is **unbalanced occupancy** and **topology that survives simplification**
+- [ ] **A Menger sponge is rung 5 because its topology is *known*.** At level n it is 20ⁿ cubes with a genus that is closed-form, so *"the LOD closed three holes"* is a **number** rather than an impression — and screen-space error alone cannot see a closed hole, because the silhouette barely moves while the shading changes completely (`Real-Time Rendering` 4e, ch. 19 on LOD error metrics). It also gives **depth complexity** along its axes, which a convex body cannot measure at all, and **exact coplanarity at many depths**, which is the deliberate-tie fixture § I.26 already asks scene 1 for
+- [ ] **A quaternion-Julia isosurface is rung 20 because its distribution is *unbalanced*.** A 4D Julia set sliced to 3D and meshed at rising grid resolution gives dense filigree in some regions and emptiness in others, with wildly uneven triangle size — which is close to the worst case for a surface-area-heuristic partition, where a sphere is the best (`Real-Time Collision Detection`, ch. 6 on BVH construction and the SAH). The measurable product is the ratio of **cluster bound volume to enclosed geometry**, taken on both bodies: the sphere gives the floor, the Julia set gives the ceiling, and our DAG sits between them
+- [ ] Both fractals are **functions, not files** (principle 2), and both give arbitrary triangle counts at a declared parameter — which is what makes rung 20 a *stress* rung with an axis rather than one big model
+- [ ] The synthetic floor — triangle, quad, cube, sphere, sponge, Julia — is generated by the same code that emits the ten fixtures, so a coverage failure at rung 1 has **one** cause: we control every vertex position exactly and none of them came from a file
+
+### I.26.6 What the corpus requires of this engine, one line per capability
+
+*Owner's ruling, 2026-08-12: **on every feature ask whether Kingdom Come: Deliverance or GTA 5 uses it;
+if so Outshine must implement it, and if not it is a `REFUSED` line with that reason.** Both references
+are already `CLAUDE.md`'s, so this is the existing standard applied to a list rather than a new one. The
+capability is the requirement; **glTF's spelling of it is how the corpus proves we have it.** Where a
+reference reaches the effect by another means that is written down rather than rounded — KCD is a
+CryEngine fork that predates several of these extensions, so "KCD does fuzzy cloth, but not via a sheen
+BRDF" is a finding about what we owe, not a technicality. The corpus was measured at SHA `2bac6f8c…`
+by parsing every `.gltf` in it, so the counts below are the corpus's own and not a recollection.*
+
+| Capability | Proven by | KCD / GTA 5 | Verdict |
+|---|---|---|---|
+| indexed `TRIANGLES` | `Box` — 144 of 146 | both | required |
+| non-indexed | `TriangleWithoutIndices` — 3 of 146 | both | required |
+| `NORMAL` | 133 of 146 | both | required |
+| `TANGENT` as an attribute | `SciFiHelmet` — 34 of 146 | normal mapping in both | required |
+| `TEXCOORD_0` | 118 of 146 | both | required |
+| `TEXCOORD_1` | `MultiUVTest` — 9 of 146 | second parameterisation for occlusion and decals | required · `UNSURE` on which reference uses it for what |
+| `COLOR_0` | `BoxVertexColors` — 7 of 146 | CryEngine vegetation bending and terrain blending | required |
+| skinning (`JOINTS_0`/`WEIGHTS_0`/`skins`) | `RiggedSimple` — 6 of 146 | both, every character | required |
+| morph targets | `AnimatedMorphCube` — 4 of 146 | facial animation; CryEngine's Facial Editor is morph-target based | required |
+| node hierarchy, TRS and `matrix` | all | both | required |
+| GPU instancing | `SimpleInstancing` (`EXT_mesh_gpu_instancing`) | vegetation in both; GTA 5 instances transparent geometry in 11 draw calls | required |
+| vertex quantization | `KHR_mesh_quantization` | both ship quantized vertex streams; our 32 B vertex is already a budget | required |
+| perspective camera | 12 of 146 | both | required |
+| orthographic camera | `Cameras` — 1 of 146 | every cascade is an orthographic projection | required |
+| base colour factor and texture | 108 of 146 | both | required |
+| **metallic**-roughness factor and texture | `MetalRoughSpheres` — 63 of 146 | both | required · **`Material` has no metalness field** |
+| normal texture | 55 of 146 | both | required |
+| occlusion texture | 46 of 146 | both | required |
+| emissive factor and texture | 27 of 146 | GTA 5 at night | required · declared and unreached today |
+| alpha `MASK` | 16 of 146 | GTA 5 discards below 0.75; KCD foliage | required · **load-bearing for vegetation** |
+| alpha `BLEND` | 13 of 146 | both | required |
+| `doubleSided` | 40 of 146 | foliage in both | required |
+| sampler wrap, filter, mip | 92 of 146 | both | required |
+| `KHR_texture_transform` | 15 of 146 | atlases and scrolling uv in both | required |
+| `KHR_materials_emissive_strength` | `EmissiveStrengthTest` — 5 | HDR emissive at night | required |
+| `KHR_lights_punctual` | `DirectionalLight`, `PointLightIntensityTest` — 10 | both | required · **a subsystem, not a feature** |
+| `KHR_materials_specular` | `SpecularTest` — 9 | dielectric F0 in any PBR | required |
+| `KHR_materials_ior` | 17 | water and glass in both | required |
+| `KHR_materials_transmission` | 33 — the most-used extension in the corpus | glass in both | required |
+| `KHR_materials_volume` | 25 | GTA 5's water absorbs with depth, which is the same integral | required · the glass case is the finding |
+| `KHR_materials_clearcoat` | `ToyCar` — 13 | GTA 5 car paint; CryEngine's car paint does colour shifting over a coat | required |
+| `KHR_materials_sheen` | `SheenCloth` — 10 | **CryEngine's Cloth shader has a fuzzy layer with its own gloss** — the effect, by another means | required |
+| `KHR_materials_anisotropy` | 7 | **CryEngine's Hair shader has had anisotropic highlights with directionality maps since 3.6**; brushed metal and rims in GTA 5 | required |
+| `KHR_materials_variants` | `MaterialsVariantsShoe` — 7 | GTA 5 vehicle liveries and modkits | required · cheap, a material-row swap |
+| diffuse transmission | `DiffuseTransmissionPlant` — 6 | **CryEngine's Vegetation shader's headline feature is translucency (light transmittance)** | required · **this is the vegetation term**, and `Material::Transmission` is half of it |
+| `KHR_node_visibility` | `CubeVisibility` — 2 | both | required · trivial |
+| `KHR_texture_basisu` | 1 | both ship block-compressed textures; ASTC and BC are native on this device | required |
+| `KHR_animation_pointer` | `AnimatedColorsCube` — 5 | animated emissive and uv in GTA 5 | required · `clients/Animation.h` is the mechanism, the glTF spelling is later |
+| `LINEAR` · `STEP` · `CUBICSPLINE` | `InterpolationTest` — the only asset with all three | both | required · `core/Keyframes.h` and `core/CatmullRom.h` already carry them |
+| `KHR_materials_iridescence` | 10 | neither — no thin-film anywhere in either | **REFUSED** |
+| `KHR_materials_dispersion` | 4 | neither | **REFUSED** |
+| `KHR_materials_unlit` | 5 | the effect is emissive-only, which `Material::Emission` already spells | **REFUSED** · no second material model |
+| sparse accessors | 1 | a file compaction, no runtime capability | **REFUSED** — already refused by § I.26's reader line |
+| `POINTS`/`LINES`/`STRIP`/`FAN` | `MeshPrimitiveModes` — 2 of each at most | debug drawing only; the picture is triangles | **REFUSED** |
+| multiple scenes | `MultipleScenes` — 1 | neither | **REFUSED** — one scene, as § I.26 already says |
+| `KHR_draco_mesh_compression` | 1 | neither ships Draco; both use their own formats | **REFUSED** — a large vendored decoder for no picture |
+| `EXT_meshopt_compression` | 1 | as above | **REFUSED** |
+| `EXT_texture_webp` | 1 | neither | **REFUSED** — a second image decoder buys no comparison |
+| `KHR_xmp_json_ld` | 2 | metadata, not rendering | **REFUSED** |
+| `KHR_materials_pbrSpecularGlossiness` | 1 | archived by Khronos | **REFUSED** |
+
+- [ ] **The denominator is 40 required capabilities and 11 refusals**, and the percentage is read against the 40 — *features the references use* — never against every glTF extension that exists
+- [ ] **Today the engine reads 0 of the 40 through glTF, because there is no glTF reader**: `grep -ri gltf src/` returns 14 hits and every one is `clients/Animation.h`, `core/Keyframes.h`, `core/CatmullRom.h` or `core/Json.h` explaining that our *animation shape* borrows glTF's two-table form. **0 %** is the baseline the goal moves
+- [ ] **As raw capability, independent of the boundary, the engine expresses 18 of the 40 — 45 %** — and the number is generous by construction, because it counts *the engine can express this quantity*, not *a glTF value reaches it*. Present: indexed triangles · `NORMAL` · a tangent frame (`core/TangentFrame.h`) · `TEXCOORD_0` (`core/ChunkVtx.h`) · instancing (`render/stages/ModelDraw.h`) · perspective and orthographic projection · base colour · roughness · alpha `MASK` and `BLEND` (`Material::Coverage`) · `doubleSided` · sampler settings · transmission and ior (`core/Material.h`) · `LINEAR`, `STEP` and `CUBICSPLINE`. **Absent: metalness has no field at all**, and neither do occlusion, clearcoat, sheen, specular, anisotropy or volume
+- [ ] **`Material` gains a metalness field**, because it is the one required quantity of the metallic-roughness model that has **no spelling** in this tree: `core/Material.h` carries albedo, roughness, coverage, transmission, ior and emission and nothing that separates a conductor from a dielectric. It switches no pipeline state, so it is a material row entry by the core's own rule, and rung 17 is what first requires it
+- [ ] **A light list, and it is a subsystem rather than a feature.** `render/Gpu.h:22 SceneLight` binds one irradiance pair, one cascade buffer and one shadow atlas — *"one light, one scale, one set of cascades, so no surface can end up lit by a second sun"*. That invariant is **right for the sun and wrong as the whole lighting model**; § II.8 already owes point and spot lights as a list, and rungs 14 and 21 are what pull it. The shape to prefer keeps the sun's uniqueness unspellable while making the list ordinary: the sun stays a distinguished binding, the list is a second one, and no surface can bind two suns because there is still only one field for it
+- [ ] Skinning, morph targets, `COLOR_0` and `TEXCOORD_1` are **four new vertex-stream capabilities and one new vertex layout question**: our layout is `pos3 · uv2 · nrm3` at 32 B with a declared 24 B second (`core/ChunkVtx.h`), and neither has a spelling for joints, weights, a second uv or a colour. That is a design question this section raises and does not answer — a fifth layout per capability is the wrong answer, and so is one fat layout
+- [ ] `Material` gains an **occlusion strength** entry with the same argument as metalness — it is a number, it switches nothing, and 46 of 146 corpus assets carry an occlusion texture. It is **not** the same quantity as `render/stages/AoStage`'s screen-space term and the two must not be summed silently
+- [ ] The § I.26 reader line's *"Skinning, morph targets and `animations` out of scope"* is **superseded by this section**: all three are required capabilities, pulled by rungs 6, 13 and 16 respectively. *The earlier line was right about the reader's first subset and wrong as a scope statement, and the difference is the ruling above*
+- [ ] Every required capability is **proven by a named corpus asset and only by that asset** — a capability with no asset behind it is untested scope, and an asset that proves nothing is bytes we fetch for no reason
 
 ---
 
@@ -2289,22 +2532,31 @@ the legend at the head of this file match the pattern and were being counted as 
 count is taken at the top of a bullet (`^- [`), so an indented sub-item cannot inflate it. **A count
 nobody recomputes is a claim**, and this one had drifted twice.*
 
+*Recounted again 2026-08-12 after § I.19's shader ruling and § I.26.1–I.26.6 landed — 96 new lines, all
+unticked. **The previous block's total was right and its split was wrong**, which is the drift this
+file keeps warning about: it read 227 built / 1405 not built over a correct total of 1632, where the
+committed file carried **244 / 1388**. Seventeen ticked lines were counted as unticked. The total is
+the number nobody checks against reality and the split is the number everybody quotes, so the drift
+landed in the worse of the two. Method, stated so it can be re-run: count lines matching `^- [` at the
+top of a bullet; the legend at the head carries none and this block's rows are table rows, so neither
+needs excluding after all.*
+
 | | |
 |---|---|
-| Lines in this file | **2283** |
-| Feature lines — `^- [` , legend and this block's own rows excluded | **1632** |
-| `- [x]` built and checked | **227** |
-| `- [ ]` not built | **1405** |
+| Lines in this file | **2567** |
+| Feature lines — `^- [` at the top of a bullet | **1728** |
+| `- [x]` built and checked | **244** |
+| `- [ ]` not built | **1484** |
 | Band 0 — residency | 78 |
-| Band I — engine (§§ I.1–I.17 plus the library sections §§ I.18–I.26) | 452 |
+| Band I — engine (§§ I.1–I.17 plus the library sections §§ I.18–I.26) | 548 |
 | Band II — world | 156 |
 | Band III — vegetation | 459 |
 | Band IV — buildings and infrastructure | 346 |
 | Band V — vehicles | 141 |
-| `NO SUBSTITUTE` | 11 |
+| `NO SUBSTITUTE` | 12 |
 | `REFUSED` | 17 |
-| `TILE` | 4 |
-| `TOOL` | 17 |
+| `TILE` | 5 |
+| `TOOL` | 18 |
 | `UNSURE` | 3 |
 
 **Read the 227 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve

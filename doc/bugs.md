@@ -618,7 +618,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   silently wherever the posting spacing drops under 0.5 m — at z14 the spacing is ~4.8 m, so this is a
   latent bound on stride and zoom rather than a live wrong picture. Right: `TerrainMesh` carries `Rows()`
   and `Cols()` beside `VertexCount()` (`F.21`), and `ChunkBuildEcef` takes them.
-- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
+- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `test/mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
 
@@ -907,8 +907,38 @@ the tree more than once, or under a name that says the wrong unit.*
 
 ## Declaration and build
 
+- **A derived constant whose derivation no longer exists.** `world/ChunkSurface.h:58`
+  `kSurfaceAgreementM = 9.17e-4f` is the ceiling on how far the two evaluators of the terrain surface
+  may disagree, and it is the sum of seven float32 terms. The instrument that summed them and checked
+  the sum against plumb runs was `tools/surface_budget.py`, deleted with `tools/` on 2026-08-12. The
+  number is unchanged and may well be right; what is gone is any way to recompute it, so it is a
+  measured value with no reproducible origin — against `CLAUDE.md`'s *every number carries its
+  origin*. Right: a test under `test/world/` that reconstructs the seven terms and asserts the
+  constant bounds them, which is the same arithmetic in the language the tree is written in.
+
+- **The browser is gone from the code and still in the prose, 38 times.** `grep -rniE
+  'browser|wasm|canvas|emscripten|console\.log|Chrome'` over `src/**.{h,cpp,wgsl}` returns **38 hits in
+  27 files** with the last `#ifdef __EMSCRIPTEN__` deleted (2026-08-12) — `clients/Walker.h:1,22,35`,
+  `clients/SceneRunner.h:7`, `clients/Png.h:10`, `clients/Artifacts.h:11`, `clients/Sim.h:42`,
+  `core/io/Log.cpp:18`, `core/GroundSample.h:2`, `core/Camera.h:82` among them. A comment that
+  explains a decision by a platform no target compiles for is a reason the reader cannot check, which
+  is `NL.2` failing in the direction that costs most. One of them is not a comment: `clients/RunIdentity.h:22`
+  carries an `Agent` field that is *"the browser's own version string and empty natively"* and is
+  published as a telemetry column that is now always empty. Right: each site either states the reason
+  that still holds or goes, and the `agent` column goes with the browser that filled it.
+
+- **`Artifacts` is an interface over one implementation, and two of its states cannot occur.**
+  `clients/Artifacts.h` exists because *"a directory natively, an HTTP endpoint in the browser"*; the
+  browser endpoint is gone and `clients/FileArtifacts.h` is the only implementation, whose `Settle()`
+  returns `Complete` on the line that asks. So `Delivery::InFlight` is unreachable, and the arm that
+  handles it — `clients/SceneRunner.cpp:129-131` with `kDeliverWaitMs = 20000.0` at line 48, a
+  20-second wait derived from *"the collector's own POST timeout"* — is dead code guarding against a
+  collector that no longer exists. `C.121`/`I.25`: an abstract interface with one implementation and
+  three unreachable branches. Right: the runner writes to a directory, `Delivery` is `Complete` or
+  `Refused`, and the wait has no subject to wait for.
+
 - **Ten declared scenes carry eighty world fields that nothing reads, and one of them is declared
-  twice with the C++ copy winning.** Every `subject` scene in `mods/demo/mod.json`
+  twice with the C++ copy winning.** Every `subject` scene in `test/mods/demo/mod.json`
   (`subject-beech`, `-meadow`, `-hazel`, `-elder`, `-box`, `-dog-rose`, `-hedge-hornbeam`,
   `-snag-spruce`, `-log-beech`, `-stump-beech`) declares `lat 52.10602`, `lon 9.43453`, `eyeM 1.7`,
   `yawDeg 280`, `pitchDeg 0`, `fovDeg 30`, `utc`, `windDeg 250`, `windMs 6.0` — and
@@ -1027,7 +1057,7 @@ the tree more than once, or under a name that says the wrong unit.*
   `test/clients/AppWalk.cpp:101` refuses an interactive scene, so the walking verb is compiled (it is
   in `APP_SRCS`, so it cannot rot) and constructed nowhere. **The larger half is that it is not one
   dead class but a dead arm of a declared enumeration, and the arm is already declared in a shipped
-  mod**: `mods/demo/mod.json` has scene `walk` with `"kind": "interactive"`, and
+  mod**: `test/mods/demo/mod.json` has scene `walk` with `"kind": "interactive"`, and
   `./build/gpu_walk demo walk` answers `ERROR run scene_is_interactive scene=walk`, **exit 1**. Worse,
   `Kind::Interactive` is the *default* (`clients/Scene.h:139`) and `clients/Scene.cpp:119` returns
   early for it, so a scene that simply omits `kind` is parsed with its `runs` block unvalidated and is
@@ -1108,17 +1138,21 @@ the tree more than once, or under a name that says the wrong unit.*
   drew a tree and the other did not for ten rounds), one level up. The gate is not wrong, it is the
   wrong *kind*: an allowlist reports what it enumerates, where `doc/requirements.md` § I.20 step 7's
   `src/api/` makes the whole class unspellable, because a translation unit that cannot name `Renderer`
-  cannot call any method on it, named or not. Right: the include set replaces the regex, and rule 2
+  cannot call any method on it, named or not. **The include set cannot do it today**: `clients/Outshine.h:20`
+  includes `Renderer.h`, so an entry point reaches the type through the one object it is supposed to
+  construct and the Makefile has to hand it `-Isrc/render` (`INC_CLIENTS`) — which is why this file is
+  the last Python in the tree. Right: the include set replaces the regex, and rule 2
   (`main()` under 40 lines, `F.3`) is the only clause that still needs a counter afterwards.
 
-- **Ten `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
+- **Eight `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
   `fb_stream_open`, `fb_stream_close`, `fb_stream_ground`, `fb_stream_ground_block`,
-  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`,
-  `fb_canvas_px`, `fb_post` — across `world/TerrainLoader.{h,cpp}`, `world/World.cpp`,
+  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`
+  — across `world/TerrainLoader.{h,cpp}`, `world/World.cpp`,
   `world/OsmField.cpp`, `world/BuildingField.cpp`, `world/WaterField.cpp`,
-  `clients/Sim.cpp`, `clients/Outshine.cpp`, `clients/HttpPost.cpp`, `render/Renderer.cpp`.
+  `clients/Sim.cpp`, `clients/Outshine.cpp`, `render/Renderer.cpp`.
   `fb_take_http_body` left with the browser transport (2026-08-12) and `world/TilePool.cpp` is off
-  this list.
+  this list; `fb_post` left with `clients/HttpPost.cpp` and `fb_canvas_px` with the canvas surface
+  target (both 2026-08-12).
   `CLAUDE.md`'s naming rule exempted `world/terrain/` and `FBWX` and nothing else, so these were already
   outside the exception; with `world/terrain/` gone there is no C-ABI code left in the tree at all and
   the prefix has no remaining justification anywhere. Zero `osmmesh_` names survive, which is the half
@@ -1134,3 +1168,65 @@ the tree more than once, or under a name that says the wrong unit.*
   wasm gate and at phase 3.4. Right: the sha is over the decoded RGBA buffer, hashed before the encoder
   is called — it costs one call, survives every encoder and container change, and moves only when the
   picture does.
+
+## Stale pointers held with confidence — eight sites naming two deleted documents
+
+`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Eight comments in
+`src/` still cite `doc/architecture.md` as the authority for a rule they state**, and one requirement
+line cites it too. A reader who follows the pointer finds nothing; a reader who does not follow it takes
+the rule on the comment's word, which is exactly the failure mode a citation exists to prevent. This is
+the same defect class as a miscited rule number — a confident reference to something that is not there —
+and it costs a round the first time somebody tries to check one of these rules against its source.
+
+- `src/core/Material.h:19` — *"nothing in it can switch a pipeline state (doc/architecture.md)"*. The
+  rule is live and correct; it is in `CLAUDE.md` under *the core dictates the pipeline*.
+- `src/clients/Scene.h:31` — *"1280x720 is the frame budget's subject [SET, doc/architecture.md]"*. A
+  `[SET]` number whose frame of reference points at a deleted file has no origin, which is the one thing
+  `CLAUDE.md` requires of every number.
+- `src/render/GeometryStage.h:3` · `src/render/Renderer.cpp:785` · `src/render/stages/TaaStage.cpp:110`
+  · `src/clients/Sim.cpp:176` · `src/clients/Sim.h:50` · `src/clients/RegionForge.h:2` ·
+  `src/generators/Water.h:2` — the same, one each.
+- `doc/requirements.md:193` — *"declared in `architecture.md`, not found in `PresentStage`"*: the line's
+  own evidence is a document that no longer exists, so the line cannot be checked as written.
+
+Right: each site names `CLAUDE.md` and the sentence there, or states the rule without a citation if the
+rule is local. A grep for `architecture.md` returning zero in `src/` is the check.
+
+## German in an English-only repository, and it cites a numbering that is gone
+
+`CLAUDE.md`'s first rule is that the repository speaks one language. Two comments are in German, and
+both compound the error by citing a numbered principle list that the current `CLAUDE.md` does not have —
+it carries *the constraints*, *stance* and *setup*, with no numbered principles at all.
+
+- `src/clients/Animation.h:15` — *"a bespoke format here would be the parser nobody ordered (Prinzip 1)"*.
+- `src/core/Keyframes.h:22` — *"(Prinzip 7: a run must …)"*.
+- `src/render/Renderer.cpp:633` — *"(CLAUDE.md, Prinzip 5)"* — half-translated, and the cited number
+  does not exist in the file it names.
+
+`src/render/stages/TerrainDraw.cpp:81` and `src/world/TerrainLoader.cpp:329` cite *"CLAUDE.md principle
+2"* in English, which is the same dangling number in the right language. Right: the sentence the rule
+actually is, quoted or paraphrased, with no number — a number into a list that is not numbered is worse
+than no citation, because it reads as precise.
+
+## Cycles' first Metal frame costs 200 s and would be attributed to the scene
+
+Not a defect in the tree yet — a **trap laid for § I.26's oracle**, recorded here because the harness
+that walks into it does not exist yet and the number is cheap to lose. Measured on this host, Blender
+5.2.0 LTS (`fbe6228777e7`, built 2026-07-14), factory startup cube, 1280×720, 128 spp, adaptive
+sampling off, denoising off, `diffuse_bounces = 0`, seed 0, OpenEXR float32:
+
+| device | cold | warm |
+|---|---|---|
+| Metal, Apple A18 Pro, 5 GPU cores | **200.9 s** | **2.087 s** |
+| CPU, Apple A18 Pro | — | 11.6 s (128 spp) · 49.6 s (512 spp) |
+
+The 200.9 s is Cycles compiling its Metal kernels once per kernel-cache generation. A reference run that
+times its first frame attributes it to the scene and reports a per-frame cost two orders out. Right: the
+oracle harness renders one throwaway frame before it starts timing, and publishes *cold* and *warm*
+separately as the instrument's own floor beside the result.
+
+A second trap in the same measurement, and it is the one that produced the CPU column: setting
+`scene.cycles.device = 'GPU'` is **not** sufficient — `preferences.addons['cycles'].preferences` must
+have `compute_device_type` set *and* `get_devices()` called *and* the device's `use` flag set, or Cycles
+falls back to CPU silently and the run is 5.6× slower with no message. A harness that does not assert
+the device it got has measured something it did not choose.
