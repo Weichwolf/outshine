@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Working on** | Hardening, item 1: `make gates` — one target whose green is the precondition of a commit |
-| **Scope** | `doc/requirements.md`: **1418 features, 227 ticked, 1191 open** · `doc/bugs.md`: **68 defects** |
-| **Last accepted** | `Absent` terminal, only a declared refusal mints it; counters 64-bit on wasm (`1424214`) |
+| **Working on** | Hardening item 3: the `[[nodiscard]]` sweep and `default:` removal |
+| **Scope** | `doc/requirements.md`: **1423 features, 230 ticked, 1193 open** · `doc/bugs.md`: **71 defects** |
+| **Last accepted** | `make gates` — nine gates, every one demonstrated red, 6m11s (`4168e68`) |
 
 **Bugs come before requirements.** A defect in `doc/bugs.md` outranks any open line in
 `doc/requirements.md`, and a round that touches a file with a recorded defect in it fixes that defect
@@ -38,32 +38,30 @@ Hardening comes before further defect hunting. Bugs already recorded stay record
 
 ## Now, in order — the hardening queue, from § I.17
 
-1. **`make gates`.** One target running the five `verify-*` plus the declared sanitised runs plus the
-   runtime refusals, one line per gate, non-zero on any failure. **Its green becomes a clause in every
-   later "done when"** — a gate nobody runs is not a defence, and `verify-counters` earned that point
-   today by failing against the type it was written for. **Done when** it exists and one deliberately
-   broken gate turns it red.
-2. **The declared sanitised runs.** `make walk-asan` (`address,undefined`), `make wasm-asan`
-   (`address`). Measured: wasm ASan 2.84×, native ASan 3.83×, native UBSan 9.84× — and native ASan
-   lands the oracle's CPU on the browser's unsanitised speed, so it concedes nothing new. `SAFE_HEAP`
-   is `REFUSED` at 6.20× having failed to catch what ASan caught at half the price. **Done when** both
-   run `demo/walk-500` clean and the native one is inside `make gates`.
-3. **`[[nodiscard]]` sweep and `default:` removal.** 38 → 134, `world/` 5 → 29, `render/` 0 → 12;
+**Items 1 and 2 are done** (`4168e68`): `make gates` runs nine gates in 6m11s and `gates-build`
+seven in 26 s; each was demonstrated red for its own reason. Native ASan over the whole client
+found nothing over 10 800 frames, three runs. wasm ASan is **blocked, not refused** — it links and
+cannot finish one frame in 2 040 s, and it raises `INITIAL_MEMORY` by 53 %, so it could not decide
+the freeze even if it ran.
+
+**Every "done when" below now carries `make gates` green as a clause.**
+
+1. **`[[nodiscard]]` sweep and `default:` removal.** 38 → 134, `world/` 5 → 29, `render/` 0 → 12;
    `default:` over house enumerations 5 → 0. **Done when** those counts hold **and the `(void)` count
    is published beside them**, because that is how this sweep gets faked.
-4. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
+2. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
    `grep malloc` outside `core/io/` is 0 and a run with the heap cut until it fails ends naming the
    item and the bytes.
-5. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
+3. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
    `Span::Unchecked` sites ≤ 12 and all at a C ABI, the 40 raw pointer+count parameter pairs are 0
    outside `world/terrain`, and **`poolMeshCpuMs / poolMeshTiles` moves under 5 %** against 398 ms
    (wasm) / 190.5 ms (native).
-6. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
+4. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
    `world/terrain` non-zero, static ≥ 30, and `ClusterCut`'s silent level clamp is gone.
-7. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
+5. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
    refusal, `BindInput`'s refusal. **Done when** the two roof gates hold for their own reasons and
    `ClusterCut`'s `assert(Closed_)` is **deleted because unreachable**.
-8. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
+6. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
    diff rather than an opinion.
 
 ## Then, from `requirements.md`
