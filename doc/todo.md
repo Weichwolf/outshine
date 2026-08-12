@@ -54,29 +54,29 @@ the freeze even if it ran.
    rung, on the silhouette. **Every A/B still in this repository has been read against that noise
    floor.** Nothing else is measured on stills until this closes. **Done when** ten interleaved runs
    give one `buildingTris` and one sha256, and a gate says so.
-3. **A standpoint the tile scheme cannot carry is refused by name.** `osmmesh_geo_to_tile` returns
+2. **A standpoint the tile scheme cannot carry is refused by name.** `osmmesh_geo_to_tile` returns
    `OSMMESH_GEO_ERR_RANGE` above |lat| 85.0511° and writes neither output; both callers read their own
    zero-initialised locals, so the world silently loads tile (0,0). Reachable from a declared
    scenario — `Scene.cpp:65` accepts lat ∈ [−90, 90] and `World::Open` has no guard. Web Mercator ends
    there by construction, so *"every point on Earth is a valid start"* is a claim the tile scheme does
    not hold; a named refusal is the honest half and a polar scheme is the owner's call. **Done when** a
    declared scenario at 86° N refuses by name instead of drawing Null Island.
-4. **The hardening ledger as a script in the tree.** The `[[nodiscard]]` line is ticked and **nothing
+3. **The hardening ledger as a script in the tree.** The `[[nodiscard]]` line is ticked and **nothing
    holds it** — one new `bool Foo()` re-opens it silently, and the round's own scanner lives in a temp
    directory. **Done when** the eight counts are a committed script inside `make gates`.
-3. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
+4. **Allocation.** Seven remaining `malloc` sites through `Heap`; `core/io/HeapArray.h`. **Done when**
    `grep malloc` outside `core/io/` is 0 and a run with the heap cut until it fails ends naming the
    item and the bytes.
-4. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
+5. **`Span` hardening, `Sub`'s wrapping bound, `core/Grid.h`, and adoption.** **Done when**
    `Span::Unchecked` sites ≤ 12 and all at a C ABI, the 40 raw pointer+count parameter pairs are 0
    outside `world/terrain`, and **`poolMeshCpuMs / poolMeshTiles` moves under 5 %** against 398 ms
    (wasm) / 190.5 ms (native).
-5. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
+6. **Assertions where they earn it.** **Done when** runtime ≥ 40 with `render/stages` and
    `world/terrain` non-zero, static ≥ 30, and `ClusterCut`'s silent level clamp is gone.
-6. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
+7. **The producer/consumer reshape.** `RoofSurface::Roofed`, `ClusterCut::Close()`, `treebench`'s
    refusal, `BindInput`'s refusal. **Done when** the two roof gates hold for their own reasons and
    `ClusterCut`'s `assert(Closed_)` is **deleted because unreachable**.
-7. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
+8. **The hardening ledger** — one script, eight counts, in the record. **Done when** "pristine" is a
    diff rather than an opinion.
 
 ## Then, from `requirements.md`
