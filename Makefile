@@ -240,21 +240,21 @@ GEN_NEGATIVES := RendererIsNotReachable WorldIsNotReachable LogIsNotReachable Dr
 verify-generators: ## a generators/ TU compiles against core and CANNOT name Renderer, World or Log
 	@cd $(SELF_DIR); set -e; \
 	  mkdir -p build; \
-	  c++ test/generators/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_GENERATORS) -fsyntax-only; \
+	  c++ test/compile/generators/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_GENERATORS) -fsyntax-only; \
 	  for f in $(GEN_SRCS); do \
 	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_GENERATORS) -fsyntax-only; \
 	    n=$$(c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -MM | tr ' \\' '\n\n' | grep -c '^src/'); \
 	    up=$$(c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\)/' || true); \
 	    if [ "$$up" != "0" ]; then echo "verify-generators: $$f includes $$up file(s) of render/ or world/" >&2; exit 1; fi; \
 	    echo "verify-generators: $$f closure=$$n render+world=$$up"; done; \
-	  c++ test/generators/draw/DrawIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
+	  c++ test/compile/generators/draw/DrawIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
 	  for f in $(GEN_DRAW_SRCS); do \
 	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DRAW) -fsyntax-only; \
 	    n=$$(c++ "$$f" $(CXXSTD) $(INC_DRAW) -MM | tr ' \\' '\n\n' | grep -c '^src/'); \
 	    up=$$(c++ "$$f" $(CXXSTD) $(INC_DRAW) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|clients\)/' || true); \
 	    if [ "$$up" != "0" ]; then echo "verify-generators: $$f includes $$up file(s) of render/ or world/" >&2; exit 1; fi; \
 	    echo "verify-generators: $$f closure=$$n render+world=$$up"; done; \
-	  for g in $(GEN_NEGATIVES); do f=test/generators/$$g.cpp; \
+	  for g in $(GEN_NEGATIVES); do f=test/compile/generators/$$g.cpp; \
 	    if c++ "$$f" $(CXXSTD) $(INC_GENERATORS) -fsyntax-only 2>/dev/null; then \
 	      echo "verify-generators: $$f COMPILED -- the include set no longer bounds generators/" >&2; exit 1; \
 	    fi; \
@@ -275,7 +275,7 @@ verify-world:    ## a world/ TU compiles against core and CANNOT name a generato
 	  for f in $(WORLD_SRCS); do \
 	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
 	    if [ "$$up" != "0" ]; then echo "verify-world: $$f includes $$up file(s) above world/" >&2; exit 1; fi; done; \
-	  f=test/world/GeneratorIsNotReachable.cpp; \
+	  f=test/compile/world/GeneratorIsNotReachable.cpp; \
 	  if c++ "$$f" $(CXXSTD) $(INC_WORLD) -fsyntax-only 2>/dev/null; then \
 	    echo "verify-world: $$f COMPILED -- world/ can name a generator" >&2; exit 1; \
 	  fi; \
@@ -286,10 +286,10 @@ verify-world:    ## a world/ TU compiles against core and CANNOT name a generato
 
 verify-types:    ## a value whose misuse must not compile -- and does not
 	@cd $(SELF_DIR); set -e; \
-	  for f in test/core/GroundSampleIsUsable.cpp test/core/WaterDepthIsUsable.cpp; do \
+	  for f in test/compile/core/GroundSampleIsUsable.cpp test/compile/core/WaterDepthIsUsable.cpp; do \
 	    c++ "$$f" $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only; done; \
-	  for f in test/core/HeightIsNotReachableWithoutItsState.cpp test/core/AnswerIsNotIgnorable.cpp \
-	           test/core/DepthIsNeverNegative.cpp; do \
+	  for f in test/compile/core/HeightIsNotReachableWithoutItsState.cpp \
+	           test/compile/core/AnswerIsNotIgnorable.cpp test/compile/core/DepthIsNeverNegative.cpp; do \
 	    if c++ "$$f" $(CXXSTD) $(CXX_WARN) -Isrc/core -fsyntax-only 2>/dev/null; then \
 	      echo "verify-types: $$f COMPILED -- a number is readable without the state that gives it meaning" >&2; exit 1; \
 	    fi; done; \

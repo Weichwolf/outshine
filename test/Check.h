@@ -2,9 +2,15 @@
  * say "failed" could not report the tree failing to link, so this is header-only: C++17 inline
  * variables, no translation unit, no archive, no order of initialisation to get wrong.
  *
+ * THE VERDICT IS THE TRAILER THIS PRINTS, never the exit status. A POSIX status is eight bits: 256
+ * failed claims come back as 0 and 77 of them used to read as "skipped", so the count a reader sees
+ * is the count the harness judges by, and the status carries one bit that is cross-checked against
+ * it.
+ *
  * THE COUNTERS ARE MUTABLE GLOBALS (`I.2`). The deviation is deliberate and bounded: a test process
  * is one thread and one `main`, and the alternative — a reporter object threaded through every
- * helper a test writes — is the thing that makes people stop writing checks. */
+ * helper a test writes — is the thing that makes people stop writing checks. What it does not buy is
+ * a writable score: a `Tally` counts up and cannot be assigned, so `Failures = 0` has no spelling. */
 #ifndef CHECK_H
 #define CHECK_H
 
@@ -13,8 +19,27 @@
 
 namespace outshine::Test {
 
-inline int Checks = 0;
-inline int Failures = 0;
+class Tally {
+public:
+  Tally() = default;
+  Tally(const Tally &) = delete;
+  Tally &operator=(const Tally &) = delete;
+  Tally(Tally &&) = delete;
+  Tally &operator=(Tally &&) = delete;
+
+  Tally &operator++() {
+    ++Count_;
+    return *this;
+  }
+  int Value() const { return Count_; }
+
+private:
+  int Count_ = 0;
+};
+
+inline Tally Checks;
+inline Tally Failures;
+inline Tally Skips;
 
 inline void Checked(bool held, const char *expression, const char *claim, const char *file,
                     int line) {
@@ -48,16 +73,25 @@ inline void Note(const char *what) { std::printf("NOTE %s\n", what); }
  * comment naming a requirement is covered by nothing. */
 inline void Covers(const char *requirement) { std::printf("COVERS %s\n", requirement); }
 
-/* The exit code. A test that checked nothing fails: it is indistinguishable from a test whose body
- * was compiled away, and both are silence wearing a green hat. */
+/* A SKIP IS SPELLED HERE OR NOWHERE. It used to be an exit status the harness recognised, which made
+ * it indistinguishable from that many failed claims; it is a declared word in the trailer now. */
+inline void Skip(const char *why) {
+  ++Skips;
+  std::printf("SKIP %s\n", why);
+}
+
+/* A test that checked nothing and skipped nothing fails: it is indistinguishable from a test whose
+ * body was compiled away, and both are silence wearing a green hat. The return value is one bit
+ * because the trailer already carries the count — a status that tried to carry it lied at 256. */
 [[nodiscard]] inline int Report() {
-  if (Checks == 0) {
+  if (Checks.Value() == 0 && Skips.Value() == 0) {
     ++Failures;
     std::printf("FAIL no claim was checked\n");
   }
-  std::printf("CHECKS %d FAILURES %d\n", Checks, Failures);
+  std::printf("CHECKS %d FAILURES %d SKIPPED %d\n", Checks.Value(), Failures.Value(),
+              Skips.Value());
   std::fflush(stdout);
-  return Failures;
+  return Failures.Value() == 0 ? 0 : 1;
 }
 
 } // namespace outshine::Test

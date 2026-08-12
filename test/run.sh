@@ -6,21 +6,32 @@
 #
 #   sh test/run.sh [--timeout SECONDS] [--allow-skip LAYER/NAME]...
 #
-# A TEST IS A TRANSLATION UNIT THAT INCLUDES THE REPORTER. Discovery is that property and not a list:
-# a list rots the day someone adds a file, and the reporter is what a test needs in order to have a
-# verdict at all. The entry points and the must-not-compile negatives under test/ include no reporter
-# and are therefore not tests -- they are built and judged by the Makefile until the steps that
-# replace them.
+# THE VERDICT IS THE TRAILER THE REPORTER PRINTED, and the exit status is only cross-checked against
+# it. A POSIX status is eight bits: 256 failed claims came back as 0 and passed, 77 came back as
+# "skipped", and `(void)Report()` satisfied [[nodiscard]] and returned 0 -- three green runs over a
+# red test, all three the same defect, which is trusting a number that cannot hold the answer. A
+# trailer that is missing, doubled, malformed or disagreeing with the status is a HARD ERROR naming
+# the file, never a pass.
 #
-# THE INCLUDE SET COMES FROM THE TEST'S DIRECTORY, mirroring src/, and AN UNKNOWN DIRECTORY IS A HARD
-# ERROR. A default include set is the quiet failure this whole design is built to avoid: a mistyped
-# directory would get a wider set, and a test that passes because it compiled against more than its
-# own layer proves nothing about the layer.
+# A TEST IS A .cpp IN A LAYER DIRECTORY, and the directory is the whole of the decision. Reading the
+# source for `#include "Check.h"` made a forgotten include a silent non-test -- the file simply never
+# ran, and the run stayed green. Every .cpp under test/ is now either in a layer, where it is built,
+# run and must produce a trailer, or in a directory declared as the Makefile's; a directory in
+# neither is a hard error before anything is built.
+#
+# THE INCLUDE SET COMES FROM THE TEST'S DIRECTORY, mirroring src/. A default include set is the quiet
+# failure this whole design is built to avoid: a mistyped directory would get a wider set, and a test
+# that passes because it compiled against more than its own layer proves nothing about the layer.
 #
 # THE MILLISECONDS ON A LINE ARE WHAT THE HARNESS SPENT ON THAT TEST, its build included. The layer's
 # objects are compiled once and reused, so the first test of a layer carries what the rest get free.
 
 set -u
+# JOB CONTROL, SO EVERY CHILD IS A PROCESS GROUP OF ITS OWN. Without it the watchdog's `sleep` is
+# orphaned to init when the watchdog is killed (measured: 8 stray `sleep 120` after two runs of four
+# tests), and anything a test itself left running -- a proxy still bound to a port is what has
+# already cost a gate run here -- survives the run that started it.
+set -m
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" || exit 2
@@ -37,15 +48,30 @@ OPT=-O2
 TIMEOUT_S=120
 ALLOWED_SKIPS=""
 
-# THE EXPECT-FAIL SET, AND IT CARRIES THE COUNT. Inverting on "non-zero" would also invert a crash, a
-# build that fell over, or a test that failed for two reasons instead of one -- which is how a broken
-# harness stays quiet. `LAYER/NAME:FAILURES` demands exactly that many failed claims.
+# THE EXPECT-FAIL SET, AND IT CARRIES THE COUNT. Inverting on "the test was red" would also invert a
+# crash, a build that fell over, or a test that failed for two reasons instead of one -- which is how
+# a broken harness stays quiet. `LAYER/NAME:FAILURES` demands exactly that many failed claims, and
+# the count comes from the trailer, which is the only place that can hold it.
 EXPECT_FAIL="harness/ExpectFail:1"
 
 Die() {
   printf 'run.sh: %s\n' "$*" >&2
   exit 2
 }
+
+# WHAT AN INTERRUPTED RUN LEAVES: nothing. The test and its watchdog are process groups of their own,
+# so a Ctrl-C at the terminal reaches the harness and not them; this trap is what reaches them.
+RUNNING_GROUPS=""
+KillRunning() {
+  for runningGroup in $RUNNING_GROUPS; do
+    kill -TERM -"$runningGroup" 2>/dev/null
+  done
+  RUNNING_GROUPS=""
+}
+trap 'KillRunning; exit 130' INT
+trap 'KillRunning; exit 143' TERM
+trap 'KillRunning; exit 129' HUP
+trap 'KillRunning' EXIT
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -80,6 +106,19 @@ LayerGroups() {
     core) printf '%s' "src/core src/core/io" ;;
     generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     harness) printf '%s' "" ;;
+    *) return 1 ;;
+  esac
+}
+
+# WHAT IS UNDER test/ AND IS NOT THE HARNESS'S. Each of these is built by the Makefile and none of
+# them has a reporter or a verdict: an entry point is run by a person, and a compile-judged subject
+# is judged by whether it compiles at all. There is no default arm here either.
+NotTheHarnesses() {
+  case "$1" in
+    .) printf '%s' "the harness's own clock" ;;
+    clients) printf '%s' "entry points, built by the Makefile" ;;
+    generators) printf '%s' "a gate program the Makefile builds and runs" ;;
+    compile | compile/*) printf '%s' "judged by whether it compiles, by the Makefile, never run" ;;
     *) return 1 ;;
   esac
 }
@@ -129,7 +168,9 @@ BuildGroup() {
 
 # The child runs in the background and a watchdog kills it, because macOS has no timeout(1). `wait`
 # is what times the run -- polling would add its own interval to every measurement -- and the
-# watchdog leaves a marker so that a killed run is TIMEOUT and never a generic failure.
+# watchdog leaves a marker so that a killed run is TIMEOUT and never a generic failure. Every kill is
+# a kill of the GROUP: killing the watchdog alone leaves its `sleep` running under init, and killing
+# a test alone leaves whatever the test started.
 RunWithTimeout() {
   binary=$1
   log=$2
@@ -137,23 +178,54 @@ RunWithTimeout() {
   rm -f "$marker"
   "$binary" >"$log" 2>&1 &
   child=$!
+  RUNNING_GROUPS=$child
   (
     sleep "$TIMEOUT_S"
     if kill -0 "$child" 2>/dev/null; then
       : >"$marker"
-      kill -TERM "$child" 2>/dev/null
+      kill -TERM -"$child" 2>/dev/null
       sleep 2
-      kill -KILL "$child" 2>/dev/null
+      kill -KILL -"$child" 2>/dev/null
     fi
   ) >/dev/null 2>&1 &
   watchdog=$!
+  RUNNING_GROUPS="$child $watchdog"
   # The shell announces a background job that died on a signal in its own words; the harness reports
   # the signal by name below, and one statement has one place.
   wait "$child" 2>/dev/null
   status=$?
-  kill "$watchdog" 2>/dev/null
+  KillRunning
   wait "$watchdog" 2>/dev/null
   return $status
+}
+
+# THE TRAILER, and `set --` is used inside a function so it splits the function's parameters and not
+# the run's. Everything the verdict needs comes out of here, or the run dies naming the file.
+TRAILER_CHECKS=0
+TRAILER_FAILURES=0
+TRAILER_SKIPS=0
+Number() {
+  case "$1" in
+    '' | *[!0-9]*) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+ReadTrailer() {
+  trailerId=$1
+  trailerLog=$2
+  trailerCount=$(grep -c '^CHECKS ' "$trailerLog")
+  [ "$trailerCount" -eq 1 ] ||
+    Die "$trailerId printed $trailerCount verdict lines and a verdict is exactly one: a test that emits none did not include the reporter, and one that emits two reported twice -- $trailerLog"
+  # shellcheck disable=SC2046
+  set -- $(grep '^CHECKS ' "$trailerLog")
+  [ $# -eq 6 ] && [ "$1" = CHECKS ] && [ "$3" = FAILURES ] && [ "$5" = SKIPPED ] ||
+    Die "$trailerId printed a verdict line the reporter cannot have written -- $trailerLog"
+  Number "$2" && Number "$4" && Number "$6" ||
+    Die "$trailerId printed a verdict line whose counts are not numbers -- $trailerLog"
+  TRAILER_CHECKS=$2
+  TRAILER_FAILURES=$4
+  TRAILER_SKIPS=$6
+  return 0
 }
 
 DeclaredFailures() {
@@ -178,21 +250,22 @@ mkdir -p "$BUILD/obj" "$BUILD/log" || Die "cannot write under $BUILD"
 $CXX test/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+# EVERY DIRECTORY RESOLVES BEFORE ANYTHING IS BUILT. An undeclared one found halfway through is a
+# refusal the reader has to notice under three green lines; found here it is the only thing printed.
 TESTS=""
 for candidate in $(find test -name '*.cpp' | sort); do
-  if grep -q '^#include "Check.h"' "$candidate"; then TESTS="$TESTS $candidate"; fi
-done
-[ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under test/ includes the reporter"
-
-# EVERY LAYER RESOLVES BEFORE ANYTHING IS BUILT. An undeclared directory found halfway through is a
-# refusal the reader has to notice under three green lines; found here it is the only thing printed.
-for candidate in $TESTS; do
   candidateLayer=$(dirname "${candidate#test/}")
-  LayerIncludes "$candidateLayer" >/dev/null ||
-    Die "$candidate is under test/$candidateLayer, which declares no include set -- declare it in LayerIncludes and LayerGroups, or move the test"
-  LayerGroups "$candidateLayer" >/dev/null ||
-    Die "$candidate is under test/$candidateLayer, which declares no source groups"
+  if LayerIncludes "$candidateLayer" >/dev/null; then
+    LayerGroups "$candidateLayer" >/dev/null ||
+      Die "$candidate is under test/$candidateLayer, which declares an include set but no source groups"
+    TESTS="$TESTS $candidate"
+  elif NotTheHarnesses "$candidateLayer" >/dev/null; then
+    continue
+  else
+    Die "$candidate is under test/$candidateLayer, and the harness knows no such directory -- declare it in LayerIncludes and LayerGroups to run its tests, or in NotTheHarnesses if the Makefile judges it"
+  fi
 done
+[ -n "$TESTS" ] && [ "$TESTS" != " " ] || Die "no test under a declared layer of test/"
 
 started=$(Now)
 passed=0
@@ -227,9 +300,13 @@ for testSource in $TESTS; do
     $CXX "$testSource" $OBJECTS $CXXSTD $OPT $WARN -Itest $includes -o "$binary" >>"$log" 2>&1 || built=no
   fi
 
+  # A BUILD FAILURE, A TIMEOUT AND A SIGNAL ARE JUDGED BEFORE THE TRAILER, because none of the three
+  # can be expected to have printed one -- and a test that crashed after printing one would otherwise
+  # be read out of its own corpse.
+  failures=0
+  skips=0
   if [ "$built" = no ]; then
     verdict=BUILD
-    status=0
   else
     RunWithTimeout "$binary" "$log" "$marker"
     status=$?
@@ -237,22 +314,31 @@ for testSource in $TESTS; do
       verdict=TIMEOUT
     elif [ "$status" -ge 128 ]; then
       verdict=SIGNAL
-    elif [ "$status" -eq 77 ]; then
-      verdict=SKIP
-    elif [ "$status" -eq 0 ]; then
-      verdict=PASS
     else
-      verdict=FAIL
+      ReadTrailer "$id" "$log"
+      failures=$TRAILER_FAILURES
+      skips=$TRAILER_SKIPS
+      expected=0
+      [ "$failures" -eq 0 ] || expected=1
+      [ "$status" -eq "$expected" ] ||
+        Die "$id reported FAILURES $failures and exited $status, which do not agree: the reporter's answer was discarded, altered, or never returned -- $log"
+      if [ "$failures" -gt 0 ]; then
+        verdict=FAIL
+      elif [ "$skips" -gt 0 ]; then
+        verdict=SKIP
+      else
+        verdict=PASS
+      fi
     fi
   fi
 
   if wanted=$(DeclaredFailures "$id"); then
-    if [ "$verdict" = FAIL ] && [ "$status" -eq "$wanted" ]; then
+    if [ "$verdict" = FAIL ] && [ "$failures" -eq "$wanted" ]; then
       verdict=PASS
       inverted=$((inverted + 1))
     else
-      printf 'run.sh: %s is declared to fail %s claim(s) and reported %s (%s)\n' \
-        "$id" "$wanted" "$verdict" "$status" >&2
+      printf 'run.sh: %s is declared to fail %s claim(s) and reported %s (%s failed)\n' \
+        "$id" "$wanted" "$verdict" "$failures" >&2
       verdict=FAIL
     fi
   fi

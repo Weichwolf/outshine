@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "Check.h"
+#include "GrowthForm.h"
 #include "TreeGrower.h"
 #include "TreeMesh.h"
 #include "TreeSpecies.h"
@@ -41,7 +42,8 @@ struct BarkVerdict {
   double SmallestArea = 1.0;      /* fraction of height^2 */
   double SignedVolume = 0.0;      /* fraction of height^3, positive if wound outward */
   double LowestY = 0.0;           /* fraction of height, 0 if the base plane is the floor */
-  double HighestY = 0.0;
+  size_t LooseIndices = 0;        /* indices past the last whole triangle */
+  double DeclaredExtent = 0.0;    /* the mesh's extent along the axis height_m is measured on */
   long EulerCharacteristic = 0;
 };
 
@@ -90,8 +92,18 @@ void MeasureVertices(const TreeMesh &mesh, BarkVerdict &v) {
     const double length = std::sqrt((double)p[3] * p[3] + (double)p[4] * p[4] + (double)p[5] * p[5]);
     v.WorstNormalOff = std::max(v.WorstNormalOff, std::fabs(length - 1.0));
     v.LowestY = std::min(v.LowestY, (double)p[1]);
-    v.HighestY = std::max(v.HighestY, (double)p[1]);
   }
+}
+
+/* THE OTHER HALF OF TreeMesh.h's CONTRACT — "base at y = 0, height exactly 1". The extent is taken
+ * over the box, which the grower normalises by, and not over the bark: the finest shoots are leaf
+ * points at a coarse rank, so the topmost bark vertex is below the top of the plant. A lying form is
+ * measured along its own run, because `height_m` is its LENGTH. */
+double DeclaredExtent(const TreeSpecies &declaration, const TreeMesh &mesh) {
+  if (GrowthForm::Lying(declaration.Form().Arch)) {
+    return std::max((double)mesh.BoxMax.X - mesh.BoxMin.X, (double)mesh.BoxMax.Z - mesh.BoxMin.Z);
+  }
+  return (double)mesh.BoxMax.Y;
 }
 
 void MeasureTriangles(const TreeMesh &mesh, BarkVerdict &v) {
@@ -137,6 +149,9 @@ void MeasureTriangles(const TreeMesh &mesh, BarkVerdict &v) {
   for (const auto &direction : directions) {
     if (direction.second != 0) { ++v.EdgeNotOpposed; }
   }
+  /* An index buffer whose length is not a multiple of three has a tail no triangle can use, and the
+   * loop above steps over it in silence; counting it is what turns that into a verdict. */
+  v.LooseIndices = mesh.BarkIdx.size() % 3;
   v.Triangles = mesh.BarkIdx.size() / 3;
   v.EulerCharacteristic = (long)vertices - (long)uses.size() + (long)v.Triangles;
 }
@@ -148,11 +163,13 @@ struct Sweep {
   size_t Declarations = 0;
   size_t Unreadable = 0, BadIndices = 0, Degenerate = 0, BadNormals = 0;
   size_t Unclosed = 0, MisWound = 0, Inverted = 0;
+  size_t Ragged = 0, MisScaled = 0;
   size_t Triangles = 0;
   double WorstNormalOff = 0.0;
+  double WorstExtentOff = 0.0;
   double SmallestArea = 1.0;
   double LowestY = 0.0;
-  std::string SmallestIn, LowestIn;
+  std::string SmallestIn, LowestIn, WorstExtentIn;
   long LowestEuler = 0, HighestEuler = 0;
 };
 
@@ -161,13 +178,13 @@ void ReportOffender(const std::string &species, const char *what, double value) 
   outshine::Test::Note(line.c_str(), value, "count");
 }
 
-[[nodiscard]] bool GrowDeclared(const std::string &name, TreeGrower &grower, TreeMesh &mesh) {
+[[nodiscard]] bool GrowDeclared(const std::string &name, TreeGrower &grower, TreeMesh &mesh,
+                                TreeSpecies &declaration) {
   std::string text;
   if (!ReadFile(std::string(kSpeciesDir) + "/" + name + ".json", text)) {
     ReportOffender(name, "declaration could not be read", 0.0);
     return false;
   }
-  TreeSpecies declaration;
   if (!declaration.Parse(text.c_str(), text.size())) {
     ReportOffender(name, "declaration did not parse", 0.0);
     return false;
@@ -201,12 +218,25 @@ void Judge(const std::string &name, const BarkVerdict &v, Sweep &sweep) {
     ReportOffender(name, "signed volume, which must be positive", v.SignedVolume);
     ++sweep.Inverted;
   }
+  if (v.LooseIndices > 0) {
+    ReportOffender(name, "indices past the last whole triangle", (double)v.LooseIndices);
+    ++sweep.Ragged;
+  }
+  if (std::fabs(v.DeclaredExtent - 1.0) > 1e-5) {
+    ReportOffender(name, "extent along the axis height_m is measured on, which must be 1",
+                   v.DeclaredExtent);
+    ++sweep.MisScaled;
+  }
 }
 
 void Accumulate(const std::string &name, const BarkVerdict &v, Sweep &sweep) {
   ++sweep.Declarations;
   sweep.Triangles += v.Triangles;
   sweep.WorstNormalOff = std::max(sweep.WorstNormalOff, v.WorstNormalOff);
+  if (std::fabs(v.DeclaredExtent - 1.0) > sweep.WorstExtentOff) {
+    sweep.WorstExtentOff = std::fabs(v.DeclaredExtent - 1.0);
+    sweep.WorstExtentIn = name;
+  }
   if (v.SmallestArea < sweep.SmallestArea) {
     sweep.SmallestArea = v.SmallestArea;
     sweep.SmallestIn = name;
@@ -225,6 +255,8 @@ void Publish(const Sweep &sweep) {
   Note("species grown at full detail", (double)sweep.Declarations, "declarations");
   Note("bark triangles over all declarations", (double)sweep.Triangles, "triangles");
   Note("worst normal length deviation", sweep.WorstNormalOff, "of 1");
+  Note(("worst unit-height deviation, in " + sweep.WorstExtentIn).c_str(), sweep.WorstExtentOff,
+       "of 1");
   Note(("smallest triangle area, and it is not zero, in " + sweep.SmallestIn).c_str(),
        sweep.SmallestArea, "of height^2");
   /* chi = 2C - 2G over a closed orientable surface: a multi-stemmed shrub is several closed shells in
@@ -248,6 +280,7 @@ int main() {
   outshine::Test::Covers("I.20 Consistent outward winding by the divergence-theorem volume — the "
                          "bark mesh, every declared species");
   outshine::Test::Covers("I.20 Closed — the bark mesh, every declared species");
+  outshine::Test::Covers("I.20 Delivered normalised at unit height — every declared species");
 
   const std::vector<std::string> species = DeclaredSpecies();
   CHECK(!species.empty(), "there is a plant declaration under assets/world/species to grow");
@@ -256,13 +289,15 @@ int main() {
   TreeMesh mesh;
   Sweep sweep;
   for (const std::string &name : species) {
-    if (!GrowDeclared(name, grower, mesh)) {
+    TreeSpecies declaration;
+    if (!GrowDeclared(name, grower, mesh, declaration)) {
       ++sweep.Unreadable;
       continue;
     }
     BarkVerdict verdict;
     MeasureVertices(mesh, verdict);
     MeasureTriangles(mesh, verdict);
+    verdict.DeclaredExtent = DeclaredExtent(declaration, mesh);
     Judge(name, verdict, sweep);
     Accumulate(name, verdict, sweep);
   }
@@ -274,6 +309,9 @@ int main() {
   CHECK(sweep.Unclosed == 0, "every bark edge is used by exactly two triangles — the mesh is closed");
   CHECK(sweep.MisWound == 0, "every bark edge is traversed once each way — the winding is consistent");
   CHECK(sweep.Inverted == 0, "every bark mesh has positive signed volume — it is wound outward");
+  CHECK(sweep.Ragged == 0, "every bark index buffer is a whole number of triangles");
+  CHECK(sweep.MisScaled == 0,
+        "every mesh is delivered at extent 1 along the axis its height is measured on");
   Publish(sweep);
 
   return outshine::Test::Report();

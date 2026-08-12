@@ -70,56 +70,96 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   otherwise — Web Mercator ends at ±85.0511° by construction, so *every point on Earth is a valid
   start* is a claim the tile scheme does not hold and a refusal is the honest half of it.
 
-## The test harness and its reporter
+## The test harness and its instruments
 
-*Against `test/Check.h` and `test/run.sh` as they stand uncommitted at `c2d7780`. Every entry below is
-a **pre-commit condition**, not a debt to carry: the harness is the instrument every later measurement
-in this tree is read through, and an instrument that can be silently green is worse than none. All
-four are demonstrated, not argued — probes and logs under
-`/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/probe-root`,
-run against the real `src/` by symlink so nothing entered the tree.*
+- **An interrupted instrument leaves something bound, and the next run goes red for a reason that has
+  nothing to do with the code.** `Makefile:379` starts `test/world/tile_delay.py` on `:8171` with `&`
+  inside a recipe and kills it by pid at `:387`; a make recipe has no job control, so the proxy is not
+  a process group of its own, and any exit between those two lines — an abort, a `SIGTERM`, a failing
+  parallel sibling — leaves it listening. Reported by the architect: a `make gates` run went red
+  because a previous interrupted `verify-still` still held the port, and the next `verify-still` could
+  not start one. The same shape sits in `verify-refusals` and in every future instrument that binds or
+  sleeps. Right, and `test/run.sh` now carries it end to end: `set -m`, so every child is a process
+  group; one trap on `INT`/`TERM`/`HUP`/`EXIT` that kills the groups it started; and every kill a
+  group kill, so a watchdog's `sleep` and whatever the subject itself left running die with it.
+  Measured on the harness: 1 test process, 1 watchdog `sleep`, 1 leaked grandchild alive mid-run, all
+  three gone one second after `SIGINT`, and the run exits 130. **Confirmed independently 2026-08-12**
+  with `ps -o pid,ppid,pgid`, which shows why it works and where it stops: the test is pgid = its own
+  pid, the watchdog is a second group, and the leaked grandchild is already `ppid 1` yet still carries
+  the **test's pgid** — reachable only by the group kill. A grandchild that calls `setsid()` escapes
+  it, and no instrument in this tree does. The eleven `verify-*` recipes still carry the defect. **Do
+  not copy this shape into eleven recipes** — it is eleven copies of one statement (`ES.3`) in the
+  language that made the first copy wrong. Either one recipe-level helper both `verify-still` and
+  `verify-refusals` call, or — the direction § I.20 already names — the instrument moves inside the
+  harness with `make gates`, and then there is one lifecycle instead of eleven.
 
-- **A test that fails 256 claims is reported `PASS`, and its own log says `FAILURES 256` on the line
-  above.** `Check.h:60` `Report()` returns `Failures` and `run.sh:243` reads `PASS` from status 0; a
-  POSIX exit status is **eight bits**, so every count that is a multiple of 256 aliases onto success.
-  Demonstrated: a test with 256 failing `CHECK`s printed `CHECKS 256 FAILURES 256` and the harness
-  printed `PASS harness/TwoFiftySix` and exited 0. This is not a corner: `doc/requirements.md` § I.20
-  requires *a test never stops at its first failure — it reports all of them and exits with the count*,
-  and the geometric class loops over 31 declarations and will loop over thousands.
-- **A test that fails exactly 77 claims is reported `SKIP`, and `--allow-skip` then turns it green.**
-  `run.sh:240` spends 77 as the skip code and `Report()` can return it. Demonstrated: `CHECKS 77
-  FAILURES 77`, verdict `SKIP`, and `sh test/run.sh --allow-skip harness/SeventySeven` exits **0**.
-  The file's own banner — *a silent skip is the defect class this repository keeps finding, wearing a
-  harness's hat* — is defeated by its own reporter.
-- **`(void)outshine::Test::Report();` is a green test with a failing claim.** `[[nodiscard]]` is
-  satisfied by a cast, which is the same shape as the six `(void)`-ed `Try` answers at the head of
-  this file. Demonstrated: log reads `FAIL … CHECKS 1 FAILURES 1`, harness reads `PASS`.
-- **One orphaned `sleep` per test, alive for the whole timeout.** `run.sh:140-155` backgrounds a
-  watchdog subshell that runs `sleep "$TIMEOUT_S"`; `kill "$watchdog"` kills the subshell and leaves
-  its `sleep` child parented to init. Measured: **8 stray `sleep 120` processes after two runs of four
-  tests**, one per test, each for 120 s. At the suite size § I.20 and § I.21 imply — one translation
-  unit per claim over 1 436 requirement lines — that is a run that leaves hundreds of processes behind.
-  Right: `kill` the process group, or drop the watchdog for `wait` on a child that re-execs itself
-  under an alarm.
+- **A trailer the reporter did not write is accepted, so a file that never includes `Check.h` can
+  print a green verdict over its own failure.** `test/run.sh:216-229` authenticates the trailer by
+  shape alone — one line matching `^CHECKS `, six fields, three numbers. Demonstrated 2026-08-12
+  against the repaired harness: a `test/harness/ForgedTrailer.cpp` containing no `#include "Check.h"`
+  at all, printing `FAIL something/actually.cpp:1 …` and then `CHECKS 1 FAILURES 0 SKIPPED 0`, and
+  returning 0, was reported **`PASS`** and the run exited 0. This is the same defect the round closed,
+  one layer in: the channel is now the right one and nothing checks that the reporter is what spoke.
+  Right, and it costs two lines and no change to `Check.h`: every increment of `Failures` prints
+  exactly one line beginning `FAIL ` (`Check.h:49`, `:61`, `:89`) and every `Skips` exactly one
+  beginning `SKIP ` (`:80`), so `grep -c '^FAIL '` **must** equal `FAILURES` and `grep -c '^SKIP '`
+  must equal `SKIPPED`. That is a second witness on an independent path — per-failure `printf` against
+  a counter — and it also catches a counter zeroed by any spelling `Tally` does not forbid (placement
+  new, `memcpy`). Verified against all twelve logs the harness has produced here, planted probes
+  included: the identity holds exactly in every one. `CHECKS` has no printed witness and stays
+  single-sourced.
 
-- **`BarkVerdict::HighestY` is measured and read by nothing.**
-  `test/generators/draw/GrownBarkIsAClosedMesh.cpp:44` declares it, `:93` fills it, and no line in
-  `Judge`, `Accumulate` or `Publish` touches it — a struct member escapes `-Wunused`. It is the half
-  of the normalisation contract *"height exactly 1"* that this file was believed to have checked, and
-  the number quoted for it elsewhere was taken by a probe that is not in the tree. Right: check it, or
-  delete it — `CLAUDE.md`, *what is replaced is deleted in the same round*.
-- **A bark index buffer whose length is not a multiple of three loses its tail without a word.**
-  Same file, `:102`: `for (size_t i = 0; i + 2 < mesh.BarkIdx.size(); i += 3)` drops a trailing one or
-  two indices, and `:140` then reports `Triangles = size / 3`, so the count agrees with the truncation
-  rather than with the buffer. The check is one comparison and it is in the decidable class.
+- **A hard error stops the run, so one malformed test hides the verdict of every test after it.**
+  `test/run.sh:218`, `:222`, `:224`, `:324` all `Die`, which exits 2 mid-loop. Demonstrated: with a
+  planted `(void)Report()` test present, the run printed two passes, died on the disagreement and
+  never built the two tests that followed. `Makefile:409` states the opposite rule for gates in its own
+  words — *"Every gate runs even after one has fallen, because the second failure is information the
+  first one would have hidden"* — and the harness is the instrument that rule matters most in. Right:
+  a missing, doubled, malformed or disagreeing trailer is a per-test verdict of its own that is red and
+  counted, the loop continues, and the run exits non-zero. Only the pre-flight directory scan
+  (`:256-268`) refuses before anything is built, which is correct there because nothing has run yet.
 
-Right for the first three, and it is **one** mechanism, not three: the verdict is the reporter's own
-trailer and the exit status is only cross-checked against it. `Report()` already prints
-`CHECKS n FAILURES m` and already `fflush`es, so the channel exists and nothing reads it — `run.sh`
-never opens the log it names. Reading it closes a fourth hole for free: a `.cpp` under `test/` that
-forgot `#include "Check.h"` emits no trailer at all, which is the silent non-test the design has no
-answer to today. Decides it: the three probes above must be `FAIL`, and a test whose printed
-`FAILURES` disagrees with its exit status must be `FAIL` naming both numbers.
+- **The harness's build cache is keyed by path relative to the root, so two checkouts of this tree
+  share objects, logs and binaries.** `test/run.sh:41-42` fixes `BUILD=$TMPDIR/outshine-tests` and
+  `:159` names an object `$BUILD/obj/src-core-Foo.o` with no component identifying the root; `:287-288`
+  do the same for the log and the binary. `UpToDate` then compares mtimes of prerequisites resolved
+  against the *current* root, so a second checkout whose sources are older than the first's objects
+  links the **first checkout's** binaries and every number read from them belongs to the other tree. A
+  git worktree and a `git bisect` clone are ordinary, and the effect is silent. Observed here: a probe
+  root at a different path linked this tree's objects and ran in 1.2 s instead of a cold build. Right,
+  one line: fold the root's real path into the build directory, e.g.
+  `BUILD=${TMPDIR}/outshine-tests/$(printf %s "$ROOT" | cksum | cut -d' ' -f1)`.
+
+- **A directory declared as the Makefile's is trusted, and a test placed in one is silently not run.**
+  `test/run.sh` `NotTheHarnesses` names `.`, `clients`, `generators` and `compile/*` as directories the
+  harness does not build; a `.cpp` there that includes the reporter and checks claims is run by
+  nothing, which is the silent non-test one level up from the one just closed. It is bounded — a
+  directory that is in neither list is a hard error before anything is built — but it is not closed.
+  **Demonstrated 2026-08-12**: `test/compile/core/ARealTestInAMakefileDirectory.cpp`, one failing
+  `CHECK` and `return Report()`, is named by no line of the run's output and the run exits 0.
+  The deeper shape is not the four strings, it is that **the same fact is stated twice** — which files
+  the Makefile builds is the Makefile's, and `NotTheHarnesses` restates it with nothing failing when
+  the two disagree, exactly the defect § I.20 already files against the duplicated `INC_*` sets. Right,
+  and it lands without moving a file: derive the second list instead of writing it. Every `.cpp` under
+  a non-layer directory must be named in the `Makefile` — by path, or by the stem the Makefile composes
+  (`GEN_NEGATIVES`) — and every `test/…cpp` the Makefile names must lie in a non-layer directory. Run
+  by hand over the tree at this commit: **12 Makefile-owned sources, all 12 named, no stray** — so the
+  cross-check is green today and its cost is about six lines of shell. The direction beyond that is
+  `doc/todo.md`'s: nothing under `test/` that is not a declared run, at which point `NotTheHarnesses`
+  has nothing left to name and goes.
+
+- **The unit-height check accepts 168× the worst deviation it measures, and it bypasses the reporter's
+  own rule about tolerances.** `test/generators/draw/GrownBarkIsAClosedMesh.cpp:227` judges with a raw
+  `std::fabs(v.DeclaredExtent - 1.0) > 1e-5` rather than `CHECK_NEAR`, so the number that decides an
+  acceptance carries no origin and no frame of reference — the thing `Check.h:52-54` was written to
+  forbid. Measured over all 31 declarations: the worst deviation is **5.96046448e-08 in `dog_rose`**,
+  which is `2^-24` exactly, the float spacing immediately below 1.0 — one ulp, and the other 30 land on
+  1.0 bit-for-bit. `1e-5` is 168 ulps, so a normalisation that drifted to 0.99999 passes. Right:
+  `CHECK_NEAR(extent, 1.0, 2.4e-7 /* 4 ulp at 1.0 */, "of height", …)`, with the ulp derivation beside
+  it. Note also what the lying branch proves: `DeclaredExtent` (`:101-107`) re-decides `GrowthForm::
+  Lying` the same way `TreeGrower::NormalizeToUnitHeight` (`TreeGrower.cpp:607`) does, so for a lying
+  form the check is *consistency* between two copies of one predicate and not the decidable class —
+  only the standing case is decidable.
 
 ## Bounds, allocation, and what the platform hides
 
@@ -229,6 +269,22 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   envelope, and the permitted dip is one small sourced number, not a free consequence of shoot length.
   Decides it: `min y ≥ −δ` over bark **and** leaf points for every declaration, in the test that
   already measures the bark half.
+
+- **`TreeMesh.h`'s stated contract has two readings and the wrong one has already produced a wrong
+  check.** `TreeMesh.h:1-3` says *"Delivered NORMALISED — base at y = 0, centred in x/z, height
+  exactly 1"*. Read as the bounding box, all three clauses are false: measured over the 31
+  declarations, `BoxMin.Y` is negative for 7 and non-zero for 13, `hedge_privet` spans x
+  −1.320…+1.309 and `log_beech` x −0.013…+0.987, and only the **box** reaches y = 1 — the topmost
+  bark vertex is below it, because the finest shoots are leaf points. Read as *the origin is the trunk
+  foot and the extent is measured from it along the axis `height_m` names*, all three hold, and that
+  is what `TreeGrower.cpp:580-608` implements and says. The ambiguity is not academic: it is exactly
+  what made `BarkVerdict::HighestY` measure the bark maximum while its author believed it was checking
+  *"height exactly 1"* (`doc/requirements.md` § I.20 still restates the ambiguous words). This is a
+  comment stating an invariant, so it is `I.7`/`NL.2` and not taste. Right, and it is three lines:
+  say origin, not base — *origin at the trunk foot; `BoxMax.Y` = 1 for a standing form and the larger
+  horizontal run = 1 for a lying one; `BoxMin.Y` may be negative and a branch below it grows below the
+  terrain*. Decides it: the sentence names which axis and which extremum, so a reader can write the
+  check without opening `TreeGrower.cpp`.
 
 ## World and streaming
 
@@ -845,7 +901,8 @@ the tree more than once, or under a name that says the wrong unit.*
   forbidden header (`#include "Rendererr.h"`) is a green gate that proves nothing, and so is one whose
   body stops compiling for an unrelated reason while the include still resolves. Four fixtures ride
   this: `RendererIsNotReachable`, `WorldIsNotReachable`, `LogIsNotReachable`, `DrawIsNotReachable`,
-  plus `test/world/GeneratorIsNotReachable`. The three `-Werror` negatives under `src/core/gate/` are
+  plus `test/compile/world/GeneratorIsNotReachable`. The three `-Werror` negatives under
+  `test/compile/core/` are
   weaker still — `verify-types` checks only the exit status and matches no diagnostic at all, so any
   error in `HeightIsNotReachableWithoutItsState.cpp`, `AnswerIsNotIgnorable.cpp` or
   `DepthIsNeverNegative.cpp` passes it. Right, and it costs nothing: demand the **exact** expected
