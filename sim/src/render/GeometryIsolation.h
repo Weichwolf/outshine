@@ -11,7 +11,7 @@
 
 namespace outshine::Render {
 
-inline bool GeometryIsolation(void) {
+[[nodiscard]] inline bool GeometryIsolation(void) {
   static const int on = []() { const char *e = getenv("FB_GEOM"); return e && atoi(e) != 0 ? 1 : 0; }();
   return on != 0;
 }

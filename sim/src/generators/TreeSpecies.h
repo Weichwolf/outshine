@@ -83,7 +83,7 @@ public:
     float WindAmp = 0.012f, WindFreq = 1.6f;
   };
 
-  bool Parse(const char *text, size_t len);
+  [[nodiscard]] bool Parse(const char *text, size_t len);
 
   const std::string &Error() const { return Error_; }
   const std::string &Name() const { return Name_; }

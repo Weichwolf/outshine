@@ -36,7 +36,7 @@ public:
    * the feature. A device that does not is reported as such — an absent measurement is not a
    * measurement of zero. */
   void Configure(const wgpu::Device &dev, bool featureGranted);
-  bool Active(void) const { return Set_ != nullptr; }
+  [[nodiscard]] bool Active(void) const { return Set_ != nullptr; }
 
   void BeginFrame(void);
   /* The struct to splice into a pass descriptor's `timestampWrites`, or null when inactive. It lives
@@ -46,7 +46,7 @@ public:
   void Resolve(wgpu::CommandEncoder &enc);   /* after the last pass, before Finish() */
   void Poll(void);                           /* once per frame: maps whatever is ready */
 
-  bool Take(Sample &out);   /* the newest sample, once */
+  [[nodiscard]] bool Take(Sample &out);   /* the newest sample, once */
 
 private:
   static constexpr int kRing = 3;   /* deep enough that a map never blocks the frame that issued it */

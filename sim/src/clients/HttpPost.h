@@ -29,10 +29,10 @@ public:
   HttpPost &operator=(const HttpPost &) = delete;
 
   void Begin(const std::string &url, const void *body, size_t bytes, const char *contentType);
-  State Ask() const;
+  [[nodiscard]] State Ask() const;
   /* The verdict, once: a final answer is reported and then forgotten, so a counter cannot count the
    * same delivery twice. */
-  State Take();
+  [[nodiscard]] State Take();
 
 private:
   /* The transport writes the HTTP status here and the browser's does it from a promise, so the cell

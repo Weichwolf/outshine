@@ -56,7 +56,7 @@ double Percentile(const std::vector<double> &sorted, double p) {
  * rather than from the resolved vegetation row: `swardClosure` overwrites a row's ground reflectance
  * with the stand's own aggregate colour — for `meadow` completely. On the bench that would be the
  * subject's colour standing in for the ground it is judged against. */
-bool SubjectSubstrate(const World::GroundMaterials &mats, const std::string &vegPath,
+[[nodiscard]] bool SubjectSubstrate(const World::GroundMaterials &mats, const std::string &vegPath,
                       const std::string &tpl, std::string *name, float rgb[3]) {
   FILE *f = fopen(vegPath.c_str(), "rb");
   if (!f) return false;
@@ -164,7 +164,12 @@ void SceneRunner::BringUp() {
       App_.Open();
       return;
     case Outshine::Phase::Playing: Stage_ = Stage::Dispatch; return;
-    default: Finish(1); return;
+    case Outshine::Phase::Declared:
+    case Outshine::Phase::Device:
+    case Outshine::Phase::Ground:
+    case Outshine::Phase::Stars:
+    case Outshine::Phase::Loading:
+    case Outshine::Phase::Failed: Finish(1); return;
   }
 }
 
@@ -669,7 +674,10 @@ bool SceneRunner::BenchBegin() {
     }
     bench.SetSubstrate(subName, subRgb);
   }
-  Out_.MakeDir(s.Dir);
+  if (!Out_.MakeDir(s.Dir)) {
+    Log::Error("run", "subject_dir_unmakeable", {{"dir", s.Dir}});
+    return false;
+  }
   bench.Stand(Scene_.Lat(), Scene_.Lon(), kSubjectGroundAslM);
   bench.SetOutDir(s.Dir);
   bench.SetTurntableSteps(s.TurnSteps);

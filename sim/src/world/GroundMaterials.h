@@ -30,9 +30,9 @@ public:
     float LitterCoverage;
   };
 
-  bool Load(const char *path);
+  [[nodiscard]] bool Load(const char *path);
 
-  bool Ready() const { return !Mats_.empty(); }
+  [[nodiscard]] bool Ready() const { return !Mats_.empty(); }
   size_t Count() const { return Mats_.size(); }
   const Material &At(size_t i) const { return Mats_[i]; }
   int Find(const std::string &name) const;

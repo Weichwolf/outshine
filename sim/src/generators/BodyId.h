@@ -11,7 +11,7 @@ class OccupancySink;
 class BodyId {
 public:
   uint32_t Index() const { return Index_; }
-  bool Is(const BodyId &other) const { return Index_ == other.Index_; }
+  [[nodiscard]] bool Is(const BodyId &other) const { return Index_ == other.Index_; }
 
 private:
   explicit BodyId(uint32_t index) : Index_(index) {}

@@ -17,7 +17,7 @@ enum class ReadState { Pending, Ready, Failed };
 
 class Readback {
 public:
-  bool Idle() const { return !Staging; }
+  [[nodiscard]] bool Idle() const { return !Staging; }
 
   void FromTexture(const wgpu::Device &device, const wgpu::Queue &queue, const wgpu::Texture &tex,
                    wgpu::TextureAspect aspect, uint32_t width, uint32_t height,
@@ -25,7 +25,7 @@ public:
   void FromBuffer(const wgpu::Device &device, const wgpu::Queue &queue, const wgpu::Buffer &src,
                   uint64_t bytes);
 
-  ReadState Poll(const wgpu::Instance &instance);
+  [[nodiscard]] ReadState Poll(const wgpu::Instance &instance);
 
   /* Valid only while Poll answers Ready, and only until Release(). Rows leave the device on a
    * 256-byte pitch (the WebGPU rule), so the stride is part of the answer. */

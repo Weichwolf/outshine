@@ -60,11 +60,11 @@ public:
     float Dry[3];
   };
 
-  bool Load(const char *path, const GroundMaterials &mats);
+  [[nodiscard]] bool Load(const char *path, const GroundMaterials &mats);
 
   const Row *Rows() const { return Table_.data(); }
   size_t RowBytes() const { return Table_.size() * sizeof(Row); }
-  bool Ready() const { return !Table_.empty(); }
+  [[nodiscard]] bool Ready() const { return !Table_.empty(); }
   size_t TemplateCount() const { return Table_.size(); }
   const std::string &Name(size_t i) const { return Names_[i]; }
   const std::string &Error() const { return Error_; }

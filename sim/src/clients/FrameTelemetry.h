@@ -35,7 +35,7 @@ public:
   void SetGpuAvailable(bool on) { GpuAvailable_ = on; }
   void AddFrame(double frameMs);
   void AddGpu(const Render::GpuTimer::Sample &sample);
-  bool Due(double nowMs) const { return nowMs - StartedMs_ >= kWindowMs && !FrameMs_.empty(); }
+  [[nodiscard]] bool Due(double nowMs) const { return nowMs - StartedMs_ >= kWindowMs && !FrameMs_.empty(); }
   void Open(double nowMs) { StartedMs_ = nowMs; }
   void Reset(double nowMs);
 

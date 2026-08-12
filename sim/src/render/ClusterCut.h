@@ -41,7 +41,7 @@ public:
 
   /* One whole item against the frustum, before its clusters are looked at: a tile that is not in
    * the picture leaves on one test instead of on one per cluster. */
-  bool Sees(const double rel[3], const float ctr[3], float rad) const {
+  [[nodiscard]] bool Sees(const double rel[3], const float ctr[3], float rad) const {
     return View_.Visible(rel, ctr, rad);
   }
 

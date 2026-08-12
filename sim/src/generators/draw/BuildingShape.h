@@ -61,8 +61,8 @@ struct BuildingShape {
   int Ident = 0;             /* this piece's own draw of colour and material, 0..kIdentCount-1 */
   int FrontEdge = -1;        /* the ring edge that looks at the street, or none */
 
-  bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
-  bool OnGround() const { return FootM <= 0.0; }
+  [[nodiscard]] bool Valid() const { return Ring.size() >= 3 && AreaM2 > 1.0; }
+  [[nodiscard]] bool OnGround() const { return FootM <= 0.0; }
   double TopM() const { return FootM + EavesM + RiseM; }
   /* The box frame, for the roof: v is the short axis and a gable's fall is along it. */
   Plan2 AxisV() const { return {-AxisU.N, AxisU.E}; }

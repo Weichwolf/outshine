@@ -18,10 +18,10 @@ constexpr SurfaceState StateOf(const Material &material);
 class SurfaceState {
 public:
   constexpr SurfaceKind Kind() const { return Kind_; }
-  constexpr bool WritesDepth() const { return WritesDepth_; }
-  constexpr bool CullsBack() const { return CullsBack_; }
-  constexpr bool Blends() const { return Blends_; }
-  constexpr bool Emits() const { return Emits_; }
+  [[nodiscard]] constexpr bool WritesDepth() const { return WritesDepth_; }
+  [[nodiscard]] constexpr bool CullsBack() const { return CullsBack_; }
+  [[nodiscard]] constexpr bool Blends() const { return Blends_; }
+  [[nodiscard]] constexpr bool Emits() const { return Emits_; }
   /* Below this coverage the fragment is discarded; above it the surface is opaque. [SET] half:
    * with one cut and no dithering it is the value that neither thins nor fattens a leaf edge, and
    * what replaces it is a measured coverage-to-area curve per material. */
@@ -58,7 +58,7 @@ constexpr SurfaceState StateOf(const Material &material) {
   return s;
 }
 
-constexpr bool CullsBackFaces(const SurfaceState &state, Winding winding) {
+[[nodiscard]] constexpr bool CullsBackFaces(const SurfaceState &state, Winding winding) {
   return state.CullsBack() && winding == Winding::Trusted;
 }
 

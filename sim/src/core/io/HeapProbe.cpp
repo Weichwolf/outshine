@@ -32,7 +32,7 @@ struct DlMallinfo {
 };
 extern "C" DlMallinfo mallinfo(void);
 
-bool LayoutHolds() {
+[[nodiscard]] bool LayoutHolds() {
   const DlMallinfo m = mallinfo();
   return m.UordBlks + m.FordBlks == m.Arena + m.HBlkHd;
 }

@@ -144,7 +144,7 @@ ClassBuilder::Job ClassField::LendTo(Tier &t, ClassGrain grain, double camE, dou
   return job;
 }
 
-bool ClassField::SubmitDue(double camE, double camN) {
+void ClassField::SubmitDue(double camE, double camN) {
   const ClassGrain order[2] = {ClassGrain::Fine, ClassGrain::Coarse};
   for (ClassGrain grain : order) {
     Tier &t = TierOf(grain);
@@ -159,9 +159,8 @@ bool ClassField::SubmitDue(double camE, double camN) {
     t.OrgE = std::floor(camE / t.CellM - t.HalfCells) * t.CellM;
     t.OrgN = std::floor(camN / t.CellM - t.HalfCells) * t.CellM;
     t.Stale = false;
-    return true;
+    return;
   }
-  return false;
 }
 
 void ClassField::Update(double camLat, double camLon) {

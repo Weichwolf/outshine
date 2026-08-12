@@ -24,7 +24,7 @@ const TargetName kTargets[] = {
     {"exposure.compEv", Animation::Target::ExposureCompEv},
 };
 
-bool Numbers(const Ref &node, std::vector<double> &out) {
+[[nodiscard]] bool Numbers(const Ref &node, std::vector<double> &out) {
   if (node.GetKind() != JKind::Array) return false;
   out.resize(node.Size());
   for (size_t i = 0; i < node.Size(); i++) {
@@ -34,7 +34,7 @@ bool Numbers(const Ref &node, std::vector<double> &out) {
   return !out.empty();
 }
 
-bool Increasing(const std::vector<double> &v) {
+[[nodiscard]] bool Increasing(const std::vector<double> &v) {
   for (size_t i = 1; i < v.size(); i++)
     if (!(v[i] > v[i - 1])) return false;
   return true;

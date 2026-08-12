@@ -9,7 +9,7 @@ namespace {
 
 constexpr uint32_t kNoBody = 0xffffffffu;
 
-bool CylindersCut(const Body &a, const Body &b) {
+[[nodiscard]] bool CylindersCut(const Body &a, const Body &b) {
   const double de = a.Em - b.Em, dn = a.Nm - b.Nm;
   const double reach = (double)a.RadiusM + (double)b.RadiusM;
   if (de * de + dn * dn >= reach * reach) return false;

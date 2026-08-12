@@ -11,12 +11,12 @@ class FileArtifacts : public Artifacts {
 public:
   explicit FileArtifacts(const std::string &root) : Root_(root) {}
 
-  bool MakeDir(const std::string &name) override;
-  Delivery Png(const std::string &name, const uint8_t *rgba, int width, int height) override;
-  Delivery Bytes(const std::string &name, const void *data, size_t bytes) override;
-  Delivery Text(const std::string &name, const std::string &text) override;
+  [[nodiscard]] bool MakeDir(const std::string &name) override;
+  [[nodiscard]] Delivery Png(const std::string &name, const uint8_t *rgba, int width, int height) override;
+  [[nodiscard]] Delivery Bytes(const std::string &name, const void *data, size_t bytes) override;
+  [[nodiscard]] Delivery Text(const std::string &name, const std::string &text) override;
   /* A write to a file system either happened on the line that asked for it or it did not. */
-  Delivery Settle() override { return Delivery::Complete; }
+  [[nodiscard]] Delivery Settle() override { return Delivery::Complete; }
 
 private:
   std::string Resolve(const std::string &name) const;

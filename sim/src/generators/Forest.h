@@ -61,7 +61,7 @@ private:
                        WoodyDraw };
 
   static Lattice Of(const Region &region);
-  Outcome Consider(const Ground &ground, const Lattice &lattice, Cell cell,
+  [[nodiscard]] Outcome Consider(const Ground &ground, const Lattice &lattice, Cell cell,
                    Body *out) const noexcept;
 
   Stem Stem_;

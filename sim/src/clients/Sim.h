@@ -77,7 +77,7 @@ public:
   void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }
 
   /* The declared tables, before anything asks the world a question. */
-  bool LoadTables();
+  [[nodiscard]] bool LoadTables();
 
   /* Opens the tile stream, resolves the ground under the standpoint and places sun and moon. Ends
    * with the eye standing where the scene declared it.
@@ -86,8 +86,8 @@ public:
    * stream, every turn after asks the ground again, and the caller keeps its own turn until the
    * answer stops being Waiting. Inventing a plateau instead would move the whole picture. */
   enum class Bring { Waiting, Open, Failed };
-  Bring Open();
-  bool Opened() const { return Opened_; }
+  [[nodiscard]] Bring Open();
+  [[nodiscard]] bool Opened() const { return Opened_; }
 
   /* What one region became. It is the forge's product under this object's name because a region
    * that stands and a region that has just been generated are the same thing. */
@@ -132,11 +132,11 @@ public:
   Generators::Region Here() const { return Generators::Region::Of(Ring_.Zoom(), Stance_.Lat, Stance_.Lon); }
   size_t RegionsStanding() const { return Grown_.size(); }
   /* A region is being grown right now, off this thread. */
-  bool RegionBusy() const { return Forge_ && !Forge_->Idle(); }
+  [[nodiscard]] bool RegionBusy() const { return Forge_ && !Forge_->Idle(); }
   /* Every region the ring reaches stands. The loading phase holds the world back until it does:
    * one region is generated per pass, so a run that opened its shutter on residency alone would
    * photograph a forest with three quarters of itself missing. */
-  bool RingStands() const;
+  [[nodiscard]] bool RingStands() const;
   const Generators::TreeSpecies &Species() const { return Species_; }
   size_t GeneratorHeapBytes() const { return Pool_ ? Pool_->HeapBytes() : 0; }
   /* What one region costs while it stands: its slot in the pool plus its own ground patch. */
@@ -192,7 +192,7 @@ private:
   struct SnapshotCost {
     double TotalMs = 0.0, FeatureMs = 0.0;
   };
-  Bring ResolveGround(double lat, double lon, double *out) const;
+  [[nodiscard]] Bring ResolveGround(double lat, double lon, double *out) const;
   [[nodiscard]] bool OpenPool();
   /* ONE PASS OF THE RING: release what it no longer names, cancel what is under way and unnamed,
    * collect what the forge finished, and request the next region that is missing. */

@@ -34,7 +34,7 @@ public:
   enum class Progress { Running, Done };
 
   /* One turn. `Result()` is the run's exit code and stands once this answers Done. */
-  Progress Step();
+  [[nodiscard]] Progress Step();
   int Result() const { return Rc_; }
 
 private:
@@ -63,7 +63,7 @@ private:
 
   int DumpClasses(const Scene::Run::ClassDumpRun &d) const;
   int ProbeWind(const Scene::Run::WindProbeRun &w) const;
-  bool BenchBegin();
+  [[nodiscard]] bool BenchBegin();
 
   std::string FrameName(const std::string &path, int frame, const char *ext) const;
 

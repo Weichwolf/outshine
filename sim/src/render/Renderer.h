@@ -45,7 +45,7 @@ public:
   /* Native: the same chain, blocking (no browser event loop to pump), into an offscreen target. */
   void InitOffscreen(int width, int height);
 
-  bool Ready(void) const { return DeviceReady; }
+  [[nodiscard]] bool Ready(void) const { return DeviceReady; }
 
   /* Acquire the target, run the passes, submit. */
   void RenderFrame(void);
@@ -56,21 +56,21 @@ public:
    * hold the very event loop its tiles arrive on. */
 
   /* Tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for a PNG writer. */
-  ReadState ReadPixels(std::vector<uint8_t> &rgba);
+  [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
   /* Ready once everything submitted so far has retired. A per-frame wall clock without it reads the
    * encoder, not the frame. */
-  ReadState GpuIdle(void);
+  [[nodiscard]] ReadState GpuIdle(void);
 
   /* Reversed-Z scene depth, W*H floats, row-major. Range along the view ray follows as
    * kNearM / depth / cos(angle off boresight); a critic's "at 1-2 km" is otherwise a guess about a
    * hillside's row. */
-  ReadState ReadDepth(std::vector<float> &depth);
+  [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn — the numerator of that division */
 
   /* [sunIrr.rgb, _, skyIrr.rgb, _] in top-of-atmosphere-solar = 1 units: the scale everything lit is
    * multiplied by, measurable instead of asserted. */
-  ReadState ReadIrradiance(float out[IrradianceStage::kFloats]);
+  [[nodiscard]] ReadState ReadIrradiance(float out[IrradianceStage::kFloats]);
 
   /* WHAT THE SCENE MAY DECLARE about its own brightness; Auto with no compensation is the default
    * and needs no declaration. Takes effect on the next frame. */
@@ -78,11 +78,11 @@ public:
 
   /* [expScale, keyLog2, horizE, _]: the scalar the resolve multiplies scene radiance by, the log2 of
    * the radiance it places at middle grey, and the horizontal irradiance it came from. */
-  ReadState ReadExposure(float out[ExposureStage::kMeterFloats]);
+  [[nodiscard]] ReadState ReadExposure(float out[ExposureStage::kMeterFloats]);
 
   /* Enable before Init: the terrain source is per-tile buffers plus a growable CLASS array driven
    * by World. */
-  bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
+  [[nodiscard]] bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
 
   /* A table slot id, or -1 if the device is gone or the class array is full. */
   int  UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
@@ -193,8 +193,8 @@ public:
 
   /* THE PER-PASS CLOCK, for whoever aggregates it. False means the device refused the feature, and
    * that is a different statement from eight zeroes. */
-  bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
-  bool TakeGpuTimes(GpuTimer::Sample &out) { return GpuTime.Take(out); }
+  [[nodiscard]] bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
+  [[nodiscard]] bool TakeGpuTimes(GpuTimer::Sample &out) { return GpuTime.Take(out); }
 
   /* The extruded OSM footprints World decoded; positions are ECEF offsets from `anchor`. */
   void SetBuildingMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
@@ -265,7 +265,7 @@ private:
   void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
   void CreatePresent(void);           /* declared-size frame target + the present pass over it */
   void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
-  bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
+  [[nodiscard]] bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
   void EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
                      const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps);
   wgpu::Instance MakeInstance(void) const;   /* the descriptor, and the native path asks for one more */

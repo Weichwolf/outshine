@@ -29,7 +29,7 @@ struct BenchCard {
 class BenchGroundStage : public DrawStage {
 public:
   void Configure(const Gpu &gpu, const SceneLight &light);
-  bool Ready(void) const { return Pipe != nullptr; }
+  [[nodiscard]] bool Ready(void) const { return Pipe != nullptr; }
 
   /* `eyeAglM` is how far the camera stands above the plane, `radiusM` how far the plane reaches, and
    * `gridM` the spacing of the ruled lines on it. Passing radiusM <= 0 retires the whole stage. */

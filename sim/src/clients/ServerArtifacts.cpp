@@ -30,7 +30,7 @@ Artifacts::Delivery ServerArtifacts::Png(const std::string &name, const uint8_t 
 
 Artifacts::Delivery ServerArtifacts::Send(const std::string &name, const void *data, size_t bytes,
                                           const char *contentType) {
-  Settle();   /* the finished posts leave here, so the list holds what is actually on the wire */
+  Reap();   /* the finished posts leave here, so the list holds what is actually on the wire */
   Flight_.push_back(std::make_unique<HttpPost>());
   Flight_.back()->Begin(Url(name), data, bytes, contentType);
   return Delivery::InFlight;
@@ -44,7 +44,7 @@ Artifacts::Delivery ServerArtifacts::Text(const std::string &name, const std::st
   return Send(name, text.data(), text.size(), "text/plain");
 }
 
-Artifacts::Delivery ServerArtifacts::Settle() {
+void ServerArtifacts::Reap() {
   size_t kept = 0;
   for (size_t i = 0; i < Flight_.size(); i++) {
     switch (Flight_[i]->Take()) {
@@ -58,6 +58,10 @@ Artifacts::Delivery ServerArtifacts::Settle() {
     }
   }
   Flight_.resize(kept);
+}
+
+Artifacts::Delivery ServerArtifacts::Settle() {
+  Reap();
   if (!Flight_.empty()) return Delivery::InFlight;
   return Refused_ ? Delivery::Refused : Delivery::Complete;
 }

@@ -111,7 +111,7 @@ bool gGroundPending = false;   /* set by the provider: a miss that is a wait, no
 /* THE ORACLE'S BYTES, and the platform split is exactly one statement: a browser's frame thread
  * cannot wait for a fetch, a native one may. Both read the pool's one cache, so the DEM the mesh
  * already pulled is the DEM the oracle reads. */
-TilePool::Reply GroundBytes(const char *path, std::vector<uint8_t> *out) {
+[[nodiscard]] TilePool::Reply GroundBytes(const char *path, std::vector<uint8_t> *out) {
 #ifdef __EMSCRIPTEN__
   return gPool->Bytes(path, out);
 #else

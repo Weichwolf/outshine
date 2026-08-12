@@ -1038,7 +1038,7 @@ namespace {
 
 /* The two meter buffers differ only in which buffer and how many bytes, and both answer into a
  * plain float array — so the poll is written once. */
-ReadState TakeFloats(Readback &read, const wgpu::Instance &instance, const wgpu::Device &device,
+[[nodiscard]] ReadState TakeFloats(Readback &read, const wgpu::Instance &instance, const wgpu::Device &device,
                      const wgpu::Queue &queue, const wgpu::Buffer &src, uint64_t bytes,
                      float *out) {
   if (read.Idle()) read.FromBuffer(device, queue, src, bytes);

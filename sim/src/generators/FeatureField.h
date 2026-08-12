@@ -54,10 +54,10 @@ public:
   const Feature &At(size_t i) const { return Features_[i]; }
   Span<const Ring> Rings(const Feature &f) const;
   Span<const Vertex> Vertices(const Ring &r) const;
-  static bool Boxed(const Feature &f, double eastM, double northM) noexcept {
+  [[nodiscard]] static bool Boxed(const Feature &f, double eastM, double northM) noexcept {
     return eastM >= f.MinEm && eastM <= f.MaxEm && northM >= f.MinNm && northM <= f.MaxNm;
   }
-  bool Contains(const Feature &f, double eastM, double northM) const noexcept;
+  [[nodiscard]] bool Contains(const Feature &f, double eastM, double northM) const noexcept;
 
   size_t HeapBytes() const;
 

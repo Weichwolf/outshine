@@ -21,8 +21,9 @@ public:
 
   void Header(const std::vector<std::string> &columns) override;
   void Row(const std::vector<std::string> &fields) override;
-  /* Pushes what it can and says whether anything is still owed (ServerLog.h). */
-  bool Flush();
+  /* One batch on the wire at a time (ServerLog.h). */
+  void Flush();
+  [[nodiscard]] bool Owed() const;
 
 private:
   static constexpr size_t kFlushBytes = 16u * 1024u;

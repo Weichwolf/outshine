@@ -37,9 +37,9 @@ public:
   enum class Target { CameraEastM, CameraNorthM, CameraYawDeg, CameraPitchDeg, CameraFovDeg,
                       SkyClockS, WindClockS, ExposureCompEv, kCount };
 
-  bool Read(const Json::Ref &node, std::string &err);
+  [[nodiscard]] bool Read(const Json::Ref &node, std::string &err);
 
-  bool Drives(Target t) const { return Driver_[(size_t)t] >= 0; }
+  [[nodiscard]] bool Drives(Target t) const { return Driver_[(size_t)t] >= 0; }
   double At(Target t, double frame) const;
 
   size_t ChannelCount() const { return Channels_.size(); }

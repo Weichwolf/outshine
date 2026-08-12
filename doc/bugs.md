@@ -29,13 +29,54 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   correctly — "the picture comes up with no input and no reason" — and then the picture still comes
   up. `[[nodiscard]]` cannot catch this shape: assignment satisfies it. Right: a keyboard that did not
   bind is a **refusal to run**, not a log line, because every verb the client has goes through it.
-- **`[[nodiscard]]` is absent from the two directories that most need it.** 38 in the tree against
-  **134** functions returning `bool` or a status enumeration, and the distribution is the finding, not
-  the ratio: `generators/` 21, `clients/` 7, `core/` 3 — and **`world/` 5 against 34 such functions**
-  (the five are `Splits`, `Settled`, `Wants`, `SimWaiting` and `Waiting`, carried in on 2026-08-11 and
-  attributed the same day), **`render/` 0 against 12**, `world/terrain/` 0, `core/io/` 0. `world/` is where `Pending`, `Absent`
-  and `Ready` live, i.e. where every streaming defect in this file was found. The attribute is free,
-  costs no frame time and is a compile error under `-Werror`.
+- **Six `Try` answers thrown away behind a `(void)`, and the invariant that saves them lives in
+  another layer.** Each site writes `T x = 0;`, calls a `[[nodiscard]] bool Try*(T *out)` behind a
+  `(void)` cast, and reads `x` afterwards. **Checked first for the harmless explanation, and it holds
+  at every one of the six — no wrong value is reachable in the tree today**, which is why this is
+  filed as a shape and not as a wrong number:
+  `generators/GroundPatch.cpp:31` is guarded by its own class — `GroundPatch::Complete` refuses the
+  whole patch unless *every* posting is `State::Resolved` (`GroundPatch.cpp:19-20`) and the
+  constructor is private, so at line 31 `TryAslM` provably answers true. That one is sound, and it is
+  the model: the invariant is three lines away, in the same file, behind the only door.
+  `generators/Buildings.cpp:54`, `generators/Water.cpp:20` and `generators/Water.cpp:53` are guarded
+  by something much weaker — a single-producer invariant in **another directory**. Every `Structure`
+  and `Water` feature that reaches a generator is minted at `clients/Sim.cpp:218` and `:226`, and both
+  set `f.Top`. Nothing in `generators/` can see that rule, no type carries it, and
+  `generators/gate/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
+  `FeatureLevel::None()` — so the rule is one ingest site away from being false. If it ever is: a
+  top-less feature enters the `highest`/`deepest` comparison at 0.0 m ASL, beating every declared top
+  below sea level and losing to every one above, and at `Water.cpp:53` becoming a water level whose
+  `WaterDepth::Between(0.0, ground)` reports `LevelBelowGround` for every dry-land outline — a missing
+  datum counted as a disagreement between two models.
+  `clients/WorldMain.cpp:64-65` writes `waterDepthM=0` for a dry place, but the same row already
+  carries `water=dry` from `Wetness(p.Water)`, so nothing is lost; it is the row that reads badly, and
+  the row beside it (`structureHeightM` + `structure`) shows the deliberate form.
+  Right, and **not** by swapping `Try(T *out)` for `std::optional` — this file's own opening argument
+  rules that out and it still stands: `*opt` reads the payload with nobody having looked at the state.
+  The answer is one rung up, at `C.41`/`C.42`: a `FeatureField::Feature` whose `Kind` is `Structure`
+  or `Water` **cannot be constructed without a top**. It is an aggregate today with
+  `FeatureLevel Top = None()`, minted by hand at three places, and the rule that keeps it right lives
+  in a fourth directory. A named factory that takes the top as an argument deletes
+  `Buildings.cpp:54`, `Water.cpp:20` and `Water.cpp:53` outright — no branch, no cast, no zero —
+  and costs nothing at runtime. `GroundPatch` already has exactly this shape and that is why it is
+  the one of the six with nothing to fix.
+- **Past the Mercator limit the world loads tile (0,0) and says nothing.** `osmmesh_geo_to_tile`
+  (`world/terrain/geo.cpp:19`) returns `OSMMESH_GEO_ERR_RANGE` and writes neither output for
+  |lat| > 85.05112877980659°. Both callers discard the `int` and read the outputs they initialised to
+  zero — `world/OsmField.cpp:35` (`uint32_t cx = 0, cy = 0`) and `world/World.cpp:472`
+  (`rx = 0, ry = 0`) — so a standpoint in the high Arctic streams the north-west corner tile of the
+  map as its own neighbourhood. **Reachable from a declared scenario**: `clients/Scene.cpp:65` accepts
+  `lat` in `[-90, 90]` and `World::Open` (`world/World.cpp:79`) has no latitude guard at all, so the
+  only thing between a scenario and this is nobody having written one.
+  It is **one function at two sites, not a habit** — checked: of the seven `int`-returning C-ABI
+  functions in `world/terrain/`, the other six are checked at every call site
+  (`osmmesh_create` ×2, `osmmesh_fetch_tile`, `osmmesh_tile_grid`, `osmmesh_enu_init`,
+  `osmmesh_terrain_decode_png`, `osmmesh_terrain_build_mesh`). What *is* systemic is that no mechanism
+  reaches any of them: `int` is neither `bool` nor an enumeration, so the `[[nodiscard]]` sweep and
+  every gate pass over the whole directory.
+  Right: the range refusal reaches `World::Open` and is named. And note what it costs to say
+  otherwise — Web Mercator ends at ±85.0511° by construction, so *every point on Earth is a valid
+  start* is a claim the tile scheme does not hold and a refusal is the honest half of it.
 
 ## Bounds, allocation, and what the platform hides
 
@@ -133,6 +174,31 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## World and streaming
 
+- **The declared still is not deterministic: the order two OSM tiles arrive decides the picture.**
+  `demo/frame`, native oracle, ten interleaved runs of each of two binaries (`3a28df8` and the
+  `[[nodiscard]]` sweep), twice over: **`buildingTris` ∈ {135 168, 134 783, 134 586}**, distributed
+  13/5/2 in the first campaign and 11/9/0 in the second, with no difference between the builds in
+  either. `buildingVerts` moves with it (405 504 / 404 349) and so does `shadowTris`; `terrainTris`
+  is 331 260 in every single run, so it is the building path alone.
+  **The picture moves with the count**, one sha256 per value: `23287811d36ef7fe…` at 135 168 and
+  `3fb4579054c8d455…` at 134 783, each produced by *both* binaries. So the sweep is proven to have
+  moved no pixel — and "the still is byte-identical" is not a property this scene has.
+  **The mechanism, measured rather than guessed.** Diffing the logs of the two outcomes: all four
+  `region_grown` lines are identical, field for field, in the same order, with the same footprint
+  counts (9 / 13 / 816 / 427) and the same stand counts; `buildings … total=440 osmHeight=1
+  defaultHeight=439 onStreet=431 noGround=0 deferrals=0` is identical at the end of both. The **only**
+  difference in the whole log is which vector tile lands first — `(8620,5403)` with 427 buildings, or
+  `(8621,5403)` with 13. So it is neither the region forge nor the field's content: the same 440
+  footprints, ingested in two orders, produce two different draw meshes. 405 504 − 404 349 = 1 155
+  verts = 3 × 385 tris exactly, i.e. one whole non-indexed triangle list appears or does not.
+  **It is visible.** The two pictures differ in **1 533 of 921 600 pixels (0.166 %), by up to 87/255
+  in a channel**, and they are not scattered: they lie in a 24-pixel band at y ∈ [355, 378] running
+  the full width — the horizon, where the distant town meets the sky. At the 320×180 comparison rung
+  that is a 6-px band across the frame, which is silhouette, and silhouette is the first thing that
+  decides a comparison. Every A/B still in this repository has been read against this noise floor.
+  Right, and there are two of them: the ingest is ordered (a field that answers the same for the same
+  set, whatever order it was filled in), and a gate says so — one binary, one scene, N runs, one
+  sha256. `CLAUDE.md`: *if pace decides the result, the coupling is a bug.*
 - **A refusal is logged once per pass, and a stalled load spins at kHz.** `world/TilePool.cpp`
   `RunMesh` emits `tile_mesh_refused` on every attempt and `FetchInto` emits `tile_refused` on every
   GET, both of which repeat for as long as the leaf is in the target cut. Measured against a

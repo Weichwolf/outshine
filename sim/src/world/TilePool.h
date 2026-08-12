@@ -90,11 +90,11 @@ public:
   /* The order the queue is drained in: nearest tile first, at the camera's current position. */
   void Camera(double latDeg, double lonDeg);
 
-  Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out);
+  [[nodiscard]] Reply Mesh(int z, uint32_t x, uint32_t y, int grid, TileBuild *out);
   /* `id` names the job and is repeated until it is collected; the soup is copied on the first call.
    * `seamAttr` >= 0 names a float whose SIGN marks an attribute seam — two vertices at one position
    * that disagree in it weld as one point and stay two for drawing. -1 = no seam. */
-  Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
+  [[nodiscard]] Reply Dag(int id, const float *soup, int nverts, int seamAttr, TileBuild *out);
   /* THE CALLER LETTING GO. Poll hands a finished build over exactly once and to whoever asks, so a
    * mesh whose asker stopped asking — a retracted split takes a sibling out mid-build, an eviction
    * takes a leaf out of the cut — is held for the life of the pool with nothing left that could
@@ -104,10 +104,10 @@ public:
 
   /* A path under the tile server's root, e.g. "/t/terrain/14/8620/5403". Non-blocking: a miss posts
    * a fetch and answers Pending. `out` keeps its capacity across calls. */
-  Reply Bytes(const char *path, std::vector<uint8_t> *out);
+  [[nodiscard]] Reply Bytes(const char *path, std::vector<uint8_t> *out);
   /* The same bytes, fetched on the CALLING thread when they are not resident. Legal only where the
    * caller may block: the pool's own threads, and natively the frame thread. */
-  Reply BytesBlocking(const char *path, std::vector<uint8_t> *out);
+  [[nodiscard]] Reply BytesBlocking(const char *path, std::vector<uint8_t> *out);
 
   /* The whole table, not just the budgeted payload: the paths and the row vector are held for as
    * long as the bytes are. */
@@ -154,14 +154,14 @@ private:
   void Work(int slot);
   void RunMesh(::osmmesh_ctx *ctx, const Job &job, Result *out);
   void RunDag(const Job &job, Result *out);
-  Reply Poll(Job &&job, Result *out);
-  bool Known(uint64_t key);
+  [[nodiscard]] Reply Poll(Job &&job, Result *out);
+  [[nodiscard]] bool Known(uint64_t key);
   double TileDistance(int z, uint32_t x, uint32_t y) const;
 
   /* Ready + a copy, or the cache's verdict. Never blocks. */
-  Reply Lookup(const char *path, std::vector<uint8_t> *out);
+  [[nodiscard]] Reply Lookup(const char *path, std::vector<uint8_t> *out);
   void Remember(const std::string &path, const uint8_t *data, size_t len, bool absent);
-  Reply FetchInto(const char *path, std::vector<uint8_t> *out);
+  [[nodiscard]] Reply FetchInto(const char *path, std::vector<uint8_t> *out);
 
   const std::string Base_;
   const double OriginLatDeg_, OriginLonDeg_;

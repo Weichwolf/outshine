@@ -43,7 +43,7 @@ struct GrowthForm {
   static float Reach(CrownEnvelope envelope, float t);
   /* `height_m` is the vertical extent of a standing plant and the LENGTH of a lying one, so the
    * grower cannot normalise both by the same axis. */
-  static bool Lying(Architecture arch) { return arch == Architecture::FallenLog; }
+  [[nodiscard]] static bool Lying(Architecture arch) { return arch == Architecture::FallenLog; }
   /* Empty where the name is not one of the enumerators. A form the reader has to guess at is a
    * declaration error and never a default: the caller says so and refuses the file. */
   static std::optional<Architecture> ArchitectureOf(const char *name);

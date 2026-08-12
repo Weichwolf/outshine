@@ -88,7 +88,7 @@ private:
    * its shape: two records with the same three fields drift apart the moment one of them is read. */
   static GroundSample RingBase(const OsmField &field, const OsmField::Ring &ring,
                                std::vector<double> *corners);
-  bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
+  [[nodiscard]] bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int layer) const;
   void Raise(const OsmField &field, const Footprint &f);
 
   const StructureMesher *Mesher_ = nullptr;

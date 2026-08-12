@@ -20,7 +20,7 @@ public:
   static GroundSample Waiting() { return GroundSample(State::Pending); }
   static GroundSample Missing() { return GroundSample(State::Hole); }
 
-  State Where() const { return Where_; }
+  [[nodiscard]] State Where() const { return Where_; }
 
   /* m ASL on the DEM's own datum, written only when there is one. */
   [[nodiscard]] bool TryAslM(double *out) const {

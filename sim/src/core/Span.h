@@ -19,7 +19,7 @@ public:
 
   constexpr T *Data() const { return Data_; }
   constexpr size_t Size() const { return Size_; }
-  constexpr bool Empty() const { return Size_ == 0; }
+  [[nodiscard]] constexpr bool Empty() const { return Size_ == 0; }
   constexpr size_t Bytes() const { return Size_ * sizeof(T); }
 
   T &operator[](size_t i) const {

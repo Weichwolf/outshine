@@ -79,7 +79,7 @@ Clients::Outshine::Stance DeclaredStance(void) {
   return {gScene->Lat(), gScene->Lon(), gScene->YawDeg(), gScene->PitchDeg()};
 }
 
-bool OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
+[[nodiscard]] bool OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
   Log::Debug("walk", "key", {{"code", std::string(e->code)}, {"key", std::string(e->key)},
       {"down", type == EMSCRIPTEN_EVENT_KEYDOWN}, {"repeat", (bool)e->repeat}});
   if (e->ctrlKey || e->metaKey || e->altKey) return false;   /* Ctrl+R is the browser's, not the walker's */
@@ -100,7 +100,7 @@ bool OnKey(int type, const EmscriptenKeyboardEvent *e, void *) {
   return true;
 }
 
-bool OnMouseMove(int, const EmscriptenMouseEvent *e, void *) {
+[[nodiscard]] bool OnMouseMove(int, const EmscriptenMouseEvent *e, void *) {
   if (!gLocked) return false;
   gWalker.AddLook((double)e->movementX, (double)e->movementY);
   return true;
@@ -109,7 +109,7 @@ bool OnMouseMove(int, const EmscriptenMouseEvent *e, void *) {
 /* THE REQUEST HAS AN ANSWER AND IT IS NOT ALWAYS YES: deferred, unsupported, refused outside a user
  * gesture, unknown target. Dropping it left "the mouse does not turn the head" with no reason
  * anywhere, which is the same silence a registration nobody checks leaves behind. */
-bool OnClick(int, const EmscriptenMouseEvent *, void *) {
+[[nodiscard]] bool OnClick(int, const EmscriptenMouseEvent *, void *) {
   if (gLocked) return true;
   const EMSCRIPTEN_RESULT r = emscripten_request_pointerlock(kCanvas, true);
   if (r != EMSCRIPTEN_RESULT_SUCCESS)
@@ -121,13 +121,13 @@ bool OnClick(int, const EmscriptenMouseEvent *, void *) {
  * the CALL was well formed; whether the engine grants the lock is a separate DOM event, and without
  * this one a browser that declines leaves "the mouse does not turn the head" with no reason on
  * record anywhere. */
-bool OnLockError(int, const void *, void *) {
+[[nodiscard]] bool OnLockError(int, const void *, void *) {
   Log::Error("walk", "pointerlock_denied", {{"target", std::string(kCanvas)}});
   return true;
 }
 
 /* ESC is never seen here: the browser exits pointer lock itself and only reports the change. */
-bool OnLockChange(int, const EmscriptenPointerlockChangeEvent *e, void *) {
+[[nodiscard]] bool OnLockChange(int, const EmscriptenPointerlockChangeEvent *e, void *) {
   gLocked = e->isActive;
   if (!gLocked) gWalker.ReleaseAll();   /* no key-up arrives once focus is gone */
   Log::Info("walk", "pointerlock", {{"locked", gLocked}});
@@ -279,7 +279,7 @@ std::string PageValue(const char *expr, const char *fallback) {
 }
 
 /* Boot in its own function so main() stays an entry point (verify-clients, F.3). */
-bool Boot(void) {
+[[nodiscard]] bool Boot(void) {
   const std::string modName = PageValue("(window.FB_MOD||'demo').toString()", "demo");
   const std::string sceneId = PageValue("(window.FB_SCENE||'walk').toString()", "walk");
   if (!gMod.Load(kModRoot, modName)) {
@@ -347,7 +347,12 @@ void Finished(int rc) {
  * the products do, so the page may only declare a result once the collector has taken all three —
  * a harness that closed the tab on FB_RUN_DONE would otherwise throw the last batch away. */
 void Drain(void) {
-  const bool sunk = gTelemetry->Flush() && gLog->Flush();
+  gTelemetry->Flush();
+  bool sunk = !gTelemetry->Owed();
+  if (sunk) {
+    gLog->Flush();
+    sunk = !gLog->Owed();
+  }
   if (!sunk && emscripten_get_now() - gDrainFromMs < kDrainWaitMs) {
     NextTurn();
     return;
@@ -371,7 +376,12 @@ void Turn(void *) {
   switch (gApp->Stage()) {
     case Clients::Outshine::Phase::Prepared: gApp->Open(); NextTurn(); return;
     case Clients::Outshine::Phase::Playing: break;
-    default: Finished(1); NextTurn(); return;
+    case Clients::Outshine::Phase::Declared:
+    case Clients::Outshine::Phase::Device:
+    case Clients::Outshine::Phase::Ground:
+    case Clients::Outshine::Phase::Stars:
+    case Clients::Outshine::Phase::Loading:
+    case Clients::Outshine::Phase::Failed: Finished(1); NextTurn(); return;
   }
   /* THE INTERACTIVE SCENE, brought up. The display's clock takes the frame over from here; what
    * streams in afterwards arrives beside it. */

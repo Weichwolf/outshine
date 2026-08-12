@@ -36,9 +36,10 @@ public:
 
   void Write(double simTimeS, LogLevel level, const char *tag, const char *event,
              const std::vector<LogField> &fields) override;
-  /* Pushes what it can and says whether anything is still owed — one batch is on the wire at a time,
-   * because a second would race the first into the collector's file. */
-  bool Flush();
+  /* One batch is on the wire at a time, because a second would race the first into the collector's
+   * file. */
+  void Flush();
+  [[nodiscard]] bool Owed() const;
 
   const std::string &RunId() const { return RunId_; }
 

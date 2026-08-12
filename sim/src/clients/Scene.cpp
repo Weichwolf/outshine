@@ -8,7 +8,7 @@ namespace {
 using Ref = Json::Ref;
 using JKind = Json::Kind;
 
-bool Need(const Ref &node, const char *key, double lo, double hi, double &out, std::string &err) {
+[[nodiscard]] bool Need(const Ref &node, const char *key, double lo, double hi, double &out, std::string &err) {
   const Ref v = node[key];
   if (v.GetKind() != JKind::Number) {
     err = std::string("missing or non-numeric field: ") + key;
@@ -22,12 +22,12 @@ bool Need(const Ref &node, const char *key, double lo, double hi, double &out, s
   return true;
 }
 
-bool Optional(const Ref &node, const char *key, double lo, double hi, double &out,
+[[nodiscard]] bool Optional(const Ref &node, const char *key, double lo, double hi, double &out,
               std::string &err) {
   return node[key].GetKind() == JKind::Invalid ? true : Need(node, key, lo, hi, out, err);
 }
 
-bool OptionalInt(const Ref &node, const char *key, double lo, double hi, int &out,
+[[nodiscard]] bool OptionalInt(const Ref &node, const char *key, double lo, double hi, int &out,
                  std::string &err) {
   double v = (double)out;
   if (!Optional(node, key, lo, hi, v, err)) return false;
@@ -35,7 +35,7 @@ bool OptionalInt(const Ref &node, const char *key, double lo, double hi, int &ou
   return true;
 }
 
-bool NeedString(const Ref &node, const char *key, std::string &out, std::string &err) {
+[[nodiscard]] bool NeedString(const Ref &node, const char *key, std::string &out, std::string &err) {
   const Ref v = node[key];
   if (v.GetKind() != JKind::String) {
     err = std::string("missing or non-string field: ") + key;

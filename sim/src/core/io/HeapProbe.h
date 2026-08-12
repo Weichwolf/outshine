@@ -16,7 +16,7 @@ public:
   static size_t LiveBytes();
   /* Whether the allocator answers that question at all on this platform. False leaves the live side
    * EMPTY in the ledger, because an unmeasured quantity is not a zero. */
-  static bool LiveBytesKnown();
+  [[nodiscard]] static bool LiveBytesKnown();
 
   /* What the allocator has taken from the system and holds against future demand. Under wasm this
    * is the program break, and a break never falls: it is how close the fixed heap is to its ceiling

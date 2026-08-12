@@ -24,9 +24,9 @@ namespace outshine {
 
 class AlpineLimit {
 public:
-  bool Load(const Json::Ref &root);
+  [[nodiscard]] bool Load(const Json::Ref &root);
 
-  bool Ready() const { return Ready_; }
+  [[nodiscard]] bool Ready() const { return Ready_; }
   const std::string &RockTemplateName() const { return RockTemplate_; }
   float SlopeBandDeg() const { return SlopeBandDeg_; }
   const std::string &Error() const { return Error_; }

@@ -146,7 +146,7 @@ void DropSpurs(Piece *p) {
  * several pieces joined by a channel of no width, which raises walls that enclose nothing. Two
  * crossings is decidable from the sign sequence alone, which is why it is the condition and not a
  * tolerance on the result. */
-bool CutPiece(const Piece &in, const Plan2 &at, const Plan2 &normal, Piece *back, Piece *front,
+[[nodiscard]] bool CutPiece(const Piece &in, const Plan2 &at, const Plan2 &normal, Piece *back, Piece *front,
               double *cutLenM) {
   const size_t n = in.P.size();
   if (n < 3) return false;
@@ -202,7 +202,7 @@ bool CutPiece(const Piece &in, const Plan2 &at, const Plan2 &normal, Piece *back
   return true;
 }
 
-bool BothWorthIt(const Piece &a, const Piece &b, double wholeM2) {
+[[nodiscard]] bool BothWorthIt(const Piece &a, const Piece &b, double wholeM2) {
   const double least = std::max(kLeastPieceM2, kLeastPieceFrac * wholeM2);
   return std::fabs(SignedArea(a.P)) >= least && std::fabs(SignedArea(b.P)) >= least;
 }
@@ -255,7 +255,7 @@ BuildingUse UseOf(double areaM2, double aspect, double heightM) {
 
 /* A ring of eight or more corners whose plan fills about pi/4 of its box and whose box is nearly
  * square is the source's way of writing a circle — there is no tag for one. */
-bool ReadsAsRound(const BuildingShape &s) {
+[[nodiscard]] bool ReadsAsRound(const BuildingShape &s) {
   return s.Ring.size() >= 8 && s.Fill > 0.70 && s.Fill < 0.84 && s.HalfUm < 1.30 * s.HalfVm;
 }
 
@@ -413,7 +413,7 @@ BuildingShape Finish(Piece piece, const PartOrder &order) {
   return s;
 }
 
-bool IsReflex(const std::vector<Plan2> &ring, size_t i) {
+[[nodiscard]] bool IsReflex(const std::vector<Plan2> &ring, size_t i) {
   const size_t n = ring.size();
   const Plan2 &a = ring[(i + n - 1) % n], &b = ring[i], &c = ring[(i + 1) % n];
   return (b.E - a.E) * (c.N - b.N) - (c.E - b.E) * (b.N - a.N) < 0.0;
@@ -427,7 +427,7 @@ Plan2 UnitFrom(const Plan2 &a, const Plan2 &b) {
 /* THE STEP AT A RE-ENTRANT CORNER. An L is two rectangles and the line that separates them runs
  * along one of the two edges that meet at the notch; taking the SHORTEST such cut is what picks the
  * short arm of the L instead of slicing the long one in half. */
-bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
+[[nodiscard]] bool WingCut(const Piece &whole, Piece *main, Piece *wing) {
   const std::vector<Plan2> &ring = whole.P;
   const double wholeM2 = std::fabs(SignedArea(ring));
   double bestLen = 1.0e30;

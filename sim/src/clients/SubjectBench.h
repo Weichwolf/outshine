@@ -39,11 +39,11 @@ public:
 
   /* `heightOverrideM` <= 0 takes the template's own declared plant height, which is what makes this a
    * VEGETATION bench: nothing below names a species or a layer. */
-  bool Select(const char *templateName, double heightOverrideM);
+  [[nodiscard]] bool Select(const char *templateName, double heightOverrideM);
   /* A TREE SUBJECT. It is a second Select and not a flag on the first because it changes what the
    * bench frames: the herb views are a square metre of sward and a 0.4 m tuft, and neither has a
    * meaning at 30 m. `heightM` is the species' own declared height. */
-  bool SelectTree(const char *speciesName, double heightM);
+  [[nodiscard]] bool SelectTree(const char *speciesName, double heightM);
   void Stand(double latDeg, double lonDeg, double groundAslM) {
     Lat_ = latDeg; Lon_ = lonDeg; AslM_ = groundAslM;
   }
@@ -65,7 +65,7 @@ public:
   static constexpr double kSunElDeg = 11.0;
 
   enum class Progress { Running, Done, Failed };
-  Progress Step();
+  [[nodiscard]] Progress Step();
 
 private:
   /* A framing, declared the way a critic states one: how wide the picture is AT THE SUBJECT, where the
@@ -118,10 +118,10 @@ private:
     Render::BenchCard Card;
   };
 
-  bool Begin();
+  [[nodiscard]] bool Begin();
   void Place(const Order &o);
-  Progress Meter(const Order &o);
-  Progress Write(const Order &o);
+  [[nodiscard]] Progress Meter(const Order &o);
+  [[nodiscard]] Progress Write(const Order &o);
   Fill MeasureFill();
 
   enum class Subject { None, Herb, Tree };

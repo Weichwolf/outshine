@@ -43,7 +43,7 @@ public:
             size_t components)
       : Frames_(frames), Values_(values), Count_(count), Components_(components), How_(how) {}
 
-  bool Valid() const { return Frames_ && Values_ && Count_ > 0 && Components_ > 0; }
+  [[nodiscard]] bool Valid() const { return Frames_ && Values_ && Count_ > 0 && Components_ > 0; }
   size_t Count() const { return Count_; }
   size_t Components() const { return Components_; }
   Interpolation How() const { return How_; }

@@ -119,7 +119,7 @@ bool Outshine::Busy() const {
          Phase_ == Phase::Loading;
 }
 
-Outshine::Phase Outshine::Step() {
+void Outshine::Step() {
   switch (Phase_) {
     case Phase::Device: AwaitDevice(); break;
     case Phase::Ground: AwaitGround(); break;
@@ -130,7 +130,6 @@ Outshine::Phase Outshine::Step() {
     case Phase::Playing:
     case Phase::Failed: break;
   }
-  return Phase_;
 }
 
 /* THE DEVICE HAS TO BE THERE BEFORE ANYTHING UPLOADS: a stage's Upload returns nothing without one

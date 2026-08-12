@@ -42,7 +42,7 @@ private:
   uint32_t &Count() noexcept { return Claims_[(size_t)Claim::Outcome::Placed]; }
   uint32_t Count() const noexcept { return Claims_[(size_t)Claim::Outcome::Placed]; }
   int CellOf(double m, int cells) const noexcept;
-  bool Clear(const Body &body) const noexcept;
+  [[nodiscard]] bool Clear(const Body &body) const noexcept;
 
   Storage Store_;
   double SpanEm_ = 0.0, SpanNm_ = 0.0;

@@ -93,7 +93,7 @@ struct CloudSky {
    * The renderer pins its own ECEF anchor at the first frame and ignores this
    * pair — a stated phase offset between picture and sensor, not a second field. */
   double AnchorLatDeg = 0.0, AnchorLonDeg = 0.0;
-  bool Any(void) const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }
+  [[nodiscard]] bool Any(void) const { return Deck[0].Cover > 0.0f || Deck[1].Cover > 0.0f || Deck[2].Cover > 0.0f; }
 };
 
 /* ---- The evaluators. Deliberately hand-written instead of std:: equivalents: `smoothstep` and integer

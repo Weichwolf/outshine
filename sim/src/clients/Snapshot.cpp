@@ -32,7 +32,7 @@ std::string Quote(const std::string &in) {
   return out;
 }
 
-bool Num(const Json::Ref &r, const char *key, double &out, std::string &err) {
+[[nodiscard]] bool Num(const Json::Ref &r, const char *key, double &out, std::string &err) {
   const Json::Ref v = r[key];
   if (v.GetKind() != Json::Kind::Number) {
     err = std::string("missing or non-numeric field: ") + key;
@@ -42,7 +42,7 @@ bool Num(const Json::Ref &r, const char *key, double &out, std::string &err) {
   return true;
 }
 
-bool Near(double a, double b, double tol) { return std::fabs(a - b) <= tol; }
+[[nodiscard]] bool Near(double a, double b, double tol) { return std::fabs(a - b) <= tol; }
 
 }  // namespace
 

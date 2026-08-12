@@ -12,7 +12,7 @@ public:
   int Zoom() const { return Zoom_; }
   int X() const { return X_; }
   int Y() const { return Y_; }
-  bool Is(const Region &other) const {
+  [[nodiscard]] bool Is(const Region &other) const {
     return Zoom_ == other.Zoom_ && X_ == other.X_ && Y_ == other.Y_;
   }
 
@@ -30,7 +30,7 @@ public:
    * Geodesy.h carries why this one frame scales longitude where Geodesy.h's own primitives do not. */
   void Enu(double lat, double lon, double *eastM, double *northM) const;
   void Geo(double eastM, double northM, double *lat, double *lon) const;
-  bool Holds(double eastM, double northM) const {
+  [[nodiscard]] bool Holds(double eastM, double northM) const {
     return eastM >= 0.0 && northM >= 0.0 && eastM < SpanEm_ && northM < SpanNm_;
   }
 

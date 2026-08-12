@@ -150,7 +150,7 @@ inline double DagEdgeSq(double errM, float fPx, float tau) {
 
 /* THE CUT. Monotone error along every root-to-leaf path makes this a single crossing, so exactly one
  * cluster per region of the surface answers true — no gap, no overlap, no traversal. */
-inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau,
+[[nodiscard]] inline bool DagSelect(const DagCluster &c, const double eye[3], float fPx, float tau,
                       const float up[3]) {
   return DagSse(c.SelfCenter, c.SelfRadius, c.SelfErr, eye, fPx, up) <= tau &&
          DagSse(c.ParentCenter, c.ParentRadius, c.ParentErr, eye, fPx, up) > tau;
@@ -227,7 +227,7 @@ struct PosKeyHash {
   }
 };
 struct PosKeyEq {
-  bool operator()(const PosKey &a, const PosKey &b) const {
+  [[nodiscard]] bool operator()(const PosKey &a, const PosKey &b) const {
     return a.x == b.x && a.y == b.y && a.z == b.z;
   }
 };
@@ -557,7 +557,7 @@ struct Collapse {
   double Cost;
   uint32_t P0, P1;
   uint32_t Stamp;
-  bool operator<(const Collapse &o) const { return Cost > o.Cost; }   /* std::*_heap gives a max-heap */
+  [[nodiscard]] bool operator<(const Collapse &o) const { return Cost > o.Cost; }   /* std::*_heap gives a max-heap */
 };
 
 /* One group, simplified in place. `tri` holds ATTRIBUTE vertices; the topology it is collapsed on is
@@ -815,7 +815,7 @@ inline void Sphere(const Mesh &m, const std::vector<uint32_t> &tri, size_t first
 
 /* `soup` is a triangle list of `nverts` vertices, `stride` floats each, position first. The welded
  * vertices are byte-identical to the soup's, so level 0 draws the flat mesh exactly. */
-inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
+[[nodiscard]] inline bool ClusterDagBuild(const float *soup, uint32_t nverts, int stride,
                             const ClusterDagOpts &opts, ClusterDag *out) {
   if (!soup || !out || nverts < 3 || stride < 3) return false;
   out->Verts.clear();

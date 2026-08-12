@@ -40,7 +40,7 @@ std::vector<std::string> PlantsIn(const std::string &dir) {
   return out;
 }
 
-bool ReadFile(const std::string &path, std::string &out) {
+[[nodiscard]] bool ReadFile(const std::string &path, std::string &out) {
   FILE *f = fopen(path.c_str(), "rb");
   if (!f) { return false; }
   fseek(f, 0, SEEK_END);

@@ -54,7 +54,7 @@ public:
   const WeatherProvider *Weather() const { return Weather_; }
 
   /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
-  bool Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS);
+  [[nodiscard]] bool Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS);
 
   /* THE SIMULATION PASS: vectors, class, water bodies, footprints. No camera and no device. */
   void Update(double camLat, double camLon);
@@ -136,13 +136,13 @@ public:
   /* WHAT THE SIMULATION WAS WAITING FOR: the OSM block around the standpoint and the class grid.
    * Nothing about a device or a mesh is in it, so this is what the server target waits on. */
   [[nodiscard]] Await SimWaiting() const;
-  bool VectorsResident() const { return SimWaiting() == Await::Nothing; }
+  [[nodiscard]] bool VectorsResident() const { return SimWaiting() == Await::Nothing; }
   /* NOTHING IS STILL ON ITS WAY. Streaming is asynchronous, so a fixed number of passes says nothing
    * about what has arrived; an oracle that wants a picture of the whole scene waits on this instead.
    * That is the geometry target cut and the cluster DAG of the tile the block last decoded, on top
    * of what the simulation waits for. */
   [[nodiscard]] Await Waiting() const;
-  bool Resident() const { return Waiting() == Await::Nothing; }
+  [[nodiscard]] bool Resident() const { return Waiting() == Await::Nothing; }
   int BuildingPendingTiles() const { return Vectors_.PendingTiles(); }
   /* THE OUTLINES AND WHAT THE CORE RESOLVED ON THEM: the decoded vectors, the footprints with the
    * ground under each of them, and the water bodies with their levels. This is where a generator's
@@ -241,20 +241,20 @@ private:
   struct Work { int idx; double prio; };
 
   int Ensure(int z, long x, long y);                              /* node index (creates on miss) */
-  bool Taken(const Node &n) const { return n.Mesh == MeshState::Held && n.handle >= 0; }
+  [[nodiscard]] bool Taken(const Node &n) const { return n.Mesh == MeshState::Held && n.handle >= 0; }
   /* Two-phase commit: drawable only ONE pass after the mesh was handed over, so a collector's upload
    * is submitted and visible before any draw references it. */
-  bool Ready(const Node &n) const { return Taken(n) && Pass > n.readyPass; }
+  [[nodiscard]] bool Ready(const Node &n) const { return Taken(n) && Pass > n.readyPass; }
   /* NOTHING MORE WILL HAPPEN TO THIS NODE — drawable, or ground that does not exist. The load waits
    * on the unsettled ones; the picture draws only the ready ones. */
   [[nodiscard]] bool Settled(const Node &n) const { return Ready(n) || n.Mesh == MeshState::Vacant; }
   [[nodiscard]] bool Wants(const Node &n) const { return n.Mesh != MeshState::Vacant && !Taken(n); }
-  bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
-  bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */
+  [[nodiscard]] bool Viable(int z, long x, long y, const double eye[3]) const;  /* map bounds + view (pure) */
+  [[nodiscard]] bool WantSplit(int z, long x, long y, const double eye[3]) const;   /* geometry-only refine test */
   /* The refine test the TRAVERSAL uses: geometry, minus any child that is Vacant. */
   [[nodiscard]] bool Splits(int z, long x, long y, const double eye[3]) const;
   int  Find(int z, long x, long y) const;                            /* node idx or -1 (no create) */
-  bool CanCover(int z, long x, long y, const double eye[3]) const;    /* subtree fully ready? (pure) */
+  [[nodiscard]] bool CanCover(int z, long x, long y, const double eye[3]) const;    /* subtree fully ready? (pure) */
   void RequestSubtree(int z, long x, long y, const double eye[3], const double fwd[3]);  /* cascade request to targets */
   int  Descend(int z, long x, long y, const double eye[3], const double fwd[3]);  /* draw traversal; 1 = covered */
   void DrawChildren(int z, long x, long y, const double eye[3], const double fwd[3]);

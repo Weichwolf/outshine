@@ -233,7 +233,7 @@ public:
     return (uint32_t)(areaM2 / (StepM_ * StepM_) + 1.0);
   }
 
-  bool At(const Ground &ground, double eastM, double northM, Body *out) const noexcept override {
+  [[nodiscard]] bool At(const Ground &ground, double eastM, double northM, Body *out) const noexcept override {
     int row = 0;
     const Cover cover = ground.CoverAt(eastM, northM);
     if (!cover.TryRow(&row)) return false;
@@ -303,7 +303,7 @@ Run Filled(RegionPool &pool, const Ground &ground, const GeneratorSet &set,
   return run;
 }
 
-bool Same(const Yield::Note &a, const Yield::Note &b) {
+[[nodiscard]] bool Same(const Yield::Note &a, const Yield::Note &b) {
   return a.Name == b.Name && a.Times == b.Times && a.Raised == b.Raised &&
          (!a.Raised || a.Peak == b.Peak);
 }

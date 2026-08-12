@@ -47,7 +47,7 @@ public:
   /* Which region is being grown or is waiting to be collected, so the ring can ask whether it still
    * names it. None when the forge is idle. */
   std::optional<Generators::Region> UnderWay() const;
-  bool Idle() const;
+  [[nodiscard]] bool Idle() const;
   /* The finished region, moved out. None while one is still growing. */
   std::optional<Grown> Collect();
   /* Drops what is under way: the result is discarded when it arrives and the lease goes back. */

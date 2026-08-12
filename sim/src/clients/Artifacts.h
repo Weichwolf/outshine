@@ -21,11 +21,11 @@ public:
   virtual ~Artifacts() = default;
 
   /* A directory is a precondition, not a product: both sinks can answer it on the line that asks. */
-  virtual bool MakeDir(const std::string &name) = 0;
-  virtual Delivery Png(const std::string &name, const uint8_t *rgba, int width, int height) = 0;
-  virtual Delivery Bytes(const std::string &name, const void *data, size_t bytes) = 0;
-  virtual Delivery Text(const std::string &name, const std::string &text) = 0;
-  virtual Delivery Settle() = 0;
+  [[nodiscard]] virtual bool MakeDir(const std::string &name) = 0;
+  [[nodiscard]] virtual Delivery Png(const std::string &name, const uint8_t *rgba, int width, int height) = 0;
+  [[nodiscard]] virtual Delivery Bytes(const std::string &name, const void *data, size_t bytes) = 0;
+  [[nodiscard]] virtual Delivery Text(const std::string &name, const std::string &text) = 0;
+  [[nodiscard]] virtual Delivery Settle() = 0;
 };
 
 } // namespace outshine::Clients

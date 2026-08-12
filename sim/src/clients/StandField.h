@@ -37,7 +37,7 @@ public:
 
   [[nodiscard]] bool Add(Generators::BodyId body, Generators::ClusterId cluster,
                          const Generators::Instance &instance) noexcept override;
-  bool Full() const noexcept override { return Stands_.size() >= (size_t)Cap_ * kFloats; }
+  [[nodiscard]] bool Full() const noexcept override { return Stands_.size() >= (size_t)Cap_ * kFloats; }
 
   /* Render::ModelDraw's instance layout: east, north, foot over the frame's anchor, yaw, and
    * the factor on the model's own height. */

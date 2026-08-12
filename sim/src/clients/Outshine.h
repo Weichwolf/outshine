@@ -85,11 +85,11 @@ public:
   /* TWO ASKS, because one consumer stops between them: the subject bench judges a plant with no
    * world and no network at all, so it prepares and never opens. Both only STATE the wish; Step()
    * is what carries it out, one turn at a time, and Busy() says whether another turn is owed. */
-  bool Prepare(const Gpu &gpu);
+  [[nodiscard]] bool Prepare(const Gpu &gpu);
   void Open();
-  Phase Step();
-  bool Busy() const;
-  Phase Stage() const { return Phase_; }
+  void Step();
+  [[nodiscard]] bool Busy() const;
+  [[nodiscard]] Phase Stage() const { return Phase_; }
 
   /* The wind clock is not the sky clock: the sun stands where the scene declared it while the flow
    * runs. It is the one quantity a sequence moves. */

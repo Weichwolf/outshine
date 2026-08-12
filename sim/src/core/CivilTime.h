@@ -34,7 +34,7 @@ constexpr void CivilFromDays(int64_t z, int64_t &y, unsigned &m, unsigned &d) {
   y = static_cast<int64_t>(yoe) + era * 400 + (m <= 2);
 }
 
-constexpr bool IsLeapYear(int64_t y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }
+[[nodiscard]] constexpr bool IsLeapYear(int64_t y) { return (y % 4 == 0 && y % 100 != 0) || y % 400 == 0; }
 
 constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
   constexpr unsigned kLen[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
@@ -43,7 +43,7 @@ constexpr unsigned DaysInMonth(int64_t y, unsigned m) {
 
 /* Exactly YYYY-MM-DDThh:mm:ssZ and nothing else — no offset spelling, no fractional seconds, no
  * omitted seconds. A best-effort read here would let a typo silently mean another sky. */
-inline bool ParseIsoUtc(const char *s, int64_t &outUnixS) {
+[[nodiscard]] inline bool ParseIsoUtc(const char *s, int64_t &outUnixS) {
   if (!s) return false;
   size_t n = 0;
   while (s[n]) { if (++n > 20) return false; }

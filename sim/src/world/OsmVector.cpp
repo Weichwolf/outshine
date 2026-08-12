@@ -23,7 +23,7 @@ struct Reader {
     Ok = false;
     return 0;
   }
-  bool Field(uint32_t &num, uint32_t &wire) {
+  [[nodiscard]] bool Field(uint32_t &num, uint32_t &wire) {
     if (P >= End) return false;
     const uint64_t k = Varint();
     if (!Ok) return false;
@@ -39,7 +39,7 @@ struct Reader {
     P += n;
     return r;
   }
-  bool Skip(uint32_t wire) {
+  [[nodiscard]] bool Skip(uint32_t wire) {
     switch (wire) {
       case 0: Varint(); return Ok;
       case 1: if (End - P < 8) { Ok = false; return false; } P += 8; return true;

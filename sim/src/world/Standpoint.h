@@ -31,7 +31,7 @@ public:
   /* What the correction cost. A camera whose lift is not zero stands on data that misses its point,
    * and the page says so instead of showing a grey box. */
   double LiftM() const { return EyeAglM() - (Lens_ > kNoLens ? Lens_ - Ground_ : Eye_); }
-  bool LensDeclared() const { return Lens_ > kNoLens; }
+  [[nodiscard]] bool LensDeclared() const { return Lens_ > kNoLens; }
 
 private:
   static constexpr double kNoLens = -1.0e8;

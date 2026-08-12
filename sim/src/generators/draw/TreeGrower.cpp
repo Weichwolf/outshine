@@ -216,7 +216,11 @@ TreeGrower::RingCap TreeGrower::LeaderEnd() const {
     case Architecture::Snag:
     case Architecture::FallenLog: return RingCap::Broken;
     case Architecture::Stump: return RingCap::Cut;
-    default: return RingCap::Point;
+    case Architecture::SingleStemTree:
+    case Architecture::MultiStemTree:
+    case Architecture::MultiStemShrub:
+    case Architecture::Bush:
+    case Architecture::Hedge: return RingCap::Point;
   }
 }
 

@@ -25,10 +25,10 @@ struct BlockHeader {
   double StampS = 0.0;                                 /* sim time of the last real update */
   BlockStatus Status = BlockStatus::Invalid;
 
-  bool IsValid() const { return Status == BlockStatus::Valid; }
-  bool IsHeld() const { return Status == BlockStatus::Held; }
+  [[nodiscard]] bool IsValid() const { return Status == BlockStatus::Valid; }
+  [[nodiscard]] bool IsHeld() const { return Status == BlockStatus::Held; }
   /* May I read the numbers at all? Valid AND Held say yes; AgeS answers whether they are current. */
-  bool Readable() const { return Status != BlockStatus::Invalid; }
+  [[nodiscard]] bool Readable() const { return Status != BlockStatus::Invalid; }
   double AgeS(double nowS) const { return nowS - StampS; }
 
   void Publish(double nowS) { StampS = nowS; Status = BlockStatus::Valid; }

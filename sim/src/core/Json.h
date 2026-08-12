@@ -24,7 +24,7 @@ public:
     Ref() = default;
     Ref(const Json *doc, int32_t node) : Doc(doc), Node(node) {}
 
-    bool Valid() const { return Doc && Node >= 0; }
+    [[nodiscard]] bool Valid() const { return Doc && Node >= 0; }
     Kind GetKind() const { return Valid() ? Doc->Nodes_[(size_t)Node].K : Kind::Invalid; }
     size_t Size() const { return Valid() ? Doc->Nodes_[(size_t)Node].Count : 0; }
 
@@ -33,9 +33,9 @@ public:
 
     double Num(double def = 0.0) const;
     int Int(int def = 0) const { return (int)Num((double)def); }
-    bool Bool(bool def = false) const;
+    [[nodiscard]] bool Bool(bool def = false) const;
     std::string Str(const char *def = "") const;
-    bool StrEquals(const char *s) const;
+    [[nodiscard]] bool StrEquals(const char *s) const;
 
   private:
     const Json *Doc = nullptr;
@@ -43,8 +43,8 @@ public:
   };
 
   /* `text` is copied; the DOM's strings point into the copy, so the caller's buffer may go. */
-  bool Parse(const char *text, size_t len);
-  bool Ok() const { return Ok_; }
+  [[nodiscard]] bool Parse(const char *text, size_t len);
+  [[nodiscard]] bool Ok() const { return Ok_; }
   Ref Root() const { return Ref(this, Nodes_.empty() ? -1 : 0); }
 
 private:
@@ -60,7 +60,7 @@ private:
   };
 
   int32_t ParseValue();
-  bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);
+  [[nodiscard]] bool ParseString(uint32_t &off, uint32_t &len, bool &escaped);
   void Skip();
   std::string Decode(uint32_t off, uint32_t len, bool escaped) const;
 

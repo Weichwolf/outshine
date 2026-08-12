@@ -14,7 +14,7 @@ namespace outshine::Clients {
  * generable. The entry point chooses a mod and a scene, and that is the whole command line. */
 class Mod {
 public:
-  bool Load(const std::string &root, const std::string &name);
+  [[nodiscard]] bool Load(const std::string &root, const std::string &name);
 
   const std::string &Name() const { return Name_; }
   const std::string &Path() const { return Path_; }

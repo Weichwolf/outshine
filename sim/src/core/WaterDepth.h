@@ -24,7 +24,7 @@ public:
                                    : WaterDepth(State::LevelBelowGround, groundAslM - levelAslM);
   }
 
-  State Where() const { return Where_; }
+  [[nodiscard]] State Where() const { return Where_; }
 
   /* Metres of water over the ground, written only where water stands. */
   [[nodiscard]] bool TryDepthM(double *out) const {

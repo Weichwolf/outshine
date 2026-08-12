@@ -30,9 +30,9 @@ public:
 
   std::string Text() const;
 
-  bool Load(const char *path);
-  bool LoadText(const char *text, size_t len);
-  bool Matches(const Scene &s);
+  [[nodiscard]] bool Load(const char *path);
+  [[nodiscard]] bool LoadText(const char *text, size_t len);
+  [[nodiscard]] bool Matches(const Scene &s);
 
   const std::string &Error() const { return Error_; }
   const std::string &Name() const { return Name_; }

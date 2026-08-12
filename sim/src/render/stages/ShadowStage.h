@@ -42,7 +42,7 @@ public:
   wgpu::Sampler CompareSampler(void) const { return Cmp; }
   /* kShadowUniFloats of cascade matrices + far radii + params, as ShadowSample.h's `Csm`. */
   const float *CsmUniform(void) const { return Csm; }
-  bool Active(void) const { return NVerts > 0; }
+  [[nodiscard]] bool Active(void) const { return NVerts > 0; }
   /* Triangles the LAST Encode submitted over ALL cascades — the atlas is the frame's largest single
    * geometry consumer, so it needs its own number and not a share of the scene pass's. */
   long TriangleCount(void) const { return DrawnVerts / 3; }

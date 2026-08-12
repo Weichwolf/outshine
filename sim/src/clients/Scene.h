@@ -88,7 +88,7 @@ public:
     SubjectRun Subject;
   };
 
-  bool Read(const Json::Ref &node, std::string &err);
+  [[nodiscard]] bool Read(const Json::Ref &node, std::string &err);
 
   const std::string &Id() const { return Id_; }
   Kind What() const { return Kind_; }
@@ -97,7 +97,7 @@ public:
   double Lon() const { return Lon_; }
   double EyeM() const { return EyeM_; }
   /* The LENS ALTITUDE a camera operator publishes. Absent leaves the eye at EyeM above the DEM. */
-  bool HasLensAslM() const { return HasLensAslM_; }
+  [[nodiscard]] bool HasLensAslM() const { return HasLensAslM_; }
   double LensAslM() const { return LensAslM_; }
   double YawDeg() const { return YawDeg_; }
   double PitchDeg() const { return PitchDeg_; }
@@ -114,7 +114,7 @@ public:
   /* THE SUB-PIXEL SAMPLE OFFSET, FROZEN, in pixels. Declared, because a pinned stochastic sequence
    * is part of what the scene is, and two scenes at two pinned phases are the only way to ask
    * whether the offset moved anything world-fixed. Absent leaves the Halton cycle running. */
-  bool HasJitterPin() const { return HasJitterPin_; }
+  [[nodiscard]] bool HasJitterPin() const { return HasJitterPin_; }
   double JitterPinX() const { return JitterPin_[0]; }
   double JitterPinY() const { return JitterPin_[1]; }
 
@@ -130,10 +130,10 @@ public:
   const std::vector<Run> &Runs() const { return Runs_; }
 
 private:
-  bool ReadExposure(const Json::Ref &node, std::string &err);
-  bool ReadResolution(const Json::Ref &node, std::string &err);
-  bool ReadRuns(const Json::Ref &node, std::string &err);
-  bool ReadMotion(const Json::Ref &node, Run &run, std::string &err);
+  [[nodiscard]] bool ReadExposure(const Json::Ref &node, std::string &err);
+  [[nodiscard]] bool ReadResolution(const Json::Ref &node, std::string &err);
+  [[nodiscard]] bool ReadRuns(const Json::Ref &node, std::string &err);
+  [[nodiscard]] bool ReadMotion(const Json::Ref &node, Run &run, std::string &err);
 
   std::string Id_, Utc_, Snapshot_;
   Kind Kind_ = Kind::Interactive;

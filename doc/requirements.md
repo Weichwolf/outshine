@@ -213,6 +213,7 @@ picture, which is pinned for the length of a declared run.
 - [x] JSON reader in `core` (`core/Json.h`)
 - [x] A scenario is a declared world: place, clock, weather, what runs (`mods/*/mod.json`, four of them)
 - [ ] JSON schema check of a scenario before it is used, with the failing path named
+- [ ] A standpoint the tile scheme cannot carry is **refused by name** at `World::Open`, never mapped to a tile — `Scene` accepts `lat` in `[-90, 90]` (`clients/Scene.cpp:65`) and Web Mercator ends at `±85.05112877980659°`, so today a declared Arctic scenario streams tile (0, 0) and says nothing (`doc/bugs.md`). `CLAUDE.md`'s *every point on Earth is a valid start* is a claim the tile scheme itself does not hold: closing the gap the other way — a polar scheme beside Mercator — is a second line and the owner's call, not this one
 - [ ] A gate that fails the build on `getenv` outside `clients/` — six live variables change the picture or disarm a pass, and the layering targets cannot see them
 - [ ] `scenarios/` as the decided directory name — the tree still says `mods/`
 - [ ] Declared body format: segments, joints, contacts, force sources, medium, model, materials, brain
@@ -458,10 +459,13 @@ is the one that decides, and it stands beside the old one rather than replacing 
 
 **What the type system must refuse.**
 
-- [ ] `[[nodiscard]]` on every function returning `bool` or a status enumeration — **38** in the tree today (`generators/` 23, `clients/` 7, `world/` 5, `core/` 3, `render/` 0, `core/io/` 0, `world/terrain/` 0) against 134 such functions. `world/`'s five all arrived on 2026-08-11 with `Splits`, `Settled`, `Wants`, `SimWaiting` and `Waiting`; the directory where every streaming defect in `doc/bugs.md` was found still has 29 uncovered
-- [ ] A house wrapper carrying `[[nodiscard]]` for every third-party call that returns a status — the attribute cannot be added to emscripten's, Dawn's or curl's declarations
+- [x] `[[nodiscard]]` on every function returning `bool` or a status enumeration — **220 raw attributes, 100 % of the population**, in 84 files across all six directories. *The 38-against-134 first written here was wrong in both numbers and the derivation is why.* **38** counted every attribute in the tree, of which **10** sat on returns that are neither `bool` nor a status enumeration (`std::optional` ×2 in `generators/Infrastructure.h`, `generators/Body.h`; `uint32_t Proposes` ×5; `Claim` ×2; `WaterDepth` ×1), so the covered population was **28**. The population itself is **216**, not 134: measured from clang's own AST over all 116 natively compilable translation units plus the six emcc-only functions in `clients/AppWasm.cpp`, counting declarations rather than out-of-line definitions, excluding six comparator lambdas and excluding `Generators::Rank` (an `enum class` with no enumerators — an ordering key, not a status). No subset rule reaches 134: headers-only is 188, `bool`-only 164, declaration-without-inline-body 99. **After: 214 of 214**, the population having lost four functions that stopped returning a status (`Clients::Outshine::Step`, `World::ClassField::SubmitDue`, `ServerLog::Flush`, `ServerTelemetry::Flush`) and gained two (`ServerLog::Owed`, `ServerTelemetry::Owed`). **Nothing holds it**: the attribute is a per-declaration fact with no gate behind it, so the ledger line at the end of this section is what keeps this one ticked, and until that exists a new `bool Foo()` re-opens it silently. Densest carriers: `clients/Scene.h` (12), `world/World.h` (11), `world/TilePool.h` (10), `clients/Sim.h` (8)
+- [ ] A house wrapper carrying `[[nodiscard]]` for every third-party call that returns a status — the attribute cannot be added to emscripten's, Dawn's, curl's **or libc's** declarations, and libc is the largest of the four: **30 sites, 27 discarded** — `fclose` 17/15, `fseek` 9/9, `mkdir` 4/3 — against curl 18/15, emscripten 8 and Dawn 4. A discarded `fclose` on a write path is a buffered write that failed and said nothing, and four of the seventeen close a file opened `"wb"`
 - [ ] A status that is read and only logged counts as discarded — a failed input binding refuses the run rather than reporting it, because a scene with no keyboard is not a scene
-- [ ] No `default:` in a `switch` over a house enumeration, so a new state is a compile error under `-Wswitch -Werror` — five live sites
+- [ ] A `(void)` cast of a house `[[nodiscard]]` counts as a discard, and its site count is published — **6 today**, all on a `Try*(T *out)` behind a pre-initialised zero (`generators/GroundPatch.cpp:31`, `generators/Buildings.cpp:54`, `generators/Water.cpp:20`, `generators/Water.cpp:53`, `clients/WorldMain.cpp:64-65`). Target: unused-parameter suppression only. This is the one spelling that defeats the attribute above, so the ledger that counts one must count the other
+- [ ] A record whose validity depends on a field it does not require is refused by its own constructor (`C.41`, `C.42`) — `Generators::FeatureField::Feature` is an aggregate with `FeatureLevel Top = None()`, and the rule that a `Structure` or a `Water` always carries one is enforced nowhere except by `clients/Sim.cpp:218` and `:226` happening to be the only two places that mint one. A named factory taking the top as an argument deletes three of the six `(void)` sites above outright
+- [ ] A C-ABI status reaches a house type at the boundary, so the attribute applies to it — `world/terrain/`'s status functions all return `int`, which is neither `bool` nor an enumeration, so no gate and no attribute reaches them. Six of the seven are checked at every call site; `osmmesh_geo_to_tile` is discarded at both of its two (`world/OsmField.cpp:35`, `world/World.cpp:472`) and `doc/bugs.md` carries what that costs
+- [x] No `default:` in a `switch` over a house enumeration, so a new state is a compile error under `-Wswitch -Werror` — **zero**, from three (`clients/AppWasm.cpp:374` and `clients/SceneRunner.cpp:167` over `Outshine::Phase`, `generators/draw/TreeGrower.cpp:219` over `Architecture`). *The five first written here counted every `default:` label, and two of those five are over a `char` escape and a protobuf wire type* (`core/Json.cpp:142`, `world/OsmVector.cpp:49`) — neither is a house enumeration and both correctly survive. Held by the compiler rather than by a rule: `-Wall` carries `-Wswitch` and `sim/Makefile`'s `CXX_WARN`/`EMCC_WARN` carry `-Werror`, so a new enumerator now fails to build at all three sites instead of falling into the arm that reports failure
 - [ ] A producer returns its product, and its consumer takes the product as an argument and cannot be called without one — the trim of an absent roof covering must not compile
 - [ ] A multi-state answer whose states carry different data, so two arms cannot be written identically by accident
 - [x] A bench that wrote no rows exits non-zero and names where it looked — `treebench` refuses an empty or missing species directory with `treebench: no plant declaration under <dir>` (`clients/TreeBench.cpp:94-97`), and the refusal is held by a run-time gate that also holds the unknown growth form (`sim/Makefile` `verify-refusals`, 4 s)
@@ -479,6 +483,7 @@ is the one that decides, and it stands beside the old one rather than replacing 
 - [x] `make gates`: one target running every negative gate and every declared sanitised run, one line per gate, every gate run even after one has fallen, non-zero on any failure (`sim/Makefile`, `GATES`). Seven gates, 6 m 13 s: `verify-generators` 14 s · `verify-clients` 0 s · `verify-types` 0 s · `verify-world` 1 s · `verify-counters` 41 s · `verify-refusals` 4 s · `verify-walk-asan` 313 s. Checked adversarially — the treebench refusal reverted gives `FAIL verify-refusals`, `gates: RED`, exit 2, and the other six still run
 - [ ] The gate set split by what it decides, so the edit loop has one it will actually run: the five that need neither a browser nor a 10 800-frame walk — `verify-generators` 14 s, `verify-refusals` 4 s, `verify-world` 1 s, `verify-clients` and `verify-types` 0 s — cost **19 s** together against the full set's 6 m 13 s, and a gate that is skipped is not a defence
 - [ ] A gate that builds the **shipping wasm module** — the emcc translation of `render/` and `clients/` is covered by no gate today, and it is the only build that ships; the sanitised native gate covers the native compile of the same sources and nothing covers this one. Priced: 4.8 s with warm objects, and the link is reproducible (`web/gpu.wasm` sha256 `b56aac97b2b47638…` on two consecutive links)
+- [ ] A gate that the declared still is **one picture**: one binary, one scene, N runs, one sha256 — because every A/B comparison in this repository silently assumes it. Measured today on `demo/frame`, ten interleaved runs of each of two binaries: two pictures, `23287811d36ef7fe…` at `buildingTris=135168` and `3fb4579054c8d455…` at `134783`, both appearing on both binaries (11/9 and 13/7 over the two campaigns), and the two differ in **1 533 pixels by up to 87/255 in a 24-px band on the horizon**. `doc/bugs.md` carries the mechanism. Priced at one `demo/frame` run per repeat, 28 s each
 - [ ] Every declared run states its **instrument** in its own identity field, so a sanitised row cannot enter the archive as a shipping row — `client=gpu_walk` is a string literal today (`clients/AppWalk.cpp:74`) and `doc/bugs.md` carries what it has already written into `sim/logs/`
 - [ ] The frame count of a declared sanitised run derived from where its coverage stops growing rather than from habit — TOOL, one `-fcoverage-mapping` build and three run lengths; 10 800 frames is an assumption nobody has measured
 - [x] A declared native run under `-fsanitize=address,undefined` — `demo/walk-500`, 10 800 frames, `-fno-sanitize-recover=undefined`, three runs, zero reports (`sim/Makefile`: `walk-asan`, `verify-walk-asan`). Whole-program cost, superseding the 3.8×/9.8× microbenchmark: wall 300.2 s against 184.7 s (1.63×), tile-mesh CPU 639.2 ms/tile against 161.1 (3.97×, the microbenchmark's 3.83× transferring here), and the frame distribution p50 26.6 / p95 27.7 / **p99 42.6** ms against 16.4 / 19.2 / 20.6 — **the sanitised oracle does not hold the 33 ms floor and is not asked to**, because what this gate decides is whether the sanitiser speaks. What makes the run comparable at all is that it walks the same world: `impostorStands=9565 treeTris=19130`, identical to the unsanitised run, and the path is a declared 30 fps replay rather than wall-clock motion. Checked adversarially — a one-word write past `TreePrototype::Ranks()` gives `heap-buffer-overflow … WRITE of size 4` naming `Outshine.cpp:197` and the allocation at `Heap.cpp:56`
@@ -1814,22 +1819,23 @@ exists.** It depends on I.12 in full.*
 
 | | |
 |---|---|
-| Lines in this file | **1626** |
-| Feature lines | **1290** |
-| `- [x]` built and checked | **183** |
-| `- [ ]` not built | **1107** |
-| Band I — engine | 194 |
+| Lines in this file | **1842** |
+| Feature lines | **1428** |
+| `- [x]` built and checked | **232** |
+| `- [ ]` not built | **1196** |
+| Band 0 — residency | 78 |
+| Band I — engine | 250 |
 | Band II — world | 155 |
 | Band III — vegetation | 458 |
-| Band IV — buildings and infrastructure | 342 |
+| Band IV — buildings and infrastructure | 346 |
 | Band V — vehicles | 141 |
 | `NO SUBSTITUTE` | 11 |
-| `REFUSED` | 12 |
+| `REFUSED` | 16 |
 | `TILE` | 4 |
-| `TOOL` | 8 |
+| `TOOL` | 14 |
 | `UNSURE` | 3 |
 
-**Read the 183 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
+**Read the 232 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
 land templates — and every one of the sixteen rides the single growth form the generator can shape. The
 engine's own machinery accounts for most of the rest. Nothing in bands IV and V beyond the footprint
 prism, the way widths and their point queries is ticked, and Band V is entirely unticked.

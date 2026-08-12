@@ -67,7 +67,7 @@ public:
   /* Whether this one tile's vectors have been decoded and kept. A consumer that works a tile at a
    * time asks about ITS tile: the block's pending count is about the camera's neighbourhood and says
    * nothing about a tile out at the edge of a ring. */
-  bool Decoded(int x, int y) const;
+  [[nodiscard]] bool Decoded(int x, int y) const;
   /* WHICH TILE THIS IS, or none. A tile the provider answered "absent" for is decoded and carries no
    * geometry, so "no index" and "not decoded" are two different answers and Decoded() is the one that
    * separates them. */
@@ -105,7 +105,7 @@ private:
 
   uint32_t Intern(std::vector<std::string> &pool, std::unordered_map<std::string, uint32_t> &index,
                   std::string_view s);
-  bool AddTile(int tx, int ty, int &added);
+  [[nodiscard]] bool AddTile(int tx, int ty, int &added);
 
   std::vector<std::string> Layers_;
   std::vector<Feature> Features_;

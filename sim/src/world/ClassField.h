@@ -57,7 +57,7 @@ public:
   void FromEnu(double e, double n, double *lat, double *lon) const { Frame_.Geo(e, n, lat, lon); }
   void ToEnu(double lat, double lon, double *e, double *n) const { Project(lat, lon, e, n); }
 
-  bool Complete() const;
+  [[nodiscard]] bool Complete() const;
   int PendingTiles() const {
     return Fine_.Field ? Fine_.Field->PendingTiles() + Coarse_.Field->PendingTiles() : -1;
   }
@@ -110,7 +110,7 @@ private:
   };
 
   void Ingest(Tier &t);
-  bool SubmitDue(double camE, double camN);
+  void SubmitDue(double camE, double camN);
   ClassBuilder::Job LendTo(Tier &t, ClassGrain grain, double camE, double camN);
   Tier &TierOf(ClassGrain grain) { return grain == ClassGrain::Fine ? Fine_ : Coarse_; }
 

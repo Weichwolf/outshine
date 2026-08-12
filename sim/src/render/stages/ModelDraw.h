@@ -98,7 +98,7 @@ public:
    * never shipped: kCells x kCells hemi-octahedral views of albedo+coverage and of the model-space
    * normal, so the far level is lit by the same SurfaceLight the near one is. Renderer owns the
    * pass; this allocates the targets and records the cells into it. */
-  bool WantsBake() const { return LevelIdxCount[0] > 0 && !ImpAlbedo; }
+  [[nodiscard]] bool WantsBake() const { return LevelIdxCount[0] > 0 && !ImpAlbedo; }
   void CreateImpostor();
   void EncodeBake(wgpu::RenderPassEncoder &pass);
   void FinishBake();

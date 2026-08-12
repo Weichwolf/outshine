@@ -34,7 +34,7 @@ constexpr Profile kProfiles[] = {
  * width there. */
 constexpr float kFloor = 0.05f;
 
-bool Same(const char *a, const char *b) { return a && b && std::strcmp(a, b) == 0; }
+[[nodiscard]] bool Same(const char *a, const char *b) { return a && b && std::strcmp(a, b) == 0; }
 
 } // namespace
 

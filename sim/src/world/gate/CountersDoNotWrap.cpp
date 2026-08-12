@@ -37,7 +37,15 @@ int main() {
   outshine::World::TileBuild build;
   long long repeats = 0, posts = 0;
   for (long long block = 0; repeats < past; block++) {
-    for (int i = 0; i < 1000000; i++) pool.Mesh(14, 8621, 5404, 128, &build);
+    for (int i = 0; i < 1000000; i++) {
+      /* The premise, asked rather than assumed: an ask the pool answers Absent counts no repeat, and
+       * the loop below would then spin forever instead of naming what went wrong. */
+      if (pool.Mesh(14, 8621, 5404, 128, &build) == outshine::World::TilePool::Reply::Absent) {
+        std::printf("GATE FAIL pool answered Absent after %lld blocks: the tile the repeat counter "
+                    "rides is not there\n", block);
+        return 1;
+      }
+    }
     const outshine::World::TilePool::Ledger ledger = pool.Counters();
     repeats = ledger.Repeats;
     posts = ledger.Posts;

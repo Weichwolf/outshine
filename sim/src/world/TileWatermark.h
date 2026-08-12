@@ -61,13 +61,13 @@ public:
     }
   }
 
-  bool Done(const std::vector<OsmField::Feature> &feats) const { return Mark_ >= feats.size(); }
+  [[nodiscard]] bool Done(const std::vector<OsmField::Feature> &feats) const { return Mark_ >= feats.size(); }
   int Deferrals() const { return Deferrals_; }
   size_t AheadCount() const { return Ahead_.size(); }
   size_t HeapBytes() const { return CapacityBytes(Ahead_); }
 
 private:
-  bool Taken(uint32_t tile) const {
+  [[nodiscard]] bool Taken(uint32_t tile) const {
     return std::binary_search(Ahead_.begin(), Ahead_.end(), tile);
   }
 

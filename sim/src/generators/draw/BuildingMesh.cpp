@@ -326,7 +326,7 @@ void Box(Site &site, const BuildingShape &s, const Plan2 &centre, double halfU, 
             Face(s, c[2], highZ, Facade::Ledge), Face(s, c[3], highZ, Facade::Ledge));
 }
 
-bool WantsChimney(const BuildingShape &s) {
+[[nodiscard]] bool WantsChimney(const BuildingShape &s) {
   if (s.Roof != RoofKind::Gable && s.Roof != RoofKind::Hip && s.Roof != RoofKind::Mansard)
     return false;
   return s.Use == BuildingUse::House || s.Use == BuildingUse::Terrace ||

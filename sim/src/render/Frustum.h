@@ -34,13 +34,13 @@ public:
     Add(r3, r2, -1.0);
   }
 
-  bool Visible(const double c[3], double r) const {
+  [[nodiscard]] bool Visible(const double c[3], double r) const {
     for (int i = 0; i < N; i++)
       if (P[i][0] * c[0] + P[i][1] * c[1] + P[i][2] * c[2] + P[i][3] < -r) return false;
     return true;
   }
 
-  bool Visible(const double origin[3], const float ctr[3], float rad) const {
+  [[nodiscard]] bool Visible(const double origin[3], const float ctr[3], float rad) const {
     const double c[3] = {origin[0] + ctr[0], origin[1] + ctr[1], origin[2] + ctr[2]};
     return Visible(c, (double)rad);
   }

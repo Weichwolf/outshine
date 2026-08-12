@@ -49,7 +49,7 @@ class FbGroundBlock {
 public:
   enum class State { Resolved, Pending, Missing };
 
-  State Where() const noexcept { return Where_; }
+  [[nodiscard]] State Where() const noexcept { return Where_; }
 
   /* ONE PARALLEL OF THE SURFACE, `count` heights in metres on the DEM's datum, equally spaced in
    * longitude from `lonFromDeg`. A row and not a point because that is what the tile's own frame

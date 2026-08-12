@@ -51,7 +51,7 @@ constexpr int kRetryMs = 50;
  * for the life of the process with nothing in the record to trace it to. */
 enum class Status { Bytes, Hole, Refused, Again };
 
-Status Classify(int httpStatus, size_t len) {
+[[nodiscard]] Status Classify(int httpStatus, size_t len) {
   if (httpStatus == 200) return len > 0 ? Status::Bytes : Status::Again;
   if (httpStatus == 204) return Status::Hole;
   if (httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429)
@@ -78,7 +78,7 @@ thread_local double tFetchBlockedMs = 0.0;
  * reports Pending to the provider, so the other order would erase every name this exists to keep. */
 enum class Miss { None, Hole, Wait, Refused };
 thread_local Miss tMiss = Miss::None;
-Miss Worse(Miss a, Miss b) { return a > b ? a : b; }
+[[nodiscard]] Miss Worse(Miss a, Miss b) { return a > b ? a : b; }
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)

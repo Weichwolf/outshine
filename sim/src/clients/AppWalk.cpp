@@ -33,7 +33,7 @@ const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
  * shots.jsonl, refused if the scene it names is not this one. It REPLACES the declared standpoint
  * rather than combining with it — two statements of where the eye is, applied at once, describe a
  * picture neither of them means. */
-bool Stand(const Clients::Scene &scene, Clients::Outshine &app) {
+[[nodiscard]] bool Stand(const Clients::Scene &scene, Clients::Outshine &app) {
   if (scene.Snapshot().empty()) return true;
   Clients::Snapshot snap;
   if (!snap.Load(scene.Snapshot().c_str()) || !snap.Matches(scene)) {

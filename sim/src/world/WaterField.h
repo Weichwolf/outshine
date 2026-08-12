@@ -58,7 +58,7 @@ public:
   const std::vector<Course> &Courses() const { return Courses_; }
   const std::vector<float> &Levels() const { return Levels_; }
   const double *Anchor() const { return Anchor_; }
-  bool HaveAnchor() const { return HaveAnchor_; }
+  [[nodiscard]] bool HaveAnchor() const { return HaveAnchor_; }
 
   /* pos3 + nrm3 per vertex, ECEF relative to Anchor(). A pure function of the surfaces. */
   void Tessellate(const OsmField &field, std::vector<float> &out) const;
@@ -75,7 +75,7 @@ public:
 private:
   /* Every ring point of every water feature of this tile has a height, so the tile can be taken
    * whole. Read twice per tile — the second read is a hit in the oracle's own tile cache. */
-  bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly, int line) const;
+  [[nodiscard]] bool TileGroundResolved(const OsmField &field, size_t from, size_t to, int poly, int line) const;
   std::vector<Surface> Surfaces_;
   std::vector<Course> Courses_;
   std::vector<float> Levels_;

@@ -43,17 +43,20 @@ void ServerTelemetry::Row(const std::vector<std::string> &fields) {
   if (Pending_.size() >= kFlushBytes) Flush();
 }
 
-bool ServerTelemetry::Flush() {
+void ServerTelemetry::Flush() {
   switch (Post_.Take()) {
     case HttpPost::State::Delivered: Dropped_ = 0; break;
     case HttpPost::State::Refused: Dropped_++; break;
-    case HttpPost::State::InFlight: return false;
+    case HttpPost::State::InFlight: return;
     case HttpPost::State::Idle: break;
   }
-  if (Pending_.empty()) return true;
+  if (Pending_.empty()) return;
   Post_.Begin(Url_, Pending_.data(), Pending_.size(), "text/csv");
   Pending_.clear();
-  return false;
+}
+
+bool ServerTelemetry::Owed() const {
+  return Post_.Ask() == HttpPost::State::InFlight || !Pending_.empty();
 }
 
 }  // namespace outshine::Clients
