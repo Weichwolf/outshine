@@ -594,10 +594,13 @@ transfer: CryEngine assumed threads on every target it shipped on. § I.18 does 
 - [ ] One translation unit per claim, its own `main`, no framework and no dependency below it — libc-test's shape. `test/generators/SameRegionSamePlacement.cpp` is 689 lines and ~30 claims behind one `main` today (`doc/bugs.md`)
 - [ ] `test/Check.h` as the whole reporter — `Check`, `CheckNear` with a tolerance that has no default, `Note` for a measured number, `Covers` for the requirement identifier, `Report` for the exit code. Header-only, C++17 inline variables, two macros and no more, and the reason for the macros stands beside them (`ES.31`: `__FILE__`, `__LINE__` and the source spelling of an expression cannot be had from a function)
 - [ ] A test never stops at its first failure — it reports all of them and exits with the count, so one round sees every claim that fell
+- [ ] **The verdict is the reporter's printed trailer, and the exit status is only cross-checked against it** — `CHECKS n FAILURES m` is what the harness judges, a disagreement between the two numbers is a failure naming both, and a test that prints no trailer at all did not report. A POSIX exit status is eight bits and the line above asks for a count, so the two collide: measured 2026-08-12 against the uncommitted harness, a test failing **256** claims exits 0 and is printed `PASS` while its own log reads `CHECKS 256 FAILURES 256`, and one failing **77** claims is printed `SKIP` and goes green under `--allow-skip` (`doc/bugs.md`). One mechanism closes four holes — the two aliases, `(void)Report()`, and a `.cpp` that forgot the reporter and therefore emits no trailer
 - [ ] `Test::Covers("R-I.8.4")` emitted **at run time**, not written in a comment, so a claim only counts as covered if the test that carries it actually ran
 - [ ] The identifiers of § *How a line is read* applied to all 1436 lines, and the harness fails on an identifier no line carries
 - [ ] `test/run.sh` as the harness: discovers, builds, runs each test in its own process, prints one line per test (`PASS`/`FAIL`/`TIMEOUT`/`SIGNAL`/`BUILD`/`SKIP`, name, milliseconds, log path), tabulates, and exits non-zero on anything that is not `PASS`
-- [ ] Its own timeout, because **macOS has no `timeout(1)`** — background the child, poll, kill, and report `TIMEOUT` distinctly from `FAIL`
+- [ ] **Every `.cpp` under `test/` carries a declared role** — test, entry point, negative fixture, harness tool — and a file whose role no directory declares is a refusal before anything is built, the same shape as an undeclared include set. `test/Millis.cpp` is a legitimate non-test, so the predicate cannot be *every `.cpp`*; it must be a declaration and not an inference. Discovery by `grep '^#include "Check.h"'` is a text scan over source — the instrument class this tree deleted with the Python validators — and it says nothing about a file that forgot the include: today such a file is not built, not run, not counted, and nothing reports it
+- [ ] **The include set of a layer is declared once and read by both the Makefile and the harness.** `test/run.sh:78-96` restates `INC_CORE`, `INC_GENERATORS` and `INC_DRAW`; they agree today and **nothing fails when they stop agreeing**, so the failure is silent by construction — a harness proving a layering the build does not have is green about a set that exists only in the harness. Step 3's layer archives remove the copy, and until they land the copy needs a reader rather than a promise (`make print-includes`, three lines, and the pattern already exists as `make print-sources`)
+- [ ] Its own timeout, because **macOS has no `timeout(1)`** — background the child, poll, kill, and report `TIMEOUT` distinctly from `FAIL`, **leaving no process behind**: a watchdog subshell killed while its `sleep` child runs orphans that child for the whole timeout, one per test (`doc/bugs.md`)
 - [ ] A crash reported as the signal it was (128 + n from `wait`), never as a generic failure
 - [ ] A test that could not run says so by name and **fails the harness** unless the skip was declared — a silent skip is the defect class this repository keeps finding, wearing a harness's hat
 - [ ] Tiers the harness names and can run alone: `build` (compiler only) · `host` (native, no device, no network) · `device` (native Dawn) · `world` (needs `fb-tiles` on :8081) · `port` (the one browser gate)
@@ -607,6 +610,7 @@ transfer: CryEngine assumed threads on every target it shipped on. § I.18 does 
 - [ ] A negative demands the **exact** diagnostic and that it is the **only** error emitted — today a typo in a fixture's own include name satisfies the gate (`doc/bugs.md`)
 - [ ] Geometric invariants over generated content, which is the *decidable* class `CLAUDE.md` names as the cheapest evidence and the class the tree has **none** of: watertight/manifold **0**, unit-normal assertion **0**, weld/degenerate-triangle check **0**, winding check **0**
 - [ ] Every index in range and no degenerate triangle, for every mesh a generator produces
+- [ ] The index buffer's length a multiple of three, for every mesh a generator produces — a sweep that steps `i += 3` while `i + 2 < size` drops a trailing one or two indices and then reports `size / 3` triangles, so the count agrees with the truncation instead of with the buffer (`test/generators/draw/GrownBarkIsAClosedMesh.cpp:102`, `:140`)
 - [ ] Every normal unit to 1e-4, for every mesh a generator produces
 - [ ] Consistent outward winding by the divergence-theorem volume `Σ v0·(v1×v2)/6 > 0` — a single number that catches a globally inverted mesh, where a per-triangle test cannot
 - [ ] Closed, or every boundary edge in a declared plane — a trunk open at `y = 0` is legitimate and an opening anywhere else is not, so the invariant states its exception instead of assuming closure (Ericson, *Real-Time Collision Detection* ch. 12: mesh consistency, welding and T-junctions)
@@ -1155,6 +1159,7 @@ declared.*
 - [x] Single-stem tree — one leader, a clear bole, a crown above it
 - [ ] `habit` in a species file is a **prose sentence for a human** and nothing reads it — the grower works from numbers, so a form written there cannot reach the geometry. Either it becomes parameters or it goes
 - [ ] Crown shape as a declared envelope — conical, columnar, ovoid, domed, vase, weeping, umbrella, flat-topped. The prose already distinguishes eight and the numbers distinguish none
+- [ ] **A shoot stops at the ground.** Every form's geometry is bounded below by the base plane to within one small declared dip — a branch tip lies *in* the sward, not under it — and the tip that would hang further is clamped there, the way it is already bent back at the crown envelope. `TreeGrower.cpp:598-606` puts y = 0 at the **trunk foot** deliberately and correctly, and then constrains nothing below it: measured 2026-08-12 over all 31 declarations, bark only, as a fraction of the tree's own height, willow **−0.933** (16.8 m of crown under the planting point at `height_m: 18`, 22.5 % of its bark vertices), dog_rose −0.542, blackthorn −0.229, hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064. The dip is a sourced number and not a free consequence of shoot length: *Salix* × *sepulcralis*'s branchlets tumble **to touch** the ground and *Rosa canina*'s arching stems climb **up** through their neighbours to 1–5 m (RHS), and neither grows downward. What it costs today is in `doc/bugs.md` — geometry shaded every frame that cannot be seen on the flat, and a crown hanging out of the bank face where willows are actually placed
 - [ ] Multi-stem tree — several leaders from one base, common in ash, lime and maple on an edge
 - [ ] Multi-stem shrub — no bole, stems from the ground, crown to the ground
 - [ ] Bush — a low rounded multi-stem form under about 2 m
@@ -2236,39 +2241,43 @@ exists.** It depends on I.12 in full.*
 
 ## The count
 
-| | |
-|---|---|
-*Counted mechanically 2026-08-12, after §§ I.18–I.21 landed. The block this replaces said 1428 / 232
-and had drifted from the file it counts — a count nobody recomputes is a claim, so it is recomputed
-here and the method is one pass over the `- [ ]` / `- [x]` lines.*
+*Recounted mechanically 2026-08-12 after the first three tests landed. The block this replaces said
+1974 / 1504 / 233 and was wrong on the day it was written: the method it declared — one pass over the
+`- [ ]` / `- [x]` lines — does not produce those numbers over any state this file has had. Two things
+are corrected with it. The method now says what it excludes, because the block's own table rows and
+the legend at the head of this file match the pattern and were being counted as features; and the
+count is taken at the top of a bullet (`^- [`), so an indented sub-item cannot inflate it. **A count
+nobody recomputes is a claim**, and this one had drifted twice.*
 
 | | |
 |---|---|
-| Lines in this file | **1974** |
-| Feature lines | **1504** |
-| `- [x]` built and checked | **233** |
-| `- [ ]` not built | **1271** |
+| Lines in this file | **2283** |
+| Feature lines — `^- [` , legend and this block's own rows excluded | **1632** |
+| `- [x]` built and checked | **227** |
+| `- [ ]` not built | **1405** |
 | Band 0 — residency | 78 |
-| Band I — engine | 326 |
-| Band II — world | 155 |
-| Band III — vegetation | 458 |
+| Band I — engine (§§ I.1–I.17 plus the library sections §§ I.18–I.26) | 452 |
+| Band II — world | 156 |
+| Band III — vegetation | 459 |
 | Band IV — buildings and infrastructure | 346 |
 | Band V — vehicles | 141 |
 | `NO SUBSTITUTE` | 11 |
-| `REFUSED` | 16 |
+| `REFUSED` | 17 |
 | `TILE` | 4 |
 | `TOOL` | 17 |
 | `UNSURE` | 3 |
 
-**Read the 233 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
+**Read the 227 correctly.** 43 of them are declarations of one thing — sixteen tree species and twelve
 land templates — and every one of the sixteen rides the single growth form the generator can shape. The
 engine's own machinery accounts for most of the rest. Nothing in bands IV and V beyond the footprint
-prism, the way widths and their point queries is ticked, and Band V is entirely unticked. **One tick
-was withdrawn this round** (§ I.17's hardening ledger, whose instrument was deleted the same day), and
-**68 lines were added** as §§ I.18–I.21 — the library, its host interface, the platform, the C++ test
-suite, and portability and coverage as claims with instruments instead of adjectives.
+prism, the way widths and their point queries is ticked, and Band V is entirely unticked.
 
-**None of the 1504 is covered by a test today**, because there is no test suite yet and the twelve
-gates that exist are structural. § I.21 carries the classification that says how many ever can be:
-**537 with what is in the tree, 707 more once each band's reference table is written down, 124 behind
-a device, 62 behind motion, 6 behind a sense we cannot instrument.**
+**Three of the 1632 have a test today**, and they are the whole of the suite's coverage: the closed,
+wound, unit-normal and in-range bark invariants over every declared species
+(`test/generators/draw/GrownBarkIsAClosedMesh.cpp`), the planar geodesy's round trip and its priced
+approximation (`test/core/PlanarGeodesyHoldsToItsScope.cpp`), and the harness's own red
+(`test/harness/ExpectFail.cpp`). The twelve gates beside them are structural. § I.21 carries the
+classification that says how many lines ever can be tested — **537 with what is in the tree, 707 more
+once each band's reference table is written down, 124 behind a device, 62 behind motion, 6 behind a
+sense we cannot instrument** — and that reading was taken over 1436 lines, which is the population it
+must be retaken over when § I.21's own line is worked.

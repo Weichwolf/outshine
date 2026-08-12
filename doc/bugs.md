@@ -70,6 +70,57 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   otherwise — Web Mercator ends at ±85.0511° by construction, so *every point on Earth is a valid
   start* is a claim the tile scheme does not hold and a refusal is the honest half of it.
 
+## The test harness and its reporter
+
+*Against `test/Check.h` and `test/run.sh` as they stand uncommitted at `c2d7780`. Every entry below is
+a **pre-commit condition**, not a debt to carry: the harness is the instrument every later measurement
+in this tree is read through, and an instrument that can be silently green is worse than none. All
+four are demonstrated, not argued — probes and logs under
+`/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/probe-root`,
+run against the real `src/` by symlink so nothing entered the tree.*
+
+- **A test that fails 256 claims is reported `PASS`, and its own log says `FAILURES 256` on the line
+  above.** `Check.h:60` `Report()` returns `Failures` and `run.sh:243` reads `PASS` from status 0; a
+  POSIX exit status is **eight bits**, so every count that is a multiple of 256 aliases onto success.
+  Demonstrated: a test with 256 failing `CHECK`s printed `CHECKS 256 FAILURES 256` and the harness
+  printed `PASS harness/TwoFiftySix` and exited 0. This is not a corner: `doc/requirements.md` § I.20
+  requires *a test never stops at its first failure — it reports all of them and exits with the count*,
+  and the geometric class loops over 31 declarations and will loop over thousands.
+- **A test that fails exactly 77 claims is reported `SKIP`, and `--allow-skip` then turns it green.**
+  `run.sh:240` spends 77 as the skip code and `Report()` can return it. Demonstrated: `CHECKS 77
+  FAILURES 77`, verdict `SKIP`, and `sh test/run.sh --allow-skip harness/SeventySeven` exits **0**.
+  The file's own banner — *a silent skip is the defect class this repository keeps finding, wearing a
+  harness's hat* — is defeated by its own reporter.
+- **`(void)outshine::Test::Report();` is a green test with a failing claim.** `[[nodiscard]]` is
+  satisfied by a cast, which is the same shape as the six `(void)`-ed `Try` answers at the head of
+  this file. Demonstrated: log reads `FAIL … CHECKS 1 FAILURES 1`, harness reads `PASS`.
+- **One orphaned `sleep` per test, alive for the whole timeout.** `run.sh:140-155` backgrounds a
+  watchdog subshell that runs `sleep "$TIMEOUT_S"`; `kill "$watchdog"` kills the subshell and leaves
+  its `sleep` child parented to init. Measured: **8 stray `sleep 120` processes after two runs of four
+  tests**, one per test, each for 120 s. At the suite size § I.20 and § I.21 imply — one translation
+  unit per claim over 1 436 requirement lines — that is a run that leaves hundreds of processes behind.
+  Right: `kill` the process group, or drop the watchdog for `wait` on a child that re-execs itself
+  under an alarm.
+
+- **`BarkVerdict::HighestY` is measured and read by nothing.**
+  `test/generators/draw/GrownBarkIsAClosedMesh.cpp:44` declares it, `:93` fills it, and no line in
+  `Judge`, `Accumulate` or `Publish` touches it — a struct member escapes `-Wunused`. It is the half
+  of the normalisation contract *"height exactly 1"* that this file was believed to have checked, and
+  the number quoted for it elsewhere was taken by a probe that is not in the tree. Right: check it, or
+  delete it — `CLAUDE.md`, *what is replaced is deleted in the same round*.
+- **A bark index buffer whose length is not a multiple of three loses its tail without a word.**
+  Same file, `:102`: `for (size_t i = 0; i + 2 < mesh.BarkIdx.size(); i += 3)` drops a trailing one or
+  two indices, and `:140` then reports `Triangles = size / 3`, so the count agrees with the truncation
+  rather than with the buffer. The check is one comparison and it is in the decidable class.
+
+Right for the first three, and it is **one** mechanism, not three: the verdict is the reporter's own
+trailer and the exit status is only cross-checked against it. `Report()` already prints
+`CHECKS n FAILURES m` and already `fflush`es, so the channel exists and nothing reads it — `run.sh`
+never opens the log it names. Reading it closes a fourth hole for free: a `.cpp` under `test/` that
+forgot `#include "Check.h"` emits no trailer at all, which is the silent non-test the design has no
+answer to today. Decides it: the three probes above must be `FAIL`, and a test whose printed
+`FAILURES` disagrees with its exit status must be `FAIL` naming both numbers.
+
 ## Bounds, allocation, and what the platform hides
 
 *Measured 2026-08-11 in `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad`,
@@ -141,28 +192,43 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## Vegetation
 
-- **The grown tree's declared base plane is not a floor: a fifth of the willow's bark is below it, and
-  its crown reaches deeper than the tree is tall.** `src/generators/draw/TreeMesh.h:1-3` declares the
-  mesh delivered "NORMALISED — base at y = 0, centred in x/z, height exactly 1", and
-  `TreeGrower::Grow` repeats it. The upper half of that contract holds: over all 31 declarations under
-  `assets/world/species/` the highest point of the whole tree is exactly 1. The lower half does not.
-  Measured 2026-08-12 over every declaration, native, at full detail (the probe is the tree-side of
-  `test/generators/draw/GrownBarkIsAClosedMesh.cpp`, which prints the number but does not yet assert
-  it): **seven declarations put geometry below y = 0** — as a fraction of the tree's own height, and
-  bark first, leaf points in brackets: willow −0.933 (−1.050), dog_rose −0.542, blackthorn −0.229,
-  hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064. Willow is not an
-  outlier vertex: **14 493 of its 64 539 bark vertices, 22.5 %, are below the base plane**, and with
-  `height_m: 18` its lowest leaf point sits **18.9 m under the point the tree is placed at**. Nothing
-  downstream lifts the mesh — `TreePrototype.cpp:111` copies `BoxMin.Y` into `Crown_.Bottom`, which
-  only bounds the crown for the in-crown query (`clients/StandField.cpp:43`) and the impostor box
-  (`render/stages/ModelDraw.cpp:749`); the instance transform puts y = 0 on the terrain. So the pendulous
-  species are drawn with their crowns inside the ground, every frame, and the shrubs with theirs a
-  little way into it. Six more sit *above* the plane by 3.6e-5 to 1.2e-4 of height (box, dogwood, elder,
-  hazel, privet, spindle) — trivial in metres, and still not the "exactly" the contract claims.
-  Right: the silhouette that prunes a hanging tip is clamped at the base plane, the way the tip is
-  already bent back at the crown envelope — a weeping willow's shoots stop at the ground, they do not
-  pass through it. Decides it: `min y == 0` over bark and leaf points for every declaration, which is
-  one `CHECK` in the test that already measures it.
+- **A weeping willow is drawn with 22.5 % of its bark below the point it is planted at, and no shoot
+  is constrained at the ground.** `assets/world/species/willow.json` (*Salix* × *sepulcralis*,
+  `height_m: 18`, `crown: weeping`) grows a bark mesh whose lowest vertex sits at **−0.9334 of the
+  tree's own height** — **16.8 m below the trunk foot** — and **14 493 of its 64 539 bark vertices,
+  22.5 %**, are under that plane. Six further declarations do the same, less far: dog_rose −0.542,
+  blackthorn −0.229, hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064.
+  Measured 2026-08-12 over all 31 declarations under `assets/world/species/`, native, at full detail;
+  the figures above are bark only and are what `test/generators/draw/GrownBarkIsAClosedMesh.cpp`
+  prints. *The leaf-point figures and the six "above the plane by 3.6e-5…1.2e-4" figures this entry
+  carried before came from a probe that is not in the tree — that test measures neither — and are
+  withdrawn until something measures them.* Nothing downstream lifts the mesh:
+  `TreePrototype.cpp:111` copies `BoxMin.Y` into `Crown_.Bottom`, which only bounds the in-crown query
+  (`clients/StandField.cpp:43`) and the impostor box (`render/stages/ModelDraw.cpp:749`), and the
+  instance transform puts y = 0 on the terrain. Two consequences, and they are of different kinds. The
+  **cost** is measured: on flat ground a fifth of every willow's bark is transformed every frame for
+  geometry that cannot be seen — vertex work only, since terrain depth kills most of those fragments
+  before shading, so do not claim the fragment half without measuring it. The **picture** is inferred
+  and not yet measured: geometry 16.8 m under the planting point emerges wherever terrain falls away
+  faster than that within the crown radius, which is the bank of a watercourse, and a willow is placed
+  on banks. It is decidable from one frame at a declared riverside standpoint and nobody has taken it.
+  **The contract reading in the entry this replaces was wrong, and the harmless explanation is three
+  lines from the code that produces the number.** `TreeMesh.h:1-3`'s *"base at y = 0"* means the
+  **trunk foot**, not the mesh minimum, and `TreeGrower.cpp:598-601` says so in its own words —
+  *"Y = 0 IS THE TRUNK FOOT, not the lowest vertex … a branch below zero belongs below the terrain;
+  that is where it grows"* — with a measurement behind it (taking the mesh minimum put a willow's foot
+  6.87 m and a spruce's 3.67 m above the ground). The mesh therefore honours its contract, and this is
+  not a contract violation. It is a **missing** constraint, so the feature line is
+  `doc/requirements.md` § III.2 *A shoot stops at the ground*; what stands here is the picture and the
+  cost the absent constraint produces today.
+  The grower's ruling is right for a spruce skirt at −0.02 of height and wrong at −0.93: *Salix* ×
+  *sepulcralis*'s branchlets tumble **to touch** the ground ([RHS](https://www.rhs.org.uk/plants/81798/salix-sepulcralis-var-chrysocoma/details))
+  and *Rosa canina*'s arching stems climb **up** through neighbouring shrubs to 1–5 m
+  ([RHS](https://www.rhs.org.uk/plants/16017/rosa-canina-s/details)) — neither grows downward.
+  Right: the hanging tip is clamped at the base plane the way it is already bent back at the crown
+  envelope, and the permitted dip is one small sourced number, not a free consequence of shoot length.
+  Decides it: `min y ≥ −δ` over bark **and** leaf points for every declaration, in the test that
+  already measures the bark half.
 
 ## World and streaming
 
