@@ -15,7 +15,7 @@ post-scarcity — modern infrastructure, lush nature.
 
 ## The constraints, and there are no others
 
-**SDL3** · **SDL_GPU** · **modern C++** · **this device at 720p60** — an Apple A18 Pro, 2 performance and
+**SDL3** · **SDL_GPU** · **modern C++, and only C++** · **this device at 720p60** — an Apple A18 Pro, 2 performance and
 4 efficiency cores, 5 GPU cores, 8 GB, Metal 4. It is the development platform *and* the budget, so no
 machine stands between the work and the target.
 
@@ -68,19 +68,6 @@ holds, never whether it looks right.
 **Layering is the build, never a checker.** Each directory compiles with its own include set, so a name
 it must not reach **has no spelling**. A breach is a compile error, and `test/` mirrors `src/` so every
 test is a continuous proof that its layer's include set is exactly what it claims.
-
-**A generator is a pure function `(Region, Ground) → Yield`**, `const noexcept`. **A provider is the same
-idea for external data** — an upstream source declaring what it covers, behind one registry, so a new
-one is a plugin rather than a patch. Both are declared, both are replaceable, neither knows the engine.
-
-**Settings are two-tiered.** The library carries the defaults and the values a consumer must not change;
-everything else is set by the test or the client. A value lives in exactly one tier.
-
-**The library owns its log and its telemetry.** A consumer says where they go — a path, stdout, stderr —
-and nothing else. There is no collector to post to and no server to be absent.
-
-**One language: C++.** No `.c`, no C ABI inside the tree, no conditional for a target that does not
-exist. A file that compiles only under some other toolchain is not part of this library.
 
 **Only correct work is committed**, and `git log` is what was — no journal.
 
