@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <string>
 
 #include "Document.h"
@@ -153,9 +154,7 @@ bool Subject::Build(const Document &document) {
   Uv_.clear();
   Indices_.clear();
   Parts_.clear();
-  Material_ = -1;
-  bool anyMaterial = false;
-  bool carriesUv = false;
+  bool anyUv = false;
 
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
@@ -190,10 +189,13 @@ bool Subject::Build(const Document &document) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }
-    Parts_.push_back({node.Name, VertexCount(), 0});
-
     for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
       ++primitives;
+      Part part;
+      part.NodeName = node.Name;
+      part.Material = primitive.Material;
+      part.FirstVertex = VertexCount();
+      part.FirstIndex = Indices_.size();
       if (!DrawsASurface(primitive.Mode)) {
         return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
                       " is " + ModeName(primitive.Mode) +
@@ -222,17 +224,13 @@ bool Subject::Build(const Document &document) {
         for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
       }
 
-      /* THE FIRST UV SET, AND ALL OR NOTHING ACROSS THE SUBJECT. A run half filled with real uvs and
-       * half with zeros samples the image's corner over the primitives that carried none, which
-       * looks like a texture bug and is a flattening bug. */
+      /* THE FIRST UV SET, PER PRIMITIVE. The run stays as long as the vertex run whatever the mix
+       * is: a primitive that carried none contributes zeros there and is drawn by a pipeline with
+       * no uv slot, so those zeros are unread rather than sampled at the image's corner. */
       const int uv = primitive.Find("TEXCOORD_0");
-      if (primitives == 1) {
-        carriesUv = uv >= 0;
-      } else if ((uv >= 0) != carriesUv) {
-        return Refuse(document.Path() + ": mesh " + std::to_string(node.Mesh) +
-                      " mixes primitives that carry TEXCOORD_0 with primitives that do not, and "
-                      "nothing here invents one");
-      }
+      part.HasUv = uv >= 0;
+      anyUv = anyUv || part.HasUv;
+      Uv_.resize((Positions_.size() / 3) * 2, 0.0);
       if (uv >= 0) {
         std::vector<double> coordinates;
         if (!document.ReadElements(uv, coordinates)) {
@@ -243,19 +241,8 @@ bool Subject::Build(const Document &document) {
                         std::to_string(coordinates.size() / 2) + " pairs over " +
                         std::to_string(vertices) + " vertices");
         }
-        Uv_.insert(Uv_.end(), coordinates.begin(), coordinates.end());
-      }
-
-      /* ONE SURFACE PER SUBJECT. Two materials would need two draws and two bindings, and drawing
-       * the second with the first's texture is exactly the silent wrong picture. */
-      if (!anyMaterial) {
-        Material_ = primitive.Material;
-        anyMaterial = true;
-      } else if (Material_ != primitive.Material) {
-        return Refuse(document.Path() + ": the default scene draws material " +
-                      std::to_string(Material_) + " and material " +
-                      std::to_string(primitive.Material) +
-                      ", and this subject carries one surface");
+        std::copy(coordinates.begin(), coordinates.end(),
+                  Uv_.begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
       }
 
       if (primitive.Indices >= 0) {
@@ -281,13 +268,15 @@ bool Subject::Build(const Document &document) {
         }
         Indices_.push_back(base + index);
       }
+      part.VertexCount = VertexCount() - part.FirstVertex;
+      part.IndexCount = Indices_.size() - part.FirstIndex;
+      /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
+       * would have to answer for while nothing of it is drawn. */
+      if (part.IndexCount > 0) { Parts_.push_back(part); }
     }
-    Parts_.back().VertexCount = VertexCount() - Parts_.back().FirstVertex;
-    /* A node whose mesh carries no primitive contributes no vertex, and a part covering none is a
-     * name a per-node declaration would have to answer for while nothing of it is drawn. */
-    if (Parts_.back().VertexCount == 0) { Parts_.pop_back(); }
   }
 
+  if (!anyUv) { Uv_.clear(); }
   if (Indices_.empty()) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");

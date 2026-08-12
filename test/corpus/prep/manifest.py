@@ -35,7 +35,7 @@ CAMERA_SOURCES = ("manifest", "gltf")
 # exactly max(dot(N,w),0)/pi. Under a uniform environment that is rho(u,v)*L, per texel, with nothing
 # stochastic left.
 MATERIAL_SOURCES = ("manifest", "gltf", "gltf-base-colour")
-MATERIAL_KINDS = ("diffuse", "emission")
+MATERIAL_KINDS = ("diffuse", "emission", "emission-per-material")
 LIGHT_KINDS = ("none", "sun", "point")
 WORLD_KINDS = ("factory", "uniform")
 DEVICES = ("CPU", "METAL")
@@ -405,18 +405,22 @@ def _material(value):
         field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinear"), ("note",))
         field["colourLinear"] = _vector("manifest.scene.material.colourLinear", field["colourLinear"], 3)
         return field
-    # ONE COLOUR PER NODE AND NO SHORTER SPELLING. Flat emission over touching bodies fuses them into
-    # one silhouette, so a misplaced node hides inside the union -- a worse instrument than the
-    # ambient-occlusion noise emission was adopted to remove. A map keyed by the glTF node's own name
-    # is what makes "the third cube" a fact about the file instead of a position in a list.
-    field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinearPerNode"), ("note",))
-    where = "manifest.scene.material.colourLinearPerNode"
-    if not isinstance(field["colourLinearPerNode"], dict) or not field["colourLinearPerNode"]:
-        raise Refusal(where, expected="a non-empty map of glTF node name to linear RGB",
-                      observed=repr(field["colourLinearPerNode"]))
-    field["colourLinearPerNode"] = {
-        node: _vector(where + "." + node, colour, 3)
-        for node, colour in sorted(field["colourLinearPerNode"].items())
+    # ONE COLOUR PER NODE, OR ONE PER MATERIAL, AND NO SHORTER SPELLING. Flat emission over touching
+    # bodies fuses them into one silhouette, so a misplaced node hides inside the union -- a worse
+    # instrument than the ambient-occlusion noise emission was adopted to remove. A map keyed by the
+    # file's own name is what makes "the third cube" a fact about the file instead of a position in a
+    # list. THE MATERIAL IS THE KEY A MULTI-MATERIAL ASSET HAS: a mesh whose primitives name different
+    # materials is one Blender object with several slots, so a per-object colour could reach only one
+    # of them.
+    keyed = "colourLinearPerNode" if kind == "emission" else "colourLinearPerMaterial"
+    field = _fields("manifest.scene.material", value, ("source", "kind", keyed), ("note",))
+    where = "manifest.scene.material." + keyed
+    if not isinstance(field[keyed], dict) or not field[keyed]:
+        raise Refusal(where, expected="a non-empty map of glTF name to linear RGB",
+                      observed=repr(field[keyed]))
+    field[keyed] = {
+        name: _vector(where + "." + name, colour, 3)
+        for name, colour in sorted(field[keyed].items())
     }
     return field
 
@@ -433,7 +437,7 @@ def _seed_shift(material, renders):
     the integral that survived the change. The second recipe therefore differs from the first in the
     seed and in nothing else; anything else would make the comparison a test of that too.
     """
-    if material.get("kind") != "emission":
+    if material.get("kind") not in ("emission", "emission-per-material"):
         if SEED_SHIFT_RECIPE_NAME in renders:
             raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME, expected="absent",
                           observed="declared beside a material that is not an emission",

@@ -108,19 +108,20 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
                                       {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
   /* rgba16float and not rg11b10ufloat: the cloud pass blends premultiplied alpha over the HDR target,
-   * and rg11b10 has no alpha channel. The plan may widen it to rgba32float, and then the two
-   * features below are what make that format behave like the narrow one instead of being refused at
-   * every bind and every blend. */
+   * and rg11b10 has no alpha channel. The plan may widen it to rgba32float, and then
+   * `Float32Blendable` is what makes that format blend instead of being refused at every blend. */
   const bool wideScene =
       Plan_ && Plan_->Format(Resource::SceneHdr) == TexelFormat::Rgba32Float;
   HdrFormat = wideScene ? wgpu::TextureFormat::RGBA32Float : wgpu::TextureFormat::RGBA16Float;
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
-  if (wideScene) {
-    for (wgpu::FeatureName wanted :
-         {wgpu::FeatureName::Float32Filterable, wgpu::FeatureName::Float32Blendable}) {
-      if (a.HasFeature(wanted)) { feats.push_back(wanted); }
-    }
+  /* ASKED FOR WHENEVER THE ADAPTER HAS IT, and not only under a wide scene target. It is a
+   * CAPABILITY of the device rather than a mode of the picture: a base-colour texture uploaded as
+   * exact linear floats needs it whatever the scene target's precision is. */
+  FloatFilterGranted = a.HasFeature(wgpu::FeatureName::Float32Filterable);
+  if (FloatFilterGranted) { feats.push_back(wgpu::FeatureName::Float32Filterable); }
+  if (wideScene && a.HasFeature(wgpu::FeatureName::Float32Blendable)) {
+    feats.push_back(wgpu::FeatureName::Float32Blendable);
   }
   /* The per-pass clock is TELEMETRY and not a mode, so it is asked for whenever the
    * adapter has it. An adapter without it is not refused a device it could have had — the row then
@@ -173,10 +174,14 @@ void Renderer::OnDevice(wgpu::Device d) {
 
   GpuTime.Configure(Device, GpuTimeGranted, Plan_->PassCount());
   DeviceReady = true;
+  /* `f32filter` is a DEVICE FEATURE that changes what a stage may store, so it is published beside
+   * the plan: a base colour uploaded as linear f32 and a base colour uploaded through an sRGB view
+   * are different numbers, and a run must say which one it took. */
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
                                        {"plan", Plan_->Digest()},
                                        {"passes", Plan_->PassCount()},
-                                       {"stages", (int)Plan_->Order().size()}});
+                                       {"stages", (int)Plan_->Order().size()},
+                                       {"f32filter", FloatFilterGranted}});
   for (const std::string &merge : Plan_->Merges())
     Log::Info("render", "plan_merge", {{"merge", merge}});
   for (const std::string &alias : Plan_->Aliases())
@@ -330,7 +335,7 @@ DisplayOptions Renderer::Display(void) const {
 }
 
 void Renderer::Configure(Stage stage) {
-  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height};
+  Gpu gpu{Device, Queue, HdrFormat, SurfaceFormat, Width, Height, FloatFilterGranted};
   switch (stage) {
     case Stage::Transmittance: Transmittance->Configure(gpu, View(Resource::TransmittanceLut)); return;
     case Stage::MultiScatter:

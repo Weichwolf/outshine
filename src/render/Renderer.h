@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <memory>
+#include <string>
 #include <vector>
 #include <webgpu/webgpu_cpp.h>
 #include "RenderPlan.h"
@@ -181,18 +182,20 @@ public:
   size_t ModelInstanceBytes() const { return Geometry->Models().InstanceBytes(); }
   size_t ModelImpostorBytes() const { return Geometry->Models().ImpostorBytes(); }
 
-  /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh of positions and,
-   * where the file carries one, first uvs, in ECEF offsets from `anchor`. A client that never
+  /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
+   * it -- many primitives, each with its own surface slot and vertex layout. A client that never
    * declares one draws nothing extra. */
-  void SetSubjectMesh(const float *verts, const float *uv, const float *emitted, uint32_t nverts,
-                      const uint32_t *idx, uint32_t nidx, const double anchor[3]) {
-    Geometry->Subjects().SetMesh(verts, uv, emitted, nverts, idx, nidx, anchor);
+  [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
+    return Geometry->Subjects().SetMesh(mesh, error);
   }
   long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
-  /* THE BASE-COLOUR TEXTURE the declaration hands across, already decoded to RGBA8: the file says
-   * which image and how it is addressed, the consumer decodes it, and this holds it. */
-  void SetSubjectTexture(const SubjectTexture &texture) {
-    Geometry->Subjects().SetTexture(texture);
+  uint32_t SubjectBatchCount() const { return Geometry->Subjects().BatchCount(); }
+  uint32_t SubjectDrawCount() const { return Geometry->Subjects().DrawCount(); }
+  /* THE SUBJECT'S SURFACES, one per slot a draw key can name: the file says which image and how it
+   * is addressed, the consumer decodes it, and this holds it. */
+  [[nodiscard]] bool SetSubjectMaterials(const std::vector<SubjectMaterial> &materials,
+                                         std::string &error) {
+    return Geometry->Subjects().SetMaterials(materials, error);
   }
 
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
@@ -358,6 +361,7 @@ private:
   std::vector<ShadowStage::TerrainCaster> ShadowTerrain;        /* reused, so a steady scene allocates nothing */
   GpuTimer GpuTime;                               /* per-pass GPU time, telemetry */
   bool GpuTimeGranted = false;
+  bool FloatFilterGranted = false;
   wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
   wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */
   wgpu::Buffer MeterBuf;                          /* ExposureStage's gain + white point, read by the tonemap */

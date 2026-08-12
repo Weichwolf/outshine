@@ -74,9 +74,131 @@ constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
   return true;
 }
 
+/* WHERE A PART SITS IN THE DEPTH FIELD OF ITS DRAW KEY: 0 at the declaration's own near plane, 1 at
+ * its far plane, measured along the view axis to the CENTRE OF THE PART'S BOX. The box centre and
+ * not a vertex mean, because min and max are exact and commutative in IEEE-754 while a mean moves
+ * when the loader's order does -- and a draw order that moved with the loader's order would be a
+ * pace-dependent picture. */
+double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
+                     const Gltf::Placement &eye) {
+  if (part.VertexCount == 0) { return 0.0; }
+  double low[3], high[3];
+  for (int axis = 0; axis < 3; ++axis) {
+    low[axis] = high[axis] = subject.PositionsM()[part.FirstVertex * 3 + (size_t)axis];
+  }
+  for (size_t vertex = 1; vertex < part.VertexCount; ++vertex) {
+    for (int axis = 0; axis < 3; ++axis) {
+      const double value = subject.PositionsM()[(part.FirstVertex + vertex) * 3 + (size_t)axis];
+      if (value < low[axis]) { low[axis] = value; }
+      if (value > high[axis]) { high[axis] = value; }
+    }
+  }
+  double along = 0;
+  for (int axis = 0; axis < 3; ++axis) {
+    along += (0.5 * (low[axis] + high[axis]) - eye.EyeM[axis]) * eye.Forward[axis];
+  }
+  const double span = eye.ZFarM - eye.ZNearM;
+  if (!(span > 0)) { return 0.0; }
+  return (along - eye.ZNearM) / span;
+}
+
+[[nodiscard]] bool Declared(const Studio &studio, const Gltf::Subject &subject,
+                            std::string &error) {
+  const size_t parts = subject.Parts().size();
+  if (studio.EmittedRadiance.size() != parts) {
+    error = "the studio declares " + std::to_string(studio.EmittedRadiance.size()) +
+            " emitted radiances over a subject of " + std::to_string(parts) +
+            " drawn primitives, and every part emits what it was declared to emit";
+    return false;
+  }
+  if (studio.PartSurface.size() != parts) {
+    error = "the studio declares " + std::to_string(studio.PartSurface.size()) +
+            " surface slots over a subject of " + std::to_string(parts) + " drawn primitives";
+    return false;
+  }
+  if (studio.Surfaces.empty()) {
+    error = "the studio declares no surface at all, and every draw binds one";
+    return false;
+  }
+  for (size_t part = 0; part < parts; ++part) {
+    if (studio.PartSurface[part] >= studio.Surfaces.size()) {
+      error = "part " + std::to_string(part) + " names surface slot " +
+              std::to_string(studio.PartSurface[part]) + " over a table of " +
+              std::to_string(studio.Surfaces.size());
+      return false;
+    }
+  }
+  return true;
+}
+
+/* ONE DRAW ITEM PER DRAWN PRIMITIVE, then compiled: the sort puts correctness first and the layout
+ * puts two draws of one surface next to each other in the index run, which is what lets them become
+ * one call. */
+[[nodiscard]] bool BuildDrawList(const Studio &studio, const Gltf::Subject &subject,
+                                 Render::DrawList &list, std::string &error) {
+  list.Clear();
+  for (size_t part = 0; part < subject.Parts().size(); ++part) {
+    const Gltf::Part &where = subject.Parts()[part];
+    const uint32_t slot = studio.PartSurface[part];
+    Render::DrawItem item;
+    item.Order.Viewport = 0;
+    item.Order.Layer = Render::ViewLayer::World;
+    item.Order.Surface = studio.Surfaces[slot].Surface;
+    item.Order.DepthFraction = DepthFraction(subject, where, studio.Eye);
+    item.Order.MaterialSlot = slot;
+    item.SourceFirstIndex = (uint32_t)where.FirstIndex;
+    item.IndexCount = (uint32_t)where.IndexCount;
+    /* THE LAYOUT IS A PROPERTY OF THE DRAW AND NEEDS BOTH HALVES: a part that carries uvs but wears
+     * a surface with no image would otherwise take the textured pipeline and sample the one white
+     * texel that only exists to make the bind group complete -- a stand-in wearing a texture's
+     * name. */
+    item.Layout = where.HasUv && studio.Surfaces[slot].BaseColour.Rgba
+                      ? Render::VertexLayout::PositionUv
+                      : Render::VertexLayout::Position;
+    if (!list.Add(item, error)) { return false; }
+  }
+  list.Compile();
+  return true;
+}
+
+/* WHERE THE THREE VERTEX RUNS START inside the one buffer the caller reuses. */
+struct VertexRuns {
+  size_t UvAt = 0;
+  size_t EmittedAt = 0;
+};
+
+/* ONE BUFFER, THREE RUNS: the positions, then the uvs, then the per-vertex radiance, so a caller
+ * reusing capacity across a loop of cases pays one allocation and the three vertex buffers are three
+ * pointers into it. */
+VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
+                        std::vector<float> &vertices) {
+  vertices.clear();
+  vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.VertexCount() * 3);
+  for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
+    double ecef[3];
+    EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
+    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+  }
+  VertexRuns runs;
+  runs.UvAt = vertices.size();
+  for (const double coordinate : subject.Uv()) { vertices.push_back((float)coordinate); }
+  runs.EmittedAt = vertices.size();
+  vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);
+  for (size_t part = 0; part < subject.Parts().size(); ++part) {
+    const Gltf::Part &where = subject.Parts()[part];
+    for (size_t vertex = 0; vertex < where.VertexCount; ++vertex) {
+      for (size_t channel = 0; channel < 3; ++channel) {
+        vertices[runs.EmittedAt + (where.FirstVertex + vertex) * 3 + channel] =
+            studio.EmittedRadiance[part][channel];
+      }
+    }
+  }
+  return runs;
+}
+
 } // namespace
 
-bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &scratch,
+bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
           std::string &error) {
   if (!studio.Geometry) {
     error = "the studio declares no subject";
@@ -88,44 +210,32 @@ bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &
     error = "the subject carries no triangle, so there is nothing to stand in the studio";
     return false;
   }
-  if (studio.EmittedRadiance.size() != subject.Parts().size()) {
-    error = "the studio declares " + std::to_string(studio.EmittedRadiance.size()) +
-            " emitted radiances over a subject of " + std::to_string(subject.Parts().size()) +
-            " mesh-bearing nodes, and every part emits what it was declared to emit";
-    return false;
-  }
+  if (!Declared(studio, subject, error)) { return false; }
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!ClearsNearPlane(subject, eye, error)) { return false; }
 
-  /* ONE BUFFER, THREE RUNS: the positions, then the uvs, then the per-vertex radiance, so a caller
-   * reusing capacity across a loop of cases pays one allocation and the three vertex buffers are
-   * three pointers into it. The uv run is written even when it is empty, so `HasUv` decides the
-   * pipeline and not a length. */
-  scratch.clear();
-  scratch.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.VertexCount() * 3);
-  for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
-    double ecef[3];
-    EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
-    for (int axis = 0; axis < 3; ++axis) { scratch.push_back((float)ecef[axis]); }
-  }
-  const size_t uvAt = scratch.size();
-  for (const double coordinate : subject.Uv()) { scratch.push_back((float)coordinate); }
-  const size_t emittedAt = scratch.size();
-  scratch.resize(emittedAt + subject.VertexCount() * 3, 0.0f);
-  for (size_t part = 0; part < subject.Parts().size(); ++part) {
-    const Gltf::Part &where = subject.Parts()[part];
-    for (size_t vertex = 0; vertex < where.VertexCount; ++vertex) {
-      for (size_t channel = 0; channel < 3; ++channel) {
-        scratch[emittedAt + (where.FirstVertex + vertex) * 3 + channel] =
-            studio.EmittedRadiance[part][channel];
-      }
+  if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
+
+  scratch.Indices.clear();
+  scratch.Indices.reserve(scratch.Draws.IndexCount());
+  for (const Render::IndexRun &run : scratch.Draws.Runs()) {
+    for (uint32_t at = 0; at < run.Count; ++at) {
+      scratch.Indices.push_back(subject.Indices()[run.SourceFirst + at]);
     }
   }
-  renderer.SetSubjectMesh(scratch.data(), subject.HasUv() ? scratch.data() + uvAt : nullptr,
-                          scratch.data() + emittedAt, (uint32_t)subject.VertexCount(),
-                          subject.Indices().data(), (uint32_t)subject.Indices().size(),
-                          kStudioAnchorEcefM);
-  renderer.SetSubjectTexture(studio.BaseColour);
+  const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
+
+  if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
+  Render::SubjectMesh mesh;
+  mesh.Verts = scratch.Vertices.data();
+  mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
+  mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
+  mesh.VertexCount = (uint32_t)subject.VertexCount();
+  mesh.Indices = scratch.Indices.data();
+  mesh.IndexCount = (uint32_t)scratch.Indices.size();
+  for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = kStudioAnchorEcefM[axis]; }
+  mesh.Draws = &scratch.Draws;
+  if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
 
   double position[3], forward[3], right[3], up[3];
   Anchored(eye.EyeM, position);

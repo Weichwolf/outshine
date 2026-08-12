@@ -1,0 +1,92 @@
+/* THE LIST OF DRAWS INSIDE ONE PASS. A stage declares a pass; this is what the pass draws, and it is
+ * many primitives with their own materials, their own vertex layouts and their own places in the
+ * order -- not one draw wearing a stage's name.
+ *
+ * COMPILING IS WHAT MAKES BATCHING TRUE RATHER THAN LUCKY. Sorting alone leaves two draws of one
+ * material adjacent in the list and far apart in the index buffer, so they still cost two calls.
+ * `Compile` sorts by `DrawKey` and then ASSIGNS each draw its place in the index run the consumer is
+ * about to write, so draws that may be merged are contiguous by construction. `Runs()` is the
+ * instruction for writing that buffer, and `Batches()` is what the encoder submits.
+ *
+ * THE SORT IS STABLE AND THE ORDER IS THEREFORE TOTAL. Two draws may carry the same key -- that is
+ * what makes them batchable -- and a comparison sort that broke the tie by address would put a
+ * pointer value in the picture. Insertion order breaks it instead, which is data the caller wrote
+ * down (`CLAUDE.md`: the mathematics is deterministic).
+ *
+ * NO DEVICE TYPE APPEARS HERE, which is what lets a draw list be built, sorted and checked with no
+ * `wgpu::` name in scope -- the same property that makes `render/plan/` checkable, one level down. */
+#ifndef DRAWLIST_H
+#define DRAWLIST_H
+
+#include <cstdint>
+#include <string>
+#include <vector>
+
+#include "DrawKey.h"
+
+namespace outshine::Render {
+
+/* WHICH VERTEX ATTRIBUTES A DRAW READS, and it is a property of the DRAW rather than of the subject
+ * it belongs to: a file may carry uvs on one primitive and none on the next, and drawing the second
+ * through the first's pipeline with a zero coordinate samples the image's corner (`Enum.2`). */
+enum class VertexLayout : uint8_t { Position, PositionUv };
+
+/* ONE DRAW: where its triangles are in the consumer's own index run, what surface it wears, and
+ * where it sorts. `SourceFirstIndex` is what the consumer handed over; `FirstIndex` is where
+ * `Compile` decided it goes, and before `Compile` it means nothing. */
+struct DrawItem {
+  DrawOrder Order;
+  uint32_t SourceFirstIndex = 0;
+  uint32_t IndexCount = 0;
+  VertexLayout Layout = VertexLayout::Position;
+  uint32_t FirstIndex = 0;
+};
+
+/* WHAT ONE `DrawIndexed` COVERS after merging: a contiguous index run drawn with one pipeline and
+ * one material. Two draws merge when they agree on everything the encoder would otherwise have to
+ * change between them, which is exactly what the key's material field groups. */
+struct DrawBatch {
+  uint32_t FirstIndex = 0;
+  uint32_t IndexCount = 0;
+  uint32_t MaterialSlot = 0;
+  VertexLayout Layout = VertexLayout::Position;
+  SurfaceKind Kind = SurfaceKind::Opaque;
+  /* How many draws were merged into this one call. 1 means nothing merged; it is published because a
+   * batching claim nobody counts is a claim. */
+  uint32_t Draws = 1;
+};
+
+/* Where one draw's indices are to be copied from, in compiled order. Walking this and appending
+ * `Count` indices from `SourceFirst` builds exactly the run `Batches()` addresses. */
+struct IndexRun {
+  uint32_t SourceFirst = 0;
+  uint32_t Count = 0;
+};
+
+class DrawList {
+public:
+  /* Refuses a material slot the key cannot address and a draw of no triangles, naming both numbers.
+   * A draw that cannot be ordered is not a draw that is quietly dropped. */
+  [[nodiscard]] bool Add(const DrawItem &item, std::string &error);
+
+  void Clear();
+
+  /* Sorts by key, assigns each draw its place in the index run, and merges what may be merged. */
+  void Compile();
+
+  [[nodiscard]] const std::vector<DrawItem> &Draws() const { return Draws_; }
+  [[nodiscard]] const std::vector<IndexRun> &Runs() const { return Runs_; }
+  [[nodiscard]] const std::vector<DrawBatch> &Batches() const { return Batches_; }
+  /* The length of the index run `Compile` laid out, which is the sum of every draw's own. */
+  [[nodiscard]] uint32_t IndexCount() const { return IndexCount_; }
+  [[nodiscard]] bool Empty() const { return Draws_.empty(); }
+
+private:
+  std::vector<DrawItem> Draws_;
+  std::vector<IndexRun> Runs_;
+  std::vector<DrawBatch> Batches_;
+  uint32_t IndexCount_ = 0;
+};
+
+} // namespace outshine::Render
+#endif

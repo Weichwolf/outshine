@@ -16,9 +16,11 @@
 #define GLTFSTUDIO_H
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
+#include "DrawList.h"
 #include "Subject.h"
 #include "SubjectDraw.h"
 
@@ -42,29 +44,43 @@ constexpr double kStudioAnchorEcefM[3] = {6378137.0, 0.0, 0.0}; /* WGS84 semi-ma
 void EcefFromGltf(const double gltf[3], double out[3]);
 
 /* WHAT A STUDIO IS, as one parameter object rather than five arguments (`I.23`): the geometry, where
- * it is seen from, and what each of its parts emits. The appearance is the DECLARATION's -- a
- * Lambertian facet of linear albedo rho under a uniform environment of radiance L emits rho*L, an
- * emissive surface emits its own colour -- and nothing in `src/render/` invents either number.
+ * it is seen from, what each of its parts emits and which surface each part wears. The appearance is
+ * the DECLARATION's -- a Lambertian facet of linear albedo rho under a uniform environment of
+ * radiance L emits rho*L, an emissive surface emits its own colour -- and nothing in `src/render/`
+ * invents either number.
  *
- * ONE RADIANCE PER PART, AND `Show` REFUSES ANY OTHER COUNT. The subject's parts are its
- * mesh-bearing nodes, so a declaration that gave one colour to three touching bodies cannot be
- * written: it is the wrong length and it is named as such. */
+ * ONE RADIANCE AND ONE SURFACE SLOT PER PART, AND `Show` REFUSES ANY OTHER COUNT. A part is one
+ * drawn primitive, so a declaration that gave one colour to three touching bodies, or one material
+ * to two primitives that name different ones, cannot be written: it is the wrong length and it is
+ * named as such. */
 struct Studio {
   const Gltf::Subject *Geometry = nullptr;
   Gltf::Placement Eye;
   /* Scene-referred linear radiance, one RGB triple per `Geometry->Parts()`, in that order. */
   std::vector<std::array<float, 3>> EmittedRadiance;
-  /* The decoded base colour, when the declaration names one. A texture with no texels is a subject
-   * that declares none, which is a different pipeline and not a white stand-in. */
-  Render::SubjectTexture BaseColour;
+  /* Which surface slot each part draws with, one per `Geometry->Parts()`. It is the draw key's own
+   * material field, so the consumer decides how many distinct surfaces there are -- two parts of one
+   * material share a slot and are then batchable. */
+  std::vector<uint32_t> PartSurface;
+  /* The surfaces themselves, indexed by slot. A surface whose base colour has no texels declares no
+   * texture, which is a different pipeline and not a white stand-in. */
+  std::vector<Render::SubjectMaterial> Surfaces;
 };
 
-/* Places the subject and the eye, and hands the renderer the mesh. `scratch` is the caller's so a
- * loop over many cases reuses one buffer -- the hot-loop exception `F.20` states for itself.
- * Refuses a subject with no triangle and a placement whose eye is inside the engine's near plane,
- * naming both numbers. */
-[[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio,
-                        std::vector<float> &scratch, std::string &error);
+/* THE CALLER'S WORKSPACE, so a loop over many cases reuses one set of buffers -- the hot-loop
+ * exception `F.20` states for itself. Nothing in it survives the call as meaning; it is capacity. */
+struct StudioScratch {
+  std::vector<float> Vertices;
+  std::vector<uint32_t> Indices;
+  Render::DrawList Draws;
+};
+
+/* Places the subject and the eye, compiles its draw list and hands the renderer the mesh. Refuses a
+ * subject with no triangle, a declaration whose per-part arrays are the wrong length, a surface slot
+ * no table entry answers, and a placement whose eye is inside the engine's near plane -- naming the
+ * numbers in every case. */
+[[nodiscard]] bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
+                        std::string &error);
 
 } // namespace outshine::Clients
 #endif

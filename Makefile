@@ -42,14 +42,18 @@ INC_CORE     := -Isrc/core -Isrc/core/io
 INC_DATA     := -Isrc/core -Isrc/data
 INC_SCENARIO := -Isrc/core -Isrc/scenario
 INC_GENERATORS := -Isrc/core -Isrc/generators
-INC_DRAW     := $(INC_GENERATORS) -Isrc/generators/draw
+INC_GENDRAW  := $(INC_GENERATORS) -Isrc/generators/draw
 INC_WORLD    := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles
 INC_GLTF     := -Isrc/core -Isrc/gltf
 # THE DECLARED RENDER PLAN, and its whole world is core and itself. No `wgpu::` type has a spelling
 # in it, which is what makes a plan checkable before a device exists -- and what makes the device
 # layer replaceable underneath it.
 INC_PLAN     := -Isrc/core -Isrc/render/plan
-INC_RENDER   := $(INC_CORE) -Isrc/render/plan -Isrc/render -Isrc/render/stages
+# THE DRAW LIST, one level below a stage: the per-draw quantities a pass carries -- the sort
+# key, the batching, the surface state. No `wgpu::` type has a spelling in it either, so a
+# draw list is buildable and checkable with no device in scope.
+INC_DRAWLIST := -Isrc/core -Isrc/render/draw
+INC_RENDER   := $(INC_CORE) -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages
 INC_SIMHALF  := $(INC_CORE) -Isrc/data -Isrc/scenario -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 INC_CLIENTS  := $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
 # THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names.
@@ -65,6 +69,7 @@ GEN_SRCS       := $(wildcard src/generators/*.cpp)
 GEN_DRAW_SRCS  := $(wildcard src/generators/draw/*.cpp)
 WORLD_SRCS     := $(wildcard src/world/*.cpp) $(wildcard src/world/tiles/*.cpp)
 PLAN_SRCS      := $(wildcard src/render/plan/*.cpp)
+DRAWLIST_SRCS  := $(wildcard src/render/draw/*.cpp)
 RENDER_SRCS    := $(wildcard src/render/*.cpp) $(wildcard src/render/stages/*.cpp)
 SIM_SRCS       := src/clients/Sim.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
   src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp src/clients/Species.cpp \
@@ -95,9 +100,10 @@ all:             ## compile the library entire -> build/liboutshine.a
 	  build_group "$(INC_SCENARIO)" "$$CC" $(SCENARIO_SRCS); \
 	  build_group "$(INC_GLTF)" "$$CC" $(GLTF_SRCS); \
 	  build_group "$(INC_GENERATORS)" "$$CC" $(GEN_SRCS); \
-	  build_group "$(INC_DRAW)" "$$CC" $(GEN_DRAW_SRCS); \
+	  build_group "$(INC_GENDRAW)" "$$CC" $(GEN_DRAW_SRCS); \
 	  build_group "$(INC_WORLD) $(SDL_IMAGE_CFLAGS)" "$$CC" $(WORLD_SRCS); \
 	  build_group "$(INC_PLAN)" "$$CC" $(PLAN_SRCS); \
+	  build_group "$(INC_DRAWLIST)" "$$CC" $(DRAWLIST_SRCS); \
 	  build_group "$(INC_RENDER)" "$$CCPP" $(RENDER_SRCS); \
 	  build_group "$(INC_SIMHALF)" "$$CC" $(SIM_SRCS); \
 	  build_group "$(INC_CLIENTS) $(SDL_IMAGE_CFLAGS)" "$$CCPP" $(APP_SRCS); \

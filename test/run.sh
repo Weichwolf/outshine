@@ -106,9 +106,10 @@ LayerIncludes() {
     unit/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
+    unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/clients) printf '%s' "-Isrc/clients" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     *) return 1 ;;
   esac
 }
@@ -182,9 +183,10 @@ LayerGroups() {
     unit/generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     unit/world) printf '%s' "" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
+    unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -224,8 +226,9 @@ GroupIncludes() {
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
-    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render -Isrc/render/stages" ;;
-    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
+    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
+    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac

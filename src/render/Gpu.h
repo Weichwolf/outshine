@@ -13,6 +13,10 @@ struct Gpu {
   wgpu::TextureFormat HdrFormat;       /* offscreen HDR scene target format (stages that draw into it) */
   wgpu::TextureFormat SurfaceFormat;   /* swapchain/present format (stages that draw into FrameTex/final) */
   int Width, Height;                  /* fixed scene resolution (FrameTex), not the live swapchain size */
+  /* Whether the device granted `float32-filterable`. A stage that wants an EXACT texel and a filter
+   * over exact texels needs both, and the two are one feature: without it a 32-bit float texture may
+   * only be sampled unfiltered. */
+  bool FiltersFloat32 = false;
 };
 
 /* What a SUN-LIT surface binds, as one bundle: IrradianceStage's two irradiances and

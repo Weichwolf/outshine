@@ -31,6 +31,7 @@
  * the empty-image hole living inside the image. At one sample per pixel under a 0.01 px box filter
  * the oracle's alpha is exactly 0 or 1, so straight and premultiplied coincide here and the choice
  * only starts to matter when a filter widens; it is stated now so that it is not chosen then. */
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -47,6 +48,7 @@
 #include "Mask.h"
 #include "Metric.h"
 #include "OracleRaw.h"
+#include "Pictures.h"
 #include "Radiance.h"
 #include "Ties.h"
 
@@ -69,6 +71,17 @@ using namespace outshine::Render::Parity;
 
 namespace {
 
+/* THE SURFACES ONE SUBJECT DRAWS WITH: one slot per material any drawn primitive names, and
+ * `PartSlot` is which slot each part draws with. Two primitives of one material share a slot, which
+ * is what lets the compiled draw list merge them into one call. The decoded rasters are held here
+ * because the renderer copies them and the studio only points at them. */
+struct SurfaceTable {
+  std::vector<outshine::Render::SubjectMaterial> Slots;
+  std::vector<int> Material;      /* the document's material index per slot, -1 where none */
+  std::vector<uint32_t> PartSlot;
+  std::vector<outshine::Clients::Raster> Decoded;
+};
+
 /* WHAT THE RUNNER READ AND NOTHING ELSE: the declaration, its resolved camera and its resolved
  * thresholds. Held as one object so the render step takes a subject rather than eleven arguments
  * (`I.23`). */
@@ -85,11 +98,10 @@ struct Case {
    * declaration and from nothing else. */
   std::vector<std::array<float, 3>> Emitted;
   std::string MaterialKind;
-  /* True where the manifest hands the surface to the file. The decoded image is held here because
-   * the renderer copies it and the studio only points at it. */
+  /* True where the manifest hands the surface to the file. The decoded images are held here because
+   * the renderer copies them and the studio only points at them. */
   bool MaterialFromFile = false;
-  outshine::Render::SubjectTexture BaseColour;
-  outshine::Clients::Raster Decoded;
+  SurfaceTable Surfaces;
 };
 
 /* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
@@ -124,15 +136,14 @@ std::string Slurp(const std::string &path) {
   return text;
 }
 
-[[nodiscard]] bool Spill(const std::string &path, const std::vector<uint8_t> &bytes) {
-  std::FILE *file = std::fopen(path.c_str(), "wb");
-  if (!file) { return false; }
-  const bool whole = std::fwrite(bytes.data(), 1, bytes.size(), file) == bytes.size();
-  std::fclose(file);
-  return whole;
-}
-
 void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str()); }
+
+/* WHICH MATERIAL ARMS OWE THE TWO-SEED CHECK: the ones whose every surface emits its declared
+ * colour, whatever the colour is keyed on. An emitter gathers nothing, so two seeds must agree bit
+ * for bit and any difference names the integral that survived. */
+bool Emits(const std::string &kind) {
+  return kind == "emission" || kind == "emission-per-material";
+}
 
 /* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
  * sink, and a test whose subject IS the renderer was reading a device that could not speak: a
@@ -283,56 +294,91 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
   return outshine::Render::SubjectWrap::Repeat;
 }
 
-/* THE SURFACE THE FILE OWNS: its base-colour factor, its base-colour image and the sampler that
- * addresses it. Every refusal here names what the asset declared and what was missing, because a
- * texture that quietly failed to load draws the factor alone -- a flat colour that looks exactly
- * like a material somebody authored that way. */
-[[nodiscard]] bool ResolveFileSurface(Case &subject, std::string &error) {
-  const int index = subject.Geometry.Material();
-  if (index < 0 || (size_t)index >= subject.File.Materials().size()) {
-    error = "the manifest hands the surface to the file and no drawn primitive names a material";
+/* THE SURFACE TABLE THE SUBJECT DRAWS WITH: one slot per material any drawn primitive names, in the
+ * order the parts first name them. Two primitives of one material get one slot, which is what lets
+ * the compiled draw list merge them into one call, and a primitive that names no material gets a
+ * slot of the engine's declared default -- which is a surface, not an absence. */
+void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceTable &out) {
+  out.Slots.clear();
+  out.Material.clear();
+  out.Decoded.clear();
+  out.PartSlot.assign(geometry.Parts().size(), 0);
+  for (size_t part = 0; part < geometry.Parts().size(); ++part) {
+    const int material = geometry.Parts()[part].Material;
+    size_t slot = out.Material.size();
+    for (size_t at = 0; at < out.Material.size(); ++at) {
+      if (out.Material[at] == material) {
+        slot = at;
+        break;
+      }
+    }
+    if (slot == out.Material.size()) {
+      outshine::Render::SubjectMaterial surface;
+      if (material >= 0 && (size_t)material < file.Materials().size()) {
+        surface.Surface = outshine::StateOf(file.Materials()[(size_t)material].Surface);
+      }
+      out.Material.push_back(material);
+      out.Slots.push_back(surface);
+    }
+    out.PartSlot[part] = (uint32_t)slot;
+  }
+}
+
+/* THE SURFACES THE FILE OWNS: each slot's base-colour image and the sampler that addresses it. Every
+ * refusal here names what the asset declared and what was missing, because a texture that quietly
+ * failed to load draws the factor alone -- a flat colour that looks exactly like a material somebody
+ * authored that way. */
+[[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
+                                      SurfaceTable &table, std::string &error) {
+  table.Decoded.assign(table.Slots.size(), outshine::Clients::Raster{});
+  size_t textured = 0;
+  for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
+    const int index = table.Material[slot];
+    if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
+    const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
+    if (!material.BaseColour.Declared()) { continue; }
+    if (material.BaseColour.TexCoord != 0) {
+      error = "material '" + material.Name + "' reads its base colour from TEXCOORD_" +
+              std::to_string(material.BaseColour.TexCoord) +
+              ", and this subject carries the first uv set only";
+      return false;
+    }
+    const outshine::Gltf::Texture &texture = file.Textures()[(size_t)material.BaseColour.Texture];
+    std::vector<uint8_t> encoded;
+    if (!file.ImageBytes(texture.Source, encoded)) {
+      error = "material '" + material.Name + "' names image " + std::to_string(texture.Source) +
+              ", whose bytes could not be read";
+      return false;
+    }
+    if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot]) ||
+        !table.Decoded[slot].Holds()) {
+      error = "the base-colour image of material '" + material.Name + "' is " +
+              std::to_string(encoded.size()) + " bytes that this decoder does not read";
+      return false;
+    }
+    outshine::Render::SubjectTexture &base = table.Slots[slot].BaseColour;
+    base.Rgba = table.Decoded[slot].Rgba.data();
+    base.Width = (uint32_t)table.Decoded[slot].Width;
+    base.Height = (uint32_t)table.Decoded[slot].Height;
+    if (texture.Sampler >= 0) {
+      const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+      base.WrapU = WrapOf(sampler.WrapS);
+      base.WrapV = WrapOf(sampler.WrapT);
+      base.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
+                         ? outshine::Render::SubjectFilter::Nearest
+                         : outshine::Render::SubjectFilter::Linear;
+    }
+    ++textured;
+  }
+  if (textured == 0) {
+    error = "the manifest hands the surface to the file and no material of it declares a "
+            "baseColorTexture";
     return false;
   }
-  const outshine::Gltf::MaterialRef &material = subject.File.Materials()[(size_t)index];
-  if (!subject.Geometry.HasUv()) {
-    error = "the file's material is the surface and the subject carries no TEXCOORD_0 to sample it "
-            "with";
+  if (!geometry.HasUv()) {
+    error = "the file's materials are the surface and the subject carries no TEXCOORD_0 to sample "
+            "them with";
     return false;
-  }
-  if (!material.BaseColour.Declared()) {
-    error = "the file's material declares no baseColorTexture";
-    return false;
-  }
-  if (material.BaseColour.TexCoord != 0) {
-    error = "the file's baseColorTexture reads TEXCOORD_" +
-            std::to_string(material.BaseColour.TexCoord) +
-            ", and this subject carries the first uv set only";
-    return false;
-  }
-  const outshine::Gltf::Texture &texture =
-      subject.File.Textures()[(size_t)material.BaseColour.Texture];
-  std::vector<uint8_t> encoded;
-  if (!subject.File.ImageBytes(texture.Source, encoded)) {
-    error = "the file's baseColorTexture names image " + std::to_string(texture.Source) +
-            ", whose bytes could not be read";
-    return false;
-  }
-  if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), subject.Decoded) ||
-      !subject.Decoded.Holds()) {
-    error = "the file's base-colour image is " + std::to_string(encoded.size()) +
-            " bytes that this decoder does not read";
-    return false;
-  }
-  subject.BaseColour.Rgba = subject.Decoded.Rgba.data();
-  subject.BaseColour.Width = (uint32_t)subject.Decoded.Width;
-  subject.BaseColour.Height = (uint32_t)subject.Decoded.Height;
-  if (texture.Sampler >= 0) {
-    const outshine::Gltf::Sampler &sampler = subject.File.Samplers()[(size_t)texture.Sampler];
-    subject.BaseColour.WrapU = WrapOf(sampler.WrapS);
-    subject.BaseColour.WrapV = WrapOf(sampler.WrapT);
-    subject.BaseColour.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
-                                     ? outshine::Render::SubjectFilter::Nearest
-                                     : outshine::Render::SubjectFilter::Linear;
   }
   return true;
 }
@@ -354,7 +400,8 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
  * touching cubes fuses them into one silhouette, which hides a misplaced node inside the union and
  * is a WORSE instrument than the noise it replaces. The boundary between two declared colours is
  * exact; a boundary in binary ambient-occlusion noise never was. */
-[[nodiscard]] bool ResolveEmission(const Case &subject, const Subject &geometry,
+[[nodiscard]] bool ResolveEmission(const Case &subject, const Document &file,
+                                   const Subject &geometry,
                                    std::vector<std::array<float, 3>> &out, std::string &error) {
   const Json::Ref material = subject.Manifest.Root()["scene"]["material"];
   const size_t parts = geometry.Parts().size();
@@ -362,14 +409,54 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
 
   if (subject.MaterialFromFile) {
     /* The metal-rough model at metalness 0 under a uniform environment reduces to
-     * `baseColour(u,v) * factor * L`; the texel is the shader's and the factor is the file's. */
-    for (std::array<float, 3> &radiance : out) {
+     * `baseColour(u,v) * factor * L`; the texel is the shader's and the factor is the part's own
+     * material's. */
+    for (size_t part = 0; part < parts; ++part) {
+      const int index = geometry.Parts()[part].Material;
+      const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
+                                             ? file.Materials()[(size_t)index].Surface
+                                             : outshine::Material{};
       for (size_t channel = 0; channel < 3; ++channel) {
-        radiance[channel] =
-            (float)((double)subject.File.Materials()[(size_t)geometry.Material()]
-                        .Surface.BaseColour[channel] *
-                    kFactoryWorldRadiance);
+        out[part][channel] =
+            (float)((double)surface.BaseColour[channel] * kFactoryWorldRadiance);
       }
+    }
+    return true;
+  }
+
+  /* ONE COLOUR PER MATERIAL, WHICH IS THE KEY A MULTI-MATERIAL ASSET HAS. A per-NODE colour cannot
+   * reach two primitives of one node that name different materials -- `SciFiHelmet` and
+   * `AlphaBlendModeTest` are exactly that -- and the importer carries the material's own name
+   * across, so the two sides key on the same string. */
+  if (subject.MaterialKind == "emission-per-material") {
+    const Json::Ref declared = material["colourLinearPerMaterial"];
+    std::vector<std::string> matched;
+    for (size_t part = 0; part < parts; ++part) {
+      const int index = geometry.Parts()[part].Material;
+      if (index < 0 || (size_t)index >= file.Materials().size()) {
+        error = "part " + std::to_string(part) +
+                " names no material, so a per-material colour has nothing to key on";
+        return false;
+      }
+      const std::string &name = file.Materials()[(size_t)index].Name;
+      const Json::Ref colour = declared[name.c_str()];
+      if (colour.Size() != 3) {
+        error = "scene.material.colourLinearPerMaterial declares no colour for material '" + name +
+                "'";
+        return false;
+      }
+      for (size_t channel = 0; channel < 3; ++channel) {
+        out[part][channel] = (float)colour[channel].Num(0.0);
+      }
+      if (std::find(matched.begin(), matched.end(), name) == matched.end()) {
+        matched.push_back(name);
+      }
+    }
+    if (declared.Size() != matched.size()) {
+      error = "scene.material.colourLinearPerMaterial declares " + std::to_string(declared.Size()) +
+              " colours over a subject that draws " + std::to_string(matched.size()) +
+              " materials, so at least one names a material this subject does not draw";
+      return false;
     }
     return true;
   }
@@ -389,17 +476,17 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
 
   if (subject.MaterialKind != "emission") {
     error = "scene.material.kind is '" + subject.MaterialKind +
-            "', and this runner knows 'diffuse' and 'emission'";
+            "', and this runner knows 'diffuse', 'emission' and 'emission-per-material'";
     return false;
   }
 
   const Json::Ref declared = material["colourLinearPerNode"];
-  size_t matched = 0;
+  std::vector<std::string> matched;
   for (size_t part = 0; part < parts; ++part) {
     const std::string &name = geometry.Parts()[part].NodeName;
     if (name.empty()) {
-      error = "the subject's node " + std::to_string(part) +
-              " carries no name, so a per-node colour has nothing to key on";
+      error = "the subject's part " + std::to_string(part) +
+              " carries no node name, so a per-node colour has nothing to key on";
       return false;
     }
     const Json::Ref colour = declared[name.c_str()];
@@ -410,11 +497,13 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
     for (size_t channel = 0; channel < 3; ++channel) {
       out[part][channel] = (float)colour[channel].Num(0.0);
     }
-    ++matched;
+    if (std::find(matched.begin(), matched.end(), name) == matched.end()) {
+      matched.push_back(name);
+    }
   }
-  if (declared.Size() != matched) {
+  if (declared.Size() != matched.size()) {
     error = "scene.material.colourLinearPerNode declares " + std::to_string(declared.Size()) +
-            " colours over a subject of " + std::to_string(matched) +
+            " colours over a subject of " + std::to_string(matched.size()) +
             " named nodes, so at least one names a node this subject does not draw";
     return false;
   }
@@ -432,8 +521,14 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
     error = subject.Geometry.Error();
     return false;
   }
-  if (subject.MaterialFromFile && !ResolveFileSurface(subject, error)) { return false; }
-  if (!ResolveEmission(subject, subject.Geometry, subject.Emitted, error)) { return false; }
+  ResolveSurfaceTable(subject.File, subject.Geometry, subject.Surfaces);
+  if (subject.MaterialFromFile &&
+      !ResolveFileSurface(subject.File, subject.Geometry, subject.Surfaces, error)) {
+    return false;
+  }
+  if (!ResolveEmission(subject, subject.File, subject.Geometry, subject.Emitted, error)) {
+    return false;
+  }
   return ResolveCamera(subject, error);
 }
 
@@ -478,7 +573,7 @@ struct Picture {
 [[nodiscard]] bool Capture(outshine::Render::Renderer &renderer,
                            const outshine::Clients::Studio &studio, Picture &out,
                            std::string &error) {
-  std::vector<float> scratch;
+  outshine::Clients::StudioScratch scratch;
   if (!outshine::Clients::Show(renderer, studio, scratch, error)) { return false; }
 
   for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
@@ -584,13 +679,6 @@ ImageDelta CompareImages(const std::vector<uint8_t> &ours, const std::vector<uin
   return delta;
 }
 
-[[nodiscard]] bool WritePng(const std::string &path, const std::vector<uint8_t> &rgba, int width,
-                            int height) {
-  std::vector<uint8_t> encoded;
-  if (!outshine::Clients::EncodePng(rgba.data(), width, height, encoded)) { return false; }
-  return Spill(path, encoded);
-}
-
 std::string Argument(int argc, char **argv) {
   if (argc < 2 || argv[1][0] == '\0') { return std::string(); }
   std::string directory = argv[1];
@@ -666,7 +754,7 @@ int main(int argc, char **argv) {
    * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
    * doc/requirements.md I.26.13. */
   size_t seedApart = 0;
-  if (subject.MaterialKind == "emission") {
+  if (Emits(subject.MaterialKind)) {
     OracleRaw shifted;
     const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
     CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
@@ -739,15 +827,20 @@ int main(int argc, char **argv) {
   studio.Geometry = &subject.Geometry;
   studio.Eye = subject.Eye;
   studio.EmittedRadiance = subject.Emitted;
-  studio.BaseColour = subject.BaseColour;
+  studio.PartSurface = subject.Surfaces.PartSlot;
+  studio.Surfaces = subject.Surfaces.Slots;
   for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
     Note(("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red")
              .c_str(),
          (double)subject.Emitted[part][0], "linear, scene-referred");
   }
   if (subject.MaterialFromFile) {
-    Note("base colour texels across", (double)subject.BaseColour.Width, "texels");
-    Note("base colour texels down", (double)subject.BaseColour.Height, "texels");
+    for (size_t slot = 0; slot < subject.Surfaces.Slots.size(); ++slot) {
+      Note(("base colour texels across, surface slot " + std::to_string(slot)).c_str(),
+           (double)subject.Surfaces.Slots[slot].BaseColour.Width, "texels");
+      Note(("base colour texels down, surface slot " + std::to_string(slot)).c_str(),
+           (double)subject.Surfaces.Slots[slot].BaseColour.Height, "texels");
+    }
   }
 
   Picture picture;
@@ -765,16 +858,29 @@ int main(int argc, char **argv) {
   /* THE PICTURES GO DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the two
    * frames a person opens to see why -- especially then. */
   const std::vector<uint8_t> reference = Encoded(oracle);
-  CHECK(WritePng(subject.Directory + "0-reference.png", reference, theirs.Width, theirs.Height),
+  const Pictures products(subject.Directory);
+  std::string unwritten;
+  CHECK(products.Png("0-reference.png", reference, theirs.Width, theirs.Height, unwritten),
         "0-reference.png is written from the same floats the score is computed on");
-  CHECK(WritePng(subject.Directory + "1-outshine.png", picture.Rgba, ours.Width, ours.Height),
+  CHECK(products.Png("1-outshine.png", picture.Rgba, ours.Width, ours.Height, unwritten),
         "1-outshine.png is written beside the reference, pass or fail");
+  if (!unwritten.empty()) { Refused(unwritten); }
 
   std::vector<Metric> metrics;
-  if (subject.MaterialKind == "emission") {
+  if (Emits(subject.MaterialKind)) {
     metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
                        Direction::AtMost});
   }
+  /* THE DRAW LIST, COUNTED. A batching claim nobody counts is a claim, and the two numbers together
+   * say what the key bought on this subject: how many primitives were drawn and how many
+   * `DrawIndexed` calls they cost after the compiled list merged what shared a pipeline and a
+   * surface slot. */
+  metrics.push_back({"subject_draws", (double)renderer.SubjectDrawCount(), 0.0, "draws",
+                     Direction::Reported});
+  metrics.push_back({"subject_draw_calls", (double)renderer.SubjectBatchCount(), 0.0, "calls",
+                     Direction::Reported});
+  metrics.push_back({"subject_surfaces", (double)subject.Surfaces.Slots.size(), 0.0, "slots",
+                     Direction::Reported});
   metrics.push_back({"coverage_fraction_outshine", ours.Fraction(),
                      subject.Accepted.CoverageFractionMin, "dimensionless", Direction::AtLeast});
   metrics.push_back({"coverage_fraction_oracle", theirs.Fraction(),
@@ -813,11 +919,17 @@ int main(int argc, char **argv) {
     } else {
       outshine::Clients::Studio other = studio;
       other.Geometry = &spelling;
-      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES and not copied from the entry's. The two spell
-       * one surface, so their node names agree -- and if they ever did not, copying by position
-       * would colour the wrong body while the count still matched. */
-      built = ResolveEmission(subject, spelling, other.EmittedRadiance, trouble) &&
-              Capture(renderer, other, again, trouble);
+      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES AND ITS OWN MATERIALS, not copied from the
+       * entry's. The two spell one surface, so their names agree -- and if they ever did not,
+       * copying by position would colour the wrong body while the count still matched. */
+      SurfaceTable surfaces;
+      ResolveSurfaceTable(alternate, spelling, surfaces);
+      built = (!subject.MaterialFromFile ||
+               ResolveFileSurface(alternate, spelling, surfaces, trouble)) &&
+              ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
+      other.PartSurface = surfaces.PartSlot;
+      other.Surfaces = surfaces.Slots;
+      built = built && Capture(renderer, other, again, trouble);
     }
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
     if (!built) {

@@ -58,15 +58,24 @@ struct Placement {
   [[nodiscard]] bool Clip(double viewportAspect, Transform &out) const;
 };
 
-/* ONE MESH-BEARING NODE'S CONTRIBUTION to the flattened run. The hierarchy is gone by the time a
- * consumer sees the triangles, and this is the one thing about it that survives: which vertices came
- * from which node, and what that node was called. A declaration that says something per node -- what
- * each part of the subject emits -- resolves against this and against nothing else, so "the third
- * cube" is a name in the file rather than a position in a list somebody has to keep in step. */
+/* ONE DRAWN PRIMITIVE'S CONTRIBUTION to the flattened run, and the primitive is the unit because the
+ * primitive is what carries a material: `SciFiHelmet` puts several under one mesh and
+ * `AlphaBlendModeTest` gives each its own alpha mode, so a part that was a NODE could only ever
+ * name one of them. The hierarchy is gone by the time a consumer sees the triangles, and this is
+ * what survives it: which vertices and which indices came from where, what the node was called, and
+ * which material the primitive named.
+ *
+ * A DECLARATION THAT SAYS SOMETHING PER PART RESOLVES AGAINST THIS AND AGAINST NOTHING ELSE, so
+ * "the third cube" is a name in the file rather than a position in a list somebody has to keep in
+ * step. */
 struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
+  int Material = -1;      /* the document's material index, or -1 where the primitive names none */
+  bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
   size_t FirstVertex = 0;
   size_t VertexCount = 0;
+  size_t FirstIndex = 0;
+  size_t IndexCount = 0;
 };
 
 class Subject {
@@ -80,17 +89,15 @@ public:
   const std::vector<double> &PositionsM() const { return Positions_; }
   /* 2 doubles per vertex, `TEXCOORD_0` verbatim -- glTF's own convention, origin at the image's
    * UPPER left, which is the same origin our raster uses, so no flip happens here or anywhere.
-   * Empty when no primitive of the subject carried one; a subject where SOME primitives carry one
-   * is refused rather than half-filled, because a zero uv is a number meaning nothing. */
+   * Empty when NO part carried one; otherwise it covers every vertex, and the vertices of a part
+   * that carried none hold zero. THAT ZERO IS NEVER SAMPLED: `Part::HasUv` selects a pipeline with
+   * no uv slot at all, so the number is unread rather than a stand-in for a coordinate. */
   const std::vector<double> &Uv() const { return Uv_; }
   bool HasUv() const { return !Uv_.empty(); }
-  /* In the order the flattening walked them, and covering every vertex exactly once. */
+  /* In the order the flattening walked them, and covering every vertex and every index exactly
+   * once. Several parts may name one node, one mesh or one material; that is what a multi-material
+   * asset is. */
   const std::vector<Part> &Parts() const { return Parts_; }
-  /* The one material every drawn primitive of the subject names, or -1 where none does. A subject
-   * whose primitives name two different materials is refused: this draw carries one surface, and
-   * silently drawing the second primitive with the first's texture is the defect a multi-material
-   * asset exists to expose. */
-  int Material() const { return Material_; }
   /* Triangles, three indices each, wound counter-clockwise about the front face -- glTF's own rule,
    * with a mirroring node's order already restated, so the run is uniform however the file spelt it
    * and a consumer may cull back faces on it. */
@@ -128,7 +135,6 @@ private:
   std::vector<double> Uv_;
   std::vector<uint32_t> Indices_;
   std::vector<Part> Parts_;
-  int Material_ = -1;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 

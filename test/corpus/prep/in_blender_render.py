@@ -230,6 +230,47 @@ def emission_material(name, colour):
     return material
 
 
+def apply_emission_per_material(imported, colours):
+    """One emitter per glTF MATERIAL, which is the key a multi-material asset has.
+
+    A mesh whose primitives name different materials arrives as ONE object with several slots, so a
+    per-object colour could only ever reach one of them. The importer carries the material's own name
+    across unchanged, so the manifest and the renderer key on the same string, and every slot of every
+    object is answered.
+
+    The datablock is rewired rather than replaced, because replacing it would renumber the slots the
+    polygons point at and silently move colours between primitives. Only the IMPORTED objects' slots
+    are walked: the factory file ships materials of its own ("Dots Stroke"), and a manifest that had
+    to declare a colour for those would be declaring the startup file.
+    """
+    assigned = {}
+    subject = []
+    for obj in imported:
+        if obj.type != "MESH":
+            continue
+        for slot in obj.material_slots:
+            if slot.material is not None and slot.material not in subject:
+                subject.append(slot.material)
+    for material in subject:
+        if material.name not in colours:
+            fail("the scene carries the material %r and the manifest declares colours for %s"
+                 % (material.name, ", ".join(sorted(colours))))
+        material.use_nodes = True
+        tree = material.node_tree
+        tree.nodes.clear()
+        output = tree.nodes.new("ShaderNodeOutputMaterial")
+        shader = tree.nodes.new("ShaderNodeEmission")
+        shader.inputs["Color"].default_value = tuple(colours[material.name]) + (1.0,)
+        shader.inputs["Strength"].default_value = 1.0
+        tree.links.new(shader.outputs[0], output.inputs["Surface"])
+        assigned[material.name] = material.name
+    for name in sorted(colours):
+        if name not in assigned:
+            fail("the manifest declares a colour for material %r and the scene carries no such "
+                 "material" % name)
+    return {"source": "manifest", "kind": "emission-per-material", "assigned": assigned}
+
+
 def apply_material(imported, declared):
     if declared["source"] == "gltf":
         return {"source": "gltf"}
@@ -247,6 +288,9 @@ def apply_material(imported, declared):
         meshes[0].data.materials.clear()
         meshes[0].data.materials.append(material)
         return {"source": "manifest", "kind": "diffuse", "assigned": {meshes[0].name: material.name}}
+
+    if declared["kind"] == "emission-per-material":
+        return apply_emission_per_material(imported, declared["colourLinearPerMaterial"])
 
     # ONE MATERIAL PER OBJECT, KEYED BY THE glTF NODE'S OWN NAME, which the importer carries into the
     # object's name. A single colour over touching bodies fuses their silhouettes and hides a
