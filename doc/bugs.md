@@ -570,7 +570,69 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   origin string amended — the crown of `Populus nigra 'Italica'` being narrow lowers `h_crit` further
   rather than excusing the slenderness, so the reason currently written there argues the wrong way.
 
+## Constants, names and units
+
+*Found 2026-08-12 in the design round for the const header. Every line here is a number that exists in
+the tree more than once, or under a name that says the wrong unit.*
+
+- **One upstream's zoom bound is written three times, in two languages, and one of the three is
+  suspect.** `world/TilePool.cpp:28` and `world/TerrainLoader.cpp:30` each define
+  `constexpr int kProviderTerrainMaxZ = 15` — two definitions in two translation units, each with its
+  own comment naming `tiles/src/tilesrc.c` as the authority — and that authority is a third copy,
+  `K[FB_TILE_TERRAIN].maxz = 15` in `tiles/src/tilesrc.c:13`. `doc/requirements.md` § I.16 carries
+  *"Zoom above 14 for terrain — `/t/terrain/15/…` returns non-PNG, so z14 may be the finest served;
+  unresolved"*, so the value asserted in three places may be wrong in all three. It decides nothing
+  today because `world/World.cpp:27` splits at `kMaxZ = 14` and never asks for z15 — which is itself
+  the finding: a fourth number, in a fourth place, with no stated relation to the other three. Right:
+  the zoom range is one upstream's own declaration about itself, stated once by the thing that fetches
+  from it, and checked against what the wire actually answers.
+- **The suffix `Ms` names two different units in the same tree.** `core/Units.h:22`
+  `kMsToKt` is metres per second to knots; `clients/Walker.h:17` `kWalkSpeedMs = 1.4` is metres per
+  second; `clients/FrameTelemetry.h:33` `kWindowMs = 1000.0` is milliseconds. Reading any one of them
+  correctly requires reading its comment, against `CLAUDE.md`'s *a name that needs a comment is the
+  wrong name*. `core/Units.h:15` `kMPerDeg` shows the unambiguous spelling already exists in the same
+  file. Right: one declared suffix table, `MPerS` for velocity and `Ms` for milliseconds, applied
+  everywhere; the ambiguity is decidable by grep and there are three sites.
+- **A number derived by eye is spelled as if it were physics, and nothing in the tree can tell.**
+  `render/stages/SceneScale.h:17` `kSceneExposure = 11.0` multiplies every scene radiance the renderer
+  produces — sky, ground, buildings, blades and haze — and its own derivation says it was chosen by
+  *"placing that at ACES input 0.32 — the value whose sRGB output is 0.70, mid-frame for a sunlit
+  surface"*. That is an exposure decision anchored on where a mid-tone should land in an 8-bit picture,
+  sitting on the path every physical quantity takes. It may be entirely correct as an exposure; the
+  defect is that **no measurement in this tree can decide which side of the line it is on**, because
+  `render/Renderer.h:59` `ReadPixels` is *"tightly packed W*H*4 RGBA8, already sRGB-encoded"* and there
+  is no readback of scene-referred linear radiance at all. Right: the linear tap ahead of
+  `ExposureStage`, and the constant then lives in the exposure stage or is shown to be physics
+  (`doc/requirements.md` § I.26).
+
 ## Declaration and build
+
+- **Ten declared scenes carry eighty world fields that nothing reads, and one of them is declared
+  twice with the C++ copy winning.** Every `subject` scene in `mods/demo/mod.json`
+  (`subject-beech`, `-meadow`, `-hazel`, `-elder`, `-box`, `-dog-rose`, `-hedge-hornbeam`,
+  `-snag-spruce`, `-log-beech`, `-stump-beech`) declares `lat 52.10602`, `lon 9.43453`, `eyeM 1.7`,
+  `yawDeg 280`, `pitchDeg 0`, `fovDeg 30`, `utc`, `windDeg 250`, `windMs 6.0` — and
+  `clients/SubjectBench.h:1-18` states the bench replaces the world and the light outright. The bench
+  places its own camera from its own `View` table, declares its own key at
+  `SubjectBench.h:65 kSunElDeg = 11.0`, and runs its own 0/6/12 m/s wind row; only `lat`/`lon` reach it
+  at all, through `Stand(Scene_.Lat(), Scene_.Lon(), kSubjectGroundAslM)` where
+  `SceneRunner.cpp:32 kSubjectGroundAslM = 100.6` is a third literal the declaration cannot see.
+  `fovDeg: 30` in the JSON and `SubjectBench.h:62 kFovDeg = 30.0` are one statement in two places and
+  the JSON one is inert — against `CLAUDE.md`'s *every statement has exactly one place*. Right: a
+  scenario whose stage is a studio has no latitude, no civil time and no met wind to declare, so the
+  eight dead fields have no spelling (`doc/requirements.md` § I.25).
+- **The C-ABI exception's stated reason is not true.** `CLAUDE.md`'s naming rule exempts
+  `world/terrain/` because it is *"C-ABI, shared with `tiles/`"*. It is not shared: `tiles/osmmesh/`
+  holds its own `terrain.c`, whose header comment says so in its own words — *"a deliberately smaller
+  copy of the client's full terrain.c … which also builds ENU/ECEF meshes — a rendering concern this
+  server binary has no use for"* (`tiles/osmmesh/terrain.c:1-7`). Two copies of one decoder, 111 lines
+  against 164, drifting independently since the 2026-07-24 split; and the duplication has already cost
+  one recorded defect in this file, the two spellings of the Mercator band
+  (`tiles/src/tilemath.h` `FB_MERC_LAT_MAX 85.0511287798` against `world/terrain/geo.h`
+  `osmmesh_mercator_lat_max_deg 85.05112877980659`, differing from the 11th digit). Every file under
+  `src/world/terrain/` is compiled as C++ already; no C compiler in this tree reads them. Right: the
+  exception is struck and the seam becomes a C++ interface, which closes § I.17's open *a C-ABI status
+  reaches a house type at the boundary* rather than adding work (`doc/requirements.md` § I.22).
 
 - **Six ticked or priced lines in `doc/requirements.md` name a tool that no longer exists.** The
   hardening ledger (`sim/tools/hardening_ledger.py`, its baseline and the `verify-hardening` gate) was
@@ -651,3 +713,44 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `world/terrain` and `clients/SimHost.cpp` (`:315`). Right: one translation unit per claim under
   `sim/test/generators/`, each with its own `main`, which is what the suite this file's requirements
   now describe is for.
+
+- **The state channel has no collector.** `clients/ServerLog.cpp`, `clients/ServerTelemetry.cpp` and
+  `clients/HttpPost.cpp` post the log and every telemetry row to `OUTSHINE_SIM`
+  (default `http://localhost:8080`); the only implementation of that endpoint in this tree was
+  `clients/SimHost.cpp`, deleted with the container on 2026-08-12. Measured with nothing on :8080:
+  `demo/frame` exits 0, draws the same picture (`852bd4246ee34f65`) and writes its `give` products
+  through `FileArtifacts` — and **not one of its 674 log lines mentions a refused post or a dropped
+  batch**. `ServerLog`'s own comment promises "a gap is visible rather than silent", and the count
+  that would make it visible rides the next batch that gets through, which never comes. So the
+  archive the whole comparability argument rests on stops growing without a word, and the two sinks
+  fire once per second into a closed socket. Right: a file sink beside `FileArtifacts` for both
+  channels — the run already knows a directory, `OUTSHINE_OUT` — and `Server*` gone or re-homed with
+  the collector it needs.
+
+- **Twenty preprocessor conditionals in the library compile for a target no build produces.**
+  `world/TilePool.cpp` (4, plus an `EM_JS` HTTP primitive and `fb_take_http_body`),
+  `core/io/HeapProbe.cpp` (6), `clients/HttpPost.cpp` (4), `render/Renderer.cpp` (3),
+  `core/io/StackProbe.cpp` (2) and `world/TerrainLoader.cpp` (1), with six `#include <emscripten…>`.
+  No target compiles them since the wasm targets were deleted, so they are unbuilt code inside `src/`
+  — the one thing `-Werror` cannot see. `HttpPost.cpp:17` additionally justifies a static's lifetime
+  with `-sEXIT_RUNTIME=0 (sim/Makefile)`, a flag that no longer exists anywhere in the tree. Right:
+  the branches leave with the round that builds `src/host/`, and until then nothing may be added to
+  them.
+
+- **Nothing tests that a cumulative counter survives a 32-bit target.** `verify-counters` did, in the
+  browser, and went with it: last green 2026-08-12 on Chromium 151.0.7922.34, `poolPosts=220
+  poolRepeats=2147999561 sizeofLong=4`. `TilePool.h:52` still declares its ledger `long long` for
+  exactly this reason and the comment naming it is now the only thing holding it. Right: the check is
+  a property of the declarations, not of a platform — a static assertion over the ledger's field
+  widths costs nothing and needs no 32-bit host.
+
+- **`clients/Walker.h`/`Walker.cpp` has no caller.** The browser shell that steered it is deleted and
+  `test/clients/AppWalk.cpp:101` refuses an interactive scene, so the walking verb is compiled (it is
+  in `APP_SRCS`, so it cannot rot) and constructed nowhere. Right: the client with an input medium is
+  its caller, or it goes with the round that decides there will not be one.
+
+- **`tiles/src/wxfmt.h:6` names two things that do not exist.** `sim/src/core/FBWxFormat.h` moved to
+  `src/core/FBWxFormat.h` on 2026-08-12, and the checker the line credits with holding the contract —
+  "sim's `build/fb-test-weather`" — has no target in any Makefile in this tree and no source behind
+  it. The wire format's one written statement of who verifies it verifies nothing. Right: the path,
+  and either a test that reads both headers or no claim that one exists.

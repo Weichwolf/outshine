@@ -626,6 +626,201 @@ transfer: CryEngine assumed threads on every target it shipped on. § I.18 does 
 - [ ] Portability stated as the link test of § I.18 and nothing softer — *"runs on any platform"* is a property of the symbol table or it is a sentence
 - [ ] The first-page claims of this file held to the same discipline: a number, an instrument, and a tick only when the instrument says so. *Every point on Earth is a valid start* was un-ticked on measurement (§ I.6, 0.373 % of the surface excluded by Web Mercator); *portable* and *tested* are claims of the same kind and are now lines rather than adjectives
 
+### I.22 External data as declared plugins
+
+*Added 2026-08-12 on two rulings in one session: **the tile source becomes part of the engine** —
+`CLAUDE.md` principle 6 is now* no servers of our own *(`fee279f`) — and **the data providers are
+plugins, like the generators**. Together those delete a process, a wire format and a cache, and they
+promote a static table of three URL templates (`tiles/src/tilesrc.c:9-22`) into the second registry
+this engine has. § I.16 is what the tile server was; this section is what replaces it, and § I.16's
+lines are not struck — each one is either satisfied by a plugin here or is still owed.*
+
+**The generator contract is the model and the parallel is exact.** A generator declares what it can
+propose before it proposes anything (`Proposes(areaM2)`), is registered at a `Rank` that refuses a
+duplicate at registration rather than racing at run time (`generators/GeneratorSet.h:15-17`), and its
+products are separated by who consumes them. A provider is the same shape turned outward: it declares
+its domain before it fetches anything, it registers at a rank, and *what it covers* is kept apart from
+*what it delivered*.
+
+**The distinction the whole section exists for.** *No provider here* and *no data here* are different
+answers and this tree has confused them, at a cost of two rounds. They must be different **types**, not
+two enumerators of one: a statement about the world can only be minted by a source that first declared
+the place to be inside its own domain, and the exhaustion of the registry is a declaration error rather
+than a fact about the Earth.
+
+- [ ] `Data::Source` as the plugin interface, one per upstream — the six that exist are terrarium DEM on S3, versatiles vector, arcgisonline imagery, NOAA GFS weather, Overpass peaks and the baked star catalogue (`tiles/src/tilesrc.c`, `wx.c`, `peaks.c`, `stars.c`)
+- [ ] A source's **declaration** is a value with no I/O in it: data kind, addressing scheme, zoom range, geographic extent, wire format, declared payload size, declared latency class, rank. Everything the selector needs to choose is answerable without touching the network, exactly as `Proposes` answers without allocating
+- [ ] `Covers(const Request&) const noexcept -> Coverage` — pure, allocation-free, `Inside` or `Outside`, and it is the **only** producer of the right to mint a world fact
+- [ ] Fetching is asynchronous **by shape** — submit yields a ticket, the caller polls, cancel is a real operation — over `Host::Fetch` (§ I.18) and never a blocking call. `world/TilePool.h:110` `BytesBlocking` is today's shape and it is legal *"natively on the frame thread"*, which is the property that cannot survive a browser host
+- [ ] A `Delivery` carries **which source answered and at which address**, never only bytes — a request at z15 served from the z14 ancestor must say so, because *what resolution actually answered* is a measurement and today it is an assumption
+- [ ] Status-to-meaning is **per source and declared**, never one global function — `world/TilePool.cpp:54-59` `Classify` maps `204 -> Hole -> Absent -> terminal`, and **204 is minted by `tiles/src/main.c:24`, our own server**. No upstream in `tilesrc.c` produces it. When the hop goes, the tree's entire absence semantics has nothing behind it, and the three upstreams disagree: an out-of-coverage terrarium tile, an empty vector tile and an imagery tile with no imagery are three different HTTP conversations
+- [ ] The selector walks the covering sources in declared rank order and **an `Absent` from one hands over to the next** — the terminal absence is the exhaustion of the list, not the first refusal. This is the whole reason to have plugins: a national 1 m DEM over one country falling through to terrarium everywhere else is unspellable today, because `world/TilePool.cpp:596-598` makes the first `Absent` final at the node
+- [ ] A duplicate rank within one data kind is refused **at registration**, the rule `generators/GeneratorSet.h:15-17` already states for generators — never a run-time coin toss over who answers first
+- [ ] The decoder is registered against the **wire format**, not against the source, so a second elevation upstream in a new format is a decoder registration and not an edit inside `world/TerrainLoader` (Gregory, *Game Engine Architecture* 3e ch. 7: the resource manager's type-to-loader registry is the pattern, and its point is exactly that adding an asset type touches no consumer)
+- [ ] Every source's **declared** payload size and latency class published beside the **measured** one on the ordinary telemetry row, so a declaration that has drifted from the wire is a visible disagreement rather than a comment. A declared number with no consumer rots; this is the consumer
+- [ ] The upstream URL is the source's own business and appears exactly once — `tiles/src/tilesrc.c:9-22` is the only place a URL template belongs, and it moves into the plugin whole
+- [ ] The zoom bound is the source's declaration about itself and exists **once** — `doc/bugs.md` records three copies of `15` across two languages plus a fourth number, `world/World.cpp:27 kMaxZ = 14`, with no stated relation to them
+- [ ] `world/terrain/`'s existing `osmmesh_tile_provider` function pointer (`world/terrain/osmmesh.h:27-29`) is **retired into this interface** — it is already a provider seam, in C, with `void *user` for the type it could not name, and it is the direct ancestor of `Data::Source`
+- [ ] **The `world/terrain/` C-ABI exception is struck**, and it pays for itself. Its stated reason in `CLAUDE.md` — *shared with `tiles/`* — is false today: `tiles/osmmesh/terrain.c` is a 111-line copy of the 164-line `src/world/terrain/terrain.cpp` and its own header comment says so (`doc/bugs.md`). Nothing in this tree compiles those files as C. Striking it closes § I.17's *a C-ABI status reaches a house type at the boundary* (seven `int`-returning statuses), removes the naming exception, and collapses the two spellings of the Mercator band into one — three open items, not three new ones
+- [ ] Weather is a source under the same contract, with the one property no tile source has: a **validity epoch**. A GFS cycle expires; a DEM tile does not, and a cache that cannot tell them apart either re-fetches bedrock or serves yesterday's wind
+- [ ] The star catalogue is a source that declares `WholeWorld` addressing and **no upstream** — 53 KB, generated in this tree, never absent, never negative-cached (`tiles/src/stars.c:5-8` already states exactly this and it is a source declaration written as a comment)
+- [ ] Peaks are a source whose scheme is a **query**, not a tile address — Overpass takes a bounding box. The addressing scheme is therefore an enumeration with more than one arm from the first day, and a design that assumes `z/x/y` everywhere has to be reopened to admit it
+- [ ] Imagery consumed by the engine (§ I.16's open line) becomes a consumer registration against an existing source rather than new plumbing
+- [ ] A source declares whether its product is **required for the world to be complete**. A missing imagery tile is cosmetic and a missing DEM tile is not; today both travel the same `Reply::Absent` and only the caller's site knows the difference
+- [ ] The registry is declared in JSON in the library tier (§ I.24) — which upstreams exist, at which rank — so adding one is data, and the plugin is the code that knows how to speak to it
+- [ ] A client or a test may **narrow** the registry to a named subset, so a test that must not reach the network declares zero sources and gets a refusal by name instead of a hang
+- [ ] The `tiles/` C sources fold in as decoders and sources — **14 224 lines** measured 2026-08-12, of which `tiles/src` is 3 273 and `tiles/osmmesh` 1 239 — and the HTTP surface, the nginx layer, the Dockerfile and the negative cache go with the process
+- [ ] The declared still (§ I.17's `verify-still`) survives the fold with its subject intact: arrival order is now the executor's rather than an HTTP race, which makes the imposed order *easier* to state and the gate's coverage of 2 orders out of 9! no better
+
+### I.23 Constants: one declaration per number
+
+*Added 2026-08-12 on the owner's ruling: **no magic numbers, one const header**. The tension with
+`CLAUDE.md`'s* every number carries its origin — derived, measured or `[SET]` — with unit and frame of
+reference *is real and is resolved here rather than around: a single header of hundreds of constants is
+the classic place where that discipline dies. Measured baseline this round over `src/`, comments and
+string literals stripped and the eight trivial values excluded: **1 484 non-trivial numeric literals in
+266 files**, against **193 `constexpr` declarations** and **105 `[SET]` tokens that nothing counts**.
+Densest: `generators/draw/BuildingShape.cpp` 101 · `clients/SubjectBench.cpp` 97 · `core/ClusterDag.h`
+81 · `render/Renderer.cpp` 67 · `render/stages/ModelDraw.cpp` 64.*
+
+**One header cannot be literally one file**, because the layering is the build: a generator translation
+unit compiles with `-Isrc/core -Isrc/generators` and nothing else, so a header holding a `render/`
+constant beside a `generators/` one would give a generator a name for a render concept and dissolve the
+gate. So the rule is **one const header per layer**, each including the layer below it, and the property
+that is actually wanted — *one place to look, and no number in two of them* — is held by a check rather
+than by a filename.
+
+**"No magic numbers" is not "every constant in one file".** The magic number is the **unnamed literal at
+a use site**. A named `static constexpr` member beside its single consumer is not one, and moving it into
+a shared header would make it worse: it would be a number two layers can see that only one needs.
+
+- [ ] `core/Const.h` as the one spelling a reader looks in for `core`, with one file per **subject** below it — units, Earth and the tile scheme, sky and ephemeris — and never one file per consumer. A subject has an owner who can say whether a number is right; `RendererConstants.h` has none
+- [ ] One const header per layer, each including the one below: `core` · `generators` · `world` · `render` · `clients`. Five places in the program, and the layering already forbids the sixth
+- [ ] `core/Units.h` folds in as the first subject file — it is already the shape: exact ratios rather than truncated decimals, derivation as the initialiser, one comment per deviation
+- [ ] **A derived constant is written as its derivation**, never as its value: `kDeg2Rad = kPi / 180.0`, `kKtToMs = kNmToM / 3600.0`. The derivation then cannot drift from the number, because it *is* the number. `core/Units.h:11 kRad2Deg = 57.29577951308232` and `:22 kMsToKt = 1.9438444924406` are the two that are not, and one of them says so
+- [ ] **An origin that is not a derivation is spelled, not commented**: `Const::Set(v)` for a decision and `Const::Measured(v)` for an instrument's reading, two `constexpr` identity functions in the const namespace. Then *every number carries its origin* is a property a 20-line test decides — a bare floating literal in a `const/` header is a failure — instead of 105 free-text tokens nothing reads. There is no `Derived` spelling because derivation is visible in the initialiser
+- [ ] A constant's **name ends in its unit token**, from a declared suffix table with no ambiguity in it. The tree has one today: `Ms` is metres-per-second in `clients/Walker.h:17` and `core/Units.h:22`, and milliseconds in `clients/FrameTelemetry.h:33` (`doc/bugs.md`). `MPerS` and `Ms` resolve it and `core/Units.h:15 kMPerDeg` shows the spelling already exists in the same file
+- [ ] A constant with **exactly one consumer does not enter a const header** — it stays a `static constexpr` member beside its consumer, which is what `SubjectBench::kFovDeg` and `Renderer::kNearM` already are. This is the anti-junk-drawer rule and it makes the header shrink under use rather than grow
+- [ ] A constant with **zero consumers fails the check** — a dead constant is dead code, and zero-consumer is the mechanically decidable symptom of a drawer. `CLAUDE.md` carries the dead-code rule; the Guidelines do not
+- [ ] The const headers are **not included by any JSON reader**, which is the line that stops a tuning value being smuggled in as a constant (§ I.24)
+- [ ] The literal ratchet as a test, not a ban — population: floating literals and integers outside `{0, ±1, 2, 3, 4}`, in `src/`, excluding `const/` headers and `static_assert` arguments; per-file counts published; **the test fails when a file's count rises**, exactly as the hardening ledger's counts do. Baseline is the 1 484 above and it is a first reading, not a target
+- [ ] The ratchet states its own weakness in its own output: a count is gameable by folding two literals into one expression, so the per-file count is published for a human to read the diff against, and the number is never presented as a proof
+- [ ] Constants per file and consumers per constant published by the same test, so *"is the header a drawer"* is a number
+
+### I.24 Settings in two tiers, and what makes the first one untouchable
+
+*Added 2026-08-12 on the owner's ruling: **the library carries JSON settings that generators and
+providers require — defaults, and values a consumer should not change; everything else is set by the
+client or the test.** The split half exists already and has never been stated: `assets/world/*.json`
+(ground materials, vegetation classes, 34 species files) is the library tier and `mods/*/mod.json` is
+the client tier, and nothing in the tree says so or enforces it.*
+
+**The tier test, and it has to be sharper than *should not*.** A value belongs to the library when a
+wrong value there is a **defect in the engine**; it belongs to the client when a wrong value there is a
+**defect in the run**. Beech leaf length wrong → the engine grows a wrong beech → library. Camera at the
+wrong latitude → the run looked at the wrong place → client. An upstream's zoom range wrong → the engine
+asks for tiles that do not exist → library. Render width 640 → the run measured something other than
+720p → client.
+
+- [ ] Two readers, two types, and no key path from one into the other — the library tier is not *merged with* the client tier, it is a different object
+- [ ] The library tier is `const` at the type level: constructed once, handed out as `const&`, **no setter exists**. *Untouchable* is then `C.12` and `Con.*`, not a sentence in a document
+- [ ] The client tier is an **enumerated** surface, not an open one: the scenario schema of § I.4 names every settable key and a key it does not name is refused with its path — so *"everything else"* is a list rather than a hole
+- [ ] A test overrides the library tier by **substituting a whole table, never by patching a key** — `FromSubstitute(tables, why)` beside `FromDeclared(storage, root)`, with `why` required and a run refused when it is empty. A patched key is invisible in the row it produced; a substituted table is a declared act
+- [ ] The substitution's `why` enters the run identity, so a run built on a substituted table **cannot enter the archive looking like a shipping run** — the same defect class as § I.17's `client=gpu_walk` string literal
+- [ ] The `why`-or-refuse shape is the one `clients/Scene.h:30-37` already uses for a render size that is not the budget's 1280×720 — this is that pattern generalised, not a new one
+- [ ] **A number is a constant if changing it is a code change, and a setting if changing it is a data change. Nothing is both**, and the check is mechanical: no `constexpr` in a `const/` header may share a name with a key in any library-tier schema
+- [ ] **No constant is a default for a setting.** A default lives in the library JSON where the owner ruled it lives; a constant has no alternative value at all. That gives every number exactly one owner and makes the previous line maintainable
+- [ ] The library tier is read through `Host::Storage` (§ I.18) and never `fopen` — it is the same call on every target, and it deletes the three `fopen` sites in `world/`
+- [ ] Every generator and every provider states **which library tables it requires**, so a missing table is a named refusal at load instead of a default nobody declared. § I.4's *declared strata list per ground class, with no global default, so an unclassified place grows nothing* is the same rule for one table
+- [ ] A library table that no generator and no provider requires is reported — the drawer check of § I.23, applied to data
+- [ ] The library tier's location is `assets/` and it ships with the library; the client tier's is the scenario. A test that declares neither gets a refusal naming both
+
+### I.25 Scenario axes, and the scenario with no world
+
+*Added 2026-08-12 on the owner's ruling: **it must be possible to declare a scenario with no world at
+all — one tree, one building, one car — and the engine must be flexible enough to define what a test
+needs, like a headless Blender.** The question put was whether* world present or absent *is a third
+dimension beside camera × clock.*
+
+**It is not a third dimension, and treating it as a boolean is what produced today's special case.**
+Camera (`Fixed` · `Keyframed` · `Driven`) and clock (rate 0 · timeline · rate 1) are axes of the
+**observer**. World-or-not is the **subject**, and choosing it *removes fields from the observer's axes*
+rather than adding a dimension: a studio scenario has no latitude, because there is no place, and no
+civil time, because the light is declared rather than computed from an ephemeris. A boolean would have
+kept those fields and left them meaningless — which is measurably today's state, at eighty dead fields
+across ten declared scenes (`doc/bugs.md`).
+
+**A studio stage is a declared `Ground`, and that is the whole trick.** `Ground` is already the entire
+interface between the world and every generator — *"height, slope, class with edge distance and
+runner-up, water level and the declared tables — resolved values, never a callback"* (§ I.9). A studio
+stage declares those values directly instead of resolving them from a tile, so **every generator becomes
+benchable with no second code path**, and a lone building comes out of `Buildings` rather than out of a
+bench that had to learn what a building is.
+
+- [ ] `Stage` as an enumeration with a record per arm (`Enum.2`, and `I.23`'s *each kind reads its own parameter object rather than a shared flag soup*, which `clients/Scene.h:39-41` already states for `Run`) — `World` carries the standpoint, `Studio` carries substrate, key light, backdrop and subject
+- [ ] A `Studio` scenario **has no latitude to declare**, so the Mercator band refusal is not merely unreachable there, it is unspellable — and `SceneRunner.cpp:32 kSubjectGroundAslM = 100.6` has no home
+- [ ] A `Studio` scenario has **no civil time and no met wind**: the key light is declared as elevation, azimuth and irradiance, and the wind as a value, because a still life judges form and an ephemeris there is a number nobody chose
+- [ ] The four things a studio must declare, because `SubjectBench` had to invent all four in C++: **substrate** (a ground-material class, or the 18 % neutral), **key light**, **backdrop** (a card, a declared sky, or nothing), **subject**
+- [ ] The studio's `Ground` is declared in full — height, slope, class with edge distance and runner-up, water level, and which library tables are in force — so a generator run on a studio stage cannot tell it apart from a region, and a difference between studio and world output is therefore a defect rather than a category
+- [ ] The **subject is a generator invocation**, not a species name: generator, seed, and the parameters that generator declares. `clients/Scene.h:77-82 SubjectRun` carries `Template` and `Species` and nothing else, which is exactly why a building or a car has no bench today
+- [ ] Exactly one subject stands at the origin, and the count is one because a bench that frames two things is measuring composition rather than form
+- [ ] `SceneRunner::BringUp`'s special case is deleted — *"whether a scene needs a world at all is the scene's own statement"* is the comment at `SceneRunner.cpp:150-151` and the code below it asks `Runs().front().What == Kind::Subject`. The stage is the statement
+- [ ] `SubjectBench`'s **measurement survives whole**: the full view × light matrix, the three-render depth-buffer `Fill` that separates frame from card from floor (measured 64.7 % against 13.0 % for the colour-difference alternative it replaced), the turn-based readback discipline, and the 30° lens with its reason. What is replaced is exactly the part that made it vegetation-only — `Select`/`SelectTree`, `Stand(lat, lon, 100.6)` and `kSunElDeg` as a C++ constant
+- [ ] `fovDeg` declared once — `mods/demo/mod.json` and `SubjectBench.h:62` both say 30 and the C++ one acts (`doc/bugs.md`)
+- [ ] A studio scenario **needs no network and no tile source**, which is what puts a generator test in § I.20's `host` tier instead of its `world` tier — the single largest effect this section has on the suite
+- [ ] Camera and clock keep their axes unchanged across both stages: a studio scenario can be a still, a turntable film or an interactive model viewer with no new mechanism, because those are the observer's axes and the stage did not touch them
+- [ ] A `World` stage and a `Studio` stage produce the same telemetry schema, so a bench row and a walk row are comparable — a bench is a layer over the system and never a mode inside it (§ I.11)
+- [ ] More than one subject kind demonstrated before the section is ticked: one tree, one building, one vehicle, from three different generators, through one declaration
+
+### I.26 glTF, and the first check against something outside this tree
+
+*Added 2026-08-12 on the owner's ruling. This file's own measurement rule ranks* correctness — checked
+against something outside *above* consistency — two parts of this tree agree*, and says another digit of
+internal agreement is worth less than the first external check. **This repository has never had one.**
+Rendering a glTF scene here and the same scene in Blender is that check. Blender 5.2.0 LTS is on this
+host (build 2026-07-14) and runs headless.*
+
+**Four rungs, and each isolates one thing.** The order is the design, because a light comparison whose
+camera is half a pixel out produces a residual at every silhouette that nobody can attribute.
+
+| Rung | What it compares | Needs |
+|---|---|---|
+| 1 | **coverage** — a binary mask, no light at all | the reader, nothing else |
+| 2 | **depth** — linear view-space range | an existing readback |
+| 3 | **direct diffuse radiance** — linear, pre-tone-map | a linear tap that does not exist |
+| 4 | **shadow and indirect** — as a bias curve, never a verdict | rung 3 |
+
+**Rung 3 is three-way, not two-way.** For a flat facet under one directional light the answer is closed
+form — `L = ρ·E·cos θ / π` — so the referee is arithmetic and Blender is the tie-breaker on what
+arithmetic cannot reach. That matters because Cycles is not ground truth everywhere: its own Principled
+BSDF carries open energy-conservation issues and the Glass BSDF fails the white-furnace test
+(blender/blender #158426, #159635), so the oracle is pinned to the lobe it is known-good on.
+
+- [ ] glTF 2.0 reader for the subset the comparison needs, and every exclusion **refused by name** rather than approximated: `.glb` and `.gltf`+`.bin`; `TRIANGLES` only; `FLOAT` vec2/vec3 attributes and `UNSIGNED_SHORT`/`UNSIGNED_INT` indices, `byteStride` honoured, **sparse accessors refused**; node TRS and `matrix`; one scene
+- [ ] `POSITION` **and** `NORMAL` required, never derived — our vertex layout has no spelling for a mesh without a normal, and generating one would put our smoothing decision inside a comparison whose subject is somebody else's geometry. An oracle comparison must contain no repair
+- [ ] `cameras.perspective` with `yfov`, `znear`, `aspectRatio` — and what our reversed-Z infinite projection does with `zfar` stated in the same header rather than silently ignored
+- [ ] `pbrMetallicRoughness` factors, `emissiveFactor`, `doubleSided`, `alphaMode`; `baseColorTexture` as PNG only at first, because a second image decoder buys no comparison
+- [ ] **`KHR_lights_punctual` refused as the light channel** — REFUSED, and this is the load-bearing decision of the section. Blender's glTF importer converts light intensity through a lumens-per-watt factor that is **683** and is under an open, Khronos-PBR-TSG-endorsed proposal to become **177** (glTF-Blender-IO issue #2554, open at the time of writing): a factor of 3.86 sitting inside the oracle's importer, in exactly the quantity rung 3 exists to measure. The light is declared beside the glTF in W/m² and applied by script on both sides, so nothing about it crosses the glTF boundary
+- [ ] Skinning, morph targets and `animations` out of scope — we carry our own animation shape already (`clients/Animation.h`, glTF's two-table form with two declared deviations)
+- [ ] **Rung 1, coverage**: both sides to a binary mask, compared by IoU **and** by the boundary-distance distribution (for each boundary pixel, distance to the nearest boundary pixel of the other mask; p50/p95/p99 in pixels). IoU alone cannot see a half-pixel camera offset on a large subject; the distribution can, and it localises it
+- [ ] Rung 1's failure signatures declared with the metric, which is what makes a difference **attributable**: a constant offset is the camera origin or principal point · a radial trend is the focal length or a projection convention · a uniform scale is the `yfov`/aspect interpretation · a shear is a row/column order or a handedness. Four distinguishable shapes, one metric
+- [ ] Rung 1 acceptance: boundary p95 ≤ 0.5 px at 1280×720, both sides at one sample per pixel with the narrowest reconstruction filter, and IoU ≥ 0.999 on a subject filling ~30 % of the frame
+- [ ] **Rung 1 becomes the acceptance criterion for the SDL_GPU port** (§ I.19), which today has none: the same glTF through the old backend and the new one must give the same mask. It is the cheapest port gate that exists and it is a picture claim rather than a counter claim
+- [ ] **Rung 2, depth**: linear view-space range both sides, compared inside the intersection mask, p99 ≤ 1e-4 relative. A bias attributes to the near plane or the reversed-Z convention; growth with distance is the float32 floor and is published as the instrument's own floor beside the result
+- [ ] **A scene-referred linear float readback ahead of `ExposureStage`** — the one thing rung 3 needs that does not exist. `render/Renderer.h:59` `ReadPixels` is *"already sRGB-encoded"* and there is no other colour tap, so the physics of this renderer is currently unreadable by anything, including us (`doc/bugs.md`)
+- [ ] **Rung 3, direct diffuse**: one directional light at declared irradiance in W/m² perpendicular to the beam · Blender's `Diffuse BSDF` at roughness 0, which is **exactly Lambertian** by the Blender manual, and explicitly **not** the Principled BSDF, which at metallic 0 still carries a specular lobe at IOR 1.5 (F0 = 0.04) and whose diffuse lobe becomes energy-preserving Oren-Nayar above diffuse-roughness 0 · constant albedo, no texture, no sky, no indirect · both sides written as linear OpenEXR
+- [ ] Rung 3 acceptance: median relative difference ≤ 1 % against the closed form `ρ·E·cos θ / π` on unshadowed facets, with the **sign** of the residual reported, and Blender's own residual against the same closed form published beside ours — the oracle states its error before it judges ours
+- [ ] Rung 3's residual shape read as an attribution: a constant factor says the scene scale is doing physics' work · a `cos θ` or `sin(elevation)` dependence says the irradiance convention — perpendicular-to-beam against on-the-horizontal, the commonest single error of its class, and `IrradianceStage` already names both (`sunDirectNormalY`, `skyDiffuseHorizY`) · a per-channel difference says the three channels are scaled apart somewhere
+- [ ] What rung 3 settles, stated before it is run: whether `render/stages/SceneScale.h:17 kSceneExposure = 11.0` is an **exposure** — legitimate, and belonging in the exposure stage — or is doing physics' work, which nothing in this tree can currently decide because its own derivation anchors it on *"the value whose sRGB output is 0.70"*
+- [ ] **Rung 4, shadow and indirect**: reported as a **bias curve and never a pass/fail**, because a raster engine and a path tracer disagree there by construction. The product is a number of the form *our screen-space occlusion removes 0.6× of what one Cycles bounce removes over this geometry* — actionable, where a red is not
+- [ ] The pinned set, both sides, published with every comparison: linear Rec.709/sRGB primaries · OpenEXR float32 output, which **ignores the view transform** by Blender's own colour-management rule and thereby deletes AgX, Filmic and our ACES fit in one move · Blender `Standard` view transform for any PNG a human looks at, since AgX is the 4.0+ default and is a heavy S-curve · `film.exposure = 1.0` · 1280×720 at 1 spp with the narrowest filter · fixed Cycles seed, declared sample count, **denoising off** · declared bounce count per rung · camera set by script from the glTF `yfov`, never by the importer · `use_auto_smooth` off so Blender does not re-derive a second geometry · `scale_length = 1.0` · **the Blender version recorded on the row**, because the oracle's version is part of the measurement
+- [ ] Our own sky exported as an equirectangular EXR and set as Blender's world, which makes the environment identical by construction and isolates the surface response — the only way an atmosphere comparison measures an implementation rather than which model each side chose (Blender's Nishita sky is a different model with different aerosol parameters)
+- [ ] What a Blender comparison **cannot** judge, declared in the same header so no round reports an unactionable red: anti-aliasing and reconstruction (Cycles integrates the pixel footprint, we resolve jittered samples — different everywhere at a silhouette) · texture filtering away from 1 texel per pixel · indirect light, which we do not have by design and where the comparison measures the size of a known absence · our TAA, impostors, LOD selection and grass field, which have no counterpart · anything about display beyond the working space
+- [ ] The comparison is a **test in the suite** (§ I.20), tiered `device`, with the Blender binary taken from the environment and **refused if absent** rather than skipped — a silent skip is the defect class this repository keeps finding
+- [ ] The reference `.glb` files are generated by a script in this tree, never authored — principle 2 applies to a test fixture exactly as it applies to a texture, and a hand-modelled cube is a file nothing can recompute
+- [ ] The first comparison to run is **rung 1**, because it is *decidable* in this file's own sense — no light model has to agree for it to mean something — and because every later rung is confounded by its failure. It costs the reader and one mask difference
+- [ ] The first comparison that **settles** something is rung 3, and what it settles is whether this engine's light transport is right at all: the first correctness-class number in the archive, against 100 % consistency-class ones today
+
 ---
 
 ## Band II — World

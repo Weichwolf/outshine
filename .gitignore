@@ -1,7 +1,8 @@
 # --- build outputs ---
-temp/build/
+build/
 tiles/fb-tiles
 tiles/cache/
+temp/build/
 temp/flightbox/web/cc.js
 temp/flightbox/web/cc.wasm
 temp/flightbox/web/tw.js
@@ -11,13 +12,23 @@ temp/flightbox/web/cc.data
 *.elf
 
 
-# --- vendored / generated (recreated by build scripts) ---
+# --- vendored / generated (recreated by vendor/*.sh) ---
+vendor/dawn/
+vendor/.compat-headers/
 temp/inav-sitl/
 temp/aircraft/SITL.elf
 **/eeprom.bin
 
+# --- what a declared run writes where it was started: `give` paths and stills. A measurement
+# series is regenerated on demand and never versioned. ---
+/*.csv
+/*.png
+/*.f32
+
 # --- logs & temp ---
 *.log
+__pycache__/
+*.pyc
 
 # --- windows download markers ---
 *Zone.Identifier
@@ -27,23 +38,3 @@ temp/aircraft/SITL.elf
 .claude/settings.local.json
 temp/inav-src/
 .DS_Store
-
-# Laufdaten und Build-Ausgaben, nie eingecheckt
-sim/web/gpu.*
-sim/web/mods/
-
-# --- what a declared run writes into sim/: `give` paths and every bench directory. A measurement
-# series is regenerated on demand and never versioned. ---
-sim/*.csv
-sim/bench*/
-
-# --- Messartefakte, nicht versionieren ---
-sim/shots/
-sim/walk-demo.png
-sim/wasm-demo.png
-sim/*.f32
-sim/web/gpu.js
-sim/web/gpu.wasm
-sim/web/fbtileworker.js
-
-sim/walk.png
