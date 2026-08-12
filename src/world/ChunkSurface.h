@@ -52,9 +52,10 @@ inline const std::array<ChunkQuadCorner, 6> &ChunkQuadWinding() {
  * the cell's own drop, the builder's float32 vertex offset and its float32 (origin - eye), the
  * shader's float32 add, the oracle being linear in Mercator fraction where the builder is linear in
  * ECEF, and the builder's chord sitting under the geodetic arc. Envelope: this surface (z14, 128
- * cells), |h| <= 4096 m, the camera in the sampled tile, slope <= 80 deg; derived by
- * tools/surface_budget.py, which also checks it against the plumb runs of the reference mods. A
- * disagreement above this is a second interpolant, not arithmetic. */
+ * cells), |h| <= 4096 m, the camera in the sampled tile, slope <= 80 deg. Derived — the instrument
+ * that summed those terms and checked them against plumb runs is gone with tools/, so the number
+ * currently stands on no reproducible derivation. A disagreement above this is a second
+ * interpolant, not arithmetic. */
 inline constexpr float kSurfaceAgreementM = 9.17e-4f;
 
 struct ChunkCell;

@@ -39,11 +39,8 @@ class Renderer {
 public:
   Renderer();
 
-  /* Async bring-up (WASM): poll Ready() from the app loop. */
-  void Init(const char *canvasSelector, int width, int height);
-
-  /* Native: the same chain, blocking (no browser event loop to pump), into an offscreen target. */
-  void InitOffscreen(int width, int height);
+  /* Bring-up into the render target, blocking: there is no event loop to pump callbacks on. */
+  void Init(int width, int height);
 
   [[nodiscard]] bool Ready(void) const { return DeviceReady; }
 
@@ -259,12 +256,9 @@ public:
   wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }
 
 private:
-  enum class Target { Surface, Offscreen };
-
   void CreateTerrainPipeline(void);   /* DepthTex/HdrTex (shared scene targets) + the terrain unit */
   void CreateResolvePipeline(void);   /* AO, the meter, and the resolve that carries the display curve */
   void CreatePresent(void);           /* declared-size frame target + the present pass over it */
-  void SyncSwapSize(void);            /* Surface mode: match the swapchain to canvas clientSize x DPR */
   [[nodiscard]] bool AcquireTarget(wgpu::TextureView &finalView);   /* the one place a presentable target comes from */
   void EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
                      const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps);
@@ -281,23 +275,14 @@ private:
   void StartAdapterRequest(void);
   void OnAdapter(wgpu::Adapter a);
   void OnDevice(wgpu::Device d);
-  void ConfigureSurface(void);
   void CreateOffscreenTarget(void);
 
   wgpu::Instance Instance;
   wgpu::Adapter Adapter;
   wgpu::Device Device;
   wgpu::Queue Queue;   /* cached once — per-frame GetQueue() churns wrapper refs (measured: device died one ref per frame) */
-  wgpu::Surface Surface;
-  wgpu::Texture OffscreenTex;   /* Target::Offscreen final color target: RGBA8UnormSrgb, RenderAttachment|CopySrc */
+  wgpu::Texture OffscreenTex;   /* the final colour target: RGBA8UnormSrgb, RenderAttachment|CopySrc */
   wgpu::TextureFormat SurfaceFormat;   /* what pipelines and views use: always sRGB-encoding */
-  wgpu::TextureFormat SwapFormat = wgpu::TextureFormat::BGRA8Unorm;   /* what the surface itself is */
-  static wgpu::TextureFormat SrgbView(wgpu::TextureFormat f) {
-    if (f == wgpu::TextureFormat::BGRA8Unorm) return wgpu::TextureFormat::BGRA8UnormSrgb;
-    if (f == wgpu::TextureFormat::RGBA8Unorm) return wgpu::TextureFormat::RGBA8UnormSrgb;
-    return f;
-  }
-  void ConfigureSwapchain(void);
   wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
   /* Sun shadows and contact occlusion. Both own a target and neither owns a pass: the shadow atlas is
    * filled in a pass Renderer opens before the scene, the AO buffer in one it opens after. */
@@ -328,11 +313,10 @@ private:
   std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();
   wgpu::Buffer CsmBuf;
 
-  /* The whole frame lands in a FrameTex of the DECLARED size; only the present follows the display. */
+  /* The whole frame lands in a FrameTex of the DECLARED size, and the present pass copies it on. */
   wgpu::Texture FrameTex;
   std::unique_ptr<PresentStage> Present = std::make_unique<PresentStage>();
   std::unique_ptr<ProgressStage> Progress = std::make_unique<ProgressStage>();
-  int SwapW, SwapH;                   /* live swapchain (display) size; scene stays Width x Height */
 
   /* Hillaire 2020. These resources stay Renderer-owned because 3+ consumers read them; the stages
    * hold only the pipeline/bind group built from views injected at Configure(). §4 */
@@ -395,9 +379,6 @@ private:
 
   int Width, Height;
   bool DeviceReady, DeviceLost;
-  Target Mode;
-  bool Blocking;       /* native: RequestAdapter/RequestDevice via Instance::WaitAny, not callbacks */
-  const char *Selector;
   unsigned FrameNo;
 };
 

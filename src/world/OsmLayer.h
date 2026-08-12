@@ -3,7 +3,7 @@
  * exactly why it must be spelled once: a layer the provider renames is then one edit, and a layer
  * this engine asks for and nobody declares in the class table cannot be spelled at all.
  *
- * The class table (assets/world/vegetation.json) names the SAME words as data, because it maps
+ * The class table (src/assets/world/vegetation.json) names the SAME words as data, because it maps
  * (layer, kind) to a template. That is not a second place for this statement: the table decides what
  * a layer MEANS, this decides which layers are fetched. */
 #ifndef OSMLAYER_H

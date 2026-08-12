@@ -3,6 +3,7 @@
 #include <cstdio>
 #include <cstdlib>
 
+#include "CsvTelemetry.h"
 #include "CurlTransport.h"
 #include "DelayedTransport.h"
 #include "Env.h"
@@ -11,10 +12,10 @@
 #include "LogSinks.h"
 #include "Mod.h"
 #include "RunIdentity.h"
+#include "Sanitisers.h"
 #include "SceneRunner.h"
-#include "ServerLog.h"
-#include "ServerTelemetry.h"
 #include "Snapshot.h"
+#include "TextTarget.h"
 
 /* WHICH BINARY THIS IS, from the build that names the binary. A literal here was wrong for every
  * build but one, and it wrote `gpu_walk` into the archive out of `build/gpu_walk_asan`. */
@@ -26,12 +27,16 @@ using namespace outshine;
 
 namespace {
 
-/* The engine's own declarations, by path, because the two toolchains mount them differently — a
- * preloaded virtual FS in the browser, the working directory natively. Nothing here is content. */
-const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
-                                        "assets/world/ground-materials.json",
-                                        "assets/world/species/beech.json", "assets/sky/moon.jpg",
-                                        "assets/sky/stars"};
+/* The engine's own declarations, by path, relative to the working directory. Nothing here is
+ * content. */
+const Clients::Outshine::Assets kAssets{"src/assets/world/vegetation.json",
+                                        "src/assets/world/ground-materials.json",
+                                        "src/assets/world/species/beech.json", "src/assets/sky/moon.jpg",
+                                        "src/assets/sky/stars"};
+
+/* WHERE THIS MACHINE KEEPS A RUN'S PRODUCTS. Named once: the artefacts and the telemetry file are
+ * two things in the same place, and two reads of the variable are two statements. */
+[[nodiscard]] std::string ArtifactRoot() { return Clients::Env("OUTSHINE_OUT", "."); }
 
 /* THE CONTENT STORE IS THE RUN'S DECISION and never the library's: cache-on and cache-off differ in
  * timing and in nothing else, and the still gate turns it off because an imposed arrival order needs
@@ -71,31 +76,54 @@ const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
   return true;
 }
 
-int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
-           const std::string &runId) {
+/* WHERE THIS RUN'S TEXT GOES, and only the consumer may say: `stdout`, `stderr` or a path. */
+[[nodiscard]] TextTarget Named(const char *variable, const std::string &fallback) {
+  const std::string where = Clients::Env(variable, fallback.c_str());
+  if (where == "stdout") return TextTarget(TextStream::Stdout);
+  if (where == "stderr") return TextTarget(TextStream::Stderr);
+  return TextTarget(where);
+}
+
+/* On stderr and nowhere else, because the destination that failed may be the log itself. */
+[[nodiscard]] bool Writable(const TextTarget &target, const char *channel) {
+  if (target.Refusal().empty()) return true;
+  fprintf(stderr, "%s: %s\n", channel, target.Refusal().c_str());
+  return false;
+}
+
+int Record(const Clients::Scene &scene, Clients::RunIdentity::Fields fields,
+           const TextTarget &telemetryTo) {
   /* BEFORE THE APP (`C.13`): the world's tile pool borrows this wire and joins its threads in the
    * app's destructor, so the wire has to outlive the app rather than the other way round. */
   Host::CurlTransport wire({});
   Host::DelayedTransport ordered(wire, DeclaredDelay());
   Clients::Outshine app(scene, kAssets);
-  Clients::ServerTelemetry telemetry(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), runId);
-  /* Natively there is no browser to pin, and an invented agent string would be worse than none. */
-  Clients::RunIdentity identity({id.Mod, id.Scene, id.Client, id.Build, "",
-                                 scene.RenderResolution().Width, scene.RenderResolution().Height});
+  Clients::CsvTelemetry telemetry(telemetryTo);
+  fields.RenderW = scene.RenderResolution().Width;
+  fields.RenderH = scene.RenderResolution().Height;
+  Clients::RunIdentity identity(fields);
   app.SetTelemetryIdentity(&identity);
   app.SetTelemetrySink(&telemetry);
   app.SetTransport(ordered);
   app.SetContentStore(DeclaredStore());
   if (!Stand(scene, app)) return 1;
-  if (!app.Prepare({nullptr})) return 1;
+  if (!app.Prepare()) return 1;
 
-  Clients::FileArtifacts out(Clients::Env("OUTSHINE_OUT", "."));
+  Clients::FileArtifacts out(ArtifactRoot());
   Clients::SceneRunner runner(app, scene, out);
-  /* THE HOST'S TURN IS THE WHOLE DIFFERENCE between the two clients. Here the process owns the
-   * thread and a turn follows a turn; in the browser a turn is a task, and the run's sequence is
-   * the same object either way. */
   while (runner.Step() == Clients::SceneRunner::Progress::Running) {}
   return runner.Result();
+}
+
+/* THE FIRST LINE NAMES THE RUN, so a log cut out of a directory still says what produced it and
+ * where its numbers went. The instrument is not the caller's to state (Sanitisers.h). */
+void Announce(const Clients::RunIdentity::Fields &fields, const TextTarget &logTo,
+              const TextTarget &telemetryTo) {
+  Log::Info("run", "identity", {{"mod", fields.Mod}, {"scene", fields.Scene},
+      {"client", fields.Client}, {"san", std::string(Clients::kSanitisers)},
+      {"build", fields.Build.empty() ? std::string("unset") : fields.Build},
+      {"host", Clients::Env("HOSTNAME", "")}, {"log", logTo.Name()},
+      {"telemetry", telemetryTo.Name()}});
 }
 
 }  // namespace
@@ -105,19 +133,20 @@ int main(int argc, char **argv) {
     fprintf(stderr, "usage: %s <mod> <scene>\n", argv[0]);
     return 2;
   }
-  Clients::StdoutLogSink console;
-  const Clients::ServerLog::Identity id{argv[1], argv[2], OUTSHINE_CLIENT,
-                                        Clients::Env("OUTSHINE_BUILD", ""),
-                                        Clients::Env("HOSTNAME", "")};
-  Clients::ServerLog server(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), id);
-  Clients::CompositeLogSink both;
-  both.Add(&console);
-  both.Add(&server);
-  Clients::LogSinkScope scope(&both);
+  const TextTarget logTo = Named("OUTSHINE_LOG", "stdout");
+  if (!Writable(logTo, "log")) return 1;
+  const TextTarget telemetryTo = Named("OUTSHINE_TELEMETRY", ArtifactRoot() + "/telemetry.csv");
+  if (!Writable(telemetryTo, "telemetry")) return 1;
+  Clients::TextLogSink sink(logTo);
+  Clients::LogSinkScope scope(&sink);
   Log::SetLevel(LogLevel::Debug);
+  /* Natively there is no browser to pin, and an invented agent string would be worse than none. */
+  const Clients::RunIdentity::Fields fields{argv[1], argv[2], OUTSHINE_CLIENT,
+                                            Clients::Env("OUTSHINE_BUILD", ""), "", 0, 0};
+  Announce(fields, logTo, telemetryTo);
 
   Clients::Mod mod;
-  if (!mod.Load(Clients::Env("OUTSHINE_MODS", "mods"), argv[1])) {
+  if (!mod.Load(Clients::Env("OUTSHINE_MODS", "test/mods"), argv[1])) {
     Log::Error("run", "mod_load_failed", {{"why", mod.Error()}});
     return 1;
   }
@@ -131,5 +160,5 @@ int main(int argc, char **argv) {
     Log::Error("run", "scene_is_interactive", {{"scene", scene->Id()}});
     return 1;
   }
-  return Record(*scene, id, server.RunId());
+  return Record(*scene, fields, telemetryTo);
 }

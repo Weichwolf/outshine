@@ -1,6 +1,6 @@
 /* THE DECIDABLE CLASS, of which this tree had nothing: a geometric invariant needs no reference and no
  * device, and it is true or false. TreeGrower declares the bark mesh "watertight and connected by
- * construction" — that is a claim about every declaration under assets/world/species/, and until now
+ * construction" — that is a claim about every declaration under src/assets/world/species/, and until now
  * nothing retook it. Every species is grown at full detail and its bark is held to five invariants:
  * indices in range, no degenerate triangle, unit normals, every edge used exactly twice in opposite
  * directions, and a positive signed volume.
@@ -27,7 +27,7 @@ using namespace outshine::Generators;
 
 namespace {
 
-const char *const kSpeciesDir = "assets/world/species";
+const char *const kSpeciesDir = "src/assets/world/species";
 
 /* What one bark mesh answered. Metres are absent on purpose: the mesh is delivered normalised, so
  * every length here is a fraction of the tree's own height and every area a fraction of its square. */
@@ -283,7 +283,7 @@ int main() {
   outshine::Test::Covers("I.20 Delivered normalised at unit height — every declared species");
 
   const std::vector<std::string> species = DeclaredSpecies();
-  CHECK(!species.empty(), "there is a plant declaration under assets/world/species to grow");
+  CHECK(!species.empty(), "there is a plant declaration under src/assets/world/species to grow");
 
   TreeGrower grower;
   TreeMesh mesh;

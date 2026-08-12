@@ -39,7 +39,7 @@ public:
                 const double up[3]);
 
   /* The declared bare-rock row and how wide the slope transition onto it is
-   * (assets/world/vegetation.json alpineLimit, world/AlpineLimit.h). Zero band = the fallback is off,
+   * (src/assets/world/vegetation.json alpineLimit, world/AlpineLimit.h). Zero band = the fallback is off,
    * which is what a table without the block means. */
   void SetBareRock(int vegRow, float slopeBandDeg) {
     BareRockRow = vegRow; BareSlopeBandDeg = slopeBandDeg;

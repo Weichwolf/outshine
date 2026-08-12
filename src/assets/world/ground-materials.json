@@ -45,7 +45,7 @@
   "detailScaleModel": {
     "octaves": 2,
     "ratio": 6.7,
-    "origin": "[SET] detailScaleM is [coarse, fine] with fine = coarse / 6.7. Two octaves because 4.1 measures that one octave tiles visibly at 1.70 m eye height. The ratio is deliberately not 2, 4 or 8: with an integer ratio the two octaves beat at the coarse period and the tiling comes back. The coarse octave of each class is carried over from the ground.detailScaleM already declared per template in sim/assets/world/vegetation.json, which is itself [SET]."
+    "origin": "[SET] detailScaleM is [coarse, fine] with fine = coarse / 6.7. Two octaves because 4.1 measures that one octave tiles visibly at 1.70 m eye height. The ratio is deliberately not 2, 4 or 8: with an integer ratio the two octaves beat at the coarse period and the tiling comes back. The coarse octave of each class is carried over from the ground.detailScaleM already declared per template in src/assets/world/vegetation.json, which is itself [SET]."
   },
   "heightAmplitudeModel": {
     "formula": "heightAmplitudeM = packingFactor[heightPacking] * grainSizeM",

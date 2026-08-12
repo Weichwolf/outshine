@@ -70,7 +70,7 @@ double Millis(std::chrono::steady_clock::time_point a, std::chrono::steady_clock
 } // namespace
 
 int main(int argc, char **argv) {
-  std::string assets = "assets/world/species";
+  std::string assets = "src/assets/world/species";
   std::string dumpDir;
   int reps = 1;
   bool angles = false;

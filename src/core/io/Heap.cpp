@@ -15,10 +15,8 @@ namespace {
    * this one line goes out on the rawest sink the platform has. */
   char line[256];
   std::snprintf(line, sizeof line,
-                "outshine heap exhausted: item=%s bytes=%s liveBytes=%zu breakBytes=%zu "
-                "reservedBytes=%zu\n",
-                item, bytes, HeapProbe::LiveBytes(), HeapProbe::BreakBytes(),
-                HeapProbe::ReservedBytes());
+                "outshine heap exhausted: item=%s bytes=%s liveBytes=%zu breakBytes=%zu\n",
+                item, bytes, HeapProbe::LiveBytes(), HeapProbe::BreakBytes());
   std::fputs(line, stderr);
   std::fflush(stderr);
   std::abort();

@@ -1,4 +1,4 @@
-/* ONE PLANT = ONE JSON FILE under assets/world/species/, and nothing else declares one. A file
+/* ONE PLANT = ONE JSON FILE under src/assets/world/species/, and nothing else declares one. A file
  * is a species IN A FORM and not a taxon: hornbeam standing in a wood and hornbeam cut into a hedge
  * are one botanical name and two declarations, because the grower shapes the form.
  *

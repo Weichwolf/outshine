@@ -30,7 +30,7 @@ using Target = Animation::Target;
  * scene's own measured ground (`/elev?lat=52.10602&lon=9.43453&block=1`), so the air column over the
  * bench is the air column over the scene. */
 const double kSubjectGroundAslM = 100.6;
-const char *kSpeciesDir = "assets/world/species";
+const char *kSpeciesDir = "src/assets/world/species";
 
 double MsBetween(std::chrono::steady_clock::time_point a, std::chrono::steady_clock::time_point b) {
   return std::chrono::duration<double, std::milli>(b - a).count();

@@ -31,19 +31,12 @@ void PushStack(TelemetryRow &row, StackProbe::Purpose p) {
   row.Push((double)StackProbe::CapacityBytes(p) / kKb);
 }
 
-/* An unmeasured quantity leaves its field EMPTY rather than reading as a zero, which is a number a
- * reader would average. */
-void PushKnown(TelemetryRow &row, bool known, double kib) {
-  if (known) row.Push(kib); else row.Push(std::string());
-}
-
 }  // namespace
 
 void MemoryTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   schema.Add("heapKB", "KiB");
   schema.Add("heapPeakKB", "KiB");
   schema.Add("heapBreakKB", "KiB");
-  schema.Add("heapReservedKB", "KiB");
   schema.Add("heapProbeMs", "ms");
   schema.Add("poolTilesKB", "KiB");
   schema.Add("poolVectorsKB", "KiB");
@@ -69,17 +62,13 @@ void MemoryTelemetry::DeclareTelemetry(TelemetrySchema &schema) const {
   }
 }
 
-/* ONE LINEAR MEMORY, so the client's heap IS this heap: the four worker columns and the two client
+/* ONE ADDRESS SPACE, so the client's heap IS this heap: the four worker columns and the two client
  * totals beside them were the ledger's way of saying the pool lived somewhere it could not measure,
  * and there is no longer a second module to sum over. */
 void MemoryTelemetry::PushHeap(TelemetryRow &row, size_t live) const {
-  const bool known = HeapProbe::LiveBytesKnown();
-  PushKnown(row, known, (double)live / kKb);
-  PushKnown(row, known, (double)HeapProbe::PeakLiveBytes() / kKb);
+  row.Push((double)live / kKb);
+  row.Push((double)HeapProbe::PeakLiveBytes() / kKb);
   row.Push((double)HeapProbe::BreakBytes() / kKb);
-  /* A module that cannot say how much memory it reserved leaves the reserved side EMPTY. */
-  const double reserved = (double)HeapProbe::ReservedBytes();
-  if (reserved > 0) row.Push(reserved / kKb); else row.Push(std::string());
   row.Push(HeapProbe::SampleCostMs());
 }
 
@@ -118,8 +107,7 @@ void MemoryTelemetry::SampleTelemetry(TelemetryRow &row) const {
   /* WHAT IS HELD THAT NO POOL CLAIMS. Everything this ledger does not name is in here — the
    * allocator's per-chunk overhead, the thread stacks' committed pages, every buffer nobody has
    * given a column — so a rise with no owner has a place to appear instead of no place at all. */
-  PushKnown(row, HeapProbe::LiveBytesKnown(),
-            ((double)live - (double)(pools.Sum() + generator)) / kKb);
+  row.Push(((double)live - (double)(pools.Sum() + generator)) / kKb);
   PushDevice(row);
   for (StackProbe::Purpose p : kStacks) PushStack(row, p);
 }

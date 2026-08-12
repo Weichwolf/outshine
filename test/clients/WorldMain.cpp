@@ -86,10 +86,11 @@ int main(int argc, char **argv) {
     std::fprintf(stderr, "usage: %s <mod> <scene> [lat lon]...\n", argv[0]);
     return 2;
   }
-  Clients::FileLogSink sink(stdout);
+  const TextTarget logTo(TextStream::Stdout);
+  Clients::TextLogSink sink(logTo);
   Log::SetSink(&sink);
   Clients::Mod mod;
-  if (!mod.Load(Clients::Env("OUTSHINE_MODS", "mods"), argv[1])) {
+  if (!mod.Load(Clients::Env("OUTSHINE_MODS", "test/mods"), argv[1])) {
     Log::Error("world", "mod_unreadable", {{"mod", std::string(argv[1])}, {"why", mod.Error()}});
     return 2;
   }
@@ -101,9 +102,9 @@ int main(int argc, char **argv) {
   /* BEFORE THE SIM (`C.13`): the world's tile pool borrows this wire and joins its threads in the
    * sim's destructor, so the wire has to outlive the sim rather than the other way round. */
   Host::CurlTransport wire({});
-  Clients::Sim sim(*scene, {Clients::Env("OUTSHINE_VEGETATION", "assets/world/vegetation.json"),
-                            Clients::Env("OUTSHINE_MATERIALS", "assets/world/ground-materials.json"),
-                            "", "", "assets/sky/stars"});
+  Clients::Sim sim(*scene, {Clients::Env("OUTSHINE_VEGETATION", "src/assets/world/vegetation.json"),
+                            Clients::Env("OUTSHINE_MATERIALS", "src/assets/world/ground-materials.json"),
+                            "", "", "src/assets/sky/stars"});
   sim.SetTransport(wire);
   if (!sim.LoadTables()) return 1;
   /* The ground is a poll (clients/Sim.h). Natively the tile fetch behind it blocks, so this turns

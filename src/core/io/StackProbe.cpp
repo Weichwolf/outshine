@@ -2,11 +2,7 @@
 
 #include <cstdint>
 
-#ifdef __EMSCRIPTEN__
-#include <emscripten/stack.h>
-#else
 #include <pthread.h>
-#endif
 
 namespace outshine {
 
@@ -43,11 +39,7 @@ thread_local uintptr_t tBase = 0, tPaintBottom = 0, tPaintTop = 0;
 thread_local StackProbe::Purpose tPurpose = StackProbe::Purpose::Frame;
 
 void ThisStack(uintptr_t *base, uintptr_t *end, uintptr_t *current) {
-#ifdef __EMSCRIPTEN__
-  *base = emscripten_stack_get_base();
-  *end = emscripten_stack_get_end();
-  *current = emscripten_stack_get_current();
-#elif defined(__APPLE__)
+#if defined(__APPLE__)
   const pthread_t self = pthread_self();
   *base = (uintptr_t)pthread_get_stackaddr_np(self);
   *end = *base - (uintptr_t)pthread_get_stacksize_np(self);
@@ -79,9 +71,9 @@ void StackProbe::Enter(Purpose purpose) {
   const uintptr_t deepest = end + kToolchainCookie;
   if (base == 0 || current < deepest + kLiveMargin + sizeof(uint64_t)) return;
   const uintptr_t top = (current - kLiveMargin) & ~(uintptr_t)7;
-  /* Added, never subtracted: a stack that sits in the first kPaintSpan bytes of the address space —
-   * which is where emscripten puts it — makes top - kPaintSpan wrap, and a wrapped bottom is above
-   * top, so nothing is painted and every later Mark reports the floor as the peak. */
+  /* Compared by addition, never by subtraction: a thread whose whole stack is shallower than
+   * kPaintSpan makes top - kPaintSpan reach below the stack, and the paint would run into memory
+   * that is not this thread's. */
   const uintptr_t bottom = top >= deepest + kPaintSpan ? top - kPaintSpan : deepest;
   for (uintptr_t a = bottom; a < top; a += sizeof(uint64_t)) *(uint64_t *)a = kPaint;
   tBase = base;

@@ -34,7 +34,9 @@ ENTRY_POINTS = ("AppWalk.cpp",)
 # An entry point's whole world. Everything else it might want is Outshine's or the bench's.
 ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "Walker.h", "Scene.h", "Snapshot.h",
                   "Mod.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
-                  "ServerLog.h", "ServerTelemetry.h",
+                  # WHERE THE RUN'S TEXT GOES. A path, stdout or stderr, named by the consumer and
+                  # by nothing else -- the log and the state channel are the entry point's to place.
+                  "TextTarget.h", "LogSinks.h", "CsvTelemetry.h", "Sanitisers.h",
                   # THE HOST MEDIA. An output medium and a wire are the two things an entry point
                   # supplies and the library declares but never implements; the delay decorator over
                   # the wire is what imposes an arrival order for the still gate, in process.

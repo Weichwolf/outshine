@@ -62,7 +62,7 @@ void Outshine::SetSkyOffsetS(double s) {
 
 void Outshine::SetWindClock(double s) { R_.SetWindClock(s); }
 
-bool Outshine::Prepare(const Gpu &gpu) {
+bool Outshine::Prepare() {
   if (Phase_ != Phase::Declared) return false;
   const Scene &scene = Sim_.Declared();
   if (!Sim_.LoadTables()) return false;
@@ -88,8 +88,7 @@ bool Outshine::Prepare(const Gpu &gpu) {
   R_.SetWind(Sim_.WindDeg(), Sim_.WindMs());
   R_.SetExposure(Exposure_);
 
-  if (gpu.Canvas) R_.Init(gpu.Canvas, res.Width, res.Height);
-  else R_.InitOffscreen(res.Width, res.Height);
+  R_.Init(res.Width, res.Height);
   PhaseFromMs_ = NowMs();
   Phase_ = Phase::Device;
   return true;

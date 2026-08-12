@@ -13,9 +13,6 @@
 #include <cmath>
 #include <string>
 #include <vector>
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 
 namespace outshine::Render {
 
@@ -34,11 +31,10 @@ static std::string SvToStr(wgpu::StringView v) { return std::string(v.data, v.le
 
 Renderer::Renderer()
   : SurfaceFormat(wgpu::TextureFormat::Undefined), HdrFormat(wgpu::TextureFormat::RGBA16Float),
-    SwapW(0), SwapH(0),
     MoonW(0), MoonH(0), MoonScale(1.0), SkyClock(0), SceneState{},
     Center{0, 0, 0}, HaveCamera(false), CameraFull(false), Eye{0, 0, 0}, LookTarget{0, 0, 0},
     Fwd{0, 0, 0}, Right{0, 0, 0}, Up{0, 0, 0}, Width(0), Height(0), DeviceReady(false),
-    DeviceLost(false), Mode(Target::Surface), Blocking(false), Selector(nullptr), FrameNo(0) {}
+    DeviceLost(false), FrameNo(0) {}
 
 void Renderer::SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow,
                                   float slopeBandDeg) {
@@ -57,42 +53,23 @@ void Renderer::SetCameraBasis(const double eye[3], const double fwd[3], const do
   CameraFull = true;
 }
 
-void Renderer::Init(const char *canvasSelector, int width, int height) {
-  Mode = Target::Surface;
-  Blocking = false;
-  Selector = canvasSelector;
-  Width = SwapW = width;
-  Height = SwapH = height;
-  Instance = MakeInstance();
-  StartAdapterRequest();
-}
-
-/* `TimedWaitAny` is what makes the NATIVE bring-up's `WaitAny(UINT64_MAX)` legal — without it it
- * returns Error before it looks at the future. It is asked for on that path ALONE, because
- * emdawnwebgpu grants it only to a build that can unwind the stack and REFUSES THE WHOLE INSTANCE
- * otherwise: asking for it in the browser yields a null instance that every later call reaches
- * through, and the device still comes up because a null instance's events land under the event
- * manager's null-instance slot. */
+/* `TimedWaitAny` is what makes `WaitAny(UINT64_MAX)` below legal — without it it returns Error
+ * before it looks at the future. */
 wgpu::Instance Renderer::MakeInstance(void) const {
   wgpu::InstanceDescriptor id{};
   static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
-  if (Blocking) {
-    id.requiredFeatureCount = 1;
-    id.requiredFeatures = &kTimedWaitAny;
-  }
+  id.requiredFeatureCount = 1;
+  id.requiredFeatures = &kTimedWaitAny;
   wgpu::Instance made = wgpu::CreateInstance(&id);
-  if (!made) Log::Error("render", "no_instance", {{"timedWaitAny", Blocking}});
+  if (!made) Log::Error("render", "no_instance", {});
   return made;
 }
 
-void Renderer::InitOffscreen(int width, int height) {
-  Mode = Target::Offscreen;
-  Blocking = true;
-  Selector = nullptr;
-  Width = SwapW = width;
-  Height = SwapH = height;
-  /* Native Dawn drives Request{Adapter,Device} synchronously: there is no browser event loop here to
-   * pump AllowSpontaneous callbacks. */
+void Renderer::Init(int width, int height) {
+  Width = width;
+  Height = height;
+  /* Dawn drives Request{Adapter,Device} synchronously here: there is no event loop to pump
+   * AllowSpontaneous callbacks on. */
   Instance = MakeInstance();
   StartAdapterRequest();
 }
@@ -106,10 +83,7 @@ void Renderer::StartAdapterRequest(void) {
     }
     OnAdapter(a);
   };
-  if (Blocking)
-    Instance.WaitAny(Instance.RequestAdapter(&opts, wgpu::CallbackMode::WaitAnyOnly, onAdapter), UINT64_MAX);
-  else
-    Instance.RequestAdapter(&opts, wgpu::CallbackMode::AllowSpontaneous, onAdapter);
+  Instance.WaitAny(Instance.RequestAdapter(&opts, wgpu::CallbackMode::WaitAnyOnly, onAdapter), UINT64_MAX);
 }
 
 void Renderer::OnAdapter(wgpu::Adapter a) {
@@ -169,16 +143,13 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
     }
     OnDevice(d);
   };
-  if (Blocking)
-    Instance.WaitAny(Adapter.RequestDevice(&dd, wgpu::CallbackMode::WaitAnyOnly, onDevice), UINT64_MAX);
-  else
-    Adapter.RequestDevice(&dd, wgpu::CallbackMode::AllowSpontaneous, onDevice);
+  Instance.WaitAny(Adapter.RequestDevice(&dd, wgpu::CallbackMode::WaitAnyOnly, onDevice), UINT64_MAX);
 }
 
 void Renderer::OnDevice(wgpu::Device d) {
   Device = d;
   Queue = Device.GetQueue();
-  if (Mode == Target::Surface) ConfigureSurface(); else CreateOffscreenTarget();
+  CreateOffscreenTarget();
   CreateTileTexture();
   CreateAtmosphere();      /* before the terrain pipeline: terrain AP samples the transmittance LUT */
   CreateSceneLight();      /* and before ANY lit stage: their bind groups pin the atlas view */
@@ -202,7 +173,6 @@ void Renderer::OnDevice(wgpu::Device d) {
   GpuTime.Configure(Device, GpuTimeGranted);
   DeviceReady = true;
   Log::Info("render", "device_ready", {{"width", Width}, {"height", Height},
-                                         {"target", Mode == Target::Surface ? "surface" : "offscreen"},
                                          {"hdr", HdrFormat == wgpu::TextureFormat::RG11B10Ufloat
                                                      ? "rg11b10ufloat" : "rgba16float"}});
 }
@@ -454,83 +424,6 @@ static void Norm3(double v[3]) {
   v[0] /= l; v[1] /= l; v[2] /= l;
 }
 
-void Renderer::ConfigureSurface(void) {
-  wgpu::EmscriptenSurfaceSourceCanvasHTMLSelector canv{};
-  canv.selector = Selector;
-  wgpu::SurfaceDescriptor sd{};
-  sd.nextInChain = &canv;
-  Surface = Instance.CreateSurface(&sd);
-  wgpu::SurfaceCapabilities caps{};
-  Surface.GetCapabilities(Adapter, &caps);
-  SwapFormat = caps.formatCount ? caps.formats[0] : wgpu::TextureFormat::BGRA8Unorm;
-  for (uint32_t i = 0; i < caps.formatCount; i++)
-    if (caps.formats[i] == wgpu::TextureFormat::BGRA8UnormSrgb ||
-        caps.formats[i] == wgpu::TextureFormat::RGBA8UnormSrgb) {
-      SwapFormat = caps.formats[i];
-      break;
-    }
-  /* THE TONEMAP WRITES DISPLAY-LINEAR, so the store has to sRGB-encode. Chrome's canvas offers only
-   * the three UNORM formats — measured, `chosen=27` = bgra8unorm — and presenting linear values
-   * through it costs the whole gamma: the browser's ground read 19.8/255 against native's 69.4 on the
-   * same frame. A VIEW format that differs only in sRGB-ness is the sanctioned way round it. */
-  SurfaceFormat = SrgbView(SwapFormat);
-  Log::Debug("render", "surface_format", {{"swap", (int)SwapFormat}, {"view", (int)SurfaceFormat},
-                                            {"offered", (int)caps.formatCount}});
-  ConfigureSwapchain();
-}
-
-/* The one place the surface configuration is written, because the view format has to ride with it
- * and a resize that dropped it would silently un-gamma the picture. */
-void Renderer::ConfigureSwapchain(void) {
-  wgpu::SurfaceConfiguration cfg{};
-  cfg.device = Device;
-  cfg.format = SwapFormat;
-  cfg.usage = wgpu::TextureUsage::RenderAttachment;
-  cfg.width = (uint32_t)SwapW;
-  cfg.height = (uint32_t)SwapH;
-  if (SurfaceFormat != SwapFormat) {
-    cfg.viewFormatCount = 1;
-    cfg.viewFormats = &SurfaceFormat;
-  }
-  Surface.Configure(&cfg);
-}
-
-#ifdef __EMSCRIPTEN__
-/* Live canvas backing store = clientSize x devicePixelRatio, packed (w<<16 | h); 0 if it is gone.
- * The ceiling scales BOTH axes by one factor: clamping them apart would give the backing store a
- * different aspect from the CSS box, and the browser would stretch the letterboxed picture the
- * present pass just took care to keep undistorted. */
-EM_JS(int, fb_canvas_px, (const char *sel), {
-  var c = document.querySelector(UTF8ToString(sel));
-  if (!c) return 0;
-  var dpr = window.devicePixelRatio || 1;
-  var w = Math.max(1, Math.round(c.clientWidth * dpr)) | 0;
-  var h = Math.max(1, Math.round(c.clientHeight * dpr)) | 0;
-  var over = Math.max(w, h) / 4096;
-  if (over > 1) {
-    w = Math.max(1, Math.floor(w / over)) | 0;
-    h = Math.max(1, Math.floor(h / over)) | 0;
-  }
-  return (w << 16) | h;
-})
-#endif
-
-/* Scene + HUD stay at the declared size; only the swapchain and the present viewport follow the
- * canvas. The 8 px hysteresis keeps sub-pixel jitter from thrashing the reconfigure. */
-void Renderer::SyncSwapSize(void) {
-#ifdef __EMSCRIPTEN__
-  if (Mode != Target::Surface || !Selector) return;
-  int packed = fb_canvas_px(Selector);
-  if (packed <= 0) return;
-  int w = (packed >> 16) & 0xFFFF, h = packed & 0xFFFF;
-  if (std::abs(w - SwapW) < 8 && std::abs(h - SwapH) < 8) return;
-  SwapW = w;
-  SwapH = h;
-  ConfigureSwapchain();
-  Log::Info("render", "swapchain", {{"swapW", SwapW}, {"swapH", SwapH}, {"width", Width}, {"height", Height}});
-#endif
-}
-
 /* RGBA8UnormSrgb so the GPU sRGB-encodes on store, exactly as the surface's sRGB view does — and so
  * the presented bytes need no CPU encode step. It is a present target only; the readback takes
  * FrameTex, which both translations have. */
@@ -581,30 +474,15 @@ void Renderer::BakePrototypeImpostor(void) {
 }
 
 /* THE ONE PLACE A PRESENTABLE TARGET IS ACQUIRED. Both frame kinds go through it, so neither can
- * end up presenting to something the other configured. False = there is nothing to draw into this
- * tick, which on a canvas is a normal state and not an error. */
+ * end up presenting to something the other configured. */
 bool Renderer::AcquireTarget(wgpu::TextureView &finalView) {
   if (!DeviceReady || DeviceLost) return false;
-  if (Mode != Target::Surface) {
-    finalView = OffscreenTex.CreateView();
-    return true;
-  }
-  SyncSwapSize();   /* match the swapchain to the live display size before acquiring it */
-  wgpu::SurfaceTexture st{};
-  Surface.GetCurrentTexture(&st);
-  if (FrameNo < 3 || !st.texture)
-    Log::Debug("render", "surface_texture", {{"frame", (int)FrameNo}, {"status", (int)st.status},
-                                                {"texture", st.texture ? "ok" : "NULL"}});
-  if (!st.texture) return false;
-  wgpu::TextureViewDescriptor vd{};
-  vd.format = SurfaceFormat;
-  finalView = st.texture.CreateView(&vd);
+  finalView = OffscreenTex.CreateView();
   return true;
 }
 
-/* THE ONE PLACE THE DECLARED PICTURE MEETS THE DISPLAY. The picture keeps its aspect ratio and is
- * centred; the target is cleared first, so what the fit does not cover stays black bars. Stretching
- * to the target instead would make the canvas a second, undeclared statement about the picture. */
+/* THE ONE PLACE THE DECLARED PICTURE IS HANDED ON. The target is the declared size, so the picture
+ * fills it and there is no fit to state twice. */
 void Renderer::EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView &finalView,
                              const FrameContext &ctx, wgpu::PassTimestampWrites *timestamps) {
   wgpu::RenderPassColorAttachment ca{};
@@ -617,9 +495,6 @@ void Renderer::EncodePresent(wgpu::CommandEncoder &enc, const wgpu::TextureView 
   rp.colorAttachments = &ca;
   rp.timestampWrites = timestamps;
   wgpu::RenderPassEncoder pass = enc.BeginRenderPass(&rp);
-  const float scale = std::min((float)SwapW / (float)Width, (float)SwapH / (float)Height);
-  const float w = (float)Width * scale, h = (float)Height * scale;
-  pass.SetViewport(0.5f * ((float)SwapW - w), 0.5f * ((float)SwapH - h), w, h, 0.0f, 1.0f);
   Present->Encode(ctx, pass);
   pass.End();
 }

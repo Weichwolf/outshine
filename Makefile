@@ -1,7 +1,7 @@
-# Outshine — the library under src/, the tests under test/. This Makefile, the vendored toolchain
-# under vendor/ (Dawn, build scripts) and the declarations under assets/ and mods/ live beside them.
-# There is no server: the upstreams are data providers inside the library (src/data), and the only
-# thing a host supplies is a transport (test/host).
+# Outshine — the library under src/, its declared data under src/assets/, the tests and the mods they
+# run under test/. This Makefile and the vendored toolchain under vendor/ (Dawn, build scripts) live
+# beside them. There is no server: the upstreams are data providers inside the library (src/data),
+# and the only thing a host supplies is a transport (test/host).
 #
 #   make walk     build the interactive client / frame oracle (test/clients/AppWalk.cpp) -> build/gpu_walk
 #   make world    build the headless target: everything EXCEPT render/, no device -> build/fb_world
@@ -125,7 +125,7 @@ DECODER_SRCS := $(wildcard src/world/tiles/*.cpp)
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
 SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
   src/clients/Animation.cpp src/clients/LogSinks.cpp src/clients/StreamTelemetry.cpp \
-  src/clients/EyeTelemetry.cpp \
+  src/clients/EyeTelemetry.cpp src/clients/CsvTelemetry.cpp \
   src/clients/Species.cpp src/clients/RegionForge.cpp
 
 # THE PICTURE HALF over it. Outshine owns the renderer and is the only thing in the tree that builds
@@ -133,9 +133,8 @@ SIM_SRCS := src/clients/Sim.cpp src/clients/Scene.cpp src/clients/Mod.cpp \
 # verify-clients` holds them to.
 APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
   src/clients/SceneRunner.cpp src/clients/SubjectBench.cpp src/clients/Png.cpp \
-  src/clients/StandField.cpp \
-  src/clients/FileArtifacts.cpp src/clients/HttpPost.cpp src/clients/ServerLog.cpp \
-  src/clients/ServerTelemetry.cpp src/clients/FrameTelemetry.cpp \
+  src/clients/StandField.cpp src/clients/FileArtifacts.cpp \
+  src/clients/FrameTelemetry.cpp \
   src/clients/MemoryTelemetry.cpp src/clients/Walker.cpp
 
 # Named, not `build/obj-<target>/*.o`: the glob would link whatever a PREVIOUS target had left in
@@ -200,13 +199,12 @@ define NATIVE_BUILD
 	  for f in $(RENDER_SRCS); do o=$(1)/render-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
 	  for f in $(APP_SRCS); do o=$(1)/app-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_CLIENTS) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  c++ test/clients/AppWalk.cpp \
 	    $(call OBJS,$(1)) $(call PICTURE_OBJS,$(1)) \
 	    -std=c++20 -O2 $(CXX_WARN) $(2) -DOUTSHINE_CLIENT="\"$(4)\"" \
 	    $(INC_CLIENTS) -Itest/host \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
-	    -isystem $(CURL_COMPAT) \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm $$PLATFORM_LIBS \
 	    -o $(3); \
 	  echo "-> $(3)"
@@ -243,7 +241,6 @@ world:           ## build the headless target -- everything except render/, no d
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -c -o "$$o"; done; \
 	  c++ test/clients/WorldMain.cpp $(call OBJS,build/obj-world) \
 	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) -Itest/host \
-	    -isystem $(CURL_COMPAT) \
 	    -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm \
 	    -o build/fb_world; \
 	  echo "world -> build/fb_world"
@@ -258,16 +255,11 @@ treebench:       ## grow every declared plant and measure it -> build/treebench 
 
 # WHAT MUST NOT BE REACHABLE FROM A DATA PROVIDER. The same negatives the generators have, because
 # the two contracts are the same shape turned in opposite directions: neither may name the engine.
+# THE TRANSPORT IS THE HOST'S, WHOLE: the gate reads every object the client LINKS except `host-*`,
+# which IS the seam and is the one place a curl symbol belongs, and demands that no other carries
+# one. The link's own list and not a glob of the object directory: a glob also reads what a PREVIOUS
+# build left there, so a deleted source keeps failing this gate from its orphaned object.
 DATA_NEGATIVES := RendererIsNotReachable WorldIsNotReachable LogIsNotReachable GeneratorIsNotReachable
-
-# THE ONE LIBRARY OBJECT THAT MAY STILL NAME THE TRANSPORT, and it is a defect with a name rather
-# than a design: src/clients/HttpPost.cpp calls libcurl for the EGRESS wire -- the telemetry POST and
-# the log POST -- while the INGRESS wire goes through Data::Transport, whose only libcurl
-# implementation lives in test/host. The gate reads every object except `host-*`, which IS the seam
-# and is the one place a curl symbol belongs; of the rest it excludes exactly this one, fails if a
-# second ever fits the exclusion, and fails if this one stops fitting it -- so the hole can neither
-# widen unnoticed nor outlive its repair.
-DATA_CURL_EXCEPTION := app-HttpPost.o
 
 verify-data: walk ## a data/ TU compiles against core and CANNOT name World, Renderer, Log or a generator
 	@cd $(SELF_DIR); set -e; \
@@ -283,18 +275,20 @@ verify-data: walk ## a data/ TU compiles against core and CANNOT name World, Ren
 	    if ! c++ "$$f" $(CXXSTD) $(INC_DATA) -fsyntax-only 2>&1 | grep -q "file not found"; then \
 	      echo "verify-data: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
 	    fi; done; \
-	  objs=$$(ls build/obj-walk/*.o 2>/dev/null | grep -v '/host-' || true); \
+	  objs=""; \
+	  for o in $(call OBJS,build/obj-walk) $(call PICTURE_OBJS,build/obj-walk); do \
+	    case "$$o" in */host-*) continue;; esac; \
+	    if [ ! -f "$$o" ]; then \
+	      echo "verify-data: $$o is in the link and was not built -- this gate would certify over a gap" >&2; exit 1; fi; \
+	    objs="$$objs $$o"; done; \
 	  if [ -z "$$objs" ]; then \
-	    echo "verify-data: build/obj-walk holds no library object -- this gate would certify over nothing" >&2; exit 1; fi; \
+	    echo "verify-data: the link names no library object -- this gate would certify over nothing" >&2; exit 1; fi; \
 	  carriers=""; \
 	  for o in $$objs; do \
 	    if [ "$$(nm -u "$$o" | grep -c curl_)" != "0" ]; then carriers="$$carriers $$(basename $$o)"; fi; done; \
-	  for c in $$carriers; do \
-	    if [ "$$c" != "$(DATA_CURL_EXCEPTION)" ]; then \
-	      echo "verify-data: library object $$c carries curl symbols -- the transport is not behind the host seam" >&2; exit 1; fi; done; \
-	  case "$$carriers " in *" $(DATA_CURL_EXCEPTION) "*) ;; *) \
-	    echo "verify-data: $(DATA_CURL_EXCEPTION) carries no curl symbol any more -- delete DATA_CURL_EXCEPTION" >&2; exit 1;; esac; \
-	  echo "verify-data: render/ world/ generators/ and the log have no spelling in data/, and $$(echo $$objs | wc -w | tr -d ' ') library objects carry no transport symbol except $(DATA_CURL_EXCEPTION) (src/clients/HttpPost.cpp, the egress wire, not behind the seam)"
+	  if [ -n "$$carriers" ]; then \
+	    echo "verify-data: library object(s)$$carriers carry curl symbols -- a transport in src/ is not behind the host seam" >&2; exit 1; fi; \
+	  echo "verify-data: render/ world/ generators/ and the log have no spelling in data/, and none of $$(echo $$objs | wc -w | tr -d ' ') library objects carries a transport symbol"
 
 # WHAT MUST NOT BE REACHABLE FROM A GENERATOR. Each negative is compiled and has to fail FOR THE
 # STATED REASON: any compile error would pass a bare exit-code test, including a typo in the gate.
@@ -373,7 +367,7 @@ verify-refusals: treebench ## a bench with nothing to measure refuses, and so do
 	    echo "verify-refusals: treebench measured an empty directory and exited 0" >&2; exit 1; fi; \
 	  grep -q "$$d/empty" "$$d/empty.err" || { \
 	    echo "verify-refusals: the bench refused without naming where it looked" >&2; exit 1; }; \
-	  sed 's|"form": "[a-z_]*"|"form": "no_such_form"|' assets/world/species/ash.json > "$$d/badform/ash.json"; \
+	  sed 's|"form": "[a-z_]*"|"form": "no_such_form"|' src/assets/world/species/ash.json > "$$d/badform/ash.json"; \
 	  grep -q '"no_such_form"' "$$d/badform/ash.json" || { \
 	    echo "verify-refusals: the fixture carries no form field -- the gate would pass on nothing" >&2; exit 1; }; \
 	  if ./build/treebench --assets "$$d/badform" >/dev/null 2>"$$d/badform.err"; then \

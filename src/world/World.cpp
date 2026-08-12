@@ -468,8 +468,8 @@ void World::AdmitMesh(Node &nd, int &budget) {
 }
 
 /* AN EYE PAST THE BAND HAS NO ROOT TILE, and (0,0) is a place 8000 km away: nothing is drawn. Only
- * the CROSSING is written here — the picture pass runs 60 times a second, and in the browser client
- * every line is a console.log plus an HttpPost. Where the eye stands is EyeInMercatorBand(). */
+ * the CROSSING is written here, because the picture pass runs 60 times a second and every log line
+ * is a flushed write. Where the eye stands is EyeInMercatorBand(). */
 void World::NoteBand(bool inBand, double latDeg, double lonDeg) {
   if (inBand == EyeInBand_) return;
   EyeInBand_ = inBand;

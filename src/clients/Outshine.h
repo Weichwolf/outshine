@@ -29,11 +29,6 @@ public:
   using Assets = Sim::Assets;
   using Stance = Sim::Stance;
 
-  /* WHERE THE PICTURE LANDS, and nothing else: the size is the scene's (clients/Scene.h), read
-   * where the device is created, so no caller can hand in a frame the ladder does not measure. */
-  struct Gpu {
-    const char *Canvas = nullptr;   /* null = offscreen */
-  };
   struct Progress {
     float Fraction = 0.0f;
     bool Resident = false;
@@ -90,7 +85,7 @@ public:
   /* TWO ASKS, because one consumer stops between them: the subject bench judges a plant with no
    * world and no network at all, so it prepares and never opens. Both only STATE the wish; Step()
    * is what carries it out, one turn at a time, and Busy() says whether another turn is owed. */
-  [[nodiscard]] bool Prepare(const Gpu &gpu);
+  [[nodiscard]] bool Prepare();
   void Open();
   void Step();
   [[nodiscard]] bool Busy() const;
