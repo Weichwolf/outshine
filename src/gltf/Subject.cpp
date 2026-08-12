@@ -42,6 +42,43 @@ const char *ModeName(PrimitiveMode mode) {
   return "an undeclared mode";
 }
 
+bool DrawsASurface(PrimitiveMode mode) {
+  return mode == PrimitiveMode::Triangles || mode == PrimitiveMode::TriangleStrip ||
+         mode == PrimitiveMode::TriangleFan;
+}
+
+/* Whether `run` can be walked as this mode at all: three indices to a triangle for a list, three to
+ * start a run for a strip or a fan. */
+bool RunIsWhole(PrimitiveMode mode, size_t indices) {
+  return (mode == PrimitiveMode::Triangles) ? (indices > 0 && indices % 3 == 0) : (indices >= 3);
+}
+
+/* THE ODD TRIANGLE OF A STRIP IS (i+1, i, i+2), NOT A SLIDING WINDOW: without the swap every second
+ * triangle of the run would face the other way, which is the format's rule and not a convention this
+ * file chooses. A fan is (0, i, i+1) throughout and needs no such swap. Assumes `RunIsWhole`. */
+void Triangulate(PrimitiveMode mode, const std::vector<uint32_t> &run,
+                 std::vector<uint32_t> &out) {
+  out.clear();
+  if (mode == PrimitiveMode::Triangles) {
+    out = run;
+    return;
+  }
+  if (mode == PrimitiveMode::TriangleStrip) {
+    for (size_t at = 0; at + 2 < run.size(); ++at) {
+      const size_t flipped = (at % 2 == 0) ? 0u : 1u;
+      out.push_back(run[at + flipped]);
+      out.push_back(run[at + 1u - flipped]);
+      out.push_back(run[at + 2u]);
+    }
+    return;
+  }
+  for (size_t at = 1; at + 1 < run.size(); ++at) {
+    out.push_back(run[0]);
+    out.push_back(run[at]);
+    out.push_back(run[at + 1]);
+  }
+}
+
 } // namespace
 
 bool Placement::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Placement &out) {
@@ -80,7 +117,10 @@ bool Placement::View(Transform &out) const {
 
 bool Placement::Clip(double viewportAspect, Transform &out) const {
   Camera lens;
+  lens.Kind = Kind;
   lens.YfovRad = YfovRad;
+  lens.XMagM = XMagM;
+  lens.YMagM = YMagM;
   lens.ZNearM = ZNearM;
   lens.ZFarM = ZFarM;
   Transform projection, view;
@@ -112,7 +152,7 @@ bool Subject::Build(const Document &document) {
   std::vector<int> pending(document.Scenes()[(size_t)sceneIndex].Roots.rbegin(),
                            document.Scenes()[(size_t)sceneIndex].Roots.rend());
   std::vector<double> elements;
-  std::vector<uint32_t> indices;
+  std::vector<uint32_t> run, indices;
   size_t primitives = 0;
   while (!pending.empty()) {
     const int nodeIndex = pending.back();
@@ -138,10 +178,11 @@ bool Subject::Build(const Document &document) {
 
     for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
       ++primitives;
-      if (primitive.Mode != PrimitiveMode::Triangles) {
+      if (!DrawsASurface(primitive.Mode)) {
         return Refuse(document.Path() + ": primitive of mesh " + std::to_string(node.Mesh) +
                       " is " + ModeName(primitive.Mode) +
-                      ", and this subject draws TRIANGLES only");
+                      ", and this subject draws surfaces only -- TRIANGLES, TRIANGLE_STRIP or "
+                      "TRIANGLE_FAN");
       }
       const int position = primitive.Find("POSITION");
       if (position < 0) {
@@ -166,18 +207,19 @@ bool Subject::Build(const Document &document) {
       }
 
       if (primitive.Indices >= 0) {
-        if (!document.ReadIndices(primitive.Indices, indices)) {
+        if (!document.ReadIndices(primitive.Indices, run)) {
           return Refuse(document.Path() + ": the index accessor does not decode: " +
                         document.Error());
         }
       } else {
-        indices.resize(vertices);
-        for (size_t vertex = 0; vertex < vertices; ++vertex) { indices[vertex] = (uint32_t)vertex; }
+        run.resize(vertices);
+        for (size_t vertex = 0; vertex < vertices; ++vertex) { run[vertex] = (uint32_t)vertex; }
       }
-      if (indices.size() % 3 != 0) {
-        return Refuse(document.Path() + ": " + std::to_string(indices.size()) +
-                      " indices is not a whole number of triangles");
+      if (!RunIsWhole(primitive.Mode, run.size())) {
+        return Refuse(document.Path() + ": " + std::to_string(run.size()) +
+                      " indices do not make a whole run of " + ModeName(primitive.Mode));
       }
+      Triangulate(primitive.Mode, run, indices);
       for (uint32_t index : indices) {
         if (index >= vertices) {
           return Refuse(document.Path() + ": index " + std::to_string(index) + " addresses past the " +
@@ -246,7 +288,6 @@ bool Subject::DeclaredPlacement(const Document &document, Placement &out) const 
     if (camera < 0) { continue; }
     if ((size_t)camera >= document.Cameras().size()) { return false; }
     const Camera &lens = document.Cameras()[(size_t)camera];
-    if (lens.Kind != CameraKind::Perspective) { return false; }
     Transform world;
     if (!document.WorldTransform((int)node, world)) { return false; }
     for (int axis = 0; axis < 3; ++axis) {
@@ -256,7 +297,10 @@ bool Subject::DeclaredPlacement(const Document &document, Placement &out) const 
       out.EyeM[axis] = world.M[12 + axis];
     }
     if (!Normalise(out.Right) || !Normalise(out.Up) || !Normalise(out.Forward)) { return false; }
+    out.Kind = lens.Kind;
     out.YfovRad = lens.YfovRad;
+    out.XMagM = lens.XMagM;
+    out.YMagM = lens.YMagM;
     out.ZNearM = lens.ZNearM;
     out.ZFarM = lens.ZFarM;
     return true;

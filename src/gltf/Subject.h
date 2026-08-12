@@ -33,7 +33,14 @@ struct Placement {
   double Forward[3] = {0, 0, -1};
   double Right[3] = {1, 0, 0};
   double Up[3] = {0, 1, 0};
+  /* Which of the two sets below carries the lens: `YfovRad` under Perspective, the two
+   * magnifications under Orthographic. A parallel projection is a different matrix and not a large
+   * number substituted for one, so the kind travels with the placement rather than being inferred
+   * from a zero. */
+  CameraKind Kind = CameraKind::Perspective;
   double YfovRad = 0;
+  double XMagM = 0;
+  double YMagM = 0;
   double ZNearM = 0;
   double ZFarM = 0;
 
@@ -78,8 +85,7 @@ public:
   [[nodiscard]] bool Frame(Placement &out) const;
 
   /* The camera the document itself declares, if any node references one. A declared camera is used
-   * verbatim and no framing rule runs. Refuses an orthographic camera by name -- the projection is a
-   * different matrix, not a large number substituted for one. */
+   * verbatim and no framing rule runs. */
   [[nodiscard]] bool DeclaredPlacement(const Document &document, Placement &out) const;
 
   /* The projected area of every triangle, in square pixels, at `clip` and `viewport`. Signed areas

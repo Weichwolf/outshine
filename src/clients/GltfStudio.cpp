@@ -41,6 +41,39 @@ void Anchored(const double gltf[3], double out[3]) {
   return true;
 }
 
+/* THE ENGINE'S PARALLEL PROJECTION IS ONE NUMBER -- the vertical extent it covers -- and glTF
+ * declares two magnifications. Where the two disagree the engine would silently render the vertical
+ * one and drop the horizontal, so the mismatch is a refusal naming both. 1e-12 relative is float
+ * noise on a round-tripped decimal; the smallest mistake this catches is a sensor fit, which is a
+ * factor of the aspect ratio away. */
+constexpr double kMagnificationAgreement = 1e-12; /* [SET] */
+
+[[nodiscard]] bool SetProjection(Render::Renderer &renderer, const Gltf::Placement &eye,
+                                 std::string &error) {
+  if (eye.Kind == Gltf::CameraKind::Orthographic) {
+    if (!(eye.YMagM > 0) || !(eye.XMagM > 0)) {
+      error = "the placement is orthographic and declares no magnification";
+      return false;
+    }
+    const double wanted = eye.YMagM * renderer.SceneAspect();
+    if (std::fabs(eye.XMagM - wanted) > kMagnificationAgreement * wanted) {
+      error = "the placement declares xmag " + std::to_string(eye.XMagM) + " where ymag " +
+              std::to_string(eye.YMagM) + " at the frame's aspect " +
+              std::to_string(renderer.SceneAspect()) + " gives " + std::to_string(wanted) +
+              ", and the engine's parallel projection carries only the vertical extent";
+      return false;
+    }
+    renderer.SetOrthoM(2.0 * eye.YMagM);
+    return true;
+  }
+  if (!(eye.YfovRad > 0)) {
+    error = "the placement declares no field of view";
+    return false;
+  }
+  renderer.SetFovDeg(eye.YfovRad * 180.0 / 3.14159265358979323846);
+  return true;
+}
+
 } // namespace
 
 bool Show(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
@@ -49,10 +82,7 @@ bool Show(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::
     error = "the subject carries no triangle, so there is nothing to stand in the studio";
     return false;
   }
-  if (!(eye.YfovRad > 0)) {
-    error = "the placement declares no field of view";
-    return false;
-  }
+  if (!SetProjection(renderer, eye, error)) { return false; }
   if (!ClearsNearPlane(subject, eye, error)) { return false; }
 
   scratch.clear();
@@ -72,7 +102,6 @@ bool Show(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::
   EcefFromGltf(eye.Right, right);
   EcefFromGltf(eye.Up, up);
   renderer.SetCameraBasis(position, forward, right, up);
-  renderer.SetFovDeg(eye.YfovRad * 180.0 / 3.14159265358979323846);
   /* NO TEMPORAL ACCUMULATION IN A STUDIO. A jittered sample grid asks the coverage question
    * somewhere other than the pixel centre, which is the exact quantity a parity rung measures. */
   renderer.PinJitter(0.0f, 0.0f);

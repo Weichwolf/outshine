@@ -1,6 +1,6 @@
-/* THE READER AGAINST A NUMBER THIS TREE DID NOT PRODUCE. `test/render/coverage/triangle/` was
- * prepared by the corpus round: the vertices come from Khronos, the camera was placed in Blender and
- * the projected area fraction was derived analytically there. Nothing below re-derives it -- the
+/* THE READER AGAINST A NUMBER THIS TREE DID NOT PRODUCE. `test/render/coverage/fetched-triangle/`
+ * was prepared by the corpus round: the vertices come from Khronos, the camera was placed in Blender
+ * and the projected area fraction was derived analytically there. Nothing below re-derives it -- the
  * expected value is read out of the case's own manifest -- so what is being checked is the chain
  * *file bytes -> accessor -> view -> projection -> raster*, end to end, against an outside answer.
  *
@@ -34,7 +34,7 @@ using outshine::Gltf::Viewport;
 
 namespace {
 
-const char *const kCase = "test/render/coverage/triangle/";
+const char *const kCase = "test/render/coverage/fetched-triangle/";
 
 std::string Slurp(const std::string &path) {
   std::ifstream file(path, std::ios::binary);
@@ -165,6 +165,6 @@ int main() {
   }
 
   Covers("I.26 the reader: buffers, bufferViews, accessors, meshes, nodes and the camera, checked "
-         "against Blender's analytic answer for test/render/coverage/triangle/");
+         "against Blender's analytic answer for test/render/coverage/fetched-triangle/");
   return Report();
 }

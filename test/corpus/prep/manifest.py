@@ -11,15 +11,15 @@ SCHEMA = "outshine/render-oracle-manifest"
 SCHEMA_VERSION = 1
 
 # The runner writes these. The preparer refuses to name them, so a collision has no spelling here.
-RESERVED_OUTPUT_NAMES = frozenset(
-    ["1-outshine.png", "2-diff.png", "outshine.exr", "outshine.raw", "provenance.json"]
-)
+# Exactly two pictures live in a case directory and the test writes one of them, so a manifest that
+# named either has no spelling. A third image of any kind is what this set exists to prevent.
+RESERVED_OUTPUT_NAMES = frozenset(["1-outshine.png", "outshine.exr", "outshine.raw", "provenance.json"])
 
 DEFAULT_RECIPE_NAME = "default"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 
-SUBJECT_KINDS = ("gltf", "blend")
-SOURCE_KINDS = ("khronos-sample-assets", "blender-download", "blender-studio")
+SUBJECT_KINDS = ("gltf", "blend", "generated")
+SOURCE_KINDS = ("khronos-sample-assets", "blender-download", "blender-studio", "outshine-generated")
 FILE_ROLES = ("gltf", "buffer", "image", "metadata", "blend", "archive-member")
 CAMERA_SOURCES = ("manifest", "gltf")
 MATERIAL_SOURCES = ("manifest", "gltf")
@@ -110,7 +110,7 @@ class Manifest:
             document,
             ("schema", "schemaVersion", "id", "title", "covers", "subjectClass", "subjects", "blender",
              "scene", "renders"),
-            ("notes", "expected", "acceptance"),
+            ("notes", "expected", "acceptance", "identicalCoverage"),
         )
         if self.document["schema"] != SCHEMA:
             raise Refusal("manifest.schema", expected=SCHEMA, observed=self.document["schema"])
@@ -134,6 +134,9 @@ class Manifest:
         # override equal to the default is a refusal, belongs to the one program that reads them.
         self.expected = _quantities("manifest.expected", self.document.get("expected"))
         self.acceptance = _quantities("manifest.acceptance", self.document.get("acceptance"))
+        self.identical_coverage = _identical_coverage(
+            self.document.get("identicalCoverage"), self.subjects
+        )
 
         for name in self.output_names():
             if name in RESERVED_OUTPUT_NAMES:
@@ -164,18 +167,31 @@ class Manifest:
     def output_names(self):
         names = []
         for name in sorted(self.renders):
-            names.extend(output_names_for(name))
+            names.extend(sorted(output_names_for(name).values()))
         return names
 
     def gltf_names(self):
-        """One glTF per subject, and every one of them is imported into the oracle's scene."""
-        return [s.entry if s.kind == "gltf" else s.conversion.settings["outputName"] for s in self.subjects]
+        """One glTF per subject, and every one of them is imported into the oracle's scene. A
+        subject's other files -- the same surface under another index width, the same placement
+        through a matrix -- are the RUNNER's to render and score against this one, and none of them
+        reaches the oracle."""
+        return [s.conversion.settings["outputName"] if s.kind == "blend" else s.entry
+                for s in self.subjects]
+
+
+REFERENCE_PICTURE = "0-reference.png"
 
 
 def output_names_for(recipe_name):
-    """The eye's file sorts to the top of the directory; the deciding f32 pair sits below it."""
+    """TWO PICTURES IN A CASE DIRECTORY AND NO THIRD: how it should look, and what we produce now.
+    A second recipe therefore contributes its float pair and no image at all -- the pixels it exists
+    for are read out of the .raw, and a `0-reference.coverage.png` beside `0-reference.png` is a
+    third picture wearing a suffix."""
     suffix = "" if recipe_name == DEFAULT_RECIPE_NAME else "." + recipe_name
-    return ["oracle" + suffix + ".exr", "0-oracle" + suffix + ".png", "oracle" + suffix + ".raw"]
+    names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
+    if recipe_name == DEFAULT_RECIPE_NAME:
+        names["png"] = REFERENCE_PICTURE
+    return names
 
 
 def _subjects(value):
@@ -202,7 +218,8 @@ class _Subject:
         self.name = field["name"]
         licence.check_subject_name(self.name)
         self.source = _source(where, field["source"])
-        self.files = [_file(where + ".files[%d]" % i, f) for i, f in enumerate(field["files"])]
+        read_file = _generated_file if self.kind == "generated" else _fetched_file
+        self.files = [read_file(where + ".files[%d]" % i, f) for i, f in enumerate(field["files"])]
         self.entry = field["entry"]
         self.attributes = field.get("attributes", [])
         self.notes = field.get("notes", "")
@@ -216,8 +233,9 @@ class _Subject:
                 observed="absent",
                 why="the export settings are the measurement, so none of them is left to a default",
             )
-        if self.kind == "gltf" and self.conversion is not None:
-            raise Refusal(where + ".conversion", expected="absent for a glTF subject", observed="present")
+        if self.kind != "blend" and self.conversion is not None:
+            raise Refusal(where + ".conversion", expected="absent for a " + self.kind + " subject",
+                          observed="present")
 
     def metadata_file(self):
         for file in self.files:
@@ -231,6 +249,8 @@ def _source(where, value):
         where + ".source", value, ("kind",), ("commit", "model", "pinnedOn", "pinReason", "page")
     )
     kind = _one_of(where + ".source.kind", field["kind"], SOURCE_KINDS)
+    if kind == "outshine-generated":
+        return _fields(where + ".source", value, ("kind",))
     if kind == "khronos-sample-assets":
         for key in ("commit", "model", "pinnedOn", "pinReason"):
             if not field.get(key):
@@ -248,13 +268,24 @@ def _source(where, value):
     return field
 
 
-def _file(where, value):
+def _generated_file(where, value):
+    """No url, no pin and no licence: there is no upstream to pin against and no third party to
+    credit. What stands in the pin's place is that the recipe below is the whole of the input, so
+    the preparer computes the digest of what it produced and the oracle key carries that."""
+    field = _fields(where, value, ("as", "role", "generator"))
+    _name(where, field["as"])
+    _one_of(where + ".role", field["role"], FILE_ROLES)
+    if not isinstance(field["generator"], dict) or not field["generator"]:
+        raise Refusal(where + ".generator", expected="the shape and its parameters", observed=repr(field["generator"]))
+    return field
+
+
+def _fetched_file(where, value):
     field = _fields(where, value, ("url", "sha256", "bytes", "as", "role", "licence"), ("member",))
     if not re.match(r"^[0-9a-f]{64}$", field["sha256"]):
         raise Refusal(where + ".sha256", expected="64 hex digits", observed=field["sha256"])
     _one_of(where + ".role", field["role"], FILE_ROLES)
-    if "/" in field["as"] or field["as"].startswith("."):
-        raise Refusal(where + ".as", expected="a plain file name in the test directory", observed=field["as"])
+    _name(where, field["as"])
     if (field["role"] == "archive-member") != ("member" in field):
         raise Refusal(
             where + ".member",
@@ -263,6 +294,11 @@ def _file(where, value):
         )
     field["licence"] = _licence(where + ".licence", field["licence"])
     return field
+
+
+def _name(where, value):
+    if "/" in value or value.startswith("."):
+        raise Refusal(where + ".as", expected="a plain file name in the test directory", observed=value)
 
 
 def _licence(where, value):
@@ -463,6 +499,31 @@ def _colour_management(where, value):
     for key in ("exposure", "gamma"):
         field[key] = _number(where + "." + key, field[key])
     return field
+
+
+def _identical_coverage(value, subjects):
+    """Files this case's own render must land in the same pixels as -- decided between two renders
+    of ours, with no oracle in it at all, so the agreement is exact rather than within a tolerance.
+    Each has to be a file this manifest already declares, so a claim cannot name a subject nothing
+    prepares."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or not value:
+        raise Refusal("manifest.identicalCoverage", expected="a non-empty list of file names", observed=repr(value))
+    declared = set()
+    for subject in subjects:
+        declared.update(file["as"] for file in subject.files)
+    entry = subjects[0].entry
+    for name in value:
+        if name not in declared:
+            raise Refusal("manifest.identicalCoverage", expected="one of " + ", ".join(sorted(declared)),
+                          observed=repr(name))
+        if name == entry:
+            raise Refusal("manifest.identicalCoverage", expected="a file other than the entry " + entry,
+                          observed=name, why="a case cannot be evidence of agreeing with itself")
+    if len(set(value)) != len(value):
+        raise Refusal("manifest.identicalCoverage", expected="distinct names", observed=", ".join(value))
+    return list(value)
 
 
 def _quantities(where, value):

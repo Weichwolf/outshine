@@ -1,0 +1,9 @@
+# A case directory's only tracked file is its manifest; everything else in one is derived. The two
+# anchored lines are the runner, which lives here and is source -- without them a new .cpp beside
+# Parity.cpp would be ignored, and the anchor is what stops a case directory carrying one.
+*
+!*/
+!.gitignore
+!manifest.json
+!/*.cpp
+!/*.h

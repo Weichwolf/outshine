@@ -16,7 +16,7 @@ from prep.store import ContentStore  # noqa: E402
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("job", choices=("fetch", "convert", "render", "all", "dry-run"))
+    parser.add_argument("job", choices=("fetch", "generate", "convert", "render", "all", "dry-run"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--dest", default=None, help="default: the manifest's own directory")
     parser.add_argument("--store", default=None, help="default: the library's content store")
@@ -40,6 +40,10 @@ def main(argv):
     if arguments.job in ("fetch", "all"):
         report["fetch"] = jobs.fetch_subjects(declared, store, destination, force=arguments.force)
 
+    needs_generation = any(subject.kind == "generated" for subject in declared.subjects)
+    if arguments.job == "generate" or (arguments.job == "all" and needs_generation):
+        report["generate"] = jobs.generate_subjects(declared, destination)
+
     blender = None
     if arguments.job in ("convert", "render", "all"):
         blender = blender_module.Blender(blender_module.locate(arguments.blender))
@@ -58,7 +62,6 @@ def main(argv):
 
     report["store"] = {"directory": store.directory, "hits": store.hits, "misses": store.misses,
                        "writes": store.writes}
-    jobs.write_ignore(declared, destination)
     provenance = jobs.write_provenance(declared, store, destination, blender, report)
     _emit({"manifest": declared.id, "destination": destination, "provenance": provenance, "report": report})
     return 0

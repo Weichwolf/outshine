@@ -1,0 +1,201 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/fetched-triangle",
+  "title": "The schema's worked example -- a FETCHED, normal-less triangle, and the only case that exercises the pin, the allow-list and the licence table",
+  "covers": [
+    "I.26",
+    "I.26.1",
+    "I.26.5",
+    "I.26.10"
+  ],
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "triangle",
+      "kind": "gltf",
+      "name": "Triangle",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "No NORMAL accessor. Coverage is decided from Cycles' alpha on the oracle side and from depth != far on ours, so this comparison reads no normal at either end and none is derived: I.26 forbids deriving one and an oracle comparison contains no repair. A rung that compares RADIANCE needs a subject that carries what radiance reads, and that is a different subject.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Triangle",
+        "pinnedOn": "2026-04-27",
+        "pinReason": "first pin; head of main at the time the ladder was written"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/glTF/Triangle.gltf",
+          "sha256": "6f4a8a1fbefbac2d0adde0800864279fd98c3f119077380e6840810ed62b6cfc",
+          "bytes": 1037,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/glTF/Triangle.bin",
+          "sha256": "898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62",
+          "bytes": 44,
+          "as": "Triangle.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+          "sha256": "ab6401c1f9c4d81aa51631d911dc16e9e1f3abddae4fa7208ebd4990308b897a",
+          "bytes": 858,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.42734080329998336,
+        0.3233163480631883,
+        1.9684933221121166
+      ],
+      "lookAtM": [
+        0.42734080329998336,
+        0.3233163480631883,
+        0.0
+      ],
+      "rollRad": -0.39269908169872414,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. roll = -22.5 deg [SET], and the SIGN is a measurement rather than a preference: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. At rollRad = -22.5 deg the unit triangle's image bounding box is 1.30656 x 0.92388 units, the HEIGHT binds at k = 704/0.92388 = 762.004109 px/unit and the subject fills 31.5023 % of the frame; at +22.5 deg the box is transposed, the fit drops to 538.818 px/unit and the subject fills 15.7511 %. The three edges then sit at 157.5, 22.5 and 67.5 deg in raster space, every one of them 22.5 deg off the nearest raster axis -- the MAXIMUM of that minimum over all rolls, so this is simultaneously the largest subject and the furthest any edge can be from an axis. Distance 1.9684933221121166 m is what puts 762.004109 px on a unit at 1.3123288814e-3 m/px, aiming at the rotated bounding box centre; a sub-pixel offset of 0.37 px in x and 0.23 px in y is added to the aim so no vertex lies on an exact pixel centre, which leaves the closest vertex 7.77 px inside the frame.",
+      "note": "The glTF carries no camera, so rung 1's camera is declared here. Superseded 2026-08-12: the first form rolled +12 deg and framed the subject at 19.1144 %, where 31.5023 % was available at the same roll magnitude, the same margin and a strictly better edge-to-axis angle (doc/bugs.md). That the declared camera admits no tie is a geometric predicate over these numbers and the fetched vertices; asserting it is the test's job, not the preparer's."
+    },
+    "light": {
+      "kind": "none",
+      "note": "Rung 1 compares a coverage mask. The only illumination is Blender's factory world, which costs nothing to match and is left where it is."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5 (F0 = 0.04), and it was rewritten in Cycles 4.0. The Diffuse closure at roughness 0 is max(dot(N,w),0)/pi and has not moved."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. This is the recipe the acceptance numbers below are judged on."
+    },
+    "coverage": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 4096,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 1.0
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The analytic pixel-area fraction: alpha over the full-width box is the coverage, and alpha = 0.5 is the edge through the pixel centre, which gives a signed sub-pixel edge offset instead of a count. Its own per-pixel alpha noise is the instrument floor and is the test's to measure -- it is not asserted here."
+    }
+  },
+  "notes": "Khronos's Triangle is the schema's worked example and never rung 1's subject (doc/requirements.md I.26.5 row 1, I.26): it is out on two counts at once -- no NORMAL, and it is fetched where rung 1 requires a generated subject so that a red there has exactly one cause. It is kept because nothing else in the tree fetches anything, so without it the pin, the redirect-refusing allow-list and the per-file licence derivation have no subject at all.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.315022929,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the projected area of the subject's triangles over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices; exact because the subject is a plane perpendicular to the optical axis, so its perspective image is a similarity",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes this and refuses a mismatch."
+    }
+  }
+}

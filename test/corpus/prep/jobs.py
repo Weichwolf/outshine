@@ -1,20 +1,19 @@
-"""The three jobs: fetch the subjects, convert a .blend, render the oracle."""
+"""The jobs: fetch the subjects, generate the ones we own, convert a .blend, render the oracle."""
 
 import json
 import os
 import tempfile
 
 from . import blender as blender_module
-from . import fetch, licence, manifest as manifest_module
+from . import fetch, fixtures, licence, manifest as manifest_module
 from .refusal import Refusal
-from .store import derived_key, sha256_of_file
+from .store import derived_key, sha256_hex, sha256_of_file
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
 CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 
 PROVENANCE_NAME = "provenance.json"
-IGNORE_NAME = ".gitignore"
 PRODUCTS = ("exr", "png", "raw")
 
 
@@ -24,6 +23,9 @@ def plan(manifest, store):
     total = 0
     for subject in manifest.subjects:
         for file in subject.files:
+            if subject.kind == "generated":
+                rows.append({"subject": subject.id, "as": file["as"], "generator": file["generator"]})
+                continue
             cached = store.enabled and os.path.isfile(store.path(file["sha256"]))
             rows.append(
                 {"subject": subject.id, "as": file["as"], "url": file["url"],
@@ -34,9 +36,32 @@ def plan(manifest, store):
     return {"files": rows, "bytesToFetch": total, "renders": sorted(manifest.renders)}
 
 
+def generate_subjects(manifest, destination):
+    """The fixtures we own. Written every run rather than cached: the recipe is a few hundred bytes
+    of manifest and the product is a few kilobytes, so a cache here would only be a second place the
+    bytes could be stale."""
+    report = []
+    for subject in manifest.subjects:
+        if subject.kind != "generated":
+            continue
+        for file in subject.files:
+            where = "manifest subject %s file %s generator" % (subject.id, file["as"])
+            produced = fixtures.generate(where, file["generator"])
+            path = os.path.join(destination, file["as"])
+            with open(path, "wb") as out:
+                out.write(produced)
+            report.append({"subject": subject.id, "as": file["as"], "bytes": len(produced),
+                           "sha256": sha256_hex(produced)})
+    if not report:
+        raise Refusal("generate " + manifest.id, why="no subject is generated; there is nothing to make")
+    return report
+
+
 def fetch_subjects(manifest, store, destination, force=False):
     report = {"files": [], "licence": []}
     for subject in manifest.subjects:
+        if subject.kind == "generated":
+            continue
         for file in subject.files:
             how, size = fetch.download_to_store(
                 file["url"],
@@ -156,8 +181,12 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
 
     subject_pin = []
     for subject in manifest.subjects:
+        # A fetched file's digest is the manifest's declared pin; a generated one has no pin to
+        # declare, so the key carries the digest of what the generator actually produced -- which is
+        # what makes a generator that moved under an unchanged manifest miss the cache.
         pin = {"id": subject.id, "entry": subject.entry,
-               "files": sorted([f["as"], f["sha256"]] for f in subject.files)}
+               "files": sorted([f["as"], f.get("sha256") or sha256_of_file(os.path.join(destination, f["as"]))]
+                               for f in subject.files)}
         if subject.kind == "blend":
             pin["gltfSha256"] = sha256_of_file(
                 os.path.join(destination, subject.conversion.settings["outputName"])
@@ -170,7 +199,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
             continue
         recipe = manifest.renders[name]
         names = manifest_module.output_names_for(name)
-        targets = dict(zip(PRODUCTS, [os.path.join(destination, n) for n in names]))
+        targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
         keys = {
             product: derived_key(
                 "oracle." + product,
@@ -191,7 +220,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
             for product in PRODUCTS
         }
         stored = all(store.has(key) for key in keys.values())
-        placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in PRODUCTS)
+        placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
         if not force and placed:
             results.append({"recipe": name, "cache": "hit", "keys": keys, "products": _sizes(targets),
                             "provenance": None})
@@ -199,7 +228,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
         provenance = None
         if force or not stored:
             provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store)
-        for product in PRODUCTS:
+        for product in targets:
             store.copy_out(keys[product], targets[product])
         results.append({"recipe": name, "cache": "miss" if provenance else "hit", "keys": keys,
                         "products": _sizes(targets), "provenance": provenance})
@@ -241,23 +270,6 @@ def write_provenance(manifest, store, destination, blender, report):
     with open(path, "w") as f:
         json.dump(document, f, indent=2, sort_keys=True)
         f.write("\n")
-    return path
-
-
-def write_ignore(manifest, destination):
-    """Everything this tool writes is derived, so only the manifest is left for git to see."""
-    names = [PROVENANCE_NAME, IGNORE_NAME]
-    names += manifest.output_names()
-    names += sorted(manifest_module.RESERVED_OUTPUT_NAMES)
-    for subject in manifest.subjects:
-        names += [f["as"] for f in subject.files]
-        if subject.kind == "blend":
-            names.append(subject.conversion.settings["outputName"])
-    path = os.path.join(destination, IGNORE_NAME)
-    with open(path, "w") as f:
-        f.write("# Written by test/corpus/prepare.py. Derived bytes; the recipe is manifest.json.\n")
-        for name in sorted(set(names)):
-            f.write(name + "\n")
     return path
 
 

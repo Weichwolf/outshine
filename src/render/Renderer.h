@@ -259,6 +259,9 @@ public:
 
   int SceneW(void) const { return Width; }
   int SceneH(void) const { return Height; }
+  /* The frame's shape, which a parallel projection needs and a perspective one does not: the
+   * vertical field of view fixes the horizontal only once the aspect is known. */
+  double SceneAspect(void) const { return Height > 0 ? (double)Width / (double)Height : 0.0; }
 
   const wgpu::Device &GetDevice(void) const { return Device; }
   wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }

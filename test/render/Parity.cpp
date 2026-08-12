@@ -10,7 +10,15 @@
  * the trailer says COMPARED or NOTHING-TO-COMPARE so the two cannot be confused by their exit code.
  *
  * THE PICTURES ARE ALWAYS WRITTEN, pass and fail alike, because the owner opens the case directory
- * to see progress and a picture that only appears on a failure cannot show any. */
+ * to see progress and a picture that only appears on a failure cannot show any.
+ *
+ * EXACTLY TWO PICTURES IN A CASE DIRECTORY AND NEVER A THIRD -- `0-reference.png`, how it should look,
+ * and `1-outshine.png`, what we produce now, honest and including broken. Nothing else in the folder
+ * is an image: a difference picture, a coverage mask and a second shaded frame were each proposed
+ * and each refused, because every one of them was read as one of the two and the reader needed a
+ * legend to tell which. THE MASK IS AN INSTRUMENT FOR ONE NARROW QUESTION AND THE PICTURE IS THE
+ * PRODUCT: substituting the scored mask for the colour frame would have made every folder look
+ * correct while the renderer drew no visible subject at all. */
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -24,6 +32,7 @@
 #include "Mask.h"
 #include "Metric.h"
 #include "OracleRaw.h"
+#include "Ties.h"
 
 #include "Document.h"
 #include "GltfStudio.h"
@@ -103,6 +112,13 @@ void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str());
     subject.CameraSource = "gltf";
     return true;
   }
+  /* A CASE THAT NAMES THE FILE AS ITS CAMERA AND GETS THE FRAMING RULE INSTEAD would render a
+   * perfectly good picture through a path it was written to exercise and never touch. */
+  if (declared["source"].StrEquals("gltf")) {
+    error = "the manifest names the glTF as the camera's source and no node of it references a "
+            "camera the reader accepts";
+    return false;
+  }
   if (subject.Geometry.Frame(subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;
@@ -167,7 +183,7 @@ std::string MissingInputs(const Case &subject) {
     const std::string entry = subjects[which]["entry"].Str("");
     if (!entry.empty() && !Present(subject.Directory + entry)) { owed.push_back(entry); }
   }
-  for (const char *product : {"oracle.raw", "0-oracle.png"}) {
+  for (const char *product : {"oracle.raw", "0-reference.png"}) {
     if (!Present(subject.Directory + product)) { owed.push_back(product); }
   }
   std::string missing;
@@ -213,22 +229,18 @@ template <typename Read>
 struct Picture {
   std::vector<float> Depth;
   std::vector<uint8_t> Rgba;
+  /* [expScale, keyLog2, horizE, _] -- what the auto meter did to the colour frame. It decides
+   * nothing here and is read because the shaded picture is otherwise unattributable. */
+  float Meter[outshine::Render::ExposureStage::kMeterFloats] = {0, 0, 0, 0};
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
  * `Clients::Show`, which is the same call a scenario loader that declared a glTF subject would make.
  * Nothing about the placement or the frame mapping is decided here. */
-[[nodiscard]] bool Render(const Case &subject, Picture &out, std::string &error) {
-  outshine::Render::Renderer renderer;
-  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
-  if (!renderer.DeviceUsable()) {
-    error = "no usable device: the case cannot be rendered at all";
-    return false;
-  }
+[[nodiscard]] bool Capture(outshine::Render::Renderer &renderer, const Subject &geometry,
+                           const Placement &eye, Picture &out, std::string &error) {
   std::vector<float> scratch;
-  if (!outshine::Clients::Show(renderer, subject.Geometry, subject.Eye, scratch, error)) {
-    return false;
-  }
+  if (!outshine::Clients::Show(renderer, geometry, eye, scratch, error)) { return false; }
 
   for (int frame = 0; frame < kSettleFrames; ++frame) { renderer.RenderFrame(); }
   if (!Drain(renderer, [&] { return renderer.ReadDepth(out.Depth); })) {
@@ -237,6 +249,10 @@ struct Picture {
   }
   if (!Drain(renderer, [&] { return renderer.ReadPixels(out.Rgba); })) {
     error = "the colour readback never completed";
+    return false;
+  }
+  if (!Drain(renderer, [&] { return renderer.ReadExposure(out.Meter); })) {
+    error = "the exposure meter never reported";
     return false;
   }
   return true;
@@ -269,18 +285,48 @@ Mask FromOracle(const OracleRaw &oracle) {
   return mask;
 }
 
-/* GREEN WHERE BOTH AGREE, RED WHERE ONLY THE ORACLE HAS THE SUBJECT, BLUE WHERE ONLY WE DO. No
- * acceptance reads this file; it is a viewing aid and the numbers are decided on the floats. */
-void WriteDiff(const Mask &ours, const Mask &oracle, std::vector<uint8_t> &rgba) {
-  rgba.assign((size_t)ours.Width * (size_t)ours.Height * 4u, 0u);
-  for (size_t pixel = 0; pixel < ours.In.size() && pixel < oracle.In.size(); ++pixel) {
-    const bool inOurs = ours.In[pixel] != 0, inOracle = oracle.In[pixel] != 0;
-    uint8_t *texel = &rgba[pixel * 4u];
-    texel[0] = (inOracle && !inOurs) ? 255u : 0u;
-    texel[1] = (inOracle && inOurs) ? 96u : 0u;
-    texel[2] = (inOurs && !inOracle) ? 255u : 0u;
-    texel[3] = 255u;
+/* THE ORACLE'S PIXELS IN OUR OUTPUT'S CURRENCY, and the transform is the standard one rather than a
+ * house curve: `renders.default.colourManagement.viewTransform` is `Standard`, which is the sRGB
+ * OETF over the scene-referred linear values and nothing else. The float dump is what is read, never
+ * the oracle's own PNG, because the float is the reference and the PNG is for looking. */
+uint8_t Srgb8(double linear) {
+  const double clamped = linear < 0.0 ? 0.0 : (linear > 1.0 ? 1.0 : linear);
+  const double encoded = clamped <= 0.0031308 ? 12.92 * clamped
+                                              : 1.055 * std::pow(clamped, 1.0 / 2.4) - 0.055;
+  const double level = encoded * 255.0 + 0.5;
+  return (uint8_t)(level > 255.0 ? 255.0 : level);
+}
+
+/* WHAT A RENDER CASE IS FOR: the rendered image against the oracle's, channel by channel. Alpha is
+ * not compared -- the oracle's film is transparent by recipe and ours is opaque, so its alpha is the
+ * coverage channel and not a colour. */
+struct ImageDelta {
+  size_t Differing = 0;
+  int MaxChannel = 0;
+  double MeanAbs = 0;
+};
+
+ImageDelta CompareImages(const std::vector<uint8_t> &ours, const OracleRaw &oracle) {
+  ImageDelta delta;
+  double total = 0;
+  const size_t pixels = (size_t)oracle.Width() * (size_t)oracle.Height();
+  for (int y = 0; y < oracle.Height(); ++y) {
+    for (int x = 0; x < oracle.Width(); ++x) {
+      const size_t at = ((size_t)y * (size_t)oracle.Width() + (size_t)x) * 4u;
+      bool differs = false;
+      for (int channel = 0; channel < 3; ++channel) {
+        const int want = Srgb8(oracle.At(x, y, channel));
+        const int got = ours[at + (size_t)channel];
+        const int apart = got > want ? got - want : want - got;
+        if (apart > delta.MaxChannel) { delta.MaxChannel = apart; }
+        total += apart;
+        differs = differs || apart != 0;
+      }
+      delta.Differing += differs ? 1u : 0u;
+    }
   }
+  delta.MeanAbs = pixels > 0 ? total / (3.0 * (double)pixels) : 0.0;
+  return delta;
 }
 
 [[nodiscard]] bool WritePng(const std::string &path, const std::vector<uint8_t> &rgba, int width,
@@ -356,8 +402,18 @@ int main(int argc, char **argv) {
     return Report();
   }
 
+  outshine::Render::Renderer renderer;
+  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  const bool usable = renderer.DeviceUsable();
+  CHECK(usable, "the device came up, so the case can be rendered at all");
+  if (!usable) {
+    Refused("no usable device");
+    std::printf("VERDICT NOTHING-TO-COMPARE\n");
+    return Report();
+  }
+
   Picture picture;
-  const bool rendered = Render(subject, picture, why);
+  const bool rendered = Capture(renderer, subject.Geometry, subject.Eye, picture, why);
   CHECK(rendered, "outshine rendered the subject and both readbacks landed");
   if (!rendered) {
     Refused(why);
@@ -368,14 +424,10 @@ int main(int argc, char **argv) {
   const Mask ours = FromDepth(picture.Depth, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
   const Mask theirs = FromOracle(oracle);
 
-  /* THE PICTURES GO DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the three
-   * files a person opens to see why. */
-  std::vector<uint8_t> diff;
-  WriteDiff(ours, theirs, diff);
+  /* THE PICTURE GOES DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the frame
+   * a person opens to see why -- especially then. */
   CHECK(WritePng(subject.Directory + "1-outshine.png", picture.Rgba, ours.Width, ours.Height),
-        "1-outshine.png is written into the case directory, pass or fail");
-  CHECK(WritePng(subject.Directory + "2-diff.png", diff, ours.Width, ours.Height),
-        "2-diff.png is written into the case directory, pass or fail");
+        "1-outshine.png is written beside the reference, pass or fail");
 
   std::vector<Metric> metrics;
   metrics.push_back({"coverage_fraction_outshine", ours.Fraction(),
@@ -397,12 +449,70 @@ int main(int argc, char **argv) {
     return Report();
   }
 
+  /* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
+   * same placement through a `matrix`, the same triangles under another index width, the same quad
+   * as a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact,
+   * not within a tolerance, so its threshold is zero disagreeing pixels and it needs no reference. */
+  const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
+  for (size_t which = 0; which < identical.Size(); ++which) {
+    const std::string name = identical[which].Str("");
+    Document alternate;
+    Subject spelling;
+    Picture again;
+    std::string trouble;
+    bool built = alternate.ReadFile(subject.Directory + name);
+    if (!built) {
+      trouble = alternate.Error();
+    } else if (!(built = spelling.Build(alternate))) {
+      trouble = spelling.Error();
+    } else {
+      built = Capture(renderer, spelling, subject.Eye, again, trouble);
+    }
+    CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
+    if (!built) {
+      Refused(trouble);
+      continue;
+    }
+    const Mask other = FromDepth(again.Depth, ours.Width, ours.Height);
+    metrics.push_back({"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px",
+                       Direction::AtMost});
+  }
+
+  /* WHETHER "EVERY PIXEL MUST AGREE" IS A FAIR DEMAND ON THIS SUBJECT, and it is a property of the
+   * subject rather than of either renderer (Ties.h). Reported beside the disagreement so a red is
+   * attributable without a second run. */
+  Transform clip;
+  const bool projects = subject.Eye.Clip(subject.Frame.Aspect(), clip);
+  CHECK(projects, "the resolved camera yields a projection");
+  if (projects) {
+    const EdgeSet edges = ProjectEdges(subject.Geometry, clip, subject.Frame);
+    metrics.push_back({"tie_margin_px", TieMarginPx(ours, edges), 0.0, "px", Direction::Reported});
+    metrics.push_back({"worst_disagreement_px", WorstDisagreementPx(ours, theirs, edges), 0.0, "px",
+                       Direction::Reported});
+  }
+
+  /* THE VERDICT IS THE RENDERED IMAGE AGAINST THE ORACLE'S IMAGE, because that is what a render case
+   * is for. Everything below it -- coverage, the boundary distribution, IoU -- is printed as a
+   * DIAGNOSTIC and none of it is sufficient for a pass: a case scoring the coverage mask exactly
+   * while drawing no visible subject was green here for a whole round, which is the vacuous-gate
+   * failure in its purest form. */
+  const ImageDelta image = CompareImages(picture.Rgba, oracle);
+  metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
+                     Direction::AtMost});
+  metrics.push_back({"image_max_channel_delta", (double)image.MaxChannel, 0.0, "sRGB8",
+                     Direction::Reported});
+  metrics.push_back({"image_mean_abs_delta", image.MeanAbs, 0.0, "sRGB8", Direction::Reported});
+
   const Distribution boundary = BoundaryDisplacement(ours, theirs);
   metrics.push_back({"boundary_p95_px", boundary.P95, subject.Accepted.BoundaryP95MaxPx, "px",
-                     subject.Accepted.EnforceBoundary ? Direction::AtMost : Direction::Reported});
+                     Direction::Reported});
   metrics.push_back({"boundary_p50_px", boundary.P50, 0.0, "px", Direction::Reported});
   metrics.push_back({"boundary_p99_px", boundary.P99, 0.0, "px", Direction::Reported});
   metrics.push_back({"boundary_max_px", boundary.Max, 0.0, "px", Direction::Reported});
+  /* How many distances the percentiles above were taken over, which is both the instrument's sample
+   * size and the whole of its cost: the nearest-neighbour search is exhaustive, so a case pays the
+   * square of this number and nothing else about the subject. */
+  metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
                      Direction::Reported});
@@ -411,6 +521,11 @@ int main(int argc, char **argv) {
    * and never subtracted from it. */
   Note("oracle instrument floor",
        0.5 * subject.Manifest.Root()["renders"]["default"]["pixelFilter"]["widthPx"].Num(0.0), "px");
+  /* The shaded picture is not a compared quantity and this is why it looks the way it does: an auto
+   * meter on a studio frame that is almost entirely background. */
+  Note("metered exposure scale", picture.Meter[0], "dimensionless");
+  Note("metered key", picture.Meter[1], "log2 radiance");
+  Note("metered horizontal irradiance", picture.Meter[2], "top-of-atmosphere-solar");
 
   /* THE FRAME FRACTION IS A DECLARED, RECOMPUTED, REFUSED-ON-MISMATCH PROPERTY of the case: it is
    * what the boundary bound is being applied under, so a camera that quietly frames the subject
@@ -420,21 +535,28 @@ int main(int argc, char **argv) {
   const bool statesFraction = ReadDeclaredNumber(expected, "expected.subjectFrameFraction",
                                                  declaredFraction, why);
   CHECK(statesFraction, "the manifest declares the frame fraction its camera was derived for");
-  if (statesFraction) {
-    Transform clip;
-    const bool projects = subject.Eye.Clip(subject.Frame.Aspect(), clip);
-    CHECK(projects, "the resolved camera yields a projection");
-    if (projects) {
-      const double fraction = subject.Geometry.ProjectedAreaPx(clip, subject.Frame) /
-                              (subject.Frame.WidthPx * subject.Frame.HeightPx);
-      metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
-                         subject.Accepted.FrameFractionTolerance, "dimensionless",
-                         Direction::AtMost});
-      Note("projected frame fraction", fraction, "dimensionless");
-      Note("declared frame fraction", declaredFraction, "dimensionless");
-    }
+  if (statesFraction && projects) {
+    const double fraction = subject.Geometry.ProjectedAreaPx(clip, subject.Frame) /
+                            (subject.Frame.WidthPx * subject.Frame.HeightPx);
+    metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
+                       subject.Accepted.FrameFractionTolerance, "dimensionless",
+                       Direction::AtMost});
+    Note("projected frame fraction", fraction, "dimensionless");
+    Note("declared frame fraction", declaredFraction, "dimensionless");
+  } else if (statesFraction) {
+    Refused("the resolved camera yields no projection, so no frame fraction was recomputed");
   } else {
     Refused(why);
+  }
+
+  /* TEN REDS MUST BE TEN PIECES OF INFORMATION, NOT ONE. The coverage mask separates the two
+   * failures a render case can have, and they lead to different work: geometry in the wrong pixels
+   * is the reader, the camera or the raster convention, and it stops the shading question being
+   * asked at all; geometry in the right pixels with a different image is the shading. */
+  if (image.Differing > 0) {
+    const bool placed = boundary.P95 <= subject.Accepted.BoundaryP95MaxPx;
+    Note(placed ? "attribution: the geometry is in the right pixels and the shading is wrong"
+               : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
   }
 
   Print(metrics);
