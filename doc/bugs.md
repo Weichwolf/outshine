@@ -21,14 +21,6 @@ cannot spend without deciding, and the value that says "no" carries no usable pa
 state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T *out)` is.
 
 - **`RoofSurface::Cover` returns `void`, and `EarClip` bails silently** (`generators/draw/RoofSurface.cpp:32`, called at 209). When triangulation fails, `Covering` loops over an empty vector and draws nothing, then `BuildingMesh.cpp:383-387` draws `Gables`, `Eaves` and `Chimney` unconditionally — **a roof drawn as its own trim, floating in the sky with no covering**, visible in the shipped frame at (930,240)–(1190,370) of `after/street.png`. Right: `[[nodiscard]] bool Cover(...)`, and eaves, gable and chimney unspellable without a closed covering.
-- **`emscripten_exit_pointerlock()` discards its result** (`clients/AppWasm.cpp:98`).
-- **A status that is read into a variable and only logged is still discarded.** `BindInput`
-  (`clients/AppWasm.cpp:242-272`) now routes all six registrations through `Bound`, which logs
-  `input_unbound` on failure and **returns anyway**; the six results become six fields of one
-  `input_bound` line and nothing branches on them. The comment above `Bound` states the class
-  correctly — "the picture comes up with no input and no reason" — and then the picture still comes
-  up. `[[nodiscard]]` cannot catch this shape: assignment satisfies it. Right: a keyboard that did not
-  bind is a **refusal to run**, not a log line, because every verb the client has goes through it.
 - **Six `Try` answers thrown away behind a `(void)`, and the invariant that saves them lives in
   another layer.** Each site writes `T x = 0;`, calls a `[[nodiscard]] bool Try*(T *out)` behind a
   `(void)` cast, and reads `x` afterwards. **Checked first for the harmless explanation, and it holds
@@ -42,13 +34,13 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   by something much weaker — a single-producer invariant in **another directory**. Every `Structure`
   and `Water` feature that reaches a generator is minted at `clients/Sim.cpp:218` and `:226`, and both
   set `f.Top`. Nothing in `generators/` can see that rule, no type carries it, and
-  `generators/gate/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
+  `test/generators/SameRegionSamePlacement.cpp:410` already constructs a `Structure` with
   `FeatureLevel::None()` — so the rule is one ingest site away from being false. If it ever is: a
   top-less feature enters the `highest`/`deepest` comparison at 0.0 m ASL, beating every declared top
   below sea level and losing to every one above, and at `Water.cpp:53` becoming a water level whose
   `WaterDepth::Between(0.0, ground)` reports `LevelBelowGround` for every dry-land outline — a missing
   datum counted as a disagreement between two models.
-  `clients/WorldMain.cpp:64-65` writes `waterDepthM=0` for a dry place, but the same row already
+  `test/clients/WorldMain.cpp:64-65` writes `waterDepthM=0` for a dry place, but the same row already
   carries `water=dry` from `Wetness(p.Water)`, so nothing is lost; it is the row that reads badly, and
   the row beside it (`structureHeightM` + `structure`) shows the deliberate form.
   Right, and **not** by swapping `Try(T *out)` for `std::optional` — this file's own opening argument
@@ -87,38 +79,13 @@ heap in both cases. The premise "it segfaults natively" holds only for a write t
 which a heap overrun almost never does. So the oracle is not louder than the browser for this class,
 and the conclusion is stronger rather than weaker: there is no safety net on either target today.*
 
-- **The sanitised wasm client does not finish a declared run, and the instrument is therefore native
-  only.** `make wasm-asan` links — ASan × emdawnwebgpu × `-pthread` was the named risk and it did not
-  materialise — boots in Chromium 151.0.7922.34, reaches `impostor_baked` and `stands_collected`, and
-  then does not reach `run finished` on `demo/frame`, **one frame**, in 480 s of wall clock at ~4 cores
-  saturated (`user 1911 s / real 481 s`); a second run of the same scene was stopped, still running,
-  at **2 040 s**. The same scene, same browser (Chromium 151.0.7922.34), same host, unsanitised:
-  **28.3 s, `rc=0`**. That is a floor of **72×** on a phase the architect's
-  bare-translation-unit measurement put at 2.84×, and the factor is not the instrument's published
-  cost — it is the load phase's own spin (see *The load loop polls the pool ~190 000 times a second*)
-  with every `std::set` operation and every mutex acquisition instrumented. Two consequences, both
-  load-bearing: `make gates` runs the **native** sanitised run and nothing else, and the wasm
-  sanitiser cannot decide any question about the shipping heap, because emscripten silently raises
-  `-sINITIAL_MEMORY=296MB` to **474 611 712 B = 452.6 MiB** in the ASan module (read out of
-  `web/gpu-asan.js`) to make room for its shadow. A sanitised walk therefore has 53 % more linear
-  memory than the client that ships and **cannot reproduce an exhaustion that depends on the 296 MB
-  ceiling** — the `world/ChunkMesh.h` hypothesis below stays open, and the instrument that would close
-  it is the native run under a cut heap, not this one.
-- **The wasm hash in a measurement line names the file the host serves at `/gpu.wasm`, not the module
-  the page loaded.** `clients/SimHost.cpp:151` — `wasm_build_id()` opens `WEB_ROOT "/gpu.wasm"`
-  unconditionally and `/config.js` hands the result to every page, so any second page reports the
-  shipping module's identity for a module it never ran. Harmless while one page existed; live the
-  moment `web/asan.html` did, and it presented `wasm=b26dd4e50694430c` — the shipping module's hash —
-  for a run of `gpu-asan.wasm`. `make wasm-asan` blanks `FB_BUILD` on its page rather than publish
-  the wrong number, which pins that run to nothing. Right: `/config.js?module=<name>.wasm` hashes the
-  module named, rejecting a name with a separator in it, and every page states the module it loads.
 - **An exhausted heap is reported as malformed terrain — at eight sites, and no longer at the four that
   mattered most.** `world/ChunkMesh.h:50,51,89,141` now take their `NN·3·8 + NN·4 + NN·12` bytes and the
   vertex block through `Heap::Take` (since `1424214`), which ends the run naming the item and the count,
   so the "no mesh"/"no memory" confusion is gone there and the earlier description of those four as
   `malloc`+`return 0` was stale. It is live at `world/terrain/terrain.cpp:85,136`,
   `world/terrain/osmmesh_terrain.cpp:49,67,130` plus two `calloc` at `227,245`, and
-  `clients/SimHost.cpp:186`: seven `malloc` and two `calloc` in a tree whose global `operator new` has
+  and one more in `clients/SimHost.cpp:186` until `b83285f` deleted it: **seven** `malloc` and two `calloc` when this was counted, **six and two** now, in a tree whose global `operator new` has
   ended the run properly since `core/io/Heap.cpp` landed. Right: `Heap::Take` at each, and for the
   C-ABI files a C-linkage door in `core/io/` so `tiles/` can satisfy the same symbol — those five are
   the only sites where the cost is more than an edit.
@@ -193,7 +160,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   so making it refuse costs three call sites in `world/TerrainLoader.cpp:289,323,324` and nothing on
   the tile server.
 - **The point query is refused by nobody, and it is the `world` target's whole purpose.**
-  `clients/WorldMain.cpp:117` reads `argv` pairs through `std::atof` straight into
+  `test/clients/WorldMain.cpp:117` reads `argv` pairs through `std::atof` straight into
   `Sim::At(double, double)`, which reaches `Region::Of` and `fb_stream_ground` with no band check
   anywhere on the path. Measured **after** the round that added the declaration-time refusal, against
   `localhost:8081`, scene declared at 78.2 N: `fb_world pctrl probe 86.0 15.0 89.9 15.0 78.2 15.0`
@@ -203,7 +170,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   is the lie: the ground was resolved for 85.0511 N, not for the pole. Right: the same refusal the
   declaration gets, and it is not a third `if` — a standpoint type that cannot be constructed outside
   the band (`doc/requirements.md` § I.17), so `At` cannot be called with two loose doubles.
-- **A standpoint that replaces the declared one is checked by nobody.** `clients/AppWalk.cpp:35-46`
+- **A standpoint that replaces the declared one is checked by nobody.** `test/clients/AppWalk.cpp:35-46`
   lets `shots.jsonl` replace lat/lon through `Sim::SetStance`, which is `clients/Sim.h:77`
   `void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }` — a setter that silently does
   nothing once the world is open and validates nothing when it does act. The band check therefore
@@ -256,10 +223,10 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   the block rather than by the traversal. Right: one anchor per DAG block, which bounds `|p|` by the
   block and `|anc − eye|` by the view radius, because only near blocks are drawn.
 - **`make gates` writes four inflated `demo/frame` rows into the archive every time it runs.**
-  `sim/Makefile` `verify-still` runs the shipping client through `tools/tile_delay.cjs`, which holds
+  `Makefile` `verify-still` runs the shipping client through `test/world/tile_delay.py`, which holds
   every tile response back by 0–400 ms, and sets `OUTSHINE_TILES` but not `OUTSHINE_SIM` — so each of
   the four seeded runs posts to fb-sim under the same identity as a declared measurement run
-  (`clients/AppWalk.cpp:53-58`: `client=gpu_walk`, `mod=demo`, `scene=frame`). Measured on this host,
+  (`test/clients/AppWalk.cpp:53-58`: `client=gpu_walk`, `mod=demo`, `scene=frame`). Measured on this host,
   same binary, warm cache: final `loadMs` **6544 / 6620 ms** over two plain runs against **21 161 /
   21 580 / 20 947 ms** over three seeded ones — the load time an archive row reports is inflated
   **3.2×** and nothing in the row says a proxy was in the path. Same class as the sanitised-row defect
@@ -368,7 +335,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **An absent tile is remembered for the life of the pool and nothing removes it.** `world/TilePool.cpp` `Poll` keeps the `Absent` result in `Done_` and the key in `Posted_` — that is what makes the answer final and stops a thread being spun on it — but nothing evicts either table, so a flight over a large hole grows both without bound. Bounded today by the number of distinct absent tiles a run asks about, which is 1 in every measured run. Right: the same unit of removal eviction needs everywhere else (see *Nothing evicts*), not a second mechanism.
 - **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, `sim/logs/demo-crossing-gpu_walk-20260811T172219Z.csv`): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
 - **The load loop polls the pool ~190 000 times a second** (`poolRepeats` 2 069 319 against `poolPosts` 196, same run). Attribution matters and the earlier phrasing had it wrong: **99.99 % of the repeats happen before residency, not during play.** In `demo/walk-500` `poolRepeats` is 1 953 923 at t=10 s (residency) and 1 954 287 at t=183 s — 364 repeats in 173 s of walking against 1.95 M in 10 s of loading. The load spins `Refine` at ~1 800 passes/s × ~119 unready leaves; every one of those takes `QueueMutex_` and attempts a `std::set<uint64_t>` insert on the thread that draws, against the four workers that need the same mutex to pop (`world tilepool threads=4 inFlightCap=4`). The host was loaded during the measurement, which makes 190 kHz a **lower** bound. Right: a pending ask answerable without the queue's lock — a per-node "already posted" flag in the node, or an atomic set — and a load loop that is not a spin.
-- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so `Walker::Reset` on the `R` key (`clients/AppWasm.cpp:87`, and again at 372) adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reached by any run in `mods/demo` today (no scene has two motion runs at different standpoints), reached by the shipped browser client on one keystroke. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
+- **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
 
@@ -389,7 +356,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   reading. Right: a falsifiable probe instead of an identity — read `uordblks`, `malloc` a known
   `kProbe`, read again, `free`, read again, and require `after − before ∈ [kProbe, kProbe + 64)` and
   `back == before`. That fails on an all-zero struct, on a permuted order and on a stub, and costs one
-  allocation at static init. Reproduction: `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/guard.cpp`.
+  allocation at static init. Reproduction: the probe above, written as one translation unit — the file the original reading used lived under the system temp directory and is gone, which is why the recipe and not the path is what this line carries.
 - **A correct comment was recorded as wrong, from a run with the wrong thread count.**
   `world/TerrainLoader.cpp:41-44` states "at 256 KiB per z14 grid this is 4 MiB a thread, 24 MiB at the
   six-thread ceiling", and the ledger's first reading was published as proof that "~24 MiB was wrong".
@@ -634,21 +601,11 @@ the tree more than once, or under a name that says the wrong unit.*
   exception is struck and the seam becomes a C++ interface, which closes § I.17's open *a C-ABI status
   reaches a house type at the boundary* rather than adding work (`doc/requirements.md` § I.22).
 
-- **Six ticked or priced lines in `doc/requirements.md` name a tool that no longer exists.** The
-  hardening ledger (`sim/tools/hardening_ledger.py`, its baseline and the `verify-hardening` gate) was
-  deleted on 2026-08-12 by the owner's ruling that validators are C++ under `sim/test/` and not Python.
-  `doc/requirements.md:501` is still `[x]` and names the script, the baseline and the gate as what
-  implements it; `:464` (`[[nodiscard]]` on every `bool`/house-enumeration return, **214 of 214**) and
-  `:471` (no `default:` over a house enumeration) are `[x]` and say the gate is what holds them; `:458`,
-  `:465`, `:467`, `:469`, `:480` and `:481` quote its counts as their current measurement. **What is
-  actually unheld is `:464`**: the attribute is a per-declaration fact, `-Wall -Werror` does not carry
-  it, and no other gate reads it — a new `bool Foo()` written after this date re-opens the count with
-  nothing failing. `:471` is unaffected, because `-Wswitch -Werror` is what holds it and the ledger only
-  reported it. Right: the C++ suite carries the `[[nodiscard]]` sweep, and until it does, `:464` and
-  `:501` are ticks with no instrument behind them.
-- **The language standard has two values.** `CLAUDE.md` says C++17; `sim/Makefile:31` sets
-  `CXXSTD := -std=c++17` and uses it for the compile gates; every shipping compile line
-  (`Makefile:206,225,275,294,329`) hard-codes `-std=c++20`. The program is C++20 — forced by
+- **The language standard has two values.** `Makefile:26` sets
+  `CXXSTD := -std=c++17` and uses it for every compile gate (`verify-generators`, `verify-world`,
+  `verify-types`, the `gen_gate` link, the `world` target's C++ half); every shipping compile line
+  (`Makefile:165,184,219`) hard-codes `-std=c++20`. `CLAUDE.md` no longer names a dialect at all —
+  it says *modern C++* — and `doc/requirements.md` § I.19 declares C++20 as the one value, unticked. The program is C++20 — forced by
   `vendor/dawn`, whose `webgpu_cpp.h` needs `std::type_identity` and `std::span` — while the gates
   judge a dialect the program is not built in, so a C++20 construct in `render/` or `clients/` is
   covered by no gate. Right: one variable, one value, and the reason (Dawn) beside it.
@@ -656,7 +613,7 @@ the tree more than once, or under a name that says the wrong unit.*
 - **No gate reads the log levels of the run it just declared green.** `verify-walk-asan` now asserts
   the run's own motion verdict — `frames=10800 impostorStands=9565 treeTris=19130` — but a line at
   `ERROR` in the same 10 800-frame run still passes it, and the run emits exactly one:
-  `render device_lost reason=2 msg="Device was destroyed."` (`sim/Makefile` `verify-walk-asan`,
+  `render device_lost reason=2 msg="Device was destroyed."` (`Makefile` `verify-walk-asan`,
   `render/Renderer.cpp:163`). Two defects, and the second is the reason the first cannot simply be
   closed. `2` is `wgpu::DeviceLostReason::Destroyed` (`vendor/dawn/out/gen/include/dawn/webgpu_cpp.h:276`)
   — the device the client destroyed on purpose at teardown, reported at the level reserved for a run
@@ -690,13 +647,13 @@ the tree more than once, or under a name that says the wrong unit.*
   serialised, and host order is the right order for them. Right: two byte-wise assemblers beside the
   varint reader, `LittleEndianF32` and `LittleEndianF64`, and no `memcpy` from a wire buffer anywhere.
 
-- **The declared negatives pass on any compile failure of the right shape.** `sim/Makefile`
+- **The declared negatives pass on any compile failure of the right shape.** `Makefile`
   `verify-generators` and `verify-world` accept a fixture as refused if the compiler exits non-zero
   **and** its output contains the substring `file not found` — so a fixture that misspells its own
   forbidden header (`#include "Rendererr.h"`) is a green gate that proves nothing, and so is one whose
   body stops compiling for an unrelated reason while the include still resolves. Four fixtures ride
   this: `RendererIsNotReachable`, `WorldIsNotReachable`, `LogIsNotReachable`, `DrawIsNotReachable`,
-  plus `world/gate/GeneratorIsNotReachable`. The three `-Werror` negatives under `src/core/gate/` are
+  plus `test/world/GeneratorIsNotReachable`. The three `-Werror` negatives under `src/core/gate/` are
   weaker still — `verify-types` checks only the exit status and matches no diagnostic at all, so any
   error in `HeightIsNotReachableWithoutItsState.cpp`, `AnswerIsNotIgnorable.cpp` or
   `DepthIsNeverNegative.cpp` passes it. Right, and it costs nothing: demand the **exact** expected
@@ -704,14 +661,14 @@ the tree more than once, or under a name that says the wrong unit.*
   function declared with 'nodiscard' attribute`) **and** that it is the *only* error the compiler
   emitted, which is what makes a typo elsewhere in the fixture fail the gate instead of satisfying it.
 
-- **`generators/gate/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
+- **`test/generators/SameRegionSamePlacement.cpp` is 689 lines behind one `main`** (`F.3`), carrying on
   the order of thirty distinct claims — determinism of placement, the class lattice, water depth,
   way half-widths, `sizeof(Body)`, an allocation count — in one process. Three consequences: the
   first hard failure (it dereferences `std::optional` results directly, e.g. `ways.MadeAt(...)->WidthM`)
   hides every claim after it; the run reports `verify-generators: N failed` without a machine-readable
   name per claim; and no claim in it can be run alone. It also holds the tree's only `malloc` outside
-  `world/terrain` and `clients/SimHost.cpp` (`:315`). Right: one translation unit per claim under
-  `sim/test/generators/`, each with its own `main`, which is what the suite this file's requirements
+  `world/terrain` (`:315`; `clients/SimHost.cpp`'s went with the file in `b83285f`). Right: one translation unit per claim under
+  `test/generators/`, each with its own `main`, which is what the suite this file's requirements
   now describe is for.
 
 - **The state channel has no collector.** `clients/ServerLog.cpp`, `clients/ServerTelemetry.cpp` and
@@ -733,7 +690,7 @@ the tree more than once, or under a name that says the wrong unit.*
   `core/io/StackProbe.cpp` (2) and `world/TerrainLoader.cpp` (1), with six `#include <emscripten…>`.
   No target compiles them since the wasm targets were deleted, so they are unbuilt code inside `src/`
   — the one thing `-Werror` cannot see. `HttpPost.cpp:17` additionally justifies a static's lifetime
-  with `-sEXIT_RUNTIME=0 (sim/Makefile)`, a flag that no longer exists anywhere in the tree. Right:
+  with `-sEXIT_RUNTIME=0`, a flag from a build file deleted in the same commit. Right:
   the branches leave with the round that builds `src/host/`, and until then nothing may be added to
   them.
 
@@ -746,11 +703,58 @@ the tree more than once, or under a name that says the wrong unit.*
 
 - **`clients/Walker.h`/`Walker.cpp` has no caller.** The browser shell that steered it is deleted and
   `test/clients/AppWalk.cpp:101` refuses an interactive scene, so the walking verb is compiled (it is
-  in `APP_SRCS`, so it cannot rot) and constructed nowhere. Right: the client with an input medium is
-  its caller, or it goes with the round that decides there will not be one.
+  in `APP_SRCS`, so it cannot rot) and constructed nowhere. **The larger half is that it is not one
+  dead class but a dead arm of a declared enumeration, and the arm is already declared in a shipped
+  mod**: `mods/demo/mod.json` has scene `walk` with `"kind": "interactive"`, and
+  `./build/gpu_walk demo walk` answers `ERROR run scene_is_interactive scene=walk`, **exit 1**. Worse,
+  `Kind::Interactive` is the *default* (`clients/Scene.h:139`) and `clients/Scene.cpp:119` returns
+  early for it, so a scene that simply omits `kind` is parsed with its `runs` block unvalidated and is
+  then unrunnable. `Walker` is only the machinery that arm would have used. A gate that counted unlinked *files* would stay flat through both, which is
+  why `doc/requirements.md` § I.21 now asks for unreached symbols instead. Right: the client with an
+  input medium is its caller (§ I.14), or the enumerator and the class go together in the round that
+  decides there will not be one.
 
-- **`tiles/src/wxfmt.h:6` names two things that do not exist.** `sim/src/core/FBWxFormat.h` moved to
-  `src/core/FBWxFormat.h` on 2026-08-12, and the checker the line credits with holding the contract —
-  "sim's `build/fb-test-weather`" — has no target in any Makefile in this tree and no source behind
-  it. The wire format's one written statement of who verifies it verifies nothing. Right: the path,
+- **`HttpPost.cpp`'s abandoned-status vector is dead, and the comment that justifies it cites a
+  build file that no longer exists.** With the browser path gone, `Begin` is the curl arm
+  (`clients/HttpPost.cpp:62-88`), which sets `*Status_` to a terminal value **before it returns** —
+  an HTTP status or `kNoAnswer`. `~HttpPost` (`:107`) pushes into `gAbandoned` only when
+  `*Status_ == kInFlight`, which is now unreachable, so the `std::vector<std::unique_ptr<int>>` at
+  `:20` is a static that can never gain an element. Its six-line rationale still argues from
+  `-sEXIT_RUNTIME=0` in a Makefile deleted in the same commit and from a promise resolving after
+  destruction, neither of which any target can produce. This is what a dead `#ifdef` costs beyond the
+  lines it occupies: the *live* code around it keeps a shape and a justification that stopped being
+  true, and nothing compiles it wrong. Right: the vector, `kInFlight`, the two-state cell and the
+  destructor go together, and `Status_` becomes an answer that exists or does not.
+
+- **`make walk`'s own help text says it builds the interactive client.** `Makefile:193` —
+  *"build the interactive client / frame oracle"* — and `test/clients/AppWalk.cpp:101` refuses a scene
+  whose kind is interactive. One binary, one of the two roles. A reader's first contact with this tree
+  is `make help`, and it states a capability the tree does not have. Right: the text names the frame
+  oracle only, until the client that takes input exists (`doc/requirements.md` § I.14).
+
+- **`verify-clients` cannot see a scene-building call it was not told about.** `BUILD_CALLS`
+  (`test/clients/verify_clients.py:50-55`) is a closed alternation of twenty method names, and
+  `ENTRY_INCLUDES`/`ENTRY_FORBIDDEN` are closed lists too. A new `Renderer::SetX` used from a second
+  translation unit passes the gate in silence — the exact failure mode the gate exists for (one client
+  drew a tree and the other did not for ten rounds), one level up. The gate is not wrong, it is the
+  wrong *kind*: an allowlist reports what it enumerates, where `doc/requirements.md` § I.20 step 7's
+  `src/api/` makes the whole class unspellable, because a translation unit that cannot name `Renderer`
+  cannot call any method on it, named or not. Right: the include set replaces the regex, and rule 2
+  (`main()` under 40 lines, `F.3`) is the only clause that still needs a counter afterwards.
+
+- **`tiles/` is a container the tree still depends on, in a commit that says the container surface is
+  gone.** `Makefile:370` `TILES_BASE ?= http://localhost:8081`, and `verify-still`, `verify-walk` and
+  `verify-walk-asan` — three of the eight gates, and both of `GATES_RUN` — fail without a server that
+  `tiles/Dockerfile` and `tiles/entrypoint.sh` build. `CLAUDE.md`'s *Setup* table names `src/`, `test/`,
+  `doc/` and `.claude/` and does not mention `tiles/`, `tools/`, `assets/`, `mods/`, `vendor/` or
+  `build/` at all, so six root directories — one of them a live network dependency of the gate set —
+  are declared nowhere. Right: either `CLAUDE.md` declares them or § I.22's provider registry absorbs
+  `tiles/`, and until one of the two happens the phrase *the container surface is gone* is true only
+  of `sim/`.
+
+- **`tiles/src/wxfmt.h:6` names two things that do not exist.** There is no `FBWxFormat.h` anywhere in
+  the tree — `git log --diff-filter=D` puts its deletion in `412e970`, so the header the format's C
+  side names as its counterpart has been absent since, and the restructure only moved the wrong path.
+  The checker the line credits with holding the contract — "sim's `build/fb-test-weather`" — has no
+  target in any Makefile in this tree and no source behind it. The wire format's one written statement of who verifies it verifies nothing. Right: the path,
   and either a test that reads both headers or no claim that one exists.
