@@ -80,7 +80,10 @@ everything else is set by the test or the client. A value lives in exactly one t
 
 ## References
 
-**Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING.**
+**Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING**, and
+the whole document is in the tree at [`doc/CppCoreGuidelines.md`](doc/CppCoreGuidelines.md) (514 rules,
+14 June 2026). Cite by rule number, and read the rule rather than recalling it — `ES.9` is *avoid
+ALL_CAPS names*, not the enumeration rule, and that miscitation has already cost this project a round.
 
 | Field | Titles |
 |---|---|
