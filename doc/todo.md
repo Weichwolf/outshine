@@ -40,6 +40,20 @@ until step 11 changes the graphics API:
 | 12 | **Scenarios with no world** — one tree, one building, one car | a scenario declares a subject, a stage and a light, and renders with no terrain and no streaming |
 | 13 | **glTF in, Blender as the oracle** | the first *external* check this project has ever had: a scene rendered both ways, with what is comparable pinned and what is not named |
 
+## The dependency rule
+
+**`src/` links SDL3\* and nothing else.** Installed: `sdl3` 3.4.14 · `sdl3_image` 3.4.4 · `sdl3_net`
+3.2.0 · `sdl3_ttf` 3.2.2. Today's line is `-lcurl -ldl -lm -lpthread -lwebgpu_dawn`; Dawn goes at
+step 11, `stb` at 9a.
+
+**curl is the one that cannot simply go**, and the resolution is the host seam rather than a
+compromise. All five upstreams are `https://`, and **the SDL3 family has no TLS** — `SDL_net` calls
+itself *"a relatively thin layer over system-level APIs like BSD Sockets"*, 35 declarations, sockets
+only. So the transport lives behind `Host::Fetch`: the **library** links SDL3\* and never names a
+transport; the **host implementation** links whatever its platform gives it — libcurl here,
+something else elsewhere. Both constraints stay whole, and this is the concrete reason the porting
+layer exists rather than a nicety.
+
 ## Standing
 
 - **Coverage has no baseline** because there is no coverage instrument. That is *not yet measured*.
