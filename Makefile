@@ -1,7 +1,7 @@
-# Outshine — the library under src/, the tests under test/, the tile server under tiles/. This
-# Makefile, the vendored toolchain under vendor/ (Dawn, build scripts) and the declarations under
-# assets/ and mods/ live beside them. NOTHING under src/ includes a header from tiles/: the decoders
-# both sides need live in src/world/tiles and src/world/OsmVector, and tiles/ compiles against THOSE.
+# Outshine — the library under src/, the tests under test/. This Makefile, the vendored toolchain
+# under vendor/ (Dawn, build scripts) and the declarations under assets/ and mods/ live beside them.
+# There is no server: the upstreams are data providers inside the library (src/data), and the only
+# thing a host supplies is a transport (test/host).
 #
 #   make walk     build the interactive client / frame oracle (test/clients/AppWalk.cpp) -> build/gpu_walk
 #   make world    build the headless target: everything EXCEPT render/, no device -> build/fb_world
@@ -58,6 +58,10 @@ CURL_COMPAT  := vendor/.compat-headers
 # targets link the same objects -- a set that is wider in one target than in another is a breach that
 # builds.
 INC_CORE    := -Isrc/core -Isrc/core/io
+# A DATA PROVIDER'S WHOLE WORLD, and it is the generator's set with the arrow reversed: core and its
+# own directory, nothing above. Renderer, World, the streamer and the log have no spelling in it, and
+# `make verify-data` is what holds it to that.
+INC_DATA    := -Isrc/core -Isrc/data
 # A GENERATOR'S WHOLE WORLD. Not a subset of the others by accident: `make verify-generators`
 # compiles against exactly this and asserts that Renderer, World and the log have no spelling in it.
 # src/core/io is ABSENT on purpose -- Log and TelemetryBus live there, and a generator that cannot
@@ -66,13 +70,16 @@ INC_GENERATORS := -Isrc/core -Isrc/generators
 # ...and the picture half of the same layer, which the headless target never compiles: DrawSource and
 # its sink hand clusters and instances to a renderer, and that target has no renderer to hand them to.
 INC_DRAW := $(INC_GENERATORS) -Isrc/generators/draw
-INC_WORLD  := $(INC_CORE) -Isrc/world -Isrc/world/tiles
+INC_WORLD  := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles
 INC_RENDER := $(INC_CORE) -Isrc/render -Isrc/render/stages
 # THE SIMULATION HALF OF THE CLIENTS, and it is the ONLY place that may name world and generators in
 # one translation unit: -Isrc/render is absent, so the headless target's half cannot reach a renderer.
-INC_SIMHALF := $(INC_CORE) -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
+INC_SIMHALF := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles -Isrc/generators -Isrc/clients
 # ...and the picture half over it, the one set that holds everything.
 INC_CLIENTS := $(INC_SIMHALF) -Isrc/generators/draw $(INC_RENDER)
+# THE HOST SEAM'S IMPLEMENTATIONS, which a test supplies and the library never names. An entry point
+# is the only thing that may see this directory: it constructs the wire and hands it over.
+INC_HOST := -Isrc/core -Isrc/data -Itest/host
 # SDL3_image DECODES WHAT WE DID NOT CHOOSE THE FORMAT OF: terrarium DEM is PNG, imagery is JPEG,
 # both from upstreams that decide. pkg-config, so the Cellar version is never spelled in this file.
 SDL_IMAGE_CFLAGS := $(shell pkg-config --cflags sdl3-image)
@@ -87,6 +94,12 @@ RENDER_STAGE_SRCS := $(wildcard src/render/stages/*.cpp)
 CORE_TOP_SRCS := $(wildcard src/core/*.cpp)
 CORE_IO_SRCS := $(wildcard src/core/io/*.cpp)
 CORE_SRCS := $(CORE_TOP_SRCS) $(CORE_IO_SRCS)
+# THE DATA PROVIDERS, their registry and the content store — their own COMPILE GROUP for the same
+# reason the generators are: a provider compiled with -Isrc/world could name the streamer in a build
+# that stays green. A wildcard, so a new upstream is bound by the include set without a list.
+DATA_SRCS := $(wildcard src/data/*.cpp)
+# The host's own implementations of what the library declared it needs. Never in a src/ group.
+HOST_SRCS := $(wildcard test/host/*.cpp)
 # THE GENERATORS, and they are their own COMPILE GROUP for the same reason: everything else in a
 # target is compiled with that target's include set, and a generator compiled with -Isrc/world could
 # name the streamer in a build that stays green. A wildcard, so a new generator is bound by the
@@ -103,10 +116,10 @@ RENDER_TOP_SRCS := $(wildcard src/render/*.cpp)
 RENDER_SRCS := $(RENDER_TOP_SRCS) $(RENDER_STAGE_SRCS)
 
 # WORLD, whole, and a wildcard for the same reason core is: a new file in the directory is bound by
-# the directory's include set in every target without a list to remember. TerrainLoader and
-# TilePool additionally see the tile server's public header.
+# the directory's include set in every target without a list to remember. world/tiles under it is the
+# decoders: terrarium PNG to a height field, and the node grid over it.
 WORLD_SRCS := $(wildcard src/world/*.cpp)
-TILES_SRCS := $(wildcard src/world/tiles/*.cpp)
+DECODER_SRCS := $(wildcard src/world/tiles/*.cpp)
 
 # THE SIMULATION HALF OF THE CLIENTS. Nothing in this list may name render/, which `make world`
 # proves by building it with $(INC_SIMHALF) and no renderer object at all.
@@ -129,9 +142,11 @@ APP_SRCS := src/clients/Outshine.cpp src/clients/Snapshot.cpp \
 # there. One function of the object directory, so the targets name the same six groups.
 OBJS = $(patsubst src/core/%.cpp,$(1)/core-%.o,$(CORE_TOP_SRCS)) \
   $(patsubst src/core/io/%.cpp,$(1)/core-%.o,$(CORE_IO_SRCS)) \
+  $(patsubst src/data/%.cpp,$(1)/data-%.o,$(DATA_SRCS)) \
+  $(patsubst test/host/%.cpp,$(1)/host-%.o,$(HOST_SRCS)) \
   $(patsubst src/generators/%.cpp,$(1)/gen-%.o,$(GEN_SRCS)) \
   $(patsubst src/world/%.cpp,$(1)/world-%.o,$(WORLD_SRCS)) \
-  $(patsubst src/world/tiles/%.cpp,$(1)/world-%.o,$(TILES_SRCS)) \
+  $(patsubst src/world/tiles/%.cpp,$(1)/world-%.o,$(DECODER_SRCS)) \
   $(patsubst src/clients/%.cpp,$(1)/sim-%.o,$(SIM_SRCS))
 PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS)) \
   $(patsubst src/render/%.cpp,$(1)/render-%.o,$(RENDER_TOP_SRCS)) \
@@ -139,7 +154,7 @@ PICTURE_OBJS = $(patsubst src/generators/draw/%.cpp,$(1)/gen-%.o,$(GEN_DRAW_SRCS
   $(patsubst src/clients/%.cpp,$(1)/app-%.o,$(APP_SRCS))
 
 .PHONY: help walk walk-asan world treebench gates gates-build verify-generators \
-  verify-world verify-clients verify-types verify-refusals verify-walk \
+  verify-world verify-data verify-clients verify-types verify-refusals verify-walk \
   verify-still verify-walk-asan clean
 
 # WHERE A GATE'S OUTPUT GOES. Outside the tree on purpose: a log nobody committed on purpose is a
@@ -166,18 +181,22 @@ define NATIVE_BUILD
 	  mkdir -p $(1); \
 	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS) $(2)"; \
 	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) $(2) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
-	  for f in $(TILES_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
+	  for f in $(DECODER_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(WORLD_SRCS); do o=$(1)/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=$(1)/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
+	  for f in $(DATA_SRCS); do o=$(1)/data-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DATA) -c -o "$$o"; done; \
+	  for f in $(HOST_SRCS); do o=$(1)/host-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(GEN_DRAW_SRCS); do o=$(1)/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DRAW) -c -o "$$o"; done; \
 	  for f in $(SIM_SRCS); do o=$(1)/sim-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -c -o "$$o"; done; \
 	  for f in $(RENDER_SRCS); do o=$(1)/render-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CCPP "$$f" $(INC_RENDER) -c -o "$$o"; done; \
 	  for f in $(APP_SRCS); do o=$(1)/app-$$(basename $$f .cpp).o; \
@@ -185,7 +204,7 @@ define NATIVE_BUILD
 	  c++ test/clients/AppWalk.cpp \
 	    $(call OBJS,$(1)) $(call PICTURE_OBJS,$(1)) \
 	    -std=c++20 -O2 $(CXX_WARN) $(2) -DOUTSHINE_CLIENT="\"$(4)\"" \
-	    $(INC_CLIENTS) \
+	    $(INC_CLIENTS) -Itest/host \
 	    -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor \
 	    -isystem $(CURL_COMPAT) \
 	    -L$(DAWN_LIBDIR) -lwebgpu_dawn -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm $$PLATFORM_LIBS \
@@ -208,18 +227,22 @@ world:           ## build the headless target -- everything except render/, no d
 	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p build/obj-world; \
 	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
-	  for f in $(TILES_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
+	  for f in $(DECODER_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(WORLD_SRCS); do o=build/obj-world/world-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -c -o "$$o"; done; \
 	  for f in $(CORE_SRCS); do o=build/obj-world/core-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_CORE) -c -o "$$o"; done; \
+	  for f in $(DATA_SRCS); do o=build/obj-world/data-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_DATA) -c -o "$$o"; done; \
+	  for f in $(HOST_SRCS); do o=build/obj-world/host-$$(basename $$f .cpp).o; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_HOST) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
 	  for f in $(GEN_SRCS); do o=build/obj-world/gen-$$(basename $$f .cpp).o; \
 	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_GENERATORS) -c -o "$$o"; done; \
 	  for f in $(SIM_SRCS); do o=build/obj-world/sim-$$(basename $$f .cpp).o; \
-	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -isystem $(CURL_COMPAT) -c -o "$$o"; done; \
+	    fb_uptodate "$$o" "$$f" || $$CC "$$f" $(INC_SIMHALF) -c -o "$$o"; done; \
 	  c++ test/clients/WorldMain.cpp $(call OBJS,build/obj-world) \
-	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) \
+	    -std=c++20 -O2 $(CXX_WARN) $(INC_SIMHALF) -Itest/host \
 	    -isystem $(CURL_COMPAT) \
 	    -L$(CURL_COMPAT)/lib -lcurl $(SDL_IMAGE_LIBS) -lpthread -ldl -lm \
 	    -o build/fb_world; \
@@ -232,6 +255,46 @@ treebench:       ## grow every declared plant and measure it -> build/treebench 
 	    $(CXXSTD) -O2 $(CXX_WARN) $(INC_DRAW) \
 	    -o build/treebench; \
 	  echo "treebench -> build/treebench"
+
+# WHAT MUST NOT BE REACHABLE FROM A DATA PROVIDER. The same negatives the generators have, because
+# the two contracts are the same shape turned in opposite directions: neither may name the engine.
+DATA_NEGATIVES := RendererIsNotReachable WorldIsNotReachable LogIsNotReachable GeneratorIsNotReachable
+
+# THE ONE LIBRARY OBJECT THAT MAY STILL NAME THE TRANSPORT, and it is a defect with a name rather
+# than a design: src/clients/HttpPost.cpp calls libcurl for the EGRESS wire -- the telemetry POST and
+# the log POST -- while the INGRESS wire goes through Data::Transport, whose only libcurl
+# implementation lives in test/host. The gate reads every object except `host-*`, which IS the seam
+# and is the one place a curl symbol belongs; of the rest it excludes exactly this one, fails if a
+# second ever fits the exclusion, and fails if this one stops fitting it -- so the hole can neither
+# widen unnoticed nor outlive its repair.
+DATA_CURL_EXCEPTION := app-HttpPost.o
+
+verify-data: walk ## a data/ TU compiles against core and CANNOT name World, Renderer, Log or a generator
+	@cd $(SELF_DIR); set -e; \
+	  c++ test/compile/data/CoreIsReachable.cpp $(CXXSTD) $(CXX_WARN) $(INC_DATA) -fsyntax-only; \
+	  for f in $(DATA_SRCS); do \
+	    c++ "$$f" $(CXXSTD) $(CXX_WARN) $(INC_DATA) -fsyntax-only; \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_DATA) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|world\|generators\|clients\)/' || true); \
+	    if [ "$$up" != "0" ]; then echo "verify-data: $$f includes $$up file(s) above data/" >&2; exit 1; fi; done; \
+	  for g in $(DATA_NEGATIVES); do f=test/compile/data/$$g.cpp; \
+	    if c++ "$$f" $(CXXSTD) $(INC_DATA) -fsyntax-only 2>/dev/null; then \
+	      echo "verify-data: $$f COMPILED -- the include set no longer bounds data/" >&2; exit 1; \
+	    fi; \
+	    if ! c++ "$$f" $(CXXSTD) $(INC_DATA) -fsyntax-only 2>&1 | grep -q "file not found"; then \
+	      echo "verify-data: $$f failed for some OTHER reason than an unreachable header" >&2; exit 1; \
+	    fi; done; \
+	  objs=$$(ls build/obj-walk/*.o 2>/dev/null | grep -v '/host-' || true); \
+	  if [ -z "$$objs" ]; then \
+	    echo "verify-data: build/obj-walk holds no library object -- this gate would certify over nothing" >&2; exit 1; fi; \
+	  carriers=""; \
+	  for o in $$objs; do \
+	    if [ "$$(nm -u "$$o" | grep -c curl_)" != "0" ]; then carriers="$$carriers $$(basename $$o)"; fi; done; \
+	  for c in $$carriers; do \
+	    if [ "$$c" != "$(DATA_CURL_EXCEPTION)" ]; then \
+	      echo "verify-data: library object $$c carries curl symbols -- the transport is not behind the host seam" >&2; exit 1; fi; done; \
+	  case "$$carriers " in *" $(DATA_CURL_EXCEPTION) "*) ;; *) \
+	    echo "verify-data: $(DATA_CURL_EXCEPTION) carries no curl symbol any more -- delete DATA_CURL_EXCEPTION" >&2; exit 1;; esac; \
+	  echo "verify-data: render/ world/ generators/ and the log have no spelling in data/, and $$(echo $$objs | wc -w | tr -d ' ') library objects carry no transport symbol except $(DATA_CURL_EXCEPTION) (src/clients/HttpPost.cpp, the egress wire, not behind the seam)"
 
 # WHAT MUST NOT BE REACHABLE FROM A GENERATOR. Each negative is compiled and has to fail FOR THE
 # STATED REASON: any compile error would pass a bare exit-code test, including a typo in the gate.
@@ -273,7 +336,7 @@ verify-generators: ## a generators/ TU compiles against core and CANNOT name Ren
 verify-world:    ## a world/ TU compiles against core and CANNOT name a generator or the renderer
 	@cd $(SELF_DIR); set -e; \
 	  for f in $(WORLD_SRCS); do \
-	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -isystem $(CURL_COMPAT) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
+	    up=$$(c++ "$$f" $(CXXSTD) $(INC_WORLD) $(SDL_IMAGE_CFLAGS) -MM | tr ' \\' '\n\n' | grep -c '^src/\(render\|generators\|clients\)/' || true); \
 	    if [ "$$up" != "0" ]; then echo "verify-world: $$f includes $$up file(s) above world/" >&2; exit 1; fi; done; \
 	  f=test/compile/world/GeneratorIsNotReachable.cpp; \
 	  if c++ "$$f" $(CXXSTD) $(INC_WORLD) -fsyntax-only 2>/dev/null; then \
@@ -335,9 +398,13 @@ WALK500_DRAWN  := impostorStands=9565 treeTris=19130
 # the frame holds, because an instrumented frame is not the frame anyone measures. The measuring
 # target names $(SAN_NATIVE) nowhere and the objects live in their own directory, so no instrumented
 # object can reach a binary anyone measures.
+#
+# THE OPTIONS ARE PART OF THE INSTRUMENT: detect_stack_use_after_return is off unless the run asks
+# for it, so a build that carries the instrumentation still reports nothing without this line.
 verify-walk-asan: walk-asan ## demo/walk-500 over its whole traversal under address+undefined
 	@cd $(SELF_DIR); mkdir -p $(GATE_DIR)/walk-asan; o=$(GATE_DIR)/walk-asan.out; \
-	  if ! OUTSHINE_OUT=$(GATE_DIR)/walk-asan ./build/gpu_walk_asan demo walk-500 >"$$o" 2>&1; then \
+	  if ! ASAN_OPTIONS=detect_stack_use_after_return=1 UBSAN_OPTIONS=print_stacktrace=1 \
+	     OUTSHINE_OUT=$(GATE_DIR)/walk-asan ./build/gpu_walk_asan demo walk-500 >"$$o" 2>&1; then \
 	    tail -40 "$$o" >&2; echo "verify-walk-asan: the sanitised run did not finish ($$o)" >&2; exit 1; fi; \
 	  if grep -qE "AddressSanitizer|runtime error:" "$$o"; then \
 	    grep -nE "AddressSanitizer|runtime error:" "$$o" >&2; \
@@ -360,8 +427,13 @@ verify-walk-asan: walk-asan ## demo/walk-500 over its whole traversal under addr
 #
 # THE ORDER IS IMPOSED, NOT SAMPLED. Plain repeats are a coin toss: on a warm cache this host returned
 # the same completion order six runs out of six, and the gate would have been green over a scene that
-# still had two pictures in it. test/world/tile_delay.py holds each response back by a delay derived
-# from the path and a seed, so one seed is one arrival order and the seeds are the experiment.
+# still had two pictures in it. test/host/DelayedTransport holds each answer back by a delay derived
+# from the URL and a seed, so one seed is one arrival order and the seeds are the experiment. IN
+# PROCESS: the order used to need an HTTP proxy in a second language because there was a process
+# boundary to impose it at; there is none now, so the whole instrument is a decorator over the host
+# seam. THE CONTENT STORE IS OFF for these runs, because an imposed arrival order needs the arrivals
+# to actually happen -- a store hit answers before the delay can apply and there would be no order to
+# impose.
 #
 # NOTHING IS PINNED TO A RECORDED VALUE. The runs are compared to EACH OTHER, so the gate says
 # "deterministic" and never "unchanged": a golden sha would go red on another GPU and would have to be
@@ -369,22 +441,14 @@ verify-walk-asan: walk-asan ## demo/walk-500 over its whole traversal under addr
 # overwrite it.
 STILL_SEEDS := 1 2 3 4
 STILL_SPREAD_MS := 400
-STILL_PORT ?= 8171
-TILES_BASE ?= http://localhost:8081
 
 verify-still: walk ## the declared still is one picture over imposed tile arrival orders
 	@cd $(SELF_DIR); r=$(GATE_DIR)/still; rm -rf "$$r"; mkdir -p "$$r"; \
 	  for s in $(STILL_SEEDS); do \
 	    d="$$r/$$s"; mkdir -p "$$d"; \
-	    python3 test/world/tile_delay.py --port $(STILL_PORT) --upstream $(TILES_BASE) --seed "$$s" \
-	      --spread $(STILL_SPREAD_MS) >"$$d/proxy.log" 2>&1 & p=$$!; \
-	    for w in 1 2 3 4 5 6 7 8 9 10; do grep -q "tile_delay: :" "$$d/proxy.log" && break; sleep 0.5; done; \
-	    if ! grep -q "tile_delay: :$(STILL_PORT) " "$$d/proxy.log"; then \
-	      kill $$p 2>/dev/null; cat "$$d/proxy.log" >&2; \
-	      echo "verify-still: no delay proxy on :$(STILL_PORT) -- nothing was imposed" >&2; exit 1; fi; \
-	    OUTSHINE_TILES=http://localhost:$(STILL_PORT) OUTSHINE_OUT="$$d" \
+	    OUTSHINE_ARRIVAL_SEED="$$s" OUTSHINE_ARRIVAL_SPREAD_MS=$(STILL_SPREAD_MS) \
+	      OUTSHINE_NO_CONTENT_STORE=1 OUTSHINE_OUT="$$d" \
 	      ./build/gpu_walk demo frame >"$$d/out.log" 2>&1; rc=$$?; \
-	    kill $$p 2>/dev/null; wait $$p 2>/dev/null; \
 	    if [ "$$rc" != 0 ]; then tail -40 "$$d/out.log" >&2; \
 	      echo "verify-still: the run under seed $$s did not finish ($$d/out.log)" >&2; exit 1; fi; \
 	    if [ ! -s "$$d/walk.png" ]; then \
@@ -417,8 +481,8 @@ verify-still: walk ## the declared still is one picture over imposed tile arriva
 # second set needs a 10 800-frame walk and $(words $(STILL_SEEDS)) whole scenes and costs two orders
 # of magnitude more, so the first one exists to be affordable in an edit: a gate that is skipped is
 # not a defence.
-GATES_BUILD := verify-generators verify-clients verify-types verify-world verify-refusals \
-  verify-walk
+GATES_BUILD := verify-generators verify-clients verify-types verify-world verify-data \
+  verify-refusals verify-walk
 GATES_RUN := verify-still verify-walk-asan
 GATES := $(GATES_BUILD) $(GATES_RUN)
 

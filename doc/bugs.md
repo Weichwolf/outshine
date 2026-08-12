@@ -72,14 +72,55 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
 
 ## The test harness and its instruments
 
+- **`verify-data`'s strongest claim passes vacuously, and the claim itself is narrower than the
+  tree.** The gate ends with
+  `n=$(nm -u build/obj-walk/data-*.o build/obj-walk/core-*.o build/obj-walk/world-*.o 2>/dev/null | grep -c curl_ || true)`
+  and has **no prerequisite on `walk`**, while `GATES_BUILD` lists `verify-data` *before*
+  `verify-walk`, which is the target that builds those objects. With the directory absent the
+  pipeline yields `n=0` and the gate prints *"no transport symbol in the library"* — verified
+  2026-08-12 against a path that does not exist. Second half of the same defect: the three groups it
+  reads are not the library. **`build/obj-walk/app-HttpPost.o` carries 7 `curl_` symbols**, measured
+  by `nm -u` per group (core 0 · data 0 · gen 0 · world 0 · sim 0 · render 0 · **app 7** · host 8) —
+  `src/clients/HttpPost.cpp` is library source under `src/`, includes `<curl/curl.h>` directly and
+  carries an `EM_JS` arm beside it, and `ServerLog`/`ServerTelemetry` are its consumers. So the round
+  declared a host seam for the ingress wire and left the egress wire hard-wired, and the gate looks
+  past it. Right: `verify-data: walk`, a refusal when the object directory is empty, and every
+  `src/`-derived group in the `nm` set — then `HttpPost` has to move behind a declared seam
+  (`doc/requirements.md` § I.22) rather than being invisible.
+- **The registry's and the store's counters have no reader.** `Data::SourceSet::Ledger` publishes
+  nine (`Asked`, `Delivered`, `HandedOver`, `Vacant`, `Undeclared`, `Refused`, `Retried`,
+  `FromStore`, `DeliveredBytes`) and `Data::ContentStore::Ledger` six (`Hits`, `Misses`, `Writes`,
+  `WriteFailures`, `Swept`, `SweptBytes`); `grep` for any of them outside `src/data/` and the two
+  unit tests returns nothing, so no telemetry row and no close-out line carries one. The consequence
+  is measured: `demo frame` reports `fetches=309 fetchedMB=28.265 fetchMs=202.5` at
+  `tilepool_closed`, i.e. 131 MB/s, which is a warm store and not a network — and **the record does
+  not say so**, it has to be divided out. The store's hit rate is the one number that decides whether
+  the store is doing anything. `Per.6`, and § I.23's zero-consumer rule applies to a counter as much
+  as to a constant. Right: both ledgers ride `tilepool_closed` and the ordinary row.
+- **Two tests hold each other's claim.** `test/data/OutsideIsNeverAsked.cpp` never puts an
+  `Outside` source beside an `Inside` one and shows the first was not begun; its four blocks check
+  that an *uncovered request* answers `Undeclared`. The claim its name makes is held one file over,
+  in `test/data/AbsenceHandsOver.cpp:177-195` (`outside->Asked == 0`). Both claims are held by the
+  pair and neither file holds the one it is named for, so a reader looking for the coverage rule
+  opens the wrong file — `NL.1`'s reason applied to a filename. The same file's
+  `CountingTransport` comment reads *"a transport that would fail the test if it were ever used"*
+  and it is used, twice, answering 200. Right: the names follow the strongest claim in each file, or
+  the block moves.
+- **`verify-walk-asan` cannot see a stack lifetime error.** `Makefile:384-400` runs
+  `build/gpu_walk_asan` with no `ASAN_OPTIONS`, and `detect_stack_use_after_return` is **off by
+  default** — so the one class the tree just created three instances of (see *The tile pool's worker
+  threads outlive the registry*) is outside the sanitised run's reach. Verified by running the same
+  two scenes with the option on: both silent, but only because both drain their queue. Right:
+  the gate sets it, and says which options it set in its own line.
 - **An interrupted instrument leaves something bound, and the next run goes red for a reason that has
-  nothing to do with the code.** `Makefile:379` starts `test/world/tile_delay.py` on `:8171` with `&`
-  inside a recipe and kills it by pid at `:387`; a make recipe has no job control, so the proxy is not
-  a process group of its own, and any exit between those two lines — an abort, a `SIGTERM`, a failing
-  parallel sibling — leaves it listening. Reported by the architect: a `make gates` run went red
-  because a previous interrupted `verify-still` still held the port, and the next `verify-still` could
-  not start one. The same shape sits in `verify-refusals` and in every future instrument that binds or
-  sleeps. Right, and `test/run.sh` now carries it end to end: `set -m`, so every child is a process
+  nothing to do with the code.** The named instance is gone (2026-08-12): `verify-still` no longer
+  starts `test/world/tile_delay.py` on `:8171` with `&` inside a recipe and kills it by pid — the
+  arrival order is imposed in process by `test/host/DelayedTransport`, and the file is deleted. **The
+  class is not**: a make recipe has no job control, so anything a recipe backgrounds is not a process
+  group of its own and survives any exit between the `&` and the `kill`. Reported by the architect
+  when the proxy existed: a `make gates` run went red because a previous interrupted `verify-still`
+  still held the port. The same shape waits in `verify-refusals` and in every future instrument that
+  binds or sleeps. Right, and `test/run.sh` now carries it end to end: `set -m`, so every child is a process
   group; one trap on `INT`/`TERM`/`HUP`/`EXIT` that kills the groups it started; and every kill a
   group kill, so a watchdog's `sleep` and whatever the subject itself left running die with it.
   Measured on the harness: 1 test process, 1 watchdog `sleep`, 1 leaked grandchild alive mid-run, all
@@ -288,24 +329,87 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## World and streaming
 
-- **The DEM path answers for a place the caller did not ask about, because `fb_geo_to_tile` clamps.**
-  `tiles/src/tilemath.h:16-18` clamps the latitude into the Mercator band and then projects, so a
+- **The tile pool's worker threads outlive the registry, the content store and the transport they
+  borrow.** `clients/Sim.h:231` declares `World::World W_;` and `:271-274` declare `Wire_`, `Store_`,
+  `Content_` and `Sources_` **after** it. Members are destroyed in reverse declaration order, so
+  `~Sim` destroys the `SourceSet` and the `ContentStore` first and reaches `~W_` — which is the only
+  thing that calls `fb_stream_close()` → `~TilePool` → `join()` on the workers — forty declarations
+  later. Every worker inside `TilePool::FetchInto` holds `Data::SourceSet &Sources_` and
+  `Data::Transport &Wire_`, and `SourceSet::Collect` reads `Store_` on the way in. The same inversion
+  is written twice more at the entry points: `test/clients/AppWalk.cpp:75` constructs
+  `Clients::Outshine app` before `:83-84` construct `Host::CurlTransport wire` and
+  `Host::DelayedTransport ordered`, and `test/clients/WorldMain.cpp:100` constructs `sim` before
+  `:104` constructs `wire` — so `~CurlTransport` joins its own threads and calls
+  `curl_global_cleanup()` while the pool's are still running. `C.13` names exactly this
+  (*"if data member `B` uses another data member `A`, declare `A` before `B`"*), `R.3`/`R.4` say the
+  reference is non-owning, and `Lifetime.1` is the failure. **Latent, not live, and the harmless
+  explanation was looked for and holds for the runs that exist**: `demo frame` and `demo walk-500`
+  under `ASAN_OPTIONS=detect_stack_use_after_return=1` are both silent (measured 2026-08-12,
+  `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/sar/out.log`
+  and `.../sar500/out.log`), because both reach `progress=1` with `fetchGaveUp=0` and drain the queue
+  before exit. It fires the first time a run ends with a tile in flight — an early return between
+  `Prepare` and the end of the traversal, a scene shorter than its stream, a refusal after `Open`.
+  Right: the pool stops before the things it borrows, which is three line moves — `Sources_` and
+  `Content_` declared before `W_`, the transport constructed before `app`. Unspellable rather than
+  moved: `TilePool` is scoped inside whatever owns the registry, so the order cannot be written the
+  other way round. **The gate that would catch it does not exist**: `verify-walk-asan` never sets
+  `detect_stack_use_after_return`, which is off by default and is precisely this class.
+- **A refusal carries no reason, which is the defect § I.22 was written to close, one level down.**
+  `data/Fetched.h:14` `Meaning::Refused` is minted in `data/WebTileSource.cpp:52-54` from
+  `Classify(status, size)` and **the status is dropped on the spot**; `data/Delivery.h:46`
+  `Delivery::Wire()` carries nothing at all; `world/TilePool.cpp` logs `tile_refused` with only the
+  request key. A 401, a 500 that outlived its four-try budget, a body over `CurlTransport::Config::
+  MaxBodyBytes`, a `StarBands` file that would not open and a `TryTake` on a wire that did not answer
+  are one value — four readings of one empty buffer, moved from the top of the type into its
+  `Refused` arm. `data/` may not name `Log` by the section's own ruling (`-Isrc/core -Isrc/data`,
+  `Makefile` `INC_DATA`), so the reason has to be a **value** and not a log line. Right: `Refused`
+  carries the status, or a declared enumeration beside it, and `TilePool` writes what it was handed.
+- **`Delivery::Undeclared` is retried for ever and the load never ends.** `world/TilePool.cpp`
+  `FetchInto` maps `Delivery::State::Undeclared` to `Reply::Refused` under a comment that says *"it
+  will not heal by asking again"*, and `world/World.cpp:447-449` then maps `Reply::Refused` to
+  `Adm_.Waiting` — correct for a wire error, wrong for a declaration error. `World::CountTargets`
+  counts a leaf settled on `Ready || Vacant` only, so a node no source covers never settles,
+  `progress` never reaches 1, and every pass writes another `tile_undeclared` error line. Right:
+  `Undeclared` is its own reply at the pool and it ends the run loudly (§ I.17) instead of sharing an
+  arm with the refusal that does heal.
+- **A `Data::SourceSet::Query` owns a live transfer and is not a resource handle.**
+  `data/SourceSet.h:41-63` holds `Ticket_` with `Query(Query &&) = default` and **no destructor**;
+  cancelling is `SourceSet::Abandon(query, transport)`, a free operation the caller must remember. A
+  moved-from `Query` keeps the ticket value, so `Abandon` on either end cancels the other's transfer
+  (`C.64`: a move must leave the source valid); a `Query` dropped without `Abandon` leaves a
+  `CurlTransport::Transfer` — url, status and the whole body — in `Transfers_` for the life of the
+  transport, because `test/host/CurlTransport.cpp:70-78,80-100` erase only on collect or cancel.
+  Nothing leaks today: the one caller calls `Abandon` on the one path that needs it. The rule is
+  written down and not carried — `R.1`, `C.30`, `C.31`. Right: the ticket is an owning handle that
+  cancels in its own destructor, so a dropped query cannot leave a transfer running.
+- **`TryTake` is documented as once-only on four types and is not.** `data/Transport.h:36` says
+  *"hands the status and the body over exactly once"*; `Wire::TryTake`, `Fetched::TryTake`,
+  `Delivery::TryTake` and `World::TerrainBytes::TryTake` all move the payload out and leave `Where_`
+  unchanged, so a second call returns `true` with an empty body and a caller reads *delivered, zero
+  bytes* — the exact reading the four states exist to make unspellable. Right: the take transitions
+  the state, so the second call is `false`.
+- **`Data::ContentStore`'s cap is enforced once, before the first write, and never during the run.**
+  `data/ContentStore.cpp:46-77` sweeps in the constructor; `Keep` (`:106-132`) adds bytes and counts
+  nothing. `ContentStore.h:37` says so in its own words. A long session grows the directory without
+  bound — the same failure as the 7 GB store this replaces, moved from *no cap* to *a cap checked
+  before anything is in it*; and the test that says *"the store is capped"*
+  (`test/data/TheStoreNamesBytesByTheirKey.cpp:94-115`) only ever reopens a full directory, so it
+  cannot see the difference. Right: a running byte total, and the sweep amortised over `Keep`.
+- **The DEM path answers for a place the caller did not ask about, because the projection clamps.**
+  `world/tiles/TileMath.h` `GeoToTileClamped` clamps the latitude into the Mercator band and then projects, so a
   standpoint outside the band gets the ground of the nearest point inside it with no refusal and no
   note. Measured on `fb_world` at 85.052 N / 15 E before the band was refused at the declaration: the
   terrain requests were `/t/terrain/14/8874/0` — x correct for 15 E, y clamped to row 0, whose
   southern edge is 85.0466 N — and the run reported `groundAslM=-3448.27` for a standpoint **97.3 m**
-  north of anything the scheme can address, exit 0. The same file holds a **second spelling of the
-  band**, `FB_MERC_LAT_MAX 85.0511287798`, which differs from `world/terrain/geo.h`'s
-  `osmmesh_mercator_lat_max_deg = 85.05112877980659` from the 11th digit on. One statement, two
-  places, two values — and a third is still *printed*: `Scene::Read` hands the constant to `Need`,
+  north of anything the scheme can address, exit 0. The second spelling of the band left with the
+  server (2026-08-12) and `world/tiles/TileMath.h:19 kMercatorLatMaxDeg = 85.05112877980659` is now
+  the only one — but a third value is still *printed*: `Scene::Read` hands the constant to `Need`,
   whose message runs it through `std::to_string`, so a refused declaration reads `lat out of range
   [-85.051129,85.051129]` while `lat: 85.051129` is itself refused (measured on `fb_world`: 85.05112877
   exits 0, 85.05112878 and 85.051129 exit 2). The message names an admissible value that is not one,
-  by 1.3 cm. Right: `fb_geo_to_tile` refuses like
-  `osmmesh_geo_to_tile` does — it is the same projection — and the bound is declared once. **Priced:
-  `fb_geo_to_tile` has no caller in `tiles/` at all** (`grep -rn fb_geo_to_tile tiles/src` is empty),
-  so making it refuse costs three call sites in `world/TerrainLoader.cpp:289,323,324` and nothing on
-  the tile server.
+  by 1.3 cm. Right: the clamping form refuses like `TileIndex::TryXy` does — it is the same
+  projection — and the bound is declared once, which it now is. Priced at three call sites in
+  `world/TerrainLoader.cpp`.
 - **The point query is refused by nobody, and it is the `world` target's whole purpose.**
   `test/clients/WorldMain.cpp:117` reads `argv` pairs through `std::atof` straight into
   `Sim::At(double, double)`, which reaches `Region::Of` and `fb_stream_ground` with no band check
@@ -392,26 +496,38 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   count carries the repetition (`Ledger::MeshRefused`, `Ledger::FetchRefused` already do) and the
   line is written when the reason for a given tile CHANGES, not when it recurs.
 
+- **An imposed arrival order and the content store cannot be exercised in the same run.** The order
+  instrument is a decorator over the host transport (`test/host/DelayedTransport.h`), and the store is
+  consulted inside `Data::SourceSet::Collect` **before** the source is begun — so a store hit answers
+  without a ticket ever existing and no delay can apply to it. `verify-still` therefore declares
+  `OUTSHINE_NO_CONTENT_STORE=1` and pays four cold scene loads over the real upstreams (110 s measured
+  2026-08-12, against 103 s for the proxy version in front of a warm container). Two things are wrong
+  with that: the gate never exercises the store at all, and the one path a shipping run takes — a warm
+  store — is the one path no gate imposes an order on. Right: the arrival order is a property of the
+  *delivery* rather than of the wire, so the instrument belongs where both a store hit and a wire
+  answer pass; that place is inside `SourceSet`, which is library, so it needs to be a declared
+  library facility rather than a host decorator.
+
+- **`Delivery::At` is exercised only by a test, never by a run.** A request above a source's last
+  native zoom is answered from the ancestor and says so (`data/WebTileSource.cpp` `Serves`,
+  `test/data/TheAnswerNamesItsAddress.cpp`), and the whole path is carried through the byte cache
+  (`world/TilePool.h` `Landing`) because a crop computed from the requested address over an ancestor's
+  pixels is a wrong picture drawn silently. **No run reaches it**: `world/World.cpp` `kMaxZ = 14`, the
+  stitch asks at the same zoom, and the only elevation upstream declares `MaxZoom = 15`, so the
+  difference is always zero. The mechanism is right and untested outside a unit test — which is the
+  honest statement, not "it works". Right: the first scenario that asks above z15, or a declared run
+  that narrows the registry to a source with a lower bound so the fill fires.
+
 - **A remembered absence has no expiry on the client, and no weight in the cache that holds it.**
-  `tiles/src/cache.c` gives a negative entry a lifetime (`FB_ABSENT_TTL_S`, 30 d) because an upstream
-  404 can be transient. `TilePool::Remember(path, nullptr, 0, true)` (`world/TilePool.cpp`) drops
-  that: the entry carries no timestamp, so `Lookup` answers `Reply::Absent` from it for the life of
+  The deleted server's disk cache gave a negative entry a lifetime (30 d) because an upstream 404 can
+  be transient; nothing in the tree does now. `TilePool::Remember(key, nullptr, 0, at, true)`
+  (`world/TilePool.cpp`) carries no timestamp, so `Lookup` answers `Reply::Absent` from it for the life of
   the process. Worse, it is stored with `len == 0`, so it adds nothing to `CacheBytes_` and the LRU
   loop — `while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_)` — is never entered on its
   account. Over ground that is all 204 (open water, imagery gaps) `Cache_` grows in entry count while
   `CacheBytes_` stays at 0, and every byte request pays a linear scan of it under `CacheMutex_`.
   Decidable from the code, not measured. Right: the entry count is a budget of its own, and an
   absence carries the age at which it is re-asked.
-
-- **`Reply::Absent` has a second door, and the comment on the first says there is only one.**
-  `world/TilePool.cpp:465` reads `out->State = miss == Miss::Hole ? Reply::Absent : Reply::Pending;`
-  under `/* ONE DOOR TO A TERMINAL ANSWER, and only a Hole goes through it. */`. Six lines below,
-  `RunDag` mints `Reply::Absent` for `nverts < 3`. The behaviour is defensible — a soup too small to
-  partition is a deterministic statement about content the caller supplied, not about the heap or the
-  wire, and `World::Refine` now handles it explicitly — but the invariant the comment asserts is
-  false in its own file, which is the one thing a comment here is allowed to do and the one thing it
-  must not get wrong. Right: the sentence names the mesh path, or `RunDag`'s answer stops being
-  spelled `Absent`.
 
 - **`TilePool` can be told to forget a mesh and cannot be told to forget a DAG.** `Poll` now keeps an
   `Absent` in both `Posted_` and `Done_` on purpose, and `ForgetMesh` is the only eraser — it keys
@@ -438,11 +554,11 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `x > 0` guard leaves on the west side. The N/S guards are right as written. Cost of the correct
   form: a modulo instead of a bound, on two of four sides.
 
-- **`stitch_edge` asked for tiles that cannot exist.** `world/terrain/osmmesh_terrain.cpp`
-  `fetch_terrain_grid` guarded the west and north neighbours against `x == 0` and `y == 0` and had no
+- **`stitch_edge` asked for tiles that cannot exist.** The predecessor of `world/tiles/TerrainTiles.cpp`
+  guarded the west and north neighbours against `x == 0` and `y == 0` and had no
   guard at the other end, so a tile on the map's east or south edge issued a GET for `x = 2^z` or
-  `y = 2^z` — a coordinate `tiles/src/route.c` cannot route (`xx >= n || yy >= n` fails the parse) and
-  answers `404 no such route`. It was invisible because it only fires at the edge of the world and
+  `y = 2^z` — an address no source covers (`data/WebTileSource::Covers` refuses it now, which is where
+  the guard belongs). It was invisible because it only fires at the edge of the world and
   the answer was read as "this neighbour has no data". Fixed in the same round it was found, because
   the caller now reads a 404 as a defect rather than as a hole; recorded here because the class —
   a guard written on one side of a symmetric pair — is not searched for anywhere.
@@ -474,7 +590,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **`World::Refine` builds no intermediate level** (`world/World.cpp:241`, and the traversal's own comment at 246) — correct for a cold start, wrong for travel, because there is then no ancestor rung to hold coverage while a fine rung streams.
 - **`Sim::Features` gained a slice, but a feature inside the tile's 23.3 m buffer still yields twice.**
 - **A crossing costs +1.77 ms at p50** against its neighbourhood, 1.03 of it the ring's own snapshot — in no column, because `Populate` runs after `Refine` inside one function.
-- **A failed allocation and a decode failure mint a terminal hole.** `world/TilePool.cpp` `RunMesh` answers `Reply::Absent` at four sites and only two of them are a refusal: `!tile.terrain` after `OSMMESH_OK` (the server said 204) is one, `fetched != OSMMESH_OK` and `!ChunkBuildEcef(...)` and an empty `TileDagBuild` product are not. `OSMMESH_ERR_DECODE` (`world/terrain/osmmesh_terrain.cpp:114,233`) is a corrupt or truncated PNG; `ChunkBuildEcef` returns 0 from **three `malloc` failures** (`world/ChunkMesh.h:52,95,153` — see *An exhausted heap is reported as malformed terrain*, whose consequence this line states). Since `Absent` became terminal at the node (`world/World.h` `MeshState::Vacant`), each of those permanently retracts the split over that quadrant, deletes 58 % of the buildings standing on it (line below) and reports the load **complete** — where before it hung the load, loudly. `Classify` (`world/TilePool.cpp:49`) adds a fifth: every 4xx except 408/429 becomes `Absent`, so one proxy 403 during a deploy is a permanently coarse quadrant. Two of the four sites log nothing at all. Right: the miss carries **why** — the thread-local side channel that already carries `tMeshPending` becomes an enumeration `{None, Hole, Refused, Wait}` and `RunMesh` maps only `Hole` to `Absent`; `Refused` and `Wait` are `Pending` plus a counted, named refusal, and an allocation failure goes to `Heap::Exhausted` like the OOM three lines above it. Then "a transport failure deletes ground" is unspellable rather than ruled out by reading.
+- **A failed allocation is reported as a refused tile instead of ending the run.** `world/TilePool.cpp` `RunMesh` reaches `Miss::Refused` when `ChunkBuildEcef` returns 0, and that function returns 0 from **three `malloc` failures** (`world/ChunkMesh.h:52,95,153` — see *An exhausted heap is reported as malformed terrain*, whose consequence this line states). An exhausted heap is not a statement about a tile and must not be reported as one. **The terminal-hole half of this is closed** (2026-08-12): the global `Classify` that turned every 4xx into `Absent` is gone — status-to-meaning is per source and declared now (`data/TerrariumDem.cpp`) — the thread-local `tMiss` is gone with it, and `RunMesh` maps only `Miss::Hole` to `Reply::Absent` while a refusal is `Reply::Refused`, which `World::AdmitMesh` retries rather than retracting the split. What is left is the allocation: it should reach `Heap::Exhausted` like the OOM path beside it, not the mesh verdict.
 - **`poolPosts` and `poolRepeats` still wrap on wasm32.** The round that widened every counter to `long long` left `long Posts_ = 0, Repeats_ = 0` (`world/TilePool.h:177`) — the accumulators — and widened only the `Ledger` fields they are copied into, so the column is 64-bit-typed and 32-bit-valued. These are the two fastest counters in the tree: `poolRepeats` reaches **2 201 113 194 = 1.025 × 2³¹** in 2 868 rows of `sim/logs/demo-frame-gpu_walk-20260811T184845Z.csv`. That run shows no negative value because `walk` is the native oracle, where `long` is 64-bit — **the measurement used to clear the defect is the one build that cannot see it**. Signed overflow is UB (`ES.103`), not a wrapped column. Right: `long long`, and every 32-bit accumulator behind a 64-bit column found the same way — by type, not by looking at native output.
 - **A completed mesh nobody asks for again is retained for the life of the pool.** `TilePool::Poll` erases a `Done_` entry only when a caller polls for it; a node that stops asking — which is exactly what the new retraction makes happen to a sibling whose build was in flight — leaves a full `TileBuild` (verts + indices + clusters, ≈ 4 MB at `kGrid = 128`) in the map for ever. Decidable from the same run: `tilepool_closed` reports `meshTiles=131 meshAbsent=1`, i.e. 130 completed builds, against `built=129` uploads (`world fbworld`, `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/hole/afterF.log`). The round cleared `Build` for the `Absent` arm and not for this one. Right: the pool drops a `Ready` result whose key left the caller's cut, which needs the cut to be a thing the pool can be told about — see the cut-once shape below.
 - **The drawn cut and the counted cut are two implementations that must agree, and nothing makes them.** `World::Descend` decides coverage with `Ready`, `World::CountTargets` decides progress with `Settled` (`Ready || Vacant`), and both re-derive the same tree from `Splits`. They agree today only because `Splits` removes a vacant child from *both* walks; delete that one call from `CountTargets` and progress reaches 1.0 over a square the draw pass leaves empty — the silent-hole failure, one edit away, with no test and no identity that catches it. `CanCover` makes it worse structurally: `Descend` calls it per child and it re-walks the whole subtree, so one pass is O(N·depth) node visits with a hash lookup each (`Splits` calls `Find` although `Descend` already holds the index), ~800 visits per root ring at ~1 800 passes/s during load. Right: **the cut is computed once per pass** into `(idx, role)` — target leaf · holder · drawn — and `Descend`, `CountTargets` and the request walk read it. Then two walks disagreeing is unspellable, the retraction is one rule in one place, and the duplicated `anyV`/`Wants`/`Ready`/`Emit` block the retraction added to `Descend` disappears with it.
@@ -482,39 +598,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **An absent tile is remembered for the life of the pool and nothing removes it.** `world/TilePool.cpp` `Poll` keeps the `Absent` result in `Done_` and the key in `Posted_` — that is what makes the answer final and stops a thread being spun on it — but nothing evicts either table, so a flight over a large hole grows both without bound. Bounded today by the number of distinct absent tiles a run asks about, which is 1 in every measured run. Right: the same unit of removal eviction needs everywhere else (see *Nothing evicts*), not a second mechanism.
 - **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, `sim/logs/demo-crossing-gpu_walk-20260811T172219Z.csv`): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
 - **The load loop polls the pool ~190 000 times a second** (`poolRepeats` 2 069 319 against `poolPosts` 196, same run). Attribution matters and the earlier phrasing had it wrong: **99.99 % of the repeats happen before residency, not during play.** In `demo/walk-500` `poolRepeats` is 1 953 923 at t=10 s (residency) and 1 954 287 at t=183 s — 364 repeats in 173 s of walking against 1.95 M in 10 s of loading. The load spins `Refine` at ~1 800 passes/s × ~119 unready leaves; every one of those takes `QueueMutex_` and attempts a `std::set<uint64_t>` insert on the thread that draws, against the four workers that need the same mutex to pop (`world tilepool threads=4 inFlightCap=4`). The host was loaded during the measurement, which makes 190 kHz a **lower** bound. Right: a pending ask answerable without the queue's lock — a per-node "already posted" flag in the node, or an atomic set — and a load loop that is not a spin.
-- **The provider seam went from a C callback with a documented reason channel to a C++ interface with
-  none.** `world/tiles/TerrainTiles.h:20-24` declares `TerrainSource::TakeTerrainPng` returning a bare
-  `std::vector<uint8_t>`, and its own comment states the defect as the design: *"Empty means 'no tile'
-  — absent, or not fetched yet; which of the two it is belongs to the source, not here."* Four
-  different answers — **absent**, **still fetching**, **the transport refused** and **a 200 with an
-  empty body** — are one value, `{}`. The reason travels out of band on a thread-local written by the
-  implementer (`world/TilePool.cpp:401` sets `tMiss` on `Pending` and sets nothing on a refusal), so a
-  4xx that `TilePool::Classify` turned into `Absent` arrives here as `NoTile`, becomes `Miss::Hole` and
-  is **terminal** at the node. This is the same defect the C ABI had, minus its excuse: the old
-  `osmmesh_tile_provider` used a thread-local *because a C function pointer had no channel*, and the
-  replacement had one and did not take it. It matters beyond this file because `doc/requirements.md`
-  § I.22 names this seam the direct ancestor of `Data::Source` and its first ruling is that *no
-  provider here* and *no data here* must be **different types** — here they are not even different
-  enumerators. Right: `TakeTerrainPng` returns a state-carrying answer whose bytes are unreachable
-  from the negative states, the shape `core/GroundSample.h` and the four new types beside it already
-  use, and `tMiss` disappears with it.
-- **A decoded DEM smaller than 2×2 permanently deletes the ground under it.** `world/TilePool.cpp:423`
-  maps `TerrainMesh::State::FieldTooSmall` to `Miss::Hole` alongside `NoTile`, and a `Hole` is the one
-  answer that becomes `Reply::Absent` → `MeshState::Vacant` → a quadrant that is never asked again
-  (`world/World.h`). `FieldTooSmall` is raised at `world/tiles/TerrainGrid.cpp:54` only for a PNG that
-  **decoded** and is degenerate — a malformed source, not a statement about the Earth — which is
-  exactly the distinction the comment three lines above it draws. Terrarium tiles are 256×256; there is
-  no upstream that legitimately sends 1×1, so no harmless reading survives. Right: `FieldTooSmall`
-  belongs with `SourceUndecodable` in the `Refused` arm.
-- **`default:` is back in a `switch` over a house enumeration, and it hides three states.**
-  `world/TilePool.cpp:425` writes `default: miss = Miss::Refused;` over `TerrainMesh::State`, so
-  `SourceUndecodable`, `StrideDoesNotDivide` and `FrameUnusable` — a corrupt PNG, a configuration
-  error and a frame built at the pole — are one answer, and a state added tomorrow silently joins them
-  instead of failing to build. `doc/requirements.md` § I.17 carries *No `default:` in a `switch` over a
-  house enumeration* as a **ticked** line at **zero**; this round makes it one. The two survivors the
-  requirement names as correct (`core/Json.cpp:142` over a char escape, `world/OsmVector.cpp:49` over a
-  protobuf wire type) are unaffected. `ES.79`: `default` is for the common case, and these are the
-  three uncommon ones. Right: three arms, no `default`, and `-Wswitch -Werror` carries the rule.
 - **`TileEnuMap` answers with a plausible wrong place instead of refusing.** Every other type in
   `world/tiles/TileGeodesy.h` hides its payload behind a state — `TileIndex::TryXy`, `EnuFrame::
   TryFromGeo`, `TerrainGrid::TryField`, `TerrainMesh::TryPositionsEnuM`. `TileEnuMap` (`:153-175`) has
@@ -535,16 +618,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   silently wherever the posting spacing drops under 0.5 m — at z14 the spacing is ~4.8 m, so this is a
   latent bound on stride and zoom rather than a live wrong picture. Right: `TerrainMesh` carries `Rows()`
   and `Cols()` beside `VertexCount()` (`F.21`), and `ChunkBuildEcef` takes them.
-- **`vramMB` in every `fbworld` telemetry row counts albedo textures that are never allocated.**
-  `world/World.cpp:635` computes `albVram = DrawnReady * TS * TS * 4` with `TS = 512`
-  (`clients/Sim.cpp:21 kAlbedoTileSize`), i.e. **1.049 MB of claimed VRAM per drawn tile**, and adds it
-  to `MeshVram` before publishing. No albedo texture exists anywhere in the renderer — the field it
-  would live in, `World::Node::albedo`, is never written (entry below) — so the published figure is
-  mesh VRAM plus a constant times the drawn-leaf count. At the demo standpoint's several hundred drawn
-  leaves this is a few hundred megabytes of fiction in the one number the memory ledger publishes for
-  the device. Against `CLAUDE.md`'s *every number carries its origin*. Right: the term goes when the
-  path does, or the texture exists.
-
 - **`eyeTravelM` counts a teleport as walking** (`clients/EyeTelemetry.cpp:14-25`). `Moved` has one input and cannot tell a step from a jump, so any re-stand adds the whole distance back to the declared standpoint to the path length: walk 500 m, press `R`, and the record says 1 000 m walked and 0 m displaced — which is the *same* row a 500 m circle writes, the one case the header claims the column exists to separate. Not reachable at all since `b83285f` deleted the only caller (`AppWasm`'s `R` key), and no run in `mods/demo` has two motion runs at different standpoints — but the column is the *record's*, not the client's, so it comes back with the interactive client rather than being fixed by its absence. Right: `Restood(Stance)` beside `Moved(Stance)` — the discontinuity is spelled at the call site that causes it, re-anchors nothing and adds nothing to travel.
 
 ## The memory ledger
@@ -772,6 +845,29 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 *Found 2026-08-12 in the design round for the const header. Every line here is a number that exists in
 the tree more than once, or under a name that says the wrong unit.*
 
+- **`core/Sha256.h`'s justification for 256 bits carries one right number and one wrong by
+  seventeen orders of magnitude.** The header (`:11-14`) argues *"At 10^12 distinct keys the birthday
+  bound is 10^24 / 2^257 ~ 1e-53 … a 64-bit truncation would be 1e-13 at the same load, which is
+  not"*. The first is right to an order (n²/2·2²⁵⁶ = 4.3 × 10⁻⁵⁴). The second is **2.7 × 10⁴** —
+  n²/2·2⁶⁴ at n = 10¹², i.e. a collision is *certain*, not one in 10¹³; the birthday threshold for
+  64 bits is 2³² ≈ 4 × 10⁹, three orders below the stated load. The conclusion the number supports is
+  unaffected and the derivation beneath it is false, which is the one thing `CLAUDE.md`'s *every
+  number carries its origin* forbids. Right: the number, or the sentence goes. The six digests
+  themselves are correct — all six vectors in `test/core/Sha256MatchesTheStandard.cpp` reproduce
+  against an independent SHA-256 (checked 2026-08-12).
+- **`TilePool` holds a worker thread for up to 30 s where it held one for 3 s, asleep in a 1 ms
+  loop.** `world/TilePool.cpp` `kPollMs = 1`, `kPollAttempts = 30000`. The previous shape blocked the
+  worker inside one synchronous transfer for 60 × 50 ms; the new one sleeps a millisecond at a time
+  and re-takes `CurlTransport::Mutex_` on every wake, against the transport's own 8 threads
+  (`test/host/CurlTransport.cpp:14 kDefaultThreads = 8`) — up to 14 threads on 2 performance and 4
+  efficiency cores (`CP.40`, `CP.41`). **Not attributable and the reason is stated**: the only
+  comparison available is `verify-still` at 110–119 s against 103 s for the proxy version *in front
+  of a warm container*, which is not a baseline — different upstreams, different cache state. The
+  number that would decide it does not exist yet and is one field away: `Ledger::FetchMs` is now the
+  sum of `SourceSet::Collect` calls rather than wire time, so wall-per-request split into wire and
+  poll, p50/p95/p99 over a cold traversal, is a *not yet measured* and not a limit. Right: the
+  transport declares a wait, so a thread with nothing to do blocks (`doc/requirements.md` § I.22).
+
 - **The one number every physical quantity in the renderer passes through is marked DERIVED and its
   derivation ends at a display code.** `render/stages/SceneScale.h:17 kSceneExposure = 11.0` is
   introduced as *"DERIVED from the measured frame, not tuned by eye"*, and the derivation's last step is
@@ -790,17 +886,6 @@ the tree more than once, or under a name that says the wrong unit.*
   until a linear tap exists (`doc/requirements.md` § I.26), and the number then either moves into
   `ExposureStage` or is shown to be 1.0 with the difference in the irradiances. Decides it: the linear
   readback of one facet of declared albedo under one declared irradiance against `ρ·E·cos θ/π`.
-- **One upstream's zoom bound is written three times, in two languages, and one of the three is
-  suspect.** `world/TilePool.cpp:28` and `world/TerrainLoader.cpp:30` each define
-  `constexpr int kProviderTerrainMaxZ = 15` — two definitions in two translation units, each with its
-  own comment naming `tiles/src/tilesrc.c` as the authority — and that authority is a third copy,
-  `K[FB_TILE_TERRAIN].maxz = 15` in `tiles/src/tilesrc.c:13`. `doc/requirements.md` § I.16 carries
-  *"Zoom above 14 for terrain — `/t/terrain/15/…` returns non-PNG, so z14 may be the finest served;
-  unresolved"*, so the value asserted in three places may be wrong in all three. It decides nothing
-  today because `world/World.cpp:27` splits at `kMaxZ = 14` and never asks for z15 — which is itself
-  the finding: a fourth number, in a fourth place, with no stated relation to the other three. Right:
-  the zoom range is one upstream's own declaration about itself, stated once by the thing that fetches
-  from it, and checked against what the wire actually answers.
 - **The suffix `Ms` names two different units in the same tree.** `core/Units.h:22`
   `kMsToKt` is metres per second to knots; `clients/Walker.h:17` `kWalkSpeedMs = 1.4` is metres per
   second; `clients/FrameTelemetry.h:33` `kWindowMs = 1000.0` is milliseconds. Reading any one of them
@@ -836,19 +921,6 @@ the tree more than once, or under a name that says the wrong unit.*
   the JSON one is inert — against `CLAUDE.md`'s *every statement has exactly one place*. Right: a
   scenario whose stage is a studio has no latitude, no civil time and no met wind to declare, so the
   eight dead fields have no spelling (`doc/requirements.md` § I.25).
-- **The C-ABI exception's stated reason is not true.** `CLAUDE.md`'s naming rule exempts
-  `world/terrain/` because it is *"C-ABI, shared with `tiles/`"*. It is not shared: `tiles/osmmesh/`
-  holds its own `terrain.c`, whose header comment says so in its own words — *"a deliberately smaller
-  copy of the client's full terrain.c … which also builds ENU/ECEF meshes — a rendering concern this
-  server binary has no use for"* (`tiles/osmmesh/terrain.c:1-7`). Two copies of one decoder, 111 lines
-  against 164, drifting independently since the 2026-07-24 split; and the duplication has already cost
-  one recorded defect in this file, the two spellings of the Mercator band
-  (`tiles/src/tilemath.h` `FB_MERC_LAT_MAX 85.0511287798` against `world/terrain/geo.h`
-  `osmmesh_mercator_lat_max_deg 85.05112877980659`, differing from the 11th digit). Every file under
-  `src/world/terrain/` is compiled as C++ already; no C compiler in this tree reads them. Right: the
-  exception is struck and the seam becomes a C++ interface, which closes § I.17's open *a C-ABI status
-  reaches a house type at the boundary* rather than adding work (`doc/requirements.md` § I.22).
-
 - **The language standard has two values.** `Makefile:26` sets
   `CXXSTD := -std=c++17` and uses it for every compile gate (`verify-generators`, `verify-world`,
   `verify-types`, the `gen_gate` link, the `world` target's C++ half); every shipping compile line
@@ -933,10 +1005,11 @@ the tree more than once, or under a name that says the wrong unit.*
   channels — the run already knows a directory, `OUTSHINE_OUT` — and `Server*` gone or re-homed with
   the collector it needs.
 
-- **Twenty preprocessor conditionals in the library compile for a target no build produces.**
-  `world/TilePool.cpp` (4, plus an `EM_JS` HTTP primitive and `fb_take_http_body`),
-  `core/io/HeapProbe.cpp` (6), `clients/HttpPost.cpp` (4), `render/Renderer.cpp` (3),
-  `core/io/StackProbe.cpp` (2) and `world/TerrainLoader.cpp` (1), with six `#include <emscripten…>`.
+- **Fifteen preprocessor conditionals in the library compile for a target no build produces.**
+  `core/io/HeapProbe.cpp` (6), `clients/HttpPost.cpp` (4), `render/Renderer.cpp` (3) and
+  `core/io/StackProbe.cpp` (2), with four `#include <emscripten…>`. Down from twenty: the fetch's own
+  `EM_JS` primitive, `fb_take_http_body` and the loader's browser arm left with the HTTP hop
+  (2026-08-12).
   No target compiles them since the wasm targets were deleted, so they are unbuilt code inside `src/`
   — the one thing `-Werror` cannot see. `HttpPost.cpp:17` additionally justifies a static's lifetime
   with `-sEXIT_RUNTIME=0`, a flag from a build file deleted in the same commit. Right:
@@ -981,6 +1054,53 @@ the tree more than once, or under a name that says the wrong unit.*
   is `make help`, and it states a capability the tree does not have. Right: the text names the frame
   oracle only, until the client that takes input exists (`doc/requirements.md` § I.14).
 
+- **`src/data` does file I/O with `<cstdio>` and there is no `Host::Storage` to do it through.**
+  `data/ContentStore.cpp` opens, writes, renames and sweeps with `<cstdio>` and `<filesystem>`, and
+  `data/StarBands.cpp` reads its four band files the same way. `doc/requirements.md` § I.24 rules that
+  the library tier is read through a declared host seam and never `fopen`; the transport half of that
+  seam exists now (`data/Transport.h`, implemented in `test/host/`) and the storage half does not.
+  Three further `fopen` sites in `clients/` and `world/` predate this and are the same line. Right:
+  `Host::Storage` beside `Host::Transport`, declared by the library and implemented by the host, and
+  the content store becomes a policy over it rather than a user of a libc call.
+
+- **A source's refusal cannot name what it looked for.** `data/StarBands::Collect` answers
+  `Meaning::Refused` when a band file will not read, and the path it tried is not in the answer — the
+  provider layer may not name `Log` (that is the layering, and it is right), and `Fetched` carries a
+  meaning and bytes and nothing else. The caller knows the directory and logs it
+  (`clients/Outshine.cpp` `star_catalogue_unreachable`), so the run is not silent, but the *file* that
+  failed is not in the record. § I.22's *a test that must not reach the network declares zero sources
+  and gets a refusal by name* wants the name to travel with the refusal. Right: `Fetched` carries a
+  short reason string on the refusing arms only, minted by the source and printed by the caller.
+
+- **`clients/HttpPost.cpp` still carries `curl`, so the tree's transport is behind the host seam and
+  the telemetry poster is not.** Measured 2026-08-12 with `nm -u` over `build/obj-walk/*.o`: zero
+  `curl_` symbols in every `core-`, `data-`, `gen-`, `world-`, `sim-` and `render-` object, eight in
+  `host-CurlTransport.o` where they belong, and **seven in `app-HttpPost.o`**. That is the fb-sim log
+  and telemetry channel, which `doc/todo.md` already carries as its own item (*the library owns its
+  log*); it is recorded here because "no transport library in the library" is now true of the data
+  path and not yet of the tree.
+
+- **A Python file survives in the tree, and it is the one that can recompute the star catalogue.**
+  `assets/sky/stars/build_stars.py` (170 lines) fetches HYG v41, applies proper motion and IAU-1976
+  precession to the run epoch and writes the four magnitude bands the `hyg.bands` source serves. It
+  moved with its data out of the deleted `tiles/` rather than being deleted with it, because the bands
+  are admissible measured data only for as long as *we* can recompute them and nothing else in the
+  tree can. Against `CLAUDE.md`'s **modern C++, and only C++**. Right: it becomes a declared test that
+  bakes the bands and checks them against the committed ones, in C++ — at which point advancing the
+  epoch is a run of the test suite rather than a script somebody remembers.
+
+- **Weather and peaks left the tree with the server, and nothing replaced them.** `tiles/src/wx.cpp`
+  (531 lines), `grib2.cpp` (330), `peaks.cpp` (157) and their headers — a NOAA GFS GRIB2 decoder and an
+  Overpass bounding-box query — were deleted with `tiles/` on 2026-08-12 because **no consumer in
+  `src/` or `test/` ever reached them**: measured by grep for `/wx`, `/peaks`, `FBWX`, `wxb`, `grib`
+  over the whole tree, zero hits outside `tiles/` itself. `core/WeatherProvider.h` is the seam they
+  would have fed and its only implementation is `clients/SceneWeather.h`, which widens two declared
+  JSON numbers. `doc/requirements.md` § I.22 carries *weather is a source under the same contract, with
+  a validity epoch* and *peaks are a source whose scheme is a query* as open lines; they are now open
+  with **no implementation anywhere**, where before they were open with an implementation nothing
+  called. Right: they come back as sources when a consumer reaches for them, and the GRIB2 decoder is
+  rewritten rather than recovered — its former home compiled under two compilers and failed one.
+
 - **`verify-clients` cannot see a scene-building call it was not told about.** `BUILD_CALLS`
   (`test/clients/verify_clients.py:50-55`) is a closed alternation of twenty method names, and
   `ENTRY_INCLUDES`/`ENTRY_FORBIDDEN` are closed lists too. A new `Renderer::SetX` used from a second
@@ -991,132 +1111,14 @@ the tree more than once, or under a name that says the wrong unit.*
   cannot call any method on it, named or not. Right: the include set replaces the regex, and rule 2
   (`main()` under 40 lines, `F.3`) is the only clause that still needs a counter afterwards.
 
-- **`tiles/` is a container the tree still depends on, in a commit that says the container surface is
-  gone.** `Makefile:370` `TILES_BASE ?= http://localhost:8081`, and `verify-still`, `verify-walk` and
-  `verify-walk-asan` — three of the eight gates, and both of `GATES_RUN` — fail without a server that
-  `tiles/Dockerfile` and `tiles/entrypoint.sh` build. `CLAUDE.md`'s *Setup* table names `src/`, `test/`,
-  `doc/` and `.claude/` and does not mention `tiles/`, `tools/`, `assets/`, `mods/`, `vendor/` or
-  `build/` at all, so six root directories — one of them a live network dependency of the gate set —
-  are declared nowhere. Right: either `CLAUDE.md` declares them or § I.22's provider registry absorbs
-  `tiles/`, and until one of the two happens the phrase *the container surface is gone* is true only
-  of `sim/`.
-
-- **`tiles/src/wxfmt.h:6` names two things that do not exist.** There is no `FBWxFormat.h` anywhere in
-  the tree — `git log --diff-filter=D` puts its deletion in `412e970`, so the header the format's C
-  side names as its counterpart has been absent since, and the restructure only moved the wrong path.
-  The checker the line credits with holding the contract — "sim's `build/fb-test-weather`" — has no
-  target in any Makefile in this tree and no source behind it. The wire format's one written statement of who verifies it verifies nothing. Right: the path,
-  and either a test that reads both headers or no claim that one exists.
-
-- **`fb_cache_init` is never called, so the tile cache ignores where the operator put it.**
-  `tiles/src/main.cpp:215-221` calls `fb_bake_init`, `fb_wx_init`, `fb_peaks_init` and
-  `fb_stars_init` with the declared cache directory and does not call `fb_cache_init` at all, so
-  `cache.cpp:15`'s `g_dir` keeps its built-in `/var/cache/fbtiles` and `curl_global_init` never runs.
-  In the container the default happens to be the mount, which is why this survived; on this host,
-  measured, every upstream body failed to store and `/health` reported `fetch_fail=8` after eight
-  requests while a plain `curl` to the same URL returned 200. Fixed in this round because the round
-  could not otherwise run the server it had just ported; kept here as the shape — **an init that is
-  optional at the call site and mandatory in the code** — and right is that the cache directory is a
-  constructor argument, not a global with a default.
-
-- **`tiles/src/tilesrc.cpp:9-24` is a table keyed by nothing.** The three source rows used to be C99
-  array designators (`[FB_TILE_VECTOR] = {...}`), which C++ does not have; they are positional now and
-  their order is the only thing that keeps `vector` from being fetched as terrarium PNG. A comment
-  says so. Right: the kind is a field IN the row and the lookup is a search, or the rows are a
-  `constexpr` table `static_assert`ed against the enum — a rule a comment states is a rule a reviewer
-  enforces.
-
-- **`tiles/osmmesh/terrain.c` had no caller at all.** Its own header (`tiles/osmmesh/terrain.h:4`)
-  said fb-tiles' `elev.c` decodes exactly this. There is no `elev.c` in the tree, and no other file in
-  `tiles/` named `osmmesh_terrain_*` — the 111 lines were dead, and the `Dockerfile` still listed
-  `tiles/src/elev.c` on its `gcc` line, so **`podman build -f tiles/Dockerfile` had been failing since
-  `elev.c` was deleted** and nobody noticed because `tiles/up.sh` was not run. Both are gone in this
-  round; the shape that remains is that **no gate builds the container**, so the one artefact three of
-  eight gates depend on has no build anybody checks.
-
-- **`World::Node::albedo` is a field nothing ever writes.** `world/World.h:244` declares
-  `std::vector<uint8_t> albedo` per node and `World.cpp:61` counts its capacity into the ledger; no
-  assignment to it exists anywhere in `src/`. The client asks for `/t/vector`, `/t/terrain` and
-  `/t/stars` and for no raster at all, which is also why `/health` on a server that has served a whole
-  walk reports `baked=0`: **the entire `/bake` path — `bake.cpp`, `bakepool.cpp`, `raster.cpp`,
-  `draw.h`, `style.h`, about 800 lines — has no consumer in this tree.** Right: either a client that
-  uses a baked albedo or the deletion of all of it; what must not stand is a cache format being tuned
-  for a path nobody reads.
-
-- **The Makefile's one stated cross-project reference was the wrong one.** `Makefile:4` said the only
-  reference from the library into `tiles/` was `tiles/src/style_ver.h`. Nothing in `src/` has ever
-  included `style_ver.h`; what it actually included was `tiles/src/tilemath.h`, from
-  `world/terrain/terrain.h` and `world/TerrainLoader.cpp` — the tile maths, not the bake version. The
-  header is `src/world/tiles/TileMath.h` now and `INC_TILES` is gone, so the statement is true by
-  construction rather than by comment.
-
-- **The container ships the host's macOS binary, and the Linux compile never runs.** `tiles/Dockerfile`
-  now does `COPY tiles/ tiles/` followed by `RUN make -C tiles build`. `tiles/fb-tiles` is a build
-  output that `.gitignore:3` excludes from the repository but **not** from the build context, so a
-  developer who ran `make -C tiles build` on this host — which this round did; the artefact is dated
-  with the round — gets it copied into the image with its mtime intact. `make` then finds the target
-  newer than every prerequisite, does nothing, and `cp tiles/fb-tiles /usr/local/bin/fb-tiles` installs
-  a Mach-O executable into a Debian image. Reproduced: the built image's `/usr/local/bin/fb-tiles` is
-  116 488 B, byte-for-byte the host artefact, and its first four bytes are `cf fa ed fe` — `MH_MAGIC_64`.
-  It fails at `exec` with *Exec format error*, which is the lucky outcome; on a Linux host the same
-  path installs a binary compiled with the wrong headers and flags and it runs. Right: a `.dockerignore`
-  that excludes build outputs, or a `COPY` of the declared sources only — a container built from the
-  working tree's untracked state is not built from the repository.
-- **The ported tile server does not compile on the only platform it ships on.** **Nine of the thirteen**
-  translation units open with `#define _GNU_SOURCE` (`tiles/src/main.cpp`, `cache.cpp`, `prefetch.cpp`,
-  `raster.cpp`, `bake.cpp`, `bakepool.cpp`, `tilemap.cpp`, `wx.cpp`, `peaks.cpp`), which was correct
-  while they were C. g++ predefines `_GNU_SOURCE` on the command line in C++ mode, so each one is now
-  `error: "_GNU_SOURCE" redefined [-Werror]` and the link never starts. Measured under
-  `debian:trixie-slim` + `g++ 14.2.0`, the image's own compiler, with `tiles/Makefile`'s own flags;
-  host clang does not predefine it, which is why the host build is green. With those nine `#define` lines
-  removed the whole server, `../src/world/OsmVector.cpp` included, compiles clean under
-  `-Wall -Wextra -Wpedantic -Werror` on Linux/arm64. Right: delete the lines — nothing in the tree
-  needs the macro spelled by hand in C++.
-- **`make` is not installed in the container's build stage.** `tiles/Dockerfile`'s build image installs
-  `g++ libc6-dev libcurl4-openssl-dev libsdl3-image-dev pkg-config`; `debian:trixie-slim` carries no
-  `make`, so `RUN make -C tiles build` answers `/bin/sh: 1: make: not found`, exit 127. The previous
-  Dockerfile invoked `gcc` directly and had no such dependency. One word on the `apt-get` line.
-- **The tile server's acceptance exercises none of the code the port rewrote.** `/t/terrain` and
-  `/t/vector` are pass-throughs — `tiles/src/main.cpp:143-160` routes them straight from the disk cache
-  to `fb_reply_bin` with no decode — so a byte-for-byte comparison on those two endpoints tests route,
-  cache and HTTP and says nothing about the MVT reader, the rasteriser or the encoder swap, which are
-  reachable only through `/bake`. The decoder merge **does** hold, measured here rather than asserted:
-  old server against new, `/bake/osm/…?tex=512` on `14/8617/5404` (dense urban, 2 213 polygons),
-  `14/8620/5403` and `7/49/48` (open Atlantic, the `ocean`-layer path), decoded and compared per
-  channel — **2 359 296 channels, 0 differing, worst delta 0** on all three. Right: this comparison is
-  the acceptance for a decoder port, and it belongs in the suite rather than in a report.
-- **The two spellings of the Mercator band survive the round that names them.**
-  `src/world/tiles/TileMath.h:19` declares `kMercatorLatMaxDeg = 85.05112877980659` and its own header
-  comment (`:6`) states the defect — *"the band was spelled 85.0511287798 on one side of a process
-  boundary and 85.05112877980659 on the other"* — while `tiles/src/tilemath.h:11` still carries
-  `#define FB_MERC_LAT_MAX 85.0511287798`. The difference is 2·10⁻¹¹ deg and decides nothing numerically;
-  the defect is that a constant has two declarations (`doc/requirements.md` § I.23) and that the comment
-  now describes a state of affairs it did not change. `tiles/` compiles with `-I../src/world` since this
-  round, so the fix is an include and a deletion.
-- **`lights_v1`: 177 MB and 31 767 cache files whose producer no longer exists in the tree.** Measured
-  in the running container's volume. No source file under `tiles/` or `src/` names `lights`; the cache
-  kind outlived the code that wrote it, and nothing prunes it. Beside it, the dead `/bake` path holds
-  `bake_osm` 556 MB / 18 305 files and `bake_photo` 1.3 GB / 17 004 files, and `imagery` 1.1 GB / 68 316
-  files exists only to feed that path (`tiles/src/raster.cpp:161` is the sole consumer of
-  `FB_TILE_IMAGERY`) — **3.1 GB of a 7 GB cache serving nothing**, against `baked=0` over 40 hours of
-  uptime. Right: a cache directory whose kinds are enumerated by the code that can write them, so an
-  orphan kind is a name nothing can produce.
-- **The photo bake is a lossy cache.** `tiles/src/bake.cpp:118` writes imagery mosaics with
-  `IMG_SaveJPG_IO(surface, io, false, 88)`, against `doc/todo.md`'s 1.2 clause that the disk product is
-  written *losslessly, so a warm start reproduces the bake exactly and there is no quality judgement to
-  make*. The upstream tiles are already JPEG, so this is a second generation of the same loss. Moot if
-  `/bake` is deleted; a contradiction while it stands.
-- **German comments survive in files this round rewrote.** `tiles/src/raster.cpp:98-103` carries a
-  six-line block in German (*"OCEAN FIRST, und es ist eine echte Ebene der Quelle…"*), and
-  `tiles/src/bake.cpp` carries four more lines of it, against `CLAUDE.md`'s *the repository speaks one
-  language: English*. Both files were renamed and edited in this round. The `[MESS]` tag in the same
-  block is a third spelling of `[MEAS]`.
-- **Eleven `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
+- **Ten `fb_*` free functions in `src/` were never covered by the exception that was just struck.**
   `fb_stream_open`, `fb_stream_close`, `fb_stream_ground`, `fb_stream_ground_block`,
-  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`, `fb_take_http_body`,
+  `fb_stream_ground_post_m`, `fb_tile_pool`, `fb_fetch_stars`, `fb_load_image_file`,
   `fb_canvas_px`, `fb_post` — across `world/TerrainLoader.{h,cpp}`, `world/World.cpp`,
-  `world/TilePool.cpp`, `world/OsmField.cpp`, `world/BuildingField.cpp`, `world/WaterField.cpp`,
+  `world/OsmField.cpp`, `world/BuildingField.cpp`, `world/WaterField.cpp`,
   `clients/Sim.cpp`, `clients/Outshine.cpp`, `clients/HttpPost.cpp`, `render/Renderer.cpp`.
+  `fb_take_http_body` left with the browser transport (2026-08-12) and `world/TilePool.cpp` is off
+  this list.
   `CLAUDE.md`'s naming rule exempted `world/terrain/` and `FBWX` and nothing else, so these were already
   outside the exception; with `world/terrain/` gone there is no C-ABI code left in the tree at all and
   the prefix has no remaining justification anywhere. Zero `osmmesh_` names survive, which is the half

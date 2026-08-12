@@ -169,19 +169,19 @@ void Outshine::AwaitGround() {
   Phase_ = Phase::Stars;
 }
 
-/* After the world, because the catalogue comes down the same pool the tiles do — one transport, one
- * cache, and the only blocking HTTP left in the client is the pool's own threads. */
+/* After the world, because the catalogue comes down the same pool the tiles do — one registry, one
+ * cache, and the star source is the one in it that has no upstream at all. */
 void Outshine::AwaitStars() {
   static uint8_t stars[kStarBytes];
   const FbStarBands bands = fb_fetch_stars(stars, kStarBytes);
   if (bands.Where == FbStarBands::State::Pending) {
     if (NowMs() - PhaseFromMs_ <= kStreamWaitMs) return;
-    Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()},
+    Log::Warn("outshine", "star_catalogue_unreachable", {{"stars", Sim_.Files().Stars},
         {"waitedMs", NowMs() - PhaseFromMs_}});
   } else if (bands.Bytes > 0) {
     R_.SetStars(stars, bands.Bytes, Sim_.Lat(), Sim_.Lon());
   } else {
-    Log::Warn("outshine", "star_catalogue_unreachable", {{"base", Sim_.TilesBase()}});
+    Log::Warn("outshine", "star_catalogue_unreachable", {{"stars", Sim_.Files().Stars}});
   }
 
   R_.SetCameraBasis(Sim_.Eye(), Sim_.Fwd(), Sim_.Right(), Sim_.Up());

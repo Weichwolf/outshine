@@ -16,15 +16,9 @@
 # per-TU std/-I mix -- for the same maintenance burden of updating roots when the Makefile's -I list
 # changes).
 #
-# Include roots mirror the Makefile's INC_* sets + INC_TILES (tiles/src, style_ver.h --
-# world/TerrainLoader.cpp's one cross-project reference) + the native recipe's vendor isystem set
-# (Dawn generated + vendored webgpu_cpp.h, the curl compat shim) -- update alongside the Makefile if
-# either changes.
-#
-# Out of scope: world/TerrainLoader.cpp and world/TilePool.cpp still carry `#include <emscripten.h>`
-# branches. Pointing clangd at emsdk's own sysroot fights its libc++-vs-libc header ordering when
-# driven by plain clang instead of em++ (tried; made things worse) -- reproducing that needs em++
-# itself as the compile driver, which no target builds any more.
+# Include roots mirror the Makefile's INC_* sets plus the native recipe's vendor isystem set (Dawn
+# generated + vendored webgpu_cpp.h, the curl compat shim) -- update alongside the Makefile if either
+# changes.
 CompileFlags:
   Add:
     - -std=c++20
@@ -34,14 +28,15 @@ CompileFlags:
     - -Wno-unused-parameter
     - -I/Users/cosmo/Git/flightbox/src/core
     - -I/Users/cosmo/Git/flightbox/src/core/io
+    - -I/Users/cosmo/Git/flightbox/src/data
     - -I/Users/cosmo/Git/flightbox/src/generators
     - -I/Users/cosmo/Git/flightbox/src/generators/draw
     - -I/Users/cosmo/Git/flightbox/src/render
     - -I/Users/cosmo/Git/flightbox/src/render/stages
     - -I/Users/cosmo/Git/flightbox/src/world
-    - -I/Users/cosmo/Git/flightbox/src/world/terrain
+    - -I/Users/cosmo/Git/flightbox/src/world/tiles
     - -I/Users/cosmo/Git/flightbox/src/clients
-    - -I/Users/cosmo/Git/flightbox/tiles/src
+    - -I/Users/cosmo/Git/flightbox/test/host
     - -isystem
     - /Users/cosmo/Git/flightbox/vendor/dawn/out/gen/include
     - -isystem

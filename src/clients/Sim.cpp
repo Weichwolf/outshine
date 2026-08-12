@@ -1,5 +1,7 @@
 #include "Sim.h"
 
+#include "DeclaredSources.h"
+
 #include <chrono>
 #include <cmath>
 
@@ -17,8 +19,6 @@
 
 namespace outshine::Clients {
 namespace {
-
-constexpr int kAlbedoTileSize = 512;
 
 /* THE RING. One region is one OSM tile, so no second grid exists, and the radius is what the reach
  * needs: a disc of Sim::kReachM spans 1800 m against a z14 region's 1506, so it can lie across
@@ -459,8 +459,35 @@ Sim::Bring Sim::ResolveGround(double lat, double lon, double *out) const {
 Sim::Bring Sim::Open() {
   if (Opened_) return Bring::Failed;
   if (!Streaming_) {
-    if (!W_.Open(Base_.c_str(), Stance_.Lat, Stance_.Lon, ViewM_, kAlbedoTileSize)) {
-      Log::Error("sim", "world_open_failed", {{"base", Base_}});
+    if (!Wire_) {
+      Log::Error("sim", "no_transport", {{"why", std::string("SetTransport was never called")}});
+      return Bring::Failed;
+    }
+    Content_ = std::make_unique<Data::ContentStore>(Store_);
+    Sources_ = std::make_unique<Data::SourceSet>(*Content_);
+    if (Data::RegisterDeclared(*Sources_, {Assets_.Stars, true}) != Data::Registered::Complete) {
+      Log::Error("sim", "source_registry_refused", {{"why", std::string("duplicate rank")}});
+      return Bring::Failed;
+    }
+    Log::Info("sim", "sources", {{"count", (int)Sources_->Count()},
+                                 {"contentStore", Content_->Directory()},
+                                 {"contentStoreUsed", Content_->Enabled()},
+                                 {"stars", Assets_.Stars}});
+    /* WHAT EACH UPSTREAM SAID ABOUT ITSELF, in the run's own record. A declared number nothing reads
+     * rots; this is its first reader, and the measured payload beside it is what § I.22 owes next. */
+    for (size_t i = 0; i < Sources_->Count(); i++) {
+      const Data::SourceDecl &decl = Sources_->At(i).Declaration();
+      Log::Info("sim", "source",
+                {{"id", decl.Id}, {"version", (int)decl.Version}, {"kind", std::string(Name(decl.Kind))},
+                 {"rank", (int)decl.Order}, {"minZoom", decl.MinZoom}, {"maxZoom", decl.MaxZoom},
+                 {"ancestorFill", decl.AncestorFill}, {"wire", std::string(Name(decl.Wire))},
+                 {"keeps", std::string(Name(decl.Keeps))}, {"need", std::string(Name(decl.Need))},
+                 {"latency", std::string(Name(decl.Latency))},
+                 {"declaredPayloadKB", (double)decl.TypicalPayloadBytes / 1024.0},
+                 {"retryBudget", decl.RetryBudget}});
+    }
+    if (!W_.Open(*Sources_, *Wire_, Stance_.Lat, Stance_.Lon, ViewM_)) {
+      Log::Error("sim", "world_open_failed", {});
       return Bring::Failed;
     }
     Streaming_ = true;
@@ -469,8 +496,7 @@ Sim::Bring Sim::Open() {
   const Bring got = ResolveGround(Stance_.Lat, Stance_.Lon, &ground);
   if (got == Bring::Waiting) return got;
   if (got == Bring::Failed) {
-    Log::Error("sim", "ground_unresolved",
-               {{"lat", Stance_.Lat}, {"lon", Stance_.Lon}, {"base", Base_}});
+    Log::Error("sim", "ground_unresolved", {{"lat", Stance_.Lat}, {"lon", Stance_.Lon}});
     return got;
   }
   Stand_.SetGroundAslM(ground);

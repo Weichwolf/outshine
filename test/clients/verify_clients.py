@@ -35,6 +35,10 @@ ENTRY_POINTS = ("AppWalk.cpp",)
 ENTRY_INCLUDES = {"Log.h", "LogSinks.h", "Outshine.h", "Walker.h", "Scene.h", "Snapshot.h",
                   "Mod.h", "SceneRunner.h", "Artifacts.h", "FileArtifacts.h", "Env.h",
                   "ServerLog.h", "ServerTelemetry.h",
+                  # THE HOST MEDIA. An output medium and a wire are the two things an entry point
+                  # supplies and the library declares but never implements; the delay decorator over
+                  # the wire is what imposes an arrival order for the still gate, in process.
+                  "CurlTransport.h", "DelayedTransport.h",
                   # The run's name plate. Only an entry point knows which mod and which scene it is —
                   # none of that is a piece of the world.
                   "RunIdentity.h"}

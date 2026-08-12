@@ -78,14 +78,17 @@ Span<const OsmField::Feature> OsmField::OfTile(int index) const {
 }
 
 bool OsmField::AddTile(int tx, int ty, int &added) {
-  char path[96];
-  std::snprintf(path, sizeof path, "/t/vector/%d/%d/%d", Zoom_, tx, ty);
-  const TilePool::Reply reply = fb_tile_pool()->Bytes(path, &Scratch_);
-  if (reply == TilePool::Reply::Pending) return false;   /* retry next pass, do NOT mark done */
-  /* Absent is an ANSWER about the place: fb-tiles says there is no vector tile here, so the block is
-   * complete without one and asking again would spin a thread on a settled question. */
-  if (reply == TilePool::Reply::Absent) return true;
-  const int got = (int)Scratch_.size();
+  const Data::Request request(Data::DataKind::VectorMap,
+                              Data::Address::Tile(Zoom_, (uint32_t)tx, (uint32_t)ty));
+  const TilePool::Reply reply = fb_tile_pool()->Bytes(request, &Scratch_);
+  /* Retry next pass, do NOT mark done. A refusal is not an answer about the place either. */
+  if (reply == TilePool::Reply::Pending || reply == TilePool::Reply::Refused) return false;
+  /* Absent is an ANSWER about the place: every covering source says there is no vector tile here, so
+   * the block is complete without one and asking again would spin a thread on a settled question.
+   * Undeclared is settled too, by the declaration rather than by the world — the block is finished
+   * without vectors either way, and the pool has already said so in the log. */
+  if (reply == TilePool::Reply::Absent || reply == TilePool::Reply::Undeclared) return true;
+  const int got = (int)Scratch_.Bytes.size();
 
   const uint32_t tile = (uint32_t)Tiles_.size();
   Tiles_.push_back(Tile{Zoom_, tx, ty, (uint32_t)Features_.size(), 0});
@@ -93,7 +96,7 @@ bool OsmField::AddTile(int tx, int ty, int &added) {
   OsmVector mvt;
   for (uint16_t li = 0; li < (uint16_t)Layers_.size(); li++) {
     bool present = false;
-    if (!mvt.Parse(Scratch_.data(), (size_t)got, Layers_[li].c_str(), &present)) {
+    if (!mvt.Parse(Scratch_.Bytes.data(), (size_t)got, Layers_[li].c_str(), &present)) {
       if (present) {
         Bad_++;
         Log::Error("world", "vectile_undecodable", {{"z", Zoom_}, {"x", tx}, {"y", ty},
@@ -171,7 +174,7 @@ size_t OsmField::HeapBytes() const {
                        (sizeof(std::string) + sizeof(uint32_t) + 2 * sizeof(void *));
   return CapacityBytes(Features_) + CapacityBytes(Rings_) + CapacityBytes(Points_) +
          CapacityBytes(Tiles_) + CapacityBytes(Tags_) + CapacityBytes(Values_) +
-         CapacityBytes(Done_) + CapacityBytes(Scratch_) + CapacityBytes(Keys_) +
+         CapacityBytes(Done_) + CapacityBytes(Scratch_.Bytes) + CapacityBytes(Keys_) +
          CapacityBytes(Strings_) + CapacityBytes(Layers_) + strings + nodes;
 }
 

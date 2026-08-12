@@ -93,6 +93,7 @@ done
 LayerIncludes() {
   case "$1" in
     core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    data) printf '%s' "-Isrc/core -Isrc/data" ;;
     generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     harness) printf '%s' "" ;;
     *) return 1 ;;
@@ -104,6 +105,7 @@ LayerIncludes() {
 LayerGroups() {
   case "$1" in
     core) printf '%s' "src/core src/core/io" ;;
+    data) printf '%s' "src/core src/core/io src/data" ;;
     generators/draw) printf '%s' "src/core src/generators src/generators/draw" ;;
     harness) printf '%s' "" ;;
     *) return 1 ;;
@@ -117,6 +119,7 @@ NotTheHarnesses() {
   case "$1" in
     .) printf '%s' "the harness's own clock" ;;
     clients) printf '%s' "entry points, built by the Makefile" ;;
+    host) printf '%s' "host implementations of what the library declares, built by the Makefile" ;;
     generators) printf '%s' "a gate program the Makefile builds and runs" ;;
     compile | compile/*) printf '%s' "judged by whether it compiles, by the Makefile, never run" ;;
     *) return 1 ;;
@@ -128,6 +131,7 @@ NotTheHarnesses() {
 GroupIncludes() {
   case "$1" in
     src/core | src/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/generators) printf '%s' "-Isrc/core -Isrc/generators" ;;
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     *) return 1 ;;

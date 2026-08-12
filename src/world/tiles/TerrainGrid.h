@@ -59,12 +59,18 @@ inline double PostingFrac(uint32_t k, uint32_t n) { return (double)k * (1.0 / (d
 
 class TerrainGrid {
  public:
-  enum class State { Decoded, NotHere, Undecodable };
+  /* FIVE ANSWERS AND NOT ONE EMPTY FIELD. NotHere is the world and may be cached; Deferred is a
+   * promise; Refused is this tree or the wire; Undecodable is a source that answered with something
+   * that is not a terrarium tile. The last three used to travel on a thread-local beside an empty
+   * vector, because the source interface had no channel for a why. */
+  enum class State { Decoded, NotHere, Undecodable, Deferred, Refused };
 
   /* PNG must be RGB or RGBA (alpha ignored). */
   static TerrainGrid FromTerrariumPng(const uint8_t *png, size_t len);
   static TerrainGrid NotHere() { return TerrainGrid(State::NotHere, TerrainField()); }
   static TerrainGrid Undecodable() { return TerrainGrid(State::Undecodable, TerrainField()); }
+  static TerrainGrid Deferred() { return TerrainGrid(State::Deferred, TerrainField()); }
+  static TerrainGrid Refused() { return TerrainGrid(State::Refused, TerrainField()); }
   static TerrainGrid Holding(TerrainField &&field) {
     return TerrainGrid(State::Decoded, std::move(field));
   }
@@ -98,7 +104,7 @@ class TerrainMesh {
    * state is a defect this run should say out loud. Conflating the two is how a wait becomes
    * permanent and how a broken source becomes an empty world. */
   enum class State { Built, NoTile, SourceUndecodable, FieldTooSmall, StrideDoesNotDivide,
-                     FrameUnusable };
+                     FrameUnusable, Deferred, SourceRefused };
 
   static TerrainMesh Over(const TerrainField &field, const TileEnuMap &map, uint32_t stride);
   static TerrainMesh Nothing(State why) { return TerrainMesh(why); }

@@ -1,7 +1,5 @@
 # --- build outputs ---
 build/
-tiles/fb-tiles
-tiles/cache/
 temp/build/
 temp/flightbox/web/cc.js
 temp/flightbox/web/cc.wasm

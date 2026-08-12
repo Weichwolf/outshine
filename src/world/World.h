@@ -25,6 +25,11 @@
 
 namespace outshine { class WeatherProvider; }
 
+namespace outshine::Data {
+class SourceSet;
+class Transport;
+}  // namespace outshine::Data
+
 namespace outshine::World {
 
 class VegetationTemplates;
@@ -53,8 +58,10 @@ public:
   void SetWeather(const WeatherProvider *weather) { Weather_ = weather; }
   const WeatherProvider *Weather() const { return Weather_; }
 
-  /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). */
-  [[nodiscard]] bool Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS);
+  /* `viewMeters` = the view radius (FB_VIEW_KM * 1000). The registry and the transport are the
+   * caller's; the world borrows them for as long as it streams. */
+  [[nodiscard]] bool Open(Data::SourceSet &sources, Data::Transport &transport, double lat,
+                          double lon, double viewMeters);
 
   /* THE SIMULATION PASS: vectors, class, water bodies, footprints. No camera and no device. */
   void Update(double camLat, double camLon);
@@ -115,10 +122,6 @@ public:
     uint64_t Seq = 0;
   };
   BuildingSurface Buildings() const;
-
-  /* Currently VIEWED mode (0 = OSM, 1 = photo). Whichever is NOT the boot default is the lazy
-   * OVERLAY: fetched only while viewed, for on-screen tiles, then cached. */
-  /* The EAGER base albedo source, uploaded with every tile. */
 
   /* Fraction of the geometry target cut that is SETTLED: on the GPU, or answered Absent by a stream
    * that will not answer again. The client holds the loading screen (and JSBSim) until this crosses
@@ -181,7 +184,10 @@ public:
     long long Asked = 0;      /* of those, the ones the pass had budget to ask about */
     long long Admitted = 0;   /* the pool had it: the mesh moved into the node */
     long long Waiting = 0;    /* the pool is still getting it */
-    long long Absent = 0;     /* there is no ground at this rung, and the answer is final */
+    /* No mesh will come for this rung and the answer is final — the world has no ground here, or
+     * nothing declares the rung. The two causes are kept apart one level down, in the pool's
+     * FetchAbsent against FetchRefused, which is the only place the distinction is acted on. */
+    long long Absent = 0;
     long long Capped = 0;     /* never asked: kMeshBuildsPerPass was spent */
   };
   const Admission &Admissions() const { return Adm_; }
@@ -196,7 +202,7 @@ public:
   double BuildingDecodeMs() const { return BuildingDecodeMs_; }
 
   /* WHAT THE WORLD HOLDS ON THE HEAP, split by pool so a rise has an owner: the resident tile nodes
-   * with their meshes, DAGs, albedo and lamps, the decoded OSM vectors, what is extruded and
+   * with their meshes and DAGs, the decoded OSM vectors, what is extruded and
    * tessellated from them, and the class. */
   /* THE POOLS THE WORLD HOLDS, and the sum is over every field: a measured pool outside the sum is
    * a gap the reader has to know to close, which is the same defect as not measuring it. */
@@ -214,10 +220,11 @@ public:
   void SetPixelFocalLength(double px) { PixelFocal_ = px; }
 
 private:
-  /* WHAT A TILE'S GEOMETRY IS, and Vacant is the third answer the stream can give (world/TilePool.h
-   * Reply::Absent): there is no ground at this rung and there never will be. It is TERMINAL — the
-   * split above it is retracted (Splits) and the coarser rung carries the area, so a leaf that will
-   * never arrive stops being something the load waits for. */
+  /* WHAT A TILE'S GEOMETRY IS, and Vacant is what the stream's two final answers become
+   * (world/TilePool.h Reply::Absent and Reply::Undeclared): there is no ground at this rung and
+   * there never will be. It is TERMINAL — the split above it is retracted (Splits) and the coarser
+   * rung carries the area, so a leaf that will never arrive stops being something the load waits
+   * for. */
   enum class MeshState { Wanted, Held, Vacant };
 
   struct Node {
@@ -241,7 +248,6 @@ private:
     double origin[3];      /* tile-centre ECEF (from the mesh, once built) */
     double anchor[3];      /* the z10 ancestor's centre, valid once Held */
     float err;             /* geometric error (m), valid once Held */
-    std::vector<uint8_t> albedo;
   };
   struct Work { int idx; double prio; };
 
@@ -280,7 +286,6 @@ private:
   const VegetationTemplates *Veg_ = nullptr;  /* borrowed, see SetVegetation's banner */
 
   double PixelFocal_;
-  int TS;
   double ViewM, Lat0, Lon0;
   std::vector<Node> Nodes;
   std::unordered_map<uint64_t, int> Index_;   /* packed (z,x,y) -> index into Nodes */

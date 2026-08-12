@@ -11,6 +11,24 @@ namespace {
  * caching the DECODED grid short-circuits the dominant cold-boot cost: the PNG decode. */
 constexpr int kDemCacheCeiling = 128;
 
+/* WORST WINS over a stitch's four neighbours, and Refused outranks Deferred on purpose: a refusal
+ * that were overwritten by a promise would lose the only name that says this tree or the wire was
+ * wrong, and the tile would be retried for ever with nothing in the record to trace it to. */
+[[nodiscard]] int Severity(TerrainGrid::State s) {
+  switch (s) {
+    case TerrainGrid::State::Refused: return 3;
+    case TerrainGrid::State::Deferred: return 2;
+    case TerrainGrid::State::Undecodable: return 1;
+    case TerrainGrid::State::NotHere:
+    case TerrainGrid::State::Decoded: return 0;
+  }
+  return 0;
+}
+
+[[nodiscard]] TerrainGrid::State Worse(TerrainGrid::State a, TerrainGrid::State b) {
+  return Severity(a) >= Severity(b) ? a : b;
+}
+
 }  // namespace
 
 TerrainTiles::TerrainTiles(TerrainSource &source, EnuFrame frame, Config config)
@@ -50,24 +68,27 @@ void TerrainTiles::CacheStore(int z, uint32_t x, uint32_t y, const TerrainField 
 TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   if (const TerrainField *cached = CacheLookup(z, x, y)) return TerrainGrid::Holding(TerrainField(*cached));
 
-  /* Past the source's max zoom: step up to the parent and crop. A tile server has no header stating
-   * its max zoom, so the host declares it. */
-  int sourceZ = z;
-  uint32_t sourceX = x, sourceY = y;
-  uint32_t subX = 0, subY = 0, subDiv = 1;
-  if (Config_.SourceMaxZoom > 0 && z > Config_.SourceMaxZoom) {
-    const int dz = z - Config_.SourceMaxZoom;
-    if (dz > 16) return TerrainGrid::NotHere();   /* absurd gap */
-    sourceZ = Config_.SourceMaxZoom;
-    subDiv = 1u << dz;
-    sourceX = x >> dz;
-    sourceY = y >> dz;
-    subX = x & (subDiv - 1);
-    subY = y & (subDiv - 1);
+  TerrainBytes answer = Source_.Take(z, x, y);
+  int sourceZ = 0;
+  uint32_t sourceX = 0, sourceY = 0;
+  std::vector<uint8_t> png;
+  if (!answer.TryTake(&sourceZ, &sourceX, &sourceY, &png)) {
+    switch (answer.Where()) {
+      case TerrainBytes::State::Deferred: return TerrainGrid::Deferred();
+      case TerrainBytes::State::NoTile: return TerrainGrid::NotHere();
+      case TerrainBytes::State::Refused:
+      case TerrainBytes::State::Delivered: return TerrainGrid::Refused();
+    }
   }
 
-  const std::vector<uint8_t> png = Source_.TakeTerrainPng(sourceZ, sourceX, sourceY);
-  if (png.empty()) return TerrainGrid::NotHere();
+  /* THE SOURCE MAY ANSWER FROM AN ANCESTOR, and says which one. A source that answered an address
+   * finer than the one asked for, or one absurdly coarser, has broken its own contract — that is
+   * this tree being wrong and not the ground being absent. */
+  const int steps = z - sourceZ;
+  if (steps < 0 || steps >= 24) return TerrainGrid::Refused();
+  const uint32_t subDiv = 1u << steps;
+  const uint32_t subX = x & (subDiv - 1);
+  const uint32_t subY = y & (subDiv - 1);
 
   TerrainGrid grid = TerrainGrid::FromTerrariumPng(png.data(), png.size());
   TerrainField *field = grid.TryFieldMutable();
@@ -92,10 +113,11 @@ TerrainGrid TerrainTiles::RawGrid(int z, uint32_t x, uint32_t y) {
   return grid;
 }
 
-void TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side) {
+TerrainGrid::State TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny,
+                                           Side side) {
   TerrainGrid neighbour = RawGrid(z, nx, ny);
   const TerrainField *n = neighbour.TryField();
-  if (!n || !n->Meshable()) return;
+  if (!n || !n->Meshable()) return neighbour.Where();
 
   /* Dimension mismatches (parent-edge cropping shaves a row) are tolerated — only the overlapping
    * range is averaged. */
@@ -112,6 +134,7 @@ void TerrainTiles::StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t n
     for (uint32_t c = 0; c < cols; c++)
       self.SetM(selfRow, c, 0.5f * (self.AtM(selfRow, c) + n->AtM(neighbourRow, c)));
   }
+  return TerrainGrid::State::Decoded;
 }
 
 TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
@@ -119,22 +142,34 @@ TerrainGrid TerrainTiles::StitchedGrid(int z, uint32_t x, uint32_t y) {
   TerrainField *field = grid.TryFieldMutable();
   if (!field) return grid;
 
-  /* The map's own width at this rung. Past it there is no tile to average with. */
+  /* THE STITCH READS FOUR NEIGHBOURS, so this tile's own answer is not the only one that decides: a
+   * mesh built while any of them was still coming freezes a seam into a node that is never asked
+   * again. A neighbour that is simply ABSENT costs this edge its averaging and nothing more — the
+   * map has no tile there to average with — but one that is deferred or refused is not an answer at
+   * all, and the worst of the four is what this tile becomes. */
+  TerrainGrid::State worst = TerrainGrid::State::Decoded;
   const uint32_t n = 1u << z;
-  if (x > 0) StitchEdge(*field, z, x - 1, y, Side::West);
-  if (x + 1 < n) StitchEdge(*field, z, x + 1, y, Side::East);
-  if (y > 0) StitchEdge(*field, z, x, y - 1, Side::North);
-  if (y + 1 < n) StitchEdge(*field, z, x, y + 1, Side::South);
+  if (x > 0) worst = Worse(worst, StitchEdge(*field, z, x - 1, y, Side::West));
+  if (x + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x + 1, y, Side::East));
+  if (y > 0) worst = Worse(worst, StitchEdge(*field, z, x, y - 1, Side::North));
+  if (y + 1 < n) worst = Worse(worst, StitchEdge(*field, z, x, y + 1, Side::South));
+  if (worst == TerrainGrid::State::Refused) return TerrainGrid::Refused();
+  if (worst == TerrainGrid::State::Deferred) return TerrainGrid::Deferred();
   return grid;
 }
 
 TerrainMesh TerrainTiles::MeshOf(int z, uint32_t x, uint32_t y) {
   const TerrainGrid grid = StitchedGrid(z, x, y);
   const TerrainField *field = grid.TryField();
-  if (!field)
-    return TerrainMesh::Nothing(grid.Where() == TerrainGrid::State::Undecodable
-                                    ? TerrainMesh::State::SourceUndecodable
-                                    : TerrainMesh::State::NoTile);
+  if (!field) {
+    switch (grid.Where()) {
+      case TerrainGrid::State::Undecodable: return TerrainMesh::Nothing(TerrainMesh::State::SourceUndecodable);
+      case TerrainGrid::State::Deferred: return TerrainMesh::Nothing(TerrainMesh::State::Deferred);
+      case TerrainGrid::State::Refused: return TerrainMesh::Nothing(TerrainMesh::State::SourceRefused);
+      case TerrainGrid::State::NotHere:
+      case TerrainGrid::State::Decoded: return TerrainMesh::Nothing(TerrainMesh::State::NoTile);
+    }
+  }
   return TerrainMesh::Over(*field, TileEnuMap::Over(Frame_, z, x, y, 4096), Config_.Stride);
 }
 

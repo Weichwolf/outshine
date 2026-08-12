@@ -21,7 +21,7 @@ constexpr double kFillHeightM = 5.0;
 
 /* [SET] the storey and the roof the default is built out of: 2.9 m floor-to-floor is the German
  * residential measure, 3.2 m is a 35 deg pitched roof on a ~9 m span. The right fix is upstream —
- * fb-tiles must carry OSM's building:levels — and these exist to be deleted when it does. */
+ * the vector upstream must carry OSM's building:levels — and these exist to be deleted when it does. */
 constexpr double kStoreyM = 2.9;
 constexpr double kRoofAllowanceM = 3.2;
 /* [SET] how far back from a carriageway a building still counts as standing ON that street, metres.

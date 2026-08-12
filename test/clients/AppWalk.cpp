@@ -1,7 +1,10 @@
 /* THE PEDESTRIAN'S FRAME, native — the entry point and the output medium, and nothing else. What it
  * shows is Outshine's; WHICH scene it shows is a mod's, and the command line is two words. */
 #include <cstdio>
+#include <cstdlib>
 
+#include "CurlTransport.h"
+#include "DelayedTransport.h"
 #include "Env.h"
 #include "FileArtifacts.h"
 #include "Log.h"
@@ -27,7 +30,28 @@ namespace {
  * preloaded virtual FS in the browser, the working directory natively. Nothing here is content. */
 const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
                                         "assets/world/ground-materials.json",
-                                        "assets/world/species/beech.json", "assets/sky/moon.jpg"};
+                                        "assets/world/species/beech.json", "assets/sky/moon.jpg",
+                                        "assets/sky/stars"};
+
+/* THE CONTENT STORE IS THE RUN'S DECISION and never the library's: cache-on and cache-off differ in
+ * timing and in nothing else, and the still gate turns it off because an imposed arrival order needs
+ * the arrivals to actually happen. */
+[[nodiscard]] Data::ContentStore::Config DeclaredStore() {
+  Data::ContentStore::Config store;
+  store.Directory = Clients::Env("OUTSHINE_CONTENT", "");
+  if (!Clients::Env("OUTSHINE_NO_CONTENT_STORE", "").empty())
+    store.Using = Data::ContentStore::Use::Off;
+  return store;
+}
+
+/* THE ARRIVAL ORDER, IMPOSED. Unset means the host's own order, which is what a person walking gets;
+ * a seed makes the order a declared input, which is what the still gate needs. */
+[[nodiscard]] Host::DelayedTransport::Config DeclaredDelay() {
+  Host::DelayedTransport::Config delay;
+  delay.Seed = (uint32_t)atoi(Clients::Env("OUTSHINE_ARRIVAL_SEED", "0").c_str());
+  delay.SpreadMs = delay.Seed == 0 ? 0 : atoi(Clients::Env("OUTSHINE_ARRIVAL_SPREAD_MS", "400").c_str());
+  return delay;
+}
 
 /* A STANDPOINT SOMEONE ELSE STOOD AT (Snapshot.h): lat/lon/yaw/pitch out of one line of fb-sim's
  * shots.jsonl, refused if the scene it names is not this one. It REPLACES the declared standpoint
@@ -49,6 +73,10 @@ const Clients::Outshine::Assets kAssets{"assets/world/vegetation.json",
 
 int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
            const std::string &runId) {
+  /* BEFORE THE APP (`C.13`): the world's tile pool borrows this wire and joins its threads in the
+   * app's destructor, so the wire has to outlive the app rather than the other way round. */
+  Host::CurlTransport wire({});
+  Host::DelayedTransport ordered(wire, DeclaredDelay());
   Clients::Outshine app(scene, kAssets);
   Clients::ServerTelemetry telemetry(Clients::Env("OUTSHINE_SIM", "http://localhost:8080"), runId);
   /* Natively there is no browser to pin, and an invented agent string would be worse than none. */
@@ -56,7 +84,8 @@ int Record(const Clients::Scene &scene, const Clients::ServerLog::Identity &id,
                                  scene.RenderResolution().Width, scene.RenderResolution().Height});
   app.SetTelemetryIdentity(&identity);
   app.SetTelemetrySink(&telemetry);
-  app.SetTilesBase(Clients::Env("OUTSHINE_TILES", "http://localhost:8081"));
+  app.SetTransport(ordered);
+  app.SetContentStore(DeclaredStore());
   if (!Stand(scene, app)) return 1;
   if (!app.Prepare({nullptr})) return 1;
 

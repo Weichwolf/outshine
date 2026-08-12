@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <thread>
 
+#include "CurlTransport.h"
 #include "Env.h"
 #include "Log.h"
 #include "LogSinks.h"
@@ -97,10 +98,13 @@ int main(int argc, char **argv) {
     Log::Error("world", "scene_unknown", {{"scene", std::string(argv[2])}, {"have", mod.Ids()}});
     return 2;
   }
+  /* BEFORE THE SIM (`C.13`): the world's tile pool borrows this wire and joins its threads in the
+   * sim's destructor, so the wire has to outlive the sim rather than the other way round. */
+  Host::CurlTransport wire({});
   Clients::Sim sim(*scene, {Clients::Env("OUTSHINE_VEGETATION", "assets/world/vegetation.json"),
                             Clients::Env("OUTSHINE_MATERIALS", "assets/world/ground-materials.json"),
-                            "", ""});
-  sim.SetTilesBase(Clients::Env("FB_TILES", "http://localhost:8081"));
+                            "", "", "assets/sky/stars"});
+  sim.SetTransport(wire);
   if (!sim.LoadTables()) return 1;
   /* The ground is a poll (clients/Sim.h). Natively the tile fetch behind it blocks, so this turns
    * once; the loop is what makes that a property of the transport rather than of this caller. */

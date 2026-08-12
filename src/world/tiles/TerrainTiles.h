@@ -15,19 +15,60 @@
 
 namespace outshine::World {
 
-/* WHERE THE BYTES OF ONE TERRAIN TILE COME FROM. Empty means "no tile" — absent, or not fetched yet;
- * which of the two it is belongs to the source, not here. */
+/* WHAT A SOURCE ANSWERED FOR ONE TERRAIN TILE. Four states, because *no tile here*, *not yet*,
+ * *the transport refused* and *an empty body* are four different things and were one empty vector
+ * with the reason on a thread-local. The bytes and the address they came FROM are handed over
+ * together: a request above the source's last native zoom is answered from an ancestor, and which
+ * one it was is what the crop below is computed from. */
+class TerrainBytes {
+ public:
+  enum class State { Delivered, Deferred, NoTile, Refused };
+
+  static TerrainBytes From(int z, uint32_t x, uint32_t y, std::vector<uint8_t> png) {
+    TerrainBytes b(State::Delivered);
+    b.Z_ = z;
+    b.X_ = x;
+    b.Y_ = y;
+    b.Png_ = std::move(png);
+    return b;
+  }
+  static TerrainBytes Waiting() { return TerrainBytes(State::Deferred); }
+  static TerrainBytes Nothing() { return TerrainBytes(State::NoTile); }
+  static TerrainBytes Wire() { return TerrainBytes(State::Refused); }
+
+  [[nodiscard]] State Where() const { return Where_; }
+
+  /* The one door: the address that answered cannot be read without the bytes it answered with. */
+  [[nodiscard]] bool TryTake(int *z, uint32_t *x, uint32_t *y, std::vector<uint8_t> *png) {
+    if (Where_ != State::Delivered) return false;
+    *z = Z_;
+    *x = X_;
+    *y = Y_;
+    *png = std::move(Png_);
+    return true;
+  }
+
+ private:
+  explicit TerrainBytes(State where) : Where_(where) {}
+
+  State Where_;
+  int Z_ = 0;
+  uint32_t X_ = 0, Y_ = 0;
+  std::vector<uint8_t> Png_;
+};
+
+/* WHERE THE BYTES OF ONE TERRAIN TILE COME FROM. The source owns its own zoom bound: a request above
+ * it comes back from an ancestor with that address stated, so this class never has to be told what
+ * the upstream's last zoom is. */
 class TerrainSource {
  public:
   virtual ~TerrainSource() = default;
-  virtual std::vector<uint8_t> TakeTerrainPng(int z, uint32_t x, uint32_t y) = 0;
+  [[nodiscard]] virtual TerrainBytes Take(int z, uint32_t x, uint32_t y) = 0;
 };
 
 class TerrainTiles {
  public:
   struct Config {
-    /* Requests above it step up to the parent tile and crop; 0 = every zoom is served. */
-    int SourceMaxZoom = 0;
     uint32_t Stride = 1;
     /* Decoded source grids held against the next stitch; 0 = the built-in ceiling. A context that
      * only asks about single tiles pays 256 KiB per slot for a cache it cannot use. */
@@ -63,9 +104,10 @@ class TerrainTiles {
    * stitch pass reads its four neighbours raw. */
   TerrainGrid RawGrid(int z, uint32_t x, uint32_t y);
   /* SYMMETRIC averaging: both sides land on the same midpoint, so the heights line up exactly at the
-   * seam. A neighbour that is absent or will not decode costs this edge its averaging and nothing
-   * more — that tile reports its own decode failure when it is built. */
-  void StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny, Side side);
+   * seam. Answers with the neighbour's own state, which is what lets the stitch tell "there is no
+   * tile there to average with" from "that tile has not arrived yet". */
+  [[nodiscard]] TerrainGrid::State StitchEdge(TerrainField &self, int z, uint32_t nx, uint32_t ny,
+                                              Side side);
 
   const TerrainField *CacheLookup(int z, uint32_t x, uint32_t y);
   void CacheStore(int z, uint32_t x, uint32_t y, const TerrainField &field);

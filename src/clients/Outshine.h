@@ -66,7 +66,12 @@ public:
 
   Outshine(const Scene &scene, const Assets &assets);
 
-  void SetTilesBase(const std::string &url) { if (Phase_ == Phase::Declared) Sim_.SetTilesBase(url); }
+  void SetTransport(Data::Transport &transport) {
+    if (Phase_ == Phase::Declared) Sim_.SetTransport(transport);
+  }
+  void SetContentStore(const Data::ContentStore::Config &config) {
+    if (Phase_ == Phase::Declared) Sim_.SetContentStore(config);
+  }
   void SetStance(const Stance &s) { if (Phase_ == Phase::Declared) Sim_.SetStance(s); }
 
   /* WHAT AN ANIMATION CHANNEL MAY MOVE PER FRAME (Animation.h). Each one ends in a renderer setter

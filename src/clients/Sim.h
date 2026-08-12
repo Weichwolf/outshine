@@ -4,11 +4,13 @@
 #ifndef SIM_H
 #define SIM_H
 
+#include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 #include "Buildings.h"
+#include "ContentStore.h"
 #include "EyeTelemetry.h"
 #include "Forest.h"
 #include "GeneratorSet.h"
@@ -27,6 +29,7 @@
 #include "State.h"
 #include "StreamTelemetry.h"
 #include "Telemetry.h"
+#include "SourceSet.h"
 #include "TreeSpecies.h"
 #include "VegetationTemplates.h"
 #include "World.h"
@@ -38,7 +41,7 @@ public:
   /* The engine's own declarations, by path, because the two toolchains mount them differently — a
    * preloaded virtual FS in the browser, the working directory natively. Nothing here is content. */
   struct Assets {
-    std::string Vegetation, GroundMaterials, Species, Moon;
+    std::string Vegetation, GroundMaterials, Species, Moon, Stars;
   };
   struct Stance {
     double Lat = 0.0, Lon = 0.0, YawDeg = 0.0, PitchDeg = 0.0;
@@ -69,11 +72,13 @@ public:
 
   Sim(const Scene &scene, const Assets &assets);
 
-  /* THE ONLY TWO THINGS A CLIENT STILL SAYS. The tile server's address is where this machine
-   * reaches the data and no property of the world; the stance is overridden only by a snapshot
-   * another client wrote (Snapshot.h). Both are read by LoadTables/Open, so they are refused
+  /* THE ONLY THREE THINGS A CLIENT STILL SAYS. The transport is how this machine reaches an
+   * upstream and is no property of the world; whether the content store is used is the run's
+   * decision and changes timing and nothing else; the stance is overridden only by a snapshot
+   * another client wrote (Snapshot.h). All three are read by LoadTables/Open, so they are refused
    * afterwards rather than silently ignored. */
-  void SetTilesBase(const std::string &url) { if (!Opened_) Base_ = url; }
+  void SetTransport(Data::Transport &transport) { if (!Opened_) Wire_ = &transport; }
+  void SetContentStore(const Data::ContentStore::Config &config) { if (!Opened_) Store_ = config; }
   void SetStance(const Stance &s) { if (!Opened_) Stance_ = s; }
 
   /* The declared tables, before anything asks the world a question. */
@@ -160,7 +165,6 @@ public:
   const Assets &Files() const { return Assets_; }
   const SceneWeather &Weather() const { return Wind_; }
   const State &SceneState() const { return State_; }
-  const std::string &TilesBase() const { return Base_; }
 
   double Lat() const { return Stance_.Lat; }
   double Lon() const { return Stance_.Lon; }
@@ -222,6 +226,15 @@ private:
   Stance Stance_;
   double WindDeg_, WindMs_, Clk_;
 
+  /* Borrowed from the client, which owns the host's wire; the registry and the store beneath it are
+   * this object's, because a world that streams is what needs them. DECLARED BEFORE THE WORLD
+   * (`C.13`): the world's tile pool runs threads that read all four, and reverse-order destruction
+   * is what joins those threads after the last read, not before it. */
+  Data::Transport *Wire_ = nullptr;
+  Data::ContentStore::Config Store_;
+  std::unique_ptr<Data::ContentStore> Content_;
+  std::unique_ptr<Data::SourceSet> Sources_;
+
   World::GroundMaterials Mats_;
   World::VegetationTemplates Veg_;
   World::World W_;
@@ -262,7 +275,6 @@ private:
   TelemetrySource *Identity_ = nullptr;
   TelemetryBus Bus_;
 
-  std::string Base_ = "http://localhost:8081";
   double ViewM_ = 60000.0, OrthoM_ = 0.0;
   float SunEl_ = 0.0f, SunAz_ = 0.0f;
   double Eye_[3] = {}, Fwd_[3] = {}, Right_[3] = {}, Up_[3] = {};

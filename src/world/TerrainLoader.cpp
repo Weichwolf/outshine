@@ -16,6 +16,8 @@
 #include <SDL3_image/SDL_image.h>
 
 #include "Log.h"
+#include "SourceSet.h"
+#include "StarBands.h"
 #include "TerrainTiles.h"
 #include "TileGeodesy.h"
 
@@ -26,15 +28,13 @@ using outshine::World::TilePool;
 
 namespace {
 
-constexpr int kProviderTerrainMaxZ = 15;   /* fb-tiles' terrarium source stops here */
-
 /* [SET] The pool's ceiling, in threads: one per core beyond the two the client's own threads
  * occupy. Six against a browser's six connections per host, which is why the in-flight cap and the
  * thread count are the same number. */
 constexpr int kMaxTileThreads = 6;
 
 /* [SET] What the shared byte cache may hold. A z14 Terrarium PNG measures 50-160 KiB and a vector
- * tile 5-54 KiB (fb-tiles, Weserbergland), so this is several rings of both around the camera —
+ * tile 5-54 KiB (measured, Weserbergland), so this is several rings of both around the camera —
  * a ceiling reached only by travelling, and the eviction below is what makes travelling survivable. */
 constexpr size_t kByteBudget = 64u * 1024u * 1024u;
 
@@ -106,29 +106,33 @@ long gGroundDecodes = 0;   /* PNGs the stitch decoded for them -- 5 per build wi
 double gGroundStitchMs = 0.0;   /* the wall the builds spent inside the stitch, decode included */
 bool gGroundPending = false;   /* set by the source: a miss that is a wait, not a hole */
 
-/* THE ORACLE'S BYTES, and the platform split is exactly one statement: a browser's frame thread
- * cannot wait for a fetch, a native one may. Both read the pool's one cache, so the DEM the mesh
- * already pulled is the DEM the oracle reads. */
-[[nodiscard]] TilePool::Reply GroundBytes(const char *path, std::vector<uint8_t> *out) {
-#ifdef __EMSCRIPTEN__
-  return gPool->Bytes(path, out);
-#else
-  return gPool->BytesBlocking(path, out);
-#endif
-}
-
+/* THE ORACLE READS THE POOL'S ONE CACHE, so the DEM the mesh already pulled is the DEM the oracle
+ * reads. It waits on the calling thread, which is legal here and is a property of this host. */
 class OracleTerrain : public TerrainSource {
  public:
-  std::vector<uint8_t> TakeTerrainPng(int z, uint32_t x, uint32_t y) override {
-    if (!gPool) return {};
-    char path[96];
-    std::snprintf(path, sizeof path, "/t/terrain/%d/%u/%u", z, x, y);
+  TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
+    if (!gPool) return TerrainBytes::Wire();
     gGroundDecodes++;   /* a source call IS a DEM cache miss: what it hands back gets decoded */
-    std::vector<uint8_t> bytes;
-    const TilePool::Reply reply = GroundBytes(path, &bytes);
-    if (reply == TilePool::Reply::Pending) gGroundPending = true;
-    if (reply != TilePool::Reply::Ready) return {};
-    return bytes;
+    const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
+    TilePool::Landing landing;
+    switch (gPool->BytesBlocking(request, &landing)) {
+      case TilePool::Reply::Ready: {
+        /* The address that ANSWERED, which is the request's own except where the source served it
+         * from an ancestor — the crop downstream is computed from the difference. */
+        int az = 0;
+        uint32_t ax = 0, ay = 0;
+        if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
+        return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
+      }
+      case TilePool::Reply::Absent: return TerrainBytes::Nothing();
+      /* Terminal, like the pool's own source (world/TilePool.cpp PoolTerrain): no declared source
+       * covers this request, so waiting for it is waiting for nothing. */
+      case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
+      case TilePool::Reply::Refused: return TerrainBytes::Wire();
+      case TilePool::Reply::Pending: break;
+    }
+    gGroundPending = true;
+    return TerrainBytes::Waiting();
   }
 };
 
@@ -216,7 +220,6 @@ void GroundOpen(FbGroundSurface surface) {
   /* The oracle asks in tile fractions and never in ENU metres, so its frame's origin is the map's
    * own and the answer does not depend on where the scene stands. */
   TerrainTiles::Config config;
-  config.SourceMaxZoom = kProviderTerrainMaxZ;
   config.DemCacheTiles = kGroundStitchGrids;
   gGroundTiles = std::make_unique<TerrainTiles>(gGroundSource, EnuFrame::At(0.0, 0.0), config);
 }
@@ -240,15 +243,15 @@ void GroundClose() {
 
 }  // namespace
 
-int fb_stream_open(const char *base, double lat, double lon, FbGroundSurface surface) {
+int fb_stream_open(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
+                   FbGroundSurface surface) {
   TilePool::Config config;
-  config.TilesBase = base ? base : "";
   config.OriginLatDeg = lat;
   config.OriginLonDeg = lon;
   config.Threads = PoolThreads();
   config.ByteBudget = kByteBudget;
   config.DemCacheTiles = kPoolDemCacheTiles;
-  gPool = std::make_unique<TilePool>(config);
+  gPool = std::make_unique<TilePool>(config, sources, transport);
   GroundOpen(surface);
   return 1;
 }
@@ -350,18 +353,17 @@ int fb_load_image_file(const char *path, uint8_t **rgba, int *w, int *h) {
 FbStarBands fb_fetch_stars(uint8_t *dst, int cap) {
   if (!gPool) return {FbStarBands::State::Complete, 0};
   int off = 0;
-  std::vector<uint8_t> band;
-  for (int b = 0; b < 4; b++) {   /* fb-tiles serves 4 HYG mag bands (0..3); no 5th to 404 on */
-    char path[64];
-    std::snprintf(path, sizeof path, "/t/stars/%d/0/0", b);
-    const TilePool::Reply reply = gPool->Bytes(path, &band);
+  TilePool::Landing band;
+  for (uint32_t b = 0; b < Data::StarBands::kBands; b++) {
+    const Data::Request request(Data::DataKind::StarCatalogue, Data::Address::Whole(b));
+    const TilePool::Reply reply = gPool->Bytes(request, &band);
     /* The pool caches what has landed, so the bands already copied are re-copied for free on the
      * next turn and no progress has to be carried across the poll. */
     if (reply == TilePool::Reply::Pending) return {FbStarBands::State::Pending, 0};
-    if (reply != TilePool::Reply::Ready || band.empty()) break;
-    if (off + (int)band.size() > cap) break;
-    memcpy(dst + off, band.data(), band.size());
-    off += (int)band.size();
+    if (reply != TilePool::Reply::Ready || band.Bytes.empty()) break;
+    if (off + (int)band.Bytes.size() > cap) break;
+    memcpy(dst + off, band.Bytes.data(), band.Bytes.size());
+    off += (int)band.Bytes.size();
   }
   return {FbStarBands::State::Complete, off};
 }

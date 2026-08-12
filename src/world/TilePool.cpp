@@ -5,88 +5,43 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <unistd.h>
+#include <thread>
 
 #include "Capacity.h"
 #include "ChunkMesh.h"
+#include "Delivery.h"
 #include "Heap.h"
 #include "Log.h"
+#include "SourceSet.h"
 #include "StackProbe.h"
 #include "TerrainTiles.h"
-
-#ifdef __EMSCRIPTEN__
-#include <emscripten/emscripten.h>
-#include <emscripten/threading.h>
-#else
-#include <curl/curl.h>
-#endif
+#include "Transport.h"
 
 namespace outshine::World {
 
 namespace {
 
-constexpr int kProviderTerrainMaxZ = 15;   /* fb-tiles' terrarium source stops here (tiles/src/tilesrc.cpp) */
+/* [SET] How often a waiting thread asks the registry again, and how long it waits before it hands
+ * the tile back to the queue: 1 ms, 30 000 times, so 30 s of wall. The poll is fine because the
+ * transport is asynchronous by shape — the thread is not holding a connection open, it is asking
+ * whether one has landed. It is a ceiling on how long a THREAD is held, not on how often a tile is
+ * asked for: the caller re-posts, so a slow upstream delays terrain instead of removing it. */
+constexpr int kPollMs = 1;
+constexpr int kPollAttempts = 30000;
 
-/* [SET] How long one thread keeps asking before it hands the tile back to the queue: 60 tries at
- * 50 ms = 3 s. Flat, not backed off, because 202 is fb-tiles saying "I am fetching this upstream
- * right now" and the wait is the upstream round trip, not congestion — a backoff would sleep
- * through the arrival. It is a ceiling on how long a THREAD is held, not on how often a tile is
- * asked for: the caller re-posts, so a slow server delays terrain instead of removing it. */
-constexpr int kFetchAttempts = 60;
-constexpr int kRetryMs = 50;
-
-/* THE ONE STATUS CONTRACT, and fb-tiles/src/main.c is what it reads: 200 hands over bytes, 204 is a
- * hole the caller may cache, 202 means the server is fetching upstream.
- *
- * The split below the 200s is RFC 9110's own: a 4xx (§15.5) says the REQUEST is wrong and repeating
- * it unchanged changes nothing — 408 and 429 (§15.5.9, §15.5.30) are the two that name a retry. A 5xx
- * (§15.6) and a transport failure are the server or the wire, and those do heal. fb-tiles 404s an
- * unknown route, so without this split one mistyped path is every thread issuing a GET every 50 ms
- * against a world that can never arrive.
- *
- * REFUSED IS NOT ABSENT, and that is the whole reason for the fourth answer: 204 is the server
- * making a statement about the WORLD, while a 403 from something between here and it is a statement
- * about the request. Cached as absent, one proxy error during a deploy leaves that quadrant coarse
- * for the life of the process with nothing in the record to trace it to. */
-enum class Status { Bytes, Hole, Refused, Again };
-
-[[nodiscard]] Status Classify(int httpStatus, size_t len) {
-  if (httpStatus == 200) return len > 0 ? Status::Bytes : Status::Again;
-  if (httpStatus == 204) return Status::Hole;
-  if (httpStatus >= 400 && httpStatus < 500 && httpStatus != 408 && httpStatus != 429)
-    return Status::Refused;
-  return Status::Again;
-}
-
-/* WHAT THIS THREAD HAS SPENT INSIDE FetchInto, cumulative, in ms of wall: transport AND the flat
- * retry sleeps above, which is the span the HttpGet clock cannot see. A mesh job subtracts its own
- * share of it, because a build that waited on a 202 did not spend that time building. */
+/* WHAT THIS THREAD HAS SPENT INSIDE FetchInto, cumulative, in ms of wall: the wire AND the polling
+ * above. A mesh job subtracts its own share of it, because a build that waited on a tile did not
+ * spend that time building. */
 thread_local double tFetchBlockedMs = 0.0;
-
-/* WHY A MESH WAS NOT BUILT, and only ONE of these is a statement about the world: a Hole is the tile
- * server's own 204 for this tile's terrain. A Refused is this tree, the request or the wire being
- * wrong — a 4xx that is not the 204 contract, a PNG that will not decode, a source that is not the
- * grid the stitch promises, a partition with no cluster in it. A Wait is a promise not yet kept.
- *
- * A source answers all four with no bytes by contract (tiles/TerrainTiles.h), so the reason travels
- * on a thread-local beside it: the source hands back a byte range and has no channel for a why. It matters
- * because Absent is TERMINAL at the node (world/World.h MeshState::Vacant) — a rung retracted for a
- * proxy error or a slow server deletes ground for good.
- *
- * WORST WINS, and Refused outranks Wait on purpose: a refusal is minted inside a fetch that then
- * reports Pending to the provider, so the other order would erase every name this exists to keep. */
-enum class Miss { None, Hole, Wait, Refused };
-thread_local Miss tMiss = Miss::None;
-[[nodiscard]] Miss Worse(Miss a, Miss b) { return a > b ? a : b; }
 
 uint64_t MeshKey(int z, uint32_t x, uint32_t y) {
   return ((uint64_t)1 << 62) | ((uint64_t)(z & 31) << 56)
        | ((uint64_t)(x & 0xFFFFFFFu) << 28) | (uint64_t)(y & 0xFFFFFFFu);
 }
 uint64_t DagKey(int id) { return ((uint64_t)2 << 62) | (uint64_t)(uint32_t)id; }
-uint64_t PathKey(const char *path) {   /* FNV-1a: the queue keys on a number, the cache on the text */
+uint64_t RequestKey(const std::string &key) {   /* FNV-1a: the queue keys on a number, the cache on the text */
   uint64_t h = 1469598103934665603ull;
-  for (const char *p = path; *p; p++) h = (h ^ (uint64_t)(uint8_t)*p) * 1099511628211ull;
+  for (char c : key) h = (h ^ (uint64_t)(uint8_t)c) * 1099511628211ull;
   return ((uint64_t)3 << 62) | (h & 0x3FFFFFFFFFFFFFFFull);
 }
 
@@ -96,84 +51,17 @@ template <int A> int SeamAt(const float *v) { return v[A] < 0.0f ? 1 : 0; }
 int (*const kSeam[8])(const float *) = {SeamAt<0>, SeamAt<1>, SeamAt<2>, SeamAt<3>,
                                         SeamAt<4>, SeamAt<5>, SeamAt<6>, SeamAt<7>};
 
-#ifdef __EMSCRIPTEN__
-/* WHAT JAVASCRIPT TAKES OUT OF THIS MODULE'S FIXED LINEAR MEMORY, one entry point and one item: a
- * fixed heap turns a refusal into the run's last event, and the event has to say what was being
- * taken. Not inside the anonymous namespace — the linker resolves it by this exact name. */
 }  // namespace
 
-extern "C" EMSCRIPTEN_KEEPALIVE void *fb_take_http_body(int bytes) {
-  return Heap::Take("http body", (size_t)bytes);
-}
-
-namespace {
-
-/* The byte primitive, and the ONLY JavaScript this module contains. A synchronous XMLHttpRequest is
- * legal on a Web Worker and a pthread IS one, so the thread that waits is never the thread that
- * draws — which is the whole reason the pool no longer needs a module of its own. */
-EM_JS(int, FbSyncGet, (const char *url, uint8_t **outPtr, uint32_t *outLen), {
-  try {
-    var xhr = new XMLHttpRequest();
-    xhr.open('GET', UTF8ToString(url), false);
-    xhr.responseType = 'arraybuffer';
-    xhr.send(null);
-    if (xhr.status !== 200 || !xhr.response) return xhr.status | 0;
-    var b = new Uint8Array(xhr.response);
-    var p = _fb_take_http_body(b.length);
-    HEAPU8.set(b, p);
-    HEAPU32[outPtr >> 2] = p;
-    HEAPU32[outLen >> 2] = b.length;
-    return 200;
-  } catch (e) { return -1; }
-})
-
-int HttpGet(const char *url, std::vector<uint8_t> *out) {
-  uint8_t *body = nullptr;
-  uint32_t len = 0;
-  const int status = FbSyncGet(url, &body, &len);
-  if (status == 200 && body && len > 0) out->assign(body, body + len);
-  std::free(body);
-  return status == 200 && len == 0 ? 0 : status;
-}
-#else
-struct CurlSink { std::vector<uint8_t> *Out; };
-
-size_t CurlWrite(void *ptr, size_t size, size_t members, void *user) {
-  const size_t n = size * members;
-  std::vector<uint8_t> *out = ((CurlSink *)user)->Out;
-  out->insert(out->end(), (const uint8_t *)ptr, (const uint8_t *)ptr + n);
-  return n;
-}
-
-int HttpGet(const char *url, std::vector<uint8_t> *out) {
-  CURL *c = curl_easy_init();
-  if (!c) return -1;
-  CurlSink sink{out};
-  curl_easy_setopt(c, CURLOPT_URL, url);
-  curl_easy_setopt(c, CURLOPT_WRITEFUNCTION, CurlWrite);
-  curl_easy_setopt(c, CURLOPT_WRITEDATA, &sink);
-  curl_easy_setopt(c, CURLOPT_FOLLOWLOCATION, 1L);
-  const CURLcode res = curl_easy_perform(c);
-  long status = 0;
-  if (res == CURLE_OK) curl_easy_getinfo(c, CURLINFO_RESPONSE_CODE, &status);
-  curl_easy_cleanup(c);
-  return res == CURLE_OK ? (int)status : -1;
-}
-#endif
-
-}  // namespace
-
-TilePool::TilePool(const Config &config)
-    : Base_(config.TilesBase),
+TilePool::TilePool(const Config &config, Data::SourceSet &sources, Data::Transport &transport)
+    : Sources_(sources),
+      Wire_(transport),
       OriginLatDeg_(config.OriginLatDeg),
       OriginLonDeg_(config.OriginLonDeg),
       ByteBudget_(config.ByteBudget),
       DemCacheTiles_(config.DemCacheTiles),
       CameraLatDeg_(config.OriginLatDeg),
       CameraLonDeg_(config.OriginLonDeg) {
-#ifndef __EMSCRIPTEN__
-  curl_global_init(CURL_GLOBAL_DEFAULT);   /* curl_easy_init's lazy global init is not thread-safe */
-#endif
   const int n = config.Threads > 0 ? config.Threads : 1;
   ContextBytes_ = std::vector<std::atomic<size_t>>((size_t)n);
   Threads_.reserve((size_t)n);
@@ -198,10 +86,10 @@ TilePool::~TilePool() {
               {"meshRefused", l.MeshRefused},
               {"meshCpuMs", l.MeshCpuMs}, {"meshCpuMsPerTile", l.MeshCpuMs / meshes},
               {"dags", l.Dags}, {"dagMs", l.DagMs},
-              {"httpGets", l.Fetches}, {"httpAbsent", l.FetchAbsent},
-              {"httpRefused", l.FetchRefused},
-              {"httpGaveUp", l.FetchGaveUp}, {"httpMs", l.FetchMs},
-              {"httpMsPerGet", l.FetchMs / fetches},
+              {"fetches", l.Fetches}, {"fetchAbsent", l.FetchAbsent},
+              {"fetchRefused", l.FetchRefused},
+              {"fetchGaveUp", l.FetchGaveUp}, {"fetchMs", l.FetchMs},
+              {"fetchMsPerGet", l.FetchMs / fetches},
               {"fetchBlockedMs", l.FetchBlockedMs},
               {"retryWaitMs", l.FetchBlockedMs - l.FetchMs}, {"fetchedMB", l.FetchedMB},
               {"byteCacheMB", (double)ByteCacheBytes() / 1048576.0},
@@ -241,7 +129,7 @@ TilePool::Ledger TilePool::Counters() const {
 size_t TilePool::ByteCacheBytes() const {
   std::lock_guard<std::mutex> lock(CacheMutex_);
   size_t bytes = CapacityBytes(Cache_);
-  for (const CacheEntry &e : Cache_) bytes += e.Path.capacity() + CapacityBytes(e.Data);
+  for (const CacheEntry &e : Cache_) bytes += e.Key.capacity() + CapacityBytes(e.Data);
   return bytes;
 }
 
@@ -254,7 +142,7 @@ size_t TilePool::DemCacheBytes() const {
 size_t TilePool::SchedulerBytes() const {
   std::lock_guard<std::mutex> lock(QueueMutex_);
   size_t bytes = CapacityBytes(Queue_);
-  for (const Job &j : Queue_) bytes += j.Path.capacity() + CapacityBytes(j.Soup);
+  for (const Job &j : Queue_) bytes += (j.Ask ? j.Ask->Key().capacity() : 0) + CapacityBytes(j.Soup);
   bytes += TreeNodeBytes<uint64_t>(Posted_.size());
   bytes += TreeNodeBytes<std::pair<const uint64_t, Result>>(Done_.size());
   for (const std::pair<const uint64_t, Result> &d : Done_)
@@ -263,13 +151,14 @@ size_t TilePool::SchedulerBytes() const {
   return bytes;
 }
 
-TilePool::Reply TilePool::Lookup(const char *path, std::vector<uint8_t> *out) {
+TilePool::Reply TilePool::Lookup(const std::string &key, Landing *out) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
   for (CacheEntry &e : Cache_) {
-    if (e.Path != path) continue;
+    if (e.Key != key) continue;
     e.Used = ++CacheClock_;
     if (e.Absent) return Reply::Absent;
-    out->assign(e.Data.begin(), e.Data.end());
+    out->Bytes.assign(e.Data.begin(), e.Data.end());
+    out->At = e.At;
     return Reply::Ready;
   }
   return Reply::Pending;
@@ -278,10 +167,11 @@ TilePool::Reply TilePool::Lookup(const char *path, std::vector<uint8_t> *out) {
 /* LEAST RECENTLY USED, by bytes. The working set is the ring around the camera and it moves with
  * it, so a cache with no eviction is a leak with a slow fuse. Nothing hands out a pointer into this
  * table — every reader gets a copy — so an eviction cannot pull the ground out from under one. */
-void TilePool::Remember(const std::string &path, const uint8_t *data, size_t len, bool absent) {
+void TilePool::Remember(const std::string &key, const uint8_t *data, size_t len,
+                        const Data::Address &at, bool absent) {
   std::lock_guard<std::mutex> lock(CacheMutex_);
   for (CacheEntry &e : Cache_)
-    if (e.Path == path) return;
+    if (e.Key == key) return;
   long evicted = 0;
   while (!Cache_.empty() && CacheBytes_ + len > ByteBudget_) {
     size_t victim = 0;
@@ -296,7 +186,8 @@ void TilePool::Remember(const std::string &path, const uint8_t *data, size_t len
     Ledger_.Evictions += evicted;
   }
   CacheEntry e;
-  e.Path = path;
+  e.Key = key;
+  e.At = at;
   e.Absent = absent;
   e.Used = ++CacheClock_;
   if (!absent && len > 0) e.Data.assign(data, data + len);
@@ -304,103 +195,127 @@ void TilePool::Remember(const std::string &path, const uint8_t *data, size_t len
   Cache_.push_back(std::move(e));
 }
 
-TilePool::Reply TilePool::FetchInto(const char *path, std::vector<uint8_t> *out) {
-#ifdef __EMSCRIPTEN__
-  /* A browser's frame thread has no synchronous transport at all, so this is not a stall to be
-   * measured later but a call that cannot return bytes: it is the simulation view that belongs
-   * there, and reaching here from it is a mistake about which view the caller holds. */
-  if (emscripten_is_main_browser_thread()) {
-    Log::Error("world", "tilepool_blocking_on_frame_thread", {{"path", std::string(path)}});
-    std::abort();
-  }
-#endif
-  std::string url = Base_;
-  url += path;
+/* ONE REQUEST, POLLED TO A SETTLED ANSWER. The registry is what decides who is asked, in which
+ * order and how often; this loop only waits for it and keeps the clock. */
+TilePool::Reply TilePool::FetchInto(const Data::Request &request, Landing *out) {
+  const std::string key = request.Key();
+  Data::SourceSet::Query query = Sources_.Ask(request);
   Reply reply = Reply::Pending;
-  bool refused = false;
-  double httpMs = 0.0;
-  long gets = 0;
   const auto entered = std::chrono::steady_clock::now();
-  for (int attempt = 0; attempt < kFetchAttempts && reply == Reply::Pending && !refused; attempt++) {
-    out->clear();
+  double pollMs = 0.0;
+  for (int attempt = 0; attempt < kPollAttempts && reply == Reply::Pending; attempt++) {
     const auto t0 = std::chrono::steady_clock::now();
-    const int status = HttpGet(url.c_str(), out);
-    httpMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    gets++;
-    switch (Classify(status, out->size())) {
-      case Status::Bytes:
-        Remember(path, out->data(), out->size(), false);
-        reply = Reply::Ready;
+    Data::Delivery answer = Sources_.Collect(query, Wire_);
+    pollMs += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    Data::Delivery::Answer taken;
+    if (answer.TryTake(&taken)) {
+      out->Bytes.assign(taken.Bytes.begin(), taken.Bytes.end());
+      out->At = taken.At;
+      Remember(key, out->Bytes.data(), out->Bytes.size(), taken.At, false);
+      reply = Reply::Ready;
+      break;
+    }
+    switch (answer.Where()) {
+      case Data::Delivery::State::Pending:
+        std::this_thread::sleep_for(std::chrono::milliseconds(kPollMs));
         break;
-      case Status::Hole:
-        Remember(path, nullptr, 0, true);
+      case Data::Delivery::State::Vacant:
+        /* EVERY COVERING SOURCE SAID THERE IS NOTHING HERE. That is the world, and it is the one
+         * answer this cache may keep. */
+        Remember(key, nullptr, 0, request.Where(), true);
         reply = Reply::Absent;
         break;
-      case Status::Refused:
-        /* NOT remembered and NOT Absent. Repeating the request unchanged cannot help, so the loop
-         * ends — but the answer the caller gets is Pending, because the one thing that must not be
-         * cached under a wrong request is a decision about the world. */
-        Log::Error("world", "tile_refused", {{"path", std::string(path)}, {"status", status}});
-        refused = true;
+      case Data::Delivery::State::Undeclared:
+        /* NO SOURCE COVERS IT. A declaration error, not a place — and it will not heal by asking
+         * again, so it ends the loop without ever becoming an absence. */
+        Log::Error("world", "tile_undeclared", {{"request", key}});
+        reply = Reply::Undeclared;
         break;
-      case Status::Again:
-        usleep((useconds_t)kRetryMs * 1000);
+      case Data::Delivery::State::Refused:
+        Log::Error("world", "tile_refused", {{"request", key}});
+        reply = Reply::Refused;
+        break;
+      case Data::Delivery::State::Delivered:
         break;
     }
   }
-  if (refused) tMiss = Worse(tMiss, Miss::Refused);
+  if (reply == Reply::Pending) Sources_.Abandon(query, Wire_);
   const double blockedMs =
       std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - entered).count();
   tFetchBlockedMs += blockedMs;
   {
     std::lock_guard<std::mutex> ledger(LedgerMutex_);
-    Ledger_.Fetches += gets;
-    Ledger_.FetchMs += httpMs;
+    Ledger_.Fetches++;
+    Ledger_.FetchMs += pollMs;
     Ledger_.FetchBlockedMs += blockedMs;
-    if (reply == Reply::Ready) Ledger_.FetchedMB += (double)out->size() / 1048576.0;
+    if (reply == Reply::Ready) Ledger_.FetchedMB += (double)out->Bytes.size() / 1048576.0;
     if (reply == Reply::Absent) Ledger_.FetchAbsent++;
-    if (refused) Ledger_.FetchRefused++;
-    else if (reply == Reply::Pending) Ledger_.FetchGaveUp++;
+    /* One counter for both, because the distinction it is kept for is absence against fault and a
+     * declaration error is this tree's fault. Which of the two it was is in the log line above. */
+    if (reply == Reply::Refused || reply == Reply::Undeclared) Ledger_.FetchRefused++;
+    if (reply == Reply::Pending) Ledger_.FetchGaveUp++;
   }
-  if (reply == Reply::Pending) out->clear();   /* NOT remembered: the next ask starts the clock again */
+  if (reply != Reply::Ready) out->Bytes.clear();   /* NOT remembered: the next ask starts the clock again */
   return reply;
 }
 
-TilePool::Reply TilePool::Bytes(const char *path, std::vector<uint8_t> *out) {
-  const Reply resident = Lookup(path, out);
+TilePool::Reply TilePool::Bytes(const Data::Request &request, Landing *out) {
+  const std::string key = request.Key();
+  const Reply resident = Lookup(key, out);
   if (resident != Reply::Pending) return resident;
   Job job;
   job.Kind = Rank::Fetch;
-  job.Key = PathKey(path);
-  job.Path = path;
+  job.Key = RequestKey(key);
+  job.Ask = request;
   Result result;
   const Reply posted = Poll(std::move(job), &result);
   if (posted == Reply::Pending) return Reply::Pending;
-  return Lookup(path, out);   /* the fetch's product is the cache entry, not the job's result */
+  /* Nothing is cached for a request nothing covers, and the cache's word for "not here" is Pending
+   * — so this answer has to be the job's, or the caller waits on a question already settled. */
+  if (posted == Reply::Undeclared) return Reply::Undeclared;
+  return Lookup(key, out);   /* the fetch's product is the cache entry, not the job's result */
 }
 
-TilePool::Reply TilePool::BytesBlocking(const char *path, std::vector<uint8_t> *out) {
-  const Reply resident = Lookup(path, out);
+TilePool::Reply TilePool::BytesBlocking(const Data::Request &request, Landing *out) {
+  const Reply resident = Lookup(request.Key(), out);
   if (resident != Reply::Pending) return resident;
-  return FetchInto(path, out);
+  return FetchInto(request, out);
 }
 
 namespace {
 
-/* THE POOL AS A TERRAIN SOURCE: one blocking ask into the shared byte cache, and the ownership of
- * the bytes never leaves a std::vector. */
+/* THE POOL AS A TERRAIN SOURCE: one ask into the shared byte cache, and the pool's answers become
+ * the four the decoder reads. Nothing travels on a thread-local any more. */
 class PoolTerrain : public TerrainSource {
  public:
   explicit PoolTerrain(TilePool &pool) : Pool_(pool) {}
 
-  std::vector<uint8_t> TakeTerrainPng(int z, uint32_t x, uint32_t y) override {
-    char path[96];
-    std::snprintf(path, sizeof path, "/t/terrain/%d/%u/%u", z, x, y);
-    std::vector<uint8_t> bytes;
-    const TilePool::Reply reply = Pool_.BytesBlocking(path, &bytes);
-    if (reply == TilePool::Reply::Pending) tMiss = Worse(tMiss, Miss::Wait);
-    if (reply != TilePool::Reply::Ready) return {};
-    return bytes;
+  TerrainBytes Take(int z, uint32_t x, uint32_t y) override {
+    const Data::Request request(Data::DataKind::Elevation, Data::Address::Tile(z, x, y));
+    TilePool::Landing landing;
+    switch (Pool_.BytesBlocking(request, &landing)) {
+      case TilePool::Reply::Ready: return Answered(landing);
+      case TilePool::Reply::Absent: return TerrainBytes::Nothing();
+      /* The DEM seam has four words and none of them is "nobody covers this". Nothing() is the only
+       * terminal one, and terminal is the half that decides here: no elevation will ever arrive.
+       * The cause is not lost, it is one level down — the pool logs it and counts it as a fault. */
+      case TilePool::Reply::Undeclared: return TerrainBytes::Nothing();
+      case TilePool::Reply::Refused: return TerrainBytes::Wire();
+      case TilePool::Reply::Pending: break;
+    }
+    return TerrainBytes::Waiting();
+  }
+
+ private:
+  /* THE ADDRESS THAT ANSWERED, not the one that was asked for: a request above the source's last
+   * native zoom comes back from an ancestor, and the crop downstream is computed from the
+   * difference. A source that answered with a whole-world address for an elevation tile has broken
+   * its own contract, and that is a refusal rather than a plausible wrong crop. */
+  static TerrainBytes Answered(TilePool::Landing &landing) {
+    int az = 0;
+    uint32_t ax = 0, ay = 0;
+    if (!landing.At.TryTile(&az, &ax, &ay)) return TerrainBytes::Wire();
+    return TerrainBytes::From(az, ax, ay, std::move(landing.Bytes));
   }
 
  private:
@@ -409,25 +324,44 @@ class PoolTerrain : public TerrainSource {
 
 }  // namespace
 
+/* WHY A MESH WAS NOT BUILT, and only ONE of these is a statement about the world: a Hole is every
+ * covering source answering that there is no terrain tile here. A Refused is this tree, the request
+ * or the wire being wrong — a PNG that will not decode, a source that is not the grid the stitch
+ * promises, a partition with no cluster in it. A Wait is a promise not yet kept.
+ *
+ * It matters because Absent is TERMINAL at the node (world/World.h MeshState::Vacant): a rung
+ * retracted for a proxy error or a slow upstream deletes ground for good. The tile's four stitch
+ * neighbours are folded into its own answer inside TerrainTiles, so this reads one state and no
+ * longer a thread-local set somewhere below it. */
+namespace {
+
+enum class Miss { None, Hole, Wait, Refused };
+
+[[nodiscard]] Miss MissOf(TerrainMesh::State state) {
+  switch (state) {
+    case TerrainMesh::State::Built: return Miss::None;
+    /* A place with no DEM is not a defect: it is cached as a final answer. A source that will not
+     * decode is this run saying something is wrong with it — a terrarium tile is 256 by 256 or it is
+     * malformed, so a field too small is the source's defect and not the ground under it. */
+    case TerrainMesh::State::NoTile: return Miss::Hole;
+    case TerrainMesh::State::Deferred: return Miss::Wait;
+    case TerrainMesh::State::SourceUndecodable:
+    case TerrainMesh::State::SourceRefused:
+    case TerrainMesh::State::FieldTooSmall:
+    case TerrainMesh::State::StrideDoesNotDivide:
+    case TerrainMesh::State::FrameUnusable: return Miss::Refused;
+  }
+  return Miss::Refused;
+}
+
+}  // namespace
+
 void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
-  tMiss = Miss::None;
   const TerrainMesh mesh = tiles.MeshOf(job.Z, job.X, job.Y);
   Chunk chunk = {};
   double origin[3] = {0.0, 0.0, 0.0};
-  const char *stage = "fetch";
-  Miss miss = Miss::None;
-  /* A PLACE WITH NO DEM IS NOT A DEFECT and a source that will not decode is not a hole: the first
-   * is cached as a final answer, the second is this run saying something is wrong with it. A
-   * terrarium tile is 256 by 256 or it is malformed, so a field too small is the source's defect
-   * and not a statement about the ground under it. */
-  switch (mesh.Where()) {
-    case TerrainMesh::State::Built: break;
-    case TerrainMesh::State::NoTile: miss = Miss::Hole; break;
-    case TerrainMesh::State::SourceUndecodable:
-    case TerrainMesh::State::FieldTooSmall:
-    case TerrainMesh::State::StrideDoesNotDivide:
-    case TerrainMesh::State::FrameUnusable: miss = Miss::Refused; break;
-  }
+  const char *stage = "source";
+  Miss miss = MissOf(mesh.Where());
   if (miss == Miss::None &&
       (!ChunkBuildEcef(mesh, job.Z, job.X, job.Y, job.Grid, &chunk, origin) || chunk.nverts <= 0)) {
     miss = Miss::Refused;
@@ -445,13 +379,6 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     }
   }
   ChunkFree(&chunk);
-  /* THE STITCH READS FOUR NEIGHBOURS, so this tile's own answer is not the only one that decides:
-   * a mesh built while any of them was still coming is a seam frozen into a node that is never asked
-   * again, and a neighbour the wire refused is not a statement about this tile's ground either. */
-  if (tMiss > miss) {
-    miss = tMiss;
-    stage = "provider";
-  }
   if (miss == Miss::None) {
     out->State = Reply::Ready;
     return;
@@ -462,8 +389,15 @@ void TilePool::RunMesh(TerrainTiles &tiles, const Job &job, Result *out) {
     std::lock_guard<std::mutex> ledger(LedgerMutex_);
     Ledger_.MeshRefused++;
   }
-  /* ONE DOOR TO A TERMINAL ANSWER, and only a Hole goes through it. */
-  out->State = miss == Miss::Hole ? Reply::Absent : Reply::Pending;
+  /* THE MESH PATH'S ONE DOOR TO A TERMINAL ANSWER, and only a Hole goes through it. RunDag below has
+   * a door of its own and it is not this one: a soup too small to partition is a statement about
+   * content the caller supplied, not about the world. */
+  switch (miss) {
+    case Miss::Hole: out->State = Reply::Absent; break;
+    case Miss::Refused: out->State = Reply::Refused; break;
+    case Miss::Wait:
+    case Miss::None: out->State = Reply::Pending; break;
+  }
 }
 
 void TilePool::RunDag(const Job &job, Result *out) {
@@ -509,13 +443,12 @@ void TilePool::Work(int slot) {
   }
   PoolTerrain source(*this);
   TerrainTiles::Config config;
-  config.SourceMaxZoom = kProviderTerrainMaxZ;
   config.DemCacheTiles = DemCacheTiles_;
   TerrainTiles tiles(source, frame, config);
 
   ContextBytes_[(size_t)slot].store(tiles.HeapBytes(), std::memory_order_relaxed);
 
-  std::vector<uint8_t> scratch;
+  Landing scratch;
   for (;;) {
     Job job;
     {
@@ -541,7 +474,7 @@ void TilePool::Work(int slot) {
         RunDag(job, &result);
         break;
       case Rank::Fetch:
-        result.State = FetchInto(job.Path.c_str(), &scratch);
+        result.State = job.Ask ? FetchInto(*job.Ask, &scratch) : Reply::Refused;
         break;
     }
     const double spanMs =
@@ -573,7 +506,8 @@ void TilePool::Work(int slot) {
       else if (Posted_.find(job.Key) != Posted_.end()) {
         /* An Absent outlives the pool's queue (Poll keeps it), so it must not keep a partial build
          * alive with it. */
-        if (result.State == Reply::Absent) result.Build = TileBuild{};
+        if (result.State == Reply::Absent || result.State == Reply::Undeclared)
+          result.Build = TileBuild{};
         Done_[job.Key] = std::move(result);
       }
     }
@@ -586,11 +520,13 @@ TilePool::Reply TilePool::Poll(Job &&job, Result *out) {
   const auto done = Done_.find(job.Key);
   if (done != Done_.end()) {
     /* An Absent is KEPT, posted and done: the answer is final, so every later ask gets the same one
-     * instead of a thread spun on a tile that does not exist. A build is handed over once — the
-     * caller owns it after that, and the key leaves both tables with it. */
-    if (done->second.State == Reply::Absent) {
-      out->State = Reply::Absent;
-      return Reply::Absent;
+     * instead of a thread spun on a tile that does not exist. An Undeclared is kept for the same
+     * reason and it is the stronger case — nothing declares this request, so a second ask cannot
+     * reach a different source. A build is handed over once — the caller owns it after that, and
+     * the key leaves both tables with it. */
+    if (done->second.State == Reply::Absent || done->second.State == Reply::Undeclared) {
+      out->State = done->second.State;
+      return out->State;
     }
     *out = std::move(done->second);
     Done_.erase(done);

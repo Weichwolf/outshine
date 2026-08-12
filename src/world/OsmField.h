@@ -25,6 +25,7 @@
 
 #include "OsmLayer.h"
 #include "Span.h"
+#include "TilePool.h"
 
 namespace outshine::World {
 
@@ -118,7 +119,7 @@ private:
   std::vector<Value> Values_;
   std::unordered_map<std::string, uint32_t> KeyIndex_, StringIndex_;
   std::vector<uint64_t> Done_;
-  std::vector<uint8_t> Scratch_;   /* the tile buffer, once — not once per frame */
+  TilePool::Landing Scratch_;   /* the tile buffer, once — not once per frame */
   int Zoom_;
   int Pending_ = -1;
   long Missing_ = 0, Bad_ = 0;

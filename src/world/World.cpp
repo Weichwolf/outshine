@@ -48,7 +48,7 @@ static inline uint64_t Key(int z, long x, long y) {
 }
 World::World(double pixelFocalLength)
   : PixelFocal_(pixelFocalLength),
-    TS(512), ViewM(6000.0), Lat0(0), Lon0(0),
+    ViewM(6000.0), Lat0(0), Lon0(0),
     Pass(0), Evicted(0), LastLog(0), Leaves(0), DrawnReady(0), Pending(0), TargetTot(0), TargetRdy(0),
     MeshVram(0) {}
 
@@ -57,8 +57,7 @@ World::~World() { if (Opened) fb_stream_close(); }
 World::Pools World::HeapPools() const {
   Pools p;
   for (const Node &n : Nodes)
-    p.TileNodes += CapacityBytes(n.verts) + CapacityBytes(n.idx) + CapacityBytes(n.clusters) +
-                   CapacityBytes(n.albedo);
+    p.TileNodes += CapacityBytes(n.verts) + CapacityBytes(n.idx) + CapacityBytes(n.clusters);
   p.TileNodes += CapacityBytes(Nodes) + CapacityBytes(DrawnHandles_) + CapacityBytes(WorkList) +
                  CapacityBytes(DrawnLeaves) + CapacityBytes(Uncollected_) + CapacityBytes(Retired_);
   p.Vectors = Vectors_.HeapBytes();
@@ -76,16 +75,16 @@ World::Pools World::HeapPools() const {
   return p;
 }
 
-bool World::Open(const char *tilesBase, double lat, double lon, double viewMeters, int albedoTS) {
-  TS = albedoTS;
+bool World::Open(Data::SourceSet &sources, Data::Transport &transport, double lat, double lon,
+                 double viewMeters) {
   ViewM = viewMeters;
   Lat0 = lat;
   Lon0 = lon;
   Index_.clear();
-  if (fb_stream_open(tilesBase, lat, lon, {kMaxZ, kGrid}) == 0) return false;
+  if (fb_stream_open(sources, transport, lat, lon, {kMaxZ, kGrid}) == 0) return false;
   Cls_.Open(lat, lon);
   /* THE VECTOR FIELDS' FLOAT ORIGIN IS THE STANDPOINT, not the first thing that landed on it. An
-   * origin taken from the first footprint is chosen by whichever HTTP response returns first, and the
+   * origin taken from the first footprint is chosen by whichever tile lands first, and the
    * same town then reaches the simplifier in two different float frames — which is a picture decided
    * by pace. The eye stands here at t=0, so it is also the nearest origin the scene has. */
   double origin[3];
@@ -445,9 +444,18 @@ void World::AdmitMesh(Node &nd, int &budget) {
       budget--;
       Adm_.Admitted++;
       break;
+    /* A REFUSAL IS RETRIED, NEVER RETRACTED. Only an absence takes a rung away, and this arm is the
+     * whole reason the pool has a fourth answer: a wire error that read as an absence deleted ground
+     * for the life of the run. */
+    case TilePool::Reply::Refused:
     case TilePool::Reply::Pending:
       Adm_.Waiting++;
       break;
+    /* AND AN UNDECLARED REQUEST IS RETRIED BY NOBODY. It is the one answer that is neither the world
+     * nor a wire: no source covers this rung, and no pass of this loop can change that, so it takes
+     * the rung away exactly as an absence does and the coarser one carries the area. Held in the
+     * arm below rather than beside it, because the node has one terminal state and this is it. */
+    case TilePool::Reply::Undeclared:
     case TilePool::Reply::Absent: {
       nd.Mesh = MeshState::Vacant;
       const int up = nd.z > kRootZ ? Find(nd.z - 1, nd.x >> 1, nd.y >> 1) : -1;
@@ -632,14 +640,13 @@ void World::Refine(const Eye &eye, double nowMs) {
   if (nowMs - LastLog >= 1000.0) {
     double dtMin = (nowMs - LastLog) / 60000.0;   /* interval in minutes for the per-minute rates */
     LastLog = nowMs;
-    long albVram = (long)DrawnReady * TS * TS * 4;
-    double vramMB = (double)(MeshVram + albVram) / 1.0e6;
     double buildsMin = dtMin > 0 ? (Built - PrevBuilt) / dtMin : 0.0;      /* STREAMING-THRASH probe: in a
                                     converged stationary loiter both rates -> ~0; steady climb = evict-rebuild churn */
     double evictMin = dtMin > 0 ? (Evicted - PrevEvicted) / dtMin : 0.0;
     PrevBuilt = Built; PrevEvicted = Evicted;
     Log::Debug("world", "fbworld", {{"leaves", Leaves}, {"drawn", DrawnReady}, {"pending", Pending},
-                                      {"evicted", Evicted}, {"vramMB", vramMB}, {"nodes", (int)Nodes.size()},
+                                      {"evicted", Evicted}, {"meshVramMB", (double)MeshVram / 1.0e6},
+                                      {"nodes", (int)Nodes.size()},
                                       {"buildsPerMin", buildsMin},
                                       {"evictPerMin", evictMin}, {"built", Built}});
   }
