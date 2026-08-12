@@ -17,6 +17,27 @@ is done when it renders, not when a band is exhausted.
 
 ---
 
+## Before the goal begins
+
+**The renderer stage does not start until both of these are true.** Owner's ruling: the goal begins when
+the wasm, Python and container surface is deleted and the data providers are in the library.
+
+| | State |
+|---|---|
+| **Decoders are C++, one each, `stb` gone** | **done** — 3 `.c` → 0, three MVT decoders → one, 19 424 lines of a twice-vendored `stb_image` out, `malloc` outside `core/io/` at zero, geometry counters unmoved |
+| **One content store, keyed by a hash the provider delivers** | `hash = filename`, a directory and nothing else. The provider's hash must cover **its own version** — the one failure it cannot catch. Caching declared per scenario, so cache-on and cache-off differ only in timing |
+| **Each upstream a provider declaring what it covers** | terrarium, versatiles, arcgisonline, NOAA, Overpass behind one registry, ranked, duplicate rank refused at registration. `Absent` from one hands to the next; terminal absence is the exhaustion of the list |
+| **The absence semantics gets an author** | `204 → Hole → Absent → terminal` is minted by our own `main.cpp` and **no upstream sends a 204**. When the hop goes it has none |
+| **No process boundary to our own data** | no `TILES_BASE`, no `:8081`, no container. `nm -u` over the library shows no `curl_` symbol |
+| **Emscripten gone** | 20 conditionals and 6 includes across six files that **no compiler has read** since the wasm target left |
+| **The library owns its log** | a consumer names a path, stdout or stderr. Today, with the collector absent, a run exits 0 and **not one of its 674 log lines mentions a refused post** |
+| **No Python** | `tile_delay.py` dies with the HTTP hop; `verify_clients.py` is a closed allowlist of twenty method names that a new call from a second TU passes in silence |
+| **No container** | `tiles/` itself goes with the providers |
+
+**Deleting `/bake` belongs here too** — 963 lines and **3.1 GB of a 7 GB cache serving nothing**, whose
+format we spent an hour deciding how to tune before finding it has no reader.
+
+
 ## The renderer stage — what it reaches for
 
 Ordered by what unblocks what, not by band.
