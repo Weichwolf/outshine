@@ -23,7 +23,10 @@ until step 11 changes the graphics API:
 | # | Step | Done when |
 |---|---|---|
 | 1 | **The restructure** *(in flight)* | `src/` is pure C++, `test/` mirrors it, no wasm or container artefact remains, the three numbers above unchanged |
-| 2 | **`Check.h`, `run.sh`, three tests** | the harness prints 3 PASS, one demonstrated red, and an `ExpectFail` test the harness inverts |
+| 2 | **`Check.h`, `run.sh`, three tests** *(in flight)* | the harness prints 3 PASS, one demonstrated red, and an `ExpectFail` test the harness inverts |
+| 2a | **Every trace of emscripten deleted** | zero `__EMSCRIPTEN__`, zero `<emscripten…>` in the tree — today 20 conditionals and 6 includes across 6 files that no target compiles |
+| 2b | **The log belongs to the library** | a consumer names a path, stdout or stderr; `ServerLog`, `ServerTelemetry` and `HttpPost` are gone, and with them the collectorless channel whose absence a run cannot currently report |
+| 2c | **No C left** | `src/world/terrain/` and the folded-in `tiles/` are C++; the C-ABI exception is struck — its stated reason was that `terrain.c` is shared with `tiles/`, and `tiles/osmmesh/terrain.c` is a 111-line copy of the 164-line C++ original that says so in its own header |
 | 3 | **Layer archives** from the existing per-group compile lines | all targets link, the three numbers unchanged, object count unchanged |
 | 4 | **Stable requirement ids**, harness reads `COVERS` | unknown-id count 0, a per-band coverage tally prints |
 | 5 | **The negatives move to `test/negative/`** | each demonstrated red *for its own reason*, asserting exactly one error with the exact diagnostic — today they pass on any compile failure, so a typo in a fixture proves nothing |

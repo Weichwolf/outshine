@@ -76,6 +76,12 @@ one is a plugin rather than a patch. Both are declared, both are replaceable, ne
 **Settings are two-tiered.** The library carries the defaults and the values a consumer must not change;
 everything else is set by the test or the client. A value lives in exactly one tier.
 
+**The library owns its log and its telemetry.** A consumer says where they go — a path, stdout, stderr —
+and nothing else. There is no collector to post to and no server to be absent.
+
+**One language: C++.** No `.c`, no C ABI inside the tree, no conditional for a target that does not
+exist. A file that compiles only under some other toolchain is not part of this library.
+
 **Only correct work is committed**, and `git log` is what was — no journal.
 
 ## References
