@@ -41,6 +41,27 @@ format we spent an hour deciding how to tune before finding it has no reader.
 and a test declares what it runs. Nothing under `test/` — a studio subject, a declared run, an
 interactive client — works until a scenario can be declared and loaded.
 
+### Two make targets
+
+**`make` builds the engine. `make test` runs the tests — all of them, or one.** Nothing else.
+Today: **450 lines, 16 targets** — `help walk walk-asan world treebench` and eight `verify-*` plus
+`gates gates-build clean`. Every one of the eight is a test wearing a Makefile recipe, and the
+harness now exists to run them:
+
+| target | becomes |
+|---|---|
+| `verify-generators` · `verify-world` · `verify-types` · `verify-clients` | compile subjects under `test/compile/<layer>/` — already moved |
+| `verify-refusals` | a test: a bench with nothing to measure refuses, an unknown growth form refuses |
+| `verify-walk` · `world` · `treebench` | the test build covers them; a target that only proves a link is a test that links |
+| `verify-walk-asan` | a declared run under `address,undefined` — a test the harness builds with those flags |
+| `verify-still` | **waits for the providers.** It needs an imposed tile arrival order, which is a Python proxy today and is ours for free once the fetch is in-process |
+| `gates` · `gates-build` | the harness *is* the runner; `--tier` already expresses the fast/full split |
+| `help` | a target that prints a list of targets, when there are two |
+| `clean` | `rm -rf build`. Worth one line or worth deleting — say which, do not let it be the third target by default |
+
+**The blocker is `verify-still`**, and it resolves itself: in one process the arrival order is ours,
+so the last Makefile-only gate dies with the last Python file.
+
 ### The tree ends with three directories
 
 **`doc/`, `src/`, `test/`. Nothing else.** Six stand today and each has an answer:
