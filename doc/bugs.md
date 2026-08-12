@@ -1413,3 +1413,147 @@ arbitrary per case, which is how `Triangle.bin` got into that list.
 load-bearing: without it git does not descend into a case directory and never sees the manifest. The
 inverted form makes a new product ignored by construction and a new **tracked** file a deliberate act,
 which is the review moment the enumeration gives away.
+
+## The glTF reader ignores `extensionsRequired`, so a Draco file reads green as a mesh at the origin
+
+`src/gltf/Document.cpp:208-435` (`ReadJson`). Neither `extensionsUsed` nor `extensionsRequired` is read;
+the string `extension` appears twice in `src/gltf/` and both are comments about **file name** extensions.
+
+**Measured, not inferred.** A minimal document declaring `"extensionsRequired":
+["KHR_draco_mesh_compression"]`, one `POSITION` accessor of 3 × VEC3 with no `bufferView`, and the Draco
+payload where the extension puts it:
+
+```
+read=1  error=''
+ReadElements=1  count=9  error=''
+  0 0 0 0 0 0 0 0 0
+```
+
+A triangle at the origin, reported as a successful read.
+
+**Why this is a bug and not a missing feature.** `src/gltf/Document.h:5` states the contract — *"EVERY
+FAILURE IS A REFUSAL THAT NAMES WHAT WAS MISSING"* — `doc/requirements.md` § I.26 requires *"every
+exclusion refused by name rather than approximated"*, `KHR_draco_mesh_compression` is one of § I.26.6's
+eleven **REFUSED** rows, and `test/unit/gltf/AFileThatCannotMeanAnythingIsRefusedByName` asserts that
+property over 13 subjects. The reader therefore *looks like* it refuses what it cannot do.
+
+**The harmless explanations, sought and ruled out.** *No Draco file is in the suite* — the corpus table
+counts one, and `doc/bugs.md` above is already widening the fetch allow-list toward the rest. *The zeros
+are the file's fault* — no: the glTF 2.0 spec makes an accessor with no `bufferView` read as zeros, so
+each half is individually correct and it is the absent `extensionsRequired` check that makes the pair
+silent. *This is the all-zero run `e658b21` already closed* — no: that fix leaves `out` empty on a
+**refused** read, and here nothing is refused. The same door is open for `KHR_mesh_quantization`, which
+is worse in kind: the component types cross, so the geometry is not zeros but plausible numbers in the
+wrong units, and the picture is wrong rather than empty.
+
+**Right:** immediately after the `asset.version` check, refuse by name every entry of `extensionsRequired`
+that is not in a declared supported set — today the empty set, so the sentence is `requires extension
+KHR_draco_mesh_compression, which this reader does not implement`. The set is a declaration the reader
+owns, so adding an extension is adding a name to it and nothing else can silently widen.
+Sources: glTF 2.0 specification, *"All glTF extensions required to load and/or render an asset **MUST** be
+listed in the top-level `extensionsRequired` array"*; Khronos extension registry README, *"An extension is
+considered required if a typical glTF loader would fail to load the asset in the absence of support for
+that extension."* **Fixed when** the fixture above is refused with that sentence, and a
+`KHR_mesh_quantization` document is refused with it too.
+
+## `Node`'s *matrix XOR TRS* invariant is enforced by the reader, 250 lines from the type it protects
+
+`src/gltf/Types.h:107-119`. `Node` is a `struct` carrying `bool HasMatrix`, `double Matrix[16]`,
+`double Translation[3]`, `double Rotation[4]`, `double Scale[3]`, with the invariant written in a comment
+— *"A node carries a matrix or a TRS triple, never both"* — and enforced by an `if` in another file
+(`src/gltf/Document.cpp:369-386`).
+
+**The reason stated at the site is that the reader refuses the file that carries both. It is true and it
+is not the question.** `C.2` — use `class` if the class has an invariant, `struct` if the members can
+vary independently — and `C.40`, define a constructor if a class has an invariant. Here the members
+demonstrably cannot vary independently: `Matrix` is meaningless when `HasMatrix` is false and the TRS
+triple is meaningless when it is true. **A rule a reader enforces can be broken by the next writer of a
+`Node`; a rule a `std::variant<Trs, Matrix4>` carries does not compile.** The "both set" state loses its
+spelling, the "neither" state is `Trs{}` and is identity, `HasMatrix` disappears, and the branch that
+reads it (`Document.cpp:564`) becomes `node.Local()` — which also deletes the possibility of a *second*
+consumer reading `Matrix` without checking the flag and receiving the default identity, i.e. a mesh at
+the origin.
+
+**Worth a round now rather than after the format widens, and the argument is consumer count.** Today
+`Node` has exactly one branch on `HasMatrix` and one test assertion, both inside `src/gltf/`. The bridge
+from the reader to `core/ChunkVtx.h` is the next round (`doc/requirements.md` § I.26) and is a second
+consumer; materials, skins and animations bring more. The edit costs a type, a `Transform Local() const`,
+and one line of `test/unit/gltf/AMatrixNodeAndItsTrsAgree`, and it never costs less than it does now. It
+also shrinks the record from 26 doubles (208 B) to a variant of 136 B (`Per.16`, `Per.18`).
+
+**The caveat, sought and answered.** Is the invariant really exclusive? A node carrying neither is legal
+and means identity — that is the `Trs{}` alternative with its own defaults, so the variant is exhaustive
+and nothing is lost; and glTF forbids animating a `matrix` node, so no later arm needs to decompose one
+back into a TRS triple.
+
+**Two smaller defects in the same declaration, fixed by the same edit:** `double Matrix[16]` and
+`double Translation[3]` are C arrays where `std::array` is the rule (`SL.con.1`), and they decay to
+`const double *` at the `Transform::FromColumnMajor(step.Matrix)` call (`Bounds.3`).
+
+**Fixed when** a `Node` with both a matrix and a translation does not compile.
+
+## `Document::ReadJson` is 228 lines, and the reason stated for it is refuted 30 lines above it
+
+`src/gltf/Document.cpp:208-435`. Measured: **228 lines · 27 `if` · 18 `for` · 7 ternaries → ≥ 53 logical
+paths · 23 `return Refuse` sites · eight top-level arms** (buffers, bufferViews, accessors, meshes,
+cameras, nodes, the parent pass, scenes). `F.3`'s own enforcement note asks for a function that fits a
+screen — *"try 60 lines"* — and *"more than 10 logical paths through"*: this is **3.8× the line budget
+and 5.3× the path budget**. `F.2` as well, since eight arms is eight logical operations.
+
+**The stated reason — one linear pass beats six functions sharing a refusal channel — is refuted by the
+file itself.** `ResolveBuffers` (`:176-206`) *is* one of those six: a private member returning `bool`,
+calling `Refuse`, invoked from `ReadJson:222`. It shares the channel through `Error_` with no ceremony,
+it reads better than the arm it replaced, and it is the counter-example to its own argument sitting 30
+lines above it.
+
+**Ranked below the two entries above, because it admits no wrong value** — every arm's refusal is
+correct today. It is a structure defect, and it is the one that decides how the next 400 lines land.
+
+**Right:** six more members of `ResolveBuffers`' shape. **Timing:** not a round of its own — the
+**opening edit of the round that widens the format**, because materials, textures, images, samplers,
+skins, animations and extensions are seven more arms and roughly 400 more lines, so the split costs the
+same before or after and is worth strictly more before. **What splitting does not buy, said plainly:**
+the arms have a real order dependency — views need buffers, accessors need views, meshes need accessors,
+nodes need meshes and cameras, scenes need nodes — which is today implicit in statement order and would
+still be implicit in call order. The shape that would carry it is each arm taking what it depends on as
+a parameter instead of reading the member; that is the version worth writing.
+
+## A decode failure has no sentence, and the header says it does
+
+`src/gltf/Document.h:6` — *"`Error()` is the sentence"*. `Error_` is written only by `Refuse`, which only
+`Read` and its helpers reach, so `ReadElements`, `ReadIndices`, `WorldTransform` and `ViewTransform` all
+return a bare `false` and leave `Error()` **empty** — measured on a successful read followed by a failed
+`ReadElements` (`AFileThatCannotMeanAnythingIsRefusedByName:139-144` exercises exactly that path and
+asserts only the `false`). `Camera::Projection` has no channel at all.
+
+**This is a diagnostic defect and not a data one, and the distinction is why it ranks last here:**
+`[[nodiscard]]` means no caller can spend the failure without deciding, and a refused `ReadElements`
+leaves `out` empty. The caller knows *that* it failed and cannot say *why*, in a reader whose whole
+stated contract is naming what was missing.
+
+**Right:** the decode path refuses through the same channel, which means it must be able to write —
+`accessor 4 spans [0, 96) of a bufferView of 4 bytes`, `accessor 4 is a VEC3 of floats and an index
+accessor must be a scalar unsigned integer`. **Fixed when** the overrun subject in
+`AFileThatCannotMeanAnythingIsRefusedByName` asserts a wording, like the other 13 do.
+
+## A unit test reports an absent prepared subject as a reader defect
+
+`test/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is
+`test/render/coverage/triangle/scene.gltf`, which § I.26.10 rules **untracked by design** — `manifest.json`
+is the only tracked file in a case directory. Run against a tree carrying only tracked files (measured
+2026-08-12, the manifest copied alone into an empty tree):
+
+```
+FAIL test/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:105  the Khronos Triangle reads as a .gltf with its buffer beside it
+       test/render/coverage/triangle/scene.gltf: cannot be opened
+```
+
+**The harmless reading is real and does not cover it:** the preparer is meant to have run, and the
+refusal sentence does name the missing file, so nobody is misled for long. What is wrong is that *my
+subject was never prepared* is being spent as *the reader failed*, in the one test in this tree that
+checks anything against an outside answer — and it is the test whose red will be read hardest.
+
+**Right** is a tier and not a skip: `doc/requirements.md` § I.20 now carries a `corpus` tier for a test
+whose subject is a prepared artefact. Until it exists, the test's own first claim is *the subject is
+present*, distinct from *the subject reads*. A `--allow-skip` entry is the wrong answer — it makes the
+test green forever, which is the defect class this harness was built to close.
