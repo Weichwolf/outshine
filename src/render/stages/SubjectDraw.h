@@ -2,10 +2,15 @@
  * emitting what the declaration says it emits.
  *
  * POSITION AND, WHERE THE FILE CARRIES ONE, THE FIRST UV. NO NORMAL, and that is still the unit's
- * own limit rather than an omission: this draw emits `rho*L` under a uniform environment, which a
- * Lambertian facet returns whichever way it faces, so a normal would be a number nothing here reads.
- * Inventing one for a subject whose file carries none is what I.26 forbids; a punctual light is
- * where `N.L` becomes correct, and that is a different unit and a different round.
+ * own limit rather than an omission: this draw emits a radiance the DECLARATION derived, so nothing
+ * here reads a direction and a normal would be a number nobody uses. Inventing one for a subject
+ * whose file carries none is what I.26 forbids; a punctual light is where `N.L` becomes correct, and
+ * that is a different unit and a different round.
+ *
+ * THE RADIANCE IS THE DECLARATION'S AND NOT THIS FILE'S. Whether it came from a Lambertian facet
+ * under a uniform environment (`rho*L`) or from an emissive surface (the colour itself) is a
+ * property of the scene that was declared, and the two reduce to one number per surface; deriving it
+ * here would put half a lighting model in a unit that has none.
  *
  * A UV IS NOT INVENTED EITHER. A subject with no `TEXCOORD_0` is drawn by a different pipeline, not
  * by this one with a zero coordinate: a zero uv samples the image's corner and looks like a texture
@@ -25,16 +30,6 @@
 #include "Gpu.h"
 
 namespace outshine::Render {
-
-/* WHAT A STUDIO SUBJECT EMITS, and both numbers belong to the DECLARATION rather than to this file.
- * A Lambertian facet of linear albedo rho under a uniform environment of radiance L returns rho*L,
- * flat across the surface and with no integration left to perform -- which is exactly the closed form
- * a path tracer reduces to under a coverage recipe (doc/requirements.md I.26.13). Emitting it here is
- * one multiply and not a lighting model: there is no direction, no normal and no second light. */
-struct SubjectSurface {
-  float AlbedoLinear[3] = {0, 0, 0};
-  float EnvironmentRadiance = 0;   /* a subject nobody described is black, and visibly so */
-};
 
 /* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
  * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
@@ -60,8 +55,6 @@ class SubjectDraw : public GeometryUnit {
 public:
   void Configure(const Gpu &gpu);
 
-  void SetSurface(const SubjectSurface &surface) { Surface = surface; }
-
   /* Replaces the base-colour texture. A texture with no texels retires the one that was there, so
    * "the case before this one had a texture" is not a state a case can inherit. */
   void SetTexture(const SubjectTexture &texture);
@@ -69,10 +62,18 @@ public:
   /* `verts` is 3 floats per vertex, ECEF offsets from `anchor` in metres; `idx` indexes them.
    * `uv` is 2 floats per vertex or null, and null is what selects the untextured pipeline -- the
    * two are different shaders and neither stands in for the other with a substituted constant.
+   *
+   * `emitted` is 3 floats per vertex: the scene-referred linear radiance that vertex's surface
+   * leaves, which the declaration derived and this unit neither shades nor scales. IT IS PER VERTEX
+   * AND NOT PER SUBJECT so that a subject built from several nodes cannot be drawn in one colour --
+   * a single flat value over touching bodies hides their internal silhouettes, and no rule against
+   * it is needed when the array has no shorter spelling. It is carried flat to the fragment, so a
+   * face's value is the declared one bit for bit and not an interpolation of three equal numbers.
+   *
    * A zero count retires the unit, which is the state every client that never declares a subject
    * stays in for the whole of its life. */
-  void SetMesh(const float *verts, const float *uv, uint32_t nverts, const uint32_t *idx,
-               uint32_t nidx, const double anchor[3]);
+  void SetMesh(const float *verts, const float *uv, const float *emitted, uint32_t nverts,
+               const uint32_t *idx, uint32_t nidx, const double anchor[3]);
 
   void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
@@ -80,7 +81,7 @@ public:
   long TriangleCount() const { return (long)NIdx / 3; }
 
 private:
-  static constexpr int kUniFloats = 24; /* mat4 + anc + emitted -- the WGSL struct `S` verbatim */
+  static constexpr int kUniFloats = 20; /* mat4 + anc -- the WGSL struct `S` verbatim */
 
   void Rebind();
 
@@ -92,14 +93,13 @@ private:
   wgpu::RenderPipeline Plain, Textured;
   wgpu::BindGroupLayout Layout;
   wgpu::BindGroup Bind;
-  wgpu::Buffer Uni, Vtx, Uv, Idx;
+  wgpu::Buffer Uni, Vtx, Uv, Emit, Idx;
   wgpu::Texture BaseColour;
   wgpu::TextureView BaseColourView;
   wgpu::Sampler Samp;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
   double Anchor[3] = {0, 0, 0};
-  SubjectSurface Surface;
 };
 
 } // namespace outshine::Render

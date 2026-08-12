@@ -151,6 +151,56 @@ int main() {
           "the option refusal names the option's own declaration path");
   }
 
+  /* THE DECLARED STORAGE OF THE SCENE-REFERRED CHAIN, which is what a case whose verdict is the
+   * VALUE declares (doc/requirements.md I.26.13). It moves the plan's identity, so a baseline taken
+   * at one precision cannot be read as the other's. */
+  {
+    std::shared_ptr<const RenderPlan> narrow, wide;
+    std::string why;
+    PlanSpec spec = CoverageSpec();
+    const bool half = RenderPlan::Compile(spec, &narrow, why);
+    spec.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+        outshine::Render::ScenePrecision::Float);
+    const bool full = RenderPlan::Compile(spec, &wide, why);
+    CHECK(half && full, "the same declaration compiles at both declared precisions");
+    if (half && full) {
+      CHECK(narrow->Format(Resource::SceneHdr) == outshine::Render::TexelFormat::Rgba16Float &&
+                narrow->Format(Resource::SceneLinear) == outshine::Render::TexelFormat::Rgba16Float,
+            "a plan that declares no precision stores scene radiance in the catalogue's half");
+      CHECK(wide->Format(Resource::SceneHdr) == outshine::Render::TexelFormat::Rgba32Float &&
+                wide->Format(Resource::SceneLinear) == outshine::Render::TexelFormat::Rgba32Float,
+            "a plan that declares Float widens the scene target and the resolve it aliases to, "
+            "together -- a half target feeding a float readback would report the storage as the "
+            "arithmetic");
+      CHECK(wide->Format(Resource::SceneVelocity) ==
+                    narrow->Format(Resource::SceneVelocity) &&
+                wide->Format(Resource::FrameTex) == narrow->Format(Resource::FrameTex),
+            "the declared precision reaches the scene-referred rows and no other: a velocity and a "
+            "display-encoded frame are their formats");
+      CHECK(wide->Digest() != narrow->Digest(),
+            "the storage is part of the plan's identity, so the two precisions are two plans");
+      Note(("half plan digest: " + narrow->Digest()).c_str());
+      Note(("float plan digest: " + wide->Digest()).c_str());
+    }
+  }
+
+  /* A PRECISION DECLARED OVER A PLAN THAT CARRIES NO RADIANCE AT ALL -- here a shadow atlas and the
+   * one stage that draws into it, which is a whole plan whose every target is depth. */
+  {
+    PlanSpec spec;
+    spec.Outputs = {Resource::ShadowAtlas};
+    spec.Content = {Stage::ShadowMap};
+    spec.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+        outshine::Render::ScenePrecision::Float);
+    std::shared_ptr<const RenderPlan> plan;
+    std::string why;
+    const bool compiled = RenderPlan::Compile(spec, &plan, why);
+    CHECK(!compiled, "a declared precision over a plan holding no scene-referred target is refused");
+    CHECK(why.find("render.precision") != std::string::npos,
+          "the precision refusal names its own declaration path");
+    Note(("unread-precision refusal: " + why).c_str());
+  }
+
   /* A LIT SURFACE WITH NO SHADOW MAP is refused and told which stage supplies the atlas, rather than
    * given a cleared texture that would be a second lighting path. */
   {

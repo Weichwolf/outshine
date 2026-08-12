@@ -195,36 +195,77 @@ def lower_to_base_colour(imported):
     return {"source": "gltf-base-colour", "meshes": meshes, "rewired": rewired}
 
 
+def diffuse_material(name, colour):
+    """Never Principled: at metallic 0 it still carries a specular lobe at IOR 1.5.
+
+    The node's Roughness switches the closure to Oren-Nayar above zero; the Cycles closure at zero is
+    exactly max(dot(N,w),0)/pi, so a facet under a uniform environment returns rho*L with no
+    integration left to perform.
+    """
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    tree = material.node_tree
+    tree.nodes.clear()
+    output = tree.nodes.new("ShaderNodeOutputMaterial")
+    shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
+    shader.inputs["Color"].default_value = tuple(colour) + (1.0,)
+    shader.inputs["Roughness"].default_value = 0.0
+    tree.links.new(shader.outputs[0], output.inputs["Surface"])
+    return material
+
+
+def emission_material(name, colour):
+    """A surface whose radiance IS the declared colour: no incoming light, no visibility test and no
+    integral of any kind. It removes the world sampled as a light, the sun's disk, a light's radius
+    and visibility at once, which is every estimator this recipe still carried."""
+    material = bpy.data.materials.new(name)
+    material.use_nodes = True
+    tree = material.node_tree
+    tree.nodes.clear()
+    output = tree.nodes.new("ShaderNodeOutputMaterial")
+    shader = tree.nodes.new("ShaderNodeEmission")
+    shader.inputs["Color"].default_value = tuple(colour) + (1.0,)
+    shader.inputs["Strength"].default_value = 1.0
+    tree.links.new(shader.outputs[0], output.inputs["Surface"])
+    return material
+
+
 def apply_material(imported, declared):
     if declared["source"] == "gltf":
         return {"source": "gltf"}
     if declared["source"] == "gltf-base-colour":
         return lower_to_base_colour(imported)
-    material = bpy.data.materials.new("OracleMaterial")
-    material.use_nodes = True
-    tree = material.node_tree
-    tree.nodes.clear()
-    output = tree.nodes.new("ShaderNodeOutputMaterial")
+    meshes = [obj for obj in imported if obj.type == "MESH"]
     if declared["kind"] == "diffuse":
-        # Never Principled: at metallic 0 it still carries a specular lobe at IOR 1.5.
-        shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
-        shader.inputs["Color"].default_value = tuple(declared["colourLinear"]) + (1.0,)
-        # The node's Roughness switches the closure to Oren-Nayar above zero; the Cycles closure at
-        # zero is exactly max(dot(N,w),0)/pi.
-        shader.inputs["Roughness"].default_value = 0.0
-    else:
-        shader = tree.nodes.new("ShaderNodeEmission")
-        shader.inputs["Color"].default_value = tuple(declared["colourLinear"]) + (1.0,)
-        shader.inputs["Strength"].default_value = 1.0
-    tree.links.new(shader.outputs[0], output.inputs["Surface"])
-    meshes = 0
-    for obj in imported:
-        if obj.type != "MESH":
-            continue
+        # ONE FACET, ONE COLOUR. The closed form rho*L is only available where nothing in the scene
+        # can be seen from anything else, and a subject of several bodies is refused this arm by the
+        # manifest before a render is made.
+        if len(meshes) != 1:
+            fail("material.kind is diffuse over %d meshes, and the closed form holds for a single "
+                 "unoccluded facet" % len(meshes))
+        material = diffuse_material("OracleMaterial", declared["colourLinear"])
+        meshes[0].data.materials.clear()
+        meshes[0].data.materials.append(material)
+        return {"source": "manifest", "kind": "diffuse", "assigned": {meshes[0].name: material.name}}
+
+    # ONE MATERIAL PER OBJECT, KEYED BY THE glTF NODE'S OWN NAME, which the importer carries into the
+    # object's name. A single colour over touching bodies fuses their silhouettes and hides a
+    # misplaced node inside the union; the boundary between two declared colours is exact.
+    colours = declared["colourLinearPerNode"]
+    assigned = {}
+    for obj in meshes:
+        if obj.name not in colours:
+            fail("the scene carries the object %r and the manifest declares colours for %s"
+                 % (obj.name, ", ".join(sorted(colours))))
+        material = emission_material("OracleEmission." + obj.name, colours[obj.name])
         obj.data.materials.clear()
         obj.data.materials.append(material)
-        meshes += 1
-    return {"source": "manifest", "kind": declared["kind"], "meshes": meshes}
+        assigned[obj.name] = material.name
+    for node in sorted(colours):
+        if node not in assigned:
+            fail("the manifest declares a colour for node %r and the scene carries no such object"
+                 % node)
+    return {"source": "manifest", "kind": "emission", "assigned": assigned}
 
 
 def enable_devices(recipe):

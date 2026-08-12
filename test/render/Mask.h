@@ -21,6 +21,8 @@
 #include <cstdint>
 #include <vector>
 
+#include "Metric.h"
+
 namespace outshine::Render::Parity {
 
 struct Mask {
@@ -75,16 +77,6 @@ struct Distribution {
   double P50 = 0, P95 = 0, P99 = 0, Max = 0;
   size_t Samples = 0;
 };
-
-/* Nearest-rank, which is what a percentile over a finite set of pixel distances means: no
- * interpolation between two integer-lattice distances that nothing measured in between. */
-inline double Percentile(const std::vector<double> &sorted, double fraction) {
-  if (sorted.empty()) { return 0.0; }
-  size_t rank = (size_t)std::ceil(fraction * (double)sorted.size());
-  if (rank == 0) { rank = 1; }
-  if (rank > sorted.size()) { rank = sorted.size(); }
-  return sorted[rank - 1];
-}
 
 inline Distribution BoundaryDisplacement(const Mask &a, const Mask &b) {
   const std::vector<Pixel> edgeA = Boundary(a), edgeB = Boundary(b);

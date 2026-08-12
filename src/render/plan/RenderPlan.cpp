@@ -115,6 +115,7 @@ const char *FormatName(TexelFormat f) {
   switch (f) {
     case TexelFormat::Handle: return "handle";
     case TexelFormat::Rgba16Float: return "rgba16float";
+    case TexelFormat::Rgba32Float: return "rgba32float";
     case TexelFormat::Rg16Float: return "rg16float";
     case TexelFormat::R8Unorm: return "r8unorm";
     case TexelFormat::Rgba8UnormSrgb: return "rgba8unorm-srgb";
@@ -171,8 +172,23 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   for (size_t r = 0; r < kResourceCount; ++r) {
     plan->HeldResource_[r] = pull.HeldResource[r];
     plan->Bound_[r] = pull.Bound[r];
+    plan->Format_[r] = kResources[r].Format;
   }
   plan->Aliases_ = pull.Aliases;
+
+  /* THE DECLARED PRECISION, APPLIED WHERE THE SCENE-REFERRED CHAIN IS STORED and nowhere else: the
+   * two rows that carry radiance before the display transfer. Every other row's format is its
+   * meaning -- a velocity is rg16float, a frame is sRGB-encoded -- and widening one of those would
+   * be a different picture rather than a finer measurement of this one. */
+  if (spec.Precision.IsSet() && !plan->HeldResource_[static_cast<size_t>(Resource::SceneHdr)]) {
+    error = "render.precision: no resource of the compiled plan carries scene-referred radiance";
+    return false;
+  }
+  if (spec.Precision.Or(ScenePrecision::Half) == ScenePrecision::Float) {
+    plan->Format_[static_cast<size_t>(Resource::SceneHdr)] = TexelFormat::Rgba32Float;
+    plan->Format_[static_cast<size_t>(Resource::SceneLinear)] = TexelFormat::Rgba32Float;
+  }
+  plan->Precision_ = spec.Precision.Or(ScenePrecision::Half);
 
   /* THE ONE PAIR THAT HAS A FUSED IMPLEMENTATION, and half of it is not a plan. */
   if (plan->HeldStage_[static_cast<size_t>(Stage::TemporalResolve)] &&
@@ -276,7 +292,7 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
   for (size_t r = 0; r < kResourceCount; ++r) {
     if (!plan->HeldResource_[r]) { continue; }
     material += std::string("resource ") + kResources[r].Name + " " +
-                FormatName(kResources[r].Format) + "\n";
+                FormatName(plan->Format_[r]) + "\n";
   }
   material += std::string("display ") + TransferName(plan->Display_) + "\n";
   material += "exposure " + Decimal(plan->Exposure_) + "\n";

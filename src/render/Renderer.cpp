@@ -108,12 +108,20 @@ void Renderer::OnAdapter(wgpu::Adapter a) {
                                       {"maxTexDim2D", (int)lim.maxTextureDimension2D}});
   }
   /* rgba16float and not rg11b10ufloat: the cloud pass blends premultiplied alpha over the HDR target,
-   * and rg11b10 has no alpha channel. */
-  bool rg11 = false;
-  HdrFormat = wgpu::TextureFormat::RGBA16Float;
+   * and rg11b10 has no alpha channel. The plan may widen it to rgba32float, and then the two
+   * features below are what make that format behave like the narrow one instead of being refused at
+   * every bind and every blend. */
+  const bool wideScene =
+      Plan_ && Plan_->Format(Resource::SceneHdr) == TexelFormat::Rgba32Float;
+  HdrFormat = wideScene ? wgpu::TextureFormat::RGBA32Float : wgpu::TextureFormat::RGBA16Float;
   wgpu::DeviceDescriptor dd{};
   std::vector<wgpu::FeatureName> feats;
-  if (rg11) feats.push_back(wgpu::FeatureName::RG11B10UfloatRenderable);
+  if (wideScene) {
+    for (wgpu::FeatureName wanted :
+         {wgpu::FeatureName::Float32Filterable, wgpu::FeatureName::Float32Blendable}) {
+      if (a.HasFeature(wanted)) { feats.push_back(wanted); }
+    }
+  }
   /* The per-pass clock is TELEMETRY and not a mode, so it is asked for whenever the
    * adapter has it. An adapter without it is not refused a device it could have had — the row then
    * says the stage times are absent. In Chrome the feature needs
@@ -894,31 +902,76 @@ ReadState Renderer::ReadDepth(std::vector<float> &depth) {
   return ReadState::Ready;
 }
 
+namespace {
+
+/* binary16 -> f32, by the format's own rules and not by a library: a subnormal, an infinity and a
+ * NaN all appear in a render target and a conversion that flushed one would be a second thing that
+ * can be wrong inside a measurement. */
+float HalfToFloat(uint16_t bits) {
+  const uint32_t sign = (uint32_t)(bits & 0x8000u) << 16;
+  uint32_t exponent = (bits >> 10) & 0x1Fu;
+  uint32_t mantissa = bits & 0x3FFu;
+  uint32_t assembled = 0;
+  if (exponent == 0) {
+    if (mantissa != 0) {
+      int shift = 0;
+      while ((mantissa & 0x400u) == 0) {
+        mantissa <<= 1;
+        ++shift;
+      }
+      mantissa &= 0x3FFu;
+      assembled = ((uint32_t)(127 - 15 - shift + 1) << 23) | (mantissa << 13);
+    }
+  } else if (exponent == 0x1Fu) {
+    assembled = 0x7F800000u | (mantissa << 13);
+  } else {
+    assembled = ((exponent + 127 - 15) << 23) | (mantissa << 13);
+  }
+  assembled |= sign;
+  float value = 0;
+  memcpy(&value, &assembled, sizeof value);
+  return value;
+}
+
+} // namespace
+
 /* THE SCENE-REFERRED LINEAR TAP. Same shape as ReadDepth and the same cost model: it copies a
  * texture that already exists, on the frames a caller asks for and never on a frame nobody asks.
  * `SceneLinear` may be the resolve's own attachment or, through the plan's alias, the scene target
  * it falls back to -- and the plan publishes which, so a comparison knows which image it got. */
-ReadState Renderer::ReadSceneLinear(std::vector<uint16_t> &halfRgba) {
+ReadState Renderer::ReadSceneLinear(std::vector<float> &rgba) {
   const wgpu::Texture &source =
       Plan_->Bound(Resource::SceneLinear) == Resource::SceneLinear ? Taa->OutputTexture(FrameNo)
                                                                     : HdrTex;
   if (!DeviceUsable() || !source) return ReadState::Failed;
+  const bool wide = Plan_->Format(Resource::SceneLinear) == TexelFormat::Rgba32Float;
+  const uint32_t texel = wide ? 16u : 8u;
   if (LinearRead.Idle())
     LinearRead.FromTexture(Device, Queue, source, wgpu::TextureAspect::All, (uint32_t)Width,
-                           (uint32_t)Height, 8u);
+                           (uint32_t)Height, texel);
   const ReadState st = LinearRead.Poll(Instance);
   if (st == ReadState::Pending) return st;
   if (st == ReadState::Failed) {
     LinearRead.Release();
     return st;
   }
-  const uint32_t unpaddedRow = (uint32_t)Width * 8u;
   const uint32_t paddedRow = LinearRead.RowBytes();
   const uint8_t *mapped = LinearRead.Rows();
-  halfRgba.resize((size_t)Width * (size_t)Height * 4u);
-  for (int y = 0; y < Height; y++)
-    memcpy((uint8_t *)halfRgba.data() + (size_t)y * unpaddedRow, mapped + (size_t)y * paddedRow,
-           unpaddedRow);
+  rgba.resize((size_t)Width * (size_t)Height * 4u);
+  for (int y = 0; y < Height; y++) {
+    const uint8_t *row = mapped + (size_t)y * paddedRow;
+    if (wide) {
+      memcpy(rgba.data() + (size_t)y * (size_t)Width * 4u, row, (size_t)Width * 4u * sizeof(float));
+      continue;
+    }
+    /* The half path widens rather than reinterpreting: binary16 to f32 is exact, so one currency
+     * leaves this call and the plan is what says which storage produced it. */
+    for (size_t component = 0; component < (size_t)Width * 4u; ++component) {
+      uint16_t bits = 0;
+      memcpy(&bits, row + component * sizeof(uint16_t), sizeof bits);
+      rgba[(size_t)y * (size_t)Width * 4u + component] = HalfToFloat(bits);
+    }
+  }
   LinearRead.Release();
   return ReadState::Ready;
 }

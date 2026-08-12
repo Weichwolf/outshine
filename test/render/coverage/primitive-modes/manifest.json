@@ -104,7 +104,7 @@
         0.8,
         0.8
       ],
-      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. Nothing in a coverage comparison reads it; it is here so the picture a person opens is not black."
+      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. This subject is a single unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346 -- so this is one of the cases that keeps that number exercised (doc/requirements.md I.26.13)."
     }
   },
   "renders": {

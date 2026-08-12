@@ -74,10 +74,16 @@ public:
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
   static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn — the numerator of that division */
 
-  /* THE SCENE-REFERRED LINEAR TAP: W*H RGBA half-floats, row-major, exactly the bits `SceneLinear`
-   * holds -- resolved linear radiance BEFORE the occlusion composite and BEFORE the exposure. It is
-   * the zero point a radiance comparison needs, and a plan that holds no such resource refuses. */
-  [[nodiscard]] ReadState ReadSceneLinear(std::vector<uint16_t> &halfRgba);
+  /* THE SCENE-REFERRED LINEAR TAP: W*H RGBA floats, row-major -- resolved linear radiance BEFORE the
+   * occlusion composite and BEFORE the exposure. It is the zero point a radiance comparison needs,
+   * and a plan that holds no such resource refuses.
+   *
+   * ONE CURRENCY OUT, AND THE PLAN SAYS WHICH STORAGE PRODUCED IT. Under `ScenePrecision::Half` the
+   * values are widened from binary16, which is exact; under `Float` they are the target's own bits.
+   * A caller whose verdict is the value reads `Plan::Format(Resource::SceneLinear)` to know which
+   * floor it is measuring against -- the half target rounds on store and a threshold that ignored
+   * that would be reporting the format. */
+  [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
   /* [sunIrr.rgb, _, skyIrr.rgb, _] in top-of-atmosphere-solar = 1 units: the scale everything lit is
    * multiplied by, measurable instead of asserted. */
@@ -178,14 +184,11 @@ public:
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh of positions and,
    * where the file carries one, first uvs, in ECEF offsets from `anchor`. A client that never
    * declares one draws nothing extra. */
-  void SetSubjectMesh(const float *verts, const float *uv, uint32_t nverts, const uint32_t *idx,
-                      uint32_t nidx, const double anchor[3]) {
-    Geometry->Subjects().SetMesh(verts, uv, nverts, idx, nidx, anchor);
+  void SetSubjectMesh(const float *verts, const float *uv, const float *emitted, uint32_t nverts,
+                      const uint32_t *idx, uint32_t nidx, const double anchor[3]) {
+    Geometry->Subjects().SetMesh(verts, uv, emitted, nverts, idx, nidx, anchor);
   }
   long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
-  /* THE TWO NUMBERS A STUDIO DECLARES about its subject's appearance: linear albedo, and the radiance
-   * of the uniform environment it stands in. The renderer holds them and shades nothing. */
-  void SetSubjectSurface(const SubjectSurface &surface) { Geometry->Subjects().SetSurface(surface); }
   /* THE BASE-COLOUR TEXTURE the declaration hands across, already decoded to RGBA8: the file says
    * which image and how it is addressed, the consumer decodes it, and this holds it. */
   void SetSubjectTexture(const SubjectTexture &texture) {

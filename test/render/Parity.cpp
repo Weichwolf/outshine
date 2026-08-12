@@ -31,6 +31,7 @@
  * the empty-image hole living inside the image. At one sample per pixel under a 0.01 px box filter
  * the oracle's alpha is exactly 0 or 1, so straight and premultiplied coincide here and the choice
  * only starts to matter when a filter widens; it is stated now so that it is not chosen then. */
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -80,7 +81,10 @@ struct Case {
   Viewport Frame;
   Acceptance Accepted;
   std::string CameraSource;
-  outshine::Render::SubjectSurface Surface;
+  /* Scene-referred linear radiance per subject part, derived from the case's own material
+   * declaration and from nothing else. */
+  std::vector<std::array<float, 3>> Emitted;
+  std::string MaterialKind;
   /* True where the manifest hands the surface to the file. The decoded image is held here because
    * the renderer copies it and the studio only points at it. */
   bool MaterialFromFile = false;
@@ -205,23 +209,14 @@ public:
   subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
 
-  /* WHAT THE SUBJECT EMITS, taken from the case's own declaration and never from a constant here: a
-   * material the manifest does not describe leaves the subject black, which is visible.
-   *
-   * `gltf-base-colour` IS THE ARM WHERE THE FILE OWNS THE SURFACE, so nothing is read here and the
+  /* `gltf-base-colour` IS THE ARM WHERE THE FILE OWNS THE SURFACE, so nothing is read here and the
    * factor and the image both come out of the document once the subject has been built. Declaring
    * either of them beside a Khronos asset would be measuring our re-declaration and not the asset. */
   const Json::Ref material = root["scene"]["material"];
   subject.MaterialFromFile = material["source"].StrEquals("gltf-base-colour");
-  if (!subject.MaterialFromFile) {
-    for (size_t channel = 0; channel < 3; ++channel) {
-      subject.Surface.AlbedoLinear[channel] = (float)material["colourLinear"][channel].Num(0.0);
-    }
-  }
+  subject.MaterialKind = material["kind"].Str("");
   const Json::Ref world = root["scene"]["world"];
-  if (world["kind"].StrEquals("factory")) {
-    subject.Surface.EnvironmentRadiance = (float)kFactoryWorldRadiance;
-  } else if (!world["kind"].Str("").empty()) {
+  if (!world["kind"].StrEquals("factory") && !world["kind"].Str("").empty()) {
     error = "scene.world.kind is '" + world["kind"].Str("") +
             "', and this runner knows the radiance of Blender's factory world and of no other";
     return false;
@@ -263,7 +258,13 @@ std::string MissingInputs(const Case &subject) {
     const std::string entry = subjects[which]["entry"].Str("");
     if (!entry.empty() && !Present(subject.Directory + entry)) { owed.push_back(entry); }
   }
-  if (!Present(subject.Directory + "oracle.raw")) { owed.push_back("oracle.raw"); }
+  const Json::Ref recipes = subject.Manifest.Root()["renders"];
+  for (size_t which = 0; which < recipes.Size(); ++which) {
+    const std::string name = recipes.Key(which);
+    const std::string raw =
+        name == "default" ? std::string("oracle.raw") : "oracle." + name + ".raw";
+    if (!Present(subject.Directory + raw)) { owed.push_back(raw); }
+  }
   std::string missing;
   for (const std::string &name : owed) {
     if (missing.find(name) != std::string::npos) { continue; }
@@ -293,9 +294,6 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
     return false;
   }
   const outshine::Gltf::MaterialRef &material = subject.File.Materials()[(size_t)index];
-  for (size_t channel = 0; channel < 3; ++channel) {
-    subject.Surface.AlbedoLinear[channel] = material.Surface.BaseColour[channel];
-  }
   if (!subject.Geometry.HasUv()) {
     error = "the file's material is the surface and the subject carries no TEXCOORD_0 to sample it "
             "with";
@@ -339,6 +337,90 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
   return true;
 }
 
+/* WHAT EACH PART OF THE SUBJECT EMITS, derived from the case's own material declaration and from
+ * nothing else. Three arms, and the split between them is doc/requirements.md I.26.13's:
+ *
+ * `diffuse` IS THE CLOSED FORM AND IT IS ONLY AVAILABLE TO A SINGLE UNOCCLUDED FACET. Under a
+ * uniform environment a Lambertian facet returns `rho*L` whichever way it faces, with no integral
+ * left -- but only while nothing in the scene can be seen from anything else. Where it can, Cycles
+ * at one sample takes ONE cosine-weighted direction per pixel and either escapes to the world or
+ * meets geometry, so the pixel is a Bernoulli draw whose mean is the visible sky fraction, and the
+ * case has stopped measuring a placement. A subject of more than one mesh-bearing node is refused
+ * this arm outright, because there the surfaces certainly do see one another.
+ *
+ * `emission` REMOVES ALL FOUR INTEGRALS AT ONCE -- the world as a light, the sun's disk, the point
+ * light's radius and visibility -- because a surface that emits its declared colour gathers nothing.
+ * IT DECLARES ONE COLOUR PER NODE AND HAS NO SHORTER SPELLING: a single flat colour over three
+ * touching cubes fuses them into one silhouette, which hides a misplaced node inside the union and
+ * is a WORSE instrument than the noise it replaces. The boundary between two declared colours is
+ * exact; a boundary in binary ambient-occlusion noise never was. */
+[[nodiscard]] bool ResolveEmission(const Case &subject, const Subject &geometry,
+                                   std::vector<std::array<float, 3>> &out, std::string &error) {
+  const Json::Ref material = subject.Manifest.Root()["scene"]["material"];
+  const size_t parts = geometry.Parts().size();
+  out.assign(parts, {0.0f, 0.0f, 0.0f});
+
+  if (subject.MaterialFromFile) {
+    /* The metal-rough model at metalness 0 under a uniform environment reduces to
+     * `baseColour(u,v) * factor * L`; the texel is the shader's and the factor is the file's. */
+    for (std::array<float, 3> &radiance : out) {
+      for (size_t channel = 0; channel < 3; ++channel) {
+        radiance[channel] =
+            (float)((double)subject.File.Materials()[(size_t)geometry.Material()]
+                        .Surface.BaseColour[channel] *
+                    kFactoryWorldRadiance);
+      }
+    }
+    return true;
+  }
+
+  if (subject.MaterialKind == "diffuse") {
+    if (parts != 1) {
+      error = "scene.material.kind is 'diffuse' over a subject of " + std::to_string(parts) +
+              " mesh-bearing nodes, and the closed form rho*L holds only where no surface can see "
+              "another -- a subject of several bodies is an emission case";
+      return false;
+    }
+    for (size_t channel = 0; channel < 3; ++channel) {
+      out[0][channel] = (float)(material["colourLinear"][channel].Num(0.0) * kFactoryWorldRadiance);
+    }
+    return true;
+  }
+
+  if (subject.MaterialKind != "emission") {
+    error = "scene.material.kind is '" + subject.MaterialKind +
+            "', and this runner knows 'diffuse' and 'emission'";
+    return false;
+  }
+
+  const Json::Ref declared = material["colourLinearPerNode"];
+  size_t matched = 0;
+  for (size_t part = 0; part < parts; ++part) {
+    const std::string &name = geometry.Parts()[part].NodeName;
+    if (name.empty()) {
+      error = "the subject's node " + std::to_string(part) +
+              " carries no name, so a per-node colour has nothing to key on";
+      return false;
+    }
+    const Json::Ref colour = declared[name.c_str()];
+    if (colour.Size() != 3) {
+      error = "scene.material.colourLinearPerNode declares no colour for node '" + name + "'";
+      return false;
+    }
+    for (size_t channel = 0; channel < 3; ++channel) {
+      out[part][channel] = (float)colour[channel].Num(0.0);
+    }
+    ++matched;
+  }
+  if (declared.Size() != matched) {
+    error = "scene.material.colourLinearPerNode declares " + std::to_string(declared.Size()) +
+            " colours over a subject of " + std::to_string(matched) +
+            " named nodes, so at least one names a node this subject does not draw";
+    return false;
+  }
+  return true;
+}
+
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
   const std::string entry =
       subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
@@ -351,6 +433,7 @@ outshine::Render::SubjectWrap WrapOf(outshine::Gltf::Wrap wrap) {
     return false;
   }
   if (subject.MaterialFromFile && !ResolveFileSurface(subject, error)) { return false; }
+  if (!ResolveEmission(subject, subject.Geometry, subject.Emitted, error)) { return false; }
   return ResolveCamera(subject, error);
 }
 
@@ -383,10 +466,10 @@ template <typename Read>
 struct Picture {
   std::vector<float> Depth;
   std::vector<uint8_t> Rgba;
-  /* THE SCENE-REFERRED LINEAR TAP, RGBA binary16: what the plan's `sceneLinear` holds, before any
-   * display transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation
-   * would hide a difference the float buffer carries. */
-  std::vector<uint16_t> Linear;
+  /* THE SCENE-REFERRED LINEAR TAP, RGBA f32: what the plan's `sceneLinear` holds, before any display
+   * transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation would
+   * hide a difference the float buffer carries. */
+  std::vector<float> Linear;
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
@@ -577,6 +660,39 @@ int main(int argc, char **argv) {
     return Report();
   }
 
+  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
+   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
+   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
+   * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
+   * doc/requirements.md I.26.13. */
+  size_t seedApart = 0;
+  if (subject.MaterialKind == "emission") {
+    OracleRaw shifted;
+    const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
+    CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
+    if (!haveShift) {
+      Refused(shifted.Error());
+      std::printf("VERDICT NOTHING-TO-COMPARE\n");
+      return Report();
+    }
+    const bool sameShape = shifted.Width() == oracle.Width() &&
+                           shifted.Height() == oracle.Height() &&
+                           shifted.Channels() == oracle.Channels();
+    CHECK(sameShape, "the two seeds were rendered into the same frame");
+    if (!sameShape) {
+      Refused("oracle.seed-shift.raw is not the shape oracle.raw is");
+      std::printf("VERDICT NOTHING-TO-COMPARE\n");
+      return Report();
+    }
+    for (int y = 0; y < oracle.Height(); ++y) {
+      for (int x = 0; x < oracle.Width(); ++x) {
+        for (int channel = 0; channel < oracle.Channels(); ++channel) {
+          if (oracle.At(x, y, channel) != shifted.At(x, y, channel)) { ++seedApart; }
+        }
+      }
+    }
+  }
+
   /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
    * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
    * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
@@ -592,6 +708,12 @@ int main(int argc, char **argv) {
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);
+  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (doc/requirements.md I.26.13). At rgba16float the
+   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
+   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
+   * needing tighter than the storage floor changes the storage and never the threshold. */
+  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+      outshine::Render::ScenePrecision::Float);
   std::shared_ptr<const outshine::Render::RenderPlan> plan;
   const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
   CHECK(compiled, "the case's render declaration compiles");
@@ -616,8 +738,13 @@ int main(int argc, char **argv) {
   outshine::Clients::Studio studio;
   studio.Geometry = &subject.Geometry;
   studio.Eye = subject.Eye;
-  studio.Surface = subject.Surface;
+  studio.EmittedRadiance = subject.Emitted;
   studio.BaseColour = subject.BaseColour;
+  for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
+    Note(("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red")
+             .c_str(),
+         (double)subject.Emitted[part][0], "linear, scene-referred");
+  }
   if (subject.MaterialFromFile) {
     Note("base colour texels across", (double)subject.BaseColour.Width, "texels");
     Note("base colour texels down", (double)subject.BaseColour.Height, "texels");
@@ -644,6 +771,10 @@ int main(int argc, char **argv) {
         "1-outshine.png is written beside the reference, pass or fail");
 
   std::vector<Metric> metrics;
+  if (subject.MaterialKind == "emission") {
+    metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
+                       Direction::AtMost});
+  }
   metrics.push_back({"coverage_fraction_outshine", ours.Fraction(),
                      subject.Accepted.CoverageFractionMin, "dimensionless", Direction::AtLeast});
   metrics.push_back({"coverage_fraction_oracle", theirs.Fraction(),
@@ -682,7 +813,11 @@ int main(int argc, char **argv) {
     } else {
       outshine::Clients::Studio other = studio;
       other.Geometry = &spelling;
-      built = Capture(renderer, other, again, trouble);
+      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES and not copied from the entry's. The two spell
+       * one surface, so their node names agree -- and if they ever did not, copying by position
+       * would colour the wrong body while the count still matched. */
+      built = ResolveEmission(subject, spelling, other.EmittedRadiance, trouble) &&
+              Capture(renderer, other, again, trouble);
     }
     CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
     if (!built) {
@@ -729,24 +864,23 @@ int main(int argc, char **argv) {
     std::string trouble;
     const bool twice = Capture(renderer, studio, again, trouble);
     CHECK(twice, "the same declaration renders a second time in the same process");
-    size_t apart = 0, worst = 0;
+    size_t apart = 0;
+    int64_t worst = 0;
     size_t firstAt = again.Linear.size();
     if (twice && again.Linear.size() == picture.Linear.size()) {
       for (size_t at = 0; at < again.Linear.size(); ++at) {
         if (again.Linear[at] == picture.Linear[at]) { continue; }
-        const size_t off = again.Linear[at] > picture.Linear[at]
-                               ? (size_t)(again.Linear[at] - picture.Linear[at])
-                               : (size_t)(picture.Linear[at] - again.Linear[at]);
+        const int64_t off = UlpsApart(again.Linear[at], picture.Linear[at]);
         if (off > worst) { worst = off; }
         if (apart == 0) { firstAt = at; }
         ++apart;
       }
     }
-    metrics.push_back({"linear_halves_differing_between_renders", (double)apart, 0.0, "halves",
+    metrics.push_back({"linear_channels_differing_between_renders", (double)apart, 0.0, "channels",
                        Direction::AtMost});
     if (apart > 0) {
-      Note("first differing half-float, at channel index", (double)firstAt, "index");
-      Note("widest disagreement between two renders", (double)worst, "half-float codes");
+      Note("first differing channel, at index", (double)firstAt, "index");
+      Note("widest disagreement between two renders", (double)worst, "f32 ulps");
       Picture third;
       if (Capture(renderer, studio, third, trouble) && third.Linear.size() == picture.Linear.size()) {
         size_t stable = 0;
@@ -759,8 +893,8 @@ int main(int argc, char **argv) {
   }
 
   /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Zero is the bar
-   * and there is nothing in it to nudge: our stored half either is the nearest binary16 to the
-   * oracle's f32 or it is not.
+   * and there is nothing in it to nudge: the tap is f32 on both sides, so our float either is the
+   * oracle's float or it is not.
    *
    * MEASURED ON EVERY CASE AND ENFORCED ON THE ONES THAT ARE ABOUT IT, and the split is the case's
    * own declaration rather than a choice here. A coverage case declares a flat colour in its
@@ -771,8 +905,7 @@ int main(int argc, char **argv) {
    * every log whether or not it decides that log's colour. */
   {
     const RadianceResidual radiance = Radiance(picture.Linear, oracle);
-    metrics.push_back({"linear_channels_beyond_nearest_half", (double)radiance.BeyondNearest, 0.0,
-                       "channels",
+    metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
                        subject.MaterialFromFile ? Direction::AtMost : Direction::Reported});
     metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
                        Direction::Reported});
@@ -780,9 +913,15 @@ int main(int argc, char **argv) {
                        "channels", Direction::Reported});
     metrics.push_back({"linear_channels_below_the_oracle", (double)radiance.BelowOracle, 0.0,
                        "channels", Direction::Reported});
-    metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "binary16 ulps",
+    metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "f32 ulps",
                        Direction::Reported});
-    if (radiance.BeyondNearest > 0) {
+    metrics.push_back({"linear_p50_relative", radiance.P50Relative, 0.0, "dimensionless",
+                       Direction::Reported});
+    metrics.push_back({"linear_p95_relative", radiance.P95Relative, 0.0, "dimensionless",
+                       Direction::Reported});
+    metrics.push_back({"linear_p99_relative", radiance.P99Relative, 0.0, "dimensionless",
+                       Direction::Reported});
+    if (radiance.Differing > 0) {
       Note("worst radiance disagreement, ours", radiance.WorstOurs, "linear, scene-referred");
       Note("worst radiance disagreement, oracle", radiance.WorstTheirs, "linear, scene-referred");
       Note("worst radiance disagreement, relative", radiance.WorstRelative, "dimensionless");
@@ -811,9 +950,6 @@ int main(int argc, char **argv) {
   Note("oracle instrument floor",
        0.5 * subject.Manifest.Root()["renders"]["default"]["pixelFilter"]["widthPx"].Num(0.0), "px");
   metrics.push_back({"plan_passes", (double)plan->PassCount(), 2.0, "passes", Direction::AtMost});
-  Note("declared subject radiance",
-       (double)subject.Surface.AlbedoLinear[0] * (double)subject.Surface.EnvironmentRadiance,
-       "linear, scene-referred");
 
   /* THE FRAME FRACTION IS A DECLARED, RECOMPUTED, REFUSED-ON-MISMATCH PROPERTY of the case: it is
    * what the boundary bound is being applied under, so a camera that quietly frames the subject

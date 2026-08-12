@@ -15,6 +15,7 @@
 #ifndef GLTFSTUDIO_H
 #define GLTFSTUDIO_H
 
+#include <array>
 #include <string>
 #include <vector>
 
@@ -41,13 +42,18 @@ constexpr double kStudioAnchorEcefM[3] = {6378137.0, 0.0, 0.0}; /* WGS84 semi-ma
 void EcefFromGltf(const double gltf[3], double out[3]);
 
 /* WHAT A STUDIO IS, as one parameter object rather than five arguments (`I.23`): the geometry, where
- * it is seen from, and the two numbers that decide what its surface emits. The appearance half is
- * the DECLARATION's -- a Lambertian facet of linear albedo rho under a uniform environment of
- * radiance L emits rho*L -- and nothing in `src/render/` invents either number. */
+ * it is seen from, and what each of its parts emits. The appearance is the DECLARATION's -- a
+ * Lambertian facet of linear albedo rho under a uniform environment of radiance L emits rho*L, an
+ * emissive surface emits its own colour -- and nothing in `src/render/` invents either number.
+ *
+ * ONE RADIANCE PER PART, AND `Show` REFUSES ANY OTHER COUNT. The subject's parts are its
+ * mesh-bearing nodes, so a declaration that gave one colour to three touching bodies cannot be
+ * written: it is the wrong length and it is named as such. */
 struct Studio {
   const Gltf::Subject *Geometry = nullptr;
   Gltf::Placement Eye;
-  Render::SubjectSurface Surface;
+  /* Scene-referred linear radiance, one RGB triple per `Geometry->Parts()`, in that order. */
+  std::vector<std::array<float, 3>> EmittedRadiance;
   /* The decoded base colour, when the declaration names one. A texture with no texels is a subject
    * that declares none, which is a different pipeline and not a white stand-in. */
   Render::SubjectTexture BaseColour;

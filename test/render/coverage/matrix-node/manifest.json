@@ -197,13 +197,25 @@
     },
     "material": {
       "source": "manifest",
-      "kind": "diffuse",
-      "colourLinear": [
-        0.8,
-        0.8,
-        0.8
-      ],
-      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. Nothing in a coverage comparison reads it; it is here so the picture a person opens is not black."
+      "kind": "emission",
+      "colourLinearPerNode": {
+        "level0": [
+          0.5,
+          0.25,
+          0.125
+        ],
+        "level1": [
+          0.125,
+          0.5,
+          0.25
+        ],
+        "level2": [
+          0.25,
+          0.125,
+          0.5
+        ]
+      },
+      "note": "Emission, one colour per node, and the geometry is untouched (doc/requirements.md I.26.13). A Diffuse BSDF under a uniform environment reduces to rho*L only while no surface can be seen from another; where one can, Cycles at one sample takes ONE cosine-weighted direction per pixel and the answer is rho*L or exactly 0 -- a Bernoulli draw whose mean is the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes. A ShaderNodeEmission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility all leave at once. ONE COLOUR PER NODE because flat emission over touching bodies fuses their silhouettes: a misplaced node would hide inside the union, which is a worse instrument than the noise this replaces."
     }
   },
   "renders": {
@@ -240,6 +252,40 @@
       },
       "exrCodec": "ZIP",
       "note": "The binary mask. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
     }
   },
   "notes": "The same chain in both spellings, and the claim is not that they are close but that they are IDENTICAL: the manifest declares translations, scales and quaternion components that are exact in binary floating point -- dyadic rationals and a quaternion of four halves, whose rotation matrix is a permutation -- so T*R*S is exact and both spellings hand the reader the same doubles. That makes this rung decidable with no oracle in it at all, and its threshold is zero disagreeing pixels rather than a tolerance. Rung 5's file is regenerated here from the same declaration rather than reached across directories, so the case stays self-describing.",

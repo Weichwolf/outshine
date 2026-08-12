@@ -58,6 +58,17 @@ struct Placement {
   [[nodiscard]] bool Clip(double viewportAspect, Transform &out) const;
 };
 
+/* ONE MESH-BEARING NODE'S CONTRIBUTION to the flattened run. The hierarchy is gone by the time a
+ * consumer sees the triangles, and this is the one thing about it that survives: which vertices came
+ * from which node, and what that node was called. A declaration that says something per node -- what
+ * each part of the subject emits -- resolves against this and against nothing else, so "the third
+ * cube" is a name in the file rather than a position in a list somebody has to keep in step. */
+struct Part {
+  std::string NodeName;   /* the file's own; empty where the node carries none */
+  size_t FirstVertex = 0;
+  size_t VertexCount = 0;
+};
+
 class Subject {
 public:
   /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence. */
@@ -73,6 +84,8 @@ public:
    * is refused rather than half-filled, because a zero uv is a number meaning nothing. */
   const std::vector<double> &Uv() const { return Uv_; }
   bool HasUv() const { return !Uv_.empty(); }
+  /* In the order the flattening walked them, and covering every vertex exactly once. */
+  const std::vector<Part> &Parts() const { return Parts_; }
   /* The one material every drawn primitive of the subject names, or -1 where none does. A subject
    * whose primitives name two different materials is refused: this draw carries one surface, and
    * silently drawing the second primitive with the first's texture is the defect a multi-material
@@ -114,6 +127,7 @@ private:
   std::vector<double> Positions_;
   std::vector<double> Uv_;
   std::vector<uint32_t> Indices_;
+  std::vector<Part> Parts_;
   int Material_ = -1;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };

@@ -152,6 +152,7 @@ bool Subject::Build(const Document &document) {
   Positions_.clear();
   Uv_.clear();
   Indices_.clear();
+  Parts_.clear();
   Material_ = -1;
   bool anyMaterial = false;
   bool carriesUv = false;
@@ -189,6 +190,7 @@ bool Subject::Build(const Document &document) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }
+    Parts_.push_back({node.Name, VertexCount(), 0});
 
     for (const Primitive &primitive : document.Meshes()[(size_t)node.Mesh].Primitives) {
       ++primitives;
@@ -280,6 +282,10 @@ bool Subject::Build(const Document &document) {
         Indices_.push_back(base + index);
       }
     }
+    Parts_.back().VertexCount = VertexCount() - Parts_.back().FirstVertex;
+    /* A node whose mesh carries no primitive contributes no vertex, and a part covering none is a
+     * name a per-node declaration would have to answer for while nothing of it is drawn. */
+    if (Parts_.back().VertexCount == 0) { Parts_.pop_back(); }
   }
 
   if (Indices_.empty()) {

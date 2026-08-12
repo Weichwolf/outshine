@@ -137,6 +137,7 @@ class Manifest:
         self.blender_version = _blender(self.document["blender"])
         self.scene = _Scene(self.document["scene"])
         self.renders = _renders(self.document["renders"])
+        _seed_shift(self.scene.material, self.renders)
         self.subject_class = _one_of("manifest.subjectClass", self.document["subjectClass"],
                                      ("opaque-min-1px", "sub-pixel-present"))
         # THE THRESHOLDS ARE THE RUNNER'S, NOT THIS FILE'S. A manifest's `acceptance` block carries
@@ -399,10 +400,60 @@ def _material(value):
     source = _one_of("manifest.scene.material.source", value.get("source"), MATERIAL_SOURCES)
     if source in ("gltf", "gltf-base-colour"):
         return _fields("manifest.scene.material", value, ("source",), ("note",))
-    field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinear"), ("note",))
-    _one_of("manifest.scene.material.kind", field["kind"], MATERIAL_KINDS)
-    field["colourLinear"] = _vector("manifest.scene.material.colourLinear", field["colourLinear"], 3)
+    kind = _one_of("manifest.scene.material.kind", value.get("kind"), MATERIAL_KINDS)
+    if kind == "diffuse":
+        field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinear"), ("note",))
+        field["colourLinear"] = _vector("manifest.scene.material.colourLinear", field["colourLinear"], 3)
+        return field
+    # ONE COLOUR PER NODE AND NO SHORTER SPELLING. Flat emission over touching bodies fuses them into
+    # one silhouette, so a misplaced node hides inside the union -- a worse instrument than the
+    # ambient-occlusion noise emission was adopted to remove. A map keyed by the glTF node's own name
+    # is what makes "the third cube" a fact about the file instead of a position in a list.
+    field = _fields("manifest.scene.material", value, ("source", "kind", "colourLinearPerNode"), ("note",))
+    where = "manifest.scene.material.colourLinearPerNode"
+    if not isinstance(field["colourLinearPerNode"], dict) or not field["colourLinearPerNode"]:
+        raise Refusal(where, expected="a non-empty map of glTF node name to linear RGB",
+                      observed=repr(field["colourLinearPerNode"]))
+    field["colourLinearPerNode"] = {
+        node: _vector(where + "." + node, colour, 3)
+        for node, colour in sorted(field["colourLinearPerNode"].items())
+    }
     return field
+
+
+SEED_SHIFT_RECIPE_NAME = "seed-shift"
+
+
+def _seed_shift(material, renders):
+    """The acceptance an emission case owes, declared rather than argued.
+
+    Cycles does not match itself: a Monte-Carlo estimator's answer depends on its seed. A surface
+    that emits its declared colour gathers nothing -- no world sampled as a light, no sun disk, no
+    light radius, no visibility -- so two seeds must produce the same bits, and any difference NAMES
+    the integral that survived the change. The second recipe therefore differs from the first in the
+    seed and in nothing else; anything else would make the comparison a test of that too.
+    """
+    if material.get("kind") != "emission":
+        if SEED_SHIFT_RECIPE_NAME in renders:
+            raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME, expected="absent",
+                          observed="declared beside a material that is not an emission",
+                          why="the seed check is what proves an emitter has no estimator left")
+        return
+    if SEED_SHIFT_RECIPE_NAME not in renders:
+        raise Refusal("manifest.renders", expected="a recipe named " + SEED_SHIFT_RECIPE_NAME,
+                      observed=", ".join(sorted(renders)),
+                      why="an emission case is accepted on two seeds agreeing bit for bit")
+    default, shifted = renders[DEFAULT_RECIPE_NAME], renders[SEED_SHIFT_RECIPE_NAME]
+    if default["seed"] == shifted["seed"]:
+        raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + ".seed",
+                      expected="a seed other than " + repr(default["seed"]), observed=repr(shifted["seed"]))
+    for key in sorted(default):
+        # `note` is prose about the recipe and not a setting Cycles reads.
+        if key not in ("seed", "note") and default[key] != shifted[key]:
+            raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME + "." + key,
+                          expected=repr(default[key]), observed=repr(shifted[key]),
+                          why="the two recipes differ in the seed, so that a difference in the "
+                              "output can only be the estimator")
 
 
 def _renders(value):

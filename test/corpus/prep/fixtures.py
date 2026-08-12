@@ -42,12 +42,19 @@ def generate(where, recipe):
 # ---------------------------------------------------------------- the shapes
 
 class _Part:
-    """One mesh at one node's placement. `run` is in the primitive's own mode, not triangles."""
+    """One mesh at one node's placement. `run` is in the primitive's own mode, not triangles.
 
-    def __init__(self, positions, normals, run, node=None):
+    EVERY NODE IS NAMED, because a declaration that says something per node -- what each part of the
+    subject emits -- resolves against the name and against nothing else. A position in a list is a
+    second thing to keep in step, on both sides of a comparison, and Blender's importer keys its own
+    objects by the same name.
+    """
+
+    def __init__(self, positions, normals, run, name, node=None):
         self.positions = positions
         self.normals = normals
         self.run = run
+        self.name = name
         self.node = node or {}
 
 
@@ -60,7 +67,7 @@ def _triangle(where, parameters, mode):
     positions = [(0.0, circumradius, 0.0),
                  (-0.5 * side, -0.5 * circumradius, 0.0),
                  (0.5 * side, -0.5 * circumradius, 0.0)]
-    return [_Part(positions, [(0.0, 0.0, 1.0)] * 3, [0, 1, 2])]
+    return [_Part(positions, [(0.0, 0.0, 1.0)] * 3, [0, 1, 2], "triangle")]
 
 
 def _quad(where, parameters, mode):
@@ -73,7 +80,7 @@ def _quad(where, parameters, mode):
     # two the list names; the fan's diagonal is the other one, which is why it is the same SURFACE
     # and not the same triangulation.
     runs = {"TRIANGLES": [0, 1, 2, 2, 1, 3], "TRIANGLE_STRIP": [0, 1, 2, 3], "TRIANGLE_FAN": [0, 1, 3, 2]}
-    return [_Part(positions, [(0.0, 0.0, 1.0)] * 4, runs[mode])]
+    return [_Part(positions, [(0.0, 0.0, 1.0)] * 4, runs[mode], "quad")]
 
 
 _CUBE_FACES = (
@@ -102,7 +109,7 @@ def _cube(where, parameters, mode):
     half_extent = _positive(where + ".halfExtentM", field["halfExtentM"])
     _only_triangles(where, mode, "a cube")
     positions, normals, run = _cube_mesh(half_extent)
-    return [_Part(positions, normals, run)]
+    return [_Part(positions, normals, run, "cube")]
 
 
 def _uv_sphere(where, parameters, mode):
@@ -140,7 +147,7 @@ def _uv_sphere(where, parameters, mode):
                 run.extend([here, here + 1, below])
             if ring != rings - 1:
                 run.extend([here + 1, below + 1, below])
-    return [_Part(positions, normals, run)]
+    return [_Part(positions, normals, run, "sphere")]
 
 
 def _nested_cubes(where, parameters, mode):
@@ -160,7 +167,7 @@ def _nested_cubes(where, parameters, mode):
         scale = _vector(where + ".chain[%d].scale" % depth, step["scale"], 3)
         node = {"matrix": _trs(translation, rotation, scale)} if placement == "matrix" else {
             "translation": translation, "rotation": rotation, "scale": scale}
-        parts.append(_Part(positions, normals, run, node))
+        parts.append(_Part(positions, normals, run, "level%d" % depth, node))
     return parts
 
 
@@ -230,6 +237,7 @@ def _write_glb(parts, mode, component, camera):
             {"attributes": {"POSITION": position, "NORMAL": normal}, "indices": indices,
              "mode": MODES[mode]}]})
         node = dict(part.node)
+        node["name"] = part.name
         node["mesh"] = len(document["meshes"]) - 1
         document["nodes"].append(node)
 

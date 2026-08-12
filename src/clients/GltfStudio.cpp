@@ -88,14 +88,21 @@ bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &
     error = "the subject carries no triangle, so there is nothing to stand in the studio";
     return false;
   }
+  if (studio.EmittedRadiance.size() != subject.Parts().size()) {
+    error = "the studio declares " + std::to_string(studio.EmittedRadiance.size()) +
+            " emitted radiances over a subject of " + std::to_string(subject.Parts().size()) +
+            " mesh-bearing nodes, and every part emits what it was declared to emit";
+    return false;
+  }
   if (!SetProjection(renderer, eye, error)) { return false; }
   if (!ClearsNearPlane(subject, eye, error)) { return false; }
 
-  /* ONE BUFFER, TWO RUNS: the positions first and the uvs after them, so a caller reusing capacity
-   * across a loop of cases pays one allocation and the two vertex buffers are two pointers into it.
-   * The uv run is written even when it is empty, so `HasUv` decides the pipeline and not a length. */
+  /* ONE BUFFER, THREE RUNS: the positions, then the uvs, then the per-vertex radiance, so a caller
+   * reusing capacity across a loop of cases pays one allocation and the three vertex buffers are
+   * three pointers into it. The uv run is written even when it is empty, so `HasUv` decides the
+   * pipeline and not a length. */
   scratch.clear();
-  scratch.reserve(subject.PositionsM().size() + subject.Uv().size());
+  scratch.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
@@ -103,10 +110,21 @@ bool Show(Render::Renderer &renderer, const Studio &studio, std::vector<float> &
   }
   const size_t uvAt = scratch.size();
   for (const double coordinate : subject.Uv()) { scratch.push_back((float)coordinate); }
+  const size_t emittedAt = scratch.size();
+  scratch.resize(emittedAt + subject.VertexCount() * 3, 0.0f);
+  for (size_t part = 0; part < subject.Parts().size(); ++part) {
+    const Gltf::Part &where = subject.Parts()[part];
+    for (size_t vertex = 0; vertex < where.VertexCount; ++vertex) {
+      for (size_t channel = 0; channel < 3; ++channel) {
+        scratch[emittedAt + (where.FirstVertex + vertex) * 3 + channel] =
+            studio.EmittedRadiance[part][channel];
+      }
+    }
+  }
   renderer.SetSubjectMesh(scratch.data(), subject.HasUv() ? scratch.data() + uvAt : nullptr,
-                          (uint32_t)subject.VertexCount(), subject.Indices().data(),
-                          (uint32_t)subject.Indices().size(), kStudioAnchorEcefM);
-  renderer.SetSubjectSurface(studio.Surface);
+                          scratch.data() + emittedAt, (uint32_t)subject.VertexCount(),
+                          subject.Indices().data(), (uint32_t)subject.Indices().size(),
+                          kStudioAnchorEcefM);
   renderer.SetSubjectTexture(studio.BaseColour);
 
   double position[3], forward[3], right[3], up[3];

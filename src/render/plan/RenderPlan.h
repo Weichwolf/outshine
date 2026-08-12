@@ -26,6 +26,13 @@ namespace outshine::Render {
  * tracer needs: a curve there would be measuring the curve. */
 enum class Transfer { Linear, Filmic };
 
+/* HOW EXACTLY THE SCENE-REFERRED CHAIN IS STORED. `Half` is what a shipping frame pays for; `Float`
+ * removes the store's own rounding from the picture and is what a plan declares when the number
+ * taken out of `SceneLinear` is the verdict (doc/requirements.md I.26.13). It governs `SceneHdr` and
+ * `SceneLinear` together, because the second is the first under the plan's alias and a half target
+ * feeding a float readback would report the storage as if it were the arithmetic. */
+enum class ScenePrecision { Half, Float };
+
 /* A VALUE PLUS THE FACT THAT SOMEBODY SET IT. A plan that leaves an option alone is not declaring
  * it, and only a declared option can be refused for being unread -- which is the whole of the
  * option check. */
@@ -50,6 +57,7 @@ struct PlanSpec {
   /* The scale the tonemap multiplies scene radiance by when the plan declares no meter. */
   Declared<float> Exposure;
   Declared<Transfer> Display;
+  Declared<ScenePrecision> Precision;
 };
 
 class RenderPlan {
@@ -95,6 +103,13 @@ public:
   [[nodiscard]] Transfer Display() const { return Display_; }
   [[nodiscard]] float Exposure() const { return Exposure_; }
 
+  /* WHAT A RESOURCE IS STORED IN, after the plan's declared precision has been applied. Read this
+   * and never the catalogue row: the row is the default and the plan is the answer. */
+  [[nodiscard]] TexelFormat Format(Resource resource) const {
+    return Format_[static_cast<size_t>(resource)];
+  }
+  [[nodiscard]] ScenePrecision Precision() const { return Precision_; }
+
   /* THE PLAN'S OWN IDENTITY: the stage set, the derived order, the passes, the merges, the aliases,
    * the resource formats and the options -- everything whose change can move a pixel. A baseline is
    * keyed by it, so a plan change reports "this plan has no baseline" rather than "the sha changed". */
@@ -111,12 +126,14 @@ private:
   bool HeldResource_[kResourceCount] = {};
   bool Fused_[kStageCount] = {};
   Resource Bound_[kResourceCount] = {};
+  TexelFormat Format_[kResourceCount] = {};
   std::vector<Stage> Order_;
   std::vector<Pass> Passes_;
   std::vector<std::string> Merges_;
   std::vector<std::string> Aliases_;
   std::string Digest_;
   Transfer Display_ = Transfer::Filmic;
+  ScenePrecision Precision_ = ScenePrecision::Half;
   float Exposure_ = 1.0f;
   int SettleFrames_ = 1;
 };

@@ -27,36 +27,44 @@ constexpr wgpu::FrontFace kGltfFrontFace = wgpu::FrontFace::CCW;
 } // namespace
 
 /* TWO SHADERS AND ONE UNIFORM. The textured one multiplies the sampled base colour into the same
- * `rho*L` the plain one emits, which is what the metal-rough model reduces to for a dielectric at
- * metalness 0 under a uniform environment: `baseColour(u,v) * factor * L`, flat, no direction. THE
- * TAP IS ALREADY LINEAR -- the texture is bound through an sRGB VIEW, so the hardware sampler undoes
- * the transfer per texel BEFORE it filters, and nothing here decodes anything. */
+ * declared radiance the plain one emits, which is what the metal-rough model reduces to for a
+ * dielectric at metalness 0 under a uniform environment: `baseColour(u,v) * factor * L`, flat, no
+ * direction. THE TAP IS ALREADY LINEAR -- the texture is bound through an sRGB VIEW, so the hardware
+ * sampler undoes the transfer per texel BEFORE it filters, and nothing here decodes anything.
+ *
+ * THE RADIANCE IS FLAT-INTERPOLATED. Every vertex of one part carries the same value, and barycentric
+ * interpolation of three equal floats is a weighted sum that need not return them; `flat` takes the
+ * provoking vertex verbatim, so a declared value arrives as itself. */
 static const char *kSubjectWGSL = R"(
-struct S { mvp : mat4x4f, anc : vec4f, emitted : vec4f };
+struct S { mvp : mat4x4f, anc : vec4f };
 @group(0) @binding(0) var<uniform> s : S;
 
-struct SOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f };
+struct SOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
+              @location(1) @interpolate(flat) emitted : vec3f };
 
-@vertex fn vs(@location(0) p : vec3f) -> SOut {
+@vertex fn vs(@location(0) p : vec3f, @location(2) emitted : vec3f) -> SOut {
   var o : SOut;
   o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
   o.uv = vec2f(0.0);
+  o.emitted = emitted;
   return o;
 }
 
-@vertex fn vsTextured(@location(0) p : vec3f, @location(1) uv : vec2f) -> SOut {
+@vertex fn vsTextured(@location(0) p : vec3f, @location(1) uv : vec2f,
+                      @location(2) emitted : vec3f) -> SOut {
   var o : SOut;
   o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
   o.uv = uv;
+  o.emitted = emitted;
   return o;
 }
 
 struct SFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
-/* rho*L, DECLARED and not shaded. alpha is the direct fraction a display transfer weights its
- * occlusion by, and for a facet under a uniform environment every bit of it is direct. */
+/* The declared radiance, not shaded. alpha is the direct fraction a display transfer weights its
+ * occlusion by, and for a surface that emits what it was declared to emit all of it is direct. */
 @fragment fn fs(in : SOut) -> SFrag {
   var o : SFrag;
-  o.col = vec4f(s.emitted.rgb, 1.0);
+  o.col = vec4f(in.emitted, 1.0);
   o.vel = vec2f(kVelStatic);
   return o;
 }
@@ -68,7 +76,7 @@ static const char *kSubjectTexturedWGSL = R"(
 
 @fragment fn fsTextured(in : SOut) -> SFrag {
   var o : SFrag;
-  o.col = vec4f(s.emitted.rgb * textureSample(baseColour, baseSampler, in.uv).rgb, 1.0);
+  o.col = vec4f(in.emitted * textureSample(baseColour, baseSampler, in.uv).rgb, 1.0);
   o.vel = vec2f(kVelStatic);
   return o;
 }
@@ -111,15 +119,29 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   coordinate.format = wgpu::VertexFormat::Float32x2;
   coordinate.offset = 0;
   coordinate.shaderLocation = 1;
-  /* TWO BUFFERS AND NOT ONE INTERLEAVED STRIDE, because the subject's positions and its uvs come
-   * out of the reader as two runs and interleaving them here would be a copy nobody asked for. */
-  wgpu::VertexBufferLayout layouts[2] = {};
-  layouts[0].arrayStride = 3 * sizeof(float);
-  layouts[0].attributeCount = 1;
-  layouts[0].attributes = &position;
-  layouts[1].arrayStride = 2 * sizeof(float);
-  layouts[1].attributeCount = 1;
-  layouts[1].attributes = &coordinate;
+  wgpu::VertexAttribute radiance{};
+  radiance.format = wgpu::VertexFormat::Float32x3;
+  radiance.offset = 0;
+  radiance.shaderLocation = 2;
+  /* ONE BUFFER PER ATTRIBUTE AND NOT ONE INTERLEAVED STRIDE, because the subject's positions, its
+   * uvs and its declared radiance come out of the consumer as separate runs and interleaving them
+   * here would be a copy nobody asked for. The untextured pipeline has no uv slot at all rather than
+   * an empty one -- a declared slot must be bound, and binding a buffer nothing reads is the kind of
+   * placeholder this unit refuses everywhere else. */
+  wgpu::VertexBufferLayout position_[1] = {};
+  position_[0].arrayStride = 3 * sizeof(float);
+  position_[0].attributeCount = 1;
+  position_[0].attributes = &position;
+  wgpu::VertexBufferLayout radiance_ = {};
+  radiance_.arrayStride = 3 * sizeof(float);
+  radiance_.attributeCount = 1;
+  radiance_.attributes = &radiance;
+  wgpu::VertexBufferLayout uv_ = {};
+  uv_.arrayStride = 2 * sizeof(float);
+  uv_.attributeCount = 1;
+  uv_.attributes = &coordinate;
+  const wgpu::VertexBufferLayout plainLayouts[2] = {position_[0], radiance_};
+  const wgpu::VertexBufferLayout texturedLayouts[3] = {position_[0], uv_, radiance_};
 
   wgpu::ColorTargetState ct{};
   ct.format = gpu.HdrFormat;
@@ -157,8 +179,8 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   rp.layout = pipeline;
   rp.vertex.module = m;
   rp.vertex.entryPoint = "vs";
-  rp.vertex.bufferCount = 1;
-  rp.vertex.buffers = layouts;
+  rp.vertex.bufferCount = 2;
+  rp.vertex.buffers = plainLayouts;
   wgpu::FragmentState fs{};
   fs.module = m;
   fs.entryPoint = "fs";
@@ -172,7 +194,8 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   Plain = Device.CreateRenderPipeline(&rp);
 
   rp.vertex.entryPoint = "vsTextured";
-  rp.vertex.bufferCount = 2;
+  rp.vertex.bufferCount = 3;
+  rp.vertex.buffers = texturedLayouts;
   fs.entryPoint = "fsTextured";
   Textured = Device.CreateRenderPipeline(&rp);
 
@@ -243,19 +266,23 @@ void SubjectDraw::Rebind() {
   Bind = Device.CreateBindGroup(&bg);
 }
 
-void SubjectDraw::SetMesh(const float *verts, const float *uv, uint32_t nverts,
-                          const uint32_t *idx, uint32_t nidx, const double anchor[3]) {
+void SubjectDraw::SetMesh(const float *verts, const float *uv, const float *emitted,
+                          uint32_t nverts, const uint32_t *idx, uint32_t nidx,
+                          const double anchor[3]) {
   NVerts = nverts;
   NIdx = nidx;
   HasUv = uv != nullptr;
   for (int axis = 0; axis < 3; ++axis) { Anchor[axis] = anchor[axis]; }
-  if (nverts == 0 || nidx == 0 || !Device) return;
+  if (nverts == 0 || nidx == 0 || !Device || !emitted) return;
 
   wgpu::BufferDescriptor vd{};
   vd.size = (uint64_t)nverts * 3 * sizeof(float);
   vd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
   Vtx = Device.CreateBuffer(&vd);
   Queue.WriteBuffer(Vtx, 0, verts, (size_t)nverts * 3 * sizeof(float));
+
+  Emit = Device.CreateBuffer(&vd);
+  Queue.WriteBuffer(Emit, 0, emitted, (size_t)nverts * 3 * sizeof(float));
 
   if (HasUv) {
     wgpu::BufferDescriptor ud{};
@@ -278,16 +305,17 @@ void SubjectDraw::SetMesh(const float *verts, const float *uv, uint32_t nverts,
 }
 
 void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPassEncoder &pass) {
-  if (NIdx == 0 || !Vtx || !Idx) return;
+  if (NIdx == 0 || !Vtx || !Idx || !Emit) return;
   float u[kUniFloats] = {};
   for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
   for (int i = 0; i < 3; i++) u[16 + i] = (float)(Anchor[i] - ctx.Eye[i]);
-  for (int i = 0; i < 3; i++) u[20 + i] = Surface.AlbedoLinear[i] * Surface.EnvironmentRadiance;
   Queue.WriteBuffer(Uni, 0, u, sizeof u);
-  pass.SetPipeline(HasUv && Uv ? Textured : Plain);
+  const bool textured = HasUv && Uv;
+  pass.SetPipeline(textured ? Textured : Plain);
   pass.SetBindGroup(0, Bind);
   pass.SetVertexBuffer(0, Vtx);
-  if (HasUv && Uv) { pass.SetVertexBuffer(1, Uv); }
+  if (textured) { pass.SetVertexBuffer(1, Uv); }
+  pass.SetVertexBuffer(textured ? 2u : 1u, Emit);
   pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
   pass.DrawIndexed(NIdx);
 }

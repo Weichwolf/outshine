@@ -84,7 +84,15 @@ enum class FallbackKind { None, Alias, Neutral };
 
 /* THE STORAGE, because a picture changes when it changes and the plan's digest has to cover it.
  * `Handle` is a sampler or a uniform, which has no texel. */
-enum class TexelFormat { Handle, Rgba16Float, Rg16Float, R8Unorm, Rgba8UnormSrgb, Depth32Float };
+enum class TexelFormat {
+  Handle,
+  Rgba16Float,
+  Rgba32Float,
+  Rg16Float,
+  R8Unorm,
+  Rgba8UnormSrgb,
+  Depth32Float
+};
 
 inline constexpr size_t kMaxEdges = 8;
 

@@ -11,11 +11,23 @@
 #ifndef RENDER_METRIC_H
 #define RENDER_METRIC_H
 
+#include <cmath>
 #include <cstdio>
 #include <string>
 #include <vector>
 
 namespace outshine::Render::Parity {
+
+/* Nearest-rank, which is what a percentile over a finite set of measurements means: no interpolation
+ * between two values that nothing measured in between. It stands here rather than beside either of
+ * its two callers because a statistic with two definitions is two statistics. */
+inline double Percentile(const std::vector<double> &sorted, double fraction) {
+  if (sorted.empty()) { return 0.0; }
+  size_t rank = (size_t)std::ceil(fraction * (double)sorted.size());
+  if (rank == 0) { rank = 1; }
+  if (rank > sorted.size()) { rank = sorted.size(); }
+  return sorted[rank - 1];
+}
 
 enum class Direction { AtMost, AtLeast, Reported };
 
