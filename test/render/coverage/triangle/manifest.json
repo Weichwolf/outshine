@@ -1,0 +1,188 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/triangle",
+  "title": "Rung 1 -- coverage of one triangle against Cycles, no light model in the comparison",
+  "covers": ["I.26", "I.26.1", "I.26.5"],
+
+  "subjects": [
+    {
+      "id": "triangle",
+      "kind": "gltf",
+      "name": "Triangle",
+      "entry": "scene.gltf",
+      "attributes": ["POSITION"],
+      "notes": "No NORMAL accessor. I.26 requires POSITION and NORMAL and forbids deriving one, so this subject is judgeable on coverage and is not readable by the declared reader as it stands. Stated here rather than repaired: an oracle comparison contains no repair.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Triangle",
+        "pinnedOn": "2026-04-27",
+        "pinReason": "first pin; head of main at the time the ladder was written"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/glTF/Triangle.gltf",
+          "sha256": "6f4a8a1fbefbac2d0adde0800864279fd98c3f119077380e6840810ed62b6cfc",
+          "bytes": 1037,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/glTF/Triangle.bin",
+          "sha256": "898ed7f560dca9907a80c98be57fbbc0f3a092d2e3683b964ffcfa75c549ac62",
+          "bytes": 44,
+          "as": "Triangle.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+          "sha256": "ab6401c1f9c4d81aa51631d911dc16e9e1f3abddae4fa7208ebd4990308b897a",
+          "bytes": 858,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [0.39893919425643931, 0.47877385537237882, 2.5271149677945277],
+      "lookAtM": [0.39893919425643931, 0.47877385537237882, 0.0],
+      "rollRad": 0.20943951023931956,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. roll = 12 deg [SET]: the subject's three edges then sit at 12, 57 and 102 deg in raster space, so none is axis-aligned and the closest is 12 deg off. Distance 2.5271149677945277 m is the smallest that keeps every vertex 8 px inside the 1280x720 frame at that roll, aiming at the rotated bounding box centre; a sub-pixel offset of 0.37 px in x and 0.23 px in y at 0.0016847433 m/px is added to the aim so no edge lies on an exact pixel-centre row or column.",
+      "note": "The glTF carries no camera, so rung 1's camera is declared here. That the declared camera admits no tie is a geometric predicate over these numbers and the fetched vertices; asserting it is the test's job, not the preparer's."
+    },
+    "light": {
+      "kind": "none",
+      "note": "Rung 1 compares a coverage mask. The only illumination is Blender's factory world, which costs nothing to match and is left where it is."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [0.8, 0.8, 0.8],
+      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5 (F0 = 0.04), and it was rewritten in Cycles 4.0. The Diffuse closure at roughness 0 is max(dot(N,w),0)/pi and has not moved."
+    }
+  },
+
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": { "type": "BOX", "widthPx": 0.01 },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": { "max": 0, "diffuse": 0, "glossy": 0, "transmission": 0, "volume": 0, "transparentMax": 0 },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. This is the recipe the acceptance numbers below are judged on."
+    },
+    "coverage": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 4096,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": { "type": "BOX", "widthPx": 1.0 },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": { "max": 0, "diffuse": 0, "glossy": 0, "transmission": 0, "volume": 0, "transparentMax": 0 },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The analytic pixel-area fraction: alpha over the full-width box is the coverage, and alpha = 0.5 is the edge through the pixel centre, which gives a signed sub-pixel edge offset instead of a count. Its own per-pixel alpha noise is the instrument floor and is the test's to measure -- it is not asserted here."
+    }
+  },
+
+  "acceptance": {
+    "coverage": {
+      "iouMin": {
+        "value": 0.999,
+        "unit": "dimensionless",
+        "origin": "SET",
+        "note": "doc/requirements.md I.26, rung 1 acceptance, on a subject filling ~30 % of the frame"
+      },
+      "boundaryP95MaxPx": {
+        "value": 0.5,
+        "unit": "px",
+        "origin": "SET",
+        "note": "doc/requirements.md I.26, rung 1 acceptance, at 1280x720"
+      },
+      "instrumentFloorPx": {
+        "value": 0.005,
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "half of the box filter's RNA minimum width of 0.01 px (cycles/properties.py), which bounds how far a Cycles sample can sit from the pixel centre",
+        "note": "published beside the result, never subtracted from it"
+      },
+      "subjectFrameFraction": {
+        "value": 0.191144,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "projected triangle area over 1280*720 at the declared camera; the projection is exact because the subject is a plane perpendicular to the optical axis",
+        "note": "I.26 states the IoU bound for a subject filling ~30 %. This fixed subject cannot reach that and fit: a right isoceles triangle inscribed in a 16:9 frame tops out at 28.1 % at zero roll and zero margin, and every roll that keeps an edge off the raster axes costs more. 19.1 % is the maximum at 12 deg roll with an 8 px margin, so the bound is being applied under a stricter condition than it was stated under -- a smaller subject has more perimeter per unit area."
+      }
+    }
+  },
+
+  "notes": "The rung rows of doc/requirements.md I.26.5 are being revised. This manifest is the worked example of the schema, not a claim about which asset rung 1 finally carries."
+}

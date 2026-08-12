@@ -1,0 +1,279 @@
+"""The three jobs: fetch the subjects, convert a .blend, render the oracle."""
+
+import json
+import os
+import tempfile
+
+from . import blender as blender_module
+from . import fetch, licence, manifest as manifest_module
+from .refusal import Refusal
+from .store import derived_key, sha256_of_file
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
+CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
+
+PROVENANCE_NAME = "provenance.json"
+IGNORE_NAME = ".gitignore"
+PRODUCTS = ("exr", "png", "raw")
+
+
+def plan(manifest, store):
+    """What the run costs cold, published before it starts spending it."""
+    rows = []
+    total = 0
+    for subject in manifest.subjects:
+        for file in subject.files:
+            cached = store.enabled and os.path.isfile(store.path(file["sha256"]))
+            rows.append(
+                {"subject": subject.id, "as": file["as"], "url": file["url"],
+                 "member": file.get("member"), "bytes": file["bytes"], "cached": cached}
+            )
+            if not cached:
+                total += file["bytes"]
+    return {"files": rows, "bytesToFetch": total, "renders": sorted(manifest.renders)}
+
+
+def fetch_subjects(manifest, store, destination, force=False):
+    report = {"files": [], "licence": []}
+    for subject in manifest.subjects:
+        for file in subject.files:
+            how, size = fetch.download_to_store(
+                file["url"],
+                file["sha256"],
+                store,
+                expected_bytes=file["bytes"],
+                commit=subject.source.get("commit"),
+                member=file.get("member"),
+            )
+            target = os.path.join(destination, file["as"])
+            placed = "kept"
+            if force or not _matches(target, file["sha256"]):
+                store.copy_out(file["sha256"], target)
+                placed = "placed"
+            report["files"].append(
+                {"subject": subject.id, "as": file["as"], "bytes": size, "source": how, "destination": placed}
+            )
+        report["licence"].extend(_check_licences(subject, store))
+    return report
+
+
+def _check_licences(subject, store):
+    """Per file. A repository-level claim covers nothing in particular, so nothing inherits one."""
+    derived = None
+    if subject.source["kind"] == "khronos-sample-assets":
+        metadata = subject.metadata_file()
+        if metadata is None:
+            raise Refusal(
+                "manifest subject " + subject.id,
+                expected="a file with role metadata (the model's metadata.json at the pin)",
+                observed="none",
+                why="the licence is derived from upstream, never transcribed",
+            )
+        derived = licence.spdx_from_khronos_metadata(store.read(metadata["sha256"]), subject.name)
+        for entry in derived:
+            licence.check_spdx(entry["spdx"], subject.name + " metadata.json")
+
+    checked = []
+    for file in subject.files:
+        declared = file["licence"] if isinstance(file["licence"], list) else [file["licence"]]
+        for entry in declared:
+            licence.check_spdx(entry["spdx"], file["as"])
+        if derived is not None:
+            licence.check_declared_matches_derived(declared, derived, file["as"])
+        checked.append(
+            {"subject": subject.id, "as": file["as"],
+             "spdx": sorted(set(e["spdx"] for e in declared)),
+             "verifiedAgainst": "upstream metadata.json" if derived is not None else "manifest statedAt"}
+        )
+    return checked
+
+
+def convert_blends(manifest, store, blender, destination, force=False):
+    results = []
+    for subject in manifest.subjects:
+        if subject.kind != "blend":
+            continue
+        results.append(_convert(subject, manifest, store, blender, destination, force))
+    if not results:
+        raise Refusal(
+            "convert " + manifest.id, why="no subject is a .blend; there is nothing to convert"
+        )
+    return results
+
+
+def _convert(subject, manifest, store, blender, destination, force):
+    blend = _file_named(subject, subject.entry)
+    output_name = subject.conversion.settings["outputName"]
+    recipe = {
+        "blenderDeclared": manifest.blender_version,
+        "blenderObserved": blender.version,
+        "blenderBuildHash": blender.build_hash,
+        "blendSha256": blend["sha256"],
+        "exportSettings": subject.conversion.settings["exportSettings"],
+        "frameStart": subject.conversion.settings["frameStart"],
+        "product": output_name,
+    }
+    key = derived_key("gltf.from.blend", recipe)
+    target = os.path.join(destination, output_name)
+    if not force and store.has(key) and _matches(target, sha256_of_file(store.path(key))):
+        return {"subject": subject.id, "outputName": output_name, "cache": "hit", "key": key, "provenance": None}
+
+    with tempfile.TemporaryDirectory(prefix="outshine-convert-") as work:
+        job_path = os.path.join(work, "job.json")
+        output_path = os.path.join(work, output_name)
+        with open(job_path, "w") as f:
+            json.dump(
+                {
+                    "exportSettings": subject.conversion.settings["exportSettings"],
+                    "frameStart": subject.conversion.settings["frameStart"],
+                    "outputPath": output_path,
+                    "provenanceOpen": blender_module.PROVENANCE_OPEN,
+                    "provenanceClose": blender_module.PROVENANCE_CLOSE,
+                },
+                f,
+            )
+        provenance = blender.run(CONVERT_SCRIPT, job_path, blend_file=os.path.join(destination, blend["as"]))
+        if not os.path.isfile(output_path):
+            raise Refusal("convert " + subject.id, expected=output_name, observed="the exporter wrote no such file")
+        store.keep_file(key, output_path)
+    store.copy_out(key, target)
+    return {"subject": subject.id, "outputName": output_name, "cache": "miss", "key": key, "provenance": provenance}
+
+
+def render_oracle(manifest, store, blender, destination, only=None, force=False):
+    gltf_paths = []
+    for name in manifest.gltf_names():
+        path = os.path.join(destination, name)
+        if not os.path.isfile(path):
+            raise Refusal(
+                "render " + manifest.id,
+                expected=path,
+                observed="absent",
+                why="every subject is fetched, and converted if it is a .blend, before it is rendered",
+            )
+        gltf_paths.append(path)
+
+    subject_pin = []
+    for subject in manifest.subjects:
+        pin = {"id": subject.id, "entry": subject.entry,
+               "files": sorted([f["as"], f["sha256"]] for f in subject.files)}
+        if subject.kind == "blend":
+            pin["gltfSha256"] = sha256_of_file(
+                os.path.join(destination, subject.conversion.settings["outputName"])
+            )
+        subject_pin.append(pin)
+
+    results = []
+    for name in sorted(manifest.renders):
+        if only and name not in only:
+            continue
+        recipe = manifest.renders[name]
+        names = manifest_module.output_names_for(name)
+        targets = dict(zip(PRODUCTS, [os.path.join(destination, n) for n in names]))
+        keys = {
+            product: derived_key(
+                "oracle." + product,
+                {
+                    # The pinned Blender is in the key because a point release that changes Cycles
+                    # must miss. Both the declared and the observed version are here: the first
+                    # catches a manifest bump on an unchanged host, the second a host that moved
+                    # under an unchanged manifest, and one of the two alone catches neither.
+                    "blenderDeclared": manifest.blender_version,
+                    "blenderObserved": blender.version,
+                    "blenderBuildHash": blender.build_hash,
+                    "subjects": subject_pin,
+                    "scene": manifest.scene.as_job(),
+                    "recipe": recipe,
+                    "product": product,
+                },
+            )
+            for product in PRODUCTS
+        }
+        stored = all(store.has(key) for key in keys.values())
+        placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in PRODUCTS)
+        if not force and placed:
+            results.append({"recipe": name, "cache": "hit", "keys": keys, "products": _sizes(targets),
+                            "provenance": None})
+            continue
+        provenance = None
+        if force or not stored:
+            provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store)
+        for product in PRODUCTS:
+            store.copy_out(keys[product], targets[product])
+        results.append({"recipe": name, "cache": "miss" if provenance else "hit", "keys": keys,
+                        "products": _sizes(targets), "provenance": provenance})
+    return results
+
+
+def _run_render(manifest, blender, gltf_paths, recipe, keys, store):
+    with tempfile.TemporaryDirectory(prefix="outshine-oracle-") as work:
+        paths = {product: os.path.join(work, "oracle." + product) for product in PRODUCTS}
+        job_path = os.path.join(work, "job.json")
+        with open(job_path, "w") as f:
+            json.dump(
+                {"gltfPaths": gltf_paths, "scene": manifest.scene.as_job(), "recipe": recipe,
+                 "exrPath": paths["exr"], "pngPath": paths["png"], "rawPath": paths["raw"],
+                 "provenanceOpen": blender_module.PROVENANCE_OPEN,
+                 "provenanceClose": blender_module.PROVENANCE_CLOSE},
+                f,
+            )
+        provenance = blender.run(RENDER_SCRIPT, job_path)
+        for product in PRODUCTS:
+            if not os.path.isfile(paths[product]):
+                raise Refusal("render " + manifest.id, expected=product + " product", observed="no such file")
+            store.keep_file(keys[product], paths[product])
+    return provenance
+
+
+def write_provenance(manifest, store, destination, blender, report):
+    document = {
+        "manifestId": manifest.id,
+        "manifestSchemaVersion": manifest_module.SCHEMA_VERSION,
+        "blenderDeclared": manifest.blender_version,
+        "blenderObserved": blender.version if blender else None,
+        "blenderBuildHash": blender.build_hash if blender else None,
+        "versionNotice": blender.against(manifest.blender_version) if blender else None,
+        "contentStore": store.directory,
+        "report": report,
+    }
+    path = os.path.join(destination, PROVENANCE_NAME)
+    with open(path, "w") as f:
+        json.dump(document, f, indent=2, sort_keys=True)
+        f.write("\n")
+    return path
+
+
+def write_ignore(manifest, destination):
+    """Everything this tool writes is derived, so only the manifest is left for git to see."""
+    names = [PROVENANCE_NAME, IGNORE_NAME]
+    names += manifest.output_names()
+    names += sorted(manifest_module.RESERVED_OUTPUT_NAMES)
+    for subject in manifest.subjects:
+        names += [f["as"] for f in subject.files]
+        if subject.kind == "blend":
+            names.append(subject.conversion.settings["outputName"])
+    path = os.path.join(destination, IGNORE_NAME)
+    with open(path, "w") as f:
+        f.write("# Written by test/corpus/prepare.py. Derived bytes; the recipe is manifest.json.\n")
+        for name in sorted(set(names)):
+            f.write(name + "\n")
+    return path
+
+
+def _file_named(subject, name):
+    for file in subject.files:
+        if file["as"] == name:
+            return file
+    raise Refusal("manifest subject " + subject.id, expected="a declared file named " + name, observed="none")
+
+
+def _matches(path, sha256):
+    return os.path.isfile(path) and sha256_of_file(path) == sha256
+
+
+def _sizes(targets):
+    return {
+        product: {"path": path, "bytes": os.path.getsize(path), "sha256": sha256_of_file(path)}
+        for product, path in sorted(targets.items())
+    }
