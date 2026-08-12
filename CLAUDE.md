@@ -12,7 +12,7 @@ there is no machine between us and the target. Everything else in this file is a
 consequence, and `doc/requirements.md` is the scope.
 
 The world is **loaded, not modelled**: terrain, land cover, buildings, vegetation, weather and the night
-sky come from `fb-tiles`. Every point the tile scheme can address is a valid start, which is not every
+sky are fetched from upstream and decoded here. Every point the tile scheme can address is a valid start, which is not every
 point on Earth: Web Mercator ends at ±85.0511°, so the two polar caps — 0.373 % of the surface,
 1.90 M km² — are refused by name until a polar scheme stands beside it. **One physics system** carries
 walking, driving, flying and swimming. An **epoch and decay dial** dresses the same geometry. The actors
@@ -68,8 +68,11 @@ needs its reason beside it.
    brain sees only through sensors, acts only through simulated systems, and a contact carries no
    identity.
 5. **Everything runs IN the client.** One process, one address space.
-6. **Two server containers only:** `fb-tiles` (`tiles/`, :8081) and `fb-sim` (`sim/`, :8080). The tile
-   server delivers DEM, OSM, imagery, weather and stars — nothing else.
+6. **No servers of our own.** The tile source is part of the engine: fetching DEM, OSM, imagery,
+   weather and stars from upstream, caching them, decoding them. There is no process boundary and no
+   HTTP hop between the engine and its own data — the only remote thing is upstream itself, which the
+   host's `Fetch` reaches. That deletes a serialisation format, a cache that had to be written twice,
+   and the arrival-order class of defect, which was decided by *which HTTP response returned first*.
 7. **The mathematics is deterministic.** If pace decides the result, the coupling is a bug.
 
 ## Shape
@@ -179,6 +182,4 @@ carry **no** dead-code rule — cite this file for that.
 
 ## Host
 
-emsdk in `~/Git/emsdk`, `nproc` shim in `~/.local/bin`. Containers: `podman machine start`, then
-`tiles/up.sh` (:8081), `sim/up.sh` (:8080). Native builds: `sim/vendor/.compat-headers`; **macOS has no
-`timeout(1)`**.
+Apple A18 Pro, macOS 26.4.1, Apple clang. **macOS has no `timeout(1)`** — a harness brings its own.
