@@ -139,6 +139,31 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **The footway ends mid-frontage** (`generators/draw/BuildingMesh.cpp:413-414`) — a per-edge binary accept/reject on a continuous stand-back. A consequence of the footway belonging to the building instead of to the street.
 - **A wrong reason defends a right number.** `BuildingMesh.cpp` states "38–45 is the German pantile range (below 22 a pantile does not seal)". The ZVDH Regeldachneigung for a Hohlpfanne is H1 ≥ 35°, H2 ≥ 40°, and the absolute minimum for Ziegel is 10° with additional measures. 22° is neither. `kPitchOutbuildingDeg = 22` may be right; its stated reason is not. Likewise `MinAreaBox`'s comment "on L, T, U and notched bars every hull edge is a ring edge" is false — an L's hull has a chord.
 
+## Vegetation
+
+- **The grown tree's declared base plane is not a floor: a fifth of the willow's bark is below it, and
+  its crown reaches deeper than the tree is tall.** `src/generators/draw/TreeMesh.h:1-3` declares the
+  mesh delivered "NORMALISED — base at y = 0, centred in x/z, height exactly 1", and
+  `TreeGrower::Grow` repeats it. The upper half of that contract holds: over all 31 declarations under
+  `assets/world/species/` the highest point of the whole tree is exactly 1. The lower half does not.
+  Measured 2026-08-12 over every declaration, native, at full detail (the probe is the tree-side of
+  `test/generators/draw/GrownBarkIsAClosedMesh.cpp`, which prints the number but does not yet assert
+  it): **seven declarations put geometry below y = 0** — as a fraction of the tree's own height, and
+  bark first, leaf points in brackets: willow −0.933 (−1.050), dog_rose −0.542, blackthorn −0.229,
+  hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064. Willow is not an
+  outlier vertex: **14 493 of its 64 539 bark vertices, 22.5 %, are below the base plane**, and with
+  `height_m: 18` its lowest leaf point sits **18.9 m under the point the tree is placed at**. Nothing
+  downstream lifts the mesh — `TreePrototype.cpp:111` copies `BoxMin.Y` into `Crown_.Bottom`, which
+  only bounds the crown for the in-crown query (`clients/StandField.cpp:43`) and the impostor box
+  (`render/stages/ModelDraw.cpp:749`); the instance transform puts y = 0 on the terrain. So the pendulous
+  species are drawn with their crowns inside the ground, every frame, and the shrubs with theirs a
+  little way into it. Six more sit *above* the plane by 3.6e-5 to 1.2e-4 of height (box, dogwood, elder,
+  hazel, privet, spindle) — trivial in metres, and still not the "exactly" the contract claims.
+  Right: the silhouette that prunes a hanging tip is clamped at the base plane, the way the tip is
+  already bent back at the crown envelope — a weeping willow's shoots stop at the ground, they do not
+  pass through it. Decides it: `min y == 0` over bark and leaf points for every declaration, which is
+  one `CHECK` in the test that already measures it.
+
 ## World and streaming
 
 - **The DEM path answers for a place the caller did not ask about, because `fb_geo_to_tile` clamps.**
@@ -444,6 +469,26 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   thruDir) * alb`. Decides it: two walls of one albedo facing 180° apart under one sun; their radiance
   ratio must follow their irradiance ratio, and today the shaded one does not change at all as the sun
   swings behind it.
+- **Two constants that describe soil are applied to water, glass and paint, and no material can decline
+  them.** `render/stages/SurfaceLight.h:33 kGroundBounce = 0.12` and `:40 kSelfShelter = 0.35` are
+  documented — correctly, and with sources — as the mean visible reflectance of Central European land
+  cover and as the sky fraction a clod, a furrow or a sward hides from a point between them. Both are
+  statements about **one kind of surface**; both are spliced into **every** lit surface, because
+  `litRadiance` is the single lighting function and every draw stage calls it:
+  `stages/TerrainDraw.cpp:120`, `stages/BuildingDraw.cpp:371`, `stages/ModelDraw.cpp:225` and `:240`,
+  `stages/WaterDraw.cpp:36`, `stages/BenchGroundStage.cpp:89`, `Sward.h:308-309`. Arithmetic, for an
+  up-facing facet under sun alone (`skyH = 0`, `ndu = 1`, `sunUp = sunVis = thruDir = 1`):
+  `ambE = nearE·(1.0·0.35) = 0.35·ρ·E⊥` and `dirE = E⊥`, so the outgoing radiance is
+  `k·(1 + 0.35ρ)·E⊥` against Lambert's `k·E⊥` — **+17.5 % at ρ = 0.5, +26.3 % at ρ = 0.75**, on a pane of
+  glass and on open water exactly as on a ploughed field. Caveat sought and it does not hold: the values
+  are not wrong and `CLAUDE.md`'s *one lighting model* is not the problem — the defect is that a
+  **surface** property is an **engine** constant, so there is no configuration of this renderer in which
+  a Lambertian surface is spellable, which is what the first external check of `doc/requirements.md`
+  § I.26 rung 3 needs in order to have a referee. Distinct from the near-field bug above: fixing that
+  expression leaves both constants exactly as unreachable. Right: two scalars in the material row —
+  they switch no pipeline state, which is the material row's whole definition — ground declaring
+  0.12/0.35 and a manufactured surface declaring 0. Decides it: one facet, albedo 0.5, one sun at normal
+  incidence, no sky; the linear tap must read `ρ·E⊥/π` and today reads 1.175× that.
 - **The shadow bias is 0.82 m in the near cascade, and a different physical length in each.**
   `render/stages/ShadowStage.cpp:213` sets `par[1] = 1.5e-3` and calls it an "ortho depth bias";
   `ShadowSample.h`'s `refZ = ndc.z - C.par.y` subtracts it from a `[0,1]` depth whose range is
@@ -542,6 +587,24 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 *Found 2026-08-12 in the design round for the const header. Every line here is a number that exists in
 the tree more than once, or under a name that says the wrong unit.*
 
+- **The one number every physical quantity in the renderer passes through is marked DERIVED and its
+  derivation ends at a display code.** `render/stages/SceneScale.h:17 kSceneExposure = 11.0` is
+  introduced as *"DERIVED from the measured frame, not tuned by eye"*, and the derivation's last step is
+  *"placing that at ACES input 0.32 — **the value whose sRGB output is 0.70**"*. The first three steps
+  are radiometry and the fourth is a mid-tone in an 8-bit picture, so the constant is a **fit to a
+  display**, wearing the marker `CLAUDE.md` reserves for a number that follows from other numbers. It is
+  applied by `litRadiance` to sky, ground, buildings, blades, water and haze alike (`SurfaceLight.h:91
+  k = alb * (kSceneExposure * kInvPi)`), i.e. to every radiance this engine produces. Compounding it:
+  **nothing in the tree can read the quantity it scales.** `render/Renderer.h:59 ReadPixels` returns
+  *"tightly packed W*H*4 RGBA8, already sRGB-encoded"* and is the only colour tap — `ReadDepth` and
+  `ReadIrradiance` are the other two readers and neither is scene radiance — so the claim
+  `SceneScale.h` makes about itself is unfalsifiable from inside, and an exposure constant and a physics
+  error are the same observation here. Caveat sought: a scene-referred pipeline with a display-anchored
+  exposure is legitimate *if the anchor lives in the exposure stage*; this one lives ahead of every
+  surface shader, which is the part that is wrong regardless of the value. Right: the marker is `[SET]`
+  until a linear tap exists (`doc/requirements.md` § I.26), and the number then either moves into
+  `ExposureStage` or is shown to be 1.0 with the difference in the irradiances. Decides it: the linear
+  readback of one facet of declared albedo under one declared irradiance against `ρ·E·cos θ/π`.
 - **One upstream's zoom bound is written three times, in two languages, and one of the three is
   suspect.** `world/TilePool.cpp:28` and `world/TerrainLoader.cpp:30` each define
   `constexpr int kProviderTerrainMaxZ = 15` — two definitions in two translation units, each with its
