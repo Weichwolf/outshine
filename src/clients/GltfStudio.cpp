@@ -127,6 +127,19 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
               std::to_string(studio.Surfaces.size());
       return false;
     }
+    /* A LIT SCENE OVER A PART WITH NO NORMAL IS A REFUSAL AND NOT A DARKER DRAW. Falling back to the
+     * emitted arm would draw that part in a radiance nothing declared -- black, in a scene where
+     * every other body is lit -- which reads as a shading bug rather than as the missing attribute
+     * it is. glTF says a client MUST compute flat normals for such a primitive; until something
+     * does, this is what says so. */
+    if (!studio.Lights.empty() && !subject.Parts()[part].HasNormal) {
+      error = "the studio declares " + std::to_string(studio.Lights.size()) +
+              " punctual lights and part " + std::to_string(part) + " of node '" +
+              subject.Parts()[part].NodeName +
+              "' carries no NORMAL, so there is no direction for the cosine -- and nothing here "
+              "derives the flat normal the format asks for";
+      return false;
+    }
   }
   return true;
 }
@@ -143,7 +156,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     Render::DrawItem item;
     item.Order.Viewport = 0;
     item.Order.Layer = Render::ViewLayer::World;
-    item.Order.Surface = studio.Surfaces[slot].Surface;
+    item.Order.Surface = studio.Surfaces[slot].State();
     item.Order.DepthFraction = DepthFraction(subject, where, studio.Eye);
     item.Order.MaterialSlot = slot;
     item.SourceFirstIndex = (uint32_t)where.FirstIndex;
@@ -151,29 +164,37 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
     /* THE LAYOUT IS A PROPERTY OF THE DRAW AND NEEDS BOTH HALVES: a part that carries uvs but wears
      * a surface with no image would otherwise take the textured pipeline and sample the one white
      * texel that only exists to make the bind group complete -- a stand-in wearing a texture's
-     * name. */
-    item.Layout = where.HasUv && studio.Surfaces[slot].Colour.Rgba
-                      ? Render::VertexLayout::PositionUv
-                      : Render::VertexLayout::Position;
+     * name. THE SAME HOLDS OF THE NORMAL, and its second half is the SCENE rather than the surface:
+     * a subject nothing lights takes the emitted arm however many normals its file carries, because
+     * there is no direction for a cosine to be measured against and the declaration's own radiance
+     * is the whole answer. */
+    const bool textured = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
+    const bool lit = where.HasNormal && !studio.Lights.empty();
+    item.Layout = lit ? (textured ? Render::VertexLayout::PositionNormalUv
+                                  : Render::VertexLayout::PositionNormal)
+                      : (textured ? Render::VertexLayout::PositionUv
+                                  : Render::VertexLayout::Position);
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
   return true;
 }
 
-/* WHERE THE THREE VERTEX RUNS START inside the one buffer the caller reuses. */
+/* WHERE THE FOUR VERTEX RUNS START inside the one buffer the caller reuses. */
 struct VertexRuns {
   size_t UvAt = 0;
+  size_t NormalAt = 0;
   size_t EmittedAt = 0;
 };
 
-/* ONE BUFFER, THREE RUNS: the positions, then the uvs, then the per-vertex radiance, so a caller
- * reusing capacity across a loop of cases pays one allocation and the three vertex buffers are three
+/* ONE BUFFER, FOUR RUNS: the positions, the uvs, the normals and the per-vertex radiance, so a
+ * caller reusing capacity across a loop of cases pays one allocation and the vertex buffers are
  * pointers into it. */
 VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
-  vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.VertexCount() * 3);
+  vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Normals().size() +
+                   subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
@@ -182,6 +203,16 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   VertexRuns runs;
   runs.UvAt = vertices.size();
   for (const double coordinate : subject.Uv()) { vertices.push_back((float)coordinate); }
+  /* THE NORMAL TAKES THE SAME PERMUTATION AS THE POSITION AND NOT AN INVERSE TRANSPOSE OF IT. The
+   * map from glTF's frame to the engine's is a signed permutation whose determinant is +1, so it is
+   * its own inverse transpose and a normal stays a normal and stays unit under it. Anything else
+   * here would be re-deriving `EcefFromGltf` in a second form. */
+  runs.NormalAt = vertices.size();
+  for (size_t vertex = 0; vertex * 3 < subject.Normals().size(); ++vertex) {
+    double ecef[3];
+    EcefFromGltf(&subject.Normals()[vertex * 3], ecef);
+    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+  }
   runs.EmittedAt = vertices.size();
   vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);
   for (size_t part = 0; part < subject.Parts().size(); ++part) {
@@ -194,6 +225,43 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     }
   }
   return runs;
+}
+
+/* THE DECLARED LIGHTS IN THE ENGINE'S FRAME. The position becomes an ECEF double, because a float
+ * metre at the Earth's radius is a half-metre quantum and a light half a metre out of place is a
+ * shading error nobody would attribute to a cast; the direction and the two cone angles cross
+ * unchanged in shape, the direction only permuted.
+ *
+ * REFUSES A LIGHT WHOSE BEAM IS NOT A DIRECTION. `Gltf::Subject` normalises what it places, so a
+ * zero here is a caller that built the list itself -- and a zero beam would make every facet face
+ * away from a directional light and the whole subject black. */
+[[nodiscard]] bool PlaceLights(const Studio &studio, std::vector<Render::SubjectLight> &out,
+                               std::string &error) {
+  out.clear();
+  out.reserve(studio.Lights.size());
+  for (size_t at = 0; at < studio.Lights.size(); ++at) {
+    const outshine::PunctualLight &declared = studio.Lights[at];
+    const double gltfDirection[3] = {declared.Direction[0], declared.Direction[1],
+                                     declared.Direction[2]};
+    double direction[3];
+    EcefFromGltf(gltfDirection, direction);
+    const double length = std::sqrt(direction[0] * direction[0] + direction[1] * direction[1] +
+                                    direction[2] * direction[2]);
+    if (!(length > 0)) {
+      error = "light " + std::to_string(at) + " declares a beam of zero length";
+      return false;
+    }
+    Render::SubjectLight placed;
+    placed.Light = declared;
+    for (int axis = 0; axis < 3; ++axis) {
+      placed.Light.Direction[axis] = (float)(direction[axis] / length);
+    }
+    const double gltfPosition[3] = {declared.Position[0], declared.Position[1],
+                                    declared.Position[2]};
+    Anchored(gltfPosition, placed.PositionEcefM);
+    out.push_back(placed);
+  }
+  return true;
 }
 
 } // namespace
@@ -226,9 +294,12 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   const VertexRuns runs = PackVertices(studio, subject, scratch.Vertices);
 
   if (!renderer.SetSubjectMaterials(studio.Surfaces, error)) { return false; }
+  if (!PlaceLights(studio, scratch.Lights, error)) { return false; }
+  if (!renderer.SetSubjectLights(scratch.Lights, error)) { return false; }
   Render::SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
+  mesh.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();

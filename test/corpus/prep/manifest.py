@@ -27,6 +27,7 @@ SUBJECT_KINDS = ("gltf", "blend", "generated")
 SOURCE_KINDS = ("khronos-sample-assets", "blender-download", "blender-studio", "outshine-generated")
 FILE_ROLES = ("gltf", "buffer", "image", "metadata", "blend", "archive-member")
 CAMERA_SOURCES = ("manifest", "gltf")
+PROJECTIONS = ("perspective", "orthographic")
 # "gltf-base-colour" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (doc/requirements.md I.26.13). The
 # imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a
 # textured asset rendered with it has an integral left to perform and no closed form to be judged
@@ -40,7 +41,31 @@ CAMERA_SOURCES = ("manifest", "gltf")
 # states its picture in is a fact about the asset, so it is declared per case and never guessed.
 MATERIAL_SOURCES = ("manifest", "gltf", "gltf-base-colour", "gltf-emissive")
 MATERIAL_KINDS = ("diffuse", "emission", "emission-per-material")
-LIGHT_KINDS = ("none", "sun", "point")
+# "gltf" IS THE ARM WHERE THE LIGHT CROSSES THE BOUNDARY, and it narrows the refusal rather than
+# overturning it (doc/requirements.md I.26.12). `DirectionalLight` and `PointLightIntensityTest`
+# state their criteria IN TERMS OF the light in the file -- "the directional lightsource is defined
+# as: Intensity = 1.0 lumen / m2, Color = [0.9, 0.8, 0.1]" -- so declaring it beside the asset would
+# measure our transcription and not the asset. For every other case the light is declared here and
+# whatever crossed is deleted, which is what keeps a rung measuring the light we meant.
+LIGHT_KINDS = ("none", "sun", "point", "gltf")
+# HOW THE IMPORTER TURNS glTF's PHOTOMETRIC UNITS INTO BLENDER'S RADIOMETRIC ONES, and it is declared
+# per case because the two arms are not interchangeable. RAW takes `intensity` across unchanged:
+# correct for a directional light, where glTF's lux IS Blender's Sun Strength one to one. For a point
+# light RAW makes glTF's candela into Blender's WATTS OF TOTAL POWER, and Cycles then radiates
+# `energy / 4pi` per steradian -- a factor of 4pi below the extension's own definition. COMPAT
+# multiplies by 4pi and is the arm that makes a point light's candela mean candela.
+LIGHTING_MODES = ("RAW", "COMPAT", "SPEC")
+# WHETHER THE ORACLE STILL HAS AN ESTIMATOR, and it is a property of the SCENE that has to be
+# declared because it decides whether the two-seed acceptance is owed. `delta` is a scene whose only
+# source is a light with no area: Cycles samples it in one deterministic direction, there is no
+# integral left, and two seeds must agree bit for bit. `selected` is a scene with MORE THAN ONE such
+# light: MEASURED at Blender 5.2.0 on `PointLightIntensityTest`, whose eight lights at one sample per
+# pixel leave 608 673 of 3 686 400 samples differing between seeds -- Cycles picks ONE light per
+# shading event, and which one is the seed's business. There is no setting that samples them all;
+# `sample_all_lights_direct` is gone and `use_light_tree` only changes how the one is chosen. So a
+# multi-light oracle is a Monte-Carlo estimate and says so here instead of failing a check it cannot
+# pass.
+LIGHT_ESTIMATORS = ("delta", "selected")
 WORLD_KINDS = ("factory", "uniform")
 DEVICES = ("CPU", "METAL")
 FILTER_TYPES = ("BOX", "GAUSSIAN", "BLACKMAN_HARRIS")
@@ -126,7 +151,7 @@ class Manifest:
             document,
             ("schema", "schemaVersion", "id", "title", "covers", "criterion", "subjectClass",
              "subjects", "blender", "scene", "renders"),
-            ("notes", "expected", "acceptance", "identicalCoverage"),
+            ("notes", "expected", "acceptance", "identicalCoverage", "statedInvariants"),
         )
         if self.document["schema"] != SCHEMA:
             raise Refusal("manifest.schema", expected=SCHEMA, observed=self.document["schema"])
@@ -142,7 +167,7 @@ class Manifest:
         self.blender_version = _blender(self.document["blender"])
         self.scene = _Scene(self.document["scene"])
         self.renders = _renders(self.document["renders"])
-        _seed_shift(self.scene.material, self.renders)
+        _seed_shift(self.scene.material, self.renders, self.scene.light)
         self.subject_class = _one_of("manifest.subjectClass", self.document["subjectClass"],
                                      ("opaque-min-1px", "sub-pixel-present"))
         # THE THRESHOLDS ARE THE RUNNER'S, NOT THIS FILE'S. A manifest's `acceptance` block carries
@@ -326,7 +351,7 @@ def _licence(where, value):
 # is readable FROM THE PICTURE, so the verdict is by eye and the residual against a path tracer's
 # own filter is a diagnostic rather than a threshold. `limits-probe` -- the asset states it is not
 # expected to render correctly everywhere and has no pass at all.
-CRITERION_KINDS = ("numeric", "self-describing", "limits-probe")
+CRITERION_KINDS = ("numeric", "self-describing", "stated-invariant", "limits-probe")
 
 
 def _criterion(value):
@@ -374,15 +399,22 @@ def _camera(value):
     source = _one_of("manifest.scene.camera.source", value.get("source"), CAMERA_SOURCES)
     if source == "gltf":
         return _fields("manifest.scene.camera", value, ("source",), ("note",))
+    # A PARALLEL PROJECTION IS A DIFFERENT MATRIX AND NOT A LONG LENS, so it is declared and never
+    # inferred from which field happens to be present. It carries the vertical extent it covers and
+    # no field of view at all; a case that needs one needs it for a reason it can state.
+    projection = _one_of("manifest.scene.camera.projection", value.get("projection", "perspective"),
+                         PROJECTIONS)
+    lens = ("yMagM",) if projection == "orthographic" else ("yfovRad", "sensorHeightMm")
     field = _fields(
         "manifest.scene.camera",
         value,
-        ("source", "positionM", "lookAtM", "rollRad", "yfovRad", "sensorHeightMm", "clipStartM", "clipEndM"),
-        ("note", "derivation"),
+        ("source", "positionM", "lookAtM", "rollRad", "clipStartM", "clipEndM") + lens,
+        ("note", "derivation", "projection"),
     )
+    field["projection"] = projection
     field["positionM"] = _vector("manifest.scene.camera.positionM", field["positionM"], 3)
     field["lookAtM"] = _vector("manifest.scene.camera.lookAtM", field["lookAtM"], 3)
-    for key in ("rollRad", "yfovRad", "sensorHeightMm", "clipStartM", "clipEndM"):
+    for key in ("rollRad", "clipStartM", "clipEndM") + lens:
         field[key] = _number("manifest.scene.camera." + key, field[key])
     return field
 
@@ -391,6 +423,12 @@ def _light(value):
     kind = _one_of("manifest.scene.light.kind", value.get("kind"), LIGHT_KINDS)
     if kind == "none":
         return _fields("manifest.scene.light", value, ("kind",), ("note",))
+    if kind == "gltf":
+        field = _fields("manifest.scene.light", value, ("kind", "lightingMode", "estimator"),
+                        ("note",))
+        _one_of("manifest.scene.light.lightingMode", field["lightingMode"], LIGHTING_MODES)
+        _one_of("manifest.scene.light.estimator", field["estimator"], LIGHT_ESTIMATORS)
+        return field
     if kind == "sun":
         field = _fields(
             "manifest.scene.light",
@@ -426,7 +464,12 @@ def _world(value):
 def _material(value):
     source = _one_of("manifest.scene.material.source", value.get("source"), MATERIAL_SOURCES)
     if source == "gltf":
-        return _fields("manifest.scene.material", value, ("source",), ("note",))
+        # THE WHOLE ROW HAS ONE CLOSURE AND IT IS THE FORMAT'S OWN, stated so that a case handing the
+        # file its base colour, its metalness and its roughness together cannot be read as handing
+        # over only one of the three.
+        field = _fields("manifest.scene.material", value, ("source", "kind"), ("note",))
+        _one_of("manifest.scene.material.kind", field["kind"], ("metal-rough",))
+        return field
     if source in ("gltf-base-colour", "gltf-emissive"):
         # THE CLOSURE IS OURS AND THE COLOUR IS THE FILE'S, and which closure is a declaration
         # because it decides how many integrals are left: `diffuse` is rho*L and holds only where no
@@ -469,7 +512,7 @@ def _material(value):
 SEED_SHIFT_RECIPE_NAME = "seed-shift"
 
 
-def _seed_shift(material, renders):
+def _seed_shift(material, renders, light):
     """The acceptance an emission case owes, declared rather than argued.
 
     Cycles does not match itself: a Monte-Carlo estimator's answer depends on its seed. A surface
@@ -478,7 +521,13 @@ def _seed_shift(material, renders):
     the integral that survived the change. The second recipe therefore differs from the first in the
     seed and in nothing else; anything else would make the comparison a test of that too.
     """
-    if material.get("kind") not in ("emission", "emission-per-material"):
+    # WHICH CASES OWE IT: the ones whose render has no estimator left. An emitter gathers nothing.
+    # A punctual light with no radius is a delta source, so a scene lit only by such lights and by a
+    # world of strength zero is sampled deterministically too -- the same claim, reached from the
+    # other side, and the same acceptance.
+    reduced = (material.get("kind") in ("emission", "emission-per-material") or
+               light.get("estimator") == "delta")
+    if not reduced:
         if SEED_SHIFT_RECIPE_NAME in renders:
             raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME, expected="absent",
                           observed="declared beside a material that is not an emission",

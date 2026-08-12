@@ -25,6 +25,14 @@ struct Transform {
   void Point(const double point[3], double out[3]) const;
   void Direction(const double direction[3], double out[3]) const;
 
+  /* A NORMAL IS NOT A DIRECTION UNDER A NON-UNIFORM SCALE, and it has its own transform because of
+   * it: the surface stays perpendicular to `inverse(linear)^T * n` and not to `linear * n`. glTF
+   * says the same in its own words (`Specification.adoc`, "Instantiation": normals are transformed
+   * by the inverse transpose). Refuses a singular linear part, which is the caller's to name --
+   * substituting `Direction` there is exactly the shortcut a flattened sphere renders lit wrong by.
+   * NOT NORMALISED: a caller that renormalises anyway would pay for it twice. */
+  [[nodiscard]] bool Normal(const double normal[3], double out[3]) const;
+
   /* The determinant of the linear part, which is the quantity the format's winding rule is stated
    * over: glTF 2.0 Specification.adoc:1734 reverses a triangle's winding where a node's GLOBAL
    * transform has a negative one. The translation row cannot enter it, so this is the 3x3 and not

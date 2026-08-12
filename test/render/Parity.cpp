@@ -45,6 +45,7 @@
 #include "Check.h"
 
 #include "Acceptance.h"
+#include "Invariant.h"
 #include "Mask.h"
 #include "Metric.h"
 #include "OracleRaw.h"
@@ -88,7 +89,34 @@ struct SurfaceTable {
  * glTF socket, and which one is a property of the ASSET: `TextureLinearInterpolationTest` states its
  * whole picture in `emissiveFactor`/`emissiveTexture` over a base colour of `[0,0,0,1]`, so a runner
  * that could only read base colour would render its two spheres black and score that. */
-enum class FileColour { Declared, BaseColour, Emissive };
+enum class FileColour { Declared, BaseColour, Emissive, Row };
+
+/* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
+ * the answer is not the same for every case (doc/requirements.md I.26.12). For OUR OWN generated
+ * fixtures the light is declared beside the asset, so that a rung measures the light we meant; for
+ * a Khronos asset whose criterion is stated IN TERMS OF the light in the file -- `DirectionalLight`
+ * says "the directional lightsource is defined as ..." -- re-declaring it beside the asset would
+ * measure our transcription instead. `None` is the default and drops whatever the file carries. */
+enum class SceneLights { None, FromFile };
+
+/* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
+ * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
+ * on all three channels and strength 1.0, sampled as a light (doc/requirements.md I.26.12): under a
+ * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
+ * Cycles has no integration left to perform and a facet of albedo rho returns exactly rho*L.
+ * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708.
+ *
+ * INDEPENDENT OF THE FACET'S NORMAL, and that is the environment's doing rather than an omission
+ * here: a uniform environment delivers the same radiance from every direction, so the irradiance on
+ * a Lambertian surface is pi*L whichever way it faces and the outgoing radiance is rho*L. THERE IS
+ * NO N.L TERM TO MATCH IN THIS SCENE -- a cube's three visible faces come back at one value, and a
+ * renderer that shaded N.L here would disagree with the oracle on two of them. What the oracle does
+ * carry beyond rho*L is VISIBILITY: at one sample the single cosine-weighted direction either
+ * escapes to the world and the pixel is rho*L, or it meets geometry and the pixel is 0. That is
+ * ambient occlusion at one sample, it is a noise field rather than a value, and no rasteriser
+ * reproduces it -- which is why a case whose subject occludes itself or its neighbours cannot reach
+ * an exact image and says so in its own class rather than in a tolerance. */
+constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 
 /* WHAT THE RUNNER READ AND NOTHING ELSE: the declaration, its resolved camera and its resolved
  * thresholds. Held as one object so the render step takes a subject rather than eleven arguments
@@ -112,27 +140,24 @@ struct Case {
    * and the studio only points at them. */
   FileColour Colour = FileColour::Declared;
   bool MaterialFromFile() const { return Colour != FileColour::Declared; }
+  /* THE ARM WHERE NO PER-PART RADIANCE IS THE ANSWER AT ALL: the surface's colour is the BRDF
+   * evaluated against the light list, so the declared radiance is zero everywhere and the residual
+   * against the oracle is a comparison of two shading models rather than of one number. */
+  bool ShadedByLights() const { return Colour == FileColour::Row; }
+  SceneLights Lights = SceneLights::None;
+  /* Whether the ORACLE of this case still has an estimator: a scene whose only sources are lights
+   * with no area is sampled deterministically and owes the two-seed check; more than one such light
+   * is not, because Cycles picks one per shading event. The manifest declares which. */
+  bool DeltaLit = false;
+  /* The environment's radiance per channel, scene-referred linear: Blender's factory world under
+   * the `factory` arm, the declared colour times the declared strength under `uniform`. */
+  double WorldRadiance[3] = {kFactoryWorldRadiance, kFactoryWorldRadiance, kFactoryWorldRadiance};
+  /* What the ASSET says a render of itself must satisfy, empty unless the criterion is
+   * `stated-invariant` -- which is the only kind that has any. */
+  std::vector<Invariant> Invariants;
   SurfaceTable Surfaces;
 };
 
-/* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
- * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
- * on all three channels and strength 1.0, sampled as a light (doc/requirements.md I.26.12): under a
- * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
- * Cycles has no integration left to perform and a facet of albedo rho returns exactly rho*L.
- * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708.
- *
- * INDEPENDENT OF THE FACET'S NORMAL, and that is the environment's doing rather than an omission
- * here: a uniform environment delivers the same radiance from every direction, so the irradiance on
- * a Lambertian surface is pi*L whichever way it faces and the outgoing radiance is rho*L. THERE IS
- * NO N.L TERM TO MATCH IN THIS SCENE -- a cube's three visible faces come back at one value, and a
- * renderer that shaded N.L here would disagree with the oracle on two of them. What the oracle does
- * carry beyond rho*L is VISIBILITY: at one sample the single cosine-weighted direction either
- * escapes to the world and the pixel is rho*L, or it meets geometry and the pixel is 0. That is
- * ambient occlusion at one sample, it is a noise field rather than a value, and no rasteriser
- * reproduces it -- which is why a case whose subject occludes itself or its neighbours cannot reach
- * an exact image and says so in its own class rather than in a tolerance. */
-constexpr double kFactoryWorldRadiance = 0.05087608844041824;
 
 std::string Slurp(const std::string &path) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -149,11 +174,14 @@ std::string Slurp(const std::string &path) {
 
 void Refused(const std::string &why) { std::printf("REFUSED %s\n", why.c_str()); }
 
-/* WHICH MATERIAL ARMS OWE THE TWO-SEED CHECK: the ones whose every surface emits its declared
- * colour, whatever the colour is keyed on. An emitter gathers nothing, so two seeds must agree bit
- * for bit and any difference names the integral that survived. */
-bool Emits(const std::string &kind) {
-  return kind == "emission" || kind == "emission-per-material";
+/* WHICH CASES OWE THE TWO-SEED CHECK: the ones whose oracle has no estimator left. A surface that
+ * emits its declared colour gathers nothing, whatever the colour is keyed on. A scene lit only by
+ * punctual lights over a world of strength zero is the same claim from the other side -- a light
+ * with no radius is sampled in one deterministic direction -- so two seeds must agree bit for bit
+ * there too, and any difference names the source that still has an area. */
+bool Reduced(const Case &subject) {
+  return subject.MaterialKind == "emission" || subject.MaterialKind == "emission-per-material" ||
+         subject.DeltaLit;
 }
 
 /* THE SURFACE ARM A FILE-COLOURED CASE MAY NOT DECLARE SILENTLY: the manifest states the closure
@@ -163,6 +191,10 @@ bool Emits(const std::string &kind) {
  * asset's own number by a world radiance the format never mentioned. */
 bool KnownFileClosure(FileColour colour, const std::string &kind) {
   if (colour == FileColour::Emissive) { return kind == "emission"; }
+  /* THE WHOLE ROW HAS ONE CLOSURE AND IT IS THE FORMAT'S OWN. Where the case hands the file its base
+   * colour, its metalness and its roughness together, the only thing they can mean is glTF's
+   * metal-rough BRDF; a `diffuse` arm over them would silently discard two of the three. */
+  if (colour == FileColour::Row) { return kind == "metal-rough"; }
   return kind == "diffuse" || kind == "emission";
 }
 
@@ -177,12 +209,36 @@ bool KnownFileClosure(FileColour colour, const std::string &kind) {
     out = FileColour::Emissive;
     return true;
   }
+  if (declared.StrEquals("gltf")) {
+    out = FileColour::Row;
+    return true;
+  }
   if (declared.StrEquals("manifest") || !declared.Valid()) {
     out = FileColour::Declared;
     return true;
   }
   error = "scene.material.source is '" + declared.Str("") +
-          "', and this runner reads 'manifest', 'gltf-base-colour' and 'gltf-emissive'";
+          "', and this runner reads 'manifest', 'gltf', 'gltf-base-colour' and 'gltf-emissive'";
+  return false;
+}
+
+[[nodiscard]] bool ReadSceneLights(const Json::Ref &declared, SceneLights &out,
+                                   std::string &error) {
+  if (declared.StrEquals("gltf")) {
+    out = SceneLights::FromFile;
+    return true;
+  }
+  if (declared.StrEquals("none") || !declared.Valid()) {
+    out = SceneLights::None;
+    return true;
+  }
+  /* `sun` AND `point` ARE THE ORACLE'S ARMS AND THIS RUNNER HAS NO PATH TO EITHER: a light declared
+   * beside the asset would have to be built into the studio from the manifest, and nothing does
+   * that. Naming the two is what makes a case that declares one stop here instead of rendering
+   * unlit and scoring it. */
+  error = "scene.light.kind is '" + declared.Str("") +
+          "', and this runner builds the file's own lights ('gltf') or none -- a light declared "
+          "beside the asset reaches the oracle and has no path into the studio";
   return false;
 }
 
@@ -216,10 +272,28 @@ public:
       error = "the manifest's camera aims at its own eye or straight up";
       return false;
     }
-    subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
     subject.Eye.ZNearM = declared["clipStartM"].Num(0.0);
     subject.Eye.ZFarM = declared["clipEndM"].Num(0.0);
     subject.CameraSource = "manifest";
+    /* THE PROJECTION IS DECLARED AND NOT INFERRED FROM WHICH FIELD IS PRESENT. A parallel
+     * projection is a different matrix, not a very long focal length, and a case that needs one
+     * needs it for a reason it can state: `PointLightIntensityTest` compares two panels 2.25 m
+     * apart in the same picture, and only a parallel projection makes them congruent in pixels, so
+     * "identical" is decidable there instead of approximate. */
+    if (declared["projection"].StrEquals("orthographic")) {
+      subject.Eye.Kind = outshine::Gltf::CameraKind::Orthographic;
+      subject.Eye.YMagM = declared["yMagM"].Num(0.0);
+      /* The engine's parallel projection carries the VERTICAL extent and derives the horizontal
+       * from the frame's aspect, so the horizontal magnification is not a second declaration. */
+      subject.Eye.XMagM = subject.Eye.YMagM * subject.Frame.Aspect();
+      return subject.Eye.YMagM > 0;
+    }
+    if (declared["projection"].Valid() && !declared["projection"].StrEquals("perspective")) {
+      error = "the manifest's camera declares projection '" + declared["projection"].Str("") +
+              "', and glTF has two";
+      return false;
+    }
+    subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
     return subject.Eye.YfovRad > 0;
   }
   if (subject.Geometry.DeclaredPlacement(subject.File, subject.Eye)) {
@@ -269,6 +343,20 @@ public:
             "asset's";
     return false;
   }
+  /* THE STATED INVARIANTS BELONG TO EXACTLY ONE KIND OF CRITERION, in both directions: a case of
+   * another kind that declared them would be scoring something its criterion does not claim, and a
+   * `stated-invariant` case without them would have no acceptance at all. */
+  const bool statesInvariants = root["statedInvariants"].Size() > 0;
+  if (statesInvariants != (subject.Criterion == CriterionKind::StatedInvariant)) {
+    error = statesInvariants
+                ? "the manifest declares statedInvariants and its criterion.kind is not "
+                  "stated-invariant"
+                : "criterion.kind is stated-invariant and the manifest declares no statedInvariants";
+    return false;
+  }
+  if (statesInvariants && !ReadInvariants(root["statedInvariants"], subject.Invariants, error)) {
+    return false;
+  }
   subject.Accepted.BoundaryP95MaxPx = DefaultBoundaryP95Px(subject.Accepted.Subject);
   subject.Accepted.EnforceBoundary = subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
   if (!ReadAcceptance(root["acceptance"], subject.Accepted, error)) { return false; }
@@ -284,10 +372,24 @@ public:
             subject.MaterialKind + "', which is not a closure that source has";
     return false;
   }
+  if (!ReadSceneLights(root["scene"]["light"]["kind"], subject.Lights, error)) { return false; }
+  subject.DeltaLit = root["scene"]["light"]["estimator"].StrEquals("delta");
+  /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
+   * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is
+   * the arm a case takes to REMOVE the environment, and the only value in the tree today is zero --
+   * which is the reduction a lit case needs, because an environment is an area source and a delta
+   * light is not. */
   const Json::Ref world = root["scene"]["world"];
-  if (!world["kind"].StrEquals("factory") && !world["kind"].Str("").empty()) {
+  if (world["kind"].StrEquals("uniform")) {
+    const double strength = world["strength"].Num(0.0);
+    for (size_t channel = 0; channel < 3; ++channel) {
+      subject.WorldRadiance[channel] = world["colourLinear"][channel].Num(0.0) * strength;
+    }
+  } else if (world["kind"].StrEquals("factory") || world["kind"].Str("").empty()) {
+    for (double &channel : subject.WorldRadiance) { channel = kFactoryWorldRadiance; }
+  } else {
     error = "scene.world.kind is '" + world["kind"].Str("") +
-            "', and this runner knows the radiance of Blender's factory world and of no other";
+            "', and this runner knows 'factory' and 'uniform'";
     return false;
   }
 
@@ -373,12 +475,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     if (slot == out.Material.size()) {
       outshine::Render::SubjectMaterial surface;
       if (material >= 0 && (size_t)material < file.Materials().size()) {
-        surface.Surface = outshine::StateOf(file.Materials()[(size_t)material].Surface);
-        /* THE COVERAGE FACTOR IS `baseColorFactor.a` WHATEVER THE COLOUR CHANNEL IS, which is
-         * glTF's own rule: alpha comes from the base colour and from nowhere else, even where the
-         * picture is stated in emissive. Reading it off the emissive factor -- which has three
-         * components and no alpha at all -- is the shape this line exists to make impossible. */
-        surface.Coverage = file.Materials()[(size_t)material].Surface.BaseColour[3];
+        /* THE WHOLE ROW AND NOT A CHANNEL OF IT. The coverage factor is then `baseColorFactor.a` by
+         * construction whatever the colour channel is, which is glTF's own rule: alpha comes from
+         * the base colour and from nowhere else, even where the picture is stated in emissive. */
+        surface.Row = file.Materials()[(size_t)material].Surface;
       }
       out.Material.push_back(material);
       out.Slots.push_back(surface);
@@ -411,7 +511,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
     const outshine::Gltf::TextureRef &declared =
         channel == FileColour::Emissive ? material.Emissive : material.BaseColour;
-    if (table.Slots[slot].Surface.Kind() != outshine::SurfaceKind::Opaque &&
+    if (table.Slots[slot].State().Kind() != outshine::SurfaceKind::Opaque &&
         material.BaseColour.Texture != declared.Texture) {
       error = std::string("material '") + material.Name + "' is not OPAQUE, takes its colour from " +
               socket + " " + std::to_string(declared.Texture) + " and its coverage from " +
@@ -453,12 +553,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     }
     ++textured;
   }
-  if (textured == 0) {
+  /* A TEXTURE IS OWED ONLY WHERE THE PICTURE IS ONE. Under `gltf-base-colour` and `gltf-emissive`
+   * the whole appearance is the named socket, so a case that found none would be scoring a flat
+   * factor; under `gltf` the row is the appearance and a material with no image is an ordinary
+   * material. `DirectionalLight` declares three of them. */
+  if (textured == 0 && channel != FileColour::Row) {
     error = std::string("the manifest hands the surface to the file and no material of it declares "
                         "a ") + socket;
     return false;
   }
-  if (!geometry.HasUv()) {
+  if (textured > 0 && !geometry.HasUv()) {
     error = "the file's materials are the surface and the subject carries no TEXCOORD_0 to sample "
             "them with";
     return false;
@@ -490,6 +594,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   const size_t parts = geometry.Parts().size();
   out.assign(parts, {0.0f, 0.0f, 0.0f});
 
+  /* THE LIT ARM DECLARES NO RADIANCE. Every part emits nothing and the picture is what the light
+   * list and the surface's own row make of it, which is the whole point of the arm. */
+  if (subject.ShadedByLights()) { return true; }
+
   if (subject.MaterialFromFile()) {
     /* THE FILE OWNS THE COLOUR AND THE CASE OWNS THE CLOSURE, and the closure is one factor.
      * `diffuse`: the metal-rough model at metalness 0 under a uniform environment reduces to
@@ -497,7 +605,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
      * the environment leaves the arithmetic entirely -- which is what a subject whose surfaces see
      * one another has to declare, because there Cycles at one sample is measuring visibility
      * (doc/requirements.md I.26.13). The texel is the shader's either way; this is the factor. */
-    const double closure = subject.MaterialKind == "emission" ? 1.0 : kFactoryWorldRadiance;
+    const bool emits = subject.MaterialKind == "emission";
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
       const outshine::Material surface = index >= 0 && (size_t)index < file.Materials().size()
@@ -507,7 +615,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
         const double factor = subject.Colour == FileColour::Emissive
                                   ? (double)surface.Emission[channel]
                                   : (double)surface.BaseColour[channel];
-        out[part][channel] = (float)(factor * closure);
+        out[part][channel] =
+            (float)(factor * (emits ? 1.0 : subject.WorldRadiance[channel]));
       }
     }
     return true;
@@ -558,7 +667,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
       return false;
     }
     for (size_t channel = 0; channel < 3; ++channel) {
-      out[0][channel] = (float)(material["colourLinear"][channel].Num(0.0) * kFactoryWorldRadiance);
+      out[0][channel] =
+          (float)(material["colourLinear"][channel].Num(0.0) * subject.WorldRadiance[channel]);
     }
     return true;
   }
@@ -848,7 +958,7 @@ int main(int argc, char **argv) {
    * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
    * doc/requirements.md I.26.13. */
   size_t seedApart = 0;
-  if (Emits(subject.MaterialKind)) {
+  if (Reduced(subject)) {
     OracleRaw shifted;
     const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
     CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
@@ -923,6 +1033,19 @@ int main(int argc, char **argv) {
   studio.EmittedRadiance = subject.Emitted;
   studio.PartSurface = subject.Surfaces.PartSlot;
   studio.Surfaces = subject.Surfaces.Slots;
+  /* THE FILE'S LIGHTS CROSS ONLY WHERE THE CASE SAYS SO. Every other case is lit by nothing and
+   * draws the radiance it declared, which is what keeps a rung measuring the light we meant. */
+  if (subject.Lights == SceneLights::FromFile) {
+    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
+      studio.Lights.push_back(placed.Light);
+      Note(("light '" + placed.LightName + "' on node '" + placed.NodeName + "', intensity")
+               .c_str(),
+           (double)placed.Light.Intensity, placed.Light.Kind == outshine::LightKind::Directional
+                                               ? "lux"
+                                               : "candela");
+    }
+  }
+  Note("punctual lights the studio declares", (double)studio.Lights.size(), "lights");
   for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
     Note(("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red")
              .c_str(),
@@ -935,7 +1058,7 @@ int main(int argc, char **argv) {
       Note(("colour image texels down, surface slot " + std::to_string(slot)).c_str(),
            (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
       Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].Coverage, "dimensionless");
+           (double)subject.Surfaces.Slots[slot].Coverage(), "dimensionless");
     }
   }
 
@@ -963,7 +1086,7 @@ int main(int argc, char **argv) {
   if (!unwritten.empty()) { Refused(unwritten); }
 
   std::vector<Metric> metrics;
-  if (Emits(subject.MaterialKind)) {
+  if (Reduced(subject)) {
     metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
                        Direction::AtMost});
   }
@@ -1055,6 +1178,27 @@ int main(int argc, char **argv) {
    * DIAGNOSTIC and none of it is sufficient for a pass: a case scoring the coverage mask exactly
    * while drawing no visible subject was green here for a whole round, which is the vacuous-gate
    * failure in its purest form. */
+  /* WHAT THE ASSET ITSELF SAYS MUST HOLD, on the linear tap, before anything is compared with the
+   * oracle. It is placed ahead of the image comparison because for a `stated-invariant` case this
+   * IS the verdict and the comparison below is the diagnostic beside it -- the reverse of every
+   * other kind, and the reason the two are never both enforced on one case. */
+  {
+    LinearFrame tap;
+    tap.Samples = &picture.Linear;
+    tap.Width = (int)subject.Frame.WidthPx;
+    tap.Height = (int)subject.Frame.HeightPx;
+    const bool tapHolds = tap.Holds() || subject.Invariants.empty();
+    CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
+    for (const Invariant &check : subject.Invariants) {
+      if (!tap.Holds()) { break; }
+      std::printf("INVARIANT %s -- %s\n", check.Name.c_str(), check.Kind == InvariantKind::LinearCeiling
+                      ? "linear-ceiling"
+                      : (check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest"
+                                                                     : "region-compare"));
+      Evaluate(check, tap, metrics);
+    }
+  }
+
   const ImageDelta image = CompareImages(picture.Rgba, reference);
   metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
                      subject.Criterion == CriterionKind::Numeric ? Direction::AtMost

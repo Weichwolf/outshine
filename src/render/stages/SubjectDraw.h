@@ -7,16 +7,25 @@
  * them one at a time would rediscover the same missing list per asset. The list is `render/draw/`,
  * it has no device type in it, and the stage row above stays a PASS declaration.
  *
- * POSITION AND, WHERE THE PRIMITIVE CARRIES ONE, THE FIRST UV. NO NORMAL, and that is still the
- * unit's own limit rather than an omission: this draw emits a radiance the DECLARATION derived, so
- * nothing here reads a direction and a normal would be a number nobody uses. Inventing one for a
- * subject whose file carries none is what I.26 forbids; a punctual light is where `N.L` becomes
- * correct, and that is a different unit and a different round.
+ * TWO WAYS A SURFACE GETS ITS COLOUR AND THEY ARE DIFFERENT PIPELINES, not a branch.
  *
- * THE RADIANCE IS THE DECLARATION'S AND NOT THIS FILE'S. Whether it came from a Lambertian facet
- * under a uniform environment (`rho*L`) or from an emissive surface (the colour itself) is a
+ * THE EMITTED ARM CARRIES THE RADIANCE THE DECLARATION DERIVED. Whether it came from a Lambertian
+ * facet under a uniform environment (`rho*L`) or from an emissive surface (the colour itself) is a
  * property of the scene that was declared, and the two reduce to one number per surface; deriving it
- * here would put half a lighting model in a unit that has none.
+ * here would put half a lighting model in a unit that has none. THAT ARM READS NO DIRECTION AT ALL,
+ * and it is still the correct one under a uniform environment: irradiance is isotropic there, so a
+ * Lambertian facet returns `rho*L` whichever way it faces and an `N.L` term would disagree with the
+ * oracle on every face but one -- measured, 97 466 pixels across three normals, 2 ulps of f32.
+ *
+ * THE LIT ARM IS WHERE `N.L` BECOMES CORRECT, and a punctual light is what makes it so: a light with
+ * no area delivers its irradiance from ONE direction, so the cosine is the whole of the geometry
+ * term and there is no integral left to disagree about. It reads the surface's own row -- base
+ * colour, metalness, roughness, emissive -- and the light list, and it evaluates glTF's own
+ * metal-rough BRDF over it, because that is the model the Khronos corpus states its criteria in.
+ *
+ * NEITHER ARM COMPUTES VISIBILITY. Nothing here traces a shadow, so a subject that occludes itself
+ * is lit through itself; that is this unit's stated limit and the next thing it owes, not something
+ * a caller can switch on.
  *
  * A UV IS NOT INVENTED EITHER. A primitive with no `TEXCOORD_0` is drawn by a different pipeline,
  * not by this one with a zero coordinate: a zero uv samples the image's corner and looks like a
@@ -47,11 +56,32 @@
 #include <string>
 #include <vector>
 
+#include "PunctualLight.h"
+
 #include "DrawList.h"
 #include "GeometryUnit.h"
 #include "Gpu.h"
 
 namespace outshine::Render {
+
+/* ONE PLACED LIGHT AS THE RENDERER TAKES IT: the engine's light (`core/PunctualLight.h`) with its
+ * position restated in the frame the renderer works in. The direction and the two cone angles stay
+ * in the light itself because they are frame-free once rotated; the POSITION cannot be, because a
+ * scene's metres are camera-relative floats and an ECEF position is a double.
+ *
+ * `PositionEcefM` IS THE ONE FIELD THAT OVERRIDES `Light.Position`, and the light's own position
+ * field is left unread here for exactly that reason: a float ECEF metre is a 0.5 m quantum at the
+ * Earth's radius, so a light placed through it would sit somewhere else. */
+struct SubjectLight {
+  outshine::PunctualLight Light;
+  double PositionEcefM[3] = {0, 0, 0};
+};
+
+/* HOW MANY LIGHTS ONE SUBJECT MAY BE LIT BY. [SET] 16: the corpus's own most-lit asset declares
+ * eight (`PointLightIntensityTest`), and the list is a uniform buffer whose size is fixed at
+ * pipeline creation. A seventeenth is a refusal that names the count, never a light silently
+ * dropped -- a picture missing one of its lights looks like a shading bug rather than a limit. */
+constexpr size_t kMaxSubjectLights = 16;
 
 /* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
  * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
@@ -88,15 +118,20 @@ struct SubjectTexture {
  * declaration's business. `TextureLinearInterpolationTest` carries its colour in the emissive slot
  * and `[0,0,0,1]` in the base one, so a unit that could only sample base colour would draw it black.
  *
- * `Coverage` IS THE DECLARED CONSTANT HALF OF ALPHA -- glTF's `baseColorFactor.a` -- and the
- * image's own alpha is the other half, multiplied in the shader. It is a separate number from the
- * radiance because `OPAQUE` ignores it entirely (`Specification.adoc:2178`) while `MASK` cuts on it
- * and `BLEND` composites with it: folding it into the colour is the premultiplication
+ * `Coverage()` IS THE DECLARED CONSTANT HALF OF ALPHA -- glTF's `baseColorFactor.a` -- and the
+ * image's own alpha is the other half, multiplied in the shader. It is read as a separate number
+ * from the radiance because `OPAQUE` ignores it entirely (`Specification.adoc:2178`) while `MASK`
+ * cuts on it and `BLEND` composites with it: folding it into the colour is the premultiplication
  * `AlphaBlendModeTest` fails an engine for. */
 struct SubjectMaterial {
-  SurfaceState Surface = StateOf(Material{});
+  /* THE MATERIAL ROW ITSELF, and the pipeline state is DERIVED from it rather than stored beside it:
+   * two fields would spell a slot whose declared alpha mode and whose pipeline disagree, and the
+   * coverage factor kept as its own float was already a second copy of `BaseColour[3]`. */
+  Material Row;
   SubjectTexture Colour;
-  float Coverage = 1.0f;
+
+  [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
+  [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
 };
 
 /* THE WHOLE OF WHAT IS DRAWN, as one parameter object rather than seven arguments (`I.23`). The
@@ -114,6 +149,7 @@ struct SubjectMaterial {
 struct SubjectMesh {
   const float *Verts = nullptr;      /* 3 floats per vertex, ECEF offsets from `Anchor`, metres */
   const float *Uv = nullptr;         /* 2 floats per vertex, or null */
+  const float *Normals = nullptr;    /* 3 floats per vertex, unit, ECEF axes, or null */
   const float *Emitted = nullptr;    /* 3 floats per vertex */
   uint32_t VertexCount = 0;
   const uint32_t *Indices = nullptr;
@@ -140,6 +176,11 @@ public:
    * in the encoder is a body missing from the picture with nothing to attribute it to. */
   [[nodiscard]] bool SetMesh(const SubjectMesh &mesh, std::string &error);
 
+  /* Replaces the light list the lit arm reads. An empty list is a subject nothing lights, which is
+   * what every case outside `KHR_lights_punctual` declares; more than `kMaxSubjectLights` is a
+   * refusal naming both counts. */
+  [[nodiscard]] bool SetLights(const std::vector<SubjectLight> &lights, std::string &error);
+
   void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
 
   uint32_t VertexCount() const { return NVerts; }
@@ -159,23 +200,34 @@ private:
     wgpu::Texture Image;
     wgpu::TextureView View;
     wgpu::Sampler Sample;
-    /* The two per-slot numbers the fragment reads: the declared coverage factor and, under `MASK`,
-     * the alpha below which a fragment is discarded. Per SLOT because glTF states both per
+    /* The slot's own surface row: the coverage factor and the mask cutoff both arms read, and the
+     * metal-rough row the lit arm shades with. Per SLOT because glTF states all of them per
      * material, and `AlphaBlendModeTest` renders three cutoffs in one file. */
-    wgpu::Buffer Alpha;
+    wgpu::Buffer Surface;
     wgpu::BindGroup Bind;
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
   };
 
-  /* One slot's texture, sampler, alpha uniform and bind group, appended to the table. */
+  /* One slot's texture, sampler, surface uniform and bind group, appended to the table. */
   void BindSurface(const SubjectMaterial &material);
+  /* The light list, restated camera-relative for this frame. */
+  void WriteLights(const FrameContext &ctx);
   /* Which of the built pipelines a draw of this layout, kind and facing takes. */
   [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
   static constexpr int kUniFloats = 20;   /* mat4 + anc -- the WGSL struct `S` verbatim */
-  static constexpr int kAlphaFloats = 4;  /* factor, cut, and the pad a uniform binding wants */
-  /* TWO VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
+  /* THE SURFACE ROW ONE SLOT BINDS, the WGSL struct `M` verbatim: the coverage factor and the mask
+   * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
+   * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
+   * be bound with a coverage from one material and a roughness from another. */
+  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive4 */
+  /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of three
+   * `vec4f` -- colour times intensity with the kind, the camera-relative position with cos(outer),
+   * and the beam with the reciprocal of the cone's own span. */
+  static constexpr int kLightVec4s = 4;
+  static constexpr int kLightFloats = 4 + 4 * kLightVec4s * (int)kMaxSubjectLights;
+  /* FOUR VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
    * built at configure time. A single pipeline with a white one-texel stand-in would make "no
    * texture declared" and "a white texture declared" the same picture; a single cull mode would make
    * `doubleSided` a property the reader carries and the picture ignores; and one alpha arm for all
@@ -186,7 +238,8 @@ private:
    * `SetMaterials` refuses the other two by name, so a slot naming one never reaches the table and
    * an unbuilt entry has no draw that can select it -- the refusal is the guard, not a check here. */
   static constexpr size_t kSurfaceKinds = 5;
-  static constexpr size_t kPipelines = 2 * 2 * kSurfaceKinds;
+  static constexpr size_t kVertexLayouts = 4;
+  static constexpr size_t kPipelines = kVertexLayouts * 2 * kSurfaceKinds;
 
   wgpu::Device Device;
   wgpu::Queue Queue;
@@ -196,9 +249,11 @@ private:
    * and alpha. The encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
-  wgpu::Buffer Uni, Vtx, Uv, Emit, Idx;
+  wgpu::Buffer Uni, Lights, Vtx, Uv, Nrm, Emit, Idx;
+  std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
+  bool HasNormal = false;
   bool FiltersFloat32 = false;
   double Anchor[3] = {0, 0, 0};
 };

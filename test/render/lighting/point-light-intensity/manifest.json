@@ -1,0 +1,406 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/lighting/point-light-intensity",
+  "title": "Khronos PointLightIntensityTest -- eight point lights over six panels, and the criterion is that three coloured lights equal one white one",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "I.27",
+    "II.8",
+    "khronos:PointLightIntensityTest"
+  ],
+  "criterion": {
+    "kind": "stated-invariant",
+    "says": "The `intensity` represents the luminous intensity that the light would emit if it were colored pure white ([1.0, 1.0, 1.0]). The `color` property acts as a wavelength-specific multiplier. ... As with other glTF sample assets, the exact appearance of this model need not match the screenshot exactly. The appearance depends on the brightness of the scene's IBL, renderer exposure settings, choice of tone mapping, and other considerations. The expectation for the bottom row of this test is that the \"Red + Green + Blue\" test will be identical (or very nearly so) to the \"White\" test, and the \"Gray\" test will be visibly less bright. ... If the rendered image is separated into red, green, and blue monochrome channels, the expectation for each of the corresponding tests from the top row is to match (or be nearly identical) to the \"White\" test in the bottom row.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+    "note": "The asset states outright that an exact appearance match is NOT the criterion, and names three things it depends on that are the renderer's rather than the file's. What it does state exactly is a set of relations between regions of its own render, and those are decidable here to the last bit."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "point-light-intensity",
+      "kind": "gltf",
+      "name": "PointLightIntensityTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "Six 2x2 m test panels in two rows, 2.25 m apart across and 2.5 m apart down, each a plate plus a frame and each carrying its own KHR_lights_punctual point light 0.2 m in front of it. Five panels get one light; the sixth gets three co-located ones, red, green and blue. Every light is intensity 1.0 with range 1.125 -- exactly half the panel spacing, which is what makes each panel see its own light and no other, because a glTF light is scene-wide however its node is parented. A seventh node carries the label strip, whose material declares KHR_materials_unlit.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "PointLightIntensityTest",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/glTF/PointLightIntensityTest.gltf",
+          "sha256": "7913fe3e6829beba77f65ea749e40b3e95906bc2894afc443c22e3d91e263733",
+          "bytes": 8282,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/glTF/PointLightIntensityTest.bin",
+          "sha256": "29c2e0d139c8fe4a190654179177166c5da1932a9378d19e8f7f74622e6b16d6",
+          "bytes": 8976,
+          "as": "PointLightIntensityTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/glTF/LampColorNames.png",
+          "sha256": "92433d3e05d124a8e37d89f4f0f4863a02654409210a31b35c82154b0ea0a3cd",
+          "bytes": 15567,
+          "as": "LampColorNames.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/metadata.json",
+          "sha256": "eec0505905c98e6db5babd969f4aebb39acd3fa57f113ea9506ce01c818c3e99",
+          "bytes": 755,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2025",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "projection": "orthographic",
+      "positionM": [
+        -1.788e-07,
+        -1.4077221155,
+        5.0
+      ],
+      "lookAtM": [
+        -1.788e-07,
+        -1.4077221155,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yMagM": 3.0,
+      "clipStartM": 4.0,
+      "clipEndM": 6.0,
+      "derivation": "A PARALLEL PROJECTION, AND THAT IS WHAT MAKES THE ASSET'S OWN CRITERION DECIDABLE RATHER THAN APPROXIMATE. The criterion compares one panel with another 2.25 m away in the same picture; under a perspective projection two bodies at different x project to different sizes and no pixel of one corresponds to a pixel of the other, so 'identical' could only ever be a resampled approximation. Under a parallel projection they are congruent and the correspondence is an exact integer pixel offset. The half-extent 3.0 m is chosen so that both spacings land on whole pixels at 720 rows: 720 / (2 * 3.0) = 120 px per metre, so 2.25 m is exactly 270 px and 2.5 m is exactly 300 px. The aim is the centre of the flattened subject's own bounds -- x -3.3008433580..3.3008430004, y -3.8662872314..1.0508430004 over the six panels, their frames and the label strip -- so the framing is the asset's and not a choice; the subject's vertical half-span is 2.4586 m inside the 3.0 m the camera covers. The eye sits 5 m along +Z, which clears the subject's own z extent of -0.0167..0.0468 m and the lights at z = 0.2 m by four metres.",
+      "note": "The file carries no camera at all, so one is declared here. The roll is zero and the aim is on the bounds' own centre, so nothing about the viewpoint was chosen to place a highlight."
+    },
+    "light": {
+      "kind": "gltf",
+      "lightingMode": "COMPAT",
+      "estimator": "selected",
+      "note": "THE LIGHT CROSSES THE BOUNDARY because the criterion is stated in terms of the eight lights in the file -- 'three co-located lights, matching the above' against 'White' -- so re-declaring them beside the asset would measure our transcription. COMPAT AND NOT RAW, and the difference is a factor of 4pi rather than a preference: Blender's point light energy is TOTAL RADIANT POWER in watts, from which Cycles radiates energy / 4pi per steradian, while glTF's `intensity` IS the candela per steradian. RAW would hand the candela over as watts and make Cycles radiate 4pi times less than the extension defines. RAW is right for a directional light, where glTF's lux is Blender's Sun Strength one to one, and it is wrong here."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. The factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value; with the world at zero the only sources left are delta lights, the estimator has no variance, and the two seeds must agree bit for bit. The asset names the scene's IBL as one of the things its appearance depends on and states its criterion anyway, so removing it removes nothing under test."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "The file's own three materials: the test surface at base colour 0.8 and roughness 0.5, the frame at a dark brown, and the label plate, which declares KHR_materials_unlit and is therefore shaded here as an ordinary metal-rough surface. That deviation is confined to the label strip, which no stated invariant reads."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 256,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "TWO HUNDRED AND FIFTY-SIX SAMPLES, AND THE REASON IS THE LIGHT COUNT rather than the geometry. Cycles picks ONE light per shading event, so eight lights leave a selection estimator no setting removes -- measured at one sample per pixel, 608 673 of 3 686 400 samples differ between two seeds. The box filter stays at its RNA minimum, so every one of the 256 samples is taken at the pixel centre and the coverage question is still the one a centre-sampling rasteriser asks; what the samples average is the choice of light and nothing else. This oracle is therefore an ESTIMATE, it is declared as one, and the case's acceptance is the asset's own relations on our linear tap rather than agreement with it."
+    }
+  },
+  "statedInvariants": [
+    {
+      "kind": "region-compare",
+      "name": "rgb_equals_white",
+      "says": "The expectation for the bottom row of this test is that the \"Red + Green + Blue\" test will be identical (or very nearly so) to the \"White\" test.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+      "fromPx": {
+        "value": [
+          532,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The White panel's own test plate, inset by 12 px on every side. At 120 px per metre the plate spans x 520..760 and y 371.07..611.07, so a 214 px square at (532, 384) lies strictly inside it and clear of the frame. The inset is 0.1 m, an order above the plate's own 0.01 m thickness."
+      },
+      "toPx": {
+        "value": [
+          262,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the Red+Green+Blue panel, which sits 2.25 m to the left: 2.25 * 120 = 270 px exactly, so 532 - 270 = 262 and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The three lights of the RGB panel are (1,0,0), (0,1,0) and (0,0,1) at intensity 1 and the White panel's is (1,1,1) at intensity 1, so per channel the sums are equal and the ratio the asset states is one."
+      },
+      "maxUlps": {
+        "value": 32,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "Both sides are the same expression over the same mesh, evaluated at coordinates that differ by an exact 2.25 m translation, so the only difference is how f32 rounded the same terms at two magnitudes. The shading chain from the interpolated position to the radiance is about twenty-five f32 operations, each rounding at most half an ulp of its own result, so 32 ulps is one binary order above the arithmetic -- and 32 ulps at 0.1 is 2.4e-6 relative, seven orders below anything physical."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "gray_is_half_white",
+      "says": "the \"Gray\" test will be visibly less bright (the radius of the overexposed area will be smaller). ... Gray (0.5, 0.5, 0.5)",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+      "fromPx": {
+        "value": [
+          802,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the Gray panel, 2.25 m to the right of White: 532 + 270 = 802."
+      },
+      "toPx": {
+        "value": [
+          532,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The White panel's rectangle, unchanged."
+      },
+      "scale": {
+        "value": 0.5,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The Gray lamp's colour is (0.5, 0.5, 0.5) against White's (1, 1, 1) at the same intensity, and the extension states the colour as a per-wavelength multiplier, so the ratio is exactly one half. 'Visibly less bright' is the asset's prose for it; the number is the file's."
+      },
+      "maxUlps": {
+        "value": 32,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "As for rgb_equals_white, plus the one multiplication by 0.5 that the comparison itself performs -- which is exact in binary floating point and costs no ulp at all."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "red_channel_equals_white",
+      "says": "If the rendered image is separated into red, green, and blue monochrome channels, the expectation for each of the corresponding tests from the top row is to match (or be nearly identical) to the \"White\" test in the bottom row. For example, when viewing the red channel of the output in isolation, the \"Red\" test and the \"White\" test should be very similar.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+      "fromPx": {
+        "value": [
+          262,
+          84,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the Red panel, which is 2.25 m left and 2.5 m up from White: 532 - 270 = 262 and 384 - 300 = 84."
+      },
+      "toPx": {
+        "value": [
+          532,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The White panel's rectangle, unchanged."
+      },
+      "channels": [
+        0
+      ],
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The Red lamp is (1, 0, 0) and White is (1, 1, 1) at the same intensity, so the red channels are equal and the other two are what the asset says to view in isolation."
+      },
+      "maxUlps": {
+        "value": 32,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "As for rgb_equals_white; the translation is two-dimensional here and the argument is unchanged."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "green_channel_equals_white",
+      "says": "when viewing the red channel of the output in isolation, the \"Red\" test and the \"White\" test should be very similar",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+      "fromPx": {
+        "value": [
+          532,
+          84,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the Green panel, 2.5 m above White in the same column: 384 - 300 = 84."
+      },
+      "toPx": {
+        "value": [
+          532,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The White panel's rectangle, unchanged."
+      },
+      "channels": [
+        1
+      ],
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The Green lamp is (0, 1, 0) against White's (1, 1, 1) at the same intensity."
+      },
+      "maxUlps": {
+        "value": 32,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "As for rgb_equals_white."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "blue_channel_equals_white",
+      "says": "when viewing the red channel of the output in isolation, the \"Red\" test and the \"White\" test should be very similar",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/PointLightIntensityTest/README.md",
+      "fromPx": {
+        "value": [
+          802,
+          84,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the Blue panel, 2.25 m right and 2.5 m up from White: 532 + 270 = 802 and 384 - 300 = 84."
+      },
+      "toPx": {
+        "value": [
+          532,
+          384,
+          214,
+          214
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The White panel's rectangle, unchanged."
+      },
+      "channels": [
+        2
+      ],
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The Blue lamp is (0, 0, 1) against White's (1, 1, 1) at the same intensity."
+      },
+      "maxUlps": {
+        "value": 32,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "As for rgb_equals_white."
+      }
+    }
+  ],
+  "notes": "This is the case that needs a LIST rather than a second sun: five panels are lit by one light each and the sixth by three at one place, and the whole criterion is that the three and the one agree. It is also the case that made the extension's `range` load-bearing -- a glTF light is scene-wide however its node is parented, so without the declared 1.125 m cutoff every panel is lit by all eight and each sees a different set of neighbours.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.904976879,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared orthographic camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
+    }
+  }
+}

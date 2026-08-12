@@ -152,9 +152,12 @@ bool Subject::Build(const Document &document) {
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
+  Normals_.clear();
   Indices_.clear();
   Parts_.clear();
+  Lights_.clear();
   bool anyUv = false;
+  bool anyNormal = false;
 
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
@@ -178,6 +181,36 @@ bool Subject::Build(const Document &document) {
     const Node &node = document.Nodes()[(size_t)nodeIndex];
     for (auto child = node.Children.rbegin(); child != node.Children.rend(); ++child) {
       pending.push_back(*child);
+    }
+    if (node.Light >= 0) {
+      Transform placement;
+      if (!document.WorldTransform(nodeIndex, placement)) {
+        return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                      " carries a light and has no world transform: " + document.Error());
+      }
+      const LightRef &declared = document.Lights()[(size_t)node.Light];
+      PlacedLight placed;
+      placed.NodeName = node.Name;
+      placed.LightName = declared.Name;
+      placed.Light = declared.Light;
+      const double origin[3] = {0, 0, 0};
+      double position[3];
+      placement.Point(origin, position);
+      /* THE BEAM IS THE NODE'S -Z, which is `KHR_lights_punctual`'s own rule and the same convention
+       * the format gives a camera. A zero-scaled node has no direction to give and is refused rather
+       * than pointed somewhere. */
+      const double axis[3] = {0, 0, -1};
+      double beam[3];
+      placement.Direction(axis, beam);
+      if (!Normalise(beam)) {
+        return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                      " carries a light and its transform collapses the beam to zero length");
+      }
+      for (int component = 0; component < 3; ++component) {
+        placed.Light.Position[component] = (float)position[component];
+        placed.Light.Direction[component] = (float)beam[component];
+      }
+      Lights_.push_back(std::move(placed));
     }
     if (node.Mesh < 0) { continue; }
     if ((size_t)node.Mesh >= document.Meshes().size()) {
@@ -245,6 +278,43 @@ bool Subject::Build(const Document &document) {
                   Uv_.begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
       }
 
+      /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
+       * consumer has to know whether the node scaled it. The run stays as long as the vertex run
+       * whatever the mix is; a primitive that carried none contributes zeros and is drawn by a
+       * pipeline with no normal slot, so those zeros are unread rather than shaded as a direction. */
+      const int normal = primitive.Find("NORMAL");
+      part.HasNormal = normal >= 0;
+      anyNormal = anyNormal || part.HasNormal;
+      Normals_.resize(Positions_.size(), 0.0);
+      if (normal >= 0) {
+        std::vector<double> directions;
+        if (!document.ReadElements(normal, directions)) {
+          return Refuse(document.Path() + ": NORMAL does not decode: " + document.Error());
+        }
+        if (directions.size() != vertices * 3) {
+          return Refuse(document.Path() + ": NORMAL decodes to " +
+                        std::to_string(directions.size() / 3) + " vectors over " +
+                        std::to_string(vertices) + " vertices");
+        }
+        for (size_t vertex = 0; vertex < vertices; ++vertex) {
+          double local[3] = {directions[vertex * 3], directions[vertex * 3 + 1],
+                             directions[vertex * 3 + 2]};
+          double global[3];
+          if (!world.Normal(local, global)) {
+            return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
+                          " carries a NORMAL and a transform with no inverse, so the surface it is "
+                          "perpendicular to has collapsed");
+          }
+          /* A ZERO-LENGTH NORMAL IS THE FILE'S AND IS CARRIED AS IT ARRIVED. Substituting one here
+           * would make a malformed vertex look shaded; the consumer sees a zero and the picture
+           * shows it. */
+          (void)Normalise(global);
+          for (int axis = 0; axis < 3; ++axis) {
+            Normals_[(part.FirstVertex + vertex) * 3 + (size_t)axis] = global[axis];
+          }
+        }
+      }
+
       if (primitive.Indices >= 0) {
         if (!document.ReadIndices(primitive.Indices, run)) {
           return Refuse(document.Path() + ": the index accessor does not decode: " +
@@ -277,6 +347,7 @@ bool Subject::Build(const Document &document) {
   }
 
   if (!anyUv) { Uv_.clear(); }
+  if (!anyNormal) { Normals_.clear(); }
   if (Indices_.empty()) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");

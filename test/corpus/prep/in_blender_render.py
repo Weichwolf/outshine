@@ -54,7 +54,11 @@ def apply_world(scene, declared):
             node.inputs["Strength"].default_value = declared["strength"]
 
 
-def import_gltf(paths):
+def import_gltf(paths, lighting_mode):
+    """`lighting_mode` is how the importer turns glTF's photometric units into Blender's, and it is
+    the manifest's declaration rather than a default: RAW carries `intensity` across unchanged, which
+    is one-to-one for a directional light's lux and Blender's Sun Strength, while COMPAT multiplies a
+    point light's candela by 4pi, which is what makes Cycles radiate `intensity` per steradian."""
     try:
         bpy.ops.preferences.addon_enable(module="io_scene_gltf2")
     except Exception:
@@ -63,7 +67,8 @@ def import_gltf(paths):
     kept = []
     for path in paths:
         collections = set(bpy.data.collections)
-        result = bpy.ops.import_scene.gltf(filepath=path)
+        result = bpy.ops.import_scene.gltf(
+            filepath=path, export_import_convert_lighting_mode=lighting_mode)
         if "FINISHED" not in result:
             fail("glTF import of " + path + " returned " + repr(result))
         kept.append(keep_default_scene(path, set(bpy.data.collections) - collections))
@@ -117,11 +122,14 @@ def keep_default_scene(path, new_collections):
             "keptCollection": children[default].name, "droppedObjects": sorted(dropped)}
 
 
-def strip_crossings(imported, camera_source):
-    """Light and material never cross the glTF boundary, so whatever crossed is deleted here."""
+def strip_crossings(imported, camera_source, keep_lights):
+    """What crossed the glTF boundary and must not have. Light and material are declared beside the
+    asset, so whatever the file carried is deleted -- EXCEPT where the case declares the light as the
+    file's, which is the one narrow arm doc/requirements.md I.26.12 opens and which exists because
+    two Khronos assets state their criteria in terms of the light they carry."""
     removed = {"lights": 0, "cameras": 0}
     for obj in list(imported):
-        if obj.type == "LIGHT":
+        if obj.type == "LIGHT" and not keep_lights:
             bpy.data.objects.remove(obj, do_unlink=True)
             removed["lights"] += 1
         elif obj.type == "CAMERA" and camera_source == "manifest":
@@ -154,16 +162,27 @@ def build_camera(scene, declared):
 
     data = bpy.data.cameras.new("OracleCamera")
     data.sensor_fit = "VERTICAL"
-    data.sensor_height = declared["sensorHeightMm"]
-    data.lens = declared["sensorHeightMm"] / (2.0 * math.tan(declared["yfovRad"] / 2.0))
+    described = {}
+    if declared.get("projection") == "orthographic":
+        # `ortho_scale` IS THE EXTENT OF THE FITTED SENSOR AXIS, and the fit is VERTICAL here, so the
+        # number is the vertical extent in metres -- twice glTF's `ymag`, which is a half-extent.
+        data.type = "ORTHO"
+        data.ortho_scale = 2.0 * declared["yMagM"]
+        described = {"projection": "orthographic", "orthoScaleM": data.ortho_scale}
+    else:
+        data.sensor_height = declared["sensorHeightMm"]
+        data.lens = declared["sensorHeightMm"] / (2.0 * math.tan(declared["yfovRad"] / 2.0))
+        described = {"projection": "perspective", "lensMm": data.lens,
+                     "sensorHeightMm": data.sensor_height}
     data.clip_start = declared["clipStartM"]
     data.clip_end = declared["clipEndM"]
     obj = bpy.data.objects.new("OracleCamera", data)
     scene.collection.objects.link(obj)
     obj.matrix_world = YUP_TO_ZUP @ basis
     scene.camera = obj
-    return {"lensMm": data.lens, "sensorHeightMm": data.sensor_height, "sensorFit": data.sensor_fit,
-            "matrixWorld": [list(row) for row in obj.matrix_world]}
+    described.update({"sensorFit": data.sensor_fit,
+                      "matrixWorld": [list(row) for row in obj.matrix_world]})
+    return described
 
 
 def adopt_camera(scene, imported):
@@ -175,7 +194,33 @@ def adopt_camera(scene, imported):
             "matrixWorld": [list(row) for row in cameras[0].matrix_world]}
 
 
-def build_light(scene, declared):
+def observed_lights(imported):
+    """Every light the import left standing, as it stands: what the manifest claims about the file's
+    lights is then checkable against what Blender actually built, rather than asserted."""
+    out = []
+    for obj in imported:
+        if obj.type != "LIGHT":
+            continue
+        entry = {"name": obj.name, "type": obj.data.type, "energy": obj.data.energy,
+                 "color": list(obj.data.color), "locationBlender": list(obj.location),
+                 "matrixWorld": [list(row) for row in obj.matrix_world]}
+        if hasattr(obj.data, "shadow_soft_size"):
+            # A DELTA SOURCE, AND IT IS WHAT MAKES THE TWO-SEED CHECK PASSABLE: a lamp with a radius
+            # is an area light and Cycles samples its solid angle, which is an estimator with
+            # variance. At radius zero there is one shadow ray and no integral left.
+            obj.data.shadow_soft_size = 0.0
+            entry["radiusM"] = obj.data.shadow_soft_size
+        if obj.data.type == "SUN":
+            obj.data.angle = 0.0
+            entry["angleRad"] = obj.data.angle
+        out.append(entry)
+    return out
+
+
+def build_light(scene, declared, imported):
+    if declared["kind"] == "gltf":
+        return {"kind": "gltf", "lightingMode": declared["lightingMode"],
+                "lights": observed_lights(imported)}
     if declared["kind"] == "none":
         return {"kind": "none"}
     if declared["kind"] == "sun":
@@ -550,9 +595,43 @@ def apply_emission_per_material(imported, colours):
     return {"source": "manifest", "kind": "emission-per-material", "assigned": assigned}
 
 
+def keep_file_materials(imported):
+    """THE FILE'S OWN MATERIALS, UNTOUCHED, AND WHAT THAT COSTS RECORDED RATHER THAN HIDDEN.
+
+    The whole point of this arm is that the Principled BSDF the importer wired IS the subject, so
+    nothing about the closure is rewritten. What is NOT expressed here is glTF's front-face rule:
+    Cycles performs no back-face culling for camera rays, and the Transparent-BSDF-on-`Backfacing`
+    expression that the other arms use does not reproduce culling over a CLOSED body.
+
+    MEASURED at Blender 5.2.0 on an inside-out UV sphere lit by a delta sun over a black world, with
+    an emissive plane behind it: under the mix the pixel at the sphere's centre comes back exactly
+    0 at transparent max bounces 0, 1, 2, 4, 8, 16 and 64, while a PURE Transparent BSDF on the same
+    sphere shows the plane through it from 4 upwards. So the ray is stopped by the mix and the
+    surface the cull should reveal is never shaded -- which is a hole in the oracle, not a threshold.
+
+    It bites on `DirectionalLight`, whose three spheres are wound clockwise as seen from outside
+    (0 of 10600 triangles have a counter-clockwise outward normal) with vertex normals to match and
+    a material that is not `doubleSided`: a conforming rasteriser culls the outer surface and shades
+    the inner one, and Khronos's own published screenshot has the lit and dark limbs on the sides
+    that produces. Cycles here shades the outer surface instead. The case that carries this asset is
+    a `stated-invariant` case, so the oracle decides nothing about it and the disagreement is
+    reported rather than tolerated as a tolerance.
+    """
+    observed = []
+    for material in subject_materials(imported):
+        _, closure = surface_shader(material.node_tree) if material.node_tree else (None, None)
+        observed.append({"material": material.name,
+                         "declaresBackFaceCulling": material.use_backface_culling,
+                         "backFaceCulled": False,
+                         "closure": closure.type if closure is not None else None})
+    if not observed:
+        fail("material.source is gltf and the subject wears no material at all")
+    return {"source": "gltf", "observed": observed}
+
+
 def apply_material(imported, declared):
     if declared["source"] == "gltf":
-        return {"source": "gltf"}
+        return keep_file_materials(imported)
     if declared["source"] == "gltf-base-colour":
         return lower_to_file_colour(imported, declared["kind"], "Base Color", "gltf-base-colour")
     if declared["source"] == "gltf-emissive":
@@ -699,15 +778,17 @@ def main():
     }
     clear_objects()
     apply_world(scene, job["scene"]["world"])
-    imported, defaultScenes = import_gltf(job["gltfPaths"])
-    removed = strip_crossings(imported, job["scene"]["camera"]["source"])
+    imported, defaultScenes = import_gltf(job["gltfPaths"],
+                                          job["scene"]["light"].get("lightingMode", "RAW"))
+    removed = strip_crossings(imported, job["scene"]["camera"]["source"],
+                              job["scene"]["light"]["kind"] == "gltf")
     imported = [obj for obj in imported if obj.name in bpy.data.objects]
     imported = [obj for obj in imported if obj.name in bpy.data.objects]
     if job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
     else:
         camera = adopt_camera(scene, imported)
-    light = build_light(scene, job["scene"]["light"])
+    light = build_light(scene, job["scene"]["light"], imported)
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])
 

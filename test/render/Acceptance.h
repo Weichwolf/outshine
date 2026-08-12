@@ -44,9 +44,20 @@ enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
  * definitions of one word, and enforcing their agreement would be measuring the filter rather than
  * the criterion. The residual is printed in full and the picture is what is judged.
  *
+ * `StatedInvariant` -- the asset states a RELATION ITS OWN RENDER MUST SATISFY, and says in the same
+ * breath that an exact appearance match is not the criterion: `PointLightIntensityTest` -- "the exact
+ * appearance of this model need not match the screenshot exactly. The appearance depends on the
+ * brightness of the scene's IBL, renderer exposure settings, choice of tone mapping" --  and
+ * `DirectionalLight` -- "this will of course not be an exact measure since values are read and
+ * written with different precision". So the instrument is the relation, computed on the linear tap,
+ * and the residual against the oracle is printed beside it and decides nothing. THIS IS NOT A LOOSER
+ * `Numeric`: it is a STRONGER demand in a different currency -- an energy ceiling and a per-channel
+ * identity are checks a pixel-for-pixel comparison with Cycles cannot make at all -- and it is the
+ * only arm whose acceptance neither our renderer nor our oracle authored.
+ *
  * `LimitsProbe` -- the asset states it is not expected to render correctly everywhere, so it has no
  * pass; what it produces is a measurement. */
-enum class CriterionKind { Numeric, SelfDescribing, LimitsProbe };
+enum class CriterionKind { Numeric, SelfDescribing, StatedInvariant, LimitsProbe };
 
 /* 0.1 px is twenty times the 0.005 px instrument floor: room for float32 and for a tessellation
  * ordering, none at all for a raster-convention error, which is the half-pixel this rung exists to
@@ -166,12 +177,16 @@ struct Acceptance {
     out = CriterionKind::SelfDescribing;
     return true;
   }
+  if (spelling == "stated-invariant") {
+    out = CriterionKind::StatedInvariant;
+    return true;
+  }
   if (spelling == "limits-probe") {
     out = CriterionKind::LimitsProbe;
     return true;
   }
   error = "criterion.kind '" + spelling +
-          "' is none of numeric, self-describing, limits-probe";
+          "' is none of numeric, self-describing, stated-invariant, limits-probe";
   return false;
 }
 

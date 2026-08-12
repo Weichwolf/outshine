@@ -55,6 +55,8 @@ public:
   const std::vector<Texture> &Textures() const { return Textures_; }
   const std::vector<Image> &Images() const { return Images_; }
   const std::vector<Sampler> &Samplers() const { return Samplers_; }
+  /* `KHR_lights_punctual`'s document-level table, unplaced. A node is what places one. */
+  const std::vector<LightRef> &Lights() const { return Lights_; }
   int DefaultScene() const { return DefaultScene_; }
 
   /* THE ENCODED BYTES OF ONE IMAGE, from its file or from its bufferView -- never decoded, because
@@ -83,6 +85,7 @@ private:
   [[nodiscard]] bool ResolveBuffers(const Json &json, const uint8_t *binaryChunk,
                                     size_t binaryLength);
   [[nodiscard]] bool ReadAppearance(const Json &json);
+  [[nodiscard]] bool ReadLights(const Json &json);
   [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;
   [[nodiscard]] bool ViewSpan(int view, Span<const uint8_t> &out) const;
@@ -101,6 +104,7 @@ private:
   std::vector<Texture> Textures_;
   std::vector<Image> Images_;
   std::vector<Sampler> Samplers_;
+  std::vector<LightRef> Lights_;
   std::vector<int> Parent_;
   int DefaultScene_ = -1;
 };

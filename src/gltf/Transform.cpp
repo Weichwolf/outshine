@@ -65,6 +65,18 @@ void Transform::Direction(const double direction[3], double out[3]) const {
   }
 }
 
+bool Transform::Normal(const double normal[3], double out[3]) const {
+  Transform inverted;
+  if (!Inverse(inverted)) { return false; }
+  /* The transpose of the inverse's linear part, applied: row `r` of the transpose is column `r` of
+   * the inverse, so this reads the inverse by rows where `Direction` reads it by columns. */
+  for (int row = 0; row < 3; ++row) {
+    out[row] = inverted.M[row * 4] * normal[0] + inverted.M[row * 4 + 1] * normal[1] +
+               inverted.M[row * 4 + 2] * normal[2];
+  }
+  return true;
+}
+
 bool Transform::Inverse(Transform &out) const {
   /* Cofactor expansion, general: a node may carry any matrix its file wants, including a shear no
    * affine shortcut would survive. */

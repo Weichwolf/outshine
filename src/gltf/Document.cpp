@@ -149,11 +149,12 @@ bool KnownWrap(int raw, Wrap &out) {
  * criterion about. 9728 is NEAREST and everything else in the format's set is a LINEAR base. */
 Filter FilterOf(int raw) { return raw == 9728 ? Filter::Nearest : Filter::Linear; }
 
-/* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. Empty is the honest state and it is what makes
- * the door above useful: an extension is added here in the round its behaviour is built, so
- * `extensionsRequired` naming anything at all is a refusal until then. A list seeded with names
- * nobody implemented would be the silent-acceptance defect wearing a table. */
-constexpr const char *const kHonouredExtensions[] = {nullptr};
+/* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. An extension is added here in the round its
+ * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
+ * with names nobody implemented would be the silent-acceptance defect wearing a table. */
+constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual", nullptr};
+
+constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 
 bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
@@ -379,6 +380,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   }
 
   if (!ReadAppearance(json)) { return false; }
+  if (!ReadLights(json)) { return false; }
 
   const Json::Ref meshes = root["meshes"];
   for (size_t i = 0; i < meshes.Size(); ++i) {
@@ -452,6 +454,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     node.Name = declaration["name"].Str("");
     node.Mesh = declaration["mesh"].Valid() ? declaration["mesh"].Int(-1) : -1;
     node.Camera = declaration["camera"].Valid() ? declaration["camera"].Int(-1) : -1;
+    const Json::Ref lit = declaration["extensions"][kLightsPunctual]["light"];
+    node.Light = lit.Valid() ? lit.Int(-1) : -1;
     const Json::Ref matrix = declaration["matrix"];
     const Json::Ref translation = declaration["translation"];
     const Json::Ref rotation = declaration["rotation"];
@@ -490,6 +494,10 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
       return Refuse("node " + Number(i) + " names camera " + Number(static_cast<size_t>(node.Camera)) +
                     " of " + Number(Cameras_.size()));
     }
+    if (node.Light >= 0 && static_cast<size_t>(node.Light) >= Lights_.size()) {
+      return Refuse("node " + Number(i) + " names " + kLightsPunctual + " light " +
+                    Number(static_cast<size_t>(node.Light)) + " of " + Number(Lights_.size()));
+    }
     for (int child : node.Children) {
       if (child < 0 || static_cast<size_t>(child) >= Nodes_.size()) {
         return Refuse("node " + Number(i) + " names a child the file does not carry");
@@ -520,6 +528,56 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
   if (DefaultScene_ >= 0 && static_cast<size_t>(DefaultScene_) >= Scenes_.size()) {
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
+  }
+  return true;
+}
+
+/* `KHR_lights_punctual`'s DOCUMENT-LEVEL TABLE. A light here has no place: the extension puts the
+ * reference on a node and the beam on that node's -Z, so where and which way are the hierarchy's
+ * answer and are resolved by whoever walks it.
+ *
+ * `type` IS THE ONE FIELD WITH NO DEFAULT AND AN UNKNOWN SPELLING IS A REFUSAL, because the three
+ * arms differ in their UNITS -- `intensity` is lux under `directional` and candela under the other
+ * two -- so a light whose type was guessed is a number in the wrong unit rather than a light in the
+ * wrong shape. The extension's own defaults are used where a field is absent: white, intensity 1,
+ * and a spot cone of 0 to pi/4. */
+bool Document::ReadLights(const Json &json) {
+  const Json::Ref declared =
+      json.Root()["extensions"][kLightsPunctual]["lights"];
+  for (size_t i = 0; i < declared.Size(); ++i) {
+    const Json::Ref entry = declared[i];
+    LightRef light;
+    light.Name = entry["name"].Str("");
+    const std::string kind = entry["type"].Str("");
+    if (kind == "directional") {
+      light.Light.Kind = LightKind::Directional;
+    } else if (kind == "point") {
+      light.Light.Kind = LightKind::Point;
+    } else if (kind == "spot") {
+      light.Light.Kind = LightKind::Spot;
+    } else {
+      return Refuse(std::string(kLightsPunctual) + " light " + Number(i) + " has type '" + kind +
+                    "', and the extension defines directional, point and spot");
+    }
+    const Json::Ref colour = entry["color"];
+    for (size_t k = 0; k < 3 && k < colour.Size(); ++k) {
+      light.Light.Colour[k] = static_cast<float>(colour[k].Num(1.0));
+    }
+    light.Light.Intensity = static_cast<float>(entry["intensity"].Num(1.0));
+    light.Light.RangeM = static_cast<float>(entry["range"].Num(0.0));
+    if (light.Light.Kind == LightKind::Spot) {
+      const Json::Ref cone = entry["spot"];
+      light.Light.InnerConeRad = static_cast<float>(cone["innerConeAngle"].Num(0.0));
+      light.Light.OuterConeRad =
+          static_cast<float>(cone["outerConeAngle"].Num(0.7853981633974483));
+      if (!(light.Light.InnerConeRad >= 0.0f) ||
+          !(light.Light.InnerConeRad < light.Light.OuterConeRad) ||
+          !(light.Light.OuterConeRad <= 1.5707963267948966f)) {
+        return Refuse(std::string(kLightsPunctual) + " spot light " + Number(i) +
+                      " declares an inner cone that is not below its outer cone inside [0, pi/2]");
+      }
+    }
+    Lights_.push_back(std::move(light));
   }
   return true;
 }

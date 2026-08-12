@@ -198,6 +198,13 @@ public:
     return Geometry->Subjects().SetMaterials(materials, error);
   }
 
+  /* THE LIGHTS THE SUBJECT IS LIT BY, as a list. It is a SECOND binding beside the sun and not a
+   * second sun: `SceneLight` still carries one irradiance pair and one set of cascades, so no
+   * surface can be lit by two suns, and a punctual light has no spelling in it (§ II.8). */
+  [[nodiscard]] bool SetSubjectLights(const std::vector<SubjectLight> &lights, std::string &error) {
+    return Geometry->Subjects().SetLights(lights, error);
+  }
+
   /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
    * for the consumers that owe a published anchor and read by no stage today. */
   void SetWind(double fromDeg, double speedMs) { WindFromDeg = fromDeg; WindMs = speedMs; }

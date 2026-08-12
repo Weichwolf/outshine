@@ -28,8 +28,24 @@ namespace outshine::Render {
 
 /* WHICH VERTEX ATTRIBUTES A DRAW READS, and it is a property of the DRAW rather than of the subject
  * it belongs to: a file may carry uvs on one primitive and none on the next, and drawing the second
- * through the first's pipeline with a zero coordinate samples the image's corner (`Enum.2`). */
-enum class VertexLayout : uint8_t { Position, PositionUv };
+ * through the first's pipeline with a zero coordinate samples the image's corner (`Enum.2`).
+ *
+ * THE NORMAL IS ALSO THE STATEMENT THAT THE DRAW IS LIT, and the two are one field on purpose. A
+ * normal exists to be dotted with a direction; a draw with no light to face reads it for nothing,
+ * and a draw that faces a light without one would have to substitute a direction -- which is the
+ * black hemisphere or the flat plate that a lighting model invents when an attribute is missing.
+ * Folding the two into one enumeration makes "lit without a normal" and "a normal nobody lights"
+ * both unspellable, where two independent fields would spell each of them. */
+enum class VertexLayout : uint8_t { Position, PositionUv, PositionNormal, PositionNormalUv };
+
+/* Whether a layout carries the first uv set, and whether it carries the normal that makes it lit.
+ * Stated once, here, so the encoder and the pipeline table cannot disagree about what a layout is. */
+[[nodiscard]] inline bool CarriesUv(VertexLayout layout) {
+  return layout == VertexLayout::PositionUv || layout == VertexLayout::PositionNormalUv;
+}
+[[nodiscard]] inline bool CarriesNormal(VertexLayout layout) {
+  return layout == VertexLayout::PositionNormal || layout == VertexLayout::PositionNormalUv;
+}
 
 /* ONE DRAW: where its triangles are in the consumer's own index run, what surface it wears, and
  * where it sorts. `SourceFirstIndex` is what the consumer handed over; `FirstIndex` is where

@@ -1,0 +1,232 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/lighting/directional-light",
+  "title": "Khronos DirectionalLight -- KHR_lights_punctual and the metal-rough BRDF, judged on the ceiling and the hue the asset states for itself",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "I.27",
+    "II.8",
+    "khronos:DirectionalLight"
+  ],
+  "criterion": {
+    "kind": "stated-invariant",
+    "says": "The purpose of this test model is to verify that the BRDF and microfacet model used by a renderer preserves energy. ... In order to preserve energy it is important that this factor does not add light energy. ... As the lightsource has an intensity of 1 (lumen / m2) and display output can be considered to be candela / m2 it should never be the case that light contribution go above: (Color * Intensity) = [0.9, 0.8, 0.1] - in linear space. ... Lightsource color = RGB[0.9, 0.8, 0.1], Hue of the lightsource = [0.9 / 1.8, 0.8 / 1.8, 0.1 / 1.8] = [0.5, 0.444, 0.0555]. The displayed (concentrated) specuar highlight shall retain this hue.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
+    "note": "The asset states in the same paragraph that this is not an exact comparison -- 'this will of course not be an exact measure since values are read and written with different precision' -- so the criterion is the two relations and not an agreement with any reference. The oracle is rendered and scored beside them, and it decides nothing here."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "directional-light",
+      "kind": "gltf",
+      "name": "DirectionalLight",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "notes": "Three spheres of one base colour 0.6 at metallic 0 and roughness 0, 0.16 and 0.33, each scaled 3x and placed 0.6 m apart, plus the file's own perspective camera at (0, 0, 2) and one node carrying the KHR_lights_punctual directional light. The light's beam is the node's -Z and the node's rotation is the identity, so it shines straight down the view axis and every sphere is lit head-on -- which puts N, V and L together at the centre of each sphere and makes the specular peak the brightest sample in the frame by construction.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "DirectionalLight",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/glTF/DirectionalLight.gltf",
+          "sha256": "71fbfe89e98201b70f5de027604d3745be41e900b8cb03ccfd446c3896c6b559",
+          "bytes": 5565,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/glTF/DirectionalLight.bin",
+          "sha256": "43aea71c4cbe518a9aa34e04ea2acd0b779c189213aee70cec3d80d1a8e72741",
+          "bytes": 450528,
+          "as": "DirectionalLight.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/metadata.json",
+          "sha256": "3cdd01fcdb08afa161dfb0041625d08baa2cbb9299ada46505a30c214685f4f6",
+          "bytes": 726,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Public",
+            "year": "2020",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "gltf",
+      "note": "The file carries exactly one camera and it is the one the asset was authored to be seen through: yfov 0.65, znear 0.3, zfar 5, at (0, 0, 2) with no rotation. Declaring another here would be choosing where the highlight lands, which is the quantity under test."
+    },
+    "light": {
+      "kind": "gltf",
+      "lightingMode": "RAW",
+      "estimator": "delta",
+      "note": "THE ONE ASSET CLASS WHERE THE LIGHT CROSSES THE BOUNDARY (doc/requirements.md I.26.12): the criterion is stated in terms of the light in the file -- 'the directional lightsource is defined as: Intensity = 1.0 lumen / m2, Color = [0.9, 0.8, 0.1]' -- so re-declaring it beside the asset would measure our transcription. RAW because glTF's directional intensity in lux IS Blender's Sun Strength in W/m2 perpendicular, one to one, with no conversion in either direction. The importer's sun is then forced to angle 0, which makes it a delta source with no solid angle to sample."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [0.0, 0.0, 0.0],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. The factory world is an area source: Cycles samples it, and at one sample per pixel that is a Bernoulli draw on the visible sky fraction rather than a value. With the world at zero the only source left is a delta light, the estimator has no variance, and the two seeds must agree bit for bit. Khronos's criterion is a relation between channels of one render and is invariant to the ambient term, so nothing under test is removed with it."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "The file's own three materials, whole: base colour 0.6, metallic 0, roughness 0 / 0.16 / 0.33. They ARE the subject -- the asset exists to sweep the normal distribution function across those three roughnesses -- so replacing the closure with a Diffuse BSDF, as every other file-coloured case in this tree does, would delete the thing being measured."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "NO TRANSPARENT BOUNCES, and this recipe therefore renders the OUTER surface of a subject a conforming rasteriser culls -- the one place this oracle and this engine are known to disagree, measured and named in test/corpus/prep/in_blender_render.py. Zero bounces still carries direct light: measured on this host, a plane of base colour 0.6 at roughness 0.5 under a sun of strength 1 comes back at 0.23515162 where the glTF BRDF's closed form is 0.23428 -- 0.37 % apart, which is the Principled BSDF's multiscatter GGX against the format's single-scatter one. What zero bounces removes is the indirect term, and what the black world removes is the area source."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed. A delta light with no radius and a world of strength zero leave Cycles no integral to estimate, so the two dumps must agree bit for bit and any difference NAMES the source that still has an area."
+    }
+  },
+  "statedInvariants": [
+    {
+      "kind": "linear-ceiling",
+      "name": "energy_ceiling",
+      "says": "As the lightsource has an intensity of 1 (lumen / m2) and display output can be considered to be candela / m2 it should never be the case that light contribution go above: (Color * Intensity) = [0.9, 0.8, 0.1] - in linear space.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
+      "ceilingLinear": {
+        "value": [0.9, 0.8, 0.1],
+        "unit": "linear, scene-referred",
+        "origin": "derived",
+        "derivation": "the product of the file's own KHR_lights_punctual light colour [0.9, 0.8, 0.1] and its intensity 1.0, read out of the pinned asset rather than transcribed from the README's prose"
+      }
+    },
+    {
+      "kind": "hue-of-brightest",
+      "name": "highlight_hue",
+      "says": "This means that the color of the specular highlight shall retain the same hue as the lightsource. Where hue is the color without reference to how dull or satururated the color is. This value can be calculated by dividing each RGB component by the total.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
+      "hue": {
+        "value": [0.5, 0.4444444444444444, 0.05555555555555555],
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "each channel of the light's colour over the sum of the three: 0.9/1.8, 0.8/1.8, 0.1/1.8, which is the arithmetic the asset writes out itself"
+      },
+      "brightestFraction": {
+        "value": 0.01,
+        "unit": "dimensionless",
+        "origin": "SET",
+        "note": "The brightest hundredth of the covered pixels, which is where the concentrated highlights are: the asset says to check THE HIGHLIGHT with a colour picker, so judging every covered pixel would be judging a claim the asset does not make. One per cent of this subject's coverage is several thousand samples, so the count is a distribution and not an anecdote."
+      },
+      "maxHueError": {
+        "value": 1e-06,
+        "unit": "dimensionless",
+        "origin": "SET",
+        "note": "Sixteen f32 steps at a ratio near 0.5, which is what a chain of about twenty multiplications and one division can round away. There is nothing physical between our value and the light's hue: base colour and F0 are both achromatic here, so every channel is the same BRDF times the light's own colour, and the ratio is the light's hue exactly in real arithmetic."
+      }
+    }
+  ],
+  "notes": "This is the first case in the tree whose subject is lit at all. It needs KHR_lights_punctual through the reader, a light list rather than one sun, NORMAL through to the draw, and glTF's own metal-rough BRDF evaluated against a direction -- which is the whole of what a punctual light unblocks (doc/requirements.md II.8).",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.286288919,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 31800 indices, i.e. 10600 triangles per sphere over three spheres, of the magnitude of the projected signed area, over 1280*720 at the file's own camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
+    }
+  }
+}

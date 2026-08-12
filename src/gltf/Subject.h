@@ -1,10 +1,15 @@
 /* WHAT A RENDER CASE ACTUALLY DRAWS: one glTF document's triangles, flattened out of the node
  * hierarchy into one run of world-space positions, plus the eye that looks at them.
  *
- * POSITIONS ONLY, AND THAT IS THE SUBJECT'S OWN LIMIT RATHER THAN A CHOICE HERE. Coverage is decided
- * from the oracle's alpha and from our `depth != far`, so the comparison needs no normal at either
- * end (doc/requirements.md I.26); nothing below derives one, and a rung that needs shading needs a
- * mesh type that carries what shading reads.
+ * WHAT THE FILE CARRIES AND NOTHING MORE: positions, and where the primitive states them the first
+ * uv set and the normal. Nothing below DERIVES an attribute -- a primitive with no NORMAL keeps none
+ * and says so per part, because deriving one silently is what makes a subject not the declared one
+ * (doc/requirements.md I.26). Tangents are the same question one attribute along and are not
+ * answered here yet.
+ *
+ * AND THE LIGHTS THE SCENE PLACES, because `KHR_lights_punctual` puts a light on a node: what the
+ * hierarchy answers is where the light is and which way it points, so a walk that flattened only
+ * the geometry would leave the light unplaceable by anyone downstream.
  *
  * EVERY REFUSAL NAMES WHAT IT REFUSED. A document that yields no triangle, a primitive mode this
  * cannot draw, an attribute that is not there, coincident vertices -- each stops the build with a
@@ -16,6 +21,8 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+
+#include "PunctualLight.h"
 
 #include "Camera.h"
 #include "Transform.h"
@@ -72,10 +79,24 @@ struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
   int Material = -1;      /* the document's material index, or -1 where the primitive names none */
   bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
+  bool HasNormal = false; /* whether NORMAL was carried, per primitive and never per subject */
   size_t FirstVertex = 0;
   size_t VertexCount = 0;
   size_t FirstIndex = 0;
   size_t IndexCount = 0;
+};
+
+/* A `KHR_lights_punctual` LIGHT WITH ITS NODE ALREADY RESOLVED: the table entry says what kind of
+ * light it is and the hierarchy says where it is and which way it points, so this is the pair and
+ * the only form a consumer ever sees. `Light.Position` and `Light.Direction` are in the default
+ * scene's root coordinates, the same frame `PositionsM()` is in, and the direction is a unit vector.
+ *
+ * ITS PLACE IS THE NODE'S -Z, which is the extension's own rule and is why a light cannot be placed
+ * without walking the hierarchy that carries it. */
+struct PlacedLight {
+  std::string NodeName;
+  std::string LightName;
+  outshine::PunctualLight Light;
 };
 
 class Subject {
@@ -94,6 +115,20 @@ public:
    * no uv slot at all, so the number is unread rather than a stand-in for a coordinate. */
   const std::vector<double> &Uv() const { return Uv_; }
   bool HasUv() const { return !Uv_.empty(); }
+  /* 3 doubles per vertex, `NORMAL` rotated into the same root coordinates the positions are in by
+   * the inverse transpose of the node's linear part, and normalised. Empty when NO part carried one;
+   * otherwise it covers every vertex and the vertices of a part that carried none hold zero. THAT
+   * ZERO IS NEVER SHADED: `Part::HasNormal` selects a pipeline with no normal slot at all, and a
+   * consumer that wants to light such a part refuses by name rather than lighting a zero vector.
+   *
+   * NOTHING HERE DERIVES ONE. glTF says a client MUST compute flat normals for a primitive that
+   * carries none; that is a separate operation over the triangles and it is not this one, so its
+   * absence is recorded per part rather than repaired invisibly (doc/requirements.md I.26.12). */
+  const std::vector<double> &Normals() const { return Normals_; }
+  bool HasNormal() const { return !Normals_.empty(); }
+  /* Every light the default scene places, in the order the walk met them. Empty where the file
+   * declares none, which is every asset outside `KHR_lights_punctual`. */
+  const std::vector<PlacedLight> &Lights() const { return Lights_; }
   /* In the order the flattening walked them, and covering every vertex and every index exactly
    * once. Several parts may name one node, one mesh or one material; that is what a multi-material
    * asset is. */
@@ -133,8 +168,10 @@ private:
   std::string Error_;
   std::vector<double> Positions_;
   std::vector<double> Uv_;
+  std::vector<double> Normals_;
   std::vector<uint32_t> Indices_;
   std::vector<Part> Parts_;
+  std::vector<PlacedLight> Lights_;
   double Min_[3] = {0, 0, 0}, Max_[3] = {0, 0, 0};
 };
 

@@ -65,6 +65,11 @@ struct Studio {
   /* The surfaces themselves, indexed by slot. A surface whose colour image has no texels declares
    * no texture, which is a different pipeline and not a white stand-in. */
   std::vector<Render::SubjectMaterial> Surfaces;
+  /* WHAT LIGHTS THE SUBJECT, IN glTF's OWN FRAME AND UNITS -- right-handed, +Y up, metres, with a
+   * directional light's intensity in lux and a point or spot light's in candela. Empty is the
+   * ordinary state and it is not "unlit by default": it says the declaration lights nothing, so
+   * every part draws the radiance the declaration gave it and no cosine is evaluated anywhere. */
+  std::vector<outshine::PunctualLight> Lights;
 };
 
 /* THE CALLER'S WORKSPACE, so a loop over many cases reuses one set of buffers -- the hot-loop
@@ -72,6 +77,7 @@ struct Studio {
 struct StudioScratch {
   std::vector<float> Vertices;
   std::vector<uint32_t> Indices;
+  std::vector<Render::SubjectLight> Lights;
   Render::DrawList Draws;
 };
 

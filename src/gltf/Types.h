@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "Material.h"
+#include "PunctualLight.h"
 
 namespace outshine::Gltf {
 
@@ -106,11 +107,24 @@ struct Mesh {
   std::vector<Primitive> Primitives;
 };
 
+/* ONE ENTRY OF `KHR_lights_punctual`'s document-level table. The shading half is
+ * `outshine::PunctualLight`, which is the engine's one vocabulary for a light the way
+ * `outshine::Material` is for a surface; what is added here is only what is about the FILE. The
+ * light carries no place of its own -- a node does, and `Position`/`Direction` stay at their
+ * defaults until a consumer resolves the node that references it. */
+struct LightRef {
+  std::string Name;
+  outshine::PunctualLight Light;
+};
+
 struct Node {
   std::string Name;
   std::vector<int> Children;
   int Mesh = -1;
   int Camera = -1;
+  /* Into `Document::Lights()`, or -1. The extension puts the reference on the node and the beam on
+   * the node's -Z, so a light's direction is the hierarchy's answer and never the table's. */
+  int Light = -1;
   /* A node carries a matrix or a TRS triple, never both -- the format says so and the reader
    * refuses the file that does. */
   bool HasMatrix = false;
