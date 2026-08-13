@@ -34,6 +34,28 @@ double Length(const double v[3]) {
   return true;
 }
 
+/* AN ATTRIBUTE RUN A PRODUCER STATES, against the vertex count its positions already fixed. The
+ * finiteness check is here and not at the reader's end because a NaN in a file is a byte somebody
+ * wrote and a NaN in a produced run is arithmetic that went wrong -- caught at the handover, it
+ * names the piece; caught in the picture, it is a hole. */
+[[nodiscard]] bool RunIsStatable(Span<const float> run, size_t vertices, size_t components,
+                                 const char *semantic, const std::string &where, std::string &why) {
+  if (run.Empty()) { return true; }
+  if (run.Size() != vertices * components) {
+    why = where + " states " + std::to_string(run.Size() / components) + " " + semantic + " over " +
+          std::to_string(vertices) + " vertices";
+    return false;
+  }
+  for (size_t at = 0; at < run.Size(); ++at) {
+    if (!std::isfinite(run[at])) {
+      why = where + " states a " + semantic + " component that is not finite, at " +
+            std::to_string(at);
+      return false;
+    }
+  }
+  return true;
+}
+
 const char *ModeName(PrimitiveMode mode) {
   switch (mode) {
   case PrimitiveMode::Points: return "POINTS";
@@ -484,6 +506,11 @@ bool Subject::Build(const Document &document) {
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
   }
 
+  Bound();
+  return true;
+}
+
+void Subject::Bound() {
   for (int axis = 0; axis < 3; ++axis) {
     Min_[axis] = Max_[axis] = Positions_[(size_t)axis];
   }
@@ -494,6 +521,96 @@ bool Subject::Build(const Document &document) {
       if (value > Max_[axis]) { Max_[axis] = value; }
     }
   }
+}
+
+bool Subject::Assemble(const Assembly &what) {
+  Error_.clear();
+  Positions_.clear();
+  Uv_.clear();
+  Normals_.clear();
+  Tangents_.clear();
+  Indices_.clear();
+  Parts_.clear();
+  Lights_.clear();
+  if (what.Pieces.Empty()) {
+    return Refuse("an assembly of no piece draws nothing, and a subject with no triangle is not one");
+  }
+
+  bool anyUv = false;
+  bool anyNormal = false;
+  bool anyTangent = false;
+  for (size_t index = 0; index < what.Pieces.Size(); ++index) {
+    const Piece &piece = what.Pieces[index];
+    const std::string where = "assembled piece " + std::to_string(index);
+    if (piece.PositionsM.Empty() || (piece.PositionsM.Size() % 3) != 0) {
+      return Refuse(where + " states " + std::to_string(piece.PositionsM.Size()) +
+                    " position components, which is not a whole run of points");
+    }
+    const size_t vertices = piece.PositionsM.Size() / 3;
+    if (piece.Indices.Empty() || (piece.Indices.Size() % 3) != 0) {
+      return Refuse(where + " states " + std::to_string(piece.Indices.Size()) +
+                    " indices, which is not a whole run of triangles");
+    }
+    if (piece.Material < -1) {
+      return Refuse(where + " names material " + std::to_string(piece.Material) +
+                    ", and -1 is the only spelling of naming none");
+    }
+    std::string why;
+    if (!RunIsStatable(piece.PositionsM, vertices, 3, "positions", where, why) ||
+        !RunIsStatable(piece.Normals, vertices, 3, "normals", where, why) ||
+        !RunIsStatable(piece.Uv, vertices, 2, "uv pairs", where, why) ||
+        !RunIsStatable(piece.Tangents, vertices, 4, "tangents", where, why)) {
+      return Refuse(why);
+    }
+
+    Part part;
+    part.NodeName = piece.NodeName;
+    part.Material = piece.Material;
+    part.FirstVertex = VertexCount();
+    part.FirstIndex = Indices_.size();
+    part.VertexCount = vertices;
+    part.IndexCount = piece.Indices.Size();
+    part.HasUv = !piece.Uv.Empty();
+    part.HasNormal = !piece.Normals.Empty();
+    /* A PRODUCER'S BASIS IS A SUPPLIED ONE. `Generated` is what the reader records when it ran
+     * MikkTSpace over a file that stated none, and a generator claiming that word would be saying
+     * its basis came from an algorithm this subject can re-run. */
+    part.Tangent = piece.Tangents.Empty() ? TangentSource::None : TangentSource::Supplied;
+    anyUv = anyUv || part.HasUv;
+    anyNormal = anyNormal || part.HasNormal;
+    anyTangent = anyTangent || part.HasTangent();
+
+    for (const float component : piece.PositionsM) { Positions_.push_back((double)component); }
+    /* The three optional runs stay as long as the vertex run whatever the mix is, exactly as the
+     * flatten leaves them: a piece that carried none contributes zeros that `HasUv`/`HasNormal`/
+     * `Tangent` say are unread. */
+    Uv_.resize((Positions_.size() / 3) * 2, 0.0);
+    Normals_.resize(Positions_.size(), 0.0);
+    Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+    for (size_t at = 0; at < piece.Uv.Size(); ++at) {
+      Uv_[part.FirstVertex * 2 + at] = (double)piece.Uv[at];
+    }
+    for (size_t at = 0; at < piece.Normals.Size(); ++at) {
+      Normals_[part.FirstVertex * 3 + at] = (double)piece.Normals[at];
+    }
+    for (size_t at = 0; at < piece.Tangents.Size(); ++at) {
+      Tangents_[part.FirstVertex * 4 + at] = (double)piece.Tangents[at];
+    }
+
+    for (const uint32_t local : piece.Indices) {
+      if (local >= vertices) {
+        return Refuse(where + " addresses vertex " + std::to_string(local) + " of its own " +
+                      std::to_string(vertices));
+      }
+      Indices_.push_back((uint32_t)part.FirstVertex + local);
+    }
+    Parts_.push_back(part);
+  }
+
+  if (!anyUv) { Uv_.clear(); }
+  if (!anyNormal) { Normals_.clear(); }
+  if (!anyTangent) { Tangents_.clear(); }
+  Bound();
   return true;
 }
 

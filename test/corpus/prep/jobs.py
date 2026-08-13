@@ -46,12 +46,18 @@ def generate_subjects(manifest, destination):
             continue
         for file in subject.files:
             where = "manifest subject %s file %s generator" % (subject.id, file["as"])
-            produced = fixtures.generate(where, file["generator"])
+            produced, said = fixtures.generate(where, file["generator"])
             path = os.path.join(destination, file["as"])
             with open(path, "wb") as out:
                 out.write(produced)
-            report.append({"subject": subject.id, "as": file["as"], "bytes": len(produced),
-                           "sha256": sha256_hex(produced)})
+            made = {"subject": subject.id, "as": file["as"], "bytes": len(produced),
+                    "sha256": sha256_hex(produced)}
+            # WHAT THE PRODUCER SAID ABOUT WHAT IT MADE, into provenance.json. For a part the engine
+            # grew this is the only place the counts, the solved DBH and the framing the rule gives
+            # it are written down, and a manifest quoting one of them can be checked against it.
+            if said:
+                made["reported"] = said
+            report.append(made)
     if not report:
         raise Refusal("generate " + manifest.id, why="no subject is generated; there is nothing to make")
     return report

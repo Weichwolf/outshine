@@ -1,0 +1,179 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/foliage/beech",
+  "title": "A grown beech: the first subject this engine made rather than fetched",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.28"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "a generator's product is emitted as glTF, rendered by Cycles and decided by the picture bound -- otherwise vegetation is judged by eye against SpeedTree for as long as it exists",
+    "statedAt": "doc/requirements.md I.28",
+    "note": "THE SUBJECT IS OURS AND THAT CHANGES WHAT A RED MEANS, so it is said here once. A Khronos case red means our renderer disagrees with Cycles about a file both of them were handed. This case is red for that reason OR because the part is wrong, and the two are separated by the same instrument as everywhere else: the boundary statistic says whether the geometry is in the right pixels, and this subject's geometry is identical on both sides because both read the same emitted file."
+  },
+  "subjectClass": "sub-pixel-present",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "PERMANENT AND BY STRUCTURE. The silhouette is the union of some 250 tapered tubes at directions the grower drew from its own stream, so it resolves into hundreds of distinct lines with no lattice structure and no shared slope. There is no camera and no scale at which condition (A) of doc/requirements.md I.26.14 can hold for it, and there is none at which a roll makes a grown silhouette rational."
+  },
+  "subjects": [
+    {
+      "id": "beech",
+      "kind": "generated",
+      "name": "beech",
+      "entry": "scene.glb",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "source": {
+        "kind": "outshine-generated"
+      },
+      "files": [
+        {
+          "as": "scene.glb",
+          "role": "gltf",
+          "generator": {
+            "shape": "grown-tree",
+            "parameters": {
+              "species": "beech",
+              "node": "beech-bark",
+              "pixelHeightFrac": 0.003122059659227388
+            }
+          }
+        }
+      ],
+      "notes": "THE PART IS THE WOODY STRUCTURE AND NOTHING ELSE. TreeGrower delivers one closed mesh plus the points a leaf sits on; the leaf population is instanced by TreeFoliage and is a composition, not a part, so it is out of this subject by the rule that a generator produces one part and never an aggregate (doc/requirements.md I.28). What is drawn here is therefore a beech with no leaves on it, and the crown's shape is carried by 193 647 attachment points that no triangle stands at."
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red case can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        58.069762577067841,
+        35.496517148382637,
+        41.334356386299788
+      ],
+      "lookAtM": [
+        0.44841605424880981,
+        9.8938770294189453,
+        0.98745518922805786
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 64.37533671390581,
+      "clipEndM": 85.338886957330274,
+      "derivation": "THE FRAMING RULE OF doc/requirements.md I.26.10 APPLIED TO THIS SUBJECT'S OWN BOUNDS, computed by Gltf::Subject::Frame over the emitted part and transcribed from what the generator printed: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 10.48177512171223 m, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, aim at the bounds' centre, roll 0. znear and zfar are the rule's own, distance -/+ r. THE ROLL IS ZERO AND NOT DERIVED, because no roll buys this subject anything: a grown silhouette is irrational at every angle (see acceptanceClass), so a roll would be a different draw of the same lottery.",
+      "note": "The emitted part carries no camera -- the writer states geometry and material and nothing else -- so the camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The material below emits, so nothing in the scene is lit and no lamp has anything to do."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission",
+      "colourLinearPerNode": {
+        "beech-bark": [
+          0.24286681390410306,
+          0.22341399352485986,
+          0.19599417930148813
+        ]
+      },
+      "note": "EMISSION, BECAUSE A DIFFUSE CLOSED FORM HAS NO SUBJECT HERE: rho*L holds only while no surface can see another, and a tree is nothing but surfaces that see each other -- at one sample Cycles would return rho*L or exactly 0 per pixel, which is an ambient-occlusion estimator wearing a tree's clothes. The colour is the species' own bark colour converted from sRGB to linear the way the generator converts it into the file (src/assets/world/species/beech.json declares 0.53/0.51/0.48 sRGB), so the picture is the part's own colour rather than a swatch."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. An emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "THE BUDGET IS ONE PIXEL AND IT IS DERIVED FROM THE SPECIES' DECLARED ENVELOPE, NOT FROM THE PART: height 30 m and spread 18 m give a bounding sphere of radius 0.5*sqrt(18^2+30^2+18^2) = 19.672315572906 m, the framing rule puts the eye at r/sin(yfov/2)/0.6 = 140.49268466523245 m, half the frame is then d*tan(yfov/2) = 33.71824431965579 m over 360 px = 10.67671248203575 px/m, and 30 m of tree is 320.3013744610725 px, so one pixel is 1/320.3013744610725 = 0.003122059659227388 of the tree's height. Deriving it from the emitted part instead would be circular, because what the part is is what the budget decides.\n\nWHAT THE PART CAME OUT AS, MEASURED: 380 vertices, 756 triangles, 19.787754058837891 m tall against the 30 m the species declares (65.96 %) and 5.33 m wide against 18 m (29.6 %). At one pixel the grower gives a tube only to a shoot at least a pixel thick, and everything thinner grows, branches and bears leaf points without one -- so the crown of this subject has no geometry at all and the trunk loses its own tube 10 m below the top. That is the LOD rule working as written and it is why the camera above, which is the framing rule on what was actually emitted, stands 74.86 m out rather than the 140.49 m the budget was derived at: the part is smaller than the envelope it was budgeted for. The mesh encloses a positive volume (6.3059320779444432 m^3 before the sixth), so it is wound the format's way round.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.00629395866,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the emitted vertices and refused on mismatch. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA and not a coverage -- which is why it is roughly twice the covered fraction for a subject made of closed tubes.",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

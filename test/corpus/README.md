@@ -5,11 +5,13 @@ Offline preparation of the render ladder's subjects and their Blender oracle. Th
 beside what it produces. **It is never a test, a gate, a build step, or anything at runtime**, and
 nothing under `test/run.sh` or the Makefile reaches it.
 
-It does three things, each independently invocable and each idempotent:
+It does five things, each independently invocable and each idempotent:
 
 | | |
 |---|---|
 | **fetch** | a subject by pinned identity, verified against a sha256 the manifest records |
+| **generate** | a subject this repository owns. Two kinds and the shape decides which: a rung's own fixture, written in `prep/fixtures.py`, and a part **the engine grew**, produced by building and running the engine — `prep/grown.py` states why that is the only reading of the script door that keeps the constraint |
+| **patch** | a correction stated on top of the pristine fetched bytes, between the fetch and everything that reads the files |
 | **convert** | a `.blend` to glTF through Blender, when the subject is a `.blend` |
 | **render** | the oracle: Cycles, EXR f32 for the score, raw f32 for the C++ runner. **No picture** — both pictures are the runner's, encoded from the two buffers it scores, so an image and the number taken from it cannot come from different sources |
 
@@ -23,7 +25,7 @@ python3 test/corpus/prepare.py dry-run --manifest test/render/coverage/triangle/
 python3 test/corpus/prepare.py all     --manifest test/render/coverage/triangle/manifest.json
 ```
 
-`fetch`, `convert`, `render` and `all` are the jobs; `dry-run` prints what a cold run would cost and
+`fetch`, `generate`, `patch`, `convert`, `render` and `all` are the jobs; `dry-run` prints what a cold run would cost and
 touches nothing. `--dest` overrides the destination, which is otherwise the manifest's own
 directory; `--store` overrides the content store; `--recipe NAME` renders one recipe; `--force`
 redoes the work over a cache hit; `--no-cache` skips the store in both directions.

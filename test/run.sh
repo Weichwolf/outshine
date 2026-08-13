@@ -224,14 +224,21 @@ LayerCases() {
   esac
 }
 
-# WHAT IS UNDER test/ AND IS NOT THE HARNESS'S. Each of these is built by the Makefile and none of
-# them has a reporter or a verdict: an entry point is run by a person, and a compile-judged subject
-# is judged by whether it compiles at all. There is no default arm here either.
+# WHAT IS UNDER test/ AND IS NOT THE HARNESS'S. None of these has a reporter or a verdict, and each
+# says who does build it: the Makefile, the layer's own refusal test, or the offline preparer. There
+# is no default arm here either.
+#
+# THE PREPARER'S OWN PROGRAM IS THE THIRD ANSWER AND IT IS NOT A LOOPHOLE. A generated part's bytes
+# must exist before Blender opens, a generator is C++, and the alternative -- growing the part in the
+# preparer's Python -- would score a subject this engine does not draw. So the preparer builds and
+# runs it (test/corpus/prep/grown.py), the harness never touches it, and what the emit path
+# guarantees is held by a test that does run: unit/gltf/AProducedSubjectIsTheOneItStated.
 NotTheHarnesses() {
   case "$1" in
     .) printf '%s' "the harness's own clock" ;;
     host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
+    corpus | corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/corpus/prepare.py" ;;
     *) return 1 ;;
   esac
 }

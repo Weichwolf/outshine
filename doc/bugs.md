@@ -279,6 +279,58 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   terrain*. Decides it: the sentence names which axis and which extremum, so a reader can write the
   check without opening `TreeGrower.cpp`.
 
+- **The budget is stated in pixels and the silhouette error it admits is not bounded in pixels.**
+  `generators/draw/TreeGrower.cpp:355` (`SpawnShoot`) and `:465` (`GrowOnce`) give a shoot a tube only
+  when `2 * radius > PixelGrow_`, and `TreeGrower.h:20-28` states the two halves of the rule: the side
+  count keeps the **sagitta** under half a pixel, and a shoot thinner than a pixel gets no tube at all.
+  The first half is bounded in pixels; **the second is bounded in nothing**, because what is dropped is
+  a shoot one pixel WIDE and up to the whole crown LONG. Measured 2026-08-13 over
+  `assets/world/species/beech.json` (declared `height_m` 30, `spread_m` 18) with
+  `test/corpus/GrowPart.cpp`, native, `-O2`, one pixel = `pixelHeightFrac * 30 m`:
+
+  | `pixelHeightFrac` | triangles | bark height | missing height | in budget pixels | bark width, of 18 m |
+  |---|---|---|---|---|---|
+  | 0 (the declared mesh) | 346 268 | 30.000 m | 0 | — | 99.1 % |
+  | 6.2441e-3 | 168 | 14.095 m | 15.905 m | **84.9 px** | 12.7 % |
+  | 3.1221e-3 | 756 | 19.788 m | 10.212 m | **109.0 px** | 29.6 % |
+  | 1.5610e-3 | 3 814 | 29.800 m | 0.200 m | 4.3 px | 55.6 % |
+  | 7.8051e-4 | 19 392 | 28.529 m | 1.471 m | **62.8 px** | 75.6 % |
+  | 1.0e-4 | 411 972 | 30.000 m | 0 | 0 px | 98.0 % |
+
+  At one pixel the drawn beech is a 19.8 m whip with about a dozen twigs and no crown at all, which is
+  what the two pictures of `test/render/foliage/beech/` show — the same subject on both sides, so the
+  case is green on placement and the tree is still not a tree. § I.28 makes the screen-space budget the
+  **only** currency comparable across terrain, trunk, façade and crown; a currency that admits a 109 px
+  error at a 1 px budget is not one, and a frame budget converted into per-part errors by that rule
+  buys nothing it can be held to. *The leaf points are not the answer to this and the numbers say so:
+  they are 193 647 attachment points with no geometry, and until something draws them the part IS the
+  tubes.* Right: the drop is admissible only where the shoot's **projected extent** is under the
+  budget, and a shoot that is long and thin is replaced rather than deleted — which is what an impostor
+  or a leaf card is for. Decides it: bark height and bark width, as a fraction of the declared
+  `height_m` and `spread_m`, are within the budget for every declaration and every budget; the table
+  above is the test's own shape and the two cells at 84.9 px and 109.0 px are what must go.
+
+- **The LOD budget feeds back into the growth, so two levels of detail of one tree are two different
+  trees.** `TreeGrower::Grow` (`generators/draw/TreeGrower.cpp:405-411` and `:414-424`) runs two
+  solving loops after the two base passes: the vertex-budget loop coarsens `PixelGrow_` and regrows,
+  and the DBH loop multiplies `g.BaseRadius`, `g.MinRadius` and `g.TwigRadius` by `targetR / haveR` and
+  regrows — where `haveR` is read off the **drawn** mesh and `MinRadius` is exactly what decides which
+  shoots are spawned at all. Both loops therefore run a different number of times, and settle on
+  different growth parameters, for one species at different budgets. Measured 2026-08-13, same subject
+  and same instrument as the entry above, over the **leaf points**, which count shoots and are
+  untouched by whether a shoot got a tube: **120 114 to 203 851 points**, a factor of **1.70**, with the
+  species, the seed and every declared parameter fixed and the LOD budget the only thing that moved
+  (203 851 · 196 019 · 193 647 · 196 437 · 200 079 · 120 114 at the six budgets above, at 8 · 4 · 3 · 4
+  · 4 · 8 grow passes). The silhouette is non-monotone with it: **29.800 m at `1.5610e-3` and 28.529 m
+  at the finer `7.8051e-4`** — a refinement that made the tree 1.27 m shorter, which cannot be a
+  rounding artefact and cannot be a subset relation. A ladder whose rungs are different trees pops at
+  every switch by construction, and `CLAUDE.md`'s *popping at an LOD change* is not decidable in a
+  still. Right: the growth is solved **once**, at the finest budget the part will ever be asked for,
+  and the budget selects from that one tree — so a coarse mesh is a subset of a fine one and the
+  ladder is monotone by construction rather than by luck. Decides it: over every declaration, the leaf
+  point population is identical at every budget, and bark height and width are non-decreasing as the
+  budget refines.
+
 ## World and streaming
 
 - **The tile pool's worker threads outlive the registry, the content store and the transport they

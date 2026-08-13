@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "PunctualLight.h"
+#include "Span.h"
 
 #include "Camera.h"
 #include "Transform.h"
@@ -133,10 +134,41 @@ struct PlacedLight {
   outshine::PunctualLight Light;
 };
 
+/* ONE PIECE AS A PRODUCER STATES IT, and it is the flattened form on purpose: a producer that had to
+ * spell a node, an accessor and a buffer view would be building an interchange tree for the flatten
+ * to take apart again. Runs are f32 because the format's POSITION, NORMAL, TEXCOORD_0 and TANGENT
+ * are, so a produced subject reaches `Subject(Emit(S)) == S` at zero applications.
+ *
+ * INDICES ARE LOCAL TO THE PIECE, so a producer that grew two meshes separately does not have to
+ * know where the first one ended. An empty attribute run is an attribute this piece does not carry
+ * and is never a run of zeros the caller had to invent. */
+struct Piece {
+  std::string NodeName;
+  int Material = -1;
+  Span<const float> PositionsM; /* 3 per vertex */
+  Span<const float> Normals;    /* 3 per vertex, or empty */
+  Span<const float> Uv;         /* 2 per vertex, or empty */
+  Span<const float> Tangents;   /* 4 per vertex, or empty; a supplied basis, never a generated one */
+  Span<const uint32_t> Indices; /* triangles, three each */
+};
+
+/* WHAT A GENERATOR HANDS OVER, as one parameter object rather than a list of runs (`I.23`). */
+struct Assembly {
+  Span<const Piece> Pieces;
+};
+
 class Subject {
 public:
   /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence. */
   [[nodiscard]] bool Build(const Document &document);
+
+  /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (doc/requirements.md I.28): the same
+   * drawable, produced rather than read. Nothing is derived here -- no normal, no tangent basis, no
+   * winding restatement -- because a producer states what it made; what this does is CHECK, and
+   * every refusal names the piece and what was wrong with it, since a generator that handed over a
+   * malformed run would otherwise be found out by a black picture. `false` leaves `Error()` holding
+   * the sentence. */
+  [[nodiscard]] bool Assemble(const Assembly &what);
 
   const std::string &Error() const { return Error_; }
 
@@ -204,6 +236,8 @@ public:
 
 private:
   [[nodiscard]] bool Refuse(const std::string &why);
+  /* The world-space AABB over the position run, whichever of the two ways in filled it. */
+  void Bound();
   /* One part's tangent run, appended in step with the runs above: the file's own where the
    * primitive supplies one, MikkTSpace where the primitive's material declares a normal texture and
    * the file supplies none, and nothing otherwise. Splits a vertex whose corners came out with

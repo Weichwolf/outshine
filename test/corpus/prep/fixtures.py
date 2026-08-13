@@ -6,12 +6,19 @@ decision inside the rung whose subject is the reader.
 
 The numbers a fixture is built from are the manifest's, not this file's: a shape reads its parameters
 and refuses a key it does not know, so a parameter that silently did not apply has no spelling.
+
+TWO KINDS OF SUBJECT ARRIVE THROUGH ONE ENTRY POINT AND THE SHAPE DECIDES WHICH. The shapes below
+are the RUNG'S OWN FIXTURES -- a triangle, a quad, a cube -- written here because their whole point
+is that nothing of the engine stands behind them. A shape of `grown.SHAPES` is the opposite subject:
+a part the engine grew, produced by running the engine (`grown.py`), because a second implementation
+of a generator in this file would score a tree the engine does not draw.
 """
 
 import json
 import math
 import struct
 
+from . import grown
 from .refusal import Refusal
 
 GLB_MAGIC = 0x46546C67
@@ -26,17 +33,25 @@ FLOAT32 = 5126
 
 
 def generate(where, recipe):
-    """The bytes of one fixture, from the `generator` block of one declared file."""
+    """The bytes of one fixture, and what its producer reported about it -- empty for the shapes
+    written here, because the whole of their report is the recipe that is already in the manifest."""
+    if not isinstance(recipe, dict):
+        raise Refusal(where, expected="an object", observed=type(recipe).__name__)
+    if recipe.get("shape") in grown.SHAPES:
+        field = _fields(where, recipe, ("shape", "parameters"))
+        return grown.build(where, field["shape"], field["parameters"])
     field = _fields(where, recipe, ("shape", "parameters"), ("mode", "indexComponent", "camera"))
     shape = field["shape"]
     if shape not in _SHAPES:
-        raise Refusal(where + ".shape", expected="one of " + ", ".join(sorted(_SHAPES)), observed=shape)
+        raise Refusal(where + ".shape",
+                      expected="one of " + ", ".join(sorted(set(_SHAPES) | set(grown.SHAPES))),
+                      observed=shape)
     mode = _one_of(where + ".mode", field.get("mode", "TRIANGLES"), sorted(MODES))
     component = _one_of(where + ".indexComponent", field.get("indexComponent", "UNSIGNED_INT"),
                         sorted(COMPONENT_TYPES))
     parts = _SHAPES[shape](where + ".parameters", field["parameters"], mode)
     camera = _camera(where + ".camera", field["camera"]) if "camera" in field else None
-    return _write_glb(parts, mode, component, camera)
+    return _write_glb(parts, mode, component, camera), {}
 
 
 # ---------------------------------------------------------------- the shapes
