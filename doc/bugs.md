@@ -42,7 +42,6 @@ load are what would hit them.
 | The winding is hard-coded at seven sites | *Declaration and build* |
 | Three node-transform cases measure an ambient-occlusion estimator at one sample | its own section |
 | Frame alpha derived from depth, so a translucent body over nothing is absent from our picture | its own section |
-| `DirectionalLight`'s lit side is mirrored in screen x — geometry and magnitudes correct, direction flipped | its own section |
 | The preparer and the runner hold two closed sets over one manifest schema, disagreeing on 8 of 26 | its own section |
 
 *Checked and **not** in this band, against the coordinator's reading:* **`SurfaceState` carries
@@ -1175,41 +1174,6 @@ resource exists, and let `View()` return a handle.
 **Band 3 — waits for the SDL_GPU port**, which rewrites every one of these sites; repairing them first
 would be repairing code about to be deleted. **Fixed when** a stage object exists because the plan holds
 its stage, so a call into an unheld stage does not compile.
-
-## `DirectionalLight`'s lit side is mirrored in screen x, and its criterion could not see it because hue is direction-invariant — **Band 1**
-
-`test/render/lighting/directional-light`. Measured at `a34c964`: the radiance profiles along `y = 360`
-are **mirror images about the disc centre** — the oracle's brightest pixel at `x = 280`, ours at
-`x = 350`, symmetric about **315**. Disc centres agree to **nine digits** and peak values to **0.03 %**.
-
-**The geometry is not what is wrong, and the alpha channel proves it.** There is **no coverage
-difference at all** — `picture_max_delta_code_alpha = 0` — so the silhouette lands identically on both
-sides. A mirrored *camera* would move the silhouette; this does not move it. **The camera is right and
-the illumination is mirrored**, which narrows the site to whatever builds the shading frame rather than
-to the projection.
-
-**And the magnitudes are right too**: centres to nine digits and peaks to 0.03 % mean the intensity, the
-colour and the BRDF chain are all correct. **Only the direction is wrong, and only in one axis** —
-a sign on the light direction's `x` in whatever frame the shading is done in, or a right vector that
-disagrees between the frame the projection uses and the frame the shading uses.
-
-**The one structural fact that names the suspect: this is the only case whose camera comes from the
-file** — `scene.camera.source = "gltf"` — *and* the only case whose light does (`scene.light.kind =
-"gltf"`, the one asset class where `KHR_lights_punctual` crosses the boundary, § I.26.12). So the
-candidate is the path that derives a shading basis when the camera is **not** built by the framing rule.
-*The discriminator is running; this entry records what is already decided so the run has something to
-confirm or refute rather than a blank.*
-
-**Why it survived every round since it was written, and this is the part worth more than the defect.**
-Its criterion is a **hue check**, and **hue is invariant under a reflection of the light direction** —
-the mirrored highlight has exactly the hue the correct one would. A criterion cannot catch a defect
-whose transformation it is invariant under. It passed at **4.67e-8 over 9 217 pixels**, and the number
-was true.
-
-**Right:** the shading basis and the projection basis are one basis, so a disagreement between them has
-no spelling. **Fixed when** the profile along `y = 360` is not a mirror — checkable from the two `.raw`
-taps already written, with no new instrument. **Band 1**: it is a wrong picture on a lit asset, and
-every lit Khronos case added after it inherits the same path.
 
 ## Frame alpha is derived from depth, so a translucent body over nothing is absent from our picture and present in the oracle's — **Band 1**
 
