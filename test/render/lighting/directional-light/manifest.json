@@ -123,6 +123,7 @@
     "frame": "gltf",
     "camera": {
       "source": "gltf",
+      "index": 0,
       "note": "The file carries exactly one camera and it is the one the asset was authored to be seen through: yfov 0.65, znear 0.3, zfar 5, at (0, 0, 2) with no rotation. Declaring another here would be choosing where the highlight lands, which is the quantity under test."
     },
     "light": {

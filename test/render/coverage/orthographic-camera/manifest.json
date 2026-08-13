@@ -69,6 +69,7 @@
     "frame": "gltf",
     "camera": {
       "source": "gltf",
+      "index": 0,
       "note": "An orthographic camera is a different matrix and not a large number substituted for one, so the file declares one and both sides build it: ours through Camera::Projection's orthographic arm, Blender's through an ORTHO camera whose ortho_scale its importer sets to 2*max(xmag, ymag)."
     },
     "light": {

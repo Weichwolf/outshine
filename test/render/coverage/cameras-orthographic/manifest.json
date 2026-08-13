@@ -1,0 +1,159 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/cameras-orthographic",
+  "title": "Khronos Cameras through camera 1 -- the orthographic one, and a square frame is what makes the oracle able to express it",
+  "covers": [
+    "I.26",
+    "I.26.5",
+    "I.26.10",
+    "I.26.12",
+    "khronos:Cameras"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Two cameras and a simple plane mesh; a perspective camera and an orthographic camera.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/README.md",
+    "note": "Numeric because the whole of the criterion is which projection the plane is read through: the two cameras sit on two nodes at the same point and differ in nothing else, so a reader that adopted the wrong one draws a different silhouette of the same square in the same frame. Here the difference is total -- a parallel projection makes the square axis-aligned and the perspective one does not."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "cameras",
+      "kind": "gltf",
+      "name": "Cameras",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "One mesh-bearing node, unnamed, carrying a unit square with no NORMAL and no material, plus two camera nodes at translation (0.5, 0.5, 3.0). THE FILE IS THE FIRST HERE THAT CARRIES MORE THAN ONE CAMERA, which is what it is for: `cameras[0]` is perspective at yfov 0.7 and `cameras[1]` is orthographic at xmag = ymag = 1, and no property of the scene distinguishes them but the projection.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "Cameras",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/glTF/Cameras.gltf",
+          "sha256": "5ca6b0ebf70411edd8a11427adeff23b1a2211ea7145f0964a95ac6573df9abc",
+          "bytes": 1585,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/glTF/Cameras.bin",
+          "sha256": "2d73fc484aab11784e8773862e69b28cb7e0d7d1aadac6032ceea7c490cfd15e",
+          "bytes": 60,
+          "as": "Cameras.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/metadata.json",
+          "sha256": "a2d3e7499b2d31bc9c51d689048c68571f74a57b112e01511b1689ce58654de3",
+          "bytes": 728,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Cameras/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "gltf",
+      "index": 1,
+      "note": "THE INDEX IS THE WHOLE POINT OF THIS CASE, and camera 1 is the orthographic one. Both sides resolve it by index and neither takes whichever camera it met first: ours through Gltf::DeclaredPlacement, which requires exactly one node to reference the index, and the oracle's by matching the imported camera against the declaration Blender's importer built it from -- here an ORTHO camera at ortho_scale 2*max(xmag, ymag)."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world. A uniform environment is what makes a Lambertian facet return rho*L with no integration left."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "note": "The subject is ONE unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346. The mesh names no material at all, so declaring one here takes nothing away from the asset: what it tests is which of two projections the square is read through, and a colour cannot answer that. `diffuse` and not `emission` because there is no self-occlusion to remove, and the emission arm keys its colours on node names while this file's mesh node carries none."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 720,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. THE FRAME IS SQUARE AND THAT IS THE ORACLE'S DOING, not a framing choice: glTF's parallel projection carries xmag AND ymag and uses both, while Blender's importer folds them into one ortho_scale = 2*max(xmag, ymag) fitted to the LARGER frame axis (blender/imp/camera.py, 5.2.0, sensor_fit left at AUTO). At any other aspect the two cameras cover different vertical extents and the disagreement would be the importer's, not the renderer's. At 720x720 both cover x and y in [-1, +1] about the camera, which is what the file declares, so the comparison is between the two projections rather than between two fits."
+    }
+  },
+  "notes": "Its sibling `render/coverage/cameras-perspective` renders the same file through `cameras[0]`, and the pair is the criterion: one subject, one manifest each, and the only difference between them is the index and the frame the oracle can express that index in. THE FILE'S QUATERNION IS NOT UNIT -- (-0.383, 0, 0, 0.92375) has |q|^2 = 1.0000030625 -- and the format defines `rotation` as a unit quaternion, so the reader normalises it before building the matrix (src/gltf/Transform.cpp). Without that the same formula returns the rotation times |q|^2, which is 3.06 ppm of scale the node never declared.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.17665572461684334,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's two triangles of the magnitude of the projected signed area, over 720*720 at the file's camera 1, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. It is also what separates this case from its perspective sibling: the same square through the other projection covers a different fraction of a different frame."
+    }
+  }
+}

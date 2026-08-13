@@ -15,7 +15,15 @@ struct Transform {
   double M[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 
   static Transform Identity() { return {}; }
-  /* The format's composition, in the format's order: a node's local transform is T * R * S. */
+  /* The format's composition, in the format's order: a node's local transform is T * R * S.
+   *
+   * `rotation` IS NORMALISED FIRST, because the format defines it as a unit quaternion
+   * (`Specification.adoc`, "Transformations": *"`rotation` is a unit quaternion value, XYZW"*) and
+   * the matrix below is the unit-quaternion formula. Fed a quaternion of norm n the same formula
+   * yields R times n^2 -- a scale the node never declared. MEASURED on Khronos's `Cameras`, whose
+   * rotation has |q|^2 = 1.0000030625: 3.06 ppm of silent scale, 0.001 px over the subject, and one
+   * pixel of the frame decided by it. A quaternion of zero length is left as it arrived, so nothing
+   * is invented for a file that cannot mean anything. */
   static Transform FromTrs(const double translation[3], const double rotation[4],
                            const double scale[3]);
   static Transform FromColumnMajor(const double m[16]);

@@ -120,6 +120,12 @@ def _number(where, value):
     return float(value)
 
 
+def _index(where, value):
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        raise Refusal(where, expected="a non-negative whole number", observed=repr(value))
+    return value
+
+
 def _boolean(where, value):
     if not isinstance(value, bool):
         raise Refusal(where, expected="true or false", observed=repr(value))
@@ -359,7 +365,13 @@ def _criterion(value):
 
     Stated rather than inferred, because the instrument follows from it: a case that quietly moved
     from a number to an eye would be a threshold moving without saying so."""
-    field = _fields("manifest.criterion", value, ("kind", "says", "statedAt"), ("note",))
+    # `oracleRole` AND ITS TWO COMPANIONS ARE THE RUNNER'S AND ARE ONLY PASSED THROUGH HERE. They
+    # say what Cycles cannot express about this criterion and what that costs, measured; the runner
+    # refuses a role with no limitation and a limitation with no measurement, and restating those
+    # rules here would put one statement in two places that drift apart. Six manifests carried them
+    # while this parser refused the key, which made those six cases unpreparable.
+    field = _fields("manifest.criterion", value, ("kind", "says", "statedAt"),
+                    ("note", "oracleRole", "oracleLimitation", "oracleLimitationMeasured"))
     _one_of("manifest.criterion.kind", field["kind"], CRITERION_KINDS)
     for key in ("says", "statedAt"):
         if not isinstance(field[key], str) or not field[key]:
@@ -398,7 +410,13 @@ class _Scene:
 def _camera(value):
     source = _one_of("manifest.scene.camera.source", value.get("source"), CAMERA_SOURCES)
     if source == "gltf":
-        return _fields("manifest.scene.camera", value, ("source",), ("note",))
+        # THE INDEX INTO THE FILE'S OWN `cameras`, AND IT HAS NO DEFAULT. `Cameras` puts a
+        # perspective and an orthographic camera on two nodes at one point, so "the camera the file
+        # carries" names nothing there; a case that adopted the first would render one of them and
+        # report the other's criterion.
+        field = _fields("manifest.scene.camera", value, ("source", "index"), ("note",))
+        field["index"] = _index("manifest.scene.camera.index", field["index"])
+        return field
     # A PARALLEL PROJECTION IS A DIFFERENT MATRIX AND NOT A LONG LENS, so it is declared and never
     # inferred from which field happens to be present. It carries the vertical extent it covers and
     # no field of view at all; a case that needs one needs it for a reason it can state.

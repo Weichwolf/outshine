@@ -13,7 +13,11 @@ Transform Transform::FromColumnMajor(const double m[16]) {
 
 Transform Transform::FromTrs(const double translation[3], const double rotation[4],
                              const double scale[3]) {
-  const double x = rotation[0], y = rotation[1], z = rotation[2], w = rotation[3];
+  const double norm = std::sqrt(rotation[0] * rotation[0] + rotation[1] * rotation[1] +
+                                rotation[2] * rotation[2] + rotation[3] * rotation[3]);
+  const double unit = (norm > 0.0 && std::isfinite(norm)) ? 1.0 / norm : 1.0;
+  const double x = rotation[0] * unit, y = rotation[1] * unit, z = rotation[2] * unit,
+               w = rotation[3] * unit;
   const double basis[9] = {
       1 - 2 * (y * y + z * z), 2 * (x * y + z * w),     2 * (x * z - y * w),
       2 * (x * y - z * w),     1 - 2 * (x * x + z * z), 2 * (y * z + x * w),

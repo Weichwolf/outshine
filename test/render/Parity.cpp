@@ -323,16 +323,23 @@ public:
     subject.Eye.YfovRad = declared["yfovRad"].Num(0.0);
     return subject.Eye.YfovRad > 0;
   }
-  if (subject.Geometry.DeclaredPlacement(subject.File, subject.Eye)) {
+  /* A CASE THAT NAMES THE FILE AS ITS CAMERA AND GETS THE FRAMING RULE INSTEAD would render a
+   * perfectly good picture through a path it was written to exercise and never touch, so the
+   * refusal is the reader's own sentence and there is no arm past it. THE INDEX IS THE MANIFEST'S
+   * AND HAS NO DEFAULT: `Cameras` carries a perspective and an orthographic camera at one point,
+   * and "the first one" would render one and report the other's criterion. */
+  if (declared["source"].StrEquals("gltf")) {
+    if (declared["index"].GetKind() != Json::Kind::Number) {
+      error = "the manifest names the glTF as the camera's source and declares no `index` into its "
+              "`cameras`, and a file may carry more than one";
+      return false;
+    }
+    if (!outshine::Gltf::DeclaredPlacement(subject.File, (int)declared["index"].Num(-1),
+                                           subject.Eye, error)) {
+      return false;
+    }
     subject.CameraSource = "gltf";
     return true;
-  }
-  /* A CASE THAT NAMES THE FILE AS ITS CAMERA AND GETS THE FRAMING RULE INSTEAD would render a
-   * perfectly good picture through a path it was written to exercise and never touch. */
-  if (declared["source"].StrEquals("gltf")) {
-    error = "the manifest names the glTF as the camera's source and no node of it references a "
-            "camera the reader accepts";
-    return false;
   }
   if (subject.Geometry.Frame(subject.Eye)) {
     subject.CameraSource = "framing-rule";

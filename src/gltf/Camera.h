@@ -8,9 +8,10 @@
  * this engine's depth convention (core/Mat4.h is reversed-Z), and converting between them is the
  * renderer's business at the point where it builds a pipeline -- the file's meaning stays the file's.
  *
- * `aspectRatio` and `zfar` are OPTIONAL in the format. Absent aspect means "whatever it is displayed
- * in", so the viewport supplies it; absent zfar means an infinite frustum, which is a different
- * matrix and not a large number substituted for one. */
+ * `aspectRatio` and `zfar` are OPTIONAL in the format. `aspectRatio` is carried because it is what
+ * the file says and never applied, because the frame the picture lands in is what decides the
+ * horizontal extent; absent zfar means an infinite frustum, which is a different matrix and not a
+ * large number substituted for one. */
 #ifndef GLTF_CAMERA_H
 #define GLTF_CAMERA_H
 
@@ -40,8 +41,8 @@ struct Camera {
   CameraKind Kind = CameraKind::Perspective;
 
   double YfovRad = 0;
-  /* 0 means the format did not state it -- for aspect, the viewport decides; for zfar, the frustum
-   * is infinite. */
+  /* 0 means the format did not state it, and the file's own number is not read by `Projection`
+   * either -- see the head of this file. */
   double AspectRatio = 0;
   double ZNearM = 0;
   double ZFarM = 0;

@@ -400,30 +400,51 @@ bool Subject::Frame(Placement &out) const {
   return true;
 }
 
-bool Subject::DeclaredPlacement(const Document &document, Placement &out) const {
-  for (size_t node = 0; node < document.Nodes().size(); ++node) {
-    const int camera = document.Nodes()[node].Camera;
-    if (camera < 0) { continue; }
-    if ((size_t)camera >= document.Cameras().size()) { return false; }
-    const Camera &lens = document.Cameras()[(size_t)camera];
-    Transform world;
-    if (!document.WorldTransform((int)node, world)) { return false; }
-    for (int axis = 0; axis < 3; ++axis) {
-      out.Right[axis] = world.M[axis];
-      out.Up[axis] = world.M[4 + axis];
-      out.Forward[axis] = -world.M[8 + axis];
-      out.EyeM[axis] = world.M[12 + axis];
-    }
-    if (!Normalise(out.Right) || !Normalise(out.Up) || !Normalise(out.Forward)) { return false; }
-    out.Kind = lens.Kind;
-    out.YfovRad = lens.YfovRad;
-    out.XMagM = lens.XMagM;
-    out.YMagM = lens.YMagM;
-    out.ZNearM = lens.ZNearM;
-    out.ZFarM = lens.ZFarM;
-    return true;
+bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
+                       std::string &error) {
+  if (cameraIndex < 0 || (size_t)cameraIndex >= document.Cameras().size()) {
+    error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is asked for and the " +
+            "document declares " + std::to_string(document.Cameras().size());
+    return false;
   }
-  return false;
+  size_t holder = 0;
+  size_t holders = 0;
+  for (size_t node = 0; node < document.Nodes().size(); ++node) {
+    if (document.Nodes()[node].Camera != cameraIndex) { continue; }
+    holder = node;
+    ++holders;
+  }
+  if (holders != 1) {
+    error = document.Path() + ": camera " + std::to_string(cameraIndex) + " is referenced by " +
+            std::to_string(holders) + " nodes, and a placement is what exactly one node states";
+    return false;
+  }
+
+  const Camera &lens = document.Cameras()[(size_t)cameraIndex];
+  Transform world;
+  if (!document.WorldTransform((int)holder, world)) {
+    error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
+            std::to_string(cameraIndex) + " and its world transform does not resolve";
+    return false;
+  }
+  for (int axis = 0; axis < 3; ++axis) {
+    out.Right[axis] = world.M[axis];
+    out.Up[axis] = world.M[4 + axis];
+    out.Forward[axis] = -world.M[8 + axis];
+    out.EyeM[axis] = world.M[12 + axis];
+  }
+  if (!Normalise(out.Right) || !Normalise(out.Up) || !Normalise(out.Forward)) {
+    error = document.Path() + ": node " + std::to_string(holder) + " carries camera " +
+            std::to_string(cameraIndex) + " and its basis has collapsed";
+    return false;
+  }
+  out.Kind = lens.Kind;
+  out.YfovRad = lens.YfovRad;
+  out.XMagM = lens.XMagM;
+  out.YMagM = lens.YMagM;
+  out.ZNearM = lens.ZNearM;
+  out.ZFarM = lens.ZFarM;
+  return true;
 }
 
 double Subject::ProjectedAreaPx(const Transform &clip, const Viewport &viewport) const {

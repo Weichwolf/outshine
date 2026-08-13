@@ -68,6 +68,7 @@
     "frame": "gltf",
     "camera": {
       "source": "gltf",
+      "index": 0,
       "note": "The file carries a camera node, so both sides read it from there: our reader through Subject::DeclaredPlacement and Blender's importer through the node it imported. The manifest declares no camera at all, and a manifest that named the file as its source while the file carried none is a refusal rather than a quiet fall back to the framing rule."
     },
     "light": {

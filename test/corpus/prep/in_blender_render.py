@@ -75,6 +75,20 @@ def import_gltf(paths, lighting_mode):
     return [obj for obj in bpy.data.objects if obj not in before], kept
 
 
+def document_json(path):
+    """The subject's own JSON, whichever of the format's two containers carries it. A GLB's first
+    chunk is the JSON one by the format's rule, at byte 12 with an 8-byte chunk header; refusing
+    anything else stops a reader that would otherwise decode a buffer as text."""
+    with open(path, "rb") as f:
+        payload = f.read()
+    if payload[:4] != b"glTF":
+        return json.loads(payload.decode("utf-8"))
+    length, kind = struct.unpack_from("<II", payload, 12)
+    if kind != 0x4E4F534A:
+        fail("%s is a GLB whose first chunk is %#x and the format's first chunk is JSON" % (path, kind))
+    return json.loads(payload[20:20 + length].decode("utf-8"))
+
+
 def keep_default_scene(path, new_collections):
     """MEASURED, 5.2.0: the importer does not honour glTF's `scene` property -- it imports EVERY
     scene's nodes into the active Blender scene, one child collection per glTF scene, in document
@@ -86,15 +100,7 @@ def keep_default_scene(path, new_collections):
     -- one child collection per scene, in order -- is CHECKED against the document's scene count
     rather than trusted, because a Blender that changed it would otherwise silently keep the wrong
     geometry."""
-    with open(path, "rb") as f:
-        head = f.read(4)
-    if head == b"glTF":
-        # A GLB's JSON chunk starts at byte 20; every multi-scene subject in this corpus is a .gltf,
-        # so rather than parse one, a GLB is declared out of this rule's reach until one arrives.
-        return {"scenes": 1, "honoured": "not-applicable-to-glb"}
-    with open(path, "r") as f:
-        document = json.load(f)
-    scenes = document.get("scenes") or []
+    scenes = document_json(path).get("scenes") or []
     if len(scenes) <= 1:
         return {"scenes": len(scenes), "honoured": "single-scene"}
     default = document.get("scene", 0)
@@ -185,13 +191,64 @@ def build_camera(scene, declared):
     return described
 
 
-def adopt_camera(scene, imported):
-    cameras = [obj for obj in imported if obj.type == "CAMERA"]
-    if len(cameras) != 1:
-        fail("camera.source is gltf and the file carries %d cameras" % len(cameras))
-    scene.camera = cameras[0]
-    return {"lensMm": cameras[0].data.lens, "sensorFit": cameras[0].data.sensor_fit,
-            "matrixWorld": [list(row) for row in cameras[0].matrix_world]}
+def adopt_camera(scene, imported, declared, paths):
+    """The camera the manifest names by its index into the file's own `cameras`, resolved WITHOUT
+    relying on the order Blender happens to hand its objects back in.
+
+    MEASURED, 5.2.0: the importer keeps no node index and no camera index on what it builds, and
+    `bpy.data.objects` is ordered by name, so the nth imported camera is not the nth camera of the
+    file. What the importer does keep is the camera's own declaration -- projection, clip range and
+    either the vertical field of view or the orthographic scale -- so the declared camera is matched
+    on those, and an asset whose cameras are indistinguishable under them is a REFUSAL naming the
+    count rather than a pick."""
+    documents = [(path, document_json(path)) for path in paths]
+    carriers = [(path, document) for path, document in documents if document.get("cameras")]
+    if len(carriers) != 1:
+        fail("camera.source is gltf and %d of the %d subject files declare cameras, so the index "
+             "names no one file" % (len(carriers), len(documents)))
+    declarations = carriers[0][1]["cameras"]
+    index = declared["index"]
+    if not 0 <= index < len(declarations):
+        fail("camera.index is %d and %s declares %d cameras" % (index, carriers[0][0],
+                                                                len(declarations)))
+    wanted = importer_camera(declarations[index])
+    matched = [obj for obj in imported
+               if obj.type == "CAMERA" and same_camera(importer_camera_of(obj.data), wanted)]
+    if len(matched) != 1:
+        fail("camera.index is %d, whose declaration imports as %r, and %d of the file's imported "
+             "cameras carry that declaration" % (index, wanted, len(matched)))
+    scene.camera = matched[0]
+    return {"index": index, "lensMm": matched[0].data.lens, "camType": matched[0].data.type,
+            "sensorFit": matched[0].data.sensor_fit, "matchedOn": list(wanted),
+            "matrixWorld": [list(row) for row in matched[0].matrix_world]}
+
+
+def importer_camera(declared):
+    """What Blender's importer builds from one glTF camera declaration -- its own arithmetic,
+    restated here because that is the only handle on which imported object came from which
+    declaration. `blender/imp/camera.py`, 5.2.0."""
+    if declared["type"] == "orthographic":
+        lens = declared["orthographic"]
+        return ("ORTHO", 2.0 * max(lens["xmag"], lens["ymag"]), lens["znear"], lens["zfar"])
+    lens = declared["perspective"]
+    # An absent `zfar` is an infinite frustum, which the importer spells as a big number.
+    return ("PERSP", lens["yfov"], lens["znear"], lens.get("zfar", 1e12))
+
+
+def importer_camera_of(data):
+    if data.type == "ORTHO":
+        return ("ORTHO", data.ortho_scale, data.clip_start, data.clip_end)
+    return ("PERSP", data.angle_y, data.clip_start, data.clip_end)
+
+
+def same_camera(observed, declared):
+    """Blender's camera properties are single precision and its field of view round-trips through a
+    focal length, so the comparison is to single-precision resolution and never exact. A slack that
+    let two of a file's cameras match is not a wrong pick here: `adopt_camera` refuses on any count
+    but one."""
+    if observed[0] != declared[0]:
+        return False
+    return all(abs(a - b) <= 1e-6 * max(1.0, abs(b)) for a, b in zip(observed[1:], declared[1:]))
 
 
 def observed_lights(imported):
@@ -804,7 +861,7 @@ def main():
     if job["scene"]["camera"]["source"] == "manifest":
         camera = build_camera(scene, job["scene"]["camera"])
     else:
-        camera = adopt_camera(scene, imported)
+        camera = adopt_camera(scene, imported, job["scene"]["camera"], job["gltfPaths"])
     light = build_light(scene, job["scene"]["light"], imported)
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])

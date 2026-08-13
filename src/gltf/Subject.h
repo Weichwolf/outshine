@@ -65,6 +65,17 @@ struct Placement {
   [[nodiscard]] bool Clip(double viewportAspect, Transform &out) const;
 };
 
+/* THE PLACEMENT OF ONE NAMED CAMERA OF THE DOCUMENT -- `cameraIndex` into `Document::Cameras()`,
+ * never "the first one found". `Cameras` carries two, at the same point and differing only in
+ * projection, so a reader that took the first would render one of them and report the other's
+ * criterion; the index is therefore a parameter with no default, and a caller that does not know
+ * which camera it wants cannot spell the call.
+ *
+ * EXACTLY ONE NODE MUST REFERENCE IT. A camera instanced twice has two placements and no way to
+ * choose between them, and none is invented here: the sentence in `error` names the count. */
+[[nodiscard]] bool DeclaredPlacement(const Document &document, int cameraIndex, Placement &out,
+                                     std::string &error);
+
 /* ONE DRAWN PRIMITIVE'S CONTRIBUTION to the flattened run, and the primitive is the unit because the
  * primitive is what carries a material: `SciFiHelmet` puts several under one mesh and
  * `AlphaBlendModeTest` gives each its own alpha mode, so a part that was a NODE could only ever
@@ -152,10 +163,6 @@ public:
   /* THE FRAMING RULE (Framing.h), applied to this subject's own bounds. Refuses a radius of zero:
    * a fallback camera there manufactures exactly the empty picture the guard exists to catch. */
   [[nodiscard]] bool Frame(Placement &out) const;
-
-  /* The camera the document itself declares, if any node references one. A declared camera is used
-   * verbatim and no framing rule runs. */
-  [[nodiscard]] bool DeclaredPlacement(const Document &document, Placement &out) const;
 
   /* The projected area of every triangle, in square pixels, at `clip` and `viewport`. Signed areas
    * are summed by magnitude, so a subject whose triangles overlap in the image is counted twice and
