@@ -73,31 +73,26 @@ device. The device decides frame *time*, which is a distribution and either meet
 **The budget is fixed for a run** — a budget that moved would change the cache keys, and frame time
 would become a function of frame time.
 
-### What five wrong findings in one week bought, one line each
-
-**An instrument's domain is part of its claim**, and the class is one sentence — *the number was right
-and about something else*. Four faces so far: **domain too narrow** (a boundary measure quoted about
-interior noise) · **input set too wide** (every triangle edge measured where the silhouette was meant) ·
-**invariance too broad** (a hue criterion blind to the mirror it was catching) · **population too small**
-(files enumerated to answer a question about paths). State the domain, the input set and the invariances
+**An instrument's domain is part of its claim.** The failure is one sentence — *the number was right and
+about something else* — and it wears four faces: **domain too narrow**, **input set too wide**,
+**invariance too broad**, **population too small**. State the domain, the input set and the invariances
 beside the number, or the number decides nothing.
 
-**A grep proves a string absent, never a capability** — and any negative existence claim names the
+**A grep proves a string absent, never a capability.** Any negative existence claim names the
 enumeration it is drawn from, exhaustive over the container, or it is written as *not found at these
-paths* and says which. The instrument for a capability claim is to **exercise the capability**.
+paths* and says which. The instrument for a capability claim is to **exercise the capability** — and
+three agreeing implementations of one wrong population is the same mistake counted three times, never
+corroboration.
 
 **A term rounded to zero is how a term becomes unnamed.** Naming an arithmetic mechanism, computing its
 magnitude and then rounding it away reads as rigour and deletes the term.
 
-**Three agreeing implementations of one wrong population is not corroboration**, it is the same mistake
-counted three times.
+**A rule about a comparison names which side it constrains**, or it forbids the symmetric case it was
+never about.
 
-**A rule about a comparison must name which side it constrains.** *No repair in a comparison* was true
-of repairing **one side** and false of a correction applied identically to **both**.
-
-**The ladder before a disqualification, and every rung above is accounted for or the entry does not
-parse**: fix the engine · reduce the oracle · patch the asset · disqualify. Disqualification is
-per `(case, metric)`, never per test, and it is the last rung.
+**Before a criterion is disqualified, every rung above it is accounted for**: fix the engine · reduce the
+oracle · patch the asset · disqualify. Disqualification is per `(case, metric)`, never per test, and it
+is the last rung.
 
 ## The engine
 
