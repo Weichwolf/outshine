@@ -182,7 +182,10 @@ LayerValidation() {
 
 LayerLink() {
   case "$1" in
-    render | frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image)" ;;
+    # zlib, for the oracle's EXR (board:1119). It is already in these processes through SDL3_image ->
+    # libpng, so naming it links what the host already provides rather than adding a dependency.
+    render | frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image) -lz" ;;
+    harness) printf '%s' "-lz" ;;
     shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;

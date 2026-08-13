@@ -613,9 +613,9 @@ std::string MissingInputs(const Case &subject) {
   const Json::Ref recipes = subject.Manifest.Root()["renders"];
   for (size_t which = 0; which < recipes.Size(); ++which) {
     const std::string name = recipes.Key(which);
-    const std::string raw =
-        name == "default" ? std::string("oracle.raw") : "oracle." + name + ".raw";
-    if (!Present(subject.Directory + raw)) { owed.push_back(raw); }
+    const std::string product =
+        name == "default" ? std::string("oracle.exr") : "oracle." + name + ".exr";
+    if (!Present(subject.Directory + product)) { owed.push_back(product); }
   }
   std::string missing;
   for (const std::string &name : owed) {
@@ -1277,8 +1277,9 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
 
   /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
    * and finding it out after a device bring-up would report a rendering failure for a missing file. */
-  const bool haveOracle = oracle.ReadFile(subject.Directory + "oracle.raw");
-  CHECK(haveOracle, "the cached oracle is present and reads as a float32 dump of this frame");
+  /* THE EXR IS THE ORACLE AND THE FLAT DUMP IS ITS CACHE (board:1119). */
+  const bool haveOracle = oracle.ReadExrFile(subject.Directory + "oracle.exr");
+  CHECK(haveOracle, "the cached oracle is present and decodes as the float image of this frame");
   if (!haveOracle) {
     Refused(oracle.Error());
     return Prepared::No;
@@ -1287,7 +1288,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
                          oracle.Height() == (int)subject.Frame.HeightPx;
   CHECK(sameFrame, "the oracle was rendered at the resolution the manifest's recipe declares");
   if (!sameFrame) {
-    Refused("oracle.raw is " + std::to_string(oracle.Width()) + "x" +
+    Refused("oracle.exr is " + std::to_string(oracle.Width()) + "x" +
             std::to_string(oracle.Height()) + " and the recipe declares " +
             std::to_string((int)subject.Frame.WidthPx) + "x" +
             std::to_string((int)subject.Frame.HeightPx));
@@ -1301,7 +1302,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
    * `board/` */
   if (Reduced(subject)) {
     RawF32 shifted;
-    const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
+    const bool haveShift = shifted.ReadExrFile(subject.Directory + "oracle.seed-shift.exr");
     CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
     if (!haveShift) {
       Refused(shifted.Error());
@@ -1312,7 +1313,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
                            shifted.Channels() == oracle.Channels();
     CHECK(sameShape, "the two seeds were rendered into the same frame");
     if (!sameShape) {
-      Refused("oracle.seed-shift.raw is not the shape oracle.raw is");
+      Refused("oracle.seed-shift.exr is not the shape oracle.exr is");
       return Prepared::No;
     }
     for (int y = 0; y < oracle.Height(); ++y) {

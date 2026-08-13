@@ -19,6 +19,8 @@
 #include <string>
 #include <vector>
 
+#include "Exr.h"
+
 namespace outshine::Render::Parity {
 
 class RawF32 {
@@ -75,6 +77,43 @@ public:
     }
     Samples_.resize(samples);
     std::memcpy(Samples_.data(), bytes.data() + header, samples * sizeof(float));
+    return true;
+  }
+
+  /* THE SAME SAMPLES, DECODED FROM THE EXR THE ORACLE ACTUALLY IS (board:1119). `oracle.raw` is a
+   * 16x DECOMPRESSED CACHE of `oracle.exr` -- 265 MB against 16 MB per case -- and it existed only
+   * because C++ had no EXR reader. Filling this object from the EXR makes the flat dump derived
+   * rather than an artefact that must survive, and every consumer below is unchanged because what
+   * they read is the sample layout and not the file it came from.
+   *
+   * IT IS NOT A FALLBACK AND THERE IS NO SECOND PATH: the caller names which file it means. The
+   * decoder's agreement with the flat dump is held bit-for-bit over every prepared case by
+   * `test/harness/TheOraclesExrReadsAsItsRaw.cpp`, which is what lets this replace it rather than
+   * sit beside it. */
+  [[nodiscard]] bool ReadExrFile(const std::string &path) {
+    Error_.clear();
+    Samples_.clear();
+    Exr exr;
+    if (!exr.ReadFile(path)) { return Refuse(exr.Error()); }
+    static const char *const kRgba[4] = {"R", "G", "B", "A"};
+    const std::vector<float> *plane[4] = {nullptr, nullptr, nullptr, nullptr};
+    for (int channel = 0; channel < 4; ++channel) {
+      plane[channel] = exr.Plane(kRgba[channel]);
+      if (!plane[channel]) {
+        return Refuse(path + ": no channel named " + kRgba[channel] + " in the oracle's EXR");
+      }
+    }
+    Width_ = exr.Width();
+    Height_ = exr.Height();
+    Channels_ = 4;
+    TopRowFirst_ = true;
+    const size_t pixels = (size_t)Width_ * (size_t)Height_;
+    Samples_.resize(pixels * 4u);
+    for (size_t pixel = 0; pixel < pixels; ++pixel) {
+      for (int channel = 0; channel < 4; ++channel) {
+        Samples_[pixel * 4u + (size_t)channel] = (*plane[channel])[pixel];
+      }
+    }
     return true;
   }
 

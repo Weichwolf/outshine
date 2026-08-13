@@ -492,6 +492,11 @@ git log --grep 'board:0042'                          # every commit that worked 
 git mv board/active/X.md board/closed/               # the transition IS the diff
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
+**A new file must be staged before `git grep` can see it.** `git grep` searches **tracked** files, so a
+work item proven only by a test that has not been added yet reads as unproven — the same direction of
+failure as the ignore case below, met the first time a round closed an item with a new test. The
+harness's own invariant walks the filesystem and does not have this hazard; **the query does**.
+
 **`git grep`, never `grep -r`, for the marker queries.** `test/render/.gitignore` opens with `*` and
 re-includes `/*.cpp` so a case directory carries only its manifest; **git honours the negation and
 some greps do not**, so a plain recursive grep silently skips `Parity.cpp` — the largest test file in
