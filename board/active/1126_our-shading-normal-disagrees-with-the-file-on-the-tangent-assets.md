@@ -249,3 +249,33 @@ map is not neutral: averaging unit vectors shortens them, which is why the liter
 carries the lost length as a roughness term. So *add mipmaps* is a shading change with a picture
 consequence, and it lands on **fix the engine** only if our sampling is the non-conforming side —
 Cycles filtering over a footprint against us point-sampling is a difference in **what a pixel means**.
+
+**The mipmap candidate is refuted as the mechanism, by its own quantitative prediction.** The `uv`
+channel is added — safe by construction now that `manifest.py` is digested — and the test needed no
+attachment and no shader change: with `uv` per pixel and the map on disk, the footprint is arithmetic.
+
+**Minification is real but modest**: `|du/dx|` p50 = 0.000692 over a 2048-square map = **1.42 texels per
+screen pixel**, p95 2.54.
+
+**And the disagreement is present where the map is smooth**, which filtering cannot explain — averaging a
+smooth map changes nothing:
+
+| local map roughness in the footprint | n | median ratio |
+|---|---|---|
+| **smooth `[0, 0.01)`** | **36 978** | **1.120** |
+| mid `[0.01, 0.03)` | 2 213 | 1.173 |
+| high-frequency | 1 281 | 1.177 |
+
+correlation(roughness, ratio) over steep pixels = **+0.299**
+
+**So filtering contributes and is not the bulk.** `board:1130` stands on its own merits — no mip chain is
+a defect and a bandwidth problem — but it is **not** what `1126` is about.
+
+**The residual, stated as precisely as it is now known**: ours tilts **≈1.12× further in sine** than
+Cycles at steep perturbations, **even where the normal map is locally smooth**, with the tangential
+direction identical to **a fiftieth of a degree** and the tap unit-length to **1.5e-5**.
+
+**Eliminated with a number against each**: the tangent basis · handedness · a green-channel flip ·
+`normalScale` · Blender's `Strength` · the tangent *source* · `tap.z` against a reconstructed `z` · and
+filtering as the bulk explanation. **Whatever remains scales the perturbation's magnitude uniformly with
+steepness and is not any of those.**

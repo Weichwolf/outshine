@@ -62,6 +62,13 @@ QUANTITY_PASSES = {
     # `WHAT covers it`, and a surface swap read as 209 codes for want of this.
     "materialIndex": {"socket": "Material Index", "viewLayerFlag": "use_pass_material_index"},
     "objectIndex": {"socket": "Object Index", "viewLayerFlag": "use_pass_object_index"},
+    # WHERE THE SURFACE WAS SAMPLED (board:1126). The shading disagreement is now known to be a
+    # magnitude and not an orientation -- the tangential direction agrees to a fiftieth of a degree
+    # while the tilt does not -- and the leading candidate is that we point-sample a 2048-square normal
+    # map under heavy minification while Cycles filters over the ray footprint. Testing that needs the
+    # uv the tap was taken at, and with it the footprint-averaged tap is computable on the CPU from the
+    # texture already on disk: no attachment, no shader change.
+    "uv": {"socket": "UV", "viewLayerFlag": "use_pass_uv"},
 }
 SEED_SHIFT_RECIPE_NAME = "seed-shift"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
