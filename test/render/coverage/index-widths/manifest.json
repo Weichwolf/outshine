@@ -15,6 +15,10 @@
     "statedAt": "doc/requirements.md I.26.5"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The subject is the cube, three times over at three index widths, so E = 6 against 3 and no roll makes a non-planar hexagonal silhouette rational. I.26.14 names this case's exact arm explicitly -- a rolled triangle indexed three ways, the index width being the feature and the cube incidental -- and it is not built. The decidable claim the case already carries, that u8, u16 and u32 land in identical pixels, needs no oracle and is unaffected."
+  },
   "subjects": [
     {
       "id": "index-widths",

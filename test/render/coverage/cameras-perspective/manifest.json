@@ -17,6 +17,10 @@
     "note": "Numeric because the whole of the criterion is which projection the plane is read through: the two cameras sit on two nodes at the same point and differ in nothing else, so a reader that adopted the wrong one draws a different silhouette of the same square in the same frame."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "PERMANENT AND BY STRUCTURE, NOT PENDING, for the same reason as its orthographic twin: Khronos's asset with Khronos's camera, so 2 + k >= E reads 0 >= 4 and the single residual pixel is not something a construction could have removed (doc/requirements.md I.26.14)."
+  },
   "subjects": [
     {
       "id": "cameras",

@@ -59,14 +59,18 @@ class _Part:
 
 
 def _triangle(where, parameters, mode):
-    field = _fields(where, parameters, ("sideM",))
-    side = _positive(where + ".sideM", field["sideM"])
+    field = _fields(where, parameters, ("legM",))
+    leg = _positive(where + ".legM", field["legM"])
     _only_triangles(where, mode, "a triangle")
-    # Equilateral about its own circumcentre, in the plane z = 0, wound counter-clockwise from +Z.
-    circumradius = side / math.sqrt(3.0)
-    positions = [(0.0, circumradius, 0.0),
-                 (-0.5 * side, -0.5 * circumradius, 0.0),
-                 (0.5 * side, -0.5 * circumradius, 0.0)]
+    # RIGHT-ISOCELES AND NOT EQUILATERAL, and the reason is arithmetic rather than taste: an
+    # equilateral triangle has interior angles of 60 deg, so if one edge's raster slope is rational
+    # the other two are tan(t +/- 60 deg) = (t -/+ sqrt 3) / (1 +/- t sqrt 3), irrational for every
+    # rational t. No roll makes its silhouette rational, so it can never carry the exactness
+    # construction of doc/requirements.md I.26.14, which is written for this shape and names it.
+    # Legs along +X and +Y about the bounding box's centre, in the plane z = 0, wound
+    # counter-clockwise from +Z.
+    half = 0.5 * leg
+    positions = [(-half, -half, 0.0), (half, -half, 0.0), (-half, half, 0.0)]
     return [_Part(positions, [(0.0, 0.0, 1.0)] * 3, [0, 1, 2], "triangle")]
 
 

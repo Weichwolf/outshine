@@ -17,6 +17,10 @@
     "note": "SELF-DESCRIBING AND THERE IS NO NUMERIC PROXY FOR IT. The image is a labelled template -- the words TOP LEFT, TOP RIGHT, BOTTOM LEFT, BOTTOM RIGHT are drawn into their own quadrants -- and the criterion is that each plate shows the quadrant its accessor is named after. That is a statement about WHICH GLYPHS APPEAR WHERE, and no scalar over the frame says it: a V-flip moves the same texels to different plates and changes no histogram. What the numbers below still decide is the geometry -- every plate in the right pixels -- and the picture decides the rest."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's TextureCoordinateTest is plates at several orientations, so E is in the dozens and no single roll makes them rational together."
+  },
   "subjects": [
     {
       "id": "texture-coordinate-test",

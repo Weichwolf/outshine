@@ -15,6 +15,10 @@
     "statedAt": "doc/requirements.md I.26.5"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The glTF is ours and so is the camera inside it, so the freedoms ARE ours -- and the subject still cannot spend them: a cube's silhouette is six lines against three freedoms, and under a parallel projection its slopes are set by the orientation alone. The exact arm I.26.14 provides for is a fronto-parallel rolled triangle carrying an orthographic camera, and it is not built."
+  },
   "subjects": [
     {
       "id": "orthographic-camera",

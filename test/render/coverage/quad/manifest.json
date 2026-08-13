@@ -15,6 +15,10 @@
     "statedAt": "doc/requirements.md I.26.5"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "exact",
+    "because": "A 1.5 x 1.0 m rectangle, fronto-parallel, rolled by -arctan(1/2) so all four edges take slope -1/2 or 2, and scaled so that both parallel pairs are separated by a whole number of lattice steps while the frame's own centre puts each pair at half a step (doc/requirements.md I.26.14). The rational aspect 3:2 is what makes two separation conditions solvable with one scale freedom; the four corners land on exact half-pixel raster coordinates and the margin is 0.223606797749979 px on every edge, 45 times the oracle's own 0.005 px filter half-width."
+  },
   "subjects": [
     {
       "id": "quad",
@@ -52,21 +56,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        4.95518929372349,
-        2.201717520750809,
-        3.4696608967212343
+        0.0,
+        0.0,
+        3.288335261029103
       ],
       "lookAtM": [
-        0.0009728601653754997,
-        0.0002859217339564585,
-        -0.0015708235845538934
+        0.0,
+        0.0,
+        0.0
       ],
       "rollRad": -0.46364760900080615,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
       "clipStartM": 0.1,
       "clipEndM": 100.0,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 applied to this subject's own bounds: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 0.901387818865997 m, and yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. The roll is -arctan(1/2) = -26.5650511771 deg, derived rather than set: for an edge of irrational raster slope the perpendicular pixel-centre offsets equidistribute over +/-0.5 px, so the smallest margin over L boundary pixels is about 0.5/L and it SHRINKS as the subject grows -- measured between 2e-5 and 1.8e-3 px here, under the oracle's own 5e-3 px jitter. For a slope p/q in lowest terms the same distance is exactly 0.5/sqrt(p^2+q^2) at every pixel centre in the plane and does not depend on L at all, and tan(45deg+t) and tan(90deg+t) stay rational whenever tan t does, so a roll of rational tangent keeps a rational silhouette rational. The previous -22.5 deg maximised edge-to-AXIS angle, which is not the quantity the comparison turns on. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. This subject's silhouette is not rational at any roll, so what the change buys it is a different draw of the same lottery and not exactness -- a property of the subject, and the reason its class is general-position.",
+      "derivation": "THE EXACTNESS CONSTRUCTION OF doc/requirements.md I.26.14, AND NOT I.26.10'S FRAMING RULE -- the two are separate determinations of the camera distance and a case carries exactly one. FRONTO-PARALLEL: the subject is a 1.5 x 1.0 m rectangle in the plane z = 0 and the eye sits on that plane's own normal through its centre, so the perspective image is a SIMILARITY and the raster slopes are the subject's own, rotated by the roll and by nothing else. ROLL -arctan(1/2) = -26.5650511771 deg carries world +X to raster (2,-1)/sqrt5 and world +Y to (-1,-2)/sqrt5, so the four edges are two lines -1x-2y=c and two lines 2x-1y=c, all with |n| = sqrt5 and a margin ceiling of 0.223606797749979 px. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. SCALE: writing u = k*sqrt5 for k px per metre at the plane's depth, the two constants of each parallel pair differ by 1.0*u and by 1.5*u, so half-lattice on all four needs both to be even integers -- u = 0 (mod 4). The frame decides which one: the rotated bounding box is 0.8u x 0.7u px, so 0.7u <= 720 admits u = 1020 with 3.5 px of vertical slack, and that slack is the only reason for 1020 rather than 1024. k = 1020/sqrt5 = 456.15786564927665 px per metre and the depth at which one metre subtends k px is (720/2)/(0.24*k) = 3.288335261029103 m. AIM: the subject's own centre, and no nudge at all. The frame's centre pixel is (639.5, 359.5), so p*639.5 - q*359.5 = (1279p - 719q)/2 is at half a lattice step whenever p + q is odd, which both (-1,2) and (2,1) are; and each pair's constants sit half a separation either side of it, at u/2 = 510 and 1.5u/2 = 765, both whole. The four corners land on exact half-pixel raster coordinates -- (435.5, 716.5), (1047.5, 410.5), (231.5, 308.5), (843.5, 2.5) -- so every pixel in the frame is unambiguously inside or outside. THE CLAIM IS RECOMPUTED, NOT TRUSTED: the runner measures both conditions from the projected geometry and refuses this class if either fails. yfov = 2*atan(12/50) and the clip range [0.1, 100] m are Blender's factory camera, measured from a --factory-startup scene: lens 50 mm, sensor height 24 mm, clip_start 0.1 m, clip_end 100 m.",
       "note": "The generated subject carries no camera, so this rung's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -127,10 +131,10 @@
   "notes": "The one thing over rung 1: a second triangle, sharing an edge with the first. The shared edge must not show in the coverage mask at all -- a rasteriser that drops or doubles the pixels along a shared edge produces a one-pixel seam, and this is the cheapest subject that can show one.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.048476134681147684,
+      "value": 0.338671875,
       "unit": "dimensionless",
       "origin": "derived",
-      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the generated vertices",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the generated vertices; exact because the subject is a plane perpendicular to the optical axis, so its perspective image is a similarity and the area is 1.5 m^2 * k^2 = 1.5 * u^2/5 = 312120 px^2 at u = 1020, which is 33.8671875 % of the frame and above the section's 30 % floor",
       "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes it from the generated vertices and refuses a mismatch. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
     }
   }

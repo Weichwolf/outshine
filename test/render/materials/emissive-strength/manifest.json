@@ -18,6 +18,10 @@
     "note": "The asset states a RELATION between its own cubes -- each doubles the one to its left -- and says in the same breath that the absolute appearance is a matter of the viewer's output mapping: 'With a simple output mapping, the cube on the far right may appear as plain white, due to all of its color components being clamped to the 1.0 upper limit.' So the criterion is the ratio on the scene-referred linear tap, measured before any clipping, and never an agreement with a reference."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Five cubes, so E is in the dozens against 3, and a cube's silhouette is not rational at any roll. Its acceptance is the asset's own stated relation between the five, not a placement."
+  },
   "subjects": [
     {
       "id": "emissive-strength",

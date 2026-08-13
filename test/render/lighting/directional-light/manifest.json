@@ -51,6 +51,10 @@
     ]
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's DirectionalLight is a curved, multi-part asset whose silhouette resolves into hundreds of distinct lines, so the construction cannot be written for it. Its acceptance is its own stated invariant and the placement is bounded by the oracle's filter half-width."
+  },
   "subjects": [
     {
       "id": "directional-light",

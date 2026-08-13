@@ -19,6 +19,10 @@
     "note": "THE ASSET STATES TWO PROBLEMS AND THIS CASE DECIDES ONE OF THEM. Khronos's first is culling under a reversed winding, and that is a question about WHICH PIXELS ARE COVERED: `ChecksAndXMaterial` declares no `doubleSided`, so the format's default false applies and a renderer that ignores the determinant culls the front of the negatively-scaled plate and draws nothing where a plate belongs. That is a whole rectangle present or absent, not a tie at an edge. Khronos's second is the normal vectors -- `the two white spheres should be lit the same, regardless of the negative scaling on one of them` -- and an emitter gathers nothing, so no emission render can decide it. It is settled instead where it is decidable without a light at all: `test/unit/gltf/ANegativeDeterminantNeedsNoSecondNormalFlip.cpp` reads this same pinned asset and checks the geometric normal of every re-wound triangle against its own attribute normals and against the sphere it came from. Two halves, two instruments, one asset, and neither is a repair of the other."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's NegativeScaleTest is fourteen parts and 7 724 triangles, and its projected silhouette resolves into over four hundred distinct lines -- E is two orders above the freedoms, so the construction cannot be written for this subject at any camera. Its 495 disagreeing pixels are therefore NOT unconstructed placement: they sit on straight edges rather than on sphere rims and they exceed the oracle's own filter half-width by two orders, so they are a real disagreement and the case is red on the general-position bound."
+  },
   "subjects": [
     {
       "id": "negative-scale-test",

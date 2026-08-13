@@ -17,6 +17,10 @@
     "note": "SELF-DESCRIBING, AND THE ASSET ITSELF FORBIDS A HUE COUNT. Khronos states that every failure is a different SHAPE from its success as well as a different colour, so that a red/green colourblind reader can compare the two columns by shape -- which means a proxy that counted green against red would be exactly the instrument the asset was designed to defeat. The verdict is the picture: eight Test cells against their eight Sample pass cells, six green checkmarks and two solid green blocks, no red anywhere."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's TextureSettingsTest is a grid of plates, so E is in the hundreds against 3."
+  },
   "subjects": [
     {
       "id": "texture-settings-test",

@@ -30,6 +30,25 @@ namespace outshine::Render::Parity {
  * stated in the manifest and never guessed from the picture (I.26). */
 enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
 
+/* WHICH ACCEPTANCE A CASE CLAIMS FOR ITS PLACEMENT, and it is the case's own declaration because no
+ * instrument can read it off a picture (doc/requirements.md I.26.14).
+ *
+ * `Exact` -- the silhouette is straight, of rational raster slope, and its constants sit at half a
+ * lattice step, so `pixels_disagreeing == 0` is a demand the subject can meet and no tolerance is
+ * declared anywhere. THE CONSTRUCTION IS RECOMPUTED AND HELD, not trusted: `Exactness.h` measures
+ * both conditions from the projected geometry, and a case that declares this and does not carry them
+ * is refused as a badly chosen subject rather than accommodated.
+ *
+ * `GeneralPosition` -- everything else, and for several subjects it is permanent rather than
+ * pending: a sphere has no straight edge to be rational, and an asset whose camera is upstream's
+ * spends no freedom of ours. Acceptance is `worst_disagreement_px <= 0.5 * pixelFilter.widthPx`,
+ * which introduces no constant of its own -- the oracle's filter width is already in the recipe.
+ *
+ * THERE IS NO DEFAULT AND AN ABSENT DECLARATION IS A REFUSAL. A default would make the classification
+ * arrive by omission, which is precisely how the suite came to hold seven unconstructed cases that
+ * read as exactness claims. */
+enum class ExactnessClass { Exact, GeneralPosition };
+
 /* WHAT KIND OF THING THE ASSET SAYS CORRECT IS, and therefore which instrument decides this case
  * (doc/requirements.md I.26.12). It is the ASSET's property, declared in the manifest beside
  * Khronos's own words and the file they came from, so it cannot be changed to fit a result without
@@ -241,6 +260,30 @@ struct Acceptance {
       error = "criterion.oracleLimitationMeasured[] states no `of`, so the number names no subject";
       return false;
     }
+  }
+  return true;
+}
+
+[[nodiscard]] inline bool ReadExactnessClass(const Json::Ref &root, ExactnessClass &out,
+                                             std::string &error) {
+  const Json::Ref declared = root["acceptanceClass"];
+  const std::string spelling = declared["is"].Str("");
+  if (spelling == "exact") {
+    out = ExactnessClass::Exact;
+  } else if (spelling == "general-position") {
+    out = ExactnessClass::GeneralPosition;
+  } else {
+    error = "acceptanceClass.is '" + spelling +
+            "' is neither exact nor general-position, and a case states which of the two its "
+            "placement claims -- there is no default";
+    return false;
+  }
+  /* The reason is required in BOTH arms and for opposite purposes: `exact` has to say what carries
+   * the construction, and `general-position` has to say why it cannot -- permanently, as a sphere
+   * does, or pending, as an unbuilt second arm does. */
+  if (declared["because"].Str("").empty()) {
+    error = "acceptanceClass states no `because`, so the class is a word with no argument under it";
+    return false;
   }
   return true;
 }

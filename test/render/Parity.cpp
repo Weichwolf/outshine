@@ -45,6 +45,7 @@
 #include "Check.h"
 
 #include "Acceptance.h"
+#include "Exactness.h"
 #include "Invariant.h"
 #include "Mask.h"
 #include "Metric.h"
@@ -138,6 +139,13 @@ struct Case {
   Placement Eye;
   Viewport Frame;
   Acceptance Accepted;
+  ExactnessClass Placement = ExactnessClass::GeneralPosition;
+  /* THE ORACLE'S OWN SUB-PIXEL RESOLUTION, read once from the recipe that produced it: half the box
+   * filter's width bounds how far a Cycles sample can sit from the pixel centre, and every near-tie
+   * in this suite is judged against it. Held here rather than read at each of the four sites that
+   * want it, because `Json::Ref::Num(def)` answers an absent key with the default and a filter width
+   * of zero would silently turn every one of those judgements into "no tolerance at all". */
+  double OracleFloorPx = 0;
   CriterionKind Criterion = CriterionKind::Numeric;
   OracleRole Oracle = OracleRole::Reference;
   std::string CameraSource;
@@ -365,6 +373,14 @@ public:
   if (!ReadSubjectClass(root["subjectClass"].Str(""), subject.Accepted.Subject, error)) {
     return false;
   }
+  if (!ReadExactnessClass(root, subject.Placement, error)) { return false; }
+  const Json::Ref filterWidth = root["renders"]["default"]["pixelFilter"]["widthPx"];
+  if (filterWidth.GetKind() != Json::Kind::Number || filterWidth.Num() <= 0.0) {
+    error = "renders.default.pixelFilter.widthPx is absent or not positive, and half of it is the "
+            "oracle's own sub-pixel resolution -- the floor every near-tie here is judged against";
+    return false;
+  }
+  subject.OracleFloorPx = 0.5 * filterWidth.Num();
   /* THE ASSET SAYS WHAT CORRECT IS AND THE KIND OF ANSWER DECIDES THE INSTRUMENT (I.26.12). The
    * quotation and the file it came from are required beside it, so the kind cannot move without a
    * quotation moving with it. */
@@ -1125,6 +1141,59 @@ Prepared Prepare(Case &subject, OracleRaw &oracle, size_t &seedApart,
   return Prepared::Yes;
 }
 
+/* THE TWO CONDITIONS OF THE EXACTNESS CONSTRUCTION, RECOMPUTED FROM THE PROJECTED GEOMETRY AND HELD
+ * WHERE THE CASE CLAIMS THEM (doc/requirements.md I.26.14). Published on every case and enforced on
+ * an `exact` one: the counts and residuals say, for a case that cannot claim it, exactly what stands
+ * in the way -- how many distinct silhouette lines its freedoms would have to satisfy, and whether
+ * any of them is straight at a rational slope at all. */
+void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, double tieMarginPx,
+                                std::vector<Metric> &metrics) {
+  const Exactness measured = Measure(silhouette);
+  const bool claimed = subject.Placement == ExactnessClass::Exact;
+  metrics.push_back({"silhouette_lines", (double)measured.LineCount(), 0.0, "lines",
+                     Direction::Reported});
+  metrics.push_back({"silhouette_edges", (double)measured.SilhouetteEdges, 0.0, "edges",
+                     Direction::Reported});
+  /* CONDITION (A), IN PIXELS AND NOT IN RADIANS: how far the far endpoint of the worst silhouette
+   * edge sits off the rational line fitted to it. An angular residual says nothing until it is
+   * multiplied by the edge's own length, and it is the length that makes an irrational slope
+   * unrecoverable. The threshold is the oracle's own filter half-width -- a deviation under it is
+   * below the reference's resolution and nothing about it is decidable. */
+  metrics.push_back({"exactness_slope_residual_px", measured.SlopeResidualPx, subject.OracleFloorPx,
+                     "px", claimed ? Direction::AtMost : Direction::Reported});
+  /* CONDITION (B): the distance from every pixel centre in the plane to the nearest silhouette line,
+   * which is a constant of the line and not a draw. Against the ruled floor, ten times the oracle's
+   * jitter. */
+  metrics.push_back({"exactness_margin_px", measured.MarginPx, kMarginFloorPx, "px",
+                     claimed ? Direction::AtLeast : Direction::Reported});
+  /* What the same slopes would deliver if every constant sat at half a lattice step -- the ceiling
+   * the offset condition is measured against, so a margin that is short says whether the slope or
+   * the placement is what fell short. */
+  metrics.push_back({"exactness_margin_ceiling_px", measured.CeilingPx, 0.0, "px",
+                     Direction::Reported});
+  /* ONE QUANTITY REACHED TWO WAYS, and on a constructed case they must be the same number. The
+   * margin above is PREDICTED from the line constants over the whole integer lattice; `Ties.h`
+   * MEASURES it over the boundary pixels this render actually produced. On a subject whose slope is
+   * not rational the prediction means nothing and they may differ by anything, which is why the
+   * claim is made only where the case claims the construction. The tolerance is nine digits below a
+   * pixel: both sides are the same projected doubles put through different arithmetic on quantities
+   * of order 1000 px, so their disagreement floor is around 1e-10 px. */
+  constexpr double kOneQuantityPx = 1e-9; /* [SET] raster pixels */
+  metrics.push_back({"exactness_margin_agreement_px",
+                     std::fabs(tieMarginPx - measured.MarginPx), kOneQuantityPx, "px",
+                     claimed ? Direction::AtMost : Direction::Reported});
+  /* THE LINES THEMSELVES, WHICH IS WHAT A CONSTRUCTION IS WRITTEN FROM: the slope to roll to and the
+   * constant to place. Capped, because a subject with no lattice structure has as many lines as it
+   * has silhouette edges and printing 1.5 million of them says nothing the count above did not. */
+  constexpr size_t kLinesPrinted = 16; /* [SET] */
+  for (size_t line = 0; line < measured.Lines.size() && line < kLinesPrinted; ++line) {
+    const LatticeLine &fit = measured.Lines[line];
+    std::printf("NOTE   silhouette line %ld x - %ld y = %.9f over %zu edges: margin %.9g px of "
+                "%.9g px, slope residual %.3g px\n",
+                fit.P, fit.Q, fit.C, fit.Edges, fit.MarginPx, fit.CeilingPx, fit.SlopeResidualPx);
+  }
+}
+
 /* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
  * same placement through a `matrix`, the same triangles under another index width, the same quad as
  * a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact, not
@@ -1368,10 +1437,19 @@ int main(int argc, char **argv) {
   const bool projects = subject.Eye.Clip(subject.Frame.Aspect(), clip);
   CHECK(projects, "the resolved camera yields a projection");
   if (projects) {
-    const EdgeSet edges = ProjectEdges(subject.Geometry, clip, subject.Frame);
-    metrics.push_back({"tie_margin_px", TieMarginPx(ours, edges), 0.0, "px", Direction::Reported});
-    metrics.push_back({"worst_disagreement_px", WorstDisagreementPx(ours, theirs, edges), 0.0, "px",
-                       Direction::Reported});
+    const EdgeSet edges = Silhouette(subject.Geometry, clip, subject.Frame);
+    const double tieMarginPx = TieMarginPx(ours, edges);
+    metrics.push_back({"tie_margin_px", tieMarginPx, 0.0, "px", Direction::Reported});
+    /* THE `general-position` ARM'S WHOLE ACCEPTANCE (doc/requirements.md I.26.14), and it introduces
+     * no constant of its own: the oracle's filter half-width is already declared in the recipe, and
+     * a disagreement further from the silhouette than the oracle can resolve is not a tie however
+     * few pixels of it there are. Under `exact` the pixel count is the acceptance instead and this
+     * is reported beside it, because a bound that admits a disagreement is not what that arm says. */
+    metrics.push_back({"worst_disagreement_px", WorstDisagreementPx(ours, theirs, edges),
+                       subject.OracleFloorPx, "px",
+                       subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
+                                                                            : Direction::Reported});
+    ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
   }
 
   /* THE VERDICT IS THE RENDERED IMAGE AGAINST THE ORACLE'S IMAGE, because that is what a render case
@@ -1408,26 +1486,17 @@ int main(int argc, char **argv) {
    * square of this number and nothing else about the subject. */
   metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
-  /* WHERE THE PICTURE IS THE VERDICT, THE GEOMETRY IS STILL A NUMBER. A self-describing case does
-   * not enforce the image, so without this it would have no threshold on placement at all and a
-   * subject drawn in the wrong pixels would pass on somebody's eye. Under `numeric` the image
-   * comparison already subsumes it, and adding a second enforcement there would only turn one red
-   * into two.
-   *
-   * AND IT IS THE SUBJECT'S CLASS THAT SAYS WHETHER THE DEMAND IS FAIR, exactly as it already does
-   * for the boundary bound: where triangles fall below a pixel, a rasteriser drops the ones no
-   * sample centre hits and a path tracer finds them, and that is a sampling policy rather than a
-   * placement (I.26). A `sub-pixel-present` subject reports the count and no threshold is put on it. */
-  const bool exactCoverageIsFair =
-      subject.Criterion == CriterionKind::SelfDescribing &&
-      subject.Accepted.Subject == SubjectClass::OpaqueAtLeastOnePixel;
+  /* THE PLACEMENT ACCEPTANCE, AND WHICH ARM IT IS COMES FROM THE CASE'S OWN DECLARED CLASS AND FROM
+   * NOTHING INFERRED (doc/requirements.md I.26.14). It used to be `self-describing AND opaque`, and
+   * that pair is not the question: it made an exactness demand of every self-describing case whose
+   * subject happened to be opaque, whether or not the subject could meet it, and made none of a
+   * `numeric` case that could. `exact` demands every pixel and declares no tolerance; the other arm
+   * is bounded above by `worst_disagreement_px` instead, so a placement is never unbounded. */
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
-                     exactCoverageIsFair ? Direction::AtMost : Direction::Reported});
-  /* The oracle's own sub-pixel resolution, from the recipe that produced it: half the box filter's
-   * width bounds how far a Cycles sample can sit from the pixel centre. Published beside the result
-   * and never subtracted from it. */
-  Note("oracle instrument floor",
-       0.5 * subject.Manifest.Root()["renders"]["default"]["pixelFilter"]["widthPx"].Num(0.0), "px");
+                     subject.Placement == ExactnessClass::Exact ? Direction::AtMost
+                                                                : Direction::Reported});
+  /* Published beside the result and never subtracted from it. */
+  Note("oracle instrument floor", subject.OracleFloorPx, "px");
   metrics.push_back(
       {"plan_passes", (double)renderer.Plan().PassCount(), 2.0, "passes", Direction::AtMost});
 

@@ -19,6 +19,10 @@
     "note": "The asset states outright that an exact appearance match is NOT the criterion, and names three things it depends on that are the renderer's rather than the file's. What it does state exactly is a set of relations between regions of its own render, and those are decidable here to the last bit."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's PointLightIntensityTest is spheres on a plane; the curved parts have no rational silhouette and E runs to dozens of lines. Its acceptance is the asset's own stated relation, which is a stronger demand in a different currency and not a placement claim."
+  },
   "subjects": [
     {
       "id": "point-light-intensity",

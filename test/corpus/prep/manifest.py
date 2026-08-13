@@ -156,7 +156,7 @@ class Manifest:
             "manifest",
             document,
             ("schema", "schemaVersion", "id", "title", "covers", "criterion", "subjectClass",
-             "subjects", "blender", "scene", "renders"),
+             "acceptanceClass", "subjects", "blender", "scene", "renders"),
             ("notes", "expected", "acceptance", "identicalCoverage", "statedInvariants"),
         )
         if self.document["schema"] != SCHEMA:
@@ -176,6 +176,13 @@ class Manifest:
         _seed_shift(self.scene.material, self.renders, self.scene.light)
         self.subject_class = _one_of("manifest.subjectClass", self.document["subjectClass"],
                                      ("opaque-min-1px", "sub-pixel-present"))
+        # The class the case claims for its placement, and both arms owe an argument: `exact` says
+        # what carries the construction, `general-position` says why it cannot. Which one the runner
+        # then ENFORCES is the runner's, the same way the thresholds are.
+        acceptance_class = _fields("manifest.acceptanceClass", self.document["acceptanceClass"],
+                                   ("is", "because"))
+        self.acceptance_class = _one_of("manifest.acceptanceClass.is", acceptance_class["is"],
+                                        ("exact", "general-position"))
         # THE THRESHOLDS ARE THE RUNNER'S, NOT THIS FILE'S. A manifest's `acceptance` block carries
         # only what it OVERRIDES over the suite's declared defaults, so it is optional and may be
         # absent entirely -- which is what a case that earns no override looks like. What is checked

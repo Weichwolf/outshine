@@ -19,8 +19,11 @@
  * I.26.14): the framing rule and the exactness construction both decide the camera distance, and
  * nothing makes them agree. The framing rule wins by default because it runs first, so a case can
  * carry the rational roll and lose the lattice-offset condition without anything noticing. Held here:
- * every camera falls unambiguously to one determination, the band between them is empty, and a case
- * declaring `exact` over the framing rule's own output is refused.
+ * every camera falls unambiguously to one determination and the band between them is empty. THAT AN
+ * `exact` CASE MAY NOT TAKE THE RULE'S CAMERA IS NOT HELD HERE AND NEEDS NO RULE AT ALL: the runner
+ * recomputes the lattice offset of every silhouette line, and a distance the framing rule chose
+ * satisfies it only by coincidence -- so the measurement refuses the combination where a string
+ * comparison would only have reported it.
  *
  * OWNERSHIP, COMPUTED RATHER THAN REMEMBERED. `2 + k >= E` counts the freedoms WE own, and ownership
  * is decided by whose camera it is and not by whose subject it is. `camera.source` alone is the wrong
@@ -81,12 +84,6 @@ constexpr double kDistinctCameraM = 1.0;  /* [SET] metres */
 enum class Freedoms { Ours, Upstreams };
 /* WHAT PRODUCED THE DECLARED CAMERA, measured and never read off the prose. */
 enum class Determination { FramingRule, Elsewhere, TheFilesOwn };
-/* THE ACCEPTANCE CLASS A CASE NAMES FOR ITSELF (I.26.14). `Undeclared` is the state of every manifest
- * in the tree today and is a state rather than a default -- the classification is owed, and naming it
- * absent is what keeps that visible. An unrecognised word is refused rather than read as one of
- * these. */
-enum class AcceptanceClass { Undeclared, Exact, GeneralPosition, FilterBounded, Unrecognised };
-
 const char *Spell(Freedoms freedoms) {
   return (freedoms == Freedoms::Ours) ? "ours" : "upstream's";
 }
@@ -98,26 +95,6 @@ const char *Spell(Determination determination) {
   }
   return "";
 }
-const char *Spell(AcceptanceClass acceptance) {
-  switch (acceptance) {
-    case AcceptanceClass::Undeclared: return "undeclared";
-    case AcceptanceClass::Exact: return "exact";
-    case AcceptanceClass::GeneralPosition: return "general-position";
-    case AcceptanceClass::FilterBounded: return "filter-bounded";
-    case AcceptanceClass::Unrecognised: return "unrecognised";
-  }
-  return "";
-}
-
-AcceptanceClass ReadAcceptanceClass(const Json::Ref &root) {
-  const Json::Ref declared = root["acceptanceClass"];
-  if (!declared.Valid()) { return AcceptanceClass::Undeclared; }
-  if (declared.StrEquals("exact")) { return AcceptanceClass::Exact; }
-  if (declared.StrEquals("general-position")) { return AcceptanceClass::GeneralPosition; }
-  if (declared.StrEquals("filter-bounded")) { return AcceptanceClass::FilterBounded; }
-  return AcceptanceClass::Unrecognised;
-}
-
 /* THE RULING'S OWN FOUR CASES (I.26.14, 2026-08-13), which exist here because they are the trap:
  * all four declare `camera.source = "gltf"` and the freedoms belong to us in two of them. The table
  * is what turns "remember that the string is the wrong discriminator" into a claim that fails. */
@@ -174,7 +151,6 @@ std::vector<Case> Cases() {
 struct Answer {
   Freedoms Owns = Freedoms::Ours;
   Determination Produced = Determination::Elsewhere;
-  AcceptanceClass Accepts = AcceptanceClass::Undeclared;
   bool Judged = false;
 };
 
@@ -298,8 +274,6 @@ Answer Judge(const Case &subjectCase) {
   const Json::Ref declared = root["scene"]["camera"];
   const Json::Ref subject0 = root["subjects"][size_t(0)];
 
-  answer.Accepts = ReadAcceptanceClass(root);
-
   const bool cameraIsTheFiles = declared["source"].StrEquals("gltf");
   const bool subjectIsOurs = subject0["source"]["kind"].StrEquals(kGenerated);
   /* The ruling's three ownership cases as one expression: the placement is ours unless BOTH the file
@@ -345,11 +319,13 @@ Answer Judge(const Case &subjectCase) {
   }
 
   /* THE LEDGER LINE. Everything a reader needs to attribute a residual to a determination is on it:
-   * who owns the freedoms, what produced the camera, what the case says it accepts, and the
-   * subject's own size. */
-  std::printf("NOTE %-38s freedoms %-11s camera from %-22s class %-16s r = %.9g m, %zu triangles\n",
+   * who owns the freedoms, what produced the camera, and the subject's own size. THE ACCEPTANCE
+   * CLASS IS NOT ON IT and is not read here: the runner reads it, from the one reader that also
+   * enforces it (test/render/Acceptance.h), and a second spelling of the same word in a layer that
+   * cannot include that file is a statement in two places. */
+  std::printf("NOTE %-38s freedoms %-11s camera from %-22s r = %.9g m, %zu triangles\n",
               subjectCase.Id.c_str(), Spell(answer.Owns), Spell(answer.Produced),
-              Spell(answer.Accepts), subject.RadiusM(), subject.TriangleCount());
+              subject.RadiusM(), subject.TriangleCount());
   /* THE RULE'S ANSWER FOR EVERY CASE, WHETHER OR NOT THE CASE TOOK IT -- which is what makes this a
    * usable instrument rather than only a check. A case being written has no camera yet; it declares
    * its subject, this prints what the rule frames it at, and the manifest is filled from here. Two
@@ -359,18 +335,6 @@ Answer Judge(const Case &subjectCase) {
               "(%.17g, %.17g, %.17g) m, yfov %.17g rad, clip [%.17g, %.17g] m\n",
               framed.EyeM[0], framed.EyeM[1], framed.EyeM[2], centre[0], centre[1], centre[2],
               framed.YfovRad, framed.ZNearM, framed.ZFarM);
-
-  CHECK(answer.Accepts != AcceptanceClass::Unrecognised,
-        "the case's acceptance class, where it declares one, is a word this instrument knows");
-  /* THE COMBINATION THE RULING FORBIDS, spelled as a claim rather than left to review: an `exact`
-   * case derives its distance from the construction, so a camera that IS the framing rule's output
-   * cannot also be an exactness claim (I.26.14). No manifest declares a class today, which is why
-   * the ledger publishes the count of undeclared ones -- an unheld rule and an unmet rule read the
-   * same otherwise. */
-  CHECK(!(answer.Accepts == AcceptanceClass::Exact &&
-          answer.Produced == Determination::FramingRule),
-        "no case declares `exact` and then takes its camera distance from the framing rule, which "
-        "are two determinations of one quantity and nothing makes them agree");
 
   if (cameraIsTheFiles) { return answer; }
 
@@ -397,7 +361,7 @@ int main() {
    * this suite's whole guard exists to catch. */
   CHECK(!cases.empty(), "the render suite's case directories are found and their manifests read");
 
-  int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0, undeclared = 0;
+  int ours = 0, upstreams = 0, byTheRule = 0, elsewhere = 0, theFiles = 0;
   for (const Case &subjectCase : cases) {
     const Answer answer = Judge(subjectCase);
     if (!answer.Judged) { continue; }
@@ -407,8 +371,6 @@ int main() {
       case Determination::Elsewhere: ++elsewhere; break;
       case Determination::TheFilesOwn: ++theFiles; break;
     }
-    if (answer.Accepts == AcceptanceClass::Undeclared) { ++undeclared; }
-
     for (const OwnershipRuling &ruled : kRuledOwnership) {
       if (subjectCase.Id != ruled.Id) { continue; }
       CHECK(answer.Owns == ruled.Owns,
@@ -421,10 +383,6 @@ int main() {
   Note("cameras produced by the framing rule", double(byTheRule), "cases");
   Note("cameras produced elsewhere", double(elsewhere), "cases");
   Note("cameras read from the subject's own file", double(theFiles), "cases");
-  /* PUBLISHED RATHER THAN REFUSED. The classification is owed and not yet written, and a count that
-   * falls is how the next round sees it being paid down; a refusal here would set the suite's only
-   * acceptance before the classification meant to decide it exists (I.26.14). */
-  Note("cases declaring no acceptance class at all", double(undeclared), "cases");
   CHECK(byTheRule > 0,
         "at least one case's camera is measurably the framing rule's own output");
 
@@ -432,8 +390,8 @@ int main() {
          "azimuth 35 deg, elevation 20 deg, 2*atan(12/50), fill 0.6 -- recomputed from each "
          "subject's own vertices and held against what its manifest declares");
   Covers("I.26.14 the two determinations of the camera distance are distinguishable per case: which "
-         "one produced a camera is measured in metres rather than read off the prose, the band "
-         "between them is empty, and `exact` over the framing rule's own output is refused");
+         "one produced a camera is measured in metres rather than read off the prose, and the band "
+         "between them is empty");
   Covers("I.26.14 the freedoms `2 + k` counts are the ones we own, computed from the camera's "
          "source and the subject's origin together, because `camera.source` is the same word for "
          "two files upstream authored and two we generate");

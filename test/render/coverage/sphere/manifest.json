@@ -15,6 +15,10 @@
     "statedAt": "doc/requirements.md I.26.5"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "PERMANENT AND BY STRUCTURE. A sphere has no straight silhouette edge to be rational: what is measured is the silhouette of the 32x16 polygonal approximation, and it resolves into about a hundred distinct lines with no lattice structure at all. There is no camera, and no scale, at which condition (A) can hold for a curved silhouette, so this case is general-position for as long as its subject is a sphere (doc/requirements.md I.26.14)."
+  },
   "subjects": [
     {
       "id": "sphere",

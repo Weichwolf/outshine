@@ -1,0 +1,278 @@
+/* THE TWO CONDITIONS AN EXACTNESS CLAIM RESTS ON, DECOMPOSED AND MEASURED SEPARATELY, because they
+ * fail for different reasons and a single margin cannot say which one did (doc/requirements.md
+ * I.26.14).
+ *
+ * (A) THE SLOPE. A silhouette edge of raster slope `p/q` in lowest terms takes the value `p*i - q*j`
+ * at every integer pixel centre, and that expression runs over ALL integers -- so the distance from
+ * every centre in the plane to the line `p*x - q*y = c` is `dist(c, Z) / sqrt(p^2+q^2)`, a constant
+ * of the line and not a draw. For an IRRATIONAL slope the offsets equidistribute instead and the
+ * smallest over `L` boundary pixels is about `0.5/L`, which SHRINKS as the subject grows.
+ *
+ * (B) THE OFFSET. That constant is largest, `0.5/sqrt(p^2+q^2)`, exactly when `c` sits at half a
+ * lattice step. (A) without (B) buys nothing: an axis-aligned edge at `c = 0` passes through every
+ * pixel centre it meets.
+ *
+ * WHAT IS MEASURED, AND IT IS TWO NUMBERS AND NOT ONE. `SlopeResidualPx` is how far the edge's own
+ * far endpoint sits off the best rational line through its near one -- zero when the slope really is
+ * that rational, and growing with the edge's length when it only looks like it. `MarginPx` is
+ * `dist(c, Z) / sqrt(p^2+q^2)` at the fitted line, which is what (B) delivers; `CeilingPx` is
+ * `0.5/sqrt(p^2+q^2)`, which is what (B) would deliver if the offset were perfect. A constructed case
+ * has `SlopeResidualPx` at the float floor and `MarginPx == CeilingPx`.
+ *
+ * WHY THIS IS NOT `Ties.h`. That file measures the same quantity EMPIRICALLY -- over the boundary
+ * pixels a particular render happened to produce -- and so it can only ever report the draw. This one
+ * reads the geometry and says what the draw was drawn FROM. The two agree on a constructed case, and
+ * that agreement is worth having: it is one number reached two ways.
+ *
+ * A SILHOUETTE EDGE, AND NOT EVERY EDGE. An edge whose two adjacent triangles face the same way in
+ * the image is interior and no pixel's coverage turns on it -- the quad's diagonal is the case that
+ * matters, because its slope is rational and its offset is not, so counting it would sink a
+ * constructed quad on an edge that draws nothing. Adjacency is by welded position: a glTF that splits
+ * a cube into 24 vertices states each corner three times and an index-pair test would call all 12
+ * edges open. */
+#ifndef RENDER_EXACTNESS_H
+#define RENDER_EXACTNESS_H
+
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <numeric>
+#include <vector>
+
+#include "Camera.h"
+#include "Subject.h"
+#include "Transform.h"
+
+namespace outshine::Render::Parity {
+
+/* The family condition (A) admits (doc/requirements.md I.26.14): every rational slope with
+ * `p^2 + q^2 <= 100`, whose worst margin is `0.5/10 = 0.05 px`, ten times the oracle's own 0.005 px
+ * filter half-width. Beyond it the margin falls under that floor and the rational slope stops buying
+ * anything. */
+constexpr long kAdmissibleNormSquared = 100; /* [SET] doc/requirements.md I.26.14 */
+/* The margin floor the same rule states, and it is `0.5/sqrt(100)` -- the worst member of the family
+ * above rather than a second number. */
+constexpr double kMarginFloorPx = 0.05; /* [SET] doc/requirements.md I.26.14 */
+
+/* THE PROJECTED SEGMENTS OF THE SILHOUETTE, in raster coordinates where the integer coordinate is
+ * the pixel centre -- the same mapping the rasteriser and the projected area use. Kept as parallel
+ * arrays because every consumer walks all of them per pixel. */
+struct EdgeSet {
+  std::vector<double> Ax, Ay, Bx, By;
+
+  size_t Count() const { return Ax.size(); }
+};
+
+/* ONE DISTINCT LINE OF THE PROJECTED SILHOUETTE, in raster coordinates where the integer coordinate
+ * is the pixel centre -- the same mapping the rasteriser and the projected area use. */
+struct LatticeLine {
+  long P = 0, Q = 0; /* lowest terms, slope p/q; q = 0 spells a vertical edge */
+  double C = 0;      /* p*x - q*y = c */
+  double SlopeResidualPx = 0;
+  double MarginPx = 0;
+  double CeilingPx = 0;
+  size_t Edges = 0;
+};
+
+struct Exactness {
+  std::vector<LatticeLine> Lines;
+  size_t SilhouetteEdges = 0;
+  /* Worst over the lines, because one bad edge is enough to lose the claim. */
+  double SlopeResidualPx = 0;
+  /* Least over the lines, for the same reason. */
+  double MarginPx = 0;
+  double CeilingPx = 0;
+
+  size_t LineCount() const { return Lines.size(); }
+};
+
+/* The admissible slopes, once. `q > 0`, or the single vertical `(1, 0)`: negating both gives the
+ * same line with `c` negated, and `dist(c, Z)` does not see the sign. */
+inline const std::vector<std::pair<long, long>> &AdmissibleSlopes() {
+  static const std::vector<std::pair<long, long>> slopes = [] {
+    std::vector<std::pair<long, long>> found{{1, 0}};
+    for (long q = 1; q * q <= kAdmissibleNormSquared; ++q) {
+      for (long p = -10; p <= 10; ++p) {
+        if (p * p + q * q > kAdmissibleNormSquared) { continue; }
+        if (std::gcd(p < 0 ? -p : p, q) != 1) { continue; }
+        found.push_back({p, q});
+      }
+    }
+    return found;
+  }();
+  return slopes;
+}
+
+/* ONE PROJECTED SEGMENT AGAINST THE ADMISSIBLE FAMILY: the slope whose line through the segment's
+ * midpoint leaves the smallest perpendicular deviation at its endpoints. That deviation IS condition
+ * (A)'s residual, in pixels, over this edge's own length -- so a short edge is judged over a short
+ * span, which is what the comparison actually turns on there. */
+inline LatticeLine FitLine(double ax, double ay, double bx, double by) {
+  LatticeLine best;
+  double bestResidual = -1.0;
+  const double mx = 0.5 * (ax + bx), my = 0.5 * (ay + by);
+  const double dx = bx - ax, dy = by - ay;
+  for (const std::pair<long, long> &slope : AdmissibleSlopes()) {
+    const double p = (double)slope.first, q = (double)slope.second;
+    const double norm = std::sqrt(p * p + q * q);
+    /* Halved because the line is taken through the midpoint, so each endpoint carries half of the
+     * segment's total deviation from it. */
+    const double residual = std::fabs(p * dx - q * dy) / (2.0 * norm);
+    if (bestResidual >= 0.0 && residual >= bestResidual) { continue; }
+    bestResidual = residual;
+    best.P = slope.first;
+    best.Q = slope.second;
+    best.C = p * mx - q * my;
+    best.SlopeResidualPx = residual;
+    best.CeilingPx = 0.5 / norm;
+    best.MarginPx = std::fabs(best.C - std::round(best.C)) / norm;
+  }
+  best.Edges = 1;
+  return best;
+}
+
+namespace Detail {
+
+/* Adjacency by welded position rather than by index (see the header note). Sorting the vertices
+ * costs one pass and leaves every duplicate of a corner carrying the same id. */
+inline std::vector<uint32_t> WeldedIds(const std::vector<double> &positions) {
+  const size_t count = positions.size() / 3;
+  std::vector<uint32_t> order(count);
+  for (size_t vertex = 0; vertex < count; ++vertex) { order[vertex] = (uint32_t)vertex; }
+  const auto before = [&positions](uint32_t a, uint32_t b) {
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const double left = positions[(size_t)a * 3 + axis], right = positions[(size_t)b * 3 + axis];
+      if (left != right) { return left < right; }
+    }
+    return false;
+  };
+  std::sort(order.begin(), order.end(), before);
+  std::vector<uint32_t> welded(count, 0);
+  uint32_t next = 0;
+  for (size_t position = 0; position < order.size(); ++position) {
+    if (position > 0 && before(order[position - 1], order[position])) { ++next; }
+    welded[order[position]] = next;
+  }
+  return welded;
+}
+
+struct Adjacency {
+  uint32_t Low = 0, High = 0;
+  uint32_t Triangle = 0;
+  int8_t Facing = 0;
+};
+
+} // namespace Detail
+
+/* THE SILHOUETTE, PROJECTED. `clip` and `viewport` are the case's own resolved camera, so what comes
+ * out is the outline of the picture the case is scored on and never of a second framing. */
+inline EdgeSet Silhouette(const Gltf::Subject &subject, const Gltf::Transform &clip,
+                          const Gltf::Viewport &viewport) {
+  const std::vector<uint32_t> &indices = subject.Indices();
+  const std::vector<double> &positions = subject.PositionsM();
+  const size_t vertices = positions.size() / 3;
+
+  std::vector<double> raster(vertices * 2, 0.0);
+  for (size_t vertex = 0; vertex < vertices; ++vertex) {
+    const double point[3] = {positions[vertex * 3], positions[vertex * 3 + 1],
+                             positions[vertex * 3 + 2]};
+    double ndc[3];
+    clip.Point(point, ndc);
+    viewport.Raster(ndc, &raster[vertex * 2]);
+  }
+
+  const std::vector<uint32_t> welded = Detail::WeldedIds(positions);
+  std::vector<Detail::Adjacency> edges;
+  edges.reserve(indices.size());
+  for (size_t triangle = 0; triangle * 3 + 2 < indices.size(); ++triangle) {
+    const uint32_t corner[3] = {indices[triangle * 3], indices[triangle * 3 + 1],
+                                indices[triangle * 3 + 2]};
+    const double *a = &raster[(size_t)corner[0] * 2];
+    const double *b = &raster[(size_t)corner[1] * 2];
+    const double *c = &raster[(size_t)corner[2] * 2];
+    const double twiceArea = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
+    const int8_t facing = twiceArea > 0.0 ? (int8_t)1 : (twiceArea < 0.0 ? (int8_t)-1 : (int8_t)0);
+    for (int side = 0; side < 3; ++side) {
+      const uint32_t u = welded[corner[side]], v = welded[corner[(side + 1) % 3]];
+      edges.push_back({u < v ? u : v, u < v ? v : u, (uint32_t)triangle, facing});
+    }
+  }
+  std::sort(edges.begin(), edges.end(), [](const Detail::Adjacency &a, const Detail::Adjacency &b) {
+    return a.Low != b.Low ? a.Low < b.Low : a.High < b.High;
+  });
+
+  EdgeSet silhouette;
+  for (size_t start = 0; start < edges.size();) {
+    size_t stop = start + 1;
+    while (stop < edges.size() && edges[stop].Low == edges[start].Low &&
+           edges[stop].High == edges[start].High) {
+      ++stop;
+    }
+    bool outline = (stop - start) == 1;
+    for (size_t at = start + 1; at < stop && !outline; ++at) {
+      outline = edges[at].Facing != edges[start].Facing;
+    }
+    if (outline) {
+      /* The welded endpoints are the same point whichever duplicate is read, so the first triangle's
+       * projection of them is the segment. */
+      const Detail::Adjacency &edge = edges[start];
+      size_t endpointA = 0, endpointB = 0;
+      for (int side = 0; side < 3; ++side) {
+        const uint32_t vertex = indices[(size_t)edge.Triangle * 3 + (size_t)side];
+        if (welded[vertex] == edge.Low) { endpointA = vertex; }
+        if (welded[vertex] == edge.High) { endpointB = vertex; }
+      }
+      silhouette.Ax.push_back(raster[endpointA * 2]);
+      silhouette.Ay.push_back(raster[endpointA * 2 + 1]);
+      silhouette.Bx.push_back(raster[endpointB * 2]);
+      silhouette.By.push_back(raster[endpointB * 2 + 1]);
+    }
+    start = stop;
+  }
+  return silhouette;
+}
+
+/* THE MEASUREMENT: fit every silhouette segment to the admissible family and gather the fits into
+ * distinct lines. */
+inline Exactness Measure(const EdgeSet &silhouette) {
+  Exactness measured;
+  measured.SilhouetteEdges = silhouette.Count();
+  std::vector<LatticeLine> fitted;
+  fitted.reserve(silhouette.Count());
+  for (size_t edge = 0; edge < silhouette.Count(); ++edge) {
+    fitted.push_back(FitLine(silhouette.Ax[edge], silhouette.Ay[edge], silhouette.Bx[edge],
+                             silhouette.By[edge]));
+  }
+
+  /* INTO DISTINCT LINES. Two fits are the same line when they name the same slope and the same
+   * constant; the tolerance is tight because two genuinely different parallel lattice lines are a
+   * whole step apart and two segments of one line differ only by the projection's last bits. */
+  std::sort(fitted.begin(), fitted.end(), [](const LatticeLine &a, const LatticeLine &b) {
+    if (a.P != b.P) { return a.P < b.P; }
+    if (a.Q != b.Q) { return a.Q < b.Q; }
+    return a.C < b.C;
+  });
+  constexpr double kSameLinePx = 1e-6; /* [SET] raster pixels */
+  for (const LatticeLine &fit : fitted) {
+    LatticeLine *last = measured.Lines.empty() ? nullptr : &measured.Lines.back();
+    if (last != nullptr && last->P == fit.P && last->Q == fit.Q &&
+        std::fabs(last->C - fit.C) <= kSameLinePx) {
+      ++last->Edges;
+      last->SlopeResidualPx = std::max(last->SlopeResidualPx, fit.SlopeResidualPx);
+      continue;
+    }
+    measured.Lines.push_back(fit);
+  }
+
+  for (size_t line = 0; line < measured.Lines.size(); ++line) {
+    const LatticeLine &fit = measured.Lines[line];
+    measured.SlopeResidualPx = std::max(measured.SlopeResidualPx, fit.SlopeResidualPx);
+    if (line == 0 || fit.MarginPx < measured.MarginPx) { measured.MarginPx = fit.MarginPx; }
+    if (line == 0 || fit.CeilingPx < measured.CeilingPx) { measured.CeilingPx = fit.CeilingPx; }
+  }
+  return measured;
+}
+
+} // namespace outshine::Render::Parity
+#endif

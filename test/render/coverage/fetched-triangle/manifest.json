@@ -16,6 +16,10 @@
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/Triangle/README.md"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "exact",
+    "because": "The one case in the tree that was constructed for exactness from the start: Khronos's Triangle is right-isoceles, and the camera is fronto-parallel, rolled by -arctan(1/2) so the three edges take raster slopes -1/2, 2 and 1/3, and scaled to s = 352.1 so that 5s = 1/2 (mod 1) puts all three edge constants at half a lattice step (doc/requirements.md I.26.14). The whole derivation stands in scene.camera.derivation and the runner recomputes both conditions rather than trusting it. The SUBJECT is upstream's and the CAMERA is ours, which is the ownership case that makes the freedoms ours: the placement is spent through the camera."
+  },
   "subjects": [
     {
       "id": "triangle",

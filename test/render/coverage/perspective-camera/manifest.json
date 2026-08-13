@@ -15,6 +15,10 @@
     "statedAt": "doc/requirements.md I.26.5"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The glTF is ours and so is the camera inside it, so the freedoms ARE ours -- and the subject cannot spend them: E = 6 against 3 on a non-planar body. I.26.14 names this case's exact arm, a fronto-parallel rolled triangle, which is affine under perspective and therefore tests the same code path; it is not built."
+  },
   "subjects": [
     {
       "id": "perspective-camera",

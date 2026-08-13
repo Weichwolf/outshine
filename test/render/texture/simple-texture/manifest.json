@@ -16,6 +16,10 @@
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SimpleTexture/metadata.json"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "exact",
+    "because": "The axis-aligned form of the same construction: a unit square in the plane z = 0 seen along its own normal with no roll, so its four edges are at slopes 0/1 and 1/0 and |n| = 1, and the scale and aim put every constant at half a lattice step -- a margin of 0.5 px, the largest the family admits and 100 times the oracle's own 0.005 px filter half-width (doc/requirements.md I.26.14). Measured, not asserted: the slope residual over the whole silhouette is 0 px exactly."
+  },
   "subjects": [
     {
       "id": "simple-texture",

@@ -16,6 +16,10 @@
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/OrientationTest/README.md"
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's OrientationTest is a grid of plates at many orientations, which is exactly the case where the slopes cannot agree: E is over a hundred and no single roll serves them."
+  },
   "subjects": [
     {
       "id": "orientation-test",

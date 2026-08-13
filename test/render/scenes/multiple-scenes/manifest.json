@@ -17,6 +17,10 @@
     "note": "Numeric because the drawn coverage decides it outright: the square and the triangle occupy the same corner of space, so a reader that opened scene 0 draws exactly half this frame fraction in the same box."
   },
   "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The subject is Khronos's square, which is planar and has only four lines, so the count would permit the construction -- what stops it is that the case's whole criterion is WHICH scene the file's own `scene` property selects, and its camera comes from the framing rule over that scene's bounds. Moving it to a constructed placement is admissible and is not built; unlike the cases above, this one is pending rather than structural."
+  },
   "subjects": [
     {
       "id": "multiple-scenes",
