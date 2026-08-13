@@ -96,8 +96,8 @@ is the last rung.
 
 ## The engine
 
-The owner's decomposition, and it is one line: **generator (tile, tree, house, car) → compositor
-(terrain, forest, city, traffic) → renderer (draw list)**. Each layer is defined by **what it may not
+The owner's decomposition, and it is one line: **generator (tile, tree, house, car, …) → compositor
+(terrain, forest, city, traffic, …) → renderer (draw list)**. Each layer is defined by **what it may not
 spell**, and the include sets are what make that true rather than a rule.
 
 ```mermaid
@@ -106,8 +106,8 @@ flowchart TD
   providers["PROVIDERS"]
   store[("CONTENT STORE — hash = filename")]
   field["GROUND — the field a generator reads"]
-  gen["GENERATORS — tile · tree · house · car · gltf-file"]
-  comp["COMPOSITORS — terrain · forest · city · traffic · declared"]
+  gen["GENERATORS — 1..N registered kinds"]
+  comp["COMPOSITORS — 1..N registered"]
   rend["RENDERER — a declared plan"]
   frame(["720p60 on this device"])
   scen[/"SCENARIOS — camera × clock × world-or-studio"/]
@@ -159,7 +159,7 @@ where every aggregate does: **the file's node hierarchy is the rule**, and the p
 ordinary requests. *"A declared scene has no rule to derive" is false, and it is the sentence that would
 otherwise justify a private interface for this one case.*
 
-**The fifth compositor is `declared`** — same interface, same culling, same selection, placements **read
+**A further compositor is `declared`** — same interface, same culling, same selection, placements **read
 rather than computed**. `Clients::Show` is its degenerate case: one part, one transform, already running.
 
 **The key keeps its shape and needs no exception**: `(kind, params, seed, rung)`, with **params = the
