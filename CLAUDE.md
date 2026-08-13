@@ -96,6 +96,16 @@ corroboration.
 **A term rounded to zero is how a term becomes unnamed.** Naming an arithmetic mechanism, computing its
 magnitude and then rounding it away reads as rigour and deletes the term.
 
+**A number stated before and after can be broken without moving the number — by moving the population
+underneath it.** A changed threshold shows in a diff; a changed selection reads as the same metric and
+looks like progress. *0.8854 over 40 472 steep pixels* against *0.9875 over 90 838 mostly-flat ones*
+closed two items on a repair that had changed nothing. **Quote the population with the number, and when
+a claim is before-and-after, prove the selection is the same one.**
+
+**A change that alters the picture by design cannot reproduce it to six decimals.** When a repair lands
+and the measurement is *identical*, that is not a small effect — it is evidence the repair is not
+reaching the thing it was aimed at. **Identical is a finding, not a null result.**
+
 **A rule about a comparison names which side it constrains**, or it forbids the symmetric case it was
 never about.
 
