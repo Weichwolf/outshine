@@ -7,7 +7,9 @@
 #include "MetalRoughBrdf.h"
 #include "SceneTargets.h"
 #include "ShaderPrelude.h"
+#include "ShadowRay.h"
 #include "SurfaceState.h"
+#include "TriangleBvh.h"
 
 namespace outshine::Render {
 
@@ -150,13 +152,22 @@ struct M { float factor; float cut; float metalness; float roughness;
  * and the reciprocal of `cos(inner) - cos(outer)`, precomputed because the shader would otherwise
  * divide by it per fragment per light. */
 struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
+/* `count.x` is how many lights are declared; `count.y` is the distance a shadow ray starts at, in
+ * the subject's own metres, and it travels with the light list because it is the one number the
+ * lighting loop needs that is a property of the subject rather than of a light. */
 struct Lights { float4 count; Light items[16]; };
 
 #define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
+    device const BvhNode *bvhNodes [[buffer(2)]], device const BvhTri *bvhTris [[buffer(3)]], \
     texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
     texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
     texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
     texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]]
+
+/* THE TWO STORAGE BUFFERS AS ONE ARGUMENT, so a shading function takes the subject's own geometry
+ * rather than two pointers that could be handed over out of step (`I.23`). */
+struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
+#define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
 
 struct SFrag { float4 col [[color(0)]]; float2 vel [[color(1)]]; };
 )";
@@ -263,15 +274,16 @@ fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
  * the camera, so a fragment's position IS its offset from the eye and the view vector needs no
  * camera uniform of its own.
  *
- * NO VISIBILITY TERM. Nothing here traces a shadow, so every light reaches every facet it faces.
- * That is stated in the header as this unit's limit; a surface that occludes another is lit through
- * it and the picture shows it. */
+ * THE VISIBILITY TERM IS AN EXACT RAY AGAINST THE SUBJECT'S OWN GEOMETRY, which is the oracle's own
+ * predicate rather than an approximation of it (`ShadowRay.h`). It is traced in the SUBJECT's frame
+ * and not the eye's -- `lp` is the vertex before the anchor is added -- because the acceleration
+ * structure is built once over vertices that do not move while the eye does. */
 static const char *kSubjectLitMsl = R"(
 struct VertexLit { float3 p [[attribute(0)]]; float3 n [[attribute(3)]]; };
 struct VertexLitTextured { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
                            float3 n [[attribute(3)]]; };
 
-struct LOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; };
+struct LOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float3 lp; };
 
 vertex LOut vsLit(VertexLit v [[stage_in]], constant S &s [[buffer(0)]]) {
   LOut o;
@@ -280,6 +292,7 @@ vertex LOut vsLit(VertexLit v [[stage_in]], constant S &s [[buffer(0)]]) {
   o.uv = float2(0.0);
   o.n = v.n;
   o.p = placed;
+  o.lp = v.p;
   return o;
 }
 
@@ -290,6 +303,7 @@ vertex LOut vsLitTextured(VertexLitTextured v [[stage_in]], constant S &s [[buff
   o.uv = v.uv;
   o.n = v.n;
   o.p = placed;
+  o.lp = v.p;
   return o;
 }
 
@@ -297,25 +311,32 @@ vertex LOut vsLitTextured(VertexLitTextured v [[stage_in]], constant S &s [[buff
  * because a textured surface states all three per texel and the untextured arm states them per
  * material -- one function that read the row would force the mapped arm to write the loop over the
  * lights a second time. */
-static inline float3 shadeRow(constant Lights &lights, float3 n, float3 p, float3 albedo,
-                              float metalness, float roughness, float3 emitted) {
+static inline float3 shadeRow(constant Lights &lights, Occluders occluders, float3 localM, float3 n,
+                              float3 p, float3 albedo, float metalness, float roughness,
+                              float3 emitted) {
   float3 v = normalize(-p);
   float a = roughness * roughness;
   float a2 = a * a;
   float3 diffuseColour = albedo * (1.0 - metalness);
   float3 f0 = mix(float3(kDielectricF0), albedo, metalness);
   float nv = max(dot(n, v), 1.0e-6);
+  /* THE RAY LEAVES FROM THE SURFACE AND NOT FROM INSIDE IT. Offsetting along the shading normal as
+   * well as starting at `count.y` is what keeps a facet whose normal map tilts it towards the light
+   * from re-finding its own triangle. */
+  float3 originM = localM + n * lights.count.y;
   float3 sum = float3(0.0);
   int count = int(lights.count.x);
   for (int at = 0; at < count; at = at + 1) {
     Light light = lights.items[at];
     float3 toward = -light.beam.xyz;
     float attenuation = 1.0;
+    float reachM = INFINITY;
     if (light.tint.w > 0.5) {
       float3 offset = light.place.xyz - p;
       float square = dot(offset, offset);
       if (square <= 0.0) { continue; }
       toward = offset * rsqrt(square);
+      reachM = sqrt(square);
       /* THE INVERSE-SQUARE LAW, WINDOWED BY THE DECLARED RANGE. `intensity` is candela, so a facet
        * facing the light receives `intensity / d^2`; the window is `KHR_lights_punctual`'s own
        * recommended function, `max(min(1 - (d/range)^4, 1), 0)`, and it is applied rather than
@@ -332,6 +353,12 @@ static inline float3 shadeRow(constant Lights &lights, float3 n, float3 p, float
     }
     float nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
+    /* THE VISIBILITY TERM, AND IT IS EVALUATED LAST OF THE THREE REJECTIONS ON PURPOSE: a facet
+     * turned away from the light and a light attenuated to nothing are one dot product each, and
+     * they retire the fragment before the traversal is entered at all. */
+    if (bvhOccludes(occluders.nodes, occluders.tris, originM, toward, lights.count.y, reachM)) {
+      continue;
+    }
     float3 h = normalize(toward + v);
     Brdf reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
                                     max(dot(n, h), 0.0), max(dot(v, h), 0.0));
@@ -343,9 +370,10 @@ static inline float3 shadeRow(constant Lights &lights, float3 n, float3 p, float
 /* THE ARM WITH NO UV AT ALL, so the emitted radiance can only be the factor: there is no
  * coordinate to sample an image with, and glTF's emissive is the factor where the material
  * declares no image. */
-static inline float3 shade(constant M &surface, constant Lights &lights, float3 n, float3 p,
-                           float3 albedo) {
-  return shadeRow(lights, n, p, albedo, surface.metalness, surface.roughness, surface.emissive);
+static inline float3 shade(constant M &surface, constant Lights &lights, Occluders occluders,
+                           float3 localM, float3 n, float3 p, float3 albedo) {
+  return shadeRow(lights, occluders, localM, n, p, albedo, surface.metalness, surface.roughness,
+                  surface.emissive);
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -358,7 +386,7 @@ static inline float3 facing(float3 n, bool front) {
 
 fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   SFrag o;
-  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
   o.vel = float2(kVelStatic);
   return o;
 }
@@ -366,14 +394,14 @@ fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_
 fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   if (surface.factor < surface.cut) { discard_fragment(); }
   SFrag o;
-  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
   o.vel = float2(kVelStatic);
   return o;
 }
 
 fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   SFrag o;
-  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb),
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb),
                  surface.factor);
   o.vel = float2(kVelStatic);
   return o;
@@ -395,7 +423,8 @@ static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
   SFrag o;
-  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+                          surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   o.vel = float2(kVelStatic);
@@ -407,7 +436,8 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
   float4 tap = colourMap.sample(colourSampler, in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   SFrag o;
-  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+                          surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   o.vel = float2(kVelStatic);
@@ -418,7 +448,8 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                                     SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
   SFrag o;
-  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+                          surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                  surface.factor * tap.a);
@@ -457,7 +488,7 @@ static const char *kSubjectMappedMsl = R"(
 struct VertexMapped { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
                       float3 n [[attribute(3)]]; float4 t [[attribute(4)]]; };
 
-struct MOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float4 t; };
+struct MOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float3 lp; float4 t; };
 
 vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
   MOut o;
@@ -466,6 +497,7 @@ vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
   o.uv = v.uv;
   o.n = v.n;
   o.p = placed;
+  o.lp = v.p;
   o.t = v.t;
   return o;
 }
@@ -485,7 +517,7 @@ static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMa
 /* The metal-rough row the mapped arm shades with: the surface's own factors times the file's image.
  * A slot that declares no image binds one white texel, and white is the multiplicative identity
  * here, so "no image" and "the factors alone" are the same statement rather than two arms. */
-static inline float3 mappedShade(constant M &surface, constant Lights &lights,
+static inline float3 mappedShade(constant M &surface, constant Lights &lights, Occluders occluders,
                                  texture2d<float> colourMap, sampler colourSampler,
                                  texture2d<float> normalMap, sampler normalSampler,
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
@@ -493,13 +525,15 @@ static inline float3 mappedShade(constant M &surface, constant Lights &lights,
                                  MOut in, bool front) {
   float4 orm = metalRoughMap.sample(metalRoughSampler, in.uv);
   float3 albedo = surface.base.rgb * colourMap.sample(colourSampler, in.uv).rgb;
-  return shadeRow(lights, mappedNormal(surface, normalMap, normalSampler, in, front), in.p, albedo,
+  return shadeRow(lights, occluders, in.lp,
+                  mappedNormal(surface, normalMap, normalSampler, in, front), in.p, albedo,
                   surface.metalness * orm.b, surface.roughness * orm.g,
                   emittedAt(surface, emissiveMap, emissiveSampler, in.uv));
 }
 
-#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, colourMap, colourSampler, normalMap, \
-    normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, emissiveSampler, in, front)
+#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, SUBJECT_OCCLUDERS, colourMap, \
+    colourSampler, normalMap, normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, \
+    emissiveSampler, in, front)
 
 fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   SFrag o;
@@ -587,17 +621,24 @@ VertexShape ShapeOf(VertexLayout layout) {
  * binds exactly this many. */
 constexpr uint32_t kSubjectImages = 4;
 constexpr uint32_t kSubjectFragmentUniforms = 2;
+/* THE SUBJECT'S OWN GEOMETRY, WHICH EVERY FRAGMENT CAN SEE: the acceleration structure's nodes and
+ * its triangles. Both are declared by every fragment entry point for the same reason the four
+ * images are -- the binding contract is one text, and an arm that traces nothing still declares
+ * what an arm that traces reads. */
+constexpr uint32_t kSubjectStorageBuffers = 2;
 
 SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, const char *entry,
                           SDL_GPUShaderStage stage) {
+  const bool fragment = stage == SDL_GPU_SHADERSTAGE_FRAGMENT;
   SDL_GPUShaderCreateInfo wanted{};
   wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
   wanted.code_size = source.size();
   wanted.entrypoint = entry;
   wanted.format = SDL_GPU_SHADERFORMAT_MSL;
   wanted.stage = stage;
-  wanted.num_samplers = stage == SDL_GPU_SHADERSTAGE_FRAGMENT ? kSubjectImages : 0;
-  wanted.num_uniform_buffers = stage == SDL_GPU_SHADERSTAGE_FRAGMENT ? kSubjectFragmentUniforms : 1;
+  wanted.num_samplers = fragment ? kSubjectImages : 0;
+  wanted.num_storage_buffers = fragment ? kSubjectStorageBuffers : 0;
+  wanted.num_uniform_buffers = fragment ? kSubjectFragmentUniforms : 1;
   return SDL_CreateGPUShader(device, &wanted);
 }
 
@@ -607,9 +648,9 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Device = gpu.Device;
   FiltersFloat32 = gpu.FiltersFloat32;
 
-  const std::string source = std::string(kMslPrelude) + kVelocityMsl + kSubjectBindingsMsl +
-                             kSubjectMsl + MetalRoughBrdfMsl() + kSubjectLitMsl +
-                             kSubjectLitTexturedMsl + kSubjectMappedMsl;
+  const std::string source = std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
+                             kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
+                             kSubjectLitMsl + kSubjectLitTexturedMsl + kSubjectMappedMsl;
 
   /* THIRTY PIPELINES: five vertex layouts, two facings, three alpha modes. The facing is the SLOT's
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
@@ -876,6 +917,40 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     error = std::string("the subject's mesh did not reach the device: ") + SDL_GetError();
     return false;
   }
+
+  /* THE VISIBILITY STRUCTURE IS BUILT OVER THE WHOLE INDEX RUN and not per batch, because a shadow
+   * is cast by the subject and not by a draw: a body split into thirty primitives shadows itself
+   * across every one of those seams, and thirty structures would each be blind to the other
+   * twenty-nine. */
+  const TriangleBvh visibility = TriangleBvh::Over(
+      Span<const float>(mesh.Verts, (size_t)NVerts * 3u),
+      Span<const uint32_t>(mesh.Indices, (size_t)NIdx));
+  if (visibility.Empty()) {
+    NIdx = 0;
+    error = "the subject's " + std::to_string(NIdx / 3u) +
+            " triangles built no visibility structure, so no light could be occluded by them";
+    return false;
+  }
+  BvhNodes = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, visibility.Nodes().Data(),
+                  (uint32_t)visibility.Nodes().Bytes());
+  BvhTris = Fill(SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ, visibility.Triangles().Data(),
+                 (uint32_t)visibility.Triangles().Bytes());
+  if (!BvhNodes || !BvhTris) {
+    NIdx = 0;
+    error = std::string("the subject's visibility structure did not reach the device: ") +
+            SDL_GetError();
+    return false;
+  }
+  /* THE RAY'S START, IN THE SUBJECT'S OWN METRES: a fixed fraction of the structure's root box,
+   * which is the only length scale the subject has. A constant in metres would be four orders too
+   * large on a 3 cm part and four too small on a city. */
+  const BvhNode &root = visibility.Nodes()[0];
+  float diagonal = 0.0f;
+  for (int axis = 0; axis < 3; ++axis) {
+    const float span = root.MaxM[axis] - root.MinM[axis];
+    diagonal += span * span;
+  }
+  ShadowNearM = std::sqrt(diagonal) * kShadowRayNearFraction;
   return true;
 }
 
@@ -898,6 +973,7 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
     const FrameContext &ctx) const {
   std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
+  packed[1] = ShadowNearM;
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
     float *entry = packed.data() + 4 + at * 4u * (size_t)kLightVec4s;
@@ -930,7 +1006,7 @@ uint32_t SubjectDraw::DrawCount() const {
 }
 
 void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
-  if (NIdx == 0 || Batches.empty() || !Vtx || !Idx || !Emit) { return; }
+  if (NIdx == 0 || Batches.empty() || !Vtx || !Idx || !Emit || !BvhNodes || !BvhTris) { return; }
   float uniform[kUniFloats] = {};
   for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
   for (int i = 0; i < 3; i++) { uniform[16 + i] = (float)(Anchor[i] - ctx.Eye[i]); }
@@ -941,6 +1017,12 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
 
   SDL_GPUBufferBinding indices{Idx.Get(), 0};
   SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
+
+  /* THE SUBJECT'S GEOMETRY IS BOUND ONCE FOR THE WHOLE LIST, because there is one of it: every
+   * batch shades against the same occluders and rebinding per batch would be the same two handles
+   * written again. */
+  SDL_GPUBuffer *const occluders[kSubjectStorageBuffers] = {BvhNodes.Get(), BvhTris.Get()};
+  SDL_BindGPUFragmentStorageBuffers(into.Pass, 0, occluders, kSubjectStorageBuffers);
 
   /* THE LIST IS ALREADY IN ORDER -- opaque, then masked, then blended back to front, which is
    * `DrawKey`'s own ordering -- so the encoder only notices where the state changes: the batcher

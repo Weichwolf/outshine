@@ -102,6 +102,14 @@ done
 # `unit/render/stages` links nothing and brings no device up, which is a property of the shading model
 # as a header of pure functions and worth keeping -- and it cannot be a render case, because a render
 # source is invoked once per case directory and this one has no case to be invoked over.
+#
+# test/frame/ IS THE FIFTH, AND ITS SUBJECT IS TIME. It links what `render` links because it needs the
+# same device and the same subject reader, and it is a layer of its own for two reasons that are the
+# same reason twice: a render source runs once per case directory and a frame cost has no case
+# directory, and the render layer carries a SANITISER, which multiplies a frame time by an
+# instrument. A measurement whose subject is a duration cannot be taken through a bounds checker and
+# be reported as the shipping frame -- so the split is what keeps the sanitised run from ever
+# looking like the timed one.
 LayerIncludes() {
   case "$1" in
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
@@ -117,6 +125,7 @@ LayerIncludes() {
     unit/clients) printf '%s' "-Isrc/clients" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
     *) return 1 ;;
   esac
@@ -133,7 +142,7 @@ LayerIncludes() {
 # boundary.
 LayerToolchain() {
   case "$1" in
-    render) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    render | frame) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
     shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
@@ -155,7 +164,7 @@ LayerSanitiser() {
 
 LayerLink() {
   case "$1" in
-    render) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image)" ;;
+    render | frame) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image)" ;;
     shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
@@ -197,7 +206,7 @@ LayerGroups() {
     unit/render/stages) printf '%s' "" ;;
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     harness) printf '%s' "" ;;
-    render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    render | frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
     *) return 1 ;;
   esac

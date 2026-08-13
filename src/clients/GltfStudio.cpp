@@ -284,6 +284,19 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
 
 } // namespace
 
+bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject, const Gltf::Placement &eye,
+         std::string &error) {
+  if (!SetProjection(renderer, eye, error)) { return false; }
+  if (!ClearsNearPlane(subject, eye, error)) { return false; }
+  double position[3], forward[3], right[3], up[3];
+  Anchored(eye.EyeM, position);
+  EcefFromGltf(eye.Forward, forward);
+  EcefFromGltf(eye.Right, right);
+  EcefFromGltf(eye.Up, up);
+  renderer.SetCameraBasis(position, forward, right, up);
+  return true;
+}
+
 bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scratch,
           std::string &error) {
   if (!studio.Geometry) {
@@ -297,8 +310,7 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
     return false;
   }
   if (!Declared(studio, subject, error)) { return false; }
-  if (!SetProjection(renderer, eye, error)) { return false; }
-  if (!ClearsNearPlane(subject, eye, error)) { return false; }
+  if (!Aim(renderer, subject, eye, error)) { return false; }
 
   if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
 
@@ -327,12 +339,6 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   mesh.Draws = &scratch.Draws;
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
 
-  double position[3], forward[3], right[3], up[3];
-  Anchored(eye.EyeM, position);
-  EcefFromGltf(eye.Forward, forward);
-  EcefFromGltf(eye.Right, right);
-  EcefFromGltf(eye.Up, up);
-  renderer.SetCameraBasis(position, forward, right, up);
   return true;
 }
 

@@ -41,8 +41,15 @@ public:
   [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
   [[nodiscard]] bool DeviceUsable(void) const { return Ready; }
 
-  /* Run the passes and submit. */
+  /* Run the passes and submit. It does NOT wait: the device runs behind the caller, which is what a
+   * host that wants to prepare the next frame while this one draws depends on. */
   void RenderFrame(void);
+
+  /* Blocks until every frame submitted so far has finished on the device. It is what makes a frame
+   * a MEASURABLE quantity -- a submit returns before any of the work happens, so a clock around
+   * `RenderFrame` alone times the encoder and not the frame. Nothing on a shipping frame path calls
+   * it; the reads already fence for themselves. */
+  void WaitForGpu(void);
 
   /* HOW MANY FRAMES BEFORE THE PICTURE IS THE PICTURE -- a property the compiled plan states, so no
    * caller carries a settle constant of its own. */

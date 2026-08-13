@@ -23,9 +23,12 @@
  * colour, metalness, roughness, emissive -- and the light list, and it evaluates glTF's own
  * metal-rough BRDF over it, because that is the model the Khronos corpus states its criteria in.
  *
- * NEITHER ARM COMPUTES VISIBILITY. Nothing here traces a shadow, so a subject that occludes itself
- * is lit through itself; that is this unit's stated limit and the next thing it owes, not something
- * a caller can switch on.
+ * THE LIT ARM COMPUTES VISIBILITY WITH AN EXACT RAY and the emitted arm has none to compute. Every
+ * light that survives the cosine and the falloff is traced against the subject's own triangles
+ * through the acceleration structure in `core/TriangleBvh.h`, so a body that occludes itself is
+ * dark where it does. IT IS NOT SOMETHING A CALLER CAN SWITCH OFF: a shadow is not a quality
+ * setting here, it is the difference between the light reaching a facet and not, and an arm that
+ * could skip it would be a second picture of the same declaration.
  *
  * A UV IS NOT INVENTED EITHER. A primitive with no `TEXCOORD_0` is drawn by a different pipeline,
  * not by this one with a zero coordinate: a zero uv samples the image's corner and looks like a
@@ -296,6 +299,14 @@ private:
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
   OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx;
+  /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
+   * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
+   * metres `Vtx` holds. They are built at `SetMesh` and not per frame, because nothing in them
+   * depends on where the eye is. */
+  OwnedBuffer BvhNodes, BvhTris;
+  /* Where a shadow ray starts, so a surface does not shadow itself: a fixed fraction of the
+   * structure's root box (`stages/ShadowRay.h`), in the subject's own metres. */
+  float ShadowNearM = 0.0f;
   std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;

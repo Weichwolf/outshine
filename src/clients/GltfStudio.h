@@ -81,6 +81,18 @@ struct StudioScratch {
   Render::DrawList Draws;
 };
 
+/* MOVES THE EYE AND NOTHING ELSE, which is what a camera path over a standing subject is. It is
+ * separate from `Show` because the two answer different questions on different clocks: the geometry
+ * is set up once and the eye moves every frame, and a caller that had to restate the whole studio
+ * to turn the camera would rebuild the mesh sixty times a second.
+ *
+ * `Show` CALLS THIS RATHER THAN RESTATING IT, so the projection, the near-plane refusal and the
+ * basis mapping have one spelling. Refuses a placement declaring no lens, an orthographic one whose
+ * two magnifications disagree with the frame's aspect, and an eye with the subject inside the
+ * engine's near plane -- naming the numbers. */
+[[nodiscard]] bool Aim(Render::Renderer &renderer, const Gltf::Subject &subject,
+                       const Gltf::Placement &eye, std::string &error);
+
 /* Places the subject and the eye, compiles its draw list and hands the renderer the mesh. Refuses a
  * subject with no triangle, a declaration whose per-part arrays are the wrong length, a surface slot
  * no table entry answers, and a placement whose eye is inside the engine's near plane -- naming the

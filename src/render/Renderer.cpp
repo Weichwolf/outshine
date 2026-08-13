@@ -396,6 +396,11 @@ void Renderer::RenderFrame(void) {
   SDL_SubmitGPUCommandBuffer(commands);
 }
 
+void Renderer::WaitForGpu(void) {
+  if (!Ready) { return; }
+  SDL_WaitForGPUIdle(Device_.Get());
+}
+
 ReadState Renderer::ReadPixels(std::vector<uint8_t> &rgba) {
   if (!Ready || !FrameTex) { return ReadState::Failed; }
   Readback read;
