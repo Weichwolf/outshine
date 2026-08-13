@@ -59,6 +59,7 @@
 #include <string>
 #include <vector>
 
+#include "TexelChain.h"
 #include "PunctualLight.h"
 
 #include "DrawList.h"
@@ -194,6 +195,13 @@ struct SubjectMesh {
 
 class SubjectDraw {
 public:
+  /* WHETHER A SLOT'S TEXELS ARE DIRECTIONS OR VALUES, and it decides what averaging one mip level
+   * into the next MEANS (board:1130). A colour, a roughness and an emission average; a normal does
+   * not -- the mean of two unit vectors is shorter than either, and the lost length is lost
+   * perturbation. An enumeration rather than a bool because the call site has to say which it is
+   * (`Enum.2`), and a flag at four call sites is four chances to say it wrong. It is public because
+   * the level builder is a free function beside the stage rather than a member of it. */
+
   [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
 
   /* Replaces the surface table. A slot's index is what a draw key's material field names, so the
@@ -273,7 +281,7 @@ private:
   /* One image on the device. `Decode` says whether the three colour channels carry the sRGB
    * transfer, which is glTF's per-socket rule and never a per-image guess. */
   enum class Transfer { Srgb, Linear };
-  [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode);
+  [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode, TexelKind kind);
   /* One vertex or index buffer, filled from host memory through an upload transfer buffer. */
   [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
   /* The light list in the shader's own alphabet, restated camera-relative for this frame. */

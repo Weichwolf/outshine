@@ -855,7 +855,9 @@ OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, u
  * WHETHER THE THREE COLOUR CHANNELS CARRY THE sRGB TRANSFER IS THE SOCKET'S QUESTION and is answered
  * by the caller: glTF puts base colour and emissive in sRGB and the normal, occlusion and
  * metallic-roughness maps in linear. Alpha never carries it on either arm. */
-SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Transfer decode) {
+
+SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Transfer decode,
+                                            TexelKind kind) {
   static const uint8_t white[4] = {255, 255, 255, 255};
   const uint32_t width = texture.Width > 0 ? texture.Width : 1;
   const uint32_t height = texture.Height > 0 ? texture.Height : 1;
@@ -879,32 +881,53 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   wantedTexture.width = width;
   wantedTexture.height = height;
   wantedTexture.layer_count_or_depth = 1;
-  wantedTexture.num_levels = 1;
+  /* THE WHOLE CHAIN. Without it a minified texture is point-sampled at level 0, which is aliasing
+   * rather than fidelity: `normal-tangent-mirror` samples this map at 1.42 texels per screen pixel
+   * (board:1130). */
+  uint32_t levels = 1;
+  for (uint32_t extent = width > height ? width : height; extent > 1u; extent /= 2u) { ++levels; }
+  wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
   bound.Image = OwnedTexture(Device, SDL_CreateGPUTexture(Device, &wantedTexture));
 
-  const uint32_t bytes = width * height * 4u * (uint32_t)sizeof(float);
-  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
-  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  wantedTransfer.size = bytes;
-  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
-  std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), linear.data(), bytes);
-  SDL_UnmapGPUTransferBuffer(Device, staging);
-  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
-  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
-  SDL_GPUTextureTransferInfo source{};
-  source.transfer_buffer = staging;
-  source.pixels_per_row = width;
-  source.rows_per_layer = height;
-  SDL_GPUTextureRegion into{};
-  into.texture = bound.Image.Get();
-  into.w = width;
-  into.h = height;
-  into.d = 1;
-  SDL_UploadToGPUTexture(copy, &source, &into, false);
-  SDL_EndGPUCopyPass(copy);
-  SDL_SubmitGPUCommandBuffer(commands);
-  SDL_ReleaseGPUTransferBuffer(Device, staging);
+  /* EVERY LEVEL IS BUILT AND UPLOADED HERE rather than generated on the device, because the device
+   * generator has no way to be told that a texel is a direction -- and a normal chain that averaged
+   * without renormalising would be a different picture that no flag records. */
+  std::vector<float> level = linear;
+  uint32_t levelWidth = width, levelHeight = height;
+  for (uint32_t which = 0; which < levels; ++which) {
+    if (which > 0) {
+      std::vector<float> smaller;
+      uint32_t smallerWidth = 0, smallerHeight = 0;
+      HalveInPlace(level, levelWidth, levelHeight, smaller, smallerWidth, smallerHeight, kind);
+      level.swap(smaller);
+      levelWidth = smallerWidth;
+      levelHeight = smallerHeight;
+    }
+    const uint32_t bytes = levelWidth * levelHeight * 4u * (uint32_t)sizeof(float);
+    SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+    wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    wantedTransfer.size = bytes;
+    SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+    std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), level.data(), bytes);
+    SDL_UnmapGPUTransferBuffer(Device, staging);
+    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
+    SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+    SDL_GPUTextureTransferInfo source{};
+    source.transfer_buffer = staging;
+    source.pixels_per_row = levelWidth;
+    source.rows_per_layer = levelHeight;
+    SDL_GPUTextureRegion into{};
+    into.texture = bound.Image.Get();
+    into.mip_level = which;
+    into.w = levelWidth;
+    into.h = levelHeight;
+    into.d = 1;
+    SDL_UploadToGPUTexture(copy, &source, &into, false);
+    SDL_EndGPUCopyPass(copy);
+    SDL_SubmitGPUCommandBuffer(commands);
+    SDL_ReleaseGPUTransferBuffer(Device, staging);
+  }
 
   SDL_GPUSamplerCreateInfo wantedSampler{};
   wantedSampler.address_mode_u = AddressOf(texture.WrapU);
@@ -912,7 +935,9 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   wantedSampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
   wantedSampler.min_filter = FilterOf(texture.Magnify);
   wantedSampler.mag_filter = FilterOf(texture.Magnify);
-  wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+  /* LINEAR BETWEEN LEVELS AS WELL AS WITHIN ONE: nearest would step between levels and the step is
+   * visible as a band moving with the camera. */
+  wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }
@@ -921,10 +946,10 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
-  slot.Colour = Upload(material.Colour, Transfer::Srgb);
-  slot.Normal = Upload(material.Normal, Transfer::Linear);
-  slot.MetalRough = Upload(material.MetalRough, Transfer::Linear);
-  slot.Emissive = Upload(material.Emissive, Transfer::Srgb);
+  slot.Colour = Upload(material.Colour, Transfer::Srgb, TexelKind::Value);
+  slot.Normal = Upload(material.Normal, Transfer::Linear, TexelKind::Direction);
+  slot.MetalRough = Upload(material.MetalRough, Transfer::Linear, TexelKind::Value);
+  slot.Emissive = Upload(material.Emissive, Transfer::Srgb, TexelKind::Value);
 
   const Material &row = material.Row;
   slot.Row = {material.Coverage(), material.State().CoverageCut(),
