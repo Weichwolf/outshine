@@ -83,16 +83,16 @@
         6.667084724660093
       ],
       "lookAtM": [
-        0.001869387626305086,
-        0.0005494094326943639,
-        -0.0030183969665772492
+        0.0,
+        0.0,
+        0.0
       ],
       "rollRad": -0.46364760900080615,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
       "clipStartM": 0.1,
       "clipEndM": 100.0,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 applied to this subject's own bounds: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.73205080756888 m, and yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. The roll is -arctan(1/2) = -26.5650511771 deg, derived rather than set: for an edge of irrational raster slope the perpendicular pixel-centre offsets equidistribute over +/-0.5 px, so the smallest margin over L boundary pixels is about 0.5/L and it SHRINKS as the subject grows -- measured between 2e-5 and 1.8e-3 px here, under the oracle's own 5e-3 px jitter. For a slope p/q in lowest terms the same distance is exactly 0.5/sqrt(p^2+q^2) at every pixel centre in the plane and does not depend on L at all, and tan(45deg+t) and tan(90deg+t) stay rational whenever tan t does, so a roll of rational tangent keeps a rational silhouette rational. The previous -22.5 deg maximised edge-to-AXIS angle, which is not the quantity the comparison turns on. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. This subject's silhouette is not rational at any roll, so what the change buys it is a different draw of the same lottery and not exactness -- a property of the subject, and the reason its class is general-position.",
+      "derivation": "The framing rule of doc/requirements.md I.26.10 applied to this subject's own bounds: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.73205080756888 m, and yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. The roll is -arctan(1/2) = -26.5650511771 deg, derived rather than set: for an edge of irrational raster slope the perpendicular pixel-centre offsets equidistribute over +/-0.5 px, so the smallest margin over L boundary pixels is about 0.5/L and it SHRINKS as the subject grows -- measured between 2e-5 and 1.8e-3 px here, under the oracle's own 5e-3 px jitter. For a slope p/q in lowest terms the same distance is exactly 0.5/sqrt(p^2+q^2) at every pixel centre in the plane and does not depend on L at all, and tan(45deg+t) and tan(90deg+t) stay rational whenever tan t does, so a roll of rational tangent keeps a rational silhouette rational. The previous -22.5 deg maximised edge-to-AXIS angle, which is not the quantity the comparison turns on. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. This subject's silhouette is not rational at any roll, so what the change buys it is a different draw of the same lottery and not exactness -- a property of the subject, and the reason its class is general-position. THE AIM IS THE BOUNDS' CENTRE (min + max) / 2 = (0.0, 0.0, 0.0), which is what the rule aims at and what the runner recomputes: this camera declared an aim 3.5927e-3 m -- 0.435660418 px -- off it, with no derivation of its own, and re-deriving it from the rule cited here is what moved it.",
       "note": "The generated subject carries no camera, so this rung's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -189,10 +189,10 @@
   "notes": "Rung 3's cube three times, differing only in the component type of the index accessor. 24 vertices fit an unsigned byte with room to spare, so all three files address exactly the same triangles and the claim is exact: zero disagreeing pixels between them, decided with no oracle in it. The oracle renders the u8 file alone -- the other two are the runner's to score against it.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.21151970460105443,
+      "value": 0.211519958,
       "unit": "dimensionless",
       "origin": "derived",
-      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the generated vertices",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the generated vertices RE-DERIVED at the aim this camera now declares: the aim was 0.435660418 px off the bounds' centre and the rule aims at the centre, so the projection moved and the fraction with it, from 0.211519705.",
       "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes it from the generated vertices and refuses a mismatch. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
     }
   },

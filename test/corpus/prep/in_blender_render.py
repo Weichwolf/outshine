@@ -629,6 +629,16 @@ def apply_emission_per_material(imported, colours):
     polygons point at and silently move colours between primitives. Only the IMPORTED objects' slots
     are walked: the factory file ships materials of its own ("Dots Stroke"), and a manifest that had
     to declare a colour for those would be declaring the startup file.
+
+    THE COLOUR IS THE MANIFEST'S AND THE FRONT-FACE RULE IS STILL THE FILE'S, which is why the
+    datablock being rewired rather than replaced matters twice: `use_backface_culling` is what the
+    importer put glTF's `doubleSided` into, and it survives here. MEASURED on `NegativeScaleTest`:
+    its background is two single-sided quads at z = -0.10 and z = -0.15, the second facing away, and
+    with no cull the reference's silhouette is the UNION of the two -- 495 pixels wide of the front
+    plate's right edge, because a plate 0.05 m further from an off-axis eye projects 1.3 px to the
+    side. Our silhouette reproduces the front plate alone to 1 px and the reference reproduces the
+    union to 1 px, so the two masks are pictures of a different SET OF FACES rather than of a
+    different placement.
     """
     assigned = {}
     subject = []
@@ -649,8 +659,10 @@ def apply_emission_per_material(imported, colours):
         shader = tree.nodes.new("ShaderNodeEmission")
         shader.inputs["Color"].default_value = tuple(colours[material.name]) + (1.0,)
         shader.inputs["Strength"].default_value = 1.0
-        tree.links.new(shader.outputs[0], output.inputs["Surface"])
-        assigned[material.name] = material.name
+        culled = cull_back_faces(tree, shader) if material.use_backface_culling else None
+        tree.links.new((culled or shader).outputs[0], output.inputs["Surface"])
+        assigned[material.name] = {"material": material.name,
+                                   "backFaceCulled": material.use_backface_culling}
     for name in sorted(colours):
         if name not in assigned:
             fail("the manifest declares a colour for material %r and the scene carries no such "

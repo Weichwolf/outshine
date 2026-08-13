@@ -159,14 +159,13 @@ struct Answer {
  * point of separating them.
  *
  * WHAT THE RULE PRODUCES: the eye, from the bounds' centre, the radius, the fixed direction and the
- * fill; and the lens, from the fixed focal length and sensor height. Both are held at the libm floor,
- * nine orders tighter than the millimetre the attribution was made on.
+ * fill; the aim, which IS that centre; and the lens, from the fixed focal length and sensor height.
+ * The eye and the lens are held at the libm floor, nine orders tighter than the millimetre the
+ * attribution was made on; the aim is held exactly, because it is a copy of a number and not the
+ * output of a transcendental.
  *
- * WHAT A CASE SPENDS ITSELF: the aim, the roll and the clip range. Eight cases declare an aim 0.5 mm
- * to 3 mm off the bounds' centre with no stated origin -- a sub-pixel placement nudge, and the claim
- * held over it is that it stays sub-pixel: an aim a pixel or more from the centre is a different
- * framing rather than a placement. The clip range is likewise a case's own, and what it must do is
- * contain the subject. */
+ * WHAT A CASE SPENDS ITSELF: the roll and the clip range. The clip range must contain the subject;
+ * the roll the rule does not produce and does not contradict. */
 void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Placement &framed,
                         const double centre[3]) {
   const Json::Ref declared = root["scene"]["camera"];
@@ -195,21 +194,24 @@ void HoldAgainstTheRule(const Json::Ref &root, const Subject &subject, const Pla
   CHECK(declared["sensorHeightMm"].Num(0.0) == 24.0,
         "the declared sensor height is the rule's own 2 * 12 mm, exactly and not to a tolerance");
 
-  /* THE AIM, IN THE UNIT IT ACTUALLY MOVES THE PICTURE IN. One pixel at the centre's depth is
-   * `2 * tan(yfov/2) * d / heightPx`, so an aim offset expressed in metres says nothing until it is
-   * divided by that. Held at one pixel, which is the boundary between a placement nudge and a
-   * different framing; the value is printed either way, because a nudge with no stated origin is a
-   * number this instrument exists to surface rather than to accept quietly. */
+  /* THE AIM IS THE RULE'S TOO, AND IT IS THE BOUNDS' CENTRE EXACTLY. A sub-pixel band here is what
+   * let five cases carry an aim 3.5927e-3 m off the centre -- 0.435660418 px, identical to nine
+   * digits across subjects at three scales, so a rule somebody applied in pixels -- while their own
+   * derivation cited the framing rule, which aims at the centre. 0.4357 px is 87x the oracle's
+   * 0.005 px filter half-width on cases whose acceptance is a sub-pixel distance to an edge, so
+   * "sub-pixel" was never the right band; the right band is zero. THE OFFSET IS STILL PRINTED IN
+   * PIXELS, because metres say nothing until they are divided by `2 * tan(yfov/2) * d / heightPx`,
+   * and that is the number a reader needs when this line goes red. */
   const double toCentre = Separation(framed.EyeM, centre);
   const double pixelM = (viewport.HeightPx > 0)
                             ? 2.0 * std::tan(0.5 * framed.YfovRad) * toCentre / viewport.HeightPx
                             : 0.0;
-  const double aimOffsetPx = (pixelM > 0) ? Separation(aim, centre) / pixelM : 0.0;
-  std::printf("NOTE   declared aim is %.9g m = %.9g px from the bounds' centre\n",
-              Separation(aim, centre), aimOffsetPx);
-  CHECK(aimOffsetPx < 1.0,
-        "the declared aim is less than a pixel from the bounds' own centre, so it is a sub-pixel "
-        "placement of the rule's framing and not a second framing wearing the rule's distance");
+  const double aimOffsetM = Separation(aim, centre);
+  std::printf("NOTE   declared aim is %.9g m = %.9g px from the bounds' centre\n", aimOffsetM,
+              (pixelM > 0) ? aimOffsetM / pixelM : 0.0);
+  CHECK(aimOffsetM == 0.0,
+        "the declared aim IS the bounds' centre, which is the point the framing rule aims at -- an "
+        "aim beside it is a second determination of the camera wearing the rule's distance");
 
   /* THE CLIP RANGE IS THE CASE'S, and what it owes is the subject: a near plane in front of the
    * subject's nearest point or a far plane inside it would clip the very silhouette the comparison

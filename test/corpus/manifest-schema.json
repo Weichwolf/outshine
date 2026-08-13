@@ -1,0 +1,748 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "note": "WHAT A RENDER MANIFEST MAY CONTAIN, DECLARED ONCE. The preparer (test/corpus/prep/manifest.py) and the runner (test/render/Parity.cpp) both read this file and neither restates it: a key that exists here exists for both, and a key that does not exists for neither. Two closed sets over one declaration is what this file replaces -- they disagreed on eight of twenty-six manifests and nothing failed. Cross-field POLICY is not here: which Cycles settings are refused belongs to the preparer, which thresholds may be overridden and which lights the studio can build belong to the runner. This file declares only what a key IS.",
+  "types": {
+    "text": "a non-empty string",
+    "string": "a string, possibly empty",
+    "number": "a finite number",
+    "integer": "a whole number",
+    "index": "a whole number, zero or above",
+    "boolean": "true or false",
+    "vector3": "three numbers",
+    "opaque": "a non-empty object whose interior this schema does not declare, because its reader gives it meaning -- the fixture recipes and the Blender export settings",
+    "{enum: [...]}": "one of the listed values",
+    "{object: name}": "the object declared under that name",
+    "{array: type}": "a non-empty list of that type",
+    "{map: type}": "a non-empty object whose keys are arbitrary and whose values are that type",
+    "{quantity: type}": "value of that type, with unit, origin and -- where derived -- derivation",
+    "filename": "a plain file name in the case directory: no slash and no leading dot",
+    "sha256": "64 lowercase hex digits",
+    "sha1": "40 lowercase hex digits",
+    "release": "a release version, e.g. 5.2.0"
+  },
+  "objects": {
+    "manifest": {
+      "required": {
+        "schema": {
+          "enum": [
+            "outshine/render-oracle-manifest"
+          ]
+        },
+        "schemaVersion": {
+          "enum": [
+            1
+          ]
+        },
+        "id": "text",
+        "title": "text",
+        "covers": {
+          "array": "text"
+        },
+        "criterion": {
+          "object": "criterion"
+        },
+        "subjectClass": {
+          "enum": [
+            "opaque-min-1px",
+            "sub-pixel-present"
+          ]
+        },
+        "acceptanceClass": {
+          "object": "acceptance-class"
+        },
+        "subjects": {
+          "array": {
+            "object": "subject"
+          }
+        },
+        "blender": {
+          "object": "blender"
+        },
+        "scene": {
+          "object": "scene"
+        },
+        "renders": {
+          "map": {
+            "object": "recipe"
+          }
+        }
+      },
+      "optional": {
+        "notes": "string",
+        "expected": {
+          "map": {
+            "quantity": "number"
+          }
+        },
+        "acceptance": {
+          "map": {
+            "object": "threshold-override"
+          }
+        },
+        "identicalCoverage": {
+          "array": "text"
+        },
+        "statedInvariants": {
+          "array": {
+            "object": "stated-invariant"
+          }
+        }
+      },
+      "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (doc/requirements.md I.26.10): the scene, the recipe and the acceptance in one declaration."
+    },
+    "threshold-override": {
+      "required": {
+        "value": "number",
+        "unit": "text",
+        "origin": {
+          "enum": [
+            "SET",
+            "derived",
+            "measured"
+          ]
+        },
+        "reason": "text"
+      },
+      "optional": {
+        "derivation": "text",
+        "note": "string"
+      },
+      "note": "A manifest's `acceptance` block carries only what it OVERRIDES over the suite's declared defaults, so every entry owes a reason. WHICH keys may be overridden is the runner's, because the defaults are the runner's."
+    },
+    "acceptance-class": {
+      "required": {
+        "is": {
+          "enum": [
+            "exact",
+            "general-position"
+          ]
+        },
+        "because": "text"
+      }
+    },
+    "blender": {
+      "required": {
+        "version": "release"
+      },
+      "optional": {
+        "note": "string"
+      }
+    },
+    "criterion": {
+      "discriminator": "kind",
+      "variants": {
+        "numeric": {
+          "required": {
+            "says": "text",
+            "statedAt": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "stated-invariant": {
+          "required": {
+            "says": "text",
+            "statedAt": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "limits-probe": {
+          "required": {
+            "says": "text",
+            "statedAt": "text"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "self-describing": {
+          "required": {
+            "says": "text",
+            "statedAt": "text",
+            "oracleRole": {
+              "enum": [
+                "reference",
+                "cannot-express-the-criterion"
+              ]
+            }
+          },
+          "optional": {
+            "note": "string",
+            "oracleLimitation": "text",
+            "oracleLimitationMeasured": {
+              "array": {
+                "object": "oracle-limitation-measurement"
+              }
+            }
+          },
+          "note": "`oracleRole` AND ITS TWO COMPANIONS SAY WHAT CYCLES CANNOT EXPRESS ABOUT THIS CRITERION AND WHAT THAT COSTS. A role of cannot-express-the-criterion without a limitation, or a limitation with no measurement beside it, is the runner's refusal."
+        }
+      },
+      "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (doc/requirements.md I.26.12). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
+    },
+    "oracle-limitation-measurement": {
+      "required": {
+        "of": "text",
+        "value": "number",
+        "unit": "text",
+        "origin": {
+          "enum": [
+            "SET",
+            "derived",
+            "measured"
+          ]
+        }
+      },
+      "optional": {
+        "derivation": "text",
+        "note": "string"
+      }
+    },
+    "subject": {
+      "discriminator": "kind",
+      "variants": {
+        "gltf": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "fetched-file"
+              }
+            },
+            "entry": "text"
+          },
+          "optional": {
+            "attributes": {
+              "array": "text"
+            },
+            "notes": "string"
+          }
+        },
+        "blend": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "fetched-file"
+              }
+            },
+            "entry": "text",
+            "conversion": {
+              "object": "conversion"
+            }
+          },
+          "optional": {
+            "attributes": {
+              "array": "text"
+            },
+            "notes": "string"
+          }
+        },
+        "generated": {
+          "required": {
+            "id": "text",
+            "name": "text",
+            "source": {
+              "object": "subject-source"
+            },
+            "files": {
+              "array": {
+                "object": "generated-file"
+              }
+            },
+            "entry": "text"
+          },
+          "optional": {
+            "attributes": {
+              "array": "text"
+            },
+            "notes": "string"
+          }
+        }
+      }
+    },
+    "subject-source": {
+      "discriminator": "kind",
+      "variants": {
+        "khronos-sample-assets": {
+          "required": {
+            "commit": "sha1",
+            "model": "text",
+            "pinnedOn": "text",
+            "pinReason": "text"
+          }
+        },
+        "blender-download": {
+          "required": {
+            "page": "text"
+          }
+        },
+        "blender-studio": {
+          "required": {
+            "page": "text"
+          }
+        },
+        "outshine-generated": {
+          "required": {}
+        }
+      }
+    },
+    "fetched-file": {
+      "required": {
+        "url": "text",
+        "sha256": "sha256",
+        "bytes": "index",
+        "as": "filename",
+        "role": {
+          "enum": [
+            "gltf",
+            "buffer",
+            "image",
+            "metadata",
+            "blend",
+            "archive-member"
+          ]
+        },
+        "licence": {
+          "object": "licence"
+        }
+      },
+      "optional": {
+        "member": "text"
+      }
+    },
+    "generated-file": {
+      "required": {
+        "as": "filename",
+        "role": {
+          "enum": [
+            "gltf",
+            "buffer",
+            "image",
+            "metadata",
+            "blend",
+            "archive-member"
+          ]
+        },
+        "generator": "opaque"
+      },
+      "note": "No url, no pin and no licence: there is no upstream to pin against and no third party to credit. What stands in the pin's place is that the recipe is the whole of the input, so the preparer digests what it produced."
+    },
+    "licence": {
+      "required": {
+        "spdx": "text",
+        "holder": "text",
+        "year": "text",
+        "statedAt": "text"
+      },
+      "optional": {
+        "covers": "text"
+      },
+      "note": "Per file and never per repository: a repository-level claim covers nothing in particular."
+    },
+    "conversion": {
+      "required": {
+        "exportSettings": "opaque",
+        "frameStart": "index",
+        "outputName": "filename"
+      },
+      "optional": {
+        "note": "string"
+      }
+    },
+    "scene": {
+      "required": {
+        "frame": {
+          "enum": [
+            "gltf"
+          ]
+        },
+        "camera": {
+          "object": "camera"
+        },
+        "light": {
+          "object": "light"
+        },
+        "world": {
+          "object": "world"
+        },
+        "material": {
+          "object": "material"
+        }
+      }
+    },
+    "camera": {
+      "discriminator": "source",
+      "variants": {
+        "gltf": {
+          "required": {
+            "index": "index"
+          },
+          "optional": {
+            "note": "string"
+          },
+          "note": "THE INDEX INTO THE FILE'S OWN `cameras`, AND IT HAS NO DEFAULT. `Cameras` puts a perspective and an orthographic camera on two nodes at one point, so \"the camera the file carries\" names nothing there; a case that adopted the first would render one of them and report the other's criterion."
+        },
+        "manifest": {
+          "discriminator": "projection",
+          "default": "perspective",
+          "variants": {
+            "perspective": {
+              "required": {
+                "positionM": "vector3",
+                "lookAtM": "vector3",
+                "rollRad": "number",
+                "clipStartM": "number",
+                "clipEndM": "number",
+                "yfovRad": "number",
+                "sensorHeightMm": "number"
+              },
+              "optional": {
+                "note": "string",
+                "derivation": "text"
+              }
+            },
+            "orthographic": {
+              "required": {
+                "positionM": "vector3",
+                "lookAtM": "vector3",
+                "rollRad": "number",
+                "clipStartM": "number",
+                "clipEndM": "number",
+                "yMagM": "number"
+              },
+              "optional": {
+                "note": "string",
+                "derivation": "text"
+              }
+            }
+          },
+          "note": "A PARALLEL PROJECTION IS A DIFFERENT MATRIX AND NOT A LONG LENS, so it is declared and never inferred from which field happens to be present. The orthographic arm carries the vertical extent it covers and no field of view at all."
+        }
+      }
+    },
+    "light": {
+      "discriminator": "kind",
+      "variants": {
+        "none": {
+          "required": {},
+          "optional": {
+            "note": "string"
+          }
+        },
+        "gltf": {
+          "required": {
+            "lightingMode": {
+              "enum": [
+                "RAW",
+                "COMPAT",
+                "SPEC"
+              ]
+            },
+            "estimator": {
+              "enum": [
+                "delta",
+                "selected"
+              ]
+            }
+          },
+          "optional": {
+            "note": "string"
+          },
+          "note": "`lightingMode` IS HOW THE IMPORTER TURNS glTF'S PHOTOMETRIC UNITS INTO BLENDER'S RADIOMETRIC ONES. RAW takes `intensity` across unchanged, correct for a directional light where glTF's lux IS Blender's Sun Strength one to one; for a point light RAW makes candela into WATTS OF TOTAL POWER and Cycles radiates energy/4pi per steradian, a factor of 4pi below the extension's definition, so COMPAT is the arm that makes candela mean candela. `estimator` says whether the oracle still has one: `delta` is a scene whose only source has no area, so two seeds must agree bit for bit; `selected` is a scene with more than one such light, where Cycles picks ONE per shading event and which one is the seed's business."
+        },
+        "sun": {
+          "required": {
+            "irradianceWPerM2": "number",
+            "directionM": "vector3",
+            "angleRad": "number",
+            "colourLinear": "vector3"
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "point": {
+          "required": {
+            "powerW": "number",
+            "radiusM": "number",
+            "positionM": "vector3",
+            "colourLinear": "vector3"
+          },
+          "optional": {
+            "note": "string"
+          }
+        }
+      },
+      "note": "\"gltf\" IS THE ARM WHERE THE LIGHT CROSSES THE BOUNDARY, and it narrows the refusal rather than overturning it (doc/requirements.md I.26.12): `DirectionalLight` and `PointLightIntensityTest` state their criteria IN TERMS OF the light in the file, so declaring it beside the asset would measure our transcription and not the asset. For every other case the light is declared here and whatever crossed is deleted."
+    },
+    "world": {
+      "discriminator": "kind",
+      "variants": {
+        "factory": {
+          "required": {},
+          "optional": {
+            "note": "string"
+          }
+        },
+        "uniform": {
+          "required": {
+            "colourLinear": "vector3",
+            "strength": "number"
+          },
+          "optional": {
+            "note": "string"
+          }
+        }
+      },
+      "note": "`factory` is Blender's own environment and its number is not a manifest's to restate; `uniform` is the arm a case takes to REMOVE the environment, because an environment is an area source and a delta light is not."
+    },
+    "material": {
+      "discriminator": "source",
+      "variants": {
+        "manifest": {
+          "discriminator": "kind",
+          "variants": {
+            "diffuse": {
+              "required": {
+                "colourLinear": "vector3"
+              },
+              "optional": {
+                "note": "string"
+              }
+            },
+            "emission": {
+              "required": {
+                "colourLinearPerNode": {
+                  "map": "vector3"
+                }
+              },
+              "optional": {
+                "note": "string"
+              },
+              "note": "ONE COLOUR PER NODE, AND NO SHORTER SPELLING. Flat emission over touching bodies fuses them into one silhouette, so a misplaced node hides inside the union. A map keyed by the file's own name is what makes \"the third cube\" a fact about the file instead of a position in a list."
+            },
+            "emission-per-material": {
+              "required": {
+                "colourLinearPerMaterial": {
+                  "map": "vector3"
+                }
+              },
+              "optional": {
+                "note": "string"
+              },
+              "note": "THE MATERIAL IS THE KEY A MULTI-MATERIAL ASSET HAS: a mesh whose primitives name different materials is one Blender object with several slots, so a per-object colour could reach only one of them."
+            }
+          }
+        },
+        "gltf": {
+          "discriminator": "kind",
+          "variants": {
+            "metal-rough": {
+              "required": {},
+              "optional": {
+                "note": "string"
+              }
+            }
+          }
+        },
+        "gltf-base-colour": {
+          "discriminator": "kind",
+          "variants": {
+            "diffuse": {
+              "required": {
+                "carriedBy": {
+                  "enum": [
+                    "texture",
+                    "factor"
+                  ]
+                }
+              },
+              "optional": {
+                "note": "string"
+              }
+            },
+            "emission": {
+              "required": {
+                "carriedBy": {
+                  "enum": [
+                    "texture",
+                    "factor"
+                  ]
+                }
+              },
+              "optional": {
+                "note": "string"
+              }
+            }
+          }
+        },
+        "gltf-emissive": {
+          "discriminator": "kind",
+          "variants": {
+            "emission": {
+              "required": {
+                "carriedBy": {
+                  "enum": [
+                    "texture",
+                    "factor"
+                  ]
+                }
+              },
+              "optional": {
+                "note": "string"
+              }
+            }
+          }
+        }
+      },
+      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (doc/requirements.md I.26.13): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into."
+    },
+    "recipe": {
+      "required": {
+        "engine": {
+          "enum": [
+            "CYCLES"
+          ]
+        },
+        "device": {
+          "enum": [
+            "CPU",
+            "METAL"
+          ]
+        },
+        "resolutionX": "index",
+        "resolutionY": "index",
+        "samples": "index",
+        "adaptiveSampling": "boolean",
+        "denoise": "boolean",
+        "seed": "index",
+        "pixelFilter": {
+          "object": "pixel-filter"
+        },
+        "filmTransparent": "boolean",
+        "filmExposure": "number",
+        "scaleLength": "number",
+        "bounces": {
+          "object": "bounces"
+        },
+        "colourManagement": {
+          "object": "colour-management"
+        },
+        "exrCodec": {
+          "enum": [
+            "NONE",
+            "ZIP",
+            "PIZ"
+          ]
+        }
+      },
+      "optional": {
+        "note": "string"
+      }
+    },
+    "pixel-filter": {
+      "required": {
+        "type": {
+          "enum": [
+            "BOX",
+            "GAUSSIAN",
+            "BLACKMAN_HARRIS"
+          ]
+        },
+        "widthPx": "number"
+      },
+      "optional": {
+        "note": "string"
+      }
+    },
+    "bounces": {
+      "required": {
+        "max": "index",
+        "diffuse": "index",
+        "glossy": "index",
+        "transmission": "index",
+        "volume": "index",
+        "transparentMax": "index"
+      }
+    },
+    "colour-management": {
+      "required": {
+        "displayDevice": "text",
+        "viewTransform": "text",
+        "look": "text",
+        "exposure": "number",
+        "gamma": "number"
+      },
+      "optional": {
+        "note": "string"
+      }
+    },
+    "stated-invariant": {
+      "discriminator": "kind",
+      "variants": {
+        "hue-of-brightest": {
+          "required": {
+            "name": "text",
+            "says": "text",
+            "statedAt": "text",
+            "hue": {
+              "quantity": "vector3"
+            },
+            "brightestFraction": {
+              "quantity": "number"
+            },
+            "maxHueError": {
+              "quantity": "number"
+            }
+          },
+          "optional": {
+            "note": "string"
+          }
+        },
+        "region-compare": {
+          "required": {
+            "name": "text",
+            "says": "text",
+            "statedAt": "text",
+            "fromPx": {
+              "quantity": {
+                "array": "index"
+              }
+            },
+            "toPx": {
+              "quantity": {
+                "array": "index"
+              }
+            },
+            "scale": {
+              "quantity": "number"
+            },
+            "maxUlps": {
+              "quantity": "index"
+            }
+          },
+          "optional": {
+            "note": "string",
+            "channels": {
+              "array": "index"
+            }
+          }
+        }
+      },
+      "note": "THE RELATION THE ASSET STATES ABOUT A RENDER OF ITSELF, evaluated on the scene-referred linear tap and on nothing else. `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's share of the pixel's own sum equals a declared hue. `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel after a declared scale, in f32 ulps because both sides come out of one shader over one surface."
+    }
+  }
+}

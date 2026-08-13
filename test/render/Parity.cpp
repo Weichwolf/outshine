@@ -45,8 +45,10 @@
 #include "Check.h"
 
 #include "Acceptance.h"
+#include "Attribution.h"
 #include "Exactness.h"
 #include "Invariant.h"
+#include "ManifestSchema.h"
 #include "Mask.h"
 #include "Metric.h"
 #include "OracleRaw.h"
@@ -203,22 +205,11 @@ bool Reduced(const Case &subject) {
          subject.DeltaLit;
 }
 
-/* THE SURFACE ARM A FILE-COLOURED CASE MAY NOT DECLARE SILENTLY: the manifest states the closure
- * beside the source, so a case that changed from `rho*L` to a bare emitter has to say so in its own
- * file. AN EMISSIVE COLOUR HAS ONLY ONE CLOSURE -- glTF's emission is a radiance the surface leaves
- * and not a reflectance a world is multiplied into, so a Lambertian arm over it would scale the
- * asset's own number by a world radiance the format never mentioned. */
-bool KnownFileClosure(FileColour colour, const std::string &kind) {
-  if (colour == FileColour::Emissive) { return kind == "emission"; }
-  /* THE WHOLE ROW HAS ONE CLOSURE AND IT IS THE FORMAT'S OWN. Where the case hands the file its base
-   * colour, its metalness and its roughness together, the only thing they can mean is glTF's
-   * metal-rough BRDF; a `diffuse` arm over them would silently discard two of the three. */
-  if (colour == FileColour::Row) { return kind == "metal-rough"; }
-  return kind == "diffuse" || kind == "emission";
-}
-
 /* Which glTF socket a manifest's `scene.material.source` names, or `Declared` for the arm where the
- * manifest states the colours itself. */
+ * manifest states the colours itself. WHICH (source, kind) PAIRS EXIST is the schema's and the
+ * refusal below is about this runner's arms, not about the manifest's legality -- a spelling the
+ * schema declares and this reader has no arm for is a hole here, and a spelling it does not declare
+ * never reaches this line. */
 [[nodiscard]] bool ReadFileColour(const Json::Ref &declared, FileColour &out, std::string &error) {
   if (declared.StrEquals("gltf-base-colour")) {
     out = FileColour::BaseColour;
@@ -237,7 +228,7 @@ bool KnownFileClosure(FileColour colour, const std::string &kind) {
     return true;
   }
   error = "scene.material.source is '" + declared.Str("") +
-          "', and this runner reads 'manifest', 'gltf', 'gltf-base-colour' and 'gltf-emissive'";
+          "', and this runner has no arm for it";
   return false;
 }
 
@@ -251,9 +242,7 @@ bool KnownFileClosure(FileColour colour, const std::string &kind) {
     out = FileColourCarrier::Factor;
     return true;
   }
-  error = "scene.material.carriedBy is '" + declared.Str("") +
-          "', and a case that hands one glTF socket the whole appearance states whether that "
-          "socket's value is a texture or a factor";
+  error = "scene.material.carriedBy is '" + declared.Str("") + "', and this runner has no arm for it";
   return false;
 }
 
@@ -369,6 +358,18 @@ public:
             std::to_string(subject.Manifest.StoppedAt());
     return false;
   }
+  /* THE DECLARATION IS READ BEFORE THE DOCUMENT IS. The schema is the preparer's too, so a manifest
+   * this runner accepts is one the preparer can prepare -- which is the property the two closed sets
+   * did not have. */
+  const std::string schemaPath = SchemaPathBesideCase(subject.Directory);
+  const std::string schemaText = Slurp(schemaPath);
+  if (schemaText.empty()) {
+    error = schemaPath + " is absent or empty, and it is what says whether this manifest is one";
+    return false;
+  }
+  ManifestSchema schema;
+  if (!schema.Load(schemaText, error)) { return false; }
+  if (!schema.Check(subject.Manifest.Root(), error)) { return false; }
   const Json::Ref root = subject.Manifest.Root();
   if (!ReadSubjectClass(root["subjectClass"].Str(""), subject.Accepted.Subject, error)) {
     return false;
@@ -431,11 +432,6 @@ public:
   subject.MaterialKind = material["kind"].Str("");
   if ((subject.Colour == FileColour::BaseColour || subject.Colour == FileColour::Emissive) &&
       !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
-    return false;
-  }
-  if (subject.MaterialFromFile() && !KnownFileClosure(subject.Colour, subject.MaterialKind)) {
-    error = "scene.material.source is '" + material["source"].Str("") + "' and its kind is '" +
-            subject.MaterialKind + "', which is not a closure that source has";
     return false;
   }
   if (!ReadSceneLights(root["scene"]["light"]["kind"], subject.Lights, error)) { return false; }
@@ -1495,6 +1491,21 @@ int main(int argc, char **argv) {
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
                      subject.Placement == ExactnessClass::Exact ? Direction::AtMost
                                                                 : Direction::Reported});
+  /* AND WHERE THEY ARE, BY THE FILE'S OWN NODE NAMES. A count says the two renderers differ; the
+   * table says whether the difference belongs to one class of node or straddles every one of them,
+   * which is the discriminator between a transform question and a raster question. */
+  if (projects && Disagreeing(ours, theirs) > 0) {
+    Note("disagreement attributed by node, both faces, overlap counted twice");
+    const Attribution table =
+        AttributeDisagreement(subject.Geometry, clip, subject.Frame, ours, theirs);
+    for (const NodeDisagreement &node : table.Nodes) {
+      std::printf("NOTE   node '%s' over %zu triangles: %zu px ours only, %zu px oracle only\n",
+                  node.Node.c_str(), node.Triangles, node.OursOnly, node.TheirsOnly);
+    }
+    Note("disagreeing pixels no node's geometry projects onto", (double)table.Unattributed, "px");
+    Note("triangles outside the depth range, unattributed", (double)table.Unprojectable,
+         "triangles");
+  }
   /* Published beside the result and never subtracted from it. */
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
   metrics.push_back(
