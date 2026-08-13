@@ -66,6 +66,7 @@ that entry is deleted below.
 | The language standard has two values — `-std=c++17` at `Makefile:24` and `test/run.sh:44`, `-std=c++20` on every shipping line | 4 sites |
 | The unit-height check accepts 168 ulps where it measures 1 | `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
 | The harness's build cache is keyed by path and not by root | `test/run.sh:41-42` |
+| `BenchGround` is a catalogue row named for a deleted harness, no implementation | its own section |
 | Five camera manifests aim 0.4357 px off their stated derivation, origin unknown | `test/render/coverage/*/manifest.json` |
 | Six environment variables change the picture and ride no column | `FB_TAU` · `FB_TAA` · `FB_GEOM` · `FB_TILEWORKERS` · `FB_GROUND_CLASS_VIZ` · `FB_DAGLOG` — `FB_MOON_SCALE` and `FB_TONE_PROBE` are gone |
 
@@ -1220,6 +1221,34 @@ a stage that does not exist is already an unknown-name refusal at `StageByName`.
 each. It goes red the moment a row outlives its implementation, it needs no device, and it would have
 failed at `0161f88`. **Fixed when** that test exists and is green, and **finished when** the dispatch
 table makes it unnecessary.
+
+## `BenchGround` is a catalogue row named for a harness that no longer exists — **Band 2**
+
+`src/render/plan/RenderCatalogue.h` carries `{Stage::BenchGround, Provenance::Content, PassKind::Raster,
+"benchGround", …}`, reading `ShadowAtlas`, `IrradianceBuffer` and `CascadeUniform` and contributing to
+the three scene targets. **`git grep BenchGround` over `src/` and `test/` returns two files: the
+catalogue row, and the arm of `Renderer::Executable` that returns `false` for it.** No implementation, no
+consumer, no test — *and the enumeration is the grep over both trees, so this is a count.*
+
+**The name refers to something deleted.** A bench floor is the ground plane a subject bench stood its
+subject on, and the benches went with the browser-era clients — `SubjectBench`, `TreeBench` and the walk
+bench are all gone. **So the row is named for a harness convenience that no longer exists, and it was a
+harness convenience before that.**
+
+**Why it is a defect rather than dead weight**, and it is the same sentence as the entry above it: **the
+catalogue is the engine's capability claim.** A row asserts *this engine can draw this*. `BenchGround`
+asserts that the engine can draw a bench floor — a fixture for a test that is deleted — and it is the
+fifth kind of content noun in a layer forbidden them: neither medium, nor body, nor surface class, nor
+mechanism.
+
+**The harmless explanation, sought.** *It is one row and it costs nothing* — it costs the two things a
+capability claim costs: it is counted in `kStageCount`, and it is one of the eighteen a reader has to
+check before believing any row. *It marks a place for a future bench* — a bench is a test, and § I.28
+already rules that what a test needs is the compositor's draw list rather than the renderer's type
+system; that is the same finding that removed the five geometry units.
+
+**Right:** delete the row. **Fixed when** `git grep BenchGround` returns nothing, and `kStageCount` falls
+by one with its `static_assert`s re-proved — which is § I.27's own statement of what removing a row costs.
 
 ## `AtmosphereUniform` is a bundle, and its granularity defeats the dependency the graph already states — **Band 2**
 

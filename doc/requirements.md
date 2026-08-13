@@ -2306,6 +2306,41 @@ implementation is **refuted as a single entry**, by measurement.*
 - [ ] **A `cave-black` background is therefore a real implementation and not a no-op**, and it is what makes the two cases distinguishable: **an explicit statement that nothing is behind the geometry**, against **a missing contributor, which is a hole**. *One is a declaration a reader can find; the other is a default nobody wrote down*
 - [ ] **And the clear exposes a second answer to one question**: `SceneHdr` clears to **alpha 1** while `Resolve.h` derives the frame's alpha from `covered(sceneDepth)`, which is **0** where nothing drew. Two answers to *is this pixel covered* inside one frame — *harmless while the resolve wins, and it is the shape that should have one source*
 
+#### Is any earth-specific thing a MECHANISM? — twenty rows walked, and the claim survives on a narrower axis than it was aimed at
+
+*Owner, 2026-08-13, **and he states he is undecided**: "I would not like to read any 'earth specific'
+terms in the pipeline. It must be the same for every planet, star system, galaxy or dungeon deep below
+or even a CAD program. But of course the main purpose of Outshine is to provide a data-based earth
+sandbox — I am undecided." The position put to me — **there is nothing to trade, because no
+earth-specific mechanism exists** — is a negative existence claim, so it is checked against its
+enumeration: **all twenty rows of `render/plan/RenderCatalogue.h`.***
+
+| rows | mechanism | earth-specific? |
+|---|---|---|
+| `Transmittance` · `MultiScatter` · `SkyView` · `Sky` | a participating medium under a **spherical-shell** parameterisation, indexed by altitude and zenith | **no — PLANET-specific.** Mars, Venus and Titan all work; a dungeon's homogeneous fog, water and a nebula do not |
+| `Irradiance` | hemisphere integral of the above | inherits exactly that |
+| `Sun` · `Moon` · `Stars` | disc emitter with limb darkening · lit sphere with phase · point emitters rotated into the observer's frame | **no** — the HYG catalogue, the LROC albedo and the standpoint are **data and parameters** |
+| `Terrain` · `Buildings` · `Water` · `Models` · `Subjects` | heightfield · extruded prism · surface · instanced · declared | **no** — OSM and the DEM are **provider bytes** |
+| `AutoExposure` · `ShadowMap` · `Occlusion` · `TemporalResolve` · `Tonemap` · `Present` | general mechanisms throughout | **no** |
+| `BenchGround` | **none — it is a harness fixture** (`doc/bugs.md`) | not applicable |
+
+- [x] **The claim holds: no row carries an earth-specific mechanism. And it holds on a narrower axis than it was aimed at, which is the useful result.** The binding specificity in the medium chain is **spherical shell**, not earth — so **"not earth-specific" is not the same as "general"**, and a discipline that only forbids earth nouns would have left the four rows exactly as specific as they are
+- [x] **One counterexample to the LETTER, found by looking: `ECEF` is named in the renderer.** `render/FrameContext.h:9` — *"the eye in ECEF metres, in double because a float metre at the Earth's radius is a half-metre quantum"* — in the per-frame data every stage reads, in the layer `CLAUDE.md` forbids content nouns
+- [x] **And it is a NAME over a general mechanism, which is what makes it free to fix.** `render/Renderer.cpp:15-16`: vertices arrive **pre-translated**, the eye sits at the origin, the view is pure rotation, and *"no absolute ECEF coordinate ever reaches float"*. **The mechanism is camera-relative rendering about a double-precision world origin** — which a space sim needs *more* than earth does, not less. `WorldOrigin` or `EyeWorld` costs nothing and the substance is untouched
+- [x] **The CAD reading is true as a description and overstated as a claim, and the difference matters.** The two executable rows are `Subjects` and `Tonemap` — under mechanism names `Opaque` + `Tonemap` — so **the engine's current state is the general core and earth is what gets added**. But it is general **by subtraction, not by design**: the port deleted eighteen implementations and this is what remained. *And "a CAD renderer" overstates it — CAD wants an orthographic camera (we carry `SetOrthoM`, a **mode** rather than a matrix), wireframe and edge rendering (absent), and usually display-referred output rather than a tonemap*
+
+#### Generality in names, and generality in parameterisations — two decisions, and only one of them is free
+
+- [ ] **Generality in NAMES: taken, and it is free.** Nothing earth-specific in this engine is a stage; every one is a declared number or a provider's bytes — the Rayleigh coefficient, the 8 km scale height, an OSM footprint, a DEM, an ephemeris, a weather field. **So `earth` gets exactly one home, the declaration**, as `earth-sky` already is, and the pipeline reads the same for a planet, a dungeon or a CAD part
+- [ ] **Generality in PARAMETERISATIONS: refused until a world pays for it.** Build the spherical shell **because earth needs it**; add the second when the second world exists. *This is § I.27's own rule reaching its first real case — a general name over a specific parameterisation is exactly **a rename changes what a stage may be asked for, never what it can answer***
+- [ ] **So the row states which parameterisation it has**, and a reader cannot infer coverage from a general name: `MediumTransmittance` ships with *"spherical shell, altitude × zenith; a homogeneous or inhomogeneous medium needs a second"* beside it
+- [ ] **THE GUARD: a general mechanism must be paid for by a specific passing case.** *Generality no case demands is how a tree ends up with an abstract framework and no picture, and this engine's method is that a number decides and never an intention.* A second parameterisation lands with the case that goes green because of it — not before
+
+- [x] **RULED by the owner, 2026-08-13, on reading the two halves: *"ok, then I agree with you."*** *General engine versus earth sandbox never competed — the enumeration above is why — so what was decided is the question that was actually open: **whether to pay for a second medium parameterisation before a second world needs it. The answer is no.***
+- [x] **What retires that answer, named so it is a trigger rather than a matter of opinion**: a declared scenario that is **underwater**, a **dungeon with volumetric fog**, or a **second planet with a non-Earth atmosphere**. **Any one makes the second parameterisation a shipping requirement**; until one exists the spherical shell is the whole of what a case can demand, and the second would be paid for by nothing
+- [x] **The ruling was checked against its own evidence AFTER it was agreed, and it survives.** *An agreed position is not exempt from its evidence, and the enumeration above was taken for exactly this reason.* **No catalogue row carries an earth-specific mechanism** — the four medium rows are **planet**-specific, which is half 2's subject rather than half 1's, and every other earth-specific thing in the tree is a declared number or a provider's bytes
+- [x] **The one earth noun the enumeration found is not an exception to the ruling — it is half 1's first customer.** `ECEF` in `render/FrameContext.h:9` is **not a catalogue row**; it is a field name in the per-frame data, over a mechanism (camera-relative rendering about a double-precision origin) that a space sim needs more than earth does. **The ruling does not need an exception written into it; it needs applying, and this is the first place it applies**
+
 #### The five settings, worked — and the enumeration the conclusion is drawn from
 
 *The instrument is the catalogue's twenty rows walked against each setting's required effects, not a
