@@ -17,3 +17,18 @@ so the cut below is narrower than the claim and is a real cut.*
 - [ ] **Twenty rows become eleven**, and § I.27's unticked *"`GeometryStage`'s five draws are five independently declarable content stages over one shared LOD cut"* is **superseded rather than deleted**: the five become zero declarable stages and one draw list, which is the same requirement reached by removing the thing instead of splitting it. *The superseding is written here so the line is not read as scope quietly dropped*
 - [ ] **The instrument that appears to be lost is not.** Collapsing ten rows loses per-content GPU spans — but the five geometry units **already shared one pass** (`render/GeometryStage.h:42-44`, § I.27), so per-content GPU attribution was never obtainable without splitting the pass and paying for it. What replaces it is a **CPU-side draw-list statistic per compositor** — draws, batches, indices, merge count, all of which `DrawList::Batches()` already carries. *The caveat was sought and it clears*
 - [ ] **`SubjectDraw`'s pipeline table is the same mistake one level down and dies with it.** It enumerates layout × facing × alpha mode inside the stage (`render/stages/SubjectDraw.cpp:618-681`) — thirty pipelines built into a fifty-slot array. **The pipeline key is `(VertexLayout, SurfaceState)` and `SurfaceState` is already `constexpr`-derived from `Material`**, so the set of pipelines a plan needs is the set of distinct keys its **compiled draw lists** contain. § I.10's ticked *"No pipeline creation while playing"* is what fixes when: the pipelines are created **when the plan is compiled**, from the compositors' declared key sets, and the count becomes an output of the compiler exactly as the pass count already is
+
+**The projection slice, scoped rather than guessed.** *The renderer takes a projection matrix, never a
+projection kind* is not one line. `Renderer.h:111` has `SetOrthoM(double)` and `:152` an `OrthoM` field,
+and `MvpCamRel` branches on `orthoM > 0` **inside** — so the renderer holds the kind twice: once as a
+field and once as a branch. **`fovDeg` is the other half of the same knowledge**, so a matrix-taking
+renderer loses both, and `fovDeg` is read elsewhere for derived quantities — the shadow-ray bias has a
+closed form in `cos(yfov/2)`. One caller: `src/clients/GltfStudio.cpp:66`.
+
+**So the slice is: the caller builds the projection, the renderer multiplies view by it, and every
+consumer of `fovDeg` either takes the number from the declaration it already has or is shown not to need
+it.** Acceptance is the item's own — **no case moves in the picture bound**, since a projection change
+that moved one would be a different picture rather than a refactor.
+
+**Not started here.** At the depth this was scoped it would have been begun and not finished, and a
+half-applied projection change is the one edit in this item that cannot be left overnight.
