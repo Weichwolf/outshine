@@ -100,6 +100,35 @@ developer round — it touches 454 citations and the harness test that checks th
 - [ ] **Task-cites-task is a new class and it is allowed for DEPENDENCY only**, resolved by id: the id names exactly one file across the three directories, or the run is red
 - [ ] **And the directory makes a new invariant checkable for free: a `closed` task may not depend on an `open` one.** *Something shipped cannot rest on something unbuilt, and today nothing could even ask the question*
 
+### The task graph — three edges, one direction, and the reverse derived
+
+- [ ] **Store one direction, derive the other. No `Blocks:`, no `Successors:`.** The reverse is `grep -l '^Depends:.*<id>' board/*/*.md` — **free, always correct, and it cannot disagree with itself**. Storing both ends is `state`-in-two-places at graph scale
+- [ ] **THREE edges and not one, because the second and third are different relations that happen to point backwards.** All three are stored on the **new** task, all three are one-directional:
+
+| header | means | the closed task's record is |
+|---|---|---|
+| `Depends:` | **ordering** — this cannot start until that is closed | untouched |
+| `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it | still true of the day it was made |
+| `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong | **suspect, and must be read with its successor** |
+
+- [x] **The discriminator between the last two is one question: did the TREE change, or did our UNDERSTANDING?** *This week supplies both.* The atmosphere LUTs were closed and the port deleted the implementation — **`Regresses`**, the statement is unchanged and the tree stopped meeting it. `worst_disagreement_px` was closed and was blind to interior noise — **`Supersedes`**, the tree was fine and the claim was too narrow. **Conflating them makes the regression count meaningless**: this week alone would have logged four regressions that were me being wrong
+- [x] **The separation is justified twice over, and only ONE of the two reasons is readiness — the prototype shows it.** For `Regresses` there is **no** readiness corruption: a regression's predecessor is closed, so `Depends:` would answer *ready* identically. What it corrupts is **measurement** — the regression rate becomes unmeasurable. For `Supersedes` the corruption **is** readiness and it is fatal: **a superseded task never closes, because its successor replaces it**, so anything filed as depending on it is blocked for ever. *Demonstrated: `E-0004` supersedes an `active` task and is `READY`; filed under `Depends:` it would block until a task that will never close, closes*
+
+### `Title` — I disagree with the lean, and the reason is a defect this tree has filed three times
+
+- [x] **There is no `Title:` field to drop: the field set is `File:`, `Test:`, `Depends:`, `Regresses:`, `Supersedes:`.** The real exposure is that a slug in the filename and a title line at the top of a body are two names for one task
+- [x] **The "harness checks the slug is derived from the title" exit is REFUSED: it needs two slugify implementations to agree** — the one that named the file and the one that checks it. **That is the one-fact-in-two-places defect at the level of an algorithm**, and this tree has filed it three times: the preparer against the runner, `NotTheHarnesses` against the Makefile, the split manifest schema. *An exit that re-creates the defect it prevents is not an exit*
+- [ ] **RULED: the slug is authoritative, and renaming the file IS retitling** — a `git mv`, visible in the diff, exactly as a state change is. The lossiness is real and small: **a slug is a NAME and the body is an ARGUMENT**, and they are not two copies of one fact
+- [ ] **So the body must not restate the title, and that is the checkable half:** `grep -c '^# ' board/*/*.md` is **0** everywhere. *Demonstrated on the prototype.* Immutable titles are refused separately — a task's statement legitimately sharpens, and the sharpening should cost a rename rather than a rule
+
+### Four invariants and one query, and the difference is that a board with nothing ready is legitimate
+
+- [ ] **INVARIANT — dependency cycles**, a real defect with no instrument today
+- [ ] **INVARIANT — a `closed` task depending on one that is not closed**: something shipped resting on something unbuilt
+- [ ] **INVARIANT — every id in `Depends:`, `Regresses:` or `Supersedes:` resolves to exactly one file** across the three directories. *The citation test extended to the new class rather than a second checker*
+- [ ] **INVARIANT — a `closed` task whose `File:` no longer exists**, and this is the strongest of the four: **it is this week's Band 1 defect made permanent.** A rename makes it red, correctly — the record is then wrong and the same discipline as the citation test applies
+- [ ] **QUERY, never a test — what is ready to start.** Open tasks whose every `Depends:` is closed. **A board with nothing ready is a legitimate state**, so this may not go red; and it replaces `doc/todo.md`'s hand-maintained ordering, **three commits stale twice this month**, with a derived one — the same repair as *the index is the filesystem*
+
 ### What is lost, stated plainly
 
 - [x] **The reading ORDER, and the law document only partly recovers it.** § I.26.14, § I.26.15 and § I.26.16 are one argument about how a case is judged; split, the rules survive in one file and the worked examples travel with their tasks. **What does not survive is that rule B was written because rule A was broken** — which is how half of this week's rulings are understood
