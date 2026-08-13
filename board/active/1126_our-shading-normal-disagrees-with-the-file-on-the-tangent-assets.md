@@ -279,3 +279,35 @@ direction identical to **a fiftieth of a degree** and the tap unit-length to **1
 `normalScale` · Blender's `Strength` · the tangent *source* · `tap.z` against a reconstructed `z` · and
 filtering as the bulk explanation. **Whatever remains scales the perturbation's magnitude uniformly with
 steepness and is not any of those.**
+
+## The branch is named, and it is the opposite of what the earlier adjudicator said
+
+**`sin(tilt)` must equal `|tap.xy|`** — a unit tap in an orthonormal basis gives exactly that tilt, by
+definition. Measured over the 40 472 steep pixels of `normal-tangent-mirror`, with the tap read
+independently from the PNG and the tilts computed from the *rendered* normals:
+
+| | p50 | ratio to `\|tap.xy\|` |
+|---|---|---|
+| `\|tap.xy\|` | 0.8222 | — |
+| **ours** | 0.8223 | **1.0000** |
+| Cycles | 0.7036 | **0.8854** |
+
+**Ours is exact. Cycles applies 0.885× the perturbation the file declares.** So **we are the conforming
+side**, and the rung is *reduce the oracle* or *patch the asset* — **not** *fix the engine*.
+
+**The earlier adjudicator was measuring the wrong quantity, and that is my error.** The third leg is the
+file's **geometric** normal, and the test was framed as *which leg is nearer the file*. **A
+normal-mapped surface is supposed to deviate from its geometric normal** — so *nearer the declaration*
+measures **less perturbation**, not **more correctness**, and Cycles won it by perturbing less. The trap
+was named in this item before I walked into it: *that divergence is the normal map doing its job*.
+
+**So `the file agrees with Cycles in 60 065 of 60 065 pixels` was true and about the wrong thing** — the
+instrument-domain failure this document names, committed by me on the item that exists to measure it.
+
+**What remains is why Cycles is at 0.885**, and filtering is the candidate again with its sign now the
+right way round: **Cycles filters over the ray footprint and we do not**, so Cycles is the side whose tap
+is averaged away from the declaration. That also explains the roughness correlation of +0.299 without
+needing us to be wrong.
+
+**`board:1130` is unaffected** — no mip chain is still a defect and a bandwidth problem at 720p60, and it
+is still not what this item is about.
