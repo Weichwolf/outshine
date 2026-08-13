@@ -100,7 +100,8 @@ def keep_default_scene(path, new_collections):
     -- one child collection per scene, in order -- is CHECKED against the document's scene count
     rather than trusted, because a Blender that changed it would otherwise silently keep the wrong
     geometry."""
-    scenes = document_json(path).get("scenes") or []
+    document = document_json(path)
+    scenes = document.get("scenes") or []
     if len(scenes) <= 1:
         return {"scenes": len(scenes), "honoured": "single-scene"}
     default = document.get("scene", 0)
@@ -703,8 +704,9 @@ def keep_file_materials(imported):
     a `stated-invariant` case, so the oracle decides nothing about it and the disagreement is
     reported rather than tolerated as a tolerance.
     """
+    materials = subject_materials(imported)
     observed = []
-    for material in subject_materials(imported):
+    for material in materials:
         _, closure = surface_shader(material.node_tree) if material.node_tree else (None, None)
         observed.append({"material": material.name,
                          "declaresBackFaceCulling": material.use_backface_culling,
@@ -712,7 +714,43 @@ def keep_file_materials(imported):
                          "closure": closure.type if closure is not None else None})
     if not observed:
         fail("material.source is gltf and the subject wears no material at all")
-    return {"source": "gltf", "observed": observed}
+    return {"source": "gltf", "observed": observed,
+            "notALight": no_surface_of_the_subject_is_a_light(imported, materials)}
+
+
+def no_surface_of_the_subject_is_a_light(imported, materials):
+    """THE SUBJECT IS SEEN AND NEVER GATHERED FROM, which is what removes the estimator an emissive
+    asset carries into a scene whose only declared source has no area (doc/requirements.md I.26.13).
+
+    IT TAKES BOTH HALVES AND EITHER ALONE LEAVES AN INTEGRAL, because Cycles reaches a surface's
+    emission by two routes. Next-event estimation puts the emissive triangles in the light tree
+    beside the declared light and picks ONE per shading event; `emission_sampling = NONE` takes them
+    out of it. The integrator then still traces the one BSDF-sampled direction at zero bounces and
+    adds whatever emission that direction lands on; ray visibility is what stops it, and over a black
+    world it removes nothing else, since a gathering ray that meets no emitter returns zero whether
+    it escapes or is stopped.
+
+    CAMERA AND SHADOW VISIBILITY ARE UNTOUCHED, so the emissive map appears exactly where the texture
+    says it does and the body still casts its own shadow -- which is the whole of what these cases
+    are about, and the reason this is a reduction of the oracle rather than a tolerance on it.
+    """
+    for material in materials:
+        material.cycles.emission_sampling = "NONE"
+    gathered_from = []
+    for obj in imported:
+        if obj.type != "MESH":
+            continue
+        obj.visible_diffuse = False
+        obj.visible_glossy = False
+        obj.visible_transmission = False
+        obj.visible_volume_scatter = False
+        gathered_from.append({"object": obj.name, "camera": obj.visible_camera,
+                              "shadow": obj.visible_shadow, "diffuse": obj.visible_diffuse,
+                              "glossy": obj.visible_glossy,
+                              "transmission": obj.visible_transmission,
+                              "volumeScatter": obj.visible_volume_scatter})
+    return {"emissionSampling": sorted(set(m.cycles.emission_sampling for m in materials)),
+            "visibility": gathered_from}
 
 
 def apply_material(imported, declared):

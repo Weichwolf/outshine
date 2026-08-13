@@ -499,12 +499,11 @@ public:
   if (subject.Lights == SceneLights::DeclaredSun && !ReadDeclaredSun(light, subject.Sun, error)) {
     return false;
   }
-  /* WHETHER THE ORACLE STILL HAS AN ESTIMATOR IS DECLARED, ON BOTH ARMS AND IN ONE SPELLING. It
-   * used to be derived on the sun's arm -- "a declared sun is exactly one source and it has already
-   * been refused an area" -- and that argument is about the LIGHT where the question is about the
-   * SCENE: Cycles samples emissive geometry through the same light tree, so a subject whose own
-   * material emits is a second source the light declaration cannot see. The measurement that
-   * refuted it stands in the schema beside the field. */
+  /* WHETHER THE TWO SEEDS MUST AGREE BIT FOR BIT, declared in one spelling on both arms. A DECLARED
+   * SUN CAN NO LONGER ANSWER `selected`: the preparer takes the subject's own emission out of
+   * Cycles' light tree and out of every gathering ray, so that arm's enumeration has lost the word.
+   * The file's own lights are a different question -- their number is upstream's -- so the `gltf`
+   * arm keeps it. The measurements are in the schema's note beside the field. */
   subject.DeltaLit = light["estimator"].StrEquals("delta");
   /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
    * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is

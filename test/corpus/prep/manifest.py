@@ -163,6 +163,15 @@ class _Scene:
         self.light = field["light"]
         self.world = field["world"]
         self.material = field["material"]
+        # THE ONE NUMBER THAT COULD MAKE A DECLARED SUN AN AREA SOURCE, refused here because the sun
+        # arm no longer carries a field in which a case could admit the estimator it would get back.
+        # The runner refuses the same number when it builds its own light; this refusal is what stops
+        # the ORACLE being rendered with a disc in the first place.
+        if self.light["kind"] == "sun" and self.light["angleRad"] != 0:
+            raise Refusal("manifest.scene.light.angleRad", expected="0",
+                          observed=repr(self.light["angleRad"]),
+                          why="a sun with an angle is a disc, which is an area source and an "
+                              "estimator, and this arm's whole claim is that it has none")
 
     def as_job(self):
         return {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
@@ -181,11 +190,11 @@ def _seed_shift(material, renders, light):
     # A punctual light with no radius is a delta source, so a scene lit only by such lights and by a
     # world of strength zero is sampled deterministically too -- the same claim, reached from the
     # other side, and the same acceptance.
-    # THE SUN ARM DECLARES `estimator` TOO AND IT IS NOT DERIVED FROM `angleRad`. This line used to
-    # read "a declared sun of angular diameter zero is the same claim spelt as a number", and that
-    # was measured false: Cycles puts emissive GEOMETRY in the same light tree, so a subject whose
-    # own material emits is a second sampled source however many lights the scene declares. The
-    # numbers are in the schema's own note beside the field.
+    # A DECLARED SUN CAN NO LONGER ANSWER `selected`. The arm declares a single source, the angle is
+    # refused where the scene is read, and `no_surface_of_the_subject_is_a_light` takes the subject's
+    # own emission out of the light tree and out of every gathering ray -- so the word left the sun
+    # arm's enumeration rather than staying spellable. What the file's OWN lights bring is a
+    # different question and the `gltf` arm keeps it.
     reduced = (material.get("kind") in ("emission", "emission-per-material") or
                light.get("estimator") == "delta")
     if not reduced:

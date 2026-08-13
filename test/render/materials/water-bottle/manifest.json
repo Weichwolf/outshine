@@ -109,13 +109,13 @@
         -0.5
       ],
       "angleRad": 0.0,
-      "estimator": "selected",
+      "estimator": "delta",
       "colourLinear": [
         1.0,
         1.0,
         1.0
       ],
-      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and on a metal-rough asset that is what makes the row decidable at all: a uniform environment delivers the same radiance from every direction, so roughness, metalness and the normal map all stop changing the picture. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE BEAM IS SLANTED OFF THE VIEW AXIS -- the framing rule puts the eye at azimuth 35 deg and elevation 20 deg, and a light down the same axis is a headlight that flattens every form the row is supposed to shape.\n\nESTIMATOR: SELECTED AND NOT DELTA, AND THE REASON IS THE ASSET RATHER THAN THE LIGHT: this subject's material declares an emissiveTexture, so its own surface is a second source in Cycles' light tree and Cycles picks one per shading event. MEASURED between seed 0 and seed 1 under this exact recipe: 67 578 binary colour samples -- one side exactly zero -- over a body whose alpha channel is identical in both, so what flips is the light chosen and never the coverage."
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and on a metal-rough asset that is what makes the row decidable at all: a uniform environment delivers the same radiance from every direction, so roughness, metalness and the normal map all stop changing the picture. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE BEAM IS SLANTED OFF THE VIEW AXIS -- the framing rule puts the eye at azimuth 35 deg and elevation 20 deg, and a light down the same axis is a headlight that flattens every form the row is supposed to shape.\n\nTHE SUBJECT'S OWN SURFACE IS NOT A SECOND SOURCE, AND THAT IS A REDUCTION OF THE ORACLE RATHER THAN A TOLERANCE ON IT. This material declares an emissiveTexture, so Cycles used to carry its triangles in the light tree beside the sun and pick one per shading event: MEASURED between seed 0 and seed 1 under this exact recipe, 67 578 binary colour samples -- one side exactly zero -- over a body whose alpha channel was identical in both, which is a reference peppered with black dots. The preparer now states in the scene what these cases are actually about: the emissive map is SEEN and never GATHERED FROM. Two seeds, same recipe, after: 0 colour samples differ, and the camera and shadow visibility that carry the map and the body's own shadow are untouched."
     },
     "world": {
       "kind": "uniform",
@@ -167,6 +167,40 @@
       },
       "exrCodec": "ZIP",
       "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same coverage predicate a centre-sampling rasteriser does. The only source is a light with no area over a world of strength zero, so the estimator has no variance left and the two seeds must agree bit for bit."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of what the reduction is accepted on. The only source in this scene is a sun of angular diameter zero over a world of strength zero, and the subject's own surface is no longer one -- `emission_sampling = NONE` takes it out of the light tree and its ray visibility takes it out of the one BSDF-sampled direction the integrator still traces at zero bounces -- so the oracle has no estimator left and the two dumps must agree bit for bit. Any difference NAMES the source that still gathers."
     }
   },
   "notes": "A BODY OF REVOLUTION IS THE SHAPE THAT SHOWS A ROUGHNESS MAP, because a cylinder sweeps the half-vector through the whole specular lobe in one picture where a flat plate samples one point of it. The cap is metal and the sleeve is not, both stated in one metallicRoughnessTexture, and the label is a separate region of the base colour; what is readable from the picture is that the cap has a metal's tinted highlight and the sleeve a dielectric's white one. SUBJECT CLASS IS DERIVED: 0.13552673046187069 of 1280x720 = 124902 px^2 over 4510 triangles is 27.7 px^2 per triangle over both sides, about 14 px^2 facing the camera.",

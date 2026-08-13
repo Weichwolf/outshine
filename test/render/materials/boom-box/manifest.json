@@ -109,13 +109,13 @@
         -0.5
       ],
       "angleRad": 0.0,
-      "estimator": "selected",
+      "estimator": "delta",
       "colourLinear": [
         1.0,
         1.0,
         1.0
       ],
-      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and on a metal-rough asset that is what makes the row decidable at all: a uniform environment delivers the same radiance from every direction, so roughness, metalness and the normal map all stop changing the picture. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE BEAM IS SLANTED OFF THE VIEW AXIS -- the framing rule puts the eye at azimuth 35 deg and elevation 20 deg, and a light down the same axis is a headlight that flattens every form the row is supposed to shape.\n\nESTIMATOR: SELECTED AND NOT DELTA, AND THE REASON IS THE ASSET RATHER THAN THE LIGHT: this subject's material declares an emissiveTexture, so its own surface is a second source in Cycles' light tree and Cycles picks one per shading event. MEASURED between seed 0 and seed 1 under this exact recipe: 55 496 binary colour samples -- one side exactly zero -- over a body whose alpha channel is identical in both, so what flips is the light chosen and never the coverage."
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and on a metal-rough asset that is what makes the row decidable at all: a uniform environment delivers the same radiance from every direction, so roughness, metalness and the normal map all stop changing the picture. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE BEAM IS SLANTED OFF THE VIEW AXIS -- the framing rule puts the eye at azimuth 35 deg and elevation 20 deg, and a light down the same axis is a headlight that flattens every form the row is supposed to shape.\n\nTHE SUBJECT'S OWN SURFACE IS NOT A SECOND SOURCE, AND THAT IS A REDUCTION OF THE ORACLE RATHER THAN A TOLERANCE ON IT. This material declares an emissiveTexture, so Cycles used to carry its triangles in the light tree beside the sun and pick one per shading event: MEASURED between seed 0 and seed 1 under this exact recipe, 55 496 binary colour samples -- one side exactly zero -- over a body whose alpha channel was identical in both. The preparer now takes it out of the light tree AND out of the one BSDF-sampled direction the integrator still traces at zero bounces; the second half is not optional here, since the first alone left 42 samples over 15 pixels where a sampled direction found the lit speaker ring. Two seeds, same recipe, after: 0."
     },
     "world": {
       "kind": "uniform",
@@ -167,6 +167,40 @@
       },
       "exrCodec": "ZIP",
       "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same coverage predicate a centre-sampling rasteriser does. The only source is a light with no area over a world of strength zero, so the estimator has no variance left and the two seeds must agree bit for bit."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of what the reduction is accepted on. The only source in this scene is a sun of angular diameter zero over a world of strength zero, and the subject's own surface is no longer one -- `emission_sampling = NONE` takes it out of the light tree and its ray visibility takes it out of the one BSDF-sampled direction the integrator still traces at zero bounces -- so the oracle has no estimator left and the two dumps must agree bit for bit. Any difference NAMES the source that still gathers."
     }
   },
   "notes": "KHRONOS'S OWN WORDS NAME THE GLOWING FRONT PANEL, AND THAT PANEL IS ONE IMAGE. The material states emissiveFactor [1, 1, 1] and puts the whole of the glow in emissiveTexture, so a renderer that read the factor and not the image emits white over the entire body -- the criterion inverted rather than missed. That is what this case is here to show, and it is readable from the picture: the panel is lit and the rest of the box is not. SUBJECT CLASS IS DERIVED: 0.10820033856560365 of 1280x720 = 99716 px^2 over 6036 triangles counted by the magnitude of their signed area is 16.5 px^2 per triangle over both sides of a closed body, about 8 px^2 on the side facing the camera, so no part of this subject is sub-pixel.",
