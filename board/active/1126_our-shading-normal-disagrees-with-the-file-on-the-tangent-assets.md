@@ -200,3 +200,20 @@ while right in the *normal* was an artefact of its tilt distribution, not a sepa
 **What remains is one question with a sharp shape**: what makes our mapped normal tilt ~13 % further in
 sine than Cycles' once the perturbation exceeds about 45°, uniformly across every column, with the
 tangential direction identical to a fiftieth of a degree.
+
+**The next measurement, and it cannot come from the raws already on disk.** They hold the three
+*resulting* normals; the question is now about the **tap** — the sampled texel before the basis is
+applied — and about the `uv` it was sampled at. **Dump both**, at the shading point, the way the normal
+already is.
+
+**What each candidate predicts, written before the measurement:**
+
+- **`tap.z` verbatim against a reconstructed `z = √(1 − x² − y²)`** → our tap's `z` is measurably below
+  the reconstruction, by the amount the ratio implies: at `sin_c = 0.75` and ratio 1.129, `z_s ≈ 0.471`
+  against a reconstruction of 0.661, so `‖tap‖ ≈ 0.886` rather than 1.
+- **A sampling difference** — a half-texel offset, a different filter — → the two taps differ at the same
+  `uv`, and the difference tracks the texture-space gradient rather than the tilt.
+- **Neither** → the taps agree and the divergence is downstream of the sample, which would be the first
+  real surprise in this investigation.
+
+**`‖tap‖` is the single number that separates the first two**, and it is one dump away.
