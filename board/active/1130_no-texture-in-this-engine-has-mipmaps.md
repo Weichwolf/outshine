@@ -109,3 +109,31 @@ Cycles has no such pass among the ones enumerated on this host, so it is not one
 `QUANTITY_PASSES`. The cheaper route is to look at the **uv field itself**: a seam shows as a jump whose
 size is an island's width and whose direction is consistent along a line, while a stretched surface shows
 a gradient that grows smoothly. **That is arithmetic on `oracle.uv.raw` and it is the next thing to try.**
+
+**Measured from the `uv` field: it is a JUMP, not a stretch.**
+
+| | |
+|---|---|
+| ρ at the pixel against the median of its own 5×5 neighbourhood | **712×** p50, 985× p90 |
+| isolated spikes (ratio > 10) | **98.7 %** |
+| contiguous horizontal run length | **1 of 3** — single-pixel lines |
+| share of covered pixels | **2.06 %** |
+
+**Single-pixel derivative spikes in an otherwise ordinary neighbourhood** is the signature of a quad
+straddling a **UV discontinuity** — and on this asset's 4×5 grid of cells that is the cell boundaries,
+one pixel wide. It also explains why the index test was vacuous: it was reaching for exactly this, and
+the boundary being crossed is a **UV island** boundary rather than a surface one, which one object and
+one material cannot distinguish.
+
+**The rung is still not chosen here, and now the question is sharp enough to choose properly.** The
+artifact is intrinsic to computing LOD from **screen-space differences**, which every rasteriser does and
+which Cycles does not — it takes the footprint analytically per intersection. So:
+
+- ***fix the engine*** would mean the LOD selection surviving a discontinuity — clamping, or explicit
+  gradients where the derivative is available analytically.
+- ***patch the asset*** would mean padding the UV islands, which is the standard authoring answer to
+  precisely this and is applied identically to both sides.
+
+**What decides it is whether a rasteriser is expected to survive an unpadded atlas** — a question with a
+literature answer, and the reason this item says *choose with the references rather than the first idea
+that fits*.
