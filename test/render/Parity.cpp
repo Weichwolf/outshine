@@ -49,7 +49,8 @@
 #include "ManifestSchema.h"
 #include "Mask.h"
 #include "Metric.h"
-#include "OracleRaw.h"
+#include "RawF32.h"
+#include "PictureBound.h"
 #include "Pictures.h"
 #include "Radiance.h"
 #include "Ties.h"
@@ -187,6 +188,10 @@ struct Case {
    * `stated-invariant` -- which is the only kind that has any. */
   std::vector<Invariant> Invariants;
   SurfaceTable Surfaces;
+  /* WHAT IS IN THIS CASE'S PATH THAT IS KNOWN TO DIFFER, and therefore what the picture bound's tail
+   * is the sum of. Every field of it is read off the case or off the resolved surfaces; none of it
+   * is a threshold a manifest can set (doc/requirements.md I.26.15). */
+  PathContents Path;
 };
 
 
@@ -407,6 +412,49 @@ public:
   return false;
 }
 
+/* WHAT THE ORACLE STILL CARRIES THAT OUR PICTURE CANNOT BE HELD TO, read off the case's own
+ * description of its reference and never off a tolerance (doc/requirements.md I.26.15).
+ *
+ * `not-bit-reproducible` OWES ITS MEASUREMENT AND IS REFUSED WITHOUT ONE. It is not an estimator --
+ * there is nothing random left in the mathematics -- so a bound is derivable; but it is not zero
+ * either, and what makes it a number is the residue between two renders of the same scene at the
+ * same seed on this host. A case that claimed the word without the number would be claiming room it
+ * had not measured. */
+[[nodiscard]] bool ReadOraclePath(const Json::Ref &light, PathContents &path, std::string &error) {
+  path.OracleEstimates = light["estimator"].StrEquals("selected");
+  path.OracleIsHostIrreproducible = light["estimator"].StrEquals("not-bit-reproducible");
+  if (!path.OracleIsHostIrreproducible) { return true; }
+  if (!ReadDeclaredNumber(light["hostResidueRelative"], "scene.light.hostResidueRelative",
+                          path.OracleHostResidueRelative, error)) {
+    return false;
+  }
+  if (light["hostResidueRelative"]["origin"].Str("") != "measured") {
+    error = "scene.light.hostResidueRelative is not measured, and the host's own irreproducibility "
+            "is not a quantity anything can derive";
+    return false;
+  }
+  return true;
+}
+
+/* THE DISPLAY TRANSFER BOTH SIDES ARE READ THROUGH, and the runner refuses any spelling but the one
+ * it implements rather than quietly scoring on a curve nobody applied. `Standard` over an `sRGB`
+ * device is the sRGB OETF and nothing else, which is exactly what our plan's `Transfer::Linear` into
+ * an sRGB-encoding attachment produces -- so the picture bound's `T` is the same function on both
+ * sides. Every exposure and gamma in the chain must be the identity, because a case that scaled one
+ * of them would be compared on an axis this runner does not know it is on. */
+[[nodiscard]] bool ReadDisplayTransfer(const Json::Ref &recipe, std::string &error) {
+  const Json::Ref colour = recipe["colourManagement"];
+  const bool standard = colour["viewTransform"].StrEquals("Standard") &&
+                        colour["displayDevice"].StrEquals("sRGB") &&
+                        colour["look"].StrEquals("None") && colour["exposure"].Num(1.0) == 0.0 &&
+                        colour["gamma"].Num(0.0) == 1.0 && recipe["filmExposure"].Num(0.0) == 1.0;
+  if (standard) { return true; }
+  error = "the recipe's colour management is not the sRGB transfer at unit exposure, and the "
+          "picture bound is computed on the transfer the case declares -- this runner implements "
+          "that one only";
+  return false;
+}
+
 [[nodiscard]] bool ReadManifest(Case &subject, std::string &error) {
   const std::string manifestText = Slurp(subject.Directory + "manifest.json");
   if (manifestText.empty()) {
@@ -505,6 +553,8 @@ public:
    * The file's own lights are a different question -- their number is upstream's -- so the `gltf`
    * arm keeps it. The measurements are in the schema's note beside the field. */
   subject.DeltaLit = light["estimator"].StrEquals("delta");
+  if (!ReadOraclePath(light, subject.Path, error)) { return false; }
+  if (!ReadDisplayTransfer(root["renders"]["default"], error)) { return false; }
   /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
    * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is
    * the arm a case takes to REMOVE the environment, and the only value in the tree today is zero --
@@ -931,6 +981,24 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   return true;
 }
 
+/* WHETHER A WEIGHT IS INTERPOLATED ANYWHERE IN THIS CASE'S PATH, asked of the surfaces that were
+ * actually bound rather than of anything a manifest says. An image of one texel has no span to
+ * interpolate across and a nearest-filtered one carries no weight, so neither puts the sampler term
+ * into the bound -- and a case cannot acquire the term by declaring anything (I.26.15). */
+[[nodiscard]] bool AnyLinearFilteredImage(const SurfaceTable &surfaces) {
+  const auto interpolates = [](const outshine::Render::SubjectTexture &image) {
+    return image.Rgba != nullptr && (image.Width > 1u || image.Height > 1u) &&
+           image.Magnify == outshine::Render::SubjectFilter::Linear;
+  };
+  for (const outshine::Render::SubjectMaterial &slot : surfaces.Slots) {
+    if (interpolates(slot.Colour) || interpolates(slot.Normal) || interpolates(slot.MetalRough) ||
+        interpolates(slot.Emissive)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
   const std::string entry =
       subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
@@ -952,6 +1020,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   if (!ResolveEmission(subject, subject.File, subject.Geometry, subject.Emitted, error)) {
     return false;
   }
+  subject.Path.LinearFilteredSampler = AnyLinearFilteredImage(subject.Surfaces);
   return ResolveCamera(subject, error);
 }
 
@@ -1005,7 +1074,7 @@ Mask FromDepth(const std::vector<float> &depth, int width, int height) {
 
 /* THE ORACLE'S SIDE IS ITS ALPHA, which Cycles writes only for camera rays carrying the transparent
  * background flag -- an exact coverage channel that never touched the lighting. */
-Mask FromOracle(const OracleRaw &oracle) {
+Mask FromOracle(const RawF32 &oracle) {
   Mask mask;
   mask.Width = oracle.Width();
   mask.Height = oracle.Height();
@@ -1034,7 +1103,7 @@ uint8_t Srgb8(double linear) {
 /* THE ORACLE'S FRAME IN OUR OUTPUT'S FORM: RGB through the sRGB transfer, alpha carried straight
  * across as the coverage it already is. The three colour channels get a curve and the fourth does
  * not, because alpha is not a colour and encoding it would bend a coverage into a display code. */
-std::vector<uint8_t> Encoded(const OracleRaw &oracle) {
+std::vector<uint8_t> Encoded(const RawF32 &oracle) {
   std::vector<uint8_t> rgba((size_t)oracle.Width() * (size_t)oracle.Height() * 4u);
   for (int y = 0; y < oracle.Height(); ++y) {
     for (int x = 0; x < oracle.Width(); ++x) {
@@ -1101,7 +1170,7 @@ void ScoreDeterminism(const Case &subject, const outshine::Clients::Studio &stud
    * enforcing something the case states it is not for. A case whose surface is the FILE's is about
    * the value, and there the number is the verdict. Both print it, so the residual is visible in
    * every log whether or not it decides that log's colour. */
-void ScoreRadianceResidual(const Case &subject, const Picture &picture, const OracleRaw &oracle,
+void ScoreRadianceResidual(const Case &subject, const Picture &picture, const RawF32 &oracle,
                            std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   const RadianceResidual radiance = Radiance(picture.Linear, oracle);
@@ -1140,7 +1209,7 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Or
  * line number is what sends a reader to the phase that stopped. */
 enum class Prepared { Yes, No };
 
-Prepared Prepare(Case &subject, OracleRaw &oracle, size_t &seedApart,
+Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
                  outshine::Render::Renderer &renderer) {
   using namespace outshine::Test;
   std::string why;
@@ -1201,7 +1270,7 @@ Prepared Prepare(Case &subject, OracleRaw &oracle, size_t &seedApart,
    * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
    * doc/requirements.md I.26.13. */
   if (Reduced(subject)) {
-    OracleRaw shifted;
+    RawF32 shifted;
     const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
     CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
     if (!haveShift) {
@@ -1434,34 +1503,80 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
 }
 
-/* WHAT A RENDER CASE IS FOR: the rendered image against the oracle's, channel by channel, ALPHA
- * INCLUDED. Both sides are RGBA with straight alpha and alpha is coverage, so a pixel where one side
- * drew a black subject and the other drew nothing differs here -- which under a three-channel
- * comparison it did not. */
-struct ImageDelta {
-  size_t Differing = 0;
-  int MaxChannel = 0;
-  double MeanAbs = 0;
-};
-
-ImageDelta CompareImages(const std::vector<uint8_t> &ours, const std::vector<uint8_t> &theirs) {
-  ImageDelta delta;
-  double total = 0;
-  const size_t pixels = theirs.size() / 4u;
-  for (size_t pixel = 0; pixel < pixels; ++pixel) {
-    bool differs = false;
-    for (size_t channel = 0; channel < 4; ++channel) {
-      const int want = theirs[pixel * 4u + channel];
-      const int got = ours[pixel * 4u + channel];
-      const int apart = got > want ? got - want : want - got;
-      if (apart > delta.MaxChannel) { delta.MaxChannel = apart; }
-      total += apart;
-      differs = differs || apart != 0;
-    }
-    delta.Differing += differs ? 1u : 0u;
+/* THE PICTURE BOUND, SCORED AND PUBLISHED (doc/requirements.md I.26.15). The bound is the sum of the
+ * terms this case's own path puts in it, the metric is the tail, and the histogram beside it is
+ * unbounded by design -- 519 pixels at one code and 5 190 pixels at one code are equally acceptable,
+ * and one pixel past the tail is red.
+ *
+ * IT REPLACED THE PNG COMPARISON RATHER THAN JOINING IT. `image_pixels_differing` asked the same
+ * question -- whole image, RGBA, ours against the oracle's -- through two 8-bit encodings, so its
+ * own rounding was inside the answer and its unit could not be smaller than a code. Two instruments
+ * for one claim is how the two come to disagree.
+ *
+ * THE BUCKET COUNTS ARE PRINTED SPARSELY. A case at zero prints one line saying so, and a case with
+ * a tail prints the buckets that hold something -- 256 lines of zeros would bury the tail that
+ * decides it. */
+void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
+                       std::vector<Metric> &metrics) {
+  using namespace outshine::Test;
+  for (const BoundTerm &term : bound.Terms) {
+    std::printf("BOUND  %-56s %14.9g codes\n", term.Mechanism.c_str(), term.Codes);
   }
-  delta.MeanAbs = pixels > 0 ? total / (4.0 * (double)pixels) : 0.0;
-  return delta;
+  if (!bound.Enforced) {
+    std::printf("BOUND  %-56s %14s\n",
+                "the oracle still estimates, so no tail bound may be enforced", "--");
+  }
+  metrics.push_back({"picture_max_delta_code", picture.MaxCode, bound.Codes, "codes",
+                     bound.Enforced ? Direction::AtMost : Direction::Reported});
+  metrics.push_back({"picture_max_delta_code_colour", picture.MaxColourCode, 0.0, "codes",
+                     Direction::Reported});
+  metrics.push_back({"picture_max_delta_code_alpha", picture.MaxAlphaCode, 0.0, "codes",
+                     Direction::Reported});
+  metrics.push_back({"picture_pixels_differing", (double)picture.PixelsDiffering, 0.0, "px",
+                     Direction::Reported});
+  metrics.push_back({"picture_channels_compared", (double)picture.ChannelsCompared, 0.0, "channels",
+                     Direction::Reported});
+  size_t occupied = 0;
+  for (size_t bucket = 0; bucket < kCodeBuckets; ++bucket) {
+    if (picture.Buckets[bucket] == 0) { continue; }
+    ++occupied;
+    std::printf("HIST   delta_code in [%zu, %zu): %zu channels\n", bucket, bucket + 1,
+                picture.Buckets[bucket]);
+  }
+  if (occupied == 0) {
+    std::printf("HIST   every channel of every pixel agrees to the last bit of the transfer\n");
+  }
+  if (picture.MaxCode > 0.0) {
+    Note("worst picture disagreement, at x", (double)picture.WorstX, "px");
+    Note("worst picture disagreement, at y", (double)picture.WorstY, "px");
+    Note("worst picture disagreement, channel", (double)picture.WorstChannel, "index, 3 is alpha");
+    Note("worst picture disagreement, ours", picture.WorstOurs, "codes");
+    Note("worst picture disagreement, oracle", picture.WorstTheirs, "codes");
+  }
+}
+
+/* THE TWO COUNTS THE SUITE IS QUOTED BY, PRINTED ONCE PER CASE SO THAT NEITHER CAN BE QUOTED FOR THE
+ * OTHER (doc/requirements.md I.26.15). Khronos's criterion is a statement about a FEATURE and it
+ * does not stop being met because our picture is not the reference's picture; the picture bound is
+ * about the PICTURE and it is the owner's standard. THE CASE IS RED IF EITHER IS RED, and the two
+ * lines are what make "the suite is green" unsayable without saying which of them it is about. */
+void SayBothVerdicts(const std::vector<Metric> &metrics, const Tail &bound) {
+  bool criterionMet = true;
+  bool withinPicture = true;
+  for (const Metric &metric : metrics) {
+    if (metric.Against == Direction::Reported || metric.Held()) { continue; }
+    if (metric.Name == "picture_max_delta_code") {
+      withinPicture = false;
+      continue;
+    }
+    criterionMet = false;
+  }
+  std::printf("KHRONOS-CRITERION %s\n", criterionMet ? "met" : "red");
+  /* A CASE WHOSE ORACLE STILL ESTIMATES IS NOT WITHIN THE BOUND, IT IS UNBOUNDED. Printing `within`
+   * there would be the escape hatch I.26.15 refuses, one word further along: a case nobody can count
+   * either way would be counted as a pass. */
+  std::printf("PICTURE-BOUND %s\n",
+              !bound.Enforced ? "not-enforced" : (withinPicture ? "within" : "outside"));
 }
 
 std::string Argument(int argc, char **argv) {
@@ -1486,7 +1601,7 @@ int main(int argc, char **argv) {
   if (subject.Directory.empty()) { return Report(); }
   std::printf("CASE %s\n", subject.Directory.c_str());
 
-  OracleRaw oracle;
+  RawF32 oracle;
   size_t seedApart = 0;
   outshine::Render::Renderer renderer;
   if (Prepare(subject, oracle, seedApart, renderer) == Prepared::No) {
@@ -1519,6 +1634,35 @@ int main(int argc, char **argv) {
         "0-reference.png is written from the same floats the score is computed on");
   CHECK(products.Png("1-outshine.png", picture.Rgba, ours.Width, ours.Height, unwritten),
         "1-outshine.png is written beside the reference, pass or fail");
+  if (!unwritten.empty()) { Refused(unwritten); }
+
+  /* OUR FLOAT FRAME BESIDE THE ORACLE'S, IN THE ORACLE'S OWN LAYOUT. Until it existed the compared
+   * values were openable on one side and not on the other, so a case failing on floats -- which is
+   * the whole of the picture bound -- left nothing to look at, which is the position the owner was
+   * in when the mask was green and the picture was wrong. `.raw` is DATA and not a picture, so the
+   * two-picture rule above is untouched: what may not be in this folder is a third IMAGE.
+   *
+   * IT IS THE BUFFER THE BOUND IS COMPUTED ON, and the read-back below is what makes that a checked
+   * property rather than a sentence: the file is opened again through the same reader the oracle is
+   * read through and held against the samples that were scored. A writer that put down anything
+   * else would rebuild exactly the split -- the picture showing one thing, the score measuring
+   * another -- that this whole round is about. */
+  const std::vector<float> scored = ScoredFrame(picture.Linear, ours);
+  const bool wroteFloats =
+      !scored.empty() &&
+      WriteRawF32(subject.Directory + "outshine.raw", scored, ours.Width, ours.Height, 4, unwritten);
+  CHECK(wroteFloats, "outshine.raw is written beside oracle.raw, in the same OSRAWF32 layout and "
+                     "from the samples the picture bound is computed on");
+  RawF32 stored;
+  bool storedIsScored = wroteFloats && stored.ReadFile(subject.Directory + "outshine.raw");
+  for (size_t sample = 0; storedIsScored && sample < scored.size(); ++sample) {
+    const int channels = 4;
+    const int at = (int)(sample / (size_t)channels);
+    storedIsScored = stored.At(at % ours.Width, at / ours.Width,
+                               (int)(sample % (size_t)channels)) == scored[sample];
+  }
+  CHECK(storedIsScored, "outshine.raw reads back through the oracle's own reader as the samples "
+                        "that were scored, so the file on disk IS the frame the number came from");
   if (!unwritten.empty()) { Refused(unwritten); }
 
   std::vector<Metric> metrics;
@@ -1600,13 +1744,14 @@ int main(int argc, char **argv) {
    * other kind, and the reason the two are never both enforced on one case. */
   ScoreStatedInvariants(subject, picture, metrics);
 
-  const ImageDelta image = CompareImages(picture.Rgba, reference);
-  metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
-                     subject.Criterion == CriterionKind::Numeric ? Direction::AtMost
-                                                                 : Direction::Reported});
-  metrics.push_back({"image_max_channel_delta", (double)image.MaxChannel, 0.0, "sRGB8",
-                     Direction::Reported});
-  metrics.push_back({"image_mean_abs_delta", image.MeanAbs, 0.0, "sRGB8", Direction::Reported});
+  /* THE PICTURE ITSELF, WHOLE, ON THE LINEAR TAP AND ON THE DECLARED TRANSFER (I.26.15). Our alpha
+   * is `covered(sceneDepth)`, so it comes from the depth mask and not from the colour attachment --
+   * the same expression the display shader evaluates, over the same input. */
+  const PictureDelta image = ComparePicture(scored, oracle);
+  CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
+                          "pixel of the picture has something to be compared against");
+  const Tail bound = BoundFor(subject.Path);
+  ScorePictureBound(image, bound, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 
@@ -1678,13 +1823,14 @@ int main(int argc, char **argv) {
    * failures a render case can have, and they lead to different work: geometry in the wrong pixels
    * is the reader, the camera or the raster convention, and it stops the shading question being
    * asked at all; geometry in the right pixels with a different image is the shading. */
-  if (image.Differing > 0) {
+  if (image.PixelsDiffering > 0) {
     const bool placed = boundary.P95 <= subject.Accepted.BoundaryP95MaxPx;
     Note(placed ? "attribution: the geometry is in the right pixels and the shading is wrong"
                : "attribution: the geometry is in the wrong pixels, so the shading is not reached");
   }
 
   Print(metrics);
+  SayBothVerdicts(metrics, bound);
   for (const Metric &metric : metrics) {
     if (metric.Against == Direction::Reported) { continue; }
     CHECK(metric.Held(), metric.Name.c_str());

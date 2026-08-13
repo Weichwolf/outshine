@@ -110,6 +110,12 @@
       ],
       "angleRad": 0.0,
       "estimator": "not-bit-reproducible",
+      "hostResidueRelative": {
+        "value": 3.04e-06,
+        "unit": "dimensionless",
+        "origin": "measured",
+        "note": "The worst relative disagreement between two renders of this scene at the same seed on this host, over 22 renders: four distinct results differing on at most 280 of 2 764 800 colour samples. It is what the picture bound turns into display codes, and without it `not-bit-reproducible` is a word with no measurement under it (doc/requirements.md I.26.15)."
+      },
       "colourLinear": [
         1.0,
         1.0,

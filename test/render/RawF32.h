@@ -1,11 +1,17 @@
-/* THE ORACLE'S PIXELS, as the preparer dumped them beside the EXR: SDL3 provides no EXR reader and
- * vendoring OpenEXR to compute a coverage fraction would buy nothing (doc/requirements.md I.26.10).
+/* `OSRAWF32` -- THE FLOAT IMAGE FORMAT BOTH SIDES OF A COMPARISON ARE WRITTEN IN AND READ THROUGH.
+ * The preparer dumps the oracle beside its EXR because SDL3 provides no EXR reader and vendoring
+ * OpenEXR to compute a coverage fraction would buy nothing (doc/requirements.md I.26.10).
  *
- * AN ABSENT OR MALFORMED ORACLE IS A REFUSAL AND NEVER A SKIP. A case that quietly compares against
+ * IT USED TO BE THE ORACLE'S ALONE AND THAT WAS AN ASYMMETRY, not a design: the compared values on
+ * one side of the picture bound were openable and on the other side they were not, so a case failing
+ * on floats left nothing to look at. `Written` puts our frame down in the same layout, so ONE READER
+ * opens both and a person comparing them is comparing like with like.
+ *
+ * AN ABSENT OR MALFORMED FILE IS A REFUSAL AND NEVER A SKIP. A case that quietly compares against
  * nothing is the hollow green the whole render suite is built to make impossible, so every early
  * return below carries the sentence that says which file and which field. */
-#ifndef RENDER_ORACLERAW_H
-#define RENDER_ORACLERAW_H
+#ifndef RENDER_RAWF32_H
+#define RENDER_RAWF32_H
 
 #include <cstdint>
 #include <cstdio>
@@ -15,7 +21,7 @@
 
 namespace outshine::Render::Parity {
 
-class OracleRaw {
+class RawF32 {
 public:
   [[nodiscard]] bool ReadFile(const std::string &path) {
     Error_.clear();
@@ -95,6 +101,49 @@ private:
   int Width_ = 0, Height_ = 0, Channels_ = 0;
   bool TopRowFirst_ = true;
 };
+
+/* THE WRITER, AND IT IS THE READER'S OWN INVERSE: the same eight-byte tag, the same native
+ * `0x01020304` mark, the same seven header words. It is the whole of the format's second half and it
+ * stands beside the first so the two cannot drift.
+ *
+ * THE CALLER HANDS THE SAMPLES THE SCORE WAS COMPUTED ON AND NOTHING ELSE. A writer that re-derived
+ * anything -- re-rendered, re-transformed, recomposed an alpha -- would put a file in the directory
+ * that is not what the number came from, which is exactly the split this exists to close. */
+[[nodiscard]] inline bool WriteRawF32(const std::string &path, const std::vector<float> &samples,
+                                      int width, int height, int channels, std::string &error) {
+  if (samples.size() != (size_t)width * (size_t)height * (size_t)channels) {
+    error = path + ": " + std::to_string(samples.size()) + " samples is not " +
+            std::to_string(width) + "x" + std::to_string(height) + "x" + std::to_string(channels);
+    return false;
+  }
+  if (channels != 4) {
+    error = path + ": this writer emits RGBA and was asked for " + std::to_string(channels) +
+            " channels";
+    return false;
+  }
+  /* The channel names and the pad to a four-byte boundary are the preparer's, copied so the two
+   * files are the same 44 bytes of header and not two dialects one reader happens to accept. */
+  static const char kNames[8] = {'R', 0, 'G', 0, 'B', 0, 'A', 0};
+  constexpr uint32_t kHeaderBytes = 44;
+  const uint32_t field[7] = {0x01020304u,        1u,           (uint32_t)width, (uint32_t)height,
+                             (uint32_t)channels, kHeaderBytes, 0u};
+  std::FILE *file = std::fopen(path.c_str(), "wb");
+  if (!file) {
+    error = path + " could not be opened for writing";
+    return false;
+  }
+  const bool whole = std::fwrite("OSRAWF32", 1, 8, file) == 8 &&
+                     std::fwrite(field, 1, sizeof field, file) == sizeof field &&
+                     std::fwrite(kNames, 1, sizeof kNames, file) == sizeof kNames &&
+                     std::fwrite(samples.data(), sizeof(float), samples.size(), file) ==
+                         samples.size();
+  std::fclose(file);
+  if (!whole) {
+    error = path + " was opened and not written whole";
+    return false;
+  }
+  return true;
+}
 
 } // namespace outshine::Render::Parity
 #endif

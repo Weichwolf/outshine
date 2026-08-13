@@ -25,7 +25,7 @@
 #include <vector>
 
 #include "Metric.h"
-#include "OracleRaw.h"
+#include "RawF32.h"
 
 namespace outshine::Render::Parity {
 
@@ -65,7 +65,7 @@ struct RadianceResidual {
 
 /* `linear` is the plan's `sceneLinear` readback, RGBA f32, row-major, top row first. */
 [[nodiscard]] inline RadianceResidual Radiance(const std::vector<float> &linear,
-                                               const OracleRaw &oracle) {
+                                               const RawF32 &oracle) {
   RadianceResidual out;
   std::vector<double> relative;
   const size_t width = static_cast<size_t>(oracle.Width());
