@@ -102,3 +102,30 @@ unused, the comment describes a role it does not play, and writing `front ? 1 : 
 term in a macro that already exists at all nine call sites. **Fix the comment in the round that uses the
 channel**, since a channel documented as carrying one thing and carrying another is how this tree's
 instruments have gone wrong three times today.
+
+**Both candidates are refuted, and a deduction replaces them.**
+
+- **Back-face frame** — real by algebra, **0 shaded back-facing fragments** on either asset. Filed as
+  `board:1127`. `doubleSided: true` made the branch *reachable*; reachable is not exercised.
+- **The normal map's colour space** — `BindSurface` uploads `slot.Normal` with `Transfer::Linear`,
+  which is what glTF requires. Colour and emissive are `Srgb`. The slot decides, and correctly.
+
+**The cause is downstream of the tangent source, and that follows from what the tree already tests.**
+`test/unit/gltf/AGeneratedBasisIsTheOneTheExporterWrote.cpp` establishes that the two assets differ in
+exactly one thing: **`NormalTangentMirrorTest` supplies `TANGENT` and is taken verbatim;
+`NormalTangentTest` supplies none and is generated.** Khronos ships both to catch an engine that always
+regenerates, and `Part::TangentSource` makes which one readable.
+
+**Both disagree with Cycles.** If our generator were wrong only the second would; if our verbatim
+handling were wrong only the first would. **Both, so it is neither** — unless there are two defects, one
+per path, which is the less parsimonious reading and should be ruled out rather than assumed.
+
+**And both sides start from the same basis.** The file's `TANGENT` *is* Blender's MikkTSpace output over
+that exact mesh, and our generator is separately tested to reproduce the exporter's answer. So the two
+sides agree on the basis and diverge in what is done with it: **the mechanism is inside `mappedNormal`'s
+construction — the Gram-Schmidt, the scale, or the combination — and not in its inputs.**
+
+**Next**: instrument the construction rather than reason about it. The shading normal is a named local at
+every arm, so `t`, `b`, `n` and the sampled tap can each be published at a chosen pixel and compared
+against the same quantities derived on the CPU from the file. **Two defects rather than one is a live
+possibility and the per-asset split is what would show it.**
