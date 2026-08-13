@@ -1763,7 +1763,13 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
 
   const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
                                                             ours.Width, ours.Height);
+  /* [MEASURED] the two legs' median disagreement over every case scored: 0.00099 degrees on the
+   * tangent assets, 0.0129 on water-bottle. Rounded UP to a thousandth of a degree, which is the
+   * floor of the comparison rather than a tolerance anyone chose. */
+  constexpr double kNormalAgreementFloorDeg = 0.001;
   size_t shaded = 0, noLobe = 0, uncovered = 0, adjudicated = 0;
+  size_t disputed = 0, oursNearer = 0, cyclesNearer = 0;
+  std::vector<double> disputedMargin;
   double worstDeg = 0, sumDeg = 0;
   std::vector<double> degrees, oursVsFile, cyclesVsFile;
   for (size_t y = 0; y < height; ++y) {
@@ -1813,8 +1819,25 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
         c = c > 1.0 ? 1.0 : (c < -1.0 ? -1.0 : c);
         return std::acos(c) * 180.0 / 3.14159265358979323846;
       };
-      oursVsFile.push_back(against(ox, oy, oz, oursLength));
-      cyclesVsFile.push_back(against(cx, cy, cz, theirsLength));
+      const double oursFile = against(ox, oy, oz, oursLength);
+      const double cyclesFile = against(cx, cy, cz, theirsLength);
+      oursVsFile.push_back(oursFile);
+      cyclesVsFile.push_back(cyclesFile);
+
+      /* WHICH LEG THE DECLARATION AGREES WITH, OVER THE PIXELS THAT DISAGREE AT ALL. The two legs
+       * agree to a floor of 0.001 degrees over the median of every case measured, so "differ" has a
+       * MEASURED meaning here rather than a chosen one -- and a pixel the two agree about carries no
+       * information about which is right, so including it would dilute the verdict with the
+       * population that has no opinion. THE POPULATION SIZE IS PUBLISHED FIRST: a verdict over two
+       * hundred pixels and one over two hundred thousand are different claims. */
+      if (deg <= kNormalAgreementFloorDeg) { continue; }
+      ++disputed;
+      if (oursFile < cyclesFile) {
+        ++oursNearer;
+      } else if (cyclesFile < oursFile) {
+        ++cyclesNearer;
+      }
+      disputedMargin.push_back(cyclesFile - oursFile);
     }
   }
   std::sort(degrees.begin(), degrees.end());
@@ -1838,6 +1861,20 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   std::sort(oursVsFile.begin(), oursVsFile.end());
   std::sort(cyclesVsFile.begin(), cyclesVsFile.end());
   Note("shading normal, pixels the file adjudicates", (double)adjudicated, "px");
+  /* THE POPULATION BEFORE THE VERDICT. */
+  Note("shading normal, pixels where the two legs disagree beyond the floor", (double)disputed,
+       "px");
+  if (disputed > 0) {
+    std::sort(disputedMargin.begin(), disputedMargin.end());
+    Note("of those, the file is nearer OURS", (double)oursNearer, "px");
+    Note("of those, the file is nearer CYCLES", (double)cyclesNearer, "px");
+    metrics.push_back({"disputed_ours_nearer_fraction",
+                       (double)oursNearer / (double)disputed, 0.0, "dimensionless",
+                       Direction::Reported});
+    /* `cyclesVsFile - oursVsFile` at the median: POSITIVE means the declaration sits nearer ours. */
+    metrics.push_back({"disputed_margin_p50_deg", Percentile(disputedMargin, 0.50), 0.0, "degrees",
+                       Direction::Reported});
+  }
   if (!oursVsFile.empty()) {
     metrics.push_back({"ours_vs_file_p50_deg", Percentile(oursVsFile, 0.50), 0.0, "degrees",
                        Direction::Reported});

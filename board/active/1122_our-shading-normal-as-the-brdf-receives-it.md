@@ -167,3 +167,27 @@ tangent assets stands.
 
 **One step remains: the per-pixel *closer to the file* statistic over the disagreeing set, with its
 population size published.** A verdict over 200 pixels and one over 200 000 are different claims.
+
+**Step 2 is built and its number does not decide the question, because the population was chosen wrong.**
+
+| | `normal-tangent-mirror` | `normal-tangent` |
+|---|---|---|
+| disputed pixels (legs differ > 0.001° floor) | 147 669 | 120 931 |
+| file nearer **ours** | 45 674 (30.9 %) | 44 151 (36.5 %) |
+| file nearer **Cycles** | 101 995 (69.1 %) | 76 780 (63.5 %) |
+| median margin | **−0.00247°** | **−0.00148°** |
+
+**The count says Cycles 2:1. The margin says the contest is at the floor.** A median of 0.0015°–0.0025°
+is **130× below the 0.3174° texture term** every leg was validated against, and only ~2× above the
+0.001° threshold the population was selected by. The question is about the **9.48° p95 tail**, and a 2:1
+lean at a 0.002° median is *a verdict over a population that mostly agrees, quoted about the population
+that does not.*
+
+**The selection should have used the signal threshold, not the floor.** One line: restrict the disputed
+set to `ours vs Cycles > 0.4°` — above the texture residual, so every admitted pixel carries signal —
+publish the size, and the branch falls out.
+
+**That is the last step. Everything behind it is built and validated**: the attachment · the shader
+locals binding what the BRDF receives · the readback · the zero-vector exclusion predicate · both frame
+maps · the adjudicating third leg with its depth convention corrected · and the disputed statistic
+itself, which needs a threshold change rather than a rewrite.
