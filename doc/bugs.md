@@ -42,6 +42,7 @@ load are what would hit them.
 | The winding is hard-coded at seven sites | *Declaration and build* |
 | Three node-transform cases measure an ambient-occlusion estimator at one sample | its own section |
 | Frame alpha derived from depth, so a translucent body over nothing is absent from our picture | its own section |
+| `DirectionalLight`'s lit side is mirrored in screen x — geometry and magnitudes correct, direction flipped | its own section |
 | The preparer and the runner hold two closed sets over one manifest schema, disagreeing on 8 of 26 | its own section |
 
 *Checked and **not** in this band, against the coordinator's reading:* **`SurfaceState` carries
@@ -113,7 +114,7 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
   below sea level and losing to every one above, and at `Water.cpp:53` becoming a water level whose
   `WaterDepth::Between(0.0, ground)` reports `LevelBelowGround` for every dry-land outline — a missing
   datum counted as a disagreement between two models.
-  *The fourth site, `test/clients/WorldMain.cpp:64-65`, went with the client on 2026-08-12; the three
+  *The fourth site, the deleted world entry point, went with the client on 2026-08-12; the three
   under `generators/` are what remains and they are the ones the factory closes.*
   Right, and **not** by swapping `Try(T *out)` for `std::optional` — this file's own opening argument
   rules that out and it still stands: `*opt` reads the payload with nobody having looked at the state.
@@ -127,7 +128,7 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
 
 ## The test harness and its instruments
 
-*Six entries deleted 2026-08-12 as fixed or as naming deleted sites: `verify-data` (the target, `src/clients/HttpPost.cpp` and every `curl_` symbol are gone — `grep -rl curl src/` is empty); `verify-walk-asan` cannot see a stack lifetime error (`test/run.sh:573` sets `detect_stack_use_after_return=1`); an interrupted instrument leaves something bound (`test/run.sh` carries the group kill and the eleven `verify-*` recipes are gone — the Makefile has three targets); two tests hold each other's claim (`OutsideIsNeverAsked.cpp` is now `test/unit/data/UncoveredIsUndeclared.cpp` and the false `CountingTransport` comment is gone); a directory declared as the Makefile's is trusted (the Makefile owns no test source now, and a compile subject is driven by `-DOUTSHINE_COMPILE` at `test/run.sh:517` rather than being unrun).*
+*Six entries deleted 2026-08-12 as fixed or as naming deleted sites: `verify-data` (the target, the deleted HTTP client and every `curl_` symbol are gone — `grep -rl curl src/` is empty); `verify-walk-asan` cannot see a stack lifetime error (`test/run.sh:573` sets `detect_stack_use_after_return=1`); an interrupted instrument leaves something bound (`test/run.sh` carries the group kill and the eleven `verify-*` recipes are gone — the Makefile has three targets); two tests hold each other's claim (`OutsideIsNeverAsked.cpp` is now `test/unit/data/UncoveredIsUndeclared.cpp` and the false `CountingTransport` comment is gone); a directory declared as the Makefile's is trusted (the Makefile owns no test source now, and a compile subject is driven by `-DOUTSHINE_COMPILE` at `test/run.sh:517` rather than being unrun).*
 
 - **The registry's and the store's counters have no reader.** `Data::SourceSet::Ledger`
   (`data/SourceSet.h:76`) publishes nine — `Asked`, `Delivered`, `HandedOver`, `Vacant`, `Undeclared`,
@@ -143,7 +144,7 @@ state, and `[[nodiscard]]` on the function is satisfied by an assignment. `Try(T
 - **The trailer is authenticated by shape alone, so a file that never includes `Check.h` can print a
   green verdict.** `test/run.sh:343` accepts one line of eight fields with `CHECKS`, `FAILURES`,
   `SKIPPED` in the right places; `:435` cross-checks it against the process exit status, which a
-  forger satisfies by returning 0. *The demonstration is gone with `test/harness/ForgedTrailer.cpp`;
+  forger satisfies by returning 0. *The demonstration is gone with the deleted forged-trailer probe;
   the shape is not, and it is re-demonstrable in one file.* Right, two lines and no change to
   `Check.h`: every increment of `Failures` prints exactly one line beginning `FAIL ` and every `Skips`
   one beginning `SKIP `, so `grep -c '^FAIL '` **must** equal `FAILURES`. That is a second witness on
@@ -466,7 +467,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   a guard written on one side of a symmetric pair — is not searched for anywhere.
 
 - **RETRACTED — "nothing streams during play" was tile-size confounding, not a defect.** The founding
-  reading (t=31…77 s of `sim/logs/demo-walk-wasm-20260811T150518Z.csv`: `poolHttpGets` 310 flat,
+  reading (t=31…77 s of a deleted run log: `poolHttpGets` 310 flat,
   `tilesBuilt` 0 over 46 s) covers 46 s × 1.4 m/s = **64 m of walking, 4.3 % of a z14 tile edge**
   (`kMaxZ = 14`, `world/World.cpp:27`; pitch `40 075 016.686 · cos 52.106° / 2^14` = 1502 m).
   `doc/requirements.md` line 154 already carried the method; the derivation for *this* cut, per rung,
@@ -484,7 +485,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   are restated** — it is kept only so that the walk gate is not built to catch a defect that is not
   there. What is genuinely unmeasured is *latency*: how far the eye travels between a tile entering
   the target cut and its mesh being drawable. No column carries it.
-- **22 950 KiB of the heap has no owner at rest.** `heapResidualKB` is now measured, not inferred: 52 650–73 564 KiB at t=1, up to 94 132 KiB mid-load, settling at 22 950 KiB in three of five runs of `dfdd8e3a82efeefc` (`sim/logs/demo-walk-wasm-20260811T16*.csv`). The eight pthread stacks account for ~2 MiB of it. `prototypeKB` 6 527 and `standsKB` 1 676, logged at `outshine stands_collected`, are CPU-side and in no ledger column — the first place to look, and a decidable one: give them a column and the residual must fall by their sum or the overlap is somewhere else.
+- **22 950 KiB of the heap has no owner at rest.** `heapResidualKB` is now measured, not inferred: 52 650–73 564 KiB at t=1, up to 94 132 KiB mid-load, settling at 22 950 KiB in three of five runs of `dfdd8e3a82efeefc` (a deleted run log `*.csv`). The eight pthread stacks account for ~2 MiB of it. `prototypeKB` 6 527 and `standsKB` 1 676, logged at `outshine stands_collected`, are CPU-side and in no ledger column — the first place to look, and a decidable one: give them a column and the residual must fall by their sum or the overlap is somewhere else.
 - **Nothing evicts.** `BuildingField`, `WaterField` and `StreetField` grow monotonically and their unit of removal does not exist. At 545 KiB of building heap per tile and ~29 MiB of real headroom, that is on the order of fifty tiles before exhaustion.
 - **The in-cone priority boost is multiplicative at 20×** (`world/World.cpp:181`, 1.0 against 0.05). The reference adds a capped 0.5 to a 10-point scale and documents 1.0 as the setting that produces thrash.
 - **`kGrace = 180` is counted in passes** (`world/World.cpp:32`) — 3.0 s at 60 fps and 6.0 s at 30, so the machine's pace decides what the world holds.
@@ -493,12 +494,12 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **`Sim::Features` gained a slice, but a feature inside the tile's 23.3 m buffer still yields twice.**
 - **A crossing costs +1.77 ms at p50** against its neighbourhood, 1.03 of it the ring's own snapshot — in no column, because `Populate` runs after `Refine` inside one function.
 - **A failed allocation is reported as a refused tile instead of ending the run.** `world/TilePool.cpp` `RunMesh` reaches `Miss::Refused` when `ChunkBuildEcef` returns 0, and that function returns 0 from **three `malloc` failures** (`world/ChunkMesh.h:52,95,153` — see *An exhausted heap is reported as malformed terrain*, whose consequence this line states). An exhausted heap is not a statement about a tile and must not be reported as one. **The terminal-hole half of this is closed** (2026-08-12): the global `Classify` that turned every 4xx into `Absent` is gone — status-to-meaning is per source and declared now (`data/TerrariumDem.cpp`) — the thread-local `tMiss` is gone with it, and `RunMesh` maps only `Miss::Hole` to `Reply::Absent` while a refusal is `Reply::Refused`, which `World::AdmitMesh` retries rather than retracting the split. What is left is the allocation: it should reach `Heap::Exhausted` like the OOM path beside it, not the mesh verdict.
-- **`poolPosts` and `poolRepeats` still wrap on wasm32.** The round that widened every counter to `long long` left `long Posts_ = 0, Repeats_ = 0` (`world/TilePool.h:177`) — the accumulators — and widened only the `Ledger` fields they are copied into, so the column is 64-bit-typed and 32-bit-valued. These are the two fastest counters in the tree: `poolRepeats` reaches **2 201 113 194 = 1.025 × 2³¹** in 2 868 rows of `sim/logs/demo-frame-gpu_walk-20260811T184845Z.csv`. That run shows no negative value because `walk` is the native oracle, where `long` is 64-bit — **the measurement used to clear the defect is the one build that cannot see it**. Signed overflow is UB (`ES.103`), not a wrapped column. Right: `long long`, and every 32-bit accumulator behind a 64-bit column found the same way — by type, not by looking at native output.
+- **`poolPosts` and `poolRepeats` still wrap on wasm32.** The round that widened every counter to `long long` left `long Posts_ = 0, Repeats_ = 0` (`world/TilePool.h:177`) — the accumulators — and widened only the `Ledger` fields they are copied into, so the column is 64-bit-typed and 32-bit-valued. These are the two fastest counters in the tree: `poolRepeats` reaches **2 201 113 194 = 1.025 × 2³¹** in 2 868 rows of a deleted run log. That run shows no negative value because `walk` is the native oracle, where `long` is 64-bit — **the measurement used to clear the defect is the one build that cannot see it**. Signed overflow is UB (`ES.103`), not a wrapped column. Right: `long long`, and every 32-bit accumulator behind a 64-bit column found the same way — by type, not by looking at native output.
 - **A completed mesh nobody asks for again is retained for the life of the pool.** `TilePool::Poll` erases a `Done_` entry only when a caller polls for it; a node that stops asking — which is exactly what the new retraction makes happen to a sibling whose build was in flight — leaves a full `TileBuild` (verts + indices + clusters, ≈ 4 MB at `kGrid = 128`) in the map for ever. Decidable from the same run: `tilepool_closed` reports `meshTiles=131 meshAbsent=1`, i.e. 130 completed builds, against `built=129` uploads (`world fbworld`, `/private/tmp/claude-501/-Users-cosmo-Git-flightbox/b5db31bd-4b15-4bfc-83c1-21cc63c39b74/scratchpad/hole/afterF.log`). The round cleared `Build` for the `Absent` arm and not for this one. Right: the pool drops a `Ready` result whose key left the caller's cut, which needs the cut to be a thing the pool can be told about — see the cut-once shape below.
 - **The drawn cut and the counted cut are two implementations that must agree, and nothing makes them.** `World::Descend` decides coverage with `Ready`, `World::CountTargets` decides progress with `Settled` (`Ready || Vacant`), and both re-derive the same tree from `Splits`. They agree today only because `Splits` removes a vacant child from *both* walks; delete that one call from `CountTargets` and progress reaches 1.0 over a square the draw pass leaves empty — the silent-hole failure, one edit away, with no test and no identity that catches it. `CanCover` makes it worse structurally: `Descend` calls it per child and it re-walks the whole subtree, so one pass is O(N·depth) node visits with a hash lookup each (`Splits` calls `Find` although `Descend` already holds the index), ~800 visits per root ring at ~1 800 passes/s during load. Right: **the cut is computed once per pass** into `(idx, role)` — target leaf · holder · drawn — and `Descend`, `CountTargets` and the request walk read it. Then two walks disagreeing is unspellable, the retraction is one rule in one place, and the duplicated `anyV`/`Wants`/`Ready`/`Emit` block the retraction added to `Descend` disappears with it.
 - **A DEM hole deletes the built world standing on it, although the ground under it is drawn.** Measured 2026-08-11 over a synthesised hole (one z14 terrain tile, 8620/5404, answered 204 by a proxy in front of `fb-tiles`): the terrain cut retracts to the z13 parent and the picture is continuous, but `buildingVerts` falls 405 504 → 170 601 and one whole region grows nothing (`sim` `region_without_ground`, `clients/Sim.cpp` `Ask`). The cause is one answer used for two questions: `world/BuildingField.cpp:235` drops a footprint whose corner heights do not resolve (`NoGround_++`), and a region whose ground block is Missing is refused. But a height for that place **does** exist — it is the one the picture draws, the coarse ancestor's. Right: a place with no tile at the finest rung reads the finest rung that HAS one, so the footprint and the stand stand on the surface the eye sees; today the oracle answers only at `gSurface.Z` (`world/TerrainLoader.cpp:301`, *"no other zoom of this surface exists"*).
 - **An absent tile is remembered for the life of the pool and nothing removes it.** `world/TilePool.cpp` `Poll` keeps the `Absent` result in `Done_` and the key in `Posted_` — that is what makes the answer final and stops a thread being spun on it — but nothing evicts either table, so a flight over a large hole grows both without bound. Bounded today by the number of distinct absent tiles a run asks about, which is 1 in every measured run. Right: the same unit of removal eviction needs everywhere else (see *Nothing evicts*), not a second mechanism.
-- **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, `sim/logs/demo-crossing-gpu_walk-20260811T172219Z.csv`): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
+- **The per-pass build budget bounds installs, not asks.** `world/World.cpp:390-417` decrements `budget` only in the `Ready` arm, so a pass the pool cannot answer asks **every** candidate and spends nothing: the cost of a stalled pass is O(wanted), not O(2). Measured over `demo/crossing` (900 frames plus load, a deleted run log): `meshCapped` 217 against `meshWanted` 2 029 402, i.e. 0.011 % of wants. Two separate things are wrong: (a) the ask is unbounded, which is what `doc/requirements.md` § 0.2 calls the missing second cap — *how many may start* per update; (b) even as an install cap, 2 is not the binding constraint and neither is the in-flight cap. The binding constraint is **CPU inside the mesh build**: `world tilepool_closed` for the same run reports `meshCpuMsPerTile = 237.29` over 4 threads = 16.9 tiles/s, against a measured drain of 12–13/s (`poolQueued` 116→0 while `meshAdmitted` 11→130 in 9 s) and 118/s admissible at 59 fps. Do not conclude that the cap is useless — it is the only bound on a warm-cache teleport; conclude that it is measured against the wrong thing, and that a queue that empties is not a pool that is fast.
 - **The load loop polls the pool ~190 000 times a second** (`poolRepeats` 2 069 319 against `poolPosts` 196, same run). Attribution matters and the earlier phrasing had it wrong: **99.99 % of the repeats happen before residency, not during play.** In `demo/walk-500` `poolRepeats` is 1 953 923 at t=10 s (residency) and 1 954 287 at t=183 s — 364 repeats in 173 s of walking against 1.95 M in 10 s of loading. The load spins `Refine` at ~1 800 passes/s × ~119 unready leaves; every one of those takes `QueueMutex_` and attempts a `std::set<uint64_t>` insert on the thread that draws, against the four workers that need the same mutex to pop (`world tilepool threads=4 inFlightCap=4`). The host was loaded during the measurement, which makes 190 kHz a **lower** bound. Right: a pending ask answerable without the queue's lock — a per-node "already posted" flag in the node, or an atomic set — and a load loop that is not a spin.
 - **`TileEnuMap` answers with a plausible wrong place instead of refusing.** Every other type in
   `world/tiles/TileGeodesy.h` hides its payload behind a state — `TileIndex::TryXy`, `EnuFrame::
@@ -544,7 +545,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **A correct comment was recorded as wrong, from a run with the wrong thread count.**
   `world/TerrainLoader.cpp:41-44` states "at 256 KiB per z14 grid this is 4 MiB a thread, 24 MiB at the
   six-thread ceiling", and the ledger's first reading was published as proof that "~24 MiB was wrong".
-  The run measured had **`threads=4`** (`sim/logs/demo-walk-wasm-20260811T165201Z.log`: `threads=4
+  The run measured had **`threads=4`** (a deleted run log: `threads=4
   inFlightCap=4 demCacheTilesPerThread=16`). The measurement closes exactly on four:
   `16 404.421875 KiB = 16 798 128 B = 64 × 262 144 + 4 × 5 228`, i.e. 16 full slots per thread at
   exactly 256 KiB and 5 228 B of `osmmesh_ctx` each (`dem_lru[128]` × ~40 B + ~108 B). So the comment is
@@ -558,7 +559,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `heapPeakKB` — the number a fixed linear memory has to be sized from — is the largest of ~1 sample per
   second, not of ~48. The same defect is already visible in the record: `poolSchedulerKB`, whose `Done_`
   map holds finished vertex buffers, reads **32 / 282 / 1 645 / 4 420 / 5 873 KiB** as the "peak" of five
-  runs of one scene and one binary (`sim/logs/demo-walk-wasm-20260811T164925Z.csv`, `…165201Z`,
+  runs of one scene and one binary (a deleted run log, `…165201Z`,
   `…165641Z`, `…165743Z`, `…165844Z`), every large value landing at t = 1–18 s during load. A 180× spread
   across replicates of the same run is a sampling artefact, so the true peak is unknown and the quoted
   282 KiB is the friendliest of the five. Right: the high-water mark is kept where the quantity changes —
@@ -579,7 +580,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   from `Row_.Fields()` with no comparison, so a source that declares N channels and pushes N−1 shifts
   every column to its right in silence, for the whole run and every run after. This round added five
   channels and split the pushes across three new private functions, which is exactly the shape that
-  makes it easy; the counts do match today — verified in `sim/logs/demo-walk-wasm-20260811T165201Z.csv`,
+  makes it easy; the counts do match today — verified in a deleted run log,
   column 74 is `heapResidualKB` and `heapKB − poolSumKB − heapResidualKB = 0` in all 138 rows. Right:
   `Push` takes the channel it fills, or at minimum `Tick` refuses a row whose size is not the schema's.
 - **`Heap.cpp`'s exhaustion line prints `liveBytes=0` when the layout guard failed.**
@@ -603,7 +604,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   high-water marks answer the same questions in O(1).
 - **The frame-distribution comparison offered as evidence cannot fail.** The round reports the frame
   distribution "indistinguishable before and after" with `maxMs` 23.44 → 23.83. One probe per second at
-  the measured 48 fps (`sim/logs/demo-walk-wasm-20260811T165201Z.csv`, `fps` 47.1–50.0 from t = 41 s)
+  the measured 48 fps (a deleted run log, `fps` 47.1–50.0 from t = 41 s)
   touches 2.1 % of frames, which lands at p98 — *below* the published p99 — and `maxMs` is a single order
   statistic, so a 1.5 ms addition is invisible by construction at every statistic quoted. The p50 is
   21 ms, so the addition is 1 % of a frame that is already 26 % over its 60 Hz budget. The host load the
@@ -651,7 +652,7 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   bound are unchanged, and the next consumer inherits both* — so a declared metre of channel is 1.002086 m of
   world eastward and 0.999546 m northward at 52.106 °N. **Confirmed to 5·10⁻⁵ m** now that the eye is
   in the row, and the comparison must be made frame-by-frame or it proves nothing: the last row of
-  `sim/logs/demo-crossing-wasm-20260811T172832Z.csv` (wasm `9b110bb85af592ce`, Chromium 151.0.7922.34)
+  a deleted run log (wasm `9b110bb85af592ce`, Chromium 151.0.7922.34)
   is at frame 899 of 900, where the channel commands 2250 · 899/900 = **2247.500 m** and `eyeEastM`
   reads **2252.189145** against 2252.18914 predicted from `N cos φ · π/180 / (kMPerDeg · cos φ)`.
   Northward the sign flips: `demo/walk-500`'s last row commands 504 · 10749/10800 = 501.620 m and
@@ -740,7 +741,7 @@ the tree more than once, or under a name that says the wrong unit.*
 - **A derived constant whose derivation no longer exists.** `world/ChunkSurface.h:58`
   `kSurfaceAgreementM = 9.17e-4f` is the ceiling on how far the two evaluators of the terrain surface
   may disagree, and it is the sum of seven float32 terms. The instrument that summed them and checked
-  the sum against plumb runs was `tools/surface_budget.py`, deleted with `tools/` on 2026-08-12. The
+  the sum against plumb runs was the deleted surface-budget tool, deleted with `tools/` on 2026-08-12. The
   number is unchanged and may well be right; what is gone is any way to recompute it, so it is a
   measured value with no reproducible origin — against `CLAUDE.md`'s *every number carries its
   origin*. Right: a test under `test/world/` that reconstructs the seven terms and asserts the
@@ -782,7 +783,7 @@ the tree more than once, or under a name that says the wrong unit.*
   `ERROR` in the same 10 800-frame run still passes it, and the run emits exactly one:
   `render device_lost reason=2 msg="Device was destroyed."` (`Makefile` `verify-walk-asan`,
   `render/Renderer.cpp:163`). Two defects, and the second is the reason the first cannot simply be
-  closed. `2` is `wgpu::DeviceLostReason::Destroyed` (`vendor/dawn/out/gen/include/dawn/webgpu_cpp.h:276`)
+  closed. `2` is `wgpu::DeviceLostReason::Destroyed` (the deleted Dawn header)
   — the device the client destroyed on purpose at teardown, reported at the level reserved for a run
   that failed, and reported as an integer rather than as the enumerator (`Enum.3`). So an `ERROR`
   assertion added today would go red on a healthy run. Right, in this order: the callback answers
@@ -907,8 +908,8 @@ the tree more than once, or under a name that says the wrong unit.*
 
 ## Stale pointers held with confidence — sites naming a deleted document — **Band 2**
 
-`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. Comments in `src/`
-still cite `doc/architecture.md` as the authority for a rule they state. **The count is not restated
+the deleted architecture document and the deleted vision document were folded into `CLAUDE.md` and deleted. Comments in `src/`
+still cite the deleted architecture document as the authority for a rule they state. **The count is not restated
 here because it has been wrong at three different values across three rounds** — nine, then seven, then
 fewer again after the SDL_GPU port took `GeometryStage.h` and `TaaStage.cpp` with it. `grep -rl
 architecture.md src/` is the count, it is one command, and a number copied into this file ages the
@@ -936,7 +937,7 @@ it carries *the constraints*, *stance* and *setup*, with no numbered principles 
 - `src/render/Renderer.cpp:770` — *"(CLAUDE.md, Prinzip 5)"* — half-translated, and the cited number
   does not exist in the file it names.
 
-`src/render/stages/TerrainDraw.cpp:81` and `src/world/TerrainLoader.cpp:329` cite *"CLAUDE.md principle
+the deleted terrain shader and `src/world/TerrainLoader.cpp:329` cite *"CLAUDE.md principle
 2"* in English, which is the same dangling number in the right language. Right: the sentence the rule
 actually is, quoted or paraphrased, with no number — a number into a list that is not numbered is worse
 than no citation, because it reads as precise.
@@ -972,10 +973,10 @@ are outside all four and are therefore unfetchable today:
 
 | Asset | URL | What it is |
 |---|---|---|
-| Barcelona Pavilion | `demo/test/pabellon_barcelona_v1.scene_.zip` | **rungs 19 and 21** — scene scale, and the film summit |
+| Barcelona Pavilion | a Blender demo archive | **rungs 19 and 21** — scene scale, and the film summit |
 | Sprite Fright shot | `demo/sprite_fright_030_0020_A.zip` | **the forest rung's motion arm** (§ I.26.7) |
 
-`demo/test/classroom.zip` is in the same position. This is the enumeration-versus-invariant defect
+a Blender demo archive is in the same position. This is the enumeration-versus-invariant defect
 again: the list names *what happened to be needed the day it was written*, and it was already stale
 against the same document when it was committed.
 
@@ -1072,7 +1073,7 @@ accessor must be a scalar unsigned integer`. **Fixed when** the overrun subject 
 ## A unit test reports an absent prepared subject as a reader defect
 
 `test/unit/gltf/TheTriangleProjectsToTheOraclesArea.cpp:104-109`. The subject is
-`test/render/coverage/triangle/scene.gltf`, which § I.26.10 rules **untracked by design** — `manifest.json`
+`test/render/coverage/triangle/scene.glb`, which § I.26.10 rules **untracked by design** — `manifest.json`
 is the only tracked file in a case directory. Run against a tree carrying only tracked files (measured
 2026-08-12, the manifest copied alone into an empty tree):
 
@@ -1174,6 +1175,41 @@ resource exists, and let `View()` return a handle.
 **Band 3 — waits for the SDL_GPU port**, which rewrites every one of these sites; repairing them first
 would be repairing code about to be deleted. **Fixed when** a stage object exists because the plan holds
 its stage, so a call into an unheld stage does not compile.
+
+## `DirectionalLight`'s lit side is mirrored in screen x, and its criterion could not see it because hue is direction-invariant — **Band 1**
+
+`test/render/lighting/directional-light`. Measured at `a34c964`: the radiance profiles along `y = 360`
+are **mirror images about the disc centre** — the oracle's brightest pixel at `x = 280`, ours at
+`x = 350`, symmetric about **315**. Disc centres agree to **nine digits** and peak values to **0.03 %**.
+
+**The geometry is not what is wrong, and the alpha channel proves it.** There is **no coverage
+difference at all** — `picture_max_delta_code_alpha = 0` — so the silhouette lands identically on both
+sides. A mirrored *camera* would move the silhouette; this does not move it. **The camera is right and
+the illumination is mirrored**, which narrows the site to whatever builds the shading frame rather than
+to the projection.
+
+**And the magnitudes are right too**: centres to nine digits and peaks to 0.03 % mean the intensity, the
+colour and the BRDF chain are all correct. **Only the direction is wrong, and only in one axis** —
+a sign on the light direction's `x` in whatever frame the shading is done in, or a right vector that
+disagrees between the frame the projection uses and the frame the shading uses.
+
+**The one structural fact that names the suspect: this is the only case whose camera comes from the
+file** — `scene.camera.source = "gltf"` — *and* the only case whose light does (`scene.light.kind =
+"gltf"`, the one asset class where `KHR_lights_punctual` crosses the boundary, § I.26.12). So the
+candidate is the path that derives a shading basis when the camera is **not** built by the framing rule.
+*The discriminator is running; this entry records what is already decided so the run has something to
+confirm or refute rather than a blank.*
+
+**Why it survived every round since it was written, and this is the part worth more than the defect.**
+Its criterion is a **hue check**, and **hue is invariant under a reflection of the light direction** —
+the mirrored highlight has exactly the hue the correct one would. A criterion cannot catch a defect
+whose transformation it is invariant under. It passed at **4.67e-8 over 9 217 pixels**, and the number
+was true.
+
+**Right:** the shading basis and the projection basis are one basis, so a disagreement between them has
+no spelling. **Fixed when** the profile along `y = 360` is not a mirror — checkable from the two `.raw`
+taps already written, with no new instrument. **Band 1**: it is a wrong picture on a lit asset, and
+every lit Khronos case added after it inherits the same path.
 
 ## Frame alpha is derived from depth, so a translucent body over nothing is absent from our picture and present in the oracle's — **Band 1**
 
@@ -1324,8 +1360,8 @@ project twice.
 
 **Two populations, and they need different repairs.**
 
-- **Six moved and are still there**, from § I.26.9's re-organisation of the unit suite: `test/core/PlanarGeodesyHoldsToItsScope.cpp`, `test/data/AbsenceHandsOver.cpp`, `test/data/TheAnswerNamesItsAddress.cpp`, `test/data/UncoveredIsUndeclared.cpp`, `test/generators/SameRegionSamePlacement.cpp`, `test/generators/draw/GrownBarkIsAClosedMesh.cpp` — each now under `test/unit/`. **Eleven of the seventeen lines are one path-prefix edit**, and every one of those tests **PASSes** in this round's run, so the claim is true and only its address is wrong.
-- **Sixteen are gone**: `doc/architecture.md`, `src/clients/{FileArtifacts,HttpPost,Png,ServerLog,ServerTelemetry,Walker}.cpp`, `src/render/stages/BuildingDraw.cpp`, `test/clients/{AppWalk,TreeBench,WorldMain}.cpp`, `test/compile/data/CoreIsReachable.cpp`, `test/generators/CoreIsReachable.cpp`, `test/world/CountersDoNotWrap.cpp`, `test/world/tile_delay.py`, `test/corpus/manifest.json`, `test/render/coverage/triangle/scene.gltf`. **These need a per-line judgement and not an edit**: `test/clients/TreeBench.cpp` alone carries two ticks, and a tick whose test was deleted is a capability that may or may not still be held.
+- **Six moved and are still there**, from § I.26.9's re-organisation of the unit suite: `test/unit/core/PlanarGeodesyHoldsToItsScope.cpp`, `test/unit/data/AbsenceHandsOver.cpp`, `test/unit/data/TheAnswerNamesItsAddress.cpp`, `test/unit/data/UncoveredIsUndeclared.cpp`, `test/unit/generators/SameRegionSamePlacement.cpp`, `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp` — each now under `test/unit/`. **Eleven of the seventeen lines are one path-prefix edit**, and every one of those tests **PASSes** in this round's run, so the claim is true and only its address is wrong.
+- **Sixteen are gone**: the deleted architecture document, `src/clients/{FileArtifacts,HttpPost,Png,ServerLog,ServerTelemetry,Walker}.cpp`, the deleted building shader, `test/clients/{AppWalk,TreeBench,WorldMain}.cpp`, the deleted reachability subject, the deleted reachability subject, the deleted counter-width test, the deleted arrival-order proxy, `test/corpus/manifest-schema.json`, `test/render/coverage/triangle/scene.glb`. **These need a per-line judgement and not an edit**: the deleted tree bench alone carries two ticks, and a tick whose test was deleted is a capability that may or may not still be held.
 
 **The harmless explanation, sought and ruled out.** *"The audit already happened"* — `3e90d14` retired
 twenty-four ticked lines whose **capability** the port deleted, which is a different question from
