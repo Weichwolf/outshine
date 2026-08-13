@@ -78,6 +78,10 @@ about something else* — and it wears four faces: **domain too narrow**, **inpu
 **invariance too broad**, **population too small**. State the domain, the input set and the invariances
 beside the number, or the number decides nothing.
 
+**Name the problem in the vocabulary of the field before building it** — *streaming*, *resection*,
+*LOD transition*, *screen-space error*. If no such name presents itself, the field is unknown, and
+then the task is research rather than improvisation.
+
 **A grep proves a string absent, never a capability.** Any negative existence claim names the
 enumeration it is drawn from, exhaustive over the container, or it is written as *not found at these
 paths* and says which. The instrument for a capability claim is to **exercise the capability** — and
