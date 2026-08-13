@@ -1312,3 +1312,82 @@ case has more than one, geometry untouched. **Not** separating the cubes — tha
 changing the subject, and it cannot repair `sphere` at all. **Fixed when** two renders at two seeds are
 bit-identical for these three cases, which is a stronger statement than the pixel count falling.
 
+## Seventeen ticked requirement lines name a file that is not in the tree — **Band 2**
+
+*Measured at `81d4db1`, mechanically, not by reading.* `doc/requirements.md` cites **50 distinct paths
+under `src/`, `test/` or `doc/` in backticks**; **23 of the 50 do not exist**, and they appear on **17
+of the 289 ticked lines** — `doc/requirements.md:189, 263, 503, 522, 716, 717, 719, 720, 722, 723, 725,
+726, 729, 730, 731, 741, 2586`. **A tick means *checked in the tree this round* and names the file that
+implements it; a tick whose file is absent is a claim with its evidence removed**, which is the same
+defect class the *stale pointers* entry above already carries and which this document says has cost the
+project twice.
+
+**Two populations, and they need different repairs.**
+
+- **Six moved and are still there**, from § I.26.9's re-organisation of the unit suite: `test/core/PlanarGeodesyHoldsToItsScope.cpp`, `test/data/AbsenceHandsOver.cpp`, `test/data/TheAnswerNamesItsAddress.cpp`, `test/data/UncoveredIsUndeclared.cpp`, `test/generators/SameRegionSamePlacement.cpp`, `test/generators/draw/GrownBarkIsAClosedMesh.cpp` — each now under `test/unit/`. **Eleven of the seventeen lines are one path-prefix edit**, and every one of those tests **PASSes** in this round's run, so the claim is true and only its address is wrong.
+- **Sixteen are gone**: `doc/architecture.md`, `src/clients/{FileArtifacts,HttpPost,Png,ServerLog,ServerTelemetry,Walker}.cpp`, `src/render/stages/BuildingDraw.cpp`, `test/clients/{AppWalk,TreeBench,WorldMain}.cpp`, `test/compile/data/CoreIsReachable.cpp`, `test/generators/CoreIsReachable.cpp`, `test/world/CountersDoNotWrap.cpp`, `test/world/tile_delay.py`, `test/corpus/manifest.json`, `test/render/coverage/triangle/scene.gltf`. **These need a per-line judgement and not an edit**: `test/clients/TreeBench.cpp` alone carries two ticks, and a tick whose test was deleted is a capability that may or may not still be held.
+
+**The harmless explanation, sought and ruled out.** *"The audit already happened"* — `3e90d14` retired
+twenty-four ticked lines whose **capability** the port deleted, which is a different question from
+whether a surviving line's **citation** resolves; the six moved tests were never a capability loss and
+were not in that pass's scope.
+
+**Right:** the eleven prefix edits, then sixteen line judgements. **Fixed when** the extraction above
+returns zero missing — and the class ends only when the harness runs it: **every backticked path in
+`doc/requirements.md` and `doc/bugs.md` resolves, or the run is red.** That is a shell loop over one
+`grep -oE`, it costs milliseconds, and it converts a defect that has recurred three times into a
+compile-time-equivalent property of the documents.
+
+## `doc/todo.md` describes a tree that three commits ago stopped existing — **Band 2**
+
+`doc/todo.md` is *the current work item* and at `81d4db1` it is a record of finished work presented as
+future work. Measured against the tree in this round:
+
+| `todo.md` says | the tree at `81d4db1` |
+|---|---|
+| *"Then: the renderer stage, which leads from here"* | done at `0161f88` — `src/render/` is 21 files on SDL_GPU |
+| *"`vendor/` **stays until the SDL_GPU port** — it holds Dawn"* | `vendor/` does not exist |
+| *"The tree ends with three directories … `tiles/` 58, `tools/` 4, `mods/` 4, `assets/` 34"* | none of the four exists; the tree is `doc/ src/ test/ build/` |
+| *"**450 lines, 16 targets** — `help walk walk-asan world treebench` and eight `verify-*`"* | `Makefile` is **114 lines, 3 targets** — `all`, `test`, `clean` |
+| *"**Emscripten gone** — 20 conditionals and 6 includes"* | `grep -rl emscripten src/ test/` returns nothing |
+| *"No Python in the engine or the tests … `verify_clients.py` remains"* | no Python outside `test/corpus/`, which is the offline preparation `CLAUDE.md` permits |
+| *"**Blocked:** the harness — four demonstrated defects"* | the harness runs: 106 tests, 88 PASS / 18 FAIL, one verdict per test |
+
+**Why it is a defect and not merely out of date.** `CLAUDE.md` makes `doc/todo.md` the answer to *what
+next*, and a round that opens it is told to delete a container, a Python proxy and an Emscripten target
+that are already gone — so the first act of the next round is to discover that its instructions are
+false. That is the same cost as a miscited rule number, paid at the start of every round instead of once.
+
+**Right:** the file states the work that follows `81d4db1`. **Fixed when** every claim in it resolves
+against the tree — which, for the seven rows above, is seven one-line checks.
+
+## `SubjectDraw` sizes its pipeline array at 50 and fills 30, and the invariant is held in a different method — **Band 2**
+
+`render/stages/SubjectDraw.h:288-290` — `kPipelines = kVertexLayouts * 2 * kSurfaceKinds` = **5 × 2 × 5
+= 50**. `SubjectDraw::Configure` (`.cpp:618`) iterates `{Opaque, Masked, Blended}` and builds **30**;
+`SurfaceKind::ThinTransmissive` and `SurfaceKind::Refractive` are never built, so **20 of 50
+`OwnedPipeline` slots are null for the life of the object**. `PipelineAt` (`.cpp:681`) addresses all
+fifty and refuses nothing, and `Encode` (`.cpp:968-970`) binds `Pipelines[wantedPipeline].Get()` with
+no check.
+
+**The harmless explanation, sought — and it holds, which is why this is Band 2 and not Band 1.**
+`SetMaterials` (`.cpp:819-826`) refuses a slot whose `SurfaceState::Kind()` is transmissive or
+refractive, by name and with a sentence, and clears the table; and nothing in `src/` writes
+`Material::Transmission` at all — `grep` outside `core/Material.h` and `core/SurfaceState.h` returns
+nothing. **The null bind is therefore unreachable today.** It is not a latent crash to be reported as
+one.
+
+**What is left is still a defect.** The sizing expression states a capacity the constructor
+contradicts, and the only thing between an index function and a null pipeline is a guard in an
+unrelated method — so the rule *"this unit draws three of the five kinds"* is **written down and
+enforced at run time** where the array's own type could carry it. `kSurfaceKinds = 5` is a count of the
+enumeration, not a count of what this unit draws, and using one for the other is `ES.45`'s complaint
+about a constant standing for something it is not.
+
+**Right, and § I.28 makes it moot:** the pipeline key is `(VertexLayout, SurfaceState)`, `SurfaceState`
+is already `constexpr`-derived from `Material` (`core/SurfaceState.h`, `StateOf`), so the set of
+pipelines is the set of distinct keys the compiled draw lists contain and the count is an output of the
+plan compiler — as the pass count already is. **Fixed when** no array in this file is sized by an
+enumeration's cardinality, and a surface kind this unit cannot draw is refused where the *plan* is
+compiled rather than where a material table is set.
+
