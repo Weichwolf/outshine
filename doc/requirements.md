@@ -2469,10 +2469,21 @@ same between levels, several levels in one image — and the question **generato
 
 #### The mesh simplifier — where it goes, and an acceptance that costs nothing to build
 
-*Owner's ruling: it is needed. The motivation is already measured in this file — `a-beautiful-game` at
-**1 500 224 triangles costs 8.51 ms, 51 % of the frame budget for ONE light's shadow rays**, on one
-static subject. **Nothing about the world stage survives without it**, and it is also the source the
-**impostor** must be built from.*
+*Owner's ruling: it is needed. **The motivation first given for it is withdrawn and the reason is worth
+more than the motivation was.***
+
+- [x] **`a-beautiful-game` at 51 % of budget is NOT the reason, and quoting it as one was this document's own defect class in its fifth face.** The number is measured and true — 1 500 224 triangles, 8.51 ms for one light's shadow rays — and it is **a conformance asset, not a shipped one**. A real chess set would be authored at a sane budget. *A measured number doing work in a sentence it does not belong to is the class this file now names in four faces, and it was supplied by the round that named them; recorded rather than quietly replaced, because a retracted motivation that leaves no trace is how the next round re-derives it*
+- [ ] **The customers, ranked, because a later round reading "51 % of budget" would build the third first.**
+
+| rank | customer | why it survives |
+|---|---|---|
+| **1** | **shadow proxies** | on the **frame path**, **measured**, and **its acceptance already exists** |
+| **2** | **impostor source** | something must render an impostor's captures from the full-detail mesh |
+| **3** | visible LOD for near-field props | real but **shallow**, and the asymmetry above is why |
+
+- [ ] **The shadow proxy is first on our own figures: `9.23 ns/ray at 1 500 224 triangles against 1.81 ns at 23 358`, a 5.1× penalty for tree depth alone.** And **shadow geometry may be far coarser than visible geometry without being seen** — a silhouette that casts the same shadow does not need the surface detail the visible pass needs, so the reduction is deeper here than anywhere else in the list
+- [ ] **Its acceptance needs nothing new: the cast shadow must land within the visibility term** (§ I.26.15), bounded in screen pixels against the estimator's own displacement. *A proxy is accepted by the same instrument that accepts the estimator, which is why this customer is first and not merely largest*
+- [ ] **The impostor source is the same machinery rather than the same use**, and it is worth separating: a proxy is *drawn*, a capture source is *rendered from once and discarded*. Their budgets are unrelated and a round that conflated them would size one by the other
 
 - [ ] **It does NOT go in the loader, and the reason is a shape this tree has already corrected once.** `Gltf::Document::Read` keeps answering *what is in this file*, exactly — the reader/consumer split. **A budget reaching the read is the defect just removed from the tree generator**, where `Grow` lost its budget parameter (`src/generators/draw/TreeGrower.h:26`) so that *a rank growing a different tree* has no spelling. Same shape, same repair: **`Read(bytes) → Subject` budget-free, `Simplify(subject, budget) → Subject` budget-aware**
 - [ ] **Placement is a layering decision and it is decided on a structural fact rather than on a preference: `Simplify` needs no format knowledge, no camera and no device.** It reads a `Subject` and writes a `Subject`. That is what puts it beside the generators and not inside `gltf/` — *and it is why the seam survives the next format, since a second reader produces the same type and reaches the same simplifier*
@@ -2489,7 +2500,19 @@ bounded by the budget the simplifier declared.** No new oracle, no new instrumen
 - [ ] **Boundaries preserved: an open edge must not shrink.** A wall loses its **window opening** long before it loses its silhouette, and a screen-space bound on the *surface* cannot see that either. *Two blind spots, both named before the first collapse, because each is a criterion the obvious acceptance is invariant under*
 
 - [ ] **And what is NOT a property, stated because a later round will apply it and conclude a correct decimator is broken: the subset test does not hold.** Edge collapse creates vertex positions that were **never in the original**, so *"the coarse mesh's vertices are a subset of the fine mesh's"* is false by construction here — and it is **true** of the tree's rung ladder, which is why the confusion is available
-- [ ] **Two kinds of LOD, one currency, different proofs.** **Selection** — the tree: the coarser rung **is** the finer with parts removed, so the proof is **exact and carries no tolerance**. **Simplification** — a file: the coarser mesh is the finer **approximated**, so the proof is **bounded by the declared error**. *One budget in pixels drives both; the acceptance differs because the operation does, and a suite that ran one proof over both would be red on the correct implementation*
+- [ ] **The proof follows from HOW A RUNG IS MADE, not from what kind of content it is — and the unit is the KNOB, not the ladder.** A rung built by **stopping early** or **leaving out** is a subset by construction: exact, no tolerance. A rung built by **collapsing** or **re-approximating** is an approximation by construction: bounded by the declared error. *One currency in pixels drives both, and a suite that ran one proof over the other would be red on a correct implementation*
+- [x] **And the tree's own ladder is MIXED, which is why the unit has to be the knob — my earlier line calling it a clean subset was wrong.** `src/generators/draw/TreeMesher.h:26-41` states three answers to one budget: **ring stride** is halved rather than chosen freely, *"so a coarse rank's rings are a subset of a fine rank's"* — **subset** · a **dropped shoot and everything it carries** is removed entire — **subset** · but **how many sides a tube gets** is a function of radius and budget, so a coarser rung's tube has **fewer sides at different positions on the circle** — **an approximation**, bounded by the sagitta at half a pixel. **Two thirds of the mechanism is exact and one third is not**
+- [ ] **So § I.28's subset case is scoped to the two knobs that are subsets**, and applying it to tube vertices would be red on a correct mesher. *That is the failure this section was asked to prevent for the simplifier, already present one layer down in our own generator — and it is why the rule is written per knob rather than per kind*
+
+- [ ] **The cost of a ladder is INVERTED between the two constructions, and it decides priority rather than only being an observation.**
+
+| | coarse rung | fine rung |
+|---|---|---|
+| **procedural** | **cheap** — stop iterating | expensive — many iterations |
+| **glTF** | **expensive** — must simplify | **free** — it is what is in the file |
+
+- [ ] **The consequence is favourable and is not obvious until it is laid out: the expensive direction coincides with the case where a ladder matters least.** Most content is procedural and drawn to great distance — terrain, vegetation, buildings — and there **coarse is cheap and the ladder is deep**. glTF assets are **people, cars, planes and small objects at close distance**, where the ladder is **shallow**. *The asymmetry works in our favour, and it is the reason the expensive operation is affordable at all*
+- [ ] **What bounds the glTF ladder's depth is the IMPOSTOR, and that is the real reason it is shallow.** A prop is not never-distant — a car at 500 m is still a car — but its angular size collapses faster than a landscape's, so **it reaches the impostor rung sooner**. The simplifier's range is therefore the closed interval **[full detail, impostor threshold]**, and a bounded interval is what makes an expensive per-rung operation a fixed cost rather than an open one
 
 #### One compositor interface, and the recomposition trigger is declared data rather than discovered by calling
 
