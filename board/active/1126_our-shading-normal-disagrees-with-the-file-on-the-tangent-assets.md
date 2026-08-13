@@ -217,3 +217,35 @@ already is.
   real surprise in this investigation.
 
 **`‖tap‖` is the single number that separates the first two**, and it is one dump away.
+
+**The prediction is refuted by the texture itself, at no cost.** `‖tap‖` measured over all 4 194 304
+texels: **p5–p95 = 1.000015**, and `|tap.z − √(1−x²−y²)|` has p50 **1.5e-5**. **The map is unit-length,
+so the two forms of `z` are the same number.** No attachment, no plan change and no shader change were
+needed — **`‖tap‖` is a property of the texture, not of the shader**, so a PNG decoder and arithmetic
+settled what was scoped as a `Resource` row, a `Contributes` entry, a splice and a readback.
+
+**The candidate that fits everything, stated as a candidate: we have no mipmaps.**
+`src/render/stages/SubjectDraw.cpp:882` sets `num_levels = 1` and `:915` `mipmap_mode = NEAREST`. The
+normal map is **2048×2048** on a subject spanning a few hundred screen pixels — heavy minification,
+bilinear on level 0 — while **Cycles filters over the ray footprint**. Averaging a normal map toward its
+mean **flattens** it, and that predicts every measurement without adjustment:
+
+| measured | predicted by no-mipmaps |
+|---|---|
+| turn p50 **0.000°** | averaging taps that share a bearing changes **length, not direction** |
+| ratio **1.129** top decile, up to **2.33** disputed | ours keeps the full perturbation, Cycles averages it away |
+| ratio **1.000** at the median | where the map is smooth, averaging changes nothing |
+| **band 0 not exempt** | this is the map's local **frequency**, not the tangent basis |
+| `water-bottle` p95 **0.064°** | its normal map is low-frequency where it is visible |
+
+**It is not called the mechanism, and the reason is precedent**: *everything fits* is how the
+multiscatter hypothesis felt before its own signature killed it. **The test is direct**: at disputed
+pixels, compare the level-0 tap against the tap averaged over the pixel's texel footprint and see which
+reproduces Cycles' tilt. **It needs the `uv` channel**, which the three-channel trim dropped — one row in
+`QUANTITY_PASSES` and a re-prepare, now measured at 228 s.
+
+**And if it holds, the repair is a ladder question rather than an obvious fix.** Mipmapping a *normal*
+map is not neutral: averaging unit vectors shortens them, which is why the literature normalises after or
+carries the lost length as a roughness term. So *add mipmaps* is a shading change with a picture
+consequence, and it lands on **fix the engine** only if our sampling is the non-conforming side —
+Cycles filtering over a footprint against us point-sampling is a difference in **what a pixel means**.
