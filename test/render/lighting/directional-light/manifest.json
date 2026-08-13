@@ -47,6 +47,20 @@
         "unit": "materials of 3",
         "origin": "measured",
         "note": "the key is absent, so the glTF default false applies and back-face culling is what the format asks for"
+      },
+      {
+        "of": "screen-x displacement of the brightest sample of the roughness-0 sphere from that sphere's own disc centre, ours minus the oracle's, along the row y = 360",
+        "value": 70,
+        "unit": "px",
+        "origin": "measured",
+        "note": "THE TWO PROFILES ARE MIRROR IMAGES ABOUT THE DISC CENTRE, and that is the near/far shell stated in the picture rather than in the geometry: the disc spans x 194..436 on both sides, its centre is 315, the oracle peaks at 280 and we peak at 350. A point carrying shading normal n sits at C + R*n on the near shell and at C - R*n on the far one, so shading the shell a conforming cull leaves visible produces the other picture reflected through the disc centre. The coverage is untouched -- the alpha delta over the whole frame is 0 -- because both shells share one silhouette."
+      },
+      {
+        "of": "mean absolute radiance residual against the oracle along the row y = 360 over the roughness-0 disc, rendering the same file with doubleSided true on its three materials",
+        "value": 0.001986,
+        "unit": "linear, scene-referred",
+        "origin": "measured",
+        "note": "THE CONTROL THAT ATTRIBUTES THE WHOLE DISAGREEMENT TO THE CULL. With doubleSided true the near shell wins on depth and we shade the surface Cycles stops on: the residual on that row falls from 0.04569 to 0.001986, a factor of 23, and the peak returns to the oracle's own x = 280. The experiment changes one key of one file and touches neither the camera, nor the light's direction, nor the map from glTF's frame to the engine's -- so none of those three can be carrying the mirror, which is what a round chasing it would otherwise have to rule out one at a time."
       }
     ]
   },
