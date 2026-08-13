@@ -1649,8 +1649,12 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
  * evidence about the other. The accessor is authored outside this tree.
  *
  * INTERPOLATED THE WAY A RASTERISER INTERPOLATES IT -- barycentric over the projected triangle, in
- * the glTF frame the accessor is already in -- and depth-ordered by the engine's own REVERSED-Z
- * convention, greater is nearer, so the surface this reports is the surface the engine shaded. It is
+ * the glTF frame the accessor is already in -- and depth-ordered by the convention THIS projection
+ * actually uses: `gltf/Camera.h` puts NDC z in [-1, +1] with -1 AT THE NEAR PLANE, which is
+ * explicitly not the engine's reversed-Z. Nearer is LESSER here, and keeping the greater one kept
+ * the FAR surface: on a closed body that is the back, whose normal points away, and it reported p50
+ * around 90-115 degrees on `water-bottle`, `boom-box`, `corset` and `lantern` while the open grid of
+ * `normal-tangent-mirror` was unaffected because it has no back to pick. It is
  * the geometric normal the normal map perturbs and not the perturbed one, which is exactly what
  * makes it the adjudicator: a disagreement between the other two is a disagreement about the
  * PERTURBATION, and this is the frame the perturbation is relative to. */
@@ -1663,16 +1667,23 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
                                          const Viewport &viewport, int width, int height) {
   DeclaredNormals out;
   out.Xyz.assign((size_t)width * (size_t)height * 3u, 0.0f);
-  out.Depth.assign((size_t)width * (size_t)height, -2.0f);
+  out.Depth.assign((size_t)width * (size_t)height, 2.0f);
   if (geometry.Normals().size() < geometry.PositionsM().size()) { return out; }
   const std::vector<uint32_t> &indices = geometry.Indices();
-  for (size_t triangle = 0; triangle * 3u + 2u < indices.size(); ++triangle) {
+  /* PER PART, AND THE INDEX RUN IS THE PART'S OWN. Walking `Indices()` as one flat list is right for
+   * a subject of one primitive and wrong for every other: a part's triangles start at
+   * `part.FirstIndex`, so a flat walk reads one part's indices as another's and interpolates
+   * normals across a seam that does not exist. It reported p50 103 degrees on `water-bottle` and
+   * `boom-box`, and BOTH legs returned the same wrong number, which is what said the fault was
+   * here rather than in either of them. */
+  for (const outshine::Gltf::Part &part : geometry.Parts()) {
+  for (size_t triangle = 0; triangle * 3u + 2u < part.IndexCount; ++triangle) {
     double corner[3][2];
     double depth[3];
     const double *normal[3];
     bool projects = true;
     for (int which = 0; which < 3; ++which) {
-      const size_t vertex = indices[triangle * 3u + (size_t)which];
+      const size_t vertex = indices[part.FirstIndex + triangle * 3u + (size_t)which];
       const double point[3] = {geometry.PositionsM()[vertex * 3],
                                geometry.PositionsM()[vertex * 3 + 1],
                                geometry.PositionsM()[vertex * 3 + 2]};
@@ -1703,8 +1714,9 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
         const double w2 = 1.0 - w0 - w1;
         const double z = w0 * depth[0] + w1 * depth[1] + w2 * depth[2];
         const size_t at = (size_t)y * (size_t)width + (size_t)x;
-        /* REVERSED-Z, the engine's own convention: greater is nearer. */
-        if (z <= (double)out.Depth[at]) { continue; }
+        /* NEARER IS LESSER in this projection (`gltf/Camera.h`), so the nearest surface is the
+         * smallest z and the buffer starts beyond the far plane. */
+        if (z >= (double)out.Depth[at]) { continue; }
         out.Depth[at] = (float)z;
         for (int axis = 0; axis < 3; ++axis) {
           out.Xyz[at * 3u + (size_t)axis] =
@@ -1712,6 +1724,7 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
         }
       }
     }
+  }
   }
   return out;
 }

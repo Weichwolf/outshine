@@ -133,3 +133,37 @@ for each pixel where ours and Cycles differ, which is nearer the declaration.
 the multi-part cases it gets wrong, so *a normal-mapped asset agreeing at p95 0.064° while the
 tangent-free column was worst* stays open rather than being resolved by a number that is measuring the
 wrong population.
+
+**Step 1 refuted its own diagnosis and found the real cause.** Per-part offsets changed nothing to four
+decimals — all three assets are **single-part**, so multi-part was never it. The defect was a depth
+ordering written as *the engine's reversed-Z, greater is nearer* against `src/gltf/Camera.h:7`, which
+states the opposite in its own comment: *NDC z in [−1, +1] with −1 at the near plane… not this engine's
+depth convention.* **The far surface was kept** — on a closed body, the back, whose normal points away.
+The diagnosis **predicted which cases would be affected**: `normal-tangent-mirror` is an open grid with
+no back to pick and was untouched; every closed body was wrong.
+
+**They do not land on 0.3174°, and where they land is the finding.**
+
+| case | ours vs file | Cycles vs file | apart |
+|---|---|---|---|
+| `normal-tangent-mirror` | 0.3177° | 0.3183° | 0.001° |
+| `normal-tangent` | 0.3178° | 0.3179° | 0.001° |
+| `water-bottle` | 0.9566° | 0.9530° | **0.004°** |
+| `boom-box` | 0.5259° | 0.5282° | 0.002° |
+| `corset` | 3.9743° | 3.9430° | 0.031° |
+| `lantern` | 2.4663° | 2.4731° | 0.007° |
+
+The two open grids land on the term because there the map's flat region dominates and the texture's
+quantisation is the whole residual. **The four closed bodies sit at 0.53°–3.97°: the normal map's genuine
+perturbation over a curved, coarsely tessellated surface, which 0.3174° never covered.**
+
+**And those four answer their own branch with a fourth outcome: neither side is wrong.** Both legs sit at
+the *same* distance from the declaration, agreeing with each other to within 0.004° — the offset is the
+perturbation both apply identically, not a defect in either.
+
+**The disagreement that started this is untouched by the repair**, which is the right outcome: repairing
+the adjudicator did not move the thing being adjudicated. `ours vs Cycles p95 = 9.4786°` on the two
+tangent assets stands.
+
+**One step remains: the per-pixel *closer to the file* statistic over the disagreeing set, with its
+population size published.** A verdict over 200 pixels and one over 200 000 are different claims.
