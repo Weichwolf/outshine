@@ -72,6 +72,11 @@ public:
    * A caller whose verdict is the value reads `Plan::Format(Resource::SceneLinear)` to know which
    * floor it is measuring against. */
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
+  /* THE NORMAL THE BRDF RECEIVED, one xyz per pixel, world-space in the subject's own frame
+   * (board:1122). Empty unless the plan holds the target, which it does only where something asked
+   * for it -- a readback of an attachment nobody requested would be reading a texture that was
+   * never allocated. */
+  [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
 
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
    * it -- many primitives, each with its own surface slot and vertex layout. */

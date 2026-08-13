@@ -47,3 +47,29 @@ catalogue row outliving its implementation.
 **Done when** all three legs are published per pixel — the file's declared `NORMAL`, Cycles mapped into
 glTF metres, and ours at the shading point — and the branch is named: engine fix if Cycles matches the
 file and we do not; *reduce the oracle* or *patch the asset* if we match the file and Cycles does not.
+
+## Comments
+
+**The mechanism is built and its first numbers are meaningless, which is the guard working.** Attachment,
+shader locals, readback, comparison and exclusion predicate all landed and are green. The p50 angles came
+out **179.45°** on `normal-tangent-mirror`, **107.32°** on `water-bottle`, **100.76°** on `boom-box` — and
+**a single sign error cannot produce all three.** Offset varying per case is the signature of a
+**placement transform**: our leg is in the anchor-relative world frame the studio places the subject in,
+Cycles' is in the glTF frame.
+
+**The frame map was validated on one leg only.** *Blender `(x,y,z)` → glTF `(x, z, −y)`, unit length to
+one f32 ulp, 0.3174° residual* was quoted in every brief on this item as though it covered both sides. It
+covered **Cycles**. Our own leg's frame was never checked, and the rule this item was written under —
+*a frame error and a shading-normal defect look identical* — caught a frame error.
+
+**Negating anything to make the angles small would be fitting a frame to a number.** The repair is to map
+our leg through the subject's own `EcefFromGltf` placement: a transform that exists in the tree and is
+derivable rather than guessable.
+
+**The exclusion predicate is verified by the cases that have nothing to compare.** `coverage/sphere` and
+`coverage/cube` are wholly emissive: **0 pixels compared, 46 134 and 97 465 excluded by zero length**, not
+by an angular threshold. Without it they would have reported a clean 90° over 143 599 pixels, which would
+have read as a finding.
+
+**Remaining:** our leg through the placement, then re-read the three legs and name the branch. Everything
+else is done and verified.

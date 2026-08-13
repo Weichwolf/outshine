@@ -482,4 +482,27 @@ ReadState Renderer::ReadSceneLinear(std::vector<float> &rgba) {
   return ReadState::Ready;
 }
 
+/* THE THIRD LEG OF THE NORMAL COMPARISON (board:1122). Read at rgba16float and widened the way the
+ * scene tap is: binary16 to f32 is exact, so one currency leaves this call. The fourth channel is
+ * the shader's own marker -- 1 where a lobe was shaded and the vector is a direction, and the
+ * emissive arms write a declared zero VECTOR there, so a reader tells "no shading normal" from "a
+ * normal pointing away" by length rather than by a threshold. */
+ReadState Renderer::ReadShadingNormal(std::vector<float> &xyz) {
+  SDL_GPUTexture *source = ShadingNormalTex.Get();
+  if (!Ready || !source) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 8u) !=
+      ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  const size_t components = (size_t)Width * (size_t)Height * 4u;
+  xyz.resize(components);
+  for (size_t component = 0; component < components; ++component) {
+    uint16_t bits = 0;
+    std::memcpy(&bits, read.Rows() + component * sizeof(uint16_t), sizeof bits);
+    xyz[component] = HalfToFloat(bits);
+  }
+  return ReadState::Ready;
+}
+
 } // namespace outshine::Render

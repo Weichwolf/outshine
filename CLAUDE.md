@@ -472,13 +472,19 @@ grep -l '^Tags:.*oracle'  board/*/*.md               # by tag
 grep -l '^Type: bug'      board/active/*.md          # by kind
 grep -l '^Parent: 0007'   board/*/*.md               # a feature's children
 grep -l '^Depends: *0042' board/*/*.md               # who waits on this
-grep -rl 'board:0042' test/                          # the evidence — empty means unproven
-grep -rn 'board:0042' src/ test/                     # every site that implements or proves it
+git grep -l 'board:0042' -- test/                    # the evidence — empty means unproven
+git grep -n 'board:0042' -- src/ test/               # every site that implements or proves it
 git log --follow --name-status -- 'board/*/0042_*'   # every move, when, by whom
 git log --grep 'board:0042'                          # every commit that worked on it
 git mv board/active/X.md board/closed/               # the transition IS the diff
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
+**`git grep`, never `grep -r`, for the marker queries.** `test/render/.gitignore` opens with `*` and
+re-includes `/*.cpp` so a case directory carries only its manifest; **git honours the negation and
+some greps do not**, so a plain recursive grep silently skips `Parity.cpp` — the largest test file in
+the tree. The failure is the dangerous direction: **a work item proven only by a render case reads as
+unproven.** `git grep` searches tracked files, which is exactly the population the question means.
+
 **While any agent is running, stage named files and never a directory.** `git mv` **stages** its
 rename, so `git add -A` or `git add board/` sweeps another round's state change into a commit about
 something else — twice in one day here, once closing a work item before its gate had run. The rule

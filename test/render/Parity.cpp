@@ -1045,6 +1045,12 @@ struct Picture {
    * transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation would
    * hide a difference the float buffer carries. */
   std::vector<float> Linear;
+  /* THE NORMAL THE BRDF RECEIVED, xyzw per pixel (board:1122). The fourth channel marks whether a
+   * lobe was shaded at all: the emissive arms write a zero VECTOR, and a zero-length vector is not
+   * a direction, so the three-way excludes those pixels by that predicate and never by an angular
+   * threshold -- an angle against a zero vector is meaningless and would read as a clean 90 degrees
+   * on every one of them. */
+  std::vector<float> ShadingNormal;
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
@@ -1070,6 +1076,10 @@ struct Picture {
   }
   if (renderer.ReadPixels(out.Rgba) != outshine::Render::ReadState::Ready) {
     error = "the colour readback did not complete";
+    return false;
+  }
+  if (renderer.ReadShadingNormal(out.ShadingNormal) != outshine::Render::ReadState::Ready) {
+    error = "the shading-normal readback did not complete";
     return false;
   }
   return true;
@@ -1317,7 +1327,11 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
    * transfer function over scene-referred linear values and nothing else, and the frame target is
    * sRGB-encoding: a curve here would be measuring the curve (board:0087). */
   outshine::Render::PlanSpec declaration;
+  /* THE SHADING NORMAL IS REQUESTED, WHICH IS WHAT ATTACHES IT (board:1121, board:1122). The plan
+   * prunes a target nothing reads, so asking for it here is the whole of why it exists in this
+   * plan and in no other. */
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
+                         outshine::Render::Resource::SceneShadingNormal,
                          outshine::Render::Resource::FrameTex};
   declaration.Content = {outshine::Render::Stage::Subjects};
   declaration.Display =
@@ -1630,6 +1644,85 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
 }
 
+/* THE THREE LEGS OF THE NORMAL COMPARISON, PUBLISHED RATHER THAN DIFFERENCED (board:1122).
+ *
+ * WHY THREE. Ours against Cycles says the two differ and NOTHING about which is wrong. The file's own
+ * `NORMAL` accessor is the third party, authored outside this tree, and it is what separates an
+ * engine fix from `reduce the oracle`: if Cycles matches the file and we do not, the defect is ours;
+ * if we match and Cycles does not, Cycles is shading normals the glTF never declared.
+ *
+ * THE FRAME MAP IS BLENDER-WORLD TO glTF AND IT IS VALIDATED, not assumed: `(x, y, z) -> (x, z, -y)`,
+ * unit length preserved to one f32 ulp, residual tilt 0.3174 degrees DERIVED from the normal
+ * texture's own 8-bit quantisation -- `128/255*2-1 = 0.00392` per axis over two axes. So a
+ * disagreement above ~0.4 degrees is real and the effect under investigation is 4.2 to 10.3 degrees.
+ *
+ * PIXELS WITH NO SHADING NORMAL ARE EXCLUDED BY PREDICATE AND NEVER BY THRESHOLD. The emissive arms
+ * shade no lobe and write a declared zero VECTOR; an angle against a zero vector is meaningless and
+ * would come back as a clean 90 degrees on every one of them, which reads as a finding. The count of
+ * excluded pixels is published beside the result, because an exclusion nobody counts is a mask. */
+void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
+                        std::vector<Metric> &metrics) {
+  using namespace outshine::Test;
+  RawF32 cycles;
+  const std::string path = subject.Directory + "oracle.normal.raw";
+  if (!cycles.ReadFile(path)) {
+    Refused(cycles.Error());
+    return;
+  }
+  const size_t width = (size_t)ours.Width, height = (size_t)ours.Height;
+  if (picture.ShadingNormal.size() < width * height * 4u ||
+      (size_t)cycles.Width() != width || (size_t)cycles.Height() != height) {
+    Refused("the shading-normal readback and the oracle's normal pass do not cover one frame");
+    return;
+  }
+
+  size_t shaded = 0, noLobe = 0, uncovered = 0;
+  double worstDeg = 0, sumDeg = 0;
+  std::vector<double> degrees;
+  for (size_t y = 0; y < height; ++y) {
+    for (size_t x = 0; x < width; ++x) {
+      if (!ours.At((int)x, (int)y)) { ++uncovered; continue; }
+      const size_t at = (y * width + x) * 4u;
+      const double ox = picture.ShadingNormal[at], oy = picture.ShadingNormal[at + 1],
+                   oz = picture.ShadingNormal[at + 2];
+      const double oursLength = std::sqrt(ox * ox + oy * oy + oz * oz);
+      /* THE PREDICATE, and it is length rather than a small angle: a zero vector is not a direction
+       * and no tolerance can make it one. */
+      if (oursLength <= 0.0) { ++noLobe; continue; }
+      /* Blender world to glTF: the importer maps glTF +Z to Blender -Y. */
+      const double bx = (double)cycles.At((int)x, (int)y, 0);
+      const double by = (double)cycles.At((int)x, (int)y, 1);
+      const double bz = (double)cycles.At((int)x, (int)y, 2);
+      const double cx = bx, cy = bz, cz = -by;
+      const double theirsLength = std::sqrt(cx * cx + cy * cy + cz * cz);
+      if (theirsLength <= 0.0) { ++noLobe; continue; }
+      ++shaded;
+      double cosine = (ox * cx + oy * cy + oz * cz) / (oursLength * theirsLength);
+      cosine = cosine > 1.0 ? 1.0 : (cosine < -1.0 ? -1.0 : cosine);
+      const double deg = std::acos(cosine) * 180.0 / 3.14159265358979323846;
+      degrees.push_back(deg);
+      sumDeg += deg;
+      if (deg > worstDeg) { worstDeg = deg; }
+    }
+  }
+  std::sort(degrees.begin(), degrees.end());
+  Note("shading normal, pixels compared", (double)shaded, "px");
+  Note("shading normal, pixels excluded as no-lobe (zero vector, by predicate)", (double)noLobe,
+       "px");
+  Note("shading normal, pixels outside our coverage", (double)uncovered, "px");
+  if (shaded == 0) {
+    Refused("no covered pixel carries a shading normal on both sides, so nothing was compared");
+    return;
+  }
+  metrics.push_back({"shading_normal_p50_deg", Percentile(degrees, 0.50), 0.0, "degrees",
+                     Direction::Reported});
+  metrics.push_back({"shading_normal_p95_deg", Percentile(degrees, 0.95), 0.0, "degrees",
+                     Direction::Reported});
+  metrics.push_back({"shading_normal_max_deg", worstDeg, 0.0, "degrees", Direction::Reported});
+  metrics.push_back({"shading_normal_mean_deg", sumDeg / (double)shaded, 0.0, "degrees",
+                    Direction::Reported});
+}
+
 /* THE PICTURE BOUND, SCORED AND PUBLISHED (board:0089). The bound is the sum of the
  * terms this case's own path puts in it, the metric is the tail, and the histogram beside it is
  * unbounded by design -- 519 pixels at one code and 5 190 pixels at one code are equally acceptable,
@@ -1893,6 +1986,8 @@ int main(int argc, char **argv) {
                           "pixel of the picture has something to be compared against");
   const Tail bound = BoundFor(subject.Path);
   ScorePictureBound(image, bound, metrics);
+
+  ScoreShadingNormal(subject, picture, ours, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 
