@@ -37,38 +37,31 @@ DEFAULT_RECIPE_NAME = "default"
 # Every one lands in the same `OSRAWF32` layout as the picture, through the same reader, so no
 # quantity gets a format of its own.
 #
-# ROUGHNESS IS ABSENT AND IT IS NOT AN OVERSIGHT: Cycles publishes no roughness pass -- measured on
-# this host, there is no `use_pass_roughness` among the view layer's flags -- so it would need a
-# SHADER AOV wired into every material, where a material the wiring missed reports zero and zero
-# reads as an answer. That needs a wiring-completeness check first and it is its own item.
+# THE SET IS WHAT A TEST READS TODAY, and the rule is a measured one rather than a preference: an
+# invalidation costs ~5 minutes and a channel costs ~15 MB per case per recipe, so ADDING a channel
+# is cheap and HOLDING one is not. Eighteen channels measured 293 MB a case and 19.9 GB across the
+# corpus, which is a constraint on a 50 GB disk; three is a rounding error. A channel arrives when a
+# test reads it.
+#
+# DROPPED WITH THEIR REASONS, so the next round does not rediscover them:
+#   depth      -- the router's WEAKER implementation; index is exact and no test reads depth today.
+#   position, uv, ambientOcclusion         -- no bound derivable from named terms, nothing reads them.
+#   diffuse/glossy/transmission {Color, Direct, Indirect}, emission, environment -- these attribute
+#                 the six unattributed cases and are the first expected back. NEXT round's
+#                 justification, not this round's speculation.
+#   roughness  -- Cycles publishes NO roughness pass; measured on this host, there is no
+#                 `use_pass_roughness` among the view layer's flags. It would need a SHADER AOV wired
+#                 into every material, where a material the wiring missed reports zero and zero reads
+#                 as an answer -- the same defect `objectIndex` was caught with. Needs a
+#                 wiring-completeness check first, and that is its own item.
 QUANTITY_PASSES = {
-    # GEOMETRY -- what the camera ray hit and where.
+    # WHAT THE SHADING DISAGREEMENT IS ABOUT: a highlight measured 4.2-10.3 degrees out of place, and
+    # inferring a normal from where a highlight landed is not a measurement of a normal.
     "normal": {"socket": "Normal", "viewLayerFlag": "use_pass_normal"},
-    "position": {"socket": "Position", "viewLayerFlag": "use_pass_position"},
-    "depth": {"socket": "Depth", "viewLayerFlag": "use_pass_z"},
-    "uv": {"socket": "UV", "viewLayerFlag": "use_pass_uv"},
-    # IDENTITY -- which surface, which object: the picture bound's router asks `is this pixel
-    # covered` when the question is `WHAT covers it`, and this is the missing predicate.
+    # THE ROUTER'S PREDICATE. The picture bound asks `is this pixel covered` when the question is
+    # `WHAT covers it`, and a surface swap read as 209 codes for want of this.
     "materialIndex": {"socket": "Material Index", "viewLayerFlag": "use_pass_material_index"},
     "objectIndex": {"socket": "Object Index", "viewLayerFlag": "use_pass_object_index"},
-    # INPUTS WE UPLOADED -- a disagreement here is a READER defect and not a shading one.
-    "diffuseColour": {"socket": "Diffuse Color", "viewLayerFlag": "use_pass_diffuse_color"},
-    "glossyColour": {"socket": "Glossy Color", "viewLayerFlag": "use_pass_glossy_color"},
-    "transmissionColour": {"socket": "Transmission Color",
-                           "viewLayerFlag": "use_pass_transmission_color"},
-    # TRANSPORT, SPLIT -- the BRDF against the light transport, which is where the residual is.
-    "diffuseDirect": {"socket": "Diffuse Direct", "viewLayerFlag": "use_pass_diffuse_direct"},
-    "diffuseIndirect": {"socket": "Diffuse Indirect", "viewLayerFlag": "use_pass_diffuse_indirect"},
-    "glossyDirect": {"socket": "Glossy Direct", "viewLayerFlag": "use_pass_glossy_direct"},
-    "glossyIndirect": {"socket": "Glossy Indirect", "viewLayerFlag": "use_pass_glossy_indirect"},
-    "transmissionDirect": {"socket": "Transmission Direct",
-                           "viewLayerFlag": "use_pass_transmission_direct"},
-    "transmissionIndirect": {"socket": "Transmission Indirect",
-                             "viewLayerFlag": "use_pass_transmission_indirect"},
-    "emission": {"socket": "Emission", "viewLayerFlag": "use_pass_emit"},
-    "environment": {"socket": "Environment", "viewLayerFlag": "use_pass_environment"},
-    "ambientOcclusion": {"socket": "Ambient Occlusion",
-                         "viewLayerFlag": "use_pass_ambient_occlusion"},
 }
 SEED_SHIFT_RECIPE_NAME = "seed-shift"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
