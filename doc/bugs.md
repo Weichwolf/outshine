@@ -744,7 +744,7 @@ the tree more than once, or under a name that says the wrong unit.*
   the sum against plumb runs was the deleted surface-budget tool, deleted with `tools/` on 2026-08-12. The
   number is unchanged and may well be right; what is gone is any way to recompute it, so it is a
   measured value with no reproducible origin — against `CLAUDE.md`'s *every number carries its
-  origin*. Right: a test under `test/world/` that reconstructs the seven terms and asserts the
+  origin*. Right: a test under `test/unit/world/` that reconstructs the seven terms and asserts the
   constant bounds them, which is the same arithmetic in the language the tree is written in.
 
 - **The browser is gone from the code and still in the prose, 30 times — Band 2.** The same grep over
@@ -817,8 +817,8 @@ the tree more than once, or under a name that says the wrong unit.*
   forbidden header (`#include "Rendererr.h"`) is a green gate that proves nothing, and so is one whose
   body stops compiling for an unrelated reason while the include still resolves. Four fixtures ride
   this: `RendererIsNotReachable`, `WorldIsNotReachable`, `LogIsNotReachable`, `DrawIsNotReachable`,
-  plus `test/compile/world/GeneratorIsNotReachable`. The three `-Werror` negatives under
-  `test/compile/core/` are
+  plus `test/unit/compile/world/GeneratorIsNotReachable`. The three `-Werror` negatives under
+  `test/unit/compile/core/` are
   weaker still — `verify-types` checks only the exit status and matches no diagnostic at all, so any
   error in `HeightIsNotReachableWithoutItsState.cpp`, `AnswerIsNotIgnorable.cpp` or
   `DepthIsNeverNegative.cpp` passes it. Right, and it costs nothing: demand the **exact** expected
@@ -833,7 +833,7 @@ the tree more than once, or under a name that says the wrong unit.*
   hides every claim after it; the run reports `verify-generators: N failed` without a machine-readable
   name per claim; and no claim in it can be run alone. It also holds the tree's only `malloc` outside
   `world/terrain` (`:315`; `clients/SimHost.cpp`'s went with the file in `b83285f`). Right: one translation unit per claim under
-  `test/generators/`, each with its own `main`, which is what the suite this file's requirements
+  `test/unit/generators/`, each with its own `main`, which is what the suite this file's requirements
   now describe is for.
 
 
@@ -845,7 +845,7 @@ the tree more than once, or under a name that says the wrong unit.*
   No target compiles them since the wasm targets were deleted, so they are unbuilt code inside `src/`
   — the one thing `-Werror` cannot see. `HttpPost.cpp:17` additionally justifies a static's lifetime
   with `-sEXIT_RUNTIME=0`, a flag from a build file deleted in the same commit. Right:
-  the branches leave with the round that builds `src/host/`, and until then nothing may be added to
+  the branches leave with the round that builds the `host/` layer, and until then nothing may be added to
   them.
 
 - **Nothing tests that a cumulative counter survives a 32-bit target.** `verify-counters` did, in the
@@ -1361,7 +1361,7 @@ project twice.
 **Two populations, and they need different repairs.**
 
 - **Six moved and are still there**, from § I.26.9's re-organisation of the unit suite: `test/unit/core/PlanarGeodesyHoldsToItsScope.cpp`, `test/unit/data/AbsenceHandsOver.cpp`, `test/unit/data/TheAnswerNamesItsAddress.cpp`, `test/unit/data/UncoveredIsUndeclared.cpp`, `test/unit/generators/SameRegionSamePlacement.cpp`, `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp` — each now under `test/unit/`. **Eleven of the seventeen lines are one path-prefix edit**, and every one of those tests **PASSes** in this round's run, so the claim is true and only its address is wrong.
-- **Sixteen are gone**: the deleted architecture document, `src/clients/{FileArtifacts,HttpPost,Png,ServerLog,ServerTelemetry,Walker}.cpp`, the deleted building shader, `test/clients/{AppWalk,TreeBench,WorldMain}.cpp`, the deleted reachability subject, the deleted reachability subject, the deleted counter-width test, the deleted arrival-order proxy, `test/corpus/manifest-schema.json`, `test/render/coverage/triangle/scene.glb`. **These need a per-line judgement and not an edit**: the deleted tree bench alone carries two ticks, and a tick whose test was deleted is a capability that may or may not still be held.
+- **Sixteen are gone**, and they are named without their paths on purpose — a deleted file written in citation syntax is the very defect this entry is about: the architecture document · six browser-era clients (the file-artefact sink, the HTTP client, the PNG writer, the server log, the server telemetry, the walker) · the building shader · three deleted entry points (the walk client, the tree bench, the world entry point) · two reachability subjects · the counter-width test · the arrival-order proxy. **These need a per-line judgement and not an edit**: the tree bench alone carries two ticks, and a tick whose test was deleted is a capability that may or may not still be held.
 
 **The harmless explanation, sought and ruled out.** *"The audit already happened"* — `3e90d14` retired
 twenty-four ticked lines whose **capability** the port deleted, which is a different question from
