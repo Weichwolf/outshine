@@ -33,12 +33,25 @@ struct Pull {
     Wanted.push_back(r);
   }
 
+  /* A CONTRIBUTION DOES NOT MAKE ITS TARGET WANTED, and that asymmetry with `Reads` is the whole of
+   * the pruning (board:1121). Wanting it made every target of every held stage held BY CONSTRUCTION,
+   * so the backward closure ran forwards for half its edges and `sceneVelocity` was allocated,
+   * cleared and written in every plan that drew geometry -- including the parity runner's, which
+   * reads it nowhere. A target is now held because something READS it or because the consumer asked
+   * for it as an output, which is what "compiled backwards from a requested output" means.
+   *
+   * THE DEPTH TARGET IS THE EXCEPTION AND IT IS NOT AN ESCAPE HATCH: a depth attachment is what a
+   * raster pass IS -- the depth test consumes it inside the pass, with no stage reading it as a
+   * resource -- so pruning it would leave a geometry pass with no depth test rather than saving a
+   * buffer. A COLOUR target is a data product and has a reader or has no reason to exist. */
   void Hold(Stage s) {
     if (HeldStage[static_cast<size_t>(s)]) { return; }
     HeldStage[static_cast<size_t>(s)] = true;
     const StageRow &row = Row(s);
     for (size_t e = 0; e < kMaxEdges && row.Reads[e] != kNoEdge; ++e) { Want(row.Reads[e]); }
-    for (size_t e = 0; e < kMaxEdges && row.Contributes[e] != kNoEdge; ++e) { Want(row.Contributes[e]); }
+    for (size_t e = 0; e < kMaxEdges && row.Contributes[e] != kNoEdge; ++e) {
+      if (Row(row.Contributes[e]).Format == TexelFormat::Depth32Float) { Want(row.Contributes[e]); }
+    }
   }
 
   /* THE REFUSAL NAMES THE REPAIR AND NOT ONLY THE DEFECT: the resource that was missing, the stage
@@ -255,6 +268,11 @@ bool RenderPlan::Compile(const PlanSpec &spec, std::shared_ptr<const RenderPlan>
       for (const Resource *edge : edges) {
         for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
           const Resource target = edge[e];
+          /* THE PRUNE, AT THE ATTACHMENT (board:1121). A stage still DECLARES what it draws into;
+           * what the compiled plan attaches is the subset something reads. Skipping it here rather
+           * than editing the catalogue keeps the row a statement about the stage and not about one
+           * plan. */
+          if (!plan->HeldResource_[static_cast<size_t>(target)]) { continue; }
           if (Row(target).Format == TexelFormat::Depth32Float) {
             if (pass.Depth != kNoEdge && pass.Depth != target) {
               error = std::string("render pass ") + pass.Name + ": stage " + row.Name +
