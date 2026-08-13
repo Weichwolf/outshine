@@ -213,3 +213,27 @@ changes nothing; **whether the metal-rough map has the same neutrality is unmeas
 same cheap check applied to the right file. **Do that before choosing a rung.**
 
 **The diagnostic is reverted** — three runs, no instrument left behind, and the baseline restored.
+
+**And the channel, which completes the mechanism.** The metal-rough map's content:
+
+| most common texel | share | reading under ORM |
+|---|---|---|
+| `(255, 76, 0)` | 10.1 % | roughness 76, **dielectric** |
+| `(243, 0, 255)` | 8.6 % | **mirror-smooth**, **metal** |
+| `(242, 5, 0)` | 5.3 % | near-smooth, dielectric |
+
+**Roughness spans the full 0–255 and metalness is effectively binary — 0 and 255 in adjacent regions.**
+Averaging across a seam therefore yields **metalness ≈ 128: a half-metal, which is not a material that
+exists**, beside a mirror that has become mid-rough. That is a full-scale radiance difference and it is
+the **ORM-packing hazard**, not anything about normals.
+
+**So the padding question is answered on the right texture and the answer is no.** There is no neutral
+gutter to dilate into — the map is packed with high-contrast meaningful values, and dilating one island's
+metalness into its neighbour's is the same corruption by another route.
+
+**Which moves the rung.** *Patch the asset* has nothing to pad. What remains is **fix the engine**, and
+the literature is specific here: **binary metalness must not be naively box-averaged down a chain** —
+the filtered value is not a material, and the standard answers are to keep metalness at level 0, to
+filter it conservatively rather than linearly, or to carry the roughness change the averaging implies.
+**That is a decision with references and it is the next round's**, not this one's — but the option space
+is now three named engine-side treatments rather than an open question.
