@@ -132,7 +132,11 @@ int main() {
     std::string why;
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(!compiled, "a declared stage nothing reads is refused rather than encoded for nobody");
-    CHECK(why.find("render.content.ambientOcclusion") != std::string::npos,
+    /* THE PATH IS DERIVED FROM THE CATALOGUE AND NOT SPELLED HERE. The refusal builds it from
+     * `Row(id).Name`, so a test that spelled the name would go stale on a rename without failing to
+     * compile -- which it did twice, and cost two gate runs, when five stages became mechanisms. */
+    CHECK(why.find(std::string("render.content.") + Row(Stage::AmbientOcclusion).Name) !=
+              std::string::npos,
           "the refusal names the declaration path of the stage it refused");
     Note(("unread-content refusal: " + why).c_str());
   }
@@ -212,7 +216,8 @@ int main() {
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(!compiled, "a lit surface with no shadow map is refused");
     CHECK(why.find("shadowAtlas") != std::string::npos &&
-              why.find("render.content.lightVisibility") != std::string::npos,
+              why.find(std::string("render.content.") + Row(Stage::LightVisibility).Name) !=
+                  std::string::npos,
           "the refusal names the missing resource and the stage that would have supplied it");
     Note(("missing-producer refusal: " + why).c_str());
   }
