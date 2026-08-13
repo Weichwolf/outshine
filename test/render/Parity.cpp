@@ -867,8 +867,22 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   out.assign(parts, {0.0f, 0.0f, 0.0f});
 
   /* THE LIT ARM DECLARES NO RADIANCE. Every part emits nothing and the picture is what the light
-   * list and the surface's own row make of it, which is the whole point of the arm. */
-  if (subject.ShadedByLights()) { return true; }
+   * list and the surface's own row make of it, which is the whole point of the arm -- EXCEPT where
+   * the file's own material says the surface is not lit. `KHR_materials_unlit` states the whole
+   * appearance of such a surface as its base colour, so that colour IS its declared radiance, and a
+   * lit scene carrying one caption plate has a part whose picture no light decides. */
+  if (subject.ShadedByLights()) {
+    for (size_t part = 0; part < parts; ++part) {
+      const int index = geometry.Parts()[part].Material;
+      if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
+      const outshine::Material &surface = file.Materials()[(size_t)index].Surface;
+      if (!surface.Unlit) { continue; }
+      for (size_t channel = 0; channel < 3; ++channel) {
+        out[part][channel] = surface.BaseColour[channel];
+      }
+    }
+    return true;
+  }
 
   if (subject.MaterialFromFile()) {
     /* THE FILE OWNS THE COLOUR AND THE CASE OWNS THE CLOSURE, and the closure is one factor.

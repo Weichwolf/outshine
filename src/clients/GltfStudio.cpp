@@ -102,6 +102,18 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
   return (along - eye.ZNearM) / span;
 }
 
+/* WHETHER ONE PART IS SHADED AT ALL, in the one place that can answer it: a cosine needs a normal,
+ * a light list to measure against, and a surface that reads light. `KHR_materials_unlit` says the
+ * base colour IS the output -- "no lighting, no shadow ray, no BRDF" -- so an unlit part takes the
+ * emitted arm however many lights the scene declares, and the radiance it emits is the surface's own
+ * base colour, which is what the caller declares per part. Two spellings of this predicate, one
+ * deciding the refusal below and one deciding the pipeline, is the disagreement that would draw an
+ * unlit caption black. */
+[[nodiscard]] bool Lit(const Studio &studio, const Gltf::Subject &subject, size_t part) {
+  return subject.Parts()[part].HasNormal && !studio.Lights.empty() &&
+         !studio.Surfaces[studio.PartSurface[part]].Row.Unlit;
+}
+
 [[nodiscard]] bool Declared(const Studio &studio, const Gltf::Subject &subject,
                             std::string &error) {
   const size_t parts = subject.Parts().size();
@@ -132,7 +144,8 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * every other body is lit -- which reads as a shading bug rather than as the missing attribute
      * it is. glTF says a client MUST compute flat normals for such a primitive; until something
      * does, this is what says so. */
-    if (!studio.Lights.empty() && !subject.Parts()[part].HasNormal) {
+    if (!studio.Lights.empty() && !subject.Parts()[part].HasNormal &&
+        !studio.Surfaces[studio.PartSurface[part]].Row.Unlit) {
       error = "the studio declares " + std::to_string(studio.Lights.size()) +
               " punctual lights and part " + std::to_string(part) + " of node '" +
               subject.Parts()[part].NodeName +
@@ -169,7 +182,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * there is no direction for a cosine to be measured against and the declaration's own radiance
      * is the whole answer. */
     const bool textured = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
-    const bool lit = where.HasNormal && !studio.Lights.empty();
+    const bool lit = Lit(studio, subject, part);
     /* THE NORMAL-MAPPED LAYOUT NEEDS BOTH HALVES TOO, and the second half is the SURFACE: a part
      * that carries a tangent basis under a surface with no normal map would sample the one white
      * texel that only exists to complete the bind group, and white decodes to the tangent-space

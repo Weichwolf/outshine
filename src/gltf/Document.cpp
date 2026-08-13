@@ -153,10 +153,12 @@ Filter FilterOf(int raw) { return raw == 9728 ? Filter::Nearest : Filter::Linear
  * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
  * with names nobody implemented would be the silent-acceptance defect wearing a table. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
-                                                     "KHR_materials_emissive_strength", nullptr};
+                                                     "KHR_materials_emissive_strength",
+                                                     "KHR_materials_unlit", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
+constexpr const char *kUnlit = "KHR_materials_unlit";
 
 bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
@@ -812,6 +814,19 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
     for (float &channel : material.Surface.Emission) {
       channel = static_cast<float>(channel * scale);
     }
+  }
+
+  /* KHR_materials_unlit IS DECLARED BY THE PRESENCE OF ITS OBJECT and carries no property of its
+   * own, so the object's KIND is the whole of what is read: a `true` or a number under that key is a
+   * file saying something the extension does not define, and defaulting it to "unlit" would accept a
+   * spelling nobody wrote. */
+  const Json::Ref unlit = declaration["extensions"][kUnlit];
+  if (unlit.Valid()) {
+    if (unlit.GetKind() != Json::Kind::Object) {
+      return Refuse("material " + Number(index) + " declares KHR_materials_unlit as something "
+                    "other than an object, and the extension defines an empty object");
+    }
+    material.Surface.Unlit = true;
   }
 
   const std::string mode = declaration["alphaMode"].Str("");

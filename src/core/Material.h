@@ -44,6 +44,12 @@ struct Material {
    * argument made here (`Specification.adoc`, `alphaCutoff`); `AlphaBlendModeTest` renders 0.25 and
    * 0.75 columns that fail an engine carrying one number for the whole scene. */
   float CoverageCut = 0.5f;
+  /* `KHR_materials_unlit`: the base colour IS the radiance the surface leaves, so no light, no
+   * normal and no BRDF enter it. It is a property of the SURFACE and not a quality setting, which is
+   * why it sits beside the other surface answers rather than beside a renderer's options -- and it
+   * moves no pipeline state, because what changes is which radiance a part declares and not how the
+   * fragment is composited. */
+  bool Unlit = false;
 };
 
 /* A MATERIAL AS THE PICTURE TAKES IT: a row of numbers, and nothing in it can switch a pipeline
