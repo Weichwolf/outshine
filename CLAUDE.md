@@ -392,7 +392,7 @@ implementation. **Seven fields and no others — an eighth needs a decision:**
 
 | | |
 |---|---|
-| `Type:` | **`feature`** — what must be true · **`task`** — how a feature gets done · **`bug`** — what exists and is wrong |
+| `Type:` | **`feature`** — what must be true · **`task`** — how a feature gets done · **`bug`** — what exists and is wrong · **`issue`** — a decision only the owner can make |
 | `Parent:` | **exactly two levels: `feature` → N `task`. No epics, no sub-tasks.** A `feature` and a `bug` carry none; a `task` carries **exactly one, naming a `feature`**. Stored on the child, reverse derived — `grep -l '^Parent: 0007' board/*/*.md` — and there is no `Children:` field |
 | `Area:` | which part of the tree it belongs to. **The vocabulary is the tree's own layering** — `render` `gltf` `generators` `world` `core` `data` `scenario` `clients` `assets` `corpus` `harness` — so it cannot drift into a taxonomy, and **adding one means adding a directory** |
 | `Tags:` | the **genuine cross-cuts only** — `oracle` `khronos` `perf` `instrument` `bug` `scope`. A tag that restates the area is noise and was struck |
@@ -456,6 +456,14 @@ was tried and refuted, here is the number* is what stops the next round re-runni
 rejected approach is kept with its measurement rather than deleted. **Nothing greps them and no convention
 is built for it**: they are prose for whoever reads that one WI, and **a structured comment is a field
 wearing a disguise** — if it must be queryable it is a field, or it is derived.
+
+**An `issue` is filed and worked around, never waited on.** When a round meets a decision that is the
+owner's — a trade nobody else can make, a scope call, a preference between two defensible designs —
+it becomes a `Type: issue` carrying **the decision, the options, and a recommendation**, and the round
+**continues on something else**. It carries no parent and blocks nothing by default: a `Depends:` on an
+issue is a real block and is written only when the work genuinely cannot proceed, because an issue
+that blocks by habit turns a question into a stoppage. **There is always another ready item**, so
+running out of work is not a state this board can reach.
 
 **Moving a work item into `board/active/` is when it gets groomed** — verify its `Parent:`, set
 `Depends:` on what genuinely blocks it, and read the parent's other children. **Three checks and no

@@ -41,12 +41,12 @@ enum class Resource {
 };
 
 enum class Stage {
-  Transmittance,
-  MultiScatter,
-  SkyView,
+  MediumTransmittance,
+  MediumMultiScatter,
+  MediumRadiance,
   Irradiance,
   AutoExposure,
-  ShadowMap,
+  LightVisibility,
   Sky,
   Sun,
   Moon,
@@ -57,7 +57,7 @@ enum class Stage {
   Water,
   Models,
   Subjects,
-  Occlusion,
+  AmbientOcclusion,
   TemporalResolve,
   Tonemap,
   Present,
@@ -216,11 +216,11 @@ inline constexpr ResourceRow kResources[] = {
 };
 
 inline constexpr StageRow kStages[] = {
-    {Stage::Transmittance, Provenance::Machinery, PassKind::Compute, "transmittance",
+    {Stage::MediumTransmittance, Provenance::Machinery, PassKind::Compute, "mediumTransmittance",
      {kNoEdge}, {Resource::TransmittanceLut, kNoEdge}, {kNoEdge}, kNoFusion},
-    {Stage::MultiScatter, Provenance::Machinery, PassKind::Compute, "multiScatter",
+    {Stage::MediumMultiScatter, Provenance::Machinery, PassKind::Compute, "mediumMultiScatter",
      {Resource::TransmittanceLut, kNoEdge}, {Resource::MultiScatterLut, kNoEdge}, {kNoEdge}, kNoFusion},
-    {Stage::SkyView, Provenance::Machinery, PassKind::Compute, "skyView",
+    {Stage::MediumRadiance, Provenance::Machinery, PassKind::Compute, "mediumRadiance",
      {Resource::TransmittanceLut, Resource::MultiScatterLut, Resource::LutSampler,
       Resource::AtmosphereUniform, kNoEdge},
      {Resource::SkyViewLut, kNoEdge}, {kNoEdge}, kNoFusion},
@@ -230,7 +230,7 @@ inline constexpr StageRow kStages[] = {
      {Resource::IrradianceBuffer, kNoEdge}, {kNoEdge}, kNoFusion},
     {Stage::AutoExposure, Provenance::Content, PassKind::Compute, "autoExposure",
      {Resource::IrradianceBuffer, kNoEdge}, {Resource::Meter, kNoEdge}, {kNoEdge}, kNoFusion},
-    {Stage::ShadowMap, Provenance::Content, PassKind::Raster, "shadowMap",
+    {Stage::LightVisibility, Provenance::Content, PassKind::Raster, "lightVisibility",
      {kNoEdge}, {kNoEdge}, {Resource::ShadowAtlas, kNoEdge}, kNoFusion},
     {Stage::Sky, Provenance::Content, PassKind::Raster, "sky",
      {Resource::SkyViewLut, Resource::LutSampler, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
@@ -270,7 +270,7 @@ inline constexpr StageRow kStages[] = {
      {kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
       Resource::SceneShadingNormal, kNoEdge}, kNoFusion},
-    {Stage::Occlusion, Provenance::Content, PassKind::Raster, "occlusion",
+    {Stage::AmbientOcclusion, Provenance::Content, PassKind::Raster, "ambientOcclusion",
      {Resource::SceneDepth, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
      {Resource::AoBuffer, kNoEdge}, kNoFusion},
     {Stage::TemporalResolve, Provenance::Content, PassKind::Raster, "temporalResolve",

@@ -114,12 +114,12 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Subjects:
     case Stage::Tonemap:
       return true;
-    case Stage::Transmittance:
-    case Stage::MultiScatter:
-    case Stage::SkyView:
+    case Stage::MediumTransmittance:
+    case Stage::MediumMultiScatter:
+    case Stage::MediumRadiance:
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::ShadowMap:
+    case Stage::LightVisibility:
     case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
@@ -129,7 +129,7 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Buildings:
     case Stage::Water:
     case Stage::Models:
-    case Stage::Occlusion:
+    case Stage::AmbientOcclusion:
     case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:
@@ -323,12 +323,12 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Tonemap:
       return Tonemap_.Configure(Handles, LinearSource(), DepthTex.Get(), Samp.Get(), Display(),
                                 error);
-    case Stage::Transmittance:
-    case Stage::MultiScatter:
-    case Stage::SkyView:
+    case Stage::MediumTransmittance:
+    case Stage::MediumMultiScatter:
+    case Stage::MediumRadiance:
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::ShadowMap:
+    case Stage::LightVisibility:
     case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
@@ -338,7 +338,7 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Buildings:
     case Stage::Water:
     case Stage::Models:
-    case Stage::Occlusion:
+    case Stage::AmbientOcclusion:
     case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:
@@ -356,12 +356,12 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   switch (stage) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
     case Stage::Tonemap: Tonemap_.Encode(ctx, into); return;
-    case Stage::Transmittance:
-    case Stage::MultiScatter:
-    case Stage::SkyView:
+    case Stage::MediumTransmittance:
+    case Stage::MediumMultiScatter:
+    case Stage::MediumRadiance:
     case Stage::Irradiance:
     case Stage::AutoExposure:
-    case Stage::ShadowMap:
+    case Stage::LightVisibility:
     case Stage::Sky:
     case Stage::Sun:
     case Stage::Moon:
@@ -371,7 +371,7 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Buildings:
     case Stage::Water:
     case Stage::Models:
-    case Stage::Occlusion:
+    case Stage::AmbientOcclusion:
     case Stage::TemporalResolve:
     case Stage::Present:
     case Stage::kCount:

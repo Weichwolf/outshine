@@ -47,8 +47,8 @@ int main() {
             "at most two passes");
       Note("coverage plan passes", PassesOf(*plan), "passes");
       Note("coverage plan stages", (double)plan->Order().size(), "stages");
-      CHECK(!plan->Holds(Stage::Sky) && !plan->Holds(Stage::Transmittance) &&
-                !plan->Holds(Stage::AutoExposure) && !plan->Holds(Stage::Occlusion) &&
+      CHECK(!plan->Holds(Stage::Sky) && !plan->Holds(Stage::MediumTransmittance) &&
+                !plan->Holds(Stage::AutoExposure) && !plan->Holds(Stage::AmbientOcclusion) &&
                 !plan->Holds(Stage::TemporalResolve) && !plan->Holds(Stage::Present),
             "nothing the declaration did not ask for is in the plan -- no atmosphere chain, no "
             "meter, no occlusion, no resolve, no present");
@@ -84,15 +84,15 @@ int main() {
   {
     PlanSpec spec;
     spec.Outputs = {Resource::Surface};
-    spec.Content = {Stage::Sky, Stage::Sun, Stage::ShadowMap, Stage::Terrain, Stage::Occlusion,
+    spec.Content = {Stage::Sky, Stage::Sun, Stage::LightVisibility, Stage::Terrain, Stage::AmbientOcclusion,
                     Stage::TemporalResolve, Stage::AutoExposure};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(compiled, "a declaration that asks for a lit picture compiles");
     if (compiled) {
-      CHECK(plan->Holds(Stage::Transmittance) && plan->Holds(Stage::MultiScatter) &&
-                plan->Holds(Stage::SkyView) && plan->Holds(Stage::Irradiance),
+      CHECK(plan->Holds(Stage::MediumTransmittance) && plan->Holds(Stage::MediumMultiScatter) &&
+                plan->Holds(Stage::MediumRadiance) && plan->Holds(Stage::Irradiance),
             "the atmosphere chain was pulled by the sky and the meter and is in the plan without "
             "the declaration naming one of its four stages");
       CHECK(plan->Holds(Stage::Present) && plan->Holds(Stage::Tonemap),
@@ -127,12 +127,12 @@ int main() {
   {
     PlanSpec spec;
     spec.Outputs = {Resource::SceneDepth};
-    spec.Content = {Stage::Subjects, Stage::Occlusion};
+    spec.Content = {Stage::Subjects, Stage::AmbientOcclusion};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(!compiled, "a declared stage nothing reads is refused rather than encoded for nobody");
-    CHECK(why.find("render.content.occlusion") != std::string::npos,
+    CHECK(why.find("render.content.ambientOcclusion") != std::string::npos,
           "the refusal names the declaration path of the stage it refused");
     Note(("unread-content refusal: " + why).c_str());
   }
@@ -189,7 +189,7 @@ int main() {
   {
     PlanSpec spec;
     spec.Outputs = {Resource::ShadowAtlas};
-    spec.Content = {Stage::ShadowMap};
+    spec.Content = {Stage::LightVisibility};
     spec.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
         outshine::Render::ScenePrecision::Float);
     std::shared_ptr<const RenderPlan> plan;
@@ -212,7 +212,7 @@ int main() {
     const bool compiled = RenderPlan::Compile(spec, &plan, why);
     CHECK(!compiled, "a lit surface with no shadow map is refused");
     CHECK(why.find("shadowAtlas") != std::string::npos &&
-              why.find("render.content.shadowMap") != std::string::npos,
+              why.find("render.content.lightVisibility") != std::string::npos,
           "the refusal names the missing resource and the stage that would have supplied it");
     Note(("missing-producer refusal: " + why).c_str());
   }

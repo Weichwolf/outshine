@@ -144,7 +144,7 @@ int main() {
     spec.Outputs = {Resource::Surface};
     spec.Content = {Stage::Sky,     Stage::Sun,          Stage::Moon,      Stage::Stars,
                     Stage::Terrain, Stage::Buildings,    Stage::Water,     Stage::Models,
-                    Stage::Subjects, Stage::ShadowMap,   Stage::Occlusion, Stage::TemporalResolve,
+                    Stage::Subjects, Stage::LightVisibility,   Stage::AmbientOcclusion, Stage::TemporalResolve,
                     Stage::AutoExposure};
     std::shared_ptr<const RenderPlan> plan;
     std::string why;

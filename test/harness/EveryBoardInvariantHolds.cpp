@@ -187,6 +187,7 @@ int main() {
   size_t featureWithParent = 0, taskWithoutParent = 0, parentNotAFeature = 0;
   for (const Item &item : items) {
     if (item.Type == "feature" && !item.Parent.empty()) { ++featureWithParent; }
+    if ((item.Type == "bug" || item.Type == "issue") && !item.Parent.empty()) { ++featureWithParent; }
     if (item.Type != "task") { continue; }
     if (item.Parent.empty()) {
       ++taskWithoutParent;
@@ -195,10 +196,12 @@ int main() {
     const auto parent = by.find(item.Parent);
     if (parent != by.end() && parent->second->Type != "feature") { ++parentNotAFeature; }
   }
-  Note("features carrying a parent", (double)featureWithParent, "items");
+  Note("features, bugs or issues carrying a parent", (double)featureWithParent, "items");
   Note("tasks with no parent", (double)taskWithoutParent, "items");
   Note("tasks parented to something that is not a feature", (double)parentNotAFeature, "items");
-  CHECK(featureWithParent == 0, "a feature is the top of the hierarchy, so it carries no parent");
+  CHECK(featureWithParent == 0,
+        "only a task belongs to something: a feature is the top of the hierarchy, and a bug and an issue "
+        "each stand alone, so none of the three carries a parent");
   CHECK(taskWithoutParent == 0, "a task belongs to a feature, so it names exactly one parent");
   CHECK(parentNotAFeature == 0,
         "a task's parent is a feature and never another task, so there are two levels and no third");
