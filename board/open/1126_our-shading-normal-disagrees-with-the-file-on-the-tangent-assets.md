@@ -85,3 +85,20 @@ decides* — base colour and emissive sRGB, metallic-roughness and normal linear
 uploaded through an sRGB path, the tap is wrong in exactly the arm that disputes and in no other, which
 fits the band evidence as well as the frame does. **Read the upload path for the normal slot before
 touching the shader.**
+
+**The cheap falsifier fired and candidate 1 survives it.** Both assets declare **`doubleSided: true`** —
+`NormalTangentTest` one material, `NormalTangentMirrorTest` one material — so back faces are not culled
+and the back-face branch is reachable. Had they been single-sided this candidate would have been dead
+without instrumentation.
+
+**The decisive count is still owed: how many SHADED fragments are back-facing.** If it is zero the frame
+defect is real and is about some other case; if it is a meaningful fraction of the 60 065 disputed
+pixels, it is this one.
+
+**The instrument for it is already attached and free.** The shading-normal target is `xyzw` and its
+comment claims *the fourth channel marks whether a lobe was shaded at all* — **nothing reads `w`**; the
+exclusion is by zero *length* of `xyz`, which the same comment's next clause states correctly. So `w` is
+unused, the comment describes a role it does not play, and writing `front ? 1 : −1` into it costs one
+term in a macro that already exists at all nine call sites. **Fix the comment in the round that uses the
+channel**, since a channel documented as carrying one thing and carrying another is how this tree's
+instruments have gone wrong three times today.
