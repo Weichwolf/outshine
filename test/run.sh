@@ -91,11 +91,17 @@ done
 
 # WHAT A TEST OF THIS LAYER MAY NAME. One line per declared directory; there is no default arm.
 #
-# THREE SUITES, SPLIT BY INSTRUMENT (doc/requirements.md I.26.9). test/unit/ mirrors src/ exactly and
+# SUITES, SPLIT BY INSTRUMENT (doc/requirements.md I.26.9). test/unit/ mirrors src/ exactly and
 # is the only tree that carries the layering proof; test/render/ and test/scenario/ are declarative
 # and organised by feature and by declared run. A render case links the library ENTIRE by
 # construction -- it needs the reader, the renderer and the readback at once -- so `render` gets the
 # union of the layer sets and must never look like a mirror of one directory.
+#
+# test/shader/ IS THE FOURTH, AND IT IS THE SAME SPLIT APPLIED ONCE MORE: its subject is WGSL text and
+# its instrument is a real device with no asset, no camera and no oracle. It cannot be a unit layer --
+# `unit/render/stages` links nothing and brings no device up, which is a property of the shading model
+# as a header of pure functions and worth keeping -- and it cannot be a render case, because a render
+# source is invoked once per case directory and this one has no case to be invoked over.
 LayerIncludes() {
   case "$1" in
     unit/core) printf '%s' "-Isrc/core -Isrc/core/io" ;;
@@ -111,6 +117,7 @@ LayerIncludes() {
     unit/clients) printf '%s' "-Isrc/clients" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
     *) return 1 ;;
   esac
 }
@@ -128,34 +135,39 @@ DAWN_OUT=vendor/dawn/out
 DAWN_LIBDIR=$DAWN_OUT/src/dawn/native
 LayerToolchain() {
   case "$1" in
-    render) printf '%s' "-std=c++20 -isystem $DAWN_OUT/gen/include -isystem vendor/dawn/include -isystem vendor" ;;
+    render | shader) printf '%s' "-std=c++20 -isystem $DAWN_OUT/gen/include -isystem vendor/dawn/include -isystem vendor" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
-# THE SANITISERS ARE AN INSTRUMENT AND A LAYER DECLARES WHETHER IT WANTS ONE. `render` does, and it
-# is the only layer that talks to a GPU API with hand-managed buffers, staging copies and mapped
-# ranges -- the exact places a use-after-free lives. -fno-sanitize-recover is what makes
+# THE SANITISERS ARE AN INSTRUMENT AND A LAYER DECLARES WHETHER IT WANTS ONE. `render` and `shader`
+# do, and they are the layers that talk to a GPU API with hand-managed buffers, staging copies and
+# mapped ranges -- the exact places a use-after-free lives. -fno-sanitize-recover is what makes
 # UndefinedBehaviorSanitizer a verdict rather than a log: without it a signed overflow prints and the
 # run exits 0. THE INSTRUMENTED OBJECTS LIVE IN THEIR OWN DIRECTORY, so an instrumented object can
 # never be linked into the binary the comparison is taken from, and the instrument appears in the
 # test's own id so a sanitised run can never be read as a shipping one.
 LayerSanitiser() {
   case "$1" in
-    render) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    render | shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
     *) printf '%s' "" ;;
   esac
 }
 
+# The Metal frameworks Dawn needs on this host, so the two layers that bring a device up state them
+# once between them.
+DawnLink() {
+  platform=""
+  if [ "$(uname -s)" = Darwin ]; then
+    platform="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"
+  fi
+  printf '%s' "-L$DAWN_LIBDIR -lwebgpu_dawn -lpthread -ldl -lm $platform"
+}
+
 LayerLink() {
   case "$1" in
-    render)
-      platform=""
-      if [ "$(uname -s)" = Darwin ]; then
-        platform="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"
-      fi
-      printf '%s' "-L$DAWN_LIBDIR -lwebgpu_dawn $(pkg-config --libs sdl3-image) -lpthread -ldl -lm $platform"
-      ;;
+    render) printf '%s' "$(DawnLink) $(pkg-config --libs sdl3-image)" ;;
+    shader) printf '%s' "$(DawnLink)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
   esac
@@ -172,6 +184,10 @@ LayerLink() {
 # `unit/render/stages` LINKS NOTHING EITHER, and there it is a property of the subject rather than a
 # limit: a shading model is a header of pure functions, so the white furnace integrates it with no
 # object to link and no device to bring up.
+#
+# `shader` LINKS ONE FILE. src/render/Readback.cpp is the GPU->CPU transfer the library already owns,
+# and a test that spelled its own staging copy and its own map would be comparing two halves of a
+# shading model through a third thing nothing else uses.
 #
 # `unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
 # a glTF base-colour texture arrives through and the encode a render case's pictures leave through --
@@ -193,6 +209,7 @@ LayerGroups() {
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
+    shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
     *) return 1 ;;
   esac
 }
@@ -233,7 +250,7 @@ GroupIncludes() {
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
-    src/render | src/render/stages) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
+    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
     src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
@@ -244,7 +261,7 @@ GroupIncludes() {
 # Dawn; nothing else in the tree is either.
 GroupToolchain() {
   case "$1" in
-    src/render | src/render/stages | src/clients/GltfStudio.cpp) LayerToolchain render ;;
+    src/render | src/render/stages | src/render/Readback.cpp | src/clients/GltfStudio.cpp) LayerToolchain render ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
@@ -455,6 +472,35 @@ Judge() {
   Record "$judgeId" "$(( $(Now) - before ))"
 }
 
+# EVERY INVOCATION OF ONE BINARY. A layer with declared cases runs once per case with the case
+# directory as its argument; a layer with none runs once with no argument. Both arms stand here once,
+# so the instrumented build below runs exactly the set the plain build ran -- until this existed, the
+# case-less arm returned early and a sanitiser such a layer declared was never applied to anything.
+#   $1 the binary   $2 the suffix on every id   $3 yes if an instrument is in the path
+JudgeEvery() {
+  everyBinary=$1
+  everySuffix=$2
+  everyInstrumented=$3
+  if [ -z "$cases" ]; then
+    Judge "$id$everySuffix" "$everyBinary" ""
+    JudgeInstrument "$id$everySuffix"
+    return
+  fi
+  for everyCase in $cases; do
+    Judge "${everyCase#test/}$everySuffix" "$everyBinary" "$everyCase"
+    JudgeInstrument "${everyCase#test/}$everySuffix"
+  done
+}
+
+# WHAT THE INSTRUMENT ITSELF SAID, which the trailer cannot carry: AddressSanitizer and
+# UndefinedBehaviorSanitizer write to the log and the process can still exit 0 over a clean trailer.
+JudgeInstrument() {
+  [ "$everyInstrumented" = yes ] || return 0
+  grep -qE "AddressSanitizer|runtime error:" "$log" || return 0
+  printf 'run.sh: %s -- the run finished and the sanitiser spoke, %s\n' "$1" "$log" >&2
+  failed=$((failed + 1))
+}
+
 # WHAT A VERDICT DOES TO THE RUN. Separate from Judge so that a build failure -- which prints no
 # trailer and can therefore not be judged from one -- is recorded by exactly the same counter.
 Record() {
@@ -539,17 +585,12 @@ for testSource in $TESTS; do
     continue
   fi
 
-  cases=$(LayerCases "$layer")
-  if [ -z "$cases" ]; then
-    Judge "$id" "$binary" ""
-    continue
-  fi
   # A DECLARATIVE SUITE WITH NO DECLARATION IS THE VACUOUS GATE IN ITS PUREST FORM: a runner that
-  # runs over nothing and reports nothing, green. The enumeration is the tracked manifests, so this
-  # can only be empty if the suite itself is.
-  for caseDirectory in $cases; do
-    Judge "${caseDirectory#test/}" "$binary" "$caseDirectory"
-  done
+  # runs over nothing and reports nothing, green. The enumeration is the tracked manifests, so an
+  # empty set here means the suite itself is empty, and the runner is then invoked once with no
+  # argument -- which is a refusal from the runner and never a silent pass.
+  cases=$(LayerCases "$layer")
+  JudgeEvery "$binary" "" no
 
   sanitiser=$(LayerSanitiser "$layer")
   [ -n "$sanitiser" ] || continue
@@ -582,14 +623,7 @@ for testSource in $TESTS; do
   ASAN_OPTIONS=detect_stack_use_after_return=1
   UBSAN_OPTIONS=print_stacktrace=1
   export ASAN_OPTIONS UBSAN_OPTIONS
-  for caseDirectory in $cases; do
-    Judge "${caseDirectory#test/}~sanitised" "$sanitisedBinary" "$caseDirectory"
-    if grep -qE "AddressSanitizer|runtime error:" "$log"; then
-      printf 'run.sh: %s -- the run finished and the sanitiser spoke, %s\n' \
-        "${caseDirectory#test/}~sanitised" "$log" >&2
-      failed=$((failed + 1))
-    fi
-  done
+  JudgeEvery "$sanitisedBinary" "~sanitised" yes
   unset ASAN_OPTIONS UBSAN_OPTIONS
 done
 

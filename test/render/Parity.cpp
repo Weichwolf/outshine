@@ -900,6 +900,337 @@ std::vector<uint8_t> Encoded(const OracleRaw &oracle) {
   return rgba;
 }
 
+  /* THE SAME DECLARATION TWICE IN ONE PROCESS. What this isolates is frame-to-frame state: a second
+   * process would also change the allocator, the device and the shader cache, and a difference there
+   * would not say which. It is judged on the linear tap and never on the PNG, because an 8-bit
+   * quantisation hides a difference the float buffer carries. `CLAUDE.md`: the mathematics is
+   * deterministic, and if pace decides the result the coupling is a bug. */
+void ScoreDeterminism(const Case &subject, const outshine::Clients::Studio &studio,
+                      outshine::Render::Renderer &renderer, const Picture &picture,
+                      std::vector<Metric> &metrics) {
+  using namespace outshine::Test;
+  Picture again;
+  std::string trouble;
+  const bool twice = Capture(renderer, studio, again, trouble);
+  CHECK(twice, "the same declaration renders a second time in the same process");
+  size_t apart = 0;
+  int64_t worst = 0;
+  size_t firstAt = again.Linear.size();
+  if (twice && again.Linear.size() == picture.Linear.size()) {
+    for (size_t at = 0; at < again.Linear.size(); ++at) {
+      if (again.Linear[at] == picture.Linear[at]) { continue; }
+      const int64_t off = UlpsApart(again.Linear[at], picture.Linear[at]);
+      if (off > worst) { worst = off; }
+      if (apart == 0) { firstAt = at; }
+      ++apart;
+    }
+  }
+  metrics.push_back({"linear_channels_differing_between_renders", (double)apart, 0.0, "channels",
+                     Direction::AtMost});
+  if (apart > 0) {
+    Note("first differing channel, at index", (double)firstAt, "index");
+    Note("widest disagreement between two renders", (double)worst, "f32 ulps");
+    Picture third;
+    if (Capture(renderer, studio, third, trouble) && third.Linear.size() == picture.Linear.size()) {
+      size_t stable = 0;
+      for (size_t at = 0; at < third.Linear.size(); ++at) {
+        if (third.Linear[at] != picture.Linear[at]) { ++stable; }
+      }
+      Note("a third render differs from the first in", (double)stable, "halves");
+    }
+  }
+}
+
+  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Zero is the bar
+   * and there is nothing in it to nudge: the tap is f32 on both sides, so our float either is the
+   * oracle's float or it is not.
+   *
+   * MEASURED ON EVERY CASE AND ENFORCED ON THE ONES THAT ARE ABOUT IT, and the split is the case's
+   * own declaration rather than a choice here. A coverage case declares a flat colour in its
+   * manifest and says in the same breath that nothing in the comparison reads it -- it is there so
+   * the picture a person opens is not black -- so making that colour's last bit a verdict would be
+   * enforcing something the case states it is not for. A case whose surface is the FILE's is about
+   * the value, and there the number is the verdict. Both print it, so the residual is visible in
+   * every log whether or not it decides that log's colour. */
+void ScoreRadianceResidual(const Case &subject, const Picture &picture, const OracleRaw &oracle,
+                           std::vector<Metric> &metrics) {
+  using namespace outshine::Test;
+  const RadianceResidual radiance = Radiance(picture.Linear, oracle);
+  metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
+                     subject.MaterialFromFile() && subject.Criterion == CriterionKind::Numeric
+                         ? Direction::AtMost
+                         : Direction::Reported});
+  metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
+                     Direction::Reported});
+  metrics.push_back({"linear_channels_beyond_one_ulp", (double)radiance.BeyondOneUlp, 0.0,
+                     "channels", Direction::Reported});
+  metrics.push_back({"linear_channels_below_the_oracle", (double)radiance.BelowOracle, 0.0,
+                     "channels", Direction::Reported});
+  metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "f32 ulps",
+                     Direction::Reported});
+  metrics.push_back({"linear_p50_relative", radiance.P50Relative, 0.0, "dimensionless",
+                     Direction::Reported});
+  metrics.push_back({"linear_p95_relative", radiance.P95Relative, 0.0, "dimensionless",
+                     Direction::Reported});
+  metrics.push_back({"linear_p99_relative", radiance.P99Relative, 0.0, "dimensionless",
+                     Direction::Reported});
+  if (radiance.Differing > 0) {
+    Note("worst radiance disagreement, ours", radiance.WorstOurs, "linear, scene-referred");
+    Note("worst radiance disagreement, oracle", radiance.WorstTheirs, "linear, scene-referred");
+    Note("worst radiance disagreement, relative", radiance.WorstRelative, "dimensionless");
+    Note("worst radiance disagreement, at x", (double)radiance.WorstX, "px");
+    Note("worst radiance disagreement, at y", (double)radiance.WorstY, "px");
+    Note("worst radiance disagreement, channel", (double)radiance.WorstChannel, "index");
+  }
+}
+
+/* EVERYTHING A CASE MUST PASS BEFORE ANYTHING IS RENDERED: the manifest, its inputs, its subject and
+ * camera, the cached oracle and its shape, the oracle's own residual, the plan and the device. Each
+ * of them ends the run the same way, so the sentence that ends it stands ONCE at the caller instead
+ * of nine times here (`ES.3`) -- and each phase keeps its own `CHECK` at its own line, because the
+ * line number is what sends a reader to the phase that stopped. */
+enum class Prepared { Yes, No };
+
+Prepared Prepare(Case &subject, OracleRaw &oracle, size_t &seedApart,
+                 outshine::Render::Renderer &renderer) {
+  using namespace outshine::Test;
+  std::string why;
+  const bool declared = ReadManifest(subject, why);
+  CHECK(declared, "the case's manifest parses and its acceptance block resolves");
+  if (!declared) {
+    Refused(why);
+    return Prepared::No;
+  }
+
+  const std::string owed = MissingInputs(subject);
+  if (!owed.empty()) {
+    outshine::Test::Unprepared((subject.Directory + " is missing " + owed).c_str());
+    return Prepared::No;
+  }
+
+  const bool loaded = BuildSubject(subject, why);
+  CHECK(loaded, "the case's subject and its camera both resolve");
+  if (!loaded) {
+    Refused(why);
+    return Prepared::No;
+  }
+  std::printf("CAMERA %s\n", subject.CameraSource.c_str());
+  std::printf("CRITERION %s -- %s [%s]\n",
+              subject.Manifest.Root()["criterion"]["kind"].Str("").c_str(),
+              subject.Manifest.Root()["criterion"]["says"].Str("").c_str(),
+              subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
+  /* The reference is still rendered and still lands in the directory; this is the line that says it
+   * decides nothing here, so the disagreement stays visible until Blender gains what it lacks
+   * (doc/requirements.md I.26.12, condition three). */
+  if (subject.Oracle == OracleRole::CannotExpressTheCriterion) {
+    std::printf("ORACLE NOT-DECIDING -- %s\n",
+                subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
+  }
+
+  /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
+   * and finding it out after a device bring-up would report a rendering failure for a missing file. */
+  const bool haveOracle = oracle.ReadFile(subject.Directory + "oracle.raw");
+  CHECK(haveOracle, "the cached oracle is present and reads as a float32 dump of this frame");
+  if (!haveOracle) {
+    Refused(oracle.Error());
+    return Prepared::No;
+  }
+  const bool sameFrame = oracle.Width() == (int)subject.Frame.WidthPx &&
+                         oracle.Height() == (int)subject.Frame.HeightPx;
+  CHECK(sameFrame, "the oracle was rendered at the resolution the manifest's recipe declares");
+  if (!sameFrame) {
+    Refused("oracle.raw is " + std::to_string(oracle.Width()) + "x" +
+            std::to_string(oracle.Height()) + " and the recipe declares " +
+            std::to_string((int)subject.Frame.WidthPx) + "x" +
+            std::to_string((int)subject.Frame.HeightPx));
+    return Prepared::No;
+  }
+
+  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
+   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
+   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
+   * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
+   * doc/requirements.md I.26.13. */
+  if (Reduced(subject)) {
+    OracleRaw shifted;
+    const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
+    CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
+    if (!haveShift) {
+      Refused(shifted.Error());
+      return Prepared::No;
+    }
+    const bool sameShape = shifted.Width() == oracle.Width() &&
+                           shifted.Height() == oracle.Height() &&
+                           shifted.Channels() == oracle.Channels();
+    CHECK(sameShape, "the two seeds were rendered into the same frame");
+    if (!sameShape) {
+      Refused("oracle.seed-shift.raw is not the shape oracle.raw is");
+      return Prepared::No;
+    }
+    for (int y = 0; y < oracle.Height(); ++y) {
+      for (int x = 0; x < oracle.Width(); ++x) {
+        for (int channel = 0; channel < oracle.Channels(); ++channel) {
+          if (oracle.At(x, y, channel) != shifted.At(x, y, channel)) { ++seedApart; }
+        }
+      }
+    }
+  }
+
+  /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
+   * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
+   * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
+   * present -- none of them is switched off here, none of them is in the plan at all.
+   *
+   * `Transfer::Linear` because the oracle's own view transform is `Standard`, which is the sRGB
+   * transfer function over scene-referred linear values and nothing else, and the frame target is
+   * sRGB-encoding: a curve here would be measuring the curve (doc/requirements.md I.26.13). */
+  outshine::Render::PlanSpec declaration;
+  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
+                         outshine::Render::Resource::FrameTex};
+  declaration.Content = {outshine::Render::Stage::Subjects};
+  declaration.Display =
+      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
+  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
+  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (doc/requirements.md I.26.13). At rgba16float the
+   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
+   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
+   * needing tighter than the storage floor changes the storage and never the threshold. */
+  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
+      outshine::Render::ScenePrecision::Float);
+  std::shared_ptr<const outshine::Render::RenderPlan> plan;
+  const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
+  CHECK(compiled, "the case's render declaration compiles");
+  if (!compiled) {
+    Refused(why);
+    return Prepared::No;
+  }
+  std::printf("PLAN %s %d passes, %d stages\n", plan->Digest().c_str(), plan->PassCount(),
+              (int)plan->Order().size());
+
+  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx, plan);
+  const bool usable = renderer.DeviceUsable();
+  CHECK(usable, "the device came up, so the case can be rendered at all");
+  if (!usable) {
+    Refused("no usable device");
+    return Prepared::No;
+  }
+
+  return Prepared::Yes;
+}
+
+/* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
+ * same placement through a `matrix`, the same triangles under another index width, the same quad as
+ * a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact, not
+ * within a tolerance, so its threshold is zero disagreeing pixels and it needs no reference. */
+void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studio &studio,
+                             outshine::Render::Renderer &renderer, const Mask &ours,
+                             std::vector<Metric> &metrics) {
+  const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
+  for (size_t which = 0; which < identical.Size(); ++which) {
+    const std::string name = identical[which].Str("");
+    Document alternate;
+    Subject spelling;
+    Picture again;
+    std::string trouble;
+    bool built = alternate.ReadFile(subject.Directory + name);
+    if (!built) {
+      trouble = alternate.Error();
+    } else if (!(built = spelling.Build(alternate))) {
+      trouble = spelling.Error();
+    } else {
+      outshine::Clients::Studio other = studio;
+      other.Geometry = &spelling;
+      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES AND ITS OWN MATERIALS, not copied from the
+       * entry's. The two spell one surface, so their names agree -- and if they ever did not,
+       * copying by position would colour the wrong body while the count still matched. */
+      SurfaceTable surfaces;
+      ResolveSurfaceTable(alternate, spelling, surfaces);
+      built = (!subject.MaterialFromFile() ||
+               ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
+                                  trouble)) &&
+              ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
+      other.PartSurface = surfaces.PartSlot;
+      other.Surfaces = surfaces.Slots;
+      built = built && Capture(renderer, other, again, trouble);
+    }
+    CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
+    if (!built) {
+      Refused(trouble);
+      continue;
+    }
+    const Mask other = FromDepth(again.Depth, ours.Width, ours.Height);
+    metrics.push_back({"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px",
+                       Direction::AtMost});
+  }
+}
+
+/* WHAT THE ASSET ITSELF SAYS MUST HOLD, on the linear tap, before anything is compared with the
+ * oracle. Its caller places it ahead of the image comparison because for a `stated-invariant` case
+ * this IS the verdict and the comparison below it is the diagnostic beside it -- the reverse of
+ * every other kind, and the reason the two are never both enforced on one case. */
+void ScoreStatedInvariants(const Case &subject, const Picture &picture,
+                           std::vector<Metric> &metrics) {
+  LinearFrame tap;
+  tap.Samples = &picture.Linear;
+  tap.Width = (int)subject.Frame.WidthPx;
+  tap.Height = (int)subject.Frame.HeightPx;
+  const bool tapHolds = tap.Holds() || subject.Invariants.empty();
+  CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
+  for (const Invariant &check : subject.Invariants) {
+    if (!tap.Holds()) { break; }
+    std::printf("INVARIANT %s -- %s\n", check.Name.c_str(),
+                check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest" : "region-compare");
+    Evaluate(check, tap, metrics);
+  }
+}
+
+/* THE STUDIO THE CASE DECLARES. The file's lights cross only where the case says so: every other
+ * case is lit by nothing and draws the radiance it declared, which is what keeps a rung measuring
+ * the light we meant. */
+outshine::Clients::Studio MakeStudio(const Case &subject) {
+  outshine::Clients::Studio studio;
+  studio.Geometry = &subject.Geometry;
+  studio.Eye = subject.Eye;
+  studio.EmittedRadiance = subject.Emitted;
+  studio.PartSurface = subject.Surfaces.PartSlot;
+  studio.Surfaces = subject.Surfaces.Slots;
+  if (subject.Lights == SceneLights::FromFile) {
+    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
+      studio.Lights.push_back(placed.Light);
+    }
+  }
+  return studio;
+}
+
+/* WHAT THE RUN WAS GIVEN, printed before it is rendered, so a picture that comes out wrong can be
+ * attributed to the declaration rather than to the renderer without a second run. */
+void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Studio &studio) {
+  if (subject.Lights == SceneLights::FromFile) {
+    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
+      outshine::Test::Note(
+          ("light '" + placed.LightName + "' on node '" + placed.NodeName + "', intensity").c_str(),
+          (double)placed.Light.Intensity,
+          placed.Light.Kind == outshine::LightKind::Directional ? "lux" : "candela");
+    }
+  }
+  outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights.size(),
+                       "lights");
+  for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
+    outshine::Test::Note(
+        ("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red").c_str(),
+        (double)subject.Emitted[part][0], "linear, scene-referred");
+  }
+  if (!subject.MaterialFromFile()) { return; }
+  for (size_t slot = 0; slot < subject.Surfaces.Slots.size(); ++slot) {
+    outshine::Test::Note(("colour image texels across, surface slot " + std::to_string(slot)).c_str(),
+                         (double)subject.Surfaces.Slots[slot].Colour.Width, "texels");
+    outshine::Test::Note(("colour image texels down, surface slot " + std::to_string(slot)).c_str(),
+                         (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
+    outshine::Test::Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
+                         (double)subject.Surfaces.Slots[slot].Coverage(), "dimensionless");
+  }
+}
+
 /* WHAT A RENDER CASE IS FOR: the rendered image against the oracle's, channel by channel, ALPHA
  * INCLUDED. Both sides are RGBA with straight alpha and alpha is coverage, so a pixel where one side
  * drew a black subject and the other drew nothing differs here -- which under a three-channel
@@ -952,174 +1283,18 @@ int main(int argc, char **argv) {
   if (subject.Directory.empty()) { return Report(); }
   std::printf("CASE %s\n", subject.Directory.c_str());
 
-  std::string why;
-  const bool declared = ReadManifest(subject, why);
-  CHECK(declared, "the case's manifest parses and its acceptance block resolves");
-  if (!declared) {
-    Refused(why);
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-
-  const std::string owed = MissingInputs(subject);
-  if (!owed.empty()) {
-    outshine::Test::Unprepared((subject.Directory + " is missing " + owed).c_str());
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-
-  const bool loaded = BuildSubject(subject, why);
-  CHECK(loaded, "the case's subject and its camera both resolve");
-  if (!loaded) {
-    Refused(why);
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-  std::printf("CAMERA %s\n", subject.CameraSource.c_str());
-  std::printf("CRITERION %s -- %s [%s]\n",
-              subject.Manifest.Root()["criterion"]["kind"].Str("").c_str(),
-              subject.Manifest.Root()["criterion"]["says"].Str("").c_str(),
-              subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
-  /* The reference is still rendered and still lands in the directory; this is the line that says it
-   * decides nothing here, so the disagreement stays visible until Blender gains what it lacks
-   * (doc/requirements.md I.26.12, condition three). */
-  if (subject.Oracle == OracleRole::CannotExpressTheCriterion) {
-    std::printf("ORACLE NOT-DECIDING -- %s\n",
-                subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
-  }
-
-  /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
-   * and finding it out after a device bring-up would report a rendering failure for a missing file. */
   OracleRaw oracle;
-  const bool haveOracle = oracle.ReadFile(subject.Directory + "oracle.raw");
-  CHECK(haveOracle, "the cached oracle is present and reads as a float32 dump of this frame");
-  if (!haveOracle) {
-    Refused(oracle.Error());
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-  const bool sameFrame = oracle.Width() == (int)subject.Frame.WidthPx &&
-                         oracle.Height() == (int)subject.Frame.HeightPx;
-  CHECK(sameFrame, "the oracle was rendered at the resolution the manifest's recipe declares");
-  if (!sameFrame) {
-    Refused("oracle.raw is " + std::to_string(oracle.Width()) + "x" +
-            std::to_string(oracle.Height()) + " and the recipe declares " +
-            std::to_string((int)subject.Frame.WidthPx) + "x" +
-            std::to_string((int)subject.Frame.HeightPx));
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-
-  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
-   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
-   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
-   * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
-   * doc/requirements.md I.26.13. */
   size_t seedApart = 0;
-  if (Reduced(subject)) {
-    OracleRaw shifted;
-    const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
-    CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
-    if (!haveShift) {
-      Refused(shifted.Error());
-      std::printf("VERDICT NOTHING-TO-COMPARE\n");
-      return Report();
-    }
-    const bool sameShape = shifted.Width() == oracle.Width() &&
-                           shifted.Height() == oracle.Height() &&
-                           shifted.Channels() == oracle.Channels();
-    CHECK(sameShape, "the two seeds were rendered into the same frame");
-    if (!sameShape) {
-      Refused("oracle.seed-shift.raw is not the shape oracle.raw is");
-      std::printf("VERDICT NOTHING-TO-COMPARE\n");
-      return Report();
-    }
-    for (int y = 0; y < oracle.Height(); ++y) {
-      for (int x = 0; x < oracle.Width(); ++x) {
-        for (int channel = 0; channel < oracle.Channels(); ++channel) {
-          if (oracle.At(x, y, channel) != shifted.At(x, y, channel)) { ++seedApart; }
-        }
-      }
-    }
-  }
-
-  /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
-   * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
-   * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
-   * present -- none of them is switched off here, none of them is in the plan at all.
-   *
-   * `Transfer::Linear` because the oracle's own view transform is `Standard`, which is the sRGB
-   * transfer function over scene-referred linear values and nothing else, and the frame target is
-   * sRGB-encoding: a curve here would be measuring the curve (doc/requirements.md I.26.13). */
-  outshine::Render::PlanSpec declaration;
-  declaration.Outputs = {outshine::Render::Resource::SceneDepth,
-                         outshine::Render::Resource::FrameTex};
-  declaration.Content = {outshine::Render::Stage::Subjects};
-  declaration.Display =
-      outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
-  declaration.Exposure = outshine::Render::Declared<float>(1.0f);
-  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (doc/requirements.md I.26.13). At rgba16float the
-   * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
-   * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
-   * needing tighter than the storage floor changes the storage and never the threshold. */
-  declaration.Precision = outshine::Render::Declared<outshine::Render::ScenePrecision>(
-      outshine::Render::ScenePrecision::Float);
-  std::shared_ptr<const outshine::Render::RenderPlan> plan;
-  const bool compiled = outshine::Render::RenderPlan::Compile(declaration, &plan, why);
-  CHECK(compiled, "the case's render declaration compiles");
-  if (!compiled) {
-    Refused(why);
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
-  }
-  std::printf("PLAN %s %d passes, %d stages\n", plan->Digest().c_str(), plan->PassCount(),
-              (int)plan->Order().size());
-
   outshine::Render::Renderer renderer;
-  renderer.Init((int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx, plan);
-  const bool usable = renderer.DeviceUsable();
-  CHECK(usable, "the device came up, so the case can be rendered at all");
-  if (!usable) {
-    Refused("no usable device");
+  if (Prepare(subject, oracle, seedApart, renderer) == Prepared::No) {
     std::printf("VERDICT NOTHING-TO-COMPARE\n");
     return Report();
   }
 
-  outshine::Clients::Studio studio;
-  studio.Geometry = &subject.Geometry;
-  studio.Eye = subject.Eye;
-  studio.EmittedRadiance = subject.Emitted;
-  studio.PartSurface = subject.Surfaces.PartSlot;
-  studio.Surfaces = subject.Surfaces.Slots;
-  /* THE FILE'S LIGHTS CROSS ONLY WHERE THE CASE SAYS SO. Every other case is lit by nothing and
-   * draws the radiance it declared, which is what keeps a rung measuring the light we meant. */
-  if (subject.Lights == SceneLights::FromFile) {
-    for (const outshine::Gltf::PlacedLight &placed : subject.Geometry.Lights()) {
-      studio.Lights.push_back(placed.Light);
-      Note(("light '" + placed.LightName + "' on node '" + placed.NodeName + "', intensity")
-               .c_str(),
-           (double)placed.Light.Intensity, placed.Light.Kind == outshine::LightKind::Directional
-                                               ? "lux"
-                                               : "candela");
-    }
-  }
-  Note("punctual lights the studio declares", (double)studio.Lights.size(), "lights");
-  for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
-    Note(("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red")
-             .c_str(),
-         (double)subject.Emitted[part][0], "linear, scene-referred");
-  }
-  if (subject.MaterialFromFile()) {
-    for (size_t slot = 0; slot < subject.Surfaces.Slots.size(); ++slot) {
-      Note(("colour image texels across, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].Colour.Width, "texels");
-      Note(("colour image texels down, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
-      Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
-           (double)subject.Surfaces.Slots[slot].Coverage(), "dimensionless");
-    }
-  }
+  const outshine::Clients::Studio studio = MakeStudio(subject);
+  NoteWhatTheStudioCarries(subject, studio);
 
+  std::string why;
   Picture picture;
   const bool rendered = Capture(renderer, studio, picture, why);
   CHECK(rendered, "outshine rendered the subject and both readbacks landed");
@@ -1177,47 +1352,7 @@ int main(int argc, char **argv) {
     return Report();
   }
 
-  /* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
-   * same placement through a `matrix`, the same triangles under another index width, the same quad
-   * as a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact,
-   * not within a tolerance, so its threshold is zero disagreeing pixels and it needs no reference. */
-  const Json::Ref identical = subject.Manifest.Root()["identicalCoverage"];
-  for (size_t which = 0; which < identical.Size(); ++which) {
-    const std::string name = identical[which].Str("");
-    Document alternate;
-    Subject spelling;
-    Picture again;
-    std::string trouble;
-    bool built = alternate.ReadFile(subject.Directory + name);
-    if (!built) {
-      trouble = alternate.Error();
-    } else if (!(built = spelling.Build(alternate))) {
-      trouble = spelling.Error();
-    } else {
-      outshine::Clients::Studio other = studio;
-      other.Geometry = &spelling;
-      /* RESOLVED AGAINST THE ALTERNATE'S OWN NODES AND ITS OWN MATERIALS, not copied from the
-       * entry's. The two spell one surface, so their names agree -- and if they ever did not,
-       * copying by position would colour the wrong body while the count still matched. */
-      SurfaceTable surfaces;
-      ResolveSurfaceTable(alternate, spelling, surfaces);
-      built = (!subject.MaterialFromFile() ||
-               ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
-                                  trouble)) &&
-              ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
-      other.PartSurface = surfaces.PartSlot;
-      other.Surfaces = surfaces.Slots;
-      built = built && Capture(renderer, other, again, trouble);
-    }
-    CHECK(built, ("the alternate spelling " + name + " reads, builds and renders").c_str());
-    if (!built) {
-      Refused(trouble);
-      continue;
-    }
-    const Mask other = FromDepth(again.Depth, ours.Width, ours.Height);
-    metrics.push_back({"differs_from_" + name, (double)Disagreeing(ours, other), 0.0, "px",
-                       Direction::AtMost});
-  }
+  ScoreAlternateSpellings(subject, studio, renderer, ours, metrics);
 
   /* WHETHER "EVERY PIXEL MUST AGREE" IS A FAIR DEMAND ON THIS SUBJECT, and it is a property of the
    * subject rather than of either renderer (Ties.h). Reported beside the disagreement so a red is
@@ -1241,21 +1376,7 @@ int main(int argc, char **argv) {
    * oracle. It is placed ahead of the image comparison because for a `stated-invariant` case this
    * IS the verdict and the comparison below is the diagnostic beside it -- the reverse of every
    * other kind, and the reason the two are never both enforced on one case. */
-  {
-    LinearFrame tap;
-    tap.Samples = &picture.Linear;
-    tap.Width = (int)subject.Frame.WidthPx;
-    tap.Height = (int)subject.Frame.HeightPx;
-    const bool tapHolds = tap.Holds() || subject.Invariants.empty();
-    CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
-    for (const Invariant &check : subject.Invariants) {
-      if (!tap.Holds()) { break; }
-      std::printf("INVARIANT %s -- %s\n", check.Name.c_str(),
-                  check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest"
-                                                              : "region-compare");
-      Evaluate(check, tap, metrics);
-    }
-  }
+  ScoreStatedInvariants(subject, picture, metrics);
 
   const ImageDelta image = CompareImages(picture.Rgba, reference);
   metrics.push_back({"image_pixels_differing", (double)image.Differing, 0.0, "px",
@@ -1265,84 +1386,9 @@ int main(int argc, char **argv) {
                      Direction::Reported});
   metrics.push_back({"image_mean_abs_delta", image.MeanAbs, 0.0, "sRGB8", Direction::Reported});
 
-  /* THE SAME DECLARATION TWICE IN ONE PROCESS. What this isolates is frame-to-frame state: a second
-   * process would also change the allocator, the device and the shader cache, and a difference there
-   * would not say which. It is judged on the linear tap and never on the PNG, because an 8-bit
-   * quantisation hides a difference the float buffer carries. `CLAUDE.md`: the mathematics is
-   * deterministic, and if pace decides the result the coupling is a bug. */
-  {
-    Picture again;
-    std::string trouble;
-    const bool twice = Capture(renderer, studio, again, trouble);
-    CHECK(twice, "the same declaration renders a second time in the same process");
-    size_t apart = 0;
-    int64_t worst = 0;
-    size_t firstAt = again.Linear.size();
-    if (twice && again.Linear.size() == picture.Linear.size()) {
-      for (size_t at = 0; at < again.Linear.size(); ++at) {
-        if (again.Linear[at] == picture.Linear[at]) { continue; }
-        const int64_t off = UlpsApart(again.Linear[at], picture.Linear[at]);
-        if (off > worst) { worst = off; }
-        if (apart == 0) { firstAt = at; }
-        ++apart;
-      }
-    }
-    metrics.push_back({"linear_channels_differing_between_renders", (double)apart, 0.0, "channels",
-                       Direction::AtMost});
-    if (apart > 0) {
-      Note("first differing channel, at index", (double)firstAt, "index");
-      Note("widest disagreement between two renders", (double)worst, "f32 ulps");
-      Picture third;
-      if (Capture(renderer, studio, third, trouble) && third.Linear.size() == picture.Linear.size()) {
-        size_t stable = 0;
-        for (size_t at = 0; at < third.Linear.size(); ++at) {
-          if (third.Linear[at] != picture.Linear[at]) { ++stable; }
-        }
-        Note("a third render differs from the first in", (double)stable, "halves");
-      }
-    }
-  }
+  ScoreDeterminism(subject, studio, renderer, picture, metrics);
 
-  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Zero is the bar
-   * and there is nothing in it to nudge: the tap is f32 on both sides, so our float either is the
-   * oracle's float or it is not.
-   *
-   * MEASURED ON EVERY CASE AND ENFORCED ON THE ONES THAT ARE ABOUT IT, and the split is the case's
-   * own declaration rather than a choice here. A coverage case declares a flat colour in its
-   * manifest and says in the same breath that nothing in the comparison reads it -- it is there so
-   * the picture a person opens is not black -- so making that colour's last bit a verdict would be
-   * enforcing something the case states it is not for. A case whose surface is the FILE's is about
-   * the value, and there the number is the verdict. Both print it, so the residual is visible in
-   * every log whether or not it decides that log's colour. */
-  {
-    const RadianceResidual radiance = Radiance(picture.Linear, oracle);
-    metrics.push_back({"linear_channels_differing", (double)radiance.Differing, 0.0, "channels",
-                       subject.MaterialFromFile() && subject.Criterion == CriterionKind::Numeric
-                           ? Direction::AtMost
-                           : Direction::Reported});
-    metrics.push_back({"linear_channels_compared", (double)radiance.Compared, 0.0, "channels",
-                       Direction::Reported});
-    metrics.push_back({"linear_channels_beyond_one_ulp", (double)radiance.BeyondOneUlp, 0.0,
-                       "channels", Direction::Reported});
-    metrics.push_back({"linear_channels_below_the_oracle", (double)radiance.BelowOracle, 0.0,
-                       "channels", Direction::Reported});
-    metrics.push_back({"linear_worst_ulps", (double)radiance.WorstUlps, 0.0, "f32 ulps",
-                       Direction::Reported});
-    metrics.push_back({"linear_p50_relative", radiance.P50Relative, 0.0, "dimensionless",
-                       Direction::Reported});
-    metrics.push_back({"linear_p95_relative", radiance.P95Relative, 0.0, "dimensionless",
-                       Direction::Reported});
-    metrics.push_back({"linear_p99_relative", radiance.P99Relative, 0.0, "dimensionless",
-                       Direction::Reported});
-    if (radiance.Differing > 0) {
-      Note("worst radiance disagreement, ours", radiance.WorstOurs, "linear, scene-referred");
-      Note("worst radiance disagreement, oracle", radiance.WorstTheirs, "linear, scene-referred");
-      Note("worst radiance disagreement, relative", radiance.WorstRelative, "dimensionless");
-      Note("worst radiance disagreement, at x", (double)radiance.WorstX, "px");
-      Note("worst radiance disagreement, at y", (double)radiance.WorstY, "px");
-      Note("worst radiance disagreement, channel", (double)radiance.WorstChannel, "index");
-    }
-  }
+  ScoreRadianceResidual(subject, picture, oracle, metrics);
 
   const Distribution boundary = BoundaryDisplacement(ours, theirs);
   metrics.push_back({"boundary_p95_px", boundary.P95, subject.Accepted.BoundaryP95MaxPx, "px",
@@ -1375,7 +1421,8 @@ int main(int argc, char **argv) {
    * and never subtracted from it. */
   Note("oracle instrument floor",
        0.5 * subject.Manifest.Root()["renders"]["default"]["pixelFilter"]["widthPx"].Num(0.0), "px");
-  metrics.push_back({"plan_passes", (double)plan->PassCount(), 2.0, "passes", Direction::AtMost});
+  metrics.push_back(
+      {"plan_passes", (double)renderer.Plan().PassCount(), 2.0, "passes", Direction::AtMost});
 
   /* THE FRAME FRACTION IS A DECLARED, RECOMPUTED, REFUSED-ON-MISMATCH PROPERTY of the case: it is
    * what the boundary bound is being applied under, so a camera that quietly frames the subject

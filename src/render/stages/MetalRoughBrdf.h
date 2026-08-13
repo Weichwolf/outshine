@@ -5,11 +5,12 @@
  * TWO HALVES OF ONE FORMULA, the same arrangement `CloudDensityWGSL.h` carries and for the same
  * reason: a shading term has to run on the device and has to be integrable on the host, and no
  * language spans both. The C++ half is the definition and the WGSL half is its transliteration.
- * Two rules keep them from drifting: (a) no numeric constant is typed in the WGSL at all -- they are
- * emitted from the C++ ones by `MetalRoughBrdfWGSL()`; (b) the WGSL declares no term the C++ half
- * does not, so a new term has to be written twice on purpose rather than once by accident.
- * WHAT REMAINS UNCHECKED IS THE ARRANGEMENT OF THE TERMS, and it is unchecked: nothing in this tree
- * evaluates both halves over a sample set and compares them.
+ * Three rules keep them from drifting: (a) no numeric constant is typed in the WGSL at all -- they
+ * are emitted from the C++ ones by `MetalRoughBrdfWGSL()`; (b) the WGSL declares no term the C++
+ * half does not, so a new term has to be written twice on purpose rather than once by accident;
+ * (c) the ARRANGEMENT of the terms is measured -- `test/shader/BothHalvesOfTheBrdfAgree.cpp` runs
+ * this text on the device over a sample set and compares it against these functions, and carries a
+ * mutant of its own to show the comparison can see a scaled term.
  *
  * `alpha = 0` MEANS NO SPECULAR AT ALL, and that is the physics rather than a guard against a
  * division. A perfectly smooth surface has a Dirac lobe and a light with no area is a Dirac source;
@@ -49,9 +50,14 @@ constexpr double kBrdfPi = 3.141592653589793;
 }
 
 /* Schlick, on the HALF-VECTOR angle. `vh` and not `nv`: the Fresnel of a microfacet model is the
- * one at the facet that actually reflects V into L. */
+ * one at the facet that actually reflects V into L. The fifth power is spelled as a product and not
+ * as `pow(x, 5)` so that the two halves perform the SAME four multiplications: a device `pow` is
+ * `exp2(5 * log2(x))` under a relaxed-precision compiler and its error is thousands of ulps, which
+ * would put a transcendental's accuracy inside the tie that compares the halves. */
 [[nodiscard]] inline std::array<double, 3> BrdfFresnel(const std::array<double, 3> &f0, double vh) {
-  const double weight = std::pow(1.0 - vh, 5.0);
+  const double grazing = 1.0 - vh;
+  const double squared = grazing * grazing;
+  const double weight = squared * squared * grazing;
   return {f0[0] + (1.0 - f0[0]) * weight, f0[1] + (1.0 - f0[1]) * weight,
           f0[2] + (1.0 - f0[2]) * weight};
 }
@@ -105,7 +111,9 @@ fn brdfVisibility(nl : f32, nv : f32, a2 : f32) -> f32 {
 }
 
 fn brdfFresnel(f0 : vec3f, vh : f32) -> vec3f {
-  return f0 + (vec3f(1.0) - f0) * pow(1.0 - vh, 5.0);
+  let grazing = 1.0 - vh;
+  let squared = grazing * grazing;
+  return f0 + (vec3f(1.0) - f0) * (squared * squared * grazing);
 }
 
 fn metalRoughBrdf(diffuseColour : vec3f, f0 : vec3f, a2 : f32,

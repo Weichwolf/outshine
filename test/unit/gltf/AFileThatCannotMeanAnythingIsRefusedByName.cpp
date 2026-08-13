@@ -128,6 +128,16 @@ int main() {
              "materials":[{"pbrMetallicRoughness":{"baseColorTexture":{"index":2}}}]})"});
   Holds({"an alphaMode the format does not define is refused", "alphaMode 'DITHER'",
          R"({"asset":{"version":"2.0"},"materials":[{"alphaMode":"DITHER"}]})"});
+  /* A DECLARED VALUE THAT IS NOT OF ITS DECLARED TYPE IS THE SILENT-SUCCESS SHAPE, not a parse
+   * error: the JSON is well formed and the reader's `Num(default)` answers the default for a string
+   * as readily as for an absent key, so the two claims below are what separate "we read 1" from
+   * "the file said 1". */
+  Holds({"an emissiveStrength that is not a number is refused", "emissiveStrength that is not a number",
+         R"({"asset":{"version":"2.0"},"materials":[{"extensions":
+             {"KHR_materials_emissive_strength":{"emissiveStrength":"2"}}}]})"});
+  Holds({"a negative emissiveStrength is refused", "the extension's minimum is 0",
+         R"({"asset":{"version":"2.0"},"materials":[{"extensions":
+             {"KHR_materials_emissive_strength":{"emissiveStrength":-1}}}]})"});
   Holds({"an image that is neither a uri nor a bufferView is refused",
          "has neither a uri nor a bufferView",
          R"({"asset":{"version":"2.0"},"images":[{"name":"nowhere"}]})"});

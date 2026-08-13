@@ -685,7 +685,15 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   const Json::Ref strength =
       declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
   if (strength.Valid()) {
-    const double scale = strength.Num(1.0);
+    /* A PRESENT VALUE THAT IS NOT A NUMBER IS REFUSED AND NEVER DEFAULTED. `Num(def)` answers the
+     * default for a string, an object and a null alike, so a declared brightness of `"2"` would have
+     * been read as 1 and shipped as a picture nobody could trace back to the file -- a silent
+     * success inside a reader that refuses everything else by name. */
+    if (strength.GetKind() != Json::Kind::Number) {
+      return Refuse("material " + Number(index) + " declares an emissiveStrength that is not a "
+                    "number");
+    }
+    const double scale = strength.Num();
     if (!(scale >= 0.0)) {
       return Refuse("material " + Number(index) + " declares an emissiveStrength of " +
                     std::to_string(scale) + ", and the extension's minimum is 0");
