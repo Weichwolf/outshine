@@ -164,3 +164,39 @@ as they grow — which is exactly the ratio's shape. **The instrument that decid
 `oracle.normal.raw`, `file.normal.raw`. Three quantities compared inside one process and none of them
 openable is an investigation that has to be re-run to be questioned; these can be taken apart by
 anything.
+
+**CORRECTION, measured from the three legs on disk: the defect is a function of TILT and not of column,
+and *the defect is in the tangent path* — written in this item and in a commit message — is wrong.**
+
+Over all 374 566 shaded pixels of `normal-tangent-mirror`, the ratio of `sin(tilt)` ours to Cycles is
+**1.000 at the median** and departs only in the top decile:
+
+| `sin(tilt)` decile, Cycles | ratio |
+|---|---|
+| bottom nine | 0.998 – 1.003 |
+| top, `[0.704, 0.785)` | **1.129** |
+
+*(A median of 1.000 is also a check on both frame maps: a wrong one would make nothing agree.)*
+
+**And the column confound is dead.** Splitting by band and holding tilt fixed:
+
+| band | fraction with `sin(tilt) > 0.7` | ratio **where** `sin(tilt) > 0.7` |
+|---|---|---|
+| **0 — tangent-free** | **0.015** | **1.137** |
+| 1 | 0.149 | 1.105 |
+| 2 | 0.098 | 1.165 |
+| 3 | 0.131 | 1.177 |
+
+**Band 0 disagrees at the same rate as every other column once it has the same tilt.** It read as clean
+because it has a tenth as many steeply-perturbed pixels, not because it is right. The median `sin(tilt)`
+is 0.0055 in *every* band — the typical pixel is nearly flat and agrees, and all the action is in the
+tail.
+
+**So the tangent path is not implicated at all**, which agrees with the turn measurement rather than
+contradicting it: the basis is right everywhere and the magnitude is wrong everywhere the perturbation is
+steep. **The earlier *second mechanism* reading is withdrawn too** — band 0 being worst in the *picture*
+while right in the *normal* was an artefact of its tilt distribution, not a separate defect.
+
+**What remains is one question with a sharp shape**: what makes our mapped normal tilt ~13 % further in
+sine than Cycles' once the perturbation exceeds about 45°, uniformly across every column, with the
+tangential direction identical to a fiftieth of a degree.
