@@ -191,3 +191,23 @@ publish the size, and the branch falls out.
 locals binding what the BRDF receives · the readback · the zero-vector exclusion predicate · both frame
 maps · the adjudicating third leg with its depth convention corrected · and the disputed statistic
 itself, which needs a threshold change rather than a rewrite.
+
+**The branch is named: Cycles matches the file, we do not.** Selecting at the **signal** threshold —
+0.3174° rounded up to 0.4°, the term both legs were validated against, past which a disagreement cannot
+be the texture's quantisation:
+
+| case | disputed | file nearer ours | file nearer Cycles |
+|---|---|---|---|
+| `normal-tangent-mirror` | 39 029 px | **0** | **39 029 (100 %)** |
+| `normal-tangent` | 21 036 px | **0** | **21 036 (100 %)** |
+
+**Unanimous over 60 065 pixels, and unanimity is the expected shape rather than a suspicious one**: a
+systematic shading-normal defect means that wherever the legs differ by more than the asset can express,
+ours is the one that is wrong. A per-pixel coin-flip would have read as noise; this reads as a mechanism.
+
+**Contrast with the floor-selected population it replaces** — 147 669 px at 69 % and a median margin of
+0.0025°. Same data, same code, different selection: one is a verdict, the other was a population that
+mostly agreed being quoted about a tail it did not contain.
+
+**This item is done.** The repair is `board:1126`, which this supersedes into rather than absorbing —
+naming a branch and taking it are different claims with different evidence.

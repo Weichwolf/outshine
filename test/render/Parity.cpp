@@ -1763,10 +1763,16 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
 
   const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
                                                             ours.Width, ours.Height);
-  /* [MEASURED] the two legs' median disagreement over every case scored: 0.00099 degrees on the
-   * tangent assets, 0.0129 on water-bottle. Rounded UP to a thousandth of a degree, which is the
-   * floor of the comparison rather than a tolerance anyone chose. */
-  constexpr double kNormalAgreementFloorDeg = 0.001;
+  /* [DERIVED] THE SIGNAL THRESHOLD, AND IT IS DELIBERATELY NOT THE FLOOR. The two legs' median
+   * disagreement is [MEASURED] 0.00099 degrees on the tangent assets and 0.0129 on `water-bottle` --
+   * so a floor-selected population admitted 147 669 pixels at a median margin of 0.0025 degrees, and
+   * gave a 2:1 count over a population that mostly agrees, quoted about a 9.48 degree tail it does not
+   * contain. A pixel carries an opinion about which leg is right only once the two differ by more than
+   * the term BOTH were validated against: the normal texture's own 8-bit quantisation, 128/255 per axis
+   * over two axes = 0.3174 degrees. Rounded up to 0.4, so every admitted pixel disagrees by more than
+   * the asset is able to express, and the floor -- three hundred times smaller -- is what makes that
+   * rounding safe rather than arbitrary. */
+  constexpr double kNormalSignalDeg = 0.4;
   size_t shaded = 0, noLobe = 0, uncovered = 0, adjudicated = 0;
   size_t disputed = 0, oursNearer = 0, cyclesNearer = 0;
   std::vector<double> disputedMargin;
@@ -1825,12 +1831,14 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       cyclesVsFile.push_back(cyclesFile);
 
       /* WHICH LEG THE DECLARATION AGREES WITH, OVER THE PIXELS THAT DISAGREE AT ALL. The two legs
-       * agree to a floor of 0.001 degrees over the median of every case measured, so "differ" has a
-       * MEASURED meaning here rather than a chosen one -- and a pixel the two agree about carries no
-       * information about which is right, so including it would dilute the verdict with the
-       * population that has no opinion. THE POPULATION SIZE IS PUBLISHED FIRST: a verdict over two
-       * hundred pixels and one over two hundred thousand are different claims. */
-      if (deg <= kNormalAgreementFloorDeg) { continue; }
+       * agree to a floor of 0.001 degrees, but SELECTING AT THE FLOOR WAS THE WRONG POPULATION: it
+       * admits pixels that disagree by barely more than the instrument's own limit, and they have no
+       * opinion about which leg is right. The question is the 9.48 degree tail, so the selection is
+       * the SIGNAL threshold -- above the 0.3174 degree term both legs were validated against, which
+       * is the point past which a disagreement cannot be the texture's quantisation. THE POPULATION
+       * SIZE IS PUBLISHED FIRST: a verdict over two hundred pixels and one over two hundred thousand
+       * are different claims, and the first one is not a verdict. */
+      if (deg <= kNormalSignalDeg) { continue; }
       ++disputed;
       if (oursFile < cyclesFile) {
         ++oursNearer;
@@ -1862,7 +1870,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   std::sort(cyclesVsFile.begin(), cyclesVsFile.end());
   Note("shading normal, pixels the file adjudicates", (double)adjudicated, "px");
   /* THE POPULATION BEFORE THE VERDICT. */
-  Note("shading normal, pixels where the two legs disagree beyond the floor", (double)disputed,
+  Note("shading normal, pixels where the two legs disagree beyond what the texture can express", (double)disputed,
        "px");
   if (disputed > 0) {
     std::sort(disputedMargin.begin(), disputedMargin.end());
