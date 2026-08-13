@@ -1644,6 +1644,78 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
 }
 
+/* THE FILE'S OWN DECLARED `NORMAL`, RASTERISED (board:1122). The third leg, and the only one that
+ * ADJUDICATES: ours and Cycles are the same quantity computed twice, so where they differ neither is
+ * evidence about the other. The accessor is authored outside this tree.
+ *
+ * INTERPOLATED THE WAY A RASTERISER INTERPOLATES IT -- barycentric over the projected triangle, in
+ * the glTF frame the accessor is already in -- and depth-ordered by the engine's own REVERSED-Z
+ * convention, greater is nearer, so the surface this reports is the surface the engine shaded. It is
+ * the geometric normal the normal map perturbs and not the perturbed one, which is exactly what
+ * makes it the adjudicator: a disagreement between the other two is a disagreement about the
+ * PERTURBATION, and this is the frame the perturbation is relative to. */
+struct DeclaredNormals {
+  std::vector<float> Xyz; /* 3 per pixel, glTF frame; zero where no triangle covers the pixel */
+  std::vector<float> Depth;
+};
+
+DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transform &clip,
+                                         const Viewport &viewport, int width, int height) {
+  DeclaredNormals out;
+  out.Xyz.assign((size_t)width * (size_t)height * 3u, 0.0f);
+  out.Depth.assign((size_t)width * (size_t)height, -2.0f);
+  if (geometry.Normals().size() < geometry.PositionsM().size()) { return out; }
+  const std::vector<uint32_t> &indices = geometry.Indices();
+  for (size_t triangle = 0; triangle * 3u + 2u < indices.size(); ++triangle) {
+    double corner[3][2];
+    double depth[3];
+    const double *normal[3];
+    bool projects = true;
+    for (int which = 0; which < 3; ++which) {
+      const size_t vertex = indices[triangle * 3u + (size_t)which];
+      const double point[3] = {geometry.PositionsM()[vertex * 3],
+                               geometry.PositionsM()[vertex * 3 + 1],
+                               geometry.PositionsM()[vertex * 3 + 2]};
+      double ndc[3];
+      clip.Point(point, ndc);
+      if (!(ndc[2] >= -1.0 && ndc[2] <= 1.0)) {
+        projects = false;
+        break;
+      }
+      viewport.Raster(ndc, corner[which]);
+      depth[which] = ndc[2];
+      normal[which] = &geometry.Normals()[vertex * 3];
+    }
+    if (!projects) { continue; }
+    int fromX = 0, toX = 0, fromY = 0, toY = 0;
+    Detail::Span(corner, width, 0, fromX, toX);
+    Detail::Span(corner, height, 1, fromY, toY);
+    const double area = (corner[1][0] - corner[0][0]) * (corner[2][1] - corner[0][1]) -
+                        (corner[2][0] - corner[0][0]) * (corner[1][1] - corner[0][1]);
+    if (area == 0.0) { continue; }
+    for (int y = fromY; y <= toY; ++y) {
+      for (int x = fromX; x <= toX; ++x) {
+        if (!Detail::Inside(corner, (double)x, (double)y)) { continue; }
+        const double w0 = ((corner[1][0] - (double)x) * (corner[2][1] - (double)y) -
+                           (corner[2][0] - (double)x) * (corner[1][1] - (double)y)) / area;
+        const double w1 = ((corner[2][0] - (double)x) * (corner[0][1] - (double)y) -
+                           (corner[0][0] - (double)x) * (corner[2][1] - (double)y)) / area;
+        const double w2 = 1.0 - w0 - w1;
+        const double z = w0 * depth[0] + w1 * depth[1] + w2 * depth[2];
+        const size_t at = (size_t)y * (size_t)width + (size_t)x;
+        /* REVERSED-Z, the engine's own convention: greater is nearer. */
+        if (z <= (double)out.Depth[at]) { continue; }
+        out.Depth[at] = (float)z;
+        for (int axis = 0; axis < 3; ++axis) {
+          out.Xyz[at * 3u + (size_t)axis] =
+              (float)(w0 * normal[0][axis] + w1 * normal[1][axis] + w2 * normal[2][axis]);
+        }
+      }
+    }
+  }
+  return out;
+}
+
 /* THE THREE LEGS OF THE NORMAL COMPARISON, PUBLISHED RATHER THAN DIFFERENCED (board:1122).
  *
  * WHY THREE. Ours against Cycles says the two differ and NOTHING about which is wrong. The file's own
@@ -1661,7 +1733,7 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
  * would come back as a clean 90 degrees on every one of them, which reads as a finding. The count of
  * excluded pixels is published beside the result, because an exclusion nobody counts is a mask. */
 void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
-                        std::vector<Metric> &metrics) {
+                        const Transform &clip, std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   RawF32 cycles;
   const std::string path = subject.Directory + "oracle.normal.raw";
@@ -1676,9 +1748,11 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     return;
   }
 
-  size_t shaded = 0, noLobe = 0, uncovered = 0;
+  const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
+                                                            ours.Width, ours.Height);
+  size_t shaded = 0, noLobe = 0, uncovered = 0, adjudicated = 0;
   double worstDeg = 0, sumDeg = 0;
-  std::vector<double> degrees;
+  std::vector<double> degrees, oursVsFile, cyclesVsFile;
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = 0; x < width; ++x) {
       if (!ours.At((int)x, (int)y)) { ++uncovered; continue; }
@@ -1711,6 +1785,23 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       degrees.push_back(deg);
       sumDeg += deg;
       if (deg > worstDeg) { worstDeg = deg; }
+
+      /* THE ADJUDICATOR. Where no triangle of the file covers this pixel there is nothing to
+       * adjudicate WITH, so it is skipped by the same kind of predicate the no-lobe pixels are --
+       * a zero-length declared normal is not a direction either. */
+      const double fx = declared.Xyz[(y * width + x) * 3u];
+      const double fy = declared.Xyz[(y * width + x) * 3u + 1];
+      const double fz = declared.Xyz[(y * width + x) * 3u + 2];
+      const double fileLength = std::sqrt(fx * fx + fy * fy + fz * fz);
+      if (fileLength <= 0.0) { continue; }
+      ++adjudicated;
+      const auto against = [&](double ax, double ay, double az, double alen) {
+        double c = (ax * fx + ay * fy + az * fz) / (alen * fileLength);
+        c = c > 1.0 ? 1.0 : (c < -1.0 ? -1.0 : c);
+        return std::acos(c) * 180.0 / 3.14159265358979323846;
+      };
+      oursVsFile.push_back(against(ox, oy, oz, oursLength));
+      cyclesVsFile.push_back(against(cx, cy, cz, theirsLength));
     }
   }
   std::sort(degrees.begin(), degrees.end());
@@ -1729,6 +1820,21 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   metrics.push_back({"shading_normal_max_deg", worstDeg, 0.0, "degrees", Direction::Reported});
   metrics.push_back({"shading_normal_mean_deg", sumDeg / (double)shaded, 0.0, "degrees",
                     Direction::Reported});
+  /* THE THREE LEGS, PUBLISHED SIDE BY SIDE. `ours vs cycles` says they differ; the two against the
+   * FILE say which of them the declaration agrees with, and that is the whole of the branch. */
+  std::sort(oursVsFile.begin(), oursVsFile.end());
+  std::sort(cyclesVsFile.begin(), cyclesVsFile.end());
+  Note("shading normal, pixels the file adjudicates", (double)adjudicated, "px");
+  if (!oursVsFile.empty()) {
+    metrics.push_back({"ours_vs_file_p50_deg", Percentile(oursVsFile, 0.50), 0.0, "degrees",
+                       Direction::Reported});
+    metrics.push_back({"ours_vs_file_p95_deg", Percentile(oursVsFile, 0.95), 0.0, "degrees",
+                       Direction::Reported});
+    metrics.push_back({"cycles_vs_file_p50_deg", Percentile(cyclesVsFile, 0.50), 0.0, "degrees",
+                       Direction::Reported});
+    metrics.push_back({"cycles_vs_file_p95_deg", Percentile(cyclesVsFile, 0.95), 0.0, "degrees",
+                       Direction::Reported});
+  }
 }
 
 /* THE PICTURE BOUND, SCORED AND PUBLISHED (board:0089). The bound is the sum of the
@@ -1995,7 +2101,7 @@ int main(int argc, char **argv) {
   const Tail bound = BoundFor(subject.Path);
   ScorePictureBound(image, bound, metrics);
 
-  ScoreShadingNormal(subject, picture, ours, metrics);
+  ScoreShadingNormal(subject, picture, ours, clip, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 

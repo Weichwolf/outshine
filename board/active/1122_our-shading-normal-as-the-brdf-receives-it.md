@@ -101,3 +101,35 @@ be picking the louder defect.
 **Remaining, and it is one step: rasterise the file's declared `NORMAL` as the third leg.** Ours and
 Cycles now agree at the floor over most of the surface; **which is right where they differ is what the
 file decides**, and that leg exists only in aggregate today.
+
+**The third leg is built and validates, but does not yet adjudicate.**
+
+| case | ours vs file p50 | Cycles vs file p50 |
+|---|---|---|
+| `normal-tangent-mirror` | **0.3177°** | **0.3183°** |
+| `normal-tangent` | **0.3178°** | **0.3179°** |
+
+Against the derived **0.3174°** — four significant figures, on both legs, independently. With
+`ours vs Cycles p50 = 0.00099°` the construction is validated end to end: **three legs, two frames, one
+named residual**, and that term is now arrived at three ways — derived from bit depth, measured on
+Cycles, measured on ours.
+
+**Two bounded steps remain, and both are defects in the third leg rather than findings about the first
+two.**
+
+**1 · The rasteriser is wrong for multi-part subjects.** `RasteriseDeclaredNormals` walks
+`geometry.Indices()` as one flat list where `Attribution.h` uses `part.FirstIndex` per part.
+`water-bottle` and `boom-box` return p50 ≈ 103° and 96° — and **both legs return the same wrong number**
+(103.2169 against 103.2388), which is the signature of the third leg being broken rather than either
+other. `normal-tangent-mirror` is `meshes=1 primitives=1`, which is why it is right there and only there.
+
+**2 · Percentiles cannot answer *which is closer*.** At p95 both legs diverge from the file — 61.8° ours,
+48.1° Cycles — and **that divergence is the normal map doing its job**, since the file's leg is the
+geometric normal the map perturbs. Reading `61.8 > 48.1` as evidence would be two percentiles over
+different pixel populations. **The branch needs a per-pixel statistic over the disagreeing minority**:
+for each pixel where ours and Cycles differ, which is nearer the declaration.
+
+**Until step 1 lands, the third leg cannot speak to the open tension at all** — `water-bottle` is one of
+the multi-part cases it gets wrong, so *a normal-mapped asset agreeing at p95 0.064° while the
+tangent-free column was worst* stays open rather than being resolved by a number that is measuring the
+wrong population.
