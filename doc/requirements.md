@@ -2403,6 +2403,18 @@ out is an artefact with a name rather than an absence.*
 - [ ] **Cost-before-commit is answerable WITHOUT generating, and that is a demand on every generator rather than a note.** A capability query must return **bounds and cost from `(kind, params)` alone** — for a tree from the declared `height_m` and `spread_m`, for a footprint from its ring — because otherwise a part must be generated to learn whether it is visible, and the cull happens after the cost it exists to avoid. **This is what makes a million transforms culled by the compositor affordable**
 - [ ] **The request key is a value type, not a string.** `data/ContentStore`'s hashed `std::string` key is right for a download filed on a disk and wrong for a part asked for on the frame path — `Per.14`/`Per.15`, an allocation per lookup on a hot path. The part key is `(kind, params, seed, rung)` as a trivially-hashable value, and the two stores are two types for this reason and not by accident
 
+#### A file is a generator, `declared` is the fifth compositor, and the ladder is degenerate rather than skipped
+
+*Three rulings owed from the round that could not file them. Each closes a route by which content
+would reach the renderer around the seam.*
+
+- [ ] **`kind = gltf-file` is a GENERATOR and not a scenario path.** Its params are `(content hash, primitive index)`, its seed is unused, it has one rung and no impostor, and **its reply is a capability like any other**. **NO SUBSTITUTE**: the alternative is a **second arrival route into the compositor**, and a second route is where the leak into the renderer starts — one arm that carries a `Subject` instead of a part reply is one arm the renderer can come to depend on. *Held by a unit test: one file yields N part requests, and **two URIs over identical bytes produce one key***
+- [ ] **A URI is not a value, which is why the key is the content hash.** Two URIs can name one file and one URI can change under a run, so **a URI-keyed part makes the picture a function of what is at that address today** — and *the picture is a function of the declaration* is the property § I.28 exists to keep. Hashing is not a cache optimisation here; it is what makes that sentence true
+- [ ] **`declared` is the fifth compositor**: placements read from the file's node hierarchy rather than derived from a rule — same interface, same cull, same selection, same quantisation. `Clients::Show` (`src/clients/GltfStudio.h:100`) is the degenerate case already running
+- [x] **And its justification is not *"there is no rule to derive"*, which was mine and is false.** `Gltf::Subject` holds a vector of parts (`src/gltf/Subject.h:211`) and **the hierarchy IS the rule**. The correct justification is narrower and better: **the rule is data rather than a procedure.** *A compositor whose placement rule arrives as content is still a compositor; what would break the layer is a compositor whose rule arrives as code*
+- [ ] **The ladder is degenerate for a one-rung kind, never skipped, and `achieved ≠ requested` in both directions is the report.** *Skipping quantisation for a one-rung part fragments the store **per instance**, which is exactly the failure the ladder exists to prevent — arriving through the one compositor that had been exempted from it.* **Held by a scenario placing N identical declared props and producing ONE store key, not N**
+- [ ] **"No impostor" and "cannot be reduced further" are two declarations and not one.** They coincide for a file part today and **will not for the next generator with rungs and no impostor** — so a part that answers the second by inferring it from the first is a part that will answer wrongly the first time the two come apart
+
 #### The budget is continuous and a cache is not: quantisation, the ladder, and what the ladder costs
 
 *The gap the owner's next question exposed — **"the compositor must not request one million trees every
@@ -2454,6 +2466,30 @@ same between levels, several levels in one image — and the question **generato
 - [ ] **It is not § I.26.9's LOD-transition case and must not be merged with it.** That one is *a pop at a named distance*, decidable only in motion, and is already ruled into the **scenario** suite. This one is a static subset relation between two rungs at one framing. **Two questions, two suites** — and a later round will try to merge them on the word "LOD"
 - [ ] **The contact sheet is for the eye and carries no measurement.** Several levels in one image is worth having and is where § I.26.10's by-eye judgement lives, but side-by-side columns sit at different screen positions, so **every number comes from pairwise renders at identical framing**
 - [ ] **Order: it is meaningful only after the growth is independent of the budget.** Today two rungs are two different trees — leaf points 120 114 to 203 851, a factor of 1.70, and the height non-monotone (`doc/bugs.md`) — so the case would fail for the right reason and teach nothing new. **It is what HOLDS that fix afterwards**, and the header claim *a coarse rank's shoots are a subset of a fine rank's* is a sentence in a comment until it does
+
+#### The mesh simplifier — where it goes, and an acceptance that costs nothing to build
+
+*Owner's ruling: it is needed. The motivation is already measured in this file — `a-beautiful-game` at
+**1 500 224 triangles costs 8.51 ms, 51 % of the frame budget for ONE light's shadow rays**, on one
+static subject. **Nothing about the world stage survives without it**, and it is also the source the
+**impostor** must be built from.*
+
+- [ ] **It does NOT go in the loader, and the reason is a shape this tree has already corrected once.** `Gltf::Document::Read` keeps answering *what is in this file*, exactly — the reader/consumer split. **A budget reaching the read is the defect just removed from the tree generator**, where `Grow` lost its budget parameter (`src/generators/draw/TreeGrower.h:26`) so that *a rank growing a different tree* has no spelling. Same shape, same repair: **`Read(bytes) → Subject` budget-free, `Simplify(subject, budget) → Subject` budget-aware**
+- [ ] **Placement is a layering decision and it is decided on a structural fact rather than on a preference: `Simplify` needs no format knowledge, no camera and no device.** It reads a `Subject` and writes a `Subject`. That is what puts it beside the generators and not inside `gltf/` — *and it is why the seam survives the next format, since a second reader produces the same type and reaches the same simplifier*
+- [ ] **No camera is needed and that is not an accident.** The budget is `pixelHeightFrac` — *the model length of one pixel as a fraction of the part's own height* (`src/generators/draw/TreeMesher.h:26`) — so the object-space tolerance is `budget × part height` and nothing about a viewpoint enters. **`Ground` makes a camera unspellable in a generator; this does not need the exception**
+
+**The acceptance is free, and it is the part worth writing carefully.** A simplifier claims *"the surface
+is within N pixels"*, and this suite has **34 render cases** and a picture bound measured in **exactly
+those units**. Decimate `SciFiHelmet` at N px, render both, compare: **the picture difference must be
+bounded by the budget the simplifier declared.** No new oracle, no new instrument.
+
+- [ ] **The achieved error is MEASURED, never predicted — and this is the one decimators get wrong.** Garland–Heckbert's quadric is a **cost**, not a **distance**: it is the sum of squared distances to a set of supporting **planes**, accumulated on contraction as `Q = Q₁ + Q₂`. **The additivity is the proof it cannot be a distance to the original surface** — a distance would not be a sum over collapses. *Reporting it as achieved error is § I.25.1's class again: a number that is right and about something else.* **The real number is a sampled one-sided Hausdorff against the original**
+- [ ] **Monotone in the budget** — tighter budget, more triangles, less achieved error, no exceptions. *A non-monotone simplifier is one whose budget is a hint, and a hint cannot be an acceptance*
+- [ ] **Attributes interpolated, not dropped.** `SciFiHelmet`'s normal map would go visibly wrong while its silhouette stayed comfortably inside the bound — **a surface-position bound cannot see an attribute error**, which is the invariance rule (§ I.25.1) reaching the simplifier before it is written
+- [ ] **Boundaries preserved: an open edge must not shrink.** A wall loses its **window opening** long before it loses its silhouette, and a screen-space bound on the *surface* cannot see that either. *Two blind spots, both named before the first collapse, because each is a criterion the obvious acceptance is invariant under*
+
+- [ ] **And what is NOT a property, stated because a later round will apply it and conclude a correct decimator is broken: the subset test does not hold.** Edge collapse creates vertex positions that were **never in the original**, so *"the coarse mesh's vertices are a subset of the fine mesh's"* is false by construction here — and it is **true** of the tree's rung ladder, which is why the confusion is available
+- [ ] **Two kinds of LOD, one currency, different proofs.** **Selection** — the tree: the coarser rung **is** the finer with parts removed, so the proof is **exact and carries no tolerance**. **Simplification** — a file: the coarser mesh is the finer **approximated**, so the proof is **bounded by the declared error**. *One budget in pixels drives both; the acceptance differs because the operation does, and a suite that ran one proof over both would be red on the correct implementation*
 
 #### One compositor interface, and the recomposition trigger is declared data rather than discovered by calling
 
