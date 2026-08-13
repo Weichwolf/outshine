@@ -12,6 +12,17 @@ size_t Keyframes::Segment(double abscissa) const {
   return lo;
 }
 
+bool Keyframes::Span(double abscissa, size_t &keyframe, double &weight) const {
+  if (!Valid() || Count_ < 2) return false;
+  if (abscissa <= Frames_[0] || abscissa >= Frames_[Count_ - 1]) return false;
+  keyframe = Segment(abscissa);
+  const double td = Frames_[keyframe + 1] - Frames_[keyframe];
+  /* A grid is required to increase strictly; one that stands still has no weight to compute, and the
+   * earlier keyframe is what stands rather than a division by zero. */
+  weight = (td > 0.0) ? (abscissa - Frames_[keyframe]) / td : 0.0;
+  return true;
+}
+
 void Keyframes::At(double abscissa, double *out) const {
   if (!Valid()) return;
   if (Count_ == 1 || abscissa <= Frames_[0]) {

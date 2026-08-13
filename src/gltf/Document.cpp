@@ -531,6 +531,117 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
     return Refuse("names default scene " + Number(static_cast<size_t>(DefaultScene_)) + " of " +
                   Number(Scenes_.size()));
   }
+  if (!ReadAnimations(json)) { return false; }
+  return true;
+}
+
+/* THE ANIMATIONS, READ LAST because every reference in them points backwards: a sampler names two
+ * accessors and a channel names a node, and both tables are complete by the time this runs.
+ *
+ * THREE WORDS AND NO FOURTH. `interpolation` and `target.path` are both strings with a closed set of
+ * values, and an unrecognised one is refused by name rather than falling back to `LINEAR` or to
+ * `translation` -- a viewer that quietly substitutes one is exactly what `InterpolationTest` was
+ * built to expose, and a reader that did it would make the case unable to see it.
+ *
+ * A CHANNEL WITH NO TARGET NODE IS NOT AN ERROR: the format defines it as a channel to be ignored,
+ * so it is carried at -1 and the consumer's loop skips it. Refusing it here would refuse a
+ * conforming file. */
+bool Document::ReadAnimations(const Json &json) {
+  const Json::Ref animations = json.Root()["animations"];
+  for (size_t i = 0; i < animations.Size(); ++i) {
+    const Json::Ref declaration = animations[i];
+    Animation animation;
+    animation.Name = declaration["name"].Str("");
+
+    const Json::Ref samplers = declaration["samplers"];
+    for (size_t s = 0; s < samplers.Size(); ++s) {
+      const Json::Ref declared = samplers[s];
+      AnimationSampler sampler;
+      sampler.Input = declared["input"].Int(-1);
+      sampler.Output = declared["output"].Int(-1);
+      const std::string how = declared["interpolation"].Str("LINEAR");
+      if (how == "LINEAR") {
+        sampler.How = Interpolation::Linear;
+      } else if (how == "STEP") {
+        sampler.How = Interpolation::Step;
+      } else if (how == "CUBICSPLINE") {
+        sampler.How = Interpolation::CubicSpline;
+      } else {
+        return Refuse("animation " + Number(i) + " sampler " + Number(s) + " interpolates by '" +
+                      how + "', which is none of LINEAR, STEP or CUBICSPLINE");
+      }
+      for (const int accessor : {sampler.Input, sampler.Output}) {
+        if (accessor < 0 || static_cast<size_t>(accessor) >= Accessors_.size()) {
+          return Refuse("animation " + Number(i) + " sampler " + Number(s) +
+                        " names an accessor the file does not carry");
+        }
+      }
+      const Accessor &times = Accessors_[static_cast<size_t>(sampler.Input)];
+      if (times.Element != ElementType::Scalar) {
+        return Refuse("animation " + Number(i) + " sampler " + Number(s) +
+                      " has a time grid that is not SCALAR");
+      }
+      /* THE ONE SHAPE RULE THE FORMAT PUTS ON A SAMPLER, and it is what makes `CUBICSPLINE` a
+       * different DECODE and not a different formula: three elements per keyframe against one. A
+       * file that got this wrong would otherwise be read as an animation a third as long. */
+      const size_t perKeyframe = (sampler.How == Interpolation::CubicSpline) ? 3u : 1u;
+      const Accessor &values = Accessors_[static_cast<size_t>(sampler.Output)];
+      if (values.Count != times.Count * perKeyframe) {
+        return Refuse("animation " + Number(i) + " sampler " + Number(s) + " states " +
+                      Number(times.Count) + " keyframes and " + Number(values.Count) +
+                      " output elements, and this interpolation wants " +
+                      Number(times.Count * perKeyframe));
+      }
+      if (sampler.How == Interpolation::CubicSpline && times.Count < 2) {
+        return Refuse("animation " + Number(i) + " sampler " + Number(s) +
+                      " is CUBICSPLINE over fewer than two keyframes, which has no tangent span");
+      }
+      animation.Samplers.push_back(sampler);
+    }
+
+    const Json::Ref channels = declaration["channels"];
+    for (size_t c = 0; c < channels.Size(); ++c) {
+      const Json::Ref declared = channels[c];
+      AnimationChannel channel;
+      channel.Sampler = declared["sampler"].Int(-1);
+      if (channel.Sampler < 0 ||
+          static_cast<size_t>(channel.Sampler) >= animation.Samplers.size()) {
+        return Refuse("animation " + Number(i) + " channel " + Number(c) + " names sampler " +
+                      Number(static_cast<size_t>(channel.Sampler < 0 ? 0 : channel.Sampler)) +
+                      " of " + Number(animation.Samplers.size()));
+      }
+      const Json::Ref target = declared["target"];
+      channel.Node = target["node"].Valid() ? target["node"].Int(-1) : -1;
+      if (channel.Node >= 0 && static_cast<size_t>(channel.Node) >= Nodes_.size()) {
+        return Refuse("animation " + Number(i) + " channel " + Number(c) +
+                      " targets a node the file does not carry");
+      }
+      const std::string path = target["path"].Str("");
+      if (path == "translation") {
+        channel.Path = AnimationPath::Translation;
+      } else if (path == "rotation") {
+        channel.Path = AnimationPath::Rotation;
+      } else if (path == "scale") {
+        channel.Path = AnimationPath::Scale;
+      } else if (path == "weights") {
+        channel.Path = AnimationPath::Weights;
+      } else {
+        return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
+                      "', which is none of translation, rotation, scale or weights");
+      }
+      const size_t components = PathComponents(channel.Path);
+      const Accessor &values =
+          Accessors_[static_cast<size_t>(animation.Samplers[static_cast<size_t>(channel.Sampler)]
+                                             .Output)];
+      if (components > 0 && ElementComponents(values.Element) != components) {
+        return Refuse("animation " + Number(i) + " channel " + Number(c) + " drives '" + path +
+                      "', which is " + Number(components) + " components, from an output of " +
+                      Number(ElementComponents(values.Element)));
+      }
+      animation.Channels.push_back(channel);
+    }
+    Animations_.push_back(std::move(animation));
+  }
   return true;
 }
 

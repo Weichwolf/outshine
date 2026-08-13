@@ -15,6 +15,8 @@
 #include <string>
 #include <vector>
 
+#include "Keyframes.h"
+
 #include "Material.h"
 #include "PunctualLight.h"
 
@@ -195,6 +197,51 @@ struct MaterialRef {
   TextureRef Emissive;
   double NormalScale = 1.0;
   double OcclusionStrength = 1.0;
+};
+
+/* HOW A SAMPLER GETS FROM ONE KEYFRAME TO THE NEXT IS `outshine::Keyframes::Interpolation` AND NOT A
+ * SECOND ENUMERATION HERE. The evaluator in core already carries glTF's three words and glTF's own
+ * triple layout for the spline, so a copy in this layer would be a second spelling of one meaning
+ * that nothing keeps in step. What this layer owns is the REFUSAL: a fourth word is named and
+ * rejected by the reader rather than falling back to `Linear`, which is what `InterpolationTest`
+ * exists to catch a viewer doing.
+ *
+ * `CubicSpline` CHANGES THE SHAPE OF THE OUTPUT and not only the arithmetic: its output accessor
+ * carries THREE elements per keyframe -- in-tangent, value, out-tangent -- so a reader that treated
+ * the word as a hint would read a third of the animation and see two thirds of it as keyframes. */
+using Interpolation = outshine::Keyframes::Interpolation;
+
+/* WHAT A CHANNEL DRIVES. `Weights` is carried because the format has it and a file that uses it must
+ * not read as something else; nothing in this tree consumes it yet, and that is a fact about the
+ * consumer rather than about the reader. */
+enum class AnimationPath : uint8_t { Translation, Rotation, Scale, Weights };
+
+/* THE COMPONENTS ONE KEYFRAME OF A PATH CARRIES: 3 for a translation or a scale, 4 for a rotation
+ * quaternion. `Weights` is as many as the mesh has morph targets and is therefore not answerable
+ * from the path alone -- 0 says so, rather than a number that would be wrong. */
+size_t PathComponents(AnimationPath path);
+
+/* ONE SAMPLER: a time grid, the values on it, and how to get between them. `Input` and `Output` are
+ * accessor indices, so the decode is `Document::ReadElements` like every other run in the file and
+ * this record holds no bytes of its own. */
+struct AnimationSampler {
+  int Input = -1;
+  int Output = -1;
+  Interpolation How = Interpolation::Linear;
+};
+
+/* ONE CHANNEL: which sampler drives which property of which node. `Node` may be -1, which the format
+ * allows and defines as a channel to be IGNORED rather than an error. */
+struct AnimationChannel {
+  int Sampler = -1;
+  int Node = -1;
+  AnimationPath Path = AnimationPath::Translation;
+};
+
+struct Animation {
+  std::string Name;
+  std::vector<AnimationSampler> Samplers;
+  std::vector<AnimationChannel> Channels;
 };
 
 /* WHAT A SUBJECT DOES NOT CARRY, NAMED. The empty string means it carries all of them; anything else

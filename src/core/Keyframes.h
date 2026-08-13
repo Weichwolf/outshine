@@ -51,6 +51,15 @@ public:
   /* Writes Components() numbers. Outside the keyframe range the first / last value stands, as in
    * glTF. */
   void At(double abscissa, double *out) const;
+
+  /* WHICH SPAN AN ABSCISSA FALLS IN AND HOW FAR THROUGH IT. A consumer whose blend is none of the
+   * three above — a quaternion, which glTF interpolates on the sphere — needs the same segment
+   * search and the same weight, and writing a second one is how the two come to disagree about
+   * where a span ends. `false` outside the range and on a single keyframe, which is exactly where
+   * `At` clamps and there is no span to be in. */
+  [[nodiscard]] bool Span(double abscissa, size_t &keyframe, double &weight) const;
+  /* The value at one keyframe, past the tangents where the layout carries them. */
+  const double *ValueAt(size_t keyframe) const { return Value(keyframe); }
   double AtScalar(double abscissa) const {
     double v = 0.0;
     At(abscissa, &v);

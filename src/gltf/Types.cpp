@@ -65,6 +65,16 @@ std::string MissingSemantics(const Primitive &primitive,
   return missing;
 }
 
+size_t PathComponents(AnimationPath path) {
+  switch (path) {
+    case AnimationPath::Translation:
+    case AnimationPath::Scale: return 3;
+    case AnimationPath::Rotation: return 4;
+    case AnimationPath::Weights: return 0;
+  }
+  return 0;
+}
+
 int Primitive::Find(const char *semantic) const {
   for (const Attribute &attribute : Attributes) {
     if (attribute.Semantic == semantic) { return attribute.Accessor; }
