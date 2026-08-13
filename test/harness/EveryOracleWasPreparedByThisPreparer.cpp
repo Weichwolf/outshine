@@ -19,7 +19,9 @@
  * A TREE WITH NOTHING PREPARED IS UNPREPARED AND SAYS SO. `test/run.sh` does not prepare, so a corpus
  * that has never been built is a missing input rather than a failure, and never a silent pass. */
 #include <cstdint>
+#include <algorithm>
 #include <cstdio>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -32,8 +34,11 @@
 
 namespace {
 
-const char *const kPreparerSources[] = {"test/corpus/prep/exr.py",
-                                        "test/corpus/prep/in_blender_render.py"};
+/* EVERY `.py` UNDER THE PREPARER, ENUMERATED RATHER THAN LISTED. A named list here is a second copy of
+ * the one `jobs.py` keeps, and the two drifted the first time a file was added to one of them -- this
+ * test went red naming 34 cases, which was the divergence and not a stale corpus. Both sides now derive
+ * the set the same way, so there is nothing to keep in step. */
+const char *const kPreparerDirectory = "test/corpus/prep";
 
 bool Slurp(const std::string &path, std::string &into) {
   std::FILE *file = std::fopen(path.c_str(), "rb");
@@ -57,7 +62,17 @@ bool IsDirectory(const std::string &path) {
 std::string PreparerDigest(bool &complete) {
   std::string material;
   complete = true;
-  for (const char *source : kPreparerSources) {
+  std::vector<std::string> sources;
+  if (std::filesystem::is_directory(kPreparerDirectory)) {
+    for (const std::filesystem::directory_entry &entry :
+         std::filesystem::directory_iterator(kPreparerDirectory)) {
+      if (entry.is_regular_file() && entry.path().extension() == ".py") {
+        sources.push_back(entry.path().string());
+      }
+    }
+  }
+  std::sort(sources.begin(), sources.end());
+  for (const std::string &source : sources) {
     if (!Slurp(source, material)) { complete = false; }
   }
   return outshine::Sha256Hex(material);

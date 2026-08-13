@@ -1,6 +1,7 @@
 """The jobs: fetch the subjects, generate the ones we own, convert a .blend, render the oracle."""
 
 import json
+import glob
 import os
 import tempfile
 
@@ -26,7 +27,12 @@ CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 #
 # THE WHOLE FILE AND NOT A VERSION STRING: a version somebody has to remember to bump is a second
 # fact about the code, kept by hand, and it goes stale exactly when it matters.
-RENDER_CODE = (RENDER_SCRIPT, os.path.join(HERE, "exr.py"))
+# EVERY SOURCE OF THE PREPARER, AND NOT A LIST. A named list is a second copy of a fact -- it was
+# (render script, exr.py) while manifest.py declared QUANTITY_PASSES, so editing a quantity's socket
+# changed the bytes and not the product name, and the key did not move. A list also has to agree with
+# the one the harness holds, and it did not. Anything under this directory can change what lands on
+# disk, so everything under it is digested and there is nothing to keep in step.
+RENDER_CODE = tuple(sorted(glob.glob(os.path.join(HERE, "*.py"))))
 
 PROVENANCE_NAME = "provenance.json"
 # THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
