@@ -492,6 +492,12 @@ git log --grep 'board:0042'                          # every commit that worked 
 git mv board/active/X.md board/closed/               # the transition IS the diff
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
+**A partial run leaves the previous run's logs in place.** A suite that dies early — a build group with
+no declared include set, a signal, an interrupt — writes no trailer, and every per-case log from the
+run before it is still on disk. **Numbers grepped out of those logs are the LAST run's**, and nothing
+in them says so. **Read the trailer line first**: `N tests: … PASS … FAIL` is what says a run happened
+at all, and a count quoted without it may be a measurement of the past.
+
 **A new file must be staged before `git grep` can see it.** `git grep` searches **tracked** files, so a
 work item proven only by a test that has not been added yet reads as unproven — the same direction of
 failure as the ignore case below, met the first time a round closed an item with a new test. The

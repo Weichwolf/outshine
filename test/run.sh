@@ -125,7 +125,7 @@ LayerIncludes() {
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
     unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
     unit/clients) printf '%s' "-Isrc/clients" ;;
-    harness) printf '%s' "" ;;
+    harness) printf '%s' "-Isrc/core" ;;
     render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
@@ -226,7 +226,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
-    harness) printf '%s' "" ;;
+    harness) printf '%s' "src/core/Sha256.cpp" ;;
     render | frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
     *) return 1 ;;
@@ -268,7 +268,7 @@ NotTheHarnesses() {
 # the layering the build rather than a rule, and it is the same set the Makefile hands each group.
 GroupIncludes() {
   case "$1" in
-    src/core | src/core/io) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    src/core | src/core/io | src/core/Sha256.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;

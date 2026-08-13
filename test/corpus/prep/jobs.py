@@ -13,6 +13,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
 CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 
+# THE PREPARER'S OWN CODE, DIGESTED INTO THE ORACLE KEY (board:1120). The key covered Blender, the
+# subject pins, the declared scene and the recipe -- everything the manifest says and nothing the
+# PREPARER does. But `in_blender_render.py` decides which passes are enabled, how materials are
+# built, and where lights and cameras sit, and `exr.py` decides how the products are decoded on the
+# way out. All of that changes what Cycles renders while the declaration is untouched.
+#
+# MEASURED, WHICH IS WHY IT IS HERE: enabling three render passes changed 8 of 58 beauty products
+# under keys that still matched, up to 8 ulps where 256 samples accumulate. No verdict moved, and
+# that was luck rather than design -- the drift was found by hashing before and after on a hunch,
+# which is not an instrument.
+#
+# THE WHOLE FILE AND NOT A VERSION STRING: a version somebody has to remember to bump is a second
+# fact about the code, kept by hand, and it goes stale exactly when it matters.
+RENDER_CODE = (RENDER_SCRIPT, os.path.join(HERE, "exr.py"))
+
 PROVENANCE_NAME = "provenance.json"
 # THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
 # product names they have always had, so their cache keys are unchanged -- what misses is the QUANTITY
@@ -20,6 +35,11 @@ PROVENANCE_NAME = "provenance.json"
 PRODUCTS = ("exr", "raw") + tuple(
     q + suffix for q in manifest_module.QUANTITY_PASSES for suffix in ("Exr", "Raw")
 )
+
+
+def render_code_digest():
+    """One digest over every source that runs inside Blender or decodes what comes out."""
+    return sha256_hex(b"".join(open(path, "rb").read() for path in sorted(RENDER_CODE)))
 
 
 def plan(manifest, store):
@@ -249,6 +269,8 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
                     "subjects": subject_pin,
                     "scene": manifest.scene.as_job(),
                     "recipe": recipe,
+                    # board:1120 -- see RENDER_CODE above.
+                    "preparer": render_code_digest(),
                     "product": product,
                 },
             )
@@ -298,6 +320,7 @@ def write_provenance(manifest, store, destination, blender, report):
     document = {
         "manifestId": manifest.id,
         "manifestSchemaVersion": manifest_module.SCHEMA_VERSION,
+        "preparerDigest": render_code_digest(),
         "blenderDeclared": manifest.blender_version,
         "blenderObserved": blender.version if blender else None,
         "blenderBuildHash": blender.build_hash if blender else None,
