@@ -14,3 +14,9 @@ the only oracle artefact that must survive.
 
 **Done when** the runner reads `oracle.exr` directly and `oracle.raw` is generated on demand or not at
 all.
+
+**Groomed at audit: not blocked by `board:1120`, but scheduled with it.** Neither blocks the other — one
+is a reader, one is a key — but **both invalidate the corpus and each costs a full re-prepare**, and
+`test/run.sh` does not prepare: it reports *has no prepared input*. Run as one round they cost one
+re-prepare instead of two. **That is a sequencing note and deliberately not a `Depends:` edge**, because
+a false edge would make the readiness query lie about what can start.

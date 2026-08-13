@@ -1,6 +1,7 @@
 Type: bug
 Area: render
 Tags: khronos, instrument
+Depends: 0112
 
 **Eighteen of twenty catalogue rows cannot execute, and the catalogue is read as a capability statement — **Band 1****
 
@@ -81,3 +82,8 @@ number, not a gate.
 
 **Not started here** because half of it is worse than none: a public flag plus a test that reads it would
 close the item while leaving the defect spellable.
+
+**Groomed at audit: this depends on `board:0112`.** The encoder table is written over the catalogue's
+rows, and `0112` renames twenty of them to fourteen — `Background` dissolving, five geometry units
+becoming four surface classes, `ShadowMap` becoming `LightVisibility`. Written first, the table is
+written twice and the second time against names that moved. **The rename goes first.**
