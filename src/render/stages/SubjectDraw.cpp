@@ -205,10 +205,10 @@ struct SFrag {
  * mistake it for one, and a reader can tell "no shading normal here" from "a normal pointing away".
  * An undefined value that read plausibly would be ingested silently by the three-way comparison. */
 #if SUBJECT_WRITES_SHADING_NORMAL
-#define SUBJECT_SET_SHADING_NORMAL(o, n) (o).nrm = float4((n), 1.0)
+#define SUBJECT_SET_SHADING_NORMAL(o, n, f) (o).nrm = float4((n), select(-1.0, 1.0, (f)))
 #define SUBJECT_NO_SHADING_NORMAL(o) (o).nrm = float4(0.0, 0.0, 0.0, 1.0)
 #else
-#define SUBJECT_SET_SHADING_NORMAL(o, n) (void)0
+#define SUBJECT_SET_SHADING_NORMAL(o, n, f) (void)0
 #define SUBJECT_NO_SHADING_NORMAL(o) (void)0
 #endif
 )";
@@ -436,7 +436,7 @@ fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 
@@ -446,7 +446,7 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 
@@ -456,7 +456,7 @@ fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], S
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb),
                  surface.factor);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 )";
@@ -482,7 +482,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 
@@ -497,7 +497,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 
@@ -512,7 +512,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                  surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
 )";
@@ -605,7 +605,7 @@ fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJE
   SFrag o;
   o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
 
@@ -616,7 +616,7 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
   SFrag o;
   o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
 
@@ -626,7 +626,7 @@ fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]]
   SFrag o;
   o.col = float4(shaded.col, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
-  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
 )";

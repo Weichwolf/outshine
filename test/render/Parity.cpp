@@ -1045,11 +1045,17 @@ struct Picture {
    * transfer. Determinism is judged on this and never on the PNG, whose 8-bit quantisation would
    * hide a difference the float buffer carries. */
   std::vector<float> Linear;
-  /* THE NORMAL THE BRDF RECEIVED, xyzw per pixel (board:1122). The fourth channel marks whether a
-   * lobe was shaded at all: the emissive arms write a zero VECTOR, and a zero-length vector is not
-   * a direction, so the three-way excludes those pixels by that predicate and never by an angular
-   * threshold -- an angle against a zero vector is meaningless and would read as a clean 90 degrees
-   * on every one of them. */
+  /* THE NORMAL THE BRDF RECEIVED, xyzw per pixel (board:1122). WHETHER A LOBE WAS SHADED AT ALL IS
+   * CARRIED BY THE VECTOR AND NOT BY w: the emissive arms write a zero VECTOR, and a zero-length
+   * vector is not a direction, so the three-way excludes those pixels by that predicate and never by
+   * an angular threshold -- an angle against a zero vector is meaningless and would read as a clean
+   * 90 degrees on every one of them.
+   *
+   * `w` CARRIES THE FACING, +1 front and -1 back (board:1126). It was documented as marking the
+   * shaded-ness above and nothing ever read it, which is the same shape as a metric whose name
+   * misstates its instrument. It exists because both tangent assets declare `doubleSided`, so the
+   * shader's back-face branch is reachable and the question of how many DISPUTED pixels are shaded
+   * back-facing decides whether that branch's defect is the one under investigation. */
   std::vector<float> ShadingNormal;
 };
 
@@ -1783,6 +1789,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
    * band is a position in the image and NOT a claim that band N is column N: that mapping is by layout
    * and is not read from the file. */
   size_t bandDisputed[4] = {0, 0, 0, 0};
+  size_t shadedBack = 0, disputedBack = 0;
   double worstDeg = 0, sumDeg = 0;
   std::vector<double> degrees, oursVsFile, cyclesVsFile;
   for (size_t y = 0; y < height; ++y) {
@@ -1803,6 +1810,8 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
       /* THE PREDICATE, and it is length rather than a small angle: a zero vector is not a direction
        * and no tolerance can make it one. */
       if (oursLength <= 0.0) { ++noLobe; continue; }
+      const bool backFacing = picture.ShadingNormal[at + 3] < 0.0f;
+      if (backFacing) { ++shadedBack; }
       /* Blender world to glTF: the importer maps glTF +Z to Blender -Y. */
       const double bx = (double)cycles.At((int)x, (int)y, 0);
       const double by = (double)cycles.At((int)x, (int)y, 1);
@@ -1853,6 +1862,7 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
         ++cyclesNearer;
       }
       disputedMargin.push_back(cyclesFile - oursFile);
+      if (backFacing) { ++disputedBack; }
       const int band = (int)((double)x * 4.0 / (double)ours.Width);
       ++bandDisputed[band < 0 ? 0 : (band > 3 ? 3 : band)];
     }
@@ -1885,6 +1895,8 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     std::sort(disputedMargin.begin(), disputedMargin.end());
     Note("of those, the file is nearer OURS", (double)oursNearer, "px");
     Note("of those, the file is nearer CYCLES", (double)cyclesNearer, "px");
+    Note("shaded fragments that are back-facing", (double)shadedBack, "px");
+    Note("of the disputed, back-facing", (double)disputedBack, "px");
     Note("disputed in band 0 of 4 across the frame", (double)bandDisputed[0], "px");
     Note("disputed in band 1 of 4 across the frame", (double)bandDisputed[1], "px");
     Note("disputed in band 2 of 4 across the frame", (double)bandDisputed[2], "px");
