@@ -395,6 +395,11 @@ implementation. **Seven fields and no others — an eighth needs a decision:**
 | `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it |
 | `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong |
 
+**A commit that changes a work item names it the same way** — `board:0042` in the message, the same
+marker the source uses. One id then has three views and each is read from a different tree: the
+**file** is its state, the **code** is what implements and proves it, the **log** is what was done to
+it. None of the three is a copy of another.
+
 **THE CODE CITES THE REQUIREMENT; THE BOARD NEVER NAMES THE CODE.** A `File:` line goes stale the moment
 code moves; a marker **inside** the source moves with it, and the relation is naturally many-to-many — one
 requirement satisfied by twenty files, one file satisfying three — which no header line can express.
@@ -470,6 +475,7 @@ grep -l '^Depends: *0042' board/*/*.md               # who waits on this
 grep -rl 'board:0042' test/                          # the evidence — empty means unproven
 grep -rn 'board:0042' src/ test/                     # every site that implements or proves it
 git log --follow --name-status -- 'board/*/0042_*'   # every move, when, by whom
+git log --grep 'board:0042'                          # every commit that worked on it
 git mv board/active/X.md board/closed/               # the transition IS the diff
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
