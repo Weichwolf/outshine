@@ -81,7 +81,7 @@ def _triangle(where, parameters, mode):
     # equilateral triangle has interior angles of 60 deg, so if one edge's raster slope is rational
     # the other two are tan(t +/- 60 deg) = (t -/+ sqrt 3) / (1 +/- t sqrt 3), irrational for every
     # rational t. No roll makes its silhouette rational, so it can never carry the exactness
-    # construction of doc/requirements.md I.26.14, which is written for this shape and names it.
+    # construction of `board/`, which is written for this shape and names it.
     # Legs along +X and +Y about the bounding box's centre, in the plane z = 0, wound
     # counter-clockwise from +Z.
     half = 0.5 * leg

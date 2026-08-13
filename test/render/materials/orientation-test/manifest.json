@@ -18,7 +18,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's OrientationTest is a grid of plates at many orientations, which is exactly the case where the slopes cannot agree: E is over a hundred and no single roll serves them."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). Khronos's OrientationTest is a grid of plates at many orientations, which is exactly the case where the slopes cannot agree: E is over a hundred and no single roll serves them."
   },
   "subjects": [
     {
@@ -107,7 +107,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 56.705551032181646,
       "clipEndM": 75.17146870849923,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 9.232958838158792 m, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. The bounds are min (-5.33065128326416, -5.330651177643153, -5.33065128326416) and max (5.33065128326416, 5.3306513130664825, 5.33065128326416) over the flattened default scene, so the centre is the origin to within one float32 step of the y extent. THE ROLL IS ZERO AND STATED: this subject is a symmetric arrangement about three axes and no roll makes its silhouette rational, so a roll here would be a different draw of the same lottery rather than an exactness argument.",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 9.232958838158792 m, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. The bounds are min (-5.33065128326416, -5.330651177643153, -5.33065128326416) and max (5.33065128326416, 5.3306513130664825, 5.33065128326416) over the flattened default scene, so the centre is the origin to within one float32 step of the y extent. THE ROLL IS ZERO AND STATED: this subject is a symmetric arrangement about three axes and no roll makes its silhouette rational, so a roll here would be a different draw of the same lottery rather than an exactness argument.",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -158,7 +158,7 @@
           0.0
         ]
       },
-      "note": "ONE COLOUR PER MATERIAL, which is the key a multi-material asset has: a per-NODE colour cannot reach two primitives of one node that name different materials, and that is what SciFiHelmet and AlphaBlendModeTest are. Each colour is the file's own baseColorFactor for that material, verbatim, so the number is recomputable from the pinned asset and the picture is the arrangement the asset was authored to show. Emission and not a Diffuse BSDF because this subject occludes itself -- the arrows stand in front of the cube -- and there Cycles at one sample is a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (doc/requirements.md I.26.13). A ShaderNodeEmission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility all leave at once, and the boundary between two declared colours is exact."
+      "note": "ONE COLOUR PER MATERIAL, which is the key a multi-material asset has: a per-NODE colour cannot reach two primitives of one node that name different materials, and that is what SciFiHelmet and AlphaBlendModeTest are. Each colour is the file's own baseColorFactor for that material, verbatim, so the number is recomputable from the pinned asset and the picture is the arrangement the asset was authored to show. Emission and not a Diffuse BSDF because this subject occludes itself -- the arrows stand in front of the cube -- and there Cycles at one sample is a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (board:0087). A ShaderNodeEmission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility all leave at once, and the boundary between two declared colours is exact."
     }
   },
   "renders": {

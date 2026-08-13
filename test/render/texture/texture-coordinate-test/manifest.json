@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's TextureCoordinateTest is plates at several orientations, so E is in the dozens and no single roll makes them rational together."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). Khronos's TextureCoordinateTest is plates at several orientations, so E is in the dozens and no single roll makes them rational together."
   },
   "subjects": [
     {
@@ -123,7 +123,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 10.423968957856323,
       "clipEndM": 13.818489408367837,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.6972602252557567 m about the centre (0, 0, -0.02629531348867431), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.6972602252557567 m about the centre (0, 0, -0.02629531348867431), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -138,7 +138,7 @@
       "source": "gltf-base-colour",
       "carriedBy": "texture",
       "kind": "emission",
-      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (doc/requirements.md I.26.13). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left. This arm keeps exactly what the asset is for -- its own image, its uv sets, its samplers and its four different baseColorFactors -- and replaces the closure. THE CLOSURE IS AN EMITTER AND NOT A DIFFUSE BSDF because the four plates stand in front of the back plane and shade it: at one sample per pixel a Diffuse BSDF there takes ONE cosine-weighted direction that either escapes to the world or meets a plate, so the back plane becomes a Bernoulli draw on the visible sky fraction and the case would be scoring an ambient-occlusion estimator. MEASURED at the diffuse arm: the back plane came back speckled in the reference and flat in ours, 3047 of 921600 pixels apart. An Emission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility leave together and what is left is baseColour(u,v)*factor. The BackPlaneMat carries no image at all and lowers the same way, to a flat emitter of its own factor -- it is not left Principled, because half a subject rendered through another closure is not a comparison."
+      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (board:0087). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left. This arm keeps exactly what the asset is for -- its own image, its uv sets, its samplers and its four different baseColorFactors -- and replaces the closure. THE CLOSURE IS AN EMITTER AND NOT A DIFFUSE BSDF because the four plates stand in front of the back plane and shade it: at one sample per pixel a Diffuse BSDF there takes ONE cosine-weighted direction that either escapes to the world or meets a plate, so the back plane becomes a Bernoulli draw on the visible sky fraction and the case would be scoring an ambient-occlusion estimator. MEASURED at the diffuse arm: the back plane came back speckled in the reference and flat in ours, 3047 of 921600 pixels apart. An Emission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility leave together and what is left is baseColour(u,v)*factor. The BackPlaneMat carries no image at all and lowers the same way, to a flat emitter of its own factor -- it is not left Principled, because half a subject rendered through another closure is not a comparison."
     }
   },
   "renders": {

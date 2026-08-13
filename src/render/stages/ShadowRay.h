@@ -11,7 +11,7 @@
  *
  * WHY A SHADOW RAY AND NOT A MAP: the oracle's visibility predicate for a delta light is an exact
  * ray, so an exact ray is the only estimator whose disagreement with it is zero rather than bounded
- * (doc/requirements.md I.26.15). What that costs is measured, not assumed. */
+ * (board:0089). What that costs is measured, not assumed. */
 #ifndef SHADOWRAY_H
 #define SHADOWRAY_H
 

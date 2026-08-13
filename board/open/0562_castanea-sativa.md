@@ -1,0 +1,9 @@
+Type: task
+Area: generators
+Tags: scope
+Parent: 0141
+Depends: 0453
+
+**Castanea sativa**
+
+Castanea sativa — sweet chestnut

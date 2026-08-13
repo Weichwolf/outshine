@@ -12,12 +12,12 @@
   "criterion": {
     "kind": "numeric",
     "says": "our own generated fixture -- the camera the file declares, used verbatim",
-    "statedAt": "doc/requirements.md I.26.5"
+    "statedAt": "board:0078"
   },
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The glTF is ours and so is the camera inside it, so the freedoms ARE ours -- and the subject cannot spend them: E = 6 against 3 on a non-planar body. I.26.14 names this case's exact arm, a fronto-parallel rolled triangle, which is affine under perspective and therefore tests the same code path; it is not built."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). The glTF is ours and so is the camera inside it, so the freedoms ARE ours -- and the subject cannot spend them: E = 6 against 3 on a non-planar body. I.26.14 names this case's exact arm, a fronto-parallel rolled triangle, which is affine under perspective and therefore tests the same code path; it is not built."
   },
   "subjects": [
     {
@@ -57,7 +57,7 @@
                 -0.0030183969665772492
               ],
               "rollRad": -0.46364760900080615,
-              "note": "The framing rule of doc/requirements.md I.26.10 applied to this subject's own bounds: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.73205080756888 m, and yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. The roll is -arctan(1/2) = -26.5650511771 deg, derived rather than set: for an edge of irrational raster slope the perpendicular pixel-centre offsets equidistribute over +/-0.5 px, so the smallest margin over L boundary pixels is about 0.5/L and it SHRINKS as the subject grows -- measured between 2e-5 and 1.8e-3 px here, under the oracle's own 5e-3 px jitter. For a slope p/q in lowest terms the same distance is exactly 0.5/sqrt(p^2+q^2) at every pixel centre in the plane and does not depend on L at all, and tan(45deg+t) and tan(90deg+t) stay rational whenever tan t does, so a roll of rational tangent keeps a rational silhouette rational. The previous -22.5 deg maximised edge-to-AXIS angle, which is not the quantity the comparison turns on. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. This subject's silhouette is not rational at any roll, so what the change buys it is a different draw of the same lottery and not exactness -- a property of the subject, and the reason its class is general-position."
+              "note": "The framing rule of board:0083 applied to this subject's own bounds: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 1.73205080756888 m, and yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. The roll is -arctan(1/2) = -26.5650511771 deg, derived rather than set: for an edge of irrational raster slope the perpendicular pixel-centre offsets equidistribute over +/-0.5 px, so the smallest margin over L boundary pixels is about 0.5/L and it SHRINKS as the subject grows -- measured between 2e-5 and 1.8e-3 px here, under the oracle's own 5e-3 px jitter. For a slope p/q in lowest terms the same distance is exactly 0.5/sqrt(p^2+q^2) at every pixel centre in the plane and does not depend on L at all, and tan(45deg+t) and tan(90deg+t) stay rational whenever tan t does, so a roll of rational tangent keeps a rational silhouette rational. The previous -22.5 deg maximised edge-to-AXIS angle, which is not the quantity the comparison turns on. The SIGN is the convention src/gltf/Subject.cpp states: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. This subject's silhouette is not rational at any roll, so what the change buys it is a different draw of the same lottery and not exactness -- a property of the subject, and the reason its class is general-position."
             }
           }
         }
@@ -93,7 +93,7 @@
           0.125
         ]
       },
-      "note": "Emission, one colour per node, and the geometry is untouched (doc/requirements.md I.26.13). A Diffuse BSDF under a uniform environment reduces to rho*L only while no surface can be seen from another; where one can, Cycles at one sample takes ONE cosine-weighted direction per pixel and the answer is rho*L or exactly 0 -- a Bernoulli draw whose mean is the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes. A ShaderNodeEmission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility all leave at once. ONE COLOUR PER NODE because flat emission over touching bodies fuses their silhouettes: a misplaced node would hide inside the union, which is a worse instrument than the noise this replaces."
+      "note": "Emission, one colour per node, and the geometry is untouched (board:0087). A Diffuse BSDF under a uniform environment reduces to rho*L only while no surface can be seen from another; where one can, Cycles at one sample takes ONE cosine-weighted direction per pixel and the answer is rho*L or exactly 0 -- a Bernoulli draw whose mean is the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes. A ShaderNodeEmission at strength 1 gathers nothing, so the world as a light, the sun's disk, a light's radius and visibility all leave at once. ONE COLOUR PER NODE because flat emission over touching bodies fuses their silhouettes: a misplaced node would hide inside the union, which is a worse instrument than the noise this replaces."
     }
   },
   "renders": {

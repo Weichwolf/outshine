@@ -17,7 +17,7 @@
  *
  * THE RAMP IS R32_FLOAT SO THAT THE ANSWER IS THE WEIGHT. An 8-bit ramp would carry the filter's own
  * output quantisation into the same count and the two terms could not be told apart; the picture
- * bound's sampler term is about the WEIGHT (doc/requirements.md I.26.15), so the weight is what this
+ * bound's sampler term is about the WEIGHT (board:0089), so the weight is what this
  * isolates.
  *
  * THE SAMPLER IS THE RENDERER'S OWN -- linear/linear, clamp to edge (`src/render/Renderer.cpp:216`).

@@ -3,7 +3,7 @@
  * which node and what that node was called.
  *
  * IT EXISTS BECAUSE A DECLARATION SAYS THINGS PER NODE. What each body of a subject emits is one
- * colour per node (doc/requirements.md I.26.13), and a colour resolved by POSITION in a list is a
+ * colour per node (board:0087), and a colour resolved by POSITION in a list is a
  * second thing to keep in step on both sides of a comparison; resolved by NAME it is a fact about the
  * file. This test pins the three properties a name-keyed declaration stands on: one part per
  * mesh-bearing node, the file's own names, and a partition of the vertices that leaves none out and

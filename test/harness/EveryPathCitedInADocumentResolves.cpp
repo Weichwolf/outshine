@@ -1,7 +1,7 @@
 /* A DOCUMENT THAT CITES A FILE WHICH IS NOT IN THE TREE IS A DOCUMENT ABOUT A DIFFERENT REPOSITORY.
- * `doc/requirements.md` ticks a line by naming the file that implements it and the test that holds
- * it, so a citation that no longer resolves turns a tick into a claim with nothing under it -- and
- * measured at `498e883`, 17 ticked lines cite a file that is not in the tree. NOTHING WAS CHECKING
+ * A board entry states what must be true and the source that satisfies it cites the entry back by
+ * id, so a citation that no longer resolves turns a claim into one with nothing under it -- and
+ * measured at `498e883`, 17 ticked lines cited a file that is not in the tree. NOTHING WAS CHECKING
  * IT, which is why the class kept growing: a rename moves the code and leaves every quotation of it
  * behind, silently, and the next reader believes the document.
  *
@@ -28,24 +28,40 @@
 
 namespace {
 
-/* Every document this repository writes about itself. `doc/` is the architect's and `CLAUDE.md` is
- * the owner's; both cite files, and a citation is a citation whoever wrote it. */
+/* Every document this repository writes about itself. `CLAUDE.md` is the vision and the board's
+ * usage, `board/` is the work, `.claude/agents/` is the law each role operates by and
+ * `src/assets/tables/` is declared data; all four cite files, and a citation is a citation whoever
+ * wrote it. The agent definitions count because the law moved into them: 755 lines with live
+ * citations are exactly as able to name a file that is gone. */
 std::vector<std::filesystem::path> Documents() {
   std::vector<std::filesystem::path> found;
   if (std::filesystem::exists("CLAUDE.md")) { found.emplace_back("CLAUDE.md"); }
-  if (!std::filesystem::is_directory("doc")) { return found; }
-  for (const std::filesystem::directory_entry &entry : std::filesystem::directory_iterator("doc")) {
-    if (entry.is_regular_file() && entry.path().extension() == ".md") { found.push_back(entry); }
+  for (const char *const tree : {"board", ".claude/agents", "src/assets/tables"}) {
+    if (!std::filesystem::is_directory(tree)) { continue; }
+    for (const std::filesystem::directory_entry &entry :
+         std::filesystem::recursive_directory_iterator(tree)) {
+      if (entry.is_regular_file() && entry.path().extension() == ".md") { found.push_back(entry); }
+    }
   }
   return found;
 }
 
+/* A BARE `.md` NAME IS OURS TOO, and it is how the `doc/` migration's damage survived: the process
+ * documents cited `requirements.md`, `bugs.md` and `todo.md` after those files were deleted, and a rule
+ * that demanded a directory prefix could not see any of them. A span with a slash and a foreign root is
+ * upstream and stays out; a bare name is a name in this tree or it is nothing. */
+bool IsABareOwnDocument(const std::string &span) {
+  if (span.find('/') != std::string::npos) { return false; }
+  if (span.size() < 4 || span.compare(span.size() - 3, 3, ".md") != 0) { return false; }
+  return span.find("NNNN") == std::string::npos; /* the filename template, not a citation */
+}
+
 bool NamesThisTree(const std::string &span) {
-  static const char *const kOurs[] = {"src/", "test/", "doc/"};
+  static const char *const kOurs[] = {"src/", "test/", "board/", ".claude/"};
   for (const char *const top : kOurs) {
     if (span.compare(0, std::string(top).size(), top) == 0) { return true; }
   }
-  return false;
+  return IsABareOwnDocument(span);
 }
 
 /* A span that cannot be a path in this tree, said as a predicate so the skip is a decision and not a
@@ -156,7 +172,7 @@ int main() {
         "every path a document of this repository cites into this repository exists, so a tick that "
         "names its file is a claim with something under it");
 
-  Covers("I.20 a document that cites a file names one that is in the tree: every backticked path "
-         "under doc/ and in CLAUDE.md resolves, or the run is red");
+  Covers("I.20 a document that cites a file names one that is in the tree: every backticked path in "
+         "CLAUDE.md, board/, .claude/agents/ and src/assets/tables/ resolves, or the run is red");
   return Report();
 }

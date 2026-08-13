@@ -1,4 +1,4 @@
-/* THE RADIANCE COMPARISON, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Both sides are
+/* THE RADIANCE COMPARISON, IN THE TAP'S OWN ALPHABET (board:0087). Both sides are
  * f32: Cycles writes an f32 EXR and the plan declares `ScenePrecision::Float`, so `SceneLinear` is
  * an rgba32float attachment and the store rounds nothing. THE BAR IS THEREFORE THE VALUE ITSELF and
  * there is nothing in it to nudge -- our float either is the oracle's float or it is not.

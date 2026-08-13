@@ -18,7 +18,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The subject is two spheres, which have no straight silhouette edge to be rational at all, so no camera can carry condition (A)."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). The subject is two spheres, which have no straight silhouette edge to be rational at all, so no camera can carry condition (A)."
   },
   "subjects": [
     {

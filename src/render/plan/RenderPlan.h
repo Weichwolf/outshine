@@ -28,7 +28,7 @@ enum class Transfer { Linear, Filmic };
 
 /* HOW EXACTLY THE SCENE-REFERRED CHAIN IS STORED. `Half` is what a shipping frame pays for; `Float`
  * removes the store's own rounding from the picture and is what a plan declares when the number
- * taken out of `SceneLinear` is the verdict (doc/requirements.md I.26.13). It governs `SceneHdr` and
+ * taken out of `SceneLinear` is the verdict (board:0087). It governs `SceneHdr` and
  * `SceneLinear` together, because the second is the first under the plan's alias and a half target
  * feeding a float readback would report the storage as if it were the arithmetic. */
 enum class ScenePrecision { Half, Float };

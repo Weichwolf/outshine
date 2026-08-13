@@ -20,7 +20,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). A curved fetched body of 4510 triangles resolves into thousands of distinct lines and no roll makes any of them rational; the acceptance is therefore worst_disagreement_px against the oracle's own filter half-width, which introduces no constant of its own."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). A curved fetched body of 4510 triangles resolves into thousands of distinct lines and no roll makes any of them rational; the acceptance is therefore worst_disagreement_px against the oracle's own filter half-width, which introduces no constant of its own."
   },
   "subjects": [
     {
@@ -97,7 +97,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 0.9291345089007799,
       "clipEndM": 1.231703147054925,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 about the AABB's centre, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument.",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 about the AABB's centre, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument.",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {

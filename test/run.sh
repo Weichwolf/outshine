@@ -91,7 +91,7 @@ done
 
 # WHAT A TEST OF THIS LAYER MAY NAME. One line per declared directory; there is no default arm.
 #
-# SUITES, SPLIT BY INSTRUMENT (doc/requirements.md I.26.9). test/unit/ mirrors src/ exactly and
+# SUITES, SPLIT BY INSTRUMENT (board:0082). test/unit/ mirrors src/ exactly and
 # is the only tree that carries the layering proof; test/render/ and test/scenario/ are declarative
 # and organised by feature and by declared run. A render case links the library ENTIRE by
 # construction -- it needs the reader, the renderer and the readback at once -- so `render` gets the
@@ -213,7 +213,7 @@ LayerGroups() {
 }
 
 # WHAT ONE TEST SOURCE IS RUN OVER. Every layer but `render` runs its binary once, with no argument.
-# A RENDER CASE IS A DIRECTORY (doc/requirements.md I.26.10): the runner is built once and invoked
+# A RENDER CASE IS A DIRECTORY (board:0083): the runner is built once and invoked
 # once per case directory with the directory as its argument, so what is shared is the CODE and never
 # the process -- still one process and one real verdict per case, and a crash in case 137 fails case
 # 137 and nothing else.

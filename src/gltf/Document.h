@@ -7,7 +7,7 @@
  * declared one (the same rule Scenario::Mod already carries). `Error()` is the sentence.
  *
  * WHAT THIS READER DOES NOT DO IS ALSO A DECISION. It derives nothing -- a primitive without NORMAL
- * stays without one, and the caller refuses by name (doc/requirements.md I.26) -- and it chooses no
+ * stays without one, and the caller refuses by name (board:0073) -- and it chooses no
  * vertex layout: attributes come out as the semantics the file carries, in a decoded run of doubles,
  * so the question of which of them a GPU buffer holds is still open where it belongs. */
 #ifndef GLTF_DOCUMENT_H

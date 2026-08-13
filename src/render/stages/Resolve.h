@@ -8,7 +8,7 @@
  *
  * `Transfer::Linear` IS NOT A LOOK. It writes scene-referred radiance into an sRGB-encoding
  * attachment and does nothing else, which is what a numeric comparison against a path tracer needs:
- * a curve there would be measuring the curve (doc/requirements.md I.26.13).
+ * a curve there would be measuring the curve (board:0087).
  *
  * THE FRAME'S ALPHA IS COVERAGE, STRAIGHT AND NOT PREMULTIPLIED, and it is the reason this function
  * takes a depth sample at all. Without it a black subject and no subject are the same three

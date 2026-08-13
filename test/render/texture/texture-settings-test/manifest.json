@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's TextureSettingsTest is a grid of plates, so E is in the hundreds against 3."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). Khronos's TextureSettingsTest is a grid of plates, so E is in the hundreds against 3."
   },
   "subjects": [
     {
@@ -151,7 +151,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 44.29665875161693,
       "clipEndM": 58.72167427397859,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 7.2125077611808273 m about the centre (0, -0.58250951766967773, -0.025000054389238358), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 7.2125077611808273 m about the centre (0, -0.58250951766967773, -0.025000054389238358), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument. ",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -166,7 +166,7 @@
       "source": "gltf-base-colour",
       "carriedBy": "texture",
       "kind": "emission",
-      "note": "The file's own images, uv sets and samplers, through an emitter instead of the importer's Principled BSDF. An emitter because the test cells stand in front of the background plate and in front of each other -- the single/double-sided test IS a polygon in front of a polygon -- so a Diffuse BSDF at one sample per pixel would make every occluded pixel a Bernoulli draw on the visible sky fraction (doc/requirements.md I.26.13)."
+      "note": "The file's own images, uv sets and samplers, through an emitter instead of the importer's Principled BSDF. An emitter because the test cells stand in front of the background plate and in front of each other -- the single/double-sided test IS a polygon in front of a polygon -- so a Diffuse BSDF at one sample per pixel would make every occluded pixel a Bernoulli draw on the visible sky fraction (board:0087)."
     }
   },
   "renders": {

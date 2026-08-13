@@ -224,7 +224,7 @@ public:
   uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
   uint32_t DrawCount() const;
   /* Where a shadow ray starts, in the subject's own metres -- readable because a bound on the
-   * visibility estimator's displacement is derived from it (doc/requirements.md I.26.15). */
+   * visibility estimator's displacement is derived from it (board:0089). */
   float ShadowNearM() const { return ShadowNearM_; }
 
 private:

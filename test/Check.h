@@ -75,7 +75,7 @@ inline void Note(const char *what) { std::printf("NOTE %s\n", what); }
 inline void Covers(const char *requirement) { std::printf("COVERS %s\n", requirement); }
 
 /* WHAT THE TREE DOES NOT CARRY YET, AND THAT IS NOT THE SAME AS A SKIP. The corpus is untracked by
- * design (doc/requirements.md I.26.10: a case directory's only tracked file is its manifest), so a
+ * design (board:0083: a case directory's only tracked file is its manifest), so a
  * fresh clone has the declarations and none of the fetched, converted or rendered inputs. A test that
  * SKIPPED there would be indistinguishable from a test that passed having compared nothing -- the
  * same vacuous shape as two empty images, one level up. So this is its own word, it is RED, and the

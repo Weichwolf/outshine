@@ -267,7 +267,7 @@ void Publish(const Sweep &sweep) {
   Note("Euler characteristic, lowest over the declarations", (double)sweep.LowestEuler, "2C - 2G");
   Note("Euler characteristic, highest over the declarations", (double)sweep.HighestEuler, "2C - 2G");
   /* NOT A CHECK, and deliberately so: TreeMesh.h declares "base at y = 0" and seven declarations put
-   * geometry below it. Which of the two is wrong is not decided here (doc/bugs.md). */
+   * geometry below it. Which of the two is wrong is not decided here (the bug board). */
   const std::string lowest =
       sweep.LowestIn.empty() ? std::string("no bark vertex below the declared base plane")
                              : "lowest bark vertex below the declared base plane, in " + sweep.LowestIn;

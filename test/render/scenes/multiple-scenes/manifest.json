@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). The subject is Khronos's square, which is planar and has only four lines, so the count would permit the construction -- what stops it is that the case's whole criterion is WHICH scene the file's own `scene` property selects, and its camera comes from the framing rule over that scene's bounds. Moving it to a constructed placement is admissible and is not built; unlike the cases above, this one is pending rather than structural."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). The subject is Khronos's square, which is planar and has only four lines, so the count would permit the construction -- what stops it is that the case's whole criterion is WHICH scene the file's own `scene` property selects, and its camera comes from the framing rule over that scene's bounds. Moving it to a constructed placement is admissible and is not built; unlike the cases above, this one is pending rather than structural."
   },
   "subjects": [
     {
@@ -121,7 +121,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 4.34279848622952,
       "clipEndM": 5.757012048602616,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to THE DEFAULT SCENE's own bounds, which is the point of the case: the square spans (0,0,0)..(1,1,0), so r = |max-min|/2 = 0.70710678118654757 m and the centre is (0.5, 0.5, 0). Azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE TRIANGLE OF SCENE 0 SPANS THE SAME BOX, so this camera does not by itself decide which scene is drawn -- it frames either one -- and the verdict rests on the silhouette rather than on the framing. The roll is zero and stated: a rolled axis-aligned square would be a different draw of the same lottery rather than an exactness argument.",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to THE DEFAULT SCENE's own bounds, which is the point of the case: the square spans (0,0,0)..(1,1,0), so r = |max-min|/2 = 0.70710678118654757 m and the centre is (0.5, 0.5, 0). Azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE TRIANGLE OF SCENE 0 SPANS THE SAME BOX, so this camera does not by itself decide which scene is drawn -- it frames either one -- and the verdict rests on the silhouette rather than on the framing. The roll is zero and stated: a rolled axis-aligned square would be a different draw of the same lottery rather than an exactness argument.",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {

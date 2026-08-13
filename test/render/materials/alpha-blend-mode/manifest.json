@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's AlphaBlendModeTest is spheres and plates; the curved parts have no rational silhouette and E is in the dozens."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). Khronos's AlphaBlendModeTest is spheres and plates; the curved parts have no rational silhouette and E is in the dozens."
   },
   "subjects": [
     {
@@ -181,7 +181,7 @@
       "source": "gltf-base-colour",
       "carriedBy": "texture",
       "kind": "emission",
-      "note": "THE SUBJECT OCCLUDES ITSELF -- five quads and two decals stand in front of a bed -- so the diffuse arm's closed form rho*L is unavailable: Cycles at one sample would be taking a single cosine-weighted direction per pixel and returning a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (doc/requirements.md I.26.13). A ShaderNodeEmission at strength 1 gathers nothing at all, and the two-seed check is what holds that claim. THE FILE'S OWN alphaMode CROSSES WITH THE COLOUR: the importer puts glTF's coverage on the Principled BSDF's Alpha socket -- a constant 1.0 under OPAQUE, the base-colour alpha under BLEND, and 1 - (alpha < alphaCutoff) under MASK -- and that socket is moved onto a Transparent mix rather than dropped, because Cycles expresses coverage there. Dropping it renders all five columns identically opaque, which is the picture this asset exists to distinguish from four others."
+      "note": "THE SUBJECT OCCLUDES ITSELF -- five quads and two decals stand in front of a bed -- so the diffuse arm's closed form rho*L is unavailable: Cycles at one sample would be taking a single cosine-weighted direction per pixel and returning a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (board:0087). A ShaderNodeEmission at strength 1 gathers nothing at all, and the two-seed check is what holds that claim. THE FILE'S OWN alphaMode CROSSES WITH THE COLOUR: the importer puts glTF's coverage on the Principled BSDF's Alpha socket -- a constant 1.0 under OPAQUE, the base-colour alpha under BLEND, and 1 - (alpha < alphaCutoff) under MASK -- and that socket is moved onto a Transparent mix rather than dropped, because Cycles expresses coverage there. Dropping it renders all five columns identically opaque, which is the picture this asset exists to distinguish from four others."
     }
   },
   "renders": {

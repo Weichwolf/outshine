@@ -1,5 +1,5 @@
 /* THE THRESHOLDS, DECLARED ONCE FOR THE WHOLE SUITE, and a case's manifest carries only what it
- * OVERRIDES (doc/requirements.md I.26.10).
+ * OVERRIDES (board:0083).
  *
  * ONE NUMBER IN ONE FILE IS STRONGER AGAINST TAMPERING THAN TWO HUNDRED SCATTERED ONES, and this
  * looks like the opposite until it is said out loud: editing the line below is a one-line diff that
@@ -10,7 +10,7 @@
  * change is a quotation that goes stale silently -- this case's own file carried `0.5 px` citing the
  * document that had tightened the number to `0.1 px` four months earlier, and the deciding instrument
  * on the first external check this repository ever had was five times too loose because of it
- * (`doc/bugs.md`). Restating is now a refusal rather than agreement.
+ * (the bug board). Restating is now a refusal rather than agreement.
  *
  * AND THERE IS NO `iou...Min` SPELLING AT ALL. I.26 rules twice that IoU is published and enforces
  * nothing; an `iouMin` inside a block named `acceptance` IS an enforcement whatever the prose beside
@@ -31,7 +31,7 @@ namespace outshine::Render::Parity {
 enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
 
 /* WHICH ACCEPTANCE A CASE CLAIMS FOR ITS PLACEMENT, and it is the case's own declaration because no
- * instrument can read it off a picture (doc/requirements.md I.26.14).
+ * instrument can read it off a picture (`board/`).
  *
  * `Exact` -- the silhouette is straight, of rational raster slope, and its constants sit at half a
  * lattice step, so `pixels_disagreeing == 0` is a demand the subject can meet and no tolerance is
@@ -50,7 +50,7 @@ enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
 enum class ExactnessClass { Exact, GeneralPosition };
 
 /* WHAT KIND OF THING THE ASSET SAYS CORRECT IS, and therefore which instrument decides this case
- * (doc/requirements.md I.26.12). It is the ASSET's property, declared in the manifest beside
+ * (board:0085). It is the ASSET's property, declared in the manifest beside
  * Khronos's own words and the file they came from, so it cannot be changed to fit a result without
  * changing a quotation.
  *
@@ -79,7 +79,7 @@ enum class ExactnessClass { Exact, GeneralPosition };
 enum class CriterionKind { Numeric, SelfDescribing, StatedInvariant, LimitsProbe };
 
 /* WHAT THE BLENDER RENDER IS FOR ON A `self-describing` CASE, and it is asked because the answer
- * separates the two ways a case can arrive at that kind (doc/requirements.md I.26.12).
+ * separates the two ways a case can arrive at that kind (board:0085).
  *
  * `Reference` -- Khronos publishes markers and the oracle renders them correctly, so the reference
  * is a second opinion that happens not to be the acceptance.
@@ -96,8 +96,8 @@ enum class OracleRole { Reference, CannotExpressTheCriterion };
  * ordering, none at all for a raster-convention error, which is the half-pixel this rung exists to
  * catch. 0.5 px for a subject with sub-pixel geometry, where a rasteriser drops a triangle no sample
  * centre hits and a path tracer finds it -- a sampling-policy difference, reported and not enforced. */
-constexpr double kBoundaryP95OpaquePx = 0.1;   /* [SET] doc/requirements.md I.26 */
-constexpr double kBoundaryP95SubPixelPx = 0.5; /* [SET] doc/requirements.md I.26, reported */
+constexpr double kBoundaryP95OpaquePx = 0.1;   /* [SET] board:0073 */
+constexpr double kBoundaryP95SubPixelPx = 0.5; /* [SET] board:0073, reported */
 
 /* THE EMPTY-IMAGE GUARD, and it is the one number that makes a generated suite of two hundred
  * directories mean anything: two empty masks have an IoU of 1.0 under most formulations and a

@@ -14,7 +14,7 @@
  * Here it is swept and the claim is exact: over the whole grid the sampler returns a bitwise copy of
  * a keyframe and never a value that is not in the file.
  *
- * THE TIME CONTRACT IS THE OTHER HALF (doc/requirements.md I.26.3), and it is arithmetic rather than
+ * THE TIME CONTRACT IS THE OTHER HALF (board:0076), and it is arithmetic rather than
  * pixels: the animation time of frame `n` is `n / fps` DERIVED, never a running total. The drift an
  * accumulator earns is measured below rather than asserted, so the reason the contract exists is a
  * number in this log and not a sentence in a header.
@@ -341,7 +341,7 @@ int main() {
     CHECK(false, "the CUBICSPLINE rotation sampler decodes");
   }
 
-  /* THE TIME CONTRACT (doc/requirements.md I.26.3). An integer frame index with derived seconds is
+  /* THE TIME CONTRACT (board:0076). An integer frame index with derived seconds is
    * the rule; what it buys is measured here rather than asserted, by running the accumulator the
    * rule forbids beside it. */
   {

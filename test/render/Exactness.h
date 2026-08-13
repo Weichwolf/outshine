@@ -1,5 +1,5 @@
 /* THE TWO CONDITIONS AN EXACTNESS CLAIM RESTS ON, DECOMPOSED AND MEASURED SEPARATELY, because they
- * fail for different reasons and a single margin cannot say which one did (doc/requirements.md
+ * fail for different reasons and a single margin cannot say which one did (`board/`
  * I.26.14).
  *
  * (A) THE SLOPE. A silhouette edge of raster slope `p/q` in lowest terms takes the value `p*i - q*j`
@@ -46,14 +46,14 @@
 
 namespace outshine::Render::Parity {
 
-/* The family condition (A) admits (doc/requirements.md I.26.14): every rational slope with
+/* The family condition (A) admits (`board/`): every rational slope with
  * `p^2 + q^2 <= 100`, whose worst margin is `0.5/10 = 0.05 px`, ten times the oracle's own 0.005 px
  * filter half-width. Beyond it the margin falls under that floor and the rational slope stops buying
  * anything. */
-constexpr long kAdmissibleNormSquared = 100; /* [SET] doc/requirements.md I.26.14 */
+constexpr long kAdmissibleNormSquared = 100; /* [SET] `board/` */
 /* The margin floor the same rule states, and it is `0.5/sqrt(100)` -- the worst member of the family
  * above rather than a second number. */
-constexpr double kMarginFloorPx = 0.05; /* [SET] doc/requirements.md I.26.14 */
+constexpr double kMarginFloorPx = 0.05; /* [SET] `board/` */
 
 /* THE PROJECTED SEGMENTS OF THE SILHOUETTE, in raster coordinates where the integer coordinate is
  * the pixel centre -- the same mapping the rasteriser and the projected area use. Kept as parallel

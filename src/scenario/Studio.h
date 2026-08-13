@@ -19,7 +19,7 @@ namespace outshine::Scenario {
  * island is the one choice that is a datum rather than a preference.
  *
  * MEASURED, AND IT DOES NOT COME OUT FREE: moving this anchor moves every bench picture
- * (doc/bugs.md). The studio's floor ruler is drawn in world metres and its phase follows the anchor
+ * (the bug board). The studio's floor ruler is drawn in world metres and its phase follows the anchor
  * by design; the horizon and the crown moving with it are not explained and are recorded there. */
 constexpr double kAnchorLatDeg = 0.0, kAnchorLonDeg = 0.0;
 

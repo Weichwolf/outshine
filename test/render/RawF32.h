@@ -1,6 +1,6 @@
 /* `OSRAWF32` -- THE FLOAT IMAGE FORMAT BOTH SIDES OF A COMPARISON ARE WRITTEN IN AND READ THROUGH.
  * The preparer dumps the oracle beside its EXR because SDL3 provides no EXR reader and vendoring
- * OpenEXR to compute a coverage fraction would buy nothing (doc/requirements.md I.26.10).
+ * OpenEXR to compute a coverage fraction would buy nothing (board:0083).
  *
  * IT USED TO BE THE ORACLE'S ALONE AND THAT WAS AN ASYMMETRY, not a design: the compared values on
  * one side of the picture bound were openable and on the other side they were not, so a case failing

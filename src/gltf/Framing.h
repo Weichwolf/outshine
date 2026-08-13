@@ -1,6 +1,6 @@
 /* THE FRAMING RULE'S CONSTANTS, one declaration each. A scene that declares no camera gets its
  * viewpoint from these four numbers and from its own bounds, so two cases with the same subject get
- * the same picture and no viewpoint can be tuned into a pass (doc/requirements.md I.26.10).
+ * the same picture and no viewpoint can be tuned into a pass (board:0083).
  *
  * Changing one moves every derived-camera case at once, which is the intended blast radius. */
 #ifndef GLTF_FRAMING_H

@@ -1,5 +1,5 @@
 /* The published class grid: constructed once, read through `shared_ptr<const>` and never written
- * again. doc/todo.md §1 carries why that is the whole safety argument. */
+ * again. `board/active/` §1 carries why that is the whole safety argument. */
 #ifndef CLASSSTRUCTURE_H
 #define CLASSSTRUCTURE_H
 

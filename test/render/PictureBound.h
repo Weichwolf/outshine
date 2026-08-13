@@ -1,5 +1,5 @@
 /* THE PICTURE BOUND: every pixel of the frame, all four channels, on the case's own display transfer
- * (doc/requirements.md I.26.15).
+ * (board:0089).
  *
  * WHY IT EXISTS. `worst_disagreement_px` is a distance from a COVERAGE BOUNDARY, so interior noise
  * can never reach it: `water-bottle`'s reference was salt-and-pepper black dots and that case scored
@@ -115,7 +115,7 @@ struct Tail {
  * mechanism is the one that is there. */
 [[nodiscard]] inline double ArithmeticOrderCodes() {
   constexpr double kUnitRoundoff = 5.9604644775390625e-08; /* 2^-24, half an ulp at 1.0 */
-  constexpr double kRoundedOperations = 100.0;             /* [SET] doc/requirements.md I.26.13 */
+  constexpr double kRoundedOperations = 100.0;             /* [SET] board:0087 */
   constexpr double kWorstTransferGain = 1.055 / 2.4;
   const double relative =
       kRoundedOperations * kUnitRoundoff / (1.0 - kRoundedOperations * kUnitRoundoff);
@@ -153,7 +153,7 @@ struct Tail {
  * measured connection to this mechanism at all. A term is only worth its width where the mechanism
  * is shown to be in the path, and widening one term to rescue a case it was not measured on is the
  * move I.26.15 exists to prevent. The residual is attributed and published; moving the ceiling is
- * the architect's (doc/requirements.md I.26.15's own table carries 6.4348).
+ * the architect's (board:0089's own table carries 6.4348).
  *
  * THE DIVISION COUNT IS MEASURED AT THE CORPUS'S OWN TEXTURE WIDTH and not only at two texels
  * (`test/shader/TheSamplerSnapsSubTexelWeightsToTheDeclaredCount.cpp`): 512 texels returns the same

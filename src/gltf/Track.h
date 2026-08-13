@@ -45,7 +45,7 @@ public:
   size_t KeyframeCount() const { return Curve_.Count(); }
 
   /* Writes `Components()` numbers. `seconds` is DERIVED from an integer frame index and never
-   * accumulated (doc/requirements.md I.26.3); outside the grid the first or last value stands, which
+   * accumulated (board:0076); outside the grid the first or last value stands, which
    * is the format's clamp and not an extrapolation.
    *
    * A ROTATION COMES BACK ON THE UNIT SPHERE. Both the spherical blend and the spline leave a

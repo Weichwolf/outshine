@@ -11,7 +11,7 @@
  * light and without a render, because it is a statement about GEOMETRY: two surfaces are lit alike
  * under any light exactly when their shading normals point the same way out of them.
  *
- * THE OPEN QUESTION THIS CLOSES. `doc/requirements.md` I.26.12 records the flip as unheld and
+ * THE OPEN QUESTION THIS CLOSES. `board/` I.26.12 records the flip as unheld and
  * undecided: the reader transforms `NORMAL` by the inverse transpose of the node's linear part AND
  * reverses the index run where the global determinant is negative, so the attribute normal and the
  * re-wound geometric normal may already agree -- in which case a third operation that flipped

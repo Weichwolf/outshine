@@ -21,7 +21,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). Khronos's NegativeScaleTest is fourteen parts and 7 724 triangles, and its projected silhouette resolves into over four hundred distinct lines -- E is two orders above the freedoms, so the construction cannot be written for this subject at any camera. Its 495 disagreeing pixels are therefore NOT unconstructed placement: they sit on straight edges rather than on sphere rims and they exceed the oracle's own filter half-width by two orders, so they are a real disagreement and the case is red on the general-position bound."
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). Khronos's NegativeScaleTest is fourteen parts and 7 724 triangles, and its projected silhouette resolves into over four hundred distinct lines -- E is two orders above the freedoms, so the construction cannot be written for this subject at any camera. Its 495 disagreeing pixels are therefore NOT unconstructed placement: they sit on straight edges rather than on sphere rims and they exceed the oracle's own filter half-width by two orders, so they are a real disagreement and the case is red on the general-position bound."
   },
   "subjects": [
     {
@@ -110,7 +110,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 41.98248497282591,
       "clipEndM": 55.65389980336824,
-      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else, and the numbers are the instrument's own output rather than a second evaluation of the same arithmetic: test/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation prints the rule's eye, aim, lens and clip range for every case it walks, and this camera is that line. THE ROLL IS ZERO AND STATED, and this camera carries NEITHER exactness condition of doc/requirements.md I.26.14 -- no rational roll and no lattice offset. It is therefore an unconstructed placement of exactly the class the 2026-08-13 ruling holds red, and it is recorded as such rather than as a subject that cannot be constructed: the freedoms are ours, the silhouette that disagrees is straight, and whether the count 2 + k >= E is met is a question for the round that constructs.",
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else, and the numbers are the instrument's own output rather than a second evaluation of the same arithmetic: test/unit/gltf/ADerivedCameraIsTheFramingRuleAndNotAQuotation prints the rule's eye, aim, lens and clip range for every case it walks, and this camera is that line. THE ROLL IS ZERO AND STATED, and this camera carries NEITHER exactness condition of `board/` -- no rational roll and no lattice offset. It is therefore an unconstructed placement of exactly the class the 2026-08-13 ruling holds red, and it is recorded as such rather than as a subject that cannot be constructed: the freedoms are ours, the silhouette that disagrees is straight, and whether the count 2 + k >= E is met is a question for the round that constructs.",
       "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -125,7 +125,7 @@
         0.0
       ],
       "strength": 0.0,
-      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. This subject occludes itself -- plates stand in front of a background quad and spheres in front of both -- and Cycles at one sample against the factory world is a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (doc/requirements.md I.26.13). With the world at zero and every closure an emitter there is no integral left, so the two seeds must agree bit for bit and a difference between them NAMES what survived."
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. This subject occludes itself -- plates stand in front of a background quad and spheres in front of both -- and Cycles at one sample against the factory world is a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (board:0087). With the world at zero and every closure an emitter there is no integral left, so the two seeds must agree bit for bit and a difference between them NAMES what survived."
     },
     "material": {
       "source": "manifest",

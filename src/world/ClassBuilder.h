@@ -1,4 +1,4 @@
-/* The class grid, laid down on one thread. doc/todo.md §1 carries the shape and why it is not
+/* The class grid, laid down on one thread. `board/active/` §1 carries the shape and why it is not
  * append-only. */
 #ifndef CLASSBUILDER_H
 #define CLASSBUILDER_H

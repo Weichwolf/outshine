@@ -20,7 +20,7 @@
  * c on a half lattice step it is the largest it can be. This test pins exactly that: the three
  * normals, and half a lattice step on each.
  *
- * THE SUBJECT CARRIES NO NORMAL AND THAT IS NOT REPAIRED (doc/requirements.md I.26): the reader is
+ * THE SUBJECT CARRIES NO NORMAL AND THAT IS NOT REPAIRED (board:0073): the reader is
  * asked for one below and must name what is missing. */
 #include <cmath>
 #include <fstream>
@@ -71,7 +71,7 @@ int main() {
   CHECK(viewport.WidthPx == 1280.0 && viewport.HeightPx == 720.0,
         "the manifest's render recipe is the 1280x720 frame the oracle was rendered at");
 
-  /* THE SUBJECT IS FETCHED, NOT TRACKED (doc/requirements.md I.26.10: a case directory's only
+  /* THE SUBJECT IS FETCHED, NOT TRACKED (board:0083: a case directory's only
    * tracked file is its manifest), so on a fresh clone it is absent and that is a statement about
    * the tree rather than about the reader. It is RED and it is not a skip -- a tier that skipped
    * here could not be told from one that passed having read nothing. */

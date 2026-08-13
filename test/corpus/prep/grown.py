@@ -9,7 +9,7 @@ render case then published would be about that implementation and not about the 
 WHAT IS CACHED IS NOTHING. The recipe is a few hundred bytes of manifest and the product a few tens
 of kilobytes, and the generator's own version is the source tree -- a store key that failed to cover
 it would serve a part the current code no longer grows, which is the one staleness a cache cannot see
-from inside (doc/requirements.md I.28). Rebuilding is a second and the compile is incremental.
+from inside (board:0105). Rebuilding is a second and the compile is incremental.
 """
 
 import json

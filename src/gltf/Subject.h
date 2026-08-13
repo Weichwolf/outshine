@@ -4,7 +4,7 @@
  * WHAT THE FILE CARRIES AND NOTHING MORE: positions, and where the primitive states them the first
  * uv set, the normal and the tangent. Nothing below DERIVES an attribute -- a primitive with no
  * NORMAL keeps none and says so per part, because deriving one silently is what makes a subject not
- * the declared one (doc/requirements.md I.26).
+ * the declared one (board:0073).
  *
  * THE TANGENT IS THE ONE EXCEPTION AND THE FORMAT IS WHAT MAKES IT ONE. "When tangents are not
  * specified, client implementations SHOULD calculate tangents using default MikkTSpace algorithms"
@@ -162,7 +162,7 @@ public:
   /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence. */
   [[nodiscard]] bool Build(const Document &document);
 
-  /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (doc/requirements.md I.28): the same
+  /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (board:0105): the same
    * drawable, produced rather than read. Nothing is derived here -- no normal, no tangent basis, no
    * winding restatement -- because a producer states what it made; what this does is CHECK, and
    * every refusal names the piece and what was wrong with it, since a generator that handed over a
@@ -189,7 +189,7 @@ public:
    *
    * NOTHING HERE DERIVES ONE. glTF says a client MUST compute flat normals for a primitive that
    * carries none; that is a separate operation over the triangles and it is not this one, so its
-   * absence is recorded per part rather than repaired invisibly (doc/requirements.md I.26.12). */
+   * absence is recorded per part rather than repaired invisibly (board:0085). */
   const std::vector<double> &Normals() const { return Normals_; }
   bool HasNormal() const { return !Normals_.empty(); }
   /* 4 doubles per vertex, in the same root coordinates: a unit tangent and glTF's handedness, so
@@ -218,7 +218,7 @@ public:
 
   /* The world-space AABB over every drawn primitive. Min and max are exact in IEEE-754 and both
    * commutative and associative, so the box does not move when the loader's order does -- which a
-   * vertex mean would (doc/requirements.md I.26.10). */
+   * vertex mean would (board:0083). */
   const double *MinM() const { return Min_; }
   const double *MaxM() const { return Max_; }
   /* ||max - min|| / 2, the bounding sphere's radius, so the framing does not turn with the view. */

@@ -53,7 +53,7 @@ struct Material {
 };
 
 /* A MATERIAL AS THE PICTURE TAKES IT: a row of numbers, and nothing in it can switch a pipeline
- * state (doc/architecture.md). Its field meanings live in the shader that reads the row and are
+ * state (the deleted architecture document). Its field meanings live in the shader that reads the row and are
  * written down nowhere else, which is what keeps a content taxonomy out of the engine. */
 constexpr int kMaterialRowFloats = 20;
 

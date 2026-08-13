@@ -11,13 +11,13 @@
   "criterion": {
     "kind": "numeric",
     "says": "a generator's product is emitted as glTF, rendered by Cycles and decided by the picture bound -- otherwise vegetation is judged by eye against SpeedTree for as long as it exists",
-    "statedAt": "doc/requirements.md I.28",
+    "statedAt": "board:0105",
     "note": "THE SUBJECT IS OURS AND THAT CHANGES WHAT A RED MEANS, so it is said here once. A Khronos case red means our renderer disagrees with Cycles about a file both of them were handed. This case is red for that reason OR because the part is wrong, and the two are separated by the same instrument as everywhere else: the boundary statistic says whether the geometry is in the right pixels, and this subject's geometry is identical on both sides because both read the same emitted file."
   },
   "subjectClass": "sub-pixel-present",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "PERMANENT AND BY STRUCTURE. The silhouette is the union of 12 547 tapered tubes at directions the grower drew from its own stream, so it resolves into 190 128 distinct lines with no lattice structure and no shared slope. There is no camera and no scale at which condition (A) of doc/requirements.md I.26.14 can hold for it, and there is none at which a roll makes a grown silhouette rational."
+    "because": "PERMANENT AND BY STRUCTURE. The silhouette is the union of 12 547 tapered tubes at directions the grower drew from its own stream, so it resolves into 190 128 distinct lines with no lattice structure and no shared slope. There is no camera and no scale at which condition (A) of `board/` can hold for it, and there is none at which a roll makes a grown silhouette rational."
   },
   "subjects": [
     {
@@ -46,7 +46,7 @@
           }
         }
       ],
-      "notes": "THE PART IS THE WOODY STRUCTURE AND NOTHING ELSE. TreeGrower grows the plant and TreeMesher draws one closed mesh from it; the leaf points the growth also produces carry no geometry, and the leaf population instanced from them by TreeFoliage is a composition, not a part, so it is out of this subject by the rule that a generator produces one part and never an aggregate (doc/requirements.md I.28). What is drawn here is therefore a beech with no leaves on it, and the crown's shape is carried by 197 181 attachment points that no triangle stands at."
+      "notes": "THE PART IS THE WOODY STRUCTURE AND NOTHING ELSE. TreeGrower grows the plant and TreeMesher draws one closed mesh from it; the leaf points the growth also produces carry no geometry, and the leaf population instanced from them by TreeFoliage is a composition, not a part, so it is out of this subject by the rule that a generator produces one part and never an aggregate (board:0105). What is drawn here is therefore a beech with no leaves on it, and the crown's shape is carried by 197 181 attachment points that no triangle stands at."
     }
   ],
   "blender": {
@@ -72,7 +72,7 @@
       "sensorHeightMm": 24.0,
       "clipStartM": 55.79702435184504,
       "clipEndM": 95.14165549765704,
-      "derivation": "THE DECLARED ENVELOPE FILLS THE FRAME, and the budget is derived at the same distance so that the two cannot disagree. Direction and lens are the framing rule's own (doc/requirements.md I.26.10, src/gltf/Framing.h): azimuth 35 deg from +X towards +Z and elevation 20 deg in glTF's +Y-up frame, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, roll 0, aim at the centre of the declared envelope (0, 15, 0). THE DISTANCE IS NOT the rule's bounding-sphere fill. A plant is a body of revolution about its own trunk, so its declared envelope is the CYLINDER of radius spread_m/2 = 9 m from y = 0 to y = height_m = 30 -- not the box, whose corners stand 12.73 m off an axis nothing reaches. The distance is solved so that that cylinder's two rims project to 684.000 px of the 720 px frame height, which is 0.95 [SET]: 75.469339924751 m, at which the horizontal span is 386.66 px of 1280 and nothing leaves the frame. znear and zfar are the rule's own, distance -/+ the envelope's bounding radius 0.5*sqrt(18^2+30^2+18^2) = 19.672315572906 m. THE ROLL IS ZERO AND NOT DERIVED, because no roll buys this subject anything: a grown silhouette is irrational at every angle (see acceptanceClass), so a roll would be a different draw of the same lottery. WHY NOT THE FRAMING RULE'S OWN DISTANCE: applied to the declared envelope it stands the eye at 140.49 m and applied to the emitted part at 74.86 m, and the budget was derived at the first while the picture was taken at the second -- a subject at 8 % of the frame judged by a budget derived for one filling it. One distance now answers both.",
+      "derivation": "THE DECLARED ENVELOPE FILLS THE FRAME, and the budget is derived at the same distance so that the two cannot disagree. Direction and lens are the framing rule's own (board:0083, src/gltf/Framing.h): azimuth 35 deg from +X towards +Z and elevation 20 deg in glTF's +Y-up frame, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, roll 0, aim at the centre of the declared envelope (0, 15, 0). THE DISTANCE IS NOT the rule's bounding-sphere fill. A plant is a body of revolution about its own trunk, so its declared envelope is the CYLINDER of radius spread_m/2 = 9 m from y = 0 to y = height_m = 30 -- not the box, whose corners stand 12.73 m off an axis nothing reaches. The distance is solved so that that cylinder's two rims project to 684.000 px of the 720 px frame height, which is 0.95 [SET]: 75.469339924751 m, at which the horizontal span is 386.66 px of 1280 and nothing leaves the frame. znear and zfar are the rule's own, distance -/+ the envelope's bounding radius 0.5*sqrt(18^2+30^2+18^2) = 19.672315572906 m. THE ROLL IS ZERO AND NOT DERIVED, because no roll buys this subject anything: a grown silhouette is irrational at every angle (see acceptanceClass), so a roll would be a different draw of the same lottery. WHY NOT THE FRAMING RULE'S OWN DISTANCE: applied to the declared envelope it stands the eye at 140.49 m and applied to the emitted part at 74.86 m, and the budget was derived at the first while the picture was taken at the second -- a subject at 8 % of the frame judged by a budget derived for one filling it. One distance now answers both.",
       "note": "The emitted part carries no camera -- the writer states geometry and material and nothing else -- so the camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {

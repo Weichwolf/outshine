@@ -1,7 +1,7 @@
 /* THE THIRD EDGE OF THE MODEL, AND THE ONLY ONE THAT WAS MISSING. `bytes -> Document -> Subject` is
  * the reader; `request -> Subject` is what a generator does; this is `Subject -> bytes`, and what it
  * buys is that a GENERATED part gets a number -- Cycles renders it and the picture bound decides it
- * (doc/requirements.md I.28). Without it a grown tree is judged by eye for as long as it exists.
+ * (board:0105). Without it a grown tree is judged by eye for as long as it exists.
  *
  * THIS WRITER ANSWERS TO ONE PRODUCER, WHICH IS WHY IT IS A FRACTION OF THE READER. `Document.cpp`
  * is 46 kB because it must accept every legal file; this emits exactly what a `Subject` carries and

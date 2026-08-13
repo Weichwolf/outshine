@@ -94,7 +94,7 @@
           }
         }
       },
-      "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (doc/requirements.md I.26.10): the scene, the recipe and the acceptance in one declaration."
+      "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (board:0083): the scene, the recipe and the acceptance in one declaration."
     },
     "threshold-override": {
       "required": {
@@ -187,7 +187,7 @@
           "note": "`oracleRole` AND ITS TWO COMPANIONS SAY WHAT CYCLES CANNOT EXPRESS ABOUT THIS CRITERION AND WHAT THAT COSTS. A role of cannot-express-the-criterion without a limitation, or a limitation with no measurement beside it, is the runner's refusal."
         }
       },
-      "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (doc/requirements.md I.26.12). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
+      "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (board:0085). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
     },
     "measurement": {
       "required": {
@@ -295,7 +295,7 @@
         },
         "says": "text"
       },
-      "note": "WHICH SURFACE THE PICTURE IS OF, in metres along the view ray at one named pixel. Silhouette, coverage and hue are all invariant under swapping the near shell of a closed body for its far one with the normals reversed -- three criteria simultaneously blind, each individually correct (doc/requirements.md I.26). Depth is not invariant under it, it costs one assertion, and `Renderer::ReadDepth` already provides it. `atPx` is column then row from the TOP-left, the raster's own origin."
+      "note": "WHICH SURFACE THE PICTURE IS OF, in metres along the view ray at one named pixel. Silhouette, coverage and hue are all invariant under swapping the near shell of a closed body for its far one with the normals reversed -- three criteria simultaneously blind, each individually correct (board:0073). Depth is not invariant under it, it costs one assertion, and `Renderer::ReadDepth` already provides it. `atPx` is column then row from the TOP-left, the raster's own origin."
     },
     "subject-patch": {
       "required": {
@@ -310,7 +310,7 @@
           }
         }
       },
-      "note": "A CORRECTION APPLIED BETWEEN THE FETCH AND THE ORACLE, so the upstream pin stays exact and both sides render the same corrected bytes (doc/requirements.md I.26.16). It is a DELTA and never a replacement: the fetch still verifies upstream's sha256, so a change upstream is still a refusal, and the patched product is what the oracle key covers. `stillTests` is the boundary that stops patching becoming an escape hatch -- the asset's own criterion must be the same sentence after the patch, and a correction that changes what the asset TESTS is a re-authoring. `retirementCondition` is a predicate the suite already evaluates rather than a wish."
+      "note": "A CORRECTION APPLIED BETWEEN THE FETCH AND THE ORACLE, so the upstream pin stays exact and both sides render the same corrected bytes (board:0095). It is a DELTA and never a replacement: the fetch still verifies upstream's sha256, so a change upstream is still a refusal, and the patched product is what the oracle key covers. `stillTests` is the boundary that stops patching becoming an escape hatch -- the asset's own criterion must be the same sentence after the patch, and a correction that changes what the asset TESTS is a re-authoring. `retirementCondition` is a predicate the suite already evaluates rather than a wish."
     },
     "subject-transform": {
       "discriminator": "kind",
@@ -563,7 +563,7 @@
               "quantity": "number"
             }
           },
-          "note": "`estimator` ON THIS ARM CANNOT SAY `selected` AND THAT IS THE POINT: this arm declares ONE source, the preparer refuses an `angleRad` above zero, and `no_surface_of_the_subject_is_a_light` takes the subject's own emission out of the light tree and out of every gathering ray -- so a sun-lit case has no estimator left and no way to say it has one. Three cases said `selected` here and none of them may any more. MEASURED at Blender 5.2.0, 1280x720, 1 spp, box filter 0.01, black world, zero bounces, angular diameter zero, seed 0 against seed 1: BINARY colour samples BEFORE the reduction -- WaterBottle 67 578, BoomBox 55 496, Lantern 22 120, Corset 0 -- and AFTER it, 0 on all four, alpha identical throughout. NEITHER HALF ALONE REACHES ZERO: `emission_sampling = NONE` alone leaves 222 samples over 74 pixels on Lantern and 42 over 15 on BoomBox, every one where a BSDF-sampled direction finds the lit glass; ray visibility alone leaves 67 575 on WaterBottle, which refutes the guess that an object invisible to diffuse and glossy rays leaves Cycles' light tree. `not-bit-reproducible` IS NOT A SECOND ESTIMATOR AND NOT A TOLERANCE -- it is the case saying the HOST does not reproduce this subject's own render, so the two-seed check has nothing to speak through; it owes its measurement the same way and it refuses the second recipe rather than tolerating a difference in it. `hostResidueRelative` IS WHAT `not-bit-reproducible` OWES AND THE RUNNER REFUSES THE WORD WITHOUT IT: the worst relative disagreement between two renders of this scene on this host, measured, because the picture bound (doc/requirements.md I.26.15) derives a term in display codes from it and a case that claimed the word without the number would be claiming room nobody measured."
+          "note": "`estimator` ON THIS ARM CANNOT SAY `selected` AND THAT IS THE POINT: this arm declares ONE source, the preparer refuses an `angleRad` above zero, and `no_surface_of_the_subject_is_a_light` takes the subject's own emission out of the light tree and out of every gathering ray -- so a sun-lit case has no estimator left and no way to say it has one. Three cases said `selected` here and none of them may any more. MEASURED at Blender 5.2.0, 1280x720, 1 spp, box filter 0.01, black world, zero bounces, angular diameter zero, seed 0 against seed 1: BINARY colour samples BEFORE the reduction -- WaterBottle 67 578, BoomBox 55 496, Lantern 22 120, Corset 0 -- and AFTER it, 0 on all four, alpha identical throughout. NEITHER HALF ALONE REACHES ZERO: `emission_sampling = NONE` alone leaves 222 samples over 74 pixels on Lantern and 42 over 15 on BoomBox, every one where a BSDF-sampled direction finds the lit glass; ray visibility alone leaves 67 575 on WaterBottle, which refutes the guess that an object invisible to diffuse and glossy rays leaves Cycles' light tree. `not-bit-reproducible` IS NOT A SECOND ESTIMATOR AND NOT A TOLERANCE -- it is the case saying the HOST does not reproduce this subject's own render, so the two-seed check has nothing to speak through; it owes its measurement the same way and it refuses the second recipe rather than tolerating a difference in it. `hostResidueRelative` IS WHAT `not-bit-reproducible` OWES AND THE RUNNER REFUSES THE WORD WITHOUT IT: the worst relative disagreement between two renders of this scene on this host, measured, because the picture bound (board:0089) derives a term in display codes from it and a case that claimed the word without the number would be claiming room nobody measured."
         },
         "point": {
           "required": {
@@ -699,7 +699,7 @@
           }
         }
       },
-      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (doc/requirements.md I.26.13): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into."
+      "note": "WHICH SURFACE THE COMPARISON IS OVER, and the (source, kind) pairs below are the whole set. \"gltf\" hands the format its own metal-rough row entire; a `diffuse` arm over it would silently discard two of the three inputs. \"gltf-base-colour\" LOWERS THE ORACLE RATHER THAN THE TOLERANCE (board:0087): the imported Principled BSDF carries a specular lobe at IOR 1.5 whatever the metallic factor, so a textured asset rendered with it has an integral left and no closed form to be judged against -- this arm keeps the file's own image, uv set and sampler and replaces the closure. \"gltf-emissive\" is the same arm over the other socket, and it has ONE closure: glTF's emission is a radiance the surface leaves, not a reflectance an environment multiplies into."
     },
     "recipe": {
       "required": {

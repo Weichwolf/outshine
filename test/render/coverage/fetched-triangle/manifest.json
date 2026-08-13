@@ -18,7 +18,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "exact",
-    "because": "The one case in the tree that was constructed for exactness from the start: Khronos's Triangle is right-isoceles, and the camera is fronto-parallel, rolled by -arctan(1/2) so the three edges take raster slopes -1/2, 2 and 1/3, and scaled to s = 352.1 so that 5s = 1/2 (mod 1) puts all three edge constants at half a lattice step (doc/requirements.md I.26.14). The whole derivation stands in scene.camera.derivation and the runner recomputes both conditions rather than trusting it. The SUBJECT is upstream's and the CAMERA is ours, which is the ownership case that makes the freedoms ours: the placement is spent through the camera."
+    "because": "The one case in the tree that was constructed for exactness from the start: Khronos's Triangle is right-isoceles, and the camera is fronto-parallel, rolled by -arctan(1/2) so the three edges take raster slopes -1/2, 2 and 1/3, and scaled to s = 352.1 so that 5s = 1/2 (mod 1) puts all three edge constants at half a lattice step (`board/`). The whole derivation stands in scene.camera.derivation and the runner recomputes both conditions rather than trusting it. The SUBJECT is upstream's and the CAMERA is ours, which is the ownership case that makes the freedoms ours: the placement is spent through the camera."
   },
   "subjects": [
     {
@@ -125,7 +125,7 @@
         0.8,
         0.8
       ],
-      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. This subject is a single unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346 -- so this is one of the cases that keeps that number exercised (doc/requirements.md I.26.13)."
+      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. This subject is a single unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346 -- so this is one of the cases that keeps that number exercised (board:0087)."
     }
   },
   "renders": {
@@ -198,7 +198,7 @@
       "note": "The analytic pixel-area fraction: alpha over the full-width box is the coverage, and alpha = 0.5 is the edge through the pixel centre, which gives a signed sub-pixel edge offset instead of a count. Its own per-pixel alpha noise is the instrument floor and is the test's to measure -- it is not asserted here."
     }
   },
-  "notes": "Khronos's Triangle is the schema's worked example and never rung 1's subject (doc/requirements.md I.26.5 row 1, I.26): it is out on two counts at once -- no NORMAL, and it is fetched where rung 1 requires a generated subject so that a red there has exactly one cause. It is kept because nothing else in the tree fetches anything, so without it the pin, the redirect-refusing allow-list and the per-file licence derivation have no subject at all.",
+  "notes": "Khronos's Triangle is the schema's worked example and never rung 1's subject (board:0078 row 1, I.26): it is out on two counts at once -- no NORMAL, and it is fetched where rung 1 requires a generated subject so that a red there has exactly one cause. It is kept because nothing else in the tree fetches anything, so without it the pin, the redirect-refusing allow-list and the per-file licence derivation have no subject at all.",
   "expected": {
     "subjectFrameFraction": {
       "value": 0.33630211046006947,

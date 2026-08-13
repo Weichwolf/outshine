@@ -1,6 +1,6 @@
 /* THE RENDER RUNNER. One program over one case directory: read the glTF, resolve the camera and the
  * recipe, render, compare against the cached oracle, score. It contains no scene-specific branch at
- * all -- a case that would need one is not a render case (doc/requirements.md I.26.11).
+ * all -- a case that would need one is not a render case (board:0084).
  *
  * THE GUARD IS WORTH MORE THAN THE COMPARISON. Two empty images score perfectly: IoU over two empty
  * sets is 1.0 under most formulations and boundary displacement over an empty boundary is 0, so a
@@ -112,7 +112,7 @@ enum class FileColour { Declared, BaseColour, Emissive, Row };
 enum class FileColourCarrier { Texture, Factor };
 
 /* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
- * the answer is not the same for every case (doc/requirements.md I.26.12). For OUR OWN generated
+ * the answer is not the same for every case (board:0085). For OUR OWN generated
  * fixtures the light is declared beside the asset, so that a rung measures the light we meant; for
  * a Khronos asset whose criterion is stated IN TERMS OF the light in the file -- `DirectionalLight`
  * says "the directional lightsource is defined as ..." -- re-declaring it beside the asset would
@@ -121,7 +121,7 @@ enum class SceneLights { None, FromFile, DeclaredSun };
 
 /* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
  * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
- * on all three channels and strength 1.0, sampled as a light (doc/requirements.md I.26.12): under a
+ * on all three channels and strength 1.0, sampled as a light (board:0085): under a
  * coverage recipe -- 1 spp, a box filter at 0.01 px, a Diffuse BSDF at roughness 0, zero bounces --
  * Cycles has no integration left to perform and a facet of albedo rho returns exactly rho*L.
  * At the declared albedo 0.8 that is 0.8 x 0.05087608844041824 = 0.0407008708.
@@ -190,7 +190,7 @@ struct Case {
   SurfaceTable Surfaces;
   /* WHAT IS IN THIS CASE'S PATH THAT IS KNOWN TO DIFFER, and therefore what the picture bound's tail
    * is the sum of. Every field of it is read off the case or off the resolved surfaces; none of it
-   * is a threshold a manifest can set (doc/requirements.md I.26.15). */
+   * is a threshold a manifest can set (board:0089). */
   PathContents Path;
 };
 
@@ -413,7 +413,7 @@ public:
 }
 
 /* WHAT THE ORACLE STILL CARRIES THAT OUR PICTURE CANNOT BE HELD TO, read off the case's own
- * description of its reference and never off a tolerance (doc/requirements.md I.26.15).
+ * description of its reference and never off a tolerance (board:0089).
  *
  * `not-bit-reproducible` OWES ITS MEASUREMENT AND IS REFUSED WITHOUT ONE. It is not an estimator --
  * there is nothing random left in the mathematics -- so a bound is derivable; but it is not zero
@@ -506,7 +506,7 @@ public:
    * `stated-invariant` case MUST declare them, because they are its whole acceptance. A
    * `self-describing` case MAY, because reclassifying the PICTURE releases nothing that is
    * computable from our own render alone -- `DirectionalLight` keeps its hue check when its
-   * reference stops deciding (doc/requirements.md I.26.12). A `numeric` or `limits-probe` case may
+   * reference stops deciding (board:0085). A `numeric` or `limits-probe` case may
    * not: the first is scored on the image and the second has no pass at all, so an invariant there
    * would be an acceptance its criterion does not claim. */
   const bool statesInvariants = root["statedInvariants"].Size() > 0;
@@ -594,7 +594,7 @@ bool Present(const std::string &path) {
 
 /* WHAT THE PREPARER OWES THIS CASE, taken from the case's own declaration rather than from a list
  * here: every file a subject names as `as`, and the oracle products of the default recipe. A case
- * directory's ONLY tracked file is its manifest (doc/requirements.md I.26.10), so on a fresh clone
+ * directory's ONLY tracked file is its manifest (board:0083), so on a fresh clone
  * all of these are absent and the answer is "not prepared" -- which is red, and is neither a pass
  * nor a skip, because a tier that skipped when its inputs were missing could not be told from a tier
  * that passed having compared nothing. */
@@ -843,7 +843,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
 }
 
 /* WHAT EACH PART OF THE SUBJECT EMITS, derived from the case's own material declaration and from
- * nothing else. Three arms, and the split between them is doc/requirements.md I.26.13's:
+ * nothing else. Three arms, and the split between them is board:0087's:
  *
  * `diffuse` IS THE CLOSED FORM AND IT IS ONLY AVAILABLE TO A SINGLE UNOCCLUDED FACET. Under a
  * uniform environment a Lambertian facet returns `rho*L` whichever way it faces, with no integral
@@ -890,7 +890,7 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
      * `baseColour(u,v) * factor * L`. `emission`: the surface's radiance IS the declared colour, so
      * the environment leaves the arithmetic entirely -- which is what a subject whose surfaces see
      * one another has to declare, because there Cycles at one sample is measuring visibility
-     * (doc/requirements.md I.26.13). The texel is the shader's either way; this is the factor. */
+     * (board:0087). The texel is the shader's either way; this is the factor. */
     const bool emits = subject.MaterialKind == "emission";
     for (size_t part = 0; part < parts; ++part) {
       const int index = geometry.Parts()[part].Material;
@@ -1173,7 +1173,7 @@ void ScoreDeterminism(const Case &subject, const outshine::Clients::Studio &stud
   }
 }
 
-  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (doc/requirements.md I.26.13). Zero is the bar
+  /* THE RADIANCE RESIDUAL, IN THE TAP'S OWN ALPHABET (board:0087). Zero is the bar
    * and there is nothing in it to nudge: the tap is f32 on both sides, so our float either is the
    * oracle's float or it is not.
    *
@@ -1253,7 +1253,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
               subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
   /* The reference is still rendered and still lands in the directory; this is the line that says it
    * decides nothing here, so the disagreement stays visible until Blender gains what it lacks
-   * (doc/requirements.md I.26.12, condition three). */
+   * (board:0085, condition three). */
   if (subject.Oracle == OracleRole::CannotExpressTheCriterion) {
     std::printf("ORACLE NOT-DECIDING -- %s\n",
                 subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
@@ -1282,7 +1282,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
    * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
    * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
    * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
-   * doc/requirements.md I.26.13. */
+   * `board/` */
   if (Reduced(subject)) {
     RawF32 shifted;
     const bool haveShift = shifted.ReadFile(subject.Directory + "oracle.seed-shift.raw");
@@ -1315,7 +1315,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
    *
    * `Transfer::Linear` because the oracle's own view transform is `Standard`, which is the sRGB
    * transfer function over scene-referred linear values and nothing else, and the frame target is
-   * sRGB-encoding: a curve here would be measuring the curve (doc/requirements.md I.26.13). */
+   * sRGB-encoding: a curve here would be measuring the curve (board:0087). */
   outshine::Render::PlanSpec declaration;
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::FrameTex};
@@ -1323,7 +1323,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
   declaration.Exposure = outshine::Render::Declared<float>(1.0f);
-  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (doc/requirements.md I.26.13). At rgba16float the
+  /* THE TAP IS f32 BECAUSE THE VALUE IS THE VERDICT (board:0087). At rgba16float the
    * store's own rounding was 63x the arithmetic term and every channel of the flat cases sat exactly
    * one binary16 step low -- the format speaking, not the engine. The rule this obeys is that a rung
    * needing tighter than the storage floor changes the storage and never the threshold. */
@@ -1351,7 +1351,7 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
 }
 
 /* THE TWO CONDITIONS OF THE EXACTNESS CONSTRUCTION, RECOMPUTED FROM THE PROJECTED GEOMETRY AND HELD
- * WHERE THE CASE CLAIMS THEM (doc/requirements.md I.26.14). Published on every case and enforced on
+ * WHERE THE CASE CLAIMS THEM (`board/`). Published on every case and enforced on
  * an `exact` one: the counts and residuals say, for a case that cannot claim it, exactly what stands
  * in the way -- how many distinct silhouette lines its freedoms would have to satisfy, and whether
  * any of them is straight at a rational slope at all. */
@@ -1403,7 +1403,7 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
   }
 }
 
-/* THE VISIBILITY ESTIMATOR'S OWN DISPLACEMENT, IN SCREEN PIXELS (doc/requirements.md I.26.15). A
+/* THE VISIBILITY ESTIMATOR'S OWN DISPLACEMENT, IN SCREEN PIXELS (board:0089). A
  * shadow boundary is a coverage boundary of the LIGHT's visibility, so a disagreement about it is
  * bounded in the predicate's own geometry and never in codes. Our estimator is an exact ray and the
  * only thing that displaces it is where the ray starts: `ShadowRay.h`'s self-intersection bias, a
@@ -1540,7 +1540,7 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
  * Swapping the near shell of a closed body for its far one with the shading normals reversed leaves
  * the silhouette, the coverage and the hue all unchanged -- three criteria simultaneously blind,
  * each individually correct -- and `DirectionalLight` shipped in exactly that state without any of
- * them noticing (doc/requirements.md I.26). Range is not invariant under it.
+ * them noticing (board:0073). Range is not invariant under it.
  *
  * THE RANGE IS ALONG THE VIEW RAY AND NOT ALONG THE BORESIGHT, which is what the cosine is: the
  * depth attachment carries `kNearM / rangeAlongBoresight`, and a probe away from the frame centre
@@ -1630,7 +1630,7 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
 }
 
-/* THE PICTURE BOUND, SCORED AND PUBLISHED (doc/requirements.md I.26.15). The bound is the sum of the
+/* THE PICTURE BOUND, SCORED AND PUBLISHED (board:0089). The bound is the sum of the
  * terms this case's own path puts in it, the metric is the tail, and the histogram beside it is
  * unbounded by design -- 519 pixels at one code and 5 190 pixels at one code are equally acceptable,
  * and one pixel past the tail is red.
@@ -1693,7 +1693,7 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
 }
 
 /* THE TWO COUNTS THE SUITE IS QUOTED BY, PRINTED ONCE PER CASE SO THAT NEITHER CAN BE QUOTED FOR THE
- * OTHER (doc/requirements.md I.26.15). Khronos's criterion is a statement about a FEATURE and it
+ * OTHER (board:0089). Khronos's criterion is a statement about a FEATURE and it
  * does not stop being met because our picture is not the reference's picture; the picture bound is
  * about the PICTURE and it is the owner's standard. THE CASE IS RED IF EITHER IS RED, and the two
  * lines are what make "the suite is green" unsayable without saying which of them it is about. */
@@ -1854,7 +1854,7 @@ int main(int argc, char **argv) {
     const EdgeSet edges = Silhouette(subject.Geometry, clip, subject.Frame);
     const double tieMarginPx = TieMarginPx(ours, edges);
     metrics.push_back({"tie_margin_px", tieMarginPx, 0.0, "px", Direction::Reported});
-    /* THE `general-position` ARM'S WHOLE ACCEPTANCE (doc/requirements.md I.26.14), and it introduces
+    /* THE `general-position` ARM'S WHOLE ACCEPTANCE (`board/`), and it introduces
      * no constant of its own: the oracle's filter half-width is already declared in the recipe, and
      * a disagreement further from the silhouette than the oracle can resolve is not a tie however
      * few pixels of it there are. Under `exact` the pixel count is the acceptance instead and this
@@ -1910,7 +1910,7 @@ int main(int argc, char **argv) {
   metrics.push_back({"boundary_samples", (double)boundary.Samples, 0.0, "px", Direction::Reported});
   metrics.push_back({"iou", Iou(ours, theirs), 0.0, "dimensionless", Direction::Reported});
   /* THE PLACEMENT ACCEPTANCE, AND WHICH ARM IT IS COMES FROM THE CASE'S OWN DECLARED CLASS AND FROM
-   * NOTHING INFERRED (doc/requirements.md I.26.14). It used to be `self-describing AND opaque`, and
+   * NOTHING INFERRED (`board/`). It used to be `self-describing AND opaque`, and
    * that pair is not the question: it made an exactness demand of every self-describing case whose
    * subject happened to be opaque, whether or not the subject could meet it, and made none of a
    * `numeric` case that could. `exact` demands every pixel and declares no tolerance; the other arm

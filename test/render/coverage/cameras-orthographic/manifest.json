@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "PERMANENT AND BY STRUCTURE, NOT PENDING. The asset is Khronos's Cameras and the camera is the file's own: the whole point of the case is that we do NOT choose the viewpoint, so choosing one to clear a lattice would destroy what it tests. The ruling counts the freedoms WE own and here there are none, so 2 + k >= E reads 0 >= 4 (doc/requirements.md I.26.14). Measured anyway and worth recording: this camera happens to satisfy condition (A) exactly -- the plane is axis-aligned in the image, slope residual 0 px -- and fails condition (B), which is why its margin is a large fraction of the 0.5 px ceiling rather than the 1/L draw an irrational slope would give."
+    "because": "PERMANENT AND BY STRUCTURE, NOT PENDING. The asset is Khronos's Cameras and the camera is the file's own: the whole point of the case is that we do NOT choose the viewpoint, so choosing one to clear a lattice would destroy what it tests. The ruling counts the freedoms WE own and here there are none, so 2 + k >= E reads 0 >= 4 (`board/`). Measured anyway and worth recording: this camera happens to satisfy condition (A) exactly -- the plane is axis-aligned in the image, slope residual 0 px -- and fails condition (B), which is why its margin is a large fraction of the 0.5 px ceiling rather than the 1/L draw an irrational slope would give."
   },
   "subjects": [
     {

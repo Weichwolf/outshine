@@ -1,6 +1,6 @@
 /* THE PRODUCER'S EDGE OF THE MODEL: `Assemble` takes what a generator made and yields the same
  * drawable the reader yields, so a generated part can be written, rendered by the oracle and scored
- * (doc/requirements.md I.28).
+ * (board:0105).
  *
  * THE FIXED POINT HOLDS AT ZERO APPLICATIONS HERE AND THAT IS WHY THE RUNS ARE f32. A produced
  * subject's numbers are the format's own width, so `Subject(Emit(Assemble(A))) == Assemble(A)` is

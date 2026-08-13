@@ -1,7 +1,7 @@
 /* TWO BINARY MASKS AND THE THREE NUMBERS THAT COMPARE THEM.
  *
  * BOUNDARY DISPLACEMENT IS THE DECIDING INSTRUMENT and IoU is beside it for continuity with the
- * literature (doc/requirements.md I.26): IoU cannot see a half-pixel camera offset on a large
+ * literature (board:0073): IoU cannot see a half-pixel camera offset on a large
  * subject, and it drifts twofold in strictness with the subject's size. The displacement
  * distribution can, and it NAMES the defect -- 0.5 px is a raster-convention error, ~3 px is a
  * projection error, a radial trend is focal length, a shear is handedness.

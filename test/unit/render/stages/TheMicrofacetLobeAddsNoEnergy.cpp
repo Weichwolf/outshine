@@ -9,7 +9,7 @@
  * irradiance into a small solid angle, so a highlight above the incident irradiance is what
  * "concentrated" means; the specification's own Appendix B returns f_spec * N.L = 4.857 at the
  * roughness-0.16 sphere's centre, so a ceiling of 0.9 there is a test the reference implementation
- * fails (doc/requirements.md I.26.12). The integral is what an added factor actually breaks.
+ * fails (board:0085). The integral is what an added factor actually breaks.
  *
  * THE SAMPLER AND ITS DENSITY ARE WRITTEN HERE AND NOT TAKEN FROM THE SUBJECT, and that is the whole
  * design of this instrument. The obvious white furnace importance-samples the BRDF's own

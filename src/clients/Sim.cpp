@@ -190,7 +190,7 @@ bool Sim::OpenPool() {
  * generator works in — metres east and north of the region anchor. The core resolved what each of
  * them carries: a footprint's roof and base off its own ground and an OSM tag, a water body's level
  * off its shore, a way's width off the class table. None of those numbers is derived here, which is
- * the split doc/architecture.md draws.
+ * the split the deleted architecture document draws.
  *
  * NULL WHILE THIS REGION'S VECTOR TILE IS STILL OUT. One region is one tile on both sources, so the
  * rule the DEM block already follows holds here too: taken whole or not at all. A region built from

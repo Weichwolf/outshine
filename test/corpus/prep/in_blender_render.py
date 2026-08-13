@@ -140,7 +140,7 @@ def keep_default_scene(path, new_collections):
 def strip_crossings(imported, camera_source, keep_lights):
     """What crossed the glTF boundary and must not have. Light and material are declared beside the
     asset, so whatever the file carried is deleted -- EXCEPT where the case declares the light as the
-    file's, which is the one narrow arm doc/requirements.md I.26.12 opens and which exists because
+    file's, which is the one narrow arm board:0085 opens and which exists because
     two Khronos assets state their criteria in terms of the light they carry."""
     removed = {"lights": 0, "cameras": 0}
     for obj in list(imported):
@@ -515,7 +515,7 @@ def lower_to_file_colour(imported, kind, socket_name, source_name):
     escapes or does not and the pixel is a Bernoulli draw on the visible sky fraction. An Emission
     at strength 1 gathers nothing at all, so it removes the world as a light, the sun's disk, a
     light's radius and visibility together, and a subject of several plates that shade one another
-    has no other honest arm (doc/requirements.md I.26.13).
+    has no other honest arm (board:0087).
 
     WHICH SOCKET IS THE CASE'S DECLARATION, because it is a fact about the asset rather than about
     the oracle: `AlphaBlendModeTest` states its picture in `baseColorFactor`/`baseColorTexture`, and
@@ -728,7 +728,7 @@ def keep_file_materials(imported):
 
 def no_surface_of_the_subject_is_a_light(imported, materials):
     """THE SUBJECT IS SEEN AND NEVER GATHERED FROM, which is what removes the estimator an emissive
-    asset carries into a scene whose only declared source has no area (doc/requirements.md I.26.13).
+    asset carries into a scene whose only declared source has no area (board:0087).
 
     IT TAKES BOTH HALVES AND EITHER ALONE LEAVES AN INTEGRAL, because Cycles reaches a surface's
     emission by two routes. Next-event estimation puts the emissive triangles in the light tree

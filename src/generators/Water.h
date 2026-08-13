@@ -1,6 +1,6 @@
-/* HOW DEEP THE WATER IS OVER A PLACE. The outline and its level come from the core — doc/
- * architecture.md gives the core "where water is and its level" and the generator "how water
- * looks" — and this is the half that turns those into an answer a simulation can use.
+/* HOW DEEP THE WATER IS OVER A PLACE. The outline and its level come from the core — the core owns
+ * "where water is and its level" and the generator owns "how water looks" — and this is the half
+ * that turns those into an answer a simulation can use.
  *
  * IT CLAIMS NO OCCUPANCY. Water is a medium, not a contact: nothing stands on it and a body that
  * substituted for it would be a solid where the physics wants a force source. Its yield is the point

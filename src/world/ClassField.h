@@ -1,6 +1,6 @@
 /* The ground class, evaluated from the OSM vectors themselves — there is no class raster on either
  * side. This class owns the streaming and decides when a grid is due; ClassBuilder lays it down.
- * doc/todo.md §1 carries the shape.
+ * `board/active/` §1 carries the shape.
  *
  * WHY NO RASTER, because the alternative keeps suggesting itself: a raster has a resolution, and a
  * resolution made the class a function of the viewer three times running — the mip level, the tile

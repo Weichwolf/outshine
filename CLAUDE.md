@@ -16,7 +16,7 @@ It is the **vision**, the **constraints**, the **stance**, the **architecture** 
 first, by everyone, and binding.
 
 It is **not the scope**. One line per feature, with a box, a stable id, the file that implements it and
-the test that holds it, lives in [`doc/requirements.md`](doc/requirements.md) and nowhere else. This
+the test that holds it, lives in `board/` and nowhere else. This
 file has drifted into scope prose once and was cut back; the room here is permission to say a thing
 **completely**, never to say **more things**. If a sentence would need a checkbox, it belongs there.
 
@@ -350,9 +350,8 @@ amber state**: the repair is that the red names its cause.
 | `test/run.sh` | the harness, and the only runner. One process per test, a real verdict per test, non-zero on any failure or undeclared skip. **macOS has no `timeout(1)`** — it brings its own |
 | `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and this tree has already paid for having two runners |
 | `test/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
-| `doc/requirements.md` | **the scope**, and the authority on what the engine must do. The architect extends it on its own evidence; only the owner shortens it |
-| `doc/todo.md` · `doc/bugs.md` | the current work item, short · what exists and is wrong, with file and site, what decides it and what right looks like. A fixed bug is deleted in the round that fixes it |
-| `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs, judges, and owns `doc/bugs.md` and `doc/requirements.md` |
+| `board/` | **the only documentation tree**, and the working system — see *The board* below |
+| `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs, judges, and owns `board/` |
 | this file | the vision, the constraints, the stance, the architecture, the setup. **At most 1000 lines, and as short as the content allows** |
 
 **Layering is the build, never a checker.** Each directory compiles with its own include set — one
@@ -369,12 +368,126 @@ reads this file, and it is currently clean.
 
 **Only correct work is committed**, and `git log` is what was — no journal.
 
+## The board
+
+**`board/` is the working system and this is its only statement.** Not restated in a `README`, not in an
+agent description — a convention written twice is the defect the board exists to remove.
+
+**Three directories and the path is the state**: `board/open/` · `board/active/` · `board/closed/`. There
+is no fourth: a `blocked/` is where a board rots, because nothing owns moving a task out of it. **Blocked
+is a line in the body naming what blocks it, and the task stays `open`.**
+
+**A task is one file — RFC 822 header, blank line, markdown body.** The un-reinvented wheel: git commit
+objects, `git format-patch`, HTTP, Debian control. It needs no parser; `grep '^Test:'` is the whole
+implementation. **Seven fields and no others — an eighth needs a decision:**
+
+| | |
+|---|---|
+| `Type:` | **`feature`** — what must be true · **`task`** — how a feature gets done · **`bug`** — what exists and is wrong |
+| `Parent:` | **exactly two levels: `feature` → N `task`. No epics, no sub-tasks.** A `feature` and a `bug` carry none; a `task` carries **exactly one, naming a `feature`**. Stored on the child, reverse derived — `grep -l '^Parent: 0007' board/*/*.md` — and there is no `Children:` field |
+| `Area:` | which part of the tree it belongs to. **The vocabulary is the tree's own layering** — `render` `gltf` `generators` `world` `core` `data` `scenario` `clients` `assets` `corpus` `harness` — so it cannot drift into a taxonomy, and **adding one means adding a directory** |
+| `Tags:` | the **genuine cross-cuts only** — `oracle` `khronos` `perf` `instrument` `bug` `scope`. A tag that restates the area is noise and was struck |
+| `Depends:` | ordering — this cannot start until that is closed |
+| `Regresses:` | **the tree changed** — the closure was true and the tree stopped satisfying it |
+| `Supersedes:` | **our understanding changed** — the claim was correct as stated and too narrow, or wrong |
+
+**THE CODE CITES THE REQUIREMENT; THE BOARD NEVER NAMES THE CODE.** A `File:` line goes stale the moment
+code moves; a marker **inside** the source moves with it, and the relation is naturally many-to-many — one
+requirement satisfied by twenty files, one file satisfying three — which no header line can express.
+
+**The marker has one spelling and this is it:** `board:<id>` in a comment — `board:0042`. No slash, so the
+citation checker does not read it as a path; not a bare number in prose, because the `board:` prefix is
+what makes it a citation. **Both claims are then derived from the tree that actually runs:**
+
+```sh
+grep -rn 'board:0042' src/ test/       # every site implementing or proving it
+grep -rl 'board:0042' test/            # the evidence — empty means unproven
+```
+
+**The filename is **NNNN_description.md**: a flat autoincrementing integer, then the label.** **The number is
+the identity and the description is the label** — retitling is a `git mv` that changes only the label, and
+the id survives, which is what makes it safe to cite from source. **The next number is derived, never
+stored**: the maximum over `board/*/` plus one. *A counter file would be a mutable fact outside the tree it
+describes, and this design has refused three of those.*
+
+**What the header must not carry.** No `File:`, no `Test:` — **the code cites the requirement, not the other way**. No `State:` — the directory is. No `Id:`, no `Title:` — the filename
+is; **the slug is authoritative and renaming a file IS retitling**, a `git mv` visible in the diff, and
+the body never restates the title. No test result — *a header recording a passing test is a capability
+claim decoupled from its evidence*. No priority, no owner, no dates — **anything derivable from the tree
+belongs to the harness**. *Duplication is a defect only when the copies can drift, which is why an id may
+sit in a path and a state may not.*
+
+**The three edges are stored one-directional on the new task and the reverse is derived.** No `Blocks:`,
+no `Successors:` — `grep -l '^Depends:.*<id>' board/*/*.md` is free and cannot disagree with itself.
+**`closed → open` IS a legal move** — *my earlier refusal is struck, and the reason it was wrong is worth
+keeping*: I argued a reopen destroys the record that the work was once done, and
+`git log --follow --name-status -- 'board/*/0042_*'` demonstrably preserves it. **git is the audit trail,
+so no `Created:`, no `Author:`, no history field ever** — storing what `git blame` already answers is the
+duplication the deleted doc tree was removed over.
+
+**`Regresses:` narrows rather than disappears, and the narrowing is the point.** **A move when the WI's
+statement is unchanged and work simply resumes; a new WI citing it with `Regresses:` when the return has
+its own cause, its own measurement or its own statement of what must be true** — the test is whether
+there is **something new to investigate**, because that is what needs somewhere to live. *That keeps
+regression countable by grep instead of by parsing history, which was the real argument for the field.*
+
+**A `## Comments` section at the foot of the body, append-only, no dates and no authors** — `git blame`
+carries both. **A comment records what was LEARNED, never what was DONE**: *measured 0.3174° and it is the
+texture's 8-bit quantisation* is a comment; *ran the corpus* is `git log`. **The test is whether the next
+person picking the WI up would be worse off without it**, and `git log` is what was — this file has no
+journal.
+
+**Comments survive into `closed` and that is most of their value**: a closed WI whose comments say *this
+was tried and refuted, here is the number* is what stops the next round re-running it — the same reason a
+rejected approach is kept with its measurement rather than deleted. **Nothing greps them and no convention
+is built for it**: they are prose for whoever reads that one WI, and **a structured comment is a field
+wearing a disguise** — if it must be queryable it is a field, or it is derived.
+
+**Moving a work item into `board/active/` is when it gets groomed** — verify its `Parent:`, set
+`Depends:` on what genuinely blocks it, and read the parent's other children. **Three checks and no
+fourth**: that is the one moment someone is looking at the item closely enough to notice a sibling
+already done or blocked on the same thing, and a form would be filled in rather than thought about.
+
+**The board is kept true incrementally, at the point of use, never by a sweep.** A pass that has to be
+remembered is a pass that will not happen — which is what the old todo needed and never got, three
+commits stale twice in a month. *It is also why the board needs no manager: the transition travels with
+the work and so does the accuracy.*
+
+**The usage is the interface:**
+
+```sh
+ls board/active/                                # what is in flight
+git log --follow --name-status -- 'board/*/0042_*'   # every move, when, by whom
+cat board/*/I.26.15-*.md                        # a task, wherever it lives
+grep -l '^File: src/render' board/active/*.md   # by area — derived, always true
+grep -l '^Tags:.*oracle'    board/*/*.md        # by tag
+grep -L '^Test:' board/active/*.md              # active work with no test
+grep -l '^Depends:.*<id>' board/*/*.md          # who waits on this
+git mv board/active/X.md board/closed/          # the transition IS the diff
+```
+
+
+**Five invariants, and one query that must never become a test.** Invariant: a dependency cycle · a
+`closed` task depending on one that is not closed · an id in any edge that does not resolve to exactly one
+file · a `closed` task whose `File:` no longer exists, which catches **navigation rot** · **a `feature` carrying a `Parent:`** · **a `task` with no `Parent:`, or one naming
+something that is not a `feature`** — which also forbids a task parented to a task, stated because *no
+sub-tasks* is a decision and not an accident · **a `closed` feature with an open child**, which is the
+composition analogue of the dependency rule and **the exact failure a feature/task split exists to
+catch**: the thing that looked done because its headline was ticked while the work under it was not ·
+and the two read from the tree rather than from the board — **a `closed` id cited by nothing under `test/`, which is an unproven
+claim**, and **a `board:` marker naming an id that does not exist**, which is a dangling citation of the
+class the citation test already handles. *That is the owner's standing instruction made checkable rather
+than asserted, and it cannot drift because it is read from the trees that compile and run.* Query: **what is ready to start** — open tasks
+whose every `Depends:` is closed. **A board with nothing ready is a legitimate state**, so that one may
+not go red, and a later round must not helpfully make it a test.
+
+
 ## References
 
 **Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING**,
-whole in the tree at [`doc/CppCoreGuidelines.md`](doc/CppCoreGuidelines.md) (514 sections), indexed one
-line per rule at [`doc/CppCoreGuidelinesIndex.md`](doc/CppCoreGuidelinesIndex.md). Cite by number and
-**read the rule rather than recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the enumeration rule
+**not in this tree** — 23 157 lines nobody loads is a cost paid on every clone, and both agents carry
+the one-line-per-rule index in their own definitions. Cite by number and **fetch the rule rather than
+recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the enumeration rule
 (`Enum.2`), and that miscitation has already cost this project a round.
 
 | Field | Titles |

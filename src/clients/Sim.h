@@ -48,7 +48,7 @@ public:
     double Lat = 0.0, Lon = 0.0, YawDeg = 0.0, PitchDeg = 0.0;
   };
   /* WHAT STANDS AT A PLACE, with no buffer existing and no device anywhere — the point query of
-   * doc/architecture.md's product table. Metres are above the DEM's own datum. */
+   * the deleted architecture document's product table. Metres are above the DEM's own datum. */
   struct Place {
     bool GroundResolved = false;
     double GroundAslM = 0.0;

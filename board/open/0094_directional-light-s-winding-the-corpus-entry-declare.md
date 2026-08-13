@@ -1,0 +1,18 @@
+Type: feature
+Area: render
+Tags: oracle, khronos, instrument
+
+**`directional-light`'s winding: the corpus entry declares it and does NOT correct it**
+
+*Ruling, 2026-08-13. The exact ray exposed what nothing had seen since the case was written: the asset's
+`NORMAL` points **inward** — 302 of 16 122 vertices point away from their sphere's centre, and flipped
+15 820 do — and **we rasterise the far hemisphere**, camera 2.000 m out, radius 0.217 m, depth at frame
+centre **2.217 m** with the near surface at 1.783 m nowhere in the buffer. **Two inversions that cancel
+in the picture.** The developer refused to decide it, correctly: it is an asset decision.*
+
+- [x] **The first thing to fix is my own account of it: we are CONFORMING, and the "both sides" reading is half right.** The material declares no `doubleSided` and the asset is wound CW from outside — the 0-of-10 600 measurement is mine — so glTF requires back-face culling, the near hemisphere is culled, and **the far hemisphere is what a conforming renderer draws.** `2.217 m` is the **correct** depth for this file as written. The oracle is the non-conforming side, because Cycles culls nothing for camera rays; that half of the earlier ruling stands unchanged
+- [ ] **The asset is malformed relative to its OWN published appearance, and that is the defect — upstream, not ours.** Khronos's screenshot shows a normally-lit sphere, and the file reproduces that appearance **only for a culling renderer**, because the far hemisphere's inward normals happen to point at the camera. A double inversion that cancels is still two errors, and it is reportable to Khronos with the two counts beside it
+- [x] ~~**So the corpus entry declares the asset's state and does not correct it**~~ — **OVERTURNED by the owner 2026-08-13, *"you can correct/patch assets if they are incorrect"*, and the ruling was wrong on both its reasons. See § I.26.16.** Both failed the same way: I applied *"a repair would make us non-conforming"* and *"a comparison contains no repair"* to **the asset** when both are statements about **our renderer** and about a **one-sided** repair respectively. **The asset is patched, declared, measured and reported upstream**, and its self-shadowing criterion leaves the register instead of being permanently struck
+- [x] **What is ours to record is the incoherence the ray exposed, and it disqualified one number rather than the case** — *and under the patch it disqualifies nothing, because the two surfaces become one.* The **lit** set is computed from the file's normals (`N·L`) and the **unoccluded** set from the geometry (the ray), and on this asset those are two different surfaces — **0 of 8 043 light-facing vertices are occluded once the normals are flipped.** So **any self-shadowing number from this case means nothing** and the manifest says so; hue, coverage and silhouette are unaffected and keep deciding what they always decided
+- [ ] **The repair is a criterion, never a change to the subject — and the criterion is DEPTH.** Silhouette, coverage and hue are **all invariant** under the double swap, which is exactly why nothing caught it for the life of the case. **Depth is not invariant**, it is already readable through `ReadDepth`, and it costs a case one assertion. *Added so the next asset whose winding and normals disagree is caught by an instrument rather than by a ray-tracing round that was looking for something else*
+- [x] **And it is the fifth demonstration of one class in six rounds** — an instrument invariant under the very transformation that was wrong. *This one is the sharpest of the five, because **three** criteria were simultaneously blind and each was individually correct*

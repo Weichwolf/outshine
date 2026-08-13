@@ -1,5 +1,5 @@
 /* WHERE A REGION IS GENERATED, and it is not the thread that draws. One region at a time by
- * construction (`doc/architecture.md`, threads: "one job in flight by construction — dedicated,
+ * construction (the deleted architecture document, threads: "one job in flight by construction — dedicated,
  * one"): the ring hands over the ground and the space, the thread runs the generators over it, and
  * the caller collects a finished region or nothing.
  *

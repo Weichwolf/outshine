@@ -100,7 +100,7 @@ struct Primitive {
   PrimitiveMode Mode = PrimitiveMode::Triangles;
 
   /* -1 for "this file does not carry it". A caller that needs it refuses by name; nothing here
-   * invents one (doc/requirements.md I.26). */
+   * invents one (board:0073). */
   int Find(const char *semantic) const;
 };
 
@@ -246,7 +246,7 @@ struct Animation {
 
 /* WHAT A SUBJECT DOES NOT CARRY, NAMED. The empty string means it carries all of them; anything else
  * is the refusal a case prints and stops on. There is no arm that derives a missing semantic --
- * doc/requirements.md I.26 forbids it, and the Khronos `Triangle` having no NORMAL is a property of
+ * board:0073 forbids it, and the Khronos `Triangle` having no NORMAL is a property of
  * the subject, recorded, not repaired. */
 std::string MissingSemantics(const Primitive &primitive,
                              std::initializer_list<const char *> required);

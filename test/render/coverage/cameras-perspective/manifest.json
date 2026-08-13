@@ -19,7 +19,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "PERMANENT AND BY STRUCTURE, NOT PENDING, for the same reason as its orthographic twin: Khronos's asset with Khronos's camera, so 2 + k >= E reads 0 >= 4 and the single residual pixel is not something a construction could have removed (doc/requirements.md I.26.14)."
+    "because": "PERMANENT AND BY STRUCTURE, NOT PENDING, for the same reason as its orthographic twin: Khronos's asset with Khronos's camera, so 2 + k >= E reads 0 >= 4 and the single residual pixel is not something a construction could have removed (`board/`)."
   },
   "subjects": [
     {

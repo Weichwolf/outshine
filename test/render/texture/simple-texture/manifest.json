@@ -18,7 +18,7 @@
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
     "is": "exact",
-    "because": "The axis-aligned form of the same construction: a unit square in the plane z = 0 seen along its own normal with no roll, so its four edges are at slopes 0/1 and 1/0 and |n| = 1, and the scale and aim put every constant at half a lattice step -- a margin of 0.5 px, the largest the family admits and 100 times the oracle's own 0.005 px filter half-width (doc/requirements.md I.26.14). Measured, not asserted: the slope residual over the whole silhouette is 0 px exactly."
+    "because": "The axis-aligned form of the same construction: a unit square in the plane z = 0 seen along its own normal with no roll, so its four edges are at slopes 0/1 and 1/0 and |n| = 1, and the scale and aim put every constant at half a lattice step -- a margin of 0.5 px, the largest the family admits and 100 times the oracle's own 0.005 px filter half-width (`board/`). Measured, not asserted: the slope residual over the whole silhouette is 0 px exactly."
   },
   "subjects": [
     {
@@ -136,7 +136,7 @@
       "source": "gltf-base-colour",
       "carriedBy": "texture",
       "kind": "diffuse",
-      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (doc/requirements.md I.26.13). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left and no closed form to be judged against. This arm keeps exactly what the asset is for -- its own base-colour image, its uv set and its sampler -- and rewires that image into a Diffuse BSDF at roughness 0, whose Cycles closure is max(dot(N,w),0)/pi. Under the factory world that is rho(u,v)*L per texel. The image datablock is untouched, so its sRGB decode still happens at the texel and before the interpolation, which is the convention TextureLinearInterpolationTest decides and the one our sRGB texture VIEW puts in the sampler. THE CLOSURE IS DECLARED: this subject is a single unoccluded facet, the one shape where the diffuse arm's closed form rho*L survives, so it takes that arm rather than the emitter a self-shading subject needs."
+      "note": "THE ORACLE IS LOWERED, NOT THE TOLERANCE (board:0087). The importer builds a Principled BSDF whose specular lobe survives metallicFactor 0 at IOR 1.5, so a render through it has an integral left and no closed form to be judged against. This arm keeps exactly what the asset is for -- its own base-colour image, its uv set and its sampler -- and rewires that image into a Diffuse BSDF at roughness 0, whose Cycles closure is max(dot(N,w),0)/pi. Under the factory world that is rho(u,v)*L per texel. The image datablock is untouched, so its sRGB decode still happens at the texel and before the interpolation, which is the convention TextureLinearInterpolationTest decides and the one our sRGB texture VIEW puts in the sampler. THE CLOSURE IS DECLARED: this subject is a single unoccluded facet, the one shape where the diffuse arm's closed form rho*L survives, so it takes that arm rather than the emitter a self-shading subject needs."
     }
   },
   "renders": {

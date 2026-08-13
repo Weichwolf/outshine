@@ -152,7 +152,7 @@ int main() {
   }
 
   /* THE DECLARED STORAGE OF THE SCENE-REFERRED CHAIN, which is what a case whose verdict is the
-   * VALUE declares (doc/requirements.md I.26.13). It moves the plan's identity, so a baseline taken
+   * VALUE declares (board:0087). It moves the plan's identity, so a baseline taken
    * at one precision cannot be read as the other's. */
   {
     std::shared_ptr<const RenderPlan> narrow, wide;

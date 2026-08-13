@@ -12,10 +12,10 @@
  * THE PROSE IS NOT THE DISCRIMINATOR AND THAT WAS MEASURED THE HARD WAY. This test first read the
  * derivation for the string `src/gltf/Framing.h` and called that the claim; the run then showed eight
  * further cases taking the rule's camera to 0 m while naming it as "the framing rule of
- * doc/requirements.md I.26.10" instead. A wording difference had become a red. **The separation in
+ * board:0083" instead. A wording difference had become a red. **The separation in
  * metres is the discriminator** -- it is 0 m or it is 4.5 m and upwards, with nothing between.
  *
- * THE TWO DETERMINATIONS OF ONE QUANTITY, which is the defect underneath (doc/requirements.md
+ * THE TWO DETERMINATIONS OF ONE QUANTITY, which is the defect underneath (`board/`
  * I.26.14): the framing rule and the exactness construction both decide the camera distance, and
  * nothing makes them agree. The framing rule wins by default because it runs first, so a case can
  * carry the rational roll and lose the lattice-offset condition without anything noticing. Held here:
