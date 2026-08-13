@@ -61,3 +61,23 @@ a stage that does not exist is already an unknown-name refusal at `StageByName`.
 each. It goes red the moment a row outlives its implementation, it needs no device, and it would have
 failed at `0161f88`. **Fixed when** that test exists and is green, and **finished when** the dispatch
 table makes it unnecessary.
+
+
+## Comments
+
+**Two shapes were considered and one is refused.** `Renderer::Executable` is **private**, and making it
+public to read from a test would give a **checker** where this design wants a **compile error** — the
+same distinction `CLAUDE.md` draws between a rule a checker counts and a rule the type system carries.
+
+**The form that closes it: a `constexpr` table from every `Stage` to its encoder, in the renderer, with a
+completeness `static_assert`.** Both are visible there; in the plan layer they are not, and that
+exclusion is what lets a plan be checked before a device exists — so **the assertion must not go in the
+catalogue**. With the table, deleting an implementation breaks the initialiser: the port that removed
+eighteen encoders would have had to delete eighteen rows, which is the correct outcome.
+
+**And the cheap half is still worth having beside it**: print `N of 20 rows executable` in the suite's
+own output, so nobody can quote *31 of 34 Khronos criteria* without the population beside it. That is a
+number, not a gate.
+
+**Not started here** because half of it is worse than none: a public flag plus a test that reads it would
+close the item while leaving the defect spellable.
