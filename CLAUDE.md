@@ -103,14 +103,14 @@ spell**, and the include sets are what make that true rather than a rule.
 ```mermaid
 flowchart TD
   upstream["upstream — OSM · terrain · imagery · weather · sky"]
-  providers["PROVIDERS — one interface, ranked, absence hands over<br/>src/data"]
-  store[("CONTENT STORE — hash = filename<br/>fetched bytes and generated parts, ONE cache")]
-  field["GROUND — the field a generator reads<br/>height · slope · class · edge distance · water · ring · declared tables<br/>no camera, no frustum, no frame index, no clock, no LOD level, no device"]
-  gen["GENERATORS — tile · tree · house · car<br/>ONE PART, NEVER AN AGGREGATE<br/>in: kind, params, seed, budget — out: part + capability<br/>src/generators/draw"]
-  comp["COMPOSITORS — terrain · forest · city · traffic<br/>ONE DRAW LIST, NEVER GEOMETRY<br/>places · culls · quantises the budget · batches<br/>src/world, src/generators"]
-  rend["RENDERER — a declared plan<br/>compute · fullscreen · geometry<br/>no content noun has a spelling in it<br/>src/render"]
+  providers["PROVIDERS"]
+  store[("CONTENT STORE — hash = filename")]
+  field["GROUND — the field a generator reads"]
+  gen["GENERATORS — tile · tree · house · car · gltf-file"]
+  comp["COMPOSITORS — terrain · forest · city · traffic · declared"]
+  rend["RENDERER — a declared plan"]
   frame(["720p60 on this device"])
-  scen[/"SCENARIOS — camera × clock × world-or-studio, or no world at all<br/>src/scenario"/]
+  scen[/"SCENARIOS — camera × clock × world-or-studio"/]
 
   upstream --> providers --> store
   store --> field --> gen
@@ -121,6 +121,14 @@ flowchart TD
   scen -.->|declares| comp
   scen -.->|declares| rend
 ```
+
+| Layer | Produces | May not spell | In the tree |
+|---|---|---|---|
+| **providers** | fetched bytes — one interface, ranked, absence hands over | — | `src/data` |
+| **Ground** | the field: height · slope · class · edge distance · water · ring · declared tables | camera · frustum · frame index · clock · LOD level · device · sun · weather | `src/generators` |
+| **generator** | **one part, never an aggregate**, from `(kind, params, seed, budget)`; replies part **+ capability** | a camera · a neighbour part · a draw list · a device | `src/generators/draw`, `src/gltf` |
+| **compositor** | **one draw list, never geometry** — places, culls, quantises the budget, batches | a device · a pipeline · a texture · a shader · a pass | `src/world`, `src/generators` |
+| **renderer** | pixels, from a plan and a draw list | **any content noun** | `src/render` |
 
 **The three edges are the only edges.** A generator never calls a generator; a compositor never calls a
 renderer; a renderer never calls back. Where a part depends on another part — a road cut into a terrain
@@ -138,13 +146,40 @@ than tidy: a generated part is a render case against the oracle, a composition i
 moving camera, and the renderer answers to the Khronos criteria. **A layer that cannot be named on this
 diagram does not belong in the engine.**
 
+### A scenario's own glTF is content like any other
+
+**A file is a generator kind, never a scenario special case.** `kind = gltf-file`, and it takes a budget
+and replies with a capability like every other. The reason is the property the decomposition rests on:
+**the compositor must never learn what produced a part.** A second arrival route is a second case, and
+*no content noun has a spelling in the renderer* begins leaking one layer up the moment there are two.
+
+**A glTF is not one part, so the file generator is not exempt from *one part, never an aggregate*.**
+`Gltf::Subject` already holds a vector of parts with per-part material and vertex range. It decomposes
+where every aggregate does: **the file's node hierarchy is the rule**, and the parts it names are
+ordinary requests. *"A declared scene has no rule to derive" is false, and it is the sentence that would
+otherwise justify a private interface for this one case.*
+
+**The fifth compositor is `declared`** — same interface, same culling, same selection, placements **read
+rather than computed**. `Clients::Show` is its degenerate case: one part, one transform, already running.
+
+**The key keeps its shape and needs no exception**: `(kind, params, seed, rung)`, with **params = the
+content hash plus which primitive**, a seed nothing uses, and a rung whose range happens to be one. A URI
+is not a value — two can name one file and one can change under a run — so hashing is what keeps *the
+picture is a function of the declaration* true. **Every compositor quantises, `declared` included**:
+skipping the step would put a continuous budget in a key and fragment the store per instance the first
+time a scenario places two hundred props.
+
+**One rung is a capability statement, not a gap.** `achieved` will rarely equal `requested` and says so
+in both directions — and **no impostor** and **cannot be reduced further** are two separate declarations,
+or a later generator with rungs and no impostor reads as unreducible.
+
 ## The render pipeline
 
 Nothing is fixed. The consumer names an **output**; the compiler **pulls the plan backwards** over a
 `constexpr` catalogue and the impossible plan is largely unspellable rather than refused.
 
 ```mermaid
-flowchart LR
+flowchart TD
   tl["Transmittance · compute"] ==>|Writes| tlut[("TransmittanceLut")]
   tlut -->|Reads| ms["MultiScatter · compute"] ==>|Writes| mlut[("MultiScatterLut")]
   tlut & mlut -->|Reads| sv["SkyView · compute"] ==>|Writes| svlut[("SkyViewLut")]
@@ -152,13 +187,13 @@ flowchart LR
 
   irb -->|Reads| ae["AutoExposure · compute"] ==>|Writes| meter[("Meter")]
   svlut -->|Reads| sky["Sky · fullscreen"]
-  irb -->|Reads| geo["Terrain · Buildings · Water · Models · Subjects<br/>geometry, ONE shared LOD cut"]
+  irb -->|Reads| geo["GEOMETRY — 5 units, one shared cut"]
   sm["ShadowMap · geometry"] -.->|Contributes| atlas[("ShadowAtlas")]
   atlas -->|Reads| geo
 
   sky -.->|Contributes| hdr[("SceneHdr")]
   geo -.->|Contributes| hdr
-  hdr -->|Reads| taa["TemporalResolve · fullscreen"] ==>|Writes| lin[("SceneLinear<br/>FallsBackTo SceneHdr")]
+  hdr -->|Reads| taa["TemporalResolve · fullscreen"] ==>|Writes| lin[("SceneLinear")]
   lin & meter -->|Reads| tone["Tonemap · fullscreen"] ==>|Writes| ftex[("FrameTex")]
   ftex -->|Reads| pres["Present · fullscreen"] -.->|Contributes| surf([Surface])
 ```
@@ -170,6 +205,8 @@ flowchart LR
 | **`Reads`** | an input edge. Every read has a producer, and that is a `static_assert` too |
 | **machinery** | the stage's absence makes the picture **impossible** → the compiler pulls it from the requested output |
 | **content** | the stage's absence makes the picture **different** → the consumer declares it |
+| **the 5 geometry units** | terrain · buildings · water · models · subjects — **independently declarable, one shared LOD cut**, so a coverage case can ask for subjects alone |
+| **`FallsBackTo`** | `SceneLinear` aliases `SceneHdr` when no temporal stage was declared, so a picture plan without TAA reaches the tonemap with no blit that exists only to copy. **Every alias the compiled plan applied is published** |
 
 **Three shapes and no fourth**: **compute** (a dispatch chain over resources) · **fullscreen** (one
 triangle over a target) · **geometry** (a draw list against attachments). The stage row is a *pass*
@@ -197,14 +234,14 @@ façade and crown, and because it makes the LOD ladder an *output* rather than a
 ```mermaid
 flowchart TD
   view["compositor — view × residency × clock"]
-  err["projected error per instance, s·f/d — a continuous number"]
-  rung["quantise onto the LADDER — global, fixed for the run, the compositor's<br/>the generator still never sees a level"]
-  key["key = kind + params + seed + rung<br/>a trivially-hashable VALUE, never a string, never an allocation"]
+  err["projected error s·f/d — continuous"]
+  rung["QUANTISE onto the ladder"]
+  key["key = kind + params + seed + rung"]
   hit{"in the part store?"}
-  cap["reply — part handle + CAPABILITY<br/>achieved error, bounds, counts, impostor takeover<br/>BOTH SIGNS published: shortfall and over-delivery"]
-  floor["FLOOR rung — derived from the declaration alone, O(1)<br/>pinned, never swept, so a miss is never a hole"]
-  work["generation worker — one part, at that budget"]
-  queue[/"COMPLETION QUEUE — key, handle, capability<br/>drained at ONE declared point in the frame; eviction travels the same way"/]
+  cap["reply — handle + CAPABILITY"]
+  floor["FLOOR rung — O(1) from the declaration"]
+  work["generation worker — one part"]
+  queue[/"COMPLETION QUEUE"/]
   list["draw list — handles + transforms"]
 
   view --> err --> rung --> key --> hit
@@ -212,6 +249,14 @@ flowchart TD
   hit -->|miss, now| floor --> list
   hit -->|miss, later| work --> queue --> list
 ```
+
+| | |
+|---|---|
+| **the ladder** | **global and fixed for the run**, and the compositor's — LOD levels exist as the quantisation of a continuous budget, never as a generator's published enumeration. **The generator still never sees a level.** Two parts at one projected error must land on one rung or the cache fragments by construction |
+| **the key** | a trivially-hashable **value**: no string, no allocation on the frame path |
+| **the capability** | achieved error, bounds, counts, impostor takeover error — **both signs published**, shortfall *and* over-delivery, because a quantised rung is deliberately finer than asked and the excess is paid in vertices, fill and residency |
+| **the floor** | derived from the declaration alone, **pinned and never swept**. A cap that can evict what a miss degrades to turns a memory bound into a frame stall |
+| **the queue** | `(key, handle, capability)`, drained at **one declared point** in the frame; eviction travels the same way. A worker signals readiness — it never asks the compositor a question |
 
 **Degrade on detail, refuse on existence.** A budget looser than the generator's finest returns a coarser
 part and states it. A budget finer than the generator can reach returns its finest and **publishes the
@@ -234,12 +279,20 @@ The split is by **instrument**, not by shape, and the placement rule is one ques
 ```mermaid
 flowchart TD
   q{"what would fail this test?"}
-  q -->|"the code computed the wrong thing"| u["UNIT · test/unit<br/>MIRRORS src/ EXACTLY — the only tree that does<br/>compiles with its layer's include set, links its layer alone<br/>decided by: a stated invariant<br/>and it IS the layering proof"]
-  q -->|"our pixels disagree with the oracle"| r["RENDER · test/render<br/>a case is a DIRECTORY and the glTF is the declaration<br/>links reader + renderer + readback; needs a device<br/>decided by: every named metric within its own threshold"]
-  q -->|"the shader is wrong on a real device"| s["SHADER · test/shader<br/>shader text against its C++ twin<br/>no asset, no camera, no oracle<br/>decided by: a device"]
-  q -->|"the frame cost moved"| f["FRAME · test/frame<br/>the subject is TIME, so no sanitiser is in the path<br/>decided by: a distribution over a moving camera"]
-  q -->|"the floor broke, the run was not deterministic, memory grew"| c["SCENARIO<br/>organised by declared run, not by source file<br/>decided by: p50/p95/p99 · determinism · residency"]
+  q -->|"wrong computation"| u["UNIT · test/unit"]
+  q -->|"wrong pixels"| r["RENDER · test/render"]
+  q -->|"wrong on the device"| s["SHADER · test/shader"]
+  q -->|"cost moved"| f["FRAME · test/frame"]
+  q -->|"floor broke, run drifted"| c["SCENARIO"]
 ```
+
+| Suite | What would fail it | What it links | What decides it |
+|---|---|---|---|
+| **unit** | the code computed the wrong thing | its layer alone, with its layer's include set. **Mirrors `src/` exactly — the only tree that does, and it IS the layering proof** | a stated invariant, nothing rendered |
+| **render** | our pixels disagree with the oracle | reader + renderer + readback; needs a device. **A case is a directory and the glTF is the declaration** | every named metric within its own threshold and direction |
+| **shader** | the shader is wrong on a real device | shader text against its C++ twin. No asset, no camera, no oracle | a device |
+| **frame** | the frame cost moved | what `render` links, **with no sanitiser in the path** — a duration measured through a bounds checker is not the shipping frame | a distribution over a moving camera |
+| **scenario** | the floor broke, the run was not deterministic, memory grew | organised by declared run, not by source file | p50/p95/p99 · determinism · residency · memory |
 
 **A case that seems to fit two is testing two things and is split.** A suite that borrowed another's
 verdict shape would be reporting a number that does not decide it. The scenario suite is the one drawn
@@ -256,15 +309,15 @@ a convention, invisibly — a render case links half the library by construction
 The oracle relationship in one picture. Nothing here is committed except the recipe.
 
 ```mermaid
-flowchart LR
-  decl["a case is a DIRECTORY<br/>the glTF is the declaration; the manifest is a delta over declared defaults"]
-  fetch["FETCH — upstream, digest verified against the pin"]
-  grow["GENERATE — our own generator emits the part, so the subject is one this engine draws"]
-  patch["PATCH — a declarative list of NAMED corrections, each carrying its measurement<br/>applied identically to both sides, or it is not a patch"]
-  conv["CONVERT — blend to glTF through Blender"]
-  ora["ORACLE — Cycles, cached by a derived key covering host, subject, scene and recipe"]
-  ours["OURS — the plan the case declares, on the device"]
-  cmp["COMPARE — every pixel routed by the KIND of quantity it carries<br/>agreed coverage: perceptual tail on the declared transfer<br/>disagreed coverage: the geometric bound, 0.005 px instrument floor"]
+flowchart TD
+  decl["a case is a DIRECTORY"]
+  fetch["FETCH — digest against the pin"]
+  grow["GENERATE — our own generator"]
+  patch["PATCH — named corrections"]
+  conv["CONVERT — through Blender"]
+  ora["ORACLE — Cycles, cached"]
+  ours["OURS — on the device"]
+  cmp["COMPARE — each pixel by its KIND"]
   n1(["Khronos criteria met"])
   n2(["cases within the picture bound"])
 
@@ -275,6 +328,13 @@ flowchart LR
   cmp --> n1
   cmp --> n2
 ```
+
+| | |
+|---|---|
+| **the declaration** | the `.gltf` is the case; the manifest is a **delta over declared defaults**, so adding a case is not a writing task |
+| **patch** | a declarative list of **named** corrections, each carrying the measurement it answers — and **applied identically to both sides**, or it is a repair of one side and not a patch |
+| **oracle** | Cycles, cached by a key covering the host, the subject's bytes, the whole declared scene and the recipe. **There is no second cache** |
+| **compare** | a pixel both sides agree is covered → the **perceptual tail** on the case's declared transfer. A pixel they disagree about → the **geometric bound**, stricter, against a **0.005 px instrument floor**. The pixel is routed, never discarded |
 
 **Two counts, published side by side, and they are not interchangeable.** *Criteria met* counts features
 and does not fall when the picture bound fails. *Cases within the picture bound* counts pictures.
