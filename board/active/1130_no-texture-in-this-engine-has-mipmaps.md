@@ -163,3 +163,28 @@ Sources: [Halladay, *Minimizing Mip Map Artifacts In Atlassed
 Textures*](https://kylehalladay.com/blog/tutorial/2016/11/04/Texture-Atlassing-With-Mips.html) ·
 [*Texture atlases, wrapping and mip mapping*, 0 FPS](https://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/) ·
 [*Gutter space padding for texture atlases*](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10839590)
+
+**RETRACTED: the padding recommendation is undermined by the texture itself.**
+
+| | |
+|---|---|
+| normal map | 2048² |
+| texels that are flat `(128,128,255)` | **93.4 %** |
+| of the texels the frame samples, flat | **245 637 of 294 876 — 83 %** |
+
+**The map is almost entirely neutral.** There is abundant gutter — 3 670 976 flat unsampled texels — so
+padding would dilate flat into flat and change nothing. And a high-LOD fetch into a 93 %-neutral map
+returns approximately the **neutral normal**, which makes a surface shade **flatter**. **That cannot
+produce `ours 255 against 0`.**
+
+**So the saturation is probably not the normal map.** The base-colour texture carries this asset's cell
+labels and glyphs; averaging those toward grey against a black or white reference is exactly a 255-code
+difference. **The seam mechanism stands** — the derivative spikes are measured and real — **but which
+texture turns it into a saturated pixel is unestablished, and I assumed the one the item was about.**
+
+**What tests it, and it is cheap**: enable `max_lod` for **one slot at a time** — colour, then normal,
+then metal-rough — and see which one saturates the six tails. That is three runs and no new instrument.
+
+**This is the fourth check tonight that undermined a conclusion**, and like the last one it ran before
+anything was built on it. The recommendation above should be read as **withdrawn pending that test**, not
+as guidance.
