@@ -7,7 +7,8 @@
     "I.26",
     "I.26.1",
     "I.26.5",
-    "I.26.10"
+    "I.26.10",
+    "khronos:Triangle"
   ],
   "criterion": {
     "kind": "numeric",

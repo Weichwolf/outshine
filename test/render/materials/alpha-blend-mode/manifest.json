@@ -12,6 +12,7 @@
   ],
   "criterion": {
     "kind": "self-describing",
+    "oracleRole": "reference",
     "says": "The box on the far left uses the default alphaMode, OPAQUE. Although the texturemap supplies an alpha channel, the alpha values are intentionally ignored here. ... At the bottom there are green check marks and hidden red X's, that will show check marks only when the requested mode is correctly applied. ... The alpha value must be completely ignored, not premultiplied into the color channels. If this rule is not followed, a black box appears next to the word Opaque, and the test fails. ... Because the alpha values in the box are a smooth linear ramp, we can expect the contents to be cut off at the corresponding values, as indicated by the green triangles. Note that alpha blending should not be applied here: Each texel is either fully opaque or discarded. Depth buffering with writes enabled may be used in MASK mode.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/AlphaBlendModeTest/README.md"
   },
@@ -174,6 +175,7 @@
     },
     "material": {
       "source": "gltf-base-colour",
+      "carriedBy": "texture",
       "kind": "emission",
       "note": "THE SUBJECT OCCLUDES ITSELF -- five quads and two decals stand in front of a bed -- so the diffuse arm's closed form rho*L is unavailable: Cycles at one sample would be taking a single cosine-weighted direction per pixel and returning a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator wearing a placement's clothes (doc/requirements.md I.26.13). A ShaderNodeEmission at strength 1 gathers nothing at all, and the two-seed check is what holds that claim. THE FILE'S OWN alphaMode CROSSES WITH THE COLOUR: the importer puts glTF's coverage on the Principled BSDF's Alpha socket -- a constant 1.0 under OPAQUE, the base-colour alpha under BLEND, and 1 - (alpha < alphaCutoff) under MASK -- and that socket is moved onto a Transparent mix rather than dropped, because Cycles expresses coverage there. Dropping it renders all five columns identically opaque, which is the picture this asset exists to distinguish from four others."
     }

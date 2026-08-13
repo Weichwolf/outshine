@@ -11,6 +11,7 @@
   ],
   "criterion": {
     "kind": "self-describing",
+    "oracleRole": "reference",
     "says": "Chess set using transmission and volume. ... The geometry is separated into individual meshes (instanced where possible), meaning this version of the model could be used to create a fully interactive chess game with individually movable pieces.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/ABeautifulGame/README.md",
     "note": "doc/requirements.md I.26.13 names this subject among the ones whose oracle CANNOT be reduced -- a whole material stack with transmission and volume is not a closed form -- so this case claims nothing about the material. WHAT IT DOES CLAIM IS THE LIST: 49 parts, 15 surface slots, 934309 vertices and 1500224 triangles through one stage, with the placement scored exactly and the picture judged by eye. `KHR_materials_transmission` and `KHR_materials_volume` are used by the file and read by neither side here: the oracle's closure is replaced with an emitter and ours has no transmission, so the eight pawn tops render as their base colour on both sides rather than as glass. That is stated because it is what the picture shows."
@@ -579,6 +580,7 @@
     },
     "material": {
       "source": "gltf-base-colour",
+      "carriedBy": "texture",
       "kind": "emission",
       "note": "The file's own base-colour images and uv sets through an emitter. A chess set on a board is the clearest case there is of surfaces that see one another -- every piece shades the board and its neighbours -- so a Diffuse BSDF at one sample per pixel would score an ambient-occlusion estimator (doc/requirements.md I.26.13). The lowering follows the link into each Principled BSDF's Base Color, so the 22 normal and ORM maps are left unreached rather than picked up by position."
     }

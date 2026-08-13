@@ -11,6 +11,7 @@
   ],
   "criterion": {
     "kind": "self-describing",
+    "oracleRole": "reference",
     "says": "This model tests the `doubleSided` flag for materials, and tests `REPEAT`, `CLAMP_TO_EDGE`, and `MIRRORED_REPEAT` modes for texture samplers. When an engine loads this glTF file correctly, all of the boxes in the \"Test\" column should look very similar to the corresponding box in the \"Sample pass\" column. In other words, they should all be green checkmarks, except the two \"clamp\" tests, which should be solid green boxes. ... All of the failure conditions are a different shape from the corresponding success condition, as well as being red in color.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TextureSettingsTest/README.md",
     "note": "SELF-DESCRIBING, AND THE ASSET ITSELF FORBIDS A HUE COUNT. Khronos states that every failure is a different SHAPE from its success as well as a different colour, so that a red/green colourblind reader can compare the two columns by shape -- which means a proxy that counted green against red would be exactly the instrument the asset was designed to defeat. The verdict is the picture: eight Test cells against their eight Sample pass cells, six green checkmarks and two solid green blocks, no red anywhere."
@@ -159,6 +160,7 @@
     },
     "material": {
       "source": "gltf-base-colour",
+      "carriedBy": "texture",
       "kind": "emission",
       "note": "The file's own images, uv sets and samplers, through an emitter instead of the importer's Principled BSDF. An emitter because the test cells stand in front of the background plate and in front of each other -- the single/double-sided test IS a polygon in front of a polygon -- so a Diffuse BSDF at one sample per pixel would make every occluded pixel a Bernoulli draw on the visible sky fraction (doc/requirements.md I.26.13)."
     }

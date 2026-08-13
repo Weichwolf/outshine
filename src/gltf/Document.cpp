@@ -152,9 +152,11 @@ Filter FilterOf(int raw) { return raw == 9728 ? Filter::Nearest : Filter::Linear
 /* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. An extension is added here in the round its
  * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
  * with names nobody implemented would be the silent-acceptance defect wearing a table. */
-constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual", nullptr};
+constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
+                                                     "KHR_materials_emissive_strength", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
+constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 
 bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
@@ -675,6 +677,22 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
   const Json::Ref emissive = declaration["emissiveFactor"];
   for (size_t k = 0; k < 3 && k < emissive.Size(); ++k) {
     material.Surface.Emission[k] = static_cast<float>(emissive[k].Num(0.0));
+  }
+  /* KHR_materials_emissive_strength MULTIPLIES the factor rather than replacing it, and the product
+   * is what leaves this reader: `emissiveFactor` is capped at 1 by the core format, so the extension
+   * is the only way a glTF says "brighter than white" and a consumer that kept the two apart would
+   * have to remember to multiply them at every site that reads emission. */
+  const Json::Ref strength =
+      declaration["extensions"][kEmissiveStrength]["emissiveStrength"];
+  if (strength.Valid()) {
+    const double scale = strength.Num(1.0);
+    if (!(scale >= 0.0)) {
+      return Refuse("material " + Number(index) + " declares an emissiveStrength of " +
+                    std::to_string(scale) + ", and the extension's minimum is 0");
+    }
+    for (float &channel : material.Surface.Emission) {
+      channel = static_cast<float>(channel * scale);
+    }
   }
 
   const std::string mode = declaration["alphaMode"].Str("");

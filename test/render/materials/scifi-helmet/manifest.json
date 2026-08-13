@@ -11,6 +11,7 @@
   ],
   "criterion": {
     "kind": "self-describing",
+    "oracleRole": "reference",
     "says": "Futuristic helmet",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/SciFiHelmet/metadata.json",
     "note": "Khronos states no criterion for this asset beyond what it is, and doc/requirements.md I.26.13 names it among the subjects whose oracle CANNOT be reduced -- a whole material stack is not a closed form. So this case does not pretend to a number for the material: what it holds is that a real asset's geometry, its uv set and its base-colour image cross intact, judged on the placement exactly and on the picture by eye. The three maps we do not consume -- normal, metallic-roughness and ambient occlusion -- are fetched and NOT used, and that is stated here rather than hidden: an engine with no normal-mapped shading has nothing to do with them yet. THE SUBJECT CLASS IS DERIVED AND NOT CHOSEN: the projected area is 0.13402805161996395 of 1280x720 = 123493 px^2 over 23358 triangles counted by the magnitude of their signed area, i.e. 5.29 px^2 per triangle over both sides of a closed body and about 2.6 px^2 on the side facing the camera. More than half of this subject's triangles are therefore smaller than a pixel, which is the definition of sub-pixel-present -- a rasteriser drops the ones no sample centre hits and a path tracer finds them. MEASURED at that class: 3 of 921600 pixels disagree and the IoU is 0.99993651."
@@ -174,6 +175,7 @@
     },
     "material": {
       "source": "gltf-base-colour",
+      "carriedBy": "texture",
       "kind": "emission",
       "note": "The file's own base-colour image, its uv set and its sampler, through an emitter. AN EMITTER AND NOT A DIFFUSE BSDF because a helmet is a closed body that sees itself everywhere -- visor, fins, the inside of every recess -- so at one sample per pixel a Diffuse BSDF makes every such pixel a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator and not a material (doc/requirements.md I.26.13). WHICH IMAGE IS THE BASE COLOUR IS NOT GUESSED: the lowering follows the link into the Principled BSDF's Base Color input, so the normal, metallic-roughness and occlusion maps in the same material are left where they are and reach nothing."
     }

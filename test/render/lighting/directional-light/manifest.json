@@ -2,7 +2,7 @@
   "schema": "outshine/render-oracle-manifest",
   "schemaVersion": 1,
   "id": "render/lighting/directional-light",
-  "title": "Khronos DirectionalLight -- KHR_lights_punctual and the metal-rough BRDF, judged on the ceiling and the hue the asset states for itself",
+  "title": "Khronos DirectionalLight -- KHR_lights_punctual and the metal-rough BRDF, judged on Khronos's published appearance and on the hue the asset states for itself",
   "covers": [
     "I.26",
     "I.26.10",
@@ -13,10 +13,42 @@
     "khronos:DirectionalLight"
   ],
   "criterion": {
-    "kind": "stated-invariant",
+    "kind": "self-describing",
     "says": "The purpose of this test model is to verify that the BRDF and microfacet model used by a renderer preserves energy. ... In order to preserve energy it is important that this factor does not add light energy. ... As the lightsource has an intensity of 1 (lumen / m2) and display output can be considered to be candela / m2 it should never be the case that light contribution go above: (Color * Intensity) = [0.9, 0.8, 0.1] - in linear space. ... Lightsource color = RGB[0.9, 0.8, 0.1], Hue of the lightsource = [0.9 / 1.8, 0.8 / 1.8, 0.1 / 1.8] = [0.5, 0.444, 0.0555]. The displayed (concentrated) specuar highlight shall retain this hue.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
-    "note": "The asset states in the same paragraph that this is not an exact comparison -- 'this will of course not be an exact measure since values are read and written with different precision' -- so the criterion is the two relations and not an agreement with any reference. The oracle is rendered and scored beside them, and it decides nothing here."
+    "note": "The asset states in the same paragraph that this is not an exact comparison -- 'this will of course not be an exact measure since values are read and written with different precision' -- so the criterion was never an agreement with any reference. What decides the picture is Khronos's own published appearance of this asset, which neither our renderer nor our oracle authored; what stays numeric is the hue, computed from our render alone, and the energy half, which moved to a white-furnace integral over our own BRDF in test/unit/render/stages/TheMicrofacetLobeAddsNoEnergy.cpp -- no asset, no oracle, no punctual light. The per-pixel ceiling that used to stand here was a misreading of WHICH QUANTITY the asset bounds: glTF's own Appendix B returns f_spec * N.L = 4.857 at the roughness-0.16 sphere's centre, so a ceiling of 0.9 on outgoing radiance is a test the specification's reference implementation fails, and what an added NDF factor actually breaks is the directional albedo (doc/requirements.md I.26.12).",
+    "oracleRole": "cannot-express-the-criterion",
+    "oracleLimitation": "Cycles performs no back-face culling for camera rays. This asset's spheres are wound so that every triangle's front face is the INTERIOR and every vertex normal points inward, and no material is doubleSided -- so a conforming rasteriser culls the near shell of each sphere and shades the far one, while the path tracer stops on the near shell. The two are pictures of DIFFERENT SURFACES BEHIND ONE SILHOUETTE, which is why the coverage agrees to 0 px while the shading differs over the whole disc, worst at the rim: 130746 of 921600 pixels differ, at a widest channel delta of 91 sRGB8 and a p99 relative residual of 3.26. No threshold reconciles them, because widening one until this fits would admit any shading error at all. Ours matches Khronos's published screenshot; the reference does not.",
+    "oracleLimitationMeasured": [
+      {
+        "of": "triangles of the three spheres whose geometric normal points away from the mesh centroid, i.e. wound counter-clockwise as seen from outside",
+        "value": 0,
+        "unit": "triangles of 10600 per sphere",
+        "origin": "measured",
+        "note": "cross(v1-v0, v2-v0) against the triangle centroid minus the mesh centroid, over each of the three meshes of the pinned asset"
+      },
+      {
+        "of": "vertex normals of the three spheres pointing away from the mesh centroid",
+        "value": 0,
+        "unit": "normals of 5374 per sphere",
+        "origin": "measured",
+        "note": "the shading normals point INWARD too, so the file is consistently inside-out rather than merely mis-wound"
+      },
+      {
+        "of": "triangles whose geometric normal agrees with the average of its own three vertex normals",
+        "value": 10598,
+        "unit": "triangles of 10600 per sphere",
+        "origin": "measured",
+        "note": "geometry and shading normals agree with each other on all but two triangles per sphere, which is what makes the disagreement with the oracle a culling question and not a normals question"
+      },
+      {
+        "of": "materials of the asset declaring doubleSided",
+        "value": 0,
+        "unit": "materials of 3",
+        "origin": "measured",
+        "note": "the key is absent, so the glTF default false applies and back-face culling is what the format asks for"
+      }
+    ]
   },
   "subjectClass": "opaque-min-1px",
   "subjects": [
@@ -182,18 +214,6 @@
     }
   },
   "statedInvariants": [
-    {
-      "kind": "linear-ceiling",
-      "name": "energy_ceiling",
-      "says": "As the lightsource has an intensity of 1 (lumen / m2) and display output can be considered to be candela / m2 it should never be the case that light contribution go above: (Color * Intensity) = [0.9, 0.8, 0.1] - in linear space.",
-      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
-      "ceilingLinear": {
-        "value": [0.9, 0.8, 0.1],
-        "unit": "linear, scene-referred",
-        "origin": "derived",
-        "derivation": "the product of the file's own KHR_lights_punctual light colour [0.9, 0.8, 0.1] and its intensity 1.0, read out of the pinned asset rather than transcribed from the README's prose"
-      }
-    },
     {
       "kind": "hue-of-brightest",
       "name": "highlight_hue",

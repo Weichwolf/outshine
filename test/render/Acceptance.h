@@ -59,6 +59,20 @@ enum class SubjectClass { OpaqueAtLeastOnePixel, SubPixelPresent };
  * pass; what it produces is a measurement. */
 enum class CriterionKind { Numeric, SelfDescribing, StatedInvariant, LimitsProbe };
 
+/* WHAT THE BLENDER RENDER IS FOR ON A `self-describing` CASE, and it is asked because the answer
+ * separates the two ways a case can arrive at that kind (doc/requirements.md I.26.12).
+ *
+ * `Reference` -- Khronos publishes markers and the oracle renders them correctly, so the reference
+ * is a second opinion that happens not to be the acceptance.
+ *
+ * `CannotExpressTheCriterion` -- the case was RECLASSIFIED because the oracle draws a different
+ * surface from the one the asset describes, and then the limitation is a property of the instrument
+ * and has to be named and measured. A case reclassified without one is a case whose number was
+ * inconvenient, so the two required fields below are what make that unspellable rather than
+ * discouraged: you cannot say the oracle cannot express the criterion without saying which
+ * limitation and without a measurement carrying its own origin. */
+enum class OracleRole { Reference, CannotExpressTheCriterion };
+
 /* 0.1 px is twenty times the 0.005 px instrument floor: room for float32 and for a tessellation
  * ordering, none at all for a raster-convention error, which is the half-pixel this rung exists to
  * catch. 0.5 px for a subject with sub-pixel geometry, where a rasteriser drops a triangle no sample
@@ -188,6 +202,47 @@ struct Acceptance {
   error = "criterion.kind '" + spelling +
           "' is none of numeric, self-describing, stated-invariant, limits-probe";
   return false;
+}
+
+/* The whole of what a `self-describing` case must say about its reference, refused where it says
+ * nothing -- a silent default here would let the reclassification arrive by omission. */
+[[nodiscard]] inline bool ReadOracleRole(const Json::Ref &criterion, OracleRole &out,
+                                         std::string &error) {
+  const std::string spelling = criterion["oracleRole"].Str("");
+  if (spelling == "reference") {
+    out = OracleRole::Reference;
+    return true;
+  }
+  if (spelling != "cannot-express-the-criterion") {
+    error = "criterion.oracleRole '" + spelling +
+            "' is neither reference nor cannot-express-the-criterion, and a self-describing case "
+            "states which of the two its Blender render is";
+    return false;
+  }
+  out = OracleRole::CannotExpressTheCriterion;
+  if (criterion["oracleLimitation"].Str("").empty()) {
+    error = "criterion.oracleRole is cannot-express-the-criterion and no oracleLimitation names "
+            "what the oracle cannot do";
+    return false;
+  }
+  const Json::Ref measured = criterion["oracleLimitationMeasured"];
+  if (measured.Size() == 0) {
+    error = "criterion.oracleRole is cannot-express-the-criterion and no oracleLimitationMeasured "
+            "carries the measurement that shows it";
+    return false;
+  }
+  for (size_t entry = 0; entry < measured.Size(); ++entry) {
+    double value = 0;
+    if (!ReadDeclaredNumber(measured[entry], "criterion.oracleLimitationMeasured[]", value,
+                            error)) {
+      return false;
+    }
+    if (measured[entry]["of"].Str("").empty()) {
+      error = "criterion.oracleLimitationMeasured[] states no `of`, so the number names no subject";
+      return false;
+    }
+  }
+  return true;
 }
 
 [[nodiscard]] inline bool ReadSubjectClass(const std::string &spelling, SubjectClass &out,

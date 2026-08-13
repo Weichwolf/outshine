@@ -159,6 +159,7 @@
     },
     "material": {
       "source": "gltf-emissive",
+      "carriedBy": "texture",
       "kind": "emission",
       "note": "THE ASSET STATES ITS WHOLE PICTURE IN EMISSIVE AND [0,0,0,1] IN BASE COLOUR, so the base-colour arm would render its two spheres black and score that as agreement. This arm keeps exactly what is under test -- the emissive factor, the emissive image, its uv set and its sampler -- and rewires that socket into a ShaderNodeEmission at strength 1, which is the closure glTF's emission already is: a radiance the surface leaves, gathering nothing. A Diffuse BSDF over it would multiply the asset's own number by a world radiance the format never mentioned. The image datablock is untouched, so its sRGB decode still happens where Blender does it -- at the texel, before the interpolation -- which is the convention this asset exists to decide, and the same one our CPU-side decode to linear f32 puts in the sampler. The label plate's alphaMode MASK crosses too: the importer expresses it as 1 - (alpha < cutoff) on the Principled's Alpha socket, and that socket is moved onto a Transparent mix rather than dropped, because a dropped one renders the plate as a solid 6x3 rectangle."
     }

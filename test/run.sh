@@ -107,6 +107,7 @@ LayerIncludes() {
     unit/world) printf '%s' "-Isrc/core -Isrc/data -Isrc/world -Isrc/world/tiles" ;;
     unit/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     unit/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
+    unit/render/stages) printf '%s' "-Isrc/core -Isrc/render/stages" ;;
     unit/clients) printf '%s' "-Isrc/clients" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
@@ -168,6 +169,10 @@ LayerLink() {
 # dependency set is the shell, the compiler and the clock. A test that needs to RUN world code is
 # what pays to widen that.
 #
+# `unit/render/stages` LINKS NOTHING EITHER, and there it is a property of the subject rather than a
+# limit: a shading model is a header of pure functions, so the white furnace integrates it with no
+# object to link and no device to bring up.
+#
 # `unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
 # a glTF base-colour texture arrives through and the encode a render case's pictures leave through --
 # so a test of it that stood in for the library would be testing the stand-in. The widening is one
@@ -184,6 +189,7 @@ LayerGroups() {
     unit/world) printf '%s' "" ;;
     unit/render/plan) printf '%s' "src/core src/core/io src/render/plan" ;;
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
+    unit/render/stages) printf '%s' "" ;;
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     harness) printf '%s' "" ;;
     render) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;

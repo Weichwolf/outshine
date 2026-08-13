@@ -4,11 +4,8 @@
  * THE INSTRUMENT IS DECLARED, NOT CHOSEN HERE. Each check names its kind, carries Khronos's own
  * words and the file they came from, and states every number with an origin -- so a case cannot move
  * from one instrument to another without a quotation moving with it, and cannot acquire a threshold
- * nobody derived. The three kinds below are the whole set this runner has, and an unknown one is a
+ * nobody derived. The two kinds below are the whole set this runner has, and an unknown one is a
  * refusal naming what it may be.
- *
- * `linear-ceiling` -- no covered pixel is above a declared per-channel value. `DirectionalLight`:
- * "it should never be the case that light contribution go above (Color * Intensity)".
  *
  * `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's
  * share of the pixel's own sum equals a declared hue. `DirectionalLight` states the arithmetic
@@ -43,7 +40,7 @@
 
 namespace outshine::Render::Parity {
 
-enum class InvariantKind { LinearCeiling, HueOfBrightest, RegionCompare };
+enum class InvariantKind { HueOfBrightest, RegionCompare };
 
 /* A rectangle of the frame, in pixels, with its origin at the top-left the tap itself uses. */
 struct PixelRect {
@@ -51,7 +48,7 @@ struct PixelRect {
 };
 
 struct Invariant {
-  InvariantKind Kind = InvariantKind::LinearCeiling;
+  InvariantKind Kind = InvariantKind::HueOfBrightest;
   std::string Name;
   double Rgb[3] = {0, 0, 0};
   double Fraction = 0;      /* HueOfBrightest: the share of covered pixels judged */
@@ -70,10 +67,6 @@ struct Invariant {
 
 [[nodiscard]] inline bool ReadInvariantKind(const std::string &spelling, InvariantKind &out,
                                             std::string &error) {
-  if (spelling == "linear-ceiling") {
-    out = InvariantKind::LinearCeiling;
-    return true;
-  }
   if (spelling == "hue-of-brightest") {
     out = InvariantKind::HueOfBrightest;
     return true;
@@ -83,7 +76,7 @@ struct Invariant {
     return true;
   }
   error = "statedInvariants[].kind '" + spelling +
-          "' is none of linear-ceiling, hue-of-brightest, region-compare";
+          "' is neither hue-of-brightest nor region-compare";
   return false;
 }
 
@@ -164,12 +157,6 @@ struct Invariant {
     }
     const std::string where = "statedInvariants[" + check.Name + "]";
     switch (check.Kind) {
-      case InvariantKind::LinearCeiling:
-        if (!ReadTriple(entry["ceilingLinear"], (where + ".ceilingLinear").c_str(), check.Rgb,
-                        error)) {
-          return false;
-        }
-        break;
       case InvariantKind::HueOfBrightest:
         if (!ReadTriple(entry["hue"], (where + ".hue").c_str(), check.Rgb, error)) { return false; }
         if (!ReadDeclaredNumber(entry["brightestFraction"],
@@ -253,28 +240,6 @@ inline int64_t UlpsBetween(float a, float b) {
 inline void Evaluate(const Invariant &check, const LinearFrame &frame,
                      std::vector<Metric> &metrics) {
   switch (check.Kind) {
-    case InvariantKind::LinearCeiling: {
-      size_t above = 0;
-      double worst = 0;
-      for (int y = 0; y < frame.Height; ++y) {
-        for (int x = 0; x < frame.Width; ++x) {
-          if (!frame.Covered(x, y)) { continue; }
-          bool over = false;
-          for (int channel = 0; channel < 3; ++channel) {
-            const double value = (double)frame.At(x, y, channel);
-            const double excess = check.Rgb[channel] > 0 ? value / check.Rgb[channel] : 0.0;
-            if (excess > worst) { worst = excess; }
-            over = over || value > check.Rgb[channel];
-          }
-          above += over ? 1u : 0u;
-        }
-      }
-      metrics.push_back({check.Name + "_samples_above_ceiling", (double)above, 0.0, "px",
-                         Direction::AtMost});
-      metrics.push_back({check.Name + "_worst_fraction_of_ceiling", worst, 0.0, "dimensionless",
-                         Direction::Reported});
-      break;
-    }
     case InvariantKind::HueOfBrightest: {
       std::vector<double> sums;
       for (int y = 0; y < frame.Height; ++y) {

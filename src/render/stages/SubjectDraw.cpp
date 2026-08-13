@@ -3,6 +3,7 @@
 #include <cmath>
 #include <string>
 
+#include "MetalRoughBrdf.h"
 #include "SceneTargets.h"
 #include "SurfaceState.h"
 
@@ -216,20 +217,9 @@ static const char *kSubjectTexturedWGSL = R"(
 }
 )";
 
-/* THE LIT ARM: glTF 2.0's OWN metal-rough BRDF, evaluated against a list of lights with no area.
- *
- * IT IS THE FORMAT'S MODEL AND NOT A HOUSE ONE, term for term out of the specification's Appendix B:
- * a Trowbridge-Reitz (GGX) normal distribution, the height-correlated Smith visibility that carries
- * the `1 / (4 |N.L| |N.V|)` inside it, and a Schlick Fresnel that splits the surface between its
- * specular and its diffuse halves. The Khronos corpus states its criteria in this model, so an
- * engine that shaded a house approximation here would be measuring the approximation.
- *
- * `alpha = 0` MEANS NO SPECULAR AT ALL, and that is the physics rather than a guard against a
- * division. A perfectly smooth surface has a Dirac lobe and a light with no area is a Dirac source;
- * the probability that the two coincide at a pixel is zero, so the correct answer is zero specular
- * everywhere -- which is also what Cycles returns for a roughness-0 GGX under a delta light, so the
- * oracle can confirm it. Clamping the roughness to an invented floor instead would manufacture a
- * highlight out of a number nobody derived, and its peak would be that floor's arbitrary value.
+/* THE LIT ARM: the light list, and glTF's metal-rough BRDF evaluated against it. The model itself is
+ * in `MetalRoughBrdf.h` beside its C++ twin, spliced in ahead of this text; what is here is the loop
+ * over the lights, their shapes and their falloff.
  *
  * THE EYE IS THE ORIGIN of these coordinates: the vertex arm adds `anc`, which is the anchor minus
  * the camera, so a fragment's position IS its offset from the eye and the view vector needs no
@@ -250,9 +240,6 @@ static const char *kSubjectLitWGSL = R"(
 struct Light { tint : vec4f, place : vec4f, beam : vec4f, cone : vec4f };
 struct Lights { count : vec4f, items : array<Light, 16> };
 @group(0) @binding(4) var<uniform> lights : Lights;
-
-const kPi = 3.141592653589793;
-const kDielectricF0 = 0.04;   /* glTF's dielectric normal-incidence reflectance at its default IOR */
 
 struct LOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
               @location(1) n : vec3f, @location(2) p : vec3f };
@@ -313,19 +300,9 @@ fn shade(n : vec3f, p : vec3f, albedo : vec3f) -> vec3f {
     let nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
     let h = normalize(toward + v);
-    let nh = max(dot(n, h), 0.0);
-    let vh = max(dot(v, h), 0.0);
-    let fresnel = f0 + (vec3f(1.0) - f0) * pow(1.0 - vh, 5.0);
-    var specular = vec3f(0.0);
-    if (a2 > 0.0) {
-      let denominator = nh * nh * (a2 - 1.0) + 1.0;
-      let distribution = a2 / (kPi * denominator * denominator);
-      let visibility = 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) +
-                              nv * sqrt(nl * nl * (1.0 - a2) + a2));
-      specular = fresnel * distribution * visibility;
-    }
-    let diffuse = (vec3f(1.0) - fresnel) * diffuseColour * (1.0 / kPi);
-    sum = sum + (diffuse + specular) * nl * attenuation * light.tint.rgb;
+    let reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
+                                   max(dot(n, h), 0.0), max(dot(v, h), 0.0));
+    sum = sum + (reflected.diffuse + reflected.specular) * nl * attenuation * light.tint.rgb;
   }
   return sum + surface.emissive.rgb;
 }
@@ -401,7 +378,7 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   FiltersFloat32 = gpu.FiltersFloat32;
 
   const std::string src = std::string(kVelocityWGSL) + kSubjectWGSL + kSubjectTexturedWGSL +
-                          kSubjectLitWGSL + kSubjectLitTexturedWGSL;
+                          MetalRoughBrdfWGSL() + kSubjectLitWGSL + kSubjectLitTexturedWGSL;
   wgpu::ShaderSourceWGSL wsl{};
   wsl.code = src.c_str();
   wgpu::ShaderModuleDescriptor smd{};

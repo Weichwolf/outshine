@@ -1,0 +1,388 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/emissive-strength",
+  "title": "Khronos EmissiveStrengthTest -- KHR_materials_emissive_strength, and the criterion is the exact doubling between neighbouring cubes",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "I.27",
+    "khronos:EmissiveStrengthTest"
+  ],
+  "criterion": {
+    "kind": "stated-invariant",
+    "says": "This model tests if the `KHR_materials_emissive_strength` extension is available in a given implementation.  If it is not, the cubes will all emit the same shade of light blue.  For implementations that support this extension, the cubes will be progressively brighter to the right. ... The basic emissive color of all the cubes is `[0.1, 0.5, 0.9]` in the glTF file ... The cube on the far left has no emissive strength extension (`1x`), and each subsequent cube doubles the strength (`2x`, `4x`, `8x`, and `16x`). ... If a given implementation does not support `KHR_materials_emissive_strength`, the boxes will all appear to emit the same color.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/README.md",
+    "note": "The asset states a RELATION between its own cubes -- each doubles the one to its left -- and says in the same breath that the absolute appearance is a matter of the viewer's output mapping: 'With a simple output mapping, the cube on the far right may appear as plain white, due to all of its color components being clamped to the 1.0 upper limit.' So the criterion is the ratio on the scene-referred linear tap, measured before any clipping, and never an agreement with a reference."
+  },
+  "subjectClass": "opaque-min-1px",
+  "subjects": [
+    {
+      "id": "emissive-strength",
+      "kind": "gltf",
+      "name": "EmissiveStrengthTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "notes": "Five unit cubes at x = -6, -3, 0, 3 and 6 metres, all with emissiveFactor [0.1, 0.5, 0.9] and a base colour of pure black, carrying emissiveStrength 1, 2, 4, 8 and 16; plus a MeterGrid backdrop whose material is a base-colour texture with no emission at all, which is therefore black in this recipe and is read by no invariant.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "EmissiveStrengthTest",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/glTF/EmissiveStrengthTest.gltf",
+          "sha256": "84264f4300d2618aa2be39e90448f1716df8f1946d0d172476773bc9a4a99f65",
+          "bytes": 12458,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "AGI",
+            "year": "2022",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/glTF/EmissiveStrengthTest.bin",
+          "sha256": "54ba759d776228b52a256bb7b739581ad3081ac77677ee905b4920e869ceccf5",
+          "bytes": 5308,
+          "as": "EmissiveStrengthTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "AGI",
+            "year": "2022",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/glTF/PlainGrid.png",
+          "sha256": "c67b0411f4f8d2c940c7e4583ce6c7607cc6c45779c88c3c16f2d2892fb9c411",
+          "bytes": 618,
+          "as": "PlainGrid.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "AGI",
+            "year": "2022",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/metadata.json",
+          "sha256": "6128c2c6270be90f86f788045db3cdf01381f73177ef7980d0482e10bd03f6d9",
+          "bytes": 767,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "AGI",
+            "year": "2022",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "projection": "orthographic",
+      "positionM": [
+        0.0,
+        0.0,
+        10.0
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yMagM": 5.625,
+      "clipStartM": 4.0,
+      "clipEndM": 16.0,
+      "derivation": "A PARALLEL PROJECTION, FOR THE SAME REASON PointLightIntensityTest DECLARES ONE: the criterion compares one cube's face with another's 3 m away in the same picture, and under a perspective projection two bodies at different x project to different sizes so no pixel of one corresponds to a pixel of the other. The vertical half-extent 5.625 m over 720 rows is exactly 64 px per metre, which puts the 3 m spacing at exactly 192 px and a unit cube's face at exactly 64 px; the horizontal half-extent the aspect derives is 640 / 64 = 10 m, which holds the outermost cube centres at x = 640 +/- 384 px with 224 px to spare. The eye sits 10 m along +Z, looking down -Z with no roll, so every cube is seen square-on and only its front face is drawn. The clip range 4..16 m clears the cubes at 9.5..10.5 m and the backdrop at 8..12 m.",
+      "note": "The file carries no camera at all, so one is declared here. The aim is the origin, which is the middle cube's own centre, and the framing is symmetric -- nothing about the viewpoint was chosen to place a value."
+    },
+    "light": {
+      "kind": "none",
+      "note": "An emissive surface gathers nothing, so the scene has no light and needs none. The asset's criterion is a ratio between two emissive surfaces and is invariant to any illumination that reached both equally; removing the illumination removes the estimator instead."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. The factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value. With the world at zero and no light in the scene, the only sources left are the emitters themselves, the estimator has nothing to integrate, and the two seeds must agree bit for bit."
+    },
+    "material": {
+      "source": "gltf-emissive",
+      "carriedBy": "factor",
+      "kind": "emission",
+      "note": "THE FILE'S OWN EMISSIVE CHANNEL IS THE WHOLE SUBJECT. glTF's emission is a radiance the surface leaves rather than a reflectance a world multiplies into, so there is no closure to choose and no world radiance to fold in; the base colour of every cube is pure black in the file, so nothing is discarded by reading emission alone. The backdrop declares no emission and is therefore black, which is what the recipe should show."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum: an emitter gathers nothing, so there is no integral left and Cycles evaluates the same predicate a centre-sampling rasteriser does."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed. An emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "statedInvariants": [
+    {
+      "kind": "region-compare",
+      "name": "emissive_2x_is_twice_1x",
+      "says": "each subsequent cube doubles the strength (`2x`, `4x`, `8x`, and `16x`)",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/README.md",
+      "fromPx": {
+        "value": [
+          428,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The 2x cube's own front face, inset 12 px on every side. At 64 px per metre a unit cube's face spans 64 px centred on x = 448, so a 40 px square at (428, 340) lies strictly inside it and never touches the silhouette."
+      },
+      "toPx": {
+        "value": [
+          236,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the 1x cube, which sits 3 m to the left: 3 * 64 = 192 px exactly, so 428 - 192 = 236 and the row is unchanged."
+      },
+      "scale": {
+        "value": 2.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "the asset's own doubling: emissiveStrength 2 over emissiveStrength 1, both multiplying one emissiveFactor of [0.1, 0.5, 0.9]"
+      },
+      "maxUlps": {
+        "value": 0,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "EXACTLY ZERO, and that is derivable rather than hopeful: the two sides are one emissiveFactor scaled by two powers of two, and multiplying a binary float by 2 changes only its exponent. Every step from the file to the tap -- the double the JSON parses to, the product with the strength, the cast to f32, the flat interpolation of a per-part constant and the store into the linear target -- is exact under a factor of 2, so any difference at all names a stage that is not passing the value through."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "emissive_4x_is_twice_2x",
+      "says": "each subsequent cube doubles the strength (`2x`, `4x`, `8x`, and `16x`)",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/README.md",
+      "fromPx": {
+        "value": [
+          620,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The 4x cube's own front face, inset 12 px on every side. At 64 px per metre a unit cube's face spans 64 px centred on x = 640, so a 40 px square at (620, 340) lies strictly inside it and never touches the silhouette."
+      },
+      "toPx": {
+        "value": [
+          428,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the 2x cube, which sits 3 m to the left: 3 * 64 = 192 px exactly, so 620 - 192 = 428 and the row is unchanged."
+      },
+      "scale": {
+        "value": 2.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "the asset's own doubling: emissiveStrength 4 over emissiveStrength 2, both multiplying one emissiveFactor of [0.1, 0.5, 0.9]"
+      },
+      "maxUlps": {
+        "value": 0,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "EXACTLY ZERO, and that is derivable rather than hopeful: the two sides are one emissiveFactor scaled by two powers of two, and multiplying a binary float by 2 changes only its exponent. Every step from the file to the tap -- the double the JSON parses to, the product with the strength, the cast to f32, the flat interpolation of a per-part constant and the store into the linear target -- is exact under a factor of 2, so any difference at all names a stage that is not passing the value through."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "emissive_8x_is_twice_4x",
+      "says": "each subsequent cube doubles the strength (`2x`, `4x`, `8x`, and `16x`)",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/README.md",
+      "fromPx": {
+        "value": [
+          812,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The 8x cube's own front face, inset 12 px on every side. At 64 px per metre a unit cube's face spans 64 px centred on x = 832, so a 40 px square at (812, 340) lies strictly inside it and never touches the silhouette."
+      },
+      "toPx": {
+        "value": [
+          620,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the 4x cube, which sits 3 m to the left: 3 * 64 = 192 px exactly, so 812 - 192 = 620 and the row is unchanged."
+      },
+      "scale": {
+        "value": 2.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "the asset's own doubling: emissiveStrength 8 over emissiveStrength 4, both multiplying one emissiveFactor of [0.1, 0.5, 0.9]"
+      },
+      "maxUlps": {
+        "value": 0,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "EXACTLY ZERO, and that is derivable rather than hopeful: the two sides are one emissiveFactor scaled by two powers of two, and multiplying a binary float by 2 changes only its exponent. Every step from the file to the tap -- the double the JSON parses to, the product with the strength, the cast to f32, the flat interpolation of a per-part constant and the store into the linear target -- is exact under a factor of 2, so any difference at all names a stage that is not passing the value through."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "emissive_16x_is_twice_8x",
+      "says": "each subsequent cube doubles the strength (`2x`, `4x`, `8x`, and `16x`)",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/EmissiveStrengthTest/README.md",
+      "fromPx": {
+        "value": [
+          1004,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The 16x cube's own front face, inset 12 px on every side. At 64 px per metre a unit cube's face spans 64 px centred on x = 1024, so a 40 px square at (1004, 340) lies strictly inside it and never touches the silhouette."
+      },
+      "toPx": {
+        "value": [
+          812,
+          340,
+          40,
+          40
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the 8x cube, which sits 3 m to the left: 3 * 64 = 192 px exactly, so 1004 - 192 = 812 and the row is unchanged."
+      },
+      "scale": {
+        "value": 2.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "the asset's own doubling: emissiveStrength 16 over emissiveStrength 8, both multiplying one emissiveFactor of [0.1, 0.5, 0.9]"
+      },
+      "maxUlps": {
+        "value": 0,
+        "unit": "f32 ulps",
+        "origin": "derived",
+        "derivation": "EXACTLY ZERO, and that is derivable rather than hopeful: the two sides are one emissiveFactor scaled by two powers of two, and multiplying a binary float by 2 changes only its exponent. Every step from the file to the tap -- the double the JSON parses to, the product with the strength, the cast to f32, the flat interpolation of a per-part constant and the store into the linear target -- is exact under a factor of 2, so any difference at all names a stage that is not passing the value through."
+      }
+    }
+  ],
+  "notes": "The first case in the tree whose subject needs a per-material `extensions` object read at all. KHR_materials_emissive_strength multiplies emissiveFactor, and the product is what leaves the reader (src/gltf/Document.cpp), so no consumer has to remember to multiply the two.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.787362184,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared orthographic camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
+    }
+  }
+}

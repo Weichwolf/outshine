@@ -91,6 +91,15 @@ struct SurfaceTable {
  * that could only read base colour would render its two spheres black and score that. */
 enum class FileColour { Declared, BaseColour, Emissive, Row };
 
+/* WHERE THE NAMED SOCKET'S VALUE COMES FROM IN THAT FILE, and the case says which because the two
+ * are different subjects. `Texture` is the arm the socket arms were built for -- the picture IS the
+ * image, and a case that declared it and found no image would be scoring a flat factor while
+ * claiming to score a texture. `Factor` is the arm `EmissiveStrengthTest` needs: five cubes whose
+ * whole appearance is `emissiveFactor` times `KHR_materials_emissive_strength`, with no image
+ * anywhere in the file. Neither is a default, so the mismatch in either direction is a refusal
+ * naming the file rather than a picture nobody looks at. */
+enum class FileColourCarrier { Texture, Factor };
+
 /* WHETHER THE FILE'S OWN LIGHTS CROSS THE glTF BOUNDARY, and it is a per-case declaration because
  * the answer is not the same for every case (doc/requirements.md I.26.12). For OUR OWN generated
  * fixtures the light is declared beside the asset, so that a rung measures the light we meant; for
@@ -130,6 +139,7 @@ struct Case {
   Viewport Frame;
   Acceptance Accepted;
   CriterionKind Criterion = CriterionKind::Numeric;
+  OracleRole Oracle = OracleRole::Reference;
   std::string CameraSource;
   /* Scene-referred linear radiance per subject part, derived from the case's own material
    * declaration and from nothing else. */
@@ -139,6 +149,7 @@ struct Case {
    * manifest states it. The decoded images are held in `Surfaces` because the renderer copies them
    * and the studio only points at them. */
   FileColour Colour = FileColour::Declared;
+  FileColourCarrier Carrier = FileColourCarrier::Texture;
   bool MaterialFromFile() const { return Colour != FileColour::Declared; }
   /* THE ARM WHERE NO PER-PART RADIANCE IS THE ANSWER AT ALL: the surface's colour is the BRDF
    * evaluated against the light list, so the declared radiance is zero everywhere and the residual
@@ -219,6 +230,22 @@ bool KnownFileClosure(FileColour colour, const std::string &kind) {
   }
   error = "scene.material.source is '" + declared.Str("") +
           "', and this runner reads 'manifest', 'gltf', 'gltf-base-colour' and 'gltf-emissive'";
+  return false;
+}
+
+[[nodiscard]] bool ReadFileColourCarrier(const Json::Ref &declared, FileColourCarrier &out,
+                                         std::string &error) {
+  if (declared.StrEquals("texture")) {
+    out = FileColourCarrier::Texture;
+    return true;
+  }
+  if (declared.StrEquals("factor")) {
+    out = FileColourCarrier::Factor;
+    return true;
+  }
+  error = "scene.material.carriedBy is '" + declared.Str("") +
+          "', and a case that hands one glTF socket the whole appearance states whether that "
+          "socket's value is a texture or a factor";
   return false;
 }
 
@@ -343,18 +370,30 @@ public:
             "asset's";
     return false;
   }
-  /* THE STATED INVARIANTS BELONG TO EXACTLY ONE KIND OF CRITERION, in both directions: a case of
-   * another kind that declared them would be scoring something its criterion does not claim, and a
-   * `stated-invariant` case without them would have no acceptance at all. */
+  /* WHICH KINDS OF CRITERION MAY CARRY STATED INVARIANTS, and it is not one kind but two. A
+   * `stated-invariant` case MUST declare them, because they are its whole acceptance. A
+   * `self-describing` case MAY, because reclassifying the PICTURE releases nothing that is
+   * computable from our own render alone -- `DirectionalLight` keeps its hue check when its
+   * reference stops deciding (doc/requirements.md I.26.12). A `numeric` or `limits-probe` case may
+   * not: the first is scored on the image and the second has no pass at all, so an invariant there
+   * would be an acceptance its criterion does not claim. */
   const bool statesInvariants = root["statedInvariants"].Size() > 0;
-  if (statesInvariants != (subject.Criterion == CriterionKind::StatedInvariant)) {
-    error = statesInvariants
-                ? "the manifest declares statedInvariants and its criterion.kind is not "
-                  "stated-invariant"
-                : "criterion.kind is stated-invariant and the manifest declares no statedInvariants";
+  const bool mayStateInvariants = subject.Criterion == CriterionKind::StatedInvariant ||
+                                  subject.Criterion == CriterionKind::SelfDescribing;
+  if (statesInvariants && !mayStateInvariants) {
+    error = "the manifest declares statedInvariants and its criterion.kind is neither "
+            "stated-invariant nor self-describing";
+    return false;
+  }
+  if (!statesInvariants && subject.Criterion == CriterionKind::StatedInvariant) {
+    error = "criterion.kind is stated-invariant and the manifest declares no statedInvariants";
     return false;
   }
   if (statesInvariants && !ReadInvariants(root["statedInvariants"], subject.Invariants, error)) {
+    return false;
+  }
+  if (subject.Criterion == CriterionKind::SelfDescribing &&
+      !ReadOracleRole(root["criterion"], subject.Oracle, error)) {
     return false;
   }
   subject.Accepted.BoundaryP95MaxPx = DefaultBoundaryP95Px(subject.Accepted.Subject);
@@ -367,6 +406,10 @@ public:
   const Json::Ref material = root["scene"]["material"];
   if (!ReadFileColour(material["source"], subject.Colour, error)) { return false; }
   subject.MaterialKind = material["kind"].Str("");
+  if ((subject.Colour == FileColour::BaseColour || subject.Colour == FileColour::Emissive) &&
+      !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
+    return false;
+  }
   if (subject.MaterialFromFile() && !KnownFileClosure(subject.Colour, subject.MaterialKind)) {
     error = "scene.material.source is '" + material["source"].Str("") + "' and its kind is '" +
             subject.MaterialKind + "', which is not a closure that source has";
@@ -501,7 +544,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
  * name. The missing capability is a second image binding, and this refusal is what states it.
  */
 [[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
-                                      FileColour channel, SurfaceTable &table, std::string &error) {
+                                      FileColour channel, FileColourCarrier carrier,
+                                      SurfaceTable &table, std::string &error) {
   table.Decoded.assign(table.Slots.size(), outshine::Clients::Raster{});
   const char *socket = channel == FileColour::Emissive ? "emissiveTexture" : "baseColorTexture";
   size_t textured = 0;
@@ -553,13 +597,19 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     }
     ++textured;
   }
-  /* A TEXTURE IS OWED ONLY WHERE THE PICTURE IS ONE. Under `gltf-base-colour` and `gltf-emissive`
-   * the whole appearance is the named socket, so a case that found none would be scoring a flat
-   * factor; under `gltf` the row is the appearance and a material with no image is an ordinary
-   * material. `DirectionalLight` declares three of them. */
-  if (textured == 0 && channel != FileColour::Row) {
-    error = std::string("the manifest hands the surface to the file and no material of it declares "
-                        "a ") + socket;
+  /* A TEXTURE IS OWED WHERE THE CASE SAYS THE PICTURE IS ONE, in both directions. Under `gltf` the
+   * row is the appearance and a material with no image is an ordinary material, so nothing is owed;
+   * under the two socket arms the case has declared which of the two it reads, and a file that
+   * disagrees with its own case's declaration is what stops here. */
+  if (channel != FileColour::Row && carrier == FileColourCarrier::Texture && textured == 0) {
+    error = std::string("the manifest hands the surface to the file's ") + socket +
+            " and no material of it declares one";
+    return false;
+  }
+  if (carrier == FileColourCarrier::Factor && textured > 0) {
+    error = std::string("the manifest says the appearance is the ") + socket +
+            " FACTOR and " + std::to_string(textured) + " material(s) of the file declare an image "
+            "on that socket, which this case would then be sampling instead";
     return false;
   }
   if (textured > 0 && !geometry.HasUv()) {
@@ -722,7 +772,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   }
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.Surfaces);
   if (subject.MaterialFromFile() &&
-      !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Surfaces,
+      !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
+                          subject.Surfaces,
                           error)) {
     return false;
   }
@@ -929,6 +980,13 @@ int main(int argc, char **argv) {
               subject.Manifest.Root()["criterion"]["kind"].Str("").c_str(),
               subject.Manifest.Root()["criterion"]["says"].Str("").c_str(),
               subject.Manifest.Root()["criterion"]["statedAt"].Str("").c_str());
+  /* The reference is still rendered and still lands in the directory; this is the line that says it
+   * decides nothing here, so the disagreement stays visible until Blender gains what it lacks
+   * (doc/requirements.md I.26.12, condition three). */
+  if (subject.Oracle == OracleRole::CannotExpressTheCriterion) {
+    std::printf("ORACLE NOT-DECIDING -- %s\n",
+                subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
+  }
 
   /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
    * and finding it out after a device bring-up would report a rendering failure for a missing file. */
@@ -1144,7 +1202,8 @@ int main(int argc, char **argv) {
       SurfaceTable surfaces;
       ResolveSurfaceTable(alternate, spelling, surfaces);
       built = (!subject.MaterialFromFile() ||
-               ResolveFileSurface(alternate, spelling, subject.Colour, surfaces, trouble)) &&
+               ResolveFileSurface(alternate, spelling, subject.Colour, subject.Carrier, surfaces,
+                                  trouble)) &&
               ResolveEmission(subject, alternate, spelling, other.EmittedRadiance, trouble);
       other.PartSurface = surfaces.PartSlot;
       other.Surfaces = surfaces.Slots;
@@ -1191,10 +1250,9 @@ int main(int argc, char **argv) {
     CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
     for (const Invariant &check : subject.Invariants) {
       if (!tap.Holds()) { break; }
-      std::printf("INVARIANT %s -- %s\n", check.Name.c_str(), check.Kind == InvariantKind::LinearCeiling
-                      ? "linear-ceiling"
-                      : (check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest"
-                                                                     : "region-compare"));
+      std::printf("INVARIANT %s -- %s\n", check.Name.c_str(),
+                  check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest"
+                                                              : "region-compare");
       Evaluate(check, tap, metrics);
     }
   }

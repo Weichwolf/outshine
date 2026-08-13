@@ -482,17 +482,22 @@ def lower_to_file_colour(imported, kind, socket_name, source_name):
             fail("material %r is shaded by a %s, which has no %s to keep"
                  % (material.name, closure.type, socket_name))
         base = closure.inputs[socket_name]
-        # An emissive colour is scaled by a strength the closure below replaces with 1.0, so a file
-        # that declared another one would silently lose it (`KHR_materials_emissive_strength`).
+        # `KHR_materials_emissive_strength` ARRIVES ON THE CLOSURE AND IS CARRIED, NOT DROPPED. The
+        # importer multiplies nothing: it puts the extension's factor on `Emission Strength` and
+        # leaves `Emission Color` at `emissiveFactor`, so the lowered node has to take both or the
+        # radiance is off by the factor the asset exists to test. A LINKED strength is still a
+        # refusal, because a socket driven by a node is not a scalar this can carry over.
         strength = closure.inputs.get("Emission Strength")
-        if socket_name == "Emission Color" and (strength.is_linked or
-                                                strength.default_value != 1.0):
-            fail("material %r carries an emission strength of %r, and this arm emits the colour at "
-                 "strength 1 -- a factor dropped here is a radiance nothing can attribute"
-                 % (material.name, "linked" if strength.is_linked else strength.default_value))
+        emitted = 1.0
+        if socket_name == "Emission Color":
+            if strength.is_linked:
+                fail("material %r drives its emission strength from a node, and this arm emits at a "
+                     "scalar strength -- a factor dropped here is a radiance nothing can attribute"
+                     % material.name)
+            emitted = float(strength.default_value)
         if kind == "emission":
             shader = tree.nodes.new("ShaderNodeEmission")
-            shader.inputs["Strength"].default_value = 1.0
+            shader.inputs["Strength"].default_value = emitted
         else:
             shader = tree.nodes.new("ShaderNodeBsdfDiffuse")
             shader.inputs["Roughness"].default_value = 0.0
@@ -510,6 +515,7 @@ def lower_to_file_colour(imported, kind, socket_name, source_name):
         tree.links.new((culled or covered).outputs[0], output.inputs["Surface"])
         tree.nodes.remove(closure)
         rewired.append({"material": material.name, "colourFrom": kept, "colourSocket": socket_name,
+                        "emissionStrength": emitted,
                         "coverageFrom": coverage, "decodedBeforeFiltering": swapped,
                         "backFaceCulled": material.use_backface_culling,
                         "images": images_feeding(shader.inputs["Color"])})
@@ -608,6 +614,17 @@ def keep_file_materials(imported):
     0 at transparent max bounces 0, 1, 2, 4, 8, 16 and 64, while a PURE Transparent BSDF on the same
     sphere shows the plane through it from 4 upwards. So the ray is stopped by the mix and the
     surface the cull should reveal is never shaded -- which is a hole in the oracle, not a threshold.
+
+    THAT READING DOES NOT ISOLATE THE TECHNIQUE AND THE OPEN FIXTURE THAT DOES HAS NOW RUN. On a
+    closed body 0 is equally the prediction of the trick WORKING on the near back face and the far
+    hemisphere being opaque, so the decisive subject is one with no far face: a single quad with its
+    back face to the camera and an emissive plane of (0.25, 0.5, 0.75) behind it. Measured at 5.2.0,
+    64x64, 1 spp, box filter 0.01, black world, at transparent max bounces 0, 1, 2, 4, 8 and 64, the
+    centre pixel reads -- mix: (0.25, 0.5, 0.75) at every one · pure Transparent BSDF: (0.25, 0.5,
+    0.75) at every one · no mix at all: (1, 0, 0), the quad's own emission, which is the third arm
+    confirming Cycles shades a back face for a camera ray. THE TECHNIQUE HOLDS ON AN OPEN SURFACE,
+    identically to a pure Transparent BSDF and already at zero transparent bounces. What defeats it
+    is the closed body and nothing else, so the scope written on this rule is the correct one.
 
     It bites on `DirectionalLight`, whose three spheres are wound clockwise as seen from outside
     (0 of 10600 triangles have a counter-clockwise outward normal) with vertex normals to match and
