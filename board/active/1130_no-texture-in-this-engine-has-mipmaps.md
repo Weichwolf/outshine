@@ -64,3 +64,32 @@ against a black reference when the chain becomes reachable, on an OPAQUE materia
 seam** are the obvious suspect — a discontinuity makes the hardware's LOD jump to the smallest level, and
 the 1×1 level is the whole texture's average — **but that is a hypothesis and this item has already
 spent two of those.** The instrument is to dump the selected LOD per pixel and look at where it is large.
+
+**The mechanism, measured rather than hypothesised — and the instrument was the `uv` channel, not a
+shader.** LOD is a property of the uv gradient and the texture size, both already on disk, so the
+selected level is arithmetic. Over `normal-tangent`'s 294 876 covered pixels against its 2048-square map:
+
+| selected LOD | pixels |
+|---|---|
+| ≈ **1.25** (ordinary minification, ~2.4 texels) | 288 807 |
+| **> 8** | **6 069** |
+| > 11 — the top of a 2048 chain | 1 149 |
+
+**The distribution is bimodal and there is nothing in between.** 2 % of covered pixels select the
+smallest levels, where the 1×1 level is *the whole texture averaged to one texel*. That is a **UV
+discontinuity**: across a seam the finite difference is the width of the island, so ρ explodes and the
+selection saturates.
+
+**So the chain is not what is wrong.** LOD selection at a discontinuity is, and it was invisible while
+`max_lod = 0` clamped every fetch to level 0 — **the clamp was hiding a second defect, which is why
+removing it made six tails saturate.**
+
+**Domain, because it is narrower than the headline**: the derivative here is a per-pixel finite
+difference over **Cycles'** uv, not the GPU's per-quad derivative of ours. It is a proxy — but a split of
+288 807 against 6 069 with nothing between is too stark to be an artefact of the proxy.
+
+**What this makes the repair**: the chain needs LOD that survives a seam. The established answers are
+padding the UV islands in the asset, or clamping the selection — and **which one applies is a ladder
+question**, since padding is *patch the asset* and clamping is *fix the engine*. **Neither is chosen
+here**, because this item has already spent two hypotheses and the next round should choose with the
+references rather than with the first idea that fits.
