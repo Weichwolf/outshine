@@ -41,3 +41,26 @@ eighteen catalogue rows** — the capability is present on the device and nothin
 the chain landed: `normal-tangent` 229.330177, `normal-tangent-mirror` 184.356962, `water-bottle`
 149.26747, `boom-box` 166.694927. `outshine.raw` was re-rendered and came out the same. A picture that
 *changed by design* does not reproduce to six decimals.
+
+**And setting the range was measured and reverted, which is the finding this round produces.**
+`min_lod = 0`, `max_lod = levels − 1` makes the chain reachable — and the picture gets **worse**:
+
+| case | chain unreachable | chain reachable |
+|---|---|---|
+| `normal-tangent` | 229.330177 | **255** (saturated) |
+| `normal-tangent-mirror` | 184.356962 | **255** |
+| cases at a saturated tail | — | **6** |
+
+`ours 255 against 0` at a single pixel, and **both materials are `OPAQUE`**, so it is not an alpha
+cutout. PASS/FAIL counts did not move — 111/48 either way — so **nothing crossed a status while six
+tails saturated**, which is the picture getting worse inside the same verdicts.
+
+**Reverted, and the revert is confirmed to restore both tails byte-for-byte.** A worse picture with no
+mechanism is not shipped. `max_lod` stays at zero **with the reason at the site**, so the sampler says
+what it is rather than reading as a working chain.
+
+**What the next round must explain before setting it again**: what makes a single pixel go fully bright
+against a black reference when the chain becomes reachable, on an OPAQUE material. **UV derivatives at a
+seam** are the obvious suspect — a discontinuity makes the hardware's LOD jump to the smallest level, and
+the 1×1 level is the whole texture's average — **but that is a hypothesis and this item has already
+spent two of those.** The instrument is to dump the selected LOD per pixel and look at where it is large.

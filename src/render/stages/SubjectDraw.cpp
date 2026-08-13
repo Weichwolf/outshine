@@ -938,6 +938,13 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   /* LINEAR BETWEEN LEVELS AS WELL AS WITHIN ONE: nearest would step between levels and the step is
    * visible as a band moving with the camera. */
   wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+  /* THE RANGE THE SELECTION MAY REACH IS DELIBERATELY LEFT AT ZERO FOR NOW (board:1130). `max_lod` is
+   * zero-initialised, so this sampler is CLAMPED TO LEVEL 0 and the chain built above is never read --
+   * which is a defect, and it is not the one being shipped. Setting it to `levels - 1` was measured and
+   * REVERTED: six cases went to a saturated 255-code tail, `normal-tangent` from 229.330177 and
+   * `normal-tangent-mirror` from 184.356962, with `ours 255 against 0` at a single pixel and both
+   * materials OPAQUE, so it is not an alpha cutout. A worse picture with no mechanism is not shipped;
+   * the item carries the measurement. */
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }
