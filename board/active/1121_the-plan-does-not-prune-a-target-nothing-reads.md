@@ -1,6 +1,7 @@
 Type: bug
 Area: render
 Tags: perf, instrument
+Depends: 1123
 
 **The plan does not prune a contribution whose target nothing reads**
 
