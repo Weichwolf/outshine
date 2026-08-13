@@ -134,6 +134,9 @@ class _Subject:
         self.entry = field["entry"]
         self.attributes = field.get("attributes", [])
         self.notes = field.get("notes", "")
+        # A DECLARED CORRECTION ON TOP OF THE VERIFIED UPSTREAM BYTES, or None. The pin above is
+        # untouched by it, which is the whole shape: the fetch still checks upstream's digest.
+        self.patch = field.get("patch")
         self.conversion = _Conversion(where, field["conversion"]) if "conversion" in field else None
         for position, file in enumerate(self.files):
             spelling = "%s.files[%d]" % (where, position)

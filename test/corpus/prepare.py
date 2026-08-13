@@ -16,7 +16,8 @@ from prep.store import ContentStore  # noqa: E402
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("job", choices=("fetch", "generate", "convert", "render", "all", "dry-run"))
+    parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
+                                        "dry-run"))
     parser.add_argument("--manifest", required=True)
     parser.add_argument("--dest", default=None, help="default: the manifest's own directory")
     parser.add_argument("--store", default=None, help="default: the library's content store")
@@ -43,6 +44,13 @@ def main(argv):
     needs_generation = any(subject.kind == "generated" for subject in declared.subjects)
     if arguments.job == "generate" or (arguments.job == "all" and needs_generation):
         report["generate"] = jobs.generate_subjects(declared, destination)
+
+    # BETWEEN THE FETCH AND EVERYTHING THAT READS THE FILES. The fetch verifies upstream's digest and
+    # restores the pristine bytes; the patch is stated on top of them, so the order is what keeps the
+    # pin exact and the correction reproducible.
+    needs_patching = any(subject.patch for subject in declared.subjects)
+    if arguments.job == "patch" or (arguments.job == "all" and needs_patching):
+        report["patch"] = jobs.patch_subjects(declared, destination)
 
     blender = None
     if arguments.job in ("convert", "render", "all"):

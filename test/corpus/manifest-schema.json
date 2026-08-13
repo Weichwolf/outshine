@@ -87,6 +87,11 @@
           "array": {
             "object": "stated-invariant"
           }
+        },
+        "depthProbes": {
+          "array": {
+            "object": "depth-probe"
+          }
         }
       },
       "note": "THE ONLY TRACKED FILE IN A CASE DIRECTORY (doc/requirements.md I.26.10): the scene, the recipe and the acceptance in one declaration."
@@ -175,7 +180,7 @@
             "oracleLimitation": "text",
             "oracleLimitationMeasured": {
               "array": {
-                "object": "oracle-limitation-measurement"
+                "object": "measurement"
               }
             }
           },
@@ -184,7 +189,7 @@
       },
       "note": "THREE KINDS OF CRITERION AND THE KIND DECIDES THE INSTRUMENT (doc/requirements.md I.26.12). `numeric` -- the asset states a value or a relation and the acceptance is that number on the linear tap. `self-describing` -- the asset renders checkmarks, arrows or markers whose correctness is readable FROM THE PICTURE. `stated-invariant` -- the asset states a relation between two parts of its own render. `limits-probe` -- the asset states it is not expected to render correctly everywhere and has no pass at all."
     },
-    "oracle-limitation-measurement": {
+    "measurement": {
       "required": {
         "of": "text",
         "value": "number",
@@ -223,7 +228,10 @@
             "attributes": {
               "array": "text"
             },
-            "notes": "string"
+            "notes": "string",
+            "patch": {
+              "object": "subject-patch"
+            }
           }
         },
         "blend": {
@@ -272,6 +280,79 @@
           }
         }
       }
+    },
+    "depth-probe": {
+      "required": {
+        "name": "text",
+        "atPx": {
+          "array": "index"
+        },
+        "rangeM": {
+          "quantity": "number"
+        },
+        "toleranceM": {
+          "quantity": "number"
+        },
+        "says": "text"
+      },
+      "note": "WHICH SURFACE THE PICTURE IS OF, in metres along the view ray at one named pixel. Silhouette, coverage and hue are all invariant under swapping the near shell of a closed body for its far one with the normals reversed -- three criteria simultaneously blind, each individually correct (doc/requirements.md I.26). Depth is not invariant under it, it costs one assertion, and `Renderer::ReadDepth` already provides it. `atPx` is column then row from the TOP-left, the raster's own origin."
+    },
+    "subject-patch": {
+      "required": {
+        "why": "text",
+        "shouldHaveBeenUpstream": "text",
+        "reportedUpstream": "text",
+        "retirementCondition": "text",
+        "stillTests": "text",
+        "transforms": {
+          "array": {
+            "object": "subject-transform"
+          }
+        }
+      },
+      "note": "A CORRECTION APPLIED BETWEEN THE FETCH AND THE ORACLE, so the upstream pin stays exact and both sides render the same corrected bytes (doc/requirements.md I.26.16). It is a DELTA and never a replacement: the fetch still verifies upstream's sha256, so a change upstream is still a refusal, and the patched product is what the oracle key covers. `stillTests` is the boundary that stops patching becoming an escape hatch -- the asset's own criterion must be the same sentence after the patch, and a correction that changes what the asset TESTS is a re-authoring. `retirementCondition` is a predicate the suite already evaluates rather than a wish."
+    },
+    "subject-transform": {
+      "discriminator": "kind",
+      "variants": {
+        "reverse-winding": {
+          "required": {
+            "outwardFrom": {
+              "enum": [
+                "meshCentroid"
+              ]
+            },
+            "observedBefore": {
+              "map": {
+                "quantity": "number"
+              }
+            }
+          },
+          "optional": {
+            "note": "string"
+          },
+          "note": "Swaps the second and third corner of every triangle of a primitive whose faces point inward, and moves no vertex. `observedBefore` is the state it expects to find and the preparer RECOMPUTES it: `triangles`, `trianglesCounterClockwiseFromOutside` and `trianglesOfZeroArea`. That is what makes the measurement load-bearing rather than decorative, and it is also the RETIREMENT PREDICATE: when upstream corrects the asset the declared count no longer matches what is on disk and the run goes red, so a fork cannot be carried for ever by nobody's decision. Applying the patch twice refuses for the same reason."
+        },
+        "flip-normals": {
+          "required": {
+            "outwardFrom": {
+              "enum": [
+                "meshCentroid"
+              ]
+            },
+            "observedBefore": {
+              "map": {
+                "quantity": "number"
+              }
+            }
+          },
+          "optional": {
+            "note": "string"
+          },
+          "note": "Negates every vertex normal of a primitive whose normals point inward, and touches no position and no index. `observedBefore` carries `vertexNormals` and `vertexNormalsOutward`, recomputed the same way and refused on mismatch."
+        }
+      },
+      "note": "ONE NAMED CORRECTION WITH ITS PARAMETERS, never a free-form edit: an arbitrary transform is a re-authoring and cannot be reviewed, a named one can. Winding and normals are TWO corrections and not one, because they are two independent defects that happened to occur together -- an asset with one of them is a case this list still describes. A patch expressible as a text diff of the JSON is the natural third kind; these two are not, because the defect they answer lives in the binary buffer."
     },
     "subject-source": {
       "discriminator": "kind",

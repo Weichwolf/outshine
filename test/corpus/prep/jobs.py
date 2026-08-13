@@ -5,7 +5,7 @@ import os
 import tempfile
 
 from . import blender as blender_module
-from . import fetch, fixtures, licence, manifest as manifest_module
+from . import fetch, fixtures, licence, manifest as manifest_module, patch as patch_module
 from .refusal import Refusal
 from .store import derived_key, sha256_hex, sha256_of_file
 
@@ -114,6 +114,22 @@ def _check_licences(subject, store):
     return checked
 
 
+def patch_subjects(manifest, destination):
+    """The declared corrections, applied to the fetched bytes and never to the pin.
+
+    It runs AFTER the fetch and BEFORE the oracle, which is what makes both sides take it: the
+    runner loads the files in this directory and the oracle is rendered from the same ones.
+    """
+    report = []
+    for subject in manifest.subjects:
+        if not subject.patch:
+            continue
+        report.extend(patch_module.apply(subject, destination))
+    if not report:
+        raise Refusal("patch " + manifest.id, why="no subject declares a patch; there is nothing to correct")
+    return report
+
+
 def convert_blends(manifest, store, blender, destination, force=False):
     results = []
     for subject in manifest.subjects:
@@ -184,9 +200,16 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
         # A fetched file's digest is the manifest's declared pin; a generated one has no pin to
         # declare, so the key carries the digest of what the generator actually produced -- which is
         # what makes a generator that moved under an unchanged manifest miss the cache.
+        # A PATCHED SUBJECT PINS WHAT IS ON DISK AND NOT WHAT WAS FETCHED, and it carries the patch
+        # declaration too: the first makes a changed transform IMPLEMENTATION miss the cache, the
+        # second makes a changed DECLARATION miss it, and either alone would serve a stale oracle.
         pin = {"id": subject.id, "entry": subject.entry,
-               "files": sorted([f["as"], f.get("sha256") or sha256_of_file(os.path.join(destination, f["as"]))]
+               "files": sorted([f["as"], sha256_of_file(os.path.join(destination, f["as"]))
+                                if subject.patch else
+                                (f.get("sha256") or sha256_of_file(os.path.join(destination, f["as"])))]
                                for f in subject.files)}
+        if subject.patch:
+            pin["patch"] = subject.patch
         if subject.kind == "blend":
             pin["gltfSha256"] = sha256_of_file(
                 os.path.join(destination, subject.conversion.settings["outputName"])

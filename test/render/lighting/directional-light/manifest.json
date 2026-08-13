@@ -16,53 +16,8 @@
     "kind": "self-describing",
     "says": "The purpose of this test model is to verify that the BRDF and microfacet model used by a renderer preserves energy. ... In order to preserve energy it is important that this factor does not add light energy. ... As the lightsource has an intensity of 1 (lumen / m2) and display output can be considered to be candela / m2 it should never be the case that light contribution go above: (Color * Intensity) = [0.9, 0.8, 0.1] - in linear space. ... Lightsource color = RGB[0.9, 0.8, 0.1], Hue of the lightsource = [0.9 / 1.8, 0.8 / 1.8, 0.1 / 1.8] = [0.5, 0.444, 0.0555]. The displayed (concentrated) specuar highlight shall retain this hue.",
     "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
-    "note": "The asset states in the same paragraph that this is not an exact comparison -- 'this will of course not be an exact measure since values are read and written with different precision' -- so the criterion was never an agreement with any reference. What decides the picture is Khronos's own published appearance of this asset, which neither our renderer nor our oracle authored; what stays numeric is the hue, computed from our render alone, and the energy half, which moved to a white-furnace integral over our own BRDF in test/unit/render/stages/TheMicrofacetLobeAddsNoEnergy.cpp -- no asset, no oracle, no punctual light. The per-pixel ceiling that used to stand here was a misreading of WHICH QUANTITY the asset bounds: glTF's own Appendix B returns f_spec * N.L = 4.857 at the roughness-0.16 sphere's centre, so a ceiling of 0.9 on outgoing radiance is a test the specification's reference implementation fails, and what an added NDF factor actually breaks is the directional albedo (doc/requirements.md I.26.12).",
-    "oracleRole": "cannot-express-the-criterion",
-    "oracleLimitation": "Cycles performs no back-face culling for camera rays. This asset's spheres are wound so that every triangle's front face is the INTERIOR and every vertex normal points inward, and no material is doubleSided -- so a conforming rasteriser culls the near shell of each sphere and shades the far one, while the path tracer stops on the near shell. The two are pictures of DIFFERENT SURFACES BEHIND ONE SILHOUETTE, which is why the coverage agrees to 0 px while the shading differs over the whole disc, worst at the rim: 130746 of 921600 pixels differ, at a widest channel delta of 91 sRGB8 and a p99 relative residual of 3.26. No threshold reconciles them, because widening one until this fits would admit any shading error at all. Ours matches Khronos's published screenshot; the reference does not.",
-    "oracleLimitationMeasured": [
-      {
-        "of": "triangles of the three spheres whose geometric normal points away from the mesh centroid, i.e. wound counter-clockwise as seen from outside",
-        "value": 0,
-        "unit": "triangles of 10600 per sphere",
-        "origin": "measured",
-        "note": "cross(v1-v0, v2-v0) against the triangle centroid minus the mesh centroid, over each of the three meshes of the pinned asset"
-      },
-      {
-        "of": "vertex normals of the three spheres pointing away from the mesh centroid",
-        "value": 0,
-        "unit": "normals of 5374 per sphere",
-        "origin": "measured",
-        "note": "the shading normals point INWARD too, so the file is consistently inside-out rather than merely mis-wound"
-      },
-      {
-        "of": "triangles whose geometric normal agrees with the average of its own three vertex normals",
-        "value": 10598,
-        "unit": "triangles of 10600 per sphere",
-        "origin": "measured",
-        "note": "geometry and shading normals agree with each other on all but two triangles per sphere, which is what makes the disagreement with the oracle a culling question and not a normals question"
-      },
-      {
-        "of": "materials of the asset declaring doubleSided",
-        "value": 0,
-        "unit": "materials of 3",
-        "origin": "measured",
-        "note": "the key is absent, so the glTF default false applies and back-face culling is what the format asks for"
-      },
-      {
-        "of": "screen-x displacement of the brightest sample of the roughness-0 sphere from that sphere's own disc centre, ours minus the oracle's, along the row y = 360",
-        "value": 70,
-        "unit": "px",
-        "origin": "measured",
-        "note": "THE TWO PROFILES ARE MIRROR IMAGES ABOUT THE DISC CENTRE, and that is the near/far shell stated in the picture rather than in the geometry: the disc spans x 194..436 on both sides, its centre is 315, the oracle peaks at 280 and we peak at 350. A point carrying shading normal n sits at C + R*n on the near shell and at C - R*n on the far one, so shading the shell a conforming cull leaves visible produces the other picture reflected through the disc centre. The coverage is untouched -- the alpha delta over the whole frame is 0 -- because both shells share one silhouette."
-      },
-      {
-        "of": "mean absolute radiance residual against the oracle along the row y = 360 over the roughness-0 disc, rendering the same file with doubleSided true on its three materials",
-        "value": 0.001986,
-        "unit": "linear, scene-referred",
-        "origin": "measured",
-        "note": "THE CONTROL THAT ATTRIBUTES THE WHOLE DISAGREEMENT TO THE CULL. With doubleSided true the near shell wins on depth and we shade the surface Cycles stops on: the residual on that row falls from 0.04569 to 0.001986, a factor of 23, and the peak returns to the oracle's own x = 280. The experiment changes one key of one file and touches neither the camera, nor the light's direction, nor the map from glTF's frame to the engine's -- so none of those three can be carrying the mirror, which is what a round chasing it would otherwise have to rule out one at a time."
-      }
-    ]
+    "note": "The asset states in the same paragraph that this is not an exact comparison -- 'this will of course not be an exact measure since values are read and written with different precision' -- so the criterion was never an agreement with any reference. What stays numeric is the hue, computed from our render alone, and the energy half, which moved to a white-furnace integral over our own BRDF in test/unit/render/stages/TheMicrofacetLobeAddsNoEnergy.cpp -- no asset, no oracle, no punctual light. The per-pixel ceiling that used to stand here was a misreading of WHICH QUANTITY the asset bounds: glTF's own Appendix B returns f_spec * N.L = 4.857 at the roughness-0.16 sphere's centre, so a ceiling of 0.9 on outgoing radiance is a test the specification's reference implementation fails, and what an added NDF factor actually breaks is the directional albedo (doc/requirements.md I.26.12). THE ORACLE IS A REFERENCE AGAIN AND WAS NOT BEFORE: the role was cannot-express-the-criterion because Cycles performs no back-face culling for camera rays and this asset is inside-out, so the two sides drew DIFFERENT SURFACES BEHIND ONE SILHOUETTE -- 130746 of 921600 pixels differing at a widest channel delta of 91 codes. The subject is now corrected in the preparer (subjects[0].patch) rather than either renderer, both sides render the corrected bytes, and the disagreement is gone: 0 px disagreeing on coverage, hue error 4.52e-08 over 9217 judged samples.",
+    "oracleRole": "reference"
   },
   "subjectClass": "opaque-min-1px",
   "acceptanceClass": {
@@ -86,6 +41,59 @@
         "model": "DirectionalLight",
         "pinnedOn": "2026-08-13",
         "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "patch": {
+        "why": "The asset is inside-out and reproduces its own published appearance only on a renderer that performs no back-face culling. Every one of its 31800 triangles is wound clockwise as seen from outside and every one of its 16122 vertex normals points inward, and no material declares doubleSided -- so glTF requires the near hemisphere of each sphere to be culled, a conforming renderer shades the far one, and the far one's inward normals happen to point back at the camera. Two inversions that cancel are still two errors, and they cancel only for the picture: they do NOT cancel for a visibility ray, which correctly reports that a surface inside a sphere cannot see the light and returns three black discs. Correcting the RENDERER was refused -- un-culling this file would assert a picture the format forbids for it, and would make a winding defect in a generated part unspellable later. Correcting the ASSET produces a file a conforming renderer draws correctly, and both sides of the comparison then render the same corrected bytes.",
+        "shouldHaveBeenUpstream": "Every triangle wound counter-clockwise as seen from outside and every vertex normal pointing away from its sphere's centre. Either correction alone would have made the defect visible in Khronos's own screenshot; together they hid it. Reportable upstream with both counts, which are recomputed by this preparer on every run and stand in observedBefore below.",
+        "transforms": [
+          {
+            "kind": "reverse-winding",
+            "outwardFrom": "meshCentroid",
+            "observedBefore": {
+              "triangles": {
+                "value": 31800,
+                "unit": "triangles",
+                "origin": "measured",
+                "note": "10600 per sphere over three spheres, which share one index accessor"
+              },
+              "trianglesCounterClockwiseFromOutside": {
+                "value": 0,
+                "unit": "triangles",
+                "origin": "measured",
+                "note": "cross(v1-v0, v2-v0) against the triangle centroid minus the mesh's vertex mean, over every drawn primitive. Not one triangle of the asset faces outward."
+              },
+              "trianglesOfZeroArea": {
+                "value": 6,
+                "unit": "triangles",
+                "origin": "measured",
+                "note": "Two per sphere, at the pole seam, with a cross product of exactly zero. They have no facing, so no winding makes them point anywhere and the verification excludes them by name rather than admitting a tolerance. A second, separate upstream defect, and they draw nothing."
+              }
+            },
+            "note": "Swaps the second and third corner of every triangle, in the one shared index accessor, and moves no vertex."
+          },
+          {
+            "kind": "flip-normals",
+            "outwardFrom": "meshCentroid",
+            "observedBefore": {
+              "vertexNormals": {
+                "value": 16122,
+                "unit": "normals",
+                "origin": "measured",
+                "note": "5374 per sphere over three spheres, each with its own NORMAL accessor"
+              },
+              "vertexNormalsOutward": {
+                "value": 0,
+                "unit": "normals",
+                "origin": "measured",
+                "note": "dot(N, P - the mesh's vertex mean) > 0, over every vertex. It is 0 and not 302: the dot product runs from -0.0734 to -0.0705 with no zero crossing, so the file is consistently inside-out rather than mostly so."
+              }
+            },
+            "note": "Negates each sphere's own NORMAL accessor. It is a SECOND correction and not part of the first: winding and normals are two independent defects that happened to occur together here, and an asset with only one of them is a case this list still describes."
+          }
+        ],
+        "reportedUpstream": "Not yet filed. Owed to KhronosGroup/glTF-Sample-Assets against commit 2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf, Models/DirectionalLight, with the four counts in observedBefore: 0 of 31800 triangles counter-clockwise from outside, 0 of 16122 vertex normals outward, 6 triangles of exactly zero area, and 0 of 3 materials declaring doubleSided. The asset reproduces its own published screenshot only on a renderer that performs no back-face culling.",
+        "retirementCondition": "The preparer already evaluates it every run: observedBefore is RECOMPUTED from the bytes on disk and refused on mismatch, so an upstream asset with consistent outward winding makes this patch red rather than silently redundant. The fetch's sha256 pin is the second, coarser evaluation of the same condition -- any change to upstream's bytes refuses before the patch is reached. The fork cannot be carried forward by nobody's decision.",
+        "stillTests": "The asset's own criterion is the same sentence after the patch: 'the color of the specular highlight shall retain the same hue as the lightsource'. The correction moves no vertex, changes no material, no roughness and no light, so the BRDF sweep across roughness 0, 0.16 and 0.33 that the asset exists for is untouched -- what changes is which of the two shells behind one silhouette a conforming renderer shades. The declared cost is that this case no longer tests Khronos's exact bytes: it tests our reader and renderer against a corrected subject, which is a smaller claim than the unpatched case made and larger than the three black discs it produced."
       },
       "files": [
         {
@@ -152,7 +160,11 @@
     },
     "world": {
       "kind": "uniform",
-      "colourLinear": [0.0, 0.0, 0.0],
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
       "strength": 0.0,
       "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. The factory world is an area source: Cycles samples it, and at one sample per pixel that is a Bernoulli draw on the visible sky fraction rather than a value. With the world at zero the only source left is a delta light, the estimator has no variance, and the two seeds must agree bit for bit. Khronos's criterion is a relation between channels of one render and is invariant to the ambient term, so nothing under test is removed with it."
     },
@@ -239,7 +251,11 @@
       "says": "This means that the color of the specular highlight shall retain the same hue as the lightsource. Where hue is the color without reference to how dull or satururated the color is. This value can be calculated by dividing each RGB component by the total.",
       "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/DirectionalLight/README.md",
       "hue": {
-        "value": [0.5, 0.4444444444444444, 0.05555555555555555],
+        "value": [
+          0.5,
+          0.4444444444444444,
+          0.05555555555555555
+        ],
         "unit": "dimensionless",
         "origin": "derived",
         "derivation": "each channel of the light's colour over the sum of the three: 0.9/1.8, 0.8/1.8, 0.1/1.8, which is the arithmetic the asset writes out itself"
@@ -267,5 +283,27 @@
       "derivation": "the sum over the subject's 31800 indices, i.e. 10600 triangles per sphere over three spheres, of the magnitude of the projected signed area, over 1280*720 at the file's own camera, recomputed by the runner from the fetched vertices",
       "note": "What the boundary bound is applied UNDER. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA, not a coverage."
     }
-  }
+  },
+  "depthProbes": [
+    {
+      "name": "middle_sphere_centre",
+      "atPx": [
+        640,
+        360
+      ],
+      "rangeM": {
+        "value": 1.7829815745353699,
+        "unit": "m",
+        "origin": "derived",
+        "derivation": "the file's own camera sits at (0, 0, 2) looking down -Z, the middle sphere is at the origin, and its POSITION accessor declares max z = 0.07233947515487671 under a node scale of 3 -- so the nearest point of that sphere on the optical axis is 3 * 0.07233947515487671 = 0.21701842546463013 m from the origin and 2 - 0.21701842546463013 = 1.7829815745353699 m from the eye. The runner recomputes the range from the depth attachment as kNearM / depth times the secant of the angle off boresight, which at the frame centre is 1.0000004 (yfov 0.65, 1280x720)."
+      },
+      "toleranceM": {
+        "value": 0.0001,
+        "unit": "m",
+        "origin": "SET",
+        "note": "Above the tessellation sagitta and far below the defect it exists to catch. MEASURED, by casting the centre pixel's ray against this mesh's own triangles: the near shell is hit at 1.783038503521493 m, which is 5.693e-05 m outside the analytic sphere -- the chord depth of a facet at this triangle count. The FAR shell is hit at 2.2169608972301384 m, so drawing the wrong surface moves the range by 0.4339 m, 4340 times this tolerance. That is the transformation silhouette, coverage and hue are all invariant under."
+      },
+      "says": "The picture is of the sphere's NEAR surface. This asset shipped inside-out -- wound clockwise from outside with inward normals -- and a conforming renderer therefore drew the far shell at 2.217 m while the silhouette, the coverage and the hue all agreed with the oracle. Depth is the one criterion that is not invariant under that swap, and it is what checks that the declared patch took."
+    }
+  ]
 }

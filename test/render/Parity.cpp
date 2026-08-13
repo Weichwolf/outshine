@@ -1488,6 +1488,71 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
   return studio;
 }
 
+/* WHICH SURFACE THE PICTURE IS OF, and it is the criterion silhouette, coverage and hue cannot be.
+ * Swapping the near shell of a closed body for its far one with the shading normals reversed leaves
+ * the silhouette, the coverage and the hue all unchanged -- three criteria simultaneously blind,
+ * each individually correct -- and `DirectionalLight` shipped in exactly that state without any of
+ * them noticing (doc/requirements.md I.26). Range is not invariant under it.
+ *
+ * THE RANGE IS ALONG THE VIEW RAY AND NOT ALONG THE BORESIGHT, which is what the cosine is: the
+ * depth attachment carries `kNearM / rangeAlongBoresight`, and a probe away from the frame centre
+ * that skipped the correction would report a distance the geometry does not have. */
+[[nodiscard]] bool RangeAt(const outshine::Gltf::Placement &eye, const outshine::Gltf::Viewport &frame,
+                           const std::vector<float> &depth, int column, int row, double &out,
+                           std::string &error) {
+  if (eye.Kind != outshine::Gltf::CameraKind::Perspective) {
+    error = "a depth probe states a range along a view ray, and this case's camera is orthographic";
+    return false;
+  }
+  if (column < 0 || row < 0 || (double)column >= frame.WidthPx || (double)row >= frame.HeightPx) {
+    error = "the probe's pixel is outside the " + std::to_string((long)frame.WidthPx) + "x" +
+            std::to_string((long)frame.HeightPx) + " frame";
+    return false;
+  }
+  const size_t at = (size_t)row * (size_t)frame.WidthPx + (size_t)column;
+  if (at >= depth.size() || !(depth[at] > 0.0f)) {
+    error = "nothing is drawn at the probe's pixel, so there is no surface to state a range for";
+    return false;
+  }
+  const double halfHeight = std::tan(eye.YfovRad * 0.5);
+  const double acrossNdc = 2.0 * ((double)column + 0.5) / frame.WidthPx - 1.0;
+  const double downNdc = 1.0 - 2.0 * ((double)row + 0.5) / frame.HeightPx;
+  const double across = acrossNdc * halfHeight * frame.Aspect();
+  const double down = downNdc * halfHeight;
+  const double secant = std::sqrt(across * across + down * down + 1.0);
+  out = (double)outshine::Render::Renderer::kNearM / (double)depth[at] * secant;
+  return true;
+}
+
+void ScoreDepthProbes(const Case &subject, const outshine::Clients::Studio &studio,
+                      const std::vector<float> &depth, std::vector<Metric> &metrics) {
+  const Json::Ref probes = subject.Manifest.Root()["depthProbes"];
+  for (size_t which = 0; which < probes.Size(); ++which) {
+    const Json::Ref probe = probes[which];
+    const std::string name = probe["name"].Str("");
+    const std::string where = "depthProbes[" + std::to_string(which) + "]";
+    double declared = 0, tolerance = 0;
+    std::string why;
+    if (!ReadDeclaredNumber(probe["rangeM"], (where + ".rangeM").c_str(), declared, why) ||
+        !ReadDeclaredNumber(probe["toleranceM"], (where + ".toleranceM").c_str(), tolerance, why)) {
+      Refused(why);
+      metrics.push_back({name + "_range_error_m", std::nan(""), 0.0, "m", Direction::AtMost});
+      continue;
+    }
+    double measured = 0;
+    if (!RangeAt(studio.Eye, subject.Frame, depth, probe["atPx"][(size_t)0].Int(-1),
+                 probe["atPx"][(size_t)1].Int(-1), measured, why)) {
+      Refused(where + ": " + why);
+      metrics.push_back({name + "_range_error_m", std::nan(""), tolerance, "m", Direction::AtMost});
+      continue;
+    }
+    outshine::Test::Note((name + " range measured").c_str(), measured, "m");
+    outshine::Test::Note((name + " range declared").c_str(), declared, "m");
+    metrics.push_back(
+        {name + "_range_error_m", std::fabs(measured - declared), tolerance, "m", Direction::AtMost});
+  }
+}
+
 /* WHAT THE RUN WAS GIVEN, printed before it is rendered, so a picture that comes out wrong can be
  * attributed to the declaration rather than to the renderer without a second run. */
 void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Studio &studio) {
@@ -1806,6 +1871,8 @@ int main(int argc, char **argv) {
     Note("triangles outside the depth range, unattributed", (double)table.Unprojectable,
          "triangles");
   }
+  ScoreDepthProbes(subject, studio, picture.Depth, metrics);
+
   /* Published beside the result and never subtracted from it. */
   Note("oracle instrument floor", subject.OracleFloorPx, "px");
   metrics.push_back(
