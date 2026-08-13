@@ -1,6 +1,7 @@
 Type: feature
 Area: render
 Tags: instrument
+Depends: 0111
 
 **What § I.27 loses: ten content stages become one, and the criterion is the field the catalogue already carries**
 
@@ -32,3 +33,23 @@ that moved one would be a different picture rather than a refactor.
 
 **Not started here.** At the depth this was scoped it would have been begun and not finished, and a
 half-applied projection change is the one edit in this item that cannot be left overnight.
+
+**Groomed after two slices landed: the remainder depends on `board:0111`, and it is not more renaming.**
+
+**Done and landed**: five stages became mechanisms (`Medium*`, `LightVisibility`, `AmbientOcclusion`),
+and `BenchGround` is gone with `board:0031`. Neither could move a picture, which is why they went first.
+
+**What is left is structural, and two parts of it are blocked rather than merely large.**
+
+- **The five geometry units becoming four surface classes is a reclassification, not a merge.** Merging
+  `Terrain`, `Buildings`, `Models` and `Subjects` into one row would give it the **union** of their
+  reads — the exact defect that made `Background` a role rather than a node. The right shape is one row
+  per **surface behaviour**, with *which content is in the draw list* belonging to the compositor. **That
+  needs `board:0111` to exist**, so the dependency is real and not a preference.
+- **`Background` dissolving removes `Sky`, `Sun`, `Moon` and `Stars`** into emissive geometry plus the
+  medium evaluated to the far plane — and **the medium chain does not execute**. Dissolving now would
+  delete the only declaration surface for a sky before its replacement can draw one. It waits for the
+  medium stages to be implemented, which is `board:0030`'s territory rather than this item's.
+- **The projection matrix is independent of both** and is scoped above: the caller builds it, the
+  renderer multiplies view by it, and every consumer of `fovDeg` is shown to take its number from a
+  declaration or not to need it. **That slice can be taken whenever a round has room.**
