@@ -1,0 +1,673 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/normal-tangent-mirror",
+  "title": "Khronos NormalTangentMirrorTest -- the same normal map over a basis the FILE SUPPLIES, which must beat the one we would have generated",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "II.8",
+    "khronos:NormalTangentMirrorTest"
+  ],
+  "criterion": {
+    "kind": "stated-invariant",
+    "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+    "note": "THE PICTURE HOLDS THE SUPPLIED BASIS AND IT DOES NOT HOLD THE MIRROR CLAIM, and the difference is a MEASUREMENT rather than a scruple. What the invariants below hold is that the TANGENT this file supplies is read and used the way the format defines it: a geometry cell and the flat quad baked from it agree. What they cannot hold is the asset's own headline -- that a supplied basis beats a generated one -- because on THIS asset the two are the same basis: test/unit/gltf/AGeneratedBasisIsTheOneTheExporterWrote.cpp runs our MikkTSpace over this subject's own positions, normals and uvs and compares it with the TANGENT Blender's exporter wrote, over all 15720 triangle corners -- 0 handedness mismatches and an angle of 0.000081 deg at p50, 0.002923 deg at worst. A conforming generator AGREES with a conforming exporter, which is what the format asking for MikkTSpace means; the assets distinguish an engine whose generator is NOT MikkTSpace. What this tree can hold instead, and does, is that the supplied attribute is TAKEN and not recomputed -- `Gltf::Part::TangentSource`, asserted in that same test."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The same subject class as NormalTangentTest with one more column of cells: hundreds of distinct silhouette lines, so 2 + k >= E cannot be satisfied and no exact placement is constructible (doc/requirements.md I.26.14)."
+  },
+  "subjects": [
+    {
+      "id": "normal-tangent-mirror-test",
+      "kind": "gltf",
+      "name": "NormalTangentMirrorTest",
+      "entry": "NormalTangentMirrorTest.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "One mesh, one primitive, one doubleSided material, 5240 triangles over 2770 vertices, and the same three images. IT SUPPLIES TANGENT, written by Blender's own glTF exporter, and its w is -1 on exactly the columns whose uv island is mirrored -- which is the attribute the asset exists to make an engine read.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "NormalTangentMirrorTest",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.gltf",
+          "sha256": "2da070d2036a51cf645c40a2ded94c1c72cc38de94039a321257610bfdd2e163",
+          "bytes": 4962,
+          "as": "NormalTangentMirrorTest.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest.bin",
+          "sha256": "4cc94ba24a39bdf34f5db6c1b38a8423ff4bd33a5b2d6f52db7959c6021273b7",
+          "bytes": 164400,
+          "as": "NormalTangentMirrorTest.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_BaseColor.png",
+          "sha256": "879c6296d80189e4d1a871d8cbf788e087d2f6b1a822647b449348dc1734934f",
+          "bytes": 35542,
+          "as": "NormalTangentMirrorTest_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_Normal.png",
+          "sha256": "95b14c4a91309fc5834e30030dfb8898297b96754a05733d37e6c04f2e45a6fb",
+          "bytes": 179799,
+          "as": "NormalTangentMirrorTest_Normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/glTF/NormalTangentMirrorTest_OcclusionRoughnessMetallic.png",
+          "sha256": "4edb5c336d3d7b2c131d6aee925b967c2ae15ca8c011823bb17551c75d060ee8",
+          "bytes": 1185050,
+          "as": "NormalTangentMirrorTest_OcclusionRoughnessMetallic.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+          "sha256": "0f49ad78a76fc20ff5fe54f322bdb73bad0e25ab596142c8f75a5f6414753372",
+          "bytes": 790,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "projection": "orthographic",
+      "positionM": [
+        -0.0053717494,
+        -0.0766237974,
+        5.0
+      ],
+      "lookAtM": [
+        -0.0053717494,
+        -0.0766237974,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yMagM": 1.152,
+      "clipStartM": 4.0,
+      "clipEndM": 6.0,
+      "derivation": "The same face-on parallel projection as NormalTangentTest and for the same reason: every test cell is a height field about the z axis, so an orthographic view along -z maps a DISPLACED surface and the FLAT quad beside it to the same footprint. The aim is the centre of the flattened subject's own bounds -- x -1.4246257544..1.4138822556, y -1.2000000477..1.0467524529 -- whose vertical half-span is 1.1233762503 m. THE MAGNIFICATION IS DERIVED FROM THE TWO DISTANCES THE CRITERION MEASURES: this subject puts its normal-mapped quad exactly 0.32 m to the right of the geometry cell it was baked from, and its rows exactly 0.4 m apart, so the magnification has to put both on whole pixels -- p must be a multiple of 12.5, and 312.5 is the largest one that still covers the subject. 720 / (2 * 1.152) = 312.5 px per metre exactly, so 0.32 m is 100 px and 0.4 m is 125 px. The horizontal half-extent follows from the frame's aspect, 1.152 * 16/9 = 2.048 m, and covers x -1.4246..1.4139. The eye sits 5 m along +z, clearing the subject's own z extent of -0.01..0.0805 m. WHAT IS NOT COMPARABLE IS SAID HERE: each half of this subject carries ONE geometry cell and THREE normal-mapped quads, and only the first quad of each half sits a whole number of pixels from its geometry cell -- the other two sit 0.6453 and 0.9834 m away on the left and 0.6409 and 0.9637 m on the right, which is no whole number of pixels at any magnification that also frames the subject. Those four quads per row are in the picture and are judged by eye; no invariant claims them.",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "sun",
+      "irradianceWPerM2": 3.141592653589793,
+      "directionM": [
+        -0.35,
+        -0.35,
+        -1.0
+      ],
+      "angleRad": 0.0,
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and that is what makes a normal map decidable at all: an environment delivers the same radiance from every direction, so a Lambertian facet returns rho*L whichever way it faces and a normal map changes NOTHING. The asset's own README asks for an environment with a horizon, which is an image-based lighting integral and is exactly the oracle doc/requirements.md I.26.13 refuses; one direction carries the same information about the basis with no integral at all. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE DIRECTION IS SLANTED TOWARDS -x AND -y so that what shadows the test quads cast is cast AWAY from the neighbouring cell: at 0.35 per unit of depth the 0.0805 m tallest body casts 0.028 m, against a 0.1 m gap to the next cell's geometry."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. Blender's factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value. With the world at zero the only source left is a light with no area, the estimator has no variance, and the two seeds must agree bit for bit."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "THE FILE'S OWN ROW ENTIRE, and it has to be: the subject under test is the normal, and every arm that LOWERS the closure -- a diffuse or an emissive one -- throws the normal away with it. The file states base colour, roughness, metalness and the normal in four images and this case reads three of them; the fourth is occlusion, which shares its image with roughness and metalness and which NEITHER SIDE applies -- Blender's importer parks it on a group output Cycles does not read. WHY ROUGHNESS AND METALNESS ARE READ FROM THE IMAGE AND NOT LEFT AT THE FACTORS: glTF's roughnessFactor defaults to 1, and at roughness 1 the GGX distribution is exactly 1/pi at every half-vector, so the specular lobe stops depending on the normal -- a normal-mapped subject rendered that way comes back as if it had no normal map, which is a picture that cannot fail the test it exists for."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed. The only source in this scene is a sun of angular diameter zero over a world of strength zero, so the oracle has no estimator left and the two dumps must agree bit for bit; any difference NAMES the source that still has an area."
+    }
+  },
+  "notes": "The other half of rung 11. NormalTangentTest demands that a basis be GENERATED; this one demands that a SUPPLIED basis beat the generated one, and Khronos ships both because an engine that always regenerates passes the first and fails the second.",
+  "statedInvariants": [
+    {
+      "kind": "region-compare",
+      "name": "row1_left_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          213,
+          56,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the left half of row 1, inset. Its own bounds are x -1.424626..-1.124626 and y 0.65..0.95 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 196.48..290.23 px and y 39.18..132.93 px, and a 64 px square at (213, 56) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          313,
+          56,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row1_right_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          705,
+          56,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the right half of row 1, inset. Its own bounds are x 0.149926..0.449926 and y 0.65..0.95 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 688.53..782.28 px and y 39.18..132.93 px, and a 64 px square at (705, 56) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          805,
+          56,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row2_left_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          213,
+          181,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the left half of row 2, inset. Its own bounds are x -1.424626..-1.124626 and y 0.25..0.55 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 196.48..290.23 px and y 164.18..257.93 px, and a 64 px square at (213, 181) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          313,
+          181,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row2_right_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          705,
+          181,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the right half of row 2, inset. Its own bounds are x 0.149926..0.449926 and y 0.25..0.55 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 688.53..782.28 px and y 164.18..257.93 px, and a 64 px square at (705, 181) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          805,
+          181,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row3_left_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          213,
+          306,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the left half of row 3, inset. Its own bounds are x -1.424626..-1.124626 and y -0.15..0.15 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 196.48..290.23 px and y 289.18..382.93 px, and a 64 px square at (213, 306) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          313,
+          306,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row3_right_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          705,
+          306,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the right half of row 3, inset. Its own bounds are x 0.149926..0.449926 and y -0.15..0.15 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 688.53..782.28 px and y 289.18..382.93 px, and a 64 px square at (705, 306) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          805,
+          306,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row4_left_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          213,
+          431,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the left half of row 4, inset. Its own bounds are x -1.424626..-1.124626 and y -0.55..-0.25 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 196.48..290.23 px and y 414.18..507.93 px, and a 64 px square at (213, 431) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          313,
+          431,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row4_right_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          705,
+          431,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the right half of row 4, inset. Its own bounds are x 0.149926..0.449926 and y -0.55..-0.25 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 688.53..782.28 px and y 414.18..507.93 px, and a 64 px square at (705, 431) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          805,
+          431,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row5_left_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          213,
+          556,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the left half of row 5, inset. Its own bounds are x -1.424626..-1.124626 and y -0.95..-0.65 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 196.48..290.23 px and y 539.18..632.93 px, and a 64 px square at (213, 556) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          313,
+          556,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row5_right_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if the model's supplied tangent vectors are being imported and used correctly. ... All of the test blocks show similar reflections. ... This problem is typically caused by a rendering engine that ignores the supplied tangent vectors and calculates its own.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentMirrorTest/README.md",
+      "fromPx": {
+        "value": [
+          705,
+          556,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of the right half of row 5, inset. Its own bounds are x 0.149926..0.449926 and y -0.95..-0.65 m; at 312.5 px per metre over a frame covering x -2.05337175..2.04262825 and y -1.22862380..1.07537620 that is x 688.53..782.28 px and y 539.18..632.93 px, and a 64 px square at (705, 556) is inset about 16 px on every side."
+      },
+      "toPx": {
+        "value": [
+          805,
+          556,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The FIRST normal-mapped quad of the same half, which sits exactly 0.32 m to the right of its geometry cell -- 0.32 * 312.5 = 100 px exactly. The other two quads of the half sit at distances that are no whole number of pixels and carry no invariant."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The same surface stated two ways under one light and one parallel view."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "NormalTangentTest's own decision boundary, transferred because the two assets are the same 516-triangle cell, the same bake and the same 8-bit map -- this file is that model with its columns mirrored and rearranged. It is the geometric mean of two populations measured on render/materials/normal-tangent: 0.02245..0.07423 p95 relative with the MikkTSpace basis, and 0.33618..0.88663 with one bit of that basis changed (the handedness w negated, which is the failure that asset's README names). It sits 2.13 times above the worst correct value and 2.13 times below the best broken one. THIS CASE'S OWN POPULATION IS REPORTED BESIDE IT and is the check on the transfer."
+      }
+    }
+  ],
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.415902041,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 5240 triangles of the magnitude of the projected signed area, over 1280*720 at the declared parallel camera, recomputed by the runner from the fetched vertices",
+      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so the two skins of each closed dome are both counted."
+    }
+  }
+}

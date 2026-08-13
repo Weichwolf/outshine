@@ -1,0 +1,872 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/normal-tangent",
+  "title": "Khronos NormalTangentTest -- a normal map over a basis NO FILE SUPPLIES, so the whole picture is the MikkTSpace generation the format names",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.13",
+    "II.8",
+    "khronos:NormalTangentTest"
+  ],
+  "criterion": {
+    "kind": "stated-invariant",
+    "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+    "note": "THE RELATION IS BETWEEN TWO CELLS OF ONE PAIR AND THE ASSET SPELLS IT OUT: the left cell of every pair is REAL GEOMETRY and the right one is a FLAT QUAD wearing the normal map baked from it, so a correct tangent basis makes the two the same picture and a wrong one tilts the second. Viewed face-on under a parallel projection the two are congruent in pixels, because an orthographic projection along the displacement axis maps a height field to the footprint of its own base. What the asset asks for BESIDE that is an environment map with a horizon, which is an image-based lighting integral and is the oracle doc/requirements.md I.26.13 refuses; one delta direction carries the same information about the basis with no integral at all. THE ORACLE IS A REFERENCE FOR THE PICTURE AND NOT FOR THE CRITERION -- the criterion is evaluated on our own render alone."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). This subject is five rows of domes and cones whose silhouette resolves into hundreds of distinct lines, so the construction cannot be written for it; its acceptance is the relation the asset states about its own render."
+  },
+  "subjects": [
+    {
+      "id": "normal-tangent-test",
+      "kind": "gltf",
+      "name": "NormalTangentTest",
+      "entry": "NormalTangentTest.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "One mesh, one primitive, one doubleSided material, 7774 triangles over 3983 vertices, and three 2048-square images: base colour, a normal map, and one image packing occlusion, roughness and metalness. IT CARRIES NO TANGENT AT ALL, which is the whole point of the asset: the basis must be generated, and the format names the algorithm.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "NormalTangentTest",
+        "pinnedOn": "2026-08-13",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/glTF/NormalTangentTest.gltf",
+          "sha256": "ef2b152063304ebb0314646d3d1610cdc680e131d2cbfef10972dc6120d4dd18",
+          "bytes": 4459,
+          "as": "NormalTangentTest.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/glTF/NormalTangentTest0.bin",
+          "sha256": "2d0fc6d43cb11b61a746bc80218b5e9e6c60dcc40f86d4a3f4fdbf11909cd990",
+          "bytes": 174100,
+          "as": "NormalTangentTest0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/glTF/NormalTangentTest_BaseColor.png",
+          "sha256": "4182902c6dc833b48c0325568c2c5bd3e2d5fc04e27a8dc1917ced2818e1fac1",
+          "bytes": 36384,
+          "as": "NormalTangentTest_BaseColor.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/glTF/NormalTangentTest_Normal.png",
+          "sha256": "9cebea6c513ddfb1f5f5c761c08bca1468d2283a3cd9772bba3a57e484862ead",
+          "bytes": 212495,
+          "as": "NormalTangentTest_Normal.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/glTF/NormalTangentTest_OcclusionRoughnessMetallic.png",
+          "sha256": "3fff511720bea1fd8590ddb7b62090700e812e39ca71dd3200493093ad704399",
+          "bytes": 1371840,
+          "as": "NormalTangentTest_OcclusionRoughnessMetallic.png",
+          "role": "image",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+          "sha256": "a50fd4e2ad2f8510e9c183d3db8ffad94e8305396f7239def777f75cb4c4b79a",
+          "bytes": 780,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Ed Mackey",
+            "year": "2018",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "projection": "orthographic",
+      "positionM": [
+        0.0,
+        -0.125,
+        5.0
+      ],
+      "lookAtM": [
+        0.0,
+        -0.125,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yMagM": 1.1076923076923078,
+      "clipStartM": 4.0,
+      "clipEndM": 6.0,
+      "derivation": "A PARALLEL PROJECTION, FACE ON, and both halves of that are the asset's own words rather than a viewpoint: 'Normal-mapping works best when viewed face-on', and every test cell is a height field about the z axis, so a parallel projection along -z maps a DISPLACED surface and the FLAT quad beside it to the SAME footprint -- which is what turns 'similar' into a pixel correspondence. The aim is the centre of the flattened subject's own bounds -- x -1.1100000143..1.1100000143, y -1.2000000477..0.9500001073 -- so the framing is the asset's and not a choice. THE MAGNIFICATION IS DERIVED FROM THE ONE DISTANCE THE CRITERION MEASURES: every geometry cell sits exactly 0.32 m to the left of the normal-mapped cell it is to be compared with (measured over the subject's thirty connected cells, each exactly 0.300000 m square), so the magnification has to put 0.32 m on a whole number of pixels. 720 / (2 * 1.1076923076923078) = 325 px per metre exactly, so 0.32 m is 104 px, the 0.8 m between two pairs is 260 px and the 0.4 m between two rows is 130 px. 1.1077 m covers the subject's own vertical half-span of 1.0750000774 m; the horizontal half-extent follows from the frame's aspect, 1.1076923076923078 * 16/9 = 1.9692307692307693 m, and covers x -1.11..1.11 with 0.86 m to spare. The eye sits 5 m along +z, clearing the subject's own z extent of -0.01..0.0805 m by nearly five metres.",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "sun",
+      "irradianceWPerM2": 3.141592653589793,
+      "directionM": [
+        -0.35,
+        -0.35,
+        -1.0
+      ],
+      "angleRad": 0.0,
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and that is what makes a normal map decidable at all: an environment delivers the same radiance from every direction, so a Lambertian facet returns rho*L whichever way it faces and a normal map changes NOTHING. The asset's own README asks for an environment with a horizon, which is an image-based lighting integral and is exactly the oracle doc/requirements.md I.26.13 refuses; one direction carries the same information about the basis with no integral at all. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE DIRECTION IS SLANTED TOWARDS -x AND -y so that what shadows the test quads cast is cast AWAY from the neighbouring cell: at 0.35 per unit of depth the 0.0805 m tallest body casts 0.028 m, against a 0.1 m gap to the next cell's geometry."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. Blender's factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value. With the world at zero the only source left is a light with no area, the estimator has no variance, and the two seeds must agree bit for bit."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "THE FILE'S OWN ROW ENTIRE, and it has to be: the subject under test is the normal, and every arm that LOWERS the closure -- a diffuse or an emissive one -- throws the normal away with it. The file states base colour, roughness, metalness and the normal in four images and this case reads three of them; the fourth is occlusion, which shares its image with roughness and metalness and which NEITHER SIDE applies -- Blender's importer parks it on a group output Cycles does not read. WHY ROUGHNESS AND METALNESS ARE READ FROM THE IMAGE AND NOT LEFT AT THE FACTORS: glTF's roughnessFactor defaults to 1, and at roughness 1 the GGX distribution is exactly 1/pi at every half-vector, so the specular lobe stops depending on the normal -- a normal-mapped subject rendered that way comes back as if it had no normal map, which is a picture that cannot fail the test it exists for."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed. The only source in this scene is a sun of angular diameter zero over a world of strength zero, so the oracle has no estimator left and the two dumps must agree bit for bit; any difference NAMES the source that still has an area."
+    }
+  },
+  "statedInvariants": [
+    {
+      "kind": "region-compare",
+      "name": "row1_pair1_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          296,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 1 in row 1, inset. Its own bounds are x -1.11..-0.81 and y 0.65..0.95 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 279.25..376.75 px and y 10.625..108.125 px, and a 64 px square at (296, 27) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          400,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row1_pair2_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          556,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 2 in row 1, inset. Its own bounds are x -0.31..-0.01 and y 0.65..0.95 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 539.25..636.75 px and y 10.625..108.125 px, and a 64 px square at (556, 27) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          660,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row1_pair3_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          816,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 3 in row 1, inset. Its own bounds are x 0.49..0.79 and y 0.65..0.95 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 799.25..896.75 px and y 10.625..108.125 px, and a 64 px square at (816, 27) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          920,
+          27,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row2_pair1_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          296,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 1 in row 2, inset. Its own bounds are x -1.11..-0.81 and y 0.25..0.55 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 279.25..376.75 px and y 140.625..238.125 px, and a 64 px square at (296, 157) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          400,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row2_pair2_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          556,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 2 in row 2, inset. Its own bounds are x -0.31..-0.01 and y 0.25..0.55 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 539.25..636.75 px and y 140.625..238.125 px, and a 64 px square at (556, 157) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          660,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row2_pair3_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          816,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 3 in row 2, inset. Its own bounds are x 0.49..0.79 and y 0.25..0.55 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 799.25..896.75 px and y 140.625..238.125 px, and a 64 px square at (816, 157) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          920,
+          157,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row3_pair1_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          296,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 1 in row 3, inset. Its own bounds are x -1.11..-0.81 and y -0.15..0.15 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 279.25..376.75 px and y 270.625..368.125 px, and a 64 px square at (296, 287) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          400,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row3_pair2_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          556,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 2 in row 3, inset. Its own bounds are x -0.31..-0.01 and y -0.15..0.15 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 539.25..636.75 px and y 270.625..368.125 px, and a 64 px square at (556, 287) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          660,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row3_pair3_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          816,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 3 in row 3, inset. Its own bounds are x 0.49..0.79 and y -0.15..0.15 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 799.25..896.75 px and y 270.625..368.125 px, and a 64 px square at (816, 287) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          920,
+          287,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row4_pair1_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          296,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 1 in row 4, inset. Its own bounds are x -1.11..-0.81 and y -0.55..-0.25 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 279.25..376.75 px and y 400.625..498.125 px, and a 64 px square at (296, 417) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          400,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row4_pair2_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          556,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 2 in row 4, inset. Its own bounds are x -0.31..-0.01 and y -0.55..-0.25 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 539.25..636.75 px and y 400.625..498.125 px, and a 64 px square at (556, 417) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          660,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row4_pair3_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          816,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 3 in row 4, inset. Its own bounds are x 0.49..0.79 and y -0.55..-0.25 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 799.25..896.75 px and y 400.625..498.125 px, and a 64 px square at (816, 417) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          920,
+          417,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row5_pair1_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          296,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 1 in row 5, inset. Its own bounds are x -1.11..-0.81 and y -0.95..-0.65 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 279.25..376.75 px and y 530.625..628.125 px, and a 64 px square at (296, 547) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          400,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row5_pair2_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          556,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 2 in row 5, inset. Its own bounds are x -0.31..-0.01 and y -0.95..-0.65 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 539.25..636.75 px and y 530.625..628.125 px, and a 64 px square at (556, 547) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          660,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    },
+    {
+      "kind": "region-compare",
+      "name": "row5_pair3_geometry_matches_normalmap",
+      "says": "This model compares normal maps of various orientations to actual geometry, to test if tangent vectors are being calculated and handled correctly. ... All of the test blocks show similar reflections. ... the viewer can see the difference between real geometry on the left test cells, and normal-mapped quads on the right. Normal-mapping works best when viewed face-on.",
+      "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/NormalTangentTest/README.md",
+      "fromPx": {
+        "value": [
+          816,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The REAL-GEOMETRY cell of pair 3 in row 5, inset. Its own bounds are x 0.49..0.79 and y -0.95..-0.65 m; at 325 px per metre over a frame covering x -1.96923077..1.96923077 and y -1.23269231..0.98269231 that is x 799.25..896.75 px and y 530.625..628.125 px, and a 64 px square at (816, 547) is inset about 16 px on every side -- 0.05 m, which clears the cell's own border and the dome's silhouette."
+      },
+      "toPx": {
+        "value": [
+          920,
+          547,
+          64,
+          64
+        ],
+        "unit": "px",
+        "origin": "derived",
+        "derivation": "The same rectangle over the NORMAL-MAPPED quad of the same pair. Every pair in this subject puts its flat quad exactly 0.32 m to the right of its geometry cell, and 0.32 * 325 = 104 px exactly, so the offset is 104 px and the row is unchanged."
+      },
+      "scale": {
+        "value": 1.0,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "The two cells are the same surface stated two ways under the same light and the same parallel view, so a correct basis makes them the same radiance and not a scaled one."
+      },
+      "maxP95Relative": {
+        "value": 0.15797509817518984,
+        "unit": "dimensionless",
+        "origin": "derived",
+        "derivation": "A DECISION BOUNDARY BETWEEN TWO MEASURED POPULATIONS, not a tolerance, and both populations are published here so it can be checked rather than trusted. POSITIVE: with the MikkTSpace basis this engine generates, the p95 relative disagreement between a geometry cell and the normal-mapped cell beside it runs 0.02245..0.07423 over the ten cells that carry radiance (the third pair of every row is a metal whose base colour is black, so both sides are exactly 0 and its check is vacuous -- its own from_mean and to_mean say so). NEGATIVE: with ONE BIT of that basis changed -- the handedness w negated, which is precisely the failure NormalTangentTest's README names as 'Problem: Flipped Y Axis (or flipped green channel)' -- the same ten run 0.33618..0.88663. The two populations are separated by a factor of 4.53 and do not overlap. The bound is their geometric mean, sqrt(0.074233437 * 0.33618451) = 0.157966, which sits 2.13 times above the worst correct value and 2.13 times below the best broken one, so it is fitted to neither. WHY A QUANTILE AND NOT A MAXIMUM: the left cell is a 516-triangle tessellation of a dome and the right one is a flat quad wearing the 8-bit normal map baked from it, so on the silhouette rim the two disagree by O(1) for a CORRECT renderer -- a max-norm bound over the rectangle either admits that and therefore admits any tangent error, or admits nothing and fails a correct render."
+      }
+    }
+  ],
+  "notes": "Rung 11 of section I.26.5. What it adds over every rung before it is a SHADING NORMAL THAT IS NOT THE VERTEX NORMAL, and with it the two things that make one: a tangent basis the file does not supply, and a second and third image on one surface.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.330765826,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 7774 triangles of the magnitude of the projected signed area, over 1280*720 at the declared parallel camera, recomputed by the runner from the fetched vertices",
+      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so the two skins of each closed dome are both counted and the number is about twice the silhouette."
+    }
+  }
+}

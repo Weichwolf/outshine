@@ -129,6 +129,25 @@ struct SubjectMaterial {
    * coverage factor kept as its own float was already a second copy of `BaseColour[3]`. */
   Material Row;
   SubjectTexture Colour;
+  /* THE OTHER TWO IMAGES glTF PUTS ON ONE SURFACE, named rather than indexed: the mistake a table of
+   * three would spell is binding the normal map where the colour goes, and a name cannot spell it.
+   *
+   * NEITHER OF THESE CARRIES THE sRGB TRANSFER AND THE COLOUR DOES, which is glTF's own rule and is
+   * why the three are separate fields rather than one array with a flag: the transfer is a property
+   * of WHICH SOCKET the image sits in, so a slot whose normal map was decoded as colour has no
+   * spelling here.
+   *
+   * `MetalRough` IS THE FILE'S `metallicRoughnessTexture`, green for roughness and blue for
+   * metalness. It is here because the alternative is not "one image fewer" but a WRONG PICTURE:
+   * glTF's `roughnessFactor` defaults to 1, and at roughness 1 the GGX distribution is exactly
+   * 1/pi at every half-vector, so the whole specular lobe stops depending on the normal -- which
+   * would make a normal-mapped subject whose file states its roughness in a texture render as if it
+   * had no normal map at all. */
+  SubjectTexture Normal;
+  SubjectTexture MetalRough;
+  /* glTF's `normalTexture.scale`, which multiplies the sampled tangent-space x and y only
+   * (Specification.adoc:1416) -- so 0 is a flat surface and 1 is the map as it was baked. */
+  float NormalScale = 1.0f;
 
   [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
@@ -150,6 +169,11 @@ struct SubjectMesh {
   const float *Verts = nullptr;      /* 3 floats per vertex, ECEF offsets from `Anchor`, metres */
   const float *Uv = nullptr;         /* 2 floats per vertex, or null */
   const float *Normals = nullptr;    /* 3 floats per vertex, unit, ECEF axes, or null */
+  /* 4 floats per vertex -- a unit tangent in ECEF axes and glTF's handedness, so that the bitangent
+   * is `cross(normal, tangent.xyz) * w` -- or null. IT IS FOUR AND NOT SIX, because the bitangent is
+   * derived and a run that carried it would be a second answer to the same question that a mirrored
+   * body puts out of step with the first. */
+  const float *Tangents = nullptr;
   const float *Emitted = nullptr;    /* 3 floats per vertex */
   uint32_t VertexCount = 0;
   const uint32_t *Indices = nullptr;
@@ -196,10 +220,19 @@ private:
    * `Samplers` and a `std::vector<bool>` of cull modes: a slot appended to four of them was a
    * mismatch nothing could catch until an encoder read past the end of the short one, and the
    * bool proxy specialisation (`SL.con.2`) meant the cull run alone had no address to take. */
-  struct SurfaceSlot {
+  /* ONE IMAGE AS THE DEVICE HOLDS IT. Three of these sit in a slot, and they are one type rather
+   * than nine members with a prefix each: the five parallel runs this struct replaced are the same
+   * defect one level up. */
+  struct BoundImage {
     wgpu::Texture Image;
     wgpu::TextureView View;
     wgpu::Sampler Sample;
+  };
+
+  struct SurfaceSlot {
+    BoundImage Colour;
+    BoundImage Normal;
+    BoundImage MetalRough;
     /* The slot's own surface row: the coverage factor and the mask cutoff both arms read, and the
      * metal-rough row the lit arm shades with. Per SLOT because glTF states all of them per
      * material, and `AlphaBlendModeTest` renders three cutoffs in one file. */
@@ -209,8 +242,12 @@ private:
     bool CullsBack = true;
   };
 
-  /* One slot's texture, sampler, surface uniform and bind group, appended to the table. */
+  /* One slot's three images, its surface uniform and its bind group, appended to the table. */
   void BindSurface(const SubjectMaterial &material);
+  /* One image on the device. `Decode` says whether the three colour channels carry the sRGB
+   * transfer, which is glTF's per-socket rule and never a per-image guess. */
+  enum class Transfer { Srgb, Linear };
+  [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode);
   /* The light list, restated camera-relative for this frame. */
   void WriteLights(const FrameContext &ctx);
   /* Which of the built pipelines a draw of this layout, kind and facing takes. */
@@ -221,13 +258,14 @@ private:
    * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
    * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
    * be bound with a coverage from one material and a roughness from another. */
-  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive4 */
+  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive3,
+                                             * normal scale */
   /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of three
    * `vec4f` -- colour times intensity with the kind, the camera-relative position with cos(outer),
    * and the beam with the reciprocal of the cone's own span. */
   static constexpr int kLightVec4s = 4;
   static constexpr int kLightFloats = 4 + 4 * kLightVec4s * (int)kMaxSubjectLights;
-  /* FOUR VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
+  /* FIVE VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
    * built at configure time. A single pipeline with a white one-texel stand-in would make "no
    * texture declared" and "a white texture declared" the same picture; a single cull mode would make
    * `doubleSided` a property the reader carries and the picture ignores; and one alpha arm for all
@@ -238,7 +276,7 @@ private:
    * `SetMaterials` refuses the other two by name, so a slot naming one never reaches the table and
    * an unbuilt entry has no draw that can select it -- the refusal is the guard, not a check here. */
   static constexpr size_t kSurfaceKinds = 5;
-  static constexpr size_t kVertexLayouts = 4;
+  static constexpr size_t kVertexLayouts = 5;
   static constexpr size_t kPipelines = kVertexLayouts * 2 * kSurfaceKinds;
 
   wgpu::Device Device;
@@ -249,11 +287,12 @@ private:
    * and alpha. The encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
-  wgpu::Buffer Uni, Lights, Vtx, Uv, Nrm, Emit, Idx;
+  wgpu::Buffer Uni, Lights, Vtx, Uv, Nrm, Tan, Emit, Idx;
   std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
   bool HasNormal = false;
+  bool HasTangent = false;
   bool FiltersFloat32 = false;
   double Anchor[3] = {0, 0, 0};
 };

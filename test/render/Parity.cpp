@@ -79,11 +79,19 @@ namespace {
  * `PartSlot` is which slot each part draws with. Two primitives of one material share a slot, which
  * is what lets the compiled draw list merge them into one call. The decoded rasters are held here
  * because the renderer copies them and the studio only points at them. */
+/* THE THREE DECODED IMAGES ONE SURFACE MAY WEAR, held together because they belong to one surface:
+ * three vectors indexed by slot would be three things to keep in step, and the slot is the thing. */
+struct SurfaceRasters {
+  outshine::Clients::Raster Colour;
+  outshine::Clients::Raster Normal;
+  outshine::Clients::Raster MetalRough;
+};
+
 struct SurfaceTable {
   std::vector<outshine::Render::SubjectMaterial> Slots;
   std::vector<int> Material;      /* the document's material index per slot, -1 where none */
   std::vector<uint32_t> PartSlot;
-  std::vector<outshine::Clients::Raster> Decoded;
+  std::vector<SurfaceRasters> Decoded;
 };
 
 /* WHICH OF THE FILE'S OWN CHANNELS THE DECLARED RADIANCE IS TAKEN FROM, and it is a three-valued
@@ -109,7 +117,7 @@ enum class FileColourCarrier { Texture, Factor };
  * a Khronos asset whose criterion is stated IN TERMS OF the light in the file -- `DirectionalLight`
  * says "the directional lightsource is defined as ..." -- re-declaring it beside the asset would
  * measure our transcription instead. `None` is the default and drops whatever the file carries. */
-enum class SceneLights { None, FromFile };
+enum class SceneLights { None, FromFile, DeclaredSun };
 
 /* BLENDER'S FACTORY WORLD, and it is a property of the ORACLE rather than of the engine, which is why
  * it stands in the test and not in `src/`. A `Background` node at colour 0.05087608844041824 linear
@@ -166,6 +174,9 @@ struct Case {
    * against the oracle is a comparison of two shading models rather than of one number. */
   bool ShadedByLights() const { return Colour == FileColour::Row; }
   SceneLights Lights = SceneLights::None;
+  /* THE DECLARED SUN, resolved once out of the manifest so that the studio builder is a copy and not
+   * a second reading. Unread unless `Lights` names it, which is what `SceneLights` is for. */
+  outshine::PunctualLight Sun;
   /* Whether the ORACLE of this case still has an estimator: a scene whose only sources are lights
    * with no area is sampled deterministically and owes the two-seed check; more than one such light
    * is not, because Cycles picks one per shading event. The manifest declares which. */
@@ -256,14 +267,64 @@ bool Reduced(const Case &subject) {
     out = SceneLights::None;
     return true;
   }
-  /* `sun` AND `point` ARE THE ORACLE'S ARMS AND THIS RUNNER HAS NO PATH TO EITHER: a light declared
-   * beside the asset would have to be built into the studio from the manifest, and nothing does
-   * that. Naming the two is what makes a case that declares one stop here instead of rendering
-   * unlit and scoring it. */
+  /* `sun` IS A DECLARED DELTA LIGHT AND IT REACHES BOTH SIDES. Blender takes the same four numbers
+   * and builds a SUN whose angular diameter the case declares; the studio builds a directional
+   * light out of the direction and the irradiance times the colour. THE ANGLE HAS NO ENGINE SIDE
+   * and that is the whole reason a case may only declare zero: a sun with an angular diameter has an
+   * area, which puts an integral back in the oracle and a soft terminator in a picture the engine
+   * draws hard. `point` is still the arm this runner has no path to. */
+  if (declared.StrEquals("sun")) {
+    out = SceneLights::DeclaredSun;
+    return true;
+  }
   error = "scene.light.kind is '" + declared.Str("") +
-          "', and this runner builds the file's own lights ('gltf') or none -- a light declared "
-          "beside the asset reaches the oracle and has no path into the studio";
+          "', and this runner builds the file's own lights ('gltf'), a declared 'sun', or none -- "
+          "a 'point' declared beside the asset reaches the oracle and has no path into the studio";
   return false;
+}
+
+/* THE DECLARED SUN AS THE ENGINE'S OWN LIGHT. Blender's Sun Strength is an irradiance in W/m^2 on a
+ * surface facing the beam and `KHR_lights_punctual`'s directional `intensity` is an illuminance in
+ * lux on the same surface, so the two are the same NUMBER in the same PLACE and the RAW arm of the
+ * importer is what says so -- there is no conversion here to get wrong.
+ *
+ * AN ANGULAR DIAMETER ABOVE ZERO IS REFUSED AND NOT ROUNDED AWAY. A sun with an angle is an area
+ * source: the oracle gets an estimator back and a picture gets a soft terminator that a punctual
+ * light cannot draw. The refusal names the number so that a case cannot acquire one silently. */
+[[nodiscard]] bool ReadDeclaredSun(const Json::Ref &declared, outshine::PunctualLight &out,
+                                   std::string &error) {
+  const double angle = declared["angleRad"].Num(-1.0);
+  if (angle != 0.0) {
+    error = "scene.light is a sun of angular diameter " + std::to_string(angle) +
+            " rad, and this runner builds a light with no area -- an angle above zero is a disc, "
+            "which is an integral in the oracle and a terminator no punctual light draws";
+    return false;
+  }
+  double beam[3] = {0, 0, 0};
+  double length = 0;
+  for (size_t axis = 0; axis < 3; ++axis) {
+    beam[axis] = declared["directionM"][axis].Num(0.0);
+    length += beam[axis] * beam[axis];
+  }
+  length = std::sqrt(length);
+  if (!(length > 0)) {
+    error = "scene.light declares a sun whose direction has zero length";
+    return false;
+  }
+  const double irradiance = declared["irradianceWPerM2"].Num(-1.0);
+  if (!(irradiance > 0)) {
+    error = "scene.light declares a sun of irradiance " + std::to_string(irradiance) +
+            " W/m^2, and a light that delivers nothing lights nothing";
+    return false;
+  }
+  out = outshine::PunctualLight{};
+  out.Kind = outshine::LightKind::Directional;
+  out.Intensity = (float)irradiance;
+  for (size_t channel = 0; channel < 3; ++channel) {
+    out.Colour[channel] = (float)declared["colourLinear"][channel].Num(1.0);
+  }
+  for (size_t axis = 0; axis < 3; ++axis) { out.Direction[axis] = (float)(beam[axis] / length); }
+  return true;
 }
 
 /* THE RENDERER'S OWN LINES, ON THE RUNNER'S STDOUT. The library emits nothing without an injected
@@ -434,8 +495,18 @@ public:
       !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
     return false;
   }
-  if (!ReadSceneLights(root["scene"]["light"]["kind"], subject.Lights, error)) { return false; }
-  subject.DeltaLit = root["scene"]["light"]["estimator"].StrEquals("delta");
+  const Json::Ref light = root["scene"]["light"];
+  if (!ReadSceneLights(light["kind"], subject.Lights, error)) { return false; }
+  if (subject.Lights == SceneLights::DeclaredSun && !ReadDeclaredSun(light, subject.Sun, error)) {
+    return false;
+  }
+  /* WHETHER THE ORACLE STILL HAS AN ESTIMATOR IS DECLARED ON THE FILE'S ARM AND DERIVED ON THE
+   * SUN'S: the `gltf` arm cannot tell how many delta lights a file carries without reading it, while
+   * a declared sun is exactly one source and `ReadDeclaredSun` has already refused it an area. Two
+   * declarations of one fact would drift the moment one of them was measured. */
+  subject.DeltaLit = subject.Lights == SceneLights::DeclaredSun
+                         ? true
+                         : light["estimator"].StrEquals("delta");
   /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
    * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is
    * the arm a case takes to REMOVE the environment, and the only value in the tree today is zero --
@@ -562,10 +633,50 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
  * both -- `TextureLinearInterpolationTest`'s label plate does -- so anything else stops here by
  * name. The missing capability is a second image binding, and this refusal is what states it.
  */
+/* ONE OF THE FILE'S LINEAR MAPS INTO ONE SURFACE SLOT. It is a different function from the colour
+ * one because it is a different question: there is no alpha, no coverage and no transfer to decide,
+ * and a socket that declares nothing is an ordinary material rather than a refusal -- glTF's
+ * defaults are the factors, and white is what the shader multiplies by when no image is bound. */
+[[nodiscard]] bool ReadLinearMap(const Document &file, const outshine::Gltf::MaterialRef &material,
+                                 const outshine::Gltf::TextureRef &declared, const char *socket,
+                                 outshine::Clients::Raster &raster,
+                                 outshine::Render::SubjectTexture &bound, std::string &error) {
+  if (!declared.Declared()) { return true; }
+  if (declared.TexCoord != 0) {
+    error = std::string("material '") + material.Name + "' reads its " + socket + " from TEXCOORD_" +
+            std::to_string(declared.TexCoord) + ", and this subject carries the first uv set only";
+    return false;
+  }
+  const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
+  std::vector<uint8_t> encoded;
+  if (!file.ImageBytes(texture.Source, encoded)) {
+    error = std::string("material '") + material.Name + "' names " + socket + " image " +
+            std::to_string(texture.Source) + ", whose bytes could not be read";
+    return false;
+  }
+  if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), raster) || !raster.Holds()) {
+    error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
+            std::to_string(encoded.size()) + " bytes that this decoder does not read";
+    return false;
+  }
+  bound.Rgba = raster.Rgba.data();
+  bound.Width = (uint32_t)raster.Width;
+  bound.Height = (uint32_t)raster.Height;
+  if (texture.Sampler >= 0) {
+    const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
+    bound.WrapU = WrapOf(sampler.WrapS);
+    bound.WrapV = WrapOf(sampler.WrapT);
+    bound.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
+                        ? outshine::Render::SubjectFilter::Nearest
+                        : outshine::Render::SubjectFilter::Linear;
+  }
+  return true;
+}
+
 [[nodiscard]] bool ResolveFileSurface(const Document &file, const Subject &geometry,
                                       FileColour channel, FileColourCarrier carrier,
                                       SurfaceTable &table, std::string &error) {
-  table.Decoded.assign(table.Slots.size(), outshine::Clients::Raster{});
+  table.Decoded.assign(table.Slots.size(), SurfaceRasters{});
   const char *socket = channel == FileColour::Emissive ? "emissiveTexture" : "baseColorTexture";
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
@@ -596,16 +707,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
               ", whose bytes could not be read";
       return false;
     }
-    if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot]) ||
-        !table.Decoded[slot].Holds()) {
+    if (!outshine::Clients::DecodeImage(encoded.data(), encoded.size(), table.Decoded[slot].Colour) ||
+        !table.Decoded[slot].Colour.Holds()) {
       error = std::string("the ") + socket + " image of material '" + material.Name + "' is " +
               std::to_string(encoded.size()) + " bytes that this decoder does not read";
       return false;
     }
     outshine::Render::SubjectTexture &base = table.Slots[slot].Colour;
-    base.Rgba = table.Decoded[slot].Rgba.data();
-    base.Width = (uint32_t)table.Decoded[slot].Width;
-    base.Height = (uint32_t)table.Decoded[slot].Height;
+    base.Rgba = table.Decoded[slot].Colour.Rgba.data();
+    base.Width = (uint32_t)table.Decoded[slot].Colour.Width;
+    base.Height = (uint32_t)table.Decoded[slot].Colour.Height;
     if (texture.Sampler >= 0) {
       const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
       base.WrapU = WrapOf(sampler.WrapS);
@@ -616,6 +727,35 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     }
     ++textured;
   }
+
+  /* THE TWO LINEAR MAPS, AND ONLY UNDER THE ARM THAT SHADES WITH THE FILE'S OWN ROW. The other two
+   * arms REPLACE the closure -- a diffuse or an emissive one -- so a normal map they decoded would
+   * be an image nothing reads, and `SciFiHelmet` says so in its own manifest rather than binding
+   * one silently. */
+  if (channel == FileColour::Row) {
+    for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
+      const int index = table.Material[slot];
+      if (index < 0 || (size_t)index >= file.Materials().size()) { continue; }
+      const outshine::Gltf::MaterialRef &material = file.Materials()[(size_t)index];
+      table.Slots[slot].NormalScale = (float)material.NormalScale;
+      const struct {
+        const outshine::Gltf::TextureRef &Declared;
+        const char *Socket;
+        outshine::Clients::Raster &Into;
+        outshine::Render::SubjectTexture &Bound;
+      } maps[] = {
+          {material.Normal, "normalTexture", table.Decoded[slot].Normal, table.Slots[slot].Normal},
+          {material.MetallicRoughness, "metallicRoughnessTexture", table.Decoded[slot].MetalRough,
+           table.Slots[slot].MetalRough},
+      };
+      for (const auto &map : maps) {
+        if (!ReadLinearMap(file, material, map.Declared, map.Socket, map.Into, map.Bound, error)) {
+          return false;
+        }
+      }
+    }
+  }
+
   /* A TEXTURE IS OWED WHERE THE CASE SAYS THE PICTURE IS ONE, in both directions. Under `gltf` the
    * row is the appearance and a material with no image is an ordinary material, so nothing is owed;
    * under the two socket arms the case has declared which of the two it reads, and a file that
@@ -1271,6 +1411,7 @@ outshine::Clients::Studio MakeStudio(const Case &subject) {
       studio.Lights.push_back(placed.Light);
     }
   }
+  if (subject.Lights == SceneLights::DeclaredSun) { studio.Lights.push_back(subject.Sun); }
   return studio;
 }
 

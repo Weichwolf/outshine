@@ -2,10 +2,24 @@
  * hierarchy into one run of world-space positions, plus the eye that looks at them.
  *
  * WHAT THE FILE CARRIES AND NOTHING MORE: positions, and where the primitive states them the first
- * uv set and the normal. Nothing below DERIVES an attribute -- a primitive with no NORMAL keeps none
- * and says so per part, because deriving one silently is what makes a subject not the declared one
- * (doc/requirements.md I.26). Tangents are the same question one attribute along and are not
- * answered here yet.
+ * uv set, the normal and the tangent. Nothing below DERIVES an attribute -- a primitive with no
+ * NORMAL keeps none and says so per part, because deriving one silently is what makes a subject not
+ * the declared one (doc/requirements.md I.26).
+ *
+ * THE TANGENT IS THE ONE EXCEPTION AND THE FORMAT IS WHAT MAKES IT ONE. "When tangents are not
+ * specified, client implementations SHOULD calculate tangents using default MikkTSpace algorithms"
+ * (Specification.adoc:1426) -- so a generated basis is not this file's opinion about the subject, it
+ * is the answer the format states, and `Tangents.h` is the algorithm it names. IT IS GENERATED ONLY
+ * WHERE IT WOULD BE READ: the primitive's own material must declare a `normalTexture`, and the
+ * primitive must carry both NORMAL and TEXCOORD_0, which is the same sentence the specification
+ * writes. A SUPPLIED `TANGENT` IS NEVER REGENERATED, because `NormalTangentMirrorTest` exists to
+ * fail an engine that does, and `Part::TangentSource` is where a consumer reads which of the two it
+ * got.
+ *
+ * A GENERATED BASIS IS PER TRIANGLE CORNER AND THIS RUN IS PER VERTEX, so a vertex whose corners
+ * came out with different bases is SPLIT rather than averaged -- averaging is exactly the smoothing
+ * decision MikkTSpace exists to remove, and the split is decided by an exact inequality so that no
+ * tolerance stands between two bases that are not the same one.
  *
  * AND THE LIGHTS THE SCENE PLACES, because `KHR_lights_punctual` puts a light on a node: what the
  * hierarchy answers is where the light is and which way it points, so a walk that flattened only
@@ -30,6 +44,7 @@
 namespace outshine::Gltf {
 
 class Document;
+struct Primitive;
 
 /* WHERE THE EYE IS AND WHAT IT SEES, in glTF's own right-handed +Y-up metres. The basis is the
  * camera's: it looks down -Forward's opposite, i.e. `Forward` is the direction of view, and `Right`
@@ -86,15 +101,23 @@ struct Placement {
  * A DECLARATION THAT SAYS SOMETHING PER PART RESOLVES AGAINST THIS AND AGAINST NOTHING ELSE, so
  * "the third cube" is a name in the file rather than a position in a list somebody has to keep in
  * step. */
+/* WHERE A PART'S TANGENT BASIS CAME FROM, and it is three answers rather than a flag beside a flag
+ * (`Enum.2`): a consumer that must not regenerate a supplied basis has to be able to see which it
+ * has, and `NormalTangentMirrorTest` is the asset that fails an engine which cannot. */
+enum class TangentSource { None, Supplied, Generated };
+
 struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
   int Material = -1;      /* the document's material index, or -1 where the primitive names none */
   bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
   bool HasNormal = false; /* whether NORMAL was carried, per primitive and never per subject */
+  TangentSource Tangent = TangentSource::None;
   size_t FirstVertex = 0;
   size_t VertexCount = 0;
   size_t FirstIndex = 0;
   size_t IndexCount = 0;
+
+  [[nodiscard]] bool HasTangent() const { return Tangent != TangentSource::None; }
 };
 
 /* A `KHR_lights_punctual` LIGHT WITH ITS NODE ALREADY RESOLVED: the table entry says what kind of
@@ -137,6 +160,16 @@ public:
    * absence is recorded per part rather than repaired invisibly (doc/requirements.md I.26.12). */
   const std::vector<double> &Normals() const { return Normals_; }
   bool HasNormal() const { return !Normals_.empty(); }
+  /* 4 doubles per vertex, in the same root coordinates: a unit tangent and glTF's handedness, so
+   * that `bitangent = cross(normal, tangent.xyz) * w`. Empty when NO part carries one; otherwise it
+   * covers every vertex and the vertices of a part that carries none hold zero, which
+   * `Part::Tangent` says is unread rather than a direction.
+   *
+   * THE HANDEDNESS IS THE NODE'S TOO. A mirroring node reverses a cross product, so a `w` carried
+   * across unchanged would put the bitangent on the wrong side of a mirrored body -- the same
+   * restatement the winding gets, one attribute along. */
+  const std::vector<double> &Tangents() const { return Tangents_; }
+  bool HasTangent() const { return !Tangents_.empty(); }
   /* Every light the default scene places, in the order the walk met them. Empty where the file
    * declares none, which is every asset outside `KHR_lights_punctual`. */
   const std::vector<PlacedLight> &Lights() const { return Lights_; }
@@ -171,11 +204,19 @@ public:
 
 private:
   [[nodiscard]] bool Refuse(const std::string &why);
+  /* One part's tangent run, appended in step with the runs above: the file's own where the
+   * primitive supplies one, MikkTSpace where the primitive's material declares a normal texture and
+   * the file supplies none, and nothing otherwise. Splits a vertex whose corners came out with
+   * different generated bases, which is why it runs after the part's indices exist and why it may
+   * lengthen every run. */
+  [[nodiscard]] bool BuildTangentsFor(const Document &document, const Primitive &primitive,
+                                      const Transform &world, Part &part, size_t vertices);
 
   std::string Error_;
   std::vector<double> Positions_;
   std::vector<double> Uv_;
   std::vector<double> Normals_;
+  std::vector<double> Tangents_;
   std::vector<uint32_t> Indices_;
   std::vector<Part> Parts_;
   std::vector<PlacedLight> Lights_;

@@ -729,20 +729,23 @@
             },
             "scale": {
               "quantity": "number"
-            },
-            "maxUlps": {
-              "quantity": "index"
             }
           },
           "optional": {
             "note": "string",
             "channels": {
               "array": "index"
+            },
+            "maxUlps": {
+              "quantity": "index"
+            },
+            "maxP95Relative": {
+              "quantity": "number"
             }
           }
         }
       },
-      "note": "THE RELATION THE ASSET STATES ABOUT A RENDER OF ITSELF, evaluated on the scene-referred linear tap and on nothing else. `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's share of the pixel's own sum equals a declared hue. `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel after a declared scale, in f32 ulps because both sides come out of one shader over one surface."
+      "note": "THE RELATION THE ASSET STATES ABOUT A RENDER OF ITSELF, evaluated on the scene-referred linear tap and on nothing else. `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's share of the pixel's own sum equals a declared hue. `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel after a declared scale. A region-compare carries EXACTLY ONE currency and the runner refuses both or neither: `maxUlps` is a maximum and is right where both sides come out of one shader over one surface, `maxP95Relative` is a quantile and is the only honest currency where the two regions are the same surface stated two ways -- a tessellation against a bake of it disagrees by O(1) on the silhouette rim for a correct renderer."
     }
   }
 }

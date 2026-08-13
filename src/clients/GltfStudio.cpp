@@ -170,10 +170,16 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * is the whole answer. */
     const bool textured = where.HasUv && studio.Surfaces[slot].Colour.Rgba;
     const bool lit = where.HasNormal && !studio.Lights.empty();
-    item.Layout = lit ? (textured ? Render::VertexLayout::PositionNormalUv
-                                  : Render::VertexLayout::PositionNormal)
-                      : (textured ? Render::VertexLayout::PositionUv
-                                  : Render::VertexLayout::Position);
+    /* THE NORMAL-MAPPED LAYOUT NEEDS BOTH HALVES TOO, and the second half is the SURFACE: a part
+     * that carries a tangent basis under a surface with no normal map would sample the one white
+     * texel that only exists to complete the bind group, and white decodes to the tangent-space
+     * direction (1, 1, 1), which is a tilt no file asked for. */
+    const bool mapped = lit && textured && where.HasTangent() && studio.Surfaces[slot].Normal.Rgba;
+    item.Layout = mapped ? Render::VertexLayout::PositionNormalUvTangent
+                         : (lit ? (textured ? Render::VertexLayout::PositionNormalUv
+                                            : Render::VertexLayout::PositionNormal)
+                                : (textured ? Render::VertexLayout::PositionUv
+                                            : Render::VertexLayout::Position));
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
@@ -184,6 +190,7 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
 struct VertexRuns {
   size_t UvAt = 0;
   size_t NormalAt = 0;
+  size_t TangentAt = 0;
   size_t EmittedAt = 0;
 };
 
@@ -194,7 +201,7 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
   vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Normals().size() +
-                   subject.VertexCount() * 3);
+                   subject.Tangents().size() + subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
@@ -212,6 +219,17 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     double ecef[3];
     EcefFromGltf(&subject.Normals()[vertex * 3], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+  }
+  /* THE TANGENT TAKES THE SAME PERMUTATION AS THE POSITION, for the same reason the normal does --
+   * it is a direction in the surface, and the map between the two frames is a signed permutation of
+   * determinant +1. `w` IS NOT PERMUTED AND MUST NOT BE: it is a handedness relative to the normal
+   * and the tangent, and a map that preserves orientation preserves it. */
+  runs.TangentAt = vertices.size();
+  for (size_t vertex = 0; vertex * 4 < subject.Tangents().size(); ++vertex) {
+    double ecef[3];
+    EcefFromGltf(&subject.Tangents()[vertex * 4], ecef);
+    for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+    vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
   }
   runs.EmittedAt = vertices.size();
   vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);
@@ -300,6 +318,7 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
   mesh.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
+  mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();

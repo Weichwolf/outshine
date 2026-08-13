@@ -35,16 +35,35 @@ namespace outshine::Render {
  * and a draw that faces a light without one would have to substitute a direction -- which is the
  * black hemisphere or the flat plate that a lighting model invents when an attribute is missing.
  * Folding the two into one enumeration makes "lit without a normal" and "a normal nobody lights"
- * both unspellable, where two independent fields would spell each of them. */
-enum class VertexLayout : uint8_t { Position, PositionUv, PositionNormal, PositionNormalUv };
+ * both unspellable, where two independent fields would spell each of them.
+ *
+ * THE TANGENT IS THE SAME ARGUMENT ONE ATTRIBUTE ALONG. It exists to turn a normal map's tangent
+ * space into the world's, so a draw whose surface declares no normal map reads it for nothing, and a
+ * draw that samples one without it would have to invent a basis -- which is the arbitrary uv-axis
+ * frame that makes `NormalTangentTest`'s cells disagree with each other. It comes with the normal
+ * and the uv set and never alone: the basis is the triple, and a layout that could spell two thirds
+ * of it would be a normal map sampled against half a frame. */
+enum class VertexLayout : uint8_t {
+  Position,
+  PositionUv,
+  PositionNormal,
+  PositionNormalUv,
+  PositionNormalUvTangent
+};
 
-/* Whether a layout carries the first uv set, and whether it carries the normal that makes it lit.
- * Stated once, here, so the encoder and the pipeline table cannot disagree about what a layout is. */
+/* Whether a layout carries the first uv set, the normal that makes it lit, and the tangent that
+ * makes it normal-mapped. Stated once, here, so the encoder and the pipeline table cannot disagree
+ * about what a layout is. */
 [[nodiscard]] inline bool CarriesUv(VertexLayout layout) {
-  return layout == VertexLayout::PositionUv || layout == VertexLayout::PositionNormalUv;
+  return layout == VertexLayout::PositionUv || layout == VertexLayout::PositionNormalUv ||
+         layout == VertexLayout::PositionNormalUvTangent;
 }
 [[nodiscard]] inline bool CarriesNormal(VertexLayout layout) {
-  return layout == VertexLayout::PositionNormal || layout == VertexLayout::PositionNormalUv;
+  return layout == VertexLayout::PositionNormal || layout == VertexLayout::PositionNormalUv ||
+         layout == VertexLayout::PositionNormalUvTangent;
+}
+[[nodiscard]] inline bool CarriesTangent(VertexLayout layout) {
+  return layout == VertexLayout::PositionNormalUvTangent;
 }
 
 /* ONE DRAW: where its triangles are in the consumer's own index run, what surface it wears, and

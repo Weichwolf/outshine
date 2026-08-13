@@ -181,8 +181,14 @@ def _seed_shift(material, renders, light):
     # A punctual light with no radius is a delta source, so a scene lit only by such lights and by a
     # world of strength zero is sampled deterministically too -- the same claim, reached from the
     # other side, and the same acceptance.
+    # A DECLARED SUN OF ANGULAR DIAMETER ZERO IS THE SAME CLAIM SPELT AS A NUMBER: the `gltf` arm
+    # cannot tell how many delta lights a file carries without reading it and so declares
+    # `estimator`, while a declared sun is exactly one source and its own angle says whether it has
+    # an area. Deriving it here rather than asking for a second `estimator` keeps the fact in one
+    # place per arm.
+    declared_delta_sun = light.get("kind") == "sun" and light.get("angleRad") == 0
     reduced = (material.get("kind") in ("emission", "emission-per-material") or
-               light.get("estimator") == "delta")
+               light.get("estimator") == "delta" or declared_delta_sun)
     if not reduced:
         if SEED_SHIFT_RECIPE_NAME in renders:
             raise Refusal("manifest.renders." + SEED_SHIFT_RECIPE_NAME, expected="absent",

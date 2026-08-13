@@ -20,10 +20,21 @@
  * camera precisely so that two bodies 2.25 m apart project to an exact integer pixel offset, which
  * is what turns "identical" into a decidable claim rather than a resampling.
  *
- * WHY THE COMPARISON IS IN ULPS AND NOT IN A RELATIVE TOLERANCE: both sides come out of one shader
- * over one surface, so the only thing between them is the order f32 rounded a sum of the same terms
- * at two positions. An ulp count says exactly that and a relative epsilon hides how much room it
- * left. */
+ * A `region-compare` CARRIES EXACTLY ONE CURRENCY AND THE CASE PICKS IT, because the two answer
+ * different questions and a check that declared both would be two opinions about one comparison.
+ *
+ * `maxUlps` IS A MAXIMUM AND IT IS RIGHT WHERE BOTH SIDES COME OUT OF ONE SHADER OVER ONE SURFACE:
+ * the only thing between them is then the order f32 rounded a sum of the same terms at two
+ * positions, an ulp count says exactly that, and a relative epsilon would hide how much room it
+ * left. `PointLightIntensityTest` is that case -- two panels of one material under two light lists.
+ *
+ * `maxP95Relative` IS A QUANTILE AND IT IS THE ONLY HONEST CURRENCY WHERE THE TWO REGIONS ARE THE
+ * SAME SURFACE STATED TWO WAYS. `NormalTangentTest` compares a 516-triangle tessellation of a dome
+ * against a flat quad wearing the 8-bit map baked from it: on the silhouette rim the two disagree by
+ * O(1) for a CORRECT renderer, because that is where a tessellation and a bake differ, so a maximum
+ * over the region admits any tangent error at all or admits none. A quantile separates the rim from
+ * the body, and the bound it is judged at is a decision boundary between two MEASURED populations
+ * rather than a tolerance -- the case states both. */
 #ifndef RENDER_INVARIANT_H
 #define RENDER_INVARIANT_H
 
@@ -56,6 +67,11 @@ struct Invariant {
   PixelRect From, To;       /* RegionCompare */
   double Scale = 1.0;       /* RegionCompare: what `To` is multiplied by before comparing */
   double MaxUlps = 0;       /* RegionCompare: the widest admissible f32 disagreement */
+  double MaxP95Relative = 0;
+  /* WHICH OF THE TWO THE CASE DECLARED, as an enumeration rather than a sentinel value: a bound of
+   * zero is a legitimate demand in both currencies, so "which one" cannot be read off the number. */
+  enum class Currency { Ulps, P95Relative };
+  Currency Judged = Currency::Ulps;
   /* WHICH CHANNELS THE COMPARISON READS, and it is declared because the asset states two different
    * claims: the bottom row must match in ALL THREE -- "the 'Red + Green + Blue' test will be
    * identical to the 'White' test" -- while the top row matches ONE at a time -- "when viewing the
@@ -178,10 +194,28 @@ struct Invariant {
                   " one, and two rectangles of different shapes have no pixel correspondence";
           return false;
         }
-        if (!ReadDeclaredNumber(entry["scale"], (where + ".scale").c_str(), check.Scale, error) ||
-            !ReadDeclaredNumber(entry["maxUlps"], (where + ".maxUlps").c_str(), check.MaxUlps,
-                                error)) {
+        if (!ReadDeclaredNumber(entry["scale"], (where + ".scale").c_str(), check.Scale, error)) {
           return false;
+        }
+        {
+          const bool ulps = entry["maxUlps"].Valid();
+          const bool quantile = entry["maxP95Relative"].Valid();
+          if (ulps == quantile) {
+            error = where + " declares " + (ulps ? "both maxUlps and maxP95Relative" : "neither "
+                    "maxUlps nor maxP95Relative") +
+                    ", and one comparison is judged in one currency";
+            return false;
+          }
+          check.Judged = ulps ? Invariant::Currency::Ulps : Invariant::Currency::P95Relative;
+          if (ulps && !ReadDeclaredNumber(entry["maxUlps"], (where + ".maxUlps").c_str(),
+                                          check.MaxUlps, error)) {
+            return false;
+          }
+          if (quantile &&
+              !ReadDeclaredNumber(entry["maxP95Relative"], (where + ".maxP95Relative").c_str(),
+                                  check.MaxP95Relative, error)) {
+            return false;
+          }
         }
         if (entry["channels"].Valid()) {
           for (bool &channel : check.Channel) { channel = false; }
@@ -312,8 +346,12 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
           }
         }
       }
+      /* THE COUNT IS ENFORCED ONLY WHERE THE CHECK IS JUDGED IN ULPS, because it IS the ulp bound
+       * read as a max-norm: every compared channel must be within `maxUlps`. Under the quantile
+       * currency it stays as a reading, so a case cannot be judged twice on one comparison. */
       metrics.push_back({check.Name + "_channels_apart", (double)apart, 0.0, "channels",
-                         Direction::AtMost});
+                         check.Judged == Invariant::Currency::Ulps ? Direction::AtMost
+                                                                   : Direction::Reported});
       size_t read = 0;
       for (const bool channel : check.Channel) { read += channel ? 1u : 0u; }
       metrics.push_back({check.Name + "_channels_compared", (double)compared,
@@ -329,8 +367,10 @@ inline void Evaluate(const Invariant &check, const LinearFrame &frame,
                          0.0, "linear, scene-referred", Direction::Reported});
       metrics.push_back({check.Name + "_p50_relative", Percentile(relative, 0.50), 0.0,
                          "dimensionless", Direction::Reported});
-      metrics.push_back({check.Name + "_p95_relative", Percentile(relative, 0.95), 0.0,
-                         "dimensionless", Direction::Reported});
+      metrics.push_back({check.Name + "_p95_relative", Percentile(relative, 0.95),
+                         check.MaxP95Relative, "dimensionless",
+                         check.Judged == Invariant::Currency::P95Relative ? Direction::AtMost
+                                                                         : Direction::Reported});
       metrics.push_back({check.Name + "_p50_ulps", Percentile(spread, 0.50), 0.0, "f32 ulps",
                          Direction::Reported});
       metrics.push_back({check.Name + "_p95_ulps", Percentile(spread, 0.95), 0.0, "f32 ulps",

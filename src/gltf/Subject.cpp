@@ -3,10 +3,13 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstring>
+#include <map>
 #include <string>
 
 #include "Document.h"
 #include "Framing.h"
+#include "Tangents.h"
 
 namespace outshine::Gltf {
 
@@ -90,7 +93,122 @@ void Triangulate(PrimitiveMode mode, Handedness handedness, const std::vector<ui
   }
 }
 
+/* THE FOUR NUMBERS OF ONE BASIS AS A KEY, so that "these two corners hold the same basis" is an
+ * exact question. Any bound below which two bases counted as one would be a tolerance nobody
+ * derived, and the price of having none is a duplicated vertex where two bases differ in their last
+ * bit -- which costs memory and never a picture. */
+struct BasisKey {
+  uint64_t Bits[4] = {};
+  bool operator<(const BasisKey &other) const {
+    return std::memcmp(Bits, other.Bits, sizeof Bits) < 0;
+  }
+};
+
+BasisKey KeyOf(const double basis[4]) {
+  BasisKey key;
+  for (size_t at = 0; at < 4; ++at) {
+    const double folded = basis[at] == 0.0 ? 0.0 : basis[at];
+    std::memcpy(&key.Bits[at], &folded, sizeof key.Bits[at]);
+  }
+  return key;
+}
+
 } // namespace
+
+bool Subject::BuildTangentsFor(const Document &document, const Primitive &primitive,
+                               const Transform &world, Part &part, size_t vertices) {
+  Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
+
+  const int supplied = primitive.Find("TANGENT");
+  if (supplied >= 0) {
+    std::vector<double> elements;
+    if (!document.ReadElements(supplied, elements)) {
+      return Refuse(document.Path() + ": TANGENT does not decode: " + document.Error());
+    }
+    if (elements.size() != vertices * 4) {
+      return Refuse(document.Path() + ": TANGENT decodes to " + std::to_string(elements.size() / 4) +
+                    " vectors over " + std::to_string(vertices) + " vertices");
+    }
+    /* A TANGENT TRANSFORMS LIKE A DIRECTION IN THE SURFACE and not like the normal: it lies IN the
+     * tangent plane, so the node's linear part carries it and the inverse transpose would tilt it
+     * out of the plane on any non-uniform scale. */
+    const double mirrored = world.LinearDeterminant() < 0 ? -1.0 : 1.0;
+    for (size_t vertex = 0; vertex < vertices; ++vertex) {
+      const double local[3] = {elements[vertex * 4], elements[vertex * 4 + 1],
+                               elements[vertex * 4 + 2]};
+      double global[3];
+      world.Direction(local, global);
+      (void)Normalise(global);
+      for (int axis = 0; axis < 3; ++axis) {
+        Tangents_[(part.FirstVertex + vertex) * 4 + (size_t)axis] = global[axis];
+      }
+      Tangents_[(part.FirstVertex + vertex) * 4 + 3] = elements[vertex * 4 + 3] * mirrored;
+    }
+    part.Tangent = TangentSource::Supplied;
+    return true;
+  }
+
+  /* THE THREE CONDITIONS THE FORMAT PUTS ON GENERATING ONE, and all three are the file's rather than
+   * this reader's: the material must actually sample a normal map, and the primitive must carry the
+   * normal and the uv set the algorithm is defined over. A basis generated where nothing reads it is
+   * an attribute the subject did not declare. */
+  const bool needed = part.Material >= 0 && (size_t)part.Material < document.Materials().size() &&
+                      document.Materials()[(size_t)part.Material].Normal.Texture >= 0;
+  if (!needed || !part.HasNormal || !part.HasUv || part.IndexCount == 0) { return true; }
+
+  TangentSubject over;
+  over.PositionsM = Positions_.data();
+  over.Normals = Normals_.data();
+  over.Uv = Uv_.data();
+  over.VertexCount = VertexCount();
+  over.Indices = Indices_.data() + part.FirstIndex;
+  over.IndexCount = part.IndexCount;
+  std::vector<double> corners;
+  std::string error;
+  if (!GenerateTangents(over, corners, error)) {
+    return Refuse(document.Path() + ": the tangent basis the material needs cannot be generated: " +
+                  error);
+  }
+
+  std::map<BasisKey, uint32_t> split;
+  std::vector<char> written(VertexCount(), 0);
+  for (size_t corner = 0; corner < part.IndexCount; ++corner) {
+    const uint32_t vertex = Indices_[part.FirstIndex + corner];
+    const double *basis = &corners[corner * 4];
+    if (!written[vertex]) {
+      for (size_t at = 0; at < 4; ++at) { Tangents_[vertex * 4 + at] = basis[at]; }
+      written[vertex] = 1;
+      continue;
+    }
+    if (std::memcmp(&Tangents_[vertex * 4], basis, 4 * sizeof(double)) == 0) { continue; }
+    BasisKey key = KeyOf(basis);
+    /* The vertex is part of the key, so two vertices that happen to want one basis do not collapse
+     * into each other -- they are different points of the surface and only their tangent agrees. */
+    key.Bits[0] ^= (uint64_t)vertex * 0x9e3779b97f4a7c15ull;
+    const auto found = split.find(key);
+    if (found != split.end()) {
+      Indices_[part.FirstIndex + corner] = found->second;
+      continue;
+    }
+    const uint32_t made = (uint32_t)VertexCount();
+    for (size_t axis = 0; axis < 3; ++axis) {
+      Positions_.push_back(Positions_[vertex * 3 + axis]);
+    }
+    Uv_.resize((size_t)made * 2 + 2, 0.0);
+    Uv_[(size_t)made * 2] = Uv_[vertex * 2];
+    Uv_[(size_t)made * 2 + 1] = Uv_[vertex * 2 + 1];
+    Normals_.resize((size_t)made * 3 + 3, 0.0);
+    for (size_t axis = 0; axis < 3; ++axis) {
+      Normals_[(size_t)made * 3 + axis] = Normals_[vertex * 3 + axis];
+    }
+    Tangents_.resize((size_t)made * 4 + 4, 0.0);
+    for (size_t at = 0; at < 4; ++at) { Tangents_[(size_t)made * 4 + at] = basis[at]; }
+    split.emplace(key, made);
+    Indices_[part.FirstIndex + corner] = made;
+  }
+  part.Tangent = TangentSource::Generated;
+  return true;
+}
 
 bool Placement::LookAt(const double eyeM[3], const double aimM[3], double rollRad, Placement &out) {
   double forward[3] = {aimM[0] - eyeM[0], aimM[1] - eyeM[1], aimM[2] - eyeM[2]};
@@ -141,10 +259,18 @@ bool Placement::Clip(double viewportAspect, Transform &out) const {
   return true;
 }
 
+/* A REFUSED SUBJECT CARRIES NO RUN AT ALL, and every run goes rather than the two that used to:
+ * `HasUv`, `HasNormal` and `HasTangent` answer from their own run's emptiness, so leaving one of
+ * them populated over zero vertices spells a subject that has a tangent for a vertex it does not
+ * have. */
 bool Subject::Refuse(const std::string &why) {
   Error_ = why;
   Positions_.clear();
+  Uv_.clear();
+  Normals_.clear();
+  Tangents_.clear();
   Indices_.clear();
+  Parts_.clear();
   return false;
 }
 
@@ -153,11 +279,13 @@ bool Subject::Build(const Document &document) {
   Positions_.clear();
   Uv_.clear();
   Normals_.clear();
+  Tangents_.clear();
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
   bool anyUv = false;
   bool anyNormal = false;
+  bool anyTangent = false;
 
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
@@ -338,8 +466,10 @@ bool Subject::Build(const Document &document) {
         }
         Indices_.push_back(base + index);
       }
-      part.VertexCount = VertexCount() - part.FirstVertex;
       part.IndexCount = Indices_.size() - part.FirstIndex;
+      if (!BuildTangentsFor(document, primitive, world, part, vertices)) { return false; }
+      anyTangent = anyTangent || part.HasTangent();
+      part.VertexCount = VertexCount() - part.FirstVertex;
       /* A primitive that yielded no triangle is not a part: it is a name a per-part declaration
        * would have to answer for while nothing of it is drawn. */
       if (part.IndexCount > 0) { Parts_.push_back(part); }
@@ -348,6 +478,7 @@ bool Subject::Build(const Document &document) {
 
   if (!anyUv) { Uv_.clear(); }
   if (!anyNormal) { Normals_.clear(); }
+  if (!anyTangent) { Tangents_.clear(); }
   if (Indices_.empty()) {
     return Refuse(document.Path() + ": the default scene draws no triangle over " +
                   std::to_string(primitives) + " primitive(s), so there is nothing to render");
