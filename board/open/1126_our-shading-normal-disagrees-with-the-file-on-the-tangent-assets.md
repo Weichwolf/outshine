@@ -18,7 +18,31 @@ Geometry column is the *worst* and the two mirrored columns the *best*, where ig
 mirrored ones far out ahead. Normal maps in general are refuted by `water-bottle`, which carries one and
 agrees at p95 **0.064°**.
 
-**The unresolved tension, and it is the lead.** The disagreement is concentrated on the two assets
+**The tension is resolved, and it resolves into TWO mechanisms rather than one.** The disputed pixels,
+bucketed into four equal vertical bands across the frame:
+
+| | band 0 | band 1 | band 2 | band 3 |
+|---|---|---|---|---|
+| `normal-tangent-mirror` | **840** | 18 617 | 12 371 | 7 201 |
+| `normal-tangent` | **0** | 6 972 | 11 214 | 2 850 |
+
+**Band 0 is clean** — a literal zero on one case, 2 % of the total on the other — and band 0 is where the
+tangent-free Geometry column sits. *(Band is a position in the frame; the mapping to the asset's columns
+is by layout and is not read from the file.)*
+
+**So the earlier reading inverts, because the two measurements are about different quantities.** The
+Geometry column was worst **in the picture** — appearance codes, 89.59 max non-flip over 1 125 over-bound
+px. It is clean **in the shading normal**. Therefore:
+
+- **where no tangent is used, our shading normal is right** to within what the texture can express;
+- **the shading-normal defect is in the tangent path — the basis, not the map**;
+- and whatever makes the tangent-free column worst *in the picture* is a **second mechanism**, since the
+  normal there is correct. It needs its own item once this one is repaired.
+
+That also explains `water-bottle`: carrying a normal map is not the same as stressing handedness the way
+these two assets were built to.
+
+**The remaining lead.** The disagreement is concentrated on the two assets
 Khronos built for tangent handedness, while the per-column measurement found the tangent-free column
 worst. Those two facts have not resolved into one mechanism, and **the shading normal is now a named
 local at every arm**, so the value can be read at any point in its construction rather than inferred

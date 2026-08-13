@@ -1776,6 +1776,13 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
   size_t shaded = 0, noLobe = 0, uncovered = 0, adjudicated = 0;
   size_t disputed = 0, oursNearer = 0, cyclesNearer = 0;
   std::vector<double> disputedMargin;
+  /* WHERE ACROSS THE FRAME THE DISPUTE SITS, in four equal vertical bands. `normal-tangent` and its
+   * mirror are regular grids whose columns differ in ONE declared thing -- real geometry, a normal map,
+   * a V-mirrored tangent, a U-mirrored tangent -- so a dispute concentrated in one band names which
+   * declared thing it is about, and a dispute spread evenly says the grid is not the axis at all. The
+   * band is a position in the image and NOT a claim that band N is column N: that mapping is by layout
+   * and is not read from the file. */
+  size_t bandDisputed[4] = {0, 0, 0, 0};
   double worstDeg = 0, sumDeg = 0;
   std::vector<double> degrees, oursVsFile, cyclesVsFile;
   for (size_t y = 0; y < height; ++y) {
@@ -1846,6 +1853,8 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
         ++cyclesNearer;
       }
       disputedMargin.push_back(cyclesFile - oursFile);
+      const int band = (int)((double)x * 4.0 / (double)ours.Width);
+      ++bandDisputed[band < 0 ? 0 : (band > 3 ? 3 : band)];
     }
   }
   std::sort(degrees.begin(), degrees.end());
@@ -1876,6 +1885,10 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     std::sort(disputedMargin.begin(), disputedMargin.end());
     Note("of those, the file is nearer OURS", (double)oursNearer, "px");
     Note("of those, the file is nearer CYCLES", (double)cyclesNearer, "px");
+    Note("disputed in band 0 of 4 across the frame", (double)bandDisputed[0], "px");
+    Note("disputed in band 1 of 4 across the frame", (double)bandDisputed[1], "px");
+    Note("disputed in band 2 of 4 across the frame", (double)bandDisputed[2], "px");
+    Note("disputed in band 3 of 4 across the frame", (double)bandDisputed[3], "px");
     metrics.push_back({"disputed_ours_nearer_fraction",
                        (double)oursNearer / (double)disputed, 0.0, "dimensionless",
                        Direction::Reported});
