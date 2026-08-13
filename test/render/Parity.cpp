@@ -33,13 +33,11 @@
  * only starts to matter when a filter widens; it is stated now so that it is not chosen then. */
 #include <algorithm>
 #include <array>
-#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <thread>
 #include <vector>
 
 #include "Check.h"
@@ -958,32 +956,6 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   return ResolveCamera(subject, error);
 }
 
-/* A POLL, TURNED INTO AN ANSWER, AND IT RENDERS NOTHING. The renderer's readers are polls because a
- * browser frame thread has no legal way to stand still; a runner does, so it spends turns until the
- * transfer lands and refuses rather than looping forever.
- *
- * IT USED TO RENDER A FRAME PER TURN, and that is how pace got into the picture: the number of turns
- * a transfer takes is the host's business, so the number of frames the accumulator had seen when the
- * colour was copied was too. The transfer is submitted by the first poll and needs no further frame.
- * How many frames a picture needs before it is the picture is the PLAN's statement, below. */
-constexpr int kPollTurns = 4000;      /* [SET] a bound, so a failed transfer ends the run instead of it */
-constexpr int kPollWaitMs = 1;        /* [SET] the bound is therefore four seconds of wall clock */
-
-template <typename Read>
-[[nodiscard]] bool Drain(Read read) {
-  for (int turn = 0; turn < kPollTurns; ++turn) {
-    const outshine::Render::ReadState state = read();
-    if (state == outshine::Render::ReadState::Ready) { return true; }
-    if (state == outshine::Render::ReadState::Failed) { return false; }
-    /* A RUNNER MAY STAND STILL, which is the whole difference from the frame thread the poll shape
-     * exists for. The wait is what makes the bound a wall clock instead of a spin that gives up
-     * before the copy has retired -- and no frame is drawn while it waits, so no pace reaches the
-     * picture. */
-    std::this_thread::sleep_for(std::chrono::milliseconds(kPollWaitMs));
-  }
-  return false;
-}
-
 struct Picture {
   std::vector<float> Depth;
   std::vector<uint8_t> Rgba;
@@ -1003,16 +975,19 @@ struct Picture {
   if (!outshine::Clients::Show(renderer, studio, scratch, error)) { return false; }
 
   for (int frame = 0; frame < renderer.SettleFrames(); ++frame) { renderer.RenderFrame(); }
-  if (!Drain([&] { return renderer.ReadDepth(out.Depth); })) {
-    error = "the depth readback never completed";
+  /* NO FRAME IS DRAWN BETWEEN THE THREE READS, so no pace reaches the picture: each copies a target
+   * that already exists and waits for that copy alone. How many frames a picture needs before it is
+   * the picture is the PLAN's statement, above. */
+  if (renderer.ReadDepth(out.Depth) != outshine::Render::ReadState::Ready) {
+    error = "the depth readback did not complete";
     return false;
   }
-  if (!Drain([&] { return renderer.ReadSceneLinear(out.Linear); })) {
-    error = "the scene-referred linear readback never completed";
+  if (renderer.ReadSceneLinear(out.Linear) != outshine::Render::ReadState::Ready) {
+    error = "the scene-referred linear readback did not complete";
     return false;
   }
-  if (!Drain([&] { return renderer.ReadPixels(out.Rgba); })) {
-    error = "the colour readback never completed";
+  if (renderer.ReadPixels(out.Rgba) != outshine::Render::ReadState::Ready) {
+    error = "the colour readback did not complete";
     return false;
   }
   return true;

@@ -1,5 +1,5 @@
 /* WHAT THE ENGINE CAN RENDER, as data a compiler can read. Every resource and every stage this
- * renderer owns is one row here, and the rows carry no `wgpu::Device`, no view and no bind group --
+ * renderer owns is one row here, and the rows carry no device handle, no texture and no pipeline --
  * which is what lets a plan be checked before a device object exists. WebGPU pins a view into a bind
  * group at bind-group creation, so "create only what is declared" has to be a graph settled before
  * anything is created, and never a branch at a creation site.

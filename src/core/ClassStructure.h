@@ -55,7 +55,7 @@ public:
    * of `distM` has to say what it does with it. */
   static constexpr double kNoEdgeM = 1.0e30;
 
-  /* THE ONE EVALUATOR, in C++ — the WGSL one reads the same rule off the same words. -1 = no datum at
+  /* THE ONE EVALUATOR, in C++ — a device half would read the same rule off the same words. -1 = no datum at
    * this place, which is a state and not a default: the caller decides what to do with it. */
   int Evaluate(double e, double n, double *distM, int *runnerUp) const;
 

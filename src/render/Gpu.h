@@ -1,36 +1,28 @@
-/* The device-level handles a stage gets, handed once at Init and never per frame. Renderer owns
- * the real device/queue/swapchain; a stage never re-derives or requests them itself. */
+/* THE DEVICE-LEVEL HANDLES A STAGE GETS, handed once at Init and never per frame. Renderer owns the
+ * real device and every pass boundary; a stage never re-derives or requests them itself. */
 #ifndef GPU_H
 #define GPU_H
 
-#include <webgpu/webgpu_cpp.h>
+#include <SDL3/SDL_gpu.h>
 
 namespace outshine::Render {
 
 struct Gpu {
-  wgpu::Device Device;
-  wgpu::Queue Queue;
-  wgpu::TextureFormat HdrFormat;       /* offscreen HDR scene target format (stages that draw into it) */
-  wgpu::TextureFormat SurfaceFormat;   /* swapchain/present format (stages that draw into FrameTex/final) */
-  int Width, Height;                  /* fixed scene resolution (FrameTex), not the live swapchain size */
-  /* Whether the device granted `float32-filterable`. A stage that wants an EXACT texel and a filter
-   * over exact texels needs both, and the two are one feature: without it a 32-bit float texture may
-   * only be sampled unfiltered. */
+  SDL_GPUDevice *Device = nullptr;
+  SDL_GPUTextureFormat HdrFormat = SDL_GPU_TEXTUREFORMAT_INVALID;   /* the offscreen scene target */
+  SDL_GPUTextureFormat SurfaceFormat = SDL_GPU_TEXTUREFORMAT_INVALID; /* the frame a picture is read off */
+  int Width = 0, Height = 0;   /* the declared scene resolution */
+  /* Whether the device can filter a 32-bit float texture. A stage that wants an EXACT texel and a
+   * filter over exact texels needs it: without it such a texture may only be sampled unfiltered. */
   bool FiltersFloat32 = false;
 };
 
-/* What a SUN-LIT surface binds, as one bundle: IrradianceStage's two irradiances and
- * cascade uniform plus its atlas. Terrain and buildings take the same four handles, which is
- * the C++ half of the promise stages/SurfaceLight.h makes in WGSL — one light, one scale, one set of
- * cascades, so no surface can end up lit by a second sun. */
-struct SceneLight {
-  wgpu::Buffer Irradiance;
-  wgpu::Buffer Cascades;
-  wgpu::TextureView ShadowAtlas;
-  wgpu::Sampler ShadowCompare;
-  /* The three decks plus the anchor frame their horizontal field is measured in — the SAME buffer
-   * CloudLayerStage marches. A second cloud field would put the shadow somewhere other than under
-   * the cloud, so there is one and every lit surface reads it. */
+/* WHERE A STAGE RECORDS, and it is two handles rather than one because SDL_GPU splits them: draws go
+ * to the pass, and uniform data is pushed on the command buffer that opened it. A stage that held
+ * only the pass would have no way to hand its shader a number. */
+struct PassRecording {
+  SDL_GPUCommandBuffer *Commands = nullptr;
+  SDL_GPURenderPass *Pass = nullptr;
 };
 
 } // namespace outshine::Render

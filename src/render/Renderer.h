@@ -1,430 +1,136 @@
 /* THE DEVICE HALF OF A COMPILED PLAN. Renderer owns the device, the resources the plan holds and
- * every Begin/EndRenderPass boundary; drawing lives in DrawStage-derived classes that record into the
- * encoder it opened. A stage never begins or ends a pass.
+ * every render-pass boundary; drawing lives in the stages that record into the pass it opened. A
+ * stage never begins or ends a pass.
  *
  * NOTHING HERE DECIDES WHAT IS RENDERED. The plan says which resources exist, which stages are
  * configured, in what order and in how many passes; this file executes that and holds no composition
  * of its own. There is no pass tally to keep against a fixed enumeration, because the pass count is
- * an output of the compiler -- and the two init-order constraints that used to live only in comments
- * are now the catalogue's `TopologicalOrderHolds` static assertion. */
+ * an output of the compiler.
+ *
+ * THE CATALOGUE IS WHAT A PLAN CAN SAY AND THIS IS WHAT THIS DEVICE LAYER CAN DO, and the two are
+ * not the same set. `Init` refuses a plan holding a stage this layer does not execute, naming it: a
+ * stage silently encoding nothing is a black picture with nothing to attribute it to, which is the
+ * one failure a renderer must never be able to report as success. */
 #ifndef RENDERER_H
 #define RENDERER_H
 
 #include <cstdint>
-#include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
-#include <webgpu/webgpu_cpp.h>
-#include "RenderPlan.h"
-#include "State.h"
-#include "Gpu.h"
+
+#include <SDL3/SDL_gpu.h>
+
 #include "FrameContext.h"
-#include "GpuTimer.h"
+#include "Gpu.h"
+#include "GpuOwned.h"
 #include "Readback.h"
-#include "stages/StarsStage.h"
-#include "stages/PresentStage.h"
-#include "stages/TransmittanceStage.h"
-#include "stages/MultiScatterStage.h"
-#include "stages/IrradianceStage.h"
-#include "stages/SkyViewStage.h"
-#include "stages/SkyStage.h"
-#include "stages/SunStage.h"
-#include "stages/MoonStage.h"
-#include "GeometryStage.h"
-#include "stages/BenchGroundStage.h"
-#include "stages/ShadowStage.h"
-#include "stages/AoStage.h"
-#include "stages/ExposureStage.h"
-#include "stages/TaaStage.h"
+#include "RenderPlan.h"
+#include "stages/Resolve.h"
+#include "stages/SubjectDraw.h"
 #include "stages/TonemapStage.h"
-#include "TemporalJitter.h"
 
 namespace outshine::Render {
 
 class Renderer {
 public:
-  Renderer();
-
-  /* Bring-up into the render target, blocking: there is no event loop to pump callbacks on. The
-   * plan is the whole of what will be created and encoded, and it cannot be unvalidated -- it has no
-   * public constructor and only RenderPlan::Compile makes one. */
+  /* Bring-up into the render target. The plan is the whole of what will be created and encoded, and
+   * it cannot be unvalidated -- it has no public constructor and only RenderPlan::Compile makes one.
+   * A refusal leaves `DeviceUsable()` false and says why in the log. */
   void Init(int width, int height, std::shared_ptr<const RenderPlan> plan);
   [[nodiscard]] const RenderPlan &Plan(void) const { return *Plan_; }
+  [[nodiscard]] bool DeviceUsable(void) const { return Ready; }
 
-  [[nodiscard]] bool Ready(void) const { return DeviceReady; }
-
-  /* Acquire the target, run the passes, submit. */
+  /* Run the passes and submit. */
   void RenderFrame(void);
 
-  /* EVERY READER BELOW IS A POLL, and the first call is what issues the transfer: ask each turn,
-   * take the answer on the turn it stops being Pending. There is no waiting variant, because the
-   * browser's frame thread has no legal way to stand still and a run that stood still there would
-   * hold the very event loop its tiles arrive on. */
+  /* HOW MANY FRAMES BEFORE THE PICTURE IS THE PICTURE -- a property the compiled plan states, so no
+   * caller carries a settle constant of its own. */
+  [[nodiscard]] int SettleFrames(void) const { return Plan_ ? Plan_->SettleFrames() : 1; }
 
-  /* Tightly packed W*H*4 RGBA8, already sRGB-encoded — ready for a PNG writer. */
+  /* Tightly packed W*H*4 RGBA8, already sRGB-encoded -- ready for a PNG writer. */
   [[nodiscard]] ReadState ReadPixels(std::vector<uint8_t> &rgba);
 
-  /* Ready once everything submitted so far has retired. A per-frame wall clock without it reads the
-   * encoder, not the frame. */
-  [[nodiscard]] ReadState GpuIdle(void);
-
   /* Reversed-Z scene depth, W*H floats, row-major. Range along the view ray follows as
-   * kNearM / depth / cos(angle off boresight); a critic's "at 1-2 km" is otherwise a guess about a
-   * hillside's row. */
+   * kNearM / depth / cos(angle off boresight). */
   [[nodiscard]] ReadState ReadDepth(std::vector<float> &depth);
-  static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn — the numerator of that division */
+  static constexpr float kNearM = 0.05f;   /* MvpCamRel's zn -- the numerator of that division */
 
   /* THE SCENE-REFERRED LINEAR TAP: W*H RGBA floats, row-major -- resolved linear radiance BEFORE the
-   * occlusion composite and BEFORE the exposure. It is the zero point a radiance comparison needs,
-   * and a plan that holds no such resource refuses.
+   * display transfer. It is the zero point a radiance comparison needs, and a plan that holds no
+   * such resource refuses.
    *
    * ONE CURRENCY OUT, AND THE PLAN SAYS WHICH STORAGE PRODUCED IT. Under `ScenePrecision::Half` the
    * values are widened from binary16, which is exact; under `Float` they are the target's own bits.
    * A caller whose verdict is the value reads `Plan::Format(Resource::SceneLinear)` to know which
-   * floor it is measuring against -- the half target rounds on store and a threshold that ignored
-   * that would be reporting the format. */
+   * floor it is measuring against. */
   [[nodiscard]] ReadState ReadSceneLinear(std::vector<float> &rgba);
 
-  /* [sunIrr.rgb, _, skyIrr.rgb, _] in top-of-atmosphere-solar = 1 units: the scale everything lit is
-   * multiplied by, measurable instead of asserted. */
-  [[nodiscard]] ReadState ReadIrradiance(float out[IrradianceStage::kFloats]);
-
-  /* WHAT THE SCENE MAY DECLARE about its own brightness; Auto with no compensation is the default
-   * and needs no declaration. Takes effect on the next frame. */
-  void SetExposure(const ExposureParams &p) { Exposure->SetParams(p); }
-
-  /* [expScale, keyLog2, horizE, _]: the scalar the resolve multiplies scene radiance by, the log2 of
-   * the radiance it places at middle grey, and the horizontal irradiance it came from. */
-  [[nodiscard]] ReadState ReadExposure(float out[ExposureStage::kMeterFloats]);
-
-  /* Enable before Init: the terrain source is per-tile buffers plus a growable CLASS array driven
-   * by World. */
-  [[nodiscard]] bool DeviceUsable(void) const { return DeviceReady && !DeviceLost; }
-
-  /* A table slot id, or -1 if the device is gone or the class array is full. */
-  int  UploadTile(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                 const DagCluster *clusters, int nclusters,
-                 const double origin[3], const double anchor[3]);
-  /* THE CLASS STRUCTURE, borrowed for the length of the call (world/ClassField.h). */
-  void SetClassFrame(const double east[3], const double north[3], const double camOffset[2]) {
-    Geometry->Terrain().SetClassFrame(east, north, camOffset);
-  }
-  void WriteClassBuffer(const uint32_t *words, size_t bytes) {
-    Geometry->Terrain().WriteClassBuffer(words, bytes);
-  }
-  void ReleaseTile(int slot) { Geometry->Terrain().ReleaseTile(slot); }   /* free the buffer, recycle both layers */
-  void SetDrawList(const int *slots, int n) { Geometry->Terrain().SetDrawList(slots, n); }  /* the tiles to draw this frame (World's leaves) */
-  long ClassVramBytes(void) const { return Geometry->Terrain().ClassVramBytes(); }   /* the classification input */
-  long TileMeshBytes(void) const { return Geometry->Terrain().TileMeshBytes(); }     /* the resident tile geometry */
-
-  /* THE ENVIRONMENT the frame is lit and hazed by — sun, moon, cloud deck, altitude. Nothing to do
-   * with a HUD any more: the renderer keeps it because sun/moon/cloud drive its own lighting math. */
-  void SetSceneState(const State &s) { SceneState = s; }
-  void PinJitter(float x, float y) { Jitter.Pin(x, y); }
-
-  /* THE VEGETATION TABLE, before Init: 256 resolved rows (world/VegetationTemplates::Row). Without it
-   * the terrain keeps its raw albedo — the pre-template picture, on purpose. `bareRockRow` and
-   * `slopeBandDeg` come out of the same declaration and travel with it, so the row the ground falls
-   * back to on a wall can never name a table that is not loaded. */
-  void SetVegetationTable(const void *rows, size_t rowBytes, int bareRockRow, float slopeBandDeg);
-
-  /* WHERE THE GROUND COVER IS READ. The ground fragment IS the cover (render/Sward.h), so it needs
-   * the place and the local basis and nothing else — the geodetic position picks the graticule cell
-   * the field is hashed on. */
-  void SetSwardBasis(double lat, double lon, const double east[3], const double north[3],
-                     const double up[3]) {
-    Geometry->Terrain().SetSward(lat, lon, east, north, up);
-  }
-  /* THE SUBJECT BENCH'S FLOOR AND ITS NEUTRAL CARD — studio furniture, and off unless a bench
-   * declares it. `radiusM` <= 0 retires the floor and a card
-   * of zero width retires the card, which is the state every other client is in for the whole of its
-   * life. */
-  void SetBenchGround(double eyeAglM, double radiusM, double gridM) {
-    BenchGround->SetPlane(eyeAglM, radiusM, gridM);
-  }
-  void SetBenchSubstrate(const float linearRgb[3]) { BenchGround->SetSubstrate(linearRgb); }
-  void SetBenchCard(const BenchCard &card) { BenchGround->SetCard(card); }
-
-  /* AN INSTANCED PROTOTYPE, in the same camera-relative ground frame the bench's floor and card use.
-   * The mesh arrives as raw arrays and the material as a ROW OF NUMBERS whose meanings are pinned in
-   * the shader that reads it: render/ draws what it is handed and knows nothing about what the model
-   * is of. `SetPrototypeHeightM` <= 0 with no instance field is the state every client stays in
-   * until one is uploaded. */
-  void SetPrototypeLevel(int level, const LevelMesh &mesh) {
-    Geometry->Models().SetLevel(level, mesh);
-  }
-  void SetPrototypeDetail(const DetailMesh &detail) { Geometry->Models().SetDetail(detail); }
-  void SetPrototypeSheets(int level, const SheetSet &sheets) {
-    Geometry->Models().SetSheets(level, sheets);
-  }
-  void SetPrototypeMaterial(const float row[kMaterialRowFloats]) {
-    Geometry->Models().SetMaterial(row);
-  }
-  void SetPrototypeHeightM(double heightM) { Geometry->Models().SetHeightM(heightM); }
-  void SetPrototypeBounds(const ModelBounds &bounds) { Geometry->Models().SetBounds(bounds); }
-  void SetPrototypeSubject(double eastM, double northM, double eyeAglM) {
-    Geometry->Models().SetSubject(eastM, northM, eyeAglM);
-  }
-  void SetPrototypeInstances(const float *instances, uint32_t n, const TangentFrame &frame) {
-    Geometry->Models().SetInstances(instances, n, frame);
-  }
-  void SetSheetsVisible(bool on) { Geometry->Models().SetSheetsVisible(on); }
-  /* THE ONE PASS THAT IS NOT PER FRAME. Renderer opens every render pass, and the impostor atlas is
-   * baked ONCE at load into its own command buffer — the per-frame pass count is untouched. */
-  void BakePrototypeImpostor(void);
-  long ModelMeshInstances() const { return Geometry->Models().MeshInstances(); }
-  double ModelMeshRadiusM() const { return Geometry->Models().MeshRadiusM(); }
-  long ModelImpostorInstances(void) const { return Geometry->Models().ImpostorInstances(); }
-  long ModelLevelInstances(int level) const { return Geometry->Models().LevelInstances(level); }
-  long ModelTriangleCount(void) const { return Geometry->Models().TriangleCount(); }
-  size_t ModelPrototypeBytes() const { return Geometry->Models().PrototypeBytes(); }
-  size_t ModelInstanceBytes() const { return Geometry->Models().InstanceBytes(); }
-  size_t ModelImpostorBytes() const { return Geometry->Models().ImpostorBytes(); }
-
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
-   * it -- many primitives, each with its own surface slot and vertex layout. A client that never
-   * declares one draws nothing extra. */
+   * it -- many primitives, each with its own surface slot and vertex layout. */
   [[nodiscard]] bool SetSubjectMesh(const SubjectMesh &mesh, std::string &error) {
-    return Geometry->Subjects().SetMesh(mesh, error);
+    return Subjects_.SetMesh(mesh, error);
   }
-  long SubjectTriangleCount() const { return Geometry->Subjects().TriangleCount(); }
-  uint32_t SubjectBatchCount() const { return Geometry->Subjects().BatchCount(); }
-  uint32_t SubjectDrawCount() const { return Geometry->Subjects().DrawCount(); }
   /* THE SUBJECT'S SURFACES, one per slot a draw key can name: the file says which image and how it
    * is addressed, the consumer decodes it, and this holds it. */
   [[nodiscard]] bool SetSubjectMaterials(const std::vector<SubjectMaterial> &materials,
                                          std::string &error) {
-    return Geometry->Subjects().SetMaterials(materials, error);
+    return Subjects_.SetMaterials(materials, error);
   }
-
-  /* THE LIGHTS THE SUBJECT IS LIT BY, as a list. It is a SECOND binding beside the sun and not a
-   * second sun: `SceneLight` still carries one irradiance pair and one set of cascades, so no
-   * surface can be lit by two suns, and a punctual light has no spelling in it (§ II.8). */
+  /* THE LIGHTS THE SUBJECT IS LIT BY, as a list. */
   [[nodiscard]] bool SetSubjectLights(const std::vector<SubjectLight> &lights, std::string &error) {
-    return Geometry->Subjects().SetLights(lights, error);
+    return Subjects_.SetLights(lights, error);
   }
+  [[nodiscard]] uint32_t SubjectBatchCount(void) const { return Subjects_.BatchCount(); }
+  [[nodiscard]] uint32_t SubjectDrawCount(void) const { return Subjects_.DrawCount(); }
 
-  /* THE SCENE'S DECLARED WIND, met convention (the bearing it comes from, m/s at 10 m). It is held
-   * for the consumers that owe a published anchor and read by no stage today. */
-  void SetWind(double fromDeg, double speedMs) { WindFromDeg = fromDeg; WindMs = speedMs; }
-  /* The WIND clock, deliberately not the sky clock: a wave measurement wants the sun to stand still
-   * while the field runs. Advanced by the client, never by the renderer. */
-  void SetWindClock(double seconds) { WindClock = seconds; }
-  double GetWindClock(void) const { return WindClock; }
-
-  /* HOW MANY FRAMES BEFORE THE PICTURE IS THE PICTURE -- a property the compiled plan states, so no
-   * caller carries a settle constant of its own. */
-  int SettleFrames(void) const { return Plan_ ? Plan_->SettleFrames() : 1; }
-
-  /* THE ACCUMULATION HAS NO CONTINUITY ACROSS A TELEPORT. A motion vector describes a step, not a
-   * jump: after the camera is placed somewhere else outright, every reprojection points at a pixel
-   * that shows something unrelated, and the neighbourhood clip is the only thing between that and a
-   * ghost of the previous standpoint. A caller that MOVES the camera rather than walking it says so
-   * here, and then renders TemporalSettleFrames() before it reads the picture. */
-  void ResetTemporal(void) { HaveHistory = false; Jitter.Reset(); }
-  /* THE PER-PASS CLOCK, for whoever aggregates it. False means the device refused the feature, and
-   * that is a different statement from eight zeroes. */
-  [[nodiscard]] bool GpuTimingAvailable(void) const { return GpuTimeGranted; }
-  [[nodiscard]] bool TakeGpuTimes(GpuTimer::Sample &out) { return GpuTime.Take(out); }
-
-  /* The extruded OSM footprints World decoded; positions are ECEF offsets from `anchor`. */
-  void SetBuildingMesh(const float *verts, uint32_t nverts, const uint32_t *idx, uint32_t nidx,
-                       const DagCluster *clusters, int nclusters,
-                       const double anchor[3]) {
-    Geometry->Buildings().SetMesh(verts, nverts, idx, nidx, clusters, nclusters, anchor);
-  }
-  uint32_t BuildingVertexCount(void) const { return Geometry->Buildings().VertexCount(); }
-  void SetWaterMesh(const float *v, uint32_t n, const double anchor[3]) {
-    Geometry->Water().SetMesh(v, n, anchor);
-  }
-  uint32_t WaterVertexCount(void) const { return Geometry->Water().VertexCount(); }
-
-  int  DrawCount(void) const { return Geometry->Terrain().DrawCount(); }   /* tile draws/frame (TileBuf = n*32 B) */
-  int  TerrainDrawCalls(void) const { return Geometry->Terrain().DrawCallCount(); }
-  const long *TerrainTrianglesByLevel(void) const { return Geometry->Terrain().TrianglesByLevel(); }
-  long ShadowTriangleCount(void) const { return Shadow->TriangleCount(); }
-  int  ShadowDrawCalls(void) const { return Shadow->DrawCallCount(); }
-  int  TerrainVisibleTiles(void) const { return Geometry->Terrain().VisibleTileCount(); }
-  long TerrainTriangleCount(void) const { return Geometry->Terrain().TriangleCount(); }
-  /* The two accumulation buffers plus the motion attachment — the whole price of TAA in memory. */
-  long TemporalVramBytes(void) const {
-    return Taa->HistoryBytes() + (long)Width * (long)Height * 4L;
-  }
-
-  /* THE BUDGET INSTRUMENT: triangles the last frame submitted, over every geometry unit there is. */
-  long TriangleCount(void) const { return Geometry->TriangleCount(); }
-
-  /* Call before Init; without it the moon disc falls back to flat grey. */
-  void SetMoonTexture(const uint8_t *rgba, int w, int h);
-
-  /* Multiplier over the true angular radius (1 = realistic ~0.5 deg, ~5 px at 720p). */
-  void SetMoonScale(double s) { MoonScale = s > 0.0 ? s : 1.0; }
-
-  /* Scales the march step counts; 0 disables the cloud pass entirely. */
-
-
-  /* 6 B/star, mag-sorted. Call before Init; placed at true alt/az for the given origin. */
-  void SetStars(const uint8_t *hyg, int nbytes, double originLat, double originLon);
-
-  /* Drives sidereal star placement. */
-  void SetSkyClock(double unixSec) { SkyClock = unixSec; }
-
-  /* Up is derived radial: no roll. */
-  void SetCamera(const double eye[3], const double target[3]);
-
-  /* Carries ROLL, so the horizon tilts at bank. Takes precedence over SetCamera/orbit. */
+  /* Carries ROLL, so the horizon tilts at bank. */
   void SetCameraBasis(const double eye[3], const double fwd[3], const double right[3],
                       const double up[3]);
 
   /* THE SCENE'S vertical field of view over the full frame height, as the scene file declares it.
-   * Call before the first frame; it enters the projection and the atmosphere uniform together, so
-   * there is never a second copy to drift from. */
+   * It enters the projection and nothing else, so there is never a second copy to drift from. */
   void SetFovDeg(double deg) { FovDeg = deg > 0.0 ? (float)deg : FovDeg; }
   void SetOrthoM(double m) { OrthoM = (float)m; }
-  float GetFovDeg(void) const { return FovDeg; }
 
-  int SceneW(void) const { return Width; }
-  int SceneH(void) const { return Height; }
+  [[nodiscard]] int SceneW(void) const { return Width; }
+  [[nodiscard]] int SceneH(void) const { return Height; }
   /* The frame's shape, which a parallel projection needs and a perspective one does not: the
    * vertical field of view fixes the horizontal only once the aspect is known. */
-  double SceneAspect(void) const { return Height > 0 ? (double)Width / (double)Height : 0.0; }
-
-  const wgpu::Device &GetDevice(void) const { return Device; }
-  wgpu::TextureFormat GetSurfaceFormat(void) const { return SurfaceFormat; }
+  [[nodiscard]] double SceneAspect(void) const {
+    return Height > 0 ? (double)Width / (double)Height : 0.0;
+  }
 
 private:
-  /* THE THREE EXHAUSTIVE SWITCHES OVER THE CATALOGUE, and there are no others: what a resource IS,
-   * what configures a stage, and what a stage draws. Each has no `default:`, so a new catalogue row
-   * is a compile error until all three answer for it -- which is the shape that replaced twelve
-   * hand-ordered creation calls with two comment-only ordering constraints. */
+  /* THE THREE EXHAUSTIVE SWITCHES OVER THE CATALOGUE, and there are no others: whether this layer
+   * can execute a stage at all, what a resource IS, and what configures a stage. Each has no
+   * `default:`, so a new catalogue row is a compile error until all three answer for it. */
+  [[nodiscard]] static bool Executable(Stage stage);
   void Create(Resource resource);
-  void Configure(Stage stage);
-  void EncodeStage(Stage stage, const FrameContext &ctx, wgpu::RenderPassEncoder &pass);
-  void EncodeStage(Stage stage, const FrameContext &ctx, wgpu::ComputePassEncoder &pass);
-  /* The view a reader of `resource` binds, after the plan's aliases. */
-  [[nodiscard]] wgpu::TextureView View(Resource resource) const;
-  [[nodiscard]] wgpu::TextureView Bound(Resource resource) const { return View(Plan_->Bound(resource)); }
+  [[nodiscard]] bool Configure(Stage stage, std::string &error);
+  void EncodeStage(Stage stage, const PassRecording &into);
+  void EncodePass(SDL_GPUCommandBuffer *commands, size_t pass);
+  [[nodiscard]] SDL_GPUTexture *Target(Resource resource) const;
   [[nodiscard]] DisplayOptions Display(void) const;
-  void EncodePass(wgpu::CommandEncoder &enc, size_t pass, const FrameContext &ctx);
+  /* The texture the linear tap copies, which is whatever the plan bound in `sceneLinear`'s place. */
+  [[nodiscard]] SDL_GPUTexture *LinearSource(void) const;
 
-  wgpu::Instance MakeInstance(void) const;   /* the descriptor, and the native path asks for one more */
-  SceneLight Light(void) const;       /* the four handles a lit surface binds */
-  void UpdateAtmosphere(const double eye[3], const double sunDir[3], const double right[3],
-                        const double camUp[3], const double fwd[3], const double moonDir[3],
-                        double dayF, double moonPh);    /* per-frame atmosphere uniform */
-
-  void StartAdapterRequest(void);
-  void OnAdapter(wgpu::Adapter a);
-  void OnDevice(wgpu::Device d);
-  void CreateOffscreenTarget(void);
-
+  /* FIRST, SO IT IS DESTROYED LAST (`C.13`): every handle below is taken from it. */
+  OwnedDevice Device_;
   std::shared_ptr<const RenderPlan> Plan_;
-  wgpu::Instance Instance;
-  wgpu::Adapter Adapter;
-  wgpu::Device Device;
-  wgpu::Queue Queue;   /* cached once — per-frame GetQueue() churns wrapper refs (measured: device died one ref per frame) */
-  wgpu::Texture OffscreenTex;   /* the final colour target: RGBA8UnormSrgb, RenderAttachment|CopySrc */
-  wgpu::TextureFormat SurfaceFormat;   /* what pipelines and views use: always sRGB-encoding */
-  wgpu::TextureFormat HdrFormat;   /* offscreen scene target: rg11b10ufloat where renderable, else rgba16float */
-  /* Sun shadows and contact occlusion. Both own a target and neither owns a pass: the shadow atlas is
-   * filled in a pass Renderer opens before the scene, the AO buffer in one it opens after. */
-  std::unique_ptr<AoStage> Ao = std::make_unique<AoStage>();
-  std::unique_ptr<ExposureStage> Exposure = std::make_unique<ExposureStage>();
-  wgpu::Sampler Samp;              /* shared linear sampler: unit textures, TAA history, tonemap's HdrTex read */
-  wgpu::Texture DepthTex, HdrTex;  /* shared scene targets: the geometry stage and SkyStage draw into them */
-  /* THE SECOND SCENE ATTACHMENT (stages/SceneTargets.h): screen-space motion of whatever owns the
-   * depth. Cleared to the "world-fixed" sentinel every frame, written only by geometry that moved
-   * for a reason other than the camera. */
-  wgpu::Texture VelTex;
-  /* THE TEMPORAL PAIR. Neither half is useful alone: the jitter without the resolve is a shaking
-   * picture, the resolve without the jitter averages the same samples over and over. */
-  std::unique_ptr<TaaStage> Taa = std::make_unique<TaaStage>();
-  TemporalJitter Jitter;
-  /* FB_TAA=0 — see RenderFrame. A measurement gate, not a setting: nothing in the tree turns the pair
-   * off, and the one caller that may is a bench asking what the picture costs. */
-  const bool TaaOn = [] { const char *e = getenv("FB_TAA"); return !e || atoi(e) != 0; }();
-  bool HaveHistory = false;
-  float PrevMvp[16] = {};
-  double PrevEye[3] = {0, 0, 0};
-  /* ONE GEOMETRY STAGE. Terrain, prisms, water and instanced models, over one cluster cut. */
-  std::unique_ptr<GeometryStage> Geometry = std::make_unique<GeometryStage>();
-  /* The 256 vegetation-template rows: the terrain shades its ground cover out of them. */
-  wgpu::Buffer VegBuf;
-  std::vector<uint8_t> VegRows;
-  std::unique_ptr<BenchGroundStage> BenchGround = std::make_unique<BenchGroundStage>();
-  std::unique_ptr<ShadowStage> Shadow = std::make_unique<ShadowStage>();
-  wgpu::Buffer CsmBuf;
+  Gpu Handles;
+  OwnedTexture HdrTex, VelTex, DepthTex, FrameTex, OffscreenTex;
+  OwnedSampler Samp;
+  SubjectDraw Subjects_;
+  TonemapStage Tonemap_;
 
-  /* The whole frame lands in a FrameTex of the DECLARED size, and the present pass copies it on. */
-  wgpu::Texture FrameTex;
-  std::unique_ptr<PresentStage> Present = std::make_unique<PresentStage>();
-
-  /* Hillaire 2020. These resources stay Renderer-owned because 3+ consumers read them; the stages
-   * hold only the pipeline/bind group built from views injected at Configure(). §4 */
-  wgpu::Texture TransLUT, MsLUT, SkyLUT;          /* 256x64, 32x32, 192x108 rgba16float (storage + sampled) */
-  wgpu::Sampler LutSamp;                          /* linear, U-repeat (azimuth wraps), V-clamp */
-  std::vector<TerrainDraw::Caster> TerrainCasters;
-  std::vector<ShadowStage::TerrainCaster> ShadowTerrain;        /* reused, so a steady scene allocates nothing */
-  GpuTimer GpuTime;                               /* per-pass GPU time, telemetry */
-  bool GpuTimeGranted = false;
-  bool FloatFilterGranted = false;
-  wgpu::Buffer AtmoBuf;                           /* shared atmosphere uniform (sun, camera basis) */
-  wgpu::Buffer IrrBuf;                            /* IrradianceStage's two irradiances — THE scale */
-  wgpu::Buffer MeterBuf;                          /* ExposureStage's gain + white point, read by the tonemap */
-  std::unique_ptr<TransmittanceStage> Transmittance = std::make_unique<TransmittanceStage>();
-  std::unique_ptr<MultiScatterStage> MultiScatter = std::make_unique<MultiScatterStage>();
-  std::unique_ptr<SkyViewStage> SkyView = std::make_unique<SkyViewStage>();
-  std::unique_ptr<IrradianceStage> Irradiance = std::make_unique<IrradianceStage>();
-  std::unique_ptr<SkyStage> Sky = std::make_unique<SkyStage>();
-
-  /* Additive draws, encoded directly after Sky in the scene pass. MoonStage owns the albedo
-   * texture; these are only the raw bytes staged until Moon->Configure(). */
-  std::unique_ptr<SunStage> Sun = std::make_unique<SunStage>();
-  std::unique_ptr<MoonStage> Moon = std::make_unique<MoonStage>();
-  std::vector<uint8_t> MoonData;
-  int MoonW, MoonH;
-  double MoonScale;                               /* FB_MOON_SCALE (default 1 = true angular size) */
-  double SkyClock;
-  double WindFromDeg = 0.0, WindMs = 0.0, WindClock = 0.0;
-  std::unique_ptr<StarsStage> Stars = std::make_unique<StarsStage>();
-
-  /* THE cloud chain: one stage, one pass, straight into HdrTex. */
-
-  /* THE ONE cloud field, as a buffer: the march reads it and so does every lit surface, because a
-   * shadow computed from a second field would not lie under its cloud. Renderer-owned for the same
-   * reason AtmoBuf is — four consumers, one writer. */
-  double CloudQuality = 0.0;   /* 0 = the sheet; > 0 drives the volumetric march (stages/clouds.md) */
-  /* The field's horizontal origin is a PLACE (SkyParams.Anchor*), never the camera: pinning it at the
-   * first eye made the cloud pattern a function of where the session started. */
-  bool HaveCloudAnchor = false;
-  bool LoggedCloudShadow = false;
-  double CloudAnchor[3] = {0, 0, 0};
-  double CloudAxisE[3] = {1, 0, 0}, CloudAxisN[3] = {0, 1, 0};
-
-  /* Value-initialised at the DECLARATION, not just in the one constructor: RenderFrame reads the
-   * weather fields whether or not SetSceneState was ever called, and a second constructor would
-   * silently drop that guarantee. The zeros are a DEFINED state — "no weather report", for which the
-   * cloud march has its own default deck. */
-  State SceneState{};
-
-  double Center[3];   /* terrain field centre — the default orbit camera's fallback target only */
-  int MaxLayers = 256;   /* device's real texture-array-layer cap (OnAdapter); handed to the terrain unit */
-  bool HaveCamera;                      /* SetCamera used (scripted path) vs the default orbit */
-  bool CameraFull;                      /* SetCameraBasis used (full rolled basis) — wins over both */
-  double Eye[3], LookTarget[3];
-  double Fwd[3], Right[3], Up[3];       /* explicit ECEF camera basis (SetCameraBasis) */
-  float FovDeg = 60.0f;                 /* [SET] until a scene declares one; SetFovDeg is the only writer */
-  float OrthoM = 0.0f;                  /* > 0: parallel projection covering this many metres */
-
-  std::unique_ptr<TonemapStage> Tonemap = std::make_unique<TonemapStage>();
-
-  Readback PixelRead, DepthRead, LinearRead, IrrRead, MeterRead;
-  bool WorkWatched = false, WorkRetired = false;
-
-  int Width, Height;
-  bool DeviceReady, DeviceLost;
-  unsigned FrameNo;
+  bool Ready = false;
+  int Width = 0, Height = 0;
+  bool CameraFull = false;                /* SetCameraBasis used */
+  double Eye[3] = {0, 0, 0};
+  double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
+  float FovDeg = 60.0f;                   /* [SET] until a scene declares one */
+  float OrthoM = 0.0f;                    /* > 0: parallel projection covering this many metres */
 };
 
 } // namespace outshine::Render

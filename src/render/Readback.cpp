@@ -3,89 +3,93 @@
 #include "Log.h"
 
 namespace outshine::Render {
-namespace {
 
-std::string SvToStr(wgpu::StringView v) {
-  return v.data ? std::string(v.data, v.length) : std::string();
+ReadState Readback::Land(SDL_GPUCommandBuffer *commands) {
+  SDL_GPUFence *fence = SDL_SubmitGPUCommandBufferAndAcquireFence(commands);
+  if (!fence) {
+    Log::Error("render", "readback_submit_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return ReadState::Failed;
+  }
+  const bool waited = SDL_WaitForGPUFences(Device, true, &fence, 1);
+  SDL_ReleaseGPUFence(Device, fence);
+  if (!waited) {
+    Log::Error("render", "readback_wait_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return ReadState::Failed;
+  }
+  Mapped = static_cast<const uint8_t *>(SDL_MapGPUTransferBuffer(Device, Transfer, false));
+  if (!Mapped) {
+    Log::Error("render", "readback_map_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return ReadState::Failed;
+  }
+  return ReadState::Ready;
 }
 
-}  // namespace
+ReadState Readback::FromTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture, uint32_t width,
+                                uint32_t height, uint32_t texelBytes) {
+  Release();
+  Device = device;
+  Row = width * texelBytes;
+  SDL_GPUTransferBufferCreateInfo wanted{};
+  wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+  wanted.size = Row * height;
+  Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
+  if (!Transfer) {
+    Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return ReadState::Failed;
+  }
 
-void Readback::Map(uint64_t bytes) {
-  Bytes = bytes;
-  Done = false;
-  Ok = false;
-  /* AllowProcessEvents and not AllowSpontaneous: the callback then fires inside Poll and nowhere
-   * else, so a readback cannot land in the middle of an encoder. */
-  Staging.MapAsync(wgpu::MapMode::Read, 0, bytes, wgpu::CallbackMode::AllowProcessEvents,
-                   [this](wgpu::MapAsyncStatus st, wgpu::StringView msg) {
-                     Done = true;
-                     Ok = (st == wgpu::MapAsyncStatus::Success);
-                     if (!Ok) Log::Error("render", "map_failed", {{"msg", SvToStr(msg)}});
-                   });
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUTextureRegion region{};
+  region.texture = texture;
+  region.w = width;
+  region.h = height;
+  region.d = 1;
+  SDL_GPUTextureTransferInfo into{};
+  into.transfer_buffer = Transfer;
+  into.pixels_per_row = width;
+  into.rows_per_layer = height;
+  SDL_DownloadFromGPUTexture(copy, &region, &into);
+  SDL_EndGPUCopyPass(copy);
+  return Land(commands);
 }
 
-void Readback::FromTexture(const wgpu::Device &device, const wgpu::Queue &queue,
-                           const wgpu::Texture &tex, wgpu::TextureAspect aspect, uint32_t width,
-                           uint32_t height, uint32_t texelBytes) {
-  PaddedRow = (width * texelBytes + 255u) & ~255u;
-  const uint64_t bytes = (uint64_t)PaddedRow * height;
+ReadState Readback::FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes) {
+  Release();
+  Device = device;
+  Row = bytes;
+  SDL_GPUTransferBufferCreateInfo wanted{};
+  wanted.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
+  wanted.size = bytes;
+  Transfer = SDL_CreateGPUTransferBuffer(device, &wanted);
+  if (!Transfer) {
+    Log::Error("render", "readback_buffer_failed", {{"msg", SDL_GetError()}});
+    Release();
+    return ReadState::Failed;
+  }
 
-  wgpu::BufferDescriptor bd{};
-  bd.size = bytes;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  Staging = device.CreateBuffer(&bd);
-
-  wgpu::TexelCopyTextureInfo src{};
-  src.texture = tex;
-  src.aspect = aspect;
-  wgpu::TexelCopyBufferInfo dst{};
-  dst.buffer = Staging;
-  dst.layout.bytesPerRow = PaddedRow;
-  dst.layout.rowsPerImage = height;
-  wgpu::Extent3D ext{width, height, 1};
-
-  wgpu::CommandEncoder enc = device.CreateCommandEncoder();
-  enc.CopyTextureToBuffer(&src, &dst, &ext);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  queue.Submit(1, &cmd);
-  Map(bytes);
-}
-
-void Readback::FromBuffer(const wgpu::Device &device, const wgpu::Queue &queue,
-                          const wgpu::Buffer &src, uint64_t bytes) {
-  PaddedRow = (uint32_t)bytes;
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = bytes;
-  bd.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::MapRead;
-  Staging = device.CreateBuffer(&bd);
-
-  wgpu::CommandEncoder enc = device.CreateCommandEncoder();
-  enc.CopyBufferToBuffer(src, 0, Staging, 0, bytes);
-  wgpu::CommandBuffer cmd = enc.Finish();
-  queue.Submit(1, &cmd);
-  Map(bytes);
-}
-
-ReadState Readback::Poll(const wgpu::Instance &instance) {
-  if (!Staging) return ReadState::Failed;
-  instance.ProcessEvents();
-  if (!Done) return ReadState::Pending;
-  return Ok ? ReadState::Ready : ReadState::Failed;
-}
-
-const uint8_t *Readback::Rows() const {
-  return static_cast<const uint8_t *>(Staging.GetConstMappedRange(0, Bytes));
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUBufferRegion region{};
+  region.buffer = source;
+  region.size = bytes;
+  SDL_GPUTransferBufferLocation into{};
+  into.transfer_buffer = Transfer;
+  SDL_DownloadFromGPUBuffer(copy, &region, &into);
+  SDL_EndGPUCopyPass(copy);
+  return Land(commands);
 }
 
 void Readback::Release() {
-  if (!Staging) return;
-  if (Ok) Staging.Unmap();
-  Staging = nullptr;
-  Bytes = 0;
-  Done = false;
-  Ok = false;
+  if (Mapped) { SDL_UnmapGPUTransferBuffer(Device, Transfer); }
+  if (Transfer) { SDL_ReleaseGPUTransferBuffer(Device, Transfer); }
+  Mapped = nullptr;
+  Transfer = nullptr;
+  Row = 0;
 }
 
 } // namespace outshine::Render

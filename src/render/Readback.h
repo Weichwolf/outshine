@@ -1,45 +1,47 @@
-/* A GPU->CPU TRANSFER AS A STATE. On the browser's frame thread the completion of a map is an event
- * and not a return value: there is no legal way to stand still until it arrives, so every reader is
- * a poll — ask this turn, act on the turn the answer stops being Pending.
+/* A GPU->CPU TRANSFER, AND IT WAITS. SDL_GPU hands back a fence for a submitted command buffer, so
+ * the honest shape is "copy, wait, read": the poll this used to be existed because a browser frame
+ * thread had no legal way to stand still, and there is no browser.
  *
- * The staging buffer belongs to the transfer and not to the caller, because the mapped range is only
- * valid between the map and the unmap, and that window has to outlive the call that started it. */
+ * The transfer buffer belongs to the transfer and not to the caller, because the mapped range is
+ * only valid between the map and the unmap, and that window has to outlive the call that started
+ * it. */
 #ifndef READBACK_H
 #define READBACK_H
 
 #include <cstdint>
 
-#include <webgpu/webgpu_cpp.h>
+#include <SDL3/SDL_gpu.h>
 
 namespace outshine::Render {
 
-enum class ReadState { Pending, Ready, Failed };
+enum class ReadState { Ready, Failed };
 
 class Readback {
 public:
-  [[nodiscard]] bool Idle() const { return !Staging; }
+  ~Readback() { Release(); }
+  Readback() = default;
+  Readback(const Readback &) = delete;
+  Readback &operator=(const Readback &) = delete;
 
-  void FromTexture(const wgpu::Device &device, const wgpu::Queue &queue, const wgpu::Texture &tex,
-                   wgpu::TextureAspect aspect, uint32_t width, uint32_t height,
-                   uint32_t texelBytes);
-  void FromBuffer(const wgpu::Device &device, const wgpu::Queue &queue, const wgpu::Buffer &src,
-                  uint64_t bytes);
+  /* Copies the whole texture and waits for the copy to retire. `texelBytes` is what one texel of the
+   * texture's own format occupies, which is what decides the row pitch of the answer. */
+  [[nodiscard]] ReadState FromTexture(SDL_GPUDevice *device, SDL_GPUTexture *texture, uint32_t width,
+                                      uint32_t height, uint32_t texelBytes);
+  [[nodiscard]] ReadState FromBuffer(SDL_GPUDevice *device, SDL_GPUBuffer *source, uint32_t bytes);
 
-  [[nodiscard]] ReadState Poll(const wgpu::Instance &instance);
-
-  /* Valid only while Poll answers Ready, and only until Release(). Rows leave the device on a
-   * 256-byte pitch (the WebGPU rule), so the stride is part of the answer. */
-  const uint8_t *Rows() const;
-  uint32_t RowBytes() const { return PaddedRow; }
+  /* Valid only after a Ready answer and only until Release(). Rows are tightly packed at
+   * `RowBytes()`: SDL_GPU lays a downloaded texture out at the pitch the request named. */
+  [[nodiscard]] const uint8_t *Rows() const { return Mapped; }
+  [[nodiscard]] uint32_t RowBytes() const { return Row; }
   void Release();
 
 private:
-  void Map(uint64_t bytes);
+  [[nodiscard]] ReadState Land(SDL_GPUCommandBuffer *commands);
 
-  wgpu::Buffer Staging;
-  uint64_t Bytes = 0;
-  uint32_t PaddedRow = 0;
-  bool Done = false, Ok = false;
+  SDL_GPUDevice *Device = nullptr;
+  SDL_GPUTransferBuffer *Transfer = nullptr;
+  const uint8_t *Mapped = nullptr;
+  uint32_t Row = 0;
 };
 
 } // namespace outshine::Render

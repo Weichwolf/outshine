@@ -333,9 +333,6 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   EcefFromGltf(eye.Right, right);
   EcefFromGltf(eye.Up, up);
   renderer.SetCameraBasis(position, forward, right, up);
-  /* NO TEMPORAL ACCUMULATION IN A STUDIO. A jittered sample grid asks the coverage question
-   * somewhere other than the pixel centre, which is the exact quantity a parity rung measures. */
-  renderer.PinJitter(0.0f, 0.0f);
   return true;
 }
 

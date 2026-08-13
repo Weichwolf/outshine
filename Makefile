@@ -1,5 +1,5 @@
 # Outshine — the library under src/, its declared data under src/assets/, the tests and the mods they
-# run under test/. This Makefile and the vendored toolchain under vendor/ live beside them.
+# run under test/. This Makefile lives beside them and is the whole of the build.
 #
 # THREE TARGETS AND NO OTHERS (CLAUDE.md): build the engine, run the tests, clean. There is no gate
 # target and no verify-* target: everything a gate decided is a test now, and a test is run by
@@ -32,10 +32,6 @@ CXXSTD    := -std=c++17
 DEPFLAGS := -MMD -MP
 FB_UPTODATE := fb_uptodate() { o="$$1"; f="$$2"; d="$${o%.o}.d"; if [ ! -f "$$o" ] || [ ! -f "$$d" ] || [ "$$f" -nt "$$o" ]; then return 1; fi; for p in $$(sed -e 's/^[^:]*://' -e 's/\\//g' "$$d"); do if [ ! -e "$$p" ] || [ "$$p" -nt "$$o" ]; then return 1; fi; done; return 0; };
 
-DAWN_OUT     := vendor/dawn/out
-DAWN_LIBDIR  := $(DAWN_OUT)/src/dawn/native
-CURL_COMPAT  := vendor/.compat-headers
-
 # ONE COMPILE GROUP PER LAYER, and the group is what the layering IS: every source is compiled with
 # the include set of its own directory, so an upward include has no spelling rather than a rule.
 INC_CORE     := -Isrc/core -Isrc/core/io
@@ -45,12 +41,12 @@ INC_GENERATORS := -Isrc/core -Isrc/generators
 INC_GENDRAW  := $(INC_GENERATORS) -Isrc/generators/draw
 INC_WORLD    := $(INC_CORE) -Isrc/data -Isrc/world -Isrc/world/tiles
 INC_GLTF     := -Isrc/core -Isrc/gltf
-# THE DECLARED RENDER PLAN, and its whole world is core and itself. No `wgpu::` type has a spelling
+# THE DECLARED RENDER PLAN, and its whole world is core and itself. No device type has a spelling
 # in it, which is what makes a plan checkable before a device exists -- and what makes the device
 # layer replaceable underneath it.
 INC_PLAN     := -Isrc/core -Isrc/render/plan
 # THE DRAW LIST, one level below a stage: the per-draw quantities a pass carries -- the sort
-# key, the batching, the surface state. No `wgpu::` type has a spelling in it either, so a
+# key, the batching, the surface state. No device type has a spelling in it either, so a
 # draw list is buildable and checkable with no device in scope.
 INC_DRAWLIST := -Isrc/core -Isrc/render/draw
 INC_RENDER   := $(INC_CORE) -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages
@@ -60,6 +56,7 @@ INC_CLIENTS  := $(INC_SIMHALF) -Isrc/generators/draw -Isrc/gltf $(INC_RENDER)
 INC_HOST     := -Isrc/core -Isrc/data -Itest/host
 
 SDL_IMAGE_CFLAGS := $(shell pkg-config --cflags sdl3-image)
+SDL_CFLAGS       := $(shell pkg-config --cflags sdl3)
 
 CORE_SRCS      := $(wildcard src/core/*.cpp) $(wildcard src/core/io/*.cpp)
 DATA_SRCS      := $(wildcard src/data/*.cpp)
@@ -85,11 +82,9 @@ OBJ := build/obj
 all:             ## compile the library entire -> build/liboutshine.a
 	@cd $(SELF_DIR); set -e; \
 	  $(FB_UPTODATE) \
-	  test -f $(DAWN_LIBDIR)/libwebgpu_dawn.a || bash vendor/build_dawn_native.sh; \
-	  test -f $(CURL_COMPAT)/curl/curl.h || bash vendor/fetch_curl_compat.sh; \
 	  mkdir -p $(OBJ) build; \
 	  CC="c++ $(CXXSTD) -O2 $(CXX_WARN) $(DEPFLAGS)"; \
-	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) -isystem $(DAWN_OUT)/gen/include -isystem vendor/dawn/include -isystem vendor"; \
+	  CCPP="c++ -std=c++20 -O2 $(CXX_WARN) $(DEPFLAGS) $(SDL_CFLAGS)"; \
 	  objs=""; \
 	  build_group() { inc="$$1"; compiler="$$2"; shift 2; \
 	    for f in "$$@"; do o=$(OBJ)/$$(dirname "$$f" | tr / -)-$$(basename "$$f" .cpp).o; \
@@ -107,7 +102,7 @@ all:             ## compile the library entire -> build/liboutshine.a
 	  build_group "$(INC_RENDER)" "$$CCPP" $(RENDER_SRCS); \
 	  build_group "$(INC_SIMHALF)" "$$CC" $(SIM_SRCS); \
 	  build_group "$(INC_CLIENTS) $(SDL_IMAGE_CFLAGS)" "$$CCPP" $(APP_SRCS); \
-	  build_group "$(INC_HOST) -isystem $(CURL_COMPAT)" "$$CC" $(HOST_SRCS); \
+	  build_group "$(INC_HOST)" "$$CC" $(HOST_SRCS); \
 	  rm -f build/liboutshine.a; \
 	  ar rcs build/liboutshine.a $$objs; \
 	  echo "-> build/liboutshine.a ($$(echo $$objs | wc -w | tr -d ' ') objects)"

@@ -97,7 +97,7 @@ done
 # construction -- it needs the reader, the renderer and the readback at once -- so `render` gets the
 # union of the layer sets and must never look like a mirror of one directory.
 #
-# test/shader/ IS THE FOURTH, AND IT IS THE SAME SPLIT APPLIED ONCE MORE: its subject is WGSL text and
+# test/shader/ IS THE FOURTH, AND IT IS THE SAME SPLIT APPLIED ONCE MORE: its subject is shader text and
 # its instrument is a real device with no asset, no camera and no oracle. It cannot be a unit layer --
 # `unit/render/stages` links nothing and brings no device up, which is a property of the shading model
 # as a header of pure functions and worth keeping -- and it cannot be a render case, because a render
@@ -129,19 +129,18 @@ LayerIncludes() {
 # `render` IS THE WIDEST EXCEPTION AND IT IS NOT A CHOICE. A render case's verdict is "our pixels agree
 # with Cycles", so its subject is the renderer -- the device, the pass topology, the raster
 # convention. Anything that stood in for them would be a second rasteriser scoring itself. So this
-# layer takes the renderer's own toolchain: C++20, native Dawn, SDL3_image for the image boundary,
-# and the platform frameworks Metal needs.
-DAWN_OUT=vendor/dawn/out
-DAWN_LIBDIR=$DAWN_OUT/src/dawn/native
+# layer takes the renderer's own toolchain: C++20, SDL3 for the device and SDL3_image for the image
+# boundary.
 LayerToolchain() {
   case "$1" in
-    render | shader) printf '%s' "-std=c++20 -isystem $DAWN_OUT/gen/include -isystem vendor/dawn/include -isystem vendor" ;;
+    render) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3) $(pkg-config --cflags sdl3-image)" ;;
+    shader) printf '%s' "-std=c++20 $(pkg-config --cflags sdl3)" ;;
     unit/clients) printf '%s' "$CXXSTD $(pkg-config --cflags sdl3-image)" ;;
     *) printf '%s' "$CXXSTD" ;;
   esac
 }
 # THE SANITISERS ARE AN INSTRUMENT AND A LAYER DECLARES WHETHER IT WANTS ONE. `render` and `shader`
-# do, and they are the layers that talk to a GPU API with hand-managed buffers, staging copies and
+# do, and they are the layers that talk to a GPU API with hand-managed buffers, transfer copies and
 # mapped ranges -- the exact places a use-after-free lives. -fno-sanitize-recover is what makes
 # UndefinedBehaviorSanitizer a verdict rather than a log: without it a signed overflow prints and the
 # run exits 0. THE INSTRUMENTED OBJECTS LIVE IN THEIR OWN DIRECTORY, so an instrumented object can
@@ -154,20 +153,10 @@ LayerSanitiser() {
   esac
 }
 
-# The Metal frameworks Dawn needs on this host, so the two layers that bring a device up state them
-# once between them.
-DawnLink() {
-  platform=""
-  if [ "$(uname -s)" = Darwin ]; then
-    platform="-framework Cocoa -framework IOKit -framework Foundation -framework IOSurface -framework QuartzCore -framework Metal"
-  fi
-  printf '%s' "-L$DAWN_LIBDIR -lwebgpu_dawn -lpthread -ldl -lm $platform"
-}
-
 LayerLink() {
   case "$1" in
-    render) printf '%s' "$(DawnLink) $(pkg-config --libs sdl3-image)" ;;
-    shader) printf '%s' "$(DawnLink)" ;;
+    render) printf '%s' "$(pkg-config --libs sdl3) $(pkg-config --libs sdl3-image)" ;;
+    shader) printf '%s' "$(pkg-config --libs sdl3)" ;;
     unit/clients) printf '%s' "$(pkg-config --libs sdl3-image)" ;;
     *) printf '%s' "" ;;
   esac
@@ -186,7 +175,7 @@ LayerLink() {
 # object to link and no device to bring up.
 #
 # `shader` LINKS ONE FILE. src/render/Readback.cpp is the GPU->CPU transfer the library already owns,
-# and a test that spelled its own staging copy and its own map would be comparing two halves of a
+# and a test that spelled its own download and its own map would be comparing two halves of a
 # shading model through a third thing nothing else uses.
 #
 # `unit/clients` PAID IT, for one file. src/clients/Image.cpp IS the SDL3_image boundary -- the decode
@@ -250,15 +239,15 @@ GroupIncludes() {
     src/generators/draw) printf '%s' "-Isrc/core -Isrc/generators -Isrc/generators/draw" ;;
     src/render/plan) printf '%s' "-Isrc/core -Isrc/render/plan" ;;
     src/render/draw) printf '%s' "-Isrc/core -Isrc/render/draw" ;;
-    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages" ;;
-    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
+    src/render | src/render/stages | src/render/Readback.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages $(pkg-config --cflags sdl3)" ;;
+    src/clients/GltfStudio.cpp) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients $(pkg-config --cflags sdl3)" ;;
     src/clients/Image.cpp) printf '%s' "-Isrc/clients $(pkg-config --cflags sdl3-image)" ;;
     *) return 1 ;;
   esac
 }
 
 # A SOURCE THAT NEEDS MORE THAN THE HOUSE STANDARD SAYS SO ONCE. The renderer is C++20 and speaks to
-# Dawn; nothing else in the tree is either.
+# SDL_GPU; nothing else in the tree is either.
 GroupToolchain() {
   case "$1" in
     src/render | src/render/stages | src/render/Readback.cpp | src/clients/GltfStudio.cpp) LayerToolchain render ;;

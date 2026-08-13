@@ -59,8 +59,9 @@
 #include "PunctualLight.h"
 
 #include "DrawList.h"
-#include "GeometryUnit.h"
+#include "FrameContext.h"
 #include "Gpu.h"
+#include "GpuOwned.h"
 
 namespace outshine::Render {
 
@@ -188,9 +189,9 @@ struct SubjectMesh {
   const DrawList *Draws = nullptr;
 };
 
-class SubjectDraw : public GeometryUnit {
+class SubjectDraw {
 public:
-  void Configure(const Gpu &gpu);
+  [[nodiscard]] bool Configure(const Gpu &gpu, std::string &error);
 
   /* Replaces the surface table. A slot's index is what a draw key's material field names, so the
    * table and the list are written together or not at all. Refuses a surface kind this unit has no
@@ -211,7 +212,7 @@ public:
    * refusal naming both counts. */
   [[nodiscard]] bool SetLights(const std::vector<SubjectLight> &lights, std::string &error);
 
-  void Encode(const FrameContext &ctx, ClusterCut &cut, wgpu::RenderPassEncoder &pass) override;
+  void Encode(const FrameContext &ctx, const PassRecording &into);
 
   uint32_t VertexCount() const { return NVerts; }
   long TriangleCount() const { return (long)NIdx / 3; }
@@ -221,18 +222,30 @@ public:
   uint32_t DrawCount() const;
 
 private:
+  static constexpr int kUniFloats = 20;   /* mat4 + anc -- the MSL struct `S` verbatim */
+  /* THE SURFACE ROW ONE SLOT BINDS, the MSL struct `M` verbatim: the coverage factor and the mask
+   * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
+   * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
+   * be bound with a coverage from one material and a roughness from another. */
+  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive3,
+                                             * normal scale */
+  /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of four
+   * `float4` -- colour times intensity with the kind, the camera-relative position with the
+   * reciprocal of the range, the beam, and the cone's two precomputed numbers. */
+  static constexpr int kLightVec4s = 4;
+  static constexpr int kLightFloats = 4 + 4 * kLightVec4s * (int)kMaxSubjectLights;
   /* EVERYTHING ONE SURFACE SLOT OWNS ON THE DEVICE, in one object rather than in five vectors that
    * have to be pushed in step (`C.1`). The five parallel runs were `Binds`, `Images`, `Views`,
    * `Samplers` and a `std::vector<bool>` of cull modes: a slot appended to four of them was a
    * mismatch nothing could catch until an encoder read past the end of the short one, and the
-   * bool proxy specialisation (`SL.con.2`) meant the cull run alone had no address to take. */
-  /* ONE IMAGE AS THE DEVICE HOLDS IT. Four of these sit in a slot, and they are one type rather
-   * than twelve members with a prefix each: the five parallel runs this struct replaced are the same
+   * bool proxy specialisation (`SL.con.2`) meant the cull run alone had no address to take.
+   *
+   * ONE IMAGE AS THE DEVICE HOLDS IT. Four of these sit in a slot, and they are one type rather
+   * than eight members with a prefix each: the five parallel runs this struct replaced are the same
    * defect one level up. */
   struct BoundImage {
-    wgpu::Texture Image;
-    wgpu::TextureView View;
-    wgpu::Sampler Sample;
+    OwnedTexture Image;
+    OwnedSampler Sample;
   };
 
   struct SurfaceSlot {
@@ -240,38 +253,28 @@ private:
     BoundImage Normal;
     BoundImage MetalRough;
     BoundImage Emissive;
-    /* The slot's own surface row: the coverage factor and the mask cutoff both arms read, and the
-     * metal-rough row the lit arm shades with. Per SLOT because glTF states all of them per
-     * material, and `AlphaBlendModeTest` renders three cutoffs in one file. */
-    wgpu::Buffer Surface;
-    wgpu::BindGroup Bind;
+    /* The slot's own surface row, as the numbers rather than as a buffer: SDL_GPU pushes uniform
+     * data onto the command buffer, so a per-slot buffer would be a second copy of these twelve
+     * floats with nothing reading it. Per SLOT because glTF states all of them per material, and
+     * `AlphaBlendModeTest` renders three cutoffs in one file. */
+    std::array<float, kSurfaceFloats> Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
   };
 
-  /* One slot's four images, its surface uniform and its bind group, appended to the table. */
+  /* One slot's four images and its surface row, appended to the table. */
   void BindSurface(const SubjectMaterial &material);
   /* One image on the device. `Decode` says whether the three colour channels carry the sRGB
    * transfer, which is glTF's per-socket rule and never a per-image guess. */
   enum class Transfer { Srgb, Linear };
   [[nodiscard]] BoundImage Upload(const SubjectTexture &texture, Transfer decode);
-  /* The light list, restated camera-relative for this frame. */
-  void WriteLights(const FrameContext &ctx);
+  /* One vertex or index buffer, filled from host memory through an upload transfer buffer. */
+  [[nodiscard]] OwnedBuffer Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes);
+  /* The light list in the shader's own alphabet, restated camera-relative for this frame. */
+  [[nodiscard]] std::array<float, kLightFloats> PackedLights(const FrameContext &ctx) const;
   /* Which of the built pipelines a draw of this layout, kind and facing takes. */
   [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
-  static constexpr int kUniFloats = 20;   /* mat4 + anc -- the WGSL struct `S` verbatim */
-  /* THE SURFACE ROW ONE SLOT BINDS, the WGSL struct `M` verbatim: the coverage factor and the mask
-   * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
-   * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
-   * be bound with a coverage from one material and a roughness from another. */
-  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive3,
-                                             * normal scale */
-  /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of three
-   * `vec4f` -- colour times intensity with the kind, the camera-relative position with cos(outer),
-   * and the beam with the reciprocal of the cone's own span. */
-  static constexpr int kLightVec4s = 4;
-  static constexpr int kLightFloats = 4 + 4 * kLightVec4s * (int)kMaxSubjectLights;
   /* FIVE VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
    * built at configure time. A single pipeline with a white one-texel stand-in would make "no
    * texture declared" and "a white texture declared" the same picture; a single cull mode would make
@@ -286,15 +289,13 @@ private:
   static constexpr size_t kVertexLayouts = 5;
   static constexpr size_t kPipelines = kVertexLayouts * 2 * kSurfaceKinds;
 
-  wgpu::Device Device;
-  wgpu::Queue Queue;
-  std::array<wgpu::RenderPipeline, kPipelines> Pipelines;
-  wgpu::BindGroupLayout Layout;
-  /* ONE BIND GROUP PER SURFACE SLOT: the shared uniform plus that surface's own texture, sampler
-   * and alpha. The encoder rebinds only where the batch's slot changes. */
+  SDL_GPUDevice *Device = nullptr;
+  std::array<OwnedPipeline, kPipelines> Pipelines;
+  /* ONE SLOT PER SURFACE: that surface's four images with their samplers and its own row. The
+   * encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
-  wgpu::Buffer Uni, Lights, Vtx, Uv, Nrm, Tan, Emit, Idx;
+  OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx;
   std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;

@@ -3,7 +3,7 @@
 
 namespace outshine {
 
-/* The number of quad elements one sheet instance stands for. The WGSL `kSheetElements` — change
+/* The number of quad elements one sheet instance stands for. The shader's own `kSheetElements` — change
  * one, change both. */
 constexpr int kElementsPerSheet = 16;
 

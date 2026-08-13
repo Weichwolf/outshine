@@ -24,8 +24,6 @@
 #ifndef FACADEUV_H
 #define FACADEUV_H
 
-#include <string>
-
 namespace outshine {
 
 enum class Facade : int {
@@ -62,33 +60,6 @@ inline float FacadeUvY(int ident, float storeysOverFoot) {
 
 inline float FaceUvX(Facade kind, int ident) {
   return -(float)((int)kind + kFacadeStride * ident);
-}
-
-inline std::string FacadeUvWGSL() {
-  const auto k = [](int v) { return std::to_string(v); };
-  return "const kBayCeil : f32 = " + std::to_string((int)kBayCeil) + ".0;\n"
-         "const kStyleCount : i32 = " + k(kStyleCount) + ";\n"
-         "const kStoreyCeil : f32 = " + std::to_string((int)kStoreyCeil) + ".0;\n"
-         "const kFacadeStride : i32 = " + k(kFacadeStride) + ";\n"
-         "const kOutbuilding : i32 = " + k((int)FacadeStyle::Outbuilding) + ";\n"
-         "const kHouse : i32 = " + k((int)FacadeStyle::House) + ";\n"
-         "const kTerrace : i32 = " + k((int)FacadeStyle::Terrace) + ";\n"
-         "const kBlock : i32 = " + k((int)FacadeStyle::Block) + ";\n"
-         "const kHall : i32 = " + k((int)FacadeStyle::Hall) + ";\n"
-         "const kTower : i32 = " + k((int)FacadeStyle::Tower) + ";\n"
-         "const kSpire : i32 = " + k((int)FacadeStyle::Spire) + ";\n"
-         "const kFront : i32 = " + k((int)Standing::Front) + ";\n"
-         "const kEntrance : i32 = " + k((int)Standing::Entrance) + ";\n"
-         "const kRoofPitch : i32 = " + k((int)Facade::RoofPitch) + ";\n"
-         "const kRoofFlat : i32 = " + k((int)Facade::RoofFlat) + ";\n"
-         "const kSoffit : i32 = " + k((int)Facade::Soffit) + ";\n"
-         "const kLedge : i32 = " + k((int)Facade::Ledge) + ";\n"
-         "const kTrim : i32 = " + k((int)Facade::Trim) + ";\n"
-         "const kMetal : i32 = " + k((int)Facade::Metal) + ";\n"
-         "const kParapet : i32 = " + k((int)Facade::Parapet) + ";\n"
-         "const kPlinth : i32 = " + k((int)Facade::Plinth) + ";\n"
-         "const kKerb : i32 = " + k((int)Facade::Kerb) + ";\n"
-         "const kPavement : i32 = " + k((int)Facade::Pavement) + ";\n";
 }
 
 }  // namespace outshine

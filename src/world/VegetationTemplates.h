@@ -30,7 +30,7 @@ namespace outshine::World {
 class VegetationTemplates {
 public:
   /* One 128-byte row per template, uploaded verbatim as a storage buffer. The field meanings are pinned
-   * by the WGSL `VegRow` in TerrainDraw — change one, change the other. */
+   * by whatever shades the ground; no stage reads it since the renderer's port to SDL_GPU. */
   struct Row {
     float Ground[4];    /* rgb LINEAR reflectance of the ground material, w = roughness */
     float Litter[4];    /* rgb LINEAR reflectance of the litter material, w = roughness */

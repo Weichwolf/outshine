@@ -10,9 +10,7 @@ temp/flightbox/web/cc.data
 *.elf
 
 
-# --- vendored / generated (recreated by vendor/*.sh) ---
-vendor/dawn/
-vendor/.compat-headers/
+# --- generated working trees ---
 temp/inav-sitl/
 temp/aircraft/SITL.elf
 **/eeprom.bin

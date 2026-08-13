@@ -1,10 +1,12 @@
 #include "SubjectDraw.h"
 
 #include <cmath>
+#include <cstring>
 #include <string>
 
 #include "MetalRoughBrdf.h"
 #include "SceneTargets.h"
+#include "ShaderPrelude.h"
 #include "SurfaceState.h"
 
 namespace outshine::Render {
@@ -16,7 +18,7 @@ namespace {
  * puts the view along -Z so the projection's own w is -z_eye -- and they cancel, leaving glTF's
  * counter-clockwise front face counter-clockwise on the target. The derivation that counted one flip
  * was written here first and culled every pixel of `render/coverage/quad`. */
-constexpr wgpu::FrontFace kGltfFrontFace = wgpu::FrontFace::CCW;
+constexpr SDL_GPUFrontFace kGltfFrontFace = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
 
 /* A glTF subject's winding is TRUSTED because the format defines one: the front face is
  * counter-clockwise and `Gltf::Subject` has already restated a mirroring node's order, so a face
@@ -35,31 +37,32 @@ float LinearFromSrgb8(uint8_t code) {
   return std::pow((encoded + 0.055f) * (1.0f / 1.055f), 2.4f);
 }
 
-wgpu::AddressMode AddressOf(SubjectWrap wrap) {
+SDL_GPUSamplerAddressMode AddressOf(SubjectWrap wrap) {
   switch (wrap) {
-    case SubjectWrap::ClampToEdge: return wgpu::AddressMode::ClampToEdge;
-    case SubjectWrap::MirroredRepeat: return wgpu::AddressMode::MirrorRepeat;
-    case SubjectWrap::Repeat: return wgpu::AddressMode::Repeat;
+    case SubjectWrap::ClampToEdge: return SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    case SubjectWrap::MirroredRepeat: return SDL_GPU_SAMPLERADDRESSMODE_MIRRORED_REPEAT;
+    case SubjectWrap::Repeat: return SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
   }
-  return wgpu::AddressMode::Repeat;
+  return SDL_GPU_SAMPLERADDRESSMODE_REPEAT;
 }
 
-wgpu::FilterMode FilterOf(SubjectFilter filter) {
-  return filter == SubjectFilter::Nearest ? wgpu::FilterMode::Nearest : wgpu::FilterMode::Linear;
+SDL_GPUFilter FilterOf(SubjectFilter filter) {
+  return filter == SubjectFilter::Nearest ? SDL_GPU_FILTER_NEAREST : SDL_GPU_FILTER_LINEAR;
 }
 
 /* SOURCE-OVER WITH STRAIGHT ALPHA, which is the one convention both sides of the comparison are
  * stated in. The alpha channel accumulates coverage the same way -- `a + dst*(1-a)` -- so a stack of
  * blended surfaces reports how much of the pixel they cover between them rather than only the last
  * one's contribution. */
-wgpu::BlendState OverBlend() {
-  wgpu::BlendState blend{};
-  blend.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-  blend.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-  blend.color.operation = wgpu::BlendOperation::Add;
-  blend.alpha.srcFactor = wgpu::BlendFactor::One;
-  blend.alpha.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-  blend.alpha.operation = wgpu::BlendOperation::Add;
+SDL_GPUColorTargetBlendState OverBlend() {
+  SDL_GPUColorTargetBlendState blend{};
+  blend.enable_blend = true;
+  blend.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+  blend.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+  blend.color_blend_op = SDL_GPU_BLENDOP_ADD;
+  blend.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+  blend.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+  blend.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
   return blend;
 }
 
@@ -122,6 +125,42 @@ const char *KindName(SurfaceKind kind) {
 
 } // namespace
 
+/* THE ONE BINDING CONTRACT OF THIS UNIT, and every fragment entry point below carries it whole. The
+ * argument list is a `#define` rather than fifteen copies for one reason: the four texture indices
+ * and the two uniform slots are the SAME indices the encoder binds at, and fifteen restatements of
+ * them is fifteen chances for one to disagree with the encoder. It is not a shader variant switch --
+ * nothing here is conditional -- so the text every entry point compiles against is identical.
+ *
+ * AN ARM THAT SAMPLES NOTHING STILL DECLARES THE IMAGES, which is what keeps "no texture declared"
+ * and "a white texture declared" different pictures: the difference is the ENTRY POINT, not the
+ * binding, and an untextured arm never reaches a sampler however many are bound behind it. */
+static const char *kSubjectBindingsMsl = R"(
+struct S { float4x4 mvp; float4 anc; };
+/* THE SLOT'S SURFACE ROW. `factor` is glTF's `baseColorFactor.a` and `cut` its `alphaCutoff`, which
+ * both arms read; the rest is the metal-rough row only the lit arm reads. `packed_float3` and not
+ * `float3`, because a Metal `float3` occupies sixteen bytes and would put `normalScale` four bytes
+ * past where the host writes it. */
+struct M { float factor; float cut; float metalness; float roughness;
+           float4 base; packed_float3 emissive; float normalScale; };
+/* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
+ * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
+ * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
+ * declares none, so the range window costs a multiply and "no cutoff" is the same expression rather
+ * than a branch. `beam` is the unit direction the light points. `cone` carries cos(outerConeAngle)
+ * and the reciprocal of `cos(inner) - cos(outer)`, precomputed because the shader would otherwise
+ * divide by it per fragment per light. */
+struct Light { float4 tint; float4 place; float4 beam; float4 cone; };
+struct Lights { float4 count; Light items[16]; };
+
+#define SUBJECT_SURFACE constant M &surface [[buffer(0)]], constant Lights &lights [[buffer(1)]], \
+    texture2d<float> colourMap [[texture(0)]], sampler colourSampler [[sampler(0)]], \
+    texture2d<float> normalMap [[texture(1)]], sampler normalSampler [[sampler(1)]], \
+    texture2d<float> metalRoughMap [[texture(2)]], sampler metalRoughSampler [[sampler(2)]], \
+    texture2d<float> emissiveMap [[texture(3)]], sampler emissiveSampler [[sampler(3)]]
+
+struct SFrag { float4 col [[color(0)]]; float2 vel [[color(1)]]; };
+)";
+
 /* THE EMITTED ARM'S ENTRY POINTS: two layouts times the three answers glTF's `alphaMode` can give.
  * The textured arms multiply the sampled colour into the same declared radiance the plain ones emit,
  * which is what the metal-rough model reduces to for a dielectric at metalness 0
@@ -137,93 +176,81 @@ const char *KindName(SurfaceKind kind) {
  * hold it (`Specification.adoc:2178`: "the rendered output is fully opaque and any alpha value is
  * ignored"). Multiplying the sampled alpha into the colour there is the premultiplication
  * `AlphaBlendModeTest` puts a black box beside the word "Opaque" for. */
-static const char *kSubjectWGSL = R"(
-struct S { mvp : mat4x4f, anc : vec4f };
-@group(0) @binding(0) var<uniform> s : S;
-/* THE SLOT'S SURFACE ROW. `factor` is glTF's `baseColorFactor.a` and `cut` its `alphaCutoff`, which
- * both arms read; the rest is the metal-rough row only the lit arm reads. */
-struct M { factor : f32, cut : f32, metalness : f32, roughness : f32,
-           base : vec4f, emissive : vec3f, normalScale : f32 };
-@group(0) @binding(3) var<uniform> surface : M;
+static const char *kSubjectMsl = R"(
+struct VertexPlain { float3 p [[attribute(0)]]; float3 emitted [[attribute(2)]]; };
+struct VertexTextured { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                        float3 emitted [[attribute(2)]]; };
 
-struct SOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
-              @location(1) @interpolate(flat) emitted : vec3f };
+struct SOut { float4 pos [[position]]; float2 uv; float3 emitted [[flat]]; };
 
-@vertex fn vs(@location(0) p : vec3f, @location(2) emitted : vec3f) -> SOut {
-  var o : SOut;
-  o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
-  o.uv = vec2f(0.0);
-  o.emitted = emitted;
+vertex SOut vs(VertexPlain v [[stage_in]], constant S &s [[buffer(0)]]) {
+  SOut o;
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0);
+  o.uv = float2(0.0);
+  o.emitted = v.emitted;
   return o;
 }
 
-@vertex fn vsTextured(@location(0) p : vec3f, @location(1) uv : vec2f,
-                      @location(2) emitted : vec3f) -> SOut {
-  var o : SOut;
-  o.pos = s.mvp * vec4f(p + s.anc.xyz, 1.0);
-  o.uv = uv;
-  o.emitted = emitted;
+vertex SOut vsTextured(VertexTextured v [[stage_in]], constant S &s [[buffer(0)]]) {
+  SOut o;
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0);
+  o.uv = v.uv;
+  o.emitted = v.emitted;
   return o;
 }
 
-struct SFrag { @location(0) col : vec4f, @location(1) vel : vec2f };
 /* The declared radiance, not shaded. On an opaque arm the fourth channel is the direct fraction a
  * display transfer weights its occlusion by, and for a surface that emits what it was declared to
  * emit all of it is direct. */
-@fragment fn fs(in : SOut) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(in.emitted, 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsMasked(in : SOut) -> SFrag {
-  if (surface.factor < surface.cut) { discard; }
-  var o : SFrag;
-  o.col = vec4f(in.emitted, 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  if (surface.factor < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(in.emitted, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsBlended(in : SOut) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(in.emitted, surface.factor);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted, surface.factor);
+  o.vel = float2(kVelStatic);
   return o;
 }
-)";
 
-static const char *kSubjectTexturedWGSL = R"(
-@group(0) @binding(1) var colourMap : texture_2d<f32>;
-@group(0) @binding(2) var colourSampler : sampler;
-
-@fragment fn fsTextured(in : SOut) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(in.emitted * textureSample(colourMap, colourSampler, in.uv).rgb, 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(in.emitted * colourMap.sample(colourSampler, in.uv).rgb, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
 /* Greater-or-equal is kept, less-than discards: glTF states the surviving side, not the cut side
  * ("If the alpha value is greater than or equal to the alphaCutoff value then it is rendered as
  * fully opaque"), and the two differ on exactly the texels a linear ramp puts at the cutoff. */
-@fragment fn fsMaskedTextured(in : SOut) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  if (surface.factor * tap.a < surface.cut) { discard; }
-  var o : SFrag;
-  o.col = vec4f(in.emitted * tap.rgb, 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(in.emitted * tap.rgb, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
 /* STRAIGHT, NOT PREMULTIPLIED: the colour goes out unweighted and the blend state applies the
  * weight, so the same fragment function would be correct under either convention only by accident.
  * The one convention this whole comparison is stated in is straight alpha. */
-@fragment fn fsBlendedTextured(in : SOut) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  var o : SFrag;
-  o.col = vec4f(in.emitted * tap.rgb, surface.factor * tap.a);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  SFrag o;
+  o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
+  o.vel = float2(kVelStatic);
   return o;
 }
 )";
@@ -239,39 +266,29 @@ static const char *kSubjectTexturedWGSL = R"(
  * NO VISIBILITY TERM. Nothing here traces a shadow, so every light reaches every facet it faces.
  * That is stated in the header as this unit's limit; a surface that occludes another is lit through
  * it and the picture shows it. */
-static const char *kSubjectLitWGSL = R"(
-/* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
- * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
- * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
- * declares none, so the range window costs a multiply and "no cutoff" is the same expression rather
- * than a branch. `beam` is the unit direction the light points. `cone` carries cos(outerConeAngle)
- * and the reciprocal of `cos(inner) - cos(outer)`, precomputed because the shader would otherwise
- * divide by it per fragment per light. */
+static const char *kSubjectLitMsl = R"(
+struct VertexLit { float3 p [[attribute(0)]]; float3 n [[attribute(3)]]; };
+struct VertexLitTextured { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                           float3 n [[attribute(3)]]; };
 
-struct Light { tint : vec4f, place : vec4f, beam : vec4f, cone : vec4f };
-struct Lights { count : vec4f, items : array<Light, 16> };
-@group(0) @binding(4) var<uniform> lights : Lights;
+struct LOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; };
 
-struct LOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
-              @location(1) n : vec3f, @location(2) p : vec3f };
-
-@vertex fn vsLit(@location(0) p : vec3f, @location(3) n : vec3f) -> LOut {
-  var o : LOut;
-  let placed = p + s.anc.xyz;
-  o.pos = s.mvp * vec4f(placed, 1.0);
-  o.uv = vec2f(0.0);
-  o.n = n;
+vertex LOut vsLit(VertexLit v [[stage_in]], constant S &s [[buffer(0)]]) {
+  LOut o;
+  float3 placed = v.p + s.anc.xyz;
+  o.pos = s.mvp * float4(placed, 1.0);
+  o.uv = float2(0.0);
+  o.n = v.n;
   o.p = placed;
   return o;
 }
 
-@vertex fn vsLitTextured(@location(0) p : vec3f, @location(1) uv : vec2f,
-                         @location(3) n : vec3f) -> LOut {
-  var o : LOut;
-  let placed = p + s.anc.xyz;
-  o.pos = s.mvp * vec4f(placed, 1.0);
-  o.uv = uv;
-  o.n = n;
+vertex LOut vsLitTextured(VertexLitTextured v [[stage_in]], constant S &s [[buffer(0)]]) {
+  LOut o;
+  float3 placed = v.p + s.anc.xyz;
+  o.pos = s.mvp * float4(placed, 1.0);
+  o.uv = v.uv;
+  o.n = v.n;
   o.p = placed;
   return o;
 }
@@ -280,25 +297,25 @@ struct LOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
  * because a textured surface states all three per texel and the untextured arm states them per
  * material -- one function that read the row would force the mapped arm to write the loop over the
  * lights a second time. */
-fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f32,
-            emitted : vec3f) -> vec3f {
-  let v = normalize(-p);
-  let a = roughness * roughness;
-  let a2 = a * a;
-  let diffuseColour = albedo * (1.0 - metalness);
-  let f0 = mix(vec3f(kDielectricF0), albedo, metalness);
-  let nv = max(dot(n, v), 1.0e-6);
-  var sum = vec3f(0.0);
-  let count = i32(lights.count.x);
-  for (var at = 0; at < count; at = at + 1) {
-    let light = lights.items[at];
-    var toward = -light.beam.xyz;
-    var attenuation = 1.0;
+static inline float3 shadeRow(constant Lights &lights, float3 n, float3 p, float3 albedo,
+                              float metalness, float roughness, float3 emitted) {
+  float3 v = normalize(-p);
+  float a = roughness * roughness;
+  float a2 = a * a;
+  float3 diffuseColour = albedo * (1.0 - metalness);
+  float3 f0 = mix(float3(kDielectricF0), albedo, metalness);
+  float nv = max(dot(n, v), 1.0e-6);
+  float3 sum = float3(0.0);
+  int count = int(lights.count.x);
+  for (int at = 0; at < count; at = at + 1) {
+    Light light = lights.items[at];
+    float3 toward = -light.beam.xyz;
+    float attenuation = 1.0;
     if (light.tint.w > 0.5) {
-      let offset = light.place.xyz - p;
-      let square = dot(offset, offset);
+      float3 offset = light.place.xyz - p;
+      float square = dot(offset, offset);
       if (square <= 0.0) { continue; }
-      toward = offset * inverseSqrt(square);
+      toward = offset * rsqrt(square);
       /* THE INVERSE-SQUARE LAW, WINDOWED BY THE DECLARED RANGE. `intensity` is candela, so a facet
        * facing the light receives `intensity / d^2`; the window is `KHR_lights_punctual`'s own
        * recommended function, `max(min(1 - (d/range)^4, 1), 0)`, and it is applied rather than
@@ -306,18 +323,18 @@ fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f
        * apart, eight scene-wide lights, and a range of exactly half the spacing is what makes each
        * panel see only its own. `place.w` is 1/range, zero where the file declared none, and then
        * the fourth power is zero and the window is 1. */
-      let reach = square * light.place.w * light.place.w;
+      float reach = square * light.place.w * light.place.w;
       attenuation = clamp(1.0 - reach * reach, 0.0, 1.0) / square;
     }
     if (light.tint.w > 1.5) {
       attenuation = attenuation *
                     clamp((dot(light.beam.xyz, -toward) - light.cone.x) * light.cone.y, 0.0, 1.0);
     }
-    let nl = dot(n, toward);
+    float nl = dot(n, toward);
     if (nl <= 0.0 || attenuation <= 0.0) { continue; }
-    let h = normalize(toward + v);
-    let reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
-                                   max(dot(n, h), 0.0), max(dot(v, h), 0.0));
+    float3 h = normalize(toward + v);
+    Brdf reflected = metalRoughBrdf(diffuseColour, f0, a2, nl, nv,
+                                    max(dot(n, h), 0.0), max(dot(v, h), 0.0));
     sum = sum + (reflected.diffuse + reflected.specular) * nl * attenuation * light.tint.rgb;
   }
   return sum + emitted;
@@ -326,84 +343,86 @@ fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f
 /* THE ARM WITH NO UV AT ALL, so the emitted radiance can only be the factor: there is no
  * coordinate to sample an image with, and glTF's emissive is the factor where the material
  * declares no image. */
-fn shade(n : vec3f, p : vec3f, albedo : vec3f) -> vec3f {
-  return shadeRow(n, p, albedo, surface.metalness, surface.roughness, surface.emissive);
+static inline float3 shade(constant M &surface, constant Lights &lights, float3 n, float3 p,
+                           float3 albedo) {
+  return shadeRow(lights, n, p, albedo, surface.metalness, surface.roughness, surface.emissive);
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
  * file's normal describes the front, and a back-facing fragment only exists at all because the
  * material said the surface has two sides. Without it such a facet faces away from every light and
  * comes back black -- and glTF's own `doubleSided` assets are exactly the ones that show it. */
-fn facing(n : vec3f, front : bool) -> vec3f {
+static inline float3 facing(float3 n, bool front) {
   return select(-normalize(n), normalize(n), front);
 }
 
-@fragment fn fsLit(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb), 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsLitMasked(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  if (surface.factor < surface.cut) { discard; }
-  var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb), 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  if (surface.factor < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsLitBlended(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb), surface.factor);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(shade(surface, lights, facing(in.n, front), in.p, surface.base.rgb),
+                 surface.factor);
+  o.vel = float2(kVelStatic);
   return o;
 }
 )";
 
-/* THE LIT TEXTURED ARMS, split out for the same reason the emitted ones are: the sampler and its
- * image are a binding the plain pipelines do not declare, and one shader that read a white stand-in
- * would make "no texture" and "a white texture" the same picture. The sampled colour is the BASE
- * COLOUR the BRDF is evaluated with -- not a factor applied afterwards -- because glTF's base colour
- * feeds both halves of the model and multiplying a shaded result by it would tint the specular
- * lobe of a dielectric, which is a metal's behaviour. */
-static const char *kSubjectLitTexturedWGSL = R"(
-@group(0) @binding(9) var emissiveMap : texture_2d<f32>;
-@group(0) @binding(10) var emissiveSampler : sampler;
-
+/* THE LIT TEXTURED ARMS, split out for the same reason the emitted ones are: the sampled colour is
+ * the BASE COLOUR the BRDF is evaluated with -- not a factor applied afterwards -- because glTF's
+ * base colour feeds both halves of the model and multiplying a shaded result by it would tint the
+ * specular lobe of a dielectric, which is a metal's behaviour. */
+static const char *kSubjectLitTexturedMsl = R"(
 /* glTF's EMISSION: `emissiveFactor` TIMES `emissiveTexture` (Specification.adoc:1436), and a slot
  * that declares no image binds one white texel so that the product is the factor alone. */
-fn emittedAt(uv : vec2f) -> vec3f {
-  return surface.emissive * textureSample(emissiveMap, emissiveSampler, uv).rgb;
+static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap,
+                               sampler emissiveSampler, float2 uv) {
+  return surface.emissive * emissiveMap.sample(emissiveSampler, uv).rgb;
 }
 
-fn shadeAt(n : vec3f, p : vec3f, albedo : vec3f, uv : vec2f) -> vec3f {
-  return shadeRow(n, p, albedo, surface.metalness, surface.roughness, emittedAt(uv));
-}
-
-@fragment fn fsLitTextured(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  var o : SFrag;
-  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv), 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  SFrag o;
+  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+                          surface.metalness, surface.roughness,
+                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsLitMaskedTextured(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  if (surface.factor * tap.a < surface.cut) { discard; }
-  var o : SFrag;
-  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv), 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_facing]],
+                                   SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+                          surface.metalness, surface.roughness,
+                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsLitBlendedTextured(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  var o : SFrag;
-  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv),
-                surface.factor * tap.a);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
+                                    SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  SFrag o;
+  o.col = float4(shadeRow(lights, facing(in.n, front), in.p, surface.base.rgb * tap.rgb,
+                          surface.metalness, surface.roughness,
+                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
+                 surface.factor * tap.a);
+  o.vel = float2(kVelStatic);
   return o;
 }
 )";
@@ -427,205 +446,170 @@ fn shadeAt(n : vec3f, p : vec3f, albedo : vec3f, uv : vec2f) -> vec3f {
  *
  * A BACK FACE TURNS THE WHOLE FRAME AROUND AND NOT ONLY THE NORMAL. Negating the normal alone would
  * leave a left-handed basis behind and mirror the map's x axis; the format's own note is to negate
- * the frame, which is what `select` does to all three below.
+ * the frame, which is what the sign below does to all three.
  *
  * ROUGHNESS AND METALNESS COME FROM THE FILE'S OWN IMAGE where it declares one, green and blue,
  * multiplied by the factors -- which is glTF's rule (Specification.adoc:1394) and is not an extra:
  * the alternative is the default factor of 1, and at roughness 1 the GGX distribution is the
  * constant 1/pi, so the lobe stops depending on the normal and a normal-mapped picture comes back
  * flat. */
-static const char *kSubjectMappedWGSL = R"(
-@group(0) @binding(5) var normalMap : texture_2d<f32>;
-@group(0) @binding(6) var normalSampler : sampler;
-@group(0) @binding(7) var metalRoughMap : texture_2d<f32>;
-@group(0) @binding(8) var metalRoughSampler : sampler;
+static const char *kSubjectMappedMsl = R"(
+struct VertexMapped { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                      float3 n [[attribute(3)]]; float4 t [[attribute(4)]]; };
 
-struct MOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
-              @location(1) n : vec3f, @location(2) p : vec3f, @location(3) t : vec4f };
+struct MOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float4 t; };
 
-@vertex fn vsMapped(@location(0) p : vec3f, @location(1) uv : vec2f,
-                    @location(3) n : vec3f, @location(4) t : vec4f) -> MOut {
-  var o : MOut;
-  let placed = p + s.anc.xyz;
-  o.pos = s.mvp * vec4f(placed, 1.0);
-  o.uv = uv;
-  o.n = n;
+vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
+  MOut o;
+  float3 placed = v.p + s.anc.xyz;
+  o.pos = s.mvp * float4(placed, 1.0);
+  o.uv = v.uv;
+  o.n = v.n;
   o.p = placed;
-  o.t = t;
+  o.t = v.t;
   return o;
 }
 
-fn mappedNormal(in : MOut, front : bool) -> vec3f {
-  let facing = select(-1.0, 1.0, front);
-  let n = normalize(in.n) * facing;
-  let raw = in.t.xyz * facing;
-  let t = normalize(raw - n * dot(n, raw));
-  let b = cross(n, t) * in.t.w;
-  let tap = textureSample(normalMap, normalSampler, in.uv).xyz * 2.0 - 1.0;
-  let scaled = vec3f(tap.xy * surface.normalScale, tap.z);
+static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
+                                  sampler normalSampler, MOut in, bool front) {
+  float side = select(-1.0, 1.0, front);
+  float3 n = normalize(in.n) * side;
+  float3 raw = in.t.xyz * side;
+  float3 t = normalize(raw - n * dot(n, raw));
+  float3 b = cross(n, t) * in.t.w;
+  float3 tap = normalMap.sample(normalSampler, in.uv).xyz * 2.0 - 1.0;
+  float3 scaled = float3(tap.xy * surface.normalScale, tap.z);
   return normalize(t * scaled.x + b * scaled.y + n * scaled.z);
 }
 
 /* The metal-rough row the mapped arm shades with: the surface's own factors times the file's image.
  * A slot that declares no image binds one white texel, and white is the multiplicative identity
  * here, so "no image" and "the factors alone" are the same statement rather than two arms. */
-fn mappedShade(in : MOut, front : bool) -> vec3f {
-  let orm = textureSample(metalRoughMap, metalRoughSampler, in.uv);
-  let albedo = surface.base.rgb * textureSample(colourMap, colourSampler, in.uv).rgb;
-  return shadeRow(mappedNormal(in, front), in.p, albedo,
-                  surface.metalness * orm.b, surface.roughness * orm.g, emittedAt(in.uv));
+static inline float3 mappedShade(constant M &surface, constant Lights &lights,
+                                 texture2d<float> colourMap, sampler colourSampler,
+                                 texture2d<float> normalMap, sampler normalSampler,
+                                 texture2d<float> metalRoughMap, sampler metalRoughSampler,
+                                 texture2d<float> emissiveMap, sampler emissiveSampler,
+                                 MOut in, bool front) {
+  float4 orm = metalRoughMap.sample(metalRoughSampler, in.uv);
+  float3 albedo = surface.base.rgb * colourMap.sample(colourSampler, in.uv).rgb;
+  return shadeRow(lights, mappedNormal(surface, normalMap, normalSampler, in, front), in.p, albedo,
+                  surface.metalness * orm.b, surface.roughness * orm.g,
+                  emittedAt(surface, emissiveMap, emissiveSampler, in.uv));
 }
 
-@fragment fn fsMapped(in : MOut, @builtin(front_facing) front : bool) -> SFrag {
-  var o : SFrag;
-  o.col = vec4f(mappedShade(in, front), 1.0);
-  o.vel = vec2f(kVelStatic);
+#define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, colourMap, colourSampler, normalMap, \
+    normalSampler, metalRoughMap, metalRoughSampler, emissiveMap, emissiveSampler, in, front)
+
+fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  SFrag o;
+  o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsMappedMasked(in : MOut, @builtin(front_facing) front : bool) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  if (surface.factor * tap.a < surface.cut) { discard; }
-  var o : SFrag;
-  o.col = vec4f(mappedShade(in, front), 1.0);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
+  SFrag o;
+  o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
+  o.vel = float2(kVelStatic);
   return o;
 }
 
-@fragment fn fsMappedBlended(in : MOut, @builtin(front_facing) front : bool) -> SFrag {
-  let tap = textureSample(colourMap, colourSampler, in.uv);
-  var o : SFrag;
-  o.col = vec4f(mappedShade(in, front), surface.factor * tap.a);
-  o.vel = vec2f(kVelStatic);
+fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  float4 tap = colourMap.sample(colourSampler, in.uv);
+  SFrag o;
+  o.col = float4(SUBJECT_MAPPED_SHADE, surface.factor * tap.a);
+  o.vel = float2(kVelStatic);
   return o;
 }
 )";
 
-void SubjectDraw::Configure(const Gpu &gpu) {
-  Device = gpu.Device;
-  Queue = gpu.Queue;
-  FiltersFloat32 = gpu.FiltersFloat32;
+namespace {
 
-  const std::string src = std::string(kVelocityWGSL) + kSubjectWGSL + kSubjectTexturedWGSL +
-                          MetalRoughBrdfWGSL() + kSubjectLitWGSL + kSubjectLitTexturedWGSL +
-                          kSubjectMappedWGSL;
-  wgpu::ShaderSourceWGSL wsl{};
-  wsl.code = src.c_str();
-  wgpu::ShaderModuleDescriptor smd{};
-  smd.nextInChain = &wsl;
-  wgpu::ShaderModule m = Device.CreateShaderModule(&smd);
+/* THE FIVE VERTEX LAYOUTS, as the pipeline states them. Every attribute sits in a buffer of its own
+ * and at offset 0: the subject's positions, its uvs, its normals, its tangents and its declared
+ * radiance come out of the consumer as separate runs, and interleaving them here would be a copy
+ * nobody asked for. The untextured pipeline has no uv slot at all rather than an empty one. */
+struct VertexShape {
+  SDL_GPUVertexBufferDescription Buffers[4];
+  SDL_GPUVertexAttribute Attributes[4];
+  uint32_t Count = 0;
+};
 
-  wgpu::VertexAttribute position{};
-  position.format = wgpu::VertexFormat::Float32x3;
-  position.offset = 0;
-  position.shaderLocation = 0;
-  wgpu::VertexAttribute coordinate{};
-  coordinate.format = wgpu::VertexFormat::Float32x2;
-  coordinate.offset = 0;
-  coordinate.shaderLocation = 1;
-  wgpu::VertexAttribute radiance{};
-  radiance.format = wgpu::VertexFormat::Float32x3;
-  radiance.offset = 0;
-  radiance.shaderLocation = 2;
-  wgpu::VertexAttribute normal{};
-  normal.format = wgpu::VertexFormat::Float32x3;
-  normal.offset = 0;
-  normal.shaderLocation = 3;
-  wgpu::VertexAttribute tangent{};
-  tangent.format = wgpu::VertexFormat::Float32x4;
-  tangent.offset = 0;
-  tangent.shaderLocation = 4;
-  /* ONE BUFFER PER ATTRIBUTE AND NOT ONE INTERLEAVED STRIDE, because the subject's positions, its
-   * uvs and its declared radiance come out of the consumer as separate runs and interleaving them
-   * here would be a copy nobody asked for. The untextured pipeline has no uv slot at all rather than
-   * an empty one -- a declared slot must be bound, and binding a buffer nothing reads is the kind of
-   * placeholder this unit refuses everywhere else. */
-  wgpu::VertexBufferLayout position_[1] = {};
-  position_[0].arrayStride = 3 * sizeof(float);
-  position_[0].attributeCount = 1;
-  position_[0].attributes = &position;
-  wgpu::VertexBufferLayout radiance_ = {};
-  radiance_.arrayStride = 3 * sizeof(float);
-  radiance_.attributeCount = 1;
-  radiance_.attributes = &radiance;
-  wgpu::VertexBufferLayout uv_ = {};
-  uv_.arrayStride = 2 * sizeof(float);
-  uv_.attributeCount = 1;
-  uv_.attributes = &coordinate;
-  wgpu::VertexBufferLayout normal_ = {};
-  normal_.arrayStride = 3 * sizeof(float);
-  normal_.attributeCount = 1;
-  normal_.attributes = &normal;
+SDL_GPUVertexBufferDescription Run(uint32_t slot, uint32_t floats) {
+  SDL_GPUVertexBufferDescription description{};
+  description.slot = slot;
+  description.pitch = floats * (uint32_t)sizeof(float);
+  description.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+  return description;
+}
+
+SDL_GPUVertexAttribute At(uint32_t location, uint32_t slot, SDL_GPUVertexElementFormat format) {
+  SDL_GPUVertexAttribute attribute{};
+  attribute.location = location;
+  attribute.buffer_slot = slot;
+  attribute.format = format;
+  attribute.offset = 0;
+  return attribute;
+}
+
+VertexShape ShapeOf(VertexLayout layout) {
+  const bool textured = CarriesUv(layout);
+  const bool lit = CarriesNormal(layout);
+  const bool mapped = CarriesTangent(layout);
+  VertexShape shape;
+  shape.Buffers[shape.Count] = Run(shape.Count, 3);
+  shape.Attributes[shape.Count] = At(0, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3);
+  ++shape.Count;
+  if (textured) {
+    shape.Buffers[shape.Count] = Run(shape.Count, 2);
+    shape.Attributes[shape.Count] = At(1, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2);
+    ++shape.Count;
+  }
   /* THE LIT ARMS BIND NO RADIANCE RUN AT ALL, which is the vertex-buffer half of what the two arms
    * are: a lit surface's colour comes from its own row and the light list, and a per-vertex radiance
    * beside it would be a second answer to the same question. */
-  wgpu::VertexBufferLayout tangent_ = {};
-  tangent_.arrayStride = 4 * sizeof(float);
-  tangent_.attributeCount = 1;
-  tangent_.attributes = &tangent;
-  const wgpu::VertexBufferLayout plainLayouts[2] = {position_[0], radiance_};
-  const wgpu::VertexBufferLayout texturedLayouts[3] = {position_[0], uv_, radiance_};
-  const wgpu::VertexBufferLayout litLayouts[2] = {position_[0], normal_};
-  const wgpu::VertexBufferLayout litTexturedLayouts[3] = {position_[0], uv_, normal_};
-  const wgpu::VertexBufferLayout mappedLayouts[4] = {position_[0], uv_, normal_, tangent_};
-
-  /* THE BIND GROUP LAYOUT IS WRITTEN DOWN AND NOT DERIVED, because every pipeline must share ONE:
-   * an auto-derived layout reflects the entry point's own uses, so the untextured shader would get
-   * a two-entry layout and the bind group built for the others would be rejected against it. */
-  wgpu::BindGroupLayoutEntry bindings[11] = {};
-  bindings[0].binding = 0;
-  bindings[0].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
-  bindings[0].buffer.type = wgpu::BufferBindingType::Uniform;
-  bindings[0].buffer.minBindingSize = kUniFloats * sizeof(float);
-  bindings[1].binding = 1;
-  bindings[1].visibility = wgpu::ShaderStage::Fragment;
-  bindings[1].texture.sampleType = wgpu::TextureSampleType::Float;
-  bindings[1].texture.viewDimension = wgpu::TextureViewDimension::e2D;
-  bindings[2].binding = 2;
-  bindings[2].visibility = wgpu::ShaderStage::Fragment;
-  bindings[2].sampler.type = wgpu::SamplerBindingType::Filtering;
-  bindings[3].binding = 3;
-  bindings[3].visibility = wgpu::ShaderStage::Fragment;
-  bindings[3].buffer.type = wgpu::BufferBindingType::Uniform;
-  bindings[3].buffer.minBindingSize = kSurfaceFloats * sizeof(float);
-  /* THE LIGHT LIST IS ONE BUFFER FOR THE WHOLE SUBJECT and it sits in the per-slot bind group only
-   * because there is one group: it is the same buffer in every slot's group, so no surface can be
-   * lit by a list another surface does not see. */
-  bindings[4].binding = 4;
-  bindings[4].visibility = wgpu::ShaderStage::Fragment;
-  bindings[4].buffer.type = wgpu::BufferBindingType::Uniform;
-  bindings[4].buffer.minBindingSize = kLightFloats * sizeof(float);
-  /* THE OTHER THREE IMAGES OF ONE SURFACE. They sit in the same group as the colour because a
-   * surface is one thing: four groups would let a draw bind a normal map from one material over a
-   * base colour from another, and there is no draw that wants that. */
-  for (uint32_t at = 0; at < 3; ++at) {
-    wgpu::BindGroupLayoutEntry &image = bindings[5 + at * 2];
-    image.binding = 5 + at * 2;
-    image.visibility = wgpu::ShaderStage::Fragment;
-    image.texture.sampleType = wgpu::TextureSampleType::Float;
-    image.texture.viewDimension = wgpu::TextureViewDimension::e2D;
-    wgpu::BindGroupLayoutEntry &sampler = bindings[6 + at * 2];
-    sampler.binding = 6 + at * 2;
-    sampler.visibility = wgpu::ShaderStage::Fragment;
-    sampler.sampler.type = wgpu::SamplerBindingType::Filtering;
+  shape.Buffers[shape.Count] = Run(shape.Count, 3);
+  shape.Attributes[shape.Count] = At(lit ? 3 : 2, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT3);
+  ++shape.Count;
+  if (mapped) {
+    shape.Buffers[shape.Count] = Run(shape.Count, 4);
+    shape.Attributes[shape.Count] = At(4, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4);
+    ++shape.Count;
   }
-  wgpu::BindGroupLayoutDescriptor bgl{};
-  bgl.entryCount = 11;
-  bgl.entries = bindings;
-  Layout = Device.CreateBindGroupLayout(&bgl);
-  wgpu::PipelineLayoutDescriptor pld{};
-  pld.bindGroupLayoutCount = 1;
-  pld.bindGroupLayouts = &Layout;
-  const wgpu::PipelineLayout pipeline = Device.CreatePipelineLayout(&pld);
+  return shape;
+}
 
-  wgpu::RenderPipelineDescriptor rp{};
-  rp.layout = pipeline;
-  rp.vertex.module = m;
-  wgpu::FragmentState fs{};
-  fs.module = m;
-  fs.targetCount = 2;
-  rp.fragment = &fs;
-  rp.primitive.frontFace = kGltfFrontFace;
+/* HOW MANY IMAGES AND UNIFORM SLOTS EVERY FRAGMENT OF THIS UNIT DECLARES, which is the whole of the
+ * binding contract `SUBJECT_SURFACE` spells: one number here and one macro there, and the encoder
+ * binds exactly this many. */
+constexpr uint32_t kSubjectImages = 4;
+constexpr uint32_t kSubjectFragmentUniforms = 2;
+
+SDL_GPUShader *MakeShader(SDL_GPUDevice *device, const std::string &source, const char *entry,
+                          SDL_GPUShaderStage stage) {
+  SDL_GPUShaderCreateInfo wanted{};
+  wanted.code = reinterpret_cast<const Uint8 *>(source.c_str());
+  wanted.code_size = source.size();
+  wanted.entrypoint = entry;
+  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
+  wanted.stage = stage;
+  wanted.num_samplers = stage == SDL_GPU_SHADERSTAGE_FRAGMENT ? kSubjectImages : 0;
+  wanted.num_uniform_buffers = stage == SDL_GPU_SHADERSTAGE_FRAGMENT ? kSubjectFragmentUniforms : 1;
+  return SDL_CreateGPUShader(device, &wanted);
+}
+
+} // namespace
+
+bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
+  Device = gpu.Device;
+  FiltersFloat32 = gpu.FiltersFloat32;
+
+  const std::string source = std::string(kMslPrelude) + kVelocityMsl + kSubjectBindingsMsl +
+                             kSubjectMsl + MetalRoughBrdfMsl() + kSubjectLitMsl +
+                             kSubjectLitTexturedMsl + kSubjectMappedMsl;
 
   /* THIRTY PIPELINES: five vertex layouts, two facings, three alpha modes. The facing is the SLOT's
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
@@ -633,57 +617,65 @@ void SubjectDraw::Configure(const Gpu &gpu) {
    * mode for the whole subject draws the wrong cell whichever way it is set. */
   for (const SurfaceKind kind : {SurfaceKind::Opaque, SurfaceKind::Masked, SurfaceKind::Blended}) {
     const bool blends = kind == SurfaceKind::Blended;
-    wgpu::ColorTargetState ct{};
-    ct.format = gpu.HdrFormat;
-    const wgpu::BlendState over = OverBlend();
-    if (blends) { ct.blend = &over; }
+    SDL_GPUColorTargetDescription targets[2] = {};
+    targets[0].format = gpu.HdrFormat;
+    if (blends) { targets[0].blend_state = OverBlend(); }
     /* A BLENDED SURFACE WRITES NO VELOCITY, and that follows from its writing no depth rather than
-     * being a second decision: the temporal resolve reprojects a pixel through the depth that was
+     * being a second decision: a temporal resolve reprojects a pixel through the depth that was
      * written there, so a surface that left none has no motion to claim and would overwrite the
      * motion of whatever did. */
-    wgpu::ColorTargetState cts[2] = {ct, VelocityTarget(!blends)};
-    wgpu::DepthStencilState ds{};
-    ds.format = wgpu::TextureFormat::Depth32Float;
-    ds.depthCompare = wgpu::CompareFunction::Greater;
-    /* `MASK` writes depth like any solid surface -- Khronos says so in the asset's own words,
-     * "Depth buffering with writes enabled may be used in MASK mode" -- because a kept fragment is
-     * fully opaque. `BLEND` cannot: it composites with what is behind it, so writing the depth that
-     * would hide that is the one thing it must not do (`core/SurfaceState.h` states the same pair). */
-    ds.depthWriteEnabled = !blends;
-    rp.depthStencil = &ds;
-    fs.targets = cts;
+    targets[1] = VelocityTarget(!blends);
 
-    for (const VertexLayout layout : {VertexLayout::Position, VertexLayout::PositionUv,
-                                      VertexLayout::PositionNormal,
-                                      VertexLayout::PositionNormalUv,
-                                      VertexLayout::PositionNormalUvTangent}) {
-      const bool textured = CarriesUv(layout);
-      const bool lit = CarriesNormal(layout);
-      const bool mapped = CarriesTangent(layout);
-      rp.vertex.entryPoint = VertexEntryPoint(layout);
-      rp.vertex.bufferCount = mapped ? 4u : (textured ? 3u : 2u);
-      rp.vertex.buffers = mapped ? mappedLayouts
-                                 : (lit ? (textured ? litTexturedLayouts : litLayouts)
-                                        : (textured ? texturedLayouts : plainLayouts));
-      fs.entryPoint = FragmentEntryPoint(kind, layout);
+    for (const VertexLayout layout :
+         {VertexLayout::Position, VertexLayout::PositionUv, VertexLayout::PositionNormal,
+          VertexLayout::PositionNormalUv, VertexLayout::PositionNormalUvTangent}) {
+      const VertexShape shape = ShapeOf(layout);
+      const OwnedShader vertex(Device, MakeShader(Device, source, VertexEntryPoint(layout),
+                                                  SDL_GPU_SHADERSTAGE_VERTEX));
+      const OwnedShader fragment(Device, MakeShader(Device, source, FragmentEntryPoint(kind, layout),
+                                                   SDL_GPU_SHADERSTAGE_FRAGMENT));
+      if (!vertex || !fragment) {
+        error = std::string("the subject's shader did not compile at ") +
+                VertexEntryPoint(layout) + "/" + FragmentEntryPoint(kind, layout) + ": " +
+                SDL_GetError();
+        return false;
+      }
+      SDL_GPUGraphicsPipelineCreateInfo wanted{};
+      wanted.vertex_shader = vertex.Get();
+      wanted.fragment_shader = fragment.Get();
+      wanted.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+      wanted.vertex_input_state.vertex_buffer_descriptions = shape.Buffers;
+      wanted.vertex_input_state.num_vertex_buffers = shape.Count;
+      wanted.vertex_input_state.vertex_attributes = shape.Attributes;
+      wanted.vertex_input_state.num_vertex_attributes = shape.Count;
+      wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+      wanted.rasterizer_state.front_face = kGltfFrontFace;
+      wanted.target_info.color_target_descriptions = targets;
+      wanted.target_info.num_color_targets = 2;
+      wanted.target_info.has_depth_stencil_target = true;
+      wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
+      wanted.depth_stencil_state.enable_depth_test = true;
+      wanted.depth_stencil_state.compare_op = SDL_GPU_COMPAREOP_GREATER;
+      /* `MASK` writes depth like any solid surface -- Khronos says so in the asset's own words,
+       * "Depth buffering with writes enabled may be used in MASK mode" -- because a kept fragment is
+       * fully opaque. `BLEND` cannot: it composites with what is behind it, so writing the depth
+       * that would hide that is the one thing it must not do (`core/SurfaceState.h` agrees). */
+      wanted.depth_stencil_state.enable_depth_write = !blends;
+
       for (const bool cullsBack : {false, true}) {
-        rp.primitive.cullMode = cullsBack ? wgpu::CullMode::Back : wgpu::CullMode::None;
-        Pipelines[PipelineAt(layout, kind, cullsBack)] = Device.CreateRenderPipeline(&rp);
+        wanted.rasterizer_state.cull_mode =
+            cullsBack ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
+        SDL_GPUGraphicsPipeline *made = SDL_CreateGPUGraphicsPipeline(Device, &wanted);
+        if (!made) {
+          error = std::string("the subject's pipeline was refused at ") +
+                  FragmentEntryPoint(kind, layout) + ": " + SDL_GetError();
+          return false;
+        }
+        Pipelines[PipelineAt(layout, kind, cullsBack)] = OwnedPipeline(Device, made);
       }
     }
   }
-
-  wgpu::BufferDescriptor bd{};
-  bd.size = kUniFloats * sizeof(float);
-  bd.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  Uni = Device.CreateBuffer(&bd);
-
-  /* THE LIGHT BUFFER EXISTS BEFORE ANY LIGHT DOES, because every bind group names it and a subject
-   * that is lit by nothing is still a subject with a list -- an empty one, whose count is zero. */
-  bd.size = kLightFloats * sizeof(float);
-  Lights = Device.CreateBuffer(&bd);
-  const std::vector<float> dark((size_t)kLightFloats, 0.0f);
-  Queue.WriteBuffer(Lights, 0, dark.data(), dark.size() * sizeof(float));
+  return true;
 }
 
 size_t SubjectDraw::PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack) {
@@ -691,8 +683,37 @@ size_t SubjectDraw::PipelineAt(VertexLayout layout, SurfaceKind kind, bool culls
   return (static_cast<size_t>(layout) * 2u + (cullsBack ? 1u : 0u)) * kSurfaceKinds + at;
 }
 
+OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, uint32_t bytes) {
+  SDL_GPUBufferCreateInfo wantedBuffer{};
+  wantedBuffer.usage = usage;
+  wantedBuffer.size = bytes;
+  OwnedBuffer buffer(Device, SDL_CreateGPUBuffer(Device, &wantedBuffer));
+  if (!buffer) { return buffer; }
+
+  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  wantedTransfer.size = bytes;
+  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+  if (!staging) {
+    buffer.Reset();
+    return buffer;
+  }
+  std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), from, bytes);
+  SDL_UnmapGPUTransferBuffer(Device, staging);
+
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUTransferBufferLocation source{staging, 0};
+  SDL_GPUBufferRegion into{buffer.Get(), 0, bytes};
+  SDL_UploadToGPUBuffer(copy, &source, &into, false);
+  SDL_EndGPUCopyPass(copy);
+  SDL_SubmitGPUCommandBuffer(commands);
+  SDL_ReleaseGPUTransferBuffer(Device, staging);
+  return buffer;
+}
+
 /* ONE IMAGE ON THE DEVICE, IN LINEAR f32. One texel of white where the surface declares none, so
- * every slot's bind group is complete -- it is never a stand-in for a missing texture, because the
+ * every slot's binding is complete -- it is never a stand-in for a missing texture, because the
  * pipeline that draws a surface declaring none does not sample it, and white is the multiplicative
  * identity of the two arms that do.
  *
@@ -716,26 +737,48 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   }
 
   BoundImage bound;
-  wgpu::TextureDescriptor td{};
-  td.size = {width, height, 1};
-  td.format = wgpu::TextureFormat::RGBA32Float;
-  td.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-  bound.Image = Device.CreateTexture(&td);
-  wgpu::TexelCopyTextureInfo destination{};
-  destination.texture = bound.Image;
-  wgpu::TexelCopyBufferLayout layout{};
-  layout.bytesPerRow = width * 4u * sizeof(float);
-  layout.rowsPerImage = height;
-  wgpu::Extent3D extent{width, height, 1};
-  Queue.WriteTexture(&destination, linear.data(), linear.size() * sizeof(float), &layout, &extent);
+  SDL_GPUTextureCreateInfo wantedTexture{};
+  wantedTexture.type = SDL_GPU_TEXTURETYPE_2D;
+  wantedTexture.format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+  wantedTexture.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+  wantedTexture.width = width;
+  wantedTexture.height = height;
+  wantedTexture.layer_count_or_depth = 1;
+  wantedTexture.num_levels = 1;
+  wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
+  bound.Image = OwnedTexture(Device, SDL_CreateGPUTexture(Device, &wantedTexture));
 
-  wgpu::SamplerDescriptor sd{};
-  sd.addressModeU = AddressOf(texture.WrapU);
-  sd.addressModeV = AddressOf(texture.WrapV);
-  sd.magFilter = FilterOf(texture.Magnify);
-  sd.minFilter = FilterOf(texture.Magnify);
-  bound.Sample = Device.CreateSampler(&sd);
-  bound.View = bound.Image.CreateView();
+  const uint32_t bytes = width * height * 4u * (uint32_t)sizeof(float);
+  SDL_GPUTransferBufferCreateInfo wantedTransfer{};
+  wantedTransfer.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  wantedTransfer.size = bytes;
+  SDL_GPUTransferBuffer *staging = SDL_CreateGPUTransferBuffer(Device, &wantedTransfer);
+  std::memcpy(SDL_MapGPUTransferBuffer(Device, staging, false), linear.data(), bytes);
+  SDL_UnmapGPUTransferBuffer(Device, staging);
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(Device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUTextureTransferInfo source{};
+  source.transfer_buffer = staging;
+  source.pixels_per_row = width;
+  source.rows_per_layer = height;
+  SDL_GPUTextureRegion into{};
+  into.texture = bound.Image.Get();
+  into.w = width;
+  into.h = height;
+  into.d = 1;
+  SDL_UploadToGPUTexture(copy, &source, &into, false);
+  SDL_EndGPUCopyPass(copy);
+  SDL_SubmitGPUCommandBuffer(commands);
+  SDL_ReleaseGPUTransferBuffer(Device, staging);
+
+  SDL_GPUSamplerCreateInfo wantedSampler{};
+  wantedSampler.address_mode_u = AddressOf(texture.WrapU);
+  wantedSampler.address_mode_v = AddressOf(texture.WrapV);
+  wantedSampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+  wantedSampler.min_filter = FilterOf(texture.Magnify);
+  wantedSampler.mag_filter = FilterOf(texture.Magnify);
+  wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+  bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }
 
@@ -749,49 +792,10 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Emissive = Upload(material.Emissive, Transfer::Srgb);
 
   const Material &row = material.Row;
-  const float surface[kSurfaceFloats] = {
-      material.Coverage(), material.State().CoverageCut(),
-      row.Metalness,       row.Roughness,
-      row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
-      row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale};
-  wgpu::BufferDescriptor ad{};
-  ad.size = sizeof surface;
-  ad.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
-  slot.Surface = Device.CreateBuffer(&ad);
-  Queue.WriteBuffer(slot.Surface, 0, surface, sizeof surface);
-
-  wgpu::BindGroupEntry entries[11] = {};
-  entries[0].binding = 0;
-  entries[0].buffer = Uni;
-  entries[0].size = kUniFloats * sizeof(float);
-  entries[1].binding = 1;
-  entries[1].textureView = slot.Colour.View;
-  entries[2].binding = 2;
-  entries[2].sampler = slot.Colour.Sample;
-  entries[3].binding = 3;
-  entries[3].buffer = slot.Surface;
-  entries[3].size = sizeof surface;
-  entries[4].binding = 4;
-  entries[4].buffer = Lights;
-  entries[4].size = kLightFloats * sizeof(float);
-  entries[5].binding = 5;
-  entries[5].textureView = slot.Normal.View;
-  entries[6].binding = 6;
-  entries[6].sampler = slot.Normal.Sample;
-  entries[7].binding = 7;
-  entries[7].textureView = slot.MetalRough.View;
-  entries[8].binding = 8;
-  entries[8].sampler = slot.MetalRough.Sample;
-  entries[9].binding = 9;
-  entries[9].textureView = slot.Emissive.View;
-  entries[10].binding = 10;
-  entries[10].sampler = slot.Emissive.Sample;
-  wgpu::BindGroupDescriptor bg{};
-  bg.layout = Layout;
-  bg.entryCount = 11;
-  bg.entries = entries;
-  slot.Bind = Device.CreateBindGroup(&bg);
-
+  slot.Row = {material.Coverage(), material.State().CoverageCut(),
+              row.Metalness,       row.Roughness,
+              row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
+              row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale};
   Slots.push_back(std::move(slot));
 }
 
@@ -857,50 +861,21 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   }
   Batches = mesh.Draws->Batches();
 
-  wgpu::BufferDescriptor vd{};
-  vd.size = (uint64_t)NVerts * 3 * sizeof(float);
-  vd.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-  Vtx = Device.CreateBuffer(&vd);
-  Queue.WriteBuffer(Vtx, 0, mesh.Verts, (size_t)NVerts * 3 * sizeof(float));
-
-  Emit = Device.CreateBuffer(&vd);
-  Queue.WriteBuffer(Emit, 0, mesh.Emitted, (size_t)NVerts * 3 * sizeof(float));
-
-  if (HasNormal) {
-    Nrm = Device.CreateBuffer(&vd);
-    Queue.WriteBuffer(Nrm, 0, mesh.Normals, (size_t)NVerts * 3 * sizeof(float));
-  } else {
-    Nrm = wgpu::Buffer();
+  const uint32_t positionBytes = NVerts * 3u * (uint32_t)sizeof(float);
+  Vtx = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Verts, positionBytes);
+  Emit = Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Emitted, positionBytes);
+  Nrm = HasNormal ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Normals, positionBytes) : OwnedBuffer();
+  Tan = HasTangent ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Tangents,
+                          NVerts * 4u * (uint32_t)sizeof(float))
+                   : OwnedBuffer();
+  Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv, NVerts * 2u * (uint32_t)sizeof(float))
+             : OwnedBuffer();
+  Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
+  if (!Vtx || !Emit || !Idx) {
+    NIdx = 0;
+    error = std::string("the subject's mesh did not reach the device: ") + SDL_GetError();
+    return false;
   }
-
-  if (HasTangent) {
-    wgpu::BufferDescriptor td{};
-    td.size = (uint64_t)NVerts * 4 * sizeof(float);
-    td.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    Tan = Device.CreateBuffer(&td);
-    Queue.WriteBuffer(Tan, 0, mesh.Tangents, (size_t)NVerts * 4 * sizeof(float));
-  } else {
-    Tan = wgpu::Buffer();
-  }
-
-  if (HasUv) {
-    wgpu::BufferDescriptor ud{};
-    ud.size = (uint64_t)NVerts * 2 * sizeof(float);
-    ud.usage = wgpu::BufferUsage::Vertex | wgpu::BufferUsage::CopyDst;
-    Uv = Device.CreateBuffer(&ud);
-    Queue.WriteBuffer(Uv, 0, mesh.Uv, (size_t)NVerts * 2 * sizeof(float));
-  } else {
-    Uv = wgpu::Buffer();
-  }
-
-  /* WriteBuffer copies in 4-byte units, so an odd index count is padded to keep the queue's own
-   * alignment rule -- the draws still submit exactly what their batches say. */
-  const uint64_t indexBytes = ((uint64_t)NIdx * sizeof(uint32_t) + 3u) & ~uint64_t{3};
-  wgpu::BufferDescriptor id{};
-  id.size = indexBytes;
-  id.usage = wgpu::BufferUsage::Index | wgpu::BufferUsage::CopyDst;
-  Idx = Device.CreateBuffer(&id);
-  Queue.WriteBuffer(Idx, 0, mesh.Indices, (size_t)NIdx * sizeof(uint32_t));
   return true;
 }
 
@@ -919,12 +894,13 @@ bool SubjectDraw::SetLights(const std::vector<SubjectLight> &lights, std::string
 /* THE LIGHT LIST IN THE SHADER'S OWN ALPHABET, rebuilt per frame because one of its numbers is
  * camera-relative: a light's position is an ECEF double and the shader works in metres from the eye,
  * so the subtraction has to happen where the eye is known and in the width the eye is known in. */
-void SubjectDraw::WriteLights(const FrameContext &ctx) {
-  float packed[kLightFloats] = {};
+std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
+    const FrameContext &ctx) const {
+  std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
-    float *entry = packed + 4 + at * 4u * (size_t)kLightVec4s;
+    float *entry = packed.data() + 4 + at * 4u * (size_t)kLightVec4s;
     for (int channel = 0; channel < 3; ++channel) {
       entry[channel] = light.Colour[channel] * light.Intensity;
     }
@@ -944,7 +920,7 @@ void SubjectDraw::WriteLights(const FrameContext &ctx) {
      * reader refuses `inner >= outer`, so the difference is strictly positive here. */
     entry[13] = inner > outer ? 1.0f / (inner - outer) : 0.0f;
   }
-  Queue.WriteBuffer(Lights, 0, packed, sizeof packed);
+  return packed;
 }
 
 uint32_t SubjectDraw::DrawCount() const {
@@ -953,15 +929,18 @@ uint32_t SubjectDraw::DrawCount() const {
   return drawn;
 }
 
-void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPassEncoder &pass) {
+void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
   if (NIdx == 0 || Batches.empty() || !Vtx || !Idx || !Emit) { return; }
-  float u[kUniFloats] = {};
-  for (int i = 0; i < 16; i++) u[i] = ctx.Mvp20[i];
-  for (int i = 0; i < 3; i++) u[16 + i] = (float)(Anchor[i] - ctx.Eye[i]);
-  Queue.WriteBuffer(Uni, 0, u, sizeof u);
-  WriteLights(ctx);
-  pass.SetVertexBuffer(0, Vtx);
-  pass.SetIndexBuffer(Idx, wgpu::IndexFormat::Uint32);
+  float uniform[kUniFloats] = {};
+  for (int i = 0; i < 16; i++) { uniform[i] = ctx.Mvp16[i]; }
+  for (int i = 0; i < 3; i++) { uniform[16 + i] = (float)(Anchor[i] - ctx.Eye[i]); }
+  SDL_PushGPUVertexUniformData(into.Commands, 0, uniform, sizeof uniform);
+  const std::array<float, kLightFloats> lights = PackedLights(ctx);
+  SDL_PushGPUFragmentUniformData(into.Commands, 1, lights.data(),
+                                 (uint32_t)(lights.size() * sizeof(float)));
+
+  SDL_GPUBufferBinding indices{Idx.Get(), 0};
+  SDL_BindGPUIndexBuffer(into.Pass, &indices, SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
   /* THE LIST IS ALREADY IN ORDER -- opaque, then masked, then blended back to front, which is
    * `DrawKey`'s own ordering -- so the encoder only notices where the state changes: the batcher
@@ -988,21 +967,32 @@ void SubjectDraw::Encode(const FrameContext &ctx, ClusterCut &, wgpu::RenderPass
      * the flag in the key would sort a subject's parts by a device state. */
     const size_t wantedPipeline = PipelineAt(wanted, surface.Kind, surface.CullsBack);
     if (wantedPipeline != bound) {
-      pass.SetPipeline(Pipelines[wantedPipeline]);
-      /* The two layouts put the radiance in different slots, so every slot the incoming layout
-       * declares is rebound: leaving the other one's buffer where it was is how a uv slot ends up
-       * holding radiance. */
-      if (textured) { pass.SetVertexBuffer(1, Uv); }
-      pass.SetVertexBuffer(textured ? 2u : 1u, lit ? Nrm : Emit);
-      if (mapped) { pass.SetVertexBuffer(3, Tan); }
+      SDL_BindGPUGraphicsPipeline(into.Pass, Pipelines[wantedPipeline].Get());
+      /* The two arms put the radiance and the normal in the same slot index, so every slot the
+       * incoming layout declares is rebound: leaving the other one's buffer where it was is how a
+       * uv slot ends up holding radiance. */
+      SDL_GPUBufferBinding runs[4] = {};
+      uint32_t count = 0;
+      runs[count++] = SDL_GPUBufferBinding{Vtx.Get(), 0};
+      if (textured) { runs[count++] = SDL_GPUBufferBinding{Uv.Get(), 0}; }
+      runs[count++] = SDL_GPUBufferBinding{lit ? Nrm.Get() : Emit.Get(), 0};
+      if (mapped) { runs[count++] = SDL_GPUBufferBinding{Tan.Get(), 0}; }
+      SDL_BindGPUVertexBuffers(into.Pass, 0, runs, count);
       bound = wantedPipeline;
     }
     if (!slotBound || boundSlot != batch.MaterialSlot) {
-      pass.SetBindGroup(0, surface.Bind);
+      const SDL_GPUTextureSamplerBinding images[kSubjectImages] = {
+          {surface.Colour.Image.Get(), surface.Colour.Sample.Get()},
+          {surface.Normal.Image.Get(), surface.Normal.Sample.Get()},
+          {surface.MetalRough.Image.Get(), surface.MetalRough.Sample.Get()},
+          {surface.Emissive.Image.Get(), surface.Emissive.Sample.Get()}};
+      SDL_BindGPUFragmentSamplers(into.Pass, 0, images, kSubjectImages);
+      SDL_PushGPUFragmentUniformData(into.Commands, 0, surface.Row.data(),
+                                     (uint32_t)(surface.Row.size() * sizeof(float)));
       boundSlot = batch.MaterialSlot;
       slotBound = true;
     }
-    pass.DrawIndexed(batch.IndexCount, 1, batch.FirstIndex, 0, 0);
+    SDL_DrawGPUIndexedPrimitives(into.Pass, batch.IndexCount, 1, batch.FirstIndex, 0, 0);
   }
 }
 

@@ -14,7 +14,7 @@
  * down (`CLAUDE.md`: the mathematics is deterministic).
  *
  * NO DEVICE TYPE APPEARS HERE, which is what lets a draw list be built, sorted and checked with no
- * `wgpu::` name in scope -- the same property that makes `render/plan/` checkable, one level down. */
+ * device name in scope -- the same property that makes `render/plan/` checkable, one level down. */
 #ifndef DRAWLIST_H
 #define DRAWLIST_H
 

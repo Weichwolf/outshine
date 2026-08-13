@@ -1,5 +1,5 @@
 /* THE TIE BETWEEN THE TWO HALVES OF THE BRDF. `stages/MetalRoughBrdf.h` states glTF's metal-rough
- * model twice -- once in C++, once in the WGSL the fragment shader is spliced from -- and until this
+ * model twice -- once in C++, once in the MSL the fragment shader is spliced from -- and until this
  * file existed nothing evaluated both. The white furnace integrates the C++ half, so its verdict was
  * about a function the renderer does not run; the shader was pinned to it only through
  * `directional-light`'s hue check, which is scale-invariant and would not catch a scaled D.
@@ -8,7 +8,7 @@
  * protect. The same sample set goes through both halves and every channel of both terms is compared.
  *
  * THE COMPARISON CARRIES ITS OWN NEGATIVE CONTROL. A tie that cannot see the defect the asset is
- * named for is the instrument this round already rejected once, so the emitted WGSL is mutated here
+ * named for is the instrument this round already rejected once, so the emitted MSL is mutated here
  * -- the distribution scaled by two -- and the same comparison must go red over it. The mutation is
  * a textual substitution into the emitted text and it names its site: if the site stops existing,
  * this refuses rather than passing over a mutation that was never applied.
@@ -29,32 +29,40 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <string>
 #include <vector>
 
-#include <webgpu/webgpu_cpp.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_gpu.h>
 
 #include "Check.h"
 
 #include "MetalRoughBrdf.h"
 #include "Readback.h"
+#include "ShaderPrelude.h"
 
 using outshine::Render::BrdfGeometry;
 using outshine::Render::BrdfTerms;
 using outshine::Render::kBrdfPi;
+using outshine::Render::kMslPrelude;
 using outshine::Render::MetalRoughBrdf;
-using outshine::Render::MetalRoughBrdfWGSL;
+using outshine::Render::MetalRoughBrdfMsl;
 using outshine::Render::Readback;
 using outshine::Render::ReadState;
 
 namespace {
 
-/* WHAT THE DEVICE SAID WENT WRONG, and it is a counter at namespace scope for the reason `Check.h`
- * names for its own: an uncaptured-error callback outlives every scope a test could hold it in. */
+/* WHAT THE DEVICE REFUSED. SDL_GPU answers a failure by returning nothing and leaving a sentence in
+ * `SDL_GetError`, so every call whose answer this file depends on is counted here -- a dispatch that
+ * never ran must not be readable as a dispatch that agreed. */
 int DeviceErrors = 0;
 
-std::string Spelled(wgpu::StringView view) {
-  return view.data ? std::string(view.data, view.length) : std::string();
+bool Refused(const void *made, const char *what) {
+  if (made) { return false; }
+  ++DeviceErrors;
+  std::printf("NOTE device refused %s: %s\n", what, SDL_GetError());
+  return true;
 }
 
 /* ONE SHADING POINT AS BOTH HALVES TAKE IT: the two colours the model is evaluated with, the squared
@@ -187,30 +195,34 @@ std::vector<float> Uploaded(const std::vector<SamplePoint> &points) {
 }
 
 /* The entry point the model's own text is evaluated through. It declares no term of its own: it
- * unpacks a sample, calls `metalRoughBrdf` and writes what came back. */
+ * unpacks a sample, calls `metalRoughBrdf` and writes what came back.
+ *
+ * THE SAMPLE COUNT IS A UNIFORM AND NOT A LENGTH QUERY, because MSL has none: a device buffer is a
+ * pointer there, so the bound is handed in beside it rather than asked of it. */
 std::string TieShader(const std::string &model) {
   char stride[128];
-  std::snprintf(stride, sizeof stride, "const kIn : u32 = %uu;\nconst kOut : u32 = %uu;\n",
+  std::snprintf(stride, sizeof stride, "constant uint kIn = %uu;\nconstant uint kOut = %uu;\n",
                 kInputFloats, kOutputFloats);
-  return model + std::string(stride) + R"(
-@group(0) @binding(0) var<storage, read> samples : array<f32>;
-@group(0) @binding(1) var<storage, read_write> results : array<f32>;
+  return std::string(kMslPrelude) + model + std::string(stride) + R"(
+struct Span { uint floats; };
 
-@compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) id : vec3u) {
-  let base = id.x * kIn;
-  if (base + kIn > arrayLength(&samples)) { return; }
-  let diffuseColour = vec3f(samples[base], samples[base + 1u], samples[base + 2u]);
-  let f0 = vec3f(samples[base + 3u], samples[base + 4u], samples[base + 5u]);
-  let out = metalRoughBrdf(diffuseColour, f0, samples[base + 6u], samples[base + 7u],
-                           samples[base + 8u], samples[base + 9u], samples[base + 10u]);
-  let slot = id.x * kOut;
-  results[slot] = out.diffuse.x;
-  results[slot + 1u] = out.diffuse.y;
-  results[slot + 2u] = out.diffuse.z;
-  results[slot + 3u] = out.specular.x;
-  results[slot + 4u] = out.specular.y;
-  results[slot + 5u] = out.specular.z;
+kernel void tie(uint3 id [[thread_position_in_grid]],
+                constant Span &span [[buffer(0)]],
+                const device float *samples [[buffer(1)]],
+                device float *results [[buffer(2)]]) {
+  uint base = id.x * kIn;
+  if (base + kIn > span.floats) { return; }
+  float3 diffuseColour = float3(samples[base], samples[base + 1u], samples[base + 2u]);
+  float3 f0 = float3(samples[base + 3u], samples[base + 4u], samples[base + 5u]);
+  Brdf terms = metalRoughBrdf(diffuseColour, f0, samples[base + 6u], samples[base + 7u],
+                              samples[base + 8u], samples[base + 9u], samples[base + 10u]);
+  uint slot = id.x * kOut;
+  results[slot] = terms.diffuse.x;
+  results[slot + 1u] = terms.diffuse.y;
+  results[slot + 2u] = terms.diffuse.z;
+  results[slot + 3u] = terms.specular.x;
+  results[slot + 4u] = terms.specular.y;
+  results[slot + 5u] = terms.specular.z;
 }
 )";
 }
@@ -225,117 +237,104 @@ std::string WithDoubledDistribution(const std::string &model) {
   return std::string(model).replace(found, site.size(), "return 2.0 * a2 / (kPi");
 }
 
-struct Instrument {
-  wgpu::Instance Instance;
-  wgpu::Device Device;
-  wgpu::Queue Queue;
+/* THE DEVICE, AND NOTHING ELSE: no swapchain, no window, no asset. SDL_GPU wants the video subsystem
+ * up before it will open one, and that is the whole of the bring-up. */
+class Instrument {
+public:
+  ~Instrument() {
+    if (Device) {
+      SDL_DestroyGPUDevice(Device);
+      SDL_QuitSubSystem(SDL_INIT_VIDEO);
+    }
+  }
+  Instrument() {
+    if (!SDL_InitSubSystem(SDL_INIT_VIDEO)) { return; }
+    Device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
+    if (!Device) { SDL_QuitSubSystem(SDL_INIT_VIDEO); }
+  }
+  Instrument(const Instrument &) = delete;
+  Instrument &operator=(const Instrument &) = delete;
+
+  SDL_GPUDevice *Device = nullptr;
 };
 
-/* `TimedWaitAny` is what makes `WaitAny(UINT64_MAX)` legal; without it it returns Error before it
- * looks at the future. */
-wgpu::Instance MakeInstance(void) {
-  wgpu::InstanceDescriptor descriptor{};
-  static constexpr auto kTimedWaitAny = wgpu::InstanceFeatureName::TimedWaitAny;
-  descriptor.requiredFeatureCount = 1;
-  descriptor.requiredFeatures = &kTimedWaitAny;
-  return wgpu::CreateInstance(&descriptor);
+/* A STORAGE BUFFER AND ITS UPLOAD, in one place, because the two are one statement: a buffer with no
+ * bytes in it would be a dispatch over whatever the allocator last held. */
+SDL_GPUBuffer *MakeBuffer(SDL_GPUDevice *device, SDL_GPUBufferUsageFlags usage, const float *from,
+                          uint32_t bytes) {
+  SDL_GPUBufferCreateInfo wanted{};
+  wanted.usage = usage;
+  wanted.size = bytes;
+  SDL_GPUBuffer *buffer = SDL_CreateGPUBuffer(device, &wanted);
+  if (Refused(buffer, "a storage buffer")) { return nullptr; }
+  if (!from) { return buffer; }
+
+  SDL_GPUTransferBufferCreateInfo staging{};
+  staging.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+  staging.size = bytes;
+  SDL_GPUTransferBuffer *transfer = SDL_CreateGPUTransferBuffer(device, &staging);
+  if (Refused(transfer, "an upload buffer")) { return buffer; }
+  std::memcpy(SDL_MapGPUTransferBuffer(device, transfer, false), from, bytes);
+  SDL_UnmapGPUTransferBuffer(device, transfer);
+  SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
+  SDL_GPUCopyPass *copy = SDL_BeginGPUCopyPass(commands);
+  SDL_GPUTransferBufferLocation source{transfer, 0};
+  SDL_GPUBufferRegion into{buffer, 0, bytes};
+  SDL_UploadToGPUBuffer(copy, &source, &into, false);
+  SDL_EndGPUCopyPass(copy);
+  SDL_SubmitGPUCommandBuffer(commands);
+  SDL_ReleaseGPUTransferBuffer(device, transfer);
+  return buffer;
 }
 
-Instrument BringUp(void) {
-  Instrument made;
-  made.Instance = MakeInstance();
-  if (!made.Instance) { return made; }
-  wgpu::Adapter adapter;
-  wgpu::RequestAdapterOptions options{};
-  made.Instance.WaitAny(
-      made.Instance.RequestAdapter(
-          &options, wgpu::CallbackMode::WaitAnyOnly,
-          [&adapter](wgpu::RequestAdapterStatus status, wgpu::Adapter got, wgpu::StringView) {
-            if (status == wgpu::RequestAdapterStatus::Success) { adapter = got; }
-          }),
-      UINT64_MAX);
-  if (!adapter) { return made; }
-  wgpu::DeviceDescriptor descriptor{};
-  descriptor.SetUncapturedErrorCallback(
-      [](const wgpu::Device &, wgpu::ErrorType type, wgpu::StringView message) {
-        ++DeviceErrors;
-        std::printf("NOTE device error %d: %s\n", (int)type, Spelled(message).c_str());
-      });
-  made.Instance.WaitAny(
-      adapter.RequestDevice(
-          &descriptor, wgpu::CallbackMode::WaitAnyOnly,
-          [&made](wgpu::RequestDeviceStatus status, wgpu::Device got, wgpu::StringView) {
-            if (status == wgpu::RequestDeviceStatus::Success) { made.Device = got; }
-          }),
-      UINT64_MAX);
-  if (made.Device) { made.Queue = made.Device.GetQueue(); }
-  return made;
-}
-
-wgpu::Buffer MakeBuffer(const wgpu::Device &device, uint64_t bytes, wgpu::BufferUsage usage) {
-  wgpu::BufferDescriptor descriptor{};
-  descriptor.size = bytes;
-  descriptor.usage = usage;
-  return device.CreateBuffer(&descriptor);
-}
-
-wgpu::ComputePipeline MakePipeline(const wgpu::Device &device, const std::string &wgsl) {
-  wgpu::ShaderSourceWGSL source{};
-  source.code = wgsl.c_str();
-  wgpu::ShaderModuleDescriptor module{};
-  module.nextInChain = &source;
-  wgpu::ComputePipelineDescriptor descriptor{};
-  descriptor.compute.module = device.CreateShaderModule(&module);
-  descriptor.compute.entryPoint = "main";
-  return device.CreateComputePipeline(&descriptor);
-}
-
-/* [SET] A cap rather than a wait: a map that never lands is a defect to report, not a run to hang.
- * One dispatch of a few thousand invocations retires in a handful of polls. */
-constexpr int kPollCap = 100000;
-
-std::vector<float> RunOnDevice(const Instrument &on, const std::string &wgsl,
+std::vector<float> RunOnDevice(const Instrument &on, const std::string &msl,
                                const std::vector<float> &input, size_t outputFloats) {
-  const uint64_t inputBytes = input.size() * sizeof(float);
-  const uint64_t outputBytes = outputFloats * sizeof(float);
-  const wgpu::Buffer samples =
-      MakeBuffer(on.Device, inputBytes, wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopyDst);
-  const wgpu::Buffer results =
-      MakeBuffer(on.Device, outputBytes, wgpu::BufferUsage::Storage | wgpu::BufferUsage::CopySrc);
-  on.Queue.WriteBuffer(samples, 0, input.data(), inputBytes);
+  const uint32_t inputBytes = (uint32_t)(input.size() * sizeof(float));
+  const uint32_t outputBytes = (uint32_t)(outputFloats * sizeof(float));
 
-  const wgpu::ComputePipeline pipeline = MakePipeline(on.Device, wgsl);
-  if (!pipeline) { return {}; }
-  const std::array<wgpu::BindGroupEntry, 2> bound{
-      wgpu::BindGroupEntry{nullptr, 0, samples, 0, inputBytes, nullptr, nullptr},
-      wgpu::BindGroupEntry{nullptr, 1, results, 0, outputBytes, nullptr, nullptr}};
-  wgpu::BindGroupDescriptor group{};
-  group.layout = pipeline.GetBindGroupLayout(0);
-  group.entryCount = bound.size();
-  group.entries = bound.data();
+  SDL_GPUComputePipelineCreateInfo wanted{};
+  wanted.code = reinterpret_cast<const Uint8 *>(msl.c_str());
+  wanted.code_size = msl.size();
+  wanted.entrypoint = "tie";
+  wanted.format = SDL_GPU_SHADERFORMAT_MSL;
+  wanted.num_uniform_buffers = 1;
+  wanted.num_readonly_storage_buffers = 1;
+  wanted.num_readwrite_storage_buffers = 1;
+  wanted.threadcount_x = 64;
+  wanted.threadcount_y = 1;
+  wanted.threadcount_z = 1;
+  SDL_GPUComputePipeline *pipeline = SDL_CreateGPUComputePipeline(on.Device, &wanted);
+  if (Refused(pipeline, "the tie's compute pipeline")) { return {}; }
 
-  wgpu::CommandEncoder encoder = on.Device.CreateCommandEncoder();
-  wgpu::ComputePassEncoder pass = encoder.BeginComputePass();
-  pass.SetPipeline(pipeline);
-  pass.SetBindGroup(0, on.Device.CreateBindGroup(&group));
-  pass.DispatchWorkgroups((uint32_t)((outputFloats / kOutputFloats + 63) / 64), 1, 1);
-  pass.End();
-  wgpu::CommandBuffer commands = encoder.Finish();
-  on.Queue.Submit(1, &commands);
+  SDL_GPUBuffer *samples =
+      MakeBuffer(on.Device, SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_READ, input.data(), inputBytes);
+  SDL_GPUBuffer *results =
+      MakeBuffer(on.Device, SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE, nullptr, outputBytes);
+  std::vector<float> out;
+  if (samples && results) {
+    SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(on.Device);
+    SDL_GPUStorageBufferReadWriteBinding written{};
+    written.buffer = results;
+    SDL_GPUComputePass *pass = SDL_BeginGPUComputePass(commands, nullptr, 0, &written, 1);
+    SDL_BindGPUComputePipeline(pass, pipeline);
+    SDL_BindGPUComputeStorageBuffers(pass, 0, &samples, 1);
+    const uint32_t floats = (uint32_t)input.size();
+    SDL_PushGPUComputeUniformData(commands, 0, &floats, sizeof floats);
+    SDL_DispatchGPUCompute(pass, (uint32_t)((outputFloats / kOutputFloats + 63) / 64), 1, 1);
+    SDL_EndGPUComputePass(pass);
+    SDL_SubmitGPUCommandBuffer(commands);
 
-  Readback read;
-  read.FromBuffer(on.Device, on.Queue, results, outputBytes);
-  ReadState state = ReadState::Pending;
-  for (int poll = 0; poll < kPollCap && state == ReadState::Pending; ++poll) {
-    state = read.Poll(on.Instance);
+    Readback read;
+    if (read.FromBuffer(on.Device, results, outputBytes) == ReadState::Ready) {
+      out.resize(outputFloats);
+      std::memcpy(out.data(), read.Rows(), outputBytes);
+    } else {
+      ++DeviceErrors;
+    }
   }
-  if (state != ReadState::Ready) {
-    read.Release();
-    return {};
-  }
-  std::vector<float> out(outputFloats);
-  std::copy_n((const float *)read.Rows(), outputFloats, out.begin());
-  read.Release();
+  SDL_ReleaseGPUBuffer(on.Device, samples);
+  SDL_ReleaseGPUBuffer(on.Device, results);
+  SDL_ReleaseGPUComputePipeline(on.Device, pipeline);
   return out;
 }
 
@@ -398,14 +397,14 @@ int main() {
   const std::vector<float> input = Uploaded(points);
   const size_t outputFloats = points.size() * kOutputFloats;
 
-  const Instrument on = BringUp();
-  CHECK(on.Device != nullptr, "a device answers, so the WGSL half can be evaluated at all");
+  const Instrument on;
+  CHECK(on.Device != nullptr, "a device answers, so the MSL half can be evaluated at all");
   if (!on.Device) { return outshine::Test::Report(); }
 
   const std::vector<float> asEmitted =
-      RunOnDevice(on, TieShader(MetalRoughBrdfWGSL()), input, outputFloats);
+      RunOnDevice(on, TieShader(MetalRoughBrdfMsl()), input, outputFloats);
   CHECK(asEmitted.size() == outputFloats,
-        "the emitted WGSL compiles and returns one result per sample");
+        "the emitted MSL compiles and returns one result per sample");
   if (asEmitted.size() != outputFloats) { return outshine::Test::Report(); }
 
   const Agreement emitted = Compare(points, asEmitted);
@@ -419,11 +418,11 @@ int main() {
         "every channel of both terms agrees with the C++ half inside the f32 error the sample's own "
         "conditioning admits");
 
-  const std::string mutated = WithDoubledDistribution(MetalRoughBrdfWGSL());
-  CHECK(!mutated.empty(), "the mutation's site is still in the emitted WGSL, so the control applies");
+  const std::string mutated = WithDoubledDistribution(MetalRoughBrdfMsl());
+  CHECK(!mutated.empty(), "the mutation's site is still in the emitted MSL, so the control applies");
   const std::vector<float> asMutated =
       mutated.empty() ? std::vector<float>() : RunOnDevice(on, TieShader(mutated), input, outputFloats);
-  CHECK(asMutated.size() == outputFloats, "the mutated WGSL compiles and returns one result per sample");
+  CHECK(asMutated.size() == outputFloats, "the mutated MSL compiles and returns one result per sample");
   if (asMutated.size() == outputFloats) {
     const Agreement scaled = Compare(points, asMutated);
     ReportAgreement("distribution scaled by two", scaled);
@@ -434,7 +433,7 @@ int main() {
   }
 
   CHECK(DeviceErrors == 0, "the device reported no error over either dispatch");
-  outshine::Test::Covers("I.26.12 the shading model's two halves: the WGSL the fragment shader is "
+  outshine::Test::Covers("I.26.12 the shading model's two halves: the MSL the fragment shader is "
                          "spliced from evaluates the same arrangement of terms as the C++ the white "
                          "furnace integrates, over a shared sample set, on the device");
   return outshine::Test::Report();

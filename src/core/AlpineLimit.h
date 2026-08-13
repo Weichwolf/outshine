@@ -49,7 +49,7 @@ public:
   }
 
   /* The share of the ground that is bare rock because of its slope alone, 0…1. The SAME expression
-   * runs per fragment in WGSL (render/stages/TerrainDraw.cpp, `bareBySlope`). */
+   * ran per fragment in the terrain shader; no stage reads it since the port to SDL_GPU. */
   double BareBySlope(double slopeDeg, double slopeMaxDeg) const {
     const double t = (slopeDeg - slopeMaxDeg) / (double)SlopeBandDeg_;
     if (t <= 0.0) return 0.0;

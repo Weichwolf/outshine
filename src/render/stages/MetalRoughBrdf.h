@@ -1,16 +1,15 @@
 /* glTF 2.0's OWN metal-rough BRDF, term for term out of the specification's Appendix B, in C++ and
- * in WGSL. The Khronos corpus states its criteria in this model, so an engine that shaded a house
+ * in MSL. The Khronos corpus states its criteria in this model, so an engine that shaded a house
  * approximation would be measuring the approximation.
  *
- * TWO HALVES OF ONE FORMULA, the same arrangement `CloudDensityWGSL.h` carries and for the same
- * reason: a shading term has to run on the device and has to be integrable on the host, and no
- * language spans both. The C++ half is the definition and the WGSL half is its transliteration.
- * Three rules keep them from drifting: (a) no numeric constant is typed in the WGSL at all -- they
- * are emitted from the C++ ones by `MetalRoughBrdfWGSL()`; (b) the WGSL declares no term the C++
- * half does not, so a new term has to be written twice on purpose rather than once by accident;
- * (c) the ARRANGEMENT of the terms is measured -- `test/shader/BothHalvesOfTheBrdfAgree.cpp` runs
- * this text on the device over a sample set and compares it against these functions, and carries a
- * mutant of its own to show the comparison can see a scaled term.
+ * TWO HALVES OF ONE FORMULA: a shading term has to run on the device and has to be integrable on the
+ * host, and no language spans both. The C++ half is the definition and the MSL half is its
+ * transliteration. Three rules keep them from drifting: (a) no numeric constant is typed in the MSL
+ * at all -- they are emitted from the C++ ones by `MetalRoughBrdfMsl()`; (b) the MSL declares no term
+ * the C++ half does not, so a new term has to be written twice on purpose rather than once by
+ * accident; (c) the ARRANGEMENT of the terms is measured -- `test/shader/BothHalvesOfTheBrdfAgree.cpp`
+ * runs this text on the device over a sample set and compares it against these functions, and carries
+ * a mutant of its own to show the comparison can see a scaled term.
  *
  * `alpha = 0` MEANS NO SPECULAR AT ALL, and that is the physics rather than a guard against a
  * division. A perfectly smooth surface has a Dirac lobe and a light with no area is a Dirac source;
@@ -92,39 +91,39 @@ struct BrdfGeometry {
   return terms;
 }
 
-/* The device half. A textual splice, like `AtmoCommon.h` -- never compiled alone. */
-[[nodiscard]] inline std::string MetalRoughBrdfWGSL(void) {
+/* The device half. A textual splice, like the emitters beside it -- never compiled alone. */
+[[nodiscard]] inline std::string MetalRoughBrdfMsl(void) {
   char constants[256];
   std::snprintf(constants, sizeof constants,
-                "const kPi : f32 = %.17g;\nconst kDielectricF0 : f32 = %.17g;\n", kBrdfPi,
+                "constant float kPi = %.17g;\nconstant float kDielectricF0 = %.17g;\n", kBrdfPi,
                 kDielectricF0);
   return std::string(constants) + R"(
-struct Brdf { diffuse : vec3f, specular : vec3f };
+struct Brdf { float3 diffuse; float3 specular; };
 
-fn brdfDistribution(nh : f32, a2 : f32) -> f32 {
-  let denominator = nh * nh * (a2 - 1.0) + 1.0;
+static inline float brdfDistribution(float nh, float a2) {
+  float denominator = nh * nh * (a2 - 1.0) + 1.0;
   return a2 / (kPi * denominator * denominator);
 }
 
-fn brdfVisibility(nl : f32, nv : f32, a2 : f32) -> f32 {
+static inline float brdfVisibility(float nl, float nv, float a2) {
   return 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) + nv * sqrt(nl * nl * (1.0 - a2) + a2));
 }
 
-fn brdfFresnel(f0 : vec3f, vh : f32) -> vec3f {
-  let grazing = 1.0 - vh;
-  let squared = grazing * grazing;
-  return f0 + (vec3f(1.0) - f0) * (squared * squared * grazing);
+static inline float3 brdfFresnel(float3 f0, float vh) {
+  float grazing = 1.0 - vh;
+  float squared = grazing * grazing;
+  return f0 + (float3(1.0) - f0) * (squared * squared * grazing);
 }
 
-fn metalRoughBrdf(diffuseColour : vec3f, f0 : vec3f, a2 : f32,
-                  nl : f32, nv : f32, nh : f32, vh : f32) -> Brdf {
-  let fresnel = brdfFresnel(f0, vh);
-  var out : Brdf;
-  var lobe = 0.0;
+static inline Brdf metalRoughBrdf(float3 diffuseColour, float3 f0, float a2,
+                                  float nl, float nv, float nh, float vh) {
+  float3 fresnel = brdfFresnel(f0, vh);
+  Brdf terms;
+  float lobe = 0.0;
   if (a2 > 0.0) { lobe = brdfDistribution(nh, a2) * brdfVisibility(nl, nv, a2); }
-  out.diffuse = (vec3f(1.0) - fresnel) * diffuseColour * (1.0 / kPi);
-  out.specular = fresnel * lobe;
-  return out;
+  terms.diffuse = (float3(1.0) - fresnel) * diffuseColour * (1.0 / kPi);
+  terms.specular = fresnel * lobe;
+  return terms;
 }
 )";
 }

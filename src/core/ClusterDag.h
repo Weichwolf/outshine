@@ -1,6 +1,6 @@
 /* Nanite half 1: a cluster DAG over a triangle soup plus the monotone screen-space-error cut that
  * reads it. Half 2 — the compute software rasteriser —
- * is not here and cannot be: WGSL has no 64-bit atomic.
+ * is not here and cannot be: a shading language has no 64-bit atomic.
  *
  * The crack-free guarantee is structural, not a fudge: a GROUP of clusters is the unit of
  * simplification, its outer edges are LOCKED while its interior is collapsed, and every cluster born

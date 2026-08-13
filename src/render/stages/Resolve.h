@@ -1,11 +1,10 @@
-/* WHAT A DISPLAY FRAME IS, in one place and generated from the compiled plan. Two stages emit it --
- * the tonemap on its own, and the fused temporal resolve that carries it out of the same fragment --
- * so it is written once here and neither of them owns a constant of the display chain.
+/* WHAT A DISPLAY FRAME IS, in one place and generated from the compiled plan. One stage emits it --
+ * the tonemap -- and it holds no constant of the display chain of its own.
  *
- * THE PLAN DECIDES WHICH TERMS EXIST, and the terms it leaves out are not branches: a plan with no
- * occlusion stage emits no occlusion tap and binds no occlusion texture, and a plan with no meter
- * emits its own declared scalar. That is why "the plan carries no dead path" is a property of the
- * generated shader rather than a claim about it.
+ * THE PLAN DECIDES WHICH TERMS EXIST, and the terms it leaves out are not branches: a plan that
+ * declares a linear transfer emits no curve at all rather than a curve with a flag around it. That
+ * is why "the plan carries no dead path" is a property of the generated shader rather than a claim
+ * about it.
  *
  * `Transfer::Linear` IS NOT A LOOK. It writes scene-referred radiance into an sRGB-encoding
  * attachment and does nothing else, which is what a numeric comparison against a path tracer needs:
@@ -14,55 +13,50 @@
  * THE FRAME'S ALPHA IS COVERAGE, STRAIGHT AND NOT PREMULTIPLIED, and it is the reason this function
  * takes a depth sample at all. Without it a black subject and no subject are the same three
  * channels: MEASURED, the oracle's sphere carries 46 101 of 46 151 covered pixels at exactly 0.0
- * RGB, and only alpha tells them from the background. It is not the scene target's alpha, which is
- * the DIRECT FRACTION the occlusion composite weights by (stages/SurfaceLight.h) -- two quantities,
- * two channels, and conflating them is what a single `1.0` here was doing.
+ * RGB, and only alpha tells them from the background.
  *
- * IT IS ALSO THE CHANNEL BLENDING WILL NEED. glTF makes alpha modes first-class, so a renderer that
- * cannot emit coverage cannot implement `BLEND` later. */
+ * IT IS ALSO THE CHANNEL BLENDING NEEDS. glTF makes alpha modes first-class, so a renderer that
+ * cannot emit coverage cannot implement `BLEND`. */
 #ifndef RESOLVE_H
 #define RESOLVE_H
 
 #include <string>
 
-#include "Filmic.h"
 #include "RenderPlan.h"
 
 namespace outshine::Render {
 
 struct DisplayOptions {
-  bool HasOcclusion = false;   /* `aoTex` is bound and the direct fraction weights it */
-  bool HasMeter = false;       /* `meter` is bound; otherwise `Exposure` below is the scale */
-  float Exposure = 1.0f;
+  float Exposure = 1.0f;   /* the scale the transfer multiplies scene radiance by */
   Transfer Curve = Transfer::Filmic;
 };
 
-/* Emits `fn displayed(scene : vec4f, fragXY : vec2f, sceneDepth : f32) -> vec4f`. The caller
- * declares `aoTex` and `meter` at its own binding indices where the options say they exist, and
- * hands the depth attachment's own sample for this fragment. */
-inline std::string DisplayWGSL(const DisplayOptions &options) {
+/* Emits `float4 displayed(float4 scene, float sceneDepth)`. The caller hands the scene texel and
+ * the depth attachment's own sample for the same fragment. */
+inline std::string DisplayMsl(const DisplayOptions &options) {
   std::string source;
+  if (options.Curve == Transfer::Filmic) {
+    /* Narkowicz' rational fit of the ACES RRT + sRGB ODT (SIGGRAPH 2015 course notes).
+     * Scene-referred in, display-LINEAR out; the sRGB surface format does the encode. PER CHANNEL
+     * and not on luminance, because the shoulder desaturating a channel that runs past white IS what
+     * a photograph of a clear sky does -- its blue saturates while red and green climb, and a curve
+     * applied to luminance alone keeps the ratio and clips the channel square instead. */
+    source += "static inline float3 filmic(float3 x) {\n"
+              "  return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14),\n"
+              "               float3(0.0), float3(1.0));\n"
+              "}\n";
+  }
   /* Reversed-Z on a target cleared to 0 at the far plane: anything that wrote depth is strictly
    * greater, and that is the whole of the coverage predicate. */
-  source += "fn covered(sceneDepth : f32) -> f32 { return select(0.0, 1.0, sceneDepth > 0.0); }\n";
-  if (options.HasOcclusion) {
-    /* alpha = the DIRECT fraction of this pixel's radiance; occlusion darkens only the rest. The
-     * occlusion target is half resolution and read at the matching texel. */
-    source +=
-        "fn occluded(scene : vec4f, fragXY : vec2f) -> vec3f {\n"
-        "  let ao = textureLoad(aoTex, vec2i(fragXY * 0.5), 0).r;\n"
-        "  return scene.rgb * mix(ao, 1.0, clamp(scene.a, 0.0, 1.0));\n"
-        "}\n";
-  } else {
-    source += "fn occluded(scene : vec4f, fragXY : vec2f) -> vec3f { return scene.rgb; }\n";
-  }
-  source += "fn displayed(scene : vec4f, fragXY : vec2f, sceneDepth : f32) -> vec4f {\n"
-            "  let lit = occluded(scene, fragXY);\n"
-            "  let a = covered(sceneDepth);\n";
-  source += options.HasMeter ? "  let scale = meter.expScale;\n"
-                             : "  let scale = " + std::to_string(options.Exposure) + ";\n";
-  source += options.Curve == Transfer::Filmic ? "  return vec4f(filmic(lit * scale), a);\n"
-                                              : "  return vec4f(lit * scale, a);\n";
+  source += "static inline float covered(float sceneDepth) {\n"
+            "  return select(0.0, 1.0, sceneDepth > 0.0);\n"
+            "}\n";
+  source += "static inline float4 displayed(float4 scene, float sceneDepth) {\n"
+            "  float3 lit = scene.rgb;\n"
+            "  float a = covered(sceneDepth);\n";
+  source += "  float scale = " + std::to_string(options.Exposure) + ";\n";
+  source += options.Curve == Transfer::Filmic ? "  return float4(filmic(lit * scale), a);\n"
+                                              : "  return float4(lit * scale, a);\n";
   source += "}\n";
   return source;
 }

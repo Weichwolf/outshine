@@ -1,5 +1,5 @@
-/* THE cloud density function — one formula, two evaluators. This header is the C++ half; the WGSL half
- * (render/stages/CloudDensityWGSL.h) is a literal transliteration whose CONSTANTS are emitted from the
+/* THE cloud density function — one formula, two evaluators. This header is the C++ half; the device
+ * half went with the renderer's port to SDL_GPU and returns as a transliteration whose CONSTANTS come from the
  * ones below, so a number can never drift between the picture and a measurement. "How much cloud is at
  * this point" is the same question a future IR/radar sensor asks, which is why the model lives in core/
  * and not in the renderer.
@@ -97,7 +97,7 @@ struct CloudSky {
 };
 
 /* ---- The evaluators. Deliberately hand-written instead of std:: equivalents: `smoothstep` and integer
- * hashing must be bit-comparable against WGSL, and the built-ins are not specified to the same rule. */
+ * hashing must be bit-comparable against the device half, and the built-ins are not specified to the same rule. */
 inline float CloudSmooth(float e0, float e1, float x) {
   float t = (x - e0) / (e1 - e0);
   if (t < 0.0f) t = 0.0f;
@@ -106,7 +106,7 @@ inline float CloudSmooth(float e0, float e1, float x) {
 }
 inline float CloudMix(float a, float b, float t) { return a + (b - a) * t; }
 
-/* Integer hash. uint32 wraps identically in C++ and WGSL, which is the whole reason the noise is hashed
+/* Integer hash. uint32 wraps identically in C++ and in a shading language, which is the whole reason the noise is hashed
  * rather than sampled from a texture. */
 inline uint32_t CloudHash2(int32_t ix, int32_t iy, uint32_t seed) {
   uint32_t h = (uint32_t)ix * 0x27d4eb2du + (uint32_t)iy * 0x9e3779b1u + seed * 0x85ebca6bu;
