@@ -15,7 +15,8 @@ case that answered both would be testing two things, which `CLAUDE.md` splits by
 | **does it hold the frame floor** | `frame` / `scenario` — p50/p95/p99 over a moving camera | **no** | our renderer only |
 
 **The cheap half is the one that is overdue.** `board:0058` records that the fourth constraint — *this
-device at 720p60* — has **no instrument, no subject and no case**, and `test/scenario/` has no directory.
+device at 720p60* — has **no instrument, no subject and no case**, and a scenario-suite directory does
+not exist.
 A heavy scene is exactly the subject it has been missing, and **as a cost subject it needs no Cycles at
 all**: a declared camera path, a per-frame clock with its floor published, and a scene. That is the
 scenario suite's first member, and it can exist before any oracle is paid for.

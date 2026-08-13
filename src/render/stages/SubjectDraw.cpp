@@ -169,7 +169,23 @@ struct Lights { float4 count; Light items[16]; };
 struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
 #define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
 
-struct SFrag { float4 col [[color(0)]]; float2 vel [[color(1)]]; };
+/* THE FRAGMENT'S OUTPUT SET IS THE PASS'S ATTACHMENT SET, and the switch is spliced by the caller
+ * from the compiled plan (board:1121). A velocity output declared into a pass that attaches no
+ * velocity target is undefined and renders correctly, which is how it survived 118 tests; Metal's
+ * validation aborts on it. `SUBJECT_SET_VELOCITY` exists so the six entry points below state WHAT
+ * they write once each and never whether the target is there. */
+struct SFrag {
+  float4 col [[color(0)]];
+#if SUBJECT_WRITES_VELOCITY
+  float2 vel [[color(1)]];
+#endif
+};
+
+#if SUBJECT_WRITES_VELOCITY
+#define SUBJECT_SET_VELOCITY(o) (o).vel = float2(kVelStatic)
+#else
+#define SUBJECT_SET_VELOCITY(o) (void)0
+#endif
 )";
 
 /* THE EMITTED ARM'S ENTRY POINTS: two layouts times the three answers glTF's `alphaMode` can give.
@@ -216,7 +232,7 @@ vertex SOut vsTextured(VertexTextured v [[stage_in]], constant S &s [[buffer(0)]
 fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -224,21 +240,21 @@ fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
   if (surface.factor < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(in.emitted, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
 fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, surface.factor);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
 fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * colourMap.sample(colourSampler, in.uv).rgb, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -250,7 +266,7 @@ fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -261,7 +277,7 @@ fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 )";
@@ -387,7 +403,7 @@ static inline float3 facing(float3 n, bool front) {
 fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -395,7 +411,7 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   if (surface.factor < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -403,7 +419,7 @@ fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], S
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb),
                  surface.factor);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 )";
@@ -427,7 +443,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -440,7 +456,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -453,7 +469,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                  surface.factor * tap.a);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 )";
@@ -538,7 +554,7 @@ static inline float3 mappedShade(constant M &surface, constant Lights &lights, O
 fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -547,7 +563,7 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 
@@ -555,7 +571,7 @@ fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]]
   float4 tap = colourMap.sample(colourSampler, in.uv);
   SFrag o;
   o.col = float4(SUBJECT_MAPPED_SHADE, surface.factor * tap.a);
-  o.vel = float2(kVelStatic);
+  SUBJECT_SET_VELOCITY(o);
   return o;
 }
 )";
@@ -648,8 +664,18 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   Device = gpu.Device;
   FiltersFloat32 = gpu.FiltersFloat32;
 
+  /* WHAT THIS PASS ATTACHES, DECIDED ONCE AND SPLICED INTO BOTH HALVES (board:1121): the shader's
+   * output set and the pipeline's target list come from the same answer, so they cannot disagree.
+   * Reading the plan's set rather than counting a constant is the whole repair -- a pipeline that
+   * declared a target the pass does not attach renders correctly and is undefined. */
+  Colours.clear();
+  for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
+  const bool writesVelocity =
+      std::find(Colours.begin(), Colours.end(), Resource::SceneVelocity) != Colours.end();
+
   const std::string source = std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
-                             kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
+                             "\n#define SUBJECT_WRITES_VELOCITY " + (writesVelocity ? "1" : "0") +
+                             "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
                              kSubjectLitMsl + kSubjectLitTexturedMsl + kSubjectMappedMsl;
 
   /* THIRTY PIPELINES: five vertex layouts, two facings, three alpha modes. The facing is the SLOT's
@@ -658,14 +684,14 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
    * mode for the whole subject draws the wrong cell whichever way it is set. */
   for (const SurfaceKind kind : {SurfaceKind::Opaque, SurfaceKind::Masked, SurfaceKind::Blended}) {
     const bool blends = kind == SurfaceKind::Blended;
-    SDL_GPUColorTargetDescription targets[2] = {};
+    SDL_GPUColorTargetDescription targets[kMaxColourAttachments] = {};
     targets[0].format = gpu.HdrFormat;
     if (blends) { targets[0].blend_state = OverBlend(); }
     /* A BLENDED SURFACE WRITES NO VELOCITY, and that follows from its writing no depth rather than
      * being a second decision: a temporal resolve reprojects a pixel through the depth that was
      * written there, so a surface that left none has no motion to claim and would overwrite the
      * motion of whatever did. */
-    targets[1] = VelocityTarget(!blends);
+    if (writesVelocity) { targets[1] = VelocityTarget(!blends); }
 
     for (const VertexLayout layout :
          {VertexLayout::Position, VertexLayout::PositionUv, VertexLayout::PositionNormal,
@@ -692,7 +718,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
       wanted.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
       wanted.rasterizer_state.front_face = kGltfFrontFace;
       wanted.target_info.color_target_descriptions = targets;
-      wanted.target_info.num_color_targets = 2;
+      wanted.target_info.num_color_targets = (Uint32)Colours.size();
       wanted.target_info.has_depth_stencil_target = true;
       wanted.target_info.depth_stencil_format = SDL_GPU_TEXTUREFORMAT_D32_FLOAT;
       wanted.depth_stencil_state.enable_depth_test = true;

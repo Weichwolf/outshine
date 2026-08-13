@@ -479,6 +479,12 @@ git log --grep 'board:0042'                          # every commit that worked 
 git mv board/active/X.md board/closed/               # the transition IS the diff
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
+**While any agent is running, stage named files and never a directory.** `git mv` **stages** its
+rename, so `git add -A` or `git add board/` sweeps another round's state change into a commit about
+something else — twice in one day here, once closing a work item before its gate had run. The rule
+is not *commit only paths nobody else writes to*; it is **name every file you commit**, because the
+index already holds what somebody else staged.
+
 
 **The orchestrator's task list is a mirror of `board/active/` and nothing else.** One entry per active
 item, its subject the item's **`NNNN` and title verbatim**, so the two orderings that this board replaced

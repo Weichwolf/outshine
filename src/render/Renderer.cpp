@@ -175,6 +175,15 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
   Handles.Height = Height;
   /* A base colour uploaded as exact linear floats needs the device to filter them; without it the
    * subject unit refuses rather than sampling a texture it cannot filter. */
+  /* THE SCENE PASS'S OWN ATTACHMENT SET, HANDED TO THE STAGES THAT DRAW INTO IT (board:1121). Taken
+   * from the compiled plan rather than from the catalogue rows, because the prune is exactly the
+   * difference between the two: a row says what a stage draws into, the plan says what this picture
+   * attaches. The pass is found by the depth target, which is what makes a pass a GEOMETRY pass. */
+  for (const RenderPlan::Pass &pass : Plan_->Passes()) {
+    if (pass.Kind == PassKind::Compute || pass.Depth == kNoEdge) { continue; }
+    Handles.SceneColours = pass.Colours;
+    break;
+  }
   Handles.FiltersFloat32 =
       SDL_GPUTextureSupportsFormat(device, SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT,
                                    SDL_GPU_TEXTURETYPE_2D, SDL_GPU_TEXTUREUSAGE_SAMPLER);

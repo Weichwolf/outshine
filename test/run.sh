@@ -168,6 +168,11 @@ LayerSanitiser() {
 # excludes it: a duration measured through an instrument is not the shipping frame (board:1123). The
 # arm brings a device up with the driver's own validation on, over the SAME cases and the same
 # assets -- it differs from the plain arm only in what it is allowed to NOTICE.
+#
+# IT IS ALSO WHAT PROVES board:1121's FOURTH CLAUSE: that every pipeline writing a target the plan
+# pruned has an output set matching its pass. Three green clauses shipped undefined behaviour without
+# it -- the target was neither allocated nor attached, the two plans differed, no case moved, and
+# `SubjectDraw` still declared two colour outputs into a pass with one attachment.
 LayerValidation() {
   case "$1" in
     render | shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;

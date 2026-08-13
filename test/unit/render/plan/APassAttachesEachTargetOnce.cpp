@@ -40,6 +40,12 @@ size_t DistinctColourTargets(const RenderPlan &plan, const RenderPlan::Pass &pas
     const Resource *const edges[2] = {row.Writes, row.Contributes};
     for (const Resource *edge : edges) {
       for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
+        /* THE SAME HELD FILTER THE COMPILER APPLIES (board:1121). A stage still DECLARES every
+         * target it draws into; the compiled plan attaches the subset something reads, so a helper
+         * that counted the declarations would be comparing a pass against a population the plan
+         * deliberately no longer has. The claim below is unchanged -- each distinct target exactly
+         * once -- and only what "distinct target" ranges over has moved. */
+        if (!plan.Holds(edge[e])) { continue; }
         if (Row(edge[e]).Format != TexelFormat::Depth32Float) { seen.insert(edge[e]); }
       }
     }
@@ -55,6 +61,7 @@ size_t ColourEdges(const RenderPlan &plan, const RenderPlan::Pass &pass) {
     const Resource *const edges[2] = {row.Writes, row.Contributes};
     for (const Resource *edge : edges) {
       for (size_t e = 0; e < kMaxEdges && edge[e] != kNoEdge; ++e) {
+        if (!plan.Holds(edge[e])) { continue; }
         if (Row(edge[e]).Format != TexelFormat::Depth32Float) { ++edgeCount; }
       }
     }
@@ -149,6 +156,61 @@ int main() {
       Note("every-content plan passes", (double)plan->Passes().size(), "passes");
     } else {
       Note(("every-content refusal: " + why).c_str());
+    }
+  }
+
+  /* THE PRUNE, HELD OVER THE ONE PAIR THAT DISCRIMINATES IT (board:1121). `sceneVelocity` has
+   * exactly one reader in the catalogue, so two plans differing only by whether that reader is
+   * declared are the smallest experiment that can tell "compiled backwards from a requested output"
+   * from "every target of every held stage". Before the prune BOTH plans held it and attached it:
+   * the parity runner's own two-pass plan allocated, cleared and wrote a full-screen rg16float
+   * target it reads nowhere. THE CLAIM IS THE DIFFERENCE AND NOT EITHER SIDE -- a test asserting
+   * only the absence would pass equally on a compiler that had dropped the target altogether. */
+  {
+    PlanSpec unread;
+    unread.Outputs = {Resource::FrameTex};
+    unread.Content = {Stage::Subjects, Stage::Tonemap};
+    PlanSpec read = unread;
+    read.Content = {Stage::Subjects, Stage::TemporalResolve, Stage::Tonemap};
+
+    std::shared_ptr<const RenderPlan> without, with;
+    std::string why;
+    const bool bothCompiled = RenderPlan::Compile(unread, &without, why) &&
+                              RenderPlan::Compile(read, &with, why);
+    CHECK(bothCompiled, "both plans compile: one whose stages read the velocity target and one "
+                        "whose stages only draw into it");
+    if (bothCompiled) {
+      CHECK(!without->Holds(Resource::SceneVelocity),
+            "a colour target no held stage reads is not held, so the plan neither allocates nor "
+            "attaches it");
+      CHECK(with->Holds(Resource::SceneVelocity),
+            "the same target IS held where a declared stage reads it, so the prune removes what is "
+            "unread rather than what is merely contributed to");
+      size_t attachedWithout = 0, attachedWith = 0;
+      for (const RenderPlan::Pass &pass : without->Passes()) {
+        for (const Resource colour : pass.Colours) {
+          attachedWithout += colour == Resource::SceneVelocity ? 1u : 0u;
+        }
+      }
+      for (const RenderPlan::Pass &pass : with->Passes()) {
+        for (const Resource colour : pass.Colours) {
+          attachedWith += colour == Resource::SceneVelocity ? 1u : 0u;
+        }
+      }
+      CHECK(attachedWithout == 0 && attachedWith == 1,
+            "the two compiled plans DIFFER in what they attach, which is the property a backward "
+            "closure has and a forward one cannot");
+      /* THE DEPTH TARGET SURVIVES BOTH, and it is the one contribution with no reader at all: a
+       * depth attachment is what a raster pass IS rather than a data product, so pruning it would
+       * leave a geometry pass with no depth test instead of saving a buffer. */
+      CHECK(without->Holds(Resource::SceneDepth) && with->Holds(Resource::SceneDepth),
+            "the depth target is held in both, because the depth test consumes it inside the pass "
+            "and no stage reads it as a resource");
+      Note("velocity attachments, plan whose stages only draw into it", (double)attachedWithout,
+           "attachments");
+      Note("velocity attachments, plan with a reader", (double)attachedWith, "attachments");
+    } else {
+      Note(("prune pair refusal: " + why).c_str());
     }
   }
 

@@ -301,6 +301,9 @@ private:
    * encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;
   std::vector<DrawBatch> Batches;
+  /* The colour targets the scene pass attaches, as the compiled plan resolved them: the pipelines
+   * and the fragment's output set are both built from this (board:1121). */
+  std::vector<Resource> Colours;
   OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx;
   /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
    * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
