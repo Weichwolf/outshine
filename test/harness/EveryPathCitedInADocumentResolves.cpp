@@ -5,6 +5,9 @@
  * IT, which is why the class kept growing: a rename moves the code and leaves every quotation of it
  * behind, silently, and the next reader believes the document.
  *
+ * This is the test that holds `board:0037` — seventeen ticked lines naming a file that is not in the
+ * tree — and `board:0019` — stale pointers held with confidence, sites naming a deleted document.
+ *
  * WHAT COUNTS AS A CITATION, stated here because the rule has to be decidable rather than
  * approximate. A backticked span that begins with one of this repository's own top-level directories
  * is a claim about THIS tree; `Models/DirectionalLight/README.md` and `Specification.adoc` are
