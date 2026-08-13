@@ -93,3 +93,19 @@ padding the UV islands in the asset, or clamping the selection — and **which o
 question**, since padding is *patch the asset* and clamping is *fix the engine*. **Neither is chosen
 here**, because this item has already spent two hypotheses and the next round should choose with the
 references rather than with the first idea that fits.
+
+**An instrument for the ladder question, tried and ruled out — so the next round does not spend it.**
+The question is whether the high-LOD pixels are a **UV seam within one surface** (→ pad the islands,
+*patch the asset*) or the derivative **crossing between two surfaces** in a quad (→ *fix the engine*).
+The index channels look like the discriminator: compare the neighbour's `objectIndex` and
+`materialIndex`.
+
+**It is vacuous on this asset.** `normal-tangent` has **one** object index (2) and **one** material index
+(3) over every covered pixel, so *the neighbour is the same surface* is true by construction and the
+6 038-of-6 069 it reports says nothing. **Checked before the conclusion was written rather than after.**
+
+**What would discriminate**: a per-pixel **primitive or triangle id**, which the corpus does not carry —
+Cycles has no such pass among the ones enumerated on this host, so it is not one row in
+`QUANTITY_PASSES`. The cheaper route is to look at the **uv field itself**: a seam shows as a jump whose
+size is an island's width and whose direction is consistent along a line, while a stretched surface shows
+a gradient that grows smoothly. **That is arithmetic on `oracle.uv.raw` and it is the next thing to try.**
