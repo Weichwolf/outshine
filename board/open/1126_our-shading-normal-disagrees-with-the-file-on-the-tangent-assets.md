@@ -52,3 +52,36 @@ from a highlight.
 `p95 ours vs Cycles = 9.4786°` and the 60 065 unanimous pixels are the numbers stated before, and both
 are restated after. **Five of the thirteen cases outside the picture bound are shading-normal cases**, so
 this is where the bound is most likely to move.
+
+
+## Comments
+
+**A candidate found by reading, and it is algebra rather than a hypothesis.** `mappedNormal` in
+`src/render/stages/SubjectDraw.cpp` carries the comment *a back face turns the whole frame around and
+not only the normal … which is what the sign below does to all three.* **The code negates two axes, not
+three:**
+
+```
+float3 n   = normalize(in.n) * side;
+float3 raw = in.t.xyz * side;
+float3 t   = normalize(raw - n * dot(n, raw));
+float3 b   = cross(n, t) * in.t.w;
+```
+
+`side` flips `n` and `t`; the cross product is bilinear, so `cross(-n, -t) = cross(n, t)` and **`b` comes
+out unnegated.** The back-face frame is `(-n, -t, +b)` where Khronos's sample viewer produces
+`(-n, -t, -b)` by flipping `t`, `b` and the geometric normal explicitly rather than deriving `b` after
+the flip. That is a left-handed frame on back faces, mirroring the map's y axis exactly where the comment
+says it prevents that.
+
+**It is a real defect and it is NOT yet shown to be THIS defect.** Whether these cases have back-facing
+shaded fragments at all is unmeasured, and `normal-tangent` is a near-planar grid facing the camera.
+**Measure the back-facing population before repairing** — if it is zero, this is a separate bug and the
+tangent-path disagreement has another cause.
+
+**A second candidate, unverified and cheaper to check than to argue about**: whether the normal map
+reaches the sampler linear. `Image.h` states that a file's embedded gamma is ignored and *the slot
+decides* — base colour and emissive sRGB, metallic-roughness and normal linear. If the normal slot is
+uploaded through an sRGB path, the tap is wrong in exactly the arm that disputes and in no other, which
+fits the band evidence as well as the frame does. **Read the upload path for the normal slot before
+touching the shader.**
