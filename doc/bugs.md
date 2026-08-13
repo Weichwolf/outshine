@@ -41,6 +41,7 @@ load are what would hit them.
 | `Artifacts` is an interface with **zero** implementations since `FileArtifacts` was deleted | *Declaration and build* |
 | The winding is hard-coded at seven sites | *Declaration and build* |
 | Three node-transform cases measure an ambient-occlusion estimator at one sample | its own section |
+| **Eighteen of twenty catalogue rows cannot execute**, and a row is read as a capability | its own section |
 | Frame alpha derived from depth, so a translucent body over nothing is absent from our picture | its own section |
 | The preparer and the runner hold two closed sets over one manifest schema, disagreeing on 8 of 26 | its own section |
 
@@ -1159,6 +1160,89 @@ resource exists, and let `View()` return a handle.
 **Band 3 — waits for the SDL_GPU port**, which rewrites every one of these sites; repairing them first
 would be repairing code about to be deleted. **Fixed when** a stage object exists because the plan holds
 its stage, so a call into an unheld stage does not compile.
+
+## Eighteen of twenty catalogue rows cannot execute, and the catalogue is read as a capability statement — **Band 1**
+
+**Enumerated, not sampled.** `Renderer::Executable` (`src/render/Renderer.cpp:102-127`) is an exhaustive
+switch over the twenty rows of `src/render/plan/RenderCatalogue.h`. **Two return `true` — `Subjects` and
+`Tonemap`. Eighteen return `false`**: `Transmittance` · `MultiScatter` · `SkyView` · `Irradiance` ·
+`AutoExposure` · `ShadowMap` · `Sky` · `Sun` · `Moon` · `Stars` · `BenchGround` · `Terrain` ·
+`Buildings` · `Water` · `Models` · `Occlusion` · `TemporalResolve` · `Present`. *The switch is the
+container and it is closed, so this is a count and not an estimate.*
+
+**The harmless explanation, sought, and it holds in part — which changes the finding rather than
+clearing it.** *"Nothing notices"* is **false**: `Renderer::Init` (`:136-140`) walks the compiled plan,
+refuses the first non-executable stage, and logs `stage_not_executed` **with the stage named**. The
+refusal exists and it is a good one.
+
+**What is actually wrong is the LAYER the refusal sits in, and § I.27's claim is what it contradicts.**
+That section's acceptance for the whole design is *"the impossible plan is largely unspellable rather
+than refused"*. **A stage with no implementation is the plainest impossible plan there is**, and for it
+the truth is neither: `RenderPlan::Compile` **accepts** the plan, and the refusal arrives later, at
+device bring-up, on a machine with a GPU. The word *largely* is carrying this entire class.
+
+**And the reason the refusal has never fired is the part worth having.** All **34** render cases declare
+the same single content stage — `test/render/Parity.cpp:1322`, `Content = {Stage::Subjects}` — so **no
+run in this tree has ever named one of the eighteen.** The mechanism is not weak; **its population is
+empty.** A refusal that cannot fire is not evidence that the thing it refuses does not happen.
+
+**The class, and it is the mirror of one `CLAUDE.md` already carries.** *A grep proves a string absent,
+never a capability.* **This is the inverse: a catalogue row proves a capability PRESENT when the
+implementation is gone.** Same shape as the citation checker that enumerated *files* to answer a
+question about *paths* — an instrument whose domain is narrower than what it is read as asserting. **A
+row is currently evidence that a name was written down, and it is read as evidence that a picture can be
+made.**
+
+**The interval, stated as a fact.** The implementations were deleted at `0161f88` and the rows kept;
+`39c9cd6` is **33 commits later**, same day, and in between the suite was green and reported *criteria
+met* on every one. **A defect that survives 33 commits under a green suite is evidence about the suite**,
+and the evidence is the line above: the suite exercises two rows of twenty.
+
+**Consequence to state without softening, because it is quoted as a headline:** *"31 of 34 Khronos
+criteria"* is a number about a renderer that **draws glTF subjects and tone-maps them**. It is a true
+number and it is about a much smaller renderer than the catalogue's twenty rows suggest.
+
+**Can `Executable` be a compile-time property? Not in the catalogue, and the reason is the property that
+makes the catalogue worth having.** The plan layer compiles with `-Isrc/core -Isrc/render/plan` and
+**cannot see `src/render/stages/`** — that exclusion is what makes a plan checkable before a device
+exists, and it is proved by the build rather than asserted. **A row naming its implementation would
+require the plan layer to see the implementation and would destroy exactly that.**
+
+**It CAN be compile-time one layer up, where both are visible, and that is the end state.** A `constexpr`
+table in the renderer mapping **every** `Stage` to its encoder, with a completeness `static_assert`:
+deleting an implementation then breaks the initialiser and **the port could not have left the rows**.
+*The cost is that the port would have had to delete eighteen rows too — which is correct, because § I.27
+already rules that adding a row is an engine change with its assertions re-proved, and a scenario naming
+a stage that does not exist is already an unknown-name refusal at `StageByName`.*
+
+**Owed now, because something missing is a task and this one is cheap: a test.**
+**`EveryCatalogueRowCanExecute`** — one loop over `kStages`, asserting `Renderer::Executable(row)` for
+each. It goes red the moment a row outlives its implementation, it needs no device, and it would have
+failed at `0161f88`. **Fixed when** that test exists and is green, and **finished when** the dispatch
+table makes it unnecessary.
+
+## `AtmosphereUniform` is a bundle, and its granularity defeats the dependency the graph already states — **Band 2**
+
+`src/render/plan/RenderCatalogue.h:214-216` declares `AtmosphereUniform` as one `Given` resource; the
+pre-port writer describes its contents in its own words — *"12 vec4: camera and sun basis, moon
+direction, sky extra, view"* (`Renderer.cpp:229` at `235a7ff`). **Camera, sun, moon and view are four
+quantities with four different rates in one resource.**
+
+**Why it matters is not size, it is that the read set is the engine's only statement of what an output
+depends on.** The graph already distinguishes correctly at the two extremes: `Transmittance` reads
+**`{kNoEdge}` — nothing at all**, so its output cannot change and it need never be rebuilt; `SkyView`
+reads `AtmosphereUniform`. **But `AtmosphereUniform` changes every frame because the camera is in it**,
+so *"rebuild when an input changed"* saves nothing for any stage that reads it — the dependency is
+finer than the resource that carries it.
+
+**The harmless explanation, sought.** *A uniform is cheap and splitting it costs a binding* — true, and
+irrelevant: the cost here is not the upload, it is that **a rebuild rule cannot be stated** while the
+resource is a bundle. *It is only the atmosphere* — no: `CascadeUniform` will have the same shape the
+moment shadows return, and the rule is general.
+
+**Right:** `AtmosphereUniform` splits into **medium · sun · view**, each a resource, so a row's read set
+says which rates its output actually follows. **Fixed when** `Transmittance`, `SkyView` and `Irradiance`
+have read sets that differ, and a rebuild rule over them is expressible without naming a stage.
 
 ## Frame alpha is derived from depth, so a translucent body over nothing is absent from our picture and present in the oracle's — **Band 1**
 
