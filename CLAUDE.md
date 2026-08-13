@@ -64,6 +64,11 @@ holds, never whether it looks right. A cost that cannot be attributed is not a f
 
 **The mathematics is deterministic.** If pace decides the result, the coupling is a bug.
 
+**A derived correction produces a floor; a fitted one produces a smaller average.** When a correction
+shrinks an error, that is not evidence it is right — the test is whether the residual lands on a term
+already named, at the instrument's own limit, over the population where the answer is known
+independently. A correction with a free parameter and a better mean is a frame fitted to a number.
+
 **Calibration measures, never decides.** A startup benchmark may **propose** an error scale; the
 scenario **declares** whether to take it. Otherwise pace decides the picture and every parity number
 becomes a sample of a machine.

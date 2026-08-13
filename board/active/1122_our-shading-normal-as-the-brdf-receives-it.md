@@ -73,3 +73,31 @@ have read as a finding.
 
 **Remaining:** our leg through the placement, then re-read the three legs and name the branch. Everything
 else is done and verified.
+
+**Our leg is mapped and validated the way the oracle's was.** The map is the inverse of the permutation
+the upload already applies — `GltfStudio::EcefFromGltf` writes `ecef = (gltf.y, gltf.x, −gltf.z)`, so the
+inverse is `gltf = (ecef.y, ecef.x, −ecef.z)`: a signed permutation of determinant +1 with **no free
+parameter to tune**, derived from the code that created the discrepancy rather than fitted to the result.
+**What says it is right is that p50 lands at 0.00099°** — three orders below the 0.3174° texture residual
+and at the numeric floor. *A fitted frame does not produce a floor; it produces a smaller average.*
+
+**The effect is measured rather than inferred**, and two independent routes agree: p95 **9.48°** measured
+directly, against 4.2°–10.3° predicted from a 2.33 px centroid displacement on a 33.4 px dome. **Quote the
+measurement from here, not the inference.**
+
+| case | p50 | p95 | max |
+|---|---|---|---|
+| `normal-tangent-mirror` | 0.00099° | **9.48°** | 22.96° |
+| `normal-tangent` | 0.00099° | 5.02° | 22.82° |
+| `water-bottle` | 0.0129° | **0.064°** | 72.50° |
+| `boom-box` | 0.0124° | 0.27° | 83.01° |
+
+**The obvious reading is refuted: `water-bottle` carries a normal map and agrees at p95 0.064°**, so this
+is not *normal maps in general*. It is concentrated on the two assets Khronos built for tangent
+handedness — while the earlier per-column measurement found the **tangent-free** Geometry column the
+worst. **Those two facts do not yet resolve into one mechanism**, and naming a branch from two legs would
+be picking the louder defect.
+
+**Remaining, and it is one step: rasterise the file's declared `NORMAL` as the third leg.** Ours and
+Cycles now agree at the floor over most of the surface; **which is right where they differ is what the
+file decides**, and that leg exists only in aggregate today.

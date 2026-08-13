@@ -1683,8 +1683,16 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
     for (size_t x = 0; x < width; ++x) {
       if (!ours.At((int)x, (int)y)) { ++uncovered; continue; }
       const size_t at = (y * width + x) * 4u;
-      const double ox = picture.ShadingNormal[at], oy = picture.ShadingNormal[at + 1],
-                   oz = picture.ShadingNormal[at + 2];
+      /* OUR LEG IS IN THE ENGINE'S FRAME AND THE COMPARISON IS IN glTF's, so it is mapped back by
+       * the inverse of the permutation `GltfStudio::EcefFromGltf` applied at upload --
+       * `ecef = (gltf.y, gltf.x, -gltf.z)`, so `gltf = (ecef.y, ecef.x, -ecef.z)`. It is a signed
+       * permutation of determinant +1, its own inverse transpose, so a normal stays a normal and
+       * stays unit under it. THIS WAS THE DEFECT THE FIRST READING FOUND: the oracle's leg had been
+       * validated and ours never had, and a frame error and a shading-normal defect look identical
+       * -- 179 degrees on one case and 107 on another, which no sign error can produce. */
+      const double ex = picture.ShadingNormal[at], ey = picture.ShadingNormal[at + 1],
+                   ez = picture.ShadingNormal[at + 2];
+      const double ox = ey, oy = ex, oz = -ez;
       const double oursLength = std::sqrt(ox * ox + oy * oy + oz * oz);
       /* THE PREDICATE, and it is length rather than a small angle: a zero vector is not a direction
        * and no tolerance can make it one. */
