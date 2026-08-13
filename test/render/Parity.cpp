@@ -1770,6 +1770,19 @@ void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask 
 
   const DeclaredNormals declared = RasteriseDeclaredNormals(subject.Geometry, clip, subject.Frame,
                                                             ours.Width, ours.Height);
+  /* THE FILE'S LEG BESIDE THE OTHER TWO (board:1126). Three quantities compared inside one process
+   * and none of them openable is an investigation that has to be re-run to be questioned. */
+  {
+    std::vector<float> rgba((size_t)ours.Width * (size_t)ours.Height * 4u, 0.0f);
+    for (size_t pixel = 0; pixel * 3u + 2u < declared.Xyz.size(); ++pixel) {
+      for (int axis = 0; axis < 3; ++axis) {
+        rgba[pixel * 4u + (size_t)axis] = declared.Xyz[pixel * 3u + (size_t)axis];
+      }
+    }
+    std::string unwritten;
+    (void)WriteRawF32(subject.Directory + "file.normal.raw", rgba, ours.Width, ours.Height, 4,
+                      unwritten);
+  }
   /* [DERIVED] THE SIGNAL THRESHOLD, AND IT IS DELIBERATELY NOT THE FLOOR. The two legs' median
    * disagreement is [MEASURED] 0.00099 degrees on the tangent assets and 0.0129 on `water-bottle` --
    * so a floor-selected population admitted 147 669 pixels at a median margin of 0.0025 degrees, and
@@ -2071,6 +2084,14 @@ int main(int argc, char **argv) {
    * read through and held against the samples that were scored. A writer that put down anything
    * else would rebuild exactly the split -- the picture showing one thing, the score measuring
    * another -- that this whole round is about. */
+  /* THE SHADING NORMAL BESIDE THE FRAME (board:1126). It is a diagnostic product like the two
+   * pictures: the attachment is already read back for the three-way, and a quantity that only
+   * exists inside one process cannot be taken apart by anything that did not render it. */
+  std::string unwrittenNormal;
+  if (!picture.ShadingNormal.empty()) {
+    (void)WriteRawF32(subject.Directory + "outshine.normal.raw", picture.ShadingNormal, ours.Width,
+                      ours.Height, 4, unwrittenNormal);
+  }
   const std::vector<float> scored = ScoredFrame(picture.Linear, ours);
   const bool wroteFloats =
       !scored.empty() &&

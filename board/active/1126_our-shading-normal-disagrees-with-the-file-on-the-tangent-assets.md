@@ -129,3 +129,38 @@ construction — the Gram-Schmidt, the scale, or the combination — and not in 
 every arm, so `t`, `b`, `n` and the sampled tap can each be published at a chosen pixel and compared
 against the same quantities derived on the CPU from the file. **Two defects rather than one is a live
 possibility and the per-asset split is what would show it.**
+
+**The signature is measured and it is magnitude, not orientation.** Decomposing both legs about the
+file's geometric normal over all 39 029 disputed pixels of `normal-tangent-mirror`:
+
+| | |
+|---|---|
+| signed turn of the tangential part about `n` | p5 **−0.020°** · p50 **+0.000°** · p95 **+0.020°**, 50.13 % positive |
+| `\|z_ours − z_cycles\|` | median 0.1235 |
+| `‖tangential‖` difference | median 0.0984 |
+
+**The tangential direction is identical to a fiftieth of a degree and symmetric about zero.** A
+green-channel flip is a reflection, a wrong tangent direction is a rotation, a handedness error is a
+reflection — **all three would show a turn and there is none.** Both legs lie on the same great circle
+through the geometric normal: same direction, **different tilt**. So the basis is right and the map is
+applied at the wrong strength.
+
+**`normalScale` is refuted by its own signature.** It scales `tap.xy` uniformly and preserves direction
+exactly — so a wrong one is a **constant**. Measured, `tan(tilt)_ours / tan(tilt)_cycles` runs p1 **1.020**
+→ p50 **1.388** → p99 **2.331**, mean 1.465, std 0.343. **A spread of more than 2× is not a constant.**
+
+**And Blender's `Strength` cannot be it either**, which is worth recording so the next round does not
+chase it: glTF's `scale` multiplies `tap.xy`, Blender's Normal Map `Strength` mixes between the geometric
+and mapped normals — **different operations**, but **neither asset declares `normalTexture.scale`**, so
+both default to 1 and both operations are the identity.
+
+**So the difference is value-dependent: small perturbations agree, large ones diverge increasingly.**
+
+**A prediction, recorded as a prediction and not a finding**: if our side uses `tap.z` verbatim while
+Cycles reconstructs `z = sqrt(1 − x² − y²)`, the two agree when `x,y` are small and diverge monotonically
+as they grow — which is exactly the ratio's shape. **The instrument that decides it is now on disk.**
+
+**The round's durable product: all three legs, per pixel, per case** — `outshine.normal.raw`,
+`oracle.normal.raw`, `file.normal.raw`. Three quantities compared inside one process and none of them
+openable is an investigation that has to be re-run to be questioned; these can be taken apart by
+anything.
