@@ -17,7 +17,7 @@
   "subjectClass": "sub-pixel-present",
   "acceptanceClass": {
     "is": "general-position",
-    "because": "PERMANENT AND BY STRUCTURE. The silhouette is the union of some 250 tapered tubes at directions the grower drew from its own stream, so it resolves into hundreds of distinct lines with no lattice structure and no shared slope. There is no camera and no scale at which condition (A) of doc/requirements.md I.26.14 can hold for it, and there is none at which a roll makes a grown silhouette rational."
+    "because": "PERMANENT AND BY STRUCTURE. The silhouette is the union of 12 547 tapered tubes at directions the grower drew from its own stream, so it resolves into 190 128 distinct lines with no lattice structure and no shared slope. There is no camera and no scale at which condition (A) of doc/requirements.md I.26.14 can hold for it, and there is none at which a roll makes a grown silhouette rational."
   },
   "subjects": [
     {
@@ -41,12 +41,12 @@
             "parameters": {
               "species": "beech",
               "node": "beech-bark",
-              "pixelHeightFrac": 0.003122059659227388
+              "pixelHeightFrac": 0.0016770964427722452
             }
           }
         }
       ],
-      "notes": "THE PART IS THE WOODY STRUCTURE AND NOTHING ELSE. TreeGrower delivers one closed mesh plus the points a leaf sits on; the leaf population is instanced by TreeFoliage and is a composition, not a part, so it is out of this subject by the rule that a generator produces one part and never an aggregate (doc/requirements.md I.28). What is drawn here is therefore a beech with no leaves on it, and the crown's shape is carried by 193 647 attachment points that no triangle stands at."
+      "notes": "THE PART IS THE WOODY STRUCTURE AND NOTHING ELSE. TreeGrower grows the plant and TreeMesher draws one closed mesh from it; the leaf points the growth also produces carry no geometry, and the leaf population instanced from them by TreeFoliage is a composition, not a part, so it is out of this subject by the rule that a generator produces one part and never an aggregate (doc/requirements.md I.28). What is drawn here is therefore a beech with no leaves on it, and the crown's shape is carried by 197 181 attachment points that no triangle stands at."
     }
   ],
   "blender": {
@@ -58,21 +58,21 @@
     "camera": {
       "source": "manifest",
       "positionM": [
-        58.069762577067841,
-        35.496517148382637,
-        41.334356386299788
+        58.092609787055075,
+        40.812034457756965,
+        40.67688328717112
       ],
       "lookAtM": [
-        0.44841605424880981,
-        9.8938770294189453,
-        0.98745518922805786
+        0.0,
+        15.0,
+        0.0
       ],
       "rollRad": 0.0,
       "yfovRad": 0.47108996144172666,
       "sensorHeightMm": 24.0,
-      "clipStartM": 64.37533671390581,
-      "clipEndM": 85.338886957330274,
-      "derivation": "THE FRAMING RULE OF doc/requirements.md I.26.10 APPLIED TO THIS SUBJECT'S OWN BOUNDS, computed by Gltf::Subject::Frame over the emitted part and transcribed from what the generator printed: direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 10.48177512171223 m, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, aim at the bounds' centre, roll 0. znear and zfar are the rule's own, distance -/+ r. THE ROLL IS ZERO AND NOT DERIVED, because no roll buys this subject anything: a grown silhouette is irrational at every angle (see acceptanceClass), so a roll would be a different draw of the same lottery.",
+      "clipStartM": 55.79702435184504,
+      "clipEndM": 95.14165549765704,
+      "derivation": "THE DECLARED ENVELOPE FILLS THE FRAME, and the budget is derived at the same distance so that the two cannot disagree. Direction and lens are the framing rule's own (doc/requirements.md I.26.10, src/gltf/Framing.h): azimuth 35 deg from +X towards +Z and elevation 20 deg in glTF's +Y-up frame, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, roll 0, aim at the centre of the declared envelope (0, 15, 0). THE DISTANCE IS NOT the rule's bounding-sphere fill. A plant is a body of revolution about its own trunk, so its declared envelope is the CYLINDER of radius spread_m/2 = 9 m from y = 0 to y = height_m = 30 -- not the box, whose corners stand 12.73 m off an axis nothing reaches. The distance is solved so that that cylinder's two rims project to 684.000 px of the 720 px frame height, which is 0.95 [SET]: 75.469339924751 m, at which the horizontal span is 386.66 px of 1280 and nothing leaves the frame. znear and zfar are the rule's own, distance -/+ the envelope's bounding radius 0.5*sqrt(18^2+30^2+18^2) = 19.672315572906 m. THE ROLL IS ZERO AND NOT DERIVED, because no roll buys this subject anything: a grown silhouette is irrational at every angle (see acceptanceClass), so a roll would be a different draw of the same lottery. WHY NOT THE FRAMING RULE'S OWN DISTANCE: applied to the declared envelope it stands the eye at 140.49 m and applied to the emitted part at 74.86 m, and the budget was derived at the first while the picture was taken at the second -- a subject at 8 % of the frame judged by a budget derived for one filling it. One distance now answers both.",
       "note": "The emitted part carries no camera -- the writer states geometry and material and nothing else -- so the camera is declared here and the oracle builds the same one from these numbers."
     },
     "light": {
@@ -166,13 +166,13 @@
       "note": "The same recipe at another seed, and the whole of the emission case's acceptance. An emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
     }
   },
-  "notes": "THE BUDGET IS ONE PIXEL AND IT IS DERIVED FROM THE SPECIES' DECLARED ENVELOPE, NOT FROM THE PART: height 30 m and spread 18 m give a bounding sphere of radius 0.5*sqrt(18^2+30^2+18^2) = 19.672315572906 m, the framing rule puts the eye at r/sin(yfov/2)/0.6 = 140.49268466523245 m, half the frame is then d*tan(yfov/2) = 33.71824431965579 m over 360 px = 10.67671248203575 px/m, and 30 m of tree is 320.3013744610725 px, so one pixel is 1/320.3013744610725 = 0.003122059659227388 of the tree's height. Deriving it from the emitted part instead would be circular, because what the part is is what the budget decides.\n\nWHAT THE PART CAME OUT AS, MEASURED: 380 vertices, 756 triangles, 19.787754058837891 m tall against the 30 m the species declares (65.96 %) and 5.33 m wide against 18 m (29.6 %). At one pixel the grower gives a tube only to a shoot at least a pixel thick, and everything thinner grows, branches and bears leaf points without one -- so the crown of this subject has no geometry at all and the trunk loses its own tube 10 m below the top. That is the LOD rule working as written and it is why the camera above, which is the framing rule on what was actually emitted, stands 74.86 m out rather than the 140.49 m the budget was derived at: the part is smaller than the envelope it was budgeted for. The mesh encloses a positive volume (6.3059320779444432 m^3 before the sixth), so it is wound the format's way round.",
+  "notes": "THE BUDGET IS ONE PIXEL AT THE DECLARED CAMERA'S OWN DISTANCE, and it is derived from the species' declared envelope rather than from the part: what the part IS is what the budget decides, so deriving it from the part would be circular. At the eye distance 75.469339924751 m above, half the frame is d*tan(yfov/2) = 18.112641581940249 m over 360 px = 19.875621033596158 px/m, so the declared 30 m of tree is 596.26863100788478 px and one pixel is 1/596.26863100788478 = 0.0016770964427722452 of the tree's height.\n\nTHE PLANT IS GROWN ONCE AND THE BUDGET SELECTS FROM IT. TreeGrower (src/generators/draw/) grows the declaration and its seed into a TreeSkeleton that no pixel can reach; TreeMesher draws one closed mesh from that skeleton at the budget above. So this part is a SUBSET of the part at any finer budget, the same plant stands behind every rung of the ladder, and both halves of the budget are pixels: the sagitta of a tube's section, the spacing of its rings, and -- the half that was bounded in nothing until now -- what may be left out at all, which is a shoot and its whole sub-tree only where the whole of it fits inside one pixel of the point it leaves its parent at.\n\nWHAT THE PART CAME OUT AS: see provenance.json.",
   "expected": {
     "subjectFrameFraction": {
-      "value": 0.00629395866,
+      "value": 0.167076439,
       "unit": "dimensionless",
       "origin": "derived",
-      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the emitted vertices and refused on mismatch. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA and not a coverage -- which is why it is roughly twice the covered fraction for a subject made of closed tubes.",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the emitted vertices and refused on mismatch. Every triangle is counted by the magnitude of its signed area, so a closed body counts its far side too and this is an AREA and not a coverage -- which is why it is several times the covered fraction for a subject made of closed tubes, and why a crown of 12 547 tubes seen through its own gaps counts far more area than it covers.",
       "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
     }
   }

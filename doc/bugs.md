@@ -225,36 +225,37 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## Vegetation
 
-- **A weeping willow is drawn with 22.5 % of its bark below the point it is planted at, and no shoot
+- **A weeping willow is drawn with 31.9 % of its bark below the point it is planted at, and no shoot
   is constrained at the ground.** `assets/world/species/willow.json` (*Salix* × *sepulcralis*,
-  `height_m: 18`, `crown: weeping`) grows a bark mesh whose lowest vertex sits at **−0.9334 of the
-  tree's own height** — **16.8 m below the trunk foot** — and **14 493 of its 64 539 bark vertices,
-  22.5 %**, are under that plane. Six further declarations do the same, less far: dog_rose −0.542,
-  blackthorn −0.229, hedge_hornbeam −0.117, hawthorn −0.112, hedge_privet −0.082, guelder_rose −0.064.
-  Measured 2026-08-12 over all 31 declarations under `assets/world/species/`, native, at full detail;
-  the figures above are bark only and are what `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp`
-  prints. *The leaf-point figures and the six "above the plane by 3.6e-5…1.2e-4" figures this entry
-  carried before came from a probe that is not in the tree — that test measures neither — and are
+  `height_m: 18`, `crown: weeping`) grows a bark mesh whose lowest vertex sits at **−0.6893 of the
+  tree's own height** — **12.4 m below the trunk foot** — and **87 928 of its 275 343 bark vertices,
+  31.9 %**, are under that plane. Four further declarations do the same, less far: dog_rose −0.4985
+  (7.5 %), hedge_privet −0.2883, blackthorn −0.1199, hedge_hornbeam −0.0424.
+  Re-measured 2026-08-13 over all 31 declarations under `assets/world/species/`, native, at full
+  detail, after the growth was separated from the budget; the figures this replaces were taken while
+  a vertex ceiling still coarsened the "full detail" mesh, so they understated it. The figures are
+  bark only and the first is what `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp` prints.
+  *The leaf-point figures this entry once carried came from a probe that is not in the tree and stay
   withdrawn until something measures them.* Nothing downstream lifts the mesh:
-  `TreePrototype.cpp:111` copies `BoxMin.Y` into `Crown_.Bottom`, which only bounds the in-crown query
+  `TreePrototype.cpp:115` copies `BoxMin.Y` into `Crown_.Bottom`, which only bounds the in-crown query
   (the deleted stand field) and the impostor box (`render/stages/ModelDraw.cpp:749`), and the
   instance transform puts y = 0 on the terrain. Two consequences, and they are of different kinds. The
-  **cost** is measured: on flat ground a fifth of every willow's bark is transformed every frame for
+  **cost** is measured: on flat ground nearly a third of every willow's bark is transformed every frame for
   geometry that cannot be seen — vertex work only, since terrain depth kills most of those fragments
   before shading, so do not claim the fragment half without measuring it. The **picture** is inferred
-  and not yet measured: geometry 16.8 m under the planting point emerges wherever terrain falls away
+  and not yet measured: geometry 12.4 m under the planting point emerges wherever terrain falls away
   faster than that within the crown radius, which is the bank of a watercourse, and a willow is placed
   on banks. It is decidable from one frame at a declared riverside standpoint and nobody has taken it.
   **The contract reading in the entry this replaces was wrong, and the harmless explanation is three
-  lines from the code that produces the number.** `TreeMesh.h:1-3`'s *"base at y = 0"* means the
-  **trunk foot**, not the mesh minimum, and `TreeGrower.cpp:598-601` says so in its own words —
+  lines from the code that produces the number.** `TreeSkeleton.h:1-6`'s *"origin at the trunk foot"* means the
+  **trunk foot**, not the box minimum, and `TreeGrower.cpp:403-406` says so in its own words —
   *"Y = 0 IS THE TRUNK FOOT, not the lowest vertex … a branch below zero belongs below the terrain;
   that is where it grows"* — with a measurement behind it (taking the mesh minimum put a willow's foot
   6.87 m and a spruce's 3.67 m above the ground). The mesh therefore honours its contract, and this is
   not a contract violation. It is a **missing** constraint, so the feature line is
   `doc/requirements.md` § III.2 *A shoot stops at the ground*; what stands here is the picture and the
   cost the absent constraint produces today.
-  The grower's ruling is right for a spruce skirt at −0.02 of height and wrong at −0.93: *Salix* ×
+  The grower's ruling is right for a spruce skirt at −0.02 of height and wrong at −0.69: *Salix* ×
   *sepulcralis*'s branchlets tumble **to touch** the ground ([RHS](https://www.rhs.org.uk/plants/81798/salix-sepulcralis-var-chrysocoma/details))
   and *Rosa canina*'s arching stems climb **up** through neighbouring shrubs to 1–5 m
   ([RHS](https://www.rhs.org.uk/plants/16017/rosa-canina-s/details)) — neither grows downward.
@@ -262,74 +263,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   envelope, and the permitted dip is one small sourced number, not a free consequence of shoot length.
   Decides it: `min y ≥ −δ` over bark **and** leaf points for every declaration, in the test that
   already measures the bark half.
-
-- **`TreeMesh.h`'s stated contract has two readings and the wrong one has already produced a wrong
-  check.** `TreeMesh.h:1-3` says *"Delivered NORMALISED — base at y = 0, centred in x/z, height
-  exactly 1"*. Read as the bounding box, all three clauses are false: measured over the 31
-  declarations, `BoxMin.Y` is negative for 7 and non-zero for 13, `hedge_privet` spans x
-  −1.320…+1.309 and `log_beech` x −0.013…+0.987, and only the **box** reaches y = 1 — the topmost
-  bark vertex is below it, because the finest shoots are leaf points. Read as *the origin is the trunk
-  foot and the extent is measured from it along the axis `height_m` names*, all three hold, and that
-  is what `TreeGrower.cpp:580-608` implements and says. The ambiguity is not academic: it is exactly
-  what made `BarkVerdict::HighestY` measure the bark maximum while its author believed it was checking
-  *"height exactly 1"* (`doc/requirements.md` § I.20 still restates the ambiguous words). This is a
-  comment stating an invariant, so it is `I.7`/`NL.2` and not taste. Right, and it is three lines:
-  say origin, not base — *origin at the trunk foot; `BoxMax.Y` = 1 for a standing form and the larger
-  horizontal run = 1 for a lying one; `BoxMin.Y` may be negative and a branch below it grows below the
-  terrain*. Decides it: the sentence names which axis and which extremum, so a reader can write the
-  check without opening `TreeGrower.cpp`.
-
-- **The budget is stated in pixels and the silhouette error it admits is not bounded in pixels.**
-  `generators/draw/TreeGrower.cpp:355` (`SpawnShoot`) and `:465` (`GrowOnce`) give a shoot a tube only
-  when `2 * radius > PixelGrow_`, and `TreeGrower.h:20-28` states the two halves of the rule: the side
-  count keeps the **sagitta** under half a pixel, and a shoot thinner than a pixel gets no tube at all.
-  The first half is bounded in pixels; **the second is bounded in nothing**, because what is dropped is
-  a shoot one pixel WIDE and up to the whole crown LONG. Measured 2026-08-13 over
-  `assets/world/species/beech.json` (declared `height_m` 30, `spread_m` 18) with
-  `test/corpus/GrowPart.cpp`, native, `-O2`, one pixel = `pixelHeightFrac * 30 m`:
-
-  | `pixelHeightFrac` | triangles | bark height | missing height | in budget pixels | bark width, of 18 m |
-  |---|---|---|---|---|---|
-  | 0 (the declared mesh) | 346 268 | 30.000 m | 0 | — | 99.1 % |
-  | 6.2441e-3 | 168 | 14.095 m | 15.905 m | **84.9 px** | 12.7 % |
-  | 3.1221e-3 | 756 | 19.788 m | 10.212 m | **109.0 px** | 29.6 % |
-  | 1.5610e-3 | 3 814 | 29.800 m | 0.200 m | 4.3 px | 55.6 % |
-  | 7.8051e-4 | 19 392 | 28.529 m | 1.471 m | **62.8 px** | 75.6 % |
-  | 1.0e-4 | 411 972 | 30.000 m | 0 | 0 px | 98.0 % |
-
-  At one pixel the drawn beech is a 19.8 m whip with about a dozen twigs and no crown at all, which is
-  what the two pictures of `test/render/foliage/beech/` show — the same subject on both sides, so the
-  case is green on placement and the tree is still not a tree. § I.28 makes the screen-space budget the
-  **only** currency comparable across terrain, trunk, façade and crown; a currency that admits a 109 px
-  error at a 1 px budget is not one, and a frame budget converted into per-part errors by that rule
-  buys nothing it can be held to. *The leaf points are not the answer to this and the numbers say so:
-  they are 193 647 attachment points with no geometry, and until something draws them the part IS the
-  tubes.* Right: the drop is admissible only where the shoot's **projected extent** is under the
-  budget, and a shoot that is long and thin is replaced rather than deleted — which is what an impostor
-  or a leaf card is for. Decides it: bark height and bark width, as a fraction of the declared
-  `height_m` and `spread_m`, are within the budget for every declaration and every budget; the table
-  above is the test's own shape and the two cells at 84.9 px and 109.0 px are what must go.
-
-- **The LOD budget feeds back into the growth, so two levels of detail of one tree are two different
-  trees.** `TreeGrower::Grow` (`generators/draw/TreeGrower.cpp:405-411` and `:414-424`) runs two
-  solving loops after the two base passes: the vertex-budget loop coarsens `PixelGrow_` and regrows,
-  and the DBH loop multiplies `g.BaseRadius`, `g.MinRadius` and `g.TwigRadius` by `targetR / haveR` and
-  regrows — where `haveR` is read off the **drawn** mesh and `MinRadius` is exactly what decides which
-  shoots are spawned at all. Both loops therefore run a different number of times, and settle on
-  different growth parameters, for one species at different budgets. Measured 2026-08-13, same subject
-  and same instrument as the entry above, over the **leaf points**, which count shoots and are
-  untouched by whether a shoot got a tube: **120 114 to 203 851 points**, a factor of **1.70**, with the
-  species, the seed and every declared parameter fixed and the LOD budget the only thing that moved
-  (203 851 · 196 019 · 193 647 · 196 437 · 200 079 · 120 114 at the six budgets above, at 8 · 4 · 3 · 4
-  · 4 · 8 grow passes). The silhouette is non-monotone with it: **29.800 m at `1.5610e-3` and 28.529 m
-  at the finer `7.8051e-4`** — a refinement that made the tree 1.27 m shorter, which cannot be a
-  rounding artefact and cannot be a subset relation. A ladder whose rungs are different trees pops at
-  every switch by construction, and `CLAUDE.md`'s *popping at an LOD change* is not decidable in a
-  still. Right: the growth is solved **once**, at the finest budget the part will ever be asked for,
-  and the budget selects from that one tree — so a coarse mesh is a subset of a fine one and the
-  ladder is monotone by construction rather than by luck. Decides it: over every declaration, the leaf
-  point population is identical at every budget, and bark height and width are non-decreasing as the
-  budget refines.
 
 ## World and streaming
 
@@ -845,7 +778,7 @@ the tree more than once, or under a name that says the wrong unit.*
 - **Two headers guard themselves with reserved identifiers.** `core/Ephemeris.h:6` `#ifndef _EPHEMERIS_H` and `core/State.h:3` `#ifndef _FBSTATE_H`. A leading underscore followed by a capital is reserved to the implementation **in every scope** ([lex.name]/3) — undefined behaviour, not a style preference, and the rest of the tree already spells it `GEODESY_H`.
 - **The log's timestamp is dead** — every `walk key` line carries `t=0.0` — and key repeat events are logged individually, so a held key floods the buffer.
 - **`FacadeUv.h` has no `static_assert` anywhere**: 11 enumerators against a stride of 16, `kStyleCount 8` against 7 enumerators. A 17th `Facade` silently aliases identity 1.
-- **`TreeGrower::GrowOnce` is ~130 lines** (`F.2`/`F.3`), and `TreeSpecies::Parse` is a 90-line flat key list (`F.3`).
+- **`TreeGrower::GrowOnce` is ~110 lines** (`F.2`/`F.3`), and `TreeSpecies::Parse` is a 90-line flat key list (`F.3`).
 
 - **A wire decoder reads multi-byte values in the host's byte order.** `world/OsmVector.cpp:111-112`
   takes protobuf `fixed32` and `fixed64` with `std::memcpy(&f, v.P, 4)` and `std::memcpy(&d, v.P, 8)`

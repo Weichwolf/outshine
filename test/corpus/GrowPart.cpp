@@ -25,6 +25,8 @@
 
 #include "TreeGrower.h"
 #include "TreeMesh.h"
+#include "TreeMesher.h"
+#include "TreeSkeleton.h"
 #include "TreeSpecies.h"
 
 namespace {
@@ -36,7 +38,7 @@ struct Request {
   std::string OutputPath;
   std::string NodeName;
   /* The model length of one pixel as a fraction of the tree's own height, which is the budget
-   * TreeGrower::Grow already takes. 0 grows the mesh the species declares. */
+   * TreeMesher::Draw already takes. 0 draws the plant entire. */
   double PixelHeightFrac = 0.0;
 };
 
@@ -130,9 +132,15 @@ int main(int argc, char **argv) {
                 species.Error());
   }
 
+  /* GROWN ONCE, DRAWN AT THE ASKED-FOR BUDGET. The skeleton is what the species declares and the
+   * budget is a view over it, so this program's part at one budget is a subset of its part at a
+   * finer one rather than another tree. */
   outshine::Generators::TreeGrower grower;
+  outshine::Generators::TreeMesher mesher;
+  outshine::Generators::TreeSkeleton plant;
   outshine::Generators::TreeMesh mesh;
-  grower.Grow(species, mesh, (float)request.PixelHeightFrac);
+  grower.Grow(species, plant);
+  mesher.Draw(plant, (float)request.PixelHeightFrac, mesh);
   if (mesh.BarkIdx.empty()) {
     return Fail("the grower produced no triangle for " + species.Name() + " at the requested budget");
   }
@@ -199,7 +207,7 @@ int main(int argc, char **argv) {
   std::printf("  \"spreadM\": %.17g,\n", (double)species.SpreadM());
   std::printf("  \"vertices\": %zu,\n", subject.VertexCount());
   std::printf("  \"triangles\": %zu,\n", subject.TriangleCount());
-  std::printf("  \"leafPoints\": %zu,\n", mesh.LeafPoints.size());
+  std::printf("  \"leafPoints\": %zu,\n", plant.LeafPoints.size());
   std::printf("  \"growPasses\": %d,\n", grower.Passes());
   std::printf("  \"dbhErrorRel\": %.17g,\n", (double)grower.DbhErrorRel());
   std::printf("  \"minM\": [%.17g, %.17g, %.17g],\n", subject.MinM()[0], subject.MinM()[1],

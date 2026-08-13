@@ -6,6 +6,8 @@
 #include "TreeGrower.h"
 #include "TreeLeaf.h"
 #include "TreeMesh.h"
+#include "TreeMesher.h"
+#include "TreeSkeleton.h"
 #include "ModelLadder.h"
 
 namespace outshine::Generators {
@@ -73,46 +75,46 @@ void TreePrototype::MaterialRow(const TreeLook &look, float out[kMaterialRowFloa
 
 std::optional<TreePrototype> TreePrototype::Grow(const TreeSpecies &sp) {
   TreeMesh mesh;
+  TreeSkeleton plant;
   TreeGrower grower;
+  TreeMesher mesher;
   TreeFoliage foliage;
   TreePrototype proto;
   proto.HeightM_ = (double)sp.HeightM();
   proto.Look_ = LookOf(sp);
   proto.Ranks_.resize((size_t)ModelLadder::kLevels);
   double crownProjM2 = 0.0;
-  /* ONE MESH PER RANK, and the ladder is the drawn error's own: rank k may be one pixel coarse at
-   * its nearest instance. THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kElementsPerSheet
-   * grown laminae, each drawing the species' own leaf. Only the ranks above it thin, by four per
-   * step so a card keeps its size on screen, and `CardLeafM` regrows the leaf they draw so the
-   * declared index survives the thinning. */
+  /* ONE PLANT, GROWN ONCE, and the ladder draws from it. Rank k may be one pixel coarse at its
+   * nearest instance; that budget selects what is drawn and never what grew, so rank k's shoots are
+   * a subset of rank k+1's and the leaf points below are the same population at every rank.
+   * THE NEAREST RANK PAYS THE INDEX IN COUNT — one card per kElementsPerSheet grown laminae, each
+   * drawing the species' own leaf. Only the ranks above it thin, by four per step so a card keeps its
+   * size on screen, and `CardLeafM` regrows the leaf they draw so the declared index survives the
+   * thinning. */
+  grower.Grow(sp, plant);
+  TreeLeaf::Build(sp.LeafParams(), mesh);
   for (int rank = 0; rank < ModelLadder::kLevels; ++rank) {
     Rank &out = proto.Ranks_[(size_t)rank];
-    grower.Grow(sp, mesh, ModelLadder::Error(rank));
-    TreeLeaf::Build(sp.LeafParams(), mesh);
-    foliage.Build(mesh, sp, 1);
+    mesher.Draw(plant, ModelLadder::Error(rank), mesh);
+    foliage.Build(plant, mesh, sp, 1);
     const uint32_t stride = (uint32_t)kElementsPerSheet << (2u * (unsigned)rank);
     for (size_t i = 0; i < foliage.Count(); i += stride) {
       const float *c = &foliage.Instances()[i * TreeFoliage::kFloats];
       out.Cards.insert(out.Cards.end(), c, c + TreeFoliage::kFloats);
     }
     const uint32_t nCards = (uint32_t)(out.Cards.size() / TreeFoliage::kFloats);
-    /* THE CROWN'S PROJECTION IS THE SPECIES', not the rank's. A coarse rank drops the thin shoots
-     * that reach furthest out, so its own bark box is smaller — sizing the leaf by that box would
-     * shrink the canopy exactly where it is already thinnest. */
     if (rank == 0) crownProjM2 = foliage.CrownProjM2();
     out.CardCount = nCards;
     out.CardLeafM = foliage.CardLeafM(kElementsPerSheet, nCards, (double)sp.Lai(), crownProjM2);
     out.BarkVerts = mesh.BarkVerts;
     out.BarkVertCount = (uint32_t)mesh.BarkVertexCount();
     out.BarkIdx = mesh.BarkIdx;
-    if (rank == 0) {
-      proto.Crown_.HalfWidth = std::fmax(std::fmax(-mesh.BoxMin.X, mesh.BoxMax.X),
-                                         std::fmax(-mesh.BoxMin.Z, mesh.BoxMax.Z));
-      proto.Crown_.Bottom = mesh.BoxMin.Y;
-      proto.Crown_.Top = mesh.BoxMax.Y;
-      proto.Crown_.HeightM = (float)proto.HeightM_;
-    }
   }
+  proto.Crown_.HalfWidth = std::fmax(std::fmax(-plant.BoxMin.X, plant.BoxMax.X),
+                                     std::fmax(-plant.BoxMin.Z, plant.BoxMax.Z));
+  proto.Crown_.Bottom = plant.BoxMin.Y;
+  proto.Crown_.Top = plant.BoxMax.Y;
+  proto.Crown_.HeightM = (float)proto.HeightM_;
   if (proto.Ranks_[0].BarkVertCount == 0) return std::nullopt;
   return proto;
 }

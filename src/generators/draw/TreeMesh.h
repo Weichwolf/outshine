@@ -1,6 +1,9 @@
-/* THE RESULT OF ONE SPECIES DECLARATION: the bark mesh, the species' single leaf, the leaf points and
- * the box. Delivered NORMALISED — base at y = 0, centred in x/z, height exactly 1 — so the only number
- * that carries a metre is TreeSpecies::HeightM. */
+/* WHAT ONE DRAWING OF A PLANT IS: the bark mesh at one budget and the species' single leaf. What the
+ * plant IS — its leaf points, its box and its trunk radii — is TreeSkeleton's and is the same at every
+ * budget, which is why none of it is here.
+ *
+ * Delivered NORMALISED, in the skeleton's own frame: origin at the trunk foot, extent 1 along the axis
+ * `height_m` is measured on, so the only number that carries a metre is TreeSpecies::HeightM. */
 #ifndef TREEMESH_H
 #define TREEMESH_H
 
@@ -9,7 +12,6 @@
 #include <vector>
 
 #include "ChunkVtx.h"
-#include "TreeVec3.h"
 
 namespace outshine::Generators {
 
@@ -18,43 +20,28 @@ public:
   static constexpr int kBarkFloats = (int)(kPlainVertexStrideB / sizeof(float));
   static constexpr int kLeafFloats = 8;  /* pos(3) nrm(3) uv(2) */
 
-  /* Where a leaf sits on the shoot and where its stalk points. Not geometry — the population the leaf
-   * angle distribution is measured over. */
-  struct LeafPoint {
-    TreeVec3 Pos, Dir;
-  };
-
   std::vector<float> BarkVerts;
   std::vector<uint32_t> BarkIdx;
   std::vector<float> LeafVerts;
   std::vector<uint32_t> LeafIdx;
-  std::vector<LeafPoint> LeafPoints;
-  TreeVec3 BoxMin, BoxMax;
-  /* Trunk radii as a FRACTION OF THE TREE'S HEIGHT, so metres = value x TreeSpecies::HeightM. The
-   * grown mesh's own answer to the one number forestry measures, and what the calibration in
-   * TreeGrower drives. */
-  float FootRadius = 0.0f;
-  float DbhRadius = 0.0f;
 
   size_t BarkVertexCount() const { return BarkVerts.size() / kBarkFloats; }
   size_t LeafVertexCount() const { return LeafVerts.size() / kLeafFloats; }
   size_t Bytes() const {
     return BarkVerts.size() * sizeof(float) + BarkIdx.size() * sizeof(uint32_t) +
-           LeafVerts.size() * sizeof(float) + LeafIdx.size() * sizeof(uint32_t) +
-           LeafPoints.size() * sizeof(LeafPoint);
+           LeafVerts.size() * sizeof(float) + LeafIdx.size() * sizeof(uint32_t);
   }
 
-  /* Keeps the capacity: growing a stand reuses one mesh per species. */
-  void Clear() {
+  /* Keeps the capacity: drawing a stand reuses one mesh per species. The leaf is not cleared — it is
+   * the species', not the budget's, and TreeLeaf writes it once. */
+  void ClearBark() {
     BarkVerts.clear();
     BarkIdx.clear();
+  }
+  void Clear() {
+    ClearBark();
     LeafVerts.clear();
     LeafIdx.clear();
-    LeafPoints.clear();
-    BoxMin = TreeVec3{};
-    BoxMax = TreeVec3{};
-    FootRadius = 0.0f;
-    DbhRadius = 0.0f;
   }
 };
 

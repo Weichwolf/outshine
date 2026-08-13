@@ -15,7 +15,8 @@ constexpr float kGolden = 2.39996323f;
 
 } // namespace
 
-void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies &species, int mult) {
+void TreeFoliage::Build(const TreeSkeleton &plant, const TreeMesh &shape, const TreeSpecies &species,
+                        int mult) {
   const TreeSpecies::Leaf &leaf = species.LeafParams();
   Inst_.clear();
   AreaM2_ = 0.0;
@@ -24,10 +25,10 @@ void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies &species, int mu
   ScaleM_ = leaf.CardH > 0.0f ? leaf.CardH / len : 0.1f;
 
   double lamina = 0.0;
-  for (size_t i = 0; i + 2 < mesh.LeafIdx.size(); i += 3) {
-    const float *a = &mesh.LeafVerts[(size_t)mesh.LeafIdx[i] * TreeMesh::kLeafFloats];
-    const float *b = &mesh.LeafVerts[(size_t)mesh.LeafIdx[i + 1] * TreeMesh::kLeafFloats];
-    const float *c = &mesh.LeafVerts[(size_t)mesh.LeafIdx[i + 2] * TreeMesh::kLeafFloats];
+  for (size_t i = 0; i + 2 < shape.LeafIdx.size(); i += 3) {
+    const float *a = &shape.LeafVerts[(size_t)shape.LeafIdx[i] * TreeMesh::kLeafFloats];
+    const float *b = &shape.LeafVerts[(size_t)shape.LeafIdx[i + 1] * TreeMesh::kLeafFloats];
+    const float *c = &shape.LeafVerts[(size_t)shape.LeafIdx[i + 2] * TreeMesh::kLeafFloats];
     const double e0[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
     const double e1[3] = {c[0] - a[0], c[1] - a[1], c[2] - a[2]};
     const double cx = e0[1] * e1[2] - e0[2] * e1[1];
@@ -37,11 +38,11 @@ void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies &species, int mu
   }
   LocalArea_ = lamina;
 
-  const size_t points = mesh.LeafPoints.size();
+  const size_t points = plant.LeafPoints.size();
   const double oneM2 = lamina * (double)ScaleM_ * (double)ScaleM_;
   const double h = (double)species.HeightM();
-  CrownProjM2_ = 0.25 * 3.14159265358979 * (double)(mesh.BoxMax.X - mesh.BoxMin.X) * h *
-                 (double)(mesh.BoxMax.Z - mesh.BoxMin.Z) * h;
+  CrownProjM2_ = 0.25 * 3.14159265358979 * (double)(plant.BoxMax.X - plant.BoxMin.X) * h *
+                 (double)(plant.BoxMax.Z - plant.BoxMin.Z) * h;
   if (points == 0 || oneM2 <= 0.0) { return; }
   double want = (double)species.Lai() * CrownProjM2_ / oneM2;
   want *= (double)(mult > 0 ? mult : 1);
@@ -56,7 +57,7 @@ void TreeFoliage::Build(const TreeMesh &mesh, const TreeSpecies &species, int mu
 
   TreeRandom rng(0x1eaf0001u);
   double owed = 0.0;
-  for (const TreeMesh::LeafPoint &p : mesh.LeafPoints) {
+  for (const LeafPoint &p : plant.LeafPoints) {
     /* The count per point is fractional and the debt is carried, so the crown's total is the declared
      * one to the last lamina instead of a rounding per point. */
     owed += PerPoint_;

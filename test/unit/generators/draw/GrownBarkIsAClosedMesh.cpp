@@ -21,6 +21,8 @@
 #include "GrowthForm.h"
 #include "TreeGrower.h"
 #include "TreeMesh.h"
+#include "TreeMesher.h"
+#include "TreeSkeleton.h"
 #include "TreeSpecies.h"
 
 using namespace outshine::Generators;
@@ -99,11 +101,11 @@ void MeasureVertices(const TreeMesh &mesh, BarkVerdict &v) {
  * over the box, which the grower normalises by, and not over the bark: the finest shoots are leaf
  * points at a coarse rank, so the topmost bark vertex is below the top of the plant. A lying form is
  * measured along its own run, because `height_m` is its LENGTH. */
-double DeclaredExtent(const TreeSpecies &declaration, const TreeMesh &mesh) {
+double DeclaredExtent(const TreeSpecies &declaration, const TreeSkeleton &plant) {
   if (GrowthForm::Lying(declaration.Form().Arch)) {
-    return std::max((double)mesh.BoxMax.X - mesh.BoxMin.X, (double)mesh.BoxMax.Z - mesh.BoxMin.Z);
+    return std::max((double)plant.BoxMax.X - plant.BoxMin.X, (double)plant.BoxMax.Z - plant.BoxMin.Z);
   }
-  return (double)mesh.BoxMax.Y;
+  return (double)plant.BoxMax.Y;
 }
 
 void MeasureTriangles(const TreeMesh &mesh, BarkVerdict &v) {
@@ -178,8 +180,8 @@ void ReportOffender(const std::string &species, const char *what, double value) 
   outshine::Test::Note(line.c_str(), value, "count");
 }
 
-[[nodiscard]] bool GrowDeclared(const std::string &name, TreeGrower &grower, TreeMesh &mesh,
-                                TreeSpecies &declaration) {
+[[nodiscard]] bool GrowDeclared(const std::string &name, TreeGrower &grower, TreeMesher &mesher,
+                                TreeSkeleton &plant, TreeMesh &mesh, TreeSpecies &declaration) {
   std::string text;
   if (!ReadFile(std::string(kSpeciesDir) + "/" + name + ".json", text)) {
     ReportOffender(name, "declaration could not be read", 0.0);
@@ -189,7 +191,8 @@ void ReportOffender(const std::string &species, const char *what, double value) 
     ReportOffender(name, "declaration did not parse", 0.0);
     return false;
   }
-  grower.Grow(declaration, mesh, 0.0f);
+  grower.Grow(declaration, plant);
+  mesher.Draw(plant, 0.0f, mesh);
   return true;
 }
 
@@ -286,18 +289,20 @@ int main() {
   CHECK(!species.empty(), "there is a plant declaration under src/assets/world/species to grow");
 
   TreeGrower grower;
+  TreeMesher mesher;
+  TreeSkeleton plant;
   TreeMesh mesh;
   Sweep sweep;
   for (const std::string &name : species) {
     TreeSpecies declaration;
-    if (!GrowDeclared(name, grower, mesh, declaration)) {
+    if (!GrowDeclared(name, grower, mesher, plant, mesh, declaration)) {
       ++sweep.Unreadable;
       continue;
     }
     BarkVerdict verdict;
     MeasureVertices(mesh, verdict);
     MeasureTriangles(mesh, verdict);
-    verdict.DeclaredExtent = DeclaredExtent(declaration, mesh);
+    verdict.DeclaredExtent = DeclaredExtent(declaration, plant);
     Judge(name, verdict, sweep);
     Accumulate(name, verdict, sweep);
   }

@@ -1,5 +1,5 @@
-/* THE LEAF POPULATION AS DRAWABLE INSTANCES: TreeMesh carries ONE leaf and the points it sits on, and
- * this turns the two into the array a draw call consumes. It reads the two declared leaf fields that
+/* THE LEAF POPULATION AS DRAWABLE INSTANCES: TreeMesh carries ONE leaf, TreeSkeleton the points it
+ * sits on, and this turns the two into the array a draw call consumes. It reads the two declared leaf fields that
  * nothing read before — `leaf_cards` (how many laminae one shoot point carries) and `leaf_card_h`
  * (the leaf's length in METRES, the only metre a leaf declaration owns).
  *
@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "TreeMesh.h"
+#include "TreeSkeleton.h"
 #include "TreeSpecies.h"
 
 namespace outshine::Generators {
@@ -33,7 +34,8 @@ public:
    * `mult` is a BENCH BRACKET on that count, the way --ev brackets the declared exposure: the crown
    * a species declares comes out at 1, and a critic who has to rule on whether the declaration is
    * right needs to see the same tree at another density. Never a scene parameter. */
-  void Build(const TreeMesh &mesh, const TreeSpecies &species, int mult = 1);
+  void Build(const TreeSkeleton &plant, const TreeMesh &leaf, const TreeSpecies &species,
+             int mult = 1);
 
   const std::vector<float> &Instances() const { return Inst_; }
   size_t Count() const { return Inst_.size() / kFloats; }

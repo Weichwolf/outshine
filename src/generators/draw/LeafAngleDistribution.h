@@ -2,7 +2,7 @@
  *
  * `render/Sward.h` carries kG0/kG1/kGp as a Monte-Carlo over a DECLARED tilt distribution — a grass
  * blade's angle is an assumption there. A tree declares no leaf angle at all: its leaf angles fall out
- * of the growth, and TreeMesh::LeafPoints is the population. So near and far read one measured
+ * of the growth, and TreeSkeleton::LeafPoints is the population. So near and far read one measured
  * distribution instead of two assumptions.
  *
  * THE ONE MODEL ASSUMPTION, stated: the lamina rolls freely about its stalk. With `u` the measured
@@ -16,7 +16,7 @@
 #include <array>
 #include <cstddef>
 
-#include "TreeMesh.h"
+#include "TreeSkeleton.h"
 
 namespace outshine::Generators {
 
@@ -26,7 +26,7 @@ public:
   static constexpr int kAzimuths = 64;
   static constexpr int kTiltBins = 18; /* 5 degrees each, over the stalk's elevation */
 
-  void Measure(const TreeMesh &mesh);
+  void Measure(const TreeSkeleton &plant);
 
   size_t Count() const { return Count_; }
   /* Measured G at `deg` degrees of beam elevation. */

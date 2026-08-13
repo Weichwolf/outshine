@@ -11,10 +11,10 @@ constexpr double kPi = 3.14159265358979323846;
 
 } // namespace
 
-void LeafAngleDistribution::Measure(const TreeMesh &mesh) {
+void LeafAngleDistribution::Measure(const TreeSkeleton &plant) {
   Samples_.fill(0.0f);
   Histogram_.fill(0.0f);
-  Count_ = mesh.LeafPoints.size();
+  Count_ = plant.LeafPoints.size();
   G0_ = 0.0f;
   G1_ = 0.0f;
   Gp_ = 1.0f;
@@ -24,7 +24,7 @@ void LeafAngleDistribution::Measure(const TreeMesh &mesh) {
 
   const double inv = 1.0 / (double)Count_;
   double elevSum = 0.0;
-  for (const TreeMesh::LeafPoint &p : mesh.LeafPoints) {
+  for (const LeafPoint &p : plant.LeafPoints) {
     const double e = std::asin((double)std::fmin(std::fabs(p.Dir.Y), 1.0f)) * 180.0 / kPi;
     elevSum += e;
     int bin = (int)(e / (90.0 / (double)kTiltBins));
@@ -45,7 +45,7 @@ void LeafAngleDistribution::Measure(const TreeMesh &mesh) {
       const double az = ((double)a + 0.5) * azStep;
       const double sx = ce * std::cos(az), sy = se, sz = ce * std::sin(az);
       double sum = 0.0;
-      for (const TreeMesh::LeafPoint &p : mesh.LeafPoints) {
+      for (const LeafPoint &p : plant.LeafPoints) {
         const double d0 = (double)p.Dir.X * sx + (double)p.Dir.Y * sy + (double)p.Dir.Z * sz;
         const double q = 1.0 - d0 * d0;
         sum += q > 0.0 ? std::sqrt(q) : 0.0;
