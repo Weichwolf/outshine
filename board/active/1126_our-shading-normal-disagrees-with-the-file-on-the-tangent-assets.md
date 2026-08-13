@@ -1,6 +1,6 @@
 Type: bug
 Area: render
-Depends: 1122
+Depends: 1122, 1130
 Tags: oracle, khronos, instrument
 
 **Our shading normal disagrees with the file on the tangent assets**
@@ -311,3 +311,27 @@ needing us to be wrong.
 
 **`board:1130` is unaffected** — no mip chain is still a defect and a bandwidth problem at 720p60, and it
 is still not what this item is about.
+
+## And one more turn: exact against the tap is not the same as correct
+
+**`sin(ours) = |tap.xy|` exactly — at one texel.** That is what point-sampling gives, and **point-sampling
+under minification is aliasing, not fidelity.** At **1.42 texels per screen pixel** the correct value for
+a pixel is the map's average over its footprint, not the value at its centre. Cycles filters over the ray
+footprint, so its tap is averaged and its perturbation is **necessarily** smaller.
+
+**So being exact against `|tap.xy|` means being exact against the wrong quantity.** glTF declares what a
+*texel* holds; it does not say a renderer should ignore the footprint a *pixel* covers.
+
+**Which makes this item's repair `board:1130`.** Give the engine a mip chain and footprint filtering and
+our perturbation drops toward Cycles' **for the right reason** — and the residual afterwards is the real
+disagreement, measured against a filtered reference rather than against a texel.
+
+**Three framings, and each moved on a measurement rather than an argument**: *the file adjudicates for
+Cycles, so we are wrong* → the file's leg is the **geometric** normal and nearness to it measures
+**less perturbation**, not correctness · *we are exact against the tap, so we are right* → exactness at a
+texel is aliasing when a pixel covers 1.42 of them · **the difference is that Cycles filters and we do
+not, which is `board:1130`.**
+
+**What this does not settle**: whether filtering accounts for the whole 0.885, or only part. That is
+answerable only after the mip chain exists — **the residual against a filtered reference is the number
+that matters**, and it does not exist yet.
