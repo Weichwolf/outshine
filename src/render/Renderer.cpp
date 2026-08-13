@@ -252,6 +252,7 @@ void Renderer::Create(Resource resource) {
     }
     case Resource::SceneHdr: HdrTex = target(resource, colour); return;
     case Resource::SceneVelocity: VelTex = target(resource, colour); return;
+    case Resource::SceneShadingNormal: ShadingNormalTex = target(resource, colour); return;
     case Resource::SceneDepth:
       /* SDL_GPU admits exactly two usages on a depth format, so the depth the display transfer reads
        * is a sampled texture and never a storage one. */
@@ -281,6 +282,7 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
   switch (resource) {
     case Resource::SceneHdr: return HdrTex.Get();
     case Resource::SceneVelocity: return VelTex.Get();
+    case Resource::SceneShadingNormal: return ShadingNormalTex.Get();
     case Resource::SceneDepth: return DepthTex.Get();
     case Resource::FrameTex: return FrameTex.Get();
     case Resource::Surface: return OffscreenTex.Get();

@@ -32,6 +32,7 @@ enum class Resource {
   SceneHdr,
   SceneVelocity,
   SceneDepth,
+  SceneShadingNormal,
   AoBuffer,
   SceneLinear,
   FrameTex,
@@ -193,6 +194,14 @@ inline constexpr ResourceRow kResources[] = {
      TexelFormat::Rg16Float, "sceneVelocity"},
     {Resource::SceneDepth, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Depth32Float, "sceneDepth"},
+    /* THE NORMAL THE BRDF RECEIVED, world-space, in the subject's own frame (board:1122). It exists
+     * because the third leg of the normal comparison had no source: Cycles publishes its shading
+     * normal and the glTF declares its own, and ours was inferred from where a highlight landed --
+     * a 2.33 px centroid displacement on a 33.4 px dome, which is 4.2 to 10.3 degrees and structural
+     * rather than precision. IT IS ATTACHED ONLY WHERE SOMETHING READS IT (board:1121), so no plan
+     * that does not ask for it pays a byte. */
+    {Resource::SceneShadingNormal, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
+     TexelFormat::Rgba16Float, "sceneShadingNormal"},
     {Resource::AoBuffer, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::R8Unorm, "aoBuffer"},
     /* Resolved linear radiance BEFORE the occlusion composite and BEFORE the metered exposure. A
@@ -252,9 +261,15 @@ inline constexpr StageRow kStages[] = {
     {Stage::Models, Provenance::Content, PassKind::Raster, "models",
      {Resource::ShadowAtlas, Resource::IrradianceBuffer, Resource::CascadeUniform, kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge}, kNoFusion},
+    /* THE SHADING NORMAL IS ON `subjects` ALONE and that is not a shortcut: only this stage has a
+     * shader that writes one, and a stage contributing a target its pipelines never write is
+     * board:1121's defect in a new place. It is SAFE BY CONSTRUCTION rather than by review -- pass
+     * merging requires identical contribution sets, so a geometry stage without this target can
+     * never share a pass with the one that has it. */
     {Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",
      {kNoEdge}, {kNoEdge},
-     {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth, kNoEdge}, kNoFusion},
+     {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
+      Resource::SceneShadingNormal, kNoEdge}, kNoFusion},
     {Stage::Occlusion, Provenance::Content, PassKind::Raster, "occlusion",
      {Resource::SceneDepth, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
      {Resource::AoBuffer, kNoEdge}, kNoFusion},

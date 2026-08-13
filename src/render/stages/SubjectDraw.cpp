@@ -179,12 +179,37 @@ struct SFrag {
 #if SUBJECT_WRITES_VELOCITY
   float2 vel [[color(1)]];
 #endif
+#if SUBJECT_WRITES_SHADING_NORMAL
+  /* The index follows the pass's attachment ORDER, which follows `Contributes` through the prune --
+   * so it is 2 with a velocity target and 1 without, and it is spliced rather than fixed because a
+   * hardcoded index is exactly the pipeline/pass disagreement board:1121 closed. */
+  float4 nrm [[color(SUBJECT_NORMAL_COLOUR_INDEX)]];
+#endif
 };
 
 #if SUBJECT_WRITES_VELOCITY
 #define SUBJECT_SET_VELOCITY(o) (o).vel = float2(kVelStatic)
 #else
 #define SUBJECT_SET_VELOCITY(o) (void)0
+#endif
+
+/* THE NORMAL THE BRDF RECEIVED, WRITTEN FROM THE SAME LOCAL IT WAS SHADED WITH (board:1122). The
+ * value is bound once per entry point and then used twice -- passed to `shadeRow` and written here
+ * -- so the attachment carries what the lobe saw BY CONSTRUCTION rather than by inspection. It was
+ * not readable before because it never existed as a value: `facing(in.n, front)` at six call sites
+ * and `mappedNormal(...)` at one, every one of them an inline argument, and a recomputation in the
+ * fragment could have agreed with Cycles perfectly while the lobe used something else.
+ *
+ * AN ARM THAT COMPUTES NO NORMAL WRITES A DECLARED ZERO, and that is a decision rather than whatever
+ * the driver leaves: the emissive arms shade no lobe, zero is not a unit vector so no comparison can
+ * mistake it for one, and a reader can tell "no shading normal here" from "a normal pointing away".
+ * An undefined value that read plausibly would be ingested silently by the three-way comparison. */
+#if SUBJECT_WRITES_SHADING_NORMAL
+#define SUBJECT_SET_SHADING_NORMAL(o, n) (o).nrm = float4((n), 1.0)
+#define SUBJECT_NO_SHADING_NORMAL(o) (o).nrm = float4(0.0, 0.0, 0.0, 1.0)
+#else
+#define SUBJECT_SET_SHADING_NORMAL(o, n) (void)0
+#define SUBJECT_NO_SHADING_NORMAL(o) (void)0
 #endif
 )";
 
@@ -233,6 +258,7 @@ fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 
@@ -241,6 +267,7 @@ fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 
@@ -248,6 +275,7 @@ fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, surface.factor);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 
@@ -255,6 +283,7 @@ fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * colourMap.sample(colourSampler, in.uv).rgb, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 
@@ -267,6 +296,7 @@ fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 
@@ -278,6 +308,7 @@ fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
 )";
@@ -401,25 +432,31 @@ static inline float3 facing(float3 n, bool front) {
 }
 
 fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 
 fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   if (surface.factor < surface.cut) { discard_fragment(); }
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb), 1.0);
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 
 fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p, surface.base.rgb),
+  o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb),
                  surface.factor);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 )";
@@ -438,12 +475,14 @@ static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap
 
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 
@@ -451,25 +490,29 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                                    SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 
 fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                     SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
+  const float3 shadingNormal = facing(in.n, front);
   SFrag o;
-  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, facing(in.n, front), in.p,
+  o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                  surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shadingNormal);
   return o;
 }
 )";
@@ -533,7 +576,12 @@ static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMa
 /* The metal-rough row the mapped arm shades with: the surface's own factors times the file's image.
  * A slot that declares no image binds one white texel, and white is the multiplicative identity
  * here, so "no image" and "the factors alone" are the same statement rather than two arms. */
-static inline float3 mappedShade(constant M &surface, constant Lights &lights, Occluders occluders,
+/* THE COLOUR AND THE NORMAL IT WAS SHADED WITH, TOGETHER (board:1122, `F.21`). Returning a struct
+ * rather than taking an out-parameter is what makes the pair inseparable: a caller cannot take the
+ * colour and recompute the normal, which is the reconstruction the third leg exists to rule out. */
+struct Shaded { float3 col; float3 nrm; };
+
+static inline Shaded mappedShade(constant M &surface, constant Lights &lights, Occluders occluders,
                                  texture2d<float> colourMap, sampler colourSampler,
                                  texture2d<float> normalMap, sampler normalSampler,
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
@@ -541,10 +589,11 @@ static inline float3 mappedShade(constant M &surface, constant Lights &lights, O
                                  MOut in, bool front) {
   float4 orm = metalRoughMap.sample(metalRoughSampler, in.uv);
   float3 albedo = surface.base.rgb * colourMap.sample(colourSampler, in.uv).rgb;
-  return shadeRow(lights, occluders, in.lp,
-                  mappedNormal(surface, normalMap, normalSampler, in, front), in.p, albedo,
+  const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
+  return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
                   surface.metalness * orm.b, surface.roughness * orm.g,
-                  emittedAt(surface, emissiveMap, emissiveSampler, in.uv));
+                  emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
+                shadingNormal};
 }
 
 #define SUBJECT_MAPPED_SHADE mappedShade(surface, lights, SUBJECT_OCCLUDERS, colourMap, \
@@ -552,26 +601,32 @@ static inline float3 mappedShade(constant M &surface, constant Lights &lights, O
     emissiveSampler, in, front)
 
 fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
-  o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
+  o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
   return o;
 }
 
 fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
-  o.col = float4(SUBJECT_MAPPED_SHADE, 1.0);
+  o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
   return o;
 }
 
 fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
   float4 tap = colourMap.sample(colourSampler, in.uv);
+  const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
-  o.col = float4(SUBJECT_MAPPED_SHADE, surface.factor * tap.a);
+  o.col = float4(shaded.col, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm);
   return o;
 }
 )";
@@ -670,11 +725,19 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
    * declared a target the pass does not attach renders correctly and is undefined. */
   Colours.clear();
   for (const Resource colour : gpu.SceneColours) { Colours.push_back(colour); }
-  const bool writesVelocity =
-      std::find(Colours.begin(), Colours.end(), Resource::SceneVelocity) != Colours.end();
+  const auto attachmentIndex = [this](Resource which) -> long {
+    const auto at = std::find(Colours.begin(), Colours.end(), which);
+    return at == Colours.end() ? -1 : (long)(at - Colours.begin());
+  };
+  const bool writesVelocity = attachmentIndex(Resource::SceneVelocity) >= 0;
+  const long normalIndex = attachmentIndex(Resource::SceneShadingNormal);
 
   const std::string source = std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
                              "\n#define SUBJECT_WRITES_VELOCITY " + (writesVelocity ? "1" : "0") +
+                             "\n#define SUBJECT_WRITES_SHADING_NORMAL " +
+                             (normalIndex >= 0 ? "1" : "0") +
+                             "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
+                             std::to_string(normalIndex < 0 ? 0 : normalIndex) +
                              "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
                              kSubjectLitMsl + kSubjectLitTexturedMsl + kSubjectMappedMsl;
 
@@ -691,7 +754,12 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
      * being a second decision: a temporal resolve reprojects a pixel through the depth that was
      * written there, so a surface that left none has no motion to claim and would overwrite the
      * motion of whatever did. */
-    if (writesVelocity) { targets[1] = VelocityTarget(!blends); }
+    if (writesVelocity) { targets[attachmentIndex(Resource::SceneVelocity)] = VelocityTarget(!blends); }
+    /* THE NORMAL TARGET IS NOT BLENDED WHATEVER THE SURFACE IS. A blended surface's colour is an
+     * `over` composite, and compositing two normals would produce a direction neither fragment
+     * shaded with -- the attachment carries what the LAST writer received, which is the only reading
+     * of it that is a normal at all. */
+    if (normalIndex >= 0) { targets[normalIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT; }
 
     for (const VertexLayout layout :
          {VertexLayout::Position, VertexLayout::PositionUv, VertexLayout::PositionNormal,

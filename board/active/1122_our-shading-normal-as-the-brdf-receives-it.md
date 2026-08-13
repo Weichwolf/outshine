@@ -39,9 +39,10 @@ colour index is spliced, never fixed**: attachment order follows `Contributes` t
 normal is `color(2)` when velocity is attached and `color(1)` when it is pruned. Capacity is fine —
 `kMaxEdges` is 8 and the geometry rows use 3.
 
-**Its verification needs the corpus's `normal` channel**, so `test/corpus/prep/manifest.py`'s channel
-trim — which produced the corpus already on disk and is uncommitted — folds into this round: the corpus
-re-run that proves one proves the other.
+**Its verification reads the corpus's `normal` channel**, which is already there: the channel trim landed
+in an earlier commit and `QUANTITY_PASSES` carries the three. Two rounds carried *still outstanding* for
+it after it was committed — a claim about the tree that nobody re-checked, which is the same shape as a
+catalogue row outliving its implementation.
 
 **Done when** all three legs are published per pixel — the file's declared `NORMAL`, Cycles mapped into
 glTF metres, and ours at the shading point — and the branch is named: engine fix if Cycles matches the

@@ -132,6 +132,8 @@ private:
   std::shared_ptr<const RenderPlan> Plan_;
   Gpu Handles;
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex, OffscreenTex;
+  /* The normal the BRDF received, allocated only where a plan reads it (board:1122). */
+  OwnedTexture ShadingNormalTex;
   OwnedSampler Samp;
   SubjectDraw Subjects_;
   TonemapStage Tonemap_;
