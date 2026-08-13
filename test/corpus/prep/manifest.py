@@ -27,6 +27,49 @@ RESERVED_OUTPUT_NAMES = frozenset(["0-reference.png", "1-outshine.png", "outshin
                                    "outshine.raw", "provenance.json"])
 
 DEFAULT_RECIPE_NAME = "default"
+
+# THE QUANTITIES THE ORACLE IS ASKED FOR BESIDES THE PICTURE. Cycles has answered one question until
+# now -- is this IMAGE right -- and a whole-image tail cannot say WHICH term of a shading model is
+# wrong. It has render passes, so it can answer `is this QUANTITY right`, and each row turns a band
+# of the tail into an attribution. A third quantity is a ROW HERE and not another round, which is the
+# whole reason this is a table.
+#
+# Every one lands in the same `OSRAWF32` layout as the picture, through the same reader, so no
+# quantity gets a format of its own.
+#
+# ROUGHNESS IS ABSENT AND IT IS NOT AN OVERSIGHT: Cycles publishes no roughness pass -- measured on
+# this host, there is no `use_pass_roughness` among the view layer's flags -- so it would need a
+# SHADER AOV wired into every material, where a material the wiring missed reports zero and zero
+# reads as an answer. That needs a wiring-completeness check first and it is its own item.
+QUANTITY_PASSES = {
+    # GEOMETRY -- what the camera ray hit and where.
+    "normal": {"socket": "Normal", "viewLayerFlag": "use_pass_normal"},
+    "position": {"socket": "Position", "viewLayerFlag": "use_pass_position"},
+    "depth": {"socket": "Depth", "viewLayerFlag": "use_pass_z"},
+    "uv": {"socket": "UV", "viewLayerFlag": "use_pass_uv"},
+    # IDENTITY -- which surface, which object: the picture bound's router asks `is this pixel
+    # covered` when the question is `WHAT covers it`, and this is the missing predicate.
+    "materialIndex": {"socket": "Material Index", "viewLayerFlag": "use_pass_material_index"},
+    "objectIndex": {"socket": "Object Index", "viewLayerFlag": "use_pass_object_index"},
+    # INPUTS WE UPLOADED -- a disagreement here is a READER defect and not a shading one.
+    "diffuseColour": {"socket": "Diffuse Color", "viewLayerFlag": "use_pass_diffuse_color"},
+    "glossyColour": {"socket": "Glossy Color", "viewLayerFlag": "use_pass_glossy_color"},
+    "transmissionColour": {"socket": "Transmission Color",
+                           "viewLayerFlag": "use_pass_transmission_color"},
+    # TRANSPORT, SPLIT -- the BRDF against the light transport, which is where the residual is.
+    "diffuseDirect": {"socket": "Diffuse Direct", "viewLayerFlag": "use_pass_diffuse_direct"},
+    "diffuseIndirect": {"socket": "Diffuse Indirect", "viewLayerFlag": "use_pass_diffuse_indirect"},
+    "glossyDirect": {"socket": "Glossy Direct", "viewLayerFlag": "use_pass_glossy_direct"},
+    "glossyIndirect": {"socket": "Glossy Indirect", "viewLayerFlag": "use_pass_glossy_indirect"},
+    "transmissionDirect": {"socket": "Transmission Direct",
+                           "viewLayerFlag": "use_pass_transmission_direct"},
+    "transmissionIndirect": {"socket": "Transmission Indirect",
+                             "viewLayerFlag": "use_pass_transmission_indirect"},
+    "emission": {"socket": "Emission", "viewLayerFlag": "use_pass_emit"},
+    "environment": {"socket": "Environment", "viewLayerFlag": "use_pass_environment"},
+    "ambientOcclusion": {"socket": "Ambient Occlusion",
+                         "viewLayerFlag": "use_pass_ambient_occlusion"},
+}
 SEED_SHIFT_RECIPE_NAME = "seed-shift"
 RECIPE_NAME = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
 
@@ -111,7 +154,18 @@ def output_names_for(recipe_name):
     """The float pair a recipe leaves behind: the EXR the score was defined on and the flat f32 dump
     a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's."""
     suffix = "" if recipe_name == DEFAULT_RECIPE_NAME else "." + recipe_name
-    return {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
+    names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
+    # THE QUANTITIES BELONG TO THE DEFAULT RECIPE ONLY, and that is a cost decision with a measured
+    # number behind it: a quantity's raw is an uncompressed f32 plane at 14.75 MB, eighteen of them
+    # is 265 MB per recipe per case, and the OTHER recipes exist to re-render the PICTURE -- the
+    # seed-shift pair proves the beauty is deterministic, the coverage recipe raises its sample
+    # count. Nothing reads a second seed's normal, so nothing writes one.
+    if recipe_name != DEFAULT_RECIPE_NAME:
+        return names
+    for quantity in QUANTITY_PASSES:
+        names[quantity + "Exr"] = "oracle." + quantity + suffix + ".exr"
+        names[quantity + "Raw"] = "oracle." + quantity + suffix + ".raw"
+    return names
 
 
 def _subjects(value):

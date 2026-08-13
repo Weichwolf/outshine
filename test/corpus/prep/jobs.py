@@ -14,7 +14,12 @@ RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
 CONVERT_SCRIPT = os.path.join(HERE, "in_blender_convert.py")
 
 PROVENANCE_NAME = "provenance.json"
-PRODUCTS = ("exr", "raw")
+# THE BEAUTY PAIR PLUS ONE PAIR PER QUANTITY (manifest.QUANTITY_PASSES). The beauty products keep the
+# product names they have always had, so their cache keys are unchanged -- what misses is the QUANTITY
+# keys, which never existed, and a miss on any product re-runs the one render that produces them all.
+PRODUCTS = ("exr", "raw") + tuple(
+    q + suffix for q in manifest_module.QUANTITY_PASSES for suffix in ("Exr", "Raw")
+)
 
 
 def plan(manifest, store):
@@ -229,6 +234,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
         recipe = manifest.renders[name]
         names = manifest_module.output_names_for(name)
         targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
+        products = tuple(names)
         keys = {
             product: derived_key(
                 "oracle." + product,
@@ -246,7 +252,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
                     "product": product,
                 },
             )
-            for product in PRODUCTS
+            for product in products
         }
         stored = all(store.has(key) for key in keys.values())
         placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
@@ -256,7 +262,7 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
             continue
         provenance = None
         if force or not stored:
-            provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store)
+            provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store, products)
         for product in targets:
             store.copy_out(keys[product], targets[product])
         results.append({"recipe": name, "cache": "miss" if provenance else "hit", "keys": keys,
@@ -264,20 +270,24 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
     return results
 
 
-def _run_render(manifest, blender, gltf_paths, recipe, keys, store):
+def _run_render(manifest, blender, gltf_paths, recipe, keys, store, products):
     with tempfile.TemporaryDirectory(prefix="outshine-oracle-") as work:
-        paths = {product: os.path.join(work, "oracle." + product) for product in PRODUCTS}
+        paths = {product: os.path.join(work, "oracle." + product) for product in products}
         job_path = os.path.join(work, "job.json")
         with open(job_path, "w") as f:
             json.dump(
                 {"gltfPaths": gltf_paths, "scene": manifest.scene.as_job(), "recipe": recipe,
                  "exrPath": paths["exr"], "rawPath": paths["raw"],
+                 "quantityPasses": {q: spec for q, spec in manifest_module.QUANTITY_PASSES.items()
+                                    if q + "Raw" in paths},
+                 "quantityPaths": {q: {"exr": paths[q + "Exr"], "raw": paths[q + "Raw"]}
+                                   for q in manifest_module.QUANTITY_PASSES if q + "Raw" in paths},
                  "provenanceOpen": blender_module.PROVENANCE_OPEN,
                  "provenanceClose": blender_module.PROVENANCE_CLOSE},
                 f,
             )
         provenance = blender.run(RENDER_SCRIPT, job_path)
-        for product in PRODUCTS:
+        for product in products:
             if not os.path.isfile(paths[product]):
                 raise Refusal("render " + manifest.id, expected=product + " product", observed="no such file")
             store.keep_file(keys[product], paths[product])

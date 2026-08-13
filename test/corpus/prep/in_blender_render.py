@@ -2,13 +2,21 @@
 
 import json
 import math
+import os
+import shutil
 import struct
 import sys
+import tempfile
 import time
 
 import bpy
 import numpy
 from mathutils import Matrix, Vector
+
+# THE SCRIPT IS HANDED TO BLENDER BY PATH, so its own directory is not on the import path and the
+# reader beside it has no spelling without this line.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import exr  # noqa: E402
 
 # glTF is +Y up and Blender is +Z up, so (x, y, z) -> (x, -z, y). Every declared vector and every
 # declared frame goes through this one map, in one place, and the importer applies the same one.
@@ -849,6 +857,89 @@ RAW_CHANNELS = ("R", "G", "B", "A")
 RAW_TOP_ROW_FIRST = 0
 
 
+def ask_for_quantities(scene, passes, work_directory, recipe):
+    """Turn on the render passes the job asks for and route each to its own EXR.
+
+    ONE FILE-OUTPUT NODE PER QUANTITY. Blender 5.2's node writes OPEN_EXR_MULTILAYER and nothing else
+    -- its format enum has one member and the per-item override is accepted without effect -- so
+    several slots on one node would produce one file of several layers. One node with one slot writes
+    one layer, and `exr.py` reads it either way; the split is what keeps a quantity's file openable
+    by a person as well as by the reader.
+
+    THE BEAUTY PATH IS UNTOUCHED AND THAT IS LOAD-BEARING. This node group writes files and returns
+    nothing -- it has no output node, so `Render Result` is the render itself and not something the
+    compositor rebuilt. Blender 5.2 removed `CompositorNodeComposite`, and leaving that output absent
+    is what keeps the picture out of this path. The caller PROVES it by holding the beauty dump
+    against the one the corpus already carries; a single differing byte stops the round.
+
+    EACH QUANTITY DECLARES ITS OWN SOCKET AND VIEW-LAYER FLAG (manifest.QUANTITY_PASSES), so a third
+    quantity is a row there and not a branch here. Every socket is taken as RGBA whatever it carries,
+    because a one-channel index and a three-channel normal in two formats would be two readers.
+
+    MATERIAL INDICES ARE ASSIGNED HERE, in name order, because `Material Index` reports
+    `material.pass_index` and Blender leaves that at 0 for everything -- an index pass over a scene
+    nobody indexed is a field of zeros that looks like an answer. The mapping goes into provenance,
+    because an index the runner cannot resolve to a material names nothing.
+    """
+    layer = scene.view_layers[0]
+    indexed = {"materials": [], "objects": []}
+    for at, material in enumerate(sorted(bpy.data.materials, key=lambda m: m.name)):
+        material.pass_index = at + 1
+        indexed["materials"].append({"name": material.name, "passIndex": at + 1})
+    # THE OBJECT INDEX NEEDS THE SAME TREATMENT AND MEASURING IT IS WHY IT IS HERE: with only the
+    # materials indexed, the object pass came back ZERO EVERYWHERE and a field of zeros reads as an
+    # answer. That is the failure this table refuses roughness over, so it is not tolerated here.
+    for at, obj in enumerate(sorted(bpy.data.objects, key=lambda o: o.name)):
+        obj.pass_index = at + 1
+        indexed["objects"].append({"name": obj.name, "passIndex": at + 1})
+    for quantity, spec in sorted(passes.items()):
+        setattr(layer, spec["viewLayerFlag"], True)
+
+    tree = bpy.data.node_groups.new("outshine-quantities", "CompositorNodeTree")
+    scene.compositing_node_group = tree
+    layers = tree.nodes.new("CompositorNodeRLayers")
+    layers.scene = scene
+    layers.layer = layer.name
+
+    written = {}
+    for quantity, spec in sorted(passes.items()):
+        socket = spec["socket"]
+        if socket not in layers.outputs:
+            fail("the render layer offers no socket named " + repr(socket) + "; it offers " +
+                 ", ".join(repr(o.name) for o in layers.outputs))
+        output = tree.nodes.new("CompositorNodeOutputFile")
+        output.directory = work_directory
+        output.file_name = quantity
+        output.format.color_mode = "RGBA"
+        output.format.color_depth = "32"
+        output.format.exr_codec = recipe["exrCodec"]
+        output.file_output_items.clear()
+        output.file_output_items.new("RGBA", quantity)
+        tree.links.new(layers.outputs[socket], output.inputs[quantity])
+        written[quantity] = socket
+    return {"indices": indexed, "passes": written}
+
+
+def collect_quantities(work_directory, paths):
+    """Move each slot's frame file to the path the job named, and dump it in the picture's layout.
+
+    A FILE-OUTPUT SLOT NAMES ITS FILE AFTER THE FRAME and this preparer names its products after the
+    quantity, so the rename is not cosmetic: without it the product a cache key was computed for and
+    the file on disk have different names, and the store would publish whichever the glob found.
+    """
+    collected = {}
+    for quantity, target in sorted(paths.items()):
+        candidates = [os.path.join(work_directory, name)
+                      for name in sorted(os.listdir(work_directory))
+                      if name.startswith(quantity) and name.endswith(".exr")]
+        if len(candidates) != 1:
+            fail("the compositor wrote " + str(len(candidates)) + " files for quantity " +
+                 repr(quantity) + " in " + work_directory)
+        os.replace(candidates[0], target["exr"])
+        collected[quantity] = write_raw(target["exr"], target["raw"])
+    return collected
+
+
 def save_products(scene, recipe, exr_path, raw_path):
     image = bpy.data.images["Render Result"]
     settings = scene.render.image_settings
@@ -863,19 +954,25 @@ def save_products(scene, recipe, exr_path, raw_path):
 def write_raw(exr_path, raw_path):
     """The oracle's pixels in a form C++ can read: SDL3 has no EXR reader and none is worth vendoring.
 
-    The samples come back through the EXR rather than through Render Result, which refuses pixel
-    access in background mode.
+    THROUGH OUR OWN READER (`exr.py`) AND NOT THROUGH BLENDER'S. Blender's loader opens a multilayer
+    EXR at `size (0, 0)` -- a file its own compositor wrote -- so every quantity dumped through it
+    came out as a header with no samples. One reader for every product is also what keeps the picture
+    and the quantities in one format: this function is on the BEAUTY path too, and the caller holds
+    its output against the corpus's committed `oracle.raw` to prove the swap changed nothing.
+
+    A LAYER PREFIX IS STRIPPED HERE AND NOWHERE ELSE. A single-layer file from the compositor names
+    its channels `<quantity>.R`; the beauty file names them `R`. The raw layout is the same either
+    way, so the prefix is dropped at the one point that writes the layout.
     """
-    loaded = bpy.data.images.load(exr_path)
-    try:
-        width, height = loaded.size
-        samples = numpy.empty(width * height * len(RAW_CHANNELS), dtype=numpy.float32)
-        loaded.pixels.foreach_get(samples)
-    finally:
-        bpy.data.images.remove(loaded)
-    # Blender hands back the bottom row first; the header declares top row first because that is
-    # what a raster readback on our side produces, and one of the two had to be named.
-    samples = samples.reshape(height, width, len(RAW_CHANNELS))[::-1]
+    width, height, planes = exr.read(exr_path)
+    named = {}
+    for name, plane in planes.items():
+        named[name.rsplit(".", 1)[-1]] = plane
+    missing = [c for c in RAW_CHANNELS if c not in named]
+    if missing:
+        fail(exr_path + ": no channel named " + ", ".join(missing) + "; it carries " +
+             ", ".join(sorted(planes)))
+    samples = numpy.stack([named[c] for c in RAW_CHANNELS], axis=-1).astype(numpy.float32)
 
     names = b"".join(channel.encode("ascii") + b"\0" for channel in RAW_CHANNELS)
     header_bytes = (36 + len(names) + 3) // 4 * 4
@@ -915,6 +1012,8 @@ def main():
     light = build_light(scene, job["scene"]["light"], imported)
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])
+    quantity_work = tempfile.mkdtemp(prefix="outshine-quantities-")
+    quantities = ask_for_quantities(scene, job["quantityPasses"], quantity_work, job["recipe"])
 
     started = time.time()
     result = bpy.ops.render.render(write_still=False)
@@ -922,9 +1021,12 @@ def main():
     if "FINISHED" not in result:
         fail("render returned " + repr(result))
     raw = save_products(scene, job["recipe"], job["exrPath"], job["rawPath"])
+    quantities["collected"] = collect_quantities(quantity_work, job["quantityPaths"])
+    shutil.rmtree(quantity_work, ignore_errors=True)
 
     provenance = {
         "raw": raw,
+        "quantities": quantities,
         "blenderVersion": bpy.app.version_string,
         "blenderBuildHash": bpy.app.build_hash.decode() if isinstance(bpy.app.build_hash, bytes) else str(bpy.app.build_hash),
         "factoryStartup": factory,
