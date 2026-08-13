@@ -9,6 +9,16 @@
 #include "stages/SceneTargets.h"
 
 namespace outshine::Render {
+namespace {
+/* Whether the device is created with the driver's validation enabled. `test/run.sh` builds a second
+ * arm with `-DOUTSHINE_GPU_VALIDATION=1`; every other build gets `false` and the flag costs a
+ * constant fold (board:1123). */
+#ifdef OUTSHINE_GPU_VALIDATION
+constexpr bool kGpuValidation = true;
+#else
+constexpr bool kGpuValidation = false;
+#endif
+} // namespace
 
 namespace {
 
@@ -143,7 +153,15 @@ void Renderer::Init(int width, int height, std::shared_ptr<const RenderPlan> pla
     Log::Error("render", "no_video", {{"msg", SDL_GetError()}});
     return;
   }
-  SDL_GPUDevice *device = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
+  /* THE API-CONTRACT ARM, AND IT IS A BUILD FLAG RATHER THAN A CALL (board:1123). The driver's own
+   * validation is the only instrument in this tree whose domain is the CONTRACT rather than the
+   * picture: a pipeline whose output set disagrees with its pass renders correctly and is undefined,
+   * which is how a pruned attachment passed 118 tests and aborted under one flag. It is compiled in
+   * rather than read from the environment for the reason every other arm is -- the library declares
+   * what it needs from a host and reads nothing behind the host's back -- and it is off in every
+   * build that does not ask, so no shipping frame pays for it. */
+  SDL_GPUDevice *device =
+      SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, kGpuValidation, nullptr);
   if (!device) {
     Log::Error("render", "no_device", {{"msg", SDL_GetError()}});
     return;

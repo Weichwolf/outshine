@@ -47,6 +47,8 @@ OPT=-O2
 
 TIMEOUT_S=120
 ALLOWED_SKIPS=""
+EXTRA_DEFINES=""
+validatedRan=no
 
 # THE EXPECT-FAIL SET, AND IT CARRIES THE COUNT. Inverting on "the test was red" would also invert a
 # crash, a build that fell over, or a test that failed for two reasons instead of one -- which is how
@@ -158,6 +160,17 @@ LayerToolchain() {
 LayerSanitiser() {
   case "$1" in
     render | shader) printf '%s' "-fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -g1" ;;
+    *) printf '%s' "" ;;
+  esac
+}
+
+# WHICH LAYERS GET THE API-CONTRACT ARM, and `frame` is excluded for the reason the sanitiser
+# excludes it: a duration measured through an instrument is not the shipping frame (board:1123). The
+# arm brings a device up with the driver's own validation on, over the SAME cases and the same
+# assets -- it differs from the plain arm only in what it is allowed to NOTICE.
+LayerValidation() {
+  case "$1" in
+    render | shader) printf '%s' "-DOUTSHINE_GPU_VALIDATION=1" ;;
     *) printf '%s' "" ;;
   esac
 }
@@ -306,7 +319,7 @@ BuildGroup() {
     unitObject=$OBJDIR/$(dirname "$unit" | tr / -)-$(basename "$unit" .cpp).o
     if ! UpToDate "$unitObject" "$unit"; then
       # shellcheck disable=SC2086
-      $CXX "$unit" $groupStd $OPT $WARN $SAN -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
+      $CXX "$unit" $groupStd $OPT $WARN $SAN $EXTRA_DEFINES -MMD -MP $groupIncludes -c -o "$unitObject" || return 1
     fi
     OBJECTS="$OBJECTS $unitObject"
   done
@@ -401,7 +414,7 @@ SkipAllowed() {
   return 1
 }
 
-mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/log" || Die "cannot write under $BUILD"
+mkdir -p "$BUILD/obj" "$BUILD/obj-sanitised" "$BUILD/obj-validated" "$BUILD/log" || Die "cannot write under $BUILD"
 SAN=""
 $CXX test/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
@@ -630,12 +643,53 @@ for testSource in $TESTS; do
   export ASAN_OPTIONS UBSAN_OPTIONS
   JudgeEvery "$sanitisedBinary" "~sanitised" yes
   unset ASAN_OPTIONS UBSAN_OPTIONS
+
+  # THE API-CONTRACT ARM (board:1123). Same source, same cases, same assets; the device is created
+  # with the driver's validation enabled, so a pipeline whose output set disagrees with its pass
+  # aborts here instead of rendering correctly and being undefined.
+  validation=$(LayerValidation "$layer")
+  [ -n "$validation" ] || continue
+  before=$(Now)
+  OBJDIR=$BUILD/obj-validated
+  EXTRA_DEFINES=$validation
+  OBJECTS=""
+  built=yes
+  validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
+  : >"$validatedLog"
+  for group in $groups; do
+    BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+  done
+  # DERIVED FROM THE TEST'S ID AND NOT FROM `$binary`, because `RunWithTimeout` assigns `binary` as a
+  # shell global: by this point it holds the SANITISED path, and `$binary.validated` named this arm
+  # `...sanitised.validated` -- a name that says the run carried a sanitiser when it did not. A
+  # measurement whose file name misstates its instrument is the archive defect this tree has already
+  # paid for once (board:1123).
+  validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
+  if [ "$built" = yes ]; then
+    # shellcheck disable=SC2086
+    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $validation -Itest $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
+  fi
+  OBJDIR=$BUILD/obj
+  EXTRA_DEFINES=""
+  if [ "$built" = no ]; then
+    failures=0
+    skips=0
+    verdict=BUILD
+    Record "$id~validated" "$(( $(Now) - before ))"
+    continue
+  fi
+  validatedRan=yes
+  JudgeEvery "$validatedBinary" "~validated" yes
 done
 
 total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
   "$total" "$passed" "$failed" "$timedout" "$signalled" "$unbuilt" "$skipped" "$unprepared" \
   "$(( $(Now) - started ))"
+# WHAT THE API-CONTRACT ARM DOES NOT COVER, printed where its results are, because a green
+# validation arm is not a correctness claim and a later round must not read it as one (board:1123).
+[ "$validatedRan" = yes ] && printf '%s\n' \
+  "~validated is an API-CONTRACT arm: it says the pipelines, passes and resources agree with the driver, and NOTHING about whether the picture is right -- that is render/'s domain and its oracle's"
 [ "$inverted" -gt 0 ] && printf 'expect-fail inverted: %s\n' "$EXPECT_FAIL"
 
 # A SKIP IS RED UNLESS IT WAS DECLARED ON THE COMMAND LINE, AND AN UNPREPARED CASE IS RED WITH NO
