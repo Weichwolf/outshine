@@ -276,10 +276,12 @@ struct LOut { @builtin(position) pos : vec4f, @location(0) uv : vec2f,
   return o;
 }
 
-/* THE ROUGHNESS AND THE METALNESS ARE ARGUMENTS AND NOT READS OF THE ROW, because a normal-mapped
- * surface states both per texel and the untextured arm states both per material -- one function
- * that read the row would force the mapped arm to write the loop over the lights a second time. */
-fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f32) -> vec3f {
+/* THE ROUGHNESS, THE METALNESS AND THE EMITTED RADIANCE ARE ARGUMENTS AND NOT READS OF THE ROW,
+ * because a textured surface states all three per texel and the untextured arm states them per
+ * material -- one function that read the row would force the mapped arm to write the loop over the
+ * lights a second time. */
+fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f32,
+            emitted : vec3f) -> vec3f {
   let v = normalize(-p);
   let a = roughness * roughness;
   let a2 = a * a;
@@ -318,11 +320,14 @@ fn shadeRow(n : vec3f, p : vec3f, albedo : vec3f, metalness : f32, roughness : f
                                    max(dot(n, h), 0.0), max(dot(v, h), 0.0));
     sum = sum + (reflected.diffuse + reflected.specular) * nl * attenuation * light.tint.rgb;
   }
-  return sum + surface.emissive;
+  return sum + emitted;
 }
 
+/* THE ARM WITH NO UV AT ALL, so the emitted radiance can only be the factor: there is no
+ * coordinate to sample an image with, and glTF's emissive is the factor where the material
+ * declares no image. */
 fn shade(n : vec3f, p : vec3f, albedo : vec3f) -> vec3f {
-  return shadeRow(n, p, albedo, surface.metalness, surface.roughness);
+  return shadeRow(n, p, albedo, surface.metalness, surface.roughness, surface.emissive);
 }
 
 /* A DOUBLE-SIDED FACET HIT FROM BEHIND IS LIT BY ITS OTHER FACE, which is what the flip is: the
@@ -363,10 +368,23 @@ fn facing(n : vec3f, front : bool) -> vec3f {
  * feeds both halves of the model and multiplying a shaded result by it would tint the specular
  * lobe of a dielectric, which is a metal's behaviour. */
 static const char *kSubjectLitTexturedWGSL = R"(
+@group(0) @binding(9) var emissiveMap : texture_2d<f32>;
+@group(0) @binding(10) var emissiveSampler : sampler;
+
+/* glTF's EMISSION: `emissiveFactor` TIMES `emissiveTexture` (Specification.adoc:1436), and a slot
+ * that declares no image binds one white texel so that the product is the factor alone. */
+fn emittedAt(uv : vec2f) -> vec3f {
+  return surface.emissive * textureSample(emissiveMap, emissiveSampler, uv).rgb;
+}
+
+fn shadeAt(n : vec3f, p : vec3f, albedo : vec3f, uv : vec2f) -> vec3f {
+  return shadeRow(n, p, albedo, surface.metalness, surface.roughness, emittedAt(uv));
+}
+
 @fragment fn fsLitTextured(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
   let tap = textureSample(colourMap, colourSampler, in.uv);
   var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb * tap.rgb), 1.0);
+  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv), 1.0);
   o.vel = vec2f(kVelStatic);
   return o;
 }
@@ -375,7 +393,7 @@ static const char *kSubjectLitTexturedWGSL = R"(
   let tap = textureSample(colourMap, colourSampler, in.uv);
   if (surface.factor * tap.a < surface.cut) { discard; }
   var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb * tap.rgb), 1.0);
+  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv), 1.0);
   o.vel = vec2f(kVelStatic);
   return o;
 }
@@ -383,7 +401,7 @@ static const char *kSubjectLitTexturedWGSL = R"(
 @fragment fn fsLitBlendedTextured(in : LOut, @builtin(front_facing) front : bool) -> SFrag {
   let tap = textureSample(colourMap, colourSampler, in.uv);
   var o : SFrag;
-  o.col = vec4f(shade(facing(in.n, front), in.p, surface.base.rgb * tap.rgb),
+  o.col = vec4f(shadeAt(facing(in.n, front), in.p, surface.base.rgb * tap.rgb, in.uv),
                 surface.factor * tap.a);
   o.vel = vec2f(kVelStatic);
   return o;
@@ -455,7 +473,7 @@ fn mappedShade(in : MOut, front : bool) -> vec3f {
   let orm = textureSample(metalRoughMap, metalRoughSampler, in.uv);
   let albedo = surface.base.rgb * textureSample(colourMap, colourSampler, in.uv).rgb;
   return shadeRow(mappedNormal(in, front), in.p, albedo,
-                  surface.metalness * orm.b, surface.roughness * orm.g);
+                  surface.metalness * orm.b, surface.roughness * orm.g, emittedAt(in.uv));
 }
 
 @fragment fn fsMapped(in : MOut, @builtin(front_facing) front : bool) -> SFrag {
@@ -554,7 +572,7 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   /* THE BIND GROUP LAYOUT IS WRITTEN DOWN AND NOT DERIVED, because every pipeline must share ONE:
    * an auto-derived layout reflects the entry point's own uses, so the untextured shader would get
    * a two-entry layout and the bind group built for the others would be rejected against it. */
-  wgpu::BindGroupLayoutEntry bindings[9] = {};
+  wgpu::BindGroupLayoutEntry bindings[11] = {};
   bindings[0].binding = 0;
   bindings[0].visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
   bindings[0].buffer.type = wgpu::BufferBindingType::Uniform;
@@ -577,10 +595,10 @@ void SubjectDraw::Configure(const Gpu &gpu) {
   bindings[4].visibility = wgpu::ShaderStage::Fragment;
   bindings[4].buffer.type = wgpu::BufferBindingType::Uniform;
   bindings[4].buffer.minBindingSize = kLightFloats * sizeof(float);
-  /* THE OTHER TWO IMAGES OF ONE SURFACE. They sit in the same group as the colour because a surface
-   * is one thing: three groups would let a draw bind a normal map from one material over a base
-   * colour from another, and there is no draw that wants that. */
-  for (uint32_t at = 0; at < 2; ++at) {
+  /* THE OTHER THREE IMAGES OF ONE SURFACE. They sit in the same group as the colour because a
+   * surface is one thing: four groups would let a draw bind a normal map from one material over a
+   * base colour from another, and there is no draw that wants that. */
+  for (uint32_t at = 0; at < 3; ++at) {
     wgpu::BindGroupLayoutEntry &image = bindings[5 + at * 2];
     image.binding = 5 + at * 2;
     image.visibility = wgpu::ShaderStage::Fragment;
@@ -592,7 +610,7 @@ void SubjectDraw::Configure(const Gpu &gpu) {
     sampler.sampler.type = wgpu::SamplerBindingType::Filtering;
   }
   wgpu::BindGroupLayoutDescriptor bgl{};
-  bgl.entryCount = 9;
+  bgl.entryCount = 11;
   bgl.entries = bindings;
   Layout = Device.CreateBindGroupLayout(&bgl);
   wgpu::PipelineLayoutDescriptor pld{};
@@ -728,6 +746,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Colour = Upload(material.Colour, Transfer::Srgb);
   slot.Normal = Upload(material.Normal, Transfer::Linear);
   slot.MetalRough = Upload(material.MetalRough, Transfer::Linear);
+  slot.Emissive = Upload(material.Emissive, Transfer::Srgb);
 
   const Material &row = material.Row;
   const float surface[kSurfaceFloats] = {
@@ -741,7 +760,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Surface = Device.CreateBuffer(&ad);
   Queue.WriteBuffer(slot.Surface, 0, surface, sizeof surface);
 
-  wgpu::BindGroupEntry entries[9] = {};
+  wgpu::BindGroupEntry entries[11] = {};
   entries[0].binding = 0;
   entries[0].buffer = Uni;
   entries[0].size = kUniFloats * sizeof(float);
@@ -763,9 +782,13 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   entries[7].textureView = slot.MetalRough.View;
   entries[8].binding = 8;
   entries[8].sampler = slot.MetalRough.Sample;
+  entries[9].binding = 9;
+  entries[9].textureView = slot.Emissive.View;
+  entries[10].binding = 10;
+  entries[10].sampler = slot.Emissive.Sample;
   wgpu::BindGroupDescriptor bg{};
   bg.layout = Layout;
-  bg.entryCount = 9;
+  bg.entryCount = 11;
   bg.entries = entries;
   slot.Bind = Device.CreateBindGroup(&bg);
 

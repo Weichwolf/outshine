@@ -1,0 +1,182 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/boom-box",
+  "title": "Khronos BoomBox -- a real metal-rough asset whose stated appearance IS its emissive image",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.12",
+    "I.26.6",
+    "khronos:BoomBox"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "oracleRole": "reference",
+    "says": "A common object with glowing front panel created with Core glTF 2.0.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoomBox/metadata.json",
+    "note": "KHRONOS'S OWN WORDS NAME THE GLOWING FRONT PANEL, AND THAT PANEL IS ONE IMAGE. The material states emissiveFactor [1, 1, 1] and puts the whole of the glow in emissiveTexture, so a renderer that read the factor and not the image emits white over the entire body -- the criterion inverted rather than missed. That is what this case is here to show, and it is readable from the picture: the panel is lit and the rest of the box is not. SUBJECT CLASS IS DERIVED: 0.10820033856560365 of 1280x720 = 99716 px^2 over 6036 triangles counted by the magnitude of their signed area is 16.5 px^2 per triangle over both sides of a closed body, about 8 px^2 on the side facing the camera, so no part of this subject is sub-pixel."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (doc/requirements.md I.26.14). A curved fetched body of 6036 triangles resolves into thousands of distinct lines and no roll makes any of them rational; the acceptance is therefore worst_disagreement_px against the oracle's own filter half-width, which introduces no constant of its own."
+  },
+  "subjects": [
+    {
+      "id": "boom-box",
+      "kind": "gltf",
+      "name": "BoomBox",
+      "entry": "scene.glb",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0"
+      ],
+      "notes": "The binary spelling, so the images travel inside the one file the store is keyed on. A SUPPLIED TANGENT, which is the half of the normal-map question our generator never reaches: `Subject` must not regenerate one, and this asset is where a real exporter's basis crosses.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "BoomBox",
+        "pinnedOn": "2026-04-27",
+        "pinReason": "the corpus's single pin; every Khronos subject in the tree is read at this commit so that one bump moves all of them"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoomBox/glTF-Binary/BoomBox.glb",
+          "sha256": "f8b918445ebdd006768232205a62f5182d2208ca57f84c6ccc084943c0bc8f15",
+          "bytes": 10614184,
+          "as": "scene.glb",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Microsoft",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoomBox/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoomBox/metadata.json",
+          "sha256": "764674e303f3bdbe63ebb1304039543d155348efb3c78e9891aedae2eddf0ad9",
+          "bytes": 723,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Microsoft",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoomBox/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.09449018943548984,
+        0.041984411348865436,
+        0.06616274292959345
+      ],
+      "lookAtM": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.10556569966065435,
+      "clipEndM": 0.13994271361948532,
+      "derivation": "The framing rule of doc/requirements.md I.26.10 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 about the AABB's centre, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE ROLL IS ZERO AND STATED: this subject's silhouette is not rational at any roll, so a roll would be a different draw of the same lottery rather than an exactness argument.",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "sun",
+      "irradianceWPerM2": 3.141592653589793,
+      "directionM": [
+        -0.5,
+        -0.7,
+        -0.5
+      ],
+      "angleRad": 0.0,
+      "estimator": "selected",
+      "colourLinear": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and on a metal-rough asset that is what makes the row decidable at all: a uniform environment delivers the same radiance from every direction, so roughness, metalness and the normal map all stop changing the picture. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE BEAM IS SLANTED OFF THE VIEW AXIS -- the framing rule puts the eye at azimuth 35 deg and elevation 20 deg, and a light down the same axis is a headlight that flattens every form the row is supposed to shape.\n\nESTIMATOR: SELECTED AND NOT DELTA, AND THE REASON IS THE ASSET RATHER THAN THE LIGHT: this subject's material declares an emissiveTexture, so its own surface is a second source in Cycles' light tree and Cycles picks one per shading event. MEASURED between seed 0 and seed 1 under this exact recipe: 55 496 binary colour samples -- one side exactly zero -- over a body whose alpha channel is identical in both, so what flips is the light chosen and never the coverage."
+    },
+    "world": {
+      "kind": "uniform",
+      "colourLinear": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "strength": 0.0,
+      "note": "BLACK, AND THAT IS THE REDUCTION RATHER THAN A LOOK. Blender's factory world is an area source Cycles samples, which at one sample per pixel is a Bernoulli draw rather than a value. With the world at zero the only source left is a light with no area, the estimator has no variance, and the two seeds must agree bit for bit."
+    },
+    "material": {
+      "source": "gltf",
+      "kind": "metal-rough",
+      "note": "THE FILE'S OWN ROW ENTIRE, and it has to be: the subject IS the material stack, and every arm that LOWERS the closure -- a diffuse or an emissive one -- throws away everything but one image. The file states base colour, metallic-roughness, normal and emissive in four images and this arm binds all four.\n\nWHAT THE ORACLE HAS AND WE DO NOT IS VISIBILITY. Cycles traces a shadow ray per shading event, so its render of this asset carries the body's own shadow; `render/stages/SubjectDraw.h` states in its own words that neither arm computes visibility, so ours does not. THAT DIFFERENCE IS IN THE PICTURE AND IT IS NOT A TOLERANCE: this case is `self-describing`, the image residual is printed and decides nothing, and what is judged is the placement exactly and the appearance by eye."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same coverage predicate a centre-sampling rasteriser does. The only source is a light with no area over a world of strength zero, so the estimator has no variance left and the two seeds must agree bit for bit."
+    }
+  },
+  "notes": "KHRONOS'S OWN WORDS NAME THE GLOWING FRONT PANEL, AND THAT PANEL IS ONE IMAGE. The material states emissiveFactor [1, 1, 1] and puts the whole of the glow in emissiveTexture, so a renderer that read the factor and not the image emits white over the entire body -- the criterion inverted rather than missed. That is what this case is here to show, and it is readable from the picture: the panel is lit and the rest of the box is not. SUBJECT CLASS IS DERIVED: 0.10820033856560365 of 1280x720 = 99716 px^2 over 6036 triangles counted by the magnitude of their signed area is 16.5 px^2 per triangle over both sides of a closed body, about 8 px^2 on the side facing the camera, so no part of this subject is sub-pixel.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.10820033856560365,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 6036 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
+      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too and this number is about twice the silhouette."
+    }
+  }
+}

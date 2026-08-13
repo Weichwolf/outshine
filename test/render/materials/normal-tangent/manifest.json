@@ -164,12 +164,13 @@
         -1.0
       ],
       "angleRad": 0.0,
+      "estimator": "delta",
       "colourLinear": [
         1.0,
         1.0,
         1.0
       ],
-      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and that is what makes a normal map decidable at all: an environment delivers the same radiance from every direction, so a Lambertian facet returns rho*L whichever way it faces and a normal map changes NOTHING. The asset's own README asks for an environment with a horizon, which is an image-based lighting integral and is exactly the oracle doc/requirements.md I.26.13 refuses; one direction carries the same information about the basis with no integral at all. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE DIRECTION IS SLANTED TOWARDS -x AND -y so that what shadows the test quads cast is cast AWAY from the neighbouring cell: at 0.35 per unit of depth the 0.0805 m tallest body casts 0.028 m, against a 0.1 m gap to the next cell's geometry."
+      "note": "A DELTA LIGHT AND NOT AN ENVIRONMENT, and that is what makes a normal map decidable at all: an environment delivers the same radiance from every direction, so a Lambertian facet returns rho*L whichever way it faces and a normal map changes NOTHING. The asset's own README asks for an environment with a horizon, which is an image-based lighting integral and is exactly the oracle doc/requirements.md I.26.13 refuses; one direction carries the same information about the basis with no integral at all. IRRADIANCE pi W/m^2 IS DERIVED AND NOT CHOSEN: a Lambertian white facet facing the beam returns rho*E/pi = 1, so the picture is scene-referred around unity and no exposure decides whether it is legible. THE ANGULAR DIAMETER IS ZERO AND THE RUNNER REFUSES ANYTHING ELSE -- a sun with an angle is a disc, which is an area source, an estimator in the oracle and a soft terminator no punctual light draws. THE DIRECTION IS SLANTED TOWARDS -x AND -y so that what shadows the test quads cast is cast AWAY from the neighbouring cell: at 0.35 per unit of depth the 0.0805 m tallest body casts 0.028 m, against a 0.1 m gap to the next cell's geometry.\n\nESTIMATOR: The only source is this sun: the subject's own material declares no emissive socket, so nothing else enters Cycles' light tree and the two seeds must agree bit for bit."
     },
     "world": {
       "kind": "uniform",

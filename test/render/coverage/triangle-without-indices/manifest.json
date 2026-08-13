@@ -1,0 +1,179 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/coverage/triangle-without-indices",
+  "title": "A primitive with no `indices` at all -- the one glTF spelling in which a vertex run IS the triangle list",
+  "covers": [
+    "I.26",
+    "I.26.1",
+    "I.26.5",
+    "I.26.10",
+    "I.26.6",
+    "khronos:TriangleWithoutIndices"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "The simplest possible glTF asset: A single scene with a single node and a single mesh with a single mesh.primitive with a single triangle with a single attribute, without indices and without a material",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/README.md",
+    "note": "doc/requirements.md I.26.6 lists non-indexed among four capabilities that CROSS THE READER UNTESTED -- 'four primitives in the fixture carry no indices and nothing asserts Indices == -1'. This is the named corpus asset that section's closing line requires for it, and the capability is proven by a picture rather than by an assertion about a field."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "exact",
+    "because": "THE SUBJECT IS GEOMETRICALLY IDENTICAL TO KHRONOS'S `Triangle`, SO THE CONSTRUCTION IS THE ONE ALREADY IN THE TREE AND NOT A SECOND ONE. Both files carry the POSITION accessor (0,0,0), (1,0,0), (0,1,0) -- verified byte for byte against Triangle.bin at this same pin -- and they differ in exactly one thing, which is that this one states no `indices`. The camera is therefore `render/coverage/fetched-triangle`'s verbatim, and so is every number the construction turns on: fronto-parallel, rolled by -arctan(1/2) so the three edges take raster slopes -1/2, 2 and 1/3, and scaled to s = 352.1 px per unit so that 5s = 1/2 (mod 1) puts all three edge constants at half a lattice step (doc/requirements.md I.26.14). Margins 0.223606797749979, 0.223606797749979 and 0.158113883008419 px, each equal to its own ceiling. REUSING THE CAMERA IS WHAT MAKES THE CASE A ONE-VARIABLE EXPERIMENT: two subjects, one placement, and the only difference between the two renders that can exist is the index spelling."
+  },
+  "subjects": [
+    {
+      "id": "triangle-without-indices",
+      "kind": "gltf",
+      "name": "TriangleWithoutIndices",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION"
+      ],
+      "notes": "No `indices` and no NORMAL. Coverage is decided from Cycles' alpha on the oracle side and from depth != far on ours, so the comparison reads no normal at either end and none is derived. The vertex run is the triangle list in file order, which is the whole capability this asset carries.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "TriangleWithoutIndices",
+        "pinnedOn": "2026-04-27",
+        "pinReason": "the corpus's single pin; every Khronos subject in the tree is read at this commit so that one bump moves all of them"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/glTF/TriangleWithoutIndices.gltf",
+          "sha256": "b273d61fdbde2b2cd3aeadaae524776a9703c8354d5dfb5fd0da636724c4a62c",
+          "bytes": 747,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/glTF/TriangleWithoutIndices.bin",
+          "sha256": "d8b87038ed2ace74ed183166f6b0a541eab77f7184d50e65edc4bca5ccb5445a",
+          "bytes": 36,
+          "as": "TriangleWithoutIndices.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/metadata.json",
+          "sha256": "c5d32faedda3c580d54b080b346a2a422fe1b634badc7f89a29b27ad288bd40d",
+          "bytes": 919,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC0-1.0",
+            "holder": "Marco Hutter (https://github.com/javagl/)",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/TriangleWithoutIndices/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.40045441635898893,
+        0.3004828173814257,
+        1.9051985039759638
+      ],
+      "lookAtM": [
+        0.40045441635898893,
+        0.3004828173814257,
+        0.0
+      ],
+      "rollRad": -0.46364760900080615,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 0.1,
+      "clipEndM": 100.0,
+      "derivation": "IDENTICAL TO `render/coverage/fetched-triangle`'S, BECAUSE THE SUBJECT IS IDENTICAL. Khronos states the same three vertices in both models -- (0,0,0), (1,0,0), (0,1,0) -- and the only difference is that this file states no `indices`, which moves no vertex. yfov = 2*atan((24/2)/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL. roll = -arctan(1/2) = -26.5650511771 deg, and the SIGN is a measurement rather than a preference: a camera roll of +r turns the camera's right vector towards its up vector, so the image of the world rotates by -r. At this roll the three edges have raster slopes 1/2, 2 and 1/3, and for a slope p/q in lowest terms the distance from EVERY pixel centre in the plane to the line p*X - q*Y = c is |c - round(c)| / sqrt(p^2+q^2). The maxima 0.5/sqrt(5), 0.5/sqrt(5) and 0.5/sqrt(10) are reached where all three constants sit at half a lattice step, and with s = k/sqrt(5) the three constants satisfy (V0V1) + (V1V2) - (V0V2) = 5s identically, so half-lattice on all three needs 5s = 1/2 (mod 1). s = 352.1 satisfies it, which is k = 352.1*sqrt(5) = 787.31953487767601 px per unit; the aim puts the first vertex at pixel (0.3, 0.1) modulo 1 and the three corners land at (463.3, 712.1), (1167.5, 360.0) and (111.2, 7.9), all inside 1280x720. Distance 1.9051985039759638 m is (720/2) / (0.24 * k), the depth at which one unit subtends k px. THE RUNNER RECOMPUTES BOTH CONDITIONS from the fetched vertices rather than trusting this paragraph.",
+      "note": "The glTF carries no camera, so it is declared here. It is the fetched-triangle camera unchanged and deliberately so: with the placement held fixed, the render is a function of the index spelling alone."
+    },
+    "light": {
+      "kind": "none",
+      "note": "A coverage case compares a mask. The only illumination is Blender's factory world, which costs nothing to match and is left where it is."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "diffuse",
+      "colourLinear": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "note": "Diffuse BSDF with Roughness pinned to 0, never Principled: Principled at metallic 0 still carries a specular lobe at IOR 1.5. This subject is a single unoccluded facet, which is the one shape where Cycles has no integration left and the answer is the closed form rho*L = 0.8 x 0.05087608844041824 = 0.0407008707523346 (doc/requirements.md I.26.13)."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    }
+  },
+  "notes": "WHAT THIS ASSET IS FOR HERE IS THE ONE THING IT DOES NOT CARRY. `fetched-triangle` already renders the indexed spelling of these three vertices at this camera; this case renders the non-indexed spelling of the same three at the same camera, so a difference between the two directories has exactly one possible cause. glTF states that a primitive without `indices` draws its vertices in file order (Specification.adoc, 'Meshes'), and until this case existed that path crossed the reader with nothing asserting it (doc/requirements.md I.26.6).",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.33630211046006947,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the projected area of the subject's triangle over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices; exact because the subject is a plane perpendicular to the optical axis, so its perspective image is a similarity and the area is (1/2) * k^2 / (1280*720) at k = 352.1*sqrt(5) px per unit. It is `fetched-triangle`'s number to the last digit, which is the check that the two subjects really are one geometry.",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so. The runner recomputes this and refuses a mismatch."
+    }
+  }
+}

@@ -129,13 +129,18 @@ struct SubjectMaterial {
    * coverage factor kept as its own float was already a second copy of `BaseColour[3]`. */
   Material Row;
   SubjectTexture Colour;
-  /* THE OTHER TWO IMAGES glTF PUTS ON ONE SURFACE, named rather than indexed: the mistake a table of
-   * three would spell is binding the normal map where the colour goes, and a name cannot spell it.
+  /* THE OTHER THREE IMAGES glTF PUTS ON ONE SURFACE, named rather than indexed: the mistake a table
+   * of four would spell is binding the normal map where the colour goes, and a name cannot spell it.
    *
-   * NEITHER OF THESE CARRIES THE sRGB TRANSFER AND THE COLOUR DOES, which is glTF's own rule and is
-   * why the three are separate fields rather than one array with a flag: the transfer is a property
-   * of WHICH SOCKET the image sits in, so a slot whose normal map was decoded as colour has no
+   * THE TRANSFER IS A PROPERTY OF WHICH SOCKET AN IMAGE SITS IN, which is why these are separate
+   * fields rather than one array with a flag: `Emissive` carries the sRGB transfer exactly as the
+   * colour does and the other two do not, so a slot whose normal map was decoded as colour has no
    * spelling here.
+   *
+   * `Emissive` IS THE FILE'S `emissiveTexture`, and its absence was a WRONG PICTURE rather than a
+   * missing feature: glTF multiplies `emissiveFactor` by it, `BoomBox`, `Lantern` and `WaterBottle`
+   * all state that factor as `[1, 1, 1]`, and a surface that dropped the image emitted the factor
+   * over its whole area -- a body uniformly glowing white where the asset draws one lit panel.
    *
    * `MetalRough` IS THE FILE'S `metallicRoughnessTexture`, green for roughness and blue for
    * metalness. It is here because the alternative is not "one image fewer" but a WRONG PICTURE:
@@ -145,6 +150,7 @@ struct SubjectMaterial {
    * had no normal map at all. */
   SubjectTexture Normal;
   SubjectTexture MetalRough;
+  SubjectTexture Emissive;
   /* glTF's `normalTexture.scale`, which multiplies the sampled tangent-space x and y only
    * (Specification.adoc:1416) -- so 0 is a flat surface and 1 is the map as it was baked. */
   float NormalScale = 1.0f;
@@ -220,8 +226,8 @@ private:
    * `Samplers` and a `std::vector<bool>` of cull modes: a slot appended to four of them was a
    * mismatch nothing could catch until an encoder read past the end of the short one, and the
    * bool proxy specialisation (`SL.con.2`) meant the cull run alone had no address to take. */
-  /* ONE IMAGE AS THE DEVICE HOLDS IT. Three of these sit in a slot, and they are one type rather
-   * than nine members with a prefix each: the five parallel runs this struct replaced are the same
+  /* ONE IMAGE AS THE DEVICE HOLDS IT. Four of these sit in a slot, and they are one type rather
+   * than twelve members with a prefix each: the five parallel runs this struct replaced are the same
    * defect one level up. */
   struct BoundImage {
     wgpu::Texture Image;
@@ -233,6 +239,7 @@ private:
     BoundImage Colour;
     BoundImage Normal;
     BoundImage MetalRough;
+    BoundImage Emissive;
     /* The slot's own surface row: the coverage factor and the mask cutoff both arms read, and the
      * metal-rough row the lit arm shades with. Per SLOT because glTF states all of them per
      * material, and `AlphaBlendModeTest` renders three cutoffs in one file. */
@@ -242,7 +249,7 @@ private:
     bool CullsBack = true;
   };
 
-  /* One slot's three images, its surface uniform and its bind group, appended to the table. */
+  /* One slot's four images, its surface uniform and its bind group, appended to the table. */
   void BindSurface(const SubjectMaterial &material);
   /* One image on the device. `Decode` says whether the three colour channels carry the sRGB
    * transfer, which is glTF's per-socket rule and never a per-image guess. */

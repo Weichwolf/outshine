@@ -454,7 +454,8 @@
             "estimator": {
               "enum": [
                 "delta",
-                "selected"
+                "selected",
+                "filter-sample"
               ]
             }
           },
@@ -468,11 +469,19 @@
             "irradianceWPerM2": "number",
             "directionM": "vector3",
             "angleRad": "number",
+            "estimator": {
+              "enum": [
+                "delta",
+                "selected",
+                "filter-sample"
+              ]
+            },
             "colourLinear": "vector3"
           },
           "optional": {
             "note": "string"
-          }
+          },
+          "note": "MEASURED at Blender 5.2.0, 1280x720, 1 spp, box filter 0.01, black world, zero bounces, one sun of angular diameter zero, over four Khronos assets under one declaration. Cycles is bit-reproducible run to run at a fixed seed -- checked, 0 of 3 686 400 samples -- so every number below is the seed and nothing else. BoomBox 55 496 BINARY colour samples between seeds, Lantern 22 120, WaterBottle 67 578: all three declare an emissiveTexture and all three have an identical alpha channel, so what flips is the light chosen and never the coverage. Corset declares no emissive socket and has 0 binary samples and 107 of 2 764 800 apart at a relative 1.1e-07 median over 39 pixels, none of which touches a coverage boundary -- that is the pixel filter's own sample position, not a light. A sun's `angleRad` therefore answers a question about the LIGHT and this field answers one about the SCENE."
         },
         "point": {
           "required": {
@@ -486,7 +495,7 @@
           }
         }
       },
-      "note": "\"gltf\" IS THE ARM WHERE THE LIGHT CROSSES THE BOUNDARY, and it narrows the refusal rather than overturning it (doc/requirements.md I.26.12): `DirectionalLight` and `PointLightIntensityTest` state their criteria IN TERMS OF the light in the file, so declaring it beside the asset would measure our transcription and not the asset. For every other case the light is declared here and whatever crossed is deleted."
+      "note": "WHICH ESTIMATOR THE ORACLE STILL HAS, and `delta` is the claim that it has none: one source with no area, nothing else in Cycles' light tree, and two seeds that must agree bit for bit. THE OTHER TWO NAME WHAT SURVIVED, each with its measurement beside it in the case's own note. `selected` -- more than one sampled source, so Cycles picks ONE per shading event and which one is the seed's business; an EMISSIVE SURFACE is such a source, which is why this is not a question about the lights a scene declares. `filter-sample` -- one source and no emitter, but the single sample's position inside the pixel is still the seed's, so a surface whose shading varies across the footprint moves with it."
     },
     "world": {
       "discriminator": "kind",

@@ -85,6 +85,7 @@ struct SurfaceRasters {
   outshine::Clients::Raster Colour;
   outshine::Clients::Raster Normal;
   outshine::Clients::Raster MetalRough;
+  outshine::Clients::Raster Emissive;
 };
 
 struct SurfaceTable {
@@ -500,13 +501,13 @@ public:
   if (subject.Lights == SceneLights::DeclaredSun && !ReadDeclaredSun(light, subject.Sun, error)) {
     return false;
   }
-  /* WHETHER THE ORACLE STILL HAS AN ESTIMATOR IS DECLARED ON THE FILE'S ARM AND DERIVED ON THE
-   * SUN'S: the `gltf` arm cannot tell how many delta lights a file carries without reading it, while
-   * a declared sun is exactly one source and `ReadDeclaredSun` has already refused it an area. Two
-   * declarations of one fact would drift the moment one of them was measured. */
-  subject.DeltaLit = subject.Lights == SceneLights::DeclaredSun
-                         ? true
-                         : light["estimator"].StrEquals("delta");
+  /* WHETHER THE ORACLE STILL HAS AN ESTIMATOR IS DECLARED, ON BOTH ARMS AND IN ONE SPELLING. It
+   * used to be derived on the sun's arm -- "a declared sun is exactly one source and it has already
+   * been refused an area" -- and that argument is about the LIGHT where the question is about the
+   * SCENE: Cycles samples emissive geometry through the same light tree, so a subject whose own
+   * material emits is a second source the light declaration cannot see. The measurement that
+   * refuted it stands in the schema beside the field. */
+  subject.DeltaLit = light["estimator"].StrEquals("delta");
   /* THE ENVIRONMENT AS A RADIANCE, per channel, and the two arms are the two ways a case can state
    * one. `factory` is Blender's own and its number is not the manifest's to restate; `uniform` is
    * the arm a case takes to REMOVE the environment, and the only value in the tree today is zero --
@@ -625,22 +626,29 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
  * failed to load draws the factor alone -- a flat colour that looks exactly like a material somebody
  * authored that way.
  *
- * THE COLOUR IMAGE AND THE COVERAGE IMAGE ARE ONE BINDING, AND WHERE THAT IS A LIE THE CASE IS
- * REFUSED. glTF takes the picture's colour from whichever socket the case names and its coverage
- * always from `baseColorTexture`; the subject draw samples ONE image and reads its rgb as colour and
- * its alpha as coverage. Under the base-colour arm those are the same image by construction. Under
- * the emissive arm they are the same image only where the asset happens to name one texture for
- * both -- `TextureLinearInterpolationTest`'s label plate does -- so anything else stops here by
- * name. The missing capability is a second image binding, and this refusal is what states it.
+ * ON THE SOCKET ARMS THE COLOUR IMAGE AND THE COVERAGE IMAGE ARE ONE BINDING, AND WHERE THAT IS A
+ * LIE THE CASE IS REFUSED. Those arms REPLACE the closure with a single emitter or a Diffuse BSDF
+ * whose whole appearance is one image, and the subject draw's `Colour` slot is that image: its rgb
+ * is the colour and its alpha is the coverage. glTF, though, takes coverage always from
+ * `baseColorTexture` whichever socket the picture comes from. Under the base-colour arm the two are
+ * the same image by construction; under the emissive arm they are the same image only where the
+ * asset happens to name one texture for both -- `TextureLinearInterpolationTest`'s label plate does
+ * -- so anything else stops here by name. THIS IS A PROPERTY OF THE LOWERED ARMS AND NOT OF THE
+ * SURFACE: the `gltf` arm below binds four of the file's images at once.
  */
-/* ONE OF THE FILE'S LINEAR MAPS INTO ONE SURFACE SLOT. It is a different function from the colour
- * one because it is a different question: there is no alpha, no coverage and no transfer to decide,
- * and a socket that declares nothing is an ordinary material rather than a refusal -- glTF's
- * defaults are the factors, and white is what the shader multiplies by when no image is bound. */
-[[nodiscard]] bool ReadLinearMap(const Document &file, const outshine::Gltf::MaterialRef &material,
-                                 const outshine::Gltf::TextureRef &declared, const char *socket,
-                                 outshine::Clients::Raster &raster,
-                                 outshine::Render::SubjectTexture &bound, std::string &error) {
+/* ONE OF THE FILE'S OWN MAPS INTO ONE SURFACE SLOT, WHICHEVER SOCKET IT SITS IN. It is a different
+ * function from the colour one because it is a different question: there is no alpha and no coverage
+ * to decide, and a socket that declares nothing is an ordinary material rather than a refusal --
+ * glTF's defaults are the factors, and white is what the shader multiplies by when no image is bound.
+ *
+ * THE sRGB TRANSFER IS NOT DECIDED HERE AND CANNOT BE. What crosses is the file's RGBA8 texels; which
+ * of them carry the transfer is a property of the socket, and `SubjectDraw::Upload` is where the
+ * socket is named. A `Linear` in this function's name was true of the two maps it had and would be a
+ * lie about the third (`NL.1`). */
+[[nodiscard]] bool ReadSocketImage(const Document &file, const outshine::Gltf::MaterialRef &material,
+                                   const outshine::Gltf::TextureRef &declared, const char *socket,
+                                   outshine::Clients::Raster &raster,
+                                   outshine::Render::SubjectTexture &bound, std::string &error) {
   if (!declared.Declared()) { return true; }
   if (declared.TexCoord != 0) {
     error = std::string("material '") + material.Name + "' reads its " + socket + " from TEXCOORD_" +
@@ -728,10 +736,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     ++textured;
   }
 
-  /* THE TWO LINEAR MAPS, AND ONLY UNDER THE ARM THAT SHADES WITH THE FILE'S OWN ROW. The other two
+  /* THE OTHER THREE MAPS, AND ONLY UNDER THE ARM THAT SHADES WITH THE FILE'S OWN ROW. The other two
    * arms REPLACE the closure -- a diffuse or an emissive one -- so a normal map they decoded would
    * be an image nothing reads, and `SciFiHelmet` says so in its own manifest rather than binding
-   * one silently. */
+   * one silently.
+   *
+   * THE EMISSIVE IMAGE IS HERE AND NOT WITH THE COLOUR, because under THIS arm it is not the colour:
+   * `emissiveFactor * emissiveTexture` is a radiance added to what the BRDF returns, and the socket
+   * arms above take the emissive INSTEAD of the closure. `BoomBox`, `Lantern` and `WaterBottle` all
+   * state `emissiveFactor` as `[1, 1, 1]` and put the whole picture of the glow in the image, so a
+   * row read without it emits white over the entire body. */
   if (channel == FileColour::Row) {
     for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
       const int index = table.Material[slot];
@@ -747,9 +761,11 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
           {material.Normal, "normalTexture", table.Decoded[slot].Normal, table.Slots[slot].Normal},
           {material.MetallicRoughness, "metallicRoughnessTexture", table.Decoded[slot].MetalRough,
            table.Slots[slot].MetalRough},
+          {material.Emissive, "emissiveTexture", table.Decoded[slot].Emissive,
+           table.Slots[slot].Emissive},
       };
       for (const auto &map : maps) {
-        if (!ReadLinearMap(file, material, map.Declared, map.Socket, map.Into, map.Bound, error)) {
+        if (!ReadSocketImage(file, material, map.Declared, map.Socket, map.Into, map.Bound, error)) {
           return false;
         }
       }
@@ -1546,15 +1562,25 @@ int main(int argc, char **argv) {
                      Direction::Reported});
   metrics.push_back({"subject_surfaces", (double)subject.Surfaces.Slots.size(), 0.0, "slots",
                      Direction::Reported});
-  metrics.push_back({"coverage_fraction_outshine", ours.Fraction(),
-                     subject.Accepted.CoverageFractionMin, "dimensionless", Direction::AtLeast});
-  metrics.push_back({"coverage_fraction_oracle", theirs.Fraction(),
-                     subject.Accepted.CoverageFractionMin, "dimensionless", Direction::AtLeast});
-
   /* NEITHER SIDE MAY BE DEGENERATE AND NO SCORE IS COMPUTED UNTIL BOTH ARE NOT. This is the guard,
    * and it is placed here rather than reported afterwards precisely so that the agreement numbers
-   * over two empty masks are never printed at all. */
-  const bool bothPresent = metrics[0].Held() && metrics[1].Held();
+   * over two empty masks are never printed at all.
+   *
+   * THE GUARD READS THE TWO METRICS BY NAME AND NOT BY POSITION. It used to ask `metrics[0]` and
+   * `metrics[1]`, which were the two coverage fractions when it was written; four metrics have since
+   * been inserted ahead of them, so it was reading the seed check and the draw count, and a case
+   * whose oracle merely had an estimator left was refused as "a side of the comparison is empty"
+   * with 44 950 covered pixels on one side and 44 998 on the other. Naming the two objects is what
+   * makes the drift unspellable rather than caught. */
+  const Metric coverageOurs{"coverage_fraction_outshine", ours.Fraction(),
+                            subject.Accepted.CoverageFractionMin, "dimensionless",
+                            Direction::AtLeast};
+  const Metric coverageTheirs{"coverage_fraction_oracle", theirs.Fraction(),
+                              subject.Accepted.CoverageFractionMin, "dimensionless",
+                              Direction::AtLeast};
+  metrics.push_back(coverageOurs);
+  metrics.push_back(coverageTheirs);
+  const bool bothPresent = coverageOurs.Held() && coverageTheirs.Held();
   if (!bothPresent) {
     Print(metrics);
     CHECK(bothPresent,
