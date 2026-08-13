@@ -55,6 +55,56 @@ Galio odorati-Fagetum and Arrhenatheretum elatioris species lists for the herb a
 
 ---
 
+## The board migration — measured, and the split is three ways rather than two
+
+*Owner, 2026-08-13: **"What about splitting `requirements.md` into `./board/{open,active,closed}/id_task.md`?
+`todo.md` is then converted to active tasks — in its current form `requirements.md` is a token burner."**
+Amended mid-round: **"No index. A curl-friendly file with header."** Designed here, executed by a
+developer round — it touches 454 citations and the harness test that checks them.*
+
+### The counts, measured over this file rather than estimated
+
+| kind | sections | lines | boxed | ticked | open |
+|---|---|---|---|---|---|
+| **work** — a thing to build | ~101 | 2 614 | 1 239 | 236 | 1 003 |
+| **law** — a rule that governs future work | 37 | **698** | 297 | 69 | 228 |
+| **declared data wearing checkboxes** | 41 | 1 041 | **845** | 55 | 790 |
+| | | **4 183** | **2 381** | 360 | 2 021 |
+
+- [x] **The two-way split does not survive its own numbers, and the third kind is the largest surprise: 845 boxed lines are DATA, not work.** Band III/IV/V enumerations — species by growth form, building types by use, roof forms, crop rows — cited against no file and pickable by nobody. **A species name is not a task.** They belong beside `src/assets/world/species/` as declared tables, with **one** task per table saying *the generator shapes every form in it*
+- [x] **And the law/work line is not clean, measured two ways.** **282 of 360 ticked lines carry no file path** — against this document's own rule that *a ticked line names the file that implements it* — so they are findings, rulings and measurements ticked to mean **recorded**, never **built**. A tick that cannot mean *built* is a box on something that is not work
+- [ ] **So the migration is three destinations, not three states**: `board/` takes the **work**, one file per **deliverable**; the **law** becomes one document; the **data** becomes declared tables. *The 845 and the 282 overlap and both are the same mistake — a checkbox on a thing that has no done*
+
+### The law document stays its own file, and the number decides it
+
+- [x] **698 lines measured. `CLAUDE.md` is 424 and capped at 1 000, so folding law in gives 1 121 — over its own cap.** It stays separate, and the cap is what settles it rather than taste
+- [ ] **And it is not a rules list: it is rules WITH THEIR DERIVATIONS**, which is why it is 698 and not 250. The 6.435-code sampler term, `γₙ`, the counting rule's `2 + k ≥ E`, the quadric-is-not-a-distance argument — **a rule separated from the measurement that earned it is a rule the next round re-litigates**
+
+### The header: what a task carries, and what it must not
+
+- [ ] **A task file is self-describing — fetching one tells you everything about it without opening a second.** Fields: **`id`** · **`title`** · **`implements`** (the file, filled when known) · **`holds`** (the test) · **`band`** (the argument it came from) · **`depends`** (task ids) · **`law`** (which rules govern it). **Seven, and three are machine-checkable**
+- [ ] **`state` is NOT a field. The directory is the state**, and a `state:` line beside a `board/active/` path is one fact in two places that will disagree the first time a file moves and the header does not
+- [x] **But the rule is *no MUTABLE fact from the path*, not *no fact from the path* — and the distinction matters because `id` is in the filename too.** `id` never changes, so the two copies cannot diverge; `state` changes, so they will. **Duplication is a defect only when the copies can drift**
+- [ ] **No test result, no `passing:`, no status — and this is the same defect as this week's Band 1 finding.** A catalogue row claimed a capability the implementation no longer had; **a header recording a passing test is a capability claim decoupled from its evidence**, and nobody re-checks it. *Anything derivable from the tree belongs to the harness*
+- [ ] **No `priority`, no `owner`, no dates, no estimate.** git carries authorship and time; **`doc/todo.md`'s failure was a hand-maintained ordering**, and a priority field is that failure with 2 381 rows. **What expresses priority is that `active/` is small**
+
+### The transition is `git mv` — with one half replaced
+
+- [x] **`open → active → closed` is a rename, the commit is the record, and a diff is stronger than a rule a document states.** Confirmed
+- [ ] **`closed → open` is REFUSED as a move, and this replaces the other half.** A reopen destroys the record that the task was once done — **and that it was done and then regressed is information**. A regression is a **new task citing the closed id**, so history survives and *regression becomes countable*: closed tasks with a successor citing them
+- [ ] **A closed task file is immutable.** The move in is the last edit it takes
+
+### The citation test grows one class, and one new invariant falls out
+
+- [ ] **`test/harness/EveryPathCitedInADocumentResolves.cpp` reads `board/**` and the law document as well as `doc/`** — 454 citations are clean today and must stay so across the move
+- [ ] **Task-cites-task is a new class and it is allowed for DEPENDENCY only**, resolved by id: the id names exactly one file across the three directories, or the run is red
+- [ ] **And the directory makes a new invariant checkable for free: a `closed` task may not depend on an `open` one.** *Something shipped cannot rest on something unbuilt, and today nothing could even ask the question*
+
+### What is lost, stated plainly
+
+- [x] **The reading ORDER, and the law document only partly recovers it.** § I.26.14, § I.26.15 and § I.26.16 are one argument about how a case is judged; split, the rules survive in one file and the worked examples travel with their tasks. **What does not survive is that rule B was written because rule A was broken** — which is how half of this week's rulings are understood
+- [ ] **The `law` header field is the partial recovery** — it points a task at the rules governing it — and it is honestly partial: it restores *which rules apply*, never *why they were written in that order*
+
 ## Band 0 — Residency
 
 *Added at the owner's request, 2026-08-11, ahead of the engine band: the session
