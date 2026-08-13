@@ -21,10 +21,27 @@ The frame map is validated — Blender `(x,y,z)` → glTF `(x, z, −y)`, unit l
 ulp**, residual tilt **0.3174°** derived from the normal texture's own 8-bit quantisation, which is
 13×–32× below the effect.
 
-**The value must come from the shading point, not a reconstruction.** It is the return of
-`mappedNormal(...)` passed inline at `src/render/stages/SubjectDraw.cpp:529` and never stored; a
-recomputed normal can agree with Cycles perfectly while the shader uses something else. Reading it needs
-a fourth colour attachment, which is why this depends on the plan pruning.
+**There is no single value to read back, and that is the finding rather than an obstacle.** Measured
+across the fifteen fragment entry points: the **lit** arm passes `facing(in.n, front)` inline at **6**
+call sites, the **mapped** arm passes `mappedNormal(...)` at **1**, and the emissive entry points compute
+no normal at all. None is stored. So *the normal the BRDF received* is two expressions over seven sites,
+and `SubjectDraw.cpp:529` is the mapped arm only — the lit arm is the more common path.
+
+**The repair is `board:1121`'s shape one level in: the normal becomes a named local at each arm**, bound
+once, passed to `shadeRow` and written to the attachment from that same local — so the two are the same
+value by construction rather than by inspection. **Recomputing it in the fragment to write it out is the
+reconstruction this item forbids**, and with two expressions in play it is likelier wrong than right.
+
+**Two points settled while sizing.** The `Contributes` entry goes on `Subjects` **alone** — only its
+shader can write it, and a stage contributing a target its shader does not write *is* the `board:1121`
+defect; pass merging requires identical `Contributes` sets, so this is safe by construction. And **the
+colour index is spliced, never fixed**: attachment order follows `Contributes` through the prune, so the
+normal is `color(2)` when velocity is attached and `color(1)` when it is pruned. Capacity is fine —
+`kMaxEdges` is 8 and the geometry rows use 3.
+
+**Its verification needs the corpus's `normal` channel**, so `test/corpus/prep/manifest.py`'s channel
+trim — which produced the corpus already on disk and is uncommitted — folds into this round: the corpus
+re-run that proves one proves the other.
 
 **Done when** all three legs are published per pixel — the file's declared `NORMAL`, Cycles mapped into
 glTF metres, and ours at the shading point — and the branch is named: engine fix if Cycles matches the
