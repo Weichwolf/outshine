@@ -237,3 +237,23 @@ the filtered value is not a material, and the standard answers are to keep metal
 filter it conservatively rather than linearly, or to carry the roughness change the averaging implies.
 **That is a decision with references and it is the next round's**, not this one's — but the option space
 is now three named engine-side treatments rather than an open question.
+
+**The last link, measured rather than reasoned: metalness is EXACTLY binary.**
+
+| channel | at 0–15 | at 240–255 | **in between** |
+|---|---|---|---|
+| metalness | 66.3 % | 33.7 % | **0.000 %** |
+| roughness | 59.8 % | 0.3 % | 39.9 % |
+
+**Zero texels lie between the extremes of metalness**, so **any box filter produces a value the asset
+never contains.** The whole-map mean is 86 — so a seam fetch returns **metalness 0.34** whether the texel
+under it was metal (1.00) or dielectric (0.00). Both become a third-metal, which appears nowhere in the
+source and is not a material.
+
+**Roughness is genuinely continuous** — 39.9 % of texels lie between — **so averaging it is correct.**
+
+**Which narrows the engine fix to one channel rather than the texture.** Occlusion and roughness mip
+correctly by a box filter; **metalness cannot, because its distribution has no interior.** The three
+named treatments reduce to a choice about that channel alone: hold it at level 0, filter it by majority
+rather than by mean, or accept a value the asset does not contain. **That is the decision, and it is now
+small enough to make with a reference and a measurement rather than a preference.**
