@@ -42,6 +42,7 @@ load are what would hit them.
 | The winding is hard-coded at seven sites | *Declaration and build* |
 | Three node-transform cases measure an ambient-occlusion estimator at one sample | its own section |
 | Frame alpha derived from depth, so a translucent body over nothing is absent from our picture | its own section |
+| The preparer and the runner hold two closed sets over one manifest schema, disagreeing on 8 of 26 | its own section |
 
 *Checked and **not** in this band, against the coordinator's reading:* **`SurfaceState` carries
 `SurfaceKind::Blended` and `Blends()` at `core/SurfaceState.h:8,23`, and `CoverageCut_` is per-material
@@ -65,6 +66,7 @@ that entry is deleted below.
 | Five WGSL constants in `render/Sward.h:59-63` carry no origin | 1 file |
 | The unit-height check accepts 168 ulps where it measures 1 | `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
 | The harness's build cache is keyed by path and not by root | `test/run.sh:41-42` |
+| Five camera manifests aim 0.4357 px off their stated derivation, origin unknown | `test/render/coverage/*/manifest.json` |
 | Six environment variables change the picture and ride no column | `FB_TAU` · `FB_TAA` · `FB_GEOM` · `FB_TILEWORKERS` · `FB_GROUND_CLASS_VIZ` · `FB_DAGLOG` — `FB_MOON_SCALE` and `FB_TONE_PROBE` are gone |
 
 **Band 3 — waits for the round that needs it, and the round is named.** *"Later" is a named event here
@@ -1385,6 +1387,73 @@ accumulated alpha for blended contributions, composited with the depth predicate
 empty background — nothing behind it, `filmTransparent` on both sides — agrees on alpha. **That case
 does not exist and is owed with the repair**, because the defect is invisible to every asset that
 supplies its own bed.
+
+## Five camera manifests aim at a point their own stated derivation does not produce — **Band 2**
+
+`test/render/coverage/{cube,index-widths,sphere,matrix-node,trs-hierarchy}/manifest.json`,
+`scene.camera.lookAtM`. Each states its derivation as *"the framing rule of `doc/requirements.md`
+I.26.10 applied to this subject's own bounds"*, and § I.26.10 aims at the bounds' centre. The declared
+aim is not that point.
+
+| case | subject bounds centre | declared `lookAtM` | offset |
+|---|---|---|---|
+| `cube` · `index-widths` | origin (`halfExtentM 1.0`) | `(0.00186938763, 0.000549409433, −0.00301839697)` | **3.5927e-3 m** |
+| `sphere` | origin (`radiusM 1.0`) | the same triple | the same |
+| `matrix-node` · `trs-hierarchy` | not the origin — a nested chain | `(1.06417013, 0.625490847, −0.00269665869)` | the same tail on `z` |
+
+**Measured structure, and it is what makes this a defect rather than a rounding artefact**: the offset is
+a **pure image-plane displacement** — its dot product with Forward is exactly 0 — in the **same direction
+in the camera basis** across all eight cases that carried it (`0.809724 · Right + 0.586811 · Up` under
+the declared roll), with world magnitude proportional to the subject's distance, so **the pixel value is
+identical to nine digits: 0.435660418 px**. A quantity that is constant in pixels across subjects at
+different scales was applied in pixels, once, by something.
+
+**Nothing has been found that produces it.** It first appears **hand-written at `c5275c1`**, a commit that
+added no camera-generating script, and none has existed since. It is not a float32 round trip of the
+centre.
+
+**The harmless explanations, sought.** *It is the framing rule's own output* — no: the rule aims at the
+bounds' centre and these are not it, and the three cases constructed at `8f0ecce` carry either the centre
+or an aim § I.26.14 derives. *It is too small to matter* — 0.4357 px is **87× the oracle's 0.005 px filter
+half-width** and these are coverage cases whose acceptance is a sub-pixel distance to an edge. *It is
+harmless because it is consistent* — consistency is what makes it a rule somebody applied, which is
+exactly the thing that must have an origin.
+
+**Note the instrument, because it decides how this is found again**: `grep` for `0.435660418` over the
+tree returns **nothing**. The number is not a literal anywhere; it is a **derived** property of the
+declared `lookAtM`, so only computing it from the manifests finds it. That is the same lesson as
+`doc/requirements.md` § I.25.1's *a grep proves a string is absent, never that a capability is*, reaching
+a number instead of a feature.
+
+**Right:** the aim is the bounds' centre, as the derivation says, or the offset carries a derivation of
+its own — `derived`, `measured` or `[SET]` per `CLAUDE.md`. **Fixed when** every `lookAtM` in the suite
+either equals its subject's bounds centre or names why it does not. **Decides it:** recomputing the aim
+from the declared bounds and refusing a mismatch, in the runner that already recomputes the margin.
+
+*Not a defect, and recorded here so the same investigation is not run twice: the clip range's origin
+**was** found. `blender --factory-startup` reports `clip_start = 0.10000000149011612` and
+`clip_end = 100.0` — Blender's factory camera, the same source those manifests already cite for the lens.*
+
+## The preparer and the runner hold two closed sets over one declaration, and they disagree on eight of twenty-six manifests — **Band 1**
+
+`test/corpus/prep/manifest.py:495` — `_fields("manifest.scene.material", value, ("source", "kind"),
+("note",))` — is a **closed** field set that does not know `carriedBy`. `test/render/Parity.cpp:433`
+**reads** `material["carriedBy"]` and refuses by name when it is wrong (`:254`). Eight manifests carry
+the key. So `python3 test/corpus/prepare.py dry-run` refuses **8 of 26** on
+`manifest.scene.material.carriedBy`, while the runner requires it.
+
+**Pre-existing, verified by stashing** — unrelated to the `acceptanceClass` key added at `8f0ecce`.
+
+This is § I.20's duplicated-`INC_*` shape in a third place, and the third time this tree has written one
+fact twice and had nothing fail when the two drifted: **what a manifest may contain is the schema's, and
+the runner restates it by reading keys the schema has never heard of.** A closed set is the right
+mechanism and two of them is the defect — the preparer's refuses what the runner needs, and a key the
+preparer accepts but the runner never reads would fail in neither.
+
+**Right:** one declaration of the manifest schema that both sides read, so a key exists once. **Fixed
+when** `dry-run` accepts every manifest the runner accepts and refuses every one it does not, checked by
+running both over the whole corpus — which is a test, not an inspection. **Band 1**: the Khronos work
+adds manifests, and every one added under a split schema is added twice.
 
 ## Three node-transform cases measure an ambient-occlusion estimator at one sample and report the answer as a placement
 
