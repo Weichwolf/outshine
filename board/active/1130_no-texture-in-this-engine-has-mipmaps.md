@@ -188,3 +188,28 @@ then metal-rough — and see which one saturates the six tails. That is three ru
 **This is the fourth check tonight that undermined a conclusion**, and like the last one it ran before
 anything was built on it. The recommendation above should be read as **withdrawn pending that test**, not
 as guidance.
+
+**The slot is named, by enabling the chain one slot at a time.** The four `Upload` calls partition
+cleanly — colour `Srgb+Value`, normal `Linear+Direction`, metal-rough `Linear+Value`, emissive
+`Srgb+Value` — so each predicate names exactly one.
+
+| chain enabled for | `normal-tangent` | `normal-tangent-mirror` |
+|---|---|---|
+| baseline (nothing) | 229.330177 | 184.356962 |
+| colour + emissive (`Srgb`) | **229.330177** | **184.356962** |
+| normal (`Direction`) | **229.330177** | **184.356962** |
+| **metal-rough (`Linear`+`Value`)** | **255** | **255** |
+
+**It is the metal-rough map, and it was never the normal map** — the item's own subject was the wrong
+suspect twice over, first as the padding target and then as the saturating slot.
+
+**The mechanism is coherent**: averaging that texture across a seam gives a wrong **roughness**, and at a
+specular highlight roughness is the parameter the picture is most sensitive to — a tight mirror dot
+against a broad sheen is a full-scale difference. Occlusion rides in the same texture's red channel under
+glTF's ORM packing and is averaged with it.
+
+**Which reopens the padding question on the right texture.** The normal map is 93 % neutral so padding it
+changes nothing; **whether the metal-rough map has the same neutrality is unmeasured**, and it is the
+same cheap check applied to the right file. **Do that before choosing a rung.**
+
+**The diagnostic is reverted** — three runs, no instrument left behind, and the baseline restored.
