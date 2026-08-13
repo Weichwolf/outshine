@@ -124,7 +124,6 @@ bool Renderer::Executable(Stage stage) {
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
-    case Stage::BenchGround:
     case Stage::Terrain:
     case Stage::Buildings:
     case Stage::Water:
@@ -333,7 +332,6 @@ bool Renderer::Configure(Stage stage, std::string &error) {
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
-    case Stage::BenchGround:
     case Stage::Terrain:
     case Stage::Buildings:
     case Stage::Water:
@@ -366,7 +364,6 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
     case Stage::Sun:
     case Stage::Moon:
     case Stage::Stars:
-    case Stage::BenchGround:
     case Stage::Terrain:
     case Stage::Buildings:
     case Stage::Water:

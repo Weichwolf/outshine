@@ -2,6 +2,12 @@
  * include set is `-Isrc/core -Isrc/render/plan` and nothing else, so "a plan is checkable before a
  * bind group can exist" is proved by the build rather than claimed in a comment: if anything in the
  * plan reached for the renderer or for a `wgpu::` type, this test would not compile. */
+/* A ROW THIS TREE DOES NOT IMPLEMENT DOES NOT EXIST (board:0031). `BenchGround` was a row named for a
+ * subject bench that went with the browser-era clients: no implementation, no consumer, no test, and
+ * a name referring to something already deleted. Removing it is held at COMPILE time rather than here
+ * -- `sizeof kStages / sizeof kStages[0] == kStageCount` and `EveryRowIsAtItsOwnIndex()` mean the
+ * enumerator and the row must go together or the catalogue does not build -- and every test in this
+ * directory exercises those assertions by compiling against it. Twenty rows are nineteen. */
 #include <memory>
 #include <string>
 
