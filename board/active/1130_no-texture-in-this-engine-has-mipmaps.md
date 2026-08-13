@@ -31,3 +31,13 @@ wrong picture for another.**
 **Done when** every surface texture carries a mip chain, the normal map's treatment names which of those
 answers it takes and why, and **no case moves in the picture bound** — or a case that moves does so with
 its move attributed and defended.
+
+**REOPENED: the chain is built, uploaded, and never sampled.** `min_lod` and `max_lod` are never set on
+the sampler, so the zero-initialised `max_lod = 0` clamps every fetch to level 0. `mipmap_mode = LINEAR`
+selects between levels it is not allowed to reach. **The same *declared but not exercised* shape as the
+eighteen catalogue rows** — the capability is present on the device and nothing uses it.
+
+**Proven by the picture not moving at all.** The worst-appearance tails are **byte-identical** to before
+the chain landed: `normal-tangent` 229.330177, `normal-tangent-mirror` 184.356962, `water-bottle`
+149.26747, `boom-box` 166.694927. `outshine.raw` was re-rendered and came out the same. A picture that
+*changed by design* does not reproduce to six decimals.

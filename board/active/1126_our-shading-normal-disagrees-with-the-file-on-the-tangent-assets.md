@@ -335,3 +335,20 @@ not, which is `board:1130`.**
 **What this does not settle**: whether filtering accounts for the whole 0.885, or only part. That is
 answerable only after the mip chain exists — **the residual against a filtered reference is the number
 that matters**, and it does not exist yet.
+
+**REOPENED: the closing number was a population artifact.** The post-chain measurement used
+`|tap.xy| > 0.05` — 90 838 pixels, dominated by nearly-flat texels where both ratios are ~1 by
+construction. Re-measured on **the same steep population as the original finding** (`sin_cycles > 0.7`,
+40 472 pixels):
+
+| | before the chain | after |
+|---|---|---|
+| `sin(ours) / \|tap.xy\|` | 1.0000 | **1.0000** |
+| `sin(cycles) / \|tap.xy\|` | 0.8854 | **0.8854** |
+| ours / Cycles | 1.129 | **1.1295** |
+
+**Nothing moved.** *The 0.8854 is gone* compared a steep population against a mostly-flat one — **the
+instrument-domain failure, in the closing measurement of the item that exists to catch it**, and the
+third time on this item alone.
+
+**The repair is still `board:1130`** and it is still unbuilt: the chain is clamped to level 0.
