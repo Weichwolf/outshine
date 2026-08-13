@@ -63,7 +63,6 @@ that entry is deleted below.
 | `core/Mat4.h` is dead and its defending comment names a test that never existed | 2 files |
 | `FacadeUv.h` has **0** `static_assert`s against 11 enumerators and a stride of 16 | 1 file |
 | The language standard has two values — `-std=c++17` at `Makefile:24` and `test/run.sh:44`, `-std=c++20` on every shipping line | 4 sites |
-| Five WGSL constants in `render/Sward.h:59-63` carry no origin | 1 file |
 | The unit-height check accepts 168 ulps where it measures 1 | `test/unit/generators/draw/GrownBarkIsAClosedMesh.cpp:225` |
 | The harness's build cache is keyed by path and not by root | `test/run.sh:41-42` |
 | Five camera manifests aim 0.4357 px off their stated derivation, origin unknown | `test/render/coverage/*/manifest.json` |
@@ -208,19 +207,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `assert(first <= Size_ && count <= Size_ - first)` — one line, no runtime cost, and it is the
   difference between a checked type and a type that looks checked. `ES.103` (no overflow) and
   `Bounds.4`-style reasoning: the check that guards the range must not itself be unguarded.
-- **A bounds situation resolved by clamping, and the clamp is published as a measurement.**
-  `render/ClusterCut.h:66` writes `ByLevel_[c.Level < kLevelBins ? c.Level : kLevelBins - 1]` with
-  `kLevelBins = 8`. `DagCluster::Level` is a `uint8_t` filled by `core/ClusterDag.h:857` from a loop that
-  stops only when a level has ≤ 1 cluster or ≤ 8 triangles, so a z14 chunk of ~130 k triangles halving
-  per rung reaches roughly **14 levels** — bins 8…13 are all folded into bin 7, silently. That
-  histogram is the LOD ladder's own diagnostic — `render/ClusterCut.h:32,66`, `kLevelBins = 8` with the
-  clamp `c.Level < kLevelBins ? c.Level : kLevelBins - 1` — and its top bin is a sum over an unbounded
-  number of rungs, so "L7" has never meant level 7. *The client that logged it as `cutLevels` is
-  deleted; the clamp is not.* Right: `assert(c.Level < kLevelBins)` and no clamp — a DAG level past the bin
-  count is a DAG defect, not a display case — or `kLevelBins` derived from `DagBuild`'s own ceiling.
-  Note what is *right* here and must not be broken while fixing it: the extent travels with the
-  pointer as `TerrainDraw::kLevelBins = ClusterCut::kLevelBins`, so the far end of
-  `const long *TrianglesByLevel()` cannot loop past it.
 - **The two directories that do the most unchecked pointer arithmetic hold no assertion at all.**
   Runtime `assert` sites, measured over 285 files and 33 777 lines: core 2 · core/io 0 · world 2 ·
   **world/terrain 0** · generators 5 · generators/draw 1 · render 1 · **render/stages 0** · clients 1 =
@@ -234,7 +220,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 - **A dome on a rectilinear plan.** `ReadsAsRound` (`generators/draw/BuildingShape.cpp:258`) keys on corner count, fill and squareness — all of which a stepped rectilinear plan satisfies. Visible as a smooth 390 px arc over the town in `after/town.png` (620,255)–(1010,330). Right: add a turning test, every exterior angle ≤ 60°.
 - **One ridge kinks over a bent plan.** `MassOf` applies Row → Wing → Setback once, top-down, to the whole. A bent bar fails `RowCut`'s `Fill ≥ 0.80`, is winged into two long masses, and neither piece is offered to `RowCut` again. Same defect on a T-plan. Right: a work list, ~15 lines.
 - **The chimney reads as a 5 m post.** `BuildingMesh.cpp:338` runs the box from eaves to ridge + 0.85 m. The 0.85 above the ridge is correct practice; the box must terminate at the roof plane, not at the eaves.
-- **The pavement's flag grid degenerates on inhabited ground.** `render/stages/BuildingDraw.cpp:339-340` builds its basis from `cross(upv, vec3f(0.577,0.577,0.577))`. That rotates with position on the globe, so flags never align with the kerb, and it is **exactly degenerate where up ∥ (1,1,1)/√3 — geocentric 35.264 N, 45.000 E**, near Kirkuk–Sulaymaniyah: `normalize` of ~0 → NaN. Root cause is the encoding: `uv.x < 0` spends the whole float on kind plus identity, leaving one metre coordinate, so any non-wall surface needing a 2-D pattern must invent a frame in the shader.
 - **The footway ends mid-frontage** (`generators/draw/BuildingMesh.cpp:413-414`) — a per-edge binary accept/reject on a continuous stand-back. A consequence of the footway belonging to the building instead of to the street.
 - **A wrong reason defends a right number.** `BuildingMesh.cpp` states "38–45 is the German pantile range (below 22 a pantile does not seal)". The ZVDH Regeldachneigung for a Hohlpfanne is H1 ≥ 35°, H2 ≥ 40°, and the absolute minimum for Ziegel is 10° with additional measures. 22° is neither. `kPitchOutbuildingDeg = 22` may be right; its stated reason is not. Likewise `MinAreaBox`'s comment "on L, T, U and notched bars every hull edge is a ring edge" is false — an L's hull has a chord.
 
@@ -383,20 +368,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
   `Schedule::Widest` at `RadiusRegions = 1` and moves with the radius, so the number is derived from
   the ring rather than quoted.
 
-- **A caster "vertex count" is neither a vertex count nor the caster's.**
-  `render/stages/BuildingDraw.cpp:471-473` derives `BaseVerts` as `max(First + Count)` over the
-  level-0 clusters and publishes it as `CasterVertexCount()` (`BuildingDraw.h:35`), which
-  `Renderer.cpp:802` spends as `ShadowStage::NVerts`. Two things are wrong. A cluster's `First`/`Count`
-  are **index** ranges — `World.cpp:556` offsets them by `BuildingDagIdx.size()` and
-  `ShadowStage.cpp:151` hands them on as a `DrawRange` over the index buffer — so the number counts
-  indices under a name that says vertices. And the building ladder is a concatenation of one DAG per
-  ingested tile (`World.cpp:552-558`), so the maximum lands at the end of the **last** block's level 0
-  and the range it names covers every earlier block's simplified levels as well; which block is last
-  is the arrival order's. It decides nothing today: `ShadowStage` reads it only as a non-zero guard
-  (`ShadowStage.cpp:158,296`, `Active()` at `ShadowStage.h:45`), the cut itself being per cluster. It
-  is a number that is wrong under a name that claims otherwise, which is the state a defect is in
-  before it is read by something. Right: the caster extent is the sum over the blocks and it is called
-  an index count, or the field goes and `Active()` asks the buffer.
 - **The vector fields never re-anchor, and the shader pays for it in cancellation, not in
   resolution.** `world/World.cpp:87-94` gives `BuildingField` and `WaterField` one ECEF origin — the
   standpoint, at `Open` — and nothing moves it again, while both keep ingesting for as long as the
@@ -642,96 +613,6 @@ and the conclusion is stronger rather than weaker: there is no safety net on eit
 
 ## Light and shadow
 
-- **A wall the sun cannot see is lit by the sun.** `render/stages/SurfaceLight.h:88` forms the near-field
-  bounce as `nearE = (skyH + I.sun.xyz * (sunUp * sunVis * thruDir)) * alb`, where `sunUp = dot(sunDir,
-  upv)` and `skyH` is the file's own **horizontal** irradiance (line 74-76). It is then weighted by
-  `(0.5 + 0.5*ndu) * kSelfShelter`, so on a vertical façade (`ndu = 0`) the weight is 0.175 and the term
-  carries the full horizontal solar irradiance regardless of where the sun stands relative to the wall.
-  The comment three lines above states the intent exactly — "the SAME material under the SAME local
-  light" — so this is a wrong expression under a right design, not a modelling choice. Numbers, at
-  `alb = 0.5` and sun elevation 50° (`sunUp = 0.766`): the spurious irradiance is
-  0.175 · 0.766 · 0.5 = 0.067 E⊥, against a legitimate sky term of (0.5)(1 − 0.35) · E_sky,horiz ≈
-  0.325 · 0.10 = 0.033 — **twice the whole sky ambient on a shaded wall**, and it does not move when the
-  sun's azimuth does. Every shaded façade, trunk and leaf back-face is flattened by it, which is the
-  single largest gap between this picture and KCD's. Right: drive the near term from the irradiance the
-  fragment already has — `(skyH * (0.5 + 0.5*ndu) + I.sun.xyz * max(dot(n, sunDir), 0.0) * sunVis *
-  thruDir) * alb`. Decides it: two walls of one albedo facing 180° apart under one sun; their radiance
-  ratio must follow their irradiance ratio, and today the shaded one does not change at all as the sun
-  swings behind it.
-- **Two constants that describe soil are applied to water, glass and paint, and no material can decline
-  them.** `render/stages/SurfaceLight.h:33 kGroundBounce = 0.12` and `:40 kSelfShelter = 0.35` are
-  documented — correctly, and with sources — as the mean visible reflectance of Central European land
-  cover and as the sky fraction a clod, a furrow or a sward hides from a point between them. Both are
-  statements about **one kind of surface**; both are spliced into **every** lit surface, because
-  `litRadiance` is the single lighting function and every draw stage calls it:
-  `stages/TerrainDraw.cpp:120`, `stages/BuildingDraw.cpp:371`, `stages/ModelDraw.cpp:225` and `:240`,
-  `stages/WaterDraw.cpp:36`, `stages/BenchGroundStage.cpp:89`, `Sward.h:308-309`. Arithmetic, for an
-  up-facing facet under sun alone (`skyH = 0`, `ndu = 1`, `sunUp = sunVis = thruDir = 1`):
-  `ambE = nearE·(1.0·0.35) = 0.35·ρ·E⊥` and `dirE = E⊥`, so the outgoing radiance is
-  `k·(1 + 0.35ρ)·E⊥` against Lambert's `k·E⊥` — **+17.5 % at ρ = 0.5, +26.3 % at ρ = 0.75**, on a pane of
-  glass and on open water exactly as on a ploughed field. Caveat sought and it does not hold: the values
-  are not wrong and `CLAUDE.md`'s *one lighting model* is not the problem — the defect is that a
-  **surface** property is an **engine** constant, so there is no configuration of this renderer in which
-  a Lambertian surface is spellable, which is what the first external check of `doc/requirements.md`
-  § I.26 rung 3 needs in order to have a referee. Distinct from the near-field bug above: fixing that
-  expression leaves both constants exactly as unreachable. Right: two scalars in the material row —
-  they switch no pipeline state, which is the material row's whole definition — ground declaring
-  0.12/0.35 and a manufactured surface declaring 0. Decides it: one facet, albedo 0.5, one sun at normal
-  incidence, no sky; the linear tap must read `ρ·E⊥/π` and today reads 1.175× that.
-- **The shadow bias is 0.82 m in the near cascade, and a different physical length in each.**
-  `render/stages/ShadowStage.cpp:213` sets `par[1] = 1.5e-3` and calls it an "ortho depth bias";
-  `ShadowSample.h`'s `refZ = ndc.z - C.par.y` subtracts it from a `[0,1]` depth whose range is
-  `dz = zf - zn = 2R + 500` (`ShadowStage.cpp:192`). Cascade 0 has `R = 24`, so `dz = 548 m` and the bias
-  is **0.822 m along the sun** — 17 texels of a 4.7 cm cascade-0 texel, where practice is one to three.
-  The normal offset meant to carry the job is 0.07–0.16 m there, five times smaller, so the crude term
-  dominates the refined one. Derived consequence: a shadow starts `bias · cos(el)` from its caster —
-  0.63 m at 40° sun, 0.81 m at 11° — so every trunk, post, kerb and wall floats. And because `dz` grows
-  with the cascade radius, the same constant is 2.5 m in cascade 3: one number, four different lengths.
-  Right: state the bias in **metres along the light**, sized to that cascade's own `texelM`, and divide
-  by that cascade's `dz` on the way into the uniform. Decides it: a vertical post on flat ground — the
-  gap between its foot and the start of its shadow must stay under one cascade-0 texel.
-  *Checked and ruled out as the cause:* the cascade **selection** is sound. Selection is by radial
-  `length(rel)` against `far[c] = R_c` while the box is centred 0.5 R ahead, which looks like a
-  fall-through hole, but for a visible fragment the worst offset is `R·sqrt(1.25 − cos φ)` and stays
-  inside the box for any off-axis angle up to 75.5°; the 60° fov's corner is 49.6°.
-- **The soil constants are an ambient *deficit*, and the sign in the standing description is
-  backwards.** `doc/todo.md:92` states the ambient model's deviation as *"+17.5 % over Lambert at albedo
-  0.5"*. It is **−17.5 %**, and the difference matters because the work item it justifies is *"a material
-  that can decline the soil constants"* — a developer sizing that against an excess will size it wrong.
-  Derivation from `render/stages/SurfaceLight.h:87-90` with the sun below the horizon (`sunUp = 0`,
-  `night = 0`) and sky irradiance-on-horizontal `E`, against the Lambert reference under a uniform dome
-  `E·(1+n·u)/2`: on a **horizontal** surface the ratio is `0.65 + 0.35·α` exactly — `1.000` at `α = 1`,
-  `0.825` at `α = 0.5`, so the deviation is `(α − 1)·kSelfShelter` and never positive. On a **vertical**
-  surface it is `0.77 + 0.35·α` — `0.945` at `α = 0.5`, `+12 %` only at `α = 1`. The worst case in the
-  tree is **water**: `render/stages/WaterDraw.cpp:18,36` passes `kWater = (0.035, 0.045, 0.050)` through
-  `litRadiance`, mean `α = 0.043`, so a horizontal water surface receives **0.665 × the sky ambient it
-  should**, −33.5 %, and `sunVis` is hard-wired to 1.0 there. That surface has no specular term yet by
-  its own admission, so sky ambient **is** its appearance. Right: the deviation stated with its sign and
-  its albedo dependence wherever it is quoted, and the exactness at `α = 1` named — the model is not a
-  fudge, it is a near-field bounce that is only self-consistent for a perfect reflector.
-  *Checked for the harmless explanation first:* the obvious innocent reading is that the `+` counts the
-  near-field bounce term alone (`+0.175` at `α = 0.5`) and not the shelter it pays for. That reading is
-  refuted by the same line — the term is introduced by `(1 - kSelfShelter)` on the sky weight, so the two
-  are one substitution and cannot be quoted apart. Eight `litRadiance` call sites, not seven:
-  `BenchGroundStage.cpp:89` · `Sward.h:308,309` · `ModelDraw.cpp:225,240` · `TerrainDraw.cpp:120` ·
-  `WaterDraw.cpp:36` · `BuildingDraw.cpp:371`.
-- **The linear attachment is called scene-referred and carries a display placement constant.**
-  `render/stages/TaaStage.cpp` writes `o.history = scene` — the resolve's attachment 0, the texture
-  `doc/todo.md:91` wants to read back as the scene-referred linear tap and the resource
-  `doc/requirements.md` § I.27 names `SceneLinear`. Every value in it has already been multiplied by
-  `kSceneExposure = 11.0` inside the surface shader (`render/stages/SurfaceLight.h:92`,
-  `stages/SceneScale.h:17`), so the buffer is **not** in the units its header claims — *"top-of-atmosphere
-  solar irradiance = 1"* — but in those units times 11.0, and 11.0 is a **display** number: its own
-  derivation ends *"placing that at ACES input 0.32 — the value whose sRGB output is 0.70"*. The metered
-  exposure (`stages/ExposureStage.h`) is then applied on top, so the chain carries two exposures in
-  series, one fixed and one metered, while `SurfaceLight.h:1-4` states *"there is no second,
-  independently fitted path"*. *Checked for the harmless explanation:* 11.0 could be a unit conversion,
-  which would be blameless. It is not — a unit conversion is derived from the units, and this one is
-  derived from an sRGB output value. Right: `kSceneExposure` folds into the tonemap's `expScale`, so the
-  linear resource is in TOA-relative radiance and a radiance-parity comparison needs one documented
-  constant (TOA solar irradiance) rather than an undocumented 11.0 nobody would think to divide out.
-  Decides it: a flat Lambertian facet under one declared directional light, read from `SceneLinear`,
-  must equal `ρ·E·cos θ / π` in the stated units with no residual factor of 11.
 - **A telemetry column with one reachable value, behind a branch no compiler can take.**
   `render/Renderer.cpp:111-115` writes `bool rg11 = false;` and then `if (rg11) feats.push_back(...)`,
   and line 177 logs `"hdr"` as `HdrFormat == RG11B10Ufloat ? "rg11b10ufloat" : "rgba16float"`. The
@@ -845,24 +726,6 @@ the tree more than once, or under a name that says the wrong unit.*
   poll, p50/p95/p99 over a cold traversal, is a *not yet measured* and not a limit. Right: the
   transport declares a wait, so a thread with nothing to do blocks (`doc/requirements.md` § I.22).
 
-- **The one number every physical quantity in the renderer passes through is marked DERIVED and its
-  derivation ends at a display code.** `render/stages/SceneScale.h:17 kSceneExposure = 11.0` is
-  introduced as *"DERIVED from the measured frame, not tuned by eye"*, and the derivation's last step is
-  *"placing that at ACES input 0.32 — **the value whose sRGB output is 0.70**"*. The first three steps
-  are radiometry and the fourth is a mid-tone in an 8-bit picture, so the constant is a **fit to a
-  display**, wearing the marker `CLAUDE.md` reserves for a number that follows from other numbers. It is
-  applied by `litRadiance` to sky, ground, buildings, blades, water and haze alike (`SurfaceLight.h:91
-  k = alb * (kSceneExposure * kInvPi)`), i.e. to every radiance this engine produces. Compounding it:
-  **nothing in the tree can read the quantity it scales.** `render/Renderer.h:59 ReadPixels` returns
-  *"tightly packed W*H*4 RGBA8, already sRGB-encoded"* and is the only colour tap — `ReadDepth` and
-  `ReadIrradiance` are the other two readers and neither is scene radiance — so the claim
-  `SceneScale.h` makes about itself is unfalsifiable from inside, and an exposure constant and a physics
-  error are the same observation here. Caveat sought: a scene-referred pipeline with a display-anchored
-  exposure is legitimate *if the anchor lives in the exposure stage*; this one lives ahead of every
-  surface shader, which is the part that is wrong regardless of the value. Right: the marker is `[SET]`
-  until a linear tap exists (`doc/requirements.md` § I.26), and the number then either moves into
-  `ExposureStage` or is shown to be 1.0 with the difference in the irradiances. Decides it: the linear
-  readback of one facet of declared albedo under one declared irradiance against `ρ·E·cos θ/π`.
 - **The suffix `Ms` names two different units in the same tree.** `core/Units.h:22`
   `kMsToKt` is metres per second to knots. *Two of the three sites named here, `clients/Walker.h` and
   `clients/FrameTelemetry.h`, went with the browser-era clients on 2026-08-12; the rule they
@@ -871,17 +734,6 @@ the tree more than once, or under a name that says the wrong unit.*
   wrong name*. `core/Units.h:15` `kMPerDeg` shows the unambiguous spelling already exists in the same
   file. Right: one declared suffix table, `MPerS` for velocity and `Ms` for milliseconds, applied
   everywhere; the ambiguity is decidable by grep and there are three sites.
-- **A number derived by eye is spelled as if it were physics, and nothing in the tree can tell.**
-  `render/stages/SceneScale.h:17` `kSceneExposure = 11.0` multiplies every scene radiance the renderer
-  produces — sky, ground, buildings, blades and haze — and its own derivation says it was chosen by
-  *"placing that at ACES input 0.32 — the value whose sRGB output is 0.70, mid-frame for a sunlit
-  surface"*. That is an exposure decision anchored on where a mid-tone should land in an 8-bit picture,
-  sitting on the path every physical quantity takes. It may be entirely correct as an exposure; the
-  defect is that **no measurement in this tree can decide which side of the line it is on**, because
-  `render/Renderer.h:59` `ReadPixels` is *"tightly packed W*H*4 RGBA8, already sRGB-encoded"* and there
-  is no readback of scene-referred linear radiance at all. Right: the linear tap ahead of
-  `ExposureStage`, and the constant then lives in the exposure stage or is shown to be physics
-  (`doc/requirements.md` § I.26).
 
 ## Declaration and build
 
@@ -937,11 +789,8 @@ the tree more than once, or under a name that says the wrong unit.*
   `Destroyed` at `Info` and every other reason at `Error`; then the gate asserts that the run it
   declares silent logged nothing at `ERROR`.
 
-- **`core/ClusterDag.h:72` reads `FB_TAU` from the environment** — the picture depends on an undeclared variable. **And it is one of six, re-enumerated at `9f4ba9e`**: `FB_TAA` (`render/Renderer.h:339`, default on) switches temporal antialiasing, which changes both the pixels and `frameMs` and is now a **second, undeclared way to retire a stage the plan declares** (§ I.27); `FB_GEOM` (`render/GeometryIsolation.h:15`) disarms the shadow receivers; `FB_GROUND_CLASS_VIZ` (`stages/TerrainDraw.cpp:642`) replaces the fragment outright; `FB_TILEWORKERS` (`world/TerrainLoader.cpp:62`) changes the thread count and therefore the arrival order; `FB_DAGLOG` (`world/World.cpp:587`) is diagnostic only. *`FB_MOON_SCALE` and `FB_TONE_PROBE` are gone.* **None of the six appears in any telemetry column**, so two runs of one build are not comparable and no CSV can say which picture it measured. The tree states the rule against itself at `render/GpuTimer.h:36` — *"NO ENVIRONMENT GATE. An environment variable is not an interface."* Right: the four that change the picture leave the environment entirely; the two diagnostics stay and ride a published column. **Band 2.**
 - **`core/Mat4.h` is entirely dead, and the comment defending it names a test that does not exist.** `Mat4Identity`, `Mat4Mul`, `Mat4Perspective`, `Mat4LookAt`, `Vec3Normalize` and `Vec3Cross` have no caller outside `core/Camera.h`; inside `Camera.h`, `CameraBasisFrom`, `CameraAxes`, `HorizonDipRad`, `MvpTranslate`, `Frustum`, `FrustumFrom` and `AabbVisible` have none either. `CameraBasisEcef` is the only live function in the pair — **re-verified at `9f4ba9e`: one caller, `clients/Sim.cpp:555`**, the bench that was the second having been deleted. `Mat4Perspective` is reached only from `core/Camera.h:71`, itself dead. `Camera.h:76` asserts "CameraBasisFrom above is NOT dead: sky dome and star field are an infinity pass in LOCAL render-ENU"; `SkyStage` and `StarsStage` call nothing in the file. Two comments say "Pinned in `test_camera.c`"; no such file exists anywhere in the tree. Three consequences, worst first: the dead `Mat4Perspective` builds a **GL-style [-1,1] reversed-Z** projection, so anyone reviving it under WebGPU's [0,1] clip volume silently loses everything past the mid-range; `outshine::Frustum` (`Camera.h:132`) and `outshine::Render::Frustum` (`render/Frustum.h`) are two spellings of one statement against "every statement has exactly one place"; and a false comment is worse than no comment. Right: delete `core/Mat4.h` and everything in `core/Camera.h` but `CameraBasisEcef`.
-- **Five WGSL constants that decide the canopy carry no origin.** `render/Sward.h:59-63` declares `kMinSinEl 0.05`, `kLeafTrans 0.85`, `kTransIso 0.35`, `kTransFwd 2.6` and `kTransP 4.0` with no `[SET]`, no derivation and no unit — alone among the twenty constants in that function, and against the rule that every number carries its origin. Two are load-bearing. `kLeafTrans` multiplies the leaf colour on the transmitted path and its **name is the trap**: a green leaf at 550 nm has R ≈ 0.10 and T ≈ 0.085, so a literal "leaf transmittance" is 0.08 and someone will one day write it there and lose the whole back-lit canopy; what makes 0.85 right is that it is the *ratio* T/R, consistent with `kScatCut = sqrt(1 - ω)` and `ω = R + T = 0.185` on the line above. And `kTransIso + kTransFwd·cos^kTransP` is divided by the same `kInvPi` a Lambertian gets, with no statement anywhere that its hemispherical integral is 1 — so the transmitted path is not shown to conserve what the reflected path gives up. Right: one origin line per constant; rename `kLeafTrans` to what it is; and either normalise the lobe or state the deviation beside it.
 - **Two headers guard themselves with reserved identifiers.** `core/Ephemeris.h:6` `#ifndef _EPHEMERIS_H` and `core/State.h:3` `#ifndef _FBSTATE_H`. A leading underscore followed by a capital is reserved to the implementation **in every scope** ([lex.name]/3) — undefined behaviour, not a style preference, and the rest of the tree already spells it `GEODESY_H`.
-- **The winding is hard-coded at seven sites**; it belongs in the draw product beside the cluster list.
 - **The log's timestamp is dead** — every `walk key` line carries `t=0.0` — and key repeat events are logged individually, so a held key floods the buffer.
 - **`FacadeUv.h` has no `static_assert` anywhere**: 11 enumerators against a stride of 16, `kStyleCount 8` against 7 enumerators. A 17th `Facade` silently aliases identity 1.
 - **`TreeGrower::GrowOnce` is ~130 lines** (`F.2`/`F.3`), and `TreeSpecies::Parse` is a 90-line flat key list (`F.3`).
@@ -1056,27 +905,20 @@ the tree more than once, or under a name that says the wrong unit.*
 
 
 
-## Stale pointers held with confidence — seven sites naming a deleted document — **Band 2**
+## Stale pointers held with confidence — sites naming a deleted document — **Band 2**
 
-`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. **Seven comments in
-`src/` still cite `doc/architecture.md` as the authority for a rule they state** — re-counted at
-`9f4ba9e`, down from nine because `clients/SceneRunner.cpp` was deleted with the client and one
-`Renderer.cpp` site went with the pass rewrite. A reader who follows the pointer finds nothing; a reader who does not follow it takes
+`doc/architecture.md` and `doc/vision.md` were folded into `CLAUDE.md` and deleted. Comments in `src/`
+still cite `doc/architecture.md` as the authority for a rule they state. **The count is not restated
+here because it has been wrong at three different values across three rounds** — nine, then seven, then
+fewer again after the SDL_GPU port took `GeometryStage.h` and `TaaStage.cpp` with it. `grep -rl
+architecture.md src/` is the count, it is one command, and a number copied into this file ages the
+moment a file is deleted. A reader who follows the pointer finds nothing; a reader who does not follow it takes
 the rule on the comment's word, which is exactly the failure mode a citation exists to prevent. This is
 the same defect class as a miscited rule number — a confident reference to something that is not there —
 and it costs a round the first time somebody tries to check one of these rules against its source.
 
 - `src/core/Material.h:19` — *"nothing in it can switch a pipeline state (doc/architecture.md)"*. The
   rule is live and correct; it is in `CLAUDE.md` under *the core dictates the pipeline*.
-- `src/render/GeometryStage.h:3` · `src/clients/Sim.cpp:193` · `src/clients/Sim.h:51` ·
-  `src/clients/RegionForge.h:2` · `src/generators/Water.h:2` — the same, one each.
-- **`src/render/stages/TaaStage.cpp:113` is the expensive one**,
-  because what it cites is not a rule but a **measurement**: *taa 4.98 ms and tonemap 5.05 ms while
-  everything the engine draws came to 3.80 ms*, the sole justification for fusing the temporal resolve
-  with the display curve into one fragment. The number cannot be checked against anything, and it is
-  the number a stage plan has to weigh when it decides whether that fusion survives
-  (`doc/requirements.md` § I.27). Right: re-measure with the per-pass timer that already exists and
-  put the result beside the code, or drop the claim.
 - `doc/requirements.md:193` — *"declared in `architecture.md`, not found in `PresentStage`"*: the line's
   own evidence is a document that no longer exists, so the line cannot be checked as written.
 
@@ -1266,17 +1108,17 @@ keyed by it and the alternative is a one-token hash edit that looks like mainten
 - **A picture-changing branch sits at a creation site, which is the one thing § I.27 forbids by name.**
   `Renderer::Create` for `Resource::VegetationTable` reads `if (VegRows.empty()) return;`
   (`src/render/Renderer.cpp:238`), so `Plan_->Holds(Resource::VegetationTable)` is **true while the
-  buffer does not exist**. `TerrainDraw::Configure` then selects a different fragment shader —
-  `VegBuf ? kVegOnWGSL : kVegOffWGSL` (`stages/TerrainDraw.cpp:645`) and drops two bindings (`:760-762`).
-  Two visibly different terrains, one digest. Right: the vegetation table is a declared input of the
+  buffer does not exist**. *The terrain shader that branched on it went with the SDL_GPU port, so the
+  instance is gone and the shape is not: a `Holds()` that is true while the resource does not exist is
+  still spellable, and the next resource with a data-dependent creation will re-create it.* Right: the vegetation table is a declared input of the
   plan or the plan does not hold it; the branch belongs in the declaration, not in `Create`.
 - **`FB_TAA=0` retires a declared stage from an environment variable.**
   `src/render/Renderer.h:327` — `const bool TaaOn = [] { const char *e = getenv("FB_TAA"); ... }();` —
   and `Renderer.cpp:723,777` disarm the jitter and the history from it. `TemporalResolve` is now a stage
   a consumer declares; this is a second, undeclared way to turn the same thing off, it changes the
   picture, and it changes neither the digest nor `SettleFrames()`. The tree already states the rule
-  against itself: `src/render/GpuTimer.h:36-39`, *"NO ENVIRONMENT GATE. An environment variable is not
-  an interface"*. `I.2`, `I.3`.
+  against itself in the header that carried the rule until the port deleted it — *"NO ENVIRONMENT GATE.
+  An environment variable is not an interface"*. `I.2`, `I.3`.
 
 **Fixed when** two declarations that produce different pixels produce different digests, demonstrated by
 the three cases above, and `getenv` appears nowhere under `src/render/`.
@@ -1307,22 +1149,6 @@ two holes let an edge past them.
 
 **Fixed when** a stage cannot be handed a resource its row does not name — the shape, not a review rule:
 `Configure` takes the plan's resolved bindings for that stage, so an undeclared one has no spelling.
-
-## `GpuTimer` says its slot names come from the plan, takes none, and no caller has ever taken a sample
-
-`src/render/GpuTimer.h:11-15` states *"THE SLOT COUNT AND THE SLOT NAMES COME FROM THE COMPILED PLAN"*.
-`Configure(const wgpu::Device &, bool featureGranted, int passCount)` (`:40`) takes the count and no
-names, and `Sample` (`:30-34`) is `double PassMs[kMaxPasses]` indexed by an integer — a reader of a
-telemetry row cannot tell which pass a number belongs to. The names exist and are two lines away:
-`RenderPlan::Pass::Name` (`plan/RenderPlan.h:59`), already used to build the digest.
-
-Second half: `Renderer::TakeGpuTimes` (`Renderer.h:210`) has **no caller in `src/` or `test/`**. The
-queries are written, resolved and polled every frame (`Renderer.cpp:816-826`) and the result is dropped.
-§ I.11's *every dial that changes the picture published as its own telemetry column* is not delivered by
-producing the number; it is delivered by a row carrying it under its name.
-
-**Fixed when** `Configure` takes the compiled plan and the sample carries `{name, ms}` per pass, and one
-declared run writes a telemetry row with a named per-pass column. **Decides it:** the row.
 
 ## `Renderer` still constructs sixteen stage objects unconditionally, and `RenderFrame` is 170 lines
 
