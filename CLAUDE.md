@@ -460,20 +460,31 @@ the work and so does the accuracy.*
 **The usage is the interface:**
 
 ```sh
-ls board/active/                                # what is in flight
+ls board/active/                                     # what is in flight
+cat board/*/0042_*.md                                # one item, wherever it lives
+grep -l '^Area: render'   board/*/*.md               # by area
+grep -l '^Tags:.*oracle'  board/*/*.md               # by tag
+grep -l '^Type: bug'      board/active/*.md          # by kind
+grep -l '^Parent: 0007'   board/*/*.md               # a feature's children
+grep -l '^Depends: *0042' board/*/*.md               # who waits on this
+grep -rl 'board:0042' test/                          # the evidence — empty means unproven
+grep -rn 'board:0042' src/ test/                     # every site that implements or proves it
 git log --follow --name-status -- 'board/*/0042_*'   # every move, when, by whom
-cat board/*/I.26.15-*.md                        # a task, wherever it lives
-grep -l '^File: src/render' board/active/*.md   # by area — derived, always true
-grep -l '^Tags:.*oracle'    board/*/*.md        # by tag
-grep -L '^Test:' board/active/*.md              # active work with no test
-grep -l '^Depends:.*<id>' board/*/*.md          # who waits on this
-git mv board/active/X.md board/closed/          # the transition IS the diff
+git mv board/active/X.md board/closed/               # the transition IS the diff
+ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
+
+**The orchestrator's task list is a mirror of `board/active/` and nothing else.** One entry per active
+item, its subject the item's **`NNNN` and title verbatim**, so the two orderings that this board replaced
+cannot come back — a task list entry with no file under `board/active/` *is* a second ordering, and the
+one this repository already died of twice. It is **derived, never authored**: an item is activated by
+`git mv` and the entry follows; an item closes the same way and the entry is marked done. **If the two
+disagree, the directory is right** — `ls board/active/` is the state, and a list is a view of it.
 
 
 **Five invariants, and one query that must never become a test.** Invariant: a dependency cycle · a
 `closed` task depending on one that is not closed · an id in any edge that does not resolve to exactly one
-file · a `closed` task whose `File:` no longer exists, which catches **navigation rot** · **a `feature` carrying a `Parent:`** · **a `task` with no `Parent:`, or one naming
+file · **a `feature` carrying a `Parent:`** · **a `task` with no `Parent:`, or one naming
 something that is not a `feature`** — which also forbids a task parented to a task, stated because *no
 sub-tasks* is a decision and not an accident · **a `closed` feature with an open child**, which is the
 composition analogue of the dependency rule and **the exact failure a feature/task split exists to
