@@ -137,3 +137,29 @@ which Cycles does not — it takes the footprint analytically per intersection. 
 **What decides it is whether a rasteriser is expected to survive an unpadded atlas** — a question with a
 literature answer, and the reason this item says *choose with the references rather than the first idea
 that fits*.
+
+**The references, and they describe this exactly.** The mechanism is documented rather than novel: *the
+derivative of texture coordinates is much larger at the boundary of any texture patch … resulting in
+selection of texels at higher mip-map levels … and the sudden jump of the mip-map level selection
+produces the seam artifact.* The standard authoring answer is **edge padding** — extending valid edge
+texels into a gutter so the level the seam quad reaches for still holds neighbouring colour rather than
+an unrelated island. Kyle Halladay's *Minimizing Mip Map Artifacts In Atlassed Textures* is the same
+problem end to end.
+
+**Recommendation — rung 3, *patch the asset*, by padding — and the reason rung 1 does not apply.** A
+*fix the engine* answer means computing the derivative some way other than differencing neighbours, and
+at a quad straddling two islands **the information required is genuinely absent**: the quad holds
+fragments from two unrelated regions of uv space, and no per-fragment quantity distinguishes them. That
+is why the index-channel test was vacuous rather than merely under-powered. The engine-side alternatives
+are explicit gradients — which need the island each fragment belongs to, i.e. the missing information —
+or clamping `max_lod`, which blurs everything to hide a one-pixel edge.
+
+**This is a recommendation with its evidence, not a ruling**, and it is written at the end of a long
+session by someone who got two closures wrong tonight. **Evaluate it before taking it.** What would
+overturn it: an engine-side derivative source that does distinguish islands, or a measurement showing
+the artifact survives padding.
+
+Sources: [Halladay, *Minimizing Mip Map Artifacts In Atlassed
+Textures*](https://kylehalladay.com/blog/tutorial/2016/11/04/Texture-Atlassing-With-Mips.html) ·
+[*Texture atlases, wrapping and mip mapping*, 0 FPS](https://0fps.net/2013/07/09/texture-atlases-wrapping-and-mip-mapping/) ·
+[*Gutter space padding for texture atlases*](https://image-ppubs.uspto.gov/dirsearch-public/print/downloadPdf/10839590)
