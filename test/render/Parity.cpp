@@ -1403,6 +1403,54 @@ void ScoreExactnessConstruction(const Case &subject, const EdgeSet &silhouette, 
   }
 }
 
+/* THE VISIBILITY ESTIMATOR'S OWN DISPLACEMENT, IN SCREEN PIXELS (doc/requirements.md I.26.15). A
+ * shadow boundary is a coverage boundary of the LIGHT's visibility, so a disagreement about it is
+ * bounded in the predicate's own geometry and never in codes. Our estimator is an exact ray and the
+ * only thing that displaces it is where the ray starts: `ShadowRay.h`'s self-intersection bias, a
+ * fixed fraction of the subject's own diagonal, which the device half reads and this reads back.
+ *
+ * PROJECTED THROUGH THE CASE'S OWN CAMERA AND NOT THROUGH AN ASSUMED ONE: the raster displacement of
+ * a world displacement of that magnitude, taken as the operator norm of the finite-difference
+ * Jacobian at the subject's centre, so a perspective case and a parallel case are answered by one
+ * expression. THE NUMBER IS DERIVED AND NOT FITTED -- it shrinks when the bias does, and no case can
+ * widen it, which is the property that separates it from a tolerance. */
+void ScoreVisibilityTerm(const Case &subject, const Transform &clip, double biasM,
+                         std::vector<Metric> &metrics) {
+  double centre[3];
+  subject.Geometry.CentreM(centre);
+  double at[2];
+  double ndc[3];
+  clip.Point(centre, ndc);
+  subject.Frame.Raster(ndc, at);
+  /* The 2x3 Jacobian by one-sided differences over the bias itself, so the step IS the displacement
+   * being bounded and no second length enters. */
+  double jacobian[3][2] = {{0, 0}, {0, 0}, {0, 0}};
+  for (int axis = 0; axis < 3; ++axis) {
+    double moved[3] = {centre[0], centre[1], centre[2]};
+    moved[axis] += biasM;
+    double movedNdc[3];
+    double movedAt[2];
+    clip.Point(moved, movedNdc);
+    subject.Frame.Raster(movedNdc, movedAt);
+    jacobian[axis][0] = movedAt[0] - at[0];
+    jacobian[axis][1] = movedAt[1] - at[1];
+  }
+  /* The operator 2-norm of a 2x3 matrix is the square root of the largest eigenvalue of J*J^T, and
+   * for the 2x2 symmetric J*J^T that is closed form -- so the worst direction is answered rather
+   * than the three axes sampled, which would understate a diagonal one. */
+  double gram[3] = {0, 0, 0}; /* xx, xy, yy */
+  for (int axis = 0; axis < 3; ++axis) {
+    gram[0] += jacobian[axis][0] * jacobian[axis][0];
+    gram[1] += jacobian[axis][0] * jacobian[axis][1];
+    gram[2] += jacobian[axis][1] * jacobian[axis][1];
+  }
+  const double half = 0.5 * (gram[0] + gram[2]);
+  const double gap = std::sqrt(std::max(0.0, half * half - (gram[0] * gram[2] - gram[1] * gram[1])));
+  metrics.push_back({"shadow_ray_bias_m", biasM, 0.0, "m, subject frame", Direction::Reported});
+  metrics.push_back({"shadow_ray_bias_px", std::sqrt(std::max(0.0, half + gap)), 0.0, "px",
+                     Direction::Reported});
+}
+
 /* TWO OF OUR OWN RENDERS, AND NO ORACLE IN IT AT ALL. A second spelling of the same surface -- the
  * same placement through a `matrix`, the same triangles under another index width, the same quad as
  * a strip or a fan -- must land in the same pixels, and that claim is DECIDABLE: it is exact, not
@@ -1595,9 +1643,17 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
  * THE BUCKET COUNTS ARE PRINTED SPARSELY. A case at zero prints one line saying so, and a case with
  * a tail prints the buckets that hold something -- 256 lines of zeros would bury the tail that
  * decides it. */
+void SayWhereItWas(const char *kind, const Excursion &worst) {
+  using namespace outshine::Test;
+  if (worst.Code <= 0.0) { return; }
+  std::printf("NOTE   worst %s disagreement: %.9g codes at (%zu, %zu) channel %zu, ours %.9g "
+              "against %.9g, over %zu px\n",
+              kind, worst.Code, worst.X, worst.Y, worst.Channel, worst.Ours, worst.Theirs,
+              worst.Pixels);
+}
+
 void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
                        std::vector<Metric> &metrics) {
-  using namespace outshine::Test;
   for (const BoundTerm &term : bound.Terms) {
     std::printf("BOUND  %-56s %14.9g codes\n", term.Mechanism.c_str(), term.Codes);
   }
@@ -1605,16 +1661,21 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
     std::printf("BOUND  %-56s %14s\n",
                 "the oracle still estimates, so no tail bound may be enforced", "--");
   }
-  metrics.push_back({"picture_max_delta_code", picture.MaxCode, bound.Codes, "codes",
-                     bound.Enforced ? Direction::AtMost : Direction::Reported});
-  metrics.push_back({"picture_max_delta_code_colour", picture.MaxColourCode, 0.0, "codes",
-                     Direction::Reported});
-  metrics.push_back({"picture_max_delta_code_alpha", picture.MaxAlphaCode, 0.0, "codes",
-                     Direction::Reported});
+  metrics.push_back({"picture_max_delta_code", picture.Appearance.Code, bound.Codes, "codes",
+                     bound.Enforced ? Direction::AtMost : Direction::Reported, Count::Picture});
+  /* A PREDICATE HAS ONE VALUE WHERE THE TWO SIDES AGREE IT APPLIES, so zero here is a statement and
+   * not a tolerance: an oracle alpha between 0 and 1 over our `covered(sceneDepth)` is the blended
+   * -surface defect, and this is the gate that reaches it. */
+  metrics.push_back({"picture_max_delta_code_alpha", picture.Predicate.Code, 0.0, "codes",
+                     Direction::AtMost, Count::Picture});
+  metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
+                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_pixels_routed", (double)picture.Routed.Pixels, 0.0, "px",
+                     Direction::Reported, Count::Picture});
   metrics.push_back({"picture_pixels_differing", (double)picture.PixelsDiffering, 0.0, "px",
-                     Direction::Reported});
+                     Direction::Reported, Count::Picture});
   metrics.push_back({"picture_channels_compared", (double)picture.ChannelsCompared, 0.0, "channels",
-                     Direction::Reported});
+                     Direction::Reported, Count::Picture});
   size_t occupied = 0;
   for (size_t bucket = 0; bucket < kCodeBuckets; ++bucket) {
     if (picture.Buckets[bucket] == 0) { continue; }
@@ -1623,15 +1684,12 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
                 picture.Buckets[bucket]);
   }
   if (occupied == 0) {
-    std::printf("HIST   every channel of every pixel agrees to the last bit of the transfer\n");
+    std::printf("HIST   every colour channel the two sides agree to cover agrees to the last bit of "
+                "the transfer\n");
   }
-  if (picture.MaxCode > 0.0) {
-    Note("worst picture disagreement, at x", (double)picture.WorstX, "px");
-    Note("worst picture disagreement, at y", (double)picture.WorstY, "px");
-    Note("worst picture disagreement, channel", (double)picture.WorstChannel, "index, 3 is alpha");
-    Note("worst picture disagreement, ours", picture.WorstOurs, "codes");
-    Note("worst picture disagreement, oracle", picture.WorstTheirs, "codes");
-  }
+  SayWhereItWas("appearance", picture.Appearance);
+  SayWhereItWas("alpha-predicate", picture.Predicate);
+  SayWhereItWas("routed-to-coverage", picture.Routed);
 }
 
 /* THE TWO COUNTS THE SUITE IS QUOTED BY, PRINTED ONCE PER CASE SO THAT NEITHER CAN BE QUOTED FOR THE
@@ -1644,11 +1702,7 @@ void SayBothVerdicts(const std::vector<Metric> &metrics, const Tail &bound) {
   bool withinPicture = true;
   for (const Metric &metric : metrics) {
     if (metric.Against == Direction::Reported || metric.Held()) { continue; }
-    if (metric.Name == "picture_max_delta_code") {
-      withinPicture = false;
-      continue;
-    }
-    criterionMet = false;
+    (metric.Counts == Count::Picture ? withinPicture : criterionMet) = false;
   }
   std::printf("KHRONOS-CRITERION %s\n", criterionMet ? "met" : "red");
   /* A CASE WHOSE ORACLE STILL ESTIMATES IS NOT WITHIN THE BOUND, IT IS UNBOUNDED. Printing `within`
@@ -1804,12 +1858,20 @@ int main(int argc, char **argv) {
      * no constant of its own: the oracle's filter half-width is already declared in the recipe, and
      * a disagreement further from the silhouette than the oracle can resolve is not a tie however
      * few pixels of it there are. Under `exact` the pixel count is the acceptance instead and this
-     * is reported beside it, because a bound that admits a disagreement is not what that arm says. */
+     * is reported beside it, because a bound that admits a disagreement is not what that arm says.
+     *
+     * IT COUNTS TOWARD THE PICTURE AND NOT THE FEATURE, and that follows from the routing rather
+     * than from taste: the picture bound sends every pixel the two sides disagree about covering to
+     * THIS metric, so a routed pixel that failed here while the picture read `within` would be a
+     * picture defect reported as a feature defect -- the misquote I.26.15 exists to make
+     * unspellable. */
     metrics.push_back({"worst_disagreement_px", WorstDisagreementPx(ours, theirs, edges),
                        subject.OracleFloorPx, "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
-                                                                            : Direction::Reported});
+                                                                            : Direction::Reported,
+                       Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
+    ScoreVisibilityTerm(subject, clip, renderer.ShadowRayNearM(), metrics);
   }
 
   /* THE VERDICT IS THE RENDERED IMAGE AGAINST THE ORACLE'S IMAGE, because that is what a render case
@@ -1826,7 +1888,7 @@ int main(int argc, char **argv) {
   /* THE PICTURE ITSELF, WHOLE, ON THE LINEAR TAP AND ON THE DECLARED TRANSFER (I.26.15). Our alpha
    * is `covered(sceneDepth)`, so it comes from the depth mask and not from the colour attachment --
    * the same expression the display shader evaluates, over the same input. */
-  const PictureDelta image = ComparePicture(scored, oracle);
+  const PictureDelta image = ComparePicture(scored, oracle, ours, theirs);
   CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
                           "pixel of the picture has something to be compared against");
   const Tail bound = BoundFor(subject.Path);
@@ -1855,7 +1917,8 @@ int main(int argc, char **argv) {
    * is bounded above by `worst_disagreement_px` instead, so a placement is never unbounded. */
   metrics.push_back({"pixels_disagreeing", (double)Disagreeing(ours, theirs), 0.0, "px",
                      subject.Placement == ExactnessClass::Exact ? Direction::AtMost
-                                                                : Direction::Reported});
+                                                                : Direction::Reported,
+                     Count::Picture});
   /* AND WHERE THEY ARE, BY THE FILE'S OWN NODE NAMES. A count says the two renderers differ; the
    * table says whether the difference belongs to one class of node or straddles every one of them,
    * which is the discriminator between a transform question and a raster question. */

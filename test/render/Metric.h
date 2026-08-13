@@ -31,6 +31,13 @@ inline double Percentile(const std::vector<double> &sorted, double fraction) {
 
 enum class Direction { AtMost, AtLeast, Reported };
 
+/* WHICH OF THE TWO PUBLISHED COUNTS A METRIC IS EVIDENCE FOR (doc/requirements.md I.26.15). Khronos's
+ * criterion counts FEATURES and does not stop being met because our picture is not the reference's;
+ * the picture bound counts PICTURES. Carried as a field of the metric because the alternative -- the
+ * reporter matching a metric's NAME -- is a rule a reader has to keep true by hand, and it was
+ * already one name matched against three metrics that belong to the picture. */
+enum class Count { Criterion, Picture };
+
 inline const char *Spelling(Direction direction) {
   switch (direction) {
   case Direction::AtMost: return "at most ";
@@ -46,6 +53,7 @@ struct Metric {
   double Threshold = 0;
   std::string Unit;
   Direction Against = Direction::Reported;
+  Count Counts = Count::Criterion;
 
   [[nodiscard]] bool Held() const {
     switch (Against) {

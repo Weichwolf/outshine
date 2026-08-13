@@ -223,6 +223,9 @@ public:
    * batching instrument, because a batching claim nobody counts is a claim. */
   uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
   uint32_t DrawCount() const;
+  /* Where a shadow ray starts, in the subject's own metres -- readable because a bound on the
+   * visibility estimator's displacement is derived from it (doc/requirements.md I.26.15). */
+  float ShadowNearM() const { return ShadowNearM_; }
 
 private:
   static constexpr int kUniFloats = 20;   /* mat4 + anc -- the MSL struct `S` verbatim */
@@ -306,7 +309,7 @@ private:
   OwnedBuffer BvhNodes, BvhTris;
   /* Where a shadow ray starts, so a surface does not shadow itself: a fixed fraction of the
    * structure's root box (`stages/ShadowRay.h`), in the subject's own metres. */
-  float ShadowNearM = 0.0f;
+  float ShadowNearM_ = 0.0f;
   std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;

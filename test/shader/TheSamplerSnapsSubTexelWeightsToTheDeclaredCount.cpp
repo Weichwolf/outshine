@@ -82,12 +82,13 @@ public:
   SDL_GPUDevice *Device = nullptr;
 };
 
-/* `u` walks the OPEN span between the two texel centres, so every offset the sampler can snap to
- * inside one texel is reachable and neither endpoint is counted twice. A 2x1 texture puts those
- * centres at u = 0.25 and u = 0.75. */
+/* `u` walks the OPEN span between the FIRST TWO texel centres, so every offset the sampler can snap
+ * to inside one texel is reachable and neither endpoint is counted twice. At width W those centres
+ * are at 0.5/W and 1.5/W, and the shader is handed the width rather than assuming one -- because
+ * whether the division count DEPENDS on the width is the question this probe is asked. */
 std::string ProbeShader() {
   return std::string(kMslPrelude) + R"(
-struct Span { uint offsets; };
+struct Span { uint offsets; uint texels; };
 
 kernel void probe(uint3 id [[thread_position_in_grid]],
                   constant Span &span [[buffer(0)]],
@@ -96,33 +97,36 @@ kernel void probe(uint3 id [[thread_position_in_grid]],
                   sampler filtered [[sampler(0)]]) {
   if (id.x >= span.offsets) { return; }
   float across = (float(id.x) + 0.5) / float(span.offsets);
-  float u = 0.25 + 0.5 * across;
+  float u = (0.5 + across) / float(span.texels);
   results[id.x] = ramp.sample(filtered, float2(u, 0.5), level(0)).x;
 }
 )";
 }
 
-/* The two texels the weight is read off: a span of exactly 1, so the returned value IS the weight
- * and no scaling stands between the measurement and the number. */
-SDL_GPUTexture *Ramp(SDL_GPUDevice *device) {
+/* THE RAMP, W TEXELS WIDE, whose first two texels are 0 and 1 -- so the returned value across their
+ * span IS the weight and no scaling stands between the measurement and the number. Everything past
+ * the second texel is 1 and is never sampled; it is there to make the texture the declared width. */
+SDL_GPUTexture *Ramp(SDL_GPUDevice *device, uint32_t width) {
   SDL_GPUTextureCreateInfo wanted{};
   wanted.type = SDL_GPU_TEXTURETYPE_2D;
   wanted.format = SDL_GPU_TEXTUREFORMAT_R32_FLOAT;
   wanted.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-  wanted.width = 2;
+  wanted.width = width;
   wanted.height = 1;
   wanted.layer_count_or_depth = 1;
   wanted.num_levels = 1;
   SDL_GPUTexture *texture = SDL_CreateGPUTexture(device, &wanted);
-  if (Refused(texture, "the two-texel ramp")) { return nullptr; }
+  if (Refused(texture, "the ramp")) { return nullptr; }
 
-  const float texels[2] = {0.0f, 1.0f};
+  std::vector<float> texels(width, 1.0f);
+  texels[0] = 0.0f;
+  const uint32_t bytes = width * (uint32_t)sizeof(float);
   SDL_GPUTransferBufferCreateInfo staging{};
   staging.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
-  staging.size = sizeof texels;
+  staging.size = bytes;
   SDL_GPUTransferBuffer *transfer = SDL_CreateGPUTransferBuffer(device, &staging);
   if (Refused(transfer, "the ramp's upload buffer")) { return texture; }
-  std::memcpy(SDL_MapGPUTransferBuffer(device, transfer, false), texels, sizeof texels);
+  std::memcpy(SDL_MapGPUTransferBuffer(device, transfer, false), texels.data(), bytes);
   SDL_UnmapGPUTransferBuffer(device, transfer);
 
   SDL_GPUCommandBuffer *commands = SDL_AcquireGPUCommandBuffer(device);
@@ -131,7 +135,7 @@ SDL_GPUTexture *Ramp(SDL_GPUDevice *device) {
   source.transfer_buffer = transfer;
   SDL_GPUTextureRegion into{};
   into.texture = texture;
-  into.w = 2;
+  into.w = width;
   into.h = 1;
   into.d = 1;
   SDL_UploadToGPUTexture(copy, &source, &into, false);
@@ -154,7 +158,7 @@ SDL_GPUSampler *AsTheRendererSamples(SDL_GPUDevice *device) {
   return sampler;
 }
 
-std::vector<float> Weights(const Instrument &on) {
+std::vector<float> Weights(const Instrument &on, uint32_t width) {
   const uint32_t bytes = kOffsets * (uint32_t)sizeof(float);
   const std::string msl = ProbeShader();
 
@@ -176,7 +180,7 @@ std::vector<float> Weights(const Instrument &on) {
   hold.usage = SDL_GPU_BUFFERUSAGE_COMPUTE_STORAGE_WRITE;
   hold.size = bytes;
   SDL_GPUBuffer *results = SDL_CreateGPUBuffer(on.Device, &hold);
-  SDL_GPUTexture *ramp = Ramp(on.Device);
+  SDL_GPUTexture *ramp = Ramp(on.Device, width);
   SDL_GPUSampler *sampler = AsTheRendererSamples(on.Device);
 
   std::vector<float> out;
@@ -190,8 +194,8 @@ std::vector<float> Weights(const Instrument &on) {
     bound.texture = ramp;
     bound.sampler = sampler;
     SDL_BindGPUComputeSamplers(pass, 0, &bound, 1);
-    const uint32_t offsets = kOffsets;
-    SDL_PushGPUComputeUniformData(commands, 0, &offsets, sizeof offsets);
+    const uint32_t span[2] = {kOffsets, width};
+    SDL_PushGPUComputeUniformData(commands, 0, span, sizeof span);
     SDL_DispatchGPUCompute(pass, (kOffsets + 63u) / 64u, 1, 1);
     SDL_EndGPUComputePass(pass);
     SDL_SubmitGPUCommandBuffer(commands);
@@ -236,6 +240,15 @@ Divisions Count(std::vector<float> returned) {
   return found;
 }
 
+/* THE WIDTHS THE PROBE IS RUN AT, AND WHY THERE IS MORE THAN ONE. Two texels is the narrowest span
+ * the question has a meaning over. 512 is the width every image in the Khronos corpus actually
+ * carries, and it is here because the picture bound applies the term measured at two texels to
+ * pictures sampled at 512: if the division count fell with the width -- which is what a fixed-point
+ * coordinate of fixed TOTAL width would do -- the term the bound carries would be for a sampler that
+ * is not in the path. That was a live hypothesis about `texture-coordinate-test`'s residual and this
+ * is the instrument that answers it. */
+constexpr uint32_t kWidthsProbed[] = {2, 512};
+
 } // namespace
 
 int main() {
@@ -245,36 +258,47 @@ int main() {
   CHECK(on.Device != nullptr, "a device answers, so the sampler can be probed at all");
   if (!on.Device) { return Report(); }
 
-  const std::vector<float> returned = Weights(on);
-  CHECK(returned.size() == kOffsets, "the probe returns one weight per sub-texel offset");
-  if (returned.size() != kOffsets) { return Report(); }
+  for (uint32_t width : kWidthsProbed) {
+    const std::string at = " at " + std::to_string(width) + " texels";
+    const std::vector<float> returned = Weights(on, width);
+    CHECK(returned.size() == kOffsets,
+          ("the probe returns one weight per sub-texel offset" + at).c_str());
+    if (returned.size() != kOffsets) { continue; }
 
-  const Divisions found = Count(returned);
-  Note("sub-texel offsets sampled", (double)kOffsets, "count");
-  Note("distinct weights returned", (double)found.Distinct, "count");
-  Note("smallest positive step between two returned weights", found.SmallestStep, "of a texel span");
-  Note("largest step between two returned weights", found.LargestStep, "of a texel span");
-  Note("lowest weight returned", found.Lowest, "of a texel span");
-  Note("highest weight returned", found.Highest, "of a texel span");
+    const Divisions found = Count(returned);
+    Note(("sub-texel offsets sampled" + at).c_str(), (double)kOffsets, "count");
+    Note(("distinct weights returned" + at).c_str(), (double)found.Distinct, "count");
+    Note(("smallest positive step between two returned weights" + at).c_str(), found.SmallestStep,
+         "of a texel span");
+    Note(("largest step between two returned weights" + at).c_str(), found.LargestStep,
+         "of a texel span");
+    Note(("lowest weight returned" + at).c_str(), found.Lowest, "of a texel span");
+    Note(("highest weight returned" + at).c_str(), found.Highest, "of a texel span");
 
-  /* A COUNT AT THE PROBE'S OWN RESOLUTION IS NOT A MEASUREMENT OF THE DEVICE. Refused rather than
-   * reported, because "65 536" would read as a division count and would be this file's number. */
-  CHECK(found.Distinct * 4 < kOffsets,
-        "the probe resolves the division: the distinct count is far below the offsets sampled, so "
-        "the snapping and not this dispatch is what set it");
+    /* A COUNT AT THE PROBE'S OWN RESOLUTION IS NOT A MEASUREMENT OF THE DEVICE. Refused rather than
+     * reported, because "65 536" would read as a division count and would be this file's number. */
+    CHECK(found.Distinct * 4 < kOffsets,
+          ("the probe resolves the division: the distinct count is far below the offsets sampled, "
+           "so the snapping and not this dispatch is what set it" + at).c_str());
 
-  /* THE DIVISION ITSELF, at nine digits: both readings come off f32 values of order 1, so their own
-   * disagreement floor is around 1e-7. */
-  CHECK_NEAR(found.SmallestStep, 1.0 / (double)kSubTexelDivisions, 1.0e-7, "of a texel span",
-             "one division of the texel span is the declared 2^-n (test/SubTexelPrecision.h)");
-  CHECK_NEAR(found.LargestStep, 1.0 / (double)kSubTexelDivisions, 1.0e-7, "of a texel span",
-             "the divisions are uniform: the largest step is the smallest one, so the snapping is a "
-             "division of the span and not a curve over it");
-  CHECK(found.Distinct == (size_t)kSubTexelDivisions + 1u,
-        "the open span returns one weight per division endpoint, which is the same count reached by "
-        "different arithmetic and is what says the snapping rounds to nearest rather than truncates");
-  Note("sub-texel precision bits this device carries",
-       std::log2((double)found.Distinct - 1.0), "bits");
+    /* THE DIVISION ITSELF, at nine digits: both readings come off f32 values of order 1, so their
+     * own disagreement floor is around 1e-7. */
+    CHECK_NEAR(found.SmallestStep, 1.0 / (double)kSubTexelDivisions, 1.0e-7, "of a texel span",
+               ("one division of the texel span is the declared 2^-n (test/SubTexelPrecision.h)" +
+                at)
+                   .c_str());
+    CHECK_NEAR(found.LargestStep, 1.0 / (double)kSubTexelDivisions, 1.0e-7, "of a texel span",
+               ("the divisions are uniform: the largest step is the smallest one, so the snapping "
+                "is a division of the span and not a curve over it" + at)
+                   .c_str());
+    CHECK(found.Distinct == (size_t)kSubTexelDivisions + 1u,
+          ("the open span returns one weight per division endpoint, which is the same count reached "
+           "by different arithmetic and is what says the snapping rounds to nearest rather than "
+           "truncates" + at)
+              .c_str());
+    Note(("sub-texel precision bits this device carries" + at).c_str(),
+         std::log2((double)found.Distinct - 1.0), "bits");
+  }
   Note("the declared bit count", (double)kSubTexelPrecisionBits, "bits");
 
   CHECK(DeviceErrors == 0, "the device reported no error over the probe");

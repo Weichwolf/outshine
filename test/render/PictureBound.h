@@ -13,10 +13,26 @@
  * dot at 0.0 beside a neighbour at 0.04 is a tiny number and a glaring defect; relatively, 0 against
  * 1e-7 near black reads as infinite error and is invisible.
  *
- * ALPHA IS COMPARED AND IT IS NOT A COLOUR. Straight coverage on both sides, no transfer, because
- * encoding a coverage into a display code would bend it into something it is not. It is in the
- * comparison because without it a black subject and no subject are the same three channels: an empty
- * render scores 50 differing pixels under RGB alone against 46 151 under RGBA.
+ * EVERY PIXEL IS GATED BY EXACTLY ONE BOUND AND THE ROUTING IS BY WHAT KIND OF QUANTITY IT CARRIES
+ * (I.26.15). Where both sides agree about covering a pixel, its colour is appearance and it goes to
+ * the perceptual tail below. Where they DISAGREE about covering it, its difference is geometric and
+ * expressed in the wrong unit: both sides sample once, ours at the pixel centre and Cycles through a
+ * 0.01 px box, so a 0.0013 px tie becomes 187 codes because coverage has two values -- the
+ * amplification is the instrument's and not the picture's. That pixel is routed to I.26.14, which is
+ * STRICTER: it demands the edge sit within the oracle's own filter half-width. The pixel is routed,
+ * never excluded, and its count and worst code are published beside the tail.
+ *
+ * WHAT CAN HIDE IN THE GAP: nothing. A defect that moves a silhouette visibly exceeds the filter
+ * half-width and I.26.14 refuses it; a defect that changes a covered pixel's colour is in the tail
+ * here. What remains between them is a geometric difference below the oracle's own filter, where the
+ * reference cannot say which side of the edge it is on either.
+ *
+ * ALPHA IS A PREDICATE AND HAS NO PERCEPTUAL AXIS, so it is never in the tail: `T` is a transfer for
+ * RADIANCE, and applying it to a coverage decision produces a number with no meaning. Where the two
+ * coverage masks agree, alpha must agree EXACTLY -- zero is not a tolerance here but the statement
+ * that a predicate has one value -- and a fractional oracle alpha over our `covered(sceneDepth)` is
+ * a defect this gate is meant to reach rather than absorb. Where they disagree, alpha is routed with
+ * the rest of the pixel.
  *
  * THE BOUND IS A TAIL AND THE TAIL IS A SUM OF NAMED TERMS. `max delta_code <= N` gates; the count in
  * every bucket is published and unbounded. A count bound would have to be fitted to each case, which
@@ -110,14 +126,39 @@ struct Tail {
  * `255 * 2^-(n+1)`, half a division over a texel span of at most 255 codes -- is the term for a
  * sampler that interpolates in the ENCODED domain. Ours does not: `SubjectDraw::Upload` decodes
  * every sRGB image to linear f32 on the CPU and uploads `R32G32B32A32_FLOAT`, so the hardware
- * interpolates LINEAR radiance, which is also what Cycles does. The weight error is then
- * `|a - b| * 2^-(n+1)` in linear, and the display transfer is concave with `T(0) = 0`, so
- * `|T(x) - T(y)| <= T(|x - y|)` and the term is `255 * T(2^-(n+1))` at the worst adjacent pair --
- * two texels a full linear unit apart, sampled where the curve is steepest.
+ * interpolates LINEAR radiance, which is also what Cycles does. The weight error is `|a - b| * e` in
+ * linear, and the display transfer is concave with `T(0) = 0`, so `|T(x) - T(y)| <= T(|x - y|)` and
+ * the term is `255 * T(e)` at the worst adjacent pair -- two texels a full linear unit apart,
+ * sampled where the curve is steepest.
  *
- * THAT IS 6.43 CODES AT n = 8 AND NOT 0.50, and the difference is the sRGB curve's slope near black:
- * an error of 1/512 in linear IS six codes there. The looser number is the honest one for a linear
- * sampler, and the tighter one would have been a bound derived for a pipeline we do not have. */
+ * `e` IS HALF A DIVISION HERE AND THE TERM IS 6.4348 CODES AT n = 8 -- and `texture-coordinate-test`
+ * EXCEEDS IT AT 10.295625 codes, which this file states rather than accommodates. What that residual
+ * is has been measured and it is NOT a defect in either sampler:
+ *
+ *   - both sides snap the weight to the SAME lattice. Over `texture-coordinate-test`'s checker
+ *     strip, 135 of 217 oracle samples land exactly on multiples of `0.8/256` -- the white texel
+ *     times the material's 0.8 albedo, over 256 divisions -- which a continuous interpolator hits
+ *     with probability zero. Cycles quantises too.
+ *   - so the disagreement is the gap between two independent roundings to one lattice, which is a
+ *     WHOLE division per axis and not half of one: each rounding is within half a step of the true
+ *     weight, so the two can straddle a boundary. Measured over that strip: 73 px at -1 step, 84 at
+ *     +1, and 2 px at +/-2 -- and both of the two-step pixels lie where BOTH axes interpolate, which
+ *     is one step per axis and is what a bilinear sampler with two snapped weights predicts.
+ *   - `255 * 12.92 * 0.8/256 = 10.295625` codes is therefore the PREDICTED worst pixel of this case
+ *     from `n`, the albedo and the transfer alone, and the measured worst pixel is 10.295625.
+ *
+ * THE TERM IS LEFT AT HALF A DIVISION ALL THE SAME, and that is a decision rather than an oversight.
+ * Carrying the derivation to its end gives `255 * T(2/256) = 21.60` codes at a full-range span --
+ * 3.4x this term -- and a ceiling that wide admits `scifi-helmet` at 15.46 codes, which has no
+ * measured connection to this mechanism at all. A term is only worth its width where the mechanism
+ * is shown to be in the path, and widening one term to rescue a case it was not measured on is the
+ * move I.26.15 exists to prevent. The residual is attributed and published; moving the ceiling is
+ * the architect's (doc/requirements.md I.26.15's own table carries 6.4348).
+ *
+ * THE DIVISION COUNT IS MEASURED AT THE CORPUS'S OWN TEXTURE WIDTH and not only at two texels
+ * (`test/shader/TheSamplerSnapsSubTexelWeightsToTheDeclaredCount.cpp`): 512 texels returns the same
+ * 257 endpoints at the same 1/256 step, so `n` does not depend on the width and the hypothesis that
+ * it did is refuted rather than assumed away. */
 [[nodiscard]] inline double SamplerWeightCodes() {
   return 255.0 * DisplayCode(1.0 / (2.0 * (double)outshine::Test::kSubTexelDivisions));
 }
@@ -155,23 +196,42 @@ struct Tail {
  * which is a channel that agrees about nothing at all. */
 constexpr size_t kCodeBuckets = 256;
 
+/* THE WORST CHANNEL OF ONE KIND, WITH WHERE IT WAS AND WHAT THE TWO SIDES SAID THERE. Three of these
+ * make a comparison, and a caller cannot mix them up: each is reached by a name that says which
+ * quantity it bounds, and none of them holds a maximum over a population it does not name. */
+struct Excursion {
+  double Code = 0;
+  size_t X = 0, Y = 0;
+  size_t Channel = 0;
+  double Ours = 0, Theirs = 0;
+  size_t Pixels = 0; /* pixels of this kind with any channel of this kind apart */
+};
+
 struct PictureDelta {
-  double MaxCode = 0;
-  /* THE TAIL SPLIT BY WHAT IT IS ABOUT, because the two lead to different work and one number
-   * carrying both cannot say which. A COLOUR difference is shading; an ALPHA difference is coverage,
-   * and it is 0 or 255 by construction because both sides' alpha is a predicate -- so a single
-   * silhouette pixel the two rasterisers place differently lands at 255 whatever the pictures look
-   * like. The gate is the max of the two, as I.26.15 rules: whole image, every pixel, no mask. */
-  double MaxColourCode = 0;
-  double MaxAlphaCode = 0;
-  size_t WorstX = 0, WorstY = 0;
-  size_t WorstChannel = 0;
-  double WorstOurs = 0, WorstTheirs = 0;
-  size_t PixelsDiffering = 0;   /* any channel apart at all */
+  /* Colour, where the two sides agree about coverage. THIS IS THE GATED TAIL. */
+  Excursion Appearance;
+  /* Alpha, where the two sides agree about coverage. Gated at zero: a predicate has one value. */
+  Excursion Predicate;
+  /* Every channel, at the pixels the two sides disagree about covering. Published here and gated by
+   * I.26.14's `worst_disagreement_px`, which is a distance in pixels rather than a code. */
+  Excursion Routed;
+  size_t PixelsDiffering = 0; /* any channel apart at all, RGBA, whole image */
   size_t ChannelsCompared = 0;
+  /* Of the tail only, because the tail is what the histogram is the shape of. A routed channel's
+   * code is an artefact of binary coverage and would pile up at 255 saying nothing. */
   std::array<size_t, kCodeBuckets> Buckets{};
   bool Comparable = false;
 };
+
+namespace Detail {
+
+inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t channel, double ours,
+                  double theirs) {
+  if (code <= worst.Code) { return; }
+  worst = {code, x, y, channel, ours, theirs, worst.Pixels};
+}
+
+} // namespace Detail
 
 /* THE FRAME THE BOUND IS COMPUTED ON, COMPOSED ONCE. `linear` is the plan's `sceneLinear` readback,
  * RGBA f32, top row first; its fourth channel is whatever the subject shader wrote and is NOT our
@@ -196,43 +256,58 @@ struct PictureDelta {
   return frame;
 }
 
-/* EVERY PIXEL, NO MASK. A mask here would be the previous instrument's blindness in a new place. */
+/* EVERY PIXEL, NO MASK -- and the two coverage masks are the ROUTER rather than a filter: every
+ * channel of every pixel lands in exactly one of the three excursions and none is dropped. The masks
+ * are passed in because the predicate `is this pixel covered` has one spelling per side already
+ * (`FromDepth` and `FromOracle`), and rewriting either here would be a second one that can drift. */
 [[nodiscard]] inline PictureDelta ComparePicture(const std::vector<float> &frame,
-                                                 const RawF32 &oracle) {
+                                                 const RawF32 &oracle, const Mask &ours,
+                                                 const Mask &theirs) {
   PictureDelta delta;
   const size_t width = (size_t)oracle.Width();
   const size_t height = (size_t)oracle.Height();
-  if (frame.size() < width * height * 4u) { return delta; }
+  if (frame.size() < width * height * 4u || ours.Width != oracle.Width() ||
+      theirs.Width != oracle.Width() || ours.Height != oracle.Height() ||
+      theirs.Height != oracle.Height()) {
+    return delta;
+  }
   delta.Comparable = true;
   const int alphaChannel = oracle.Channels() - 1;
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = 0; x < width; ++x) {
-      bool apart = false;
+      const bool agreeOnCoverage = ours.At((int)x, (int)y) == theirs.At((int)x, (int)y);
+      bool apart = false, routedApart = false, appearanceApart = false, predicateApart = false;
       for (size_t channel = 0; channel < 4; ++channel) {
         const bool isAlpha = channel == 3;
         const double value = (double)frame[(y * width + x) * 4u + channel];
-        const double ours = isAlpha ? value : DisplayCode(value);
-        const double theirs =
+        const double oursCode = isAlpha ? value : DisplayCode(value);
+        const double theirsCode =
             isAlpha ? (double)oracle.At((int)x, (int)y, alphaChannel)
                     : DisplayCode((double)oracle.At((int)x, (int)y, (int)channel));
-        const double code = std::fabs(ours - theirs) * 255.0;
+        const double code = std::fabs(oursCode - theirsCode) * 255.0;
         ++delta.ChannelsCompared;
         if (code <= 0.0) { continue; }
         apart = true;
+        if (!agreeOnCoverage) {
+          routedApart = true;
+          Detail::Widen(delta.Routed, code, x, y, channel, oursCode * 255.0, theirsCode * 255.0);
+          continue;
+        }
+        if (isAlpha) {
+          predicateApart = true;
+          Detail::Widen(delta.Predicate, code, x, y, channel, oursCode * 255.0, theirsCode * 255.0);
+          continue;
+        }
+        appearanceApart = true;
         size_t bucket = (size_t)code;
         if (bucket >= kCodeBuckets) { bucket = kCodeBuckets - 1; }
         ++delta.Buckets[bucket];
-        double &worstOfItsKind = isAlpha ? delta.MaxAlphaCode : delta.MaxColourCode;
-        if (code > worstOfItsKind) { worstOfItsKind = code; }
-        if (code <= delta.MaxCode) { continue; }
-        delta.MaxCode = code;
-        delta.WorstX = x;
-        delta.WorstY = y;
-        delta.WorstChannel = channel;
-        delta.WorstOurs = ours * 255.0;
-        delta.WorstTheirs = theirs * 255.0;
+        Detail::Widen(delta.Appearance, code, x, y, channel, oursCode * 255.0, theirsCode * 255.0);
       }
       delta.PixelsDiffering += apart ? 1u : 0u;
+      delta.Routed.Pixels += routedApart ? 1u : 0u;
+      delta.Appearance.Pixels += appearanceApart ? 1u : 0u;
+      delta.Predicate.Pixels += predicateApart ? 1u : 0u;
     }
   }
   return delta;

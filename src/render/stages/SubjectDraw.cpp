@@ -950,7 +950,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     const float span = root.MaxM[axis] - root.MinM[axis];
     diagonal += span * span;
   }
-  ShadowNearM = std::sqrt(diagonal) * kShadowRayNearFraction;
+  ShadowNearM_ = std::sqrt(diagonal) * kShadowRayNearFraction;
   return true;
 }
 
@@ -973,7 +973,7 @@ std::array<float, SubjectDraw::kLightFloats> SubjectDraw::PackedLights(
     const FrameContext &ctx) const {
   std::array<float, kLightFloats> packed{};
   packed[0] = (float)Placed.size();
-  packed[1] = ShadowNearM;
+  packed[1] = ShadowNearM_;
   for (size_t at = 0; at < Placed.size(); ++at) {
     const PunctualLight &light = Placed[at].Light;
     float *entry = packed.data() + 4 + at * 4u * (size_t)kLightVec4s;
