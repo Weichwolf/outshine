@@ -342,3 +342,36 @@ looked like.
 dominant error is a **direction** error that moves the diffuse term, first order and out of its reach.
 The proof is `pair1` — the cells where we were BEST unfiltered, better than the oracle itself — going to
 `0.18338..0.25048` under filtering. A specular correction being too small cannot do that.
+
+## The number this item was built on is wrong by about 300x
+
+`board:1134` found the sampler's magnification filter deciding every pixel, which cannot coexist with
+the **1.42 texels per screen pixel** and the **288 807 px at LOD ≈ 1.25** recorded above. So it was
+measured directly, with an instrument that cannot be confused about a projection: build the chain, fill
+**every level above 0 with zero**, and count how the differing-pixel population moves. A pixel that
+never reads a level above 0 cannot notice.
+
+| case | differing px | with levels > 0 poisoned | **pixels reading a level above 0** |
+|---|---|---|---|
+| `texture/simple-texture` | 34 797 | 34 797 | **0** |
+| `materials/normal-tangent` | 198 860 | 199 780 | **~920** |
+| `materials/normal-tangent-mirror` | 199 205 | 200 066 | **~861** |
+| `materials/scifi-helmet` | 41 440 | 47 231 | **~5 791** |
+
+**About 920 pixels, not 288 807.** `simple-texture` reads no level above 0 at all. **Mipmaps are not a
+broad picture question on this corpus** — they are a question about roughly a tenth of a percent of the
+frame, which is precisely the spike population already measured at UV island boundaries.
+
+**Everything this item concluded stays true and changes meaning.** Enabling `max_lod` really did saturate
+six cases at 255 — because a MAX is decided by exactly those isolated pixels, and they read *deep*
+levels. The index rule, Toksvig's term and the diffuse-direction finding in `board:1132` are all correct
+about the mechanism; what they were wrong about is the **population**, and this repository already names
+that failure: *the number was right and about something else*, in its **input set too wide** face. A
+correction sized for 288 807 pixels was being judged by 920.
+
+**What this changes about the work.** Carrying the shortfall as roughness cannot be validated on a
+population of 920 isolated pixels — `rowN_pairM_geometry_matches_normalmap` reads 64×64 rectangles that
+are almost entirely magnified, so it is measuring the term at pixels the term does not apply to. **The
+instrument for a mip correction has to be a case that actually minifies**, and no case in this corpus
+does so broadly. That is the next thing to build, and it is `board:0078`'s territory: a subject at a
+distance, where texels outnumber pixels across the whole frame.
