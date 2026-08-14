@@ -97,6 +97,11 @@ first refuted a hypothesis — the *we add light where the oracle has none* clas
 the bound. The second is what made the mechanism readable: one worst pixel could not show that both
 sides carry the same discrete values.
 
-**This issue stays OPEN after being decided.** A `closed` id cited by nothing under `test/` is an unproven
-claim and an issue has no test of its own, so a decided issue closes when the work its decision creates
-lands and cites it. Here that is `board:1151`.
+**STRUCK — the paragraph here claimed this issue must stay open until `board:1151` cited it, and the owner
+has ruled otherwise**: *an issue can be closed and it does not need to be cited … an issue can just be
+closed too if you judge it as not relevant or already resolved.* An issue makes **no claim about the
+tree** — it records a decision — so the citation invariant, which exists to catch an unproven capability,
+was never about this population. The full record of what was believed and why it failed stands in
+`board:1135`, where the same paragraph was written; it is not repeated here so the two cannot drift.
+
+**This issue is decided and its work is `board:1151`, which is stated above where a reader will find it.**

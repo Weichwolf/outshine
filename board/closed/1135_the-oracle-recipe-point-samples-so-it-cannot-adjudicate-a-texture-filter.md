@@ -118,7 +118,27 @@ decision.
 **2026-08-14** — This is the fourth assumption this stretch has killed by measuring it, and the
 largest: the previous three were mine, this one was the tree's.
 
-**This issue stays OPEN after being decided, and the rule is the tree's own invariant rather than a
-preference.** A `closed` id cited by nothing under `test/` is an unproven claim, and an issue has no test
-of its own — so **a decided issue closes when the work its decision creates lands and cites it**, and not
-before. The decision is taken; the tree does not yet reflect it; the path is the state.
+**STRUCK — the paragraph that stood here said this issue must stay open until implementing work cited it,
+and the owner has ruled against it.** Kept with its refutation rather than deleted, which is what this
+board does with a refuted thing.
+
+**What was claimed** (architect, on the round that recorded the decision): *a `closed` id cited by nothing
+under `test/` is an unproven claim, and an issue has no test of its own — so a decided issue closes when
+the work its decision creates lands and cites it, and not before.*
+
+**What was ruled** (owner): *an issue can be closed and it does not need to be cited. An issue can be the
+source of a task or feature or bug but an issue can just be closed too if you judge it as not relevant or
+already resolved.* So an issue closes when it is **decided**, **irrelevant** or **already resolved**,
+whether or not code follows.
+
+**Why the reasoning failed, because that is the part worth keeping.** The invariant is about **claims
+about the tree** — a closed feature or bug asserts a capability, and an uncited assertion is unproven. **An
+issue asserts nothing about the tree; it records a decision.** So the rule was applied to a population it
+was never about — *the number was right and about something else*, in its **input set too wide** face, and
+this repository names that failure on its own front page.
+
+**And the deeper error was one of stance.** A checker refused a shape and I derived a board rule that made
+the shape fit the checker, rather than asking whether the checker's domain was right. The standing
+instruction is the opposite: when a design snags on something that exists, the question is not *how do I
+work around it* but *should the existing thing change*. Here the existing thing was wrong and is being
+narrowed — `EveryBoardInvariantHolds.cpp` to exempt `Type: issue` and `CLAUDE.md` to say so.
