@@ -87,3 +87,24 @@ close the item while leaving the defect spellable.
 rows, and `0112` renames twenty of them to fourteen — `Background` dissolving, five geometry units
 becoming four surface classes, `ShadowMap` becoming `LightVisibility`. Written first, the table is
 written twice and the second time against names that moved. **The rename goes first.**
+
+## Comments
+
+**A NON-EXECUTABLE ROW NOW HAS A MEASURED COST, and this item stops being a capability claim.** Until
+`board:1169` landed, `SceneVelocity` had never been non-zero and **could not have been** — all 18 fragment
+entry points wrote the static sentinel unconditionally. It now carries real motion: **124…778 moving
+pixels at frames 1–30, and 0 at frame 0**, which is the control that says the number is about motion and
+not about the instrument.
+
+**`TemporalResolve` is its only consumer and it is one of the eighteen this item enumerates**, so a
+correct, measured, per-frame quantity is produced by every geometry stage and **no plan this tree can run
+reads it**. That is not a second defect and it is filed nowhere else: it is *this* item, with the cost
+stated in pixels instead of in rows.
+
+**It also makes one of the eighteen ready in a way the others are not.** The velocity half of the temporal
+stage now has a producer whose output can be checked the moment the row executes — so `TemporalResolve` is
+the row where *cannot execute* is cheapest to disprove, and the first one worth taking.
+
+**The camera half is still unexercised and is named so it is not read as covered**: nothing in the corpus
+moves the camera between frames, so `PrevMvp16 != Mvp16` has never occurred. **Velocity is proven for
+moving geometry under a still camera and for nothing else.**
