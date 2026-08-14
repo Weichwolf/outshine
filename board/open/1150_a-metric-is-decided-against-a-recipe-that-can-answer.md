@@ -47,3 +47,35 @@ name the reference able to answer it has no home.
 **Done when** every metric names the recipe that decides it, a case declares the recipes it needs and the
 criterion says which those are, the sample count carries its derivation, and no case fails a coverage
 predicate for a reason that is not about coverage.
+
+## A second parameter, found by a feature that needs it: BOUNCES
+
+**This item prices the appearance recipe on its sample count alone, and the sample count is not the only
+thing that separates it from the point-sampling one.** [MEASURED] over every render declaration in the
+corpus — **61 declarations across 36 cases — `bounces.max` is 0 in every one.**
+
+**A zero-bounce reference carries no indirect light**, and three things in this tree depend on there being
+some:
+
+- **`occlusionTexture`** attenuates indirect light and nothing else — the specification's own sentence is
+  *"Direct lighting is not affected"* — so at zero bounces **it is unprovable against this oracle at any
+  sample count.** That is why `board:0079` gates its impact-46 row behind this item rather than in front
+  of it
+- **`board:0087`'s emission lowering** was argued on variance: *a Diffuse BSDF at one sample per pixel is
+  a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator and not a
+  material.* **At the integrating recipe's sample count that objection dissolves**, so the lowering of
+  17 cases to emitters is a decision this item can revisit — and it should say whether it does
+- **Our own side has no ambient term in the subject path**: `Stage::Subjects` reads `{kNoEdge}` while four
+  world stages read `IrradianceBuffer`. **So raising bounces alone would make the oracle right and us
+  wrong**, which is a real finding rather than a reason not to raise it
+
+- [ ] **`bounces.max` is declared by the appearance recipe and derived like the sample count** — the
+  number at which the beauty product stops moving, measured by the same sweep, not a preference
+- [ ] **Raising it is not free and the cost is not the render time.** It changes what the reference *is*,
+  so every case taking the appearance recipe is re-judged against a different physics. **The two recipes'
+  disagreement is the measurement**, published per case, exactly as this item's 37.880-code
+  self-disagreement already is
+- [ ] **A case may take the integrating recipe at zero bounces**, and that stays the default: a texture
+  filter question needs integration over the pixel and nothing over the hemisphere. **Bounces are declared
+  by the cases that need indirect light**, which keeps the cost proportional to the question — the same
+  rule `board:1143` applies to quantity passes

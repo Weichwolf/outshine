@@ -155,3 +155,59 @@ sign of low impact — and it is `board:1174`'s to fill.
 **No task is filed for any row here.** The order is the artefact; a task arrives when its row is
 dispatched, with its own test and its own citation. **Fifty ready tasks worked one at a time is
 forty-nine items that are ready and not being done**, which is the shape two rounds were spent undoing.
+
+## Row 2 is NOT tier 1, and no task is filed for it — the occlusion texture is gated twice over
+
+**The specification settles what it multiplies, quoted rather than recalled**: the occlusion value is read
+from the **red** channel, **"Direct lighting is not affected"**, it indicates *areas that receive less
+indirect lighting from ambient sources*, and `strength` applies as
+`1.0 + strength * (occlusionTexture - 1.0)`.
+
+**So a spec-correct implementation attenuates indirect light, and this engine has none in the path that
+would use it.** [MEASURED] in the catalogue: `Stage::Subjects` reads **`{kNoEdge}` — nothing at all**,
+while `Terrain`, `Buildings`, `Water` and `Models` each read `IrradianceBuffer`. **The ambient term exists
+in the plan and the subject path does not consume it.**
+
+**And the oracle has nothing to attenuate either.** [MEASURED] over every render declaration in the
+corpus — **61 declarations across 36 cases — `bounces.max` is 0 in every one.** A reference with zero
+bounces carries no indirect light, so **even with an ambient term on our side there would be nothing to
+compare against.**
+
+| | |
+|---|---|
+| implement it correctly today | **changes zero pixels** — nothing to multiply, on either side |
+| implement it so pixels move | **multiplies direct light**, which the specification forbids in one sentence |
+
+**A feature whose correct implementation is a no-op cannot be proven by a render**, and the owner's rule
+is *supported and **tested***. **So the row is re-ranked rather than dispatched**, and no task is filed —
+this table's own rule is that a task arrives when its row is dispatched, and dispatching one that cannot
+terminate is worse than leaving the row where it is.
+
+**It is gated on two things and one of them is already filed:**
+
+- [ ] **The subject path gains an indirect term** — `Stage::Subjects` reads `IrradianceBuffer`, which the
+  catalogue already expresses for four other stages, so this is an edge rather than an invention
+- [ ] **An oracle recipe with indirect light**, which is `board:1150` and **needs a parameter that item
+  does not yet carry** — see the note added there. `board:0087`'s reason for lowering these materials to
+  emitters was that *a Diffuse BSDF at one sample per pixel is a Bernoulli draw on the visible sky
+  fraction*; at the integrating recipe's sample count that objection dissolves, which is precisely why
+  occlusion belongs behind `1150` and not in front of it
+
+**Where the proof will live when it is unblocked**: `water-bottle`, `boom-box`, `corset` or `lantern` —
+the lit metal-rough cases whose ORM maps carry a red channel. **`scifi-helmet` cannot prove it** at any
+point: its scene declares `light: none` and its oracle is lowered to an emitter, so nothing shades.
+
+## The revised first three
+
+- [ ] **1 · the animation interpolations — DELIVERED** by `board:1169`; `board:1175` carries the reduction
+  question for the two interpolations still open
+- [ ] **2 · `KHR_texture_transform`, impact 15.** Tier 1 — a reader field and a uv transform in the shader
+  — **and genuinely absent**: [MEASURED] zero occurrences of `texture_transform` in `src/`. It is
+  ratified, so it is in scope under the owner's ruling; it moves texels visibly, so a render proves it;
+  and it is the highest-impact unmet tier-1 row once occlusion is gated
+- [ ] **3 · `TEXCOORD_1`, impact 9** — a second uv stream and the material rows that select it, with the
+  row's own `UNSURE` on which textures may name it settled by the task
+
+**The occlusion row keeps its impact of 46 and loses its place.** *Impact is what makes a row worth doing;
+being provable is what makes it dispatchable*, and the ordering rule was missing the second half until
+this row demonstrated it.

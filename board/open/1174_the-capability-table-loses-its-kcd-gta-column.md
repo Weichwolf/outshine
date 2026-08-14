@@ -75,3 +75,25 @@ discipline the picture bound and the criteria counts already keep.
 out*, every row carries one of the three populations with its citation, the two rows above are required
 rather than refused, and the feature list is checked against the specification rather than against the
 corpus that happens to exist.
+
+## Demonstrated rather than suspected, and it raises this item's priority
+
+**`board:0079`'s summary line says *"Absent: metalness has no field at all"*. It has one.**
+`src/core/Material.h` carries `BaseColour · Metalness · Roughness · Transmission · Ior · Emission ·
+Alpha · DoubleSided · CoverageCut · Unlit`.
+
+**The direction of the error is what matters.** A table that under-states what the engine has **sequences
+work already done** — which is the exact failure `board:0079`'s ordering rule was written to avoid, and it
+is now an instance rather than a worry. *The ordering criterion is undefined on a row whose population is
+unknown* was an argument; this is the evidence for it.
+
+**And the same line divides a numerator it declines to re-count by a denominator somebody did re-count**,
+which the line itself flags honestly — so the percentage it reports is a ratio of two different moments.
+
+**One correction to this item's own design, learned from that line.** *Supported* must be **two columns,
+not one**: **the field exists** and **a glTF value reaches it**. `0079`'s line counts the first and means
+the second, and every row where they differ is a `board:1160`-shaped claim — a capability asserted by
+presence rather than by exercise. **A field nothing writes is not support**, and the metalness row is the
+proof that the distinction is not pedantic: the field is there, and whether the reader's
+`metallicFactor` and `metallicRoughnessTexture` reach it on every arm is a separate question this table
+cannot currently express.
