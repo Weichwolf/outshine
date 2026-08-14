@@ -44,3 +44,33 @@ being relied on.
 **Done when** a run that moves the preparer digest publishes how many products changed bytes, an
 unattended re-prepare cannot silently move the corpus, and `board:1120`'s recorded lesson has an
 instrument instead of a hunch.
+
+## AMENDED, because pruning lands first and the *before* moves with it
+
+**`board:1181` prunes each case as it finishes, so *what the case directory holds before the re-prepare*
+stops being available as the comparison's before.** The mechanism above is amended rather than the order
+reversed.
+
+**The coordinator's reading — that hashing must precede pruning because afterwards there is nothing local
+to hash against — is refutable, and the refutation is the amendment.** The before survives in two places
+that pruning does not touch:
+
+- **`provenance.json` is in the keep set** and records the **preparer digest** and the **product keys** of
+  the run that wrote them
+- **the content store never evicts**, so the object under the *previous* key is still there when the
+  digest moves and mints a new one
+
+**So the comparison becomes: the product under the previous key, named in provenance, against the product
+under the new one.** That is **stronger than what this item first proposed**, not merely compatible: a
+working-tree file can be overwritten by any run between the two moments, while a keyed store object cannot
+change under its own name.
+
+- [ ] **Two conditions become load-bearing and are stated as such**: `provenance.json` survives pruning,
+  and the store does not garbage-collect superseded keys. **Neither is true by accident today and both
+  must stay true by decision** — a later round adding store eviction would silently remove this
+  instrument
+- [ ] **They are two tasks and not one.** Pruning is a runner change; this is a preparer observation. They
+  touch the same products in the same run, which is why the coupling is written here rather than
+  discovered
+- [ ] **Pruning goes first**, on the compounding-cost argument in `board:1181`, and this item is amended
+  ahead of it so that dispatching in that order cannot silently invalidate it
