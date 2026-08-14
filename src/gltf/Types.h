@@ -147,15 +147,24 @@ struct Scene {
  * its cells. */
 enum class Wrap : uint16_t { ClampToEdge = 33071, MirroredRepeat = 33648, Repeat = 10497 };
 
-/* Nearest or linear at magnification. `TextureLinearInterpolationTest` is about WHERE the sRGB
+/* Nearest or linear WITHIN a level. `TextureLinearInterpolationTest` is about WHERE the sRGB
  * decode happens relative to this filter, not about which filter it is. */
 enum class Filter : uint8_t { Nearest, Linear };
+
+/* AND WHICH LEVELS THE MINIFICATION FILTER MAY READ, which is a SECOND question the format packs into
+ * the same integer (board:1134). `minFilter` names both halves at once -- 9986 is
+ * `NEAREST_MIPMAP_LINEAR`, nearest inside a level and linear between levels -- so a reader that
+ * answers only the first has silently answered the second as well. It travels as its own enumeration
+ * because the alternative is a caller re-deriving it from a raw integer that this layer was supposed to
+ * have consumed. */
+enum class MipFilter : uint8_t { None, Nearest, Linear };
 
 struct Sampler {
   Wrap WrapS = Wrap::Repeat;   /* the format's default when the field is absent */
   Wrap WrapT = Wrap::Repeat;
   Filter Mag = Filter::Linear;
   Filter Min = Filter::Linear;
+  MipFilter Mip = MipFilter::Linear; /* the format's default `minFilter` is unspecified; see the reader */
 };
 
 /* AN IMAGE IS BYTES AND A DECLARED TYPE, never a decoded raster: this layer has no decoder and

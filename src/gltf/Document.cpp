@@ -144,10 +144,38 @@ bool KnownWrap(int raw, Wrap &out) {
   }
 }
 
-/* glTF's filter numbers carry a mip mode our sampler decides for itself; what is read here is the
- * base filter, which is the half `TextureSettingsTest` and `TextureLinearInterpolationTest` state a
- * criterion about. 9728 is NEAREST and everything else in the format's set is a LINEAR base. */
-Filter FilterOf(int raw) { return raw == 9728 ? Filter::Nearest : Filter::Linear; }
+/* `magFilter` HAS TWO LEGAL VALUES AND NO MIP HALF, because magnification reads one level by
+ * definition. An undeclared one is the client's choice and this reader takes LINEAR. */
+[[nodiscard]] bool KnownMagFilter(int raw, Filter &out) {
+  switch (raw) {
+  case 9728: out = Filter::Nearest; return true;
+  case 9729: out = Filter::Linear; return true;
+  default: return false;
+  }
+}
+
+/* `minFilter` PACKS TWO ANSWERS INTO ONE INTEGER and this reader used to give one of them
+ * (board:1134). It read `9728 is NEAREST and everything else in the format's set is a LINEAR base`,
+ * which is false for the two values that are a NEAREST base WITH mipmapping -- 9984 and 9986 -- and
+ * those are not exotic: `NormalTangentTest` and `TextureSettingsTest` both declare 9986, so two
+ * corpus subjects were being filtered linearly under minification where the file asks for point
+ * sampling. The mip half was lost entirely, decided instead by a constant at the sampler.
+ *
+ * AN UNDECLARED `minFilter` IS THE CLIENT'S CHOICE and this reader takes a linear base with linear
+ * levels -- what the sampler did unconditionally before, so absence keeps its behaviour and only a
+ * DECLARATION changes it. AN UNKNOWN ONE IS REFUSED, like a wrap mode: the previous silent mapping to
+ * LINEAR is how a file could ask for something this engine does not implement and be told nothing. */
+[[nodiscard]] bool KnownMinFilter(int raw, Filter &base, MipFilter &mip) {
+  switch (raw) {
+  case 9728: base = Filter::Nearest; mip = MipFilter::None; return true;
+  case 9729: base = Filter::Linear; mip = MipFilter::None; return true;
+  case 9984: base = Filter::Nearest; mip = MipFilter::Nearest; return true;
+  case 9985: base = Filter::Linear; mip = MipFilter::Nearest; return true;
+  case 9986: base = Filter::Nearest; mip = MipFilter::Linear; return true;
+  case 9987: base = Filter::Linear; mip = MipFilter::Linear; return true;
+  default: return false;
+  }
+}
 
 /* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. An extension is added here in the round its
  * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
@@ -717,8 +745,12 @@ bool Document::ReadAppearance(const Json &json) {
       }
       (axis[4] == 'S' ? sampler.WrapS : sampler.WrapT) = wrap;
     }
-    sampler.Mag = FilterOf(declaration["magFilter"].Int(9729));
-    sampler.Min = FilterOf(declaration["minFilter"].Int(9729));
+    if (!KnownMagFilter(declaration["magFilter"].Int(9729), sampler.Mag)) {
+      return Refuse("sampler " + Number(i) + " has a magFilter glTF 2.0 does not define");
+    }
+    if (!KnownMinFilter(declaration["minFilter"].Int(9987), sampler.Min, sampler.Mip)) {
+      return Refuse("sampler " + Number(i) + " has a minFilter glTF 2.0 does not define");
+    }
     Samplers_.push_back(sampler);
   }
 
