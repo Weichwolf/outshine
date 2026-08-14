@@ -43,9 +43,26 @@ rule and Toksvig's term were each judged against an oracle with no opinion on an
 | **C — two oracles per case** | the point-sampling one decides coverage, the integrating one decides appearance. Strictly more information; doubles the corpus and adds a second cache, which this tree has one of on purpose |
 | **D — leave it and never enable the chain** | keeps today's numbers and permanently declares a correct feature wrong |
 
+## A constraint on A, and it is why this one case could take the recipe alone
+
+**An integrating recipe changes how the oracle antialiases GEOMETRY too.** A 1 px box over 256 samples
+softens a silhouette that a 0.01 px box renders hard, and our rasteriser writes a binary coverage mask
+— so on a subject whose edges fall mid-pixel, switching the recipe would trade a filter question for a
+coverage question and the case would report the wrong defect.
+
+**`four-texels-per-pixel` is exempt by construction, not by luck**: its quad's edges land at
+`607.5..671.5` and `327.5..391.5`, half a lattice step from every pixel centre, so a full-pixel box
+still resolves them hard. Measured under the integrating recipe: `picture_max_delta_code_alpha` **0**,
+`picture_pixels_routed` **0**, boundary distribution unchanged — the only metric that moved is the
+appearance tail this case exists to measure.
+
+**So A carries a precondition:** a case may take the integrating recipe when its silhouette lands on
+pixel boundaries, or when its coverage is measured to be unchanged by the swap. That is checkable per
+case rather than argued.
+
 ## The recommendation
 
-**A.** The recipe is already per case and per recipe name, the minifying population is measurable rather
+**A, with the precondition above.** The recipe is already per case and per recipe name, the minifying population is measurable rather
 than a matter of taste, and the cost falls only where the question is asked. **D is the one to name and
 reject explicitly**, because it is what the tree does today by default and it would make an instrument's
 blind spot into an engine limitation.
