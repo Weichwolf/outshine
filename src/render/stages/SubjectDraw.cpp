@@ -143,8 +143,15 @@ struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; };
  * both arms read; the rest is the metal-rough row only the lit arm reads. `packed_float3` and not
  * `float3`, because a Metal `float3` occupies sixteen bytes and would put `normalScale` four bytes
  * past where the host writes it. */
+/* AND THE FOUR uv MATRICES RIDE IN THE SAME ROW (board:1177), two `packed_float3` each -- the two
+ * rows of an affine 2x3, so `u'` and `v'` are one dot product apiece and the third row of the 3x3 is
+ * the `(0, 0, 1)` no affine map varies. */
 struct M { float factor; float cut; float metalness; float roughness;
-           float4 base; packed_float3 emissive; float normalScale; float identity; };
+           float4 base; packed_float3 emissive; float normalScale; float identity;
+           packed_float3 colourUvU; packed_float3 colourUvV;
+           packed_float3 normalUvU; packed_float3 normalUvV;
+           packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
+           packed_float3 emissiveUvU; packed_float3 emissiveUvV; };
 /* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
  * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
  * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
@@ -169,6 +176,27 @@ struct Lights { float4 count; Light items[16]; };
  * rather than two pointers that could be handed over out of step (`I.23`). */
 struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
 #define SUBJECT_OCCLUDERS Occluders{bvhNodes, bvhTris}
+
+/* ONE TAP PER SOCKET, AND THE TEXTURE, ITS SAMPLER AND ITS uv MATRIX ARE NAMED TOGETHER OR NOT AT ALL
+ * (board:1177). Written out at each of the thirteen sample sites, the three could be paired wrong --
+ * the normal map read through the colour's transform is a picture nobody would attribute to a typo --
+ * so the socket is spelled ONCE, here, and every site says only which socket it wants.
+ *
+ * THE MATRIX IS THE IDENTITY WHERE THE FILE DECLARED NO TRANSFORM, so this is the whole of the
+ * extension in the fragment: one multiply-add, no branch, no second arm and no pipeline permutation.
+ * The `sin` and `cos` are the host's, once per surface, and have no spelling here. */
+static inline float2 uvBy(packed_float3 u, packed_float3 v, float2 uv) {
+  float3 homogeneous = float3(uv, 1.0);
+  return float2(dot(float3(u), homogeneous), dot(float3(v), homogeneous));
+}
+#define SUBJECT_COLOUR_TAP(uv) \
+  colourMap.sample(colourSampler, uvBy(surface.colourUvU, surface.colourUvV, (uv)))
+#define SUBJECT_NORMAL_TAP(uv) \
+  normalMap.sample(normalSampler, uvBy(surface.normalUvU, surface.normalUvV, (uv)))
+#define SUBJECT_METALROUGH_TAP(uv) \
+  metalRoughMap.sample(metalRoughSampler, uvBy(surface.metalRoughUvU, surface.metalRoughUvV, (uv)))
+#define SUBJECT_EMISSIVE_TAP(uv) \
+  emissiveMap.sample(emissiveSampler, uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv)))
 
 /* THE FRAGMENT'S OUTPUT SET IS THE PASS'S ATTACHMENT SET, and the switch is spliced by the caller
  * from the compiled plan (board:1121). A velocity output declared into a pass that attaches no
@@ -332,7 +360,7 @@ fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
 
 fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
-  o.col = float4(in.emitted * colourMap.sample(colourSampler, in.uv).rgb, 1.0);
+  o.col = float4(in.emitted * SUBJECT_COLOUR_TAP(in.uv).rgb, 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
@@ -343,7 +371,7 @@ fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
  * ("If the alpha value is greater than or equal to the alphaCutoff value then it is rendered as
  * fully opaque"), and the two differ on exactly the texels a linear ramp puts at the cutoff. */
 fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, 1.0);
@@ -357,7 +385,7 @@ fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
  * weight, so the same fragment function would be correct under either convention only by accident.
  * The one convention this whole comparison is stated in is straight alpha. */
 fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o, in);
@@ -530,11 +558,11 @@ static const char *kSubjectLitTexturedMsl = R"(
  * that declares no image binds one white texel so that the product is the factor alone. */
 static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap,
                                sampler emissiveSampler, float2 uv) {
-  return surface.emissive * emissiveMap.sample(emissiveSampler, uv).rgb;
+  return surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb;
 }
 
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
@@ -549,7 +577,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
 
 fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                    SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
@@ -565,7 +593,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
 
 fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                     SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
@@ -614,7 +642,7 @@ vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
 
 static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
                                   sampler normalSampler, MOut in, bool front) {
-  float3 tap = normalMap.sample(normalSampler, in.uv).xyz * 2.0 - 1.0;
+  float3 tap = SUBJECT_NORMAL_TAP(in.uv).xyz * 2.0 - 1.0;
   return normalFromMap(in.n, in.t, tap, surface.normalScale, front);
 }
 
@@ -632,14 +660,14 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
                                  texture2d<float> emissiveMap, sampler emissiveSampler,
                                  MOut in, bool front) {
-  float4 orm = metalRoughMap.sample(metalRoughSampler, in.uv);
-  float3 albedo = surface.base.rgb * colourMap.sample(colourSampler, in.uv).rgb;
+  float4 orm = SUBJECT_METALROUGH_TAP(in.uv);
+  float3 albedo = surface.base.rgb * SUBJECT_COLOUR_TAP(in.uv).rgb;
   const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
   /* THE SAME TAP THE NORMAL CAME FROM, FOR ITS LENGTH. Sampled here rather than returned from
    * `mappedNormal` because that function's pair -- the colour and the normal it was shaded with -- is
    * deliberately inseparable (board:1122) and a third member would loosen it; the texture and sampler
    * are the same pair of arguments, so this costs no second fetch after the compiler has seen both. */
-  const float meanResultantLength = normalMap.sample(normalSampler, in.uv).w;
+  const float meanResultantLength = SUBJECT_NORMAL_TAP(in.uv).w;
   return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
                   surface.metalness * orm.b,
                   roughenedBy(surface.roughness * orm.g, meanResultantLength),
@@ -662,7 +690,7 @@ fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJE
 }
 
 fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
@@ -674,7 +702,7 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
 }
 
 fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = colourMap.sample(colourSampler, in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
   o.col = float4(shaded.col, surface.factor * tap.a);
@@ -752,10 +780,9 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   return shape;
 }
 
-/* HOW MANY IMAGES AND UNIFORM SLOTS EVERY FRAGMENT OF THIS UNIT DECLARES, which is the whole of the
- * binding contract `SUBJECT_SURFACE` spells: one number here and one macro there, and the encoder
- * binds exactly this many. */
-constexpr uint32_t kSubjectImages = 4;
+/* HOW MANY UNIFORM SLOTS EVERY FRAGMENT OF THIS UNIT DECLARES. The image count is `kSubjectImages`
+ * in the header, beside the four sockets a surface names, because the row that carries their uv
+ * matrices is sized from it too (board:1177). */
 constexpr uint32_t kSubjectFragmentUniforms = 2;
 /* THE SUBJECT'S OWN GEOMETRY, WHICH EVERY FRAGMENT CAN SEE: the acceleration structure's nodes and
  * its triangles. Both are declared by every fragment entry point for the same reason the four
@@ -1100,6 +1127,16 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
               row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
               identity};
+  /* THE FOUR uv MATRICES, IN THE ORDER THE FOUR IMAGES ARE BOUND (board:1177), narrowed to f32 here
+   * and nowhere earlier -- the reader composes in its own width and the device is the boundary. The
+   * table is walked rather than written out four times so that the row's order and the sampler's
+   * order are one statement: a socket appended to one and not the other has no spelling. */
+  const SubjectTexture *const images[kSubjectImages] = {&material.Colour, &material.Normal,
+                                                        &material.MetalRough, &material.Emissive};
+  size_t at = (size_t)kSurfaceScalars;
+  for (const SubjectTexture *image : images) {
+    for (const double element : image->Uv.M) { slot.Row[at++] = (float)element; }
+  }
   Slots.push_back(std::move(slot));
 }
 

@@ -776,6 +776,9 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   bound.Rgba = raster.Rgba.data();
   bound.Width = (uint32_t)raster.Width;
   bound.Height = (uint32_t)raster.Height;
+  /* PER REFERENCE, NOT PER MATERIAL (board:1177): the transform crosses beside the image it belongs
+   * to, so a socket's matrix reaches its own sampler and no other. */
+  bound.Uv = declared.Transform;
   if (texture.Sampler >= 0) {
     const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
     bound.WrapU = WrapOf(sampler.WrapS);
@@ -839,6 +842,9 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     base.Rgba = table.Decoded[slot].Colour.Rgba.data();
     base.Width = (uint32_t)table.Decoded[slot].Colour.Width;
     base.Height = (uint32_t)table.Decoded[slot].Colour.Height;
+    /* board:1177 -- the socket the case declared its picture in carries its own transform, so a
+     * `gltf-base-colour` case reads the file's `KHR_texture_transform` on the socket it names. */
+    base.Uv = declared.Transform;
     if (texture.Sampler >= 0) {
       const outshine::Gltf::Sampler &sampler = file.Samplers()[(size_t)texture.Sampler];
       base.WrapU = WrapOf(sampler.WrapS);

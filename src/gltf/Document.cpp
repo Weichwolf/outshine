@@ -179,14 +179,84 @@ bool KnownWrap(int raw, Wrap &out) {
 
 /* WHAT THIS READER IMPLEMENTS WELL ENOUGH TO CLAIM. An extension is added here in the round its
  * behaviour is built, so `extensionsRequired` naming anything else is a refusal -- a list seeded
- * with names nobody implemented would be the silent-acceptance defect wearing a table. */
+ * with names nobody implemented would be the silent-acceptance defect wearing a table.
+ *
+ * A DATA EXTENSION -- one that adds numbers to a row rather than an arm to the renderer -- IS BUILT
+ * THE WAY `KHR_texture_transform` WAS (board:1177), and the three decisions are stated where they are
+ * used rather than restated here: its values are composed into their final form AT THE READER
+ * (`core/UvTransform.h`), its defaults are the IDENTITY of whatever the consumer does with them, so
+ * absence and presence-with-defaults are one computation with no branch and no pipeline permutation
+ * (`board:1156`), and PRESENCE IS THE VALUES THEMSELVES -- there is no `Has...` flag anywhere in this
+ * reader that can disagree with the numbers beside it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_emissive_strength",
-                                                     "KHR_materials_unlit", nullptr};
+                                                     "KHR_materials_unlit",
+                                                     "KHR_texture_transform", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 constexpr const char *kUnlit = "KHR_materials_unlit";
+constexpr const char *kTextureTransform = "KHR_texture_transform";
+
+/* A DECLARED PAIR OF NUMBERS, OR A REFUSAL NAMING WHICH PROPERTY WAS NOT ONE. `Num(def)` answers the
+ * default for a string, an object and a null alike, so a present-but-wrong value would otherwise be
+ * read as the extension's default and ship as a picture nobody could trace back to the file -- the
+ * same silent success `emissiveStrength` refuses one function above. */
+bool ReadUvPair(const Json::Ref &declared, const char *property, double out[2], std::string &why) {
+  if (!declared.Valid()) { return true; }
+  if (declared.GetKind() != Json::Kind::Array || declared.Size() != 2) {
+    why = std::string("declares a KHR_texture_transform ") + property +
+          " that is not an array of two numbers";
+    return false;
+  }
+  for (size_t axis = 0; axis < 2; ++axis) {
+    if (declared[axis].GetKind() != Json::Kind::Number) {
+      why = std::string("declares a KHR_texture_transform ") + property + " whose component " +
+            Number(axis) + " is not a number";
+      return false;
+    }
+    out[axis] = declared[axis].Num();
+  }
+  return true;
+}
+
+/* ONE `textureInfo`'s `KHR_texture_transform`, COMPOSED (board:1177). The three properties leave this
+ * function as a matrix and never as themselves, so translation x rotation x scale is stated in
+ * `core/UvTransform.h` once and has no second spelling; what is here is only the reading and the
+ * refusals.
+ *
+ * `texCoord` OVERWRITES the reference's own set rather than sitting beside it, which is the
+ * extension's own rule -- "Overrides the textureInfo texCoord value if supplied" -- so a consumer
+ * cannot read the superseded one by mistake. */
+bool ReadTextureTransform(const Json::Ref &info, TextureRef &into, std::string &why) {
+  const Json::Ref declared = info["extensions"][kTextureTransform];
+  if (!declared.Valid()) { return true; }
+  if (declared.GetKind() != Json::Kind::Object) {
+    why = "declares KHR_texture_transform as something other than an object";
+    return false;
+  }
+  outshine::UvTransformProperties properties;
+  if (!ReadUvPair(declared["offset"], "offset", properties.OffsetUv, why)) { return false; }
+  if (!ReadUvPair(declared["scale"], "scale", properties.ScaleUv, why)) { return false; }
+  const Json::Ref rotation = declared["rotation"];
+  if (rotation.Valid()) {
+    if (rotation.GetKind() != Json::Kind::Number) {
+      why = "declares a KHR_texture_transform rotation that is not a number";
+      return false;
+    }
+    properties.RotationRad = rotation.Num();
+  }
+  const Json::Ref set = declared["texCoord"];
+  if (set.Valid()) {
+    if (set.GetKind() != Json::Kind::Number) {
+      why = "declares a KHR_texture_transform texCoord that is not a number";
+      return false;
+    }
+    into.TexCoord = set.Int(0);
+  }
+  into.Transform = outshine::UvTransformOf(properties);
+  return true;
+}
 
 bool KnownAlphaMode(const std::string &raw, AlphaMode &out) {
   if (raw.empty() || raw == "OPAQUE") { out = AlphaMode::Opaque; return true; }
@@ -888,6 +958,12 @@ bool Document::ReadMaterial(const Json::Ref &declaration, size_t index) {
       return Refuse("material " + Number(index) + " " + slot.Slot + " names texture " +
                     Number(static_cast<size_t>(slot.Into->Texture)) + " of " +
                     Number(Textures_.size()));
+    }
+    /* READ AFTER the reference's own `texCoord` and never before it, because the extension's set
+     * OVERRIDES that one and the two are written into the same field. */
+    std::string why;
+    if (!ReadTextureTransform(declared, *slot.Into, why)) {
+      return Refuse("material " + Number(index) + " " + slot.Slot + " " + why);
     }
     if (slot.Into->TexCoord < 0) {
       return Refuse("material " + Number(index) + " " + slot.Slot + " names a negative UV set");

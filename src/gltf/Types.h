@@ -19,6 +19,7 @@
 
 #include "Material.h"
 #include "PunctualLight.h"
+#include "UvTransform.h"
 
 namespace outshine::Gltf {
 
@@ -185,10 +186,22 @@ struct Texture {
 };
 
 /* WHICH TEXTURE FEEDS WHICH SLOT, and which UV SET it reads. `TexCoord` is the number after
- * TEXCOORD_, so `MultiUVTest`'s logo declaring `texCoord: 1` is carried rather than collapsed. */
+ * TEXCOORD_, so `MultiUVTest`'s logo declaring `texCoord: 1` is carried rather than collapsed.
+ *
+ * `KHR_texture_transform` IS PER TEXTURE REFERENCE AND THEREFORE LIVES HERE (board:1177), inside each
+ * `textureInfo` and never on the material: `TextureTransformMultiTest` puts its only transform on the
+ * normal map of one material and on the occlusion map of another, so an engine carrying ONE transform
+ * per material has nowhere to put the second and renders the first over both.
+ *
+ * IT IS THE COMPOSED MATRIX AND NOT THE THREE PROPERTIES, and the identity where the reference
+ * declares no extension -- so presence is signalled by the numbers themselves and no `HasTransform`
+ * flag exists to disagree with them. The extension's own `texCoord` OVERRIDES the `textureInfo`'s when
+ * supplied, so `TexCoord` above is the answer after that override and there is no second field
+ * carrying the one it replaced. */
 struct TextureRef {
   int Texture = -1;
   int TexCoord = 0;
+  outshine::UvTransform Transform;
   [[nodiscard]] bool Declared() const { return Texture >= 0; }
 };
 

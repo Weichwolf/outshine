@@ -61,6 +61,7 @@
 
 #include "TexelChain.h"
 #include "PunctualLight.h"
+#include "UvTransform.h"
 
 #include "DrawList.h"
 #include "FrameContext.h"
@@ -87,6 +88,12 @@ struct SubjectLight {
  * pipeline creation. A seventeenth is a refusal that names the count, never a light silently
  * dropped -- a picture missing one of its lights looks like a shading bug rather than a limit. */
 constexpr size_t kMaxSubjectLights = 16;
+
+/* HOW MANY IMAGES ONE SURFACE CARRIES, and it is ONE number because two would be one number twice:
+ * the binding contract every fragment declares, the samplers the encoder binds and the uv matrices
+ * the row holds (board:1177) are three readings of the same four sockets, and a fifth socket that
+ * reached two of the three would be a slot bound with nothing to sample it by. */
+constexpr uint32_t kSubjectImages = 4;
 
 /* HOW A BASE-COLOUR TEXTURE IS ADDRESSED, glTF's own two questions and nothing else. The wrap mode
  * and the filter are the FILE's -- `TextureSettingsTest` renders one cell per wrap mode and an
@@ -122,6 +129,11 @@ struct SubjectTexture {
    * half of the same glTF field and belongs beside it rather than at the sampler as a constant. */
   SubjectFilter Minify = SubjectFilter::Linear;
   SubjectMip Mip = SubjectMip::Linear;
+  /* WHERE THIS IMAGE IS READ FROM, per texture reference and never per surface (board:1177). It is
+   * `core/UvTransform.h`'s composed matrix, the identity where the file declares no
+   * `KHR_texture_transform` -- so the fragment's expression is one multiply-add whatever the file
+   * said, and "no transform" is not a second arm. */
+  outshine::UvTransform Uv;
 };
 
 /* ONE SURFACE OF THE SUBJECT: what a draw binds when its key names this slot. The surface state is
@@ -268,8 +280,18 @@ private:
    * thing already bound per slot -- a second per-slot uniform would be a second binding to keep in
    * step with the first. It is written one higher than the slot so the identity attachment's clear
    * is distinguishable from the first slot. */
-  static constexpr int kSurfaceFloats = 13; /* factor, cut, metalness, roughness, base4, emissive3,
-                                             * normal scale, slot + 1 */
+  static constexpr int kSurfaceScalars = 13; /* factor, cut, metalness, roughness, base4, emissive3,
+                                              * normal scale, slot + 1 */
+  /* AND ONE uv MATRIX PER IMAGE (board:1177). `KHR_texture_transform` is stated inside each
+   * `textureInfo`, so four references means four matrices and there is no per-material transform to
+   * spell: an engine carrying one would have to choose which reference's it kept. Six floats each
+   * because the third row of an affine 3x3 is `(0, 0, 1)` and storing it would be a number the
+   * shader is free to read.
+   *
+   * THE COUNT IS DERIVED HERE rather than written as 37, so the cost of a socket appearing or
+   * leaving cannot be stated in one place and paid in another. */
+  static constexpr int kUvMatrixFloats = 6;
+  static constexpr int kSurfaceFloats = kSurfaceScalars + kUvMatrixFloats * (int)kSubjectImages;
   /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of four
    * `float4` -- colour times intensity with the kind, the camera-relative position with the
    * reciprocal of the range, the beam, and the cone's two precomputed numbers. */
