@@ -1,6 +1,5 @@
 Type: bug
 Area: render
-Depends: 1130
 Tags: oracle, instrument, khronos
 
 **A self-consistency metric never asks the oracle the same question**
@@ -42,3 +41,42 @@ from `0.13879225` to `0.27571386` while the picture bound does not move at all: 
 it with the chain readable, 20 of 34 with it clamped to level 0**, and no test changes verdict either
 way. So the whole shipping decision for mipmaps currently rests on this one metric, which is exactly the
 weight it cannot carry until the oracle answers the same question.
+
+## Built, and the answer is the first row of the table
+
+`Evaluate` already took one frame, so asking the oracle the same question is the same call on the other
+image: `ScoreStatedInvariants` now repacks the oracle's `RawF32` to the stride `LinearFrame` reads and
+publishes every invariant a second time as `oracle_<name>`, **reported and never enforced** — the oracle
+is what our pixels are judged against, not a second subject with thresholds of its own.
+
+**Unfiltered, over the fifteen cells that carry radiance** (the third pair of every row is a black metal
+and both sides are exactly 0, which the manifest already declares vacuous):
+
+| cells | ours | the oracle |
+|---|---|---|
+| `normal-tangent` pair1 × 5 | 0.03156 … 0.05676 | 0.05677 … 0.07886 |
+| `normal-tangent` pair2 × 5 | 0.09429 … 0.13879 | 0.05547 … 0.08692 |
+| `normal-tangent-mirror` left × 5 | 0.07073 … 0.09593 | 0.04859 … 0.07369 |
+
+**Two findings, and the second is the one that was worth building this for.**
+
+**The oracle never reaches zero, and the bound's positive population does not contain it.** That
+population was `0.02245..0.07423`, measured on this engine; the oracle exceeds its top end on four of
+fifteen cells. The bound at `0.1579751` still separates and is not stale — but it was derived from a
+population of one engine, and the reference renderer would have fallen outside the half of it labelled
+*correct*. That is the defect this item names, demonstrated.
+
+**And filtering does NOT flatten for everyone.** With the chain readable ours goes to `0.27571386` where
+the oracle sits at `0.08692` on the same cell — **3.2×**. Cycles filters this texture too. So the answer
+is the table's first row: **the oracle does not over-flatten, and our filtered quad is wrong.**
+
+**The reason is not the kernel, it is the order.** Cycles takes many rays per pixel, shades each against
+a normal sampled at its own differential, and averages the RADIANCE. We average the NORMAL and shade
+once. `average-then-shade` is not `shade-then-average`, and the gap is exactly the perturbation
+renormalising throws away — which is Toksvig's term and nothing else.
+
+**This refutes the objection recorded in `TexelChain.h`**, which is why it is written here rather than
+quietly dropped: that comment says carrying the shortfall as roughness *"would move us away from the
+thing we are measured against to make a number smaller."* Measured, the oracle is not below us — it is
+**3.2× below our filtered result and near our unfiltered one**, so the roughness term moves us TOWARD it.
+The reason not to take it is gone.

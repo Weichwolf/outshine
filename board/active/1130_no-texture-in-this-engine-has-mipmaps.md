@@ -295,3 +295,27 @@ LEAN/CLEAN, and that it was not taken *for a reason about the oracle*. That reas
 question rather than a settled one, and `board:1131` is the measurement that settles it. Turning five
 derived metrics red to reach a picture bound that does not move is not a trade worth making, so the
 sampler stays pinned to level 0 with the blocker named in the source.
+
+**`board:1131` is closed and it answered this item's open question.**
+
+Asked the same self-consistency question, **the oracle's own two cells disagree by 0.04859..0.08692**
+across the fifteen live cells — it does not reach zero either, but it stays there. Ours with the chain
+readable reaches **0.27571386**, which is **3.2× the oracle on the same cell**. Cycles filters this
+texture. So *filtering flattens for everyone* is false, the bound is not stale, and **our box-filtered
+normal map over-flattens against a reference that filters and does not.**
+
+**The cause is the order, not the kernel.** Cycles shades many rays per pixel, each against a normal at
+its own differential, and averages RADIANCE; we average the NORMAL and shade once. The gap between
+`average-then-shade` and `shade-then-average` is precisely the perturbation renormalising discards.
+
+**And the recorded reason for not carrying it is refuted.** `TexelChain.h` says the Toksvig term was
+declined because it *"would move us away from the thing we are measured against to make a number
+smaller."* The oracle is not below us: it is 3.2× below our filtered result and beside our unfiltered
+one, so the term moves us TOWARD the oracle. **That objection was an assumption, it is now measured, and
+it was wrong.**
+
+So this item's remaining work is one named thing: **carry the normalisation shortfall as roughness**
+(Toksvig 2005; LEAN/CLEAN; *Real-Time Rendering* 4e ch. 9.13), then set `max_lod` and check the five
+`geometry_matches_normalmap` rows against the oracle's own column rather than against zero. The
+acceptance is stated before: ours must land in **0.04859..0.08692**, where the oracle is, and the picture
+bound must not fall below **20 of 34**.

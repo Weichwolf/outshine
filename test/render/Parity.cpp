@@ -1522,7 +1522,23 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
  * oracle. Its caller places it ahead of the image comparison because for a `stated-invariant` case
  * this IS the verdict and the comparison below it is the diagnostic beside it -- the reverse of
  * every other kind, and the reason the two are never both enforced on one case. */
-void ScoreStatedInvariants(const Case &subject, const Picture &picture,
+/* THE ORACLE'S PIXELS IN THE SHAPE THE INVARIANTS ARE COMPUTED ON. `RawF32` interleaves by its own
+ * channel count, which is 3 or 4 depending on what Cycles wrote, and `LinearFrame` reads a stride of
+ * four -- so this repacks rather than casting, and a subject with no alpha reads as covered
+ * everywhere, which is what an invariant over a declared rectangle wants. */
+std::vector<float> OracleAsRgba(const RawF32 &oracle) {
+  std::vector<float> samples((size_t)oracle.Width() * (size_t)oracle.Height() * 4u, 0.0f);
+  for (int y = 0; y < oracle.Height(); ++y) {
+    for (int x = 0; x < oracle.Width(); ++x) {
+      const size_t at = ((size_t)y * (size_t)oracle.Width() + (size_t)x) * 4u;
+      for (int channel = 0; channel < 3; ++channel) { samples[at + (size_t)channel] = oracle.At(x, y, channel); }
+      samples[at + 3u] = oracle.Channels() > 3 ? oracle.At(x, y, 3) : 1.0f;
+    }
+  }
+  return samples;
+}
+
+void ScoreStatedInvariants(const Case &subject, const Picture &picture, const RawF32 &oracle,
                            std::vector<Metric> &metrics) {
   LinearFrame tap;
   tap.Samples = &picture.Linear;
@@ -1530,11 +1546,40 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture,
   tap.Height = (int)subject.Frame.HeightPx;
   const bool tapHolds = tap.Holds() || subject.Invariants.empty();
   CHECK(tapHolds, "the linear tap the stated invariants are computed on covers the frame");
+
+  /* THE SAME QUESTION PUT TO THE ORACLE, AND IT IS NOT A CONVENIENCE (board:1131). A `region-compare`
+   * puts two rectangles of ONE render beside each other, so its bound is a property of the subject AND
+   * of the engine both populations were measured on. That is the instrument-domain failure in its
+   * population-too-small face: with one engine the number cannot separate *we broke it* from *this is
+   * what the technique does*, and it decided a shipping question on exactly that ambiguity -- filtering
+   * a normal map flattens it, and the geometry the flattened quad imitates does not flatten.
+   *
+   * REPORTED AND NEVER ENFORCED. The oracle is what our pixels are judged against; it is not a second
+   * subject with its own thresholds, and giving it one would be two verdicts over one comparison. */
+  const bool oracleFits = oracle.Width() == tap.Width && oracle.Height() == tap.Height;
+  std::vector<float> theirSamples;
+  LinearFrame theirs;
+  if (oracleFits) {
+    theirSamples = OracleAsRgba(oracle);
+    theirs.Samples = &theirSamples;
+    theirs.Width = oracle.Width();
+    theirs.Height = oracle.Height();
+  }
+
   for (const Invariant &check : subject.Invariants) {
     if (!tap.Holds()) { break; }
     std::printf("INVARIANT %s -- %s\n", check.Name.c_str(),
                 check.Kind == InvariantKind::HueOfBrightest ? "hue-of-brightest" : "region-compare");
     Evaluate(check, tap, metrics);
+    if (!oracleFits || !theirs.Holds()) { continue; }
+    std::vector<Metric> theirMetrics;
+    Evaluate(check, theirs, theirMetrics);
+    for (Metric &metric : theirMetrics) {
+      metric.Name = "oracle_" + metric.Name;
+      metric.Against = Direction::Reported;
+      metric.Threshold = 0.0;
+      metrics.push_back(metric);
+    }
   }
 }
 
@@ -2195,7 +2240,7 @@ int main(int argc, char **argv) {
    * oracle. It is placed ahead of the image comparison because for a `stated-invariant` case this
    * IS the verdict and the comparison below is the diagnostic beside it -- the reverse of every
    * other kind, and the reason the two are never both enforced on one case. */
-  ScoreStatedInvariants(subject, picture, metrics);
+  ScoreStatedInvariants(subject, picture, oracle, metrics);
 
   /* THE PICTURE ITSELF, WHOLE, ON THE LINEAR TAP AND ON THE DECLARED TRANSFER (I.26.15). Our alpha
    * is `covered(sceneDepth)`, so it comes from the depth mask and not from the colour attachment --
