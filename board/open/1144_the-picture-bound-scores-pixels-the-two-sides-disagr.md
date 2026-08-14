@@ -47,3 +47,19 @@ be broken without moving.
 **Done when** the deciding pixel of `coverage/negative-scale` is scored as what it is, the count of
 identity-disagreeing pixels is published per case, and no case's perceptual tail is decided by a pixel the
 two sides disagree about the identity of.
+
+## Comments
+
+**THE ROUTING POPULATION IS NOT THE DISAGREEING POPULATION, and this item would have shipped believing it
+was.** `board:1138`'s reader found **190** identity disagreements on `coverage/negative-scale` and
+**only 1 is about us**: 189 are pixels where the oracle's index pass names a surface its own picture did
+not come from — a culled back face the camera ray passed through — measured at 47 343 bit-exact
+agreements against 189 differences with **nothing in between at any tolerance to 1e-6**. The mechanism and
+its declaration are `board:1155`.
+
+**So the repair here routes what survives that predicate and nothing else.** Rerouting 190 would have
+moved 189 pixels between two metrics for a reason that is about the oracle's pass semantics, and it would
+have read as a repair — a changed selection reading as the same metric, which is the failure this
+repository names by name. **The one pixel this item was opened on — (717, 274), oracle `LabelMat`, ours
+`BackgroundMaterial` — is in the surviving population**, confirmed by the identity reader with **no colour
+read**, which is what turns the original attribution from a colour coincidence into a measurement.
