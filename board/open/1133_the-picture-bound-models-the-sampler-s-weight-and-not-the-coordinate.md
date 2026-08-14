@@ -68,6 +68,26 @@ codes, `texture-coordinate-test` still fails and the finding is that our coordin
 **This is filed rather than waited on.** It blocks nothing: the derivation is work that can start now,
 and the cases it would affect are failing for this reason today either way.
 
+## DECIDED: option A, and the ORDER is the decision
+
+**DECIDED by the orchestrator, on authority the owner delegated.** *`board:1129` records "by the owner"
+and that was literally true there; this one was not, and the two records have to be distinguishable.*
+
+**Derive the coordinate term FIRST, publish the derivation, and let the number land where it lands.**
+
+**The clause that makes this a decision rather than an intention:** if the term comes out below `3.86`
+codes, `texture-coordinate-test` still fails and the finding is that **our coordinate is genuinely
+wrong**. *That outcome is a success of the method, not a failure of it.* Option A's whole temptation is to
+keep deriving until the case passes, and this sentence is what the next round is held to.
+
+**B is not refused, it is SEQUENCED BEHIND A.** *Match Cycles' arrangement of operations* is unreachable
+as stated — two correct float evaluations of one expression need not agree — until the term says **how
+much disagreement is admissible**. Without that number, "match" has no stopping condition.
+
+**C stays available and narrow**; **D remains the last rung** and is premature while A is unattempted.
+
+**Where the work lives: `board:1151`**, a task under `board:0089`, which owns the picture bound.
+
 ## Comments
 
 **2026-08-14** — Found by adding two instruments that did not exist: a count of channels where the
@@ -76,3 +96,7 @@ first refuted a hypothesis — the *we add light where the oracle has none* clas
 **0.0 %** of every picture, 2 to 756 channels against ~2.6 million, and is empty in all 20 cases within
 the bound. The second is what made the mechanism readable: one worst pixel could not show that both
 sides carry the same discrete values.
+
+**This issue stays OPEN after being decided.** A `closed` id cited by nothing under `test/` is an unproven
+claim and an issue has no test of its own, so a decided issue closes when the work its decision creates
+lands and cites it. Here that is `board:1151`.

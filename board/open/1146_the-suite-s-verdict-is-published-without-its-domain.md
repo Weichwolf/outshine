@@ -94,6 +94,14 @@ whether or not the corpus moves. What would overturn it: a measurement showing t
 self-shadowing makes a delta-lit render undecidable at one sample — which `water-bottle`'s note says is
 already accepted there as *judged by eye*, so the bar is met by precedent.
 
+**TAKEN, by the orchestrator, on authority the owner delegated**, with the asset verified independently:
+one material, `extensionsUsed` absent, `baseColorTexture · metallicRoughnessTexture · normalTexture ·
+occlusionTexture`. **The declaration is `board:1152`**, a task under `board:0078`, whose rung 18 already
+states this subject's criterion as *coverage · direct radiance* — so the edit delivers the half of a
+declared rung that the corpus has never asked for, rather than adding scope. **The shading population goes
+8 → 9**, and the split this item is *done when* must therefore be derived on the run rather than written
+down, because it changes on the round that lands.
+
 ## Done when
 
 The two published counts each carry the population they are over — **cases within the picture bound, split

@@ -87,7 +87,38 @@ TWO metrics — the picture bound at `37.863681`, which is `board:1130` and corr
 predicate at `0.99609375`, which is this item and is the instrument. **Both failures are true and
 neither is silent**, which is the state a case should be in while the decision is open.
 
+## DECIDED: option C, two named recipes per case
+
+**DECIDED by the orchestrator, on authority the owner delegated.** *Recorded that way deliberately —
+`board:1129` says "by the owner" and it was literally true there, and a record that misattributes who
+chose is worse than no record.*
+
+**The point-sampling recipe decides COVERAGE, an integrating recipe decides APPEARANCE, and neither is
+asked a question it cannot answer.**
+
+**What carried it is this item's own correction.** An integrating oracle **cannot** produce a binary
+coverage predicate: `0.99609375` codes is one sample of 256 across an edge, the quantity is the **sample
+count** and not the footprint, and halving the box does not move it. So **A would leave a case failing a
+coverage metric for a reason that has nothing to do with coverage** — the instrument-domain failure this
+whole item exists to name, reintroduced one level down. **B** pays 256× over the whole corpus to avoid a
+per-case judgement the manifest already exists to express. **D is rejected explicitly**: it permanently
+declares a correct feature wrong.
+
+**C is not a second cache, and the shape is already here**: `renders` is a map of named recipes,
+`prepare.py` takes `--recipe` and repeats, and the runner already reads named companions beside
+`oracle.exr` for the quantity passes.
+
+**Where the work lives: `board:1150`**, which carries the per-case criterion, the metric-to-recipe
+routing, the sample count's own derivation, and what `four-texels-per-pixel`'s state becomes. **And it
+unblocks `board:1130`**, whose own last paragraph makes `kChainIsReadable` conditional on exactly this
+decision.
+
 ## Comments
 
 **2026-08-14** — This is the fourth assumption this stretch has killed by measuring it, and the
 largest: the previous three were mine, this one was the tree's.
+
+**This issue stays OPEN after being decided, and the rule is the tree's own invariant rather than a
+preference.** A `closed` id cited by nothing under `test/` is an unproven claim, and an issue has no test
+of its own — so **a decided issue closes when the work its decision creates lands and cites it**, and not
+before. The decision is taken; the tree does not yet reflect it; the path is the state.
