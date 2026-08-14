@@ -109,3 +109,56 @@ stage reaches for it.
 **Caveat on this enumeration**: it says what the corpus *declares*, not what the engine *does with it* —
 `KHR_materials_volume` appearing three times does not mean transmission is right, and three of those
 cases are among the thirteen outside the picture bound.
+
+## The extension band, and the three families it splits into
+
+*Added on the owner's ruling that **glTF 2.0 with extensions** is what a modern engine must process
+(`board:1172`). The matrix above is the core spine; this is the band beside it, and it is grown here
+rather than filed as a second matrix.*
+
+**The engine anticipated part of this and it is measured rather than assumed.** The reader already knows
+four extension names by occurrence in `src/` — `KHR_lights_punctual` 13, `KHR_materials_unlit` 8,
+`KHR_materials_emissive_strength` 3, **`KHR_materials_transmission` 1** — and `Material` already carries
+`Transmission`, `Ior` and `Unlit` beside the metal-rough row, with `SurfaceState` distinguishing
+`Refractive` (`Transmission > 0 && Ior > 1`) from `ThinTransmissive`. **One occurrence is the signature of
+*supported and unproven***, which is `board:1174`'s middle population and where transmission almost
+certainly sits.
+
+**Three families, and their dependency orders are unrelated — which is why they are not one band.**
+
+- [ ] **Transmission and volume** — `KHR_materials_transmission` · `volume` · `dispersion`. **The only
+  family that needs something the render plan has not got: a read of the scene colour behind the
+  surface.** `board:0088` already names these assets unreducible for the oracle, and `SurfaceState`
+  already sorts them, so the draw-order half is anticipated
+- [ ] **The extra lobes** — `specular` · `ior` · `sheen` · `anisotropy` · `clearcoat` · `iridescence`.
+  Each is a term in the BRDF and a few more numbers in the row. **Their cost is not the mathematics, it is
+  the permutation count** — `board:1156` measures 15 fragment arms times three target families today, and
+  a lobe that can be present or absent multiplies that again
+- [ ] **Reader-level extensions** — `KHR_draco_mesh_compression` · `EXT_meshopt_compression` ·
+  `EXT_mesh_gpu_instancing` · `KHR_texture_transform` · `KHR_materials_variants` ·
+  `KHR_animation_pointer`. **This family is not a renderer question at all.** Two of them are decoders,
+  and `CLAUDE.md` allows no vendored third-party tree — *a dependency is a package the host provides, or
+  it is ours* — so **Draco and meshopt are a dependency decision before they are an implementation**, and
+  that decision is the owner's
+
+## Does any of these collide with *a material is a row of numbers*? — no, and the two near misses are named
+
+`CLAUDE.md`: **the core dictates the pipeline; a material is a row of numbers with no field that can
+switch pipeline state; generator bakes or renderer implements, and there is no third path where content
+ships a program.**
+
+**No extension in the registry asks content to ship a program**, so none collides with the rule as
+written — that door was closed by glTF 2.0 itself when it removed shaders from content, which is the same
+sentence `CLAUDE.md` cites. **Two come close enough to state:**
+
+- **Transmission needs a scene-colour read, which is not a material question and is not a violation.** It
+  is a **resource and a stage** — the plan already has `Reads`/`Writes`/`Contributes` and already refuses
+  reading a target of the pass one is in, so the answer is an explicit scene-colour copy with an edge,
+  exactly as `SceneLinear` aliases `SceneHdr` today. **A catalogue row, not an exception.**
+- **`KHR_materials_unlit` selects a shading arm from a declared field**, which reads like a field
+  switching pipeline state — and is already built as `Row.Unlit`. **The rule forbids content shipping a
+  program, not a declared enumeration choosing among arms the renderer implements.** It is the precedent
+  every later lobe extension follows, and it is stated here so the next one is not argued from scratch
+
+**What would be a real collision, so it is recognisable if it ever arrives**: an extension whose behaviour
+is a function the file supplies rather than a value it declares. Nothing in the registry does that today.

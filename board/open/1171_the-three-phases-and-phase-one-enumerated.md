@@ -127,3 +127,33 @@ and is written once `1169` has proven the mechanism it all shares.
 
 **What is NOT in phase 1's order**: the `Compare*` grids and the heavy nine, both of which need a decision
 before they need work, and both of which are `board:1172`'s declared-scope list rather than a case.
+
+## Re-priced for the extension band, and the ordering CHECKED rather than agreed
+
+**The denominator moves from 72 to the index**, on the owner's ruling that glTF 2.0 **with extensions** is
+the definition (`board:1172`). **148 models**, of which 73 carry `extension`; the in-scope set is every
+model whose extensions are ratified or multi-vendor-and-needed, minus per-asset exclusions.
+
+**The corpus arithmetic, and `board:1170` is what makes it expressible rather than a collision:**
+
+| | at today's 129 MB a case | pruned to pictures |
+|---|---|---|
+| the remaining 52 core | 6.7 GB | ~50 MB |
+| **the whole in-scope index, ~147 cases** | **~19 GB against 53 GiB free** | **~150 MB** |
+
+Cycles is still not the constraint: p50 0.60 s a render, so a cold rebuild of the whole index is **on the
+order of two to four minutes**, not hours.
+
+**THE ORDERING HOLDS AT THE FRONT, AND I CHECKED IT RATHER THAN AGREEING.** Every model in the extension
+band needs a **renderer term that does not exist** — a lobe, a scene-colour read, a decoder — so not one
+of them is blocked by a missing *case*; they are blocked by missing *implementation*. **A band that cannot
+start cannot be first.** `board:1169` still unblocks 16 core models through one missing consumer, and the
+13 plain-geometry models still touch none of the open repairs.
+
+**One thing DOES move, and it is the point of checking.** `board:1150` and `board:1151` gated **9** core
+textured models before; the extension band is overwhelmingly textured and PBR, so those two now gate
+**9 plus most of 73**. **They rise above the corpus expansion's tail** — no longer *third after the plain
+thirteen*, but the thing that decides whether any textured case beyond the current 35 can be adjudicated
+at all. The revised order within phase 1 is therefore **`1169` · the plain 13 · `1150` · `1151` · the
+prune · then the extension families in `board:0078`'s order**, and the extension families are gated by
+implementation rather than by corpus work.
