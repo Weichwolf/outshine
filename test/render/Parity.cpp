@@ -53,6 +53,7 @@
 #include "PictureBound.h"
 #include "Pictures.h"
 #include "Radiance.h"
+#include "SurfaceIdentity.h"
 #include "Ties.h"
 
 #include "Document.h"
@@ -1073,6 +1074,10 @@ struct Picture {
    * shader's back-face branch is reachable and the question of how many DISPUTED pixels are shaded
    * back-facing decides whether that branch's defect is the one under investigation. */
   std::vector<float> ShadingNormal;
+  /* WHICH SURFACE SLOT THE FRAGMENT WORE, one value per pixel in `x`, one higher than the slot
+   * (board:1138). It is the coverage predicate's missing half: `Depth` says a pixel is covered and
+   * this says by WHAT, so a surface swap has a spelling that is not a number of codes. */
+  std::vector<float> SurfaceIdentity;
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
@@ -1102,6 +1107,10 @@ struct Picture {
   }
   if (renderer.ReadShadingNormal(out.ShadingNormal) != outshine::Render::ReadState::Ready) {
     error = "the shading-normal readback did not complete";
+    return false;
+  }
+  if (renderer.ReadSurfaceIdentity(out.SurfaceIdentity) != outshine::Render::ReadState::Ready) {
+    error = "the surface-identity readback did not complete";
     return false;
   }
   return true;
@@ -1353,8 +1362,11 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
   /* THE SHADING NORMAL IS REQUESTED, WHICH IS WHAT ATTACHES IT (board:1121, board:1122). The plan
    * prunes a target nothing reads, so asking for it here is the whole of why it exists in this
    * plan and in no other. */
+  /* THE SURFACE IDENTITY IS REQUESTED FOR THE SAME REASON AND ON THE SAME TERMS (board:1138): the
+   * plan prunes a target nothing reads, so no plan outside this runner pays for it. */
   declaration.Outputs = {outshine::Render::Resource::SceneDepth,
                          outshine::Render::Resource::SceneShadingNormal,
+                         outshine::Render::Resource::SceneSurfaceIdentity,
                          outshine::Render::Resource::FrameTex};
   declaration.Content = {outshine::Render::Stage::Subjects};
   declaration.Display =
@@ -1795,6 +1807,163 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   }
   }
   return out;
+}
+
+/* THE FILE'S MATERIAL NAMES, in the file's own order, which is the currency the two sides state a
+ * surface identity in (board:1138). An unnamed material yields an empty string and therefore matches
+ * nothing: the correspondence is by name, and a file that named none of its materials has no
+ * correspondence to derive rather than a set of empty matches. */
+[[nodiscard]] std::vector<std::string> FileMaterialNames(const Document &file) {
+  std::vector<std::string> names;
+  names.reserve(file.Materials().size());
+  for (const outshine::Gltf::MaterialRef &material : file.Materials()) {
+    names.push_back(material.Name);
+  }
+  return names;
+}
+
+/* WHAT EACH SIDE PUTS AT ONE PIXEL, PRINTED (board:1138). The pixels are the ones the two sides
+ * NAME DIFFERENTLY, so the population is derived from the reading and a case whose sides agree
+ * prints nothing at all -- a coordinate written down here would go stale at the first reframing and
+ * then read as a finding.
+ *
+ * THE ORACLE'S OWN SPLIT IS PRINTED UNDER ITS OWN WORD, because it is a different fact: there the
+ * oracle's index pass and the oracle's picture name different materials, and neither line is about
+ * us. Two facts under one prefix is how the second one gets read as the first. */
+void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading) {
+  for (const outshine::Render::Parity::Disagreement &where : reading.Disagreements) {
+    std::printf("SURFACE-AT %d,%d oracle=%s ours=%s\n", where.X, where.Y,
+                where.Oracle.Name.c_str(), where.Ours.Name.c_str());
+  }
+  for (const outshine::Render::Parity::Disagreement &where : reading.Splits) {
+    std::printf("SURFACE-ORACLE-SPLIT %d,%d its index says %s and its picture does not\n", where.X,
+                where.Y, where.Oracle.Name.c_str());
+  }
+}
+
+/* THE COLOUR THE ORACLE'S PICTURE MUST CARRY WHERE ITS INDEX PASS NAMES A MATERIAL (board:1138),
+ * derived from what the runner already resolved and from nothing read a second time: the radiance
+ * each part was declared to emit, gathered onto the file material that part wears.
+ *
+ * IT IS COMPUTABLE ONLY UNDER THE DECLARED ARMS. Where the appearance is the file's own image times
+ * a factor, or a BRDF against a light list, the picture at a pixel is not a constant per material
+ * and there is no closed form to hold it against -- so this refuses by name instead of comparing
+ * against the factor alone, which would call every textured pixel a split.
+ *
+ * TWO PARTS OF ONE MATERIAL DECLARING DIFFERENT RADIANCE IS A REFUSAL AND NOT A LAST WRITE. The
+ * per-material arm keys on the material, so a disagreement there means the resolution above did
+ * something this derivation cannot express, and taking either value would hide it. */
+[[nodiscard]] outshine::Render::Parity::DeclaredColours ColoursPerFileMaterial(const Case &subject) {
+  outshine::Render::Parity::DeclaredColours out;
+  if (subject.MaterialFromFile() || subject.ShadedByLights()) {
+    out.Why = "the case takes its appearance from the file's own materials, so the oracle's picture "
+              "is not one colour per material and its index pass cannot be held against it";
+    return out;
+  }
+  const size_t materials = subject.File.Materials().size();
+  out.ByFileMaterial.assign(materials, {0.0f, 0.0f, 0.0f});
+  out.Known.assign(materials, 0u);
+  for (size_t part = 0; part < subject.Geometry.Parts().size() && part < subject.Emitted.size();
+       ++part) {
+    const int material = subject.Geometry.Parts()[part].Material;
+    if (material < 0 || (size_t)material >= materials) { continue; }
+    const std::array<float, 3> &radiance = subject.Emitted[part];
+    if (out.Known[(size_t)material] && out.ByFileMaterial[(size_t)material] != radiance) {
+      out.Why = "two parts wearing material " + std::to_string(material) +
+                " were declared different radiance, so this case has no one colour per material";
+      out.Known.assign(materials, 0u);
+      return out;
+    }
+    out.ByFileMaterial[(size_t)material] = radiance;
+    out.Known[(size_t)material] = 1u;
+  }
+  out.Computable = true;
+  return out;
+}
+
+/* WHICH SURFACE EACH SIDE PUTS AT EACH PIXEL, AND WHERE THEY DISAGREE (board:1138).
+ *
+ * IT IS REPORTED AND IT IS NOT A BOUND. What this count feeds is a routing decision inside the
+ * picture bound, and that is its own work item; a threshold here would be a number nobody derived.
+ *
+ * THE OBJECT PASS IS READ FOR ITS DISCRIMINATION AND NOT FOR A VERDICT, because our side carries no
+ * node identity to hold it against: the compiled draw list merges the primitives of several nodes
+ * into one call whenever they share a material, so the finest identity a fragment can carry through
+ * the per-slot uniform is the SURFACE. Publishing how many distinct objects the pass separates says
+ * what a node-level comparison would have to work with, and claims nothing our side can answer. */
+void ScoreSurfaceIdentity(const Case &subject, const Picture &picture, const RawF32 &oraclePicture,
+                          const Mask &ours, const Mask &theirs, std::vector<Metric> &metrics) {
+  using namespace outshine::Test;
+  using namespace outshine::Render::Parity;
+
+  const std::vector<std::string> names = FileMaterialNames(subject.File);
+  OracleSurfaces oracle;
+  if (!oracle.Read(subject.Directory, IndexPass::Material, names)) {
+    Refused(oracle.Error());
+    return;
+  }
+  if (oracle.Width() != theirs.Width || oracle.Height() != theirs.Height) {
+    Refused("the oracle's material-index pass is not the shape its picture is");
+    return;
+  }
+  if (picture.SurfaceIdentity.size() < (size_t)ours.Width * (size_t)ours.Height * 4u) {
+    Refused("the surface-identity attachment does not cover the frame we rendered");
+    return;
+  }
+
+  const OurSurfaces mine(picture.SurfaceIdentity, ours.Width, subject.Surfaces.Material, names);
+  const DeclaredColours declared = ColoursPerFileMaterial(subject);
+  const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared};
+  const IdentityReading reading = ReadSurfaceIdentity(asked);
+
+  /* THE ONE CLAIM THIS READER ENFORCES, and it is about our own plumbing rather than about the
+   * oracle (board:1138): every pixel our depth says we drew carries a surface slot our own table
+   * holds. It is the property that makes every count below mean anything -- an attachment the
+   * encoder never wrote would read as slot -1 everywhere and the comparison would be a comparison
+   * with the target's clear. */
+  CHECK(reading.OursNamingNoSlot == 0,
+        "every pixel we drew names a surface slot of this subject's own table, so the identity "
+        "attachment carries what the encoder bound and not what the target was cleared to");
+  if (reading.OursNamingNoSlot > 0) {
+    Note("pixels we drew whose identity names no slot", (double)reading.OursNamingNoSlot, "px");
+  }
+
+  metrics.push_back({"surface_oracle_distinct_materials", (double)reading.OracleDistinct, 0.0,
+                     "indices", Direction::Reported});
+  metrics.push_back({"surface_ours_distinct_slots", (double)reading.OursDistinct, 0.0, "slots",
+                     Direction::Reported});
+  metrics.push_back({"surface_identity_compared", (double)reading.Compared, 0.0, "px",
+                     Direction::Reported});
+  metrics.push_back({"surface_identity_agreeing", (double)reading.Agreeing, 0.0, "px",
+                     Direction::Reported});
+  metrics.push_back({"surface_identity_disagreeing", (double)reading.Disagreeing, 0.0, "px",
+                     Direction::Reported});
+  /* ABSENT AND NOT ZERO WHERE THE ORACLE'S TWO PRODUCTS CANNOT BE HELD AGAINST EACH OTHER: a zero
+   * there would say "the oracle never contradicts itself on this case", which is a claim this
+   * instrument has no way to make. */
+  metrics.push_back({"surface_oracle_index_unlike_its_own_picture",
+                     declared.Computable ? (double)reading.OracleSplit : std::nan(""), 0.0, "px",
+                     Direction::Reported});
+  metrics.push_back({"surface_identity_disagreeing_attributable",
+                     reading.AttributionKnown ? (double)reading.Attributable : std::nan(""), 0.0,
+                     "px", Direction::Reported});
+  /* THE DOMAIN IS REPORTED WHERE IT BITES AND NOWHERE ELSE. A case with nothing to attribute is not
+   * short of an instrument, so saying so on every such case would put a refusal beside a clean
+   * reading and teach a reader to skip both. */
+  if (!reading.AttributionKnown) { Refused("surface identity: " + declared.Why); }
+  if (!reading.Adjudicated) { Refused("surface identity: " + reading.Refusal); }
+  NoteDisagreements(reading);
+
+  /* THE OBJECT PASS'S DISCRIMINATION, on its own, because it is a different partition of the same
+   * frame and a count of one there means a node-level question cannot be asked of this case either. */
+  OracleSurfaces objects;
+  if (!objects.Read(subject.Directory, IndexPass::Object, names)) {
+    Refused(objects.Error());
+    return;
+  }
+  metrics.push_back({"surface_oracle_distinct_objects",
+                     (double)DistinctOracleIndices(objects, theirs), 0.0, "indices",
+                     Direction::Reported});
 }
 
 /* THE THREE LEGS OF THE NORMAL COMPARISON, PUBLISHED RATHER THAN DIFFERENCED (board:1122).
@@ -2293,6 +2462,8 @@ int main(int argc, char **argv) {
   ScorePictureBound(image, bound, metrics);
 
   ScoreShadingNormal(subject, picture, ours, clip, metrics);
+
+  ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 

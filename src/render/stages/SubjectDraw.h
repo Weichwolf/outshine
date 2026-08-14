@@ -252,8 +252,13 @@ private:
    * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
    * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
    * be bound with a coverage from one material and a roughness from another. */
-  static constexpr int kSurfaceFloats = 12; /* factor, cut, metalness, roughness, base4, emissive3,
-                                             * normal scale */
+  /* THE THIRTEENTH IS THE SLOT'S OWN INDEX AND IT IS NOT A SURFACE PROPERTY (board:1138). It rides
+   * here because it is what a fragment needs to say WHICH surface it wore and the row is the only
+   * thing already bound per slot -- a second per-slot uniform would be a second binding to keep in
+   * step with the first. It is written one higher than the slot so the identity attachment's clear
+   * is distinguishable from the first slot. */
+  static constexpr int kSurfaceFloats = 13; /* factor, cut, metalness, roughness, base4, emissive3,
+                                             * normal scale, slot + 1 */
   /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of four
    * `float4` -- colour times intensity with the kind, the camera-relative position with the
    * reciprocal of the range, the beam, and the cone's two precomputed numbers. */

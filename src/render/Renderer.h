@@ -77,6 +77,11 @@ public:
    * for it -- a readback of an attachment nobody requested would be reading a texture that was
    * never allocated. */
   [[nodiscard]] ReadState ReadShadingNormal(std::vector<float> &xyz);
+  /* WHICH SURFACE SLOT THE FRAGMENT WORE, one value per pixel in `x`, ONE HIGHER THAN THE SLOT so
+   * that 0 is "no subject fragment here" (board:1138). Empty unless the plan holds the target. A
+   * slot is not a material: which material a slot carries is the consumer's own table, and this
+   * layer has no spelling for one. */
+  [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);
 
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
    * it -- many primitives, each with its own surface slot and vertex layout. */
@@ -139,6 +144,8 @@ private:
   OwnedTexture HdrTex, VelTex, DepthTex, FrameTex, OffscreenTex;
   /* The normal the BRDF received, allocated only where a plan reads it (board:1122). */
   OwnedTexture ShadingNormalTex;
+  /* Which surface slot the fragment wore, allocated only where a plan reads it (board:1138). */
+  OwnedTexture SurfaceIdentityTex;
   OwnedSampler Samp;
   SubjectDraw Subjects_;
   TonemapStage Tonemap_;

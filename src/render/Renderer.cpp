@@ -252,6 +252,7 @@ void Renderer::Create(Resource resource) {
     case Resource::SceneHdr: HdrTex = target(resource, colour); return;
     case Resource::SceneVelocity: VelTex = target(resource, colour); return;
     case Resource::SceneShadingNormal: ShadingNormalTex = target(resource, colour); return;
+    case Resource::SceneSurfaceIdentity: SurfaceIdentityTex = target(resource, colour); return;
     case Resource::SceneDepth:
       /* SDL_GPU admits exactly two usages on a depth format, so the depth the display transfer reads
        * is a sampled texture and never a storage one. */
@@ -282,6 +283,7 @@ SDL_GPUTexture *Renderer::Target(Resource resource) const {
     case Resource::SceneHdr: return HdrTex.Get();
     case Resource::SceneVelocity: return VelTex.Get();
     case Resource::SceneShadingNormal: return ShadingNormalTex.Get();
+    case Resource::SceneSurfaceIdentity: return SurfaceIdentityTex.Get();
     case Resource::SceneDepth: return DepthTex.Get();
     case Resource::FrameTex: return FrameTex.Get();
     case Resource::Surface: return OffscreenTex.Get();
@@ -499,6 +501,28 @@ ReadState Renderer::ReadShadingNormal(std::vector<float> &xyz) {
     std::memcpy(&bits, read.Rows() + component * sizeof(uint16_t), sizeof bits);
     xyz[component] = HalfToFloat(bits);
   }
+  return ReadState::Ready;
+}
+
+/* WHICH SURFACE SLOT THE FRAGMENT WORE, one value per pixel (board:1138). It is read at the
+ * attachment's own f32 and widened by nothing, so what leaves this call is the number the fragment
+ * wrote rather than a decode of it.
+ *
+ * ZERO MEANS NO SUBJECT FRAGMENT REACHED THIS PIXEL, which is why the slot is written one higher
+ * than it is: the target is cleared before the pass and a slot 0 written verbatim would be
+ * indistinguishable from the clear. A reader therefore needs no second mask to tell the two apart,
+ * and cannot mistake the sky for the subject's first material. */
+ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
+  SDL_GPUTexture *source = SurfaceIdentityTex.Get();
+  if (!Ready || !source) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 16u) !=
+      ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  const size_t components = (size_t)Width * (size_t)Height * 4u;
+  slot.resize(components);
+  std::memcpy(slot.data(), read.Rows(), components * sizeof(float));
   return ReadState::Ready;
 }
 

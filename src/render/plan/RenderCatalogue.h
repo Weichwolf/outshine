@@ -33,6 +33,7 @@ enum class Resource {
   SceneVelocity,
   SceneDepth,
   SceneShadingNormal,
+  SceneSurfaceIdentity,
   AoBuffer,
   SceneLinear,
   FrameTex,
@@ -201,6 +202,19 @@ inline constexpr ResourceRow kResources[] = {
      * that does not ask for it pays a byte. */
     {Resource::SceneShadingNormal, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
      TexelFormat::Rgba16Float, "sceneShadingNormal"},
+    /* WHICH SURFACE THE FRAGMENT WORE, as the index of the slot its draw bound (board:1138). It is
+     * the coverage predicate's missing half: the depth attachment answers `is this pixel covered`
+     * and nothing in the frame answered `WHAT covers it`, so a surface swap could only ever be read
+     * out of the colour, where a declared colour and a shaded one have the same spelling.
+     *
+     * IT CARRIES A SLOT AND NOT A MATERIAL, because a material is a content noun and this layer has
+     * no spelling for one. Which material a slot is, is the consumer's own table.
+     *
+     * f32 AND NOT f16 SO THE VALUE CANNOT BE THE FORMAT'S. binary16 is exact on integers to 2048 and
+     * this index would fit; at f32 the ceiling is 2^24 and no subject can reach it, so "the identity
+     * was rounded" is unspellable rather than bounded by a count nobody checks. */
+    {Resource::SceneSurfaceIdentity, ResourceKind::Attachment, FallbackKind::None, kNoEdge,
+     TexelFormat::Rgba32Float, "sceneSurfaceIdentity"},
     {Resource::AoBuffer, ResourceKind::Attachment, FallbackKind::Neutral, kNoEdge,
      TexelFormat::R8Unorm, "aoBuffer"},
     /* Resolved linear radiance BEFORE the occlusion composite and BEFORE the metered exposure. A
@@ -265,7 +279,7 @@ inline constexpr StageRow kStages[] = {
     {Stage::Subjects, Provenance::Content, PassKind::Raster, "subjects",
      {kNoEdge}, {kNoEdge},
      {Resource::SceneHdr, Resource::SceneVelocity, Resource::SceneDepth,
-      Resource::SceneShadingNormal, kNoEdge}, kNoFusion},
+      Resource::SceneShadingNormal, Resource::SceneSurfaceIdentity, kNoEdge}, kNoFusion},
     {Stage::AmbientOcclusion, Provenance::Content, PassKind::Raster, "ambientOcclusion",
      {Resource::SceneDepth, Resource::AtmosphereUniform, kNoEdge}, {kNoEdge},
      {Resource::AoBuffer, kNoEdge}, kNoFusion},

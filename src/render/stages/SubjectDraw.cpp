@@ -144,7 +144,7 @@ struct S { float4x4 mvp; float4 anc; };
  * `float3`, because a Metal `float3` occupies sixteen bytes and would put `normalScale` four bytes
  * past where the host writes it. */
 struct M { float factor; float cut; float metalness; float roughness;
-           float4 base; packed_float3 emissive; float normalScale; };
+           float4 base; packed_float3 emissive; float normalScale; float identity; };
 /* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
  * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
  * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
@@ -186,6 +186,9 @@ struct SFrag {
    * hardcoded index is exactly the pipeline/pass disagreement board:1121 closed. */
   float4 nrm [[color(SUBJECT_NORMAL_COLOUR_INDEX)]];
 #endif
+#if SUBJECT_WRITES_SURFACE_IDENTITY
+  float4 idn [[color(SUBJECT_IDENTITY_COLOUR_INDEX)]];
+#endif
 };
 
 #if SUBJECT_WRITES_VELOCITY
@@ -211,6 +214,21 @@ struct SFrag {
 #else
 #define SUBJECT_SET_SHADING_NORMAL(o, n, f) (void)0
 #define SUBJECT_NO_SHADING_NORMAL(o) (void)0
+#endif
+
+/* WHICH SURFACE THE FRAGMENT WORE (board:1138). EVERY arm writes it and none of them computes it:
+ * the value is the slot's own row, so the answer is what the encoder bound rather than anything this
+ * shader decided, and an arm that shades nothing still says which surface shaded nothing.
+ *
+ * A DISCARDED FRAGMENT WRITES NO ATTACHMENT AT ALL, which is why the masked arms may set it before
+ * their cut without claiming a surface at a pixel the cut removed.
+ *
+ * THE OTHER THREE CHANNELS ARE DECLARED ZERO AND ONE rather than left to the driver: a reader that
+ * found a plausible value in them would have found whatever the target held. */
+#if SUBJECT_WRITES_SURFACE_IDENTITY
+#define SUBJECT_SET_SURFACE_IDENTITY(o, m) (o).idn = float4((m).identity, 0.0, 0.0, 1.0)
+#else
+#define SUBJECT_SET_SURFACE_IDENTITY(o, m) (void)0
 #endif
 )";
 
@@ -259,6 +277,7 @@ fragment SFrag fs(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -268,6 +287,7 @@ fragment SFrag fsMasked(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -276,6 +296,7 @@ fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted, surface.factor);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -284,6 +305,7 @@ fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * colourMap.sample(colourSampler, in.uv).rgb, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -297,6 +319,7 @@ fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -309,6 +332,7 @@ fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
   return o;
 }
@@ -437,6 +461,7 @@ fragment SFrag fsLit(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -447,6 +472,7 @@ fragment SFrag fsLitMasked(LOut in [[stage_in]], bool front [[front_facing]], SU
   SFrag o;
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -457,6 +483,7 @@ fragment SFrag fsLitBlended(LOut in [[stage_in]], bool front [[front_facing]], S
   o.col = float4(shade(surface, lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p, surface.base.rgb),
                  surface.factor);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -483,6 +510,7 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -498,6 +526,7 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
                           surface.metalness, surface.roughness,
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -513,6 +542,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
                           emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                  surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
   return o;
 }
@@ -591,6 +621,7 @@ fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJE
   SFrag o;
   o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
@@ -602,6 +633,7 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
   SFrag o;
   o.col = float4(shaded.col, 1.0);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
@@ -612,6 +644,7 @@ fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]]
   SFrag o;
   o.col = float4(shaded.col, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o);
+  SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shaded.nrm, front);
   return o;
 }
@@ -717,6 +750,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
   };
   const bool writesVelocity = attachmentIndex(Resource::SceneVelocity) >= 0;
   const long normalIndex = attachmentIndex(Resource::SceneShadingNormal);
+  const long identityIndex = attachmentIndex(Resource::SceneSurfaceIdentity);
 
   const std::string source = std::string(kMslPrelude) + kVelocityMsl + ShadowRayMsl() +
                              "\n#define SUBJECT_WRITES_VELOCITY " + (writesVelocity ? "1" : "0") +
@@ -724,6 +758,10 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              (normalIndex >= 0 ? "1" : "0") +
                              "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
                              std::to_string(normalIndex < 0 ? 0 : normalIndex) +
+                             "\n#define SUBJECT_WRITES_SURFACE_IDENTITY " +
+                             (identityIndex >= 0 ? "1" : "0") +
+                             "\n#define SUBJECT_IDENTITY_COLOUR_INDEX " +
+                             std::to_string(identityIndex < 0 ? 0 : identityIndex) +
                              "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
                              kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
                              kSubjectMappedMsl;
@@ -747,6 +785,13 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
      * shaded with -- the attachment carries what the LAST writer received, which is the only reading
      * of it that is a normal at all. */
     if (normalIndex >= 0) { targets[normalIndex].format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT; }
+    /* THE IDENTITY TARGET IS NOT BLENDED EITHER, and for a stronger reason than the normal's: an
+     * `over` composite of two slot indices is an index no surface has, so a blended pixel would name
+     * a material that is not in the table. The last writer's slot is the only reading of this
+     * attachment that is an identity at all. */
+    if (identityIndex >= 0) {
+      targets[identityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
+    }
 
     for (const VertexLayout layout :
          {VertexLayout::Position, VertexLayout::PositionUv, VertexLayout::PositionNormal,
@@ -1000,10 +1045,14 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   slot.Emissive = Upload(material.Emissive, Transfer::Srgb, TexelKind::Value);
 
   const Material &row = material.Row;
+  /* THE SLOT'S IDENTITY IS ITS POSITION IN THIS TABLE, taken before the push (board:1138), so it is
+   * the same number `DrawBatch::MaterialSlot` names and cannot be assigned a second time anywhere. */
+  const float identity = (float)(Slots.size() + 1u);
   slot.Row = {material.Coverage(), material.State().CoverageCut(),
               row.Metalness,       row.Roughness,
               row.BaseColour[0],   row.BaseColour[1], row.BaseColour[2], row.BaseColour[3],
-              row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale};
+              row.Emission[0],     row.Emission[1],   row.Emission[2],   material.NormalScale,
+              identity};
   Slots.push_back(std::move(slot));
 }
 
