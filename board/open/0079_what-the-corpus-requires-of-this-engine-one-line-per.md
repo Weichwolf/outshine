@@ -77,3 +77,81 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 - [ ] `Material` gains an **occlusion strength** entry with the same argument as metalness — it is a number, it switches nothing, and 46 of 146 corpus assets carry an occlusion texture. It is **not** the same quantity as `render/stages/AoStage`'s screen-space term and the two must not be summed silently
 - [ ] The § I.26 reader line's *"Skinning, morph targets and `animations` out of scope"* is **superseded by this section**: all three are required capabilities, pulled by rungs 6, 13 and 16 respectively. *The earlier line was right about the reader's first subset and wrong as a scope statement, and the difference is the ruling above*
 - [ ] Every required capability is **proven by a named corpus asset and only by that asset** — a capability with no asset behind it is untested scope, and an asset that proves nothing is bytes we fetch for no reason
+
+## The execution order, and the criterion that produces it
+
+**The owner, verbatim:** *implement the glTF features one by one ordered by complexity or impact.
+animations when required.*
+
+**IMPACT IS ALREADY IN THIS TABLE AND I HAD NOT READ IT.** The `Proven by` column carries a per-feature
+model count — *144 of 146*, *133 of 146*, *46 of 146* — so **45 of the 50 rows already have their impact
+measured**; five carry none and are named below. *The number the ordering needs was in the artefact being
+ordered.* **The denominator is 146 here and the pinned index enumerates 148** — a two-model discrepancy
+that is recorded rather than smoothed, and that `board:1172`'s declared set settles.
+
+**Impact-first is wrong at the top of this table, and measurably so.** The four highest rows — indexed
+`TRIANGLES` 144, `NORMAL` 133, `TEXCOORD_0` 118, base colour 108 — **are already supported and proven**.
+Ordering by raw usage sequences work that is done. So:
+
+> **Impact means: how many in-scope models are blocked SOLELY by this feature.** Usage is the proxy the
+> table holds; the ordering key is usage **restricted to rows not already supported-and-proven**.
+
+**Which is why `board:1174`'s re-measurement comes first and is not merely tidy: the ordering criterion is
+undefined on a row whose population is unknown.**
+
+**Complexity's honest unit is which layers move**, and `board:0078` carries the precedents:
+
+| | |
+|---|---|
+| **reader only** | a field parsed and carried — `multiple scenes`, `KHR_xmp_json_ld` |
+| **reader + draw list** | a vertex stream or a draw parameter — `COLOR_0`, `TEXCOORD_1`, primitive modes, skinning |
+| **a lobe** | a term in the BRDF and numbers in the material row — `sheen`, `clearcoat`, `specular` |
+| **a resource and a stage** | `transmission`/`volume`, which need the scene colour behind the surface |
+
+## The rule where they disagree, and it is not *impact first, complexity as tie-break*
+
+**Two tiers, worked to exhaustion in order; impact orders within a tier.**
+
+> **Tier 1 — reader-only and reader+draw-list rows. Tier 2 — lobes and new-stage rows.**
+
+**The reason is the owner's own execution rule rather than a preference: *one by one* requires that a
+feature can be FINISHED before the next starts.** A tier-1 row is one dispatch — a field, a stream, a
+test, a citation. A new-resource row is a multi-round project, and starting one stalls the sequence for
+everything behind it. **A bounded look-ahead is the wrong instrument for this** because it schedules by
+how long a queue is; the tier rule schedules by whether an item can be completed at all, which is the
+property the owner's sentence actually constrains.
+
+**Impact zero is a finding about the feature, not a low rank**: a row no in-scope model needs is a
+candidate for the declared-out list in `board:1172`, and it leaves the sequence rather than sitting at the
+bottom of it.
+
+## The first three, and the first one keeps its place on the criterion rather than on its name
+
+- [ ] **1 · the animation interpolations — `LINEAR` · `STEP` · `CUBICSPLINE`.** Impact **16 in-scope
+  models blocked by one missing consumer**, the largest blocked-count on the board; tier 1, reader plus
+  draw list; `core/Keyframes.h` and `gltf/Track` already exist and nothing drives a draw from a time.
+  **`board:1169` is mid-flight and it earns first place on the measure, not because it was named earlier.**
+  *Animations when required* — and they are required by sixteen models
+- [ ] **2 · the occlusion texture. Impact 46 of 146 — the highest unmet impact in the table — and it is
+  supported-and-unproven in the worst way.** [MEASURED]: `src/gltf/Document.cpp` parses `occlusionTexture`
+  and the mapped shader arm samples `orm.g` for roughness and `orm.b` for metalness and **never `orm.r`**.
+  The map is read, carried, and thrown away. **Tier 1 in cost — a material row field, an ambient term and
+  a strength multiply — against 46 models**, which is the best impact-per-layer ratio on the board
+- [ ] **3 · `TEXCOORD_1`.** Impact 9, tier 1, a second uv stream and the material rows that select it; the
+  row already carries an `UNSURE` on which of the material's textures may name it, which is the question
+  the task settles
+
+**Behind those three, in tier 1 by impact**: `KHR_texture_transform` 15 · `COLOR_0` 7 · skinning 6 · morph
+targets 4 · non-indexed 3 · `KHR_node_visibility` 2 · **`POINTS`/`LINES`/`STRIP`/`FAN` 2** and **multiple
+scenes 1**, the last two being the rows whose `REFUSED` the owner's scope ruling overturned
+(`board:1174`). **Tier 2 by impact**: `volume` 25 · `ior` 17 · `clearcoat` 13 · `sheen` 10 · `specular` 9
+· `anisotropy` 7 · diffuse transmission 6 · `transmission`, whose count the table does not carry.
+
+**Five rows carry no model count and cannot be ordered until they do**: `node hierarchy, TRS and matrix` ·
+GPU instancing · vertex quantization · `KHR_materials_transmission` · the interpolation row itself. **Four
+of the five are high-usage or already-built**, so the missing number is a gap in the table rather than a
+sign of low impact — and it is `board:1174`'s to fill.
+
+**No task is filed for any row here.** The order is the artefact; a task arrives when its row is
+dispatched, with its own test and its own citation. **Fifty ready tasks worked one at a time is
+forty-nine items that are ready and not being done**, which is the shape two rounds were spent undoing.

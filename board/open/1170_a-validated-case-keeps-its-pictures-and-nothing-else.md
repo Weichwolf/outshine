@@ -67,3 +67,83 @@ move it, it names that it must be chosen.
 file is removed whose bytes the store does not provably hold, the `Makefile` still has three targets, and
 the suite's on-disk size is published so the 865-case claim is priced against a number rather than a
 ratio.
+
+## SHARPENED: always, and test by test
+
+**The owner, verbatim:** *test runner must allways prune test by test so size doesn't grow.*
+
+**The clause *a red case is never pruned* is STRUCK, and the objection behind it is answered rather than
+overruled.** It rested on `board:1136`, `1138` and `1144` each being built on exactly those dumps. What it
+missed is my own measurement two rounds earlier: **the store is authoritative — 1 070 objects at exactly
+14 745 644 B, every oracle raw of every case and recipe.** So **pruning is not deletion; it is declining
+to keep a second copy**, and a red case's dumps come back by a named step. *The rule I wrote was protecting
+evidence that was never at risk.*
+
+**And *so size doesn't grow* is about the PEAK, not the total.** Pruning after a suite still lets the
+corpus reach full size at some instant. Pruning as each test finishes bounds the working set to one case.
+That is a different design and it is the one asked for.
+
+## The safety argument now rests entirely on the store check, so its failure mode is stated
+
+**Prune only files whose bytes the store provably holds — key present, size and digest equal.** Under
+*prune on a pass* a mistake cost a re-render; under *always* a mistake on a product the store does **not**
+hold is unrecoverable.
+
+**When the check fails the file STAYS, loudly, and the case says so.** A prune that cannot prove its own
+precondition does not proceed. **`board:1154` is the live example and it is not hypothetical**: the index
+mapping is recorded only on the miss path, so a cached case carries products the store cannot vouch for —
+exactly the shape this guard exists to catch.
+
+## Two classes, two recovery steps, and only one of them is the store's
+
+[MEASURED] over one case — `materials/water-bottle`, 137 MB — the products partition by **producer**, not
+by extension:
+
+| | bytes | recovered by |
+|---|---|---|
+| **oracle products** — `oracle.raw` + 5 quantity raws + the EXRs | **88.5 MB** | the store. `PRODUCTS = ("exr","raw") + quantity pairs` is exactly this set |
+| **our own outputs** — `outshine.raw`, `outshine.normal.raw`, `file.normal.raw`, `1-outshine.png` | **44.2 MB** | **not the store — the runner.** They are outputs, so re-running that one case regenerates them, with no Cycles in the path |
+| the subject — `scene.glb` | 9.0 MB | the store by SHA-256 if fetched, `prepare.py generate` if ours |
+| kept | PNGs, manifest, provenance | — |
+
+**So *the store is authoritative* is true of the oracle half and false of ours**, and the guard must know
+the difference: our own dumps are pruned because **re-running the case is their producer**, not because
+the store holds them. Two classes, two proofs, one rule — and a file in neither class stays.
+
+**The named step, so a diagnosis does not begin with *how do I see the pixels again*:**
+
+```sh
+python3 test/corpus/prepare.py all --manifest test/render/<area>/<case>/manifest.json
+```
+
+idempotent, independently invocable, and it re-places every oracle product from the store without
+touching Blender on a hit. **Our own dumps come back by re-running that one case.** Both are one command
+and neither rebuilds anything.
+
+## The three arms decide whether *test by test* means *per case* or *per invocation*, and the loop today forbids the smaller one
+
+[MEASURED] in `test/run.sh`: `JudgeEvery` runs one binary over every case, and there are three binaries —
+plain, sanitised, validated. **The loop is arm-outer, case-inner.** So a case's inputs must survive until
+the third arm reaches it, and pruning inside an arm would delete what the next arm needs.
+
+- [ ] **Invert the loop to case-outer, arm-inner** — for each case run the three arms, then prune. **Same
+  binaries, same set, same verdicts, different order**, and the peak becomes one case. The cost is process
+  spawns, not rebuilds, because the three binaries are already built before any case runs
+- [ ] **The alternative — re-materialise per arm — is refused before it is measured**, and the reason is
+  arithmetic rather than a preference: it pays the placement cost three times per case to buy a peak that
+  inverting the loop gives for free
+- [ ] **If the loop cannot invert**, then *test by test* means *case by case across all three arms*, the
+  peak is one case either way, and that is stated rather than discovered
+
+## The peak, as a number, because *size doesn't grow* is only checkable against one
+
+| | |
+|---|---|
+| largest case materialised | **162 MB** (`materials/scifi-helmet`); `water-bottle` 137 MB |
+| pruned residue per finished case | **~0.1 MB** — two PNGs, manifest, provenance |
+| **peak over the whole in-scope corpus (~147 cases)** | **≈ 180 MB** — one live case plus every finished case's pictures |
+| against | **4.4 GB today over 35 cases**, ~19 GB projected for 147 |
+
+**That is the acceptance: the suite's high-water mark under `test/render/` never exceeds one case plus the
+accumulated pictures**, published by the runner as a number so the claim is checkable rather than
+asserted.
