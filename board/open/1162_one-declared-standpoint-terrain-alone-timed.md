@@ -67,6 +67,6 @@ that, and the covered fraction is published beside the timings so a reader can s
 
 ## Done when
 
-`test/scenario/` has its first member; one declared standpoint renders terrain at 720p over the declared
+the scenario suite has its first member; one declared standpoint renders terrain at 720p over the declared
 path; Verdict A passes or names which clause failed; and the fourth constraint has a number with its
 population, its instrument and its floor beside it for the first time.
