@@ -862,6 +862,13 @@ OwnedBuffer SubjectDraw::Fill(SDL_GPUBufferUsageFlags usage, const void *from, u
  * by the caller: glTF puts base colour and emissive in sRGB and the normal, occlusion and
  * metallic-roughness maps in linear. Alpha never carries it on either arm. */
 
+/* WHETHER A TEXTURE MAY CARRY MORE THAN ONE LEVEL AT ALL. `false` while `board:1130` is open: enabling
+ * the chain moves `normal-tangent` from 229.330177 to a saturated 255 and turns five derived metrics
+ * red, and the acceptance stated before that round -- ours inside the oracle's own 0.04859..0.08692 --
+ * was not met. It is a named constant rather than a commented-out line so that the two questions stay
+ * apart: WHICH FILTER (this file answers, from the file) and HOW MANY LEVELS (board:1130 answers). */
+constexpr bool kChainIsReadable = false;
+
 SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Transfer decode,
                                             TexelKind kind) {
   static const uint8_t white[4] = {255, 255, 255, 255};
@@ -902,6 +909,10 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
    * (board:1130). */
   uint32_t levels = 1;
   for (uint32_t extent = width > height ? width : height; extent > 1u; extent /= 2u) { ++levels; }
+  /* HOW MANY LEVELS THIS TEXTURE ACTUALLY HAS, which is where "no mipmaps" is expressed -- NOT at the
+   * sampler's LOD clamp (board:1134). A file naming 9728 or 9729 asks for one level; and while
+   * `board:1130` holds the chain back, every texture asks for one whatever it declared. */
+  if (texture.Mip == SubjectMip::None || !kChainIsReadable) { levels = 1; }
   wantedTexture.num_levels = levels;
   wantedTexture.sample_count = SDL_GPU_SAMPLECOUNT_1;
   bound.Image = OwnedTexture(Device, SDL_CreateGPUTexture(Device, &wantedTexture));
@@ -954,11 +965,17 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   wantedSampler.address_mode_u = AddressOf(texture.WrapU);
   wantedSampler.address_mode_v = AddressOf(texture.WrapV);
   wantedSampler.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
-  wantedSampler.min_filter = FilterOf(texture.Magnify);
+  /* EACH FILTER FROM ITS OWN DECLARATION (board:1134). These were both `texture.Magnify`, so a file
+   * asking to point-sample when its texels outnumber the pixels got a linear blend -- and two corpus
+   * subjects ask for exactly that with `NEAREST_MIPMAP_LINEAR`. */
+  wantedSampler.min_filter = FilterOf(texture.Minify);
   wantedSampler.mag_filter = FilterOf(texture.Magnify);
-  /* LINEAR BETWEEN LEVELS AS WELL AS WITHIN ONE: nearest would step between levels and the step is
-   * visible as a band moving with the camera. */
-  wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
+  /* BETWEEN LEVELS, ALSO FROM THE FILE. This was a constant `LINEAR`, which happened to agree with
+   * every corpus subject that declares a mip mode at all -- and agreeing by luck is not the same as
+   * being told. `None` is a declaration too: 9728 and 9729 ask for ONE level. */
+  wantedSampler.mipmap_mode = texture.Mip == SubjectMip::Nearest
+                                  ? SDL_GPU_SAMPLERMIPMAPMODE_NEAREST
+                                  : SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
   /* THE SELECTION IS STILL PINNED TO LEVEL 0, AND THE BLOCKER IS NOW NAMED RATHER THAN OPEN (board:1130).
    * Setting this to `levels - 1` makes `normal-tangent` and `normal-tangent-mirror` saturate at 255
    * codes, from 229.330177 and 184.356962. THE PICTURE BOUND DOES NOT MOVE -- 20 of 34 cases within it
@@ -980,7 +997,14 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
    * Turning five derived metrics red to reach a picture bound that does not move is not the trade;
    * carrying the shortfall as roughness is, and that is one measurement away -- whether the ORACLE's own
    * two cells agree under ITS filtering, which nothing here has ever asked it. */
-  wantedSampler.max_lod = 0.0f;
+  /* THE LOD CLAMP IS LEFT OPEN, AND THAT IS A CORRECTION RATHER THAN A RELAXATION (board:1134).
+   * `max_lod = 0` reads as "no mipmaps" and is not: lambda is clamped to `[min_lod, max_lod]` BEFORE
+   * the magnification test, so `lambda <= 0` became true everywhere and the MAGNIFICATION filter was
+   * used at every pixel of every texture. `min_filter` was unreachable by construction -- which is why
+   * setting it from the file's own `minFilter` changed not one byte of `normal-tangent` until this
+   * line moved. 1000 is Vulkan's `VK_LOD_CLAMP_NONE`, the spelling for "do not clamp"; the LEVEL
+   * COUNT above is what bounds which levels exist, and that is the knob that means what it says. */
+  wantedSampler.max_lod = 1000.0f;
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }

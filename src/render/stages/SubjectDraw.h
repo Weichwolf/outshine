@@ -95,6 +95,11 @@ constexpr size_t kMaxSubjectLights = 16;
 enum class SubjectWrap { ClampToEdge, MirroredRepeat, Repeat };
 enum class SubjectFilter { Nearest, Linear };
 
+/* WHICH LEVELS THE MINIFICATION FILTER MAY READ, glTF's other half of `minFilter`. `None` is a
+ * declaration and not an absence: a file naming 9728 or 9729 asks for ONE level, and answering it
+ * with a chain is answering a different question. */
+enum class SubjectMip { None, Nearest, Linear };
+
 /* THE DECODED COLOUR IMAGE, RGBA8 sRGB-ENCODED, straight alpha, top row first -- the one convention
  * the image boundary states. It is decoded to linear f32 HERE, on the CPU, and uploaded as floats,
  * so the sampler filters exact linear values: hardware sRGB sampling carries about twelve bits of
@@ -111,6 +116,12 @@ struct SubjectTexture {
   SubjectWrap WrapU = SubjectWrap::Repeat;
   SubjectWrap WrapV = SubjectWrap::Repeat;
   SubjectFilter Magnify = SubjectFilter::Linear;
+  /* MINIFICATION IS A SEPARATE DECLARATION AND WAS NOT CARRIED AT ALL (board:1134). The sampler took
+   * the magnification filter for both, so a file asking for point sampling when its texels outnumber
+   * the pixels got a linear blend -- and two corpus subjects ask for exactly that. `Mip` is the second
+   * half of the same glTF field and belongs beside it rather than at the sampler as a constant. */
+  SubjectFilter Minify = SubjectFilter::Linear;
+  SubjectMip Mip = SubjectMip::Linear;
 };
 
 /* ONE SURFACE OF THE SUBJECT: what a draw binds when its key names this slot. The surface state is

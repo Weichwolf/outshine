@@ -40,3 +40,33 @@ whoever believed the rule and would have agreed with it.
 The reader half is fixed and tested here; carrying `Minify` and `Mip` through to the sampler is the
 remaining half, and it is what `board:1130` has been arguing about without knowing the file had an
 opinion.
+
+## The sampler half, and what it moved: nothing, for a reason worth writing down
+
+`SubjectTexture` gained `Minify` and `Mip`, both filled from the file, and the sampler takes each filter
+from its own declaration instead of taking `Magnify` twice.
+
+**And the corpus does not move by one pixel.** Measured before and after on every case that declares
+9986 — `normal-tangent` 229.33018, `normal-tangent-mirror` 184.35696, `texture-settings-test`
+209.34986 — byte for byte, with 20 of 34 cases within the picture bound either way.
+
+**A control says why, and it is not that the wiring failed.** Forcing the MAGNIFICATION filter to
+NEAREST moves the picture — `198856` to `198860` differing pixels — while forcing the MINIFICATION
+filter moves nothing at all. A probe in `Upload` confirms six 2048×2048 textures arriving with
+`min=NEAREST`. **So the declaration reaches the sampler and the sampler never uses it: this subject is
+magnified at every pixel, and `min_filter` is unreachable on it.** Only 4 pixels answer to the
+magnification filter at all, which is consistent with a normal map measured at **93.4 % neutral** — a
+nearly constant texture filters the same either way.
+
+**One thing found on the way is a correction, not a discovery.** `max_lod = 0` was carried as "no
+mipmaps"; it is not. Lambda is clamped to `[min_lod, max_lod]` **before** the magnification test, so
+that line forced magnification filtering at every pixel of every texture and made `min_filter`
+unreachable by construction. "One level" is now expressed where it belongs — in the texture's LEVEL
+COUNT — and the LOD clamp is left open at Vulkan's `VK_LOD_CLAMP_NONE`.
+
+**And it contradicts a number this board carried.** `board:1130` records `normal-tangent-mirror`
+sampling its normal map at **1.42 texels per screen pixel** and an LOD histogram with **288 807 px at
+≈1.25**. Both are minification, and both are incompatible with a magnification filter deciding every
+pixel. One of the two measurements is about something else — most likely a texel ratio computed without
+the projection that actually reaches this subject. **It is written here rather than dropped**, and
+re-measuring it belongs to `board:1130`, whose whole argument rests on it.

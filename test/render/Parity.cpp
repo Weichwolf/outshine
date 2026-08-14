@@ -722,8 +722,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     bound.WrapU = WrapOf(sampler.WrapS);
     bound.WrapV = WrapOf(sampler.WrapT);
     bound.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
-                        ? outshine::Render::SubjectFilter::Nearest
-                        : outshine::Render::SubjectFilter::Linear;
+        ? outshine::Render::SubjectFilter::Nearest
+        : outshine::Render::SubjectFilter::Linear;
+    bound.Minify = sampler.Min == outshine::Gltf::Filter::Nearest
+        ? outshine::Render::SubjectFilter::Nearest
+        : outshine::Render::SubjectFilter::Linear;
+    bound.Mip = sampler.Mip == outshine::Gltf::MipFilter::None
+        ? outshine::Render::SubjectMip::None
+        : (sampler.Mip == outshine::Gltf::MipFilter::Nearest
+               ? outshine::Render::SubjectMip::Nearest
+               : outshine::Render::SubjectMip::Linear);
   }
   return true;
 }
@@ -777,8 +785,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
       base.WrapU = WrapOf(sampler.WrapS);
       base.WrapV = WrapOf(sampler.WrapT);
       base.Magnify = sampler.Mag == outshine::Gltf::Filter::Nearest
-                         ? outshine::Render::SubjectFilter::Nearest
-                         : outshine::Render::SubjectFilter::Linear;
+          ? outshine::Render::SubjectFilter::Nearest
+          : outshine::Render::SubjectFilter::Linear;
+      base.Minify = sampler.Min == outshine::Gltf::Filter::Nearest
+          ? outshine::Render::SubjectFilter::Nearest
+          : outshine::Render::SubjectFilter::Linear;
+      base.Mip = sampler.Mip == outshine::Gltf::MipFilter::None
+          ? outshine::Render::SubjectMip::None
+          : (sampler.Mip == outshine::Gltf::MipFilter::Nearest
+                 ? outshine::Render::SubjectMip::Nearest
+                 : outshine::Render::SubjectMip::Linear);
     }
     ++textured;
   }
