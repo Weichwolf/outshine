@@ -893,13 +893,18 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   /* EVERY LEVEL IS BUILT AND UPLOADED HERE rather than generated on the device, because the device
    * generator has no way to be told that a texel is a direction -- and a normal chain that averaged
    * without renormalising would be a different picture that no flag records. */
+  /* WHICH CHANNELS CARRY A CHOICE RATHER THAN AN AMOUNT, MEASURED FROM THIS TEXTURE'S OWN TEXELS. A
+   * DIRECTION map is exempt because its first three channels are one vector: snapping a component and
+   * then renormalising would be two rules fighting over the same texel. */
+  const uint32_t indexChannels = kind == TexelKind::Direction ? 0u : IndexChannelsOf(linear);
   std::vector<float> level = linear;
   uint32_t levelWidth = width, levelHeight = height;
   for (uint32_t which = 0; which < levels; ++which) {
     if (which > 0) {
       std::vector<float> smaller;
       uint32_t smallerWidth = 0, smallerHeight = 0;
-      HalveInPlace(level, levelWidth, levelHeight, smaller, smallerWidth, smallerHeight, kind);
+      HalveInPlace(level, levelWidth, levelHeight, smaller, smallerWidth, smallerHeight, kind,
+                   indexChannels);
       level.swap(smaller);
       levelWidth = smallerWidth;
       levelHeight = smallerHeight;
@@ -938,13 +943,28 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
   /* LINEAR BETWEEN LEVELS AS WELL AS WITHIN ONE: nearest would step between levels and the step is
    * visible as a band moving with the camera. */
   wantedSampler.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_LINEAR;
-  /* THE RANGE THE SELECTION MAY REACH IS DELIBERATELY LEFT AT ZERO FOR NOW (board:1130). `max_lod` is
-   * zero-initialised, so this sampler is CLAMPED TO LEVEL 0 and the chain built above is never read --
-   * which is a defect, and it is not the one being shipped. Setting it to `levels - 1` was measured and
-   * REVERTED: six cases went to a saturated 255-code tail, `normal-tangent` from 229.330177 and
-   * `normal-tangent-mirror` from 184.356962, with `ours 255 against 0` at a single pixel and both
-   * materials OPAQUE, so it is not an alpha cutout. A worse picture with no mechanism is not shipped;
-   * the item carries the measurement. */
+  /* THE SELECTION IS STILL PINNED TO LEVEL 0, AND THE BLOCKER IS NOW NAMED RATHER THAN OPEN (board:1130).
+   * Setting this to `levels - 1` makes `normal-tangent` and `normal-tangent-mirror` saturate at 255
+   * codes, from 229.330177 and 184.356962. THE PICTURE BOUND DOES NOT MOVE -- 20 of 34 cases within it
+   * either way, and no test changes verdict -- so what decides this is one metric, not the tail.
+   *
+   * A SWEEP SAYS THE CAUSE IS NOT DEPTH: level 1 ALONE saturates (0 -> 229.330177, 1 -> 255, and 2, 4, 8
+   * and 20 all 255), so a single halving does it and no argument about reaching the top of the chain
+   * survives. What one halving does is FLATTEN THE NORMAL MAP, and
+   * `rowN_pairM_geometry_matches_normalmap_p95_relative` goes 0.13879225 -> 0.27571386 against a bound
+   * of 0.1579751 on five rows.
+   *
+   * THAT METRIC IS NOT COLLATERAL AND IT IS NOT THE WRONG INSTRUMENT. It compares two regions of THIS
+   * render -- a 516-triangle dome cell against the normal-mapped quad that imitates it -- and its bound
+   * is the geometric mean of two measured populations, correct basis against flipped handedness,
+   * separated by 4.53x. A filtered normal is flatter and the geometry it imitates does not flatten, so
+   * the metric is reporting exactly what it was built to report.
+   *
+   * SO THE MISSING TERM IS TOKSVIG'S, and `TexelChain.h` already names it as deliberately not taken.
+   * Turning five derived metrics red to reach a picture bound that does not move is not the trade;
+   * carrying the shortfall as roughness is, and that is one measurement away -- whether the ORACLE's own
+   * two cells agree under ITS filtering, which nothing here has ever asked it. */
+  wantedSampler.max_lod = 0.0f;
   bound.Sample = OwnedSampler(Device, SDL_CreateGPUSampler(Device, &wantedSampler));
   return bound;
 }

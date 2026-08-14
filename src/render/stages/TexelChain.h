@@ -28,9 +28,45 @@ namespace outshine::Render {
 
 enum class TexelKind { Value, Direction };
 
+/* WHICH CHANNELS ARE AN INDEX RATHER THAN A QUANTITY, ANSWERED FROM THE TEXELS AND NOT FROM THE SLOT.
+ *
+ * A channel taking AT MOST TWO DISTINCT VALUES carries a choice between two materials, not a measured
+ * amount, and a box filter over it returns a value the asset does not contain. `normal-tangent`'s
+ * metallic-roughness map is the case that named this: its metalness takes EXACTLY TWO values, 0 and
+ * 255, while occlusion takes 85 and roughness 180 (board:1130). The whole-map mean of that metalness is
+ * 86, so a fetch at the top of the chain returns 0.34 whether the texel under it was metal or
+ * dielectric -- a third-metal, which is not a material and appears nowhere in the source.
+ *
+ * THE PREDICATE NEEDS NO THRESHOLD, which is why it is a count and not a histogram: 2 against 85 and
+ * 180 has no midpoint to choose. EXACT float comparison is right here because a channel arrives as
+ * `code / 255.0f` from an 8-bit source, so two texels of one code are bit-identical by construction.
+ *
+ * ITS DOMAIN IS TWO VALUES AND IT IS STATED RATHER THAN IMPLIED: a three-material index map reads as a
+ * quantity here and is filtered as one. Widening it means deciding when a small distinct count stops
+ * being an index, which is a threshold, and no case in this tree yet forces that choice. */
+inline uint32_t IndexChannelsOf(const std::vector<float> &texels) {
+  uint32_t mask = 0;
+  for (uint32_t channel = 0; channel < 4; ++channel) {
+    float seen[2] = {0.0f, 0.0f};
+    uint32_t distinct = 0;
+    bool third = false;
+    for (size_t at = channel; at < texels.size(); at += 4) {
+      const float value = texels[at];
+      if ((distinct > 0 && value == seen[0]) || (distinct > 1 && value == seen[1])) { continue; }
+      if (distinct >= 2) {
+        third = true;
+        break;
+      }
+      seen[distinct++] = value;
+    }
+    if (!third) { mask |= 1u << channel; }
+  }
+  return mask;
+}
+
 inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uint32_t fromHeight,
                          std::vector<float> &into, uint32_t &toWidth, uint32_t &toHeight,
-                         TexelKind kind) {
+                         TexelKind kind, uint32_t indexChannels = 0) {
   toWidth = fromWidth > 1 ? fromWidth / 2u : 1u;
   toHeight = fromHeight > 1 ? fromHeight / 2u : 1u;
   into.assign((size_t)toWidth * toHeight * 4u, 0.0f);
@@ -44,8 +80,28 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
                                 ((size_t)y1 * fromWidth + x1) * 4u};
       const size_t at = ((size_t)y * toWidth + x) * 4u;
       for (size_t channel = 0; channel < 4; ++channel) {
-        into[at + channel] = 0.25f * (from[source[0] + channel] + from[source[1] + channel] +
-                                      from[source[2] + channel] + from[source[3] + channel]);
+        const float sample[4] = {from[source[0] + channel], from[source[1] + channel],
+                                 from[source[2] + channel], from[source[3] + channel]};
+        const float mean = 0.25f * (sample[0] + sample[1] + sample[2] + sample[3]);
+        if (((indexChannels >> channel) & 1u) == 0u) {
+          into[at + channel] = mean;
+          continue;
+        }
+        /* AN INDEX CHANNEL SNAPS THE MEAN TO A VALUE THE FOUR ACTUALLY CONTAIN, so every level holds a
+         * material the asset declares rather than an average of two. NEAREST-TO-THE-MEAN rather than
+         * first-past-the-post because it does not depend on which corner a texel sits in -- a 2-2 split
+         * must not resolve differently for a mirrored island than for its twin, and this tree has a
+         * mirrored case whose whole purpose is to catch exactly that. The tie goes to the smaller value,
+         * which is a declared choice and not an accident of iteration order. */
+        float best = sample[0], distance = std::fabs(sample[0] - mean);
+        for (int which = 1; which < 4; ++which) {
+          const float other = std::fabs(sample[which] - mean);
+          if (other < distance || (other == distance && sample[which] < best)) {
+            best = sample[which];
+            distance = other;
+          }
+        }
+        into[at + channel] = best;
       }
       if (kind != TexelKind::Direction) { continue; }
       /* THE MEAN OF UNIT VECTORS IS SHORT AND THE SHORTFALL IS LOST PERTURBATION. Renormalising

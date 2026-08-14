@@ -1,5 +1,6 @@
 Type: bug
 Area: render
+Depends: 1131
 Tags: perf, instrument
 
 **No texture in this engine has mipmaps**
@@ -257,3 +258,40 @@ correctly by a box filter; **metalness cannot, because its distribution has no i
 named treatments reduce to a choice about that channel alone: hold it at level 0, filter it by majority
 rather than by mean, or accept a value the asset does not contain. **That is the decision, and it is now
 small enough to make with a reference and a measurement rather than a preference.**
+
+**The rung was chosen, implemented and measured, and it did not decide the item.**
+
+`TexelKind` gained a companion: `IndexChannelsOf` reads the texels and reports which channels take **at
+most two distinct values**, and those are snapped to a value the four sources contain instead of
+averaged. The predicate needs no threshold — 2 against 85 and 180 has no midpoint — and it is derived
+from the texture rather than read off the slot, so it says something about the next format too.
+`test/unit/render/stages/AnIndexChannelKeepsOnlyItsOwnValues.cpp` holds both halves: that a three-valued
+channel is still a quantity, and that the plain mean of a two-valued one is a value it never takes.
+
+**It did not bring the tail down, and a sweep says why.**
+
+| `max_lod` | `picture_max_delta_code`, `normal-tangent` |
+|---|---|
+| 0 | 229.330177 |
+| **1** | **255** |
+| 2 · 4 · 8 · 20 | 255 |
+
+**Level 1 ALONE saturates.** One halving. Every argument about a seam fetch reaching the top of a chain
+is dead, my own included — the LOD spike is real and it is not what this is.
+
+**What one halving does is flatten the normal map**, and the metric that reports it is
+`rowN_pairM_geometry_matches_normalmap_p95_relative`: `0.13879225` → `0.27571386` against `0.1579751`,
+on five rows. **That metric is not collateral and it is not the wrong instrument** — it compares two
+regions of our own render, and its bound is the geometric mean of two measured populations separated by
+4.53×. It reports exactly what it was built to report.
+
+**And the picture bound does not move at all: 20 of 34 cases within it either way, 48 failing tests
+either way, no case changing verdict.** So the entire shipping decision rests on that one metric, which
+is `board:1131`.
+
+**The missing term is Toksvig's, and this tree already named it.** `TexelChain.h` records that the
+shortfall of an averaged normal is lost perturbation, that carrying it as roughness is Toksvig 2005 and
+LEAN/CLEAN, and that it was not taken *for a reason about the oracle*. That reason is now the open
+question rather than a settled one, and `board:1131` is the measurement that settles it. Turning five
+derived metrics red to reach a picture bound that does not move is not a trade worth making, so the
+sampler stays pinned to level 0 with the blocker named in the source.
