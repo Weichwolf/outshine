@@ -5,6 +5,7 @@
 #include <string>
 
 #include "MetalRoughBrdf.h"
+#include "NormalFromMap.h"
 #include "SceneTargets.h"
 #include "ShaderPrelude.h"
 #include "ShadowRay.h"
@@ -518,25 +519,10 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
 )";
 
 /* THE NORMAL-MAPPED ARM: the same BRDF over a normal the file states per texel instead of per
- * vertex, and the tangent frame is what makes the two the same quantity.
- *
- * THE FRAME IS RE-ORTHOGONALISED HERE AND NOT TRUSTED AS IT ARRIVES. A supplied `TANGENT` is
- * interpolated across a triangle and quantised to f32 by whoever wrote the file, so it is neither
- * unit nor perpendicular at a fragment -- MEASURED on `NormalTangentMirrorTest`, |T.N| reaches
- * 1.13e-5 at its own vertices before any interpolation. Gram-Schmidt against the shading normal is
- * the correction the format's own sample implementation applies, and it costs one dot product.
- *
- * THE BITANGENT IS DERIVED FROM `w` AND NEVER CARRIED. glTF states the handedness as one number
- * exactly so that a mirrored body cannot end up with a bitangent that disagrees with its tangent;
- * a run that carried both would be two answers to one question.
- *
- * ONLY x AND y ARE SCALED. `normalTexture.scale` is defined as multiplying the sampled x and y
- * (Specification.adoc:1416), so the surface flattens towards its geometric normal as the scale goes
- * to zero -- scaling z as well would leave the normal unchanged and the parameter would do nothing.
- *
- * A BACK FACE TURNS THE WHOLE FRAME AROUND AND NOT ONLY THE NORMAL. Negating the normal alone would
- * leave a left-handed basis behind and mirror the map's x axis; the format's own note is to negate
- * the frame, which is what the sign below does to all three.
+ * vertex, and the tangent basis is what makes the two the same quantity. THE BASIS ITSELF IS
+ * `stages/NormalFromMap.h` -- spliced in below, stated there once in MSL and once in C++, and tied
+ * by `test/shader/ABackFaceTurnsTheWholeTangentFrame.cpp`. What this arm keeps is the SAMPLING: the
+ * tap, the material's scale and the facing the fragment arrived with.
  *
  * ROUGHNESS AND METALNESS COME FROM THE FILE'S OWN IMAGE where it declares one, green and blue,
  * multiplied by the factors -- which is glTF's rule (Specification.adoc:1394) and is not an extra:
@@ -563,14 +549,8 @@ vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
 
 static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
                                   sampler normalSampler, MOut in, bool front) {
-  float side = select(-1.0, 1.0, front);
-  float3 n = normalize(in.n) * side;
-  float3 raw = in.t.xyz * side;
-  float3 t = normalize(raw - n * dot(n, raw));
-  float3 b = cross(n, t) * in.t.w;
   float3 tap = normalMap.sample(normalSampler, in.uv).xyz * 2.0 - 1.0;
-  float3 scaled = float3(tap.xy * surface.normalScale, tap.z);
-  return normalize(t * scaled.x + b * scaled.y + n * scaled.z);
+  return normalFromMap(in.n, in.t, tap, surface.normalScale, front);
 }
 
 /* The metal-rough row the mapped arm shades with: the surface's own factors times the file's image.
@@ -745,7 +725,8 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              "\n#define SUBJECT_NORMAL_COLOUR_INDEX " +
                              std::to_string(normalIndex < 0 ? 0 : normalIndex) +
                              "\n" + kSubjectBindingsMsl + kSubjectMsl + MetalRoughBrdfMsl() +
-                             kSubjectLitMsl + kSubjectLitTexturedMsl + kSubjectMappedMsl;
+                             kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
+                             kSubjectMappedMsl;
 
   /* THIRTY PIPELINES: five vertex layouts, two facings, three alpha modes. The facing is the SLOT's
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
