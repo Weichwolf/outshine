@@ -396,13 +396,6 @@ agent description — a convention written twice is the defect the board exists 
 is no fourth: a `blocked/` is where a board rots, because nothing owns moving a task out of it. **Blocked
 is a line in the body naming what blocks it, and the task stays `open`.**
 
-**The board holds only what is required to reach the vision within the constraints.** An item whose
-premise is refuted, whose platform the constraints forbid, or whose scope the vision does not contain is
-**deleted** — `git rm`, the reason in the commit message, because the log is the record and a backlog
-nobody can trust is worse than a short one. Where only the justification died and the requirement
-survives, the item is **rewritten and not deleted**. **`closed` is not audited**: those ids are cited
-from the trees that run, and removing one dangles a `board:` marker.
-
 **A task is one file — RFC 822 header, blank line, markdown body.** The un-reinvented wheel: git commit
 objects, `git format-patch`, HTTP, Debian control. It needs no parser; `grep '^Type:'` is the whole
 implementation. **Seven fields and no others — an eighth needs a decision:**
