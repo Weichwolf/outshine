@@ -2019,6 +2019,31 @@ void ScorePictureBound(const PictureDelta &picture, const Tail &bound,
                      Direction::AtMost, Count::Picture});
   metrics.push_back({"picture_max_delta_code_routed", picture.Routed.Code, 0.0, "codes",
                      Direction::Reported, Count::Picture});
+  /* WHERE THE ORACLE SAYS NO LIGHT REACHED THIS PIXEL AND WE DISAGREE. Reported, because it is a
+   * DIAGNOSTIC over a population and the verdict is the tail above; it exists because eight of the
+   * thirteen cases outside the bound have a worst pixel of exactly this shape and a worst pixel is an
+   * anecdote until it is counted. */
+  metrics.push_back({"picture_oracle_black_channels", (double)picture.OracleBlackChannels, 0.0,
+                     "channels", Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_oracle_black_we_lit", (double)picture.OracleBlackWeLit, 0.0, "channels",
+                     Direction::Reported, Count::Picture});
+  metrics.push_back({"picture_oracle_black_worst_code", picture.OracleBlackWorstCode, 0.0, "codes",
+                     Direction::Reported, Count::Picture});
+
+  /* THE CHANNELS THAT DECIDED IT, in order, with where they are. The tail is a max, so on a picture
+   * that is exact almost everywhere the verdict belongs to a handful -- and a handful is where a cause
+   * can still be read off the coordinates. */
+  size_t shown = 0;
+  for (const Excursion &channel : picture.Worst) {
+    if (channel.Code <= 0.0) { break; }
+    std::printf("NOTE   worst %zu: %11.6f codes at (%zu, %zu) channel %zu, ours %.9g against %.9g\n",
+                ++shown, channel.Code, channel.X, channel.Y, channel.Channel, channel.Ours,
+                channel.Theirs);
+  }
+  if (picture.Appearance.Pixels > shown) {
+    std::printf("NOTE   and %zu further pixels carry an appearance disagreement, not listed\n",
+                picture.Appearance.Pixels - shown);
+  }
   metrics.push_back({"picture_pixels_routed", (double)picture.Routed.Pixels, 0.0, "px",
                      Direction::Reported, Count::Picture});
   metrics.push_back({"picture_pixels_differing", (double)picture.PixelsDiffering, 0.0, "px",

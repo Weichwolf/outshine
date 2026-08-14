@@ -217,6 +217,21 @@ struct PictureDelta {
   Excursion Routed;
   size_t PixelsDiffering = 0; /* any channel apart at all, RGBA, whole image */
   size_t ChannelsCompared = 0;
+  /* THE ORACLE'S EXACT ZEROS, AND WHAT WE PUT THERE. Eight of the thirteen cases outside the bound have
+   * a worst pixel of the same shape -- `ours <something> against 0` -- and a single worst pixel is an
+   * anecdote until it is counted. `Zero` here is EXACT and on the LINEAR radiance, not a small code:
+   * Cycles returning exactly 0 is a statement that no light path reached the pixel, which is a
+   * different fact from a dark one. Restricted to channels where the two sides agree the pixel is
+   * covered, or the background would swamp it. */
+  size_t OracleBlackChannels = 0;    /* covered-both channels where the oracle is exactly 0 */
+  size_t OracleBlackWeLit = 0;       /* of those, the ones where we are not */
+  double OracleBlackWorstCode = 0;   /* the worst code among them */
+  /* THE CHANNELS THAT DECIDE THE CASE, not just the one that wins. The tail is a MAX, so a picture
+   * exact everywhere else fails on whatever handful is worst -- `texture-coordinate-test` has FOUR
+   * channels above 5 codes in 2 672 379, and one worst pixel cannot say whether they share a cause or
+   * a place. Eight is enough to see a pattern and small enough to print in every case; how many were
+   * left out is published beside them, because a silent cap reads as "that was all of them". */
+  std::array<Excursion, 8> Worst{};
   /* Of the tail only, because the tail is what the histogram is the shape of. A routed channel's
    * code is an artefact of binary coverage and would pile up at 255 saying nothing. */
   std::array<size_t, kCodeBuckets> Buckets{};
@@ -286,6 +301,16 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
                     : DisplayCode((double)oracle.At((int)x, (int)y, (int)channel));
         const double code = std::fabs(oursCode - theirsCode) * 255.0;
         ++delta.ChannelsCompared;
+        /* COUNTED BEFORE THE EARLY EXIT, because the population includes the channels that AGREE: a
+         * count of disagreements over a population of disagreements says nothing about how often the
+         * oracle is black at all, and that ratio is the finding. */
+        if (agreeOnCoverage && !isAlpha && (double)oracle.At((int)x, (int)y, (int)channel) == 0.0) {
+          ++delta.OracleBlackChannels;
+          if (value > 0.0f) {
+            ++delta.OracleBlackWeLit;
+            if (code > delta.OracleBlackWorstCode) { delta.OracleBlackWorstCode = code; }
+          }
+        }
         if (code <= 0.0) { continue; }
         apart = true;
         if (!agreeOnCoverage) {
@@ -303,6 +328,16 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
         if (bucket >= kCodeBuckets) { bucket = kCodeBuckets - 1; }
         ++delta.Buckets[bucket];
         Detail::Widen(delta.Appearance, code, x, y, channel, oursCode * 255.0, theirsCode * 255.0);
+        /* Insertion into a table of eight, kept descending. Linear because eight is eight. */
+        if (code > delta.Worst[delta.Worst.size() - 1u].Code) {
+          size_t at = delta.Worst.size() - 1u;
+          while (at > 0 && code > delta.Worst[at - 1u].Code) {
+            delta.Worst[at] = delta.Worst[at - 1u];
+            --at;
+          }
+          delta.Worst[at] = Excursion{code,          x, y, channel, oursCode * 255.0,
+                                      theirsCode * 255.0, 0};
+        }
       }
       delta.PixelsDiffering += apart ? 1u : 0u;
       delta.Routed.Pixels += routedApart ? 1u : 0u;
