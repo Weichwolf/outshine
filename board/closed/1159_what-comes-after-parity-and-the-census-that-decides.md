@@ -103,3 +103,27 @@ lines.
 
 **Filed and worked around, never waited on.** The in-flight parity items are ready today and blocked by
 nothing here.
+
+## DECIDED: parity stops being the frontier, and the world runs next
+
+**DECIDED by the orchestrator, on authority the owner delegated.** *`board:1129` records "by the owner"
+and that was literally true there; this was not, and the two records must stay distinguishable.*
+
+- **Finish what is in flight — `1136` `1137` `1144` `1150` `1153` — and open no new parity item unless it
+  blocks a world case.**
+- **No `N of 35`.** `board:1146` is the reason: 27 of 35 cases never enter the BRDF, so a target on that
+  count is a target on a texture-sampling suite.
+- **The first item after the in-flight set is `board:0058`'s unticked subject clause**, activated rather
+  than authored. Its first task is `board:1162`, which is **narrower than the clause on purpose** — see
+  the attribution argument there.
+- **The order after it**: the request · budget · capability spine (`0055`, `0040`–`0046`) → the content
+  stages can execute (`0030`) → streaming, residency, ledger → physics (`0059`) → actors and the RPG
+  (`0060`) → epoch-decay, audio, verbs. **The spine is second and not first, deliberately**: building it
+  before a world case measures anything is designing against an unmeasured cost (`Per.1`, `Per.6`).
+- **The named risk is part of the decision and not a caveat on it.** The world case may show `src/world`
+  does not run at all and the round becomes a repair marathon. **That is a finding.** 6 587 lines nothing
+  has run is a different statement from 6 587 lines that do not work, and no device-bearing suite can
+  currently tell them apart.
+
+**Where the work goes**: `board:1161` (the compile group that lets any suite spell the world) then
+`board:1162` (the first case), under `board:0082` and `board:0058` respectively.
