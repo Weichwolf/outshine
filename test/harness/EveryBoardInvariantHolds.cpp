@@ -7,8 +7,9 @@
  * tree three commits ago*; the file is gone, so nothing could prove it, and it sat closed and
  * unproven — caught by this file's own last invariant. Its concern survives its subject: the board
  * can go stale exactly as the todo did, and THIS is the thing that would notice. A carve-out for
- * *items closed by subject deletion* would have been the first exemption in a design that has
- * refused every other one.
+ * *items closed by subject deletion* would have been per-item and by circumstance, and that is why it
+ * was refused; the one exemption that does stand is by TYPE, and it is `Type: issue`, because an
+ * issue records a decision and not a claim about the tree.
  *
  * THE QUERY IS NOT HERE AND MUST NOT BE ADDED. *What is ready to start* — open items whose every
  * dependency is closed — is a QUERY. A board with nothing ready is a legitimate state, and a suite that
@@ -236,14 +237,23 @@ int main() {
   CHECK(closedFeatureOpenChild == 0,
         "a closed feature has no open child, so a ticked headline cannot hide unbuilt work under it");
 
-  /* The strongest one, and the only one read from a tree other than the board: a closed item nothing
-   * under `test/` cites is a claim with no evidence. */
+  /* The strongest one, and the only one read from a tree other than the board: a closed feature, task
+   * or bug nothing under `test/` cites is a claim with no evidence. An issue is exempt, and the
+   * exemption is COUNTED AND NAMED rather than absorbed into the covered number — a rule whose load
+   * nobody can see is a rule on its way to being forgotten. The three counts partition the closed
+   * population, so a reader can tell an exempt issue from a covered one without opening the board. */
   const std::set<std::string> proven = CitedFrom("test");
-  size_t unproven = 0, closed = 0;
+  size_t covered = 0, exempt = 0, unproven = 0, closed = 0;
   for (const Item &item : items) {
     if (item.State != "closed") { continue; }
     ++closed;
-    if (proven.count(item.Id) == 0) {
+    if (proven.count(item.Id) != 0) {
+      ++covered;
+    } else if (item.Type == "issue") {
+      ++exempt;
+      std::printf("NOTE   %s is a closed issue nothing cites, and an issue owes no evidence\n",
+                  item.Id.c_str());
+    } else {
       ++unproven;
       std::printf("NOTE   %s is closed and nothing under test/ cites board:%s\n", item.Id.c_str(),
                   item.Id.c_str());
@@ -251,10 +261,13 @@ int main() {
   }
   Note("closed items", (double)closed, "items");
   Note("ids cited from test/", (double)proven.size(), "ids");
-  Note("closed items nothing under test/ cites", (double)unproven, "items");
+  Note("closed items test/ cites", (double)covered, "items");
+  Note("closed issues nothing under test/ cites, exempt", (double)exempt, "items");
+  Note("closed items nothing under test/ cites and no exemption covers", (double)unproven, "items");
   CHECK(unproven == 0,
-        "a closed work item is cited by something under test/, so what is claimed done has evidence "
-        "read from the tree that runs rather than from the board that claims it");
+        "a closed feature, task or bug is cited by something under test/, so what is claimed done has "
+        "evidence read from the tree that runs rather than from the board that claims it; a closed "
+        "issue is exempt, because an issue records a decision and not a claim about the tree");
 
   Covers("board:1124 the seven invariants CLAUDE.md declares over board/ are checked by the harness "
          "rather than by hand, and the readiness query is deliberately absent");

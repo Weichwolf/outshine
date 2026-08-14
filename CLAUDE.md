@@ -462,6 +462,11 @@ issue is a real block and is written only when the work genuinely cannot proceed
 that blocks by habit turns a question into a stoppage. **There is always another ready item**, so
 running out of work is not a state this board can reach.
 
+**An issue claims nothing about the tree, so it closes on its own answer** — when the decision is taken,
+or when it is judged irrelevant or already resolved, whether or not code follows. It may be the source of
+a `task`, a `feature` or a `bug`, and where it is, the closing issue names it. **It is the one type the
+citation invariant below exempts**, because there is nothing for a test to prove.
+
 **Moving a work item into `board/active/` is when it gets groomed** — verify its `Parent:`, set
 `Depends:` on what genuinely blocks it, and read the parent's other children. **Three checks and no
 fourth**: that is the one moment someone is looking at the item closely enough to notice a sibling
@@ -537,10 +542,11 @@ disagree, the directory is right** — `ls board/active/` is the state, and a li
   exact failure a feature/task split exists to catch**: the thing that looked done because its headline
   was ticked while the work under it was not
 
-The seventh is read from the tree instead: **a `closed` id cited by nothing under `test/`, which is an
-unproven claim.** *That is the owner's standing instruction made checkable rather than asserted, and it
-cannot drift, because it is read from the trees that compile and run.* A **`board:` marker naming an id
-that does not exist** is the same defect facing the other way, and the citation test already holds it.
+The seventh is read from the tree instead: **a `closed` `feature`, `task` or `bug` cited by nothing under
+`test/`, which is an unproven claim** — an `issue` is exempt for the reason stated above. *That is the
+owner's standing instruction made checkable rather than asserted, and it cannot drift, because it is read
+from the trees that compile and run.* A **`board:` marker naming an id that does not exist** is the same
+defect facing the other way, and the citation test already holds it.
 
 Query: **what is ready to start** — open tasks whose every `Depends:` is closed. **A board with nothing
 ready is a legitimate state**, so it may not go red, and a later round must not helpfully make it a test.
