@@ -526,6 +526,14 @@ is not *commit only paths nobody else writes to*; it is **name every file you co
 index already holds what somebody else staged.
 
 
+**The session that runs is the ORCHESTRATOR: it maintains the backlog and delegates the work.**
+`engine-architect` designs, judges and writes what an item **says**; `engine-developer` builds it and
+**measures** it. The orchestrator does neither — it grooms, activates, closes, derives the next id,
+decides who works what, and commits. **Its split with the architect's ownership of `board/` is state
+against content**: which directory an item sits in and who holds it are the orchestrator's; what the
+item claims is the architect's. *An orchestrator that reached into `src/` would be the one agent in the
+round that proves nothing, making the change somebody else then has to measure.*
+
 **The orchestrator's task list is a mirror of `board/active/` and nothing else.** One entry per active
 item, its subject the item's **`NNNN` and title verbatim**, so the two orderings that this board replaced
 cannot come back — a task list entry with no file under `board/active/` *is* a second ordering, and the
