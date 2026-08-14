@@ -1,6 +1,6 @@
 Type: bug
 Area: render
-Depends: 1131, 1132
+Depends: 1131, 1132, 1135
 Tags: perf, instrument
 
 **No texture in this engine has mipmaps**
@@ -375,3 +375,35 @@ are almost entirely magnified, so it is measuring the term at pixels the term do
 instrument for a mip correction has to be a case that actually minifies**, and no case in this corpus
 does so broadly. That is the next thing to build, and it is `board:0078`'s territory: a subject at a
 distance, where texels outnumber pixels across the whole frame.
+
+## The blocker was never in this engine
+
+`board:1135` built the case this item said was missing — `render/texture/four-texels-per-pixel`, every
+covered pixel minifying at exactly 4 texels per pixel — and it answers the whole item:
+
+| ours ＼ oracle | 1 spp / 0.01 px box | 256 spp / 1.0 px box |
+|---|---|---|
+| **single level** | **0.190 codes — PASS** | 37.864 — FAIL |
+| **mip-filtered** | 37.412 — FAIL | **5.340 codes — PASS** |
+
+**Our mip chain agrees with an integrating oracle to 5.340 codes, inside the picture bound of
+6.4354338.** The chain is right. What it was measured against is a reference that renders one sample
+through a 0.01 px box — a point sampler by design, which every manifest in this tree states as its own
+purpose, and which has no opinion about a filter at all. The oracle disagrees with **itself** by up to
+37.880 codes between the two recipes.
+
+**So every number this item recorded against the chain was a number about the recipe**: `normal-tangent`
+229.33018 → 255, `texture-coordinate-test` 10.295625 → 202.0679, `scifi-helmet` 15.457417 → 81.229848.
+The index rule, Toksvig's term and `board:1132`'s diffuse-direction finding were each judged against an
+instrument with no standing to judge them — the same failure this item already caught itself committing
+about a population, now about the reference.
+
+**What remains is not engineering, it is one decision**, and it is `board:1135`: which cases render an
+integrating oracle. When they do, `kChainIsReadable` becomes `true` and this item closes on the number
+already measured.
+
+**One correction of my own, recorded because it briefly stood as a result.** An early run reported this
+case at `63.750005` codes with the chain off and `37.412079` with it on, read as a 41 % improvement. The
+`63.750005` came from a scratch binary still carrying a diagnostic that zeroed every level above 0 — it
+measured the probe. The real single-level figure against the point-sampling oracle is `0.190`, and
+against the integrating one `37.864`.
