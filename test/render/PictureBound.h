@@ -14,13 +14,18 @@
  * 1e-7 near black reads as infinite error and is invisible.
  *
  * EVERY PIXEL IS GATED BY EXACTLY ONE BOUND AND THE ROUTING IS BY WHAT KIND OF QUANTITY IT CARRIES
- * (I.26.15). Where both sides agree about covering a pixel, its colour is appearance and it goes to
- * the perceptual tail below. Where they DISAGREE about covering it, its difference is geometric and
- * expressed in the wrong unit: both sides sample once, ours at the pixel centre and Cycles through a
- * 0.01 px box, so a 0.0013 px tie becomes 187 codes because coverage has two values -- the
- * amplification is the instrument's and not the picture's. That pixel is routed to I.26.14, which is
- * STRICTER: it demands the edge sit within the oracle's own filter half-width. The pixel is routed,
- * never excluded, and its count and worst code are published beside the tail.
+ * (I.26.15). Where the two sides agree about covering a pixel AND about which surface covers it, its
+ * colour is appearance and it goes to the perceptual tail below. Where either agreement fails, its
+ * difference is geometric and expressed in the wrong unit: both sides sample once, ours at the pixel
+ * centre and Cycles through a 0.01 px box, so a 0.0013 px tie becomes 187 codes because coverage has
+ * two values -- the amplification is the instrument's and not the picture's. That pixel is routed to
+ * I.26.14, which is STRICTER: it demands the edge sit within the oracle's own filter half-width. The
+ * pixel is routed, never excluded, and its count and worst code are published beside the tail.
+ *
+ * THE SECOND AGREEMENT IS THE LATER ONE AND IT IS `Routing.h`'s (board:1144). Agreement about
+ * coverage is not agreement about what is there: two sides can both cover a pixel and draw two
+ * different materials at it, and scored perceptually that lands as a colour disagreement between two
+ * surfaces nobody claimed were the same one.
  *
  * WHAT CAN HIDE IN THE GAP: nothing. A defect that moves a silhouette visibly exceeds the filter
  * half-width and I.26.14 refuses it; a defect that changes a covered pixel's colour is in the tail
@@ -49,6 +54,7 @@
 
 #include "Mask.h"
 #include "RawF32.h"
+#include "Routing.h"
 #include "SubTexelPrecision.h"
 
 namespace outshine::Render::Parity {
@@ -271,13 +277,16 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
   return frame;
 }
 
-/* EVERY PIXEL, NO MASK -- and the two coverage masks are the ROUTER rather than a filter: every
- * channel of every pixel lands in exactly one of the three excursions and none is dropped. The masks
- * are passed in because the predicate `is this pixel covered` has one spelling per side already
- * (`FromDepth` and `FromOracle`), and rewriting either here would be a second one that can drift. */
+/* EVERY PIXEL, NO MASK -- and the router is a router rather than a filter: every channel of every
+ * pixel lands in exactly one of the three excursions and none is dropped. The masks are passed in
+ * because the predicate `is this pixel covered` has one spelling per side already (`FromDepth` and
+ * `FromOracle`), and rewriting either here would be a second one that can drift; the routing rule
+ * itself lives in `Routing.h` for the same reason, since the geometric bound has to walk the same
+ * population this loop sends to it. */
 [[nodiscard]] inline PictureDelta ComparePicture(const std::vector<float> &frame,
-                                                 const RawF32 &oracle, const Mask &ours,
-                                                 const Mask &theirs) {
+                                                 const RawF32 &oracle, const Routing &routing) {
+  const Mask &ours = routing.Ours;
+  const Mask &theirs = routing.Theirs;
   PictureDelta delta;
   const size_t width = (size_t)oracle.Width();
   const size_t height = (size_t)oracle.Height();
@@ -290,7 +299,13 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
   const int alphaChannel = oracle.Channels() - 1;
   for (size_t y = 0; y < height; ++y) {
     for (size_t x = 0; x < width; ++x) {
-      const bool agreeOnCoverage = ours.At((int)x, (int)y) == theirs.At((int)x, (int)y);
+      const bool toAppearance = routing.ToAppearance((int)x, (int)y);
+      /* THE BLACK DIAGNOSTIC BELOW KEEPS THE COVERAGE POPULATION AND NOT THE ROUTED ONE, and the two
+       * stopped being the same question when the router grew its third mask (board:1144): "how often
+       * is the oracle black where both sides drew something" is about what the two sides COVER, and
+       * narrowing it to what they also agree about the identity of would move a published number by
+       * changing its selection. */
+      const bool bothCover = ours.At((int)x, (int)y) == theirs.At((int)x, (int)y);
       bool apart = false, routedApart = false, appearanceApart = false, predicateApart = false;
       for (size_t channel = 0; channel < 4; ++channel) {
         const bool isAlpha = channel == 3;
@@ -304,7 +319,7 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
         /* COUNTED BEFORE THE EARLY EXIT, because the population includes the channels that AGREE: a
          * count of disagreements over a population of disagreements says nothing about how often the
          * oracle is black at all, and that ratio is the finding. */
-        if (agreeOnCoverage && !isAlpha && (double)oracle.At((int)x, (int)y, (int)channel) == 0.0) {
+        if (bothCover && !isAlpha && (double)oracle.At((int)x, (int)y, (int)channel) == 0.0) {
           ++delta.OracleBlackChannels;
           if (value > 0.0f) {
             ++delta.OracleBlackWeLit;
@@ -313,7 +328,7 @@ inline void Widen(Excursion &worst, double code, size_t x, size_t y, size_t chan
         }
         if (code <= 0.0) { continue; }
         apart = true;
-        if (!agreeOnCoverage) {
+        if (!toAppearance) {
           routedApart = true;
           Detail::Widen(delta.Routed, code, x, y, channel, oursCode * 255.0, theirsCode * 255.0);
           continue;

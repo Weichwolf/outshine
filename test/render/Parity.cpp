@@ -1822,6 +1822,20 @@ DeclaredNormals RasteriseDeclaredNormals(const Subject &geometry, const Transfor
   return names;
 }
 
+/* WHICH OF THE FILE'S MATERIALS COMPOSITE RATHER THAN COVER (board:1144), in the file's own order,
+ * so the identity reader can set a pixel with two surfaces on it aside without a colour to compare.
+ * `MASK` is NOT one of them and the distinction is the point: a masked texel is either fully there
+ * or discarded, so its pixel has exactly one surface, and folding it in here would set aside a
+ * population this predicate has said nothing about. */
+[[nodiscard]] std::vector<uint8_t> BlendedFileMaterials(const Document &file) {
+  std::vector<uint8_t> blended;
+  blended.reserve(file.Materials().size());
+  for (const outshine::Gltf::MaterialRef &material : file.Materials()) {
+    blended.push_back(material.Surface.Alpha == outshine::AlphaMode::Blended ? 1u : 0u);
+  }
+  return blended;
+}
+
 /* WHAT EACH SIDE PUTS AT ONE PIXEL, PRINTED (board:1138). The pixels are the ones the two sides
  * NAME DIFFERENTLY, so the population is derived from the reading and a case whose sides agree
  * prints nothing at all -- a coordinate written down here would go stale at the first reframing and
@@ -1838,6 +1852,13 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   for (const outshine::Render::Parity::Disagreement &where : reading.Splits) {
     std::printf("SURFACE-ORACLE-SPLIT %d,%d its index says %s and its picture does not\n", where.X,
                 where.Y, where.Oracle.Name.c_str());
+  }
+  /* THE CENSUS OVER THE WHOLE POPULATION, beside the eight coordinates (board:1144). Eight pixels of
+   * twenty-one thousand cannot say whether one mechanism or five are at work; a row per pair of
+   * surfaces can, and it is the row rather than the coordinate that names the mechanism. */
+  for (const outshine::Render::Parity::Swap &row : reading.Swaps) {
+    std::printf("SURFACE-SWAP oracle=%s ours=%s over %zu px\n", row.OracleName.c_str(),
+                row.OursName.c_str(), row.Pixels);
   }
 }
 
@@ -1883,16 +1904,21 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
 
 /* WHICH SURFACE EACH SIDE PUTS AT EACH PIXEL, AND WHERE THEY DISAGREE (board:1138).
  *
- * IT IS REPORTED AND IT IS NOT A BOUND. What this count feeds is a routing decision inside the
- * picture bound, and that is its own work item; a threshold here would be a number nobody derived.
+ * EVERY COUNT IT PUBLISHES IS REPORTED AND NONE OF THEM IS A BOUND; a threshold here would be a
+ * number nobody derived. What it RETURNS is the routing mask the picture bound spends (board:1144),
+ * and that is a different thing from a verdict: the mask carries the attributable disagreements
+ * alone, so a pixel moves between two bounds only where this reader could say the disagreement was
+ * ours. It is returned rather than filled through a parameter (`F.20`) because the caller needs a
+ * fresh mask each case and there is no capacity to reuse.
  *
  * THE OBJECT PASS IS READ FOR ITS DISCRIMINATION AND NOT FOR A VERDICT, because our side carries no
  * node identity to hold it against: the compiled draw list merges the primitives of several nodes
  * into one call whenever they share a material, so the finest identity a fragment can carry through
  * the per-slot uniform is the SURFACE. Publishing how many distinct objects the pass separates says
  * what a node-level comparison would have to work with, and claims nothing our side can answer. */
-void ScoreSurfaceIdentity(const Case &subject, const Picture &picture, const RawF32 &oraclePicture,
-                          const Mask &ours, const Mask &theirs, std::vector<Metric> &metrics) {
+[[nodiscard]] Mask ScoreSurfaceIdentity(const Case &subject, const Picture &picture,
+                                        const RawF32 &oraclePicture, const Mask &ours,
+                                        const Mask &theirs, std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   using namespace outshine::Render::Parity;
 
@@ -1900,20 +1926,21 @@ void ScoreSurfaceIdentity(const Case &subject, const Picture &picture, const Raw
   OracleSurfaces oracle;
   if (!oracle.Read(subject.Directory, IndexPass::Material, names)) {
     Refused(oracle.Error());
-    return;
+    return Mask{};
   }
   if (oracle.Width() != theirs.Width || oracle.Height() != theirs.Height) {
     Refused("the oracle's material-index pass is not the shape its picture is");
-    return;
+    return Mask{};
   }
   if (picture.SurfaceIdentity.size() < (size_t)ours.Width * (size_t)ours.Height * 4u) {
     Refused("the surface-identity attachment does not cover the frame we rendered");
-    return;
+    return Mask{};
   }
 
   const OurSurfaces mine(picture.SurfaceIdentity, ours.Width, subject.Surfaces.Material, names);
   const DeclaredColours declared = ColoursPerFileMaterial(subject);
-  const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared};
+  const std::vector<uint8_t> blended = BlendedFileMaterials(subject.File);
+  const IdentityQuestion asked{oracle, mine, theirs, ours, oraclePicture, declared, blended};
   const IdentityReading reading = ReadSurfaceIdentity(asked);
 
   /* THE ONE CLAIM THIS READER ENFORCES, and it is about our own plumbing rather than about the
@@ -1944,6 +1971,10 @@ void ScoreSurfaceIdentity(const Case &subject, const Picture &picture, const Raw
   metrics.push_back({"surface_oracle_index_unlike_its_own_picture",
                      declared.Computable ? (double)reading.OracleSplit : std::nan(""), 0.0, "px",
                      Direction::Reported});
+  /* NEVER ABSENT, because it is read off the file's own `alphaMode` and every case has one: a NaN
+   * here would say the instrument could not look, when looking costs a lookup (board:1144). */
+  metrics.push_back({"surface_identity_disagreeing_composite", (double)reading.Composite, 0.0, "px",
+                     Direction::Reported});
   metrics.push_back({"surface_identity_disagreeing_attributable",
                      reading.AttributionKnown ? (double)reading.Attributable : std::nan(""), 0.0,
                      "px", Direction::Reported});
@@ -1959,11 +1990,12 @@ void ScoreSurfaceIdentity(const Case &subject, const Picture &picture, const Raw
   OracleSurfaces objects;
   if (!objects.Read(subject.Directory, IndexPass::Object, names)) {
     Refused(objects.Error());
-    return;
+    return reading.AttributableAt;
   }
   metrics.push_back({"surface_oracle_distinct_objects",
                      (double)DistinctOracleIndices(objects, theirs), 0.0, "indices",
                      Direction::Reported});
+  return reading.AttributableAt;
 }
 
 /* THE THREE LEGS OF THE NORMAL COMPARISON, PUBLISHED RATHER THAN DIFFERENCED (board:1122).
@@ -2411,6 +2443,14 @@ int main(int argc, char **argv) {
 
   ScoreAlternateSpellings(subject, studio, renderer, ours, metrics);
 
+  /* WHICH SURFACE EACH SIDE PUTS AT EACH PIXEL, READ BEFORE ANYTHING IS ROUTED (board:1144). It used
+   * to stand below the picture comparison, where its answer arrived after the comparison that needs
+   * it -- and a router that cannot ask "do the two sides name the same surface here" scores a
+   * surface swap as a colour disagreement. It stays a reported diagnostic; what changed is only WHEN
+   * it is available. */
+  const Mask routedBySurface = ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, metrics);
+  const Routing routing{ours, theirs, routedBySurface};
+
   /* WHETHER "EVERY PIXEL MUST AGREE" IS A FAIR DEMAND ON THIS SUBJECT, and it is a property of the
    * subject rather than of either renderer (Ties.h). Reported beside the disagreement so a red is
    * attributable without a second run. */
@@ -2428,15 +2468,21 @@ int main(int argc, char **argv) {
      * is reported beside it, because a bound that admits a disagreement is not what that arm says.
      *
      * IT COUNTS TOWARD THE PICTURE AND NOT THE FEATURE, and that follows from the routing rather
-     * than from taste: the picture bound sends every pixel the two sides disagree about covering to
-     * THIS metric, so a routed pixel that failed here while the picture read `within` would be a
-     * picture defect reported as a feature defect -- the misquote I.26.15 exists to make
-     * unspellable. */
-    metrics.push_back({"worst_disagreement_px", WorstDisagreementPx(ours, theirs, edges),
-                       subject.OracleFloorPx, "px",
+     * than from taste: the picture bound sends every pixel it does not score perceptually to THIS
+     * metric, so a routed pixel that failed here while the picture read `within` would be a picture
+     * defect reported as a feature defect -- the misquote I.26.15 exists to make unspellable. */
+    const WorstDisagreement worst = WorstDisagreementPx(routing, edges);
+    metrics.push_back({"worst_disagreement_px", worst.Px, subject.OracleFloorPx, "px",
                        subject.Placement == ExactnessClass::GeneralPosition ? Direction::AtMost
                                                                             : Direction::Reported,
                        Count::Picture});
+    /* THE POPULATION, QUOTED WITH THE NUMBER (board:1144), and named the way `boundary_samples`
+     * already names one. The metric above is a MAXIMUM, so it can be moved by changing what it is a
+     * maximum over and read as the same measurement; this is what makes that unspellable in a log.
+     * It is `pixels_disagreeing` plus `surface_identity_disagreeing_attributable`, and a reader can
+     * check the sum. */
+    metrics.push_back({"worst_disagreement_samples", (double)worst.Pixels, 0.0, "px",
+                       Direction::Reported, Count::Picture});
     ScoreExactnessConstruction(subject, edges, tieMarginPx, metrics);
     ScoreVisibilityTerm(subject, clip, renderer.ShadowRayNearM(), metrics);
   }
@@ -2455,15 +2501,13 @@ int main(int argc, char **argv) {
   /* THE PICTURE ITSELF, WHOLE, ON THE LINEAR TAP AND ON THE DECLARED TRANSFER (I.26.15). Our alpha
    * is `covered(sceneDepth)`, so it comes from the depth mask and not from the colour attachment --
    * the same expression the display shader evaluates, over the same input. */
-  const PictureDelta image = ComparePicture(scored, oracle, ours, theirs);
+  const PictureDelta image = ComparePicture(scored, oracle, routing);
   CHECK(image.Comparable, "the linear tap and the coverage mask cover the oracle's frame, so every "
                           "pixel of the picture has something to be compared against");
   const Tail bound = BoundFor(subject.Path);
   ScorePictureBound(image, bound, metrics);
 
   ScoreShadingNormal(subject, picture, ours, clip, metrics);
-
-  ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 

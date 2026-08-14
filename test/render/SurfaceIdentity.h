@@ -18,8 +18,10 @@
  * cannot discriminate must produce a REFUSAL, not a clean-looking agreement, so the number of
  * DISTINCT indices over the covered region is published and one is a refusal.
  *
- * NOTHING HERE IS A METRIC WITH A BOUND. Every count this produces is reported; what it feeds is a
- * routing decision that is its own work item.
+ * NOTHING HERE IS A METRIC WITH A BOUND. Every count this produces is reported; what it feeds is the
+ * picture bound's ROUTER (board:1144), and the mask it hands over carries the attributable
+ * disagreements alone -- the ones this file could show were about us rather than about the oracle's
+ * pass semantics or about a pixel with two surfaces on it.
  *
  * OUR SIDE'S IDENTITY IS THE SURFACE SLOT AND THE SLOT IS NOT A MATERIAL. `Resource::SceneSurfaceIdentity`
  * carries which slot the fragment's draw bound, because the renderer has no spelling for a content
@@ -278,6 +280,14 @@ public:
     return slot >= 0 && (size_t)slot < SlotMaterial_.size();
   }
 
+  /* The file's own name for one of its materials, empty where the index names none of them. It is
+   * here rather than beside the oracle because both sides state an identity in the FILE's currency,
+   * so one table answers for both and a second copy could disagree with this one. */
+  [[nodiscard]] std::string NameOfFileMaterial(int fileMaterial) const {
+    if (fileMaterial < 0 || (size_t)fileMaterial >= Names_.size()) { return std::string(); }
+    return Names_[(size_t)fileMaterial];
+  }
+
   /* The file material at a pixel, -1 where the slot names none. `At` says why; this is what counts. */
   [[nodiscard]] int FileMaterialAt(int x, int y) const {
     const int slot = SlotAt(x, y);
@@ -360,9 +370,33 @@ struct DeclaredColours {
   }
 };
 
-/* WHAT THE READING IS ASKED ABOUT, as one parameter object rather than six arguments (`I.23`): the
- * two sides, the two coverage masks, and the oracle's own picture with the colours that let its
- * index pass be held against it. */
+/* WHICH OF THE FILE'S MATERIALS COMPOSITE RATHER THAN COVER (board:1144), one flag per file
+ * material, read from the glTF's own `alphaMode` and from nothing derived.
+ *
+ * IT IS A SECOND EXCLUSION AND IT IS NOT `board:1155`'s. That one is about the oracle contradicting
+ * its own picture; this one is about a pixel that HAS NO SINGLE SURFACE. Where a BLEND surface
+ * stands at a pixel, the colour there is a composite of it and of everything behind it, and both
+ * index passes are single-valued by construction -- so ours names the blended quad and Cycles' names
+ * whatever its ray came to rest on, and the two are answers to different questions rather than a
+ * disagreement about one. [MEASURED] on `materials/alpha-blend-mode`, whose one BLEND material is
+ * `MatBlend`: of 21 739 disagreements, 21 130 are `MatBed` against `MatBlend` and 575 are
+ * `MatOpaque` against `MatBlend` -- 21 705, or 99.84 per cent -- while the remaining 34 name a MASK
+ * quad on the oracle's side and the bed on ours, which is a different mechanism and is NOT excluded
+ * here.
+ *
+ * IT IS COMPUTABLE WHERE THE DECLARED COLOURS ARE NOT, which is the reason it is worth having
+ * separately: `alpha-blend-mode` takes its appearance from the file's own images, so nothing there
+ * can be held against a declared colour, and without this predicate its whole disagreeing population
+ * is `attribution not known` -- a NaN standing where a mechanism was available for the asking. */
+[[nodiscard]] inline bool CompositesRatherThanCovers(const std::vector<uint8_t> &blended,
+                                                     int fileMaterial) {
+  return fileMaterial >= 0 && (size_t)fileMaterial < blended.size() &&
+         blended[(size_t)fileMaterial] != 0u;
+}
+
+/* WHAT THE READING IS ASKED ABOUT, as one parameter object rather than seven arguments (`I.23`): the
+ * two sides, the two coverage masks, the oracle's own picture with the colours that let its index
+ * pass be held against it, and which of the file's materials composite. */
 struct IdentityQuestion {
   const OracleSurfaces &Oracle;
   const OurSurfaces &Ours;
@@ -370,6 +404,21 @@ struct IdentityQuestion {
   const Mask &OurCoverage;
   const RawF32 &OraclePicture;
   const DeclaredColours &Declared;
+  const std::vector<uint8_t> &BlendedFileMaterial;
+};
+
+/* HOW OFTEN ONE SURFACE STOOD WHERE THE OTHER SIDE PUT ANOTHER, over the whole disagreeing
+ * population rather than over the eight pixels that fit in a printout (board:1144). A list of
+ * coordinates says a disagreement exists; this says WHICH TWO SURFACES are being swapped, and that
+ * is what separates one mechanism from another without opening a raw file: `MatBed` against
+ * `MatBlend` twenty-one thousand times is a blend, `LabelMat` against `BackgroundMaterial` once is
+ * an edge. */
+struct Swap {
+  int Oracle = -1;
+  int Ours = -1;
+  std::string OracleName;
+  std::string OursName;
+  size_t Pixels = 0;
 };
 
 /* WHAT THE PASS SAID, OVER THE POPULATION IT WAS ASKED ABOUT. `Refusal` is non-empty exactly where
@@ -393,6 +442,10 @@ struct IdentityReading {
   /* Pixels where the oracle's index pass names a material its own picture is not showing. Meaningful
    * only where the colours were computable, which `Split.Computable` is what says. */
   size_t OracleSplit = 0;
+  /* Pixels where one side names a BLEND surface, so the colour there is a composite and neither
+   * single-valued pass is naming "the" surface. Computable on every case, because it is read off the
+   * file's own `alphaMode`. */
+  size_t Composite = 0;
   /* The disagreements left once those are set aside: what a routing decision may act on. It is
    * KNOWN only where every disagreement could be attributed to one side or the other, which is why
    * the flag stands beside it: a case whose colours are not computable and whose sides disagree has
@@ -401,11 +454,17 @@ struct IdentityReading {
    * because that needs no attribution at all. */
   size_t Attributable = 0;
   bool AttributionKnown = true;
+  /* WHERE THOSE PIXELS ARE, which is what the picture bound's router spends (board:1144). It carries
+   * the attributable population and never the disagreeing one, and it is empty on a case that
+   * refused -- so a reading nobody could adjudicate routes nothing rather than routing everything it
+   * happened to see before it stopped. */
+  Mask AttributableAt;
   /* Why an identity could not be resolved, taken from the last pixel that could not: a count of
    * unresolved pixels without the reason sends its reader back to the pass file. */
   std::string Unresolvable;
   std::vector<Disagreement> Disagreements;
   std::vector<Disagreement> Splits;
+  std::vector<Swap> Swaps;
 };
 
 /* HOW MANY DISAGREEING PIXELS ARE KEPT. [SET] 8: the record exists so a reader can see WHAT each
@@ -441,6 +500,41 @@ constexpr size_t kKeptDisagreements = 8;
   return seen.size();
 }
 
+namespace Detail {
+
+/* ONE MORE PIXEL ON THE ROW FOR THIS PAIR OF SURFACES, the row created the first time the pair is
+ * seen. Linear over the rows because the number of rows is bounded by the file's material count
+ * squared and every corpus subject carries under a dozen; the NAMES are resolved once per row rather
+ * than once per pixel, which is what keeps a twenty-one-thousand-pixel census down to one
+ * allocation per PAIR rather than one per pixel (`Per.15`). */
+inline void Count(std::vector<Swap> &swaps, int oracle, int ours, const IdentityQuestion &asked) {
+  for (Swap &row : swaps) {
+    if (row.Oracle != oracle || row.Ours != ours) { continue; }
+    ++row.Pixels;
+    return;
+  }
+  Swap row;
+  row.Oracle = oracle;
+  row.Ours = ours;
+  /* BOTH INDICES ARE THE FILE'S OWN, so one table names both and the oracle's side is not asked
+   * through its Blender name a second time -- that name was already spent resolving the index. */
+  row.OracleName = asked.Ours.NameOfFileMaterial(oracle);
+  row.OursName = asked.Ours.NameOfFileMaterial(ours);
+  row.Pixels = 1;
+  swaps.push_back(row);
+}
+
+/* A REFUSAL EMPTIES THE ROUTING MASK, and that is the whole reason this is a function rather than
+ * two assignments (board:1144). A reading that could not be adjudicated has pixels marked on it from
+ * before the refusal was reached, and a router that spent them would be routing on a population the
+ * instrument had just declined to stand behind. */
+inline void Refuse(IdentityReading &reading, const std::string &why) {
+  reading.Refusal = why;
+  reading.AttributableAt = Mask{};
+}
+
+} // namespace Detail
+
 /* THE PER-PIXEL PREDICATE, beside the coverage predicate that already exists: the two sides agree
  * about which surface is here. It runs over the pixels BOTH sides cover, because a pixel one of them
  * leaves empty is a coverage disagreement and is already counted as one -- reading it here would
@@ -466,6 +560,9 @@ constexpr size_t kKeptDisagreements = 8;
                   "here is true by construction and decides nothing";
     return out;
   }
+  out.AttributableAt.Width = theirs.Width;
+  out.AttributableAt.Height = theirs.Height;
+  out.AttributableAt.In.assign((size_t)theirs.Width * (size_t)theirs.Height, 0u);
   for (int y = 0; y < theirs.Height; ++y) {
     for (int x = 0; x < theirs.Width; ++x) {
       const bool bothCovered = theirs.At(x, y) && oursMask.At(x, y);
@@ -486,16 +583,26 @@ constexpr size_t kKeptDisagreements = 8;
         continue;
       }
       ++out.Disagreeing;
+      Detail::Count(out.Swaps, cycles, mine, asked);
       if (out.Disagreements.size() < kKeptDisagreements) {
         out.Disagreements.push_back({x, y, asked.Oracle.At(x, y, true), asked.Ours.At(x, y, true)});
       }
-      /* WHOSE DISAGREEMENT IT IS, DECIDED BEFORE IT IS COUNTED AS OURS. */
+      /* WHOSE DISAGREEMENT IT IS, DECIDED BEFORE IT IS COUNTED AS OURS, AND THE CHEAPER PREDICATE
+       * RUNS FIRST -- not for speed but because it is the one that needs no colour: a case whose
+       * appearance comes from an image can still say "this pixel has two surfaces on it", and asking
+       * the colour question first would answer `not known` on a pixel that has a mechanism. */
+      if (CompositesRatherThanCovers(asked.BlendedFileMaterial, cycles) ||
+          CompositesRatherThanCovers(asked.BlendedFileMaterial, mine)) {
+        ++out.Composite;
+        continue;
+      }
       if (!asked.Declared.Computable) {
         out.AttributionKnown = false;
         continue;
       }
       if (asked.Declared.IsPictureOf(cycles, asked.OraclePicture, x, y)) {
         ++out.Attributable;
+        out.AttributableAt.In[(size_t)y * (size_t)theirs.Width + (size_t)x] = 1u;
         continue;
       }
       ++out.OracleSplit;
@@ -504,22 +611,26 @@ constexpr size_t kKeptDisagreements = 8;
       }
     }
   }
+  /* AN ATTRIBUTION NOBODY KNOWS ROUTES NOTHING, stated rather than derived from the fact that the
+   * two arms in the loop are mutually exclusive per case: they are exclusive because `Computable` is
+   * a property of the CASE, and a later arm that decided it per pixel would silently make a mask of
+   * half-attributed pixels routable. */
+  if (!out.AttributionKnown) { out.AttributableAt = Mask{}; }
   /* AN UNRESOLVED POPULATION IS A REFUSAL AND NOT A SMALLER SAMPLE. Where the oracle's materials are
    * not the file's -- the arms that replace every material with one emitter, or one per NODE -- the
    * two sides partition the frame by different things, and a count over the pixels that happened to
    * resolve would be a number about a population nobody chose. */
   if (out.Compared == 0) {
-    out.Refusal = "no pixel both sides cover carries an identity both of them can resolve, so the "
-                  "oracle's materials are not this file's and the two partitions are not "
-                  "comparable -- " + out.Unresolvable;
+    Detail::Refuse(out, "no pixel both sides cover carries an identity both of them can resolve, so "
+                        "the oracle's materials are not this file's and the two partitions are not "
+                        "comparable -- " + out.Unresolvable);
     return out;
   }
   if (out.Unresolved > 0) {
-    out.Refusal = std::to_string(out.Unresolved) + " of " + std::to_string(out.BothCovered) +
-                  " pixels both sides cover carry an identity one of them cannot resolve -- " +
-                  out.Unresolvable +
-                  " -- so the "
-                  "two partitions are not the same one";
+    Detail::Refuse(out, std::to_string(out.Unresolved) + " of " + std::to_string(out.BothCovered) +
+                            " pixels both sides cover carry an identity one of them cannot resolve "
+                            "-- " + out.Unresolvable + " -- so the two partitions are not the same "
+                            "one");
     return out;
   }
   out.Adjudicated = true;

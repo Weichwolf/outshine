@@ -29,6 +29,7 @@
 
 #include "Exactness.h"
 #include "Mask.h"
+#include "Routing.h"
 
 namespace outshine::Render::Parity {
 
@@ -64,19 +65,34 @@ inline double TieMarginPx(const Mask &mask, const EdgeSet &edges) {
   return margin;
 }
 
-/* The same distance at the pixels the two sides actually disagree about, taken at its worst: if even
- * the furthest of them sits inside the oracle's filter half-width, every disagreement in the frame
- * is a near-tie and none of them is evidence about our projection. */
-inline double WorstDisagreementPx(const Mask &ours, const Mask &oracle, const EdgeSet &edges) {
-  double worst = 0.0;
-  for (int y = 0; y < ours.Height; ++y) {
-    for (int x = 0; x < ours.Width; ++x) {
-      if (ours.At(x, y) == oracle.At(x, y)) { continue; }
+/* WHAT THE GEOMETRIC BOUND IS TAKEN OVER: how far the worst pixel of it, and how many there were. A
+ * distance quoted without its population is the number this repository has already been broken by --
+ * the selection can move underneath it and the metric reads unchanged (board:1144). */
+struct WorstDisagreement {
+  double Px = 0;
+  size_t Pixels = 0;
+};
+
+/* The same distance at the pixels the picture bound ROUTED here, taken at its worst: if even the
+ * furthest of them sits inside the oracle's filter half-width, every disagreement in the frame is a
+ * near-tie and none of them is evidence about our projection.
+ *
+ * THE POPULATION IS THE ROUTER'S AND NOT THE COVERAGE MASKS' ALONE (board:1144), and it must be: the
+ * picture bound sends a pixel here when the two sides name different surfaces at it as well as when
+ * they disagree about covering it, and a pixel routed out of the tail into a metric that did not
+ * walk it would be a pixel gated by nothing. Both halves of the population are published by the
+ * caller, so the widening is visible in the numbers rather than only in this comment. */
+inline WorstDisagreement WorstDisagreementPx(const Routing &routing, const EdgeSet &edges) {
+  WorstDisagreement out;
+  for (int y = 0; y < routing.Ours.Height; ++y) {
+    for (int x = 0; x < routing.Ours.Width; ++x) {
+      if (!routing.ToGeometry(x, y)) { continue; }
+      ++out.Pixels;
       const double distance = NearestEdgePx(edges, (double)x, (double)y);
-      if (distance > worst) { worst = distance; }
+      if (distance > out.Px) { out.Px = distance; }
     }
   }
-  return worst;
+  return out;
 }
 
 } // namespace outshine::Render::Parity
