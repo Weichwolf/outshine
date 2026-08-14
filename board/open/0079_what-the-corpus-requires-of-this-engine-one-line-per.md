@@ -211,3 +211,25 @@ point: its scene declares `light: none` and its oracle is lowered to an emitter,
 **The occlusion row keeps its impact of 46 and loses its place.** *Impact is what makes a row worth doing;
 being provable is what makes it dispatchable*, and the ordering rule was missing the second half until
 this row demonstrated it.
+
+## Row 2 delivered, and row 3 confirmed with a second reason
+
+**`KHR_texture_transform` landed** (`board:1177`, closed). Its case is red at **9.5930063** against the
+bound's `6.4354338`, **attributed and not absorbed**: the mip-chain attribution **refuted itself by
+measurement** — `kChainIsReadable` takes the metric **9.593 → 186.118** — and what survives is the
+sub-texel weight term at a **whole** 2⁸ division, `255·12.92/256 = 12.8695`, with `texture-coordinate-test`
+at `10.295625` by the same arithmetic. **`board:1151` now has two cases pointing at one derivation**,
+which is worth more to it than either alone.
+
+**ROW 3 IS `TEXCOORD_1` AND IT NOW HAS A SECOND REASON.** Impact 9 of 146 was the first; the second is
+that it **unblocks 9 of `TextureTransformMultiTest`'s 27 cells** (`board:1180`), which is a third of a
+case the corpus already contains. Tier 1: a second vertex stream, the layout that carries it, and the
+material rows that select it.
+
+**AND IT INHERITS A BOUNDARY IT MUST NOT QUIETLY REMOVE.** `board:1177` established that a texture
+reference whose `texCoord` names set 1 on a subject carrying one uv set is a **named refusal**. **When row
+3 lands, that refusal must narrow, not disappear**: a transform naming set 1 on a subject that *has* set 1
+resolves; on a subject that does **not**, it stays a refusal. **The refusal is about the subject's
+attributes, never about the engine's capability**, and turning it into a fall-back to set 0 would make a
+missing attribute render as a plausible picture — which is the silent-success class this tree files
+against.

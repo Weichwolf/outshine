@@ -95,3 +95,40 @@ without the extension computes the identity through the same path with no branch
 reference's set or refuses by name, both transform cases exist and the multi-texture one is inside the
 picture bound, and the three precedent decisions above are stated where the next data extension will read
 them.
+
+## Comments
+
+**CLOSES on four of five clauses. The fifth is SPLIT — half struck with its refutation, half re-homed.**
+
+**The struck half is mine and it was a directive, not a guess.** This item said *an engine that applies
+one transform to all of a material's textures passes the single-texture case and fails only
+`TextureTransformMultiTest`.* **Measured against the file at the pin, that is false.** No material in
+either transform asset carries **two different transforms on two references of one material**; each of the
+multi test's 29 materials has exactly **one** transformed reference. **It separates *transformed on every
+socket* from *transformed on base colour only*, and it does not separate per-reference from
+per-material.** So the clause asked a case to prove something the asset does not contain — the
+`board:1127` shape, and the correction is the same: **strike the claim, keep the requirement.**
+
+**The half that stands is re-homed to `board:1180`**: the multi case is wanted, it exists upstream, and it
+is blocked by rows that are not this one's — `TEXCOORD_1` 9 of its 27 cells, `KHR_materials_clearcoat` 18,
+occlusion 3. **`Depends:` is the honest edge**, and it is written there rather than left as an unmet
+clause here.
+
+**The per-reference claim is now held by a unit test and by nothing in the corpus** —
+`EveryTextureReferenceCarriesItsOwnTransform.cpp`, one material, five sockets, five distinct transforms,
+17 claims failing under the per-material mutation. **That is real proof and it is not a render**, so
+*pass the Khronos corpus* cannot reach it. Filed as `board:1179`.
+
+**What the round proved beyond its acceptance, and it is the identity-default precedent working.** Every
+pre-existing textured case is **bit-identical to baseline** — `simple-texture` 9.9012458e-06,
+`texture-coordinate-test` 10.295625, `scifi-helmet` 15.457417, `normal-tangent` 229.33018. **That is the
+predicted result of *absence and presence-with-defaults are one computation*, not a null one**: a branch
+would have moved something.
+
+**The new case is red at `picture_max_delta_code` 9.5930063 against 6.4354338, and its residual is
+attributed rather than absorbed.** The first attribution — the mip chain — **refuted itself by
+measurement**: enabling `kChainIsReadable` takes the metric **9.593 → 186.118**. What survives is the
+sub-texel weight term **at a whole 2⁸ division rather than half of one**, `255·12.92/256 = 12.8695` codes,
+with `texture-coordinate-test` sitting at `10.295625` by the same arithmetic. **The bound was not
+widened**, and `board:1151` now has a **second** case pointing at one derivation — which is worth more to
+that item than either case alone.
