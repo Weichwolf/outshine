@@ -37,6 +37,11 @@ such script and it is named in the setup below.
 **The owner's comments outrank everything.** The bar is CryEngine's level out of upstream data alone,
 and **the way is the goal** — a round that learned something is a good round.
 
+**The run is months long and the vision is its destination, not its direction.** Every clause of the
+first page is reachable from this tree by this session, and the board is its decomposition. **Over that
+length a claim nobody re-measured becomes a fact**, so a number an agent reports is re-measured before it
+is committed, and the round that refutes one is worth the round that produced it.
+
 **Nothing is a possession.** Formats, directories, algorithms, interfaces, build, tools — all material.
 
 **Good C++ and proven engine design.** The [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines)
@@ -97,8 +102,8 @@ its magnitude and then rounding it away reads as rigour and deletes the term.
 
 **A number can be broken without moving it, by moving the population underneath it.** A changed
 threshold shows in a diff; a changed selection reads as the same metric and looks like progress —
-*0.8854 over 40 472 steep pixels* against *0.9875 over 90 838 mostly-flat ones* closed two items on a
-repair that had changed nothing. **Quote the population with the number, and prove a before-and-after
+*0.8854 over 40 472 steep pixels* against *0.9875 over 90 838 mostly-flat ones* is a repair that changed
+nothing, reported as one that did. **Quote the population with the number, and prove a before-and-after
 selected the same one.**
 
 **A change that alters the picture by design cannot reproduce it to six decimals.** A repair whose
@@ -362,7 +367,7 @@ amber state**: the repair is that the red names its cause.
 | `src/` | the library **entire** — its C++ and, in `src/assets/`, the declared data the engine is made of. No entry point, no build file, no host implementation, no test fixture |
 | `test/` | the suites above, plus `test/host/` (host implementations of what the library declares), `test/mods/` (declared worlds), `test/corpus/` (the oracle's subjects, fetched and built, never committed) and `test/harness/` (the harness's own claims, including that every path this file cites resolves) |
 | `test/run.sh` | the harness, and the only runner. One process per test, a real verdict per test, non-zero on any failure or undeclared skip. **macOS has no `timeout(1)`** — it brings its own |
-| `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and this tree has already paid for having two runners |
+| `Makefile` | **three targets and no others**: build the library, run the tests, clean. No gate target, no verify target — everything a gate decided is a test, and two runners means two verdicts |
 | `test/corpus/prepare.py` | **the one offline script the constraints allow.** Fetch · generate · patch · convert · render, each idempotent and independently invocable. It compares, scores and decides **nothing** — that is C++, in the test |
 | `board/` | **the only documentation tree**, and the working system — see *The board* below |
 | `.claude/agents/` | **`engine-developer`** builds and measures · **`engine-architect`** designs, judges, and owns `board/` |
@@ -436,8 +441,8 @@ sit in a path and a state may not.*
 no `Successors:` — `grep -l '^Depends:.*<id>' board/*/*.md` is free and cannot disagree with itself.
 **`closed → open` IS a legal move.** The one argument against it was that a reopen destroys the record
 that the work was once done, and `git log --follow --name-status -- 'board/*/0042_*'` preserves it. **git is the audit trail,
-so no `Created:`, no `Author:`, no history field ever** — storing what `git blame` already answers is the
-duplication the deleted doc tree was removed over.
+so no `Created:`, no `Author:`, no history field ever** — a field storing what `git blame` answers is a
+copy that can drift.
 
 **`Regresses:` narrows rather than disappears.** A move when the item's statement is unchanged and work
 simply resumes; **a new item citing it with `Regresses:` when the return has its own cause, its own
@@ -473,9 +478,8 @@ fourth**: that is the one moment someone is looking at the item closely enough t
 already done or blocked on the same thing, and a form would be filled in rather than thought about.
 
 **The board is kept true incrementally, at the point of use, never by a sweep.** A pass that has to be
-remembered is a pass that will not happen — which is what the old todo needed and never got, three
-commits stale twice in a month. *It is also why the board needs no manager: the transition travels with
-the work and so does the accuracy.*
+remembered is a pass that will not happen. *It is also why the board needs no manager: the transition
+travels with the work and so does the accuracy.*
 
 **The usage is the interface:**
 
@@ -509,9 +513,9 @@ hazard; **the query has both**.
 
 **While any agent is running, stage named files and never a directory.** `git mv` **stages** its
 rename, so `git add -A` or `git add board/` sweeps another round's state change into a commit about
-something else — twice in one day here, once closing a work item before its gate had run. The rule
-is not *commit only paths nobody else writes to*; it is **name every file you commit**, because the
-index already holds what somebody else staged.
+something else. The rule is not *commit only paths nobody else writes to*; it is **name every file you
+commit**, because the index already holds what somebody else staged — and a rename is **two** paths, so
+committing only the new one leaves the item under both directories at once.
 
 
 **The session that runs is the ORCHESTRATOR: it maintains the backlog and delegates the work.**
@@ -523,9 +527,8 @@ item claims is the architect's. *An orchestrator that reached into `src/` would 
 round that proves nothing, making the change somebody else then has to measure.*
 
 **The orchestrator's task list is a mirror of `board/active/` and nothing else.** One entry per active
-item, its subject the item's **`NNNN` and title verbatim**, so the two orderings that this board replaced
-cannot come back — a task list entry with no file under `board/active/` *is* a second ordering, and the
-one this repository already died of twice. It is **derived, never authored**: an item is activated by
+item, its subject the item's **`NNNN` and title verbatim**: a task list entry with no file under
+`board/active/` *is* a second ordering. It is **derived, never authored**: an item is activated by
 `git mv` and the entry follows; an item closes the same way and the entry is marked done. **If the two
 disagree, the directory is right** — `ls board/active/` is the state, and a list is a view of it.
 
@@ -557,8 +560,7 @@ ready is a legitimate state**, so it may not go red, and a later round must not 
 **Stroustrup/Sutter, [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines) — BINDING**,
 **not in this tree** — 23 157 lines nobody loads is a cost paid on every clone, and both agents carry
 the one-line-per-rule index in their own definitions. Cite by number and **fetch the rule rather than
-recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the enumeration rule
-(`Enum.2`), and that miscitation has already cost this project a round.
+recalling it** — `ES.9` is *avoid ALL_CAPS names*, not the enumeration rule (`Enum.2`).
 
 | Field | Titles |
 |---|---|
@@ -589,11 +591,10 @@ A target is a picture **demonstrated on a known budget**. It is cited for *what 
 | **Frostbite FrameGraph** | the **declared stage plan**: every pass and resource as a graph, compiled, with lifetime, transitions and allocation falling out of it rather than being hand-ordered (O'Donnell, *FrameGraph: Extensible Rendering Architecture in Frostbite*, GDC 2017) |
 | **SpeedTree** | the production answer to a **discrete ladder**, and we need it: geometry that reduces smoothly plus an **alpha-to-coverage cross-fade** into the billboard, leaf instances shrunk away while the survivors scale up, the billboard picked from an array by azimuth (SpeedTree SDK documentation, *Level of Detail*). A transition, not a wider spacing. *Which tool authored KCD's trees is not established here and is not claimed* |
 
-**CryEngine's technique role is withdrawn, and it is said here rather than dropped silently**, because
-this file named it "the level to match" for months. It selects vegetation by **distance ratio**
+**CryEngine holds no technique authority here.** It selects vegetation by **distance ratio**
 (`LodDistRatio`, `MaxViewDistRatio`) — a defensible engine choice, and precisely the thing this engine's
 one-currency rule makes unspellable and the dolly-zoom control is built to catch. It keeps its place as
-an **achieved result** above, and holds no authority over a technique here.
+an **achieved result** above.
 
 ### The oracle is not a reference
 
