@@ -223,3 +223,78 @@ hard. Nothing above is withdrawn: every one of the ten is still a fixture we gen
 above that says "scene N" means **fixture N**, which the ladder's own table maps to its rung. The four
 rungs of the comparison — coverage, depth, direct radiance, shadow and indirect — are unchanged and are
 what a rung is judged **on**; the ladder is what is judged, in order.*
+
+## The frame fraction, measured — and the rule that sets it is honest about a sphere, not a subject
+
+*The owner asked for objects scaled to the render target where scale does not affect the test. The request
+already lives here — the frame-fraction line above — and it is grown rather than filed beside.*
+
+**THE FRAMING RULE ALREADY FITS; IT FITS THE WRONG THING.** `src/gltf/Framing.h` carries
+`kFramingFill = 0.6 [SET]`, documented as *the subject's bounding sphere spans 60 % of the frame's
+vertical extent*. **That is a statement about a sphere's height, and the quantity this line requires is
+the subject's own coverage.** A real subject fills a fraction of its bounding sphere, the frame is 16:9
+while the fill is vertical, and the two together turn 0.6 into single digits.
+
+**[MEASURED] over every case carrying an oracle — the covered fraction from the oracle's own alpha
+channel, which is exact coverage and touched no lighting:**
+
+| | |
+|---|---|
+| cases measured | **19** |
+| **median coverage** | **5.23 %** |
+| under 10 % | **13 of 19** |
+| over 50 % | **1** (`materials/emissive-strength`, 68.56 %) |
+| the floor | `texture/four-texels-per-pixel` **0.44 %**, which is 4096 of 921 600 **by derivation** |
+
+**Every one of these declares `camera.source: manifest`**, and their own derivation prose cites this rule —
+`a-beautiful-game`'s says *the framing rule of `board:0083` applied to this subject's own bounds*, and it
+covers **3.86 %**. **So the rule is being applied and the parameter it names is not the quantity anyone
+wanted.**
+
+## Why this is an instrument and not tidiness, in one number
+
+**The picture bound is a max over channels, and a background pixel agrees trivially.** At a median 5.23 %
+coverage, **roughly 95 % of every render decides nothing** — the tail is chosen from the twentieth of the
+frame that carries the subject. **Framing the subject to the fill the rule already names would multiply
+the deciding population by about eleven at the same target size.**
+
+**And it is the same lever as `board:1181`.** Eleven times the deciding pixels at one target, or the same
+signal at **√11 ≈ 3.3× smaller linear target** — 1280×720 → about 384×216, which is **eleven times fewer
+bytes per raw dump.** `board:1169` already made that trade by hand, declaring **320×180** for a 31-frame
+grid because 1280×720 would have been 2.29 GB for one case. **A framing rule that fitted the subject would
+make that a derivation instead of a judgement call**, and the two arguments — more signal, less corpus —
+are one change.
+
+## The exemption is REQUIRED, never a default with an opt-out
+
+**Some cases *are* scale**, and for them auto-framing destroys the subject:
+
+- **`texture/four-texels-per-pixel`** exists to put **exactly 4 texels per pixel by derivation**; reframing
+  it deletes the case.
+- **`foliage/beech`** declares `pixelHeightFrac` as a generator parameter — the subject's projected size is
+  a **declared input** to what is grown.
+- Anything whose dependent variable is texels-per-pixel: `board:1130`'s whole thread, and `board:0110`'s
+  LOD subset case when it exists.
+
+**[MEASURED] those are the only two manifests in the tree today that name a scale-dependent quantity**
+(`texels per pixel` · `pixelHeightFrac`), so the exemption list is short and checkable rather than
+guessed.
+
+- [ ] **Every case declares which it is, and the declaration is required rather than defaulted.** A
+  default with an opt-out puts the burden on the author of the exceptional case, who is the one least
+  likely to be thinking about it; **a required declaration puts it on every author once**, which is where
+  this tree puts every other such burden — the manifest is *a delta over declared defaults* precisely so
+  that a decision nobody made cannot pass
+- [ ] **The two arms are named quantities, not a boolean** (`Enum.2`): *framing is derived to a declared
+  fill* · *framing is declared because the subject's projected scale is the measurement*. **The second arm
+  carries its reason in the manifest**, so a case that exempts itself says what it is measuring
+- [ ] **A case in the second arm still publishes its frame fraction**, computed by the runner as this
+  line already requires. **Exempt from being reframed is not exempt from being measured** — `board:1135`'s
+  0.44 % is a load-bearing number for that case and would be a silent one under a blanket exemption
+- [ ] **`kFramingFill` gains a derivation or keeps `[SET]` with a reason that names the subject**, not the
+  sphere. A parameter whose documented meaning and measured effect differ by an order of magnitude is a
+  magic number wearing a comment
+
+**`board:0034` is the other half of the same rule and stays separate**: it is *five camera manifests aim
+at a point their own stated derivation does not produce* — an **aim** defect, where this is a **fit**
+defect. Same rule, two failures, and conflating them would put two causes behind one number.
