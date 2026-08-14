@@ -82,3 +82,54 @@ never length.
 **Done when** every `Area: generators` item is in exactly one of the three classes with its verdict
 executed or its read scheduled, no surviving item asserts a fact about the tree that has not been
 re-measured or explicitly marked unverified, and the rule above is what a new item is written against.
+
+## REFUTED ON ITS LARGEST CASE, and the owner's rule replaces the boundary
+
+**The owner, verbatim:** *the species list is one of the things i trust in the backlog. every species
+requires a task and a test with rendering as proof.*
+
+**So the rule above is not wrong and is not sufficient.** Its two halves stand: the species table exists,
+is read by `src/generators/TreeSpecies.h`, and the required row count is derivable. What it does not
+settle is the thing the owner put at the centre — **a row nothing has ever rendered is not a served
+requirement.** `src/assets/world/species/hazel.json` existing is not evidence that a hazel renders.
+
+**THE BOUNDARY, RESTATED FROM WHAT THE OWNER SAID RATHER THAN FROM A TITLE'S SHAPE:**
+
+> **A content kind is a work item, because it carries a proof. Only a VALUE inside a kind that is already
+> proven is a row.**
+
+The datum was never the question. `form`, `crown`, `lai` and their `_origin`s are values **inside** the
+species kind; the species itself is a kind, and a kind is served when a render shows it. That is why the
+first rule mis-drew the line: it asked *does an existing capability read this*, and reading is not proof.
+
+**What that does to the three classes.**
+
+| | items | verdict under the owner's rule |
+|---|---|---|
+| **A — instance enumerations** | 436 | **rewrite, all of them. The delete list is EMPTY** |
+| **B — mixed features** | 212 | **rewrite or keep, per item; nothing swept** |
+| **C — capability features** | 299 | **keep**, unchanged |
+
+**Delete is empty and that is the correct outcome rather than a salvaged one.** Every one of the 436 is a
+content kind: a species, a building use, a vehicle class. Each needs a task and a render proof, which is a
+**stronger** requirement than any of them carries today — the rewrite adds an acceptance where there was a
+binomial and a common name. [MEASURED] **436 items, 436 distinct titles, zero duplicates**, so not one is
+redundant with another either.
+
+**The last delete candidate died on inspection.** `0137 Forms belonging to other biomes, named so they are
+not mistaken for oversights` reads as a list of exclusions — `Krummholz`, `Alpine dwarf shrub heath`,
+`Cushion` — but `vegetation.json`'s templates already name `alpine_aster`, `mountain_avens` and
+`chamois_cress`, and `core/AlpineLimit.h` exists. **The alpine band is declared, so its forms are
+required and the feature's own framing is out of date.**
+
+**One item is mis-typed rather than unwanted**: `1085 Military — setting-dependent; a post-scarcity world
+may have no place for it, and that is the owner's call` says in its own body that it is a decision only
+the owner can make. **That is a `Type: issue`**, and changing a type is a rewrite, not a deletion.
+
+**Four measurements this round of how badly shape-based predicates do here**, kept because the next round
+will be tempted by one: two of mine — a word-count-and-echo test that called `Pantograph contact with the
+catenary` inventory, and a binomial-title test that called `Hull planing` a species — and two of the
+orchestrator's failed species extractions, one keying on the wrong field and returning 14 land-cover
+classes, one walking the wrong depth and returning 0. **None of the four contradicted a conclusion; each
+measured a different population.** The rule is now semantic and its unit is the feature, and even that is
+only a first pass over a list a person then reads.
