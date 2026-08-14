@@ -71,10 +71,12 @@ enum class IndexPass { Material, Object };
  * products include this pass's own raw, so a corpus whose passes came from a recipe this reader
  * never heard of still reads its own mapping rather than another render's.
  *
- * A CACHE HIT LEAVES `provenance` NULL AND THAT IS A REFUSAL, not an empty table. The preparer
- * records the mapping on the render that produced the pass; a run that reused a cached render
- * publishes the products and no mapping, so the integers are on disk with nothing to say what they
- * name. An empty table would read as "the pass names nothing", which is an answer. */
+ * A RENDER THAT RECORDS NO MAPPING IS A REFUSAL, not an empty table -- an empty table would read as
+ * "the pass names nothing", which is an answer. It used to be reachable by CACHING: the preparer
+ * recorded the mapping on the render that produced the pass and dropped it on a hit, so a corpus
+ * placed from the store carried the integers with nothing to say what they named. The account is a
+ * keyed product of the render now and comes back with the bytes (board:1154), which is why this
+ * refusal survives only where a render genuinely indexed nothing. */
 class IndexNames {
 public:
   [[nodiscard]] bool ReadFile(const std::string &directory, IndexPass which,
@@ -95,8 +97,7 @@ public:
       const Json::Ref indexed = entry["provenance"]["quantities"]["indices"][PassIndexedKey(which)];
       if (indexed.GetKind() != Json::Kind::Array) {
         return Refuse(path + ": the render that produced " + wanted +
-                      " records no index mapping, so the pass's integers name nothing -- its "
-                      "products were reused from the store and the mapping was not");
+                      " records no index mapping, so the pass's integers name nothing");
       }
       return Take(indexed, path, wanted);
     }

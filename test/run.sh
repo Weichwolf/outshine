@@ -226,7 +226,7 @@ LayerGroups() {
     unit/render/draw) printf '%s' "src/core src/core/io src/render/draw" ;;
     unit/render/stages) printf '%s' "" ;;
     unit/clients) printf '%s' "src/clients/Image.cpp" ;;
-    harness) printf '%s' "src/core/Sha256.cpp" ;;
+    harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     render | frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
     shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
     *) return 1 ;;
@@ -256,7 +256,7 @@ LayerCases() {
 # guarantees is held by a test that does run: unit/gltf/AProducedSubjectIsTheOneItStated.
 NotTheHarnesses() {
   case "$1" in
-    .) printf '%s' "the harness's own clock" ;;
+    .) printf '%s' "the harness's own clock and its prune, run by this script and judged by nobody" ;;
     host) printf '%s' "host implementations of what the library declares, compiled into the library" ;;
     unit/compile | unit/compile/*) printf '%s' "a compile subject, judged by the layer's own refusal test, never linked" ;;
     corpus | corpus/*) printf '%s' "the offline preparer's own, compiled and run by test/corpus/prepare.py" ;;
@@ -268,7 +268,7 @@ NotTheHarnesses() {
 # the layering the build rather than a rule, and it is the same set the Makefile hands each group.
 GroupIncludes() {
   case "$1" in
-    src/core | src/core/io | src/core/Sha256.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
+    src/core | src/core/io | src/core/Sha256.cpp | src/core/Json.cpp) printf '%s' "-Isrc/core -Isrc/core/io" ;;
     src/data) printf '%s' "-Isrc/core -Isrc/data" ;;
     src/gltf) printf '%s' "-Isrc/core -Isrc/gltf" ;;
     src/scenario) printf '%s' "-Isrc/core -Isrc/scenario" ;;
@@ -427,6 +427,17 @@ SAN=""
 $CXX test/Millis.cpp $CXXSTD $OPT $WARN -o "$BUILD/millis" || Die "the clock did not build"
 Now() { "$BUILD/millis"; }
 
+# THE PRUNE, BESIDE THE CLOCK AND FOR THE SAME REASON (board:1181): the runner owns a case's
+# lifecycle, so the runner is what declines to keep a second copy of it -- and neither program holds a
+# verdict, which is why both are here rather than in a layer. Its two library sources go through
+# BuildGroup like every other, so they compile with src/core's include set and not with this one.
+OBJECTS=""
+BuildGroup src/core/Json.cpp || Die "the prune's reader did not build"
+# shellcheck disable=SC2086
+$CXX test/Prune.cpp $OBJECTS $CXXSTD $OPT $WARN -Itest -Isrc/core -o "$BUILD/prune" ||
+  Die "the prune did not build"
+PRUNE_MARKER=$BUILD/prune.marker
+
 # EVERY DIRECTORY RESOLVES BEFORE ANYTHING IS BUILT. An undeclared one found halfway through is a
 # refusal the reader has to notice under three green lines; found here it is the only thing printed.
 TESTS=""
@@ -454,6 +465,55 @@ skipped=0
 unprepared=0
 undeclaredSkips=0
 inverted=0
+
+peakKib=0
+endKib=0
+prunedCases=0
+prunedFiles=0
+prunedKib=0
+stayedFiles=0
+
+# WHAT THE SUITE COSTS ON DISK RIGHT NOW. One process per sample: a per-file walk would be a thousand
+# more of them for a number this is quoted in megabytes.
+SuiteKib() {
+  # shellcheck disable=SC2046
+  set -- $(du -sk test/render 2>/dev/null)
+  printf '%s' "${1:-0}"
+}
+
+# THE PEAK IS SAMPLED WHERE THE PEAK IS: a case that has been rendered, judged by every arm, and not
+# yet pruned. A run-wide average would say nothing about a quantity whose whole point is its maximum.
+SampleSuite() {
+  sampled=$(SuiteKib)
+  [ "$sampled" -gt "$peakKib" ] && peakKib=$sampled
+  return 0
+}
+
+# ALWAYS, PER CASE, PASS OR FAIL (board:1181). The store holds every oracle product of every case and
+# our own dumps are reproduced by re-running the case, so this declines to keep a second copy rather
+# than deleting anything. What it cannot prove it leaves standing, and the case's own prune log names
+# the proof that refused and the command that brings the file back.
+PruneCase() {
+  pruneCase=$1
+  pruneLog=$BUILD/log/$(printf '%s' "${pruneCase#test/}" | tr / -)-prune.log
+  if ! pruneSummary=$("$BUILD/prune" "$pruneCase" "$PRUNE_MARKER" 2>"$pruneLog"); then
+    printf 'run.sh: %s was not pruned -- %s\n' "${pruneCase#test/}" "$pruneLog" >&2
+    return 0
+  fi
+  # shellcheck disable=SC2086
+  set -- $pruneSummary
+  { [ $# -eq 5 ] && [ "$1" = PRUNE ]; } ||
+    Die "the prune printed a summary it cannot have written -- $pruneLog"
+  prunedCases=$((prunedCases + 1))
+  prunedFiles=$((prunedFiles + $2))
+  prunedKib=$((prunedKib + $3 / 1024))
+  stayedFiles=$((stayedFiles + $4))
+  printf '%-7s %-46s %6s MB  %s\n' PRUNE "${pruneCase#test/}" "$(($3 / 1048576))" "$pruneLog"
+  [ "$4" -eq 0 ] ||
+    printf 'run.sh: %s kept %s file(s) whose producer it could not prove -- %s\n' \
+      "${pruneCase#test/}" "$4" "$pruneLog" >&2
+  return 0
+}
 
 # ONE INVOCATION, RUN AND JUDGED. It is a function because a render source is invoked once per case
 # directory and every other source once with no argument: the judgement must be the SAME judgement,
@@ -498,30 +558,44 @@ Judge() {
   Record "$judgeId" "$(( $(Now) - before ))"
 }
 
-# EVERY INVOCATION OF ONE BINARY. A layer with declared cases runs once per case with the case
-# directory as its argument; a layer with none runs once with no argument. Both arms stand here once,
-# so the instrumented build below runs exactly the set the plain build ran -- until this existed, the
-# case-less arm returned early and a sanitiser such a layer declared was never applied to anything.
-#   $1 the binary   $2 the suffix on every id   $3 yes if an instrument is in the path
-JudgeEvery() {
-  everyBinary=$1
-  everySuffix=$2
-  everyInstrumented=$3
-  if [ -z "$cases" ]; then
-    Judge "$id$everySuffix" "$everyBinary" ""
-    JudgeInstrument "$id$everySuffix"
-    return
+# EVERY ARM OF ONE INVOCATION, BACK TO BACK. The loop is CASE-OUTER and ARM-INNER (board:1181): a
+# case runs plain, sanitised and validated in turn and is then pruned, so a case's inputs have to
+# survive until the last of its own arms rather than until the last arm of the whole suite. Same
+# binaries, same set, same verdicts, different order -- all three are built before any case runs, so
+# the cost of the inversion is nothing at all.
+#
+# A LAYER WITH NO CASES RUNS THE SAME THREE ARMS WITH NO ARGUMENT, which is why both live here once:
+# the case-less arm used to return early and a sanitiser such a layer declared was never applied to
+# anything.
+#   $1 the id stem   $2 the argument, or empty
+JudgeArms() {
+  armStem=$1
+  armArgument=$2
+  Judge "$armStem" "$plainBinary" "$armArgument"
+  JudgeInstrument "$armStem" no
+  if [ -n "$sanitisedBinary" ]; then
+    # DETECT_STACK_USE_AFTER_RETURN IS PART OF THE INSTRUMENT: a build that carries the
+    # instrumentation still reports nothing about it without this line.
+    ASAN_OPTIONS=detect_stack_use_after_return=1
+    UBSAN_OPTIONS=print_stacktrace=1
+    export ASAN_OPTIONS UBSAN_OPTIONS
+    Judge "$armStem~sanitised" "$sanitisedBinary" "$armArgument"
+    JudgeInstrument "$armStem~sanitised" yes
+    unset ASAN_OPTIONS UBSAN_OPTIONS
   fi
-  for everyCase in $cases; do
-    Judge "${everyCase#test/}$everySuffix" "$everyBinary" "$everyCase"
-    JudgeInstrument "${everyCase#test/}$everySuffix"
-  done
+  if [ -n "$validatedBinary" ]; then
+    validatedRan=yes
+    Judge "$armStem~validated" "$validatedBinary" "$armArgument"
+    JudgeInstrument "$armStem~validated" yes
+  fi
+  return 0
 }
 
 # WHAT THE INSTRUMENT ITSELF SAID, which the trailer cannot carry: AddressSanitizer and
 # UndefinedBehaviorSanitizer write to the log and the process can still exit 0 over a clean trailer.
+#   $1 the id it is reported under   $2 yes if an instrument is in the path
 JudgeInstrument() {
-  [ "$everyInstrumented" = yes ] || return 0
+  [ "$2" = yes ] || return 0
   grep -qE "AddressSanitizer|runtime error:" "$log" || return 0
   printf 'run.sh: %s -- the run finished and the sanitiser spoke, %s\n' "$1" "$log" >&2
   failed=$((failed + 1))
@@ -581,7 +655,13 @@ for testSource in $TESTS; do
   linkage=$(LayerLink "$layer")
 
   log=$BUILD/log/$(printf '%s' "$id" | tr / -).log
-  binary=$BUILD/$(printf '%s' "$id" | tr / -)
+  # ALL THREE NAMES DERIVED FROM THE TEST'S ID, never one from another: `RunWithTimeout` assigns
+  # `binary` as a shell global, so `$binary.validated` once named an arm `...sanitised.validated` --
+  # a file name that said the run carried a sanitiser when it did not, which is the archive defect
+  # this tree has already paid for once (board:1123).
+  plainBinary=$BUILD/$(printf '%s' "$id" | tr / -)
+  sanitisedBinary=""
+  validatedBinary=""
 
   before=$(Now)
   OBJECTS=""
@@ -598,7 +678,7 @@ for testSource in $TESTS; do
   compileDefine="-DOUTSHINE_COMPILE=\"$CXX $CXXSTD $WARN $includes\""
   if [ "$built" = yes ]; then
     # shellcheck disable=SC2086
-    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN -Itest $includes "$compileDefine" $linkage -o "$binary" >>"$log" 2>&1 || built=no
+    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN -Itest $includes "$compileDefine" $linkage -o "$plainBinary" >>"$log" 2>&1 || built=no
   fi
 
   # A BUILD FAILURE IS JUDGED BEFORE ANY TRAILER, because a binary that does not exist cannot print
@@ -611,84 +691,89 @@ for testSource in $TESTS; do
     continue
   fi
 
+  # EVERY ARM IS BUILT BEFORE ANY CASE RUNS. That is what the inversion costs and it is nothing: the
+  # three binaries were always built before the second and third arms ran, and building them here
+  # instead is what lets one case be judged three times and then pruned.
+  sanitiser=$(LayerSanitiser "$layer")
+  if [ -n "$sanitiser" ]; then
+    before=$(Now)
+    OBJDIR=$BUILD/obj-sanitised
+    SAN=$sanitiser
+    OBJECTS=""
+    built=yes
+    sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
+    : >"$sanitisedLog"
+    for group in $groups; do
+      BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
+    done
+    sanitisedBinary=$plainBinary.sanitised
+    if [ "$built" = yes ]; then
+      # shellcheck disable=SC2086
+      $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $SAN -Itest $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
+    fi
+    OBJDIR=$BUILD/obj
+    SAN=""
+    if [ "$built" = no ]; then
+      failures=0
+      skips=0
+      verdict=BUILD
+      Record "$id~sanitised" "$(( $(Now) - before ))"
+      sanitisedBinary=""
+    fi
+  fi
+
+  # THE API-CONTRACT ARM (board:1123). Same source, same cases, same assets; the device is created
+  # with the driver's validation enabled, so a pipeline whose output set disagrees with its pass
+  # aborts here instead of rendering correctly and being undefined. A layer whose sanitised arm did
+  # not build does not reach it, which is what the returns it replaced already did.
+  validation=$(LayerValidation "$layer")
+  if [ -n "$validation" ] && { [ -z "$sanitiser" ] || [ -n "$sanitisedBinary" ]; }; then
+    before=$(Now)
+    OBJDIR=$BUILD/obj-validated
+    EXTRA_DEFINES=$validation
+    OBJECTS=""
+    built=yes
+    validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
+    : >"$validatedLog"
+    for group in $groups; do
+      BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+    done
+    validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
+    if [ "$built" = yes ]; then
+      # shellcheck disable=SC2086
+      $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $validation -Itest $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
+    fi
+    OBJDIR=$BUILD/obj
+    EXTRA_DEFINES=""
+    if [ "$built" = no ]; then
+      failures=0
+      skips=0
+      verdict=BUILD
+      Record "$id~validated" "$(( $(Now) - before ))"
+      validatedBinary=""
+    fi
+  fi
+
   # A DECLARATIVE SUITE WITH NO DECLARATION IS THE VACUOUS GATE IN ITS PUREST FORM: a runner that
   # runs over nothing and reports nothing, green. The enumeration is the tracked manifests, so an
   # empty set here means the suite itself is empty, and the runner is then invoked once with no
   # argument -- which is a refusal from the runner and never a silent pass.
   cases=$(LayerCases "$layer")
-  JudgeEvery "$binary" "" no
-
-  sanitiser=$(LayerSanitiser "$layer")
-  [ -n "$sanitiser" ] || continue
-  before=$(Now)
-  OBJDIR=$BUILD/obj-sanitised
-  SAN=$sanitiser
-  OBJECTS=""
-  built=yes
-  sanitisedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-sanitised.log
-  : >"$sanitisedLog"
-  for group in $groups; do
-    BuildGroup "$group" >>"$sanitisedLog" 2>&1 || built=no
-  done
-  sanitisedBinary=$binary.sanitised
-  if [ "$built" = yes ]; then
-    # shellcheck disable=SC2086
-    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $SAN -Itest $includes "$compileDefine" $linkage -o "$sanitisedBinary" >>"$sanitisedLog" 2>&1 || built=no
-  fi
-  OBJDIR=$BUILD/obj
-  SAN=""
-  if [ "$built" = no ]; then
-    failures=0
-    skips=0
-    verdict=BUILD
-    Record "$id~sanitised" "$(( $(Now) - before ))"
+  if [ -z "$cases" ]; then
+    JudgeArms "$id" ""
     continue
   fi
-  # DETECT_STACK_USE_AFTER_RETURN IS PART OF THE INSTRUMENT: a build that carries the
-  # instrumentation still reports nothing about it without this line.
-  ASAN_OPTIONS=detect_stack_use_after_return=1
-  UBSAN_OPTIONS=print_stacktrace=1
-  export ASAN_OPTIONS UBSAN_OPTIONS
-  JudgeEvery "$sanitisedBinary" "~sanitised" yes
-  unset ASAN_OPTIONS UBSAN_OPTIONS
 
-  # THE API-CONTRACT ARM (board:1123). Same source, same cases, same assets; the device is created
-  # with the driver's validation enabled, so a pipeline whose output set disagrees with its pass
-  # aborts here instead of rendering correctly and being undefined.
-  validation=$(LayerValidation "$layer")
-  [ -n "$validation" ] || continue
-  before=$(Now)
-  OBJDIR=$BUILD/obj-validated
-  EXTRA_DEFINES=$validation
-  OBJECTS=""
-  built=yes
-  validatedLog=$BUILD/log/$(printf '%s' "$id" | tr / -)-validated.log
-  : >"$validatedLog"
-  for group in $groups; do
-    BuildGroup "$group" >>"$validatedLog" 2>&1 || built=no
+  for oneCase in $cases; do
+    # THE MARKER IS WHAT "THIS RUN WROTE IT" IS MEASURED AGAINST, and it lives outside the case
+    # directory: a marker inside one would be a file the prune then had to have an opinion about.
+    : >"$PRUNE_MARKER"
+    JudgeArms "${oneCase#test/}" "$oneCase"
+    SampleSuite
+    PruneCase "$oneCase"
   done
-  # DERIVED FROM THE TEST'S ID AND NOT FROM `$binary`, because `RunWithTimeout` assigns `binary` as a
-  # shell global: by this point it holds the SANITISED path, and `$binary.validated` named this arm
-  # `...sanitised.validated` -- a name that says the run carried a sanitiser when it did not. A
-  # measurement whose file name misstates its instrument is the archive defect this tree has already
-  # paid for once (board:1123).
-  validatedBinary=$BUILD/$(printf '%s' "$id" | tr / -).validated
-  if [ "$built" = yes ]; then
-    # shellcheck disable=SC2086
-    $CXX "$testSource" $OBJECTS $toolchain $OPT $WARN $validation -Itest $includes "$compileDefine" $linkage -o "$validatedBinary" >>"$validatedLog" 2>&1 || built=no
-  fi
-  OBJDIR=$BUILD/obj
-  EXTRA_DEFINES=""
-  if [ "$built" = no ]; then
-    failures=0
-    skips=0
-    verdict=BUILD
-    Record "$id~validated" "$(( $(Now) - before ))"
-    continue
-  fi
-  validatedRan=yes
-  JudgeEvery "$validatedBinary" "~validated" yes
 done
+endKib=$(SuiteKib)
 
 total=$((passed + failed + timedout + signalled + unbuilt + skipped + unprepared))
 printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s UNPREPARED  in %s ms\n' \
@@ -699,6 +784,17 @@ printf '%s tests: %s PASS  %s FAIL  %s TIMEOUT  %s SIGNAL  %s BUILD  %s SKIP  %s
 [ "$validatedRan" = yes ] && printf '%s\n' \
   "~validated is an API-CONTRACT arm: it says the pipelines, passes and resources agree with the driver, and NOTHING about whether the picture is right -- that is render/'s domain and its oracle's"
 [ "$inverted" -gt 0 ] && printf 'expect-fail inverted: %s\n' "$EXPECT_FAIL"
+
+# THE HIGH-WATER MARK, AS A NUMBER (board:1181), because "size doesn't grow" is only checkable
+# against one and a later round that breaks this must be caught by the number rather than by somebody
+# noticing the disk. The peak is sampled at each case's own prune, which is where a case is at its
+# largest: rendered, judged by every arm, and not yet pruned. The runner does not MATERIALISE a case
+# -- that is the preparer's, and it is why the peak is bounded by what the preparer left standing
+# when the run began, not by any one case.
+[ "$prunedCases" -gt 0 ] && printf \
+  'test/render/: peak %s MB, %s MB after the last prune -- %s cases pruned, %s files and %s MB declined, %s file(s) left standing (each case: %s/*-prune.log)\n' \
+  "$((peakKib / 1024))" "$((endKib / 1024))" "$prunedCases" "$prunedFiles" "$((prunedKib / 1024))" \
+  "$stayedFiles" "$BUILD/log"
 
 # A SKIP IS RED UNLESS IT WAS DECLARED ON THE COMMAND LINE, AND AN UNPREPARED CASE IS RED WITH NO
 # WAY TO DECLARE IT AWAY. A silent skip is the defect class this repository keeps finding, wearing a

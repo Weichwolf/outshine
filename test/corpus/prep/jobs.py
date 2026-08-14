@@ -8,7 +8,7 @@ import tempfile
 from . import blender as blender_module
 from . import fetch, fixtures, licence, manifest as manifest_module, patch as patch_module
 from .refusal import Refusal
-from .store import derived_key, sha256_hex, sha256_of_file
+from .store import canonical_json, derived_key, sha256_hex, sha256_of_file
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER_SCRIPT = os.path.join(HERE, "in_blender_render.py")
@@ -272,7 +272,6 @@ def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, 
     recipe = manifest.renders[name]
     names = manifest_module.output_names_for(name, frame)
     targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
-    products = tuple(names)
     recipe_key = {
         # The pinned Blender is in the key because a point release that changes Cycles
         # must miss. Both the declared and the observed version are here: the first
@@ -293,26 +292,61 @@ def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, 
     if frame is not None:
         recipe_key["frame"] = frame
     keys = {product: derived_key("oracle." + product, dict(recipe_key, product=product))
-            for product in products}
-    stored = all(store.has(key) for key in keys.values())
+            for product in names}
+    # THE RENDER'S OWN ACCOUNT IS A PRODUCT OF THE RENDER, KEYED AND STORED LIKE THE BYTES IT
+    # DESCRIBES (board:1154). It carries the pass-index mapping, and that mapping is assigned inside
+    # Blender over `bpy.data.materials` -- including the factory startup file's own materials -- so it
+    # is not reconstructible from the glTF and not recomputable outside a Blender run. It used to be
+    # returned by the render and dropped on a cache hit, which left the index passes on disk as
+    # 14.7 MB of integers naming nothing.
+    #
+    # IT IS NOT PLACED IN THE CASE DIRECTORY AND IT IS NOT IN `keys`. `keys` means "the store key each
+    # PLACED product came from" and the prune reads it as exactly that; this document reaches the case
+    # through `provenance.json`, which already carries it, so placing a file beside it would be the
+    # same statement in two places.
+    provenance_key = derived_key("oracle.provenance", dict(recipe_key, product="provenance"))
+    stored = all(store.has(key) for key in keys.values()) and store.has(provenance_key)
     placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
-    row = {"recipe": name, "keys": keys}
+    row = {"recipe": name, "keys": keys, "provenanceKey": provenance_key}
     if frame is not None:
         row["frame"] = frame
-    if not force and placed:
-        return dict(row, cache="hit", products=_sizes(targets), provenance=None)
-    provenance = None
-    if force or not stored:
-        provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store, products, frame)
-    for product in targets:
-        store.copy_out(keys[product], targets[product])
-    return dict(row, cache="miss" if provenance else "hit", products=_sizes(targets),
-                provenance=provenance)
+    # WHETHER CYCLES RAN IS STATED AND NEVER INFERRED. It used to be read off the provenance being
+    # non-null, which made the cache verdict a side effect of the defect above: the moment a hit
+    # carries its account too, "provenance means miss" reports every hit as a miss.
+    rendered = bool(force) or not stored
+    if rendered:
+        _run_render(manifest, blender, gltf_paths, recipe, keys, provenance_key, store, frame)
+    if rendered or not placed:
+        for product in targets:
+            store.copy_out(keys[product], targets[product])
+    # READ BACK FROM THE STORE ON BOTH PATHS, never handed over from the run that happened to produce
+    # it: one route from the bytes to the report is one route that can be wrong, and a fresh run
+    # cannot then pass over what a cached one would have refused.
+    return dict(row, cache="miss" if rendered else "hit", products=_sizes(targets),
+                provenance=_stored_provenance(store, provenance_key, manifest))
 
 
-def _run_render(manifest, blender, gltf_paths, recipe, keys, store, products, frame):
+def _stored_provenance(store, key, manifest):
+    document = store.read(key)
+    if document is None:
+        raise Refusal(
+            "render " + manifest.id,
+            expected="the render's own account under key " + key,
+            observed="no such object in the content store",
+            why="a render's products and its account are stored together or the render is redone",
+        )
+    try:
+        return json.loads(document)
+    except ValueError as error:
+        raise Refusal("render " + manifest.id, expected="the account under key " + key + " as JSON",
+                      observed=str(error))
+
+
+def _run_render(manifest, blender, gltf_paths, recipe, keys, provenance_key, store, frame):
+    # WHAT THIS RENDER PRODUCES IS THE KEY SET AND NOT A SECOND LIST BESIDE IT. The two were passed
+    # separately and were equal by construction, which is a fact kept in two places.
     with tempfile.TemporaryDirectory(prefix="outshine-oracle-") as work:
-        paths = {product: os.path.join(work, "oracle." + product) for product in products}
+        paths = {product: os.path.join(work, "oracle." + product) for product in keys}
         job_path = os.path.join(work, "job.json")
         with open(job_path, "w") as f:
             json.dump(
@@ -328,11 +362,14 @@ def _run_render(manifest, blender, gltf_paths, recipe, keys, store, products, fr
                 f,
             )
         provenance = blender.run(RENDER_SCRIPT, job_path)
-        for product in products:
+        for product in keys:
             if not os.path.isfile(paths[product]):
                 raise Refusal("render " + manifest.id, expected=product + " product", observed="no such file")
             store.keep_file(keys[product], paths[product])
-    return provenance
+    # LAST, ONCE EVERY PRODUCT IS IN. `stored` is one predicate over the whole set, so a run that
+    # died between the two leaves the render to be done again rather than half-cached, and the
+    # account is never in the store describing bytes that are not.
+    store.keep(provenance_key, canonical_json(provenance).encode("utf-8"))
 
 
 def write_provenance(manifest, store, destination, blender, report):

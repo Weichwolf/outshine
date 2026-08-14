@@ -84,6 +84,7 @@ newline-separated, with a derivation version inside. What the key covers:
 | the whole declared scene — camera, light, world, material | |
 | the whole render recipe | |
 | the product — `exr`, `raw` — separately | |
+| the render's **own account** as one more product | it carries the pass-index mapping, which is assigned inside Blender and is not reconstructible from the glTF, so it is stored beside the bytes it describes and comes back on a hit with them (`board:1154`). It is the one product that is not placed as a file: the case already carries it inside `provenance.json` |
 
 Both Blender versions are in the key and neither alone is enough. This is not about reproducing
 pixels; we do not aim to be bit-identical with Cycles. It stops one real defect: the pin is bumped,
