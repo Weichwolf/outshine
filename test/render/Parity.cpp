@@ -37,6 +37,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -48,6 +49,7 @@
 #include "Invariant.h"
 #include "ManifestSchema.h"
 #include "Mask.h"
+#include "OracleProduct.h"
 #include "Metric.h"
 #include "RawF32.h"
 #include "PictureBound.h"
@@ -61,6 +63,7 @@
 #include "Json.h"
 #include "Log.h"
 #include "Image.h"
+#include "Pose.h"
 #include "RenderPlan.h"
 #include "Renderer.h"
 #include "Subject.h"
@@ -189,6 +192,29 @@ struct Case {
    * `stated-invariant` -- which is the only kind that has any. */
   std::vector<Invariant> Invariants;
   SurfaceTable Surfaces;
+  /* THE FRAME GRID THIS CASE IS JUDGED ON (board:1169), and a still declares none: `Frames` is 1,
+   * `Animation` is empty and every product keeps the name the corpus already carries. An animated
+   * case declares the grid and the file supplies the curves; frame n is n / `Fps` seconds into the
+   * animation, DERIVED and never accumulated, which is the currency board:1129 decided in. */
+  int Frames = 1;
+  double Fps = 0;
+  int AnimationIndex = 0;
+  outshine::Gltf::Pose Animation;
+  /* One local transform per node of the file, rewritten at every frame -- the caller's buffer, so a
+   * sweep over the grid allocates once. */
+  std::vector<Transform> Locals;
+  /* THE DRAWN VERTICES AT FRAME 0, kept so that the motion at every later frame is measured against
+   * what was actually handed to the renderer and not against what the tracks say (board:1169). */
+  std::vector<double> RestPositions;
+  /* THE SAME SUBJECT AT THE PREVIOUS FRAME OF THE GRID, which is what a screen-space motion vector
+   * is measured against. At frame 0 it is frame 0, so the first frame of a sequence publishes a
+   * velocity of exactly zero everywhere it is covered rather than a displacement from nothing. */
+  Subject PreviousGeometry;
+  [[nodiscard]] bool Animated() const { return Frames > 1; }
+  /* Which frame a product name carries, and it is nothing at all for a still. */
+  [[nodiscard]] std::optional<int> ProductFrame(int frame) const {
+    return Animated() ? std::optional<int>(frame) : std::nullopt;
+  }
   /* WHAT IS IN THIS CASE'S PATH THAT IS KNOWN TO DIFFER, and therefore what the picture bound's tail
    * is the sum of. Every field of it is read off the case or off the resolved surfaces; none of it
    * is a threshold a manifest can set (board:0089). */
@@ -543,6 +569,37 @@ public:
       !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
     return false;
   }
+  /* THE FRAME GRID, WHERE THE CASE DECLARES ONE. Its absence is the still corpus and needs no arm:
+   * one frame, no pose, the file's own placements. A grid of one would be a still that renders the
+   * pose at t = 0 and passes every frame-by-frame comparison, so the preparer refuses it and this
+   * reader does not have to. */
+  const Json::Ref animation = root["scene"]["animation"];
+  if (animation.Valid()) {
+    subject.AnimationIndex = (int)animation["index"].Num(0.0);
+    double fps = 0, frames = 0;
+    if (!ReadDeclaredNumber(animation["fps"], "scene.animation.fps", fps, error)) { return false; }
+    if (!ReadDeclaredNumber(animation["frames"], "scene.animation.frames", frames, error)) {
+      return false;
+    }
+    if (!(fps > 0) || !(frames > 1)) {
+      error = "scene.animation declares " + std::to_string(frames) + " frames at " +
+              std::to_string(fps) + " fps, and a sequence is at least two frames on a positive grid";
+      return false;
+    }
+    subject.Fps = fps;
+    subject.Frames = (int)frames;
+    /* A CAMERA DERIVED PER FRAME WOULD FOLLOW THE SUBJECT, and then a disagreement between two
+     * frames could be the pose or the viewpoint with nothing to separate them. The rule frames the
+     * bounds it is given, and an animated subject has a different bounds every frame. */
+    if (!root["scene"]["camera"]["source"].StrEquals("manifest") &&
+        !root["scene"]["camera"]["source"].StrEquals("gltf")) {
+      error = "scene.animation declares a sequence and scene.camera.source is '" +
+              root["scene"]["camera"]["source"].Str("") +
+              "', so the framing rule would re-derive the camera from a different bounds at every "
+              "frame and the camera would move with the subject";
+      return false;
+    }
+  }
   const Json::Ref light = root["scene"]["light"];
   if (!ReadSceneLights(light["kind"], subject.Lights, error)) { return false; }
   if (subject.Lights == SceneLights::DeclaredSun && !ReadDeclaredSun(light, subject.Sun, error)) {
@@ -613,10 +670,11 @@ std::string MissingInputs(const Case &subject) {
   }
   const Json::Ref recipes = subject.Manifest.Root()["renders"];
   for (size_t which = 0; which < recipes.Size(); ++which) {
-    const std::string name = recipes.Key(which);
-    const std::string product =
-        name == "default" ? std::string("oracle.exr") : "oracle." + name + ".exr";
-    if (!Present(subject.Directory + product)) { owed.push_back(product); }
+    for (int frame = 0; frame < subject.Frames; ++frame) {
+      const std::string product =
+          OracleProduct{"", recipes.Key(which), subject.ProductFrame(frame)}.Exr();
+      if (!Present(subject.Directory + product)) { owed.push_back(product); }
+    }
   }
   std::string missing;
   for (const std::string &name : owed) {
@@ -1030,6 +1088,26 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
   return false;
 }
 
+/* THE SUBJECT AT ONE FRAME, and for a still there is one frame and no pose (board:1169). The parts,
+ * their materials and their order are the scene graph's and do not move with the pose, so everything
+ * resolved off them -- the surface table, the per-part radiance -- is resolved once at the first
+ * frame and stands for the whole grid. What is rebuilt is the geometry, because the pose is baked
+ * into the world positions exactly as the file's own placements are. */
+[[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
+  if (!subject.Animated()) {
+    if (subject.Geometry.Build(subject.File)) { return true; }
+    error = subject.Geometry.Error();
+    return false;
+  }
+  subject.Animation.At((double)frame / subject.Fps, subject.Locals);
+  if (subject.Geometry.Build(subject.File, outshine::Span<const Transform>(subject.Locals.data(),
+                                                                          subject.Locals.size()))) {
+    return true;
+  }
+  error = subject.Geometry.Error();
+  return false;
+}
+
 [[nodiscard]] bool BuildSubject(Case &subject, std::string &error) {
   const std::string entry =
       subject.Manifest.Root()["subjects"][size_t{0}]["entry"].Str("scene.gltf");
@@ -1037,10 +1115,12 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
     error = subject.File.Error();
     return false;
   }
-  if (!subject.Geometry.Build(subject.File)) {
-    error = subject.Geometry.Error();
+  if (subject.Animated() &&
+      !outshine::Gltf::Pose::Build(subject.File, subject.AnimationIndex, subject.Animation, error)) {
     return false;
   }
+  if (!PoseGeometry(subject, 0, error)) { return false; }
+  subject.RestPositions = subject.Geometry.PositionsM();
   ResolveSurfaceTable(subject.File, subject.Geometry, subject.Surfaces);
   if (subject.MaterialFromFile() &&
       !ResolveFileSurface(subject.File, subject.Geometry, subject.Colour, subject.Carrier,
@@ -1078,6 +1158,11 @@ struct Picture {
    * (board:1138). It is the coverage predicate's missing half: `Depth` says a pixel is covered and
    * this says by WHAT, so a surface swap has a spelling that is not a number of codes. */
   std::vector<float> SurfaceIdentity;
+  /* THE SCREEN-SPACE MOTION OF WHAT WROTE THE DEPTH, xy per pixel in NDC units per frame
+   * (board:1169). Empty unless the plan attaches the target, which only a sequence asks for: with
+   * nothing in the tree ever moving, no case had ever produced a velocity that was not the pass's
+   * own "nothing dynamic wrote this pixel" sentinel. */
+  std::vector<float> Velocity;
 };
 
 /* THE RUNNER IS A CODE CONSUMER OF THE SETUP API and not a second engine: everything it asks for is
@@ -1111,6 +1196,11 @@ struct Picture {
   }
   if (renderer.ReadSurfaceIdentity(out.SurfaceIdentity) != outshine::Render::ReadState::Ready) {
     error = "the surface-identity readback did not complete";
+    return false;
+  }
+  if (renderer.Plan().Holds(outshine::Render::Resource::SceneVelocity) &&
+      renderer.ReadSceneVelocity(out.Velocity) != outshine::Render::ReadState::Ready) {
+    error = "the velocity readback did not complete";
     return false;
   }
   return true;
@@ -1264,8 +1354,64 @@ void ScoreRadianceResidual(const Case &subject, const Picture &picture, const Ra
  * line number is what sends a reader to the phase that stopped. */
 enum class Prepared { Yes, No };
 
-Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
-                 outshine::Render::Renderer &renderer) {
+/* THE ORACLE AT ONE FRAME, read before anything of that frame is rendered: an absent reference is a
+ * property of the case, and finding it out after a device bring-up would report a rendering failure
+ * for a missing file. THE EXR IS THE ORACLE AND THE FLAT DUMP IS ITS CACHE (board:1119). */
+[[nodiscard]] bool ReadOracle(const Case &subject, int frame, RawF32 &oracle, size_t &seedApart) {
+  using namespace outshine::Test;
+  const std::optional<int> which = subject.ProductFrame(frame);
+  const std::string picture = OracleProduct{"", "default", which}.Exr();
+  const bool haveOracle = oracle.ReadExrFile(subject.Directory + picture);
+  CHECK(haveOracle, "the cached oracle is present and decodes as the float image of this frame");
+  if (!haveOracle) {
+    Refused(oracle.Error());
+    return false;
+  }
+  const bool sameFrame = oracle.Width() == (int)subject.Frame.WidthPx &&
+                         oracle.Height() == (int)subject.Frame.HeightPx;
+  CHECK(sameFrame, "the oracle was rendered at the resolution the manifest's recipe declares");
+  if (!sameFrame) {
+    Refused(picture + " is " + std::to_string(oracle.Width()) + "x" +
+            std::to_string(oracle.Height()) + " and the recipe declares " +
+            std::to_string((int)subject.Frame.WidthPx) + "x" +
+            std::to_string((int)subject.Frame.HeightPx));
+    return false;
+  }
+
+  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
+   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
+   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
+   * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
+   * `board/` */
+  seedApart = 0;
+  if (!Reduced(subject)) { return true; }
+  const std::string second = OracleProduct{"", "seed-shift", which}.Exr();
+  RawF32 shifted;
+  const bool haveShift = shifted.ReadExrFile(subject.Directory + second);
+  CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
+  if (!haveShift) {
+    Refused(shifted.Error());
+    return false;
+  }
+  const bool sameShape = shifted.Width() == oracle.Width() &&
+                         shifted.Height() == oracle.Height() &&
+                         shifted.Channels() == oracle.Channels();
+  CHECK(sameShape, "the two seeds were rendered into the same frame");
+  if (!sameShape) {
+    Refused(second + " is not the shape " + picture + " is");
+    return false;
+  }
+  for (int y = 0; y < oracle.Height(); ++y) {
+    for (int x = 0; x < oracle.Width(); ++x) {
+      for (int channel = 0; channel < oracle.Channels(); ++channel) {
+        if (oracle.At(x, y, channel) != shifted.At(x, y, channel)) { ++seedApart; }
+      }
+    }
+  }
+  return true;
+}
+
+Prepared Prepare(Case &subject, outshine::Render::Renderer &renderer) {
   using namespace outshine::Test;
   std::string why;
   const bool declared = ReadManifest(subject, why);
@@ -1300,56 +1446,6 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
                 subject.Manifest.Root()["criterion"]["oracleLimitation"].Str("").c_str());
   }
 
-  /* THE ORACLE IS READ BEFORE ANYTHING IS RENDERED. An absent reference is a property of the case,
-   * and finding it out after a device bring-up would report a rendering failure for a missing file. */
-  /* THE EXR IS THE ORACLE AND THE FLAT DUMP IS ITS CACHE (board:1119). */
-  const bool haveOracle = oracle.ReadExrFile(subject.Directory + "oracle.exr");
-  CHECK(haveOracle, "the cached oracle is present and decodes as the float image of this frame");
-  if (!haveOracle) {
-    Refused(oracle.Error());
-    return Prepared::No;
-  }
-  const bool sameFrame = oracle.Width() == (int)subject.Frame.WidthPx &&
-                         oracle.Height() == (int)subject.Frame.HeightPx;
-  CHECK(sameFrame, "the oracle was rendered at the resolution the manifest's recipe declares");
-  if (!sameFrame) {
-    Refused("oracle.exr is " + std::to_string(oracle.Width()) + "x" +
-            std::to_string(oracle.Height()) + " and the recipe declares " +
-            std::to_string((int)subject.Frame.WidthPx) + "x" +
-            std::to_string((int)subject.Frame.HeightPx));
-    return Prepared::No;
-  }
-
-  /* THE ORACLE STATES ITS OWN RESIDUAL BEFORE IT JUDGES OURS, and for an emission case that residual
-   * must be nothing at all: two seeds, the same bits, or the case fails on the ORACLE and not on us.
-   * Why an emitter owes exactly this, and why the second recipe may differ in the seed alone, is
-   * declared where the manifest is read (test/corpus/prep/manifest.py) and derived in
-   * `board/` */
-  if (Reduced(subject)) {
-    RawF32 shifted;
-    const bool haveShift = shifted.ReadExrFile(subject.Directory + "oracle.seed-shift.exr");
-    CHECK(haveShift, "the emission case carries a second oracle rendered at another seed");
-    if (!haveShift) {
-      Refused(shifted.Error());
-      return Prepared::No;
-    }
-    const bool sameShape = shifted.Width() == oracle.Width() &&
-                           shifted.Height() == oracle.Height() &&
-                           shifted.Channels() == oracle.Channels();
-    CHECK(sameShape, "the two seeds were rendered into the same frame");
-    if (!sameShape) {
-      Refused("oracle.seed-shift.exr is not the shape oracle.exr is");
-      return Prepared::No;
-    }
-    for (int y = 0; y < oracle.Height(); ++y) {
-      for (int x = 0; x < oracle.Width(); ++x) {
-        for (int channel = 0; channel < oracle.Channels(); ++channel) {
-          if (oracle.At(x, y, channel) != shifted.At(x, y, channel)) { ++seedApart; }
-        }
-      }
-    }
-  }
-
   /* THE CASE'S OWN DECLARATION, and it is the whole of what will be created and encoded. One content
    * stage and two requested outputs: the depth the coverage predicate reads, and the picture a person
    * opens. No light model, no atmosphere chain, no shadow, no occlusion, no temporal resolve, no
@@ -1368,6 +1464,12 @@ Prepared Prepare(Case &subject, RawF32 &oracle, size_t &seedApart,
                          outshine::Render::Resource::SceneShadingNormal,
                          outshine::Render::Resource::SceneSurfaceIdentity,
                          outshine::Render::Resource::FrameTex};
+  /* THE MOTION TARGET IS REQUESTED BY A SEQUENCE AND BY NOTHING ELSE (board:1169). The plan prunes
+   * a target nothing reads, so a still case's pipelines, vertex layouts and shader text are exactly
+   * what they were; and a subject that cannot move has no motion to publish. */
+  if (subject.Animated()) {
+    declaration.Outputs.push_back(outshine::Render::Resource::SceneVelocity);
+  }
   declaration.Content = {outshine::Render::Stage::Subjects};
   declaration.Display =
       outshine::Render::Declared<outshine::Render::Transfer>(outshine::Render::Transfer::Linear);
@@ -1617,6 +1719,10 @@ void ScoreStatedInvariants(const Case &subject, const Picture &picture, const Ra
 outshine::Clients::Studio MakeStudio(const Case &subject) {
   outshine::Clients::Studio studio;
   studio.Geometry = &subject.Geometry;
+  /* THE PREVIOUS POSE CROSSES ONLY WHERE THE PLAN ATTACHES A VELOCITY TARGET, which is exactly a
+   * sequence: the studio refuses one it has nowhere to write and refuses its absence where it must
+   * write one, so the two declarations cannot be set out of step (board:1169). */
+  if (subject.Animated()) { studio.Previous = &subject.PreviousGeometry; }
   studio.Eye = subject.Eye;
   studio.EmittedRadiance = subject.Emitted;
   studio.PartSurface = subject.Surfaces.PartSlot;
@@ -1918,13 +2024,14 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
  * what a node-level comparison would have to work with, and claims nothing our side can answer. */
 [[nodiscard]] Mask ScoreSurfaceIdentity(const Case &subject, const Picture &picture,
                                         const RawF32 &oraclePicture, const Mask &ours,
-                                        const Mask &theirs, std::vector<Metric> &metrics) {
+                                        const Mask &theirs, int frame,
+                                        std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   using namespace outshine::Render::Parity;
 
   const std::vector<std::string> names = FileMaterialNames(subject.File);
   OracleSurfaces oracle;
-  if (!oracle.Read(subject.Directory, IndexPass::Material, names)) {
+  if (!oracle.Read(subject.Directory, IndexPass::Material, subject.ProductFrame(frame), names)) {
     Refused(oracle.Error());
     return Mask{};
   }
@@ -1988,7 +2095,7 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
   /* THE OBJECT PASS'S DISCRIMINATION, on its own, because it is a different partition of the same
    * frame and a count of one there means a node-level question cannot be asked of this case either. */
   OracleSurfaces objects;
-  if (!objects.Read(subject.Directory, IndexPass::Object, names)) {
+  if (!objects.Read(subject.Directory, IndexPass::Object, subject.ProductFrame(frame), names)) {
     Refused(objects.Error());
     return reading.AttributableAt;
   }
@@ -2015,10 +2122,11 @@ void NoteDisagreements(const outshine::Render::Parity::IdentityReading &reading)
  * would come back as a clean 90 degrees on every one of them, which reads as a finding. The count of
  * excluded pixels is published beside the result, because an exclusion nobody counts is a mask. */
 void ScoreShadingNormal(const Case &subject, const Picture &picture, const Mask &ours,
-                        const Transform &clip, std::vector<Metric> &metrics) {
+                        const Transform &clip, int frame, std::vector<Metric> &metrics) {
   using namespace outshine::Test;
   RawF32 cycles;
-  const std::string path = subject.Directory + "oracle.normal.raw";
+  const std::string path =
+      subject.Directory + OracleProduct{"normal", "default", subject.ProductFrame(frame)}.Raw();
   if (!cycles.ReadFile(path)) {
     Refused(cycles.Error());
     return;
@@ -2312,45 +2420,127 @@ std::string Argument(int argc, char **argv) {
 
 } // namespace
 
-int main(int argc, char **argv) {
+/* WHAT THE MOTION TARGET ACTUALLY CARRIES, and this is the first case in the tree that can ask
+ * (board:1169). Every geometry pipeline declares the attachment and every fragment used to write
+ * `kVelocityStatic` into it unconditionally, so the answer was the sentinel at every covered pixel
+ * of every case -- a target allocated, cleared, written and never once holding a motion.
+ *
+ * THE SENTINEL IS THE CLEAR VALUE AND A COVERED PIXEL MAY NOT CARRY IT. NDC displacement is bounded
+ * by 2 per axis and the clear is -1e4, so the two cannot be confused, and "a fragment reached this
+ * pixel and wrote no motion" has a spelling that a count can find.
+ *
+ * ZERO IS AN ANSWER AND NOT AN ABSENCE: the outer body of this subject never moves, so most of its
+ * covered pixels carry exactly zero at every frame, and frame 0 carries zero everywhere because its
+ * previous pose is itself. What must not be zero is the count over the WHOLE frame once something
+ * has moved. */
+void ScoreVelocity(const Case &subject, const Picture &picture, const Mask &ours, int frame,
+                   std::vector<Metric> &metrics) {
   using namespace outshine::Test;
-
-  RunnerLog logging;
-  outshine::Log::SetSink(&logging);
-
-  Case subject;
-  subject.Directory = Argument(argc, argv);
-  CHECK(!subject.Directory.empty(),
-        "the runner was given the case directory it is to score, which is its only argument");
-  if (subject.Directory.empty()) { return Report(); }
-  std::printf("CASE %s\n", subject.Directory.c_str());
-
-  RawF32 oracle;
-  size_t seedApart = 0;
-  outshine::Render::Renderer renderer;
-  if (Prepare(subject, oracle, seedApart, renderer) == Prepared::No) {
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
+  if (picture.Velocity.empty()) { return; }
+  const size_t pixels = (size_t)ours.Width * (size_t)ours.Height;
+  if (picture.Velocity.size() < pixels * 2u) {
+    Refused("the velocity readback does not cover the frame");
+    return;
   }
-
-  const outshine::Clients::Studio studio = MakeStudio(subject);
-  NoteWhatTheStudioCarries(subject, studio);
-
-  std::string why;
-  Picture picture;
-  const bool rendered = Capture(renderer, studio, picture, why);
-  CHECK(rendered, "outshine rendered the subject and both readbacks landed");
-  if (!rendered) {
-    Refused(why);
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
+  size_t covered = 0, sentinel = 0, moving = 0;
+  double furthestNdc = 0, furthestPx = 0;
+  /* NDC SPANS 2 ACROSS THE FRAME IN EACH AXIS, so a displacement in pixels is the x component times
+   * half the width and the y component times half the HEIGHT -- one scale for both axes would be a
+   * number whose frame of reference is only right where the frame is square. */
+  const double toPxX = 0.5 * subject.Frame.WidthPx, toPxY = 0.5 * subject.Frame.HeightPx;
+  for (size_t pixel = 0; pixel < pixels; ++pixel) {
+    if (!ours.In[pixel]) { continue; }
+    ++covered;
+    const double x = picture.Velocity[pixel * 2], y = picture.Velocity[pixel * 2 + 1];
+    if (x <= -1.0e3 || y <= -1.0e3) {
+      ++sentinel;
+      continue;
+    }
+    const double moved = std::sqrt(x * x + y * y);
+    if (moved > 0) { ++moving; }
+    furthestNdc = std::fmax(furthestNdc, moved);
+    const double acrossPx = x * toPxX, downPx = y * toPxY;
+    furthestPx = std::fmax(furthestPx, std::sqrt(acrossPx * acrossPx + downPx * downPx));
   }
+  metrics.push_back({"velocity_pixels_covered", (double)covered, 0.0, "px", Direction::Reported});
+  metrics.push_back({"velocity_pixels_carrying_the_static_sentinel", (double)sentinel, 0.0, "px",
+                     Direction::AtMost});
+  metrics.push_back({"velocity_pixels_moving", (double)moving, frame == 0 ? 0.0 : 1.0, "px",
+                     frame == 0 ? Direction::AtMost : Direction::AtLeast});
+  Note("velocity, furthest a covered pixel moved since the previous frame", furthestNdc,
+       "ndc per frame");
+  Note("velocity, furthest a covered pixel moved since the previous frame", furthestPx,
+       "px per frame");
+}
 
-  const Mask ours = FromDepth(picture.Depth, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
-  const Mask theirs = FromOracle(oracle);
+/* THE SUBJECT MOVES, AND IT IS PROVED BEFORE THE FRAMES ARE COMPARED (board:1169). A case that
+ * renders the rest pose at every frame passes every frame-by-frame comparison, and that is the
+ * hollow green an animated suite dies of quietly: the oracle would be posed by Blender and we would
+ * be posed by nothing, and only a subject that HAPPENED to move would show it.
+ *
+ * IT IS MEASURED ON THE DRAWN GEOMETRY AND NOT ON THE POSE WE INTENDED. What is compared is the
+ * vertex run that was handed to the renderer at this frame against the one handed to it at frame 0,
+ * so a sampler pinned to frame 0 anywhere between the declaration and the draw call comes back as
+ * zero here whatever the tracks say.
+ *
+ * THE FLOOR IS THE ORACLE'S OWN SUB-PIXEL RESOLUTION, which is the smallest displacement either
+ * side could resolve: half the box filter's width, already declared in the recipe and already the
+ * floor every near-tie in this suite is judged against. A displacement under it is a frame the
+ * oracle cannot tell from the last one. */
+[[nodiscard]] bool ScoreMotion(const Case &subject, int frame) {
+  using namespace outshine::Test;
+  if (frame == 0) { return true; }
+  Transform clip;
+  if (!subject.Eye.Clip(subject.Frame.Aspect(), clip)) {
+    CHECK(false, "the resolved camera yields a projection, so the motion is measurable in pixels");
+    return false;
+  }
+  const std::vector<double> &now = subject.Geometry.PositionsM();
+  const std::vector<double> &rest = subject.RestPositions;
+  if (now.size() != rest.size() || now.empty()) {
+    CHECK(false, "the posed subject carries the same vertices at every frame of the grid");
+    return false;
+  }
+  double furthestM = 0, furthestPx = 0;
+  for (size_t vertex = 0; vertex * 3 + 2 < now.size(); ++vertex) {
+    double moved = 0;
+    for (size_t axis = 0; axis < 3; ++axis) {
+      const double off = now[vertex * 3 + axis] - rest[vertex * 3 + axis];
+      moved += off * off;
+    }
+    furthestM = std::fmax(furthestM, std::sqrt(moved));
+    const double here[3] = {now[vertex * 3], now[vertex * 3 + 1], now[vertex * 3 + 2]};
+    const double there[3] = {rest[vertex * 3], rest[vertex * 3 + 1], rest[vertex * 3 + 2]};
+    double hereNdc[3], thereNdc[3], herePx[2], therePx[2];
+    clip.Point(here, hereNdc);
+    clip.Point(there, thereNdc);
+    subject.Frame.Raster(hereNdc, herePx);
+    subject.Frame.Raster(thereNdc, therePx);
+    const double dx = herePx[0] - therePx[0], dy = herePx[1] - therePx[1];
+    furthestPx = std::fmax(furthestPx, std::sqrt(dx * dx + dy * dy));
+  }
+  Note("subject motion from frame 0, furthest vertex", furthestM, "m");
+  Note("subject motion from frame 0, furthest vertex projected", furthestPx, "px");
+  Note("the floor it is held against, the oracle's own sub-pixel resolution",
+       subject.OracleFloorPx, "px");
+  const bool moved = furthestPx > subject.OracleFloorPx;
+  CHECK(moved, "the drawn subject at this frame is not the drawn subject at frame 0");
+  return moved;
+}
 
-  /* THE PICTURES GO DOWN BEFORE THE VERDICT, so a case that is about to fail still leaves the two
-   * frames a person opens to see why -- especially then. */
+/* THE FRAME'S ARTEFACTS ON DISK, AND THE VERDICT'S OWN BUFFER BACK. It runs before anything is
+ * scored, so a case that is about to fail still leaves the two frames a person opens to see why --
+ * especially then. Over a sequence every frame overwrites them, which is what makes the pair in the
+ * directory the frame the verdict came from: the early exit stops at the first failing frame, so the
+ * last pair written is that one or the last one that passed (board:1169).
+ *
+ * IT RETURNS THE SCORED SAMPLES because they are what it wrote, and the caller compares against
+ * exactly the buffer that is now on disk -- an `F.20` return rather than a fourth output parameter.
+ */
+[[nodiscard]] std::vector<float> WriteProducts(const Case &subject, const Picture &picture,
+                                               const RawF32 &oracle, const Mask &ours,
+                                               const Mask &theirs) {
+  using namespace outshine::Test;
   const std::vector<uint8_t> reference = Encoded(oracle);
   const Pictures products(subject.Directory);
   std::string unwritten;
@@ -2397,6 +2587,41 @@ int main(int argc, char **argv) {
                         "that were scored, so the file on disk IS the frame the number came from");
   if (!unwritten.empty()) { Refused(unwritten); }
 
+  return scored;
+}
+
+/* WHAT ONE FRAME OF A CASE CAME TO. `Compared` says the two sides were both there and scored;
+ * `Held` says every enforced metric of that frame held. A sequence stops at the first frame where
+ * either is false (board:1129), and a still is the one-frame case of the same loop. */
+struct FrameVerdict {
+  bool Compared = false;
+  bool Held = false;
+};
+
+FrameVerdict ScoreFrame(Case &subject, outshine::Render::Renderer &renderer, int frame) {
+  using namespace outshine::Test;
+
+  RawF32 oracle;
+  size_t seedApart = 0;
+  if (!ReadOracle(subject, frame, oracle, seedApart)) { return FrameVerdict{}; }
+
+  const outshine::Clients::Studio studio = MakeStudio(subject);
+  NoteWhatTheStudioCarries(subject, studio);
+
+  std::string why;
+  Picture picture;
+  const bool rendered = Capture(renderer, studio, picture, why);
+  CHECK(rendered, "outshine rendered the subject and both readbacks landed");
+  if (!rendered) {
+    Refused(why);
+    return FrameVerdict{};
+  }
+
+  const Mask ours = FromDepth(picture.Depth, (int)subject.Frame.WidthPx, (int)subject.Frame.HeightPx);
+  const Mask theirs = FromOracle(oracle);
+
+  const std::vector<float> scored = WriteProducts(subject, picture, oracle, ours, theirs);
+
   std::vector<Metric> metrics;
   if (Reduced(subject)) {
     metrics.push_back({"oracle_samples_differing_between_seeds", (double)seedApart, 0.0, "samples",
@@ -2437,8 +2662,7 @@ int main(int argc, char **argv) {
           "both renders carry a subject, so there is something to compare -- two empty masks agree "
           "perfectly and would have tested nothing");
     Refused("a side of the comparison is empty, so no agreement number is computed over it");
-    std::printf("VERDICT NOTHING-TO-COMPARE\n");
-    return Report();
+    return FrameVerdict{};
   }
 
   ScoreAlternateSpellings(subject, studio, renderer, ours, metrics);
@@ -2448,7 +2672,8 @@ int main(int argc, char **argv) {
    * it -- and a router that cannot ask "do the two sides name the same surface here" scores a
    * surface swap as a colour disagreement. It stays a reported diagnostic; what changed is only WHEN
    * it is available. */
-  const Mask routedBySurface = ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, metrics);
+  const Mask routedBySurface =
+      ScoreSurfaceIdentity(subject, picture, oracle, ours, theirs, frame, metrics);
   const Routing routing{ours, theirs, routedBySurface};
 
   /* WHETHER "EVERY PIXEL MUST AGREE" IS A FAIR DEMAND ON THIS SUBJECT, and it is a property of the
@@ -2507,7 +2732,9 @@ int main(int argc, char **argv) {
   const Tail bound = BoundFor(subject.Path);
   ScorePictureBound(image, bound, metrics);
 
-  ScoreShadingNormal(subject, picture, ours, clip, metrics);
+  ScoreShadingNormal(subject, picture, ours, clip, frame, metrics);
+
+  ScoreVelocity(subject, picture, ours, frame, metrics);
 
   ScoreDeterminism(subject, studio, renderer, picture, metrics);
 
@@ -2567,9 +2794,14 @@ int main(int argc, char **argv) {
   if (statesFraction && projects) {
     const double fraction = subject.Geometry.ProjectedAreaPx(clip, subject.Frame) /
                             (subject.Frame.WidthPx * subject.Frame.HeightPx);
+    /* THE CAMERA IS A PROPERTY OF THE CASE AND NOT OF THE FRAME, so the check that it frames the
+     * subject as the derivation says is taken once, at the frame the declaration is stated for. An
+     * animated subject has a different projected area at every frame BY CONSTRUCTION -- that is
+     * what animating it means -- so enforcing one declared number over the whole grid would demand
+     * that the subject not move. It is still recomputed and published at every frame. */
     metrics.push_back({"frame_fraction_error", std::fabs(fraction - declaredFraction),
                        subject.Accepted.FrameFractionTolerance, "dimensionless",
-                       Direction::AtMost});
+                       frame == 0 ? Direction::AtMost : Direction::Reported});
     Note("projected frame fraction", fraction, "dimensionless");
     Note("declared frame fraction", declaredFraction, "dimensionless");
   } else if (statesFraction) {
@@ -2590,10 +2822,86 @@ int main(int argc, char **argv) {
 
   Print(metrics);
   SayBothVerdicts(metrics, bound);
+  FrameVerdict verdict{true, true};
   for (const Metric &metric : metrics) {
     if (metric.Against == Direction::Reported) { continue; }
     CHECK(metric.Held(), metric.Name.c_str());
+    verdict.Held = verdict.Held && metric.Held();
   }
+  return verdict;
+}
+
+int main(int argc, char **argv) {
+  using namespace outshine::Test;
+
+  RunnerLog logging;
+  outshine::Log::SetSink(&logging);
+
+  Case subject;
+  subject.Directory = Argument(argc, argv);
+  CHECK(!subject.Directory.empty(),
+        "the runner was given the case directory it is to score, which is its only argument");
+  if (subject.Directory.empty()) { return Report(); }
+  std::printf("CASE %s\n", subject.Directory.c_str());
+
+  outshine::Render::Renderer renderer;
+  if (Prepare(subject, renderer) == Prepared::No) {
+    std::printf("VERDICT NOTHING-TO-COMPARE\n");
+    return Report();
+  }
+
+  /* FRAME BY FRAME, IN ORDER, STOPPING AT THE FIRST ONE THAT FAILS (board:1129). A per-sequence
+   * aggregate -- a mean over frames, a worst-of -- would let one badly wrong frame average into the
+   * bound and would name no frame to look at; the frame it stops at is also the most diagnostic,
+   * because every later one inherits its divergence. A still is one frame and takes the same path.
+   *
+   * THE TWO PICTURES IN THE DIRECTORY ARE THE FRAME THE VERDICT CAME FROM, which follows from the
+   * early exit rather than from a rule: every frame overwrites them, and the last one written is
+   * the one that failed or the last one that passed. */
+  std::string why;
+  int compared = 0;
+  int stoppedAt = -1;
+  for (int frame = 0; frame < subject.Frames; ++frame) {
+    if (subject.Animated()) {
+      std::printf("FRAME %d of %d at %.9g s\n", frame, subject.Frames,
+                  (double)frame / subject.Fps);
+      /* WHAT THE MOTION IS MEASURED FROM, advanced before the pose is taken: at frame 0 the
+       * geometry is still frame 0's, so the first frame's velocity is exactly zero. */
+      subject.PreviousGeometry = subject.Geometry;
+      if (!PoseGeometry(subject, frame, why)) {
+        CHECK(false, "the subject poses at every frame of the declared grid");
+        Refused(why);
+        stoppedAt = frame;
+        break;
+      }
+      if (!ScoreMotion(subject, frame)) {
+        stoppedAt = frame;
+        break;
+      }
+    }
+    const FrameVerdict verdict = ScoreFrame(subject, renderer, frame);
+    if (!verdict.Compared) {
+      stoppedAt = frame;
+      break;
+    }
+    ++compared;
+    if (!verdict.Held) {
+      stoppedAt = frame;
+      break;
+    }
+  }
+  Note("frames compared", (double)compared, "frames");
+  Note("frames declared", (double)subject.Frames, "frames");
+  if (stoppedAt >= 0) {
+    std::printf("FIRST FAILING FRAME %d of %d\n", stoppedAt, subject.Frames);
+    std::printf("VERDICT COMPARED\n");
+    Covers("I.26.10 a render test is a directory: one runner reads the declaration, renders the "
+           "subject with no world, scores it against the cached oracle by named metrics with their "
+           "own thresholds and directions, and always writes the three pictures");
+    return Report();
+  }
+  CHECK(compared == subject.Frames,
+        "every frame of the declared grid was compared against the oracle at that frame");
   std::printf("VERDICT COMPARED\n");
   Covers("I.26.10 a render test is a directory: one runner reads the declaration, renders the "
          "subject with no world, scores it against the cached oracle by named metrics with their "

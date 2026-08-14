@@ -462,7 +462,13 @@
         "material": {
           "object": "material"
         }
-      }
+      },
+      "optional": {
+        "animation": {
+          "object": "animation"
+        }
+      },
+      "note": "A declared ANIMATION makes the case a sequence (board:1169): the same subject, the same camera and the same recipe at every frame of a declared grid, with the frame in the oracle key so each one is its own cached product. Its absence is a still, which is one frame and the whole corpus until now."
     },
     "camera": {
       "discriminator": "source",
@@ -837,6 +843,18 @@
         }
       },
       "note": "THE RELATION THE ASSET STATES ABOUT A RENDER OF ITSELF, evaluated on the scene-referred linear tap and on nothing else. `hue-of-brightest` -- over the brightest declared fraction of the covered pixels, each channel's share of the pixel's own sum equals a declared hue. `region-compare` -- two rectangles of the frame, congruent by construction, agree per channel after a declared scale. A region-compare carries EXACTLY ONE currency and the runner refuses both or neither: `maxUlps` is a maximum and is right where both sides come out of one shader over one surface, `maxP95Relative` is a quantile and is the only honest currency where the two regions are the same surface stated two ways -- a tessellation against a bake of it disagrees by O(1) on the silhouette rim for a correct renderer."
+    },
+    "animation": {
+      "required": {
+        "index": "index",
+        "fps": {
+          "quantity": "integer"
+        },
+        "frames": {
+          "quantity": "integer"
+        }
+      },
+      "note": "THE FRAME IS THE CURRENCY AND SECONDS ARE DERIVED (board:1129): frame n is n/fps seconds into the file's own animation, so a run delivers the same N poses whatever the wall clock does. `frames` is how many of them the case declares, counted from 0. `index` names one of the file's animations."
     }
   }
 }

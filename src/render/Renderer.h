@@ -82,6 +82,12 @@ public:
    * slot is not a material: which material a slot carries is the consumer's own table, and this
    * layer has no spelling for one. */
   [[nodiscard]] ReadState ReadSurfaceIdentity(std::vector<float> &slot);
+  /* THE SCREEN-SPACE MOTION OF WHAT WROTE THE DEPTH, two floats per pixel in NDC units per frame
+   * (board:1169). Empty unless the plan holds the target. A pixel no subject fragment reached
+   * carries the pass's clear value, `kVelocityStatic` in both channels, which is unreachable for a
+   * real motion -- NDC displacement is bounded by 2 per axis -- so "static" and "did not move" are
+   * two answers here and not one. */
+  [[nodiscard]] ReadState ReadSceneVelocity(std::vector<float> &xy);
 
   /* THE DECLARED SUBJECT OF A STUDIO (stages/SubjectDraw.h): one indexed mesh and the DRAW LIST over
    * it -- many primitives, each with its own surface slot and vertex layout. */
@@ -157,6 +163,14 @@ private:
   double Fwd[3] = {0, 0, 0}, Right[3] = {0, 0, 0}, Up[3] = {0, 0, 0};
   float FovDeg = 60.0f;                   /* [SET] until a scene declares one */
   float OrthoM = 0.0f;                    /* > 0: parallel projection covering this many metres */
+  /* WHERE THE EYE WAS WHEN THE LAST FRAME WAS SUBMITTED, which is the other half of a screen-space
+   * motion vector (board:1169). It is written at the END of RenderFrame, so every stage of one
+   * frame sees the same previous camera whatever order the passes were compiled into. Before the
+   * first submit it is this frame's, which makes the first frame's motion zero rather than the
+   * displacement from an undefined pose. */
+  bool Submitted = false;
+  double PrevEye[3] = {0, 0, 0};
+  float PrevMvp16[16] = {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1};
 };
 
 } // namespace outshine::Render

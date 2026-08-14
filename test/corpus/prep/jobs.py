@@ -64,7 +64,12 @@ def plan(manifest, store):
             )
             if not cached:
                 total += file["bytes"]
-    return {"files": rows, "bytesToFetch": total, "renders": sorted(manifest.renders)}
+    # THE COST IS RECIPES TIMES FRAMES AND NOT RECIPES. A sequence renders its whole declared grid
+    # per recipe (board:1129), so a plan that counted recipes alone would understate a 31-frame case
+    # by a factor of 31 -- and this exists to publish what a cold run costs before it spends it.
+    frames = manifest.frame_grid()
+    return {"files": rows, "bytesToFetch": total, "renders": sorted(manifest.renders),
+            "framesPerRecipe": len(frames), "rendersToRun": len(manifest.renders) * len(frames)}
 
 
 def generate_subjects(manifest, destination):
@@ -257,54 +262,62 @@ def render_oracle(manifest, store, blender, destination, only=None, force=False)
     for name in sorted(manifest.renders):
         if only and name not in only:
             continue
-        recipe = manifest.renders[name]
-        names = manifest_module.output_names_for(name)
-        targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
-        products = tuple(names)
-        keys = {
-            product: derived_key(
-                "oracle." + product,
-                {
-                    # The pinned Blender is in the key because a point release that changes Cycles
-                    # must miss. Both the declared and the observed version are here: the first
-                    # catches a manifest bump on an unchanged host, the second a host that moved
-                    # under an unchanged manifest, and one of the two alone catches neither.
-                    "blenderDeclared": manifest.blender_version,
-                    "blenderObserved": blender.version,
-                    "blenderBuildHash": blender.build_hash,
-                    "subjects": subject_pin,
-                    "scene": manifest.scene.as_job(),
-                    "recipe": recipe,
-                    # board:1120 -- see RENDER_CODE above.
-                    "preparer": render_code_digest(),
-                    "product": product,
-                },
-            )
-            for product in products
-        }
-        stored = all(store.has(key) for key in keys.values())
-        placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
-        if not force and placed:
-            results.append({"recipe": name, "cache": "hit", "keys": keys, "products": _sizes(targets),
-                            "provenance": None})
-            continue
-        provenance = None
-        if force or not stored:
-            provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store, products)
-        for product in targets:
-            store.copy_out(keys[product], targets[product])
-        results.append({"recipe": name, "cache": "miss" if provenance else "hit", "keys": keys,
-                        "products": _sizes(targets), "provenance": provenance})
+        for frame in manifest.frame_grid():
+            results.append(_render_one(manifest, store, blender, destination, gltf_paths,
+                                       subject_pin, name, frame, force))
     return results
 
 
-def _run_render(manifest, blender, gltf_paths, recipe, keys, store, products):
+def _render_one(manifest, store, blender, destination, gltf_paths, subject_pin, name, frame, force):
+    recipe = manifest.renders[name]
+    names = manifest_module.output_names_for(name, frame)
+    targets = {product: os.path.join(destination, filename) for product, filename in names.items()}
+    products = tuple(names)
+    recipe_key = {
+        # The pinned Blender is in the key because a point release that changes Cycles
+        # must miss. Both the declared and the observed version are here: the first
+        # catches a manifest bump on an unchanged host, the second a host that moved
+        # under an unchanged manifest, and one of the two alone catches neither.
+        "blenderDeclared": manifest.blender_version,
+        "blenderObserved": blender.version,
+        "blenderBuildHash": blender.build_hash,
+        "subjects": subject_pin,
+        "scene": manifest.scene.as_job(),
+        "recipe": recipe,
+        # board:1120 -- see RENDER_CODE above.
+        "preparer": render_code_digest(),
+    }
+    # THE FRAME IS PART OF THE KEY (board:1128), and it is absent from a still's key rather than
+    # null in it: a case with no animation declares no frame, and its products keep the keys the
+    # corpus already computed for them.
+    if frame is not None:
+        recipe_key["frame"] = frame
+    keys = {product: derived_key("oracle." + product, dict(recipe_key, product=product))
+            for product in products}
+    stored = all(store.has(key) for key in keys.values())
+    placed = stored and all(_matches(targets[p], sha256_of_file(store.path(keys[p]))) for p in targets)
+    row = {"recipe": name, "keys": keys}
+    if frame is not None:
+        row["frame"] = frame
+    if not force and placed:
+        return dict(row, cache="hit", products=_sizes(targets), provenance=None)
+    provenance = None
+    if force or not stored:
+        provenance = _run_render(manifest, blender, gltf_paths, recipe, keys, store, products, frame)
+    for product in targets:
+        store.copy_out(keys[product], targets[product])
+    return dict(row, cache="miss" if provenance else "hit", products=_sizes(targets),
+                provenance=provenance)
+
+
+def _run_render(manifest, blender, gltf_paths, recipe, keys, store, products, frame):
     with tempfile.TemporaryDirectory(prefix="outshine-oracle-") as work:
         paths = {product: os.path.join(work, "oracle." + product) for product in products}
         job_path = os.path.join(work, "job.json")
         with open(job_path, "w") as f:
             json.dump(
                 {"gltfPaths": gltf_paths, "scene": manifest.scene.as_job(), "recipe": recipe,
+                 "frame": frame,
                  "exrPath": paths["exr"], "rawPath": paths["raw"],
                  "quantityPasses": {q: spec for q, spec in manifest_module.QUANTITY_PASSES.items()
                                     if q + "Raw" in paths},

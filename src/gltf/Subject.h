@@ -161,6 +161,11 @@ class Subject {
 public:
   /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence. */
   [[nodiscard]] bool Build(const Document &document);
+  /* THE SAME FLATTEN WITH THE HIERARCHY POSED (board:1169): one local transform per node, which is
+   * what `Gltf::Pose::At` writes at a time. The pose is baked into the world positions here exactly
+   * as the file's own placements are, so nothing downstream learns that the subject was animated --
+   * a drawable is a drawable. Refuses a run that is not one transform per node. */
+  [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose);
 
   /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (board:0105): the same
    * drawable, produced rather than read. Nothing is derived here -- no normal, no tangent basis, no
@@ -236,6 +241,9 @@ public:
 
 private:
   [[nodiscard]] bool Refuse(const std::string &why);
+  /* The one walk both `Build` overloads are: `pose` is null for the file's own placements and
+   * otherwise points at one local transform per node. */
+  [[nodiscard]] bool Flatten(const Document &document, const Transform *pose);
   /* The world-space AABB over the position run, whichever of the two ways in filled it. */
   void Bound();
   /* One part's tangent run, appended in step with the runs above: the file's own where the

@@ -353,6 +353,12 @@ void Renderer::EncodeStage(Stage stage, const PassRecording &into) {
   FrameContext ctx{};
   for (int axis = 0; axis < 3; axis++) { ctx.Eye[axis] = Eye[axis]; }
   MvpCamRel(ctx.Mvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM);
+  for (int axis = 0; axis < 3; axis++) {
+    ctx.PrevEye[axis] = Submitted ? PrevEye[axis] : ctx.Eye[axis];
+  }
+  for (int at = 0; at < 16; at++) {
+    ctx.PrevMvp16[at] = Submitted ? PrevMvp16[at] : ctx.Mvp16[at];
+  }
   switch (stage) {
     case Stage::Subjects: Subjects_.Encode(ctx, into); return;
     case Stage::Tonemap: Tonemap_.Encode(ctx, into); return;
@@ -422,6 +428,9 @@ void Renderer::RenderFrame(void) {
    * against: the count, the order and the attachment set of every pass are what Compile derived. */
   for (size_t pass = 0; pass < Plan_->Passes().size(); ++pass) { EncodePass(commands, pass); }
   SDL_SubmitGPUCommandBuffer(commands);
+  for (int axis = 0; axis < 3; axis++) { PrevEye[axis] = Eye[axis]; }
+  MvpCamRel(PrevMvp16, Right, Up, Fwd, Width, Height, FovDeg, OrthoM);
+  Submitted = true;
 }
 
 void Renderer::WaitForGpu(void) {
@@ -512,6 +521,24 @@ ReadState Renderer::ReadShadingNormal(std::vector<float> &xyz) {
  * than it is: the target is cleared before the pass and a slot 0 written verbatim would be
  * indistinguishable from the clear. A reader therefore needs no second mask to tell the two apart,
  * and cannot mistake the sky for the subject's first material. */
+ReadState Renderer::ReadSceneVelocity(std::vector<float> &xy) {
+  SDL_GPUTexture *source = VelTex.Get();
+  if (!Ready || !source) { return ReadState::Failed; }
+  Readback read;
+  if (read.FromTexture(Device_.Get(), source, (uint32_t)Width, (uint32_t)Height, 4u) !=
+      ReadState::Ready) {
+    return ReadState::Failed;
+  }
+  const size_t components = (size_t)Width * (size_t)Height * 2u;
+  xy.resize(components);
+  for (size_t component = 0; component < components; ++component) {
+    uint16_t bits = 0;
+    std::memcpy(&bits, read.Rows() + component * sizeof(uint16_t), sizeof bits);
+    xy[component] = HalfToFloat(bits);
+  }
+  return ReadState::Ready;
+}
+
 ReadState Renderer::ReadSurfaceIdentity(std::vector<float> &slot) {
   SDL_GPUTexture *source = SurfaceIdentityTex.Get();
   if (!Ready || !source) { return ReadState::Failed; }

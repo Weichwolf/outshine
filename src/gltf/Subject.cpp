@@ -296,7 +296,26 @@ bool Subject::Refuse(const std::string &why) {
   return false;
 }
 
-bool Subject::Build(const Document &document) {
+bool Subject::Build(const Document &document) { return Flatten(document, nullptr); }
+
+bool Subject::Build(const Document &document, Span<const Transform> pose) {
+  if (pose.Size() != document.Nodes().size()) {
+    return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +
+                  " local transforms and the file carries " +
+                  std::to_string(document.Nodes().size()) + " nodes");
+  }
+  return Flatten(document, pose.Data());
+}
+
+bool Subject::Flatten(const Document &document, const Transform *pose) {
+  /* THE ONE PLACE THE TWO SPELLINGS MEET, so the walk below asks for a placement once however this
+   * was entered. The posed overload states the run's length and the unposed one has no run, and
+   * neither can be reached with a run that half covers the file. */
+  const auto placementOf = [&document, pose](int node, Transform &out) {
+    return pose ? document.WorldTransform(node, Span<const Transform>(pose, document.Nodes().size()),
+                                          out)
+                : document.WorldTransform(node, out);
+  };
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
@@ -334,7 +353,7 @@ bool Subject::Build(const Document &document) {
     }
     if (node.Light >= 0) {
       Transform placement;
-      if (!document.WorldTransform(nodeIndex, placement)) {
+      if (!placementOf(nodeIndex, placement)) {
         return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                       " carries a light and has no world transform: " + document.Error());
       }
@@ -368,7 +387,7 @@ bool Subject::Build(const Document &document) {
                     std::to_string(node.Mesh) + ", which the file does not carry");
     }
     Transform world;
-    if (!document.WorldTransform(nodeIndex, world)) {
+    if (!placementOf(nodeIndex, world)) {
       return Refuse(document.Path() + ": node " + std::to_string(nodeIndex) +
                     " has no world transform: " + document.Error());
     }

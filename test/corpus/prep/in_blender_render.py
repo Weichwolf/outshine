@@ -11,7 +11,7 @@ import time
 
 import bpy
 import numpy
-from mathutils import Matrix, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 # THE SCRIPT IS HANDED TO BLENDER BY PATH, so its own directory is not on the import path and the
 # reader beside it has no spelling without this line.
@@ -33,6 +33,115 @@ def job_from_argv():
         fail("no job file after --")
     with open(sys.argv[sys.argv.index("--") + 1], "r") as f:
         return json.load(f)
+
+
+def set_frame_grid(scene, animation, frame):
+    """The declared grid, set BEFORE the import and the frame set after it.
+
+    THE ORDER IS LOAD-BEARING. Blender's glTF importer converts a sampler's SECONDS into f-curve
+    frames using the scene's frame rate at import time, so a rate set afterwards would leave every
+    keyframe at the frame the factory rate put it at and every product would be the pose of a
+    different instant. `fps_base` is pinned to 1 for the same reason: the pair is a rational rate and
+    only the pair decides what a frame is worth.
+    """
+    scene.render.fps = int(animation["fps"]["value"])
+    scene.render.fps_base = 1.0
+    scene.frame_start = 0
+    scene.frame_end = max(int(animation["frames"]["value"]) - 1, 0)
+    scene.frame_set(int(frame))
+
+
+def _channelbag_of(obj):
+    """The f-curves that drive THIS object. Blender 5's action carries several slots and two objects
+    of one glTF file share one action, so the channelbag is selected by the object's own slot handle
+    -- taking the first one would resample another object's curves."""
+    animation = obj.animation_data
+    if animation is None or animation.action is None or animation.action_slot is None:
+        return None
+    for layer in animation.action.layers:
+        for strip in layer.strips:
+            for bag in strip.channelbags:
+                if bag.slot_handle == animation.action_slot.handle:
+                    return bag
+    return None
+
+
+def spherical_rotation_curves(scene, imported):
+    """THE ORACLE IS REDUCED HERE, AND WHAT IS REDUCED IS ITS INTERPOLATION (board:1169).
+
+    glTF states that a `LINEAR` rotation sampler is interpolated on the SPHERE. Blender's importer
+    builds four independent f-curves over the quaternion's components and evaluates them
+    component-wise, which is a different rotation everywhere except at the keyframes and at the exact
+    midpoint of a span -- so the oracle would be rendering a pose the file does not describe, and a
+    correct engine would be red against it.
+
+    THE REDUCTION IS BLENDER'S OWN SLERP, NOT OURS, AND THAT IS WHAT KEEPS THE COMPARISON HONEST.
+    What is read is the imported keyframes -- the file's own quaternions at the file's own times --
+    and what is written is `mathutils.Quaternion.slerp` between them at every frame of the declared
+    grid. It is a second, independent implementation of the same specified operation: an engine whose
+    slerp were wrong would still disagree with the picture this produces.
+
+    ONLY `LINEAR` CURVES ARE TOUCHED. A `STEP` sampler imports as CONSTANT and returns a keyframe
+    whichever way it is read; a `CUBICSPLINE` one imports as BEZIER and is a different question with
+    its own asset. A curve whose keyframes are not all LINEAR is left alone and counted.
+    """
+    resampled, left = [], []
+    for obj in imported:
+        bag = _channelbag_of(obj)
+        if bag is None:
+            continue
+        curves = {fc.array_index: fc for fc in bag.fcurves if fc.data_path == "rotation_quaternion"}
+        if len(curves) != 4:
+            continue
+        if any(k.interpolation != "LINEAR" for fc in curves.values() for k in fc.keyframe_points):
+            left.append({"object": obj.name, "why": "the curve is not LINEAR"})
+            continue
+        times = [k.co[0] for k in curves[0].keyframe_points]
+        if any([k.co[0] for k in curves[i].keyframe_points] != times for i in range(4)):
+            fail("the four components of " + obj.name + "'s rotation carry different keyframe times")
+        keys = [Quaternion([curves[i].keyframe_points[at].co[1] for i in range(4)])
+                for at in range(len(times))]
+        taken = []
+        for frame in range(scene.frame_start, scene.frame_end + 1):
+            taken.append((frame, _slerped(times, keys, frame)))
+        for index in range(4):
+            points = curves[index].keyframe_points
+            points.clear()
+            points.add(len(taken))
+            for at, (frame, value) in enumerate(taken):
+                points[at].co = (float(frame), value[index])
+                points[at].interpolation = "LINEAR"
+            curves[index].update()
+        resampled.append({"object": obj.name, "keyframes": len(times), "frames": len(taken)})
+    return {"resampled": resampled, "leftAlone": left}
+
+
+def _slerped(times, keys, frame):
+    if frame <= times[0]:
+        return keys[0]
+    if frame >= times[-1]:
+        return keys[-1]
+    for at in range(len(times) - 1):
+        if times[at] <= frame <= times[at + 1]:
+            span = times[at + 1] - times[at]
+            return keys[at].slerp(keys[at + 1], (frame - times[at]) / span)
+    return keys[-1]
+
+
+def evaluated_pose(imported):
+    """Where the oracle actually put each object at this frame, in Blender's own +Z-up metres.
+
+    IT IS A DIAGNOSTIC AND NOT A VERDICT: a picture disagreement over an animated case is either the
+    pose or the raster, and without this the two are not separable without a second run.
+    """
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    pose = {}
+    for obj in imported:
+        if obj.name not in bpy.data.objects:
+            continue
+        matrix = bpy.data.objects[obj.name].evaluated_get(depsgraph).matrix_world
+        pose[obj.name] = [list(row) for row in matrix]
+    return pose
 
 
 def clear_objects():
@@ -999,6 +1108,9 @@ def main():
     }
     clear_objects()
     apply_world(scene, job["scene"]["world"])
+    animation = job["scene"].get("animation")
+    if animation is not None:
+        set_frame_grid(scene, animation, job["frame"])
     imported, defaultScenes = import_gltf(job["gltfPaths"],
                                           job["scene"]["light"].get("lightingMode", "RAW"))
     removed = strip_crossings(imported, job["scene"]["camera"]["source"],
@@ -1012,6 +1124,10 @@ def main():
     light = build_light(scene, job["scene"]["light"], imported)
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])
+    rotations = None
+    if animation is not None:
+        rotations = spherical_rotation_curves(scene, imported)
+        scene.frame_set(int(job["frame"]))
     quantity_work = tempfile.mkdtemp(prefix="outshine-quantities-")
     quantities = ask_for_quantities(scene, job["quantityPasses"], quantity_work, job["recipe"])
 
@@ -1035,6 +1151,10 @@ def main():
         "removedAtBoundary": removed,
         "defaultScenePerFile": defaultScenes,
         "camera": camera,
+        "frame": job["frame"],
+        "fps": scene.render.fps / scene.render.fps_base,
+        "rotationCurves": rotations,
+        "pose": evaluated_pose(imported),
         "light": light,
         "material": material,
         "devices": devices,

@@ -77,12 +77,20 @@ public:
   /* The node's transform in the coordinates of the scene root, TRS or matrix as the file states it.
    * Refuses a node index the file does not carry, and a hierarchy that reaches itself. */
   [[nodiscard]] bool WorldTransform(int node, Transform &out) const;
+  /* THE SAME CHAIN WITH THE HIERARCHY POSED (board:1169): `locals` carries one local transform per
+   * node of this document -- `Gltf::Pose::At` is what writes one -- and the walk composes those
+   * instead of the file's own placements. A run of any other length is refused, so a pose with a
+   * gap in it has no spelling and the parent chain has exactly one implementation. */
+  [[nodiscard]] bool WorldTransform(int node, Span<const Transform> locals, Transform &out) const;
   /* The inverse of a camera node's world transform: glTF's camera looks down -Z in node space, so
    * this is the view transform and no sign is chosen here. */
   [[nodiscard]] bool ViewTransform(int cameraNode, Transform &out) const;
 
 private:
   [[nodiscard]] bool Refuse(const std::string &why);
+  /* The one parent-chain walk both overloads above are: `posed` is null for the file's own
+   * placements and otherwise points at one local transform per node. */
+  [[nodiscard]] bool Chain(int node, const Transform *posed, Transform &out) const;
   [[nodiscard]] bool ReadJson(const char *text, size_t length, const uint8_t *binaryChunk,
                               size_t binaryLength);
   [[nodiscard]] bool ResolveBuffers(const Json &json, const uint8_t *binaryChunk,

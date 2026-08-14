@@ -1,0 +1,233 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/animation/box-animated",
+  "title": "Rung 6 -- time, and nothing else: one node's translation and one node's rotation, frame by frame against Cycles",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "I.26.15"
+  ],
+  "criterion": {
+    "kind": "numeric",
+    "says": "Rotation and Translation Animations. Start with this to test animations.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/metadata.json",
+    "note": "The asset states no number, so the criterion is the suite's own: our picture against Cycles' picture at every frame of a declared grid, on the same terms as a still. What the ASSET decides is which mechanism is under test -- node TRS over time and nothing else: no skinning, no morph, no material stack, one light-free scene -- so a disagreement has one candidate cause."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "The framing rule's own direction -- azimuth 35 deg, elevation 20 deg -- puts every silhouette edge of two axis-aligned boxes at an irrational raster slope, and for such an edge the smallest perpendicular pixel-centre offset over L boundary pixels is about 0.5/L and shrinks as the subject grows, so no roll makes the construction exact. The inner body is also inside the outer one for the first ten frames of the grid, which is a self-occlusion no placement argument survives."
+  },
+  "subjects": [
+    {
+      "id": "box-animated",
+      "kind": "gltf",
+      "name": "BoxAnimated",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL"
+      ],
+      "notes": "Two boxes and one animation with two channels: node 0's translation over four keyframes at 0, 1.25, 2.5 and 3.708329916 s, and node 2's rotation over two keyframes at 1.25 and 2.5 s. The rotation is a 180-degree turn about +X between two quaternions whose dot product is zero, which is the span where glTF's spherical LINEAR and a component blend are furthest apart -- 7.93 degrees at 2.25 s, measured. Node 2 is a grandchild of node 0, so the two channels compose and a pose that dropped the parent would still place the child.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "BoxAnimated",
+        "pinnedOn": "2026-08-14",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/glTF/BoxAnimated.gltf",
+          "sha256": "bb97bd72afb27f46a63ae458c3f194e40f7e8a09aac1f5eb4cef3293c689ab0b",
+          "bytes": 7280,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/glTF/BoxAnimated0.bin",
+          "sha256": "e976ed06d0fbb5b4e92a33ef264e78894cf9c8cdb8c5836e43ef92f4d968def4",
+          "bytes": 9308,
+          "as": "BoxAnimated0.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/metadata.json",
+          "sha256": "df94aa98190f74b2728fbd8081ef368dc8616abe8015e2f76303e4f9b57de5e2",
+          "bytes": 738,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Cesium",
+            "year": "2017",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/BoxAnimated/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "animation": {
+      "index": 0,
+      "fps": {
+        "value": 8,
+        "unit": "frames per second",
+        "origin": "SET",
+        "note": "The grid is the case's, not the file's: glTF states its keyframes in seconds and a frame is what both sides are set to. 8 fps puts a sample every 0.125 s, which is 10 samples inside the 1.25 s rotation span -- the span where a between-keyframe error lives -- at 31 renders per recipe rather than 90."
+      },
+      "frames": {
+        "value": 31,
+        "unit": "frames",
+        "origin": "derived",
+        "derivation": "ceil(3.708329916 s * 8 fps) + 1 = 31, so frame 30 at 3.75 s is the first past the file's last keyframe and the grid covers the whole declared duration. Outside the grid glTF clamps to the last keyframe, so that frame states the end pose rather than an extrapolation."
+      }
+    },
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        10.835555376608387,
+        6.1243531356527185,
+        7.587137555389942
+      ],
+      "lookAtM": [
+        0.0,
+        1.3098383501201716,
+        0.0
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 12.105626958493563,
+      "clipEndM": 16.047772070687046,
+      "derivation": "The framing rule of board:0083 applied to the union of the subject's bounds over the declared grid, which is what an animated case's bounds are: min (-0.5, -0.50000000002981493, -0.59967671934477862), max (0.5, 3.119676700270158, 0.59967671934477862), centre (0, 1.3098383501201716, 0), radius 1.9710725560967413 m. Direction azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6, yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, znear = distance - r and zfar = distance + r. Roll 0: this subject's silhouette is irrational at every roll, so no roll buys exactness and a declared one would be an unexplained number.",
+      "note": "THE CAMERA IS THE CASE'S AND NOT THE FRAME'S. The rule frames the bounds it is given and an animated subject has a different bounds at every frame, so a camera re-derived per frame would follow the subject and a disagreement between two frames could be the pose or the viewpoint with nothing to separate them. The union is what keeps every pose inside the frame at one fixed viewpoint; the runner refuses a sequence whose camera comes from the rule."
+    },
+    "light": {
+      "kind": "none",
+      "note": "An emission case gathers nothing, so there is nothing for a light to add. The only illumination left is Blender's factory world and it reaches no surface of this subject."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "manifest",
+      "kind": "emission-per-material",
+      "colourLinearPerMaterial": {
+        "inner": [
+          0.5,
+          0.25,
+          0.125
+        ],
+        "outer": [
+          0.125,
+          0.25,
+          0.5
+        ]
+      },
+      "note": "Emission, one colour per glTF material, and the geometry is untouched (board:0087). The inner body is INSIDE the outer one for the first ten frames of the grid, so a Diffuse BSDF here would be an ambient-occlusion estimator at one sample -- a Bernoulli draw per pixel whose mean is the visible sky fraction -- and no rasteriser reproduces it. An emitter at strength 1 gathers nothing, which removes the world as a light, the sun's disk, a light's radius and visibility at once. TWO COLOURS BECAUSE THERE ARE TWO BODIES: flat emission over touching bodies fuses their silhouettes, and the whole point of this case is that one of them moves through the other."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The binary mask and the emitted colour in one render. One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it. THE FRAME IS 320x180 AND THAT IS A COST DECISION WITH A MEASURED NUMBER BEHIND IT: an animated case multiplies every product by its frame count, and a quantity's raw at 1280x720 is 14.75 MB, so this grid's five raws would be 2.29 GB against a corpus already measured at 19.9 GB. At one quarter the linear size, the same 16:9 and the same lens, it is 143 MB, and the subject still covers 11.7 % of the frame -- about 6 700 pixels -- which is the population the picture bound is taken over."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 320,
+      "resolutionY": 180,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission case's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived. It is rendered at every frame of the grid for the same reason the picture is: what is visible is a function of the pose."
+    }
+  },
+  "notes": "THE FRAME IS THE INDEPENDENT VARIABLE AND NOTHING ELSE MOVES: one subject, one camera, one recipe, one material declaration, and 31 poses of the same hierarchy. The verdict is per frame and the run stops at the first frame outside the picture bound (board:1129), so a green case has paid its whole duration in oracle renders and a red one names the frame where it diverged. What the case proves before it compares anything is that the subject MOVES: the drawn vertex run at frame n is held against the drawn vertex run at frame 0 and the furthest displacement must exceed the oracle's own sub-pixel resolution, because a case that renders the rest pose 31 times passes every frame-by-frame comparison.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.117187809,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's triangles of the magnitude of the projected signed area at FRAME 0, over 320*180 at the declared camera, recomputed by the runner from the posed vertices. It is stated at frame 0 and enforced there: the projected area of an animated subject is a function of the frame by construction -- it runs from 0.114923245 at frame 14 to 0.121284349 at frame 17 over this grid -- so one declared number over the whole grid would be a demand that the subject not move. The camera it checks is the same at every frame.",
+      "note": "What the boundary bound is applied UNDER: I.26's IoU ~ 1 - P*d/A makes P/A a property of the subject's size, so a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

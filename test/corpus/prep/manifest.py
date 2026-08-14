@@ -135,10 +135,19 @@ class Manifest:
                                   observed=subject.conversion.settings["outputName"])
                 seen[subject.conversion.settings["outputName"]] = subject.id
 
+    def frame_grid(self):
+        """Which frames this case is judged at, in order. `[None]` is a still and is the whole
+        corpus until now; a declared animation is `0 .. frames - 1`, and every one of them is its
+        own render, its own key and its own product (board:1129)."""
+        if self.scene.animation is None:
+            return [None]
+        return list(range(int(self.scene.animation["frames"]["value"])))
+
     def output_names(self):
         names = []
         for name in sorted(self.renders):
-            names.extend(sorted(output_names_for(name).values()))
+            for frame in self.frame_grid():
+                names.extend(sorted(output_names_for(name, frame).values()))
         return names
 
     def gltf_names(self):
@@ -150,10 +159,19 @@ class Manifest:
                 for s in self.subjects]
 
 
-def output_names_for(recipe_name):
+def output_names_for(recipe_name, frame=None):
     """The float pair a recipe leaves behind: the EXR the score was defined on and the flat f32 dump
-    a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's."""
+    a C++ reader can be twenty lines long for. No picture -- both pictures are the runner's.
+
+    A FRAME IS PART OF THE NAME AND NOT ONLY OF THE KEY. Two frames of one animated case are two
+    pictures of the same declaration, so a shared name would leave the store publishing whichever
+    was written last -- and the runner, which reads these names, could not stop at the frame that
+    failed because it could not tell one from another. `None` is a still and keeps the names the
+    corpus already has.
+    """
     suffix = "" if recipe_name == DEFAULT_RECIPE_NAME else "." + recipe_name
+    if frame is not None:
+        suffix += ".f%04d" % frame
     names = {"exr": "oracle" + suffix + ".exr", "raw": "oracle" + suffix + ".raw"}
     # THE QUANTITIES BELONG TO THE DEFAULT RECIPE ONLY, and that is a cost decision with a measured
     # number behind it: a quantity's raw is an uncompressed f32 plane at 14.75 MB, eighteen of them
@@ -220,6 +238,21 @@ class _Scene:
         self.light = field["light"]
         self.world = field["world"]
         self.material = field["material"]
+        # THE GRID THIS CASE IS JUDGED ON, or None for a still. The FRAME is not here: it varies per
+        # render and travels in the key beside this, so what a scene declares is the grid and what a
+        # product declares is which frame of it.
+        self.animation = field.get("animation")
+        if self.animation is not None and self.animation["index"] != 0:
+            raise Refusal("manifest.scene.animation.index", expected="0",
+                          observed=repr(self.animation["index"]),
+                          why="Blender's importer makes the file's FIRST animation the active one, "
+                              "and selecting another needs an NLA arm no case declares yet -- a "
+                              "second index would render animation 0 and report the other")
+        if self.animation is not None and self.animation["frames"]["value"] < 2:
+            raise Refusal("manifest.scene.animation.frames",
+                          expected="at least 2", observed=repr(self.animation["frames"]["value"]),
+                          why="one frame of an animation is a still that renders the pose at t=0 "
+                              "and passes every frame-by-frame comparison")
         # THE ONE NUMBER THAT COULD MAKE A DECLARED SUN AN AREA SOURCE, refused here because the sun
         # arm no longer carries a field in which a case could admit the estimator it would get back.
         # The runner refuses the same number when it builds its own light; this refusal is what stops
@@ -231,7 +264,10 @@ class _Scene:
                               "estimator, and this arm's whole claim is that it has none")
 
     def as_job(self):
-        return {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
+        job = {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
+        if self.animation is not None:
+            job["animation"] = self.animation
+        return job
 
 
 def _seed_shift(material, renders, light):

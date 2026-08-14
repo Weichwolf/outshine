@@ -47,7 +47,11 @@ test/render/<feature>/<case>/
     provenance.json         ours, what actually ran
 ```
 
-A recipe other than `default` names its products `oracle.<recipe>.exr` and `oracle.<recipe>.raw`.
+A recipe other than `default` names its products `oracle.<recipe>.exr` and `oracle.<recipe>.raw`. A
+case that declares `scene.animation` is a **sequence** and every frame of its grid is its own render,
+its own cache key and its own product: `oracle.f0000.exr`, `oracle.normal.f0000.raw` and so on, one
+set per frame (`board:1169`). The two pictures stay singular and hold the frame the verdict came
+from, which is the first failing frame or the last one that passed.
 `0-reference.png`, `1-outshine.png`, `outshine.exr`, `outshine.raw` and `provenance.json` are a
 reserved set the preparer refuses to name, so a collision has no spelling here rather than a rule
 against it.

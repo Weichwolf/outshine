@@ -65,6 +65,16 @@ struct Studio {
   /* The surfaces themselves, indexed by slot. A surface whose colour image has no texels declares
    * no texture, which is a different pipeline and not a white stand-in. */
   std::vector<Render::SubjectMaterial> Surfaces;
+  /* THE SAME SUBJECT AT THE PREVIOUS FRAME, or null where there was no previous one (board:1169).
+   * It is what makes `SceneVelocity` a motion: the pose is baked into a subject's world positions,
+   * so the previous pose cannot be recovered from a transform and has to arrive as a second
+   * subject. It must carry the same vertices in the same order -- the same document flattened at
+   * another time -- and `Show` refuses any other count.
+   *
+   * IT IS DECLARED EXACTLY WHERE THE PLAN ATTACHES A VELOCITY TARGET and refused where it does not:
+   * a previous pose nobody reads is a run uploaded per frame for nothing, and an attachment with no
+   * previous pose is a target something asked for and nothing wrote. */
+  const Gltf::Subject *Previous = nullptr;
   /* WHAT LIGHTS THE SUBJECT, IN glTF's OWN FRAME AND UNITS -- right-handed, +Y up, metres, with a
    * directional light's intensity in lux and a point or spot light's in candela. Empty is the
    * ordinary state and it is not "unlit by default": it says the declaration lights nothing, so

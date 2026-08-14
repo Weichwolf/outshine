@@ -205,6 +205,7 @@ struct VertexRuns {
   size_t NormalAt = 0;
   size_t TangentAt = 0;
   size_t EmittedAt = 0;
+  size_t PreviousAt = 0;
 };
 
 /* ONE BUFFER, FOUR RUNS: the positions, the uvs, the normals and the per-vertex radiance, so a
@@ -243,6 +244,14 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
     EcefFromGltf(&subject.Tangents()[vertex * 4], ecef);
     for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
     vertices.push_back((float)subject.Tangents()[vertex * 4 + 3]);
+  }
+  runs.PreviousAt = vertices.size();
+  if (studio.Previous) {
+    for (size_t vertex = 0; vertex < studio.Previous->VertexCount(); ++vertex) {
+      double ecef[3];
+      EcefFromGltf(&studio.Previous->PositionsM()[vertex * 3], ecef);
+      for (int axis = 0; axis < 3; ++axis) { vertices.push_back((float)ecef[axis]); }
+    }
   }
   runs.EmittedAt = vertices.size();
   vertices.resize(runs.EmittedAt + subject.VertexCount() * 3, 0.0f);
@@ -323,6 +332,13 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
     return false;
   }
   if (!Declared(studio, subject, error)) { return false; }
+  if (studio.Previous && studio.Previous->VertexCount() != subject.VertexCount()) {
+    error = "the studio's previous pose carries " +
+            std::to_string(studio.Previous->VertexCount()) + " vertices and this one carries " +
+            std::to_string(subject.VertexCount()) +
+            ", so no vertex has a place it moved from";
+    return false;
+  }
   if (!Aim(renderer, subject, eye, error)) { return false; }
 
   if (!BuildDrawList(studio, subject, scratch.Draws, error)) { return false; }
@@ -345,10 +361,16 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   mesh.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
   mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;
+  mesh.PrevVerts = studio.Previous ? scratch.Vertices.data() + runs.PreviousAt : nullptr;
   mesh.VertexCount = (uint32_t)subject.VertexCount();
   mesh.Indices = scratch.Indices.data();
   mesh.IndexCount = (uint32_t)scratch.Indices.size();
-  for (int axis = 0; axis < 3; ++axis) { mesh.Anchor[axis] = kStudioAnchorEcefM[axis]; }
+  for (int axis = 0; axis < 3; ++axis) {
+    mesh.Anchor[axis] = kStudioAnchorEcefM[axis];
+    /* The subject stands at one place on the globe whatever it is doing, so the previous frame's
+     * anchor is this one: what moved is the vertices and the eye, and both of those are carried. */
+    mesh.PrevAnchor[axis] = kStudioAnchorEcefM[axis];
+  }
   mesh.Draws = &scratch.Draws;
   if (!renderer.SetSubjectMesh(mesh, error)) { return false; }
 

@@ -197,10 +197,21 @@ struct SubjectMesh {
    * body puts out of step with the first. */
   const float *Tangents = nullptr;
   const float *Emitted = nullptr;    /* 3 floats per vertex */
+  /* WHERE THE SAME VERTICES WERE AT THE PREVIOUS FRAME (board:1169), 3 floats each, offsets from
+   * `PrevAnchor`. It is what makes `SceneVelocity` a motion and not a sentinel: the pose is baked
+   * into the position run, so the previous pose is not recoverable from a transform and has to
+   * arrive as its own run.
+   *
+   * IT IS REQUIRED EXACTLY WHERE THE PASS ATTACHES A VELOCITY TARGET, and refused where it does not
+   * -- both directions, because a mesh that carried one into a plan with no velocity attachment
+   * would be a run nobody reads, and a plan with the attachment and no run would write a sentinel
+   * into a target something asked for. */
+  const float *PrevVerts = nullptr;
   uint32_t VertexCount = 0;
   const uint32_t *Indices = nullptr;
   uint32_t IndexCount = 0;
   double Anchor[3] = {0, 0, 0};
+  double PrevAnchor[3] = {0, 0, 0};
   const DrawList *Draws = nullptr;
 };
 
@@ -247,7 +258,7 @@ public:
   float ShadowNearM() const { return ShadowNearM_; }
 
 private:
-  static constexpr int kUniFloats = 20;   /* mat4 + anc -- the MSL struct `S` verbatim */
+  static constexpr int kUniFloats = 40;   /* two of mat4 + anc -- the MSL struct `S` verbatim */
   /* THE SURFACE ROW ONE SLOT BINDS, the MSL struct `M` verbatim: the coverage factor and the mask
    * cutoff the emitted arm reads, then the metal-rough row and the emissive the lit arm reads. ONE
    * BUFFER AND NOT TWO because it is one surface: a second binding for the lit half would let a slot
@@ -328,7 +339,7 @@ private:
   /* The colour targets the scene pass attaches, as the compiled plan resolved them: the pipelines
    * and the fragment's output set are both built from this (board:1121). */
   std::vector<Resource> Colours;
-  OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx;
+  OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx, Prev;
   /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
    * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
    * metres `Vtx` holds. They are built at `SetMesh` and not per frame, because nothing in them
@@ -344,6 +355,11 @@ private:
   bool HasTangent = false;
   bool FiltersFloat32 = false;
   double Anchor[3] = {0, 0, 0};
+  double PrevAnchor[3] = {0, 0, 0};
+  /* Whether the compiled plan attaches `SceneVelocity` to this pass, read once at `Configure` from
+   * the plan's own colour set: it decides the fragment's output set, the vertex layout and whether
+   * a mesh owes a previous-pose run, and all three come from this one answer. */
+  bool WritesVelocity = false;
 };
 
 } // namespace outshine::Render

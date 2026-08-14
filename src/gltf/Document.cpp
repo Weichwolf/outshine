@@ -1033,6 +1033,15 @@ bool Document::ReadIndices(int accessorIndex, std::vector<uint32_t> &out) const 
 }
 
 bool Document::WorldTransform(int node, Transform &out) const {
+  return Chain(node, nullptr, out);
+}
+
+bool Document::WorldTransform(int node, Span<const Transform> locals, Transform &out) const {
+  if (locals.Size() != Nodes_.size()) { return false; }
+  return Chain(node, locals.Data(), out);
+}
+
+bool Document::Chain(int node, const Transform *posed, Transform &out) const {
   if (node < 0 || static_cast<size_t>(node) >= Nodes_.size()) { return false; }
   out = Transform::Identity();
   std::vector<int> chain;
@@ -1041,10 +1050,13 @@ bool Document::WorldTransform(int node, Transform &out) const {
     chain.push_back(at);
   }
   for (size_t i = chain.size(); i > 0; --i) {
-    const Node &step = Nodes_[static_cast<size_t>(chain[i - 1])];
-    const Transform local = step.HasMatrix
-                                ? Transform::FromColumnMajor(step.Matrix)
-                                : Transform::FromTrs(step.Translation, step.Rotation, step.Scale);
+    const size_t index = static_cast<size_t>(chain[i - 1]);
+    const Node &step = Nodes_[index];
+    const Transform local =
+        posed ? posed[index]
+              : (step.HasMatrix
+                     ? Transform::FromColumnMajor(step.Matrix)
+                     : Transform::FromTrs(step.Translation, step.Rotation, step.Scale));
     out = out * local;
   }
   return true;

@@ -37,6 +37,7 @@
 #include "Json.h"
 
 #include "Mask.h"
+#include "OracleProduct.h"
 #include "RawF32.h"
 
 namespace outshine::Render::Parity {
@@ -51,9 +52,10 @@ enum class IndexPass { Material, Object };
 }
 
 /* The file the preparer wrote the pass into, and the key its provenance records the mapping under.
- * Both are the preparer's spellings and they stand here together so a third pass is one row. */
-[[nodiscard]] inline std::string PassRawName(IndexPass which) {
-  return std::string("oracle.") + PassName(which) + ".raw";
+ * Both are the preparer's spellings and they stand here together so a third pass is one row. The
+ * frame is the animated case's (board:1169) and is absent for a still. */
+[[nodiscard]] inline std::string PassRawName(IndexPass which, std::optional<int> frame) {
+  return OracleProduct{PassName(which), "default", frame}.Raw();
 }
 
 [[nodiscard]] inline const char *PassProductKey(IndexPass which) {
@@ -75,7 +77,8 @@ enum class IndexPass { Material, Object };
  * name. An empty table would read as "the pass names nothing", which is an answer. */
 class IndexNames {
 public:
-  [[nodiscard]] bool ReadFile(const std::string &directory, IndexPass which) {
+  [[nodiscard]] bool ReadFile(const std::string &directory, IndexPass which,
+                              std::optional<int> frame) {
     Error_.clear();
     ByPassIndex_.clear();
     const std::string path = directory + "provenance.json";
@@ -85,7 +88,7 @@ public:
       return Refuse(path + ": is not valid JSON at byte " + std::to_string(Document_.StoppedAt()));
     }
     const Json::Ref renders = Document_.Root()["report"]["render"];
-    const std::string wanted = PassRawName(which);
+    const std::string wanted = PassRawName(which, frame);
     for (size_t at = 0; at < renders.Size(); ++at) {
       const Json::Ref entry = renders[at];
       if (!EndsWith(entry["products"][PassProductKey(which)]["path"].Str(""), wanted)) { continue; }
@@ -170,11 +173,11 @@ struct SurfaceAt {
 /* THE ORACLE'S SIDE: the pass, the mapping and the file's material names, resolved once. */
 class OracleSurfaces {
 public:
-  [[nodiscard]] bool Read(const std::string &directory, IndexPass which,
+  [[nodiscard]] bool Read(const std::string &directory, IndexPass which, std::optional<int> frame,
                           const std::vector<std::string> &fileMaterialNames) {
     Names_ = fileMaterialNames;
-    if (!Pass_.ReadFile(directory + PassRawName(which))) { return Refuse(Pass_.Error()); }
-    if (!Mapping_.ReadFile(directory, which)) { return Refuse(Mapping_.Error()); }
+    if (!Pass_.ReadFile(directory + PassRawName(which, frame))) { return Refuse(Pass_.Error()); }
+    if (!Mapping_.ReadFile(directory, which, frame)) { return Refuse(Mapping_.Error()); }
     /* THE WHOLE MAP RESOLVED ONCE, HERE, so the per-pixel path is a table lookup and allocates
      * nothing (`Per.15`). The names are what the correspondence is derived FROM; a comparison over
      * two million pixels that rebuilt a `std::string` per pixel would be paying for the derivation
