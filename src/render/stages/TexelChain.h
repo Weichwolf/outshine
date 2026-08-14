@@ -104,14 +104,22 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
         into[at + channel] = best;
       }
       if (kind != TexelKind::Direction) { continue; }
-      /* THE MEAN OF UNIT VECTORS IS SHORT AND THE SHORTFALL IS LOST PERTURBATION. Renormalising
-       * keeps the direction and DISCARDS that variance; carrying it instead as an increase in
-       * roughness is Toksvig 2005 and LEAN/CLEAN (Real-Time Rendering 4e, ch. 9). It is not taken
-       * here for a reason that is about the ORACLE rather than about cost: Cycles filters this
-       * texture and normalises, and adding a roughness term the reference does not have would move
-       * us away from the thing we are measured against to make a number smaller. The condition that
-       * would justify it is specular aliasing visible IN MOTION, which is a scenario-suite finding
-       * and cannot be seen in a still. */
+      /* THE MEAN OF UNIT VECTORS IS SHORT AND THE SHORTFALL IS LOST PERTURBATION. Renormalising keeps
+       * the direction and would DISCARD that variance -- and a term named, computed and then rounded
+       * away is how a term becomes unnamed. So the length is KEPT, in the alpha channel, and the
+       * shader turns it into roughness by Toksvig's factor.
+       *
+       * THE OBJECTION THAT USED TO STAND HERE WAS MEASURED AND IS WRONG (board:1131). It said carrying
+       * the term would move us away from the oracle to make a number smaller. Asked the same
+       * self-consistency question, the oracle's own two cells disagree by 0.04859..0.08692 while our
+       * filtered quad reaches 0.27571386 -- 3.2x PAST it, not short of it. Cycles filters this texture
+       * too; what it does differently is shade many rays and average the RADIANCE, where we average the
+       * NORMAL and shade once. The gap between the two orders is exactly this length.
+       *
+       * ALPHA IS ACCUMULATED AND NOT RECOMPUTED, because level n is built from level n-1's ALREADY
+       * RENORMALISED texels: a length measured there sees only the last halving's divergence and would
+       * report a chain as flat-and-certain that is neither. The mean resultant length of a composition
+       * is the product, so the running value multiplies. */
       float direction[3];
       float length = 0.0f;
       for (int axis = 0; axis < 3; ++axis) {
@@ -119,6 +127,7 @@ inline void HalveInPlace(const std::vector<float> &from, uint32_t fromWidth, uin
         length += direction[axis] * direction[axis];
       }
       length = std::sqrt(length);
+      into[at + 3u] *= length;
       if (length <= 0.0f) { continue; }
       for (int axis = 0; axis < 3; ++axis) {
         into[at + (size_t)axis] = (direction[axis] / length) * 0.5f + 0.5f;

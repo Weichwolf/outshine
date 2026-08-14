@@ -590,8 +590,14 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
   float4 orm = metalRoughMap.sample(metalRoughSampler, in.uv);
   float3 albedo = surface.base.rgb * colourMap.sample(colourSampler, in.uv).rgb;
   const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
+  /* THE SAME TAP THE NORMAL CAME FROM, FOR ITS LENGTH. Sampled here rather than returned from
+   * `mappedNormal` because that function's pair -- the colour and the normal it was shaded with -- is
+   * deliberately inseparable (board:1122) and a third member would loosen it; the texture and sampler
+   * are the same pair of arguments, so this costs no second fetch after the compiler has seen both. */
+  const float meanResultantLength = normalMap.sample(normalSampler, in.uv).w;
   return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
-                  surface.metalness * orm.b, surface.roughness * orm.g,
+                  surface.metalness * orm.b,
+                  roughenedBy(surface.roughness * orm.g, meanResultantLength),
                   emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
                 shadingNormal};
 }
@@ -871,6 +877,16 @@ SubjectDraw::BoundImage SubjectDraw::Upload(const SubjectTexture &texture, Trans
                                          : static_cast<float>(code) / 255.0f;
     }
     linear[texel * 4u + 3u] = static_cast<float>(texels[texel * 4u + 3u]) / 255.0f;
+  }
+  /* A DIRECTION TEXTURE'S ALPHA IS REINTERPRETED, and that is said here rather than left to be
+   * discovered (board:1130). glTF gives the normal texture's alpha no meaning and the shader samples
+   * only `.xyz`, so the channel is free -- and it is where the mip chain keeps the MEAN RESULTANT
+   * LENGTH of the normals it averaged, which the shader turns into roughness by Toksvig's factor. At
+   * level 0 nothing has been averaged yet, so the value is exactly 1 whatever the file's own alpha
+   * happened to be; taking the file's byte would make the correction a function of an undefined
+   * channel. */
+  if (kind == TexelKind::Direction) {
+    for (size_t texel = 0; texel < linear.size() / 4u; ++texel) { linear[texel * 4u + 3u] = 1.0f; }
   }
 
   BoundImage bound;

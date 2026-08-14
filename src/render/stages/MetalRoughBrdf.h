@@ -61,6 +61,46 @@ constexpr double kBrdfPi = 3.141592653589793;
           f0[2] + (1.0 - f0[2]) * weight};
 }
 
+/* THE PERTURBATION A MIP CHAIN AVERAGED AWAY, RETURNED AS ROUGHNESS (board:1130). `l` is the mean
+ * resultant length of the normals a texel stands for -- 1 where nothing was averaged, shorter as they
+ * diverge -- and it arrives in the normal texture's alpha, which glTF gives no meaning.
+ *
+ * TOKSVIG 2005 states it for Blinn-Phong: a lobe of exponent `s` under normals of that spread behaves
+ * as `s' = s*l / (l + s*(1 - l))`. The bridge to GGX is `s = 2/a2 - 2` (Real-Time Rendering 4e, 9.8.1).
+ * Substituting and clearing `a2` from the denominators:
+ *
+ *     N = 2l(1 - a2)                D = l*a2 + 2(1 - a2)(1 - l)
+ *     s' = N/D                      a2' = 2/(s' + 2) = 2D/(N + 2D)
+ *
+ * WHICH DIVIDES ONCE WHERE THE DIRECT FORM DIVIDES TWICE, and that is the whole reason for the
+ * rearrangement rather than a preference: `s` is unbounded as `a2` falls to zero, so the direct form
+ * needs a clamp exactly where this engine refuses to invent one. THE LIMITS ARE EXACT AND NOT
+ * APPROACHED -- at `l = 1` this is `a2`; at `a2 = 0` with `l = 1` it is 0, so a mirror stays a mirror
+ * and the `alpha = 0` arm above still means what it says; as `l` falls to 0 it rises to 1. IN EXACT
+ * ARITHMETIC, and `RoughenedBy` below says why that qualifier is load-bearing rather than pedantic.
+ *
+ * ITS ONE DEGENERATE POINT IS NAMED RATHER THAN CLAMPED: `N + 2D = 2l + 4(1 - a2)(1 - l)` vanishes only
+ * at `l = 0` with `a2 = 1`, four exactly opposing normals on a surface that is already fully rough, and
+ * 1 is both the limit from every direction and the value that surface already had. */
+[[nodiscard]] inline double ToksvigA2(double a2, double l) {
+  const double d = l * a2 + 2.0 * (1.0 - a2) * (1.0 - l);
+  const double n = 2.0 * l * (1.0 - a2);
+  const double denominator = n + 2.0 * d;
+  return denominator > 0.0 ? 2.0 * d / denominator : 1.0;
+}
+
+/* The same correction in glTF's own currency, so a caller never has to know that `alpha` is roughness
+ * squared and `a2` is that squared again. */
+[[nodiscard]] inline double RoughenedBy(double roughness, double meanResultantLength) {
+  /* THE IDENTITY IS TAKEN AS AN IDENTITY AND NOT COMPUTED (board:1130). `ToksvigA2(a2, 1)` IS `a2` in
+   * exact arithmetic, but reaching it through `r*r`, `alpha*alpha` and two roots does not return `r`
+   * in binary32 -- measured, an unfiltered picture moved in its fourth decimal for the code merely
+   * being present, which is a correction leaking into the case it was defined to leave alone. */
+  if (!(meanResultantLength < 1.0)) { return roughness; }
+  const double alpha = roughness * roughness;
+  return std::sqrt(std::sqrt(ToksvigA2(alpha * alpha, meanResultantLength)));
+}
+
 /* The two halves the specification splits the surface into, kept apart in the return because the
  * furnace integrates them separately: the microfacet lobe is what `DirectionalLight` is named for,
  * and the diffuse term is coupled to it only through `1 - F`. */
@@ -107,6 +147,19 @@ static inline float brdfDistribution(float nh, float a2) {
 
 static inline float brdfVisibility(float nl, float nv, float a2) {
   return 0.5 / (nl * sqrt(nv * nv * (1.0 - a2) + a2) + nv * sqrt(nl * nl * (1.0 - a2) + a2));
+}
+
+static inline float toksvigA2(float a2, float l) {
+  float d = l * a2 + 2.0 * (1.0 - a2) * (1.0 - l);
+  float n = 2.0 * l * (1.0 - a2);
+  float denominator = n + 2.0 * d;
+  return denominator > 0.0 ? 2.0 * d / denominator : 1.0;
+}
+
+static inline float roughenedBy(float roughness, float meanResultantLength) {
+  if (!(meanResultantLength < 1.0)) { return roughness; }
+  float alpha = roughness * roughness;
+  return sqrt(sqrt(toksvigA2(alpha * alpha, meanResultantLength)));
 }
 
 static inline float3 brdfFresnel(float3 f0, float vh) {

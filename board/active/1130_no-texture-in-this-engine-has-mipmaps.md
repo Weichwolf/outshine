@@ -1,6 +1,6 @@
 Type: bug
 Area: render
-Depends: 1131
+Depends: 1131, 1132
 Tags: perf, instrument
 
 **No texture in this engine has mipmaps**
@@ -319,3 +319,26 @@ So this item's remaining work is one named thing: **carry the normalisation shor
 `geometry_matches_normalmap` rows against the oracle's own column rather than against zero. The
 acceptance is stated before: ours must land in **0.04859..0.08692**, where the oracle is, and the picture
 bound must not fall below **20 of 34**.
+
+**Toksvig is built, and it closes 3.2 % of the distance.**
+
+`ToksvigA2` and `RoughenedBy` live in `src/render/stages/MetalRoughBrdf.h` in both halves, as that file
+requires — the C++ definition and its MSL transliteration, written twice on purpose. The chain keeps the
+mean resultant length in the normal texture's alpha, which glTF leaves undefined, **accumulating rather
+than remeasured**: every level above the first is built from already-renormalised texels, so a length
+measured there would report a deep level as flat. `ALostPerturbationComesBackAsRoughness.cpp` holds both
+halves and the three limits as values.
+
+**One defect of my own, caught by measuring the thing I had asserted.** The comment claimed `l = 1` is
+the identity so nothing moves for the code being present. True in algebra; false in binary32 — the round
+trip through `r*r`, `alpha*alpha` and two roots moved an unfiltered picture in its fourth decimal,
+`0.056763454` where it had been `0.056763588`. `RoughenedBy` now takes the identity as an identity, and
+the test asserts **bit equality** rather than nearness, because *nearly* is exactly what the defect
+looked like.
+
+**The acceptance stated before the round was not met, so `max_lod` stays at 0.** Ours had to land in
+`0.04859..0.08692`; it lands at `0.17024..0.26971`, two to three times outside, and
+`picture_max_delta_code` stays 255. `board:1132` names why: Toksvig is a **specular** correction and the
+dominant error is a **direction** error that moves the diffuse term, first order and out of its reach.
+The proof is `pair1` — the cells where we were BEST unfiltered, better than the oracle itself — going to
+`0.18338..0.25048` under filtering. A specular correction being too small cannot do that.
