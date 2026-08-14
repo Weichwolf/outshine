@@ -15,10 +15,9 @@ post-scarcity. **The repository speaks one language: English** — code, comment
 It is the **vision**, the **constraints**, the **stance**, the **architecture** and the **setup** — read
 first, by everyone, and binding.
 
-It is **not the scope**. One line per feature, with a box, a stable id, the file that implements it and
-the test that holds it, lives in `board/` and nowhere else. This
-file has drifted into scope prose once and was cut back; the room here is permission to say a thing
-**completely**, never to say **more things**. If a sentence would need a checkbox, it belongs there.
+It is **not the scope**: one line per feature, with a box and a stable id, lives in `board/` and nowhere
+else. **If a sentence would need a checkbox, it belongs there.** The room here is permission to say a
+thing **completely**, never to say **more things**.
 
 The diagrams are Mermaid because they render, and because ASCII rots at the first edit.
 
@@ -41,13 +40,13 @@ and **the way is the goal** — a round that learned something is a good round.
 **Nothing is a possession.** Formats, directories, algorithms, interfaces, build, tools — all material.
 
 **Good C++ and proven engine design.** The [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines)
-are binding and a deviation is a defect until its reason stands beside it. The established way is the
-starting point; a deviation needs its reason too. Prefer the shape that makes a mistake **unspellable**
-over the rule that merely forbids it — a rule a checker counts can be broken and then reported; a rule
-the type system carries does not compile.
+are binding, and the established way is the starting point; either one deviated from is a defect until
+its reason stands beside it. Prefer the shape that makes a mistake **unspellable** over the rule that
+merely forbids it — a rule a checker counts can be broken and then reported; a rule the type system
+carries does not compile.
 
-**The engine is a library and it is platform agnostic.** A kernel manages it, so this can: the library
-declares what it needs from a host and calls nothing else. Everything that runs it is a test.
+**The engine is a library and it is platform agnostic.** It declares what it needs from a host and
+calls nothing else; a kernel supplies it. Everything that runs it is a test.
 
 **Testability is a design property, not an afterthought.** If a thing cannot be tested, that is a fact
 about its shape. **Very high coverage is part of the CryEngine-class claim**, not an extra: requirement
@@ -93,18 +92,18 @@ paths* and says which. The instrument for a capability claim is to **exercise th
 three agreeing implementations of one wrong population is the same mistake counted three times, never
 corroboration.
 
-**A term rounded to zero is how a term becomes unnamed.** Naming an arithmetic mechanism, computing its
-magnitude and then rounding it away reads as rigour and deletes the term.
+**A term rounded to zero is how a term becomes unnamed** — naming an arithmetic mechanism, computing
+its magnitude and then rounding it away reads as rigour and deletes the term.
 
-**A number stated before and after can be broken without moving the number — by moving the population
-underneath it.** A changed threshold shows in a diff; a changed selection reads as the same metric and
-looks like progress. *0.8854 over 40 472 steep pixels* against *0.9875 over 90 838 mostly-flat ones*
-closed two items on a repair that had changed nothing. **Quote the population with the number, and when
-a claim is before-and-after, prove the selection is the same one.**
+**A number can be broken without moving it, by moving the population underneath it.** A changed
+threshold shows in a diff; a changed selection reads as the same metric and looks like progress —
+*0.8854 over 40 472 steep pixels* against *0.9875 over 90 838 mostly-flat ones* closed two items on a
+repair that had changed nothing. **Quote the population with the number, and prove a before-and-after
+selected the same one.**
 
-**A change that alters the picture by design cannot reproduce it to six decimals.** When a repair lands
-and the measurement is *identical*, that is not a small effect — it is evidence the repair is not
-reaching the thing it was aimed at. **Identical is a finding, not a null result.**
+**A change that alters the picture by design cannot reproduce it to six decimals.** A repair whose
+measurement comes back *identical* is not a small effect: it is evidence the repair never reached what
+it was aimed at. **Identical is a finding, not a null result.**
 
 **A rule about a comparison names which side it constrains**, or it forbids the symmetric case it was
 never about.
@@ -156,9 +155,8 @@ never call each other*, stated for content.
 
 **The word "generator" is overloaded in the tree, so read it by the vocabulary above.** `Forest`,
 `Buildings`, `Water`, `Ground` and `Infrastructure` under `src/generators/` answer *what stands where* —
-they are **compositors**. `src/generators/draw/` answers *what one of them is shaped like* — those are
-**generators**. The two already live behind different interfaces with different include sets, which is
-the strongest evidence available that the decomposition is right.
+they are **compositors**; `src/generators/draw/` answers *what one of them is shaped like*, and those
+are **generators**. They already live behind different interfaces with different include sets.
 
 **Each layer answers to a different instrument**, which is what makes the decomposition testable rather
 than tidy: a generated part is a render case against the oracle, a composition is a scenario case over a
@@ -167,16 +165,16 @@ diagram does not belong in the engine.**
 
 ### A scenario's own glTF is content like any other
 
-**A file is a generator kind, never a scenario special case.** `kind = gltf-file`, and it takes a budget
-and replies with a capability like every other. The reason is the property the decomposition rests on:
-**the compositor must never learn what produced a part.** A second arrival route is a second case, and
-*no content noun has a spelling in the renderer* begins leaking one layer up the moment there are two.
+**A file is a generator kind, never a scenario special case.** `kind = gltf-file`, taking a budget and
+replying with a capability like every other. **The compositor must never learn what produced a part** —
+a second arrival route is a second case, and *no content noun has a spelling in the renderer* begins
+leaking one layer up the moment there are two.
 
 **A glTF is not one part, so the file generator is not exempt from *one part, never an aggregate*.**
 `Gltf::Subject` already holds a vector of parts with per-part material and vertex range. It decomposes
 where every aggregate does: **the file's node hierarchy is the rule**, and the parts it names are
-ordinary requests. *"A declared scene has no rule to derive" is false, and it is the sentence that would
-otherwise justify a private interface for this one case.*
+ordinary requests. *A declared scene has a rule to derive, so nothing here justifies a private
+interface for this one case.*
 
 **A further compositor is `declared`** — same interface, same culling, same selection, placements **read
 rather than computed**. `Clients::Show` is its degenerate case: one part, one transform, already running.
@@ -184,9 +182,9 @@ rather than computed**. `Clients::Show` is its degenerate case: one part, one tr
 **The key keeps its shape and needs no exception**: `(kind, params, seed, rung)`, with **params = the
 content hash plus which primitive**, a seed nothing uses, and a rung whose range happens to be one. A URI
 is not a value — two can name one file and one can change under a run — so hashing is what keeps *the
-picture is a function of the declaration* true. **Every compositor quantises, `declared` included**:
-skipping the step would put a continuous budget in a key and fragment the store per instance the first
-time a scenario places two hundred props.
+picture is a function of the declaration* true. **Every compositor quantises, `declared` included**, or
+a continuous budget enters a key and fragments the store per instance the first time a scenario places
+two hundred props.
 
 **One rung is a capability statement, not a gap.** `achieved` will rarely equal `requested` and says so
 in both directions — and **no impostor** and **cannot be reduced further** are two separate declarations,
@@ -280,8 +278,7 @@ flowchart TD
 **Degrade on detail, refuse on existence.** A budget looser than the generator's finest returns a coarser
 part and states it. A budget finer than the generator can reach returns its finest and **publishes the
 shortfall** — a hole is worse than a coarse tree. A part that cannot be produced at all — unknown
-species, no valid ring — is a **named refusal** with nothing drawn in its place, because a failure is
-loud.
+species, no valid ring — is a **named refusal** with nothing drawn in its place, because a failure is loud.
 
 **Cost before commit.** Bounds and cost are answerable from `(kind, params)` alone, or a part must be
 generated to learn whether it is visible and the cull happens after the cost it exists to avoid.
@@ -318,10 +315,8 @@ verdict shape would be reporting a number that does not decide it. The scenario 
 here without a directory: it is declared and it has no members yet, which is why the fourth constraint
 is the least measured of the four.
 
-**Only the unit tree mirrors `src/`, and it must**: its organising axis *is* source location, and each
-directory compiles with its own include set, so a name it must not reach has **no spelling** and a
-breach is a compile error. Restoring the mirror over the declarative suites would dilute that proof into
-a convention, invisibly — a render case links half the library by construction.
+**The declarative suites must never be restored to that mirror.** A render case links half the library
+by construction, so a mirror over it would dilute the layering proof into a convention, invisibly.
 
 ## How a render case is decided
 
@@ -380,10 +375,10 @@ mirrors `src/`, so every unit test is a continuous proof that its layer's includ
 claims. There is no vendored third-party tree: a dependency is a package the host provides, or it is
 ours.
 
-**A backticked path is a citation and must resolve.** Something to be built is named in prose instead —
-a *host layer*, a *shader directory*. Both were once written in the same syntax, so a reader could not
-tell evidence from intention and a checker could not either. `test/harness/EveryPathCitedInADocumentResolves.cpp`
-reads this file, and it is currently clean.
+**A backticked path is a citation and must resolve**; something to be built is named in prose instead —
+a *host layer*, a *shader directory*. Written in one syntax, a reader cannot tell evidence from
+intention and neither can a checker. `test/harness/EveryPathCitedInADocumentResolves.cpp` reads this
+file.
 
 **Only correct work is committed**, and `git log` is what was — no journal.
 
@@ -397,7 +392,7 @@ is no fourth: a `blocked/` is where a board rots, because nothing owns moving a 
 is a line in the body naming what blocks it, and the task stays `open`.**
 
 **A task is one file — RFC 822 header, blank line, markdown body.** The un-reinvented wheel: git commit
-objects, `git format-patch`, HTTP, Debian control. It needs no parser; `grep '^Test:'` is the whole
+objects, `git format-patch`, HTTP, Debian control. It needs no parser; `grep '^Type:'` is the whole
 implementation. **Seven fields and no others — an eighth needs a decision:**
 
 | | |
@@ -421,12 +416,8 @@ requirement satisfied by twenty files, one file satisfying three — which no he
 
 **The marker has one spelling and this is it:** `board:<id>` in a comment — `board:0042`. No slash, so the
 citation checker does not read it as a path; not a bare number in prose, because the `board:` prefix is
-what makes it a citation. **Both claims are then derived from the tree that actually runs:**
-
-```sh
-grep -rn 'board:0042' src/ test/       # every site implementing or proving it
-grep -rl 'board:0042' test/            # the evidence — empty means unproven
-```
+what makes it a citation. **Both claims are then derived from the tree that actually runs**, by the two
+`git grep`s in the usage block below.
 
 **The filename is **NNNN_description.md**: a flat autoincrementing integer, then the label.** **The number is
 the identity and the description is the label** — retitling is a `git mv` that changes only the label, and
@@ -434,8 +425,8 @@ the id survives, which is what makes it safe to cite from source. **The next num
 stored**: the maximum over `board/*/` plus one. *A counter file would be a mutable fact outside the tree it
 describes, and this design has refused three of those.*
 
-**What the header must not carry.** No `File:`, no `Test:` — **the code cites the requirement, not the other way**. No `State:` — the directory is. No `Id:`, no `Title:` — the filename
-is; **the slug is authoritative and renaming a file IS retitling**, a `git mv` visible in the diff, and
+**What the header must not carry.** No `File:`, no `Test:`. No `State:` — the directory is. No `Id:`, no
+`Title:` — the filename is; **the slug is authoritative and renaming a file IS retitling**, a `git mv` visible in the diff, and
 the body never restates the title. No test result — *a header recording a passing test is a capability
 claim decoupled from its evidence*. No priority, no owner, no dates — **anything derivable from the tree
 belongs to the harness**. *Duplication is a defect only when the copies can drift, which is why an id may
@@ -443,29 +434,25 @@ sit in a path and a state may not.*
 
 **The three edges are stored one-directional on the new task and the reverse is derived.** No `Blocks:`,
 no `Successors:` — `grep -l '^Depends:.*<id>' board/*/*.md` is free and cannot disagree with itself.
-**`closed → open` IS a legal move** — *my earlier refusal is struck, and the reason it was wrong is worth
-keeping*: I argued a reopen destroys the record that the work was once done, and
-`git log --follow --name-status -- 'board/*/0042_*'` demonstrably preserves it. **git is the audit trail,
+**`closed → open` IS a legal move.** The one argument against it was that a reopen destroys the record
+that the work was once done, and `git log --follow --name-status -- 'board/*/0042_*'` preserves it. **git is the audit trail,
 so no `Created:`, no `Author:`, no history field ever** — storing what `git blame` already answers is the
 duplication the deleted doc tree was removed over.
 
-**`Regresses:` narrows rather than disappears, and the narrowing is the point.** **A move when the WI's
-statement is unchanged and work simply resumes; a new WI citing it with `Regresses:` when the return has
-its own cause, its own measurement or its own statement of what must be true** — the test is whether
-there is **something new to investigate**, because that is what needs somewhere to live. *That keeps
-regression countable by grep instead of by parsing history, which was the real argument for the field.*
+**`Regresses:` narrows rather than disappears.** A move when the item's statement is unchanged and work
+simply resumes; **a new item citing it with `Regresses:` when the return has its own cause, its own
+measurement or its own statement of what must be true**. The test is whether there is **something new to
+investigate**, and it keeps regression countable by grep instead of by parsing history.
 
 **A `## Comments` section at the foot of the body, append-only, no dates and no authors** — `git blame`
 carries both. **A comment records what was LEARNED, never what was DONE**: *measured 0.3174° and it is the
 texture's 8-bit quantisation* is a comment; *ran the corpus* is `git log`. **The test is whether the next
-person picking the WI up would be worse off without it**, and `git log` is what was — this file has no
-journal.
+person picking the item up would be worse off without it.**
 
-**Comments survive into `closed` and that is most of their value**: a closed WI whose comments say *this
-was tried and refuted, here is the number* is what stops the next round re-running it — the same reason a
-rejected approach is kept with its measurement rather than deleted. **Nothing greps them and no convention
-is built for it**: they are prose for whoever reads that one WI, and **a structured comment is a field
-wearing a disguise** — if it must be queryable it is a field, or it is derived.
+**Comments survive into `closed` and that is most of their value**: a closed item whose comments say
+*this was tried and refuted, here is the number* is what stops the next round re-running it. **Nothing
+greps them and no convention is built for it** — they are prose for whoever reads that one item, and **a
+structured comment is a field wearing a disguise**: if it must be queryable it is a field, or derived.
 
 **An `issue` is filed and worked around, never waited on.** When a round meets a decision that is the
 owner's — a trade nobody else can make, a scope call, a preference between two defensible designs —
@@ -503,21 +490,17 @@ git mv board/active/X.md board/closed/               # the transition IS the dif
 ls board/*/ | grep -o '^[0-9]\{4\}' | sort -n | tail -1   # the next id, derived
 ```
 **A partial run leaves the previous run's logs in place.** A suite that dies early — a build group with
-no declared include set, a signal, an interrupt — writes no trailer, and every per-case log from the
-run before it is still on disk. **Numbers grepped out of those logs are the LAST run's**, and nothing
-in them says so. **Read the trailer line first**: `N tests: … PASS … FAIL` is what says a run happened
-at all, and a count quoted without it may be a measurement of the past.
+no declared include set, a signal, an interrupt — writes no trailer, and every per-case log from the run
+before it is still on disk, saying nothing about it. **Read the trailer first**: `N tests: … PASS … FAIL`
+is what says a run happened at all, and a count quoted without it may be a measurement of the past.
 
-**A new file must be staged before `git grep` can see it.** `git grep` searches **tracked** files, so a
-work item proven only by a test that has not been added yet reads as unproven — the same direction of
-failure as the ignore case below, met the first time a round closed an item with a new test. The
-harness's own invariant walks the filesystem and does not have this hazard; **the query does**.
-
-**`git grep`, never `grep -r`, for the marker queries.** `test/render/.gitignore` opens with `*` and
-re-includes `/*.cpp` so a case directory carries only its manifest; **git honours the negation and
-some greps do not**, so a plain recursive grep silently skips `Parity.cpp` — the largest test file in
-the tree. The failure is the dangerous direction: **a work item proven only by a render case reads as
-unproven.** `git grep` searches tracked files, which is exactly the population the question means.
+**`git grep`, never `grep -r`, for the marker queries — and stage a new file before querying it.**
+`test/render/.gitignore` opens with `*` and re-includes `/*.cpp`, so **git honours the negation and some
+greps do not** and a recursive grep silently skips `Parity.cpp`, the largest test file in the tree.
+`git grep` searches **tracked** files, which is the population the question means — and which is why a
+work item proven only by a test not yet added reads as unproven too. Both failures point the dangerous
+way: **proven reads as unproven.** The harness's own invariant walks the filesystem and has neither
+hazard; **the query has both**.
 
 **While any agent is running, stage named files and never a directory.** `git mv` **stages** its
 rename, so `git add -A` or `git add board/` sweeps another round's state change into a commit about
@@ -542,19 +525,25 @@ one this repository already died of twice. It is **derived, never authored**: an
 disagree, the directory is right** — `ls board/active/` is the state, and a list is a view of it.
 
 
-**Five invariants, and one query that must never become a test.** Invariant: a dependency cycle · a
-`closed` task depending on one that is not closed · an id in any edge that does not resolve to exactly one
-file · **a `feature` carrying a `Parent:`** · **a `task` with no `Parent:`, or one naming
-something that is not a `feature`** — which also forbids a task parented to a task, stated because *no
-sub-tasks* is a decision and not an accident · **a `closed` feature with an open child**, which is the
-composition analogue of the dependency rule and **the exact failure a feature/task split exists to
-catch**: the thing that looked done because its headline was ticked while the work under it was not ·
-and the two read from the tree rather than from the board — **a `closed` id cited by nothing under `test/`, which is an unproven
-claim**, and **a `board:` marker naming an id that does not exist**, which is a dangling citation of the
-class the citation test already handles. *That is the owner's standing instruction made checkable rather
-than asserted, and it cannot drift because it is read from the trees that compile and run.* Query: **what is ready to start** — open tasks
-whose every `Depends:` is closed. **A board with nothing ready is a legitimate state**, so that one may
-not go red, and a later round must not helpfully make it a test.
+**Seven invariants, and one query that must never become a test.** Six are read from the board:
+
+- a dependency cycle
+- a `closed` item depending on one that is not closed
+- an id in any edge that does not resolve to exactly one file
+- a `feature` carrying a `Parent:`
+- a `task` with no `Parent:`, or one naming something that is not a `feature` — which also forbids a task
+  parented to a task, because *no sub-tasks* is a decision and not an accident
+- **a `closed` feature with an open child** — the composition analogue of the dependency rule, and **the
+  exact failure a feature/task split exists to catch**: the thing that looked done because its headline
+  was ticked while the work under it was not
+
+The seventh is read from the tree instead: **a `closed` id cited by nothing under `test/`, which is an
+unproven claim.** *That is the owner's standing instruction made checkable rather than asserted, and it
+cannot drift, because it is read from the trees that compile and run.* A **`board:` marker naming an id
+that does not exist** is the same defect facing the other way, and the citation test already holds it.
+
+Query: **what is ready to start** — open tasks whose every `Depends:` is closed. **A board with nothing
+ready is a legitimate state**, so it may not go red, and a later round must not helpfully make it a test.
 
 
 ## References
