@@ -42,3 +42,5 @@ one mesh, one material, several sockets, distinct transforms, distinguishable im
 **Done when** the per-reference claim's evidence is stated where the corpus counts are published, and
 either a generated fixture exists with its cost paid or the decision to leave it with the unit test is
 recorded with its reason.
+
+**The fixture capability is `board:1190`** and it is filed as one item because three items need it. **This one carries a line rather than a `Depends:`**: its second path — leave the claim with its unit test and say so where the corpus count is published — needs no fixture at all, and an edge would hold it out of *ready* for half of itself.

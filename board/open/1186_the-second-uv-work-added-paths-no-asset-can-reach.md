@@ -1,6 +1,7 @@
 Type: bug
 Area: corpus
 Tags: khronos, instrument
+Depends: 1190
 
 **The second-uv work added paths no asset can reach**
 
