@@ -213,7 +213,8 @@ class _Subject:
         for position, file in enumerate(self.files):
             spelling = "%s.files[%d]" % (where, position)
             if "licence" in file:
-                licence.check_spdx(file["licence"]["spdx"], spelling + ".licence")
+                for grant in licence.declared_grants(file["licence"]):
+                    licence.check_spdx(grant["spdx"], spelling + ".licence")
             if (file["role"] == "archive-member") != ("member" in file):
                 raise Refusal(
                     spelling + ".member",

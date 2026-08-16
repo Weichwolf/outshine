@@ -33,6 +33,16 @@ def check_subject_name(name):
         raise Refusal("subject " + name, why=reason)
 
 
+def declared_grants(field):
+    """A file's declared licences, whether the manifest spelled one or several.
+
+    ONE PLACE, because a file under two grants -- MultiUVTest's CC-BY and Khronos's logo mark -- has
+    to declare both, and the normalisation was written twice with only one of the two copies knowing
+    a list was possible.
+    """
+    return list(field) if isinstance(field, list) else [field]
+
+
 def check_spdx(spdx, where):
     if spdx in ALLOWED_SPDX:
         return

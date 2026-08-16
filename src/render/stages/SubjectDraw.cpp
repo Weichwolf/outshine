@@ -104,13 +104,19 @@ const char *FragmentEntryPoint(SurfaceKind kind, VertexLayout layout) {
   return textured ? "fsTextured" : "fs";
 }
 
+/* THE ARM A LAYOUT ENTERS THROUGH, and it is a switch with no `default` on purpose: a ninth layout
+ * added to the table in `draw/DrawList.h` stops compiling here until it says which vertex arm it is
+ * drawn by, which is the compiler holding what a lookup table would only report (`Enum.2`). */
 const char *VertexEntryPoint(VertexLayout layout) {
   switch (layout) {
     case VertexLayout::Position: return "vs";
     case VertexLayout::PositionUv: return "vsTextured";
+    case VertexLayout::PositionUvUv1: return "vsTexturedTwo";
     case VertexLayout::PositionNormal: return "vsLit";
     case VertexLayout::PositionNormalUv: return "vsLitTextured";
+    case VertexLayout::PositionNormalUvUv1: return "vsLitTexturedTwo";
     case VertexLayout::PositionNormalUvTangent: return "vsMapped";
+    case VertexLayout::PositionNormalUvUv1Tangent: return "vsMappedTwo";
   }
   return "vs";
 }
@@ -145,13 +151,20 @@ struct S { float4x4 mvp; float4 anc; float4x4 prevMvp; float4 prevAnc; };
  * past where the host writes it. */
 /* AND THE FOUR uv MATRICES RIDE IN THE SAME ROW (board:1177), two `packed_float3` each -- the two
  * rows of an affine 2x3, so `u'` and `v'` are one dot product apiece and the third row of the 3x3 is
- * the `(0, 0, 1)` no affine map varies. */
+ * the `(0, 0, 1)` no affine map varies.
+ *
+ * AND ONE SELECTOR PER SOCKET BEHIND THEM (board:1182): 0 reads the first uv set, 1 the second. Four
+ * trailing scalars rather than a `float4`, because a `float4` here would want sixteen-byte alignment
+ * and the host writes this row as a flat run of floats -- the padding would put every selector four
+ * bytes from where it was written. */
 struct M { float factor; float cut; float metalness; float roughness;
            float4 base; packed_float3 emissive; float normalScale; float identity;
            packed_float3 colourUvU; packed_float3 colourUvV;
            packed_float3 normalUvU; packed_float3 normalUvV;
            packed_float3 metalRoughUvU; packed_float3 metalRoughUvV;
-           packed_float3 emissiveUvU; packed_float3 emissiveUvV; };
+           packed_float3 emissiveUvU; packed_float3 emissiveUvV;
+           float colourUvSecond; float normalUvSecond;
+           float metalRoughUvSecond; float emissiveUvSecond; };
 /* `tint` is colour times intensity with the kind in `w` -- 0 directional, 1 point, 2 spot -- so the
  * multiplier and the shape travel together and a light cannot be half-declared. `place` is the
  * camera-relative position with the RECIPROCAL of the declared range in `w` -- zero where the file
@@ -185,18 +198,30 @@ struct Occluders { device const BvhNode *nodes; device const BvhTri *tris; };
  * THE MATRIX IS THE IDENTITY WHERE THE FILE DECLARED NO TRANSFORM, so this is the whole of the
  * extension in the fragment: one multiply-add, no branch, no second arm and no pipeline permutation.
  * The `sin` and `cos` are the host's, once per surface, and have no spelling here. */
-static inline float2 uvBy(packed_float3 u, packed_float3 v, float2 uv) {
-  float3 homogeneous = float3(uv, 1.0);
+/* THE TWO SETS TRAVEL AS ONE VALUE (board:1182) so that no site can hand over the first where the
+ * second was meant, or the same one twice -- which is exactly the defect `MultiUVTest` exists to
+ * show, and it is a defect two positional `float2` arguments would spell (`I.24`). */
+struct Uvs { float2 first; float2 second; };
+static inline float2 uvBy(packed_float3 u, packed_float3 v, Uvs uv, float second) {
+  /* `mix` AND NOT A BRANCH: the selector is written as exactly 0 or 1 from an enumeration on the
+   * host, so this is exact, and the second uv set costs no divergence and no second fragment arm. */
+  float3 homogeneous = float3(mix(uv.first, uv.second, second), 1.0);
   return float2(dot(float3(u), homogeneous), dot(float3(v), homogeneous));
 }
+/* THE PAIRING OF THE TWO VARYINGS HAS ONE SPELLING, here, for the reason the socket does. */
+#define SUBJECT_UVS(in) Uvs{(in).uv, (in).uv1}
 #define SUBJECT_COLOUR_TAP(uv) \
-  colourMap.sample(colourSampler, uvBy(surface.colourUvU, surface.colourUvV, (uv)))
+  colourMap.sample(colourSampler, \
+                   uvBy(surface.colourUvU, surface.colourUvV, (uv), surface.colourUvSecond))
 #define SUBJECT_NORMAL_TAP(uv) \
-  normalMap.sample(normalSampler, uvBy(surface.normalUvU, surface.normalUvV, (uv)))
+  normalMap.sample(normalSampler, \
+                   uvBy(surface.normalUvU, surface.normalUvV, (uv), surface.normalUvSecond))
 #define SUBJECT_METALROUGH_TAP(uv) \
-  metalRoughMap.sample(metalRoughSampler, uvBy(surface.metalRoughUvU, surface.metalRoughUvV, (uv)))
+  metalRoughMap.sample(metalRoughSampler, uvBy(surface.metalRoughUvU, surface.metalRoughUvV, (uv), \
+                                               surface.metalRoughUvSecond))
 #define SUBJECT_EMISSIVE_TAP(uv) \
-  emissiveMap.sample(emissiveSampler, uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv)))
+  emissiveMap.sample(emissiveSampler, \
+                     uvBy(surface.emissiveUvU, surface.emissiveUvV, (uv), surface.emissiveUvSecond))
 
 /* THE FRAGMENT'S OUTPUT SET IS THE PASS'S ATTACHMENT SET, and the switch is spliced by the caller
  * from the compiled plan (board:1121). A velocity output declared into a pass that attaches no
@@ -305,14 +330,26 @@ struct VertexPlain { float3 p [[attribute(0)]]; float3 emitted [[attribute(2)]];
                      SUBJECT_PREV_ATTRIBUTE };
 struct VertexTextured { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
                         float3 emitted [[attribute(2)]]; SUBJECT_PREV_ATTRIBUTE };
+struct VertexTexturedTwo { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                           float2 uv1 [[attribute(6)]]; float3 emitted [[attribute(2)]];
+                           SUBJECT_PREV_ATTRIBUTE };
 
-struct SOut { float4 pos [[position]]; float2 uv; float3 emitted [[flat]];
+/* BOTH UV SETS REACH THE FRAGMENT AND THE SOCKET'S OWN SELECTOR DECIDES WHICH IT READS
+ * (board:1182). Two varyings and not one, because a material may read the first set on one socket
+ * and the second on another -- `MultiUVTest` does exactly that -- so a single interpolated pair
+ * would have to be chosen per material where the choice is per reference.
+ *
+ * AN ARM WITH NO SECOND RUN WRITES ZERO INTO `uv1` AND NOTHING READS IT. That is not a fall-back:
+ * a surface whose reference names the second set can only be drawn through a layout that carries
+ * the run, because `SetMesh` refuses the pairing outright, so the zero has no path to a sampler. */
+struct SOut { float4 pos [[position]]; float2 uv; float2 uv1; float3 emitted [[flat]];
               SUBJECT_MOTION_VARYINGS };
 
 vertex SOut vs(VertexPlain v [[stage_in]], constant S &s [[buffer(0)]]) {
   SOut o;
   o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0);
   o.uv = float2(0.0);
+  o.uv1 = float2(0.0);
   o.emitted = v.emitted;
   SUBJECT_SET_MOTION(o, v, s);
   return o;
@@ -322,6 +359,17 @@ vertex SOut vsTextured(VertexTextured v [[stage_in]], constant S &s [[buffer(0)]
   SOut o;
   o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0);
   o.uv = v.uv;
+  o.uv1 = float2(0.0);
+  o.emitted = v.emitted;
+  SUBJECT_SET_MOTION(o, v, s);
+  return o;
+}
+
+vertex SOut vsTexturedTwo(VertexTexturedTwo v [[stage_in]], constant S &s [[buffer(0)]]) {
+  SOut o;
+  o.pos = s.mvp * float4(v.p + s.anc.xyz, 1.0);
+  o.uv = v.uv;
+  o.uv1 = v.uv1;
   o.emitted = v.emitted;
   SUBJECT_SET_MOTION(o, v, s);
   return o;
@@ -360,7 +408,7 @@ fragment SFrag fsBlended(SOut in [[stage_in]], SUBJECT_SURFACE) {
 
 fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
   SFrag o;
-  o.col = float4(in.emitted * SUBJECT_COLOUR_TAP(in.uv).rgb, 1.0);
+  o.col = float4(in.emitted * SUBJECT_COLOUR_TAP(SUBJECT_UVS(in)).rgb, 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_NO_SHADING_NORMAL(o);
@@ -371,7 +419,7 @@ fragment SFrag fsTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
  * ("If the alpha value is greater than or equal to the alphaCutoff value then it is rendered as
  * fully opaque"), and the two differ on exactly the texels a linear ramp puts at the cutoff. */
 fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, 1.0);
@@ -385,7 +433,7 @@ fragment SFrag fsMaskedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
  * weight, so the same fragment function would be correct under either convention only by accident.
  * The one convention this whole comparison is stated in is straight alpha. */
 fragment SFrag fsBlendedTextured(SOut in [[stage_in]], SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   SFrag o;
   o.col = float4(in.emitted * tap.rgb, surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o, in);
@@ -411,8 +459,11 @@ static const char *kSubjectLitMsl = R"(
 struct VertexLit { float3 p [[attribute(0)]]; float3 n [[attribute(3)]]; SUBJECT_PREV_ATTRIBUTE };
 struct VertexLitTextured { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
                            float3 n [[attribute(3)]]; SUBJECT_PREV_ATTRIBUTE };
+struct VertexLitTexturedTwo { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                              float2 uv1 [[attribute(6)]]; float3 n [[attribute(3)]];
+                              SUBJECT_PREV_ATTRIBUTE };
 
-struct LOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float3 lp;
+struct LOut { float4 pos [[position]]; float2 uv; float2 uv1; float3 n; float3 p; float3 lp;
               SUBJECT_MOTION_VARYINGS };
 
 vertex LOut vsLit(VertexLit v [[stage_in]], constant S &s [[buffer(0)]]) {
@@ -420,6 +471,7 @@ vertex LOut vsLit(VertexLit v [[stage_in]], constant S &s [[buffer(0)]]) {
   float3 placed = v.p + s.anc.xyz;
   o.pos = s.mvp * float4(placed, 1.0);
   o.uv = float2(0.0);
+  o.uv1 = float2(0.0);
   o.n = v.n;
   o.p = placed;
   o.lp = v.p;
@@ -432,6 +484,20 @@ vertex LOut vsLitTextured(VertexLitTextured v [[stage_in]], constant S &s [[buff
   float3 placed = v.p + s.anc.xyz;
   o.pos = s.mvp * float4(placed, 1.0);
   o.uv = v.uv;
+  o.uv1 = float2(0.0);
+  o.n = v.n;
+  o.p = placed;
+  o.lp = v.p;
+  SUBJECT_SET_MOTION(o, v, s);
+  return o;
+}
+
+vertex LOut vsLitTexturedTwo(VertexLitTexturedTwo v [[stage_in]], constant S &s [[buffer(0)]]) {
+  LOut o;
+  float3 placed = v.p + s.anc.xyz;
+  o.pos = s.mvp * float4(placed, 1.0);
+  o.uv = v.uv;
+  o.uv1 = v.uv1;
   o.n = v.n;
   o.p = placed;
   o.lp = v.p;
@@ -557,18 +623,18 @@ static const char *kSubjectLitTexturedMsl = R"(
 /* glTF's EMISSION: `emissiveFactor` TIMES `emissiveTexture` (Specification.adoc:1436), and a slot
  * that declares no image binds one white texel so that the product is the factor alone. */
 static inline float3 emittedAt(constant M &surface, texture2d<float> emissiveMap,
-                               sampler emissiveSampler, float2 uv) {
+                               sampler emissiveSampler, Uvs uv) {
   return surface.emissive * SUBJECT_EMISSIVE_TAP(uv).rgb;
 }
 
 fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
-                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -577,14 +643,14 @@ fragment SFrag fsLitTextured(LOut in [[stage_in]], bool front [[front_facing]], 
 
 fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                    SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
-                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)), 1.0);
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))), 1.0);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
   SUBJECT_SET_SHADING_NORMAL(o, shadingNormal, front);
@@ -593,13 +659,13 @@ fragment SFrag fsLitMaskedTextured(LOut in [[stage_in]], bool front [[front_faci
 
 fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_facing]],
                                     SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const float3 shadingNormal = facing(in.n, front);
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb,
                           surface.metalness, surface.roughness,
-                          emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
+                          emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                  surface.factor * tap.a);
   SUBJECT_SET_VELOCITY(o, in);
   SUBJECT_SET_SURFACE_IDENTITY(o, surface);
@@ -623,15 +689,33 @@ static const char *kSubjectMappedMsl = R"(
 struct VertexMapped { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
                       float3 n [[attribute(3)]]; float4 t [[attribute(4)]];
                       SUBJECT_PREV_ATTRIBUTE };
+struct VertexMappedTwo { float3 p [[attribute(0)]]; float2 uv [[attribute(1)]];
+                         float2 uv1 [[attribute(6)]]; float3 n [[attribute(3)]];
+                         float4 t [[attribute(4)]]; SUBJECT_PREV_ATTRIBUTE };
 
-struct MOut { float4 pos [[position]]; float2 uv; float3 n; float3 p; float3 lp; float4 t;
-              SUBJECT_MOTION_VARYINGS };
+struct MOut { float4 pos [[position]]; float2 uv; float2 uv1; float3 n; float3 p; float3 lp;
+              float4 t; SUBJECT_MOTION_VARYINGS };
 
 vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
   MOut o;
   float3 placed = v.p + s.anc.xyz;
   o.pos = s.mvp * float4(placed, 1.0);
   o.uv = v.uv;
+  o.uv1 = float2(0.0);
+  o.n = v.n;
+  o.p = placed;
+  o.lp = v.p;
+  o.t = v.t;
+  SUBJECT_SET_MOTION(o, v, s);
+  return o;
+}
+
+vertex MOut vsMappedTwo(VertexMappedTwo v [[stage_in]], constant S &s [[buffer(0)]]) {
+  MOut o;
+  float3 placed = v.p + s.anc.xyz;
+  o.pos = s.mvp * float4(placed, 1.0);
+  o.uv = v.uv;
+  o.uv1 = v.uv1;
   o.n = v.n;
   o.p = placed;
   o.lp = v.p;
@@ -642,7 +726,7 @@ vertex MOut vsMapped(VertexMapped v [[stage_in]], constant S &s [[buffer(0)]]) {
 
 static inline float3 mappedNormal(constant M &surface, texture2d<float> normalMap,
                                   sampler normalSampler, MOut in, bool front) {
-  float3 tap = SUBJECT_NORMAL_TAP(in.uv).xyz * 2.0 - 1.0;
+  float3 tap = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).xyz * 2.0 - 1.0;
   return normalFromMap(in.n, in.t, tap, surface.normalScale, front);
 }
 
@@ -660,18 +744,18 @@ static inline Shaded mappedShade(constant M &surface, constant Lights &lights, O
                                  texture2d<float> metalRoughMap, sampler metalRoughSampler,
                                  texture2d<float> emissiveMap, sampler emissiveSampler,
                                  MOut in, bool front) {
-  float4 orm = SUBJECT_METALROUGH_TAP(in.uv);
-  float3 albedo = surface.base.rgb * SUBJECT_COLOUR_TAP(in.uv).rgb;
+  float4 orm = SUBJECT_METALROUGH_TAP(SUBJECT_UVS(in));
+  float3 albedo = surface.base.rgb * SUBJECT_COLOUR_TAP(SUBJECT_UVS(in)).rgb;
   const float3 shadingNormal = mappedNormal(surface, normalMap, normalSampler, in, front);
   /* THE SAME TAP THE NORMAL CAME FROM, FOR ITS LENGTH. Sampled here rather than returned from
    * `mappedNormal` because that function's pair -- the colour and the normal it was shaded with -- is
    * deliberately inseparable (board:1122) and a third member would loosen it; the texture and sampler
    * are the same pair of arguments, so this costs no second fetch after the compiler has seen both. */
-  const float meanResultantLength = SUBJECT_NORMAL_TAP(in.uv).w;
+  const float meanResultantLength = SUBJECT_NORMAL_TAP(SUBJECT_UVS(in)).w;
   return Shaded{shadeRow(lights, occluders, in.lp, shadingNormal, in.p, albedo,
                   surface.metalness * orm.b,
                   roughenedBy(surface.roughness * orm.g, meanResultantLength),
-                  emittedAt(surface, emissiveMap, emissiveSampler, in.uv)),
+                  emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                 shadingNormal};
 }
 
@@ -690,7 +774,7 @@ fragment SFrag fsMapped(MOut in [[stage_in]], bool front [[front_facing]], SUBJE
 }
 
 fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   if (surface.factor * tap.a < surface.cut) { discard_fragment(); }
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
@@ -702,7 +786,7 @@ fragment SFrag fsMappedMasked(MOut in [[stage_in]], bool front [[front_facing]],
 }
 
 fragment SFrag fsMappedBlended(MOut in [[stage_in]], bool front [[front_facing]], SUBJECT_SURFACE) {
-  float4 tap = SUBJECT_COLOUR_TAP(in.uv);
+  float4 tap = SUBJECT_COLOUR_TAP(SUBJECT_UVS(in));
   const Shaded shaded = SUBJECT_MAPPED_SHADE;
   SFrag o;
   o.col = float4(shaded.col, surface.factor * tap.a);
@@ -720,11 +804,12 @@ namespace {
  * radiance come out of the consumer as separate runs, and interleaving them here would be a copy
  * nobody asked for. The untextured pipeline has no uv slot at all rather than an empty one. */
 struct VertexShape {
-  /* FIVE, BECAUSE THE PREVIOUS POSE IS A RUN AND NOT A TRANSFORM (board:1169): the mapped arm
-   * already binds position, uv, normal and tangent, and a pass that attaches a velocity target
-   * binds the previous frame's positions beside them. */
-  SDL_GPUVertexBufferDescription Buffers[5];
-  SDL_GPUVertexAttribute Attributes[5];
+  /* SIX, BECAUSE THE SECOND UV SET IS A RUN OF ITS OWN (board:1182): the mapped arm already binds
+   * position, uv, normal and tangent, a pass that attaches a velocity target binds the previous
+   * frame's positions beside them, and `MultiUVTest`'s second uv set is the sixth. */
+  static constexpr uint32_t kRuns = 6;
+  SDL_GPUVertexBufferDescription Buffers[kRuns];
+  SDL_GPUVertexAttribute Attributes[kRuns];
   uint32_t Count = 0;
 };
 
@@ -756,6 +841,15 @@ VertexShape ShapeOf(VertexLayout layout, bool writesVelocity) {
   if (textured) {
     shape.Buffers[shape.Count] = Run(shape.Count, 2);
     shape.Attributes[shape.Count] = At(1, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2);
+    ++shape.Count;
+  }
+  /* THE SECOND UV SET IMMEDIATELY BEHIND THE FIRST (board:1182), at its own attribute location: the
+   * two are the same kind of quantity and a reader looking for one finds the other beside it. Its
+   * SLOT is its place in this sequence, so the encoder's binding order and this list stay one
+   * statement whichever runs a layout carries. */
+  if (CarriesUv1(layout)) {
+    shape.Buffers[shape.Count] = Run(shape.Count, 2);
+    shape.Attributes[shape.Count] = At(6, shape.Count, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2);
     ++shape.Count;
   }
   /* THE LIT ARMS BIND NO RADIANCE RUN AT ALL, which is the vertex-buffer half of what the two arms
@@ -840,7 +934,8 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
                              kSubjectMappedMsl;
 
-  /* THIRTY PIPELINES: five vertex layouts, two facings, three alpha modes. The facing is the SLOT's
+  /* FORTY-EIGHT PIPELINES: every vertex layout the table declares, two facings, three alpha modes.
+   * The count is `kPipelines` and is derived from the table rather than written here. The facing is the SLOT's
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
    * polygon facing the wrong way and lets the flag decide which of the two is seen, and one cull
    * mode for the whole subject draws the wrong cell whichever way it is set. */
@@ -867,9 +962,8 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
       targets[identityIndex].format = SDL_GPU_TEXTUREFORMAT_R32G32B32A32_FLOAT;
     }
 
-    for (const VertexLayout layout :
-         {VertexLayout::Position, VertexLayout::PositionUv, VertexLayout::PositionNormal,
-          VertexLayout::PositionNormalUv, VertexLayout::PositionNormalUvTangent}) {
+    for (const VertexLayoutRow &row : kVertexLayouts) {
+      const VertexLayout layout = row.Layout;
       const VertexShape shape = ShapeOf(layout, WritesVelocity);
       const OwnedShader vertex(Device, MakeShader(Device, source, VertexEntryPoint(layout),
                                                   SDL_GPU_SHADERSTAGE_VERTEX));
@@ -1113,6 +1207,7 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   SurfaceSlot slot;
   slot.Kind = material.State().Kind();
   slot.CullsBack = CullsBackFaces(material.State(), kSubjectWinding);
+  slot.ReadsSecondUv = material.ReadsSecondUv();
   slot.Colour = Upload(material.Colour, Transfer::Srgb, TexelKind::Value);
   slot.Normal = Upload(material.Normal, Transfer::Linear, TexelKind::Direction);
   slot.MetalRough = Upload(material.MetalRough, Transfer::Linear, TexelKind::Value);
@@ -1136,6 +1231,13 @@ void SubjectDraw::BindSurface(const SubjectMaterial &material) {
   size_t at = (size_t)kSurfaceScalars;
   for (const SubjectTexture *image : images) {
     for (const double element : image->Uv.M) { slot.Row[at++] = (float)element; }
+  }
+  /* THE FOUR SELECTORS BEHIND THE FOUR MATRICES, IN THE SAME ORDER AND OUT OF THE SAME WALK
+   * (board:1182), so a socket added to one and not the other has no spelling. Exactly 0 or 1, from
+   * the enumeration and never from a number a call site chose, which is what makes the shader's
+   * `mix` an exact selection rather than a blend of two coordinates. */
+  for (const SubjectTexture *image : images) {
+    slot.Row[at++] = image->Set == UvSet::Second ? 1.0f : 0.0f;
   }
   Slots.push_back(std::move(slot));
 }
@@ -1176,6 +1278,7 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
   NVerts = mesh.VertexCount;
   NIdx = mesh.IndexCount;
   HasUv = mesh.Uv != nullptr;
+  HasUv1 = mesh.Uv1 != nullptr;
   HasNormal = mesh.Normals != nullptr;
   HasTangent = mesh.Tangents != nullptr;
   Batches.clear();
@@ -1201,6 +1304,23 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
     return false;
   }
   for (const DrawBatch &batch : mesh.Draws->Batches()) {
+    /* A SURFACE THAT READS THE SECOND UV SET IS OWED THE RUN, AND THE ABSENCE IS A REFUSAL RATHER
+     * THAN THE FIRST SET (board:1182). This is the one place both halves are known -- the table says
+     * which sockets read it, the mesh and the draw's layout say whether it is bound -- and the
+     * alternative is not a missing image but a plausible WRONG one: `MultiUVTest` writes "Multiple
+     * UVs not supported in this viewer" exactly where the first set addresses. It is checked here
+     * and not in the encoder because a batch dropped at encode time is a body missing from the
+     * picture with nothing to attribute it to. */
+    if (batch.MaterialSlot < Slots.size() && Slots[batch.MaterialSlot].ReadsSecondUv &&
+        !(CarriesUv1(batch.Layout) && HasUv1)) {
+      NIdx = 0;
+      error = "surface slot " + std::to_string(batch.MaterialSlot) +
+              " reads an image from the second uv set and the draw wearing it " +
+              (HasUv1 ? "takes a vertex layout that binds no second run"
+                      : "has no second uv run at all") +
+              ", and the first set is not a substitute for it";
+      return false;
+    }
     if (batch.MaterialSlot >= Slots.size()) {
       NIdx = 0;
       error = "a draw names surface slot " + std::to_string(batch.MaterialSlot) +
@@ -1226,6 +1346,8 @@ bool SubjectDraw::SetMesh(const SubjectMesh &mesh, std::string &error) {
                    : OwnedBuffer();
   Uv = HasUv ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv, NVerts * 2u * (uint32_t)sizeof(float))
              : OwnedBuffer();
+  Uv1 = HasUv1 ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.Uv1, NVerts * 2u * (uint32_t)sizeof(float))
+               : OwnedBuffer();
   Prev = WritesVelocity ? Fill(SDL_GPU_BUFFERUSAGE_VERTEX, mesh.PrevVerts, positionBytes)
                         : OwnedBuffer();
   Idx = Fill(SDL_GPU_BUFFERUSAGE_INDEX, mesh.Indices, NIdx * (uint32_t)sizeof(uint32_t));
@@ -1358,10 +1480,20 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
     const bool textured = CarriesUv(batch.Layout) && HasUv && Uv;
     const bool lit = CarriesNormal(batch.Layout) && HasNormal && Nrm;
     const bool mapped = CarriesTangent(batch.Layout) && lit && textured && HasTangent && Tan;
+    /* THE SECOND SET IS NOT DEGRADED HERE AND CANNOT BE (board:1182). Every other run above falls
+     * back to a layout without it, which costs an image nobody sampled; falling back on this one
+     * would keep sampling and move the image, so `SetMesh` refused the pairing instead and this
+     * conjunction can only be false where the layout never asked. */
+    const bool secondUv = CarriesUv1(batch.Layout) && textured && HasUv1 && Uv1;
     const VertexLayout wanted =
-        mapped ? VertexLayout::PositionNormalUvTangent
-               : (lit ? (textured ? VertexLayout::PositionNormalUv : VertexLayout::PositionNormal)
-                      : (textured ? VertexLayout::PositionUv : VertexLayout::Position));
+        mapped ? (secondUv ? VertexLayout::PositionNormalUvUv1Tangent
+                           : VertexLayout::PositionNormalUvTangent)
+               : (lit ? (textured ? (secondUv ? VertexLayout::PositionNormalUvUv1
+                                              : VertexLayout::PositionNormalUv)
+                                  : VertexLayout::PositionNormal)
+                      : (textured ? (secondUv ? VertexLayout::PositionUvUv1
+                                              : VertexLayout::PositionUv)
+                                  : VertexLayout::Position));
     /* THE FACING FOLLOWS THE SLOT, AND THE SORT KEY DOES NOT CARRY IT: two batches of one layout
      * that disagree about `doubleSided` cost a pipeline change here rather than being merged. That
      * is a batching cost and not a correctness one, and it is the honest place to pay it -- putting
@@ -1372,10 +1504,11 @@ void SubjectDraw::Encode(const FrameContext &ctx, const PassRecording &into) {
       /* The two arms put the radiance and the normal in the same slot index, so every slot the
        * incoming layout declares is rebound: leaving the other one's buffer where it was is how a
        * uv slot ends up holding radiance. */
-      SDL_GPUBufferBinding runs[5] = {};
+      SDL_GPUBufferBinding runs[VertexShape::kRuns] = {};
       uint32_t count = 0;
       runs[count++] = SDL_GPUBufferBinding{Vtx.Get(), 0};
       if (textured) { runs[count++] = SDL_GPUBufferBinding{Uv.Get(), 0}; }
+      if (secondUv) { runs[count++] = SDL_GPUBufferBinding{Uv1.Get(), 0}; }
       runs[count++] = SDL_GPUBufferBinding{lit ? Nrm.Get() : Emit.Get(), 0};
       if (mapped) { runs[count++] = SDL_GPUBufferBinding{Tan.Get(), 0}; }
       /* LAST, WHICH IS WHERE `ShapeOf` PUT IT: the slot indices are the order the shape declared

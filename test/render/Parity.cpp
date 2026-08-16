@@ -753,12 +753,16 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
  * lie about the third (`NL.1`). */
 [[nodiscard]] bool ReadSocketImage(const Document &file, const outshine::Gltf::MaterialRef &material,
                                    const outshine::Gltf::TextureRef &declared, const char *socket,
+                                   outshine::Gltf::CarriedUvSets carried,
                                    outshine::Clients::Raster &raster,
                                    outshine::Render::SubjectTexture &bound, std::string &error) {
   if (!declared.Declared()) { return true; }
-  if (declared.TexCoord != 0) {
-    error = std::string("material '") + material.Name + "' reads its " + socket + " from TEXCOORD_" +
-            std::to_string(declared.TexCoord) + ", and this subject carries the first uv set only";
+  /* WHICH UV SET, ANSWERED BY THE LIBRARY AND NOT HERE (board:1182). The runner is a consumer of the
+   * reader's answer; a second mapping written in this file is a second place the narrowing could
+   * drift, and it is the narrowing rather than the refusal that this task changed. */
+  std::string why;
+  if (!outshine::Gltf::UvSetOf(declared, carried, socket, bound.Set, why)) {
+    error = std::string("material '") + material.Name + "' " + why;
     return false;
   }
   const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
@@ -803,6 +807,12 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
                                       SurfaceTable &table, std::string &error) {
   table.Decoded.assign(table.Slots.size(), SurfaceRasters{});
   const char *socket = channel == FileColour::Emissive ? "emissiveTexture" : "baseColorTexture";
+  /* WHAT THE SUBJECT CARRIES, ASKED ONCE (board:1182): it is the same answer for every socket of
+   * every material of this subject, and asking it per reference would be one place per socket for it
+   * to be asked differently. */
+  const outshine::Gltf::CarriedUvSets carried = geometry.HasUv1()
+      ? outshine::Gltf::CarriedUvSets::Both
+      : outshine::Gltf::CarriedUvSets::FirstOnly;
   size_t textured = 0;
   for (size_t slot = 0; slot < table.Slots.size(); ++slot) {
     const int index = table.Material[slot];
@@ -820,9 +830,10 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
       return false;
     }
     if (!declared.Declared()) { continue; }
-    if (declared.TexCoord != 0) {
-      error = std::string("material '") + material.Name + "' reads its " + socket + " from TEXCOORD_" +
-              std::to_string(declared.TexCoord) + ", and this subject carries the first uv set only";
+    outshine::Render::SubjectTexture &base = table.Slots[slot].Colour;
+    std::string why;
+    if (!outshine::Gltf::UvSetOf(declared, carried, socket, base.Set, why)) {
+      error = std::string("material '") + material.Name + "' " + why;
       return false;
     }
     const outshine::Gltf::Texture &texture = file.Textures()[(size_t)declared.Texture];
@@ -838,7 +849,6 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
               std::to_string(encoded.size()) + " bytes that this decoder does not read";
       return false;
     }
-    outshine::Render::SubjectTexture &base = table.Slots[slot].Colour;
     base.Rgba = table.Decoded[slot].Colour.Rgba.data();
     base.Width = (uint32_t)table.Decoded[slot].Colour.Width;
     base.Height = (uint32_t)table.Decoded[slot].Colour.Height;
@@ -893,7 +903,8 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
            table.Slots[slot].Emissive},
       };
       for (const auto &map : maps) {
-        if (!ReadSocketImage(file, material, map.Declared, map.Socket, map.Into, map.Bound, error)) {
+        if (!ReadSocketImage(file, material, map.Declared, map.Socket, carried, map.Into, map.Bound,
+                             error)) {
           return false;
         }
       }
@@ -1820,6 +1831,9 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
   }
   outshine::Test::Note("punctual lights the studio declares", (double)studio.Lights.size(),
                        "lights");
+  /* HOW MANY UV SETS THE SUBJECT CARRIES (board:1182), published for every case rather than for the
+   * textured ones: it is what the per-slot set below is read against. */
+  outshine::Test::Note("uv sets the subject carries", subject.Geometry.HasUv1() ? 2.0 : 1.0, "sets");
   for (size_t part = 0; part < subject.Geometry.Parts().size(); ++part) {
     outshine::Test::Note(
         ("declared radiance of node '" + subject.Geometry.Parts()[part].NodeName + "', red").c_str(),
@@ -1833,6 +1847,12 @@ void NoteWhatTheStudioCarries(const Case &subject, const outshine::Clients::Stud
                          (double)subject.Surfaces.Slots[slot].Colour.Height, "texels");
     outshine::Test::Note(("declared coverage factor, surface slot " + std::to_string(slot)).c_str(),
                          (double)subject.Surfaces.Slots[slot].Coverage(), "dimensionless");
+    /* WHICH UV SET THE BOUND IMAGE READS (board:1182), published so that "the picture moved" and
+     * "the picture is read from the other set" are separable without a second run. */
+    outshine::Test::Note(("colour image uv set, surface slot " + std::to_string(slot)).c_str(),
+                         subject.Surfaces.Slots[slot].Colour.Set == outshine::UvSet::Second ? 1.0
+                                                                                            : 0.0,
+                         "index");
   }
 }
 

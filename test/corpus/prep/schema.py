@@ -114,6 +114,19 @@ def _value(declared, where, value):
         for index, item in enumerate(value):
             _value(declared["array"], "%s[%d]" % (where, index), item)
         return
+    # ONE OR SEVERAL, AND THE SEVERAL IS NOT A SPECIAL CASE (board:1182). MultiUVTest is covered by a CC-BY
+    # grant AND by Khronos's non-copyrightable-logo mark, and the licence check compares the SET a
+    # file declares against the set upstream's metadata states -- so a file under two licences has to
+    # declare two. The reader already normalised a list; this is the schema saying so, and until now
+    # the two disagreed about what a manifest may contain.
+    if "oneOrMore" in declared:
+        items = value if isinstance(value, list) else [value]
+        if not items:
+            raise Refusal(where, expected="one, or a non-empty list", observed=_seen(value))
+        for index, item in enumerate(items):
+            at = "%s[%d]" % (where, index) if isinstance(value, list) else where
+            _value(declared["oneOrMore"], at, item)
+        return
     if "map" in declared:
         if not isinstance(value, dict) or not value:
             raise Refusal(where, expected="a non-empty object", observed=_seen(value))

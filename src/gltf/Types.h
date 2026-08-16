@@ -273,5 +273,35 @@ struct Animation {
 std::string MissingSemantics(const Primitive &primitive,
                              std::initializer_list<const char *> required);
 
+/* WHICH UV SETS A SUBJECT'S VERTICES CARRY (board:1182). It is its own enumeration and not a
+ * `UvSet` value, because "the sets that exist" and "the set this reference reads" are two different
+ * questions with the same answer type -- passed positionally they would be swappable and the
+ * compiler would have nothing to say (`I.24`, `Enum.2`). */
+enum class CarriedUvSets { FirstOnly, Both };
+
+/* WHICH UV SET A TEXTURE REFERENCE READS, ANSWERED AGAINST WHAT THE SUBJECT CARRIES (board:1182),
+ * and this is the NARROWING of board:1177's refusal rather than its removal:
+ *
+ *   the reference names TEXCOORD_0                                  -> the first set
+ *   the reference names TEXCOORD_1 and the subject carries it       -> the second set
+ *   the reference names TEXCOORD_1 and the subject carries one set  -> a NAMED REFUSAL
+ *   the reference names TEXCOORD_2 or beyond                        -> a NAMED REFUSAL
+ *
+ * THERE IS NO FOURTH ARM AND IN PARTICULAR NO FALL-BACK. Answering `First` for a reference that
+ * named the second set puts the image somewhere the file did not ask for, and an emissive image on
+ * the wrong uv set is still an image on a surface: it reads as an authored appearance rather than as
+ * a defect, which is why this is a refusal and not a substitution. `MultiUVTest` writes "Multiple
+ * UVs not supported in this viewer" into exactly the place the first set addresses, because that is
+ * what the fall-back draws.
+ *
+ * IT REFUSES AGAINST THE SUBJECT AND NOT AGAINST THE ENGINE'S CAPABILITY. The second set reaching
+ * the sampler is what this engine now does; a file that names a set its own geometry does not carry
+ * is a file that cannot be drawn as declared, whatever a renderer can bind.
+ *
+ * `socket` NAMES THE glTF FIELD FOR THE SENTENCE and nothing else; the caller adds which material it
+ * was. `false` leaves `why` holding the whole refusal and `out` untouched. */
+[[nodiscard]] bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *socket,
+                           UvSet &out, std::string &why);
+
 } // namespace outshine::Gltf
 #endif

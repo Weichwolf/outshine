@@ -22,6 +22,7 @@
 #define UVTRANSFORM_H
 
 #include <cmath>
+#include <cstdint>
 
 namespace outshine {
 
@@ -32,6 +33,22 @@ struct UvPoint {
   double U = 0.0;
   double V = 0.0;
 };
+
+/* WHICH OF THE SUBJECT'S UV SETS ONE TEXTURE REFERENCE READS (board:1182), and it is an enumeration
+ * of the sets this engine carries rather than glTF's own integer. The file states `TEXCOORD_n` and n
+ * is unbounded there; what a vertex layout can bind is not, so the reader answers in the alphabet the
+ * renderer speaks and a set nothing can bind has no spelling downstream -- it is a refusal where the
+ * file is read (`Enum.2`).
+ *
+ * THERE IS NO `Default` AND THERE MUST NOT BE. A third enumerator meaning "whichever the subject
+ * happens to carry" is the silent fall-back to the first set that `board:1177`'s refusal exists to
+ * forbid: a reference that named the second set and rendered from the first is a plausible picture
+ * nobody would attribute to a missing attribute. */
+enum class UvSet : uint8_t { First, Second };
+
+/* HOW MANY SETS A VERTEX LAYOUT OF THIS ENGINE CAN BIND, derived from the enumeration above so that
+ * the refusal's threshold and the enumeration cannot be stated apart. */
+constexpr int kUvSets = 2;
 
 /* board:1177 */
 struct UvTransform {

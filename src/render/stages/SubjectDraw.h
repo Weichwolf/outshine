@@ -32,7 +32,9 @@
  *
  * A UV IS NOT INVENTED EITHER. A primitive with no `TEXCOORD_0` is drawn by a different pipeline,
  * not by this one with a zero coordinate: a zero uv samples the image's corner and looks like a
- * texture that was authored flat.
+ * texture that was authored flat. THE SECOND UV SET IS NOT SUBSTITUTED EITHER (board:1182): a
+ * surface whose reference names it over a mesh that carries no run for it is a refusal in `SetMesh`,
+ * and reading the first set in its place would be a plausible picture of the wrong thing.
  *
  * THE WINDING IS TRUSTED, because the format defines one, and WHETHER BACK FACES ARE CULLED IS THE
  * MATERIAL'S: glTF states `doubleSided` per material and an asset uses it to hide one polygon
@@ -134,6 +136,16 @@ struct SubjectTexture {
    * `KHR_texture_transform` -- so the fragment's expression is one multiply-add whatever the file
    * said, and "no transform" is not a second arm. */
   outshine::UvTransform Uv;
+  /* WHICH OF THE SUBJECT'S UV SETS THIS REFERENCE READS (board:1182), per texture reference for the
+   * same reason the matrix above is: glTF states `texCoord` inside each `textureInfo`, so
+   * `MultiUVTest` puts its base colour on the first set and its emissive on the second within ONE
+   * material. It is beside the transform because both answer "where is this image read from", and
+   * the transform applies to whichever set this names.
+   *
+   * `Second` IS OWED A RUN AND `SetMesh` REFUSES WITHOUT ONE. A default of `First` here is the
+   * absence of a declaration and never a fall-back from `Second`: nothing anywhere quietly turns the
+   * second set into the first. */
+  outshine::UvSet Set = outshine::UvSet::First;
 };
 
 /* ONE SURFACE OF THE SUBJECT: what a draw binds when its key names this slot. The surface state is
@@ -185,6 +197,14 @@ struct SubjectMaterial {
 
   [[nodiscard]] SurfaceState State() const { return StateOf(Row); }
   [[nodiscard]] float Coverage() const { return Row.BaseColour[3]; }
+  /* WHETHER ANY OF THIS SURFACE'S FOUR SOCKETS READS THE SECOND UV SET (board:1182). It is asked of
+   * the whole surface because the vertex layout is what carries the run and a draw wears one
+   * surface: a slot with the emissive on the second set needs the run bound however its base colour
+   * reads. It walks the four named sockets rather than a table, for the reason they are named. */
+  [[nodiscard]] bool ReadsSecondUv() const {
+    return Colour.Set == outshine::UvSet::Second || Normal.Set == outshine::UvSet::Second ||
+           MetalRough.Set == outshine::UvSet::Second || Emissive.Set == outshine::UvSet::Second;
+  }
 };
 
 /* THE WHOLE OF WHAT IS DRAWN, as one parameter object rather than seven arguments (`I.23`). The
@@ -202,6 +222,10 @@ struct SubjectMaterial {
 struct SubjectMesh {
   const float *Verts = nullptr;      /* 3 floats per vertex, ECEF offsets from `Anchor`, metres */
   const float *Uv = nullptr;         /* 2 floats per vertex, or null */
+  /* THE SECOND UV SET, 2 floats per vertex, or null (board:1182). It is a run of its own and never a
+   * second reading of `Uv`: `MultiUVTest` declares both on one primitive out of two buffer views
+   * whose coordinates place the same face a quarter of the image apart. */
+  const float *Uv1 = nullptr;
   const float *Normals = nullptr;    /* 3 floats per vertex, unit, ECEF axes, or null */
   /* 4 floats per vertex -- a unit tangent in ECEF axes and glTF's handedness, so that the bitangent
    * is `cross(normal, tangent.xyz) * w` -- or null. IT IS FOUR AND NOT SIX, because the bitangent is
@@ -291,7 +315,17 @@ private:
    * THE COUNT IS DERIVED HERE rather than written as 37, so the cost of a socket appearing or
    * leaving cannot be stated in one place and paid in another. */
   static constexpr int kUvMatrixFloats = 6;
-  static constexpr int kSurfaceFloats = kSurfaceScalars + kUvMatrixFloats * (int)kSubjectImages;
+  /* AND ONE UV-SET SELECTOR PER IMAGE (board:1182), 0 for the first set and 1 for the second, so the
+   * fragment's tap is `mix(uv0, uv1, k)` and the second set costs no branch, no second fragment arm
+   * and no pipeline permutation of its own -- the permutation the second set does cost is the VERTEX
+   * layout, because the run has to be bound.
+   *
+   * IT IS WRITTEN FROM `SubjectTexture::Set` AND NOWHERE ELSE, so the float is a narrowing of an
+   * enumeration rather than a number a call site chose -- the same shape the slot index has, which
+   * is the row's precedent for carrying a non-radiometric quantity. */
+  static constexpr int kUvSetFloats = 1;
+  static constexpr int kSurfaceFloats =
+      kSurfaceScalars + (kUvMatrixFloats + kUvSetFloats) * (int)kSubjectImages;
   /* The light list as the shader reads it: a count, then `kMaxSubjectLights` entries of four
    * `float4` -- colour times intensity with the kind, the camera-relative position with the
    * reciprocal of the range, the beam, and the cone's two precomputed numbers. */
@@ -323,6 +357,11 @@ private:
     std::array<float, kSurfaceFloats> Row{};
     SurfaceKind Kind = SurfaceKind::Opaque;
     bool CullsBack = true;
+    /* Whether any of this slot's four sockets reads the second uv set (board:1182), kept beside the
+     * two other facts derived from the material at bind time rather than read back out of the row's
+     * float selectors: the row is the device's wire form and a decision taken from it would be a
+     * decision taken from a narrowing. */
+    bool ReadsSecondUv = false;
   };
 
   /* One slot's four images and its surface row, appended to the table. */
@@ -338,7 +377,7 @@ private:
   /* Which of the built pipelines a draw of this layout, kind and facing takes. */
   [[nodiscard]] static size_t PipelineAt(VertexLayout layout, SurfaceKind kind, bool cullsBack);
 
-  /* FIVE VERTEX LAYOUTS TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
+  /* EVERY VERTEX LAYOUT TIMES THE TWO ANSWERS `doubleSided` CAN GIVE TIMES THE SURFACE KIND, all
    * built at configure time. A single pipeline with a white one-texel stand-in would make "no
    * texture declared" and "a white texture declared" the same picture; a single cull mode would make
    * `doubleSided` a property the reader carries and the picture ignores; and one alpha arm for all
@@ -349,8 +388,11 @@ private:
    * `SetMaterials` refuses the other two by name, so a slot naming one never reaches the table and
    * an unbuilt entry has no draw that can select it -- the refusal is the guard, not a check here. */
   static constexpr size_t kSurfaceKinds = 5;
-  static constexpr size_t kVertexLayouts = 5;
-  static constexpr size_t kPipelines = kVertexLayouts * 2 * kSurfaceKinds;
+  /* DERIVED FROM THE ONE TABLE THAT SAYS WHAT A LAYOUT IS (`draw/DrawList.h`), never written here as
+   * a number: a count stated in one place and paid in another is how a layout gets a pipeline slot
+   * nothing builds. */
+  static constexpr size_t kVertexLayoutCount = kVertexLayouts.size();
+  static constexpr size_t kPipelines = kVertexLayoutCount * 2 * kSurfaceKinds;
 
   SDL_GPUDevice *Device = nullptr;
   std::array<OwnedPipeline, kPipelines> Pipelines;
@@ -361,7 +403,7 @@ private:
   /* The colour targets the scene pass attaches, as the compiled plan resolved them: the pipelines
    * and the fragment's output set are both built from this (board:1121). */
   std::vector<Resource> Colours;
-  OwnedBuffer Vtx, Uv, Nrm, Tan, Emit, Idx, Prev;
+  OwnedBuffer Vtx, Uv, Uv1, Nrm, Tan, Emit, Idx, Prev;
   /* THE SUBJECT'S OWN GEOMETRY AS THE VISIBILITY TERM READS IT (`core/TriangleBvh.h`): the
    * acceleration structure's nodes and the triangles its leaves name, in the same anchor-relative
    * metres `Vtx` holds. They are built at `SetMesh` and not per frame, because nothing in them
@@ -373,6 +415,7 @@ private:
   std::vector<SubjectLight> Placed;
   uint32_t NVerts = 0, NIdx = 0;
   bool HasUv = false;
+  bool HasUv1 = false;
   bool HasNormal = false;
   bool HasTangent = false;
   bool FiltersFloat32 = false;

@@ -1,0 +1,270 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/texture/multi-uv-test",
+  "title": "Khronos MultiUVTest -- one primitive declaring both uv sets, with the emissive image read from TEXCOORD_1 and the base colour from TEXCOORD_0",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:MultiUVTest",
+    "board:1182"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "oracleRole": "reference",
+    "says": "This model demonstrates the usage of multiple TEXCOORD attributes, where the color comes from `TEXCOORD_0` and the logo comes from `TEXCOORD_1`.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/README.md",
+    "note": "SELF-DESCRIBING, AND THE ASSET STATES THE FAILURE IN WORDS RATHER THAN LEAVING IT TO A NUMBER. `uv1.png` is black with the glTF logo in the region `TEXCOORD_1` addresses -- u and v both in [0, 0.25] at every one of the 24 vertices -- and the words \"Multiple UVs not supported in this viewer\" written across the regions `TEXCOORD_0` addresses. So an engine that reads the second set draws the LOGO and one that reads the first set twice draws the SENTENCE, and the two are the same subject, the same camera and the same image. THAT IS WHY THIS CASE EXISTS: reading set 0 twice is a silent success -- an emissive image on the wrong uv is still an image on a surface -- and no metric over one reading alone can see it."
+  },
+  "subjectClass": "opaque-min-1px",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). The subject is a closed cube seen from a general direction at the FILE's own camera, so E is 12 against 3 and no roll makes its edges rational together; and the camera is the asset's, which spends the freedoms before this case sees them."
+  },
+  "subjects": [
+    {
+      "id": "multi-uv-test",
+      "kind": "gltf",
+      "name": "MultiUVTest",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TANGENT",
+        "TEXCOORD_0",
+        "TEXCOORD_1"
+      ],
+      "notes": "ONE primitive declaring BOTH uv sets, which is what makes this asset decide the claim rather than illustrate it: accessor 4 sits at bufferView 4, byteOffset 996 and accessor 5 at bufferView 5, byteOffset 1188, so they are separate views and not one accessor read twice. MEASURED from those two accessors before this case was scored: the two sets are at least 0.250185 uv units apart at every one of the 24 vertices -- 256 texels of a 1024-texel image -- and over the 106 768 pixels the subject covers at this camera the emissive tap differs between the two readings by more than the picture bound at 18 924 of them, p95 197 codes and max 255. The single material names `baseColorTexture` with no `texCoord` and `emissiveTexture` with `texCoord: 1`, which is the per-reference field board:1177 carries and board:1182 resolves against the subject's attributes.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "MultiUVTest",
+        "pinnedOn": "2026-08-16",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/glTF/MultiUVTest.gltf",
+          "sha256": "d22a984388457f00da6dc6f6ff1bee6d7828ed3c8e7e7236d5698411cd1cf806",
+          "bytes": 5904,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Hilo 3D",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Non-copyrightable logo",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/glTF/MultiUVTest.bin",
+          "sha256": "952adeb8026481be255ccfb4fa8c410b7f847c0fcfc71fac5ca6bb1905ca69fc",
+          "bytes": 1380,
+          "as": "MultiUVTest.bin",
+          "role": "buffer",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Hilo 3D",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Non-copyrightable logo",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/glTF/uv0.png",
+          "sha256": "c6a1c9390a73f59b4cd67d24c1a02f21020b4d033ffe311e29b9c29579e63c7c",
+          "bytes": 32939,
+          "as": "uv0.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Hilo 3D",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Non-copyrightable logo",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/glTF/uv1.png",
+          "sha256": "be9bbbfecd86e6ea366dbfc0430e10b6ab1e8e5ad46b95a6c28d25f9f8b1740e",
+          "bytes": 56185,
+          "as": "uv1.png",
+          "role": "image",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Hilo 3D",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Non-copyrightable logo",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+          "sha256": "56c56f79663b047ec379d1edecaca8e254ccc2cf8f478caad475657524ffc10f",
+          "bytes": 1180,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": [
+            {
+              "spdx": "CC-BY-4.0",
+              "holder": "Hilo 3D",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "Everything"
+            },
+            {
+              "spdx": "LicenseRef-LegalMark-Khronos",
+              "holder": "Non-copyrightable logo",
+              "year": "2017",
+              "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MultiUVTest/metadata.json",
+              "covers": "glTF logo"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "camera": {
+      "source": "gltf",
+      "index": 0,
+      "note": "The file carries a camera node, so both sides read it from there: our reader through Gltf::DeclaredPlacement and Blender's importer through the node it imported. It is the asset's own framing, which puts three of the cube's faces in view and therefore three independent readings of the same material in one picture."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world, and it is left where it is because configuring it would be a second thing to keep honest. Under the emission arm below nothing gathers from it in any case."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-emissive",
+      "carriedBy": "texture",
+      "kind": "emission",
+      "note": "THE EMISSIVE SOCKET IS THE ONE THAT NAMES THE SECOND UV SET, so it is the socket this case reads its whole picture from -- and the asset states `emissiveFactor` as [1,1,1], so the radiance IS the image. THE ORACLE IS LOWERED, NOT THE TOLERANCE (board:0087): the arm MOVES the subtree feeding Emission Color rather than rebuilding it, so the importer's own UVMap node for `TEXCOORD_1` crosses into the oracle exactly as the Image Texture does -- which is what makes Cycles an independent answer to which set is read rather than a second copy of ours. THE CLOSURE IS AN EMITTER AND NOT A DIFFUSE BSDF because the subject is a closed cube whose faces see one another: at one sample per pixel a Diffuse BSDF there takes ONE cosine-weighted direction that either escapes or meets another face, so every pixel would be a Bernoulli draw on the visible sky fraction and the case would be scoring an ambient-occlusion estimator."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission arm's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "WHAT THIS CASE DECIDES AND WHAT IT DOES NOT. It decides that a subject's SECOND uv set is read as its own vertex stream and reaches the sampler of the texture reference that names it -- the emissive one -- so the picture carries the glTF logo and not the asset's own warning sentence. It does NOT decide the per-reference `texCoord` field itself, which is board:1177's and is held by `test/unit/gltf/EveryTextureReferenceCarriesItsOwnTransform.cpp`; nor does it decide the REFUSAL that board:1182 narrows -- a reference naming TEXCOORD_1 over a subject that carries one uv set -- because a refusing case renders nothing and no asset in the corpus spells it. That half is held by `test/unit/gltf/ASecondUvSetReachesItsOwnReferenceOrIsRefused.cpp`.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.231703272,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 12 triangles of the magnitude of the projected signed area, over 1280*720 at the file's own camera, recomputed by the runner from the fetched vertices",
+      "note": "What the boundary bound is applied UNDER: a camera that framed the subject smaller would tighten the bound without saying so."
+    }
+  }
+}

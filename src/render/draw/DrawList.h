@@ -18,6 +18,8 @@
 #ifndef DRAWLIST_H
 #define DRAWLIST_H
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -42,28 +44,99 @@ namespace outshine::Render {
  * draw that samples one without it would have to invent a basis -- which is the arbitrary uv-axis
  * frame that makes `NormalTangentTest`'s cells disagree with each other. It comes with the normal
  * and the uv set and never alone: the basis is the triple, and a layout that could spell two thirds
- * of it would be a normal map sampled against half a frame. */
+ * of it would be a normal map sampled against half a frame.
+ *
+ * THE SECOND UV SET IS THE FOURTH ATTRIBUTE AND IT KEEPS THIS AN ENUMERATION (board:1182). The
+ * question board:1156 asks of every added value was answered here rather than inherited: a flag set
+ * of four independent booleans spells sixteen layouts, and eight of them are not layouts at all --
+ * a tangent with no normal, a tangent with no uv, a SECOND uv set with no first. Those are exactly
+ * the spellings the three paragraphs above exist to remove, so a flag set would trade a type that
+ * cannot express a mistake for a validator that reports one, which is the trade this repository's
+ * own criterion refuses. It stays an enumeration and the eight named values ARE the valid set.
+ *
+ * WHAT THE MULTIPLICATION COSTS IS PAID DOWN INSTEAD, and that is the part board:1156 is right
+ * about: five membership lists over eight values would be forty hand-written terms to keep in step.
+ * The table below states each layout's attributes ONCE, by name, and every predicate, the pipeline
+ * count and the build loop read it -- so a ninth value is one row and nothing to remember. */
 enum class VertexLayout : uint8_t {
   Position,
   PositionUv,
+  PositionUvUv1,
   PositionNormal,
   PositionNormalUv,
-  PositionNormalUvTangent
+  PositionNormalUvUv1,
+  PositionNormalUvTangent,
+  PositionNormalUvUv1Tangent
 };
 
-/* Whether a layout carries the first uv set, the normal that makes it lit, and the tangent that
- * makes it normal-mapped. Stated once, here, so the encoder and the pipeline table cannot disagree
- * about what a layout is. */
-[[nodiscard]] inline bool CarriesUv(VertexLayout layout) {
-  return layout == VertexLayout::PositionUv || layout == VertexLayout::PositionNormalUv ||
-         layout == VertexLayout::PositionNormalUvTangent;
+/* THE ATTRIBUTES ONE ROW OF THE TABLE NAMES. They are flags and not four `bool` members on purpose:
+ * a row of four positional booleans can be written with two of them swapped and the compiler has
+ * nothing to say (`I.24`), where a row that names `Normal` names it. The flags are private to the
+ * table -- no interface takes one -- so the invalid combinations remain unspellable as a layout. */
+enum class VertexAttribute : uint8_t {
+  None = 0,
+  Uv = 1u << 0,
+  Uv1 = 1u << 1,
+  Normal = 1u << 2,
+  Tangent = 1u << 3
+};
+
+[[nodiscard]] constexpr VertexAttribute operator|(VertexAttribute a, VertexAttribute b) {
+  return static_cast<VertexAttribute>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));
 }
-[[nodiscard]] inline bool CarriesNormal(VertexLayout layout) {
-  return layout == VertexLayout::PositionNormal || layout == VertexLayout::PositionNormalUv ||
-         layout == VertexLayout::PositionNormalUvTangent;
+[[nodiscard]] constexpr bool Holds(VertexAttribute set, VertexAttribute one) {
+  return (static_cast<uint8_t>(set) & static_cast<uint8_t>(one)) != 0;
 }
-[[nodiscard]] inline bool CarriesTangent(VertexLayout layout) {
-  return layout == VertexLayout::PositionNormalUvTangent;
+
+struct VertexLayoutRow {
+  VertexLayout Layout = VertexLayout::Position;
+  VertexAttribute Carries = VertexAttribute::None;
+};
+
+/* EVERY LAYOUT THIS ENGINE BUILDS, AND WHAT EACH ONE CARRIES. It is also the ORDER the pipeline
+ * table is indexed in, which the `static_assert` below holds rather than a convention: a row out of
+ * place would silently give one layout another's pipelines. */
+inline constexpr std::array kVertexLayouts = {
+    VertexLayoutRow{VertexLayout::Position, VertexAttribute::None},
+    VertexLayoutRow{VertexLayout::PositionUv, VertexAttribute::Uv},
+    VertexLayoutRow{VertexLayout::PositionUvUv1, VertexAttribute::Uv | VertexAttribute::Uv1},
+    VertexLayoutRow{VertexLayout::PositionNormal, VertexAttribute::Normal},
+    VertexLayoutRow{VertexLayout::PositionNormalUv, VertexAttribute::Uv | VertexAttribute::Normal},
+    VertexLayoutRow{VertexLayout::PositionNormalUvUv1,
+                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal},
+    VertexLayoutRow{VertexLayout::PositionNormalUvTangent,
+                    VertexAttribute::Uv | VertexAttribute::Normal | VertexAttribute::Tangent},
+    VertexLayoutRow{VertexLayout::PositionNormalUvUv1Tangent,
+                    VertexAttribute::Uv | VertexAttribute::Uv1 | VertexAttribute::Normal |
+                        VertexAttribute::Tangent}};
+
+[[nodiscard]] constexpr bool VertexLayoutsIndexThemselves() {
+  for (size_t at = 0; at < kVertexLayouts.size(); ++at) {
+    if (static_cast<size_t>(kVertexLayouts[at].Layout) != at) { return false; }
+  }
+  return true;
+}
+static_assert(VertexLayoutsIndexThemselves(),
+              "a layout's place in the table is the index its pipelines are built at");
+
+[[nodiscard]] constexpr VertexAttribute AttributesOf(VertexLayout layout) {
+  return kVertexLayouts[static_cast<size_t>(layout)].Carries;
+}
+
+/* Whether a layout carries the first uv set, the second one, the normal that makes it lit, and the
+ * tangent that makes it normal-mapped. Stated once, in the table above, so the encoder and the
+ * pipeline table cannot disagree about what a layout is. */
+[[nodiscard]] constexpr bool CarriesUv(VertexLayout layout) {
+  return Holds(AttributesOf(layout), VertexAttribute::Uv);
+}
+[[nodiscard]] constexpr bool CarriesUv1(VertexLayout layout) {
+  return Holds(AttributesOf(layout), VertexAttribute::Uv1);
+}
+[[nodiscard]] constexpr bool CarriesNormal(VertexLayout layout) {
+  return Holds(AttributesOf(layout), VertexAttribute::Normal);
+}
+[[nodiscard]] constexpr bool CarriesTangent(VertexLayout layout) {
+  return Holds(AttributesOf(layout), VertexAttribute::Tangent);
 }
 
 /* ONE DRAW: where its triangles are in the consumer's own index run, what surface it wears, and

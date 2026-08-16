@@ -148,6 +148,26 @@ private:
       }
       return true;
     }
+    /* ONE OR SEVERAL, AND THE SEVERAL IS NOT A SPECIAL CASE (board:1182). A subject's file may be
+     * covered by more than one grant -- `MultiUVTest` carries a CC-BY licence and Khronos's
+     * non-copyrightable-logo mark -- and the licence check compares the SET a file declares against
+     * the set upstream's own metadata states, so a file under two has to name two. */
+    if (declared["oneOrMore"].Valid()) {
+      if (value.GetKind() != Json::Kind::Array) {
+        return Value(declared["oneOrMore"], where, value, error);
+      }
+      if (value.Size() == 0) {
+        error = where + " is an empty list where one entry or several were declared";
+        return false;
+      }
+      for (size_t entry = 0; entry < value.Size(); ++entry) {
+        if (!Value(declared["oneOrMore"], where + "[" + std::to_string(entry) + "]", value[entry],
+                   error)) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (declared["map"].Valid()) {
       if (value.GetKind() != Json::Kind::Object || value.Size() == 0) {
         error = where + " is not a non-empty object";

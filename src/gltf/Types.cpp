@@ -75,6 +75,32 @@ size_t PathComponents(AnimationPath path) {
   return 0;
 }
 
+/* THE THREE ARMS ARE ORDERED SO THE SENTENCE NAMES THE RIGHT PARTY (board:1182): a set beyond the
+ * second is refused BEFORE the subject is consulted, because that shortfall is this engine's and
+ * would otherwise be reported as the asset's missing attribute. */
+bool UvSetOf(const TextureRef &reference, CarriedUvSets carried, const char *socket, UvSet &out,
+             std::string &why) {
+  if (reference.TexCoord == 0) {
+    out = UvSet::First;
+    return true;
+  }
+  if (reference.TexCoord != 1) {
+    why = std::string("reads its ") + socket + " from TEXCOORD_" +
+          std::to_string(reference.TexCoord) + ", and this engine binds " +
+          std::to_string(kUvSets) + " uv sets";
+    return false;
+  }
+  if (carried != CarriedUvSets::Both) {
+    why = std::string("reads its ") + socket +
+          " from TEXCOORD_1 and this subject carries the first uv set only, so there is no second "
+          "set to sample -- and reading the first in its place would put the image where the file "
+          "did not ask for it";
+    return false;
+  }
+  out = UvSet::Second;
+  return true;
+}
+
 int Primitive::Find(const char *semantic) const {
   for (const Attribute &attribute : Attributes) {
     if (attribute.Semantic == semantic) { return attribute.Accessor; }

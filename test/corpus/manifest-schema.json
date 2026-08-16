@@ -397,12 +397,15 @@
           ]
         },
         "licence": {
-          "object": "licence"
+          "oneOrMore": {
+            "object": "licence"
+          }
         }
       },
       "optional": {
         "member": "text"
-      }
+      },
+      "note": "A file may be covered by more than one grant -- MultiUVTest carries a CC-BY licence and Khronos's non-copyrightable-logo mark -- and the licence check compares the SET declared here against the set upstream's own metadata states, so both are named or the manifest was written from memory."
     },
     "generated-file": {
       "required": {

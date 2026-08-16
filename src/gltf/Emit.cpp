@@ -237,6 +237,7 @@ private:
         {"POSITION", 3, &Subject_.PositionsM()},
         {"NORMAL", 3, drawn.HasNormal ? &Subject_.Normals() : nullptr},
         {"TEXCOORD_0", 2, drawn.HasUv ? &Subject_.Uv() : nullptr},
+        {"TEXCOORD_1", 2, drawn.HasUv1 ? &Subject_.Uv1() : nullptr},
         {"TANGENT", 4, drawn.Tangent == TangentSource::Supplied ? &Subject_.Tangents() : nullptr}};
     std::string json;
     for (const Attribute &attribute : declared) {

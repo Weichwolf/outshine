@@ -188,11 +188,20 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
      * texel that only exists to complete the bind group, and white decodes to the tangent-space
      * direction (1, 1, 1), which is a tilt no file asked for. */
     const bool mapped = lit && textured && where.HasTangent() && studio.Surfaces[slot].Normal.Rgba;
-    item.Layout = mapped ? Render::VertexLayout::PositionNormalUvTangent
-                         : (lit ? (textured ? Render::VertexLayout::PositionNormalUv
-                                            : Render::VertexLayout::PositionNormal)
-                                : (textured ? Render::VertexLayout::PositionUv
-                                            : Render::VertexLayout::Position));
+    /* THE SECOND UV SET NEEDS BOTH HALVES TOO, and they are the part's attribute and the SURFACE's
+     * declaration (board:1182): a part that carries `TEXCOORD_1` under a surface no socket of which
+     * reads it would bind a run nothing samples, and a surface that reads it over a part carrying
+     * none is refused in `SetSubjectMesh` rather than drawn from the first set. */
+    const bool secondUv = textured && where.HasUv1 && studio.Surfaces[slot].ReadsSecondUv();
+    item.Layout =
+        mapped ? (secondUv ? Render::VertexLayout::PositionNormalUvUv1Tangent
+                           : Render::VertexLayout::PositionNormalUvTangent)
+               : (lit ? (textured ? (secondUv ? Render::VertexLayout::PositionNormalUvUv1
+                                              : Render::VertexLayout::PositionNormalUv)
+                                  : Render::VertexLayout::PositionNormal)
+                      : (textured ? (secondUv ? Render::VertexLayout::PositionUvUv1
+                                              : Render::VertexLayout::PositionUv)
+                                  : Render::VertexLayout::Position));
     if (!list.Add(item, error)) { return false; }
   }
   list.Compile();
@@ -202,20 +211,21 @@ double DepthFraction(const Gltf::Subject &subject, const Gltf::Part &part,
 /* WHERE THE FOUR VERTEX RUNS START inside the one buffer the caller reuses. */
 struct VertexRuns {
   size_t UvAt = 0;
+  size_t Uv1At = 0;
   size_t NormalAt = 0;
   size_t TangentAt = 0;
   size_t EmittedAt = 0;
   size_t PreviousAt = 0;
 };
 
-/* ONE BUFFER, FOUR RUNS: the positions, the uvs, the normals and the per-vertex radiance, so a
- * caller reusing capacity across a loop of cases pays one allocation and the vertex buffers are
- * pointers into it. */
+/* ONE BUFFER, ONE RUN PER ATTRIBUTE: the positions, the two uv sets, the normals, the tangents and
+ * the per-vertex radiance, so a caller reusing capacity across a loop of cases pays one allocation
+ * and the vertex buffers are pointers into it. */
 VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
                         std::vector<float> &vertices) {
   vertices.clear();
-  vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Normals().size() +
-                   subject.Tangents().size() + subject.VertexCount() * 3);
+  vertices.reserve(subject.PositionsM().size() + subject.Uv().size() + subject.Uv1().size() +
+                   subject.Normals().size() + subject.Tangents().size() + subject.VertexCount() * 3);
   for (size_t vertex = 0; vertex < subject.VertexCount(); ++vertex) {
     double ecef[3];
     EcefFromGltf(&subject.PositionsM()[vertex * 3], ecef);
@@ -224,6 +234,8 @@ VertexRuns PackVertices(const Studio &studio, const Gltf::Subject &subject,
   VertexRuns runs;
   runs.UvAt = vertices.size();
   for (const double coordinate : subject.Uv()) { vertices.push_back((float)coordinate); }
+  runs.Uv1At = vertices.size();
+  for (const double coordinate : subject.Uv1()) { vertices.push_back((float)coordinate); }
   /* THE NORMAL TAKES THE SAME PERMUTATION AS THE POSITION AND NOT AN INVERSE TRANSPOSE OF IT. The
    * map from glTF's frame to the engine's is a signed permutation whose determinant is +1, so it is
    * its own inverse transpose and a normal stays a normal and stays unit under it. Anything else
@@ -358,6 +370,7 @@ bool Show(Render::Renderer &renderer, const Studio &studio, StudioScratch &scrat
   Render::SubjectMesh mesh;
   mesh.Verts = scratch.Vertices.data();
   mesh.Uv = subject.HasUv() ? scratch.Vertices.data() + runs.UvAt : nullptr;
+  mesh.Uv1 = subject.HasUv1() ? scratch.Vertices.data() + runs.Uv1At : nullptr;
   mesh.Normals = subject.HasNormal() ? scratch.Vertices.data() + runs.NormalAt : nullptr;
   mesh.Tangents = subject.HasTangent() ? scratch.Vertices.data() + runs.TangentAt : nullptr;
   mesh.Emitted = scratch.Vertices.data() + runs.EmittedAt;

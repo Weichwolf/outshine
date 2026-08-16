@@ -219,6 +219,14 @@ bool Subject::BuildTangentsFor(const Document &document, const Primitive &primit
     Uv_.resize((size_t)made * 2 + 2, 0.0);
     Uv_[(size_t)made * 2] = Uv_[vertex * 2];
     Uv_[(size_t)made * 2 + 1] = Uv_[vertex * 2 + 1];
+    /* THE SECOND SET IS SPLIT WITH THE FIRST (board:1182). A vertex duplicated for its tangent
+     * basis is the same point of the surface, so every run it appears in has to follow it -- a run
+     * left short would leave the copy addressing zero, which is the image's corner. */
+    if (!Uv1_.empty()) {
+      Uv1_.resize((size_t)made * 2 + 2, 0.0);
+      Uv1_[(size_t)made * 2] = Uv1_[vertex * 2];
+      Uv1_[(size_t)made * 2 + 1] = Uv1_[vertex * 2 + 1];
+    }
     Normals_.resize((size_t)made * 3 + 3, 0.0);
     for (size_t axis = 0; axis < 3; ++axis) {
       Normals_[(size_t)made * 3 + axis] = Normals_[vertex * 3 + axis];
@@ -289,6 +297,7 @@ bool Subject::Refuse(const std::string &why) {
   Error_ = why;
   Positions_.clear();
   Uv_.clear();
+  Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
   Indices_.clear();
@@ -319,12 +328,14 @@ bool Subject::Flatten(const Document &document, const Transform *pose) {
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
+  Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
   Indices_.clear();
   Parts_.clear();
   Lights_.clear();
   bool anyUv = false;
+  bool anyUv1 = false;
   bool anyNormal = false;
   bool anyTangent = false;
 
@@ -426,25 +437,38 @@ bool Subject::Flatten(const Document &document, const Transform *pose) {
         for (int axis = 0; axis < 3; ++axis) { Positions_.push_back(global[axis]); }
       }
 
-      /* THE FIRST UV SET, PER PRIMITIVE. The run stays as long as the vertex run whatever the mix
+      /* THE TWO UV SETS, PER PRIMITIVE. Each run stays as long as the vertex run whatever the mix
        * is: a primitive that carried none contributes zeros there and is drawn by a pipeline with
-       * no uv slot, so those zeros are unread rather than sampled at the image's corner. */
-      const int uv = primitive.Find("TEXCOORD_0");
-      part.HasUv = uv >= 0;
-      anyUv = anyUv || part.HasUv;
-      Uv_.resize((Positions_.size() / 3) * 2, 0.0);
-      if (uv >= 0) {
+       * no slot for it, so those zeros are unread rather than sampled at the image's corner.
+       *
+       * THE SECOND SET IS READ HERE AND NOT DERIVED FROM THE FIRST (board:1182), which is the whole
+       * of what `MultiUVTest` separates: its two accessors sit in two buffer views 192 bytes apart
+       * and place the same face 0.25 uv units -- 256 texels of a 1024 image -- from each other. */
+      const struct {
+        const char *Semantic;
+        bool Part::*Carried;
+        bool *Any;
+        std::vector<double> *Into;
+      } sets[kUvSets] = {{"TEXCOORD_0", &Part::HasUv, &anyUv, &Uv_},
+                         {"TEXCOORD_1", &Part::HasUv1, &anyUv1, &Uv1_}};
+      for (const auto &set : sets) {
+        const int uv = primitive.Find(set.Semantic);
+        part.*set.Carried = uv >= 0;
+        *set.Any = *set.Any || part.*set.Carried;
+        set.Into->resize((Positions_.size() / 3) * 2, 0.0);
+        if (uv < 0) { continue; }
         std::vector<double> coordinates;
         if (!document.ReadElements(uv, coordinates)) {
-          return Refuse(document.Path() + ": TEXCOORD_0 does not decode: " + document.Error());
+          return Refuse(document.Path() + ": " + set.Semantic + " does not decode: " +
+                        document.Error());
         }
         if (coordinates.size() != vertices * 2) {
-          return Refuse(document.Path() + ": TEXCOORD_0 decodes to " +
+          return Refuse(document.Path() + ": " + set.Semantic + " decodes to " +
                         std::to_string(coordinates.size() / 2) + " pairs over " +
                         std::to_string(vertices) + " vertices");
         }
         std::copy(coordinates.begin(), coordinates.end(),
-                  Uv_.begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
+                  set.Into->begin() + static_cast<std::ptrdiff_t>(part.FirstVertex * 2));
       }
 
       /* THE NORMAL, PER PRIMITIVE, ROTATED BY THE INVERSE TRANSPOSE and normalised here so that no
@@ -518,6 +542,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose) {
   }
 
   if (!anyUv) { Uv_.clear(); }
+  if (!anyUv1) { Uv1_.clear(); }
   if (!anyNormal) { Normals_.clear(); }
   if (!anyTangent) { Tangents_.clear(); }
   if (Indices_.empty()) {
@@ -546,6 +571,7 @@ bool Subject::Assemble(const Assembly &what) {
   Error_.clear();
   Positions_.clear();
   Uv_.clear();
+  Uv1_.clear();
   Normals_.clear();
   Tangents_.clear();
   Indices_.clear();
@@ -556,6 +582,7 @@ bool Subject::Assemble(const Assembly &what) {
   }
 
   bool anyUv = false;
+  bool anyUv1 = false;
   bool anyNormal = false;
   bool anyTangent = false;
   for (size_t index = 0; index < what.Pieces.Size(); ++index) {
@@ -578,6 +605,7 @@ bool Subject::Assemble(const Assembly &what) {
     if (!RunIsStatable(piece.PositionsM, vertices, 3, "positions", where, why) ||
         !RunIsStatable(piece.Normals, vertices, 3, "normals", where, why) ||
         !RunIsStatable(piece.Uv, vertices, 2, "uv pairs", where, why) ||
+        !RunIsStatable(piece.Uv1, vertices, 2, "second-set uv pairs", where, why) ||
         !RunIsStatable(piece.Tangents, vertices, 4, "tangents", where, why)) {
       return Refuse(why);
     }
@@ -590,12 +618,14 @@ bool Subject::Assemble(const Assembly &what) {
     part.VertexCount = vertices;
     part.IndexCount = piece.Indices.Size();
     part.HasUv = !piece.Uv.Empty();
+    part.HasUv1 = !piece.Uv1.Empty();
     part.HasNormal = !piece.Normals.Empty();
     /* A PRODUCER'S BASIS IS A SUPPLIED ONE. `Generated` is what the reader records when it ran
      * MikkTSpace over a file that stated none, and a generator claiming that word would be saying
      * its basis came from an algorithm this subject can re-run. */
     part.Tangent = piece.Tangents.Empty() ? TangentSource::None : TangentSource::Supplied;
     anyUv = anyUv || part.HasUv;
+    anyUv1 = anyUv1 || part.HasUv1;
     anyNormal = anyNormal || part.HasNormal;
     anyTangent = anyTangent || part.HasTangent();
 
@@ -604,10 +634,14 @@ bool Subject::Assemble(const Assembly &what) {
      * flatten leaves them: a piece that carried none contributes zeros that `HasUv`/`HasNormal`/
      * `Tangent` say are unread. */
     Uv_.resize((Positions_.size() / 3) * 2, 0.0);
+    Uv1_.resize((Positions_.size() / 3) * 2, 0.0);
     Normals_.resize(Positions_.size(), 0.0);
     Tangents_.resize((Positions_.size() / 3) * 4, 0.0);
     for (size_t at = 0; at < piece.Uv.Size(); ++at) {
       Uv_[part.FirstVertex * 2 + at] = (double)piece.Uv[at];
+    }
+    for (size_t at = 0; at < piece.Uv1.Size(); ++at) {
+      Uv1_[part.FirstVertex * 2 + at] = (double)piece.Uv1[at];
     }
     for (size_t at = 0; at < piece.Normals.Size(); ++at) {
       Normals_[part.FirstVertex * 3 + at] = (double)piece.Normals[at];
@@ -627,6 +661,7 @@ bool Subject::Assemble(const Assembly &what) {
   }
 
   if (!anyUv) { Uv_.clear(); }
+  if (!anyUv1) { Uv1_.clear(); }
   if (!anyNormal) { Normals_.clear(); }
   if (!anyTangent) { Tangents_.clear(); }
   Bound();

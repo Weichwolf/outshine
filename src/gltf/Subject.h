@@ -111,6 +111,7 @@ struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
   int Material = -1;      /* the document's material index, or -1 where the primitive names none */
   bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
+  bool HasUv1 = false;    /* whether TEXCOORD_1 was carried, per primitive and never per subject */
   bool HasNormal = false; /* whether NORMAL was carried, per primitive and never per subject */
   TangentSource Tangent = TangentSource::None;
   size_t FirstVertex = 0;
@@ -148,6 +149,7 @@ struct Piece {
   Span<const float> PositionsM; /* 3 per vertex */
   Span<const float> Normals;    /* 3 per vertex, or empty */
   Span<const float> Uv;         /* 2 per vertex, or empty */
+  Span<const float> Uv1;        /* 2 per vertex, or empty; the second set, never a copy of the first */
   Span<const float> Tangents;   /* 4 per vertex, or empty; a supplied basis, never a generated one */
   Span<const uint32_t> Indices; /* triangles, three each */
 };
@@ -186,6 +188,16 @@ public:
    * no uv slot at all, so the number is unread rather than a stand-in for a coordinate. */
   const std::vector<double> &Uv() const { return Uv_; }
   bool HasUv() const { return !Uv_.empty(); }
+  /* 2 doubles per vertex, `TEXCOORD_1` verbatim, on the same terms as the first set (board:1182).
+   * It is a SECOND RUN and not a wider first one because a primitive may carry either without the
+   * other's length being a function of it, and because the consumer binds them into two vertex
+   * slots that a single interleaved run could not be split back into without a copy.
+   *
+   * IT IS NEVER READ IN PLACE OF THE FIRST. A texture reference that named this set on a subject
+   * that carries none is a named refusal (`UvSetOf`), not a read of `Uv()` -- an emissive image on
+   * the wrong uv set is still an image on a surface, so the failure would be silent. */
+  const std::vector<double> &Uv1() const { return Uv1_; }
+  bool HasUv1() const { return !Uv1_.empty(); }
   /* 3 doubles per vertex, `NORMAL` rotated into the same root coordinates the positions are in by
    * the inverse transpose of the node's linear part, and normalised. Empty when NO part carried one;
    * otherwise it covers every vertex and the vertices of a part that carried none hold zero. THAT
@@ -257,6 +269,7 @@ private:
   std::string Error_;
   std::vector<double> Positions_;
   std::vector<double> Uv_;
+  std::vector<double> Uv1_;
   std::vector<double> Normals_;
   std::vector<double> Tangents_;
   std::vector<uint32_t> Indices_;

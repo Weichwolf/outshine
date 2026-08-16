@@ -143,7 +143,7 @@ def _check_licences(subject, store):
 
     checked = []
     for file in subject.files:
-        declared = file["licence"] if isinstance(file["licence"], list) else [file["licence"]]
+        declared = licence.declared_grants(file["licence"])
         for entry in declared:
             licence.check_spdx(entry["spdx"], file["as"])
         if derived is not None:

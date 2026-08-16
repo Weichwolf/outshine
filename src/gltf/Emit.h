@@ -14,7 +14,7 @@
  * transform is what makes the second flatten reproduce the first exactly.
  *
  * AND IT NARROWS TO f32, BECAUSE THAT IS WHAT THE FORMAT'S POSITION IS. A `Subject` holds doubles;
- * glTF's POSITION, NORMAL, TEXCOORD_0 and TANGENT are float. So the fixed point holds exactly for
+ * glTF's POSITION, NORMAL, TEXCOORD_0, TEXCOORD_1 and TANGENT are float. So the fixed point holds exactly for
  * every subject whose numbers are f32-representable -- which is every subject the reader produced
  * from a file under identity transforms, and every subject the emitter itself produced. A subject
  * carrying a node rotation reaches the fixed point after ONE emit rather than at zero, and that is a
