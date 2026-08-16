@@ -147,3 +147,16 @@ the third arm reaches it, and pruning inside an arm would delete what the next a
 **That is the acceptance: the suite's high-water mark under `test/render/` never exceeds one case plus the
 accumulated pictures**, published by the runner as a number so the claim is checkable rather than
 asserted.
+
+## The numbers this feature carried are corrected, and one half of the ruling is unmet
+
+**`board:1181` landed and measured what this item estimated.** `test/render/` **4821 MB → 139 MB**, 893
+files declined per run totalling 4570 MB, **2 left standing with the proof that refused them**. The
+projection here — *≈180 MB across the whole in-scope corpus* — was built on **~0.1 MB a finished case**;
+it is **≈2.6 MB**, because a pruned case keeps its **subject** (93.8 MB of the 139), which is an input and
+not a product. **At 147 cases: ≈0.4 GB accumulated plus one live case, against 19 GB unpruned.**
+
+**And the ruling's own words are met for one half only.** *So size doesn't grow* is about the **peak**;
+the runner bounds the **end state**. **The preparer materialises the whole corpus before the runner sees a
+case**, so the measured peak was **3212 MB** — and at 147 cases it scales with the corpus rather than with
+one case. **`board:1183` is that half**, and this feature is not done until it lands.

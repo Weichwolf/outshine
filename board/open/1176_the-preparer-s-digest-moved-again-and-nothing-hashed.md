@@ -74,3 +74,29 @@ change under its own name.
   discovered
 - [ ] **Pruning goes first**, on the compounding-cost argument in `board:1181`, and this item is amended
   ahead of it so that dispatching in that order cannot silently invalidate it
+
+## The cost of the mechanism this item observes, measured for the first time
+
+**A preparer edit invalidates every product of every case, and that cost has never been named.**
+[MEASURED] on the acceptance run for `board:1181`: **94 minutes**, because the digest moved and most
+renders missed.
+
+**It recurs on every edit under `test/corpus/prep/`** — and `board:1181`, `board:1154` and this item all
+touch that directory, so three of the last four corpus rounds paid it.
+
+**The coarseness is deliberate and is not overturned here.** `board:1120` chose the whole directory over a
+named list with a reason that still stands: *a named list is a second copy of a fact*, it went stale once
+already, and it has to agree with the one the harness holds. **Narrowing the digest re-opens a decision
+that was made correctly.**
+
+**But the trade has never been priced, and this item is what would price it.** The question is not *is the
+invalidation coarse* — it is **how many products actually changed when it fired.** If a `fixtures.py` edit
+re-renders 37 cases and this item's count comes back `changed: 0`, the 94 minutes bought nothing and the
+coarseness has a measurable cost with no measurable benefit. **If it comes back `changed: 8`, as
+`board:1120`'s own measurement did, the invalidation is doing exactly its job.**
+
+- [ ] **The three counts are published per digest move**, which is this item's mechanism, and **the wall
+  time is published beside them** — otherwise a cost and a benefit are recorded in different places and
+  nobody divides them
+- [ ] **Only then is narrowing the digest a decision anybody can take**, and it stays the owner's: it
+  trades a correctness property for wall time, and this repository's default is the correctness property

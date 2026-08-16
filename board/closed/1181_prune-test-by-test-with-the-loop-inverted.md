@@ -41,3 +41,32 @@ the verdict in the preparer, which *compares, scores and decides nothing*.
 
 **Done when** a case is pruned as it finishes, both classes are proven by their own instrument, an
 unprovable file stays and says so, and the runner publishes a high-water mark that a later round can watch.
+
+## Comments
+
+**THE PEAK ACCEPTANCE WAS WRONG ARITHMETIC AND IT IS CORRECTED HERE RATHER THAN LEFT IN A CLOSED ITEM.**
+This item asked for *the peak under `test/render/` never exceeds one materialised case plus the
+accumulated pictures — 162 MB plus ~0.1 MB a finished case, ≈180 MB*. **Both numbers were wrong and the
+shape of the claim was wrong with them.**
+
+| | this item said | measured |
+|---|---|---|
+| residue a finished case | ~0.1 MB | **≈2.6 MB** — pictures 3.4 MB over 74 files, **subjects 93.8 MB**, manifests 0.5, provenance 0.4 |
+| what the runner bounds | the **peak** | **the END STATE.** `test/render/` fell 4821 MB → **139 MB**, and the run's peak was **3212 MB** |
+| projected at 147 cases | ≈180 MB | **≈0.4 GB accumulated plus one live case**, against 19 GB unpruned |
+
+**The residue was under-counted because I forgot the subject.** A pruned case keeps its `scene.glb` or
+`.gltf` — 93.8 MB of the 139 — and that is correct: the subject is an input, not a product, and dropping
+it would make every case a re-fetch. **~0.1 MB was the pictures alone.**
+
+**And the shape error is the one worth keeping.** *The runner prunes test by test* bounds what is left
+standing; **it does not bound the peak, because the preparer materialises the WHOLE CORPUS before the
+runner sees a case.** So the owner's *so size doesn't grow* is met for the end state and **unmet for the
+peak**, which is what that sentence is about. **The claim is still overwhelmingly true — 4821 MB that
+never declined against 139 MB that does — and its numbers were not reproducible.** `board:1183` carries
+the half this item cannot.
+
+**Recovery cost, measured, for whoever reads this later**: the whole corpus from a warm store is
+**14.3–17.6 s** over 37 manifests; **one case is 0.77 s**. No Cycles in the path — **but `prepare.py all`
+still requires Blender to be present**, so a machine without it cannot re-materialise even from a warm
+store.
