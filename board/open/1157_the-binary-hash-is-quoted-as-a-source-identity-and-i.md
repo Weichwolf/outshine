@@ -69,3 +69,24 @@ answers *same code or not* with no toolchain in the path. First measured value:
   excludes exactly the derived artefacts that would make it unstable
 - [ ] **It is published on the measurement line and the binary hash is either dropped or relabelled**,
   never both quoted as though they answered one question
+
+## The digest is taken at run time from a tree the binary may no longer be
+
+**Visible is not unspellable, and the developer says so plainly.** The source digest is computed **when
+the run happens**, from the working tree; the binary it labels was **compiled earlier**. A tree edited in
+between publishes a digest of code the binary does not contain — **and that happened once during
+`board:1187`'s round.**
+
+**It is now detectable**: `newest-source=` and `binary=` are printed on one clock, so a reader can see
+that a source is newer than the binary. **Nothing prevents it**, and a reader who does not compare two
+timestamps in the same line will not notice.
+
+- [ ] **The digest belongs to the BUILD, not to the run** — computed when the binary is produced and
+  carried inside it, so a measurement quotes what it was built from and cannot quote anything else.
+  **That makes the mismatch unspellable rather than visible**, which is this engine's stated preference
+- [ ] **Until it is, the two timestamps stay printed and are read as a pair.** A digest whose source is
+  newer than its binary is **not a weaker claim, it is a wrong one**, and it should say so in a sentence
+  rather than leaving the arithmetic to the reader
+- [ ] **This is the same defect as the archive hash one layer in**: a value that identifies *a moment*
+  presented as identifying *a thing*. The archive said *when it was built*; this says *what the tree was
+  when somebody ran it*. **Both were read as *what the code is***

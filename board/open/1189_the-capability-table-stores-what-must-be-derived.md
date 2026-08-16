@@ -59,3 +59,30 @@ claim** (`board:1157`), and this column's name asserted the second while holding
 **Done when** `board:0079`'s ordering columns are computed from the tree at the moment of dispatch, the
 table itself carries only what somebody chose, and a row that under-states the engine is unwritable rather
 than merely wrong.
+
+## The tier question is answered by measurement, and the answer is a third thing
+
+**I proposed that tier is not two values and that *moves a reader field* against *multiplies a global
+count* are different decisions. `board:1187` measured it and the split is real but drawn elsewhere.**
+
+**Pipelines are built in `Configure`, called only from `Renderer::Init` — none inside a frame.** 48
+against 30 produced **no resolvable frame difference**, and the cost is **≈6.9 ms per pipeline cold, so
+48 → 96 adds ≈330 ms to a cold `Init` and ~0 to the frame.** The four rows landed so far cost **nothing
+this instrument can resolve**, bounded at **≈0.03 ms (1.4 %)** on the only arm their path reaches.
+
+> **So the axis is not *frame cost versus reader field*. It is WHICH BUDGET THE MULTIPLICATION LANDS IN.**
+
+**A row that doubles the pipeline set spends startup; a row that adds a fragment arm spends frame.** They
+are both *multiplies a global count* and they are not comparable, because this engine's four constraints
+name a **frame** budget and no startup one. **A tier that ranked them together would rank a cost the
+project has a number for against a cost it does not.**
+
+- [ ] **The derived tier column carries the budget, not a number**: *reader* · *startup* · *frame*. Three
+  values, each naming where the cost lands, and **only one of them is measured against a declared
+  ceiling**
+- [ ] **Startup has no declared budget and that is now a visible gap.** 330 ms of cold `Init` is
+  affordable and 3 s would not be, and **nothing in this tree says which** — so a row that spends startup
+  is ordered against a ceiling nobody has written
+- [ ] **The measurement is what made this decidable**, and it is worth recording as method: the two-value
+  tier I rejected was right to reject, **and the replacement was not derivable from the rule either.** It
+  came from an instrument built one round earlier for a different purpose

@@ -35,3 +35,32 @@ rule — but the consumer was what was missing, not the instrument. **This is `n
 - [ ] Frame-index-matched comparison on a declared path, instead of a run's p50 as the statistic
 - [x] Bench as a layer over the system, never a mode inside it (`WalkBench`, `SubjectBench`, `TreeBench`)
 - [ ] `verify-types`' negative gate asserting *why* it fails — any compile error passes it today
+
+## The instrument's floor is not one number, and a comparer must say which one it is comparing at
+
+**[MEASURED] by `board:1187`, and this is where a later round will look for it rather than in a closed
+item:**
+
+| regime | spread |
+|---|---|
+| within one run, by arm | **0.2 – 3.4 %** |
+| between adjacent runs | **≈1 %** |
+| **across a warming three-minute session** | **`fill-twice-lit` spanned 0.19 ms — 5.2 %** |
+
+**So *the instrument's floor* is a range spanning an order of magnitude, and which value applies depends
+on when the two numbers were taken.** A round comparing two commits must **quote the regime**, or it is
+comparing a difference against a floor that was measured under different conditions — and a 3 % change is
+a regression under one and noise under another.
+
+**The warming term is the one that will be forgotten**: the machine gets slower over three minutes of
+continuous measurement, so **a long session's later arms are systematically dearer than its earlier
+ones**, and an A/B run that puts one commit first pays that as a bias. **Randomised or interleaved order
+is the standard answer and this document already asks for it** — the ABBA line above — for a related
+reason.
+
+**And one limitation of the measurement that produced these numbers, recorded with them.** The
+cross-commit comparison ran two `git worktree`s with today's `test/frame/` copied in and one line
+stripped, so **the instrument was identical everywhere that touches a duration**. But the **published
+pipeline count is absent from the two historical runs**, and the *30* they are compared against was
+**read from the vertex-layout table rather than measured**. The durations are sound; **the pipeline count
+attached to them is a reconstruction.**
