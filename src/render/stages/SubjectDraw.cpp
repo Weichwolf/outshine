@@ -934,8 +934,11 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
                              kSubjectLitMsl + kSubjectLitTexturedMsl + NormalFromMapMsl() +
                              kSubjectMappedMsl;
 
-  /* FORTY-EIGHT PIPELINES: every vertex layout the table declares, two facings, three alpha modes.
-   * The count is `kPipelines` and is derived from the table rather than written here. The facing is the SLOT's
+  Built = 0;
+  /* EVERY VERTEX LAYOUT THE TABLE DECLARES, TWO FACINGS, THREE ALPHA MODES -- and the count is
+   * COUNTED here rather than named, because `kPipelines` sizes the array and does not answer this
+   * (board:1187): the array is indexed by the whole `SurfaceKind` enumeration, so it is 80 slots and
+   * this loop fills 48 of them. The facing is the SLOT's
    * because glTF states it per material -- `TextureSettingsTest` hides a green checkmark behind a
    * polygon facing the wrong way and lets the flag decide which of the two is seen, and one cull
    * mode for the whole subject draws the wrong cell whichever way it is set. */
@@ -1007,6 +1010,7 @@ bool SubjectDraw::Configure(const Gpu &gpu, std::string &error) {
           return false;
         }
         Pipelines[PipelineAt(layout, kind, cullsBack)] = OwnedPipeline(Device, made);
+        ++Built;
       }
     }
   }

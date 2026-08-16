@@ -106,6 +106,11 @@ public:
   }
   [[nodiscard]] uint32_t SubjectBatchCount(void) const { return Subjects_.BatchCount(); }
   [[nodiscard]] uint32_t SubjectDrawCount(void) const { return Subjects_.DrawCount(); }
+  /* HOW MANY SUBJECT PIPELINES `Init` BUILT (board:1187). It is readable because a frame instrument
+   * asked whether a pipeline count cost anything must read the count in the same run as the
+   * duration; a number quoted from a source diff beside a measurement is the pairing this tree has
+   * already been wrong about once. */
+  [[nodiscard]] uint32_t SubjectPipelineCount(void) const { return Subjects_.PipelineCount(); }
   /* WHERE A SHADOW RAY STARTS, in the subject's own metres (`stages/ShadowRay.h`). It is readable
    * because it is the ONLY quantity in the visibility estimator a comparison can be displaced by:
    * I.26.15 bounds a shadow-edge disagreement in screen pixels against this bias projected, and a

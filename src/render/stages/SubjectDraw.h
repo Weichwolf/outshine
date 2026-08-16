@@ -289,6 +289,12 @@ public:
    * batching instrument, because a batching claim nobody counts is a claim. */
   uint32_t BatchCount() const { return (uint32_t)Batches.size(); }
   uint32_t DrawCount() const;
+  /* HOW MANY PIPELINES `Configure` ACTUALLY BUILT (board:1187), which is not the size of the array
+   * they sit in: the table is indexed by the whole `SurfaceKind` enumeration and two of its five
+   * kinds have no closure, so `kPipelines` is 80 slots and 48 of them hold a pipeline. An instrument
+   * asked whether a pipeline count cost anything has to read the count rather than be told it, and
+   * the two numbers are far enough apart that being told the wrong one is the ordinary outcome. */
+  uint32_t PipelineCount() const { return Built; }
   /* Where a shadow ray starts, in the subject's own metres -- readable because a bound on the
    * visibility estimator's displacement is derived from it (board:0089). */
   float ShadowNearM() const { return ShadowNearM_; }
@@ -396,6 +402,7 @@ private:
 
   SDL_GPUDevice *Device = nullptr;
   std::array<OwnedPipeline, kPipelines> Pipelines;
+  uint32_t Built = 0;
   /* ONE SLOT PER SURFACE: that surface's four images with their samplers and its own row. The
    * encoder rebinds only where the batch's slot changes. */
   std::vector<SurfaceSlot> Slots;

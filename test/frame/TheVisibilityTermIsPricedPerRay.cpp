@@ -35,6 +35,10 @@
 
 #include "Check.h"
 
+#include "Orbit.h"
+#include "SourceDigest.h"
+#include "WhatIsDrawn.h"
+
 #include "Document.h"
 #include "GltfStudio.h"
 #include "RenderPlan.h"
@@ -60,6 +64,10 @@ constexpr int kTimedFrames = 240;
 /* Frames drawn and thrown away before the clock starts, so the first-use cost of a pipeline, a
  * buffer and a texture is not counted as a frame's. */
 constexpr int kWarmFrames = 20;
+/* HOW MANY POINTS OF THE PATH THE PICTURE IS SAMPLED AT. [SET] 8: a coverage read is a fence and a
+ * copy, so it is taken often enough for the median to be an order statistic and rarely enough that
+ * it is not most of the run. */
+constexpr int kProbes = 8;
 
 /* THE LIGHT COUNTS THE SLOPE IS TAKEN OVER. Zero is the intercept; the rest double, so a cost that
  * is linear in the ray count and one that is not are told apart by four points rather than two. */
@@ -104,57 +112,6 @@ struct Distribution {
   out.MinMs = samples.front();
   out.MaxMs = samples.back();
   return out;
-}
-
-/* WHERE THE EYE IS ON FRAME `step`: one turn around the subject, STARTED AT THE FRAMING THE SUBJECT
- * ITSELF DERIVED and turned about that placement's own up axis. Anchoring it to the framing is not a
- * detail -- an orbit started on a world axis put the camera edge-on to a flat subject at step zero,
- * and the arm that read its coverage there priced a ray over 1 277 pixels of a 921 600-pixel frame.
- *
- * `scale` MOVES THE WHOLE ORBIT IN OR OUT, and it is what lets one subject be measured both at the
- * distance it was built to be seen at and at the distance where it fills the frame. The frame-filling
- * distance is the one the question "does a shadow ray per screen pixel fit" is actually asked at. */
-outshine::Gltf::Placement OrbitAt(const outshine::Gltf::Subject &subject,
-                                  const outshine::Gltf::Placement &framed, double scale, int step,
-                                  int steps) {
-  double centre[3];
-  subject.CentreM(centre);
-  double radial[3];
-  double distance = 0.0;
-  for (int axis = 0; axis < 3; ++axis) {
-    radial[axis] = framed.EyeM[axis] - centre[axis];
-    distance += radial[axis] * radial[axis];
-  }
-  distance = std::sqrt(distance);
-  for (int axis = 0; axis < 3; ++axis) { radial[axis] /= distance; }
-  /* The third axis of the framed placement's own basis, so the turn is about the subject's up and
-   * not about whichever world axis happened to be handy. */
-  const double up[3] = {framed.Up[0], framed.Up[1], framed.Up[2]};
-  const double side[3] = {up[1] * radial[2] - up[2] * radial[1],
-                          up[2] * radial[0] - up[0] * radial[2],
-                          up[0] * radial[1] - up[1] * radial[0]};
-  const double turn = 2.0 * 3.14159265358979323846 * (double)step / (double)steps;
-  const double tilt = 0.35 * std::sin(turn * 2.0);
-  double eye[3];
-  for (int axis = 0; axis < 3; ++axis) {
-    eye[axis] = centre[axis] + distance * scale *
-                                   (std::cos(tilt) * (std::cos(turn) * radial[axis] +
-                                                      std::sin(turn) * side[axis]) +
-                                    std::sin(tilt) * up[axis]);
-  }
-  outshine::Gltf::Placement placed = framed;
-  /* A PARALLEL PROJECTION HAS NO DISTANCE, so moving the eye in would change nothing: its extent is
-   * the magnification, and that is what `scale` has to move instead. */
-  if (placed.Kind == outshine::Gltf::CameraKind::Orthographic) {
-    placed.XMagM *= scale;
-    placed.YMagM *= scale;
-  }
-  (void)outshine::Gltf::Placement::LookAt(eye, centre, 0.0, placed);
-  if (placed.Kind == outshine::Gltf::CameraKind::Orthographic) {
-    placed.XMagM = framed.XMagM * scale;
-    placed.YMagM = framed.YMagM * scale;
-  }
-  return placed;
 }
 
 /* THE LIGHTS ONE ARM DECLARES: `count` suns pointing in different directions, all delta, all
@@ -208,11 +165,12 @@ outshine::Clients::Studio StudioOver(const outshine::Gltf::Subject &subject) {
   studio.Lights = SunsFacingEveryWay(lightCount);
   outshine::Clients::StudioScratch scratch;
 
-  studio.Eye = OrbitAt(subject, framed, scale, 0, kTimedFrames);
+  studio.Eye = outshine::Test::OrbitAt(subject, framed, scale, 0, kTimedFrames);
   if (!outshine::Clients::Show(renderer, studio, scratch, error)) { return false; }
   for (int warm = 0; warm < kWarmFrames; ++warm) {
     if (!outshine::Clients::Aim(renderer, subject,
-                                OrbitAt(subject, framed, scale, warm, kTimedFrames), error)) {
+                                outshine::Test::OrbitAt(subject, framed, scale, warm, kTimedFrames),
+                                error)) {
       return false;
     }
     renderer.RenderFrame();
@@ -223,7 +181,8 @@ outshine::Clients::Studio StudioOver(const outshine::Gltf::Subject &subject) {
   samples.reserve(kTimedFrames);
   for (int step = 0; step < kTimedFrames; ++step) {
     if (!outshine::Clients::Aim(renderer, subject,
-                                OrbitAt(subject, framed, scale, step, kTimedFrames), error)) {
+                                outshine::Test::OrbitAt(subject, framed, scale, step, kTimedFrames),
+                                error)) {
       return false;
     }
     const auto began = std::chrono::steady_clock::now();
@@ -234,56 +193,6 @@ outshine::Clients::Studio StudioOver(const outshine::Gltf::Subject &subject) {
   }
   out = Over(samples);
   return true;
-}
-
-/* THE PICTURE THIS CAMERA PATH PRODUCES, sampled OUTSIDE the timed loop because a readback is a
- * fence and a copy and would be most of a frame that costs half a millisecond.
- *
- * COVERAGE IS READ FROM THE DEPTH TARGET AND NOT FROM ALPHA. Under reversed-Z the cleared value is
- * exactly zero and anything drawn is above it, so the depth is a coverage predicate with no shading
- * in it; the scene target's alpha is 1 over the whole frame here and would have counted every one
- * of the 921 600 pixels as covered -- which a first reading of this instrument did, and it divided
- * a per-ray cost by twenty times too many rays.
- *
- * IT IS PIXELS AND NOT FRAGMENTS, and the difference is overdraw: a fragment behind another still
- * traces its ray before the depth test retires it, so a per-ray cost divided by this count is an
- * UPPER bound on what one ray costs. */
-struct Drawn {
-  long MedianCoveredPx = 0;
-  double SumRadiance = 0.0;
-};
-
-[[nodiscard]] Drawn WhatThePathDraws(outshine::Render::Renderer &renderer,
-                                     const outshine::Gltf::Subject &subject,
-                                     const outshine::Gltf::Placement &framed, double scale) {
-  Drawn out;
-  std::vector<long> counts;
-  std::vector<float> depth;
-  std::vector<float> linear;
-  std::string error;
-  constexpr int kProbes = 8;
-  for (int probe = 0; probe < kProbes; ++probe) {
-    if (!outshine::Clients::Aim(renderer, subject,
-                                OrbitAt(subject, framed, scale, probe * kTimedFrames / kProbes,
-                                        kTimedFrames),
-                                error)) {
-      return out;
-    }
-    renderer.RenderFrame();
-    if (renderer.ReadDepth(depth) != outshine::Render::ReadState::Ready) { return out; }
-    if (renderer.ReadSceneLinear(linear) != outshine::Render::ReadState::Ready) { return out; }
-    long covered = 0;
-    for (size_t at = 0; at < depth.size() && at * 4u + 3u < linear.size(); ++at) {
-      if (depth[at] <= 0.0f) { continue; }
-      ++covered;
-      out.SumRadiance +=
-          (double)linear[at * 4u] + (double)linear[at * 4u + 1u] + (double)linear[at * 4u + 2u];
-    }
-    counts.push_back(covered);
-  }
-  std::sort(counts.begin(), counts.end());
-  out.MedianCoveredPx = counts[counts.size() / 2];
-  return out;
 }
 
 /* THE DISTANCE THE SUBJECT FILLS THE FRAME AT, found rather than assumed. The subject's own framing
@@ -299,7 +208,7 @@ double FillingScale(outshine::Render::Renderer &renderer, const outshine::Gltf::
   outshine::Clients::Studio studio = StudioOver(subject);
   outshine::Clients::StudioScratch scratch;
   std::string error;
-  studio.Eye = OrbitAt(subject, framed, 1.0, 0, kTimedFrames);
+  studio.Eye = outshine::Test::OrbitAt(subject, framed, 1.0, 0, kTimedFrames);
   if (!outshine::Clients::Show(renderer, studio, scratch, error)) {
     coveredAt = 0;
     return 1.0;
@@ -308,7 +217,8 @@ double FillingScale(outshine::Render::Renderer &renderer, const outshine::Gltf::
   double best = 1.0;
   coveredAt = 0;
   for (const double scale : candidates) {
-    const Drawn drawn = WhatThePathDraws(renderer, subject, framed, scale);
+    const outshine::Test::Drawn drawn =
+        outshine::Test::WhatThePathDraws(renderer, subject, framed, scale, kTimedFrames, kProbes);
     if (drawn.MedianCoveredPx <= coveredAt) { continue; }
     coveredAt = drawn.MedianCoveredPx;
     best = scale;
@@ -339,8 +249,14 @@ int main(void) {
   CHECK(renderer.DeviceUsable(), "the device came up, so a frame can be timed at all");
   if (!renderer.DeviceUsable()) { return outshine::Test::Report(); }
 
+  /* WHICH CODE THESE DURATIONS BELONG TO (board:1187). A frame number with no source identity beside
+   * it cannot be compared against another run's, which is what left this suite unable to price a
+   * change for as long as it has existed. */
+  const outshine::Test::SourceIdentity sources = outshine::Test::SourcesUnderTest();
   std::printf("FRAME %dx%d budget %.4f ms, %d timed frames per arm after %d warm\n", kFrameWidthPx,
               kFrameHeightPx, kFrameBudgetMs, kTimedFrames, kWarmFrames);
+  std::printf("SOURCE digest=%s files=%ld bytes=%ld population=src/+test/frame/\n",
+              sources.Digest.c_str(), sources.Files, sources.Bytes);
 
   for (const Subject &which : kSubjects) {
     outshine::Gltf::Document document;
@@ -374,7 +290,8 @@ int main(void) {
 
     const double scales[] = {1.0, filling};
     for (const double scale : scales) {
-      const Drawn path = WhatThePathDraws(renderer, subject, framed, scale);
+      const outshine::Test::Drawn path =
+          outshine::Test::WhatThePathDraws(renderer, subject, framed, scale, kTimedFrames, kProbes);
       double unlitP50Ms = 0.0;
       double unlitRadiance = 0.0;
       for (const int lights : kLightArms) {
@@ -385,7 +302,8 @@ int main(void) {
           CHECK(false, "every timed arm rendered");
           continue;
         }
-        const Drawn drawn = WhatThePathDraws(renderer, subject, framed, scale);
+        const outshine::Test::Drawn drawn =
+        outshine::Test::WhatThePathDraws(renderer, subject, framed, scale, kTimedFrames, kProbes);
         if (lights == kLightArms[0]) {
           unlitP50Ms = spread.P50Ms;
           unlitRadiance = drawn.SumRadiance;
