@@ -305,18 +305,22 @@ bool Subject::Refuse(const std::string &why) {
   return false;
 }
 
-bool Subject::Build(const Document &document) { return Flatten(document, nullptr); }
+bool Subject::Build(const Document &document, const VariantSelection &variant) {
+  return Flatten(document, nullptr, variant);
+}
 
-bool Subject::Build(const Document &document, Span<const Transform> pose) {
+bool Subject::Build(const Document &document, Span<const Transform> pose,
+                    const VariantSelection &variant) {
   if (pose.Size() != document.Nodes().size()) {
     return Refuse(document.Path() + ": the pose states " + std::to_string(pose.Size()) +
                   " local transforms and the file carries " +
                   std::to_string(document.Nodes().size()) + " nodes");
   }
-  return Flatten(document, pose.Data());
+  return Flatten(document, pose.Data(), variant);
 }
 
-bool Subject::Flatten(const Document &document, const Transform *pose) {
+bool Subject::Flatten(const Document &document, const Transform *pose,
+                      const VariantSelection &variant) {
   /* THE ONE PLACE THE TWO SPELLINGS MEET, so the walk below asks for a placement once however this
    * was entered. The posed overload states the run's length and the unposed one has no run, and
    * neither can be reached with a run that half covers the file. */
@@ -342,6 +346,16 @@ bool Subject::Flatten(const Document &document, const Transform *pose) {
   const int sceneIndex = document.DefaultScene();
   if (sceneIndex < 0 || (size_t)sceneIndex >= document.Scenes().size()) {
     return Refuse(document.Path() + ": no default scene to draw");
+  }
+
+  /* THE SELECTION IS SPENT HERE AND GOES NO FURTHER (board:1188): from this line on it is an index
+   * into the file's own variant table, and one line below it is a material index like any other. */
+  int activeVariant = -1;
+  {
+    std::string why;
+    if (!variant.Against(document, activeVariant, why)) {
+      return Refuse(document.Path() + ": the declaration " + why);
+    }
   }
 
   /* Depth-first over the hierarchy from the scene's roots; WorldTransform already refuses a cycle
@@ -406,7 +420,7 @@ bool Subject::Flatten(const Document &document, const Transform *pose) {
       ++primitives;
       Part part;
       part.NodeName = node.Name;
-      part.Material = primitive.Material;
+      part.Material = primitive.MaterialUnder(activeVariant);
       part.FirstVertex = VertexCount();
       part.FirstIndex = Indices_.size();
       if (!DrawsASurface(primitive.Mode)) {

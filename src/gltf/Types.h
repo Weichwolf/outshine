@@ -100,9 +100,29 @@ struct Primitive {
   int Material = -1;
   PrimitiveMode Mode = PrimitiveMode::Triangles;
 
+  /* `KHR_materials_variants` READ INTO THE QUESTION IT ANSWERS (board:1188): one entry per variant
+   * the document declares, holding the material that variant puts on this primitive, and -1 where
+   * this variant does not remap it. Empty where the file declares no variants at all.
+   *
+   * IT IS DENSE RATHER THAN THE FILE'S LIST OF MAPPINGS, and that is what makes the format's own
+   * "each variant index must be used no more than one time" a shape instead of a rule: a second
+   * mapping of one variant has nowhere to be written, and the reader refuses at the file rather
+   * than leaving two answers for a consumer to pick between. */
+  std::vector<int> VariantMaterials;
+
   /* -1 for "this file does not carry it". A caller that needs it refuses by name; nothing here
    * invents one (board:0073). */
   int Find(const char *semantic) const;
+
+  /* WHICH MATERIAL THIS PRIMITIVE WEARS UNDER THE ACTIVE VARIANT (board:1188). `variant` is an
+   * index into the document's variant table and -1 is "no active variant", which is the ordinary
+   * state of every file in this tree.
+   *
+   * NO ACTIVE VARIANT AND A VARIANT THAT DOES NOT MAP THIS PRIMITIVE ARE ONE PATH and both answer
+   * `Material`, because the extension says so in one sentence: "when no mapping contains the active
+   * variant, or there is no active variant, a compliant viewer will fall back on vanilla glTF
+   * behaviour". The default is therefore not a special case here either. */
+  int MaterialUnder(int variant) const;
 };
 
 struct Mesh {

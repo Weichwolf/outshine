@@ -1,0 +1,281 @@
+{
+  "schema": "outshine/render-oracle-manifest",
+  "schemaVersion": 1,
+  "id": "render/materials/materials-variants-shoe-midnight",
+  "title": "Khronos MaterialsVariantsShoe under the declared variant `midnight` -- one primitive, three materials, and the mapping resolved before the draw list is compiled",
+  "covers": [
+    "I.26",
+    "I.26.10",
+    "khronos:MaterialsVariantsShoe",
+    "board:1188"
+  ],
+  "criterion": {
+    "kind": "self-describing",
+    "oracleRole": "reference",
+    "says": "A model of a shoe that illustrates use of the KHR_materials_variants extension with three materials included in the asset.",
+    "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+    "note": "SELF-DESCRIBING, AND WHAT IT DESCRIBES IS THE SELECTION. The asset carries three materials that differ in `baseColorTexture` and in nothing else -- `diffuseMidnight`, `diffuseBeach`, `diffuseStreet` -- and one `KHR_materials_variants` mapping per material on its single primitive, so which of the three images the picture is made of IS the extension working. The primitive's own `material` is 0, which is the same material `midnight` maps to: the default and the first variant are one picture BY THE FILE'S OWN CONSTRUCTION, which is exactly why the second case exists. THE PAIR IS THE ACCEPTANCE AND ONE RENDER OF IT IS NOT (board:1188). This case is one of two that differ in the declared variant and in nothing else -- same subject, same pin, same camera, same recipe -- because a selection that silently did nothing would render the primitive's own material, which for this asset is `midnight`, and that reads as an entirely correct picture. MEASURED FROM THE FILE'S OWN MATERIALS BEFORE THIS CASE WAS SCORED, by rasterising the subject at the declared camera and sampling the two variants' base-colour images at the perspective-correct uv of every covered pixel: over the 29972 pixels the subject covers, `midnight` and `beach` differ by more than the picture bound at 19925 of them -- 66.5 per cent -- p50 157 codes, p95 177 codes, max 222 codes. The two variants are therefore separated by the whole width of the 8-bit range and no threshold decides the difference. THIS CASE IS THE ARM A SILENT NO-OP PASSES: `midnight` maps to material 0, which is the material the primitive names, so a viewer that never read the mapping renders exactly this picture. It is here because the default has to be shown to be the file's own answer, and its partner `materials-variants-shoe-beach` is what fails when the mapping is ignored. WHAT THIS SUBJECT COSTS AND IT IS NOT THE SELECTION'S DOING: the asset carries COINCIDENT SURFACES, and where two of them meet inside one pixel the two sides need not pick the same one. MEASURED over the 29972 pixels the subject covers at this camera, by rasterising the file's own triangles and keeping the two nearest hits per pixel: 91 pixels carry a second surface within 100 um along the view ray, 10 within 10 um and 2 within 1 um -- and all 10 of the closest have their two surfaces in uv islands more than 0.05 apart, so which one is drawn decides the pixel's colour outright. EIGHT OF THOSE TEN ARE RESOLVED IDENTICALLY BY BOTH SIDES. The two that are not are the pair at 1.95 um and 0.113 um, and the second of those is below one unit in the last place of the camera-relative f32 arithmetic the picture is computed in at 1.19 m. Those two pixels carry this case's ENTIRE perceptual tail; the other 29970 agree to p99 = 1 code. It is the same two pixels under both variants, so it is a property of the geometry and not of the declaration."
+  },
+  "subjectClass": "sub-pixel-present",
+  "acceptanceClass": {
+    "is": "general-position",
+    "because": "A fronto-parallel planar placement owns three continuous freedoms -- two of aim and one of scale -- and every distinct silhouette line costs one condition, so 2 + k >= E is what decides whether the construction can be written at all (`board/`). A curved fetched asset of 22700 triangles whose silhouette resolves into thousands of distinct lines, and whose subject class already admits sub-pixel geometry."
+  },
+  "subjects": [
+    {
+      "id": "materials-variants-shoe",
+      "kind": "gltf",
+      "name": "MaterialsVariantsShoe",
+      "entry": "scene.gltf",
+      "attributes": [
+        "POSITION",
+        "NORMAL",
+        "TEXCOORD_0"
+      ],
+      "notes": "ONE primitive, three materials and one mapping each, which is what makes this asset decide the claim rather than illustrate it: the three materials are identical in every field but `baseColorTexture` -- textures 1, 3 and 4, i.e. images `diffuseMidnight.jpg`, `diffuseBeach.jpg` and `diffuseStreet.jpg` -- so a variant changes the picture and nothing else about the surface. The primitive names material 0 and the root extension names the variants `midnight`, `beach`, `street` in that order, mapped to materials 0, 1 and 2. The three maps this arm does not consume -- normal, occlusion-roughness-metalness -- are fetched and NOT used, and that is stated here rather than hidden.",
+      "source": {
+        "kind": "khronos-sample-assets",
+        "commit": "2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf",
+        "model": "MaterialsVariantsShoe",
+        "pinnedOn": "2026-08-16",
+        "pinReason": "the same pin every other Khronos subject in this tree carries"
+      },
+      "files": [
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.gltf",
+          "sha256": "80f0a8feff5494ad1cfb978578502cc980fe75d8f585a5346033c3108d90906f",
+          "bytes": 7005,
+          "as": "scene.gltf",
+          "role": "gltf",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/MaterialsVariantsShoe.bin",
+          "sha256": "76396a934f53ca9ef39fab20fe27178a5b00e726b710432089b924b6c3d87c4c",
+          "bytes": 705680,
+          "as": "MaterialsVariantsShoe.bin",
+          "role": "buffer",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/diffuseMidnight.jpg",
+          "sha256": "eb6494b455690649f6fe4cf415f21cad4620293a3de8768c2b0c74d82201e46c",
+          "bytes": 1252316,
+          "as": "diffuseMidnight.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/diffuseBeach.jpg",
+          "sha256": "05c724082f634683ebdd2c1ec278393134dcba09fe752254b97fb30628b6411c",
+          "bytes": 1249172,
+          "as": "diffuseBeach.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/diffuseStreet.jpg",
+          "sha256": "78f31ec4a6d1728e69639f869c4d62bf2dfbc6d388a7e66728072e71a82056de",
+          "bytes": 1204836,
+          "as": "diffuseStreet.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/normal.jpg",
+          "sha256": "e17e89ed886d4eaa91b9e9bccc55332b3d1adea0971a3617bc9448eb7b80055f",
+          "bytes": 2298412,
+          "as": "normal.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/glTF/occlusionRougnessMetalness.jpg",
+          "sha256": "6605285c31653f8d6a5932f0ca2e1aa75b2087e348521fc81fbd66e7f70125ec",
+          "bytes": 1119084,
+          "as": "occlusionRougnessMetalness.jpg",
+          "role": "image",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        },
+        {
+          "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+          "sha256": "5b9bc8e7f9e9f7bddb5ccd9608413f2b6f9e8069c088eeb2db7caa6101e9307b",
+          "bytes": 849,
+          "as": "metadata.json",
+          "role": "metadata",
+          "licence": {
+            "spdx": "CC-BY-4.0",
+            "holder": "Shopify",
+            "year": "2021",
+            "statedAt": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/2bac6f8c57bf471df0d2a1e8a8ec023c7801dddf/Models/MaterialsVariantsShoe/metadata.json",
+            "covers": "Everything"
+          }
+        }
+      ]
+    }
+  ],
+  "blender": {
+    "version": "5.2.0",
+    "note": "A release version, not a commit. Recorded so a red rung can be attributed to our renderer or to the oracle, and carried in the oracle's cache key so a version bump misses instead of serving a stale render. We do not aim to be bit-identical with Cycles."
+  },
+  "scene": {
+    "frame": "gltf",
+    "materialVariant": "midnight",
+    "camera": {
+      "source": "manifest",
+      "positionM": [
+        0.9756588671260067,
+        0.5086971493918586,
+        0.6868870101389591
+      ],
+      "lookAtM": [
+        0.0016104965774853958,
+        0.07590251,
+        0.0048509984999999985
+      ],
+      "rollRad": 0.0,
+      "yfovRad": 0.47108996144172666,
+      "sensorHeightMm": 24.0,
+      "clipStartM": 1.0882198284772855,
+      "clipEndM": 1.44259391356454,
+      "derivation": "The framing rule of board:0083 (src/gltf/Framing.h) applied to this subject's own bounds and to nothing else: azimuth 35 deg and elevation 20 deg in glTF's +Y-up frame, distance r / sin(yfov/2) / 0.6 at r = 0.17718704254362727 m about the centre (0.0016104965774853958, 0.075902510000000006, 0.0048509984999999985), yfov = 2*atan(12/50) from Blender's factory 50 mm lens on a 24 mm sensor height at sensor_fit VERTICAL, near = distance - r and far = distance + r. THE BOUNDS ARE THE SAME UNDER EVERY VARIANT, which is what lets the pair share one camera: a variant changes which material a primitive wears and no vertex of it, so the two cases are the same geometry at the same eye and the picture is a function of the declared variant alone.",
+      "note": "The file carries no camera, so this case's camera is declared here and the oracle builds the same one from these numbers."
+    },
+    "light": {
+      "kind": "none",
+      "note": "The only illumination is Blender's factory world, and it is left where it is because configuring it would be a second thing to keep honest. Under the emission arm below nothing gathers from it in any case."
+    },
+    "world": {
+      "kind": "factory",
+      "note": "Configured by not being configured. The observed colour and strength go into provenance.json, so a Blender that changed them is visible without any machinery that refuses."
+    },
+    "material": {
+      "source": "gltf-base-colour",
+      "carriedBy": "texture",
+      "kind": "emission",
+      "note": "The file's own base-colour image, its uv set and its sampler, through an emitter. AN EMITTER AND NOT A DIFFUSE BSDF because a shoe is a closed body that sees itself everywhere -- the arch, the tongue, the inside of the collar -- so at one sample per pixel a Diffuse BSDF makes every such pixel a Bernoulli draw on the visible sky fraction, which is an ambient-occlusion estimator and not a material (board:0087). THE VARIANT IS WHAT DECIDES WHICH IMAGE THAT IS: the lowering follows the link into the Principled BSDF's Base Color input of the material the primitive WEARS after the variant has been applied, so the normal and occlusion-roughness-metalness maps in the same material are left where they are and reach nothing."
+    }
+  },
+  "renders": {
+    "default": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 0,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "One sample per pixel with the box filter at its RNA minimum makes Cycles evaluate the same predicate a centre-sampling rasteriser does, because the integer raster coordinate is the pixel centre and the sample never leaves +/-0.005 px of it."
+    },
+    "seed-shift": {
+      "engine": "CYCLES",
+      "device": "METAL",
+      "resolutionX": 1280,
+      "resolutionY": 720,
+      "samples": 1,
+      "adaptiveSampling": false,
+      "denoise": false,
+      "seed": 1,
+      "pixelFilter": {
+        "type": "BOX",
+        "widthPx": 0.01
+      },
+      "filmTransparent": true,
+      "filmExposure": 1.0,
+      "scaleLength": 1.0,
+      "bounces": {
+        "max": 0,
+        "diffuse": 0,
+        "glossy": 0,
+        "transmission": 0,
+        "volume": 0,
+        "transparentMax": 0
+      },
+      "colourManagement": {
+        "displayDevice": "sRGB",
+        "viewTransform": "Standard",
+        "look": "None",
+        "exposure": 0.0,
+        "gamma": 1.0
+      },
+      "exrCodec": "ZIP",
+      "note": "The same recipe at another seed, and the whole of the emission arm's acceptance. A Monte-Carlo estimator's answer depends on its seed; an emitter has no estimator, so the two dumps must agree bit for bit and any difference NAMES the integral that survived."
+    }
+  },
+  "notes": "The oracle reads the extension itself: Blender's importer stores the file's variant names on the scene and each primitive's mappings on the mesh, and the active variant is assigned by the importer's own operator, so Cycles renders the material the FILE maps to the declared name rather than one this manifest names. What crosses is the declaration; the mapping is read twice, independently, on the two sides.",
+  "expected": {
+    "subjectFrameFraction": {
+      "value": 0.12375830390128728,
+      "unit": "dimensionless",
+      "origin": "derived",
+      "derivation": "the sum over the subject's 22700 triangles of the magnitude of the projected signed area, over 1280*720 at the declared camera, recomputed by the runner from the fetched vertices",
+      "note": "An AREA and not a coverage: every triangle counts by the magnitude of its signed area, so a closed body counts its far side too. IT IS THE SAME NUMBER IN BOTH CASES OF THE PAIR, because a variant moves no vertex."
+    }
+  }
+}

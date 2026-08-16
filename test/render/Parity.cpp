@@ -191,6 +191,11 @@ struct Case {
   /* What the ASSET says a render of itself must satisfy, empty unless the criterion is
    * `stated-invariant` -- which is the only kind that has any. */
   std::vector<Invariant> Invariants;
+  /* WHICH `KHR_materials_variants` VARIANT THIS CASE RENDERS, or none (board:1188). It is spent in
+   * `Subject::Build` and is the only field of this case that changes which material a part wears, so
+   * a pair of cases differing in nothing but this line is a pair of pictures differing in nothing
+   * but the selection. */
+  outshine::Gltf::VariantSelection Variant;
   SurfaceTable Surfaces;
   /* THE FRAME GRID THIS CASE IS JUDGED ON (board:1169), and a still declares none: `Frames` is 1,
    * `Animation` is empty and every product keeps the name the corpus already carries. An animated
@@ -569,6 +574,12 @@ public:
       !ReadFileColourCarrier(material["carriedBy"], subject.Carrier, error)) {
     return false;
   }
+  /* WHICH MATERIAL VARIANT THIS CASE RENDERS (board:1188), by the name the file gives it. Its
+   * absence is the extension's own default -- no active variant -- so the 37 cases that declare
+   * nothing take the same path they always took, and the name is carried rather than resolved here
+   * because the document it is resolved against is the one about to be flattened. */
+  const Json::Ref variant = root["scene"]["materialVariant"];
+  if (variant.Valid()) { subject.Variant = outshine::Gltf::VariantSelection(variant.Str("")); }
   /* THE FRAME GRID, WHERE THE CASE DECLARES ONE. Its absence is the still corpus and needs no arm:
    * one frame, no pose, the file's own placements. A grid of one would be a still that renders the
    * pose at t = 0 and passes every frame-by-frame comparison, so the preparer refuses it and this
@@ -1112,13 +1123,15 @@ void ResolveSurfaceTable(const Document &file, const Subject &geometry, SurfaceT
  * into the world positions exactly as the file's own placements are. */
 [[nodiscard]] bool PoseGeometry(Case &subject, int frame, std::string &error) {
   if (!subject.Animated()) {
-    if (subject.Geometry.Build(subject.File)) { return true; }
+    if (subject.Geometry.Build(subject.File, subject.Variant)) { return true; }
     error = subject.Geometry.Error();
     return false;
   }
   subject.Animation.At((double)frame / subject.Fps, subject.Locals);
-  if (subject.Geometry.Build(subject.File, outshine::Span<const Transform>(subject.Locals.data(),
-                                                                          subject.Locals.size()))) {
+  if (subject.Geometry.Build(subject.File,
+                             outshine::Span<const Transform>(subject.Locals.data(),
+                                                             subject.Locals.size()),
+                             subject.Variant)) {
     return true;
   }
   error = subject.Geometry.Error();
@@ -1636,7 +1649,11 @@ void ScoreAlternateSpellings(const Case &subject, const outshine::Clients::Studi
     bool built = alternate.ReadFile(subject.Directory + name);
     if (!built) {
       trouble = alternate.Error();
-    } else if (!(built = spelling.Build(alternate))) {
+      /* THE ALTERNATE IS BUILT UNDER THE CASE'S OWN VARIANT (board:1188). A variant moves no vertex,
+       * so it cannot change the coverage this metric is over -- but a spelling built without the
+       * declaration is a second way of building one subject, and the two would part company the
+       * first time a selection reached geometry. */
+    } else if (!(built = spelling.Build(alternate, subject.Variant))) {
       trouble = spelling.Error();
     } else {
       outshine::Clients::Studio other = studio;

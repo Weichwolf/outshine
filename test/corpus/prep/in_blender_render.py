@@ -262,6 +262,45 @@ def strip_crossings(imported, camera_source, keep_lights):
     return removed
 
 
+def select_material_variant(imported, name):
+    """THE ORACLE READS `KHR_materials_variants` ITSELF (board:1188), which is what makes it an
+    independent answer to which material a primitive wears rather than a second copy of ours.
+
+    Blender's importer stores the extension verbatim: the file's variant names land in
+    `scene.gltf2_KHR_materials_variants_variants` and each primitive's mappings in the mesh's
+    `gltf2_variant_mesh_data`, one entry per (slot, material, variants) the file states. Assigning
+    the active variant is the importer's own operator over that data, so nothing here re-implements
+    the mapping -- what is added is the DECLARATION and the refusal.
+
+    A NAME THE FILE DOES NOT DECLARE STOPS THE RENDER AND NAMES BOTH SIDES. Falling back to the
+    imported default would produce the file's own materials, which for a shoe whose default IS one of
+    its variants is a picture nobody can tell from the right one.
+
+    The slots are read back AFTER the switch and reported, because "the operator ran" and "the
+    material moved" are two claims and only the second one is about the picture."""
+    # THE PROPERTY IS NOT ALWAYS THERE, AND ITS ABSENCE IS AN ANSWER. The importer registers the
+    # variant UI only when a file it imported declares variants, so on the 37 cases that declare none
+    # this attribute does not exist -- which is exactly "the file declares no variants" and is
+    # reported as that rather than crashing the render of a case this feature is not about.
+    declared = list(getattr(bpy.data.scenes[0], "gltf2_KHR_materials_variants_variants", []))
+    if name is None:
+        return {"declared": [v.name for v in declared], "active": None}
+    for index, variant in enumerate(declared):
+        if variant.name != name:
+            continue
+        bpy.data.scenes[0].gltf2_active_variant = index
+        result = bpy.ops.scene.gltf2_display_variant()
+        if "FINISHED" not in result:
+            fail("displaying material variant %r returned %r" % (name, result))
+        return {"declared": [v.name for v in declared], "active": name, "activeIndex": index,
+                "slots": [{"object": obj.name,
+                           "materials": [s.material.name if s.material else None
+                                         for s in obj.material_slots]}
+                          for obj in imported if obj.type == "MESH"]}
+    fail("the case declares material variant %r and the imported files declare %r"
+         % (name, [v.name for v in declared]))
+
+
 def build_camera(scene, declared):
     position = Vector(declared["positionM"])
     forward = (Vector(declared["lookAtM"]) - position)
@@ -1122,6 +1161,10 @@ def main():
     else:
         camera = adopt_camera(scene, imported, job["scene"]["camera"], job["gltfPaths"])
     light = build_light(scene, job["scene"]["light"], imported)
+    # BEFORE THE MATERIAL ARM AND AFTER THE IMPORT (board:1188): the lowering below rewires the
+    # materials the subject WEARS, so a variant selected after it would swap a lowered material for
+    # an untouched Principled one.
+    variant = select_material_variant(imported, job["scene"].get("materialVariant"))
     material = apply_material(imported, job["scene"]["material"])
     devices = apply_recipe(scene, job["recipe"])
     rotations = None
@@ -1156,6 +1199,7 @@ def main():
         "rotationCurves": rotations,
         "pose": evaluated_pose(imported),
         "light": light,
+        "materialVariant": variant,
         "material": material,
         "devices": devices,
         "renderSeconds": seconds,

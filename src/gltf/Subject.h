@@ -41,6 +41,7 @@
 
 #include "Camera.h"
 #include "Transform.h"
+#include "Variant.h"
 
 namespace outshine::Gltf {
 
@@ -109,7 +110,10 @@ enum class TangentSource { None, Supplied, Generated };
 
 struct Part {
   std::string NodeName;   /* the file's own; empty where the node carries none */
-  int Material = -1;      /* the document's material index, or -1 where the primitive names none */
+  /* The document's material index, or -1 where the primitive names none. It is the material the
+   * part WEARS and not the one the primitive spells: a declared variant has already been resolved
+   * into it (board:1188), which is what leaves the extension with no spelling downstream. */
+  int Material = -1;
   bool HasUv = false;     /* whether TEXCOORD_0 was carried, per primitive and never per subject */
   bool HasUv1 = false;    /* whether TEXCOORD_1 was carried, per primitive and never per subject */
   bool HasNormal = false; /* whether NORMAL was carried, per primitive and never per subject */
@@ -161,13 +165,21 @@ struct Assembly {
 
 class Subject {
 public:
-  /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence. */
-  [[nodiscard]] bool Build(const Document &document);
+  /* Flattens the document's default scene. `false` leaves `Error()` holding the sentence.
+   *
+   * THE VARIANT IS A DEFAULTED PARAMETER AND NOT A THIRD OVERLOAD (`F.51`, board:1188): it is
+   * independent of the pose, so overloads would multiply rather than add. Its default is the
+   * extension's own default -- no active variant, every primitive wearing the material it names --
+   * so a consumer that has never heard of variants writes the call it always wrote and gets the
+   * picture the file states. A name the document does not declare is a refusal, and the flatten is
+   * where it lands because the flatten is where the document being drawn is known. */
+  [[nodiscard]] bool Build(const Document &document, const VariantSelection &variant = {});
   /* THE SAME FLATTEN WITH THE HIERARCHY POSED (board:1169): one local transform per node, which is
    * what `Gltf::Pose::At` writes at a time. The pose is baked into the world positions here exactly
    * as the file's own placements are, so nothing downstream learns that the subject was animated --
    * a drawable is a drawable. Refuses a run that is not one transform per node. */
-  [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose);
+  [[nodiscard]] bool Build(const Document &document, Span<const Transform> pose,
+                           const VariantSelection &variant = {});
 
   /* THE OTHER WAY IN, AND IT IS THE EDGE A GENERATOR STANDS ON (board:0105): the same
    * drawable, produced rather than read. Nothing is derived here -- no normal, no tangent basis, no
@@ -255,7 +267,8 @@ private:
   [[nodiscard]] bool Refuse(const std::string &why);
   /* The one walk both `Build` overloads are: `pose` is null for the file's own placements and
    * otherwise points at one local transform per node. */
-  [[nodiscard]] bool Flatten(const Document &document, const Transform *pose);
+  [[nodiscard]] bool Flatten(const Document &document, const Transform *pose,
+                             const VariantSelection &variant);
   /* The world-space AABB over the position run, whichever of the two ways in filled it. */
   void Bound();
   /* One part's tangent run, appended in step with the runs above: the file's own where the

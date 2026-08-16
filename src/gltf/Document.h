@@ -57,6 +57,15 @@ public:
   const std::vector<Sampler> &Samplers() const { return Samplers_; }
   /* `KHR_lights_punctual`'s document-level table, unplaced. A node is what places one. */
   const std::vector<LightRef> &Lights() const { return Lights_; }
+  /* `KHR_materials_variants`' document-level table (board:1188): the variant NAMES, in the file's
+   * own order, so an index into this run is what `Primitive::VariantMaterials` is keyed by. Empty
+   * where the file declares none, which is every asset in this tree but one.
+   *
+   * IT IS THE NAMES AND NOT A TABLE OF ANYTHING ELSE, because a name is the whole of what a variant
+   * is: the extension puts nothing else on one, and the mapping from a variant to a material lives
+   * on the primitive, which is what makes this a SELECTION and not material data (board:1177 is the
+   * other shape). */
+  const std::vector<std::string> &Variants() const { return Variants_; }
   /* Every animation the file declares, samplers and channels resolved against the tables above. A
    * file with none yields an empty run, which is what almost every asset in this tree is. */
   const std::vector<Animation> &Animations() const { return Animations_; }
@@ -97,6 +106,10 @@ private:
                                     size_t binaryLength);
   [[nodiscard]] bool ReadAppearance(const Json &json);
   [[nodiscard]] bool ReadLights(const Json &json);
+  [[nodiscard]] bool ReadVariants(const Json &json);
+  /* One primitive's `KHR_materials_variants` mappings, against the table `ReadVariants` filled. */
+  [[nodiscard]] bool ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive,
+                                         Primitive &into);
   [[nodiscard]] bool ReadAnimations(const Json &json);
   [[nodiscard]] bool ReadMaterial(const Json::Ref &declaration, size_t index);
   [[nodiscard]] bool ElementBytes(const Accessor &accessor, size_t &stride, size_t &element) const;
@@ -117,6 +130,7 @@ private:
   std::vector<Image> Images_;
   std::vector<Sampler> Samplers_;
   std::vector<LightRef> Lights_;
+  std::vector<std::string> Variants_;
   std::vector<Animation> Animations_;
   std::vector<int> Parent_;
   int DefaultScene_ = -1;

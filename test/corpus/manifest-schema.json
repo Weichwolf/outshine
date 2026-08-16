@@ -469,9 +469,10 @@
       "optional": {
         "animation": {
           "object": "animation"
-        }
+        },
+        "materialVariant": "text"
       },
-      "note": "A declared ANIMATION makes the case a sequence (board:1169): the same subject, the same camera and the same recipe at every frame of a declared grid, with the frame in the oracle key so each one is its own cached product. Its absence is a still, which is one frame and the whole corpus until now."
+      "note": "A declared ANIMATION makes the case a sequence (board:1169): the same subject, the same camera and the same recipe at every frame of a declared grid, with the frame in the oracle key so each one is its own cached product. Its absence is a still, which is one frame and the whole corpus until now. A declared `materialVariant` is the `KHR_materials_variants` variant BOTH SIDES render (board:1188), by the name the file gives it and never by an index -- a name the file does not declare is a refusal on either side, naming both. Its absence is the extension's own default, no active variant, which is what every case in this tree renders and why it is absent from all but two of them; it is in the oracle key only when it is declared, so a case that renders no variant keeps the products it already had."
     },
     "camera": {
       "discriminator": "source",

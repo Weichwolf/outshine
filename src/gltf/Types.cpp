@@ -108,4 +108,10 @@ int Primitive::Find(const char *semantic) const {
   return -1;
 }
 
+int Primitive::MaterialUnder(int variant) const {
+  if (variant < 0 || (size_t)variant >= VariantMaterials.size()) { return Material; }
+  const int mapped = VariantMaterials[(size_t)variant];
+  return mapped < 0 ? Material : mapped;
+}
+
 } // namespace outshine::Gltf

@@ -187,15 +187,24 @@ bool KnownWrap(int raw, Wrap &out) {
  * (`core/UvTransform.h`), its defaults are the IDENTITY of whatever the consumer does with them, so
  * absence and presence-with-defaults are one computation with no branch and no pipeline permutation
  * (`board:1156`), and PRESENCE IS THE VALUES THEMSELVES -- there is no `Has...` flag anywhere in this
- * reader that can disagree with the numbers beside it. */
+ * reader that can disagree with the numbers beside it.
+ *
+ * A SELECTION EXTENSION IS THE OTHER SHAPE AND IT IS NOT BUILT THAT WAY (board:1188).
+ * `KHR_materials_variants` carries no number for a material row -- it is a MAPPING from a variant to
+ * a material, per primitive -- so putting it in the row would put a table inside the thing it
+ * selects. It is read into the primitive, resolved into the material a part wears while the subject
+ * is flattened, and is therefore gone before a draw list exists: the render path never learns that
+ * variants are a thing, and no fragment arm, pipeline or interpolant is added by it. */
 constexpr const char *const kHonouredExtensions[] = {"KHR_lights_punctual",
                                                      "KHR_materials_emissive_strength",
                                                      "KHR_materials_unlit",
+                                                     "KHR_materials_variants",
                                                      "KHR_texture_transform", nullptr};
 
 constexpr const char *kLightsPunctual = "KHR_lights_punctual";
 constexpr const char *kEmissiveStrength = "KHR_materials_emissive_strength";
 constexpr const char *kUnlit = "KHR_materials_unlit";
+constexpr const char *kMaterialsVariants = "KHR_materials_variants";
 constexpr const char *kTextureTransform = "KHR_texture_transform";
 
 /* A DECLARED PAIR OF NUMBERS, OR A REFUSAL NAMING WHICH PROPERTY WAS NOT ONE. `Num(def)` answers the
@@ -483,6 +492,7 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
 
   if (!ReadAppearance(json)) { return false; }
   if (!ReadLights(json)) { return false; }
+  if (!ReadVariants(json)) { return false; }
 
   const Json::Ref meshes = root["meshes"];
   for (size_t i = 0; i < meshes.Size(); ++i) {
@@ -518,6 +528,8 @@ bool Document::ReadJson(const char *text, size_t length, const uint8_t *binaryCh
                       Number(static_cast<size_t>(primitive.Material)) + " of " +
                       Number(Materials_.size()));
       }
+      const Json::Ref variants = declared["extensions"][kMaterialsVariants];
+      if (variants.Valid() && !ReadVariantMappings(variants, i, p, primitive)) { return false; }
       mesh.Primitives.push_back(std::move(primitive));
     }
     Meshes_.push_back(std::move(mesh));
@@ -791,6 +803,97 @@ bool Document::ReadLights(const Json &json) {
       }
     }
     Lights_.push_back(std::move(light));
+  }
+  return true;
+}
+
+/* `KHR_materials_variants`' DOCUMENT-LEVEL TABLE (board:1188), which is a list of NAMES and nothing
+ * else. It is read before the meshes because a primitive's mappings are checked against it, and a
+ * mapping validated against a table that did not exist yet would be validated against nothing.
+ *
+ * A NAME IS REQUIRED BY THE EXTENSION'S OWN SCHEMA AND A REPEATED ONE IS REFUSED HERE. The second is
+ * this reader's addition and it is what makes selection BY NAME answerable: a declaration names the
+ * variant it renders, so two variants called `beach` are a file stating two answers to one question
+ * -- the same defect as a primitive mapped twice, one level up. An index would sidestep it and put a
+ * position in a list into every declaration that selects. */
+bool Document::ReadVariants(const Json &json) {
+  const Json::Ref declared = json.Root()["extensions"][kMaterialsVariants];
+  if (!declared.Valid()) { return true; }
+  if (declared.GetKind() != Json::Kind::Object) {
+    return Refuse(std::string(kMaterialsVariants) + " is declared as something other than an object");
+  }
+  const Json::Ref variants = declared["variants"];
+  if (variants.GetKind() != Json::Kind::Array || variants.Size() == 0) {
+    return Refuse(std::string(kMaterialsVariants) +
+                  " declares no non-empty variants array, and the extension is that array");
+  }
+  for (size_t i = 0; i < variants.Size(); ++i) {
+    const Json::Ref name = variants[i]["name"];
+    if (name.GetKind() != Json::Kind::String) {
+      return Refuse(std::string(kMaterialsVariants) + " variant " + Number(i) +
+                    " states no name, and a name is what a declaration selects it by");
+    }
+    const std::string spelling = name.Str("");
+    for (size_t earlier = 0; earlier < Variants_.size(); ++earlier) {
+      if (Variants_[earlier] == spelling) {
+        return Refuse(std::string(kMaterialsVariants) + " variants " + Number(earlier) + " and " +
+                      Number(i) + " are both named '" + spelling +
+                      "', so the name selects two of them and neither is more correct");
+      }
+    }
+    Variants_.push_back(spelling);
+  }
+  return true;
+}
+
+/* ONE PRIMITIVE'S MAPPINGS, INTO THE DENSE RUN `Primitive::VariantMaterials` IS (board:1188).
+ *
+ * "ACROSS THE ENTIRE MAPPINGS ARRAY, EACH VARIANT INDEX MUST BE USED NO MORE THAN ONE TIME" is the
+ * extension's own sentence, and here it is the slot already being written -- the file has stated two
+ * materials for one variant, and picking either is picking a picture the file did not decide. */
+bool Document::ReadVariantMappings(const Json::Ref &declared, size_t mesh, size_t primitive,
+                                   Primitive &into) {
+  const std::string where =
+      "mesh " + Number(mesh) + " primitive " + Number(primitive) + " " + kMaterialsVariants;
+  if (declared.GetKind() != Json::Kind::Object) {
+    return Refuse(where + " is declared as something other than an object");
+  }
+  if (Variants_.empty()) {
+    return Refuse(where + " states mappings and the file's root declares no variants for them to "
+                          "name");
+  }
+  const Json::Ref mappings = declared["mappings"];
+  if (mappings.GetKind() != Json::Kind::Array || mappings.Size() == 0) {
+    return Refuse(where + " declares no non-empty mappings array");
+  }
+  into.VariantMaterials.assign(Variants_.size(), -1);
+  for (size_t i = 0; i < mappings.Size(); ++i) {
+    const Json::Ref mapping = mappings[i];
+    const Json::Ref material = mapping["material"];
+    const int wears = material.GetKind() == Json::Kind::Number ? material.Int(-1) : -1;
+    if (wears < 0 || (size_t)wears >= Materials_.size()) {
+      return Refuse(where + " mapping " + Number(i) + " names material " + std::to_string(wears) +
+                    " of " + Number(Materials_.size()) +
+                    ", and the extension requires one on every mapping");
+    }
+    const Json::Ref named = mapping["variants"];
+    if (named.GetKind() != Json::Kind::Array || named.Size() == 0) {
+      return Refuse(where + " mapping " + Number(i) + " declares no non-empty variants array");
+    }
+    for (size_t k = 0; k < named.Size(); ++k) {
+      const int variant = named[k].GetKind() == Json::Kind::Number ? named[k].Int(-1) : -1;
+      if (variant < 0 || (size_t)variant >= Variants_.size()) {
+        return Refuse(where + " mapping " + Number(i) + " names variant " + std::to_string(variant) +
+                      " of " + Number(Variants_.size()));
+      }
+      if (into.VariantMaterials[(size_t)variant] >= 0) {
+        return Refuse(where + " maps variant '" + Variants_[(size_t)variant] + "' to material " +
+                      std::to_string(into.VariantMaterials[(size_t)variant]) + " and to material " +
+                      std::to_string(wears) +
+                      ", and the extension states each variant index no more than once");
+      }
+      into.VariantMaterials[(size_t)variant] = wears;
+    }
   }
   return true;
 }

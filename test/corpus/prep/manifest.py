@@ -243,6 +243,10 @@ class _Scene:
         # render and travels in the key beside this, so what a scene declares is the grid and what a
         # product declares is which frame of it.
         self.animation = field.get("animation")
+        # WHICH `KHR_materials_variants` VARIANT BOTH SIDES RENDER, or None for the extension's own
+        # default (board:1188). It is a NAME, so the oracle resolves it against the file it imported
+        # rather than against a position in a list this declaration would have to keep in step with.
+        self.material_variant = field.get("materialVariant")
         if self.animation is not None and self.animation["index"] != 0:
             raise Refusal("manifest.scene.animation.index", expected="0",
                           observed=repr(self.animation["index"]),
@@ -268,6 +272,11 @@ class _Scene:
         job = {"camera": self.camera, "light": self.light, "world": self.world, "material": self.material}
         if self.animation is not None:
             job["animation"] = self.animation
+        # ABSENT WHEN UNDECLARED AND NOT NULL IN THE KEY: this dictionary is what the oracle's cache
+        # key is derived from, so a key that gained a field would miss on every case in the corpus
+        # and re-render 37 manifests through Cycles to produce the same bytes.
+        if self.material_variant is not None:
+            job["materialVariant"] = self.material_variant
         return job
 
 
