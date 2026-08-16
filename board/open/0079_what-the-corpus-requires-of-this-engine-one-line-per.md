@@ -258,3 +258,88 @@ preference for tidiness.
   because a spec-correct implementation changes no pixel on either side. **Impact makes a row worth doing;
   provability makes it dispatchable**, and a table that carries only the first will keep proposing rows
   that cannot terminate
+
+## `board:1174` executed — the table re-measured, and what could not be measured is priced
+
+*Measured 2026-08-16 against the tree, not read. The counts below come from instruments named beside
+them; where an instrument does not exist the row says so rather than reading as counted.*
+
+### Column 1 — THE FIELD EXISTS. Measured exactly, from the declarations
+
+`core/Material.h` carries **`BaseColour[4] · Metalness · Roughness · Transmission · Ior · Emission[3] ·
+Alpha · DoubleSided · CoverageCut · Unlit`**. The vertex side carries **`Position · Uv · Uv1 · Normal ·
+Tangent`**; `Gltf::Part` carries **`HasUv · HasUv1 · HasNormal · HasTangent · HasSparse · HasMatrix`**.
+
+**Three of this table's assertions are false against that list**, and all three under-state the engine:
+
+| the table says | measured |
+|---|---|
+| *"Absent: metalness has no field at all"* | **`Metalness` is a field**, and the mapped arm multiplies it by `orm.b` |
+| `TEXCOORD_1` required, unbuilt | **`Uv1` is a vertex run and a layout** (`board:1182`) |
+| sparse accessors `REFUSED` | **`HasSparse` exists**; the row was overturned before this pass |
+
+**No row was found over-stating the engine.** The error is one-directional, which is the direction that
+**sequences work already done** — the failure the ordering rule exists to prevent, now measured at three
+instances rather than the one that prompted it.
+
+### Column 3 — THE NAMED PROVER. Measured exactly, and it is the finding of this pass
+
+**The `Proven by` column names a Khronos asset for 23 rows. For 16 of them the asset HAS NO CASE IN THIS
+TREE.** The instrument cannot be fooled: the case directory exists or it does not.
+
+`Box` · `BoxVertexColors` · `RiggedSimple` · `AnimatedMorphCube` · `SimpleInstancing` ·
+`MetalRoughSpheres` · `SpecularTest` · `ToyCar` · `SheenCloth` · `MaterialsVariantsShoe` ·
+`DiffuseTransmissionTest` · `CubeVisibility` · `AnimatedColorsCube` · `InterpolationTest` ·
+`SimpleSparseAccessor` · `MeshPrimitiveModes`.
+
+**So *Proven by* has been read as a proof and is a citation to an absent asset in two rows out of three.**
+`MetalRoughSpheres` is the sharp case: the row's named prover is absent **and metalness demonstrably
+works**, proven incidentally by cases that happen to contain it — which is exactly *a case passing its
+picture bound does not prove the feature it happens to contain*, now measured rather than argued.
+
+### Column 2 — A glTF VALUE REACHES THE FIELD. NOT MEASURED, and here is the price
+
+**I attempted it by string counts across `src/gltf/` and `test/` and threw the result away.** `NORMAL`
+came back `test:48`, `transmission` `test:41` — those are prose and substring hits, **not capability
+measurements**, and publishing them would be `board:1130`'s 300× error in a new place. *The instrument
+felt like measuring and was reading.*
+
+**What it actually costs**: per row, reading the reader's assignment site and confirming the value
+survives to the draw — **50 reads, and a grep cannot stand in for any of them**. The cheaper and better
+answer is **an instrument rather than a pass**: a probe that loads one crafted glTF per feature and
+reports which fields moved. **That is the same prerequisite `board:1179` and `board:1186` already need**
+— `fixtures.py` generates no material and no image — so three items share one capability and it should be
+built once.
+
+### Column 4 — PROVABLE
+
+**Occlusion is the worked example and stays the only row measured as unprovable**: impact 46, and a
+spec-correct implementation changes no pixel on either side while `bounces.max` is 0 in all 61 render
+declarations. **Every other row's provability is a judgement this pass did not systematically take**, and
+saying so is the point of the column existing.
+
+### The three delivered rows leave the ordering population
+
+**Animation interpolations · `KHR_texture_transform` · `TEXCOORD_1`** — delivered, and they stay in the
+table as delivered rather than competing for row 4.
+
+## Row 4, and the old order was wrong for a reason nobody could have seen on 12 August
+
+**`COLOR_0`, impact 7, is genuinely absent on every column measured**: no `Colour` in `Material`, no
+colour run in the vertex layout, no case for `BoxVertexColors`. **It is provable** — vertex colours change
+the picture visibly.
+
+**But its COMPLEXITY changed under us, and complexity is not static.** `COLOR_0` adds a fifth independent
+boolean to the vertex layout: **8 layouts → 16, 48 pipelines → 96**, on top of the 5 → 8 and 30 → 48 that
+`TEXCOORD_1` just paid. **When the order was set, `COLOR_0` was a stream on a 5-layout enumeration; it is
+now a stream on an 8-layout one, and nothing re-evaluated it.**
+
+**`KHR_materials_variants` is the same impact — 7 — at a lower tier cost**: a reader field and a selection
+among declared material sets, **no vertex stream and no layout multiplication**. Under this table's own
+tie-break — *within a tier, fewest layers moved* — **it displaces `COLOR_0`.**
+
+- [ ] **One input is unmeasured and it decides between them**: `KHR_materials_variants`'s **registry
+  status**. `board:1172`'s line admits *ratified* by default and holds *in-progress* out, and **this pass
+  did not check which it is.** Checking it is one lookup and it must happen before dispatch
+- [ ] **If it is not ratified, row 4 is `COLOR_0`** — and the layout doubling is then a cost the row
+  carries openly rather than a surprise found during it
