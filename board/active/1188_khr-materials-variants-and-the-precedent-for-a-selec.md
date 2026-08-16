@@ -58,3 +58,36 @@ absent (`board:1189`). So this task carries a corpus case as well as a reader pa
 variant name is a refusal naming both sides, a pair of renders of `MaterialsVariantsShoe` differ by more
 than the bound in the declared direction, and the selection-extension precedent is stated where the next
 one will read it.
+
+## Comments
+
+**CLOSES. The statement is true of the tree and the gap has a home that outlives the closure — which is
+the rule, and the home had to be filed first.**
+
+**The selection-extension precedent is proven rather than asserted**, and the diff is the proof: **six
+files under `src/gltf/` plus two new ones, and zero files changed under `src/render/` or
+`src/clients/`.** Both cases report `plan_passes 2 (at most 2) PASS`. **No fragment arm, pipeline, layout
+or interpolant could have been added**, which is what *a selection resolves before the draw list is
+compiled* means when it is true instead of intended.
+
+**`VariantSelection` carries a name and not an index**, so a selection resolved against one document
+cannot silently select in another — the same reasoning that made the `texCoord` refusal a refusal rather
+than a fallback.
+
+**THE PAIR EARNED ITS ACCEPTANCE AND THE MEASUREMENT SAYS SO.** Between variants, **19 918 of 29 973
+covered pixels differ beyond the bound**, predicted beforehand from the file's own images at **19 925 —
+a 0.04 % miss**. Under the silent-no-op mutation the beach render became **bit-identical to the correct
+midnight render**, and **the midnight case could not see the mutation at all** — `203.48492 → 203.48492`,
+byte for byte. **Either render alone was blind; the pair was not.** That is the clause this item argued
+for, tested against the defect it was written about.
+
+**Two red pixels per case remain and their home is `board:1191`.** They are **coincident surfaces inside
+one pixel** — one at 1.95 µm, one at **0.113 µm, below one ulp of camera-relative f32 at 1.19 m** — and
+`Routing.h` is blind to them **by construction**, binning by object and material index where both surfaces
+share both. **The residual belongs to a defect that is not this row's**, and it now has an item rather
+than a sentence in a report.
+
+**The developer refused to build the depth instrument inside the round that needed it**, on the grounds
+that it would move a population under a number. **That is the right call and it is why this closes
+cleanly**: the round that would have built the instrument to explain its own residual is the round least
+able to judge it.

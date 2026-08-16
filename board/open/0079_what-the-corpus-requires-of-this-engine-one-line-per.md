@@ -343,3 +343,40 @@ tie-break — *within a tier, fewest layers moved* — **it displaces `COLOR_0`.
   did not check which it is.** Checking it is one lookup and it must happen before dispatch
 - [ ] **If it is not ratified, row 4 is `COLOR_0`** — and the layout doubling is then a cost the row
   carries openly rather than a surprise found during it
+
+## Row 5, and the tier rule is too coarse where it now has to decide
+
+**Four rows delivered** — animation interpolations · `KHR_texture_transform` · `TEXCOORD_1` ·
+`KHR_materials_variants` — and all four leave the ordering population.
+
+**Row 5 by the rule as written is `COLOR_0`, impact 7, uncontested** now that variants has taken the tie.
+Its cost is carried openly rather than discovered: **8 layouts → 16, 48 pipelines → 96.** Nothing has
+moved under it since that was measured — `board:1188` changed no file under `src/render/`.
+
+**But the tier rule cannot see the difference between the two cheapest things it calls tier 1**, and this
+is where that starts to matter:
+
+| row | impact | what it moves |
+|---|---|---|
+| `COLOR_0` | **7** | reader · a vertex stream · **the layout enumeration doubles, and the pipeline set with it** |
+| non-indexed | 3 | reader |
+| `KHR_node_visibility` | 2 | reader |
+| multiple scenes | 1 | reader |
+| primitive modes | 2 | reader · draw parameter |
+
+**One row at impact 7 doubles a global count; three rows at 3 · 2 · 1 are reader fields.** The tier rule
+orders by impact inside a tier and calls all five tier 1, so it dispatches the expensive one first **and
+has no way to notice.**
+
+- [ ] **`board:1189` already carries the repair** — tier is derived at dispatch, not stored — and this is
+  the first case where deriving it changes what a reader would conclude. **What `1189` must add is that
+  tier is not two values**: *moves a reader field* and *multiplies a global count* are both "tier 1" and
+  are not the same decision
+- [ ] **The pipeline doubling is a decision that belongs BEFORE dispatch, not during.** Either it is
+  accepted openly — 96 pipelines built when the plan compiles, with the cost measured, which is
+  `board:1187`'s subject and it has no baseline — or `COLOR_0` sits behind the three near-free rows, which
+  clears three rows off the board for less than one row's cost
+- [ ] **I do not take that decision here.** It trades a build-time cost nobody has measured against
+  ordering by impact, and **`board:1187` is exactly the instrument that would price it** — so the honest
+  sequence is that the frame-cost baseline exists before a row that adds 48 pipelines is dispatched, or
+  the cost is accepted as unmeasured and said so
