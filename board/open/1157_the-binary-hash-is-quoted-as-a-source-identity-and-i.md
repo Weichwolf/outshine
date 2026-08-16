@@ -39,3 +39,33 @@ failure in one word.
 
 **Done when** the measurement line carries a digest of the sources it was built from, the binary hash is
 labelled as the build event it identifies, and no claim in the tree reads the second as the first.
+
+## MEASURED, and every pin quoted this session is void
+
+**Two clean builds of byte-identical sources produce different digests**, and the mechanism is named:
+**`ar` embeds mtimes in the archive**. So `build/liboutshine.a`'s hash identifies **when it was built**,
+and this item's headline — *it is a build identity* — is now measured rather than inferred.
+
+**And the artefact is worse than mislabelled: it is not even the thing under test.** The render suite does
+not link the archive. **A hash of `liboutshine.a` was never a statement about what the failing binaries
+contained**, so quoting it beside a render verdict was two errors compounded.
+
+**SAID PLAINLY RATHER THAN QUIETLY CORRECTED: every "the binary's hash" quoted in this session is void**,
+including the ones relayed to the owner as pins. They identify build events, several of them for an
+archive the measurements did not run. **A practice that changes without the old numbers being withdrawn
+leaves the old numbers in the record looking like evidence.**
+
+**The replacement is what this item already argued for and now has a value.** A **source content
+digest** — sha256 over the sha256 of every tracked file under `src/` and `test/` — which is
+`board:1120`'s `render_code_digest()` reasoning applied to the engine instead of the preparer, and
+answers *same code or not* with no toolchain in the path. First measured value:
+**`1e4135cd7f0b309ff34ceeb11358512a220a13a7804275bbc2c317c4c6f6b875`**.
+
+- [ ] **`ar -D` as well, because a deterministic archive is cheap and correctness is not traded for it** —
+  but it does **not** replace the source digest: `-D` makes the archive reproducible, and the archive is
+  still not what the suite links
+- [ ] **The digest's population is stated with it** — *tracked files under `src/` and `test/`* — because a
+  digest over an unstated set is the same defect one level down. `git ls-files` is the enumeration and it
+  excludes exactly the derived artefacts that would make it unstable
+- [ ] **It is published on the measurement line and the binary hash is either dropped or relabelled**,
+  never both quoted as though they answered one question

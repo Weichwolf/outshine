@@ -44,3 +44,20 @@ alternative.
 
 **Done when** no fragment entry point assigns an attachment by hand, an arm that omits an output does not
 compile, and adding a sixteenth arm requires nothing to be remembered.
+
+## A data point from `board:1182`, and it narrows this item rather than closing it
+
+**The vertex layout enumeration was tested against this item's own criterion and it survives.** A flag set
+of four independent booleans — uv · normal · tangent · second uv — spells **16 values of which 8 are not
+layouts**: tangent without normal, a second uv without a first. **So the flag set would trade a type that
+cannot express the mistake for a validator that reports it**, which is this repository's criterion
+inverted. `VertexLayout` **stays an enumeration**, and the multiplication is paid down with **one table**
+that five predicates, the pipeline count and the build loop all read.
+
+**5 → 8 layouts, 30 → 48 pipelines, 3 new vertex arms, 0 new fragment arms.**
+
+**This item is untouched by that and the distinction is the point: its complaint is the fragment OUTPUT
+set**, where the three `SUBJECT_SET_*` families are written by hand at every entry point and an omission
+is an undefined attachment. **The vertex side has one table and an exhaustive switch; the fragment side
+has fifteen hand-written call sites.** *One of the two multiplications is carried by a type and the other
+is carried by care*, and that is exactly the difference this item exists about.

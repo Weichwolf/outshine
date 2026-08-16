@@ -40,3 +40,18 @@ is what the preparer does, not because it had work to do.
 
 **Done when** a run's peak is one case rather than the corpus, the runner publishes the high-water mark
 that proves it, and a warm-store re-materialisation of one case needs the store alone.
+
+## The operational consequence, measured, and it belongs where someone will hit it
+
+**`test/run.sh` no longer runs twice in a row.** After a pruned run the next reports **115 UNPREPARED** and
+scores nothing. **That is correct and loud rather than silently green** — an unprepared case must not read
+as a passing one — but it changes the suite's usage: **every run is now *prepare, then run*.**
+
+**[MEASURED] the restore: 18.3 s for 37 manifests from a warm store, 137 MB → 3.2 GB, no Cycles in the
+path.** So the cost is seconds and the peak is the 3.2 GB this item is about — **the two facts are the same
+fact seen from either end.**
+
+**Per-case placement fixes both at once**, which is the argument for this item stated operationally: a
+runner that materialises the case it is about to run needs no separate prepare step, cannot report
+`UNPREPARED` for a case it is holding, and never has the whole corpus on disk. **The 115 UNPREPARED and
+the 3212 MB peak are one defect.**

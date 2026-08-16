@@ -233,3 +233,28 @@ resolves; on a subject that does **not**, it stays a refusal. **The refusal is a
 attributes, never about the engine's capability**, and turning it into a fall-back to set 0 would make a
 missing attribute render as a plausible picture — which is the silent-success class this tree files
 against.
+
+## Row 4, and why the re-measurement now comes before it
+
+**Three rows delivered** — animation interpolations (`board:1169`), `KHR_texture_transform`
+(`board:1177`), `TEXCOORD_1` (`board:1182`). **Row 4 by this table's order is `COLOR_0`, impact 7.**
+
+**`board:1174` goes first, and the reason is arithmetic rather than hygiene.** The first three rows had
+impacts **16 · 15 · 9** — far enough apart that a stale population could not reorder them, which is why
+dispatching before the re-measurement was safe. **The next rows are 7 · 6 · 4 · 3 · 2 · 2 · 1.** At that
+spacing **a single mis-populated row flips the order**, and the table is measured 2026-08-12: it already
+under-states the engine once by name (*"Absent: metalness has no field at all"*, and it has a field), and
+three of its rows have changed population since without being edited.
+
+**So the criterion this order is built on — impact restricted to rows not already supported-and-proven —
+is now undefined on the rows that decide row 4.** That is the ordering rule refusing to run rather than a
+preference for tidiness.
+
+**Two corrections `board:1174` must carry beyond re-counting**, both learned since it was filed:
+
+- **The three delivered rows are now `supported and proven`** and must leave the ordering population, or
+  the next pass re-sequences work already done — the failure the metalness line demonstrated
+- **A fourth column is owed: PROVABLE.** `board:0079`'s occlusion row has impact 46 and is undispatchable
+  because a spec-correct implementation changes no pixel on either side. **Impact makes a row worth doing;
+  provability makes it dispatchable**, and a table that carries only the first will keep proposing rows
+  that cannot terminate
