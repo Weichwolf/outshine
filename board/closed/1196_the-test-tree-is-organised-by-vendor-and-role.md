@@ -67,7 +67,8 @@ had broken; each was an assumption that had been true for as long as nobody move
 has never been reorganised cannot tell you which of its paths are load-bearing.*
 
 **2026-08-17** — A fourth survivor of the same class, found months later and by accident: `test/run.sh`
-told an unprepared test to *run `test/corpus/prepare.py`*, a path that stopped existing in this
+told an unprepared test to *run test/corpus/prepare.py* — unbackticked here, because it is exactly
+the dead path — which stopped existing in this
 reorganisation. Two other lines in the same file already named the new path, so it was not a missed rule
 but a **third copy of one fact**. It cost nothing here because a human reads that line — but it is the
 same defect as the schema walk-up and the preparer's `REPOSITORY`, and it survived four full-suite cycles
