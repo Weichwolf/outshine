@@ -453,6 +453,10 @@ public:
     subject.CameraSource = "gltf";
     return true;
   }
+  /* UNREACHABLE FOR A VALID MANIFEST AND KEPT AS THE REFUSAL'S OTHER HALF (board:1366): the schema's
+   * camera discriminator has exactly two variants and both are handled above, so a fall-through here
+   * means a manifest the schema would have refused. A sweep of the frame grid was tried in this branch
+   * and removed -- it cost every animated case a pose per frame at load and could not fire. */
   if (subject.Geometry.Frame(subject.Eye)) {
     subject.CameraSource = "framing-rule";
     return true;

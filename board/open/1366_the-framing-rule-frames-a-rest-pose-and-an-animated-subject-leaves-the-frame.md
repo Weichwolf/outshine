@@ -48,3 +48,26 @@ itself**, and it is one of the smallest files in the index.
 **`AnimatedTriangle` is the case that is waiting on this**, and behind it every animated core model with
 no case: `AnimatedCube`, `SimpleMorph`, `SimpleSkin`, `MorphPrimitivesTest`, `MorphStressTest`,
 `RecursiveSkeletons`, `BrainStem`, `CesiumMan`, `Fox`, `RiggedFigure`.
+
+## The engine half is in, and the runner half turned out to be the wrong place
+
+**`FramingFor(minM, maxM, out)` is committed** in `src/gltf/Subject.h`/`.cpp`: the rule is decoupled from
+one pose and `Subject::Frame` is that function called with the subject's own box. That part stands.
+
+**The sweep was then written into `Parity.cpp` and removed the same round, because it could not fire.**
+`ResolveCamera` handles `camera.source` of `manifest` and of `gltf`, and **the schema's discriminator has
+exactly those two variants** -- so the framing-rule branch under them is unreachable for any manifest the
+schema admits. [MEASURED] the change cost every animated case a pose per frame at load and moved
+**nothing**: `criteria 31 met of 37, picture bound 18 within` before and after, and all three animated
+cases green on every frame either way.
+
+**So the camera is AUTHORED, not derived at run time**, and that relocates the whole defect:
+
+| where the sweep belongs | why |
+|---|---|
+| **the authoring step** | the number quoted in a new animated case's manifest must come from the union over its declared grid, not from the stored pose |
+| **`ADerivedCameraIsTheFramingRuleAndNotAQuotation`** | it recomputes the rule **at rest** and scores the declaration against it, so a correctly swept camera would be scored **red by the test that exists to keep cameras honest**. Until it sweeps too, an animated case cannot quote a camera that frames its own motion |
+
+- [ ] **That test is the change, and it is small**: for a case declaring an animation, pose over the grid
+  and union before calling `FramingFor`. *For a still the union is the pose, so nothing about the 34
+  existing still cases moves.*
