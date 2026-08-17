@@ -681,7 +681,7 @@ fragment SFrag fsLitBlendedTextured(LOut in [[stage_in]], bool front [[front_fac
   SFrag o;
   o.col = float4(shadeRow(lights, SUBJECT_OCCLUDERS, in.lp, shadingNormal, in.p,
                           surface.base.rgb * tap.rgb * in.colour.rgb,
-                          surface.metalness, surface.roughness,
+                          surface.metalness, surface.roughness, float3(surface.f0),
                           emittedAt(surface, emissiveMap, emissiveSampler, SUBJECT_UVS(in))),
                  surface.factor * tap.a * in.colour.a);
   SUBJECT_SET_VELOCITY(o, in);

@@ -134,7 +134,7 @@ LayerIncludes() {
     outshine/harness) printf '%s' "-Isrc/core" ;;
     harness/khronos/glTF | harness/outshine/render) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
     outshine/frame) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/gltf -Isrc/render/plan -Isrc/render/draw -Isrc/render -Isrc/render/stages -Isrc/clients" ;;
-    outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/stages" ;;
+    outshine/shader) printf '%s' "-Isrc/core -Isrc/core/io -Isrc/render -Isrc/render/draw -Isrc/render/plan -Isrc/render/stages" ;;
     *) return 1 ;;
   esac
 }
@@ -234,7 +234,13 @@ LayerGroups() {
     outshine/unit/clients) printf '%s' "src/clients/Image.cpp" ;;
     outshine/harness) printf '%s' "src/core/Sha256.cpp src/core/Json.cpp" ;;
     harness/khronos/glTF | harness/outshine/render | outshine/frame) printf '%s' "src/core src/core/io src/gltf src/render/plan src/render/draw src/render src/render/stages src/clients/GltfStudio.cpp src/clients/Image.cpp" ;;
-    outshine/shader) printf '%s' "src/core src/core/io src/render/Readback.cpp" ;;
+    # `outshine/shader` COMPILES THE RENDERER'S OWN STAGES AS WELL AS ITS OWN TWINS (board:1207). A
+    # twin proves an arithmetic; only the unit's OWN text proves that the driver accepts it, and a
+    # `shadeRow` call left one argument short survived a green library, a green unit tree and a green
+    # shader suite because nothing in this layer compiled `SubjectDraw`'s source. It is still no
+    # asset, no camera and no oracle -- which is what this layer is -- and it is now a device against
+    # the shader the engine actually ships.
+    outshine/shader) printf '%s' "src/core src/core/io src/render/plan src/render/draw src/render src/render/stages" ;;
     *) return 1 ;;
   esac
 }
