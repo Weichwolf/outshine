@@ -1,5 +1,6 @@
 Type: task
 Parent: 1197
+Depends: 1202
 Area: gltf
 Tags: scope, instrument
 
@@ -8,6 +9,11 @@ Tags: scope, instrument
 Owner's question: *where in `src/` lives the internal glTF data representation of the scene? I would
 like a dedicated folder for it.* It lives in `src/gltf/`, mixed with the file format, and the mixing is
 what makes `board:1197`'s ruling a convention rather than a compile error.
+
+**`board:1202` is this instruction applied to the whole tree**, and it subsumes the shape question: the
+representation gets `src/scene/` there for the same reason every other subsystem gets its own. This item
+stays because the **dependency inversion below is specific to these two directories** and is the only
+part of the move that is not a rename.
 
 ## Why not `compositor/`
 
