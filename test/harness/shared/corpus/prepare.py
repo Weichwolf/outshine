@@ -32,11 +32,30 @@ def prepared_directory(manifest_path):
     return os.path.join(tempfile.gettempdir(), PREPARED_LEAF, leaf.replace(os.sep, "-"))
 
 
+# WHERE THE CASES ARE, AND THE TWO SUITES ARE NAMED RATHER THAN DISCOVERED. A walk that found a
+# `manifest.json` anywhere would prepare whatever a future directory happened to contain; these two are
+# the declarative suites and adding a third is a decision, not a side effect.
+CASE_TREES = ("test/khronos/glTF", "test/outshine/render")
+
+
+def every_manifest():
+    """Every case's declaration, in a stable order so two runs report the same list."""
+    found = []
+    for tree in CASE_TREES:
+        for here, _, files in os.walk(tree):
+            if "manifest.json" in files:
+                found.append(os.path.join(here, "manifest.json"))
+    return sorted(found)
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("job", choices=("fetch", "generate", "patch", "convert", "render", "all",
                                         "dry-run"))
-    parser.add_argument("--manifest", required=True)
+    parser.add_argument("--manifest", action="append", default=None,
+                        help="a case's manifest; repeatable")
+    parser.add_argument("--every-case", action="store_true",
+                        help="every manifest under " + " and ".join(CASE_TREES))
     parser.add_argument("--dest", default=None,
                         help="default: this case's directory under the system temp root")
     parser.add_argument("--store", default=None, help="default: the library's content store")
@@ -46,14 +65,41 @@ def main(argv):
     parser.add_argument("--no-cache", action="store_true")
     arguments = parser.parse_args(argv)
 
-    declared = manifest_module.load(arguments.manifest)
-    destination = arguments.dest or prepared_directory(arguments.manifest)
+    manifests = list(arguments.manifest or [])
+    if arguments.every_case:
+        manifests += [one for one in every_manifest() if one not in manifests]
+    if not manifests:
+        parser.error("name at least one --manifest, or --every-case")
+
+    # ONE CASE IS THE UNIT AND A SWEEP IS A LOOP OVER IT, so a refusal names its case and the rest of
+    # the corpus still gets prepared. The exit status is what says whether ANY of them refused --
+    # a sweep that reported a refusal and exited zero would be the silent skip this tree keeps removing.
+    if len(manifests) > 1:
+        refused = []
+        for one in manifests:
+            try:
+                _prepare(one, arguments)
+            except Refusal as refusal:
+                refused.append(one)
+                print("refused: " + one, file=sys.stderr)
+                print(str(refusal), file=sys.stderr)
+        print("prepared %d of %d cases" % (len(manifests) - len(refused), len(manifests)),
+              file=sys.stderr)
+        for one in refused:
+            print("  refused " + one, file=sys.stderr)
+        return 1 if refused else 0
+    return _prepare(manifests[0], arguments)
+
+
+def _prepare(manifest_path, arguments):
+    declared = manifest_module.load(manifest_path)
+    destination = arguments.dest or prepared_directory(manifest_path)
     os.makedirs(destination, exist_ok=True)
     # THE RUNNER IS GIVEN ONE DIRECTORY AND READS THE DECLARATION FROM IT, so the manifest is copied
     # beside what it produced. The copy is rewritten on every preparation and nothing ever edits it,
     # which is what keeps the tracked file the only authority.
     if os.path.abspath(destination) != os.path.abspath(declared.directory):
-        shutil.copyfile(arguments.manifest, os.path.join(destination, "manifest.json"))
+        shutil.copyfile(manifest_path, os.path.join(destination, "manifest.json"))
     store = ContentStore(arguments.store, enabled=not arguments.no_cache)
 
     if arguments.job == "dry-run":
