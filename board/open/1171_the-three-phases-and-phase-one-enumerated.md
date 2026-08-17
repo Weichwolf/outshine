@@ -202,3 +202,35 @@ up**. If anything is ever published out of this corpus, that list is what says w
 **What it unblocked immediately**: `Duck` prepared on the first attempt after the gate came down -- and
 in doing so uncovered `board:1370`, a stale object reference in the preparer that no reachable subject
 had ever triggered. *A gate does not only block what it names; it hides everything behind it.*
+
+## The corpus went from 33 cases to 136 in one session, and the count is measured per model
+
+**Every model in the pinned index is on disk.** `raw.githubusercontent.com` rate-limits by IP -- measured
+at HTTP 429 through both `urllib` and `curl` -- and a **blobless SSH clone at the pin** carries all 148
+in one request. The authoring pass reads from that clone and the store is seeded from it, so GitHub is
+no longer in the path at all.
+
+**A census against what the case vocabulary can express** is what made the push mechanical rather than
+one-at-a-time:
+
+| | at the start of the push | after it |
+|---|---|---|
+| models with a case | **45 of 148** | **112 of 148**, and rising |
+| khronos cases | 47 | **104** |
+| criteria met | 41 of 47 | **98 of 104** |
+| within the picture bound | 27 | **76** |
+
+**What blocks the remainder is two named classes and nothing else**: 22 models are animated or skinned
+and want a declared frame grid, and 11 are multi-body files that name neither their nodes nor their
+materials (`board:1362`). *Neither is a mystery and both are countable, which is the difference between
+a backlog and a fog.*
+
+## And the push found four defects that a corpus of a few could not
+
+`board:1373` and `board:1374` carry them: a primitive that names no material was refused where the format
+declares a default; Blender's duplicate-datablock suffix was nearly predicted instead of read back; a URL
+with non-ASCII characters raised before a byte was sent; and the manifest schema demanded a plain file
+name where glTF references by relative URI, and a string year where upstream writes an integer.
+
+**None was findable by making the existing cases greener.** *A corpus of one is a corpus that agrees with
+whatever you assumed.*
