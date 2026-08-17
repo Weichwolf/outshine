@@ -22,7 +22,7 @@ by parsing every `.gltf` in it, so the counts below are the corpus's own and not
 | `TEXCOORD_0` | 118 of 146 | both | required |
 | `TEXCOORD_1` | `MultiUVTest` — 9 of 146 | second parameterisation for occlusion and decals | required · `UNSURE` on which reference uses it for what |
 | `COLOR_0` | `BoxVertexColors` — 7 of 146 | CryEngine vegetation bending and terrain blending | required |
-| skinning (`JOINTS_0`/`WEIGHTS_0`/`skins`) | `RiggedSimple` — 6 of 146 | both, every character | required |
+| skinning (`JOINTS_0`/`WEIGHTS_0`/`skins`) | `RiggedSimple` — 6 of 146 | both, every character | required · **DELIVERED `board:1200`** — reader, flatten and a render case green on three arms at **0.00074717091 px** worst geometric disagreement over 18 frames |
 | morph targets | `AnimatedMorphCube` — 4 of 146 | facial animation; CryEngine's Facial Editor is morph-target based | required |
 | node hierarchy, TRS and `matrix` | all | both | required |
 | GPU instancing | `SimpleInstancing` (`EXT_mesh_gpu_instancing`) | vegetation in both; GTA 5 instances transparent geometry in 11 draw calls | required |
@@ -141,7 +141,21 @@ bottom of it.
   row already carries an `UNSURE` on which of the material's textures may name it, which is the question
   the task settles
 
-**Behind those three, in tier 1 by impact**: `KHR_texture_transform` 15 · `COLOR_0` 7 · skinning 6 · morph
+**The sequence as it now stands, since three of the first four rows have moved.** Row 1, the
+interpolations, is mid-flight on `board:1198` — its Hermite, its oracle half and its animation set are
+landed and proven against `BoxAnimated`, and only its own case waits on `board:1199`. Row 2, the
+occlusion texture, **left the sequence** rather than moved down it: three gates, and the third is
+Blender's, so no render against this oracle can decide it. Row 3, `TEXCOORD_1`, is delivered
+(`board:1182`). **Skinning was therefore next and is delivered (`board:1200`)** — impact 6, and it is
+the first row whose oracle half needed a second mechanism rather than a second measurement.
+
+**So the next unstarted tier-1 row by impact is morph targets at 4**, with `AnimatedMorphCube` as its
+asset — and it is the sibling of skinning in the reader (`targets` and `mesh.weights`, neither parsed)
+and in `Pose`, where **morph weights are already a named refusal** and `baked_channels` already counts
+them under `leftAlone`. *That refusal is the one thing on the board that a delivered row is supposed to
+turn into a capability.*
+
+**Behind those, in tier 1 by impact**: `KHR_texture_transform` 15 · `COLOR_0` 7 · skinning 6 · morph
 targets 4 · non-indexed 3 · `KHR_node_visibility` 2 · **`POINTS`/`LINES`/`STRIP`/`FAN` 2** and **multiple
 scenes 1**, the last two being the rows whose `REFUSED` the owner's scope ruling overturned
 (`board:1174`). **Tier 2 by impact**: `volume` 25 · `ior` 17 · `clearcoat` 13 · `sheen` 10 · `specular` 9
