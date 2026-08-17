@@ -143,3 +143,44 @@ light** -- impossible when the light is 34 degrees off the view direction, and t
 reconstruction puts the lit fraction at **94.1 %**. The arithmetic over that pass also raised
 divide-by-zero and overflow. *Not chased here, because the finding above does not depend on it -- but a
 pass this suite writes and no case reads is exactly the shape `CLAUDE.md` forbids.*
+
+## The discriminator: it is the DIFFUSE term, and the specular path agrees to 1e-4
+
+`test/outshine/render/shaded-sphere-black` is `shaded-sphere` with **one number changed** -- a base
+colour of zero. A dielectric's diffuse term is its base colour times the incident irradiance, so it
+vanishes; `F0` is fixed at the dielectric constant by `metallic = 0` and does not depend on the base
+colour, so the lobe is untouched. Same geometry, same camera, same light, same roughness.
+
+| | grey | **black base** |
+|---|---|---|
+| `picture_max_delta_code` | **48.275985** | **6.8036277** |
+| `linear_p95_relative` | 0.093481424 | 0.019273589 |
+| p50 abs at `n.v` in [0.00, 0.15) | **0.009417** | **0.000026** |
+| p50 abs at `n.v` in [0.85, 1.01) | 0.000830 | 0.000148 |
+| signed `ours - oracle` over 46 134 px | **+0.003871** | **-0.000143** |
+| the monotone `n.v` trend | **present** | **gone** |
+
+**The specular path agrees to 1e-4 across every view angle**, two to three orders of magnitude under the
+grey case, with no view dependence and the OPPOSITE sign. Removing the diffuse term drops the worst
+disagreement by a factor of **7.1**.
+
+**So nine cases, 60 to 230 codes, reduce to one term: our diffuse has no view dependence and the
+oracle's does.**
+
+## And the next question is whether the ORACLE is the wrong side
+
+**glTF 2.0 Appendix B specifies the diffuse BRDF as Lambert** -- `f_diffuse = (1 - F) * baseColor / pi`
+-- with no roughness and no view dependence at all. **If Cycles' Principled carries a roughness-dependent
+diffuse, then Cycles is not evaluating the BRDF this corpus is a corpus for**, and the reduction is
+declared rather than the engine bent to match. *That is `board:1204`'s shape exactly, and it is the third
+time this tree has met it.*
+
+**One number already constrains the answer.** `(1 - F)` at normal incidence for a dielectric is 0.96, so
+an engine that omitted it would sit **4 % bright at `n.v` -> 1**; the measurement there is **0.08 %**. So
+the factor is being applied on our side, and whatever differs does so only as the view goes grazing.
+
+- [ ] **Exercise Cycles' diffuse, do not read about it** (`board:1204`'s method): a Principled surface at
+  `metallic 0`, `specular 0` if the socket allows it, over a sweep of roughness and view angle, against
+  the Lambert closed form. **Two outcomes and they lead opposite ways** -- if Cycles is Lambert, the
+  defect is ours and it is in how `(1 - F)` is applied; if it is not, glTF's own appendix says the oracle
+  is the wrong side here and the case carries a declared reduction.
